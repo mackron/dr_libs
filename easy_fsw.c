@@ -364,6 +364,26 @@ int MakeAbsolutePath(const char* absolutePart, const char* relativePart, char ab
     return 1;
 }
 
+// Replaces the back slashes with forward slashes in the given string. This operates on the string in place.
+int ToForwardSlashes(char* path)
+{
+    if (path != NULL)
+    {
+        int counter = 0;
+        while (*path++ != '\0' && counter++ < EASYFSW_MAX_PATH)
+        {
+            if (*path == '\\')
+            {
+                *path = '/';
+            }
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
 
 typedef struct
 {
@@ -501,27 +521,6 @@ int ToBackSlashesWCHAR(wchar_t* path)
 
     return 0;
 }
-
-// Replaces the back slashes with forward slashes in the given string. This operates on the string in place.
-int ToForwardSlashes(char* path)
-{
-    if (path != NULL)
-    {
-        int counter = 0;
-        while (*path++ != '\0' && counter++ < EASYFSW_MAX_PATH)
-        {
-            if (*path == '\\')
-            {
-                *path = '/';
-            }
-        }
-
-        return 1;
-    }
-
-    return 0;
-}
-
 
 // Converts a UTF-8 string to wchar_t for use with Win32. Free the returned pointer with easyfsw_free().
 int UTF8ToWCHAR(const char* str, wchar_t wstrOut[EASYFSW_MAX_PATH_W])
