@@ -327,32 +327,44 @@ int easyfsw_event_queue_pop(easyfsw_event_queue* pQueue, easyfsw_event* pEventOu
 
 
 // A simple function for appending a relative path to an absolute path. This does not resolve "." and ".." components.
-char* MakeAbsolutePath(const char* absolutePart, const char* relativePart)
+int MakeAbsolutePath(const char* absolutePart, const char* relativePart, char absolutePathOut[EASYFSW_MAX_PATH])
 {
     size_t absolutePartLength = strlen(absolutePart);
     size_t relativePartLength = strlen(relativePart);
-    size_t bufferSizeInBytes  = absolutePartLength + relativePartLength + 2;     // +1 to make room for a slash and +1 for the null terminator.
-    
-    char* path = easyfsw_malloc(bufferSizeInBytes);
-    if (path != NULL)
+
+    if (absolutePartLength > 0)
     {
-        char* relativePathStart = path;
-
-        strcpy_s(path, bufferSizeInBytes, absolutePart);
-        bufferSizeInBytes -= absolutePartLength;
-        relativePathStart += absolutePartLength;
-
-        if (absolutePartLength > 0 && path[absolutePartLength - 1] != '/')
+        if (absolutePart[absolutePartLength - 1] == '/')
         {
-            path[absolutePartLength] = '/';
-            bufferSizeInBytes -= 1;
-            relativePathStart += 1;
+            absolutePartLength -= 1;
         }
 
-        strcpy_s(relativePathStart, bufferSizeInBytes, relativePart);
+        if (absolutePartLength > EASYFSW_MAX_PATH)
+        {
+            absolutePartLength = EASYFSW_MAX_PATH - 1;
+        }
     }
 
-    return path;
+    if (absolutePartLength + relativePartLength + 1 > EASYFSW_MAX_PATH)
+    {
+        relativePartLength = EASYFSW_MAX_PATH - 1 - absolutePartLength - 1;     // -1 for the null terminate and -1 for the slash.
+    }
+    
+
+    // Absolute part.
+    memcpy(absolutePathOut, absolutePart, absolutePartLength);
+
+    // Slash.
+    absolutePathOut[absolutePartLength] = '/';
+
+    // Relative part.
+    memcpy(absolutePathOut + absolutePartLength + 1, relativePart, relativePartLength);
+
+    // Null terminator.
+    absolutePathOut[absolutePartLength + 1 + relativePartLength] = '\0';
+
+
+    return 1;
 }
 
 
@@ -463,6 +475,9 @@ void easyfsw_list_popback(easyfsw_list* pList)
 
 #if defined(EASYFSW_PLATFORM_WINDOWS)
 
+#define EASYFSW_MAX_PATH_W      (EASYFSW_MAX_PATH / sizeof(wchar_t))
+
+
 ///////////////////////////////////////////////
 // ReadDirectoryChangesW
 
@@ -486,18 +501,23 @@ void ToBackSlashesWCHAR(wchar_t* path)
 }
 
 // Replaces the back slashes with forward slashes in the given string. This operates on the string in place.
-void ToForwardSlashes(char* path)
+int ToForwardSlashes(char* path)
 {
     if (path != NULL)
     {
-        while (*path++ != '\0')
+        int counter = 0;
+        while (*path++ != '\0' && counter++ < EASYFSW_MAX_PATH)
         {
             if (*path == '\\')
             {
                 *path = '/';
             }
         }
+
+        return 1;
     }
+
+    return 0;
 }
 
 
@@ -520,22 +540,18 @@ wchar_t* UTF8ToWCHAR(const char* str)
     return NULL;
 }
 
-char* WCHARToUTF8(const wchar_t* wstr, int characterCount)
+int WCHARToUTF8(const wchar_t* wstr, int wstrCC, char pathOut[EASYFSW_MAX_PATH])
 {
-    int bufferSizeInBytes = WideCharToMultiByte(CP_UTF8, 0, wstr, characterCount, NULL, 0, NULL, NULL);
-    if (bufferSizeInBytes > 0)
+    int bytesWritten = WideCharToMultiByte(CP_UTF8, 0, wstr, wstrCC, pathOut, EASYFSW_MAX_PATH - 1, NULL, NULL);
+    if (bytesWritten > 0)
     {
-        char* str = easyfsw_malloc(bufferSizeInBytes + 1);
-        if (str != NULL)
-        {
-            WideCharToMultiByte(CP_UTF8, 0, wstr, characterCount, str, bufferSizeInBytes, NULL, NULL);
-            str[bufferSizeInBytes] = '\0';
+        assert(bytesWritten < EASYFSW_MAX_PATH);
+        pathOut[bytesWritten] = '\0';
 
-            return str;
-        }
+        return 1;
     }
 
-    return NULL;
+    return 0;
 }
 
 // Converts a UTF-8 path to wchar_t and converts the slashes to backslashes for use with Win32. Free the returned pointer with easyfsw_free().
@@ -551,15 +567,14 @@ wchar_t* ToWin32PathWCHAR(const char* path)
 }
 
 // Converts a wchar_t Win32 path to a char unix style path (forward slashes instead of back).
-char* FromWin32Path(const wchar_t* wpath, int characterCount)
+int FromWin32Path(const wchar_t* wpath, int wpathCC, char pathOut[EASYFSW_MAX_PATH])
 {
-    char* path = WCHARToUTF8(wpath, characterCount);
-    if (path != NULL)
+    if (WCHARToUTF8(wpath, wpathCC, pathOut))
     {
-        ToForwardSlashes(path);
+        return ToForwardSlashes(pathOut);
     }
 
-    return path;
+    return 0;
 }
 
 
@@ -853,11 +868,11 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
             {
                 FILE_NOTIFY_INFORMATION* pFNI = (FILE_NOTIFY_INFORMATION*)pFNI8;
 
-                char* relativePath = FromWin32Path(pFNI->FileName, pFNI->FileNameLength / sizeof(wchar_t));
-                if (relativePath != NULL)
+                char relativePath[EASYFSW_MAX_PATH];
+                if (FromWin32Path(pFNI->FileName, pFNI->FileNameLength / sizeof(wchar_t), relativePath))
                 {
-                    char* absolutePath = MakeAbsolutePath(pDirectory->absolutePath, relativePath);
-                    if (absolutePath != NULL)
+                    char absolutePath[EASYFSW_MAX_PATH];
+                    if (MakeAbsolutePath(pDirectory->absolutePath, relativePath, absolutePath))
                     {
                         switch (pFNI->Action)
                         {
@@ -915,9 +930,9 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
                         default: break;
                         }
                     }
-                    easyfsw_free(absolutePath);
+                    //easyfsw_free(absolutePath);
                 }
-                easyfsw_free(relativePath);
+                //easyfsw_free(relativePath);
 
             
 
