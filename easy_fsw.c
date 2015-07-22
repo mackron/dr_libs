@@ -645,7 +645,8 @@ typedef struct
     // A pointer to the buffer containing the notification objects that is passed to the notification callback specified with
     // ReadDirectoryChangesW(). This must be aligned to a DWORD boundary, but easyfsw_malloc() will do that for us, so that should not
     // be an issue.
-    FILE_NOTIFY_INFORMATION* pFNIBuffer;
+    FILE_NOTIFY_INFORMATION* pFNIBuffer1;
+    FILE_NOTIFY_INFORMATION* pFNIBuffer2;
 
     // The size of the file notification information buffer, in bytes.
     DWORD fniBufferSizeInBytes;
@@ -668,8 +669,11 @@ void easyfsw_directory_win32_uninit(easyfsw_directory_win32* pDirectory)
             pDirectory->hDirectory = NULL;
         }
 
-        easyfsw_free(pDirectory->pFNIBuffer);
-        pDirectory->pFNIBuffer = NULL;
+        easyfsw_free(pDirectory->pFNIBuffer1);
+        pDirectory->pFNIBuffer1 = NULL;
+
+        easyfsw_free(pDirectory->pFNIBuffer2);
+        pDirectory->pFNIBuffer2 = NULL;
     }
 }
 
@@ -680,7 +684,8 @@ int easyfsw_directory_win32_init(easyfsw_directory_win32* pDirectory, easyfsw_co
         pDirectory->pContext             = pContext;
         easyfsw_zeromemory(pDirectory->absolutePath, EASYFSW_MAX_PATH);
         pDirectory->hDirectory           = NULL;
-        pDirectory->pFNIBuffer           = NULL;
+        pDirectory->pFNIBuffer1          = NULL;
+        pDirectory->pFNIBuffer2          = NULL;
         pDirectory->fniBufferSizeInBytes = 0;
         pDirectory->flags                = 0;
 
@@ -712,8 +717,9 @@ int easyfsw_directory_win32_init(easyfsw_directory_win32* pDirectory, easyfsw_co
                     pDirectory->overlapped.hEvent = pDirectory;
 
                     pDirectory->fniBufferSizeInBytes = WIN32_RDC_FNI_COUNT * sizeof(FILE_NOTIFY_INFORMATION);
-                    pDirectory->pFNIBuffer = easyfsw_malloc(pDirectory->fniBufferSizeInBytes);
-                    if (pDirectory->pFNIBuffer != NULL)
+                    pDirectory->pFNIBuffer1 = easyfsw_malloc(pDirectory->fniBufferSizeInBytes);
+                    pDirectory->pFNIBuffer2 = easyfsw_malloc(pDirectory->fniBufferSizeInBytes);
+                    if (pDirectory->pFNIBuffer1 != NULL && pDirectory->pFNIBuffer2 != NULL)
                     {
                         // At this point the directory is initialized, however it is not yet being watched. The watch needs to be triggered from
                         // the worker thread. To do this, we need to signal hPendingWatchEvent, however that needs to be done after the context
@@ -774,7 +780,7 @@ int easyfsw_directory_win32_beginwatch(easyfsw_directory_win32* pDirectory)
     {
         DWORD dwNotifyFilter = FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION;
         DWORD dwBytes        = 0;
-        if (ReadDirectoryChangesW(pDirectory->hDirectory, pDirectory->pFNIBuffer, pDirectory->fniBufferSizeInBytes, TRUE, dwNotifyFilter, &dwBytes, &pDirectory->overlapped, easyfsw_win32_completionroutine))
+        if (ReadDirectoryChangesW(pDirectory->hDirectory, pDirectory->pFNIBuffer1, pDirectory->fniBufferSizeInBytes, TRUE, dwNotifyFilter, &dwBytes, &pDirectory->overlapped, easyfsw_win32_completionroutine))
         {
             return 1;
         }
@@ -839,113 +845,100 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
 
         // At this point we're not actually watching the directory - there is a chance that as we're executing this section there
         // are changes to the file system whose events will go undetected. We need to call ReadDirectoryChangesW() again as soon as
-        // possible. To do this we just create and fill a local event cache, then schedule the re-watch, and then go ahead and post
-        // events through the main context.
-        //
-        // TODO: Look at optimizing this. I think we can just have two FNI pointers and swap between them. I need to test, but I think
-        //       this function is always called on the same thread ReadDirectoryChangesW() was called on. If so, we can just do a
-        //       simple pointer swap system which'll be much more efficient.
-        easyfsw_event_queue* localQueue = easyfsw_event_queue_create();
-        if (localQueue != NULL)
-        {
-            char absolutePathOld[EASYFSW_MAX_PATH];
-
-            char* pFNI8 = (char*)pDirectory->pFNIBuffer;
-            for (;;)
-            {
-                FILE_NOTIFY_INFORMATION* pFNI = (FILE_NOTIFY_INFORMATION*)pFNI8;
-
-                char relativePath[EASYFSW_MAX_PATH];
-                if (FromWin32Path(pFNI->FileName, pFNI->FileNameLength / sizeof(wchar_t), relativePath))
-                {
-                    char absolutePath[EASYFSW_MAX_PATH];
-                    if (MakeAbsolutePath(pDirectory->absolutePath, relativePath, absolutePath))
-                    {
-                        switch (pFNI->Action)
-                        {
-                        case FILE_ACTION_ADDED:
-                            {
-                                easyfsw_event e;
-                                if (easyfsw_event_init(&e, easyfsw_event_type_created, absolutePath, NULL))
-                                {
-                                    easyfsw_event_queue_pushback(localQueue, &e);
-                                }
-
-                                break;
-                            }
-
-                        case FILE_ACTION_REMOVED:
-                            {
-                                easyfsw_event e;
-                                if (easyfsw_event_init(&e, easyfsw_event_type_deleted, absolutePath, NULL))
-                                {
-                                    easyfsw_event_queue_pushback(localQueue, &e);
-                                }
-
-                                break;
-                            }
-
-                        case FILE_ACTION_RENAMED_OLD_NAME:
-                            {
-                                strcpy_s(absolutePathOld, EASYFSW_MAX_PATH, absolutePath);
-
-                                break;
-                            }
-
-                        case FILE_ACTION_RENAMED_NEW_NAME:
-                            {
-                                easyfsw_event e;
-                                if (easyfsw_event_init(&e, easyfsw_event_type_renamed, absolutePathOld, absolutePath))
-                                {
-                                    easyfsw_event_queue_pushback(localQueue, &e);
-                                }
-
-                                break;
-                            }
-
-                        case FILE_ACTION_MODIFIED:
-                            {
-                                easyfsw_event e;
-                                if (easyfsw_event_init(&e, easyfsw_event_type_updated, absolutePath, NULL))
-                                {
-                                    easyfsw_event_queue_pushback(localQueue, &e);
-                                }
-
-                                break;
-                            }
-
-                        default: break;
-                        }
-                    }
-                }
-
-            
-
-                if (pFNI->NextEntryOffset == 0)
-                {
-                    break;
-                }
-
-                pFNI8 += pFNI->NextEntryOffset;
-            }
-        }
+        // possible. This routine is always called from the worker thread, and only while it's in an alertable state. Therefore it
+        // is safe for us to use a simple front/back buffer type system to make it as quick as possible to resume watching operations.
+        FILE_NOTIFY_INFORMATION* temp = pDirectory->pFNIBuffer1;
+        pDirectory->pFNIBuffer1 = pDirectory->pFNIBuffer2;
+        pDirectory->pFNIBuffer2 = temp;
 
 
-        // Begin watching again (call ReadDirectoryChangesW() again). To do this we need to send a signal to the worker thread which
-        // will do the actual call to ReadDirectoryChangesW().
+        // Begin watching again (call ReadDirectoryChangesW() again) as soon as possible. At this point we are not currently watching
+        // for changes to the directory, so we need to start that before posting events. To start watching we need to send a signal to
+        // the worker thread which will do the actual call to ReadDirectoryChangesW().
         easyfsw_directory_win32_schedulewatch(pDirectory);
 
 
-        // We now need to loop through all of our events and post them to the context.
-        for (unsigned int i = 0; i < localQueue->count; ++i)
+        // Now we loop through all of our notifications and post the event to the context for later processing by easyfsw_nextevent()
+        // and easyfsw_peekevent().
+        char absolutePathOld[EASYFSW_MAX_PATH];
+        easyfsw_context_win32* pContext = pDirectory->pContext;     // Just for convenience.
+
+        char* pFNI8 = (char*)pDirectory->pFNIBuffer2;
+        for (;;)
         {
-            unsigned int iSrc = (localQueue->indexFirst + i) % localQueue->bufferSize;
-            easyfsw_postevent_win32(pDirectory->pContext, localQueue->pBuffer + iSrc);
+            FILE_NOTIFY_INFORMATION* pFNI = (FILE_NOTIFY_INFORMATION*)pFNI8;
+
+            char relativePath[EASYFSW_MAX_PATH];
+            if (FromWin32Path(pFNI->FileName, pFNI->FileNameLength / sizeof(wchar_t), relativePath))
+            {
+                char absolutePath[EASYFSW_MAX_PATH];
+                if (MakeAbsolutePath(pDirectory->absolutePath, relativePath, absolutePath))
+                {
+                    switch (pFNI->Action)
+                    {
+                    case FILE_ACTION_ADDED:
+                        {
+                            easyfsw_event e;
+                            if (easyfsw_event_init(&e, easyfsw_event_type_created, absolutePath, NULL))
+                            {
+                                easyfsw_postevent_win32(pContext, &e);
+                            }
+
+                            break;
+                        }
+
+                    case FILE_ACTION_REMOVED:
+                        {
+                            easyfsw_event e;
+                            if (easyfsw_event_init(&e, easyfsw_event_type_deleted, absolutePath, NULL))
+                            {
+                                easyfsw_postevent_win32(pContext, &e);
+                            }
+
+                            break;
+                        }
+
+                    case FILE_ACTION_RENAMED_OLD_NAME:
+                        {
+                            strcpy_s(absolutePathOld, EASYFSW_MAX_PATH, absolutePath);
+                            break;
+                        }
+                    case FILE_ACTION_RENAMED_NEW_NAME:
+                        {
+                            easyfsw_event e;
+                            if (easyfsw_event_init(&e, easyfsw_event_type_renamed, absolutePathOld, absolutePath))
+                            {
+                                easyfsw_postevent_win32(pContext, &e);
+                            }
+
+                            break;
+                        }
+
+                    case FILE_ACTION_MODIFIED:
+                        {
+                            easyfsw_event e;
+                            if (easyfsw_event_init(&e, easyfsw_event_type_updated, absolutePath, NULL))
+                            {
+                                easyfsw_postevent_win32(pContext, &e);
+                            }
+
+                            break;
+                        }
+
+                    default: break;
+                    }
+                }
+            }
+
+            
+
+            if (pFNI->NextEntryOffset == 0)
+            {
+                break;
+            }
+
+            pFNI8 += pFNI->NextEntryOffset;
         }
-
-
-        // We're done so we can now delete the local event queue we created earlier.
-        easyfsw_event_queue_delete(localQueue);
     }
 }
 
