@@ -20,11 +20,8 @@
 /////////////////////////////////////////////
 // Config.
 
-// The maximum size of the event queue before it overflows.
-#define EVENT_QUEUE_SIZE        1024
-
 // The number of FILE_NOTIFY_INFORMATION structures in the buffer that's passed to ReadDirectoryChangesW()
-#define WIN32_RDC_FNI_COUNT     EVENT_QUEUE_SIZE
+#define WIN32_RDC_FNI_COUNT     EASYFSW_EVENT_QUEUE_SIZE
 
 
 /////////////////////////////////////////////
@@ -166,7 +163,7 @@ int easyfsw_event_queue_init(easyfsw_event_queue* pQueue)
         pQueue->count      = 0;
 
 #if defined(EASYFSW_PLATFORM_WINDOWS)
-        pQueue->hSemaphore = CreateSemaphoreW(NULL, 0, EVENT_QUEUE_SIZE, NULL);
+        pQueue->hSemaphore = CreateSemaphoreW(NULL, 0, EASYFSW_EVENT_QUEUE_SIZE, NULL);
         if (pQueue->hSemaphore == NULL)
         {
             easyfsw_free(pQueue->pBuffer);
@@ -276,7 +273,7 @@ int easyfsw_event_queue_pushback(easyfsw_event_queue* pQueue, easyfsw_event* pEv
         if (pEvent != NULL)
         {
             unsigned int count = easyfsw_event_queue_getcount(pQueue);
-            if (count == EVENT_QUEUE_SIZE)
+            if (count == EASYFSW_EVENT_QUEUE_SIZE)
             {
                 // We've hit the limit.
                 return 0;

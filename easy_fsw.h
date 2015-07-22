@@ -24,6 +24,9 @@ extern "C" {
 //#define EASYFSW_MAX_PATH    1024
 //#define EASYFSW_MAX_PATH    4096
 
+// The maximum size of the event queue before it overflows.
+#define EASYFSW_EVENT_QUEUE_SIZE        1024
+
 
 // The different event types.
 typedef enum 
