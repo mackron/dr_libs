@@ -486,18 +486,23 @@ static const int WIN32_RDC_PENDING_DELETE = (1 << 1);
 
 
 // Replaces the forward slashes to back slashes for use with Win32. This operates on the string in place.
-void ToBackSlashesWCHAR(wchar_t* path)
+int ToBackSlashesWCHAR(wchar_t* path)
 {
     if (path != NULL)
     {
-        while (*path++ != L'\0')
+        int counter = 0;
+        while (*path++ != L'\0' && counter++ < EASYFSW_MAX_PATH_W)
         {
             if (*path == L'/')
             {
                 *path = L'\\';
             }
         }
+
+        return 1;
     }
+
+    return 0;
 }
 
 // Replaces the back slashes with forward slashes in the given string. This operates on the string in place.
@@ -522,22 +527,16 @@ int ToForwardSlashes(char* path)
 
 
 // Converts a UTF-8 string to wchar_t for use with Win32. Free the returned pointer with easyfsw_free().
-wchar_t* UTF8ToWCHAR(const char* str)
+int UTF8ToWCHAR(const char* str, wchar_t wstrOut[EASYFSW_MAX_PATH_W])
 {
-    int wcharCount = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
-    if (wcharCount > 0)
+    int wcharsWritten = MultiByteToWideChar(CP_UTF8, 0, str, -1, wstrOut, EASYFSW_MAX_PATH_W);
+    if (wcharsWritten > 0)
     {
-        int bufferSizeInBytes = sizeof(wchar_t) * wcharCount;
-
-        wchar_t* wstr = easyfsw_malloc(bufferSizeInBytes);
-        if (wstr != NULL)
-        {
-            MultiByteToWideChar(CP_UTF8, 0, str, -1, wstr, bufferSizeInBytes);
-            return wstr;
-        }
+        assert(wcharsWritten <= EASYFSW_MAX_PATH_W);
+        return 1;
     }
 
-    return NULL;
+    return 0;
 }
 
 int WCHARToUTF8(const wchar_t* wstr, int wstrCC, char pathOut[EASYFSW_MAX_PATH])
@@ -555,15 +554,14 @@ int WCHARToUTF8(const wchar_t* wstr, int wstrCC, char pathOut[EASYFSW_MAX_PATH])
 }
 
 // Converts a UTF-8 path to wchar_t and converts the slashes to backslashes for use with Win32. Free the returned pointer with easyfsw_free().
-wchar_t* ToWin32PathWCHAR(const char* path)
+int ToWin32PathWCHAR(const char* path, wchar_t wpathOut[EASYFSW_MAX_PATH_W])
 {
-    wchar_t* wpath = UTF8ToWCHAR(path);
-    if (wpath != NULL)
+    if (UTF8ToWCHAR(path, wpathOut))
     {
-        ToBackSlashesWCHAR(wpath);
+        return ToBackSlashesWCHAR(wpathOut);
     }
 
-    return wpath;
+    return 0;
 }
 
 // Converts a wchar_t Win32 path to a char unix style path (forward slashes instead of back).
@@ -701,8 +699,8 @@ int easyfsw_directory_win32_init(easyfsw_directory_win32* pDirectory, easyfsw_co
             {
                 strcpy_s(pDirectory->absolutePath, length + 1, absolutePath);
 
-                wchar_t* absolutePathWithBackSlashes = ToWin32PathWCHAR(absolutePath);
-                if (absolutePathWithBackSlashes != NULL)
+                wchar_t absolutePathWithBackSlashes[EASYFSW_MAX_PATH_W];
+                if (ToWin32PathWCHAR(absolutePath, absolutePathWithBackSlashes))
                 {
                     pDirectory->hDirectory = CreateFileW(
                         absolutePathWithBackSlashes,
