@@ -30,9 +30,9 @@ void MyOtherThreadEntryProc()
 		switch (e.type)
 		{
 		case easyfsw_event_type_created: OnFileCreated(e.absolutePath); break;
-		case easyfsw_event_type_created: OnFileDeleted(e.absolutePath); break;
-		case easyfsw_event_type_created: OnFileRenamed(e.absolutePath, e.absolutePathNew); break;
-		case easyfsw_event_type_created: OnFileUpdated(e.absolutePath); break;
+		case easyfsw_event_type_deleted: OnFileDeleted(e.absolutePath); break;
+		case easyfsw_event_type_renamed: OnFileRenamed(e.absolutePath, e.absolutePathNew); break;
+		case easyfsw_event_type_updated: OnFileUpdated(e.absolutePath); break;
 		default: break;
 		}
 	}
