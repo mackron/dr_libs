@@ -287,7 +287,7 @@ int easyfsw_event_queue_pushback(easyfsw_event_queue* pQueue, easyfsw_event* pEv
 
 
             // Insert the value.
-            unsigned int iDst = (pQueue->indexFirst + 1) % pQueue->bufferSize;
+            unsigned int iDst = (pQueue->indexFirst + pQueue->count) % pQueue->bufferSize;
             easyfsw_memcpy(pQueue->pBuffer + iDst, pEvent, sizeof(easyfsw_event));
 
 
@@ -781,6 +781,7 @@ int easyfsw_directory_win32_beginwatch(easyfsw_directory_win32* pDirectory)
         DWORD dwBytes        = 0;
         if (ReadDirectoryChangesW(pDirectory->hDirectory, pDirectory->pFNIBuffer1, pDirectory->fniBufferSizeInBytes, TRUE, dwNotifyFilter, &dwBytes, &pDirectory->overlapped, easyfsw_win32_completionroutine))
         {
+            pDirectory->flags &= ~WIN32_RDC_PENDING_WATCH;
             return 1;
         }
     }
@@ -974,6 +975,7 @@ DWORD WINAPI _WatcherThreadProc_RDC(easyfsw_context_win32 *pContextRDC)
                             if ((pDirectory->flags & WIN32_RDC_PENDING_WATCH) != 0)
                             {
                                 easyfsw_directory_win32_beginwatch(pDirectory);
+                                break;
                             }
                         }
                     }
