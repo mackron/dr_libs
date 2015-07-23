@@ -26,7 +26,6 @@ typedef struct easypath_iterator
 
 
 
-
 /// Compares a section of two strings for equality.
 ///
 /// @param s0Path [in] The first path.

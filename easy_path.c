@@ -104,8 +104,6 @@ void easypath_tobackslashes(char* path)
 
 int easypath_isdescendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
 {
-    // The path cannot be a descendant if it is shorter than the absolute path.
-
     easypath_iterator iParent = easypath_begin(parentAbsolutePath);
     easypath_iterator iChild  = easypath_begin(descendantAbsolutePath);
 
@@ -121,7 +119,7 @@ int easypath_isdescendant(const char* descendantAbsolutePath, const char* parent
         }
         else
         {
-            // The descendant is shorter.
+            // The descendant is shorter which means it's impossible for it to be a descendant.
             return 0;
         }
     }

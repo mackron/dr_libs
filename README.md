@@ -7,6 +7,8 @@ there's still a lot of APIs to add, but a few points of interest include:
  - Never uses the heap
  - Public domain
 
+There aren't may APIs yet, but I'll be adding to it as a need them in my other projects.
+
  
 # How to use it
 Just add these to your project's source tree and you should be good to go. See easy_path.h for
