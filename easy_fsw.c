@@ -990,7 +990,6 @@ DWORD WINAPI _WatcherThreadProc_RDC(easyfsw_context_win32 *pContextRDC)
     {
         // Important that we use the Ex version here because we need to put the thread into an alertable state (last argument). If the thread is not put into
         // an alertable state, ReadDirectoryChangesW() won't ever call the notification event.
-        //DWORD rc = WaitForMultipleObjectsEx(sizeof(pContextRDC->hEvents) / sizeof(pContextRDC->hEvents[0]), pContextRDC->hEvents, FALSE, INFINITE, TRUE);
         DWORD rc = WaitForSingleObjectEx(pContextRDC->hTerminateEvent, INFINITE, TRUE);
         switch (rc)
         {
