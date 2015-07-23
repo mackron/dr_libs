@@ -573,6 +573,8 @@ int FromWin32Path(const wchar_t* wpath, int wpathCC, char pathOut[EASYFSW_MAX_PA
 
 
 VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
+VOID CALLBACK easyfsw_win32_schedulewatchAPC(ULONG_PTR dwParam);
+VOID CALLBACK easyfsw_win32_cancelioAPC(ULONG_PTR dwParam);
 
 
 typedef struct
@@ -598,11 +600,8 @@ typedef struct
     // A handle to the watcher thread.
     HANDLE hThread;
 
-    // The list of events to wait on in the watcher thread.
-    //   0 = The event to wait on when the context is deleted.
-    //   1 = The event to wait on when a directory needs to begin watching.
-    //   2 = The event to wait on when a directory needs to be deleted.
-    HANDLE hEvents[3];
+    // The event that will become signaled when the watcher thread needs to be terminated.
+    HANDLE hTerminateEvent;
 
     // The semaphore which is used when deleting a watched folder. This starts off at 0, and the maximum count is 1. When a watched
     // directory is removed, the calling thread will wait on this semaphore while the worker thread does the deletion.
@@ -750,7 +749,7 @@ int easyfsw_directory_win32_schedulewatch(easyfsw_directory_win32* pDirectory)
     if (pDirectory != NULL)
     {
         pDirectory->flags |= WIN32_RDC_PENDING_WATCH;
-        SetEvent(pDirectory->pContext->hEvents[1]);
+        QueueUserAPC(easyfsw_win32_schedulewatchAPC, pDirectory->pContext->hThread, (ULONG_PTR)pDirectory);
 
         return 1;
     }
@@ -763,7 +762,7 @@ int easyfsw_directory_win32_scheduledelete(easyfsw_directory_win32* pDirectory)
     if (pDirectory != NULL)
     {
         pDirectory->flags |= WIN32_RDC_PENDING_DELETE;
-        SetEvent(pDirectory->pContext->hEvents[2]);
+        QueueUserAPC(easyfsw_win32_cancelioAPC, pDirectory->pContext->hThread, (ULONG_PTR)pDirectory);
 
         return 1;
     }
@@ -942,6 +941,45 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
     }
 }
 
+VOID CALLBACK easyfsw_win32_schedulewatchAPC(ULONG_PTR dwParam)
+{
+    easyfsw_directory_win32* pDirectory = (easyfsw_directory_win32*)dwParam;
+    if (pDirectory != NULL)
+    {
+        if ((pDirectory->flags & WIN32_RDC_PENDING_WATCH) != 0)
+        {
+            easyfsw_directory_win32_beginwatch(pDirectory);
+        }
+    }
+}
+
+VOID CALLBACK easyfsw_win32_cancelioAPC(ULONG_PTR dwParam)
+{
+    easyfsw_directory_win32* pDirectory = (easyfsw_directory_win32*)dwParam;
+    if (pDirectory != NULL)
+    {
+        if ((pDirectory->flags & WIN32_RDC_PENDING_DELETE) != 0)
+        {
+            // We don't free the directory structure from here. Instead we just call CancelIo(). This will trigger
+            // the ERROR_OPERATION_ABORTED error in the notification callback which is where the real delete will
+            // occur. That is also where the synchronization lock is released that the thread that called
+            // easyfsw_delete_directory() is waiting on.
+            CancelIo(pDirectory->hDirectory);
+
+            // The directory needs to be removed from the context's list. The directory object will be freed in the
+            // notification callback in response to ERROR_OPERATION_ABORTED which will be triggered by the previous
+            // call to CancelIo().
+            for (unsigned int i = 0; i < pDirectory->pContext->watchedDirectories.list.count; ++i)
+            {
+                if (pDirectory == pDirectory->pContext->watchedDirectories.list.buffer[i])
+                {
+                    easyfsw_list_removebyindex(&pDirectory->pContext->watchedDirectories.list, i);
+                    break;
+                }
+            }
+        }
+    }
+}
 
 
 
@@ -952,67 +990,14 @@ DWORD WINAPI _WatcherThreadProc_RDC(easyfsw_context_win32 *pContextRDC)
     {
         // Important that we use the Ex version here because we need to put the thread into an alertable state (last argument). If the thread is not put into
         // an alertable state, ReadDirectoryChangesW() won't ever call the notification event.
-        DWORD rc = WaitForMultipleObjectsEx(sizeof(pContextRDC->hEvents) / sizeof(pContextRDC->hEvents[0]), pContextRDC->hEvents, FALSE, INFINITE, TRUE);
+        //DWORD rc = WaitForMultipleObjectsEx(sizeof(pContextRDC->hEvents) / sizeof(pContextRDC->hEvents[0]), pContextRDC->hEvents, FALSE, INFINITE, TRUE);
+        DWORD rc = WaitForSingleObjectEx(pContextRDC->hTerminateEvent, INFINITE, TRUE);
         switch (rc)
         {
         case WAIT_OBJECT_0 + 0:
             {
                 // The context has signaled that it needs to be deleted.
                 pContextRDC->terminateThread = TRUE;
-                break;
-            }
-
-        case WAIT_OBJECT_0 + 1:
-            {
-                // A folder is wanting to be watched. We just cycle over each directory and check those that are pending watching.
-                WaitForSingleObject(pContextRDC->watchedDirectories.hLock, INFINITE);
-                {
-                    for (unsigned int iDirectory = 0; iDirectory < pContextRDC->watchedDirectories.list.count; ++iDirectory)
-                    {
-                        easyfsw_directory_win32* pDirectory = pContextRDC->watchedDirectories.list.buffer[iDirectory];
-                        if (pDirectory != NULL)
-                        {
-                            if ((pDirectory->flags & WIN32_RDC_PENDING_WATCH) != 0)
-                            {
-                                easyfsw_directory_win32_beginwatch(pDirectory);
-                                break;
-                            }
-                        }
-                    }
-                }
-                SetEvent(pContextRDC->watchedDirectories.hLock);
-
-                break;
-            }
-
-        case WAIT_OBJECT_0 + 2:
-            {
-                // A folder is wanting to be deleted. We just cycle over each directory and chose those that are pending deletion.
-                // NOTE: We intentionally do not lock here because that synchronization is done at a higher level. A lock here 
-                //       would cause a deadlock.
-                for (unsigned int iDirectory = 0; iDirectory < pContextRDC->watchedDirectories.list.count; ++iDirectory)
-                {
-                    easyfsw_directory_win32* pDirectory = pContextRDC->watchedDirectories.list.buffer[iDirectory];
-                    if (pDirectory != NULL)
-                    {
-                        if ((pDirectory->flags & WIN32_RDC_PENDING_DELETE) != 0)
-                        {
-                            // We don't free the directory structure from here. Instead we just call CancelIo(). This will trigger
-                            // the ERROR_OPERATION_ABORTED error in the notification callback which is where the real delete will
-                            // occur. That is also where the synchronization lock is released that the thread that called
-                            // easyfsw_delete_directory() is waiting on.
-                            CancelIo(pDirectory->hDirectory);
-
-                            // The directory needs to be removed from the context's list. The directory object will be freed in the
-                            // notification callback in response to ERROR_OPERATION_ABORTED which will be triggered by the previous
-                            // call to CancelIo().
-                            easyfsw_list_removebyindex(&pDirectory->pContext->watchedDirectories.list, iDirectory);
-
-                            break;
-                        }
-                    }
-                }
-
                 break;
             }
 
@@ -1037,13 +1022,11 @@ easyfsw_context* easyfsw_create_context_win32()
         {
             if (easyfsw_event_queue_init(&pContext->eventQueue))
             {
-                pContext->hEvents[0] = CreateEvent(NULL, FALSE, FALSE, NULL);
-                pContext->hEvents[1] = CreateEvent(NULL, FALSE, FALSE, NULL);
-                pContext->hEvents[2] = CreateEvent(NULL, FALSE, FALSE, NULL);
+                pContext->hTerminateEvent     = CreateEvent(NULL, FALSE, FALSE, NULL);
                 pContext->hDeleteDirSemaphore = CreateSemaphoreW(NULL, 0, 1, NULL);
                 pContext->terminateThread = FALSE;
 
-                if (pContext->hEvents[0] != NULL && pContext->hEvents[1])
+                if (pContext->hTerminateEvent != NULL)
                 {
                     pContext->hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)_WatcherThreadProc_RDC, pContext, 0, NULL);
                     if (pContext->hThread != NULL)
@@ -1052,7 +1035,7 @@ easyfsw_context* easyfsw_create_context_win32()
                     }
                     else
                     {
-                        CloseHandle(pContext->hEvents[0]);
+                        CloseHandle(pContext->hTerminateEvent);
 
                         easyfsw_free(pContext);
                         pContext = NULL;
@@ -1079,7 +1062,7 @@ void easyfsw_delete_context_win32(easyfsw_context_win32* pContext)
 
 
         // Signal the close event, and wait for the thread to finish.
-        SignalObjectAndWait(pContext->hEvents[0], pContext->hThread, INFINITE, FALSE);
+        SignalObjectAndWait(pContext->hTerminateEvent, pContext->hThread, INFINITE, FALSE);
 
         // The thread has finished, so close the handle.
         CloseHandle(pContext->hThread);
@@ -1096,11 +1079,9 @@ void easyfsw_delete_context_win32(easyfsw_context_win32* pContext)
 
 
         // The worker thread events need to be closed.
-        for (int i = 0; i < sizeof(pContext->hEvents) / sizeof(pContext->hEvents[0]); ++i)
-        {
-            CloseHandle(pContext->hEvents[i]);
-            pContext->hEvents[i] = NULL;
-        }
+        CloseHandle(pContext->hTerminateEvent);
+        pContext->hTerminateEvent = NULL;
+
 
         // The semaphore we use for deleting directories.
         CloseHandle(pContext->hDeleteDirSemaphore);
