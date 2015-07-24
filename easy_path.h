@@ -83,6 +83,19 @@ void easypath_tobackslashes(char* path);
 int easypath_isdescendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
 
 
+/// Finds the file name portion of the path.
+///
+/// @param path [in] The path to search.
+///
+/// @return A pointer to the beginning of the string containing the file name. If this is non-null, it will be an offset of "path".
+///
+/// @remarks
+///     A path with a trailing slash will return an empty string.
+///     @par
+///     The return value is just an offset of "path".
+const char* easypath_filename(const char* path);
+
+
 #ifdef __cplusplus
 }
 #endif

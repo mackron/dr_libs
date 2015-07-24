@@ -130,6 +130,38 @@ int easypath_isdescendant(const char* descendantAbsolutePath, const char* parent
 }
 
 
+const char* easypath_filename(const char* path)
+{
+    if (path != 0)
+    {
+        const char* fileName     = path;
+
+        // We just loop through the path until we find the last slash.
+        while (path[0] != '\0')
+        {
+            if (path[0] == '/' || path[0] == '\\')
+            {
+                fileName = path;
+            }
+
+            path += 1;
+        }
+
+
+        // At this point the file name is sitting on a slash, so just move forward.
+        while (fileName[0] != '\0' && (fileName[0] == '/' || fileName[0] == '\\'))
+        {
+            fileName += 1;
+        }
+
+
+        return fileName;
+    }
+    
+    return 0;
+}
+
+
 
 /*
 This is free and unencumbered software released into the public domain.
