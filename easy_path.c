@@ -134,7 +134,7 @@ const char* easypath_filename(const char* path)
 {
     if (path != 0)
     {
-        const char* fileName     = path;
+        const char* fileName = path;
 
         // We just loop through the path until we find the last slash.
         while (path[0] != '\0')
@@ -158,6 +158,30 @@ const char* easypath_filename(const char* path)
         return fileName;
     }
     
+    return 0;
+}
+
+const char* easypath_extension(const char* path)
+{
+    if (path != 0)
+    {
+        const char* extension = easypath_filename(path);
+
+        // Just find the first '.' and return.
+        while (path[0] != '\0')
+        {
+            if (path[0] == '.')
+            {
+                extension = path;
+            }
+
+            path += 1;
+        }
+
+
+        return extension;
+    }
+
     return 0;
 }
 

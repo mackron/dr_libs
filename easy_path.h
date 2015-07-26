@@ -95,6 +95,21 @@ int easypath_isdescendant(const char* descendantAbsolutePath, const char* parent
 ///     The return value is just an offset of "path".
 const char* easypath_filename(const char* path);
 
+/// Finds the file extension of the given file path.
+///
+/// @param path [in] The path to search.
+///
+/// @return A pointer to the beginning of the string containing the file's extension.
+///
+/// @remarks
+///     A path with a trailing slash will return an empty string.
+///     @par
+///     The return value is just an offset of "path".
+///     @par
+///     On a path such as "filename.ext1.ext2" the returned string will be "ext1.ext2". You can call this function
+///     like "easypath_extension(easypath_extension(path))" to get "ext2".
+const char* easypath_extension(const char* path);
+
 
 #ifdef __cplusplus
 }
