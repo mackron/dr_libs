@@ -168,14 +168,15 @@ const char* easypath_extension(const char* path)
         const char* extension = easypath_filename(path);
 
         // Just find the first '.' and return.
-        while (path[0] != '\0')
+        while (extension[0] != '\0')
         {
-            if (path[0] == '.')
-            {
-                extension = path;
-            }
+            extension += 1;
 
-            path += 1;
+            if (extension[0] == '.')
+            {
+                extension += 1;
+                break;
+            }
         }
 
 
