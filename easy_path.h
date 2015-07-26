@@ -111,6 +111,21 @@ const char* easypath_filename(const char* path);
 const char* easypath_extension(const char* path);
 
 
+/// Checks whether or not the two paths are equal.
+///
+/// @param path1 [in] The first path.
+/// @param path2 [in] The second path.
+///
+/// @return 1 if the paths are equal, 0 otherwise.
+///
+/// @remarks
+///     This is case-sensitive.
+///     @par
+///     This is more than just a string comparison. Rather, this splits the path and compares each segment. The path "C:/My/Folder" is considered
+///     equal to to "C:\\My\\Folder".
+int easypath_equal(const char* path1, const char* path2);
+
+
 #ifdef __cplusplus
 }
 #endif

@@ -186,6 +186,30 @@ const char* easypath_extension(const char* path)
 }
 
 
+int easypath_equal(const char* path1, const char* path2)
+{
+    if (path1 != 0 && path2 != 0)
+    {
+        easypath_iterator iPath1 = easypath_begin(path1);
+        easypath_iterator iPath2 = easypath_begin(path2);
+
+        while (easypath_next(&iPath1) && easypath_next(&iPath2))
+        {
+            if (!easypath_iterators_equal(iPath1, iPath2))
+            {
+                return 0;
+            }
+        }
+
+
+        // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
+        return iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
+    }
+    
+    return 0;
+}
+
+
 
 /*
 This is free and unencumbered software released into the public domain.
