@@ -211,6 +211,33 @@ int easypath_equal(const char* path1, const char* path2)
 }
 
 
+int easypath_isrelative(const char* path)
+{
+    if (path != 0 && path[0] != '\0')
+    {
+        if (path[0] == '/')
+        {
+            return 0;
+        }
+
+        if (path[1] != '\0')
+        {
+            if (((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z')) && path[1] == ':')
+            {
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
+int easypath_isabsolute(const char* path)
+{
+    return !easypath_isrelative(path);
+}
+
+
 
 /*
 This is free and unencumbered software released into the public domain.

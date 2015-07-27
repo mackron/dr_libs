@@ -126,6 +126,17 @@ const char* easypath_extension(const char* path);
 int easypath_equal(const char* path1, const char* path2);
 
 
+/// Determines whether or not the given path is relative.
+///
+/// @param path [in] The path to check.
+int easypath_isrelative(const char* path);
+
+/// Determines whether or not the given path is absolute.
+///
+/// @param path [in] The path to check.
+int easypath_isabsolute(const char* path);
+
+
 #ifdef __cplusplus
 }
 #endif
