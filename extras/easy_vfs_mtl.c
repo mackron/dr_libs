@@ -86,6 +86,8 @@ void easyvfs_mtl_addfile(easyvfs_archive_mtl* pArchive, easyvfs_file_mtl* pFile)
                 pNewBuffer[iDst] = pOldBuffer[iDst];
             }
 
+            pNewBuffer[pArchive->fileCount] = *pFile;
+
 
             pArchive->pFiles     = pNewBuffer;
             pArchive->fileCount += 1;
@@ -146,7 +148,7 @@ int easyvfs_mtl_loadnextchunk(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
-    if (pState->bytesRemaining < pState->archiveSizeInBytes)
+    if (pState->bytesRemaining > 0)
     {
         pState->chunkSize = (pState->bytesRemaining > 4096) ? 4096 : (unsigned int)pState->bytesRemaining;
         assert(pState->chunkSize);
@@ -172,32 +174,33 @@ int easyvfs_mtl_loadnextchunk(easyvfs_openarchive_mtl_state* pState)
     return 0;
 }
 
-int easyvfs_mtl_loadbytes(easyvfs_openarchive_mtl_state* pState, void* dst, unsigned int count)
+int easyvfs_mtl_loadnewmtl(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
-    unsigned int bytesRemainingInChunk = pState->chunkEnd - pState->chunkPointer;
-    if (bytesRemainingInChunk >= count)
+    const char newmtl[7] = "newmtl";
+    for (unsigned int i = 0; i < 6; ++i)
     {
-        easyvfs_memcpy(dst, pState->chunkPointer, count);
-        pState->chunkPointer += count;
-
-        return 1;
-    }
-    else
-    {
-        // Copy as much as we can, and then load the next chunk and call this recursively.
-        easyvfs_memcpy(dst, pState->chunkPointer, bytesRemainingInChunk);
-
-        if (easyvfs_mtl_loadnextchunk(pState))
+        // Check if we need a new chunk.
+        if (pState->chunkPointer >= pState->chunkEnd)
         {
-            return easyvfs_mtl_loadbytes(pState, ((char*)dst) + bytesRemainingInChunk, count - bytesRemainingInChunk);
+            if (!easyvfs_mtl_loadnextchunk(pState))
+            {
+                return 0;
+            }
         }
-        else
+
+
+        if (pState->chunkPointer[0] != newmtl[i])
         {
             return 0;
         }
+
+        pState->chunkPointer += 1;
     }
+
+    // At this point the first 6 characters equal "newmtl".
+    return 1;
 }
 
 int easyvfs_mtl_skipline(easyvfs_openarchive_mtl_state* pState)
@@ -211,6 +214,11 @@ int easyvfs_mtl_skipline(easyvfs_openarchive_mtl_state* pState)
         {
             // Found the new line. Now move forward by one to get past the new line character.
             pState->chunkPointer += 1;
+            if (pState->chunkPointer >= pState->chunkEnd)
+            {
+                return easyvfs_mtl_loadnextchunk(pState);
+            }
+
             return 1;
         }
 
@@ -260,13 +268,15 @@ int easyvfs_mtl_loadmtlname(easyvfs_openarchive_mtl_state* pState, void* dst, un
         const char c = pState->chunkPointer[0];
         if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '#')
         {
-            // We've found the end of the name.
+            // We've found the end of the name. Null terminate and return.
+            *dst8 = '\0';
             return 1;
         }
         else
         {
             *dst8++ = c;
             dstSizeInBytes -= 1;
+            pState->chunkPointer += 1;
         }
     }
 
@@ -327,36 +337,31 @@ void* easyvfs_openarchive_mtl(easyvfs_file* pFile, easyvfs_accessmode accessMode
         state.chunkEnd           = state.chunkEnd;
         if (easyvfs_mtl_loadnextchunk(&state))
         {
-            while (state.bytesRemaining > 0)
+            while (state.bytesRemaining > 0 || state.chunkPointer < state.chunkEnd)
             {
-                char newmtl[7] = {0};
-                if (easyvfs_mtl_loadbytes(&state, newmtl, 6))
+                if (easyvfs_mtl_loadnewmtl(&state))
                 {
-                    if (strcmp(newmtl, "newmtl") == 0)
+                    if (state.chunkPointer[0] == ' ' || state.chunkPointer[0] == '\t')
                     {
-                        if (state.chunkPointer[0] == ' ' && state.chunkPointer[0] == '\t')
+                        // We found a new material. We need to iterate until we hit the first whitespace, "#", or the end of the file.
+                        if (easyvfs_mtl_skipwhitespace(&state))
                         {
-                            // We found a new material. We need to iterate until we hit the first whitespace, "#", or the end of the file.
-                            if (easyvfs_mtl_skipwhitespace(&state))
+                            easyvfs_file_mtl file;
+                            if (easyvfs_mtl_loadmtlname(&state, file.name, 256))
                             {
-                                easyvfs_file_mtl file;
-                                if (easyvfs_mtl_loadmtlname(&state, file.name, 256))
-                                {
-                                    // Everything worked out. We now need to create the file and add it to our list. At this point we won't know the size. We determine
-                                    // the size in a post-processing step later.
-                                    unsigned int bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
-                                    file.offset = state.archiveSizeInBytes - state.bytesRemaining - bytesRemainingInChunk;
+                                // Everything worked out. We now need to create the file and add it to our list. At this point we won't know the size. We determine
+                                // the size in a post-processing step later.
+                                unsigned int bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
+                                file.offset = state.archiveSizeInBytes - state.bytesRemaining - bytesRemainingInChunk;
 
-                                    easyvfs_mtl_addfile(mtl, &file);
-                                }
+                                easyvfs_mtl_addfile(mtl, &file);
                             }
                         }
                     }
-
-
-                    // Move to the next line.
-                    easyvfs_mtl_skipline(&state);
                 }
+
+                // Move to the next line.
+                easyvfs_mtl_skipline(&state);
             }
 
 
@@ -472,7 +477,7 @@ int easyvfs_nextiteration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i, ea
             {
                 if (fi != NULL)
                 {
-                    easyvfs_copyandappendpath(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, mtl->pFiles[imtl->index].name);
+                    easyvfs_strcpy(fi->absolutePath, EASYVFS_MAX_PATH, mtl->pFiles[imtl->index].name);
                     fi->sizeInBytes      = mtl->pFiles[imtl->index].sizeInBytes;
                     fi->lastModifiedTime = 0;
                     fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
