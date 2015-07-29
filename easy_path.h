@@ -135,6 +135,12 @@ const char* easypath_extension(const char* path);
 ///     equal to to "C:\\My\\Folder".
 int easypath_equal(const char* path1, const char* path2);
 
+/// Checks if the extension of the given path is equal to the given extension.
+///
+/// @remarks
+///     By default this is NOT case-sensitive, however if the standard library is disable, it is case-sensitive.
+int easypath_extensionequal(const char* path, const char* extension);
+
 
 /// Determines whether or not the given path is relative.
 ///

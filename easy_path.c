@@ -4,6 +4,7 @@
 
 #if EASYPATH_USE_STDLIB
 #include <string.h>
+#include <ctype.h>
 #endif
 
 
@@ -275,6 +276,35 @@ int easypath_equal(const char* path1, const char* path2)
     }
     
     return 0;
+}
+
+int easypath_extensionequal(const char* path, const char* extension)
+{
+    if (path != 0 && extension != 0)
+    {
+        const char* ext1 = extension;
+        const char* ext2 = easypath_extension(path);
+        
+        while (ext1[0] != '\0' && ext2[0] != '\0')
+        {
+#if EASYPATH_USE_STDLIB
+            if (tolower(ext1[0]) != tolower(ext2[0]))
+#else
+            if (ext1[0] != ext2[0])
+#endif
+            {
+                return 0;
+            }
+
+            ext1 += 1;
+            ext2 += 1;
+        }
+
+        
+        return ext1[0] == '\0' && ext2[0] == '\0';
+    }
+
+    return 1;
 }
 
 
