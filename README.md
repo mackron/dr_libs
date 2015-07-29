@@ -51,7 +51,7 @@ easyvfs_addbasedirectory(pVFS, "C:/My/Folder");
 
 // Open a file. A relative path was specified which means it will first check it against
 // "C:/Users/Admin", and then "C:/My/Folder" if it couldn't be found the first time.
-easyvfs_file* pFile = easyvfs_openfile(pVFS, "my/file.txt");
+easyvfs_file* pFile = easyvfs_openfile(pVFS, "my/file.txt", easyvfs_readwrite);
 if (pFile == NULL)
 {
 	// There was an error loading the file. It probably doesn't exist.
