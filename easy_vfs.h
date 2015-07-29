@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
+
 // Change this to the location of the easy_path header, relative to the source file. The source file will include this path with
 // #include EASYPATH_HEADER. This dependency will be removed later once this library becomes a little bit more stable.
 #define EASYPATH_HEADER    "../easy_path/easy_path.h"
@@ -251,6 +253,18 @@ easyvfs_int64 easyvfs_filesize(easyvfs_file* pFile);
 //////////////////////////////////////
 // Utilities
 
+// malloc()
+void* easyvfs_malloc(size_t sizeInBytes);
+
+// free()
+void easyvfs_free(void* p);
+
+// memcpy()
+void easyvfs_memcpy(void* dst, const void* src, size_t sizeInBytes);
+
+// strcpy()
+void easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
+
 // filename()
 const char* easyvfs_filename(const char* path);
 
@@ -259,6 +273,9 @@ const char* easyvfs_extension(const char* path);
 
 // extensionequal()
 int easyvfs_extensionequal(const char* path, const char* extension);
+
+// copyandappendpath()
+int easyvfs_copyandappendpath(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
 
 
 #ifdef __cplusplus

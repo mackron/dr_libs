@@ -147,6 +147,8 @@ int easyvfs_basepaths_insert(easyvfs_basepaths* pBasePaths, const char* absolute
                 if (easyvfs_basepaths_movedown1slot(pBasePaths, index))
                 {
                     easyvfs_strcpy((pBasePaths->pBuffer + index)->absolutePath, EASYVFS_MAX_PATH, absolutePath);
+                    pBasePaths->count += 1;
+
                     return 1;
                 }
             }
@@ -697,7 +699,10 @@ easyvfs_archive* easyvfs_openarchive_frompath(easyvfs_context* pContext, const c
             easyvfs_archive* pRootArchive = easyvfs_openarchive_frompath(pContext, pContext->baseDirectories.pBuffer[iBasePath].absolutePath, accessMode, relativePathOut, relativePathBufferSizeInBytes);
             if (pRootArchive != NULL)
             {
-                easyvfs_archive* pResultArchive = easyvfs_openarchive_frompath_default(pRootArchive, path, accessMode, relativePathOut, relativePathBufferSizeInBytes);
+                char pathToSearch[EASYVFS_MAX_PATH];
+                easyvfs_copyandappendpath(pathToSearch, EASYVFS_MAX_PATH, relativePathOut, path);
+
+                easyvfs_archive* pResultArchive = easyvfs_openarchive_frompath_default(pRootArchive, pathToSearch, accessMode, relativePathOut, relativePathBufferSizeInBytes);
                 if (pResultArchive == NULL)
                 {
                     easyvfs_closearchive(pRootArchive);
@@ -759,6 +764,7 @@ void easyvfs_closearchive_recursive(easyvfs_archive* pArchive)
 }
 
 
+#if 0
 /// Opens a file from a not-necessarily-verbose path.
 ///
 /// TODO: I THINK THIS CAN BE DELETED BECAUSE easyvfs_openarchive_frompath() HAS MADE IT REDUNDANT
@@ -861,6 +867,7 @@ easyvfs_file* easyvfs_archive_openfile_verbose(easyvfs_archive* pArchive, const 
     // If we get here the file is not contained within this archive.
     return NULL;
 }
+#endif
 
 void easyvfs_archive_closefile(easyvfs_archive* pArchive, easyvfs_file* pFile)
 {
@@ -1059,7 +1066,7 @@ int easyvfs_getfileinfo(easyvfs_context* pContext, const char* path, easyvfs_fil
         easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read, relativePath, EASYVFS_MAX_PATH);
         if (pArchive != NULL)
         {
-            int result = pArchive->callbacks.getfileinfo(pArchive, path, fi);
+            int result = pArchive->callbacks.getfileinfo(pArchive, relativePath, fi);
 
 
             // The archive is no longer needed, so it needs to be closed.
@@ -1233,6 +1240,11 @@ int easyvfs_extensionequal(const char* path, const char* extension)
     return easypath_extensionequal(path, extension);
 }
 
+int easyvfs_copyandappendpath(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
+{
+    return easypath_copyandappend(dst, dstSizeInBytes, base, other);
+}
+
 
 
 ///////////////////////////////////////////
@@ -1250,6 +1262,12 @@ typedef struct
 int easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
+
+    // For native archives, the path must be a folder, or an empty path. An empty path just refers to a root directory.
+    if (path[0] == '\0' || (path[0] == '/' && path[1] == '\0'))
+    {
+        return 1;
+    }
 
     DWORD attributes = GetFileAttributesA(path);
     if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
