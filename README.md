@@ -11,8 +11,8 @@ There aren't may APIs yet, but I'll be adding to it as a need them in my other p
 
  
 # How to use it
-Just add these to your project's source tree and you should be good to go. See easy_path.h for
-information on the API.
+The library is made up of just two files. Just add these to your project's source tree and
+you should be good to go. See easy_path.h for information on the API.
 
 
 # License
