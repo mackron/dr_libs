@@ -26,7 +26,7 @@ extern "C" {
 /// The allowable access modes.
 typedef enum
 {
-    easyvfs_read,
+    easyvfs_read = 1,
     easyvfs_write,
     easyvfs_readwrite
 
@@ -176,7 +176,7 @@ void easyvfs_insertbasedirectory(easyvfs_context* pContext, const char* absolute
 ///     @par
 ///     Use easyvfs_insertbasedirectory() to insert the base directory at a specific position.
 ///     @par
-///     Base directories must be a verbose, absolute path.
+///     Base directories must be an absolute path to a real directory.
 void easyvfs_addbasedirectory(easyvfs_context* pContext, const char* absolutePath);
 
 /// Removes the given base directory.
