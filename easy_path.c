@@ -107,7 +107,7 @@ int easypath_atend(easypath_iterator i)
 {
     // Note that the input argument is a copy of the iterator. Thus, we can just call easypath_next() to determine whether or not it's at the end at
     // it won't affect the caller in any way.
-    return easypath_next(&i);
+    return !easypath_next(&i);
 }
 
 int easypath_iterators_equal(const easypath_iterator i0, const easypath_iterator i1)
