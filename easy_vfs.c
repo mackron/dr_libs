@@ -295,8 +295,8 @@ typedef struct
 
 
 /// Native implementations for archive callbacks.
-int           easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, easyvfs_archive* pParentArchive, const char* path);
-void*         easyvfs_openarchive_impl_native   (easyvfs_context* pContext, easyvfs_archive* pParentArchive, const char* basePath, easyvfs_accessmode accessMode);
+int           easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path);
+void*         easyvfs_openarchive_impl_native   (easyvfs_file* pFile, easyvfs_accessmode accessMode);
 void          easyvfs_closearchive_impl_native  (easyvfs_archive* pArchive);
 int           easyvfs_getfileinfo_impl_native   (easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo *fi);
 void*         easyvfs_beginiteration_impl_native(easyvfs_archive* pArchive, const char* path);
@@ -367,23 +367,26 @@ easyvfs_archive* easyvfs_openarchive_native(easyvfs_context* pContext, const cha
 {
     if (pContext != NULL && basePath != NULL)
     {
-        easyvfs_archive* pNewArchive = easyvfs_malloc(sizeof(easyvfs_archive));
-        if (pNewArchive != NULL)
+        if (pContext->nativeCallbacks.isvalidarchive(pContext, basePath))
         {
-            pNewArchive->pContext       = pContext;
-            pNewArchive->pParentArchive = NULL;
-            pNewArchive->pFile          = NULL;
-            pNewArchive->callbacks      = pContext->nativeCallbacks;
-            easyvfs_strcpy(pNewArchive->absolutePath, EASYVFS_MAX_PATH, basePath);
-            pNewArchive->pUserData      = pContext->nativeCallbacks.openarchive(pContext, NULL, basePath, accessMode);
-            if (pNewArchive->pUserData == NULL)
+            easyvfs_archive* pNewArchive = easyvfs_malloc(sizeof(easyvfs_archive));
+            if (pNewArchive != NULL)
             {
-                easyvfs_free(pNewArchive);
-                pNewArchive = NULL;
+                pNewArchive->pContext       = pContext;
+                pNewArchive->pParentArchive = NULL;
+                pNewArchive->pFile          = NULL;
+                pNewArchive->callbacks      = pContext->nativeCallbacks;
+                easyvfs_strcpy(pNewArchive->absolutePath, EASYVFS_MAX_PATH, basePath);
+                pNewArchive->pUserData      = pContext->nativeCallbacks.openarchive(NULL, accessMode);
+                if (pNewArchive->pUserData == NULL)
+                {
+                    easyvfs_free(pNewArchive);
+                    pNewArchive = NULL;
+                }
             }
-        }
 
-        return pNewArchive;
+            return pNewArchive;
+        }
     }
 
     return NULL;
@@ -403,7 +406,7 @@ easyvfs_archive* easyvfs_openarchive_nonnative(easyvfs_archive* pParentArchive, 
 
         if (pCallbacks->isvalidarchive && pCallbacks->openarchive)
         {
-            if (pCallbacks->isvalidarchive(pParentArchive->pContext, pParentArchive, path))
+            if (pCallbacks->isvalidarchive(pParentArchive->pContext, path))
             {
                 easyvfs_file* pNewArchiveFile = pParentArchive->callbacks.openfile(pParentArchive, path, accessMode);
                 if (pNewArchiveFile != NULL)
@@ -411,7 +414,7 @@ easyvfs_archive* easyvfs_openarchive_nonnative(easyvfs_archive* pParentArchive, 
                     easyvfs_archive* pNewArchive = easyvfs_malloc(sizeof(easyvfs_archive));
                     if (pNewArchive != NULL)
                     {
-                        void* pNewArchiveUserData = pCallbacks->openarchive(pParentArchive->pContext, pParentArchive, path, accessMode);
+                        void* pNewArchiveUserData = pCallbacks->openarchive(pNewArchiveFile, accessMode);
                         if (pNewArchiveUserData != NULL)
                         {
                             pNewArchive->pContext       = pParentArchive->pContext;
@@ -1213,6 +1216,26 @@ easyvfs_int64 easyvfs_filesize(easyvfs_file* pFile)
 
 
 ///////////////////////////////////////////
+// Utilities
+
+const char* easyvfs_filename(const char* path)
+{
+    return easypath_filename(path);
+}
+
+const char* easyvfs_extension(const char* path)
+{
+    return easypath_extension(path);
+}
+
+int easyvfs_extensionequal(const char* path, const char* extension)
+{
+    return easypath_extensionequal(path, extension);
+}
+
+
+
+///////////////////////////////////////////
 // Platform Specific
 
 #if defined(EASYVFS_PLATFORM_WINDOWS)
@@ -1224,12 +1247,9 @@ typedef struct
 
 }easyvfs_iterator_win32;
 
-int easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, easyvfs_archive* pParentArchive, const char* path)
+int easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
-
-    assert(pParentArchive == NULL);
-
 
     DWORD attributes = GetFileAttributesA(path);
     if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
@@ -1240,26 +1260,12 @@ int easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, easyvfs_archiv
     return 1;
 }
 
-void* easyvfs_openarchive_impl_native(easyvfs_context* pContext, easyvfs_archive* pParentArchive, const char* basePath, easyvfs_accessmode accessMode)
+void* easyvfs_openarchive_impl_native(easyvfs_file* pFile, easyvfs_accessmode accessMode)
 {
-    (void)pContext;
+    (void)pFile;
+    assert(pFile == NULL);
 
-    assert(pParentArchive == NULL);
-    
-    // Base path must be a directory, and is assumed absolute. Can be blank, in which it is assumed to be the root of the file system.
-    if (basePath[0] != '\0')
-    {
-        assert(easypath_isabsolute(basePath));
-
-        DWORD attributes = GetFileAttributesA(basePath);
-        if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
-        {
-            return NULL;
-        }
-    }
-
-
-    // If we get here it's a directory which means we're good.
+    // easyvfs_isvalidarchive_impl_native will have been called before this which is where the check is done to ensure the path refers to a directory.
     easyvfs_native_archive* pUserData = easyvfs_malloc(sizeof(easyvfs_native_archive));
     if (pUserData != NULL)
     {

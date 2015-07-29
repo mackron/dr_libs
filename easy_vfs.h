@@ -52,8 +52,8 @@ typedef struct easyvfs_fileinfo easyvfs_fileinfo;
 typedef struct easyvfs_iterator easyvfs_iterator;
 
 
-typedef int           (* easyvfs_isvalidarchive_proc) (easyvfs_context* pContext, easyvfs_archive* pParentArchive, const char* path);
-typedef void*         (* easyvfs_openarchive_proc)    (easyvfs_context* pContext, easyvfs_archive* pParentArchive, const char* basePath, easyvfs_accessmode accessMode);
+typedef int           (* easyvfs_isvalidarchive_proc) (easyvfs_context* pContext, const char* path);
+typedef void*         (* easyvfs_openarchive_proc)    (easyvfs_file* pFile, easyvfs_accessmode accessMode);
 typedef void          (* easyvfs_closearchive_proc)   (easyvfs_archive* pArchive);
 typedef int           (* easyvfs_getfileinfo_proc)    (easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo* fi);
 typedef void*         (* easyvfs_beginiteration_proc) (easyvfs_archive* pArchive, const char* path);
@@ -248,6 +248,17 @@ easyvfs_int64 easyvfs_filesize(easyvfs_file* pFile);
 
 
 
+//////////////////////////////////////
+// Utilities
+
+// filename()
+const char* easyvfs_filename(const char* path);
+
+// extension()
+const char* easyvfs_extension(const char* path);
+
+// extensionequal()
+int easyvfs_extensionequal(const char* path, const char* extension);
 
 
 #ifdef __cplusplus
