@@ -233,22 +233,23 @@ const char* easypath_extension(const char* path)
 {
     if (path != 0)
     {
-        const char* extension = easypath_filename(path);
+        const char* extension     = easypath_filename(path);
+        const char* lastoccurance = 0;
 
-        // Just find the first '.' and return.
+        // Just find the last '.' and return.
         while (extension[0] != '\0')
         {
             extension += 1;
 
             if (extension[0] == '.')
             {
-                extension += 1;
-                break;
+                extension    += 1;
+                lastoccurance = extension; 
             }
         }
 
 
-        return extension;
+        return (lastoccurance != 0) ? lastoccurance : extension;
     }
 
     return 0;

@@ -116,8 +116,7 @@ const char* easypath_filename(const char* path);
 ///     @par
 ///     The return value is just an offset of "path".
 ///     @par
-///     On a path such as "filename.ext1.ext2" the returned string will be "ext1.ext2". You can call this function
-///     like "easypath_extension(easypath_extension(path))" to get "ext2".
+///     On a path such as "filename.ext1.ext2" the returned string will be "ext2".
 const char* easypath_extension(const char* path);
 
 
