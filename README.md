@@ -10,6 +10,8 @@ Some noteworthy features:
  - Supports shortened paths by automatically scanning for supported archives/packages. The
    path "my/package.zip/file.txt" can be shortened to "my/file.txt", for example.
  - Fully recursive. A path such as "pack1.zip/pack2.zip/file.txt" should work just fine.
+ - Easily supports custom package formats - just implement the relevant callbacks. See
+   the "extras" folder for examples.
  
 It's still early days - here are some noteworthy missing features at the moment. I'm
 planning on adding support for all of these as I need them.
@@ -21,8 +23,9 @@ planning on adding support for all of these as I need them.
  
 # How to use it
 There's just a few files. Just add these to your project's source tree and you should be
-good to go. The "extras" folder contains implementations of supported package formats.
-There isn't much here yet, but support for zip files will be coming very soon.
+good to go. The "extras" folder contains implementations of supported package formats -
+just include the ones you want, and leave out the ones you don't. There isn't much here
+yet, but support for zip files will be coming very soon.
 
 Below is an example:
 ```c
@@ -33,8 +36,8 @@ if (pVFS == NULL)
 	// There was an error creating the context.
 }
 
-// Register you archive callbacks. This enables support for a particular package file
-// format. If you do not specify any archives only the native file system will be
+// Register the archive callbacks. This enables support for a particular type of
+// package. If you do not specify any packages only the native file system will be
 // supported.
 easyvfs_registerarchivecallbacks_mtl(pVFS);	// Wavefront MTL files.
 easyvfs_registerarchivecallbacks_zip(pVFS);	// ZIP files. Not yet implemented, but coming soon.
