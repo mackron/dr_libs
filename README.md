@@ -25,7 +25,7 @@ good to go. The "extras" folder contains implementations of supported package fo
 There isn't much here yet, but support for zip files will be coming very soon.
 
 Below is an example:
-```
+```c
 // Create a context.
 easyvfs_context* pVFS = easyvfs_createcontext();
 if (pVFS == NULL)
@@ -33,13 +33,14 @@ if (pVFS == NULL)
 	// There was an error creating the context.
 }
 
-// Register you archive callbacks. This enables support for a particular package file format. If
-// you do not specify any archives only the native file system will be supported.
-easyvfs_registerarchivecallbacks_mtl(pVFS);		// Wavefront MTL files.
-easyvfs_registerarchivecallbacks_zip(pVFS);		// ZIP files. Not yet implemented, but coming soon.
+// Register you archive callbacks. This enables support for a particular package file
+// format. If you do not specify any archives only the native file system will be
+// supported.
+easyvfs_registerarchivecallbacks_mtl(pVFS);	// Wavefront MTL files.
+easyvfs_registerarchivecallbacks_zip(pVFS);	// ZIP files. Not yet implemented, but coming soon.
 
-// Add your base directories for loading from relative paths. If you do not specify at least one
-// base directory you will need to load from absolute paths.
+// Add your base directories for loading from relative paths. If you do not specify at
+// least one base directory you will need to load from absolute paths.
 easyvfs_addbasedirectory(pVFS, "C:/Users/Admin");
 easyvfs_addbasedirectory(pVFS, "C:/My/Folder");
 
