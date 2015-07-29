@@ -2,6 +2,66 @@
 
 #include "easy_path.h"
 
+#if EASYPATH_USE_STDLIB
+#include <string.h>
+#endif
+
+
+unsigned int easypath_strlen(const char* str)
+{
+#if EASYPATH_USE_STDLIB
+    return (unsigned int)strlen(str);
+#else
+    const char* pathEnd = path;
+    while (pathEnd[0] != '\0')
+    {
+        pathEnd += 1;
+    }
+
+    return pathEnd - path;
+#endif
+}
+
+void easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
+{
+#if EASYPATH_USE_STDLIB && (defined(__WIN32__) || defined(_WIN32) || defined(_WIN64))
+    strcpy_s(dst, dstSizeInBytes, src);
+#else
+    while (dstSizeInBytes > 0 && src[0] != '\0')
+    {
+        dst[0] = src[0];
+
+        dst += 1;
+        src += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0)
+    {
+        dst[0] = '\0';
+    }
+#endif
+}
+
+void easypath_strcpy2(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
+{
+    while (dstSizeInBytes > 0 && src[0] != '\0' && srcSizeInBytes > 0)
+    {
+        dst[0] = src[0];
+
+        dst += 1;
+        src += 1;
+        dstSizeInBytes -= 1;
+        srcSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0)
+    {
+        dst[0] = '\0';
+    }
+}
+
+
 easypath_iterator easypath_begin(const char* path)
 {
     easypath_iterator i;
@@ -40,6 +100,13 @@ int easypath_next(easypath_iterator* i)
     }
     
     return 0;
+}
+
+int easypath_atend(easypath_iterator i)
+{
+    // Note that the input argument is a copy of the iterator. Thus, we can just call easypath_next() to determine whether or not it's at the end at
+    // it won't affect the caller in any way.
+    return easypath_next(&i);
 }
 
 int easypath_iterators_equal(const easypath_iterator i0, const easypath_iterator i1)
@@ -211,6 +278,7 @@ int easypath_equal(const char* path1, const char* path2)
 }
 
 
+
 int easypath_isrelative(const char* path)
 {
     if (path != 0 && path[0] != '\0')
@@ -235,6 +303,101 @@ int easypath_isrelative(const char* path)
 int easypath_isabsolute(const char* path)
 {
     return !easypath_isrelative(path);
+}
+
+
+int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* other)
+{
+    if (base != 0 && other != 0)
+    {
+        unsigned int path1Length = easypath_length(base);
+        unsigned int path2Length = easypath_length(other);
+
+        if (path1Length < baseBufferSizeInBytes)
+        {
+            // Slash.
+            if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\')
+            {
+                base[path1Length] = '/';
+                path1Length += 1;
+            }
+
+
+            // Other part.
+            if (path1Length + path2Length >= baseBufferSizeInBytes)
+            {
+                path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
+            }
+
+            easypath_strcpy(base + path1Length, baseBufferSizeInBytes - path1Length, other);
+
+
+            return 1;
+        }
+    }
+    
+    return 0;
+}
+
+int easypath_appenditerator(char* base, unsigned int baseBufferSizeInBytes, easypath_iterator i)
+{
+    if (base != 0)
+    {
+        unsigned int path1Length = easypath_length(base);
+        unsigned int path2Length = (unsigned int)i.segment.length;
+
+        if (path1Length < baseBufferSizeInBytes)
+        {
+            // Slash.
+            if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\')
+            {
+                base[path1Length] = '/';
+                path1Length += 1;
+            }
+
+
+            // Other part.
+            if (path1Length + path2Length >= baseBufferSizeInBytes)
+            {
+                path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
+            }
+
+            easypath_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, i.segment.length);
+
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
+{
+    if (dst != NULL && dstSizeInBytes > 0)
+    {
+        easypath_strcpy(dst, dstSizeInBytes, base);
+        return easypath_append(dst, dstSizeInBytes, other);
+    }
+
+    return 0;
+}
+
+int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i)
+{
+    if (dst != NULL && dstSizeInBytes > 0)
+    {
+        easypath_strcpy(dst, dstSizeInBytes, base);
+        return easypath_appenditerator(dst, dstSizeInBytes, i);
+    }
+
+    return 0;
+}
+
+
+unsigned int easypath_length(const char* path)
+{
+    return easypath_strlen(path);
 }
 
 
