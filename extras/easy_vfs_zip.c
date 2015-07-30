@@ -11,26 +11,6 @@
 
 typedef struct
 {
-    /// The byte offset within the archive 
-    easyvfs_int64 offset;
-
-    /// The size of the file, in bytes.
-    easyvfs_int64 sizeInBytes;
-
-    /// The name of the material. The specification says this can be any length, but we're going to clamp it to 255 + null terminator which should be fine.
-    char name[256];
-
-}easyvfs_file_zip;
-
-typedef struct
-{
-    /// The access mode.
-    easyvfs_accessmode accessMode;
-
-}easyvfs_archive_zip;
-
-typedef struct
-{
     /// The current index of the iterator. When this hits the file count, the iteration is finished.
     unsigned int index;
 
@@ -38,33 +18,21 @@ typedef struct
 
 typedef struct
 {
-    /// The offset within the archive file the first byte of the file is located.
-    easyvfs_int64 offsetInArchive;
+    /// The file index within the archive.
+    mz_uint index;
+
+    /// A pointer to the buffer containing the entire uncompressed data of the file. Unfortunately this is the only way I'm aware of for
+    /// reading file data from miniz.c so we'll just stick with it for now. We use a pointer to an 8-bit type so we can easily calculate
+    /// offsets.
+    mz_uint8* pData;
 
     /// The size of the file in bytes so we can guard against overflowing reads.
-    easyvfs_int64 sizeInBytes;
+    size_t sizeInBytes;
 
     /// The current position of the file's read pointer.
-    easyvfs_int64 readPointer;
+    size_t readPointer;
 
 }easyvfs_openedfile_zip;
-
-
-easyvfs_archive_zip* easyvfs_zip_create(easyvfs_accessmode accessMode)
-{
-    easyvfs_archive_zip* mtl = easyvfs_malloc(sizeof(easyvfs_archive_zip));
-    if (mtl != NULL)
-    {
-        mtl->accessMode = accessMode;
-    }
-
-    return mtl;
-}
-
-void easyvfs_zip_delete(easyvfs_archive_zip* pArchive)
-{
-    easyvfs_free(pArchive);
-}
 
 
 
@@ -123,7 +91,24 @@ int easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path)
 }
 
 
+size_t easyvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n)
+{
+    // The opaque type is a pointer to a easyvfs_file object which represents the file of the archive.
+    easyvfs_file* pZipFile = pOpaque;
+    assert(pZipFile != NULL);
 
+    easyvfs_seekfile(pZipFile, (easyvfs_int64)file_ofs, easyvfs_start);
+
+    unsigned int bytesRead;
+    int result = easyvfs_readfile(pZipFile, pBuf, n, &bytesRead);
+    if (result == 0)
+    {
+        // Failed to read the file.
+        bytesRead = 0;
+    }
+
+    return bytesRead;
+}
 
 
 void* easyvfs_openarchive_zip(easyvfs_file* pFile, easyvfs_accessmode accessMode)
@@ -131,34 +116,73 @@ void* easyvfs_openarchive_zip(easyvfs_file* pFile, easyvfs_accessmode accessMode
     assert(pFile != NULL);
     assert(easyvfs_tellfile(pFile) == 0);
 
-    easyvfs_archive_zip* zip = easyvfs_zip_create(accessMode);
-    if (zip != NULL)
+    // Only support read-only mode at the moment.
+    if (accessMode == easyvfs_write || accessMode == easyvfs_readwrite)
     {
+        return NULL;
     }
 
-    return zip;
+
+    mz_zip_archive* pZip = easyvfs_malloc(sizeof(mz_zip_archive));
+    if (pZip != NULL)
+    {
+        pZip->m_pRead        = easyvfs_mz_file_read_func;
+        pZip->m_pIO_opaque   = pFile;
+        if (mz_zip_reader_init(pZip, pZip->m_archive_size, 0))
+        {
+            // Everything is good so far...
+        }
+        else
+        {
+            easyvfs_free(pZip);
+            pZip = NULL;
+        }
+    }
+
+    return pZip;
 }
 
 void easyvfs_closearchive_zip(easyvfs_archive* pArchive)
 {
-    assert(pArchive != 0);
+    assert(pArchive != NULL);
+    assert(pArchive->pUserData != NULL);
 
-    easyvfs_archive_zip* pUserData = pArchive->pUserData;
-    if (pUserData != NULL)
-    {
-        easyvfs_zip_delete(pUserData);
-    }
+    mz_zip_reader_end(pArchive->pUserData);
+    easyvfs_free(pArchive->pUserData);
 }
 
 int easyvfs_getfileinfo_zip(easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo *fi)
 {
-    assert(pArchive != 0);
+    assert(pArchive != NULL);
+    assert(pArchive->pUserData != NULL);
 
-    easyvfs_archive_zip* zip = pArchive->pUserData;
-    if (zip != NULL)
+    mz_zip_archive* pZip = pArchive->pUserData;
+    int fileIndex = mz_zip_reader_locate_file(pZip, path, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
+    if (fileIndex != -1)
     {
-        (void)path;
-        (void)fi;
+        if (fi != NULL)
+        {
+            mz_zip_archive_file_stat zipStat;
+            if (mz_zip_reader_file_stat(pZip, fileIndex, &zipStat))
+            {
+                easyvfs_copyandappendpath(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+                fi->sizeInBytes      = (easyvfs_int64)zipStat.m_uncomp_size;
+                fi->lastModifiedTime = zipStat.m_time;
+                fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
+                if (mz_zip_reader_is_file_a_directory(pZip, fileIndex))
+                {
+                    fi->attributes |= EASYVFS_FILE_ATTRIBUTE_DIRECTORY;
+                }
+
+                return 1;
+            }
+        }
+        
+        return 1;
+    }
+    else
+    {
+        // There was an error finding the file. It probably doesn't exist.
     }
 
     return 0;
@@ -168,11 +192,6 @@ void* easyvfs_beginiteration_zip(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive != 0);
     assert(path != NULL);
-
-    easyvfs_archive_zip* zip = pArchive->pUserData;
-    if (zip != NULL)
-    {
-    }
 
     return NULL;
 }
@@ -190,12 +209,7 @@ int easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, ea
     assert(pArchive != 0);
     assert(i != NULL);
 
-    easyvfs_archive_zip* zip = pArchive->pUserData;
-    if (zip != NULL)
-    {
-        (void)fi;
-    }
-    
+    (void)fi;
 
     return 0;
 }
@@ -203,6 +217,7 @@ int easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, ea
 void* easyvfs_openfile_zip(easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode)
 {
     assert(pArchive != 0);
+    assert(pArchive->pUserData != NULL);
     assert(path != NULL);
 
     // Only supporting read-only for now.
@@ -211,9 +226,31 @@ void* easyvfs_openfile_zip(easyvfs_archive* pArchive, const char* path, easyvfs_
         return NULL;
     }
 
-    easyvfs_archive_zip* zip = pArchive->pUserData;
-    if (zip != NULL)
+
+    mz_zip_archive* pZip = pArchive->pUserData;
+    int fileIndex = mz_zip_reader_locate_file(pZip, path, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
+    if (fileIndex != -1)
     {
+        easyvfs_openedfile_zip* pOpenedFile = easyvfs_malloc(sizeof(easyvfs_openedfile_zip));
+        if (pOpenedFile != NULL)
+        {
+            pOpenedFile->pData = mz_zip_reader_extract_to_heap(pZip, fileIndex, &pOpenedFile->sizeInBytes, 0);
+            if (pOpenedFile->pData != NULL)
+            {
+                pOpenedFile->index       = (mz_uint)fileIndex;
+                pOpenedFile->readPointer = 0;
+            }
+            else
+            {
+                // Failed to read the data.
+                easyvfs_free(pOpenedFile);
+                pOpenedFile = NULL;
+            }
+        }
+    }
+    else
+    {
+        // Couldn't find the file.
     }
 
     return NULL;
@@ -226,6 +263,10 @@ void easyvfs_closefile_zip(easyvfs_file* pFile)
     easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
     if (pOpenedFile != NULL)
     {
+        mz_zip_archive* pZip = pFile->pArchive->pUserData;
+        assert(pZip != NULL);
+
+        pZip->m_pFree(pZip->m_pAlloc_opaque, pOpenedFile->pData);
         easyvfs_free(pOpenedFile);
     }
 }
