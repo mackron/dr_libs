@@ -1,7 +1,10 @@
 // Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
 
 #include "easy_vfs.h"
+
+#if EASYVFS_USE_EASYPATH
 #include EASYPATH_HEADER
+#endif
 
 #include <assert.h>
 
@@ -33,6 +36,172 @@ void easyvfs_memcpy(void* dst, const void* src, size_t sizeInBytes)
 void easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 {
     strcpy_s(dst, dstSizeInBytes, src);
+}
+#endif
+
+void easyvfs_strcpy2(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
+{
+    while (dstSizeInBytes > 0 && src[0] != '\0' && srcSizeInBytes > 0)
+    {
+        dst[0] = src[0];
+
+        dst += 1;
+        src += 1;
+        dstSizeInBytes -= 1;
+        srcSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0)
+    {
+        dst[0] = '\0';
+    }
+}
+
+
+#if !EASYVFS_USE_EASYPATH
+typedef struct 
+{
+    int offset;
+    int length;
+
+} easyvfs_pathsegment;
+
+typedef struct
+{
+    const char* path;
+    easyvfs_pathsegment segment;
+
+}easyvfs_pathiterator;
+
+easyvfs_pathiterator easyvfs_beginpathiteration(const char* path)
+{
+    easyvfs_pathiterator i;
+    i.path = path;
+    i.segment.offset = 0;
+    i.segment.length = 0;
+
+    return i;
+}
+
+int easyvfs_nextpathsegment(easyvfs_pathiterator* i)
+{
+    if (i != 0 && i->path != 0)
+    {
+        i->segment.offset = i->segment.offset + i->segment.length;
+        i->segment.length = 0;
+
+        while (i->path[i->segment.offset] != '\0' && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\'))
+        {
+            i->segment.offset += 1;
+        }
+
+        if (i->path[i->segment.offset] == '\0')
+        {
+            return 0;
+        }
+
+
+
+        while (i->path[i->segment.offset + i->segment.length] != '\0' && (i->path[i->segment.offset + i->segment.length] != '/' && i->path[i->segment.offset + i->segment.length] != '\\'))
+        {
+            i->segment.length += 1;
+        }
+
+        return 1;
+    }
+    
+    return 0;
+}
+
+int easyvfs_atendofpath(easyvfs_pathiterator i)
+{
+    return !easyvfs_nextpathsegment(&i);
+}
+
+int easyvfs_pathsegments_equal(const char* s0Path, const easyvfs_pathsegment s0, const char* s1Path, const easyvfs_pathsegment s1)
+{
+    if (s0Path != 0 && s1Path != 0)
+    {
+        if (s0.length == s1.length)
+        {
+            for (int i = 0; i < s0.length; ++i)
+            {
+                if (s0Path[s0.offset + i] != s1Path[s1.offset + i])
+                {
+                    return 0;
+                }
+            }
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pathiterator i1)
+{
+    return easyvfs_pathsegments_equal(i0.path, i0.segment, i1.path, i1.segment);
+}
+
+int easyvfs_appendpathiterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
+{
+    if (base != 0)
+    {
+        unsigned int path1Length = strlen(base);
+        unsigned int path2Length = (unsigned int)i.segment.length;
+
+        if (path1Length < baseBufferSizeInBytes)
+        {
+            // Slash.
+            if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\')
+            {
+                base[path1Length] = '/';
+                path1Length += 1;
+            }
+
+
+            // Other part.
+            if (path1Length + path2Length >= baseBufferSizeInBytes)
+            {
+                path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
+            }
+
+            easyvfs_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, i.segment.length);
+
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+#else
+typedef struct easypath_iterator easyvfs_pathiterator;
+
+easyvfs_pathiterator easyvfs_beginpathiteration(const char* path)
+{
+    return easypath_begin(path);
+}
+
+int easyvfs_nextpathsegment(easyvfs_pathiterator* i)
+{
+    return easypath_next(i);
+}
+
+int easyvfs_atendofpath(easyvfs_pathiterator i)
+{
+    return easypath_atend(i);
+}
+
+int easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pathiterator i1)
+{
+    return easypath_iterators_equal(i0, i1);
+}
+
+int easyvfs_appendpathiterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
+{
+    return easypath_appenditerator(base, baseBufferSizeInBytes, i);
 }
 #endif
 
@@ -427,7 +596,7 @@ easyvfs_archive* easyvfs_openarchive_nonnative(easyvfs_archive* pParentArchive, 
                             pNewArchive->pParentArchive = pParentArchive;
                             pNewArchive->pFile          = pNewArchiveFile;
                             pNewArchive->callbacks      = *pCallbacks;
-                            easypath_copyandappend(pNewArchive->absolutePath, EASYVFS_MAX_PATH, pParentArchive->absolutePath, path);
+                            easyvfs_copyandappendpath(pNewArchive->absolutePath, EASYVFS_MAX_PATH, pParentArchive->absolutePath, path);
                             pNewArchive->pUserData      = pNewArchiveUserData;
                         }
                         else
@@ -490,10 +659,10 @@ easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive,
         char runningPath[EASYVFS_MAX_PATH];
         runningPath[0] = '\0';
 
-        easypath_iterator iPathSegment = easypath_begin(path);
-        while (easypath_next(&iPathSegment))
+        easyvfs_pathiterator iPathSegment = easyvfs_beginpathiteration(path);
+        while (easyvfs_nextpathsegment(&iPathSegment))
         {
-            if (easypath_appenditerator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
+            if (easyvfs_appendpathiterator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
             {
                 easyvfs_fileinfo fi;
                 if (pArchive->callbacks.getfileinfo(pArchive, runningPath, &fi))
@@ -505,7 +674,7 @@ easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive,
                         if (pChildArchive != NULL)
                         {
                             // It's an archive, so check it. The name to check is the beginning of the next path segment.
-                            if (easypath_next(&iPathSegment))
+                            if (easyvfs_nextpathsegment(&iPathSegment))
                             {
                                 easyvfs_strcpy(relativePathOut, relativePathBufferSizeInBytes, path);
 
@@ -571,13 +740,13 @@ easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive,
         char runningPath[EASYVFS_MAX_PATH];
         runningPath[0] = '\0';
 
-        easypath_iterator iPathSegment = easypath_begin(path);
-        while (easypath_next(&iPathSegment))
+        easyvfs_pathiterator iPathSegment = easyvfs_beginpathiteration(path);
+        while (easyvfs_nextpathsegment(&iPathSegment))
         {
             char runningPathBase[EASYVFS_MAX_PATH];
             easyvfs_memcpy(runningPathBase, runningPath, EASYVFS_MAX_PATH);
 
-            if (easypath_appenditerator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
+            if (easyvfs_appendpathiterator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
             {
                 // Check if the path segment refers to an archive.
                 easyvfs_fileinfo fi;
@@ -586,15 +755,15 @@ easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive,
                     if ((fi.attributes & EASYVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
                     {
                         // It's a normal file. This should not be the last segment in the path.
-                        if (!easypath_atend(iPathSegment))
+                        if (!easyvfs_atendofpath(iPathSegment))
                         {
                             // The file could be an archive. Try opening the archive, and then try loading the file recursively. If this fails, we need to return null.
                             easyvfs_archive* pChildArchive = easyvfs_openarchive(pArchive->pContext, pArchive, runningPath, easyvfs_archiveaccessmode(accessMode));
                             if (pChildArchive != NULL)
                             {
                                 // It's an archive, so check it. The name to check is the beginning of the next path segment.
-                                easypath_iterator iNextSegment = iPathSegment;
-                                if (easypath_next(&iNextSegment))
+                                easyvfs_pathiterator iNextSegment = iPathSegment;
+                                if (easyvfs_nextpathsegment(&iNextSegment))
                                 {
                                     easyvfs_archive* pResultArchive = easyvfs_openarchive_frompath_default(pChildArchive, iNextSegment.path + iNextSegment.segment.offset, accessMode, relativePathOut, relativePathBufferSizeInBytes);
                                     if (pResultArchive != NULL)
@@ -679,7 +848,7 @@ easyvfs_archive* easyvfs_openarchive_frompath(easyvfs_context* pContext, const c
     assert(pContext != NULL);
     assert(path     != NULL);
 
-    if (easypath_isabsolute(path))
+    if (easyvfs_ispathabsolute(path))
     {
         // The path is absolute. We assume it's a verbose path.
         easyvfs_archive* pRootArchive = easyvfs_openarchive_native(pContext, "", easyvfs_read);
@@ -799,97 +968,6 @@ easyvfs_file* easyvfs_archive_openfile(easyvfs_archive* pArchive, const char* pa
     return pNewFile;
 }
 
-#if 0
-/// Opens a file from a verbose path.
-///
-/// TODO: I THINK THIS CAN BE DELETED BECAUSE easyvfs_openarchive_frompath() HAS MADE IT REDUNDANT
-easyvfs_file* easyvfs_archive_openfile_verbose(easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode)
-{
-    assert(pArchive != NULL);
-    assert(path     != NULL);
-
-    // Just try opening the file directly. 
-    easyvfs_file* pFile = easyvfs_malloc(sizeof(easyvfs_file));
-    if (pFile != NULL)
-    {
-        pFile->pArchive  = pArchive;
-        pFile->pUserData = pArchive->callbacks.openfile(pArchive, path, accessMode);
-        if (pFile->pUserData != NULL)
-        {
-            return pFile;
-        }
-        else
-        {
-            easyvfs_free(pFile);
-            pFile = NULL;
-        }
-    }
-    
-    
-    
-    // If we got here it means we weren't able to open the file directly. There might be a an archive in the path, so we need to loop over each path
-    // segment and check each one.
-    char runningPath[EASYVFS_MAX_PATH];
-    runningPath[0] = '\0';
-
-    easypath_iterator iPathSegment = easypath_begin(path);
-    while (easypath_next(&iPathSegment))
-    {
-        if (easypath_appenditerator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
-        {
-            easyvfs_fileinfo fi;
-            if (pArchive->callbacks.getfileinfo(pArchive, runningPath, &fi))
-            {
-                if ((fi.attributes & EASYVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
-                {
-                    // The file is not a directory which means it could be an archive. Try opening the archive, and then try loading the file recursively.
-                    easyvfs_archive* pChildArchive = easyvfs_openarchive(pArchive->pContext, pArchive, runningPath, easyvfs_archiveaccessmode(accessMode));
-                    if (pChildArchive != NULL)
-                    {
-                        // It's an archive, so check it. The name to check is the beginning of the next path segment.
-                        if (easypath_next(&iPathSegment))
-                        {
-                            easyvfs_file* pFile = easyvfs_archive_openfile_verbose(pChildArchive, iPathSegment.path + iPathSegment.segment.offset, accessMode);
-                            if (pFile != NULL)
-                            {
-                                return pFile;
-                            }
-                            else
-                            {
-                                // We failed to create the file. The file doesn't exist, so return null, making sure we close the child archive.
-                                easyvfs_closearchive(pChildArchive);
-                                return NULL;
-                            }
-                        }
-                        else
-                        {
-                            // We should never get here, but we are at the last segment in the input path already. Just close the child archive and return null.
-                            easyvfs_closearchive(pChildArchive);
-                            return NULL;
-                        }
-                    }
-                    else
-                    {
-                        // It's not an archive which means the file is not contained within this archive.
-                        return NULL;
-                    }
-                }
-            }
-        }
-        else
-        {
-            // Should never get here, but if we do it means there was an error appending the path segment to the running path. We'll never find the
-            // file in this case, so return null.
-            return NULL;
-        }
-    }
-
-
-    // If we get here the file is not contained within this archive.
-    return NULL;
-}
-#endif
-
 void easyvfs_archive_closefile(easyvfs_archive* pArchive, easyvfs_file* pFile)
 {
     assert(pArchive        != NULL);
@@ -980,7 +1058,7 @@ void easyvfs_removebasedirectory(easyvfs_context* pContext, const char* absolute
     {
         for (unsigned int iPath = 0; iPath < pContext->baseDirectories.count; )
         {
-            if (easypath_equal(pContext->baseDirectories.pBuffer[iPath].absolutePath, absolutePath))
+            if (easyvfs_pathsequal(pContext->baseDirectories.pBuffer[iPath].absolutePath, absolutePath))
             {
                 easyvfs_basepaths_remove(&pContext->baseDirectories, iPath);
             }
@@ -1139,7 +1217,7 @@ int easyvfs_findabsolutepath(easyvfs_context* pContext, const char* path, char* 
 int easyvfs_deletefile(easyvfs_context* pContext, const char* path)
 {
     int result = 0;
-    if (easypath_isabsolute(path))
+    if (easyvfs_ispathabsolute(path))
     {
         if (pContext != NULL && path != NULL)
         {
@@ -1162,7 +1240,7 @@ int easyvfs_renamefile(easyvfs_context* pContext, const char* pathOld, const cha
     // Renaming/moving is not supported across different archives.
 
     int result = 0;
-    if (easypath_isabsolute(pathOld) && easypath_isabsolute(pathNew))
+    if (easyvfs_ispathabsolute(pathOld) && easyvfs_ispathabsolute(pathNew))
     {
         if (pContext != NULL && pathOld != NULL && pathNew != NULL)
         {
@@ -1174,7 +1252,7 @@ int easyvfs_renamefile(easyvfs_context* pContext, const char* pathOld, const cha
                 easyvfs_archive* pArchiveNew = easyvfs_openarchive_frompath(pContext, pathNew, easyvfs_readwrite, relativePathNew, EASYVFS_MAX_PATH);
                 if (pArchiveNew != NULL)
                 {
-                    if (easypath_equal(pArchiveOld->absolutePath, pArchiveNew->absolutePath))
+                    if (easyvfs_pathsequal(pArchiveOld->absolutePath, pArchiveNew->absolutePath))
                     {
                         result = pArchiveOld->callbacks.renamefile(pArchiveOld, relativePathOld, relativePathNew);
                     }
@@ -1193,7 +1271,7 @@ int easyvfs_renamefile(easyvfs_context* pContext, const char* pathOld, const cha
 int easyvfs_mkdir(easyvfs_context* pContext, const char* path)
 {
     int result = 0;
-    if (easypath_isabsolute(path))
+    if (easyvfs_ispathabsolute(path))
     {
         if (pContext != NULL && path != NULL)
         {
@@ -1323,22 +1401,205 @@ easyvfs_int64 easyvfs_filesize(easyvfs_file* pFile)
 
 const char* easyvfs_filename(const char* path)
 {
+#if !EASYVFS_USE_EASYPATH
+    if (path != 0)
+    {
+        const char* fileName = path;
+
+        // We just loop through the path until we find the last slash.
+        while (path[0] != '\0')
+        {
+            if (path[0] == '/' || path[0] == '\\')
+            {
+                fileName = path;
+            }
+
+            path += 1;
+        }
+
+
+        // At this point the file name is sitting on a slash, so just move forward.
+        while (fileName[0] != '\0' && (fileName[0] == '/' || fileName[0] == '\\'))
+        {
+            fileName += 1;
+        }
+
+
+        return fileName;
+    }
+    
+    return 0;
+#else
     return easypath_filename(path);
+#endif
 }
 
 const char* easyvfs_extension(const char* path)
 {
+#if !EASYVFS_USE_EASYPATH
+    if (path != 0)
+    {
+        const char* extension     = easyvfs_filename(path);
+        const char* lastoccurance = 0;
+
+        // Just find the last '.' and return.
+        while (extension[0] != '\0')
+        {
+            extension += 1;
+
+            if (extension[0] == '.')
+            {
+                extension    += 1;
+                lastoccurance = extension; 
+            }
+        }
+
+
+        return (lastoccurance != 0) ? lastoccurance : extension;
+    }
+
+    return 0;
+#else
     return easypath_extension(path);
+#endif
 }
 
 int easyvfs_extensionequal(const char* path, const char* extension)
 {
+#if !EASYVFS_USE_EASYPATH
+    if (path != 0 && extension != 0)
+    {
+        const char* ext1 = extension;
+        const char* ext2 = easyvfs_extension(path);
+        
+        while (ext1[0] != '\0' && ext2[0] != '\0')
+        {
+            if (tolower(ext1[0]) != tolower(ext2[0]))
+            {
+                return 0;
+            }
+
+            ext1 += 1;
+            ext2 += 1;
+        }
+
+        
+        return ext1[0] == '\0' && ext2[0] == '\0';
+    }
+
+    return 1;
+#else
     return easypath_extensionequal(path, extension);
+#endif
+}
+
+int easyvfs_pathsequal(const char* path1, const char* path2)
+{
+#if !EASYVFS_USE_EASYPATH
+    if (path1 != 0 && path2 != 0)
+    {
+        easyvfs_pathiterator iPath1 = easyvfs_beginpathiteration(path1);
+        easyvfs_pathiterator iPath2 = easyvfs_beginpathiteration(path2);
+
+        while (easyvfs_nextpathsegment(&iPath1) && easyvfs_nextpathsegment(&iPath2))
+        {
+            if (!easyvfs_pathiterators_equal(iPath1, iPath2))
+            {
+                return 0;
+            }
+        }
+
+
+        // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
+        return iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
+    }
+    
+    return 0;
+#else
+    return easypath_equal(path1, path2);
+#endif
+}
+
+int easyvfs_ispathrelative(const char* path)
+{
+#if !EASYVFS_USE_EASYPATH
+    if (path != 0 && path[0] != '\0')
+    {
+        if (path[0] == '/')
+        {
+            return 0;
+        }
+
+        if (path[1] != '\0')
+        {
+            if (((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z')) && path[1] == ':')
+            {
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+#else
+    return easypath_isrelative(path);
+#endif
+}
+
+int easyvfs_ispathabsolute(const char* path)
+{
+    return !easyvfs_ispathrelative(path);
+}
+
+int easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const char* other)
+{
+#if !EASYVFS_USE_EASYPATH
+    if (base != 0 && other != 0)
+    {
+        unsigned int path1Length = strlen(base);
+        unsigned int path2Length = strlen(other);
+
+        if (path1Length < baseBufferSizeInBytes)
+        {
+            // Slash.
+            if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\')
+            {
+                base[path1Length] = '/';
+                path1Length += 1;
+            }
+
+
+            // Other part.
+            if (path1Length + path2Length >= baseBufferSizeInBytes)
+            {
+                path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
+            }
+
+            easyvfs_strcpy(base + path1Length, baseBufferSizeInBytes - path1Length, other);
+
+
+            return 1;
+        }
+    }
+    
+    return 0;
+#else
+    return easypath_append(base, baseBufferSizeInBytes, other);
+#endif
 }
 
 int easyvfs_copyandappendpath(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
 {
+#if !EASYVFS_USE_EASYPATH
+    if (dst != NULL && dstSizeInBytes > 0)
+    {
+        easyvfs_strcpy(dst, dstSizeInBytes, base);
+        return easyvfs_appendpath(dst, dstSizeInBytes, other);
+    }
+
+    return 0;
+#else
     return easypath_copyandappend(dst, dstSizeInBytes, base, other);
+#endif
 }
 
 
@@ -1405,7 +1666,7 @@ int easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path,
     assert(path                != NULL);
 
     char fullPath[EASYVFS_MAX_PATH];
-    if (easypath_copyandappend(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
+    if (easyvfs_copyandappendpath(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
     {
         WIN32_FILE_ATTRIBUTE_DATA fad;
         if (GetFileAttributesExA(fullPath, GetFileExInfoStandard, &fad))
@@ -1450,9 +1711,9 @@ void* easyvfs_beginiteration_impl_native(easyvfs_archive* pArchive, const char* 
 
 
     char searchQuery[EASYVFS_MAX_PATH];
-    easypath_copyandappend(searchQuery, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+    easyvfs_copyandappendpath(searchQuery, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
 
-    unsigned int searchQueryLength = easypath_length(searchQuery);
+    unsigned int searchQueryLength = strlen(searchQuery);
     if (searchQueryLength < EASYVFS_MAX_PATH - 3)
     {
         searchQuery[searchQueryLength + 0] = '\\';
@@ -1524,7 +1785,7 @@ int easyvfs_nextiteration_impl_native(easyvfs_archive* pArchive, easyvfs_iterato
 
         if (fi != NULL)
         {
-            easypath_copyandappend(fi->absolutePath, EASYVFS_MAX_PATH, pUserData->directoryPath, pUserData->ffd.cFileName);
+            easyvfs_copyandappendpath(fi->absolutePath, EASYVFS_MAX_PATH, pUserData->directoryPath, pUserData->ffd.cFileName);
 
             LARGE_INTEGER liSize;
             liSize.LowPart  = pUserData->ffd.nFileSizeLow;
@@ -1566,7 +1827,7 @@ void* easyvfs_openfile_impl_native(easyvfs_archive* pArchive, const char* path, 
     assert(path                != NULL);
 
     char fullPath[EASYVFS_MAX_PATH];
-    if (easypath_copyandappend(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
+    if (easyvfs_copyandappendpath(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
     {
         DWORD dwDesiredAccess       = 0;
         DWORD dwShareMode           = 0;
@@ -1711,7 +1972,7 @@ int easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const char* path)
     assert(path                != NULL);
 
     char fullPath[EASYVFS_MAX_PATH];
-    if (easypath_copyandappend(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
+    if (easyvfs_copyandappendpath(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
     {
         DWORD attributes = GetFileAttributesA(fullPath);
         if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
@@ -1738,10 +1999,10 @@ int easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const char* pathOl
 
     // We use the "Ex" version here because we want to fail if we would have to copy the file (if the destination and target are on seperate file systems).
     char fullPathOld[EASYVFS_MAX_PATH];
-    if (easypath_copyandappend(fullPathOld, EASYVFS_MAX_PATH, pArchive->absolutePath, pathOld))
+    if (easyvfs_copyandappendpath(fullPathOld, EASYVFS_MAX_PATH, pArchive->absolutePath, pathOld))
     {
         char fullPathNew[EASYVFS_MAX_PATH];
-        if (easypath_copyandappend(fullPathNew, EASYVFS_MAX_PATH, pArchive->absolutePath, pathNew))
+        if (easyvfs_copyandappendpath(fullPathNew, EASYVFS_MAX_PATH, pArchive->absolutePath, pathNew))
         {
             return MoveFileExA(fullPathOld, fullPathNew, 0);
         }
@@ -1757,7 +2018,7 @@ int easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
     assert(path                != NULL);
 
     char fullPath[EASYVFS_MAX_PATH];
-    if (easypath_copyandappend(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
+    if (easyvfs_copyandappendpath(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
     {
         return CreateDirectoryA(fullPath, NULL);
     }

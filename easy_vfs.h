@@ -9,9 +9,19 @@ extern "C" {
 
 #include <stddef.h>
 
-// Change this to the location of the easy_path header, relative to the source file. The source file will include this path with
-// #include EASYPATH_HEADER. This dependency will be removed later once this library becomes a little bit more stable.
+
+// If you're project is using easy_path for path manipulation, you can change this value to 1 and set the header location
+// below. This will allow the compiler to strip away a little bit of duplicate code.
+#ifndef EASYVFS_USE_EASYPATH
+#define EASYVFS_USE_EASYPATH    0
+#endif
+
+#if EASYVFS_USE_EASYPATH
+// If you're using easy_path, change this to the location of the easy_path header, relative to the source file. The source
+// file will include this path as #include EASYPATH_HEADER.
 #define EASYPATH_HEADER    "../easy_path/easy_path.h"
+#endif
+
 
 // The maximum length of a path in bytes, including the null terminator. If a path exceeds this amount, it will be truncated and thus
 // won't contain a meaningful value. When this is changed the source file will need to be recompiled. Most of the time leaving this
@@ -286,6 +296,7 @@ void easyvfs_memcpy(void* dst, const void* src, size_t sizeInBytes);
 // strcpy()
 void easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
 
+
 // filename()
 const char* easyvfs_filename(const char* path);
 
@@ -294,6 +305,17 @@ const char* easyvfs_extension(const char* path);
 
 // extensionequal()
 int easyvfs_extensionequal(const char* path, const char* extension);
+
+// pathsequal()
+int easyvfs_pathsequal(const char* path1, const char* path2);
+
+
+// ispathabsolute()
+int easyvfs_ispathrelative(const char* path);
+
+// ispathabsolute()
+int easyvfs_ispathabsolute(const char* path);
+
 
 // copyandappendpath()
 int easyvfs_copyandappendpath(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
