@@ -13,11 +13,8 @@ Some noteworthy features:
  - Easily supports custom package formats - just implement the relevant callbacks. See
    the "extras" folder for examples.
  
-It's still early days - here are some noteworthy missing features at the moment. I'm
-planning on adding support for all of these as I need them.
- - No support for deleting files or folders
- - No support for creating folders
- - No support for common package formats yet, however support for ZIP is coming very soon.
+The above examples use zip files, however they are not currently supported. This will
+be coming very soon.
 
 
  

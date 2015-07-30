@@ -311,6 +311,9 @@ int           easyvfs_writefile_impl_native     (easyvfs_file* pFile, const void
 easyvfs_int64 easyvfs_seekfile_impl_native      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 easyvfs_int64 easyvfs_tellfile_impl_native      (easyvfs_file* pFile);
 easyvfs_int64 easyvfs_filesize_impl_native      (easyvfs_file* pFile);
+int           easyvfs_deletefile_impl_native    (easyvfs_archive* pArchive, const char* path);
+int           easyvfs_renamefile_impl_native    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+int           easyvfs_mkdir_impl_native         (easyvfs_archive* pArchive, const char* path);
 
 
 easyvfs_file* easyvfs_archive_openfile(easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode);
@@ -467,16 +470,18 @@ easyvfs_archive* easyvfs_openarchive(easyvfs_context* pContext, easyvfs_archive*
 }
 
 
+// This will return an archive even when the file doesn't exist.
 easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode, char* relativePathOut, unsigned int relativePathBufferSizeInBytes)
 {
     assert(pArchive != NULL);
+
+    easyvfs_strcpy(relativePathOut, relativePathBufferSizeInBytes, path);
 
     // Check that the file exists first.
     easyvfs_fileinfo fi;
     if (pArchive->callbacks.getfileinfo(pArchive, path, &fi))
     {
         // The file exists in this archive.
-        easyvfs_strcpy(relativePathOut, relativePathBufferSizeInBytes, path);
         return pArchive;
     }
     else
@@ -502,13 +507,17 @@ easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive,
                             // It's an archive, so check it. The name to check is the beginning of the next path segment.
                             if (easypath_next(&iPathSegment))
                             {
-                                easyvfs_archive* pResultArchive = easyvfs_openarchive_frompath_verbose(pChildArchive, iPathSegment.path + iPathSegment.segment.offset, accessMode, relativePathOut, relativePathBufferSizeInBytes);
-                                if (pResultArchive == NULL)
-                                {
-                                    easyvfs_closearchive(pChildArchive);
-                                }
+                                easyvfs_strcpy(relativePathOut, relativePathBufferSizeInBytes, path);
 
-                                return pResultArchive;
+                                easyvfs_archive* pResultArchive = easyvfs_openarchive_frompath_verbose(pChildArchive, iPathSegment.path + iPathSegment.segment.offset, accessMode, relativePathOut, relativePathBufferSizeInBytes);
+                                if (pResultArchive != NULL)
+                                {
+                                    return pResultArchive;
+                                }
+                                else
+                                {
+                                    return pChildArchive;
+                                }
                             }
                             else
                             {
@@ -519,8 +528,8 @@ easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive,
                         }
                         else
                         {
-                            // It's not an archive which means the file is not contained within this archive.
-                            return NULL;
+                            // It's not an archive.
+                            return pArchive;
                         }
                     }
                 }
@@ -535,7 +544,7 @@ easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive,
     }
 
     // If we get here the file is not contained within this archive.
-    return NULL;
+    return pArchive;
 }
 
 easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode, char* relativePathOut, unsigned int relativePathBufferSizeInBytes)
@@ -918,6 +927,9 @@ easyvfs_context* easyvfs_createcontext()
             pContext->nativeCallbacks.seekfile       = easyvfs_seekfile_impl_native;
             pContext->nativeCallbacks.tellfile       = easyvfs_tellfile_impl_native;
             pContext->nativeCallbacks.filesize       = easyvfs_filesize_impl_native;
+            pContext->nativeCallbacks.deletefile     = easyvfs_deletefile_impl_native;
+            pContext->nativeCallbacks.renamefile     = easyvfs_renamefile_impl_native;
+            pContext->nativeCallbacks.mkdir          = easyvfs_mkdir_impl_native;
         }
         else
         {
@@ -1124,6 +1136,81 @@ int easyvfs_findabsolutepath(easyvfs_context* pContext, const char* path, char* 
 }
 
 
+int easyvfs_deletefile(easyvfs_context* pContext, const char* path)
+{
+    int result = 0;
+    if (easypath_isabsolute(path))
+    {
+        if (pContext != NULL && path != NULL)
+        {
+            char relativePath[EASYVFS_MAX_PATH];
+            easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_readwrite, relativePath, EASYVFS_MAX_PATH);
+            if (pArchive != NULL)
+            {
+                result = pArchive->callbacks.deletefile(pArchive, relativePath);
+
+                easyvfs_closearchive_recursive(pArchive);
+            }
+        }
+    }
+
+    return result;
+}
+
+int easyvfs_renamefile(easyvfs_context* pContext, const char* pathOld, const char* pathNew)
+{
+    // Renaming/moving is not supported across different archives.
+
+    int result = 0;
+    if (easypath_isabsolute(pathOld) && easypath_isabsolute(pathNew))
+    {
+        if (pContext != NULL && pathOld != NULL && pathNew != NULL)
+        {
+            char relativePathOld[EASYVFS_MAX_PATH];
+            easyvfs_archive* pArchiveOld = easyvfs_openarchive_frompath(pContext, pathOld, easyvfs_readwrite, relativePathOld, EASYVFS_MAX_PATH);
+            if (pArchiveOld != NULL)
+            {
+                char relativePathNew[EASYVFS_MAX_PATH];
+                easyvfs_archive* pArchiveNew = easyvfs_openarchive_frompath(pContext, pathNew, easyvfs_readwrite, relativePathNew, EASYVFS_MAX_PATH);
+                if (pArchiveNew != NULL)
+                {
+                    if (easypath_equal(pArchiveOld->absolutePath, pArchiveNew->absolutePath))
+                    {
+                        result = pArchiveOld->callbacks.renamefile(pArchiveOld, relativePathOld, relativePathNew);
+                    }
+
+                    easyvfs_closearchive_recursive(pArchiveNew);
+                }
+
+                easyvfs_closearchive_recursive(pArchiveOld);
+            }
+        }
+    }
+
+    return result;
+}
+
+int easyvfs_mkdir(easyvfs_context* pContext, const char* path)
+{
+    int result = 0;
+    if (easypath_isabsolute(path))
+    {
+        if (pContext != NULL && path != NULL)
+        {
+            char relativePath[EASYVFS_MAX_PATH];
+            easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_readwrite, relativePath, EASYVFS_MAX_PATH);
+            if (pArchive != NULL)
+            {
+                result = pArchive->callbacks.mkdir(pArchive, relativePath);
+
+                easyvfs_closearchive_recursive(pArchive);
+            }
+        }
+    }
+
+    return result;
+}
+
 
 
 easyvfs_file* easyvfs_openfile(easyvfs_context* pContext, const char* absoluteOrRelativePath, easyvfs_accessmode accessMode)
@@ -1131,7 +1218,6 @@ easyvfs_file* easyvfs_openfile(easyvfs_context* pContext, const char* absoluteOr
     if (pContext != NULL && absoluteOrRelativePath)
     {
         char relativePath[EASYVFS_MAX_PATH];
-
         easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, absoluteOrRelativePath, easyvfs_archiveaccessmode(accessMode), relativePath, EASYVFS_MAX_PATH);
         if (pArchive != NULL)
         {
@@ -1616,6 +1702,67 @@ easyvfs_int64 easyvfs_filesize_impl_native(easyvfs_file* pFile)
     GetFileSizeEx((HANDLE)pFile->pUserData, &fileSize);
 
     return fileSize.QuadPart;
+}
+
+int easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive            != NULL);
+    assert(pArchive->pUserData != NULL);
+    assert(path                != NULL);
+
+    char fullPath[EASYVFS_MAX_PATH];
+    if (easypath_copyandappend(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
+    {
+        DWORD attributes = GetFileAttributesA(fullPath);
+        if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
+        {
+            // It's a normal file.
+            return DeleteFileA(fullPath);
+        }
+        else
+        {
+            // It's a directory.
+            return RemoveDirectoryA(fullPath);
+        }
+    }
+
+    return 0;
+}
+
+int easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
+{
+    assert(pArchive            != NULL);
+    assert(pArchive->pUserData != NULL);
+    assert(pathOld             != NULL);
+    assert(pathNew             != NULL);
+
+    // We use the "Ex" version here because we want to fail if we would have to copy the file (if the destination and target are on seperate file systems).
+    char fullPathOld[EASYVFS_MAX_PATH];
+    if (easypath_copyandappend(fullPathOld, EASYVFS_MAX_PATH, pArchive->absolutePath, pathOld))
+    {
+        char fullPathNew[EASYVFS_MAX_PATH];
+        if (easypath_copyandappend(fullPathNew, EASYVFS_MAX_PATH, pArchive->absolutePath, pathNew))
+        {
+            return MoveFileExA(fullPathOld, fullPathNew, 0);
+        }
+    }
+
+    return 0;
+}
+
+int easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive            != NULL);
+    assert(pArchive->pUserData != NULL);
+    assert(path                != NULL);
+
+    char fullPath[EASYVFS_MAX_PATH];
+    if (easypath_copyandappend(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
+    {
+        return CreateDirectoryA(fullPath, NULL);
+    }
+
+    return 0;
 }
 #endif
 

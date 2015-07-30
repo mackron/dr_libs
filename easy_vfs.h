@@ -68,6 +68,9 @@ typedef int           (* easyvfs_writefile_proc)      (easyvfs_file* pFile, cons
 typedef easyvfs_int64 (* easyvfs_seekfile_proc)       (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 typedef easyvfs_int64 (* easyvfs_tellfile_proc)       (easyvfs_file* pFile);
 typedef easyvfs_int64 (* easyvfs_filesize_proc)       (easyvfs_file* pFile);
+typedef int           (* easyvfs_deletefile_proc)     (easyvfs_archive* pArchive, const char* path);
+typedef int           (* easyvfs_renamefile_proc)     (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+typedef int           (* easyvfs_mkdir_proc)          (easyvfs_archive* pArchive, const char* path);
 
 typedef struct
 {
@@ -85,6 +88,9 @@ typedef struct
     easyvfs_seekfile_proc       seekfile;
     easyvfs_tellfile_proc       tellfile;
     easyvfs_filesize_proc       filesize;
+    easyvfs_deletefile_proc     deletefile;
+    easyvfs_renamefile_proc     renamefile;
+    easyvfs_mkdir_proc          mkdir;
 
 }easyvfs_archive_callbacks;
 
@@ -224,6 +230,21 @@ int easyvfs_getfileinfo(easyvfs_context* pContext, const char* absolutePath, eas
 /// Finds the absolute, verbose path of the given path.
 int easyvfs_findabsolutepath(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
+
+/// deletefile()
+///
+/// Must be an absolute, verbose path in order to avoid ambiguity.
+int easyvfs_deletefile(easyvfs_context* pContext, const char* path);
+
+/// renamefile()
+///
+/// Must be an absolute, verbose path in order to avoid ambiguity.
+int easyvfs_renamefile(easyvfs_context* pContext, const char* pathOld, const char* pathNew);
+
+/// mkdir()
+///
+/// Must be an absolute, verbose path in order to avoid ambiguity.
+int easyvfs_mkdir(easyvfs_context* pContext, const char* path);
 
 
 

@@ -110,6 +110,9 @@ int           easyvfs_writefile_mtl     (easyvfs_file* pFile, const void* src, u
 easyvfs_int64 easyvfs_seekfile_mtl      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 easyvfs_int64 easyvfs_tellfile_mtl      (easyvfs_file* pFile);
 easyvfs_int64 easyvfs_filesize_mtl      (easyvfs_file* pFile);
+int           easyvfs_deletefile_myl    (easyvfs_archive* pArchive, const char* path);
+int           easyvfs_renamefile_mtl    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+int           easyvfs_mkdir_mtl         (easyvfs_archive* pArchive, const char* path);
 
 void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext)
 {
@@ -128,6 +131,9 @@ void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext)
     callbacks.seekfile       = easyvfs_seekfile_mtl;
     callbacks.tellfile       = easyvfs_tellfile_mtl;
     callbacks.filesize       = easyvfs_filesize_mtl;
+    callbacks.deletefile     = easyvfs_deletefile_myl;
+    callbacks.renamefile     = easyvfs_renamefile_mtl;
+    callbacks.mkdir          = easyvfs_mkdir_mtl;
     easyvfs_registerarchivecallbacks(pContext, callbacks);
 }
 
@@ -654,6 +660,34 @@ easyvfs_int64 easyvfs_filesize_mtl(easyvfs_file* pFile)
         return pOpenedFile->sizeInBytes;
     }
 
+    return 0;
+}
+
+int easyvfs_deletefile_myl(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(path     != 0);
+
+    // No support for this at the moment because it's read-only for now.
+    return 0;
+}
+
+int easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
+{
+    assert(pArchive != 0);
+    assert(pathOld  != 0);
+    assert(pathNew  != 0);
+
+    // No support for this at the moment because it's read-only for now.
+    return 0;
+}
+
+int easyvfs_mkdir_mtl(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(path     != 0);
+
+    // MTL archives do not have the notion of folders.
     return 0;
 }
 
