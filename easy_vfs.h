@@ -298,6 +298,10 @@ void easyvfs_memcpy(void* dst, const void* src, size_t sizeInBytes);
 void easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
 
 
+// ispathchild()
+int easyvfs_ispathchild(const char* childAbsolutePath, const char* parentAbsolutePath);
+
+
 // filename()
 const char* easyvfs_filename(const char* path);
 

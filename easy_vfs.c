@@ -1399,6 +1399,46 @@ easyvfs_int64 easyvfs_filesize(easyvfs_file* pFile)
 ///////////////////////////////////////////
 // Utilities
 
+int easyvfs_ispathchild(const char* childAbsolutePath, const char* parentAbsolutePath)
+{
+#if !EASYVFS_USE_EASYPATH
+    easyvfs_pathiterator iParent = easyvfs_beginpathiteration(parentAbsolutePath);
+    easyvfs_pathiterator iChild  = easyvfs_beginpathiteration(childAbsolutePath);
+
+    while (easyvfs_nextpathsegment(&iParent))
+    {
+        if (easyvfs_nextpathsegment(&iChild))
+        {
+            // If the segment is different, the paths are different and thus it is not a descendant.
+            if (!easyvfs_pathiterators_equal(iParent, iChild))
+            {
+                return 0;
+            }
+        }
+        else
+        {
+            // The descendant is shorter which means it's impossible for it to be a descendant.
+            return 0;
+        }
+    }
+
+    // At this point we have finished iteration of the parent, which should be shorter one. We now do a couple of iterations of
+    // the child to ensure it is indeed a direct child.
+    if (easyvfs_nextpathsegment(&iChild))
+    {
+        // It could be a child. If the next iteration fails, it's a direct child and we want to return true.
+        if (!easyvfs_nextpathsegment(&iChild))
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+#else
+    return easypath_ischild(childAbsolutePath, parentAbsolutePath);
+#endif
+}
+
 const char* easyvfs_filename(const char* path)
 {
 #if !EASYVFS_USE_EASYPATH
