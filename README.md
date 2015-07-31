@@ -3,11 +3,9 @@ easy_vfs is an implementation of a virtual file system which allows you to load 
 from archives/packages (such as zip files) using a common API.
 
 Some noteworthy features:
- - Specify multiple base directories at load time and have the library automatically search
-   them when loading relative paths.
  - Supports verbose absolute paths to avoid ambiguity. For example you can specify a path
    such as "my/package.zip/file.txt"
- - Supports shortened paths by automatically scanning for supported archives/packages. The
+ - Supports shortened, transparent paths by automatically scanning for supported archives. The
    path "my/package.zip/file.txt" can be shortened to "my/file.txt", for example.
  - Fully recursive. A path such as "pack1.zip/pack2.zip/file.txt" should work just fine.
  - Easily supports custom package formats - just implement the relevant callbacks. See
@@ -17,17 +15,20 @@ Some noteworthy features:
 	  under the same licence. This is required for ZIP archive support.
 	- Optionally depends on easy_path which is used to strip away some duplicate code if
 	  your project happens to already use it (such as my projects).
- 
-The above examples use zip files, however they are not currently supported. This will
-be coming very soon.
 
+Limitations:
+ - When a file contained within a ZIP file is opened, the entire uncompressed data is loaded
+   onto the heap. Keep this in mind when working with large files.
+ - ZIP archives are read-only at the moment.
+ - Any API's that involve changing a file need to be passed a verbose, absolute path. This is
+   to ensure there is no ambiguity when choosing the relevant file. In the future there will
+   be a special base directory for write operations.
 
  
 # How to use it
 There's just a few files. Just add these to your project's source tree and you should be
-good to go. The "extras" folder contains implementations of supported package formats -
-just include the ones you want, and leave out the ones you don't. There isn't much here
-yet, but support for zip files will be coming very soon.
+good to go. The "extras" folder contains implementations of supported archive formats -
+just include the ones you want, and leave out the ones you don't.
 
 Below is an example:
 ```c
@@ -39,10 +40,10 @@ if (pVFS == NULL)
 }
 
 // Register the archive callbacks. This enables support for a particular type of
-// package. If you do not specify any packages only the native file system will be
+// archive. If you do not specify any archives only the native file system will be
 // supported.
+easyvfs_registerarchivecallbacks_zip(pVFS);	// ZIP files.
 easyvfs_registerarchivecallbacks_mtl(pVFS);	// Wavefront MTL files.
-easyvfs_registerarchivecallbacks_zip(pVFS);	// ZIP files. Not yet implemented, but coming soon.
 
 // Add your base directories for loading from relative paths. If you do not specify at
 // least one base directory you will need to load from absolute paths.
@@ -52,7 +53,7 @@ easyvfs_addbasedirectory(pVFS, "C:/My/Folder");
 ...
 
 // Open a file. A relative path was specified which means it will first check it against
-// "C:/Users/Admin", and then "C:/My/Folder" if it couldn't be found the first time.
+// "C:/Users/Admin". If it can't be found it will then check against "C:/My/Folder".
 easyvfs_file* pFile = easyvfs_openfile(pVFS, "my/file.txt", easyvfs_readwrite);
 if (pFile == NULL)
 {
@@ -67,6 +68,20 @@ easyvfs_closefile(pFile);
 // Shutdown.
 easyvfs_deletecontext(pVFS);
 ```
+
+
+# Platforms
+Currently, only Windows is supported. The platform-specific section is quite small so it
+should be quite easy to add support for other platforms.
+
+Support for Linux is coming soon.
+
+
+# TODO
+ - Add support for Linux
+ - Add support for a base directory for write operations
+ - Add support for Quake 2 PAK files, but extend it to allow longer file names.
+ - Improve ZIP files.
 
 
 # License
