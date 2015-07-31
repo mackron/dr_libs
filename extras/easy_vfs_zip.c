@@ -54,7 +54,7 @@ int           easyvfs_writefile_zip     (easyvfs_file* pFile, const void* src, u
 easyvfs_bool  easyvfs_seekfile_zip      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 easyvfs_int64 easyvfs_tellfile_zip      (easyvfs_file* pFile);
 easyvfs_int64 easyvfs_filesize_zip      (easyvfs_file* pFile);
-int           easyvfs_deletefile_myl    (easyvfs_archive* pArchive, const char* path);
+int           easyvfs_deletefile_zip    (easyvfs_archive* pArchive, const char* path);
 int           easyvfs_renamefile_zip    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
 int           easyvfs_mkdir_zip         (easyvfs_archive* pArchive, const char* path);
 
@@ -75,7 +75,7 @@ void easyvfs_registerarchivecallbacks_zip(easyvfs_context* pContext)
     callbacks.seekfile       = easyvfs_seekfile_zip;
     callbacks.tellfile       = easyvfs_tellfile_zip;
     callbacks.filesize       = easyvfs_filesize_zip;
-    callbacks.deletefile     = easyvfs_deletefile_myl;
+    callbacks.deletefile     = easyvfs_deletefile_zip;
     callbacks.renamefile     = easyvfs_renamefile_zip;
     callbacks.mkdir          = easyvfs_mkdir_zip;
     easyvfs_registerarchivecallbacks(pContext, callbacks);
@@ -128,11 +128,12 @@ void* easyvfs_openarchive_zip(easyvfs_file* pFile, easyvfs_accessmode accessMode
 
 
     mz_zip_archive* pZip = easyvfs_malloc(sizeof(mz_zip_archive));
+    memset(pZip, 0, sizeof(mz_zip_archive));
     if (pZip != NULL)
     {
         pZip->m_pRead        = easyvfs_mz_file_read_func;
         pZip->m_pIO_opaque   = pFile;
-        if (mz_zip_reader_init(pZip, pZip->m_archive_size, 0))
+        if (mz_zip_reader_init(pZip, easyvfs_filesize(pFile), 0))
         {
             // Everything is good so far...
         }
@@ -339,13 +340,15 @@ int easyvfs_readfile_zip(easyvfs_file* pFile, void* dst, unsigned int bytesToRea
     {
         if (pOpenedFile->sizeInBytes - pOpenedFile->readPointer >= bytesToRead)
         {
-            memcpy(pOpenedFile->pData + pOpenedFile->readPointer, dst, bytesToRead);
+            memcpy(dst, pOpenedFile->pData + pOpenedFile->readPointer, bytesToRead);
             pOpenedFile->readPointer += bytesToRead;
 
             if (bytesReadOut != NULL)
             {
                 *bytesReadOut = bytesToRead;
             }
+
+            return 1;
         }
         else
         {
