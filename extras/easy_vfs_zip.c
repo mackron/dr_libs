@@ -14,6 +14,10 @@ typedef struct
     /// The current index of the iterator. When this hits the file count, the iteration is finished.
     unsigned int index;
 
+    /// The directory being iterated.
+    char directoryPath[EASYVFS_MAX_PATH];
+
+
 }easyvfs_iterator_zip;
 
 typedef struct
@@ -191,17 +195,34 @@ int easyvfs_getfileinfo_zip(easyvfs_archive* pArchive, const char* path, easyvfs
 void* easyvfs_beginiteration_zip(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive != 0);
+    assert(pArchive->pUserData != NULL);
     assert(path != NULL);
 
+    mz_zip_archive* pZip = pArchive->pUserData;
+    int directoryFileIndex = mz_zip_reader_locate_file(pZip, path, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
+    if (directoryFileIndex != -1)
+    {
+        easyvfs_iterator_zip* pZipIterator = easyvfs_malloc(sizeof(easyvfs_iterator_zip));
+        if (pZipIterator != NULL)
+        {
+            pZipIterator->index = 0;
+            easyvfs_strcpy(pZipIterator->directoryPath, EASYVFS_MAX_PATH, path);
+        }
+
+        return pZipIterator;
+    }
+    
     return NULL;
 }
 
 void easyvfs_enditeration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i)
 {
     assert(pArchive != 0);
+    assert(pArchive->pUserData != NULL);
     assert(i != NULL);
 
     easyvfs_free(i->pUserData);
+    i->pUserData = NULL;
 }
 
 int easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi)
@@ -209,7 +230,41 @@ int easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, ea
     assert(pArchive != 0);
     assert(i != NULL);
 
-    (void)fi;
+    easyvfs_iterator_zip* pZipIterator = i->pUserData;
+    if (pZipIterator != NULL)
+    {
+        mz_zip_archive* pZip = pArchive->pUserData;
+
+        while (pZipIterator->index < mz_zip_reader_get_num_files(pZip))
+        {
+            unsigned int iFile = pZipIterator->index++;
+
+            char filePath[EASYVFS_MAX_PATH];
+            if (mz_zip_reader_get_filename(pZip, iFile, filePath, EASYVFS_MAX_PATH) > 0)
+            {
+                if (easyvfs_ispathchild(filePath, pZipIterator->directoryPath))
+                {
+                    if (fi != NULL)
+                    {
+                        mz_zip_archive_file_stat zipStat;
+                        if (mz_zip_reader_file_stat(pZip, iFile, &zipStat))
+                        {
+                            easyvfs_strcpy(fi->absolutePath, EASYVFS_MAX_PATH, filePath);
+                            fi->sizeInBytes      = (easyvfs_int64)zipStat.m_uncomp_size;
+                            fi->lastModifiedTime = zipStat.m_time;
+                            fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
+                            if (mz_zip_reader_is_file_a_directory(pZip, iFile))
+                            {
+                                fi->attributes |= EASYVFS_FILE_ATTRIBUTE_DIRECTORY;
+                            }
+                        }
+                    }
+
+                    return 1;
+                }
+            }
+        }
+    }
 
     return 0;
 }
@@ -282,7 +337,21 @@ int easyvfs_readfile_zip(easyvfs_file* pFile, void* dst, unsigned int bytesToRea
     easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
     if (pOpenedFile != NULL)
     {
-        (void)bytesReadOut;
+        if (pOpenedFile->sizeInBytes - pOpenedFile->readPointer >= bytesToRead)
+        {
+            memcpy(pOpenedFile->pData + pOpenedFile->readPointer, dst, bytesToRead);
+            pOpenedFile->readPointer += bytesToRead;
+
+            if (bytesReadOut != NULL)
+            {
+                *bytesReadOut = bytesToRead;
+            }
+        }
+        else
+        {
+            // Attempting to read more than is available.
+            return 0;
+        }
     }
 
     return 0;
@@ -310,8 +379,33 @@ easyvfs_bool easyvfs_seekfile_zip(easyvfs_file* pFile, easyvfs_int64 bytesToSeek
     easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
     if (pOpenedFile != NULL)
     {
-        (void)origin;
-        (void)bytesToSeek;
+        easyvfs_int64 newPos = pOpenedFile->readPointer;
+        if (origin == easyvfs_current)
+        {
+            newPos += bytesToSeek;
+        }
+        else if (origin == easyvfs_start)
+        {
+            newPos = bytesToSeek;
+        }
+        else if (origin == easyvfs_end)
+        {
+            newPos = pOpenedFile->sizeInBytes - bytesToSeek;
+        }
+        else
+        {
+            // Should never get here.
+            return 0;
+        }
+
+
+        if (newPos < 0 || newPos > pOpenedFile->sizeInBytes)
+        {
+            return 0;
+        }
+
+        pOpenedFile->readPointer = (size_t)newPos;
+        return 1;
     }
 
     return 0;
@@ -324,6 +418,7 @@ easyvfs_int64 easyvfs_tellfile_zip(easyvfs_file* pFile)
     easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
     if (pOpenedFile != NULL)
     {
+        return pOpenedFile->readPointer;
     }
 
     return 0;
@@ -336,6 +431,7 @@ easyvfs_int64 easyvfs_filesize_zip(easyvfs_file* pFile)
     easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
     if (pOpenedFile != NULL)
     {
+        return pOpenedFile->sizeInBytes;
     }
 
     return 0;
