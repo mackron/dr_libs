@@ -92,6 +92,17 @@ void easypath_tobackslashes(char* path);
 ///     If either path contains "." or "..", clean it with easypath_clean() before calling this.
 int easypath_isdescendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
 
+/// Determines whether or not the given path is a direct child of another.
+///
+/// @param childAbsolutePath [in] The absolute of the child.
+/// @param parentAbsolutePath [in] The absolute path of the parent.
+///
+/// @remarks
+///     As an example, "C:/My/Folder" is NOT a child of "C:/" - it is a descendant. Alternatively, "C:/My" IS a child of "C:/".
+///     @par
+///     If either path contains "." or "..", clean it with easypath_clean() before calling this.
+int easypath_ischild(const char* childAbsolutePath, const char* parentAbsolutePath);
+
 
 /// Finds the file name portion of the path.
 ///

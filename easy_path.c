@@ -197,6 +197,42 @@ int easypath_isdescendant(const char* descendantAbsolutePath, const char* parent
     return easypath_next(&iChild);
 }
 
+int easypath_ischild(const char* childAbsolutePath, const char* parentAbsolutePath)
+{
+    easypath_iterator iParent = easypath_begin(parentAbsolutePath);
+    easypath_iterator iChild  = easypath_begin(childAbsolutePath);
+
+    while (easypath_next(&iParent))
+    {
+        if (easypath_next(&iChild))
+        {
+            // If the segment is different, the paths are different and thus it is not a descendant.
+            if (!easypath_iterators_equal(iParent, iChild))
+            {
+                return 0;
+            }
+        }
+        else
+        {
+            // The descendant is shorter which means it's impossible for it to be a descendant.
+            return 0;
+        }
+    }
+
+    // At this point we have finished iteration of the parent, which should be shorter one. We now do a couple of iterations of
+    // the child to ensure it is indeed a direct child.
+    if (easypath_next(&iChild))
+    {
+        // It could be a child. If the next iteration fails, it's a direct child and we want to return true.
+        if (!easypath_next(&iChild))
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 
 const char* easypath_filename(const char* path)
 {
