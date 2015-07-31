@@ -107,7 +107,7 @@ void*         easyvfs_openfile_mtl      (easyvfs_archive* pArchive, const char* 
 void          easyvfs_closefile_mtl     (easyvfs_file* pFile);
 int           easyvfs_readfile_mtl      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
 int           easyvfs_writefile_mtl     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-easyvfs_int64 easyvfs_seekfile_mtl      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+easyvfs_bool  easyvfs_seekfile_mtl      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 easyvfs_int64 easyvfs_tellfile_mtl      (easyvfs_file* pFile);
 easyvfs_int64 easyvfs_filesize_mtl      (easyvfs_file* pFile);
 int           easyvfs_deletefile_mtl    (easyvfs_archive* pArchive, const char* path);
@@ -593,16 +593,14 @@ int easyvfs_writefile_mtl(easyvfs_file* pFile, const void* src, unsigned int byt
     return 0;
 }
 
-easyvfs_int64 easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
+easyvfs_bool easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
 {
     assert(pFile != 0);
 
     easyvfs_openedfile_mtl* pOpenedFile = pFile->pUserData;
     if (pOpenedFile != NULL)
     {
-        easyvfs_int64 oldPos = pOpenedFile->readPointer;
         easyvfs_int64 newPos = pOpenedFile->readPointer;
-
         if (origin == easyvfs_current)
         {
             newPos += bytesToSeek;
@@ -622,16 +620,13 @@ easyvfs_int64 easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSee
         }
 
 
-        if (newPos < 0)
+        if (newPos < 0 || newPos > pOpenedFile->sizeInBytes)
         {
-            newPos = 0;
-        }
-        if (newPos > pOpenedFile->sizeInBytes)
-        {
-            newPos = pOpenedFile->sizeInBytes;
+            return 0;
         }
 
-        return newPos - oldPos;
+        pOpenedFile->readPointer = newPos;
+        return 1;
     }
 
     return 0;

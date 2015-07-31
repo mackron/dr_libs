@@ -56,6 +56,7 @@ typedef enum
 
 
 typedef long long easyvfs_int64;
+typedef int       easyvfs_bool;
 
 typedef struct easyvfs_context  easyvfs_context;
 typedef struct easyvfs_archive  easyvfs_archive;
@@ -75,7 +76,7 @@ typedef void*         (* easyvfs_openfile_proc)       (easyvfs_archive* pArchive
 typedef void          (* easyvfs_closefile_proc)      (easyvfs_file* pFile);
 typedef int           (* easyvfs_readfile_proc)       (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
 typedef int           (* easyvfs_writefile_proc)      (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-typedef easyvfs_int64 (* easyvfs_seekfile_proc)       (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+typedef easyvfs_bool  (* easyvfs_seekfile_proc)       (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 typedef easyvfs_int64 (* easyvfs_tellfile_proc)       (easyvfs_file* pFile);
 typedef easyvfs_int64 (* easyvfs_filesize_proc)       (easyvfs_file* pFile);
 typedef int           (* easyvfs_deletefile_proc)     (easyvfs_archive* pArchive, const char* path);
@@ -271,7 +272,7 @@ int easyvfs_readfile(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, u
 int easyvfs_writefile(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
 
 /// Seeks the file pointer by the given number of bytes, relative to the specified origin.
-easyvfs_int64 easyvfs_seekfile(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+easyvfs_bool easyvfs_seekfile(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 
 /// Retrieves the current position of the file pointer.
 easyvfs_int64 easyvfs_tellfile(easyvfs_file* pFile);

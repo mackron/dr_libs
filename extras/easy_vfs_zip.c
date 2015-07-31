@@ -47,7 +47,7 @@ void*         easyvfs_openfile_zip      (easyvfs_archive* pArchive, const char* 
 void          easyvfs_closefile_zip     (easyvfs_file* pFile);
 int           easyvfs_readfile_zip      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
 int           easyvfs_writefile_zip     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-easyvfs_int64 easyvfs_seekfile_zip      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+easyvfs_bool  easyvfs_seekfile_zip      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 easyvfs_int64 easyvfs_tellfile_zip      (easyvfs_file* pFile);
 easyvfs_int64 easyvfs_filesize_zip      (easyvfs_file* pFile);
 int           easyvfs_deletefile_myl    (easyvfs_archive* pArchive, const char* path);
@@ -247,6 +247,8 @@ void* easyvfs_openfile_zip(easyvfs_archive* pArchive, const char* path, easyvfs_
                 pOpenedFile = NULL;
             }
         }
+
+        return pOpenedFile;
     }
     else
     {
@@ -301,7 +303,7 @@ int easyvfs_writefile_zip(easyvfs_file* pFile, const void* src, unsigned int byt
     return 0;
 }
 
-easyvfs_int64 easyvfs_seekfile_zip(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
+easyvfs_bool easyvfs_seekfile_zip(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
 {
     assert(pFile != 0);
 

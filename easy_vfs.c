@@ -477,7 +477,7 @@ void*         easyvfs_openfile_impl_native      (easyvfs_archive* pArchive, cons
 void          easyvfs_closefile_impl_native     (easyvfs_file* pFile);
 int           easyvfs_readfile_impl_native      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
 int           easyvfs_writefile_impl_native     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-easyvfs_int64 easyvfs_seekfile_impl_native      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+easyvfs_bool  easyvfs_seekfile_impl_native      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 easyvfs_int64 easyvfs_tellfile_impl_native      (easyvfs_file* pFile);
 easyvfs_int64 easyvfs_filesize_impl_native      (easyvfs_file* pFile);
 int           easyvfs_deletefile_impl_native    (easyvfs_archive* pArchive, const char* path);
@@ -1355,7 +1355,7 @@ int easyvfs_writefile(easyvfs_file* pFile, const void* src, unsigned int bytesTo
     return 0;
 }
 
-easyvfs_int64 easyvfs_seekfile(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
+easyvfs_bool easyvfs_seekfile(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
 {
     if (pFile != NULL)
     {
@@ -1909,7 +1909,7 @@ int easyvfs_writefile_impl_native(easyvfs_file* pFile, const void* src, unsigned
     return result;
 }
 
-easyvfs_int64 easyvfs_seekfile_impl_native(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
+easyvfs_bool easyvfs_seekfile_impl_native(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
 {
     assert(pFile != NULL);
     assert(pFile->pUserData != NULL);
@@ -1929,12 +1929,7 @@ easyvfs_int64 easyvfs_seekfile_impl_native(easyvfs_file* pFile, easyvfs_int64 by
     }
 
 
-    if (SetFilePointerEx((HANDLE)pFile->pUserData, lDistanceToMove, &lNewFilePointer, dwMoveMethod))
-    {
-        return lNewFilePointer.QuadPart;
-    }
-
-    return 0;
+    return SetFilePointerEx((HANDLE)pFile->pUserData, lDistanceToMove, &lNewFilePointer, dwMoveMethod);
 }
 
 easyvfs_int64 easyvfs_tellfile_impl_native(easyvfs_file* pFile)
