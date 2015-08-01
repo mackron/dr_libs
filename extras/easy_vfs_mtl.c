@@ -345,6 +345,9 @@ void* easyvfs_openarchive_mtl(easyvfs_file* pFile, easyvfs_accessmode accessMode
         {
             while (state.bytesRemaining > 0 || state.chunkPointer < state.chunkEnd)
             {
+                unsigned int bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
+                easyvfs_int64 newmtlOffset = state.archiveSizeInBytes - state.bytesRemaining - bytesRemainingInChunk;
+
                 if (easyvfs_mtl_loadnewmtl(&state))
                 {
                     if (state.chunkPointer[0] == ' ' || state.chunkPointer[0] == '\t')
@@ -357,9 +360,7 @@ void* easyvfs_openarchive_mtl(easyvfs_file* pFile, easyvfs_accessmode accessMode
                             {
                                 // Everything worked out. We now need to create the file and add it to our list. At this point we won't know the size. We determine
                                 // the size in a post-processing step later.
-                                unsigned int bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
-                                file.offset = state.archiveSizeInBytes - state.bytesRemaining - bytesRemainingInChunk;
-
+                                file.offset = newmtlOffset;
                                 easyvfs_mtl_addfile(mtl, &file);
                             }
                         }
@@ -557,7 +558,7 @@ int easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRea
         easyvfs_file* pArchiveFile = pFile->pArchive->pFile;
         assert(pArchiveFile != NULL);
 
-        if (pOpenedFile->readPointer + bytesToRead < pOpenedFile->sizeInBytes)
+        if (pOpenedFile->readPointer + bytesToRead <= pOpenedFile->sizeInBytes)
         {
             easyvfs_seekfile(pArchiveFile, pOpenedFile->offsetInArchive + pOpenedFile->readPointer, easyvfs_start);
             int result = easyvfs_readfile(pArchiveFile, dst, bytesToRead, bytesReadOut);
