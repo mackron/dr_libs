@@ -664,7 +664,6 @@ easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive,
         {
             if (easyvfs_appendpathiterator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
             {
-                easyvfs_fileinfo fi;
                 if (pArchive->callbacks.getfileinfo(pArchive, runningPath, &fi))
                 {
                     if ((fi.attributes & EASYVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
@@ -749,7 +748,6 @@ easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive,
             if (easyvfs_appendpathiterator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
             {
                 // Check if the path segment refers to an archive.
-                easyvfs_fileinfo fi;
                 if (pArchive->callbacks.getfileinfo(pArchive, runningPath, &fi))
                 {
                     if ((fi.attributes & EASYVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
@@ -796,7 +794,6 @@ easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive,
                 easyvfs_iterator iFile;
                 if (easyvfs_archive_beginiteration(pArchive, runningPathBase, &iFile))
                 {
-                    easyvfs_fileinfo fi;
                     while (easyvfs_archive_nextiteration(&iFile, &fi))
                     {
                         if ((fi.attributes & EASYVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
