@@ -7,6 +7,12 @@
 extern "C" {
 #endif
 
+typedef int easymtl_bool;
+typedef struct easymtl_material easymtl_material;
+
+
+/// Generates GLSL for the channel at the given index.
+easymtl_bool easymtl_channel_to_glsl(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes);
 
 
 #ifdef __cplusplus
