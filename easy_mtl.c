@@ -310,6 +310,64 @@ easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, const easymtl_p
 }
 
 
+easymtl_channel_header* easymtl_getchannelheaderbyindex(easymtl_material* pMaterial, unsigned int channelIndex)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        if (channelIndex < pHeader->channelCount)
+        {
+            easymtl_uint8* pChannelHeader = pMaterial->pRawData + pHeader->channelsOffset;
+            for (unsigned int iChannel = 0; iChannel < channelIndex; ++iChannel)
+            {
+                pChannelHeader += sizeof(easymtl_channel_header) + (sizeof(easymtl_instruction) * ((easymtl_channel_header*)pChannelHeader)->instructionCount);
+            }
+
+            return (easymtl_channel_header*)pChannelHeader;
+        }
+    }
+    
+    return NULL;
+}
+
+easymtl_channel_header* easymtl_getchannelheaderbyname(easymtl_material* pMaterial, const char* channelName)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        easymtl_uint8* pChannelHeader = pMaterial->pRawData + pHeader->channelsOffset;
+        for (unsigned int iChannel = 0; iChannel < pHeader->channelCount; ++iChannel)
+        {
+            if (strcmp(((easymtl_channel_header*)pChannelHeader)->name, channelName) == 0)
+            {
+                return (easymtl_channel_header*)pChannelHeader;
+            }
+
+            pChannelHeader += sizeof(easymtl_channel_header) + (sizeof(easymtl_instruction) * ((easymtl_channel_header*)pChannelHeader)->instructionCount);
+        }
+    }
+    
+    return NULL;
+}
+
+easymtl_identifier* easymtl_getidentifiers(easymtl_material* pMaterial)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        return (easymtl_identifier*)(pMaterial->pRawData + pHeader->identifiersOffset);
+    }
+
+    return NULL;
+}
+
+
 //////////////////////////////////
 // Private low-level API.
 
