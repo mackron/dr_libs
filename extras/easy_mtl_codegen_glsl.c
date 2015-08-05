@@ -337,6 +337,58 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_input_initializer(easymtl_co
             break;
         }
 
+
+    case easymtl_type_int:
+        {
+            return easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0);
+        }
+
+    case easymtl_type_int2:
+        {
+            if (easymtl_codegen_glsl_write(pCodegen, "ivec2("))
+            {
+                if (easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.y, pInputs + 1))
+                {
+                    return easymtl_codegen_glsl_write(pCodegen, ")");
+                }
+            }
+
+            break;
+        }
+
+    case easymtl_type_int3:
+        {
+            if (easymtl_codegen_glsl_write(pCodegen, "ivec3("))
+            {
+                if (easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.y, pInputs + 1) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.z, pInputs + 2))
+                {
+                    return easymtl_codegen_glsl_write(pCodegen, ")");
+                }
+            }
+
+            break;
+        }
+
+    case easymtl_type_int4:
+        {
+            if (easymtl_codegen_glsl_write(pCodegen, "ivec4("))
+            {
+                if (easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.y, pInputs + 1) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.z, pInputs + 2) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.w, pInputs + 3))
+                {
+                    return easymtl_codegen_glsl_write(pCodegen, ")");
+                }
+            }
+
+            break;
+        }
+
+
     default:
         {
             // Unsupported return type.
@@ -367,6 +419,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_mov(easymtl_codegen_glsl* pC
             case easymtl_opcode_movf2: type = easymtl_type_float2; break;
             case easymtl_opcode_movf3: type = easymtl_type_float3; break;
             case easymtl_opcode_movf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_movi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_movi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_movi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_movi4: type = easymtl_type_int4;   break;
             default: return 0;
             }
 
@@ -396,6 +452,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_add(easymtl_codegen_glsl* pC
             case easymtl_opcode_addf2: type = easymtl_type_float2; break;
             case easymtl_opcode_addf3: type = easymtl_type_float3; break;
             case easymtl_opcode_addf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_addi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_addi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_addi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_addi4: type = easymtl_type_int4;   break;
             default: return 0;
             }
 
@@ -425,6 +485,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_sub(easymtl_codegen_glsl* pC
             case easymtl_opcode_subf2: type = easymtl_type_float2; break;
             case easymtl_opcode_subf3: type = easymtl_type_float3; break;
             case easymtl_opcode_subf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_subi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_subi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_subi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_subi4: type = easymtl_type_int4;   break;
             default: return 0;
             }
 
@@ -454,6 +518,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_mul(easymtl_codegen_glsl* pC
             case easymtl_opcode_mulf2: type = easymtl_type_float2; break;
             case easymtl_opcode_mulf3: type = easymtl_type_float3; break;
             case easymtl_opcode_mulf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_muli1: type = easymtl_type_int;    break;
+            case easymtl_opcode_muli2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_muli3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_muli4: type = easymtl_type_int4;   break;
             default: return 0;
             }
 
@@ -483,6 +551,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_div(easymtl_codegen_glsl* pC
             case easymtl_opcode_divf2: type = easymtl_type_float2; break;
             case easymtl_opcode_divf3: type = easymtl_type_float3; break;
             case easymtl_opcode_divf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_divi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_divi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_divi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_divi4: type = easymtl_type_int4;   break;
             default: return 0;
             }
 
@@ -512,6 +584,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_pow(easymtl_codegen_glsl* pC
             case easymtl_opcode_powf2: type = easymtl_type_float2; break;
             case easymtl_opcode_powf3: type = easymtl_type_float3; break;
             case easymtl_opcode_powf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_powi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_powi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_powi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_powi4: type = easymtl_type_int4;   break;
             default: return 0;
             }
 
@@ -628,6 +704,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_ret(easymtl_codegen_glsl* pC
         case easymtl_opcode_retf2: type = easymtl_type_float2; break;
         case easymtl_opcode_retf3: type = easymtl_type_float3; break;
         case easymtl_opcode_retf4: type = easymtl_type_float4; break;
+        case easymtl_opcode_reti1: type = easymtl_type_int;    break;
+        case easymtl_opcode_reti2: type = easymtl_type_int2;   break;
+        case easymtl_opcode_reti3: type = easymtl_type_int3;   break;
+        case easymtl_opcode_reti4: type = easymtl_type_int4;   break;
         default: return 0;
         }
 
@@ -650,6 +730,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodeg
         case easymtl_opcode_movf2:
         case easymtl_opcode_movf3:
         case easymtl_opcode_movf4:
+        case easymtl_opcode_movi1:
+        case easymtl_opcode_movi2:
+        case easymtl_opcode_movi3:
+        case easymtl_opcode_movi4:
             {
                 return easymtl_codegen_glsl_write_instruction_mov(pCodegen, pInstruction);
             }
@@ -659,6 +743,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodeg
         case easymtl_opcode_addf2:
         case easymtl_opcode_addf3:
         case easymtl_opcode_addf4:
+        case easymtl_opcode_addi1:
+        case easymtl_opcode_addi2:
+        case easymtl_opcode_addi3:
+        case easymtl_opcode_addi4:
             {
                 return easymtl_codegen_glsl_write_instruction_add(pCodegen, pInstruction);
             }
@@ -667,6 +755,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodeg
         case easymtl_opcode_subf2:
         case easymtl_opcode_subf3:
         case easymtl_opcode_subf4:
+        case easymtl_opcode_subi1:
+        case easymtl_opcode_subi2:
+        case easymtl_opcode_subi3:
+        case easymtl_opcode_subi4:
             {
                 return easymtl_codegen_glsl_write_instruction_sub(pCodegen, pInstruction);
             }
@@ -675,6 +767,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodeg
         case easymtl_opcode_mulf2:
         case easymtl_opcode_mulf3:
         case easymtl_opcode_mulf4:
+        case easymtl_opcode_muli1:
+        case easymtl_opcode_muli2:
+        case easymtl_opcode_muli3:
+        case easymtl_opcode_muli4:
             {
                 return easymtl_codegen_glsl_write_instruction_mul(pCodegen, pInstruction);
             }
@@ -683,6 +779,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodeg
         case easymtl_opcode_divf2:
         case easymtl_opcode_divf3:
         case easymtl_opcode_divf4:
+        case easymtl_opcode_divi1:
+        case easymtl_opcode_divi2:
+        case easymtl_opcode_divi3:
+        case easymtl_opcode_divi4:
             {
                 return easymtl_codegen_glsl_write_instruction_div(pCodegen, pInstruction);
             }
@@ -691,6 +791,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodeg
         case easymtl_opcode_powf2:
         case easymtl_opcode_powf3:
         case easymtl_opcode_powf4:
+        case easymtl_opcode_powi1:
+        case easymtl_opcode_powi2:
+        case easymtl_opcode_powi3:
+        case easymtl_opcode_powi4:
             {
                 return easymtl_codegen_glsl_write_instruction_pow(pCodegen, pInstruction);
             }
@@ -713,6 +817,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodeg
         case easymtl_opcode_retf2:
         case easymtl_opcode_retf3:
         case easymtl_opcode_retf4:
+        case easymtl_opcode_reti1:
+        case easymtl_opcode_reti2:
+        case easymtl_opcode_reti3:
+        case easymtl_opcode_reti4:
             {
                 return easymtl_codegen_glsl_write_instruction_ret(pCodegen, pInstruction);
             }
