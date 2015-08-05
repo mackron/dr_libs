@@ -185,18 +185,15 @@ easymtl_bool easymtl_glsl_write_instruction_input_scalar(easymtl_output_string* 
     assert(pIdentifiers != NULL);
     assert(pInput       != NULL);
 
-    if (descriptor == (unsigned char)-1)
+    if (descriptor == EASYMTL_INPUT_DESC_CONSTF)
     {
-        // It's a constant.
-        if (type >= easymtl_type_float && type <= easymtl_type_float4)
-        {
-            return easymtl_write_float(pOutput, pInput->valuef);
-        }
-
-        //if (type >= easymtl_type_int && type <= easymtl_type_int4)
-        //{
-        //    return easymtl_write_float(pOutput, pInput->valuei);
-        //}
+        // It's a constant float.
+        return easymtl_write_float(pOutput, pInput->valuef);
+    }
+    else if (descriptor == EASYMTL_INPUT_DESC_CONSTI)
+    {
+        // It's a constant int.
+        return easymtl_write_int(pOutput, pInput->valuei);
     }
     else
     {
@@ -204,9 +201,9 @@ easymtl_bool easymtl_glsl_write_instruction_input_scalar(easymtl_output_string* 
         easymtl_identifier* pIdentifier = pIdentifiers + pInput->id;
         assert(pIdentifier != NULL);
 
-        if (type == easymtl_type_float)
+        if (pIdentifier->type == easymtl_type_float)
         {
-            // It's a float, so we don't want to use any selectors.
+            // The input variable is a float, so we don't want to use any selectors.
             return easymtl_write_string(pOutput, pIdentifier->name);
         }
         else
