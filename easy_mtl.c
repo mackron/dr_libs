@@ -106,7 +106,7 @@ easymtl_bool easymtl_initfromexisting_nocopy(easymtl_material* pMaterial, const 
     {
         if (pRawData != NULL && dataSizeInBytes >= sizeof(easymtl_header))
         {
-            if (((easymtl_header*)pMaterial->pRawData)->magic == EASYMTL_MAGIC_NUMBER)
+            if (((easymtl_header*)pRawData)->magic == EASYMTL_MAGIC_NUMBER)
             {
                 pMaterial->pRawData             = (void*)pRawData;
                 pMaterial->sizeInBytes          = dataSizeInBytes;
