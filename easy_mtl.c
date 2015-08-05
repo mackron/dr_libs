@@ -79,20 +79,21 @@ easymtl_bool easymtl_initfromexisting(easymtl_material* pMaterial, const void* p
     {
         if (pRawData != NULL && dataSizeInBytes >= sizeof(easymtl_header))
         {
-            pMaterial->pRawData = malloc(EASYMTL_CHUNK_SIZE);
-            if (pMaterial->pRawData != NULL)
+            if (((easymtl_header*)pMaterial->pRawData)->magic == EASYMTL_MAGIC_NUMBER)
             {
-                memcpy(pMaterial->pRawData, pRawData, dataSizeInBytes);
-                pMaterial->sizeInBytes          = dataSizeInBytes;
-                pMaterial->bufferSizeInBytes    = dataSizeInBytes;
-                pMaterial->currentStage         = EASYMTL_STAGE_COMPLETE;
-                pMaterial->currentChannelOffset = 0;
-                pMaterial->ownsRawData          = 1;
+                pMaterial->pRawData = malloc(EASYMTL_CHUNK_SIZE);
+                if (pMaterial->pRawData != NULL)
+                {
+                    memcpy(pMaterial->pRawData, pRawData, dataSizeInBytes);
+                    pMaterial->sizeInBytes          = dataSizeInBytes;
+                    pMaterial->bufferSizeInBytes    = dataSizeInBytes;
+                    pMaterial->currentStage         = EASYMTL_STAGE_COMPLETE;
+                    pMaterial->currentChannelOffset = 0;
+                    pMaterial->ownsRawData          = 1;
+
+                    return 1;
+                }
             }
-
-            
-
-            return 1;
         }
     }
 
@@ -105,14 +106,17 @@ easymtl_bool easymtl_initfromexisting_nocopy(easymtl_material* pMaterial, const 
     {
         if (pRawData != NULL && dataSizeInBytes >= sizeof(easymtl_header))
         {
-            pMaterial->pRawData             = (void*)pRawData;
-            pMaterial->sizeInBytes          = dataSizeInBytes;
-            pMaterial->bufferSizeInBytes    = dataSizeInBytes;
-            pMaterial->currentStage         = EASYMTL_STAGE_COMPLETE;
-            pMaterial->currentChannelOffset = 0;
-            pMaterial->ownsRawData          = 0;
+            if (((easymtl_header*)pMaterial->pRawData)->magic == EASYMTL_MAGIC_NUMBER)
+            {
+                pMaterial->pRawData             = (void*)pRawData;
+                pMaterial->sizeInBytes          = dataSizeInBytes;
+                pMaterial->bufferSizeInBytes    = dataSizeInBytes;
+                pMaterial->currentStage         = EASYMTL_STAGE_COMPLETE;
+                pMaterial->currentChannelOffset = 0;
+                pMaterial->ownsRawData          = 0;
 
-            return 1;
+                return 1;
+            }
         }
     }
 
