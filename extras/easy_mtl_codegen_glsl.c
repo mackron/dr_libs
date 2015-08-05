@@ -316,7 +316,7 @@ easymtl_bool easymtl_write_instruction_mov(easymtl_output_string* pOutput, easym
         default: return 0;
         }
 
-        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->mov.inputDesc, &pInstruction->mov.input0) && easymtl_write_string(pOutput, ";\n");
+        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->mov.inputDesc, &pInstruction->mov.inputX) && easymtl_write_string(pOutput, ";\n");
     }
     
     return 0;
@@ -342,7 +342,7 @@ easymtl_bool easymtl_write_instruction_add(easymtl_output_string* pOutput, easym
         default: return 0;
         }
 
-        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->add.inputDesc, &pInstruction->add.input0) && easymtl_write_string(pOutput, ";\n");
+        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->add.inputDesc, &pInstruction->add.inputX) && easymtl_write_string(pOutput, ";\n");
     }
     
     return 0;
@@ -368,7 +368,7 @@ easymtl_bool easymtl_write_instruction_sub(easymtl_output_string* pOutput, easym
         default: return 0;
         }
 
-        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->sub.inputDesc, &pInstruction->sub.input0) && easymtl_write_string(pOutput, ";\n");
+        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->sub.inputDesc, &pInstruction->sub.inputX) && easymtl_write_string(pOutput, ";\n");
     }
 
     return 0;
@@ -394,7 +394,7 @@ easymtl_bool easymtl_write_instruction_mul(easymtl_output_string* pOutput, easym
         default: return 0;
         }
 
-        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->mul.inputDesc, &pInstruction->mul.input0) && easymtl_write_string(pOutput, ";\n");
+        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->mul.inputDesc, &pInstruction->mul.inputX) && easymtl_write_string(pOutput, ";\n");
     }
 
     return 0;
@@ -420,7 +420,7 @@ easymtl_bool easymtl_write_instruction_div(easymtl_output_string* pOutput, easym
         default: return 0;
         }
 
-        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->div.inputDesc, &pInstruction->div.input0) && easymtl_write_string(pOutput, ";\n");
+        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->div.inputDesc, &pInstruction->div.inputX) && easymtl_write_string(pOutput, ";\n");
     }
 
     return 0;
@@ -446,7 +446,7 @@ easymtl_bool easymtl_write_instruction_pow(easymtl_output_string* pOutput, easym
         default: return 0;
         }
 
-        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->pow.inputDesc, &pInstruction->pow.input0) && easymtl_write_string(pOutput, ");\n");
+        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->pow.inputDesc, &pInstruction->pow.inputX) && easymtl_write_string(pOutput, ");\n");
     }
 
     return 0;
@@ -517,7 +517,7 @@ easymtl_bool easymtl_write_instruction_tex(easymtl_output_string* pOutput, easym
 
         return
             easymtl_write_string(pOutput, pTextureIdentifier->name) && easymtl_write_string(pOutput, ", ") &&
-            easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->tex.inputDesc, &pInstruction->tex.input0) && easymtl_write_string(pOutput, ");\n");
+            easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->tex.inputDesc, &pInstruction->tex.inputX) && easymtl_write_string(pOutput, ");\n");
     }
 
     return 0;
@@ -551,7 +551,7 @@ easymtl_bool easymtl_write_instruction_ret(easymtl_output_string* pOutput, easym
         default: return 0;
         }
 
-        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->ret.inputDesc, &pInstruction->ret.input0) && easymtl_write_string(pOutput, ";\n");
+        return easymtl_glsl_write_instruction_input_initializer(pOutput, type, pIdentifiers, pInstruction->ret.inputDesc, &pInstruction->ret.inputX) && easymtl_write_string(pOutput, ";\n");
     }
 
     return 0;

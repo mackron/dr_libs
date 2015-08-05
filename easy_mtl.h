@@ -258,10 +258,10 @@ typedef struct
 		struct
 		{
             easymtl_instruction_input_descriptor inputDesc;
-			easymtl_instruction_input input0;
-            easymtl_instruction_input input1;
-            easymtl_instruction_input input2;
-            easymtl_instruction_input input3;
+			easymtl_instruction_input inputX;
+            easymtl_instruction_input inputY;
+            easymtl_instruction_input inputZ;
+            easymtl_instruction_input inputW;
             unsigned int output;
 		} mov;
 		
@@ -270,10 +270,10 @@ typedef struct
         struct
         {
             easymtl_instruction_input_descriptor inputDesc;
-            easymtl_instruction_input input0;
-            easymtl_instruction_input input1;
-            easymtl_instruction_input input2;
-            easymtl_instruction_input input3;
+            easymtl_instruction_input inputX;
+            easymtl_instruction_input inputY;
+            easymtl_instruction_input inputZ;
+            easymtl_instruction_input inputW;
             unsigned int output;
         } add;
 
@@ -281,10 +281,10 @@ typedef struct
         struct
         {
             easymtl_instruction_input_descriptor inputDesc;
-            easymtl_instruction_input input0;
-            easymtl_instruction_input input1;
-            easymtl_instruction_input input2;
-            easymtl_instruction_input input3;
+            easymtl_instruction_input inputX;
+            easymtl_instruction_input inputY;
+            easymtl_instruction_input inputZ;
+            easymtl_instruction_input inputW;
             unsigned int output;
         } sub;
 
@@ -292,10 +292,10 @@ typedef struct
         struct
         {
             easymtl_instruction_input_descriptor inputDesc;
-            easymtl_instruction_input input0;
-            easymtl_instruction_input input1;
-            easymtl_instruction_input input2;
-            easymtl_instruction_input input3;
+            easymtl_instruction_input inputX;
+            easymtl_instruction_input inputY;
+            easymtl_instruction_input inputZ;
+            easymtl_instruction_input inputW;
             unsigned int output;
         } mul;
 
@@ -303,10 +303,10 @@ typedef struct
         struct
         {
             easymtl_instruction_input_descriptor inputDesc;
-            easymtl_instruction_input input0;
-            easymtl_instruction_input input1;
-            easymtl_instruction_input input2;
-            easymtl_instruction_input input3;
+            easymtl_instruction_input inputX;
+            easymtl_instruction_input inputY;
+            easymtl_instruction_input inputZ;
+            easymtl_instruction_input inputW;
             unsigned int output;
         } div;
 
@@ -314,10 +314,10 @@ typedef struct
         struct
         {
             easymtl_instruction_input_descriptor inputDesc;
-            easymtl_instruction_input input0;
-            easymtl_instruction_input input1;
-            easymtl_instruction_input input2;
-            easymtl_instruction_input input3;
+            easymtl_instruction_input inputX;
+            easymtl_instruction_input inputY;
+            easymtl_instruction_input inputZ;
+            easymtl_instruction_input inputW;
             unsigned int output;
         } pow;
 
@@ -326,10 +326,10 @@ typedef struct
         struct
         {
             easymtl_instruction_input_descriptor inputDesc;
-            easymtl_instruction_input input0;
-            easymtl_instruction_input input1;
-            easymtl_instruction_input input2;
-            easymtl_instruction_input input3;
+            easymtl_instruction_input inputX;
+            easymtl_instruction_input inputY;
+            easymtl_instruction_input inputZ;
+            easymtl_instruction_input inputW;
             unsigned int texture;
             unsigned int output;
         } tex;
@@ -339,10 +339,10 @@ typedef struct
         struct
         {
             easymtl_instruction_input_descriptor inputDesc;
-            easymtl_instruction_input input0;
-            easymtl_instruction_input input1;
-            easymtl_instruction_input input2;
-            easymtl_instruction_input input3;
+            easymtl_instruction_input inputX;
+            easymtl_instruction_input inputY;
+            easymtl_instruction_input inputZ;
+            easymtl_instruction_input inputW;
         } ret;
 
 
