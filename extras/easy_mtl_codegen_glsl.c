@@ -169,7 +169,7 @@ easymtl_bool easymtl_write_channel_function_begin(easymtl_output_string* pOutput
     assert(pChannelHeader != NULL);
 
     // <type> <name> {\n
-    return easymtl_write_type(pOutput, pChannelHeader->type) && easymtl_write_string(pOutput, " ") && easymtl_write_string(pOutput, pChannelHeader->name) && easymtl_write_string(pOutput, "() {\n");
+    return easymtl_write_type(pOutput, pChannelHeader->channel.type) && easymtl_write_string(pOutput, " ") && easymtl_write_string(pOutput, pChannelHeader->channel.name) && easymtl_write_string(pOutput, "() {\n");
 }
 
 easymtl_bool easymtl_write_channel_function_close(easymtl_output_string* pOutput)
@@ -179,7 +179,7 @@ easymtl_bool easymtl_write_channel_function_close(easymtl_output_string* pOutput
     return easymtl_write_string(pOutput, "}\n");
 }
 
-easymtl_bool easymtl_glsl_write_instruction_input_scalar(easymtl_output_string* pOutput, easymtl_type type, easymtl_identifier* pIdentifiers, unsigned char descriptor, easymtl_instruction_input* pInput)
+easymtl_bool easymtl_glsl_write_instruction_input_scalar(easymtl_output_string* pOutput, easymtl_identifier* pIdentifiers, unsigned char descriptor, easymtl_instruction_input* pInput)
 {
     assert(pOutput      != NULL);
     assert(pIdentifiers != NULL);
@@ -235,15 +235,15 @@ easymtl_bool easymtl_glsl_write_instruction_input_initializer(easymtl_output_str
     {
     case easymtl_type_float:
         {
-            return easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.x, pInputs + 0);
+            return easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.x, pInputs + 0);
         }
 
     case easymtl_type_float2:
         {
             if (easymtl_write_string(pOutput, "vec2("))
             {
-                if (easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.x, pInputs + 0) && easymtl_write_string(pOutput, ", ") &&
-                    easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.y, pInputs + 1))
+                if (easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.x, pInputs + 0) && easymtl_write_string(pOutput, ", ") &&
+                    easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.y, pInputs + 1))
                 {
                     return easymtl_write_string(pOutput, ")");
                 }
@@ -256,9 +256,9 @@ easymtl_bool easymtl_glsl_write_instruction_input_initializer(easymtl_output_str
         {
             if (easymtl_write_string(pOutput, "vec3("))
             {
-                if (easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.x, pInputs + 0) && easymtl_write_string(pOutput, ", ") &&
-                    easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.y, pInputs + 1) && easymtl_write_string(pOutput, ", ") &&
-                    easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.z, pInputs + 2))
+                if (easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.x, pInputs + 0) && easymtl_write_string(pOutput, ", ") &&
+                    easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.y, pInputs + 1) && easymtl_write_string(pOutput, ", ") &&
+                    easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.z, pInputs + 2))
                 {
                     return easymtl_write_string(pOutput, ")");
                 }
@@ -271,10 +271,10 @@ easymtl_bool easymtl_glsl_write_instruction_input_initializer(easymtl_output_str
         {
             if (easymtl_write_string(pOutput, "vec4("))
             {
-                if (easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.x, pInputs + 0) && easymtl_write_string(pOutput, ", ") &&
-                    easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.y, pInputs + 1) && easymtl_write_string(pOutput, ", ") &&
-                    easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.z, pInputs + 2) && easymtl_write_string(pOutput, ", ") &&
-                    easymtl_glsl_write_instruction_input_scalar(pOutput, type, pIdentifiers, inputDesc.w, pInputs + 3))
+                if (easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.x, pInputs + 0) && easymtl_write_string(pOutput, ", ") &&
+                    easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.y, pInputs + 1) && easymtl_write_string(pOutput, ", ") &&
+                    easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.z, pInputs + 2) && easymtl_write_string(pOutput, ", ") &&
+                    easymtl_glsl_write_instruction_input_scalar(pOutput, pIdentifiers, inputDesc.w, pInputs + 3))
                 {
                     return easymtl_write_string(pOutput, ")");
                 }

@@ -49,22 +49,22 @@ easymtl_bool easymtl_init(easymtl_material* pMaterial)
             easymtl_header* pHeader = easymtl_getheader(pMaterial);
             assert(pHeader != NULL);
 
-            pHeader->magic                  = EASYMTL_MAGIC_NUMBER;
-            pHeader->version                = EASYMTL_CURRENT_VERSION;
-            pHeader->identifierSizeInBytes  = sizeof(easymtl_identifier);
-            pHeader->inputSizeInBytes       = sizeof(easymtl_input_var);
-            pHeader->instructionSizeInBytes = sizeof(easymtl_instruction);
-            pHeader->propertySizeInBytes    = sizeof(easymtl_property);
-            pHeader->identifierCount        = 0;
-            pHeader->privateInputCount      = 0;
-            pHeader->publicInputCount       = 0;
-            pHeader->channelCount           = 0;
-            pHeader->propertyCount          = 0;
-            pHeader->identifiersOffset      = pMaterial->sizeInBytes;
-            pHeader->inputsOffset           = pMaterial->sizeInBytes;
-            pHeader->channelsOffset         = pMaterial->sizeInBytes;
-            pHeader->propertiesOffset       = pMaterial->sizeInBytes;
-            pHeader->padding0               = 0;
+            pHeader->magic                    = EASYMTL_MAGIC_NUMBER;
+            pHeader->version                  = EASYMTL_CURRENT_VERSION;
+            pHeader->identifierSizeInBytes    = sizeof(easymtl_identifier);
+            pHeader->inputSizeInBytes         = sizeof(easymtl_input);
+            pHeader->channelHeaderSizeInBytes = sizeof(easymtl_channel_header);
+            pHeader->instructionSizeInBytes   = sizeof(easymtl_instruction);
+            pHeader->propertySizeInBytes      = sizeof(easymtl_property);
+            pHeader->identifierCount          = 0;
+            pHeader->privateInputCount        = 0;
+            pHeader->publicInputCount         = 0;
+            pHeader->channelCount             = 0;
+            pHeader->propertyCount            = 0;
+            pHeader->identifiersOffset        = pMaterial->sizeInBytes;
+            pHeader->inputsOffset             = pMaterial->sizeInBytes;
+            pHeader->channelsOffset           = pMaterial->sizeInBytes;
+            pHeader->propertiesOffset         = pMaterial->sizeInBytes;
 
             return 1;
         }
@@ -184,7 +184,7 @@ easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, easymtl_ident
     return 0;
 }
 
-easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_input_var input)
+easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_input input)
 {
     if (pMaterial != NULL)
     {
@@ -223,7 +223,7 @@ easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_inp
     return 0;
 }
 
-easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_input_var input)
+easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_input input)
 {
     if (pMaterial != NULL)
     {
@@ -262,7 +262,7 @@ easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_inpu
     return 0;
 }
 
-easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel_header channelHeader)
+easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel channel)
 {
     if (pMaterial != NULL)
     {
@@ -271,7 +271,11 @@ easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel_
             easymtl_header* pHeader = easymtl_getheader(pMaterial);
             if (pHeader != NULL)
             {
-                if (pMaterial->sizeInBytes + sizeof(easymtl_channel_header) > pMaterial->bufferSizeInBytes)
+                easymtl_channel_header channelHeader;
+                channelHeader.channel         = channel;
+                channelHeader.instructionCount = 0;
+
+                if (pMaterial->sizeInBytes + pHeader->channelHeaderSizeInBytes > pMaterial->bufferSizeInBytes)
                 {
                     if (!_easymtl_inflate(pMaterial))
                     {
@@ -280,24 +284,16 @@ easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel_
                     }
                     
                     pHeader = easymtl_getheader(pMaterial);
-                    assert(pMaterial->sizeInBytes + sizeof(easymtl_channel_header) <= pMaterial->bufferSizeInBytes);
+                    assert(pMaterial->sizeInBytes + pHeader->channelHeaderSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
 
 
-                memcpy(pMaterial->pRawData + pHeader->propertiesOffset, &channelHeader, sizeof(easymtl_channel_header));
+                memcpy(pMaterial->pRawData + pHeader->propertiesOffset, &channelHeader, pHeader->channelHeaderSizeInBytes);
                 pMaterial->currentChannelOffset = pMaterial->sizeInBytes;
-                pMaterial->sizeInBytes += sizeof(easymtl_channel_header);
+                pMaterial->sizeInBytes += pHeader->channelHeaderSizeInBytes;
 
                 pHeader->channelCount     += 1;
-                pHeader->propertiesOffset += sizeof(easymtl_channel_header);
-
-
-                // Need to make sure the instruction count is initialized to 0.
-                easymtl_channel_header* pNewChannelHeader = (easymtl_channel_header*)(pMaterial->pRawData + pMaterial->currentChannelOffset);
-                if (pNewChannelHeader != NULL)
-                {
-                    pNewChannelHeader->instructionCount = 0;
-                }
+                pHeader->propertiesOffset += pHeader->channelHeaderSizeInBytes;
 
 
                 pMaterial->currentStage = EASYMTL_STAGE_CHANNELS;
@@ -421,7 +417,7 @@ easymtl_channel_header* easymtl_getchannelheaderbyname(easymtl_material* pMateri
         easymtl_uint8* pChannelHeader = pMaterial->pRawData + pHeader->channelsOffset;
         for (unsigned int iChannel = 0; iChannel < pHeader->channelCount; ++iChannel)
         {
-            if (strcmp(((easymtl_channel_header*)pChannelHeader)->name, channelName) == 0)
+            if (strcmp(((easymtl_channel_header*)pChannelHeader)->channel.name, channelName) == 0)
             {
                 return (easymtl_channel_header*)pChannelHeader;
             }
@@ -476,7 +472,7 @@ unsigned int easymtl_getpublicinputvariablecount(easymtl_material* pMaterial)
     return 0;
 }
 
-easymtl_input_var* easymtl_getpublicinputvariable(easymtl_material* pMaterial, unsigned int index)
+easymtl_input* easymtl_getpublicinputvariable(easymtl_material* pMaterial, unsigned int index)
 {
     if (pMaterial != NULL)
     {
@@ -485,7 +481,7 @@ easymtl_input_var* easymtl_getpublicinputvariable(easymtl_material* pMaterial, u
 
         if (index < pHeader->publicInputCount)
         {
-            easymtl_input_var* firstInput = (easymtl_input_var*)(pMaterial->pRawData + pHeader->inputsOffset);
+            easymtl_input* firstInput = (easymtl_input*)(pMaterial->pRawData + pHeader->inputsOffset);
             return firstInput + pHeader->privateInputCount + index;
         }
     }
@@ -567,18 +563,18 @@ easymtl_identifier easymtl_identifier_tex2d(const char* name)
 }
 
 
-easymtl_input_var easymtl_input_float(unsigned int identifierIndex, float x)
+easymtl_input easymtl_input_float(unsigned int identifierIndex, float x)
 {
-    easymtl_input_var input;
+    easymtl_input input;
     input.identifierIndex = identifierIndex;
     input.f1.x = x;
 
     return input;
 }
 
-easymtl_input_var easymtl_input_float2(unsigned int identifierIndex, float x, float y)
+easymtl_input easymtl_input_float2(unsigned int identifierIndex, float x, float y)
 {
-    easymtl_input_var input;
+    easymtl_input input;
     input.identifierIndex = identifierIndex;
     input.f2.x = x;
     input.f2.y = y;
@@ -586,9 +582,9 @@ easymtl_input_var easymtl_input_float2(unsigned int identifierIndex, float x, fl
     return input;
 }
 
-easymtl_input_var easymtl_input_float3(unsigned int identifierIndex, float x, float y, float z)
+easymtl_input easymtl_input_float3(unsigned int identifierIndex, float x, float y, float z)
 {
-    easymtl_input_var input;
+    easymtl_input input;
     input.identifierIndex = identifierIndex;
     input.f3.x = x;
     input.f3.y = y;
@@ -597,9 +593,9 @@ easymtl_input_var easymtl_input_float3(unsigned int identifierIndex, float x, fl
     return input;
 }
 
-easymtl_input_var easymtl_input_float4(unsigned int identifierIndex, float x, float y, float z, float w)
+easymtl_input easymtl_input_float4(unsigned int identifierIndex, float x, float y, float z, float w)
 {
-    easymtl_input_var input;
+    easymtl_input input;
     input.identifierIndex = identifierIndex;
     input.f3.x = x;
     input.f3.y = y;
@@ -609,9 +605,9 @@ easymtl_input_var easymtl_input_float4(unsigned int identifierIndex, float x, fl
     return input;
 }
 
-easymtl_input_var easymtl_input_tex(unsigned int identifierIndex, const char* path)
+easymtl_input easymtl_input_tex(unsigned int identifierIndex, const char* path)
 {
-    easymtl_input_var input;
+    easymtl_input input;
     input.identifierIndex = identifierIndex;
     easymtl_strcpy(input.path.value, EASYMTL_MAX_INPUT_PATH, path);
 
@@ -619,24 +615,59 @@ easymtl_input_var easymtl_input_tex(unsigned int identifierIndex, const char* pa
 }
 
 
-easymtl_channel_header easymtl_channel_float(const char* name)
+easymtl_channel easymtl_channel_float(const char* name)
 {
-    easymtl_channel_header channel;
+    easymtl_channel channel;
     channel.type = easymtl_type_float;
     easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
 
     return channel;
 }
 
-easymtl_channel_header easymtl_channel_float3(const char* name)
+easymtl_channel easymtl_channel_float2(const char* name)
 {
-    easymtl_channel_header channel;
+    easymtl_channel channel;
+    channel.type = easymtl_type_float2;
+    easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
+
+    return channel;
+}
+
+easymtl_channel easymtl_channel_float3(const char* name)
+{
+    easymtl_channel channel;
     channel.type = easymtl_type_float3;
     easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
 
     return channel;
 }
 
+easymtl_channel easymtl_channel_float4(const char* name)
+{
+    easymtl_channel channel;
+    channel.type = easymtl_type_float4;
+    easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
+
+    return channel;
+}
+
+
+easymtl_instruction easymtl_mulf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf4;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.mul.inputDesc.w   = EASYMTL_INPUT_DESC_VARW;
+    inst.mul.inputX.id     = inputIdentifierIndex;
+    inst.mul.inputY.id     = inputIdentifierIndex;
+    inst.mul.inputZ.id     = inputIdentifierIndex;
+    inst.mul.inputW.id     = inputIdentifierIndex;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
 
 easymtl_instruction easymtl_mulf4_v3c1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float w)
 {
@@ -649,6 +680,23 @@ easymtl_instruction easymtl_mulf4_v3c1(unsigned int outputIdentifierIndex, unsig
     inst.mul.inputX.id     = inputIdentifierIndex;
     inst.mul.inputY.id     = inputIdentifierIndex;
     inst.mul.inputZ.id     = inputIdentifierIndex;
+    inst.mul.inputW.valuef = w;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_mulf4_v2c2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float z, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf4;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputX.id     = inputIdentifierIndex;
+    inst.mul.inputY.id     = inputIdentifierIndex;
+    inst.mul.inputZ.valuef = z;
     inst.mul.inputW.valuef = w;
     inst.mul.output        = outputIdentifierIndex;
 
@@ -671,6 +719,25 @@ easymtl_instruction easymtl_mulf4_v1c3(unsigned int outputIdentifierIndex, unsig
 
     return inst;
 }
+
+easymtl_instruction easymtl_mulf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf4;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputX.valuef = x;
+    inst.mul.inputY.valuef = y;
+    inst.mul.inputZ.valuef = z;
+    inst.mul.inputW.valuef = w;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+
 
 easymtl_instruction easymtl_tex2(unsigned int outputIdentifierIndex, unsigned int textureIdentifierIndex, unsigned int texcoordIdentifierIndex)
 {
@@ -705,6 +772,18 @@ easymtl_instruction easymtl_retf1(unsigned int identifierIndex)
     return inst;
 }
 
+easymtl_instruction easymtl_retf2(unsigned int identifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_retf2;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.ret.inputX.id = identifierIndex;
+    inst.ret.inputY.id = identifierIndex;
+
+    return inst;
+}
+
 easymtl_instruction easymtl_retf3(unsigned int identifierIndex)
 {
     easymtl_instruction inst;
@@ -712,9 +791,25 @@ easymtl_instruction easymtl_retf3(unsigned int identifierIndex)
     inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
     inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
     inst.ret.inputDesc.z = EASYMTL_INPUT_DESC_VARZ;
-    inst.ret.inputX.id = identifierIndex; 
-    inst.ret.inputY.id = identifierIndex; 
-    inst.ret.inputZ.id = identifierIndex; 
+    inst.ret.inputX.id = identifierIndex;
+    inst.ret.inputY.id = identifierIndex;
+    inst.ret.inputZ.id = identifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_retf4(unsigned int identifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_retf4;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.ret.inputDesc.z = EASYMTL_INPUT_DESC_VARZ;
+    inst.ret.inputDesc.w = EASYMTL_INPUT_DESC_VARW;
+    inst.ret.inputX.id = identifierIndex;
+    inst.ret.inputY.id = identifierIndex;
+    inst.ret.inputZ.id = identifierIndex;
+    inst.ret.inputW.id = identifierIndex;
 
     return inst;
 }
