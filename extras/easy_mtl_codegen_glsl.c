@@ -697,6 +697,275 @@ easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const cha
     return 0;
 }
 
+
+
+typedef struct
+{
+    /// The output buffer. Can be null, in which case nothing is written.
+    char* pBufferOut;
+
+    /// The size of the output buffer.
+    unsigned int bufferOutSizeInBytes;
+
+    /// The current length of the string copied to the output buffer.
+    unsigned int runningLength;
+
+
+    /// A pointer to the material that is being used as the source of the code generation.
+    easymtl_material* pMaterial;
+
+    /// A pointer to the buffer containing the material's identifiers.
+    easymtl_identifier* pIdentifiers;
+
+    /// The number of identifiers.
+    unsigned int identifierCount;
+
+
+} easymtl_codegen_glsl;
+
+easymtl_bool easymtl_codegen_glsl_write(easymtl_codegen_glsl* pCodegen, const char* src)
+{
+    assert(pCodegen != NULL);
+    assert(src      != NULL);
+
+    if (pCodegen->pBufferOut != NULL)
+    {
+        unsigned int dstSizeInBytes = (pCodegen->bufferOutSizeInBytes - pCodegen->runningLength);
+        while (dstSizeInBytes > 0 && src[0] != '\0')
+        {
+            pCodegen->pBufferOut[pCodegen->runningLength + 0] = src[0];
+
+            pCodegen->runningLength += 1;
+            src += 1;
+            dstSizeInBytes -= 1;
+        }
+
+        if (dstSizeInBytes > 0)
+        {
+            // There's enough room for the null terminator which means there was enough room in the buffer. All good.
+            pCodegen->pBufferOut[pCodegen->runningLength] = '\0';
+            return 1;
+        }
+        else
+        {
+            // There's not enough room for the null terminator which means there was NOT enough room in the buffer. Error.
+            return 0;
+        }
+    }
+    else
+    {
+        // We're just measuring.
+        pCodegen->runningLength += strlen(src);
+        return 1;
+    }
+}
+
+easymtl_bool easymtl_codegen_glsl_write_float(easymtl_codegen_glsl* pCodegen, float src)
+{
+    assert(pCodegen != NULL);
+
+    char str[32];
+    snprintf(str, 32, "%f", src);
+
+    return easymtl_codegen_glsl_write(pCodegen, str);
+}
+
+easymtl_bool easymtl_codegen_glsl_write_int(easymtl_codegen_glsl* pCodegen, int src)
+{
+    assert(pCodegen != NULL);
+
+    char str[32];
+    snprintf(str, 32, "%d", src);
+
+    return easymtl_codegen_glsl_write(pCodegen, str);
+}
+
+easymtl_bool easymtl_codegen_glsl_write_type(easymtl_codegen_glsl* pCodegen, easymtl_type type)
+{
+    assert(pCodegen != NULL);
+
+    switch (type)
+    {
+    case easymtl_type_float:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "float"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_float2:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "vec2"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_float3:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "vec3"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_float4:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "vec4"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+
+    case easymtl_type_int:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "int"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_int2:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "ivec2"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_int3:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "ivec3"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_int4:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "ivec4"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+
+    case easymtl_type_tex1d:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "sampler1D"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_tex2d:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "sampler2D"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_tex3d:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "sampler3D"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_texcube:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "samplerCube"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+
+    default:
+        {
+            // Unsupported return type.
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+easymtl_bool easymtl_codegen_glsl_uniform(easymtl_codegen_glsl* pCodegen, easymtl_input* pInput)
+{
+    assert(pCodegen != NULL);
+    assert(pInput   != NULL);
+
+    if (pInput->identifierIndex < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pIdentifier = pCodegen->pIdentifiers + pInput->identifierIndex;
+        assert(pIdentifier != NULL);
+
+        // uniform <type> <name>;
+        return
+            easymtl_codegen_glsl_write(pCodegen, "uniform ") &&
+            easymtl_codegen_glsl_write_type(pCodegen, pIdentifier->type) &&
+            easymtl_codegen_glsl_write(pCodegen, " ") &&
+            easymtl_codegen_glsl_write(pCodegen, pIdentifier->name) &&
+            easymtl_codegen_glsl_write(pCodegen, ";\n");
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* codeOut, unsigned int codeSizeInBytes, unsigned int* pBytesWritteOut)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_codegen_glsl codegen;
+        codegen.pBufferOut           = codeOut;
+        codegen.bufferOutSizeInBytes = codeSizeInBytes;
+        codegen.runningLength        = 0;
+        codegen.pMaterial            = pMaterial;
+        codegen.pIdentifiers         = easymtl_getidentifiers(pMaterial);
+        codegen.identifierCount      = easymtl_getidentifiercount(pMaterial);
+
+        unsigned int inputCount = easymtl_getpublicinputvariablecount(pMaterial);
+        for (unsigned int iInput = 0; iInput < inputCount; ++iInput)
+        {
+            easymtl_input* pInput = easymtl_getpublicinputvariable(pMaterial, iInput);
+            assert(pInput != NULL);
+
+            if (!easymtl_codegen_glsl_uniform(&codegen, pInput))
+            {
+                // There was an error writing one of the uniforms. Return false.
+                return 0;
+            }
+        }
+
+
+        if (pBytesWritteOut != NULL)
+        {
+            *pBytesWritteOut = codegen.runningLength + 1;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
 /*
 This is free and unencumbered software released into the public domain.
 

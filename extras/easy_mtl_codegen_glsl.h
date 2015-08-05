@@ -11,8 +11,11 @@ typedef int easymtl_bool;
 typedef struct easymtl_material easymtl_material;
 
 
-/// Generates GLSL for the channel at the given index.
+/// Generates GLSL code for the channel with the given name.
 easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes);
+
+/// Generates GLSL code for the uniform variables as defined by the material's public input variables.
+easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* codeOut, unsigned int codeSizeInBytes, unsigned int* pBytesWritteOut);
 
 
 #ifdef __cplusplus
