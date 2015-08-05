@@ -453,12 +453,10 @@ easymtl_bool easymtl_wavefront_parse(easymtl_wavefront* pWavefront)
     return 0;
 }
 
-easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wavefront* pWavefront)
+easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wavefront* pWavefront, const char* texcoordInputName)
 {
     assert(pMaterial  != NULL);
     assert(pWavefront != NULL);
-
-    const char* texCoordName = "FS_TexCoord";
 
     unsigned int texCoordID;    // Private input for texture coordinates.
     unsigned int diffuseID;
@@ -476,7 +474,7 @@ easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wave
 
     
     // Identifiers.
-    easymtl_appendidentifier(pMaterial, easymtl_identifier_float2(texCoordName), &texCoordID);
+    easymtl_appendidentifier(pMaterial, easymtl_identifier_float2(texcoordInputName), &texCoordID);
     easymtl_appendidentifier(pMaterial, easymtl_identifier_float3("DiffuseColor"), &diffuseID);
     easymtl_appendidentifier(pMaterial, easymtl_identifier_float3("SpecularColor"), &specularID);
     easymtl_appendidentifier(pMaterial, easymtl_identifier_float("SpecularExponent"), &specularExponentID);
@@ -574,7 +572,7 @@ easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wave
 }
 
 
-easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes)
+easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName)
 {
     if (pMaterial != NULL && mtlData != NULL && mtlDataSizeInBytes > 0)
     {
@@ -596,7 +594,7 @@ easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const ch
 
             if (easymtl_wavefront_parse(&wavefront))
             {
-                if (easymtl_wavefront_compile(pMaterial, &wavefront))
+                if (easymtl_wavefront_compile(pMaterial, &wavefront, texcoordInputName))
                 {
                     return 1;
                 }

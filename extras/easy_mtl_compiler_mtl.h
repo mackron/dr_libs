@@ -20,7 +20,10 @@ typedef struct easymtl_material easymtl_material;
 ///     @par
 ///     This will initialize the material, so ensure that you have not already initialized it before calling this. If this
 ///     returns successfully, call easymtl_uninit() to uninitialize the material.
-easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes);
+///     @par
+///     MTL files require texture coordinates in order to know how to select the appropriate sample from textures. The
+///     of the variable to use is specified in "texcoordInputName", and assumed to have at least 2 components (x and y).
+easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName);
 
 
 #ifdef __cplusplus
