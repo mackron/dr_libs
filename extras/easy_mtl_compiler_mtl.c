@@ -135,10 +135,22 @@ easymtl_bool easymtl_wavefront_atof(const char* str, const char* strEnd, const c
 easymtl_bool easymtl_wavefront_atof_3(const char* str, const char* strEnd, const char** strEndOut, float valueOut[3])
 {
     float value[3];
-    if (easymtl_wavefront_atof(str, strEnd, &str,      &value[0]) &&
-        easymtl_wavefront_atof(str, strEnd, &str,      &value[1]) &&
-        easymtl_wavefront_atof(str, strEnd, strEndOut, &value[2]))
+    if (easymtl_wavefront_atof(str, strEnd, &str, &value[0]))
     {
+        value[1] = value[0];
+        value[2] = value[0];
+
+        if (easymtl_wavefront_atof(str, strEnd, &str, &value[1]))
+        {
+            // We got two numbers which means we must have the third for this to be successful.
+            if (!easymtl_wavefront_atof(str, strEnd, strEndOut, &value[2]))
+            {
+                // Failed to get the third number. We only found 2 which is not valid. Error.
+                return 0;
+            }
+        }
+        
+
         valueOut[0] = value[0];
         valueOut[1] = value[1];
         valueOut[2] = value[2];
