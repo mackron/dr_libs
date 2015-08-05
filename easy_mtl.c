@@ -13,6 +13,7 @@
 #define EASYMTL_STAGE_PUBLIC_INPUTS     2
 #define EASYMTL_STAGE_CHANNELS          3
 #define EASYMTL_STAGE_PROPERTIES        4
+#define EASYMTL_STAGE_COMPLETE          UINT_MAX
 
 
 /// Inflates the materials data buffer by EASYMTL_CHUNK_SIZE.
@@ -32,6 +33,7 @@ easymtl_bool easymtl_init(easymtl_material* pMaterial)
             pMaterial->bufferSizeInBytes    = EASYMTL_CHUNK_SIZE;
             pMaterial->currentStage         = EASYMTL_STAGE_IDS;
             pMaterial->currentChannelOffset = 0;
+            pMaterial->ownsRawData          = 1;
 
             easymtl_header* pHeader = easymtl_getheader(pMaterial);
             assert(pHeader != NULL);
@@ -52,6 +54,52 @@ easymtl_bool easymtl_init(easymtl_material* pMaterial)
             pHeader->channelsOffset         = pMaterial->sizeInBytes;
             pHeader->propertiesOffset       = pMaterial->sizeInBytes;
             pHeader->padding0               = 0;
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_initfromexisting(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes)
+{
+    if (pMaterial != NULL)
+    {
+        if (pRawData != NULL && dataSizeInBytes >= sizeof(easymtl_header))
+        {
+            pMaterial->pRawData = malloc(EASYMTL_CHUNK_SIZE);
+            if (pMaterial->pRawData != NULL)
+            {
+                memcpy(pMaterial->pRawData, pRawData, dataSizeInBytes);
+                pMaterial->sizeInBytes          = dataSizeInBytes;
+                pMaterial->bufferSizeInBytes    = dataSizeInBytes;
+                pMaterial->currentStage         = EASYMTL_STAGE_COMPLETE;
+                pMaterial->currentChannelOffset = 0;
+                pMaterial->ownsRawData          = 1;
+            }
+
+            
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_initfromexisting_nocopy(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes)
+{
+    if (pMaterial != NULL)
+    {
+        if (pRawData != NULL && dataSizeInBytes >= sizeof(easymtl_header))
+        {
+            pMaterial->pRawData             = (void*)pRawData;
+            pMaterial->sizeInBytes          = dataSizeInBytes;
+            pMaterial->bufferSizeInBytes    = dataSizeInBytes;
+            pMaterial->currentStage         = EASYMTL_STAGE_COMPLETE;
+            pMaterial->currentChannelOffset = 0;
+            pMaterial->ownsRawData          = 0;
 
             return 1;
         }
@@ -98,6 +146,7 @@ easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, const easymtl
                         return 0;
                     }
                     
+                    pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->identifierSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
                 
@@ -135,6 +184,7 @@ easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, const easym
                         return 0;
                     }
                     
+                    pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->inputSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
 
@@ -173,6 +223,7 @@ easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, const easymt
                         return 0;
                     }
                     
+                    pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->inputSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
 
@@ -211,6 +262,7 @@ easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, const easymtl_ch
                         return 0;
                     }
                     
+                    pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + sizeof(easymtl_channel_header) <= pMaterial->bufferSizeInBytes);
                 }
 
@@ -221,6 +273,14 @@ easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, const easymtl_ch
 
                 pHeader->channelCount     += 1;
                 pHeader->propertiesOffset += sizeof(easymtl_channel_header);
+
+
+                // Need to make sure the instruction count is initialized to 0.
+                easymtl_channel_header* pNewChannelHeader = (easymtl_channel_header*)(pMaterial->pRawData + pMaterial->currentChannelOffset);
+                if (pNewChannelHeader != NULL)
+                {
+                    pNewChannelHeader->instructionCount = 0;
+                }
 
 
                 pMaterial->currentStage = EASYMTL_STAGE_CHANNELS;
@@ -249,6 +309,7 @@ easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, const easymt
                         return 0;
                     }
                     
+                    pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->instructionSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
 
@@ -290,6 +351,7 @@ easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, const easymtl_p
                         return 0;
                     }
                     
+                    pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->propertySizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
 
@@ -367,6 +429,53 @@ easymtl_identifier* easymtl_getidentifiers(easymtl_material* pMaterial)
     return NULL;
 }
 
+easymtl_identifier* easymtl_getidentifier(easymtl_material* pMaterial, unsigned int index)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        if (index < pHeader->identifierCount)
+        {
+            easymtl_identifier* firstIdentifier = (easymtl_identifier*)(pMaterial->pRawData + pHeader->identifiersOffset);
+            return firstIdentifier + index;
+        }
+    }
+
+    return NULL;
+}
+
+unsigned int easymtl_getpublicinputvariablecount(easymtl_material* pMaterial)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        return pHeader->publicInputCount;
+    }
+
+    return 0;
+}
+
+easymtl_input_var* easymtl_getpublicinputvariable(easymtl_material* pMaterial, unsigned int index)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        if (index < pHeader->publicInputCount)
+        {
+            easymtl_input_var* firstInput = (easymtl_input_var*)(pMaterial->pRawData + pHeader->inputsOffset);
+            return firstInput + pHeader->privateInputCount + index;
+        }
+    }
+
+    return NULL;
+}
+
 
 //////////////////////////////////
 // Private low-level API.
@@ -380,6 +489,7 @@ easymtl_bool _easymtl_inflate(easymtl_material* pMaterial)
     if (pNewBuffer != NULL)
     {
         memcpy(pNewBuffer, pOldBuffer, pMaterial->sizeInBytes);
+        pMaterial->pRawData = pNewBuffer;
         pMaterial->bufferSizeInBytes += EASYMTL_CHUNK_SIZE;
 
         free(pOldBuffer);
