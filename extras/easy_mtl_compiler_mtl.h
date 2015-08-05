@@ -1,9 +1,33 @@
 // Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
 
-#include "easy_mtl_loader_mtl.h"
-#include "../easy_mtl.h"
+#ifndef __easy_mtl_compiler_mtl_h_
+#define __easy_mtl_compiler_mtl_h_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef int easymtl_bool;
+typedef struct easymtl_material easymtl_material;
+
+/// Compiles a Wavefront MTL file.
+///
+/// @param pMaterial [in] A pointer to the destination material.
+///
+/// @remarks
+///     This will compile the material at the first occurance of the "newmtl" statement, and will end at either the next
+///     occurance of "newmtl" of when the input buffer has been exhausted.
+///     @par
+///     This will initialize the material, so ensure that you have not already initialized it before calling this. If this
+///     returns successfully, call easymtl_uninit() to uninitialize the material.
+easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes);
 
 
+#ifdef __cplusplus
+}
+#endif
+
+#endif
 
 /*
 This is free and unencumbered software released into the public domain.

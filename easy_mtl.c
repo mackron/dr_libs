@@ -5,6 +5,17 @@
 #include <string.h>
 #include <assert.h>
 
+
+// Platform detection
+#if   !defined(EASYMTL_PLATFORM_WINDOWS) && (defined(__WIN32__) || defined(_WIN32) || defined(_WIN64))
+#define EASYMTL_PLATFORM_WINDOWS
+#elif !defined(EASFMTL_PLATFORM_LINUX)   &&  defined(__linux__)
+#define EASYMTL_PLATFORM_LINUX
+#elif !defined(EASYMTL_PLATFORM_MAC)     && (defined(__APPLE__) && defined(__MACH__))
+#define	EASYMTL_PLATFORM_MAC
+#endif
+
+
 // When constructing the material's raw data, memory allocated in blocks of this amount. This must be at least 256.
 #define EASYMTL_CHUNK_SIZE              512     // NOTE: Intentionally small for now to ensure we hit the inflation branch during testing. Increase later.
 
@@ -129,9 +140,9 @@ easymtl_header* easymtl_getheader(easymtl_material* pMaterial)
 }
 
 
-easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, const easymtl_identifier* pIdentifier)
+easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, easymtl_identifier identifier, unsigned int* indexOut)
 {
-    if (pMaterial != NULL && pIdentifier != NULL)
+    if (pMaterial != NULL)
     {
         if (pMaterial->currentStage <= EASYMTL_STAGE_IDS)
         {
@@ -151,13 +162,19 @@ easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, const easymtl
                 }
                 
 
-                memcpy(pMaterial->pRawData + pHeader->inputsOffset, pIdentifier, pHeader->identifierSizeInBytes);
+                memcpy(pMaterial->pRawData + pHeader->inputsOffset, &identifier, pHeader->identifierSizeInBytes);
                 pMaterial->sizeInBytes += pHeader->identifierSizeInBytes;
                 
                 pHeader->identifierCount  += 1;
                 pHeader->inputsOffset     += pHeader->identifierSizeInBytes;
                 pHeader->channelsOffset   += pHeader->identifierSizeInBytes;
                 pHeader->propertiesOffset += pHeader->identifierSizeInBytes;
+
+
+                if (indexOut != NULL)
+                {
+                    *indexOut = pHeader->identifierCount - 1;
+                }
 
                 return 1;
             }
@@ -167,9 +184,9 @@ easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, const easymtl
     return 0;
 }
 
-easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, const easymtl_input_var* pInput)
+easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_input_var input)
 {
-    if (pMaterial != NULL && pInput != NULL)
+    if (pMaterial != NULL)
     {
         if (pMaterial->currentStage <= EASYMTL_STAGE_PRIVATE_INPUTS)
         {
@@ -189,7 +206,7 @@ easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, const easym
                 }
 
 
-                memcpy(pMaterial->pRawData + pHeader->channelsOffset, pInput, pHeader->inputSizeInBytes);
+                memcpy(pMaterial->pRawData + pHeader->channelsOffset, &input, pHeader->inputSizeInBytes);
                 pMaterial->sizeInBytes += pHeader->inputSizeInBytes;
 
                 pHeader->privateInputCount += 1;
@@ -206,9 +223,9 @@ easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, const easym
     return 0;
 }
 
-easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, const easymtl_input_var* pInput)
+easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_input_var input)
 {
-    if (pMaterial != NULL && pInput != NULL)
+    if (pMaterial != NULL)
     {
         if (pMaterial->currentStage <= EASYMTL_STAGE_PUBLIC_INPUTS)
         {
@@ -228,7 +245,7 @@ easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, const easymt
                 }
 
 
-                memcpy(pMaterial->pRawData + pHeader->channelsOffset, pInput, pHeader->inputSizeInBytes);
+                memcpy(pMaterial->pRawData + pHeader->channelsOffset, &input, pHeader->inputSizeInBytes);
                 pMaterial->sizeInBytes += pHeader->inputSizeInBytes;
 
                 pHeader->publicInputCount  += 1;
@@ -245,9 +262,9 @@ easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, const easymt
     return 0;
 }
 
-easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, const easymtl_channel_header* pChannelHeader)
+easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel_header channelHeader)
 {
-    if (pMaterial != NULL && pChannelHeader != NULL)
+    if (pMaterial != NULL)
     {
         if (pMaterial->currentStage <= EASYMTL_STAGE_CHANNELS)
         {
@@ -267,7 +284,7 @@ easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, const easymtl_ch
                 }
 
 
-                memcpy(pMaterial->pRawData + pHeader->propertiesOffset, pChannelHeader, sizeof(easymtl_channel_header));
+                memcpy(pMaterial->pRawData + pHeader->propertiesOffset, &channelHeader, sizeof(easymtl_channel_header));
                 pMaterial->currentChannelOffset = pMaterial->sizeInBytes;
                 pMaterial->sizeInBytes += sizeof(easymtl_channel_header);
 
@@ -292,9 +309,9 @@ easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, const easymtl_ch
     return 0;
 }
 
-easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, const easymtl_instruction* pInstruction)
+easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, easymtl_instruction instruction)
 {
-    if (pMaterial != NULL && pInstruction != NULL)
+    if (pMaterial != NULL)
     {
         if (pMaterial->currentStage == EASYMTL_STAGE_CHANNELS)
         {
@@ -314,7 +331,7 @@ easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, const easymt
                 }
 
 
-                memcpy(pMaterial->pRawData + pHeader->propertiesOffset, pInstruction, pHeader->instructionSizeInBytes);
+                memcpy(pMaterial->pRawData + pHeader->propertiesOffset, &instruction, pHeader->instructionSizeInBytes);
                 pMaterial->sizeInBytes += pHeader->instructionSizeInBytes;
 
                 easymtl_channel_header* pChannelHeader = (easymtl_channel_header*)(pMaterial->pRawData + pMaterial->currentChannelOffset);
@@ -334,9 +351,9 @@ easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, const easymt
     return 0;
 }
 
-easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, const easymtl_property* pProperty)
+easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, easymtl_property prop)
 {
-    if (pMaterial != NULL && pProperty != NULL)
+    if (pMaterial != NULL)
     {
         if (pMaterial->currentStage <= EASYMTL_STAGE_PRIVATE_INPUTS)
         {
@@ -356,7 +373,7 @@ easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, const easymtl_p
                 }
 
 
-                memcpy(pMaterial->pRawData + pMaterial->sizeInBytes, pProperty, pHeader->propertySizeInBytes);
+                memcpy(pMaterial->pRawData + pMaterial->sizeInBytes, &prop, pHeader->propertySizeInBytes);
                 pMaterial->sizeInBytes += pHeader->propertySizeInBytes;
 
                 pHeader->propertyCount += 1;
@@ -497,6 +514,258 @@ easymtl_bool _easymtl_inflate(easymtl_material* pMaterial)
     }
 
     return 0;
+}
+
+
+
+////////////////////////////////////////////////////////
+// Mid-Level APIs
+
+easymtl_identifier easymtl_identifier_float(const char* name)
+{
+    easymtl_identifier identifier;
+    identifier.type = easymtl_type_float;
+    easymtl_strcpy(identifier.name, EASYMTL_MAX_IDENTIFIER_NAME, name);
+
+    return identifier;
+}
+
+easymtl_identifier easymtl_identifier_float2(const char* name)
+{
+    easymtl_identifier identifier;
+    identifier.type = easymtl_type_float2;
+    easymtl_strcpy(identifier.name, EASYMTL_MAX_IDENTIFIER_NAME, name);
+
+    return identifier;
+}
+
+easymtl_identifier easymtl_identifier_float3(const char* name)
+{
+    easymtl_identifier identifier;
+    identifier.type = easymtl_type_float3;
+    easymtl_strcpy(identifier.name, EASYMTL_MAX_IDENTIFIER_NAME, name);
+
+    return identifier;
+}
+
+easymtl_identifier easymtl_identifier_float4(const char* name)
+{
+    easymtl_identifier identifier;
+    identifier.type = easymtl_type_float4;
+    easymtl_strcpy(identifier.name, EASYMTL_MAX_IDENTIFIER_NAME, name);
+
+    return identifier;
+}
+
+easymtl_identifier easymtl_identifier_tex2d(const char* name)
+{
+    easymtl_identifier identifier;
+    identifier.type = easymtl_type_tex2d;
+    easymtl_strcpy(identifier.name, EASYMTL_MAX_IDENTIFIER_NAME, name);
+
+    return identifier;
+}
+
+
+easymtl_input_var easymtl_input_float(unsigned int identifierIndex, float x)
+{
+    easymtl_input_var input;
+    input.identifierIndex = identifierIndex;
+    input.f1.x = x;
+
+    return input;
+}
+
+easymtl_input_var easymtl_input_float2(unsigned int identifierIndex, float x, float y)
+{
+    easymtl_input_var input;
+    input.identifierIndex = identifierIndex;
+    input.f2.x = x;
+    input.f2.y = y;
+
+    return input;
+}
+
+easymtl_input_var easymtl_input_float3(unsigned int identifierIndex, float x, float y, float z)
+{
+    easymtl_input_var input;
+    input.identifierIndex = identifierIndex;
+    input.f3.x = x;
+    input.f3.y = y;
+    input.f3.z = z;
+
+    return input;
+}
+
+easymtl_input_var easymtl_input_float4(unsigned int identifierIndex, float x, float y, float z, float w)
+{
+    easymtl_input_var input;
+    input.identifierIndex = identifierIndex;
+    input.f3.x = x;
+    input.f3.y = y;
+    input.f3.z = z;
+    input.f4.w = w;
+
+    return input;
+}
+
+easymtl_input_var easymtl_input_tex(unsigned int identifierIndex, const char* path)
+{
+    easymtl_input_var input;
+    input.identifierIndex = identifierIndex;
+    easymtl_strcpy(input.path.value, EASYMTL_MAX_INPUT_PATH, path);
+
+    return input;
+}
+
+
+easymtl_channel_header easymtl_channel_float(const char* name)
+{
+    easymtl_channel_header channel;
+    channel.type = easymtl_type_float;
+    easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
+
+    return channel;
+}
+
+easymtl_channel_header easymtl_channel_float3(const char* name)
+{
+    easymtl_channel_header channel;
+    channel.type = easymtl_type_float3;
+    easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
+
+    return channel;
+}
+
+
+easymtl_instruction easymtl_mulf4_v3c1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf4;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.mul.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputX.id     = inputIdentifierIndex;
+    inst.mul.inputY.id     = inputIdentifierIndex;
+    inst.mul.inputZ.id     = inputIdentifierIndex;
+    inst.mul.inputW.valuef = w;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_mulf4_v1c3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float y, float z, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf4;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputX.id     = inputIdentifierIndex;
+    inst.mul.inputY.valuef = y;
+    inst.mul.inputZ.valuef = z;
+    inst.mul.inputW.valuef = w;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_tex2(unsigned int outputIdentifierIndex, unsigned int textureIdentifierIndex, unsigned int texcoordIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_tex2;
+    inst.tex.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.tex.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.tex.inputX.id   = texcoordIdentifierIndex;
+    inst.tex.inputY.id   = texcoordIdentifierIndex;
+    inst.tex.texture     = textureIdentifierIndex;
+    inst.tex.output      = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_var(unsigned int identifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_var;
+    inst.var.identifierIndex = identifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_retf1(unsigned int identifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_retf1;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.ret.inputX.id = identifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_retf3(unsigned int identifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_retf3;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.ret.inputDesc.z = EASYMTL_INPUT_DESC_VARZ;
+    inst.ret.inputX.id = identifierIndex; 
+    inst.ret.inputY.id = identifierIndex; 
+    inst.ret.inputZ.id = identifierIndex; 
+
+    return inst;
+}
+
+
+easymtl_property easymtl_property_bool(const char* name, easymtl_bool value)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_bool;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.b1.x = value;
+
+    return prop;
+}
+
+easymtl_property easymtl_property_float(const char* name, float value)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_float;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.f1.x = value;
+
+    return prop;
+}
+
+
+
+
+////////////////////////////////////////////////////////
+// Utilities
+
+// strcpy()
+void easymtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
+{
+#if defined(EASYMTL_PLATFORM_WINDOWS)
+    strcpy_s(dst, dstSizeInBytes, src);
+#else
+    while (dstSizeInBytes > 0 && src[0] != '\0')
+    {
+        dst[0] = src[0];
+
+        dst += 1;
+        src += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0)
+    {
+        dst[0] = '\0';
+    }
+#endif
 }
 
 

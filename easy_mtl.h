@@ -7,14 +7,16 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
+
 #if defined(_MSC_VER)
     #pragma warning(push)
     #pragma warning(disable:4201)   // Non-standard extension used: nameless struct/union.
 #endif
 
 
-#define EASYMTL_MAGIC_NUMBER    0x81DF7405
-#define EASYMTL_CURRENT_VERSION 1
+#define EASYMTL_MAGIC_NUMBER        0x81DF7405
+#define EASYMTL_CURRENT_VERSION     1
 
 #define EASYMTL_INPUT_DESC_CONSTI   ((unsigned char)-2)
 #define EASYMTL_INPUT_DESC_CONSTF   ((unsigned char)-1)
@@ -22,6 +24,13 @@ extern "C" {
 #define EASYMTL_INPUT_DESC_VARY     ((unsigned char)1)
 #define EASYMTL_INPUT_DESC_VARZ     ((unsigned char)2)
 #define EASYMTL_INPUT_DESC_VARW     ((unsigned char)3)
+
+#define EASYMTL_MAX_IDENTIFIER_NAME 28
+#define EASYMTL_MAX_CHANNEL_NAME    28
+#define EASYMTL_MAX_PROPERTY_NAME   28
+
+#define EASYMTL_MAX_INPUT_PATH      252
+#define EASYMTL_MAX_PROPERTY_PATH   224
 
 
 typedef int           easymtl_bool;
@@ -161,7 +170,7 @@ typedef struct
     easymtl_type type;
 
     /// The name of the identifier.
-    char name[28];
+    char name[EASYMTL_MAX_IDENTIFIER_NAME];
 
 } easymtl_identifier;
 
@@ -203,7 +212,7 @@ typedef struct
 
         struct
         {
-            char value[252];	// Enough room for a path, but less to keep the total size of the structure at 256 bytes. Null terminated.
+            char value[EASYMTL_MAX_INPUT_PATH];	// Enough room for a path, but less to keep the total size of the structure at 256 bytes. Null terminated.
         } path;
 
 
@@ -370,7 +379,7 @@ typedef struct
     easymtl_type type;
 
     /// The name of the property.
-    char name[28];
+    char name[EASYMTL_MAX_PROPERTY_NAME];
 	
     /// The default value of the input variable.
     union
@@ -429,7 +438,7 @@ typedef struct
 
         struct
         {
-            char value[224];	// Enough room for a path, but less to keep the total size of the structure at 256 bytes. Null terminated.
+            char value[EASYMTL_MAX_PROPERTY_PATH];	// Enough room for a path, but less to keep the total size of the structure at 256 bytes. Null terminated.
         } path;
 
         struct 
@@ -506,7 +515,7 @@ typedef struct
     easymtl_type type;
 
     /// The name of the channel. Null terminated.
-    char name[28];
+    char name[EASYMTL_MAX_CHANNEL_NAME];
 
     /// The instruction count of the channel.
     unsigned int instructionCount;
@@ -575,13 +584,13 @@ easymtl_header* easymtl_getheader(easymtl_material* pMaterial);
 /// Appends an identifier to the end of the identifier list. Use easymtl_getidentifiercount() to determine it's index.
 ///
 /// @param pMaterial [in] A pointer to the material to append the identifier to.
-easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, const easymtl_identifier* pIdentifier);
+easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, easymtl_identifier identifier, unsigned int* indexOut);
 
 /// Appends a private input variable.
-easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, const easymtl_input_var* pInput);
+easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_input_var input);
 
 /// Appends a public input variable.
-easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, const easymtl_input_var* pInput);
+easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_input_var input);
 
 /// Begins a new channel.
 ///
@@ -589,13 +598,13 @@ easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, const easymt
 ///     Any instructions that are appended from now on will be part of this channel until another channel is begun.
 ///     @par
 ///     The end of the channel is marked when a new channel is appended or a property begins.
-easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, const easymtl_channel_header* pChannelHeader);
+easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel_header channelHeader);
 
 /// Appends an instruction to the most recently appended channel.
-easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, const easymtl_instruction* pInstruction);
+easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, easymtl_instruction instruction);
 
 /// Append a property.
-easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, const easymtl_property* pProperty);
+easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, easymtl_property prop);
 
 
 /// Retrieves a pointer to the channel header by it's index.
@@ -618,6 +627,49 @@ easymtl_identifier* easymtl_getidentifier(easymtl_material* pMaterial, unsigned 
 
 unsigned int easymtl_getpublicinputvariablecount(easymtl_material* pMaterial);
 easymtl_input_var* easymtl_getpublicinputvariable(easymtl_material* pMaterial, unsigned int index);
+
+
+
+////////////////////////////////////////////////////////
+// Mid-Level APIs
+
+/// Helper for creating an identifier.
+easymtl_identifier easymtl_identifier_float(const char* name);
+easymtl_identifier easymtl_identifier_float2(const char* name);
+easymtl_identifier easymtl_identifier_float3(const char* name);
+easymtl_identifier easymtl_identifier_float4(const char* name);
+easymtl_identifier easymtl_identifier_tex2d(const char* name);
+
+/// Helper for creating an input variable.
+easymtl_input_var easymtl_input_float(unsigned int identifierIndex, float x);
+easymtl_input_var easymtl_input_float2(unsigned int identifierIndex, float x, float y);
+easymtl_input_var easymtl_input_float3(unsigned int identifierIndex, float x, float y, float z);
+easymtl_input_var easymtl_input_float4(unsigned int identifierIndex, float x, float y, float z, float w);
+easymtl_input_var easymtl_input_tex(unsigned int identifierIndex, const char* path);
+
+/// Helper for creating a channel.
+easymtl_channel_header easymtl_channel_float(const char* name);
+easymtl_channel_header easymtl_channel_float3(const char* name);
+
+/// Helper for creating an instruction. These are heavily simplified and more complex setups are possible using lower level APIs.
+easymtl_instruction easymtl_mulf4_v3c1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float w);
+easymtl_instruction easymtl_mulf4_v1c3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float y, float z, float w);
+easymtl_instruction easymtl_tex2(unsigned int outputIdentifierIndex, unsigned int textureIdentifierIndex, unsigned int texcoordIdentifierIndex);
+easymtl_instruction easymtl_var(unsigned int identifierIndex);
+easymtl_instruction easymtl_retf1(unsigned int identifierIndex);
+easymtl_instruction easymtl_retf3(unsigned int identifierIndex);
+
+/// Helper for creating a property.
+easymtl_property easymtl_property_bool(const char* name, easymtl_bool value);
+easymtl_property easymtl_property_float(const char* name, float value);
+
+
+
+////////////////////////////////////////////////////////
+// Utilities
+
+// strcpy()
+void easymtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
 
 
 
