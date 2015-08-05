@@ -17,7 +17,7 @@
 
 
 // When constructing the material's raw data, memory allocated in blocks of this amount. This must be at least 256.
-#define EASYMTL_CHUNK_SIZE              512     // NOTE: Intentionally small for now to ensure we hit the inflation branch during testing. Increase later.
+#define EASYMTL_CHUNK_SIZE              4096
 
 #define EASYMTL_STAGE_IDS               0
 #define EASYMTL_STAGE_PRIVATE_INPUTS    1
