@@ -459,6 +459,19 @@ easymtl_identifier* easymtl_getidentifier(easymtl_material* pMaterial, unsigned 
     return NULL;
 }
 
+unsigned int easymtl_getidentifiercount(easymtl_material* pMaterial)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        return pHeader->identifierCount;
+    }
+
+    return 0;
+}
+
 unsigned int easymtl_getpublicinputvariablecount(easymtl_material* pMaterial)
 {
     if (pMaterial != NULL)

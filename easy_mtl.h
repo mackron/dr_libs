@@ -47,10 +47,10 @@ typedef enum
     easymtl_type_float2  = 2,
     easymtl_type_float3  = 3,
     easymtl_type_float4  = 4,
-    //easymtl_type_int     = 5,
-    //easymtl_type_int2    = 6,
-    //easymtl_type_int3    = 7,
-    //easymtl_type_int4    = 8,
+    easymtl_type_int     = 5,
+    easymtl_type_int2    = 6,
+    easymtl_type_int3    = 7,
+    easymtl_type_int4    = 8,
     easymtl_type_tex1d   = 9,
     easymtl_type_tex2d   = 10,
     easymtl_type_tex3d   = 11,
@@ -630,6 +630,9 @@ easymtl_channel_header* easymtl_getchannelheaderbyname(easymtl_material* pMateri
 /// Retrieves a pointer to the buffer containing the list of identifiers.
 easymtl_identifier* easymtl_getidentifiers(easymtl_material* pMaterial);
 easymtl_identifier* easymtl_getidentifier(easymtl_material* pMaterial, unsigned int index);
+
+/// Retrieves the number of identifiers defined by the given material.
+unsigned int easymtl_getidentifiercount(easymtl_material* pMaterial);
 
 
 unsigned int easymtl_getpublicinputvariablecount(easymtl_material* pMaterial);
