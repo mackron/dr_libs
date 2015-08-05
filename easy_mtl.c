@@ -127,7 +127,11 @@ void easymtl_uninit(easymtl_material* pMaterial)
 {
     if (pMaterial != NULL)
     {
-        free(pMaterial->pRawData);
+        if (pMaterial->ownsRawData)
+        {
+            free(pMaterial->pRawData);
+        }
+
         pMaterial->pRawData = NULL;
     }
 }
