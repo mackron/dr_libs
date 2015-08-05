@@ -659,6 +659,10 @@ easymtl_identifier easymtl_identifier_float(const char* name);
 easymtl_identifier easymtl_identifier_float2(const char* name);
 easymtl_identifier easymtl_identifier_float3(const char* name);
 easymtl_identifier easymtl_identifier_float4(const char* name);
+easymtl_identifier easymtl_identifier_int(const char* name);
+easymtl_identifier easymtl_identifier_int2(const char* name);
+easymtl_identifier easymtl_identifier_int3(const char* name);
+easymtl_identifier easymtl_identifier_int4(const char* name);
 easymtl_identifier easymtl_identifier_tex2d(const char* name);
 
 /// Helper for creating an input variable.
@@ -666,6 +670,10 @@ easymtl_input easymtl_input_float(unsigned int identifierIndex, float x);
 easymtl_input easymtl_input_float2(unsigned int identifierIndex, float x, float y);
 easymtl_input easymtl_input_float3(unsigned int identifierIndex, float x, float y, float z);
 easymtl_input easymtl_input_float4(unsigned int identifierIndex, float x, float y, float z, float w);
+easymtl_input easymtl_input_int(unsigned int identifierIndex, int x);
+easymtl_input easymtl_input_int2(unsigned int identifierIndex, int x, int y);
+easymtl_input easymtl_input_int3(unsigned int identifierIndex, int x, int y, int z);
+easymtl_input easymtl_input_int4(unsigned int identifierIndex, int x, int y, int z, int w);
 easymtl_input easymtl_input_tex(unsigned int identifierIndex, const char* path);
 
 /// Helper for creating a channel.
@@ -673,6 +681,10 @@ easymtl_channel easymtl_channel_float(const char* name);
 easymtl_channel easymtl_channel_float2(const char* name);
 easymtl_channel easymtl_channel_float3(const char* name);
 easymtl_channel easymtl_channel_float4(const char* name);
+easymtl_channel easymtl_channel_int(const char* name);
+easymtl_channel easymtl_channel_int2(const char* name);
+easymtl_channel easymtl_channel_int3(const char* name);
+easymtl_channel easymtl_channel_int4(const char* name);
 
 /// Helper for creating an instruction. These are heavily simplified and more complex setups are possible using lower level APIs.
 easymtl_instruction easymtl_mulf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
@@ -686,10 +698,22 @@ easymtl_instruction easymtl_retf1(unsigned int identifierIndex);
 easymtl_instruction easymtl_retf2(unsigned int identifierIndex);
 easymtl_instruction easymtl_retf3(unsigned int identifierIndex);
 easymtl_instruction easymtl_retf4(unsigned int identifierIndex);
+easymtl_instruction easymtl_reti1(unsigned int identifierIndex);
+easymtl_instruction easymtl_reti2(unsigned int identifierIndex);
+easymtl_instruction easymtl_reti3(unsigned int identifierIndex);
+easymtl_instruction easymtl_reti4(unsigned int identifierIndex);
 
 /// Helper for creating a property.
+easymtl_property easymtl_property_float(const char* name, float x);
+easymtl_property easymtl_property_float2(const char* name, float x, float y);
+easymtl_property easymtl_property_float3(const char* name, float x, float y, float z);
+easymtl_property easymtl_property_float4(const char* name, float x, float y, float z, float w);
+easymtl_property easymtl_property_int(const char* name, int x);
+easymtl_property easymtl_property_int2(const char* name, int x, int y);
+easymtl_property easymtl_property_int3(const char* name, int x, int y, int z);
+easymtl_property easymtl_property_int4(const char* name, int x, int y, int z, int w);
 easymtl_property easymtl_property_bool(const char* name, easymtl_bool value);
-easymtl_property easymtl_property_float(const char* name, float value);
+
 
 
 

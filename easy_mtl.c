@@ -570,6 +570,42 @@ easymtl_identifier easymtl_identifier_float4(const char* name)
     return identifier;
 }
 
+easymtl_identifier easymtl_identifier_int(const char* name)
+{
+    easymtl_identifier identifier;
+    identifier.type = easymtl_type_int;
+    easymtl_strcpy(identifier.name, EASYMTL_MAX_IDENTIFIER_NAME, name);
+
+    return identifier;
+}
+
+easymtl_identifier easymtl_identifier_int2(const char* name)
+{
+    easymtl_identifier identifier;
+    identifier.type = easymtl_type_int2;
+    easymtl_strcpy(identifier.name, EASYMTL_MAX_IDENTIFIER_NAME, name);
+
+    return identifier;
+}
+
+easymtl_identifier easymtl_identifier_int3(const char* name)
+{
+    easymtl_identifier identifier;
+    identifier.type = easymtl_type_int3;
+    easymtl_strcpy(identifier.name, EASYMTL_MAX_IDENTIFIER_NAME, name);
+
+    return identifier;
+}
+
+easymtl_identifier easymtl_identifier_int4(const char* name)
+{
+    easymtl_identifier identifier;
+    identifier.type = easymtl_type_int4;
+    easymtl_strcpy(identifier.name, EASYMTL_MAX_IDENTIFIER_NAME, name);
+
+    return identifier;
+}
+
 easymtl_identifier easymtl_identifier_tex2d(const char* name)
 {
     easymtl_identifier identifier;
@@ -614,10 +650,52 @@ easymtl_input easymtl_input_float4(unsigned int identifierIndex, float x, float 
 {
     easymtl_input input;
     input.identifierIndex = identifierIndex;
-    input.f3.x = x;
-    input.f3.y = y;
-    input.f3.z = z;
+    input.f4.x = x;
+    input.f4.y = y;
+    input.f4.z = z;
     input.f4.w = w;
+
+    return input;
+}
+
+easymtl_input easymtl_input_int(unsigned int identifierIndex, int x)
+{
+    easymtl_input input;
+    input.identifierIndex = identifierIndex;
+    input.i1.x = x;
+
+    return input;
+}
+
+easymtl_input easymtl_input_int2(unsigned int identifierIndex, int x, int y)
+{
+    easymtl_input input;
+    input.identifierIndex = identifierIndex;
+    input.i2.x = x;
+    input.i2.y = y;
+
+    return input;
+}
+
+easymtl_input easymtl_input_int3(unsigned int identifierIndex, int x, int y, int z)
+{
+    easymtl_input input;
+    input.identifierIndex = identifierIndex;
+    input.i3.x = x;
+    input.i3.y = y;
+    input.i3.z = z;
+
+    return input;
+}
+
+easymtl_input easymtl_input_int4(unsigned int identifierIndex, int x, int y, int z, int w)
+{
+    easymtl_input input;
+    input.identifierIndex = identifierIndex;
+    input.i4.x = x;
+    input.i4.y = y;
+    input.i4.z = z;
+    input.i4.w = w;
 
     return input;
 }
@@ -663,6 +741,42 @@ easymtl_channel easymtl_channel_float4(const char* name)
 {
     easymtl_channel channel;
     channel.type = easymtl_type_float4;
+    easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
+
+    return channel;
+}
+
+easymtl_channel easymtl_channel_int(const char* name)
+{
+    easymtl_channel channel;
+    channel.type = easymtl_type_int;
+    easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
+
+    return channel;
+}
+
+easymtl_channel easymtl_channel_int2(const char* name)
+{
+    easymtl_channel channel;
+    channel.type = easymtl_type_int2;
+    easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
+
+    return channel;
+}
+
+easymtl_channel easymtl_channel_int3(const char* name)
+{
+    easymtl_channel channel;
+    channel.type = easymtl_type_int3;
+    easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
+
+    return channel;
+}
+
+easymtl_channel easymtl_channel_int4(const char* name)
+{
+    easymtl_channel channel;
+    channel.type = easymtl_type_int4;
     easymtl_strcpy(channel.name, EASYMTL_MAX_CHANNEL_NAME, name);
 
     return channel;
@@ -831,6 +945,150 @@ easymtl_instruction easymtl_retf4(unsigned int identifierIndex)
     return inst;
 }
 
+easymtl_instruction easymtl_reti1(unsigned int identifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_reti1;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.ret.inputX.id = identifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_reti2(unsigned int identifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_reti2;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.ret.inputX.id = identifierIndex;
+    inst.ret.inputY.id = identifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_reti3(unsigned int identifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_reti3;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.ret.inputDesc.z = EASYMTL_INPUT_DESC_VARZ;
+    inst.ret.inputX.id = identifierIndex;
+    inst.ret.inputY.id = identifierIndex;
+    inst.ret.inputZ.id = identifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_reti4(unsigned int identifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_reti4;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.ret.inputDesc.z = EASYMTL_INPUT_DESC_VARZ;
+    inst.ret.inputDesc.w = EASYMTL_INPUT_DESC_VARW;
+    inst.ret.inputX.id = identifierIndex;
+    inst.ret.inputY.id = identifierIndex;
+    inst.ret.inputZ.id = identifierIndex;
+    inst.ret.inputW.id = identifierIndex;
+
+    return inst;
+}
+
+
+easymtl_property easymtl_property_float(const char* name, float x)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_float;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.f1.x = x;
+
+    return prop;
+}
+
+easymtl_property easymtl_property_float2(const char* name, float x, float y)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_float2;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.f2.x = x;
+    prop.f2.y = y;
+
+    return prop;
+}
+
+easymtl_property easymtl_property_float3(const char* name, float x, float y, float z)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_float3;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.f3.x = x;
+    prop.f3.y = y;
+    prop.f3.z = z;
+
+    return prop;
+}
+
+easymtl_property easymtl_property_float4(const char* name, float x, float y, float z, float w)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_float4;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.f4.x = x;
+    prop.f4.y = y;
+    prop.f4.z = z;
+    prop.f4.w = w;
+
+    return prop;
+}
+
+easymtl_property easymtl_property_int(const char* name, int x)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_int;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.i1.x = x;
+
+    return prop;
+}
+
+easymtl_property easymtl_property_int2(const char* name, int x, int y)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_int2;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.i2.x = x;
+    prop.i2.y = y;
+
+    return prop;
+}
+
+easymtl_property easymtl_property_int3(const char* name, int x, int y, int z)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_int3;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.i3.x = x;
+    prop.i3.y = y;
+    prop.i3.z = z;
+
+    return prop;
+}
+
+easymtl_property easymtl_property_int4(const char* name, int x, int y, int z, int w)
+{
+    easymtl_property prop;
+    prop.type = easymtl_type_int4;
+    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
+    prop.i4.x = x;
+    prop.i4.y = y;
+    prop.i4.z = z;
+    prop.i4.w = w;
+
+    return prop;
+}
 
 easymtl_property easymtl_property_bool(const char* name, easymtl_bool value)
 {
@@ -842,15 +1100,7 @@ easymtl_property easymtl_property_bool(const char* name, easymtl_bool value)
     return prop;
 }
 
-easymtl_property easymtl_property_float(const char* name, float value)
-{
-    easymtl_property prop;
-    prop.type = easymtl_type_float;
-    easymtl_strcpy(prop.name, EASYMTL_MAX_PROPERTY_NAME, name);
-    prop.f1.x = value;
 
-    return prop;
-}
 
 
 
