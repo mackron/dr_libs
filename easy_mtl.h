@@ -70,10 +70,10 @@ typedef enum
     easymtl_opcode_movf2 = 0x00000002,
     easymtl_opcode_movf3 = 0x00000003,
     easymtl_opcode_movf4 = 0x00000004,
-    //easymtl_opcode_movi1 = 0x00000005,
-    //easymtl_opcode_movi2 = 0x00000006,
-    //easymtl_opcode_movi3 = 0x00000007,
-    //easymtl_opcode_movi4 = 0x00000008,
+    easymtl_opcode_movi1 = 0x00000005,
+    easymtl_opcode_movi2 = 0x00000006,
+    easymtl_opcode_movi3 = 0x00000007,
+    easymtl_opcode_movi4 = 0x00000008,
 
 
     //////////////////////////
@@ -84,50 +84,50 @@ typedef enum
     easymtl_opcode_addf2 = 0x00001002,
     easymtl_opcode_addf3 = 0x00001003,
     easymtl_opcode_addf4 = 0x00001004,
-    //easymtl_opcode_addi1 = 0x00001005,
-    //easymtl_opcode_addi2 = 0x00001006,
-    //easymtl_opcode_addi3 = 0x00001007,
-    //easymtl_opcode_addi4 = 0x00001008,
+    easymtl_opcode_addi1 = 0x00001005,
+    easymtl_opcode_addi2 = 0x00001006,
+    easymtl_opcode_addi3 = 0x00001007,
+    easymtl_opcode_addi4 = 0x00001008,
     
     // sub
     easymtl_opcode_subf1 = 0x00001101,
     easymtl_opcode_subf2 = 0x00001102,
     easymtl_opcode_subf3 = 0x00001103,
     easymtl_opcode_subf4 = 0x00001104,
-    //easymtl_opcode_subi1 = 0x00001105,
-    //easymtl_opcode_subi2 = 0x00001106,
-    //easymtl_opcode_subi3 = 0x00001107,
-    //easymtl_opcode_subi4 = 0x00001108,
+    easymtl_opcode_subi1 = 0x00001105,
+    easymtl_opcode_subi2 = 0x00001106,
+    easymtl_opcode_subi3 = 0x00001107,
+    easymtl_opcode_subi4 = 0x00001108,
 
     // mul
     easymtl_opcode_mulf1 = 0x00001201,
     easymtl_opcode_mulf2 = 0x00001202,
     easymtl_opcode_mulf3 = 0x00001203,
     easymtl_opcode_mulf4 = 0x00001204,
-    //easymtl_opcode_muli1 = 0x00001205,
-    //easymtl_opcode_muli2 = 0x00001206,
-    //easymtl_opcode_muli3 = 0x00001207,
-    //easymtl_opcode_muli4 = 0x00001208,
+    easymtl_opcode_muli1 = 0x00001205,
+    easymtl_opcode_muli2 = 0x00001206,
+    easymtl_opcode_muli3 = 0x00001207,
+    easymtl_opcode_muli4 = 0x00001208,
 
     // div
     easymtl_opcode_divf1 = 0x00001301,
     easymtl_opcode_divf2 = 0x00001302,
     easymtl_opcode_divf3 = 0x00001303,
     easymtl_opcode_divf4 = 0x00001304,
-    //easymtl_opcode_divi1 = 0x00001305,
-    //easymtl_opcode_divi2 = 0x00001306,
-    //easymtl_opcode_divi3 = 0x00001307,
-    //easymtl_opcode_divi4 = 0x00001308,
+    easymtl_opcode_divi1 = 0x00001305,
+    easymtl_opcode_divi2 = 0x00001306,
+    easymtl_opcode_divi3 = 0x00001307,
+    easymtl_opcode_divi4 = 0x00001308,
 
     // pow
     easymtl_opcode_powf1 = 0x00001401,
     easymtl_opcode_powf2 = 0x00001402,
     easymtl_opcode_powf3 = 0x00001403,
     easymtl_opcode_powf4 = 0x00001404,
-    //easymtl_opcode_powi1 = 0x00001405,
-    //easymtl_opcode_powi2 = 0x00001406,
-    //easymtl_opcode_powi3 = 0x00001407,
-    //easymtl_opcode_powi4 = 0x00001408,
+    easymtl_opcode_powi1 = 0x00001405,
+    easymtl_opcode_powi2 = 0x00001406,
+    easymtl_opcode_powi3 = 0x00001407,
+    easymtl_opcode_powi4 = 0x00001408,
 
 
     //////////////////////////
@@ -151,13 +151,10 @@ typedef enum
     easymtl_opcode_retf2 = 0x00003002,
     easymtl_opcode_retf3 = 0x00003003,
     easymtl_opcode_retf4 = 0x00003004,
-    //easymtl_opcode_reti1 = 0x00003005,
-    //easymtl_opcode_reti2 = 0x00003006,
-    //easymtl_opcode_reti3 = 0x00003007,
-    //easymtl_opcode_reti4 = 0x00003008,
-
-    // var
-
+    easymtl_opcode_reti1 = 0x00003005,
+    easymtl_opcode_reti2 = 0x00003006,
+    easymtl_opcode_reti3 = 0x00003007,
+    easymtl_opcode_reti4 = 0x00003008,
 
 } easymtl_opcode;
 
@@ -188,20 +185,17 @@ typedef struct
         {
             float x;
         } f1;
-
         struct
         {
             float x;
             float y;
         } f2;
-
         struct
         {
             float x;
             float y;
             float z;
         } f3;
-
         struct
         {
             float x;
@@ -209,6 +203,29 @@ typedef struct
             float z;
             float w;
         } f4;
+
+        struct
+        {
+            int x;
+        } i1;
+        struct
+        {
+            int x;
+            int y;
+        } i2;
+        struct
+        {
+            int x;
+            int y;
+            int z;
+        } i3;
+        struct
+        {
+            int x;
+            int y;
+            int z;
+            int w;
+        } i4;
 
         struct
         {
@@ -399,20 +416,17 @@ typedef struct
         {
             float x;
         } f1;
-
         struct
         {
             float x;
             float y;
         } f2;
-		
         struct
         {
             float x;
             float y;
             float z;
         } f3;
-
         struct
         {
             float x;
@@ -425,20 +439,17 @@ typedef struct
         {
             int x;
         } i1;
-
         struct
         {
             int x;
             int y;
         } i2;
-
         struct
         {
             int x;
             int y;
             int z;
         } i3;
-
         struct
         {
             int x;
