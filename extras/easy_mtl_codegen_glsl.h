@@ -12,7 +12,7 @@ typedef struct easymtl_material easymtl_material;
 
 
 /// Generates GLSL for the channel at the given index.
-easymtl_bool easymtl_channel_to_glsl(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes);
+easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes);
 
 
 #ifdef __cplusplus
