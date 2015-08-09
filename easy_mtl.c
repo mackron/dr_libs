@@ -480,7 +480,68 @@ unsigned int easymtl_getidentifiercount(easymtl_material* pMaterial)
     return 0;
 }
 
-unsigned int easymtl_getpublicinputvariablecount(easymtl_material* pMaterial)
+
+unsigned int easymtl_getinputcount(easymtl_material* pMaterial)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        return pHeader->privateInputCount + pHeader->publicInputCount;
+    }
+
+    return 0;
+}
+
+easymtl_input* easymtl_getinputbyindex(easymtl_material* pMaterial, unsigned int index)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        if (index < (pHeader->privateInputCount + pHeader->publicInputCount))
+        {
+            easymtl_input* firstInput = (easymtl_input*)(pMaterial->pRawData + pHeader->inputsOffset);
+            return firstInput + index;
+        }
+    }
+
+    return NULL;
+}
+
+unsigned int easymtl_getprivateinputcount(easymtl_material* pMaterial)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        return pHeader->privateInputCount;
+    }
+    
+    return 0;
+}
+
+easymtl_input* easymtl_getprivateinputbyindex(easymtl_material* pMaterial, unsigned int index)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        if (index < pHeader->privateInputCount)
+        {
+            easymtl_input* firstInput = (easymtl_input*)(pMaterial->pRawData + pHeader->inputsOffset);
+            return firstInput + index;
+        }
+    }
+
+    return NULL;
+}
+
+unsigned int easymtl_getpublicinputcount(easymtl_material* pMaterial)
 {
     if (pMaterial != NULL)
     {
@@ -489,11 +550,11 @@ unsigned int easymtl_getpublicinputvariablecount(easymtl_material* pMaterial)
 
         return pHeader->publicInputCount;
     }
-
+    
     return 0;
 }
 
-easymtl_input* easymtl_getpublicinputvariable(easymtl_material* pMaterial, unsigned int index)
+easymtl_input* easymtl_getpublicinputbyindex(easymtl_material* pMaterial, unsigned int index)
 {
     if (pMaterial != NULL)
     {

@@ -646,8 +646,23 @@ easymtl_identifier* easymtl_getidentifier(easymtl_material* pMaterial, unsigned 
 unsigned int easymtl_getidentifiercount(easymtl_material* pMaterial);
 
 
-unsigned int easymtl_getpublicinputvariablecount(easymtl_material* pMaterial);
-easymtl_input* easymtl_getpublicinputvariable(easymtl_material* pMaterial, unsigned int index);
+/// Retrieves the number of private + public input variables.
+unsigned int easymtl_getinputcount(easymtl_material* pMaterial);
+
+/// Retrieves the input variable by it's index.
+easymtl_input* easymtl_getinputbyindex(easymtl_material* pMaterial, unsigned int index);
+
+/// Retrieves the number of private input variables.
+unsigned int easymtl_getprivateinputcount(easymtl_material* pMaterial);
+
+/// Retrieves the private input variable by it's index.
+easymtl_input* easymtl_getprivateinputbyindex(easymtl_material* pMaterial, unsigned int index);
+
+/// Retrieves the number of public input variables.
+unsigned int easymtl_getpublicinputcount(easymtl_material* pMaterial);
+
+/// Retrieves the public input variable by it's index.
+easymtl_input* easymtl_getpublicinputbyindex(easymtl_material* pMaterial, unsigned int index);
 
 
 

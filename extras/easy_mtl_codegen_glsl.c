@@ -970,10 +970,10 @@ easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* co
         codegen.identifierCount      = easymtl_getidentifiercount(pMaterial);
         codegen.indentationLevel     = 0;
 
-        unsigned int inputCount = easymtl_getpublicinputvariablecount(pMaterial);
+        unsigned int inputCount = easymtl_getpublicinputcount(pMaterial);
         for (unsigned int iInput = 0; iInput < inputCount; ++iInput)
         {
-            easymtl_input* pInput = easymtl_getpublicinputvariable(pMaterial, iInput);
+            easymtl_input* pInput = easymtl_getpublicinputbyindex(pMaterial, iInput);
             assert(pInput != NULL);
 
             if (!easymtl_codegen_glsl_uniform(&codegen, pInput))
