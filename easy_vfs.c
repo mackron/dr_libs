@@ -1210,6 +1210,23 @@ int easyvfs_findabsolutepath(easyvfs_context* pContext, const char* path, char* 
     return 0;
 }
 
+int easyvfs_findabsolutepath_explicitbase(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
+{
+    if (pContext != NULL && path != NULL && highestPriorityBasePath != NULL && absolutePathOut != NULL && absolutePathBufferSizeInBytes > 0)
+    {
+        int result = 0;
+        easyvfs_insertbasedirectory(pContext, highestPriorityBasePath, 0);
+        {
+            result = easyvfs_findabsolutepath(pContext, path, absolutePathOut, absolutePathBufferSizeInBytes);
+        }
+        easyvfs_removebasedirectorybyindex(pContext, 0);
+
+        return result;
+    }
+
+    return 0;
+}
+
 
 int easyvfs_deletefile(easyvfs_context* pContext, const char* path)
 {

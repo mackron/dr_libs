@@ -241,6 +241,9 @@ int easyvfs_getfileinfo(easyvfs_context* pContext, const char* absolutePath, eas
 /// Finds the absolute, verbose path of the given path.
 int easyvfs_findabsolutepath(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
+/// Finds the absolute, verbose path of the given path, using the given path as the higest priority base path.
+int easyvfs_findabsolutepath_explicitbase(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
+
 
 /// deletefile()
 ///
