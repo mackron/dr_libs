@@ -309,7 +309,7 @@ easymtl_bool easymtl_wavefront_parse_map(const char* pDataCur, const char* pData
                 {
                     if (!easymtl_wavefront_is_whitespace(pDataCur[0]))
                     {
-                        pPathEnd = pDataCur += 1;
+                        pPathEnd = pDataCur + 1;
                     }
 
                     pDataCur += 1;
