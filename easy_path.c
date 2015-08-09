@@ -233,6 +233,39 @@ int easypath_ischild(const char* childAbsolutePath, const char* parentAbsolutePa
     return 0;
 }
 
+void easypath_basepath(const char* path, char* baseOut, unsigned int baseSizeInBytes)
+{
+    if (path != 0 && baseOut != 0 && baseSizeInBytes > 0)
+    {
+        const char* baseend = path;
+
+        // We just loop through the path until we find the last slash.
+        while (path[0] != '\0')
+        {
+            if (path[0] == '/' || path[0] == '\\')
+            {
+                baseend = path;
+            }
+
+            path += 1;
+        }
+
+
+        // Now we just loop backwards until we hit the first non-slash.
+        while (baseend > baseOut)
+        {
+            if (baseend[0] != '/' && baseend[0] != '\\')
+            {
+                break;
+            }
+
+            baseend -= 1;
+        }
+
+
+        easypath_strcpy(baseOut, baseSizeInBytes, path);
+    }
+}
 
 const char* easypath_filename(const char* path)
 {

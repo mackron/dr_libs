@@ -104,6 +104,18 @@ int easypath_isdescendant(const char* descendantAbsolutePath, const char* parent
 int easypath_ischild(const char* childAbsolutePath, const char* parentAbsolutePath);
 
 
+/// Retrieves the base path from the given path, not including the trailing slash.
+///
+/// @param path            [in]  The full path.
+/// @param baseOut         [out] A pointer to the buffer that will receive the base path.
+/// @param baseSizeInBytes [in]  The size in bytes of the buffer that will receive the base directory.
+///
+/// @remarks
+///     As an example, when "path" is "C:/MyFolder/MyFile", the output will be "C:/MyFolder". Note that there is no trailing slash.
+///     @par
+///     If "path" is something like "/MyFolder", the return value will be an empty string.
+void easypath_basepath(const char* path, char* baseOut, unsigned int baseSizeInBytes);
+
 /// Finds the file name portion of the path.
 ///
 /// @param path [in] The path to search.
