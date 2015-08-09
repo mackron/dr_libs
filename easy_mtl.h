@@ -665,6 +665,13 @@ unsigned int easymtl_getpublicinputcount(easymtl_material* pMaterial);
 easymtl_input* easymtl_getpublicinputbyindex(easymtl_material* pMaterial, unsigned int index);
 
 
+/// Retrieves the number of properties.
+unsigned int easymtl_getpropertycount(easymtl_material* pMaterial);
+
+/// Retrieves a property by it's index.
+easymtl_property* easymtl_getpropertybyindex(easymtl_material* pMaterial, unsigned int index);
+
+
 
 ////////////////////////////////////////////////////////
 // Mid-Level APIs

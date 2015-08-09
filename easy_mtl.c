@@ -572,6 +572,37 @@ easymtl_input* easymtl_getpublicinputbyindex(easymtl_material* pMaterial, unsign
 }
 
 
+unsigned int easymtl_getpropertycount(easymtl_material* pMaterial)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        return pHeader->propertyCount;
+    }
+
+    return 0;
+}
+
+easymtl_property* easymtl_getpropertybyindex(easymtl_material* pMaterial, unsigned int index)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        if (index < pHeader->propertyCount)
+        {
+            easymtl_property* firstProperty = (easymtl_property*)(pMaterial->pRawData + pHeader->propertiesOffset);
+            return firstProperty + index;
+        }
+    }
+
+    return NULL;
+}
+
+
 //////////////////////////////////
 // Private low-level API.
 
