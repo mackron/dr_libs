@@ -263,6 +263,8 @@ void easyfsw_event_queue_inflate(easyfsw_event_queue* pQueue)
         pQueue->bufferSize = newBufferSize;
         pQueue->pBuffer    = pNewBuffer;
         pQueue->indexFirst = 0;
+
+        easyfsw_free(pOldBuffer);
     }
 }
 
@@ -1148,6 +1150,11 @@ int easyfsw_add_directory_win32(easyfsw_context_win32* pContext, const char* abs
                     easyfsw_free(pDirectory);
                     pDirectory = NULL;
                 }
+            }
+            else
+            {
+                easyfsw_free(pDirectory);
+                pDirectory = NULL;
             }
         }
     }
