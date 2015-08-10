@@ -91,6 +91,8 @@ void easyvfs_mtl_addfile(easyvfs_archive_mtl* pArchive, easyvfs_file_mtl* pFile)
 
             pArchive->pFiles     = pNewBuffer;
             pArchive->fileCount += 1;
+
+            easyvfs_free(pOldBuffer);
         }
     }
 }
