@@ -68,7 +68,7 @@ easymtl_bool easymtl_codegen_glsl_write(easymtl_codegen_glsl* pCodegen, const ch
     else
     {
         // We're just measuring.
-        pCodegen->runningLength += strlen(src);
+        pCodegen->runningLength += (unsigned int)strlen(src);
         return 1;
     }
 }

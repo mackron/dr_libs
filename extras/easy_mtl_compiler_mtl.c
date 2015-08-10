@@ -317,7 +317,7 @@ easymtl_bool easymtl_wavefront_parse_map(const char* pDataCur, const char* pData
 
                 assert(pPathStart < pPathEnd);
 
-                unsigned int pathLength = pPathEnd - pPathStart;
+                size_t pathLength = pPathEnd - pPathStart;
                 if (pathLength + 1 < pathSizeInBytes)
                 {
                     memcpy(pathOut, pPathStart, pathLength);
