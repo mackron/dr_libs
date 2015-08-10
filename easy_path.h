@@ -104,6 +104,9 @@ int easypath_isdescendant(const char* descendantAbsolutePath, const char* parent
 int easypath_ischild(const char* childAbsolutePath, const char* parentAbsolutePath);
 
 
+/// Modifies the given path by transforming it into it's base path.
+void easypath_basepath(char* path);
+
 /// Retrieves the base path from the given path, not including the trailing slash.
 ///
 /// @param path            [in]  The full path.
@@ -114,7 +117,7 @@ int easypath_ischild(const char* childAbsolutePath, const char* parentAbsolutePa
 ///     As an example, when "path" is "C:/MyFolder/MyFile", the output will be "C:/MyFolder". Note that there is no trailing slash.
 ///     @par
 ///     If "path" is something like "/MyFolder", the return value will be an empty string.
-void easypath_basepath(const char* path, char* baseOut, unsigned int baseSizeInBytes);
+void easypath_copybasepath(const char* path, char* baseOut, unsigned int baseSizeInBytes);
 
 /// Finds the file name portion of the path.
 ///
