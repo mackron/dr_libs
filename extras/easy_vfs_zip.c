@@ -104,14 +104,14 @@ size_t easyvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, 
     easyvfs_seekfile(pZipFile, (easyvfs_int64)file_ofs, easyvfs_start);
 
     unsigned int bytesRead;
-    int result = easyvfs_readfile(pZipFile, pBuf, n, &bytesRead);
+    int result = easyvfs_readfile(pZipFile, pBuf, (unsigned int)n, &bytesRead);
     if (result == 0)
     {
         // Failed to read the file.
         bytesRead = 0;
     }
 
-    return bytesRead;
+    return (size_t)bytesRead;
 }
 
 
@@ -402,7 +402,7 @@ easyvfs_bool easyvfs_seekfile_zip(easyvfs_file* pFile, easyvfs_int64 bytesToSeek
         }
 
 
-        if (newPos < 0 || newPos > pOpenedFile->sizeInBytes)
+        if (newPos < 0 || newPos > (easyvfs_int64)pOpenedFile->sizeInBytes)
         {
             return 0;
         }

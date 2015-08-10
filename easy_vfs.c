@@ -148,7 +148,7 @@ int easyvfs_appendpathiterator(char* base, unsigned int baseBufferSizeInBytes, e
 {
     if (base != 0)
     {
-        unsigned int path1Length = strlen(base);
+        unsigned int path1Length = (unsigned int)strlen(base);
         unsigned int path2Length = (unsigned int)i.segment.length;
 
         if (path1Length < baseBufferSizeInBytes)
@@ -339,6 +339,8 @@ int easyvfs_basepaths_remove(easyvfs_basepaths* pBasePaths, unsigned int index)
             {
                 easyvfs_memcpy(pBasePaths->pBuffer + iDst, pBasePaths->pBuffer + iDst + 1, sizeof(easyvfs_basepath));
             }
+
+            pBasePaths->count -= 1;
 
             return 1;
         }
@@ -1609,9 +1611,9 @@ int easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const cha
 #if !EASYVFS_USE_EASYPATH
     if (base != 0 && other != 0)
     {
-        unsigned int path1Length = strlen(base);
-        unsigned int path2Length = strlen(other);
-
+        unsigned int path1Length = (unsigned int)strlen(base);
+        unsigned int path2Length = (unsigned int)strlen(other);
+        
         if (path1Length < baseBufferSizeInBytes)
         {
             // Slash.
@@ -1767,7 +1769,7 @@ void* easyvfs_beginiteration_impl_native(easyvfs_archive* pArchive, const char* 
     char searchQuery[EASYVFS_MAX_PATH];
     easyvfs_copyandappendpath(searchQuery, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
 
-    unsigned int searchQueryLength = strlen(searchQuery);
+    unsigned int searchQueryLength = (unsigned int)strlen(searchQuery);
     if (searchQueryLength < EASYVFS_MAX_PATH - 3)
     {
         searchQuery[searchQueryLength + 0] = '\\';

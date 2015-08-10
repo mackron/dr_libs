@@ -345,8 +345,8 @@ void* easyvfs_openarchive_mtl(easyvfs_file* pFile, easyvfs_accessmode accessMode
         {
             while (state.bytesRemaining > 0 || state.chunkPointer < state.chunkEnd)
             {
-                unsigned int bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
-                easyvfs_int64 newmtlOffset = state.archiveSizeInBytes - state.bytesRemaining - bytesRemainingInChunk;
+                size_t bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
+                easyvfs_int64 newmtlOffset = state.archiveSizeInBytes - state.bytesRemaining - ((easyvfs_int64)bytesRemainingInChunk);
 
                 if (easyvfs_mtl_loadnewmtl(&state))
                 {
