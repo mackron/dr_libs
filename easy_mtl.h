@@ -720,10 +720,18 @@ easymtl_instruction easymtl_retf1(unsigned int identifierIndex);
 easymtl_instruction easymtl_retf2(unsigned int identifierIndex);
 easymtl_instruction easymtl_retf3(unsigned int identifierIndex);
 easymtl_instruction easymtl_retf4(unsigned int identifierIndex);
+easymtl_instruction easymtl_retf1_c1(float x);
+easymtl_instruction easymtl_retf2_c2(float x, float y);
+easymtl_instruction easymtl_retf3_c3(float x, float y, float z);
+easymtl_instruction easymtl_retf4_c4(float x, float y, float z, float w);
 easymtl_instruction easymtl_reti1(unsigned int identifierIndex);
 easymtl_instruction easymtl_reti2(unsigned int identifierIndex);
 easymtl_instruction easymtl_reti3(unsigned int identifierIndex);
 easymtl_instruction easymtl_reti4(unsigned int identifierIndex);
+easymtl_instruction easymtl_reti1_c1(int x);
+easymtl_instruction easymtl_reti2_c2(int x, int y);
+easymtl_instruction easymtl_reti3_c3(int x, int y, int z);
+easymtl_instruction easymtl_reti4_c4(int x, int y, int z, int w);
 
 /// Helper for creating a property.
 easymtl_property easymtl_property_float(const char* name, float x);

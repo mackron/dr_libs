@@ -1041,6 +1041,58 @@ easymtl_instruction easymtl_retf4(unsigned int identifierIndex)
     return inst;
 }
 
+easymtl_instruction easymtl_retf1_c1(float x)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_retf1;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputX.valuef = x;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_retf2_c2(float x, float y)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_retf2;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputX.valuef = x;
+    inst.ret.inputY.valuef = y;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_retf3_c3(float x, float y, float z)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_retf3;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputDesc.z = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputX.valuef = x;
+    inst.ret.inputY.valuef = y;
+    inst.ret.inputZ.valuef = z;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_retf4_c4(float x, float y, float z, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_retf4;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputDesc.z = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputDesc.w = EASYMTL_INPUT_DESC_CONSTF;
+    inst.ret.inputX.valuef = x;
+    inst.ret.inputY.valuef = y;
+    inst.ret.inputZ.valuef = z;
+    inst.ret.inputW.valuef = w;
+
+    return inst;
+}
+
 easymtl_instruction easymtl_reti1(unsigned int identifierIndex)
 {
     easymtl_instruction inst;
@@ -1092,6 +1144,59 @@ easymtl_instruction easymtl_reti4(unsigned int identifierIndex)
 
     return inst;
 }
+
+easymtl_instruction easymtl_reti1_c1(int x)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_reti1;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputX.valuei = x;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_reti2_c2(int x, int y)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_reti2;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputX.valuei = x;
+    inst.ret.inputY.valuei = y;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_reti3_c3(int x, int y, int z)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_reti3;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputDesc.z = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputX.valuei = x;
+    inst.ret.inputY.valuei = y;
+    inst.ret.inputZ.valuei = z;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_reti4_c4(int x, int y, int z, int w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_reti4;
+    inst.ret.inputDesc.x = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputDesc.y = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputDesc.z = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputDesc.w = EASYMTL_INPUT_DESC_CONSTI;
+    inst.ret.inputX.valuei = x;
+    inst.ret.inputY.valuei = y;
+    inst.ret.inputZ.valuei = z;
+    inst.ret.inputW.valuei = w;
+
+    return inst;
+}
+
 
 
 easymtl_property easymtl_property_float(const char* name, float x)
