@@ -970,19 +970,27 @@ easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* co
         codegen.identifierCount      = easymtl_getidentifiercount(pMaterial);
         codegen.indentationLevel     = 0;
 
-        unsigned int inputCount = easymtl_getpublicinputcount(pMaterial);
-        for (unsigned int iInput = 0; iInput < inputCount; ++iInput)
-        {
-            easymtl_input* pInput = easymtl_getpublicinputbyindex(pMaterial, iInput);
-            assert(pInput != NULL);
 
-            if (!easymtl_codegen_glsl_uniform(&codegen, pInput))
+        unsigned int inputCount = easymtl_getpublicinputcount(pMaterial);
+        if (inputCount > 0)
+        {
+            for (unsigned int iInput = 0; iInput < inputCount; ++iInput)
             {
-                // There was an error writing one of the uniforms. Return false.
-                return 0;
+                easymtl_input* pInput = easymtl_getpublicinputbyindex(pMaterial, iInput);
+                assert(pInput != NULL);
+
+                if (!easymtl_codegen_glsl_uniform(&codegen, pInput))
+                {
+                    // There was an error writing one of the uniforms. Return false.
+                    return 0;
+                }
             }
         }
-
+        else
+        {
+            // No inputs. Just write an empty string.
+            easymtl_codegen_glsl_write(&codegen, "");
+        }
 
         if (pBytesWritteOut != NULL)
         {
