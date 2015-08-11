@@ -1073,10 +1073,7 @@ void easyfsw_delete_context_win32(easyfsw_context_win32* pContext)
         // We need to wait for the event queue to finish up before deleting the context for real. If we don't do this nextevent() may try
         // to access the context and then crash.
         WaitForSingleObject(pContext->eventQueue.hLock, INFINITE);
-        {
-            easyfsw_event_queue_uninit(&pContext->eventQueue);
-        }
-        SetEvent(pContext->eventQueue.hLock);
+        easyfsw_event_queue_uninit(&pContext->eventQueue);      // <-- This will close pContext->eventQueue.hLock so no need to call SetEvent().
 
 
         // The worker thread events need to be closed.
