@@ -237,18 +237,17 @@ void easypath_basepath(char* path)
 {
     if (path != 0)
     {
-        char* basebeg = path;
         char* baseend = path;
 
         // We just loop through the path until we find the last slash.
-        while (basebeg[0] != '\0')
+        while (path[0] != '\0')
         {
-            if (basebeg[0] == '/' || basebeg[0] == '\\')
+            if (path[0] == '/' || path[0] == '\\')
             {
-                baseend = basebeg;
+                baseend = path;
             }
 
-            basebeg += 1;
+            path += 1;
         }
 
 
