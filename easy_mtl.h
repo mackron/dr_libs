@@ -709,11 +709,55 @@ easymtl_channel easymtl_channel_int3(const char* name);
 easymtl_channel easymtl_channel_int4(const char* name);
 
 /// Helper for creating an instruction. These are heavily simplified and more complex setups are possible using lower level APIs.
+easymtl_instruction easymtl_movf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_movf1_c1(unsigned int outputIdentifierIndex, float x);
+easymtl_instruction easymtl_movf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_movf2_c2(unsigned int outputIdentifierIndex, float x, float y);
+easymtl_instruction easymtl_movf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_movf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z);
+easymtl_instruction easymtl_movf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_movf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w);
+
+easymtl_instruction easymtl_addf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_addf1_c1(unsigned int outputIdentifierIndex, float x);
+easymtl_instruction easymtl_addf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_addf2_c2(unsigned int outputIdentifierIndex, float x, float y);
+easymtl_instruction easymtl_addf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_addf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z);
+easymtl_instruction easymtl_addf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_addf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w);
+
+easymtl_instruction easymtl_subf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_subf1_c1(unsigned int outputIdentifierIndex, float x);
+easymtl_instruction easymtl_subf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_subf2_c2(unsigned int outputIdentifierIndex, float x, float y);
+easymtl_instruction easymtl_subf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_subf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z);
+easymtl_instruction easymtl_subf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_subf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w);
+
+easymtl_instruction easymtl_mulf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_mulf1_c1(unsigned int outputIdentifierIndex, float x);
+easymtl_instruction easymtl_mulf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_mulf2_c2(unsigned int outputIdentifierIndex, float x, float y);
+easymtl_instruction easymtl_mulf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_mulf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z);
 easymtl_instruction easymtl_mulf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_mulf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w);
 easymtl_instruction easymtl_mulf4_v3c1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float w);
 easymtl_instruction easymtl_mulf4_v2c2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float z, float w);
 easymtl_instruction easymtl_mulf4_v1c3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float y, float z, float w);
-easymtl_instruction easymtl_mulf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w);
+easymtl_instruction easymtl_mulf4_v1v1v1v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndexX, unsigned int inputIdentifierIndexY, unsigned int inputIdentifierIndexZ, unsigned int inputIdentifierIndexW);
+
+easymtl_instruction easymtl_divf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_divf1_c1(unsigned int outputIdentifierIndex, float x);
+easymtl_instruction easymtl_divf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_divf2_c2(unsigned int outputIdentifierIndex, float x, float y);
+easymtl_instruction easymtl_divf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_divf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z);
+easymtl_instruction easymtl_divf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
+easymtl_instruction easymtl_divf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w);
+
 easymtl_instruction easymtl_tex2(unsigned int outputIdentifierIndex, unsigned int textureIdentifierIndex, unsigned int texcoordIdentifierIndex);
 easymtl_instruction easymtl_var(unsigned int identifierIndex);
 easymtl_instruction easymtl_retf1(unsigned int identifierIndex);

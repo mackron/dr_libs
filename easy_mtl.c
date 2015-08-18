@@ -879,6 +879,423 @@ easymtl_channel easymtl_channel_int4(const char* name)
 }
 
 
+easymtl_instruction easymtl_movf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_movf1;
+    inst.mov.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.mov.inputX.id   = inputIdentifierIndex;
+    inst.mov.output      = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_movf1_c1(unsigned int outputIdentifierIndex, float x)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_movf1;
+    inst.mov.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputX.valuef = x;
+    inst.mov.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_movf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_movf2;
+    inst.mov.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.mov.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.mov.inputX.id   = inputIdentifierIndex;
+    inst.mov.inputY.id   = inputIdentifierIndex;
+    inst.mov.output      = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_movf2_c2(unsigned int outputIdentifierIndex, float x, float y)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_movf2;
+    inst.mov.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputX.valuef = x;
+    inst.mov.inputY.valuef = y;
+    inst.mov.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_movf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_movf3;
+    inst.mov.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.mov.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.mov.inputDesc.z = EASYMTL_INPUT_DESC_VARZ;
+    inst.mov.inputX.id   = inputIdentifierIndex;
+    inst.mov.inputY.id   = inputIdentifierIndex;
+    inst.mov.inputZ.id   = inputIdentifierIndex;
+    inst.mov.output      = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_movf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_movf3;
+    inst.mov.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputX.valuef = x;
+    inst.mov.inputY.valuef = y;
+    inst.mov.inputZ.valuef = z;
+    inst.mov.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_movf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_movf4;
+    inst.mov.inputDesc.x = EASYMTL_INPUT_DESC_VARX;
+    inst.mov.inputDesc.y = EASYMTL_INPUT_DESC_VARY;
+    inst.mov.inputDesc.z = EASYMTL_INPUT_DESC_VARZ;
+    inst.mov.inputDesc.w = EASYMTL_INPUT_DESC_VARW;
+    inst.mov.inputX.id   = inputIdentifierIndex;
+    inst.mov.inputY.id   = inputIdentifierIndex;
+    inst.mov.inputZ.id   = inputIdentifierIndex;
+    inst.mov.inputW.id   = inputIdentifierIndex;
+    inst.mov.output      = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_movf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_movf4;
+    inst.mov.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mov.inputX.valuef = x;
+    inst.mov.inputY.valuef = y;
+    inst.mov.inputZ.valuef = z;
+    inst.mov.inputW.valuef = w;
+    inst.mov.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+
+easymtl_instruction easymtl_addf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_addf1;
+    inst.add.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.add.inputX.id     = inputIdentifierIndex;
+    inst.add.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_addf1_c1(unsigned int outputIdentifierIndex, float x)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_addf1;
+    inst.add.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputX.valuef = x;
+    inst.add.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_addf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_addf2;
+    inst.add.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.add.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.add.inputX.id     = inputIdentifierIndex;
+    inst.add.inputY.id     = inputIdentifierIndex;
+    inst.add.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_addf2_c2(unsigned int outputIdentifierIndex, float x, float y)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_addf2;
+    inst.add.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputX.valuef = x;
+    inst.add.inputY.valuef = y;
+    inst.add.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_addf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_addf3;
+    inst.add.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.add.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.add.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.add.inputX.id     = inputIdentifierIndex;
+    inst.add.inputY.id     = inputIdentifierIndex;
+    inst.add.inputZ.id     = inputIdentifierIndex;
+    inst.add.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_addf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_addf3;
+    inst.add.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputX.valuef = x;
+    inst.add.inputY.valuef = y;
+    inst.add.inputZ.valuef = z;
+    inst.add.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_addf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_addf4;
+    inst.add.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.add.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.add.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.add.inputDesc.w   = EASYMTL_INPUT_DESC_VARW;
+    inst.add.inputX.id     = inputIdentifierIndex;
+    inst.add.inputY.id     = inputIdentifierIndex;
+    inst.add.inputZ.id     = inputIdentifierIndex;
+    inst.add.inputW.id     = inputIdentifierIndex;
+    inst.add.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_addf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_addf4;
+    inst.add.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.add.inputX.valuef = x;
+    inst.add.inputY.valuef = y;
+    inst.add.inputZ.valuef = z;
+    inst.add.inputW.valuef = w;
+    inst.add.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+
+easymtl_instruction easymtl_subf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_subf1;
+    inst.sub.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.sub.inputX.id     = inputIdentifierIndex;
+    inst.sub.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_subf1_c1(unsigned int outputIdentifierIndex, float x)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_subf1;
+    inst.sub.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputX.valuef = x;
+    inst.sub.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_subf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_subf2;
+    inst.sub.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.sub.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.sub.inputX.id     = inputIdentifierIndex;
+    inst.sub.inputY.id     = inputIdentifierIndex;
+    inst.sub.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_subf2_c2(unsigned int outputIdentifierIndex, float x, float y)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_subf2;
+    inst.sub.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputX.valuef = x;
+    inst.sub.inputY.valuef = y;
+    inst.sub.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_subf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_subf3;
+    inst.sub.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.sub.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.sub.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.sub.inputX.id     = inputIdentifierIndex;
+    inst.sub.inputY.id     = inputIdentifierIndex;
+    inst.sub.inputZ.id     = inputIdentifierIndex;
+    inst.sub.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_subf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_subf3;
+    inst.sub.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputX.valuef = x;
+    inst.sub.inputY.valuef = y;
+    inst.sub.inputZ.valuef = z;
+    inst.sub.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_subf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_subf4;
+    inst.sub.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.sub.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.sub.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.sub.inputDesc.w   = EASYMTL_INPUT_DESC_VARW;
+    inst.sub.inputX.id     = inputIdentifierIndex;
+    inst.sub.inputY.id     = inputIdentifierIndex;
+    inst.sub.inputZ.id     = inputIdentifierIndex;
+    inst.sub.inputW.id     = inputIdentifierIndex;
+    inst.sub.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_subf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_subf4;
+    inst.sub.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.sub.inputX.valuef = x;
+    inst.sub.inputY.valuef = y;
+    inst.sub.inputZ.valuef = z;
+    inst.sub.inputW.valuef = w;
+    inst.sub.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+
+easymtl_instruction easymtl_mulf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf1;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputX.id     = inputIdentifierIndex;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_mulf1_c1(unsigned int outputIdentifierIndex, float x)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf1;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputX.valuef = x;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_mulf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf2;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.mul.inputX.id     = inputIdentifierIndex;
+    inst.mul.inputY.id     = inputIdentifierIndex;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_mulf2_c2(unsigned int outputIdentifierIndex, float x, float y)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf2;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputX.valuef = x;
+    inst.mul.inputY.valuef = y;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_mulf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf3;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.mul.inputX.id     = inputIdentifierIndex;
+    inst.mul.inputY.id     = inputIdentifierIndex;
+    inst.mul.inputZ.id     = inputIdentifierIndex;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_mulf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf3;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputX.valuef = x;
+    inst.mul.inputY.valuef = y;
+    inst.mul.inputZ.valuef = z;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
 easymtl_instruction easymtl_mulf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
 {
     easymtl_instruction inst;
@@ -891,6 +1308,23 @@ easymtl_instruction easymtl_mulf4_v4(unsigned int outputIdentifierIndex, unsigne
     inst.mul.inputY.id     = inputIdentifierIndex;
     inst.mul.inputZ.id     = inputIdentifierIndex;
     inst.mul.inputW.id     = inputIdentifierIndex;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_mulf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf4;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.mul.inputX.valuef = x;
+    inst.mul.inputY.valuef = y;
+    inst.mul.inputZ.valuef = z;
+    inst.mul.inputW.valuef = w;
     inst.mul.output        = outputIdentifierIndex;
 
     return inst;
@@ -947,23 +1381,135 @@ easymtl_instruction easymtl_mulf4_v1c3(unsigned int outputIdentifierIndex, unsig
     return inst;
 }
 
-easymtl_instruction easymtl_mulf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w)
+easymtl_instruction easymtl_mulf4_v1v1v1v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndexX, unsigned int inputIdentifierIndexY, unsigned int inputIdentifierIndexZ, unsigned int inputIdentifierIndexW)
 {
     easymtl_instruction inst;
     inst.opcode = easymtl_opcode_mulf4;
-    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
-    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
-    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
-    inst.mul.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
-    inst.mul.inputX.valuef = x;
-    inst.mul.inputY.valuef = y;
-    inst.mul.inputZ.valuef = z;
-    inst.mul.inputW.valuef = w;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.w   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputX.id     = inputIdentifierIndexX;
+    inst.mul.inputY.id     = inputIdentifierIndexY;
+    inst.mul.inputZ.id     = inputIdentifierIndexZ;
+    inst.mul.inputW.id     = inputIdentifierIndexW;
     inst.mul.output        = outputIdentifierIndex;
 
     return inst;
 }
 
+
+easymtl_instruction easymtl_divf1_v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_divf1;
+    inst.div.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.div.inputX.id     = inputIdentifierIndex;
+    inst.div.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_divf1_c1(unsigned int outputIdentifierIndex, float x)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_divf1;
+    inst.div.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputX.valuef = x;
+    inst.div.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_divf2_v2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_divf2;
+    inst.div.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.div.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.div.inputX.id     = inputIdentifierIndex;
+    inst.div.inputY.id     = inputIdentifierIndex;
+    inst.div.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_divf2_c2(unsigned int outputIdentifierIndex, float x, float y)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_divf2;
+    inst.div.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputX.valuef = x;
+    inst.div.inputY.valuef = y;
+    inst.div.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_divf3_v3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_divf3;
+    inst.div.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.div.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.div.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.div.inputX.id     = inputIdentifierIndex;
+    inst.div.inputY.id     = inputIdentifierIndex;
+    inst.div.inputZ.id     = inputIdentifierIndex;
+    inst.div.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_divf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_divf3;
+    inst.div.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputX.valuef = x;
+    inst.div.inputY.valuef = y;
+    inst.div.inputZ.valuef = z;
+    inst.div.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_divf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_divf4;
+    inst.div.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.div.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.div.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.div.inputDesc.w   = EASYMTL_INPUT_DESC_VARW;
+    inst.div.inputX.id     = inputIdentifierIndex;
+    inst.div.inputY.id     = inputIdentifierIndex;
+    inst.div.inputZ.id     = inputIdentifierIndex;
+    inst.div.inputW.id     = inputIdentifierIndex;
+    inst.div.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_divf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_divf4;
+    inst.div.inputDesc.x   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputDesc.y   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputDesc.z   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputDesc.w   = EASYMTL_INPUT_DESC_CONSTF;
+    inst.div.inputX.valuef = x;
+    inst.div.inputY.valuef = y;
+    inst.div.inputZ.valuef = z;
+    inst.div.inputW.valuef = w;
+    inst.div.output        = outputIdentifierIndex;
+
+    return inst;
+}
 
 
 easymtl_instruction easymtl_tex2(unsigned int outputIdentifierIndex, unsigned int textureIdentifierIndex, unsigned int texcoordIdentifierIndex)
