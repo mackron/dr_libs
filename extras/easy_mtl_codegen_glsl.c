@@ -890,7 +890,7 @@ easymtl_bool easymtl_codegen_glsl_channel_function_close(easymtl_codegen_glsl* p
 
 easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWrittenOut)
 {
-    if (pMaterial != NULL && codeOut != NULL && codeOutSizeInBytes > 0)
+    if (pMaterial != NULL)
     {
         easymtl_header* pHeader = easymtl_getheader(pMaterial);
         if (pHeader != NULL)
