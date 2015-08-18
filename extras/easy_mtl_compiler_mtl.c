@@ -475,7 +475,7 @@ easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wave
     
     // Identifiers.
     easymtl_appendidentifier(pMaterial, easymtl_identifier_float2(texcoordInputName), &texCoordID);
-    easymtl_appendidentifier(pMaterial, easymtl_identifier_float3("DiffuseColor"), &diffuseID);
+    easymtl_appendidentifier(pMaterial, easymtl_identifier_float4("DiffuseColor"), &diffuseID);
     easymtl_appendidentifier(pMaterial, easymtl_identifier_float3("SpecularColor"), &specularID);
     easymtl_appendidentifier(pMaterial, easymtl_identifier_float("SpecularExponent"), &specularExponentID);
     easymtl_appendidentifier(pMaterial, easymtl_identifier_float("Alpha"), &alphaID);
@@ -500,7 +500,7 @@ easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wave
 
     // Inputs.
     easymtl_appendprivateinput(pMaterial, easymtl_input_float2(texCoordID, 0, 0));
-    easymtl_appendpublicinput(pMaterial, easymtl_input_float3(diffuseID, pWavefront->diffuse[0], pWavefront->diffuse[1], pWavefront->diffuse[2]));
+    easymtl_appendpublicinput(pMaterial, easymtl_input_float4(diffuseID, pWavefront->diffuse[0], pWavefront->diffuse[1], pWavefront->diffuse[2], 1.0f));
     easymtl_appendpublicinput(pMaterial, easymtl_input_float3(specularID, pWavefront->specular[0], pWavefront->specular[1], pWavefront->specular[2]));
     easymtl_appendpublicinput(pMaterial, easymtl_input_float(specularExponentID, pWavefront->specularExponent));
     easymtl_appendpublicinput(pMaterial, easymtl_input_float(alphaID, pWavefront->alpha));
@@ -520,14 +520,14 @@ easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wave
 
 
     // Channels.
-    easymtl_appendchannel(pMaterial, easymtl_channel_float3("DiffuseChannel"));
+    easymtl_appendchannel(pMaterial, easymtl_channel_float4("DiffuseChannel"));
     if (pWavefront->diffuseMap[0] != '\0') {
         easymtl_appendinstruction(pMaterial, easymtl_var(diffuseResultID));
         easymtl_appendinstruction(pMaterial, easymtl_tex2(diffuseResultID, diffuseMapID, texCoordID));
         easymtl_appendinstruction(pMaterial, easymtl_mulf4_v3c1(diffuseResultID, diffuseID, 1.0f));
-        easymtl_appendinstruction(pMaterial, easymtl_retf3(diffuseResultID));
+        easymtl_appendinstruction(pMaterial, easymtl_retf4(diffuseResultID));
     } else {
-        easymtl_appendinstruction(pMaterial, easymtl_retf3(diffuseID));
+        easymtl_appendinstruction(pMaterial, easymtl_retf4(diffuseID));
     }
 
     easymtl_appendchannel(pMaterial, easymtl_channel_float3("SpecularChannel"));
