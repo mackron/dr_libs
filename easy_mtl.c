@@ -359,7 +359,7 @@ easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, easymtl_propert
 {
     if (pMaterial != NULL)
     {
-        if (pMaterial->currentStage <= EASYMTL_STAGE_PRIVATE_INPUTS)
+        if (pMaterial->currentStage <= EASYMTL_STAGE_CHANNELS)
         {
             easymtl_header* pHeader = easymtl_getheader(pMaterial);
             if (pHeader != NULL)
@@ -596,6 +596,28 @@ easymtl_property* easymtl_getpropertybyindex(easymtl_material* pMaterial, unsign
         {
             easymtl_property* firstProperty = (easymtl_property*)(pMaterial->pRawData + pHeader->propertiesOffset);
             return firstProperty + index;
+        }
+    }
+
+    return NULL;
+}
+
+easymtl_property* easymtl_getpropertybyname(easymtl_material* pMaterial, const char* name)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        assert(pHeader != NULL);
+
+        for (unsigned int i = 0; i < pHeader->propertyCount; ++i)
+        {
+            easymtl_property* pProperty = ((easymtl_property*)(pMaterial->pRawData + pHeader->propertiesOffset)) + i;
+            assert(pProperty != NULL);
+
+            if (strcmp(pProperty->name, name) == 0)
+            {
+                return pProperty;
+            }
         }
     }
 
@@ -1325,6 +1347,23 @@ easymtl_instruction easymtl_mulf4_c4(unsigned int outputIdentifierIndex, float x
     inst.mul.inputY.valuef = y;
     inst.mul.inputZ.valuef = z;
     inst.mul.inputW.valuef = w;
+    inst.mul.output        = outputIdentifierIndex;
+
+    return inst;
+}
+
+easymtl_instruction easymtl_mulf4_v3v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndexXYZ, unsigned int inputIdentifierIndexW)
+{
+    easymtl_instruction inst;
+    inst.opcode = easymtl_opcode_mulf4;
+    inst.mul.inputDesc.x   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputDesc.y   = EASYMTL_INPUT_DESC_VARY;
+    inst.mul.inputDesc.z   = EASYMTL_INPUT_DESC_VARZ;
+    inst.mul.inputDesc.w   = EASYMTL_INPUT_DESC_VARX;
+    inst.mul.inputX.id     = inputIdentifierIndexXYZ;
+    inst.mul.inputY.id     = inputIdentifierIndexXYZ;
+    inst.mul.inputZ.id     = inputIdentifierIndexXYZ;
+    inst.mul.inputW.id     = inputIdentifierIndexW;
     inst.mul.output        = outputIdentifierIndex;
 
     return inst;

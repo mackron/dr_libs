@@ -671,6 +671,12 @@ unsigned int easymtl_getpropertycount(easymtl_material* pMaterial);
 /// Retrieves a property by it's index.
 easymtl_property* easymtl_getpropertybyindex(easymtl_material* pMaterial, unsigned int index);
 
+/// Retrieves a properties by it's name.
+///
+/// @remarks
+///     This is case-sensitive.
+easymtl_property* easymtl_getpropertybyname(easymtl_material* pMaterial, const char* name);
+
 
 
 ////////////////////////////////////////////////////////
@@ -744,6 +750,7 @@ easymtl_instruction easymtl_mulf3_v3(unsigned int outputIdentifierIndex, unsigne
 easymtl_instruction easymtl_mulf3_c3(unsigned int outputIdentifierIndex, float x, float y, float z);
 easymtl_instruction easymtl_mulf4_v4(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex);
 easymtl_instruction easymtl_mulf4_c4(unsigned int outputIdentifierIndex, float x, float y, float z, float w);
+easymtl_instruction easymtl_mulf4_v3v1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndexXYZ, unsigned int inputIdentifierIndexW);
 easymtl_instruction easymtl_mulf4_v3c1(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float w);
 easymtl_instruction easymtl_mulf4_v2c2(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float z, float w);
 easymtl_instruction easymtl_mulf4_v1c3(unsigned int outputIdentifierIndex, unsigned int inputIdentifierIndex, float y, float z, float w);
