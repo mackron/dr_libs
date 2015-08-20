@@ -224,6 +224,9 @@ unsigned int easypath_length(const char* path);
 /// strcpy_s() implementation.
 void easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src);
 
+/// easypath_strcpy2()
+void easypath_strcpy2(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes);
+
 
 #ifdef __cplusplus
 }
