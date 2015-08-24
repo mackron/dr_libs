@@ -39,8 +39,6 @@
 #include <assert.h>
 #include <string.h>
 
-//#include <stdio.h>  // For testing. Delete this later.
-
 
 #if defined(EASYFSW_PLATFORM_WINDOWS)
 #define WIN32_LEAN_AND_MEAN
@@ -88,6 +86,28 @@ void easyfsw_zeromemory(void* dst, size_t sizeInBytes)
 #endif
 
 
+void easyfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
+{
+#if EASYPATH_USE_STDLIB && (defined(_MSC_VER))
+    strcpy_s(dst, dstSizeInBytes, src);
+#else
+    while (dstSizeInBytes > 0 && src[0] != '\0')
+    {
+        dst[0] = src[0];
+
+        dst += 1;
+        src += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0)
+    {
+        dst[0] = '\0';
+    }
+#endif
+}
+
+
 int easyfsw_event_init(easyfsw_event* pEvent, easyfsw_event_type type, const char* absolutePath, const char* absolutePathNew)
 {
     if (pEvent != NULL)
@@ -96,11 +116,7 @@ int easyfsw_event_init(easyfsw_event* pEvent, easyfsw_event_type type, const cha
         
         if (absolutePath != NULL)
         {
-#if defined(EASYFSW_PLATFORM_WINDOWS)
-            strcpy_s(pEvent->absolutePath, EASYFSW_MAX_PATH, absolutePath);
-#else
-            strcpy(pEvent->absolutePath, absolutePath);
-#endif
+            easyfsw_strcpy(pEvent->absolutePath, EASYFSW_MAX_PATH, absolutePath);
         }
         else
         {
@@ -109,11 +125,7 @@ int easyfsw_event_init(easyfsw_event* pEvent, easyfsw_event_type type, const cha
 
         if (absolutePathNew != NULL)
         {
-#if defined(EASYFSW_PLATFORM_WINDOWS)
-            strcpy_s(pEvent->absolutePathNew, EASYFSW_MAX_PATH, absolutePathNew);
-#else
-            strcpy(pEvent->absolutePathNew, absolutePathNew);
-#endif
+            easyfsw_strcpy(pEvent->absolutePathNew, EASYFSW_MAX_PATH, absolutePathNew);
         }
         else
         {
@@ -692,7 +704,8 @@ int easyfsw_directory_win32_init(easyfsw_directory_win32* pDirectory, easyfsw_co
         size_t length = strlen(absolutePath);
         if (length > 0)
         {
-            strcpy_s(pDirectory->absolutePath, length + 1, absolutePath);
+            memcpy(pDirectory->absolutePath, absolutePath, length);
+            pDirectory->absolutePath[length] = '\0';
 
             wchar_t absolutePathWithBackSlashes[EASYFSW_MAX_PATH_W];
             if (ToWin32PathWCHAR(absolutePath, absolutePathWithBackSlashes))
@@ -901,7 +914,7 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
 
                     case FILE_ACTION_RENAMED_OLD_NAME:
                         {
-                            strcpy_s(absolutePathOld, EASYFSW_MAX_PATH, absolutePath);
+                            easyfsw_strcpy(absolutePath, EASYFSW_MAX_PATH, absolutePath);
                             break;
                         }
                     case FILE_ACTION_RENAMED_NEW_NAME:
