@@ -66,23 +66,23 @@ typedef struct easyvfs_fileinfo easyvfs_fileinfo;
 typedef struct easyvfs_iterator easyvfs_iterator;
 
 
-typedef int           (* easyvfs_isvalidarchive_proc) (easyvfs_context* pContext, const char* path);
-typedef void*         (* easyvfs_openarchive_proc)    (easyvfs_file* pFile, easyvfs_accessmode accessMode);
-typedef void          (* easyvfs_closearchive_proc)   (easyvfs_archive* pArchive);
-typedef int           (* easyvfs_getfileinfo_proc)    (easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo* fi);
-typedef void*         (* easyvfs_beginiteration_proc) (easyvfs_archive* pArchive, const char* path);
-typedef void          (* easyvfs_enditeration_proc)   (easyvfs_archive* pArchive, easyvfs_iterator* i);
-typedef int           (* easyvfs_nextiteration_proc)  (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi);
-typedef void*         (* easyvfs_openfile_proc)       (easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode);
-typedef void          (* easyvfs_closefile_proc)      (easyvfs_file* pFile);
-typedef int           (* easyvfs_readfile_proc)       (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
-typedef int           (* easyvfs_writefile_proc)      (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-typedef easyvfs_bool  (* easyvfs_seekfile_proc)       (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
-typedef easyvfs_int64 (* easyvfs_tellfile_proc)       (easyvfs_file* pFile);
-typedef easyvfs_int64 (* easyvfs_filesize_proc)       (easyvfs_file* pFile);
-typedef int           (* easyvfs_deletefile_proc)     (easyvfs_archive* pArchive, const char* path);
-typedef int           (* easyvfs_renamefile_proc)     (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
-typedef int           (* easyvfs_mkdir_proc)          (easyvfs_archive* pArchive, const char* path);
+typedef int            (* easyvfs_isvalidarchive_proc) (easyvfs_context* pContext, const char* path);
+typedef void*          (* easyvfs_openarchive_proc)    (easyvfs_file* pFile, easyvfs_accessmode accessMode);
+typedef void           (* easyvfs_closearchive_proc)   (easyvfs_archive* pArchive);
+typedef int            (* easyvfs_getfileinfo_proc)    (easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo* fi);
+typedef void*          (* easyvfs_beginiteration_proc) (easyvfs_archive* pArchive, const char* path);
+typedef void           (* easyvfs_enditeration_proc)   (easyvfs_archive* pArchive, easyvfs_iterator* i);
+typedef int            (* easyvfs_nextiteration_proc)  (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi);
+typedef void*          (* easyvfs_openfile_proc)       (easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode);
+typedef void           (* easyvfs_closefile_proc)      (easyvfs_file* pFile);
+typedef int            (* easyvfs_readfile_proc)       (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+typedef int            (* easyvfs_writefile_proc)      (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+typedef easyvfs_bool   (* easyvfs_seekfile_proc)       (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+typedef easyvfs_uint64 (* easyvfs_tellfile_proc)       (easyvfs_file* pFile);
+typedef easyvfs_uint64 (* easyvfs_filesize_proc)       (easyvfs_file* pFile);
+typedef int            (* easyvfs_deletefile_proc)     (easyvfs_archive* pArchive, const char* path);
+typedef int            (* easyvfs_renamefile_proc)     (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+typedef int            (* easyvfs_mkdir_proc)          (easyvfs_archive* pArchive, const char* path);
 
 typedef struct
 {
@@ -282,10 +282,10 @@ int easyvfs_writefile(easyvfs_file* pFile, const void* src, unsigned int bytesTo
 easyvfs_bool easyvfs_seekfile(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
 
 /// Retrieves the current position of the file pointer.
-easyvfs_int64 easyvfs_tellfile(easyvfs_file* pFile);
+easyvfs_uint64 easyvfs_tellfile(easyvfs_file* pFile);
 
 /// Retrieves the size of the given file.
-easyvfs_int64 easyvfs_filesize(easyvfs_file* pFile);
+easyvfs_uint64 easyvfs_filesize(easyvfs_file* pFile);
 
 
 

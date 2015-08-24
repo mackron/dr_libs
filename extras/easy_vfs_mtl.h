@@ -1,7 +1,7 @@
 // Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
 
-#ifndef __easy_vfs_mtl_h_
-#define __easy_vfs_mtl_h_
+#ifndef easy_vfs_mtl
+#define easy_vfs_mtl
 
 #ifdef __cplusplus
 extern "C" {

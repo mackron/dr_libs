@@ -9,10 +9,10 @@
 typedef struct
 {
     /// The byte offset within the archive 
-    easyvfs_int64 offset;
+    easyvfs_uint64 offset;
 
     /// The size of the file, in bytes.
-    easyvfs_int64 sizeInBytes;
+    easyvfs_uint64 sizeInBytes;
 
     /// The name of the material. The specification says this can be any length, but we're going to clamp it to 255 + null terminator which should be fine.
     char name[256];
@@ -42,13 +42,13 @@ typedef struct
 typedef struct
 {
     /// The offset within the archive file the first byte of the file is located.
-    easyvfs_int64 offsetInArchive;
+    easyvfs_uint64 offsetInArchive;
 
     /// The size of the file in bytes so we can guard against overflowing reads.
-    easyvfs_int64 sizeInBytes;
+    easyvfs_uint64 sizeInBytes;
 
     /// The current position of the file's read pointer.
-    easyvfs_int64 readPointer;
+    easyvfs_uint64 readPointer;
 
 }easyvfs_openedfile_mtl;
 
@@ -98,23 +98,23 @@ void easyvfs_mtl_addfile(easyvfs_archive_mtl* pArchive, easyvfs_file_mtl* pFile)
 }
 
 
-int           easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path);
-void*         easyvfs_openarchive_mtl   (easyvfs_file* pFile, easyvfs_accessmode accessMode);
-void          easyvfs_closearchive_mtl  (easyvfs_archive* pArchive);
-int           easyvfs_getfileinfo_mtl   (easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo *fi);
-void*         easyvfs_beginiteration_mtl(easyvfs_archive* pArchive, const char* path);
-void          easyvfs_enditeration_mtl  (easyvfs_archive* pArchive, easyvfs_iterator* i);
-int           easyvfs_nextiteration_mtl (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi);
-void*         easyvfs_openfile_mtl      (easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode);
-void          easyvfs_closefile_mtl     (easyvfs_file* pFile);
-int           easyvfs_readfile_mtl      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
-int           easyvfs_writefile_mtl     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-easyvfs_bool  easyvfs_seekfile_mtl      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
-easyvfs_int64 easyvfs_tellfile_mtl      (easyvfs_file* pFile);
-easyvfs_int64 easyvfs_filesize_mtl      (easyvfs_file* pFile);
-int           easyvfs_deletefile_mtl    (easyvfs_archive* pArchive, const char* path);
-int           easyvfs_renamefile_mtl    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
-int           easyvfs_mkdir_mtl         (easyvfs_archive* pArchive, const char* path);
+int            easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path);
+void*          easyvfs_openarchive_mtl   (easyvfs_file* pFile, easyvfs_accessmode accessMode);
+void           easyvfs_closearchive_mtl  (easyvfs_archive* pArchive);
+int            easyvfs_getfileinfo_mtl   (easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo *fi);
+void*          easyvfs_beginiteration_mtl(easyvfs_archive* pArchive, const char* path);
+void           easyvfs_enditeration_mtl  (easyvfs_archive* pArchive, easyvfs_iterator* i);
+int            easyvfs_nextiteration_mtl (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi);
+void*          easyvfs_openfile_mtl      (easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode);
+void           easyvfs_closefile_mtl     (easyvfs_file* pFile);
+int            easyvfs_readfile_mtl      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+int            easyvfs_writefile_mtl     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+easyvfs_bool   easyvfs_seekfile_mtl      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+easyvfs_uint64 easyvfs_tellfile_mtl      (easyvfs_file* pFile);
+easyvfs_uint64 easyvfs_filesize_mtl      (easyvfs_file* pFile);
+int            easyvfs_deletefile_mtl    (easyvfs_archive* pArchive, const char* path);
+int            easyvfs_renamefile_mtl    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+int            easyvfs_mkdir_mtl         (easyvfs_archive* pArchive, const char* path);
 
 void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext)
 {
@@ -142,13 +142,13 @@ void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext)
 
 typedef struct
 {
-    easyvfs_file* pFile;
-    easyvfs_int64 archiveSizeInBytes;
-    easyvfs_int64 bytesRemaining;
-    char          chunk[4096];
-    unsigned int  chunkSize;
-    char*         chunkPointer;
-    char*         chunkEnd;
+    easyvfs_uint64 archiveSizeInBytes;
+    easyvfs_uint64 bytesRemaining;
+    easyvfs_file*  pFile;
+    char*          chunkPointer;
+    char*          chunkEnd;
+    char           chunk[4096];
+    unsigned int   chunkSize;
 
 }easyvfs_openarchive_mtl_state;
 
@@ -347,8 +347,10 @@ void* easyvfs_openarchive_mtl(easyvfs_file* pFile, easyvfs_accessmode accessMode
         {
             while (state.bytesRemaining > 0 || state.chunkPointer < state.chunkEnd)
             {
-                size_t bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
-                easyvfs_int64 newmtlOffset = state.archiveSizeInBytes - state.bytesRemaining - ((easyvfs_int64)bytesRemainingInChunk);
+                ptrdiff_t bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
+                assert(bytesRemainingInChunk > 0);
+
+                easyvfs_uint64 newmtlOffset = state.archiveSizeInBytes - state.bytesRemaining - ((easyvfs_uint64)bytesRemainingInChunk);
 
                 if (easyvfs_mtl_loadnewmtl(&state))
                 {
@@ -562,7 +564,7 @@ int easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRea
 
         if (pOpenedFile->readPointer + bytesToRead <= pOpenedFile->sizeInBytes)
         {
-            easyvfs_seekfile(pArchiveFile, pOpenedFile->offsetInArchive + pOpenedFile->readPointer, easyvfs_start);
+            easyvfs_seekfile(pArchiveFile, (easyvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), easyvfs_start);
             int result = easyvfs_readfile(pArchiveFile, dst, bytesToRead, bytesReadOut);
             if (result != 0)
             {
@@ -603,18 +605,36 @@ easyvfs_bool easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSeek
     easyvfs_openedfile_mtl* pOpenedFile = pFile->pUserData;
     if (pOpenedFile != NULL)
     {
-        easyvfs_int64 newPos = pOpenedFile->readPointer;
+        easyvfs_uint64 newPos = pOpenedFile->readPointer;
         if (origin == easyvfs_current)
         {
-            newPos += bytesToSeek;
+            if ((easyvfs_int64)newPos + bytesToSeek >= 0)
+            {
+                newPos = (easyvfs_uint64)((easyvfs_int64)newPos + bytesToSeek);
+            }
+            else
+            {
+                // Trying to seek to before the beginning of the file.
+                return 0;
+            }
         }
         else if (origin == easyvfs_start)
         {
-            newPos = bytesToSeek;
+            assert(bytesToSeek > 0);
+            newPos = (easyvfs_uint64)bytesToSeek;
         }
         else if (origin == easyvfs_end)
         {
-            newPos = pOpenedFile->sizeInBytes - bytesToSeek;
+            assert(bytesToSeek > 0);
+            if ((easyvfs_uint64)bytesToSeek <= pOpenedFile->sizeInBytes)
+            {
+                newPos = pOpenedFile->sizeInBytes - (easyvfs_uint64)bytesToSeek;
+            }
+            else
+            {
+                // Trying to seek to before the beginning of the file.
+                return 0;
+            }
         }
         else
         {
@@ -623,7 +643,7 @@ easyvfs_bool easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSeek
         }
 
 
-        if (newPos < 0 || newPos > pOpenedFile->sizeInBytes)
+        if (newPos > pOpenedFile->sizeInBytes)
         {
             return 0;
         }
@@ -635,7 +655,7 @@ easyvfs_bool easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSeek
     return 0;
 }
 
-easyvfs_int64 easyvfs_tellfile_mtl(easyvfs_file* pFile)
+easyvfs_uint64 easyvfs_tellfile_mtl(easyvfs_file* pFile)
 {
     assert(pFile != 0);
 
@@ -648,7 +668,7 @@ easyvfs_int64 easyvfs_tellfile_mtl(easyvfs_file* pFile)
     return 0;
 }
 
-easyvfs_int64 easyvfs_filesize_mtl(easyvfs_file* pFile)
+easyvfs_uint64 easyvfs_filesize_mtl(easyvfs_file* pFile)
 {
     assert(pFile != 0);
 
