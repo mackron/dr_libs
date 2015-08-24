@@ -7,7 +7,7 @@
 #include <ctype.h>
 #endif
 
-
+unsigned int easypath_strlen(const char* str);
 unsigned int easypath_strlen(const char* str)
 {
 #if EASYPATH_USE_STDLIB
@@ -25,7 +25,7 @@ unsigned int easypath_strlen(const char* str)
 
 void easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 {
-#if EASYPATH_USE_STDLIB && (defined(__WIN32__) || defined(_WIN32) || defined(_WIN64))
+#if EASYPATH_USE_STDLIB && (defined(_MSC_VER))
     strcpy_s(dst, dstSizeInBytes, src);
 #else
     while (dstSizeInBytes > 0 && src[0] != '\0')
@@ -472,7 +472,7 @@ int easypath_appenditerator(char* base, unsigned int baseBufferSizeInBytes, easy
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easypath_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, i.segment.length);
+            easypath_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
 
             return 1;

@@ -1,7 +1,7 @@
 // Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
 
-#ifndef __easy_path_h_
-#define __easy_path_h_
+#ifndef easy_path
+#define easy_path
 
 #ifdef __cplusplus
 extern "C" {
