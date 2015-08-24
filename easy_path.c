@@ -439,7 +439,7 @@ int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* 
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easypath_strcpy(base + path1Length, baseBufferSizeInBytes - path1Length, other);
+            easypath_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
 
 
             return 1;
