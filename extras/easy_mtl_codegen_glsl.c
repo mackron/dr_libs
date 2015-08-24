@@ -78,9 +78,14 @@ easymtl_bool easymtl_codegen_glsl_write_float(easymtl_codegen_glsl* pCodegen, fl
     assert(pCodegen != NULL);
 
     char str[32];
-    snprintf(str, 32, "%f", src);
-
-    return easymtl_codegen_glsl_write(pCodegen, str);
+    if (snprintf(str, 32, "%f", src) > 0)
+    {
+        return easymtl_codegen_glsl_write(pCodegen, str);
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 easymtl_bool easymtl_codegen_glsl_write_int(easymtl_codegen_glsl* pCodegen, int src)
@@ -88,9 +93,14 @@ easymtl_bool easymtl_codegen_glsl_write_int(easymtl_codegen_glsl* pCodegen, int 
     assert(pCodegen != NULL);
 
     char str[32];
-    snprintf(str, 32, "%d", src);
-
-    return easymtl_codegen_glsl_write(pCodegen, str);
+    if (snprintf(str, 32, "%d", src) > 0)
+    {
+        return easymtl_codegen_glsl_write(pCodegen, str);
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 easymtl_bool easymtl_codegen_glsl_write_indentation(easymtl_codegen_glsl* pCodegen)
