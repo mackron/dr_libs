@@ -6,16 +6,6 @@
 #include <assert.h>
 
 
-// Platform detection
-#if   !defined(EASYMTL_PLATFORM_WINDOWS) && (defined(__WIN32__) || defined(_WIN32) || defined(_WIN64))
-#define EASYMTL_PLATFORM_WINDOWS
-#elif !defined(EASFMTL_PLATFORM_LINUX)   &&  defined(__linux__)
-#define EASYMTL_PLATFORM_LINUX
-#elif !defined(EASYMTL_PLATFORM_MAC)     && (defined(__APPLE__) && defined(__MACH__))
-#define	EASYMTL_PLATFORM_MAC
-#endif
-
-
 // When constructing the material's raw data, memory allocated in blocks of this amount. This must be at least 256.
 #define EASYMTL_CHUNK_SIZE              4096
 
@@ -106,9 +96,9 @@ easymtl_bool easymtl_initfromexisting_nocopy(easymtl_material* pMaterial, const 
     {
         if (pRawData != NULL && dataSizeInBytes >= sizeof(easymtl_header))
         {
-            if (((easymtl_header*)pRawData)->magic == EASYMTL_MAGIC_NUMBER)
+            if (((const easymtl_header*)pRawData)->magic == EASYMTL_MAGIC_NUMBER)
             {
-                pMaterial->pRawData             = (void*)pRawData;
+                pMaterial->pRawData             = (easymtl_uint8*)pRawData;
                 pMaterial->sizeInBytes          = dataSizeInBytes;
                 pMaterial->bufferSizeInBytes    = dataSizeInBytes;
                 pMaterial->currentStage         = EASYMTL_STAGE_COMPLETE;
@@ -1897,7 +1887,7 @@ easymtl_property easymtl_property_bool(const char* name, easymtl_bool value)
 // strcpy()
 void easymtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 {
-#if defined(EASYMTL_PLATFORM_WINDOWS)
+#if defined(_MSC_VER)
     strcpy_s(dst, dstSizeInBytes, src);
 #else
     while (dstSizeInBytes > 0 && src[0] != '\0')
