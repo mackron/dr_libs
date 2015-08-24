@@ -88,7 +88,7 @@ void easyfsw_zeromemory(void* dst, size_t sizeInBytes)
 
 void easyfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 {
-#if EASYPATH_USE_STDLIB && (defined(_MSC_VER))
+#if defined(_MSC_VER)
     strcpy_s(dst, dstSizeInBytes, src);
 #else
     while (dstSizeInBytes > 0 && src[0] != '\0')
@@ -383,7 +383,7 @@ int ToForwardSlashes(char* path)
 {
     if (path != NULL)
     {
-        int counter = 0;
+        unsigned int counter = 0;
         while (*path++ != '\0' && counter++ < EASYFSW_MAX_PATH)
         {
             if (*path == '\\')

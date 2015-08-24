@@ -9,8 +9,8 @@
 //  - Win32: There is a known issue with the ReadDirectoryChangesW() watch technique (which is used internally)
 //    where some events won't get processed if a large number of files change in a short period of time.
 
-#ifndef __easy_fsw_h_
-#define __easy_fsw_h_
+#ifndef easy_fsw_h
+#define easy_fsw_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,12 +20,12 @@ extern "C" {
 // won't contain a meaningful value. When this is changed the source file will need to be recompiled. Most of the time leaving this
 // at 256 is fine, but it's not a problem to increase the size if you are encountering truncation issues. Note that increasing this
 // value will increase memory usage. You should not need make this any higher than 4096.
-#define EASYFSW_MAX_PATH    256
-//#define EASYFSW_MAX_PATH    1024
-//#define EASYFSW_MAX_PATH    4096
+#define EASYFSW_MAX_PATH    256U
+//#define EASYFSW_MAX_PATH    1024U
+//#define EASYFSW_MAX_PATH    4096U
 
 // The maximum size of the event queue before it overflows.
-#define EASYFSW_EVENT_QUEUE_SIZE        1024
+#define EASYFSW_EVENT_QUEUE_SIZE        1024U
 
 
 // The different event types.
