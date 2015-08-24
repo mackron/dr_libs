@@ -33,11 +33,28 @@ void easyvfs_memcpy(void* dst, const void* src, size_t sizeInBytes)
 {
     CopyMemory(dst, src, sizeInBytes);
 }
+#endif
+
 void easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 {
+#if defined(_MSC_VER)
     strcpy_s(dst, dstSizeInBytes, src);
-}
+#else
+    while (dstSizeInBytes > 0 && src[0] != '\0')
+    {
+        dst[0] = src[0];
+
+        dst += 1;
+        src += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0)
+    {
+        dst[0] = '\0';
+    }
 #endif
+}
 
 void easyvfs_strcpy2(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
 {
@@ -167,7 +184,7 @@ int easyvfs_appendpathiterator(char* base, unsigned int baseBufferSizeInBytes, e
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easyvfs_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, i.segment.length);
+            easyvfs_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
 
             return 1;
@@ -1729,11 +1746,11 @@ int easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path,
         {
             if (fi != NULL)
             {
-                LARGE_INTEGER liSize;
+                ULARGE_INTEGER liSize;
                 liSize.LowPart  = fad.nFileSizeLow;
                 liSize.HighPart = fad.nFileSizeHigh;
 
-                LARGE_INTEGER liTime;
+                ULARGE_INTEGER liTime;
                 liTime.LowPart  = fad.ftLastWriteTime.dwLowDateTime;
                 liTime.HighPart = fad.ftLastWriteTime.dwHighDateTime;
 
@@ -1843,12 +1860,12 @@ int easyvfs_nextiteration_impl_native(easyvfs_archive* pArchive, easyvfs_iterato
         {
             easyvfs_copyandappendpath(fi->absolutePath, EASYVFS_MAX_PATH, pUserData->directoryPath, pUserData->ffd.cFileName);
 
-            LARGE_INTEGER liSize;
+            ULARGE_INTEGER liSize;
             liSize.LowPart  = pUserData->ffd.nFileSizeLow;
             liSize.HighPart = pUserData->ffd.nFileSizeHigh;
             fi->sizeInBytes = liSize.QuadPart;
 
-            LARGE_INTEGER liTime;
+            ULARGE_INTEGER liTime;
             liTime.LowPart  = pUserData->ffd.ftLastWriteTime.dwLowDateTime;
             liTime.HighPart = pUserData->ffd.ftLastWriteTime.dwHighDateTime;
             fi->lastModifiedTime = liTime.QuadPart;

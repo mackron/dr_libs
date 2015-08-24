@@ -1,7 +1,7 @@
 // Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
 
-#ifndef __easy_vfs_h_
-#define __easy_vfs_h_
+#ifndef easy_vfs
+#define easy_vfs
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,8 +55,9 @@ typedef enum
 #define EASYVFS_FILE_ATTRIBUTE_READONLY     0x00000002
 
 
-typedef long long easyvfs_int64;
-typedef int       easyvfs_bool;
+typedef long long          easyvfs_int64;
+typedef unsigned long long easyvfs_uint64;
+typedef int                easyvfs_bool;
 
 typedef struct easyvfs_context  easyvfs_context;
 typedef struct easyvfs_archive  easyvfs_archive;
@@ -145,13 +146,16 @@ struct easyvfs_fileinfo
     char absolutePath[EASYVFS_MAX_PATH];
 
     /// The size of the file, in bytes.
-    easyvfs_int64 sizeInBytes;
+    easyvfs_uint64 sizeInBytes;
 
     /// The time the file was last modified.
-    easyvfs_int64 lastModifiedTime;
+    easyvfs_uint64 lastModifiedTime;
 
     /// File attributes. 
     unsigned int attributes;
+
+    /// Padding. Unused.
+    unsigned int padding4;
 };
 
 struct easyvfs_iterator
@@ -165,7 +169,7 @@ struct easyvfs_iterator
 
 
 /// createcontext()
-easyvfs_context* easyvfs_createcontext();
+easyvfs_context* easyvfs_createcontext(void);
 
 /// deletecontext()
 void easyvfs_deletecontext(easyvfs_context* pContext);
