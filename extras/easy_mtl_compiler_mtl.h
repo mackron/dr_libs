@@ -1,7 +1,7 @@
 // Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
 
-#ifndef __easy_mtl_compiler_mtl_h_
-#define __easy_mtl_compiler_mtl_h_
+#ifndef easy_mtl_compiler_mtl
+#define easy_mtl_compiler_mtl
 
 #ifdef __cplusplus
 extern "C" {

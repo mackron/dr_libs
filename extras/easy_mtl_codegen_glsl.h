@@ -1,7 +1,7 @@
 // Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
 
-#ifndef __easy_mtl_codegen_glsl_h_
-#define __easy_mtl_codegen_glsl_h_
+#ifndef easy_mtl_codegen_glsl
+#define easy_mtl_codegen_glsl
 
 #ifdef __cplusplus
 extern "C" {
