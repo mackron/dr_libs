@@ -9,8 +9,8 @@
 //  - Win32: There is a known issue with the ReadDirectoryChangesW() watch technique (which is used internally)
 //    where some events won't get processed if a large number of files change in a short period of time.
 
-#ifndef easy_fsw_h
-#define easy_fsw_h
+#ifndef easy_fsw
+#define easy_fsw
 
 #ifdef __cplusplus
 extern "C" {
