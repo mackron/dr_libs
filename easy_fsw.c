@@ -1080,7 +1080,7 @@ void easyfsw_delete_context_win32(easyfsw_context_win32* pContext)
 
         // The thread has finished, so close the handle.
         CloseHandle(pContext->hThread);
-        pContext->hThread;
+        pContext->hThread = NULL;
 
 
         // We need to wait for the event queue to finish up before deleting the context for real. If we don't do this nextevent() may try
