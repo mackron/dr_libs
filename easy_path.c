@@ -7,7 +7,6 @@
 #include <ctype.h>
 #endif
 
-unsigned int easypath_strlen(const char* str);
 unsigned int easypath_strlen(const char* str)
 {
 #if EASYPATH_USE_STDLIB
@@ -420,8 +419,8 @@ int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* 
 {
     if (base != 0 && other != 0)
     {
-        unsigned int path1Length = easypath_length(base);
-        unsigned int path2Length = easypath_length(other);
+        unsigned int path1Length = easypath_strlen(base);
+        unsigned int path2Length = easypath_strlen(other);
 
         if (path1Length < baseBufferSizeInBytes)
         {
@@ -453,7 +452,7 @@ int easypath_appenditerator(char* base, unsigned int baseBufferSizeInBytes, easy
 {
     if (base != 0)
     {
-        unsigned int path1Length = easypath_length(base);
+        unsigned int path1Length = easypath_strlen(base);
         unsigned int path2Length = (unsigned int)i.segment.length;
 
         if (path1Length < baseBufferSizeInBytes)
@@ -502,12 +501,6 @@ int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const
     }
 
     return 0;
-}
-
-
-unsigned int easypath_length(const char* path)
-{
-    return easypath_strlen(path);
 }
 
 

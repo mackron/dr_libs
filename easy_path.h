@@ -218,8 +218,8 @@ int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* b
 int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i);
 
 
-/// Retrieves the length of the path, in bytes.
-unsigned int easypath_length(const char* path);
+/// strlen()
+unsigned int easypath_strlen(const char* str);
 
 /// strcpy_s() implementation.
 void easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src);
