@@ -60,7 +60,7 @@ typedef void* easyfsw_context;
 // Creates a file system watcher.
 //
 // This will create a background thread that will do the actual checking.
-easyfsw_context* easyfsw_create_context();
+easyfsw_context* easyfsw_create_context(void);
 
 // Deletes the given file system watcher.
 //

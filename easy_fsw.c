@@ -482,7 +482,7 @@ void easyfsw_list_removebyindex(easyfsw_list* pList, unsigned int index)
         assert(pList->count > 0);
 
         // Just move everything down one slot.
-        for (int i = index; index < pList->count - 1; ++i)
+        for (unsigned int i = index; index < pList->count - 1; ++i)
         {
             pList->buffer[i] = pList->buffer[i + 1];
         }
@@ -521,7 +521,7 @@ int ToBackSlashesWCHAR(wchar_t* path)
 {
     if (path != NULL)
     {
-        int counter = 0;
+        unsigned int counter = 0;
         while (*path++ != L'\0' && counter++ < EASYFSW_MAX_PATH_W)
         {
             if (*path == L'/')
@@ -542,7 +542,7 @@ int UTF8ToWCHAR(const char* str, wchar_t wstrOut[EASYFSW_MAX_PATH_W])
     int wcharsWritten = MultiByteToWideChar(CP_UTF8, 0, str, -1, wstrOut, EASYFSW_MAX_PATH_W);
     if (wcharsWritten > 0)
     {
-        assert(wcharsWritten <= EASYFSW_MAX_PATH_W);
+        assert((unsigned int)wcharsWritten <= EASYFSW_MAX_PATH_W);
         return 1;
     }
 
@@ -554,7 +554,7 @@ int WCHARToUTF8(const wchar_t* wstr, int wstrCC, char pathOut[EASYFSW_MAX_PATH])
     int bytesWritten = WideCharToMultiByte(CP_UTF8, 0, wstr, wstrCC, pathOut, EASYFSW_MAX_PATH - 1, NULL, NULL);
     if (bytesWritten > 0)
     {
-        assert(bytesWritten < EASYFSW_MAX_PATH);
+        assert((unsigned int)bytesWritten < EASYFSW_MAX_PATH);
         pathOut[bytesWritten] = '\0';
 
         return 1;
@@ -626,7 +626,7 @@ typedef struct
 
 } easyfsw_context_win32;
 
-easyfsw_context* easyfsw_create_context_win32();
+easyfsw_context* easyfsw_create_context_win32(void);
 void easyfsw_delete_context_win32(easyfsw_context_win32* pContext);
 int easyfsw_add_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath);
 void easyfsw_remove_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath);
@@ -877,11 +877,10 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
         char absolutePathOld[EASYFSW_MAX_PATH];
         easyfsw_context_win32* pContext = pDirectory->pContext;     // Just for convenience.
 
-        char* pFNI8 = (char*)pDirectory->pFNIBuffer2;
+
+        FILE_NOTIFY_INFORMATION* pFNI = pDirectory->pFNIBuffer2;
         for (;;)
         {
-            FILE_NOTIFY_INFORMATION* pFNI = (FILE_NOTIFY_INFORMATION*)pFNI8;
-
             char relativePath[EASYFSW_MAX_PATH];
             if (FromWin32Path(pFNI->FileName, pFNI->FileNameLength / sizeof(wchar_t), relativePath))
             {
@@ -951,7 +950,7 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
                 break;
             }
 
-            pFNI8 += pFNI->NextEntryOffset;
+            pFNI = (FILE_NOTIFY_INFORMATION*)(((char*)pFNI) + pFNI->NextEntryOffset);
         }
     }
 }
@@ -1104,7 +1103,7 @@ void easyfsw_delete_context_win32(easyfsw_context_win32* pContext)
     }
 }
 
-easyfsw_directory_win32* easyfsw_find_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath, int* pIndexOut)
+easyfsw_directory_win32* easyfsw_find_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath, unsigned int* pIndexOut)
 {
     assert(pContext != NULL);
 
@@ -1179,7 +1178,7 @@ void easyfsw_remove_directory_win32_no_lock(easyfsw_context_win32* pContext, con
 {
     assert(pContext != NULL);
 
-    int index;
+    unsigned int index;
     easyfsw_directory_win32* pDirectory = easyfsw_find_directory_win32(pContext, absolutePath, &index);
     if (pDirectory != NULL)
     {
