@@ -583,9 +583,9 @@ easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const ch
             wavefront.dataSizeInBytes        = mtlDataSizeInBytes;
             wavefront.pDataCur               = wavefront.pData;
             wavefront.pDataEnd               = wavefront.pData + wavefront.dataSizeInBytes;
-            wavefront.diffuse[0]             = 1; wavefront.diffuse[1] = 1;  wavefront.diffuse[2] = 1;  wavefront.diffuse[3] = 1;
+            wavefront.diffuse[0]             = 1; wavefront.diffuse[1] = 1;  wavefront.diffuse[2] = 1;
             wavefront.diffuseMap[0]          = '\0';
-            wavefront.specular[0]            = 1; wavefront.specular[1] = 1; wavefront.specular[2] = 1; wavefront.specular[3] = 1;
+            wavefront.specular[0]            = 1; wavefront.specular[1] = 1; wavefront.specular[2] = 1;
             wavefront.specularMap[0]         = '\0';
             wavefront.specularExponent       = 10;
             wavefront.specularExponentMap[0] = '\0';
