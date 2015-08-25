@@ -183,7 +183,7 @@ int easyvfs_getfileinfo_zip(easyvfs_archive* pArchive, const char* path, easyvfs
                 return 1;
             }
         }
-        
+
         return 1;
     }
     else
@@ -213,7 +213,7 @@ void* easyvfs_beginiteration_zip(easyvfs_archive* pArchive, const char* path)
 
         return pZipIterator;
     }
-    
+
     return NULL;
 }
 
@@ -404,7 +404,7 @@ easyvfs_bool easyvfs_seekfile_zip(easyvfs_file* pFile, easyvfs_int64 bytesToSeek
         else if (origin == easyvfs_end)
         {
             assert(bytesToSeek > 0);
-            if (bytesToSeek <= pOpenedFile->sizeInBytes)
+            if ((easyvfs_uint64)bytesToSeek <= pOpenedFile->sizeInBytes)
             {
                 newPos = pOpenedFile->sizeInBytes - (easyvfs_uint64)bytesToSeek;
             }
