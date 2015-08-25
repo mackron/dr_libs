@@ -16,8 +16,8 @@ extern "C" {
 // Structure representing a section of a path.
 typedef struct 
 {
-    int offset;
-    int length;
+    unsigned int offset;
+    unsigned int length;
 
 } easypath_segment;
 
@@ -47,7 +47,10 @@ int easypath_segments_equal(const char* s0Path, const easypath_segment s0, const
 /// @param path [in] The path whose segments are being iterated.
 ///
 /// @return An iterator object that is passed to easypath_next().
-easypath_iterator easypath_begin(const char* path);
+easypath_iterator easypath_first(const char* path);
+
+/// Creates an iterator beginning at the last segment.
+easypath_iterator easypath_last(const char* path);
 
 /// Goes to the next segment in the path as per the given iterator.
 ///
@@ -56,10 +59,22 @@ easypath_iterator easypath_begin(const char* path);
 /// @return True if the iterator contains a valid value. Use this to determine when to terminate iteration.
 int easypath_next(easypath_iterator* i);
 
+/// Goes to the previous segment in the path.
+///
+/// @param i [in] A pointer to the iterator to decrement.
+///
+/// @return 1 if the iterator contains a valid value. Use this to determine when to terminate iteration.
+int easypath_prev(easypath_iterator* i);
+
 /// Determines if the given iterator is at the end.
 ///
 /// @param i [in] The iterator to check.
 int easypath_atend(easypath_iterator i);
+
+/// Determines if the given iterator is at the start.
+///
+/// @param i [in] The iterator to check.
+int easypath_atstart(easypath_iterator i);
 
 /// Compares the string values of two iterators for equality.
 ///
@@ -216,6 +231,27 @@ int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* b
 /// @remarks
 ///     This assumes both paths are well formed and "i" is a valid iterator.
 int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i);
+
+
+/// Cleans the path and resolves the ".." and "." segments.
+///
+/// @param path               [in]  The path to clean.
+/// @param pathOut            [out] A pointer to the buffer that will receive the path.
+/// @param pathOutSizeInBytes [in]  The size of the buffer pointed to by pathOut, in bytes.
+///
+/// @return The number of bytes written to the output buffer, including the null terminator.
+///
+/// @remarks
+///     The output path will never be longer than the input path.
+///     @par
+///     The output buffer should be overlap with the input path.
+///     @par
+///     As an example, the path "my/messy/../path" will result in "my/path"
+///     @par
+///     The path "my/messy/../../../path" (note how there are too many ".." segments) will return "path" (the extra ".." segments will be dropped.)
+///     @par
+///     If an error occurs, such as an invalid input path, 0 will be returned.
+unsigned int easypath_clean(const char* path, char* pathOut, unsigned int pathOutSizeInBytes);
 
 
 /// strlen()
