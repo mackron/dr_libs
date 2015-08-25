@@ -98,7 +98,7 @@ int easypath_next(easypath_iterator* i)
 
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -303,7 +303,7 @@ const char* easypath_filename(const char* path)
 
         return fileName;
     }
-    
+
     return 0;
 }
 
@@ -322,7 +322,7 @@ const char* easypath_extension(const char* path)
             if (extension[0] == '.')
             {
                 extension    += 1;
-                lastoccurance = extension; 
+                lastoccurance = extension;
             }
         }
 
@@ -353,7 +353,7 @@ int easypath_equal(const char* path1, const char* path2)
         // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
         return iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
     }
-    
+
     return 0;
 }
 
@@ -363,7 +363,7 @@ int easypath_extensionequal(const char* path, const char* extension)
     {
         const char* ext1 = extension;
         const char* ext2 = easypath_extension(path);
-        
+
         while (ext1[0] != '\0' && ext2[0] != '\0')
         {
 #if EASYPATH_USE_STDLIB
@@ -379,7 +379,7 @@ int easypath_extensionequal(const char* path, const char* extension)
             ext2 += 1;
         }
 
-        
+
         return ext1[0] == '\0' && ext2[0] == '\0';
     }
 
@@ -444,7 +444,7 @@ int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* 
             return 1;
         }
     }
-    
+
     return 0;
 }
 
