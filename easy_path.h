@@ -206,6 +206,9 @@ int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* 
 /// Appends an iterator object to the given base path.
 int easypath_appenditerator(char* base, unsigned int baseBufferSizeInBytes, easypath_iterator i);
 
+/// Appends an extension to the given path.
+int easypath_appendextension(char* base, unsigned int baseBufferSizeInBytes, const char* extension);
+
 /// Appends two paths together, and copyies them to a separate buffer.
 ///
 /// @param dst            [out] The destination buffer.
@@ -232,6 +235,14 @@ int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* b
 ///     This assumes both paths are well formed and "i" is a valid iterator.
 int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i);
 
+/// Appends an extension to the given base path and copies them to a separate buffer.
+/// @param dst            [out] The destination buffer.
+/// @param dstSizeInBytes [in]  The size of the buffer pointed to by "dst", in bytes.
+/// @param base           [in]  The base directory.
+/// @param extension      [in]  The relative path to append to "base".
+///
+/// @return 1 if the paths were appended successfully; 0 otherwise.
+int easypath_copyandappendextension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension);
 
 /// Cleans the path and resolves the ".." and "." segments.
 ///
@@ -252,6 +263,10 @@ int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const
 ///     @par
 ///     If an error occurs, such as an invalid input path, 0 will be returned.
 unsigned int easypath_clean(const char* path, char* pathOut, unsigned int pathOutSizeInBytes);
+
+
+/// Removes the extension from the given path.
+int easypath_removeextension(char* path);
 
 
 /// strlen()

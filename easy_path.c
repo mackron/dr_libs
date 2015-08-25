@@ -534,9 +534,36 @@ int easypath_appenditerator(char* base, unsigned int baseBufferSizeInBytes, easy
     return 0;
 }
 
+int easypath_appendextension(char* base, unsigned int baseBufferSizeInBytes, const char* extension)
+{
+    if (base != 0 && extension != 0)
+    {
+        unsigned int baseLength = easypath_strlen(base);
+        unsigned int extLength  = easypath_strlen(extension);
+
+        if (baseLength < baseBufferSizeInBytes)
+        {
+            base[baseLength] = '.';
+            baseLength += 1;
+
+            if (baseLength + extLength >= baseBufferSizeInBytes)
+            {
+                extLength = baseBufferSizeInBytes - baseLength - 1;      // -1 for the null terminator.
+            }
+
+            easypath_strcpy2(base + baseLength, baseBufferSizeInBytes - baseLength, extension, extLength);
+
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
 {
-    if (dst != NULL && dstSizeInBytes > 0)
+    if (dst != 0 && dstSizeInBytes > 0)
     {
         easypath_strcpy(dst, dstSizeInBytes, base);
         return easypath_append(dst, dstSizeInBytes, other);
@@ -547,10 +574,21 @@ int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* b
 
 int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i)
 {
-    if (dst != NULL && dstSizeInBytes > 0)
+    if (dst != 0 && dstSizeInBytes > 0)
     {
         easypath_strcpy(dst, dstSizeInBytes, base);
         return easypath_appenditerator(dst, dstSizeInBytes, i);
+    }
+
+    return 0;
+}
+
+int easypath_copyandappendextension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension)
+{
+    if (dst != 0 && dstSizeInBytes > 0)
+    {
+        easypath_strcpy(dst, dstSizeInBytes, base);
+        return easypath_appendextension(dst, dstSizeInBytes, extension);
     }
 
     return 0;
@@ -634,7 +672,7 @@ unsigned int _easypath_clean_trywrite(easypath_iterator isegment, char* pathOut,
 
 unsigned int easypath_clean(const char* path, char* pathOut, unsigned int pathOutSizeInBytes)
 {
-    if (path != NULL)
+    if (path != 0)
     {
         easypath_iterator last = easypath_last(path);
         if (last.segment.length > 0)
@@ -646,6 +684,22 @@ unsigned int easypath_clean(const char* path, char* pathOut, unsigned int pathOu
             }
 
             return bytesWritten + 1;
+        }
+    }
+
+    return 0;
+}
+
+
+int easypath_removeextension(char* path)
+{
+    if (path != 0)
+    {
+        const char* extension = easypath_extension(path);
+        if (extension != 0)
+        {
+            extension -= 1;
+            path[(extension - path)] = '\0';
         }
     }
 
