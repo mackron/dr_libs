@@ -56,7 +56,7 @@ typedef enum
     easymtl_type_tex3d   = 11,
     easymtl_type_texcube = 12,
     easymtl_type_bool    = 13
-	
+
 } easymtl_type;
 
 /// The various run-time opcodes.
@@ -88,7 +88,7 @@ typedef enum
     easymtl_opcode_addi2 = 0x00001006,
     easymtl_opcode_addi3 = 0x00001007,
     easymtl_opcode_addi4 = 0x00001008,
-    
+
     // sub
     easymtl_opcode_subf1 = 0x00001101,
     easymtl_opcode_subf2 = 0x00001102,
@@ -154,7 +154,7 @@ typedef enum
     easymtl_opcode_reti1 = 0x00003005,
     easymtl_opcode_reti2 = 0x00003006,
     easymtl_opcode_reti3 = 0x00003007,
-    easymtl_opcode_reti4 = 0x00003008,
+    easymtl_opcode_reti4 = 0x00003008
 
 } easymtl_opcode;
 
@@ -177,7 +177,7 @@ typedef struct
 {
     /// The index into the identifier table that this input variable is identified by.
     unsigned int identifierIndex;
-	
+
     /// The default value of the input variable.
     union
     {
@@ -279,7 +279,7 @@ typedef struct
     unsigned char y;
     unsigned char z;
     unsigned char w;
-	
+
 } easymtl_instruction_input_descriptor;
 
 /// Structure containing information about an instruction.
@@ -287,7 +287,7 @@ typedef struct
 {
     /// The instruction's opcode.
     easymtl_opcode opcode;
-	
+
     /// The instruction's data.
 	union
 	{
@@ -301,8 +301,8 @@ typedef struct
             easymtl_instruction_input inputW;
             unsigned int output;
 		} mov;
-		
-		
+
+
         // add data.
         struct
         {
@@ -408,7 +408,7 @@ typedef struct
 
     /// The name of the property.
     char name[EASYMTL_MAX_PROPERTY_NAME];
-	
+
     /// The default value of the input variable.
     union
     {
@@ -463,7 +463,7 @@ typedef struct
             char value[EASYMTL_MAX_PROPERTY_PATH];	// Enough room for a path, but less to keep the total size of the structure at 256 bytes. Null terminated.
         } path;
 
-        struct 
+        struct
         {
             int x;
         } b1;
