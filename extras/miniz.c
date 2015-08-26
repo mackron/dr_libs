@@ -156,6 +156,11 @@
      (i.e. 32-bit stat() fails for me on files > 0x7FFFFFFF bytes).
 */
 
+#if defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wunused-macros"
+#endif
+
 #ifndef MINIZ_HEADER_INCLUDED
 #define MINIZ_HEADER_INCLUDED
 
@@ -4887,6 +4892,10 @@ void *mz_zip_extract_archive_file_to_heap(const char *pZip_filename, const char 
 #endif
 
 #endif // MINIZ_HEADER_FILE_ONLY
+
+#if defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
 
 /*
   This is free and unencumbered software released into the public domain.
