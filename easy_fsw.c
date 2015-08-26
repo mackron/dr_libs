@@ -17,6 +17,11 @@
 
 #include "easy_fsw.h"
 
+#if defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wcast-align"
+#endif
+
 /////////////////////////////////////////////
 // Config.
 
@@ -113,7 +118,7 @@ int easyfsw_event_init(easyfsw_event* pEvent, easyfsw_event_type type, const cha
     if (pEvent != NULL)
     {
         pEvent->type = type;
-        
+
         if (absolutePath != NULL)
         {
             easyfsw_strcpy(pEvent->absolutePath, EASYFSW_MAX_PATH, absolutePath);
@@ -360,7 +365,7 @@ int MakeAbsolutePath(const char* absolutePart, const char* relativePart, char ab
     {
         relativePartLength = EASYFSW_MAX_PATH - 1 - absolutePartLength - 1;     // -1 for the null terminate and -1 for the slash.
     }
-    
+
 
     // Absolute part.
     memcpy(absolutePathOut, absolutePart, absolutePartLength);
@@ -496,7 +501,7 @@ void easyfsw_list_popback(easyfsw_list* pList)
     if (pList != NULL)
     {
         assert(pList->count > 0);
-        
+
         easyfsw_list_removebyindex(pList, pList->count - 1);
     }
 }
@@ -943,7 +948,7 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
                 }
             }
 
-            
+
 
             if (pFNI->NextEntryOffset == 0)
             {
@@ -1168,7 +1173,7 @@ int easyfsw_add_directory_win32(easyfsw_context_win32* pContext, const char* abs
         }
     }
 
-    
+
 
     // An error occured if we got here.
     return 0;
@@ -1185,7 +1190,7 @@ void easyfsw_remove_directory_win32_no_lock(easyfsw_context_win32* pContext, con
         // When removing a directory, we need to call CancelIo() on the file handle we created for the directory. The problem is that
         // this needs to be called on the worker thread in order for watcher notification callback function to get the correct error
         // code. To do this we need to signal an event which the worker thread is waiting on. The worker thread will then call CancelIo()
-        // which in turn will trigger the correct error code in the notification callback. The notification callback is where the 
+        // which in turn will trigger the correct error code in the notification callback. The notification callback is where the
         // the object will be deleted for real and will release the synchronization lock that this function is waiting on below.
         easyfsw_directory_win32_scheduledelete(pDirectory);
 
@@ -1388,6 +1393,11 @@ int easyfsw_peekevent(easyfsw_context* pContext, easyfsw_event* pEventOut)
 
 
 #endif  // Win32
+
+
+#if defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
 
 
 /*
