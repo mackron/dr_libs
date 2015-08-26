@@ -8,17 +8,8 @@
 
 #include <assert.h>
 
-/////////////////////////////////////////////
-// Platform detection
-#if   !defined(EASYVFS_PLATFORM_WINDOWS) && (defined(__WIN32__) || defined(_WIN32) || defined(_WIN64))
-#define EASYVFS_PLATFORM_WINDOWS
-#elif !defined(EASFVFS_PLATFORM_LINUX)   &&  defined(__linux__)
-#define EASYVFS_PLATFORM_LINUX
-#elif !defined(EASYVFS_PLATFORM_MAC)     && (defined(__APPLE__) && defined(__MACH__))
-#define	EASYVFS_PLATFORM_MAC
-#endif
 
-#if defined(EASYVFS_PLATFORM_WINDOWS)
+#if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
 
 void* easyvfs_malloc(size_t sizeInBytes)
@@ -76,7 +67,7 @@ void easyvfs_strcpy2(char* dst, unsigned int dstSizeInBytes, const char* src, un
 
 
 #if !EASYVFS_USE_EASYPATH
-typedef struct 
+typedef struct
 {
     int offset;
     int length;
@@ -126,7 +117,7 @@ int easyvfs_nextpathsegment(easyvfs_pathiterator* i)
 
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -425,7 +416,7 @@ int easyvfs_callbacklist_inflate(easyvfs_callbacklist* pList)
 
 
             pList->pBuffer = pNewBuffer;
-            
+
 
             return 1;
         }
@@ -467,7 +458,7 @@ struct easyvfs_context
     /// The list of base directories.
     easyvfs_basepaths baseDirectories;
 
-    /// The callbacks for native archives. These callbacks are implemented down the bottom of this file, in the platform-specific section. 
+    /// The callbacks for native archives. These callbacks are implemented down the bottom of this file, in the platform-specific section.
     easyvfs_archive_callbacks nativeCallbacks;
 };
 
@@ -945,7 +936,7 @@ void easyvfs_closearchive_recursive(easyvfs_archive* pArchive)
 
 
     easyvfs_closearchive(pArchive);
-    
+
     if (pParentArchive != NULL)
     {
         easyvfs_closearchive_recursive(pParentArchive);
@@ -1157,7 +1148,7 @@ int easyvfs_nextiteration(easyvfs_context* pContext, easyvfs_iterator* i, easyvf
 
                 easyvfs_copyandappendpath(fi->absolutePath, EASYVFS_MAX_PATH, i->pArchive->absolutePath, tempPath);
             }
-            
+
         }
 
         return result;
@@ -1500,7 +1491,7 @@ const char* easyvfs_filename(const char* path)
 
         return fileName;
     }
-    
+
     return 0;
 #else
     return easypath_filename(path);
@@ -1523,7 +1514,7 @@ const char* easyvfs_extension(const char* path)
             if (extension[0] == '.')
             {
                 extension    += 1;
-                lastoccurance = extension; 
+                lastoccurance = extension;
             }
         }
 
@@ -1544,7 +1535,7 @@ int easyvfs_extensionequal(const char* path, const char* extension)
     {
         const char* ext1 = extension;
         const char* ext2 = easyvfs_extension(path);
-        
+
         while (ext1[0] != '\0' && ext2[0] != '\0')
         {
             if (tolower(ext1[0]) != tolower(ext2[0]))
@@ -1556,7 +1547,7 @@ int easyvfs_extensionequal(const char* path, const char* extension)
             ext2 += 1;
         }
 
-        
+
         return ext1[0] == '\0' && ext2[0] == '\0';
     }
 
@@ -1586,7 +1577,7 @@ int easyvfs_pathsequal(const char* path1, const char* path2)
         // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
         return iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
     }
-    
+
     return 0;
 #else
     return easypath_equal(path1, path2);
@@ -1630,7 +1621,7 @@ int easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const cha
     {
         unsigned int path1Length = (unsigned int)strlen(base);
         unsigned int path2Length = (unsigned int)strlen(other);
-        
+
         if (path1Length < baseBufferSizeInBytes)
         {
             // Slash.
@@ -1653,7 +1644,7 @@ int easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const cha
             return 1;
         }
     }
-    
+
     return 0;
 #else
     return easypath_append(base, baseBufferSizeInBytes, other);
@@ -1680,7 +1671,7 @@ int easyvfs_copyandappendpath(char* dst, unsigned int dstSizeInBytes, const char
 ///////////////////////////////////////////
 // Platform Specific
 
-#if defined(EASYVFS_PLATFORM_WINDOWS)
+#if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
 typedef struct
 {
     HANDLE hFind;
@@ -1727,7 +1718,7 @@ void easyvfs_closearchive_impl_native(easyvfs_archive* pArchive)
 {
     assert(pArchive            != NULL);
     assert(pArchive->pUserData != NULL);
-    
+
     // Nothing to do except free the object.
     easyvfs_free(pArchive->pUserData);
 }
@@ -1869,7 +1860,7 @@ int easyvfs_nextiteration_impl_native(easyvfs_archive* pArchive, easyvfs_iterato
             liTime.LowPart  = pUserData->ffd.ftLastWriteTime.dwLowDateTime;
             liTime.HighPart = pUserData->ffd.ftLastWriteTime.dwHighDateTime;
             fi->lastModifiedTime = liTime.QuadPart;
-             
+
             fi->attributes = 0;
             if ((pUserData->ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
             {
@@ -2097,7 +2088,6 @@ int easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
     return 0;
 }
 #endif
-
 
 
 /*
