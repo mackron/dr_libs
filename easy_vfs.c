@@ -8,6 +8,11 @@
 
 #include <assert.h>
 
+#if defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wcovered-switch-default"
+#endif
+
 
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
@@ -2087,6 +2092,10 @@ int easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
 
     return 0;
 }
+#endif
+
+#if defined(__clang__)
+    #pragma GCC diagnostic pop
 #endif
 
 
