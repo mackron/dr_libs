@@ -7,6 +7,10 @@
 #include <assert.h>
 #include <stdio.h>
 
+#if defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wswitch-enum"
+#endif
 
 typedef struct
 {
@@ -414,7 +418,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_mov(easymtl_codegen_glsl* pC
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
-    
+
     if (pInstruction->mov.output < pCodegen->identifierCount)
     {
         easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->mov.output;
@@ -472,7 +476,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_add(easymtl_codegen_glsl* pC
             return easymtl_codegen_glsl_write_instruction_input_initializer(pCodegen, type, pInstruction->add.inputDesc, &pInstruction->add.inputX) && easymtl_codegen_glsl_write(pCodegen, ";\n");
         }
     }
-    
+
     return 0;
 }
 
@@ -480,7 +484,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_sub(easymtl_codegen_glsl* pC
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
-    
+
     if (pInstruction->add.output < pCodegen->identifierCount)
     {
         easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->sub.output;
@@ -585,7 +589,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_pow(easymtl_codegen_glsl* pC
         easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->pow.output;
         assert(pOutputIdentifier != NULL);
 
-        if (easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, " = pow(") && easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, ", ")) 
+        if (easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, " = pow(") && easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, ", "))
         {
             easymtl_type type;
             switch (pInstruction->opcode)
@@ -693,10 +697,10 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_var(easymtl_codegen_glsl* pC
     {
         easymtl_identifier* pIdentifier = pCodegen->pIdentifiers + pInstruction->var.identifierIndex;
         assert(pIdentifier != NULL);
-    
+
         return easymtl_codegen_glsl_write_type(pCodegen, pIdentifier->type) && easymtl_codegen_glsl_write(pCodegen, " ") && easymtl_codegen_glsl_write(pCodegen, pIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, ";\n");
     }
-    
+
     return 0;
 }
 
@@ -704,7 +708,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_ret(easymtl_codegen_glsl* pC
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
-    
+
     if (easymtl_codegen_glsl_write(pCodegen, "return "))
     {
         easymtl_type type;
@@ -1012,6 +1016,10 @@ easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* co
 
     return 0;
 }
+
+#if defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
 
 /*
 This is free and unencumbered software released into the public domain.
