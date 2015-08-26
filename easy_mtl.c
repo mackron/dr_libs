@@ -5,6 +5,11 @@
 #include <string.h>
 #include <assert.h>
 
+#if defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wcast-align"
+#endif
+
 
 // When constructing the material's raw data, memory allocated in blocks of this amount. This must be at least 256.
 #define EASYMTL_CHUNK_SIZE              4096
@@ -154,15 +159,15 @@ easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, easymtl_ident
                         // An error occured when trying to inflate the buffer. Might be out of memory.
                         return 0;
                     }
-                    
+
                     pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->identifierSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
-                
+
 
                 memcpy(pMaterial->pRawData + pHeader->inputsOffset, &identifier, pHeader->identifierSizeInBytes);
                 pMaterial->sizeInBytes += pHeader->identifierSizeInBytes;
-                
+
                 pHeader->identifierCount  += 1;
                 pHeader->inputsOffset     += pHeader->identifierSizeInBytes;
                 pHeader->channelsOffset   += pHeader->identifierSizeInBytes;
@@ -198,7 +203,7 @@ easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_inp
                         // An error occured when trying to inflate the buffer. Might be out of memory.
                         return 0;
                     }
-                    
+
                     pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->inputSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
@@ -237,7 +242,7 @@ easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_inpu
                         // An error occured when trying to inflate the buffer. Might be out of memory.
                         return 0;
                     }
-                    
+
                     pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->inputSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
@@ -280,7 +285,7 @@ easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel 
                         // An error occured when trying to inflate the buffer. Might be out of memory.
                         return 0;
                     }
-                    
+
                     pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->channelHeaderSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
@@ -319,7 +324,7 @@ easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, easymtl_inst
                         // An error occured when trying to inflate the buffer. Might be out of memory.
                         return 0;
                     }
-                    
+
                     pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->instructionSizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
@@ -333,7 +338,7 @@ easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, easymtl_inst
                 {
                     pChannelHeader->instructionCount += 1;
                 }
-                
+
                 pHeader->propertiesOffset += pHeader->instructionSizeInBytes;
 
 
@@ -361,7 +366,7 @@ easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, easymtl_propert
                         // An error occured when trying to inflate the buffer. Might be out of memory.
                         return 0;
                     }
-                    
+
                     pHeader = easymtl_getheader(pMaterial);
                     assert(pMaterial->sizeInBytes + pHeader->propertySizeInBytes <= pMaterial->bufferSizeInBytes);
                 }
@@ -401,7 +406,7 @@ easymtl_channel_header* easymtl_getchannelheaderbyindex(easymtl_material* pMater
             return (easymtl_channel_header*)pChannelHeader;
         }
     }
-    
+
     return NULL;
 }
 
@@ -423,7 +428,7 @@ easymtl_channel_header* easymtl_getchannelheaderbyname(easymtl_material* pMateri
             pChannelHeader += sizeof(easymtl_channel_header) + (sizeof(easymtl_instruction) * ((easymtl_channel_header*)pChannelHeader)->instructionCount);
         }
     }
-    
+
     return NULL;
 }
 
@@ -510,7 +515,7 @@ unsigned int easymtl_getprivateinputcount(easymtl_material* pMaterial)
 
         return pHeader->privateInputCount;
     }
-    
+
     return 0;
 }
 
@@ -540,7 +545,7 @@ unsigned int easymtl_getpublicinputcount(easymtl_material* pMaterial)
 
         return pHeader->publicInputCount;
     }
-    
+
     return 0;
 }
 
@@ -1906,7 +1911,9 @@ void easymtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 #endif
 }
 
-
+#if defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
 
 /*
 This is free and unencumbered software released into the public domain.

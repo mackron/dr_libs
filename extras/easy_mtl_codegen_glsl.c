@@ -10,6 +10,8 @@
 #if defined(__clang__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wswitch-enum"
+    #pragma GCC diagnostic ignored "-Wcovered-switch-default"
+    #pragma GCC diagnostic ignored "-Wused-but-marked-unused"   // This ie emitted for snprintf() for some reason. Need to investigate...
 #endif
 
 typedef struct
