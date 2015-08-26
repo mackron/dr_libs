@@ -159,6 +159,7 @@
 #if defined(__clang__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wunused-macros"
+    #pragma GCC diagnostic ignored "-Wcast-align"
 #endif
 
 #ifndef MINIZ_HEADER_INCLUDED
