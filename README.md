@@ -1,13 +1,15 @@
 # About
-easy_path is a simple path manipulation library. I've been wanting to separate my path manipulation
-code from my IO code, so I figured I'd create a little library for it. It's nothing special, and
-there's still a lot of APIs to add, but a few points of interest include:
+easy_path is a simple path manipulation library. At it's core this is just a string
+manipulation library - it doesn't do anything with the actual file system such as
+checking whether or not a path points to an actual file or whatnot.
+
+Some points of interest:
  - It's made up of just two files - easy_path.h and easy_path.c
- - No dependencies (so far)
+ - No dependencies except for the C standard library, which is optional
  - Never uses the heap
  - Public domain
 
-There aren't may APIs yet, but I'll be adding to it as a need them in my other projects.
+There aren't many APIs yet, but I'll be adding to it as a need them in my other projects.
 
  
 # How to use it
