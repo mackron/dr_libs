@@ -1914,7 +1914,7 @@ void* easyvfs_openfile_impl_native(easyvfs_archive* pArchive, const char* path, 
         case easyvfs_write:
             {
                 dwDesiredAccess       = FILE_GENERIC_WRITE;
-                dwCreationDisposition = OPEN_ALWAYS;
+                dwCreationDisposition = CREATE_ALWAYS;
                 break;
             }
 
