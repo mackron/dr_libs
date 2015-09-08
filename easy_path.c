@@ -701,6 +701,25 @@ int easypath_removeextension(char* path)
             extension -= 1;
             path[(extension - path)] = '\0';
         }
+
+        return 1;
+    }
+
+    return 0;
+}
+
+int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, const char* path)
+{
+    if (dst != 0 && dstSizeInBytes > 0 && path != 0)
+    {
+        const char* extension = easypath_extension(path);
+        if (extension != 0)
+        {
+            extension -= 1;
+        }
+
+        easypath_strcpy2(dst, dstSizeInBytes, path, extension - path);
+        return 1;
     }
 
     return 0;

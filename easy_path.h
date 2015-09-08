@@ -266,7 +266,13 @@ unsigned int easypath_clean(const char* path, char* pathOut, unsigned int pathOu
 
 
 /// Removes the extension from the given path.
+///
+/// @remarks
+///     If the given path does not have an extension, 1 will be returned, but the string will be left unmodified.
 int easypath_removeextension(char* path);
+
+/// Creates a copy of the given string and removes the extension.
+int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, const char* path);
 
 
 /// strlen()
