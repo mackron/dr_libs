@@ -918,7 +918,7 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
 
                     case FILE_ACTION_RENAMED_OLD_NAME:
                         {
-                            easyfsw_strcpy(absolutePath, EASYFSW_MAX_PATH, absolutePath);
+                            easyfsw_strcpy(absolutePathOld, EASYFSW_MAX_PATH, absolutePath);
                             break;
                         }
                     case FILE_ACTION_RENAMED_NEW_NAME:
