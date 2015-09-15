@@ -1643,7 +1643,7 @@ int easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const cha
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easyvfs_strcpy(base + path1Length, baseBufferSizeInBytes - path1Length, other);
+            easyvfs_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
 
 
             return 1;
