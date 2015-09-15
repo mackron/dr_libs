@@ -342,7 +342,7 @@ void* easyvfs_openarchive_mtl(easyvfs_file* pFile, easyvfs_accessmode accessMode
         state.bytesRemaining     = state.archiveSizeInBytes;
         state.chunkSize          = 0;
         state.chunkPointer       = state.chunk;
-        state.chunkEnd           = state.chunkEnd;
+        state.chunkEnd           = state.chunk;
         if (easyvfs_mtl_loadnextchunk(&state))
         {
             while (state.bytesRemaining > 0 || state.chunkPointer < state.chunkEnd)
