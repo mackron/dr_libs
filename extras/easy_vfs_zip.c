@@ -129,9 +129,10 @@ void* easyvfs_openarchive_zip(easyvfs_file* pFile, easyvfs_accessmode accessMode
 
 
     mz_zip_archive* pZip = easyvfs_malloc(sizeof(mz_zip_archive));
-    memset(pZip, 0, sizeof(mz_zip_archive));
     if (pZip != NULL)
     {
+        memset(pZip, 0, sizeof(mz_zip_archive));
+
         pZip->m_pRead        = easyvfs_mz_file_read_func;
         pZip->m_pIO_opaque   = pFile;
         if (mz_zip_reader_init(pZip, easyvfs_filesize(pFile), 0))
