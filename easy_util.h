@@ -5,6 +5,7 @@
 
 #if !defined(_MSC_VER)
 #include <errno.h>
+#include <stddef.h>
 #endif
 
 
@@ -30,15 +31,15 @@
 
 /// A basic implementation of MSVC's strcpy_s().
 #if !defined(_MSC_VER)
-inline errno strcpy_s(OUT char* dst, size_t dstSizeInBytes, const char* src)
+inline int strcpy_s(OUT char* dst, size_t dstSizeInBytes, const char* src)
 {
-    if (dst == NULL) {
+    if (dst == 0) {
         return EINVAL;
     }
     if (dstSizeInBytes == 0) {
         return ERANGE;
     }
-    if (src == NULL) {
+    if (src == 0) {
         dst[0] = '\0';
         return EINVAL;
     }
@@ -64,6 +65,7 @@ inline errno strcpy_s(OUT char* dst, size_t dstSizeInBytes, const char* src)
 
     return 0;
 }
+#endif
 
 
 
