@@ -32,7 +32,7 @@
 
 #include <stdlib.h>
 
-#if !defined(_MSC_VER)
+#ifndef EASYUTIL_NO_MSVC_COMPAT
 #include <errno.h>
 #endif
 
