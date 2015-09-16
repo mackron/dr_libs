@@ -3,6 +3,33 @@
 #ifndef easy_util
 #define easy_util
 
+
+/////////////////////////////////////////////////////////
+// Options
+
+#ifdef EASYUTIL_ONLY_ANNOTATIONS
+    #define EASYUTIL_NO_MSVC_COMPAT
+    #define EASYUTIL_NO_ALIGNED_MALLOC
+#endif
+
+#ifdef EASYUTIL_ONLY_MSVC_COMPAT
+    #define EASYUTIL_NO_ANNOTATIONS
+    #define EASYUTIL_NO_ALIGNED_MALLOC
+#endif
+
+#ifdef EASYUTIL_ONLY_ALIGNED_MALLOC
+    #define EASYUTIL_NO_ANNOTATIONS
+    #define EASYUTIL_NO_MSVC_COMPAT
+#endif
+
+
+// Disable MSVC compatibility if we're compiling with it.
+#if !defined(EASYUTIL_NO_MSVC_COMPAT) && !defined(_MSC_VER)
+    #define EASYUTIL_NO_MSVC_COMPAT
+#endif
+
+
+
 #include <stdlib.h>
 
 #if !defined(_MSC_VER)
@@ -13,26 +40,27 @@
 /////////////////////////////////////////////////////////
 // Annotations
 
-#ifndef IN
-#define IN
+#ifndef EASYUTIL_NO_ANNOTATIONS
+    #ifndef IN
+    #define IN
+    #endif
+
+    #ifndef	OUT
+    #define OUT
+    #endif
+
+    #ifndef UNUSED
+    #define UNUSED(x) ((void)x)
+    #endif
 #endif
 
-#ifndef	OUT
-#define OUT
-#endif
 
-#ifndef UNUSED
-#define UNUSED(x) ((void)x)
-#endif
+/////////////////////////////////////////////////////////
+// MSVC Compatibility
 
-
-//////////////////////////////////////////////////////////
-// Below are implementations for functions that are
-// specific to MSVC
-
-#if !defined(_MSC_VER)
+#ifndef EASYUTIL_NO_MSVC_COMPAT
 /// A basic implementation of MSVC's strcpy_s().
-inline int strcpy_s(OUT char* dst, size_t dstSizeInBytes, const char* src)
+inline int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
     if (dst == 0) {
         return EINVAL;
@@ -69,7 +97,10 @@ inline int strcpy_s(OUT char* dst, size_t dstSizeInBytes, const char* src)
 #endif
 
 
+/////////////////////////////////////////////////////////
+// Aligned Allocations
 
+#ifndef EASYUTIL_NO_ALIGNED_MALLOC
 inline void* aligned_malloc(size_t alignment, size_t size)
 {
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
@@ -96,6 +127,7 @@ inline void aligned_free(void* ptr)
     free(ptr);
 #endif
 }
+#endif  // !EASYUTIL_NO_ALIGNED_MALLOC
 
 
 
