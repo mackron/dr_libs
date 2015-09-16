@@ -29,8 +29,8 @@
 // Below are implementations for functions that are
 // specific to MSVC
 
-/// A basic implementation of MSVC's strcpy_s().
 #if !defined(_MSC_VER)
+/// A basic implementation of MSVC's strcpy_s().
 inline int strcpy_s(OUT char* dst, size_t dstSizeInBytes, const char* src)
 {
     if (dst == 0) {
@@ -47,7 +47,7 @@ inline int strcpy_s(OUT char* dst, size_t dstSizeInBytes, const char* src)
     char* iDst = dst;
     const char* iSrc = src;
     size_t remainingSizeInBytes = dstSizeInBytes;
-	while (remainingSizeInBytes > 0 && iSrc[0] != '\0')
+    while (remainingSizeInBytes > 0 && iSrc[0] != '\0')
     {
         iDst[0] = iSrc[0];
 
