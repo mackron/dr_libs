@@ -106,16 +106,12 @@ inline void* aligned_malloc(size_t alignment, size_t size)
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
     return _aligned_malloc(size, alignment);
 #else
-    #if __STDC_VERSION__ < 201112L
     void* pResult;
     if (posix_memalign(&pResult, alignment, size) == 0) {
         return pResult;
     }
     
     return 0;
-    #else
-    return aligned_alloc(alignment, size);
-    #endif
 #endif
 }
 
