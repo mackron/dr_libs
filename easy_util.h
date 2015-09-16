@@ -45,7 +45,7 @@
     #define IN
     #endif
 
-    #ifndef	OUT
+    #ifndef OUT
     #define OUT
     #endif
 
