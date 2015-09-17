@@ -24,7 +24,7 @@
 
 
 // Disable MSVC compatibility if we're compiling with it.
-#if !defined(EASYUTIL_NO_MSVC_COMPAT) && !defined(_MSC_VER)
+#if !defined(EASYUTIL_NO_MSVC_COMPAT) && defined(_MSC_VER)
     #define EASYUTIL_NO_MSVC_COMPAT
 #endif
 
