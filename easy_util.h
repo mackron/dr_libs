@@ -3,6 +3,9 @@
 #ifndef easy_util
 #define easy_util
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /////////////////////////////////////////////////////////
 // Options
@@ -127,6 +130,9 @@ inline void aligned_free(void* ptr)
 
 
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
