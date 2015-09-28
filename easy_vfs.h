@@ -249,6 +249,13 @@ int easyvfs_findabsolutepath(easyvfs_context* pContext, const char* path, char* 
 int easyvfs_findabsolutepath_explicitbase(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
 
+/// Determines whether or not the given path refers to an archive file.
+///
+/// @remarks
+///     This will return false if the path refers to a folder on the normal file system.
+easyvfs_bool easyvfs_isarchive(easyvfs_context* pContext, const char* path);
+
+
 /// deletefile()
 ///
 /// Must be an absolute, verbose path in order to avoid ambiguity.

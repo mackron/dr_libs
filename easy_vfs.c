@@ -949,6 +949,44 @@ void easyvfs_closearchive_recursive(easyvfs_archive* pArchive)
 }
 
 
+/// Opens an archive file.
+///
+/// @remarks
+///     This will work if the path refers to an archive directly, such as "my/file.zip". It will also work for directories on the file native
+///     file system such as "my/directory". It will fail, however, if the path is something like "my/file.zip/compressed.txt".
+///     @par
+///     Close the archive with easyvfs_closearchive_recursive().
+easyvfs_archive* easyvfs_openarchivefile(easyvfs_context* pContext, const char* path, easyvfs_accessmode accessMode)
+{
+    if (pContext != NULL && path != NULL)
+    {
+        char relativePath[EASYVFS_MAX_PATH];
+        easyvfs_archive* pParentArchive = easyvfs_openarchive_frompath(pContext, path, accessMode, relativePath, EASYVFS_MAX_PATH);
+        if (pParentArchive != NULL)
+        {
+            easyvfs_archive* pActualArchive = easyvfs_openarchive(pContext, pParentArchive, relativePath, accessMode);
+            if (pActualArchive == NULL)
+            {
+                // If the parent archive is a native archive and the absolute path is blank, it means the path could be absolute and pointing to a native folder.
+                if (pParentArchive->pParentArchive == NULL && pParentArchive->absolutePath[0] == '\0')
+                {
+                    pActualArchive = pParentArchive;
+                    strcpy_s(pActualArchive->absolutePath, EASYVFS_MAX_PATH, path);
+                }
+                else
+                {
+                    easyvfs_closearchive_recursive(pParentArchive);
+                }
+            }
+            
+
+            return pActualArchive;
+        }
+    }
+
+    return NULL;
+}
+
 
 /// Opens a file from an archive.
 ///
@@ -1113,12 +1151,10 @@ int easyvfs_beginiteration(easyvfs_context* pContext, const char* path, easyvfs_
 {
     if (pContext != NULL && path != NULL && iOut != NULL)
     {
-        char relativePath[EASYVFS_MAX_PATH];
-
-        easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read, relativePath, EASYVFS_MAX_PATH);
+        easyvfs_archive* pArchive = easyvfs_openarchivefile(pContext, path, easyvfs_read);
         if (pArchive != NULL)
         {
-            void* pUserData = pArchive->callbacks.beginiteration(pArchive, path);
+            void* pUserData = pArchive->callbacks.beginiteration(pArchive, "");
             if (pUserData != NULL)
             {
                 iOut->pArchive  = pArchive;
@@ -1237,6 +1273,33 @@ int easyvfs_findabsolutepath_explicitbase(easyvfs_context* pContext, const char*
         easyvfs_removebasedirectorybyindex(pContext, 0);
 
         return result;
+    }
+
+    return 0;
+}
+
+
+easyvfs_bool easyvfs_isarchive(easyvfs_context* pContext, const char* path)
+{
+    if (pContext != NULL && path != NULL)
+    {
+        char relativePath[EASYVFS_MAX_PATH];
+        easyvfs_archive* pBaseArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read, relativePath, EASYVFS_MAX_PATH);
+        if (pBaseArchive != NULL)
+        {
+            easyvfs_bool result = 0;
+
+            easyvfs_archive* pActualArchive = easyvfs_openarchive(pContext, pBaseArchive, relativePath, easyvfs_read);
+            if (pActualArchive != NULL)
+            {
+                result = 1;
+                easyvfs_closearchive(pActualArchive);
+            }
+
+
+            easyvfs_closearchive_recursive(pBaseArchive);
+            return result;
+        }
     }
 
     return 0;
