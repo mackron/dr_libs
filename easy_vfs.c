@@ -1228,10 +1228,21 @@ int easyvfs_beginiteration(easyvfs_context* pContext, const char* path, easyvfs_
 {
     if (pContext != NULL && path != NULL && iOut != NULL)
     {
+        char relativePath[EASYVFS_MAX_PATH];
         easyvfs_archive* pArchive = easyvfs_openarchivefile(pContext, path, easyvfs_read);
         if (pArchive != NULL)
         {
-            void* pUserData = pArchive->callbacks.beginiteration(pArchive, "");
+            relativePath[0] = '\0';
+        }
+        else
+        {
+            // The given path is not an archive file, but it might be a directory.
+            pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read, relativePath, EASYVFS_MAX_PATH);
+        }
+
+        if (pArchive != NULL)
+        {
+            void* pUserData = pArchive->callbacks.beginiteration(pArchive, relativePath);
             if (pUserData != NULL)
             {
                 iOut->pArchive  = pArchive;
