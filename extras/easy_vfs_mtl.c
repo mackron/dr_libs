@@ -471,6 +471,7 @@ void easyvfs_enditeration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i)
     assert(i != NULL);
 
     easyvfs_free(i->pUserData);
+    i->pUserData = NULL;
 }
 
 int easyvfs_nextiteration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi)
