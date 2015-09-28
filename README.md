@@ -20,9 +20,6 @@ Limitations:
  - When a file contained within a ZIP file is opened, the entire uncompressed data is loaded
    onto the heap. Keep this in mind when working with large files.
  - ZIP archives are read-only at the moment.
- - Any API's that involve changing a file need to be passed a verbose, absolute path. This is
-   to ensure there is no ambiguity when choosing the relevant file. In the future there will
-   be a special base directory for write operations.
 
  
 # How to use it
@@ -43,7 +40,7 @@ if (pVFS == NULL)
 // archive. If you do not specify any archives only the native file system will be
 // supported.
 easyvfs_registerarchivecallbacks_zip(pVFS);	// ZIP files.
-easyvfs_registerarchivecallbacks_mtl(pVFS);	// Wavefront MTL files.
+easyvfs_registerarchivecallbacks_pak(pVFS);	// Quake 2 PAK files.
 
 // Add your base directories for loading from relative paths. If you do not specify at
 // least one base directory you will need to load from absolute paths.
@@ -79,8 +76,7 @@ Support for Linux is coming soon.
 
 # TODO
  - Add support for Linux
- - Add support for a base directory for write operations
- - Add support for Quake 2 PAK files, but extend it to allow longer file names.
+ - Improve efficiency.
  - Improve ZIP files.
 
 
