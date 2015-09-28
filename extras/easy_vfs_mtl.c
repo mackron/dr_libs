@@ -562,22 +562,19 @@ int easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRea
         easyvfs_file* pArchiveFile = pFile->pArchive->pFile;
         assert(pArchiveFile != NULL);
 
-        if (pOpenedFile->readPointer + bytesToRead <= pOpenedFile->sizeInBytes)
-        {
-            easyvfs_seekfile(pArchiveFile, (easyvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), easyvfs_start);
-            int result = easyvfs_readfile(pArchiveFile, dst, bytesToRead, bytesReadOut);
-            if (result != 0)
-            {
-                pOpenedFile->readPointer += bytesToRead;
-            }
+        easyvfs_int64 bytesAvailable = pOpenedFile->sizeInBytes - pOpenedFile->readPointer;
+        if (bytesAvailable < bytesToRead) {
+            bytesToRead = (unsigned int)bytesAvailable;     // Safe cast, as per the check above.
+        }
 
-            return result;
-        }
-        else
+        easyvfs_seekfile(pArchiveFile, (easyvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), easyvfs_start);
+        int result = easyvfs_readfile(pArchiveFile, dst, bytesToRead, bytesReadOut);
+        if (result != 0)
         {
-            // Trying to read too much.
-            return 0;
+            pOpenedFile->readPointer += bytesToRead;
         }
+
+        return result;
     }
 
     return 0;
