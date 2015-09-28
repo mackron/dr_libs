@@ -202,7 +202,14 @@ void* easyvfs_beginiteration_zip(easyvfs_archive* pArchive, const char* path)
     assert(path != NULL);
 
     mz_zip_archive* pZip = pArchive->pUserData;
-    int directoryFileIndex = mz_zip_reader_locate_file(pZip, path, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
+
+    int directoryFileIndex = -1;
+    if (path[0] == '\0') {
+        directoryFileIndex = 0;
+    } else {
+        directoryFileIndex = mz_zip_reader_locate_file(pZip, path, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
+    }
+    
     if (directoryFileIndex != -1)
     {
         easyvfs_iterator_zip* pZipIterator = easyvfs_malloc(sizeof(easyvfs_iterator_zip));
@@ -340,23 +347,20 @@ int easyvfs_readfile_zip(easyvfs_file* pFile, void* dst, unsigned int bytesToRea
     easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
     if (pOpenedFile != NULL)
     {
-        if (pOpenedFile->sizeInBytes - pOpenedFile->readPointer >= bytesToRead)
-        {
-            memcpy(dst, pOpenedFile->pData + pOpenedFile->readPointer, bytesToRead);
-            pOpenedFile->readPointer += bytesToRead;
-
-            if (bytesReadOut != NULL)
-            {
-                *bytesReadOut = bytesToRead;
-            }
-
-            return 1;
+        size_t bytesAvailable = pOpenedFile->sizeInBytes - pOpenedFile->readPointer;
+        if (bytesAvailable < bytesToRead) {
+            bytesToRead = bytesAvailable;
         }
-        else
+
+        memcpy(dst, pOpenedFile->pData + pOpenedFile->readPointer, bytesToRead);
+        pOpenedFile->readPointer += bytesToRead;
+
+        if (bytesReadOut != NULL)
         {
-            // Attempting to read more than is available.
-            return 0;
+            *bytesReadOut = bytesToRead;
         }
+
+        return 1;
     }
 
     return 0;
