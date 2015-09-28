@@ -9,11 +9,7 @@ extern "C" {
 
 typedef struct easyvfs_context easyvfs_context;
 
-/// Registers the archive callbacks which enables support for Wavefront MTL material files. The .mtl file
-/// is treated as a flat archive containing a "file" for each material defined inside the .mtl file. The
-/// first byte in each "file" is the very beginning of the "newmtl" statement, with the last byte being the
-/// byte just before the next "newmtl" statement, or the end of the file. The name of each file is the word
-/// coming after the "newmtl" token.
+/// Registers the archive callbacks which enables support for ZIP files.
 void easyvfs_registerarchivecallbacks_zip(easyvfs_context* pContext);
 
 
