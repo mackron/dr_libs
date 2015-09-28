@@ -1371,22 +1371,13 @@ easyvfs_bool easyvfs_isarchive(easyvfs_context* pContext, const char* path)
 {
     if (pContext != NULL && path != NULL)
     {
-        char relativePath[EASYVFS_MAX_PATH];
-        easyvfs_archive* pBaseArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read, relativePath, EASYVFS_MAX_PATH);
-        if (pBaseArchive != NULL)
+        for (unsigned int i = 0; i < pContext->archiveCallbacks.count; ++i)
         {
-            easyvfs_bool result = 0;
-
-            easyvfs_archive* pActualArchive = easyvfs_openarchive(pContext, pBaseArchive, relativePath, easyvfs_read);
-            if (pActualArchive != NULL)
+            easyvfs_archive_callbacks* pCallbacks = pContext->archiveCallbacks.pBuffer + i;
+            if (pCallbacks->isvalidarchive(pContext, path))
             {
-                result = 1;
-                easyvfs_closearchive(pActualArchive);
+                return 1;
             }
-
-
-            easyvfs_closearchive_recursive(pBaseArchive);
-            return result;
         }
     }
 
