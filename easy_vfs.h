@@ -229,6 +229,30 @@ unsigned int easyvfs_basedirectorycount(easyvfs_context* pContext);
 int easyvfs_getbasedirectorybyindex(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
 
+/// Sets the base directory for write operations (including delete).
+///
+/// @remarks
+///     When doing a write operation using a relative path, the full path will be resolved using this directory as the base.
+///     @par
+///     If the base write directory is not set, and absolute path must be used for all write operations.
+///     @par
+///     If the write directory guard is enabled, all write operations that are attempted at a higher level than this directory
+///     will fail.
+void easyvfs_set_base_write_directory(easyvfs_context* pContext, const char* absolutePath);
+
+/// Retrieves the base write directory.
+easyvfs_bool easyvfs_get_base_write_directory(easyvfs_context* pContext, char* absolutePathOut, unsigned int absolutePathOutSize);
+
+/// Enables the write directory guard.
+void easyvfs_enable_write_directory_guard(easyvfs_context* pContext);
+
+/// Disables the write directory guard.
+void easyvfs_disable_write_directory_guard(easyvfs_context* pContext);
+
+/// Determines whether or not the base directory guard is enabled.
+easyvfs_bool easyvfs_is_write_directory_guard_enabled(easyvfs_context* pContext);
+
+
 /// beginiteration()
 int easyvfs_beginiteration(easyvfs_context* pContext, const char* path, easyvfs_iterator* iOut);
 
@@ -338,6 +362,9 @@ int easyvfs_ispathabsolute(const char* path);
 
 // copyandappendpath()
 int easyvfs_copyandappendpath(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
+
+// is_path_descendant()
+int easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
 
 
 #ifdef __cplusplus

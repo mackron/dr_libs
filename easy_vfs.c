@@ -463,6 +463,12 @@ struct easyvfs_context
     /// The list of base directories.
     easyvfs_basepaths baseDirectories;
 
+    /// The write base directory.
+    char writeBaseDirectory[EASYVFS_MAX_PATH];
+
+    /// Keeps track of whether or not write directory guard is enabled.
+    easyvfs_bool isWriteGuardEnabled;
+
     /// The callbacks for native archives. These callbacks are implemented down the bottom of this file, in the platform-specific section.
     easyvfs_archive_callbacks nativeCallbacks;
 };
@@ -1029,6 +1035,28 @@ void easyvfs_archive_closefile(easyvfs_archive* pArchive, easyvfs_file* pFile)
 }
 
 
+easyvfs_bool easyvfs_validate_write_path(easyvfs_context* pContext, const char* absoluteOrRelativePath, char* absolutePathOut, unsigned int absolutePathOutSize)
+{
+    // If the path is relative, we need to convert to absolute. Then, if the write directory guard is enabled, we need to check that it's a descendant of the base path.
+    if (easyvfs_ispathrelative(absoluteOrRelativePath)) {
+        if (easyvfs_copyandappendpath(absolutePathOut, absolutePathOutSize, pContext->writeBaseDirectory, absoluteOrRelativePath)) {
+            absoluteOrRelativePath = absolutePathOut;
+        } else {
+            return 0;
+        }
+    }
+
+    assert(easyvfs_ispathabsolute(absoluteOrRelativePath));
+
+    if (easyvfs_is_write_directory_guard_enabled(pContext)) {
+        if (easyvfs_is_path_descendant(absoluteOrRelativePath, pContext->writeBaseDirectory)) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 
 
 ////////////////////////////////////////
@@ -1041,6 +1069,9 @@ easyvfs_context* easyvfs_createcontext()
     {
         if (easyvfs_callbacklist_init(&pContext->archiveCallbacks) && easyvfs_basepaths_init(&pContext->baseDirectories))
         {
+            memset(pContext->writeBaseDirectory, 0, EASYVFS_MAX_PATH);
+            pContext->isWriteGuardEnabled = 0;
+
             pContext->nativeCallbacks.isvalidarchive = easyvfs_isvalidarchive_impl_native;
             pContext->nativeCallbacks.openarchive    = easyvfs_openarchive_impl_native;
             pContext->nativeCallbacks.closearchive   = easyvfs_closearchive_impl_native;
@@ -1141,6 +1172,52 @@ unsigned int easyvfs_basedirectorycount(easyvfs_context* pContext)
     if (pContext != NULL)
     {
         return pContext->baseDirectories.count;
+    }
+
+    return 0;
+}
+
+
+void easyvfs_set_base_write_directory(easyvfs_context* pContext, const char* absolutePath)
+{
+    if (pContext != NULL) {
+        if (absolutePath == NULL) {
+            memset(pContext->writeBaseDirectory, 0, EASYVFS_MAX_PATH);
+        } else {
+            easyvfs_strcpy(pContext->writeBaseDirectory, EASYVFS_MAX_PATH, absolutePath);
+        }
+    }
+}
+
+easyvfs_bool easyvfs_get_base_write_directory(easyvfs_context* pContext, char* absolutePathOut, unsigned int absolutePathOutSize)
+{
+    if (pContext != NULL && absolutePathOut != NULL && absolutePathOutSize != 0)
+    {
+        easyvfs_strcpy(absolutePathOut, absolutePathOutSize, pContext->writeBaseDirectory);
+        return 1;
+    }
+
+    return 0;
+}
+
+void easyvfs_enable_write_directory_guard(easyvfs_context * pContext)
+{
+    if (pContext != NULL) {
+        pContext->isWriteGuardEnabled = 1;
+    }
+}
+
+void easyvfs_disable_write_directory_guard(easyvfs_context * pContext)
+{
+    if (pContext != NULL) {
+        pContext->isWriteGuardEnabled = 0;
+    }
+}
+
+easyvfs_bool easyvfs_is_write_directory_guard_enabled(easyvfs_context* pContext)
+{
+    if (pContext != NULL) {
+        return pContext->isWriteGuardEnabled;
     }
 
     return 0;
@@ -1309,18 +1386,23 @@ easyvfs_bool easyvfs_isarchive(easyvfs_context* pContext, const char* path)
 int easyvfs_deletefile(easyvfs_context* pContext, const char* path)
 {
     int result = 0;
-    if (easyvfs_ispathabsolute(path))
+    if (pContext != NULL && path != NULL)
     {
-        if (pContext != NULL && path != NULL)
-        {
-            char relativePath[EASYVFS_MAX_PATH];
-            easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read | easyvfs_write, relativePath, EASYVFS_MAX_PATH);
-            if (pArchive != NULL)
-            {
-                result = pArchive->callbacks.deletefile(pArchive, relativePath);
+        char absolutePath[EASYVFS_MAX_PATH];
+        if (easyvfs_validate_write_path(pContext, path, absolutePath, EASYVFS_MAX_PATH)) {
+            path = absolutePath;
+        } else {
+            return 0;
+        }
 
-                easyvfs_closearchive_recursive(pArchive);
-            }
+
+        char relativePath[EASYVFS_MAX_PATH];
+        easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read | easyvfs_write, relativePath, EASYVFS_MAX_PATH);
+        if (pArchive != NULL)
+        {
+            result = pArchive->callbacks.deletefile(pArchive, relativePath);
+
+            easyvfs_closearchive_recursive(pArchive);
         }
     }
 
@@ -1332,28 +1414,40 @@ int easyvfs_renamefile(easyvfs_context* pContext, const char* pathOld, const cha
     // Renaming/moving is not supported across different archives.
 
     int result = 0;
-    if (easyvfs_ispathabsolute(pathOld) && easyvfs_ispathabsolute(pathNew))
+    if (pContext != NULL && pathOld != NULL && pathNew != NULL)
     {
-        if (pContext != NULL && pathOld != NULL && pathNew != NULL)
-        {
-            char relativePathOld[EASYVFS_MAX_PATH];
-            easyvfs_archive* pArchiveOld = easyvfs_openarchive_frompath(pContext, pathOld, easyvfs_read | easyvfs_write, relativePathOld, EASYVFS_MAX_PATH);
-            if (pArchiveOld != NULL)
-            {
-                char relativePathNew[EASYVFS_MAX_PATH];
-                easyvfs_archive* pArchiveNew = easyvfs_openarchive_frompath(pContext, pathNew, easyvfs_read | easyvfs_write, relativePathNew, EASYVFS_MAX_PATH);
-                if (pArchiveNew != NULL)
-                {
-                    if (easyvfs_pathsequal(pArchiveOld->absolutePath, pArchiveNew->absolutePath))
-                    {
-                        result = pArchiveOld->callbacks.renamefile(pArchiveOld, relativePathOld, relativePathNew);
-                    }
+        char absolutePathOld[EASYVFS_MAX_PATH];
+        if (easyvfs_validate_write_path(pContext, pathOld, absolutePathOld, EASYVFS_MAX_PATH)) {
+            pathOld = absolutePathOld;
+        } else {
+            return 0;
+        }
 
-                    easyvfs_closearchive_recursive(pArchiveNew);
+        char absolutePathNew[EASYVFS_MAX_PATH];
+        if (easyvfs_validate_write_path(pContext, pathNew, absolutePathNew, EASYVFS_MAX_PATH)) {
+            pathNew = absolutePathNew;
+        } else {
+            return 0;
+        }
+
+
+        char relativePathOld[EASYVFS_MAX_PATH];
+        easyvfs_archive* pArchiveOld = easyvfs_openarchive_frompath(pContext, pathOld, easyvfs_read | easyvfs_write, relativePathOld, EASYVFS_MAX_PATH);
+        if (pArchiveOld != NULL)
+        {
+            char relativePathNew[EASYVFS_MAX_PATH];
+            easyvfs_archive* pArchiveNew = easyvfs_openarchive_frompath(pContext, pathNew, easyvfs_read | easyvfs_write, relativePathNew, EASYVFS_MAX_PATH);
+            if (pArchiveNew != NULL)
+            {
+                if (easyvfs_pathsequal(pArchiveOld->absolutePath, pArchiveNew->absolutePath))
+                {
+                    result = pArchiveOld->callbacks.renamefile(pArchiveOld, relativePathOld, relativePathNew);
                 }
 
-                easyvfs_closearchive_recursive(pArchiveOld);
+                easyvfs_closearchive_recursive(pArchiveNew);
             }
+
+            easyvfs_closearchive_recursive(pArchiveOld);
         }
     }
 
@@ -1363,18 +1457,22 @@ int easyvfs_renamefile(easyvfs_context* pContext, const char* pathOld, const cha
 int easyvfs_mkdir(easyvfs_context* pContext, const char* path)
 {
     int result = 0;
-    if (easyvfs_ispathabsolute(path))
+    if (pContext != NULL && path != NULL)
     {
-        if (pContext != NULL && path != NULL)
-        {
-            char relativePath[EASYVFS_MAX_PATH];
-            easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read | easyvfs_write, relativePath, EASYVFS_MAX_PATH);
-            if (pArchive != NULL)
-            {
-                result = pArchive->callbacks.mkdir(pArchive, relativePath);
+        char absolutePath[EASYVFS_MAX_PATH];
+        if (easyvfs_validate_write_path(pContext, path, absolutePath, EASYVFS_MAX_PATH)) {
+            path = absolutePath;
+        } else {
+            return 0;
+        }
 
-                easyvfs_closearchive_recursive(pArchive);
-            }
+        char relativePath[EASYVFS_MAX_PATH];
+        easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read | easyvfs_write, relativePath, EASYVFS_MAX_PATH);
+        if (pArchive != NULL)
+        {
+            result = pArchive->callbacks.mkdir(pArchive, relativePath);
+
+            easyvfs_closearchive_recursive(pArchive);
         }
     }
 
@@ -1387,6 +1485,16 @@ easyvfs_file* easyvfs_openfile(easyvfs_context* pContext, const char* absoluteOr
 {
     if (pContext != NULL && absoluteOrRelativePath)
     {
+        char absolutePathForWriteMode[EASYVFS_MAX_PATH];
+        if ((accessMode & easyvfs_write) != 0) {
+            if (easyvfs_validate_write_path(pContext, absoluteOrRelativePath, absolutePathForWriteMode, EASYVFS_MAX_PATH)) {
+                absoluteOrRelativePath = absolutePathForWriteMode;
+            } else {
+                return NULL;
+            }
+        }
+
+
         char relativePath[EASYVFS_MAX_PATH];
         easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, absoluteOrRelativePath, easyvfs_archiveaccessmode(accessMode), relativePath, EASYVFS_MAX_PATH);
         if (pArchive != NULL)
@@ -1731,6 +1839,37 @@ int easyvfs_copyandappendpath(char* dst, unsigned int dstSizeInBytes, const char
     return 0;
 #else
     return easypath_copyandappend(dst, dstSizeInBytes, base, other);
+#endif
+}
+
+int easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
+{
+#if !EASYVFS_USE_EASYPATH
+    easyvfs_pathiterator iParent = easyvfs_beginpathiteration(parentAbsolutePath);
+    easyvfs_pathiterator iChild  = easyvfs_beginpathiteration(descendantAbsolutePath);
+
+    while (easyvfs_nextpathsegment(&iParent))
+    {
+        if (easyvfs_nextpathsegment(&iChild))
+        {
+            // If the segment is different, the paths are different and thus it is not a descendant.
+            if (!easyvfs_pathiterators_equal(iParent, iChild))
+            {
+                return 0;
+            }
+        }
+        else
+        {
+            // The descendant is shorter which means it's impossible for it to be a descendant.
+            return 0;
+        }
+    }
+
+    // At this point we have finished iteration of the parent, which should be shorter one. We now do one final iteration of
+    // the descendant to ensure it is indeed shorter. If so, it's a descendant.
+    return easyvfs_nextpathsegment(&iChild);
+#else
+    return easypath_isdescendant(descendantAbsolutePath, parentAbsolutePath);
 #endif
 }
 
