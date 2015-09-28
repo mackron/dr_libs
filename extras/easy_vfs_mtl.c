@@ -622,7 +622,7 @@ easyvfs_bool easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSeek
         }
         else if (origin == easyvfs_end)
         {
-            assert(bytesToSeek > 0);
+            assert(bytesToSeek >= 0);
             if ((easyvfs_uint64)bytesToSeek <= pOpenedFile->sizeInBytes)
             {
                 newPos = pOpenedFile->sizeInBytes - (easyvfs_uint64)bytesToSeek;
