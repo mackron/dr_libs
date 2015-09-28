@@ -122,7 +122,7 @@ void* easyvfs_openarchive_zip(easyvfs_file* pFile, easyvfs_accessmode accessMode
     assert(easyvfs_tellfile(pFile) == 0);
 
     // Only support read-only mode at the moment.
-    if (accessMode == easyvfs_write || accessMode == easyvfs_readwrite)
+    if ((accessMode & easyvfs_write) != 0)
     {
         return NULL;
     }
@@ -286,7 +286,7 @@ void* easyvfs_openfile_zip(easyvfs_archive* pArchive, const char* path, easyvfs_
     assert(path != NULL);
 
     // Only supporting read-only for now.
-    if (accessMode == easyvfs_write || accessMode == easyvfs_readwrite)
+    if ((accessMode & easyvfs_write) != 0)
     {
         return NULL;
     }

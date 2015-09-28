@@ -510,7 +510,7 @@ void* easyvfs_openfile_mtl(easyvfs_archive* pArchive, const char* path, easyvfs_
     assert(path != NULL);
 
     // Only supporting read-only for now.
-    if (accessMode == easyvfs_write || accessMode == easyvfs_readwrite)
+    if ((accessMode & easyvfs_write) != 0)
     {
         return NULL;
     }

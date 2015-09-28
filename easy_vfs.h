@@ -34,13 +34,13 @@ extern "C" {
 
 
 /// The allowable access modes.
-typedef enum
-{
-    easyvfs_read = 1,
-    easyvfs_write,
-    easyvfs_readwrite
+typedef unsigned int easyvfs_accessmode;
 
-}easyvfs_accessmode;
+#define easyvfs_read      (1 << 0)
+#define easyvfs_write     (1 << 1)
+#define easyvfs_existing  (1 << 2)
+#define easyvfs_append    (1 << 3)
+
 
 /// The allowable seeking origins.
 typedef enum

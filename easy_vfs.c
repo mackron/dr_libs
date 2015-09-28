@@ -549,7 +549,7 @@ int easyvfs_archive_nextiteration(easyvfs_iterator* i, easyvfs_fileinfo* fi)
 /// of a file within that archive.
 easyvfs_accessmode easyvfs_archiveaccessmode(easyvfs_accessmode accessMode)
 {
-    return (accessMode == easyvfs_read) ? easyvfs_read : easyvfs_readwrite;
+    return (accessMode == easyvfs_read) ? easyvfs_read : easyvfs_read | easyvfs_write;
 }
 
 /// Opens a native archive. This is not recursive.
@@ -1314,7 +1314,7 @@ int easyvfs_deletefile(easyvfs_context* pContext, const char* path)
         if (pContext != NULL && path != NULL)
         {
             char relativePath[EASYVFS_MAX_PATH];
-            easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_readwrite, relativePath, EASYVFS_MAX_PATH);
+            easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read | easyvfs_write, relativePath, EASYVFS_MAX_PATH);
             if (pArchive != NULL)
             {
                 result = pArchive->callbacks.deletefile(pArchive, relativePath);
@@ -1337,11 +1337,11 @@ int easyvfs_renamefile(easyvfs_context* pContext, const char* pathOld, const cha
         if (pContext != NULL && pathOld != NULL && pathNew != NULL)
         {
             char relativePathOld[EASYVFS_MAX_PATH];
-            easyvfs_archive* pArchiveOld = easyvfs_openarchive_frompath(pContext, pathOld, easyvfs_readwrite, relativePathOld, EASYVFS_MAX_PATH);
+            easyvfs_archive* pArchiveOld = easyvfs_openarchive_frompath(pContext, pathOld, easyvfs_read | easyvfs_write, relativePathOld, EASYVFS_MAX_PATH);
             if (pArchiveOld != NULL)
             {
                 char relativePathNew[EASYVFS_MAX_PATH];
-                easyvfs_archive* pArchiveNew = easyvfs_openarchive_frompath(pContext, pathNew, easyvfs_readwrite, relativePathNew, EASYVFS_MAX_PATH);
+                easyvfs_archive* pArchiveNew = easyvfs_openarchive_frompath(pContext, pathNew, easyvfs_read | easyvfs_write, relativePathNew, EASYVFS_MAX_PATH);
                 if (pArchiveNew != NULL)
                 {
                     if (easyvfs_pathsequal(pArchiveOld->absolutePath, pArchiveNew->absolutePath))
@@ -1368,7 +1368,7 @@ int easyvfs_mkdir(easyvfs_context* pContext, const char* path)
         if (pContext != NULL && path != NULL)
         {
             char relativePath[EASYVFS_MAX_PATH];
-            easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_readwrite, relativePath, EASYVFS_MAX_PATH);
+            easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, easyvfs_read | easyvfs_write, relativePath, EASYVFS_MAX_PATH);
             if (pArchive != NULL)
             {
                 result = pArchive->callbacks.mkdir(pArchive, relativePath);
@@ -1965,30 +1965,28 @@ void* easyvfs_openfile_impl_native(easyvfs_archive* pArchive, const char* path, 
         DWORD dwShareMode           = 0;
         DWORD dwCreationDisposition = OPEN_EXISTING;
 
-        switch (accessMode)
-        {
-        case easyvfs_read:
-            {
-                dwDesiredAccess = FILE_GENERIC_READ;
-                dwShareMode     = FILE_SHARE_READ;
-                break;
-            }
+        if ((accessMode & easyvfs_read) != 0) {
+            dwDesiredAccess |= FILE_GENERIC_READ;
+            dwShareMode     |= FILE_SHARE_READ;
+        }
 
-        case easyvfs_write:
-            {
-                dwDesiredAccess       = FILE_GENERIC_WRITE;
-                dwCreationDisposition = CREATE_ALWAYS;
-                break;
-            }
+        if ((accessMode & easyvfs_write) != 0) {
+            dwDesiredAccess |= FILE_GENERIC_WRITE;
 
-        case easyvfs_readwrite:
-            {
-                dwDesiredAccess       = FILE_GENERIC_READ | FILE_GENERIC_WRITE;
-                dwCreationDisposition = OPEN_ALWAYS;
-                break;
+            
+            if ((accessMode & easyvfs_existing) != 0) {
+                if ((accessMode & easyvfs_append) != 0) {
+                    dwCreationDisposition = OPEN_EXISTING;
+                } else {
+                    dwCreationDisposition = TRUNCATE_EXISTING;
+                }
+            } else {
+                if ((accessMode & easyvfs_append) != 0) {
+                    dwCreationDisposition = OPEN_ALWAYS;
+                } else {
+                    dwCreationDisposition = CREATE_ALWAYS;
+                }
             }
-
-        default: return NULL;
         }
 
 
