@@ -13,16 +13,19 @@ extern "C" {
 #ifdef EASYUTIL_ONLY_ANNOTATIONS
     #define EASYUTIL_NO_MSVC_COMPAT
     #define EASYUTIL_NO_ALIGNED_MALLOC
+    #define EASYUTIL_NO_MINMAXCLAMP
 #endif
 
 #ifdef EASYUTIL_ONLY_MSVC_COMPAT
     #define EASYUTIL_NO_ANNOTATIONS
     #define EASYUTIL_NO_ALIGNED_MALLOC
+    #define EASYUTIL_NO_MINMAXCLAMP
 #endif
 
 #ifdef EASYUTIL_ONLY_ALIGNED_MALLOC
     #define EASYUTIL_NO_ANNOTATIONS
     #define EASYUTIL_NO_MSVC_COMPAT
+    #define EASYUTIL_NO_MINMAXCLAMP
 #endif
 
 
@@ -54,6 +57,32 @@ extern "C" {
 
     #ifndef UNUSED
     #define UNUSED(x) ((void)x)
+    #endif
+#endif
+
+
+/////////////////////////////////////////////////////////
+// min/max/clamp
+
+#ifndef EASYUTIL_NO_MINMAXCLAMP
+    #ifndef easy_min
+    #define easy_min(x, y) (((x) < (y)) ? (x) : (y))
+    #endif
+
+    #ifndef easy_max
+    #define easy_max(x, y) (((x) > (y)) ? (x) : (y))
+    #endif
+
+    #ifndef min
+    #define min(x, y) (((x) < (y)) ? (x) : (y))
+    #endif
+
+    #ifndef max
+    #define max(x, y) (((x) > (y)) ? (x) : (y))
+    #endif
+
+    #ifndef clamp
+    #define clamp(x, low, high) (easy_max(low, easy_min(x, high)))
     #endif
 #endif
 
@@ -127,6 +156,29 @@ inline void aligned_free(void* ptr)
 #endif
 }
 #endif  // !EASYUTIL_NO_ALIGNED_MALLOC
+
+
+
+
+
+
+/////////////////////////////////////////////////////////
+// C++ Specific
+
+#ifdef __cplusplus
+
+// Use this to prevent objects of the given class or struct from being copied. This is also useful for eliminating some
+// compiler warnings.
+//
+// Note for structs - this sets the access mode to private, so place this at the end of the declaration.
+#define NO_COPY(classname) \
+    private: \
+        classname(const classname &); \
+        classname & operator=(const classname &);
+
+#endif
+
+
 
 
 
