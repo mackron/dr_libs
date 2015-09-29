@@ -30,7 +30,7 @@ just include the ones you want, and leave out the ones you don't.
 Below is an example:
 ```c
 // Create a context.
-easyvfs_context* pVFS = easyvfs_createcontext();
+easyvfs_context* pVFS = easyvfs_create_context();
 if (pVFS == NULL)
 {
 	// There was an error creating the context.
@@ -39,31 +39,31 @@ if (pVFS == NULL)
 // Register the archive callbacks. This enables support for a particular type of
 // archive. If you do not specify any archives only the native file system will be
 // supported.
-easyvfs_registerarchivecallbacks_zip(pVFS);	// ZIP files.
-easyvfs_registerarchivecallbacks_pak(pVFS);	// Quake 2 PAK files.
+easyvfs_register_archive_callbacks_zip(pVFS);	// ZIP files.
+easyvfs_register_archive_callbacks_pak(pVFS);	// Quake 2 PAK files.
 
 // Add your base directories for loading from relative paths. If you do not specify at
 // least one base directory you will need to load from absolute paths.
-easyvfs_addbasedirectory(pVFS, "C:/Users/Admin");
-easyvfs_addbasedirectory(pVFS, "C:/My/Folder");
+easyvfs_add_base_directory(pVFS, "C:/Users/Admin");
+easyvfs_add_base_directory(pVFS, "C:/My/Folder");
 
 ...
 
 // Open a file. A relative path was specified which means it will first check it against
 // "C:/Users/Admin". If it can't be found it will then check against "C:/My/Folder".
-easyvfs_file* pFile = easyvfs_openfile(pVFS, "my/file.txt", easyvfs_read);
+easyvfs_file* pFile = easyvfs_open(pVFS, "my/file.txt", EASYVFS_READ);
 if (pFile == NULL)
 {
 	// There was an error loading the file. It probably doesn't exist.
 }
 
-easyvfs_readfile(pFile, buffer, bufferSize);
-easyvfs_closefile(pFile);
+easyvfs_read(pFile, buffer, bufferSize);
+easyvfs_close(pFile);
 
 ...
 
 // Shutdown.
-easyvfs_deletecontext(pVFS);
+easyvfs_delete_context(pVFS);
 ```
 
 
