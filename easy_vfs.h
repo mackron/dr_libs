@@ -34,12 +34,15 @@ extern "C" {
 
 
 /// The allowable access modes.
-typedef unsigned int easyvfs_accessmode;
+typedef unsigned int easyvfs_access_mode;
 
-#define easyvfs_read      (1 << 0)
-#define easyvfs_write     (1 << 1)
-#define easyvfs_existing  (1 << 2)
-#define easyvfs_append    (1 << 3)
+#define EASYVFS_READ      (1 << 0)
+#define EASYVFS_WRITE     (1 << 1)
+#define EASYVFS_EXISTING  (1 << 2)
+#define EASYVFS_APPEND    (1 << 3)
+
+#define EASYVFS_FILE_ATTRIBUTE_DIRECTORY    0x00000001
+#define EASYVFS_FILE_ATTRIBUTE_READONLY     0x00000002
 
 
 /// The allowable seeking origins.
@@ -49,60 +52,57 @@ typedef enum
     easyvfs_start,
     easyvfs_end
 
-}easyvfs_seekorigin;
-
-#define EASYVFS_FILE_ATTRIBUTE_DIRECTORY    0x00000001
-#define EASYVFS_FILE_ATTRIBUTE_READONLY     0x00000002
+}easyvfs_seek_origin;
 
 
 typedef long long          easyvfs_int64;
 typedef unsigned long long easyvfs_uint64;
 typedef int                easyvfs_bool;
 
-typedef struct easyvfs_context  easyvfs_context;
-typedef struct easyvfs_archive  easyvfs_archive;
-typedef struct easyvfs_file     easyvfs_file;
-typedef struct easyvfs_fileinfo easyvfs_fileinfo;
-typedef struct easyvfs_iterator easyvfs_iterator;
+typedef struct easyvfs_context   easyvfs_context;
+typedef struct easyvfs_archive   easyvfs_archive;
+typedef struct easyvfs_file      easyvfs_file;
+typedef struct easyvfs_file_info easyvfs_file_info;
+typedef struct easyvfs_iterator  easyvfs_iterator;
 
 
-typedef int            (* easyvfs_isvalidarchive_proc) (easyvfs_context* pContext, const char* path);
-typedef void*          (* easyvfs_openarchive_proc)    (easyvfs_file* pFile, easyvfs_accessmode accessMode);
-typedef void           (* easyvfs_closearchive_proc)   (easyvfs_archive* pArchive);
-typedef int            (* easyvfs_getfileinfo_proc)    (easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo* fi);
-typedef void*          (* easyvfs_beginiteration_proc) (easyvfs_archive* pArchive, const char* path);
-typedef void           (* easyvfs_enditeration_proc)   (easyvfs_archive* pArchive, easyvfs_iterator* i);
-typedef int            (* easyvfs_nextiteration_proc)  (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi);
-typedef void*          (* easyvfs_openfile_proc)       (easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode);
-typedef void           (* easyvfs_closefile_proc)      (easyvfs_file* pFile);
-typedef int            (* easyvfs_readfile_proc)       (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
-typedef int            (* easyvfs_writefile_proc)      (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-typedef easyvfs_bool   (* easyvfs_seekfile_proc)       (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
-typedef easyvfs_uint64 (* easyvfs_tellfile_proc)       (easyvfs_file* pFile);
-typedef easyvfs_uint64 (* easyvfs_filesize_proc)       (easyvfs_file* pFile);
-typedef int            (* easyvfs_deletefile_proc)     (easyvfs_archive* pArchive, const char* path);
-typedef int            (* easyvfs_renamefile_proc)     (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
-typedef int            (* easyvfs_mkdir_proc)          (easyvfs_archive* pArchive, const char* path);
+typedef int            (* easyvfs_is_valid_archive_proc) (easyvfs_context* pContext, const char* path);
+typedef void*          (* easyvfs_open_archive_proc)     (easyvfs_file* pFile, easyvfs_access_mode accessMode);
+typedef void           (* easyvfs_close_archive_proc)    (easyvfs_archive* pArchive);
+typedef int            (* easyvfs_get_file_info_proc)    (easyvfs_archive* pArchive, const char* path, easyvfs_file_info* fi);
+typedef void*          (* easyvfs_begin_iteration_proc)  (easyvfs_archive* pArchive, const char* path);
+typedef void           (* easyvfs_end_iteration_proc)    (easyvfs_archive* pArchive, easyvfs_iterator* i);
+typedef int            (* easyvfs_next_iteration_proc)   (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+typedef void*          (* easyvfs_open_file_proc)        (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
+typedef void           (* easyvfs_close_file_proc)       (easyvfs_file* pFile);
+typedef int            (* easyvfs_read_file_proc)        (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+typedef int            (* easyvfs_write_file_proc)       (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+typedef easyvfs_bool   (* easyvfs_seek_file_proc)        (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
+typedef easyvfs_uint64 (* easyvfs_tell_file_proc)        (easyvfs_file* pFile);
+typedef easyvfs_uint64 (* easyvfs_file_size_proc)        (easyvfs_file* pFile);
+typedef int            (* easyvfs_deletefile_proc)       (easyvfs_archive* pArchive, const char* path);
+typedef int            (* easyvfs_rename_file_proc)      (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+typedef int            (* easyvfs_mkdir_proc)            (easyvfs_archive* pArchive, const char* path);
 
 typedef struct
 {
-    easyvfs_isvalidarchive_proc isvalidarchive;
-    easyvfs_openarchive_proc    openarchive;
-    easyvfs_closearchive_proc   closearchive;
-    easyvfs_getfileinfo_proc    getfileinfo;
-    easyvfs_beginiteration_proc beginiteration;
-    easyvfs_enditeration_proc   enditeration;
-    easyvfs_nextiteration_proc  nextiteration;
-    easyvfs_openfile_proc       openfile;
-    easyvfs_closefile_proc      closefile;
-    easyvfs_readfile_proc       readfile;
-    easyvfs_writefile_proc      writefile;
-    easyvfs_seekfile_proc       seekfile;
-    easyvfs_tellfile_proc       tellfile;
-    easyvfs_filesize_proc       filesize;
-    easyvfs_deletefile_proc     deletefile;
-    easyvfs_renamefile_proc     renamefile;
-    easyvfs_mkdir_proc          mkdir;
+    easyvfs_is_valid_archive_proc isvalidarchive;
+    easyvfs_open_archive_proc     openarchive;
+    easyvfs_close_archive_proc    closearchive;
+    easyvfs_get_file_info_proc    getfileinfo;
+    easyvfs_begin_iteration_proc  beginiteration;
+    easyvfs_end_iteration_proc    enditeration;
+    easyvfs_next_iteration_proc   nextiteration;
+    easyvfs_open_file_proc        openfile;
+    easyvfs_close_file_proc       closefile;
+    easyvfs_read_file_proc        readfile;
+    easyvfs_write_file_proc       writefile;
+    easyvfs_seek_file_proc        seekfile;
+    easyvfs_tell_file_proc        tellfile;
+    easyvfs_file_size_proc        filesize;
+    easyvfs_deletefile_proc       deletefile;
+    easyvfs_rename_file_proc      renamefile;
+    easyvfs_mkdir_proc            mkdir;
 
 }easyvfs_archive_callbacks;
 
@@ -140,7 +140,7 @@ struct easyvfs_file
     void* pUserData;
 };
 
-struct easyvfs_fileinfo
+struct easyvfs_file_info
 {
     /// The absolute path of the file.
     char absolutePath[EASYVFS_MAX_PATH];
@@ -169,14 +169,14 @@ struct easyvfs_iterator
 
 
 /// createcontext()
-easyvfs_context* easyvfs_createcontext(void);
+easyvfs_context* easyvfs_create_context(void);
 
 /// deletecontext()
-void easyvfs_deletecontext(easyvfs_context* pContext);
+void easyvfs_delete_context(easyvfs_context* pContext);
 
 
 /// registerarchivecallbacks()
-void easyvfs_registerarchivecallbacks(easyvfs_context* pContext, easyvfs_archive_callbacks callbacks);
+void easyvfs_register_archive_callbacks(easyvfs_context* pContext, easyvfs_archive_callbacks callbacks);
 
 
 /// Inserts a base directory at a specific priority position.
@@ -186,8 +186,8 @@ void easyvfs_registerarchivecallbacks(easyvfs_context* pContext, easyvfs_archive
 /// @param index        [in] The index to insert the path at.
 ///
 /// @remarks
-///     A lower value index means a higher priority. This must be in the range of [0, easyvfs_basedirectorycount()].
-void easyvfs_insertbasedirectory(easyvfs_context* pContext, const char* absolutePath, unsigned int index);
+///     A lower value index means a higher priority. This must be in the range of [0, easyvfs_get_base_directory_count()].
+void easyvfs_insert_base_directory(easyvfs_context* pContext, const char* absolutePath, unsigned int index);
 
 /// Adds a base directory to the end of the list.
 ///
@@ -195,16 +195,16 @@ void easyvfs_insertbasedirectory(easyvfs_context* pContext, const char* absolute
 ///     The further down the list the base directory, the lower priority is will receive. This adds it to the end
 ///     which means it it given a lower priority to those that are already in the list.
 ///     @par
-///     Use easyvfs_insertbasedirectory() to insert the base directory at a specific position.
+///     Use easyvfs_insert_base_directory() to insert the base directory at a specific position.
 ///     @par
 ///     Base directories must be an absolute path to a real directory.
-void easyvfs_addbasedirectory(easyvfs_context* pContext, const char* absolutePath);
+void easyvfs_add_base_directory(easyvfs_context* pContext, const char* absolutePath);
 
 /// Removes the given base directory.
 ///
 /// @param pContext     [in] The context whose base directory is being removed.
 /// @param absolutePath [in] The absolute path to remove.
-void easyvfs_removebasedirectory(easyvfs_context* pContext, const char* absolutePath);
+void easyvfs_remove_base_directory(easyvfs_context* pContext, const char* absolutePath);
 
 /// Removes the directory at the given index.
 ///
@@ -212,21 +212,21 @@ void easyvfs_removebasedirectory(easyvfs_context* pContext, const char* absolute
 /// @param index    [in] The index of the base directory that should be removed.
 ///
 /// @remarks
-///     If you need to remove every base directory, use easyvfs_removeallbasedirectories() since that is more efficient.
-void easyvfs_removebasedirectorybyindex(easyvfs_context* pContext, unsigned int index);
+///     If you need to remove every base directory, use easyvfs_remove_all_base_directories() since that is more efficient.
+void easyvfs_remove_base_directory_by_index(easyvfs_context* pContext, unsigned int index);
 
 /// Removes every base directory from the given context.
 ///
 /// @param pContext [in] The context whose base directories are being removed.
-void easyvfs_removeallbasedirectories(easyvfs_context* pContext);
+void easyvfs_remove_all_base_directories(easyvfs_context* pContext);
 
 /// Retrieves the number of base directories attached to the given context.
 ///
 /// @param pContext [in] The context in question.
-unsigned int easyvfs_basedirectorycount(easyvfs_context* pContext);
+unsigned int easyvfs_get_base_directory_count(easyvfs_context* pContext);
 
 /// Retrieves the base directory at the given index.
-int easyvfs_getbasedirectorybyindex(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
+int easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
 
 /// Sets the base directory for write operations (including delete).
@@ -254,41 +254,41 @@ easyvfs_bool easyvfs_is_write_directory_guard_enabled(easyvfs_context* pContext)
 
 
 /// beginiteration()
-int easyvfs_beginiteration(easyvfs_context* pContext, const char* path, easyvfs_iterator* iOut);
+int easyvfs_begin_iteration(easyvfs_context* pContext, const char* path, easyvfs_iterator* iOut);
 
 /// nextiteration()
-int easyvfs_nextiteration(easyvfs_context* pContext, easyvfs_iterator* i, easyvfs_fileinfo* fi);
+int easyvfs_next_iteration(easyvfs_context* pContext, easyvfs_iterator* i, easyvfs_file_info* fi);
 
 /// enditeration()
-void easyvfs_enditeration(easyvfs_context* pContext, easyvfs_iterator* i);
+void easyvfs_end_iteration(easyvfs_context* pContext, easyvfs_iterator* i);
 
 
 /// Retrieves information about the given file.
-int easyvfs_getfileinfo(easyvfs_context* pContext, const char* absolutePath, easyvfs_fileinfo* fi);
+int easyvfs_get_file_info(easyvfs_context* pContext, const char* absolutePath, easyvfs_file_info* fi);
 
 /// Finds the absolute, verbose path of the given path.
-int easyvfs_findabsolutepath(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
+int easyvfs_find_absolute_path(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
 /// Finds the absolute, verbose path of the given path, using the given path as the higest priority base path.
-int easyvfs_findabsolutepath_explicitbase(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
+int easyvfs_find_absolute_path_explicit_base(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
 
 /// Determines whether or not the given path refers to an archive file.
 ///
 /// @remarks
 ///     This will return false if the path refers to a folder on the normal file system.
-easyvfs_bool easyvfs_isarchive(easyvfs_context* pContext, const char* path);
+easyvfs_bool easyvfs_is_archive(easyvfs_context* pContext, const char* path);
 
 
 /// deletefile()
 ///
 /// Must be an absolute, verbose path in order to avoid ambiguity.
-int easyvfs_deletefile(easyvfs_context* pContext, const char* path);
+int easyvfs_delete_file(easyvfs_context* pContext, const char* path);
 
 /// renamefile()
 ///
 /// Must be an absolute, verbose path in order to avoid ambiguity.
-int easyvfs_renamefile(easyvfs_context* pContext, const char* pathOld, const char* pathNew);
+int easyvfs_rename_file(easyvfs_context* pContext, const char* pathOld, const char* pathNew);
 
 /// mkdir()
 ///
@@ -298,25 +298,25 @@ int easyvfs_mkdir(easyvfs_context* pContext, const char* path);
 
 
 /// openfile()
-easyvfs_file* easyvfs_openfile(easyvfs_context* pContext, const char* absoluteOrRelativePath, easyvfs_accessmode accessMode);
+easyvfs_file* easyvfs_open(easyvfs_context* pContext, const char* absoluteOrRelativePath, easyvfs_access_mode accessMode);
 
 /// closefile()
-void easyvfs_closefile(easyvfs_file* pFile);
+void easyvfs_close(easyvfs_file* pFile);
 
 /// Reads data from the given file.
-int easyvfs_readfile(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+int easyvfs_read(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
 
 /// Writes data to the given file.
-int easyvfs_writefile(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+int easyvfs_write(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
 
 /// Seeks the file pointer by the given number of bytes, relative to the specified origin.
-easyvfs_bool easyvfs_seekfile(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+easyvfs_bool easyvfs_seek(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 
 /// Retrieves the current position of the file pointer.
-easyvfs_uint64 easyvfs_tellfile(easyvfs_file* pFile);
+easyvfs_uint64 easyvfs_tell(easyvfs_file* pFile);
 
 /// Retrieves the size of the given file.
-easyvfs_uint64 easyvfs_filesize(easyvfs_file* pFile);
+easyvfs_uint64 easyvfs_file_size(easyvfs_file* pFile);
 
 
 

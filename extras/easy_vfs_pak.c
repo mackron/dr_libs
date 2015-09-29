@@ -39,7 +39,7 @@ typedef struct
 
 
     /// The access mode.
-    easyvfs_accessmode accessMode;
+    easyvfs_access_mode accessMode;
 
     /// A pointer to the buffer containing the file information. The number of items in this array is equal to directoryLength / 64.
     easyvfs_file_pak* pFiles;
@@ -122,7 +122,7 @@ typedef struct
 
 
 
-easyvfs_archive_pak* easyvfs_pak_create(easyvfs_accessmode accessMode)
+easyvfs_archive_pak* easyvfs_pak_create(easyvfs_access_mode accessMode)
 {
     easyvfs_archive_pak* pak = easyvfs_malloc(sizeof(easyvfs_archive_pak));
     if (pak != NULL)
@@ -145,17 +145,17 @@ void easyvfs_pak_delete(easyvfs_archive_pak* pArchive)
 
 
 int            easyvfs_isvalidarchive_pak(easyvfs_context* pContext, const char* path);
-void*          easyvfs_openarchive_pak   (easyvfs_file* pFile, easyvfs_accessmode accessMode);
+void*          easyvfs_openarchive_pak   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
 void           easyvfs_closearchive_pak  (easyvfs_archive* pArchive);
-int            easyvfs_getfileinfo_pak   (easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo *fi);
+int            easyvfs_getfileinfo_pak   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
 void*          easyvfs_beginiteration_pak(easyvfs_archive* pArchive, const char* path);
 void           easyvfs_enditeration_pak  (easyvfs_archive* pArchive, easyvfs_iterator* i);
-int            easyvfs_nextiteration_pak (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi);
-void*          easyvfs_openfile_pak      (easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode);
+int            easyvfs_nextiteration_pak (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+void*          easyvfs_openfile_pak      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
 void           easyvfs_closefile_pak     (easyvfs_file* pFile);
 int            easyvfs_readfile_pak      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
 int            easyvfs_writefile_pak     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-easyvfs_bool   easyvfs_seekfile_pak      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+easyvfs_bool   easyvfs_seekfile_pak      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 easyvfs_uint64 easyvfs_tellfile_pak      (easyvfs_file* pFile);
 easyvfs_uint64 easyvfs_filesize_pak      (easyvfs_file* pFile);
 int            easyvfs_deletefile_pak    (easyvfs_archive* pArchive, const char* path);
@@ -182,7 +182,7 @@ void easyvfs_registerarchivecallbacks_pak(easyvfs_context* pContext)
     callbacks.deletefile     = easyvfs_deletefile_pak;
     callbacks.renamefile     = easyvfs_renamefile_pak;
     callbacks.mkdir          = easyvfs_mkdir_pak;
-    easyvfs_registerarchivecallbacks(pContext, callbacks);
+    easyvfs_register_archive_callbacks(pContext, callbacks);
 }
 
 
@@ -199,22 +199,22 @@ int easyvfs_isvalidarchive_pak(easyvfs_context* pContext, const char* path)
 }
 
 
-void* easyvfs_openarchive_pak(easyvfs_file* pFile, easyvfs_accessmode accessMode)
+void* easyvfs_openarchive_pak(easyvfs_file* pFile, easyvfs_access_mode accessMode)
 {
     assert(pFile != NULL);
-    assert(easyvfs_tellfile(pFile) == 0);
+    assert(easyvfs_tell(pFile) == 0);
 
     easyvfs_archive_pak* pak = easyvfs_pak_create(accessMode);
     if (pak != NULL)
     {
         // First 4 bytes should equal "PACK"
-        if (easyvfs_readfile(pFile, pak->id, 4, NULL))
+        if (easyvfs_read(pFile, pak->id, 4, NULL))
         {
             if (pak->id[0] == 'P' && pak->id[1] == 'A' && pak->id[2] == 'C' && pak->id[3] == 'K')
             {
-                if (easyvfs_readfile(pFile, &pak->directoryOffset, 4, NULL))
+                if (easyvfs_read(pFile, &pak->directoryOffset, 4, NULL))
                 {
-                    if (easyvfs_readfile(pFile, &pak->directoryLength, 4, NULL))
+                    if (easyvfs_read(pFile, &pak->directoryLength, 4, NULL))
                     {
                         // We loaded the header just fine so now we want to allocate space for each file in the directory and load them. Note that
                         // this does not load the file data itself, just information about the files like their name and size.
@@ -229,10 +229,10 @@ void* easyvfs_openarchive_pak(easyvfs_file* pFile, easyvfs_accessmode accessMode
                                 if (pak->pFiles != NULL)
                                 {
                                     // Seek to the directory listing before trying to read it.
-                                    if (easyvfs_seekfile(pFile, pak->directoryOffset, easyvfs_start))
+                                    if (easyvfs_seek(pFile, pak->directoryOffset, easyvfs_start))
                                     {
                                         unsigned int bytesRead;
-                                        if (easyvfs_readfile(pFile, pak->pFiles, pak->directoryLength, &bytesRead) && bytesRead == pak->directoryLength)
+                                        if (easyvfs_read(pFile, pak->pFiles, pak->directoryLength, &bytesRead) && bytesRead == pak->directoryLength)
                                         {
                                             // All good!
                                         }
@@ -309,7 +309,7 @@ void easyvfs_closearchive_pak(easyvfs_archive* pArchive)
     }
 }
 
-int easyvfs_getfileinfo_pak(easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo* fi)
+int easyvfs_getfileinfo_pak(easyvfs_archive* pArchive, const char* path, easyvfs_file_info* fi)
 {
     assert(pArchive != NULL);
     assert(pArchive->pUserData != NULL);
@@ -377,7 +377,7 @@ void easyvfs_enditeration_pak(easyvfs_archive* pArchive, easyvfs_iterator* i)
     i->pUserData = NULL;
 }
 
-int easyvfs_nextiteration_pak(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi)
+int easyvfs_nextiteration_pak(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
 {
     assert(pArchive != 0);
     assert(i != NULL);
@@ -437,14 +437,14 @@ int easyvfs_nextiteration_pak(easyvfs_archive* pArchive, easyvfs_iterator* i, ea
     return 0;
 }
 
-void* easyvfs_openfile_pak(easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode)
+void* easyvfs_openfile_pak(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode)
 {
     assert(pArchive != 0);
     assert(pArchive->pUserData != NULL);
     assert(path != NULL);
 
     // Only supporting read-only for now.
-    if ((accessMode & easyvfs_write) != 0)
+    if ((accessMode & EASYVFS_WRITE) != 0)
     {
         return NULL;
     }
@@ -503,8 +503,8 @@ int easyvfs_readfile_pak(easyvfs_file* pFile, void* dst, unsigned int bytesToRea
             bytesToRead = (unsigned int)bytesAvailable;     // Safe cast, as per the check above.
         }
 
-        easyvfs_seekfile(pArchiveFile, (easyvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), easyvfs_start);
-        int result = easyvfs_readfile(pArchiveFile, dst, bytesToRead, bytesReadOut);
+        easyvfs_seek(pArchiveFile, (easyvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), easyvfs_start);
+        int result = easyvfs_read(pArchiveFile, dst, bytesToRead, bytesReadOut);
         if (result != 0)
         {
             pOpenedFile->readPointer += bytesToRead;
@@ -531,7 +531,7 @@ int easyvfs_writefile_pak(easyvfs_file* pFile, const void* src, unsigned int byt
     return 0;
 }
 
-easyvfs_bool easyvfs_seekfile_pak(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
+easyvfs_bool easyvfs_seekfile_pak(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
 {
     assert(pFile != 0);
 

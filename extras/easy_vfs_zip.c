@@ -41,17 +41,17 @@ typedef struct
 
 
 int            easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path);
-void*          easyvfs_openarchive_zip   (easyvfs_file* pFile, easyvfs_accessmode accessMode);
+void*          easyvfs_openarchive_zip   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
 void           easyvfs_closearchive_zip  (easyvfs_archive* pArchive);
-int            easyvfs_getfileinfo_zip   (easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo *fi);
+int            easyvfs_getfileinfo_zip   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
 void*          easyvfs_beginiteration_zip(easyvfs_archive* pArchive, const char* path);
 void           easyvfs_enditeration_zip  (easyvfs_archive* pArchive, easyvfs_iterator* i);
-int            easyvfs_nextiteration_zip (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi);
-void*          easyvfs_openfile_zip      (easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode);
+int            easyvfs_nextiteration_zip (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+void*          easyvfs_openfile_zip      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
 void           easyvfs_closefile_zip     (easyvfs_file* pFile);
 int            easyvfs_readfile_zip      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
 int            easyvfs_writefile_zip     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-easyvfs_bool   easyvfs_seekfile_zip      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin);
+easyvfs_bool   easyvfs_seekfile_zip      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 easyvfs_uint64 easyvfs_tellfile_zip      (easyvfs_file* pFile);
 easyvfs_uint64 easyvfs_filesize_zip      (easyvfs_file* pFile);
 int            easyvfs_deletefile_zip    (easyvfs_archive* pArchive, const char* path);
@@ -78,7 +78,7 @@ void easyvfs_registerarchivecallbacks_zip(easyvfs_context* pContext)
     callbacks.deletefile     = easyvfs_deletefile_zip;
     callbacks.renamefile     = easyvfs_renamefile_zip;
     callbacks.mkdir          = easyvfs_mkdir_zip;
-    easyvfs_registerarchivecallbacks(pContext, callbacks);
+    easyvfs_register_archive_callbacks(pContext, callbacks);
 }
 
 
@@ -102,10 +102,10 @@ size_t easyvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, 
     easyvfs_file* pZipFile = pOpaque;
     assert(pZipFile != NULL);
 
-    easyvfs_seekfile(pZipFile, (easyvfs_int64)file_ofs, easyvfs_start);
+    easyvfs_seek(pZipFile, (easyvfs_int64)file_ofs, easyvfs_start);
 
     unsigned int bytesRead;
-    int result = easyvfs_readfile(pZipFile, pBuf, (unsigned int)n, &bytesRead);
+    int result = easyvfs_read(pZipFile, pBuf, (unsigned int)n, &bytesRead);
     if (result == 0)
     {
         // Failed to read the file.
@@ -116,13 +116,13 @@ size_t easyvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, 
 }
 
 
-void* easyvfs_openarchive_zip(easyvfs_file* pFile, easyvfs_accessmode accessMode)
+void* easyvfs_openarchive_zip(easyvfs_file* pFile, easyvfs_access_mode accessMode)
 {
     assert(pFile != NULL);
-    assert(easyvfs_tellfile(pFile) == 0);
+    assert(easyvfs_tell(pFile) == 0);
 
     // Only support read-only mode at the moment.
-    if ((accessMode & easyvfs_write) != 0)
+    if ((accessMode & EASYVFS_WRITE) != 0)
     {
         return NULL;
     }
@@ -135,7 +135,7 @@ void* easyvfs_openarchive_zip(easyvfs_file* pFile, easyvfs_accessmode accessMode
 
         pZip->m_pRead        = easyvfs_mz_file_read_func;
         pZip->m_pIO_opaque   = pFile;
-        if (mz_zip_reader_init(pZip, easyvfs_filesize(pFile), 0))
+        if (mz_zip_reader_init(pZip, easyvfs_file_size(pFile), 0))
         {
             // Everything is good so far...
         }
@@ -158,7 +158,7 @@ void easyvfs_closearchive_zip(easyvfs_archive* pArchive)
     easyvfs_free(pArchive->pUserData);
 }
 
-int easyvfs_getfileinfo_zip(easyvfs_archive* pArchive, const char* path, easyvfs_fileinfo *fi)
+int easyvfs_getfileinfo_zip(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
 {
     assert(pArchive != NULL);
     assert(pArchive->pUserData != NULL);
@@ -235,7 +235,7 @@ void easyvfs_enditeration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i)
     i->pUserData = NULL;
 }
 
-int easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_fileinfo* fi)
+int easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
 {
     assert(pArchive != 0);
     assert(i != NULL);
@@ -279,14 +279,14 @@ int easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, ea
     return 0;
 }
 
-void* easyvfs_openfile_zip(easyvfs_archive* pArchive, const char* path, easyvfs_accessmode accessMode)
+void* easyvfs_openfile_zip(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode)
 {
     assert(pArchive != 0);
     assert(pArchive->pUserData != NULL);
     assert(path != NULL);
 
     // Only supporting read-only for now.
-    if ((accessMode & easyvfs_write) != 0)
+    if ((accessMode & EASYVFS_WRITE) != 0)
     {
         return NULL;
     }
@@ -381,7 +381,7 @@ int easyvfs_writefile_zip(easyvfs_file* pFile, const void* src, unsigned int byt
     return 0;
 }
 
-easyvfs_bool easyvfs_seekfile_zip(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seekorigin origin)
+easyvfs_bool easyvfs_seekfile_zip(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
 {
     assert(pFile != 0);
 
