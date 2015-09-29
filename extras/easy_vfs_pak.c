@@ -190,7 +190,7 @@ int easyvfs_isvalidarchive_pak(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
 
-    if (easyvfs_extensionequal(path, "pak"))
+    if (easyvfs_extension_equal(path, "pak"))
     {
         return 1;
     }
@@ -326,7 +326,7 @@ int easyvfs_getfileinfo_pak(easyvfs_archive* pArchive, const char* path, easyvfs
             if (strcmp(pFile->name, path) == 0)
             {
                 // It's a file.
-                easyvfs_copyandappendpath(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+                easyvfs_copy_and_append_path(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
                 fi->sizeInBytes      = (easyvfs_uint64)pFile->sizeInBytes;
                 fi->lastModifiedTime = 0;
                 fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
@@ -336,7 +336,7 @@ int easyvfs_getfileinfo_pak(easyvfs_archive* pArchive, const char* path, easyvfs
             else if (easyvfs_is_path_descendant(pFile->name, path))
             {
                 // It's a directory.
-                easyvfs_copyandappendpath(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+                easyvfs_copy_and_append_path(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
                 fi->sizeInBytes      = 0;
                 fi->lastModifiedTime = 0;
                 fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY | EASYVFS_FILE_ATTRIBUTE_DIRECTORY;
@@ -394,7 +394,7 @@ int easyvfs_nextiteration_pak(easyvfs_archive* pArchive, easyvfs_iterator* i, ea
                 unsigned int iFile = pIterator->index++;
 
                 easyvfs_file_pak* pFile = pak->pFiles + iFile;
-                if (easyvfs_ispathchild(pFile->name, pIterator->directoryPath))
+                if (easyvfs_is_path_child(pFile->name, pIterator->directoryPath))
                 {
                     // It's a file.
                     easyvfs_strcpy(fi->absolutePath, EASYVFS_MAX_PATH, pFile->name);

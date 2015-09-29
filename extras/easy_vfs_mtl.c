@@ -316,7 +316,7 @@ int easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
 
-    if (easyvfs_extensionequal(path, "mtl"))
+    if (easyvfs_extension_equal(path, "mtl"))
     {
         return 1;
     }
@@ -426,7 +426,7 @@ int easyvfs_getfileinfo_mtl(easyvfs_archive* pArchive, const char* path, easyvfs
                 // We found the file.
                 if (fi != NULL)
                 {
-                    easyvfs_copyandappendpath(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+                    easyvfs_copy_and_append_path(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
                     fi->sizeInBytes      = mtl->pFiles[iFile].sizeInBytes;
                     fi->lastModifiedTime = 0;
                     fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;

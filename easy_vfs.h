@@ -337,34 +337,36 @@ void easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
 
 
 // ispathchild()
-int easyvfs_ispathchild(const char* childAbsolutePath, const char* parentAbsolutePath);
-
-
-// filename()
-const char* easyvfs_filename(const char* path);
-
-// extension()
-const char* easyvfs_extension(const char* path);
-
-// extensionequal()
-int easyvfs_extensionequal(const char* path, const char* extension);
-
-// pathsequal()
-int easyvfs_pathsequal(const char* path1, const char* path2);
-
-
-// ispathabsolute()
-int easyvfs_ispathrelative(const char* path);
-
-// ispathabsolute()
-int easyvfs_ispathabsolute(const char* path);
-
-
-// copyandappendpath()
-int easyvfs_copyandappendpath(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
+int easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsolutePath);
 
 // is_path_descendant()
 int easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
+
+
+// easyvfs_file_name()
+const char* easyvfs_file_name(const char* path);
+
+// easyvfs_extension()
+const char* easyvfs_extension(const char* path);
+
+// easyvfs_extension_equal()
+int easyvfs_extension_equal(const char* path, const char* extension);
+
+// easyvfs_paths_equal()
+int easyvfs_paths_equal(const char* path1, const char* path2);
+
+
+// easyvfs_is_path_relative()
+int easyvfs_is_path_relative(const char* path);
+
+// easyvfs_is_path_absolute()
+int easyvfs_is_path_absolute(const char* path);
+
+
+// easyvfs_copy_and_append_path()
+int easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
+
+
 
 
 #ifdef __cplusplus

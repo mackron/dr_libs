@@ -86,7 +86,7 @@ int easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
 
-    if (easyvfs_extensionequal(path, "zip"))
+    if (easyvfs_extension_equal(path, "zip"))
     {
         return 1;
     }
@@ -172,7 +172,7 @@ int easyvfs_getfileinfo_zip(easyvfs_archive* pArchive, const char* path, easyvfs
             mz_zip_archive_file_stat zipStat;
             if (mz_zip_reader_file_stat(pZip, (mz_uint)fileIndex, &zipStat))
             {
-                easyvfs_copyandappendpath(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+                easyvfs_copy_and_append_path(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
                 fi->sizeInBytes      = zipStat.m_uncomp_size;
                 fi->lastModifiedTime = (easyvfs_uint64)zipStat.m_time;
                 fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
@@ -252,7 +252,7 @@ int easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, ea
             char filePath[EASYVFS_MAX_PATH];
             if (mz_zip_reader_get_filename(pZip, iFile, filePath, EASYVFS_MAX_PATH) > 0)
             {
-                if (easyvfs_ispathchild(filePath, pZipIterator->directoryPath))
+                if (easyvfs_is_path_child(filePath, pZipIterator->directoryPath))
                 {
                     if (fi != NULL)
                     {
