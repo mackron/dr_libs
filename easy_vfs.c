@@ -36,23 +36,41 @@ void easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 #if defined(_MSC_VER)
     strcpy_s(dst, dstSizeInBytes, src);
 #else
-    while (dstSizeInBytes > 0 && src[0] != '\0')
-    {
-        dst[0] = src[0];
-
-        dst += 1;
-        src += 1;
-        dstSizeInBytes -= 1;
+    if (dst == 0) {
+        return EINVAL;
     }
-
-    if (dstSizeInBytes > 0)
-    {
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
         dst[0] = '\0';
+        return EINVAL;
     }
+    
+    char* iDst = dst;
+    const char* iSrc = src;
+    size_t remainingSizeInBytes = dstSizeInBytes;
+    while (remainingSizeInBytes > 0 && iSrc[0] != '\0')
+    {
+        iDst[0] = iSrc[0];
+
+        iDst += 1;
+        iSrc += 1;
+        remainingSizeInBytes -= 1;
+    }
+
+    if (remainingSizeInBytes > 0) {
+        iDst[0] = '\0';
+    } else {
+        dst[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
 #endif
 }
 
-void easyvfs_strcpy2(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
+void easyvfs_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
 {
     while (dstSizeInBytes > 0 && src[0] != '\0' && srcSizeInBytes > 0)
     {
@@ -180,7 +198,7 @@ int easyvfs_appendpathiterator(char* base, unsigned int baseBufferSizeInBytes, e
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easyvfs_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
+            easyvfs_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
 
             return 1;
@@ -1816,7 +1834,7 @@ int easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const cha
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easyvfs_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
+            easyvfs_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
 
 
             return 1;
