@@ -1005,6 +1005,73 @@ void easygui_release_keyboard(easygui_context* pContext)
 
 
 
+//// Events ////
+
+void easygui_register_on_mouse_enter(easygui_element* pElement, easygui_on_mouse_enter_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onMouseEnter = callback;
+    }
+}
+
+void easygui_register_on_mouse_leave(easygui_element* pElement, easygui_on_mouse_leave_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onMouseLeave = callback;
+    }
+}
+
+void easygui_register_on_mouse_move(easygui_element* pElement, easygui_on_mouse_move_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onMouseMove = callback;
+    }
+}
+
+void easygui_register_on_paint(easygui_element* pElement, easygui_on_paint_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onPaint = callback;
+    }
+}
+
+void easygui_register_on_hittest(easygui_element* pElement, easygui_on_hittest_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onHitTest = callback;
+    }
+}
+
+void easygui_register_on_capture_mouse(easygui_element* pElement, easygui_on_capture_mouse_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onCaptureMouse = callback;
+    }
+}
+
+void easygui_register_on_release_mouse(easygui_element* pElement, easygui_on_release_mouse_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onReleaseMouse = callback;
+    }
+}
+
+void easygui_register_on_capture_keyboard(easygui_element* pElement, easygui_on_capture_keyboard_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onCaptureKeyboard = callback;
+    }
+}
+
+void easygui_register_on_release_keyboard(easygui_element* pElement, easygui_on_release_keyboard_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onReleaseKeyboard = callback;
+    }
+}
+
+
+
 easygui_bool easygui_is_point_inside_element_bounds(const easygui_element* pElement, float absolutePosX, float absolutePosY)
 {
     if (absolutePosX < pElement->absolutePosX ||

@@ -220,6 +220,8 @@ struct easygui_rect
 
 typedef void (* easygui_callback)();
 
+typedef void (* easygui_on_mouse_enter_proc)(easygui_element* pElement);
+typedef void (* easygui_on_mouse_leave_proc)(easygui_element* pElement);
 typedef void (* easygui_on_mouse_move_proc)(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
 typedef void (* easygui_on_paint_proc)(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
 typedef easygui_bool (* easygui_on_hittest_proc)(easygui_element* pElement, float relativePosX, float relativePosY);
@@ -332,6 +334,12 @@ struct easygui_element
     /// Boolean flags.
     unsigned int flags;
 
+
+    /// The function to call when the mouse enters the given element.
+    easygui_on_mouse_enter_proc onMouseEnter;
+
+    /// The function to call when the mouse leaves the given element.
+    easygui_on_mouse_leave_proc onMouseLeave;
 
     /// The function to call when the mouse is moved while over the element.
     easygui_on_mouse_move_proc onMouseMove;
@@ -626,6 +634,37 @@ void easygui_capture_keyboard(easygui_element* pElement);
 
 /// Releases the keyboard capture.
 void easygui_release_keyboard(easygui_context* pContext);
+
+
+
+//// Events ////
+
+/// Registers the on_mouse_enter event callback.
+void easygui_register_on_mouse_enter(easygui_element* pElement, easygui_on_mouse_enter_proc callback);
+
+/// Registers the on_mouse_leave event callback.
+void easygui_register_on_mouse_leave(easygui_element* pElement, easygui_on_mouse_leave_proc callback);
+
+/// Registers the on_mouse_move event callback.
+void easygui_register_on_mouse_move(easygui_element* pElement, easygui_on_mouse_move_proc callback);
+
+/// Registers the on_paint event callback.
+void easygui_register_on_paint(easygui_element* pElement, easygui_on_paint_proc callback);
+
+/// Registers the on_hittest event callback.
+void easygui_register_on_hittest(easygui_element* pElement, easygui_on_hittest_proc callback);
+
+/// Registers the on_capture_mouse event callback.
+void easygui_register_on_capture_mouse(easygui_element* pElement, easygui_on_capture_mouse_proc callback);
+
+/// Registers the on_release_mouse event callback.
+void easygui_register_on_release_mouse(easygui_element* pElement, easygui_on_release_mouse_proc callback);
+
+/// Registers the on_capture_keyboard event callback.
+void easygui_register_on_capture_keyboard(easygui_element* pElement, easygui_on_capture_keyboard_proc callback);
+
+/// Registers the on_release_keyboard event callback.
+void easygui_register_on_release_keyboard(easygui_element* pElement, easygui_on_release_keyboard_proc callback);
 
 
 
