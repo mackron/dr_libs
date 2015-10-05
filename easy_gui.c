@@ -17,6 +17,7 @@
 
 // Context Flags
 #define IS_CONTEXT_DEAD                     (1U << 0)
+#define IS_AUTO_DIRTY_DISABLED              (1U << 1)
 
 // Element Flags
 #define IS_ELEMENT_HIDDEN                   (1U << 0)
@@ -98,19 +99,42 @@ void easygui_delete_context_for_real(easygui_context* pContext);
 void easygui_delete_element_for_real(easygui_element* pElement);
 
 
-/// Orphans the given element.
-///
-/// This does NOT turn the element into a top level element. The reason for this is that we will be calling this
-/// during the shutdown routine, so we don't want to waste time adding it to the top-level list only to have it
-/// removed.
-void easygui_orphan_element(easygui_element* pElement);
+/// Orphans the given element without triggering a redraw of the parent nor the child.
+void easygui_detach_without_redraw(easygui_element* pChildElement);
 
+/// Appends the given element without first detaching it from the old parent, nor does it post a redraw.
+void easygui_append_without_detach_or_redraw(easygui_element* pChildElement, easygui_element* pParentElement);
+
+/// Appends the given element without first detaching it from the old parent.
+void easygui_append_without_detach(easygui_element* pChildElement, easygui_element* pParentElement);
+
+/// Prepends the given element without first detaching it from the old parent, nor does it post a redraw.
+void easygui_prepend_without_detach_or_redraw(easygui_element* pChildElement, easygui_element* pParentElement);
+
+/// Prepends the given element without first detaching it from the old parent.
+void easygui_prepend_without_detach(easygui_element* pChildElement, easygui_element* pParentElement);
+
+/// Appends an element to another as it's sibling, but does not detach it from the previous parent nor trigger a redraw.
+void easygui_append_sibling_without_detach_or_redraw(easygui_element* pElementToAppend, easygui_element* pElementToAppendTo);
+
+/// Appends an element to another as it's sibling, but does not detach it from the previous parent.
+void easygui_append_sibling_without_detach(easygui_element* pElementToAppend, easygui_element* pElementToAppendTo);
+
+/// Prepends an element to another as it's sibling, but does not detach it from the previous parent nor trigger a redraw.
+void easygui_prepend_sibling_without_detach_or_redraw(easygui_element* pElementToPrepend, easygui_element* pElementToPrependTo);
+
+/// Prepends an element to another as it's sibling, but does not detach it from the previous parent.
+void easygui_prepends_sibling_without_detach(easygui_element* pElementToPrepend, easygui_element* pElementToPrependTo);
+
+
+/// Marks the given region of the given top level element as dirty, but only if automatic dirtying is enabled.
+void easygui_auto_dirty(easygui_element* pTopLevelElement, easygui_rect rect);
 
 /// The function to call when the mouse may have entered into a new element.
 void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easygui_element* pNewElementUnderMouse);
 
 
-/// Functiosn for posting outbound events.
+/// Functions for posting outbound events.
 void easygui_post_outbound_event_mouse_enter(easygui_element* pElement);
 void easygui_post_outbound_event_mouse_leave(easygui_element* pElement);
 void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
@@ -121,6 +145,8 @@ void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delt
 void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, easygui_bool isAutoRepeated);
 void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key);
 void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, easygui_bool isAutoRepeated);
+void easygui_post_outbound_event_dirty(easygui_element* pElement, easygui_rect relativeRect);
+void easygui_post_outbound_event_dirty_global(easygui_element* pElement, easygui_rect relativeRect);
 void easygui_post_outbound_event_capture_mouse(easygui_element* pElement);
 void easygui_post_outbound_event_capture_mouse_global(easygui_element* pElement);
 void easygui_post_outbound_event_release_mouse(easygui_element* pElement);
@@ -129,7 +155,6 @@ void easygui_post_outbound_event_capture_keyboard(easygui_element* pElement);
 void easygui_post_outbound_event_capture_keyboard_global(easygui_element* pElement);
 void easygui_post_outbound_event_release_keyboard(easygui_element* pElement);
 void easygui_post_outbound_event_release_keyboard_global(easygui_element* pElement);
-
 
 /// Posts a log message.
 void easygui_log(easygui_context* pContext, const char* message);
@@ -297,7 +322,7 @@ void easygui_delete_element_for_real(easygui_element* pElement)
 }
 
 
-void easygui_orphan_element(easygui_element* pElement)
+void easygui_detach_without_redraw(easygui_element* pElement)
 {
     if (pElement->pParent != NULL) {
         if (pElement->pParent->pFirstChild == pElement) {
@@ -323,6 +348,114 @@ void easygui_orphan_element(easygui_element* pElement)
     pElement->pNextSibling = NULL;
 }
 
+void easygui_append_without_detach_or_redraw(easygui_element* pChildElement, easygui_element* pParentElement)
+{
+    pChildElement->pParent = pParentElement;
+    if (pChildElement->pParent != NULL) {
+        if (pChildElement->pParent->pLastChild != NULL) {
+            pChildElement->pPrevSibling = pChildElement->pParent->pLastChild;
+            pChildElement->pPrevSibling->pNextSibling = pChildElement;
+        }
+
+        if (pChildElement->pParent->pFirstChild == NULL) {
+            pChildElement->pParent->pFirstChild = pChildElement;
+        }
+
+        pChildElement->pParent->pLastChild = pChildElement;
+    }
+}
+
+void easygui_append_without_detach(easygui_element* pChildElement, easygui_element* pParentElement)
+{
+    easygui_append_without_detach_or_redraw(pChildElement, pParentElement);
+    easygui_auto_dirty(pChildElement, easygui_make_rect(0, 0, pChildElement->width, pChildElement->height));
+}
+
+void easygui_prepend_without_detach_or_redraw(easygui_element* pChildElement, easygui_element* pParentElement)
+{
+    pChildElement->pParent = pParentElement;
+    if (pChildElement->pParent != NULL) {
+        if (pChildElement->pParent->pFirstChild != NULL) {
+            pChildElement->pNextSibling = pChildElement->pParent->pFirstChild;
+            pChildElement->pNextSibling->pPrevSibling = pChildElement;
+        }
+
+        if (pChildElement->pParent->pLastChild == NULL) {
+            pChildElement->pParent->pLastChild = pChildElement;
+        }
+
+        pChildElement->pParent->pFirstChild = pChildElement;
+    }
+}
+
+void easygui_prepend_without_detach(easygui_element* pChildElement, easygui_element* pParentElement)
+{
+    easygui_prepend_without_detach_or_redraw(pChildElement, pParentElement);
+    easygui_auto_dirty(pChildElement, easygui_make_rect(0, 0, pChildElement->width, pChildElement->height));
+}
+
+void easygui_append_sibling_without_detach_or_redraw(easygui_element* pElementToAppend, easygui_element* pElementToAppendTo)
+{
+    assert(pElementToAppend   != NULL);
+    assert(pElementToAppendTo != NULL);
+
+    pElementToAppend->pParent = pElementToAppendTo->pParent;
+    if (pElementToAppend->pParent != NULL)
+    {
+        pElementToAppend->pNextSibling = pElementToAppendTo->pNextSibling;
+        pElementToAppend->pPrevSibling = pElementToAppendTo;
+
+        pElementToAppendTo->pNextSibling->pPrevSibling = pElementToAppend;
+        pElementToAppendTo->pNextSibling = pElementToAppend;
+
+        if (pElementToAppend->pParent->pLastChild == pElementToAppendTo) {
+            pElementToAppend->pParent->pLastChild = pElementToAppend;
+        }
+    }
+}
+
+void easygui_append_sibling_without_detach(easygui_element* pElementToAppend, easygui_element* pElementToAppendTo)
+{
+    easygui_append_sibling_without_detach_or_redraw(pElementToAppend, pElementToAppendTo);
+    easygui_auto_dirty(pElementToAppend, easygui_make_rect(0, 0, pElementToAppend->width, pElementToAppend->height));
+}
+
+void easygui_prepend_sibling_without_detach_or_redraw(easygui_element* pElementToPrepend, easygui_element* pElementToPrependTo)
+{
+    assert(pElementToPrepend   != NULL);
+    assert(pElementToPrependTo != NULL);
+
+    pElementToPrepend->pParent = pElementToPrependTo->pParent;
+    if (pElementToPrepend->pParent != NULL)
+    {
+        pElementToPrepend->pPrevSibling = pElementToPrependTo->pNextSibling;
+        pElementToPrepend->pNextSibling = pElementToPrependTo;
+
+        pElementToPrependTo->pPrevSibling->pNextSibling = pElementToPrepend;
+        pElementToPrependTo->pNextSibling = pElementToPrepend;
+
+        if (pElementToPrepend->pParent->pFirstChild == pElementToPrependTo) {
+            pElementToPrepend->pParent->pFirstChild = pElementToPrepend;
+        }
+    }
+}
+
+void easygui_prepend_sibling_without_detach(easygui_element* pElementToPrepend, easygui_element* pElementToPrependTo)
+{
+    easygui_prepend_sibling_without_detach_or_redraw(pElementToPrepend, pElementToPrependTo);
+    easygui_auto_dirty(pElementToPrepend, easygui_make_rect(0, 0, pElementToPrepend->width, pElementToPrepend->height));
+}
+
+
+void easygui_auto_dirty(easygui_element* pElement, easygui_rect relativeRect)
+{
+    assert(pElement != NULL);
+    assert(pElement->pContext != NULL);
+
+    if (easygui_is_auto_dirty_enabled(pElement->pContext)) {
+        easygui_dirty(pElement, relativeRect);
+    }
+}
 
 void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easygui_element* pNewElementUnderMouse)
 {
@@ -345,7 +478,7 @@ void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easyg
             easygui_element* pOldAncestor = pOldElementUnderMouse;
             while (pOldAncestor != NULL)
             {
-                easygui_bool isOldElementUnderMouse = pNewElementUnderMouse == pOldAncestor || easygui_is_element_ancestor(pNewElementUnderMouse, pOldAncestor);
+                easygui_bool isOldElementUnderMouse = pNewElementUnderMouse == pOldAncestor || easygui_is_ancestor(pOldAncestor, pNewElementUnderMouse);
                 if (!isOldElementUnderMouse)
                 {
                     easygui_post_outbound_event_mouse_leave(pOldAncestor);
@@ -359,7 +492,7 @@ void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easyg
             easygui_element* pNewAncestor = pNewElementUnderMouse;
             while (pNewAncestor != NULL)
             {
-                easygui_bool wasNewElementUnderMouse = pOldElementUnderMouse == pNewAncestor || easygui_is_element_ancestor(pOldElementUnderMouse, pNewAncestor);
+                easygui_bool wasNewElementUnderMouse = pOldElementUnderMouse == pNewAncestor || easygui_is_ancestor(pNewAncestor, pOldElementUnderMouse);
                 if (!wasNewElementUnderMouse)
                 {
                     easygui_post_outbound_event_mouse_enter(pNewAncestor);
@@ -489,6 +622,27 @@ void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, u
         }
         
         easygui_end_outbound_event(pElement);
+    }
+}
+
+
+void easygui_post_outbound_event_dirty(easygui_element* pElement, easygui_rect relativeRect)
+{
+    if (pElement != NULL)
+    {
+        if (pElement->onDirty) {
+            pElement->onDirty(pElement, relativeRect);
+        }
+    }
+}
+
+void easygui_post_outbound_event_dirty_global(easygui_element* pElement, easygui_rect relativeRect)
+{
+    if (pElement != NULL && pElement->pContext != NULL)
+    {
+        if (pElement->pContext->onGlobalDirty) {
+            pElement->pContext->onGlobalDirty(pElement, relativeRect);
+        }
     }
 }
 
@@ -651,6 +805,7 @@ easygui_context* easygui_create_context()
         pContext->pElementWithMouseCapture      = NULL;
         pContext->pElementWithKeyboardCapture   = NULL;
         pContext->flags                         = 0;
+        pContext->onGlobalDirty                 = NULL;
         pContext->onGlobalCaptureMouse          = NULL;
         pContext->onGlobalReleaseMouse          = NULL;
         pContext->onGlobalCaptureKeyboard       = NULL;
@@ -950,6 +1105,12 @@ void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, un
 
 
 
+void easygui_register_global_on_dirty(easygui_context * pContext, easygui_on_dirty_proc onDirty)
+{
+    if (pContext != NULL) {
+        pContext->onGlobalDirty = onDirty;
+    }
+}
 
 void easygui_register_global_on_capture_mouse(easygui_context* pContext, easygui_on_capture_mouse_proc onCaptureMouse)
 {
@@ -996,27 +1157,12 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
     if (pContext != NULL) {
         easygui_element* pElement = (easygui_element*)malloc(sizeof(easygui_element));
         if (pElement != NULL) {
-            pElement->pContext     = pContext;
-            pElement->pParent      = pParent;
-            pElement->pFirstChild  = NULL;
-            pElement->pLastChild   = NULL;
-            pElement->pNextSibling = NULL;
-            pElement->pPrevSibling = NULL;
-
-            // Add to the the hierarchy.
-            if (pElement->pParent != NULL) {
-                if (pElement->pParent->pLastChild != NULL) {
-                    pElement->pPrevSibling = pElement->pParent->pLastChild;
-                    pElement->pPrevSibling->pNextSibling = pElement;
-                }
-
-                if (pElement->pParent->pFirstChild == NULL) {
-                    pElement->pParent->pFirstChild = pElement;
-                }
-
-                pElement->pParent->pLastChild = pElement;
-            }
-
+            pElement->pContext              = pContext;
+            pElement->pParent               = pParent;
+            pElement->pFirstChild           = NULL;
+            pElement->pLastChild            = NULL;
+            pElement->pNextSibling          = NULL;
+            pElement->pPrevSibling          = NULL;
             pElement->pNextDeadElement      = NULL;
             pElement->pUserData             = NULL;
             pElement->absolutePosX          = 0;
@@ -1035,11 +1181,18 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
             pElement->onKeyUp               = NULL;
             pElement->onPrintableKeyDown    = NULL;
             pElement->onPaint               = NULL;
+            pElement->onDirty               = NULL;
             pElement->onHitTest             = NULL;
             pElement->onCaptureMouse        = NULL;
             pElement->onReleaseMouse        = NULL;
             pElement->onCaptureKeyboard     = NULL;
             pElement->onReleaseKeyboard     = NULL;
+
+
+            // Add to the the hierarchy.
+            easygui_append_without_detach_or_redraw(pElement, pElement->pParent);
+            
+
 
             return pElement;
         }
@@ -1068,7 +1221,7 @@ void easygui_delete_element(easygui_element* pElement)
     
 
     // Orphan the element first.
-    easygui_orphan_element(pElement);
+    easygui_detach_without_redraw(pElement);
 
 
     // If this was element is marked as the one that was last under the mouse it needs to be unset.
@@ -1370,6 +1523,13 @@ void easygui_register_on_paint(easygui_element* pElement, easygui_on_paint_proc 
     }
 }
 
+void easygui_register_on_dirty(easygui_element * pElement, easygui_on_dirty_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onDirty = callback;
+    }
+}
+
 void easygui_register_on_hittest(easygui_element* pElement, easygui_on_hittest_proc callback)
 {
     if (pElement != NULL) {
@@ -1496,6 +1656,102 @@ easygui_element* easygui_find_element_under_point(easygui_element* pTopLevelElem
 
 //// Hierarchy ////
 
+void easygui_detach(easygui_element* pChildElement)
+{
+    if (pChildElement == NULL) {
+        return;
+    }
+
+    easygui_element* pOldParent = pChildElement->pParent;
+
+
+    // We orphan the element using the private API. This will not mark the parent element as dirty so we need to do that afterwards.
+    easygui_detach_without_redraw(pChildElement);
+
+    // The region of the old parent needs to be redrawn.
+    if (pOldParent != NULL) {
+        easygui_auto_dirty(pOldParent, easygui_get_element_relative_rect(pOldParent));
+    }
+}
+
+void easygui_append(easygui_element* pChildElement, easygui_element* pParentElement)
+{
+    if (pChildElement == NULL) {
+        return;
+    }
+
+    // We first need to orphan the element. If the parent element is the new parent is the same as the old one, as in we
+    // are just moving the child element to the end of the children list, we want to delay the repaint until the end. To
+    // do this we use easygui_detach_without_redraw() because that will not trigger a redraw.
+    if (pChildElement->pParent != pParentElement) {
+        easygui_detach(pChildElement);
+    } else {
+        easygui_detach_without_redraw(pChildElement);
+    }
+    
+
+    // Now we attach it to the end of the new parent.
+    if (pParentElement != NULL) {
+        easygui_append_without_detach(pChildElement, pParentElement);
+    }
+}
+
+void easygui_prepend(easygui_element* pChildElement, easygui_element* pParentElement)
+{
+    if (pChildElement == NULL) {
+        return;
+    }
+
+    // See comment in easygui_append() for explanation on this.
+    if (pChildElement->pParent != pParentElement) {
+        easygui_detach(pChildElement);
+    } else {
+        easygui_detach_without_redraw(pChildElement);
+    }
+
+
+    // Now we need to attach the element to the beginning of the parent.
+    if (pParentElement != NULL) {
+        easygui_prepend_without_detach(pChildElement, pParentElement);
+    }
+}
+
+void easygui_append_sibling(easygui_element* pElementToAppend, easygui_element* pElementToAppendTo)
+{
+    if (pElementToAppend == NULL || pElementToAppendTo == NULL) {
+        return;
+    }
+
+    // See comment in easygui_append() for explanation on this.
+    if (pElementToAppend->pParent != pElementToAppendTo->pParent) {
+        easygui_detach(pElementToAppend);
+    } else {
+        easygui_detach_without_redraw(pElementToAppend);
+    }
+
+
+    // Now we need to attach the element such that it comes just after pElementToAppendTo
+    easygui_append_sibling_without_detach(pElementToAppend, pElementToAppendTo);
+}
+
+void easygui_prepend_sibling(easygui_element* pElementToPrepend, easygui_element* pElementToPrependTo)
+{
+    if (pElementToPrepend == NULL || pElementToPrependTo == NULL) {
+        return;
+    }
+
+    // See comment in easygui_append() for explanation on this.
+    if (pElementToPrepend->pParent != pElementToPrependTo->pParent) {
+        easygui_detach(pElementToPrepend);
+    } else {
+        easygui_detach_without_redraw(pElementToPrepend);
+    }
+
+
+    // Now we need to attach the element such that it comes just after pElementToPrependTo
+    easygui_prepend_sibling_without_detach(pElementToPrepend, pElementToPrependTo);
+}
+
 easygui_element* easygui_find_top_level_element(easygui_element* pElement)
 {
     if (pElement == NULL) {
@@ -1509,9 +1765,23 @@ easygui_element* easygui_find_top_level_element(easygui_element* pElement)
     return pElement;
 }
 
-easygui_bool easygui_is_element_ancestor(easygui_element* pChildElement, easygui_element* pAncestorElement)
+easygui_bool easygui_is_parent(easygui_element* pParentElement, easygui_element* pChildElement)
 {
-    if (pChildElement == NULL || pAncestorElement == NULL) {
+    if (pParentElement == NULL || pChildElement == NULL) {
+        return EASYGUI_FALSE;
+    }
+
+    return pParentElement == pChildElement->pParent;
+}
+
+easygui_bool easygui_is_child(easygui_element* pChildElement, easygui_element* pParentElement)
+{
+    return easygui_is_parent(pParentElement, pChildElement);
+}
+
+easygui_bool easygui_is_ancestor(easygui_element* pAncestorElement, easygui_element* pChildElement)
+{
+    if (pAncestorElement == NULL || pChildElement == NULL) {
         return EASYGUI_FALSE;
     }
 
@@ -1529,19 +1799,100 @@ easygui_bool easygui_is_element_ancestor(easygui_element* pChildElement, easygui
     return EASYGUI_FALSE;
 }
 
+easygui_bool easygui_is_descendant(easygui_element* pChildElement, easygui_element* pAncestorElement)
+{
+    return easygui_is_ancestor(pAncestorElement, pChildElement);
+}
+
 
 
 //// Layout ////
 
+void easygui_set_element_absolute_position(easygui_element* pElement, float positionX, float positionY)
+{
+    if (pElement != NULL) {
+        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+
+        pElement->absolutePosX = positionX;
+        pElement->absolutePosY = positionY;
+
+        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+    }
+}
+
+void easygui_get_element_absolute_position(const easygui_element* pElement, float * positionXOut, float * positionYOut)
+{
+    if (pElement != NULL)
+    {
+        if (positionXOut != NULL) {
+            *positionXOut = pElement->absolutePosX;
+        }
+
+        if (positionYOut != NULL) {
+            *positionYOut = pElement->absolutePosY;
+        }
+    }
+}
+
+float easygui_get_element_absolute_position_x(const easygui_element* pElement)
+{
+    if (pElement != NULL) {
+        return pElement->absolutePosX;
+    }
+
+    return 0.0f;
+}
+
+float easygui_get_element_absolute_position_y(const easygui_element* pElement)
+{
+    if (pElement != NULL) {
+        return pElement->absolutePosY;
+    }
+
+    return 0.0f;
+}
+
+
 void easygui_set_element_relative_position(easygui_element* pElement, float relativePosX, float relativePosY)
 {
     if (pElement != NULL) {
+        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+
         pElement->absolutePosX = relativePosX;
         pElement->absolutePosY = relativePosY;
 
         if (pElement->pParent != NULL) {
             pElement->absolutePosX += pElement->pParent->absolutePosX;
             pElement->absolutePosY += pElement->pParent->absolutePosY;
+        }
+
+        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+    }
+}
+
+void easygui_get_element_relative_position(const easygui_element* pElement, float * positionXOut, float * positionYOut)
+{
+    if (pElement != NULL)
+    {
+        if (pElement->pParent != NULL)
+        {
+            if (positionXOut != NULL) {
+                *positionXOut = pElement->absolutePosX - pElement->pParent->absolutePosX;
+            }
+
+            if (positionYOut != NULL) {
+                *positionYOut = pElement->absolutePosY - pElement->pParent->absolutePosY;
+            }
+        }
+        else
+        {
+            if (positionXOut != NULL) {
+                *positionXOut = pElement->absolutePosX;
+            }
+
+            if (positionYOut != NULL) {
+                *positionYOut = pElement->absolutePosY;
+            }
         }
     }
 }
@@ -1572,14 +1923,18 @@ float easygui_get_element_relative_position_y(const easygui_element* pElement)
     return 0;
 }
 
+
 void easygui_set_element_size(easygui_element* pElement, float width, float height)
 {
     if (pElement != NULL) {
+        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+
         pElement->width  = width;
         pElement->height = height;
+
+        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
     }
 }
-
 
 void easygui_get_element_size(const easygui_element* pElement, float* widthOut, float* heightOut)
 {
@@ -1637,7 +1992,7 @@ easygui_rect easygui_get_element_absolute_rect(const easygui_element* pElement)
 easygui_rect easygui_get_element_relative_rect(const easygui_element* pElement)
 {
     easygui_rect rect;
-    if (pElement == NULL)
+    if (pElement != NULL)
     {
         rect.left   = easygui_get_element_relative_position_x(pElement);
         rect.top    = easygui_get_element_relative_position_y(pElement);
@@ -1738,6 +2093,39 @@ easygui_bool easygui_iterate_visible_elements(easygui_element* pParentElement, e
 
 
     return EASYGUI_TRUE;
+}
+
+void easygui_disable_auto_dirty(easygui_context* pContext)
+{
+    if (pContext != NULL) {
+        pContext->flags |= IS_AUTO_DIRTY_DISABLED;
+    }
+}
+
+void easygui_enable_auto_dirty(easygui_context* pContext)
+{
+    if (pContext != NULL) {
+        pContext->flags &= ~IS_AUTO_DIRTY_DISABLED;
+    }
+}
+
+easygui_bool easygui_is_auto_dirty_enabled(easygui_context* pContext)
+{
+    if (pContext != NULL) {
+        return (pContext->flags & IS_AUTO_DIRTY_DISABLED) == 0;
+    }
+
+    return EASYGUI_FALSE;
+}
+
+
+void easygui_dirty(easygui_element* pElement, easygui_rect relativeRect)
+{
+    if (pElement == NULL) {
+        return;
+    }
+
+    easygui_post_outbound_event_dirty_global(pElement, relativeRect);
 }
 
 
@@ -1910,11 +2298,22 @@ void easygui_make_rect_relative_to_element(const easygui_element* pElement, easy
         return;
     }
 
-
     pRect->left   -= pElement->absolutePosX;
     pRect->top    -= pElement->absolutePosY;
     pRect->right  -= pElement->absolutePosX;
     pRect->bottom -= pElement->absolutePosY;
+}
+
+void easygui_make_rect_absolute_to_element(const easygui_element * pElement, easygui_rect * pRect)
+{
+    if (pElement == NULL || pRect == NULL) {
+        return;
+    }
+
+    pRect->left   += pElement->absolutePosX;
+    pRect->top    += pElement->absolutePosY;
+    pRect->right  += pElement->absolutePosX;
+    pRect->bottom += pElement->absolutePosY;
 }
 
 void easygui_make_point_relative_to_element(const easygui_element* pElement, float* positionX, float* positionY)
@@ -1929,6 +2328,31 @@ void easygui_make_point_relative_to_element(const easygui_element* pElement, flo
             *positionY -= pElement->absolutePosY;
         }
     }
+}
+
+void easygui_make_point_absolute_to_element(const easygui_element* pElement, float* positionX, float* positionY)
+{
+    if (pElement != NULL)
+    {
+        if (positionX != NULL) {
+            *positionX += pElement->absolutePosX;
+        }
+
+        if (positionY != NULL) {
+            *positionY += pElement->absolutePosY;
+        }
+    }
+}
+
+easygui_rect easygui_make_rect(float left, float top, float right, float bottom)
+{
+    easygui_rect rect;
+    rect.left   = left;
+    rect.top    = top;
+    rect.right  = right;
+    rect.bottom = bottom;
+
+    return rect;
 }
 
 easygui_bool easygui_rect_contains_point(easygui_rect rect, float posX, float posY)

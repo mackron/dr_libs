@@ -220,6 +220,7 @@ typedef void         (* easygui_on_key_down_proc)             (easygui_element* 
 typedef void         (* easygui_on_key_up_proc)               (easygui_element* pElement, easygui_key key);
 typedef void         (* easygui_on_printable_key_down_proc)   (easygui_element* pElement, unsigned int character, easygui_bool isAutoRepeated);
 typedef void         (* easygui_on_paint_proc)                (easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
+typedef void         (* easygui_on_dirty_proc)                (easygui_element* pElement, easygui_rect relativeRect);
 typedef easygui_bool (* easygui_on_hittest_proc)              (easygui_element* pElement, float relativePosX, float relativePosY);
 typedef void         (* easygui_on_capture_mouse_proc)        (easygui_element* pElement);
 typedef void         (* easygui_on_release_mouse_proc)        (easygui_element* pElement);
@@ -342,6 +343,9 @@ struct easygui_element
     /// The function to call when the paint event is received.
     easygui_on_paint_proc onPaint;
 
+    /// The function to call when the element is marked as dirty.
+    easygui_on_dirty_proc onDirty;
+
     /// The function to call when a hit test needs to be performed.
     easygui_on_hittest_proc onHitTest;
 
@@ -389,6 +393,9 @@ struct easygui_context
     /// Boolean flags.
     unsigned int flags;
 
+
+    /// The global event callback to call when an element is marked as dirty.
+    easygui_on_dirty_proc onGlobalDirty;
 
     /// The global event handler to call when an element captures the mouse.
     easygui_on_capture_mouse_proc onGlobalCaptureMouse;
@@ -469,6 +476,13 @@ void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key ke
 ///     The \c character argument should be a UTF-32 code point.
 void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, easygui_bool isAutoRepeated);
 
+
+/// Registers the global on_dirty event callback.
+///
+/// @remarks
+///     This is called whenever a region of an element is marked as dirty and allows an application to mark the region of the
+///     container window as dirty to trigger an operating system level repaint of the window.
+void easygui_register_global_on_dirty(easygui_context* pContext, easygui_on_dirty_proc onDirty);
 
 /// Registers the global on_capture_mouse event callback.
 ///
@@ -615,6 +629,9 @@ void easygui_register_on_printable_key_down(easygui_element* pElement, easygui_o
 /// Registers the on_paint event callback.
 void easygui_register_on_paint(easygui_element* pElement, easygui_on_paint_proc callback);
 
+/// Registers the on_dirty event callback.
+void easygui_register_on_dirty(easygui_element* pElement, easygui_on_dirty_proc callback);
+
 /// Registers the on_hittest event callback.
 void easygui_register_on_hittest(easygui_element* pElement, easygui_on_hittest_proc callback);
 
@@ -654,14 +671,44 @@ easygui_element* easygui_find_element_under_point(easygui_element* pTopLevelElem
 
 //// Hierarchy ////
 
+/// Detaches the given element from it's parent.
+void easygui_detach(easygui_element* pChildElement);
+
+/// Attaches the given element as a child of the given parent element, and appends it to the end of the children list.
+void easygui_append(easygui_element* pChildElement, easygui_element* pParentElement);
+
+/// Attaches the given element as a child of the given parent element, and prepends it to the end of the children list.
+void easygui_prepend(easygui_element* pChildElement, easygui_element* pParentElement);
+
+/// Appends the given element to the given sibling.
+void easygui_append_sibling(easygui_element* pElementToAppend, easygui_element* pElementToAppendTo);
+
+/// Prepends the given element to the given sibling.
+void easygui_prepend_sibling(easygui_element* pElementToPrepend, easygui_element* pElementToPrependTo);
+
 /// Retrieves a pointer to the given element's top-level ancestor.
 ///
 /// @remarks
 ///     If pElement is the top level element, the return value will be pElement.
 easygui_element* easygui_find_top_level_element(easygui_element* pElement);
 
+/// Determines whether or not the given element is the parent of the other.
+///
+/// @remarks
+///     This is not recursive. Use easygui_is_ancestor() to do a recursive traversal.
+easygui_bool easygui_is_parent(easygui_element* pParentElement, easygui_element* pChildElement);
+
+/// Determines whether or not the given element is a child of the other.
+///
+/// @remarks
+///     This is not recursive. Use easygui_is_descendant() to do a recursive traversal.
+easygui_bool easygui_is_child(easygui_element* pChildElement, easygui_element* pParentElement);
+
 /// Determines whether or not the given element is an ancestor of the other.
-easygui_bool easygui_is_element_ancestor(easygui_element* pChildElement, easygui_element* pAncestorElement);
+easygui_bool easygui_is_ancestor(easygui_element* pAncestorElement, easygui_element* pChildElement);
+
+/// Determines whether or not the given element is a descendant of the other.
+easygui_bool easygui_is_descendant(easygui_element* pChildElement, easygui_element* pAncestorElement);
 
 
 
@@ -807,8 +854,17 @@ easygui_bool easygui_clamp_rect_to_element(const easygui_element* pElement, easy
 /// Converts the given rectangle from absolute to relative to the given element.
 void easygui_make_rect_relative_to_element(const easygui_element* pElement, easygui_rect* pRect);
 
+/// Converts the given rectangle from relative to absolute based on the given element.
+void easygui_make_rect_absolute_to_element(const easygui_element* pElement, easygui_rect* pRect);
+
 /// Converts the given point from absolute to relative to the given element.
 void easygui_make_point_relative_to_element(const easygui_element* pElement, float* positionX, float* positionY);
+
+/// Converts the given point from relative to absolute based on the given element.
+void easygui_make_point_absolute_to_element(const easygui_element* pElement, float* positionX, float* positionY);
+
+/// Creates a easygui_rect object.
+easygui_rect easygui_make_rect(float left, float top, float right, float bottom);
 
 /// Determines whether or not the given rectangle contains the given point.
 ///
