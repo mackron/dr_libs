@@ -8,16 +8,6 @@
 #include <stdio.h>  // For testing. Delete Me.
 
 
-#if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
-#define EASYGUI_USE_WIN32_THREADS
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#else
-#define EASYGUI_USE_POSIX_THREADS
-#endif
-
-
 /////////////////////////////////////////////////////////////////
 //
 // PRIVATE CORE API
@@ -26,8 +16,7 @@
 
 
 // Context Flags
-#define IS_INBOUND_EVENTS_LOCKED            (1U << 0)
-#define IS_CONTEXT_DEAD                     (1U << 1)
+#define IS_CONTEXT_DEAD                     (1U << 0)
 
 // Element Flags
 #define IS_ELEMENT_HIDDEN                   (1U << 0)
@@ -36,38 +25,47 @@
 
 
 
-/// Locks the inbound events.
+/// Increments the inbound event counter
 ///
-/// This is called from every easygui_post_inbound_event_*() function.
+/// @remarks
+///     This is called from every easygui_post_inbound_event_*() function and is used to keep track of whether or
+///     not an inbound event is being processed. We need to track this because if we are in the middle of event
+///     processing and an element is deleted, we want to delay it's deletion until the end of the event processing.
+///     @par
+///     Use easygui_end_inbound_event() to decrement the counter.
+void easygui_begin_inbound_event(easygui_context* pContext);
+
+/// Decrements the inbound event counter.
 ///
-/// If false is returned it means there was an error locking the events and the event should be cancelled.
-easygui_bool easygui_lock_inbound_events(easygui_context* pContext);
+/// @remarks
+///     This is called from every easygui_post_inbound_event_*() function.
+///     @par
+///     When the internal counter reaches zero, deleted elements will be garbage collected.
+void easygui_end_inbound_event(easygui_context* pContext);
 
-/// Unlocks the outbound events.
+/// Determines whether or not inbound events are being processed.
 ///
-/// This is called from every easygui_post_inbound_event_*() function
-void easygui_unlock_inbound_events(easygui_context* pContext);
+/// @remarks
+///     This is used to determine whether or not an element can be deleted immediately or should be garbage collected
+///     at the end of event processing.
+easygui_bool easygui_is_handling_inbound_event(const easygui_context* pContext);
 
-/// Determines whether or not inbound events are locked.
+
+/// Increments the outbound event counter.
 ///
-/// This is mainly used for error checking.
-easygui_bool easygui_is_inbound_events_locked(easygui_context* pContext);
+/// @remarks
+///     This will validate that the given element is allowed to have an event posted. When false is returned, nothing
+///     will have been locked and the outbound event should be cancelled.
+///     @par
+///     This will return false if the given element has been marked as dead, or if there is some other reason it should
+///     not be receiving events.
+easygui_bool easygui_begin_outbound_event(easygui_element* pElement);
 
+/// Decrements the outbound event counter.
+void easygui_end_outbound_event(easygui_element* pElement);
 
-/// Locks the outbound events.
-///
-/// This will validate that the given element is allowed to have an event posted. When false is returned, nothing
-/// will have been locked and the outbound event should be cancelled.
-///
-/// This will return false if the given element has been marked as dead, or if there is some other reason it should
-/// not be receiving events.
-easygui_bool easygui_lock_outbound_events(easygui_element* pElement);
-
-/// Unlocks the outbound events.
-void easygui_unlock_outbound_events(easygui_element* pElement);
-
-/// Determines whether or not outbound events are locked.
-easygui_bool easygui_is_outbound_events_locked(easygui_context* pContext);
+/// Determines whether or not and outbound event is being processed.
+easygui_bool easygui_is_handling_outbound_event(easygui_context* pContext);
 
 
 /// Marks the given element as dead.
@@ -147,96 +145,54 @@ void easygui_draw_text_null(const char*, unsigned int, int, int, easygui_font, e
 
 
 
-
-easygui_bool easygui_lock_inbound_events(easygui_context* pContext)
+void easygui_begin_inbound_event(easygui_context* pContext)
 {
     assert(pContext != NULL);
 
-#ifdef EASYGUI_USE_WIN32_THREADS
-    HANDLE hMutex = pContext->inboundEventLock;
-    assert(hMutex != NULL);
-
-    WaitForSingleObject(hMutex, INFINITE);
-#endif
-
-#ifdef EASYGUI_USE_POSIX_THREADS
-    pthread_mutex_t* pMutex = pContext->inboundEventLock;
-    assert(pMutex != NULL);
-
-    pthread_mutex_lock(pMutex);
-#endif
-
-    // We need to set a flag so we can do error checking and ensure correctness with event handling.
-    pContext->flags |= IS_INBOUND_EVENTS_LOCKED;
-
-
-    return EASYGUI_TRUE;
+    pContext->inboundEventCounter += 1;
 }
 
-void easygui_unlock_inbound_events(easygui_context* pContext)
+void easygui_end_inbound_event(easygui_context* pContext)
 {
     assert(pContext != NULL);
+    assert(pContext->inboundEventCounter > 0);
 
-#ifdef EASYGUI_USE_WIN32_THREADS
-    HANDLE hMutex = pContext->inboundEventLock;
-    assert(hMutex != NULL);
-#endif
-
-#ifdef EASYGUI_USE_POSIX_THREADS
-    pthread_mutex_t* pMutex = pContext->inboundEventLock;
-    assert(pMutex != NULL);
-#endif
+    pContext->inboundEventCounter -= 1;
 
 
     // Here is where we want to clean up any elements that are marked as dead. When events are being handled elements are not deleted
     // immediately but instead only marked for deletion. This function will be called at the end of event processing which makes it
     // an appropriate place for cleaning up dead elements.
-    easygui_delete_elements_marked_as_dead(pContext);
-
-    // If the context has been marked for deletion than we will need to delete that too.
-    if (easygui_is_context_marked_as_dead(pContext))
+    if (!easygui_is_handling_inbound_event(pContext))
     {
-        easygui_delete_context_for_real(pContext);
+        easygui_delete_elements_marked_as_dead(pContext);
+
+        // If the context has been marked for deletion than we will need to delete that too.
+        if (easygui_is_context_marked_as_dead(pContext))
+        {
+            easygui_delete_context_for_real(pContext);
+        }
     }
-    else
-    {
-        // The internal flag needs to be unset so we can do error checking to ensure correctness.
-        pContext->flags &= ~IS_INBOUND_EVENTS_LOCKED;
-    }
-
-
-    // The inbound event locks need to be unlocked at the end.
-#ifdef EASYGUI_USE_WIN32_THREADS
-    SetEvent(hMutex);
-#endif
-
-#ifdef EASYGUI_USE_POSIX_THREADS
-    pthread_mutex_unlock(pMutex);
-#endif
 }
 
-easygui_bool easygui_is_inbound_events_locked(easygui_context* pContext)
+easygui_bool easygui_is_handling_inbound_event(const easygui_context* pContext)
 {
     assert(pContext != NULL);
 
-    return (pContext->flags & IS_INBOUND_EVENTS_LOCKED) != 0;
+    return pContext->inboundEventCounter > 0;
 }
 
 
 
-easygui_bool easygui_lock_outbound_events(easygui_element* pElement)
+easygui_bool easygui_begin_outbound_event(easygui_element* pElement)
 {
     assert(pElement != NULL);
     assert(pElement->pContext != NULL);
 
-    // If the assert below fails it means an outbound event is trying to get posted while another outbound event is still running. easy_gui
-    // should guard against this case, so it is likely a bug with easy_gui.
-    assert(!easygui_is_outbound_events_locked(pElement->pContext));
-
 
     // We want to cancel the outbound event if the element is marked as dead.
     if (easygui_is_element_marked_as_dead(pElement)) {
-        easygui_log(pElement->pContext, "Error locking outbound events: Element is marked for deletion.");
+        easygui_log(pElement->pContext, "WARNING: Attemping to post an event to an element that is marked for deletion.");
         return EASYGUI_FALSE;
     }
 
@@ -247,20 +203,16 @@ easygui_bool easygui_lock_outbound_events(easygui_element* pElement)
     return EASYGUI_TRUE;
 }
 
-void easygui_unlock_outbound_events(easygui_element* pElement)
+void easygui_end_outbound_event(easygui_element* pElement)
 {
     assert(pElement != NULL);
     assert(pElement->pContext != NULL);
-
-    // If the assert below fails it means we are trying to lock the outbound events when they were never locked beforehand. This is a
-    // sign of bad lock()/unlock() matching, so we'll keep the assert here to ensure correctness.
-    assert(easygui_is_outbound_events_locked(pElement->pContext));
-
+    assert(pElement->pContext->outboundEventLockCounter > 0);
 
     pElement->pContext->outboundEventLockCounter -= 1;
 }
 
-easygui_bool easygui_is_outbound_events_locked(easygui_context* pContext)
+easygui_bool easygui_is_handling_outbound_event(easygui_context* pContext)
 {
     assert(pContext != NULL);
     return pContext->outboundEventLockCounter > 0;
@@ -333,17 +285,6 @@ void easygui_delete_context_for_real(easygui_context* pContext)
 
     // All elements marked as dead need to be deleted.
     easygui_delete_elements_marked_as_dead(pContext);
-
-
-    
-#ifdef EASYGUI_USE_WIN32_THREADS
-    CloseHandle((HANDLE)pContext->inboundEventLock);
-#endif
-
-#ifdef EASYGUI_USE_POSIX_THREADS
-    pthread_mutex_destroy((pthread_mutex_t*)pContext->inboundEventLock);
-    free(pContext->inboundEventLock);
-#endif
 
     free(pContext);
 }
@@ -433,121 +374,121 @@ void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easyg
 
 void easygui_post_outbound_event_mouse_enter(easygui_element* pElement)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onMouseEnter) {
             pElement->onMouseEnter(pElement);
         }
 
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
 void easygui_post_outbound_event_mouse_leave(easygui_element* pElement)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onMouseLeave) {
             pElement->onMouseLeave(pElement);
         }
 
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
 void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onMouseMove) {
             pElement->onMouseMove(pElement, relativeMousePosX, relativeMousePosY);
         }
         
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
 void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onMouseButtonDown) {
             pElement->onMouseButtonDown(pElement, mouseButton, relativeMousePosX, relativeMousePosY);
         }
         
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
 void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onMouseButtonUp) {
             pElement->onMouseButtonUp(pElement, mouseButton, relativeMousePosX, relativeMousePosY);
         }
         
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
 void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onMouseButtonDblClick) {
             pElement->onMouseButtonDblClick(pElement, mouseButton, relativeMousePosX, relativeMousePosY);
         }
         
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
 void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onMouseWheel) {
             pElement->onMouseWheel(pElement, delta, relativeMousePosX, relativeMousePosY);
         }
         
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
 void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, easygui_bool isAutoRepeated)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onKeyDown) {
             pElement->onKeyDown(pElement, key, isAutoRepeated);
         }
         
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
 void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onKeyUp) {
             pElement->onKeyUp(pElement, key);
         }
         
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
 void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, easygui_bool isAutoRepeated)
 {
-    if (easygui_lock_outbound_events(pElement))
+    if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onPrintableKeyDown) {
             pElement->onPrintableKeyDown(pElement, character, isAutoRepeated);
         }
         
-        easygui_unlock_outbound_events(pElement);
+        easygui_end_outbound_event(pElement);
     }
 }
 
@@ -697,38 +638,13 @@ easygui_context* easygui_create_context()
 {
     easygui_context* pContext = malloc(sizeof(easygui_context));
     if (pContext != NULL) {
-        pContext->paintingCallbacks.drawBegin = easygui_draw_begin_null;
-        pContext->paintingCallbacks.drawEnd   = easygui_draw_end_null;
-        pContext->paintingCallbacks.drawClip  = easygui_draw_clip_null;
-        pContext->paintingCallbacks.drawLine  = easygui_draw_line_null;
-        pContext->paintingCallbacks.drawRect  = easygui_draw_rect_null;
-        pContext->paintingCallbacks.drawText  = easygui_draw_text_null;
-
-#ifdef EASYGUI_USE_WIN32_THREADS
-        HANDLE hInboundEventsMutex = CreateEvent(NULL, FALSE, TRUE, NULL);
-        if (hInboundEventsMutex == NULL)
-        {
-            // Failed to create the mutex for inbound events.
-            free(pContext);
-            pContext = NULL;
-        }
-
-        pContext->inboundEventLock = hInboundEventsMutex;
-#endif
-
-#ifdef EASYGUI_USE_POSIX_THREADS
-        pthread_mutex_t* pInboundEventsMutex = malloc(sizeof(pthread_mutex_t));
-        if (pInboundEventsMutex == NULL)
-        {
-            // Failed to create the mutex for inbound events.
-            free(pContext);
-            pContext = NULL;
-        }
-
-        pthread_mutex_init(pInboundEventsMutex, NULL);
-        pContext->inboundEventsMutex = pInboundEventsMutex;
-#endif
-
+        pContext->paintingCallbacks.drawBegin   = easygui_draw_begin_null;
+        pContext->paintingCallbacks.drawEnd     = easygui_draw_end_null;
+        pContext->paintingCallbacks.drawClip    = easygui_draw_clip_null;
+        pContext->paintingCallbacks.drawLine    = easygui_draw_line_null;
+        pContext->paintingCallbacks.drawRect    = easygui_draw_rect_null;
+        pContext->paintingCallbacks.drawText    = easygui_draw_text_null;
+        pContext->inboundEventCounter           = 0;
         pContext->outboundEventLockCounter      = 0;
         pContext->pFirstDeadElement             = NULL;
         pContext->pElementUnderMouse            = NULL;
@@ -770,7 +686,7 @@ void easygui_delete_context(easygui_context* pContext)
     }
 
 
-    if (easygui_is_inbound_events_locked(pContext))
+    if (easygui_is_handling_inbound_event(pContext))
     {
         // An inbound event is still being processed - we don't want to delete the context straight away because we can't
         // trust external event handlers to not try to access the context later on. To do this we just set the flag that
@@ -800,12 +716,12 @@ void easygui_post_inbound_event_mouse_leave(easygui_element* pTopLevelElement)
         return;
     }
 
-    easygui_lock_inbound_events(pContext);
+    easygui_begin_inbound_event(pContext);
     {
         // We assume that was previously under the mouse was either pTopLevelElement itself or one of it's descendants.
         easygui_update_mouse_enter_and_leave_state(pContext, NULL);
     }
-    easygui_unlock_inbound_events(pContext);
+    easygui_end_inbound_event(pContext);
 }
 
 void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, int mousePosX, int mousePosY)
@@ -815,7 +731,7 @@ void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, in
     }
 
 
-    easygui_lock_inbound_events(pTopLevelElement->pContext);
+    easygui_begin_inbound_event(pTopLevelElement->pContext);
     {
         /// A pointer to the top level element that was passed in from the last inbound mouse move event.
         pTopLevelElement->pContext->pLastMouseMoveTopLevelElement = pTopLevelElement;
@@ -848,7 +764,7 @@ void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, in
             easygui_post_outbound_event_mouse_move(pEventReceiver, (int)relativeMousePosX, (int)relativeMousePosY);
         }
     }
-    easygui_unlock_inbound_events(pTopLevelElement->pContext);
+    easygui_end_inbound_event(pTopLevelElement->pContext);
 }
 
 void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY)
@@ -858,7 +774,7 @@ void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElem
     }
 
     easygui_context* pContext = pTopLevelElement->pContext;
-    easygui_lock_inbound_events(pContext);
+    easygui_begin_inbound_event(pContext);
     {
         easygui_element* pEventReceiver = pContext->pElementWithMouseCapture;
         if (pEventReceiver == NULL)
@@ -882,7 +798,7 @@ void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElem
             easygui_post_outbound_event_mouse_button_down(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
         }
     }
-    easygui_unlock_inbound_events(pContext);
+    easygui_end_inbound_event(pContext);
 }
 
 void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY)
@@ -892,7 +808,7 @@ void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElemen
     }
 
     easygui_context* pContext = pTopLevelElement->pContext;
-    easygui_lock_inbound_events(pContext);
+    easygui_begin_inbound_event(pContext);
     {
         easygui_element* pEventReceiver = pContext->pElementWithMouseCapture;
         if (pEventReceiver == NULL)
@@ -916,7 +832,7 @@ void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElemen
             easygui_post_outbound_event_mouse_button_up(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
         }
     }
-    easygui_unlock_inbound_events(pContext);
+    easygui_end_inbound_event(pContext);
 }
 
 void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY)
@@ -926,7 +842,7 @@ void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevel
     }
 
     easygui_context* pContext = pTopLevelElement->pContext;
-    easygui_lock_inbound_events(pContext);
+    easygui_begin_inbound_event(pContext);
     {
         easygui_element* pEventReceiver = pContext->pElementWithMouseCapture;
         if (pEventReceiver == NULL)
@@ -950,7 +866,7 @@ void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevel
             easygui_post_outbound_event_mouse_button_dblclick(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
         }
     }
-    easygui_unlock_inbound_events(pContext);
+    easygui_end_inbound_event(pContext);
 }
 
 void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int delta, int mousePosX, int mousePosY)
@@ -960,7 +876,7 @@ void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, i
     }
 
     easygui_context* pContext = pTopLevelElement->pContext;
-    easygui_lock_inbound_events(pContext);
+    easygui_begin_inbound_event(pContext);
     {
         easygui_element* pEventReceiver = pContext->pElementWithMouseCapture;
         if (pEventReceiver == NULL)
@@ -984,7 +900,7 @@ void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, i
             easygui_post_outbound_event_mouse_wheel(pEventReceiver, delta, (int)relativeMousePosX, (int)relativeMousePosY);
         }
     }
-    easygui_unlock_inbound_events(pContext);
+    easygui_end_inbound_event(pContext);
 }
 
 void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, easygui_bool isAutoRepeated)
@@ -993,13 +909,13 @@ void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key 
         return;
     }
 
-    easygui_lock_inbound_events(pContext);
+    easygui_begin_inbound_event(pContext);
     {
         if (pContext->pElementWithKeyboardCapture != NULL) {
             easygui_post_outbound_event_key_down(pContext->pElementWithKeyboardCapture, key, isAutoRepeated);
         }
     }
-    easygui_unlock_inbound_events(pContext);
+    easygui_end_inbound_event(pContext);
 }
 
 void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key)
@@ -1008,13 +924,13 @@ void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key ke
         return;
     }
 
-    easygui_lock_inbound_events(pContext);
+    easygui_begin_inbound_event(pContext);
     {
         if (pContext->pElementWithKeyboardCapture != NULL) {
             easygui_post_outbound_event_key_up(pContext->pElementWithKeyboardCapture, key);
         }
     }
-    easygui_unlock_inbound_events(pContext);
+    easygui_end_inbound_event(pContext);
 }
 
 void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, easygui_bool isAutoRepeated)
@@ -1023,13 +939,13 @@ void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, un
         return;
     }
 
-    easygui_lock_inbound_events(pContext);
+    easygui_begin_inbound_event(pContext);
     {
         if (pContext->pElementWithKeyboardCapture != NULL) {
             easygui_post_outbound_event_printable_key_down(pContext->pElementWithKeyboardCapture, character, isAutoRepeated);
         }
     }
-    easygui_unlock_inbound_events(pContext);
+    easygui_end_inbound_event(pContext);
 }
 
 
@@ -1198,7 +1114,7 @@ void easygui_delete_element(easygui_element* pElement)
 
     // Finally, we either need to mark the element as dead or delete it for real. We only mark it for deletion if we are in the middle
     // of processing an inbound event because there is a chance that an external event handler may try referencing the element.
-    if (easygui_is_inbound_events_locked(pContext))
+    if (easygui_is_handling_inbound_event(pContext))
     {
         easygui_mark_element_as_dead(pElement);
     }

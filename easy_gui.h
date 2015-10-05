@@ -31,8 +31,8 @@
 //   mouse-move event, and perhaps a mouse leave/enter pair.
 // - Outbound events are posted and handled immediately. A call to easygui_post_inbound_event() will not return until all of
 //   the outbound events it generates have been handled.
-// - An inbound event cannot be posted while an outbound event is being processed. I.e. an application cannot post an inbound
-//   event in an outbound event handler.
+// - Inbound events are not thread safe, however an application is free to post an inbound event from any thread so long as
+//   it does it's own synchronization.
 // - There are some special events that are handled differently to normal events. The best example is the paint events. The
 //   paint event is only called from easygui_draw().
 // - Key press/release events are only ever posted to the element that has the keyboard capture/focus which is set with
@@ -376,9 +376,9 @@ struct easygui_context
     /// The painting callbacks.
     easygui_painting_callbacks paintingCallbacks;
 
-    /// The inbound event lock. This is implemented as a mutex internally, but just left as a generic pointer here so
-    /// we don't need to expose platform-specific headers.
-    void* inboundEventLock;
+    /// The inbound event counter. This is incremented with easygui_begin_inbound_event() and decremented with
+    /// easygui_end_inbound_event(). We use this to determine whether or not an inbound event is being processed.
+    int inboundEventCounter;
 
     /// The outbound event counter that we use as the "lock" for outbound events. All outbound events are posted from
     /// inbound events, and all inbound events are already synchronized so we don't need to use a mutex. This is mainly
