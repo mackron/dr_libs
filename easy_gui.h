@@ -86,6 +86,7 @@
 
 //
 // EXAMPLES
+// TODO: UPDATE THESE!
 //
 // Basic Drawing:
 //
@@ -147,21 +148,7 @@
 //
 // BRAINSTORMING
 //
-// - easygui_dirty(pElement, relativeRect);
-//   - easygui_on_element_needs_repaint(pTopLevelElement, relativeRect);
-//
-// - easygui_on_schedule_repaint(); easygui_on_element_invalidated
-// - easygui_on_capture_mouse()
-// - easygui_on_release_mouse()
-//
-//
-//
-// - easygui_global_on_capture_mouse();
-// - easygui_global_on_release_mouse();
-//
-// - easygui_capture_mouse()
-//   - easygui_post_global_on_capture_mouse();
-//   - easygui_post_on_capture_mouse();
+// 
 //
 
 
