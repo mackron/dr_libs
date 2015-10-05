@@ -38,15 +38,15 @@
 
 /// Locks the inbound events.
 ///
-/// This is called from easygui_post_inbound_event().
+/// This is called from every easygui_post_inbound_event_*() function.
 ///
 /// If false is returned it means there was an error locking the events and the event should be cancelled.
-easygui_bool easygui_lock_inbound_events(easygui_event* pEvent);
+easygui_bool easygui_lock_inbound_events(easygui_context* pContext);
 
 /// Unlocks the outbound events.
 ///
-/// This is called from easygui_post_outbound_event()
-void easygui_unlock_inbound_events(easygui_event* pEvent);
+/// This is called from every easygui_post_inbound_event_*() function
+void easygui_unlock_inbound_events(easygui_context* pContext);
 
 /// Determines whether or not inbound events are locked.
 ///
@@ -108,13 +108,21 @@ void easygui_delete_element_for_real(easygui_element* pElement);
 void easygui_orphan_element(easygui_element* pElement);
 
 
-/// Functions for handling inbound events.
-easygui_bool easygui_handle_inbound_mouse_enter(easygui_event* pEvent);
-easygui_bool easygui_handle_inbound_mouse_leave(easygui_event* pEvent);
-easygui_bool easygui_handle_inbound_mouse_move(easygui_event* pEvent);
+/// The function to call when the mouse may have entered into a new element.
+void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easygui_element* pNewElementUnderMouse);
 
 
 /// Functiosn for posting outbound events.
+void easygui_post_outbound_event_mouse_enter(easygui_element* pElement);
+void easygui_post_outbound_event_mouse_leave(easygui_element* pElement);
+void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
+void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY);
+void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, easygui_bool isAutoRepeated);
+void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key);
+void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, easygui_bool isAutoRepeated);
 void easygui_post_outbound_event_capture_mouse(easygui_element* pElement);
 void easygui_post_outbound_event_capture_mouse_global(easygui_element* pElement);
 void easygui_post_outbound_event_release_mouse(easygui_element* pElement);
@@ -140,44 +148,42 @@ void easygui_draw_text_null(const char*, unsigned int, int, int, easygui_font, e
 
 
 
-easygui_bool easygui_lock_inbound_events(easygui_event* pEvent)
+easygui_bool easygui_lock_inbound_events(easygui_context* pContext)
 {
-    assert(pEvent != NULL);
-    assert(pEvent->pContext != NULL);
+    assert(pContext != NULL);
 
 #ifdef EASYGUI_USE_WIN32_THREADS
-    HANDLE hMutex = pEvent->pContext->inboundEventLock;
+    HANDLE hMutex = pContext->inboundEventLock;
     assert(hMutex != NULL);
 
     WaitForSingleObject(hMutex, INFINITE);
 #endif
 
 #ifdef EASYGUI_USE_POSIX_THREADS
-    pthread_mutex_t* pMutex = pEvent->pContext->inboundEventLock;
+    pthread_mutex_t* pMutex = pContext->inboundEventLock;
     assert(pMutex != NULL);
 
     pthread_mutex_lock(pMutex);
 #endif
 
     // We need to set a flag so we can do error checking and ensure correctness with event handling.
-    pEvent->pContext->flags |= IS_INBOUND_EVENTS_LOCKED;
+    pContext->flags |= IS_INBOUND_EVENTS_LOCKED;
 
 
     return EASYGUI_TRUE;
 }
 
-void easygui_unlock_inbound_events(easygui_event* pEvent)
+void easygui_unlock_inbound_events(easygui_context* pContext)
 {
-    assert(pEvent != NULL);
-    assert(pEvent->pContext != NULL);
+    assert(pContext != NULL);
 
 #ifdef EASYGUI_USE_WIN32_THREADS
-    HANDLE hMutex = pEvent->pContext->inboundEventLock;
+    HANDLE hMutex = pContext->inboundEventLock;
     assert(hMutex != NULL);
 #endif
 
 #ifdef EASYGUI_USE_POSIX_THREADS
-    pthread_mutex_t* pMutex = pEvent->pContext->inboundEventLock;
+    pthread_mutex_t* pMutex = pContext->inboundEventLock;
     assert(pMutex != NULL);
 #endif
 
@@ -185,17 +191,17 @@ void easygui_unlock_inbound_events(easygui_event* pEvent)
     // Here is where we want to clean up any elements that are marked as dead. When events are being handled elements are not deleted
     // immediately but instead only marked for deletion. This function will be called at the end of event processing which makes it
     // an appropriate place for cleaning up dead elements.
-    easygui_delete_elements_marked_as_dead(pEvent->pContext);
+    easygui_delete_elements_marked_as_dead(pContext);
 
     // If the context has been marked for deletion than we will need to delete that too.
-    if (easygui_is_context_marked_as_dead(pEvent->pContext))
+    if (easygui_is_context_marked_as_dead(pContext))
     {
-        easygui_delete_context_for_real(pEvent->pContext);
+        easygui_delete_context_for_real(pContext);
     }
     else
     {
         // The internal flag needs to be unset so we can do error checking to ensure correctness.
-        pEvent->pContext->flags &= ~IS_INBOUND_EVENTS_LOCKED;
+        pContext->flags &= ~IS_INBOUND_EVENTS_LOCKED;
     }
 
 
@@ -230,6 +236,7 @@ easygui_bool easygui_lock_outbound_events(easygui_element* pElement)
 
     // We want to cancel the outbound event if the element is marked as dead.
     if (easygui_is_element_marked_as_dead(pElement)) {
+        easygui_log(pElement->pContext, "Error locking outbound events: Element is marked for deletion.");
         return EASYGUI_FALSE;
     }
 
@@ -376,47 +383,173 @@ void easygui_orphan_element(easygui_element* pElement)
 }
 
 
-
-easygui_bool easygui_handle_inbound_mouse_enter(easygui_event* pEvent)
+void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easygui_element* pNewElementUnderMouse)
 {
-    (void)pEvent;
-    return EASYGUI_TRUE;
-}
-
-easygui_bool easygui_handle_inbound_mouse_leave(easygui_event* pEvent)
-{
-    (void)pEvent;
-    return EASYGUI_TRUE;
-}
-
-easygui_bool easygui_handle_inbound_mouse_move(easygui_event* pEvent)
-{
-    easygui_element* pEventReceiver = pEvent->pContext->pElementWithMouseCapture;
-    if (pEventReceiver == NULL)
-    {
-        pEventReceiver = easygui_find_element_under_point(pEvent->pElement, (float)pEvent->mouse_move.mousePosX, (float)pEvent->mouse_move.mousePosY);
+    if (pContext == NULL) {
+        return;
     }
 
-    if (pEventReceiver != NULL && pEventReceiver->onMouseMove != NULL)
+    easygui_element* pOldElementUnderMouse = pContext->pElementUnderMouse;
+    if (pOldElementUnderMouse != pNewElementUnderMouse)
     {
-        float relativeMousePosX = (float)pEvent->mouse_move.mousePosX;
-        float relativeMousePosY = (float)pEvent->mouse_move.mousePosY;
-        easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+        // We don't change the enter and leave state if an element is capturing the mouse.
+        if (pContext->pElementWithMouseCapture == NULL)
+        {
+            pContext->pElementUnderMouse = pNewElementUnderMouse;
 
-        if (easygui_lock_outbound_events(pEventReceiver))
-        {
-            pEventReceiver->onMouseMove(pEventReceiver, (int)relativeMousePosX, (int)relativeMousePosY);
-            easygui_unlock_outbound_events(pEventReceiver);
-        }
-        else
-        {
-            return EASYGUI_FALSE;       // Error locking outbound events.
+
+            // The the event handlers below, remember that ancestors are considered hovered if a descendant is the element under the mouse.
+
+            // on_mouse_leave
+            easygui_element* pOldAncestor = pOldElementUnderMouse;
+            while (pOldAncestor != NULL)
+            {
+                easygui_bool isOldElementUnderMouse = pNewElementUnderMouse == pOldAncestor || easygui_is_element_ancestor(pNewElementUnderMouse, pOldAncestor);
+                if (!isOldElementUnderMouse)
+                {
+                    easygui_post_outbound_event_mouse_leave(pOldAncestor);
+                }
+
+                pOldAncestor = pOldAncestor->pParent;
+            }
+
+
+            // on_mouse_enter
+            easygui_element* pNewAncestor = pNewElementUnderMouse;
+            while (pNewAncestor != NULL)
+            {
+                easygui_bool wasNewElementUnderMouse = pOldElementUnderMouse == pNewAncestor || easygui_is_element_ancestor(pOldElementUnderMouse, pNewAncestor);
+                if (!wasNewElementUnderMouse)
+                {
+                    easygui_post_outbound_event_mouse_enter(pNewAncestor);
+                }
+
+                pNewAncestor = pNewAncestor->pParent;
+            }
         }
     }
-
-    return EASYGUI_TRUE;
 }
 
+
+void easygui_post_outbound_event_mouse_enter(easygui_element* pElement)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onMouseEnter) {
+            pElement->onMouseEnter(pElement);
+        }
+
+        easygui_unlock_outbound_events(pElement);
+    }
+}
+
+void easygui_post_outbound_event_mouse_leave(easygui_element* pElement)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onMouseLeave) {
+            pElement->onMouseLeave(pElement);
+        }
+
+        easygui_unlock_outbound_events(pElement);
+    }
+}
+
+void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onMouseMove) {
+            pElement->onMouseMove(pElement, relativeMousePosX, relativeMousePosY);
+        }
+        
+        easygui_unlock_outbound_events(pElement);
+    }
+}
+
+void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onMouseButtonDown) {
+            pElement->onMouseButtonDown(pElement, mouseButton, relativeMousePosX, relativeMousePosY);
+        }
+        
+        easygui_unlock_outbound_events(pElement);
+    }
+}
+
+void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onMouseButtonUp) {
+            pElement->onMouseButtonUp(pElement, mouseButton, relativeMousePosX, relativeMousePosY);
+        }
+        
+        easygui_unlock_outbound_events(pElement);
+    }
+}
+
+void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onMouseButtonDblClick) {
+            pElement->onMouseButtonDblClick(pElement, mouseButton, relativeMousePosX, relativeMousePosY);
+        }
+        
+        easygui_unlock_outbound_events(pElement);
+    }
+}
+
+void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onMouseWheel) {
+            pElement->onMouseWheel(pElement, delta, relativeMousePosX, relativeMousePosY);
+        }
+        
+        easygui_unlock_outbound_events(pElement);
+    }
+}
+
+void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, easygui_bool isAutoRepeated)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onKeyDown) {
+            pElement->onKeyDown(pElement, key, isAutoRepeated);
+        }
+        
+        easygui_unlock_outbound_events(pElement);
+    }
+}
+
+void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onKeyUp) {
+            pElement->onKeyUp(pElement, key);
+        }
+        
+        easygui_unlock_outbound_events(pElement);
+    }
+}
+
+void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, easygui_bool isAutoRepeated)
+{
+    if (easygui_lock_outbound_events(pElement))
+    {
+        if (pElement->onPrintableKeyDown) {
+            pElement->onPrintableKeyDown(pElement, character, isAutoRepeated);
+        }
+        
+        easygui_unlock_outbound_events(pElement);
+    }
+}
 
 void easygui_post_outbound_event_capture_mouse(easygui_element* pElement)
 {
@@ -596,17 +729,20 @@ easygui_context* easygui_create_context()
         pContext->inboundEventsMutex = pInboundEventsMutex;
 #endif
 
-        pContext->outboundEventLockCounter    = 0;
-        pContext->pFirstDeadElement           = NULL;
-        pContext->pElementUnderMouse          = NULL;
-        pContext->pElementWithMouseCapture    = NULL;
-        pContext->pElementWithKeyboardCapture = NULL;
-        pContext->flags                       = 0;
-        pContext->onGlobalCaptureMouse        = NULL;
-        pContext->onGlobalReleaseMouse        = NULL;
-        pContext->onGlobalCaptureKeyboard     = NULL;
-        pContext->onGlobalReleaseKeyboard     = NULL;
-        pContext->onLog                       = NULL;
+        pContext->outboundEventLockCounter      = 0;
+        pContext->pFirstDeadElement             = NULL;
+        pContext->pElementUnderMouse            = NULL;
+        pContext->pElementWithMouseCapture      = NULL;
+        pContext->pElementWithKeyboardCapture   = NULL;
+        pContext->flags                         = 0;
+        pContext->onGlobalCaptureMouse          = NULL;
+        pContext->onGlobalReleaseMouse          = NULL;
+        pContext->onGlobalCaptureKeyboard       = NULL;
+        pContext->onGlobalReleaseKeyboard       = NULL;
+        pContext->onLog                         = NULL;
+        pContext->pLastMouseMoveTopLevelElement = NULL;
+        pContext->lastMouseMovePosX             = 0;
+        pContext->lastMouseMovePosY             = 0;
     }
 
     return pContext;
@@ -614,20 +750,22 @@ easygui_context* easygui_create_context()
 
 void easygui_delete_context(easygui_context* pContext)
 {
-    // This is pure clean up. There is no event processing or whatnot here.
-
     if (pContext == NULL) {
         return;
     }
 
 
     // Make sure the mouse capture is released.
-    if (pContext->pElementWithMouseCapture != NULL) {
+    if (pContext->pElementWithMouseCapture != NULL)
+    {
+        easygui_log(pContext, "WARNING: Deleting the GUI context while an element still has the mouse capture.");
         easygui_release_mouse(pContext);
     }
 
     // Make sure the keyboard capture is released.
-    if (pContext->pElementWithKeyboardCapture != NULL) {
+    if (pContext->pElementWithKeyboardCapture != NULL)
+    {
+        easygui_log(pContext, "WARNING: Deleting the GUI context while an element still has the keyboard capture.");
         easygui_release_keyboard(pContext);
     }
 
@@ -651,83 +789,250 @@ void easygui_delete_context(easygui_context* pContext)
 /////////////////////////////////////////////////////////////////
 // Events
 
-easygui_bool easygui_post_inbound_event(easygui_event* pEvent)
+void easygui_post_inbound_event_mouse_leave(easygui_element* pTopLevelElement)
 {
-    if (pEvent == NULL) {
-        return EASYGUI_FALSE;
+    if (pTopLevelElement == NULL) {
+        return;
     }
 
-    if (pEvent->pContext == NULL) {
-        return EASYGUI_FALSE;
+    easygui_context* pContext = pTopLevelElement->pContext;
+    if (pContext == NULL) {
+        return;
     }
 
-
-    // Inbound events are not allowed to be called within an outbound event handler.
-    assert(!easygui_is_outbound_events_locked(pEvent->pContext));
-
-    
-    easygui_bool result = EASYGUI_FALSE;
-    easygui_lock_inbound_events(pEvent);
+    easygui_lock_inbound_events(pContext);
     {
-        switch (pEvent->eventCode)
+        // We assume that was previously under the mouse was either pTopLevelElement itself or one of it's descendants.
+        easygui_update_mouse_enter_and_leave_state(pContext, NULL);
+    }
+    easygui_unlock_inbound_events(pContext);
+}
+
+void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, int mousePosX, int mousePosY)
+{
+    if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
+        return;
+    }
+
+
+    easygui_lock_inbound_events(pTopLevelElement->pContext);
+    {
+        /// A pointer to the top level element that was passed in from the last inbound mouse move event.
+        pTopLevelElement->pContext->pLastMouseMoveTopLevelElement = pTopLevelElement;
+
+        /// The position of the mouse that was passed in from the last inbound mouse move event.
+        pTopLevelElement->pContext->lastMouseMovePosX = (float)mousePosY;
+        pTopLevelElement->pContext->lastMouseMovePosY = (float)mousePosX;
+
+
+
+        // The first thing we need to do is find the new element that's sitting under the mouse.
+        easygui_element* pNewElementUnderMouse = easygui_find_element_under_point(pTopLevelElement, (float)mousePosX, (float)mousePosY);
+
+        // Now that we know which element is sitting under the mouse we need to check if the mouse has entered into a new element.
+        easygui_update_mouse_enter_and_leave_state(pTopLevelElement->pContext, pNewElementUnderMouse);
+
+
+        easygui_element* pEventReceiver = pTopLevelElement->pContext->pElementWithMouseCapture;
+        if (pEventReceiver == NULL)
         {
-            case easygui_event_mouse_enter:
-            {
-                result = easygui_handle_inbound_mouse_enter(pEvent);
-            }
+            pEventReceiver = pNewElementUnderMouse;
+        }
 
-            case easygui_event_mouse_leave:
-            {
-                result = easygui_handle_inbound_mouse_leave(pEvent);
-            }
+        if (pEventReceiver != NULL)
+        {
+            float relativeMousePosX = (float)mousePosX;
+            float relativeMousePosY = (float)mousePosY;
+            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
-            case easygui_event_mouse_move:
-            {
-                result = easygui_handle_inbound_mouse_move(pEvent);
-            }
-
-            case easygui_event_mouse_button_down:
-            {
-                result = EASYGUI_TRUE;
-            }
-
-            case easygui_event_mouse_button_up:
-            {
-                result = EASYGUI_TRUE;
-            }
-
-            case easygui_event_mouse_button_dblclick:
-            {
-                result = EASYGUI_TRUE;
-            }
-
-            case easygui_event_mouse_wheel:
-            {
-                result = EASYGUI_TRUE;
-            }
-
-            case easygui_event_key_down:
-            {
-                result = EASYGUI_TRUE;
-            }
-
-            case easygui_event_key_up:
-            {
-                result = EASYGUI_TRUE;
-            }
-
-            case easygui_event_printable_key_down:
-            {
-                result = EASYGUI_TRUE;
-            }
-
-            default: break;
+            easygui_post_outbound_event_mouse_move(pEventReceiver, (int)relativeMousePosX, (int)relativeMousePosY);
         }
     }
-    easygui_unlock_inbound_events(pEvent);
-
-    return result;
+    easygui_unlock_inbound_events(pTopLevelElement->pContext);
 }
+
+void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY)
+{
+    if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
+        return;
+    }
+
+    easygui_context* pContext = pTopLevelElement->pContext;
+    easygui_lock_inbound_events(pContext);
+    {
+        easygui_element* pEventReceiver = pContext->pElementWithMouseCapture;
+        if (pEventReceiver == NULL)
+        {
+            pEventReceiver = pContext->pElementUnderMouse;
+
+            if (pEventReceiver == NULL)
+            {
+                // We'll get here if this message is posted without a prior mouse move event.
+                pEventReceiver = easygui_find_element_under_point(pTopLevelElement, (float)mousePosX, (float)mousePosY);
+            }
+        }
+
+
+        if (pEventReceiver != NULL)
+        {
+            float relativeMousePosX = (float)mousePosX;
+            float relativeMousePosY = (float)mousePosY;
+            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+
+            easygui_post_outbound_event_mouse_button_down(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
+        }
+    }
+    easygui_unlock_inbound_events(pContext);
+}
+
+void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY)
+{
+    if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
+        return;
+    }
+
+    easygui_context* pContext = pTopLevelElement->pContext;
+    easygui_lock_inbound_events(pContext);
+    {
+        easygui_element* pEventReceiver = pContext->pElementWithMouseCapture;
+        if (pEventReceiver == NULL)
+        {
+            pEventReceiver = pContext->pElementUnderMouse;
+
+            if (pEventReceiver == NULL)
+            {
+                // We'll get here if this message is posted without a prior mouse move event.
+                pEventReceiver = easygui_find_element_under_point(pTopLevelElement, (float)mousePosX, (float)mousePosY);
+            }
+        }
+
+
+        if (pEventReceiver != NULL)
+        {
+            float relativeMousePosX = (float)mousePosX;
+            float relativeMousePosY = (float)mousePosY;
+            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+
+            easygui_post_outbound_event_mouse_button_up(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
+        }
+    }
+    easygui_unlock_inbound_events(pContext);
+}
+
+void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY)
+{
+    if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
+        return;
+    }
+
+    easygui_context* pContext = pTopLevelElement->pContext;
+    easygui_lock_inbound_events(pContext);
+    {
+        easygui_element* pEventReceiver = pContext->pElementWithMouseCapture;
+        if (pEventReceiver == NULL)
+        {
+            pEventReceiver = pContext->pElementUnderMouse;
+
+            if (pEventReceiver == NULL)
+            {
+                // We'll get here if this message is posted without a prior mouse move event.
+                pEventReceiver = easygui_find_element_under_point(pTopLevelElement, (float)mousePosX, (float)mousePosY);
+            }
+        }
+
+
+        if (pEventReceiver != NULL)
+        {
+            float relativeMousePosX = (float)mousePosX;
+            float relativeMousePosY = (float)mousePosY;
+            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+
+            easygui_post_outbound_event_mouse_button_dblclick(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
+        }
+    }
+    easygui_unlock_inbound_events(pContext);
+}
+
+void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int delta, int mousePosX, int mousePosY)
+{
+    if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
+        return;
+    }
+
+    easygui_context* pContext = pTopLevelElement->pContext;
+    easygui_lock_inbound_events(pContext);
+    {
+        easygui_element* pEventReceiver = pContext->pElementWithMouseCapture;
+        if (pEventReceiver == NULL)
+        {
+            pEventReceiver = pContext->pElementUnderMouse;
+
+            if (pEventReceiver == NULL)
+            {
+                // We'll get here if this message is posted without a prior mouse move event.
+                pEventReceiver = easygui_find_element_under_point(pTopLevelElement, (float)mousePosX, (float)mousePosY);
+            }
+        }
+
+
+        if (pEventReceiver != NULL)
+        {
+            float relativeMousePosX = (float)mousePosX;
+            float relativeMousePosY = (float)mousePosY;
+            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+
+            easygui_post_outbound_event_mouse_wheel(pEventReceiver, delta, (int)relativeMousePosX, (int)relativeMousePosY);
+        }
+    }
+    easygui_unlock_inbound_events(pContext);
+}
+
+void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, easygui_bool isAutoRepeated)
+{
+    if (pContext == NULL) {
+        return;
+    }
+
+    easygui_lock_inbound_events(pContext);
+    {
+        if (pContext->pElementWithKeyboardCapture != NULL) {
+            easygui_post_outbound_event_key_down(pContext->pElementWithKeyboardCapture, key, isAutoRepeated);
+        }
+    }
+    easygui_unlock_inbound_events(pContext);
+}
+
+void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key)
+{
+    if (pContext == NULL) {
+        return;
+    }
+
+    easygui_lock_inbound_events(pContext);
+    {
+        if (pContext->pElementWithKeyboardCapture != NULL) {
+            easygui_post_outbound_event_key_up(pContext->pElementWithKeyboardCapture, key);
+        }
+    }
+    easygui_unlock_inbound_events(pContext);
+}
+
+void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, easygui_bool isAutoRepeated)
+{
+    if (pContext == NULL) {
+        return;
+    }
+
+    easygui_lock_inbound_events(pContext);
+    {
+        if (pContext->pElementWithKeyboardCapture != NULL) {
+            easygui_post_outbound_event_printable_key_down(pContext->pElementWithKeyboardCapture, character, isAutoRepeated);
+        }
+    }
+    easygui_unlock_inbound_events(pContext);
+}
+
+
 
 
 void easygui_register_global_on_capture_mouse(easygui_context* pContext, easygui_on_capture_mouse_proc onCaptureMouse)
@@ -796,20 +1101,29 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
                 pElement->pParent->pLastChild = pElement;
             }
 
-            pElement->pNextDeadElement  = NULL;
-            pElement->pUserData         = NULL;
-            pElement->absolutePosX      = 0;
-            pElement->absolutePosY      = 0;
-            pElement->width             = 0;
-            pElement->height            = 0;
-            pElement->flags             = 0;
-            pElement->onMouseMove       = NULL;
-            pElement->onPaint           = NULL;
-            pElement->onHitTest         = NULL;
-            pElement->onCaptureMouse    = NULL;
-            pElement->onReleaseMouse    = NULL;
-            pElement->onCaptureKeyboard = NULL;
-            pElement->onReleaseKeyboard = NULL;
+            pElement->pNextDeadElement      = NULL;
+            pElement->pUserData             = NULL;
+            pElement->absolutePosX          = 0;
+            pElement->absolutePosY          = 0;
+            pElement->width                 = 0;
+            pElement->height                = 0;
+            pElement->flags                 = 0;
+            pElement->onMouseEnter          = NULL;
+            pElement->onMouseLeave          = NULL;
+            pElement->onMouseMove           = NULL;
+            pElement->onMouseButtonDown     = NULL;
+            pElement->onMouseButtonUp       = NULL;
+            pElement->onMouseButtonDblClick = NULL;
+            pElement->onMouseWheel          = NULL;
+            pElement->onKeyDown             = NULL;
+            pElement->onKeyUp               = NULL;
+            pElement->onPrintableKeyDown    = NULL;
+            pElement->onPaint               = NULL;
+            pElement->onHitTest             = NULL;
+            pElement->onCaptureMouse        = NULL;
+            pElement->onReleaseMouse        = NULL;
+            pElement->onCaptureKeyboard     = NULL;
+            pElement->onReleaseKeyboard     = NULL;
 
             return pElement;
         }
@@ -820,12 +1134,71 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
 
 void easygui_delete_element(easygui_element* pElement)
 {
+    if (pElement == NULL) {
+        return;
+    }
+
+    easygui_context* pContext = pElement->pContext;
+    if (pContext == NULL) {
+        return;
+    }
+
+    if (easygui_is_element_marked_as_dead(pElement)) {
+        easygui_log(pContext, "WARNING: Attempting to delete an element that is already marked for deletion.");
+        return;
+    }
+
+
+    
+
     // Orphan the element first.
     easygui_orphan_element(pElement);
 
 
+    // If this was element is marked as the one that was last under the mouse it needs to be unset.
+    easygui_bool needsMouseUpdate = EASYGUI_FALSE;
+    if (pContext->pElementUnderMouse == pElement)
+    {
+        pContext->pElementUnderMouse = NULL;
+        needsMouseUpdate = EASYGUI_TRUE;
+    }
 
-    if (easygui_is_inbound_events_locked(pElement->pContext))
+    if (pContext->pLastMouseMoveTopLevelElement == pElement)
+    {
+        pContext->pLastMouseMoveTopLevelElement = NULL;
+        pContext->lastMouseMovePosX = 0;
+        pContext->lastMouseMovePosY = 0;
+        needsMouseUpdate = EASYGUI_FALSE;       // It was a top-level element so the mouse enter/leave state doesn't need an update.
+    }
+
+
+    // If this element has the mouse capture it needs to be released.
+    if (pContext->pElementWithMouseCapture == pElement)
+    {
+        easygui_log(pContext, "WARNING: Deleting an element while it still has the mouse capture.");
+        easygui_release_mouse(pContext);
+    }
+
+    // If this element has the keyboard capture it needs to be released.
+    if (pContext->pElementWithKeyboardCapture == pElement)
+    {
+        easygui_log(pContext, "WARNING: Deleting an element while it still has the keyboard capture.");
+        easygui_release_keyboard(pContext);
+    }
+
+
+    // Deleting this element may have resulted in the mouse entering a new element. Here is where we do a mouse enter/leave update.
+    if (needsMouseUpdate)
+    {
+        pElement->onHitTest = easygui_pass_through_hit_test;        // <-- This ensures we don't include this element when searching for the new element under the mouse.
+        easygui_update_mouse_enter_and_leave_state(pContext, easygui_find_element_under_point(pContext->pLastMouseMoveTopLevelElement, pContext->lastMouseMovePosX, pContext->lastMouseMovePosY));
+    }
+
+
+
+    // Finally, we either need to mark the element as dead or delete it for real. We only mark it for deletion if we are in the middle
+    // of processing an inbound event because there is a chance that an external event handler may try referencing the element.
+    if (easygui_is_inbound_events_locked(pContext))
     {
         easygui_mark_element_as_dead(pElement);
     }
@@ -955,8 +1328,12 @@ void easygui_release_mouse(easygui_context* pContext)
     easygui_post_outbound_event_release_mouse(pContext->pElementWithMouseCapture);
     easygui_post_outbound_event_release_mouse_global(pContext->pElementWithMouseCapture);
 
-
+    // We want to set the internal pointer to NULL after posting the events since that is when it has truly released the mouse.
     pContext->pElementWithMouseCapture = NULL;
+
+
+    // After releasing the mouse the cursor may be sitting on top of a different element - we want to recheck that.
+    easygui_update_mouse_enter_and_leave_state(pContext, easygui_find_element_under_point(pContext->pLastMouseMoveTopLevelElement, pContext->lastMouseMovePosX, pContext->lastMouseMovePosY));
 }
 
 
@@ -1025,6 +1402,48 @@ void easygui_register_on_mouse_move(easygui_element* pElement, easygui_on_mouse_
 {
     if (pElement != NULL) {
         pElement->onMouseMove = callback;
+    }
+}
+
+void easygui_register_on_mouse_button_down(easygui_element* pElement, easygui_on_mouse_button_down_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onMouseButtonDown = callback;
+    }
+}
+
+void easygui_register_on_mouse_button_up(easygui_element* pElement, easygui_on_mouse_button_up_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onMouseButtonUp = callback;
+    }
+}
+
+void easygui_register_on_mouse_button_dblclick(easygui_element* pElement, easygui_on_mouse_button_dblclick_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onMouseButtonDblClick = callback;
+    }
+}
+
+void easygui_register_on_key_down(easygui_element* pElement, easygui_on_key_down_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onKeyDown = callback;
+    }
+}
+
+void easygui_register_on_key_up(easygui_element* pElement, easygui_on_key_up_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onKeyUp = callback;
+    }
+}
+
+void easygui_register_on_printable_key_down(easygui_element* pElement, easygui_on_printable_key_down_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onPrintableKeyDown = callback;
     }
 }
 
@@ -1174,6 +1593,26 @@ easygui_element* easygui_find_top_level_element(easygui_element* pElement)
     return pElement;
 }
 
+easygui_bool easygui_is_element_ancestor(easygui_element* pChildElement, easygui_element* pAncestorElement)
+{
+    if (pChildElement == NULL || pAncestorElement == NULL) {
+        return EASYGUI_FALSE;
+    }
+
+    easygui_element* pParent = pChildElement->pParent;
+    while (pParent != NULL)
+    {
+        if (pParent == pAncestorElement) {
+            return EASYGUI_TRUE;
+        }
+
+        pParent = pParent->pParent;
+    }
+
+
+    return EASYGUI_FALSE;
+}
+
 
 
 //// Layout ////
@@ -1261,7 +1700,7 @@ float easygui_get_element_height(const easygui_element * pElement)
 easygui_rect easygui_get_element_absolute_rect(const easygui_element* pElement)
 {
     easygui_rect rect;
-    if (pElement == NULL)
+    if (pElement != NULL)
     {
         rect.left   = pElement->absolutePosX;
         rect.top    = pElement->absolutePosY;
@@ -1446,16 +1885,17 @@ void easygui_draw_rect(easygui_element* pElement, easygui_rect relativeRect, eas
 //
 /////////////////////////////////////////////////////////////////
 
-easygui_bool easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, int mousePosX, int mousePosY)
+//// Hit Testing and Layout ////
+
+easygui_bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, float mousePosY)
 {
-    easygui_event e;
-    e.pContext  = pTopLevelElement->pContext;
-    e.pElement  = pTopLevelElement;
-    e.eventCode = easygui_event_mouse_move;
-    e.mouse_move.mousePosX = mousePosX;
-    e.mouse_move.mousePosY = mousePosY;
-    return easygui_post_inbound_event(&e);
+    (void)pElement;
+    (void)mousePosX;
+    (void)mousePosY;
+
+    return EASYGUI_FALSE;
 }
+
 
 
 //// Painting ////

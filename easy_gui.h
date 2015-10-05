@@ -35,13 +35,15 @@
 //   event in an outbound event handler.
 // - There are some special events that are handled differently to normal events. The best example is the paint events. The
 //   paint event is only called from easygui_draw().
+// - Key press/release events are only ever posted to the element that has the keyboard capture/focus which is set with
+//   easygui_capture_keyboard(). Thus, when posting an inbound key event, a top-level element is not required when posting
+//   those events. The relevant context is still required, however.
 //
 // Global Outbound Event Handling
 // - At times easy_gui will need to notify the host application in order for certain functionality to work properly. For example.
 //   when the mouse is captured it won't work 100% correct unless the host application has a chance to capture the mouse against
 //   the container window. Because easy_gui has no notion of a window system it relies on the host application to handle this
 //   properly.
-// - 
 //
 // Layout
 // - An element's data structure does not store it's relative position. Instead, it stores it's absolute position. The
@@ -220,23 +222,30 @@ struct easygui_rect
 
 typedef void (* easygui_callback)();
 
-typedef void (* easygui_on_mouse_enter_proc)(easygui_element* pElement);
-typedef void (* easygui_on_mouse_leave_proc)(easygui_element* pElement);
-typedef void (* easygui_on_mouse_move_proc)(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
-typedef void (* easygui_on_paint_proc)(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
-typedef easygui_bool (* easygui_on_hittest_proc)(easygui_element* pElement, float relativePosX, float relativePosY);
-typedef void (* easygui_on_capture_mouse_proc)(easygui_element* pElement);
-typedef void (* easygui_on_release_mouse_proc)(easygui_element* pElement);
-typedef void (* easygui_on_capture_keyboard_proc)(easygui_element* pElement);
-typedef void (* easygui_on_release_keyboard_proc)(easygui_element* pElement);
-typedef void (* easygui_on_log)(easygui_context* pContext, const char* message);
+typedef void         (* easygui_on_mouse_enter_proc)          (easygui_element* pElement);
+typedef void         (* easygui_on_mouse_leave_proc)          (easygui_element* pElement);
+typedef void         (* easygui_on_mouse_move_proc)           (easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
+typedef void         (* easygui_on_mouse_button_down_proc)    (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+typedef void         (* easygui_on_mouse_button_up_proc)      (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+typedef void         (* easygui_on_mouse_button_dblclick_proc)(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+typedef void         (* easygui_on_mouse_wheel_proc)          (easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY);
+typedef void         (* easygui_on_key_down_proc)             (easygui_element* pElement, easygui_key key, easygui_bool isAutoRepeated);
+typedef void         (* easygui_on_key_up_proc)               (easygui_element* pElement, easygui_key key);
+typedef void         (* easygui_on_printable_key_down_proc)   (easygui_element* pElement, unsigned int character, easygui_bool isAutoRepeated);
+typedef void         (* easygui_on_paint_proc)                (easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
+typedef easygui_bool (* easygui_on_hittest_proc)              (easygui_element* pElement, float relativePosX, float relativePosY);
+typedef void         (* easygui_on_capture_mouse_proc)        (easygui_element* pElement);
+typedef void         (* easygui_on_release_mouse_proc)        (easygui_element* pElement);
+typedef void         (* easygui_on_capture_keyboard_proc)     (easygui_element* pElement);
+typedef void         (* easygui_on_release_keyboard_proc)     (easygui_element* pElement);
+typedef void         (* easygui_on_log)                       (easygui_context* pContext, const char* message);
 
 typedef void (* easygui_draw_begin_proc)(void* pPaintData);
-typedef void (* easygui_draw_end_proc)(void* pPaintData);
-typedef void (* easygui_draw_clip_proc)(easygui_rect relativeRect, void* pPaintData);
-typedef void (* easygui_draw_line_proc)(float startX, float startY, float endX, float endY, float width, easygui_color color, void* pPaintData);
-typedef void (* easygui_draw_rect_proc)(easygui_rect relativeRect, easygui_color color, void* pPaintData);
-typedef void (* easygui_draw_text_proc)(const char* text, unsigned int textSizeInBytes, int posX, int posY, easygui_font font, easygui_color color, void* pPaintData);
+typedef void (* easygui_draw_end_proc)  (void* pPaintData);
+typedef void (* easygui_draw_clip_proc) (easygui_rect relativeRect, void* pPaintData);
+typedef void (* easygui_draw_line_proc) (float startX, float startY, float endX, float endY, float width, easygui_color color, void* pPaintData);
+typedef void (* easygui_draw_rect_proc) (easygui_rect relativeRect, easygui_color color, void* pPaintData);
+typedef void (* easygui_draw_text_proc) (const char* text, unsigned int textSizeInBytes, int posX, int posY, easygui_font font, easygui_color color, void* pPaintData);
 
 typedef easygui_bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect relativeRect, void* pUserData);
 
@@ -247,28 +256,6 @@ typedef easygui_bool (* easygui_visible_iteration_proc)(easygui_element* pElemen
 #define EASYGUI_MOUSE_BUTTON_LEFT       1
 #define EASYGUI_MOUSE_BUTTON_RIGHT      2
 #define EASYGUI_MOUSE_BUTTON_MIDDLE     3
-
-
-typedef enum
-{
-    easygui_event_unknown,
-
-    // Inbound and outbound.
-    easygui_event_mouse_enter,
-    easygui_event_mouse_leave,
-    easygui_event_mouse_move,
-    easygui_event_mouse_button_down,
-    easygui_event_mouse_button_up,
-    easygui_event_mouse_button_dblclick,
-    easygui_event_mouse_wheel,
-    easygui_event_key_down,
-    easygui_event_key_up,
-    easygui_event_printable_key_down,
-
-}easygui_event_code;
-
-
-
 
 
 /// Structure containing callbacks for painting routines.
@@ -344,6 +331,27 @@ struct easygui_element
     /// The function to call when the mouse is moved while over the element.
     easygui_on_mouse_move_proc onMouseMove;
 
+    /// The function to call when a mouse buttonis pressed while over the element.
+    easygui_on_mouse_button_down_proc onMouseButtonDown;
+
+    /// The function to call when a mouse button is released while over the element.
+    easygui_on_mouse_button_up_proc onMouseButtonUp;
+
+    /// The function to call when a mouse button is double-clicked while over the element.
+    easygui_on_mouse_button_dblclick_proc onMouseButtonDblClick;
+
+    /// The function to call when the mouse wheel it turned while over the element.
+    easygui_on_mouse_wheel_proc onMouseWheel;
+
+    /// The function to call when a key on the keyboard is pressed or auto-repeated.
+    easygui_on_key_down_proc onKeyDown;
+
+    /// The function to call when a key on the keyboard is released.
+    easygui_on_key_up_proc onKeyUp;
+
+    /// The function to call when a printable character is pressed or auto-repeated. This would be used for text editing.
+    easygui_on_printable_key_down_proc onPrintableKeyDown;
+
     /// The function to call when the paint event is received.
     easygui_on_paint_proc onPaint;
 
@@ -380,7 +388,8 @@ struct easygui_context
     /// A pointer to the first element that has been marked as dead. Elements marked as dead are stored as a linked list.
     easygui_element* pFirstDeadElement;
 
-    /// A pointer to the element that is sitting directly under the mouse. This is updated on every inbound mouse move event.
+    /// A pointer to the element that is sitting directly under the mouse. This is updated on every inbound mouse move event
+    /// and is used for determining when a mouse enter/leave event needs to be posted.
     easygui_element* pElementUnderMouse;
 
     /// A pointer to the element with the mouse capture.
@@ -388,6 +397,7 @@ struct easygui_context
 
     /// A pointer to the element with the keyboard focus.
     easygui_element* pElementWithKeyboardCapture;
+
 
     /// Boolean flags.
     unsigned int flags;
@@ -408,97 +418,17 @@ struct easygui_context
 
     /// The function to call when a log message is posted.
     easygui_on_log onLog;
+
+
+
+    /// A pointer to the top level element that was passed in from the last inbound mouse move event.
+    easygui_element* pLastMouseMoveTopLevelElement;
+
+    /// The position of the mouse that was passed in from the last inbound mouse move event.
+    float lastMouseMovePosX;
+    float lastMouseMovePosY;
 };
 
-
-
-
-struct easygui_event
-{
-    /// A pointer to the relevent context.
-    easygui_context* pContext;
-
-    /// A pointer to the relevant element.
-    easygui_element* pElement;
-
-
-    /// The event code.
-    easygui_event_code eventCode;
-
-    /// Event-specific data.
-    union
-    {
-        struct
-        {
-            int unused;
-        }mouse_enter;
-
-        struct
-        {
-            int unused;
-        }mouse_leave;
-
-        struct
-        {
-            int mousePosX;
-            int mousePosY;
-        }mouse_move;
-
-        struct
-        {
-            int mouseButton;
-            int mousePosX;
-            int mousePosY;
-        }mouse_down;
-
-        struct
-        {
-            int mouseButton;
-            int mousePosX;
-            int mousePosY;
-        }mouse_up;
-
-        struct
-        {
-            int mouseButton;
-            int mousePosX;
-            int mousePosY;
-        }mouse_dblclick;
-
-        struct
-        {
-            int delta;
-            int mousePosX;
-            int mousePosY;
-        }mouse_wheel;
-
-        struct
-        {
-            easygui_key  key;
-            easygui_bool autoRepeated;
-        }key_down;
-
-        struct
-        {
-            easygui_key key;
-        }key_up;
-
-        struct
-        {
-            unsigned int character;     // Unicode character code point.
-            easygui_bool autoRepeated;
-        }printable_key_down;
-
-
-        struct
-        {
-            float rectX;
-            float rectY;
-            float rectWidth;
-            float rectHeight;
-        }paint;
-    };
-};
 
 
 /////////////////////////////////////////////////////////////////
@@ -518,11 +448,39 @@ void easygui_delete_context(easygui_context* pContext);
 /////////////////////////////////////////////////////////////////
 // Events
 
-/// Posts an inbound event.
+/// Posts a mouse leave inbound event.
 ///
 /// @remarks
-///     This is only called by the application, and must be called when certain application-defined events occur.
-easygui_bool easygui_post_inbound_event(easygui_event* pEvent);
+///     The intention behind this event is to allow the application to let easy_gui know that the mouse have left the window. Since easy_gui does
+///     not have any notion of a window it must rely on the host application to notify it.
+void easygui_post_inbound_event_mouse_leave(easygui_element* pTopLevelElement);
+
+/// Posts a mouse move inbound event.
+void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, int mousePosX, int mousePosY);
+
+/// Posts a mouse button down inbound event.
+void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
+
+/// Posts a mouse button up inbound event.
+void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
+
+/// Posts a mouse button double-clicked inbound event.
+void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
+
+/// Posts a mouse wheel inbound event.
+void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
+
+/// Posts a key down inbound event.
+void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, easygui_bool isAutoRepeated);
+
+/// Posts a key up inbound event.
+void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key);
+
+/// Posts a printable key down inbound event.
+///
+/// @remarks
+///     The \c character argument should be a UTF-32 code point.
+void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, easygui_bool isAutoRepeated);
 
 
 /// Registers the global on_capture_mouse event callback.
@@ -568,6 +526,7 @@ void easygui_register_global_on_release_keyboard(easygui_context* pContext, easy
 
 /// Registers the callback to call when a log message is posted.
 void easygui_register_on_log(easygui_context* pContext, easygui_on_log onLog);
+
 
 
 
@@ -648,6 +607,24 @@ void easygui_register_on_mouse_leave(easygui_element* pElement, easygui_on_mouse
 /// Registers the on_mouse_move event callback.
 void easygui_register_on_mouse_move(easygui_element* pElement, easygui_on_mouse_move_proc callback);
 
+/// Registers the on_mouse_button_down event callback.
+void easygui_register_on_mouse_button_down(easygui_element* pElement, easygui_on_mouse_button_down_proc callback);
+
+/// Registers the on_mouse_button_up event callback.
+void easygui_register_on_mouse_button_up(easygui_element* pElement, easygui_on_mouse_button_up_proc callback);
+
+/// Registers the on_mouse_button_down event callback.
+void easygui_register_on_mouse_button_dblclick(easygui_element* pElement, easygui_on_mouse_button_dblclick_proc callback);
+
+/// Registers the on_key_down event callback.
+void easygui_register_on_key_down(easygui_element* pElement, easygui_on_key_down_proc callback);
+
+/// Registers the on_key_up event callback.
+void easygui_register_on_key_up(easygui_element* pElement, easygui_on_key_up_proc callback);
+
+/// Registers the on_printable_key_down event callback.
+void easygui_register_on_printable_key_down(easygui_element* pElement, easygui_on_printable_key_down_proc callback);
+
 /// Registers the on_paint event callback.
 void easygui_register_on_paint(easygui_element* pElement, easygui_on_paint_proc callback);
 
@@ -696,6 +673,8 @@ easygui_element* easygui_find_element_under_point(easygui_element* pTopLevelElem
 ///     If pElement is the top level element, the return value will be pElement.
 easygui_element* easygui_find_top_level_element(easygui_element* pElement);
 
+/// Determines whether or not the given element is an ancestor of the other.
+easygui_bool easygui_is_element_ancestor(easygui_element* pChildElement, easygui_element* pAncestorElement);
 
 
 
@@ -807,23 +786,10 @@ void easygui_draw_text(easygui_element* pElement, const char* text, unsigned int
 //
 /////////////////////////////////////////////////////////////////
 
-//// Events ////
+//// Hit Testing and Layout ////
 
-/// Posts a mouse move inbound event.
-easygui_bool easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, int mousePosX, int mousePosY);
-
-/// Posts a mouse button down inbound event.
-easygui_bool easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
-
-/// Posts a mouse button up inbound event.
-easygui_bool easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
-
-/// Posts a mouse button double-clicked inbound event.
-easygui_bool easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
-
-/// Posts a mouse wheel inbound event.
-easygui_bool easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
-
+/// An on_hit_test event callback that can be used to always fail the mouse hit test.
+easygui_bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, float mousePosY);
 
 
 //// Painting ////
