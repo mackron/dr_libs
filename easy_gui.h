@@ -228,13 +228,18 @@ typedef void         (* easygui_on_capture_keyboard_proc)     (easygui_element* 
 typedef void         (* easygui_on_release_keyboard_proc)     (easygui_element* pElement);
 typedef void         (* easygui_on_log)                       (easygui_context* pContext, const char* message);
 
-typedef void (* easygui_draw_begin_proc)(void* pPaintData);
-typedef void (* easygui_draw_end_proc)  (void* pPaintData);
-typedef void (* easygui_draw_line_proc) (float startX, float startY, float endX, float endY, float width, easygui_color color, void* pPaintData);
-typedef void (* easygui_draw_rect_proc) (easygui_rect relativeRect, easygui_color color, void* pPaintData);
-typedef void (* easygui_draw_text_proc) (const char* text, unsigned int textSizeInBytes, int posX, int posY, easygui_font font, easygui_color color, void* pPaintData);
-typedef void (* easygui_set_clip_proc)  (easygui_rect relativeRect, void* pPaintData);
-typedef void (* easygui_get_clip_proc)  (easygui_rect* pRectOut, void* pPaintData);
+typedef void (* easygui_draw_begin_proc)                   (void* pPaintData);
+typedef void (* easygui_draw_end_proc)                     (void* pPaintData);
+typedef void (* easygui_draw_line_proc)                    (float startX, float startY, float endX, float endY, float width, easygui_color color, void* pPaintData);
+typedef void (* easygui_draw_rect_proc)                    (easygui_rect relativeRect, easygui_color color, void* pPaintData);
+typedef void (* easygui_draw_rect_outline_proc)            (easygui_rect relativeRect, easygui_color color, float outlineWidth, void* pPaintData);
+typedef void (* easygui_draw_rect_with_outline_proc)       (easygui_rect relativeRect, easygui_color color, float outlineWidth, easygui_color outlineColor, void* pPaintData);
+typedef void (* easygui_draw_round_rect_proc)              (easygui_rect relativeRect, easygui_color color, float radius, void* pPaintData);
+typedef void (* easygui_draw_round_rect_outline_proc)      (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, void* pPaintData);
+typedef void (* easygui_draw_round_rect_with_outline_proc) (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData);
+typedef void (* easygui_draw_text_proc)                    (const char* text, unsigned int textSizeInBytes, int posX, int posY, easygui_font font, easygui_color color, void* pPaintData);
+typedef void (* easygui_set_clip_proc)                     (easygui_rect relativeRect, void* pPaintData);
+typedef void (* easygui_get_clip_proc)                     (easygui_rect* pRectOut, void* pPaintData);
 
 typedef easygui_bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect *pRelativeRect, void* pUserData);
 
@@ -250,15 +255,20 @@ typedef easygui_bool (* easygui_visible_iteration_proc)(easygui_element* pElemen
 /// Structure containing callbacks for painting routines.
 struct easygui_painting_callbacks
 {
-    easygui_draw_begin_proc drawBegin;
-    easygui_draw_end_proc   drawEnd;
+    easygui_draw_begin_proc                   drawBegin;
+    easygui_draw_end_proc                     drawEnd;
 
-    easygui_draw_line_proc  drawLine;
-    easygui_draw_rect_proc  drawRect;
-    easygui_draw_text_proc  drawText;
+    easygui_draw_line_proc                    drawLine;
+    easygui_draw_rect_proc                    drawRect;
+    easygui_draw_rect_outline_proc            drawRectOutline;
+    easygui_draw_rect_with_outline_proc       drawRectWithOutline;
+    easygui_draw_round_rect_proc              drawRoundRect;
+    easygui_draw_round_rect_outline_proc      drawRoundRectOutline;
+    easygui_draw_round_rect_with_outline_proc drawRoundRectWithOutline;
+    easygui_draw_text_proc                    drawText;
 
-    easygui_set_clip_proc   setClip;
-    easygui_get_clip_proc   getClip;
+    easygui_set_clip_proc                     setClip;
+    easygui_get_clip_proc                     getClip;
 };
 
 
@@ -818,6 +828,21 @@ void easygui_draw_line(easygui_element* pElement, float startX, float startY, fl
 /// Draws a rectangle on the given element.
 void easygui_draw_rect(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, void* pPaintData);
 
+/// Draws the outline of a rectangle on the given element.
+void easygui_draw_rect_outline(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, float outlineWidth, void* pPaintData);
+
+/// Draws a filled rectangle with an outline on the given element.
+void easygui_draw_rect_with_outline(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, float outlineWidth, easygui_color outlineColor, void* pPaintData);
+
+/// Draws a rectangle with rounded corners on the given element.
+void easygui_draw_round_rect(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, float radius, void* pPaintData);
+
+/// Draws the outline of a rectangle with rounded corners on the given element.
+void easygui_draw_round_rect_outline(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, void* pPaintData);
+
+/// Draws a filled rectangle and it's outline with rounded corners on the given element.
+void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData);
+
 /// Draws a run of text on the given element.
 ///
 /// @remarks
@@ -892,6 +917,9 @@ easygui_rect easygui_make_rect(float left, float top, float right, float bottom)
 ///     The growth amount can be negative, in which case it will be shrunk. Note that this does not do any checking to ensure the rectangle
 ///     contains positive dimensions after a shrink.
 easygui_rect easygui_grow_rect(easygui_rect rect, float amount);
+
+/// Creates a rectangle that contains both of the given rectangles.
+easygui_rect easygui_combine_rects(easygui_rect rect0, easygui_rect rect1);
 
 /// Determines whether or not the given rectangle contains the given point.
 ///
