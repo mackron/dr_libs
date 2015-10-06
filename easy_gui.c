@@ -163,10 +163,11 @@ void easygui_log(easygui_context* pContext, const char* message);
 /// Null implementations of painting callbacks so we can avoid checking for null in the painting functions.
 void easygui_draw_begin_null(void*);
 void easygui_draw_end_null(void*);
-void easygui_draw_clip_null(easygui_rect, void*);
 void easygui_draw_line_null(float, float, float, float, float, easygui_color, void*);
 void easygui_draw_rect_null(easygui_rect, easygui_color, void*);
 void easygui_draw_text_null(const char*, unsigned int, int, int, easygui_font, easygui_color, void*);
+void easygui_set_clip_null(easygui_rect, void*);
+void easygui_get_clip_null(easygui_rect*, void*);
 
 
 
@@ -747,11 +748,6 @@ void easygui_draw_end_null(void* pUserData)
 {
     (void)pUserData;
 }
-void easygui_draw_clip_null(easygui_rect relativeRect, void* pUserData)
-{
-    (void)relativeRect;
-    (void)pUserData;
-}
 void easygui_draw_line_null(float startX, float startY, float endX, float endY, float width, easygui_color color, void* pUserData)
 {
     (void)startX;
@@ -778,6 +774,16 @@ void easygui_draw_text_null(const char* text, unsigned int textSizeInBytes, int 
     (void)color;
     (void)pUserData;
 }
+void easygui_set_clip_null(easygui_rect relativeRect, void* pUserData)
+{
+    (void)relativeRect;
+    (void)pUserData;
+}
+void easygui_get_clip_null(easygui_rect* pRectOut, void* pPaintData)
+{
+    (void)pRectOut;
+    (void)pPaintData;
+}
 
 
 
@@ -794,10 +800,11 @@ easygui_context* easygui_create_context()
     if (pContext != NULL) {
         pContext->paintingCallbacks.drawBegin   = easygui_draw_begin_null;
         pContext->paintingCallbacks.drawEnd     = easygui_draw_end_null;
-        pContext->paintingCallbacks.drawClip    = easygui_draw_clip_null;
         pContext->paintingCallbacks.drawLine    = easygui_draw_line_null;
         pContext->paintingCallbacks.drawRect    = easygui_draw_rect_null;
         pContext->paintingCallbacks.drawText    = easygui_draw_text_null;
+        pContext->paintingCallbacks.setClip     = easygui_set_clip_null;
+        pContext->paintingCallbacks.getClip     = easygui_get_clip_null;
         pContext->inboundEventCounter           = 0;
         pContext->outboundEventLockCounter      = 0;
         pContext->pFirstDeadElement             = NULL;
@@ -1610,18 +1617,19 @@ typedef struct
     float absolutePosY;
 }easygui_find_element_under_point_data;
 
-easygui_bool easygui_find_element_under_point_iterator(easygui_element* pElement, easygui_rect relativeVisibleRect, void* pUserData)
+easygui_bool easygui_find_element_under_point_iterator(easygui_element* pElement, easygui_rect* pRelativeVisibleRect, void* pUserData)
 {
-    assert(pElement != NULL);
+    assert(pElement             != NULL);
+    assert(pRelativeVisibleRect != NULL);
 
     easygui_find_element_under_point_data* pData = pUserData;
-    assert(pElement != NULL);
+    assert(pData != NULL);
 
     float relativePosX = pData->absolutePosX;
     float relativePosY = pData->absolutePosY;
     easygui_make_point_relative_to_element(pElement, &relativePosX, &relativePosY);
     
-    if (easygui_rect_contains_point(relativeVisibleRect, relativePosX, relativePosY))
+    if (easygui_rect_contains_point(*pRelativeVisibleRect, relativePosX, relativePosY))
     {
         if (pElement->onHitTest) {
             if (pElement->onHitTest(pElement, relativePosX, relativePosY)) {
@@ -2010,6 +2018,26 @@ easygui_rect easygui_get_element_relative_rect(const easygui_element* pElement)
     return rect;
 }
 
+easygui_rect easygui_get_element_local_rect(const easygui_element* pElement)
+{
+    easygui_rect rect;
+    rect.left = 0;
+    rect.top  = 0;
+
+    if (pElement != NULL)
+    {
+        rect.right  = pElement->width;
+        rect.bottom = pElement->height;
+    }
+    else
+    {
+        rect.right  = 0;
+        rect.bottom = 0;
+    }
+
+    return rect;
+}
+
 
 
 //// Painting ////
@@ -2030,10 +2058,6 @@ void easygui_register_painting_callbacks(easygui_context* pContext, easygui_pain
         pContext->paintingCallbacks.drawEnd = easygui_draw_end_null;
     }
 
-    if (pContext->paintingCallbacks.drawClip == NULL) {
-        pContext->paintingCallbacks.drawClip = easygui_draw_clip_null;
-    }
-
     if (pContext->paintingCallbacks.drawLine == NULL) {
         pContext->paintingCallbacks.drawLine = easygui_draw_line_null;
     }
@@ -2044,6 +2068,14 @@ void easygui_register_painting_callbacks(easygui_context* pContext, easygui_pain
 
     if (pContext->paintingCallbacks.drawText == NULL) {
         pContext->paintingCallbacks.drawText = easygui_draw_text_null;
+    }
+
+    if (pContext->paintingCallbacks.setClip == NULL) {
+        pContext->paintingCallbacks.setClip = easygui_set_clip_null;
+    }
+
+    if (pContext->paintingCallbacks.getClip == NULL) {
+        pContext->paintingCallbacks.getClip = easygui_get_clip_null;
     }
 }
 
@@ -2063,7 +2095,7 @@ easygui_bool easygui_iterate_visible_elements(easygui_element* pParentElement, e
     if (easygui_clamp_rect_to_element(pParentElement, &clampedRelativeRect))
     {
         // We'll only get here if some part of the rectangle was inside the element.
-        if (!callback(pParentElement, clampedRelativeRect, pUserData)) {
+        if (!callback(pParentElement, &clampedRelativeRect, pUserData)) {
             return EASYGUI_FALSE;
         }
     }
@@ -2129,12 +2161,27 @@ void easygui_dirty(easygui_element* pElement, easygui_rect relativeRect)
 }
 
 
-easygui_bool easygui_draw_iteration_callback(easygui_element* pElement, easygui_rect relativeRect, void* pUserData)
+easygui_bool easygui_draw_iteration_callback(easygui_element* pElement, easygui_rect* pRelativeRect, void* pUserData)
 {
-    assert(pElement != NULL);
+    assert(pElement      != NULL);
+    assert(pRelativeRect != NULL);
 
-    if (pElement->onPaint != NULL) {
-        pElement->onPaint(pElement, relativeRect, pUserData);
+    if (pElement->onPaint != NULL)
+    {
+        // We want to set the initial clipping rectangle before drawing.
+        easygui_set_clip(pElement, *pRelativeRect, pUserData);
+
+
+        // We now call the painting function, but only after setting the clipping rectangle.
+        pElement->onPaint(pElement, *pRelativeRect, pUserData);
+
+
+        // The on_paint event handler may have adjusted the clipping rectangle, so we need to retrieve that here and use that as the new boundary for
+        // future iterations.
+        easygui_rect newRelativeRect;
+        easygui_get_clip(pElement, &newRelativeRect, pUserData);
+
+        *pRelativeRect = easygui_clamp_rect(newRelativeRect, *pRelativeRect);
     }
 
     return EASYGUI_TRUE;
@@ -2161,6 +2208,36 @@ void easygui_draw(easygui_element* pElement, easygui_rect relativeRect, void* pP
     pContext->paintingCallbacks.drawEnd(pPaintData);
 }
 
+void easygui_get_clip(easygui_element* pElement, easygui_rect* pRelativeRect, void* pPaintData)
+{
+    if (pElement == NULL || pElement->pContext == NULL) {
+        return;
+    }
+
+    pElement->pContext->paintingCallbacks.getClip(pRelativeRect, pPaintData);
+
+    // The clip returned by the drawing callback will be absolute so we'll need to convert that to relative.
+    easygui_make_rect_absolute_to_element(pElement, pRelativeRect);
+}
+
+void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData)
+{
+    if (pElement == NULL || pElement->pContext == NULL) {
+        return;
+    }
+
+    const float offsetX = pElement->absolutePosX;
+    const float offsetY = pElement->absolutePosY;
+
+    easygui_rect absoluteRect = relativeRect;
+    absoluteRect.left   += offsetX;
+    absoluteRect.top    += offsetY;
+    absoluteRect.right  += offsetX;
+    absoluteRect.bottom += offsetY;
+
+    pElement->pContext->paintingCallbacks.setClip(absoluteRect, pPaintData);
+}
+
 void easygui_draw_rect(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, void* pPaintData)
 {
     if (pElement == NULL) {
@@ -2169,8 +2246,8 @@ void easygui_draw_rect(easygui_element* pElement, easygui_rect relativeRect, eas
 
     assert(pElement->pContext != NULL);
 
-    float offsetX = pElement->absolutePosX;
-    float offsetY = pElement->absolutePosY;
+    const float offsetX = pElement->absolutePosX;
+    const float offsetY = pElement->absolutePosY;
 
     easygui_rect absoluteRect = relativeRect;
     absoluteRect.left   += offsetX;
@@ -2267,6 +2344,17 @@ easygui_color easygui_rgb(easygui_byte r, easygui_byte g, easygui_byte b)
     return color;
 }
 
+easygui_rect easygui_clamp_rect(easygui_rect rect, easygui_rect other)
+{
+    easygui_rect result;
+    result.left   = (rect.left   >= other.left)   ? rect.left   : other.left;
+    result.top    = (rect.top    >= other.top)    ? rect.top    : other.top;
+    result.right  = (rect.right  <= other.right)  ? rect.right  : other.right;
+    result.bottom = (rect.bottom <= other.bottom) ? rect.bottom : other.bottom;
+
+    return result;
+}
+
 easygui_bool easygui_clamp_rect_to_element(const easygui_element* pElement, easygui_rect* pRelativeRect)
 {
     if (pElement == NULL || pRelativeRect == NULL) {
@@ -2355,6 +2443,17 @@ easygui_rect easygui_make_rect(float left, float top, float right, float bottom)
     return rect;
 }
 
+easygui_rect easygui_grow_rect(easygui_rect rect, float amount)
+{
+    easygui_rect result = rect;
+    result.left   -= amount;
+    result.top    -= amount;
+    result.right  += amount;
+    result.bottom += amount;
+
+    return result;
+}
+
 easygui_bool easygui_rect_contains_point(easygui_rect rect, float posX, float posY)
 {
     if (posX < rect.left || posY < rect.top) {
@@ -2378,9 +2477,11 @@ easygui_bool easygui_rect_contains_point(easygui_rect rect, float posX, float po
 /////////////////////////////////////////////////////////////////
 #ifndef EASYGUI_NO_EASY_DRAW
 
-void easygui_draw_begin_easy_draw(void* pUserData);
-void easygui_draw_end_easy_draw(void* pUserData);
-void easygui_draw_rect_easy_draw(easygui_rect rect, easygui_color color, void* pUserData);
+void easygui_draw_begin_easy_draw(void* pPaintData);
+void easygui_draw_end_easy_draw(void* pPaintData);
+void easygui_draw_rect_easy_draw(easygui_rect rect, easygui_color color, void* pPaintData);
+void easygui_set_clip_easy_draw(easygui_rect rect, void* pPaintData);
+void easygui_get_clip_easy_draw(easygui_rect* pRectOut, void* pPaintData);
 
 easygui_context* easygui_create_context_easy_draw()
 {
@@ -2398,6 +2499,8 @@ void easygui_register_easy_draw_callbacks(easygui_context* pContext)
     callbacks.drawBegin = easygui_draw_begin_easy_draw;
     callbacks.drawEnd   = easygui_draw_end_easy_draw;
     callbacks.drawRect  = easygui_draw_rect_easy_draw;
+    callbacks.setClip   = easygui_set_clip_easy_draw;
+    callbacks.getClip   = easygui_get_clip_easy_draw;
 
     easygui_register_painting_callbacks(pContext, callbacks);
 }
@@ -2425,6 +2528,24 @@ void easygui_draw_rect_easy_draw(easygui_rect rect, easygui_color color, void* p
     assert(pSurface != NULL);
 
     easy2d_draw_rect(pSurface, rect.left, rect.top, rect.right, rect.bottom, easy2d_rgba(color.r, color.g, color.b, color.a));
+}
+
+void easygui_set_clip_easy_draw(easygui_rect rect, void* pPaintData)
+{
+    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    assert(pSurface != NULL);
+
+    easy2d_set_clip(pSurface, rect.left, rect.top, rect.right, rect.bottom);
+}
+
+void easygui_get_clip_easy_draw(easygui_rect* pRectOut, void* pPaintData)
+{
+    assert(pRectOut != NULL);
+
+    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    assert(pSurface != NULL);
+
+    easy2d_get_clip(pSurface, &pRectOut->left, &pRectOut->top, &pRectOut->right, &pRectOut->bottom);
 }
 
 #endif

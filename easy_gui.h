@@ -230,12 +230,13 @@ typedef void         (* easygui_on_log)                       (easygui_context* 
 
 typedef void (* easygui_draw_begin_proc)(void* pPaintData);
 typedef void (* easygui_draw_end_proc)  (void* pPaintData);
-typedef void (* easygui_draw_clip_proc) (easygui_rect relativeRect, void* pPaintData);
 typedef void (* easygui_draw_line_proc) (float startX, float startY, float endX, float endY, float width, easygui_color color, void* pPaintData);
 typedef void (* easygui_draw_rect_proc) (easygui_rect relativeRect, easygui_color color, void* pPaintData);
 typedef void (* easygui_draw_text_proc) (const char* text, unsigned int textSizeInBytes, int posX, int posY, easygui_font font, easygui_color color, void* pPaintData);
+typedef void (* easygui_set_clip_proc)  (easygui_rect relativeRect, void* pPaintData);
+typedef void (* easygui_get_clip_proc)  (easygui_rect* pRectOut, void* pPaintData);
 
-typedef easygui_bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect relativeRect, void* pUserData);
+typedef easygui_bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect *pRelativeRect, void* pUserData);
 
 
 #define EASYGUI_FALSE                   0
@@ -252,10 +253,12 @@ struct easygui_painting_callbacks
     easygui_draw_begin_proc drawBegin;
     easygui_draw_end_proc   drawEnd;
 
-    easygui_draw_clip_proc  drawClip;
     easygui_draw_line_proc  drawLine;
     easygui_draw_rect_proc  drawRect;
     easygui_draw_text_proc  drawText;
+
+    easygui_set_clip_proc   setClip;
+    easygui_get_clip_proc   getClip;
 };
 
 
@@ -747,6 +750,12 @@ easygui_rect easygui_get_element_absolute_rect(const easygui_element* pElement);
 /// Retrieves the relative rectangle for the given element.
 easygui_rect easygui_get_element_relative_rect(const easygui_element* pElement);
 
+/// Retrieves the local rectangle for the given element.
+///
+/// @remarks
+///     The local rectangle is equivalent to easygui_make_rect(0, 0, easygui_get_element_width(pElement), easygui_get_element_height(pElement));
+easygui_rect easygui_get_element_local_rect(const easygui_element* pElement);
+
 
 
 //// Painting ////
@@ -763,6 +772,9 @@ void easygui_register_painting_callbacks(easygui_context* pContext, easygui_pain
 ///     pParentElement will be included in the iteration is it is within the rectangle.
 ///     @par
 ///     The rectangle should be relative to pParentElement.
+///     @par
+///     The iteration callback function takes a pointer to a rectangle structure that represents the visible portion of the
+///     element. This pointer can be modified by the callback to create an adjusted rectangle which can be used for clipping.
 easygui_bool easygui_iterate_visible_elements(easygui_element* pParentElement, easygui_rect relativeRect, easygui_visible_iteration_proc callback, void* pUserData);
 
 
@@ -794,8 +806,11 @@ void easygui_dirty(easygui_element* pElement, easygui_rect relativeRect);
 ///     When using easy_draw to do drawing, pPaintData must be set to a pointer to the relevant easydraw_surface object.
 void easygui_draw(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
 
+/// Retrieves the current clipping rectangle.
+void easygui_get_clip(easygui_element* pElement, easygui_rect* pRelativeRect, void* pPaintData);
+
 /// Sets the clipping rectangle to apply to all future draw operations on this element.
-void easygui_draw_clip(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
+void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
 
 /// Draws a line on the given element.
 void easygui_draw_line(easygui_element* pElement, float startX, float startY, float endX, float endY, float lineWidth, easygui_color color, void* pPaintData);
@@ -848,6 +863,9 @@ easygui_color easygui_rgb(easygui_byte r, easygui_byte g, easygui_byte b);
 /// Retrieves the size of this element and all of it's siblings.
 void easygui_get_self_and_siblings_size(const easygui_element* pElement, float* widthOut, float* heightOut);
 
+/// Clamps the given rectangle to another.
+easygui_rect easygui_clamp_rect(easygui_rect rect, easygui_rect other);
+
 /// Clamps the given rectangle to the given element and returns whether or not any of it is contained within the element's rectangle.
 easygui_bool easygui_clamp_rect_to_element(const easygui_element* pElement, easygui_rect* pRelativeRect);
 
@@ -865,6 +883,15 @@ void easygui_make_point_absolute_to_element(const easygui_element* pElement, flo
 
 /// Creates a easygui_rect object.
 easygui_rect easygui_make_rect(float left, float top, float right, float bottom);
+
+/// Expands the given rectangle on all sides by the given amount.
+///
+/// @remarks
+///     This will increase the width and height of the rectangle by amount x 2.
+///     @par
+///     The growth amount can be negative, in which case it will be shrunk. Note that this does not do any checking to ensure the rectangle
+///     contains positive dimensions after a shrink.
+easygui_rect easygui_grow_rect(easygui_rect rect, float amount);
 
 /// Determines whether or not the given rectangle contains the given point.
 ///
