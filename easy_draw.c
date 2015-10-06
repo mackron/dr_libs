@@ -143,6 +143,18 @@ void easy2d_end_draw(easy2d_surface* pSurface)
     }
 }
 
+void easy2d_clear(easy2d_surface * pSurface, easy2d_color color)
+{
+    if (pSurface != NULL)
+    {
+        assert(pSurface->pContext != NULL);
+
+        if (pSurface->pContext->drawingCallbacks.clear != NULL) {
+            pSurface->pContext->drawingCallbacks.clear(pSurface, color);
+        }
+    }
+}
+
 void easy2d_draw_rect(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color)
 {
     if (pSurface != NULL)
@@ -151,6 +163,90 @@ void easy2d_draw_rect(easy2d_surface* pSurface, float left, float top, float rig
 
         if (pSurface->pContext->drawingCallbacks.draw_rect != NULL) {
             pSurface->pContext->drawingCallbacks.draw_rect(pSurface, left, top, right, bottom, color);
+        }
+    }
+}
+
+void easy2d_draw_rect_outline(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth)
+{
+    if (pSurface != NULL)
+    {
+        assert(pSurface->pContext != NULL);
+
+        if (pSurface->pContext->drawingCallbacks.draw_rect_outline != NULL) {
+            pSurface->pContext->drawingCallbacks.draw_rect_outline(pSurface, left, top, right, bottom, color, outlineWidth);
+        }
+    }
+}
+
+void easy2d_draw_rect_with_outline(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor)
+{
+    if (pSurface != NULL)
+    {
+        assert(pSurface->pContext != NULL);
+
+        if (pSurface->pContext->drawingCallbacks.draw_rect_with_outline != NULL) {
+            pSurface->pContext->drawingCallbacks.draw_rect_with_outline(pSurface, left, top, right, bottom, color, outlineWidth, outlineColor);
+        }
+    }
+}
+
+void easy2d_draw_round_rect(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius)
+{
+    if (pSurface != NULL)
+    {
+        assert(pSurface->pContext != NULL);
+
+        if (pSurface->pContext->drawingCallbacks.draw_round_rect != NULL) {
+            pSurface->pContext->drawingCallbacks.draw_round_rect(pSurface, left, top, right, bottom, color, radius);
+        }
+    }
+}
+
+void easy2d_draw_round_rect_outline(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth)
+{
+    if (pSurface != NULL)
+    {
+        assert(pSurface->pContext != NULL);
+
+        if (pSurface->pContext->drawingCallbacks.draw_round_rect_outline != NULL) {
+            pSurface->pContext->drawingCallbacks.draw_round_rect_outline(pSurface, left, top, right, bottom, color, radius, outlineWidth);
+        }
+    }
+}
+
+void easy2d_draw_round_rect_with_outline(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor)
+{
+    if (pSurface != NULL)
+    {
+        assert(pSurface->pContext != NULL);
+
+        if (pSurface->pContext->drawingCallbacks.draw_round_rect_with_outline != NULL) {
+            pSurface->pContext->drawingCallbacks.draw_round_rect_with_outline(pSurface, left, top, right, bottom, color, radius, outlineWidth, outlineColor);
+        }
+    }
+}
+
+void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom)
+{
+    if (pSurface != NULL)
+    {
+        assert(pSurface->pContext != NULL);
+
+        if (pSurface->pContext->drawingCallbacks.set_clip != NULL) {
+            pSurface->pContext->drawingCallbacks.set_clip(pSurface, left, top, right, bottom);
+        }
+    }
+}
+
+void easy2d_get_clip(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut)
+{
+    if (pSurface != NULL)
+    {
+        assert(pSurface->pContext != NULL);
+
+        if (pSurface->pContext->drawingCallbacks.get_clip != NULL) {
+            pSurface->pContext->drawingCallbacks.get_clip(pSurface, pLeftOut, pTopOut, pRightOut, pBottomOut);
         }
     }
 }
@@ -219,19 +315,34 @@ easy2d_bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, 
 void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface);
 void easy2d_begin_draw_gdi(easy2d_surface* pSurface);
 void easy2d_end_draw_gdi(easy2d_surface* pSurface);
+void easy2d_clear_gdi(easy2d_surface* pSurface, easy2d_color color);
 void easy2d_draw_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
-
+void easy2d_draw_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth);
+void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor);
+void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius);
+void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth);
+void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
+void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom);
+void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
 easy2d_context* easy2d_create_context_gdi()
 {
     easy2d_drawing_callbacks callbacks;
-    callbacks.on_create_context = easy2d_on_create_context_gdi;
-    callbacks.on_delete_context = easy2d_on_delete_context_gdi;
-    callbacks.on_create_surface = easy2d_on_create_surface_gdi;
-    callbacks.on_delete_surface = easy2d_on_delete_surface_gdi;
-    callbacks.begin_draw     = easy2d_begin_draw_gdi;
-    callbacks.end_draw       = easy2d_end_draw_gdi;
-    callbacks.draw_rect      = easy2d_draw_rect_gdi;
+    callbacks.on_create_context            = easy2d_on_create_context_gdi;
+    callbacks.on_delete_context            = easy2d_on_delete_context_gdi;
+    callbacks.on_create_surface            = easy2d_on_create_surface_gdi;
+    callbacks.on_delete_surface            = easy2d_on_delete_surface_gdi;
+    callbacks.begin_draw                   = easy2d_begin_draw_gdi;
+    callbacks.end_draw                     = easy2d_end_draw_gdi;
+    callbacks.clear                        = easy2d_clear_gdi;
+    callbacks.draw_rect                    = easy2d_draw_rect_gdi;
+    callbacks.draw_rect_outline            = easy2d_draw_rect_outline_gdi;
+    callbacks.draw_rect_with_outline       = easy2d_draw_rect_with_outline_gdi;
+    callbacks.draw_round_rect              = easy2d_draw_round_rect_gdi;
+    callbacks.draw_round_rect_outline      = easy2d_draw_round_rect_outline_gdi;
+    callbacks.draw_round_rect_with_outline = easy2d_draw_round_rect_with_outline_gdi;
+    callbacks.set_clip                     = easy2d_set_clip_gdi;
+    callbacks.get_clip                     = easy2d_get_clip_gdi;
 
     return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data));
 }
@@ -358,6 +469,7 @@ void easy2d_begin_draw_gdi(easy2d_surface* pSurface)
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL) {
         SelectObject(easy2d_get_HDC(pSurface->pContext), pGDIData->hBitmap);
+        GdiFlush();
     }
 }
 
@@ -365,6 +477,16 @@ void easy2d_end_draw_gdi(easy2d_surface* pSurface)
 {
     assert(pSurface != NULL);
     (void)pSurface;
+
+    SelectClipRgn(easy2d_get_HDC(pSurface->pContext), NULL);
+    GdiFlush();
+}
+
+void easy2d_clear_gdi(easy2d_surface* pSurface, easy2d_color color)
+{
+    assert(pSurface != NULL);
+
+    easy2d_draw_rect_gdi(pSurface, 0, 0, pSurface->width, pSurface->height, color);
 }
 
 void easy2d_draw_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color)
@@ -385,10 +507,157 @@ void easy2d_draw_rect_gdi(easy2d_surface* pSurface, float left, float top, float
     }
 }
 
+void easy2d_draw_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth)
+{
+    assert(pSurface != NULL);
+
+    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDIData != NULL)
+    {
+        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+
+        HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(color.r, color.g, color.b));
+        if (hPen != NULL)
+        {
+            HGDIOBJ hPrevBrush = SelectObject(hDC, GetStockObject(NULL_BRUSH));
+            HGDIOBJ hPrevPen   = SelectObject(hDC, hPen);
+
+            Rectangle(hDC, (int)left, (int)top, (int)right, (int)bottom);
+
+            SelectObject(hDC, hPrevPen);
+            SelectObject(hDC, hPrevBrush);
+            DeleteObject(hPen);
+        }
+    }
+}
+
+void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor)
+{
+    assert(pSurface != NULL);
+
+    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDIData != NULL)
+    {
+        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+
+        HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(outlineColor.r, outlineColor.g, outlineColor.b));
+        if (hPen != NULL)
+        {
+            COLORREF prevBrushColor = SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
+            HGDIOBJ  hPrevPen       = SelectObject(hDC, hPen);
+
+            Rectangle(hDC, (int)left, (int)top, (int)right, (int)bottom);
+
+            SelectObject(hDC, hPrevPen);
+            SetDCBrushColor(hDC, prevBrushColor);
+            DeleteObject(hPen);
+        }
+    }
+}
+
+void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius)
+{
+    assert(pSurface != NULL);
+
+    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDIData != NULL)
+    {
+        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+
+        SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
+        RoundRect(hDC, (int)left, (int)top, (int)right + 1, (int)bottom + 1, (int)(radius*2), (int)(radius*2));
+        GdiFlush();
+    }
+}
+
+void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth)
+{
+    assert(pSurface != NULL);
+
+    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDIData != NULL)
+    {
+        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+
+        HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(color.r, color.g, color.b));
+        if (hPen != NULL)
+        {
+            HGDIOBJ hPrevBrush = SelectObject(hDC, GetStockObject(NULL_BRUSH));
+            HGDIOBJ hPrevPen   = SelectObject(hDC, hPen);
+
+            RoundRect(hDC, (int)left, (int)top, (int)right, (int)bottom, (int)(radius*2), (int)(radius*2));
+
+            SelectObject(hDC, hPrevPen);
+            SelectObject(hDC, hPrevBrush);
+            DeleteObject(hPen);
+        }
+    }
+}
+
+void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor)
+{
+    assert(pSurface != NULL);
+
+    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDIData != NULL)
+    {
+        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+
+        HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(outlineColor.r, outlineColor.g, outlineColor.b));
+        if (hPen != NULL)
+        {
+            COLORREF prevBrushColor = SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
+            HGDIOBJ  hPrevPen       = SelectObject(hDC, hPen);
+
+            RoundRect(hDC, (int)left, (int)top, (int)right, (int)bottom, (int)(radius*2), (int)(radius*2));
+
+            SelectObject(hDC, hPrevPen);
+            SetDCBrushColor(hDC, prevBrushColor);
+            DeleteObject(hPen);
+        }
+    }
+}
+
+void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom)
+{
+    assert(pSurface != NULL);
+
+    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDIData != NULL)
+    {
+        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+
+        SelectClipRgn(hDC, NULL);
+        IntersectClipRect(hDC, (int)left, (int)top, (int)right, (int)bottom);
+    }
+}
+
+void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut)
+{
+    assert(pSurface != NULL);
+
+    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDIData != NULL)
+    {
+        RECT rect;
+        GetClipBox(easy2d_get_HDC(pSurface->pContext), &rect);
+
+        if (pLeftOut != NULL) {
+            *pLeftOut = (float)rect.left;
+        }
+        if (pTopOut != NULL) {
+            *pTopOut = (float)rect.top;
+        }
+        if (pRightOut != NULL) {
+            *pRightOut = (float)rect.right;
+        }
+        if (pBottomOut != NULL) {
+            *pBottomOut = (float)rect.bottom;
+        }
+    }
+}
+
 #endif  // GDI
-
-
-
 
 
 /////////////////////////////////////////////////////////////////

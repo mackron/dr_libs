@@ -69,13 +69,21 @@ struct easy2d_color
 };
 
 
-typedef easy2d_bool (* easy2d_on_create_context_proc)(easy2d_context* pContext);
-typedef void        (* easy2d_on_delete_context_proc)(easy2d_context* pContext);
-typedef easy2d_bool (* easy2d_on_create_surface_proc)(easy2d_surface* pSurface, float width, float height);
-typedef void        (* easy2d_on_delete_surface_proc)(easy2d_surface* pSurface);
-typedef void        (* easy2d_begin_draw_proc)(easy2d_surface* pSurface);
-typedef void        (* easy2d_end_draw_proc)(easy2d_surface* pSurface);
-typedef void        (* easy2d_draw_rect_proc)(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
+typedef easy2d_bool (* easy2d_on_create_context_proc)           (easy2d_context* pContext);
+typedef void        (* easy2d_on_delete_context_proc)           (easy2d_context* pContext);
+typedef easy2d_bool (* easy2d_on_create_surface_proc)           (easy2d_surface* pSurface, float width, float height);
+typedef void        (* easy2d_on_delete_surface_proc)           (easy2d_surface* pSurface);
+typedef void        (* easy2d_begin_draw_proc)                  (easy2d_surface* pSurface);
+typedef void        (* easy2d_end_draw_proc)                    (easy2d_surface* pSurface);
+typedef void        (* easy2d_clear_proc)                       (easy2d_surface* pSurface, easy2d_color color);
+typedef void        (* easy2d_draw_rect_proc)                   (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
+typedef void        (* easy2d_draw_rect_outline_proc)           (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth);
+typedef void        (* easy2d_draw_rect_with_outline_proc)      (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor);
+typedef void        (* easy2d_draw_round_rect_proc)             (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width);
+typedef void        (* easy2d_draw_round_rect_outline_proc)     (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth);
+typedef void        (* easy2d_draw_round_rect_with_outline_proc)(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth, easy2d_color outlineColor);
+typedef void        (* easy2d_set_clip_proc)                    (easy2d_surface* pSurface, float left, float top, float right, float bottom);
+typedef void        (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
 
 struct easy2d_drawing_callbacks
@@ -85,9 +93,17 @@ struct easy2d_drawing_callbacks
     easy2d_on_create_surface_proc on_create_surface;
     easy2d_on_delete_surface_proc on_delete_surface;
 
-    easy2d_begin_draw_proc     begin_draw;
-    easy2d_end_draw_proc       end_draw;
-    easy2d_draw_rect_proc      draw_rect;
+    easy2d_begin_draw_proc                   begin_draw;
+    easy2d_end_draw_proc                     end_draw;
+    easy2d_clear_proc                        clear;
+    easy2d_draw_rect_proc                    draw_rect;
+    easy2d_draw_rect_outline_proc            draw_rect_outline;
+    easy2d_draw_rect_with_outline_proc       draw_rect_with_outline;
+    easy2d_draw_round_rect_proc              draw_round_rect;
+    easy2d_draw_round_rect_outline_proc      draw_round_rect_outline;
+    easy2d_draw_round_rect_with_outline_proc draw_round_rect_with_outline;
+    easy2d_set_clip_proc                     set_clip;
+    easy2d_get_clip_proc                     get_clip;
 };
 
 struct easy2d_surface
@@ -157,9 +173,32 @@ void easy2d_begin_draw(easy2d_surface* pSurface);
 /// Marks the end of a paint operation.
 void easy2d_end_draw(easy2d_surface* pSurface);
 
-/// Draws a rectangle.
+/// Clears the given surface with the given color.
+void easy2d_clear(easy2d_surface* pSurface, easy2d_color color);
+
+/// Draws a filled rectangle without an outline.
 void easy2d_draw_rect(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
 
+/// Draws the outline of the given rectangle.
+void easy2d_draw_rect_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth);
+
+/// Draws a filled rectangle with an outline.
+void easy2d_draw_rect_with_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor);
+
+/// Draws a filled rectangle without an outline with rounded corners.
+void easy2d_draw_round_rect(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius);
+
+/// Draws the outline of the given rectangle with rounded corners.
+void easy2d_draw_round_rect_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth);
+
+/// Draws a filled rectangle with an outline.
+void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
+
+/// Sets the clipping rectangle.
+void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom);
+
+/// Retrieves the clipping rectangle.
+void easy2d_get_clip(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
 
 
