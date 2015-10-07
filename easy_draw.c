@@ -227,6 +227,18 @@ void easy2d_draw_round_rect_with_outline(easy2d_surface * pSurface, float left, 
     }
 }
 
+void easy2d_draw_text(easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor)
+{
+    if (pSurface != NULL)
+    {
+        assert(pSurface->pContext != NULL);
+
+        if (pSurface->pContext->drawingCallbacks.draw_text != NULL) {
+            pSurface->pContext->drawingCallbacks.draw_text(pSurface, text, textSizeInBytes, posX, posY, font, color, backgroundColor);
+        }
+    }
+}
+
 void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom)
 {
     if (pSurface != NULL)
@@ -247,6 +259,28 @@ void easy2d_get_clip(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, 
 
         if (pSurface->pContext->drawingCallbacks.get_clip != NULL) {
             pSurface->pContext->drawingCallbacks.get_clip(pSurface, pLeftOut, pTopOut, pRightOut, pBottomOut);
+        }
+    }
+}
+
+easy2d_font easy2d_create_font(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation)
+{
+    if (pContext != NULL)
+    {
+        if (pContext->drawingCallbacks.create_font != NULL) {
+            return pContext->drawingCallbacks.create_font(pContext, family, size, weight, slant, rotation);
+        }
+    }
+
+    return NULL;
+}
+
+void easy2d_delete_font(easy2d_context* pContext, easy2d_font font)
+{
+    if (pContext != NULL)
+    {
+        if (pContext->drawingCallbacks.delete_font != NULL) {
+            pContext->drawingCallbacks.delete_font(pContext, font);
         }
     }
 }
@@ -297,6 +331,13 @@ typedef struct
     /// The device context that owns every surface HBITMAP object. All drawing is done through this DC.
     HDC hDC;
 
+    /// The buffer used to store wchar strings when converting from char* to wchar_t* strings. We just use a global buffer for
+    /// this so we can avoid unnecessary allocations.
+    wchar_t* wcharBuffer;
+
+    /// The size of wcharBuffer (including the null terminator).
+    unsigned int wcharBufferLength;
+
 }gdi_context_data;
 
 typedef struct
@@ -322,8 +363,14 @@ void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, flo
 void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius);
 void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth);
 void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
+void easy2d_draw_text_gdi(easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor);
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom);
 void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+easy2d_font easy2d_create_font_gdi(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
+void easy2d_delete_font_gdi(easy2d_context* pContext, easy2d_font font);
+
+/// Converts a char* to a wchar_t* string.
+wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigned int textSizeInBytes, unsigned int* characterCountOut);
 
 easy2d_context* easy2d_create_context_gdi()
 {
@@ -341,8 +388,11 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.draw_round_rect              = easy2d_draw_round_rect_gdi;
     callbacks.draw_round_rect_outline      = easy2d_draw_round_rect_outline_gdi;
     callbacks.draw_round_rect_with_outline = easy2d_draw_round_rect_with_outline_gdi;
+    callbacks.draw_text                    = easy2d_draw_text_gdi;
     callbacks.set_clip                     = easy2d_set_clip_gdi;
     callbacks.get_clip                     = easy2d_get_clip_gdi;
+    callbacks.create_font                  = easy2d_create_font_gdi;
+    callbacks.delete_font                  = easy2d_delete_font_gdi;
 
     return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data));
 }
@@ -394,8 +444,10 @@ easy2d_bool easy2d_on_create_context_gdi(easy2d_context* pContext)
     // The normal brush by default.
     SelectObject(pGDIData->hDC, GetStockObject(DC_BRUSH));
 
-    // Don't draw the default text background.
-    SetBkMode(pGDIData->hDC, TRANSPARENT);
+
+
+    pGDIData->wcharBuffer       = NULL;
+    pGDIData->wcharBufferLength = 0;
 
 
     return EASY2D_TRUE;
@@ -408,6 +460,10 @@ void easy2d_on_delete_context_gdi(easy2d_context* pContext)
     gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
     if (pGDIData != NULL)
     {
+        free(pGDIData->wcharBuffer);
+        pGDIData->wcharBuffer       = 0;
+        pGDIData->wcharBufferLength = 0;
+
         DeleteDC(pGDIData->hDC);
         pGDIData->hDC = NULL;
     }
@@ -446,6 +502,7 @@ easy2d_bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, 
         return EASY2D_FALSE;
     }
 
+
     return EASY2D_TRUE;
 }
 
@@ -469,7 +526,6 @@ void easy2d_begin_draw_gdi(easy2d_surface* pSurface)
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL) {
         SelectObject(easy2d_get_HDC(pSurface->pContext), pGDIData->hBitmap);
-        GdiFlush();
     }
 }
 
@@ -479,7 +535,6 @@ void easy2d_end_draw_gdi(easy2d_surface* pSurface)
     (void)pSurface;
 
     SelectClipRgn(easy2d_get_HDC(pSurface->pContext), NULL);
-    GdiFlush();
 }
 
 void easy2d_clear_gdi(easy2d_surface* pSurface, easy2d_color color)
@@ -618,6 +673,38 @@ void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float lef
     }
 }
 
+void easy2d_draw_text_gdi(easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor)
+{
+    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDIData != NULL)
+    {
+        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+
+        HFONT hFontGDI = (HFONT)font;
+        if (hFontGDI != NULL)
+        {
+            // We actually want to use the W version of TextOut because otherwise unicode doesn't work properly.
+
+            unsigned int textWLength;
+            wchar_t* textW = easy2d_to_wchar_gdi(pSurface->pContext, text, textSizeInBytes, &textWLength);
+            if (textW != NULL)
+            {
+                if (backgroundColor.a == 0) {
+                    SetBkMode(hDC, TRANSPARENT);
+                } else {
+                    SetBkMode(hDC, OPAQUE);
+                    SetBkColor(hDC, RGB(backgroundColor.r, backgroundColor.g, backgroundColor.b));
+                }
+                
+                SelectObject(hDC, hFontGDI);
+                SetTextColor(hDC, RGB(color.r, color.g, color.b));
+
+                TextOutW(hDC, (int)posX, (int)posY, textW, textWLength);
+            }
+        }
+    }
+}
+
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom)
 {
     assert(pSurface != NULL);
@@ -655,6 +742,94 @@ void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopO
             *pBottomOut = (float)rect.bottom;
         }
     }
+}
+
+easy2d_font easy2d_create_font_gdi(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation)
+{
+    (void)pContext;
+
+    LONG weightGDI = FW_REGULAR;
+    switch (weight)
+    {
+    case easy2d_weight_medium:      weightGDI = FW_MEDIUM;     break;
+    case easy2d_weight_thin:        weightGDI = FW_THIN;       break;
+    case easy2d_weight_extra_light: weightGDI = FW_EXTRALIGHT; break;
+    case easy2d_weight_light:       weightGDI = FW_LIGHT;      break;
+    case easy2d_weight_semi_bold:   weightGDI = FW_SEMIBOLD;   break;
+    case easy2d_weight_bold:        weightGDI = FW_BOLD;       break;
+    case easy2d_weight_extra_bold:  weightGDI = FW_EXTRABOLD;  break;
+    case easy2d_weight_heavy:       weightGDI = FW_HEAVY;      break;
+    default: break;
+    }
+
+	BYTE slantGDI = FALSE;
+    if (slant == easy2d_slant_italic || slant == easy2d_slant_oblique) {
+        slantGDI = TRUE;
+    }
+
+
+	LOGFONTA logfont;
+	memset(&logfont, 0, sizeof(logfont));
+
+
+    
+    logfont.lfHeight      = -(LONG)size;
+	logfont.lfWeight      = weightGDI;
+	logfont.lfItalic      = slantGDI;
+	logfont.lfCharSet     = DEFAULT_CHARSET;
+	logfont.lfQuality     = (size > 36) ? ANTIALIASED_QUALITY : CLEARTYPE_QUALITY;
+    logfont.lfEscapement  = (LONG)rotation * 10;
+    logfont.lfOrientation = (LONG)rotation * 10;
+    
+    size_t familyLength = strlen(family);
+	memcpy(logfont.lfFaceName, family, (familyLength < 31) ? familyLength : 31);
+
+
+	return (easy2d_font)CreateFontIndirectA(&logfont);
+}
+
+void easy2d_delete_font_gdi(easy2d_context* pContext, easy2d_font font)
+{
+    (void)pContext;
+
+    DeleteObject((HFONT)font);
+}
+
+
+wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigned int textSizeInBytes, unsigned int* characterCountOut)
+{
+    if (pContext == NULL || text == NULL) {
+        return NULL;
+    }
+
+    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
+    if (pGDIData == NULL) {
+        return NULL;
+    }
+
+
+    int wcharCount = MultiByteToWideChar(CP_UTF8, 0, text, textSizeInBytes, NULL, 0);
+    if (wcharCount == 0) {
+        return NULL;
+    }
+
+    if (pGDIData->wcharBufferLength < (unsigned int)wcharCount + 1) {
+        free(pGDIData->wcharBuffer);
+        pGDIData->wcharBuffer       = malloc(sizeof(wchar_t) * (wcharCount + 1));
+        pGDIData->wcharBufferLength = wcharCount + 1;
+    }
+
+    wcharCount = MultiByteToWideChar(CP_UTF8, 0, text, textSizeInBytes, pGDIData->wcharBuffer, pGDIData->wcharBufferLength);
+    if (wcharCount == 0) {
+        return NULL;
+    }
+
+
+    if (characterCountOut != NULL) {
+        *characterCountOut = wcharCount - 1;        // -1 for the null terminator.
+    }
+
+    return pGDIData->wcharBuffer;
 }
 
 #endif  // GDI

@@ -6,6 +6,7 @@
 // - Drawing must be done inside a easy2d_begin_draw() and easy2d_end_draw() pair. Rationale: 1) required for compatibility
 //   with GDI's BeginPaint() and EndPaint() APIs; 2) gives implementations opportunity to save and restore state, such as
 //   OpenGL state and whatnot.
+// - This library is not thread safe.
 //
 
 //
@@ -59,6 +60,9 @@ typedef struct easy2d_surface easy2d_surface;
 typedef struct easy2d_color easy2d_color;
 typedef struct easy2d_drawing_callbacks easy2d_drawing_callbacks;
 
+typedef void* easy2d_font;
+
+
 /// Structure representing an RGBA color. Color components are specified in the range of 0 - 255.
 struct easy2d_color
 {
@@ -67,6 +71,30 @@ struct easy2d_color
     easy2d_byte b;
     easy2d_byte a;
 };
+
+typedef enum
+{
+    easy2d_weight_medium = 0,
+    easy2d_weight_thin,
+    easy2d_weight_extra_light,
+    easy2d_weight_light,
+    easy2d_weight_semi_bold,
+    easy2d_weight_bold,
+    easy2d_weight_extra_bold,
+    easy2d_weight_heavy,
+
+    easy2d_weight_normal  = easy2d_weight_medium,
+    easy2d_weight_default = easy2d_weight_medium
+
+} easy2d_font_weight;
+
+typedef enum
+{
+    easy2d_slant_none = 0,
+    easy2d_slant_italic,
+    easy2d_slant_oblique
+
+} easy2d_font_slant;
 
 
 typedef easy2d_bool (* easy2d_on_create_context_proc)           (easy2d_context* pContext);
@@ -82,8 +110,12 @@ typedef void        (* easy2d_draw_rect_with_outline_proc)      (easy2d_surface*
 typedef void        (* easy2d_draw_round_rect_proc)             (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width);
 typedef void        (* easy2d_draw_round_rect_outline_proc)     (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth);
 typedef void        (* easy2d_draw_round_rect_with_outline_proc)(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth, easy2d_color outlineColor);
+typedef void        (* easy2d_draw_text_proc)                   (easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor);
 typedef void        (* easy2d_set_clip_proc)                    (easy2d_surface* pSurface, float left, float top, float right, float bottom);
 typedef void        (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+typedef easy2d_font (* easy2d_create_font_proc)                 (easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
+typedef void        (* easy2d_delete_font_proc)                 (easy2d_context* pContext, easy2d_font font);
+
 
 
 struct easy2d_drawing_callbacks
@@ -102,8 +134,12 @@ struct easy2d_drawing_callbacks
     easy2d_draw_round_rect_proc              draw_round_rect;
     easy2d_draw_round_rect_outline_proc      draw_round_rect_outline;
     easy2d_draw_round_rect_with_outline_proc draw_round_rect_with_outline;
+    easy2d_draw_text_proc                    draw_text;
     easy2d_set_clip_proc                     set_clip;
     easy2d_get_clip_proc                     get_clip;
+
+    easy2d_create_font_proc                  create_font;
+    easy2d_delete_font_proc                  delete_font;
 };
 
 struct easy2d_surface
@@ -194,11 +230,20 @@ void easy2d_draw_round_rect_outline(easy2d_surface* pSurface, float left, float 
 /// Draws a filled rectangle with an outline.
 void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
 
+/// Draws a run of text.
+void easy2d_draw_text(easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor);
+
 /// Sets the clipping rectangle.
 void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom);
 
 /// Retrieves the clipping rectangle.
 void easy2d_get_clip(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+
+/// Creates a font that can be passed to easy2d_draw_text().
+easy2d_font easy2d_create_font(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
+
+/// Deletes a font that was previously created with easy2d_create_font()
+void easy2d_delete_font(easy2d_context* pContext, easy2d_font font);
 
 
 
