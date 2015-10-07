@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <float.h>
 
 #include <stdio.h>  // For testing. Delete Me.
 
@@ -170,7 +171,7 @@ void easygui_draw_rect_with_outline_null(easygui_rect, easygui_color, float, eas
 void easygui_draw_round_rect_null(easygui_rect, easygui_color, float, void*);
 void easygui_draw_round_rect_outline_null(easygui_rect, easygui_color, float, float, void*);
 void easygui_draw_round_rect_with_outline_null(easygui_rect, easygui_color, float, float, easygui_color, void*);
-void easygui_draw_text_null(const char*, unsigned int, int, int, easygui_font, easygui_color, void*);
+void easygui_draw_text_null(const char*, int, float, float, easygui_font, easygui_color, easygui_color, void*);
 void easygui_set_clip_null(easygui_rect, void*);
 void easygui_get_clip_null(easygui_rect*, void*);
 
@@ -808,7 +809,7 @@ void easygui_draw_round_rect_with_outline_null(easygui_rect rect, easygui_color 
     (void)outlineColor;
     (void)pPaintData;
 }
-void easygui_draw_text_null(const char* text, unsigned int textSizeInBytes, int posX, int posY, easygui_font font, easygui_color color, void* pPaintData)
+void easygui_draw_text_null(const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData)
 {
     (void)text;
     (void)textSizeInBytes;
@@ -816,6 +817,7 @@ void easygui_draw_text_null(const char* text, unsigned int textSizeInBytes, int 
     (void)posY;
     (void)font;
     (void)color;
+    (void)backgroundColor;
     (void)pPaintData;
 }
 void easygui_set_clip_null(easygui_rect rect, void* pPaintData)
@@ -970,7 +972,7 @@ void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, in
         {
             float relativeMousePosX = (float)mousePosX;
             float relativeMousePosY = (float)mousePosY;
-            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+            easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
             easygui_post_outbound_event_mouse_move(pEventReceiver, (int)relativeMousePosX, (int)relativeMousePosY);
         }
@@ -1004,7 +1006,7 @@ void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElem
         {
             float relativeMousePosX = (float)mousePosX;
             float relativeMousePosY = (float)mousePosY;
-            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+            easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
             easygui_post_outbound_event_mouse_button_down(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
         }
@@ -1038,7 +1040,7 @@ void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElemen
         {
             float relativeMousePosX = (float)mousePosX;
             float relativeMousePosY = (float)mousePosY;
-            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+            easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
             easygui_post_outbound_event_mouse_button_up(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
         }
@@ -1072,7 +1074,7 @@ void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevel
         {
             float relativeMousePosX = (float)mousePosX;
             float relativeMousePosY = (float)mousePosY;
-            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+            easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
             easygui_post_outbound_event_mouse_button_dblclick(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
         }
@@ -1106,7 +1108,7 @@ void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, i
         {
             float relativeMousePosX = (float)mousePosX;
             float relativeMousePosY = (float)mousePosY;
-            easygui_make_point_relative_to_element(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
+            easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
             easygui_post_outbound_event_mouse_wheel(pEventReceiver, delta, (int)relativeMousePosX, (int)relativeMousePosY);
         }
@@ -1676,7 +1678,7 @@ easygui_bool easygui_find_element_under_point_iterator(easygui_element* pElement
 
     float relativePosX = pData->absolutePosX;
     float relativePosY = pData->absolutePosY;
-    easygui_make_point_relative_to_element(pElement, &relativePosX, &relativePosY);
+    easygui_make_point_relative(pElement, &relativePosX, &relativePosY);
     
     if (easygui_rect_contains_point(*pRelativeVisibleRect, relativePosX, relativePosY))
     {
@@ -1868,12 +1870,12 @@ easygui_bool easygui_is_descendant(easygui_element* pChildElement, easygui_eleme
 void easygui_set_element_absolute_position(easygui_element* pElement, float positionX, float positionY)
 {
     if (pElement != NULL) {
-        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+        easygui_rect dirtyRect = easygui_get_element_absolute_rect(pElement);
 
         pElement->absolutePosX = positionX;
         pElement->absolutePosY = positionY;
 
-        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+        easygui_auto_dirty(easygui_find_top_level_element(pElement), easygui_rect_union(dirtyRect, easygui_get_element_absolute_rect(pElement)));
     }
 }
 
@@ -1913,7 +1915,6 @@ float easygui_get_element_absolute_position_y(const easygui_element* pElement)
 void easygui_set_element_relative_position(easygui_element* pElement, float relativePosX, float relativePosY)
 {
     if (pElement != NULL) {
-        //easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
         easygui_rect dirtyRect = easygui_get_element_absolute_rect(pElement);
 
         pElement->absolutePosX = relativePosX;
@@ -1924,12 +1925,11 @@ void easygui_set_element_relative_position(easygui_element* pElement, float rela
             pElement->absolutePosY += pElement->pParent->absolutePosY;
         }
 
-        //easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
-        easygui_auto_dirty(easygui_find_top_level_element(pElement), easygui_combine_rects(dirtyRect, easygui_get_element_absolute_rect(pElement)));
+        easygui_auto_dirty(easygui_find_top_level_element(pElement), easygui_rect_union(dirtyRect, easygui_get_element_absolute_rect(pElement)));
     }
 }
 
-void easygui_get_element_relative_position(const easygui_element* pElement, float * positionXOut, float * positionYOut)
+void easygui_get_element_relative_position(const easygui_element* pElement, float* positionXOut, float* positionYOut)
 {
     if (pElement != NULL)
     {
@@ -2268,7 +2268,7 @@ void easygui_get_clip(easygui_element* pElement, easygui_rect* pRelativeRect, vo
     pElement->pContext->paintingCallbacks.getClip(pRelativeRect, pPaintData);
 
     // The clip returned by the drawing callback will be absolute so we'll need to convert that to relative.
-    easygui_make_rect_absolute_to_element(pElement, pRelativeRect);
+    easygui_make_rect_absolute(pElement, pRelativeRect);
 }
 
 void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData)
@@ -2277,8 +2277,19 @@ void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void
         return;
     }
 
+
+    // Make sure the rectangle is not negative.
+    if (relativeRect.right < relativeRect.left) {
+        relativeRect.right = relativeRect.left;
+    }
+
+    if (relativeRect.bottom < relativeRect.top) {
+        relativeRect.bottom = relativeRect.top;
+    }
+
+
     easygui_rect absoluteRect = relativeRect;
-    easygui_make_rect_absolute_to_element(pElement, &absoluteRect);
+    easygui_make_rect_absolute(pElement, &absoluteRect);
 
     pElement->pContext->paintingCallbacks.setClip(absoluteRect, pPaintData);
 }
@@ -2292,7 +2303,7 @@ void easygui_draw_rect(easygui_element* pElement, easygui_rect relativeRect, eas
     assert(pElement->pContext != NULL);
 
     easygui_rect absoluteRect = relativeRect;
-    easygui_make_rect_absolute_to_element(pElement, &absoluteRect);
+    easygui_make_rect_absolute(pElement, &absoluteRect);
 
     pElement->pContext->paintingCallbacks.drawRect(absoluteRect, color, pPaintData);
 }
@@ -2306,7 +2317,7 @@ void easygui_draw_rect_outline(easygui_element* pElement, easygui_rect relativeR
     assert(pElement->pContext != NULL);
 
     easygui_rect absoluteRect = relativeRect;
-    easygui_make_rect_absolute_to_element(pElement, &absoluteRect);
+    easygui_make_rect_absolute(pElement, &absoluteRect);
 
     pElement->pContext->paintingCallbacks.drawRectOutline(absoluteRect, color, outlineWidth, pPaintData);
 }
@@ -2320,7 +2331,7 @@ void easygui_draw_rect_with_outline(easygui_element * pElement, easygui_rect rel
     assert(pElement->pContext != NULL);
 
     easygui_rect absoluteRect = relativeRect;
-    easygui_make_rect_absolute_to_element(pElement, &absoluteRect);
+    easygui_make_rect_absolute(pElement, &absoluteRect);
 
     pElement->pContext->paintingCallbacks.drawRectWithOutline(absoluteRect, color, outlineWidth, outlineColor, pPaintData);
 }
@@ -2334,7 +2345,7 @@ void easygui_draw_round_rect(easygui_element* pElement, easygui_rect relativeRec
     assert(pElement->pContext != NULL);
 
     easygui_rect absoluteRect = relativeRect;
-    easygui_make_rect_absolute_to_element(pElement, &absoluteRect);
+    easygui_make_rect_absolute(pElement, &absoluteRect);
 
     pElement->pContext->paintingCallbacks.drawRoundRect(absoluteRect, color, radius, pPaintData);
 }
@@ -2348,7 +2359,7 @@ void easygui_draw_round_rect_outline(easygui_element* pElement, easygui_rect rel
     assert(pElement->pContext != NULL);
 
     easygui_rect absoluteRect = relativeRect;
-    easygui_make_rect_absolute_to_element(pElement, &absoluteRect);
+    easygui_make_rect_absolute(pElement, &absoluteRect);
 
     pElement->pContext->paintingCallbacks.drawRoundRectOutline(absoluteRect, color, radius, outlineWidth, pPaintData);
 }
@@ -2362,9 +2373,24 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
     assert(pElement->pContext != NULL);
 
     easygui_rect absoluteRect = relativeRect;
-    easygui_make_rect_absolute_to_element(pElement, &absoluteRect);
+    easygui_make_rect_absolute(pElement, &absoluteRect);
 
     pElement->pContext->paintingCallbacks.drawRoundRectWithOutline(absoluteRect, color, radius, outlineWidth, outlineColor, pPaintData);
+}
+
+void easygui_draw_text(easygui_element* pElement, const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void * pPaintData)
+{
+    if (pElement == NULL) {
+        return;
+    }
+
+    assert(pElement->pContext != NULL);
+
+    float absolutePosX = posX;
+    float absolutePosY = posY;
+    easygui_make_point_absolute(pElement, &absolutePosX, &absolutePosY);
+
+    pElement->pContext->paintingCallbacks.drawText(text, textSizeInBytes, absolutePosX, absolutePosY, font, color, backgroundColor, pPaintData);
 }
 
 
@@ -2492,7 +2518,7 @@ easygui_bool easygui_clamp_rect_to_element(const easygui_element* pElement, easy
     return (pRelativeRect->right - pRelativeRect->left > 0) && (pRelativeRect->bottom - pRelativeRect->top > 0);
 }
 
-void easygui_make_rect_relative_to_element(const easygui_element* pElement, easygui_rect* pRect)
+void easygui_make_rect_relative(const easygui_element* pElement, easygui_rect* pRect)
 {
     if (pElement == NULL || pRect == NULL) {
         return;
@@ -2504,7 +2530,7 @@ void easygui_make_rect_relative_to_element(const easygui_element* pElement, easy
     pRect->bottom -= pElement->absolutePosY;
 }
 
-void easygui_make_rect_absolute_to_element(const easygui_element * pElement, easygui_rect * pRect)
+void easygui_make_rect_absolute(const easygui_element * pElement, easygui_rect * pRect)
 {
     if (pElement == NULL || pRect == NULL) {
         return;
@@ -2516,7 +2542,7 @@ void easygui_make_rect_absolute_to_element(const easygui_element * pElement, eas
     pRect->bottom += pElement->absolutePosY;
 }
 
-void easygui_make_point_relative_to_element(const easygui_element* pElement, float* positionX, float* positionY)
+void easygui_make_point_relative(const easygui_element* pElement, float* positionX, float* positionY)
 {
     if (pElement != NULL)
     {
@@ -2530,7 +2556,7 @@ void easygui_make_point_relative_to_element(const easygui_element* pElement, flo
     }
 }
 
-void easygui_make_point_absolute_to_element(const easygui_element* pElement, float* positionX, float* positionY)
+void easygui_make_point_absolute(const easygui_element* pElement, float* positionX, float* positionY)
 {
     if (pElement != NULL)
     {
@@ -2555,6 +2581,17 @@ easygui_rect easygui_make_rect(float left, float top, float right, float bottom)
     return rect;
 }
 
+easygui_rect easygui_make_inside_out_rect()
+{
+    easygui_rect rect;
+    rect.left   =  FLT_MAX;
+    rect.top    =  FLT_MAX;
+    rect.right  = -FLT_MAX;
+    rect.bottom = -FLT_MAX;
+
+    return rect;
+}
+
 easygui_rect easygui_grow_rect(easygui_rect rect, float amount)
 {
     easygui_rect result = rect;
@@ -2566,7 +2603,7 @@ easygui_rect easygui_grow_rect(easygui_rect rect, float amount)
     return result;
 }
 
-easygui_rect easygui_combine_rects(easygui_rect rect0, easygui_rect rect1)
+easygui_rect easygui_rect_union(easygui_rect rect0, easygui_rect rect1)
 {
     easygui_rect result;
     result.left   = (rect0.left   < rect1.left)   ? rect0.left   : rect1.left;
@@ -2608,6 +2645,7 @@ void easygui_draw_rect_with_outline_easy_draw(easygui_rect, easygui_color, float
 void easygui_draw_round_rect_easy_draw(easygui_rect, easygui_color, float, void*);
 void easygui_draw_round_rect_outline_easy_draw(easygui_rect, easygui_color, float, float, void*);
 void easygui_draw_round_rect_with_outline_easy_draw(easygui_rect, easygui_color, float, float, easygui_color, void*);
+void easygui_draw_text_easy_draw(const char*, int, float, float, easygui_font, easygui_color, easygui_color, void*);
 void easygui_set_clip_easy_draw(easygui_rect rect, void* pPaintData);
 void easygui_get_clip_easy_draw(easygui_rect* pRectOut, void* pPaintData);
 
@@ -2632,6 +2670,7 @@ void easygui_register_easy_draw_callbacks(easygui_context* pContext)
     callbacks.drawRoundRect            = easygui_draw_round_rect_easy_draw;
     callbacks.drawRoundRectOutline     = easygui_draw_round_rect_outline_easy_draw;
     callbacks.drawRoundRectWithOutline = easygui_draw_round_rect_with_outline_easy_draw;
+    callbacks.drawText                 = easygui_draw_text_easy_draw;
     callbacks.setClip                  = easygui_set_clip_easy_draw;
     callbacks.getClip                  = easygui_get_clip_easy_draw;
 
@@ -2701,6 +2740,14 @@ void easygui_draw_round_rect_with_outline_easy_draw(easygui_rect rect, easygui_c
     assert(pSurface != NULL);
 
     easy2d_draw_round_rect_with_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, easy2d_rgba(color.r, color.g, color.b, color.a), radius, outlineWidth, easy2d_rgba(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a));
+}
+
+void easygui_draw_text_easy_draw(const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData)
+{
+    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    assert(pSurface != NULL);
+
+    easy2d_draw_text(pSurface, text, textSizeInBytes, posX, posY, font, easy2d_rgba(color.r, color.g, color.b, color.a), easy2d_rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a));
 }
 
 void easygui_set_clip_easy_draw(easygui_rect rect, void* pPaintData)

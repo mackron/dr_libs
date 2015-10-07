@@ -10,16 +10,15 @@
 // - The layout of elements use floats instead of integers. The rationale for this is that it makes it easier to do certain
 //   layout arithmetic. For example, if you want to evenly distribute 3 elements across a fixed area, the integer based
 //   arithmetic can cause rounding errors which cause the elements to not sit flush against the area. By using float-based
-//   arithmetic we can avoid that particular issue, except for occasional floating-point precision errors which aren't actually
-//   an issue in practice.
+//   arithmetic we can avoid that particular issue.
 //
 // Hierarchy
 // - An element can have a parent and any number of children. If an element does not have a parent, it is referred to as the
 //   top-level element.
 // - Inbound events will typically specify the relevant top-level window and let easy_gui do the relevant processing required
 //   to generate the appropriate outbound events. For example, the mouse-move event will be specified with respect to the top-
-//   level window, but easy_gui will determine the exact child element that the mouse moved on and thus should receive the
-//   related outbound mouse-move event.
+//   level element, but easy_gui will determine the exact child element that the mouse moved on and thus should receive the
+//   relevant outbound mouse-move event.
 // - When an element is deleted, it's children will be deleted as well.
 // - Top-level elements do not have siblings.
 //
@@ -44,6 +43,15 @@
 //   when the mouse is captured it won't work 100% correct unless the host application has a chance to capture the mouse against
 //   the container window. Because easy_gui has no notion of a window system it relies on the host application to handle this
 //   properly.
+// - A global outbound event handler should be implemented for each of the following events:
+//   - on_dirty: Called when a region of an element is marked as dirty and needs to be redrawn. The application will want to
+//     invalidate the container window to trigger an operating system redraw. Set this with easygui_register_global_on_dirty().
+//   - on_capture_mouse: Called when the mouse is captured and gives the application the opportunity to capture the mouse against
+//     the container window at the operating system level. Set with easygui_register_global_on_capture_mouse().
+//   - on_release_mouse: Called when the mouse is released. The opposite of on_capture_mouse.
+//   - on_capture_keyboard: Called when an element is given the keyboard focus and gives the application the opportunity to
+//     apply the keyboard focus to the container window. Set with easygui_register_globa_on_capture_keyboard().
+//   - on_release_keyboard: Called when an element loses the keyboard focus. The opposite of on_capture_keyboard.
 //
 // Layout
 // - An element's data structure does not store it's relative position. Instead, it stores it's absolute position. The
@@ -62,8 +70,8 @@
 // - Sometimes an application will need to be told when a region of an element is dirty and needs redrawing. An example is
 //   event-driven, non real-time applications such as normal desktop applications. To mark an element as dirty, you call the
 //   easygui_dirty() function which takes the element that is dirty, and the rectangle region that needs to be redrawn. This
-//   does not redraw the element immediately, but instead posts a paint event for the application. Marking regions as dirty is
-//   not strictly required, but you should prefer it for event-driven applications that require painting operations to be
+//   does not redraw the element immediately, but instead posts an on_dirty event for the application. Marking regions as dirty
+//   is not strictly required, but you should prefer it for event-driven applications that require painting operations to be
 //   performed at specific times (such as inside Win32's WM_PAINT messages).
 // - Some operations will cause a region of an element to become dirty - such as when it is resized. easy_gui will
 //   automatically mark the relevant regions as dirty which in turn will cause a paint message to be posted. If this is not
@@ -94,30 +102,18 @@
 //
 // -------------------------
 //
-// Event-Driven Drawing:
+// Event-Driven Drawing (Win32):
 //
-// easygui_event e;
-// ...
-// if (e.eventCode == easygui_event_paint) {
-//     easygui_draw(e.pElement, e.paint.rectX, e.paint.rectY, e.paint.rectWidth, e.paint.rectHeight);
-// }
+// void my_global_on_dirty_win32(easygui_element* pElement, easygui_rect relativeRect) {
+//     easygui_rect absoluteRect = relativeRect;
+//     easygui_make_rect_absolute(pElement, &absoluteRect);
 //
-// -------------------------
-//
-// Win32 GDI Event-Driven Drawing
-//
-// easygui_event e;
-// ...
-// if (e.eventCode == easygui_event_paint) {
-//     HWND hWnd = (HWND)easygui_get_user_data(e.pElement);
-//     if (hWnd != NULL) {
-//         RECT rect;
-//         rect.left   = e.paint.rectX;
-//         rect.top    = e.paint.rectY;
-//         rect.right  = e.paint.rectX + e.paint.rectWidth;
-//         rect.height = e.paint.rectY + e.paint.rectHeight;
-//         InvalidateRect(hWnd, &rect, FALSE);
-//     }
+//     RECT rect;
+//     rect.left   = absoluteRect.left;
+//     rect.top    = absoluteRect.top;
+//     rect.right  = absoluteRect.right;
+//     rect.height = absoluteRect.bottom;
+//     InvalidateRect((HWND)easygui_get_user_data(easygui_find_top_level_element(pElement)), &rect, FALSE);
 // }
 //
 // ...
@@ -143,14 +139,6 @@
 //     ...
 // }
 //
-
-
-//
-// BRAINSTORMING
-//
-// 
-//
-
 
 
 
@@ -237,7 +225,7 @@ typedef void (* easygui_draw_rect_with_outline_proc)       (easygui_rect relativ
 typedef void (* easygui_draw_round_rect_proc)              (easygui_rect relativeRect, easygui_color color, float radius, void* pPaintData);
 typedef void (* easygui_draw_round_rect_outline_proc)      (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, void* pPaintData);
 typedef void (* easygui_draw_round_rect_with_outline_proc) (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData);
-typedef void (* easygui_draw_text_proc)                    (const char* text, unsigned int textSizeInBytes, int posX, int posY, easygui_font font, easygui_color color, void* pPaintData);
+typedef void (* easygui_draw_text_proc)                    (const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData);
 typedef void (* easygui_set_clip_proc)                     (easygui_rect relativeRect, void* pPaintData);
 typedef void (* easygui_get_clip_proc)                     (easygui_rect* pRectOut, void* pPaintData);
 
@@ -848,7 +836,9 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
 /// @remarks
 ///     This does not do any complex formatting like multiple lines and whatnot. Complex formatting can be achieved with multiple
 ///     calls to this function.
-void easygui_draw_text(easygui_element* pElement, const char* text, unsigned int textSizeInBytes, int posX, int posY, easygui_font font, easygui_color color, void* pPaintData);
+///     @par
+///     \c textSizeInBytes can be -1 in which case the text string is treated as null terminated.
+void easygui_draw_text(easygui_element* pElement, const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData);
 
 
 
@@ -895,19 +885,26 @@ easygui_rect easygui_clamp_rect(easygui_rect rect, easygui_rect other);
 easygui_bool easygui_clamp_rect_to_element(const easygui_element* pElement, easygui_rect* pRelativeRect);
 
 /// Converts the given rectangle from absolute to relative to the given element.
-void easygui_make_rect_relative_to_element(const easygui_element* pElement, easygui_rect* pRect);
+void easygui_make_rect_relative(const easygui_element* pElement, easygui_rect* pRect);
 
 /// Converts the given rectangle from relative to absolute based on the given element.
-void easygui_make_rect_absolute_to_element(const easygui_element* pElement, easygui_rect* pRect);
+void easygui_make_rect_absolute(const easygui_element* pElement, easygui_rect* pRect);
 
 /// Converts the given point from absolute to relative to the given element.
-void easygui_make_point_relative_to_element(const easygui_element* pElement, float* positionX, float* positionY);
+void easygui_make_point_relative(const easygui_element* pElement, float* positionX, float* positionY);
 
 /// Converts the given point from relative to absolute based on the given element.
-void easygui_make_point_absolute_to_element(const easygui_element* pElement, float* positionX, float* positionY);
+void easygui_make_point_absolute(const easygui_element* pElement, float* positionX, float* positionY);
 
 /// Creates a easygui_rect object.
 easygui_rect easygui_make_rect(float left, float top, float right, float bottom);
+
+/// Creates an inside-out rectangle.
+///
+/// @remarks
+///     An inside our rectangle is a negative-dimension rectangle with each edge at the extreme edges. The left edge will be at the
+///     right-most side and the right edge will be at the left-most side. The same applies for the top and bottom edges.
+easygui_rect easygui_make_inside_out_rect();
 
 /// Expands the given rectangle on all sides by the given amount.
 ///
@@ -919,7 +916,7 @@ easygui_rect easygui_make_rect(float left, float top, float right, float bottom)
 easygui_rect easygui_grow_rect(easygui_rect rect, float amount);
 
 /// Creates a rectangle that contains both of the given rectangles.
-easygui_rect easygui_combine_rects(easygui_rect rect0, easygui_rect rect1);
+easygui_rect easygui_rect_union(easygui_rect rect0, easygui_rect rect1);
 
 /// Determines whether or not the given rectangle contains the given point.
 ///
