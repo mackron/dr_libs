@@ -34,6 +34,11 @@ extern "C" {
     #define EASYUTIL_NO_MSVC_COMPAT
 #endif
 
+#if defined(_MSC_VER)
+#define EASYUTIL_INLINE __inline
+#else
+#define EASYUTIL_INLINE inline
+#endif
 
 
 #include <stdlib.h>
@@ -92,7 +97,7 @@ extern "C" {
 
 #ifndef EASYUTIL_NO_MSVC_COMPAT
 /// A basic implementation of MSVC's strcpy_s().
-inline int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+EASYUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
     if (dst == 0) {
         return EINVAL;
@@ -133,7 +138,7 @@ inline int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 // Aligned Allocations
 
 #ifndef EASYUTIL_NO_ALIGNED_MALLOC
-inline void* aligned_malloc(size_t alignment, size_t size)
+EASYUTIL_INLINE void* aligned_malloc(size_t alignment, size_t size)
 {
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
     return _aligned_malloc(size, alignment);
@@ -147,7 +152,7 @@ inline void* aligned_malloc(size_t alignment, size_t size)
 #endif
 }
 
-inline void aligned_free(void* ptr)
+EASYUTIL_INLINE void aligned_free(void* ptr)
 {
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
     _aligned_free(ptr);
