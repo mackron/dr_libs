@@ -718,7 +718,7 @@ int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, cons
             extension -= 1;
         }
 
-        easypath_strcpy2(dst, dstSizeInBytes, path, extension - path);
+        easypath_strcpy2(dst, dstSizeInBytes, path, (unsigned int)(extension - path));
         return 1;
     }
 
