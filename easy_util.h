@@ -48,6 +48,13 @@ extern "C" {
 #endif
 
 
+typedef int easyutil_bool;
+
+
+#define STRINGIFY(x)    #x
+#define TOSTRING(x)     STRINGIFY(x)
+
+
 /////////////////////////////////////////////////////////
 // Annotations
 
@@ -164,7 +171,58 @@ EASYUTIL_INLINE void aligned_free(void* ptr)
 
 
 
+/////////////////////////////////////////////////////////
+// Key/Value Pair Parsing
 
+typedef unsigned int (* key_value_read_proc) (void* pUserData, void* pDataOut, unsigned int bytesToRead);
+typedef void         (* key_value_pair_proc) (void* pUserData, const char* key, const char* value);
+typedef void         (* key_value_error_proc)(void* pUserData, const char* message, unsigned int line);
+
+/// Parses a series of simple Key/Value pairs.
+///
+/// @remarks
+///     This function is suitable for parsing simple key/value config files.
+///     @par
+///     This function will never allocate memory on the heap. Because of this there is a minor restriction in the length of an individual
+///     key/value pair which is 4KB.
+///     @par
+///     Formatting rules are as follows:
+///      - The basic syntax for a key/value pair is [key][whitespace][value]. Example: MyProperty 1234
+///      - All key/value pairs must be declared on a single line, and a single line cannot contain more than a single key/value pair.
+///      - Comments begin with the '#' character and continue until the end of the line.
+///      - A key cannot contain spaces but are permitted in values.
+///      - The value will have any leading and trailing whitespace trimmed.
+///      - A value can be wrapped in double-quote characters in which case the last double-quote characters acts as the end point.
+///     @par
+///     If an error occurs, that line will be skipped and processing will continue.
+void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_proc onPair, key_value_error_proc onError, void* pUserData);
+
+
+
+/////////////////////////////////////////////////////////
+// Known Folders
+
+/// Retrieves the path of the user's config directory.
+///
+/// @remarks
+///     On Windows this will typically be %APPDATA% and on Linux it will usually be ~/.config
+easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize);
+
+
+
+/////////////////////////////////////////////////////////
+// Command Line
+
+typedef struct easyutil_cmdline easyutil_cmdline;
+
+/// Creates a command line object from an argv style command line.
+easyutil_cmdline* easyutil_create_command_line(int argc, char** argv);
+
+/// Creates a command line object from a Win32 style command line.
+easyutil_cmdline* easyutil_create_command_line_win32(char* args);
+
+/// Deletes a command line object.
+void easyutil_delete_command_line(easyutil_cmdline* pCmdLine);
 
 
 /////////////////////////////////////////////////////////
