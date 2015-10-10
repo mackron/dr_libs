@@ -128,8 +128,18 @@ void easygui_prepend_sibling_without_detach_or_redraw(easygui_element* pElementT
 void easygui_prepends_sibling_without_detach(easygui_element* pElementToPrepend, easygui_element* pElementToPrependTo);
 
 
+/// Begins accumulating an invalidation rectangle.
+void easygui_begin_auto_dirty(easygui_element* pElement, easygui_rect relativeRect);
+
+/// Ends accumulating the invalidation rectangle and posts on_dirty is auto-dirty is enabled.
+void easygui_end_auto_dirty(easygui_element* pElement);
+
 /// Marks the given region of the given top level element as dirty, but only if automatic dirtying is enabled.
+///
+/// @remarks
+///     This is equivalent to easygui_begin_auto_dirty() immediately followed by easygui_end_auto_dirty().
 void easygui_auto_dirty(easygui_element* pTopLevelElement, easygui_rect rect);
+
 
 /// The function to call when the mouse may have entered into a new element.
 void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easygui_element* pNewElementUnderMouse);
@@ -454,15 +464,60 @@ void easygui_prepend_sibling_without_detach(easygui_element* pElementToPrepend, 
 }
 
 
+void easygui_begin_auto_dirty(easygui_element* pElement, easygui_rect relativeRect)
+{
+    assert(pElement           != NULL);
+    assert(pElement->pContext != NULL);
+
+    if (easygui_is_auto_dirty_enabled(pElement->pContext))
+    {
+        easygui_context* pContext = pElement->pContext;
+
+        if (pContext->pDirtyTopLevelElement == NULL) {
+            pContext->pDirtyTopLevelElement = easygui_find_top_level_element(pElement);
+        }
+
+        assert(pContext->pDirtyTopLevelElement = easygui_find_top_level_element(pElement));
+
+
+        pContext->dirtyRect = easygui_rect_union(pContext->dirtyRect, easygui_make_rect_absolute(pElement, &relativeRect));
+        pContext->dirtyCounter += 1;
+    }
+}
+
+void easygui_end_auto_dirty(easygui_element* pElement)
+{
+    assert(pElement           != NULL);
+    assert(pElement->pContext != NULL);
+
+    easygui_context* pContext = pElement->pContext;
+    if (easygui_is_auto_dirty_enabled(pContext))
+    {
+        assert(pContext->pDirtyTopLevelElement != NULL);
+        assert(pContext->dirtyCounter > 0);
+
+        pContext->dirtyCounter -= 1;
+        if (pContext->dirtyCounter == 0)
+        {
+            easygui_dirty(pContext->pDirtyTopLevelElement, pContext->dirtyRect);
+
+            pContext->pDirtyTopLevelElement = NULL;
+            pContext->dirtyRect             = easygui_make_inside_out_rect();
+        }
+    }
+}
+
 void easygui_auto_dirty(easygui_element* pElement, easygui_rect relativeRect)
 {
     assert(pElement != NULL);
     assert(pElement->pContext != NULL);
 
     if (easygui_is_auto_dirty_enabled(pElement->pContext)) {
-        easygui_dirty(pElement, relativeRect);
+        easygui_begin_auto_dirty(pElement, relativeRect);
+        easygui_end_auto_dirty(pElement);
     }
 }
+
 
 void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easygui_element* pNewElementUnderMouse)
 {
@@ -872,6 +927,9 @@ easygui_context* easygui_create_context()
         pContext->pLastMouseMoveTopLevelElement              = NULL;
         pContext->lastMouseMovePosX                          = 0;
         pContext->lastMouseMovePosY                          = 0;
+        pContext->pDirtyTopLevelElement                      = NULL;
+        pContext->dirtyRect                                  = easygui_make_inside_out_rect();
+        pContext->dirtyCounter                               = 0;
     }
 
     return pContext;
@@ -1870,12 +1928,12 @@ easygui_bool easygui_is_descendant(easygui_element* pChildElement, easygui_eleme
 void easygui_set_element_absolute_position(easygui_element* pElement, float positionX, float positionY)
 {
     if (pElement != NULL) {
-        easygui_rect dirtyRect = easygui_get_element_absolute_rect(pElement);
+        easygui_begin_auto_dirty(pElement, easygui_get_element_local_rect(pElement));
 
         pElement->absolutePosX = positionX;
         pElement->absolutePosY = positionY;
 
-        easygui_auto_dirty(easygui_find_top_level_element(pElement), easygui_rect_union(dirtyRect, easygui_get_element_absolute_rect(pElement)));
+        easygui_end_auto_dirty(pElement);
     }
 }
 
@@ -1915,7 +1973,7 @@ float easygui_get_element_absolute_position_y(const easygui_element* pElement)
 void easygui_set_element_relative_position(easygui_element* pElement, float relativePosX, float relativePosY)
 {
     if (pElement != NULL) {
-        easygui_rect dirtyRect = easygui_get_element_absolute_rect(pElement);
+        easygui_begin_auto_dirty(pElement, easygui_get_element_local_rect(pElement));
 
         pElement->absolutePosX = relativePosX;
         pElement->absolutePosY = relativePosY;
@@ -1925,7 +1983,7 @@ void easygui_set_element_relative_position(easygui_element* pElement, float rela
             pElement->absolutePosY += pElement->pParent->absolutePosY;
         }
 
-        easygui_auto_dirty(easygui_find_top_level_element(pElement), easygui_rect_union(dirtyRect, easygui_get_element_absolute_rect(pElement)));
+        easygui_end_auto_dirty(pElement);
     }
 }
 
@@ -1986,12 +2044,12 @@ float easygui_get_element_relative_position_y(const easygui_element* pElement)
 void easygui_set_element_size(easygui_element* pElement, float width, float height)
 {
     if (pElement != NULL) {
-        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+        easygui_begin_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
 
         pElement->width  = width;
         pElement->height = height;
 
-        easygui_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+        easygui_end_auto_dirty(pElement);
     }
 }
 
@@ -2518,28 +2576,32 @@ easygui_bool easygui_clamp_rect_to_element(const easygui_element* pElement, easy
     return (pRelativeRect->right - pRelativeRect->left > 0) && (pRelativeRect->bottom - pRelativeRect->top > 0);
 }
 
-void easygui_make_rect_relative(const easygui_element* pElement, easygui_rect* pRect)
+easygui_rect easygui_make_rect_relative(const easygui_element* pElement, easygui_rect* pRect)
 {
     if (pElement == NULL || pRect == NULL) {
-        return;
+        return easygui_make_rect(0, 0, 0, 0);
     }
 
     pRect->left   -= pElement->absolutePosX;
     pRect->top    -= pElement->absolutePosY;
     pRect->right  -= pElement->absolutePosX;
     pRect->bottom -= pElement->absolutePosY;
+
+    return *pRect;
 }
 
-void easygui_make_rect_absolute(const easygui_element * pElement, easygui_rect * pRect)
+easygui_rect easygui_make_rect_absolute(const easygui_element * pElement, easygui_rect * pRect)
 {
     if (pElement == NULL || pRect == NULL) {
-        return;
+        return easygui_make_rect(0, 0, 0, 0);
     }
 
     pRect->left   += pElement->absolutePosX;
     pRect->top    += pElement->absolutePosY;
     pRect->right  += pElement->absolutePosX;
     pRect->bottom += pElement->absolutePosY;
+
+    return *pRect;
 }
 
 void easygui_make_point_relative(const easygui_element* pElement, float* positionX, float* positionY)

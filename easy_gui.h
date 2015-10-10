@@ -422,6 +422,19 @@ struct easygui_context
     /// The position of the mouse that was passed in from the last inbound mouse move event.
     float lastMouseMovePosX;
     float lastMouseMovePosY;
+
+
+    /// A pointer to the top-level element that is currently in the process of being marked as dirty. This is set in easygui_begin_auto_dirty()
+    /// and cleared in easygui_end_auto_dirty().
+    easygui_element* pDirtyTopLevelElement;
+
+    /// The current dirty rectangle, relative to pDirtyTopLevelElement.
+    easygui_rect dirtyRect;
+
+    /// The counter to use when determining whether or not an on_dirty event needs to be posted. This is incremented with
+    /// easygui_begin_auto_dirty() and decremented with easygui_end_auto_dirty(). When the counter is decremented and hits
+    /// zero, the on_dirty event will be posted.
+    unsigned int dirtyCounter;
 };
 
 
@@ -885,10 +898,10 @@ easygui_rect easygui_clamp_rect(easygui_rect rect, easygui_rect other);
 easygui_bool easygui_clamp_rect_to_element(const easygui_element* pElement, easygui_rect* pRelativeRect);
 
 /// Converts the given rectangle from absolute to relative to the given element.
-void easygui_make_rect_relative(const easygui_element* pElement, easygui_rect* pRect);
+easygui_rect easygui_make_rect_relative(const easygui_element* pElement, easygui_rect* pRect);
 
 /// Converts the given rectangle from relative to absolute based on the given element.
-void easygui_make_rect_absolute(const easygui_element* pElement, easygui_rect* pRect);
+easygui_rect easygui_make_rect_absolute(const easygui_element* pElement, easygui_rect* pRect);
 
 /// Converts the given point from absolute to relative to the given element.
 void easygui_make_point_relative(const easygui_element* pElement, float* positionX, float* positionY);
