@@ -274,11 +274,17 @@ easy2d_color easy2d_rgb(easy2d_byte r, easy2d_byte g, easy2d_byte b);
 /// Creates a 2D context with GDI as the backend.
 easy2d_context* easy2d_create_context_gdi();
 
-/// Retrieves the internal HDC that we have been rendering to for the given context.
+/// Creates a surface that draws directly to the given window.
+///
+/// @remarks
+///     When using this kind of surface, the internal HBITMAP is no used.
+easy2d_surface* easy2d_create_surface_gdi_HWND(easy2d_context* pContext, HWND hWnd);
+
+/// Retrieves the internal HDC that we have been rendering to for the given surface.
 ///
 /// @remarks
 ///     This assumes the given surface was created from a context that was created from easy2d_create_context_gdi()
-HDC easy2d_get_HDC(easy2d_context* pContext);
+HDC easy2d_get_HDC(easy2d_surface* pSurface);
 
 /// Retrieves the internal HBITMAP object that we have been rendering to.
 ///

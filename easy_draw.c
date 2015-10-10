@@ -342,11 +342,42 @@ typedef struct
 
 typedef struct
 {
-    /// The bitmap to render to. This is created with GDI's CreateDIBSection() API, using the DC above.
+    /// The window to draw to. The can be null, which is the case when creating the surface with easy2d_create_surface(). When this
+    /// is non-null the size of the surface is always tied to the window.
+    HWND hWnd;
+
+    /// The HDC to use when drawing to the surface.
+    HDC hDC;
+
+    /// The PAINTSTRUCT object that is filled by BeginPaint(). Only used when hWnd is non-null.
+    PAINTSTRUCT ps;
+
+    /// The bitmap to render to. This is created with GDI's CreateDIBSection() API, using the DC above. This is only used
+    /// when hDC is NULL, which is the default.
     HBITMAP hBitmap;
 
     /// A pointer to the raw bitmap data. This is allocated CreateDIBSection().
     void* pBitmapData;
+
+
+    /// The pen that was active at the start of drawing. This is restored at the end of drawing.
+    HGDIOBJ hPrevPen;
+
+    /// The brush that was active at the start of drawing.
+    HGDIOBJ hPrevBrush;
+
+    /// The brush color at the start of drawing.
+    COLORREF prevBrushColor;
+
+    /// The previous font.
+    HGDIOBJ hPrevFont;
+
+    /// The previous text background mode.
+    int prevBkMode;
+
+    /// The previous text background color.
+    COLORREF prevBkColor;
+
 
 }gdi_surface_data;
 
@@ -397,10 +428,23 @@ easy2d_context* easy2d_create_context_gdi()
     return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data));
 }
 
-HDC easy2d_get_HDC(easy2d_context* pContext)
+easy2d_surface* easy2d_create_surface_gdi_HWND(easy2d_context* pContext, HWND hWnd)
 {
-    if (pContext != NULL) {
-        gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
+    easy2d_surface* pSurface = easy2d_create_surface(pContext, 0, 0);
+    if (pSurface != NULL) {
+        gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+        if (pGDIData != NULL) {
+            pGDIData->hWnd = hWnd;
+        }
+    }
+
+    return pSurface;
+}
+
+HDC easy2d_get_HDC(easy2d_surface* pSurface)
+{
+    if (pSurface != NULL) {
+        gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
         if (pGDIData != NULL) {
             return pGDIData->hDC;
         }
@@ -436,14 +480,6 @@ easy2d_bool easy2d_on_create_context_gdi(easy2d_context* pContext)
     if (pGDIData->hDC == NULL) {
         return EASY2D_FALSE;
     }
-
-
-    // No pen by default.
-    SelectObject(pGDIData->hDC, GetStockObject(NULL_PEN));
-
-    // The normal brush by default.
-    SelectObject(pGDIData->hDC, GetStockObject(DC_BRUSH));
-
 
 
     pGDIData->wcharBuffer       = NULL;
@@ -489,17 +525,30 @@ easy2d_bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, 
     }
 
 
-    BITMAPINFO bmi;
-    ZeroMemory(&bmi, sizeof(bmi));
-    bmi.bmiHeader.biSize        = sizeof(bmi.bmiHeader);
-    bmi.bmiHeader.biWidth       = (LONG)width;
-    bmi.bmiHeader.biHeight      = (LONG)height;
-    bmi.bmiHeader.biPlanes      = 1;
-    bmi.bmiHeader.biBitCount    = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    pGDISurfaceData->hBitmap = CreateDIBSection(hDC, &bmi, DIB_RGB_COLORS, &pGDISurfaceData->pBitmapData, NULL, 0);
-    if (pGDISurfaceData->hBitmap == NULL) {
-        return EASY2D_FALSE;
+    pGDISurfaceData->hWnd = NULL;
+    
+
+    if (width != 0 && height != 0)
+    {
+        pGDISurfaceData->hDC  = hDC;
+
+        BITMAPINFO bmi;
+        ZeroMemory(&bmi, sizeof(bmi));
+        bmi.bmiHeader.biSize        = sizeof(bmi.bmiHeader);
+        bmi.bmiHeader.biWidth       = (LONG)width;
+        bmi.bmiHeader.biHeight      = (LONG)height;
+        bmi.bmiHeader.biPlanes      = 1;
+        bmi.bmiHeader.biBitCount    = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+        pGDISurfaceData->hBitmap = CreateDIBSection(hDC, &bmi, DIB_RGB_COLORS, &pGDISurfaceData->pBitmapData, NULL, 0);
+        if (pGDISurfaceData->hBitmap == NULL) {
+            return EASY2D_FALSE;
+        }
+    }
+    else
+    {
+        pGDISurfaceData->hBitmap = NULL;
+        pGDISurfaceData->hDC     = NULL;
     }
 
 
@@ -525,16 +574,45 @@ void easy2d_begin_draw_gdi(easy2d_surface* pSurface)
 
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL) {
-        SelectObject(easy2d_get_HDC(pSurface->pContext), pGDIData->hBitmap);
+        if (pGDIData->hWnd != NULL) {
+            pGDIData->hDC = BeginPaint(pGDIData->hWnd, &pGDIData->ps);
+        } else {
+            SelectObject(easy2d_get_HDC(pSurface), pGDIData->hBitmap);
+        }
+
+        HDC hDC = easy2d_get_HDC(pSurface);
+        
+        // Retrieve the defaults so they can be restored later.
+        pGDIData->hPrevPen       = GetCurrentObject(hDC, OBJ_PEN);
+        pGDIData->hPrevBrush     = GetCurrentObject(hDC, OBJ_BRUSH);
+        pGDIData->prevBrushColor = GetDCBrushColor(hDC);
+        pGDIData->hPrevFont      = GetCurrentObject(hDC, OBJ_FONT);
+        pGDIData->prevBkMode     = GetBkMode(hDC);
+        pGDIData->prevBkColor    = GetBkColor(hDC);
     }
 }
 
 void easy2d_end_draw_gdi(easy2d_surface* pSurface)
 {
     assert(pSurface != NULL);
-    (void)pSurface;
 
-    SelectClipRgn(easy2d_get_HDC(pSurface->pContext), NULL);
+    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDIData != NULL) {
+        HDC hDC = easy2d_get_HDC(pSurface);
+
+        SelectClipRgn(hDC, NULL);
+
+        SelectObject(hDC, pGDIData->hPrevPen);
+        SelectObject(hDC, pGDIData->hPrevBrush);
+        SetDCBrushColor(hDC, pGDIData->prevBrushColor);
+        SelectObject(hDC, pGDIData->hPrevFont);
+        SetBkMode(hDC, pGDIData->prevBkMode);
+        SetBkColor(hDC, pGDIData->prevBkColor);
+
+        if (pGDIData->hWnd != NULL) {
+            EndPaint(pGDIData->hWnd, &pGDIData->ps);
+        }
+    }
 }
 
 void easy2d_clear_gdi(easy2d_surface* pSurface, easy2d_color color)
@@ -551,9 +629,10 @@ void easy2d_draw_rect_gdi(easy2d_surface* pSurface, float left, float top, float
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+        HDC hDC = easy2d_get_HDC(pSurface);
 
-        // Set the color.
+        SelectObject(hDC, GetStockObject(NULL_PEN));
+        SelectObject(hDC, GetStockObject(DC_BRUSH));
         SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
 
         // Now draw the rectangle. The documentation for this says that the width and height is 1 pixel less when the pen is null. Therefore we will
@@ -569,18 +648,16 @@ void easy2d_draw_rect_outline_gdi(easy2d_surface* pSurface, float left, float to
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+        HDC hDC = easy2d_get_HDC(pSurface);
 
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(color.r, color.g, color.b));
         if (hPen != NULL)
         {
-            HGDIOBJ hPrevBrush = SelectObject(hDC, GetStockObject(NULL_BRUSH));
-            HGDIOBJ hPrevPen   = SelectObject(hDC, hPen);
+            SelectObject(hDC, GetStockObject(NULL_BRUSH));
+            SelectObject(hDC, hPen);
 
             Rectangle(hDC, (int)left, (int)top, (int)right, (int)bottom);
 
-            SelectObject(hDC, hPrevPen);
-            SelectObject(hDC, hPrevBrush);
             DeleteObject(hPen);
         }
     }
@@ -593,18 +670,17 @@ void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, flo
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+        HDC hDC = easy2d_get_HDC(pSurface);
 
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(outlineColor.r, outlineColor.g, outlineColor.b));
         if (hPen != NULL)
         {
-            COLORREF prevBrushColor = SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
-            HGDIOBJ  hPrevPen       = SelectObject(hDC, hPen);
-
+            SelectObject(hDC, hPen);
+            SelectObject(hDC, GetStockObject(DC_BRUSH));
+            SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
+            
             Rectangle(hDC, (int)left, (int)top, (int)right, (int)bottom);
 
-            SelectObject(hDC, hPrevPen);
-            SetDCBrushColor(hDC, prevBrushColor);
             DeleteObject(hPen);
         }
     }
@@ -617,11 +693,13 @@ void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top,
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+        HDC hDC = easy2d_get_HDC(pSurface);
 
+        SelectObject(hDC, GetStockObject(NULL_PEN));
+        SelectObject(hDC, GetStockObject(DC_BRUSH));
         SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
+
         RoundRect(hDC, (int)left, (int)top, (int)right + 1, (int)bottom + 1, (int)(radius*2), (int)(radius*2));
-        GdiFlush();
     }
 }
 
@@ -632,18 +710,16 @@ void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, fl
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+        HDC hDC = easy2d_get_HDC(pSurface);
 
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(color.r, color.g, color.b));
         if (hPen != NULL)
         {
-            HGDIOBJ hPrevBrush = SelectObject(hDC, GetStockObject(NULL_BRUSH));
-            HGDIOBJ hPrevPen   = SelectObject(hDC, hPen);
+            SelectObject(hDC, GetStockObject(NULL_BRUSH));
+            SelectObject(hDC, hPen);
 
             RoundRect(hDC, (int)left, (int)top, (int)right, (int)bottom, (int)(radius*2), (int)(radius*2));
 
-            SelectObject(hDC, hPrevPen);
-            SelectObject(hDC, hPrevBrush);
             DeleteObject(hPen);
         }
     }
@@ -656,18 +732,17 @@ void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float lef
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+        HDC hDC = easy2d_get_HDC(pSurface);
 
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(outlineColor.r, outlineColor.g, outlineColor.b));
         if (hPen != NULL)
         {
-            COLORREF prevBrushColor = SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
-            HGDIOBJ  hPrevPen       = SelectObject(hDC, hPen);
+            SelectObject(hDC, hPen);
+            SelectObject(hDC, GetStockObject(DC_BRUSH));
+            SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
 
             RoundRect(hDC, (int)left, (int)top, (int)right, (int)bottom, (int)(radius*2), (int)(radius*2));
 
-            SelectObject(hDC, hPrevPen);
-            SetDCBrushColor(hDC, prevBrushColor);
             DeleteObject(hPen);
         }
     }
@@ -678,7 +753,7 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, const char* text, unsigned i
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+        HDC hDC = easy2d_get_HDC(pSurface);
 
         HFONT hFontGDI = (HFONT)font;
         if (hFontGDI != NULL)
@@ -712,7 +787,7 @@ void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float 
     gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface->pContext);
+        HDC hDC = easy2d_get_HDC(pSurface);
 
         SelectClipRgn(hDC, NULL);
         IntersectClipRect(hDC, (int)left, (int)top, (int)right, (int)bottom);
@@ -727,7 +802,7 @@ void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopO
     if (pGDIData != NULL)
     {
         RECT rect;
-        GetClipBox(easy2d_get_HDC(pSurface->pContext), &rect);
+        GetClipBox(easy2d_get_HDC(pSurface), &rect);
 
         if (pLeftOut != NULL) {
             *pLeftOut = (float)rect.left;
