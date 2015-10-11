@@ -141,6 +141,13 @@ void easygui_end_auto_dirty(easygui_element* pElement);
 void easygui_auto_dirty(easygui_element* pTopLevelElement, easygui_rect rect);
 
 
+/// Recursively applies the given offset to the absolute positions of the children of the given element.
+///
+/// @remarks
+///     This is called when the absolute position of an element is changed.
+void easygui_apply_offset_to_children_recursive(easygui_element* pParentElement, float offsetX, float offsetY);
+
+
 /// The function to call when the mouse may have entered into a new element.
 void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easygui_element* pNewElementUnderMouse);
 
@@ -515,6 +522,24 @@ void easygui_auto_dirty(easygui_element* pElement, easygui_rect relativeRect)
     if (easygui_is_auto_dirty_enabled(pElement->pContext)) {
         easygui_begin_auto_dirty(pElement, relativeRect);
         easygui_end_auto_dirty(pElement);
+    }
+}
+
+
+void easygui_apply_offset_to_children_recursive(easygui_element* pParentElement, float offsetX, float offsetY)
+{
+    assert(pParentElement != NULL);
+
+    for (easygui_element* pChild = pParentElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
+    {
+        easygui_begin_auto_dirty(pParentElement, easygui_get_element_local_rect(pParentElement));
+        {
+            pChild->absolutePosX += offsetX;
+            pChild->absolutePosY += offsetY;
+
+            easygui_apply_offset_to_children_recursive(pChild, offsetX, offsetY);
+        }
+        easygui_end_auto_dirty(pParentElement);
     }
 }
 
@@ -1929,10 +1954,15 @@ void easygui_set_element_absolute_position(easygui_element* pElement, float posi
 {
     if (pElement != NULL) {
         easygui_begin_auto_dirty(pElement, easygui_get_element_local_rect(pElement));
+        {
+            float offsetX = positionX - pElement->absolutePosX;
+            float offsetY = positionY - pElement->absolutePosY;
 
-        pElement->absolutePosX = positionX;
-        pElement->absolutePosY = positionY;
+            pElement->absolutePosX = positionX;
+            pElement->absolutePosY = positionY;
 
+            easygui_apply_offset_to_children_recursive(pElement, offsetX, offsetY);
+        }
         easygui_end_auto_dirty(pElement);
     }
 }
@@ -1973,17 +2003,14 @@ float easygui_get_element_absolute_position_y(const easygui_element* pElement)
 void easygui_set_element_relative_position(easygui_element* pElement, float relativePosX, float relativePosY)
 {
     if (pElement != NULL) {
-        easygui_begin_auto_dirty(pElement, easygui_get_element_local_rect(pElement));
-
-        pElement->absolutePosX = relativePosX;
-        pElement->absolutePosY = relativePosY;
-
-        if (pElement->pParent != NULL) {
-            pElement->absolutePosX += pElement->pParent->absolutePosX;
-            pElement->absolutePosY += pElement->pParent->absolutePosY;
+        if (pElement->pParent != NULL)
+        {
+            easygui_set_element_absolute_position(pElement, pElement->pParent->absolutePosX + relativePosX, pElement->pParent->absolutePosY + relativePosY);
         }
-
-        easygui_end_auto_dirty(pElement);
+        else
+        {
+            easygui_set_element_absolute_position(pElement, relativePosX, relativePosY);
+        }
     }
 }
 
