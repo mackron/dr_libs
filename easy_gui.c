@@ -1396,6 +1396,14 @@ void easygui_delete_element(easygui_element* pElement)
         easygui_release_keyboard(pContext);
     }
 
+    // Is this element in the middle of being marked as dirty?
+    if (pContext->pDirtyTopLevelElement == pElement)
+    {
+        easygui_log(pContext, "WARNING: Deleting an element while it is being marked as dirty.");
+        pContext->pDirtyTopLevelElement = NULL;
+    }
+    
+
 
     // Deleting this element may have resulted in the mouse entering a new element. Here is where we do a mouse enter/leave update.
     if (needsMouseUpdate)
