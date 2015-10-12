@@ -6,22 +6,6 @@
 #include <stdio.h>
 #include <string.h>     // For memmove()
 
-void easyutil_parse_key_value_pairs_error(void* pUserData, key_value_error_proc onError, unsigned int line, const char* format, ...)
-{
-    if (onError)
-    {
-        va_list args;
-        va_start(args, format);
-        {
-            char msg[4096];
-            vsnprintf(msg, sizeof(msg), format, args);
-
-            onError(pUserData, msg, line);
-        }
-        va_end(args);
-    }
-}
-
 void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_proc onPair, key_value_error_proc onError, void* pUserData)
 {
     if (onRead == NULL) {
@@ -117,14 +101,22 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 
             // Validation.
             if (pV[0] == '\n') {
-                easyutil_parse_key_value_pairs_error(pUserData, onError, iLine, "%s - %s", pK, "Unexpected new-line character. Pairs must be placed on a single line.");
+                if (onError) {
+                    char msg[4096];
+                    snprintf(msg, sizeof(msg), "%s - %s", pK, "Unexpected new-line character. Pairs must be placed on a single line.");
+                    onError(pUserData, msg, iLine);
+                }
 
                 pL = pV;
                 goto move_to_end_of_line;
             }
             if (pV[0] == '#') {
-                easyutil_parse_key_value_pairs_error(pUserData, onError, iLine, "%s - %s", pK, "Unexpected end of key/pair declaration. Pairs must be decalared as <key><whitespace><value>.");
-                
+                if (onError) {
+                    char msg[4096];
+                    snprintf(msg, sizeof(msg), "%s - %s", pK, "Unexpected end of key/pair declaration. Pairs must be decalared as <key><whitespace><value>.");
+                    onError(pUserData, msg, iLine);
+                }
+
                 pL = pV;
                 goto move_to_end_of_line;
             }
@@ -218,7 +210,12 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
                 // end of the line. If we are not trying to seek past the line it means the key/value pair was too long.
                 if (moveToNextLineAfterNextChunkRead == 0)
                 {
-                    easyutil_parse_key_value_pairs_error(pUserData, onError, iLine, "%s", "Key/value pair is too long. A single line cannot exceed 4KB.");
+                    if (onError) {
+                        char msg[4096];
+                        snprintf(msg, sizeof(msg), "%s", "Key/value pair is too long. A single line cannot exceed 4KB.");
+                        onError(pUserData, msg, iLine);
+                    }
+
                     moveToNextLineAfterNextChunkRead = 1;
                 }
                 

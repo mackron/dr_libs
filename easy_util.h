@@ -49,6 +49,8 @@ extern "C" {
 
 
 typedef int easyutil_bool;
+#define EASYUTIL_FALSE  0
+#define EASYUTIL_TRUE   1
 
 
 #define STRINGIFY(x)    #x
