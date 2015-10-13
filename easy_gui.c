@@ -2365,7 +2365,7 @@ void easygui_get_clip(easygui_element* pElement, easygui_rect* pRelativeRect, vo
     pElement->pContext->paintingCallbacks.getClip(pRelativeRect, pPaintData);
 
     // The clip returned by the drawing callback will be absolute so we'll need to convert that to relative.
-    easygui_make_rect_absolute(pElement, pRelativeRect);
+    easygui_make_rect_relative(pElement, pRelativeRect);
 }
 
 void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData)
