@@ -321,91 +321,41 @@ easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOu
 
 #if defined(_WIN32) || defined(_WIN64)
 
-// Normally we would include the two files below, but of course they are not in the latest build
-// of MinGW at the time of writing. Thus, we need to just copy the structures from the MSDN
-// documentation until MinGW adds these files.
-#if 0
-#include <VersionHelpers.h>
-#include <ShellScalingApi.h>
-#else
-#if defined(__clang__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#endif
 typedef enum PROCESS_DPI_AWARENESS {
     PROCESS_DPI_UNAWARE = 0,
     PROCESS_SYSTEM_DPI_AWARE = 1,
     PROCESS_PER_MONITOR_DPI_AWARE = 2
 } PROCESS_DPI_AWARENESS;
 
-typedef enum MONITOR_DPI_TYPE {
-    MDT_EFFECTIVE_DPI = 0,
-    MDT_ANGULAR_DPI = 1,
-    MDT_RAW_DPI = 2,
-    MDT_DEFAULT = MDT_EFFECTIVE_DPI
-} MONITOR_DPI_TYPE;
-
-#define VERSIONHELPERAPI FORCEINLINE BOOL
-
-static VERSIONHELPERAPI IsWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersion, WORD wServicePackMajor)
-{
-    DWORDLONG dwlConditionMask_Major = VerSetConditionMask(0,                      VER_MAJORVERSION,     VER_GREATER_EQUAL);
-    DWORDLONG dwlConditionMask_Minor = VerSetConditionMask(dwlConditionMask_Major, VER_MINORVERSION,     VER_GREATER_EQUAL);
-    DWORDLONG dwlConditionMask       = VerSetConditionMask(dwlConditionMask_Minor, VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL);
-
-    OSVERSIONINFOEXW osvi;
-    ZeroMemory(&osvi, sizeof(osvi));
-    osvi.dwOSVersionInfoSize = sizeof(osvi);
-    osvi.dwMajorVersion = wMajorVersion;
-    osvi.dwMinorVersion = wMinorVersion;
-    osvi.wServicePackMajor = wServicePackMajor;
-    return VerifyVersionInfoW(&osvi, VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR, dwlConditionMask) != FALSE;
-}
-
-static VERSIONHELPERAPI IsWindows8Point1OrGreater()
-{
-    return IsWindowsVersionOrGreater(HIBYTE(0x0603), LOBYTE(0x0603), 0);
-}
-#if defined(__clang__)
-    #pragma GCC diagnostic pop
-#endif
-#endif
-
 typedef BOOL    (__stdcall * PFN_SetProcessDPIAware)     (void);
 typedef HRESULT (__stdcall * PFN_SetProcessDpiAwareness) (PROCESS_DPI_AWARENESS);
-typedef HRESULT (__stdcall * PFN_GetDpiForMonitor)       (HMONITOR hmonitor, MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
 
 void win32_make_dpi_aware()
 {
     easyutil_bool fallBackToDiscouragedAPI = EASYUTIL_FALSE;
 
-    // The application should be DPI aware.
-    if (IsWindows8Point1OrGreater())
+    // We can't call SetProcessDpiAwareness() directly because otherwise on versions of Windows < 8.1 we'll get an error at load time about
+    // a missing DLL.
+    HMODULE hSHCoreDLL = LoadLibraryW(L"shcore.dll");
+    if (hSHCoreDLL != NULL)
     {
-        // We can't call SetProcessDpiAwareness() directly because otherwise on versions of Windows < 8.1 we'll get an error at load time about
-        // a missing DLL.
-        HMODULE hSHCoreDLL = LoadLibraryW(L"shcore.dll");
-        if (hSHCoreDLL != NULL)
+        PFN_SetProcessDpiAwareness _SetProcessDpiAwareness = (PFN_SetProcessDpiAwareness)GetProcAddress(hSHCoreDLL, "SetProcessDpiAwareness");
+        if (_SetProcessDpiAwareness != NULL)
         {
-            PFN_SetProcessDpiAwareness _SetProcessDpiAwareness = (PFN_SetProcessDpiAwareness)GetProcAddress(hSHCoreDLL, "SetProcessDpiAwareness");
-            if (_SetProcessDpiAwareness != NULL) {
-                _SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-            } else {
-                // Couldn't find SetProcessDpiAwareness() so fall back to the discouraged API.
+            if (_SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE) != S_OK)
+            {
                 fallBackToDiscouragedAPI = EASYUTIL_TRUE;
             }
-
-            FreeLibrary(hSHCoreDLL);
         }
         else
         {
-            // Couldn't find shcore.dll so fall back to the discouraged API.
             fallBackToDiscouragedAPI = EASYUTIL_TRUE;
         }
+
+        FreeLibrary(hSHCoreDLL);
     }
     else
     {
-        // Not running at least Windows 8.1 so fall back to the discouraged API.
         fallBackToDiscouragedAPI = EASYUTIL_TRUE;
     }
 
