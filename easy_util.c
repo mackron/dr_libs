@@ -40,6 +40,8 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
         while (chunkBytesRemaining > 0)
         {
             char* pL = chunkData + (chunkSize - chunkBytesRemaining);       // The current position in the line.
+            char* pK = NULL;
+            char* pV = NULL;
             
             if (moveToNextLineAfterNextChunkRead) {
                 goto move_to_end_of_line;
@@ -47,7 +49,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 
 
             //// Key ////
-            char* pK = pL;
+            pK = pL;
 
             // Leading whitespace.
             while (pK < pChunkEnd && (pK[0] == ' ' || pK[0] == '\t' || pK[0] == '\r' || pK[0] == '\n' || pK[0] == '#')) {
@@ -77,7 +79,19 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
                 pKEnd += 1;
             }
 
-            if (pKEnd == pChunkEnd) {
+            if (pKEnd == pChunkEnd)
+            {
+                if (!isMoreDataAvailable)
+                {
+                    if (pKEnd < chunkData + sizeof(chunkData)) {
+                        pKEnd[0] = '\0';
+                    }
+
+                    pL = pKEnd;
+                    pV = NULL;
+                    goto post_on_pair;
+                }
+
                 break;  // Ran out of data.
             }
 
@@ -87,7 +101,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 
 
             //// Value ////
-            char* pV = pKEnd + 1;
+            pV = pKEnd + 1;
 
             // Leading whitespace.
             while (pV < pChunkEnd && (pV[0] == ' ' || pV[0] == '\t' || pV[0] == '\r')) {
@@ -99,28 +113,14 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
             }
 
 
-            // Validation.
-            if (pV[0] == '\n') {
-                if (onError) {
-                    char msg[4096];
-                    snprintf(msg, sizeof(msg), "%s - %s", pK, "Unexpected new-line character. Pairs must be placed on a single line.");
-                    onError(pUserData, msg, iLine);
-                }
-
+            // Validation. If we got to the end of the line before finding a value, we just assume it was a value-less key which we'll consider to be valid.
+            if (pV[0] == '\n' || pV[0] == '#')
+            {
                 pL = pV;
-                goto move_to_end_of_line;
+                pV = NULL;
+                goto post_on_pair;
             }
-            if (pV[0] == '#') {
-                if (onError) {
-                    char msg[4096];
-                    snprintf(msg, sizeof(msg), "%s - %s", pK, "Unexpected end of key/pair declaration. Pairs must be decalared as <key><whitespace><value>.");
-                    onError(pUserData, msg, iLine);
-                }
-
-                pL = pV;
-                goto move_to_end_of_line;
-            }
-
+            
 
             // Don't include double quotes in the result.
             if (pV[0] == '"') {
@@ -128,7 +128,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
             }
 
 
-            // Keep looping until the end of the line, but track the last non-whitespace character.
+            // Trailing whitespace. Keep looping until the end of the line, but track the last non-whitespace character.
             char* pEOL = pV;
             char* pVEnd = pV;
             while (pEOL < pChunkEnd && pEOL[0] != '\n' && pEOL[0] != '#')
@@ -163,6 +163,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 
 
             // We should have a valid pair at this point.
+            post_on_pair:
             if (onPair) {
                 onPair(pUserData, pK, pV);
             }
