@@ -346,7 +346,7 @@ typedef enum MONITOR_DPI_TYPE {
 
 #define VERSIONHELPERAPI FORCEINLINE BOOL
 
-VERSIONHELPERAPI IsWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersion, WORD wServicePackMajor)
+static VERSIONHELPERAPI IsWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersion, WORD wServicePackMajor)
 {
     DWORDLONG dwlConditionMask_Major = VerSetConditionMask(0,                      VER_MAJORVERSION,     VER_GREATER_EQUAL);
     DWORDLONG dwlConditionMask_Minor = VerSetConditionMask(dwlConditionMask_Major, VER_MINORVERSION,     VER_GREATER_EQUAL);
@@ -361,7 +361,7 @@ VERSIONHELPERAPI IsWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersio
     return VerifyVersionInfoW(&osvi, VER_MAJORVERSION | VER_MINORVERSION | VER_SERVICEPACKMAJOR, dwlConditionMask) != FALSE;
 }
 
-VERSIONHELPERAPI IsWindows8Point1OrGreater()
+static VERSIONHELPERAPI IsWindows8Point1OrGreater()
 {
     return IsWindowsVersionOrGreater(HIBYTE(0x0603), LOBYTE(0x0603), 0);
 }
