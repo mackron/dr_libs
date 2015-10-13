@@ -1293,11 +1293,13 @@ void easygui_register_on_log(easygui_context* pContext, easygui_on_log onLog)
 /////////////////////////////////////////////////////////////////
 // Elements
 
-easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent)
+easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent, unsigned int extraDataSize)
 {
-    if (pContext != NULL) {
-        easygui_element* pElement = (easygui_element*)malloc(sizeof(easygui_element));
-        if (pElement != NULL) {
+    if (pContext != NULL)
+    {
+        easygui_element* pElement = (easygui_element*)malloc(sizeof(easygui_element) - sizeof(pElement->pExtraData) + extraDataSize);
+        if (pElement != NULL)
+        {
             pElement->pContext              = pContext;
             pElement->pParent               = pParent;
             pElement->pFirstChild           = NULL;
@@ -1305,7 +1307,6 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
             pElement->pNextSibling          = NULL;
             pElement->pPrevSibling          = NULL;
             pElement->pNextDeadElement      = NULL;
-            pElement->pUserData             = NULL;
             pElement->absolutePosX          = 0;
             pElement->absolutePosY          = 0;
             pElement->width                 = 0;
@@ -1328,7 +1329,8 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
             pElement->onReleaseMouse        = NULL;
             pElement->onCaptureKeyboard     = NULL;
             pElement->onReleaseKeyboard     = NULL;
-
+            pElement->extraDataSize         = extraDataSize;
+            memset(pElement->pExtraData, 0, extraDataSize);
 
             // Add to the the hierarchy.
             easygui_append_without_detach_or_redraw(pElement, pElement->pParent);
@@ -1427,20 +1429,22 @@ void easygui_delete_element(easygui_element* pElement)
 }
 
 
-void* easygui_get_user_data(easygui_element* pElement)
+unsigned int easygui_get_extra_data_size(easygui_element* pElement)
 {
     if (pElement != NULL) {
-        return pElement->pUserData;
+        return pElement->extraDataSize;
+    }
+
+    return 0;
+}
+
+void* easygui_get_extra_data(easygui_element* pElement)
+{
+    if (pElement != NULL) {
+        return pElement->pExtraData;
     }
 
     return NULL;
-}
-
-void easygui_set_user_data(easygui_element* pElement, void* pUserData)
-{
-    if (pElement != NULL) {
-        pElement->pUserData = pUserData;
-    }
 }
 
 
