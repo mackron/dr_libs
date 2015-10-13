@@ -149,7 +149,7 @@ EASYUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 #ifndef EASYUTIL_NO_ALIGNED_MALLOC
 EASYUTIL_INLINE void* aligned_malloc(size_t alignment, size_t size)
 {
-#if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32) || defined(_WIN64)
     return _aligned_malloc(size, alignment);
 #else
     void* pResult;
@@ -163,7 +163,7 @@ EASYUTIL_INLINE void* aligned_malloc(size_t alignment, size_t size)
 
 EASYUTIL_INLINE void aligned_free(void* ptr)
 {
-#if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32) || defined(_WIN64)
     _aligned_free(ptr);
 #else
     free(ptr);
@@ -210,6 +210,15 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be ~/.config
 easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize);
 
+
+
+/////////////////////////////////////////////////////////
+// DPI Awareness
+
+#if defined(_WIN32) || defined(_WIN64)
+/// Win32 Only: Makes the application DPI aware.
+void win32_make_dpi_aware();
+#endif
 
 
 /////////////////////////////////////////////////////////
