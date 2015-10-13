@@ -532,7 +532,7 @@ void easygui_apply_offset_to_children_recursive(easygui_element* pParentElement,
 
     for (easygui_element* pChild = pParentElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
     {
-        easygui_begin_auto_dirty(pParentElement, easygui_get_element_local_rect(pParentElement));
+        easygui_begin_auto_dirty(pParentElement, easygui_get_local_rect(pParentElement));
         {
             pChild->absolutePosX += offsetX;
             pChild->absolutePosY += offsetY;
@@ -1801,7 +1801,7 @@ easygui_element* easygui_find_element_under_point(easygui_element* pTopLevelElem
     data.pElementUnderPoint = NULL;
     data.absolutePosX = absolutePosX;
     data.absolutePosY = absolutePosY;
-    easygui_iterate_visible_elements(pTopLevelElement, easygui_get_element_absolute_rect(pTopLevelElement), easygui_find_element_under_point_iterator, &data);
+    easygui_iterate_visible_elements(pTopLevelElement, easygui_get_absolute_rect(pTopLevelElement), easygui_find_element_under_point_iterator, &data);
 
     return data.pElementUnderPoint;
 }
@@ -1824,7 +1824,7 @@ void easygui_detach(easygui_element* pChildElement)
 
     // The region of the old parent needs to be redrawn.
     if (pOldParent != NULL) {
-        easygui_auto_dirty(pOldParent, easygui_get_element_relative_rect(pOldParent));
+        easygui_auto_dirty(pOldParent, easygui_get_relative_rect(pOldParent));
     }
 }
 
@@ -1962,10 +1962,10 @@ easygui_bool easygui_is_descendant(easygui_element* pChildElement, easygui_eleme
 
 //// Layout ////
 
-void easygui_set_element_absolute_position(easygui_element* pElement, float positionX, float positionY)
+void easygui_set_absolute_position(easygui_element* pElement, float positionX, float positionY)
 {
     if (pElement != NULL) {
-        easygui_begin_auto_dirty(pElement, easygui_get_element_local_rect(pElement));
+        easygui_begin_auto_dirty(pElement, easygui_get_local_rect(pElement));
         {
             float offsetX = positionX - pElement->absolutePosX;
             float offsetY = positionY - pElement->absolutePosY;
@@ -1979,7 +1979,7 @@ void easygui_set_element_absolute_position(easygui_element* pElement, float posi
     }
 }
 
-void easygui_get_element_absolute_position(const easygui_element* pElement, float * positionXOut, float * positionYOut)
+void easygui_get_absolute_position(const easygui_element* pElement, float * positionXOut, float * positionYOut)
 {
     if (pElement != NULL)
     {
@@ -1993,7 +1993,7 @@ void easygui_get_element_absolute_position(const easygui_element* pElement, floa
     }
 }
 
-float easygui_get_element_absolute_position_x(const easygui_element* pElement)
+float easygui_get_absolute_position_x(const easygui_element* pElement)
 {
     if (pElement != NULL) {
         return pElement->absolutePosX;
@@ -2002,7 +2002,7 @@ float easygui_get_element_absolute_position_x(const easygui_element* pElement)
     return 0.0f;
 }
 
-float easygui_get_element_absolute_position_y(const easygui_element* pElement)
+float easygui_get_absolute_position_y(const easygui_element* pElement)
 {
     if (pElement != NULL) {
         return pElement->absolutePosY;
@@ -2012,21 +2012,21 @@ float easygui_get_element_absolute_position_y(const easygui_element* pElement)
 }
 
 
-void easygui_set_element_relative_position(easygui_element* pElement, float relativePosX, float relativePosY)
+void easygui_set_relative_position(easygui_element* pElement, float relativePosX, float relativePosY)
 {
     if (pElement != NULL) {
         if (pElement->pParent != NULL)
         {
-            easygui_set_element_absolute_position(pElement, pElement->pParent->absolutePosX + relativePosX, pElement->pParent->absolutePosY + relativePosY);
+            easygui_set_absolute_position(pElement, pElement->pParent->absolutePosX + relativePosX, pElement->pParent->absolutePosY + relativePosY);
         }
         else
         {
-            easygui_set_element_absolute_position(pElement, relativePosX, relativePosY);
+            easygui_set_absolute_position(pElement, relativePosX, relativePosY);
         }
     }
 }
 
-void easygui_get_element_relative_position(const easygui_element* pElement, float* positionXOut, float* positionYOut)
+void easygui_get_relative_position(const easygui_element* pElement, float* positionXOut, float* positionYOut)
 {
     if (pElement != NULL)
     {
@@ -2053,7 +2053,7 @@ void easygui_get_element_relative_position(const easygui_element* pElement, floa
     }
 }
 
-float easygui_get_element_relative_position_x(const easygui_element* pElement)
+float easygui_get_relative_position_x(const easygui_element* pElement)
 {
     if (pElement != NULL) {
         if (pElement->pParent != NULL) {
@@ -2066,7 +2066,7 @@ float easygui_get_element_relative_position_x(const easygui_element* pElement)
     return 0;
 }
 
-float easygui_get_element_relative_position_y(const easygui_element* pElement)
+float easygui_get_relative_position_y(const easygui_element* pElement)
 {
     if (pElement != NULL) {
         if (pElement->pParent != NULL) {
@@ -2080,7 +2080,7 @@ float easygui_get_element_relative_position_y(const easygui_element* pElement)
 }
 
 
-void easygui_set_element_size(easygui_element* pElement, float width, float height)
+void easygui_set_size(easygui_element* pElement, float width, float height)
 {
     if (pElement != NULL) {
         easygui_begin_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
@@ -2092,7 +2092,7 @@ void easygui_set_element_size(easygui_element* pElement, float width, float heig
     }
 }
 
-void easygui_get_element_size(const easygui_element* pElement, float* widthOut, float* heightOut)
+void easygui_get_size(const easygui_element* pElement, float* widthOut, float* heightOut)
 {
     if (pElement != NULL) {
         if (widthOut != NULL) {
@@ -2105,7 +2105,7 @@ void easygui_get_element_size(const easygui_element* pElement, float* widthOut, 
     }
 }
 
-float easygui_get_element_width(const easygui_element * pElement)
+float easygui_get_width(const easygui_element * pElement)
 {
     if (pElement != NULL) {
         return pElement->width;
@@ -2114,7 +2114,7 @@ float easygui_get_element_width(const easygui_element * pElement)
     return 0;
 }
 
-float easygui_get_element_height(const easygui_element * pElement)
+float easygui_get_height(const easygui_element * pElement)
 {
     if (pElement != NULL) {
         return pElement->height;
@@ -2124,7 +2124,7 @@ float easygui_get_element_height(const easygui_element * pElement)
 }
 
 
-easygui_rect easygui_get_element_absolute_rect(const easygui_element* pElement)
+easygui_rect easygui_get_absolute_rect(const easygui_element* pElement)
 {
     easygui_rect rect;
     if (pElement != NULL)
@@ -2145,13 +2145,13 @@ easygui_rect easygui_get_element_absolute_rect(const easygui_element* pElement)
     return rect;
 }
 
-easygui_rect easygui_get_element_relative_rect(const easygui_element* pElement)
+easygui_rect easygui_get_relative_rect(const easygui_element* pElement)
 {
     easygui_rect rect;
     if (pElement != NULL)
     {
-        rect.left   = easygui_get_element_relative_position_x(pElement);
-        rect.top    = easygui_get_element_relative_position_y(pElement);
+        rect.left   = easygui_get_relative_position_x(pElement);
+        rect.top    = easygui_get_relative_position_y(pElement);
         rect.right  = rect.left + pElement->width;
         rect.bottom = rect.top  + pElement->height;
     }
@@ -2166,7 +2166,7 @@ easygui_rect easygui_get_element_relative_rect(const easygui_element* pElement)
     return rect;
 }
 
-easygui_rect easygui_get_element_local_rect(const easygui_element* pElement)
+easygui_rect easygui_get_local_rect(const easygui_element* pElement)
 {
     easygui_rect rect;
     rect.left = 0;
@@ -2250,8 +2250,8 @@ easygui_bool easygui_iterate_visible_elements(easygui_element* pParentElement, e
 
     for (easygui_element* pChild = pParentElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
     {
-        float childRelativePosX = easygui_get_element_relative_position_x(pChild);
-        float childRelativePosY = easygui_get_element_relative_position_y(pChild);
+        float childRelativePosX = easygui_get_relative_position_x(pChild);
+        float childRelativePosY = easygui_get_relative_position_y(pChild);
 
         easygui_rect childRect;
         if (easygui_is_clipping_enabled(pChild)) {
@@ -2546,7 +2546,7 @@ void easygui_draw_border(easygui_element* pElement, float borderWidth, easygui_c
     easygui_draw_rect(pElement, borderBottom, color, pUserData);
 #endif
 
-    easygui_draw_rect_outline(pElement, easygui_get_element_local_rect(pElement), color, borderWidth, pUserData);
+    easygui_draw_rect_outline(pElement, easygui_get_local_rect(pElement), color, borderWidth, pUserData);
 }
 
 

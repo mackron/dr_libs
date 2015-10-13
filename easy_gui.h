@@ -98,7 +98,7 @@
 //
 // Basic Drawing:
 //
-// easygui_draw(pTopLevelElement, 0, 0, easygui_get_element_width(pTopLevelElement), easygui_get_element_height(pTopLevelElement));
+// easygui_draw(pTopLevelElement, 0, 0, easygui_get_width(pTopLevelElement), easygui_get_height(pTopLevelElement));
 //
 // -------------------------
 //
@@ -737,43 +737,43 @@ easygui_bool easygui_is_descendant(easygui_element* pChildElement, easygui_eleme
 //// Layout ////
 
 /// Sets the absolute position of the given element.
-void easygui_set_element_absolute_position(easygui_element* pElement, float positionX, float positionY);
+void easygui_set_absolute_position(easygui_element* pElement, float positionX, float positionY);
 
 /// Retrieves the absolute position of the given element.
-void easygui_get_element_absolute_position(const easygui_element* pElement, float* positionXOut, float* positionYOut);
-float easygui_get_element_absolute_position_x(const easygui_element* pElement);
-float easygui_get_element_absolute_position_y(const easygui_element* pElement);
+void easygui_get_absolute_position(const easygui_element* pElement, float* positionXOut, float* positionYOut);
+float easygui_get_absolute_position_x(const easygui_element* pElement);
+float easygui_get_absolute_position_y(const easygui_element* pElement);
 
 
 /// Sets the relative position of the given element.
-void easygui_set_element_relative_position(easygui_element* pElement, float relativePosX, float relativePosY);
+void easygui_set_relative_position(easygui_element* pElement, float relativePosX, float relativePosY);
 
 /// Retrieves the relative position of the given element.
-void easygui_get_element_relative_position(const easygui_element* pElement, float* relativePosXOut, float* relativePosYOut);
-float easygui_get_element_relative_position_x(const easygui_element* pElement);
-float easygui_get_element_relative_position_y(const easygui_element* pElement);
+void easygui_get_relative_position(const easygui_element* pElement, float* relativePosXOut, float* relativePosYOut);
+float easygui_get_relative_position_x(const easygui_element* pElement);
+float easygui_get_relative_position_y(const easygui_element* pElement);
 
 
 /// Sets the size of the given element.
-void easygui_set_element_size(easygui_element* pElement, float width, float height);
+void easygui_set_size(easygui_element* pElement, float width, float height);
 
 /// Retrieves the size of the given element.
-void easygui_get_element_size(const easygui_element* pElement, float* widthOut, float* heightOut);
-float easygui_get_element_width(const easygui_element* pElement);
-float easygui_get_element_height(const easygui_element* pElement);
+void easygui_get_size(const easygui_element* pElement, float* widthOut, float* heightOut);
+float easygui_get_width(const easygui_element* pElement);
+float easygui_get_height(const easygui_element* pElement);
 
 
 /// Retrieves the absolute rectangle for the given element.
-easygui_rect easygui_get_element_absolute_rect(const easygui_element* pElement);
+easygui_rect easygui_get_absolute_rect(const easygui_element* pElement);
 
 /// Retrieves the relative rectangle for the given element.
-easygui_rect easygui_get_element_relative_rect(const easygui_element* pElement);
+easygui_rect easygui_get_relative_rect(const easygui_element* pElement);
 
 /// Retrieves the local rectangle for the given element.
 ///
 /// @remarks
-///     The local rectangle is equivalent to easygui_make_rect(0, 0, easygui_get_element_width(pElement), easygui_get_element_height(pElement));
-easygui_rect easygui_get_element_local_rect(const easygui_element* pElement);
+///     The local rectangle is equivalent to easygui_make_rect(0, 0, easygui_get_width(pElement), easygui_get_height(pElement));
+easygui_rect easygui_get_local_rect(const easygui_element* pElement);
 
 
 
