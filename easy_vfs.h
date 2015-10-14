@@ -80,6 +80,7 @@ typedef int            (* easyvfs_write_file_proc)       (easyvfs_file* pFile, c
 typedef easyvfs_bool   (* easyvfs_seek_file_proc)        (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 typedef easyvfs_uint64 (* easyvfs_tell_file_proc)        (easyvfs_file* pFile);
 typedef easyvfs_uint64 (* easyvfs_file_size_proc)        (easyvfs_file* pFile);
+typedef void           (* easyvfs_flush_file_proc)       (easyvfs_file* pFile);
 typedef int            (* easyvfs_deletefile_proc)       (easyvfs_archive* pArchive, const char* path);
 typedef int            (* easyvfs_rename_file_proc)      (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
 typedef int            (* easyvfs_mkdir_proc)            (easyvfs_archive* pArchive, const char* path);
@@ -100,6 +101,7 @@ typedef struct
     easyvfs_seek_file_proc        seekfile;
     easyvfs_tell_file_proc        tellfile;
     easyvfs_file_size_proc        filesize;
+    easyvfs_flush_file_proc       flushfile;
     easyvfs_deletefile_proc       deletefile;
     easyvfs_rename_file_proc      renamefile;
     easyvfs_mkdir_proc            mkdir;
@@ -317,6 +319,9 @@ easyvfs_uint64 easyvfs_tell(easyvfs_file* pFile);
 
 /// Retrieves the size of the given file.
 easyvfs_uint64 easyvfs_file_size(easyvfs_file* pFile);
+
+/// Flushes the given file.
+void easyvfs_flush(easyvfs_file* pFile);
 
 
 

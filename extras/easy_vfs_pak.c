@@ -158,6 +158,7 @@ int            easyvfs_writefile_pak     (easyvfs_file* pFile, const void* src, 
 easyvfs_bool   easyvfs_seekfile_pak      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 easyvfs_uint64 easyvfs_tellfile_pak      (easyvfs_file* pFile);
 easyvfs_uint64 easyvfs_filesize_pak      (easyvfs_file* pFile);
+void           easyvfs_flushfile_pak     (easyvfs_file* pFile);
 int            easyvfs_deletefile_pak    (easyvfs_archive* pArchive, const char* path);
 int            easyvfs_renamefile_pak    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
 int            easyvfs_mkdir_pak         (easyvfs_archive* pArchive, const char* path);
@@ -179,6 +180,7 @@ void easyvfs_registerarchivecallbacks_pak(easyvfs_context* pContext)
     callbacks.seekfile       = easyvfs_seekfile_pak;
     callbacks.tellfile       = easyvfs_tellfile_pak;
     callbacks.filesize       = easyvfs_filesize_pak;
+    callbacks.flushfile      = easyvfs_flushfile_pak;
     callbacks.deletefile     = easyvfs_deletefile_pak;
     callbacks.renamefile     = easyvfs_renamefile_pak;
     callbacks.mkdir          = easyvfs_mkdir_pak;
@@ -612,6 +614,13 @@ easyvfs_uint64 easyvfs_filesize_pak(easyvfs_file* pFile)
     }
 
     return 0;
+}
+
+void easyvfs_flushfile_pak(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    // All files are read-only for now.
 }
 
 int easyvfs_deletefile_pak(easyvfs_archive* pArchive, const char* path)

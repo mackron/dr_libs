@@ -519,6 +519,7 @@ int            easyvfs_writefile_impl_native     (easyvfs_file* pFile, const voi
 easyvfs_bool   easyvfs_seekfile_impl_native      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 easyvfs_uint64 easyvfs_tellfile_impl_native      (easyvfs_file* pFile);
 easyvfs_uint64 easyvfs_filesize_impl_native      (easyvfs_file* pFile);
+void           easyvfs_flushfile_impl_native     (easyvfs_file* pFile);
 int            easyvfs_deletefile_impl_native    (easyvfs_archive* pArchive, const char* path);
 int            easyvfs_renamefile_impl_native    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
 int            easyvfs_mkdir_impl_native         (easyvfs_archive* pArchive, const char* path);
@@ -1104,6 +1105,7 @@ easyvfs_context* easyvfs_create_context()
             pContext->nativeCallbacks.seekfile       = easyvfs_seekfile_impl_native;
             pContext->nativeCallbacks.tellfile       = easyvfs_tellfile_impl_native;
             pContext->nativeCallbacks.filesize       = easyvfs_filesize_impl_native;
+            pContext->nativeCallbacks.flushfile      = easyvfs_flushfile_impl_native;
             pContext->nativeCallbacks.deletefile     = easyvfs_deletefile_impl_native;
             pContext->nativeCallbacks.renamefile     = easyvfs_renamefile_impl_native;
             pContext->nativeCallbacks.mkdir          = easyvfs_mkdir_impl_native;
@@ -1612,6 +1614,17 @@ easyvfs_uint64 easyvfs_file_size(easyvfs_file* pFile)
     }
 
     return 0;
+}
+
+void easyvfs_flush(easyvfs_file* pFile)
+{
+    if (pFile != NULL)
+    {
+        assert(pFile->pArchive  != NULL);
+        assert(pFile->pUserData != NULL);
+
+        pFile->pArchive->callbacks.flushfile(pFile);
+    }
 }
 
 
@@ -2250,6 +2263,14 @@ easyvfs_uint64 easyvfs_filesize_impl_native(easyvfs_file* pFile)
     }
 
     return 0;
+}
+
+void easyvfs_flushfile_impl_native(easyvfs_file* pFile)
+{
+    assert(pFile != NULL);
+    assert(pFile->pUserData != NULL);
+
+    FlushFileBuffers((HANDLE)pFile->pUserData);
 }
 
 int easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const char* path)
