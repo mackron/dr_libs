@@ -505,24 +505,24 @@ typedef struct
 
 
 /// Native implementations for archive callbacks.
-int            easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path);
+easyvfs_bool   easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path);
 void*          easyvfs_openarchive_impl_native   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
 void           easyvfs_closearchive_impl_native  (easyvfs_archive* pArchive);
-int            easyvfs_getfileinfo_impl_native   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
+easyvfs_bool   easyvfs_getfileinfo_impl_native   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
 void*          easyvfs_beginiteration_impl_native(easyvfs_archive* pArchive, const char* path);
 void           easyvfs_enditeration_impl_native  (easyvfs_archive* pArchive, easyvfs_iterator* i);
-int            easyvfs_nextiteration_impl_native (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+easyvfs_bool   easyvfs_nextiteration_impl_native (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
 void*          easyvfs_openfile_impl_native      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
 void           easyvfs_closefile_impl_native     (easyvfs_file* pFile);
-int            easyvfs_readfile_impl_native      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
-int            easyvfs_writefile_impl_native     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+easyvfs_bool   easyvfs_readfile_impl_native      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+easyvfs_bool   easyvfs_writefile_impl_native     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
 easyvfs_bool   easyvfs_seekfile_impl_native      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 easyvfs_uint64 easyvfs_tellfile_impl_native      (easyvfs_file* pFile);
 easyvfs_uint64 easyvfs_filesize_impl_native      (easyvfs_file* pFile);
 void           easyvfs_flushfile_impl_native     (easyvfs_file* pFile);
-int            easyvfs_deletefile_impl_native    (easyvfs_archive* pArchive, const char* path);
-int            easyvfs_renamefile_impl_native    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
-int            easyvfs_mkdir_impl_native         (easyvfs_archive* pArchive, const char* path);
+easyvfs_bool   easyvfs_deletefile_impl_native    (easyvfs_archive* pArchive, const char* path);
+easyvfs_bool   easyvfs_renamefile_impl_native    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+easyvfs_bool   easyvfs_mkdir_impl_native         (easyvfs_archive* pArchive, const char* path);
 
 
 easyvfs_file* easyvfs_archive_openfile(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
@@ -1939,7 +1939,7 @@ typedef struct
 
 }easyvfs_iterator_win32;
 
-int easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path)
+easyvfs_bool easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
 
@@ -1982,7 +1982,7 @@ void easyvfs_closearchive_impl_native(easyvfs_archive* pArchive)
     easyvfs_free(pArchive->pUserData);
 }
 
-int easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
+easyvfs_bool easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
 {
     assert(pArchive            != NULL);
     assert(pArchive->pUserData != NULL);
@@ -2089,7 +2089,7 @@ void easyvfs_enditeration_impl_native(easyvfs_archive* pArchive, easyvfs_iterato
     }
 }
 
-int easyvfs_nextiteration_impl_native(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
+easyvfs_bool easyvfs_nextiteration_impl_native(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
 {
     assert(pArchive != NULL);
     assert(i        != NULL);

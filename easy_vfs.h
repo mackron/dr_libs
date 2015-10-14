@@ -66,13 +66,13 @@ typedef struct easyvfs_file_info easyvfs_file_info;
 typedef struct easyvfs_iterator  easyvfs_iterator;
 
 
-typedef int            (* easyvfs_is_valid_archive_proc) (easyvfs_context* pContext, const char* path);
+typedef easyvfs_bool   (* easyvfs_is_valid_archive_proc) (easyvfs_context* pContext, const char* path);
 typedef void*          (* easyvfs_open_archive_proc)     (easyvfs_file* pFile, easyvfs_access_mode accessMode);
 typedef void           (* easyvfs_close_archive_proc)    (easyvfs_archive* pArchive);
-typedef int            (* easyvfs_get_file_info_proc)    (easyvfs_archive* pArchive, const char* path, easyvfs_file_info* fi);
+typedef easyvfs_bool   (* easyvfs_get_file_info_proc)    (easyvfs_archive* pArchive, const char* path, easyvfs_file_info* fi);
 typedef void*          (* easyvfs_begin_iteration_proc)  (easyvfs_archive* pArchive, const char* path);
 typedef void           (* easyvfs_end_iteration_proc)    (easyvfs_archive* pArchive, easyvfs_iterator* i);
-typedef int            (* easyvfs_next_iteration_proc)   (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+typedef easyvfs_bool   (* easyvfs_next_iteration_proc)   (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
 typedef void*          (* easyvfs_open_file_proc)        (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
 typedef void           (* easyvfs_close_file_proc)       (easyvfs_file* pFile);
 typedef easyvfs_bool   (* easyvfs_read_file_proc)        (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);

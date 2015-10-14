@@ -40,13 +40,13 @@ typedef struct
 
 
 
-int            easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path);
+easyvfs_bool   easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path);
 void*          easyvfs_openarchive_zip   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
 void           easyvfs_closearchive_zip  (easyvfs_archive* pArchive);
-int            easyvfs_getfileinfo_zip   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
+easyvfs_bool   easyvfs_getfileinfo_zip   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
 void*          easyvfs_beginiteration_zip(easyvfs_archive* pArchive, const char* path);
 void           easyvfs_enditeration_zip  (easyvfs_archive* pArchive, easyvfs_iterator* i);
-int            easyvfs_nextiteration_zip (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+easyvfs_bool   easyvfs_nextiteration_zip (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
 void*          easyvfs_openfile_zip      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
 void           easyvfs_closefile_zip     (easyvfs_file* pFile);
 easyvfs_bool   easyvfs_readfile_zip      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
@@ -84,7 +84,7 @@ void easyvfs_registerarchivecallbacks_zip(easyvfs_context* pContext)
 }
 
 
-int easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path)
+easyvfs_bool easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
 
@@ -160,7 +160,7 @@ void easyvfs_closearchive_zip(easyvfs_archive* pArchive)
     easyvfs_free(pArchive->pUserData);
 }
 
-int easyvfs_getfileinfo_zip(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
+easyvfs_bool easyvfs_getfileinfo_zip(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
 {
     assert(pArchive != NULL);
     assert(pArchive->pUserData != NULL);
@@ -237,7 +237,7 @@ void easyvfs_enditeration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i)
     i->pUserData = NULL;
 }
 
-int easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
+easyvfs_bool easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
 {
     assert(pArchive != 0);
     assert(i != NULL);

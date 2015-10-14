@@ -98,13 +98,13 @@ void easyvfs_mtl_addfile(easyvfs_archive_mtl* pArchive, easyvfs_file_mtl* pFile)
 }
 
 
-int            easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path);
+easyvfs_bool   easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path);
 void*          easyvfs_openarchive_mtl   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
 void           easyvfs_closearchive_mtl  (easyvfs_archive* pArchive);
-int            easyvfs_getfileinfo_mtl   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
+easyvfs_bool   easyvfs_getfileinfo_mtl   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
 void*          easyvfs_beginiteration_mtl(easyvfs_archive* pArchive, const char* path);
 void           easyvfs_enditeration_mtl  (easyvfs_archive* pArchive, easyvfs_iterator* i);
-int            easyvfs_nextiteration_mtl (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+easyvfs_bool   easyvfs_nextiteration_mtl (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
 void*          easyvfs_openfile_mtl      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
 void           easyvfs_closefile_mtl     (easyvfs_file* pFile);
 easyvfs_bool   easyvfs_readfile_mtl      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
@@ -154,7 +154,7 @@ typedef struct
 
 }easyvfs_openarchive_mtl_state;
 
-int easyvfs_mtl_loadnextchunk(easyvfs_openarchive_mtl_state* pState)
+easyvfs_bool easyvfs_mtl_loadnextchunk(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -184,7 +184,7 @@ int easyvfs_mtl_loadnextchunk(easyvfs_openarchive_mtl_state* pState)
     return 0;
 }
 
-int easyvfs_mtl_loadnewmtl(easyvfs_openarchive_mtl_state* pState)
+easyvfs_bool easyvfs_mtl_loadnewmtl(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -213,7 +213,7 @@ int easyvfs_mtl_loadnewmtl(easyvfs_openarchive_mtl_state* pState)
     return 1;
 }
 
-int easyvfs_mtl_skipline(easyvfs_openarchive_mtl_state* pState)
+easyvfs_bool easyvfs_mtl_skipline(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -244,7 +244,7 @@ int easyvfs_mtl_skipline(easyvfs_openarchive_mtl_state* pState)
     return 0;
 }
 
-int easyvfs_mtl_skipwhitespace(easyvfs_openarchive_mtl_state* pState)
+easyvfs_bool easyvfs_mtl_skipwhitespace(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -267,7 +267,7 @@ int easyvfs_mtl_skipwhitespace(easyvfs_openarchive_mtl_state* pState)
     return 0;
 }
 
-int easyvfs_mtl_loadmtlname(easyvfs_openarchive_mtl_state* pState, void* dst, unsigned int dstSizeInBytes)
+easyvfs_bool easyvfs_mtl_loadmtlname(easyvfs_openarchive_mtl_state* pState, void* dst, unsigned int dstSizeInBytes)
 {
     assert(pState != NULL);
 
@@ -314,7 +314,7 @@ int easyvfs_mtl_loadmtlname(easyvfs_openarchive_mtl_state* pState, void* dst, un
 }
 
 
-int easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path)
+easyvfs_bool easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
 
@@ -414,7 +414,7 @@ void easyvfs_closearchive_mtl(easyvfs_archive* pArchive)
     }
 }
 
-int easyvfs_getfileinfo_mtl(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
+easyvfs_bool easyvfs_getfileinfo_mtl(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
 {
     assert(pArchive != 0);
 
@@ -476,7 +476,7 @@ void easyvfs_enditeration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i)
     i->pUserData = NULL;
 }
 
-int easyvfs_nextiteration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
+easyvfs_bool easyvfs_nextiteration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
 {
     assert(pArchive != 0);
     assert(i != NULL);
