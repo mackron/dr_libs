@@ -1357,6 +1357,12 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
             easygui_append_without_detach_or_redraw(pElement, pElement->pParent);
             
 
+            // Have the element positioned at 0,0 relative to the parent by default.
+            if (pParent != NULL) {
+                pElement->absolutePosX = pParent->absolutePosX;
+                pElement->absolutePosY = pParent->absolutePosY;
+            }
+
 
             return pElement;
         }
