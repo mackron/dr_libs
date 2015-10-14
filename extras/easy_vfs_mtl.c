@@ -107,15 +107,15 @@ void           easyvfs_enditeration_mtl  (easyvfs_archive* pArchive, easyvfs_ite
 int            easyvfs_nextiteration_mtl (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
 void*          easyvfs_openfile_mtl      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
 void           easyvfs_closefile_mtl     (easyvfs_file* pFile);
-int            easyvfs_readfile_mtl      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
-int            easyvfs_writefile_mtl     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+easyvfs_bool   easyvfs_readfile_mtl      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+easyvfs_bool   easyvfs_writefile_mtl     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
 easyvfs_bool   easyvfs_seekfile_mtl      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 easyvfs_uint64 easyvfs_tellfile_mtl      (easyvfs_file* pFile);
 easyvfs_uint64 easyvfs_filesize_mtl      (easyvfs_file* pFile);
 void           easyvfs_flushfile_mtl     (easyvfs_file* pFile);
-int            easyvfs_deletefile_mtl    (easyvfs_archive* pArchive, const char* path);
-int            easyvfs_renamefile_mtl    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
-int            easyvfs_mkdir_mtl         (easyvfs_archive* pArchive, const char* path);
+easyvfs_bool   easyvfs_deletefile_mtl    (easyvfs_archive* pArchive, const char* path);
+easyvfs_bool   easyvfs_renamefile_mtl    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+easyvfs_bool   easyvfs_mkdir_mtl         (easyvfs_archive* pArchive, const char* path);
 
 void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext)
 {
@@ -553,7 +553,7 @@ void easyvfs_closefile_mtl(easyvfs_file* pFile)
     }
 }
 
-int easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
+easyvfs_bool easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
 {
     assert(pFile != 0);
     assert(dst != NULL);
@@ -583,7 +583,7 @@ int easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRea
     return 0;
 }
 
-int easyvfs_writefile_mtl(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
+easyvfs_bool easyvfs_writefile_mtl(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
 {
     assert(pFile != 0);
     assert(src != NULL);
@@ -688,7 +688,7 @@ void easyvfs_flushfile_mtl(easyvfs_file* pFile)
     // No support for this at the moment because it's read-only for now.
 }
 
-int easyvfs_deletefile_mtl(easyvfs_archive* pArchive, const char* path)
+easyvfs_bool easyvfs_deletefile_mtl(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive != 0);
     assert(path     != 0);
@@ -697,7 +697,7 @@ int easyvfs_deletefile_mtl(easyvfs_archive* pArchive, const char* path)
     return 0;
 }
 
-int easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
+easyvfs_bool easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
 {
     assert(pArchive != 0);
     assert(pathOld  != 0);
@@ -707,7 +707,7 @@ int easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathOld, const
     return 0;
 }
 
-int easyvfs_mkdir_mtl(easyvfs_archive* pArchive, const char* path)
+easyvfs_bool easyvfs_mkdir_mtl(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive != 0);
     assert(path     != 0);

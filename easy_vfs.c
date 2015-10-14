@@ -1633,6 +1633,21 @@ void easyvfs_flush(easyvfs_file* pFile)
 
 
 
+//////////////////////////////////////
+// High Level API
+
+easyvfs_bool easyvfs_write_string(easyvfs_file* pFile, const char* str)
+{
+    return easyvfs_write(pFile, str, (unsigned int)strlen(str), NULL);
+}
+
+easyvfs_bool easyvfs_write_line(easyvfs_file* pFile, const char* str)
+{
+    return easyvfs_write_string(pFile, str) && easyvfs_write_string(pFile, "\n");
+}
+
+
+
 ///////////////////////////////////////////
 // Utilities
 
@@ -2185,7 +2200,7 @@ void easyvfs_closefile_impl_native(easyvfs_file* pFile)
     CloseHandle((HANDLE)pFile->pUserData);
 }
 
-int easyvfs_readfile_impl_native(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
+easyvfs_bool easyvfs_readfile_impl_native(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
 {
     assert(pFile != NULL);
     assert(pFile->pUserData != NULL);
@@ -2197,10 +2212,10 @@ int easyvfs_readfile_impl_native(easyvfs_file* pFile, void* dst, unsigned int by
         *bytesReadOut = bytesRead;
     }
 
-    return result;
+    return result != 0;
 }
 
-int easyvfs_writefile_impl_native(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
+easyvfs_bool easyvfs_writefile_impl_native(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
 {
     assert(pFile != NULL);
     assert(pFile->pUserData != NULL);
@@ -2212,7 +2227,7 @@ int easyvfs_writefile_impl_native(easyvfs_file* pFile, const void* src, unsigned
         *bytesWrittenOut = bytesWritten;
     }
 
-    return result;
+    return result != 0;
 }
 
 easyvfs_bool easyvfs_seekfile_impl_native(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
@@ -2277,7 +2292,7 @@ void easyvfs_flushfile_impl_native(easyvfs_file* pFile)
     FlushFileBuffers((HANDLE)pFile->pUserData);
 }
 
-int easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const char* path)
+easyvfs_bool easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive            != NULL);
     assert(pArchive->pUserData != NULL);
@@ -2302,7 +2317,7 @@ int easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const char* path)
     return 0;
 }
 
-int easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
+easyvfs_bool easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
 {
     assert(pArchive            != NULL);
     assert(pArchive->pUserData != NULL);
@@ -2323,7 +2338,7 @@ int easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const char* pathOl
     return 0;
 }
 
-int easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
+easyvfs_bool easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive            != NULL);
     assert(pArchive->pUserData != NULL);
