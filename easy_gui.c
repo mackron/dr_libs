@@ -153,6 +153,8 @@ void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easyg
 
 
 /// Functions for posting outbound events.
+void easygui_post_outbound_event_move(easygui_element* pElement, float newRelativePosX, float newRelativePosY);
+void easygui_post_outbound_event_size(easygui_element* pElement, float newWidth, float newHeight);
 void easygui_post_outbound_event_mouse_enter(easygui_element* pElement);
 void easygui_post_outbound_event_mouse_leave(easygui_element* pElement);
 void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
@@ -281,13 +283,6 @@ void easygui_mark_element_as_dead(easygui_element* pElement)
     }
 
     pElement->pContext->pFirstDeadElement = pElement;
-
-
-    // When an element is deleted, so is it's children - they also need to be marked as dead.
-    for (easygui_element* pChild = pElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
-    {
-        easygui_mark_element_as_dead(pChild);
-    }
 }
 
 easygui_bool easygui_is_element_marked_as_dead(const easygui_element* pElement)
@@ -591,6 +586,30 @@ void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easyg
     }
 }
 
+
+void easygui_post_outbound_event_move(easygui_element* pElement, float newRelativePosX, float newRelativePosY)
+{
+    if (easygui_begin_outbound_event(pElement))
+    {
+        if (pElement->onMove) {
+            pElement->onMove(pElement, newRelativePosX, newRelativePosY);
+        }
+
+        easygui_end_outbound_event(pElement);
+    }
+}
+
+void easygui_post_outbound_event_size(easygui_element* pElement, float newWidth, float newHeight)
+{
+    if (easygui_begin_outbound_event(pElement))
+    {
+        if (pElement->onSize) {
+            pElement->onSize(pElement, newWidth, newHeight);
+        }
+
+        easygui_end_outbound_event(pElement);
+    }
+}
 
 void easygui_post_outbound_event_mouse_enter(easygui_element* pElement)
 {
@@ -1312,6 +1331,8 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
             pElement->width                 = 0;
             pElement->height                = 0;
             pElement->flags                 = 0;
+            pElement->onMove                = NULL;
+            pElement->onSize                = NULL;
             pElement->onMouseEnter          = NULL;
             pElement->onMouseLeave          = NULL;
             pElement->onMouseMove           = NULL;
@@ -1412,6 +1433,14 @@ void easygui_delete_element(easygui_element* pElement)
     {
         pElement->onHitTest = easygui_pass_through_hit_test;        // <-- This ensures we don't include this element when searching for the new element under the mouse.
         easygui_update_mouse_enter_and_leave_state(pContext, easygui_find_element_under_point(pContext->pLastMouseMoveTopLevelElement, pContext->lastMouseMovePosX, pContext->lastMouseMovePosY));
+    }
+
+
+
+    // Children need to be deleted before deleting the element itself.
+    while (pElement->pLastChild != NULL)
+    {
+        easygui_delete_element(pElement->pLastChild);
     }
 
 
@@ -1605,6 +1634,20 @@ void easygui_release_keyboard(easygui_context* pContext)
 
 
 //// Events ////
+
+void easygui_register_on_move(easygui_element * pElement, easygui_on_move_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onMove = callback;
+    }
+}
+
+void easygui_register_on_size(easygui_element * pElement, easygui_on_size_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onSize = callback;
+    }
+}
 
 void easygui_register_on_mouse_enter(easygui_element* pElement, easygui_on_mouse_enter_proc callback)
 {
@@ -1964,18 +2007,34 @@ easygui_bool easygui_is_descendant(easygui_element* pChildElement, easygui_eleme
 
 void easygui_set_absolute_position(easygui_element* pElement, float positionX, float positionY)
 {
-    if (pElement != NULL) {
-        easygui_begin_auto_dirty(pElement, easygui_get_local_rect(pElement));
+    if (pElement != NULL)
+    {
+        if (pElement->absolutePosX != positionX || pElement->absolutePosY != positionY)
         {
-            float offsetX = positionX - pElement->absolutePosX;
-            float offsetY = positionY - pElement->absolutePosY;
+            float oldRelativePosX = easygui_get_relative_position_x(pElement);
+            float oldRelativePosY = easygui_get_relative_position_y(pElement);
 
-            pElement->absolutePosX = positionX;
-            pElement->absolutePosY = positionY;
+            easygui_begin_auto_dirty(pElement, easygui_get_local_rect(pElement));
+            {
+                float offsetX = positionX - pElement->absolutePosX;
+                float offsetY = positionY - pElement->absolutePosY;
 
-            easygui_apply_offset_to_children_recursive(pElement, offsetX, offsetY);
+                pElement->absolutePosX = positionX;
+                pElement->absolutePosY = positionY;
+
+
+                float newRelativePosX = easygui_get_relative_position_x(pElement);
+                float newRelativePosY = easygui_get_relative_position_y(pElement);
+
+                if (newRelativePosX != oldRelativePosX || newRelativePosY != oldRelativePosY) {
+                    easygui_post_outbound_event_move(pElement, newRelativePosX, newRelativePosY);
+                }
+                
+
+                easygui_apply_offset_to_children_recursive(pElement, offsetX, offsetY);
+            }
+            easygui_end_auto_dirty(pElement);
         }
-        easygui_end_auto_dirty(pElement);
     }
 }
 
@@ -2082,13 +2141,19 @@ float easygui_get_relative_position_y(const easygui_element* pElement)
 
 void easygui_set_size(easygui_element* pElement, float width, float height)
 {
-    if (pElement != NULL) {
-        easygui_begin_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+    if (pElement != NULL)
+    {
+        if (pElement->width != width || pElement->height != height)
+        {
+            easygui_begin_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+            {
+                pElement->width  = width;
+                pElement->height = height;
 
-        pElement->width  = width;
-        pElement->height = height;
-
-        easygui_end_auto_dirty(pElement);
+                easygui_post_outbound_event_size(pElement, width, height);
+            }
+            easygui_end_auto_dirty(pElement);
+        }
     }
 }
 

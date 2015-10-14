@@ -197,6 +197,8 @@ struct easygui_rect
 
 typedef void (* easygui_callback)();
 
+typedef void         (* easygui_on_move_proc)                 (easygui_element* pElement, float newRelativePosX, float newRelativePosY);
+typedef void         (* easygui_on_size_proc)                 (easygui_element* pElement, float newWidth, float newHeight);
 typedef void         (* easygui_on_mouse_enter_proc)          (easygui_element* pElement);
 typedef void         (* easygui_on_mouse_leave_proc)          (easygui_element* pElement);
 typedef void         (* easygui_on_mouse_move_proc)           (easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
@@ -310,6 +312,12 @@ struct easygui_element
     /// Boolean flags.
     unsigned int flags;
 
+
+    /// The function to call when the element's relative position moves.
+    easygui_on_move_proc onMove;
+
+    /// The function to call when the element's size changes.
+    easygui_on_size_proc onSize;
 
     /// The function to call when the mouse enters the given element.
     easygui_on_mouse_enter_proc onMouseEnter;
@@ -620,6 +628,12 @@ void easygui_release_keyboard(easygui_context* pContext);
 
 
 //// Events ////
+
+/// Registers the on_move event callback.
+void easygui_register_on_move(easygui_element* pElement, easygui_on_move_proc callback);
+
+/// Registers the on_size event callback.
+void easygui_register_on_size(easygui_element* pElement, easygui_on_size_proc callback);
 
 /// Registers the on_mouse_enter event callback.
 void easygui_register_on_mouse_enter(easygui_element* pElement, easygui_on_mouse_enter_proc callback);
