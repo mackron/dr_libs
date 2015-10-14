@@ -1063,6 +1063,8 @@ easyvfs_bool easyvfs_validate_write_path(easyvfs_context* pContext, const char* 
         } else {
             return 0;
         }
+    } else {
+        easyvfs_strcpy(absolutePathOut, absolutePathOutSize, absoluteOrRelativePath);
     }
 
     assert(easyvfs_is_path_absolute(absoluteOrRelativePath));
@@ -1070,10 +1072,12 @@ easyvfs_bool easyvfs_validate_write_path(easyvfs_context* pContext, const char* 
     if (easyvfs_is_write_directory_guard_enabled(pContext)) {
         if (easyvfs_is_path_descendant(absoluteOrRelativePath, pContext->writeBaseDirectory)) {
             return 1;
+        } else {
+            return 0;
         }
+    } else {
+        return 1;
     }
-
-    return 0;
 }
 
 
