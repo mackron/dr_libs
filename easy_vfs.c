@@ -31,10 +31,10 @@ void easyvfs_memcpy(void* dst, const void* src, size_t sizeInBytes)
 }
 #endif
 
-void easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
+int easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 {
 #if defined(_MSC_VER)
-    strcpy_s(dst, dstSizeInBytes, src);
+    return strcpy_s(dst, dstSizeInBytes, src);
 #else
     if (dst == 0) {
         return EINVAL;
@@ -1248,7 +1248,7 @@ easyvfs_bool easyvfs_is_write_directory_guard_enabled(easyvfs_context* pContext)
 }
 
 
-int easyvfs_begin_iteration(easyvfs_context* pContext, const char* path, easyvfs_iterator* iOut)
+easyvfs_bool easyvfs_begin_iteration(easyvfs_context* pContext, const char* path, easyvfs_iterator* iOut)
 {
     if (pContext != NULL && path != NULL && iOut != NULL)
     {
@@ -1285,7 +1285,7 @@ int easyvfs_begin_iteration(easyvfs_context* pContext, const char* path, easyvfs
     return 0;
 }
 
-int easyvfs_next_iteration(easyvfs_context* pContext, easyvfs_iterator* i, easyvfs_file_info* fi)
+easyvfs_bool easyvfs_next_iteration(easyvfs_context* pContext, easyvfs_iterator* i, easyvfs_file_info* fi)
 {
     if (pContext != NULL && i != NULL && i->pUserData != NULL)
     {
@@ -1324,17 +1324,17 @@ void easyvfs_end_iteration(easyvfs_context* pContext, easyvfs_iterator* i)
 }
 
 
-int easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
+easyvfs_bool easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
 {
     if (pContext != NULL && index < pContext->baseDirectories.count)
     {
-        easyvfs_strcpy(absolutePathOut, absolutePathBufferSizeInBytes, pContext->baseDirectories.pBuffer[index].absolutePath);
+        return easyvfs_strcpy(absolutePathOut, absolutePathBufferSizeInBytes, pContext->baseDirectories.pBuffer[index].absolutePath) == 0;
     }
 
     return 0;
 }
 
-int easyvfs_get_file_info(easyvfs_context* pContext, const char* path, easyvfs_file_info* fi)
+easyvfs_bool easyvfs_get_file_info(easyvfs_context* pContext, const char* path, easyvfs_file_info* fi)
 {
     if (pContext != NULL && path != NULL)
     {
@@ -1343,7 +1343,7 @@ int easyvfs_get_file_info(easyvfs_context* pContext, const char* path, easyvfs_f
         easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, EASYVFS_READ, relativePath, EASYVFS_MAX_PATH);
         if (pArchive != NULL)
         {
-            int result = pArchive->callbacks.getfileinfo(pArchive, relativePath, fi);
+            easyvfs_bool result = pArchive->callbacks.getfileinfo(pArchive, relativePath, fi);
 
 
             // The archive is no longer needed, so it needs to be closed.
@@ -1357,7 +1357,7 @@ int easyvfs_get_file_info(easyvfs_context* pContext, const char* path, easyvfs_f
     return 0;
 }
 
-int easyvfs_find_absolute_path(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
+easyvfs_bool easyvfs_find_absolute_path(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
 {
     if (pContext != NULL && path != NULL && absolutePathOut != NULL && absolutePathBufferSizeInBytes > 0)
     {
@@ -1373,11 +1373,11 @@ int easyvfs_find_absolute_path(easyvfs_context* pContext, const char* path, char
     return 0;
 }
 
-int easyvfs_find_absolute_path_explicit_base(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
+easyvfs_bool easyvfs_find_absolute_path_explicit_base(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
 {
     if (pContext != NULL && path != NULL && highestPriorityBasePath != NULL && absolutePathOut != NULL && absolutePathBufferSizeInBytes > 0)
     {
-        int result = 0;
+        easyvfs_bool result = 0;
         easyvfs_insert_base_directory(pContext, highestPriorityBasePath, 0);
         {
             result = easyvfs_find_absolute_path(pContext, path, absolutePathOut, absolutePathBufferSizeInBytes);
@@ -1651,7 +1651,7 @@ easyvfs_bool easyvfs_write_line(easyvfs_file* pFile, const char* str)
 ///////////////////////////////////////////
 // Utilities
 
-int easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsolutePath)
+easyvfs_bool easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsolutePath)
 {
 #if !EASYVFS_USE_EASYPATH
     easyvfs_pathiterator iParent = easyvfs_beginpathiteration(parentAbsolutePath);
@@ -1688,6 +1688,37 @@ int easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsol
     return 0;
 #else
     return easypath_ischild(childAbsolutePath, parentAbsolutePath);
+#endif
+}
+
+easyvfs_bool easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
+{
+#if !EASYVFS_USE_EASYPATH
+    easyvfs_pathiterator iParent = easyvfs_beginpathiteration(parentAbsolutePath);
+    easyvfs_pathiterator iChild  = easyvfs_beginpathiteration(descendantAbsolutePath);
+
+    while (easyvfs_nextpathsegment(&iParent))
+    {
+        if (easyvfs_nextpathsegment(&iChild))
+        {
+            // If the segment is different, the paths are different and thus it is not a descendant.
+            if (!easyvfs_pathiterators_equal(iParent, iChild))
+            {
+                return 0;
+            }
+        }
+        else
+        {
+            // The descendant is shorter which means it's impossible for it to be a descendant.
+            return 0;
+        }
+    }
+
+    // At this point we have finished iteration of the parent, which should be shorter one. We now do one final iteration of
+    // the descendant to ensure it is indeed shorter. If so, it's a descendant.
+    return easyvfs_nextpathsegment(&iChild);
+#else
+    return easypath_isdescendant(descendantAbsolutePath, parentAbsolutePath);
 #endif
 }
 
@@ -1756,7 +1787,7 @@ const char* easyvfs_extension(const char* path)
 #endif
 }
 
-int easyvfs_extension_equal(const char* path, const char* extension)
+easyvfs_bool easyvfs_extension_equal(const char* path, const char* extension)
 {
 #if !EASYVFS_USE_EASYPATH
     if (path != 0 && extension != 0)
@@ -1785,7 +1816,7 @@ int easyvfs_extension_equal(const char* path, const char* extension)
 #endif
 }
 
-int easyvfs_paths_equal(const char* path1, const char* path2)
+easyvfs_bool easyvfs_paths_equal(const char* path1, const char* path2)
 {
 #if !EASYVFS_USE_EASYPATH
     if (path1 != 0 && path2 != 0)
@@ -1812,7 +1843,7 @@ int easyvfs_paths_equal(const char* path1, const char* path2)
 #endif
 }
 
-int easyvfs_is_path_relative(const char* path)
+easyvfs_bool easyvfs_is_path_relative(const char* path)
 {
 #if !EASYVFS_USE_EASYPATH
     if (path != 0 && path[0] != '\0')
@@ -1837,12 +1868,12 @@ int easyvfs_is_path_relative(const char* path)
 #endif
 }
 
-int easyvfs_is_path_absolute(const char* path)
+easyvfs_bool easyvfs_is_path_absolute(const char* path)
 {
     return !easyvfs_is_path_relative(path);
 }
 
-int easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const char* other)
+easyvfs_bool easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const char* other)
 {
 #if !EASYVFS_USE_EASYPATH
     if (base != 0 && other != 0)
@@ -1879,7 +1910,7 @@ int easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const cha
 #endif
 }
 
-int easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
+easyvfs_bool easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
 {
 #if !EASYVFS_USE_EASYPATH
     if (dst != NULL && dstSizeInBytes > 0)
@@ -1891,37 +1922,6 @@ int easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const c
     return 0;
 #else
     return easypath_copyandappend(dst, dstSizeInBytes, base, other);
-#endif
-}
-
-int easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
-{
-#if !EASYVFS_USE_EASYPATH
-    easyvfs_pathiterator iParent = easyvfs_beginpathiteration(parentAbsolutePath);
-    easyvfs_pathiterator iChild  = easyvfs_beginpathiteration(descendantAbsolutePath);
-
-    while (easyvfs_nextpathsegment(&iParent))
-    {
-        if (easyvfs_nextpathsegment(&iChild))
-        {
-            // If the segment is different, the paths are different and thus it is not a descendant.
-            if (!easyvfs_pathiterators_equal(iParent, iChild))
-            {
-                return 0;
-            }
-        }
-        else
-        {
-            // The descendant is shorter which means it's impossible for it to be a descendant.
-            return 0;
-        }
-    }
-
-    // At this point we have finished iteration of the parent, which should be shorter one. We now do one final iteration of
-    // the descendant to ensure it is indeed shorter. If so, it's a descendant.
-    return easyvfs_nextpathsegment(&iChild);
-#else
-    return easypath_isdescendant(descendantAbsolutePath, parentAbsolutePath);
 #endif
 }
 

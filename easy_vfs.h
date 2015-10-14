@@ -228,7 +228,7 @@ void easyvfs_remove_all_base_directories(easyvfs_context* pContext);
 unsigned int easyvfs_get_base_directory_count(easyvfs_context* pContext);
 
 /// Retrieves the base directory at the given index.
-int easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
+easyvfs_bool easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
 
 /// Sets the base directory for write operations (including delete).
@@ -256,23 +256,23 @@ easyvfs_bool easyvfs_is_write_directory_guard_enabled(easyvfs_context* pContext)
 
 
 /// beginiteration()
-int easyvfs_begin_iteration(easyvfs_context* pContext, const char* path, easyvfs_iterator* iOut);
+easyvfs_bool easyvfs_begin_iteration(easyvfs_context* pContext, const char* path, easyvfs_iterator* iOut);
 
 /// nextiteration()
-int easyvfs_next_iteration(easyvfs_context* pContext, easyvfs_iterator* i, easyvfs_file_info* fi);
+easyvfs_bool easyvfs_next_iteration(easyvfs_context* pContext, easyvfs_iterator* i, easyvfs_file_info* fi);
 
 /// enditeration()
 void easyvfs_end_iteration(easyvfs_context* pContext, easyvfs_iterator* i);
 
 
 /// Retrieves information about the given file.
-int easyvfs_get_file_info(easyvfs_context* pContext, const char* absolutePath, easyvfs_file_info* fi);
+easyvfs_bool easyvfs_get_file_info(easyvfs_context* pContext, const char* absolutePath, easyvfs_file_info* fi);
 
 /// Finds the absolute, verbose path of the given path.
-int easyvfs_find_absolute_path(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
+easyvfs_bool easyvfs_find_absolute_path(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
 /// Finds the absolute, verbose path of the given path, using the given path as the higest priority base path.
-int easyvfs_find_absolute_path_explicit_base(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
+easyvfs_bool easyvfs_find_absolute_path_explicit_base(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
 
 
 /// Determines whether or not the given path refers to an archive file.
@@ -353,14 +353,14 @@ void easyvfs_free(void* p);
 void easyvfs_memcpy(void* dst, const void* src, size_t sizeInBytes);
 
 // strcpy()
-void easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
+int easyvfs_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
 
 
 // ispathchild()
-int easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsolutePath);
+easyvfs_bool easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsolutePath);
 
 // is_path_descendant()
-int easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
+easyvfs_bool easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
 
 
 // easyvfs_file_name()
@@ -370,21 +370,21 @@ const char* easyvfs_file_name(const char* path);
 const char* easyvfs_extension(const char* path);
 
 // easyvfs_extension_equal()
-int easyvfs_extension_equal(const char* path, const char* extension);
+easyvfs_bool easyvfs_extension_equal(const char* path, const char* extension);
 
 // easyvfs_paths_equal()
-int easyvfs_paths_equal(const char* path1, const char* path2);
+easyvfs_bool easyvfs_paths_equal(const char* path1, const char* path2);
 
 
 // easyvfs_is_path_relative()
-int easyvfs_is_path_relative(const char* path);
+easyvfs_bool easyvfs_is_path_relative(const char* path);
 
 // easyvfs_is_path_absolute()
-int easyvfs_is_path_absolute(const char* path);
+easyvfs_bool easyvfs_is_path_absolute(const char* path);
 
 
 // easyvfs_copy_and_append_path()
-int easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
+easyvfs_bool easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
 
 
 
