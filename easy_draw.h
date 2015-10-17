@@ -58,6 +58,7 @@ typedef int           easy2d_bool;
 typedef struct easy2d_context easy2d_context;
 typedef struct easy2d_surface easy2d_surface;
 typedef struct easy2d_color easy2d_color;
+typedef struct easy2d_font_metrics easy2d_font_metrics;
 typedef struct easy2d_drawing_callbacks easy2d_drawing_callbacks;
 
 typedef void* easy2d_font;
@@ -70,6 +71,14 @@ struct easy2d_color
     easy2d_byte g;
     easy2d_byte b;
     easy2d_byte a;
+};
+
+struct easy2d_font_metrics
+{
+    int ascent;
+    int descent;
+    int lineHeight;
+    int spaceWidth;
 };
 
 typedef enum
@@ -115,6 +124,7 @@ typedef void        (* easy2d_set_clip_proc)                    (easy2d_surface*
 typedef void        (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 typedef easy2d_font (* easy2d_create_font_proc)                 (easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
 typedef void        (* easy2d_delete_font_proc)                 (easy2d_context* pContext, easy2d_font font);
+typedef easy2d_bool (* easy2d_get_font_metrics_proc)            (easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
 
 
 
@@ -140,6 +150,7 @@ struct easy2d_drawing_callbacks
 
     easy2d_create_font_proc                  create_font;
     easy2d_delete_font_proc                  delete_font;
+    easy2d_get_font_metrics_proc             get_font_metrics;
 };
 
 struct easy2d_surface
@@ -244,6 +255,9 @@ easy2d_font easy2d_create_font(easy2d_context* pContext, const char* family, uns
 
 /// Deletes a font that was previously created with easy2d_create_font()
 void easy2d_delete_font(easy2d_context* pContext, easy2d_font font);
+
+/// Retrieves the metrics of the given font.
+easy2d_bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
 
 
 

@@ -285,6 +285,18 @@ void easy2d_delete_font(easy2d_context* pContext, easy2d_font font)
     }
 }
 
+easy2d_bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut)
+{
+    if (pContext != NULL)
+    {
+        if (pContext->drawingCallbacks.get_font_metrics != NULL) {
+            return pContext->drawingCallbacks.get_font_metrics(pContext, font, pMetricsOut);
+        }
+    }
+
+    return EASY2D_FALSE;
+}
+
 
 
 
@@ -399,6 +411,7 @@ void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float 
 void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 easy2d_font easy2d_create_font_gdi(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
 void easy2d_delete_font_gdi(easy2d_context* pContext, easy2d_font font);
+easy2d_bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
 
 /// Converts a char* to a wchar_t* string.
 wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigned int textSizeInBytes, unsigned int* characterCountOut);
@@ -424,6 +437,7 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.get_clip                     = easy2d_get_clip_gdi;
     callbacks.create_font                  = easy2d_create_font_gdi;
     callbacks.delete_font                  = easy2d_delete_font_gdi;
+    callbacks.get_font_metrics             = easy2d_get_font_metrics_gdi;
 
     return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data));
 }
@@ -870,6 +884,45 @@ void easy2d_delete_font_gdi(easy2d_context* pContext, easy2d_font font)
     DeleteObject((HFONT)font);
 }
 
+easy2d_bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut)
+{
+    assert(pMetricsOut != NULL);
+
+    easy2d_bool result = EASY2D_FALSE;
+
+    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
+    if (pGDIData == NULL) {
+        return result;
+    }
+
+    HDC hDC = pGDIData->hDC;
+
+    
+    HGDIOBJ hPrevFont = SelectObject(hDC, (HFONT)font);
+    {
+        TEXTMETRIC metrics;
+        GetTextMetrics(hDC, &metrics);
+
+        pMetricsOut->ascent     = metrics.tmAscent;
+        pMetricsOut->descent    = metrics.tmDescent;
+        pMetricsOut->lineHeight = metrics.tmHeight;
+
+
+        const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
+
+        GLYPHMETRICS spaceMetrics;
+        DWORD bitmapBufferSize = GetGlyphOutlineW(hDC, ' ', GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
+        if (bitmapBufferSize != GDI_ERROR)
+        {
+			pMetricsOut->spaceWidth = spaceMetrics.gmBlackBoxX;
+            result = EASY2D_TRUE;
+        }
+    }
+    SelectObject(hDC, hPrevFont);
+    
+    return result;
+}
+
 
 wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigned int textSizeInBytes, unsigned int* characterCountOut)
 {
@@ -901,7 +954,7 @@ wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigne
 
 
     if (characterCountOut != NULL) {
-        *characterCountOut = wcharCount - 1;        // -1 for the null terminator.
+        *characterCountOut = wcharCount;
     }
 
     return pGDIData->wcharBuffer;
