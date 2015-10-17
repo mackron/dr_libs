@@ -887,6 +887,9 @@ void easygui_draw_text(easygui_element* pElement, const char* text, int textSize
 
 //// Hit Testing and Layout ////
 
+/// An on_size event callback that resizes every child element to that of the parent.
+void easygui_on_size_fit_to_parent(easygui_element* pElement, float newWidth, float newHeight);
+
 /// An on_hit_test event callback that can be used to always fail the mouse hit test.
 easygui_bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, float mousePosY);
 

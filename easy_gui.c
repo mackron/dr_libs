@@ -2310,6 +2310,11 @@ easygui_bool easygui_iterate_visible_elements(easygui_element* pParentElement, e
     }
 
 
+    if (!easygui_is_visible(pParentElement)) {
+        return EASYGUI_TRUE;
+    }
+
+
     easygui_rect clampedRelativeRect = relativeRect;
     if (easygui_clamp_rect_to_element(pParentElement, &clampedRelativeRect))
     {
@@ -2570,6 +2575,14 @@ void easygui_draw_text(easygui_element* pElement, const char* text, int textSize
 /////////////////////////////////////////////////////////////////
 
 //// Hit Testing and Layout ////
+
+void easygui_on_size_fit_to_parent(easygui_element* pElement, float newWidth, float newHeight)
+{
+    for (easygui_element* pChild = pElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
+    {
+        easygui_set_size(pChild, newWidth, newHeight);
+    }
+}
 
 easygui_bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, float mousePosY)
 {
