@@ -20,6 +20,7 @@
 #define easy_draw
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
 #define WIN32_LEAN_AND_MEAN
@@ -48,12 +49,7 @@ extern "C" {
 //
 /////////////////////////////////////////////////////////////////
 
-#define EASY2D_FALSE        0
-#define EASY2D_TRUE         1
-
-
 typedef unsigned char easy2d_byte;
-typedef int           easy2d_bool;
 
 typedef struct easy2d_context easy2d_context;
 typedef struct easy2d_surface easy2d_surface;
@@ -106,9 +102,9 @@ typedef enum
 } easy2d_font_slant;
 
 
-typedef easy2d_bool (* easy2d_on_create_context_proc)           (easy2d_context* pContext);
+typedef bool (* easy2d_on_create_context_proc)           (easy2d_context* pContext);
 typedef void        (* easy2d_on_delete_context_proc)           (easy2d_context* pContext);
-typedef easy2d_bool (* easy2d_on_create_surface_proc)           (easy2d_surface* pSurface, float width, float height);
+typedef bool (* easy2d_on_create_surface_proc)           (easy2d_surface* pSurface, float width, float height);
 typedef void        (* easy2d_on_delete_surface_proc)           (easy2d_surface* pSurface);
 typedef void        (* easy2d_begin_draw_proc)                  (easy2d_surface* pSurface);
 typedef void        (* easy2d_end_draw_proc)                    (easy2d_surface* pSurface);
@@ -124,7 +120,7 @@ typedef void        (* easy2d_set_clip_proc)                    (easy2d_surface*
 typedef void        (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 typedef easy2d_font (* easy2d_create_font_proc)                 (easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
 typedef void        (* easy2d_delete_font_proc)                 (easy2d_context* pContext, easy2d_font font);
-typedef easy2d_bool (* easy2d_get_font_metrics_proc)            (easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+typedef bool (* easy2d_get_font_metrics_proc)            (easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
 
 
 
@@ -257,7 +253,7 @@ easy2d_font easy2d_create_font(easy2d_context* pContext, const char* family, uns
 void easy2d_delete_font(easy2d_context* pContext, easy2d_font font);
 
 /// Retrieves the metrics of the given font.
-easy2d_bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
 
 
 
