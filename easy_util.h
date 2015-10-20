@@ -50,11 +50,6 @@ extern "C" {
 #endif
 
 
-typedef int easyutil_bool;
-#define EASYUTIL_FALSE  0
-#define EASYUTIL_TRUE   1
-
-
 #define STRINGIFY(x)    #x
 #define TOSTRING(x)     STRINGIFY(x)
 
@@ -217,13 +212,13 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be ~/.config
-easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize);
+bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize);
 
 /// Retrieves the path of the user's log directory.
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be var/log
-easyutil_bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize);
+bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize);
 
 
 
@@ -255,7 +250,7 @@ void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
 // simple command lines, but probably not best for programs requiring complex command line work.
 //
 // For argv style command lines, parse_cmdline() will run without any heap allocations. With a Win32 style
-// command line there will be one malloc per call fo parse_cmdline(). This is the only function that will do
+// command line there will be one malloc() per call fo parse_cmdline(). This is the only function that will do
 // a malloc().
 //
 // Below is an example:

@@ -44,7 +44,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
     unsigned int iLine = 1;
 
     // Sometimes we'll load a new chunk while in the middle of processing a line. This keeps track of that for us.
-    easyutil_bool moveToNextLineAfterNextChunkRead = 0;
+    bool moveToNextLineAfterNextChunkRead = 0;
 
 
 
@@ -52,7 +52,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
     unsigned int chunkSize = 0;
 
     // Keep looping so long as there is still data available.
-    easyutil_bool isMoreDataAvailable = 1;
+    bool isMoreDataAvailable = 1;
     do
     {
         // Load more data to begin with.
@@ -270,7 +270,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 #if defined(_WIN32) || defined(_WIN64)
 #include <shlobj.h>
 
-easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize)
+bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize)
 {
     // The documentation for SHGetFolderPathA() says that the output path should be the size of MAX_PATH. We'll enforce
     // that just to be safe.
@@ -301,7 +301,7 @@ easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOu
     return 1;
 }
 
-easyutil_bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
+bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
 {
     return easyutil_get_config_folder_path(pathOut, pathOutSize);
 }
@@ -309,7 +309,7 @@ easyutil_bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSi
 #include <sys/types.h>
 #include <pwd.h>
 
-easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize)
+bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize)
 {
     const char* configdir = getenv("XDG_CONFIG_HOME");
     if (configdir != NULL)
@@ -346,7 +346,7 @@ easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOu
     return 0;
 }
 
-easyutil_bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
+bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
 {
     return strcpy_s(pathOut, pathOutSize, "var/log");
 }
@@ -370,7 +370,7 @@ typedef HRESULT (__stdcall * PFN_SetProcessDpiAwareness) (PROCESS_DPI_AWARENESS)
 
 void win32_make_dpi_aware()
 {
-    easyutil_bool fallBackToDiscouragedAPI = EASYUTIL_FALSE;
+    bool fallBackToDiscouragedAPI = false;
 
     // We can't call SetProcessDpiAwareness() directly because otherwise on versions of Windows < 8.1 we'll get an error at load time about
     // a missing DLL.
@@ -382,19 +382,19 @@ void win32_make_dpi_aware()
         {
             if (_SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE) != S_OK)
             {
-                fallBackToDiscouragedAPI = EASYUTIL_TRUE;
+                fallBackToDiscouragedAPI = false;
             }
         }
         else
         {
-            fallBackToDiscouragedAPI = EASYUTIL_TRUE;
+            fallBackToDiscouragedAPI = false;
         }
 
         FreeLibrary(hSHCoreDLL);
     }
     else
     {
-        fallBackToDiscouragedAPI = EASYUTIL_TRUE;
+        fallBackToDiscouragedAPI = false;
     }
 
 
