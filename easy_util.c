@@ -6,6 +6,34 @@
 #include <stdio.h>
 #include <string.h>     // For memmove()
 
+
+/////////////////////////////////////////////////////////
+// String Helpers
+
+void easyutil_strrmchar(char* str, char c)
+{
+    char* src = str;
+    char* dst = str;
+
+    while (src[0] != '\0')
+    {
+        dst[0] = src[0];
+
+        if (dst[0] != c) {
+            dst += 1;
+        }
+
+        src += 1;
+    }
+
+    dst[0] = '\0';
+}
+
+
+
+/////////////////////////////////////////////////////////
+// Key/Value Pair Parsing
+
 void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_proc onPair, key_value_error_proc onError, void* pUserData)
 {
     if (onRead == NULL) {
@@ -272,6 +300,11 @@ easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOu
 
     return 1;
 }
+
+easyutil_bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
+{
+    return easyutil_get_config_folder_path(pathOut, pathOutSize);
+}
 #else
 #include <sys/types.h>
 #include <pwd.h>
@@ -311,6 +344,11 @@ easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOu
     }
 
     return 0;
+}
+
+easyutil_bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
+{
+    return strcpy_s(pathOut, pathOutSize, "var/log");
 }
 
 #endif
@@ -379,37 +417,284 @@ void win32_make_dpi_aware()
 
 
 /////////////////////////////////////////////////////////
+// Date / Time
+
+time_t easyutil_now()
+{
+    return time(NULL);
+}
+
+void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize)
+{
+#if defined(_MSC_VER)
+	struct tm local;
+	localtime_s(&local, &t);
+    strftime(strOut, strOutSize, "%x %H:%M:%S", &local);
+#else
+	struct tm *local = localtime(&t);
+	strftime(strOut, strOutSize, "%x %H:%M:%S", local);
+#endif
+}
+
+
+
+/////////////////////////////////////////////////////////
 // Command Line
 
-struct easyutil_cmdline
+typedef struct
 {
-    int unused;
-};
+    easyutil_cmdline* pCmdLine;
+    char* value;
 
-easyutil_cmdline* easyutil_create_command_line(int argc, char** argv)
+    // Win32 style data.
+    char* win32_payload;
+    char* valueEnd;
+
+    // argv style data.
+    int iarg;   // <-- This starts at -1 so that the first call to next() increments it to 0.
+
+} easyutil_cmdline_iterator;
+
+easyutil_cmdline_iterator easyutil_cmdline_begin(easyutil_cmdline* pCmdLine)
 {
-    easyutil_cmdline* pCmdLine = malloc(sizeof(easyutil_cmdline));
-    if (pCmdLine != NULL) {
-        pCmdLine->unused = 0;
+    easyutil_cmdline_iterator i;
+    i.pCmdLine      = pCmdLine;
+    i.value         = NULL;
+    i.win32_payload = NULL;
+    i.valueEnd      = NULL;
+
+    if (pCmdLine != NULL)
+    {
+        if (pCmdLine->win32 != NULL)
+        {
+            // Win32 style
+            size_t length = strlen(pCmdLine->win32);
+            i.win32_payload = malloc(length + 2);         // +2 for a double null terminator.
+            strcpy_s(i.win32_payload, length + 2, pCmdLine->win32);
+            i.win32_payload[length + 1] = '\0';
+
+            i.valueEnd = i.win32_payload;
+        }
+        else
+        {
+            // argv style
+            i.iarg = -1;        // <-- Begin this at -1 so that the first call to next() increments to 0.
+        }
     }
 
-    return pCmdLine;
+    return i;
 }
 
-easyutil_cmdline* easyutil_create_command_line_win32(char* args)
+bool easyutil_cmdline_next(easyutil_cmdline_iterator* i)
 {
-    easyutil_cmdline* pCmdLine = malloc(sizeof(easyutil_cmdline));
-    if (pCmdLine != NULL) {
-        pCmdLine->unused = 0;
+    if (i != NULL && i->pCmdLine != NULL)
+    {
+        if (i->pCmdLine->win32 != NULL)
+        {
+            // Win32 style
+            if (i->value == NULL) {
+                i->value    = i->win32_payload;
+                i->valueEnd = i->value;
+            } else {
+                i->value = i->valueEnd + 1;
+            }
+
+
+            // Move to the start of the next argument.
+            while (i->value[0] != '\0' && i->value[0] == ' ') {
+                i->value += 1;
+            }
+
+
+            // If at this point we are sitting on the null terminator it means we have finished iterating.
+            if (i->value[0] == '\0')
+            {
+                free(i->win32_payload);
+                i->win32_payload = NULL;
+                i->pCmdLine      = NULL;
+                i->value         = NULL;
+                i->valueEnd      = NULL;
+
+                return false;
+            }
+
+
+            // Move to the end of the token. If the argument begins with a double quote, we iterate until we find
+            // the next unescaped double-quote.
+            if (i->value[0] == '\"')
+            {
+                // Go to the last unescaped double-quote.
+                i->value += 1;
+                i->valueEnd = i->value + 1;
+
+                while (i->valueEnd[0] != '\0' && i->valueEnd[0] != '\"')
+                {
+                    if (i->valueEnd[0] == '\\') {
+                        i->valueEnd += 1;
+
+                        if (i->valueEnd[0] == '\0') {
+                            break;
+                        }
+                    }
+
+                    i->valueEnd += 1;
+                }
+                i->valueEnd[0] = '\0';
+            }
+            else
+            {
+                // Go to the next space.
+                i->valueEnd = i->value + 1;
+
+                while (i->valueEnd[0] != '\0' && i->valueEnd[0] != ' ')
+                {
+                    i->valueEnd += 1;
+                }
+                i->valueEnd[0] = '\0';
+            }
+
+
+            // The argument needs to have escape characters removed.
+            easyutil_strrmchar(i->value, '\\');
+
+            return true;
+        }
+        else
+        {
+            // argv style
+            i->iarg += 1;
+            if (i->iarg < i->pCmdLine->argc)
+            {
+                i->value = i->pCmdLine->argv[i->iarg];
+                return true;
+            }
+            else
+            {
+                i->value = NULL;
+                return false;
+            }
+        }
     }
 
-    return pCmdLine;
+    return false;
 }
 
-void easyutil_delete_command_line(easyutil_cmdline* pCmdLine)
+
+bool easyutil_init_cmdline(easyutil_cmdline* pCmdLine, int argc, char** argv)
 {
-    free(pCmdLine);
+    if (pCmdLine == NULL) {
+        return false;
+    }
+
+    pCmdLine->argc  = argc;
+    pCmdLine->argv  = argv;
+    pCmdLine->win32 = NULL;
+
+    return true;
 }
+
+bool easyutil_init_cmdline_win32(easyutil_cmdline* pCmdLine, char* args)
+{
+    if (pCmdLine == NULL) {
+        return false;
+    }
+
+    pCmdLine->argc  = 0;
+    pCmdLine->argv  = NULL;
+    pCmdLine->win32 = args;
+
+    return true;
+}
+
+void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_proc callback, void* pUserData)
+{
+    if (pCmdLine == NULL || callback == NULL) {
+        return;
+    }
+
+
+    char pTemp[2] = {0};
+
+    char* pKey = NULL;
+    char* pVal = NULL;
+
+    easyutil_cmdline_iterator arg = easyutil_cmdline_begin(pCmdLine);
+    if (easyutil_cmdline_next(&arg))
+    {
+        callback("[path]", arg.value, pUserData);
+    }
+
+    while (easyutil_cmdline_next(&arg))
+    {
+        if (arg.value[0] == '-')
+        {
+            // key
+
+            // If the key is non-null, but the value IS null, it means we hit a key with no value in which case it will not yet have been posted.
+            if (pKey != NULL && pVal == NULL)
+            {
+                callback(pKey, pVal, pUserData);
+                pKey = NULL;
+            }
+            else
+            {
+                // Need to ensure the key and value are reset before doing any further processing.
+                pKey = NULL;
+                pVal = NULL;
+            }
+
+
+
+            if (arg.value[1] == '-')
+            {
+                // --argument style
+                pKey = arg.value + 2;
+            }
+            else
+            {
+                // -a -b -c -d or -abcd style
+                if (arg.value[1] != '\0')
+                {
+                    if (arg.value[2] == '\0')
+                    {
+                        // -a -b -c -d style
+                        pTemp[0] = arg.value[1];
+                        pKey = pTemp;
+                        pVal = NULL;
+                    }
+                    else
+                    {
+                        // -abcd style.
+                        int i = 1;
+                        while (arg.value[i] != '\0')
+                        {
+                            pTemp[0] = arg.value[i];
+                            callback(pTemp, NULL, pUserData);
+                            pKey = NULL;
+                            pVal = NULL;
+
+                            i += 1;
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            // value
+
+            pVal = arg.value;
+            callback(pKey, pVal, pUserData);
+        }
+    }
+
+
+    // There may be a key without a value that needs posting.
+    if (pKey != NULL && pVal == NULL) {
+        callback(pKey, pVal, pUserData);
+    }
+}
+
 
 
 

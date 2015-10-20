@@ -42,6 +42,8 @@ extern "C" {
 
 
 #include <stdlib.h>
+#include <time.h>
+#include <stdbool.h>
 
 #ifndef EASYUTIL_NO_MSVC_COMPAT
 #include <errno.h>
@@ -144,6 +146,13 @@ EASYUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 
 
 /////////////////////////////////////////////////////////
+// String Helpers
+
+/// Removes every occurance of the given character from the given string.
+void easyutil_strrmchar(char* str, char c);
+
+
+/////////////////////////////////////////////////////////
 // Aligned Allocations
 
 #ifndef EASYUTIL_NO_ALIGNED_MALLOC
@@ -210,6 +219,12 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be ~/.config
 easyutil_bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize);
 
+/// Retrieves the path of the user's log directory.
+///
+/// @remarks
+///     On Windows this will typically be %APPDATA% and on Linux it will usually be var/log
+easyutil_bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize);
+
 
 
 /////////////////////////////////////////////////////////
@@ -221,19 +236,84 @@ void win32_make_dpi_aware();
 #endif
 
 
+
+/////////////////////////////////////////////////////////
+// Date / Time
+
+/// Retrieves a time_t as of the time the function was called.
+time_t easyutil_now();
+
+/// Formats a data/time string.
+void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
+
+
+
 /////////////////////////////////////////////////////////
 // Command Line
+//
+// The command line functions below are just simple iteration functions. This command line system is good for
+// simple command lines, but probably not best for programs requiring complex command line work.
+//
+// For argv style command lines, parse_cmdline() will run without any heap allocations. With a Win32 style
+// command line there will be one malloc per call fo parse_cmdline(). This is the only function that will do
+// a malloc().
+//
+// Below is an example:
+//
+// easyutil_cmdline cmdline;
+// if (easyutil_init_cmdline(&cmdline, argc, argv)) {
+//     easyutil_parse_cmdline(&cmdline, my_cmdline_handler, pMyUserData);
+// }
+//
+// void my_cmdline_handler(const char* key, const char* value, void* pUserData)
+// {
+//     // Do something...
+// }
+//
+//
+// When parsing the command line, the first iteration will be the program path and the key will be "[path]".
+//
+// For segments such as "-abcd", the callback will be called for "a", "b", "c", "d" individually, with the
+// value set to NULL.
+//
+// For segments such as "--server", the callback will be called for "server", with the value set to NULL.
+//
+// For segments such as "-f file.txt", the callback will be called with the key set to "f" and the value set
+// to "file.txt".
+//
+// For segments such as "-f file1.txt file2.txt", the callback will be called twice, once for file1.txt and
+// again for file2.txt, with with the key set to "f" in both cases.
+//
+// For segments where there is no leading key, the values will be posted as annonymous (key set to NULL). An example
+// is "my_program.exe file1.txt file2.txt", in which case the first iteration will be the program path, the second iteration
+// will be "file1.txt", with the key set to NULL. The third iteration will be "file2.txt" with the key set to NULL.
+//
+// For segments such as "-abcd file.txt", "a", "b", "c", "d" will be sent with NULL values, and "file.txt" will be
+// posted with a NULL key.
 
-typedef struct easyutil_cmdline easyutil_cmdline;
+typedef struct
+{
+    // argv style.
+    int argc;
+    char** argv;
 
-/// Creates a command line object from an argv style command line.
-easyutil_cmdline* easyutil_create_command_line(int argc, char** argv);
+    // Win32 style
+    char* win32;
 
-/// Creates a command line object from a Win32 style command line.
-easyutil_cmdline* easyutil_create_command_line_win32(char* args);
+} easyutil_cmdline;
 
-/// Deletes a command line object.
-void easyutil_delete_command_line(easyutil_cmdline* pCmdLine);
+typedef void easyutil_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
+
+
+/// Initializes a command line object.
+bool easyutil_init_cmdline(easyutil_cmdline* pCmdLine, int argc, char** argv);
+
+/// Initializes a command line object using a Win32 style command line.
+bool easyutil_init_cmdline_win32(easyutil_cmdline* pCmdLine, char* args);
+
+/// Parses the given command line.
+void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_proc callback, void* pUserData);
+
 
 
 /////////////////////////////////////////////////////////
