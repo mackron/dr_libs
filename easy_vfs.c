@@ -485,7 +485,7 @@ struct easyvfs_context
     char writeBaseDirectory[EASYVFS_MAX_PATH];
 
     /// Keeps track of whether or not write directory guard is enabled.
-    easyvfs_bool isWriteGuardEnabled;
+    bool isWriteGuardEnabled;
 
     /// The callbacks for native archives. These callbacks are implemented down the bottom of this file, in the platform-specific section.
     easyvfs_archive_callbacks nativeCallbacks;
@@ -505,24 +505,24 @@ typedef struct
 
 
 /// Native implementations for archive callbacks.
-easyvfs_bool   easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path);
+bool           easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path);
 void*          easyvfs_openarchive_impl_native   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
 void           easyvfs_closearchive_impl_native  (easyvfs_archive* pArchive);
-easyvfs_bool   easyvfs_getfileinfo_impl_native   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
+bool           easyvfs_getfileinfo_impl_native   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
 void*          easyvfs_beginiteration_impl_native(easyvfs_archive* pArchive, const char* path);
 void           easyvfs_enditeration_impl_native  (easyvfs_archive* pArchive, easyvfs_iterator* i);
-easyvfs_bool   easyvfs_nextiteration_impl_native (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+bool           easyvfs_nextiteration_impl_native (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
 void*          easyvfs_openfile_impl_native      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
 void           easyvfs_closefile_impl_native     (easyvfs_file* pFile);
-easyvfs_bool   easyvfs_readfile_impl_native      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
-easyvfs_bool   easyvfs_writefile_impl_native     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-easyvfs_bool   easyvfs_seekfile_impl_native      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
+bool           easyvfs_readfile_impl_native      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+bool           easyvfs_writefile_impl_native     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+bool           easyvfs_seekfile_impl_native      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 easyvfs_uint64 easyvfs_tellfile_impl_native      (easyvfs_file* pFile);
 easyvfs_uint64 easyvfs_filesize_impl_native      (easyvfs_file* pFile);
 void           easyvfs_flushfile_impl_native     (easyvfs_file* pFile);
-easyvfs_bool   easyvfs_deletefile_impl_native    (easyvfs_archive* pArchive, const char* path);
-easyvfs_bool   easyvfs_renamefile_impl_native    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
-easyvfs_bool   easyvfs_mkdir_impl_native         (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_deletefile_impl_native    (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_renamefile_impl_native    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+bool           easyvfs_mkdir_impl_native         (easyvfs_archive* pArchive, const char* path);
 
 
 easyvfs_file* easyvfs_archive_openfile(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
@@ -1054,7 +1054,7 @@ void easyvfs_archive_closefile(easyvfs_archive* pArchive, easyvfs_file* pFile)
 }
 
 
-easyvfs_bool easyvfs_validate_write_path(easyvfs_context* pContext, const char* absoluteOrRelativePath, char* absolutePathOut, unsigned int absolutePathOutSize)
+bool easyvfs_validate_write_path(easyvfs_context* pContext, const char* absoluteOrRelativePath, char* absolutePathOut, unsigned int absolutePathOutSize)
 {
     // If the path is relative, we need to convert to absolute. Then, if the write directory guard is enabled, we need to check that it's a descendant of the base path.
     if (easyvfs_is_path_relative(absoluteOrRelativePath)) {
@@ -1213,7 +1213,7 @@ void easyvfs_set_base_write_directory(easyvfs_context* pContext, const char* abs
     }
 }
 
-easyvfs_bool easyvfs_get_base_write_directory(easyvfs_context* pContext, char* absolutePathOut, unsigned int absolutePathOutSize)
+bool easyvfs_get_base_write_directory(easyvfs_context* pContext, char* absolutePathOut, unsigned int absolutePathOutSize)
 {
     if (pContext != NULL && absolutePathOut != NULL && absolutePathOutSize != 0)
     {
@@ -1238,7 +1238,7 @@ void easyvfs_disable_write_directory_guard(easyvfs_context * pContext)
     }
 }
 
-easyvfs_bool easyvfs_is_write_directory_guard_enabled(easyvfs_context* pContext)
+bool easyvfs_is_write_directory_guard_enabled(easyvfs_context* pContext)
 {
     if (pContext != NULL) {
         return pContext->isWriteGuardEnabled;
@@ -1248,7 +1248,7 @@ easyvfs_bool easyvfs_is_write_directory_guard_enabled(easyvfs_context* pContext)
 }
 
 
-easyvfs_bool easyvfs_begin_iteration(easyvfs_context* pContext, const char* path, easyvfs_iterator* iOut)
+bool easyvfs_begin_iteration(easyvfs_context* pContext, const char* path, easyvfs_iterator* iOut)
 {
     if (pContext != NULL && path != NULL && iOut != NULL)
     {
@@ -1285,7 +1285,7 @@ easyvfs_bool easyvfs_begin_iteration(easyvfs_context* pContext, const char* path
     return 0;
 }
 
-easyvfs_bool easyvfs_next_iteration(easyvfs_context* pContext, easyvfs_iterator* i, easyvfs_file_info* fi)
+bool easyvfs_next_iteration(easyvfs_context* pContext, easyvfs_iterator* i, easyvfs_file_info* fi)
 {
     if (pContext != NULL && i != NULL && i->pUserData != NULL)
     {
@@ -1324,7 +1324,7 @@ void easyvfs_end_iteration(easyvfs_context* pContext, easyvfs_iterator* i)
 }
 
 
-easyvfs_bool easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
+bool easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
 {
     if (pContext != NULL && index < pContext->baseDirectories.count)
     {
@@ -1334,7 +1334,7 @@ easyvfs_bool easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsi
     return 0;
 }
 
-easyvfs_bool easyvfs_get_file_info(easyvfs_context* pContext, const char* path, easyvfs_file_info* fi)
+bool easyvfs_get_file_info(easyvfs_context* pContext, const char* path, easyvfs_file_info* fi)
 {
     if (pContext != NULL && path != NULL)
     {
@@ -1343,7 +1343,7 @@ easyvfs_bool easyvfs_get_file_info(easyvfs_context* pContext, const char* path, 
         easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, path, EASYVFS_READ, relativePath, EASYVFS_MAX_PATH);
         if (pArchive != NULL)
         {
-            easyvfs_bool result = pArchive->callbacks.getfileinfo(pArchive, relativePath, fi);
+            bool result = pArchive->callbacks.getfileinfo(pArchive, relativePath, fi);
 
 
             // The archive is no longer needed, so it needs to be closed.
@@ -1357,7 +1357,7 @@ easyvfs_bool easyvfs_get_file_info(easyvfs_context* pContext, const char* path, 
     return 0;
 }
 
-easyvfs_bool easyvfs_find_absolute_path(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
+bool easyvfs_find_absolute_path(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
 {
     if (pContext != NULL && path != NULL && absolutePathOut != NULL && absolutePathBufferSizeInBytes > 0)
     {
@@ -1373,11 +1373,11 @@ easyvfs_bool easyvfs_find_absolute_path(easyvfs_context* pContext, const char* p
     return 0;
 }
 
-easyvfs_bool easyvfs_find_absolute_path_explicit_base(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
+bool easyvfs_find_absolute_path_explicit_base(easyvfs_context* pContext, const char* path, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
 {
     if (pContext != NULL && path != NULL && highestPriorityBasePath != NULL && absolutePathOut != NULL && absolutePathBufferSizeInBytes > 0)
     {
-        easyvfs_bool result = 0;
+        bool result = 0;
         easyvfs_insert_base_directory(pContext, highestPriorityBasePath, 0);
         {
             result = easyvfs_find_absolute_path(pContext, path, absolutePathOut, absolutePathBufferSizeInBytes);
@@ -1391,7 +1391,7 @@ easyvfs_bool easyvfs_find_absolute_path_explicit_base(easyvfs_context* pContext,
 }
 
 
-easyvfs_bool easyvfs_is_archive(easyvfs_context* pContext, const char* path)
+bool easyvfs_is_archive(easyvfs_context* pContext, const char* path)
 {
     if (pContext != NULL && path != NULL)
     {
@@ -1409,7 +1409,7 @@ easyvfs_bool easyvfs_is_archive(easyvfs_context* pContext, const char* path)
 }
 
 
-int easyvfs_delete_file(easyvfs_context* pContext, const char* path)
+bool easyvfs_delete_file(easyvfs_context* pContext, const char* path)
 {
     int result = 0;
     if (pContext != NULL && path != NULL)
@@ -1435,7 +1435,7 @@ int easyvfs_delete_file(easyvfs_context* pContext, const char* path)
     return result;
 }
 
-int easyvfs_rename_file(easyvfs_context* pContext, const char* pathOld, const char* pathNew)
+bool easyvfs_rename_file(easyvfs_context* pContext, const char* pathOld, const char* pathNew)
 {
     // Renaming/moving is not supported across different archives.
 
@@ -1480,7 +1480,7 @@ int easyvfs_rename_file(easyvfs_context* pContext, const char* pathOld, const ch
     return result;
 }
 
-int easyvfs_mkdir(easyvfs_context* pContext, const char* path)
+bool easyvfs_mkdir(easyvfs_context* pContext, const char* path)
 {
     int result = 0;
     if (pContext != NULL && path != NULL)
@@ -1555,7 +1555,7 @@ void easyvfs_close(easyvfs_file* pFile)
     }
 }
 
-int easyvfs_read(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
+bool easyvfs_read(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
 {
     if (pFile != NULL)
     {
@@ -1565,10 +1565,10 @@ int easyvfs_read(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsig
         return pFile->pArchive->callbacks.readfile(pFile, dst, bytesToRead, bytesReadOut);
     }
 
-    return 0;
+    return false;
 }
 
-int easyvfs_write(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
+bool easyvfs_write(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
 {
     if (pFile != NULL)
     {
@@ -1578,10 +1578,10 @@ int easyvfs_write(easyvfs_file* pFile, const void* src, unsigned int bytesToWrit
         return pFile->pArchive->callbacks.writefile(pFile, src, bytesToWrite, bytesWrittenOut);
     }
 
-    return 0;
+    return false;
 }
 
-easyvfs_bool easyvfs_seek(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
+bool easyvfs_seek(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
 {
     if (pFile != NULL)
     {
@@ -1591,7 +1591,7 @@ easyvfs_bool easyvfs_seek(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvf
         return pFile->pArchive->callbacks.seekfile(pFile, bytesToSeek, origin);
     }
 
-    return 0;
+    return false;
 }
 
 easyvfs_uint64 easyvfs_tell(easyvfs_file* pFile)
@@ -1636,12 +1636,12 @@ void easyvfs_flush(easyvfs_file* pFile)
 //////////////////////////////////////
 // High Level API
 
-easyvfs_bool easyvfs_write_string(easyvfs_file* pFile, const char* str)
+bool easyvfs_write_string(easyvfs_file* pFile, const char* str)
 {
     return easyvfs_write(pFile, str, (unsigned int)strlen(str), NULL);
 }
 
-easyvfs_bool easyvfs_write_line(easyvfs_file* pFile, const char* str)
+bool easyvfs_write_line(easyvfs_file* pFile, const char* str)
 {
     return easyvfs_write_string(pFile, str) && easyvfs_write_string(pFile, "\n");
 }
@@ -1651,7 +1651,7 @@ easyvfs_bool easyvfs_write_line(easyvfs_file* pFile, const char* str)
 ///////////////////////////////////////////
 // Utilities
 
-easyvfs_bool easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsolutePath)
+bool easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsolutePath)
 {
 #if !EASYVFS_USE_EASYPATH
     easyvfs_pathiterator iParent = easyvfs_beginpathiteration(parentAbsolutePath);
@@ -1691,7 +1691,7 @@ easyvfs_bool easyvfs_is_path_child(const char* childAbsolutePath, const char* pa
 #endif
 }
 
-easyvfs_bool easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
+bool easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
 {
 #if !EASYVFS_USE_EASYPATH
     easyvfs_pathiterator iParent = easyvfs_beginpathiteration(parentAbsolutePath);
@@ -1787,7 +1787,7 @@ const char* easyvfs_extension(const char* path)
 #endif
 }
 
-easyvfs_bool easyvfs_extension_equal(const char* path, const char* extension)
+bool easyvfs_extension_equal(const char* path, const char* extension)
 {
 #if !EASYVFS_USE_EASYPATH
     if (path != 0 && extension != 0)
@@ -1816,7 +1816,7 @@ easyvfs_bool easyvfs_extension_equal(const char* path, const char* extension)
 #endif
 }
 
-easyvfs_bool easyvfs_paths_equal(const char* path1, const char* path2)
+bool easyvfs_paths_equal(const char* path1, const char* path2)
 {
 #if !EASYVFS_USE_EASYPATH
     if (path1 != 0 && path2 != 0)
@@ -1843,7 +1843,7 @@ easyvfs_bool easyvfs_paths_equal(const char* path1, const char* path2)
 #endif
 }
 
-easyvfs_bool easyvfs_is_path_relative(const char* path)
+bool easyvfs_is_path_relative(const char* path)
 {
 #if !EASYVFS_USE_EASYPATH
     if (path != 0 && path[0] != '\0')
@@ -1868,12 +1868,12 @@ easyvfs_bool easyvfs_is_path_relative(const char* path)
 #endif
 }
 
-easyvfs_bool easyvfs_is_path_absolute(const char* path)
+bool easyvfs_is_path_absolute(const char* path)
 {
     return !easyvfs_is_path_relative(path);
 }
 
-easyvfs_bool easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const char* other)
+bool easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, const char* other)
 {
 #if !EASYVFS_USE_EASYPATH
     if (base != 0 && other != 0)
@@ -1910,7 +1910,7 @@ easyvfs_bool easyvfs_appendpath(char* base, unsigned int baseBufferSizeInBytes, 
 #endif
 }
 
-easyvfs_bool easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
+bool easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
 {
 #if !EASYVFS_USE_EASYPATH
     if (dst != NULL && dstSizeInBytes > 0)
@@ -1939,7 +1939,7 @@ typedef struct
 
 }easyvfs_iterator_win32;
 
-easyvfs_bool easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path)
+bool easyvfs_isvalidarchive_impl_native(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
 
@@ -1982,7 +1982,7 @@ void easyvfs_closearchive_impl_native(easyvfs_archive* pArchive)
     easyvfs_free(pArchive->pUserData);
 }
 
-easyvfs_bool easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
+bool easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
 {
     assert(pArchive            != NULL);
     assert(pArchive->pUserData != NULL);
@@ -2089,7 +2089,7 @@ void easyvfs_enditeration_impl_native(easyvfs_archive* pArchive, easyvfs_iterato
     }
 }
 
-easyvfs_bool easyvfs_nextiteration_impl_native(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
+bool easyvfs_nextiteration_impl_native(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
 {
     assert(pArchive != NULL);
     assert(i        != NULL);
@@ -2200,7 +2200,7 @@ void easyvfs_closefile_impl_native(easyvfs_file* pFile)
     CloseHandle((HANDLE)pFile->pUserData);
 }
 
-easyvfs_bool easyvfs_readfile_impl_native(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
+bool easyvfs_readfile_impl_native(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
 {
     assert(pFile != NULL);
     assert(pFile->pUserData != NULL);
@@ -2215,7 +2215,7 @@ easyvfs_bool easyvfs_readfile_impl_native(easyvfs_file* pFile, void* dst, unsign
     return result != 0;
 }
 
-easyvfs_bool easyvfs_writefile_impl_native(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
+bool easyvfs_writefile_impl_native(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
 {
     assert(pFile != NULL);
     assert(pFile->pUserData != NULL);
@@ -2230,7 +2230,7 @@ easyvfs_bool easyvfs_writefile_impl_native(easyvfs_file* pFile, const void* src,
     return result != 0;
 }
 
-easyvfs_bool easyvfs_seekfile_impl_native(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
+bool easyvfs_seekfile_impl_native(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
 {
     assert(pFile != NULL);
     assert(pFile->pUserData != NULL);
@@ -2292,7 +2292,7 @@ void easyvfs_flushfile_impl_native(easyvfs_file* pFile)
     FlushFileBuffers((HANDLE)pFile->pUserData);
 }
 
-easyvfs_bool easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const char* path)
+bool easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive            != NULL);
     assert(pArchive->pUserData != NULL);
@@ -2317,7 +2317,7 @@ easyvfs_bool easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const cha
     return 0;
 }
 
-easyvfs_bool easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
+bool easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
 {
     assert(pArchive            != NULL);
     assert(pArchive->pUserData != NULL);
@@ -2338,7 +2338,7 @@ easyvfs_bool easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const cha
     return 0;
 }
 
-easyvfs_bool easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
+bool easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive            != NULL);
     assert(pArchive->pUserData != NULL);
