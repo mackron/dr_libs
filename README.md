@@ -91,8 +91,6 @@ Support for Linux is coming soon.
 
  
 ---
-
-
 # easy_fsw
 easy_fsw is a small library for watching for changes to the file system. It's designed to be
 simple, small and easy to integrate into a project.
@@ -177,8 +175,6 @@ OSX support will come when I finally get myself a Mac.
 
  
 ---
-
-
 # License
 This is free and unencumbered software released into the public domain.
 
