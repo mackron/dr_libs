@@ -1,4 +1,4 @@
-// Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
+// Public Domain. See "unlicense" statement at the end of this file.
 
 #ifndef easy_util
 #define easy_util
