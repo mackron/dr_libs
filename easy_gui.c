@@ -50,7 +50,7 @@ void easygui_end_inbound_event(easygui_context* pContext);
 /// @remarks
 ///     This is used to determine whether or not an element can be deleted immediately or should be garbage collected
 ///     at the end of event processing.
-easygui_bool easygui_is_handling_inbound_event(const easygui_context* pContext);
+bool easygui_is_handling_inbound_event(const easygui_context* pContext);
 
 
 /// Increments the outbound event counter.
@@ -61,20 +61,20 @@ easygui_bool easygui_is_handling_inbound_event(const easygui_context* pContext);
 ///     @par
 ///     This will return false if the given element has been marked as dead, or if there is some other reason it should
 ///     not be receiving events.
-easygui_bool easygui_begin_outbound_event(easygui_element* pElement);
+bool easygui_begin_outbound_event(easygui_element* pElement);
 
 /// Decrements the outbound event counter.
 void easygui_end_outbound_event(easygui_element* pElement);
 
 /// Determines whether or not and outbound event is being processed.
-easygui_bool easygui_is_handling_outbound_event(easygui_context* pContext);
+bool easygui_is_handling_outbound_event(easygui_context* pContext);
 
 
 /// Marks the given element as dead.
 void easygui_mark_element_as_dead(easygui_element* pElement);
 
 /// Determines whether or not the given element is marked as dead.
-easygui_bool easygui_is_element_marked_as_dead(const easygui_element* pElement);
+bool easygui_is_element_marked_as_dead(const easygui_element* pElement);
 
 /// Deletes every element that has been marked as dead.
 void easygui_delete_elements_marked_as_dead(easygui_context* pContext);
@@ -84,7 +84,7 @@ void easygui_delete_elements_marked_as_dead(easygui_context* pContext);
 void easygui_mark_context_as_dead(easygui_context* pContext);
 
 /// Determines whether or not the given context is marked as dead.
-easygui_bool easygui_is_context_marked_as_dead(const easygui_context* pContext);
+bool easygui_is_context_marked_as_dead(const easygui_context* pContext);
 
 
 /// Deletes the given context for real.
@@ -162,9 +162,9 @@ void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, in
 void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
 void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
 void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY);
-void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, easygui_bool isAutoRepeated);
+void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, bool isAutoRepeated);
 void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key);
-void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, easygui_bool isAutoRepeated);
+void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, bool isAutoRepeated);
 void easygui_post_outbound_event_dirty(easygui_element* pElement, easygui_rect relativeRect);
 void easygui_post_outbound_event_dirty_global(easygui_element* pElement, easygui_rect relativeRect);
 void easygui_post_outbound_event_capture_mouse(easygui_element* pElement);
@@ -226,7 +226,7 @@ void easygui_end_inbound_event(easygui_context* pContext)
     }
 }
 
-easygui_bool easygui_is_handling_inbound_event(const easygui_context* pContext)
+bool easygui_is_handling_inbound_event(const easygui_context* pContext)
 {
     assert(pContext != NULL);
 
@@ -235,7 +235,7 @@ easygui_bool easygui_is_handling_inbound_event(const easygui_context* pContext)
 
 
 
-easygui_bool easygui_begin_outbound_event(easygui_element* pElement)
+bool easygui_begin_outbound_event(easygui_element* pElement)
 {
     assert(pElement != NULL);
     assert(pElement->pContext != NULL);
@@ -244,14 +244,14 @@ easygui_bool easygui_begin_outbound_event(easygui_element* pElement)
     // We want to cancel the outbound event if the element is marked as dead.
     if (easygui_is_element_marked_as_dead(pElement)) {
         easygui_log(pElement->pContext, "WARNING: Attemping to post an event to an element that is marked for deletion.");
-        return EASYGUI_FALSE;
+        return false;
     }
 
 
     // At this point everything should be fine so we just increment the count (which should never go above 1) and return true.
     pElement->pContext->outboundEventLockCounter += 1;
 
-    return EASYGUI_TRUE;
+    return true;
 }
 
 void easygui_end_outbound_event(easygui_element* pElement)
@@ -263,7 +263,7 @@ void easygui_end_outbound_event(easygui_element* pElement)
     pElement->pContext->outboundEventLockCounter -= 1;
 }
 
-easygui_bool easygui_is_handling_outbound_event(easygui_context* pContext)
+bool easygui_is_handling_outbound_event(easygui_context* pContext)
 {
     assert(pContext != NULL);
     return pContext->outboundEventLockCounter > 0;
@@ -285,7 +285,7 @@ void easygui_mark_element_as_dead(easygui_element* pElement)
     pElement->pContext->pFirstDeadElement = pElement;
 }
 
-easygui_bool easygui_is_element_marked_as_dead(const easygui_element* pElement)
+bool easygui_is_element_marked_as_dead(const easygui_element* pElement)
 {
     assert(pElement != NULL);
 
@@ -314,7 +314,7 @@ void easygui_mark_context_as_dead(easygui_context* pContext)
     pContext->flags |= IS_CONTEXT_DEAD;
 }
 
-easygui_bool easygui_is_context_marked_as_dead(const easygui_context* pContext)
+bool easygui_is_context_marked_as_dead(const easygui_context* pContext)
 {
     assert(pContext != NULL);
 
@@ -560,7 +560,7 @@ void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easyg
             easygui_element* pOldAncestor = pOldElementUnderMouse;
             while (pOldAncestor != NULL)
             {
-                easygui_bool isOldElementUnderMouse = pNewElementUnderMouse == pOldAncestor || easygui_is_ancestor(pOldAncestor, pNewElementUnderMouse);
+                bool isOldElementUnderMouse = pNewElementUnderMouse == pOldAncestor || easygui_is_ancestor(pOldAncestor, pNewElementUnderMouse);
                 if (!isOldElementUnderMouse)
                 {
                     easygui_post_outbound_event_mouse_leave(pOldAncestor);
@@ -574,7 +574,7 @@ void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easyg
             easygui_element* pNewAncestor = pNewElementUnderMouse;
             while (pNewAncestor != NULL)
             {
-                easygui_bool wasNewElementUnderMouse = pOldElementUnderMouse == pNewAncestor || easygui_is_ancestor(pNewAncestor, pOldElementUnderMouse);
+                bool wasNewElementUnderMouse = pOldElementUnderMouse == pNewAncestor || easygui_is_ancestor(pNewAncestor, pOldElementUnderMouse);
                 if (!wasNewElementUnderMouse)
                 {
                     easygui_post_outbound_event_mouse_enter(pNewAncestor);
@@ -695,7 +695,7 @@ void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delt
     }
 }
 
-void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, easygui_bool isAutoRepeated)
+void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, bool isAutoRepeated)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -719,7 +719,7 @@ void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key k
     }
 }
 
-void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, easygui_bool isAutoRepeated)
+void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, bool isAutoRepeated)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -1218,7 +1218,7 @@ void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, i
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, easygui_bool isAutoRepeated)
+void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, bool isAutoRepeated)
 {
     if (pContext == NULL) {
         return;
@@ -1248,7 +1248,7 @@ void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key ke
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, easygui_bool isAutoRepeated)
+void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, bool isAutoRepeated)
 {
     if (pContext == NULL) {
         return;
@@ -1395,11 +1395,11 @@ void easygui_delete_element(easygui_element* pElement)
 
 
     // If this was element is marked as the one that was last under the mouse it needs to be unset.
-    easygui_bool needsMouseUpdate = EASYGUI_FALSE;
+    bool needsMouseUpdate = false;
     if (pContext->pElementUnderMouse == pElement)
     {
         pContext->pElementUnderMouse = NULL;
-        needsMouseUpdate = EASYGUI_TRUE;
+        needsMouseUpdate = true;
     }
 
     if (pContext->pLastMouseMoveTopLevelElement == pElement)
@@ -1407,7 +1407,7 @@ void easygui_delete_element(easygui_element* pElement)
         pContext->pLastMouseMoveTopLevelElement = NULL;
         pContext->lastMouseMovePosX = 0;
         pContext->lastMouseMovePosY = 0;
-        needsMouseUpdate = EASYGUI_FALSE;       // It was a top-level element so the mouse enter/leave state doesn't need an update.
+        needsMouseUpdate = false;       // It was a top-level element so the mouse enter/leave state doesn't need an update.
     }
 
 
@@ -1497,16 +1497,16 @@ void easygui_show(easygui_element * pElement)
     }
 }
 
-easygui_bool easygui_is_visible(const easygui_element * pElement)
+bool easygui_is_visible(const easygui_element * pElement)
 {
     if (pElement != NULL) {
         return (pElement->flags & IS_ELEMENT_HIDDEN) == 0;
     }
 
-    return EASYGUI_FALSE;
+    return false;
 }
 
-easygui_bool easygui_is_visible_recursive(const easygui_element * pElement)
+bool easygui_is_visible_recursive(const easygui_element * pElement)
 {
     if (easygui_is_visible(pElement))
     {
@@ -1517,7 +1517,7 @@ easygui_bool easygui_is_visible_recursive(const easygui_element * pElement)
         }
     }
 
-    return EASYGUI_FALSE;
+    return false;
 }
 
 
@@ -1535,13 +1535,13 @@ void easygui_enable_clipping(easygui_element* pElement)
     }
 }
 
-easygui_bool easygui_is_clipping_enabled(const easygui_element* pElement)
+bool easygui_is_clipping_enabled(const easygui_element* pElement)
 {
     if (pElement != NULL) {
         return (pElement->flags & IS_ELEMENT_CLIPPING_DISABLED) == 0;
     }
 
-    return EASYGUI_TRUE;
+    return true;
 }
 
 
@@ -1769,24 +1769,24 @@ void easygui_register_on_release_keyboard(easygui_element* pElement, easygui_on_
 
 
 
-easygui_bool easygui_is_point_inside_element_bounds(const easygui_element* pElement, float absolutePosX, float absolutePosY)
+bool easygui_is_point_inside_element_bounds(const easygui_element* pElement, float absolutePosX, float absolutePosY)
 {
     if (absolutePosX < pElement->absolutePosX ||
         absolutePosX < pElement->absolutePosY)
     {
-        return EASYGUI_FALSE;
+        return false;
     }
     
     if (absolutePosX >= pElement->absolutePosX + pElement->width ||
         absolutePosY >= pElement->absolutePosY + pElement->height)
     {
-        return EASYGUI_FALSE;
+        return false;
     }
 
-    return EASYGUI_TRUE;
+    return true;
 }
 
-easygui_bool easygui_is_point_inside_element(easygui_element* pElement, float absolutePosX, float absolutePosY)
+bool easygui_is_point_inside_element(easygui_element* pElement, float absolutePosX, float absolutePosY)
 {
     if (easygui_is_point_inside_element_bounds(pElement, absolutePosX, absolutePosY))
     {
@@ -1797,10 +1797,10 @@ easygui_bool easygui_is_point_inside_element(easygui_element* pElement, float ab
             return pElement->onHitTest(pElement, absolutePosX - pElement->absolutePosX, absolutePosY - pElement->absolutePosY);
         }
 
-        return EASYGUI_TRUE;
+        return true;
     }
 
-    return EASYGUI_FALSE;
+    return false;
 }
 
 
@@ -1812,7 +1812,7 @@ typedef struct
     float absolutePosY;
 }easygui_find_element_under_point_data;
 
-easygui_bool easygui_find_element_under_point_iterator(easygui_element* pElement, easygui_rect* pRelativeVisibleRect, void* pUserData)
+bool easygui_find_element_under_point_iterator(easygui_element* pElement, easygui_rect* pRelativeVisibleRect, void* pUserData)
 {
     assert(pElement             != NULL);
     assert(pRelativeVisibleRect != NULL);
@@ -1837,7 +1837,7 @@ easygui_bool easygui_find_element_under_point_iterator(easygui_element* pElement
 
 
     // Always return true to ensure the entire hierarchy is checked.
-    return EASYGUI_TRUE;
+    return true;
 }
 
 easygui_element* easygui_find_element_under_point(easygui_element* pTopLevelElement, float absolutePosX, float absolutePosY)
@@ -1968,41 +1968,41 @@ easygui_element* easygui_find_top_level_element(easygui_element* pElement)
     return pElement;
 }
 
-easygui_bool easygui_is_parent(easygui_element* pParentElement, easygui_element* pChildElement)
+bool easygui_is_parent(easygui_element* pParentElement, easygui_element* pChildElement)
 {
     if (pParentElement == NULL || pChildElement == NULL) {
-        return EASYGUI_FALSE;
+        return false;
     }
 
     return pParentElement == pChildElement->pParent;
 }
 
-easygui_bool easygui_is_child(easygui_element* pChildElement, easygui_element* pParentElement)
+bool easygui_is_child(easygui_element* pChildElement, easygui_element* pParentElement)
 {
     return easygui_is_parent(pParentElement, pChildElement);
 }
 
-easygui_bool easygui_is_ancestor(easygui_element* pAncestorElement, easygui_element* pChildElement)
+bool easygui_is_ancestor(easygui_element* pAncestorElement, easygui_element* pChildElement)
 {
     if (pAncestorElement == NULL || pChildElement == NULL) {
-        return EASYGUI_FALSE;
+        return false;
     }
 
     easygui_element* pParent = pChildElement->pParent;
     while (pParent != NULL)
     {
         if (pParent == pAncestorElement) {
-            return EASYGUI_TRUE;
+            return true;
         }
 
         pParent = pParent->pParent;
     }
 
 
-    return EASYGUI_FALSE;
+    return false;
 }
 
-easygui_bool easygui_is_descendant(easygui_element* pChildElement, easygui_element* pAncestorElement)
+bool easygui_is_descendant(easygui_element* pChildElement, easygui_element* pAncestorElement)
 {
     return easygui_is_ancestor(pAncestorElement, pChildElement);
 }
@@ -2299,19 +2299,19 @@ void easygui_register_painting_callbacks(easygui_context* pContext, easygui_pain
 }
 
 
-easygui_bool easygui_iterate_visible_elements(easygui_element* pParentElement, easygui_rect relativeRect, easygui_visible_iteration_proc callback, void* pUserData)
+bool easygui_iterate_visible_elements(easygui_element* pParentElement, easygui_rect relativeRect, easygui_visible_iteration_proc callback, void* pUserData)
 {
     if (pParentElement == NULL) {
-        return EASYGUI_FALSE;
+        return false;
     }
 
     if (callback == NULL) {
-        return EASYGUI_FALSE;
+        return false;
     }
 
 
     if (!easygui_is_visible(pParentElement)) {
-        return EASYGUI_TRUE;
+        return true;
     }
 
 
@@ -2320,7 +2320,7 @@ easygui_bool easygui_iterate_visible_elements(easygui_element* pParentElement, e
     {
         // We'll only get here if some part of the rectangle was inside the element.
         if (!callback(pParentElement, &clampedRelativeRect, pUserData)) {
-            return EASYGUI_FALSE;
+            return false;
         }
     }
 
@@ -2343,12 +2343,12 @@ easygui_bool easygui_iterate_visible_elements(easygui_element* pParentElement, e
         childRect.bottom -= childRelativePosY;
 
         if (!easygui_iterate_visible_elements(pChild, childRect, callback, pUserData)) {
-            return EASYGUI_FALSE;
+            return false;
         }
     }
 
 
-    return EASYGUI_TRUE;
+    return true;
 }
 
 void easygui_disable_auto_dirty(easygui_context* pContext)
@@ -2365,13 +2365,13 @@ void easygui_enable_auto_dirty(easygui_context* pContext)
     }
 }
 
-easygui_bool easygui_is_auto_dirty_enabled(easygui_context* pContext)
+bool easygui_is_auto_dirty_enabled(easygui_context* pContext)
 {
     if (pContext != NULL) {
         return (pContext->flags & IS_AUTO_DIRTY_DISABLED) == 0;
     }
 
-    return EASYGUI_FALSE;
+    return false;
 }
 
 
@@ -2385,7 +2385,7 @@ void easygui_dirty(easygui_element* pElement, easygui_rect relativeRect)
 }
 
 
-easygui_bool easygui_draw_iteration_callback(easygui_element* pElement, easygui_rect* pRelativeRect, void* pUserData)
+bool easygui_draw_iteration_callback(easygui_element* pElement, easygui_rect* pRelativeRect, void* pUserData)
 {
     assert(pElement      != NULL);
     assert(pRelativeRect != NULL);
@@ -2408,7 +2408,7 @@ easygui_bool easygui_draw_iteration_callback(easygui_element* pElement, easygui_
         *pRelativeRect = easygui_clamp_rect(newRelativeRect, *pRelativeRect);
     }
 
-    return EASYGUI_TRUE;
+    return true;
 }
 
 void easygui_draw(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData)
@@ -2584,13 +2584,13 @@ void easygui_on_size_fit_to_parent(easygui_element* pElement, float newWidth, fl
     }
 }
 
-easygui_bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, float mousePosY)
+bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, float mousePosY)
 {
     (void)pElement;
     (void)mousePosX;
     (void)mousePosY;
 
-    return EASYGUI_FALSE;
+    return false;
 }
 
 
@@ -2674,10 +2674,10 @@ easygui_rect easygui_clamp_rect(easygui_rect rect, easygui_rect other)
     return result;
 }
 
-easygui_bool easygui_clamp_rect_to_element(const easygui_element* pElement, easygui_rect* pRelativeRect)
+bool easygui_clamp_rect_to_element(const easygui_element* pElement, easygui_rect* pRelativeRect)
 {
     if (pElement == NULL || pRelativeRect == NULL) {
-        return EASYGUI_FALSE;
+        return false;
     }
 
 
@@ -2799,17 +2799,17 @@ easygui_rect easygui_rect_union(easygui_rect rect0, easygui_rect rect1)
     return result;
 }
 
-easygui_bool easygui_rect_contains_point(easygui_rect rect, float posX, float posY)
+bool easygui_rect_contains_point(easygui_rect rect, float posX, float posY)
 {
     if (posX < rect.left || posY < rect.top) {
-        return EASYGUI_FALSE;
+        return false;
     }
 
     if (posX >= rect.right || posY >= rect.bottom) {
-        return EASYGUI_FALSE;
+        return false;
     }
 
-    return EASYGUI_TRUE;
+    return true;
 }
 
 

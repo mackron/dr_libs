@@ -94,7 +94,6 @@
 
 //
 // EXAMPLES
-// TODO: UPDATE THESE!
 //
 // Basic Drawing:
 //
@@ -158,6 +157,8 @@
 #include "../easy_draw/easy_draw.h"
 #endif
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -172,7 +173,6 @@ typedef struct easygui_painting_callbacks easygui_painting_callbacks;
 typedef void* easygui_font;
 
 typedef unsigned char easygui_byte;
-typedef int easygui_bool;
 typedef int easygui_key;
 
 
@@ -197,26 +197,26 @@ struct easygui_rect
 
 typedef void (* easygui_callback)();
 
-typedef void         (* easygui_on_move_proc)                 (easygui_element* pElement, float newRelativePosX, float newRelativePosY);
-typedef void         (* easygui_on_size_proc)                 (easygui_element* pElement, float newWidth, float newHeight);
-typedef void         (* easygui_on_mouse_enter_proc)          (easygui_element* pElement);
-typedef void         (* easygui_on_mouse_leave_proc)          (easygui_element* pElement);
-typedef void         (* easygui_on_mouse_move_proc)           (easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
-typedef void         (* easygui_on_mouse_button_down_proc)    (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
-typedef void         (* easygui_on_mouse_button_up_proc)      (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
-typedef void         (* easygui_on_mouse_button_dblclick_proc)(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
-typedef void         (* easygui_on_mouse_wheel_proc)          (easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY);
-typedef void         (* easygui_on_key_down_proc)             (easygui_element* pElement, easygui_key key, easygui_bool isAutoRepeated);
-typedef void         (* easygui_on_key_up_proc)               (easygui_element* pElement, easygui_key key);
-typedef void         (* easygui_on_printable_key_down_proc)   (easygui_element* pElement, unsigned int character, easygui_bool isAutoRepeated);
-typedef void         (* easygui_on_paint_proc)                (easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
-typedef void         (* easygui_on_dirty_proc)                (easygui_element* pElement, easygui_rect relativeRect);
-typedef easygui_bool (* easygui_on_hittest_proc)              (easygui_element* pElement, float relativePosX, float relativePosY);
-typedef void         (* easygui_on_capture_mouse_proc)        (easygui_element* pElement);
-typedef void         (* easygui_on_release_mouse_proc)        (easygui_element* pElement);
-typedef void         (* easygui_on_capture_keyboard_proc)     (easygui_element* pElement);
-typedef void         (* easygui_on_release_keyboard_proc)     (easygui_element* pElement);
-typedef void         (* easygui_on_log)                       (easygui_context* pContext, const char* message);
+typedef void (* easygui_on_move_proc)                 (easygui_element* pElement, float newRelativePosX, float newRelativePosY);
+typedef void (* easygui_on_size_proc)                 (easygui_element* pElement, float newWidth, float newHeight);
+typedef void (* easygui_on_mouse_enter_proc)          (easygui_element* pElement);
+typedef void (* easygui_on_mouse_leave_proc)          (easygui_element* pElement);
+typedef void (* easygui_on_mouse_move_proc)           (easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
+typedef void (* easygui_on_mouse_button_down_proc)    (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+typedef void (* easygui_on_mouse_button_up_proc)      (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+typedef void (* easygui_on_mouse_button_dblclick_proc)(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+typedef void (* easygui_on_mouse_wheel_proc)          (easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY);
+typedef void (* easygui_on_key_down_proc)             (easygui_element* pElement, easygui_key key, bool isAutoRepeated);
+typedef void (* easygui_on_key_up_proc)               (easygui_element* pElement, easygui_key key);
+typedef void (* easygui_on_printable_key_down_proc)   (easygui_element* pElement, unsigned int character, bool isAutoRepeated);
+typedef void (* easygui_on_paint_proc)                (easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
+typedef void (* easygui_on_dirty_proc)                (easygui_element* pElement, easygui_rect relativeRect);
+typedef bool (* easygui_on_hittest_proc)              (easygui_element* pElement, float relativePosX, float relativePosY);
+typedef void (* easygui_on_capture_mouse_proc)        (easygui_element* pElement);
+typedef void (* easygui_on_release_mouse_proc)        (easygui_element* pElement);
+typedef void (* easygui_on_capture_keyboard_proc)     (easygui_element* pElement);
+typedef void (* easygui_on_release_keyboard_proc)     (easygui_element* pElement);
+typedef void (* easygui_on_log)                       (easygui_context* pContext, const char* message);
 
 typedef void (* easygui_draw_begin_proc)                   (void* pPaintData);
 typedef void (* easygui_draw_end_proc)                     (void* pPaintData);
@@ -231,11 +231,7 @@ typedef void (* easygui_draw_text_proc)                    (const char* text, in
 typedef void (* easygui_set_clip_proc)                     (easygui_rect relativeRect, void* pPaintData);
 typedef void (* easygui_get_clip_proc)                     (easygui_rect* pRectOut, void* pPaintData);
 
-typedef easygui_bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect *pRelativeRect, void* pUserData);
-
-
-#define EASYGUI_FALSE                   0
-#define EASYGUI_TRUE                    1
+typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect *pRelativeRect, void* pUserData);
 
 #define EASYGUI_MOUSE_BUTTON_LEFT       1
 #define EASYGUI_MOUSE_BUTTON_RIGHT      2
@@ -289,10 +285,6 @@ struct easygui_element
     /// acting as the link between items. This will be null if the element is the last in the list, or is not marked as dead. Note
     /// that this should not be used to check if the element is marked as dead - use the IS_ELEMENT_DEAD flag instead.
     easygui_element* pNextDeadElement;
-
-
-    /// The user data pointer.
-    //void* pUserData;
 
 
 
@@ -494,7 +486,7 @@ void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevel
 void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
 
 /// Posts a key down inbound event.
-void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, easygui_bool isAutoRepeated);
+void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, bool isAutoRepeated);
 
 /// Posts a key up inbound event.
 void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key);
@@ -503,7 +495,7 @@ void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key ke
 ///
 /// @remarks
 ///     The \c character argument should be a UTF-32 code point.
-void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, easygui_bool isAutoRepeated);
+void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, bool isAutoRepeated);
 
 
 /// Registers the global on_dirty event callback.
@@ -590,10 +582,10 @@ void easygui_show(easygui_element* pElement);
 ///     This is a direct accessor for the internal visible flag of the element and is not recursive. Thus, if this element is
 ///     marked as visible, but it's parent is invisible, it will still return true. Use easygui_is_visible_recursive() to do
 ///     a recursive visibility check.
-easygui_bool easygui_is_visible(const easygui_element* pElement);
+bool easygui_is_visible(const easygui_element* pElement);
 
 /// Recursively determines whether or not the element is marked as visible.
-easygui_bool easygui_is_visible_recursive(const easygui_element* pElement);
+bool easygui_is_visible_recursive(const easygui_element* pElement);
 
 
 /// Disables clipping against the parent for the given element.
@@ -603,7 +595,7 @@ void easygui_disable_clipping(easygui_element* pElement);
 void easygui_enable_clipping(easygui_element* pElement);
 
 /// Determines whether or not clipping is enabled for the given element.
-easygui_bool easygui_is_clipping_enabled(const easygui_element* pElement);
+bool easygui_is_clipping_enabled(const easygui_element* pElement);
 
 
 /// Sets the element that should receive all future mouse related events.
@@ -692,13 +684,13 @@ void easygui_register_on_release_keyboard(easygui_element* pElement, easygui_on_
 /// @remarks
 ///     This only checks if the point is inside the bounds of the element and does not take hit testing into account. This difference
 ///     with this one and easygui_is_point_inside_element() is that the latter will use hit testing.
-easygui_bool easygui_is_point_inside_element_bounds(const easygui_element* pElement, float absolutePosX, float absolutePosY);
+bool easygui_is_point_inside_element_bounds(const easygui_element* pElement, float absolutePosX, float absolutePosY);
 
 /// Determines whether or not the given point is inside the given element.
 ///
 /// @remarks
 ///     This will use hit testing to determine whether or not the point is inside the element.
-easygui_bool easygui_is_point_inside_element(easygui_element* pElement, float absolutePosX, float absolutePosY);
+bool easygui_is_point_inside_element(easygui_element* pElement, float absolutePosX, float absolutePosY);
 
 /// Finds the element under the given point taking mouse pass-through and hit testing into account.
 easygui_element* easygui_find_element_under_point(easygui_element* pTopLevelElement, float absolutePosX, float absolutePosY);
@@ -732,19 +724,19 @@ easygui_element* easygui_find_top_level_element(easygui_element* pElement);
 ///
 /// @remarks
 ///     This is not recursive. Use easygui_is_ancestor() to do a recursive traversal.
-easygui_bool easygui_is_parent(easygui_element* pParentElement, easygui_element* pChildElement);
+bool easygui_is_parent(easygui_element* pParentElement, easygui_element* pChildElement);
 
 /// Determines whether or not the given element is a child of the other.
 ///
 /// @remarks
 ///     This is not recursive. Use easygui_is_descendant() to do a recursive traversal.
-easygui_bool easygui_is_child(easygui_element* pChildElement, easygui_element* pParentElement);
+bool easygui_is_child(easygui_element* pChildElement, easygui_element* pParentElement);
 
 /// Determines whether or not the given element is an ancestor of the other.
-easygui_bool easygui_is_ancestor(easygui_element* pAncestorElement, easygui_element* pChildElement);
+bool easygui_is_ancestor(easygui_element* pAncestorElement, easygui_element* pChildElement);
 
 /// Determines whether or not the given element is a descendant of the other.
-easygui_bool easygui_is_descendant(easygui_element* pChildElement, easygui_element* pAncestorElement);
+bool easygui_is_descendant(easygui_element* pChildElement, easygui_element* pAncestorElement);
 
 
 
@@ -808,7 +800,7 @@ void easygui_register_painting_callbacks(easygui_context* pContext, easygui_pain
 ///     @par
 ///     The iteration callback function takes a pointer to a rectangle structure that represents the visible portion of the
 ///     element. This pointer can be modified by the callback to create an adjusted rectangle which can be used for clipping.
-easygui_bool easygui_iterate_visible_elements(easygui_element* pParentElement, easygui_rect relativeRect, easygui_visible_iteration_proc callback, void* pUserData);
+bool easygui_iterate_visible_elements(easygui_element* pParentElement, easygui_rect relativeRect, easygui_visible_iteration_proc callback, void* pUserData);
 
 
 /// Disable's automatic dirtying of elements.
@@ -818,7 +810,7 @@ void easygui_disable_auto_dirty(easygui_context* pContext);
 void easygui_enable_auto_dirty(easygui_context* pContext);
 
 /// Determines whether or not automatic dirtying is enabled.
-easygui_bool easygui_is_auto_dirty_enabled(easygui_context* pContext);
+bool easygui_is_auto_dirty_enabled(easygui_context* pContext);
 
 
 /// Marks a region of the given element as dirty.
@@ -891,7 +883,7 @@ void easygui_draw_text(easygui_element* pElement, const char* text, int textSize
 void easygui_on_size_fit_to_parent(easygui_element* pElement, float newWidth, float newHeight);
 
 /// An on_hit_test event callback that can be used to always fail the mouse hit test.
-easygui_bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, float mousePosY);
+bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, float mousePosY);
 
 
 //// Painting ////
@@ -920,7 +912,7 @@ void easygui_get_self_and_siblings_size(const easygui_element* pElement, float* 
 easygui_rect easygui_clamp_rect(easygui_rect rect, easygui_rect other);
 
 /// Clamps the given rectangle to the given element and returns whether or not any of it is contained within the element's rectangle.
-easygui_bool easygui_clamp_rect_to_element(const easygui_element* pElement, easygui_rect* pRelativeRect);
+bool easygui_clamp_rect_to_element(const easygui_element* pElement, easygui_rect* pRelativeRect);
 
 /// Converts the given rectangle from absolute to relative to the given element.
 easygui_rect easygui_make_rect_relative(const easygui_element* pElement, easygui_rect* pRect);
@@ -963,7 +955,7 @@ easygui_rect easygui_rect_union(easygui_rect rect0, easygui_rect rect1);
 ///     is sitting on the left or top border, true will be returned. The reason for this is that elements may sit exactly side-by-side with
 ///     each other, and if we use this function to determine if a point is contained within an element (which we do), we would end up having
 ///     this return true for both elements, which we don't want.
-easygui_bool easygui_rect_contains_point(easygui_rect rect, float posX, float posY);
+bool easygui_rect_contains_point(easygui_rect rect, float posX, float posY);
 
 
 
