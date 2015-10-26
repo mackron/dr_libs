@@ -1,11 +1,22 @@
-#About
-This is an experimental library for parsing assembly-like, programmable material files and generating shader
-code from those materials for use in 3D graphics APIs such as OpenGL.
+# About
+easy_draw is an experimental library for drawing 2D and 3D environments. This is still very early
+and experimental.
 
-The main reason I'm building this library is to experiment with an idea where materials are defined programmatically
-as a series of instructions, as opposed to static materials which are just made up of pre-defined variables.
+easy_draw is split across a few different sub-libraries:
+ - easy_2d - for drawing 2D environments. No dependencies.
+ - easy_3d - for drawing 3D environments. Depends on easy_mtl.
+ - easy_mtl - for handling programmatic materials.
 
 
+---
+# easy_mtl
+easy_mtl is an experimental library for parsing assembly-like, programmable material files and generating
+shader code from those materials for use in 3D graphics APIs such as OpenGL. The main goal is to experiment
+with the idea of having materials defined programmatically as a series of instructions, as opposed to
+static materials which are just made up of pre-defined variables.
+
+
+---
 # License
 This is free and unencumbered software released into the public domain.
 
