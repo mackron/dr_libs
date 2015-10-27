@@ -84,6 +84,7 @@ typedef void           (* easyvfs_flush_file_proc)       (easyvfs_file* pFile);
 typedef bool           (* easyvfs_deletefile_proc)       (easyvfs_archive* pArchive, const char* path);
 typedef bool           (* easyvfs_rename_file_proc)      (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
 typedef bool           (* easyvfs_mkdir_proc)            (easyvfs_archive* pArchive, const char* path);
+typedef bool           (* easyvfs_copy_file_proc)        (easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists);
 
 typedef struct
 {
@@ -105,6 +106,7 @@ typedef struct
     easyvfs_deletefile_proc       deletefile;
     easyvfs_rename_file_proc      renamefile;
     easyvfs_mkdir_proc            mkdir;
+    easyvfs_copy_file_proc        copyfile;     // <-- This is only used for intra-archive copies.
 
 }easyvfs_archive_callbacks;
 
@@ -296,6 +298,10 @@ bool easyvfs_rename_file(easyvfs_context* pContext, const char* pathOld, const c
 ///
 /// Must be an absolute, verbose path in order to avoid ambiguity.
 bool easyvfs_mkdir(easyvfs_context* pContext, const char* path);
+
+
+/// Copies a file.
+bool easyvfs_copy_file(easyvfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists);
 
 
 

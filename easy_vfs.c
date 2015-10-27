@@ -523,6 +523,7 @@ void           easyvfs_flushfile_impl_native     (easyvfs_file* pFile);
 bool           easyvfs_deletefile_impl_native    (easyvfs_archive* pArchive, const char* path);
 bool           easyvfs_renamefile_impl_native    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
 bool           easyvfs_mkdir_impl_native         (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_copyfile_impl_native      (easyvfs_archive* pArchive, const char* srcRelativePath, const char* dstRelativePath, bool failIfExists);
 
 
 easyvfs_file* easyvfs_archive_openfile(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
@@ -1113,6 +1114,7 @@ easyvfs_context* easyvfs_create_context()
             pContext->nativeCallbacks.deletefile     = easyvfs_deletefile_impl_native;
             pContext->nativeCallbacks.renamefile     = easyvfs_renamefile_impl_native;
             pContext->nativeCallbacks.mkdir          = easyvfs_mkdir_impl_native;
+            pContext->nativeCallbacks.copyfile       = easyvfs_copyfile_impl_native;
         }
         else
         {
@@ -1482,14 +1484,14 @@ bool easyvfs_rename_file(easyvfs_context* pContext, const char* pathOld, const c
 
 bool easyvfs_mkdir(easyvfs_context* pContext, const char* path)
 {
-    int result = 0;
+    bool result = false;
     if (pContext != NULL && path != NULL)
     {
         char absolutePath[EASYVFS_MAX_PATH];
         if (easyvfs_validate_write_path(pContext, path, absolutePath, EASYVFS_MAX_PATH)) {
             path = absolutePath;
         } else {
-            return 0;
+            return false;
         }
 
         char relativePath[EASYVFS_MAX_PATH];
@@ -1500,6 +1502,93 @@ bool easyvfs_mkdir(easyvfs_context* pContext, const char* path)
 
             easyvfs_closearchive_recursive(pArchive);
         }
+    }
+
+    return result;
+}
+
+
+bool easyvfs_copy_file(easyvfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists)
+{
+    bool result = false;
+    if (pContext != NULL && srcPath != NULL && dstPath != NULL)
+    {
+        char dstPathAbsolute[EASYVFS_MAX_PATH];
+        if (easyvfs_validate_write_path(pContext, dstPath, dstPathAbsolute, sizeof(dstPathAbsolute))) {
+            dstPath = dstPathAbsolute;
+        } else {
+            return false;
+        }
+
+
+        // We want to open the archive of both the source and destination. If they are the same archive we'll do an intra-archive copy.
+        char srcRelativePath[EASYVFS_MAX_PATH];
+        easyvfs_archive* pSrcArchive = easyvfs_openarchive_frompath(pContext, srcPath, EASYVFS_READ, srcRelativePath, sizeof(srcRelativePath));
+        if (pSrcArchive == NULL) {
+            return false;
+        }
+
+        char dstRelativePath[EASYVFS_MAX_PATH];
+        easyvfs_archive* pDstArchive = easyvfs_openarchive_frompath(pContext, dstPath, EASYVFS_READ | EASYVFS_WRITE, dstRelativePath, sizeof(dstRelativePath));
+        if (pDstArchive == NULL) {
+            easyvfs_closearchive_recursive(pSrcArchive);
+            return false;
+        }
+
+
+        
+
+        if (strcmp(pSrcArchive->absolutePath, pDstArchive->absolutePath) == 0)
+        {
+            // Intra-archive copy.
+            result = pDstArchive->callbacks.copyfile(pDstArchive, srcRelativePath, dstRelativePath, failIfExists);
+        }
+        else
+        {
+            bool areBothArchivesNative = (pSrcArchive->callbacks.copyfile == pDstArchive->callbacks.copyfile && pDstArchive->callbacks.copyfile == easyvfs_copyfile_impl_native);
+            if (areBothArchivesNative)
+            {
+                char srcPathAbsolute[EASYVFS_MAX_PATH];
+                easyvfs_copy_and_append_path(srcPathAbsolute, sizeof(srcPathAbsolute), pSrcArchive->absolutePath, srcPath);
+
+                result = easyvfs_copyfile_impl_native(NULL, srcPathAbsolute, dstPathAbsolute, failIfExists);
+            }
+            else
+            {
+                // Inter-archive copy. This is a theoretically slower path because we do everything manually. Probably not much slower in practice, though.
+                if (failIfExists && pDstArchive->callbacks.getfileinfo(pDstArchive, dstRelativePath, NULL) == true)
+                {
+                    result = false;
+                }
+                else
+                {
+                    easyvfs_file* pSrcFile = easyvfs_archive_openfile(pSrcArchive, srcRelativePath, EASYVFS_READ);
+                    easyvfs_file* pDstFile = easyvfs_archive_openfile(pDstArchive, dstRelativePath, EASYVFS_WRITE);
+                    if (pSrcFile != NULL && pDstFile != NULL)
+                    {
+                        char chunk[4096];
+                        unsigned int bytesRead;
+                        while (easyvfs_read(pSrcFile, chunk, sizeof(chunk), &bytesRead))
+                        {
+                            easyvfs_write(pDstFile, chunk, bytesRead, NULL);
+                        }
+
+                        result = true;
+                    }
+                    else
+                    {
+                        result = false;
+                    }
+
+                    easyvfs_archive_closefile(pSrcArchive, pSrcFile);
+                    easyvfs_archive_closefile(pDstArchive, pDstFile);
+                }
+            }
+        }
+
+
+        easyvfs_closearchive_recursive(pSrcArchive);
+        easyvfs_closearchive_recursive(pDstArchive);
     }
 
     return result;
@@ -2019,11 +2108,11 @@ bool easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path
                 }
             }
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 void* easyvfs_beginiteration_impl_native(easyvfs_archive* pArchive, const char* path)
@@ -2351,6 +2440,23 @@ bool easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
     }
 
     return 0;
+}
+
+bool easyvfs_copyfile_impl_native(easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists)
+{
+    char srcPathAbsolute[EASYVFS_MAX_PATH];
+    char dstPathAbsolute[EASYVFS_MAX_PATH];
+    if (pArchive != NULL)
+    {
+        easyvfs_copy_and_append_path(srcPathAbsolute, sizeof(srcPathAbsolute), pArchive->absolutePath, srcPath);
+        easyvfs_copy_and_append_path(dstPathAbsolute, sizeof(dstPathAbsolute), pArchive->absolutePath, dstPath);
+
+        return CopyFileA(srcPathAbsolute, dstPathAbsolute, failIfExists);
+    }
+    else
+    {
+        return CopyFileA(srcPath, dstPath, failIfExists);
+    }
 }
 #endif
 

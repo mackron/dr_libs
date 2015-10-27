@@ -98,24 +98,25 @@ void easyvfs_mtl_addfile(easyvfs_archive_mtl* pArchive, easyvfs_file_mtl* pFile)
 }
 
 
-easyvfs_bool   easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path);
+bool           easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path);
 void*          easyvfs_openarchive_mtl   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
 void           easyvfs_closearchive_mtl  (easyvfs_archive* pArchive);
-easyvfs_bool   easyvfs_getfileinfo_mtl   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
+bool           easyvfs_getfileinfo_mtl   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
 void*          easyvfs_beginiteration_mtl(easyvfs_archive* pArchive, const char* path);
 void           easyvfs_enditeration_mtl  (easyvfs_archive* pArchive, easyvfs_iterator* i);
-easyvfs_bool   easyvfs_nextiteration_mtl (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+bool           easyvfs_nextiteration_mtl (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
 void*          easyvfs_openfile_mtl      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
 void           easyvfs_closefile_mtl     (easyvfs_file* pFile);
-easyvfs_bool   easyvfs_readfile_mtl      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
-easyvfs_bool   easyvfs_writefile_mtl     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
-easyvfs_bool   easyvfs_seekfile_mtl      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
+bool           easyvfs_readfile_mtl      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+bool           easyvfs_writefile_mtl     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+bool           easyvfs_seekfile_mtl      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
 easyvfs_uint64 easyvfs_tellfile_mtl      (easyvfs_file* pFile);
 easyvfs_uint64 easyvfs_filesize_mtl      (easyvfs_file* pFile);
 void           easyvfs_flushfile_mtl     (easyvfs_file* pFile);
-easyvfs_bool   easyvfs_deletefile_mtl    (easyvfs_archive* pArchive, const char* path);
-easyvfs_bool   easyvfs_renamefile_mtl    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
-easyvfs_bool   easyvfs_mkdir_mtl         (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_deletefile_mtl    (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_renamefile_mtl    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+bool           easyvfs_mkdir_mtl         (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_copy_file_mtl     (easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists);
 
 void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext)
 {
@@ -138,6 +139,7 @@ void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext)
     callbacks.deletefile     = easyvfs_deletefile_mtl;
     callbacks.renamefile     = easyvfs_renamefile_mtl;
     callbacks.mkdir          = easyvfs_mkdir_mtl;
+    callbacks.copyfile       = easyvfs_copy_file_mtl;
     easyvfs_register_archive_callbacks(pContext, callbacks);
 }
 
@@ -154,7 +156,7 @@ typedef struct
 
 }easyvfs_openarchive_mtl_state;
 
-easyvfs_bool easyvfs_mtl_loadnextchunk(easyvfs_openarchive_mtl_state* pState)
+bool easyvfs_mtl_loadnextchunk(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -184,7 +186,7 @@ easyvfs_bool easyvfs_mtl_loadnextchunk(easyvfs_openarchive_mtl_state* pState)
     return 0;
 }
 
-easyvfs_bool easyvfs_mtl_loadnewmtl(easyvfs_openarchive_mtl_state* pState)
+bool easyvfs_mtl_loadnewmtl(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -213,7 +215,7 @@ easyvfs_bool easyvfs_mtl_loadnewmtl(easyvfs_openarchive_mtl_state* pState)
     return 1;
 }
 
-easyvfs_bool easyvfs_mtl_skipline(easyvfs_openarchive_mtl_state* pState)
+bool easyvfs_mtl_skipline(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -244,7 +246,7 @@ easyvfs_bool easyvfs_mtl_skipline(easyvfs_openarchive_mtl_state* pState)
     return 0;
 }
 
-easyvfs_bool easyvfs_mtl_skipwhitespace(easyvfs_openarchive_mtl_state* pState)
+bool easyvfs_mtl_skipwhitespace(easyvfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -267,7 +269,7 @@ easyvfs_bool easyvfs_mtl_skipwhitespace(easyvfs_openarchive_mtl_state* pState)
     return 0;
 }
 
-easyvfs_bool easyvfs_mtl_loadmtlname(easyvfs_openarchive_mtl_state* pState, void* dst, unsigned int dstSizeInBytes)
+bool easyvfs_mtl_loadmtlname(easyvfs_openarchive_mtl_state* pState, void* dst, unsigned int dstSizeInBytes)
 {
     assert(pState != NULL);
 
@@ -314,7 +316,7 @@ easyvfs_bool easyvfs_mtl_loadmtlname(easyvfs_openarchive_mtl_state* pState, void
 }
 
 
-easyvfs_bool easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path)
+bool easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path)
 {
     (void)pContext;
 
@@ -414,7 +416,7 @@ void easyvfs_closearchive_mtl(easyvfs_archive* pArchive)
     }
 }
 
-easyvfs_bool easyvfs_getfileinfo_mtl(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
+bool easyvfs_getfileinfo_mtl(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
 {
     assert(pArchive != 0);
 
@@ -476,7 +478,7 @@ void easyvfs_enditeration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i)
     i->pUserData = NULL;
 }
 
-easyvfs_bool easyvfs_nextiteration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
+bool easyvfs_nextiteration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
 {
     assert(pArchive != 0);
     assert(i != NULL);
@@ -553,7 +555,7 @@ void easyvfs_closefile_mtl(easyvfs_file* pFile)
     }
 }
 
-easyvfs_bool easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
+bool easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
 {
     assert(pFile != 0);
     assert(dst != NULL);
@@ -583,7 +585,7 @@ easyvfs_bool easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int b
     return 0;
 }
 
-easyvfs_bool easyvfs_writefile_mtl(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
+bool easyvfs_writefile_mtl(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
 {
     assert(pFile != 0);
     assert(src != NULL);
@@ -598,7 +600,7 @@ easyvfs_bool easyvfs_writefile_mtl(easyvfs_file* pFile, const void* src, unsigne
     return 0;
 }
 
-easyvfs_bool easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
+bool easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
 {
     assert(pFile != 0);
 
@@ -688,7 +690,7 @@ void easyvfs_flushfile_mtl(easyvfs_file* pFile)
     // No support for this at the moment because it's read-only for now.
 }
 
-easyvfs_bool easyvfs_deletefile_mtl(easyvfs_archive* pArchive, const char* path)
+bool easyvfs_deletefile_mtl(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive != 0);
     assert(path     != 0);
@@ -697,7 +699,7 @@ easyvfs_bool easyvfs_deletefile_mtl(easyvfs_archive* pArchive, const char* path)
     return 0;
 }
 
-easyvfs_bool easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
+bool easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
 {
     assert(pArchive != 0);
     assert(pathOld  != 0);
@@ -707,12 +709,22 @@ easyvfs_bool easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathO
     return 0;
 }
 
-easyvfs_bool easyvfs_mkdir_mtl(easyvfs_archive* pArchive, const char* path)
+bool easyvfs_mkdir_mtl(easyvfs_archive* pArchive, const char* path)
 {
     assert(pArchive != 0);
     assert(path     != 0);
 
     // MTL archives do not have the notion of folders.
+    return 0;
+}
+
+bool easyvfs_copy_file_mtl(easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists)
+{
+    assert(pArchive != 0);
+    assert(srcPath  != 0);
+    assert(dstPath  != 0);
+
+    // No support for this at the moment because it's read-only for now.
     return 0;
 }
 
