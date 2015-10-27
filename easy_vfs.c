@@ -2307,7 +2307,6 @@ void* easyvfs_openfile_impl_native(easyvfs_archive* pArchive, const char* path, 
 void easyvfs_closefile_impl_native(easyvfs_file* pFile)
 {
     assert(pFile            != NULL);
-    assert(pFile->pArchive  != NULL);
     assert(pFile->pUserData != NULL);
 
     CloseHandle((HANDLE)pFile->pUserData);
@@ -2315,7 +2314,7 @@ void easyvfs_closefile_impl_native(easyvfs_file* pFile)
 
 bool easyvfs_readfile_impl_native(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
 {
-    assert(pFile != NULL);
+    assert(pFile            != NULL);
     assert(pFile->pUserData != NULL);
 
     DWORD bytesRead;
@@ -2330,7 +2329,7 @@ bool easyvfs_readfile_impl_native(easyvfs_file* pFile, void* dst, unsigned int b
 
 bool easyvfs_writefile_impl_native(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
 {
-    assert(pFile != NULL);
+    assert(pFile            != NULL);
     assert(pFile->pUserData != NULL);
 
     DWORD bytesWritten;
@@ -2368,7 +2367,7 @@ bool easyvfs_seekfile_impl_native(easyvfs_file* pFile, easyvfs_int64 bytesToSeek
 
 easyvfs_uint64 easyvfs_tellfile_impl_native(easyvfs_file* pFile)
 {
-    assert(pFile != NULL);
+    assert(pFile            != NULL);
     assert(pFile->pUserData != NULL);
 
     LARGE_INTEGER lNewFilePointer;
@@ -2385,7 +2384,7 @@ easyvfs_uint64 easyvfs_tellfile_impl_native(easyvfs_file* pFile)
 
 easyvfs_uint64 easyvfs_filesize_impl_native(easyvfs_file* pFile)
 {
-    assert(pFile != NULL);
+    assert(pFile            != NULL);
     assert(pFile->pUserData != NULL);
 
     LARGE_INTEGER fileSize;
@@ -2399,7 +2398,7 @@ easyvfs_uint64 easyvfs_filesize_impl_native(easyvfs_file* pFile)
 
 void easyvfs_flushfile_impl_native(easyvfs_file* pFile)
 {
-    assert(pFile != NULL);
+    assert(pFile            != NULL);
     assert(pFile->pUserData != NULL);
 
     FlushFileBuffers((HANDLE)pFile->pUserData);
