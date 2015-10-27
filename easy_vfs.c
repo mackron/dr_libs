@@ -2498,6 +2498,1933 @@ bool easyvfs_copyfile_impl_native(easyvfs_archive* pArchive, const char* srcPath
 }
 #endif
 
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+// Archive Formats
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// ZIP
+//
+///////////////////////////////////////////////////////////////////////////////
+#ifndef EASYVFS_NO_ZIP
+#define MINIZ_HEADER_FILE_ONLY
+#include "miniz.c"
+
+typedef struct
+{
+    /// The current index of the iterator. When this hits the file count, the iteration is finished.
+    unsigned int index;
+
+    /// The directory being iterated.
+    char directoryPath[EASYVFS_MAX_PATH];
+
+
+}easyvfs_iterator_zip;
+
+typedef struct
+{
+    /// The file index within the archive.
+    mz_uint index;
+
+    /// A pointer to the buffer containing the entire uncompressed data of the file. Unfortunately this is the only way I'm aware of for
+    /// reading file data from miniz.c so we'll just stick with it for now. We use a pointer to an 8-bit type so we can easily calculate
+    /// offsets.
+    mz_uint8* pData;
+
+    /// The size of the file in bytes so we can guard against overflowing reads.
+    size_t sizeInBytes;
+
+    /// The current position of the file's read pointer.
+    size_t readPointer;
+
+}easyvfs_openedfile_zip;
+
+
+
+bool           easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path);
+void*          easyvfs_openarchive_zip   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
+void           easyvfs_closearchive_zip  (easyvfs_archive* pArchive);
+bool           easyvfs_getfileinfo_zip   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
+void*          easyvfs_beginiteration_zip(easyvfs_archive* pArchive, const char* path);
+void           easyvfs_enditeration_zip  (easyvfs_archive* pArchive, easyvfs_iterator* i);
+bool           easyvfs_nextiteration_zip (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+void*          easyvfs_openfile_zip      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
+void           easyvfs_closefile_zip     (easyvfs_file* pFile);
+bool           easyvfs_readfile_zip      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+bool           easyvfs_writefile_zip     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+bool           easyvfs_seekfile_zip      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
+easyvfs_uint64 easyvfs_tellfile_zip      (easyvfs_file* pFile);
+easyvfs_uint64 easyvfs_filesize_zip      (easyvfs_file* pFile);
+void           easyvfs_flushfile_zip     (easyvfs_file* pFile);
+bool           easyvfs_deletefile_zip    (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_renamefile_zip    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+bool           easyvfs_mkdir_zip         (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_copy_file_zip     (easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists);
+
+void easyvfs_registerarchivecallbacks_zip(easyvfs_context* pContext)
+{
+    easyvfs_archive_callbacks callbacks;
+    callbacks.isvalidarchive = easyvfs_isvalidarchive_zip;
+    callbacks.openarchive    = easyvfs_openarchive_zip;
+    callbacks.closearchive   = easyvfs_closearchive_zip;
+    callbacks.getfileinfo    = easyvfs_getfileinfo_zip;
+    callbacks.beginiteration = easyvfs_beginiteration_zip;
+    callbacks.enditeration   = easyvfs_enditeration_zip;
+    callbacks.nextiteration  = easyvfs_nextiteration_zip;
+    callbacks.openfile       = easyvfs_openfile_zip;
+    callbacks.closefile      = easyvfs_closefile_zip;
+    callbacks.readfile       = easyvfs_readfile_zip;
+    callbacks.writefile      = easyvfs_writefile_zip;
+    callbacks.seekfile       = easyvfs_seekfile_zip;
+    callbacks.tellfile       = easyvfs_tellfile_zip;
+    callbacks.filesize       = easyvfs_filesize_zip;
+    callbacks.flushfile      = easyvfs_flushfile_zip;
+    callbacks.deletefile     = easyvfs_deletefile_zip;
+    callbacks.renamefile     = easyvfs_renamefile_zip;
+    callbacks.mkdir          = easyvfs_mkdir_zip;
+    callbacks.copyfile       = easyvfs_copy_file_zip;
+    easyvfs_register_archive_callbacks(pContext, callbacks);
+}
+
+
+bool easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path)
+{
+    (void)pContext;
+
+    if (easyvfs_extension_equal(path, "zip"))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+size_t easyvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n);
+size_t easyvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n)
+{
+    // The opaque type is a pointer to a easyvfs_file object which represents the file of the archive.
+    easyvfs_file* pZipFile = pOpaque;
+    assert(pZipFile != NULL);
+
+    easyvfs_seek(pZipFile, (easyvfs_int64)file_ofs, easyvfs_start);
+
+    unsigned int bytesRead;
+    int result = easyvfs_read(pZipFile, pBuf, (unsigned int)n, &bytesRead);
+    if (result == 0)
+    {
+        // Failed to read the file.
+        bytesRead = 0;
+    }
+
+    return (size_t)bytesRead;
+}
+
+
+void* easyvfs_openarchive_zip(easyvfs_file* pFile, easyvfs_access_mode accessMode)
+{
+    assert(pFile != NULL);
+    assert(easyvfs_tell(pFile) == 0);
+
+    // Only support read-only mode at the moment.
+    if ((accessMode & EASYVFS_WRITE) != 0)
+    {
+        return NULL;
+    }
+
+
+    mz_zip_archive* pZip = easyvfs_malloc(sizeof(mz_zip_archive));
+    if (pZip != NULL)
+    {
+        memset(pZip, 0, sizeof(mz_zip_archive));
+
+        pZip->m_pRead        = easyvfs_mz_file_read_func;
+        pZip->m_pIO_opaque   = pFile;
+        if (mz_zip_reader_init(pZip, easyvfs_file_size(pFile), 0))
+        {
+            // Everything is good so far...
+        }
+        else
+        {
+            easyvfs_free(pZip);
+            pZip = NULL;
+        }
+    }
+
+    return pZip;
+}
+
+void easyvfs_closearchive_zip(easyvfs_archive* pArchive)
+{
+    assert(pArchive != NULL);
+    assert(pArchive->pUserData != NULL);
+
+    mz_zip_reader_end(pArchive->pUserData);
+    easyvfs_free(pArchive->pUserData);
+}
+
+bool easyvfs_getfileinfo_zip(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
+{
+    assert(pArchive != NULL);
+    assert(pArchive->pUserData != NULL);
+
+    mz_zip_archive* pZip = pArchive->pUserData;
+    int fileIndex = mz_zip_reader_locate_file(pZip, path, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
+    if (fileIndex != -1)
+    {
+        if (fi != NULL)
+        {
+            mz_zip_archive_file_stat zipStat;
+            if (mz_zip_reader_file_stat(pZip, (mz_uint)fileIndex, &zipStat))
+            {
+                easyvfs_copy_and_append_path(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+                fi->sizeInBytes      = zipStat.m_uncomp_size;
+                fi->lastModifiedTime = (easyvfs_uint64)zipStat.m_time;
+                fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
+                if (mz_zip_reader_is_file_a_directory(pZip, (mz_uint)fileIndex))
+                {
+                    fi->attributes |= EASYVFS_FILE_ATTRIBUTE_DIRECTORY;
+                }
+
+                return 1;
+            }
+        }
+
+        return 1;
+    }
+    else
+    {
+        // There was an error finding the file. It probably doesn't exist.
+    }
+
+    return 0;
+}
+
+void* easyvfs_beginiteration_zip(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(pArchive->pUserData != NULL);
+    assert(path != NULL);
+
+    mz_zip_archive* pZip = pArchive->pUserData;
+
+    int directoryFileIndex = -1;
+    if (path[0] == '\0') {
+        directoryFileIndex = 0;
+    } else {
+        directoryFileIndex = mz_zip_reader_locate_file(pZip, path, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
+    }
+    
+    if (directoryFileIndex != -1)
+    {
+        easyvfs_iterator_zip* pZipIterator = easyvfs_malloc(sizeof(easyvfs_iterator_zip));
+        if (pZipIterator != NULL)
+        {
+            pZipIterator->index = 0;
+            easyvfs_strcpy(pZipIterator->directoryPath, EASYVFS_MAX_PATH, path);
+        }
+
+        return pZipIterator;
+    }
+
+    return NULL;
+}
+
+void easyvfs_enditeration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i)
+{
+    assert(pArchive != 0);
+    assert(pArchive->pUserData != NULL);
+    assert(i != NULL);
+
+    easyvfs_free(i->pUserData);
+    i->pUserData = NULL;
+}
+
+bool easyvfs_nextiteration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
+{
+    assert(pArchive != 0);
+    assert(i != NULL);
+
+    easyvfs_iterator_zip* pZipIterator = i->pUserData;
+    if (pZipIterator != NULL)
+    {
+        mz_zip_archive* pZip = pArchive->pUserData;
+
+        while (pZipIterator->index < mz_zip_reader_get_num_files(pZip))
+        {
+            unsigned int iFile = pZipIterator->index++;
+
+            char filePath[EASYVFS_MAX_PATH];
+            if (mz_zip_reader_get_filename(pZip, iFile, filePath, EASYVFS_MAX_PATH) > 0)
+            {
+                if (easyvfs_is_path_child(filePath, pZipIterator->directoryPath))
+                {
+                    if (fi != NULL)
+                    {
+                        mz_zip_archive_file_stat zipStat;
+                        if (mz_zip_reader_file_stat(pZip, iFile, &zipStat))
+                        {
+                            easyvfs_strcpy(fi->absolutePath, EASYVFS_MAX_PATH, filePath);
+                            fi->sizeInBytes      = zipStat.m_uncomp_size;
+                            fi->lastModifiedTime = (easyvfs_uint64)zipStat.m_time;
+                            fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
+                            if (mz_zip_reader_is_file_a_directory(pZip, iFile))
+                            {
+                                fi->attributes |= EASYVFS_FILE_ATTRIBUTE_DIRECTORY;
+                            }
+                        }
+                    }
+
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+void* easyvfs_openfile_zip(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode)
+{
+    assert(pArchive != 0);
+    assert(pArchive->pUserData != NULL);
+    assert(path != NULL);
+
+    // Only supporting read-only for now.
+    if ((accessMode & EASYVFS_WRITE) != 0)
+    {
+        return NULL;
+    }
+
+
+    mz_zip_archive* pZip = pArchive->pUserData;
+    int fileIndex = mz_zip_reader_locate_file(pZip, path, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
+    if (fileIndex != -1)
+    {
+        easyvfs_openedfile_zip* pOpenedFile = easyvfs_malloc(sizeof(easyvfs_openedfile_zip));
+        if (pOpenedFile != NULL)
+        {
+            pOpenedFile->pData = mz_zip_reader_extract_to_heap(pZip, (mz_uint)fileIndex, &pOpenedFile->sizeInBytes, 0);
+            if (pOpenedFile->pData != NULL)
+            {
+                pOpenedFile->index       = (mz_uint)fileIndex;
+                pOpenedFile->readPointer = 0;
+            }
+            else
+            {
+                // Failed to read the data.
+                easyvfs_free(pOpenedFile);
+                pOpenedFile = NULL;
+            }
+        }
+
+        return pOpenedFile;
+    }
+    else
+    {
+        // Couldn't find the file.
+    }
+
+    return NULL;
+}
+
+void easyvfs_closefile_zip(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        mz_zip_archive* pZip = pFile->pArchive->pUserData;
+        assert(pZip != NULL);
+
+        pZip->m_pFree(pZip->m_pAlloc_opaque, pOpenedFile->pData);
+        easyvfs_free(pOpenedFile);
+    }
+}
+
+bool easyvfs_readfile_zip(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
+{
+    assert(pFile != 0);
+    assert(dst != NULL);
+    assert(bytesToRead > 0);
+
+    easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        size_t bytesAvailable = pOpenedFile->sizeInBytes - pOpenedFile->readPointer;
+        if (bytesAvailable < bytesToRead) {
+            bytesToRead = (unsigned int)bytesAvailable;
+        }
+
+        memcpy(dst, pOpenedFile->pData + pOpenedFile->readPointer, bytesToRead);
+        pOpenedFile->readPointer += bytesToRead;
+
+        if (bytesReadOut != NULL)
+        {
+            *bytesReadOut = bytesToRead;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
+bool easyvfs_writefile_zip(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
+{
+    assert(pFile != 0);
+    assert(src != NULL);
+    assert(bytesToWrite > 0);
+
+    // All files are read-only for now.
+    if (bytesWrittenOut != NULL)
+    {
+        *bytesWrittenOut = 0;
+    }
+
+    return 0;
+}
+
+bool easyvfs_seekfile_zip(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        easyvfs_uint64 newPos = pOpenedFile->readPointer;
+        if (origin == easyvfs_current)
+        {
+            if ((easyvfs_int64)newPos + bytesToSeek >= 0)
+            {
+                newPos = (easyvfs_uint64)((easyvfs_int64)newPos + bytesToSeek);
+            }
+            else
+            {
+                // Trying to seek to before the beginning of the file.
+                return 0;
+            }
+        }
+        else if (origin == easyvfs_start)
+        {
+            assert(bytesToSeek >= 0);
+            newPos = (easyvfs_uint64)bytesToSeek;
+        }
+        else if (origin == easyvfs_end)
+        {
+            assert(bytesToSeek >= 0);
+            if ((easyvfs_uint64)bytesToSeek <= pOpenedFile->sizeInBytes)
+            {
+                newPos = pOpenedFile->sizeInBytes - (easyvfs_uint64)bytesToSeek;
+            }
+            else
+            {
+                // Trying to seek to before the beginning of the file.
+                return 0;
+            }
+        }
+        else
+        {
+            // Should never get here.
+            return 0;
+        }
+
+
+        if (newPos > pOpenedFile->sizeInBytes)
+        {
+            return 0;
+        }
+
+        pOpenedFile->readPointer = (size_t)newPos;
+        return 1;
+    }
+
+    return 0;
+}
+
+easyvfs_uint64 easyvfs_tellfile_zip(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        return pOpenedFile->readPointer;
+    }
+
+    return 0;
+}
+
+easyvfs_uint64 easyvfs_filesize_zip(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_zip* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        return pOpenedFile->sizeInBytes;
+    }
+
+    return 0;
+}
+
+void easyvfs_flushfile_zip(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    // All files are read-only for now.
+}
+
+bool easyvfs_deletefile_zip(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(path     != 0);
+
+    // All files are read-only for now.
+    return 0;
+}
+
+bool easyvfs_renamefile_zip(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
+{
+    assert(pArchive != 0);
+    assert(pathOld  != 0);
+    assert(pathNew  != 0);
+
+    // All files are read-only for now.
+    return 0;
+}
+
+bool easyvfs_mkdir_zip(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(path     != 0);
+
+    // All files are read-only for now.
+    return 0;
+}
+
+bool easyvfs_copy_file_zip(easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists)
+{
+    assert(pArchive != 0);
+    assert(srcPath  != 0);
+    assert(dstPath  != 0);
+
+    // No support for this at the moment because it's read-only for now.
+    return 0;
+}
+
+#endif // !EASYVFS_NO_ZIP
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Quake 2 PAK
+//
+///////////////////////////////////////////////////////////////////////////////
+#ifndef EASYVFS_NO_PAK
+typedef struct
+{
+    char path[64];
+
+}easyvfs_path_pak;
+
+typedef struct
+{
+    /// The file name.
+    char name[56];
+
+    /// The position within the file of the first byte of the file.
+    unsigned int offset;
+
+    /// The size of the file, in bytes.
+    unsigned int sizeInBytes;
+
+}easyvfs_file_pak;
+
+typedef struct
+{
+    /// The 4-byte identifiers: "PACK"
+    char id[4];
+
+    /// The offset of the directory.
+    unsigned int directoryOffset;
+
+    /// The size of the directory. This should a multiple of 64.
+    unsigned int directoryLength;
+
+
+    /// The access mode.
+    easyvfs_access_mode accessMode;
+
+    /// A pointer to the buffer containing the file information. The number of items in this array is equal to directoryLength / 64.
+    easyvfs_file_pak* pFiles;
+
+}easyvfs_archive_pak;
+
+
+typedef struct
+{
+    /// The current index of the iterator. When this hits childCount, the iteration is finished.
+    unsigned int index;
+
+    /// The directory being iterated.
+    char directoryPath[EASYVFS_MAX_PATH];
+
+
+    /// The number of directories that have previously been iterated.
+    unsigned int processedDirCount;
+
+    /// The directories that were previously iterated.
+    easyvfs_path_pak* pProcessedDirs;
+
+}easyvfs_iterator_pak;
+
+bool easyvfs_iterator_pak_append_processed_dir(easyvfs_iterator_pak* pIterator, const char* path)
+{
+    if (pIterator != NULL && path != NULL)
+    {
+        easyvfs_path_pak* pOldBuffer = pIterator->pProcessedDirs;
+        easyvfs_path_pak* pNewBuffer = easyvfs_malloc(sizeof(easyvfs_path_pak) * (pIterator->processedDirCount + 1));
+
+        if (pNewBuffer != 0)
+        {
+            for (unsigned int iDst = 0; iDst < pIterator->processedDirCount; ++iDst)
+            {
+                pNewBuffer[iDst] = pOldBuffer[iDst];
+            }
+
+            easyvfs_strcpy(pNewBuffer[pIterator->processedDirCount].path, 64, path);
+
+
+            pIterator->pProcessedDirs     = pNewBuffer;
+            pIterator->processedDirCount += 1;
+
+            easyvfs_free(pOldBuffer);
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+bool easyvfs_iterator_pak_has_dir_been_processed(easyvfs_iterator_pak* pIterator, const char* path)
+{
+    for (unsigned int i = 0; i < pIterator->processedDirCount; ++i)
+    {
+        if (strcmp(path, pIterator->pProcessedDirs[i].path) == 0)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+
+typedef struct
+{
+    /// The offset of the first byte of the file's data.
+    size_t offsetInArchive;
+
+    /// The size of the file in bytes so we can guard against overflowing reads.
+    size_t sizeInBytes;
+
+    /// The current position of the file's read pointer.
+    size_t readPointer;
+
+}easyvfs_openedfile_pak;
+
+
+
+easyvfs_archive_pak* easyvfs_pak_create(easyvfs_access_mode accessMode)
+{
+    easyvfs_archive_pak* pak = easyvfs_malloc(sizeof(easyvfs_archive_pak));
+    if (pak != NULL)
+    {
+        pak->directoryOffset = 0;
+        pak->directoryLength = 0;
+        pak->accessMode      = accessMode;
+        pak->pFiles          = NULL;
+    }
+
+    return pak;
+}
+
+void easyvfs_pak_delete(easyvfs_archive_pak* pArchive)
+{
+    easyvfs_free(pArchive->pFiles);
+    easyvfs_free(pArchive);
+}
+
+
+
+bool           easyvfs_isvalidarchive_pak(easyvfs_context* pContext, const char* path);
+void*          easyvfs_openarchive_pak   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
+void           easyvfs_closearchive_pak  (easyvfs_archive* pArchive);
+bool           easyvfs_getfileinfo_pak   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
+void*          easyvfs_beginiteration_pak(easyvfs_archive* pArchive, const char* path);
+void           easyvfs_enditeration_pak  (easyvfs_archive* pArchive, easyvfs_iterator* i);
+bool           easyvfs_nextiteration_pak (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+void*          easyvfs_openfile_pak      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
+void           easyvfs_closefile_pak     (easyvfs_file* pFile);
+bool           easyvfs_readfile_pak      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+bool           easyvfs_writefile_pak     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+bool           easyvfs_seekfile_pak      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
+easyvfs_uint64 easyvfs_tellfile_pak      (easyvfs_file* pFile);
+easyvfs_uint64 easyvfs_filesize_pak      (easyvfs_file* pFile);
+void           easyvfs_flushfile_pak     (easyvfs_file* pFile);
+bool           easyvfs_deletefile_pak    (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_renamefile_pak    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+bool           easyvfs_mkdir_pak         (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_copy_file_pak     (easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists);
+
+void easyvfs_registerarchivecallbacks_pak(easyvfs_context* pContext)
+{
+    easyvfs_archive_callbacks callbacks;
+    callbacks.isvalidarchive = easyvfs_isvalidarchive_pak;
+    callbacks.openarchive    = easyvfs_openarchive_pak;
+    callbacks.closearchive   = easyvfs_closearchive_pak;
+    callbacks.getfileinfo    = easyvfs_getfileinfo_pak;
+    callbacks.beginiteration = easyvfs_beginiteration_pak;
+    callbacks.enditeration   = easyvfs_enditeration_pak;
+    callbacks.nextiteration  = easyvfs_nextiteration_pak;
+    callbacks.openfile       = easyvfs_openfile_pak;
+    callbacks.closefile      = easyvfs_closefile_pak;
+    callbacks.readfile       = easyvfs_readfile_pak;
+    callbacks.writefile      = easyvfs_writefile_pak;
+    callbacks.seekfile       = easyvfs_seekfile_pak;
+    callbacks.tellfile       = easyvfs_tellfile_pak;
+    callbacks.filesize       = easyvfs_filesize_pak;
+    callbacks.flushfile      = easyvfs_flushfile_pak;
+    callbacks.deletefile     = easyvfs_deletefile_pak;
+    callbacks.renamefile     = easyvfs_renamefile_pak;
+    callbacks.mkdir          = easyvfs_mkdir_pak;
+    callbacks.copyfile       = easyvfs_copy_file_pak;
+    easyvfs_register_archive_callbacks(pContext, callbacks);
+}
+
+
+bool easyvfs_isvalidarchive_pak(easyvfs_context* pContext, const char* path)
+{
+    (void)pContext;
+
+    if (easyvfs_extension_equal(path, "pak"))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+
+void* easyvfs_openarchive_pak(easyvfs_file* pFile, easyvfs_access_mode accessMode)
+{
+    assert(pFile != NULL);
+    assert(easyvfs_tell(pFile) == 0);
+
+    easyvfs_archive_pak* pak = easyvfs_pak_create(accessMode);
+    if (pak != NULL)
+    {
+        // First 4 bytes should equal "PACK"
+        if (easyvfs_read(pFile, pak->id, 4, NULL))
+        {
+            if (pak->id[0] == 'P' && pak->id[1] == 'A' && pak->id[2] == 'C' && pak->id[3] == 'K')
+            {
+                if (easyvfs_read(pFile, &pak->directoryOffset, 4, NULL))
+                {
+                    if (easyvfs_read(pFile, &pak->directoryLength, 4, NULL))
+                    {
+                        // We loaded the header just fine so now we want to allocate space for each file in the directory and load them. Note that
+                        // this does not load the file data itself, just information about the files like their name and size.
+                        if (pak->directoryLength % 64 == 0)
+                        {
+                            unsigned int fileCount = pak->directoryLength / 64;
+                            if (fileCount > 0)
+                            {
+                                assert((sizeof(easyvfs_file_pak) * fileCount) == pak->directoryLength);
+
+                                pak->pFiles = easyvfs_malloc(pak->directoryLength);
+                                if (pak->pFiles != NULL)
+                                {
+                                    // Seek to the directory listing before trying to read it.
+                                    if (easyvfs_seek(pFile, pak->directoryOffset, easyvfs_start))
+                                    {
+                                        unsigned int bytesRead;
+                                        if (easyvfs_read(pFile, pak->pFiles, pak->directoryLength, &bytesRead) && bytesRead == pak->directoryLength)
+                                        {
+                                            // All good!
+                                        }
+                                        else
+                                        {
+                                            // Failed to read the directory listing.
+                                            easyvfs_pak_delete(pak);
+                                            pak = NULL;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Failed to seek to the directory listing.
+                                        easyvfs_pak_delete(pak);
+                                        pak = NULL;
+                                    }
+                                }
+                                else
+                                {
+                                    // Failed to allocate memory for the file info buffer.
+                                    easyvfs_pak_delete(pak);
+                                    pak = NULL;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // The directory length is not a multiple of 64 - something is wrong with the file.
+                            easyvfs_pak_delete(pak);
+                            pak = NULL;
+                        }
+                    }
+                    else
+                    {
+                        // Failed to read the directory length.
+                        easyvfs_pak_delete(pak);
+                        pak = NULL;
+                    }
+                }
+                else
+                {
+                    // Failed to read the directory offset.
+                    easyvfs_pak_delete(pak);
+                    pak = NULL;
+                }
+            }
+            else
+            {
+                // Not a pak file.
+                easyvfs_pak_delete(pak);
+                pak = NULL;
+            }
+        }
+        else
+        {
+            // Failed to read the header.
+            easyvfs_pak_delete(pak);
+            pak = NULL;
+        }
+    }
+
+    return pak;
+}
+
+void easyvfs_closearchive_pak(easyvfs_archive* pArchive)
+{
+    assert(pArchive != NULL);
+    assert(pArchive->pUserData != NULL);
+
+    easyvfs_archive_pak* pUserData = pArchive->pUserData;
+    if (pUserData != NULL)
+    {
+        easyvfs_pak_delete(pUserData);
+    }
+}
+
+bool easyvfs_getfileinfo_pak(easyvfs_archive* pArchive, const char* path, easyvfs_file_info* fi)
+{
+    assert(pArchive != NULL);
+    assert(pArchive->pUserData != NULL);
+
+    // We can determine whether or not the path refers to a file or folder by checking it the path is parent of any
+    // files in the archive. If so, it's a folder, otherwise it's a file (so long as it exists).
+    easyvfs_archive_pak* pak = pArchive->pUserData;
+    if (pak != NULL)
+    {
+        unsigned int fileCount = pak->directoryLength / 64;
+        for (unsigned int i = 0; i < fileCount; ++i)
+        {
+            easyvfs_file_pak* pFile = pak->pFiles + i;
+            if (strcmp(pFile->name, path) == 0)
+            {
+                // It's a file.
+                easyvfs_copy_and_append_path(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+                fi->sizeInBytes      = (easyvfs_uint64)pFile->sizeInBytes;
+                fi->lastModifiedTime = 0;
+                fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
+
+                return 1;
+            }
+            else if (easyvfs_is_path_descendant(pFile->name, path))
+            {
+                // It's a directory.
+                easyvfs_copy_and_append_path(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+                fi->sizeInBytes      = 0;
+                fi->lastModifiedTime = 0;
+                fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY | EASYVFS_FILE_ATTRIBUTE_DIRECTORY;
+
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+void* easyvfs_beginiteration_pak(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(pArchive->pUserData != NULL);
+    assert(path != NULL);
+
+    easyvfs_iterator_pak* pIterator = easyvfs_malloc(sizeof(easyvfs_iterator_pak));
+    if (pIterator != NULL)
+    {
+        pIterator->index = 0;
+        easyvfs_strcpy(pIterator->directoryPath, EASYVFS_MAX_PATH, path);
+        pIterator->processedDirCount = 0;
+        pIterator->pProcessedDirs    = NULL;
+    }
+
+    return pIterator;
+}
+
+void easyvfs_enditeration_pak(easyvfs_archive* pArchive, easyvfs_iterator* i)
+{
+    assert(pArchive != 0);
+    assert(pArchive->pUserData != NULL);
+    assert(i != NULL);
+
+    easyvfs_free(i->pUserData);
+    i->pUserData = NULL;
+}
+
+bool easyvfs_nextiteration_pak(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
+{
+    assert(pArchive != 0);
+    assert(i != NULL);
+
+    easyvfs_iterator_pak* pIterator = i->pUserData;
+    if (pIterator != NULL)
+    {
+        easyvfs_archive_pak* pak = pArchive->pUserData;
+        if (pak != NULL)
+        {
+            unsigned int fileCount = pak->directoryLength / 64;
+            while (pIterator->index < fileCount)
+            {
+                unsigned int iFile = pIterator->index++;
+
+                easyvfs_file_pak* pFile = pak->pFiles + iFile;
+                if (easyvfs_is_path_child(pFile->name, pIterator->directoryPath))
+                {
+                    // It's a file.
+                    easyvfs_strcpy(fi->absolutePath, EASYVFS_MAX_PATH, pFile->name);
+                    fi->sizeInBytes      = (easyvfs_uint64)pFile->sizeInBytes;
+                    fi->lastModifiedTime = 0;
+                    fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
+
+                    return 1;
+                }
+                else if (easyvfs_is_path_descendant(pFile->name, pIterator->directoryPath))
+                {
+                    // It's a directory. This needs special handling because we don't want to iterate over the same directory multiple times.
+                    const char* childDirEnd = pFile->name + strlen(pIterator->directoryPath) + 1;    // +1 for the slash.
+                    while (childDirEnd[0] != '\0' && childDirEnd[0] != '/' && childDirEnd[0] != '\\')
+                    {
+                        childDirEnd += 1;
+                    }
+
+                    char childDir[64];
+                    memcpy(childDir, pFile->name, childDirEnd - pFile->name);
+                    childDir[childDirEnd - pFile->name] = '\0';
+
+                    if (!easyvfs_iterator_pak_has_dir_been_processed(pIterator, childDir))
+                    {
+                        // It's a directory.
+                        easyvfs_strcpy(fi->absolutePath, EASYVFS_MAX_PATH, childDir);
+                        fi->sizeInBytes      = 0;
+                        fi->lastModifiedTime = 0;
+                        fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY | EASYVFS_FILE_ATTRIBUTE_DIRECTORY;
+
+                        easyvfs_iterator_pak_append_processed_dir(pIterator, childDir);
+
+                        return 1;
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+void* easyvfs_openfile_pak(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode)
+{
+    assert(pArchive != 0);
+    assert(pArchive->pUserData != NULL);
+    assert(path != NULL);
+
+    // Only supporting read-only for now.
+    if ((accessMode & EASYVFS_WRITE) != 0)
+    {
+        return NULL;
+    }
+
+
+    easyvfs_archive_pak* pak = pArchive->pUserData;
+    if (pak != NULL)
+    {
+        for (unsigned int iFile = 0; iFile < (pak->directoryLength / 64); ++iFile)
+        {
+            if (strcmp(path, pak->pFiles[iFile].name) == 0)
+            {
+                // We found the file.
+                easyvfs_openedfile_pak* pOpenedFile = easyvfs_malloc(sizeof(easyvfs_openedfile_pak));
+                if (pOpenedFile != NULL)
+                {
+                    pOpenedFile->offsetInArchive = pak->pFiles[iFile].offset;
+                    pOpenedFile->sizeInBytes     = pak->pFiles[iFile].sizeInBytes;
+                    pOpenedFile->readPointer     = 0;
+
+                    return pOpenedFile;
+                }
+            }
+        }
+    }
+
+   
+    return NULL;
+}
+
+void easyvfs_closefile_pak(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_pak* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        easyvfs_free(pOpenedFile);
+    }
+}
+
+bool easyvfs_readfile_pak(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
+{
+    assert(pFile != 0);
+    assert(dst != NULL);
+    assert(bytesToRead > 0);
+
+    easyvfs_openedfile_pak* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        easyvfs_file* pArchiveFile = pFile->pArchive->pFile;
+        assert(pArchiveFile != NULL);
+
+        easyvfs_int64 bytesAvailable = pOpenedFile->sizeInBytes - pOpenedFile->readPointer;
+        if (bytesAvailable < bytesToRead) {
+            bytesToRead = (unsigned int)bytesAvailable;     // Safe cast, as per the check above.
+        }
+
+        easyvfs_seek(pArchiveFile, (easyvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), easyvfs_start);
+        int result = easyvfs_read(pArchiveFile, dst, bytesToRead, bytesReadOut);
+        if (result != 0)
+        {
+            pOpenedFile->readPointer += bytesToRead;
+        }
+
+        return result;
+    }
+
+    return 0;
+}
+
+bool easyvfs_writefile_pak(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
+{
+    assert(pFile != 0);
+    assert(src != NULL);
+    assert(bytesToWrite > 0);
+
+    // All files are read-only for now.
+    if (bytesWrittenOut != NULL)
+    {
+        *bytesWrittenOut = 0;
+    }
+
+    return 0;
+}
+
+bool easyvfs_seekfile_pak(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_pak* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        easyvfs_uint64 newPos = pOpenedFile->readPointer;
+        if (origin == easyvfs_current)
+        {
+            if ((easyvfs_int64)newPos + bytesToSeek >= 0)
+            {
+                newPos = (easyvfs_uint64)((easyvfs_int64)newPos + bytesToSeek);
+            }
+            else
+            {
+                // Trying to seek to before the beginning of the file.
+                return 0;
+            }
+        }
+        else if (origin == easyvfs_start)
+        {
+            assert(bytesToSeek >= 0);
+            newPos = (easyvfs_uint64)bytesToSeek;
+        }
+        else if (origin == easyvfs_end)
+        {
+            assert(bytesToSeek >= 0);
+            if ((easyvfs_uint64)bytesToSeek <= pOpenedFile->sizeInBytes)
+            {
+                newPos = pOpenedFile->sizeInBytes - (easyvfs_uint64)bytesToSeek;
+            }
+            else
+            {
+                // Trying to seek to before the beginning of the file.
+                return 0;
+            }
+        }
+        else
+        {
+            // Should never get here.
+            return 0;
+        }
+
+
+        if (newPos > pOpenedFile->sizeInBytes)
+        {
+            return 0;
+        }
+
+        pOpenedFile->readPointer = (size_t)newPos;
+        return 1;
+    }
+
+    return 0;
+}
+
+easyvfs_uint64 easyvfs_tellfile_pak(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_pak* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        return pOpenedFile->readPointer;
+    }
+
+    return 0;
+}
+
+easyvfs_uint64 easyvfs_filesize_pak(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_pak* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        return pOpenedFile->sizeInBytes;
+    }
+
+    return 0;
+}
+
+void easyvfs_flushfile_pak(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    // All files are read-only for now.
+}
+
+bool easyvfs_deletefile_pak(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(path     != 0);
+
+    // All files are read-only for now.
+    return 0;
+}
+
+bool easyvfs_renamefile_pak(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
+{
+    assert(pArchive != 0);
+    assert(pathOld  != 0);
+    assert(pathNew  != 0);
+
+    // All files are read-only for now.
+    return 0;
+}
+
+bool easyvfs_mkdir_pak(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(path     != 0);
+
+    // All files are read-only for now.
+    return 0;
+}
+
+bool easyvfs_copy_file_pak(easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists)
+{
+    assert(pArchive != 0);
+    assert(srcPath  != 0);
+    assert(dstPath  != 0);
+
+    // No support for this at the moment because it's read-only for now.
+    return 0;
+}
+#endif // !EASYVFS_NO_PAK
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Wavefront MTL
+//
+///////////////////////////////////////////////////////////////////////////////
+#ifndef EASYVFS_NO_MTL
+typedef struct
+{
+    /// The byte offset within the archive 
+    easyvfs_uint64 offset;
+
+    /// The size of the file, in bytes.
+    easyvfs_uint64 sizeInBytes;
+
+    /// The name of the material. The specification says this can be any length, but we're going to clamp it to 255 + null terminator which should be fine.
+    char name[256];
+
+}easyvfs_file_mtl;
+
+typedef struct
+{
+    /// The access mode.
+    easyvfs_access_mode accessMode;
+
+    /// The buffer containing the list of files.
+    easyvfs_file_mtl* pFiles;
+
+    /// The number of files in the archive.
+    unsigned int fileCount;
+
+}easyvfs_archive_mtl;
+
+typedef struct
+{
+    /// The current index of the iterator. When this hits the file count, the iteration is finished.
+    unsigned int index;
+
+}easyvfs_iterator_mtl;
+
+typedef struct
+{
+    /// The offset within the archive file the first byte of the file is located.
+    easyvfs_uint64 offsetInArchive;
+
+    /// The size of the file in bytes so we can guard against overflowing reads.
+    easyvfs_uint64 sizeInBytes;
+
+    /// The current position of the file's read pointer.
+    easyvfs_uint64 readPointer;
+
+}easyvfs_openedfile_mtl;
+
+
+easyvfs_archive_mtl* easyvfs_mtl_create(easyvfs_access_mode accessMode)
+{
+    easyvfs_archive_mtl* mtl = easyvfs_malloc(sizeof(easyvfs_archive_mtl));
+    if (mtl != NULL)
+    {
+        mtl->accessMode = accessMode;
+        mtl->pFiles     = NULL;
+        mtl->fileCount  = 0;
+    }
+
+    return mtl;
+}
+
+void easyvfs_mtl_delete(easyvfs_archive_mtl* pArchive)
+{
+    easyvfs_free(pArchive->pFiles);
+    easyvfs_free(pArchive);
+}
+
+void easyvfs_mtl_addfile(easyvfs_archive_mtl* pArchive, easyvfs_file_mtl* pFile)
+{
+    if (pArchive != NULL && pFile != NULL)
+    {
+        easyvfs_file_mtl* pOldBuffer = pArchive->pFiles;
+        easyvfs_file_mtl* pNewBuffer = easyvfs_malloc(sizeof(easyvfs_file_mtl) * (pArchive->fileCount + 1));
+
+        if (pNewBuffer != 0)
+        {
+            for (unsigned int iDst = 0; iDst < pArchive->fileCount; ++iDst)
+            {
+                pNewBuffer[iDst] = pOldBuffer[iDst];
+            }
+
+            pNewBuffer[pArchive->fileCount] = *pFile;
+
+
+            pArchive->pFiles     = pNewBuffer;
+            pArchive->fileCount += 1;
+
+            easyvfs_free(pOldBuffer);
+        }
+    }
+}
+
+
+bool           easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path);
+void*          easyvfs_openarchive_mtl   (easyvfs_file* pFile, easyvfs_access_mode accessMode);
+void           easyvfs_closearchive_mtl  (easyvfs_archive* pArchive);
+bool           easyvfs_getfileinfo_mtl   (easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi);
+void*          easyvfs_beginiteration_mtl(easyvfs_archive* pArchive, const char* path);
+void           easyvfs_enditeration_mtl  (easyvfs_archive* pArchive, easyvfs_iterator* i);
+bool           easyvfs_nextiteration_mtl (easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi);
+void*          easyvfs_openfile_mtl      (easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
+void           easyvfs_closefile_mtl     (easyvfs_file* pFile);
+bool           easyvfs_readfile_mtl      (easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut);
+bool           easyvfs_writefile_mtl     (easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut);
+bool           easyvfs_seekfile_mtl      (easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin);
+easyvfs_uint64 easyvfs_tellfile_mtl      (easyvfs_file* pFile);
+easyvfs_uint64 easyvfs_filesize_mtl      (easyvfs_file* pFile);
+void           easyvfs_flushfile_mtl     (easyvfs_file* pFile);
+bool           easyvfs_deletefile_mtl    (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_renamefile_mtl    (easyvfs_archive* pArchive, const char* pathOld, const char* pathNew);
+bool           easyvfs_mkdir_mtl         (easyvfs_archive* pArchive, const char* path);
+bool           easyvfs_copy_file_mtl     (easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists);
+
+void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext)
+{
+    easyvfs_archive_callbacks callbacks;
+    callbacks.isvalidarchive = easyvfs_isvalidarchive_mtl;
+    callbacks.openarchive    = easyvfs_openarchive_mtl;
+    callbacks.closearchive   = easyvfs_closearchive_mtl;
+    callbacks.getfileinfo    = easyvfs_getfileinfo_mtl;
+    callbacks.beginiteration = easyvfs_beginiteration_mtl;
+    callbacks.enditeration   = easyvfs_enditeration_mtl;
+    callbacks.nextiteration  = easyvfs_nextiteration_mtl;
+    callbacks.openfile       = easyvfs_openfile_mtl;
+    callbacks.closefile      = easyvfs_closefile_mtl;
+    callbacks.readfile       = easyvfs_readfile_mtl;
+    callbacks.writefile      = easyvfs_writefile_mtl;
+    callbacks.seekfile       = easyvfs_seekfile_mtl;
+    callbacks.tellfile       = easyvfs_tellfile_mtl;
+    callbacks.filesize       = easyvfs_filesize_mtl;
+    callbacks.flushfile      = easyvfs_flushfile_mtl;
+    callbacks.deletefile     = easyvfs_deletefile_mtl;
+    callbacks.renamefile     = easyvfs_renamefile_mtl;
+    callbacks.mkdir          = easyvfs_mkdir_mtl;
+    callbacks.copyfile       = easyvfs_copy_file_mtl;
+    easyvfs_register_archive_callbacks(pContext, callbacks);
+}
+
+
+typedef struct
+{
+    easyvfs_uint64 archiveSizeInBytes;
+    easyvfs_uint64 bytesRemaining;
+    easyvfs_file*  pFile;
+    char*          chunkPointer;
+    char*          chunkEnd;
+    char           chunk[4096];
+    unsigned int   chunkSize;
+
+}easyvfs_openarchive_mtl_state;
+
+bool easyvfs_mtl_loadnextchunk(easyvfs_openarchive_mtl_state* pState)
+{
+    assert(pState != NULL);
+
+    if (pState->bytesRemaining > 0)
+    {
+        pState->chunkSize = (pState->bytesRemaining > 4096) ? 4096 : (unsigned int)pState->bytesRemaining;
+        assert(pState->chunkSize);
+
+        if (easyvfs_read(pState->pFile, pState->chunk, pState->chunkSize, NULL))
+        {
+            pState->bytesRemaining -= pState->chunkSize;
+            pState->chunkPointer = pState->chunk;
+            pState->chunkEnd     = pState->chunk + pState->chunkSize;
+
+            return 1;
+        }
+        else
+        {
+            // An error occured while reading. Just reset everything to make it look like an error occured.
+            pState->bytesRemaining = 0;
+            pState->chunkSize      = 0;
+            pState->chunkPointer   = pState->chunk;
+            pState->chunkEnd       = pState->chunkPointer;
+        }
+    }
+
+    return 0;
+}
+
+bool easyvfs_mtl_loadnewmtl(easyvfs_openarchive_mtl_state* pState)
+{
+    assert(pState != NULL);
+
+    const char newmtl[7] = "newmtl";
+    for (unsigned int i = 0; i < 6; ++i)
+    {
+        // Check if we need a new chunk.
+        if (pState->chunkPointer >= pState->chunkEnd)
+        {
+            if (!easyvfs_mtl_loadnextchunk(pState))
+            {
+                return 0;
+            }
+        }
+
+
+        if (pState->chunkPointer[0] != newmtl[i])
+        {
+            return 0;
+        }
+
+        pState->chunkPointer += 1;
+    }
+
+    // At this point the first 6 characters equal "newmtl".
+    return 1;
+}
+
+bool easyvfs_mtl_skipline(easyvfs_openarchive_mtl_state* pState)
+{
+    assert(pState != NULL);
+
+    // Keep looping until we find a new line character.
+    while (pState->chunkPointer < pState->chunkEnd)
+    {
+        if (pState->chunkPointer[0] == '\n')
+        {
+            // Found the new line. Now move forward by one to get past the new line character.
+            pState->chunkPointer += 1;
+            if (pState->chunkPointer >= pState->chunkEnd)
+            {
+                return easyvfs_mtl_loadnextchunk(pState);
+            }
+
+            return 1;
+        }
+
+        pState->chunkPointer += 1;
+    }
+
+    // If we get here it means we got past the end of the chunk. We just read the next chunk and call this recursively.
+    if (easyvfs_mtl_loadnextchunk(pState))
+    {
+        return easyvfs_mtl_skipline(pState);
+    }
+
+    return 0;
+}
+
+bool easyvfs_mtl_skipwhitespace(easyvfs_openarchive_mtl_state* pState)
+{
+    assert(pState != NULL);
+
+    while (pState->chunkPointer < pState->chunkEnd)
+    {
+        const char c = pState->chunkPointer[0];
+        if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
+        {
+            return 1;
+        }
+
+        pState->chunkPointer += 1;
+    }
+
+    if (easyvfs_mtl_loadnextchunk(pState))
+    {
+        return easyvfs_mtl_skipwhitespace(pState);
+    }
+
+    return 0;
+}
+
+bool easyvfs_mtl_loadmtlname(easyvfs_openarchive_mtl_state* pState, void* dst, unsigned int dstSizeInBytes)
+{
+    assert(pState != NULL);
+
+    // We loop over character by character until we find a whitespace, "#" character or the end of the file.
+    char* dst8 = dst;
+    while (dstSizeInBytes > 0 && pState->chunkPointer < pState->chunkEnd)
+    {
+        const char c = pState->chunkPointer[0];
+        if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '#')
+        {
+            // We've found the end of the name. Null terminate and return.
+            *dst8 = '\0';
+            return 1;
+        }
+        else
+        {
+            *dst8++ = c;
+            dstSizeInBytes -= 1;
+            pState->chunkPointer += 1;
+        }
+    }
+
+    // At this point we either ran out of space in the destination buffer or the chunk.
+    if (dstSizeInBytes > 0)
+    {
+        // We got to the end of the chunk, so we need to load the next chunk and call this recursively.
+        assert(pState->chunkPointer == pState->chunkEnd);
+
+        if (easyvfs_mtl_loadnextchunk(pState))
+        {
+            return easyvfs_mtl_loadmtlname(pState, dst8, dstSizeInBytes);
+        }
+        else
+        {
+            // We reached the end of the file, but the name may be valid.
+            return 1;
+        }
+    }
+    else
+    {
+        // We ran out of room in the buffer.
+        return 0;
+    }
+}
+
+
+bool easyvfs_isvalidarchive_mtl(easyvfs_context* pContext, const char* path)
+{
+    (void)pContext;
+
+    if (easyvfs_extension_equal(path, "mtl"))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+void* easyvfs_openarchive_mtl(easyvfs_file* pFile, easyvfs_access_mode accessMode)
+{
+    assert(pFile != NULL);
+    assert(easyvfs_tell(pFile) == 0);
+
+    easyvfs_archive_mtl* mtl = easyvfs_mtl_create(accessMode);
+    if (mtl != NULL)
+    {
+        mtl->accessMode = accessMode;
+
+
+        // We create a state object that is used to help us with chunk management.
+        easyvfs_openarchive_mtl_state state;
+        state.pFile              = pFile;
+        state.archiveSizeInBytes = easyvfs_file_size(pFile);
+        state.bytesRemaining     = state.archiveSizeInBytes;
+        state.chunkSize          = 0;
+        state.chunkPointer       = state.chunk;
+        state.chunkEnd           = state.chunk;
+        if (easyvfs_mtl_loadnextchunk(&state))
+        {
+            while (state.bytesRemaining > 0 || state.chunkPointer < state.chunkEnd)
+            {
+                ptrdiff_t bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
+                assert(bytesRemainingInChunk > 0);
+
+                easyvfs_uint64 newmtlOffset = state.archiveSizeInBytes - state.bytesRemaining - ((easyvfs_uint64)bytesRemainingInChunk);
+
+                if (easyvfs_mtl_loadnewmtl(&state))
+                {
+                    if (state.chunkPointer[0] == ' ' || state.chunkPointer[0] == '\t')
+                    {
+                        // We found a new material. We need to iterate until we hit the first whitespace, "#", or the end of the file.
+                        if (easyvfs_mtl_skipwhitespace(&state))
+                        {
+                            easyvfs_file_mtl file;
+                            if (easyvfs_mtl_loadmtlname(&state, file.name, 256))
+                            {
+                                // Everything worked out. We now need to create the file and add it to our list. At this point we won't know the size. We determine
+                                // the size in a post-processing step later.
+                                file.offset = newmtlOffset;
+                                easyvfs_mtl_addfile(mtl, &file);
+                            }
+                        }
+                    }
+                }
+
+                // Move to the next line.
+                easyvfs_mtl_skipline(&state);
+            }
+
+
+            // The files will have been read at this point, but we need to do a post-processing step to retrieve the size of each file.
+            for (unsigned int iFile = 0; iFile < mtl->fileCount; ++iFile)
+            {
+                if (iFile < mtl->fileCount - 1)
+                {
+                    // It's not the last item. The size of this item is the offset of the next file minus the offset of this file.
+                    mtl->pFiles[iFile].sizeInBytes = mtl->pFiles[iFile + 1].offset - mtl->pFiles[iFile].offset;
+                }
+                else
+                {
+                    // It's the last item. The size of this item is the size of the archive file minus the file's offset.
+                    mtl->pFiles[iFile].sizeInBytes = state.archiveSizeInBytes - mtl->pFiles[iFile].offset;
+                }
+            }
+        }
+        else
+        {
+            easyvfs_mtl_delete(mtl);
+            mtl = NULL;
+        }
+    }
+
+    return mtl;
+}
+
+void easyvfs_closearchive_mtl(easyvfs_archive* pArchive)
+{
+    assert(pArchive != 0);
+
+    easyvfs_archive_mtl* pUserData = pArchive->pUserData;
+    if (pUserData != NULL)
+    {
+        easyvfs_mtl_delete(pUserData);
+    }
+}
+
+bool easyvfs_getfileinfo_mtl(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
+{
+    assert(pArchive != 0);
+
+    easyvfs_archive_mtl* mtl = pArchive->pUserData;
+    if (mtl != NULL)
+    {
+        for (unsigned int iFile = 0; iFile < mtl->fileCount; ++iFile)
+        {
+            if (strcmp(path, mtl->pFiles[iFile].name) == 0)
+            {
+                // We found the file.
+                if (fi != NULL)
+                {
+                    easyvfs_copy_and_append_path(fi->absolutePath, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
+                    fi->sizeInBytes      = mtl->pFiles[iFile].sizeInBytes;
+                    fi->lastModifiedTime = 0;
+                    fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
+                }
+
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+void* easyvfs_beginiteration_mtl(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(path != NULL);
+
+    easyvfs_archive_mtl* mtl = pArchive->pUserData;
+    if (mtl != NULL)
+    {
+        if (mtl->fileCount > 0)
+        {
+            if (path[0] == '\0' || (path[0] == '/' && path[1] == '\0'))     // This is a flat archive, so no sub-folders.
+            {
+                easyvfs_iterator_mtl* i = easyvfs_malloc(sizeof(easyvfs_iterator_mtl));
+                if (i != NULL)
+                {
+                    i->index = 0;
+                    return i;
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
+void easyvfs_enditeration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i)
+{
+    assert(pArchive != 0);
+    assert(i != NULL);
+
+    easyvfs_free(i->pUserData);
+    i->pUserData = NULL;
+}
+
+bool easyvfs_nextiteration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i, easyvfs_file_info* fi)
+{
+    assert(pArchive != 0);
+    assert(i != NULL);
+
+    easyvfs_archive_mtl* mtl = pArchive->pUserData;
+    if (mtl != NULL)
+    {
+        easyvfs_iterator_mtl* imtl = i->pUserData;
+        if (imtl != NULL)
+        {
+            if (imtl->index < mtl->fileCount)
+            {
+                if (fi != NULL)
+                {
+                    easyvfs_strcpy(fi->absolutePath, EASYVFS_MAX_PATH, mtl->pFiles[imtl->index].name);
+                    fi->sizeInBytes      = mtl->pFiles[imtl->index].sizeInBytes;
+                    fi->lastModifiedTime = 0;
+                    fi->attributes       = EASYVFS_FILE_ATTRIBUTE_READONLY;
+                }
+
+                imtl->index += 1;
+                return 1;
+            }
+        }
+    }
+    
+
+    return 0;
+}
+
+void* easyvfs_openfile_mtl(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode)
+{
+    assert(pArchive != 0);
+    assert(path != NULL);
+
+    // Only supporting read-only for now.
+    if ((accessMode & EASYVFS_WRITE) != 0)
+    {
+        return NULL;
+    }
+
+    easyvfs_archive_mtl* mtl = pArchive->pUserData;
+    if (mtl != NULL)
+    {
+        for (unsigned int iFile = 0; iFile < mtl->fileCount; ++iFile)
+        {
+            if (strcmp(path, mtl->pFiles[iFile].name) == 0)
+            {
+                // We found the file.
+                easyvfs_openedfile_mtl* pOpenedFile = easyvfs_malloc(sizeof(easyvfs_openedfile_mtl));
+                if (pOpenedFile != NULL)
+                {
+                    pOpenedFile->offsetInArchive = mtl->pFiles[iFile].offset;
+                    pOpenedFile->sizeInBytes     = mtl->pFiles[iFile].sizeInBytes;
+                    pOpenedFile->readPointer     = 0;
+
+                    return pOpenedFile;
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
+void easyvfs_closefile_mtl(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_mtl* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        easyvfs_free(pOpenedFile);
+    }
+}
+
+bool easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRead, unsigned int* bytesReadOut)
+{
+    assert(pFile != 0);
+    assert(dst != NULL);
+    assert(bytesToRead > 0);
+
+    easyvfs_openedfile_mtl* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        easyvfs_file* pArchiveFile = pFile->pArchive->pFile;
+        assert(pArchiveFile != NULL);
+
+        easyvfs_int64 bytesAvailable = pOpenedFile->sizeInBytes - pOpenedFile->readPointer;
+        if (bytesAvailable < bytesToRead) {
+            bytesToRead = (unsigned int)bytesAvailable;     // Safe cast, as per the check above.
+        }
+
+        easyvfs_seek(pArchiveFile, (easyvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), easyvfs_start);
+        int result = easyvfs_read(pArchiveFile, dst, bytesToRead, bytesReadOut);
+        if (result != 0)
+        {
+            pOpenedFile->readPointer += bytesToRead;
+        }
+
+        return result;
+    }
+
+    return 0;
+}
+
+bool easyvfs_writefile_mtl(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
+{
+    assert(pFile != 0);
+    assert(src != NULL);
+    assert(bytesToWrite > 0);
+
+    // All files are read-only for now.
+    if (bytesWrittenOut != NULL)
+    {
+        *bytesWrittenOut = 0;
+    }
+
+    return 0;
+}
+
+bool easyvfs_seekfile_mtl(easyvfs_file* pFile, easyvfs_int64 bytesToSeek, easyvfs_seek_origin origin)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_mtl* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        easyvfs_uint64 newPos = pOpenedFile->readPointer;
+        if (origin == easyvfs_current)
+        {
+            if ((easyvfs_int64)newPos + bytesToSeek >= 0)
+            {
+                newPos = (easyvfs_uint64)((easyvfs_int64)newPos + bytesToSeek);
+            }
+            else
+            {
+                // Trying to seek to before the beginning of the file.
+                return 0;
+            }
+        }
+        else if (origin == easyvfs_start)
+        {
+            assert(bytesToSeek >= 0);
+            newPos = (easyvfs_uint64)bytesToSeek;
+        }
+        else if (origin == easyvfs_end)
+        {
+            assert(bytesToSeek >= 0);
+            if ((easyvfs_uint64)bytesToSeek <= pOpenedFile->sizeInBytes)
+            {
+                newPos = pOpenedFile->sizeInBytes - (easyvfs_uint64)bytesToSeek;
+            }
+            else
+            {
+                // Trying to seek to before the beginning of the file.
+                return 0;
+            }
+        }
+        else
+        {
+            // Should never get here.
+            return 0;
+        }
+
+
+        if (newPos > pOpenedFile->sizeInBytes)
+        {
+            return 0;
+        }
+
+        pOpenedFile->readPointer = newPos;
+        return 1;
+    }
+
+    return 0;
+}
+
+easyvfs_uint64 easyvfs_tellfile_mtl(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_mtl* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        return pOpenedFile->readPointer;
+    }
+
+    return 0;
+}
+
+easyvfs_uint64 easyvfs_filesize_mtl(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    easyvfs_openedfile_mtl* pOpenedFile = pFile->pUserData;
+    if (pOpenedFile != NULL)
+    {
+        return pOpenedFile->sizeInBytes;
+    }
+
+    return 0;
+}
+
+void easyvfs_flushfile_mtl(easyvfs_file* pFile)
+{
+    assert(pFile != 0);
+
+    // No support for this at the moment because it's read-only for now.
+}
+
+bool easyvfs_deletefile_mtl(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(path     != 0);
+
+    // No support for this at the moment because it's read-only for now.
+    return 0;
+}
+
+bool easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
+{
+    assert(pArchive != 0);
+    assert(pathOld  != 0);
+    assert(pathNew  != 0);
+
+    // No support for this at the moment because it's read-only for now.
+    return 0;
+}
+
+bool easyvfs_mkdir_mtl(easyvfs_archive* pArchive, const char* path)
+{
+    assert(pArchive != 0);
+    assert(path     != 0);
+
+    // MTL archives do not have the notion of folders.
+    return 0;
+}
+
+bool easyvfs_copy_file_mtl(easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists)
+{
+    assert(pArchive != 0);
+    assert(srcPath  != 0);
+    assert(dstPath  != 0);
+
+    // No support for this at the moment because it's read-only for now.
+    return 0;
+}
+#endif // !EASYVFS_NO_MTL
+
+
+
 #if defined(__clang__)
     #pragma GCC diagnostic pop
 #endif

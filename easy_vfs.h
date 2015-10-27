@@ -1,5 +1,18 @@
 //Public Domain. See "unlicense" statement at the end of this file.
 
+//
+// OPTIONS
+//
+// #define EASYVFS_NO_ZIP
+//   Disables support for Zip files.
+//
+// #define EASYVFS_NO_PAK
+//   Disables support for Quake 2 PAK files.
+//
+// #define EASYVFS_NO_MTL
+//   Disables support for Wavefront MTL files.
+//
+
 #ifndef easy_vfs
 #define easy_vfs
 
@@ -391,6 +404,45 @@ bool easyvfs_is_path_absolute(const char* path);
 
 // easyvfs_copy_and_append_path()
 bool easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+// Archive Formats
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+
+//// ZIP ////
+#ifndef EASYVFS_NO_ZIP
+
+/// Registers the archive callbacks which enables support for ZIP files.
+void easyvfs_registerarchivecallbacks_zip(easyvfs_context* pContext);
+#endif
+
+
+//// Quake 2 PAK ////
+#ifndef EASYVFS_NO_PAK
+
+/// Registers the archive callbacks which enables support for Quake 2 pak files.
+void easyvfs_registerarchivecallbacks_pak(easyvfs_context* pContext);
+#endif
+
+
+//// Wavefront MTL ////
+#ifndef EASYVFS_NO_MTL
+
+/// Registers the archive callbacks which enables support for Wavefront MTL material files. The .mtl file
+/// is treated as a flat archive containing a "file" for each material defined inside the .mtl file. The
+/// first byte in each "file" is the very beginning of the "newmtl" statement, with the last byte being the
+/// byte just before the next "newmtl" statement, or the end of the file. The name of each file is the word
+/// coming after the "newmtl" token.
+void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext);
+#endif
 
 
 
