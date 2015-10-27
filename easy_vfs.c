@@ -1,4 +1,4 @@
-// Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
+// Public Domain. See "unlicense" statement at the end of this file.
 
 #include "easy_vfs.h"
 
@@ -2073,15 +2073,24 @@ void easyvfs_closearchive_impl_native(easyvfs_archive* pArchive)
 
 bool easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path, easyvfs_file_info *fi)
 {
-    assert(pArchive            != NULL);
-    assert(pArchive->pUserData != NULL);
-    assert(path                != NULL);
+    assert(path != NULL);
 
-    char fullPath[EASYVFS_MAX_PATH];
-    if (easyvfs_copy_and_append_path(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
+    if (pArchive != NULL)
     {
+        // Assume "path" is relative. Convert to absolute and recursively call this function with a null archive.
+
+        char absolutePath[EASYVFS_MAX_PATH];
+        if (easyvfs_copy_and_append_path(absolutePath, sizeof(absolutePath), pArchive->absolutePath, path))
+        {
+            return easyvfs_getfileinfo_impl_native(NULL, absolutePath, fi);
+        }
+    }
+    else
+    {
+        // Assume "path" is absolute.
+
         WIN32_FILE_ATTRIBUTE_DATA fad;
-        if (GetFileAttributesExA(fullPath, GetFileExInfoStandard, &fad))
+        if (GetFileAttributesExA(path, GetFileExInfoStandard, &fad))
         {
             if (fi != NULL)
             {
@@ -2093,7 +2102,7 @@ bool easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path
                 liTime.LowPart  = fad.ftLastWriteTime.dwLowDateTime;
                 liTime.HighPart = fad.ftLastWriteTime.dwHighDateTime;
 
-                easyvfs_memcpy(fi->absolutePath, fullPath, EASYVFS_MAX_PATH);
+                easyvfs_memcpy(fi->absolutePath, path, EASYVFS_MAX_PATH);
                 fi->sizeInBytes      = liSize.QuadPart;
                 fi->lastModifiedTime = liTime.QuadPart;
 
@@ -2117,56 +2126,71 @@ bool easyvfs_getfileinfo_impl_native(easyvfs_archive* pArchive, const char* path
 
 void* easyvfs_beginiteration_impl_native(easyvfs_archive* pArchive, const char* path)
 {
-    assert(pArchive            != NULL);
-    assert(pArchive->pUserData != NULL);
-    assert(path                != NULL);
+    assert(path != NULL);
 
-
-    char searchQuery[EASYVFS_MAX_PATH];
-    easyvfs_copy_and_append_path(searchQuery, EASYVFS_MAX_PATH, pArchive->absolutePath, path);
-
-    unsigned int searchQueryLength = (unsigned int)strlen(searchQuery);
-    if (searchQueryLength < EASYVFS_MAX_PATH - 3)
+    if (pArchive != NULL)
     {
-        searchQuery[searchQueryLength + 0] = '\\';
-        searchQuery[searchQueryLength + 1] = '*';
-        searchQuery[searchQueryLength + 2] = '\0';
+        // Assume "path" is relative. Convert to absolute and recursively call this function with a null archive.
 
-        easyvfs_iterator_win32* pUserData = easyvfs_malloc(sizeof(easyvfs_iterator_win32));
-        if (pUserData != NULL)
+        char absolutePath[EASYVFS_MAX_PATH];
+        if (easyvfs_copy_and_append_path(absolutePath, sizeof(absolutePath), pArchive->absolutePath, path))
         {
-            pUserData->hFind = FindFirstFileA(searchQuery, &pUserData->ffd);
-            if (pUserData->hFind != INVALID_HANDLE_VALUE)
-            {
-                easyvfs_strcpy(pUserData->directoryPath, EASYVFS_MAX_PATH, path);
+            return easyvfs_beginiteration_impl_native(NULL, absolutePath);
+        }
+    }
+    else
+    {
+        // Assume "path" is absolute.
 
-                return pUserData;
+        char searchQuery[EASYVFS_MAX_PATH];
+        easyvfs_strcpy(searchQuery, sizeof(searchQuery), path);
+
+        unsigned int searchQueryLength = (unsigned int)strlen(searchQuery);
+        if (searchQueryLength < EASYVFS_MAX_PATH - 3)
+        {
+            searchQuery[searchQueryLength + 0] = '\\';
+            searchQuery[searchQueryLength + 1] = '*';
+            searchQuery[searchQueryLength + 2] = '\0';
+
+            easyvfs_iterator_win32* pUserData = easyvfs_malloc(sizeof(easyvfs_iterator_win32));
+            if (pUserData != NULL)
+            {
+                pUserData->hFind = FindFirstFileA(searchQuery, &pUserData->ffd);
+                if (pUserData->hFind != INVALID_HANDLE_VALUE)
+                {
+                    easyvfs_strcpy(pUserData->directoryPath, EASYVFS_MAX_PATH, path);
+
+                    return pUserData;
+                }
+                else
+                {
+                    // Failed to begin search.
+                    easyvfs_free(pUserData);
+                    return NULL;
+                }
             }
             else
             {
-                // Failed to begin search.
-                easyvfs_free(pUserData);
+                // Failed to allocate iterator data.
                 return NULL;
             }
         }
         else
         {
-            // Failed to allocate iterator data.
+            // Path is too long.
             return NULL;
         }
     }
-    else
-    {
-        // Path is too long.
-        return NULL;
-    }
+
+
+    return NULL;
 }
 
 void easyvfs_enditeration_impl_native(easyvfs_archive* pArchive, easyvfs_iterator* i)
 {
-    assert(pArchive            != NULL);
-    assert(pArchive->pUserData != NULL);
-    assert(i                   != NULL);
+    assert(i != NULL);
+
+    (void)pArchive;
 
     easyvfs_iterator_win32* pUserData = i->pUserData;
     if (pUserData != NULL)
@@ -2383,63 +2407,78 @@ void easyvfs_flushfile_impl_native(easyvfs_file* pFile)
 
 bool easyvfs_deletefile_impl_native(easyvfs_archive* pArchive, const char* path)
 {
-    assert(pArchive            != NULL);
-    assert(pArchive->pUserData != NULL);
-    assert(path                != NULL);
+    assert(path != NULL);
 
-    char fullPath[EASYVFS_MAX_PATH];
-    if (easyvfs_copy_and_append_path(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
+    if (pArchive != NULL)
     {
-        DWORD attributes = GetFileAttributesA(fullPath);
+        // Assume "path" is relative. Convert to absolute and recursively call this function with a null archive.
+
+        char absolutePath[EASYVFS_MAX_PATH];
+        if (easyvfs_copy_and_append_path(absolutePath, sizeof(absolutePath), pArchive->absolutePath, path))
+        {
+            return easyvfs_deletefile_impl_native(NULL, absolutePath);
+        }
+    }
+    else
+    {
+        // Assume "path" is absolute.
+
+        DWORD attributes = GetFileAttributesA(path);
         if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0)
         {
             // It's a normal file.
-            return DeleteFileA(fullPath);
+            return DeleteFileA(path);
         }
         else
         {
             // It's a directory.
-            return RemoveDirectoryA(fullPath);
+            return RemoveDirectoryA(path);
         }
     }
 
-    return 0;
+    return false;
 }
 
 bool easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
 {
-    assert(pArchive            != NULL);
-    assert(pArchive->pUserData != NULL);
-    assert(pathOld             != NULL);
-    assert(pathNew             != NULL);
+    assert(pathOld != NULL);
+    assert(pathNew != NULL);
 
-    // We use the "Ex" version here because we want to fail if we would have to copy the file (if the destination and target are on seperate file systems).
-    char fullPathOld[EASYVFS_MAX_PATH];
-    if (easyvfs_copy_and_append_path(fullPathOld, EASYVFS_MAX_PATH, pArchive->absolutePath, pathOld))
+    if (pArchive != NULL)
     {
-        char fullPathNew[EASYVFS_MAX_PATH];
-        if (easyvfs_copy_and_append_path(fullPathNew, EASYVFS_MAX_PATH, pArchive->absolutePath, pathNew))
-        {
-            return MoveFileExA(fullPathOld, fullPathNew, 0);
-        }
+        char absolutePathOld[EASYVFS_MAX_PATH];
+        char absolutePathNew[EASYVFS_MAX_PATH];
+        easyvfs_copy_and_append_path(absolutePathOld, sizeof(absolutePathOld), pArchive->absolutePath, pathOld);
+        easyvfs_copy_and_append_path(absolutePathNew, sizeof(absolutePathNew), pArchive->absolutePath, pathNew);
+
+        return MoveFileExA(absolutePathOld, absolutePathNew, 0);
+    }
+    else
+    {
+        return MoveFileExA(pathOld, pathNew, 0);
     }
 
-    return 0;
+    return false;
 }
 
 bool easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
 {
-    assert(pArchive            != NULL);
-    assert(pArchive->pUserData != NULL);
-    assert(path                != NULL);
+    assert(path != NULL);
 
-    char fullPath[EASYVFS_MAX_PATH];
-    if (easyvfs_copy_and_append_path(fullPath, EASYVFS_MAX_PATH, pArchive->absolutePath, path))
+    if (pArchive != NULL)
     {
-        return CreateDirectoryA(fullPath, NULL);
+        char absolutePath[EASYVFS_MAX_PATH];
+        if (easyvfs_copy_and_append_path(absolutePath, sizeof(absolutePath), pArchive->absolutePath, path))
+        {
+            return CreateDirectoryA(absolutePath, NULL);
+        }
+    }
+    else
+    {
+        return CreateDirectoryA(path, NULL);
     }
 
-    return 0;
+    return false;
 }
 
 bool easyvfs_copyfile_impl_native(easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists)
