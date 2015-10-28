@@ -439,10 +439,6 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
         wf.wFormatTag = WAVE_FORMAT_PCM;
     } else if (pBufferDesc->format == easyaudio_format_float) {
         wf.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
-    } else if (pBufferDesc->format == easyaudio_format_alaw) {
-        wf.wFormatTag = WAVE_FORMAT_ALAW;
-    } else if (pBufferDesc->format == easyaudio_format_mulaw) {
-        wf.wFormatTag = WAVE_FORMAT_MULAW;
     } else {
         return NULL;
     }

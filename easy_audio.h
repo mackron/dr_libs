@@ -48,9 +48,7 @@ extern "C" {
 typedef enum
 {
     easyaudio_format_pcm,
-    easyaudio_format_float,
-    easyaudio_format_alaw,
-    easyaudio_format_mulaw
+    easyaudio_format_float
 
 } easyaudio_format;
 
