@@ -33,9 +33,12 @@ Limitations:
 
  
 ## How to use it
-There's just a few files. Just add these to your project's source tree and you should be
-good to go. The "extras" folder contains implementations of supported archive formats -
-just include the ones you want, and leave out the ones you don't.
+Just add easy_vfs.c and easy_vfs.h your project's source tree and you should be good to go. You
+will also need to add miniz.c to your project if you are needing support for Zip files.
+
+Define EASYVFS_NO_ZIP / EASYVFS_NO_PAK / EASYVFS_NO_MTL to disable support for a particular type
+of archive. This is useful if you want to keep the size of your builds down. You can do this at
+the compiler level, or just add them to the top of easy_vfs.c.
 
 Below is an example:
 ```c
