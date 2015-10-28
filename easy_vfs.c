@@ -1083,6 +1083,28 @@ bool easyvfs_validate_write_path(easyvfs_context* pContext, const char* absolute
 
 
 
+
+#ifndef EASYVFS_NO_ZIP
+/// Registers the archive callbacks which enables support for ZIP files.
+void easyvfs_registerarchivecallbacks_zip(easyvfs_context* pContext);
+#endif
+
+#ifndef EASYVFS_NO_PAK
+/// Registers the archive callbacks which enables support for Quake 2 pak files.
+void easyvfs_registerarchivecallbacks_pak(easyvfs_context* pContext);
+#endif
+
+#ifndef EASYVFS_NO_MTL
+/// Registers the archive callbacks which enables support for Wavefront MTL material files. The .mtl file
+/// is treated as a flat archive containing a "file" for each material defined inside the .mtl file. The
+/// first byte in each "file" is the very beginning of the "newmtl" statement, with the last byte being the
+/// byte just before the next "newmtl" statement, or the end of the file. The name of each file is the word
+/// coming after the "newmtl" token.
+void easyvfs_registerarchivecallbacks_mtl(easyvfs_context* pContext);
+#endif
+
+
+
 ////////////////////////////////////////
 // Public API
 
@@ -1115,6 +1137,16 @@ easyvfs_context* easyvfs_create_context()
             pContext->nativeCallbacks.renamefile     = easyvfs_renamefile_impl_native;
             pContext->nativeCallbacks.mkdir          = easyvfs_mkdir_impl_native;
             pContext->nativeCallbacks.copyfile       = easyvfs_copyfile_impl_native;
+
+#ifndef EASYVFS_NO_ZIP
+            easyvfs_registerarchivecallbacks_zip(pContext);
+#endif
+#ifndef EASYVFS_NO_PAK
+            easyvfs_registerarchivecallbacks_pak(pContext);
+#endif
+#ifndef EASYVFS_NO_MTL
+            easyvfs_registerarchivecallbacks_mtl(pContext);
+#endif
         }
         else
         {

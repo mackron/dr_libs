@@ -3,7 +3,7 @@ This repository is a container for a few basic, public domain libraries written 
 which are intended to make working with the file system a bit easier. Libraries contained
 within this repository include:
  - easy_vfs: A virtual file system
- - easy_fsw: A file system watcher
+ - easy_fsw: A library for watching for changes to the file system
  
 Each library is independant from the others.
 
@@ -18,18 +18,18 @@ Some noteworthy features:
  - Supports shortened, transparent paths by automatically scanning for supported archives. The
    path "my/package.zip/file.txt" can be shortened to "my/file.txt", for example.
  - Fully recursive. A path such as "pack1.zip/pack2.zip/file.txt" should work just fine.
- - Easily supports custom package formats - just implement the relevant callbacks. See
-   the "extras" folder for examples.
+ - Easily supports custom package formats. Look at the implementations of Zip archives for an
+   example.
  - No compulsory dependencies except for the C standard library.
     - Optionally depends on miniz.c which is included in easy_vfs' source tree and released
-	  under the same licence. This is required for ZIP archive support.
+	  under the same licence. This is required for Zip archive support.
 	- Optionally depends on easy_path which is used to strip away some duplicate code if
-	  your project happens to already use it (such as my projects).
+	  your project happens to already use it.
 
 Limitations:
- - When a file contained within a ZIP file is opened, the entire uncompressed data is loaded
+ - When a file contained within a Zip file is opened, the entire uncompressed data is loaded
    onto the heap. Keep this in mind when working with large files.
- - ZIP archives are read-only at the moment.
+ - Zip, PAK and Wavefront MTL archives are read-only at the moment.
 
  
 ## How to use it
@@ -45,12 +45,6 @@ if (pVFS == NULL)
 {
 	// There was an error creating the context.
 }
-
-// Register the archive callbacks. This enables support for a particular type of
-// archive. If you do not specify any archives only the native file system will be
-// supported.
-easyvfs_register_archive_callbacks_zip(pVFS);	// ZIP files.
-easyvfs_register_archive_callbacks_pak(pVFS);	// Quake 2 PAK files.
 
 // Add your base directories for loading from relative paths. If you do not specify at
 // least one base directory you will need to load from absolute paths.
