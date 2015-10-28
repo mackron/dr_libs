@@ -11,7 +11,7 @@
 #endif
 
 
-// When constructing the material's raw data, memory allocated in blocks of this amount. This must be at least 256.
+// When constructing the material's raw data, memory is allocated in blocks of this amount. This must be at least 256.
 #define EASYMTL_CHUNK_SIZE              4096
 
 #define EASYMTL_STAGE_IDS               0
