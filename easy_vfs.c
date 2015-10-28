@@ -2560,7 +2560,6 @@ typedef struct
     /// The directory being iterated.
     char directoryPath[EASYVFS_MAX_PATH];
 
-
 }easyvfs_iterator_zip;
 
 typedef struct
@@ -2774,6 +2773,8 @@ void* easyvfs_beginiteration_zip(easyvfs_archive* pArchive, const char* path)
 
 void easyvfs_enditeration_zip(easyvfs_archive* pArchive, easyvfs_iterator* i)
 {
+    (void)pArchive;
+
     assert(pArchive != 0);
     assert(pArchive->pUserData != NULL);
     assert(i != NULL);
@@ -2915,6 +2916,10 @@ bool easyvfs_readfile_zip(easyvfs_file* pFile, void* dst, unsigned int bytesToRe
 
 bool easyvfs_writefile_zip(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
 {
+    (void)pFile;
+    (void)src;
+    (void)bytesToWrite;
+
     assert(pFile != 0);
     assert(src != NULL);
     assert(bytesToWrite > 0);
@@ -3013,6 +3018,8 @@ easyvfs_uint64 easyvfs_filesize_zip(easyvfs_file* pFile)
 
 void easyvfs_flushfile_zip(easyvfs_file* pFile)
 {
+    (void)pFile;
+
     assert(pFile != 0);
 
     // All files are read-only for now.
@@ -3020,6 +3027,9 @@ void easyvfs_flushfile_zip(easyvfs_file* pFile)
 
 bool easyvfs_deletefile_zip(easyvfs_archive* pArchive, const char* path)
 {
+    (void)pArchive;
+    (void)path;
+
     assert(pArchive != 0);
     assert(path     != 0);
 
@@ -3029,6 +3039,10 @@ bool easyvfs_deletefile_zip(easyvfs_archive* pArchive, const char* path)
 
 bool easyvfs_renamefile_zip(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
 {
+    (void)pArchive;
+    (void)pathOld;
+    (void)pathNew;
+
     assert(pArchive != 0);
     assert(pathOld  != 0);
     assert(pathNew  != 0);
@@ -3039,6 +3053,9 @@ bool easyvfs_renamefile_zip(easyvfs_archive* pArchive, const char* pathOld, cons
 
 bool easyvfs_mkdir_zip(easyvfs_archive* pArchive, const char* path)
 {
+    (void)pArchive;
+    (void)path;
+
     assert(pArchive != 0);
     assert(path     != 0);
 
@@ -3048,6 +3065,11 @@ bool easyvfs_mkdir_zip(easyvfs_archive* pArchive, const char* path)
 
 bool easyvfs_copy_file_zip(easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists)
 {
+    (void)pArchive;
+    (void)srcPath;
+    (void)dstPath;
+    (void)failIfExists;
+
     assert(pArchive != 0);
     assert(srcPath  != 0);
     assert(dstPath  != 0);
@@ -3414,6 +3436,8 @@ bool easyvfs_getfileinfo_pak(easyvfs_archive* pArchive, const char* path, easyvf
 
 void* easyvfs_beginiteration_pak(easyvfs_archive* pArchive, const char* path)
 {
+    (void)pArchive;
+
     assert(pArchive != 0);
     assert(pArchive->pUserData != NULL);
     assert(path != NULL);
@@ -3432,6 +3456,8 @@ void* easyvfs_beginiteration_pak(easyvfs_archive* pArchive, const char* path)
 
 void easyvfs_enditeration_pak(easyvfs_archive* pArchive, easyvfs_iterator* i)
 {
+    (void)pArchive;
+
     assert(pArchive != 0);
     assert(pArchive->pUserData != NULL);
     assert(i != NULL);
@@ -3581,6 +3607,10 @@ bool easyvfs_readfile_pak(easyvfs_file* pFile, void* dst, unsigned int bytesToRe
 
 bool easyvfs_writefile_pak(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
 {
+    (void)pFile;
+    (void)src;
+    (void)bytesToWrite;
+
     assert(pFile != 0);
     assert(src != NULL);
     assert(bytesToWrite > 0);
@@ -3679,6 +3709,8 @@ easyvfs_uint64 easyvfs_filesize_pak(easyvfs_file* pFile)
 
 void easyvfs_flushfile_pak(easyvfs_file* pFile)
 {
+    (void)pFile;
+
     assert(pFile != 0);
 
     // All files are read-only for now.
@@ -3686,6 +3718,9 @@ void easyvfs_flushfile_pak(easyvfs_file* pFile)
 
 bool easyvfs_deletefile_pak(easyvfs_archive* pArchive, const char* path)
 {
+    (void)pArchive;
+    (void)path;
+
     assert(pArchive != 0);
     assert(path     != 0);
 
@@ -3695,6 +3730,10 @@ bool easyvfs_deletefile_pak(easyvfs_archive* pArchive, const char* path)
 
 bool easyvfs_renamefile_pak(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
 {
+    (void)pArchive;
+    (void)pathOld;
+    (void)pathNew;
+
     assert(pArchive != 0);
     assert(pathOld  != 0);
     assert(pathNew  != 0);
@@ -3705,6 +3744,9 @@ bool easyvfs_renamefile_pak(easyvfs_archive* pArchive, const char* pathOld, cons
 
 bool easyvfs_mkdir_pak(easyvfs_archive* pArchive, const char* path)
 {
+    (void)pArchive;
+    (void)path;
+
     assert(pArchive != 0);
     assert(path     != 0);
 
@@ -3714,6 +3756,11 @@ bool easyvfs_mkdir_pak(easyvfs_archive* pArchive, const char* path)
 
 bool easyvfs_copy_file_pak(easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists)
 {
+    (void)pArchive;
+    (void)srcPath;
+    (void)dstPath;
+    (void)failIfExists;
+
     assert(pArchive != 0);
     assert(srcPath  != 0);
     assert(dstPath  != 0);
@@ -4197,6 +4244,8 @@ void* easyvfs_beginiteration_mtl(easyvfs_archive* pArchive, const char* path)
 
 void easyvfs_enditeration_mtl(easyvfs_archive* pArchive, easyvfs_iterator* i)
 {
+    (void)pArchive;
+
     assert(pArchive != 0);
     assert(i != NULL);
 
@@ -4313,6 +4362,10 @@ bool easyvfs_readfile_mtl(easyvfs_file* pFile, void* dst, unsigned int bytesToRe
 
 bool easyvfs_writefile_mtl(easyvfs_file* pFile, const void* src, unsigned int bytesToWrite, unsigned int* bytesWrittenOut)
 {
+    (void)pFile;
+    (void)src;
+    (void)bytesToWrite;
+
     assert(pFile != 0);
     assert(src != NULL);
     assert(bytesToWrite > 0);
@@ -4411,6 +4464,8 @@ easyvfs_uint64 easyvfs_filesize_mtl(easyvfs_file* pFile)
 
 void easyvfs_flushfile_mtl(easyvfs_file* pFile)
 {
+    (void)pFile;
+
     assert(pFile != 0);
 
     // No support for this at the moment because it's read-only for now.
@@ -4418,6 +4473,9 @@ void easyvfs_flushfile_mtl(easyvfs_file* pFile)
 
 bool easyvfs_deletefile_mtl(easyvfs_archive* pArchive, const char* path)
 {
+    (void)pArchive;
+    (void)path;
+
     assert(pArchive != 0);
     assert(path     != 0);
 
@@ -4427,6 +4485,10 @@ bool easyvfs_deletefile_mtl(easyvfs_archive* pArchive, const char* path)
 
 bool easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathOld, const char* pathNew)
 {
+    (void)pArchive;
+    (void)pathOld;
+    (void)pathNew;
+
     assert(pArchive != 0);
     assert(pathOld  != 0);
     assert(pathNew  != 0);
@@ -4437,6 +4499,9 @@ bool easyvfs_renamefile_mtl(easyvfs_archive* pArchive, const char* pathOld, cons
 
 bool easyvfs_mkdir_mtl(easyvfs_archive* pArchive, const char* path)
 {
+    (void)pArchive;
+    (void)path;
+
     assert(pArchive != 0);
     assert(path     != 0);
 
@@ -4446,6 +4511,11 @@ bool easyvfs_mkdir_mtl(easyvfs_archive* pArchive, const char* path)
 
 bool easyvfs_copy_file_mtl(easyvfs_archive* pArchive, const char* srcPath, const char* dstPath, bool failIfExists)
 {
+    (void)pArchive;
+    (void)srcPath;
+    (void)dstPath;
+    (void)failIfExists;
+
     assert(pArchive != 0);
     assert(srcPath  != 0);
     assert(dstPath  != 0);
