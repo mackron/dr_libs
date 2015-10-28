@@ -18,7 +18,8 @@ Some noteworthy features:
  - Supports shortened, transparent paths by automatically scanning for supported archives. The
    path "my/package.zip/file.txt" can be shortened to "my/file.txt", for example.
  - Fully recursive. A path such as "pack1.zip/pack2.zip/file.txt" should work just fine.
- - Easily supports custom package formats. Look at the implementations of Zip archives for an
+ - Easily supports custom package formats without the need to modify the original source code.
+   Look at easyvfs_register_archive_callbacks() and the implementation of Zip archives for an
    example.
  - No compulsory dependencies except for the C standard library.
     - Optionally depends on miniz.c which is included in easy_vfs' source tree and released
