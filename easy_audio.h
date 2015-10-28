@@ -1,4 +1,4 @@
-// Public Domain. See "unlicense" statement at the end of this file.
+// Public domain. See "unlicense" statement at the end of this file.
 
 //
 // QUICK NOTES
@@ -14,7 +14,7 @@
 // - Playback and recording devices are enumerated once when the context is created. Thus, when a device is plugged
 //   in or unplugged it will not be detected by easy_audio and the context will need to be deleted and re-created.
 // - Currently, easy_audio will only consider the first EASYAUDIO_MAX_DEVICE_COUNT playback and audio devices, which
-//   is current set to 16 and should be plenty for the vast majority of cases. Feel free to increase (or decrease)
+//   is currently set to 16 and should be plenty for the vast majority of cases. Feel free to increase (or decrease)
 //   this number to suit your own requirements.
 //
 
@@ -23,7 +23,7 @@
 //
 // #define EASYAUDIO_NO_DIRECTSOUND
 //   Disables support for the DirectSound backend. Note that at the moment this is the only backend available for
-//   Windows platforms, so you will likely not want to set this.
+//   Windows platforms, so you will likely not want to set this. DirectSound will only be compiled on Win32 builds.
 //
 
 #ifndef easy_audio

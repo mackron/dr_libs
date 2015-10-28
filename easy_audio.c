@@ -1,4 +1,4 @@
-// Public Domain. See "unlicense" statement at the end of this file.
+// Public domain. See "unlicense" statement at the end of this file.
 
 #include "easy_audio.h"
 #include <assert.h>
@@ -471,6 +471,9 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     pBufferDS->base.pDevice = pDevice;
     pBufferDS->pDSBuffer    = pDSBuffer;
 
+    if (pBufferDesc->pInitialData != NULL) {
+        easyaudio_set_buffer_data((easyaudio_buffer*)pBufferDS, 0, pBufferDesc->pInitialData, pBufferDesc->sizeInBytes);
+    }
 
     return (easyaudio_buffer*)pBufferDS;
 }
@@ -492,7 +495,7 @@ bool easyaudio_set_buffer_data_dsound(easyaudio_buffer* pBuffer, unsigned int of
 
     LPVOID lpvWrite;
     DWORD dwLength;
-    HRESULT hr = pBufferDS->pDSBuffer->lpVtbl->Lock(pBufferDS->pDSBuffer, offset, dataSizeInBytes, &lpvWrite, &dwLength, NULL, NULL, DSBLOCK_ENTIREBUFFER);
+    HRESULT hr = IDirectSoundBuffer_Lock(pBufferDS->pDSBuffer, offset, dataSizeInBytes, &lpvWrite, &dwLength, NULL, NULL, DSBLOCK_ENTIREBUFFER);
     if (FAILED(hr)) {
         return false;
     }
@@ -500,7 +503,7 @@ bool easyaudio_set_buffer_data_dsound(easyaudio_buffer* pBuffer, unsigned int of
     assert(dwLength == dataSizeInBytes);
     memcpy(lpvWrite, pData, dataSizeInBytes);
 
-    hr = pBufferDS->pDSBuffer->lpVtbl->Unlock(pBufferDS->pDSBuffer, lpvWrite, dwLength, NULL, 0);
+    hr = IDirectSoundBuffer_Unlock(pBufferDS->pDSBuffer, lpvWrite, dwLength, NULL, 0);
     if (FAILED(hr)) {
         return false;
     }
@@ -518,7 +521,7 @@ void easyaudio_play_dsound(easyaudio_buffer* pBuffer, bool loop)
         dwFlags |= DSBPLAY_LOOPING;
     }
 
-    pBufferDS->pDSBuffer->lpVtbl->Play(pBufferDS->pDSBuffer, 0, 0, dwFlags);
+    IDirectSoundBuffer_Play(pBufferDS->pDSBuffer, 0, 0, dwFlags);
 }
 
 
@@ -622,7 +625,7 @@ easyaudio_context* easyaudio_create_context_dsound()
 
 
 
-    // At this point we can almost certainly assume DirectSound is usable so we'll no go ahead and create the context.
+    // At this point we can almost certainly assume DirectSound is usable so we'll now go ahead and create the context.
     easyaudio_context_dsound* pContext = malloc(sizeof(easyaudio_context_dsound));
     if (pContext != NULL)
     {
@@ -664,7 +667,7 @@ easyaudio_context* easyaudio_create_context_dsound()
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-#if 0
+#if 1
 #include <stdio.h>
 
 #define STB_VORBIS_HEADER_ONLY
@@ -702,16 +705,13 @@ void easyaudio_dsound_test1()
     buffer.sampleRate    = sampleRate;
     buffer.bitsPerSample = sizeof(short) * 8;
     buffer.sizeInBytes   = samplesDecoded * channels * sizeof(short);
-    buffer.pInitialData  = NULL;
+    buffer.pInitialData  = pData;
 
     easyaudio_buffer* pBuffer = easyaudio_create_buffer(pPlaybackDevice, &buffer);
     if (pBuffer == NULL) {
         printf("Failed to create DirectSound buffer\n");
         return;
     }
-
-    unsigned int dataSize = samplesDecoded * channels * sizeof(short);
-    easyaudio_set_buffer_data(pBuffer, 0, pData, dataSize);
 
     easyaudio_play(pBuffer, true);  // "true" means to loop.
 }
