@@ -22,6 +22,51 @@
 #define EASYMTL_STAGE_COMPLETE          UINT_MAX
 
 
+////////////////////////////////////////////////////////
+// Utilities
+
+// strcpy()
+int easymtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
+{
+#if defined(_MSC_VER)
+    return strcpy_s(dst, dstSizeInBytes, src);
+#else
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+    
+    char* iDst = dst;
+    const char* iSrc = src;
+    size_t remainingSizeInBytes = dstSizeInBytes;
+    while (remainingSizeInBytes > 0 && iSrc[0] != '\0')
+    {
+        iDst[0] = iSrc[0];
+
+        iDst += 1;
+        iSrc += 1;
+        remainingSizeInBytes -= 1;
+    }
+
+    if (remainingSizeInBytes > 0) {
+        iDst[0] = '\0';
+    } else {
+        dst[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
+#endif
+}
+
+
+
 /// Inflates the materials data buffer by EASYMTL_CHUNK_SIZE.
 easymtl_bool _easymtl_inflate(easymtl_material* pMaterial);
 
@@ -3535,33 +3580,6 @@ easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* co
 #endif
 
 
-
-
-
-////////////////////////////////////////////////////////
-// Utilities
-
-// strcpy()
-void easymtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
-{
-#if defined(_MSC_VER)
-    strcpy_s(dst, dstSizeInBytes, src);
-#else
-    while (dstSizeInBytes > 0 && src[0] != '\0')
-    {
-        dst[0] = src[0];
-
-        dst += 1;
-        src += 1;
-        dstSizeInBytes -= 1;
-    }
-
-    if (dstSizeInBytes > 0)
-    {
-        dst[0] = '\0';
-    }
-#endif
-}
 
 #if defined(__clang__)
     #pragma GCC diagnostic pop

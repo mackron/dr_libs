@@ -855,13 +855,6 @@ easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* co
 
 
 
-////////////////////////////////////////////////////////
-// Utilities
-
-// strcpy()
-void easymtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
-
-
 
 #if defined(_MSC_VER)
     #pragma warning(pop)
