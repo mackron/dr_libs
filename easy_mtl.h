@@ -18,6 +18,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #if defined(_MSC_VER)
     #pragma warning(push)
@@ -43,7 +44,6 @@ extern "C" {
 #define EASYMTL_MAX_PROPERTY_PATH   224
 
 
-typedef int           easymtl_bool;
 typedef unsigned char easymtl_uint8;
 typedef unsigned int  easymtl_uint32;
 
@@ -575,7 +575,7 @@ struct easymtl_material
 
     /// Whether or not the material data is owned by this library. When this is set to false, the library will
     /// never modify the original pointer.
-    easymtl_bool ownsRawData;
+    bool ownsRawData;
 };
 
 
@@ -595,9 +595,9 @@ struct easymtl_material
 /// @param pMaterial [in] A pointer to the material to initialize.
 ///
 /// @return True if the material is initialized successfully; false otherwise.
-easymtl_bool easymtl_init(easymtl_material* pMaterial);
-easymtl_bool easymtl_initfromexisting(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes);
-easymtl_bool easymtl_initfromexisting_nocopy(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes);
+bool easymtl_init(easymtl_material* pMaterial);
+bool easymtl_initfromexisting(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes);
+bool easymtl_initfromexisting_nocopy(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes);
 
 /// Uninitializes the given material.
 ///
@@ -612,13 +612,13 @@ easymtl_header* easymtl_getheader(easymtl_material* pMaterial);
 /// Appends an identifier to the end of the identifier list. Use easymtl_getidentifiercount() to determine it's index.
 ///
 /// @param pMaterial [in] A pointer to the material to append the identifier to.
-easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, easymtl_identifier identifier, unsigned int* indexOut);
+bool easymtl_appendidentifier(easymtl_material* pMaterial, easymtl_identifier identifier, unsigned int* indexOut);
 
 /// Appends a private input variable.
-easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_input input);
+bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_input input);
 
 /// Appends a public input variable.
-easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_input input);
+bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_input input);
 
 /// Begins a new channel.
 ///
@@ -626,13 +626,13 @@ easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_inpu
 ///     Any instructions that are appended from now on will be part of this channel until another channel is begun.
 ///     @par
 ///     The end of the channel is marked when a new channel is appended or a property begins.
-easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel channelHeader);
+bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel channelHeader);
 
 /// Appends an instruction to the most recently appended channel.
-easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, easymtl_instruction instruction);
+bool easymtl_appendinstruction(easymtl_material* pMaterial, easymtl_instruction instruction);
 
 /// Append a property.
-easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, easymtl_property prop);
+bool easymtl_appendproperty(easymtl_material* pMaterial, easymtl_property prop);
 
 
 /// Retrieves a pointer to the channel header by it's index.
@@ -803,7 +803,7 @@ easymtl_property easymtl_property_int(const char* name, int x);
 easymtl_property easymtl_property_int2(const char* name, int x, int y);
 easymtl_property easymtl_property_int3(const char* name, int x, int y, int z);
 easymtl_property easymtl_property_int4(const char* name, int x, int y, int z, int w);
-easymtl_property easymtl_property_bool(const char* name, easymtl_bool value);
+easymtl_property easymtl_property_bool(const char* name, bool value);
 
 
 
@@ -830,7 +830,7 @@ easymtl_property easymtl_property_bool(const char* name, easymtl_bool value);
 ///     @par
 ///     MTL files require texture coordinates in order to know how to select the appropriate sample from textures. The
 ///     of the variable to use is specified in "texcoordInputName", and assumed to have at least 2 components (x and y).
-easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName);
+bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName);
 #endif
 
 
@@ -846,10 +846,10 @@ easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const ch
 
 #ifndef EASYMTL_NO_GLSL_CODEGEN
 /// Generates GLSL code for the channel with the given name.
-easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWrittenOut);
+bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWrittenOut);
 
 /// Generates GLSL code for the uniform variables as defined by the material's public input variables.
-easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWritteOut);
+bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWritteOut);
 #endif
 
 

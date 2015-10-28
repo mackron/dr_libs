@@ -68,10 +68,10 @@ int easymtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 
 
 /// Inflates the materials data buffer by EASYMTL_CHUNK_SIZE.
-easymtl_bool _easymtl_inflate(easymtl_material* pMaterial);
+bool _easymtl_inflate(easymtl_material* pMaterial);
 
 
-easymtl_bool easymtl_init(easymtl_material* pMaterial)
+bool easymtl_init(easymtl_material* pMaterial)
 {
     if (pMaterial != NULL)
     {
@@ -113,7 +113,7 @@ easymtl_bool easymtl_init(easymtl_material* pMaterial)
     return 0;
 }
 
-easymtl_bool easymtl_initfromexisting(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes)
+bool easymtl_initfromexisting(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes)
 {
     if (pMaterial != NULL)
     {
@@ -140,7 +140,7 @@ easymtl_bool easymtl_initfromexisting(easymtl_material* pMaterial, const void* p
     return 0;
 }
 
-easymtl_bool easymtl_initfromexisting_nocopy(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes)
+bool easymtl_initfromexisting_nocopy(easymtl_material* pMaterial, const void* pRawData, unsigned int dataSizeInBytes)
 {
     if (pMaterial != NULL)
     {
@@ -188,7 +188,7 @@ easymtl_header* easymtl_getheader(easymtl_material* pMaterial)
 }
 
 
-easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, easymtl_identifier identifier, unsigned int* indexOut)
+bool easymtl_appendidentifier(easymtl_material* pMaterial, easymtl_identifier identifier, unsigned int* indexOut)
 {
     if (pMaterial != NULL)
     {
@@ -232,7 +232,7 @@ easymtl_bool easymtl_appendidentifier(easymtl_material* pMaterial, easymtl_ident
     return 0;
 }
 
-easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_input input)
+bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_input input)
 {
     if (pMaterial != NULL)
     {
@@ -271,7 +271,7 @@ easymtl_bool easymtl_appendprivateinput(easymtl_material* pMaterial, easymtl_inp
     return 0;
 }
 
-easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_input input)
+bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_input input)
 {
     if (pMaterial != NULL)
     {
@@ -310,7 +310,7 @@ easymtl_bool easymtl_appendpublicinput(easymtl_material* pMaterial, easymtl_inpu
     return 0;
 }
 
-easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel channel)
+bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel channel)
 {
     if (pMaterial != NULL)
     {
@@ -353,7 +353,7 @@ easymtl_bool easymtl_appendchannel(easymtl_material* pMaterial, easymtl_channel 
     return 0;
 }
 
-easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, easymtl_instruction instruction)
+bool easymtl_appendinstruction(easymtl_material* pMaterial, easymtl_instruction instruction)
 {
     if (pMaterial != NULL)
     {
@@ -395,7 +395,7 @@ easymtl_bool easymtl_appendinstruction(easymtl_material* pMaterial, easymtl_inst
     return 0;
 }
 
-easymtl_bool easymtl_appendproperty(easymtl_material* pMaterial, easymtl_property prop)
+bool easymtl_appendproperty(easymtl_material* pMaterial, easymtl_property prop)
 {
     if (pMaterial != NULL)
     {
@@ -668,7 +668,7 @@ easymtl_property* easymtl_getpropertybyname(easymtl_material* pMaterial, const c
 //////////////////////////////////
 // Private low-level API.
 
-easymtl_bool _easymtl_inflate(easymtl_material* pMaterial)
+bool _easymtl_inflate(easymtl_material* pMaterial)
 {
     assert(pMaterial != NULL);
 
@@ -1916,7 +1916,7 @@ easymtl_property easymtl_property_int4(const char* name, int x, int y, int z, in
     return prop;
 }
 
-easymtl_property easymtl_property_bool(const char* name, easymtl_bool value)
+easymtl_property easymtl_property_bool(const char* name, bool value)
 {
     easymtl_property prop;
     prop.type = easymtl_type_bool;
@@ -1984,17 +1984,17 @@ typedef struct
 
 } easymtl_wavefront;
 
-easymtl_bool easymtl_wavefront_is_whitespace(char c)
+bool easymtl_wavefront_is_whitespace(char c)
 {
     return c == ' ' || c == '\t';
 }
 
-easymtl_bool easymtl_wavefront_is_valid_digit(char c)
+bool easymtl_wavefront_is_valid_digit(char c)
 {
     return c >= '0' && c <= '9';
 }
 
-easymtl_bool easymtl_wavefront_atof(const char* str, const char* strEnd, const char** strEndOut, float* valueOut)
+bool easymtl_wavefront_atof(const char* str, const char* strEnd, const char** strEndOut, float* valueOut)
 {
     // Skip leading whitespace.
     while (str < strEnd && easymtl_wavefront_is_whitespace(*str))
@@ -2065,7 +2065,7 @@ easymtl_bool easymtl_wavefront_atof(const char* str, const char* strEnd, const c
     }
 }
 
-easymtl_bool easymtl_wavefront_atof_3(const char* str, const char* strEnd, const char** strEndOut, float valueOut[3])
+bool easymtl_wavefront_atof_3(const char* str, const char* strEnd, const char** strEndOut, float valueOut[3])
 {
     float value[3];
     if (easymtl_wavefront_atof(str, strEnd, &str, &value[0]))
@@ -2205,7 +2205,7 @@ const char* easymtl_wavefront_find_next_nonwhitespace(const char* pDataCur, cons
 }
 
 
-easymtl_bool easymtl_wavefront_parse_K(const char* pDataCur, const char* pDataEnd, float valueOut[3])
+bool easymtl_wavefront_parse_K(const char* pDataCur, const char* pDataEnd, float valueOut[3])
 {
     assert(pDataCur != NULL);
     assert(pDataEnd != NULL);
@@ -2213,7 +2213,7 @@ easymtl_bool easymtl_wavefront_parse_K(const char* pDataCur, const char* pDataEn
     return easymtl_wavefront_atof_3(pDataCur, pDataEnd, &pDataEnd, valueOut);
 }
 
-easymtl_bool easymtl_wavefront_parse_N(const char* pDataCur, const char* pDataEnd, float* valueOut)
+bool easymtl_wavefront_parse_N(const char* pDataCur, const char* pDataEnd, float* valueOut)
 {
     assert(pDataCur != NULL);
     assert(pDataEnd != NULL);
@@ -2221,7 +2221,7 @@ easymtl_bool easymtl_wavefront_parse_N(const char* pDataCur, const char* pDataEn
     return easymtl_wavefront_atof(pDataCur, pDataEnd, &pDataEnd, valueOut);
 }
 
-easymtl_bool easymtl_wavefront_parse_map(const char* pDataCur, const char* pDataEnd, char* pathOut, unsigned int pathSizeInBytes)
+bool easymtl_wavefront_parse_map(const char* pDataCur, const char* pDataEnd, char* pathOut, unsigned int pathSizeInBytes)
 {
     assert(pDataCur != NULL);
     assert(pDataEnd != NULL);
@@ -2266,7 +2266,7 @@ easymtl_bool easymtl_wavefront_parse_map(const char* pDataCur, const char* pData
 }
 
 
-easymtl_bool easymtl_wavefront_seek_to_next_line(easymtl_wavefront* pWavefront)
+bool easymtl_wavefront_seek_to_next_line(easymtl_wavefront* pWavefront)
 {
     assert(pWavefront != NULL);
 
@@ -2280,7 +2280,7 @@ easymtl_bool easymtl_wavefront_seek_to_next_line(easymtl_wavefront* pWavefront)
     return 0;
 }
 
-easymtl_bool easymtl_wavefront_seek_to_newmtl(easymtl_wavefront* pWavefront)
+bool easymtl_wavefront_seek_to_newmtl(easymtl_wavefront* pWavefront)
 {
     assert(pWavefront != NULL);
 
@@ -2294,7 +2294,7 @@ easymtl_bool easymtl_wavefront_seek_to_newmtl(easymtl_wavefront* pWavefront)
     return 0;
 }
 
-easymtl_bool easymtl_wavefront_parse(easymtl_wavefront* pWavefront)
+bool easymtl_wavefront_parse(easymtl_wavefront* pWavefront)
 {
     assert(pWavefront != NULL);
 
@@ -2386,7 +2386,7 @@ easymtl_bool easymtl_wavefront_parse(easymtl_wavefront* pWavefront)
     return 0;
 }
 
-easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wavefront* pWavefront, const char* texcoordInputName)
+bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wavefront* pWavefront, const char* texcoordInputName)
 {
     assert(pMaterial  != NULL);
     assert(pWavefront != NULL);
@@ -2505,7 +2505,7 @@ easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wave
 }
 
 
-easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName)
+bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName)
 {
     if (pMaterial != NULL && mtlData != NULL && mtlDataSizeInBytes > 0)
     {
@@ -2597,7 +2597,7 @@ typedef struct
 
 } easymtl_codegen_glsl;
 
-easymtl_bool easymtl_codegen_glsl_write(easymtl_codegen_glsl* pCodegen, const char* src)
+bool easymtl_codegen_glsl_write(easymtl_codegen_glsl* pCodegen, const char* src)
 {
     assert(pCodegen != NULL);
     assert(src      != NULL);
@@ -2634,7 +2634,7 @@ easymtl_bool easymtl_codegen_glsl_write(easymtl_codegen_glsl* pCodegen, const ch
     }
 }
 
-easymtl_bool easymtl_codegen_glsl_write_float(easymtl_codegen_glsl* pCodegen, float src)
+bool easymtl_codegen_glsl_write_float(easymtl_codegen_glsl* pCodegen, float src)
 {
     assert(pCodegen != NULL);
 
@@ -2649,7 +2649,7 @@ easymtl_bool easymtl_codegen_glsl_write_float(easymtl_codegen_glsl* pCodegen, fl
     }
 }
 
-easymtl_bool easymtl_codegen_glsl_write_int(easymtl_codegen_glsl* pCodegen, int src)
+bool easymtl_codegen_glsl_write_int(easymtl_codegen_glsl* pCodegen, int src)
 {
     assert(pCodegen != NULL);
 
@@ -2664,7 +2664,7 @@ easymtl_bool easymtl_codegen_glsl_write_int(easymtl_codegen_glsl* pCodegen, int 
     }
 }
 
-easymtl_bool easymtl_codegen_glsl_write_indentation(easymtl_codegen_glsl* pCodegen)
+bool easymtl_codegen_glsl_write_indentation(easymtl_codegen_glsl* pCodegen)
 {
     assert(pCodegen != NULL);
 
@@ -2676,7 +2676,7 @@ easymtl_bool easymtl_codegen_glsl_write_indentation(easymtl_codegen_glsl* pCodeg
     return 1;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_type(easymtl_codegen_glsl* pCodegen, easymtl_type type)
+bool easymtl_codegen_glsl_write_type(easymtl_codegen_glsl* pCodegen, easymtl_type type)
 {
     assert(pCodegen != NULL);
 
@@ -2803,7 +2803,7 @@ easymtl_bool easymtl_codegen_glsl_write_type(easymtl_codegen_glsl* pCodegen, eas
     return 1;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_input_scalar(easymtl_codegen_glsl* pCodegen, unsigned char descriptor, easymtl_instruction_input* pInput)
+bool easymtl_codegen_glsl_write_instruction_input_scalar(easymtl_codegen_glsl* pCodegen, unsigned char descriptor, easymtl_instruction_input* pInput)
 {
     assert(pCodegen != NULL);
     assert(pInput   != NULL);
@@ -2851,7 +2851,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_input_scalar(easymtl_codegen
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_input_initializer(easymtl_codegen_glsl* pCodegen, easymtl_type type, easymtl_instruction_input_descriptor inputDesc, easymtl_instruction_input* pInputs)
+bool easymtl_codegen_glsl_write_instruction_input_initializer(easymtl_codegen_glsl* pCodegen, easymtl_type type, easymtl_instruction_input_descriptor inputDesc, easymtl_instruction_input* pInputs)
 {
     assert(pCodegen != NULL);
     assert(pInputs  != NULL);
@@ -2971,7 +2971,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_input_initializer(easymtl_co
 }
 
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_mov(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction_mov(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3004,7 +3004,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_mov(easymtl_codegen_glsl* pC
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_add(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction_add(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3037,7 +3037,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_add(easymtl_codegen_glsl* pC
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_sub(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction_sub(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3070,7 +3070,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_sub(easymtl_codegen_glsl* pC
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_mul(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction_mul(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3103,7 +3103,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_mul(easymtl_codegen_glsl* pC
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_div(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction_div(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3136,7 +3136,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_div(easymtl_codegen_glsl* pC
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_pow(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction_pow(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3169,7 +3169,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_pow(easymtl_codegen_glsl* pC
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_tex(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction_tex(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3245,7 +3245,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_tex(easymtl_codegen_glsl* pC
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_var(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction_var(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3261,7 +3261,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_var(easymtl_codegen_glsl* pC
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction_ret(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction_ret(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3288,7 +3288,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction_ret(easymtl_codegen_glsl* pC
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
 {
     assert(pCodegen     != NULL);
     assert(pInstruction != NULL);
@@ -3408,7 +3408,7 @@ easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodeg
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_write_instructions(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstructions, unsigned int instructionCount)
+bool easymtl_codegen_glsl_write_instructions(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstructions, unsigned int instructionCount)
 {
     assert(pCodegen      != NULL);
     assert(pInstructions != NULL);
@@ -3427,13 +3427,13 @@ easymtl_bool easymtl_codegen_glsl_write_instructions(easymtl_codegen_glsl* pCode
     return 1;
 }
 
-easymtl_bool easymtl_codegen_glsl_channel_function_begin(easymtl_codegen_glsl* pCodegen, easymtl_channel_header* pChannelHeader)
+bool easymtl_codegen_glsl_channel_function_begin(easymtl_codegen_glsl* pCodegen, easymtl_channel_header* pChannelHeader)
 {
     assert(pCodegen       != NULL);
     assert(pChannelHeader != NULL);
 
     // <type> <name> {\n
-    easymtl_bool result =
+    bool result =
         easymtl_codegen_glsl_write_type(pCodegen, pChannelHeader->channel.type) &&
         easymtl_codegen_glsl_write(pCodegen, " ") &&
         easymtl_codegen_glsl_write(pCodegen, pChannelHeader->channel.name) &&
@@ -3446,7 +3446,7 @@ easymtl_bool easymtl_codegen_glsl_channel_function_begin(easymtl_codegen_glsl* p
     return result;
 }
 
-easymtl_bool easymtl_codegen_glsl_channel_function_close(easymtl_codegen_glsl* pCodegen)
+bool easymtl_codegen_glsl_channel_function_close(easymtl_codegen_glsl* pCodegen)
 {
     assert(pCodegen != NULL);
 
@@ -3459,7 +3459,7 @@ easymtl_bool easymtl_codegen_glsl_channel_function_close(easymtl_codegen_glsl* p
     return easymtl_codegen_glsl_write(pCodegen, "}\n");
 }
 
-easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWrittenOut)
+bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWrittenOut)
 {
     if (pMaterial != NULL)
     {
@@ -3485,7 +3485,7 @@ easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const cha
 
                     if (easymtl_codegen_glsl_write_instructions(&codegen, pInstructions, pChannelHeader->instructionCount))
                     {
-                        easymtl_bool result = easymtl_codegen_glsl_channel_function_close(&codegen);
+                        bool result = easymtl_codegen_glsl_channel_function_close(&codegen);
                         if (result)
                         {
                             if (pBytesWrittenOut != NULL)
@@ -3506,7 +3506,7 @@ easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const cha
 
 
 
-easymtl_bool easymtl_codegen_glsl_uniform(easymtl_codegen_glsl* pCodegen, easymtl_input* pInput)
+bool easymtl_codegen_glsl_uniform(easymtl_codegen_glsl* pCodegen, easymtl_input* pInput)
 {
     assert(pCodegen != NULL);
     assert(pInput   != NULL);
@@ -3528,7 +3528,7 @@ easymtl_bool easymtl_codegen_glsl_uniform(easymtl_codegen_glsl* pCodegen, easymt
     return 0;
 }
 
-easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWritteOut)
+bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWritteOut)
 {
     if (pMaterial != NULL)
     {
