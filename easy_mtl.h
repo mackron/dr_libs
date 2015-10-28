@@ -1,4 +1,14 @@
-// Version 0.1 - Public Domain. See "unlicense" statement at the end of this file.
+// Public Domain. See "unlicense" statement at the end of this file.
+
+//
+// OPTIONS
+//
+// #define EASYMTL_NO_MTL_COMPILER
+//   Disables the Wavefront MTL compiler.
+//
+// #define EASYMTL_NO_GLSL_CODEGEN
+//   Disables the GLSL code generator.
+//
 
 #ifndef easy_mtl
 #define easy_mtl
@@ -794,6 +804,53 @@ easymtl_property easymtl_property_int2(const char* name, int x, int y);
 easymtl_property easymtl_property_int3(const char* name, int x, int y, int z);
 easymtl_property easymtl_property_int4(const char* name, int x, int y, int z, int w);
 easymtl_property easymtl_property_bool(const char* name, easymtl_bool value);
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+// Compilers
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+#ifndef EASYMTL_NO_MTL_COMPILER
+/// Compiles a Wavefront MTL file.
+///
+/// @param pMaterial [in] A pointer to the destination material.
+///
+/// @remarks
+///     This will compile the material at the first occurance of the "newmtl" statement, and will end at either the next
+///     occurance of "newmtl" of when the input buffer has been exhausted.
+///     @par
+///     This will initialize the material, so ensure that you have not already initialized it before calling this. If this
+///     returns successfully, call easymtl_uninit() to uninitialize the material.
+///     @par
+///     MTL files require texture coordinates in order to know how to select the appropriate sample from textures. The
+///     of the variable to use is specified in "texcoordInputName", and assumed to have at least 2 components (x and y).
+easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName);
+#endif
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+// Code Generators
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+#ifndef EASYMTL_NO_GLSL_CODEGEN
+/// Generates GLSL code for the channel with the given name.
+easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWrittenOut);
+
+/// Generates GLSL code for the uniform variables as defined by the material's public input variables.
+easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWritteOut);
+#endif
 
 
 

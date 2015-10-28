@@ -1885,6 +1885,1658 @@ easymtl_property easymtl_property_bool(const char* name, easymtl_bool value)
 
 
 
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+// Compilers
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+#ifndef EASYMTL_NO_MTL_COMPILER
+typedef struct
+{
+    /// A pointer to the buffer containing the Wavefront MTL data.
+    const char* pData;
+
+    /// The size of the data buffer size.
+    unsigned int dataSizeInBytes;
+
+    /// A pointer to the next bytes to read.
+    const char* pDataCur;
+
+    /// A pointer to the end of the buffer.
+    const char* pDataEnd;
+
+
+    /// The diffuse colour.
+    float diffuse[3];
+
+    /// The diffuse map.
+    char diffuseMap[EASYMTL_MAX_INPUT_PATH];
+
+
+    /// The specular colour.
+    float specular[3];
+
+    /// The specular map.
+    char specularMap[EASYMTL_MAX_INPUT_PATH];
+
+
+    /// The specular exponent.
+    float specularExponent;
+
+    /// The specular exponent map.
+    char specularExponentMap[EASYMTL_MAX_INPUT_PATH];
+
+
+    /// The alpha transparency value.
+    float alpha;
+
+    /// The alpha transparency map.
+    char alphaMap[EASYMTL_MAX_INPUT_PATH];
+
+
+} easymtl_wavefront;
+
+easymtl_bool easymtl_wavefront_is_whitespace(char c)
+{
+    return c == ' ' || c == '\t';
+}
+
+easymtl_bool easymtl_wavefront_is_valid_digit(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+easymtl_bool easymtl_wavefront_atof(const char* str, const char* strEnd, const char** strEndOut, float* valueOut)
+{
+    // Skip leading whitespace.
+    while (str < strEnd && easymtl_wavefront_is_whitespace(*str))
+    {
+        str += 1;
+    }
+
+
+    // Check that we have a string after moving the whitespace.
+    if (str < strEnd)
+    {
+        float sign  = 1.0f;
+        float value = 0.0f;
+
+        // Sign.
+        if (*str == '-')
+        {
+            sign = -1.0f;
+            str += 1;
+        }
+        else if (*str == '+')
+        {
+            sign = 1.0f;
+            str += 1;
+        }
+
+
+        // Digits before the decimal point.
+        while (str < strEnd && easymtl_wavefront_is_valid_digit(*str))
+        {
+            value = value * 10.0f + (*str - '0');
+
+            str += 1;
+        }
+
+        // Digits after the decimal point.
+        if (*str == '.')
+        {
+            float pow10 = 10.0f;
+
+            str += 1;
+            while (str < strEnd && easymtl_wavefront_is_valid_digit(*str))
+            {
+                value += (*str - '0') / pow10;
+                pow10 *= 10.0f;
+
+                str += 1;
+            }
+        }
+
+            
+        if (strEndOut != NULL)
+        {
+            *strEndOut = str;
+        }
+
+        if (valueOut != NULL)
+        {
+            *valueOut = sign * value;
+        }
+
+        return 1;
+    }
+    else
+    {
+        // Empty string. Leave output untouched and return 0.
+        return 0;
+    }
+}
+
+easymtl_bool easymtl_wavefront_atof_3(const char* str, const char* strEnd, const char** strEndOut, float valueOut[3])
+{
+    float value[3];
+    if (easymtl_wavefront_atof(str, strEnd, &str, &value[0]))
+    {
+        value[1] = value[0];
+        value[2] = value[0];
+
+        if (easymtl_wavefront_atof(str, strEnd, &str, &value[1]))
+        {
+            // We got two numbers which means we must have the third for this to be successful.
+            if (!easymtl_wavefront_atof(str, strEnd, strEndOut, &value[2]))
+            {
+                // Failed to get the third number. We only found 2 which is not valid. Error.
+                return 0;
+            }
+        }
+        
+
+        valueOut[0] = value[0];
+        valueOut[1] = value[1];
+        valueOut[2] = value[2];
+
+        return 1;
+    }
+
+    return 0;
+}
+
+const char* easymtl_wavefront_find_end_of_line(const char* pDataCur, const char* pDataEnd)
+{
+    assert(pDataCur != NULL);
+    assert(pDataEnd != NULL);
+
+    while (pDataCur < pDataEnd)
+    {
+        if (pDataCur[0] == '\n')
+        {
+            return pDataCur;
+        }
+        else
+        {
+            if (pDataCur + 1 < pDataEnd)
+            {
+                if (pDataCur[0] == '\r' && pDataCur[1] == '\n')
+                {
+                    return pDataCur;
+                }
+            }
+        }
+
+        pDataCur += 1;
+    }
+
+    // If we get here it means we hit the end of the file before find a new-line character.
+    return pDataEnd;
+}
+
+const char* easymtl_wavefront_find_next_line(const char* pDataCur, const char* pDataEnd)
+{
+    assert(pDataCur != NULL);
+    assert(pDataEnd != NULL);
+
+    pDataCur = easymtl_wavefront_find_end_of_line(pDataCur, pDataEnd);
+    if (pDataCur != NULL)
+    {
+        if (pDataCur < pDataEnd)
+        {
+            if (pDataCur[0] == '\n')
+            {
+                return pDataCur + 1;
+            }
+            else
+            {
+                if (pDataCur + 1 < pDataEnd)
+                {
+                    if (pDataCur[0] == '\r' && pDataCur[1] == '\n')
+                    {
+                        return pDataCur + 2;
+                    }
+                }
+            }
+        }
+    }
+
+    return NULL;
+}
+
+const char* easymtl_wavefront_find_next_newmtl(const char* pDataCur, const char* pDataEnd)
+{
+    assert(pDataCur != NULL);
+    assert(pDataEnd != NULL);
+
+    while (pDataCur + 7 < pDataEnd)   // +7 for "newmtl" + a whitespace character.
+    {
+        if (pDataCur[0] == 'n' && pDataCur[1] == 'e' && pDataCur[2] == 'w' && pDataCur[3] == 'm' && pDataCur[4] == 't' && pDataCur[5] == 'l')
+        {
+            // We found "newmtl", however the next line must be whitespace.
+            if (easymtl_wavefront_is_whitespace(pDataCur[6]))
+            {
+                // We found it.
+                return pDataCur;
+            }
+        }
+
+
+        const char* nextLineStart = easymtl_wavefront_find_next_line(pDataCur, pDataEnd);
+        if (nextLineStart != NULL)
+        {
+            pDataCur = nextLineStart;
+        }
+        else
+        {
+            // Reached the end before finding "newmtl". Return null.
+            return NULL;
+        }
+    }
+
+    return NULL;
+}
+
+const char* easymtl_wavefront_find_next_nonwhitespace(const char* pDataCur, const char* pDataEnd)
+{
+    assert(pDataCur != NULL);
+    assert(pDataEnd != NULL);
+
+    while (pDataCur < pDataEnd)
+    {
+        if (!easymtl_wavefront_is_whitespace(pDataCur[0]))
+        {
+            return pDataCur;
+        }
+
+        pDataCur += 1;
+    }
+
+    return NULL;
+}
+
+
+easymtl_bool easymtl_wavefront_parse_K(const char* pDataCur, const char* pDataEnd, float valueOut[3])
+{
+    assert(pDataCur != NULL);
+    assert(pDataEnd != NULL);
+
+    return easymtl_wavefront_atof_3(pDataCur, pDataEnd, &pDataEnd, valueOut);
+}
+
+easymtl_bool easymtl_wavefront_parse_N(const char* pDataCur, const char* pDataEnd, float* valueOut)
+{
+    assert(pDataCur != NULL);
+    assert(pDataEnd != NULL);
+    
+    return easymtl_wavefront_atof(pDataCur, pDataEnd, &pDataEnd, valueOut);
+}
+
+easymtl_bool easymtl_wavefront_parse_map(const char* pDataCur, const char* pDataEnd, char* pathOut, unsigned int pathSizeInBytes)
+{
+    assert(pDataCur != NULL);
+    assert(pDataEnd != NULL);
+
+    // For now we're not supporting options, however support for that will be added later.
+
+    const char* pPathStart = easymtl_wavefront_find_next_nonwhitespace(pDataCur, pDataEnd);
+    if (pPathStart != NULL)
+    {
+        if (pPathStart < pDataEnd)
+        {
+            if (pPathStart[0] != '#')
+            {
+                // Find the last non-whitespace, making sure we don't include comments.
+                pDataCur = pPathStart;
+                const char* pPathEnd = pDataCur;
+                while (pDataCur < pDataEnd && pDataCur[0] != '#')
+                {
+                    if (!easymtl_wavefront_is_whitespace(pDataCur[0]))
+                    {
+                        pPathEnd = pDataCur + 1;
+                    }
+
+                    pDataCur += 1;
+                }
+
+                assert(pPathStart < pPathEnd);
+
+                ptrdiff_t pathLength = pPathEnd - pPathStart;
+                if ((size_t)pathLength + 1 < pathSizeInBytes)
+                {
+                    memcpy(pathOut, pPathStart, (size_t)pathLength);
+                    pathOut[pathLength] = '\0';
+
+                    return 1;
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+easymtl_bool easymtl_wavefront_seek_to_next_line(easymtl_wavefront* pWavefront)
+{
+    assert(pWavefront != NULL);
+
+    const char* lineStart = easymtl_wavefront_find_next_line(pWavefront->pDataCur, pWavefront->pDataEnd);
+    if (lineStart != NULL)
+    {
+        pWavefront->pDataCur = lineStart;
+        return 1;
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_wavefront_seek_to_newmtl(easymtl_wavefront* pWavefront)
+{
+    assert(pWavefront != NULL);
+
+    const char* usemtl = easymtl_wavefront_find_next_newmtl(pWavefront->pDataCur, pWavefront->pDataEnd);
+    if (usemtl != NULL)
+    {
+        pWavefront->pDataCur = usemtl;
+        return 1;
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_wavefront_parse(easymtl_wavefront* pWavefront)
+{
+    assert(pWavefront != NULL);
+
+    if (easymtl_wavefront_seek_to_newmtl(pWavefront) && easymtl_wavefront_seek_to_next_line(pWavefront))
+    {
+        // Set the end of the material to the start of the second usemtl statement, if it exists.
+        const char* usemtl2 = easymtl_wavefront_find_next_newmtl(pWavefront->pDataCur, pWavefront->pDataEnd);
+        if (usemtl2 != NULL)
+        {
+            pWavefront->pDataEnd = usemtl2;
+        }
+
+
+        while (pWavefront->pDataCur < pWavefront->pDataEnd)
+        {
+            const char* lineCur = pWavefront->pDataCur;
+            const char* lineEnd = easymtl_wavefront_find_end_of_line(lineCur, pWavefront->pDataEnd);
+
+            lineCur = easymtl_wavefront_find_next_nonwhitespace(lineCur, lineEnd);
+            if (lineCur != NULL && (lineCur + 2 < lineEnd))
+            {
+                if (lineCur[0] == 'K' && lineCur[1] == 'd' && easymtl_wavefront_is_whitespace(lineCur[2]))          // Diffuse colour
+                {
+                    lineCur += 3;
+                    easymtl_wavefront_parse_K(lineCur, lineEnd, pWavefront->diffuse);
+                }
+                else if (lineCur[0] == 'K' && lineCur[1] == 's' && easymtl_wavefront_is_whitespace(lineCur[2]))     // Specular colour
+                {
+                    lineCur += 3;
+                    easymtl_wavefront_parse_K(lineCur, lineEnd, pWavefront->specular);
+                }
+                else if (lineCur[0] == 'N' && lineCur[1] == 's' && easymtl_wavefront_is_whitespace(lineCur[2]))     // Specular exponent
+                {
+                    lineCur += 3;
+                    easymtl_wavefront_parse_N(lineCur, lineEnd, &pWavefront->specularExponent);
+                }
+                else if (lineCur[0] == 'd' && easymtl_wavefront_is_whitespace(lineCur[1]))                          // Opacity/Alpha
+                {
+                    lineCur += 2;
+                    easymtl_wavefront_parse_N(lineCur, lineEnd, &pWavefront->alpha);
+                }
+                else
+                {
+                    // Check for maps.
+                    if (lineCur + 6 < lineEnd)
+                    {
+                        if (lineCur[0] == 'm' && lineCur[1] == 'a' && lineCur[2] == 'p' && lineCur[3] == '_')
+                        {
+                            if (lineCur[4] == 'K' && lineCur[5] == 'd' && easymtl_wavefront_is_whitespace(lineCur[6]))          // Diffuse map
+                            {
+                                lineCur += 7;
+                                easymtl_wavefront_parse_map(lineCur, lineEnd, pWavefront->diffuseMap, EASYMTL_MAX_INPUT_PATH);
+                            }
+                            else if (lineCur[4] == 'K' && lineCur[5] == 's' && easymtl_wavefront_is_whitespace(lineCur[6]))     // Specular map
+                            {
+                                lineCur += 7;
+                                easymtl_wavefront_parse_map(lineCur, lineEnd, pWavefront->specularMap, EASYMTL_MAX_INPUT_PATH);
+                            }
+                            else if (lineCur[4] == 'N' && lineCur[5] == 's' && easymtl_wavefront_is_whitespace(lineCur[6]))     // Specular exponent map
+                            {
+                                lineCur += 7;
+                                easymtl_wavefront_parse_map(lineCur, lineEnd, pWavefront->specularExponentMap, EASYMTL_MAX_INPUT_PATH);
+                            }
+                            else if (lineCur[4] == 'd' && easymtl_wavefront_is_whitespace(lineCur[5]))                          // Opacity/Alpha map
+                            {
+                                lineCur += 6;
+                                easymtl_wavefront_parse_map(lineCur, lineEnd, pWavefront->alphaMap, EASYMTL_MAX_INPUT_PATH);
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            // Move to the end of the line.
+            pWavefront->pDataCur = lineEnd;
+
+            // Move to the start of the next line. If this fails it probably means we've reached the end of the data so we just break from the loop
+            if (!easymtl_wavefront_seek_to_next_line(pWavefront))
+            {
+                break;
+            }
+        }
+
+
+        return 1;
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_wavefront_compile(easymtl_material* pMaterial, easymtl_wavefront* pWavefront, const char* texcoordInputName)
+{
+    assert(pMaterial  != NULL);
+    assert(pWavefront != NULL);
+
+    unsigned int texCoordID;    // Private input for texture coordinates.
+    unsigned int diffuseID;
+    unsigned int specularID;
+    unsigned int specularExponentID;
+    unsigned int alphaID;
+    unsigned int diffuseMapID = (unsigned int)-1;
+    unsigned int specularMapID = (unsigned int)-1;
+    unsigned int specularExponentMapID = (unsigned int)-1;
+    unsigned int alphaMapID = (unsigned int)-1;
+    unsigned int diffuseResultID = (unsigned int)-1;
+    unsigned int specularResultID = (unsigned int)-1;
+    unsigned int specularExponentResultID = (unsigned int)-1;
+    unsigned int alphaResultID = (unsigned int)-1;
+
+    
+    // Identifiers.
+    easymtl_appendidentifier(pMaterial, easymtl_identifier_float2(texcoordInputName), &texCoordID);
+    easymtl_appendidentifier(pMaterial, easymtl_identifier_float4("DiffuseColor"), &diffuseID);
+    easymtl_appendidentifier(pMaterial, easymtl_identifier_float3("SpecularColor"), &specularID);
+    easymtl_appendidentifier(pMaterial, easymtl_identifier_float("SpecularExponent"), &specularExponentID);
+    easymtl_appendidentifier(pMaterial, easymtl_identifier_float("Alpha"), &alphaID);
+    
+    if (pWavefront->diffuseMap[0] != '\0') {
+        easymtl_appendidentifier(pMaterial, easymtl_identifier_tex2d("DiffuseMap"), &diffuseMapID);
+        easymtl_appendidentifier(pMaterial, easymtl_identifier_float4("DiffuseResult"), &diffuseResultID);
+    }
+    if (pWavefront->specularMap[0] != '\0') {
+        easymtl_appendidentifier(pMaterial, easymtl_identifier_tex2d("SpecularMap"), &specularMapID);
+        easymtl_appendidentifier(pMaterial, easymtl_identifier_float4("SpecularResult"), &specularResultID);
+    }
+    if (pWavefront->specularExponentMap[0] != '\0') {
+        easymtl_appendidentifier(pMaterial, easymtl_identifier_tex2d("SpecularExponentMap"), &specularExponentMapID);
+        easymtl_appendidentifier(pMaterial, easymtl_identifier_float4("SpecularExponentResult"), &specularExponentResultID);
+    }
+    if (pWavefront->alphaMap[0] != '\0') {
+        easymtl_appendidentifier(pMaterial, easymtl_identifier_tex2d("AlphaMap"), &alphaMapID);
+        easymtl_appendidentifier(pMaterial, easymtl_identifier_float4("AlphaResult"), &alphaResultID);
+    }
+
+
+    // Inputs.
+    easymtl_appendprivateinput(pMaterial, easymtl_input_float2(texCoordID, 0, 0));
+    easymtl_appendpublicinput(pMaterial, easymtl_input_float4(diffuseID, pWavefront->diffuse[0], pWavefront->diffuse[1], pWavefront->diffuse[2], 1.0f));
+    easymtl_appendpublicinput(pMaterial, easymtl_input_float3(specularID, pWavefront->specular[0], pWavefront->specular[1], pWavefront->specular[2]));
+    easymtl_appendpublicinput(pMaterial, easymtl_input_float(specularExponentID, pWavefront->specularExponent));
+    easymtl_appendpublicinput(pMaterial, easymtl_input_float(alphaID, pWavefront->alpha));
+    
+    if (pWavefront->diffuseMap[0] != '\0') {
+        easymtl_appendpublicinput(pMaterial, easymtl_input_tex(diffuseMapID, pWavefront->diffuseMap));
+    }
+    if (pWavefront->specularMap[0] != '\0') {
+        easymtl_appendpublicinput(pMaterial, easymtl_input_tex(specularMapID, pWavefront->specularMap));
+    }
+    if (pWavefront->specularExponentMap[0] != '\0') {
+        easymtl_appendpublicinput(pMaterial, easymtl_input_tex(specularExponentMapID, pWavefront->specularExponentMap));
+    }
+    if (pWavefront->alphaMap[0] != '\0') {
+        easymtl_appendpublicinput(pMaterial, easymtl_input_tex(alphaMapID, pWavefront->alphaMap));
+    }
+
+
+    // Channels.
+    easymtl_appendchannel(pMaterial, easymtl_channel_float4("DiffuseChannel"));
+    if (pWavefront->diffuseMap[0] != '\0') {
+        easymtl_appendinstruction(pMaterial, easymtl_var(diffuseResultID));
+        easymtl_appendinstruction(pMaterial, easymtl_tex2(diffuseResultID, diffuseMapID, texCoordID));
+        easymtl_appendinstruction(pMaterial, easymtl_mulf4_v3c1(diffuseResultID, diffuseID, 1.0f));
+        easymtl_appendinstruction(pMaterial, easymtl_retf4(diffuseResultID));
+    } else {
+        easymtl_appendinstruction(pMaterial, easymtl_retf4(diffuseID));
+    }
+
+    easymtl_appendchannel(pMaterial, easymtl_channel_float3("SpecularChannel"));
+    if (pWavefront->specularMap[0] != '\0') {
+        easymtl_appendinstruction(pMaterial, easymtl_var(specularResultID));
+        easymtl_appendinstruction(pMaterial, easymtl_tex2(specularResultID, specularMapID, texCoordID));
+        easymtl_appendinstruction(pMaterial, easymtl_mulf4_v3c1(specularResultID, specularID, 1.0f));
+        easymtl_appendinstruction(pMaterial, easymtl_retf3(specularResultID));
+    } else {
+        easymtl_appendinstruction(pMaterial, easymtl_retf3(specularID));
+    }
+
+    easymtl_appendchannel(pMaterial, easymtl_channel_float("SpecularExponentChannel"));
+    if (pWavefront->specularExponentMap[0] != '\0') {
+        easymtl_appendinstruction(pMaterial, easymtl_var(specularExponentResultID));
+        easymtl_appendinstruction(pMaterial, easymtl_tex2(specularResultID, specularMapID, texCoordID));
+        easymtl_appendinstruction(pMaterial, easymtl_mulf4_v1c3(specularResultID, specularID, 1.0f, 1.0f, 1.0f));
+        easymtl_appendinstruction(pMaterial, easymtl_retf1(specularResultID));
+    } else {
+        easymtl_appendinstruction(pMaterial, easymtl_retf1(specularExponentID));
+    }
+    
+    easymtl_appendchannel(pMaterial, easymtl_channel_float("AlphaChannel"));
+    if (pWavefront->alphaMap[0] != '\0') {
+        easymtl_appendinstruction(pMaterial, easymtl_var(alphaResultID));
+        easymtl_appendinstruction(pMaterial, easymtl_tex2(alphaResultID, alphaMapID, texCoordID));
+        easymtl_appendinstruction(pMaterial, easymtl_mulf4_v1c3(alphaResultID, alphaID, 1.0f, 1.0f, 1.0f));
+        easymtl_appendinstruction(pMaterial, easymtl_retf1(alphaResultID));
+    } else {
+        easymtl_appendinstruction(pMaterial, easymtl_retf1(alphaID));
+    }
+
+
+
+    // Properties.
+    if (pWavefront->alphaMap[0] != '\0' || pWavefront->alpha < 1)
+    {
+        easymtl_appendproperty(pMaterial, easymtl_property_bool("IsTransparent", 1));
+    }
+
+    return 1;
+}
+
+
+easymtl_bool easymtl_compile_wavefront_mtl(easymtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName)
+{
+    if (pMaterial != NULL && mtlData != NULL && mtlDataSizeInBytes > 0)
+    {
+        if (easymtl_init(pMaterial))
+        {
+            easymtl_wavefront wavefront;
+            wavefront.pData                  = mtlData;
+            wavefront.dataSizeInBytes        = mtlDataSizeInBytes;
+            wavefront.pDataCur               = wavefront.pData;
+            wavefront.pDataEnd               = wavefront.pData + wavefront.dataSizeInBytes;
+            wavefront.diffuse[0]             = 1; wavefront.diffuse[1] = 1;  wavefront.diffuse[2] = 1;
+            wavefront.diffuseMap[0]          = '\0';
+            wavefront.specular[0]            = 1; wavefront.specular[1] = 1; wavefront.specular[2] = 1;
+            wavefront.specularMap[0]         = '\0';
+            wavefront.specularExponent       = 10;
+            wavefront.specularExponentMap[0] = '\0';
+            wavefront.alpha                  = 1;
+            wavefront.alphaMap[0]            = '\0';
+
+            if (easymtl_wavefront_parse(&wavefront))
+            {
+                if (easymtl_wavefront_compile(pMaterial, &wavefront, texcoordInputName))
+                {
+                    return 1;
+                }
+                else
+                {
+                    // Failed to compile.
+                    easymtl_uninit(pMaterial);
+                }
+            }
+            else
+            {
+                // Failed to parse the file.
+                easymtl_uninit(pMaterial);
+            }
+        }
+    }
+
+    return 0;
+}
+#endif
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+// Code Generators
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+#ifndef EASYMTL_NO_GLSL_CODEGEN
+#include <stdio.h>
+
+#if defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wswitch-enum"
+    #pragma GCC diagnostic ignored "-Wcovered-switch-default"
+    #pragma GCC diagnostic ignored "-Wused-but-marked-unused"   // This ie emitted for snprintf() for some reason. Need to investigate...
+#endif
+
+typedef struct
+{
+    /// The output buffer. Can be null, in which case nothing is written.
+    char* pBufferOut;
+
+    /// The size of the output buffer.
+    unsigned int bufferOutSizeInBytes;
+
+    /// The current length of the string copied to the output buffer.
+    unsigned int runningLength;
+
+
+    /// A pointer to the material that is being used as the source of the code generation.
+    easymtl_material* pMaterial;
+
+    /// A pointer to the buffer containing the material's identifiers.
+    easymtl_identifier* pIdentifiers;
+
+    /// The number of identifiers.
+    unsigned int identifierCount;
+
+
+    /// The current indentation level, in spaces.
+    unsigned int indentationLevel;
+
+} easymtl_codegen_glsl;
+
+easymtl_bool easymtl_codegen_glsl_write(easymtl_codegen_glsl* pCodegen, const char* src)
+{
+    assert(pCodegen != NULL);
+    assert(src      != NULL);
+
+    if (pCodegen->pBufferOut != NULL)
+    {
+        unsigned int dstSizeInBytes = (pCodegen->bufferOutSizeInBytes - pCodegen->runningLength);
+        while (dstSizeInBytes > 0 && src[0] != '\0')
+        {
+            pCodegen->pBufferOut[pCodegen->runningLength + 0] = src[0];
+
+            pCodegen->runningLength += 1;
+            src += 1;
+            dstSizeInBytes -= 1;
+        }
+
+        if (dstSizeInBytes > 0)
+        {
+            // There's enough room for the null terminator which means there was enough room in the buffer. All good.
+            pCodegen->pBufferOut[pCodegen->runningLength] = '\0';
+            return 1;
+        }
+        else
+        {
+            // There's not enough room for the null terminator which means there was NOT enough room in the buffer. Error.
+            return 0;
+        }
+    }
+    else
+    {
+        // We're just measuring.
+        pCodegen->runningLength += (unsigned int)strlen(src);
+        return 1;
+    }
+}
+
+easymtl_bool easymtl_codegen_glsl_write_float(easymtl_codegen_glsl* pCodegen, float src)
+{
+    assert(pCodegen != NULL);
+
+    char str[32];
+    if (snprintf(str, 32, "%f", src) > 0)
+    {
+        return easymtl_codegen_glsl_write(pCodegen, str);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+easymtl_bool easymtl_codegen_glsl_write_int(easymtl_codegen_glsl* pCodegen, int src)
+{
+    assert(pCodegen != NULL);
+
+    char str[32];
+    if (snprintf(str, 32, "%d", src) > 0)
+    {
+        return easymtl_codegen_glsl_write(pCodegen, str);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+easymtl_bool easymtl_codegen_glsl_write_indentation(easymtl_codegen_glsl* pCodegen)
+{
+    assert(pCodegen != NULL);
+
+    for (unsigned int i = 0; i < pCodegen->indentationLevel; ++i)
+    {
+        easymtl_codegen_glsl_write(pCodegen, " ");
+    }
+
+    return 1;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_type(easymtl_codegen_glsl* pCodegen, easymtl_type type)
+{
+    assert(pCodegen != NULL);
+
+    switch (type)
+    {
+    case easymtl_type_float:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "float"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_float2:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "vec2"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_float3:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "vec3"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_float4:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "vec4"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+
+    case easymtl_type_int:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "int"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_int2:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "ivec2"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_int3:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "ivec3"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_int4:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "ivec4"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+
+    case easymtl_type_tex1d:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "sampler1D"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_tex2d:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "sampler2D"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_tex3d:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "sampler3D"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+    case easymtl_type_texcube:
+        {
+            if (!easymtl_codegen_glsl_write(pCodegen, "samplerCube"))
+            {
+                return 0;
+            }
+
+            break;
+        }
+
+    default:
+        {
+            // Unsupported return type.
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_input_scalar(easymtl_codegen_glsl* pCodegen, unsigned char descriptor, easymtl_instruction_input* pInput)
+{
+    assert(pCodegen != NULL);
+    assert(pInput   != NULL);
+
+    if (descriptor == EASYMTL_INPUT_DESC_CONSTF)
+    {
+        // It's a constant float.
+        return easymtl_codegen_glsl_write_float(pCodegen, pInput->valuef);
+    }
+    else if (descriptor == EASYMTL_INPUT_DESC_CONSTI)
+    {
+        // It's a constant int.
+        return easymtl_codegen_glsl_write_int(pCodegen, pInput->valuei);
+    }
+    else
+    {
+        // It's a variable.
+        if (pInput->id < pCodegen->identifierCount)
+        {
+            easymtl_identifier* pIdentifier = pCodegen->pIdentifiers + pInput->id;
+            assert(pIdentifier != NULL);
+
+            if (pIdentifier->type == easymtl_type_float)
+            {
+                // The input variable is a float, so we don't want to use any selectors.
+                return easymtl_codegen_glsl_write(pCodegen, pIdentifier->name);
+            }
+            else
+            {
+                if (easymtl_codegen_glsl_write(pCodegen, pIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, "."))
+                {
+                    switch (descriptor)
+                    {
+                    case 0: return easymtl_codegen_glsl_write(pCodegen, "x");
+                    case 1: return easymtl_codegen_glsl_write(pCodegen, "y");
+                    case 2: return easymtl_codegen_glsl_write(pCodegen, "z");
+                    case 3: return easymtl_codegen_glsl_write(pCodegen, "w");
+                    default: return 0;
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_input_initializer(easymtl_codegen_glsl* pCodegen, easymtl_type type, easymtl_instruction_input_descriptor inputDesc, easymtl_instruction_input* pInputs)
+{
+    assert(pCodegen != NULL);
+    assert(pInputs  != NULL);
+
+    switch (type)
+    {
+    case easymtl_type_float:
+        {
+            return easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0);
+        }
+
+    case easymtl_type_float2:
+        {
+            if (easymtl_codegen_glsl_write(pCodegen, "vec2("))
+            {
+                if (easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.y, pInputs + 1))
+                {
+                    return easymtl_codegen_glsl_write(pCodegen, ")");
+                }
+            }
+
+            break;
+        }
+
+    case easymtl_type_float3:
+        {
+            if (easymtl_codegen_glsl_write(pCodegen, "vec3("))
+            {
+                if (easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.y, pInputs + 1) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.z, pInputs + 2))
+                {
+                    return easymtl_codegen_glsl_write(pCodegen, ")");
+                }
+            }
+
+            break;
+        }
+
+    case easymtl_type_float4:
+        {
+            if (easymtl_codegen_glsl_write(pCodegen, "vec4("))
+            {
+                if (easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.y, pInputs + 1) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.z, pInputs + 2) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.w, pInputs + 3))
+                {
+                    return easymtl_codegen_glsl_write(pCodegen, ")");
+                }
+            }
+
+            break;
+        }
+
+
+    case easymtl_type_int:
+        {
+            return easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0);
+        }
+
+    case easymtl_type_int2:
+        {
+            if (easymtl_codegen_glsl_write(pCodegen, "ivec2("))
+            {
+                if (easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.y, pInputs + 1))
+                {
+                    return easymtl_codegen_glsl_write(pCodegen, ")");
+                }
+            }
+
+            break;
+        }
+
+    case easymtl_type_int3:
+        {
+            if (easymtl_codegen_glsl_write(pCodegen, "ivec3("))
+            {
+                if (easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.y, pInputs + 1) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.z, pInputs + 2))
+                {
+                    return easymtl_codegen_glsl_write(pCodegen, ")");
+                }
+            }
+
+            break;
+        }
+
+    case easymtl_type_int4:
+        {
+            if (easymtl_codegen_glsl_write(pCodegen, "ivec4("))
+            {
+                if (easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.x, pInputs + 0) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.y, pInputs + 1) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.z, pInputs + 2) && easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                    easymtl_codegen_glsl_write_instruction_input_scalar(pCodegen, inputDesc.w, pInputs + 3))
+                {
+                    return easymtl_codegen_glsl_write(pCodegen, ")");
+                }
+            }
+
+            break;
+        }
+
+
+    default:
+        {
+            // Unsupported return type.
+            return 0;
+        }
+    }
+
+    return 0;
+}
+
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_mov(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (pInstruction->mov.output < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->mov.output;
+        assert(pOutputIdentifier != NULL);
+
+        if (easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, " = "))
+        {
+            easymtl_type type;
+            switch (pInstruction->opcode)
+            {
+            case easymtl_opcode_movf1: type = easymtl_type_float;  break;
+            case easymtl_opcode_movf2: type = easymtl_type_float2; break;
+            case easymtl_opcode_movf3: type = easymtl_type_float3; break;
+            case easymtl_opcode_movf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_movi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_movi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_movi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_movi4: type = easymtl_type_int4;   break;
+            default: return 0;
+            }
+
+            return easymtl_codegen_glsl_write_instruction_input_initializer(pCodegen, type, pInstruction->mov.inputDesc, &pInstruction->mov.inputX) && easymtl_codegen_glsl_write(pCodegen, ";\n");
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_add(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (pInstruction->add.output < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->add.output;
+        assert(pOutputIdentifier != NULL);
+
+        if (easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, " += "))
+        {
+            easymtl_type type;
+            switch (pInstruction->opcode)
+            {
+            case easymtl_opcode_addf1: type = easymtl_type_float;  break;
+            case easymtl_opcode_addf2: type = easymtl_type_float2; break;
+            case easymtl_opcode_addf3: type = easymtl_type_float3; break;
+            case easymtl_opcode_addf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_addi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_addi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_addi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_addi4: type = easymtl_type_int4;   break;
+            default: return 0;
+            }
+
+            return easymtl_codegen_glsl_write_instruction_input_initializer(pCodegen, type, pInstruction->add.inputDesc, &pInstruction->add.inputX) && easymtl_codegen_glsl_write(pCodegen, ";\n");
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_sub(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (pInstruction->add.output < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->sub.output;
+        assert(pOutputIdentifier != NULL);
+
+        if (easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, " -= "))
+        {
+            easymtl_type type;
+            switch (pInstruction->opcode)
+            {
+            case easymtl_opcode_subf1: type = easymtl_type_float;  break;
+            case easymtl_opcode_subf2: type = easymtl_type_float2; break;
+            case easymtl_opcode_subf3: type = easymtl_type_float3; break;
+            case easymtl_opcode_subf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_subi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_subi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_subi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_subi4: type = easymtl_type_int4;   break;
+            default: return 0;
+            }
+
+            return easymtl_codegen_glsl_write_instruction_input_initializer(pCodegen, type, pInstruction->sub.inputDesc, &pInstruction->sub.inputX) && easymtl_codegen_glsl_write(pCodegen, ";\n");
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_mul(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (pInstruction->mul.output < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->mul.output;
+        assert(pOutputIdentifier != NULL);
+
+        if (easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, " *= "))
+        {
+            easymtl_type type;
+            switch (pInstruction->opcode)
+            {
+            case easymtl_opcode_mulf1: type = easymtl_type_float;  break;
+            case easymtl_opcode_mulf2: type = easymtl_type_float2; break;
+            case easymtl_opcode_mulf3: type = easymtl_type_float3; break;
+            case easymtl_opcode_mulf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_muli1: type = easymtl_type_int;    break;
+            case easymtl_opcode_muli2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_muli3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_muli4: type = easymtl_type_int4;   break;
+            default: return 0;
+            }
+
+            return easymtl_codegen_glsl_write_instruction_input_initializer(pCodegen, type, pInstruction->mul.inputDesc, &pInstruction->mul.inputX) && easymtl_codegen_glsl_write(pCodegen, ";\n");
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_div(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (pInstruction->div.output < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->div.output;
+        assert(pOutputIdentifier != NULL);
+
+        if (easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, " = "))
+        {
+            easymtl_type type;
+            switch (pInstruction->opcode)
+            {
+            case easymtl_opcode_divf1: type = easymtl_type_float;  break;
+            case easymtl_opcode_divf2: type = easymtl_type_float2; break;
+            case easymtl_opcode_divf3: type = easymtl_type_float3; break;
+            case easymtl_opcode_divf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_divi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_divi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_divi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_divi4: type = easymtl_type_int4;   break;
+            default: return 0;
+            }
+
+            return easymtl_codegen_glsl_write_instruction_input_initializer(pCodegen, type, pInstruction->div.inputDesc, &pInstruction->div.inputX) && easymtl_codegen_glsl_write(pCodegen, ";\n");
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_pow(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (pInstruction->pow.output < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->pow.output;
+        assert(pOutputIdentifier != NULL);
+
+        if (easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, " = pow(") && easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, ", "))
+        {
+            easymtl_type type;
+            switch (pInstruction->opcode)
+            {
+            case easymtl_opcode_powf1: type = easymtl_type_float;  break;
+            case easymtl_opcode_powf2: type = easymtl_type_float2; break;
+            case easymtl_opcode_powf3: type = easymtl_type_float3; break;
+            case easymtl_opcode_powf4: type = easymtl_type_float4; break;
+            case easymtl_opcode_powi1: type = easymtl_type_int;    break;
+            case easymtl_opcode_powi2: type = easymtl_type_int2;   break;
+            case easymtl_opcode_powi3: type = easymtl_type_int3;   break;
+            case easymtl_opcode_powi4: type = easymtl_type_int4;   break;
+            default: return 0;
+            }
+
+            return easymtl_codegen_glsl_write_instruction_input_initializer(pCodegen, type, pInstruction->pow.inputDesc, &pInstruction->pow.inputX) && easymtl_codegen_glsl_write(pCodegen, ");\n");
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_tex(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (pInstruction->tex.output < pCodegen->identifierCount && pInstruction->tex.texture < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pOutputIdentifier = pCodegen->pIdentifiers + pInstruction->tex.output;
+        assert(pOutputIdentifier != NULL);
+
+        easymtl_identifier* pTextureIdentifier = pCodegen->pIdentifiers + pInstruction->tex.texture;
+        assert(pTextureIdentifier != NULL);
+
+        if (easymtl_codegen_glsl_write(pCodegen, pOutputIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, " = "))
+        {
+            easymtl_type type;
+            switch (pInstruction->opcode)
+            {
+            case easymtl_opcode_tex1:
+            {
+                type = easymtl_type_float;
+                if (!easymtl_codegen_glsl_write(pCodegen, "texture1D("))
+                {
+                    return 0;
+                }
+
+                break;
+            }
+
+            case easymtl_opcode_tex2:
+            {
+                type = easymtl_type_float2;
+                if (!easymtl_codegen_glsl_write(pCodegen, "texture2D("))
+                {
+                    return 0;
+                }
+
+                break;
+            }
+
+            case easymtl_opcode_tex3:
+            {
+                type = easymtl_type_float3;
+                if (!easymtl_codegen_glsl_write(pCodegen, "texture3D("))
+                {
+                    return 0;
+                }
+
+                break;
+            }
+
+            case easymtl_opcode_texcube:
+            {
+                type = easymtl_type_float3;
+                if (!easymtl_codegen_glsl_write(pCodegen, "textureCube("))
+                {
+                    return 0;
+                }
+
+                break;
+            }
+
+            default: return 0;
+            }
+
+            return
+                easymtl_codegen_glsl_write(pCodegen, pTextureIdentifier->name) &&
+                easymtl_codegen_glsl_write(pCodegen, ", ") &&
+                easymtl_codegen_glsl_write_instruction_input_initializer(pCodegen, type, pInstruction->tex.inputDesc, &pInstruction->tex.inputX) &&
+                easymtl_codegen_glsl_write(pCodegen, ");\n");
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_var(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (pInstruction->var.identifierIndex < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pIdentifier = pCodegen->pIdentifiers + pInstruction->var.identifierIndex;
+        assert(pIdentifier != NULL);
+
+        return easymtl_codegen_glsl_write_type(pCodegen, pIdentifier->type) && easymtl_codegen_glsl_write(pCodegen, " ") && easymtl_codegen_glsl_write(pCodegen, pIdentifier->name) && easymtl_codegen_glsl_write(pCodegen, ";\n");
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction_ret(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (easymtl_codegen_glsl_write(pCodegen, "return "))
+    {
+        easymtl_type type;
+        switch (pInstruction->opcode)
+        {
+        case easymtl_opcode_retf1: type = easymtl_type_float;  break;
+        case easymtl_opcode_retf2: type = easymtl_type_float2; break;
+        case easymtl_opcode_retf3: type = easymtl_type_float3; break;
+        case easymtl_opcode_retf4: type = easymtl_type_float4; break;
+        case easymtl_opcode_reti1: type = easymtl_type_int;    break;
+        case easymtl_opcode_reti2: type = easymtl_type_int2;   break;
+        case easymtl_opcode_reti3: type = easymtl_type_int3;   break;
+        case easymtl_opcode_reti4: type = easymtl_type_int4;   break;
+        default: return 0;
+        }
+
+        return easymtl_codegen_glsl_write_instruction_input_initializer(pCodegen, type, pInstruction->ret.inputDesc, &pInstruction->ret.inputX) && easymtl_codegen_glsl_write(pCodegen, ";\n");
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instruction(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstruction)
+{
+    assert(pCodegen     != NULL);
+    assert(pInstruction != NULL);
+
+    if (easymtl_codegen_glsl_write_indentation(pCodegen))
+    {
+        switch (pInstruction->opcode)
+        {
+        case easymtl_opcode_movf1:
+        case easymtl_opcode_movf2:
+        case easymtl_opcode_movf3:
+        case easymtl_opcode_movf4:
+        case easymtl_opcode_movi1:
+        case easymtl_opcode_movi2:
+        case easymtl_opcode_movi3:
+        case easymtl_opcode_movi4:
+            {
+                return easymtl_codegen_glsl_write_instruction_mov(pCodegen, pInstruction);
+            }
+
+
+        case easymtl_opcode_addf1:
+        case easymtl_opcode_addf2:
+        case easymtl_opcode_addf3:
+        case easymtl_opcode_addf4:
+        case easymtl_opcode_addi1:
+        case easymtl_opcode_addi2:
+        case easymtl_opcode_addi3:
+        case easymtl_opcode_addi4:
+            {
+                return easymtl_codegen_glsl_write_instruction_add(pCodegen, pInstruction);
+            }
+
+        case easymtl_opcode_subf1:
+        case easymtl_opcode_subf2:
+        case easymtl_opcode_subf3:
+        case easymtl_opcode_subf4:
+        case easymtl_opcode_subi1:
+        case easymtl_opcode_subi2:
+        case easymtl_opcode_subi3:
+        case easymtl_opcode_subi4:
+            {
+                return easymtl_codegen_glsl_write_instruction_sub(pCodegen, pInstruction);
+            }
+
+        case easymtl_opcode_mulf1:
+        case easymtl_opcode_mulf2:
+        case easymtl_opcode_mulf3:
+        case easymtl_opcode_mulf4:
+        case easymtl_opcode_muli1:
+        case easymtl_opcode_muli2:
+        case easymtl_opcode_muli3:
+        case easymtl_opcode_muli4:
+            {
+                return easymtl_codegen_glsl_write_instruction_mul(pCodegen, pInstruction);
+            }
+
+        case easymtl_opcode_divf1:
+        case easymtl_opcode_divf2:
+        case easymtl_opcode_divf3:
+        case easymtl_opcode_divf4:
+        case easymtl_opcode_divi1:
+        case easymtl_opcode_divi2:
+        case easymtl_opcode_divi3:
+        case easymtl_opcode_divi4:
+            {
+                return easymtl_codegen_glsl_write_instruction_div(pCodegen, pInstruction);
+            }
+
+        case easymtl_opcode_powf1:
+        case easymtl_opcode_powf2:
+        case easymtl_opcode_powf3:
+        case easymtl_opcode_powf4:
+        case easymtl_opcode_powi1:
+        case easymtl_opcode_powi2:
+        case easymtl_opcode_powi3:
+        case easymtl_opcode_powi4:
+            {
+                return easymtl_codegen_glsl_write_instruction_pow(pCodegen, pInstruction);
+            }
+
+        case easymtl_opcode_tex1:
+        case easymtl_opcode_tex2:
+        case easymtl_opcode_tex3:
+        case easymtl_opcode_texcube:
+            {
+                return easymtl_codegen_glsl_write_instruction_tex(pCodegen, pInstruction);
+            }
+
+
+        case easymtl_opcode_var:
+            {
+                return easymtl_codegen_glsl_write_instruction_var(pCodegen, pInstruction);
+            }
+
+        case easymtl_opcode_retf1:
+        case easymtl_opcode_retf2:
+        case easymtl_opcode_retf3:
+        case easymtl_opcode_retf4:
+        case easymtl_opcode_reti1:
+        case easymtl_opcode_reti2:
+        case easymtl_opcode_reti3:
+        case easymtl_opcode_reti4:
+            {
+                return easymtl_codegen_glsl_write_instruction_ret(pCodegen, pInstruction);
+            }
+
+
+        default:
+            {
+                // Unknown or unsupported opcode.
+                break;
+            }
+        }
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_write_instructions(easymtl_codegen_glsl* pCodegen, easymtl_instruction* pInstructions, unsigned int instructionCount)
+{
+    assert(pCodegen      != NULL);
+    assert(pInstructions != NULL);
+
+    for (unsigned int iInstruction = 0; iInstruction < instructionCount; ++iInstruction)
+    {
+        easymtl_instruction* pInstruction = pInstructions + iInstruction;
+        assert(pInstruction != NULL);
+
+        if (!easymtl_codegen_glsl_write_instruction(pCodegen, pInstruction))
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+easymtl_bool easymtl_codegen_glsl_channel_function_begin(easymtl_codegen_glsl* pCodegen, easymtl_channel_header* pChannelHeader)
+{
+    assert(pCodegen       != NULL);
+    assert(pChannelHeader != NULL);
+
+    // <type> <name> {\n
+    easymtl_bool result =
+        easymtl_codegen_glsl_write_type(pCodegen, pChannelHeader->channel.type) &&
+        easymtl_codegen_glsl_write(pCodegen, " ") &&
+        easymtl_codegen_glsl_write(pCodegen, pChannelHeader->channel.name) &&
+        easymtl_codegen_glsl_write(pCodegen, "() {\n");
+    if (result)
+    {
+        pCodegen->indentationLevel += 4;
+    }
+
+    return result;
+}
+
+easymtl_bool easymtl_codegen_glsl_channel_function_close(easymtl_codegen_glsl* pCodegen)
+{
+    assert(pCodegen != NULL);
+
+    if (pCodegen->indentationLevel > 4) {
+        pCodegen->indentationLevel -= 4;
+    } else {
+        pCodegen->indentationLevel = 0;
+    }
+
+    return easymtl_codegen_glsl_write(pCodegen, "}\n");
+}
+
+easymtl_bool easymtl_codegen_glsl_channel(easymtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWrittenOut)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_header* pHeader = easymtl_getheader(pMaterial);
+        if (pHeader != NULL)
+        {
+            easymtl_channel_header* pChannelHeader = easymtl_getchannelheaderbyname(pMaterial, channelName);
+            if (pChannelHeader != NULL)
+            {
+                easymtl_codegen_glsl codegen;
+                codegen.pBufferOut           = codeOut;
+                codegen.bufferOutSizeInBytes = codeOutSizeInBytes;
+                codegen.runningLength        = 0;
+                codegen.pMaterial            = pMaterial;
+                codegen.pIdentifiers         = easymtl_getidentifiers(pMaterial);
+                codegen.identifierCount      = easymtl_getidentifiercount(pMaterial);
+                codegen.indentationLevel     = 0;
+
+                if (easymtl_codegen_glsl_channel_function_begin(&codegen, pChannelHeader))
+                {
+                    easymtl_instruction* pInstructions = (easymtl_instruction*)(pChannelHeader + 1);
+                    assert(pInstructions != NULL);
+
+                    if (easymtl_codegen_glsl_write_instructions(&codegen, pInstructions, pChannelHeader->instructionCount))
+                    {
+                        easymtl_bool result = easymtl_codegen_glsl_channel_function_close(&codegen);
+                        if (result)
+                        {
+                            if (pBytesWrittenOut != NULL)
+                            {
+                                *pBytesWrittenOut = codegen.runningLength + 1;
+                            }
+                        }
+
+                        return result;
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+
+easymtl_bool easymtl_codegen_glsl_uniform(easymtl_codegen_glsl* pCodegen, easymtl_input* pInput)
+{
+    assert(pCodegen != NULL);
+    assert(pInput   != NULL);
+
+    if (pInput->identifierIndex < pCodegen->identifierCount)
+    {
+        easymtl_identifier* pIdentifier = pCodegen->pIdentifiers + pInput->identifierIndex;
+        assert(pIdentifier != NULL);
+
+        // uniform <type> <name>;
+        return
+            easymtl_codegen_glsl_write(pCodegen, "uniform ") &&
+            easymtl_codegen_glsl_write_type(pCodegen, pIdentifier->type) &&
+            easymtl_codegen_glsl_write(pCodegen, " ") &&
+            easymtl_codegen_glsl_write(pCodegen, pIdentifier->name) &&
+            easymtl_codegen_glsl_write(pCodegen, ";\n");
+    }
+
+    return 0;
+}
+
+easymtl_bool easymtl_codegen_glsl_uniforms(easymtl_material* pMaterial, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWritteOut)
+{
+    if (pMaterial != NULL)
+    {
+        easymtl_codegen_glsl codegen;
+        codegen.pBufferOut           = codeOut;
+        codegen.bufferOutSizeInBytes = codeOutSizeInBytes;
+        codegen.runningLength        = 0;
+        codegen.pMaterial            = pMaterial;
+        codegen.pIdentifiers         = easymtl_getidentifiers(pMaterial);
+        codegen.identifierCount      = easymtl_getidentifiercount(pMaterial);
+        codegen.indentationLevel     = 0;
+
+
+        unsigned int inputCount = easymtl_getpublicinputcount(pMaterial);
+        if (inputCount > 0)
+        {
+            for (unsigned int iInput = 0; iInput < inputCount; ++iInput)
+            {
+                easymtl_input* pInput = easymtl_getpublicinputbyindex(pMaterial, iInput);
+                assert(pInput != NULL);
+
+                if (!easymtl_codegen_glsl_uniform(&codegen, pInput))
+                {
+                    // There was an error writing one of the uniforms. Return false.
+                    return 0;
+                }
+            }
+        }
+        else
+        {
+            // No inputs. Just write an empty string.
+            easymtl_codegen_glsl_write(&codegen, "");
+        }
+
+        if (pBytesWritteOut != NULL)
+        {
+            *pBytesWritteOut = codegen.runningLength + 1;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
+#if defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
+#endif
+
+
+
+
 
 ////////////////////////////////////////////////////////
 // Utilities
