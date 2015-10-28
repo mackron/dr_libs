@@ -52,10 +52,10 @@ int easyaudio_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 
 
 typedef void              (* easyaudio_delete_context_proc)(easyaudio_context* pContext);
-typedef easyaudio_device* (* easyaudio_create_playback_device_proc)(easyaudio_context* pContext, unsigned int deviceIndex);
-typedef void              (* easyaudio_delete_playback_device_proc)(easyaudio_device* pDevice);
-typedef unsigned int      (* easyaudio_get_playback_device_count_proc)(easyaudio_context* pContext);
-typedef bool              (* easyaudio_get_playback_device_info_proc)(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut);
+typedef easyaudio_device* (* easyaudio_create_output_device_proc)(easyaudio_context* pContext, unsigned int deviceIndex);
+typedef void              (* easyaudio_delete_output_device_proc)(easyaudio_device* pDevice);
+typedef unsigned int      (* easyaudio_get_output_device_count_proc)(easyaudio_context* pContext);
+typedef bool              (* easyaudio_get_output_device_info_proc)(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut);
 typedef easyaudio_buffer* (* easyaudio_create_buffer_proc)(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc);
 typedef void              (* easyaudio_delete_buffer_proc)(easyaudio_buffer* pBuffer);
 typedef void              (* easyaudio_set_buffer_data_proc)(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
@@ -65,10 +65,10 @@ struct easyaudio_context
 {
     // Callbacks.
     easyaudio_delete_context_proc delete_context;
-    easyaudio_create_playback_device_proc create_playback_device;
-    easyaudio_delete_playback_device_proc delete_playback_device;
-    easyaudio_get_playback_device_count_proc get_playback_device_count;
-    easyaudio_get_playback_device_info_proc get_playback_device_info;
+    easyaudio_create_output_device_proc create_output_device;
+    easyaudio_delete_output_device_proc delete_output_device;
+    easyaudio_get_output_device_count_proc get_output_device_count;
+    easyaudio_get_output_device_info_proc get_output_device_info;
     easyaudio_create_buffer_proc create_buffer;
     easyaudio_delete_buffer_proc delete_buffer;
     easyaudio_set_buffer_data_proc set_buffer_data;
@@ -122,21 +122,21 @@ void easyaudio_delete_context(easyaudio_context* pContext)
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Playback
+// OUTPUT
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-unsigned int easyaudio_get_playback_device_count(easyaudio_context* pContext)
+unsigned int easyaudio_get_output_device_count(easyaudio_context* pContext)
 {
     if (pContext == NULL) {
         return 0;
     }
 
-    return pContext->get_playback_device_count(pContext);
+    return pContext->get_output_device_count(pContext);
 }
 
-bool easyaudio_get_playback_device_info(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut)
+bool easyaudio_get_output_device_info(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut)
 {
     if (pContext == NULL) {
         return false;
@@ -146,27 +146,27 @@ bool easyaudio_get_playback_device_info(easyaudio_context* pContext, unsigned in
         return false;
     }
 
-    return pContext->get_playback_device_info(pContext, deviceIndex, pInfoOut);
+    return pContext->get_output_device_info(pContext, deviceIndex, pInfoOut);
 }
 
 
-easyaudio_device* easyaudio_create_playback_device(easyaudio_context* pContext, unsigned int deviceIndex)
+easyaudio_device* easyaudio_create_output_device(easyaudio_context* pContext, unsigned int deviceIndex)
 {
     if (pContext == NULL) {
         return NULL;
     }
 
-    return pContext->create_playback_device(pContext, deviceIndex);
+    return pContext->create_output_device(pContext, deviceIndex);
 }
 
-void easyaudio_delete_playback_device(easyaudio_device* pDevice)
+void easyaudio_delete_output_device(easyaudio_device* pDevice)
 {
     if (pDevice == NULL) {
         return;
     }
 
     assert(pDevice->pContext != NULL);
-    pDevice->pContext->delete_playback_device(pDevice);
+    pDevice->pContext->delete_output_device(pDevice);
 }
 
 
@@ -227,7 +227,7 @@ void easyaudio_play(easyaudio_buffer* pBuffer, bool loop)
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Recording
+// INPUT
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -288,20 +288,20 @@ typedef struct
     pDirectSoundCaptureEnumerateAProc pDirectSoundCaptureEnumerateA;
 
 
-    /// The number of playback devices that were iterated when the context was created. This is static, so if the user was to unplug
+    /// The number of output devices that were iterated when the context was created. This is static, so if the user was to unplug
     /// a device one would need to re-create the context.
-    unsigned int playbackDeviceCount;
+    unsigned int outputDeviceCount;
 
-    /// The buffer containing the list of enumerated playback devices.
-    easyaudio_device_info_dsound playbackDeviceInfo[EASYAUDIO_MAX_DEVICE_COUNT];
+    /// The buffer containing the list of enumerated output devices.
+    easyaudio_device_info_dsound outputDeviceInfo[EASYAUDIO_MAX_DEVICE_COUNT];
 
 
     /// The number of capture devices that were iterated when the context was created. This is static, so if the user was to unplug
     /// a device one would need to re-create the context.
-    unsigned int recordingDeviceCount;
+    unsigned int inputDeviceCount;
 
-    /// The buffer containing the list of enumerated playback devices.
-    easyaudio_device_info_dsound recordingDeviceInfo[EASYAUDIO_MAX_DEVICE_COUNT];
+    /// The buffer containing the list of enumerated input devices.
+    easyaudio_device_info_dsound inputDeviceInfo[EASYAUDIO_MAX_DEVICE_COUNT];
 
 
 } easyaudio_context_dsound;
@@ -337,37 +337,37 @@ void easyaudio_delete_context_dsound(easyaudio_context* pContext)
 }
 
 
-unsigned int easyaudio_get_playback_device_count_dsound(easyaudio_context* pContext)
+unsigned int easyaudio_get_output_device_count_dsound(easyaudio_context* pContext)
 {
     easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pContext;
     assert(pContextDS != NULL);
 
-    return pContextDS->playbackDeviceCount;
+    return pContextDS->outputDeviceCount;
 }
 
-bool easyaudio_get_playback_device_info_dsound(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut)
+bool easyaudio_get_output_device_info_dsound(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut)
 {
     easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pContext;
     assert(pContextDS != NULL);
     assert(pInfoOut != NULL);
 
-    if (deviceIndex >= pContextDS->playbackDeviceCount) {
+    if (deviceIndex >= pContextDS->outputDeviceCount) {
         return false;
     }
 
 
-    easyaudio_strcpy(pInfoOut->description, sizeof(pInfoOut->description), pContextDS->playbackDeviceInfo[deviceIndex].description);
+    easyaudio_strcpy(pInfoOut->description, sizeof(pInfoOut->description), pContextDS->outputDeviceInfo[deviceIndex].description);
 
     return true;
 }
 
 
-easyaudio_device* easyaudio_create_playback_device_dsound(easyaudio_context* pContext, unsigned int deviceIndex)
+easyaudio_device* easyaudio_create_output_device_dsound(easyaudio_context* pContext, unsigned int deviceIndex)
 {
     easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pContext;
     assert(pContextDS != NULL);
 
-    if (deviceIndex >= pContextDS->playbackDeviceCount) {
+    if (deviceIndex >= pContextDS->outputDeviceCount) {
         return NULL;
     }
 
@@ -379,7 +379,7 @@ easyaudio_device* easyaudio_create_playback_device_dsound(easyaudio_context* pCo
     if (deviceIndex == 0) {
         hr = pContextDS->pDirectSoundCreate8(NULL, &pDS, NULL);
     } else {
-        hr = pContextDS->pDirectSoundCreate8(&pContextDS->playbackDeviceInfo[deviceIndex].guid, &pDS, NULL);
+        hr = pContextDS->pDirectSoundCreate8(&pContextDS->outputDeviceInfo[deviceIndex].guid, &pDS, NULL);
     }
     
     if (FAILED(hr)) {
@@ -410,7 +410,7 @@ easyaudio_device* easyaudio_create_playback_device_dsound(easyaudio_context* pCo
     }
 }
 
-void easyaudio_delete_playback_device_dsound(easyaudio_device* pDevice)
+void easyaudio_delete_output_device_dsound(easyaudio_device* pDevice)
 {
     easyaudio_device_dsound* pDeviceDS = (easyaudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
@@ -521,30 +521,30 @@ void easyaudio_play_dsound(easyaudio_buffer* pBuffer, bool loop)
 }
 
 
-static BOOL CALLBACK DSEnumCallback_PlaybackDevices(LPGUID lpGuid, LPCSTR lpcstrDescription, LPCSTR lpcstrModule, LPVOID lpContext)
+static BOOL CALLBACK DSEnumCallback_OutputDevices(LPGUID lpGuid, LPCSTR lpcstrDescription, LPCSTR lpcstrModule, LPVOID lpContext)
 {
     // From MSDN:
     //
     // The first device enumerated is always called the Primary Sound Driver, and the lpGUID parameter of the callback is
-    // NULL. This device represents the preferred playback device set by the user in Control Panel.
+    // NULL. This device represents the preferred output device set by the user in Control Panel.
 
     easyaudio_context_dsound* pContextDS = lpContext;
     assert(pContextDS != NULL);
 
-    if (pContextDS->playbackDeviceCount < EASYAUDIO_MAX_DEVICE_COUNT)
+    if (pContextDS->outputDeviceCount < EASYAUDIO_MAX_DEVICE_COUNT)
     {
         if (lpGuid != NULL) {
-            memcpy(&pContextDS->playbackDeviceInfo[pContextDS->playbackDeviceCount].guid, lpGuid, sizeof(GUID));
+            memcpy(&pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].guid, lpGuid, sizeof(GUID));
         } else {
-            memset(&pContextDS->playbackDeviceInfo[pContextDS->playbackDeviceCount].guid, 0, sizeof(GUID));
+            memset(&pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].guid, 0, sizeof(GUID));
         }
         
-        easyaudio_strcpy(pContextDS->playbackDeviceInfo[pContextDS->playbackDeviceCount].description, 256, lpcstrDescription);
-        easyaudio_strcpy(pContextDS->playbackDeviceInfo[pContextDS->playbackDeviceCount].moduleName,  256, lpcstrModule);
+        easyaudio_strcpy(pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].description, 256, lpcstrDescription);
+        easyaudio_strcpy(pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].moduleName,  256, lpcstrModule);
 
-        //printf("Playback Device: (%d) %s %s\n", pContextDS->playbackDeviceCount, lpcstrDescription, lpcstrModule);
+        //printf("Output Device: (%d) %s %s\n", pContextDS->outputDeviceCount, lpcstrDescription, lpcstrModule);
 
-        pContextDS->playbackDeviceCount += 1;
+        pContextDS->outputDeviceCount += 1;
         return TRUE;
     }
     else
@@ -554,28 +554,28 @@ static BOOL CALLBACK DSEnumCallback_PlaybackDevices(LPGUID lpGuid, LPCSTR lpcstr
     }
 }
 
-static BOOL CALLBACK DSEnumCallback_RecordingDevices(LPGUID lpGuid, LPCSTR lpcstrDescription, LPCSTR lpcstrModule, LPVOID lpContext)
+static BOOL CALLBACK DSEnumCallback_InputDevices(LPGUID lpGuid, LPCSTR lpcstrDescription, LPCSTR lpcstrModule, LPVOID lpContext)
 {
     // From MSDN:
     //
     // The first device enumerated is always called the Primary Sound Driver, and the lpGUID parameter of the callback is
-    // NULL. This device represents the preferred playback device set by the user in Control Panel.
+    // NULL. This device represents the preferred output device set by the user in Control Panel.
 
     easyaudio_context_dsound* pContextDS = lpContext;
     assert(pContextDS != NULL);
 
-    if (pContextDS->recordingDeviceCount < EASYAUDIO_MAX_DEVICE_COUNT)
+    if (pContextDS->inputDeviceCount < EASYAUDIO_MAX_DEVICE_COUNT)
     {
         if (lpGuid != NULL) {
-            memcpy(&pContextDS->recordingDeviceInfo[pContextDS->recordingDeviceCount].guid, lpGuid, sizeof(GUID));
+            memcpy(&pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].guid, lpGuid, sizeof(GUID));
         } else {
-            memset(&pContextDS->recordingDeviceInfo[pContextDS->recordingDeviceCount].guid, 0, sizeof(GUID));
+            memset(&pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].guid, 0, sizeof(GUID));
         }
 
-        easyaudio_strcpy(pContextDS->recordingDeviceInfo[pContextDS->recordingDeviceCount].description, 256, lpcstrDescription);
-        easyaudio_strcpy(pContextDS->recordingDeviceInfo[pContextDS->recordingDeviceCount].moduleName,  256, lpcstrModule);
+        easyaudio_strcpy(pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].description, 256, lpcstrDescription);
+        easyaudio_strcpy(pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].moduleName,  256, lpcstrModule);
 
-        pContextDS->recordingDeviceCount += 1;
+        pContextDS->inputDeviceCount += 1;
         return TRUE;
     }
     else
@@ -626,10 +626,10 @@ easyaudio_context* easyaudio_create_context_dsound()
     if (pContext != NULL)
     {
         pContext->base.delete_context            = easyaudio_delete_context_dsound;
-        pContext->base.create_playback_device    = easyaudio_create_playback_device_dsound;
-        pContext->base.delete_playback_device    = easyaudio_delete_playback_device_dsound;
-        pContext->base.get_playback_device_count = easyaudio_get_playback_device_count_dsound;
-        pContext->base.get_playback_device_info  = easyaudio_get_playback_device_info_dsound;
+        pContext->base.create_output_device      = easyaudio_create_output_device_dsound;
+        pContext->base.delete_output_device      = easyaudio_delete_output_device_dsound;
+        pContext->base.get_output_device_count   = easyaudio_get_output_device_count_dsound;
+        pContext->base.get_output_device_info    = easyaudio_get_output_device_info_dsound;
         pContext->base.create_buffer             = easyaudio_create_buffer_dsound;
         pContext->base.delete_buffer             = easyaudio_delete_buffer_dsound;
         pContext->base.set_buffer_data           = easyaudio_set_buffer_data_dsound;
@@ -641,13 +641,13 @@ easyaudio_context* easyaudio_create_context_dsound()
         pContext->pDirectSoundCaptureCreate8     = pDirectSoundCaptureCreate8;
         pContext->pDirectSoundCaptureEnumerateA  = pDirectSoundCaptureEnumerateA;
 
-        // Enumerate playback devices.
-        pContext->playbackDeviceCount = 0;
-        pContext->pDirectSoundEnumerateA(DSEnumCallback_PlaybackDevices, pContext);
+        // Enumerate output devices.
+        pContext->outputDeviceCount = 0;
+        pContext->pDirectSoundEnumerateA(DSEnumCallback_OutputDevices, pContext);
 
-        // Enumerate recording devices.
-        pContext->recordingDeviceCount = 0;
-        pContext->pDirectSoundCaptureEnumerateA(DSEnumCallback_RecordingDevices, pContext);
+        // Enumerate input devices.
+        pContext->inputDeviceCount = 0;
+        pContext->pDirectSoundCaptureEnumerateA(DSEnumCallback_InputDevices, pContext);
     }
 
     return (easyaudio_context*)pContext;
@@ -676,9 +676,9 @@ void easyaudio_dsound_test1()
         return;
     }
 
-    easyaudio_device* pPlaybackDevice = easyaudio_create_playback_device(pContext, 0);
-    if (pPlaybackDevice == NULL) {
-        printf("Failed to create DirectSound playback device\n");
+    easyaudio_device* pOutputDevice = easyaudio_create_output_device(pContext, 0);
+    if (pOutputDevice == NULL) {
+        printf("Failed to create DirectSound output device\n");
         easyaudio_delete_context(pContext);
         return;
     }
@@ -703,7 +703,7 @@ void easyaudio_dsound_test1()
     buffer.sizeInBytes   = samplesDecoded * channels * sizeof(short);
     buffer.pInitialData  = pData;
 
-    easyaudio_buffer* pBuffer = easyaudio_create_buffer(pPlaybackDevice, &buffer);
+    easyaudio_buffer* pBuffer = easyaudio_create_buffer(pOutputDevice, &buffer);
     if (pBuffer == NULL) {
         printf("Failed to create DirectSound buffer\n");
         return;

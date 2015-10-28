@@ -6,14 +6,14 @@
 // General
 // - This library is only concerned with playback and recording of raw audio data. It does not load audio files
 //   such as WAV, OGG and MP3.
-// - Before you can create an playback or recording device you need to first create a context.
-// - Each backend (DirectSound, PulseAudio, etc.) has it's own context. Using easyaudio_create_context() will find
+// - Before you can create an output (playback) or input (recording) device you need to first create a context.
+// - Each backend (DirectSound, ALSA, etc.) has it's own context. Using easyaudio_create_context() will find
 //   a backend implementation based on the platform easy_audio has been compiled for.
 // - A context for a specific backend can be created as well. For example, easyaudio_create_context_dsound() will
 //   create a context which uses DirectSound as it's backend.
-// - Playback and recording devices are enumerated once when the context is created. Thus, when a device is plugged
-//   in or unplugged it will not be detected by easy_audio and the context will need to be deleted and re-created.
-// - Currently, easy_audio will only consider the first EASYAUDIO_MAX_DEVICE_COUNT playback and audio devices, which
+// - Currently, devices are enumerated once when the context is created. Thus, when a device is plugged in or
+//   unplugged it will not be detected by easy_audio and the context will need to be deleted and re-created.
+// - Currently, easy_audio will only consider the first EASYAUDIO_MAX_DEVICE_COUNT output and input devices, which
 //   is currently set to 16 and should be plenty for the vast majority of cases. Feel free to increase (or decrease)
 //   this number to suit your own requirements.
 //
@@ -104,29 +104,29 @@ void easyaudio_delete_context(easyaudio_context* pContext);
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Playback
+// OUTPUT
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-/// Retrieves the number of playback devices that were enumerated when the context was created.
-unsigned int easyaudio_get_playback_device_count(easyaudio_context* pContext);
+/// Retrieves the number of output devices that were enumerated when the context was created.
+unsigned int easyaudio_get_output_device_count(easyaudio_context* pContext);
 
 /// Retrieves information about the device at the given index.
-bool easyaudio_get_playback_device_info(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut);
+bool easyaudio_get_output_device_info(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut);
 
 
-/// Creates a playback device.
+/// Creates a output device.
 ///
 /// @param pContext    [in] A pointer to the main context.
 /// @param deviceIndex [in] The index of the device.
 ///
 /// @remarks
-///     Use a device index of 0 to use the default playback device.
-easyaudio_device* easyaudio_create_playback_device(easyaudio_context* pContext, unsigned int deviceIndex);
+///     Use a device index of 0 to use the default output device.
+easyaudio_device* easyaudio_create_output_device(easyaudio_context* pContext, unsigned int deviceIndex);
 
-/// Deletes the given playback device.
-void easyaudio_delete_playback_device(easyaudio_device* pDevice);
+/// Deletes the given output device.
+void easyaudio_delete_output_device(easyaudio_device* pDevice);
 
 
 /// Create a buffer.
@@ -143,10 +143,11 @@ void easyaudio_play(easyaudio_buffer* pBuffer, bool loop);
 
 
 
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Recording
+// INPUT
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
