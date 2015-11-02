@@ -197,6 +197,9 @@ void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, 
 void easyaudio_get_buffer_position(easyaudio_buffer* pBuffer, float* pPosOut);
 
 
+/// Removes every marker.
+void easyaudio_remove_markers(easyaudio_buffer* pBuffer);
+
 /// Registers the callback to fire when the playback position hits a certain position in the given buffer.
 ///
 /// @param eventID [in] The event ID that will be passed to the callback and can be used to identify a specific marker.

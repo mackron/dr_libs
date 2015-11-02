@@ -65,6 +65,7 @@ typedef void                     (* easyaudio_stop_proc)(easyaudio_buffer* pBuff
 typedef easyaudio_playback_state (* easyaudio_get_playback_state_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_set_buffer_position_proc)(easyaudio_buffer* pBuffer, float x, float y, float z);
 typedef void                     (* easyaudio_get_buffer_position_proc)(easyaudio_buffer* pBuffer, float* pPosOut);
+typedef void                     (* easyaudio_remove_markers_proc)(easyaudio_buffer* pBuffer);
 typedef bool                     (* easyaudio_register_marker_callback_proc)(easyaudio_buffer* pBuffer, unsigned int offsetInBytes, easyaudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
 typedef bool                     (* easyaudio_register_stop_callback_proc)(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
 typedef bool                     (* easyaudio_register_pause_callback_proc)(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
@@ -91,6 +92,7 @@ struct easyaudio_context
     easyaudio_get_playback_state_proc get_playback_state;
     easyaudio_set_buffer_position_proc set_buffer_position;
     easyaudio_get_buffer_position_proc get_buffer_position;
+    easyaudio_remove_markers_proc remove_markers;
     easyaudio_register_marker_callback_proc register_marker_callback;
     easyaudio_register_stop_callback_proc register_stop_callback;
     easyaudio_register_pause_callback_proc register_pause_callback;
@@ -305,6 +307,17 @@ void easyaudio_get_buffer_position(easyaudio_buffer* pBuffer, float* pPosOut)
     pBuffer->pDevice->pContext->get_buffer_position(pBuffer, pPosOut);
 }
 
+
+void easyaudio_remove_markers(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    pBuffer->pDevice->pContext->remove_markers(pBuffer);
+}
 
 bool easyaudio_register_marker_callback(easyaudio_buffer* pBuffer, unsigned int offsetInBytes, easyaudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
 {
@@ -1520,6 +1533,20 @@ void easyaudio_get_buffer_position_dsound(easyaudio_buffer* pBuffer, float* pPos
     }
 }
 
+
+void easyaudio_remove_markers_dsound(easyaudio_buffer* pBuffer)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    for (unsigned int iMarker = 0; iMarker < pBufferDS->markerEventCount; ++iMarker)
+    {
+        ea_delete_event_dsound(pBufferDS->pMarkerEvents[iMarker]);
+        pBufferDS->pMarkerEvents[iMarker] = NULL;
+    }
+
+    pBufferDS->markerEventCount = 0;
+}
 
 bool easyaudio_register_marker_callback_dsound(easyaudio_buffer* pBuffer, unsigned int offsetInBytes, easyaudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
 {
