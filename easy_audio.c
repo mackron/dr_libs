@@ -66,6 +66,8 @@ typedef void                     (* easyaudio_play_proc)(easyaudio_buffer* pBuff
 typedef void                     (* easyaudio_pause_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_stop_proc)(easyaudio_buffer* pBuffer);
 typedef easyaudio_playback_state (* easyaudio_get_playback_state_proc)(easyaudio_buffer* pBuffer);
+typedef void                     (* easyaudio_set_pan_proc)(easyaudio_buffer* pBuffer, float pan);
+typedef float                    (* easyaudio_get_pan_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_set_volume_proc)(easyaudio_buffer* pBuffer, float volume);
 typedef float                    (* easyaudio_get_volume_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_set_buffer_position_proc)(easyaudio_buffer* pBuffer, float x, float y, float z);
@@ -97,6 +99,8 @@ struct easyaudio_context
     easyaudio_pause_proc pause;
     easyaudio_stop_proc stop;
     easyaudio_get_playback_state_proc get_playback_state;
+    easyaudio_set_pan_proc set_pan;
+    easyaudio_get_pan_proc get_pan;
     easyaudio_set_volume_proc set_volume;
     easyaudio_get_volume_proc get_volume;
     easyaudio_set_buffer_position_proc set_buffer_position;
@@ -313,6 +317,29 @@ easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer)
     assert(pBuffer->pDevice != NULL);
     assert(pBuffer->pDevice->pContext != NULL);
     return pBuffer->pDevice->pContext->get_playback_state(pBuffer);
+}
+
+
+void easyaudio_set_pan(easyaudio_buffer* pBuffer, float pan)
+{
+    if (pBuffer == NULL) {
+        return;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    pBuffer->pDevice->pContext->set_pan(pBuffer, pan);
+}
+
+float easyaudio_get_pan(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return 0.0f;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    return pBuffer->pDevice->pContext->get_pan(pBuffer);
 }
 
 
@@ -1559,7 +1586,7 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     DSBUFFERDESC descDS;
     memset(&descDS, 0, sizeof(DSBUFFERDESC)); 
     descDS.dwSize          = sizeof(DSBUFFERDESC); 
-    descDS.dwFlags         = DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPOSITIONNOTIFY | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
+    descDS.dwFlags         = DSBCAPS_CTRLVOLUME | /*DSBCAPS_CTRLPAN | */DSBCAPS_CTRLPOSITIONNOTIFY | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
     descDS.dwBufferBytes   = pBufferDesc->sizeInBytes;
     descDS.lpwfxFormat     = &wf;
 
@@ -1568,6 +1595,8 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     if (wf.nChannels > 1)
     {
         // 3D Disabled.
+        descDS.dwFlags |= DSBCAPS_CTRLPAN;
+
         LPDIRECTSOUNDBUFFER pDSBufferTemp;
         HRESULT hr = IDirectSound_CreateSoundBuffer(pDeviceDS->pDS, &descDS, &pDSBufferTemp, NULL);
         if (FAILED(hr)) {
@@ -1804,6 +1833,55 @@ easyaudio_playback_state easyaudio_get_playback_state_dsound(easyaudio_buffer* p
 }
 
 
+void easyaudio_set_pan_dsound(easyaudio_buffer* pBuffer, float pan)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    LONG panDB;
+    if (pan == 0) {
+        panDB = DSBPAN_CENTER;
+    } else {
+        if (pan > 1) {
+            panDB = DSBPAN_RIGHT;
+        } else if (pan < -1) {
+            panDB = DSBPAN_LEFT;
+        } else {
+            if (pan < 0) {
+                panDB =  (LONG)((20*log10f(1 + pan)) * 100);
+            } else {
+                panDB = -(LONG)((20*log10f(1 - pan)) * 100);
+            }
+        }
+    }
+
+    IDirectSoundBuffer_SetPan(pBufferDS->pDSBuffer, panDB);
+}
+
+float easyaudio_get_pan_dsound(easyaudio_buffer* pBuffer)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    LONG panDB;
+    HRESULT hr = IDirectSoundBuffer_GetPan(pBufferDS->pDSBuffer, &panDB);
+    if (FAILED(hr)) {
+        return 0;
+    }
+
+    
+    if (panDB < 0) {
+        return -(1 - (float)(1.0f / powf(10.0f, -panDB / (20.0f*100.0f))));
+    }
+
+    if (panDB > 0) {
+        return  (1 - (float)(1.0f / powf(10.0f,  panDB / (20.0f*100.0f))));
+    }
+
+    return 0;
+}
+
+
 void easyaudio_set_volume_dsound(easyaudio_buffer* pBuffer, float volume)
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
@@ -1820,11 +1898,7 @@ void easyaudio_set_volume_dsound(easyaudio_buffer* pBuffer, float volume)
         volumeDB = DSBVOLUME_MIN;
     }
 
-    HRESULT hr = IDirectSoundBuffer_SetVolume(pBufferDS->pDSBuffer, volumeDB);
-    if (FAILED(hr)) {
-        printf("TESTING:\n");
-        return;
-    }
+    IDirectSoundBuffer_SetVolume(pBufferDS->pDSBuffer, volumeDB);
 }
 
 float easyaudio_get_volume_dsound(easyaudio_buffer* pBuffer)
@@ -2169,6 +2243,8 @@ easyaudio_context* easyaudio_create_context_dsound()
         pContext->base.pause                      = easyaudio_pause_dsound;
         pContext->base.stop                       = easyaudio_stop_dsound;
         pContext->base.get_playback_state         = easyaudio_get_playback_state_dsound;
+        pContext->base.set_pan                    = easyaudio_set_pan_dsound;
+        pContext->base.get_pan                    = easyaudio_get_pan_dsound;
         pContext->base.set_volume                 = easyaudio_set_volume_dsound;
         pContext->base.get_volume                 = easyaudio_get_volume_dsound;
         pContext->base.set_buffer_position        = easyaudio_set_buffer_position_dsound;

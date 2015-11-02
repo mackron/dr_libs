@@ -203,6 +203,16 @@ void easyaudio_stop(easyaudio_buffer* pBuffer);
 easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer);
 
 
+/// Sets the pan of the given buffer.
+///
+/// @remarks
+///     This does nothing for 3D sounds.
+void easyaudio_set_pan(easyaudio_buffer* pBuffer, float pan);
+
+/// Retrieves the pan of the given buffer.
+float easyaudio_get_pan(easyaudio_buffer* pBuffer);
+
+
 /// Sets the volume of the given buffer.
 /// 
 /// @param volume [in] The new volume.
@@ -216,10 +226,13 @@ void easyaudio_set_volume(easyaudio_buffer* pBuffer, float volume);
 float easyaudio_get_volume(easyaudio_buffer* pBuffer);
 
 
-/// Sets the position of the given buffer.
+/// Sets the position of the given buffer in 3D space.
+///
+/// @remarks
+///     This does nothing for buffers that do not support 3D positioning.
 void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, float z);
 
-/// Retrieves the position of the given buffer.
+/// Retrieves the position of the given buffer in 3D space.
 void easyaudio_get_buffer_position(easyaudio_buffer* pBuffer, float* pPosOut);
 
 
