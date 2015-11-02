@@ -1525,11 +1525,28 @@ bool easyaudio_register_marker_callback_dsound(easyaudio_buffer* pBuffer, unsign
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
+    assert(pBufferDS->markerEventCount <= EASYAUDIO_MAX_MARKER_COUNT);
 
+    if (pBufferDS->markerEventCount == EASYAUDIO_MAX_MARKER_COUNT) {
+        // Too many markers.
+        return false;
+    }
 
-    
-    //return pBuffer->pDevice->pContext->register_marker_callback(pBuffer, offsetInBytes, callback, eventID, pUserData);
-    return false;
+    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pBuffer->pDevice->pContext;
+    assert(pContextDS != NULL);
+
+    ea_event_dsound* pEvent = ea_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, eventID, pUserData);
+    if (pEvent == NULL) {
+        return false;
+    }
+
+    // ea_create_event_dsound() will initialize the marker offset to 0, so we'll need to set it manually here.
+    pEvent->markerOffset = offsetInBytes;
+
+    pBufferDS->pMarkerEvents[pBufferDS->markerEventCount] = pEvent;
+    pBufferDS->markerEventCount += 1;
+
+    return true;
 }
 
 bool easyaudio_register_stop_callback_dsound(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData)
