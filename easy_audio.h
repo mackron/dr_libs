@@ -203,6 +203,19 @@ void easyaudio_stop(easyaudio_buffer* pBuffer);
 easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer);
 
 
+/// Sets the volume of the given buffer.
+/// 
+/// @param volume [in] The new volume.
+///
+/// @remarks
+///     Amplificiation is not currently supported, so the maximum value is 1. A value of 1 represents the volume of the original
+///     data.
+void easyaudio_set_volume(easyaudio_buffer* pBuffer, float volume);
+
+/// Retrieves the volume of the sound.
+float easyaudio_get_volume(easyaudio_buffer* pBuffer);
+
+
 /// Sets the position of the given buffer.
 void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, float z);
 

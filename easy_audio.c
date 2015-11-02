@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 
 ////////////////////////////////////////////////////////
@@ -65,6 +66,8 @@ typedef void                     (* easyaudio_play_proc)(easyaudio_buffer* pBuff
 typedef void                     (* easyaudio_pause_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_stop_proc)(easyaudio_buffer* pBuffer);
 typedef easyaudio_playback_state (* easyaudio_get_playback_state_proc)(easyaudio_buffer* pBuffer);
+typedef void                     (* easyaudio_set_volume_proc)(easyaudio_buffer* pBuffer, float volume);
+typedef float                    (* easyaudio_get_volume_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_set_buffer_position_proc)(easyaudio_buffer* pBuffer, float x, float y, float z);
 typedef void                     (* easyaudio_get_buffer_position_proc)(easyaudio_buffer* pBuffer, float* pPosOut);
 typedef void                     (* easyaudio_remove_markers_proc)(easyaudio_buffer* pBuffer);
@@ -94,6 +97,8 @@ struct easyaudio_context
     easyaudio_pause_proc pause;
     easyaudio_stop_proc stop;
     easyaudio_get_playback_state_proc get_playback_state;
+    easyaudio_set_volume_proc set_volume;
+    easyaudio_get_volume_proc get_volume;
     easyaudio_set_buffer_position_proc set_buffer_position;
     easyaudio_get_buffer_position_proc get_buffer_position;
     easyaudio_remove_markers_proc remove_markers;
@@ -311,12 +316,37 @@ easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer)
 }
 
 
+void easyaudio_set_volume(easyaudio_buffer* pBuffer, float volume)
+{
+    if (pBuffer == NULL) {
+        return;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    pBuffer->pDevice->pContext->set_volume(pBuffer, volume);
+}
+
+float easyaudio_get_volume(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return 1.0f;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    return pBuffer->pDevice->pContext->get_volume(pBuffer);
+}
+
+
 void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, float z)
 {
     if (pBuffer == NULL) {
         return;
     }
 
+     assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
     pBuffer->pDevice->pContext->set_buffer_position(pBuffer, x, y, z);
 }
 
@@ -1774,6 +1804,44 @@ easyaudio_playback_state easyaudio_get_playback_state_dsound(easyaudio_buffer* p
 }
 
 
+void easyaudio_set_volume_dsound(easyaudio_buffer* pBuffer, float volume)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    LONG volumeDB;
+    if (volume > 0) {
+        if (volume < 1) {
+            volumeDB = (LONG)((20*log10f(volume)) * 100);
+        } else {
+            volumeDB = DSBVOLUME_MAX;
+        }
+    } else {
+        volumeDB = DSBVOLUME_MIN;
+    }
+
+    HRESULT hr = IDirectSoundBuffer_SetVolume(pBufferDS->pDSBuffer, volumeDB);
+    if (FAILED(hr)) {
+        printf("TESTING:\n");
+        return;
+    }
+}
+
+float easyaudio_get_volume_dsound(easyaudio_buffer* pBuffer)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    LONG volumeDB;
+    HRESULT hr = IDirectSoundBuffer_GetVolume(pBufferDS->pDSBuffer, &volumeDB);
+    if (FAILED(hr)) {
+        return 1;
+    }
+
+    return (float)(1.0f / powf(10.0f, -volumeDB / (20.0f*100.0f)));
+}
+
+
 void easyaudio_set_buffer_position_dsound(easyaudio_buffer* pBuffer, float x, float y, float z)
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
@@ -2101,6 +2169,8 @@ easyaudio_context* easyaudio_create_context_dsound()
         pContext->base.pause                      = easyaudio_pause_dsound;
         pContext->base.stop                       = easyaudio_stop_dsound;
         pContext->base.get_playback_state         = easyaudio_get_playback_state_dsound;
+        pContext->base.set_volume                 = easyaudio_set_volume_dsound;
+        pContext->base.get_volume                 = easyaudio_get_volume_dsound;
         pContext->base.set_buffer_position        = easyaudio_set_buffer_position_dsound;
         pContext->base.get_buffer_position        = easyaudio_get_buffer_position_dsound;
         pContext->base.remove_markers             = easyaudio_remove_markers_dsound;
