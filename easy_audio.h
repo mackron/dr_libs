@@ -4,6 +4,8 @@
 // QUICK NOTES
 //
 // General
+// - This library is NOT thread safe. Functions can be called from any thread, but it is up to the host application
+//   to do synchronization.
 // - This library is only concerned with playback and recording of raw audio data. It does not load audio files
 //   such as WAV, OGG and MP3.
 // - Before you can create an output (playback) or input (recording) device you need to first create a context.
@@ -19,7 +21,7 @@
 //
 // Events
 // - Events are handled via callbacks. The different types of events include stop, pause, play and markers.
-// - The Stop event is fired when an output buffer is stopped, either from finishing it's playback of if it was
+// - The Stop event is fired when an output buffer is stopped, either from finishing it's playback or if it was
 //   stopped manually.
 // - The Pause event is fired when the output buffer is paused.
 // - The Play event is fired when the output buffer begins being played from either a stopped or paused state.
@@ -30,6 +32,10 @@
 //   to the application to ensure events are handled safely.
 // - Currently, the maximum number of markers is set by EASYAUDIO_MAX_MARKER_COUNT which is set to 4 by default. This
 //   can be increased, however doing so increases memory usage for each sound buffer.
+//
+// Performance Considerations
+// - Creating and deleting buffers should be considered an expensive operation because there is quite a bit of thread
+//   management being performed under the hood. Prefer caching sound buffers.
 //
 
 //
