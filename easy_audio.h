@@ -17,6 +17,18 @@
 //   is currently set to 16 and should be plenty for the vast majority of cases. Feel free to increase (or decrease)
 //   this number to suit your own requirements.
 //
+// Events
+// - Events are handled via callbacks. The different types of events include stop, pause, play and markers.
+// - The Stop event is fired when an output buffer is stopped, either from finishing it's playback of if it was
+//   stopped manually.
+// - The Pause event is fired when the output buffer is paused.
+// - The Play event is fired when the output buffer begins being played from either a stopped or paused state.
+// - A Marker event is fired when the playback position of an output buffer reaches a certain point within the
+//   buffer. This is useful for streaming audio data because it can tell you when a particular section of the
+//   buffer can be filled with new data.
+// - Due to the inherent multi-threaded nature of audio playback, events can be fired from any thread. It is up
+//   to the application to ensure events are handled safely.
+//
 
 //
 // OPTIONS
@@ -44,6 +56,12 @@ extern "C" {
 #endif
 
 
+#define EASYAUDIO_EVENT_ID_STOP     0xFFFFFFFF
+#define EASYAUDIO_EVENT_ID_PAUSE    0xFFFFFFFE
+#define EASYAUDIO_EVENT_ID_PLAY     0xFFFFFFFD
+#define EASYAUDIO_EVENT_ID_MARKER   0
+
+
 // Data formats.
 typedef enum
 {
@@ -56,6 +74,8 @@ typedef enum
 typedef struct easyaudio_context easyaudio_context;
 typedef struct easyaudio_device easyaudio_device;
 typedef struct easyaudio_buffer easyaudio_buffer;
+
+typedef void (* easyaudio_event_callback_proc)(easyaudio_buffer* pBuffer, unsigned int eventID, void *pUserData);
 
 typedef struct
 {
@@ -104,7 +124,7 @@ void easyaudio_delete_context(easyaudio_context* pContext);
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //
-// OUTPUT
+// OUTPUT / PLAYBACK
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -141,13 +161,67 @@ void easyaudio_set_buffer_data(easyaudio_buffer* pBuffer, unsigned int offset, c
 /// Begins playing the givne buffer.
 void easyaudio_play(easyaudio_buffer* pBuffer, bool loop);
 
+/// Sets the position of the given buffer.
+void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, float z);
+
+/// Retrieves the position of the given buffer.
+void easyaudio_get_buffer_position(easyaudio_buffer* pBuffer, float* pPosOut);
+
+
+/// Registers the callback to fire when the playback position hits a certain position in the given buffer.
+///
+/// @param eventID [in] The event ID that will be passed to the callback and can be used to identify a specific marker.
+///
+/// @remarks
+///     This will fail if the buffer is not in a stopped state.
+///     @par
+///     Set the event ID to EASYAUDIO_EVENT_ID_MARKER + n, where "n" is your own application-specific identifier.
+bool easyaudio_register_marker_callback(easyaudio_buffer* pBuffer, unsigned int offsetInBytes, easyaudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
+
+/// Registers the callback to fire when the buffer stops playing.
+///
+/// @remarks
+///     This will fail if the buffer is not in a stopped state.
+///     @par
+///     The will replace any previous callback.
+bool easyaudio_register_stop_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
+
+/// Registers the callback to fire when the buffer is paused.
+///
+/// @remarks
+///     This will fail if the buffer is not in a stopped state.
+///     @par
+///     The will replace any previous callback.
+bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
+
+/// Registers the callback to fire when the buffer begins playing from either a stopped or paused state.
+///
+/// @remarks
+///     This will fail if the buffer is not in a stopped state.
+///     @par
+///     The will replace any previous callback.
+bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
+
+
+/// Sets the position of the listener for the given output device.
+void easyaudio_set_listener_position(easyaudio_device* pDevice, float x, float y, float z);
+
+/// Retrieves the position of the listner for the given output device.
+void easyaudio_get_listener_position(easyaudio_device* pDevice, float* pPosOut);
+
+/// Sets the orientation of the listener for the given output device.
+void easyaudio_set_listener_orientation(easyaudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ);
+
+/// Retrieves the orientation of the listener for the given output device.
+void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwardOut, float* pUpOut);
+
 
 
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //
-// INPUT
+// INPUT / RECORDING
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
