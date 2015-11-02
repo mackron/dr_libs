@@ -28,6 +28,8 @@
 //   buffer can be filled with new data.
 // - Due to the inherent multi-threaded nature of audio playback, events can be fired from any thread. It is up
 //   to the application to ensure events are handled safely.
+// - Currently, the maximum number of markers is set by EASYAUDIO_MAX_MARKER_COUNT which is set to 4 by default. This
+//   can be increased, however doing so increases memory usage for each sound buffer.
 //
 
 //
@@ -49,6 +51,7 @@ extern "C" {
 
 
 #define EASYAUDIO_MAX_DEVICE_COUNT  16
+#define EASYAUDIO_MAX_MARKER_COUNT  4
 
 
 #if defined(_WIN32) && !defined(EASYAUDIO_NO_DIRECTSOUND)
@@ -69,6 +72,15 @@ typedef enum
     easyaudio_format_float
 
 } easyaudio_format;
+
+// Playback states.
+typedef enum
+{
+    easyaudio_stopped,
+    easyaudio_paused,
+    easyaudio_playing
+
+} easyaudio_playback_state;
 
 
 typedef struct easyaudio_context easyaudio_context;
@@ -158,8 +170,19 @@ void easyaudio_delete_buffer(easyaudio_buffer* pBuffer);
 /// Sets the data of the given buffer.
 void easyaudio_set_buffer_data(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
 
-/// Begins playing the givne buffer.
+
+/// Begins or resumes playing the given buffer.
 void easyaudio_play(easyaudio_buffer* pBuffer, bool loop);
+
+/// Pauses playback of the given buffer.
+void easyaudio_pause(easyaudio_buffer* pBuffer);
+
+/// Stops playback of the given buffer.
+void easyaudio_stop(easyaudio_buffer* pBuffer);
+
+/// Retrieves the playback state of the given buffer.
+easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer);
+
 
 /// Sets the position of the given buffer.
 void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, float z);
