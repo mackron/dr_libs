@@ -168,16 +168,29 @@ void easyaudio_delete_output_device(easyaudio_device* pDevice);
 
 
 /// Create a buffer.
-easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc);
+easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, unsigned int extraDataSize);
 
 /// Deletes the given buffer.
 void easyaudio_delete_buffer(easyaudio_buffer* pBuffer);
 
-/// Sets the data of the given buffer.
+
+/// Retrieves the size in bytes of the given buffer's extra data.
+unsigned int easyaudio_get_buffer_extra_data_size(easyaudio_buffer* pBuffer);
+
+/// Retrieves a pointer to the given buffer's extra data.
+void* easyaudio_get_buffer_extra_data(easyaudio_buffer* pBuffer);
+
+
+
+/// Sets the audio data of the given buffer.
 void easyaudio_set_buffer_data(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
 
 
 /// Begins or resumes playing the given buffer.
+///
+/// @remarks
+///     If the sound is already playing, it will continue to play, but the \c loop setting will be replaced with that specified
+///     by the most recent call.
 void easyaudio_play(easyaudio_buffer* pBuffer, bool loop);
 
 /// Pauses playback of the given buffer.
@@ -265,12 +278,44 @@ void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwa
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 //
-// TESTING
+// HIGH-LEVEL API
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-void easyaudio_dsound_test1();
+typedef bool (* easyaudio_stream_read_proc)(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
+typedef bool (* easyaudio_stream_seek_proc)(void* pUserData, unsigned int offsetInBytesFromStart);
+
+typedef struct
+{
+    /// A pointer to the function to call when more data needs to be read.
+    easyaudio_stream_read_proc read;
+
+    /// Seeks source data from the beginning of the file.
+    easyaudio_stream_seek_proc seek;
+
+} easyaudio_streaming_callbacks;
+
+
+/// Creates a buffer that's pre-configured for use for streaming audio data.
+///
+/// @remarks
+///     This function is just a high-level convenience wrapper. The returned buffer is just a regular buffer with pre-configured
+///     markers attached to the buffer. This will attach 3 markers in total which means there is only EASYAUDIO_MAX_MARKER_COUNT - 3
+///     marker slots available to the application.
+///     @par
+///     You must play the buffer with easyaudio_play_streaming_buffer() because the underlying buffer management is slightly different
+///     to a regular buffer.
+///     @par
+///     Looping and stop callbacks may be inaccurate by up to half a second.
+///     @par
+///     Callback functions use bytes to determine how much data to process. This is always a multiple of samples * channels, however.
+///     @par
+///     The first chunk of data is not loaded until the buffer is played with easyaudio_play_streaming_buffer().
+easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, easyaudio_streaming_callbacks callbacks, void* pUserData);
+
+/// Begins playing the given streaming buffer.
+bool easyaudio_play_streaming_buffer(easyaudio_buffer* pBuffer, bool loop);
 
 
 

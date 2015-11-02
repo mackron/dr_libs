@@ -56,8 +56,10 @@ typedef easyaudio_device*        (* easyaudio_create_output_device_proc)(easyaud
 typedef void                     (* easyaudio_delete_output_device_proc)(easyaudio_device* pDevice);
 typedef unsigned int             (* easyaudio_get_output_device_count_proc)(easyaudio_context* pContext);
 typedef bool                     (* easyaudio_get_output_device_info_proc)(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut);
-typedef easyaudio_buffer*        (* easyaudio_create_buffer_proc)(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc);
+typedef easyaudio_buffer*        (* easyaudio_create_buffer_proc)(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, unsigned int extraDataSize);
 typedef void                     (* easyaudio_delete_buffer_proc)(easyaudio_buffer* pBuffer);
+typedef unsigned int             (* easyaudio_get_buffer_extra_data_size_proc)(easyaudio_buffer* pBuffer);
+typedef void*                    (* easyaudio_get_buffer_extra_data_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_set_buffer_data_proc)(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
 typedef void                     (* easyaudio_play_proc)(easyaudio_buffer* pBuffer, bool loop);
 typedef void                     (* easyaudio_pause_proc)(easyaudio_buffer* pBuffer);
@@ -85,6 +87,8 @@ struct easyaudio_context
     easyaudio_get_output_device_info_proc get_output_device_info;
     easyaudio_create_buffer_proc create_buffer;
     easyaudio_delete_buffer_proc delete_buffer;
+    easyaudio_get_buffer_extra_data_size_proc get_buffer_extra_data_size;
+    easyaudio_get_buffer_extra_data_proc get_buffer_extra_data;
     easyaudio_set_buffer_data_proc set_buffer_data;
     easyaudio_play_proc play;
     easyaudio_pause_proc pause;
@@ -198,7 +202,7 @@ void easyaudio_delete_output_device(easyaudio_device* pDevice)
 }
 
 
-easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc)
+easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, unsigned int extraDataSize)
 {
     if (pDevice == NULL) {
         return NULL;
@@ -209,7 +213,7 @@ easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_b
     }
 
     assert(pDevice->pContext != NULL);
-    return pDevice->pContext->create_buffer(pDevice, pBufferDesc);
+    return pDevice->pContext->create_buffer(pDevice, pBufferDesc, extraDataSize);
 }
 
 void easyaudio_delete_buffer(easyaudio_buffer* pBuffer)
@@ -222,6 +226,30 @@ void easyaudio_delete_buffer(easyaudio_buffer* pBuffer)
     assert(pBuffer->pDevice->pContext != NULL);
     pBuffer->pDevice->pContext->delete_buffer(pBuffer);
 }
+
+
+unsigned int easyaudio_get_buffer_extra_data_size(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return 0;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    return pBuffer->pDevice->pContext->get_buffer_extra_data_size(pBuffer);
+}
+
+void* easyaudio_get_buffer_extra_data(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return NULL;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    return pBuffer->pDevice->pContext->get_buffer_extra_data(pBuffer);
+}
+
 
 void easyaudio_set_buffer_data(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes)
 {
@@ -434,6 +462,199 @@ void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwa
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//
+// HIGH-LEVEL API
+//
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+#define EASYAUDIO_STREAMING_MARKER_0    EASYAUDIO_EVENT_ID_MARKER + 0
+#define EASYAUDIO_STREAMING_MARKER_1    EASYAUDIO_EVENT_ID_MARKER + 1
+
+#define EASYAUDIO_STREAMING_CHUNK_INVALID   0
+
+typedef struct
+{
+    /// The steaming buffer callbacks.
+    easyaudio_streaming_callbacks callbacks;
+
+    /// The user data to pass to the streaming callbacks.
+    void* pUserData;
+
+    /// Keeps track of whether or not we are at the start of the playback.
+    bool atStart;
+
+    /// Keeps track of whether or not we should stop at the end of the next chunk.
+    bool stopAtEndOfCurrentChunk;
+
+    /// Keeps track of whether or not the sound should loop.
+    bool isLoopingEnabled;
+
+    /// The size of an individual chunk. A chunk is half the size of the buffer.
+    unsigned int chunkSize;
+
+    /// A pointer to the temporary buffer for loading chunk data.
+    unsigned char pTempChunkData[1];
+
+} ea_streaming_buffer_data;
+
+
+bool ea_streaming_buffer_load_next_chunk(easyaudio_buffer* pBuffer, ea_streaming_buffer_data* pStreamingData, unsigned int offset, unsigned int chunkSize)
+{
+    assert(pStreamingData != NULL);
+    assert(pStreamingData->callbacks.read != NULL);
+    assert(pStreamingData->callbacks.seek != NULL);
+    assert(pStreamingData->chunkSize >= chunkSize);
+
+    // A chunk size of 0 is valid, but we just return immediately.
+    if (chunkSize == 0) {
+        return true;
+    }
+
+    unsigned int bytesRead;
+    if (!pStreamingData->callbacks.read(pStreamingData->pUserData, pStreamingData->pTempChunkData, chunkSize, &bytesRead))
+    {
+        // There was an error reading the data. We might have run out of data.
+        return false;
+    }
+
+
+    pStreamingData->stopAtEndOfCurrentChunk = false;
+
+    easyaudio_set_buffer_data(pBuffer, offset, pStreamingData->pTempChunkData, bytesRead);
+
+    if (chunkSize > bytesRead)
+    {
+        // The number of bytes read is less than our chunk size. This is our cue that we've reached the end of the steam. If we're looping, we
+        // just seek back to the start and read more data. There is a chance the data total size of the streaming data is smaller than our
+        // chunk, so we actually want to do this recursively.
+        //
+        // If we're not looping, we fill the remaining data with silence.
+        if (pStreamingData->isLoopingEnabled)
+        {
+            pStreamingData->callbacks.seek(pStreamingData->pUserData, 0);
+            return ea_streaming_buffer_load_next_chunk(pBuffer, pStreamingData, offset + bytesRead, chunkSize - bytesRead);
+        }
+        else
+        {
+            memset(pStreamingData->pTempChunkData + bytesRead, 0, chunkSize - bytesRead);
+            easyaudio_set_buffer_data(pBuffer, offset + bytesRead, pStreamingData->pTempChunkData + bytesRead, chunkSize - bytesRead);
+
+            pStreamingData->stopAtEndOfCurrentChunk = true;
+        }
+    }
+
+    return true;
+}
+
+void ea_steaming_buffer_marker_callback(easyaudio_buffer* pBuffer, unsigned int eventID, void *pUserData)
+{
+    ea_streaming_buffer_data* pStreamingData = pUserData;
+    assert(pStreamingData != NULL);
+    
+    unsigned int offset = 0;
+    if (eventID == EASYAUDIO_STREAMING_MARKER_0) {
+        offset = pStreamingData->chunkSize;
+    }
+
+    if (pStreamingData->stopAtEndOfCurrentChunk)
+    {
+        if (!pStreamingData->atStart) {
+            easyaudio_stop(pBuffer);
+        }
+    }
+    else
+    {
+        ea_streaming_buffer_load_next_chunk(pBuffer, pStreamingData, offset, pStreamingData->chunkSize);
+    }
+
+    pStreamingData->atStart = false;
+}
+
+
+easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, easyaudio_streaming_callbacks callbacks, void* pUserData)
+{
+    if (callbacks.read == NULL) {
+        return NULL;
+    }
+
+    if (pBufferDesc == NULL) {
+        return NULL;
+    }
+
+
+    // We are determining for ourselves what the size of the buffer should be. We need to create our own copy rather than modify the input descriptor.
+    easyaudio_buffer_desc bufferDesc = *pBufferDesc;
+    bufferDesc.sizeInBytes  = pBufferDesc->sampleRate * pBufferDesc->channels * (pBufferDesc->bitsPerSample / 8);
+    bufferDesc.pInitialData = NULL;
+
+    unsigned int chunkSize = bufferDesc.sizeInBytes / 2;
+
+    easyaudio_buffer* pBuffer = easyaudio_create_buffer(pDevice, &bufferDesc, sizeof(ea_streaming_buffer_data) - sizeof(unsigned char) + chunkSize);
+    if (pBuffer == NULL) {
+        return NULL;
+    }
+
+
+    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    assert(pStreamingData != NULL);
+
+    pStreamingData->callbacks               = callbacks;
+    pStreamingData->pUserData               = pUserData;
+    pStreamingData->atStart                 = true;
+    pStreamingData->stopAtEndOfCurrentChunk = false;
+    pStreamingData->isLoopingEnabled        = false;
+    pStreamingData->chunkSize               = chunkSize;
+
+    // Register two markers - one for the first half and another for the second half. When a half is finished playing we need to 
+    // replace it with new data.
+    easyaudio_register_marker_callback(pBuffer, 0,         ea_steaming_buffer_marker_callback, EASYAUDIO_STREAMING_MARKER_0, pStreamingData);
+    easyaudio_register_marker_callback(pBuffer, chunkSize, ea_steaming_buffer_marker_callback, EASYAUDIO_STREAMING_MARKER_1, pStreamingData);
+
+
+    return pBuffer;
+}
+
+bool easyaudio_play_streaming_buffer(easyaudio_buffer* pBuffer, bool loop)
+{
+    if (pBuffer == NULL) {
+        return false;
+    }
+
+
+    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    assert(pStreamingData != NULL);
+
+    // If the buffer was previously in a paused state, we just play like normal. If it was in a stopped state we need to start from the beginning.
+    if (easyaudio_get_playback_state(pBuffer) == easyaudio_stopped)
+    {
+        // We need to load some initial data into the first chunk.
+        pStreamingData->atStart = true;
+        pStreamingData->callbacks.seek(pStreamingData->pUserData, 0);
+
+        if (!ea_streaming_buffer_load_next_chunk(pBuffer, pStreamingData, 0, pStreamingData->chunkSize))
+        {
+            // There was an error loading the initial data.
+            return false;
+        }
+    }
+
+
+    pStreamingData->isLoopingEnabled = loop;
+    easyaudio_play(pBuffer, true);      // <-- Always loop on a streaming buffer. Actual looping is done a bit differently for streaming buffers.
+
+    return true;
+}
 
 
 
@@ -662,7 +883,7 @@ void ea_close_win32_event_handle_dsound(ea_event_dsound* pEvent)
     ea_lock_events_dsound(pEvent->pEventManager);
     {
         assert(pEvent->hEvent != NULL);
-
+        
         HANDLE hEventToClose = pEvent->hEvent;
         pEvent->hEvent = NULL;
 
@@ -1067,6 +1288,13 @@ typedef struct
     /// The event to trigger when the sound is played or resumed.
     ea_event_dsound* pPlayEvent;
 
+
+    /// The size in bytes of the buffer's extra data.
+    unsigned int extraDataSize;
+
+    /// The buffer's extra data.
+    unsigned char pExtraData[1];
+
 } easyaudio_buffer_dsound;
 
 
@@ -1267,7 +1495,7 @@ void easyaudio_delete_output_device_dsound(easyaudio_device* pDevice)
 }
 
 
-easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc)
+easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, unsigned int extraDataSize)
 {
     easyaudio_device_dsound* pDeviceDS = (easyaudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
@@ -1363,7 +1591,7 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     }
 
 
-    easyaudio_buffer_dsound* pBufferDS = malloc(sizeof(easyaudio_buffer_dsound));
+    easyaudio_buffer_dsound* pBufferDS = malloc(sizeof(easyaudio_buffer_dsound) - sizeof(pBufferDS->pExtraData) + extraDataSize);
     if (pBufferDS == NULL) {
         IDirectSound3DBuffer_Release(pDSBuffer3D);
         IDirectSoundBuffer8_Release(pDSBuffer);
@@ -1424,6 +1652,24 @@ void easyaudio_delete_buffer_dsound(easyaudio_buffer* pBuffer)
     free(pBufferDS);
 }
 
+
+unsigned int easyaudio_get_buffer_extra_data_size_dsound(easyaudio_buffer* pBuffer)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    return pBufferDS->extraDataSize;
+}
+
+void* easyaudio_get_buffer_extra_data_dsound(easyaudio_buffer* pBuffer)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    return pBufferDS->pExtraData;
+}
+
+
 bool easyaudio_set_buffer_data_dsound(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes)
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
@@ -1432,12 +1678,12 @@ bool easyaudio_set_buffer_data_dsound(easyaudio_buffer* pBuffer, unsigned int of
 
     LPVOID lpvWrite;
     DWORD dwLength;
-    HRESULT hr = IDirectSoundBuffer8_Lock(pBufferDS->pDSBuffer, offset, dataSizeInBytes, &lpvWrite, &dwLength, NULL, NULL, DSBLOCK_ENTIREBUFFER);
+    HRESULT hr = IDirectSoundBuffer8_Lock(pBufferDS->pDSBuffer, offset, dataSizeInBytes, &lpvWrite, &dwLength, NULL, NULL, 0);
     if (FAILED(hr)) {
         return false;
     }
 
-    assert(dwLength == dataSizeInBytes);
+    assert(dataSizeInBytes <= dwLength);
     memcpy(lpvWrite, pData, dataSizeInBytes);
 
     hr = IDirectSoundBuffer8_Unlock(pBufferDS->pDSBuffer, lpvWrite, dwLength, NULL, 0);
@@ -1454,8 +1700,9 @@ void easyaudio_play_dsound(easyaudio_buffer* pBuffer, bool loop)
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
+    bool postEvent = true;
     if (pBufferDS->playbackState == easyaudio_playing) {
-        return;
+        postEvent = false;
     }
 
 
@@ -1474,7 +1721,7 @@ void easyaudio_play_dsound(easyaudio_buffer* pBuffer, bool loop)
     IDirectSoundBuffer8_Play(pBufferDS->pDSBuffer, 0, 0, dwFlags);
 
     // If we have a play event we need to signal the event which will cause the worker thread to call the callback function.
-    if (pBufferDS->pPlayEvent != NULL) {
+    if (pBufferDS->pPlayEvent != NULL && postEvent) {
         SetEvent(pBufferDS->pPlayEvent->hEvent);
     }
 }
@@ -1840,35 +2087,37 @@ easyaudio_context* easyaudio_create_context_dsound()
     easyaudio_context_dsound* pContext = malloc(sizeof(easyaudio_context_dsound));
     if (pContext != NULL)
     {
-        pContext->base.delete_context           = easyaudio_delete_context_dsound;
-        pContext->base.create_output_device     = easyaudio_create_output_device_dsound;
-        pContext->base.delete_output_device     = easyaudio_delete_output_device_dsound;
-        pContext->base.get_output_device_count  = easyaudio_get_output_device_count_dsound;
-        pContext->base.get_output_device_info   = easyaudio_get_output_device_info_dsound;
-        pContext->base.create_buffer            = easyaudio_create_buffer_dsound;
-        pContext->base.delete_buffer            = easyaudio_delete_buffer_dsound;
-        pContext->base.set_buffer_data          = easyaudio_set_buffer_data_dsound;
-        pContext->base.play                     = easyaudio_play_dsound;
-        pContext->base.pause                    = easyaudio_pause_dsound;
-        pContext->base.stop                     = easyaudio_stop_dsound;
-        pContext->base.get_playback_state       = easyaudio_get_playback_state_dsound;
-        pContext->base.set_buffer_position      = easyaudio_set_buffer_position_dsound;
-        pContext->base.get_buffer_position      = easyaudio_get_buffer_position_dsound;
-        pContext->base.remove_markers           = easyaudio_remove_markers_dsound;
-        pContext->base.register_marker_callback = easyaudio_register_marker_callback_dsound;
-        pContext->base.register_stop_callback   = easyaudio_register_stop_callback_dsound;
-        pContext->base.register_pause_callback  = easyaudio_register_pause_callback_dsound;
-        pContext->base.register_play_callback   = easyaudio_register_play_callback_dsound;
-        pContext->base.set_listener_position    = easyaudio_set_listener_position_dsound;
-        pContext->base.get_listener_position    = easyaudio_get_listener_position_dsound;
-        pContext->base.set_listener_orientation = easyaudio_set_listener_orientation_dsound;
-        pContext->base.get_listener_orientation = easyaudio_get_listener_orientation_dsound;
+        pContext->base.delete_context             = easyaudio_delete_context_dsound;
+        pContext->base.create_output_device       = easyaudio_create_output_device_dsound;
+        pContext->base.delete_output_device       = easyaudio_delete_output_device_dsound;
+        pContext->base.get_output_device_count    = easyaudio_get_output_device_count_dsound;
+        pContext->base.get_output_device_info     = easyaudio_get_output_device_info_dsound;
+        pContext->base.create_buffer              = easyaudio_create_buffer_dsound;
+        pContext->base.delete_buffer              = easyaudio_delete_buffer_dsound;
+        pContext->base.get_buffer_extra_data_size = easyaudio_get_buffer_extra_data_size_dsound;
+        pContext->base.get_buffer_extra_data      = easyaudio_get_buffer_extra_data_dsound;
+        pContext->base.set_buffer_data            = easyaudio_set_buffer_data_dsound;
+        pContext->base.play                       = easyaudio_play_dsound;
+        pContext->base.pause                      = easyaudio_pause_dsound;
+        pContext->base.stop                       = easyaudio_stop_dsound;
+        pContext->base.get_playback_state         = easyaudio_get_playback_state_dsound;
+        pContext->base.set_buffer_position        = easyaudio_set_buffer_position_dsound;
+        pContext->base.get_buffer_position        = easyaudio_get_buffer_position_dsound;
+        pContext->base.remove_markers             = easyaudio_remove_markers_dsound;
+        pContext->base.register_marker_callback   = easyaudio_register_marker_callback_dsound;
+        pContext->base.register_stop_callback     = easyaudio_register_stop_callback_dsound;
+        pContext->base.register_pause_callback    = easyaudio_register_pause_callback_dsound;
+        pContext->base.register_play_callback     = easyaudio_register_play_callback_dsound;
+        pContext->base.set_listener_position      = easyaudio_set_listener_position_dsound;
+        pContext->base.get_listener_position      = easyaudio_get_listener_position_dsound;
+        pContext->base.set_listener_orientation   = easyaudio_set_listener_orientation_dsound;
+        pContext->base.get_listener_orientation   = easyaudio_get_listener_orientation_dsound;
 
-        pContext->hDSoundDLL                    = hDSoundDLL;
-        pContext->pDirectSoundCreate8           = pDirectSoundCreate8;
-        pContext->pDirectSoundEnumerateA        = pDirectSoundEnumerateA;
-        pContext->pDirectSoundCaptureCreate8    = pDirectSoundCaptureCreate8;
-        pContext->pDirectSoundCaptureEnumerateA = pDirectSoundCaptureEnumerateA;
+        pContext->hDSoundDLL                      = hDSoundDLL;
+        pContext->pDirectSoundCreate8             = pDirectSoundCreate8;
+        pContext->pDirectSoundEnumerateA          = pDirectSoundEnumerateA;
+        pContext->pDirectSoundCaptureCreate8      = pDirectSoundCaptureCreate8;
+        pContext->pDirectSoundCaptureEnumerateA   = pDirectSoundCaptureEnumerateA;
 
         // Enumerate output devices.
         pContext->outputDeviceCount = 0;
