@@ -46,6 +46,18 @@
 //   Windows platforms, so you will likely not want to set this. DirectSound will only be compiled on Win32 builds.
 //
 
+//
+// TODO
+//
+// - DirectSound: Consider using Win32 critical sections instead of events where possible.
+// - DirectSound: Remove the semaphore and replace with an auto-reset event.
+// - Implement a better error handling API.
+// - Implement velocity
+// - Implement cones
+// - Implement attenuation min/max distances
+// - Implement effects
+//
+
 #ifndef easy_audio
 #define easy_audio
 
