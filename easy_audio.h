@@ -3,6 +3,11 @@
 //
 // QUICK NOTES
 //
+// If you've stumbled across this library, be aware that this is very, very early in development. A lot of APIs
+// are very temporary, in particular the effects API which at the moment are tied very closely to DirectSound.
+//
+// Currently, the only backend available is DirectSound while I figure out the API. 
+//
 // General
 // - This library is NOT thread safe. Functions can be called from any thread, but it is up to the host application
 //   to do synchronization.
@@ -52,10 +57,10 @@
 // - DirectSound: Consider using Win32 critical sections instead of events where possible.
 // - DirectSound: Remove the semaphore and replace with an auto-reset event.
 // - Implement a better error handling API.
+// - Implement effects
 // - Implement velocity
 // - Implement cones
 // - Implement attenuation min/max distances
-// - Implement effects
 //
 
 #ifndef easy_audio
@@ -102,6 +107,19 @@ typedef enum
 
 } easyaudio_playback_state;
 
+// Effect types.
+typedef enum
+{
+    easyaudio_effect_type_none,
+    easyaudio_effect_type_i3dl2reverb,
+    easyaudio_effect_type_chorus,
+    easyaudio_effect_type_compressor,
+    easyaudio_effect_type_distortion,
+    easyaudio_effect_type_echo,
+    easyaudio_effect_type_flanger
+
+} easyaudio_effect_type;
+
 
 typedef struct easyaudio_context easyaudio_context;
 typedef struct easyaudio_device easyaudio_device;
@@ -141,6 +159,77 @@ typedef struct
     void* pInitialData;
 
 } easyaudio_buffer_desc;
+
+typedef struct
+{
+    /// The effect type.
+    easyaudio_effect_type type;
+
+    struct
+    {
+        float room;
+        float roomHF;
+        float roomRolloffFactor;
+        float decayTime;
+        float reflections;
+        float reflectionsDelay;
+        float reverb;
+        float reverbDelay;
+        float diffusion;
+        float density;
+        float hfReference;
+    } i3dl2reverb;
+
+    struct
+    {
+        int waveform;
+        int phase;
+        float depth;
+        float feedback;
+        float frequency;
+        float delay;
+    } chorus;
+
+    struct
+    {
+        float gain;
+        float attack;
+        float release;
+        float threshold;
+        float ratio;
+        float predelay;
+    } compressor;
+
+    struct
+    {
+        float gain;
+        float edge;
+        float postEQCenterFrequency;
+        float postEQBandwidth;
+        float preLowpassCutoff;
+    } distortion;
+
+    struct
+    {
+        float wetDryMix;
+        float feedback;
+        float leftDelay;
+        float rightDelay;
+        float panDelay;
+    } echo;
+
+    struct
+    {
+        float wetDryMix;
+        float depth;
+        float feedback;
+        float frequency;
+        float waveform;
+        float delay;
+        float phase;
+    } flanger;
+
+} easyaudio_effect;
 
 
 /// Creates a context which chooses an appropriate backend based on the given platform.
@@ -295,10 +384,10 @@ bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event
 ///
 /// @remarks
 ///     This does nothing for buffers that do not support 3D positioning.
-void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, float z);
+void easyaudio_set_position(easyaudio_buffer* pBuffer, float x, float y, float z);
 
 /// Retrieves the position of the given buffer in 3D space.
-void easyaudio_get_buffer_position(easyaudio_buffer* pBuffer, float* pPosOut);
+void easyaudio_get_position(easyaudio_buffer* pBuffer, float* pPosOut);
 
 /// Sets the position of the listener for the given output device.
 void easyaudio_set_listener_position(easyaudio_device* pDevice, float x, float y, float z);
