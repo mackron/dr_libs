@@ -234,16 +234,6 @@ void easyaudio_set_volume(easyaudio_buffer* pBuffer, float volume);
 float easyaudio_get_volume(easyaudio_buffer* pBuffer);
 
 
-/// Sets the position of the given buffer in 3D space.
-///
-/// @remarks
-///     This does nothing for buffers that do not support 3D positioning.
-void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, float z);
-
-/// Retrieves the position of the given buffer in 3D space.
-void easyaudio_get_buffer_position(easyaudio_buffer* pBuffer, float* pPosOut);
-
-
 /// Removes every marker.
 void easyaudio_remove_markers(easyaudio_buffer* pBuffer);
 
@@ -281,6 +271,15 @@ bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_even
 ///     The will replace any previous callback.
 bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
 
+
+/// Sets the position of the given buffer in 3D space.
+///
+/// @remarks
+///     This does nothing for buffers that do not support 3D positioning.
+void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, float z);
+
+/// Retrieves the position of the given buffer in 3D space.
+void easyaudio_get_buffer_position(easyaudio_buffer* pBuffer, float* pPosOut);
 
 /// Sets the position of the listener for the given output device.
 void easyaudio_set_listener_position(easyaudio_device* pDevice, float x, float y, float z);
