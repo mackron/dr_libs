@@ -211,6 +211,13 @@ void easyaudio_stop(easyaudio_buffer* pBuffer);
 easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer);
 
 
+/// Sets the playback position for the given buffer.
+void easyaudio_set_playback_position(easyaudio_buffer* pBuffer, unsigned int position);
+
+/// Retrieves hte playback position of the given buffer.
+unsigned int easyaudio_get_playback_position(easyaudio_buffer* pBuffer);
+
+
 /// Sets the pan of the given buffer.
 ///
 /// @remarks

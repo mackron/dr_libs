@@ -66,6 +66,8 @@ typedef void                     (* easyaudio_play_proc)(easyaudio_buffer* pBuff
 typedef void                     (* easyaudio_pause_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_stop_proc)(easyaudio_buffer* pBuffer);
 typedef easyaudio_playback_state (* easyaudio_get_playback_state_proc)(easyaudio_buffer* pBuffer);
+typedef void                     (* easyaudio_set_playback_position_proc)(easyaudio_buffer* pBuffer, unsigned int position);
+typedef unsigned int             (* easyaudio_get_playback_position_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_set_pan_proc)(easyaudio_buffer* pBuffer, float pan);
 typedef float                    (* easyaudio_get_pan_proc)(easyaudio_buffer* pBuffer);
 typedef void                     (* easyaudio_set_volume_proc)(easyaudio_buffer* pBuffer, float volume);
@@ -99,6 +101,8 @@ struct easyaudio_context
     easyaudio_pause_proc pause;
     easyaudio_stop_proc stop;
     easyaudio_get_playback_state_proc get_playback_state;
+    easyaudio_set_playback_position_proc set_playback_position;
+    easyaudio_get_playback_position_proc get_playback_position;
     easyaudio_set_pan_proc set_pan;
     easyaudio_get_pan_proc get_pan;
     easyaudio_set_volume_proc set_volume;
@@ -317,6 +321,29 @@ easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer)
     assert(pBuffer->pDevice != NULL);
     assert(pBuffer->pDevice->pContext != NULL);
     return pBuffer->pDevice->pContext->get_playback_state(pBuffer);
+}
+
+
+void easyaudio_set_playback_position(easyaudio_buffer* pBuffer, unsigned int position)
+{
+    if (pBuffer == NULL) {
+        return;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    pBuffer->pDevice->pContext->set_playback_position(pBuffer, position);
+}
+
+unsigned int easyaudio_get_playback_position(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return 0;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    return pBuffer->pDevice->pContext->get_playback_position(pBuffer);
 }
 
 
@@ -1844,6 +1871,29 @@ easyaudio_playback_state easyaudio_get_playback_state_dsound(easyaudio_buffer* p
 }
 
 
+void easyaudio_set_playback_position_dsound(easyaudio_buffer* pBuffer, unsigned int position)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    pBufferDS->pDSBuffer->lpVtbl->SetCurrentPosition(pBufferDS->pDSBuffer, position);
+}
+
+unsigned int easyaudio_get_playback_position_dsound(easyaudio_buffer* pBuffer)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    DWORD position;
+    HRESULT hr = pBufferDS->pDSBuffer->lpVtbl->GetCurrentPosition(pBufferDS->pDSBuffer, &position, NULL);
+    if (FAILED(hr)) {
+        return 0;
+    }
+
+    return position;
+}
+
+
 void easyaudio_set_pan_dsound(easyaudio_buffer* pBuffer, float pan)
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
@@ -2254,6 +2304,8 @@ easyaudio_context* easyaudio_create_context_dsound()
         pContext->base.pause                      = easyaudio_pause_dsound;
         pContext->base.stop                       = easyaudio_stop_dsound;
         pContext->base.get_playback_state         = easyaudio_get_playback_state_dsound;
+        pContext->base.set_playback_position      = easyaudio_set_playback_position_dsound;
+        pContext->base.get_playback_position      = easyaudio_get_playback_position_dsound;
         pContext->base.set_pan                    = easyaudio_set_pan_dsound;
         pContext->base.get_pan                    = easyaudio_get_pan_dsound;
         pContext->base.set_volume                 = easyaudio_set_volume_dsound;
