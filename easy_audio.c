@@ -372,7 +372,7 @@ void easyaudio_set_buffer_position(easyaudio_buffer* pBuffer, float x, float y, 
         return;
     }
 
-     assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice != NULL);
     assert(pBuffer->pDevice->pContext != NULL);
     pBuffer->pDevice->pContext->set_buffer_position(pBuffer, x, y, z);
 }
@@ -534,6 +534,12 @@ void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwa
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+
+//// HELPERS ////
+
+
+
+//// STREAMING ////
 
 #define EASYAUDIO_STREAMING_MARKER_0    EASYAUDIO_EVENT_ID_MARKER + 0
 #define EASYAUDIO_STREAMING_MARKER_1    EASYAUDIO_EVENT_ID_MARKER + 1
@@ -1562,6 +1568,12 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     assert(pContextDS != NULL);
 
 
+    // 3D is only valid for mono sounds.
+    if (pBufferDesc->channels > 1 && (pBufferDesc->flags & EASYAUDIO_ENABLE_3D) != 0) {
+        return NULL;
+    }
+
+
     WAVEFORMATEX wf;
     memset(&wf, 0, sizeof(wf));
     wf.cbSize          = sizeof(wf);
@@ -1586,13 +1598,13 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     DSBUFFERDESC descDS;
     memset(&descDS, 0, sizeof(DSBUFFERDESC)); 
     descDS.dwSize          = sizeof(DSBUFFERDESC); 
-    descDS.dwFlags         = DSBCAPS_CTRLVOLUME | /*DSBCAPS_CTRLPAN | */DSBCAPS_CTRLPOSITIONNOTIFY | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
+    descDS.dwFlags         = DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPOSITIONNOTIFY | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
     descDS.dwBufferBytes   = pBufferDesc->sizeInBytes;
     descDS.lpwfxFormat     = &wf;
 
     LPDIRECTSOUNDBUFFER8   pDSBuffer   = NULL;
     LPDIRECTSOUND3DBUFFER8 pDSBuffer3D = NULL;
-    if (wf.nChannels > 1)
+    if ((pBufferDesc->flags & EASYAUDIO_ENABLE_3D) == 0)
     {
         // 3D Disabled.
         descDS.dwFlags |= DSBCAPS_CTRLPAN;
@@ -1630,12 +1642,12 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
         IDirectSoundBuffer_Release(pDSBufferTemp);
 
 
-        hr = pDSBuffer->lpVtbl->QueryInterface(pDSBuffer, &g_DirectSound3DBuffer8GUID, &pDSBuffer3D);
+        hr = IDirectSoundBuffer_QueryInterface(pDSBuffer, &g_DirectSound3DBuffer8GUID, &pDSBuffer3D);
         if (FAILED(hr)) {
             return NULL;
         }
 
-        pDSBuffer3D->lpVtbl->SetPosition(pDSBuffer3D, 0, 0, 0, DS3D_IMMEDIATE);
+        IDirectSound3DBuffer_SetPosition(pDSBuffer3D, 0, 0, 0, DS3D_IMMEDIATE);
     }
 
 

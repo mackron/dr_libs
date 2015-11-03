@@ -70,6 +70,8 @@ extern "C" {
 #define EASYAUDIO_EVENT_ID_PLAY     0xFFFFFFFD
 #define EASYAUDIO_EVENT_ID_MARKER   0
 
+#define EASYAUDIO_ENABLE_3D         (1 << 0)
+
 
 // Data formats.
 typedef enum
@@ -104,6 +106,10 @@ typedef struct
 
 typedef struct
 {
+    /// Boolean flags.
+    ///   EASYAUDIO_ENABLE_3D: Enable 3D positioning
+    unsigned int flags;
+
     /// The data format.
     easyaudio_format format;
 
@@ -168,6 +174,9 @@ void easyaudio_delete_output_device(easyaudio_device* pDevice);
 
 
 /// Create a buffer.
+///
+/// @remarks
+///     This will fail if 3D positioning is requested when the sound has more than 1 channel.
 easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, unsigned int extraDataSize);
 
 /// Deletes the given buffer.
@@ -179,7 +188,6 @@ unsigned int easyaudio_get_buffer_extra_data_size(easyaudio_buffer* pBuffer);
 
 /// Retrieves a pointer to the given buffer's extra data.
 void* easyaudio_get_buffer_extra_data(easyaudio_buffer* pBuffer);
-
 
 
 /// Sets the audio data of the given buffer.
@@ -309,6 +317,11 @@ void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwa
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+//// HELPERS ////
+
+
+
+//// STREAMING ////
 typedef bool (* easyaudio_stream_read_proc)(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
 typedef bool (* easyaudio_stream_seek_proc)(void* pUserData, unsigned int offsetInBytesFromStart);
 
