@@ -235,6 +235,16 @@ void easyaudio_delete_buffer(easyaudio_buffer* pBuffer)
         return;
     }
 
+    // The sound needs to be stopped first.
+    easyaudio_stop(pBuffer);
+
+    // Now we need to remove every event.
+    easyaudio_remove_markers(pBuffer);
+    easyaudio_register_stop_callback(pBuffer, NULL, NULL);
+    easyaudio_register_pause_callback(pBuffer, NULL, NULL);
+    easyaudio_register_play_callback(pBuffer, NULL, NULL);
+
+
     assert(pBuffer->pDevice != NULL);
     assert(pBuffer->pDevice->pContext != NULL);
     pBuffer->pDevice->pContext->delete_buffer(pBuffer);
@@ -1720,15 +1730,6 @@ void easyaudio_delete_buffer_dsound(easyaudio_buffer* pBuffer)
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
-
-    // The sound needs to be stopped first.
-    easyaudio_stop(pBuffer);
-
-    // Now we need to remove every event.
-    easyaudio_remove_markers(pBuffer);
-    easyaudio_register_stop_callback(pBuffer, NULL, NULL);
-    easyaudio_register_pause_callback(pBuffer, NULL, NULL);
-    easyaudio_register_play_callback(pBuffer, NULL, NULL);
 
     // Deactivate the DirectSound notify events for sanity.
     ea_deactivate_buffer_events_dsound(pBuffer);
