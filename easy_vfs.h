@@ -281,7 +281,7 @@ void easyvfs_end_iteration(easyvfs_context* pContext, easyvfs_iterator* i);
 
 
 /// Retrieves information about the given file.
-bool easyvfs_get_file_info(easyvfs_context* pContext, const char* absolutePath, easyvfs_file_info* fi);
+bool easyvfs_get_file_info(easyvfs_context* pContext, const char* absoluteOrRelativePath, easyvfs_file_info* fi);
 
 /// Finds the absolute, verbose path of the given path.
 bool easyvfs_find_absolute_path(easyvfs_context* pContext, const char* path, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
