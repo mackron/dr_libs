@@ -479,7 +479,7 @@ void easygui_begin_auto_dirty(easygui_element* pElement, easygui_rect relativeRe
             pContext->pDirtyTopLevelElement = easygui_find_top_level_element(pElement);
         }
 
-        assert(pContext->pDirtyTopLevelElement = easygui_find_top_level_element(pElement));
+        assert(pContext->pDirtyTopLevelElement == easygui_find_top_level_element(pElement));
 
 
         pContext->dirtyRect = easygui_rect_union(pContext->dirtyRect, easygui_make_rect_absolute(pElement, &relativeRect));
