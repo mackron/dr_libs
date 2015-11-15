@@ -255,7 +255,7 @@ int easypath_copyandappendextension(char* dst, unsigned int dstSizeInBytes, cons
 /// @remarks
 ///     The output path will never be longer than the input path.
 ///     @par
-///     The output buffer should be overlap with the input path.
+///     The output buffer should never overlap with the input path.
 ///     @par
 ///     As an example, the path "my/messy/../path" will result in "my/path"
 ///     @par
