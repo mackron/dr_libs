@@ -1613,9 +1613,9 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     WAVEFORMATEX wf;
     memset(&wf, 0, sizeof(wf));
     wf.cbSize          = sizeof(wf);
-    wf.nChannels       = pBufferDesc->channels;
+    wf.nChannels       = (WORD)pBufferDesc->channels;
     wf.nSamplesPerSec  = pBufferDesc->sampleRate;
-    wf.wBitsPerSample  = pBufferDesc->bitsPerSample;
+    wf.wBitsPerSample  = (WORD)pBufferDesc->bitsPerSample;
     wf.nBlockAlign     = (wf.nChannels * wf.wBitsPerSample) / 8;
     wf.nAvgBytesPerSec = wf.nBlockAlign * pBufferDesc->sampleRate;
 
