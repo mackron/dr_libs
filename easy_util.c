@@ -621,7 +621,9 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
     easyutil_cmdline_iterator arg = easyutil_cmdline_begin(pCmdLine);
     if (easyutil_cmdline_next(&arg))
     {
-        callback("[path]", arg.value, pUserData);
+        if (!callback("[path]", arg.value, pUserData)) {
+            return;
+        }
     }
 
     while (easyutil_cmdline_next(&arg))
@@ -633,7 +635,10 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
             // If the key is non-null, but the value IS null, it means we hit a key with no value in which case it will not yet have been posted.
             if (pKey != NULL && pVal == NULL)
             {
-                callback(pKey, pVal, pUserData);
+                if (!callback(pKey, pVal, pUserData)) {
+                    return;
+                }
+
                 pKey = NULL;
             }
             else
@@ -669,7 +674,11 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
                         while (arg.value[i] != '\0')
                         {
                             pTemp[0] = arg.value[i];
-                            callback(pTemp, NULL, pUserData);
+                            
+                            if (!callback(pTemp, NULL, pUserData)) {
+                                return;
+                            }
+
                             pKey = NULL;
                             pVal = NULL;
 
@@ -684,7 +693,9 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
             // value
 
             pVal = arg.value;
-            callback(pKey, pVal, pUserData);
+            if (!callback(pKey, pVal, pUserData)) {
+                return;
+            }
         }
     }
 

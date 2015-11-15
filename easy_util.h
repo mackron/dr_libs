@@ -297,7 +297,7 @@ typedef struct
 
 } easyutil_cmdline;
 
-typedef void easyutil_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
+typedef bool easyutil_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
 
 
 /// Initializes a command line object.
