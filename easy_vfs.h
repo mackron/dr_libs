@@ -155,6 +155,13 @@ struct easyvfs_file
 
     /// The user data that was returned when the file was opened by the callback routines.
     void* pUserData;
+
+
+    /// The size of the extra data.
+    unsigned int extraDataSize;
+
+    /// A pointer to the extra data.
+    unsigned char pExtraData[1];
 };
 
 struct easyvfs_file_info
@@ -318,8 +325,24 @@ bool easyvfs_copy_file(easyvfs_context* pContext, const char* srcPath, const cha
 
 
 
-/// openfile()
-easyvfs_file* easyvfs_open(easyvfs_context* pContext, const char* absoluteOrRelativePath, easyvfs_access_mode accessMode);
+/// Opens a file.
+///
+/// @param pContext               [in] A pointer ot the virtual file system context.
+/// @param absoluteOrRelativePath [in] The absolute or relative path of the file to open.
+/// @param accessModes            [in] Flags specifying how the file should be open. See remarks.
+/// @param extraDataSize          [in] The number of extra bytes to allocate with the file for use by the application.
+///
+/// @remarks
+///     The allowable access modes can be a combination of the following:
+///      - EASYVFS_READ     - Opens the file for reading
+///      - EASYVFS_WRITE    - Opens the file for writing.
+///      - EASYVFS_APPEND   - When the file is opened with EASYVFS_WRITE, do not delete the original contents of the file and set the write pointer to the end of the file.
+///      - EASYVFS_EXISTING - Only open the file if it exists.
+///     @par
+///     A file can have extra data associated with it to make it possible for the host application to associate
+///     custom data with the file. The size of this extra data is specified with \c extraDataSize. A pointer to
+///     the the buffer containing the extra data can be retrieved with easyvfs_get_extra_data().
+easyvfs_file* easyvfs_open(easyvfs_context* pContext, const char* absoluteOrRelativePath, easyvfs_access_mode accessMode, unsigned int extraDataSize);
 
 /// closefile()
 void easyvfs_close(easyvfs_file* pFile);

@@ -526,7 +526,7 @@ bool           easyvfs_mkdir_impl_native         (easyvfs_archive* pArchive, con
 bool           easyvfs_copyfile_impl_native      (easyvfs_archive* pArchive, const char* srcRelativePath, const char* dstRelativePath, bool failIfExists);
 
 
-easyvfs_file* easyvfs_archive_openfile(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode);
+easyvfs_file* easyvfs_archive_openfile(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode, unsigned int extraDataSize);
 void easyvfs_archive_closefile(easyvfs_archive* pArchive, easyvfs_file* pFile);
 void easyvfs_closearchive(easyvfs_archive* pArchive);
 
@@ -624,7 +624,7 @@ easyvfs_archive* easyvfs_openarchive_nonnative(easyvfs_archive* pParentArchive, 
         {
             if (pCallbacks->isvalidarchive(pParentArchive->pContext, path))
             {
-                easyvfs_file* pNewArchiveFile = easyvfs_archive_openfile(pParentArchive, path, accessMode); // pParentArchive->callbacks.openfile(pParentArchive, path, accessMode);
+                easyvfs_file* pNewArchiveFile = easyvfs_archive_openfile(pParentArchive, path, accessMode, 0); // pParentArchive->callbacks.openfile(pParentArchive, path, accessMode);
                 if (pNewArchiveFile != NULL)
                 {
                     easyvfs_archive* pNewArchive = easyvfs_malloc(sizeof(easyvfs_archive));
@@ -1017,19 +1017,21 @@ easyvfs_archive* easyvfs_openarchivefile(easyvfs_context* pContext, const char* 
 /// Opens a file from an archive.
 ///
 /// This is not recursive.
-easyvfs_file* easyvfs_archive_openfile(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode)
+easyvfs_file* easyvfs_archive_openfile(easyvfs_archive* pArchive, const char* path, easyvfs_access_mode accessMode, unsigned int extraDataSize)
 {
     assert(pArchive != NULL);
     assert(path     != NULL);
 
-    easyvfs_file* pNewFile = easyvfs_malloc(sizeof(easyvfs_file));
+    easyvfs_file* pNewFile = easyvfs_malloc(sizeof(easyvfs_file) - sizeof(pNewFile->pExtraData) + extraDataSize);
     if (pNewFile != NULL)
     {
         void* pUserData = pArchive->callbacks.openfile(pArchive, path, accessMode);
         if (pUserData != NULL)
         {
-            pNewFile->pArchive  = pArchive;
-            pNewFile->pUserData = pUserData;
+            pNewFile->pArchive      = pArchive;
+            pNewFile->pUserData     = pUserData;
+            pNewFile->extraDataSize = extraDataSize;
+            memset(pNewFile->pExtraData, 0, extraDataSize);
 
             return pNewFile;
         }
@@ -1594,8 +1596,8 @@ bool easyvfs_copy_file(easyvfs_context* pContext, const char* srcPath, const cha
                 }
                 else
                 {
-                    easyvfs_file* pSrcFile = easyvfs_archive_openfile(pSrcArchive, srcRelativePath, EASYVFS_READ);
-                    easyvfs_file* pDstFile = easyvfs_archive_openfile(pDstArchive, dstRelativePath, EASYVFS_WRITE);
+                    easyvfs_file* pSrcFile = easyvfs_archive_openfile(pSrcArchive, srcRelativePath, EASYVFS_READ, 0);
+                    easyvfs_file* pDstFile = easyvfs_archive_openfile(pDstArchive, dstRelativePath, EASYVFS_WRITE, 0);
                     if (pSrcFile != NULL && pDstFile != NULL)
                     {
                         char chunk[4096];
@@ -1628,7 +1630,7 @@ bool easyvfs_copy_file(easyvfs_context* pContext, const char* srcPath, const cha
 
 
 
-easyvfs_file* easyvfs_open(easyvfs_context* pContext, const char* absoluteOrRelativePath, easyvfs_access_mode accessMode)
+easyvfs_file* easyvfs_open(easyvfs_context* pContext, const char* absoluteOrRelativePath, easyvfs_access_mode accessMode, unsigned int extraDataSize)
 {
     if (pContext != NULL && absoluteOrRelativePath)
     {
@@ -1646,7 +1648,7 @@ easyvfs_file* easyvfs_open(easyvfs_context* pContext, const char* absoluteOrRela
         easyvfs_archive* pArchive = easyvfs_openarchive_frompath(pContext, absoluteOrRelativePath, easyvfs_archiveaccessmode(accessMode), relativePath, EASYVFS_MAX_PATH);
         if (pArchive != NULL)
         {
-            easyvfs_file* pFile = easyvfs_archive_openfile(pArchive, relativePath, accessMode);
+            easyvfs_file* pFile = easyvfs_archive_openfile(pArchive, relativePath, accessMode, extraDataSize);
             if (pFile == NULL)
             {
                 easyvfs_closearchive_recursive(pArchive);
@@ -2488,8 +2490,6 @@ bool easyvfs_renamefile_impl_native(easyvfs_archive* pArchive, const char* pathO
     {
         return MoveFileExA(pathOld, pathNew, 0);
     }
-
-    return false;
 }
 
 bool easyvfs_mkdir_impl_native(easyvfs_archive* pArchive, const char* path)
