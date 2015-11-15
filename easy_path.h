@@ -281,8 +281,8 @@ unsigned int easypath_strlen(const char* str);
 /// strcpy_s() implementation.
 void easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src);
 
-/// easypath_strcpy2()
-void easypath_strcpy2(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes);
+/// easypath_strncpy()
+void easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes);
 
 
 #ifdef __cplusplus

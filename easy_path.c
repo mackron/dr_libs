@@ -61,7 +61,7 @@ void easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 #endif
 }
 
-void easypath_strcpy2(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
+void easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
 {
     while (dstSizeInBytes > 0 && src[0] != '\0' && srcSizeInBytes > 0)
     {
@@ -509,7 +509,7 @@ int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* 
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easypath_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
+            easypath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
 
 
             return 1;
@@ -542,7 +542,7 @@ int easypath_appenditerator(char* base, unsigned int baseBufferSizeInBytes, easy
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easypath_strcpy2(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
+            easypath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
 
             return 1;
@@ -569,7 +569,7 @@ int easypath_appendextension(char* base, unsigned int baseBufferSizeInBytes, con
                 extLength = baseBufferSizeInBytes - baseLength - 1;      // -1 for the null terminator.
             }
 
-            easypath_strcpy2(base + baseLength, baseBufferSizeInBytes - baseLength, extension, extLength);
+            easypath_strncpy(base + baseLength, baseBufferSizeInBytes - baseLength, extension, extLength);
 
 
             return 1;
@@ -673,12 +673,12 @@ unsigned int _easypath_clean_trywrite(easypath_iterator isegment, char* pathOut,
 
             if (pathOutSizeInBytes >= isegment.segment.length)
             {
-                easypath_strcpy2(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, isegment.segment.length);
+                easypath_strncpy(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, isegment.segment.length);
                 bytesWritten += isegment.segment.length;
             }
             else
             {
-                easypath_strcpy2(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, pathOutSizeInBytes);
+                easypath_strncpy(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, pathOutSizeInBytes);
                 bytesWritten += pathOutSizeInBytes;
             }
         }
@@ -736,7 +736,7 @@ int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, cons
             extension -= 1;
         }
 
-        easypath_strcpy2(dst, dstSizeInBytes, path, (unsigned int)(extension - path));
+        easypath_strncpy(dst, dstSizeInBytes, path, (unsigned int)(extension - path));
         return 1;
     }
 
