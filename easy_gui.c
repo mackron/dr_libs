@@ -2020,13 +2020,14 @@ void easygui_set_absolute_position(easygui_element* pElement, float positionX, f
             float oldRelativePosX = easygui_get_relative_position_x(pElement);
             float oldRelativePosY = easygui_get_relative_position_y(pElement);
 
-            easygui_begin_auto_dirty(pElement, easygui_get_local_rect(pElement));
+            easygui_begin_auto_dirty(pElement, easygui_get_local_rect(pElement));   // <-- Previous rectangle.
             {
                 float offsetX = positionX - pElement->absolutePosX;
                 float offsetY = positionY - pElement->absolutePosY;
 
                 pElement->absolutePosX = positionX;
                 pElement->absolutePosY = positionY;
+                easygui_auto_dirty(pElement, easygui_get_local_rect(pElement));     // <-- New rectangle.
 
 
                 float newRelativePosX = easygui_get_relative_position_x(pElement);
@@ -2151,10 +2152,11 @@ void easygui_set_size(easygui_element* pElement, float width, float height)
     {
         if (pElement->width != width || pElement->height != height)
         {
-            easygui_begin_auto_dirty(pElement, easygui_make_rect(0, 0, pElement->width, pElement->height));
+            easygui_begin_auto_dirty(pElement, easygui_get_local_rect(pElement));   // <-- Previous rectangle.
             {
                 pElement->width  = width;
                 pElement->height = height;
+                easygui_auto_dirty(pElement, easygui_get_local_rect(pElement));     // <-- New rectangle.
 
                 easygui_post_outbound_event_size(pElement, width, height);
             }
