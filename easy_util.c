@@ -593,7 +593,7 @@ bool easyutil_init_cmdline(easyutil_cmdline* pCmdLine, int argc, char** argv)
     return true;
 }
 
-bool easyutil_init_cmdline_win32(easyutil_cmdline* pCmdLine, char* args)
+bool easyutil_init_cmdline_win32(easyutil_cmdline* pCmdLine, const char* args)
 {
     if (pCmdLine == NULL) {
         return false;
