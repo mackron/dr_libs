@@ -513,6 +513,10 @@ bool easy2d_on_create_context_gdi(easy2d_context* pContext)
     }
 
 
+    // We want to use the advanced graphics mode so that GetTextExtentPoint32() performs the conversions for font rotation for us.
+    SetGraphicsMode(pGDIData->hDC, GM_ADVANCED);
+
+
     pGDIData->wcharBuffer       = NULL;
     pGDIData->wcharBufferLength = 0;
 
@@ -795,17 +799,32 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, const char* text, unsigned i
             wchar_t* textW = easy2d_to_wchar_gdi(pSurface->pContext, text, textSizeInBytes, &textWLength);
             if (textW != NULL)
             {
+                UINT options = 0;
+                RECT rect = {0, 0, 0, 0};
+
                 if (backgroundColor.a == 0) {
                     SetBkMode(hDC, TRANSPARENT);
                 } else {
                     SetBkMode(hDC, OPAQUE);
                     SetBkColor(hDC, RGB(backgroundColor.r, backgroundColor.g, backgroundColor.b));
+
+                    // There is an issue with the way GDI draws the background of a string of text. When ClearType is enabled, the rectangle appears
+                    // to be wider than it is supposed to be. As a result, drawing text right next to each other results in the most recent one being
+                    // drawn slightly on top of the previous one. To fix this we need to use ExtTextOut() with the ETO_CLIPPED parameter enabled.
+                    options |= ETO_CLIPPED;
+
+                    SIZE textSize = {0, 0};
+                    GetTextExtentPoint32W(hDC, textW, textWLength, &textSize);
+                    rect.left   = (LONG)posX;
+                    rect.top    = (LONG)posY;
+                    rect.right  = rect.left + textSize.cx;
+                    rect.bottom = rect.top + textSize.cy;
                 }
                 
                 SelectObject(hDC, hFontGDI);
                 SetTextColor(hDC, RGB(color.r, color.g, color.b));
 
-                TextOutW(hDC, (int)posX, (int)posY, textW, textWLength);
+                ExtTextOutW(hDC, (int)posX, (int)posY, options, &rect, textW, textWLength, NULL);
             }
         }
     }
