@@ -102,9 +102,9 @@ typedef enum
 } easy2d_font_slant;
 
 
-typedef bool (* easy2d_on_create_context_proc)           (easy2d_context* pContext);
+typedef bool        (* easy2d_on_create_context_proc)           (easy2d_context* pContext);
 typedef void        (* easy2d_on_delete_context_proc)           (easy2d_context* pContext);
-typedef bool (* easy2d_on_create_surface_proc)           (easy2d_surface* pSurface, float width, float height);
+typedef bool        (* easy2d_on_create_surface_proc)           (easy2d_surface* pSurface, float width, float height);
 typedef void        (* easy2d_on_delete_surface_proc)           (easy2d_surface* pSurface);
 typedef void        (* easy2d_begin_draw_proc)                  (easy2d_surface* pSurface);
 typedef void        (* easy2d_end_draw_proc)                    (easy2d_surface* pSurface);
@@ -120,7 +120,8 @@ typedef void        (* easy2d_set_clip_proc)                    (easy2d_surface*
 typedef void        (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 typedef easy2d_font (* easy2d_create_font_proc)                 (easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
 typedef void        (* easy2d_delete_font_proc)                 (easy2d_context* pContext, easy2d_font font);
-typedef bool (* easy2d_get_font_metrics_proc)            (easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+typedef bool        (* easy2d_get_font_metrics_proc)            (easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+typedef bool        (* easy2d_measure_string_proc)              (easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 
 
@@ -147,6 +148,7 @@ struct easy2d_drawing_callbacks
     easy2d_create_font_proc                  create_font;
     easy2d_delete_font_proc                  delete_font;
     easy2d_get_font_metrics_proc             get_font_metrics;
+    easy2d_measure_string_proc               measure_string;
 };
 
 struct easy2d_surface
@@ -254,6 +256,9 @@ void easy2d_delete_font(easy2d_context* pContext, easy2d_font font);
 
 /// Retrieves the metrics of the given font.
 bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+
+/// Retrieves the dimensions of the given string when drawn with the given font.
+bool easy2d_measure_string(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 
 

@@ -8,7 +8,8 @@
 easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes)
 {
     easy2d_context* pContext = (easy2d_context*)malloc(sizeof(easy2d_context) - sizeof(pContext->pExtraData) + contextExtraBytes);
-    if (pContext != NULL) {
+    if (pContext != NULL)
+    {
         pContext->drawingCallbacks  = drawingCallbacks;
         pContext->surfaceExtraBytes = surfaceExtraBytes;
         pContext->contextExtraBytes = contextExtraBytes;
@@ -50,9 +51,11 @@ void* easy2d_get_context_extra_data(easy2d_context* pContext)
 
 easy2d_surface* easy2d_create_surface(easy2d_context* pContext, float width, float height)
 {
-    if (pContext != NULL) {
+    if (pContext != NULL)
+    {
         easy2d_surface* pSurface = (easy2d_surface*)malloc(sizeof(easy2d_surface) - sizeof(pContext->pExtraData) + pContext->surfaceExtraBytes);
-        if (pSurface != NULL) {
+        if (pSurface != NULL)
+        {
             pSurface->pContext = pContext;
             pSurface->width    = width;
             pSurface->height   = height;
@@ -297,6 +300,18 @@ bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_
     return false;
 }
 
+bool easy2d_measure_string(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+{
+    if (pContext != NULL)
+    {
+        if (pContext->drawingCallbacks.measure_string != NULL) {
+            return pContext->drawingCallbacks.measure_string(pContext, font, text, textSizeInBytes, pWidthOut, pHeightOut);
+        }
+    }
+
+    return false;
+}
+
 
 
 
@@ -412,6 +427,7 @@ void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopO
 easy2d_font easy2d_create_font_gdi(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
 void easy2d_delete_font_gdi(easy2d_context* pContext, easy2d_font font);
 bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+bool easy2d_measure_string_gdi(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 /// Converts a char* to a wchar_t* string.
 wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigned int textSizeInBytes, unsigned int* characterCountOut);
@@ -438,6 +454,7 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.create_font                  = easy2d_create_font_gdi;
     callbacks.delete_font                  = easy2d_delete_font_gdi;
     callbacks.get_font_metrics             = easy2d_get_font_metrics_gdi;
+    callbacks.measure_string               = easy2d_measure_string_gdi;
 
     return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data));
 }
@@ -920,6 +937,38 @@ bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, eas
     }
     SelectObject(hDC, hPrevFont);
     
+    return result;
+}
+
+bool easy2d_measure_string_gdi(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+{
+    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
+    if (pGDIData == NULL) {
+        return false;
+    }
+
+    HDC hDC = pGDIData->hDC;
+
+
+    BOOL result = FALSE;
+    HGDIOBJ hPrevFont = SelectObject(hDC, (HFONT)font);
+    {
+        SIZE sizeWin32;
+        result = GetTextExtentPoint32A(hDC, text, textSizeInBytes, &sizeWin32);
+
+        if (result)
+        {
+            if (pWidthOut != NULL) {
+                *pWidthOut = (float)sizeWin32.cx;
+            }
+            if (pHeightOut != NULL) {
+                *pHeightOut = (float)sizeWin32.cy;
+            }
+        }
+    }
+    SelectObject(hDC, hPrevFont);
+
+
     return result;
 }
 
