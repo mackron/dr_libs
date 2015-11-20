@@ -799,6 +799,8 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, const char* text, unsigned i
             wchar_t* textW = easy2d_to_wchar_gdi(pSurface->pContext, text, textSizeInBytes, &textWLength);
             if (textW != NULL)
             {
+                SelectObject(hDC, hFontGDI);
+
                 UINT options = 0;
                 RECT rect = {0, 0, 0, 0};
 
@@ -821,7 +823,6 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, const char* text, unsigned i
                     rect.bottom = rect.top + textSize.cy;
                 }
                 
-                SelectObject(hDC, hFontGDI);
                 SetTextColor(hDC, RGB(color.r, color.g, color.b));
 
                 ExtTextOutW(hDC, (int)posX, (int)posY, options, &rect, textW, textWLength, NULL);
