@@ -219,6 +219,8 @@ typedef void (* easygui_on_log)                       (easygui_context* pContext
 
 typedef void (* easygui_draw_begin_proc)                   (void* pPaintData);
 typedef void (* easygui_draw_end_proc)                     (void* pPaintData);
+typedef void (* easygui_set_clip_proc)                     (easygui_rect relativeRect, void* pPaintData);
+typedef void (* easygui_get_clip_proc)                     (easygui_rect* pRectOut, void* pPaintData);
 typedef void (* easygui_draw_line_proc)                    (float startX, float startY, float endX, float endY, float width, easygui_color color, void* pPaintData);
 typedef void (* easygui_draw_rect_proc)                    (easygui_rect relativeRect, easygui_color color, void* pPaintData);
 typedef void (* easygui_draw_rect_outline_proc)            (easygui_rect relativeRect, easygui_color color, float outlineWidth, void* pPaintData);
@@ -227,8 +229,7 @@ typedef void (* easygui_draw_round_rect_proc)              (easygui_rect relativ
 typedef void (* easygui_draw_round_rect_outline_proc)      (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, void* pPaintData);
 typedef void (* easygui_draw_round_rect_with_outline_proc) (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData);
 typedef void (* easygui_draw_text_proc)                    (const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData);
-typedef void (* easygui_set_clip_proc)                     (easygui_rect relativeRect, void* pPaintData);
-typedef void (* easygui_get_clip_proc)                     (easygui_rect* pRectOut, void* pPaintData);
+typedef bool (* easygui_measure_string_proc)               (easygui_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut, void* pPaintData);
 
 typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect *pRelativeRect, void* pUserData);
 
@@ -243,6 +244,9 @@ struct easygui_painting_callbacks
     easygui_draw_begin_proc                   drawBegin;
     easygui_draw_end_proc                     drawEnd;
 
+    easygui_set_clip_proc                     setClip;
+    easygui_get_clip_proc                     getClip;
+
     easygui_draw_line_proc                    drawLine;
     easygui_draw_rect_proc                    drawRect;
     easygui_draw_rect_outline_proc            drawRectOutline;
@@ -251,9 +255,7 @@ struct easygui_painting_callbacks
     easygui_draw_round_rect_outline_proc      drawRoundRectOutline;
     easygui_draw_round_rect_with_outline_proc drawRoundRectWithOutline;
     easygui_draw_text_proc                    drawText;
-
-    easygui_set_clip_proc                     setClip;
-    easygui_get_clip_proc                     getClip;
+    easygui_measure_string_proc               measureString;
 };
 
 
@@ -866,7 +868,8 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
 ///     \c textSizeInBytes can be -1 in which case the text string is treated as null terminated.
 void easygui_draw_text(easygui_element* pElement, const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData);
 
-
+/// Retrieves the dimensions of the given string when drawn with the given font.
+bool easygui_measure_string(easygui_context* pContext, easygui_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut, void* pPaintData);
 
 
 
