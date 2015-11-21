@@ -55,6 +55,7 @@ typedef struct easy2d_context easy2d_context;
 typedef struct easy2d_surface easy2d_surface;
 typedef struct easy2d_color easy2d_color;
 typedef struct easy2d_font_metrics easy2d_font_metrics;
+typedef struct easy2d_glyph_metrics easy2d_glyph_metrics;
 typedef struct easy2d_drawing_callbacks easy2d_drawing_callbacks;
 
 typedef void* easy2d_font;
@@ -75,6 +76,12 @@ struct easy2d_font_metrics
     int descent;
     int lineHeight;
     int spaceWidth;
+};
+
+struct easy2d_glyph_metrics
+{
+    int width;
+    int height;
 };
 
 typedef enum
@@ -121,6 +128,7 @@ typedef void        (* easy2d_get_clip_proc)                    (easy2d_surface*
 typedef easy2d_font (* easy2d_create_font_proc)                 (easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
 typedef void        (* easy2d_delete_font_proc)                 (easy2d_context* pContext, easy2d_font font);
 typedef bool        (* easy2d_get_font_metrics_proc)            (easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+typedef bool        (* easy2d_get_glyph_metrics_proc)           (easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pMetricsOut);
 typedef bool        (* easy2d_measure_string_proc)              (easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 
@@ -148,6 +156,7 @@ struct easy2d_drawing_callbacks
     easy2d_create_font_proc                  create_font;
     easy2d_delete_font_proc                  delete_font;
     easy2d_get_font_metrics_proc             get_font_metrics;
+    easy2d_get_glyph_metrics_proc            get_glyph_metrics;
     easy2d_measure_string_proc               measure_string;
 };
 
@@ -256,6 +265,9 @@ void easy2d_delete_font(easy2d_context* pContext, easy2d_font font);
 
 /// Retrieves the metrics of the given font.
 bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+
+/// Retrieves the metrics of the glyph for the given character when rendered with the given font.
+bool easy2d_get_glyph_metrics(easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pGlyphMetrics);
 
 /// Retrieves the dimensions of the given string when drawn with the given font.
 bool easy2d_measure_string(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);

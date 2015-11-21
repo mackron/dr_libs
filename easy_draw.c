@@ -300,6 +300,18 @@ bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_
     return false;
 }
 
+bool easy2d_get_glyph_metrics(easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pGlyphMetrics)
+{
+    if (pContext != NULL)
+    {
+        if (pContext->drawingCallbacks.get_glyph_metrics != NULL) {
+            return pContext->drawingCallbacks.get_glyph_metrics(pContext, utf32, font, pGlyphMetrics);
+        }
+    }
+
+    return false;
+}
+
 bool easy2d_measure_string(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
     if (pContext != NULL)
@@ -427,6 +439,7 @@ void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopO
 easy2d_font easy2d_create_font_gdi(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
 void easy2d_delete_font_gdi(easy2d_context* pContext, easy2d_font font);
 bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+bool easy2d_get_glyph_metrics_gdi(easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pGlyphMetrics);
 bool easy2d_measure_string_gdi(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 /// Converts a char* to a wchar_t* string.
@@ -454,6 +467,7 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.create_font                  = easy2d_create_font_gdi;
     callbacks.delete_font                  = easy2d_delete_font_gdi;
     callbacks.get_font_metrics             = easy2d_get_font_metrics_gdi;
+    callbacks.get_glyph_metrics            = easy2d_get_glyph_metrics_gdi;
     callbacks.measure_string               = easy2d_measure_string_gdi;
 
     return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data));
@@ -958,6 +972,32 @@ bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, eas
     SelectObject(hDC, hPrevFont);
     
     return result;
+}
+
+bool easy2d_get_glyph_metrics_gdi(easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pGlyphMetrics)
+{
+    if (pGlyphMetrics != NULL) {
+        return false;
+    }
+
+    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
+    if (pGDIData == NULL) {
+        return false;
+    }
+
+    const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
+
+    GLYPHMETRICS spaceMetrics;
+    DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIData->hDC, ' ', GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
+    if (bitmapBufferSize != GDI_ERROR)
+    {
+        pGlyphMetrics->width  = spaceMetrics.gmBlackBoxX;
+        pGlyphMetrics->height = spaceMetrics.gmBlackBoxY;
+
+        return true;
+    }
+
+    return false;
 }
 
 bool easy2d_measure_string_gdi(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
