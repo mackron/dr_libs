@@ -1318,10 +1318,12 @@ void ea_uninit_event_manager_dsound(ea_event_manager_dsound* pEventManager)
 //// End Event Management ////
 
 
-static GUID g_DSListenerGUID           = {0x279AFA84, 0x4981, 0x11CE, 0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60};
-static GUID g_DirectSoundBuffer8GUID   = {0x6825a449, 0x7524, 0x4d82, 0x92, 0x0f, 0x50, 0xe3, 0x6a, 0xb3, 0xab, 0x1e};
-static GUID g_DirectSound3DBuffer8GUID = {0x279AFA86, 0x4981, 0x11CE, 0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60};
-static GUID g_DirectSoundNotifyGUID    = {0xb0210783, 0x89cd, 0x11d0, 0xaf, 0x08, 0x00, 0xa0, 0xc9, 0x25, 0xcd, 0x16};
+static GUID g_DSListenerGUID                       = {0x279AFA84, 0x4981, 0x11CE, 0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60};
+static GUID g_DirectSoundBuffer8GUID               = {0x6825a449, 0x7524, 0x4d82, 0x92, 0x0f, 0x50, 0xe3, 0x6a, 0xb3, 0xab, 0x1e};
+static GUID g_DirectSound3DBuffer8GUID             = {0x279AFA86, 0x4981, 0x11CE, 0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60};
+static GUID g_DirectSoundNotifyGUID                = {0xb0210783, 0x89cd, 0x11d0, 0xaf, 0x08, 0x00, 0xa0, 0xc9, 0x25, 0xcd, 0x16};
+static GUID g_KSDATAFORMAT_SUBTYPE_PCM_GUID        = {0x00000001, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71};
+static GUID g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID = {0x00000003, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71};
 
 typedef HRESULT (WINAPI * pDirectSoundCreate8Proc)(_In_opt_ LPCGUID pcGuidDevice, _Outptr_ LPDIRECTSOUND8 *ppDS8, _Pre_null_ LPUNKNOWN pUnkOuter);
 typedef HRESULT (WINAPI * pDirectSoundEnumerateAProc)(_In_ LPDSENUMCALLBACKA pDSEnumCallback, _In_opt_ LPVOID pContext);
@@ -1648,23 +1650,25 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
         return NULL;
     }
 
-
-    WAVEFORMATEX wf;
-    memset(&wf, 0, sizeof(wf));
-    wf.cbSize          = sizeof(wf);
-    wf.nChannels       = (WORD)pBufferDesc->channels;
-    wf.nSamplesPerSec  = pBufferDesc->sampleRate;
-    wf.wBitsPerSample  = (WORD)pBufferDesc->bitsPerSample;
-    wf.nBlockAlign     = (wf.nChannels * wf.wBitsPerSample) / 8;
-    wf.nAvgBytesPerSec = wf.nBlockAlign * pBufferDesc->sampleRate;
+    WAVEFORMATIEEEFLOATEX wf = {0};
+    wf.Format.cbSize = sizeof(wf);
+    wf.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+    wf.Format.nChannels = (WORD)pBufferDesc->channels;;
+    wf.Format.nSamplesPerSec = pBufferDesc->sampleRate;
+    wf.Format.wBitsPerSample = (WORD)pBufferDesc->bitsPerSample;
+    wf.Format.nBlockAlign = (wf.Format.nChannels * wf.Format.wBitsPerSample) / 8;
+    wf.Format.nAvgBytesPerSec = wf.Format.nBlockAlign * wf.Format.nSamplesPerSec;
+    wf.Samples.wValidBitsPerSample = wf.Format.wBitsPerSample;
+    wf.dwChannelMask = 0;
 
     if (pBufferDesc->format == easyaudio_format_pcm) {
-        wf.wFormatTag = WAVE_FORMAT_PCM;
+        wf.SubFormat = g_KSDATAFORMAT_SUBTYPE_PCM_GUID;
     } else if (pBufferDesc->format == easyaudio_format_float) {
-        wf.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
+        wf.SubFormat = g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
     } else {
         return NULL;
     }
+    
 
 
     // We want to try and create a 3D enabled buffer, however this will fail whenever the number of channels is > 1. In this case
@@ -1675,7 +1679,7 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     descDS.dwSize          = sizeof(DSBUFFERDESC); 
     descDS.dwFlags         = DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPOSITIONNOTIFY | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
     descDS.dwBufferBytes   = pBufferDesc->sizeInBytes;
-    descDS.lpwfxFormat     = &wf;
+    descDS.lpwfxFormat     = (WAVEFORMATEX*)&wf;
 
     LPDIRECTSOUNDBUFFER8   pDSBuffer   = NULL;
     LPDIRECTSOUND3DBUFFER8 pDSBuffer3D = NULL;
@@ -2238,6 +2242,11 @@ void easyaudio_set_3d_mode_dsound(easyaudio_buffer* pBuffer, easyaudio_3d_mode m
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
+    if (pBufferDS->pDSBuffer3D == NULL) {
+        return;
+    }
+
+
     DWORD dwMode = DS3DMODE_NORMAL;
     if (mode == easyaudio_3d_mode_relative) {
         dwMode = DS3DMODE_HEADRELATIVE;
@@ -2252,6 +2261,11 @@ easyaudio_3d_mode easyaudio_get_3d_mode_dsound(easyaudio_buffer* pBuffer)
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
+
+    if (pBufferDS->pDSBuffer3D == NULL) {
+        return easyaudio_3d_mode_disabled;
+    }
+
 
     DWORD dwMode;
     if (FAILED(IDirectSound3DBuffer_GetMode(pBufferDS->pDSBuffer3D, &dwMode))) {
