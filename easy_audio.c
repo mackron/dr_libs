@@ -1173,7 +1173,6 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
                 if (hEvent == hTerminateEvent)
                 {
                     // The terminator event was signaled. We just return from the thread immediately.
-                    printf("TERMINATED\n");
                     return 0;
                 }
 
