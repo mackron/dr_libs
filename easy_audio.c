@@ -1317,7 +1317,6 @@ void ea_uninit_event_manager_dsound(ea_event_manager_dsound* pEventManager)
 
 //// End Event Management ////
 
-
 static GUID g_DSListenerGUID                       = {0x279AFA84, 0x4981, 0x11CE, 0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60};
 static GUID g_DirectSoundBuffer8GUID               = {0x6825a449, 0x7524, 0x4d82, 0x92, 0x0f, 0x50, 0xe3, 0x6a, 0xb3, 0xab, 0x1e};
 static GUID g_DirectSound3DBuffer8GUID             = {0x279AFA86, 0x4981, 0x11CE, 0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60};
@@ -1578,15 +1577,19 @@ easyaudio_device* easyaudio_create_output_device_dsound(easyaudio_context* pCont
         return NULL;
     }
 
-    WAVEFORMATEX wfx;
-    memset(&wfx, 0, sizeof(WAVEFORMATEX));
-    wfx.wFormatTag      = WAVE_FORMAT_PCM;
-    wfx.nChannels       = 2;
-    wfx.nSamplesPerSec  = 44100;
-    wfx.wBitsPerSample  = 16;
-    wfx.nBlockAlign     = (wfx.wBitsPerSample / 8 * wfx.nChannels);
-    wfx.nAvgBytesPerSec = (wfx.nSamplesPerSec * wfx.nBlockAlign);
-    hr = IDirectSoundBuffer_SetFormat(pDSPrimaryBuffer, &wfx);
+
+    WAVEFORMATIEEEFLOATEX wf = {0};
+    wf.Format.cbSize               = sizeof(wf);
+    wf.Format.wFormatTag           = WAVE_FORMAT_EXTENSIBLE;
+    wf.Format.nChannels            = 2;
+    wf.Format.nSamplesPerSec       = 44100;
+    wf.Format.wBitsPerSample       = 32;
+    wf.Format.nBlockAlign          = (wf.Format.nChannels * wf.Format.wBitsPerSample) / 8;
+    wf.Format.nAvgBytesPerSec      = wf.Format.nBlockAlign * wf.Format.nSamplesPerSec;
+    wf.Samples.wValidBitsPerSample = wf.Format.wBitsPerSample;
+    wf.dwChannelMask               = 0;
+    wf.SubFormat                   = g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
+    hr = IDirectSoundBuffer_SetFormat(pDSPrimaryBuffer, (WAVEFORMATEX*)&wf);
     if (FAILED(hr)) {
         IDirectSoundBuffer_Release(pDSPrimaryBuffer);
         IDirectSound_Release(pDS);
@@ -1653,7 +1656,7 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     WAVEFORMATIEEEFLOATEX wf = {0};
     wf.Format.cbSize = sizeof(wf);
     wf.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-    wf.Format.nChannels = (WORD)pBufferDesc->channels;;
+    wf.Format.nChannels = (WORD)pBufferDesc->channels;
     wf.Format.nSamplesPerSec = pBufferDesc->sampleRate;
     wf.Format.wBitsPerSample = (WORD)pBufferDesc->bitsPerSample;
     wf.Format.nBlockAlign = (wf.Format.nChannels * wf.Format.wBitsPerSample) / 8;
