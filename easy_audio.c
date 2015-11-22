@@ -83,6 +83,8 @@ typedef void                     (* easyaudio_set_listener_position_proc)(easyau
 typedef void                     (* easyaudio_get_listener_position_proc)(easyaudio_device* pDevice, float* pPosOut);
 typedef void                     (* easyaudio_set_listener_orientation_proc)(easyaudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ);
 typedef void                     (* easyaudio_get_listener_orientation_proc)(easyaudio_device* pDevice, float* pForwardOut, float* pUpOut);
+typedef void                     (* easyaudio_set_3d_mode_proc)(easyaudio_buffer* pBuffer, easyaudio_3d_mode mode);
+typedef easyaudio_3d_mode        (* easyaudio_get_3d_mode_proc)(easyaudio_buffer* pBuffer);
 
 struct easyaudio_context
 {
@@ -118,6 +120,8 @@ struct easyaudio_context
     easyaudio_get_listener_position_proc get_listener_position;
     easyaudio_set_listener_orientation_proc set_listener_orientation;
     easyaudio_get_listener_orientation_proc get_listener_orientation;
+    easyaudio_set_3d_mode_proc set_3d_mode;
+    easyaudio_get_3d_mode_proc get_3d_mode;
 };
 
 struct easyaudio_device
@@ -546,6 +550,29 @@ void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwa
 }
 
 
+void easyaudio_set_3d_mode(easyaudio_buffer* pBuffer, easyaudio_3d_mode mode)
+{
+    if (pBuffer == NULL) {
+        return;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    pBuffer->pDevice->pContext->set_3d_mode(pBuffer, mode);
+}
+
+easyaudio_3d_mode easyaudio_get_3d_mode(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return easyaudio_3d_mode_disabled;
+    }
+
+    assert(pBuffer->pDevice != NULL);
+    assert(pBuffer->pDevice->pContext != NULL);
+    return pBuffer->pDevice->pContext->get_3d_mode(pBuffer);
+}
+
+
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -852,6 +879,8 @@ struct ea_event_manager_dsound
     /// The last event in the list of events.
     ea_event_dsound* pLastEvent;
 
+    /// A handle to the event that's currently being handled.
+    ea_event_dsound* pCurrentEvent;
 };
 
 
@@ -989,8 +1018,14 @@ void ea_close_win32_event_handle_dsound(ea_event_dsound* pEvent)
         // Signal the event to force WaitForMultipleObjects() in the worker thread to return.
         SetEvent(hEventToClose);
 
-        // Wait for the worker thread to release the semaphore. Once this returns we are free to close the event handle.
-        WaitForSingleObject(pEvent->pEventManager->hCloseEventSemaphore, INFINITE);
+
+        // Wait for the worker thread to release the semaphore. Once this returns we are free to close the event handle. It is possible
+        // that this is called while handling an event. In this case we can assume this is running on the event thread and we do not need
+        // to wait on the semaphore. Indeed, if we wait on the semaphore here we'll end up in a deadlock.
+        if (pEvent->pEventManager->pCurrentEvent == NULL) {
+            WaitForSingleObject(pEvent->pEventManager->hCloseEventSemaphore, INFINITE);
+        }
+        
 
         // At this point we can assume the worker thread is not waiting on the event so we can now close it.
         CloseHandle(hEventToClose);
@@ -1106,6 +1141,7 @@ unsigned int ea_gather_events_dsound(ea_event_manager_dsound *pEventManager, HAN
     return i;
 }
 
+/// Determines whether or not the given event is valid.
 
 
 /// The entry point to the event worker thread.
@@ -1159,19 +1195,22 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
                     // sound is paused as well. Thus, we need to check if we got the stop event, and if so DON'T call the callback function if it is in a non-stopped
                     // state.
                     bool isStopEventButNotStopped = pEvent->eventID == EASYAUDIO_EVENT_ID_STOP && easyaudio_get_playback_state(pEvent->pBuffer) != easyaudio_stopped;
-                    if (!isStopEventButNotStopped) {
-                        pEvent->callback(pEvent->pBuffer, pEvent->eventID, pEvent->pUserData);
+                    if (!isStopEventButNotStopped)
+                    {
+                        assert(pEventManager->pCurrentEvent == NULL);
+
+                        pEventManager->pCurrentEvent = pEvent;
+                        {
+                            pEvent->callback(pEvent->pBuffer, pEvent->eventID, pEvent->pUserData);
+                        }
+                        pEventManager->pCurrentEvent = NULL;
                     }
                 }
 
 
-                if (pEvent->hEvent == NULL)
-                {
-                    // The event's Win32 event handle has been set to NULL which is our cue that the event is wanting to be deleted. The other thread is
-                    // waiting for this through the use of a semaphore, so we need to release it here.
-                    ReleaseSemaphore(pEventManager->hCloseEventSemaphore, 1, NULL);
-                    needsRefresh = true;
-                }
+                // The event may be wanting to be deleted. If so, the other thread is waiting for the semaphore to be released so we do we do that now.
+                ReleaseSemaphore(pEventManager->hCloseEventSemaphore, 1, NULL);
+                needsRefresh = true;
             }
         }
     }
@@ -1230,8 +1269,9 @@ bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager)
     pEventManager->hCloseEventSemaphore = hCloseEventSemaphore;
     pEventManager->hThread              = hThread;
 
-    pEventManager->pFirstEvent = NULL;
-    pEventManager->pLastEvent  = NULL;
+    pEventManager->pFirstEvent   = NULL;
+    pEventManager->pLastEvent    = NULL;
+    pEventManager->pCurrentEvent = NULL;
 
     return true;
 }
@@ -2027,8 +2067,10 @@ bool easyaudio_register_stop_callback_dsound(easyaudio_buffer* pBuffer, easyaudi
 
     if (callback == NULL)
     {
-        ea_delete_event_dsound(pBufferDS->pStopEvent);
-        pBufferDS->pStopEvent = NULL;
+        if (pBufferDS->pStopEvent != NULL) {
+            ea_delete_event_dsound(pBufferDS->pStopEvent);
+            pBufferDS->pStopEvent = NULL;
+        }
 
         return true;
     }
@@ -2054,8 +2096,10 @@ bool easyaudio_register_pause_callback_dsound(easyaudio_buffer* pBuffer, easyaud
     
     if (callback == NULL)
     {
-        ea_delete_event_dsound(pBufferDS->pPauseEvent);
-        pBufferDS->pPauseEvent = NULL;
+        if (pBufferDS->pPauseEvent != NULL) {
+            ea_delete_event_dsound(pBufferDS->pPauseEvent);
+            pBufferDS->pPauseEvent = NULL;
+        }
 
         return true;
     }
@@ -2081,8 +2125,10 @@ bool easyaudio_register_play_callback_dsound(easyaudio_buffer* pBuffer, easyaudi
     
     if (callback == NULL)
     {
-        ea_delete_event_dsound(pBufferDS->pPlayEvent);
-        pBufferDS->pPlayEvent = NULL;
+        if (pBufferDS->pPlayEvent != NULL) {
+            ea_delete_event_dsound(pBufferDS->pPlayEvent);
+            pBufferDS->pPlayEvent = NULL;
+        }
 
         return true;
     }
@@ -2186,6 +2232,43 @@ void easyaudio_get_listener_orientation_dsound(easyaudio_device* pDevice, float*
     pUpOut[0] = up.x;
     pUpOut[1] = up.y;
     pUpOut[2] = up.z;
+}
+
+void easyaudio_set_3d_mode_dsound(easyaudio_buffer* pBuffer, easyaudio_3d_mode mode)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    DWORD dwMode = DS3DMODE_NORMAL;
+    if (mode == easyaudio_3d_mode_relative) {
+        dwMode = DS3DMODE_HEADRELATIVE;
+    } else if (mode == easyaudio_3d_mode_disabled) {
+        dwMode = DS3DMODE_DISABLE;
+    }
+
+    IDirectSound3DBuffer_SetMode(pBufferDS->pDSBuffer3D, dwMode, DS3D_IMMEDIATE);
+}
+
+easyaudio_3d_mode easyaudio_get_3d_mode_dsound(easyaudio_buffer* pBuffer)
+{
+    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    assert(pBufferDS != NULL);
+
+    DWORD dwMode;
+    if (FAILED(IDirectSound3DBuffer_GetMode(pBufferDS->pDSBuffer3D, &dwMode))) {
+        return easyaudio_3d_mode_disabled;
+    }
+
+
+    if (dwMode == DS3DMODE_NORMAL) {
+        return easyaudio_3d_mode_absolute;
+    }
+
+    if (dwMode == DS3DMODE_HEADRELATIVE) {
+        return easyaudio_3d_mode_relative;
+    }
+
+    return easyaudio_3d_mode_disabled;
 }
 
 
@@ -2322,6 +2405,8 @@ easyaudio_context* easyaudio_create_context_dsound()
         pContext->base.get_listener_position      = easyaudio_get_listener_position_dsound;
         pContext->base.set_listener_orientation   = easyaudio_set_listener_orientation_dsound;
         pContext->base.get_listener_orientation   = easyaudio_get_listener_orientation_dsound;
+        pContext->base.set_3d_mode                = easyaudio_set_3d_mode_dsound;
+        pContext->base.get_3d_mode                = easyaudio_get_3d_mode_dsound;
 
         pContext->hDSoundDLL                      = hDSoundDLL;
         pContext->pDirectSoundCreate8             = pDirectSoundCreate8;

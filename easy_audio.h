@@ -120,6 +120,15 @@ typedef enum
 
 } easyaudio_effect_type;
 
+// 3D processing modes.
+typedef enum
+{
+    easyaudio_3d_mode_absolute,
+    easyaudio_3d_mode_relative,
+    easyaudio_3d_mode_disabled
+
+} easyaudio_3d_mode;
+
 
 typedef struct easyaudio_context easyaudio_context;
 typedef struct easyaudio_device easyaudio_device;
@@ -402,6 +411,15 @@ void easyaudio_set_listener_orientation(easyaudio_device* pDevice, float forward
 void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwardOut, float* pUpOut);
 
 
+/// Sets the 3D processing mode (absolute, relative or disabled).
+///
+/// @remarks
+///     This applies to position, orientation and velocity.
+void easyaudio_set_3d_mode(easyaudio_buffer* pBuffer, easyaudio_3d_mode mode);
+
+/// Retrieves the 3D processing mode (absolute, relative or disabled).
+easyaudio_3d_mode easyaudio_get_3d_mode(easyaudio_buffer* pBuffer);
+
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -429,8 +447,10 @@ void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwa
 
 
 //// STREAMING ////
-typedef bool (* easyaudio_stream_read_proc)(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
-typedef bool (* easyaudio_stream_seek_proc)(void* pUserData, unsigned int offsetInBytesFromStart);
+typedef int ea_bool;
+
+typedef ea_bool (* easyaudio_stream_read_proc)(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
+typedef ea_bool (* easyaudio_stream_seek_proc)(void* pUserData, unsigned int offsetInBytesFromStart);
 
 typedef struct
 {
