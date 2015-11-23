@@ -366,6 +366,12 @@ easyvfs_uint64 easyvfs_file_size(easyvfs_file* pFile);
 void easyvfs_flush(easyvfs_file* pFile);
 
 
+/// Retrieves the size of the extra data for the given file.
+unsigned int easyvfs_get_extra_data_size(easyvfs_file* pFile);
+
+/// Retrieves a pointer to the extra data for the given file.
+void* easyvfs_get_extra_data(easyvfs_file* pFile);
+
 
 //////////////////////////////////////
 // High Level API

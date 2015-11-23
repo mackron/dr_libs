@@ -1755,6 +1755,25 @@ void easyvfs_flush(easyvfs_file* pFile)
 }
 
 
+unsigned int easyvfs_get_extra_data_size(easyvfs_file* pFile)
+{
+    if (pFile != NULL) {
+        return pFile->extraDataSize;
+    }
+
+    return 0;
+}
+
+void* easyvfs_get_extra_data(easyvfs_file* pFile)
+{
+    if (pFile != NULL) {
+        return pFile->pExtraData;
+    }
+
+    return NULL;
+}
+
+
 
 //////////////////////////////////////
 // High Level API
