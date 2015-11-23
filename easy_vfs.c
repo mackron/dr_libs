@@ -1788,6 +1788,197 @@ bool easyvfs_write_line(easyvfs_file* pFile, const char* str)
     return easyvfs_write_string(pFile, str) && easyvfs_write_string(pFile, "\n");
 }
 
+void* easyvfs_open_and_read_binary_file(easyvfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut)
+{
+    easyvfs_file* pFile = easyvfs_open(pContext, absoluteOrRelativePath, EASYVFS_READ, 0);
+    if (pFile == NULL) {
+        return NULL;
+    }
+
+    easyvfs_uint64 fileSize = easyvfs_file_size(pFile);
+    if (fileSize > SIZE_MAX)
+    {
+        // File's too big.
+        easyvfs_close(pFile);
+        return NULL;
+    }
+
+
+    void* pData = easyvfs_malloc((size_t)fileSize);
+    if (pData == NULL)
+    {
+        // Failed to allocate memory.
+        easyvfs_close(pFile);
+        return NULL;
+    }
+
+
+    easyvfs_uint64 leftoverBytes  = fileSize % UINT_MAX;
+    easyvfs_uint64 iterationCount = fileSize / UINT_MAX;
+    for (easyvfs_uint64 i = 0; i < iterationCount; ++i)
+    {
+        if (!easyvfs_read(pFile, ((char*)pData) + (i*UINT_MAX), UINT_MAX, NULL))
+        {
+            free(pData);
+            easyvfs_close(pFile);
+            return NULL;
+        }
+    }
+
+    assert(leftoverBytes < UINT_MAX);
+    if (!easyvfs_read(pFile, pData, (size_t)leftoverBytes, NULL))
+    {
+        free(pData);
+        easyvfs_close(pFile);
+        return NULL;
+    }
+
+
+    if (pSizeInBytesOut != NULL) {
+        *pSizeInBytesOut = (size_t)fileSize;
+    }
+
+    easyvfs_close(pFile);
+
+    return pData;
+}
+
+char* easyvfs_open_and_read_text_file(easyvfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut)
+{
+    easyvfs_file* pFile = easyvfs_open(pContext, absoluteOrRelativePath, EASYVFS_READ, 0);
+    if (pFile == NULL) {
+        return NULL;
+    }
+
+    easyvfs_uint64 fileSize = easyvfs_file_size(pFile);
+    if (fileSize > SIZE_MAX)
+    {
+        // File's too big.
+        easyvfs_close(pFile);
+        return NULL;
+    }
+
+
+    void* pData = easyvfs_malloc((size_t)fileSize + 1);     // +1 for null terminator.
+    if (pData == NULL)
+    {
+        // Failed to allocate memory.
+        easyvfs_close(pFile);
+        return NULL;
+    }
+
+
+    easyvfs_uint64 leftoverBytes  = fileSize % UINT_MAX;
+    easyvfs_uint64 iterationCount = fileSize / UINT_MAX;
+    for (easyvfs_uint64 i = 0; i < iterationCount; ++i)
+    {
+        if (!easyvfs_read(pFile, ((char*)pData) + (i*UINT_MAX), UINT_MAX, NULL))
+        {
+            free(pData);
+            easyvfs_close(pFile);
+            return NULL;
+        }
+    }
+
+    assert(leftoverBytes < UINT_MAX);
+    if (!easyvfs_read(pFile, pData, (size_t)leftoverBytes, NULL))
+    {
+        free(pData);
+        easyvfs_close(pFile);
+        return NULL;
+    }
+
+
+    // Null terminator.
+    ((char*)pData)[fileSize] = '\0';
+
+
+    if (pSizeInBytesOut != NULL) {
+        *pSizeInBytesOut = (size_t)fileSize;
+    }
+
+    easyvfs_close(pFile);
+
+    return pData;
+}
+
+
+bool easyvfs_is_existing_directory(easyvfs_context* pContext, const char* absoluteOrRelativePath)
+{
+    easyvfs_file_info fi;
+    if (easyvfs_get_file_info(pContext, absoluteOrRelativePath, &fi))
+    {
+        return (fi.attributes & EASYVFS_FILE_ATTRIBUTE_DIRECTORY) != 0;
+    }
+
+    return false;
+}
+
+
+bool easyvfs_mkdir_recursive(easyvfs_context* pContext, const char* path)
+{
+    // We just iterate over each segment and try creating each directory if it doesn't exist.
+    bool result = false;
+    if (pContext != NULL && path != NULL)
+    {
+        char absolutePath[EASYVFS_MAX_PATH];
+        if (easyvfs_validate_write_path(pContext, path, absolutePath, EASYVFS_MAX_PATH)) {
+            path = absolutePath;
+        } else {
+            return false;
+        }
+
+
+        char runningPath[EASYVFS_MAX_PATH];
+        runningPath[0] = '\0';
+
+        easyvfs_pathiterator iPathSeg = easyvfs_beginpathiteration(absolutePath);
+
+        // Never check the first segment because we can assume it always exists - it will always be the drive root.
+        if (easyvfs_nextpathsegment(&iPathSeg) && easyvfs_appendpathiterator(runningPath, sizeof(runningPath), iPathSeg))
+        {
+            // Loop over every directory until we find one that does not exist.
+            while (easyvfs_nextpathsegment(&iPathSeg))
+            {
+                if (!easyvfs_appendpathiterator(runningPath, sizeof(runningPath), iPathSeg)) {
+                    return false;
+                }
+
+                if (!easyvfs_is_existing_directory(pContext, runningPath))
+                {
+                    if (!easyvfs_mkdir(pContext, runningPath)) {
+                        return false;
+                    }
+
+                    break;
+                }
+            }
+
+
+            // At this point all we need to do is create the remaining directories - we can assert that the directory does not exist
+            // rather than actually checking it which should be a bit more efficient.
+            while (easyvfs_nextpathsegment(&iPathSeg))
+            {
+                if (!easyvfs_appendpathiterator(runningPath, sizeof(runningPath), iPathSeg)) {
+                    return false;
+                }
+
+                assert(!easyvfs_is_existing_directory(pContext, runningPath));
+
+                if (!easyvfs_mkdir(pContext, runningPath)) {
+                    return false;
+                }
+            }
+
+
+            result = true;
+        }
+    }
+
+    return result;
+}
+
+
 
 
 ///////////////////////////////////////////

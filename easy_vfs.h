@@ -386,6 +386,27 @@ bool easyvfs_write_string(easyvfs_file* pFile, const char* str);
 bool easyvfs_write_line(easyvfs_file* pFile, const char* str);
 
 
+/// Helper function for opening a binary file and retrieving it's data in one go.
+///
+/// @remarks
+///     Free the returned pointer with easyvfs_free()
+void* easyvfs_open_and_read_binary_file(easyvfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut);
+
+/// Helper function for opening a text file and retrieving it's data in one go.
+///
+/// @remarks
+///     Free the returned pointer with easyvfs_free()
+///     @par
+///     The returned string is null terminated. The size returned by pSizeInBytesOut does not include the null terminator.
+char* easyvfs_open_and_read_text_file(easyvfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut);
+
+
+/// Determines if the given path refers to an existing directory.
+bool easyvfs_is_existing_directory(easyvfs_context* pContext, const char* absoluteOrRelativePath);
+
+
+/// Same as easyvfs_mkdir(), except creates the entire directory structure recursively.
+bool easyvfs_mkdir_recursive(easyvfs_context* pContext, const char* path);
 
 
 //////////////////////////////////////
