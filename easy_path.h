@@ -146,6 +146,9 @@ void easypath_copybasepath(const char* path, char* baseOut, unsigned int baseSiz
 ///     The return value is just an offset of "path".
 const char* easypath_filename(const char* path);
 
+/// Copies the file name into the given buffer.
+const char* easypath_copy_file_name(const char* path, char* fileNameOut, unsigned int fileNameSizeInBytes);
+
 /// Finds the file extension of the given file path.
 ///
 /// @param path [in] The path to search.

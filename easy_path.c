@@ -378,6 +378,16 @@ const char* easypath_filename(const char* path)
     return 0;
 }
 
+const char* easypath_copy_file_name(const char* path, char* fileNameOut, unsigned int fileNameSizeInBytes)
+{
+    const char* fileName = easypath_filename(path);
+    if (fileName != 0) {
+        easypath_strcpy(fileNameOut, fileNameSizeInBytes, fileName);
+    }
+
+    return fileName;
+}
+
 const char* easypath_extension(const char* path)
 {
     if (path != 0)
