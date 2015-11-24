@@ -400,13 +400,33 @@ void* easyvfs_open_and_read_binary_file(easyvfs_context* pContext, const char* a
 ///     The returned string is null terminated. The size returned by pSizeInBytesOut does not include the null terminator.
 char* easyvfs_open_and_read_text_file(easyvfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut);
 
+/// Helper function for opening a file, writing the given data, and then closing it.
+bool easyvfs_open_and_write_binary_file(easyvfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize);
+
+/// Helper function for opening a file, writing the given textual data, and then closing it.
+bool easyvfs_open_and_write_text_file(easyvfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData);
+
+
+/// Helper function for determining whether or not the given path refers to an existing file or directory.
+bool easyvfs_exists(easyvfs_context* pContext, const char* absoluteOrRelativePath);
+
+/// Determines if the given path refers to an existing file (not a directory).
+///
+/// @remarks
+///     This will return false for directories. Use easyvfs_exists() to check for either a file or directory.
+bool easyvfs_is_existing_file(easyvfs_context* pContext, const char* absoluteOrRelativePath);
 
 /// Determines if the given path refers to an existing directory.
 bool easyvfs_is_existing_directory(easyvfs_context* pContext, const char* absoluteOrRelativePath);
 
-
 /// Same as easyvfs_mkdir(), except creates the entire directory structure recursively.
 bool easyvfs_mkdir_recursive(easyvfs_context* pContext, const char* path);
+
+/// Determines whether or not the given file is at the end.
+///
+/// @remarks
+///     This is just a high-level helper function equivalent to easyvfs_tell(pFile) == easyvfs_file_size(pFile).
+bool easyvfs_eof(easyvfs_file* pFile);
 
 
 //////////////////////////////////////

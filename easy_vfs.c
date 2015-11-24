@@ -1327,6 +1327,7 @@ bool easyvfs_next_iteration(easyvfs_context* pContext, easyvfs_iterator* i, easy
     {
         assert(i->pArchive != NULL);
         int result = i->pArchive->callbacks.nextiteration(i->pArchive, i, fi);
+#if 0
         if (result)
         {
             // The absolute path returned by the callback will be relative to the archive file. We want it to be absolute.
@@ -1337,8 +1338,8 @@ bool easyvfs_next_iteration(easyvfs_context* pContext, easyvfs_iterator* i, easy
 
                 easyvfs_copy_and_append_path(fi->absolutePath, EASYVFS_MAX_PATH, i->pArchive->absolutePath, tempPath);
             }
-
         }
+#endif
 
         return result;
     }
@@ -1813,24 +1814,26 @@ void* easyvfs_open_and_read_binary_file(easyvfs_context* pContext, const char* a
     }
 
 
-    easyvfs_uint64 leftoverBytes  = fileSize % UINT_MAX;
-    easyvfs_uint64 iterationCount = fileSize / UINT_MAX;
-    for (easyvfs_uint64 i = 0; i < iterationCount; ++i)
+    char* pDst = pData;
+    easyvfs_uint64 bytesRemaining = fileSize;
+    while (bytesRemaining > 0)
     {
-        if (!easyvfs_read(pFile, ((char*)pData) + (i*UINT_MAX), UINT_MAX, NULL))
+        unsigned int bytesToProcess;
+        if (bytesRemaining > UINT_MAX) {
+            bytesToProcess = UINT_MAX;
+        } else {
+            bytesToProcess = (unsigned int)bytesRemaining;
+        }
+
+        if (!easyvfs_read(pFile, pDst, bytesToProcess, NULL))
         {
-            free(pData);
+            easyvfs_free(pData);
             easyvfs_close(pFile);
             return NULL;
         }
-    }
 
-    assert(leftoverBytes < UINT_MAX);
-    if (!easyvfs_read(pFile, pData, (size_t)leftoverBytes, NULL))
-    {
-        free(pData);
-        easyvfs_close(pFile);
-        return NULL;
+        pDst += bytesToProcess;
+        bytesRemaining -= bytesToProcess;
     }
 
 
@@ -1868,24 +1871,26 @@ char* easyvfs_open_and_read_text_file(easyvfs_context* pContext, const char* abs
     }
 
 
-    easyvfs_uint64 leftoverBytes  = fileSize % UINT_MAX;
-    easyvfs_uint64 iterationCount = fileSize / UINT_MAX;
-    for (easyvfs_uint64 i = 0; i < iterationCount; ++i)
+    char* pDst = pData;
+    easyvfs_uint64 bytesRemaining = fileSize;
+    while (bytesRemaining > 0)
     {
-        if (!easyvfs_read(pFile, ((char*)pData) + (i*UINT_MAX), UINT_MAX, NULL))
+        unsigned int bytesToProcess;
+        if (bytesRemaining > UINT_MAX) {
+            bytesToProcess = UINT_MAX;
+        } else {
+            bytesToProcess = (unsigned int)bytesRemaining;
+        }
+
+        if (!easyvfs_read(pFile, pDst, bytesToProcess, NULL))
         {
-            free(pData);
+            easyvfs_free(pData);
             easyvfs_close(pFile);
             return NULL;
         }
-    }
 
-    assert(leftoverBytes < UINT_MAX);
-    if (!easyvfs_read(pFile, pData, (size_t)leftoverBytes, NULL))
-    {
-        free(pData);
-        easyvfs_close(pFile);
-        return NULL;
+        pDst += bytesToProcess;
+        bytesRemaining -= bytesToProcess;
     }
 
 
@@ -1902,6 +1907,61 @@ char* easyvfs_open_and_read_text_file(easyvfs_context* pContext, const char* abs
     return pData;
 }
 
+bool easyvfs_open_and_write_binary_file(easyvfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize)
+{
+    easyvfs_file* pFile = easyvfs_open(pContext, absoluteOrRelativePath, EASYVFS_WRITE, 0);
+    if (pFile == NULL) {
+        return false;
+    }
+
+    const char* pSrc = pData;
+    
+    size_t bytesRemaining = dataSize;
+    while (bytesRemaining > 0)
+    {
+        unsigned int bytesToProcess;
+        if (bytesRemaining > UINT_MAX) {
+            bytesToProcess = UINT_MAX;
+        } else {
+            bytesToProcess = (unsigned int)bytesRemaining;
+        }
+
+        if (!easyvfs_write(pFile, pSrc, bytesToProcess, NULL))
+        {
+            easyvfs_close(pFile);
+            return false;
+        }
+
+        pSrc += bytesToProcess;
+        bytesRemaining -= bytesToProcess;
+    }
+    
+    easyvfs_close(pFile);
+    return true;
+}
+
+bool easyvfs_open_and_write_text_file(easyvfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData)
+{
+    return easyvfs_open_and_write_binary_file(pContext, absoluteOrRelativePath, pTextData, strlen(pTextData));
+}
+
+
+bool easyvfs_exists(easyvfs_context * pContext, const char * absoluteOrRelativePath)
+{
+    easyvfs_file_info fi;
+    return easyvfs_get_file_info(pContext, absoluteOrRelativePath, &fi);
+}
+
+bool easyvfs_is_existing_file(easyvfs_context * pContext, const char * absoluteOrRelativePath)
+{
+    easyvfs_file_info fi;
+    if (easyvfs_get_file_info(pContext, absoluteOrRelativePath, &fi))
+    {
+        return (fi.attributes & EASYVFS_FILE_ATTRIBUTE_DIRECTORY) == 0;
+    }
+
+    return false;
+}
 
 bool easyvfs_is_existing_directory(easyvfs_context* pContext, const char* absoluteOrRelativePath)
 {
@@ -1976,6 +2036,11 @@ bool easyvfs_mkdir_recursive(easyvfs_context* pContext, const char* path)
     }
 
     return result;
+}
+
+bool easyvfs_eof(easyvfs_file* pFile)
+{
+    return easyvfs_tell(pFile) == easyvfs_file_size(pFile);
 }
 
 
