@@ -202,7 +202,7 @@ typedef void         (* key_value_error_proc)(void* pUserData, const char* messa
 ///      - Comments begin with the '#' character and continue until the end of the line.
 ///      - A key cannot contain spaces but are permitted in values.
 ///      - The value will have any leading and trailing whitespace trimmed.
-///      - A value can be wrapped in double-quote characters in which case the last double-quote characters acts as the end point.
+///      - A value can be wrapped in double-quote characters in which case the last double-quote character acts as the end point.
 ///     @par
 ///     If an error occurs, that line will be skipped and processing will continue.
 void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_proc onPair, key_value_error_proc onError, void* pUserData);
