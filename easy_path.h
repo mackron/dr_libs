@@ -278,14 +278,23 @@ int easypath_removeextension(char* path);
 int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, const char* path);
 
 
+/// Converts an absolute path to a relative path.
+///
+/// @return 1 if the conversion was successful; 0 if there was an error.
+///
+/// @remarks
+///     This will normalize every slash to forward slashes.
+int easypath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, unsigned int relativePathOutSizeInBytes);
+
+
 /// strlen()
 unsigned int easypath_strlen(const char* str);
 
 /// strcpy_s() implementation.
-void easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src);
+int easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src);
 
 /// easypath_strncpy()
-void easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes);
+int easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes);
 
 
 #ifdef __cplusplus

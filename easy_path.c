@@ -22,10 +22,10 @@ unsigned int easypath_strlen(const char* str)
 #endif
 }
 
-void easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
+int easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 {
 #if EASYPATH_USE_STDLIB && (defined(_MSC_VER))
-    strcpy_s(dst, dstSizeInBytes, src);
+    return strcpy_s(dst, dstSizeInBytes, src);
 #else
     if (dst == 0) {
         return EINVAL;
@@ -61,8 +61,11 @@ void easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 #endif
 }
 
-void easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
+int easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
 {
+#if EASYPATH_USE_STDLIB && (defined(_MSC_VER))
+    return strncpy_s(dst, dstSizeInBytes, src, srcSizeInBytes);
+#else
     while (dstSizeInBytes > 0 && src[0] != '\0' && srcSizeInBytes > 0)
     {
         dst[0] = src[0];
@@ -76,7 +79,14 @@ void easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, u
     if (dstSizeInBytes > 0)
     {
         dst[0] = '\0';
+        return 0;
     }
+    else
+    {
+        // Ran out of room.
+        return ERANGE;
+    }
+#endif
 }
 
 
@@ -170,9 +180,7 @@ int easypath_prev(easypath_iterator* i)
 
 int easypath_atend(easypath_iterator i)
 {
-    // Note that the input argument is a copy of the iterator. Thus, we can just call easypath_next() to determine whether or not it's at the end at
-    // it won't affect the caller in any way.
-    return !easypath_next(&i);
+    return i.path == 0 || i.path[i.segment.offset] == '\0';
 }
 
 int easypath_atstart(easypath_iterator i)
@@ -751,6 +759,142 @@ int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, cons
     }
 
     return 0;
+}
+
+
+int easypath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, unsigned int relativePathOutSizeInBytes)
+{
+    // We do this in to phases. The first phase just iterates past each segment of both the path to convert and the
+    // base path until we find two that are not equal. The second phase just adds the appropriate ".." segments.
+
+    if (relativePathOut == 0) {
+        return 0;
+    }
+
+    if (relativePathOutSizeInBytes == 0) {
+        return 0;
+    }
+
+
+    easypath_iterator iPath = easypath_first(absolutePathToMakeRelative);
+    easypath_iterator iBase = easypath_first(absolutePathToMakeRelativeTo);
+
+    if (easypath_atend(iPath) && easypath_atend(iBase))
+    {
+        // Looks like both paths are empty.
+        relativePathOut[0] = '\0';
+        return 0;
+    }
+
+
+    // Phase 1: Get past the common section.
+    while (easypath_iterators_equal(iPath, iBase))
+    {
+        easypath_next(&iPath);
+        easypath_next(&iBase);
+    }
+
+    if (iPath.segment.offset == 0)
+    {
+        // The path is not relative to the base path.
+        relativePathOut[0] = '\0';
+        return 0;
+    }
+
+
+    // Phase 2: Append ".." segments - one for each remaining segment in the base path.
+    char* pDst = relativePathOut;
+    unsigned int bytesAvailable = relativePathOutSizeInBytes;
+
+    if (!easypath_atend(iBase))
+    {
+        do
+        {
+            if (pDst != relativePathOut)
+            {
+                if (bytesAvailable <= 3)
+                {
+                    // Ran out of room.
+                    relativePathOut[0] = '\0';
+                    return 0;
+                }
+
+                pDst[0] = '/';
+                pDst[1] = '.';
+                pDst[2] = '.';
+
+                pDst += 3;
+                bytesAvailable -= 3;
+            }
+            else
+            {
+                // It's the first segment, so we need to ensure we don't lead with a slash.
+                if (bytesAvailable <= 2)
+                {
+                    // Ran out of room.
+                    relativePathOut[0] = '\0';
+                    return 0;
+                }
+
+                pDst[0] = '.';
+                pDst[1] = '.';
+
+                pDst += 2;
+                bytesAvailable -= 2;
+            }
+        } while (easypath_next(&iBase));
+    }
+
+
+    // Now we just append whatever is left of the main path. We want the path to be clean, so we append segment-by-segment.
+    if (!easypath_atend(iPath))
+    {
+        do
+        {
+            // Leading slash, if required.
+            if (pDst != relativePathOut)
+            {
+                if (bytesAvailable <= 1)
+                {
+                    // Ran out of room.
+                    relativePathOut[0] = '\0';
+                    return 0;
+                }
+
+                pDst[0] = '/';
+
+                pDst += 1;
+                bytesAvailable -= 1;
+            }
+
+
+            if (bytesAvailable <= iPath.segment.length)
+            {
+                // Ran out of room.
+                relativePathOut[0] = '\0';
+                return 0;
+            }
+        
+            if (easypath_strncpy(pDst, bytesAvailable, iPath.path + iPath.segment.offset, iPath.segment.length) != 0)
+            {
+                // Error copying the string. Probably ran out of room in the output buffer.
+                relativePathOut[0] = '\0';
+                return 0;
+            }
+
+            pDst += iPath.segment.length;
+            bytesAvailable -= iPath.segment.length;
+
+
+        } while (easypath_next(&iPath));
+    }
+
+
+    // Always null terminate.
+    //assert(bytesAvailable > 0);
+    pDst[0] = '\0';
+
+    return 1;
 }
 
 
