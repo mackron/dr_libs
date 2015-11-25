@@ -144,6 +144,9 @@ struct easyvfs_archive
     /// system. For non-native archives (zip, etc.) this is the the path of the archive file.
     char absolutePath[EASYVFS_MAX_PATH];
 
+    /// The base path the archive was opened from. This will be one of the paths that was registered with easyvfs_add_base_directory().
+    char basePath[EASYVFS_MAX_PATH];
+
     /// The user data that was returned when the archive was opened by the archive definition.
     void* pUserData;
 };

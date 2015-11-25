@@ -593,6 +593,7 @@ easyvfs_archive* easyvfs_openarchive_native(easyvfs_context* pContext, const cha
                 pNewArchive->pFile          = NULL;
                 pNewArchive->callbacks      = pContext->nativeCallbacks;
                 easyvfs_strcpy(pNewArchive->absolutePath, EASYVFS_MAX_PATH, basePath);
+                memset(pNewArchive->basePath, 0, sizeof(pNewArchive->basePath));
                 pNewArchive->pUserData      = pContext->nativeCallbacks.openarchive(NULL, accessMode);
                 if (pNewArchive->pUserData == NULL)
                 {
@@ -716,6 +717,8 @@ easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive,
                             // It's an archive, so check it. The name to check is the beginning of the next path segment.
                             if (easyvfs_nextpathsegment(&iPathSegment))
                             {
+                                easyvfs_strcpy(pChildArchive->basePath, sizeof(pChildArchive->basePath), pArchive->basePath);
+
                                 easyvfs_strcpy(relativePathOut, relativePathBufferSizeInBytes, path);
 
                                 easyvfs_archive* pResultArchive = easyvfs_openarchive_frompath_verbose(pChildArchive, iPathSegment.path + iPathSegment.segment.offset, accessMode, relativePathOut, relativePathBufferSizeInBytes);
@@ -804,6 +807,8 @@ easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive,
                                 easyvfs_pathiterator iNextSegment = iPathSegment;
                                 if (easyvfs_nextpathsegment(&iNextSegment))
                                 {
+                                    easyvfs_strcpy(pChildArchive->basePath, sizeof(pChildArchive->basePath), pArchive->basePath);
+
                                     easyvfs_archive* pResultArchive = easyvfs_openarchive_frompath_default(pChildArchive, iNextSegment.path + iNextSegment.segment.offset, accessMode, relativePathOut, relativePathBufferSizeInBytes);
                                     if (pResultArchive != NULL)
                                     {
@@ -845,6 +850,8 @@ easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive,
                             easyvfs_archive* pChildArchive = easyvfs_openarchive(pArchive->pContext, pArchive, fi.absolutePath, easyvfs_archiveaccessmode(accessMode));
                             if (pChildArchive != NULL)
                             {
+                                easyvfs_strcpy(pChildArchive->basePath, sizeof(pChildArchive->basePath), pArchive->basePath);
+
                                 // It's an archive, so check it.
                                 easyvfs_archive* pResultArchive = easyvfs_openarchive_frompath_default(pChildArchive, iPathSegment.path + iPathSegment.segment.offset, accessMode, relativePathOut, relativePathBufferSizeInBytes);
                                 if (pResultArchive != NULL)
@@ -913,6 +920,8 @@ easyvfs_archive* easyvfs_openarchive_frompath(easyvfs_context* pContext, const c
             easyvfs_archive* pRootArchive = easyvfs_openarchive_native(pContext, pContext->baseDirectories.pBuffer[iBasePath].absolutePath, accessMode);
             if (pRootArchive != NULL)
             {
+                easyvfs_strcpy(pRootArchive->basePath, sizeof(pRootArchive->basePath), pContext->baseDirectories.pBuffer[iBasePath].absolutePath);
+
                 easyvfs_archive* pResultArchive = easyvfs_openarchive_frompath_default(pRootArchive, path, accessMode, relativePathOut, relativePathBufferSizeInBytes);
                 if (pResultArchive == NULL)
                 {
