@@ -251,7 +251,7 @@ void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
 // Command Line
 //
 // The command line functions below are just simple iteration functions. This command line system is good for
-// simple command lines, but probably not best for programs requiring complex command line work.
+// simple command lines, but probably not the best for programs requiring complex command line work.
 //
 // For argv style command lines, parse_cmdline() will run without any heap allocations. With a Win32 style
 // command line there will be one malloc() per call fo parse_cmdline(). This is the only function that will do
