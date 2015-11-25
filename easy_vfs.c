@@ -2120,6 +2120,53 @@ bool easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* 
 #endif
 }
 
+bool easyvfs_copy_base_path(const char* path, char* baseOut, unsigned int baseSizeInBytes)
+{
+#if !EASYVFS_USE_EASYPATH
+    if (easyvfs_strcpy(baseOut, baseSizeInBytes, path) == 0)
+    {
+        if (baseOut != 0)
+        {
+            char* baseend = baseOut;
+
+            // We just loop through the path until we find the last slash.
+            while (baseOut[0] != '\0')
+            {
+                if (baseOut[0] == '/' || baseOut[0] == '\\')
+                {
+                    baseend = baseOut;
+                }
+
+                baseOut += 1;
+            }
+
+
+            // Now we just loop backwards until we hit the first non-slash.
+            while (baseend > baseOut)
+            {
+                if (baseend[0] != '/' && baseend[0] != '\\')
+                {
+                    break;
+                }
+
+                baseend -= 1;
+            }
+
+
+            // We just put a null terminator on the end.
+            baseend[0] = '\0';
+
+            return 1;
+        }
+    }
+
+    return 0;
+#else
+    easypath_copybasepath(path, baseOut, baseSizeInBytes);
+    return 1;
+#endif
+}
+
 const char* easyvfs_file_name(const char* path)
 {
 #if !EASYVFS_USE_EASYPATH
@@ -2604,6 +2651,27 @@ void* easyvfs_openfile_impl_native(easyvfs_archive* pArchive, const char* path, 
 
 
         HANDLE hFile = CreateFileA(fullPath, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFile == INVALID_HANDLE_VALUE)
+        {
+            // We failed to create the file, however it may be because we are trying to create the file and the directory structure does not exist yet. In this
+            // case we want to try creating the directory structure and try again.
+            if ((accessMode & EASYVFS_WRITE) != 0 && (accessMode & EASYVFS_CREATE_DIRS) != 0)
+            {
+                char dirPath[EASYVFS_MAX_PATH];
+                if (easyvfs_copy_base_path(fullPath, dirPath, sizeof(dirPath)))
+                {
+                    if (!easyvfs_is_existing_directory(pArchive->pContext, dirPath))    // Don't try creating the directory if it already exists.
+                    {
+                        if (easyvfs_mkdir_recursive(pArchive->pContext, dirPath))
+                        {
+                            // At this point we should have the directory structure in place and we can try creating the file again.
+                            hFile = CreateFileA(fullPath, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
+                        }
+                    }
+                }
+            }
+        }
+
         if (hFile != INVALID_HANDLE_VALUE)
         {
             return (void*)hFile;

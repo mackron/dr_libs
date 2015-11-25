@@ -50,10 +50,11 @@ extern "C" {
 /// The allowable access modes.
 typedef unsigned int easyvfs_access_mode;
 
-#define EASYVFS_READ      (1 << 0)
-#define EASYVFS_WRITE     (1 << 1)
-#define EASYVFS_EXISTING  (1 << 2)
-#define EASYVFS_APPEND    (1 << 3)
+#define EASYVFS_READ        (1 << 0)
+#define EASYVFS_WRITE       (1 << 1)
+#define EASYVFS_EXISTING    (1 << 2)
+#define EASYVFS_APPEND      (1 << 3)
+#define EASYVFS_CREATE_DIRS (1 << 4)    // Creates the directory structure if required.
 
 #define EASYVFS_FILE_ATTRIBUTE_DIRECTORY    0x00000001
 #define EASYVFS_FILE_ATTRIBUTE_READONLY     0x00000002
@@ -451,6 +452,8 @@ bool easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbso
 // is_path_descendant()
 bool easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
 
+// easyvfs_copy_base_path()
+bool easyvfs_copy_base_path(const char* path, char* baseOut, unsigned int baseSizeInBytes);
 
 // easyvfs_file_name()
 const char* easyvfs_file_name(const char* path);
