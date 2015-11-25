@@ -247,6 +247,7 @@ int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const
 /// @return 1 if the paths were appended successfully; 0 otherwise.
 int easypath_copyandappendextension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension);
 
+
 /// Cleans the path and resolves the ".." and "." segments.
 ///
 /// @param path               [in]  The path to clean.
@@ -267,6 +268,9 @@ int easypath_copyandappendextension(char* dst, unsigned int dstSizeInBytes, cons
 ///     If an error occurs, such as an invalid input path, 0 will be returned.
 unsigned int easypath_clean(const char* path, char* pathOut, unsigned int pathOutSizeInBytes);
 
+/// Appends one path to the other and then cleans it.
+int easypath_append_and_clean(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
+
 
 /// Removes the extension from the given path.
 ///
@@ -285,6 +289,14 @@ int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, cons
 /// @remarks
 ///     This will normalize every slash to forward slashes.
 int easypath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, unsigned int relativePathOutSizeInBytes);
+
+/// Converts a relative path to an absolute path based on a base path.
+///
+/// @return 1 if the conversion was successful; 0 if there was an error.
+///
+/// @remarks
+///     This is equivalent to an append followed by a clean. Slashes will be normalized to forward slashes.
+int easypath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, unsigned int absolutePathOutSizeInBytes);
 
 
 /// strlen()
