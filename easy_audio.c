@@ -1683,9 +1683,6 @@ bool easyaudio_next_message_dsound(easyaudio_message_queue_dsound* pQueue, easya
 }
 
 
-
-
-
 DWORD WINAPI MessageHandlingThread_DSound(easyaudio_message_queue_dsound* pQueue)
 {
     assert(pQueue != NULL);
@@ -1814,10 +1811,11 @@ struct easyaudio_event_manager_dsound
     easyaudio_mutex refreshMutex;
 
     /// The synchronization lock.
-    HANDLE hLock;
+    easyaudio_mutex mainLock;
 
     /// The event object for notifying easy_audio when an event has finished being handled by the event handling thread.
     HANDLE hEventCompletionLock;
+
 
     /// The first event in a list.
     easyaudio_event_dsound* pFirstEvent;
@@ -1830,13 +1828,13 @@ struct easyaudio_event_manager_dsound
 /// Locks the event manager.
 void easyaudio_lock_events_dsound(easyaudio_event_manager_dsound* pEventManager)
 {
-    WaitForSingleObject(pEventManager->hLock, INFINITE);
+    easyaudio_lock_mutex(pEventManager->mainLock);
 }
 
 /// Unlocks the event manager.
 void easyaudio_unlock_events_dsound(easyaudio_event_manager_dsound* pEventManager)
 {
-    SetEvent(pEventManager->hLock);
+    easyaudio_unlock_mutex(pEventManager->mainLock);
 }
 
 
@@ -2162,8 +2160,8 @@ bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventM
         return false;
     }
 
-    HANDLE hLock = CreateEventA(NULL, FALSE, TRUE,  NULL);
-    if (hLock == NULL)
+    easyaudio_mutex mainLock = easyaudio_create_mutex();
+    if (mainLock == NULL)
     {
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
@@ -2176,7 +2174,8 @@ bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventM
     {
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
-        CloseHandle(hLock);
+        easyaudio_delete_mutex(refreshMutex);
+        easyaudio_delete_mutex(mainLock);
         return false;
     }
 
@@ -2186,7 +2185,8 @@ bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventM
     {
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
-        CloseHandle(hLock);
+        easyaudio_delete_mutex(refreshMutex);
+        easyaudio_delete_mutex(mainLock);
         CloseHandle(hEventCompletionLock);
         return false;
     }
@@ -2195,13 +2195,12 @@ bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventM
     pEventManager->hTerminateEvent      = hTerminateEvent;
     pEventManager->hRefreshEvent        = hRefreshEvent;
     pEventManager->refreshMutex         = refreshMutex;
-    pEventManager->hLock                = hLock;
+    pEventManager->mainLock             = mainLock;
     pEventManager->hEventCompletionLock = hEventCompletionLock;
     pEventManager->hThread              = hThread;
 
     pEventManager->pFirstEvent   = NULL;
     pEventManager->pLastEvent    = NULL;
-    //pEventManager->pCurrentEvent = NULL;
 
     return true;
 }
@@ -2242,10 +2241,12 @@ void easyaudio_uninit_event_manager_dsound(easyaudio_event_manager_dsound* pEven
     easyaudio_delete_mutex(pEventManager->refreshMutex);
     pEventManager->refreshMutex = NULL;
 
+    easyaudio_delete_mutex(pEventManager->mainLock);
+    pEventManager->mainLock = NULL;
 
-    // Delete the lock.
-    CloseHandle(pEventManager->hLock);
-    pEventManager->hLock = NULL;
+
+    CloseHandle(pEventManager->hEventCompletionLock);
+    pEventManager->hEventCompletionLock = NULL;
 }
 
 
