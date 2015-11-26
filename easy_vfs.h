@@ -254,7 +254,7 @@ void easyvfs_remove_all_base_directories(easyvfs_context* pContext);
 unsigned int easyvfs_get_base_directory_count(easyvfs_context* pContext);
 
 /// Retrieves the base directory at the given index.
-bool easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes);
+const char* easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index);
 
 
 /// Sets the base directory for write operations (including delete).

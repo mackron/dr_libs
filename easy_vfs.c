@@ -1246,6 +1246,25 @@ unsigned int easyvfs_get_base_directory_count(easyvfs_context* pContext)
     return 0;
 }
 
+//bool easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
+//{
+//    if (pContext != NULL && index < pContext->baseDirectories.count)
+//    {
+//        return easyvfs_strcpy(absolutePathOut, absolutePathBufferSizeInBytes, pContext->baseDirectories.pBuffer[index].absolutePath) == 0;
+//    }
+//
+//    return 0;
+//}
+
+const char* easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index)
+{
+    if (pContext != NULL && index < pContext->baseDirectories.count)
+    {
+        return pContext->baseDirectories.pBuffer[index].absolutePath;
+    }
+
+    return NULL;
+}
 
 void easyvfs_set_base_write_directory(easyvfs_context* pContext, const char* absolutePath)
 {
@@ -1369,16 +1388,6 @@ void easyvfs_end_iteration(easyvfs_context* pContext, easyvfs_iterator* i)
     }
 }
 
-
-bool easyvfs_get_base_directory_by_index(easyvfs_context* pContext, unsigned int index, char* absolutePathOut, unsigned int absolutePathBufferSizeInBytes)
-{
-    if (pContext != NULL && index < pContext->baseDirectories.count)
-    {
-        return easyvfs_strcpy(absolutePathOut, absolutePathBufferSizeInBytes, pContext->baseDirectories.pBuffer[index].absolutePath) == 0;
-    }
-
-    return 0;
-}
 
 bool easyvfs_get_file_info(easyvfs_context* pContext, const char* path, easyvfs_file_info* fi)
 {
