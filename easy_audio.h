@@ -73,8 +73,9 @@ extern "C" {
 #include <stdbool.h>
 
 
-#define EASYAUDIO_MAX_DEVICE_COUNT  16
-#define EASYAUDIO_MAX_MARKER_COUNT  4
+#define EASYAUDIO_MAX_DEVICE_COUNT          16
+#define EASYAUDIO_MAX_MARKER_COUNT          4
+#define EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE    1024        // The maximum number of messages that can be cached in the internal message queues.
 
 
 #if defined(_WIN32) && !defined(EASYAUDIO_NO_DIRECTSOUND)
@@ -381,7 +382,8 @@ bool easyaudio_register_marker_callback(easyaudio_buffer* pBuffer, unsigned int 
 /// Registers the callback to fire when the buffer stops playing.
 ///
 /// @remarks
-///     This will fail if the buffer is not in a stopped state.
+///     This will fail if the buffer is not in a stopped state and the callback is non-null. It is fine to call this
+///     with a null callback while the buffer is in the middle of playback in which case the callback will be cleared.
 ///     @par
 ///     The will replace any previous callback.
 bool easyaudio_register_stop_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
@@ -389,7 +391,8 @@ bool easyaudio_register_stop_callback(easyaudio_buffer* pBuffer, easyaudio_event
 /// Registers the callback to fire when the buffer is paused.
 ///
 /// @remarks
-///     This will fail if the buffer is not in a stopped state.
+///     This will fail if the buffer is not in a stopped state and the callback is non-null. It is fine to call this
+///     with a null callback while the buffer is in the middle of playback in which case the callback will be cleared.
 ///     @par
 ///     The will replace any previous callback.
 bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
@@ -397,7 +400,8 @@ bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_even
 /// Registers the callback to fire when the buffer begins playing from either a stopped or paused state.
 ///
 /// @remarks
-///     This will fail if the buffer is not in a stopped state.
+///     This will fail if the buffer is not in a stopped state and the callback is non-null. It is fine to call this
+///     with a null callback while the buffer is in the middle of playback in which case the callback will be cleared.
 ///     @par
 ///     The will replace any previous callback.
 bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);

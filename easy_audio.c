@@ -131,6 +131,10 @@ struct easyaudio_device
 {
     /// The context that owns this device.
     easyaudio_context* pContext;
+
+    /// Whether or not the device is marked for deletion. A device is not always deleted straight away, so we use this
+    /// to determine whether or not it has been marked for deletion.
+    bool markedForDeletion;
 };
 
 struct easyaudio_buffer
@@ -149,6 +153,10 @@ struct easyaudio_buffer
 
     /// Whether or not playback is looping.
     bool isLooping;
+
+    /// Whether or not the buffer is marked for deletion. A buffer is not always deleted straight away, so we use this
+    /// to determine whether or not it has been marked for deletion.
+    bool markedForDeletion;
 };
 
 
@@ -220,7 +228,13 @@ easyaudio_device* easyaudio_create_output_device(easyaudio_context* pContext, un
         return NULL;
     }
 
-    return pContext->create_output_device(pContext, deviceIndex);
+    easyaudio_device* pDevice = pContext->create_output_device(pContext, deviceIndex);
+    if (pDevice != NULL)
+    {
+        pDevice->markedForDeletion = false;
+    }
+
+    return pDevice;
 }
 
 void easyaudio_delete_output_device(easyaudio_device* pDevice)
@@ -228,6 +242,14 @@ void easyaudio_delete_output_device(easyaudio_device* pDevice)
     if (pDevice == NULL) {
         return;
     }
+
+    // If the device is already marked for deletion we just return straight away. However, this is an erroneous case so we trigger a failed assertion in this case.
+    if (pDevice->markedForDeletion) {
+        assert(false);
+        return;
+    }
+
+    pDevice->markedForDeletion = true;
 
     assert(pDevice->pContext != NULL);
     pDevice->pContext->delete_output_device(pDevice);
@@ -249,11 +271,12 @@ easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_b
     easyaudio_buffer* pBuffer = pDevice->pContext->create_buffer(pDevice, pBufferDesc, extraDataSize);
     if (pBuffer != NULL)
     {
-        pBuffer->pDevice       = pDevice;
-        pBuffer->stopCallback  = (easyaudio_event_callback){NULL, NULL};
-        pBuffer->pauseCallback = (easyaudio_event_callback){NULL, NULL};
-        pBuffer->playCallback  = (easyaudio_event_callback){NULL, NULL};
-        pBuffer->isLooping     = false;
+        pBuffer->pDevice           = pDevice;
+        pBuffer->stopCallback      = (easyaudio_event_callback){NULL, NULL};
+        pBuffer->pauseCallback     = (easyaudio_event_callback){NULL, NULL};
+        pBuffer->playCallback      = (easyaudio_event_callback){NULL, NULL};
+        pBuffer->isLooping         = false;
+        pBuffer->markedForDeletion = false;
     }
 
     return pBuffer;
@@ -265,14 +288,23 @@ void easyaudio_delete_buffer(easyaudio_buffer* pBuffer)
         return;
     }
 
+    // We don't want to do anything if the buffer is marked for deletion.
+    if (pBuffer->markedForDeletion) {
+        assert(false);
+        return;
+    }
+
+    pBuffer->markedForDeletion = true;
+
+
+    // The sound needs to be stopped first.
+    easyaudio_stop(pBuffer);
+
     // Now we need to remove every event.
     easyaudio_remove_markers(pBuffer);
     easyaudio_register_stop_callback(pBuffer, NULL, NULL);
     easyaudio_register_pause_callback(pBuffer, NULL, NULL);
     easyaudio_register_play_callback(pBuffer, NULL, NULL);
-
-    // The sound needs to be stopped first.
-    easyaudio_stop(pBuffer);
 
 
     assert(pBuffer->pDevice != NULL);
@@ -483,7 +515,7 @@ bool easyaudio_register_stop_callback(easyaudio_buffer* pBuffer, easyaudio_event
         return false;
     }
 
-    if (easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
+    if (callback != NULL && easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
         return false;
     }
 
@@ -501,7 +533,7 @@ bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_even
         return false;
     }
 
-    if (easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
+    if (callback != NULL && easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
         return false;
     }
 
@@ -519,7 +551,7 @@ bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event
         return false;
     }
 
-    if (easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
+    if (callback != NULL && easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
         return false;
     }
 
@@ -1417,6 +1449,313 @@ easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound)
 #include <stdio.h>      // For testing and debugging with printf(). Delete this later.
 
 
+
+//// Message Queue ////
+
+#define EASYAUDIO_MESSAGE_ID_UNKNOWN            0
+#define EASYAUDIO_MESSAGE_ID_EVENT              1
+#define EASYAUDIO_MESSAGE_ID_DELETE_BUFFER      2
+#define EASYAUDIO_MESSAGE_ID_DELETE_DEVICE      3
+#define EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD   4
+
+/// Structure representing an individual message
+typedef struct
+{
+    /// The message ID.
+    int id;
+
+    /// A pointer to the relevant buffer.
+    easyaudio_buffer* pBuffer;
+
+
+    // The message-specific data.
+    union
+    {
+        struct
+        {
+            /// A pointer to the callback function.
+            easyaudio_event_callback_proc callback;
+
+            /// The event ID.
+            unsigned int eventID;
+
+            /// The callback user data.
+            void* pUserData;
+
+        } callback_event;
+
+
+        struct
+        {
+            /// A pointer to the DirectSound buffer object.
+            LPDIRECTSOUNDBUFFER8 pDSBuffer;
+
+            /// A pointer to the 3D DirectSound buffer object. This will be NULL if 3D positioning is disabled for the buffer.
+            LPDIRECTSOUND3DBUFFER8 pDSBuffer3D;
+
+            /// A pointer to the object for handling notification events.
+            LPDIRECTSOUNDNOTIFY8 pDSNotify;
+
+        } delete_buffer;
+
+
+        struct
+        {
+            /// A pointer to the DIRECTSOUND object that was created with DirectSoundCreate8().
+            LPDIRECTSOUND8 pDS;
+
+            /// A pointer to the DIRECTSOUNDBUFFER object for the primary buffer.
+            LPDIRECTSOUNDBUFFER pDSPrimaryBuffer;
+
+            /// A pointer to the DIRECTSOUND3DLISTENER8 object associated with the device.
+            LPDIRECTSOUND3DLISTENER8 pDSListener;
+
+            /// A pointer to the device object being deleted.
+            easyaudio_device* pDevice;
+
+        } delete_device;
+
+    } data;
+
+} easyaudio_message_dsound;
+
+
+/// Structure representing the main message queue.
+///
+/// The message queue is implemented as a fixed-sized cyclic array which means there should be no significant data
+/// movement and fast pushing and popping.
+typedef struct
+{
+    /// The buffer containing the list of events.
+    easyaudio_message_dsound messages[EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE];
+
+    /// The number of active messages in the queue.
+    unsigned int messageCount;
+
+    /// The index of the first message in the queue.
+    unsigned int iFirstMessage;
+
+    /// The mutex for synchronizing access to message pushing and popping.
+    easyaudio_mutex queueLock;
+
+    /// The semaphore that's used for blocking easyaudio_next_message_dsound(). The maximum value is set to EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE.
+    HANDLE hMessageSemaphore;
+
+    /// The message handling thread.
+    HANDLE hMessageHandlingThread;
+
+    /// Keeps track of whether or not the queue is deleted. We use this to ensure a thread does not try to post an event.
+    bool isDeleted;
+
+} easyaudio_message_queue_dsound;
+
+
+/// The function to run on the message handling thread. This is implemented down the bottom.
+DWORD WINAPI MessageHandlingThread_DSound(easyaudio_message_queue_dsound* pQueue);
+
+/// Posts a new message. This is thread safe.
+void easyaudio_post_message_dsound(easyaudio_message_queue_dsound* pQueue, easyaudio_message_dsound msg);
+
+
+
+/// Initializes the given mesasge queue.
+bool easyaudio_init_message_queue_dsound(easyaudio_message_queue_dsound* pQueue)
+{
+    if (pQueue == NULL) {
+        return false;
+    }
+
+    pQueue->messageCount  = 0;
+    pQueue->iFirstMessage = 0;
+
+    pQueue->queueLock = easyaudio_create_mutex();
+    if (pQueue->queueLock == NULL) {
+        return false;
+    }
+
+    pQueue->hMessageSemaphore = CreateSemaphoreA(NULL, 0, EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE, NULL);
+    if (pQueue->hMessageSemaphore == NULL)
+    {
+        easyaudio_delete_mutex(pQueue->queueLock);
+        return false;
+    }
+
+    pQueue->hMessageHandlingThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)MessageHandlingThread_DSound, pQueue, 0, NULL);
+    if (pQueue->hMessageHandlingThread == NULL)
+    {
+        CloseHandle(pQueue->hMessageSemaphore);
+        easyaudio_delete_mutex(pQueue->queueLock);
+        return false;
+    }
+
+    pQueue->isDeleted = false;
+
+    return true;
+}
+
+/// Uninitializes the given message queue.
+void easyaudio_uninit_message_queue_dsound(easyaudio_message_queue_dsound* pQueue)
+{
+    // We need to make sure the thread is closed properly before returning from here. To do this we just post an EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD
+    // event to the message queue and wait for the thread to finish.
+    easyaudio_message_dsound msg;
+    msg.id = EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD;
+    easyaudio_post_message_dsound(pQueue, msg);
+
+
+    // Once we posted the event we just wait for the thread to process it and terminate.
+    WaitForSingleObject(pQueue->hMessageHandlingThread, INFINITE);
+
+    // At this point the thread has been terminated and we can clear everything.
+    CloseHandle(pQueue->hMessageHandlingThread);
+    pQueue->hMessageHandlingThread = NULL;
+
+    CloseHandle(pQueue->hMessageSemaphore);
+    pQueue->hMessageSemaphore = NULL;
+
+    
+    pQueue->isDeleted = true;
+    easyaudio_lock_mutex(pQueue->queueLock);
+    {
+        pQueue->messageCount  = 0;
+        pQueue->iFirstMessage = 0;
+    }
+    easyaudio_unlock_mutex(pQueue->queueLock);
+
+    easyaudio_delete_mutex(pQueue->queueLock);
+    pQueue->queueLock = NULL;
+}
+
+
+void easyaudio_post_message_dsound(easyaudio_message_queue_dsound* pQueue, easyaudio_message_dsound msg)
+{
+    assert(pQueue != NULL);
+
+    if (pQueue->isDeleted) {
+        return;
+    }
+
+    easyaudio_lock_mutex(pQueue->queueLock);
+    {
+        if (pQueue->messageCount < EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE)
+        {
+            pQueue->messages[(pQueue->iFirstMessage + pQueue->messageCount) % EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE] = msg;
+            pQueue->messageCount += 1;
+
+            ReleaseSemaphore(pQueue->hMessageSemaphore, 1, NULL);
+        }
+    }
+    easyaudio_unlock_mutex(pQueue->queueLock);
+}
+
+
+/// Retrieves the next message in the queue.
+///
+/// @remarks
+///     This blocks until a message is available. This will return false when it receives the EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD message.
+bool easyaudio_next_message_dsound(easyaudio_message_queue_dsound* pQueue, easyaudio_message_dsound* pMsgOut)
+{
+    if (WaitForSingleObject(pQueue->hMessageSemaphore, INFINITE) == WAIT_OBJECT_0)   // Wait for a message to become available.
+    {
+        easyaudio_message_dsound msg;
+        msg.id = EASYAUDIO_MESSAGE_ID_UNKNOWN;
+
+        easyaudio_lock_mutex(pQueue->queueLock);
+        {
+            assert(pQueue->messageCount > 0);
+
+            msg = pQueue->messages[pQueue->iFirstMessage];
+
+            pQueue->iFirstMessage = (pQueue->iFirstMessage + 1) % EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE;
+            pQueue->messageCount -= 1;
+        }
+        easyaudio_unlock_mutex(pQueue->queueLock);
+
+
+        if (pMsgOut != NULL) {
+            pMsgOut[0] = msg;
+        }
+
+        return msg.id != EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD;
+    }
+
+    return false;
+}
+
+
+
+
+
+DWORD WINAPI MessageHandlingThread_DSound(easyaudio_message_queue_dsound* pQueue)
+{
+    assert(pQueue != NULL);
+
+    easyaudio_message_dsound msg;
+    while (easyaudio_next_message_dsound(pQueue, &msg))
+    {
+        assert(msg.id != EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD);        // <-- easyaudio_next_message_dsound() will return false when it receives EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD.
+
+        switch (msg.id)
+        {
+            case EASYAUDIO_MESSAGE_ID_EVENT:
+            {
+                assert(msg.data.callback_event.callback != NULL);
+
+                msg.data.callback_event.callback(msg.pBuffer, msg.data.callback_event.eventID, msg.data.callback_event.pUserData);
+                break;
+            }
+
+            case EASYAUDIO_MESSAGE_ID_DELETE_BUFFER:
+            {
+                if (msg.data.delete_buffer.pDSNotify != NULL) {
+                    IDirectSoundNotify_Release(msg.data.delete_buffer.pDSNotify);
+                }
+
+                if (msg.data.delete_buffer.pDSBuffer3D != NULL) {
+                    IDirectSound3DBuffer_Release(msg.data.delete_buffer.pDSBuffer3D);
+                }
+
+                if (msg.data.delete_buffer.pDSBuffer != NULL) {
+                    IDirectSoundBuffer8_Release(msg.data.delete_buffer.pDSBuffer);
+                }
+
+                free(msg.pBuffer);
+                break;
+            }
+
+            case EASYAUDIO_MESSAGE_ID_DELETE_DEVICE:
+            {
+                if (msg.data.delete_device.pDSListener != NULL) {
+                    IDirectSound3DListener_Release(msg.data.delete_device.pDSListener);
+                }
+                
+                if (msg.data.delete_device.pDSPrimaryBuffer != NULL) {
+                    IDirectSoundBuffer_Release(msg.data.delete_device.pDSPrimaryBuffer);
+                }
+
+                if (msg.data.delete_device.pDS != NULL) {
+                    IDirectSound_Release(msg.data.delete_device.pDS);
+                }
+
+                free(msg.data.delete_device.pDevice);
+                break;
+            }
+
+            default:
+            {
+                // Should never hit this.
+                assert(false);
+                break;
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+
+
 /// Deactivates (but does not delete) every event associated with the given buffer.
 void ea_deactivate_buffer_events_dsound(easyaudio_buffer* pBuffer);
 
@@ -1458,6 +1797,10 @@ struct ea_event_dsound
 
 struct ea_event_manager_dsound
 {
+    /// A pointer to the message queue where messages will be posted for event processing.
+    easyaudio_message_queue_dsound* pMessageQueue;
+
+
     /// A handle to the event worker thread.
     HANDLE hThread;
 
@@ -1467,12 +1810,11 @@ struct ea_event_manager_dsound
     /// A handle to the refresher event object.
     HANDLE hRefreshEvent;
 
+    /// The mutex to use when refreshing the worker thread. This is used to ensure only one refresh is done at a time.
+    easyaudio_mutex refreshMutex;
+
     /// The synchronization lock.
     HANDLE hLock;
-
-    /// The semaphore to wait on when closing an event handle. This is released in the worker thread, and waited on by
-    /// ea_close_win32_event_handle_dsound(). The initial value is 0.
-    //HANDLE hCloseEventSemaphore;
 
     /// The event object for notifying easy_audio when an event has finished being handled by the event handling thread.
     HANDLE hEventCompletionLock;
@@ -1482,9 +1824,6 @@ struct ea_event_manager_dsound
 
     /// The last event in the list of events.
     ea_event_dsound* pLastEvent;
-
-    /// A handle to the event that's currently being handled.
-    ea_event_dsound* pCurrentEvent;
 };
 
 
@@ -1599,42 +1938,40 @@ void ea_prepend_event_dsound(ea_event_dsound* pEvent)
 }
 
 
+void ea_refresh_worker_thread_event_queue(ea_event_manager_dsound* pEventManager)
+{
+    assert(pEventManager != NULL);
+
+    // To refresh the worker thread we just need to signal the refresh event. We then just need to wait for
+    // processing to finish which we can do by waiting on another event to become signaled.
+
+    easyaudio_lock_mutex(pEventManager->refreshMutex);
+    {
+        // Signal a refresh.
+        SetEvent(pEventManager->hRefreshEvent);
+
+        // Wait for refreshing to complete.
+        WaitForSingleObject(pEventManager->hEventCompletionLock, INFINITE);
+    }
+    easyaudio_unlock_mutex(pEventManager->refreshMutex);
+}
+
+
 /// Closes the Win32 event handle of the given event.
 void ea_close_win32_event_handle_dsound(ea_event_dsound* pEvent)
 {
-    // We need to ensure the event object is not getting waited on by WaitForMultipleObjects() in the worker thread. To do this, we just
-    // signal the event which will cause WaitForMultipleObjects() to return. The problem now, however, is that just because we signaled
-    // the event it doesn't mean we can just assume WaitForMultipleObjects() has immediately returned. The worker thread will release a
-    // semaphore to let other threads know that it has returned from WaitForMultipleObjects().
-    //
-    // The worker thread also needs to know that an event has been marked for deletion. We do this by having everything set to NULL in
-    // the event object. When the worker thread sees this, it assumes an event is being signaled due to it being deleted.
     assert(pEvent != NULL);
     assert(pEvent->pEventManager != NULL);
 
-    ea_lock_events_dsound(pEvent->pEventManager);
-    {
-        assert(pEvent->hEvent != NULL);
-        
-        HANDLE hEventToClose = pEvent->hEvent;
-        pEvent->hEvent = NULL;
 
-        // Signal the event to force WaitForMultipleObjects() in the worker thread to return.
-        SetEvent(hEventToClose);
+    // At the time of calling this function, pEvent should have been removed from the internal list. The issue is that
+    // the event notification thread is waiting on it. Thus, we need to refresh the worker thread to ensure the event
+    // have been flushed from that queue. To do this we just signal a special event that's used to trigger a refresh.
+    ea_refresh_worker_thread_event_queue(pEvent->pEventManager);
 
-
-        // Wait for the worker thread to release the event-completion lock. Once this returns we are free to close the event handle. It is
-        // possible that this is called while handling an event. In this case we can assume this is running on the event thread and we do
-        // not need to wait on the lock. Indeed, if we wait on the lock here we'll end up in a deadlock.
-        if (pEvent->pEventManager->pCurrentEvent == NULL) {
-            WaitForSingleObject(pEvent->pEventManager->hEventCompletionLock, INFINITE);
-        }
-        
-
-        // At this point we can assume the worker thread is not waiting on the event so we can now close it.
-        CloseHandle(hEventToClose);
-    }
-    ea_unlock_events_dsound(pEvent->pEventManager);
+    // The worker thread should not be waiting on the event so we can go ahead and close the handle now.
+    CloseHandle(pEvent->hEvent);
+    pEvent->hEvent = NULL;
 }
 
 
@@ -1646,11 +1983,7 @@ void ea_update_event_dsound(ea_event_dsound* pEvent, easyaudio_event_callback_pr
     pEvent->callback  = callback;
     pEvent->pUserData = pUserData;
 
-    // When an event has changed, we need to let the worker thread know that it needs to refresh it's own local state. The
-    // problem is that it is probably already waiting on other events with WaitForMultipleObjects(). Thus, we need to signal
-    // a special event to force WaitForMultipleObjects() to return and request the worker thread to refresh it's local list
-    // of event objects to wait on.
-    SetEvent(pEvent->pEventManager->hRefreshEvent);
+    ea_refresh_worker_thread_event_queue(pEvent->pEventManager);
 }
 
 /// Creates a new event, but does not activate it.
@@ -1765,14 +2098,18 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
 
         HANDLE eventHandles[1024];
         ea_event_dsound* events[1024];
-        unsigned int eventCount = 0;
+        unsigned int eventCount = ea_gather_events_dsound(pEventManager, eventHandles, events, 1024);   // <-- Initial gather.
 
-        bool needsRefresh = true;
+        bool requestedRefresh = false;
         for (;;)
         {
-            if (needsRefresh) {
+            if (requestedRefresh)
+            {
                 eventCount = ea_gather_events_dsound(pEventManager, eventHandles, events, 1024);
-                needsRefresh = false;
+
+                // Refreshing is done, so now we need to let other threads know about it.
+                SetEvent(pEventManager->hEventCompletionLock);
+                requestedRefresh = false;
             }
 
             
@@ -1791,8 +2128,10 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
 
                 if (hEvent == hRefreshEvent)
                 {
+                    assert(hRefreshEvent == pEventManager->hRefreshEvent);
+
                     // This event will get signaled when a new set of events need to be waited on, such as when a new event has been registered on a buffer.
-                    needsRefresh = true;
+                    requestedRefresh = true;
                     continue;
                 }
 
@@ -1809,21 +2148,16 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
                     bool isStopEventButNotStopped = pEvent->eventID == EASYAUDIO_EVENT_ID_STOP && easyaudio_get_playback_state(pEvent->pBuffer) != easyaudio_stopped;
                     if (!isStopEventButNotStopped)
                     {
-                        assert(pEventManager->pCurrentEvent == NULL);
-
-                        pEventManager->pCurrentEvent = pEvent;
-                        {
-                            pEvent->callback(pEvent->pBuffer, pEvent->eventID, pEvent->pUserData);
-                        }
-                        pEventManager->pCurrentEvent = NULL;
+                        // We don't call the callback directly. Instead we post a message to the message handling thread for processing later.
+                        easyaudio_message_dsound msg;
+                        msg.id      = EASYAUDIO_MESSAGE_ID_EVENT;
+                        msg.pBuffer = pEvent->pBuffer;
+                        msg.data.callback_event.callback  = pEvent->callback;
+                        msg.data.callback_event.eventID   = pEvent->eventID;
+                        msg.data.callback_event.pUserData = pEvent->pUserData;
+                        easyaudio_post_message_dsound(pEventManager->pMessageQueue, msg);
                     }
                 }
-
-
-                // The event may be wanting to be deleted. If so, the other thread is waiting for the semaphore to be released so we do we do that now.
-                //ReleaseSemaphore(pEventManager->hCloseEventSemaphore, 1, NULL);
-                SetEvent(pEventManager->hEventCompletionLock);
-                needsRefresh = true;
             }
         }
     }
@@ -1833,8 +2167,13 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
 
 
 /// Initializes the event manager by creating the thread and event objects.
-bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager)
+bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager, easyaudio_message_queue_dsound* pMessageQueue)
 {
+    assert(pEventManager != NULL);
+    assert(pMessageQueue != NULL);
+
+    pEventManager->pMessageQueue = pMessageQueue;
+
     HANDLE hTerminateEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
     if (hTerminateEvent == NULL) {
         return false;
@@ -1847,24 +2186,22 @@ bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager)
         return false;
     }
 
-    HANDLE hLock = CreateEventA(NULL, FALSE, TRUE,  NULL);
-    if (hLock == NULL)
+    easyaudio_mutex refreshMutex = easyaudio_create_mutex();
+    if (refreshMutex == NULL)
     {
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
         return false;
     }
 
-#if 0
-    HANDLE hCloseEventSemaphore = CreateSemaphoreA(NULL, 0, 1, NULL);
-    if (hCloseEventSemaphore == NULL)
+    HANDLE hLock = CreateEventA(NULL, FALSE, TRUE,  NULL);
+    if (hLock == NULL)
     {
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
-        CloseHandle(hLock);
+        easyaudio_delete_mutex(refreshMutex);
         return false;
     }
-#endif
 
     HANDLE hEventCompletionLock = CreateEventA(NULL, FALSE, FALSE, NULL);
     if (hEventCompletionLock == NULL)
@@ -1882,7 +2219,6 @@ bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager)
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
         CloseHandle(hLock);
-        //CloseHandle(hCloseEventSemaphore);
         CloseHandle(hEventCompletionLock);
         return false;
     }
@@ -1890,14 +2226,14 @@ bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager)
 
     pEventManager->hTerminateEvent      = hTerminateEvent;
     pEventManager->hRefreshEvent        = hRefreshEvent;
+    pEventManager->refreshMutex         = refreshMutex;
     pEventManager->hLock                = hLock;
-    //pEventManager->hCloseEventSemaphore = hCloseEventSemaphore;
     pEventManager->hEventCompletionLock = hEventCompletionLock;
     pEventManager->hThread              = hThread;
 
     pEventManager->pFirstEvent   = NULL;
     pEventManager->pLastEvent    = NULL;
-    pEventManager->pCurrentEvent = NULL;
+    //pEventManager->pCurrentEvent = NULL;
 
     return true;
 }
@@ -1934,6 +2270,9 @@ void ea_uninit_event_manager_dsound(ea_event_manager_dsound* pEventManager)
 
     CloseHandle(pEventManager->hRefreshEvent);
     pEventManager->hRefreshEvent = NULL;
+
+    easyaudio_delete_mutex(pEventManager->refreshMutex);
+    pEventManager->refreshMutex = NULL;
 
 
     // Delete the lock.
@@ -2003,6 +2342,10 @@ typedef struct
     /// The event manager.
     ea_event_manager_dsound eventManager;
 
+
+    /// The message queue.
+    easyaudio_message_queue_dsound messageQueue;
+
 } easyaudio_context_dsound;
 
 typedef struct
@@ -2037,6 +2380,11 @@ typedef struct
 
     /// The current playback state.
     easyaudio_playback_state playbackState;
+
+
+    /// Keeps track of whether or not the sound has been marked for deletion. Deleting a buffer is not an immediate
+    /// operation, but is instead delayed until a special message has been processed by the message handling thread.
+    //bool markedForDeletion;
 
 
     /// The number of marker events that have been registered. This will never be more than EASYAUDIO_MAX_MARKER_COUNT.
@@ -2126,6 +2474,9 @@ void easyaudio_delete_context_dsound(easyaudio_context* pContext)
     assert(pContextDS != NULL);
 
     ea_uninit_event_manager_dsound(&pContextDS->eventManager);
+
+    // The message queue needs to uninitialized after the DirectSound marker notification thread.
+    easyaudio_uninit_message_queue_dsound(&pContextDS->messageQueue);
 
     FreeLibrary(pContextDS->hDSoundDLL);
     free(pContextDS);
@@ -2258,10 +2609,26 @@ void easyaudio_delete_output_device_dsound(easyaudio_device* pDevice)
     easyaudio_device_dsound* pDeviceDS = (easyaudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
 
+    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pDevice->pContext;
+    assert(pContextDS != NULL);
+
+    // The device id not deleted straight away. Instead we post a message to the message for delayed processing. The reason for this is that buffer
+    // deletion is also delayed which means we want to ensure any delayed processing of buffers is handled before deleting the device.
+    easyaudio_message_dsound msg;
+    msg.id      = EASYAUDIO_MESSAGE_ID_DELETE_DEVICE;
+    msg.pBuffer = NULL;
+    msg.data.delete_device.pDSListener      = pDeviceDS->pDSListener;
+    msg.data.delete_device.pDSPrimaryBuffer = pDeviceDS->pDSPrimaryBuffer;
+    msg.data.delete_device.pDS              = pDeviceDS->pDS;
+    msg.data.delete_device.pDevice          = pDevice;
+    easyaudio_post_message_dsound(&pContextDS->messageQueue, msg);
+
+#if 0
     IDirectSound3DListener_Release(pDeviceDS->pDSListener);
     IDirectSoundBuffer_Release(pDeviceDS->pDSPrimaryBuffer);
     IDirectSound_Release(pDeviceDS->pDS);
     free(pDeviceDS);
+#endif
 }
 
 
@@ -2382,17 +2749,18 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
         return NULL;
     }
 
-    pBufferDS->base.pDevice     = pDevice;
-    pBufferDS->pDSBuffer        = pDSBuffer;
-    pBufferDS->pDSBuffer3D      = pDSBuffer3D;
-    pBufferDS->pDSNotify        = pDSNotify;
-    pBufferDS->playbackState    = easyaudio_stopped;
+    pBufferDS->base.pDevice      = pDevice;
+    pBufferDS->pDSBuffer         = pDSBuffer;
+    pBufferDS->pDSBuffer3D       = pDSBuffer3D;
+    pBufferDS->pDSNotify         = pDSNotify;
+    pBufferDS->playbackState     = easyaudio_stopped;
 
-    pBufferDS->markerEventCount = 0;
+    pBufferDS->markerEventCount  = 0;
     memset(pBufferDS->pMarkerEvents, 0, sizeof(pBufferDS->pMarkerEvents));
-    pBufferDS->pStopEvent       = NULL;
-    pBufferDS->pPauseEvent      = NULL;
-    pBufferDS->pPlayEvent       = NULL;
+    pBufferDS->pStopEvent        = NULL;
+    pBufferDS->pPauseEvent       = NULL;
+    pBufferDS->pPlayEvent        = NULL;
+    
 
 
     // Fill with initial data, if applicable.
@@ -2407,11 +2775,25 @@ void easyaudio_delete_buffer_dsound(easyaudio_buffer* pBuffer)
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
+    assert(pBuffer->pDevice != NULL);
+
+    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pBuffer->pDevice->pContext;
+    assert(pContextDS != NULL);
+
 
     // Deactivate the DirectSound notify events for sanity.
     ea_deactivate_buffer_events_dsound(pBuffer);
 
 
+    easyaudio_message_dsound msg;
+    msg.id      = EASYAUDIO_MESSAGE_ID_DELETE_BUFFER;
+    msg.pBuffer = pBuffer;
+    msg.data.delete_buffer.pDSNotify   = pBufferDS->pDSNotify;
+    msg.data.delete_buffer.pDSBuffer3D = pBufferDS->pDSBuffer3D;
+    msg.data.delete_buffer.pDSBuffer   = pBufferDS->pDSBuffer;
+    easyaudio_post_message_dsound(&pContextDS->messageQueue, msg);
+
+#if 0
     if (pBufferDS->pDSNotify != NULL) {
         IDirectSoundNotify_Release(pBufferDS->pDSNotify);
     }
@@ -2425,6 +2807,7 @@ void easyaudio_delete_buffer_dsound(easyaudio_buffer* pBuffer)
     }
 
     free(pBufferDS);
+#endif
 }
 
 
@@ -3071,9 +3454,8 @@ easyaudio_context* easyaudio_create_context_dsound()
         pContext->inputDeviceCount = 0;
         pContext->pDirectSoundCaptureEnumerateA(DSEnumCallback_InputDevices, pContext);
 
-
-        // The event manager.
-        if (!ea_init_event_manager_dsound(&pContext->eventManager))
+        // The message queue and marker notification thread.
+        if (!easyaudio_init_message_queue_dsound(&pContext->messageQueue) || !ea_init_event_manager_dsound(&pContext->eventManager, &pContext->messageQueue))
         {
             // Failed to initialize the event manager.
             FreeLibrary(hDSoundDLL);
