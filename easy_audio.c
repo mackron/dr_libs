@@ -7,6 +7,10 @@
 #include <math.h>
 
 
+// Annotations
+#define PRIVATE
+
+
 ////////////////////////////////////////////////////////
 // Utilities
 
@@ -49,7 +53,6 @@ int easyaudio_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
     return 0;
 #endif
 }
-
 
 
 typedef void                     (* easyaudio_delete_context_proc)(easyaudio_context* pContext);
@@ -134,6 +137,18 @@ struct easyaudio_buffer
 {
     /// The device that owns this buffer.
     easyaudio_device* pDevice;
+
+    /// The stop callback.
+    easyaudio_event_callback stopCallback;
+
+    /// The pause callback.
+    easyaudio_event_callback pauseCallback;
+
+    /// The play callback.
+    easyaudio_event_callback playCallback;
+
+    /// Whether or not playback is looping.
+    bool isLooping;
 };
 
 
@@ -230,7 +245,18 @@ easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_b
     }
 
     assert(pDevice->pContext != NULL);
-    return pDevice->pContext->create_buffer(pDevice, pBufferDesc, extraDataSize);
+
+    easyaudio_buffer* pBuffer = pDevice->pContext->create_buffer(pDevice, pBufferDesc, extraDataSize);
+    if (pBuffer != NULL)
+    {
+        pBuffer->pDevice       = pDevice;
+        pBuffer->stopCallback  = (easyaudio_event_callback){NULL, NULL};
+        pBuffer->pauseCallback = (easyaudio_event_callback){NULL, NULL};
+        pBuffer->playCallback  = (easyaudio_event_callback){NULL, NULL};
+        pBuffer->isLooping     = false;
+    }
+
+    return pBuffer;
 }
 
 void easyaudio_delete_buffer(easyaudio_buffer* pBuffer)
@@ -299,6 +325,8 @@ void easyaudio_play(easyaudio_buffer* pBuffer, bool loop)
         return;
     }
 
+    pBuffer->isLooping = loop;
+
     assert(pBuffer->pDevice != NULL);
     assert(pBuffer->pDevice->pContext != NULL);
     pBuffer->pDevice->pContext->play(pBuffer, loop);
@@ -335,6 +363,15 @@ easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer)
     assert(pBuffer->pDevice != NULL);
     assert(pBuffer->pDevice->pContext != NULL);
     return pBuffer->pDevice->pContext->get_playback_state(pBuffer);
+}
+
+bool easyaudio_is_looping(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return false;
+    }
+
+    return pBuffer->isLooping;
 }
 
 
@@ -450,6 +487,9 @@ bool easyaudio_register_stop_callback(easyaudio_buffer* pBuffer, easyaudio_event
         return false;
     }
 
+    pBuffer->stopCallback.callback  = callback;
+    pBuffer->stopCallback.pUserData = pUserData;
+
     assert(pBuffer->pDevice != NULL);
     assert(pBuffer->pDevice->pContext != NULL);
     return pBuffer->pDevice->pContext->register_stop_callback(pBuffer, callback, pUserData);
@@ -464,6 +504,9 @@ bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_even
     if (easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
         return false;
     }
+
+    pBuffer->pauseCallback.callback  = callback;
+    pBuffer->pauseCallback.pUserData = pUserData;
 
     assert(pBuffer->pDevice != NULL);
     assert(pBuffer->pDevice->pContext != NULL);
@@ -480,9 +523,40 @@ bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event
         return false;
     }
 
+    pBuffer->playCallback.callback  = callback;
+    pBuffer->playCallback.pUserData = pUserData;
+
     assert(pBuffer->pDevice != NULL);
     assert(pBuffer->pDevice->pContext != NULL);
     return pBuffer->pDevice->pContext->register_play_callback(pBuffer, callback, pUserData);
+}
+
+
+easyaudio_event_callback easyaudio_get_stop_callback(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer != NULL) {
+        return pBuffer->stopCallback;
+    } else {
+        return (easyaudio_event_callback){NULL, NULL};
+    }
+}
+
+easyaudio_event_callback easyaudio_get_pause_callback(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer != NULL) {
+        return pBuffer->pauseCallback;
+    } else {
+        return (easyaudio_event_callback){NULL, NULL};
+    }
+}
+
+easyaudio_event_callback easyaudio_get_play_callback(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer != NULL) {
+        return pBuffer->playCallback;
+    } else {
+        return (easyaudio_event_callback){NULL, NULL};
+    }
 }
 
 
@@ -598,7 +672,38 @@ easyaudio_3d_mode easyaudio_get_3d_mode(easyaudio_buffer* pBuffer)
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-//// HELPERS ////
+//// SYNCHRONIZATION ////
+
+#if defined(_WIN32)
+#include <windows.h>
+
+easyaudio_mutex easyaudio_create_mutex()
+{
+    easyaudio_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
+    if (mutex != NULL)
+    {
+        InitializeCriticalSection(mutex);
+    }
+
+    return mutex;
+}
+
+void easyaudio_delete_mutex(easyaudio_mutex mutex)
+{
+    DeleteCriticalSection(mutex);
+    free(mutex);
+}
+
+void easyaudio_lock_mutex(easyaudio_mutex mutex)
+{
+    EnterCriticalSection(mutex);
+}
+
+void easyaudio_unlock_mutex(easyaudio_mutex mutex)
+{
+    LeaveCriticalSection(mutex);
+}
+#endif
 
 
 
@@ -614,9 +719,6 @@ typedef struct
     /// The steaming buffer callbacks.
     easyaudio_streaming_callbacks callbacks;
 
-    /// The user data to pass to the streaming callbacks.
-    void* pUserData;
-
     /// Keeps track of whether or not we are at the start of the playback.
     bool atStart;
 
@@ -625,6 +727,9 @@ typedef struct
 
     /// Keeps track of whether or not the sound should loop.
     bool isLoopingEnabled;
+
+    /// The size of the extra data.
+    unsigned int extraDataSize;
 
     /// The size of an individual chunk. A chunk is half the size of the buffer.
     unsigned int chunkSize;
@@ -648,7 +753,7 @@ bool ea_streaming_buffer_load_next_chunk(easyaudio_buffer* pBuffer, ea_streaming
     }
 
     unsigned int bytesRead;
-    if (!pStreamingData->callbacks.read(pStreamingData->pUserData, pStreamingData->pTempChunkData, chunkSize, &bytesRead))
+    if (!pStreamingData->callbacks.read(pStreamingData->callbacks.pUserData, pStreamingData->pTempChunkData, chunkSize, &bytesRead))
     {
         // There was an error reading the data. We might have run out of data.
         return false;
@@ -668,7 +773,7 @@ bool ea_streaming_buffer_load_next_chunk(easyaudio_buffer* pBuffer, ea_streaming
         // If we're not looping, we fill the remaining data with silence.
         if (pStreamingData->isLoopingEnabled)
         {
-            pStreamingData->callbacks.seek(pStreamingData->pUserData, 0);
+            pStreamingData->callbacks.seek(pStreamingData->callbacks.pUserData, 0);
             return ea_streaming_buffer_load_next_chunk(pBuffer, pStreamingData, offset + bytesRead, chunkSize - bytesRead);
         }
         else
@@ -708,7 +813,7 @@ void ea_steaming_buffer_marker_callback(easyaudio_buffer* pBuffer, unsigned int 
 }
 
 
-easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, easyaudio_streaming_callbacks callbacks, void* pUserData)
+easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, easyaudio_streaming_callbacks callbacks, unsigned int extraDataSize)
 {
     if (callbacks.read == NULL) {
         return NULL;
@@ -726,7 +831,7 @@ easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, e
 
     unsigned int chunkSize = bufferDesc.sizeInBytes / 2;
 
-    easyaudio_buffer* pBuffer = easyaudio_create_buffer(pDevice, &bufferDesc, sizeof(ea_streaming_buffer_data) - sizeof(unsigned char) + chunkSize);
+    easyaudio_buffer* pBuffer = easyaudio_create_buffer(pDevice, &bufferDesc, sizeof(ea_streaming_buffer_data) - sizeof(unsigned char) + chunkSize + extraDataSize);
     if (pBuffer == NULL) {
         return NULL;
     }
@@ -736,7 +841,6 @@ easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, e
     assert(pStreamingData != NULL);
 
     pStreamingData->callbacks               = callbacks;
-    pStreamingData->pUserData               = pUserData;
     pStreamingData->atStart                 = true;
     pStreamingData->stopAtEndOfCurrentChunk = false;
     pStreamingData->isLoopingEnabled        = false;
@@ -750,6 +854,32 @@ easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, e
 
     return pBuffer;
 }
+
+
+unsigned int easyaudio_get_streaming_buffer_extra_data_size(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return 0;
+    }
+
+    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    assert(pStreamingData != NULL);
+
+    return pStreamingData->extraDataSize;
+}
+
+void* easyaudio_get_streaming_buffer_extra_data(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return NULL;
+    }
+
+    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    assert(pStreamingData != NULL);
+
+    return ((char*)pStreamingData->pTempChunkData) + pStreamingData->chunkSize;
+}
+
 
 bool easyaudio_play_streaming_buffer(easyaudio_buffer* pBuffer, bool loop)
 {
@@ -766,7 +896,7 @@ bool easyaudio_play_streaming_buffer(easyaudio_buffer* pBuffer, bool loop)
     {
         // We need to load some initial data into the first chunk.
         pStreamingData->atStart = true;
-        pStreamingData->callbacks.seek(pStreamingData->pUserData, 0);
+        pStreamingData->callbacks.seek(pStreamingData->callbacks.pUserData, 0);
 
         if (!ea_streaming_buffer_load_next_chunk(pBuffer, pStreamingData, 0, pStreamingData->chunkSize))
         {
@@ -781,6 +911,462 @@ bool easyaudio_play_streaming_buffer(easyaudio_buffer* pBuffer, bool loop)
 
     return true;
 }
+
+bool easyaudio_is_streaming_buffer_looping(easyaudio_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return false;
+    }
+
+    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    assert(pStreamingData != NULL);
+
+    return pStreamingData->isLoopingEnabled;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Sound World
+//
+///////////////////////////////////////////////////////////////////////////////
+
+PRIVATE static ea_bool easyaudio_on_sound_read_callback(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut)
+{
+    easyaudio_sound* pSound = pUserData;
+    assert(pSound != NULL);
+    assert(pSound->onRead != NULL);
+    
+    return pSound->onRead(pSound, pDataOut, bytesToRead, bytesReadOut);
+}
+
+PRIVATE static ea_bool easyaudio_on_sound_seek_callback(void* pUserData, unsigned int offsetInBytesFromStart)
+{
+    easyaudio_sound* pSound = pUserData;
+    assert(pSound != NULL);
+    assert(pSound->onRead != NULL);
+    
+    return pSound->onSeek(pSound, offsetInBytesFromStart);
+}
+
+
+PRIVATE static void easyaudio_inline_sound_stop_callback(easyaudio_buffer* pBuffer, unsigned int eventID, void *pUserData)
+{
+    (void)eventID;
+
+    assert(pBuffer != NULL);
+    assert(eventID == EASYAUDIO_EVENT_ID_STOP);
+    assert(pUserData != NULL);
+
+    easyaudio_sound* pSound = pUserData;
+    easyaudio_delete_sound(pSound);
+}
+
+
+PRIVATE void easyaudio_prepend_sound(easyaudio_sound* pSound)
+{
+    assert(pSound != NULL);
+    assert(pSound->pWorld != NULL);
+    assert(pSound->pPrevSound == NULL);
+
+    easyaudio_lock_mutex(pSound->pWorld->lock);
+    {
+        pSound->pNextSound = pSound->pWorld->pFirstSound;
+
+        if (pSound->pNextSound != NULL) {
+            pSound->pNextSound->pPrevSound = pSound;
+        }
+
+        pSound->pWorld->pFirstSound = pSound;
+    }
+    easyaudio_unlock_mutex(pSound->pWorld->lock);
+}
+
+PRIVATE void easyaudio_remove_sound(easyaudio_sound* pSound)
+{
+    assert(pSound != NULL);
+    assert(pSound->pWorld != NULL);
+
+    easyaudio_lock_mutex(pSound->pWorld->lock);
+    {
+        if (pSound == pSound->pWorld->pFirstSound) {
+            pSound->pWorld->pFirstSound = pSound->pNextSound;
+        }
+
+        if (pSound->pNextSound != NULL) {
+            pSound->pNextSound->pPrevSound = pSound->pPrevSound;
+        }
+    
+        if (pSound->pPrevSound != NULL) {
+            pSound->pPrevSound->pNextSound = pSound->pNextSound;
+        }
+    }
+    easyaudio_unlock_mutex(pSound->pWorld->lock);
+}
+
+
+PRIVATE bool easyaudio_is_inline_sound(easyaudio_sound* pSound)
+{
+    assert(pSound != NULL);
+    return easyaudio_get_stop_callback(pSound->pBuffer).callback == easyaudio_inline_sound_stop_callback;
+}
+
+
+easyaudio_world* easyaudio_create_world(easyaudio_device* pDevice)
+{
+    easyaudio_world* pWorld = malloc(sizeof(*pWorld));
+    if (pWorld != NULL)
+    {
+        pWorld->pDevice       = pDevice;
+        pWorld->playbackState = easyaudio_playing;
+        pWorld->pFirstSound   = NULL;
+    }
+
+    return pWorld;
+}
+
+void easyaudio_delete_world(easyaudio_world* pWorld)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    easyaudio_delete_all_sounds(pWorld);
+    free(pWorld);
+}
+
+
+easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound_desc desc)
+{
+    if (pWorld == NULL) {
+        return NULL;
+    }
+
+    if ((desc.pInitialData == NULL || desc.sizeInBytes == 0) && (desc.onRead == NULL || desc.onSeek == NULL)) {
+        // When streaming is not being used, the initial data must be valid at creation time.
+        return NULL;
+    }
+
+    easyaudio_sound* pSound = malloc(sizeof(*pSound));
+    if (pSound == NULL) {
+        return NULL;
+    }
+
+    pSound->pWorld                 = pWorld;
+    pSound->prevPlaybackState      = easyaudio_stopped;
+    pSound->pNextSound             = NULL;
+    pSound->pPrevSound             = NULL;
+    pSound->isUsingStreamingBuffer = desc.sizeInBytes == 0 || desc.pInitialData == NULL;
+    pSound->onDelete               = desc.onDelete;
+    pSound->onRead                 = desc.onRead;
+    pSound->onSeek                 = desc.onSeek;
+
+    easyaudio_buffer_desc bufferDesc;
+    bufferDesc.flags         = desc.flags;
+    bufferDesc.format        = desc.format;
+    bufferDesc.channels      = desc.channels;
+    bufferDesc.sampleRate    = desc.sampleRate;
+    bufferDesc.bitsPerSample = desc.bitsPerSample;
+    bufferDesc.sizeInBytes   = desc.sizeInBytes;
+    bufferDesc.pInitialData  = desc.pInitialData;
+
+    if (pSound->isUsingStreamingBuffer)
+    {
+        easyaudio_streaming_callbacks streamingCallbacks;
+        streamingCallbacks.pUserData = pSound;
+        streamingCallbacks.read      = easyaudio_on_sound_read_callback;
+        streamingCallbacks.seek      = easyaudio_on_sound_seek_callback;
+
+        pSound->pBuffer = easyaudio_create_streaming_buffer(pWorld->pDevice, &bufferDesc, streamingCallbacks, desc.extraDataSize);
+        if (pSound->pBuffer != NULL && desc.pExtraData != NULL)
+        {
+            memcpy(easyaudio_get_streaming_buffer_extra_data(pSound->pBuffer), desc.pExtraData, desc.extraDataSize);
+        }
+    }
+    else
+    {
+        pSound->pBuffer = easyaudio_create_buffer(pWorld->pDevice, &bufferDesc, desc.extraDataSize);
+        if (pSound->pBuffer != NULL && desc.pExtraData != NULL)
+        {
+            memcpy(easyaudio_get_buffer_extra_data(pSound->pBuffer), desc.pExtraData, desc.extraDataSize);
+        }
+    }
+
+
+    // Return NULL if we failed to create the internal audio buffer.
+    if (pSound->pBuffer == NULL) {
+        free(pSound);
+        return NULL;
+    }
+
+
+    // Only attach the sound to the internal list at the end when we know everything has worked.
+    easyaudio_prepend_sound(pSound);
+
+    return pSound;
+}
+
+void easyaudio_delete_sound(easyaudio_sound* pSound)
+{
+    if (pSound == NULL) {
+        return;
+    }
+
+
+    // Remove the sound from the internal list first.
+    easyaudio_remove_sound(pSound);
+
+
+    // If we're deleting an inline sound, we want to remove the stop event callback. If we don't do this, we'll end up trying to delete
+    // the sound twice.
+    if (easyaudio_is_inline_sound(pSound)) {
+        easyaudio_register_stop_callback(pSound->pBuffer, NULL, NULL);
+    }
+
+
+    // Delete the internal audio buffer before letting the host application know about the deletion.
+    easyaudio_delete_buffer(pSound->pBuffer);
+
+
+    // Let the application know that the sound is being deleted. We want to do this after removing the stop event just to be sure the
+    // application doesn't try to explicitly stop the sound in this callback - that would be a problem for inlined sounds because they
+    // are configured to delete themselves upon stopping which we are already in the process of doing.
+    if (pSound->onDelete != NULL) {
+        pSound->onDelete(pSound);
+    }
+
+
+    // Only free the sound after the application has been made aware the sound is being deleted.
+    free(pSound);
+}
+
+void easyaudio_delete_all_sounds(easyaudio_world* pWorld)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    while (pWorld->pFirstSound != NULL) {
+        easyaudio_delete_sound(pWorld->pFirstSound);
+    }
+}
+
+
+void easyaudio_play_sound(easyaudio_sound* pSound, bool loop)
+{
+    if (pSound != NULL) {
+        easyaudio_play(pSound->pBuffer, loop);
+    }
+}
+
+void easyaudio_pause_sound(easyaudio_sound* pSound)
+{
+    if (pSound != NULL) {
+        easyaudio_pause(pSound->pBuffer);
+    }
+}
+
+void easyaudio_stop_sound(easyaudio_sound* pSound)
+{
+    if (pSound != NULL) {
+        easyaudio_stop(pSound->pBuffer);
+    }
+}
+
+easyaudio_playback_state easyaudio_get_sound_playback_state(easyaudio_sound* pSound)
+{
+    if (pSound == NULL) {
+        return easyaudio_stopped;
+    }
+
+    return easyaudio_get_playback_state(pSound->pBuffer);
+}
+
+bool easyaudio_is_sound_looping(easyaudio_sound* pSound)
+{
+    if (pSound == NULL) {
+        return false;
+    }
+
+    if (pSound->isUsingStreamingBuffer) {
+        return easyaudio_is_streaming_buffer_looping(pSound->pBuffer);
+    } else {
+        return easyaudio_is_looping(pSound->pBuffer);
+    }
+}
+
+
+
+void easyaudio_play_inline_sound(easyaudio_world* pWorld, easyaudio_sound_desc desc)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    // We need to explicitly ensure 3D positioning is disabled.
+    desc.flags &= ~EASYAUDIO_ENABLE_3D;
+
+    easyaudio_sound* pSound = easyaudio_create_sound(pWorld, desc);
+    if (pSound != NULL)
+    {
+        // For inline sounds we set a callback for when the sound is stopped. When this callback is fired, the sound is deleted.
+        easyaudio_set_sound_stop_callback(pSound, easyaudio_inline_sound_stop_callback, pSound);
+
+        // Start playing the sound once everything else has been set up.
+        easyaudio_play_sound(pSound, false);
+    }
+}
+
+void easyaudio_play_inline_sound_3f(easyaudio_world* pWorld, easyaudio_sound_desc desc, float posX, float posY, float posZ)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    easyaudio_sound* pSound = easyaudio_create_sound(pWorld, desc);
+    if (pSound != NULL)
+    {
+        // For inline sounds we set a callback for when the sound is stopped. When this callback is fired, the sound is deleted.
+        easyaudio_set_sound_stop_callback(pSound, easyaudio_inline_sound_stop_callback, pSound);
+
+        // Set the position before playing anything.
+        easyaudio_set_sound_position(pSound, posX, posY, posZ);
+
+        // Start playing the sound once everything else has been set up.
+        easyaudio_play_sound(pSound, false);
+    }
+}
+
+void easyaudio_play_inline_sound_3f_relative(easyaudio_world* pWorld, easyaudio_sound_desc desc, float posX, float posY, float posZ)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    easyaudio_sound* pSound = easyaudio_create_sound(pWorld, desc);
+    if (pSound != NULL)
+    {
+        // For inline sounds we set a callback for when the sound is stopped. When this callback is fired, the sound is deleted.
+        easyaudio_set_sound_stop_callback(pSound, easyaudio_inline_sound_stop_callback, pSound);
+
+        // Set the position before playing anything.
+        easyaudio_set_sound_position(pSound, posX, posY, posZ);
+
+        // The 3D mode is absolute by default, but we need it to be relative.
+        easyaudio_set_sound_3d_mode(pSound, easyaudio_3d_mode_relative);
+
+        // Start playing the sound once everything else has been set up.
+        easyaudio_play_sound(pSound, false);
+    }
+}
+
+
+void easyaudio_stop_all_sounds(easyaudio_world* pWorld)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    bool wasPlaying = pWorld->playbackState == easyaudio_playing;
+    if (pWorld->playbackState != easyaudio_stopped)
+    {
+        // We need to loop over every sound and stop them. We also need to keep track of their previous playback state
+        // so that when resume_all_sounds() is called, it can be restored correctly.
+        for (easyaudio_sound* pSound = pWorld->pFirstSound; pSound != NULL; pSound = pSound->pNextSound)
+        {
+            if (wasPlaying) {
+                pSound->prevPlaybackState = easyaudio_get_sound_playback_state(pSound);
+            }
+
+            easyaudio_stop_sound(pSound);
+        }
+    }
+}
+
+void easyaudio_pause_all_sounds(easyaudio_world* pWorld)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    if (pWorld->playbackState == easyaudio_playing)
+    {
+        // We need to loop over every sound and stop them. We also need to keep track of their previous playback state
+        // so that when resume_all_sounds() is called, it can be restored correctly.
+        for (easyaudio_sound* pSound = pWorld->pFirstSound; pSound != NULL; pSound = pSound->pNextSound)
+        {
+            pSound->prevPlaybackState = easyaudio_get_sound_playback_state(pSound);
+            easyaudio_pause_sound(pSound);
+        }
+    }
+}
+
+void easyaudio_resume_all_sounds(easyaudio_world* pWorld)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    if (pWorld->playbackState != easyaudio_playing)
+    {
+        // When resuming playback, we use the previous playback state to determine how to resume.
+        for (easyaudio_sound* pSound = pWorld->pFirstSound; pSound != NULL; pSound = pSound->pNextSound)
+        {
+            if (pSound->prevPlaybackState == easyaudio_playing) {
+                easyaudio_play_sound(pSound, easyaudio_is_sound_looping(pSound));
+            }
+        }
+    }
+}
+
+
+void easyaudio_set_sound_stop_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData)
+{
+    if (pSound != NULL) {
+        easyaudio_register_stop_callback(pSound->pBuffer, callback, pUserData);
+    }
+}
+
+void easyaudio_set_sound_pause_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData)
+{
+    if (pSound != NULL) {
+        easyaudio_register_pause_callback(pSound->pBuffer, callback, pUserData);
+    }
+}
+
+void easyaudio_set_sound_play_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData)
+{
+    if (pSound != NULL) {
+        easyaudio_register_play_callback(pSound->pBuffer, callback, pUserData);
+    }
+}
+
+
+void easyaudio_set_sound_position(easyaudio_sound* pSound, float posX, float posY, float posZ)
+{
+    if (pSound != NULL) {
+        easyaudio_set_position(pSound->pBuffer, posX, posY, posZ);
+    }
+}
+
+
+void easyaudio_set_sound_3d_mode(easyaudio_sound* pSound, easyaudio_3d_mode mode)
+{
+    if (pSound != NULL) {
+        easyaudio_set_3d_mode(pSound->pBuffer, mode);
+    }
+}
+
+easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound)
+{
+    if (pSound == NULL) {
+        return easyaudio_3d_mode_disabled;
+    }
+
+    return easyaudio_get_3d_mode(pSound->pBuffer);
+}
+
 
 
 

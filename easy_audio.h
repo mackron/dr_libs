@@ -138,6 +138,16 @@ typedef void (* easyaudio_event_callback_proc)(easyaudio_buffer* pBuffer, unsign
 
 typedef struct
 {
+    /// The callback function.
+    easyaudio_event_callback_proc callback;
+
+    /// The user data.
+    void* pUserData;
+
+} easyaudio_event_callback;
+
+typedef struct
+{
     /// The description of the device.
     char description[256];
 
@@ -320,6 +330,9 @@ void easyaudio_stop(easyaudio_buffer* pBuffer);
 /// Retrieves the playback state of the given buffer.
 easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer);
 
+/// Determines whether or not the given audio buffer is looping.
+bool easyaudio_is_looping(easyaudio_buffer* pBuffer);
+
 
 /// Sets the playback position for the given buffer.
 void easyaudio_set_playback_position(easyaudio_buffer* pBuffer, unsigned int position);
@@ -389,6 +402,16 @@ bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_even
 bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
 
 
+/// Retrieves the callback that is currently set for the stop event.
+easyaudio_event_callback easyaudio_get_stop_callback(easyaudio_buffer* pBuffer);
+
+/// Retrieves the callback that is currently set for the pause event.
+easyaudio_event_callback easyaudio_get_pause_callback(easyaudio_buffer* pBuffer);
+
+/// Retrieves the callback that is currently set for the play event.
+easyaudio_event_callback easyaudio_get_play_callback(easyaudio_buffer* pBuffer);
+
+
 /// Sets the position of the given buffer in 3D space.
 ///
 /// @remarks
@@ -442,7 +465,22 @@ easyaudio_3d_mode easyaudio_get_3d_mode(easyaudio_buffer* pBuffer);
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-//// HELPERS ////
+//// SYNCHRONIZATION ////
+
+typedef void* easyaudio_mutex;
+
+/// Creates a mutex object.
+easyaudio_mutex easyaudio_create_mutex();
+
+/// Deletes a mutex object.
+void easyaudio_delete_mutex(easyaudio_mutex mutex);
+
+/// Locks the given mutex.
+void easyaudio_lock_mutex(easyaudio_mutex mutex);
+
+/// Unlocks the given mutex.
+void easyaudio_unlock_mutex(easyaudio_mutex mutex);
+
 
 
 
@@ -454,6 +492,9 @@ typedef ea_bool (* easyaudio_stream_seek_proc)(void* pUserData, unsigned int off
 
 typedef struct
 {
+    /// A pointer to the user data to pass to each callback.
+    void* pUserData;
+
     /// A pointer to the function to call when more data needs to be read.
     easyaudio_stream_read_proc read;
 
@@ -478,10 +519,213 @@ typedef struct
 ///     Callback functions use bytes to determine how much data to process. This is always a multiple of samples * channels, however.
 ///     @par
 ///     The first chunk of data is not loaded until the buffer is played with easyaudio_play_streaming_buffer().
-easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, easyaudio_streaming_callbacks callbacks, void* pUserData);
+easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, easyaudio_streaming_callbacks callbacks, unsigned int extraDataSize);
+
+/// Retrieves the size of the extra data of the given streaming buffer..
+unsigned int easyaudio_get_streaming_buffer_extra_data_size(easyaudio_buffer* pBuffer);
+
+/// Retrieves a pointer to the extra data of the given streaming buffer.
+void* easyaudio_get_streaming_buffer_extra_data(easyaudio_buffer* pBuffer);
 
 /// Begins playing the given streaming buffer.
 bool easyaudio_play_streaming_buffer(easyaudio_buffer* pBuffer, bool loop);
+
+/// Determines whether or not the given streaming buffer is looping.
+bool easyaudio_is_streaming_buffer_looping(easyaudio_buffer* pBuffer);
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Sound World
+//
+// When a sound is created, whether or not it will be streamed is determined by
+// whether or not a pointer to some initial data is specified when creating the
+// sound. When initial data is specified, the sound data will be loaded into
+// buffer once at creation time. If no data is specified, sound data will be
+// loaded dynamically at playback time.
+//
+///////////////////////////////////////////////////////////////////////////////
+
+typedef struct easyaudio_sound easyaudio_sound;
+typedef struct easyaudio_world easyaudio_world;
+
+typedef void    (* easyaudio_on_sound_delete_proc)   (easyaudio_sound* pSound);
+typedef ea_bool (* easyaudio_on_sound_read_data_proc)(easyaudio_sound* pSound, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
+typedef ea_bool (* easyaudio_on_sound_seek_data_proc)(easyaudio_sound* pSound, unsigned int offsetInBytesFromStart);
+
+/// The structure that is used for creating a sound object.
+typedef struct
+{
+    /// Boolean flags.
+    ///   EASYAUDIO_ENABLE_3D: Enable 3D positioning
+    unsigned int flags;
+
+    /// The data format.
+    easyaudio_format format;
+
+    /// The number of channels. This should be 1 for mono, 2 for stereo.
+    unsigned int channels;
+
+    /// The sample rate.
+    unsigned int sampleRate;
+
+    /// The number of bits per sample.
+    unsigned int bitsPerSample;
+
+    /// The size in bytes of the data. When this is non-zero, and pInitialData is non-null, the onRead and onSeek streaming
+    /// callbacks are not used, and instead the sound's audio data is made up exclusively with this data.
+    unsigned int sizeInBytes;
+
+    /// A pointer to the initial data. Can be null, in which case the audio data is streamed with the onRead and onSeek
+    /// callbacks below. It is an error for this to be null in addition to onRead and onSeek.
+    void* pInitialData;
+
+
+    /// A pointer to the function to call when the sound is being deleted. This gives the application the opportunity
+    /// to delete internal objects that are used for streaming or whatnot.
+    easyaudio_on_sound_delete_proc onDelete;
+
+    /// A pointer to the function to call when easy_audio needs to request a chunk of audio data. This is only used when
+    /// streaming data.
+    easyaudio_on_sound_read_data_proc onRead;
+
+    /// A pointer to the function to call when easy_audio needs to seek the audio data. This is only used when streaming
+    /// data.
+    easyaudio_on_sound_seek_data_proc onSeek;
+
+
+    /// The size of the extra data to associate with the sound. Extra data is how an application can link custom data to the
+    /// sound object.
+    unsigned int extraDataSize;
+
+    /// A pointer to a buffer containing the initial extra data. This buffer is copied when the sound is initially created,
+    /// and can be null.
+    const void* pExtraData;
+
+} easyaudio_sound_desc;
+
+struct easyaudio_sound
+{
+    /// A pointer to the world that owns the sound.
+    easyaudio_world* pWorld;
+
+    /// A pointer to the audio buffer for playback.
+    easyaudio_buffer* pBuffer;
+
+
+    /// [Internal Use Only] The state of the buffer's playback at the time the associated world overwrote it.
+    easyaudio_playback_state prevPlaybackState;
+
+    /// [Internal Use Only] A pointer to the next sound in the local list.
+    easyaudio_sound* pNextSound;
+
+    /// [Internal Use Only] A pointer ot the previous sound in the local list.
+    easyaudio_sound* pPrevSound;
+
+    /// [Internal Use Only] Keeps track of whether or not a streaming buffer is being used.
+    bool isUsingStreamingBuffer;
+
+    /// [Internal Use Only] the onDelete function. Can be null.
+    easyaudio_on_sound_delete_proc onDelete;
+
+    /// [Internal Use Only] The onRead streaming function. Can be null, in which case streaming will not be used.
+    easyaudio_on_sound_read_data_proc onRead;
+
+    /// [Internal Use Only] The onSeek streaming function. Can be null, in which case streaming will not be used.
+    easyaudio_on_sound_seek_data_proc onSeek;
+};
+
+struct easyaudio_world
+{
+    /// A pointer to the easy_audio device to output audio to.
+    easyaudio_device* pDevice;
+
+    /// The global playback state of the world.
+    easyaudio_playback_state playbackState;
+
+    /// A pointer to the first sound in the local list of sounds.
+    easyaudio_sound* pFirstSound;
+
+    /// Mutex for thread-safety.
+    easyaudio_mutex lock;
+};
+
+
+/// Creates a new sound world which will output audio from the given device.
+easyaudio_world* easyaudio_create_world(easyaudio_device* pDevice);
+
+/// Deletes a sound world that was previously created with easyaudio_create_world().
+void easyaudio_delete_world(easyaudio_world* pWorld);
+
+
+/// Creates a sound in 3D space.
+easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound_desc desc);
+
+/// Deletes a sound that was previously created with easyaudio_create_sound().
+void easyaudio_delete_sound(easyaudio_sound* pSound);
+
+/// Deletes every sound from the given world.
+void easyaudio_delete_all_sounds(easyaudio_world* pWorld);
+
+
+/// Plays or resumes the given sound.
+void easyaudio_play_sound(easyaudio_sound* pSound, bool loop);
+
+/// Pauses playback the given sound.
+void easyaudio_pause_sound(easyaudio_sound* pSound);
+
+/// Stops playback of the given sound.
+void easyaudio_stop_sound(easyaudio_sound* pSound);
+
+/// Retrieves the playback state of the given sound.
+easyaudio_playback_state easyaudio_get_sound_playback_state(easyaudio_sound* pSound);
+
+/// Determines if the given sound is looping.
+bool easyaudio_is_sound_looping(easyaudio_sound* pSound);
+
+
+/// Begins playing a sound using the given streaming callbacks.
+void easyaudio_play_inline_sound(easyaudio_world* pWorld, easyaudio_sound_desc desc);
+
+/// Begins playing the given sound at the given position.
+void easyaudio_play_inline_sound_3f(easyaudio_world* pWorld, easyaudio_sound_desc desc, float posX, float posY, float posZ);
+
+/// Begins playing the given sound at the given position, relative to the listener.
+void easyaudio_play_inline_sound_3f_relative(easyaudio_world* pWorld, easyaudio_sound_desc desc, float posX, float posY, float posZ);
+
+
+/// Stops playback of all sounds in the given world.
+void easyaudio_stop_all_sounds(easyaudio_world* pWorld);
+
+/// Pauses playback of all sounds in the given world.
+void easyaudio_pause_all_sounds(easyaudio_world* pWorld);
+
+/// Resumes playback of all sounds in the given world.
+void easyaudio_resume_all_sounds(easyaudio_world* pWorld);
+
+
+/// Sets the callback for the stop event for the given sound.
+void easyaudio_set_sound_stop_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData);
+
+/// Sets the callback for the pause event for the given sound.
+void easyaudio_set_sound_pause_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData);
+
+/// Sets the callback for the play event for the given sound.
+void easyaudio_set_sound_play_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData);
+
+
+/// Sets the position of the given sound.
+void easyaudio_set_sound_position(easyaudio_sound* pSound, float posX, float posY, float posZ);
+
+
+/// Sets the 3D mode of the given sound (absolute positioning, relative positioning, no positioning).
+void easyaudio_set_sound_3d_mode(easyaudio_sound* pSound, easyaudio_3d_mode mode);
+
+/// Retrieves the 3D mode of the given sound.
+easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound);
 
 
 
