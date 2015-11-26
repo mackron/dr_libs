@@ -88,6 +88,7 @@ extern "C" {
 #define EASYAUDIO_EVENT_ID_MARKER   0
 
 #define EASYAUDIO_ENABLE_3D         (1 << 0)
+#define EASYAUDIO_RELATIVE_3D       (1 << 1)        // <-- Uses relative 3D positioning by default instead of absolute. Only used if EASYAUDIO_ENABLE_3D is also specified.
 
 
 // Data formats.
@@ -671,6 +672,13 @@ void easyaudio_delete_sound(easyaudio_sound* pSound);
 void easyaudio_delete_all_sounds(easyaudio_world* pWorld);
 
 
+/// Retrieves the size in bytes of the given sound's extra data.
+unsigned int easyaudio_get_sound_extra_data_size(easyaudio_sound* pSound);
+
+/// Retrieves a pointer to the buffer containing the given sound's extra data.
+void* easyaudio_get_sound_extra_data(easyaudio_sound* pSound);
+
+
 /// Plays or resumes the given sound.
 void easyaudio_play_sound(easyaudio_sound* pSound, bool loop);
 
@@ -692,9 +700,6 @@ void easyaudio_play_inline_sound(easyaudio_world* pWorld, easyaudio_sound_desc d
 
 /// Begins playing the given sound at the given position.
 void easyaudio_play_inline_sound_3f(easyaudio_world* pWorld, easyaudio_sound_desc desc, float posX, float posY, float posZ);
-
-/// Begins playing the given sound at the given position, relative to the listener.
-void easyaudio_play_inline_sound_3f_relative(easyaudio_world* pWorld, easyaudio_sound_desc desc, float posX, float posY, float posZ);
 
 
 /// Stops playback of all sounds in the given world.

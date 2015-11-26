@@ -265,14 +265,14 @@ void easyaudio_delete_buffer(easyaudio_buffer* pBuffer)
         return;
     }
 
-    // The sound needs to be stopped first.
-    easyaudio_stop(pBuffer);
-
     // Now we need to remove every event.
     easyaudio_remove_markers(pBuffer);
     easyaudio_register_stop_callback(pBuffer, NULL, NULL);
     easyaudio_register_pause_callback(pBuffer, NULL, NULL);
     easyaudio_register_play_callback(pBuffer, NULL, NULL);
+
+    // The sound needs to be stopped first.
+    easyaudio_stop(pBuffer);
 
 
     assert(pBuffer->pDevice != NULL);
@@ -1021,6 +1021,7 @@ easyaudio_world* easyaudio_create_world(easyaudio_device* pDevice)
         pWorld->pDevice       = pDevice;
         pWorld->playbackState = easyaudio_playing;
         pWorld->pFirstSound   = NULL;
+        pWorld->lock          = easyaudio_create_mutex();
     }
 
     return pWorld;
@@ -1032,7 +1033,13 @@ void easyaudio_delete_world(easyaudio_world* pWorld)
         return;
     }
 
+    // Delete every sound first.
     easyaudio_delete_all_sounds(pWorld);
+
+    // Delete the lock after deleting every sound because we still need thread-safety at this point.
+    easyaudio_delete_mutex(pWorld->lock);
+
+    // Free the world last.
     free(pWorld);
 }
 
@@ -1125,16 +1132,16 @@ void easyaudio_delete_sound(easyaudio_sound* pSound)
     }
 
 
-    // Delete the internal audio buffer before letting the host application know about the deletion.
-    easyaudio_delete_buffer(pSound->pBuffer);
-
-
     // Let the application know that the sound is being deleted. We want to do this after removing the stop event just to be sure the
     // application doesn't try to explicitly stop the sound in this callback - that would be a problem for inlined sounds because they
     // are configured to delete themselves upon stopping which we are already in the process of doing.
     if (pSound->onDelete != NULL) {
         pSound->onDelete(pSound);
     }
+
+
+    // Delete the internal audio buffer before letting the host application know about the deletion.
+    easyaudio_delete_buffer(pSound->pBuffer);
 
 
     // Only free the sound after the application has been made aware the sound is being deleted.
@@ -1153,10 +1160,41 @@ void easyaudio_delete_all_sounds(easyaudio_world* pWorld)
 }
 
 
+unsigned int easyaudio_get_sound_extra_data_size(easyaudio_sound* pSound)
+{
+    if (pSound == NULL) {
+        return 0;
+    }
+
+    if (pSound->isUsingStreamingBuffer) {
+        return easyaudio_get_streaming_buffer_extra_data_size(pSound->pBuffer);
+    } else {
+        return easyaudio_get_buffer_extra_data_size(pSound->pBuffer);
+    }
+}
+
+void* easyaudio_get_sound_extra_data(easyaudio_sound* pSound)
+{
+    if (pSound == NULL) {
+        return NULL;
+    }
+
+    if (pSound->isUsingStreamingBuffer) {
+        return easyaudio_get_streaming_buffer_extra_data(pSound->pBuffer);
+    } else {
+        return easyaudio_get_buffer_extra_data(pSound->pBuffer);
+    }
+}
+
+
 void easyaudio_play_sound(easyaudio_sound* pSound, bool loop)
 {
     if (pSound != NULL) {
-        easyaudio_play(pSound->pBuffer, loop);
+        if (pSound->isUsingStreamingBuffer) {
+            easyaudio_play_streaming_buffer(pSound->pBuffer, loop);
+        } else {
+            easyaudio_play(pSound->pBuffer, loop);
+        }
     }
 }
 
@@ -1232,29 +1270,6 @@ void easyaudio_play_inline_sound_3f(easyaudio_world* pWorld, easyaudio_sound_des
 
         // Set the position before playing anything.
         easyaudio_set_sound_position(pSound, posX, posY, posZ);
-
-        // Start playing the sound once everything else has been set up.
-        easyaudio_play_sound(pSound, false);
-    }
-}
-
-void easyaudio_play_inline_sound_3f_relative(easyaudio_world* pWorld, easyaudio_sound_desc desc, float posX, float posY, float posZ)
-{
-    if (pWorld == NULL) {
-        return;
-    }
-
-    easyaudio_sound* pSound = easyaudio_create_sound(pWorld, desc);
-    if (pSound != NULL)
-    {
-        // For inline sounds we set a callback for when the sound is stopped. When this callback is fired, the sound is deleted.
-        easyaudio_set_sound_stop_callback(pSound, easyaudio_inline_sound_stop_callback, pSound);
-
-        // Set the position before playing anything.
-        easyaudio_set_sound_position(pSound, posX, posY, posZ);
-
-        // The 3D mode is absolute by default, but we need it to be relative.
-        easyaudio_set_sound_3d_mode(pSound, easyaudio_3d_mode_relative);
 
         // Start playing the sound once everything else has been set up.
         easyaudio_play_sound(pSound, false);
@@ -1457,7 +1472,10 @@ struct ea_event_manager_dsound
 
     /// The semaphore to wait on when closing an event handle. This is released in the worker thread, and waited on by
     /// ea_close_win32_event_handle_dsound(). The initial value is 0.
-    HANDLE hCloseEventSemaphore;
+    //HANDLE hCloseEventSemaphore;
+
+    /// The event object for notifying easy_audio when an event has finished being handled by the event handling thread.
+    HANDLE hEventCompletionLock;
 
     /// The first event in a list.
     ea_event_dsound* pFirstEvent;
@@ -1605,11 +1623,11 @@ void ea_close_win32_event_handle_dsound(ea_event_dsound* pEvent)
         SetEvent(hEventToClose);
 
 
-        // Wait for the worker thread to release the semaphore. Once this returns we are free to close the event handle. It is possible
-        // that this is called while handling an event. In this case we can assume this is running on the event thread and we do not need
-        // to wait on the semaphore. Indeed, if we wait on the semaphore here we'll end up in a deadlock.
+        // Wait for the worker thread to release the event-completion lock. Once this returns we are free to close the event handle. It is
+        // possible that this is called while handling an event. In this case we can assume this is running on the event thread and we do
+        // not need to wait on the lock. Indeed, if we wait on the lock here we'll end up in a deadlock.
         if (pEvent->pEventManager->pCurrentEvent == NULL) {
-            WaitForSingleObject(pEvent->pEventManager->hCloseEventSemaphore, INFINITE);
+            WaitForSingleObject(pEvent->pEventManager->hEventCompletionLock, INFINITE);
         }
         
 
@@ -1681,13 +1699,14 @@ void ea_delete_event_dsound(ea_event_dsound* pEvent)
     pEvent->pUserData    = NULL;
     pEvent->markerOffset = 0;
 
+    // Remove the event from the list.
+    ea_remove_event_dsound(pEvent);
+
     // Close the Win32 event handle.
     if (pEvent->hEvent != NULL) {
         ea_close_win32_event_handle_dsound(pEvent);
     }
 
-    // Remove the event from the list.
-    ea_remove_event_dsound(pEvent);
 
     // At this point everything has been closed so we can safely free the memory and return.
     free(pEvent);
@@ -1702,27 +1721,33 @@ unsigned int ea_gather_events_dsound(ea_event_manager_dsound *pEventManager, HAN
     assert(ppEventsOut != NULL);
     assert(outputBufferSize >= 2);
 
-    pHandlesOut[0] = pEventManager->hTerminateEvent;
-    ppEventsOut[0] = NULL;
-
-    pHandlesOut[1] = pEventManager->hRefreshEvent;
-    ppEventsOut[1] = NULL;
-
-
     unsigned int i = 2;
-    ea_event_dsound* pEvent = pEventManager->pFirstEvent;
-    while (i < outputBufferSize && pEvent != NULL)
+    ea_lock_events_dsound(pEventManager);
     {
-        if (pEvent->hEvent != NULL)
-        {
-            pHandlesOut[i] = pEvent->hEvent;
-            ppEventsOut[i] = pEvent;
+        pHandlesOut[0] = pEventManager->hTerminateEvent;
+        ppEventsOut[0] = NULL;
 
-            i += 1;
-        }
+        pHandlesOut[1] = pEventManager->hRefreshEvent;
+        ppEventsOut[1] = NULL;
+
+
+    
         
-        pEvent = pEvent->pNextEvent;
+        ea_event_dsound* pEvent = pEventManager->pFirstEvent;
+        while (i < outputBufferSize && pEvent != NULL)
+        {
+            if (pEvent->hEvent != NULL)
+            {
+                pHandlesOut[i] = pEvent->hEvent;
+                ppEventsOut[i] = pEvent;
+
+                i += 1;
+            }
+        
+            pEvent = pEvent->pNextEvent;
+        }
     }
+    ea_unlock_events_dsound(pEventManager);
 
     return i;
 }
@@ -1749,6 +1774,8 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
                 eventCount = ea_gather_events_dsound(pEventManager, eventHandles, events, 1024);
                 needsRefresh = false;
             }
+
+            
 
             DWORD rc = WaitForMultipleObjects(eventCount, eventHandles, FALSE, INFINITE);
             if (rc >= WAIT_OBJECT_0 && rc < eventCount)
@@ -1794,7 +1821,8 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
 
 
                 // The event may be wanting to be deleted. If so, the other thread is waiting for the semaphore to be released so we do we do that now.
-                ReleaseSemaphore(pEventManager->hCloseEventSemaphore, 1, NULL);
+                //ReleaseSemaphore(pEventManager->hCloseEventSemaphore, 1, NULL);
+                SetEvent(pEventManager->hEventCompletionLock);
                 needsRefresh = true;
             }
         }
@@ -1827,8 +1855,19 @@ bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager)
         return false;
     }
 
+#if 0
     HANDLE hCloseEventSemaphore = CreateSemaphoreA(NULL, 0, 1, NULL);
     if (hCloseEventSemaphore == NULL)
+    {
+        CloseHandle(hTerminateEvent);
+        CloseHandle(hRefreshEvent);
+        CloseHandle(hLock);
+        return false;
+    }
+#endif
+
+    HANDLE hEventCompletionLock = CreateEventA(NULL, FALSE, FALSE, NULL);
+    if (hEventCompletionLock == NULL)
     {
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
@@ -1843,7 +1882,8 @@ bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager)
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
         CloseHandle(hLock);
-        CloseHandle(hCloseEventSemaphore);
+        //CloseHandle(hCloseEventSemaphore);
+        CloseHandle(hEventCompletionLock);
         return false;
     }
 
@@ -1851,7 +1891,8 @@ bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager)
     pEventManager->hTerminateEvent      = hTerminateEvent;
     pEventManager->hRefreshEvent        = hRefreshEvent;
     pEventManager->hLock                = hLock;
-    pEventManager->hCloseEventSemaphore = hCloseEventSemaphore;
+    //pEventManager->hCloseEventSemaphore = hCloseEventSemaphore;
+    pEventManager->hEventCompletionLock = hEventCompletionLock;
     pEventManager->hThread              = hThread;
 
     pEventManager->pFirstEvent   = NULL;
@@ -2316,6 +2357,10 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
         }
 
         IDirectSound3DBuffer_SetPosition(pDSBuffer3D, 0, 0, 0, DS3D_IMMEDIATE);
+
+        if ((pBufferDesc->flags & EASYAUDIO_RELATIVE_3D) != 0) {
+            IDirectSound3DBuffer_SetMode(pDSBuffer3D, DS3DMODE_HEADRELATIVE, DS3D_IMMEDIATE);
+        }
     }
 
 
@@ -2617,8 +2662,10 @@ void easyaudio_remove_markers_dsound(easyaudio_buffer* pBuffer)
 
     for (unsigned int iMarker = 0; iMarker < pBufferDS->markerEventCount; ++iMarker)
     {
-        ea_delete_event_dsound(pBufferDS->pMarkerEvents[iMarker]);
-        pBufferDS->pMarkerEvents[iMarker] = NULL;
+        if (pBufferDS->pMarkerEvents[iMarker] != NULL) {
+            ea_delete_event_dsound(pBufferDS->pMarkerEvents[iMarker]);
+            pBufferDS->pMarkerEvents[iMarker] = NULL;
+        }
     }
 
     pBufferDS->markerEventCount = 0;
