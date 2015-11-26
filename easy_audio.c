@@ -964,7 +964,7 @@ bool easyaudio_is_streaming_buffer_looping(easyaudio_buffer* pBuffer)
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-PRIVATE static ea_bool easyaudio_on_sound_read_callback(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut)
+PRIVATE static easyaudio_bool easyaudio_on_sound_read_callback(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut)
 {
     easyaudio_sound* pSound = pUserData;
     assert(pSound != NULL);
@@ -973,7 +973,7 @@ PRIVATE static ea_bool easyaudio_on_sound_read_callback(void* pUserData, void* p
     return pSound->onRead(pSound, pDataOut, bytesToRead, bytesReadOut);
 }
 
-PRIVATE static ea_bool easyaudio_on_sound_seek_callback(void* pUserData, unsigned int offsetInBytesFromStart)
+PRIVATE static easyaudio_bool easyaudio_on_sound_seek_callback(void* pUserData, unsigned int offsetInBytesFromStart)
 {
     easyaudio_sound* pSound = pUserData;
     assert(pSound != NULL);
@@ -1757,18 +1757,18 @@ DWORD WINAPI MessageHandlingThread_DSound(easyaudio_message_queue_dsound* pQueue
 
 
 /// Deactivates (but does not delete) every event associated with the given buffer.
-void ea_deactivate_buffer_events_dsound(easyaudio_buffer* pBuffer);
+void easyaudio_deactivate_buffer_events_dsound(easyaudio_buffer* pBuffer);
 
 
 //// Event Management ////
 
-typedef struct ea_event_manager_dsound ea_event_manager_dsound;
-typedef struct ea_event_dsound ea_event_dsound;
+typedef struct easyaudio_event_manager_dsound easyaudio_event_manager_dsound;
+typedef struct easyaudio_event_dsound easyaudio_event_dsound;
 
-struct ea_event_dsound
+struct easyaudio_event_dsound
 {
     /// A pointer to the event manager that owns this event.
-    ea_event_manager_dsound* pEventManager;
+    easyaudio_event_manager_dsound* pEventManager;
 
     /// The event.
     HANDLE hEvent;
@@ -1789,13 +1789,13 @@ struct ea_event_dsound
     DWORD markerOffset;
 
     /// Events are stored in a linked list. This is a pointer to the next event in the list.
-    ea_event_dsound* pNextEvent;
+    easyaudio_event_dsound* pNextEvent;
 
     /// A pointer to the previous event.
-    ea_event_dsound* pPrevEvent;
+    easyaudio_event_dsound* pPrevEvent;
 };
 
-struct ea_event_manager_dsound
+struct easyaudio_event_manager_dsound
 {
     /// A pointer to the message queue where messages will be posted for event processing.
     easyaudio_message_queue_dsound* pMessageQueue;
@@ -1820,21 +1820,21 @@ struct ea_event_manager_dsound
     HANDLE hEventCompletionLock;
 
     /// The first event in a list.
-    ea_event_dsound* pFirstEvent;
+    easyaudio_event_dsound* pFirstEvent;
 
     /// The last event in the list of events.
-    ea_event_dsound* pLastEvent;
+    easyaudio_event_dsound* pLastEvent;
 };
 
 
 /// Locks the event manager.
-void ea_lock_events_dsound(ea_event_manager_dsound* pEventManager)
+void easyaudio_lock_events_dsound(easyaudio_event_manager_dsound* pEventManager)
 {
     WaitForSingleObject(pEventManager->hLock, INFINITE);
 }
 
 /// Unlocks the event manager.
-void ea_unlock_events_dsound(ea_event_manager_dsound* pEventManager)
+void easyaudio_unlock_events_dsound(easyaudio_event_manager_dsound* pEventManager)
 {
     SetEvent(pEventManager->hLock);
 }
@@ -1844,11 +1844,11 @@ void ea_unlock_events_dsound(ea_event_manager_dsound* pEventManager)
 ///
 /// @remarks
 ///     This will be used when moving the event to a new location in the list or when it is being deleted.
-void ea_remove_event_dsound_nolock(ea_event_dsound* pEvent)
+void easyaudio_remove_event_dsound_nolock(easyaudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
     
-    ea_event_manager_dsound* pEventManager = pEvent->pEventManager;
+    easyaudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
     assert(pEventManager != NULL);
 
     if (pEventManager->pFirstEvent == pEvent) {
@@ -1872,28 +1872,28 @@ void ea_remove_event_dsound_nolock(ea_event_dsound* pEvent)
     pEvent->pPrevEvent = NULL;
 }
 
-/// @copydoc ea_remove_event_dsound_nolock()
-void ea_remove_event_dsound(ea_event_dsound* pEvent)
+/// @copydoc easyaudio_remove_event_dsound_nolock()
+void easyaudio_remove_event_dsound(easyaudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
 
-    ea_event_manager_dsound* pEventManager = pEvent->pEventManager;
-    ea_lock_events_dsound(pEventManager);
+    easyaudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
+    easyaudio_lock_events_dsound(pEventManager);
     {
-        ea_remove_event_dsound_nolock(pEvent);
+        easyaudio_remove_event_dsound_nolock(pEvent);
     }
-    ea_unlock_events_dsound(pEventManager);
+    easyaudio_unlock_events_dsound(pEventManager);
 }
 
 /// Adds the given event to the end of the internal list.
-void ea_append_event_dsound(ea_event_dsound* pEvent)
+void easyaudio_append_event_dsound(easyaudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
 
-    ea_event_manager_dsound* pEventManager = pEvent->pEventManager;
-    ea_lock_events_dsound(pEventManager);
+    easyaudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
+    easyaudio_lock_events_dsound(pEventManager);
     {
-        ea_remove_event_dsound_nolock(pEvent);
+        easyaudio_remove_event_dsound_nolock(pEvent);
 
         assert(pEvent->pNextEvent == NULL);
 
@@ -1908,37 +1908,10 @@ void ea_append_event_dsound(ea_event_dsound* pEvent)
 
         pEventManager->pLastEvent = pEvent;
     }
-    ea_unlock_events_dsound(pEventManager);
+    easyaudio_unlock_events_dsound(pEventManager);
 }
 
-/// Adds the given event to the start of the internal list.
-void ea_prepend_event_dsound(ea_event_dsound* pEvent)
-{
-    assert(pEvent != NULL);
-
-    ea_event_manager_dsound* pEventManager = pEvent->pEventManager;
-    ea_lock_events_dsound(pEventManager);
-    {
-        ea_remove_event_dsound_nolock(pEvent);
-        
-        assert(pEvent->pNextEvent == NULL);
-
-        if (pEventManager->pFirstEvent != NULL) {
-            pEvent->pNextEvent = pEventManager->pFirstEvent;
-            pEvent->pNextEvent->pPrevEvent = pEvent;
-        }
-
-        if (pEventManager->pLastEvent == NULL) {
-            pEventManager->pLastEvent = pEvent;
-        }
-
-        pEventManager->pFirstEvent = pEvent;
-    }
-    ea_unlock_events_dsound(pEventManager);
-}
-
-
-void ea_refresh_worker_thread_event_queue(ea_event_manager_dsound* pEventManager)
+void easyaudio_refresh_worker_thread_event_queue(easyaudio_event_manager_dsound* pEventManager)
 {
     assert(pEventManager != NULL);
 
@@ -1958,7 +1931,7 @@ void ea_refresh_worker_thread_event_queue(ea_event_manager_dsound* pEventManager
 
 
 /// Closes the Win32 event handle of the given event.
-void ea_close_win32_event_handle_dsound(ea_event_dsound* pEvent)
+void easyaudio_close_win32_event_handle_dsound(easyaudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
     assert(pEvent->pEventManager != NULL);
@@ -1967,7 +1940,7 @@ void ea_close_win32_event_handle_dsound(ea_event_dsound* pEvent)
     // At the time of calling this function, pEvent should have been removed from the internal list. The issue is that
     // the event notification thread is waiting on it. Thus, we need to refresh the worker thread to ensure the event
     // have been flushed from that queue. To do this we just signal a special event that's used to trigger a refresh.
-    ea_refresh_worker_thread_event_queue(pEvent->pEventManager);
+    easyaudio_refresh_worker_thread_event_queue(pEvent->pEventManager);
 
     // The worker thread should not be waiting on the event so we can go ahead and close the handle now.
     CloseHandle(pEvent->hEvent);
@@ -1976,24 +1949,24 @@ void ea_close_win32_event_handle_dsound(ea_event_dsound* pEvent)
 
 
 /// Updates the given event to use the given callback and user data.
-void ea_update_event_dsound(ea_event_dsound* pEvent, easyaudio_event_callback_proc callback, void* pUserData)
+void easyaudio_update_event_dsound(easyaudio_event_dsound* pEvent, easyaudio_event_callback_proc callback, void* pUserData)
 {
     assert(pEvent != NULL);
 
     pEvent->callback  = callback;
     pEvent->pUserData = pUserData;
 
-    ea_refresh_worker_thread_event_queue(pEvent->pEventManager);
+    easyaudio_refresh_worker_thread_event_queue(pEvent->pEventManager);
 }
 
 /// Creates a new event, but does not activate it.
 ///
 /// @remarks
 ///     When an event is created, it just sits dormant and will never be triggered until it has been
-///     activated with ea_activate_event_dsound().
-ea_event_dsound* ea_create_event_dsound(ea_event_manager_dsound* pEventManager, easyaudio_event_callback_proc callback, easyaudio_buffer* pBuffer, unsigned int eventID, void* pUserData)
+///     activated with easyaudio_activate_event_dsound().
+easyaudio_event_dsound* easyaudio_create_event_dsound(easyaudio_event_manager_dsound* pEventManager, easyaudio_event_callback_proc callback, easyaudio_buffer* pBuffer, unsigned int eventID, void* pUserData)
 {
-    ea_event_dsound* pEvent = malloc(sizeof(ea_event_dsound));
+    easyaudio_event_dsound* pEvent = malloc(sizeof(easyaudio_event_dsound));
     if (pEvent != NULL)
     {
         pEvent->pEventManager = pEventManager;
@@ -2007,11 +1980,11 @@ ea_event_dsound* ea_create_event_dsound(ea_event_manager_dsound* pEventManager, 
         pEvent->pPrevEvent    = NULL;
 
         // Append the event to the internal list.
-        ea_append_event_dsound(pEvent);
+        easyaudio_append_event_dsound(pEvent);
 
         // This roundabout way of setting the callback and user data is to ensure the worker thread is made aware that it needs
         // to refresh it's local event data.
-        ea_update_event_dsound(pEvent, callback, pUserData);
+        easyaudio_update_event_dsound(pEvent, callback, pUserData);
     }
 
     return pEvent;
@@ -2021,7 +1994,7 @@ ea_event_dsound* ea_create_event_dsound(ea_event_manager_dsound* pEventManager, 
 ///
 /// @remarks
 ///     This will not return until the event has been deleted completely.
-void ea_delete_event_dsound(ea_event_dsound* pEvent)
+void easyaudio_delete_event_dsound(easyaudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
 
@@ -2033,11 +2006,11 @@ void ea_delete_event_dsound(ea_event_dsound* pEvent)
     pEvent->markerOffset = 0;
 
     // Remove the event from the list.
-    ea_remove_event_dsound(pEvent);
+    easyaudio_remove_event_dsound(pEvent);
 
     // Close the Win32 event handle.
     if (pEvent->hEvent != NULL) {
-        ea_close_win32_event_handle_dsound(pEvent);
+        easyaudio_close_win32_event_handle_dsound(pEvent);
     }
 
 
@@ -2047,7 +2020,7 @@ void ea_delete_event_dsound(ea_event_dsound* pEvent)
 
 
 /// Gathers the event handles and callback data for all of the relevant buffer events.
-unsigned int ea_gather_events_dsound(ea_event_manager_dsound *pEventManager, HANDLE* pHandlesOut, ea_event_dsound** ppEventsOut, unsigned int outputBufferSize)
+unsigned int easyaudio_gather_events_dsound(easyaudio_event_manager_dsound *pEventManager, HANDLE* pHandlesOut, easyaudio_event_dsound** ppEventsOut, unsigned int outputBufferSize)
 {
     assert(pEventManager != NULL);
     assert(pHandlesOut != NULL);
@@ -2055,7 +2028,7 @@ unsigned int ea_gather_events_dsound(ea_event_manager_dsound *pEventManager, HAN
     assert(outputBufferSize >= 2);
 
     unsigned int i = 2;
-    ea_lock_events_dsound(pEventManager);
+    easyaudio_lock_events_dsound(pEventManager);
     {
         pHandlesOut[0] = pEventManager->hTerminateEvent;
         ppEventsOut[0] = NULL;
@@ -2064,9 +2037,7 @@ unsigned int ea_gather_events_dsound(ea_event_manager_dsound *pEventManager, HAN
         ppEventsOut[1] = NULL;
 
 
-    
-        
-        ea_event_dsound* pEvent = pEventManager->pFirstEvent;
+        easyaudio_event_dsound* pEvent = pEventManager->pFirstEvent;
         while (i < outputBufferSize && pEvent != NULL)
         {
             if (pEvent->hEvent != NULL)
@@ -2080,16 +2051,13 @@ unsigned int ea_gather_events_dsound(ea_event_manager_dsound *pEventManager, HAN
             pEvent = pEvent->pNextEvent;
         }
     }
-    ea_unlock_events_dsound(pEventManager);
+    easyaudio_unlock_events_dsound(pEventManager);
 
     return i;
 }
 
-/// Determines whether or not the given event is valid.
-
-
 /// The entry point to the event worker thread.
-DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager)
+DWORD WINAPI DSound_EventWorkerThreadProc(easyaudio_event_manager_dsound *pEventManager)
 {
     if (pEventManager != NULL)
     {
@@ -2097,15 +2065,15 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
         HANDLE hRefreshEvent   = pEventManager->hRefreshEvent;
 
         HANDLE eventHandles[1024];
-        ea_event_dsound* events[1024];
-        unsigned int eventCount = ea_gather_events_dsound(pEventManager, eventHandles, events, 1024);   // <-- Initial gather.
+        easyaudio_event_dsound* events[1024];
+        unsigned int eventCount = easyaudio_gather_events_dsound(pEventManager, eventHandles, events, 1024);   // <-- Initial gather.
 
         bool requestedRefresh = false;
         for (;;)
         {
             if (requestedRefresh)
             {
-                eventCount = ea_gather_events_dsound(pEventManager, eventHandles, events, 1024);
+                eventCount = easyaudio_gather_events_dsound(pEventManager, eventHandles, events, 1024);
 
                 // Refreshing is done, so now we need to let other threads know about it.
                 SetEvent(pEventManager->hEventCompletionLock);
@@ -2137,7 +2105,7 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
 
 
                 // If we get here if means we have hit a callback event.
-                ea_event_dsound* pEvent = events[eventIndex];
+                easyaudio_event_dsound* pEvent = events[eventIndex];
                 if (pEvent->callback != NULL)
                 {
                     assert(pEvent->hEvent == hEvent);
@@ -2167,7 +2135,7 @@ DWORD WINAPI DSound_EventWorkerThreadProc(ea_event_manager_dsound *pEventManager
 
 
 /// Initializes the event manager by creating the thread and event objects.
-bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager, easyaudio_message_queue_dsound* pMessageQueue)
+bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventManager, easyaudio_message_queue_dsound* pMessageQueue)
 {
     assert(pEventManager != NULL);
     assert(pMessageQueue != NULL);
@@ -2244,14 +2212,14 @@ bool ea_init_event_manager_dsound(ea_event_manager_dsound* pEventManager, easyau
 ///     This does not return until the worker thread has been terminated completely.
 ///     @par
 ///     This will delete every event, so any pointers to events will be made invalid upon calling this function.
-void ea_uninit_event_manager_dsound(ea_event_manager_dsound* pEventManager)
+void easyaudio_uninit_event_manager_dsound(easyaudio_event_manager_dsound* pEventManager)
 {
     assert(pEventManager != NULL);
 
 
     // Cleanly delete every event first.
     while (pEventManager->pFirstEvent != NULL) {
-        ea_delete_event_dsound(pEventManager->pFirstEvent);
+        easyaudio_delete_event_dsound(pEventManager->pFirstEvent);
     }
 
 
@@ -2340,7 +2308,7 @@ typedef struct
 
 
     /// The event manager.
-    ea_event_manager_dsound eventManager;
+    easyaudio_event_manager_dsound eventManager;
 
 
     /// The message queue.
@@ -2382,25 +2350,20 @@ typedef struct
     easyaudio_playback_state playbackState;
 
 
-    /// Keeps track of whether or not the sound has been marked for deletion. Deleting a buffer is not an immediate
-    /// operation, but is instead delayed until a special message has been processed by the message handling thread.
-    //bool markedForDeletion;
-
-
     /// The number of marker events that have been registered. This will never be more than EASYAUDIO_MAX_MARKER_COUNT.
     unsigned int markerEventCount;
 
     /// The marker events.
-    ea_event_dsound* pMarkerEvents[EASYAUDIO_MAX_MARKER_COUNT];
+    easyaudio_event_dsound* pMarkerEvents[EASYAUDIO_MAX_MARKER_COUNT];
 
     /// The event to trigger when the sound is stopped.
-    ea_event_dsound* pStopEvent;
+    easyaudio_event_dsound* pStopEvent;
 
     /// The event to trigger when the sound is paused.
-    ea_event_dsound* pPauseEvent;
+    easyaudio_event_dsound* pPauseEvent;
 
     /// The event to trigger when the sound is played or resumed.
-    ea_event_dsound* pPlayEvent;
+    easyaudio_event_dsound* pPlayEvent;
 
 
     /// The size in bytes of the buffer's extra data.
@@ -2412,7 +2375,7 @@ typedef struct
 } easyaudio_buffer_dsound;
 
 
-void ea_activate_buffer_events_dsound(easyaudio_buffer* pBuffer)
+void easyaudio_activate_buffer_events_dsound(easyaudio_buffer* pBuffer)
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
@@ -2451,7 +2414,7 @@ void ea_activate_buffer_events_dsound(easyaudio_buffer* pBuffer)
 #endif
 }
 
-void ea_deactivate_buffer_events_dsound(easyaudio_buffer* pBuffer)
+void easyaudio_deactivate_buffer_events_dsound(easyaudio_buffer* pBuffer)
 {
     easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
@@ -2473,7 +2436,7 @@ void easyaudio_delete_context_dsound(easyaudio_context* pContext)
     easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pContext;
     assert(pContextDS != NULL);
 
-    ea_uninit_event_manager_dsound(&pContextDS->eventManager);
+    easyaudio_uninit_event_manager_dsound(&pContextDS->eventManager);
 
     // The message queue needs to uninitialized after the DirectSound marker notification thread.
     easyaudio_uninit_message_queue_dsound(&pContextDS->messageQueue);
@@ -2782,7 +2745,7 @@ void easyaudio_delete_buffer_dsound(easyaudio_buffer* pBuffer)
 
 
     // Deactivate the DirectSound notify events for sanity.
-    ea_deactivate_buffer_events_dsound(pBuffer);
+    easyaudio_deactivate_buffer_events_dsound(pBuffer);
 
 
     easyaudio_message_dsound msg;
@@ -2866,7 +2829,7 @@ void easyaudio_play_dsound(easyaudio_buffer* pBuffer, bool loop)
 
     // Events need to be activated.
     if (pBufferDS->playbackState == easyaudio_stopped) {
-        ea_activate_buffer_events_dsound(pBuffer);
+        easyaudio_activate_buffer_events_dsound(pBuffer);
     }
 
 
@@ -3046,7 +3009,7 @@ void easyaudio_remove_markers_dsound(easyaudio_buffer* pBuffer)
     for (unsigned int iMarker = 0; iMarker < pBufferDS->markerEventCount; ++iMarker)
     {
         if (pBufferDS->pMarkerEvents[iMarker] != NULL) {
-            ea_delete_event_dsound(pBufferDS->pMarkerEvents[iMarker]);
+            easyaudio_delete_event_dsound(pBufferDS->pMarkerEvents[iMarker]);
             pBufferDS->pMarkerEvents[iMarker] = NULL;
         }
     }
@@ -3068,12 +3031,12 @@ bool easyaudio_register_marker_callback_dsound(easyaudio_buffer* pBuffer, unsign
     easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pBuffer->pDevice->pContext;
     assert(pContextDS != NULL);
 
-    ea_event_dsound* pEvent = ea_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, eventID, pUserData);
+    easyaudio_event_dsound* pEvent = easyaudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, eventID, pUserData);
     if (pEvent == NULL) {
         return false;
     }
 
-    // ea_create_event_dsound() will initialize the marker offset to 0, so we'll need to set it manually here.
+    // easyaudio_create_event_dsound() will initialize the marker offset to 0, so we'll need to set it manually here.
     pEvent->markerOffset = offsetInBytes;
 
     pBufferDS->pMarkerEvents[pBufferDS->markerEventCount] = pEvent;
@@ -3090,7 +3053,7 @@ bool easyaudio_register_stop_callback_dsound(easyaudio_buffer* pBuffer, easyaudi
     if (callback == NULL)
     {
         if (pBufferDS->pStopEvent != NULL) {
-            ea_delete_event_dsound(pBufferDS->pStopEvent);
+            easyaudio_delete_event_dsound(pBufferDS->pStopEvent);
             pBufferDS->pStopEvent = NULL;
         }
 
@@ -3102,9 +3065,9 @@ bool easyaudio_register_stop_callback_dsound(easyaudio_buffer* pBuffer, easyaudi
 
         // If we already have a stop event, just replace the existing one.
         if (pBufferDS->pStopEvent != NULL) {
-            ea_update_event_dsound(pBufferDS->pStopEvent, callback, pUserData);
+            easyaudio_update_event_dsound(pBufferDS->pStopEvent, callback, pUserData);
         } else {
-            pBufferDS->pStopEvent = ea_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, EASYAUDIO_EVENT_ID_STOP, pUserData);
+            pBufferDS->pStopEvent = easyaudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, EASYAUDIO_EVENT_ID_STOP, pUserData);
         }
 
         return pBufferDS->pStopEvent != NULL;
@@ -3119,7 +3082,7 @@ bool easyaudio_register_pause_callback_dsound(easyaudio_buffer* pBuffer, easyaud
     if (callback == NULL)
     {
         if (pBufferDS->pPauseEvent != NULL) {
-            ea_delete_event_dsound(pBufferDS->pPauseEvent);
+            easyaudio_delete_event_dsound(pBufferDS->pPauseEvent);
             pBufferDS->pPauseEvent = NULL;
         }
 
@@ -3131,9 +3094,9 @@ bool easyaudio_register_pause_callback_dsound(easyaudio_buffer* pBuffer, easyaud
 
         // If we already have a stop event, just replace the existing one.
         if (pBufferDS->pPauseEvent != NULL) {
-            ea_update_event_dsound(pBufferDS->pPauseEvent, callback, pUserData);
+            easyaudio_update_event_dsound(pBufferDS->pPauseEvent, callback, pUserData);
         } else {
-            pBufferDS->pPauseEvent = ea_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, EASYAUDIO_EVENT_ID_PAUSE, pUserData);
+            pBufferDS->pPauseEvent = easyaudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, EASYAUDIO_EVENT_ID_PAUSE, pUserData);
         }
 
         return pBufferDS->pPauseEvent != NULL;
@@ -3148,7 +3111,7 @@ bool easyaudio_register_play_callback_dsound(easyaudio_buffer* pBuffer, easyaudi
     if (callback == NULL)
     {
         if (pBufferDS->pPlayEvent != NULL) {
-            ea_delete_event_dsound(pBufferDS->pPlayEvent);
+            easyaudio_delete_event_dsound(pBufferDS->pPlayEvent);
             pBufferDS->pPlayEvent = NULL;
         }
 
@@ -3160,9 +3123,9 @@ bool easyaudio_register_play_callback_dsound(easyaudio_buffer* pBuffer, easyaudi
 
         // If we already have a stop event, just replace the existing one.
         if (pBufferDS->pPlayEvent != NULL) {
-            ea_update_event_dsound(pBufferDS->pPlayEvent, callback, pUserData);
+            easyaudio_update_event_dsound(pBufferDS->pPlayEvent, callback, pUserData);
         } else {
-            pBufferDS->pPlayEvent = ea_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, EASYAUDIO_EVENT_ID_PLAY, pUserData);
+            pBufferDS->pPlayEvent = easyaudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, EASYAUDIO_EVENT_ID_PLAY, pUserData);
         }
 
         return pBufferDS->pPlayEvent != NULL;
@@ -3455,7 +3418,7 @@ easyaudio_context* easyaudio_create_context_dsound()
         pContext->pDirectSoundCaptureEnumerateA(DSEnumCallback_InputDevices, pContext);
 
         // The message queue and marker notification thread.
-        if (!easyaudio_init_message_queue_dsound(&pContext->messageQueue) || !ea_init_event_manager_dsound(&pContext->eventManager, &pContext->messageQueue))
+        if (!easyaudio_init_message_queue_dsound(&pContext->messageQueue) || !easyaudio_init_event_manager_dsound(&pContext->eventManager, &pContext->messageQueue))
         {
             // Failed to initialize the event manager.
             FreeLibrary(hDSoundDLL);

@@ -490,10 +490,10 @@ void easyaudio_unlock_mutex(easyaudio_mutex mutex);
 
 
 //// STREAMING ////
-typedef int ea_bool;
+typedef int easyaudio_bool;
 
-typedef ea_bool (* easyaudio_stream_read_proc)(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
-typedef ea_bool (* easyaudio_stream_seek_proc)(void* pUserData, unsigned int offsetInBytesFromStart);
+typedef easyaudio_bool (* easyaudio_stream_read_proc)(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
+typedef easyaudio_bool (* easyaudio_stream_seek_proc)(void* pUserData, unsigned int offsetInBytesFromStart);
 
 typedef struct
 {
@@ -558,8 +558,8 @@ typedef struct easyaudio_sound easyaudio_sound;
 typedef struct easyaudio_world easyaudio_world;
 
 typedef void    (* easyaudio_on_sound_delete_proc)   (easyaudio_sound* pSound);
-typedef ea_bool (* easyaudio_on_sound_read_data_proc)(easyaudio_sound* pSound, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
-typedef ea_bool (* easyaudio_on_sound_seek_data_proc)(easyaudio_sound* pSound, unsigned int offsetInBytesFromStart);
+typedef easyaudio_bool (* easyaudio_on_sound_read_data_proc)(easyaudio_sound* pSound, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
+typedef easyaudio_bool (* easyaudio_on_sound_seek_data_proc)(easyaudio_sound* pSound, unsigned int offsetInBytesFromStart);
 
 /// The structure that is used for creating a sound object.
 typedef struct
