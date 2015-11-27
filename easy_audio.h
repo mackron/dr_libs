@@ -633,6 +633,12 @@ struct easyaudio_sound
     /// [Internal Use Only] Keeps track of whether or not a streaming buffer is being used.
     bool isUsingStreamingBuffer;
 
+    /// [Internal Use Only] Keeps track of whether or not the sound has been marked for deletion. This is used to
+    /// ensure onRead and onSeek are never called after the sound has been deleted. This scenario is possible because
+    /// these functions are called in response to the sound buffer hitting markers which can be slightly delayed
+    /// due to multi-threading synchronization.
+    bool markedForDeletion;
+
     /// [Internal Use Only] the onDelete function. Can be null.
     easyaudio_on_sound_delete_proc onDelete;
 

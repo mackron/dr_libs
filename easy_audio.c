@@ -970,7 +970,11 @@ PRIVATE static easyaudio_bool easyaudio_on_sound_read_callback(void* pUserData, 
     assert(pSound != NULL);
     assert(pSound->onRead != NULL);
     
-    return pSound->onRead(pSound, pDataOut, bytesToRead, bytesReadOut);
+    if (!pSound->markedForDeletion) {
+        return pSound->onRead(pSound, pDataOut, bytesToRead, bytesReadOut);
+    }
+    
+    return false;
 }
 
 PRIVATE static easyaudio_bool easyaudio_on_sound_seek_callback(void* pUserData, unsigned int offsetInBytesFromStart)
@@ -979,7 +983,11 @@ PRIVATE static easyaudio_bool easyaudio_on_sound_seek_callback(void* pUserData, 
     assert(pSound != NULL);
     assert(pSound->onRead != NULL);
     
-    return pSound->onSeek(pSound, offsetInBytesFromStart);
+    if (!pSound->markedForDeletion) {
+        return pSound->onSeek(pSound, offsetInBytesFromStart);
+    }
+
+    return false;
 }
 
 
@@ -1097,6 +1105,7 @@ easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound
     pSound->pNextSound             = NULL;
     pSound->pPrevSound             = NULL;
     pSound->isUsingStreamingBuffer = desc.sizeInBytes == 0 || desc.pInitialData == NULL;
+    pSound->markedForDeletion      = false;
     pSound->onDelete               = desc.onDelete;
     pSound->onRead                 = desc.onRead;
     pSound->onSeek                 = desc.onSeek;
@@ -1151,6 +1160,13 @@ void easyaudio_delete_sound(easyaudio_sound* pSound)
     if (pSound == NULL) {
         return;
     }
+
+    if (pSound->markedForDeletion) {
+        assert(false);
+        return;
+    }
+
+    pSound->markedForDeletion = true;
 
 
     // Remove the sound from the internal list first.
