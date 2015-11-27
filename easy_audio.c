@@ -970,11 +970,16 @@ PRIVATE static easyaudio_bool easyaudio_on_sound_read_callback(void* pUserData, 
     assert(pSound != NULL);
     assert(pSound->onRead != NULL);
     
-    if (!pSound->markedForDeletion) {
-        return pSound->onRead(pSound, pDataOut, bytesToRead, bytesReadOut);
+    bool result = false;
+    easyaudio_lock_mutex(pSound->pWorld->lock);
+    {
+        if (!pSound->markedForDeletion) {
+            result = pSound->onRead(pSound, pDataOut, bytesToRead, bytesReadOut);
+        }
     }
+    easyaudio_unlock_mutex(pSound->pWorld->lock);
     
-    return false;
+    return result;
 }
 
 PRIVATE static easyaudio_bool easyaudio_on_sound_seek_callback(void* pUserData, unsigned int offsetInBytesFromStart)
@@ -983,11 +988,16 @@ PRIVATE static easyaudio_bool easyaudio_on_sound_seek_callback(void* pUserData, 
     assert(pSound != NULL);
     assert(pSound->onRead != NULL);
     
-    if (!pSound->markedForDeletion) {
-        return pSound->onSeek(pSound, offsetInBytesFromStart);
+    bool result = false;
+    easyaudio_lock_mutex(pSound->pWorld->lock);
+    {
+        if (!pSound->markedForDeletion) {
+            result = pSound->onSeek(pSound, offsetInBytesFromStart);
+        }
     }
+    easyaudio_unlock_mutex(pSound->pWorld->lock);
 
-    return false;
+    return result;
 }
 
 
@@ -1023,26 +1033,22 @@ PRIVATE void easyaudio_prepend_sound(easyaudio_sound* pSound)
     easyaudio_unlock_mutex(pSound->pWorld->lock);
 }
 
-PRIVATE void easyaudio_remove_sound(easyaudio_sound* pSound)
+PRIVATE void easyaudio_remove_sound_nolock(easyaudio_sound* pSound)
 {
     assert(pSound != NULL);
     assert(pSound->pWorld != NULL);
 
-    easyaudio_lock_mutex(pSound->pWorld->lock);
-    {
-        if (pSound == pSound->pWorld->pFirstSound) {
-            pSound->pWorld->pFirstSound = pSound->pNextSound;
-        }
-
-        if (pSound->pNextSound != NULL) {
-            pSound->pNextSound->pPrevSound = pSound->pPrevSound;
-        }
-    
-        if (pSound->pPrevSound != NULL) {
-            pSound->pPrevSound->pNextSound = pSound->pNextSound;
-        }
+    if (pSound == pSound->pWorld->pFirstSound) {
+        pSound->pWorld->pFirstSound = pSound->pNextSound;
     }
-    easyaudio_unlock_mutex(pSound->pWorld->lock);
+
+    if (pSound->pNextSound != NULL) {
+        pSound->pNextSound->pPrevSound = pSound->pPrevSound;
+    }
+    
+    if (pSound->pPrevSound != NULL) {
+        pSound->pPrevSound->pNextSound = pSound->pNextSound;
+    }
 }
 
 
@@ -1161,35 +1167,40 @@ void easyaudio_delete_sound(easyaudio_sound* pSound)
         return;
     }
 
-    if (pSound->markedForDeletion) {
-        assert(false);
-        return;
+
+    easyaudio_lock_mutex(pSound->pWorld->lock);
+    {
+        if (pSound->markedForDeletion) {
+            assert(false);
+            return;
+        }
+
+        pSound->markedForDeletion = true;
+
+
+        // Remove the sound from the internal list first.
+        easyaudio_remove_sound_nolock(pSound);
+
+
+        // If we're deleting an inline sound, we want to remove the stop event callback. If we don't do this, we'll end up trying to delete
+        // the sound twice.
+        if (easyaudio_is_inline_sound(pSound)) {
+            easyaudio_register_stop_callback(pSound->pBuffer, NULL, NULL);
+        }
+
+
+        // Let the application know that the sound is being deleted. We want to do this after removing the stop event just to be sure the
+        // application doesn't try to explicitly stop the sound in this callback - that would be a problem for inlined sounds because they
+        // are configured to delete themselves upon stopping which we are already in the process of doing.
+        if (pSound->onDelete != NULL) {
+            pSound->onDelete(pSound);
+        }
+
+
+        // Delete the internal audio buffer before letting the host application know about the deletion.
+        easyaudio_delete_buffer(pSound->pBuffer);
     }
-
-    pSound->markedForDeletion = true;
-
-
-    // Remove the sound from the internal list first.
-    easyaudio_remove_sound(pSound);
-
-
-    // If we're deleting an inline sound, we want to remove the stop event callback. If we don't do this, we'll end up trying to delete
-    // the sound twice.
-    if (easyaudio_is_inline_sound(pSound)) {
-        easyaudio_register_stop_callback(pSound->pBuffer, NULL, NULL);
-    }
-
-
-    // Let the application know that the sound is being deleted. We want to do this after removing the stop event just to be sure the
-    // application doesn't try to explicitly stop the sound in this callback - that would be a problem for inlined sounds because they
-    // are configured to delete themselves upon stopping which we are already in the process of doing.
-    if (pSound->onDelete != NULL) {
-        pSound->onDelete(pSound);
-    }
-
-
-    // Delete the internal audio buffer before letting the host application know about the deletion.
-    easyaudio_delete_buffer(pSound->pBuffer);
+    easyaudio_unlock_mutex(pSound->pWorld->lock);
 
 
     // Only free the sound after the application has been made aware the sound is being deleted.
