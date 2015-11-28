@@ -71,6 +71,7 @@ extern "C" {
 #endif
 
 #include <stdbool.h>
+#include <stdint.h>
 
 
 #define EASYAUDIO_MAX_DEVICE_COUNT          16
@@ -174,10 +175,10 @@ typedef struct
     unsigned int bitsPerSample;
 
     /// The size in bytes of the data.
-    unsigned int sizeInBytes;
+    size_t sizeInBytes;
 
     /// A pointer to the initial data.
-    void* pInitialData;
+    void* pData;
 
 } easyaudio_buffer_desc;
 
@@ -582,11 +583,11 @@ typedef struct
 
     /// The size in bytes of the data. When this is non-zero, and pInitialData is non-null, the onRead and onSeek streaming
     /// callbacks are not used, and instead the sound's audio data is made up exclusively with this data.
-    unsigned int sizeInBytes;
+    size_t sizeInBytes;
 
     /// A pointer to the initial data. Can be null, in which case the audio data is streamed with the onRead and onSeek
     /// callbacks below. It is an error for this to be null in addition to onRead and onSeek.
-    void* pInitialData;
+    void* pData;
 
 
     /// A pointer to the function to call when the sound is being deleted. This gives the application the opportunity

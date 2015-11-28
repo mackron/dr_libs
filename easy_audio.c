@@ -859,7 +859,7 @@ easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, e
     // We are determining for ourselves what the size of the buffer should be. We need to create our own copy rather than modify the input descriptor.
     easyaudio_buffer_desc bufferDesc = *pBufferDesc;
     bufferDesc.sizeInBytes  = pBufferDesc->sampleRate * pBufferDesc->channels * (pBufferDesc->bitsPerSample / 8);
-    bufferDesc.pInitialData = NULL;
+    bufferDesc.pData        = NULL;
 
     unsigned int chunkSize = bufferDesc.sizeInBytes / 2;
 
@@ -1096,7 +1096,7 @@ easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound
         return NULL;
     }
 
-    if ((desc.pInitialData == NULL || desc.sizeInBytes == 0) && (desc.onRead == NULL || desc.onSeek == NULL)) {
+    if ((desc.pData == NULL || desc.sizeInBytes == 0) && (desc.onRead == NULL || desc.onSeek == NULL)) {
         // When streaming is not being used, the initial data must be valid at creation time.
         return NULL;
     }
@@ -1110,7 +1110,7 @@ easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound
     pSound->prevPlaybackState      = easyaudio_stopped;
     pSound->pNextSound             = NULL;
     pSound->pPrevSound             = NULL;
-    pSound->isUsingStreamingBuffer = desc.sizeInBytes == 0 || desc.pInitialData == NULL;
+    pSound->isUsingStreamingBuffer = desc.sizeInBytes == 0 || desc.pData == NULL;
     pSound->markedForDeletion      = false;
     pSound->onDelete               = desc.onDelete;
     pSound->onRead                 = desc.onRead;
@@ -1123,7 +1123,7 @@ easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound
     bufferDesc.sampleRate    = desc.sampleRate;
     bufferDesc.bitsPerSample = desc.bitsPerSample;
     bufferDesc.sizeInBytes   = desc.sizeInBytes;
-    bufferDesc.pInitialData  = desc.pInitialData;
+    bufferDesc.pData         = desc.pData;
 
     if (pSound->isUsingStreamingBuffer)
     {
@@ -2755,8 +2755,8 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
 
 
     // Fill with initial data, if applicable.
-    if (pBufferDesc->pInitialData != NULL) {
-        easyaudio_set_buffer_data((easyaudio_buffer*)pBufferDS, 0, pBufferDesc->pInitialData, pBufferDesc->sizeInBytes);
+    if (pBufferDesc->pData != NULL) {
+        easyaudio_set_buffer_data((easyaudio_buffer*)pBufferDS, 0, pBufferDesc->pData, pBufferDesc->sizeInBytes);
     }
 
     return (easyaudio_buffer*)pBufferDS;
