@@ -976,28 +976,32 @@ bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, eas
 
 bool easy2d_get_glyph_metrics_gdi(easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pGlyphMetrics)
 {
-    if (pGlyphMetrics != NULL) {
-        return false;
-    }
+    assert(pGlyphMetrics != NULL);
 
     gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
     if (pGDIData == NULL) {
         return false;
     }
 
-    const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
 
-    GLYPHMETRICS spaceMetrics;
-    DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIData->hDC, ' ', GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
-    if (bitmapBufferSize != GDI_ERROR)
+    bool result = false;
+    HGDIOBJ hPrevFont = SelectObject(pGDIData->hDC, (HFONT)font);
     {
-        pGlyphMetrics->width  = spaceMetrics.gmBlackBoxX;
-        pGlyphMetrics->height = spaceMetrics.gmBlackBoxY;
+        const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
 
-        return true;
+        GLYPHMETRICS spaceMetrics;
+        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIData->hDC, utf32, GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
+        if (bitmapBufferSize != GDI_ERROR)
+        {
+            pGlyphMetrics->width  = spaceMetrics.gmBlackBoxX;
+            pGlyphMetrics->height = spaceMetrics.gmBlackBoxY;
+
+            result = true;
+        }
     }
-
-    return false;
+    SelectObject(pGDIData->hDC, hPrevFont);
+    
+    return result;
 }
 
 bool easy2d_measure_string_gdi(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
