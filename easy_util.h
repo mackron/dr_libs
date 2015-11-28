@@ -141,6 +141,12 @@ EASYUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 
     return 0;
 }
+
+// A wrapper for _stricmp/strcasecmp
+EASYUTIL_INLINE int _stricmp(const char* string1, const char* string2)
+{
+    return strcasecmp(string1, string2);
+}
 #endif
 
 
