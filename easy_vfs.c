@@ -104,7 +104,7 @@ typedef struct
 
 }easyvfs_pathiterator;
 
-easyvfs_pathiterator easyvfs_beginpathiteration(const char* path)
+easyvfs_pathiterator easyvfs_begin_path_iteration(const char* path)
 {
     easyvfs_pathiterator i;
     i.path = path;
@@ -114,7 +114,7 @@ easyvfs_pathiterator easyvfs_beginpathiteration(const char* path)
     return i;
 }
 
-int easyvfs_nextpathsegment(easyvfs_pathiterator* i)
+int easyvfs_next_path_segment(easyvfs_pathiterator* i)
 {
     if (i != 0 && i->path != 0)
     {
@@ -144,12 +144,12 @@ int easyvfs_nextpathsegment(easyvfs_pathiterator* i)
     return 0;
 }
 
-int easyvfs_atendofpath(easyvfs_pathiterator i)
+int easyvfs_at_end_of_path(easyvfs_pathiterator i)
 {
-    return !easyvfs_nextpathsegment(&i);
+    return !easyvfs_next_path_segment(&i);
 }
 
-int easyvfs_pathsegments_equal(const char* s0Path, const easyvfs_pathsegment s0, const char* s1Path, const easyvfs_pathsegment s1)
+int easyvfs_path_segments_equal(const char* s0Path, const easyvfs_pathsegment s0, const char* s1Path, const easyvfs_pathsegment s1)
 {
     if (s0Path != 0 && s1Path != 0)
     {
@@ -172,10 +172,10 @@ int easyvfs_pathsegments_equal(const char* s0Path, const easyvfs_pathsegment s0,
 
 int easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pathiterator i1)
 {
-    return easyvfs_pathsegments_equal(i0.path, i0.segment, i1.path, i1.segment);
+    return easyvfs_path_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
 }
 
-int easyvfs_appendpathiterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
+int easyvfs_append_path_iterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
 {
     if (base != 0)
     {
@@ -210,17 +210,17 @@ int easyvfs_appendpathiterator(char* base, unsigned int baseBufferSizeInBytes, e
 #else
 typedef struct easypath_iterator easyvfs_pathiterator;
 
-easyvfs_pathiterator easyvfs_beginpathiteration(const char* path)
+easyvfs_pathiterator easyvfs_begin_path_iteration(const char* path)
 {
     return easypath_begin(path);
 }
 
-int easyvfs_nextpathsegment(easyvfs_pathiterator* i)
+int easyvfs_next_path_segment(easyvfs_pathiterator* i)
 {
     return easypath_next(i);
 }
 
-int easyvfs_atendofpath(easyvfs_pathiterator i)
+int easyvfs_at_end_of_path(easyvfs_pathiterator i)
 {
     return easypath_atend(i);
 }
@@ -230,7 +230,7 @@ int easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pat
     return easypath_iterators_equal(i0, i1);
 }
 
-int easyvfs_appendpathiterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
+int easyvfs_append_path_iterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
 {
     return easypath_appenditerator(base, baseBufferSizeInBytes, i);
 }
@@ -701,10 +701,10 @@ easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive,
         char runningPath[EASYVFS_MAX_PATH];
         runningPath[0] = '\0';
 
-        easyvfs_pathiterator iPathSegment = easyvfs_beginpathiteration(path);
-        while (easyvfs_nextpathsegment(&iPathSegment))
+        easyvfs_pathiterator iPathSegment = easyvfs_begin_path_iteration(path);
+        while (easyvfs_next_path_segment(&iPathSegment))
         {
-            if (easyvfs_appendpathiterator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
+            if (easyvfs_append_path_iterator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
             {
                 if (pArchive->callbacks.getfileinfo(pArchive, runningPath, &fi))
                 {
@@ -715,7 +715,7 @@ easyvfs_archive* easyvfs_openarchive_frompath_verbose(easyvfs_archive* pArchive,
                         if (pChildArchive != NULL)
                         {
                             // It's an archive, so check it. The name to check is the beginning of the next path segment.
-                            if (easyvfs_nextpathsegment(&iPathSegment))
+                            if (easyvfs_next_path_segment(&iPathSegment))
                             {
                                 easyvfs_strcpy(pChildArchive->basePath, sizeof(pChildArchive->basePath), pArchive->basePath);
 
@@ -783,13 +783,13 @@ easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive,
         char runningPath[EASYVFS_MAX_PATH];
         runningPath[0] = '\0';
 
-        easyvfs_pathiterator iPathSegment = easyvfs_beginpathiteration(path);
-        while (easyvfs_nextpathsegment(&iPathSegment))
+        easyvfs_pathiterator iPathSegment = easyvfs_begin_path_iteration(path);
+        while (easyvfs_next_path_segment(&iPathSegment))
         {
             char runningPathBase[EASYVFS_MAX_PATH];
             easyvfs_memcpy(runningPathBase, runningPath, EASYVFS_MAX_PATH);
 
-            if (easyvfs_appendpathiterator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
+            if (easyvfs_append_path_iterator(runningPath, EASYVFS_MAX_PATH, iPathSegment))
             {
                 // Check if the path segment refers to an archive.
                 if (pArchive->callbacks.getfileinfo(pArchive, runningPath, &fi))
@@ -797,7 +797,7 @@ easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive,
                     if ((fi.attributes & EASYVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
                     {
                         // It's a normal file. This should not be the last segment in the path.
-                        if (!easyvfs_atendofpath(iPathSegment))
+                        if (!easyvfs_at_end_of_path(iPathSegment))
                         {
                             // The file could be an archive. Try opening the archive, and then try loading the file recursively. If this fails, we need to return null.
                             easyvfs_archive* pChildArchive = easyvfs_openarchive(pArchive->pContext, pArchive, runningPath, easyvfs_archiveaccessmode(accessMode));
@@ -805,7 +805,7 @@ easyvfs_archive* easyvfs_openarchive_frompath_default(easyvfs_archive* pArchive,
                             {
                                 // It's an archive, so check it. The name to check is the beginning of the next path segment.
                                 easyvfs_pathiterator iNextSegment = iPathSegment;
-                                if (easyvfs_nextpathsegment(&iNextSegment))
+                                if (easyvfs_next_path_segment(&iNextSegment))
                                 {
                                     easyvfs_strcpy(pChildArchive->basePath, sizeof(pChildArchive->basePath), pArchive->basePath);
 
@@ -2010,15 +2010,15 @@ bool easyvfs_mkdir_recursive(easyvfs_context* pContext, const char* path)
         char runningPath[EASYVFS_MAX_PATH];
         runningPath[0] = '\0';
 
-        easyvfs_pathiterator iPathSeg = easyvfs_beginpathiteration(absolutePath);
+        easyvfs_pathiterator iPathSeg = easyvfs_begin_path_iteration(absolutePath);
 
         // Never check the first segment because we can assume it always exists - it will always be the drive root.
-        if (easyvfs_nextpathsegment(&iPathSeg) && easyvfs_appendpathiterator(runningPath, sizeof(runningPath), iPathSeg))
+        if (easyvfs_next_path_segment(&iPathSeg) && easyvfs_append_path_iterator(runningPath, sizeof(runningPath), iPathSeg))
         {
             // Loop over every directory until we find one that does not exist.
-            while (easyvfs_nextpathsegment(&iPathSeg))
+            while (easyvfs_next_path_segment(&iPathSeg))
             {
-                if (!easyvfs_appendpathiterator(runningPath, sizeof(runningPath), iPathSeg)) {
+                if (!easyvfs_append_path_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
                     return false;
                 }
 
@@ -2035,9 +2035,9 @@ bool easyvfs_mkdir_recursive(easyvfs_context* pContext, const char* path)
 
             // At this point all we need to do is create the remaining directories - we can assert that the directory does not exist
             // rather than actually checking it which should be a bit more efficient.
-            while (easyvfs_nextpathsegment(&iPathSeg))
+            while (easyvfs_next_path_segment(&iPathSeg))
             {
-                if (!easyvfs_appendpathiterator(runningPath, sizeof(runningPath), iPathSeg)) {
+                if (!easyvfs_append_path_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
                     return false;
                 }
 
@@ -2070,12 +2070,12 @@ bool easyvfs_eof(easyvfs_file* pFile)
 bool easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsolutePath)
 {
 #if !EASYVFS_USE_EASYPATH
-    easyvfs_pathiterator iParent = easyvfs_beginpathiteration(parentAbsolutePath);
-    easyvfs_pathiterator iChild  = easyvfs_beginpathiteration(childAbsolutePath);
+    easyvfs_pathiterator iParent = easyvfs_begin_path_iteration(parentAbsolutePath);
+    easyvfs_pathiterator iChild  = easyvfs_begin_path_iteration(childAbsolutePath);
 
-    while (easyvfs_nextpathsegment(&iParent))
+    while (easyvfs_next_path_segment(&iParent))
     {
-        if (easyvfs_nextpathsegment(&iChild))
+        if (easyvfs_next_path_segment(&iChild))
         {
             // If the segment is different, the paths are different and thus it is not a descendant.
             if (!easyvfs_pathiterators_equal(iParent, iChild))
@@ -2092,10 +2092,10 @@ bool easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbso
 
     // At this point we have finished iteration of the parent, which should be shorter one. We now do a couple of iterations of
     // the child to ensure it is indeed a direct child.
-    if (easyvfs_nextpathsegment(&iChild))
+    if (easyvfs_next_path_segment(&iChild))
     {
         // It could be a child. If the next iteration fails, it's a direct child and we want to return true.
-        if (!easyvfs_nextpathsegment(&iChild))
+        if (!easyvfs_next_path_segment(&iChild))
         {
             return 1;
         }
@@ -2110,12 +2110,12 @@ bool easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbso
 bool easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
 {
 #if !EASYVFS_USE_EASYPATH
-    easyvfs_pathiterator iParent = easyvfs_beginpathiteration(parentAbsolutePath);
-    easyvfs_pathiterator iChild  = easyvfs_beginpathiteration(descendantAbsolutePath);
+    easyvfs_pathiterator iParent = easyvfs_begin_path_iteration(parentAbsolutePath);
+    easyvfs_pathiterator iChild  = easyvfs_begin_path_iteration(descendantAbsolutePath);
 
-    while (easyvfs_nextpathsegment(&iParent))
+    while (easyvfs_next_path_segment(&iParent))
     {
-        if (easyvfs_nextpathsegment(&iChild))
+        if (easyvfs_next_path_segment(&iChild))
         {
             // If the segment is different, the paths are different and thus it is not a descendant.
             if (!easyvfs_pathiterators_equal(iParent, iChild))
@@ -2132,7 +2132,7 @@ bool easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* 
 
     // At this point we have finished iteration of the parent, which should be shorter one. We now do one final iteration of
     // the descendant to ensure it is indeed shorter. If so, it's a descendant.
-    return easyvfs_nextpathsegment(&iChild);
+    return easyvfs_next_path_segment(&iChild);
 #else
     return easypath_isdescendant(descendantAbsolutePath, parentAbsolutePath);
 #endif
@@ -2284,10 +2284,10 @@ bool easyvfs_paths_equal(const char* path1, const char* path2)
 #if !EASYVFS_USE_EASYPATH
     if (path1 != 0 && path2 != 0)
     {
-        easyvfs_pathiterator iPath1 = easyvfs_beginpathiteration(path1);
-        easyvfs_pathiterator iPath2 = easyvfs_beginpathiteration(path2);
+        easyvfs_pathiterator iPath1 = easyvfs_begin_path_iteration(path1);
+        easyvfs_pathiterator iPath2 = easyvfs_begin_path_iteration(path2);
 
-        while (easyvfs_nextpathsegment(&iPath1) && easyvfs_nextpathsegment(&iPath2))
+        while (easyvfs_next_path_segment(&iPath1) && easyvfs_next_path_segment(&iPath2))
         {
             if (!easyvfs_pathiterators_equal(iPath1, iPath2))
             {
