@@ -114,7 +114,7 @@ easyvfs_pathiterator easyvfs_begin_path_iteration(const char* path)
     return i;
 }
 
-int easyvfs_next_path_segment(easyvfs_pathiterator* i)
+bool easyvfs_next_path_segment(easyvfs_pathiterator* i)
 {
     if (i != 0 && i->path != 0)
     {
@@ -128,7 +128,7 @@ int easyvfs_next_path_segment(easyvfs_pathiterator* i)
 
         if (i->path[i->segment.offset] == '\0')
         {
-            return 0;
+            return false;
         }
 
 
@@ -138,18 +138,18 @@ int easyvfs_next_path_segment(easyvfs_pathiterator* i)
             i->segment.length += 1;
         }
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
-int easyvfs_at_end_of_path(easyvfs_pathiterator i)
+bool easyvfs_at_end_of_path(easyvfs_pathiterator i)
 {
     return !easyvfs_next_path_segment(&i);
 }
 
-int easyvfs_path_segments_equal(const char* s0Path, const easyvfs_pathsegment s0, const char* s1Path, const easyvfs_pathsegment s1)
+bool easyvfs_path_segments_equal(const char* s0Path, const easyvfs_pathsegment s0, const char* s1Path, const easyvfs_pathsegment s1)
 {
     if (s0Path != 0 && s1Path != 0)
     {
@@ -159,23 +159,23 @@ int easyvfs_path_segments_equal(const char* s0Path, const easyvfs_pathsegment s0
             {
                 if (s0Path[s0.offset + i] != s1Path[s1.offset + i])
                 {
-                    return 0;
+                    return false;
                 }
             }
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
-int easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pathiterator i1)
+bool easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pathiterator i1)
 {
     return easyvfs_path_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
 }
 
-int easyvfs_append_path_iterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
+bool easyvfs_append_path_iterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
 {
     if (base != 0)
     {
@@ -201,11 +201,11 @@ int easyvfs_append_path_iterator(char* base, unsigned int baseBufferSizeInBytes,
             easyvfs_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 #else
 typedef struct easypath_iterator easyvfs_pathiterator;
@@ -215,22 +215,22 @@ easyvfs_pathiterator easyvfs_begin_path_iteration(const char* path)
     return easypath_begin(path);
 }
 
-int easyvfs_next_path_segment(easyvfs_pathiterator* i)
+bool easyvfs_next_path_segment(easyvfs_pathiterator* i)
 {
     return easypath_next(i);
 }
 
-int easyvfs_at_end_of_path(easyvfs_pathiterator i)
+bool easyvfs_at_end_of_path(easyvfs_pathiterator i)
 {
     return easypath_atend(i);
 }
 
-int easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pathiterator i1)
+bool easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pathiterator i1)
 {
     return easypath_iterators_equal(i0, i1);
 }
 
-int easyvfs_append_path_iterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
+bool easyvfs_append_path_iterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
 {
     return easypath_appenditerator(base, baseBufferSizeInBytes, i);
 }
