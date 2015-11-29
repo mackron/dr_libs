@@ -819,6 +819,67 @@ int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, cons
 }
 
 
+int easypath_remove_file_name(char* path)
+{
+    if (path == NULL) {
+        return 0;
+    }
+
+
+    // We just create an iterator that starts at the last segment. We then move back one and place a null terminator at the end of
+    // that segment. That will ensure the resulting path is not left with a slash.
+    easypath_iterator iLast = easypath_last(path);
+    
+    easypath_iterator iSecondLast = iLast;
+    if (easypath_prev(&iSecondLast))
+    {
+        // There is a segment before it so we just place a null terminator at the end.
+        path[iSecondLast.segment.offset + iSecondLast.segment.length] = '\0';
+    }
+    else
+    {
+        // This is already the last segment, so just place a null terminator at the beginning of the string.
+        path[0] = '\0';
+    }
+
+    return 1;
+}
+
+int easypath_copy_and_remove_file_name(char* dst, unsigned int dstSizeInBytes, const char* path)
+{
+    if (dst == NULL) {
+        return 0;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return 0;
+    }
+
+    if (path == NULL) {
+        dst[0] = '\0';
+        return 0;
+    }
+
+
+    // We just create an iterator that starts at the last segment. We then move back one and place a null terminator at the end of
+    // that segment. That will ensure the resulting path is not left with a slash.
+    easypath_iterator iLast = easypath_last(path);
+    
+    easypath_iterator iSecondLast = iLast;
+    if (easypath_prev(&iSecondLast))
+    {
+        // There is a segment before it so we just place a null terminator at the end.
+        return easypath_strncpy(dst, dstSizeInBytes, path, iSecondLast.segment.offset + iSecondLast.segment.length) == 0;
+    }
+    else
+    {
+        // This is already the last segment, so just place a null terminator at the beginning of the string.
+        dst[0] = '\0';
+        return 1;
+    }
+}
+
+
 int easypath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, unsigned int relativePathOutSizeInBytes)
 {
     // We do this in to phases. The first phase just iterates past each segment of both the path to convert and the

@@ -282,6 +282,13 @@ int easypath_removeextension(char* path);
 int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, const char* path);
 
 
+/// Removes the last segment from the given path.
+int easypath_remove_file_name(char* path);
+
+/// Creates a copy of the given string and removes the extension.
+int easypath_copy_and_remove_file_name(char* dst, unsigned int dstSizeInBytes, const char* path);
+
+
 /// Converts an absolute path to a relative path.
 ///
 /// @return 1 if the conversion was successful; 0 if there was an error.
