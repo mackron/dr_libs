@@ -313,6 +313,63 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
 
 
 
+
+
+/////////////////////////////////////////////////////////
+// Threading
+
+/// Puts the calling thread to sleep for approximately the given number of milliseconds.
+///
+/// @remarks
+///     This is not 100% accurate with timing and should be consider an approximation.
+void easyutil_sleep(unsigned int milliseconds);
+
+
+
+/// Mutex
+typedef void* easyutil_mutex;
+
+/// Creates a mutex object.
+///
+/// @remarks
+///     If an error occurs, 0 is returned. Otherwise a handle the size of a pointer is returned.
+easyutil_mutex easyutil_create_mutex();
+
+/// Deletes a mutex object.
+void easyutil_delete_mutex(easyutil_mutex mutex);
+
+/// Locks the given mutex.
+void easyutil_lock_mutex(easyutil_mutex mutex);
+
+/// Unlocks the given mutex.
+void easyutil_unlock_mutex(easyutil_mutex mutex);
+
+
+
+/// Semaphore
+typedef void* easyutil_semaphore;
+
+/// Creates a semaphore object.
+///
+/// @remarks
+///     If an error occurs, 0 is returned. Otherwise a handle the size of a pointer is returned.
+easyutil_semaphore easyutil_create_semaphore(int initialValue);
+
+/// Deletes the given semaphore.
+void easyutil_delete_semaphore(easyutil_semaphore semaphore);
+
+/// Waits on the given semaphore object and decrements it's counter by one upon returning.
+///
+/// @remarks
+///     This will block so long as the counter is > 0.
+bool easyutil_wait_semaphore(easyutil_semaphore semaphore);
+
+/// Releases the given semaphore and increments it's counter by one up returning.
+bool easyutil_release_semaphore(easyutil_semaphore semaphore);
+
+
+
+
 /////////////////////////////////////////////////////////
 // C++ Specific
 

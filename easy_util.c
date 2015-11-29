@@ -709,6 +709,139 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
 
 
 
+
+/////////////////////////////////////////////////////////
+// Threading
+
+#if defined(_WIN32)
+#include <windows.h>
+
+void easyutil_sleep(unsigned int milliseconds)
+{
+    Sleep((DWORD)milliseconds);
+}
+
+
+easyutil_mutex easyutil_create_mutex()
+{
+    easyutil_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
+    if (mutex != NULL)
+    {
+        InitializeCriticalSection(mutex);
+    }
+
+    return mutex;
+}
+
+void easyutil_delete_mutex(easyutil_mutex mutex)
+{
+    DeleteCriticalSection(mutex);
+    free(mutex);
+}
+
+void easyutil_lock_mutex(easyutil_mutex mutex)
+{
+    EnterCriticalSection(mutex);
+}
+
+void easyutil_unlock_mutex(easyutil_mutex mutex)
+{
+    LeaveCriticalSection(mutex);
+}
+
+
+
+easyutil_semaphore easyutil_create_semaphore(int initialValue)
+{
+    return (void*)CreateSemaphoreA(NULL, initialValue, LONG_MAX, NULL);
+}
+
+void easyutil_delete_semaphore(easyutil_semaphore semaphore)
+{
+    CloseHandle(semaphore);
+}
+
+bool easyutil_wait_semaphore(easyutil_semaphore semaphore)
+{
+    return WaitForSingleObject((HANDLE)semaphore, INFINITE) == WAIT_OBJECT_0;
+}
+
+bool easyutil_release_semaphore(easyutil_semaphore semaphore)
+{
+    return ReleaseSemaphore((HANDLE)semaphore, 1, NULL);
+}
+#else
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <pthread.h>
+#include <fcntl.h>
+#include <semaphore.h>
+
+void easyutil_sleep(unsigned int milliseconds)
+{
+    usleep(milliseconds * 1000);    // <-- usleep is in microseconds.
+}
+
+
+easyutil_mutex easyutil_create_mutex()
+{
+    pthread_mutex_t* mutex = malloc(sizeof(pthread_mutex_t));
+    if (pthread_mutex_init(mutex, nullptr) != 0) {
+        free(mutex);
+        mutex = NULL;
+    }
+
+    return mutex;
+}
+
+void easyutil_delete_mutex(easyutil_mutex mutex)
+{
+    pthread_mutex_destroy(mutex);
+}
+
+void easyutil_lock_mutex(easyutil_mutex mutex)
+{
+    pthread_mutex_lock(mutex);
+}
+
+void easyutil_unlock_mutex(easyutil_mutex mutex)
+{
+    pthread_mutex_unlock(mutex);
+}
+
+
+
+easyutil_semaphore easyutil_create_semaphore(int initialValue)
+{
+    sem_t* semaphore = malloc(sizeof(sem_t));
+    if (sem_init(semaphore, 0, (unsigned int)value) == -1) {
+        free(semaphore);
+        semaphore = NULL;
+    }
+
+    return semaphore;
+}
+
+void easyutil_delete_semaphore(easyutil_semaphore semaphore)
+{
+    sem_close(semaphore);
+}
+
+bool easyutil_wait_semaphore(easyutil_semaphore semaphore)
+{
+    return sem_wait(semaphore) != -1;
+}
+
+bool easyutil_release_semaphore(easyutil_semaphore semaphore)
+{
+    return sem_post(semaphore) != -1
+}
+#endif
+
+
+
+
 /*
 This is free and unencumbered software released into the public domain.
 
