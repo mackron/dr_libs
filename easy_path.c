@@ -178,12 +178,12 @@ int easypath_prev(easypath_iterator* i)
     return 0;
 }
 
-int easypath_atend(easypath_iterator i)
+int easypath_at_end(easypath_iterator i)
 {
     return i.path == 0 || i.path[i.segment.offset] == '\0';
 }
 
-int easypath_atstart(easypath_iterator i)
+int easypath_at_start(easypath_iterator i)
 {
     //return !easypath_prev(&i);
     return i.path != 0 && i.segment.offset == 0;
@@ -216,7 +216,7 @@ int easypath_segments_equal(const char* s0Path, const easypath_segment s0, const
 }
 
 
-void easypath_toforwardslashes(char* path)
+void easypath_to_forward_slashes(char* path)
 {
     if (path != 0)
     {
@@ -232,7 +232,7 @@ void easypath_toforwardslashes(char* path)
     }
 }
 
-void easypath_tobackslashes(char* path)
+void easypath_to_backslashes(char* path)
 {
     if (path != 0)
     {
@@ -249,7 +249,7 @@ void easypath_tobackslashes(char* path)
 }
 
 
-int easypath_isdescendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
+int easypath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
 {
     easypath_iterator iParent = easypath_first(parentAbsolutePath);
     easypath_iterator iChild  = easypath_first(descendantAbsolutePath);
@@ -276,7 +276,7 @@ int easypath_isdescendant(const char* descendantAbsolutePath, const char* parent
     return easypath_next(&iChild);
 }
 
-int easypath_ischild(const char* childAbsolutePath, const char* parentAbsolutePath)
+int easypath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
 {
     easypath_iterator iParent = easypath_first(parentAbsolutePath);
     easypath_iterator iChild  = easypath_first(childAbsolutePath);
@@ -312,7 +312,7 @@ int easypath_ischild(const char* childAbsolutePath, const char* parentAbsolutePa
     return 0;
 }
 
-void easypath_basepath(char* path)
+void easypath_base_path(char* path)
 {
     if (path != 0)
     {
@@ -347,16 +347,16 @@ void easypath_basepath(char* path)
     }
 }
 
-void easypath_copybasepath(const char* path, char* baseOut, unsigned int baseSizeInBytes)
+void easypath_copy_base_path(const char* path, char* baseOut, unsigned int baseSizeInBytes)
 {
     if (path != 0 && baseOut != 0 && baseSizeInBytes > 0)
     {
         easypath_strcpy(baseOut, baseSizeInBytes, path);
-        easypath_basepath(baseOut);
+        easypath_base_path(baseOut);
     }
 }
 
-const char* easypath_filename(const char* path)
+const char* easypath_file_name(const char* path)
 {
     if (path != 0)
     {
@@ -389,7 +389,7 @@ const char* easypath_filename(const char* path)
 
 const char* easypath_copy_file_name(const char* path, char* fileNameOut, unsigned int fileNameSizeInBytes)
 {
-    const char* fileName = easypath_filename(path);
+    const char* fileName = easypath_file_name(path);
     if (fileName != 0) {
         easypath_strcpy(fileNameOut, fileNameSizeInBytes, fileName);
     }
@@ -401,7 +401,7 @@ const char* easypath_extension(const char* path)
 {
     if (path != 0)
     {
-        const char* extension     = easypath_filename(path);
+        const char* extension     = easypath_file_name(path);
         const char* lastoccurance = 0;
 
         // Just find the last '.' and return.
@@ -447,7 +447,7 @@ int easypath_equal(const char* path1, const char* path2)
     return 0;
 }
 
-int easypath_extensionequal(const char* path, const char* extension)
+int easypath_extension_equal(const char* path, const char* extension)
 {
     if (path != 0 && extension != 0)
     {
@@ -478,7 +478,7 @@ int easypath_extensionequal(const char* path, const char* extension)
 
 
 
-int easypath_isrelative(const char* path)
+int easypath_is_relative(const char* path)
 {
     if (path != 0 && path[0] != '\0')
     {
@@ -499,9 +499,9 @@ int easypath_isrelative(const char* path)
     return 1;
 }
 
-int easypath_isabsolute(const char* path)
+int easypath_is_absolute(const char* path)
 {
-    return !easypath_isrelative(path);
+    return !easypath_is_relative(path);
 }
 
 
@@ -538,7 +538,7 @@ int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* 
     return 0;
 }
 
-int easypath_appenditerator(char* base, unsigned int baseBufferSizeInBytes, easypath_iterator i)
+int easypath_append_iterator(char* base, unsigned int baseBufferSizeInBytes, easypath_iterator i)
 {
     if (base != 0)
     {
@@ -571,7 +571,7 @@ int easypath_appenditerator(char* base, unsigned int baseBufferSizeInBytes, easy
     return 0;
 }
 
-int easypath_appendextension(char* base, unsigned int baseBufferSizeInBytes, const char* extension)
+int easypath_append_extension(char* base, unsigned int baseBufferSizeInBytes, const char* extension)
 {
     if (base != 0 && extension != 0)
     {
@@ -598,7 +598,7 @@ int easypath_appendextension(char* base, unsigned int baseBufferSizeInBytes, con
     return 0;
 }
 
-int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
+int easypath_copy_and_append(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
 {
     if (dst != 0 && dstSizeInBytes > 0)
     {
@@ -609,23 +609,23 @@ int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* b
     return 0;
 }
 
-int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i)
+int easypath_copy_and_append_iterator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i)
 {
     if (dst != 0 && dstSizeInBytes > 0)
     {
         easypath_strcpy(dst, dstSizeInBytes, base);
-        return easypath_appenditerator(dst, dstSizeInBytes, i);
+        return easypath_append_iterator(dst, dstSizeInBytes, i);
     }
 
     return 0;
 }
 
-int easypath_copyandappendextension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension)
+int easypath_copy_and_append_extension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension)
 {
     if (dst != 0 && dstSizeInBytes > 0)
     {
         easypath_strcpy(dst, dstSizeInBytes, base);
-        return easypath_appendextension(dst, dstSizeInBytes, extension);
+        return easypath_append_extension(dst, dstSizeInBytes, extension);
     }
 
     return 0;
@@ -784,7 +784,7 @@ int easypath_append_and_clean(char* dst, unsigned int dstSizeInBytes, const char
 }
 
 
-int easypath_removeextension(char* path)
+int easypath_remove_extension(char* path)
 {
     if (path != 0)
     {
@@ -801,7 +801,7 @@ int easypath_removeextension(char* path)
     return 0;
 }
 
-int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, const char* path)
+int easypath_copy_and_remove_extension(char* dst, unsigned int dstSizeInBytes, const char* path)
 {
     if (dst != 0 && dstSizeInBytes > 0 && path != 0)
     {
@@ -897,7 +897,7 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
     easypath_iterator iPath = easypath_first(absolutePathToMakeRelative);
     easypath_iterator iBase = easypath_first(absolutePathToMakeRelativeTo);
 
-    if (easypath_atend(iPath) && easypath_atend(iBase))
+    if (easypath_at_end(iPath) && easypath_at_end(iBase))
     {
         // Looks like both paths are empty.
         relativePathOut[0] = '\0';
@@ -924,7 +924,7 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
     char* pDst = relativePathOut;
     unsigned int bytesAvailable = relativePathOutSizeInBytes;
 
-    if (!easypath_atend(iBase))
+    if (!easypath_at_end(iBase))
     {
         do
         {
@@ -965,7 +965,7 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
 
 
     // Now we just append whatever is left of the main path. We want the path to be clean, so we append segment-by-segment.
-    if (!easypath_atend(iPath))
+    if (!easypath_at_end(iPath))
     {
         do
         {

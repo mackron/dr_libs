@@ -69,12 +69,12 @@ int easypath_prev(easypath_iterator* i);
 /// Determines if the given iterator is at the end.
 ///
 /// @param i [in] The iterator to check.
-int easypath_atend(easypath_iterator i);
+int easypath_at_end(easypath_iterator i);
 
 /// Determines if the given iterator is at the start.
 ///
 /// @param i [in] The iterator to check.
-int easypath_atstart(easypath_iterator i);
+int easypath_at_start(easypath_iterator i);
 
 /// Compares the string values of two iterators for equality.
 ///
@@ -88,12 +88,12 @@ int easypath_iterators_equal(const easypath_iterator i0, const easypath_iterator
 /// Converts the slashes in the given path to forward slashes.
 ///
 /// @param path [in] The path whose slashes are being converted.
-void easypath_toforwardslashes(char* path);
+void easypath_to_forward_slashes(char* path);
 
 /// Converts the slashes in the given path to back slashes.
 ///
 /// @param path [in] The path whose slashes are being converted.
-void easypath_tobackslashes(char* path);
+void easypath_to_backslashes(char* path);
 
 
 /// Determines whether or not the given path is a decendant of another.
@@ -105,7 +105,7 @@ void easypath_tobackslashes(char* path);
 ///     As an example, "C:/My/Folder" is a descendant of "C:/".
 ///     @par
 ///     If either path contains "." or "..", clean it with easypath_clean() before calling this.
-int easypath_isdescendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
+int easypath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
 
 /// Determines whether or not the given path is a direct child of another.
 ///
@@ -116,11 +116,11 @@ int easypath_isdescendant(const char* descendantAbsolutePath, const char* parent
 ///     As an example, "C:/My/Folder" is NOT a child of "C:/" - it is a descendant. Alternatively, "C:/My" IS a child of "C:/".
 ///     @par
 ///     If either path contains "." or "..", clean it with easypath_clean() before calling this.
-int easypath_ischild(const char* childAbsolutePath, const char* parentAbsolutePath);
+int easypath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath);
 
 
 /// Modifies the given path by transforming it into it's base path.
-void easypath_basepath(char* path);
+void easypath_base_path(char* path);
 
 /// Retrieves the base path from the given path, not including the trailing slash.
 ///
@@ -132,7 +132,7 @@ void easypath_basepath(char* path);
 ///     As an example, when "path" is "C:/MyFolder/MyFile", the output will be "C:/MyFolder". Note that there is no trailing slash.
 ///     @par
 ///     If "path" is something like "/MyFolder", the return value will be an empty string.
-void easypath_copybasepath(const char* path, char* baseOut, unsigned int baseSizeInBytes);
+void easypath_copy_base_path(const char* path, char* baseOut, unsigned int baseSizeInBytes);
 
 /// Finds the file name portion of the path.
 ///
@@ -144,7 +144,7 @@ void easypath_copybasepath(const char* path, char* baseOut, unsigned int baseSiz
 ///     A path with a trailing slash will return an empty string.
 ///     @par
 ///     The return value is just an offset of "path".
-const char* easypath_filename(const char* path);
+const char* easypath_file_name(const char* path);
 
 /// Copies the file name into the given buffer.
 const char* easypath_copy_file_name(const char* path, char* fileNameOut, unsigned int fileNameSizeInBytes);
@@ -182,18 +182,18 @@ int easypath_equal(const char* path1, const char* path2);
 ///
 /// @remarks
 ///     By default this is NOT case-sensitive, however if the standard library is disable, it is case-sensitive.
-int easypath_extensionequal(const char* path, const char* extension);
+int easypath_extension_equal(const char* path, const char* extension);
 
 
 /// Determines whether or not the given path is relative.
 ///
 /// @param path [in] The path to check.
-int easypath_isrelative(const char* path);
+int easypath_is_relative(const char* path);
 
 /// Determines whether or not the given path is absolute.
 ///
 /// @param path [in] The path to check.
-int easypath_isabsolute(const char* path);
+int easypath_is_absolute(const char* path);
 
 
 /// Appends two paths together, ensuring there is not double up on the last slash.
@@ -207,10 +207,10 @@ int easypath_isabsolute(const char* path);
 int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* other);
 
 /// Appends an iterator object to the given base path.
-int easypath_appenditerator(char* base, unsigned int baseBufferSizeInBytes, easypath_iterator i);
+int easypath_append_iterator(char* base, unsigned int baseBufferSizeInBytes, easypath_iterator i);
 
 /// Appends an extension to the given path.
-int easypath_appendextension(char* base, unsigned int baseBufferSizeInBytes, const char* extension);
+int easypath_append_extension(char* base, unsigned int baseBufferSizeInBytes, const char* extension);
 
 /// Appends two paths together, and copyies them to a separate buffer.
 ///
@@ -223,7 +223,7 @@ int easypath_appendextension(char* base, unsigned int baseBufferSizeInBytes, con
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "other" is a relative path.
-int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
+int easypath_copy_and_append(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
 
 /// Appends a base path and an iterator together, and copyies them to a separate buffer.
 ///
@@ -236,7 +236,7 @@ int easypath_copyandappend(char* dst, unsigned int dstSizeInBytes, const char* b
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "i" is a valid iterator.
-int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i);
+int easypath_copy_and_append_iterator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i);
 
 /// Appends an extension to the given base path and copies them to a separate buffer.
 /// @param dst            [out] The destination buffer.
@@ -245,7 +245,7 @@ int easypath_copyandappenditerator(char* dst, unsigned int dstSizeInBytes, const
 /// @param extension      [in]  The relative path to append to "base".
 ///
 /// @return 1 if the paths were appended successfully; 0 otherwise.
-int easypath_copyandappendextension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension);
+int easypath_copy_and_append_extension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension);
 
 
 /// Cleans the path and resolves the ".." and "." segments.
@@ -276,10 +276,10 @@ int easypath_append_and_clean(char* dst, unsigned int dstSizeInBytes, const char
 ///
 /// @remarks
 ///     If the given path does not have an extension, 1 will be returned, but the string will be left unmodified.
-int easypath_removeextension(char* path);
+int easypath_remove_extension(char* path);
 
 /// Creates a copy of the given string and removes the extension.
-int easypath_copyandremoveextension(char* dst, unsigned int dstSizeInBytes, const char* path);
+int easypath_copy_and_remove_extension(char* dst, unsigned int dstSizeInBytes, const char* path);
 
 
 /// Removes the last segment from the given path.
