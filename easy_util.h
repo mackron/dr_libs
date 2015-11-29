@@ -88,16 +88,8 @@ extern "C" {
     #define easy_max(x, y) (((x) > (y)) ? (x) : (y))
     #endif
 
-    #ifndef min
-    #define min(x, y) (((x) < (y)) ? (x) : (y))
-    #endif
-
-    #ifndef max
-    #define max(x, y) (((x) > (y)) ? (x) : (y))
-    #endif
-
-    #ifndef clamp
-    #define clamp(x, low, high) (easy_max(low, easy_min(x, high)))
+    #ifndef easy_clamp
+    #define easy_clamp(x, low, high) (easy_max(low, easy_min(x, high)))
     #endif
 #endif
 
