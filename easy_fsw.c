@@ -184,11 +184,11 @@ typedef struct
     unsigned int indexFirst;
 
 #if defined(EASYFSW_PLATFORM_WINDOWS)
-    // The semaphore for blocking in easyfsw_nextevent().
+    // The semaphore for blocking in easyfsw_next_event().
     HANDLE hSemaphore;
 
-    // The mutex for synchronizing access to the buffer. This is needed because easyfsw_nextevent() will need to read the buffer while
-    // another thread is filling it with events. In addition, it will help to keep easyfsw_nextevent() and easyfsw_peekevent() playing
+    // The mutex for synchronizing access to the buffer. This is needed because easyfsw_next_event() will need to read the buffer while
+    // another thread is filling it with events. In addition, it will help to keep easyfsw_next_event() and easyfsw_peek_event() playing
     // nicely with each other.
     HANDLE hLock;
 #endif
@@ -663,8 +663,8 @@ void easyfsw_remove_directory_win32(easyfsw_context_win32* pContext, const char*
 void easyfsw_remove_directory_no_lock_win32(easyfsw_context_win32* pContext, const char* absolutePath);
 void easyfsw_remove_all_directories_win32(easyfsw_context_win32* pContext);
 int easyfsw_is_watching_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath);
-int easyfsw_nextevent_win32(easyfsw_context_win32* pContext, easyfsw_event* pEventOut);
-int easyfsw_peekevent_win32(easyfsw_context_win32* pContext, easyfsw_event* pEventOut);
+int easyfsw_next_event_win32(easyfsw_context_win32* pContext, easyfsw_event* pEventOut);
+int easyfsw_peek_event_win32(easyfsw_context_win32* pContext, easyfsw_event* pEventOut);
 void easyfsw_postevent_win32(easyfsw_context_win32* pContext, easyfsw_event* pEvent);
 
 
@@ -902,8 +902,8 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
         easyfsw_directory_win32_schedulewatch(pDirectory);
 
 
-        // Now we loop through all of our notifications and post the event to the context for later processing by easyfsw_nextevent()
-        // and easyfsw_peekevent().
+        // Now we loop through all of our notifications and post the event to the context for later processing by easyfsw_next_event()
+        // and easyfsw_peek_event().
         char absolutePathOld[EASYFSW_MAX_PATH];
         char absoluteBasePathOld[EASYFSW_MAX_PATH];
         easyfsw_context_win32* pContext = pDirectory->pContext;     // Just for convenience.
@@ -1266,7 +1266,7 @@ int easyfsw_is_watching_directory_win32(easyfsw_context_win32* pContext, const c
 }
 
 
-int easyfsw_nextevent_win32(easyfsw_context_win32* pContext, easyfsw_event* pEvent)
+int easyfsw_next_event_win32(easyfsw_context_win32* pContext, easyfsw_event* pEvent)
 {
     int result = 0;
     if (pContext != NULL && !pContext->terminateThread)
@@ -1320,7 +1320,7 @@ int easyfsw_nextevent_win32(easyfsw_context_win32* pContext, easyfsw_event* pEve
     return result;
 }
 
-int easyfsw_peekevent_win32(easyfsw_context_win32* pContext, easyfsw_event* pEvent)
+int easyfsw_peek_event_win32(easyfsw_context_win32* pContext, easyfsw_event* pEvent)
 {
     int result = 0;
     if (pContext != NULL)
@@ -1367,7 +1367,7 @@ void easyfsw_postevent_win32(easyfsw_context_win32* pContext, easyfsw_event* pEv
         SetEvent(pContext->eventQueue.hLock);
 
 
-        // Release the semaphore so that easyfsw_nextevent() can handle it.
+        // Release the semaphore so that easyfsw_next_event() can handle it.
         ReleaseSemaphore(pContext->eventQueue.hSemaphore, 1, NULL);
     }
 }
@@ -1409,14 +1409,14 @@ int easyfsw_is_watching_directory(easyfsw_context* pContext, const char* absolut
 }
 
 
-int easyfsw_nextevent(easyfsw_context* pContext, easyfsw_event* pEventOut)
+int easyfsw_next_event(easyfsw_context* pContext, easyfsw_event* pEventOut)
 {
-    return easyfsw_nextevent_win32((easyfsw_context_win32*)pContext, pEventOut);
+    return easyfsw_next_event_win32((easyfsw_context_win32*)pContext, pEventOut);
 }
 
-int easyfsw_peekevent(easyfsw_context* pContext, easyfsw_event* pEventOut)
+int easyfsw_peek_event(easyfsw_context* pContext, easyfsw_event* pEventOut)
 {
-    return easyfsw_peekevent_win32((easyfsw_context_win32*)pContext, pEventOut);
+    return easyfsw_peek_event_win32((easyfsw_context_win32*)pContext, pEventOut);
 }
 
 

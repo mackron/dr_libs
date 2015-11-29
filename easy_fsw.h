@@ -91,12 +91,12 @@ int easyfsw_is_watching_directory(easyfsw_context* pContext, const char* absolut
 
 // Waits for an event from the file system.
 //
-// This is a blocking function. Call easyfsw_peekevent() to do a non-blocking call. If an error occurs, or the context is deleted, 0
+// This is a blocking function. Call easyfsw_peek_event() to do a non-blocking call. If an error occurs, or the context is deleted, 0
 // will be returned and the memory pointed to by pEventOut will be undefined.
 //
 // This can be called from any thread, however it should not be called from multiple threads simultaneously.
 //
-// Use caution when using this combined with easyfsw_peekevent(). In almost all cases you should use just one or the other at any
+// Use caution when using this combined with easyfsw_peek_event(). In almost all cases you should use just one or the other at any
 // given time.
 //
 // It is up to the application to ensure the context is still valid before calling this function.
@@ -105,11 +105,11 @@ int easyfsw_is_watching_directory(easyfsw_context* pContext, const char* absolut
 //
 // void MyFSWatcher() {
 //     easyfsw_event e;
-//     while (isMyContextStillAlive && easyfsw_nextevent(context, e)) {
+//     while (isMyContextStillAlive && easyfsw_next_event(context, e)) {
 //         // Do something with the event...
 //     }
 // }
-int easyfsw_nextevent(easyfsw_context* pContext, easyfsw_event* pEventOut);
+int easyfsw_next_event(easyfsw_context* pContext, easyfsw_event* pEventOut);
 
 // Checks to see if there is a pending event, and if so, returns non-zero and fills the given structure with the event details. This
 // removes the event from the queue.
@@ -117,7 +117,7 @@ int easyfsw_nextevent(easyfsw_context* pContext, easyfsw_event* pEventOut);
 // This can be called from any thread, however it should not be called from multiple threads simultaneously.
 //
 // It is up to the application to ensure the context is still valid before calling this function.
-int easyfsw_peekevent(easyfsw_context* pContext, easyfsw_event* pEventOut);
+int easyfsw_peek_event(easyfsw_context* pContext, easyfsw_event* pEventOut);
 
 
 #ifdef __cplusplus
