@@ -91,24 +91,42 @@ void easyfsw_zeromemory(void* dst, size_t sizeInBytes)
 #endif
 
 
-void easyfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
+int easyfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 {
 #if defined(_MSC_VER)
-    strcpy_s(dst, dstSizeInBytes, src);
+    return strcpy_s(dst, dstSizeInBytes, src);
 #else
-    while (dstSizeInBytes > 0 && src[0] != '\0')
-    {
-        dst[0] = src[0];
-
-        dst += 1;
-        src += 1;
-        dstSizeInBytes -= 1;
+    if (dst == 0) {
+        return EINVAL;
     }
-
-    if (dstSizeInBytes > 0)
-    {
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
         dst[0] = '\0';
+        return EINVAL;
     }
+    
+    char* iDst = dst;
+    const char* iSrc = src;
+    size_t remainingSizeInBytes = dstSizeInBytes;
+    while (remainingSizeInBytes > 0 && iSrc[0] != '\0')
+    {
+        iDst[0] = iSrc[0];
+
+        iDst += 1;
+        iSrc += 1;
+        remainingSizeInBytes -= 1;
+    }
+
+    if (remainingSizeInBytes > 0) {
+        iDst[0] = '\0';
+    } else {
+        dst[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
 #endif
 }
 
