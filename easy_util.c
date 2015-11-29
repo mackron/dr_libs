@@ -750,9 +750,10 @@ void easyutil_unlock_mutex(easyutil_mutex mutex)
     LeaveCriticalSection(mutex);
 }
 #else
+#if 1
 easyutil_mutex easyutil_create_mutex()
 {
-    return (void*)CreateEvent(NULL, FALSE, TRUE, NULL);
+    return (void*)CreateEventA(NULL, FALSE, TRUE, NULL);
 }
 
 void easyutil_delete_mutex(easyutil_mutex mutex)
@@ -769,6 +770,27 @@ void easyutil_unlock_mutex(easyutil_mutex mutex)
 {
     SetEvent((HANDLE)mutex);
 }
+#else
+easyutil_mutex easyutil_create_mutex()
+{
+    return (void*)CreateMutexA(NULL, FALSE, NULL);
+}
+
+void easyutil_delete_mutex(easyutil_mutex mutex)
+{
+    CloseHandle((HANDLE)mutex);
+}
+
+void easyutil_lock_mutex(easyutil_mutex mutex)
+{
+    WaitForSingleObject((HANDLE)mutex, INFINITE);
+}
+
+void easyutil_unlock_mutex(easyutil_mutex mutex)
+{
+    ReleaseMutex((HANDLE)mutex);
+}
+#endif
 #endif
 
 
