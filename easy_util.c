@@ -722,6 +722,7 @@ void easyutil_sleep(unsigned int milliseconds)
 }
 
 
+#if 0
 easyutil_mutex easyutil_create_mutex()
 {
     easyutil_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
@@ -748,7 +749,27 @@ void easyutil_unlock_mutex(easyutil_mutex mutex)
 {
     LeaveCriticalSection(mutex);
 }
+#else
+easyutil_mutex easyutil_create_mutex()
+{
+    return (void*)CreateEvent(NULL, FALSE, TRUE, NULL);
+}
 
+void easyutil_delete_mutex(easyutil_mutex mutex)
+{
+    CloseHandle((HANDLE)mutex);
+}
+
+void easyutil_lock_mutex(easyutil_mutex mutex)
+{
+    WaitForSingleObject((HANDLE)mutex, INFINITE);
+}
+
+void easyutil_unlock_mutex(easyutil_mutex mutex)
+{
+    SetEvent((HANDLE)mutex);
+}
+#endif
 
 
 easyutil_semaphore easyutil_create_semaphore(int initialValue)
