@@ -41,8 +41,8 @@ extern "C" {
 // won't contain a meaningful value. When this is changed the source file will need to be recompiled. Most of the time leaving this
 // at 256 is fine, but it's not a problem to increase the size if you are encountering truncation issues. Note that increasing this
 // value will increase memory usage. You should not need make this any higher than 4096.
-//#define EASYVFS_MAX_PATH    256
-#define EASYVFS_MAX_PATH    1024
+#define EASYVFS_MAX_PATH    256
+//#define EASYVFS_MAX_PATH    1024
 //#define EASYVFS_MAX_PATH    4096
 
 
