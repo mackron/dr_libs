@@ -222,7 +222,7 @@ bool easyvfs_next_path_segment(easyvfs_pathiterator* i)
 
 bool easyvfs_at_end_of_path(easyvfs_pathiterator i)
 {
-    return easypath_atend(i);
+    return easypath_at_end(i);
 }
 
 bool easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pathiterator i1)
@@ -232,7 +232,7 @@ bool easyvfs_pathiterators_equal(const easyvfs_pathiterator i0, const easyvfs_pa
 
 bool easyvfs_append_path_iterator(char* base, unsigned int baseBufferSizeInBytes, easyvfs_pathiterator i)
 {
-    return easypath_appenditerator(base, baseBufferSizeInBytes, i);
+    return easypath_append_iterator(base, baseBufferSizeInBytes, i);
 }
 #endif
 
@@ -2103,7 +2103,7 @@ bool easyvfs_is_path_child(const char* childAbsolutePath, const char* parentAbso
 
     return 0;
 #else
-    return easypath_ischild(childAbsolutePath, parentAbsolutePath);
+    return easypath_is_child(childAbsolutePath, parentAbsolutePath);
 #endif
 }
 
@@ -2134,7 +2134,7 @@ bool easyvfs_is_path_descendant(const char* descendantAbsolutePath, const char* 
     // the descendant to ensure it is indeed shorter. If so, it's a descendant.
     return easyvfs_next_path_segment(&iChild);
 #else
-    return easypath_isdescendant(descendantAbsolutePath, parentAbsolutePath);
+    return easypath_is_descendant(descendantAbsolutePath, parentAbsolutePath);
 #endif
 }
 
@@ -2180,7 +2180,7 @@ bool easyvfs_copy_base_path(const char* path, char* baseOut, unsigned int baseSi
 
     return 0;
 #else
-    easypath_copybasepath(path, baseOut, baseSizeInBytes);
+    easypath_copy_base_path(path, baseOut, baseSizeInBytes);
     return 1;
 #endif
 }
@@ -2216,7 +2216,7 @@ const char* easyvfs_file_name(const char* path)
 
     return 0;
 #else
-    return easypath_filename(path);
+    return easypath_file_name(path);
 #endif
 }
 
@@ -2275,7 +2275,7 @@ bool easyvfs_extension_equal(const char* path, const char* extension)
 
     return 1;
 #else
-    return easypath_extensionequal(path, extension);
+    return easypath_extension_equal(path, extension);
 #endif
 }
 
@@ -2327,7 +2327,7 @@ bool easyvfs_is_path_relative(const char* path)
 
     return 1;
 #else
-    return easypath_isrelative(path);
+    return easypath_is_relative(path);
 #endif
 }
 
@@ -2384,7 +2384,7 @@ bool easyvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, const 
 
     return 0;
 #else
-    return easypath_copyandappend(dst, dstSizeInBytes, base, other);
+    return easypath_copy_and_append(dst, dstSizeInBytes, base, other);
 #endif
 }
 
