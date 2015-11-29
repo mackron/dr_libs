@@ -51,6 +51,12 @@ typedef struct
     // The new file name. This is only used for renamed events. For other event types, this will be an empty string.
     char absolutePathNew[EASYFSW_MAX_PATH];
 
+    // The absolute base path. For renamed events, this is the old base path.
+    char absoluteBasePath[EASYFSW_MAX_PATH];
+
+    // The absolute base path for the new file name. This is only used for renamed events. For other event types, this will be an empty string.
+    char absoluteBasePathNew[EASYFSW_MAX_PATH];
+
 } easyfsw_event;
 
 

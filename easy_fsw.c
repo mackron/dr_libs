@@ -131,28 +131,35 @@ int easyfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 }
 
 
-int easyfsw_event_init(easyfsw_event* pEvent, easyfsw_event_type type, const char* absolutePath, const char* absolutePathNew)
+int easyfsw_event_init(easyfsw_event* pEvent, easyfsw_event_type type, const char* absolutePath, const char* absolutePathNew, const char* absoluteBasePath, const char* absoluteBasePathNew)
 {
     if (pEvent != NULL)
     {
         pEvent->type = type;
 
-        if (absolutePath != NULL)
-        {
+        if (absolutePath != NULL) {
             easyfsw_strcpy(pEvent->absolutePath, EASYFSW_MAX_PATH, absolutePath);
-        }
-        else
-        {
+        } else {
             easyfsw_zeromemory(pEvent->absolutePath, EASYFSW_MAX_PATH);
         }
 
-        if (absolutePathNew != NULL)
-        {
+        if (absolutePathNew != NULL) {
             easyfsw_strcpy(pEvent->absolutePathNew, EASYFSW_MAX_PATH, absolutePathNew);
-        }
-        else
-        {
+        } else {
             easyfsw_zeromemory(pEvent->absolutePathNew, EASYFSW_MAX_PATH);
+        }
+
+
+        if (absoluteBasePath != NULL) {
+            easyfsw_strcpy(pEvent->absoluteBasePath, EASYFSW_MAX_PATH, absoluteBasePath);
+        } else {
+            easyfsw_zeromemory(pEvent->absoluteBasePath, EASYFSW_MAX_PATH);
+        }
+
+        if (absoluteBasePathNew != NULL) {
+            easyfsw_strcpy(pEvent->absoluteBasePathNew, EASYFSW_MAX_PATH, absoluteBasePathNew);
+        } else {
+            easyfsw_zeromemory(pEvent->absoluteBasePathNew, EASYFSW_MAX_PATH);
         }
 
         return 1;
@@ -898,6 +905,7 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
         // Now we loop through all of our notifications and post the event to the context for later processing by easyfsw_nextevent()
         // and easyfsw_peekevent().
         char absolutePathOld[EASYFSW_MAX_PATH];
+        char absoluteBasePathOld[EASYFSW_MAX_PATH];
         easyfsw_context_win32* pContext = pDirectory->pContext;     // Just for convenience.
 
 
@@ -915,7 +923,7 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
                     case FILE_ACTION_ADDED:
                         {
                             easyfsw_event e;
-                            if (easyfsw_event_init(&e, easyfsw_event_type_created, absolutePath, NULL))
+                            if (easyfsw_event_init(&e, easyfsw_event_type_created, absolutePath, NULL, pDirectory->absolutePath, NULL))
                             {
                                 easyfsw_postevent_win32(pContext, &e);
                             }
@@ -926,7 +934,7 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
                     case FILE_ACTION_REMOVED:
                         {
                             easyfsw_event e;
-                            if (easyfsw_event_init(&e, easyfsw_event_type_deleted, absolutePath, NULL))
+                            if (easyfsw_event_init(&e, easyfsw_event_type_deleted, absolutePath, NULL, pDirectory->absolutePath, NULL))
                             {
                                 easyfsw_postevent_win32(pContext, &e);
                             }
@@ -936,13 +944,15 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
 
                     case FILE_ACTION_RENAMED_OLD_NAME:
                         {
-                            easyfsw_strcpy(absolutePathOld, EASYFSW_MAX_PATH, absolutePath);
+                            easyfsw_strcpy(absolutePathOld,     sizeof(absolutePathOld),     absolutePath);
+                            easyfsw_strcpy(absoluteBasePathOld, sizeof(absoluteBasePathOld), pDirectory->absolutePath);
+
                             break;
                         }
                     case FILE_ACTION_RENAMED_NEW_NAME:
                         {
                             easyfsw_event e;
-                            if (easyfsw_event_init(&e, easyfsw_event_type_renamed, absolutePathOld, absolutePath))
+                            if (easyfsw_event_init(&e, easyfsw_event_type_renamed, absolutePathOld, absolutePath, absoluteBasePathOld, pDirectory->absolutePath))
                             {
                                 easyfsw_postevent_win32(pContext, &e);
                             }
@@ -953,7 +963,7 @@ VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberO
                     case FILE_ACTION_MODIFIED:
                         {
                             easyfsw_event e;
-                            if (easyfsw_event_init(&e, easyfsw_event_type_updated, absolutePath, NULL))
+                            if (easyfsw_event_init(&e, easyfsw_event_type_updated, absolutePath, NULL, pDirectory->absolutePath, NULL))
                             {
                                 easyfsw_postevent_win32(pContext, &e);
                             }
