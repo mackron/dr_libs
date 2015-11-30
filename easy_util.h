@@ -321,7 +321,7 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
 /// Puts the calling thread to sleep for approximately the given number of milliseconds.
 ///
 /// @remarks
-///     This is not 100% accurate with timing and should be consider an approximation.
+///     This is not 100% accurate and should be considered an approximation.
 void easyutil_sleep(unsigned int milliseconds);
 
 
