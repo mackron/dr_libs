@@ -431,12 +431,17 @@ int easypath_equal(const char* path1, const char* path2)
         easypath_iterator iPath1 = easypath_first(path1);
         easypath_iterator iPath2 = easypath_first(path2);
 
-        while (easypath_next(&iPath1) && easypath_next(&iPath2))
+        int isPath1Valid = easypath_next(&iPath1);
+        int isPath2Valid = easypath_next(&iPath2);
+        while (isPath1Valid && isPath2Valid)
         {
             if (!easypath_iterators_equal(iPath1, iPath2))
             {
                 return 0;
             }
+
+            isPath1Valid = easypath_next(&iPath1);
+            isPath2Valid = easypath_next(&iPath2);
         }
 
 
