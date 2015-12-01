@@ -380,6 +380,9 @@ void* easyvfs_get_extra_data(easyvfs_file* pFile);
 //////////////////////////////////////
 // High Level API
 
+/// Helper function for determining whether or not the given path refers to a base directory.
+bool easyvfs_is_base_directory(easyvfs_context* pContext, const char* baseDir);
+
 /// Helper function for writing a string.
 bool easyvfs_write_string(easyvfs_file* pFile, const char* str);
 

@@ -1797,6 +1797,22 @@ void* easyvfs_get_extra_data(easyvfs_file* pFile)
 //////////////////////////////////////
 // High Level API
 
+bool easyvfs_is_base_directory(easyvfs_context * pContext, const char * baseDir)
+{
+    if (pContext != NULL)
+    {
+        for (unsigned int i = 0; i < easyvfs_get_base_directory_count(pContext); ++i)
+        {
+            if (easyvfs_paths_equal(easyvfs_get_base_directory_by_index(pContext, i), baseDir))
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 bool easyvfs_write_string(easyvfs_file* pFile, const char* str)
 {
     return easyvfs_write(pFile, str, (unsigned int)strlen(str), NULL);
@@ -2287,17 +2303,22 @@ bool easyvfs_paths_equal(const char* path1, const char* path2)
         easyvfs_pathiterator iPath1 = easyvfs_begin_path_iteration(path1);
         easyvfs_pathiterator iPath2 = easyvfs_begin_path_iteration(path2);
 
-        while (easyvfs_next_path_segment(&iPath1) && easyvfs_next_path_segment(&iPath2))
+        int isPath1Valid = easyvfs_next_path_segment(&iPath1);
+        int isPath2Valid = easyvfs_next_path_segment(&iPath2);
+        while (isPath1Valid && isPath2Valid)
         {
             if (!easyvfs_pathiterators_equal(iPath1, iPath2))
             {
                 return 0;
             }
+
+            isPath1Valid = easyvfs_next_path_segment(&iPath1);
+            isPath2Valid = easyvfs_next_path_segment(&iPath2);
         }
 
 
         // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
-        return iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
+        return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
     }
 
     return 0;
