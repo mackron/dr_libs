@@ -446,7 +446,7 @@ int easypath_equal(const char* path1, const char* path2)
 
 
         // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
-        return iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
+        return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
     }
 
     return 0;
@@ -911,10 +911,12 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
 
 
     // Phase 1: Get past the common section.
-    while (easypath_iterators_equal(iPath, iBase))
+    int isPathAtEnd = 0;
+    int isBaseAtEnd = 0;
+    while (!isPathAtEnd && !isBaseAtEnd && easypath_iterators_equal(iPath, iBase))
     {
-        easypath_next(&iPath);
-        easypath_next(&iBase);
+        isPathAtEnd = !easypath_next(&iPath);
+        isBaseAtEnd = !easypath_next(&iBase);
     }
 
     if (iPath.segment.offset == 0)
