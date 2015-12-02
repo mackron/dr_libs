@@ -1,5 +1,5 @@
 #About
-This is just a simple single-file library to make various things in C a little bit easier.
+This is a single .c, single .h library with miscellaenous functionality.
 
 
 # License
