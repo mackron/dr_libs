@@ -722,6 +722,84 @@ void easyutil_sleep(unsigned int milliseconds)
 }
 
 
+typedef struct
+{
+    /// The Win32 thread handle.
+    HANDLE hThread;
+
+    /// The entry point.
+    easyutil_thread_entry_proc entryProc;
+    
+    /// The user data to pass to the thread's entry point.
+    void* pData;
+
+    /// Set to true by the entry function. We use this to wait for the entry function to start.
+    bool isInEntryProc;
+
+} easyutil_thread_win32;
+
+static DWORD WINAPI easyutil_thread_entry_proc_win32(easyutil_thread_win32* pThreadWin32)
+{
+    assert(pThreadWin32 != NULL);
+
+    void* pEntryProcData = pThreadWin32->pData;
+    easyutil_thread_entry_proc entryProc = pThreadWin32->entryProc;
+    assert(entryProc != NULL);
+
+    pThreadWin32->isInEntryProc = true;
+
+    return (DWORD)entryProc(pEntryProcData);
+}
+
+easyutil_thread easyutil_create_thread(easyutil_thread_entry_proc entryProc, void* pData)
+{
+    if (entryProc == NULL) {
+        return NULL;
+    }
+
+    easyutil_thread_win32* pThreadWin32 = malloc(sizeof(*pThreadWin32));
+    if (pThreadWin32 != NULL)
+    {
+        pThreadWin32->entryProc     = entryProc;
+        pThreadWin32->pData         = pData;
+        pThreadWin32->isInEntryProc = false;
+
+        pThreadWin32->hThread = CreateThread(NULL, 0, easyutil_thread_entry_proc_win32, pThreadWin32, 0, NULL);
+        if (pThreadWin32 == NULL) {
+            free(pThreadWin32);
+            return NULL;
+        }
+
+        // Wait for the new thread to enter into it's entry point before returning. We need to do this so we can safely
+        // support something like easyutil_delete_thread(easyutil_create_thread(my_thread_proc, pData)).
+        while (!pThreadWin32->isInEntryProc) {}
+    }
+
+    return (easyutil_thread)pThreadWin32;
+}
+
+void easyutil_delete_thread(easyutil_thread thread)
+{
+    easyutil_thread_win32* pThreadWin32 = (easyutil_thread_win32*)thread;
+    if (pThreadWin32 != NULL)
+    {
+        CloseHandle(pThreadWin32->hThread);
+    }
+
+    free(pThreadWin32);
+}
+
+void easyutil_wait_thread(easyutil_thread thread)
+{
+    easyutil_thread_win32* pThreadWin32 = (easyutil_thread_win32*)thread;
+    if (pThreadWin32 != NULL)
+    {
+        WaitForSingleObject(pThreadWin32->hThread, INFINITE);
+    }
+}
+
+
+
 #if 0
 easyutil_mutex easyutil_create_mutex()
 {
@@ -825,6 +903,77 @@ void easyutil_sleep(unsigned int milliseconds)
 {
     usleep(milliseconds * 1000);    // <-- usleep is in microseconds.
 }
+
+
+typedef struct
+{
+    /// The Win32 thread handle.
+    pthread_t pthread;
+
+    /// The entry point.
+    easyutil_thread_entry_proc entryProc;
+    
+    /// The user data to pass to the thread's entry point.
+    void* pData;
+
+    /// Set to true by the entry function. We use this to wait for the entry function to start.
+    bool isInEntryProc;
+
+} easyutil_thread_posix;
+
+static void* easyutil_thread_entry_proc_posix(easyutil_thread_posix* pThreadPosix)
+{
+    assert(pThreadPosix != NULL);
+
+    void* pEntryProcData = pThreadPosix->pData;
+    easyutil_thread_entry_proc entryProc = pThreadPosix->entryProc;
+    assert(entryProc != NULL);
+
+    pThreadPosix->isInEntryProc = true;
+
+    return (void*)entryProc(pEntryProcData);
+}
+
+easyutil_thread easyutil_create_thread(easyutil_thread_entry_proc entryProc, void* pData)
+{
+    if (entryProc == NULL) {
+        return NULL;
+    }
+
+    easyutil_thread_posix* pThreadPosix = malloc(sizeof(*pThreadPosix));
+    if (pThreadPosix != NULL)
+    {
+        pThreadPosix->entryProc     = entryProc;
+        pThreadPosix->pData         = pData;
+        pThreadPosix->isInEntryProc = false;
+
+        if (pthread_create(&pThreadPosix->pthread, NULL, easyutil_thread_entry_proc_posix, pData) != 0) {
+            free(pThreadPosix);
+            return NULL;
+        }
+
+        // Wait for the new thread to enter into it's entry point before returning. We need to do this so we can safely
+        // support something like easyutil_delete_thread(easyutil_create_thread(my_thread_proc, pData)).
+        while (!pThreadPosix->isInEntryProc) {}
+    }
+
+    return (easyutil_thread)pThreadPosix;
+}
+
+void easyutil_delete_thread(easyutil_thread thread)
+{
+    free(pThreadPosix);
+}
+
+void easyutil_wait_thread(easyutil_thread thread)
+{
+    easyutil_thread_posix* pThreadPosix = (easyutil_thread_posix*)thread;
+    if (pThreadPosix != NULL)
+    {
+        pthread_join(pThreadPosix->pthread, NULL);
+    }
+}
+
 
 
 easyutil_mutex easyutil_create_mutex()

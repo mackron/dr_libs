@@ -325,6 +325,36 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
 void easyutil_sleep(unsigned int milliseconds);
 
 
+/// Thread.
+typedef void* easyutil_thread;
+typedef int (* easyutil_thread_entry_proc)(void* pData);
+
+/// Creates and begins executing a new thread.
+///
+/// @remarks
+///     This will not return until the thread has entered into it's entry point.
+///     @par
+///     Creating a thread should be considered an expensive operation. For high performance, you should create threads
+///     and load time and cache them.
+easyutil_thread easyutil_create_thread(easyutil_thread_entry_proc entryProc, void* pData);
+
+/// Deletes the given thread.
+///
+/// @remarks
+///     This does not actually exit the thread, but rather deletes the memory that was allocated for the thread
+///     object returned by easyutil_create_thread().
+///     @par
+///     It is usually best to wait for the thread to terminate naturally with easyutil_wait_thread() before calling
+///     this function, however it is still safe to do something like the following.
+///     @code
+///     easyutil_delete_thread(easyutil_create_thread(my_thread_proc, pData))
+///     @endcode
+void easyutil_delete_thread(easyutil_thread thread);
+
+/// Waits for the given thread to terminate.
+void easyutil_wait_thread(easyutil_thread thread);
+
+
 
 /// Mutex
 typedef void* easyutil_mutex;
