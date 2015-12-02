@@ -35,9 +35,9 @@ extern "C" {
 #endif
 
 #if defined(_MSC_VER)
-#define EASYUTIL_INLINE __inline
+#define EASYUTIL_INLINE static __inline
 #else
-#define EASYUTIL_INLINE inline
+#define EASYUTIL_INLINE static inline
 #endif
 
 

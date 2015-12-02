@@ -70,7 +70,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
             char* pL = chunkData + (chunkSize - chunkBytesRemaining);       // The current position in the line.
             char* pK = NULL;
             char* pV = NULL;
-            
+
             if (moveToNextLineAfterNextChunkRead) {
                 goto move_to_end_of_line;
             }
@@ -148,7 +148,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
                 pV = NULL;
                 goto post_on_pair;
             }
-            
+
 
             // Don't include double quotes in the result.
             if (pV[0] == '"') {
@@ -171,7 +171,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
             if (pVEnd == pChunkEnd) {
                 break;  // Ran out of data.
             }
-            
+
             if (pVEnd[0] != '"')
             {
                 pVEnd += 1;
@@ -179,7 +179,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
                 if (pVEnd == pChunkEnd) {
                     break;  // Ran out of data.
                 }
-            }            
+            }
 
             pVEnd[0] = '\0';
 
@@ -224,7 +224,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
             iLine += 1;
         }
 
-        
+
         // If we get here it means we've run out of data in the chunk. If there is more data available there will be bytes in chunkData that have not
         // yet been read. What we need to do is move that data to the beginning of the buffer and read just enough bytes to fill the remaining space
         // in the chunk buffer.
@@ -247,7 +247,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 
                     moveToNextLineAfterNextChunkRead = 1;
                 }
-                
+
 
                 // Setting the chunk size to 0 causes an entire chunk to be loaded in the next iteration as opposed to a partial chunk as in the else branch below.
                 chunkSize = 0;
@@ -287,7 +287,7 @@ bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize)
             return 0;
         }
     }
-    
+
 
     // Back slashes need to be normalized to forward.
     while (pathOut[0] != '\0') {
@@ -306,6 +306,7 @@ bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
     return easyutil_get_config_folder_path(pathOut, pathOutSize);
 }
 #else
+#include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
 
@@ -674,7 +675,7 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
                         while (arg.value[i] != '\0')
                         {
                             pTemp[0] = arg.value[i];
-                            
+
                             if (!callback(pTemp, NULL, pUserData)) {
                                 return;
                             }
@@ -729,7 +730,7 @@ typedef struct
 
     /// The entry point.
     easyutil_thread_entry_proc entryProc;
-    
+
     /// The user data to pass to the thread's entry point.
     void* pData;
 
@@ -918,7 +919,7 @@ typedef struct
 
     /// The entry point.
     easyutil_thread_entry_proc entryProc;
-    
+
     /// The user data to pass to the thread's entry point.
     void* pData;
 
@@ -927,8 +928,9 @@ typedef struct
 
 } easyutil_thread_posix;
 
-static void* easyutil_thread_entry_proc_posix(easyutil_thread_posix* pThreadPosix)
+static void* easyutil_thread_entry_proc_posix(void* pDataIn)
 {
+    easyutil_thread_posix* pThreadPosix = pDataIn;
     assert(pThreadPosix != NULL);
 
     void* pEntryProcData = pThreadPosix->pData;
@@ -937,7 +939,7 @@ static void* easyutil_thread_entry_proc_posix(easyutil_thread_posix* pThreadPosi
 
     pThreadPosix->isInEntryProc = true;
 
-    return (void*)entryProc(pEntryProcData);
+    return (void*)(size_t)entryProc(pEntryProcData);
 }
 
 easyutil_thread easyutil_create_thread(easyutil_thread_entry_proc entryProc, void* pData)
@@ -953,7 +955,7 @@ easyutil_thread easyutil_create_thread(easyutil_thread_entry_proc entryProc, voi
         pThreadPosix->pData         = pData;
         pThreadPosix->isInEntryProc = false;
 
-        if (pthread_create(&pThreadPosix->pthread, NULL, easyutil_thread_entry_proc_posix, pData) != 0) {
+        if (pthread_create(&pThreadPosix->pthread, NULL, easyutil_thread_entry_proc_posix, pThreadPosix) != 0) {
             free(pThreadPosix);
             return NULL;
         }
@@ -968,7 +970,7 @@ easyutil_thread easyutil_create_thread(easyutil_thread_entry_proc entryProc, voi
 
 void easyutil_delete_thread(easyutil_thread thread)
 {
-    free(pThreadPosix);
+    free(thread);
 }
 
 void easyutil_wait_thread(easyutil_thread thread)
@@ -985,7 +987,7 @@ void easyutil_wait_thread(easyutil_thread thread)
 easyutil_mutex easyutil_create_mutex()
 {
     pthread_mutex_t* mutex = malloc(sizeof(pthread_mutex_t));
-    if (pthread_mutex_init(mutex, nullptr) != 0) {
+    if (pthread_mutex_init(mutex, NULL) != 0) {
         free(mutex);
         mutex = NULL;
     }
@@ -1013,7 +1015,7 @@ void easyutil_unlock_mutex(easyutil_mutex mutex)
 easyutil_semaphore easyutil_create_semaphore(int initialValue)
 {
     sem_t* semaphore = malloc(sizeof(sem_t));
-    if (sem_init(semaphore, 0, (unsigned int)value) == -1) {
+    if (sem_init(semaphore, 0, (unsigned int)initialValue) == -1) {
         free(semaphore);
         semaphore = NULL;
     }
@@ -1033,7 +1035,7 @@ bool easyutil_wait_semaphore(easyutil_semaphore semaphore)
 
 bool easyutil_release_semaphore(easyutil_semaphore semaphore)
 {
-    return sem_post(semaphore) != -1
+    return sem_post(semaphore) != -1;
 }
 #endif
 
