@@ -798,6 +798,12 @@ void easyutil_wait_thread(easyutil_thread thread)
     }
 }
 
+void easyutil_wait_and_delete_thread(easyutil_thread thread)
+{
+    easyutil_wait_thread(thread);
+    easyutil_delete_thread(thread);
+}
+
 
 
 #if 0

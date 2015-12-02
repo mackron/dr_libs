@@ -354,6 +354,9 @@ void easyutil_delete_thread(easyutil_thread thread);
 /// Waits for the given thread to terminate.
 void easyutil_wait_thread(easyutil_thread thread);
 
+/// Helper function for waiting for a thread and then deleting the handle after it has terminated.
+void easyutil_wait_and_delete_thread(easyutil_thread thread);
+
 
 
 /// Mutex
