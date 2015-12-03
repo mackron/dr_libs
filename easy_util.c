@@ -807,7 +807,7 @@ void easyutil_wait_and_delete_thread(easyutil_thread thread)
 
 
 
-#if 0
+#if 1
 easyutil_mutex easyutil_create_mutex()
 {
     easyutil_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
