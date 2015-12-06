@@ -293,7 +293,7 @@ easy2d_color easy2d_rgb(easy2d_byte r, easy2d_byte g, easy2d_byte b);
 //
 // WINDOWS GDI 2D API
 //
-// When GDI as the rendering back-end you will usually want to only call drawing in response to a WM_PAINT message.
+// When using GDI as the rendering back-end you will usually want to only call drawing functions in response to a WM_PAINT message.
 //
 /////////////////////////////////////////////////////////////////
 #ifndef EASY2D_NO_GDI
@@ -304,7 +304,7 @@ easy2d_context* easy2d_create_context_gdi();
 /// Creates a surface that draws directly to the given window.
 ///
 /// @remarks
-///     When using this kind of surface, the internal HBITMAP is no used.
+///     When using this kind of surface, the internal HBITMAP is not used.
 easy2d_surface* easy2d_create_surface_gdi_HWND(easy2d_context* pContext, HWND hWnd);
 
 /// Retrieves the internal HDC that we have been rendering to for the given surface.
