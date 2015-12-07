@@ -15,10 +15,6 @@
 // Hierarchy
 // - An element can have a parent and any number of children. If an element does not have a parent, it is referred to as the
 //   top-level element.
-// - Inbound events will typically specify the relevant top-level element and let easy_gui do the relevant processing required
-//   to generate the appropriate outbound events. For example, the mouse-move event will be specified with respect to the top-
-//   level element, but easy_gui will determine the exact child element that the mouse moved on and thus should receive the
-//   relevant outbound mouse-move event.
 // - When an element is deleted, it's children will be deleted as well.
 // - Top-level elements do not have siblings.
 //
@@ -31,6 +27,10 @@
 //   the outbound events it generates have been handled.
 // - Inbound events are not thread safe, however an application is free to post an inbound event from any thread so long as
 //   it does it's own synchronization.
+// - Inbound events will typically specify the relevant top-level element and let easy_gui do the relevant processing required
+//   to generate the appropriate outbound events. For example, the mouse-move event will be specified with respect to the top-
+//   level element, but easy_gui will determine the exact child element that the mouse moved on and thus should receive the
+//   relevant outbound mouse-move event.
 // - There are some special events that are handled differently to normal events. The best example is the paint events. The
 //   paint event is only called from easygui_draw().
 // - Key press/release events are only ever posted to the element that has the keyboard capture/focus which is set with
@@ -49,21 +49,20 @@
 //     the container window at the operating system level. Set with easygui_register_global_on_capture_mouse().
 //   - on_release_mouse: Called when the mouse is released. The opposite of on_capture_mouse.
 //   - on_capture_keyboard: Called when an element is given the keyboard focus and gives the application the opportunity to
-//     apply the keyboard focus to the container window. Set with easygui_register_globa_on_capture_keyboard().
+//     apply the keyboard focus to the container window. Set with easygui_register_global_on_capture_keyboard().
 //   - on_release_keyboard: Called when an element loses the keyboard focus. The opposite of on_capture_keyboard.
 //
 // Layout
-// - An element's data structure does not store it's relative position. Instead, it stores it's absolute position. The
-//   rationale for this is that storing it as relative complicates absolute positioning calculations because it would
-//   need to do a recursive traversal of the element's ancestors.
+// - An element's data structure does not store it's relative position but insteadstores it's absolute position. The rationale
+//   for this is that storing it as relative complicates absolute positioning calculations because it would need to do a recursive
+//   traversal of the element's ancestors.
 //
 // Drawing/Painting
 // - Drawing is one of the more complex parts of the GUI because it can be a bit unintuitive regarding exactly when an element
 //   is drawn and when a drawing function is allowed to be called.
 // - To draw an element, call easygui_draw(). This takes a pointer to the element to draw and the rectangle region that should
 //   be redrawn. Any children that fall inside the specified rectangle region will be redrawn as well. You do not want to call
-//   easygui_draw() on a parent element and then again on it's children.
-// - It's best to only call easygui_draw() on top-level elements.
+//   easygui_draw() on a parent element and then again on it's children because easy_gui will do that automatically.
 // - easygui_draw() does not draw anything directly, but rather calls painting callback routines which is where the actual
 //   drawing takes place.
 // - Sometimes an application will need to be told when a region of an element is dirty and needs redrawing. An example is
