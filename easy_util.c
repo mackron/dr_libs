@@ -35,7 +35,7 @@ const char* easyutil_first_non_whitespace(const char* str)
         return NULL;
     }
 
-    while (str[0] != '\0' && (str[0] != ' ' && str[0] != '\t' && str[0] != '\n' && str[0] != '\v' && str[0] != '\f' && str[0] != '\r')) {
+    while (str[0] != '\0' && !(str[0] != ' ' && str[0] != '\t' && str[0] != '\n' && str[0] != '\v' && str[0] != '\f' && str[0] != '\r')) {
         str += 1;
     }
 
@@ -48,7 +48,7 @@ const char* easyutil_first_whitespace(const char* str)
         return NULL;
     }
 
-    while (str[0] != '\0' && !(str[0] != ' ' && str[0] != '\t' && str[0] != '\n' && str[0] != '\v' && str[0] != '\f' && str[0] != '\r')) {
+    while (str[0] != '\0' && (str[0] != ' ' && str[0] != '\t' && str[0] != '\n' && str[0] != '\v' && str[0] != '\f' && str[0] != '\r')) {
         str += 1;
     }
 
@@ -295,12 +295,12 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 
 const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize)
 {
-    if (tokens != NULL) {
+    if (tokens == NULL) {
         return NULL;
     }
 
     // Skip past leading whitespace.
-    while (tokens[0] != '\0' && (tokens[0] != ' ' && tokens[0] != '\t' && tokens[0] != '\n' && tokens[0] != '\v' && tokens[0] != '\f' && tokens[0] != '\r')) {
+    while (tokens[0] != '\0' && !(tokens[0] != ' ' && tokens[0] != '\t' && tokens[0] != '\n' && tokens[0] != '\v' && tokens[0] != '\f' && tokens[0] != '\r')) {
         tokens += 1;
     }
 
@@ -315,6 +315,12 @@ const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int
     if (strEnd[0] == '\"')
     {
         // It's double-quoted - loop until the next unescaped quote character.
+
+        // Skip past the first double-quote character.
+        strBeg += 1;
+        strEnd += 1;
+
+        // Keep looping until the next unescaped double-quote character.
         char prevChar = '\0';
         while (strEnd[0] != '\0' && (strEnd[0] != '\"' || prevChar == '\\'))
         {
@@ -324,7 +330,7 @@ const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int
     else
     {
         // It's not double-quoted - just loop until the first whitespace.
-        while (strEnd[0] != '\0' && !(strEnd[0] != ' ' && strEnd[0] != '\t' && strEnd[0] != '\n' && strEnd[0] != '\v' && strEnd[0] != '\f' && strEnd[0] != '\r')) {
+        while (strEnd[0] != '\0' && (strEnd[0] != ' ' && strEnd[0] != '\t' && strEnd[0] != '\n' && strEnd[0] != '\v' && strEnd[0] != '\f' && strEnd[0] != '\r')) {
             strEnd += 1;
         }
     }
