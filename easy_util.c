@@ -29,6 +29,33 @@ void easyutil_strrmchar(char* str, char c)
     dst[0] = '\0';
 }
 
+const char* easyutil_first_non_whitespace(const char* str)
+{
+    if (str == NULL) {
+        return NULL;
+    }
+
+    while (str[0] != '\0' && (str[0] != ' ' && str[0] != '\t' && str[0] != '\n' && str[0] != '\v' && str[0] != '\f' && str[0] != '\r')) {
+        str += 1;
+    }
+
+    return str;
+}
+
+const char* easyutil_first_whitespace(const char* str)
+{
+    if (str == NULL) {
+        return NULL;
+    }
+
+    while (str[0] != '\0' && !(str[0] != ' ' && str[0] != '\t' && str[0] != '\n' && str[0] != '\v' && str[0] != '\f' && str[0] != '\r')) {
+        str += 1;
+    }
+
+    return str;
+}
+
+
 
 
 /////////////////////////////////////////////////////////
@@ -261,6 +288,78 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 
     }while(isMoreDataAvailable);
 }
+
+
+/////////////////////////////////////////////////////////
+// Basic Tokenizer
+
+const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize)
+{
+    if (tokens != NULL) {
+        return NULL;
+    }
+
+    // Skip past leading whitespace.
+    while (tokens[0] != '\0' && (tokens[0] != ' ' && tokens[0] != '\t' && tokens[0] != '\n' && tokens[0] != '\v' && tokens[0] != '\f' && tokens[0] != '\r')) {
+        tokens += 1;
+    }
+
+    if (tokens[0] == '\0') {
+        return NULL;
+    }
+
+
+    const char* strBeg = tokens;
+    const char* strEnd = strBeg;
+    
+    if (strEnd[0] == '\"')
+    {
+        // It's double-quoted - loop until the next unescaped quote character.
+        char prevChar = '\0';
+        while (strEnd[0] != '\0' && (strEnd[0] != '\"' || prevChar == '\\'))
+        {
+            strEnd += 1;
+        }
+    }
+    else
+    {
+        // It's not double-quoted - just loop until the first whitespace.
+        while (strEnd[0] != '\0' && !(strEnd[0] != ' ' && strEnd[0] != '\t' && strEnd[0] != '\n' && strEnd[0] != '\v' && strEnd[0] != '\f' && strEnd[0] != '\r')) {
+            strEnd += 1;
+        }
+    }
+
+
+    // If the output buffer is large enough to hold the token, copy the token into it.
+    //assert(strEnd >= strBeg);
+
+    size_t tokenLength = (size_t)(strEnd - strBeg);
+    if ((size_t)tokenOutSize > tokenLength)
+    {
+        // The output buffer is large enough.
+        for (size_t i = 0; i < tokenLength; ++i) {
+            tokenOut[i] = strBeg[i];
+        }
+
+        tokenOut[tokenLength] = '\0';
+    }
+    else
+    {
+        // The output buffer is too small. Set it to an empty string.
+        if (tokenOutSize > 0) {
+            tokenOut[0] = '\0';
+        }
+    }
+
+
+    // Skip past the double-quote character before returning.
+    if (strEnd[0] == '\"') {
+        strEnd += 1;
+    }
+
+    return strEnd;
+}
+
 
 
 

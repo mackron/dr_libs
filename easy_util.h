@@ -148,6 +148,12 @@ EASYUTIL_INLINE int _stricmp(const char* string1, const char* string2)
 /// Removes every occurance of the given character from the given string.
 void easyutil_strrmchar(char* str, char c);
 
+/// Finds the first non-whitespace character in the given string.
+const char* easyutil_first_non_whitespace(const char* str);
+
+/// Finds the first occurance of a whitespace character in the given string.
+const char* easyutil_first_whitespace(const char* str);
+
 
 /////////////////////////////////////////////////////////
 // Aligned Allocations
@@ -204,6 +210,27 @@ typedef void         (* key_value_error_proc)(void* pUserData, const char* messa
 ///     @par
 ///     If an error occurs, that line will be skipped and processing will continue.
 void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_proc onPair, key_value_error_proc onError, void* pUserData);
+
+
+
+/////////////////////////////////////////////////////////
+// Basic Tokenizer
+
+/// Retrieves the first token in the given string.
+///
+/// @remarks
+///     This function is suitable for doing a simple whitespace tokenization of a null-terminated string.
+///     @par
+///     The return value is a pointer to one character past the last character of the next token. You can use the return value to execute
+///     this function in a loop to parse an entire string.
+///     @par
+///     <tokenOut> can be null. If the buffer is too small to contain the entire token it will be set to an empty string. The original
+///     input string combined with the return value can be used to reliably find the token.
+///     @par
+///     This will handle double-quoted strings, so a string such as "My \"Complex String\"" contains two tokens: "My" and "\"Complex String\"".
+///     @par
+///     This function has no dependencies.
+const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize);
 
 
 
