@@ -1712,6 +1712,13 @@ void easygui_register_on_mouse_button_dblclick(easygui_element* pElement, easygu
     }
 }
 
+void easygui_register_on_mouse_wheel(easygui_element* pElement, easygui_on_mouse_wheel_proc callback)
+{
+    if (pElement != NULL) {
+        pElement->onMouseWheel = callback;
+    }
+}
+
 void easygui_register_on_key_down(easygui_element* pElement, easygui_on_key_down_proc callback)
 {
     if (pElement != NULL) {
@@ -2600,7 +2607,7 @@ bool easygui_measure_string(easygui_context* pContext, easygui_font font, const 
 
 //// Hit Testing and Layout ////
 
-void easygui_on_size_fit_to_parent(easygui_element* pElement, float newWidth, float newHeight)
+void easygui_on_size_fit_children_to_parent(easygui_element* pElement, float newWidth, float newHeight)
 {
     for (easygui_element* pChild = pElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
     {

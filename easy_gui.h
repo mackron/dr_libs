@@ -645,6 +645,9 @@ void easygui_register_on_mouse_button_up(easygui_element* pElement, easygui_on_m
 /// Registers the on_mouse_button_down event callback.
 void easygui_register_on_mouse_button_dblclick(easygui_element* pElement, easygui_on_mouse_button_dblclick_proc callback);
 
+/// Registers the on_mouse_wheel event callback.
+void easygui_register_on_mouse_wheel(easygui_element* pElement, easygui_on_mouse_wheel_proc callback);
+
 /// Registers the on_key_down event callback.
 void easygui_register_on_key_down(easygui_element* pElement, easygui_on_key_down_proc callback);
 
@@ -881,7 +884,7 @@ bool easygui_measure_string(easygui_context* pContext, easygui_font font, const 
 //// Hit Testing and Layout ////
 
 /// An on_size event callback that resizes every child element to that of the parent.
-void easygui_on_size_fit_to_parent(easygui_element* pElement, float newWidth, float newHeight);
+void easygui_on_size_fit_children_to_parent(easygui_element* pElement, float newWidth, float newHeight);
 
 /// An on_hit_test event callback that can be used to always fail the mouse hit test.
 bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, float mousePosY);
