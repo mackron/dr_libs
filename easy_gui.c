@@ -180,23 +180,6 @@ void easygui_post_outbound_event_release_keyboard_global(easygui_element* pEleme
 void easygui_log(easygui_context* pContext, const char* message);
 
 
-/// Null implementations of painting callbacks so we can avoid checking for null in the painting functions.
-void easygui_draw_begin_null(void*);
-void easygui_draw_end_null(void*);
-void easygui_set_clip_null(easygui_rect, void*);
-void easygui_get_clip_null(easygui_rect*, void*);
-void easygui_draw_line_null(float, float, float, float, float, easygui_color, void*);
-void easygui_draw_rect_null(easygui_rect, easygui_color, void*);
-void easygui_draw_rect_outline_null(easygui_rect, easygui_color, float, void*);
-void easygui_draw_rect_with_outline_null(easygui_rect, easygui_color, float, easygui_color, void*);
-void easygui_draw_round_rect_null(easygui_rect, easygui_color, float, void*);
-void easygui_draw_round_rect_outline_null(easygui_rect, easygui_color, float, float, void*);
-void easygui_draw_round_rect_with_outline_null(easygui_rect, easygui_color, float, float, easygui_color, void*);
-void easygui_draw_text_null(const char*, int, float, float, easygui_font, easygui_color, easygui_color, void*);
-bool easygui_measure_string_null(easygui_font, const char*, unsigned int, float*, float*, void*);
-
-
-
 void easygui_begin_inbound_event(easygui_context* pContext)
 {
     assert(pContext != NULL);
@@ -846,104 +829,6 @@ void easygui_log(easygui_context* pContext, const char* message)
 }
 
 
-void easygui_draw_begin_null(void* pPaintData)
-{
-    (void)pPaintData;
-}
-void easygui_draw_end_null(void* pPaintData)
-{
-    (void)pPaintData;
-}
-void easygui_set_clip_null(easygui_rect rect, void* pPaintData)
-{
-    (void)rect;
-    (void)pPaintData;
-}
-void easygui_get_clip_null(easygui_rect* pRectOut, void* pPaintData)
-{
-    (void)pRectOut;
-    (void)pPaintData;
-}
-void easygui_draw_line_null(float startX, float startY, float endX, float endY, float width, easygui_color color, void* pPaintData)
-{
-    (void)startX;
-    (void)startY;
-    (void)endX;
-    (void)endY;
-    (void)width;
-    (void)color;
-    (void)pPaintData;
-}
-void easygui_draw_rect_null(easygui_rect rect, easygui_color color, void* pPaintData)
-{
-    (void)rect;
-    (void)color;
-    (void)pPaintData;
-}
-void easygui_draw_rect_outline_null(easygui_rect rect, easygui_color color, float outlineWidth, void* pPaintData)
-{
-    (void)rect;
-    (void)color;
-    (void)outlineWidth;
-    (void)pPaintData;
-}
-void easygui_draw_rect_with_outline_null(easygui_rect rect, easygui_color color, float outlineWidth, easygui_color outlineColor, void* pPaintData)
-{
-    (void)rect;
-    (void)color;
-    (void)outlineWidth;
-    (void)outlineColor;
-    (void)pPaintData;
-}
-void easygui_draw_round_rect_null(easygui_rect rect, easygui_color color, float radius, void* pPaintData)
-{
-    (void)rect;
-    (void)color;
-    (void)radius;
-    (void)pPaintData;
-}
-void easygui_draw_round_rect_outline_null(easygui_rect rect, easygui_color color, float radius, float outlineWidth, void* pPaintData)
-{
-    (void)rect;
-    (void)color;
-    (void)radius;
-    (void)outlineWidth;
-    (void)pPaintData;
-}
-void easygui_draw_round_rect_with_outline_null(easygui_rect rect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData)
-{
-    (void)rect;
-    (void)color;
-    (void)radius;
-    (void)outlineWidth;
-    (void)outlineColor;
-    (void)pPaintData;
-}
-void easygui_draw_text_null(const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData)
-{
-    (void)text;
-    (void)textSizeInBytes;
-    (void)posX;
-    (void)posY;
-    (void)font;
-    (void)color;
-    (void)backgroundColor;
-    (void)pPaintData;
-}
-bool easygui_measure_string_null(easygui_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut, void* pPaintData)
-{
-    (void)font;
-    (void)text;
-    (void)textSizeInBytes;
-    (void)pWidthOut;
-    (void)pHeightOut;
-    (void)pPaintData;
-
-    return false;
-}
-
-
-
 
 /////////////////////////////////////////////////////////////////
 //
@@ -955,19 +840,24 @@ easygui_context* easygui_create_context()
 {
     easygui_context* pContext = malloc(sizeof(easygui_context));
     if (pContext != NULL) {
-        pContext->paintingCallbacks.drawBegin                = easygui_draw_begin_null;
-        pContext->paintingCallbacks.drawEnd                  = easygui_draw_end_null;
-        pContext->paintingCallbacks.setClip                  = easygui_set_clip_null;
-        pContext->paintingCallbacks.getClip                  = easygui_get_clip_null;
-        pContext->paintingCallbacks.drawLine                 = easygui_draw_line_null;
-        pContext->paintingCallbacks.drawRect                 = easygui_draw_rect_null;
-        pContext->paintingCallbacks.drawRectOutline          = easygui_draw_rect_outline_null;
-        pContext->paintingCallbacks.drawRectWithOutline      = easygui_draw_rect_with_outline_null;
-        pContext->paintingCallbacks.drawRoundRect            = easygui_draw_round_rect_null;
-        pContext->paintingCallbacks.drawRoundRectOutline     = easygui_draw_round_rect_outline_null;
-        pContext->paintingCallbacks.drawRoundRectWithOutline = easygui_draw_round_rect_with_outline_null;
-        pContext->paintingCallbacks.drawText                 = easygui_draw_text_null;
-        pContext->paintingCallbacks.measureString            = easygui_measure_string_null;
+        pContext->pPaintingContext                           = NULL;
+        pContext->paintingCallbacks.drawBegin                = NULL;
+        pContext->paintingCallbacks.drawEnd                  = NULL;
+        pContext->paintingCallbacks.setClip                  = NULL;
+        pContext->paintingCallbacks.getClip                  = NULL;
+        pContext->paintingCallbacks.drawLine                 = NULL;
+        pContext->paintingCallbacks.drawRect                 = NULL;
+        pContext->paintingCallbacks.drawRectOutline          = NULL;
+        pContext->paintingCallbacks.drawRectWithOutline      = NULL;
+        pContext->paintingCallbacks.drawRoundRect            = NULL;
+        pContext->paintingCallbacks.drawRoundRectOutline     = NULL;
+        pContext->paintingCallbacks.drawRoundRectWithOutline = NULL;
+        pContext->paintingCallbacks.drawText                 = NULL;
+        pContext->paintingCallbacks.createFont               = NULL;
+        pContext->paintingCallbacks.deleteFont               = NULL;
+        pContext->paintingCallbacks.getFontMetrics           = NULL;
+        pContext->paintingCallbacks.getGlyphMetrics          = NULL;
+        pContext->paintingCallbacks.measureString            = NULL;
         pContext->inboundEventCounter                        = 0;
         pContext->outboundEventLockCounter                   = 0;
         pContext->pFirstDeadElement                          = NULL;
@@ -2285,41 +2175,22 @@ easygui_rect easygui_get_local_rect(const easygui_element* pElement)
 
 //// Painting ////
 
-void easygui_register_painting_callbacks(easygui_context* pContext, easygui_painting_callbacks callbacks)
+bool easygui_register_painting_callbacks(easygui_context* pContext, void* pPaintingContext, easygui_painting_callbacks callbacks)
 {
     if (pContext == NULL) {
-        return;
+        return false;
     }
 
+    // Fail if the painting callbacks have already been registered.
+    if (pContext->pPaintingContext != NULL) {
+        return false;
+    }
+
+
+    pContext->pPaintingContext  = pPaintingContext;
     pContext->paintingCallbacks = callbacks;
 
-    if (pContext->paintingCallbacks.drawBegin == NULL) {
-        pContext->paintingCallbacks.drawBegin = easygui_draw_begin_null;
-    }
-
-    if (pContext->paintingCallbacks.drawEnd == NULL) {
-        pContext->paintingCallbacks.drawEnd = easygui_draw_end_null;
-    }
-
-    if (pContext->paintingCallbacks.drawLine == NULL) {
-        pContext->paintingCallbacks.drawLine = easygui_draw_line_null;
-    }
-
-    if (pContext->paintingCallbacks.drawRect == NULL) {
-        pContext->paintingCallbacks.drawRect = easygui_draw_rect_null;
-    }
-
-    if (pContext->paintingCallbacks.drawText == NULL) {
-        pContext->paintingCallbacks.drawText = easygui_draw_text_null;
-    }
-
-    if (pContext->paintingCallbacks.setClip == NULL) {
-        pContext->paintingCallbacks.setClip = easygui_set_clip_null;
-    }
-
-    if (pContext->paintingCallbacks.getClip == NULL) {
-        pContext->paintingCallbacks.getClip = easygui_get_clip_null;
-    }
+    return true;
 }
 
 
@@ -2575,9 +2446,9 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
     pElement->pContext->paintingCallbacks.drawRoundRectWithOutline(absoluteRect, color, radius, outlineWidth, outlineColor, pPaintData);
 }
 
-void easygui_draw_text(easygui_element* pElement, const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void * pPaintData)
+void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const char* text, int textSizeInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void * pPaintData)
 {
-    if (pElement == NULL) {
+    if (pElement == NULL || pFont == NULL) {
         return;
     }
 
@@ -2587,14 +2458,99 @@ void easygui_draw_text(easygui_element* pElement, const char* text, int textSize
     float absolutePosY = posY;
     easygui_make_point_absolute(pElement, &absolutePosX, &absolutePosY);
 
-    pElement->pContext->paintingCallbacks.drawText(text, textSizeInBytes, absolutePosX, absolutePosY, font, color, backgroundColor, pPaintData);
+    pElement->pContext->paintingCallbacks.drawText(pFont->hResource, text, textSizeInBytes, absolutePosX, absolutePosY, color, backgroundColor, pPaintData);
 }
 
-bool easygui_measure_string(easygui_context* pContext, easygui_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut, void* pPaintData)
-{
-    assert(pContext != NULL);
 
-    return pContext->paintingCallbacks.measureString(font, text, textSizeInBytes, pWidthOut, pHeightOut, pPaintData);
+
+easygui_font* easygui_create_font(easygui_context* pContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation)
+{
+    if (pContext == NULL) {
+        return NULL;
+    }
+
+    if (pContext->paintingCallbacks.createFont == NULL) {
+        return NULL;
+    }
+
+
+    easygui_resource internalFont = pContext->paintingCallbacks.createFont(pContext->pPaintingContext, family, size, weight, slant, rotation);
+    if (internalFont == NULL) {
+        return NULL;
+    }
+
+    easygui_font* pFont = malloc(sizeof(easygui_font));
+    if (pFont == NULL) {
+        return NULL;
+    }
+
+    pFont->pContext  = pContext;
+    pFont->hResource = internalFont;
+
+
+    return pFont;
+}
+
+void easygui_delete_font(easygui_font* pFont)
+{
+    if (pFont == NULL) {
+        return;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    // Delete the internal font object.
+    if (pFont->pContext->paintingCallbacks.deleteFont) {
+        pFont->pContext->paintingCallbacks.deleteFont(pFont->hResource);
+    }
+
+    // Free the font object last.
+    free(pFont);
+}
+
+bool easygui_get_font_metrics(easygui_font* pFont, easygui_font_metrics* pMetricsOut)
+{
+    if (pFont == NULL || pMetricsOut == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->paintingCallbacks.getFontMetrics == NULL) {
+        return false;
+    }
+
+    return pFont->pContext->paintingCallbacks.getFontMetrics(pFont->hResource, pMetricsOut);
+}
+
+bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_glyph_metrics* pMetricsOut)
+{
+    if (pFont == NULL || pMetricsOut == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->paintingCallbacks.getGlyphMetrics == NULL) {
+        return false;
+    }
+
+    return pFont->pContext->paintingCallbacks.getGlyphMetrics(pFont->hResource, utf32, pMetricsOut);
+}
+
+bool easygui_measure_string(easygui_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+{
+    if (pFont == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->paintingCallbacks.measureString == NULL) {
+        return false;
+    }
+
+    return pFont->pContext->paintingCallbacks.measureString(pFont->hResource, text, textSizeInBytes, pWidthOut, pHeightOut);
 }
 
 
@@ -2630,37 +2586,6 @@ bool easygui_pass_through_hit_test(easygui_element* pElement, float mousePosX, f
 
 void easygui_draw_border(easygui_element* pElement, float borderWidth, easygui_color color, void* pUserData)
 {
-    // TODO: In case alpha transparency is enabled, do not overlap the corners.
-#if 0
-    easygui_rect borderLeft;
-    borderLeft.left   = 0;
-    borderLeft.right  = borderLeft.left + borderWidth;
-    borderLeft.top    = 0;
-    borderLeft.bottom = borderLeft.top + pElement->height;
-    easygui_draw_rect(pElement, borderLeft, color, pUserData);
-
-    easygui_rect borderTop;
-    borderTop.left   = 0;
-    borderTop.right  = borderTop.left + pElement->width;
-    borderTop.top    = 0;
-    borderTop.bottom = borderTop.top + borderWidth;
-    easygui_draw_rect(pElement, borderTop, color, pUserData);
-
-    easygui_rect borderRight;
-    borderRight.left   = pElement->width - borderWidth;
-    borderRight.right  = pElement->width;
-    borderRight.top    = 0;
-    borderRight.bottom = borderRight.top + pElement->height;
-    easygui_draw_rect(pElement, borderRight, color, pUserData);
-
-    easygui_rect borderBottom;
-    borderBottom.left   = 0;
-    borderBottom.right  = borderBottom.left + pElement->width;
-    borderBottom.top    = pElement->height - borderWidth;
-    borderBottom.bottom = pElement->height;
-    easygui_draw_rect(pElement, borderBottom, color, pUserData);
-#endif
-
     easygui_draw_rect_outline(pElement, easygui_get_local_rect(pElement), color, borderWidth, pUserData);
 }
 
@@ -2863,20 +2788,25 @@ void easygui_draw_rect_with_outline_easy_draw(easygui_rect, easygui_color, float
 void easygui_draw_round_rect_easy_draw(easygui_rect, easygui_color, float, void*);
 void easygui_draw_round_rect_outline_easy_draw(easygui_rect, easygui_color, float, float, void*);
 void easygui_draw_round_rect_with_outline_easy_draw(easygui_rect, easygui_color, float, float, easygui_color, void*);
-void easygui_draw_text_easy_draw(const char*, int, float, float, easygui_font, easygui_color, easygui_color, void*);
-bool easygui_measure_string_easy_draw(easygui_font, const char*, unsigned int, float*, float*, void*);
+void easygui_draw_text_easy_draw(easygui_resource, const char*, int, float, float, easygui_color, easygui_color, void*);
 
-easygui_context* easygui_create_context_easy_draw()
+easygui_resource easygui_create_font_easy_draw(void*, const char*, unsigned int, easygui_font_weight, easygui_font_slant, float);
+void easygui_delete_font_easy_draw(easygui_resource);
+bool easygui_get_font_metrics_easy_draw(easygui_resource, easygui_font_metrics*);
+bool easygui_get_glyph_metrics_easy_draw(easygui_resource, unsigned int, easygui_glyph_metrics*);
+bool easygui_measure_string_easy_draw(easygui_resource, const char*, unsigned int, float*, float*);
+
+easygui_context* easygui_create_context_easy_draw(easy2d_context* pDrawingContext)
 {
     easygui_context* pContext = easygui_create_context();
     if (pContext != NULL) {
-        easygui_register_easy_draw_callbacks(pContext);
+        easygui_register_easy_draw_callbacks(pContext, pDrawingContext);
     }
 
     return pContext;
 }
 
-void easygui_register_easy_draw_callbacks(easygui_context* pContext)
+void easygui_register_easy_draw_callbacks(easygui_context* pContext, easy2d_context* pDrawingContext)
 {
     easygui_painting_callbacks callbacks;
     callbacks.drawBegin                = easygui_draw_begin_easy_draw;
@@ -2890,9 +2820,14 @@ void easygui_register_easy_draw_callbacks(easygui_context* pContext)
     callbacks.drawRoundRectOutline     = easygui_draw_round_rect_outline_easy_draw;
     callbacks.drawRoundRectWithOutline = easygui_draw_round_rect_with_outline_easy_draw;
     callbacks.drawText                 = easygui_draw_text_easy_draw;
+
+    callbacks.createFont               = easygui_create_font_easy_draw;
+    callbacks.deleteFont               = easygui_delete_font_easy_draw;
+    callbacks.getFontMetrics           = easygui_get_font_metrics_easy_draw;
+    callbacks.getGlyphMetrics          = easygui_get_glyph_metrics_easy_draw;
     callbacks.measureString            = easygui_measure_string_easy_draw;
 
-    easygui_register_painting_callbacks(pContext, callbacks);
+    easygui_register_painting_callbacks(pContext, pDrawingContext, callbacks);
 }
 
 
@@ -2978,20 +2913,60 @@ void easygui_draw_round_rect_with_outline_easy_draw(easygui_rect rect, easygui_c
     easy2d_draw_round_rect_with_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, easy2d_rgba(color.r, color.g, color.b, color.a), radius, outlineWidth, easy2d_rgba(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a));
 }
 
-void easygui_draw_text_easy_draw(const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData)
+void easygui_draw_text_easy_draw(easygui_resource font, const char* text, int textSizeInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData)
 {
     easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_text(pSurface, text, textSizeInBytes, posX, posY, font, easy2d_rgba(color.r, color.g, color.b, color.a), easy2d_rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a));
+    easy2d_draw_text(pSurface, font, text, textSizeInBytes, posX, posY, easy2d_rgba(color.r, color.g, color.b, color.a), easy2d_rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a));
 }
 
-bool easygui_measure_string_easy_draw(easygui_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut, void* pPaintData)
-{
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
-    assert(pSurface != NULL);
 
-    return easy2d_measure_string(pSurface->pContext, font, text, textSizeInBytes, pWidthOut, pHeightOut);
+easygui_resource easygui_create_font_easy_draw(void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation)
+{
+    return easy2d_create_font(pPaintingContext, family, size, weight, slant, rotation);
+}
+
+void easygui_delete_font_easy_draw(easygui_resource font)
+{
+    easy2d_delete_font(font);
+}
+
+bool easygui_get_font_metrics_easy_draw(easygui_resource font, easygui_font_metrics* pMetricsOut)
+{
+    assert(pMetricsOut != NULL);
+
+    easy2d_font_metrics metrics;
+    if (!easy2d_get_font_metrics(font, &metrics)) {
+        return false;
+    }
+
+    pMetricsOut->ascent     = metrics.ascent;
+    pMetricsOut->descent    = metrics.descent;
+    pMetricsOut->lineHeight = metrics.lineHeight;
+    pMetricsOut->spaceWidth = metrics.spaceWidth;
+
+    return true;
+}
+
+bool easygui_get_glyph_metrics_easy_draw(easygui_resource font, unsigned int utf32, easygui_glyph_metrics* pMetricsOut)
+{
+    assert(pMetricsOut != NULL);
+
+    easy2d_glyph_metrics metrics;
+    if (!easy2d_get_glyph_metrics(font, utf32, &metrics)) {
+        return false;
+    }
+
+    pMetricsOut->width  = metrics.width;
+    pMetricsOut->height = metrics.height;
+
+    return true;
+}
+
+bool easygui_measure_string_easy_draw(easygui_resource font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+{
+    return easy2d_measure_string(font, text, textSizeInBytes, pWidthOut, pHeightOut);
 }
 
 #endif

@@ -167,11 +167,58 @@ typedef struct easygui_event easygui_event;
 typedef struct easygui_color easygui_color;
 typedef struct easygui_rect easygui_rect;
 typedef struct easygui_painting_callbacks easygui_painting_callbacks;
-
-typedef void* easygui_font;
+typedef struct easygui_font easygui_font;
+typedef struct easygui_font_metrics easygui_font_metrics;
+typedef struct easygui_glyph_metrics easygui_glyph_metrics;
 
 typedef unsigned char easygui_byte;
 typedef int easygui_key;
+
+typedef void* easygui_resource;
+
+
+/// Font weights.
+typedef enum
+{
+    easygui_weight_medium = 0,
+    easygui_weight_thin,
+    easygui_weight_extra_light,
+    easygui_weight_light,
+    easygui_weight_semi_bold,
+    easygui_weight_bold,
+    easygui_weight_extra_bold,
+    easygui_weight_heavy,
+
+    easygui_weight_normal  = easygui_weight_medium,
+    easygui_weight_default = easygui_weight_medium
+
+} easygui_font_weight;
+
+/// Font slants.
+typedef enum
+{
+    easygui_slant_none = 0,
+    easygui_slant_italic,
+    easygui_slant_oblique
+
+} easygui_font_slant;
+
+
+/// Font metrics.
+struct easygui_font_metrics
+{
+    int ascent;
+    int descent;
+    int lineHeight;
+    int spaceWidth;
+};
+
+/// Glyph metrics.
+struct easygui_glyph_metrics
+{
+    int width;
+    int height;
+};
 
 
 /// Structure representing an RGBA color. Color components are specified in the range of 0 - 255.
@@ -227,8 +274,16 @@ typedef void (* easygui_draw_rect_with_outline_proc)       (easygui_rect relativ
 typedef void (* easygui_draw_round_rect_proc)              (easygui_rect relativeRect, easygui_color color, float radius, void* pPaintData);
 typedef void (* easygui_draw_round_rect_outline_proc)      (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, void* pPaintData);
 typedef void (* easygui_draw_round_rect_with_outline_proc) (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData);
-typedef void (* easygui_draw_text_proc)                    (const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData);
-typedef bool (* easygui_measure_string_proc)               (easygui_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut, void* pPaintData);
+typedef void (* easygui_draw_text_proc)                    (easygui_resource font, const char* text, int textSizeInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
+
+typedef easygui_resource (* easygui_create_font_proc)      (void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation);
+typedef void             (* easygui_delete_font_proc)      (easygui_resource font);
+typedef bool             (* easygui_get_font_metrics_proc) (easygui_resource font, easygui_font_metrics* pMetricsOut);
+typedef bool             (* easygui_get_glyph_metrics_proc)(easygui_resource font, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
+typedef bool             (* easygui_measure_string_proc)   (easygui_resource font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+
+typedef easygui_resource (* easygui_create_image_proc)     (void* pPaintingContext, unsigned int width, unsigned int height, const void* pImageData);
+typedef void             (* easygui_delete_image_proc)     (easygui_resource image);
 
 typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect *pRelativeRect, void* pUserData);
 
@@ -254,7 +309,22 @@ struct easygui_painting_callbacks
     easygui_draw_round_rect_outline_proc      drawRoundRectOutline;
     easygui_draw_round_rect_with_outline_proc drawRoundRectWithOutline;
     easygui_draw_text_proc                    drawText;
+
+    easygui_create_font_proc                  createFont;
+    easygui_delete_font_proc                  deleteFont;
+    easygui_get_font_metrics_proc             getFontMetrics;
+    easygui_get_glyph_metrics_proc            getGlyphMetrics;
     easygui_measure_string_proc               measureString;
+};
+
+
+struct easygui_font
+{
+    /// A pointer to the context that owns this font.
+    easygui_context* pContext;
+
+    /// The resource handle that is passed around to the callback functions.
+    easygui_resource hResource;
 };
 
 
@@ -372,8 +442,12 @@ struct easygui_element
 
 struct easygui_context
 {
+    /// The paiting context.
+    void* pPaintingContext;
+
     /// The painting callbacks.
     easygui_painting_callbacks paintingCallbacks;
+
 
     /// The inbound event counter. This is incremented with easygui_begin_inbound_event() and decremented with
     /// easygui_end_inbound_event(). We use this to determine whether or not an inbound event is being processed.
@@ -789,7 +863,11 @@ easygui_rect easygui_get_local_rect(const easygui_element* pElement);
 //// Painting ////
 
 /// Registers the custom painting callbacks.
-void easygui_register_painting_callbacks(easygui_context* pContext, easygui_painting_callbacks callbacks);
+///
+/// @remarks
+///     This can only be called once, so it should always be done after initialization. This will fail if called
+///     more than once.
+bool easygui_register_painting_callbacks(easygui_context* pContext, void* pPaintingContext, easygui_painting_callbacks callbacks);
 
 
 /// Performs a recursive traversal of all visible elements in the given rectangle.
@@ -868,10 +946,23 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
 ///     calls to this function.
 ///     @par
 ///     \c textSizeInBytes can be -1 in which case the text string is treated as null terminated.
-void easygui_draw_text(easygui_element* pElement, const char* text, int textSizeInBytes, float posX, float posY, easygui_font font, easygui_color color, easygui_color backgroundColor, void* pPaintData);
+void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const char* text, int textSizeInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
+
+
+/// Creates a font resource.
+easygui_font* easygui_create_font(easygui_context* pContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation);
+
+/// Deletes a font resource.
+void easygui_delete_font(easygui_font* pFont);
+
+/// Retrieves the metrics of the given font.
+bool easygui_get_font_metrics(easygui_font* pFont, easygui_font_metrics* pMetricsOut);
+
+/// Retrieves the metrics of the glyph for the given character when rendered with the given font.
+bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
 
 /// Retrieves the dimensions of the given string when drawn with the given font.
-bool easygui_measure_string(easygui_context* pContext, easygui_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut, void* pPaintData);
+bool easygui_measure_string(easygui_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 
 
@@ -974,13 +1065,13 @@ bool easygui_rect_contains_point(easygui_rect rect, float posX, float posY);
 ///
 /// @remarks
 ///     This is equivalent to easygui_create_context() followed by easygui_register_easy_draw_callbacks().
-easygui_context* easygui_create_context_easy_draw();
+easygui_context* easygui_create_context_easy_draw(easy2d_context* pDrawingContext);
 
 /// Registers the drawing callbacks for use with easy_draw.
 ///
 /// @remarks
 ///     The user data of each callback is assumed to be a pointer to an easydraw_surface object.
-void easygui_register_easy_draw_callbacks(easygui_context* pContext);
+void easygui_register_easy_draw_callbacks(easygui_context* pContext, easy2d_context* pDrawingContext);
 
 #endif
 
