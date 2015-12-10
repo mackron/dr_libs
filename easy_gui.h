@@ -218,6 +218,10 @@ struct easygui_glyph_metrics
 {
     int width;
     int height;
+    int originX;
+    int originY;
+    int advanceX;
+    int advanceY;
 };
 
 

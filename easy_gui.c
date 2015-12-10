@@ -2958,8 +2958,12 @@ bool easygui_get_glyph_metrics_easy_draw(easygui_resource font, unsigned int utf
         return false;
     }
 
-    pMetricsOut->width  = metrics.width;
-    pMetricsOut->height = metrics.height;
+    pMetricsOut->width    = metrics.width;
+    pMetricsOut->height   = metrics.height;
+    pMetricsOut->originX  = metrics.originX;
+    pMetricsOut->originY  = metrics.originY;
+    pMetricsOut->advanceX = metrics.advanceX;
+    pMetricsOut->advanceY = metrics.advanceY;
 
     return true;
 }
