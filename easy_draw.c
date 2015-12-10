@@ -1082,12 +1082,16 @@ bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d
     {
         const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
 
-        GLYPHMETRICS spaceMetrics;
-        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, utf32, GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
+        GLYPHMETRICS metrics;
+        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, utf32, GGO_NATIVE, &metrics, 0, NULL, &transform);
         if (bitmapBufferSize != GDI_ERROR)
         {
-            pGlyphMetrics->width  = spaceMetrics.gmBlackBoxX;
-            pGlyphMetrics->height = spaceMetrics.gmBlackBoxY;
+            pGlyphMetrics->width    = metrics.gmBlackBoxX;
+            pGlyphMetrics->height   = metrics.gmBlackBoxY;
+            pGlyphMetrics->originX  = metrics.gmptGlyphOrigin.x;
+            pGlyphMetrics->originY  = metrics.gmptGlyphOrigin.y;
+            pGlyphMetrics->advanceX = metrics.gmCellIncX;
+            pGlyphMetrics->advanceY = metrics.gmCellIncY;
 
             result = true;
         }
