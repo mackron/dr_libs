@@ -37,6 +37,10 @@
 #endif
 #endif
 
+#ifndef EASY2D_MAX_FONT_FAMILY_LENGTH
+#define EASY2D_MAX_FONT_FAMILY_LENGTH   128
+#endif
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,12 +57,11 @@ typedef unsigned char easy2d_byte;
 
 typedef struct easy2d_context easy2d_context;
 typedef struct easy2d_surface easy2d_surface;
+typedef struct easy2d_font easy2d_font;
 typedef struct easy2d_color easy2d_color;
 typedef struct easy2d_font_metrics easy2d_font_metrics;
 typedef struct easy2d_glyph_metrics easy2d_glyph_metrics;
 typedef struct easy2d_drawing_callbacks easy2d_drawing_callbacks;
-
-typedef void* easy2d_font;
 
 
 /// Structure representing an RGBA color. Color components are specified in the range of 0 - 255.
@@ -113,6 +116,8 @@ typedef bool        (* easy2d_on_create_context_proc)           (easy2d_context*
 typedef void        (* easy2d_on_delete_context_proc)           (easy2d_context* pContext);
 typedef bool        (* easy2d_on_create_surface_proc)           (easy2d_surface* pSurface, float width, float height);
 typedef void        (* easy2d_on_delete_surface_proc)           (easy2d_surface* pSurface);
+typedef bool        (* easy2d_on_create_font_proc)              (easy2d_font* pFont);
+typedef void        (* easy2d_on_delete_font_proc)              (easy2d_font* pFont);
 typedef void        (* easy2d_begin_draw_proc)                  (easy2d_surface* pSurface);
 typedef void        (* easy2d_end_draw_proc)                    (easy2d_surface* pSurface);
 typedef void        (* easy2d_clear_proc)                       (easy2d_surface* pSurface, easy2d_color color);
@@ -122,14 +127,12 @@ typedef void        (* easy2d_draw_rect_with_outline_proc)      (easy2d_surface*
 typedef void        (* easy2d_draw_round_rect_proc)             (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width);
 typedef void        (* easy2d_draw_round_rect_outline_proc)     (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth);
 typedef void        (* easy2d_draw_round_rect_with_outline_proc)(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth, easy2d_color outlineColor);
-typedef void        (* easy2d_draw_text_proc)                   (easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor);
+typedef void        (* easy2d_draw_text_proc)                   (easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
 typedef void        (* easy2d_set_clip_proc)                    (easy2d_surface* pSurface, float left, float top, float right, float bottom);
 typedef void        (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
-typedef easy2d_font (* easy2d_create_font_proc)                 (easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
-typedef void        (* easy2d_delete_font_proc)                 (easy2d_context* pContext, easy2d_font font);
-typedef bool        (* easy2d_get_font_metrics_proc)            (easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
-typedef bool        (* easy2d_get_glyph_metrics_proc)           (easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pMetricsOut);
-typedef bool        (* easy2d_measure_string_proc)              (easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef bool        (* easy2d_get_font_metrics_proc)            (easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
+typedef bool        (* easy2d_get_glyph_metrics_proc)           (easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut);
+typedef bool        (* easy2d_measure_string_proc)              (easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 
 
@@ -139,6 +142,8 @@ struct easy2d_drawing_callbacks
     easy2d_on_delete_context_proc on_delete_context;
     easy2d_on_create_surface_proc on_create_surface;
     easy2d_on_delete_surface_proc on_delete_surface;
+    easy2d_on_create_font_proc    on_create_font;
+    easy2d_on_delete_font_proc    on_delete_font;
 
     easy2d_begin_draw_proc                   begin_draw;
     easy2d_end_draw_proc                     end_draw;
@@ -153,11 +158,33 @@ struct easy2d_drawing_callbacks
     easy2d_set_clip_proc                     set_clip;
     easy2d_get_clip_proc                     get_clip;
 
-    easy2d_create_font_proc                  create_font;
-    easy2d_delete_font_proc                  delete_font;
     easy2d_get_font_metrics_proc             get_font_metrics;
     easy2d_get_glyph_metrics_proc            get_glyph_metrics;
     easy2d_measure_string_proc               measure_string;
+};
+
+struct easy2d_font
+{
+    /// A pointer to the context that owns the surface.
+    easy2d_context* pContext;
+
+    /// The font family.
+    char family[EASY2D_MAX_FONT_FAMILY_LENGTH];
+
+    /// The size of the font.
+    unsigned int size;
+
+    /// The font's weight.
+    easy2d_font_weight weight;
+
+    /// The font's slant.
+    easy2d_font_slant slant;
+
+    /// The font's rotation, in degrees.
+    float rotation;
+
+    /// The extra bytes. The size of this buffer is equal to pContext->fontExtraBytes.
+    easy2d_byte pExtraData[1];
 };
 
 struct easy2d_surface
@@ -180,6 +207,9 @@ struct easy2d_context
     /// The drawing callbacks.
     easy2d_drawing_callbacks drawingCallbacks;
 
+    /// The number of extra bytes to allocate for each font.
+    size_t fontExtraBytes;
+
     /// The number of extra bytes to allocate for each surface.
     size_t surfaceExtraBytes;
 
@@ -193,7 +223,7 @@ struct easy2d_context
 
 
 /// Creats a context.
-easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes);
+easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes);
 
 /// Deletes the given context.
 void easy2d_delete_context(easy2d_context* pContext);
@@ -249,7 +279,7 @@ void easy2d_draw_round_rect_outline(easy2d_surface* pSurface, float left, float 
 void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
 
 /// Draws a run of text.
-void easy2d_draw_text(easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor);
+void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
 
 /// Sets the clipping rectangle.
 void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom);
@@ -257,20 +287,25 @@ void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float righ
 /// Retrieves the clipping rectangle.
 void easy2d_get_clip(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
+
 /// Creates a font that can be passed to easy2d_draw_text().
-easy2d_font easy2d_create_font(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
+easy2d_font* easy2d_create_font(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
 
 /// Deletes a font that was previously created with easy2d_create_font()
-void easy2d_delete_font(easy2d_context* pContext, easy2d_font font);
+void easy2d_delete_font(easy2d_font* pFont);
+
+/// Retrieves a pointer to the given font's extra data buffer.
+void* easy2d_get_font_extra_data(easy2d_font* pFont);
 
 /// Retrieves the metrics of the given font.
-bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
+bool easy2d_get_font_metrics(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
 
 /// Retrieves the metrics of the glyph for the given character when rendered with the given font.
-bool easy2d_get_glyph_metrics(easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pGlyphMetrics);
+bool easy2d_get_glyph_metrics(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut);
 
 /// Retrieves the dimensions of the given string when drawn with the given font.
-bool easy2d_measure_string(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+bool easy2d_measure_string(easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+
 
 
 
@@ -318,6 +353,9 @@ HDC easy2d_get_HDC(easy2d_surface* pSurface);
 /// @remarks
 ///     This assumes the given surface was created from a context that was created from easy2d_create_context_gdi().
 HBITMAP easy2d_get_HBITMAP(easy2d_surface* pSurface);
+
+/// Retrieves the internal HFONT object from the given easy2d_font object.
+HFONT easy2d_get_HFONT(easy2d_font* pFont);
 
 #endif  // GDI
 

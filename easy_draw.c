@@ -5,12 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes)
+easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes)
 {
     easy2d_context* pContext = (easy2d_context*)malloc(sizeof(easy2d_context) - sizeof(pContext->pExtraData) + contextExtraBytes);
     if (pContext != NULL)
     {
         pContext->drawingCallbacks  = drawingCallbacks;
+        pContext->fontExtraBytes    = fontExtraBytes;
         pContext->surfaceExtraBytes = surfaceExtraBytes;
         pContext->contextExtraBytes = contextExtraBytes;
         memset(pContext->pExtraData, 0, contextExtraBytes);
@@ -218,7 +219,7 @@ void easy2d_draw_round_rect_outline(easy2d_surface * pSurface, float left, float
     }
 }
 
-void easy2d_draw_round_rect_with_outline(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor)
+void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor)
 {
     if (pSurface != NULL)
     {
@@ -230,14 +231,14 @@ void easy2d_draw_round_rect_with_outline(easy2d_surface * pSurface, float left, 
     }
 }
 
-void easy2d_draw_text(easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor)
+void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor)
 {
     if (pSurface != NULL)
     {
         assert(pSurface->pContext != NULL);
 
         if (pSurface->pContext->drawingCallbacks.draw_text != NULL) {
-            pSurface->pContext->drawingCallbacks.draw_text(pSurface, text, textSizeInBytes, posX, posY, font, color, backgroundColor);
+            pSurface->pContext->drawingCallbacks.draw_text(pSurface, pFont, text, textSizeInBytes, posX, posY, color, backgroundColor);
         }
     }
 }
@@ -266,59 +267,102 @@ void easy2d_get_clip(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, 
     }
 }
 
-easy2d_font easy2d_create_font(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation)
+easy2d_font* easy2d_create_font(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation)
 {
-    if (pContext != NULL)
-    {
-        if (pContext->drawingCallbacks.create_font != NULL) {
-            return pContext->drawingCallbacks.create_font(pContext, family, size, weight, slant, rotation);
+    if (pContext == NULL) {
+        return NULL;
+    }
+
+    easy2d_font* pFont = malloc(sizeof(easy2d_font) - sizeof(pFont->pExtraData) + pContext->fontExtraBytes);
+    if (pFont == NULL) {
+        return NULL;
+    }
+
+    pFont->pContext  = pContext;
+    pFont->family[0] = '\0';
+    pFont->size      = size;
+    pFont->weight    = weight;
+    pFont->slant     = slant;
+    pFont->rotation  = rotation;
+
+    if (family != NULL) {
+        strcpy_s(pFont->family, sizeof(pFont->family), family);
+    }
+
+    if (pContext->drawingCallbacks.on_create_font != NULL) {
+        if (!pContext->drawingCallbacks.on_create_font(pFont)) {
+            free(pFont);
+            return NULL;
         }
     }
 
-    return NULL;
+    return pFont;
 }
 
-void easy2d_delete_font(easy2d_context* pContext, easy2d_font font)
+void easy2d_delete_font(easy2d_font* pFont)
 {
-    if (pContext != NULL)
-    {
-        if (pContext->drawingCallbacks.delete_font != NULL) {
-            pContext->drawingCallbacks.delete_font(pContext, font);
-        }
+    if (pFont == NULL) {
+        return;
     }
+
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->drawingCallbacks.on_delete_font != NULL) {
+        pFont->pContext->drawingCallbacks.on_delete_font(pFont);
+    }
+
+    free(pFont);
 }
 
-bool easy2d_get_font_metrics(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut)
+void* easy2d_get_font_extra_data(easy2d_font* pFont)
 {
-    if (pContext != NULL)
-    {
-        if (pContext->drawingCallbacks.get_font_metrics != NULL) {
-            return pContext->drawingCallbacks.get_font_metrics(pContext, font, pMetricsOut);
-        }
+    if (pFont == NULL) {
+        return NULL;
+    }
+
+    return pFont->pExtraData;
+}
+
+bool easy2d_get_font_metrics(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut)
+{
+    if (pFont == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->drawingCallbacks.get_font_metrics != NULL) {
+        return pFont->pContext->drawingCallbacks.get_font_metrics(pFont, pMetricsOut);
     }
 
     return false;
 }
 
-bool easy2d_get_glyph_metrics(easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pGlyphMetrics)
+bool easy2d_get_glyph_metrics(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut)
 {
-    if (pContext != NULL)
-    {
-        if (pContext->drawingCallbacks.get_glyph_metrics != NULL) {
-            return pContext->drawingCallbacks.get_glyph_metrics(pContext, utf32, font, pGlyphMetrics);
-        }
+    if (pFont == NULL || pMetricsOut == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->drawingCallbacks.get_glyph_metrics != NULL) {
+        return pFont->pContext->drawingCallbacks.get_glyph_metrics(pFont, utf32, pMetricsOut);
     }
 
     return false;
 }
 
-bool easy2d_measure_string(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+bool easy2d_measure_string(easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
-    if (pContext != NULL)
-    {
-        if (pContext->drawingCallbacks.measure_string != NULL) {
-            return pContext->drawingCallbacks.measure_string(pContext, font, text, textSizeInBytes, pWidthOut, pHeightOut);
-        }
+    if (pFont == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->drawingCallbacks.measure_string != NULL) {
+        return pFont->pContext->drawingCallbacks.measure_string(pFont, text, textSizeInBytes, pWidthOut, pHeightOut);
     }
 
     return false;
@@ -377,7 +421,7 @@ typedef struct
     /// The size of wcharBuffer (including the null terminator).
     unsigned int wcharBufferLength;
 
-}gdi_context_data;
+} gdi_context_data;
 
 typedef struct
 {
@@ -417,13 +461,22 @@ typedef struct
     /// The previous text background color.
     COLORREF prevBkColor;
 
+} gdi_surface_data;
 
-}gdi_surface_data;
+typedef struct
+{
+    /// A handle to the Win32 font.
+    HFONT hFont;
+
+} gdi_font_data;
 
 bool easy2d_on_create_context_gdi(easy2d_context* pContext);
 void easy2d_on_delete_context_gdi(easy2d_context* pContext);
 bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float height);
 void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface);
+bool easy2d_on_create_font_gdi(easy2d_font* pFont);
+void easy2d_on_delete_font_gdi(easy2d_font* pFont);
+
 void easy2d_begin_draw_gdi(easy2d_surface* pSurface);
 void easy2d_end_draw_gdi(easy2d_surface* pSurface);
 void easy2d_clear_gdi(easy2d_surface* pSurface, easy2d_color color);
@@ -433,14 +486,13 @@ void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, flo
 void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius);
 void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth);
 void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
-void easy2d_draw_text_gdi(easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor);
+void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom);
 void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
-easy2d_font easy2d_create_font_gdi(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
-void easy2d_delete_font_gdi(easy2d_context* pContext, easy2d_font font);
-bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut);
-bool easy2d_get_glyph_metrics_gdi(easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pGlyphMetrics);
-bool easy2d_measure_string_gdi(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+
+bool easy2d_get_font_metrics_gdi(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
+bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pGlyphMetrics);
+bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 /// Converts a char* to a wchar_t* string.
 wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigned int textSizeInBytes, unsigned int* characterCountOut);
@@ -452,6 +504,9 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.on_delete_context            = easy2d_on_delete_context_gdi;
     callbacks.on_create_surface            = easy2d_on_create_surface_gdi;
     callbacks.on_delete_surface            = easy2d_on_delete_surface_gdi;
+    callbacks.on_create_font               = easy2d_on_create_font_gdi;
+    callbacks.on_delete_font               = easy2d_on_delete_font_gdi;
+
     callbacks.begin_draw                   = easy2d_begin_draw_gdi;
     callbacks.end_draw                     = easy2d_end_draw_gdi;
     callbacks.clear                        = easy2d_clear_gdi;
@@ -464,13 +519,12 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.draw_text                    = easy2d_draw_text_gdi;
     callbacks.set_clip                     = easy2d_set_clip_gdi;
     callbacks.get_clip                     = easy2d_get_clip_gdi;
-    callbacks.create_font                  = easy2d_create_font_gdi;
-    callbacks.delete_font                  = easy2d_delete_font_gdi;
+
     callbacks.get_font_metrics             = easy2d_get_font_metrics_gdi;
     callbacks.get_glyph_metrics            = easy2d_get_glyph_metrics_gdi;
     callbacks.measure_string               = easy2d_measure_string_gdi;
 
-    return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data));
+    return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data), sizeof(gdi_font_data));
 }
 
 easy2d_surface* easy2d_create_surface_gdi_HWND(easy2d_context* pContext, HWND hWnd)
@@ -508,6 +562,16 @@ HBITMAP easy2d_get_HBITMAP(easy2d_surface* pSurface)
     }
 
     return NULL;
+}
+
+HFONT easy2d_get_HFONT(easy2d_font* pFont)
+{
+    gdi_font_data* pGDIData = easy2d_get_font_extra_data(pFont);
+    if (pGDIData == NULL) {
+        return NULL;
+    }
+
+    return pGDIData->hFont;
 }
 
 
@@ -614,6 +678,73 @@ void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface)
         DeleteObject(pGDIData->hBitmap);
         pGDIData->hBitmap = NULL;
     }
+}
+
+bool easy2d_on_create_font_gdi(easy2d_font* pFont)
+{
+    assert(pFont != NULL);
+
+    gdi_font_data* pGDIData = easy2d_get_font_extra_data(pFont);
+    if (pGDIData == NULL) {
+        return false;
+    }
+
+
+    LONG weightGDI = FW_REGULAR;
+    switch (pFont->weight)
+    {
+    case easy2d_weight_medium:      weightGDI = FW_MEDIUM;     break;
+    case easy2d_weight_thin:        weightGDI = FW_THIN;       break;
+    case easy2d_weight_extra_light: weightGDI = FW_EXTRALIGHT; break;
+    case easy2d_weight_light:       weightGDI = FW_LIGHT;      break;
+    case easy2d_weight_semi_bold:   weightGDI = FW_SEMIBOLD;   break;
+    case easy2d_weight_bold:        weightGDI = FW_BOLD;       break;
+    case easy2d_weight_extra_bold:  weightGDI = FW_EXTRABOLD;  break;
+    case easy2d_weight_heavy:       weightGDI = FW_HEAVY;      break;
+    default: break;
+    }
+
+	BYTE slantGDI = FALSE;
+    if (pFont->slant == easy2d_slant_italic || pFont->slant == easy2d_slant_oblique) {
+        slantGDI = TRUE;
+    }
+
+
+	LOGFONTA logfont;
+	memset(&logfont, 0, sizeof(logfont));
+
+
+    
+    logfont.lfHeight      = -(LONG)pFont->size;
+	logfont.lfWeight      = weightGDI;
+	logfont.lfItalic      = slantGDI;
+	logfont.lfCharSet     = DEFAULT_CHARSET;
+	logfont.lfQuality     = (pFont->size > 36) ? ANTIALIASED_QUALITY : CLEARTYPE_QUALITY;
+    logfont.lfEscapement  = (LONG)pFont->rotation * 10;
+    logfont.lfOrientation = (LONG)pFont->rotation * 10;
+    
+    size_t familyLength = strlen(pFont->family);
+	memcpy(logfont.lfFaceName, pFont->family, (familyLength < 31) ? familyLength : 31);
+
+
+	pGDIData->hFont = CreateFontIndirectA(&logfont);
+    if (pGDIData->hFont == NULL) {
+        return false;
+    }
+
+    return true;
+}
+
+void easy2d_on_delete_font_gdi(easy2d_font* pFont)
+{
+    assert(pFont != NULL);
+
+    gdi_font_data* pGDIData = easy2d_get_font_extra_data(pFont);
+    if (pGDIData == NULL) {
+        return;
+    }
+
+    DeleteObject(pGDIData->hFont);
 }
 
 
@@ -797,50 +928,52 @@ void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float lef
     }
 }
 
-void easy2d_draw_text_gdi(easy2d_surface* pSurface, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_font font, easy2d_color color, easy2d_color backgroundColor)
+void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor)
 {
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
-    if (pGDIData != NULL)
+    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    if (pGDIFontData == NULL) {
+        return;
+    }
+
+
+    HDC hDC = easy2d_get_HDC(pSurface);
+
+    HFONT hFontGDI = pGDIFontData->hFont;
+    if (hFontGDI != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface);
+        // We actually want to use the W version of TextOut because otherwise unicode doesn't work properly.
 
-        HFONT hFontGDI = (HFONT)font;
-        if (hFontGDI != NULL)
+        unsigned int textWLength;
+        wchar_t* textW = easy2d_to_wchar_gdi(pSurface->pContext, text, textSizeInBytes, &textWLength);
+        if (textW != NULL)
         {
-            // We actually want to use the W version of TextOut because otherwise unicode doesn't work properly.
+            SelectObject(hDC, hFontGDI);
 
-            unsigned int textWLength;
-            wchar_t* textW = easy2d_to_wchar_gdi(pSurface->pContext, text, textSizeInBytes, &textWLength);
-            if (textW != NULL)
-            {
-                SelectObject(hDC, hFontGDI);
+            UINT options = 0;
+            RECT rect = {0, 0, 0, 0};
 
-                UINT options = 0;
-                RECT rect = {0, 0, 0, 0};
+            if (backgroundColor.a == 0) {
+                SetBkMode(hDC, TRANSPARENT);
+            } else {
+                SetBkMode(hDC, OPAQUE);
+                SetBkColor(hDC, RGB(backgroundColor.r, backgroundColor.g, backgroundColor.b));
 
-                if (backgroundColor.a == 0) {
-                    SetBkMode(hDC, TRANSPARENT);
-                } else {
-                    SetBkMode(hDC, OPAQUE);
-                    SetBkColor(hDC, RGB(backgroundColor.r, backgroundColor.g, backgroundColor.b));
+                // There is an issue with the way GDI draws the background of a string of text. When ClearType is enabled, the rectangle appears
+                // to be wider than it is supposed to be. As a result, drawing text right next to each other results in the most recent one being
+                // drawn slightly on top of the previous one. To fix this we need to use ExtTextOut() with the ETO_CLIPPED parameter enabled.
+                options |= ETO_CLIPPED;
 
-                    // There is an issue with the way GDI draws the background of a string of text. When ClearType is enabled, the rectangle appears
-                    // to be wider than it is supposed to be. As a result, drawing text right next to each other results in the most recent one being
-                    // drawn slightly on top of the previous one. To fix this we need to use ExtTextOut() with the ETO_CLIPPED parameter enabled.
-                    options |= ETO_CLIPPED;
-
-                    SIZE textSize = {0, 0};
-                    GetTextExtentPoint32W(hDC, textW, textWLength, &textSize);
-                    rect.left   = (LONG)posX;
-                    rect.top    = (LONG)posY;
-                    rect.right  = rect.left + textSize.cx;
-                    rect.bottom = rect.top + textSize.cy;
-                }
-                
-                SetTextColor(hDC, RGB(color.r, color.g, color.b));
-
-                ExtTextOutW(hDC, (int)posX, (int)posY, options, &rect, textW, textWLength, NULL);
+                SIZE textSize = {0, 0};
+                GetTextExtentPoint32W(hDC, textW, textWLength, &textSize);
+                rect.left   = (LONG)posX;
+                rect.top    = (LONG)posY;
+                rect.right  = rect.left + textSize.cx;
+                rect.bottom = rect.top + textSize.cy;
             }
+                
+            SetTextColor(hDC, RGB(color.r, color.g, color.b));
+
+            ExtTextOutW(hDC, (int)posX, (int)posY, options, &rect, textW, textWLength, NULL);
         }
     }
 }
@@ -884,75 +1017,29 @@ void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopO
     }
 }
 
-easy2d_font easy2d_create_font_gdi(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation)
+
+
+bool easy2d_get_font_metrics_gdi(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut)
 {
-    (void)pContext;
-
-    LONG weightGDI = FW_REGULAR;
-    switch (weight)
-    {
-    case easy2d_weight_medium:      weightGDI = FW_MEDIUM;     break;
-    case easy2d_weight_thin:        weightGDI = FW_THIN;       break;
-    case easy2d_weight_extra_light: weightGDI = FW_EXTRALIGHT; break;
-    case easy2d_weight_light:       weightGDI = FW_LIGHT;      break;
-    case easy2d_weight_semi_bold:   weightGDI = FW_SEMIBOLD;   break;
-    case easy2d_weight_bold:        weightGDI = FW_BOLD;       break;
-    case easy2d_weight_extra_bold:  weightGDI = FW_EXTRABOLD;  break;
-    case easy2d_weight_heavy:       weightGDI = FW_HEAVY;      break;
-    default: break;
-    }
-
-	BYTE slantGDI = FALSE;
-    if (slant == easy2d_slant_italic || slant == easy2d_slant_oblique) {
-        slantGDI = TRUE;
-    }
-
-
-	LOGFONTA logfont;
-	memset(&logfont, 0, sizeof(logfont));
-
-
-    
-    logfont.lfHeight      = -(LONG)size;
-	logfont.lfWeight      = weightGDI;
-	logfont.lfItalic      = slantGDI;
-	logfont.lfCharSet     = DEFAULT_CHARSET;
-	logfont.lfQuality     = (size > 36) ? ANTIALIASED_QUALITY : CLEARTYPE_QUALITY;
-    logfont.lfEscapement  = (LONG)rotation * 10;
-    logfont.lfOrientation = (LONG)rotation * 10;
-    
-    size_t familyLength = strlen(family);
-	memcpy(logfont.lfFaceName, family, (familyLength < 31) ? familyLength : 31);
-
-
-	return (easy2d_font)CreateFontIndirectA(&logfont);
-}
-
-void easy2d_delete_font_gdi(easy2d_context* pContext, easy2d_font font)
-{
-    (void)pContext;
-
-    DeleteObject((HFONT)font);
-}
-
-bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, easy2d_font_metrics* pMetricsOut)
-{
+    assert(pFont != NULL);
     assert(pMetricsOut != NULL);
 
-    bool result = false;
-
-    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
-    if (pGDIData == NULL) {
-        return result;
+    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    if (pGDIFontData == NULL) {
+        return false;
     }
 
-    HDC hDC = pGDIData->hDC;
+    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    if (pGDIContextData == NULL) {
+        return false;
+    }
 
-    
-    HGDIOBJ hPrevFont = SelectObject(hDC, (HFONT)font);
+
+    bool result = false;
+    HGDIOBJ hPrevFont = SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
     {
         TEXTMETRIC metrics;
-        GetTextMetrics(hDC, &metrics);
+        GetTextMetrics(pGDIContextData->hDC, &metrics);
 
         pMetricsOut->ascent     = metrics.tmAscent;
         pMetricsOut->descent    = metrics.tmDescent;
@@ -962,35 +1049,41 @@ bool easy2d_get_font_metrics_gdi(easy2d_context* pContext, easy2d_font font, eas
         const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
 
         GLYPHMETRICS spaceMetrics;
-        DWORD bitmapBufferSize = GetGlyphOutlineW(hDC, ' ', GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
+        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, ' ', GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
         if (bitmapBufferSize != GDI_ERROR)
         {
 			pMetricsOut->spaceWidth = spaceMetrics.gmBlackBoxX;
             result = true;
         }
     }
-    SelectObject(hDC, hPrevFont);
+    SelectObject(pGDIContextData->hDC, hPrevFont);
     
     return result;
 }
 
-bool easy2d_get_glyph_metrics_gdi(easy2d_context* pContext, unsigned int utf32, easy2d_font font, easy2d_glyph_metrics* pGlyphMetrics)
+bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pGlyphMetrics)
 {
+    assert(pFont != NULL);
     assert(pGlyphMetrics != NULL);
 
-    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
-    if (pGDIData == NULL) {
+    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    if (pGDIFontData == NULL) {
+        return false;
+    }
+
+    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    if (pGDIContextData == NULL) {
         return false;
     }
 
 
     bool result = false;
-    HGDIOBJ hPrevFont = SelectObject(pGDIData->hDC, (HFONT)font);
+    HGDIOBJ hPrevFont = SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
     {
         const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
 
         GLYPHMETRICS spaceMetrics;
-        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIData->hDC, utf32, GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
+        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, utf32, GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
         if (bitmapBufferSize != GDI_ERROR)
         {
             pGlyphMetrics->width  = spaceMetrics.gmBlackBoxX;
@@ -999,26 +1092,31 @@ bool easy2d_get_glyph_metrics_gdi(easy2d_context* pContext, unsigned int utf32, 
             result = true;
         }
     }
-    SelectObject(pGDIData->hDC, hPrevFont);
+    SelectObject(pGDIContextData->hDC, hPrevFont);
     
     return result;
 }
 
-bool easy2d_measure_string_gdi(easy2d_context* pContext, easy2d_font font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
-    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
-    if (pGDIData == NULL) {
+    assert(pFont != NULL);
+
+    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    if (pGDIFontData == NULL) {
         return false;
     }
 
-    HDC hDC = pGDIData->hDC;
+    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    if (pGDIContextData == NULL) {
+        return false;
+    }
 
 
     BOOL result = FALSE;
-    HGDIOBJ hPrevFont = SelectObject(hDC, (HFONT)font);
+    HGDIOBJ hPrevFont = SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
     {
         SIZE sizeWin32;
-        result = GetTextExtentPoint32A(hDC, text, textSizeInBytes, &sizeWin32);
+        result = GetTextExtentPoint32A(pGDIContextData->hDC, text, textSizeInBytes, &sizeWin32);
 
         if (result)
         {
@@ -1030,7 +1128,7 @@ bool easy2d_measure_string_gdi(easy2d_context* pContext, easy2d_font font, const
             }
         }
     }
-    SelectObject(hDC, hPrevFont);
+    SelectObject(pGDIContextData->hDC, hPrevFont);
 
 
     return result;
