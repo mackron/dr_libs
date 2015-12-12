@@ -151,7 +151,7 @@ PRIVATE void sb_on_paint_default(easygui_element* pScrollbar, easygui_rect relat
 
 
 
-easygui_element* easygui_create_scrollbar(easygui_context* pContext, easygui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData)
+easygui_element* eg_create_scrollbar(easygui_context* pContext, easygui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData)
 {
     if (pContext == NULL || orientation == sb_orientation_none) {
         return NULL;
@@ -205,7 +205,7 @@ easygui_element* easygui_create_scrollbar(easygui_context* pContext, easygui_ele
     return pScrollbar;
 }
 
-void easygui_delete_scrollbar(easygui_element* pScrollbar)
+void eg_delete_scrollbar(easygui_element* pScrollbar)
 {
     if (pScrollbar == NULL) {
         return;
