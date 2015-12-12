@@ -1498,6 +1498,15 @@ void easygui_release_mouse(easygui_context* pContext)
     easygui_update_mouse_enter_and_leave_state(pContext, easygui_find_element_under_point(pContext->pLastMouseMoveTopLevelElement, pContext->lastMouseMovePosX, pContext->lastMouseMovePosY));
 }
 
+easygui_element* easygui_get_element_with_mouse_capture(easygui_context* pContext)
+{
+    if (pContext == NULL) {
+        return NULL;
+    }
+
+    return pContext->pElementWithMouseCapture;
+}
+
 
 void easygui_capture_keyboard(easygui_element* pElement)
 {
@@ -1540,6 +1549,15 @@ void easygui_release_keyboard(easygui_context* pContext)
 
 
     pContext->pElementWithKeyboardCapture = NULL;
+}
+
+easygui_element* easygui_get_element_with_keyboard_capture(easygui_context* pContext)
+{
+    if (pContext == NULL) {
+        return NULL;
+    }
+
+    return pContext->pElementWithKeyboardCapture;
 }
 
 
@@ -2766,6 +2784,15 @@ bool easygui_rect_contains_point(easygui_rect rect, float posX, float posY)
     }
 
     return true;
+}
+
+bool easygui_rect_equal(easygui_rect rect0, easygui_rect rect1)
+{
+    return
+        rect0.left   == rect1.left  &&
+        rect0.top    == rect1.top   &&
+        rect0.right  == rect1.right &&
+        rect0.bottom == rect1.bottom;
 }
 
 

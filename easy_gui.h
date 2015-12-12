@@ -157,6 +157,13 @@
 
 #include <stdbool.h>
 
+
+// Annotations.
+#ifndef PRIVATE
+#define PRIVATE
+#endif
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -685,6 +692,9 @@ void easygui_capture_mouse(easygui_element* pElement);
 /// Releases the mouse capture.
 void easygui_release_mouse(easygui_context* pContext);
 
+/// Retrieves a pointer to the element with the mouse capture.
+easygui_element* easygui_get_element_with_mouse_capture(easygui_context* pContext);
+
 
 /// Sets the element that should receive all future keyboard related events.
 ///
@@ -695,6 +705,8 @@ void easygui_capture_keyboard(easygui_element* pElement);
 /// Releases the keyboard capture.
 void easygui_release_keyboard(easygui_context* pContext);
 
+/// Retrieves a pointer to the element with the keyboard capture.
+easygui_element* easygui_get_element_with_keyboard_capture(easygui_context* pContext);
 
 
 //// Events ////
@@ -1055,6 +1067,9 @@ easygui_rect easygui_rect_union(easygui_rect rect0, easygui_rect rect1);
 ///     each other, and if we use this function to determine if a point is contained within an element (which we do), we would end up having
 ///     this return true for both elements, which we don't want.
 bool easygui_rect_contains_point(easygui_rect rect, float posX, float posY);
+
+/// Determines whether or not two rectangles are equal.
+bool easygui_rect_equal(easygui_rect rect0, easygui_rect rect1);
 
 
 
