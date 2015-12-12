@@ -53,7 +53,7 @@
 //   - on_release_keyboard: Called when an element loses the keyboard focus. The opposite of on_capture_keyboard.
 //
 // Layout
-// - An element's data structure does not store it's relative position but insteadstores it's absolute position. The rationale
+// - An element's data structure does not store it's relative position but instead stores it's absolute position. The rationale
 //   for this is that storing it as relative complicates absolute positioning calculations because it would need to do a recursive
 //   traversal of the element's ancestors.
 //
