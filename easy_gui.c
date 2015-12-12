@@ -2446,7 +2446,7 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
     pElement->pContext->paintingCallbacks.drawRoundRectWithOutline(absoluteRect, color, radius, outlineWidth, outlineColor, pPaintData);
 }
 
-void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const char* text, int textSizeInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void * pPaintData)
+void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const char* text, int textLengthInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void * pPaintData)
 {
     if (pElement == NULL || pFont == NULL) {
         return;
@@ -2458,7 +2458,7 @@ void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const cha
     float absolutePosY = posY;
     easygui_make_point_absolute(pElement, &absolutePosX, &absolutePosY);
 
-    pElement->pContext->paintingCallbacks.drawText(pFont->hResource, text, textSizeInBytes, absolutePosX, absolutePosY, color, backgroundColor, pPaintData);
+    pElement->pContext->paintingCallbacks.drawText(pFont->hResource, text, textLengthInBytes, absolutePosX, absolutePosY, color, backgroundColor, pPaintData);
 }
 
 

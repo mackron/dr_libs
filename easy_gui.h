@@ -950,7 +950,7 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
 ///     calls to this function.
 ///     @par
 ///     \c textSizeInBytes can be -1 in which case the text string is treated as null terminated.
-void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const char* text, int textSizeInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
+void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const char* text, int textLengthInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
 
 
 /// Creates a font resource.
