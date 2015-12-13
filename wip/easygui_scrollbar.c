@@ -380,7 +380,12 @@ bool sb_is_thumb_visible(easygui_element* pScrollbar)
         return false;
     }
 
-    return pSB->autoHideThumb && pSB->pageSize < (pSB->rangeMax - pSB->rangeMin + 1);
+    // Always visible if auto-hiding is disabled.
+    if (!pSB->autoHideThumb) {
+        return true;
+    }
+
+    return pSB->pageSize < (pSB->rangeMax - pSB->rangeMin + 1) && pSB->pageSize > 0;
 }
 
 
@@ -656,26 +661,17 @@ void sb_on_paint(easygui_element* pScrollbar, easygui_rect relativeClippingRect,
 
     easygui_rect thumbRect = sb_get_thumb_rect(pScrollbar);
 
-
-    // Track. We draw this in 4 seperate pieces so we can avoid overdraw with the thumb.
-    
-    // Top.
-    easygui_draw_rect(pScrollbar, easygui_make_rect(0, 0, easygui_get_width(pScrollbar), thumbRect.top), pSB->trackColor, pPaintData);
-
-    // Bottom.
-    easygui_draw_rect(pScrollbar, easygui_make_rect(0, thumbRect.bottom, easygui_get_width(pScrollbar), easygui_get_height(pScrollbar)), pSB->trackColor, pPaintData);
-
-    // Left.
-    easygui_draw_rect(pScrollbar, easygui_make_rect(0, thumbRect.top, thumbRect.left, thumbRect.bottom), pSB->trackColor, pPaintData);
-
-    // Right.
-    easygui_draw_rect(pScrollbar, easygui_make_rect(thumbRect.right, thumbRect.top, easygui_get_width(pScrollbar), thumbRect.bottom), pSB->trackColor, pPaintData);
-    
-
-
-    // Thumb.
     if (sb_is_thumb_visible(pScrollbar))
     {
+        // The thumb is visible.
+
+        // Track. We draw this in 4 seperate pieces so we can avoid overdraw with the thumb.
+        easygui_draw_rect(pScrollbar, easygui_make_rect(0, 0, easygui_get_width(pScrollbar), thumbRect.top), pSB->trackColor, pPaintData);  // Top
+        easygui_draw_rect(pScrollbar, easygui_make_rect(0, thumbRect.bottom, easygui_get_width(pScrollbar), easygui_get_height(pScrollbar)), pSB->trackColor, pPaintData);  // Bottom
+        easygui_draw_rect(pScrollbar, easygui_make_rect(0, thumbRect.top, thumbRect.left, thumbRect.bottom), pSB->trackColor, pPaintData);  // Left
+        easygui_draw_rect(pScrollbar, easygui_make_rect(thumbRect.right, thumbRect.top, easygui_get_width(pScrollbar), thumbRect.bottom), pSB->trackColor, pPaintData); // Right
+
+        // Thumb.
         easygui_color thumbColor;
         if (pSB->thumbPressed) {
             thumbColor = pSB->thumbColorPressed;
@@ -686,6 +682,11 @@ void sb_on_paint(easygui_element* pScrollbar, easygui_rect relativeClippingRect,
         }
 
         easygui_draw_rect(pScrollbar, thumbRect, thumbColor, pPaintData);
+    }
+    else
+    {
+        // The thumb is not visible - just draw the track as one quad.
+        easygui_draw_rect(pScrollbar, easygui_get_local_rect(pScrollbar), pSB->trackColor, pPaintData);
     }
 }
 
