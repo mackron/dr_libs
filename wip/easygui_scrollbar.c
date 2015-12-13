@@ -115,43 +115,6 @@ PRIVATE int sb_maxi(int x, int y)
 }
 
 
-PRIVATE void sb_on_size_default(easygui_element* pScrollbar, float newWidth, float newHeight)
-{
-    sb_on_size(pScrollbar, newWidth, newHeight);
-}
-
-PRIVATE void sb_on_mouse_leave_default(easygui_element* pScrollbar)
-{
-    sb_on_mouse_leave(pScrollbar);
-}
-
-PRIVATE void sb_on_mouse_move_default(easygui_element* pScrollbar, int relativeMousePosX, int relativeMousePosY)
-{
-    sb_on_mouse_move(pScrollbar, relativeMousePosX, relativeMousePosY);
-}
-
-PRIVATE void sb_on_mouse_button_down_default(easygui_element* pScrollbar, int button, int relativeMousePosX, int relativeMousePosY)
-{
-    sb_on_mouse_button_down(pScrollbar, button, relativeMousePosX, relativeMousePosY);
-}
-
-PRIVATE void sb_on_mouse_button_up_default(easygui_element* pScrollbar, int button, int relativeMousePosX, int relativeMousePosY)
-{
-    sb_on_mouse_button_up(pScrollbar, button, relativeMousePosX, relativeMousePosY);
-}
-
-PRIVATE void sb_on_mouse_wheel_default(easygui_element* pScrollbar, int delta, int relativeMousePosX, int relativeMousePosY)
-{
-    sb_on_mouse_wheel(pScrollbar, delta, relativeMousePosX, relativeMousePosY);
-}
-
-PRIVATE void sb_on_paint_default(easygui_element* pScrollbar, easygui_rect relativeClippingRect, void* pPaintData)
-{
-    sb_on_paint(pScrollbar, relativeClippingRect, pPaintData);
-}
-
-
-
 easygui_element* eg_create_scrollbar(easygui_context* pContext, easygui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData)
 {
     if (pContext == NULL || orientation == sb_orientation_none) {
@@ -194,13 +157,13 @@ easygui_element* eg_create_scrollbar(easygui_context* pContext, easygui_element*
 
 
     // Default event handlers.
-    easygui_register_on_size(pScrollbar, sb_on_size_default);
-    easygui_register_on_mouse_leave(pScrollbar, sb_on_mouse_leave_default);
-    easygui_register_on_mouse_move(pScrollbar, sb_on_mouse_move_default);
-    easygui_register_on_mouse_button_down(pScrollbar, sb_on_mouse_button_down_default);
-    easygui_register_on_mouse_button_up(pScrollbar, sb_on_mouse_button_up_default);
-    easygui_register_on_mouse_wheel(pScrollbar, sb_on_mouse_wheel_default);
-    easygui_register_on_paint(pScrollbar, sb_on_paint_default);
+    easygui_register_on_size(pScrollbar, sb_on_size);
+    easygui_register_on_mouse_leave(pScrollbar, sb_on_mouse_leave);
+    easygui_register_on_mouse_move(pScrollbar, sb_on_mouse_move);
+    easygui_register_on_mouse_button_down(pScrollbar, sb_on_mouse_button_down);
+    easygui_register_on_mouse_button_up(pScrollbar, sb_on_mouse_button_up);
+    easygui_register_on_mouse_wheel(pScrollbar, sb_on_mouse_wheel);
+    easygui_register_on_paint(pScrollbar, sb_on_paint);
 
 
     return pScrollbar;
