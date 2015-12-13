@@ -77,6 +77,7 @@ typedef struct
 
 } easygui_scrollbar;
 
+
 /// Refreshes the given scrollbar's thumb layout and redraws it.
 PRIVATE void sb_refresh_thumb(easygui_element* pScrollbar);
 
@@ -95,7 +96,7 @@ PRIVATE void sb_make_relative_to_thumb(easygui_element* pScrollbar, float* pPosX
 /// Calculates the scroll position based on the current position of the thumb. This is used for scrolling while dragging the thumb.
 PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(easygui_element* pScrollba, float thumbPosr);
 
-/// Simple clamp function for readability.
+/// Simple clamp function.
 PRIVATE float sb_clampf(float n, float lower, float upper)
 {
     return n <= lower ? lower : n >= upper ? upper : n;
@@ -678,7 +679,7 @@ void sb_on_mouse_wheel(easygui_element* pScrollbar, int delta, int relativeMouse
         return;
     }
 
-    sb_scroll(pScrollbar, delta * sb_get_mouse_wheel_scale(pScrollbar));
+    sb_scroll(pScrollbar, -delta * sb_get_mouse_wheel_scale(pScrollbar));
 }
 
 void sb_on_paint(easygui_element* pScrollbar, easygui_rect relativeClippingRect, void* pPaintData)
