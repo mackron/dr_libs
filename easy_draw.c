@@ -1082,18 +1082,57 @@ bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d
     {
         const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
 
-        GLYPHMETRICS metrics;
-        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, utf32, GGO_NATIVE, &metrics, 0, NULL, &transform);
-        if (bitmapBufferSize != GDI_ERROR)
-        {
-            pGlyphMetrics->width    = metrics.gmBlackBoxX;
-            pGlyphMetrics->height   = metrics.gmBlackBoxY;
-            pGlyphMetrics->originX  = metrics.gmptGlyphOrigin.x;
-            pGlyphMetrics->originY  = metrics.gmptGlyphOrigin.y;
-            pGlyphMetrics->advanceX = metrics.gmCellIncX;
-            pGlyphMetrics->advanceY = metrics.gmCellIncY;
+        unsigned short utf16[2];
+        int utf16Len = 0;
 
-            result = true;
+        if (utf32 < 0xD800 || (utf32 >= 0xE000 && utf32 <= 0xFFFF))
+        {
+            utf16[0] = (unsigned short)utf32;
+            utf16Len = 1;
+        }
+        else if (utf32 >= 0x10000 && utf32 <= 0x10FFFF)
+        {
+            utf16[0] = (unsigned short)(0xD7C0 + (unsigned short)(utf32 >> 10));
+            utf16[1] = (unsigned short)(0xDC00 + (unsigned short)(utf32 & 0x3FF));
+            utf16Len = 2;
+        }
+        else
+        {
+            result = false;
+        }
+
+
+
+        WCHAR glyphIndices[2];
+
+        GCP_RESULTSW glyphResults;
+        ZeroMemory(&glyphResults, sizeof(glyphResults));
+        glyphResults.lStructSize = sizeof(glyphResults);
+        glyphResults.lpGlyphs = glyphIndices;
+        glyphResults.nGlyphs  = 2;
+        if (GetCharacterPlacementW(pGDIContextData->hDC, utf16, utf16Len, 0, &glyphResults, 0) == 0)
+        {
+            result = false;
+        }       
+        else
+        {
+            GLYPHMETRICS metrics;
+            DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, glyphIndices[0], GGO_NATIVE | GGO_GLYPH_INDEX, &metrics, 0, NULL, &transform);
+            if (bitmapBufferSize != GDI_ERROR)
+            {
+                pGlyphMetrics->width    = metrics.gmBlackBoxX;
+                pGlyphMetrics->height   = metrics.gmBlackBoxY;
+                pGlyphMetrics->originX  = metrics.gmptGlyphOrigin.x;
+                pGlyphMetrics->originY  = metrics.gmptGlyphOrigin.y;
+                pGlyphMetrics->advanceX = metrics.gmCellIncX;
+                pGlyphMetrics->advanceY = metrics.gmCellIncY;
+
+                result = true;
+            }
+            else
+            {
+                result = false;
+            }
         }
     }
     SelectObject(pGDIContextData->hDC, hPrevFont);
@@ -1119,16 +1158,21 @@ bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, unsigned in
     BOOL result = FALSE;
     HGDIOBJ hPrevFont = SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
     {
-        SIZE sizeWin32;
-        result = GetTextExtentPoint32A(pGDIContextData->hDC, text, textSizeInBytes, &sizeWin32);
-
-        if (result)
+        unsigned int textWLength;
+        wchar_t* textW = easy2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
+        if (textW != NULL)
         {
-            if (pWidthOut != NULL) {
-                *pWidthOut = (float)sizeWin32.cx;
-            }
-            if (pHeightOut != NULL) {
-                *pHeightOut = (float)sizeWin32.cy;
+            SIZE sizeWin32;
+            result = GetTextExtentPoint32W(pGDIContextData->hDC, textW, textWLength, &sizeWin32);
+
+            if (result)
+            {
+                if (pWidthOut != NULL) {
+                    *pWidthOut = (float)sizeWin32.cx;
+                }
+                if (pHeightOut != NULL) {
+                    *pHeightOut = (float)sizeWin32.cy;
+                }
             }
         }
     }
