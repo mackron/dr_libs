@@ -54,12 +54,14 @@ struct eg_tree_view
     /// Whether or not the mouse is hovered over the arrow of pHoveredItem.
     bool isMouseOverArrow;
 
+    /// Whether or not the mouse is over the given element.
+    bool isMouseOver;
 
-    /// The offset to apply to every item on the x axis. This is used for scrolling.
-    float innerOffsetX;
+    /// The relative position of the mouse on the x axis. This is updated whenever the mouse_move event is received.
+    int relativeMousePosX;
 
-    /// The offset to apply to every item on the y axis. This is used for scrolling.
-    float innerOffsetY;
+    /// The relative position of the mouse on the y axis. This is updated whenever the mouse_move event is received.
+    int relativeMousePosY;
 
 
     /// The size of the extra data.
@@ -236,22 +238,22 @@ easygui_element* eg_create_tree_view(easygui_context* pContext, easygui_element*
     sb_set_on_scroll(pTV->pScrollbarH, tv_on_scroll_h);
 
 
-    pTV->defaultBGColor   = easygui_rgb(96, 96, 96);
-    pTV->hoveredBGColor   = easygui_rgb(112, 112, 112);
-    pTV->selectedBGColor  = easygui_rgb(80, 160, 255);
-    pTV->childOffsetX     = 16;
+    pTV->defaultBGColor    = easygui_rgb(96, 96, 96);
+    pTV->hoveredBGColor    = easygui_rgb(112, 112, 112);
+    pTV->selectedBGColor   = easygui_rgb(80, 160, 255);
+    pTV->childOffsetX      = 16;
 
-    pTV->onItemMouseMove  = NULL;
-    pTV->onItemMouseLeave = NULL;
-    pTV->onItemPaint      = NULL;
-    pTV->onItemMeasure    = NULL;
-    pTV->onItemPicked     = NULL;
+    pTV->onItemMouseMove   = NULL;
+    pTV->onItemMouseLeave  = NULL;
+    pTV->onItemPaint       = NULL;
+    pTV->onItemMeasure     = NULL;
+    pTV->onItemPicked      = NULL;
 
-    pTV->pHoveredItem     = NULL;
-    pTV->isMouseOverArrow = false;
-
-    pTV->innerOffsetX     = 0;
-    pTV->innerOffsetY     = 0;
+    pTV->pHoveredItem      = NULL;
+    pTV->isMouseOverArrow  = false;
+    pTV->isMouseOver       = false;
+    pTV->relativeMousePosX = 0;
+    pTV->relativeMousePosY = 0;
 
     pTV->extraDataSize = extraDataSize;
     if (pExtraData != NULL) {
@@ -533,6 +535,8 @@ void tv_on_mouse_leave(easygui_element* pTVElement)
         return;
     }
 
+    pTV->isMouseOver = false;
+
     if (pTV->pHoveredItem != NULL || pTV->isMouseOverArrow)
     {
         if (pTV->onItemMouseLeave) {
@@ -554,6 +558,10 @@ void tv_on_mouse_move(easygui_element* pTVElement, int relativeMousePosX, int re
         return;
     }
 
+    pTV->isMouseOver       = true;
+    pTV->relativeMousePosX = relativeMousePosX;
+    pTV->relativeMousePosY = relativeMousePosY;
+
     // If the mouse has entered into the dead space between the scrollbars, we just pretend the mouse has left the tree-view
     // control entirely by posting a manual on_mouse_leave event and returning straight away.
     if (easygui_rect_contains_point(tv_get_scrollbar_dead_space_rect(pTVElement), (float)relativeMousePosX, (float)relativeMousePosY)) {
@@ -573,7 +581,7 @@ void tv_on_mouse_move(easygui_element* pTVElement, int relativeMousePosX, int re
     {
         if (pTV->onItemMouseMove)
         {
-            float relativeMousePosXToItem = (float)relativeMousePosX - newHoveredItemMetrics.posX - pTV->innerOffsetX;
+            float relativeMousePosXToItem = (float)relativeMousePosX - newHoveredItemMetrics.posX + sb_get_scroll_position(pTV->pScrollbarH);
             float relativeMousePosYToItem = (float)relativeMousePosY - newHoveredItemMetrics.posY;
 
             if (relativeMousePosXToItem >= 0 && relativeMousePosXToItem < newHoveredItemMetrics.width &&
@@ -949,20 +957,22 @@ PRIVATE void tv_paint_item(easygui_element* pTVElement, eg_tree_view_item* pItem
             bgcolor = pTV->defaultBGColor;
         }
 
+        float innerOffsetX = (float)-sb_get_scroll_position(pTV->pScrollbarH);
+
         // Left.
-        if (posX + pTV->innerOffsetX > 0) {
-            easygui_draw_rect(pTVElement, easygui_make_rect(0, posY, posX + pTV->innerOffsetX, posY + height), bgcolor, pPaintData);
+        if (posX + innerOffsetX > 0) {
+            easygui_draw_rect(pTVElement, easygui_make_rect(0, posY, posX + innerOffsetX, posY + height), bgcolor, pPaintData);
         }
         
         // Right.
-        if (posX + width + pTV->innerOffsetX < easygui_get_relative_position_x(pTV->pScrollbarV)) {
-            easygui_draw_rect(pTVElement, easygui_make_rect(posX + width + pTV->innerOffsetX, posY, easygui_get_relative_position_x(pTV->pScrollbarV), posY + height), bgcolor, pPaintData);
+        if (posX + width + innerOffsetX < easygui_get_relative_position_x(pTV->pScrollbarV)) {
+            easygui_draw_rect(pTVElement, easygui_make_rect(posX + width + innerOffsetX, posY, easygui_get_relative_position_x(pTV->pScrollbarV), posY + height), bgcolor, pPaintData);
         }
 
 
         // At this point if were to finish drawing we'd have a hole where the main content of the item should be. To fill this we need to
         // let the host application do it.
-        pTV->onItemPaint(pTVElement, pItem, relativeClippingRect, bgcolor, posX + pTV->innerOffsetX, posY + pTV->innerOffsetY, width, height, pPaintData);
+        pTV->onItemPaint(pTVElement, pItem, relativeClippingRect, bgcolor, posX + innerOffsetX, posY, width, height, pPaintData);
     }
 }
 
@@ -1036,12 +1046,19 @@ PRIVATE void tv_on_scroll_v(easygui_element* pSBElement, int scrollPos)
         return;
     }
 
-    // All we do is redraw. Magic!
+    // As we scroll, the mouse will be placed over a different item. We just post a manual mouse_move event to trigger a refresh.
+    if (pTV->isMouseOver) {
+        tv_on_mouse_move(pSB->pTVElement, pTV->relativeMousePosX, pTV->relativeMousePosY);
+    }
+
+    // The paint routine is tied directly to the scrollbars, so all we need to do is mark it as dirty to trigger a redraw.
     easygui_dirty(pSB->pTVElement, easygui_get_local_rect(pSB->pTVElement));
 }
 
 PRIVATE void tv_on_scroll_h(easygui_element* pSBElement, int scrollPos)
 {
+    (void)scrollPos;
+
     eg_tree_view_scrollbar_data* pSB = sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
@@ -1052,9 +1069,7 @@ PRIVATE void tv_on_scroll_h(easygui_element* pSBElement, int scrollPos)
         return;
     }
 
-    // All we do is set the offset and redraw.
-    pTV->innerOffsetX = (float)-scrollPos;
-
+    // The paint routine is tied directly to the scrollbars, so all we need to do is mark it as dirty to trigger a redraw.
     easygui_dirty(pSB->pTVElement, easygui_get_local_rect(pSB->pTVElement));
 }
 
