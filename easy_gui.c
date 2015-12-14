@@ -2308,17 +2308,11 @@ bool easygui_draw_iteration_callback(easygui_element* pElement, easygui_rect* pR
         // We want to set the initial clipping rectangle before drawing.
         easygui_set_clip(pElement, *pRelativeRect, pUserData);
 
-
         // We now call the painting function, but only after setting the clipping rectangle.
         pElement->onPaint(pElement, *pRelativeRect, pUserData);
 
-
-        // The on_paint event handler may have adjusted the clipping rectangle, so we need to retrieve that here and use that as the new boundary for
-        // future iterations.
-        easygui_rect newRelativeRect;
-        easygui_get_clip(pElement, &newRelativeRect, pUserData);
-
-        *pRelativeRect = easygui_clamp_rect(newRelativeRect, *pRelativeRect);
+        // The on_paint event handler may have adjusted the clipping rectangle so we need to ensure it's restored.
+        easygui_set_clip(pElement, *pRelativeRect, pUserData);
     }
 
     return true;
