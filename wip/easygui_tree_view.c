@@ -1134,7 +1134,7 @@ eg_tree_view_item* tv_create_item(easygui_element* pTVElement, eg_tree_view_item
     pItem->pNextSibling  = NULL;
     pItem->pPrevSibling  = NULL;
     pItem->isSelected    = false;
-    pItem->isExpanded    = true;
+    pItem->isExpanded    = false;
 
     pItem->extraDataSize = extraDataSize;
     if (pExtraData != NULL) {
