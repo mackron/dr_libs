@@ -156,6 +156,74 @@ const char* easyutil_first_whitespace(const char* str);
 
 
 /////////////////////////////////////////////////////////
+// Unicode Utilities
+
+/// Converts a UTF-32 character to UTF-16.
+///
+/// @param utf16 [in] A pointer to an array of at least two 16-bit values that will receive the UTF-16 character.
+///
+/// @return 2 if the returned character is a surrogate pair, 1 if it's a simple UTF-16 code point, or 0 if it's an invalid character.
+///
+/// @remarks
+///     It is assumed the <utf16> is large enough to hold at least 2 unsigned shorts. <utf16> will be padded with 0 for unused
+///     components.
+EASYUTIL_INLINE int utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
+{
+    if (utf16 == NULL) {
+        return 0;
+    }
+
+    if (utf32 < 0xD800 || (utf32 >= 0xE000 && utf32 <= 0xFFFF))
+    {
+        utf16[0] = (unsigned short)utf32;
+        utf16[1] = 0;
+        return 1;
+    }
+    else
+    {
+        if (utf32 >= 0x10000 && utf32 <= 0x10FFFF)
+        {
+            utf16[0] = (unsigned short)(0xD7C0 + (unsigned short)(utf32 >> 10));
+            utf16[1] = (unsigned short)(0xDC00 + (unsigned short)(utf32 & 0x3FF));
+            return 2;
+        }
+        else
+        {
+            // Invalid.
+            utf16[0] = 0;
+            utf16[0] = 0;
+            return 0;
+        }
+    }
+}
+
+/// Converts a UTF-16 character to UTF-32.
+EASYUTIL_INLINE unsigned int utf16_to_utf32(unsigned short utf16[2])
+{
+    if (utf16 == NULL) {
+        return 0;
+    }
+
+    if (utf16[0] < 0xD800 || utf16[0] > 0xDFFF)
+    {
+        return utf16[0];
+    }
+    else
+    {
+        if ((utf16[0] & 0xFC00) == 0xD800 && (utf16[1] & 0xFC00) == 0xDC00)
+        {
+            return ((unsigned int)utf16[0] << 10) + utf16[1] - 0x35FDC00;
+        }
+        else
+        {
+            // Invalid.
+            return 0;
+        }
+    }
+}
+
+
+/////////////////////////////////////////////////////////
 // Aligned Allocations
 
 #ifndef EASYUTIL_NO_ALIGNED_MALLOC

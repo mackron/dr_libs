@@ -57,7 +57,6 @@ const char* easyutil_first_whitespace(const char* str)
 
 
 
-
 /////////////////////////////////////////////////////////
 // Key/Value Pair Parsing
 
