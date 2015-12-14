@@ -79,19 +79,19 @@ typedef struct
 
 
 /// Refreshes the given scrollbar's thumb layout and redraws it.
-PRIVATE void sb_refresh_thumb(easygui_element* pScrollbar);
+PRIVATE void sb_refresh_thumb(easygui_element* pSBElement);
 
 /// Calculates the size of the thumb. This does not change the state of the thumb.
-PRIVATE float sb_calculate_thumb_size(easygui_element* pScrollbar);
+PRIVATE float sb_calculate_thumb_size(easygui_element* pSBElement);
 
 /// Calculates the position of the thumb. This does not change the state of the thumb.
-PRIVATE float sb_calculate_thumb_position(easygui_element* pScrollbar);
+PRIVATE float sb_calculate_thumb_position(easygui_element* pSBElement);
 
 /// Retrieves the size of the given scrollbar's track. For vertical alignments, it's the height of the element, otherwise it's the width.
-PRIVATE float sb_get_track_size(easygui_element* pScrollbar);
+PRIVATE float sb_get_track_size(easygui_element* pSBElement);
 
 /// Makes the given point that's relative to the given scrollbar relative to it's thumb.
-PRIVATE void sb_make_relative_to_thumb(easygui_element* pScrollbar, float* pPosX, float* pPosY);
+PRIVATE void sb_make_relative_to_thumb(easygui_element* pSBElement, float* pPosX, float* pPosY);
 
 /// Calculates the scroll position based on the current position of the thumb. This is used for scrolling while dragging the thumb.
 PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(easygui_element* pScrollba, float thumbPosr);
@@ -121,12 +121,12 @@ easygui_element* eg_create_scrollbar(easygui_context* pContext, easygui_element*
         return NULL;
     }
 
-    easygui_element* pScrollbar = easygui_create_element(pContext, pParent, sizeof(easygui_scrollbar) - sizeof(char) + extraDataSize);
-    if (pScrollbar == NULL) {
+    easygui_element* pSBElement = easygui_create_element(pContext, pParent, sizeof(easygui_scrollbar) - sizeof(char) + extraDataSize);
+    if (pSBElement == NULL) {
         return NULL;
     }
 
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
     pSB->orientation       = orientation;
@@ -157,31 +157,31 @@ easygui_element* eg_create_scrollbar(easygui_context* pContext, easygui_element*
 
 
     // Default event handlers.
-    easygui_register_on_size(pScrollbar, sb_on_size);
-    easygui_register_on_mouse_leave(pScrollbar, sb_on_mouse_leave);
-    easygui_register_on_mouse_move(pScrollbar, sb_on_mouse_move);
-    easygui_register_on_mouse_button_down(pScrollbar, sb_on_mouse_button_down);
-    easygui_register_on_mouse_button_up(pScrollbar, sb_on_mouse_button_up);
-    easygui_register_on_mouse_wheel(pScrollbar, sb_on_mouse_wheel);
-    easygui_register_on_paint(pScrollbar, sb_on_paint);
+    easygui_register_on_size(pSBElement, sb_on_size);
+    easygui_register_on_mouse_leave(pSBElement, sb_on_mouse_leave);
+    easygui_register_on_mouse_move(pSBElement, sb_on_mouse_move);
+    easygui_register_on_mouse_button_down(pSBElement, sb_on_mouse_button_down);
+    easygui_register_on_mouse_button_up(pSBElement, sb_on_mouse_button_up);
+    easygui_register_on_mouse_wheel(pSBElement, sb_on_mouse_wheel);
+    easygui_register_on_paint(pSBElement, sb_on_paint);
 
 
-    return pScrollbar;
+    return pSBElement;
 }
 
-void eg_delete_scrollbar(easygui_element* pScrollbar)
+void eg_delete_scrollbar(easygui_element* pSBElement)
 {
-    if (pScrollbar == NULL) {
+    if (pSBElement == NULL) {
         return;
     }
 
-    easygui_delete_element(pScrollbar);
+    easygui_delete_element(pSBElement);
 }
 
 
-size_t sb_get_extra_data_size(easygui_element* pScrollbar)
+size_t sb_get_extra_data_size(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return 0;
     }
@@ -189,9 +189,9 @@ size_t sb_get_extra_data_size(easygui_element* pScrollbar)
     return pSB->extraDataSize;
 }
 
-void* sb_get_extra_data(easygui_element* pScrollbar)
+void* sb_get_extra_data(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return NULL;
     }
@@ -200,9 +200,9 @@ void* sb_get_extra_data(easygui_element* pScrollbar)
 }
 
 
-sb_orientation sb_get_orientation(easygui_element* pScrollbar)
+sb_orientation sb_get_orientation(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return sb_orientation_none;
     }
@@ -211,9 +211,9 @@ sb_orientation sb_get_orientation(easygui_element* pScrollbar)
 }
 
 
-void sb_set_range(easygui_element* pScrollbar, int rangeMin, int rangeMax)
+void sb_set_range(easygui_element* pSBElement, int rangeMin, int rangeMax)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -223,15 +223,15 @@ void sb_set_range(easygui_element* pScrollbar, int rangeMin, int rangeMax)
 
     
     // Make sure the scroll position is still valid.
-    sb_scroll_to(pScrollbar, sb_get_scroll_position(pScrollbar));
+    sb_scroll_to(pSBElement, sb_get_scroll_position(pSBElement));
 
     // The thumb may have changed, so refresh it.
-    sb_refresh_thumb(pScrollbar);
+    sb_refresh_thumb(pSBElement);
 }
 
-void sb_get_range(easygui_element* pScrollbar, int* pRangeMinOut, int* pRangeMaxOut)
+void sb_get_range(easygui_element* pSBElement, int* pRangeMinOut, int* pRangeMaxOut)
 {    
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -246,9 +246,9 @@ void sb_get_range(easygui_element* pScrollbar, int* pRangeMinOut, int* pRangeMax
 }
 
 
-void sb_set_page_size(easygui_element* pScrollbar, int pageSize)
+void sb_set_page_size(easygui_element* pSBElement, int pageSize)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -257,15 +257,15 @@ void sb_set_page_size(easygui_element* pScrollbar, int pageSize)
 
 
     // Make sure the scroll position is still valid.
-    sb_scroll_to(pScrollbar, sb_get_scroll_position(pScrollbar));
+    sb_scroll_to(pSBElement, sb_get_scroll_position(pSBElement));
 
     // The thumb may have changed, so refresh it.
-    sb_refresh_thumb(pScrollbar);
+    sb_refresh_thumb(pSBElement);
 }
 
-int sb_get_page_size(easygui_element* pScrollbar)
+int sb_get_page_size(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return 0;
     }
@@ -274,9 +274,9 @@ int sb_get_page_size(easygui_element* pScrollbar)
 }
 
 
-void sb_set_scroll_position(easygui_element* pScrollbar, int position)
+void sb_set_scroll_position(easygui_element* pSBElement, int position)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -287,13 +287,13 @@ void sb_set_scroll_position(easygui_element* pScrollbar, int position)
         pSB->scrollPos = newScrollPos;
 
         // The position of the thumb has changed, so refresh it.
-        sb_refresh_thumb(pScrollbar);
+        sb_refresh_thumb(pSBElement);
     }
 }
 
-int sb_get_scroll_position(easygui_element* pScrollbar)
+int sb_get_scroll_position(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return 0;
     }
@@ -302,38 +302,38 @@ int sb_get_scroll_position(easygui_element* pScrollbar)
 }
 
 
-void sb_scroll(easygui_element* pScrollbar, int offset)
+void sb_scroll(easygui_element* pSBElement, int offset)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    sb_scroll_to(pScrollbar, pSB->scrollPos + offset);
+    sb_scroll_to(pSBElement, pSB->scrollPos + offset);
 }
 
-void sb_scroll_to(easygui_element* pScrollbar, int newScrollPos)
+void sb_scroll_to(easygui_element* pSBElement, int newScrollPos)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
     int oldScrollPos = pSB->scrollPos;
-    sb_set_scroll_position(pScrollbar, newScrollPos);
+    sb_set_scroll_position(pSBElement, newScrollPos);
 
     if (oldScrollPos != pSB->scrollPos)
     {
         if (pSB->onScroll) {
-            pSB->onScroll(pScrollbar, pSB->scrollPos);
+            pSB->onScroll(pSBElement, pSB->scrollPos);
         }
     }
 }
 
 
-void sb_enable_thumb_auto_hide(easygui_element* pScrollbar)
+void sb_enable_thumb_auto_hide(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -343,13 +343,13 @@ void sb_enable_thumb_auto_hide(easygui_element* pScrollbar)
         pSB->autoHideThumb = true;
 
         // The thumb needs to be refreshed in order to show the correct state.
-        sb_refresh_thumb(pScrollbar);
+        sb_refresh_thumb(pSBElement);
     }
 }
 
-void sb_disable_thumb_auto_hide(easygui_element* pScrollbar)
+void sb_disable_thumb_auto_hide(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -359,13 +359,13 @@ void sb_disable_thumb_auto_hide(easygui_element* pScrollbar)
         pSB->autoHideThumb = false;
 
         // The thumb needs to be refreshed in order to show the correct state.
-        sb_refresh_thumb(pScrollbar);
+        sb_refresh_thumb(pSBElement);
     }
 }
 
-bool sb_is_thumb_auto_hide_enabled(easygui_element* pScrollbar)
+bool sb_is_thumb_auto_hide_enabled(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return false;
     }
@@ -373,9 +373,9 @@ bool sb_is_thumb_auto_hide_enabled(easygui_element* pScrollbar)
     return pSB->autoHideThumb;
 }
 
-bool sb_is_thumb_visible(easygui_element* pScrollbar)
+bool sb_is_thumb_visible(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return false;
     }
@@ -389,9 +389,9 @@ bool sb_is_thumb_visible(easygui_element* pScrollbar)
 }
 
 
-void sb_set_mouse_wheel_scele(easygui_element* pScrollbar, int scale)
+void sb_set_mouse_wheel_scele(easygui_element* pSBElement, int scale)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -399,9 +399,9 @@ void sb_set_mouse_wheel_scele(easygui_element* pScrollbar, int scale)
     pSB->mouseWheelScale = scale;
 }
 
-int sb_get_mouse_wheel_scale(easygui_element* pScrollbar)
+int sb_get_mouse_wheel_scale(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return 1;
     }
@@ -410,9 +410,9 @@ int sb_get_mouse_wheel_scale(easygui_element* pScrollbar)
 }
 
 
-void sb_set_track_color(easygui_element* pScrollbar, easygui_color color)
+void sb_set_track_color(easygui_element* pSBElement, easygui_color color)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -420,9 +420,9 @@ void sb_set_track_color(easygui_element* pScrollbar, easygui_color color)
     pSB->trackColor = color;
 }
 
-void sb_set_default_thumb_color(easygui_element* pScrollbar, easygui_color color)
+void sb_set_default_thumb_color(easygui_element* pSBElement, easygui_color color)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -430,9 +430,9 @@ void sb_set_default_thumb_color(easygui_element* pScrollbar, easygui_color color
     pSB->thumbColor = color;
 }
 
-void sb_set_hovered_thumb_color(easygui_element* pScrollbar, easygui_color color)
+void sb_set_hovered_thumb_color(easygui_element* pSBElement, easygui_color color)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -440,9 +440,9 @@ void sb_set_hovered_thumb_color(easygui_element* pScrollbar, easygui_color color
     pSB->thumbColorHovered = color;
 }
 
-void sb_set_pressed_thumb_color(easygui_element* pScrollbar, easygui_color color)
+void sb_set_pressed_thumb_color(easygui_element* pSBElement, easygui_color color)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -451,9 +451,9 @@ void sb_set_pressed_thumb_color(easygui_element* pScrollbar, easygui_color color
 }
 
 
-void sb_set_on_scroll(easygui_element* pScrollbar, sb_on_scroll_proc onScroll)
+void sb_set_on_scroll(easygui_element* pSBElement, sb_on_scroll_proc onScroll)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -461,9 +461,9 @@ void sb_set_on_scroll(easygui_element* pScrollbar, sb_on_scroll_proc onScroll)
     pSB->onScroll = onScroll;
 }
 
-sb_on_scroll_proc sb_get_on_scroll(easygui_element* pScrollbar)
+sb_on_scroll_proc sb_get_on_scroll(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return NULL;
     }
@@ -472,9 +472,9 @@ sb_on_scroll_proc sb_get_on_scroll(easygui_element* pScrollbar)
 }
 
 
-easygui_rect sb_get_thumb_rect(easygui_element* pScrollbar)
+easygui_rect sb_get_thumb_rect(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return easygui_make_rect(0, 0, 0, 0);
     }
@@ -487,7 +487,7 @@ easygui_rect sb_get_thumb_rect(easygui_element* pScrollbar)
     {
         // Vertical.
         rect.left   = pSB->thumbPadding;
-        rect.right  = easygui_get_width(pScrollbar) - pSB->thumbPadding;
+        rect.right  = easygui_get_width(pSBElement) - pSB->thumbPadding;
         rect.top    = pSB->thumbPadding + pSB->thumbPos;
         rect.bottom = rect.top + pSB->thumbSize;
     }
@@ -497,29 +497,29 @@ easygui_rect sb_get_thumb_rect(easygui_element* pScrollbar)
         rect.left   = pSB->thumbPadding + pSB->thumbPos;
         rect.right  = rect.left + pSB->thumbSize;
         rect.top    = pSB->thumbPadding;
-        rect.bottom = easygui_get_height(pScrollbar) - pSB->thumbPadding;
+        rect.bottom = easygui_get_height(pSBElement) - pSB->thumbPadding;
     }
 
     return rect;
 }
 
 
-void sb_on_size(easygui_element* pScrollbar, float newWidth, float newHeight)
+void sb_on_size(easygui_element* pSBElement, float newWidth, float newHeight)
 {
     (void)newWidth;
     (void)newHeight;
 
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    sb_refresh_thumb(pScrollbar);
+    sb_refresh_thumb(pSBElement);
 }
 
-void sb_on_mouse_leave(easygui_element* pScrollbar)
+void sb_on_mouse_leave(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -538,13 +538,13 @@ void sb_on_mouse_leave(easygui_element* pScrollbar)
     }
 
     if (needsRedraw) {
-        easygui_dirty(pScrollbar, sb_get_thumb_rect(pScrollbar));
+        easygui_dirty(pSBElement, sb_get_thumb_rect(pSBElement));
     }
 }
 
-void sb_on_mouse_move(easygui_element* pScrollbar, int relativeMousePosX, int relativeMousePosY)
+void sb_on_mouse_move(easygui_element* pSBElement, int relativeMousePosX, int relativeMousePosY)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -554,7 +554,7 @@ void sb_on_mouse_move(easygui_element* pScrollbar, int relativeMousePosX, int re
         // The thumb is pressed. Drag it.
         float thumbRelativeMousePosX = (float)relativeMousePosX;
         float thumbRelativeMousePosY = (float)relativeMousePosY;
-        sb_make_relative_to_thumb(pScrollbar, &thumbRelativeMousePosX, &thumbRelativeMousePosY);
+        sb_make_relative_to_thumb(pSBElement, &thumbRelativeMousePosX, &thumbRelativeMousePosY);
 
         float dragOffsetX = thumbRelativeMousePosX - pSB->thumbClickPosX;
         float dragOffsetY = thumbRelativeMousePosY - pSB->thumbClickPosY;
@@ -566,110 +566,110 @@ void sb_on_mouse_move(easygui_element* pScrollbar, int relativeMousePosX, int re
             destTrackPos += dragOffsetX;
         }
 
-        int destScrollPos = sb_calculate_scroll_pos_from_thumb_pos(pScrollbar, destTrackPos);
+        int destScrollPos = sb_calculate_scroll_pos_from_thumb_pos(pSBElement, destTrackPos);
         if (destScrollPos != pSB->scrollPos)
         {
-            sb_scroll_to(pScrollbar, destScrollPos);
+            sb_scroll_to(pSBElement, destScrollPos);
         }
     }
     else
     {
         // The thumb is not pressed. We just need to check if the hovered state has change and redraw if required.
-        if (sb_is_thumb_visible(pScrollbar))
+        if (sb_is_thumb_visible(pSBElement))
         {
             bool wasThumbHovered = pSB->thumbHovered;
         
-            easygui_rect thumbRect = sb_get_thumb_rect(pScrollbar);
+            easygui_rect thumbRect = sb_get_thumb_rect(pSBElement);
             pSB->thumbHovered = easygui_rect_contains_point(thumbRect, (float)relativeMousePosX, (float)relativeMousePosY);
         
             if (wasThumbHovered != pSB->thumbHovered) {
-                easygui_dirty(pScrollbar, thumbRect);
+                easygui_dirty(pSBElement, thumbRect);
             }
         }
     }
 }
 
-void sb_on_mouse_button_down(easygui_element* pScrollbar, int button, int relativeMousePosX, int relativeMousePosY)
+void sb_on_mouse_button_down(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
     if (button == EASYGUI_MOUSE_BUTTON_LEFT)
     {
-        if (sb_is_thumb_visible(pScrollbar) && easygui_rect_contains_point(sb_get_thumb_rect(pScrollbar), (float)relativeMousePosX, (float)relativeMousePosY))
+        if (sb_is_thumb_visible(pSBElement) && easygui_rect_contains_point(sb_get_thumb_rect(pSBElement), (float)relativeMousePosX, (float)relativeMousePosY))
         {
             if (!pSB->thumbPressed)
             {
-                easygui_capture_mouse(pScrollbar);
+                easygui_capture_mouse(pSBElement);
                 pSB->thumbPressed = true;
 
                 pSB->thumbClickPosX = (float)relativeMousePosX;
                 pSB->thumbClickPosY = (float)relativeMousePosY;
-                sb_make_relative_to_thumb(pScrollbar, &pSB->thumbClickPosX, &pSB->thumbClickPosY);
+                sb_make_relative_to_thumb(pSBElement, &pSB->thumbClickPosX, &pSB->thumbClickPosY);
 
-                easygui_dirty(pScrollbar, sb_get_thumb_rect(pScrollbar));
+                easygui_dirty(pSBElement, sb_get_thumb_rect(pSBElement));
             }
         }
     }
 }
 
-void sb_on_mouse_button_up(easygui_element* pScrollbar, int button, int relativeMousePosX, int relativeMousePosY)
+void sb_on_mouse_button_up(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
 
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
     if (button == EASYGUI_MOUSE_BUTTON_LEFT)
     {
-        if (pSB->thumbPressed && easygui_get_element_with_mouse_capture(pScrollbar->pContext) == pScrollbar)
+        if (pSB->thumbPressed && easygui_get_element_with_mouse_capture(pSBElement->pContext) == pSBElement)
         {
-            easygui_release_mouse(pScrollbar->pContext);
+            easygui_release_mouse(pSBElement->pContext);
             pSB->thumbPressed = false;
 
-            easygui_dirty(pScrollbar, sb_get_thumb_rect(pScrollbar));
+            easygui_dirty(pSBElement, sb_get_thumb_rect(pSBElement));
         }
     }
 }
 
-void sb_on_mouse_wheel(easygui_element* pScrollbar, int delta, int relativeMousePosX, int relativeMousePosY)
+void sb_on_mouse_wheel(easygui_element* pSBElement, int delta, int relativeMousePosX, int relativeMousePosY)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
 
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    sb_scroll(pScrollbar, -delta * sb_get_mouse_wheel_scale(pScrollbar));
+    sb_scroll(pSBElement, -delta * sb_get_mouse_wheel_scale(pSBElement));
 }
 
-void sb_on_paint(easygui_element* pScrollbar, easygui_rect relativeClippingRect, void* pPaintData)
+void sb_on_paint(easygui_element* pSBElement, easygui_rect relativeClippingRect, void* pPaintData)
 {
     (void)relativeClippingRect;
 
-    const easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    const easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    easygui_rect thumbRect = sb_get_thumb_rect(pScrollbar);
+    easygui_rect thumbRect = sb_get_thumb_rect(pSBElement);
 
-    if (sb_is_thumb_visible(pScrollbar))
+    if (sb_is_thumb_visible(pSBElement))
     {
         // The thumb is visible.
 
         // Track. We draw this in 4 seperate pieces so we can avoid overdraw with the thumb.
-        easygui_draw_rect(pScrollbar, easygui_make_rect(0, 0, easygui_get_width(pScrollbar), thumbRect.top), pSB->trackColor, pPaintData);  // Top
-        easygui_draw_rect(pScrollbar, easygui_make_rect(0, thumbRect.bottom, easygui_get_width(pScrollbar), easygui_get_height(pScrollbar)), pSB->trackColor, pPaintData);  // Bottom
-        easygui_draw_rect(pScrollbar, easygui_make_rect(0, thumbRect.top, thumbRect.left, thumbRect.bottom), pSB->trackColor, pPaintData);  // Left
-        easygui_draw_rect(pScrollbar, easygui_make_rect(thumbRect.right, thumbRect.top, easygui_get_width(pScrollbar), thumbRect.bottom), pSB->trackColor, pPaintData); // Right
+        easygui_draw_rect(pSBElement, easygui_make_rect(0, 0, easygui_get_width(pSBElement), thumbRect.top), pSB->trackColor, pPaintData);  // Top
+        easygui_draw_rect(pSBElement, easygui_make_rect(0, thumbRect.bottom, easygui_get_width(pSBElement), easygui_get_height(pSBElement)), pSB->trackColor, pPaintData);  // Bottom
+        easygui_draw_rect(pSBElement, easygui_make_rect(0, thumbRect.top, thumbRect.left, thumbRect.bottom), pSB->trackColor, pPaintData);  // Left
+        easygui_draw_rect(pSBElement, easygui_make_rect(thumbRect.right, thumbRect.top, easygui_get_width(pSBElement), thumbRect.bottom), pSB->trackColor, pPaintData); // Right
 
         // Thumb.
         easygui_color thumbColor;
@@ -681,40 +681,40 @@ void sb_on_paint(easygui_element* pScrollbar, easygui_rect relativeClippingRect,
             thumbColor = pSB->thumbColor;
         }
 
-        easygui_draw_rect(pScrollbar, thumbRect, thumbColor, pPaintData);
+        easygui_draw_rect(pSBElement, thumbRect, thumbColor, pPaintData);
     }
     else
     {
         // The thumb is not visible - just draw the track as one quad.
-        easygui_draw_rect(pScrollbar, easygui_get_local_rect(pScrollbar), pSB->trackColor, pPaintData);
+        easygui_draw_rect(pSBElement, easygui_get_local_rect(pSBElement), pSB->trackColor, pPaintData);
     }
 }
 
 
 
-PRIVATE void sb_refresh_thumb(easygui_element* pScrollbar)
+PRIVATE void sb_refresh_thumb(easygui_element* pSBElement)
 {
-    easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
-    easygui_rect oldThumbRect = sb_get_thumb_rect(pScrollbar);
+    easygui_rect oldThumbRect = sb_get_thumb_rect(pSBElement);
 
-    pSB->thumbSize = sb_calculate_thumb_size(pScrollbar);
-    pSB->thumbPos  = sb_calculate_thumb_position(pScrollbar);
+    pSB->thumbSize = sb_calculate_thumb_size(pSBElement);
+    pSB->thumbPos  = sb_calculate_thumb_position(pSBElement);
 
-    easygui_rect newThumbRect = sb_get_thumb_rect(pScrollbar);
+    easygui_rect newThumbRect = sb_get_thumb_rect(pSBElement);
     if (!easygui_rect_equal(oldThumbRect, newThumbRect))
     {
-        easygui_dirty(pScrollbar, easygui_rect_union(oldThumbRect, newThumbRect));
+        easygui_dirty(pSBElement, easygui_rect_union(oldThumbRect, newThumbRect));
     }
 }
 
-PRIVATE float sb_calculate_thumb_size(easygui_element* pScrollbar)
+PRIVATE float sb_calculate_thumb_size(easygui_element* pSBElement)
 {
-    const easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    const easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
-    float trackSize = sb_get_track_size(pScrollbar);
+    float trackSize = sb_get_track_size(pSBElement);
     float range = (float)(pSB->rangeMax - pSB->rangeMin + 1);
         
     float thumbSize = EASYGUI_MIN_SCROLLBAR_THUMB_SIZE;
@@ -727,13 +727,13 @@ PRIVATE float sb_calculate_thumb_size(easygui_element* pScrollbar)
     return thumbSize;
 }
 
-PRIVATE float sb_calculate_thumb_position(easygui_element* pScrollbar)
+PRIVATE float sb_calculate_thumb_position(easygui_element* pSBElement)
 {
-    const easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    const easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
-    float trackSize = sb_get_track_size(pScrollbar);
-    float thumbSize = sb_calculate_thumb_size(pScrollbar);
+    float trackSize = sb_get_track_size(pSBElement);
+    float thumbSize = sb_calculate_thumb_size(pSBElement);
     float range = (float)(pSB->rangeMax - pSB->rangeMin + 1);
 
     float thumbPos = 0;
@@ -746,21 +746,21 @@ PRIVATE float sb_calculate_thumb_position(easygui_element* pScrollbar)
     return thumbPos;
 }
 
-PRIVATE float sb_get_track_size(easygui_element* pScrollbar)
+PRIVATE float sb_get_track_size(easygui_element* pSBElement)
 {
-    const easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    const easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
     if (pSB->orientation == sb_orientation_vertical) {
-        return easygui_get_height(pScrollbar) - (pSB->thumbPadding*2);
+        return easygui_get_height(pSBElement) - (pSB->thumbPadding*2);
     } else {
-        return easygui_get_width(pScrollbar) - (pSB->thumbPadding*2);
+        return easygui_get_width(pSBElement) - (pSB->thumbPadding*2);
     }
 }
 
-PRIVATE void sb_make_relative_to_thumb(easygui_element* pScrollbar, float* pPosX, float* pPosY)
+PRIVATE void sb_make_relative_to_thumb(easygui_element* pSBElement, float* pPosX, float* pPosY)
 {
-    easygui_rect thumbRect = sb_get_thumb_rect(pScrollbar);
+    easygui_rect thumbRect = sb_get_thumb_rect(pSBElement);
 
     if (pPosX != NULL) {
         *pPosX -= thumbRect.left;
@@ -771,12 +771,12 @@ PRIVATE void sb_make_relative_to_thumb(easygui_element* pScrollbar, float* pPosX
     }
 }
 
-PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(easygui_element* pScrollbar, float thumbPos)
+PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(easygui_element* pSBElement, float thumbPos)
 {
-    const easygui_scrollbar* pSB = easygui_get_extra_data(pScrollbar);
+    const easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
-    float trackSize = sb_get_track_size(pScrollbar);
+    float trackSize = sb_get_track_size(pSBElement);
     float range     = (float)(pSB->rangeMax - pSB->rangeMin + 1);
 
     return (int)roundf(thumbPos / (trackSize / range));
