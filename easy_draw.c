@@ -5,6 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef PRIVATE
+#define PRIVATE
+#endif
+
+
 easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes)
 {
     easy2d_context* pContext = (easy2d_context*)malloc(sizeof(easy2d_context) - sizeof(pContext->pExtraData) + contextExtraBytes);
@@ -443,6 +448,19 @@ typedef struct
     void* pBitmapData;
 
 
+    /// The stock DC brush.
+    HGDIOBJ hStockDCBrush;
+
+    /// The stock null brush.
+    HGDIOBJ hStockNullBrush;
+
+    /// The stock DC pen.
+    HGDIOBJ hStockDCPen;
+
+    /// The stock null pen.
+    HGDIOBJ hStockNullPen;
+
+
     /// The pen that was active at the start of drawing. This is restored at the end of drawing.
     HGDIOBJ hPrevPen;
 
@@ -461,6 +479,7 @@ typedef struct
     /// The previous text background color.
     COLORREF prevBkColor;
 
+
 } gdi_surface_data;
 
 typedef struct
@@ -469,6 +488,7 @@ typedef struct
     HFONT hFont;
 
 } gdi_font_data;
+
 
 bool easy2d_on_create_context_gdi(easy2d_context* pContext);
 void easy2d_on_delete_context_gdi(easy2d_context* pContext);
@@ -496,6 +516,37 @@ bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, unsigned in
 
 /// Converts a char* to a wchar_t* string.
 wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigned int textSizeInBytes, unsigned int* characterCountOut);
+
+/// Converts a UTF-32 character to a UTF-16.
+static int easy2d_utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
+{
+    if (utf16 == NULL) {
+        return 0;
+    }
+
+    if (utf32 < 0xD800 || (utf32 >= 0xE000 && utf32 <= 0xFFFF))
+    {
+        utf16[0] = (unsigned short)utf32;
+        utf16[1] = 0;
+        return 1;
+    }
+    else
+    {
+        if (utf32 >= 0x10000 && utf32 <= 0x10FFFF)
+        {
+            utf16[0] = (unsigned short)(0xD7C0 + (unsigned short)(utf32 >> 10));
+            utf16[1] = (unsigned short)(0xDC00 + (unsigned short)(utf32 & 0x3FF));
+            return 2;
+        }
+        else
+        {
+            // Invalid.
+            utf16[0] = 0;
+            utf16[0] = 0;
+            return 0;
+        }
+    }
+}
 
 easy2d_context* easy2d_create_context_gdi()
 {
@@ -761,6 +812,11 @@ void easy2d_begin_draw_gdi(easy2d_surface* pSurface)
         }
 
         HDC hDC = easy2d_get_HDC(pSurface);
+
+        pGDIData->hStockDCBrush   = GetStockObject(DC_BRUSH);
+        pGDIData->hStockNullBrush = GetStockObject(NULL_BRUSH);
+        pGDIData->hStockDCPen     = GetStockObject(DC_PEN);
+        pGDIData->hStockNullPen   = GetStockObject(NULL_PEN);
         
         // Retrieve the defaults so they can be restored later.
         pGDIData->hPrevPen       = GetCurrentObject(hDC, OBJ_PEN);
@@ -811,8 +867,8 @@ void easy2d_draw_rect_gdi(easy2d_surface* pSurface, float left, float top, float
     {
         HDC hDC = easy2d_get_HDC(pSurface);
 
-        SelectObject(hDC, GetStockObject(NULL_PEN));
-        SelectObject(hDC, GetStockObject(DC_BRUSH));
+        SelectObject(hDC, pGDIData->hStockNullPen);
+        SelectObject(hDC, pGDIData->hStockDCBrush);
         SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
 
         // Now draw the rectangle. The documentation for this says that the width and height is 1 pixel less when the pen is null. Therefore we will
@@ -833,7 +889,7 @@ void easy2d_draw_rect_outline_gdi(easy2d_surface* pSurface, float left, float to
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(color.r, color.g, color.b));
         if (hPen != NULL)
         {
-            SelectObject(hDC, GetStockObject(NULL_BRUSH));
+            SelectObject(hDC, pGDIData->hStockNullBrush);
             SelectObject(hDC, hPen);
 
             Rectangle(hDC, (int)left, (int)top, (int)right, (int)bottom);
@@ -856,7 +912,7 @@ void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, flo
         if (hPen != NULL)
         {
             SelectObject(hDC, hPen);
-            SelectObject(hDC, GetStockObject(DC_BRUSH));
+            SelectObject(hDC, pGDIData->hStockDCBrush);
             SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
             
             Rectangle(hDC, (int)left, (int)top, (int)right, (int)bottom);
@@ -875,8 +931,8 @@ void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top,
     {
         HDC hDC = easy2d_get_HDC(pSurface);
 
-        SelectObject(hDC, GetStockObject(NULL_PEN));
-        SelectObject(hDC, GetStockObject(DC_BRUSH));
+        SelectObject(hDC, pGDIData->hStockNullPen);
+        SelectObject(hDC, pGDIData->hStockDCBrush);
         SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
 
         RoundRect(hDC, (int)left, (int)top, (int)right + 1, (int)bottom + 1, (int)(radius*2), (int)(radius*2));
@@ -895,7 +951,7 @@ void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, fl
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(color.r, color.g, color.b));
         if (hPen != NULL)
         {
-            SelectObject(hDC, GetStockObject(NULL_BRUSH));
+            SelectObject(hDC, pGDIData->hStockNullBrush);
             SelectObject(hDC, hPen);
 
             RoundRect(hDC, (int)left, (int)top, (int)right, (int)bottom, (int)(radius*2), (int)(radius*2));
@@ -918,7 +974,7 @@ void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float lef
         if (hPen != NULL)
         {
             SelectObject(hDC, hPen);
-            SelectObject(hDC, GetStockObject(DC_BRUSH));
+            SelectObject(hDC, pGDIData->hStockDCBrush);
             SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
 
             RoundRect(hDC, (int)left, (int)top, (int)right, (int)bottom, (int)(radius*2), (int)(radius*2));
@@ -1077,67 +1133,39 @@ bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d
     }
 
 
-    bool result = false;
-    HGDIOBJ hPrevFont = SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
+    SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
+
+
+    const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
+
+    unsigned short utf16[2];
+    int utf16Len = easy2d_utf32_to_utf16(utf32, utf16);
+
+    WCHAR glyphIndices[2];
+
+    GCP_RESULTSW glyphResults;
+    ZeroMemory(&glyphResults, sizeof(glyphResults));
+    glyphResults.lStructSize = sizeof(glyphResults);
+    glyphResults.lpGlyphs = glyphIndices;
+    glyphResults.nGlyphs  = 2;
+    if (GetCharacterPlacementW(pGDIContextData->hDC, utf16, utf16Len, 0, &glyphResults, 0) != 0)
     {
-        const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
-
-        unsigned short utf16[2];
-        int utf16Len = 0;
-
-        if (utf32 < 0xD800 || (utf32 >= 0xE000 && utf32 <= 0xFFFF))
+        GLYPHMETRICS metrics;
+        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, glyphIndices[0], GGO_NATIVE | GGO_GLYPH_INDEX, &metrics, 0, NULL, &transform);
+        if (bitmapBufferSize != GDI_ERROR)
         {
-            utf16[0] = (unsigned short)utf32;
-            utf16Len = 1;
-        }
-        else if (utf32 >= 0x10000 && utf32 <= 0x10FFFF)
-        {
-            utf16[0] = (unsigned short)(0xD7C0 + (unsigned short)(utf32 >> 10));
-            utf16[1] = (unsigned short)(0xDC00 + (unsigned short)(utf32 & 0x3FF));
-            utf16Len = 2;
-        }
-        else
-        {
-            result = false;
-        }
+            pGlyphMetrics->width    = metrics.gmBlackBoxX;
+            pGlyphMetrics->height   = metrics.gmBlackBoxY;
+            pGlyphMetrics->originX  = metrics.gmptGlyphOrigin.x;
+            pGlyphMetrics->originY  = metrics.gmptGlyphOrigin.y;
+            pGlyphMetrics->advanceX = metrics.gmCellIncX;
+            pGlyphMetrics->advanceY = metrics.gmCellIncY;
 
-
-
-        WCHAR glyphIndices[2];
-
-        GCP_RESULTSW glyphResults;
-        ZeroMemory(&glyphResults, sizeof(glyphResults));
-        glyphResults.lStructSize = sizeof(glyphResults);
-        glyphResults.lpGlyphs = glyphIndices;
-        glyphResults.nGlyphs  = 2;
-        if (GetCharacterPlacementW(pGDIContextData->hDC, utf16, utf16Len, 0, &glyphResults, 0) == 0)
-        {
-            result = false;
-        }       
-        else
-        {
-            GLYPHMETRICS metrics;
-            DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, glyphIndices[0], GGO_NATIVE | GGO_GLYPH_INDEX, &metrics, 0, NULL, &transform);
-            if (bitmapBufferSize != GDI_ERROR)
-            {
-                pGlyphMetrics->width    = metrics.gmBlackBoxX;
-                pGlyphMetrics->height   = metrics.gmBlackBoxY;
-                pGlyphMetrics->originX  = metrics.gmptGlyphOrigin.x;
-                pGlyphMetrics->originY  = metrics.gmptGlyphOrigin.y;
-                pGlyphMetrics->advanceX = metrics.gmCellIncX;
-                pGlyphMetrics->advanceY = metrics.gmCellIncY;
-
-                result = true;
-            }
-            else
-            {
-                result = false;
-            }
+            return true;
         }
     }
-    SelectObject(pGDIContextData->hDC, hPrevFont);
     
-    return result;
+    return false;
 }
 
 bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
@@ -1155,31 +1183,27 @@ bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, unsigned in
     }
 
 
-    BOOL result = FALSE;
-    HGDIOBJ hPrevFont = SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
-    {
-        unsigned int textWLength;
-        wchar_t* textW = easy2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
-        if (textW != NULL)
-        {
-            SIZE sizeWin32;
-            result = GetTextExtentPoint32W(pGDIContextData->hDC, textW, textWLength, &sizeWin32);
+    SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
 
-            if (result)
-            {
-                if (pWidthOut != NULL) {
-                    *pWidthOut = (float)sizeWin32.cx;
-                }
-                if (pHeightOut != NULL) {
-                    *pHeightOut = (float)sizeWin32.cy;
-                }
+    unsigned int textWLength;
+    wchar_t* textW = easy2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
+    if (textW != NULL)
+    {
+        SIZE sizeWin32;
+        if (GetTextExtentPoint32W(pGDIContextData->hDC, textW, textWLength, &sizeWin32))
+        {
+            if (pWidthOut != NULL) {
+                *pWidthOut = (float)sizeWin32.cx;
             }
+            if (pHeightOut != NULL) {
+                *pHeightOut = (float)sizeWin32.cy;
+            }
+
+            return true;
         }
     }
-    SelectObject(pGDIContextData->hDC, hPrevFont);
 
-
-    return result;
+    return false;
 }
 
 
