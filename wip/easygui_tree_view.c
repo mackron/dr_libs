@@ -64,6 +64,13 @@ struct eg_tree_view
     int relativeMousePosY;
 
 
+    /// Whether or not multi-select is enabled.
+    bool isMultiSelectEnabled;
+
+    /// Whether or not range-select is enabled.
+    bool isRangeSelectEnabled;
+
+
     /// The size of the extra data.
     size_t extraDataSize;
 
@@ -254,6 +261,9 @@ easygui_element* eg_create_tree_view(easygui_context* pContext, easygui_element*
     pTV->isMouseOver       = false;
     pTV->relativeMousePosX = 0;
     pTV->relativeMousePosY = 0;
+
+    pTV->isMultiSelectEnabled = false;
+    pTV->isRangeSelectEnabled = false;
 
     pTV->extraDataSize = extraDataSize;
     if (pExtraData != NULL) {
@@ -446,17 +456,92 @@ bool tv_measure_item(easygui_element* pTVElement, eg_tree_view_item* pItem, floa
     return false;
 }
 
-void tv_deselect_all_items(easygui_element* pTV)
+void tv_deselect_all_items(easygui_element* pTVElement)
 {
-    eg_tree_view* pTVData = easygui_get_extra_data(pTV);
-    if (pTVData == NULL) {
+    eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
+    if (pTV == NULL) {
         return;
     }
 
-    tv_deselect_all_items_recursive(pTVData->pRootItem);
+    tv_deselect_all_items_recursive(pTV->pRootItem);
 
     // TODO: Only redraw the region that actually changed.
-    easygui_dirty(pTV, easygui_get_local_rect(pTV));
+    easygui_dirty(pTVElement, easygui_get_local_rect(pTVElement));
+}
+
+
+void tv_enable_multi_select(easygui_element* pTVElement)
+{
+    eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
+    if (pTV == NULL) {
+        return;
+    }
+
+    pTV->isMultiSelectEnabled = true;
+}
+
+void tv_disable_multi_select(easygui_element* pTVElement)
+{
+    eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
+    if (pTV == NULL) {
+        return;
+    }
+
+    pTV->isMultiSelectEnabled = false;
+}
+
+bool tv_is_multi_select_enabled(easygui_element* pTVElement)
+{
+    eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
+    if (pTV == NULL) {
+        return false;
+    }
+
+    return pTV->isMultiSelectEnabled;
+}
+
+eg_tree_view_item* tv_get_first_selected_item(easygui_element* pTVElement)
+{
+    eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
+    if (pTV == NULL) {
+        return NULL;
+    }
+
+    eg_tree_view_iterator i;
+    if (tv_begin_at(pTV->pRootItem->pFirstChild, &i))
+    {
+        do
+        {
+            if (tvi_is_selected(i.pItem)) {
+                return i.pItem;
+            }
+
+        } while (tv_next_visible(&i));
+    }
+
+    return NULL;
+}
+
+eg_tree_view_item* tv_get_next_selected_item(easygui_element* pTVElement, eg_tree_view_item* pItem)
+{
+    eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
+    if (pTV == NULL) {
+        return NULL;
+    }
+
+    eg_tree_view_iterator i;
+    if (tv_begin_at(pItem, &i))
+    {
+        // Note that we're not including <pItem> in this iteration.
+        while (tv_next_visible(&i))
+        {
+            if (tvi_is_selected(i.pItem)) {
+                return i.pItem;
+            }
+        }
+    }
+
+    return NULL;
 }
 
 
@@ -631,9 +716,21 @@ void tv_on_mouse_button_down(easygui_element* pTVElement, int mouseButton, int r
         }
         else
         {
-            // TODO: If the CTRL key is down, don't deselect. If shift is down, select the range.
-            tv_deselect_all_items(pTVElement);
-            tvi_select(pTV->pHoveredItem);
+            if (pTV->isMultiSelectEnabled)
+            {
+                if (tvi_is_selected(pTV->pHoveredItem)) {
+                    tvi_deselect(pTV->pHoveredItem);
+                } else {
+                    tvi_select(pTV->pHoveredItem);
+                }
+            }
+            else
+            {
+                // TODO: Check if range selection is enabled and handle it here.
+
+                tv_deselect_all_items(pTVElement);
+                tvi_select(pTV->pHoveredItem);
+            }
         }
     }
 }

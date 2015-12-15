@@ -86,6 +86,35 @@ bool tv_measure_item(easygui_element* pTVElement, eg_tree_view_item* pItem, floa
 /// Deselects every tree-view item.
 void tv_deselect_all_items(easygui_element* pTVElement);
 
+/// Enables multi-select.
+///
+/// @remarks
+///     While this is enabled, selections will accumulate. Typically you would call this when the user hits
+///     the CTRL key, and then call tv_disable_multi_select() when the user releases it.
+void tv_enable_multi_select(easygui_element* pTVElement);
+
+/// Disables multi-select.
+void tv_disable_multi_select(easygui_element* pTVElement);
+
+/// Determines whether or not multi-select is enabled.
+bool tv_is_multi_select_enabled(easygui_element* pTVElement);
+
+
+/// Retrieves the first selected item.
+///
+/// @remarks
+///     This runs in linear time.
+eg_tree_view_item* tv_get_first_selected_item(easygui_element* pTVElement);
+
+/// Retrieves the next select item, not including the given item.
+///
+/// @remarks
+///     Use this in conjunction with tv_get_first_selected_item() to iterate over each selected item.
+///     @par
+///     The order in which retrieving selected items is based on their location in the hierarchy, and not the
+///     order in which they were selected.
+eg_tree_view_item* tv_get_next_selected_item(easygui_element* pTVElement, eg_tree_view_item* pItem);
+
 
 /// Sets the function to call when the mouse is moved while over a tree-view item.
 void tv_set_on_item_mouse_move(easygui_element* pTVElement, tvi_on_mouse_move_proc proc);
