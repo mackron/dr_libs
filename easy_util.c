@@ -66,226 +66,281 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
         return;
     }
 
-    // We keep track of the line we're on so we can log the line if an error occurs.
-    unsigned int iLine = 1;
+    char pChunk[4096];
+    size_t chunkSize = 0;
 
-    // Sometimes we'll load a new chunk while in the middle of processing a line. This keeps track of that for us.
-    bool moveToNextLineAfterNextChunkRead = 0;
+    unsigned int currentLine = 1;
 
+    bool moveToNextLineBeforeProcessing = false;
+    bool skipWhitespaceBeforeProcessing = false;
 
-
-    char chunkData[4096];
-    unsigned int chunkSize = 0;
-
-    // Keep looping so long as there is still data available.
-    bool isMoreDataAvailable = 1;
-    do
+    // Just keep looping. We'll break from this loop when we have run out of data.
+    for (;;)
     {
-        // Load more data to begin with.
-        unsigned int bytesToRead = sizeof(chunkData) - chunkSize;
-        chunkSize = onRead(pUserData, chunkData + chunkSize, bytesToRead);
-        if (chunkSize < bytesToRead) {
-            isMoreDataAvailable = 0;
+        // Start the iteration by reading as much data as we can.
+        chunkSize = onRead(pUserData, pChunk, sizeof(pChunk));
+        if (chunkSize == 0) {
+            // No more data available.
+            return;
         }
 
-        char* pChunkEnd = chunkData + chunkSize;
+        char* pChunkEnd = pChunk + chunkSize;
+        char* pC = pChunk;  // Chunk pointer. This is as the chunk is processed.
 
-        unsigned int chunkBytesRemaining = chunkSize;
-        while (chunkBytesRemaining > 0)
+        if (moveToNextLineBeforeProcessing)
         {
-            char* pL = chunkData + (chunkSize - chunkBytesRemaining);       // The current position in the line.
-            char* pK = NULL;
-            char* pV = NULL;
-
-            if (moveToNextLineAfterNextChunkRead) {
-                goto move_to_end_of_line;
+            move_to_next_line:
+            while (pC < pChunkEnd && pC[0] != '\n') {
+                pC += 1;
             }
 
+            if (pC == pChunkEnd) {
+                // Ran out of data. Load the next chunk and keep going.
+                moveToNextLineBeforeProcessing = true;
+                continue;
+            }
 
+            pC += 1;     // pC[0] == '\n' - skip past the new line character.
+            currentLine += 1;
+            moveToNextLineBeforeProcessing = false;
+        }
+
+        if (skipWhitespaceBeforeProcessing)
+        {
+            while (pC < pChunkEnd && pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r') {
+                pC += 1;
+            }
+
+            if (pC == pChunkEnd) {
+                // Ran out of data.
+                skipWhitespaceBeforeProcessing = true;
+                continue;
+            }
+
+            skipWhitespaceBeforeProcessing = false;
+        }
+
+
+        // We loop character by character. When we run out of data, we start again.
+        while (pC < pChunkEnd)
+        {
             //// Key ////
-            pK = pL;
 
-            // Leading whitespace.
-            while (pK < pChunkEnd && (pK[0] == ' ' || pK[0] == '\t' || pK[0] == '\r' || pK[0] == '\n' || pK[0] == '#')) {
-                if (pK[0] == '\n') {
-                    pL = pK;
-                    goto move_to_end_of_line;
-                }
-
-                if (pK[0] == '#')
-                {
-                    pL = pK;
-                    goto move_to_end_of_line;
-                }
-
-                pK += 1;
+            // Skip whitespace.
+            while (pC < pChunkEnd && pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r') {
+                pC += 1;
             }
 
-            if (pK == pChunkEnd) {
-                break;  // Ran out of data.
+            if (pC == pChunkEnd) {
+                // Ran out of data.
+                skipWhitespaceBeforeProcessing = true;
+                continue;
             }
 
-
-            // Loop until first whitespace. This is where the null terminator for the key will be placed. Validation will be done below when trying
-            // to parse the value.
-            char* pKEnd = pK;
-            while (pKEnd < pChunkEnd && pKEnd[0] != ' ' && pKEnd[0] != '\t' && pKEnd[0] != '\r') {
-                pKEnd += 1;
+            if (pC[0] == '\n') {
+                // Found the end of the line. 
+                pC += 1;
+                currentLine += 1;
+                continue;
             }
 
-            if (pKEnd == pChunkEnd)
+            if (pC[0] == '#') {
+                // Found a comment. Move to the end of the line and continue.
+                goto move_to_next_line;
+            }
+
+            char* pK = pC;
+            while (pC < pChunkEnd && pC[0] != ' ' && pC[0] != '\t' && pC[0] != '\r' && pC[0] != '\n' && pC[0] != '#') {
+                pC += 1;
+            }
+
+            if (pC == pChunkEnd)
             {
-                if (!isMoreDataAvailable)
+                // Ran out of data. We need to move what we have of the key to the start of the chunk buffer, and then read more data.
+                if (chunkSize == sizeof(pChunk))
                 {
-                    if (pKEnd < chunkData + sizeof(chunkData)) {
-                        pKEnd[0] = '\0';
-                    }
+                    size_t lineSizeSoFar = pC - pK;
+                    memmove(pChunk, pK, lineSizeSoFar);
 
-                    pL = pKEnd;
-                    pV = NULL;
-                    goto post_on_pair;
+                    chunkSize = lineSizeSoFar + onRead(pUserData, pChunk + lineSizeSoFar, sizeof(pChunk) - lineSizeSoFar);
+                    pChunkEnd = pChunk + chunkSize;
+
+                    pK = pChunk;
+                    pC = pChunk + lineSizeSoFar;
+                    while (pC < pChunkEnd && pC[0] != ' ' && pC[0] != '\t' && pC[0] != '\r' && pC[0] != '\n' && pC[0] != '#') {
+                        pC += 1;
+                    }
                 }
 
-                break;  // Ran out of data.
+                if (pC == pChunkEnd) {
+                    if (chunkSize == sizeof(pChunk)) {
+                        if (onError) {
+                            onError(pUserData, "Line is too long. A single line cannot exceed 4KB.", currentLine);
+                        }
+
+                        goto move_to_next_line;
+                    } else {
+                        // No more data. Just treat this one as a value-less key and return.
+                        if (onPair) {
+                            pC[0] = '\0';
+                            onPair(pUserData, pK, NULL);
+                        }
+
+                        return;
+                    }
+                }
             }
 
-            pKEnd[0] = '\0';
-
-
-
+            char* pKEnd = pC;
 
             //// Value ////
-            pV = pKEnd + 1;
 
-            // Leading whitespace.
-            while (pV < pChunkEnd && (pV[0] == ' ' || pV[0] == '\t' || pV[0] == '\r')) {
-                pV += 1;
+            // Skip whitespace.
+            while (pC < pChunkEnd && pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r') {
+                pC += 1;
             }
 
-            if (pV == pChunkEnd) {
-                break;  // Ran out of data.
-            }
-
-
-            // Validation. If we got to the end of the line before finding a value, we just assume it was a value-less key which we'll consider to be valid.
-            if (pV[0] == '\n' || pV[0] == '#')
+            if (pC == pChunkEnd)
             {
-                pL = pV;
-                pV = NULL;
-                goto post_on_pair;
-            }
+                // Ran out of data. We need to move what we have of the key to the start of the chunk buffer, and then read more data.
+                if (chunkSize == sizeof(pChunk))
+                {
+                    size_t lineSizeSoFar = pC - pK;
+                    memmove(pChunk, pK, lineSizeSoFar);
 
+                    chunkSize = lineSizeSoFar + onRead(pUserData, pChunk + lineSizeSoFar, sizeof(pChunk) - lineSizeSoFar);
+                    pChunkEnd = pChunk + chunkSize;
 
-            // Don't include double quotes in the result.
-            if (pV[0] == '"') {
-                pV += 1;
-            }
-
-
-            // Trailing whitespace. Keep looping until the end of the line, but track the last non-whitespace character.
-            char* pEOL = pV;
-            char* pVEnd = pV;
-            while (pEOL < pChunkEnd && pEOL[0] != '\n' && pEOL[0] != '#')
-            {
-                if (pEOL[0] != ' ' && pEOL[0] != '\t' && pEOL[0] != '\r') {
-                    pVEnd = pEOL;
+                    pKEnd = pChunk + (pKEnd - pK);
+                    pK = pChunk;
+                    pC = pChunk + lineSizeSoFar;
+                    while (pC < pChunkEnd && pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r') {
+                        pC += 1;
+                    }
                 }
 
-                pEOL += 1;
-            }
+                if (pC == pChunkEnd) {
+                    if (chunkSize == sizeof(pChunk)) {
+                        if (onError) {
+                            onError(pUserData, "Line is too long. A single line cannot exceed 4KB.", currentLine);
+                        }
 
-            if (pVEnd == pChunkEnd) {
-                break;  // Ran out of data.
-            }
+                        goto move_to_next_line;
+                    } else {
+                        // No more data. Just treat this one as a value-less key and return.
+                        if (onPair) {
+                            pKEnd[0] = '\0';
+                            onPair(pUserData, pK, NULL);
+                        }
 
-            if (pVEnd[0] != '"')
-            {
-                pVEnd += 1;
-
-                if (pVEnd == pChunkEnd) {
-                    break;  // Ran out of data.
+                        return;
+                    }
                 }
             }
 
-            pVEnd[0] = '\0';
+            if (pC[0] == '\n') {
+                // Found the end of the line. Treat it as a value-less key.
+                pKEnd[0] = '\0';
+                if (onPair) {
+                    onPair(pUserData, pK, NULL);
+                }
 
-            assert(pV < pVEnd);
-            if (pV[0] == '"') {
-                pV += 1;
+                pC += 1;
+                currentLine += 1;
+                continue;
+            }
+
+            if (pC[0] == '#') {
+                // Found a comment. Treat is as a value-less key and move to the end of the line.
+                pKEnd[0] = '\0';
+                if (onPair) {
+                    onPair(pUserData, pK, NULL);
+                }
+
+                goto move_to_next_line;
+            }
+
+            char* pV = pC;
+
+            // Find the last non-whitespace character.
+            char* pVEnd = pC;
+            while (pC < pChunkEnd && pC[0] != '\n' && pC[0] != '#') {
+                if (pC[0] != ' ' && pC[0] != '\t' && pC[0] != '\r') {
+                    pVEnd = pC;
+                }
+
+                pC += 1;
+            }
+
+            if (pC == pChunkEnd)
+            {
+                // Ran out of data. We need to move what we have of the key to the start of the chunk buffer, and then read more data.
+                if (chunkSize == sizeof(pChunk))
+                {
+                    size_t lineSizeSoFar = pC - pK;
+                    memmove(pChunk, pK, lineSizeSoFar);
+
+                    chunkSize = lineSizeSoFar + onRead(pUserData, pChunk + lineSizeSoFar, sizeof(pChunk) - lineSizeSoFar);
+                    pChunkEnd = pChunk + chunkSize;
+
+                    pVEnd = pChunk + (pVEnd - pK);
+                    pKEnd = pChunk + (pKEnd - pK);
+                    pV = pChunk + (pV - pK);
+                    pK = pChunk;
+                    pC = pChunk + lineSizeSoFar;
+                    while (pC < pChunkEnd && pC[0] != '\n' && pC[0] != '#') {
+                        if (pC[0] != ' ' && pC[0] != '\t' && pC[0] != '\r') {
+                            pVEnd = pC;
+                        }
+
+                        pC += 1;
+                    }
+                }
+
+                if (pC == pChunkEnd) {
+                    if (chunkSize == sizeof(pChunk)) {
+                        if (onError) {
+                            onError(pUserData, "Line is too long. A single line cannot exceed 4KB.", currentLine);
+                        }
+
+                        goto move_to_next_line;
+                    }
+                }
             }
 
 
+            // Remove double-quotes from the value.
+            if (pV[0] == '\"') {
+                pV += 1;
 
-            // We should have a valid pair at this point.
-            post_on_pair:
+                if (pVEnd[0] == '\"') {
+                    pVEnd -= 1;
+                }
+            }
+
+            // Before null-terminating the value we first need to determine how we'll proceed after posting onPair.
+            bool wasOnNL = pVEnd[1] == '\n';
+
+            pKEnd[0] = '\0';
+            pVEnd[1] = '\0';
             if (onPair) {
                 onPair(pUserData, pK, pV);
             }
 
-
-
-            // Move to the end of the line.
-            move_to_end_of_line:
-            while (pL < pChunkEnd && pL[0] != '\n') {
-                pL += 1;
-            }
-
-            if (pL == pChunkEnd)
+            if (wasOnNL)
             {
-                // If we get here it means we ran out of data in the chunk. We need to load a new chunk, but immediate skip to the end of the line after doing so.
-                moveToNextLineAfterNextChunkRead = 1;
-                break;
-            }
-
-            // At this point we are at the end of the line and need to move to the next one. The check above ensures we still have
-            // data available in the chunk at this point.
-            assert(pL[0] == '\n');
-            pL += 1;
-
-            moveToNextLineAfterNextChunkRead = 0;
-
-            assert(pL >= chunkData);
-            chunkBytesRemaining = chunkSize - ((unsigned int)(pL - chunkData));
-
-            iLine += 1;
-        }
-
-
-        // If we get here it means we've run out of data in the chunk. If there is more data available there will be bytes in chunkData that have not
-        // yet been read. What we need to do is move that data to the beginning of the buffer and read just enough bytes to fill the remaining space
-        // in the chunk buffer.
-        if (isMoreDataAvailable)
-        {
-            // When moving to the next chunk there is something we need to consider - If we weren't able to read anything up until this point it means a
-            // key/value pair was too long. To fix this we just skip over it.
-            if (chunkBytesRemaining == chunkSize)
-            {
-                // If we get here there is a chance the key/value pair is too long, but there is also a chance we have just been
-                // wanting to move to the next line as a result of us reaching the end of the chunk while tring to seek past the
-                // end of the line. If we are not trying to seek past the line it means the key/value pair was too long.
-                if (moveToNextLineAfterNextChunkRead == 0)
-                {
-                    if (onError) {
-                        char msg[4096];
-                        snprintf(msg, sizeof(msg), "%s", "Key/value pair is too long. A single line cannot exceed 4KB.");
-                        onError(pUserData, msg, iLine);
-                    }
-
-                    moveToNextLineAfterNextChunkRead = 1;
-                }
-
-
-                // Setting the chunk size to 0 causes an entire chunk to be loaded in the next iteration as opposed to a partial chunk as in the else branch below.
-                chunkSize = 0;
+                // Was sitting on a new-line character.
+                pC += 1;
+                currentLine += 1;
+                continue;
             }
             else
             {
-                memmove(chunkData, chunkData + (chunkSize - chunkBytesRemaining), chunkBytesRemaining);
-                chunkSize = chunkBytesRemaining;
+                // Was sitting on a comment - just to the next line.
+                goto move_to_next_line;
             }
         }
-
-    }while(isMoreDataAvailable);
+    }
 }
 
 
@@ -374,7 +429,7 @@ const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int
 #if defined(_WIN32) || defined(_WIN64)
 #include <shlobj.h>
 
-bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize)
+bool easyutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     // The documentation for SHGetFolderPathA() says that the output path should be the size of MAX_PATH. We'll enforce
     // that just to be safe.
@@ -405,7 +460,7 @@ bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize)
     return 1;
 }
 
-bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
+bool easyutil_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
     return easyutil_get_config_folder_path(pathOut, pathOutSize);
 }
@@ -414,7 +469,7 @@ bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
 #include <sys/types.h>
 #include <pwd.h>
 
-bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize)
+bool easyutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     const char* configdir = getenv("XDG_CONFIG_HOME");
     if (configdir != NULL)
@@ -451,7 +506,7 @@ bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize)
     return 0;
 }
 
-bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize)
+bool easyutil_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
     return strcpy_s(pathOut, pathOutSize, "var/log");
 }

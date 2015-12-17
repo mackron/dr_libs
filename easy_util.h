@@ -256,9 +256,9 @@ EASYUTIL_INLINE void aligned_free(void* ptr)
 /////////////////////////////////////////////////////////
 // Key/Value Pair Parsing
 
-typedef unsigned int (* key_value_read_proc) (void* pUserData, void* pDataOut, unsigned int bytesToRead);
-typedef void         (* key_value_pair_proc) (void* pUserData, const char* key, const char* value);
-typedef void         (* key_value_error_proc)(void* pUserData, const char* message, unsigned int line);
+typedef size_t (* key_value_read_proc) (void* pUserData, void* pDataOut, size_t bytesToRead);
+typedef void   (* key_value_pair_proc) (void* pUserData, const char* key, const char* value);
+typedef void   (* key_value_error_proc)(void* pUserData, const char* message, unsigned int line);
 
 /// Parses a series of simple Key/Value pairs.
 ///
@@ -309,13 +309,13 @@ const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be ~/.config
-bool easyutil_get_config_folder_path(char* pathOut, unsigned int pathOutSize);
+bool easyutil_get_config_folder_path(char* pathOut, size_t pathOutSize);
 
 /// Retrieves the path of the user's log directory.
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be var/log
-bool easyutil_get_log_folder_path(char* pathOut, unsigned int pathOutSize);
+bool easyutil_get_log_folder_path(char* pathOut, size_t pathOutSize);
 
 
 
@@ -383,7 +383,8 @@ void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
 // For segments such as "-abcd file.txt", "a", "b", "c", "d" will be sent with NULL values, and "file.txt" will be
 // posted with a NULL key.
 
-typedef struct
+typedef struct easyutil_cmdline easyutil_cmdline;
+struct easyutil_cmdline
 {
     // argv style.
     int argc;
@@ -392,7 +393,7 @@ typedef struct
     // Win32 style
     const char* win32;
 
-} easyutil_cmdline;
+};
 
 typedef bool easyutil_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
 
