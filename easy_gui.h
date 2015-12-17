@@ -445,7 +445,7 @@ struct easygui_element
 
 
     /// The size of the extra data.
-    unsigned int extraDataSize;
+    size_t extraDataSize;
 
     /// A pointer to the extra data.
     easygui_byte pExtraData[1];
@@ -641,14 +641,14 @@ void easygui_register_on_log(easygui_context* pContext, easygui_on_log onLog);
 // Elements
 
 /// Creates an element.
-easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent, unsigned int extraDataSize);
+easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent, size_t extraDataSize);
 
 /// Deletes and element.
 void easygui_delete_element(easygui_element* pElement);
 
 
 /// Retrieves the size of the extra data of the given element, in bytes.
-unsigned int easygui_get_extra_data_size(easygui_element* pElement);
+size_t easygui_get_extra_data_size(easygui_element* pElement);
 
 /// Retrieves a pointer to the extra data of the given element.
 void* easygui_get_extra_data(easygui_element* pElement);

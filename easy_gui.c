@@ -1215,7 +1215,7 @@ void easygui_register_on_log(easygui_context* pContext, easygui_on_log onLog)
 /////////////////////////////////////////////////////////////////
 // Elements
 
-easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent, unsigned int extraDataSize)
+easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent, size_t extraDataSize)
 {
     if (pContext != NULL)
     {
@@ -1367,7 +1367,7 @@ void easygui_delete_element(easygui_element* pElement)
 }
 
 
-unsigned int easygui_get_extra_data_size(easygui_element* pElement)
+size_t easygui_get_extra_data_size(easygui_element* pElement)
 {
     if (pElement != NULL) {
         return pElement->extraDataSize;
