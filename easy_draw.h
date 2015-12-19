@@ -136,7 +136,7 @@ typedef void        (* easy2d_set_clip_proc)                    (easy2d_surface*
 typedef void        (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 typedef bool        (* easy2d_get_font_metrics_proc)            (easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
 typedef bool        (* easy2d_get_glyph_metrics_proc)           (easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut);
-typedef bool        (* easy2d_measure_string_proc)              (easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef bool        (* easy2d_measure_string_proc)              (easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 
 
@@ -308,7 +308,7 @@ bool easy2d_get_font_metrics(easy2d_font* pFont, easy2d_font_metrics* pMetricsOu
 bool easy2d_get_glyph_metrics(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut);
 
 /// Retrieves the dimensions of the given string when drawn with the given font.
-bool easy2d_measure_string(easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 
 

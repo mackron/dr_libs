@@ -358,7 +358,7 @@ bool easy2d_get_glyph_metrics(easy2d_font* pFont, unsigned int utf32, easy2d_gly
     return false;
 }
 
-bool easy2d_measure_string(easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
     if (pFont == NULL) {
         return false;
@@ -512,10 +512,10 @@ void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopO
 
 bool easy2d_get_font_metrics_gdi(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
 bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pGlyphMetrics);
-bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 /// Converts a char* to a wchar_t* string.
-wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigned int textSizeInBytes, unsigned int* characterCountOut);
+wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, size_t textSizeInBytes, unsigned int* characterCountOut);
 
 /// Converts a UTF-32 character to a UTF-16.
 static int easy2d_utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
@@ -1168,7 +1168,7 @@ bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d
     return false;
 }
 
-bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
     assert(pFont != NULL);
 
@@ -1207,7 +1207,7 @@ bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, unsigned in
 }
 
 
-wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigned int textSizeInBytes, unsigned int* characterCountOut)
+wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, size_t textSizeInBytes, unsigned int* characterCountOut)
 {
     if (pContext == NULL || text == NULL) {
         return NULL;
@@ -1219,7 +1219,7 @@ wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigne
     }
 
 
-    int wcharCount = MultiByteToWideChar(CP_UTF8, 0, text, textSizeInBytes, NULL, 0);
+    int wcharCount = MultiByteToWideChar(CP_UTF8, 0, text, (int)textSizeInBytes, NULL, 0);
     if (wcharCount == 0) {
         return NULL;
     }
@@ -1230,7 +1230,7 @@ wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, unsigne
         pGDIData->wcharBufferLength = wcharCount + 1;
     }
 
-    wcharCount = MultiByteToWideChar(CP_UTF8, 0, text, textSizeInBytes, pGDIData->wcharBuffer, pGDIData->wcharBufferLength);
+    wcharCount = MultiByteToWideChar(CP_UTF8, 0, text, (int)textSizeInBytes, pGDIData->wcharBuffer, pGDIData->wcharBufferLength);
     if (wcharCount == 0) {
         return NULL;
     }
