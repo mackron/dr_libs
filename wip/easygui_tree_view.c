@@ -237,11 +237,11 @@ easygui_element* eg_create_tree_view(easygui_context* pContext, easygui_element*
     sbdata.pTVElement = pTVElement;
 
     pTV->pScrollbarV = eg_create_scrollbar(pContext, pTVElement, sb_orientation_vertical, sizeof(sbdata), &sbdata);
-    easygui_register_on_mouse_enter(pTV->pScrollbarV, tv_on_mouse_enter_scrollbar);
+    easygui_set_on_mouse_enter(pTV->pScrollbarV, tv_on_mouse_enter_scrollbar);
     sb_set_on_scroll(pTV->pScrollbarV, tv_on_scroll_v);
     
     pTV->pScrollbarH = eg_create_scrollbar(pContext, pTVElement, sb_orientation_horizontal, sizeof(sbdata), &sbdata);
-    easygui_register_on_mouse_enter(pTV->pScrollbarH, tv_on_mouse_enter_scrollbar);
+    easygui_set_on_mouse_enter(pTV->pScrollbarH, tv_on_mouse_enter_scrollbar);
     sb_set_on_scroll(pTV->pScrollbarH, tv_on_scroll_h);
 
 
@@ -272,14 +272,14 @@ easygui_element* eg_create_tree_view(easygui_context* pContext, easygui_element*
 
 
     // Default event handlers.
-    easygui_register_on_size(pTVElement, tv_on_size);
-    easygui_register_on_mouse_leave(pTVElement, tv_on_mouse_leave);
-    easygui_register_on_mouse_move(pTVElement, tv_on_mouse_move);
-    easygui_register_on_mouse_button_down(pTVElement, tv_on_mouse_button_down);
-    easygui_register_on_mouse_button_up(pTVElement, tv_on_mouse_button_up);
-    easygui_register_on_mouse_button_dblclick(pTVElement, tv_on_mouse_button_dblclick);
-    easygui_register_on_mouse_wheel(pTVElement, tv_on_mouse_wheel);
-    easygui_register_on_paint(pTVElement, tv_on_paint);
+    easygui_set_on_size(pTVElement, tv_on_size);
+    easygui_set_on_mouse_leave(pTVElement, tv_on_mouse_leave);
+    easygui_set_on_mouse_move(pTVElement, tv_on_mouse_move);
+    easygui_set_on_mouse_button_down(pTVElement, tv_on_mouse_button_down);
+    easygui_set_on_mouse_button_up(pTVElement, tv_on_mouse_button_up);
+    easygui_set_on_mouse_button_dblclick(pTVElement, tv_on_mouse_button_dblclick);
+    easygui_set_on_mouse_wheel(pTVElement, tv_on_mouse_wheel);
+    easygui_set_on_paint(pTVElement, tv_on_paint);
 
 
     // Set the mouse wheel scale to 3 by default for the vertical scrollbar.

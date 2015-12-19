@@ -1168,42 +1168,42 @@ void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, un
 
 
 
-void easygui_register_global_on_dirty(easygui_context * pContext, easygui_on_dirty_proc onDirty)
+void easygui_set_global_on_dirty(easygui_context * pContext, easygui_on_dirty_proc onDirty)
 {
     if (pContext != NULL) {
         pContext->onGlobalDirty = onDirty;
     }
 }
 
-void easygui_register_global_on_capture_mouse(easygui_context* pContext, easygui_on_capture_mouse_proc onCaptureMouse)
+void easygui_set_global_on_capture_mouse(easygui_context* pContext, easygui_on_capture_mouse_proc onCaptureMouse)
 {
     if (pContext != NULL) {
         pContext->onGlobalCaptureMouse = onCaptureMouse;
     }
 }
 
-void easygui_register_global_on_release_mouse(easygui_context* pContext, easygui_on_release_mouse_proc onReleaseMouse)
+void easygui_set_global_on_release_mouse(easygui_context* pContext, easygui_on_release_mouse_proc onReleaseMouse)
 {
     if (pContext != NULL) {
         pContext->onGlobalReleaseMouse = onReleaseMouse;
     }
 }
 
-void easygui_register_global_on_capture_keyboard(easygui_context* pContext, easygui_on_capture_keyboard_proc onCaptureKeyboard)
+void easygui_set_global_on_capture_keyboard(easygui_context* pContext, easygui_on_capture_keyboard_proc onCaptureKeyboard)
 {
     if (pContext != NULL) {
         pContext->onGlobalCaptureKeyboard = onCaptureKeyboard;
     }
 }
 
-void easygui_register_global_on_release_keyboard(easygui_context* pContext, easygui_on_capture_keyboard_proc onReleaseKeyboard)
+void easygui_set_global_on_release_keyboard(easygui_context* pContext, easygui_on_capture_keyboard_proc onReleaseKeyboard)
 {
     if (pContext != NULL) {
         pContext->onGlobalReleaseKeyboard = onReleaseKeyboard;
     }
 }
 
-void easygui_register_on_log(easygui_context* pContext, easygui_on_log onLog)
+void easygui_set_on_log(easygui_context* pContext, easygui_on_log onLog)
 {
     if (pContext != NULL) {
         pContext->onLog = onLog;
@@ -1564,133 +1564,133 @@ easygui_element* easygui_get_element_with_keyboard_capture(easygui_context* pCon
 
 //// Events ////
 
-void easygui_register_on_move(easygui_element * pElement, easygui_on_move_proc callback)
+void easygui_set_on_move(easygui_element * pElement, easygui_on_move_proc callback)
 {
     if (pElement != NULL) {
         pElement->onMove = callback;
     }
 }
 
-void easygui_register_on_size(easygui_element * pElement, easygui_on_size_proc callback)
+void easygui_set_on_size(easygui_element * pElement, easygui_on_size_proc callback)
 {
     if (pElement != NULL) {
         pElement->onSize = callback;
     }
 }
 
-void easygui_register_on_mouse_enter(easygui_element* pElement, easygui_on_mouse_enter_proc callback)
+void easygui_set_on_mouse_enter(easygui_element* pElement, easygui_on_mouse_enter_proc callback)
 {
     if (pElement != NULL) {
         pElement->onMouseEnter = callback;
     }
 }
 
-void easygui_register_on_mouse_leave(easygui_element* pElement, easygui_on_mouse_leave_proc callback)
+void easygui_set_on_mouse_leave(easygui_element* pElement, easygui_on_mouse_leave_proc callback)
 {
     if (pElement != NULL) {
         pElement->onMouseLeave = callback;
     }
 }
 
-void easygui_register_on_mouse_move(easygui_element* pElement, easygui_on_mouse_move_proc callback)
+void easygui_set_on_mouse_move(easygui_element* pElement, easygui_on_mouse_move_proc callback)
 {
     if (pElement != NULL) {
         pElement->onMouseMove = callback;
     }
 }
 
-void easygui_register_on_mouse_button_down(easygui_element* pElement, easygui_on_mouse_button_down_proc callback)
+void easygui_set_on_mouse_button_down(easygui_element* pElement, easygui_on_mouse_button_down_proc callback)
 {
     if (pElement != NULL) {
         pElement->onMouseButtonDown = callback;
     }
 }
 
-void easygui_register_on_mouse_button_up(easygui_element* pElement, easygui_on_mouse_button_up_proc callback)
+void easygui_set_on_mouse_button_up(easygui_element* pElement, easygui_on_mouse_button_up_proc callback)
 {
     if (pElement != NULL) {
         pElement->onMouseButtonUp = callback;
     }
 }
 
-void easygui_register_on_mouse_button_dblclick(easygui_element* pElement, easygui_on_mouse_button_dblclick_proc callback)
+void easygui_set_on_mouse_button_dblclick(easygui_element* pElement, easygui_on_mouse_button_dblclick_proc callback)
 {
     if (pElement != NULL) {
         pElement->onMouseButtonDblClick = callback;
     }
 }
 
-void easygui_register_on_mouse_wheel(easygui_element* pElement, easygui_on_mouse_wheel_proc callback)
+void easygui_set_on_mouse_wheel(easygui_element* pElement, easygui_on_mouse_wheel_proc callback)
 {
     if (pElement != NULL) {
         pElement->onMouseWheel = callback;
     }
 }
 
-void easygui_register_on_key_down(easygui_element* pElement, easygui_on_key_down_proc callback)
+void easygui_set_on_key_down(easygui_element* pElement, easygui_on_key_down_proc callback)
 {
     if (pElement != NULL) {
         pElement->onKeyDown = callback;
     }
 }
 
-void easygui_register_on_key_up(easygui_element* pElement, easygui_on_key_up_proc callback)
+void easygui_set_on_key_up(easygui_element* pElement, easygui_on_key_up_proc callback)
 {
     if (pElement != NULL) {
         pElement->onKeyUp = callback;
     }
 }
 
-void easygui_register_on_printable_key_down(easygui_element* pElement, easygui_on_printable_key_down_proc callback)
+void easygui_set_on_printable_key_down(easygui_element* pElement, easygui_on_printable_key_down_proc callback)
 {
     if (pElement != NULL) {
         pElement->onPrintableKeyDown = callback;
     }
 }
 
-void easygui_register_on_paint(easygui_element* pElement, easygui_on_paint_proc callback)
+void easygui_set_on_paint(easygui_element* pElement, easygui_on_paint_proc callback)
 {
     if (pElement != NULL) {
         pElement->onPaint = callback;
     }
 }
 
-void easygui_register_on_dirty(easygui_element * pElement, easygui_on_dirty_proc callback)
+void easygui_set_on_dirty(easygui_element * pElement, easygui_on_dirty_proc callback)
 {
     if (pElement != NULL) {
         pElement->onDirty = callback;
     }
 }
 
-void easygui_register_on_hittest(easygui_element* pElement, easygui_on_hittest_proc callback)
+void easygui_set_on_hittest(easygui_element* pElement, easygui_on_hittest_proc callback)
 {
     if (pElement != NULL) {
         pElement->onHitTest = callback;
     }
 }
 
-void easygui_register_on_capture_mouse(easygui_element* pElement, easygui_on_capture_mouse_proc callback)
+void easygui_set_on_capture_mouse(easygui_element* pElement, easygui_on_capture_mouse_proc callback)
 {
     if (pElement != NULL) {
         pElement->onCaptureMouse = callback;
     }
 }
 
-void easygui_register_on_release_mouse(easygui_element* pElement, easygui_on_release_mouse_proc callback)
+void easygui_set_on_release_mouse(easygui_element* pElement, easygui_on_release_mouse_proc callback)
 {
     if (pElement != NULL) {
         pElement->onReleaseMouse = callback;
     }
 }
 
-void easygui_register_on_capture_keyboard(easygui_element* pElement, easygui_on_capture_keyboard_proc callback)
+void easygui_set_on_capture_keyboard(easygui_element* pElement, easygui_on_capture_keyboard_proc callback)
 {
     if (pElement != NULL) {
         pElement->onCaptureKeyboard = callback;
     }
 }
 
-void easygui_register_on_release_keyboard(easygui_element* pElement, easygui_on_release_keyboard_proc callback)
+void easygui_set_on_release_keyboard(easygui_element* pElement, easygui_on_release_keyboard_proc callback)
 {
     if (pElement != NULL) {
         pElement->onReleaseKeyboard = callback;

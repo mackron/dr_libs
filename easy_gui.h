@@ -44,12 +44,12 @@
 //   properly.
 // - A global outbound event handler should be implemented for each of the following events:
 //   - on_dirty: Called when a region of an element is marked as dirty and needs to be redrawn. The application will want to
-//     invalidate the container window to trigger an operating system redraw. Set this with easygui_register_global_on_dirty().
+//     invalidate the container window to trigger an operating system redraw. Set this with easygui_set_global_on_dirty().
 //   - on_capture_mouse: Called when the mouse is captured and gives the application the opportunity to capture the mouse against
-//     the container window at the operating system level. Set with easygui_register_global_on_capture_mouse().
+//     the container window at the operating system level. Set with easygui_set_global_on_capture_mouse().
 //   - on_release_mouse: Called when the mouse is released. The opposite of on_capture_mouse.
 //   - on_capture_keyboard: Called when an element is given the keyboard focus and gives the application the opportunity to
-//     apply the keyboard focus to the container window. Set with easygui_register_global_on_capture_keyboard().
+//     apply the keyboard focus to the container window. Set with easygui_set_global_on_capture_keyboard().
 //   - on_release_keyboard: Called when an element loses the keyboard focus. The opposite of on_capture_keyboard.
 //
 // Layout
@@ -588,7 +588,7 @@ void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, un
 /// @remarks
 ///     This is called whenever a region of an element is marked as dirty and allows an application to mark the region of the
 ///     container window as dirty to trigger an operating system level repaint of the window.
-void easygui_register_global_on_dirty(easygui_context* pContext, easygui_on_dirty_proc onDirty);
+void easygui_set_global_on_dirty(easygui_context* pContext, easygui_on_dirty_proc onDirty);
 
 /// Registers the global on_capture_mouse event callback.
 ///
@@ -598,7 +598,7 @@ void easygui_register_global_on_dirty(easygui_context* pContext, easygui_on_dirt
 ///     @par
 ///     The advantage of using a global event callback is that it can be set once at the context level rather than many times
 ///     at the element level.
-void easygui_register_global_on_capture_mouse(easygui_context* pContext, easygui_on_capture_mouse_proc onCaptureMouse);
+void easygui_set_global_on_capture_mouse(easygui_context* pContext, easygui_on_capture_mouse_proc onCaptureMouse);
 
 /// Registers the global on_release_mouse event callback.
 ///
@@ -608,7 +608,7 @@ void easygui_register_global_on_capture_mouse(easygui_context* pContext, easygui
 ///     @par
 ///     The advantage of using a global event callback is that it can be set once at the context level rather than many times
 ///     at the element level.
-void easygui_register_global_on_release_mouse(easygui_context* pContext, easygui_on_release_mouse_proc onReleaseMouse);
+void easygui_set_global_on_release_mouse(easygui_context* pContext, easygui_on_release_mouse_proc onReleaseMouse);
 
 /// Registers the global on_capture_keyboard event callback.
 ///
@@ -618,7 +618,7 @@ void easygui_register_global_on_release_mouse(easygui_context* pContext, easygui
 ///     @par
 ///     The advantage of using a global event callback is that it can be set once at the context level rather than many times
 ///     at the element level.
-void easygui_register_global_on_capture_keyboard(easygui_context* pContext, easygui_on_capture_keyboard_proc onCaptureKeyboard);
+void easygui_set_global_on_capture_keyboard(easygui_context* pContext, easygui_on_capture_keyboard_proc onCaptureKeyboard);
 
 /// Registers the global on_release_keyboard event callback.
 ///
@@ -628,11 +628,11 @@ void easygui_register_global_on_capture_keyboard(easygui_context* pContext, easy
 ///     @par
 ///     The advantage of using a global event callback is that it can be set once at the context level rather than many times
 ///     at the element level.
-void easygui_register_global_on_release_keyboard(easygui_context* pContext, easygui_on_capture_keyboard_proc onReleaseKeyboard);
+void easygui_set_global_on_release_keyboard(easygui_context* pContext, easygui_on_capture_keyboard_proc onReleaseKeyboard);
 
 
 /// Registers the callback to call when a log message is posted.
-void easygui_register_on_log(easygui_context* pContext, easygui_on_log onLog);
+void easygui_set_on_log(easygui_context* pContext, easygui_on_log onLog);
 
 
 
@@ -712,61 +712,61 @@ easygui_element* easygui_get_element_with_keyboard_capture(easygui_context* pCon
 //// Events ////
 
 /// Registers the on_move event callback.
-void easygui_register_on_move(easygui_element* pElement, easygui_on_move_proc callback);
+void easygui_set_on_move(easygui_element* pElement, easygui_on_move_proc callback);
 
 /// Registers the on_size event callback.
-void easygui_register_on_size(easygui_element* pElement, easygui_on_size_proc callback);
+void easygui_set_on_size(easygui_element* pElement, easygui_on_size_proc callback);
 
 /// Registers the on_mouse_enter event callback.
-void easygui_register_on_mouse_enter(easygui_element* pElement, easygui_on_mouse_enter_proc callback);
+void easygui_set_on_mouse_enter(easygui_element* pElement, easygui_on_mouse_enter_proc callback);
 
 /// Registers the on_mouse_leave event callback.
-void easygui_register_on_mouse_leave(easygui_element* pElement, easygui_on_mouse_leave_proc callback);
+void easygui_set_on_mouse_leave(easygui_element* pElement, easygui_on_mouse_leave_proc callback);
 
 /// Registers the on_mouse_move event callback.
-void easygui_register_on_mouse_move(easygui_element* pElement, easygui_on_mouse_move_proc callback);
+void easygui_set_on_mouse_move(easygui_element* pElement, easygui_on_mouse_move_proc callback);
 
 /// Registers the on_mouse_button_down event callback.
-void easygui_register_on_mouse_button_down(easygui_element* pElement, easygui_on_mouse_button_down_proc callback);
+void easygui_set_on_mouse_button_down(easygui_element* pElement, easygui_on_mouse_button_down_proc callback);
 
 /// Registers the on_mouse_button_up event callback.
-void easygui_register_on_mouse_button_up(easygui_element* pElement, easygui_on_mouse_button_up_proc callback);
+void easygui_set_on_mouse_button_up(easygui_element* pElement, easygui_on_mouse_button_up_proc callback);
 
 /// Registers the on_mouse_button_down event callback.
-void easygui_register_on_mouse_button_dblclick(easygui_element* pElement, easygui_on_mouse_button_dblclick_proc callback);
+void easygui_set_on_mouse_button_dblclick(easygui_element* pElement, easygui_on_mouse_button_dblclick_proc callback);
 
 /// Registers the on_mouse_wheel event callback.
-void easygui_register_on_mouse_wheel(easygui_element* pElement, easygui_on_mouse_wheel_proc callback);
+void easygui_set_on_mouse_wheel(easygui_element* pElement, easygui_on_mouse_wheel_proc callback);
 
 /// Registers the on_key_down event callback.
-void easygui_register_on_key_down(easygui_element* pElement, easygui_on_key_down_proc callback);
+void easygui_set_on_key_down(easygui_element* pElement, easygui_on_key_down_proc callback);
 
 /// Registers the on_key_up event callback.
-void easygui_register_on_key_up(easygui_element* pElement, easygui_on_key_up_proc callback);
+void easygui_set_on_key_up(easygui_element* pElement, easygui_on_key_up_proc callback);
 
 /// Registers the on_printable_key_down event callback.
-void easygui_register_on_printable_key_down(easygui_element* pElement, easygui_on_printable_key_down_proc callback);
+void easygui_set_on_printable_key_down(easygui_element* pElement, easygui_on_printable_key_down_proc callback);
 
 /// Registers the on_paint event callback.
-void easygui_register_on_paint(easygui_element* pElement, easygui_on_paint_proc callback);
+void easygui_set_on_paint(easygui_element* pElement, easygui_on_paint_proc callback);
 
 /// Registers the on_dirty event callback.
-void easygui_register_on_dirty(easygui_element* pElement, easygui_on_dirty_proc callback);
+void easygui_set_on_dirty(easygui_element* pElement, easygui_on_dirty_proc callback);
 
 /// Registers the on_hittest event callback.
-void easygui_register_on_hittest(easygui_element* pElement, easygui_on_hittest_proc callback);
+void easygui_set_on_hittest(easygui_element* pElement, easygui_on_hittest_proc callback);
 
 /// Registers the on_capture_mouse event callback.
-void easygui_register_on_capture_mouse(easygui_element* pElement, easygui_on_capture_mouse_proc callback);
+void easygui_set_on_capture_mouse(easygui_element* pElement, easygui_on_capture_mouse_proc callback);
 
 /// Registers the on_release_mouse event callback.
-void easygui_register_on_release_mouse(easygui_element* pElement, easygui_on_release_mouse_proc callback);
+void easygui_set_on_release_mouse(easygui_element* pElement, easygui_on_release_mouse_proc callback);
 
 /// Registers the on_capture_keyboard event callback.
-void easygui_register_on_capture_keyboard(easygui_element* pElement, easygui_on_capture_keyboard_proc callback);
+void easygui_set_on_capture_keyboard(easygui_element* pElement, easygui_on_capture_keyboard_proc callback);
 
 /// Registers the on_release_keyboard event callback.
-void easygui_register_on_release_keyboard(easygui_element* pElement, easygui_on_release_keyboard_proc callback);
+void easygui_set_on_release_keyboard(easygui_element* pElement, easygui_on_release_keyboard_proc callback);
 
 
 

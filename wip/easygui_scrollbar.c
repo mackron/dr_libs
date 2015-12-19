@@ -157,13 +157,13 @@ easygui_element* eg_create_scrollbar(easygui_context* pContext, easygui_element*
 
 
     // Default event handlers.
-    easygui_register_on_size(pSBElement, sb_on_size);
-    easygui_register_on_mouse_leave(pSBElement, sb_on_mouse_leave);
-    easygui_register_on_mouse_move(pSBElement, sb_on_mouse_move);
-    easygui_register_on_mouse_button_down(pSBElement, sb_on_mouse_button_down);
-    easygui_register_on_mouse_button_up(pSBElement, sb_on_mouse_button_up);
-    easygui_register_on_mouse_wheel(pSBElement, sb_on_mouse_wheel);
-    easygui_register_on_paint(pSBElement, sb_on_paint);
+    easygui_set_on_size(pSBElement, sb_on_size);
+    easygui_set_on_mouse_leave(pSBElement, sb_on_mouse_leave);
+    easygui_set_on_mouse_move(pSBElement, sb_on_mouse_move);
+    easygui_set_on_mouse_button_down(pSBElement, sb_on_mouse_button_down);
+    easygui_set_on_mouse_button_up(pSBElement, sb_on_mouse_button_up);
+    easygui_set_on_mouse_wheel(pSBElement, sb_on_mouse_wheel);
+    easygui_set_on_paint(pSBElement, sb_on_paint);
 
 
     return pSBElement;
