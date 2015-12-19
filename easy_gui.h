@@ -1016,9 +1016,6 @@ easygui_color easygui_rgba(easygui_byte r, easygui_byte g, easygui_byte b, easyg
 /// Creates a color object from a set of RGB color components.
 easygui_color easygui_rgb(easygui_byte r, easygui_byte g, easygui_byte b);
 
-/// Retrieves the size of this element and all of it's siblings.
-void easygui_get_self_and_siblings_size(const easygui_element* pElement, float* widthOut, float* heightOut);
-
 /// Clamps the given rectangle to another.
 easygui_rect easygui_clamp_rect(easygui_rect rect, easygui_rect other);
 
