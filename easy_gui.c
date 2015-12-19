@@ -2550,7 +2550,7 @@ bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_
     return pFont->pContext->paintingCallbacks.getGlyphMetrics(pFont->hResource, utf32, pMetricsOut);
 }
 
-bool easygui_measure_string(easygui_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
     if (pFont == NULL) {
         return false;
@@ -2815,7 +2815,7 @@ easygui_resource easygui_create_font_easy_draw(void*, const char*, unsigned int,
 void easygui_delete_font_easy_draw(easygui_resource);
 bool easygui_get_font_metrics_easy_draw(easygui_resource, easygui_font_metrics*);
 bool easygui_get_glyph_metrics_easy_draw(easygui_resource, unsigned int, easygui_glyph_metrics*);
-bool easygui_measure_string_easy_draw(easygui_resource, const char*, unsigned int, float*, float*);
+bool easygui_measure_string_easy_draw(easygui_resource, const char*, size_t, float*, float*);
 
 easygui_context* easygui_create_context_easy_draw(easy2d_context* pDrawingContext)
 {
@@ -2989,7 +2989,7 @@ bool easygui_get_glyph_metrics_easy_draw(easygui_resource font, unsigned int utf
     return true;
 }
 
-bool easygui_measure_string_easy_draw(easygui_resource font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut)
+bool easygui_measure_string_easy_draw(easygui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
     return easy2d_measure_string(font, text, textSizeInBytes, pWidthOut, pHeightOut);
 }

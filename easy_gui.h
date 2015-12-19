@@ -291,7 +291,7 @@ typedef easygui_resource (* easygui_create_font_proc)      (void* pPaintingConte
 typedef void             (* easygui_delete_font_proc)      (easygui_resource font);
 typedef bool             (* easygui_get_font_metrics_proc) (easygui_resource font, easygui_font_metrics* pMetricsOut);
 typedef bool             (* easygui_get_glyph_metrics_proc)(easygui_resource font, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
-typedef bool             (* easygui_measure_string_proc)   (easygui_resource font, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef bool             (* easygui_measure_string_proc)   (easygui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 typedef easygui_resource (* easygui_create_image_proc)     (void* pPaintingContext, unsigned int width, unsigned int height, const void* pImageData);
 typedef void             (* easygui_delete_image_proc)     (easygui_resource image);
@@ -978,7 +978,7 @@ bool easygui_get_font_metrics(easygui_font* pFont, easygui_font_metrics* pMetric
 bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
 
 /// Retrieves the dimensions of the given string when drawn with the given font.
-bool easygui_measure_string(easygui_font* pFont, const char* text, unsigned int textSizeInBytes, float* pWidthOut, float* pHeightOut);
+bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 
 
