@@ -110,14 +110,6 @@ typedef enum
 
 typedef enum
 {
-    easy2d_image_format_unknown,
-    easy2d_image_format_rgb8,
-    easy2d_image_format_rgba8
-
-} easy2d_image_format;
-
-typedef enum
-{
     easy2d_slant_none = 0,
     easy2d_slant_italic,
     easy2d_slant_oblique
@@ -192,9 +184,6 @@ struct easy2d_image
 
     /// The height of the image.
     unsigned int height;
-
-    /// The format of the image data.
-    easy2d_image_format format;
 
     /// The extra bytes. The size of this buffer is equal to pContext->imageExtraBytes.
     easy2d_byte pExtraData[1];
@@ -354,7 +343,9 @@ bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSize
 ///
 /// @remarks
 ///     Images are immutable. If the data of an image needs to change, the image must be deleted and re-created.
-easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, easy2d_image_format format, const void* pData);
+///     @par
+///     The image data must be in 32-bit, RGBA format where each component is in the range of 0 - 255.
+easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, const void* pData);
 
 /// Deletes the given image.
 void easy2d_delete_image(easy2d_image* pImage);
@@ -364,9 +355,6 @@ void* easy2d_get_image_extra_data(easy2d_image* pImage);
 
 /// Retrieves the size of the given image.
 void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut);
-
-/// Retrieves the format of the given image.
-easy2d_image_format easy2d_get_image_format(easy2d_image* pImage);
 
 
 /////////////////////////////////////////////////////////////////

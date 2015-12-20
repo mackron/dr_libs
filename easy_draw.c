@@ -388,9 +388,9 @@ bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSize
 }
 
 
-easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, easy2d_image_format format, const void* pData)
+easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, const void* pData)
 {
-    if (pContext == NULL || width == 0 || height == 0 || format == easy2d_image_format_unknown || pData == NULL) {
+    if (pContext == NULL || width == 0 || height == 0 || pData == NULL) {
         return NULL;
     }
 
@@ -402,7 +402,6 @@ easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, 
     pImage->pContext = pContext;
     pImage->width    = width;
     pImage->height   = height;
-    pImage->format   = format;
 
     if (pContext->drawingCallbacks.on_create_image != NULL) {
         if (!pContext->drawingCallbacks.on_create_image(pImage, pData)) {
@@ -451,16 +450,6 @@ void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsign
         *pHeightOut = pImage->height;
     }
 }
-
-easy2d_image_format easy2d_get_image_format(easy2d_image* pImage)
-{
-    if (pImage == NULL) {
-        return easy2d_image_format_unknown;
-    }
-
-    return pImage->format;
-}
-
 
 
 
