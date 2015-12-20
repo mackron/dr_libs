@@ -175,6 +175,7 @@ typedef struct easygui_color easygui_color;
 typedef struct easygui_rect easygui_rect;
 typedef struct easygui_painting_callbacks easygui_painting_callbacks;
 typedef struct easygui_font easygui_font;
+typedef struct easygui_image easygui_image;
 typedef struct easygui_font_metrics easygui_font_metrics;
 typedef struct easygui_glyph_metrics easygui_glyph_metrics;
 
@@ -286,6 +287,7 @@ typedef void (* easygui_draw_round_rect_proc)              (easygui_rect relativ
 typedef void (* easygui_draw_round_rect_outline_proc)      (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, void* pPaintData);
 typedef void (* easygui_draw_round_rect_with_outline_proc) (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData);
 typedef void (* easygui_draw_text_proc)                    (easygui_resource font, const char* text, int textSizeInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
+typedef void (* easygui_draw_image_proc)                   (easygui_resource image, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight, void* pPaintData);
 
 typedef easygui_resource (* easygui_create_font_proc)      (void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation);
 typedef void             (* easygui_delete_font_proc)      (easygui_resource font);
@@ -295,6 +297,7 @@ typedef bool             (* easygui_measure_string_proc)   (easygui_resource fon
 
 typedef easygui_resource (* easygui_create_image_proc)     (void* pPaintingContext, unsigned int width, unsigned int height, const void* pImageData);
 typedef void             (* easygui_delete_image_proc)     (easygui_resource image);
+typedef void             (* easygui_get_image_size_proc)   (easygui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut);
 
 typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect *pRelativeRect, void* pUserData);
 
@@ -320,12 +323,17 @@ struct easygui_painting_callbacks
     easygui_draw_round_rect_outline_proc      drawRoundRectOutline;
     easygui_draw_round_rect_with_outline_proc drawRoundRectWithOutline;
     easygui_draw_text_proc                    drawText;
+    easygui_draw_image_proc                   drawImage;
 
     easygui_create_font_proc                  createFont;
     easygui_delete_font_proc                  deleteFont;
     easygui_get_font_metrics_proc             getFontMetrics;
     easygui_get_glyph_metrics_proc            getGlyphMetrics;
     easygui_measure_string_proc               measureString;
+
+    easygui_create_image_proc                 createImage;
+    easygui_delete_image_proc                 deleteImage;
+    easygui_get_image_size_proc               getImageSize;
 };
 
 
@@ -982,6 +990,24 @@ bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_
 /// @remarks
 ///     When the length of the text is 0, the width will be set to 0 and the height will be set to the line height.
 bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLengthInBytes, float* pWidthOut, float* pHeightOut);
+
+
+/// Creates an image that can be passed to easy2d_draw_image().
+///
+/// @remarks
+///     Images are immutable. If the data of an image needs to change, the image must be deleted and re-created.
+///     @par
+///     The image data must be in 32-bit, RGBA format where each component is in the range of 0 - 255.
+easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, const void* pData);
+
+/// Deletes the given image.
+void easy2d_delete_image(easy2d_image* pImage);
+
+/// Retrieves a pointer to the given image's extra data buffer.
+void* easy2d_get_image_extra_data(easy2d_image* pImage);
+
+/// Retrieves the size of the given image.
+void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut);
 
 
 

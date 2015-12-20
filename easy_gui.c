@@ -853,11 +853,15 @@ easygui_context* easygui_create_context()
         pContext->paintingCallbacks.drawRoundRectOutline     = NULL;
         pContext->paintingCallbacks.drawRoundRectWithOutline = NULL;
         pContext->paintingCallbacks.drawText                 = NULL;
+        pContext->paintingCallbacks.drawImage                = NULL;
         pContext->paintingCallbacks.createFont               = NULL;
         pContext->paintingCallbacks.deleteFont               = NULL;
         pContext->paintingCallbacks.getFontMetrics           = NULL;
         pContext->paintingCallbacks.getGlyphMetrics          = NULL;
         pContext->paintingCallbacks.measureString            = NULL;
+        pContext->paintingCallbacks.createImage              = NULL;
+        pContext->paintingCallbacks.deleteImage              = NULL;
+        pContext->paintingCallbacks.getImageSize             = NULL;
         pContext->inboundEventCounter                        = 0;
         pContext->outboundEventLockCounter                   = 0;
         pContext->pFirstDeadElement                          = NULL;
@@ -2829,12 +2833,17 @@ void easygui_draw_round_rect_easy_draw(easygui_rect, easygui_color, float, void*
 void easygui_draw_round_rect_outline_easy_draw(easygui_rect, easygui_color, float, float, void*);
 void easygui_draw_round_rect_with_outline_easy_draw(easygui_rect, easygui_color, float, float, easygui_color, void*);
 void easygui_draw_text_easy_draw(easygui_resource, const char*, int, float, float, easygui_color, easygui_color, void*);
+void easygui_draw_image_easy_draw(easygui_resource image, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight, void* pPaintData);
 
 easygui_resource easygui_create_font_easy_draw(void*, const char*, unsigned int, easygui_font_weight, easygui_font_slant, float);
 void easygui_delete_font_easy_draw(easygui_resource);
 bool easygui_get_font_metrics_easy_draw(easygui_resource, easygui_font_metrics*);
 bool easygui_get_glyph_metrics_easy_draw(easygui_resource, unsigned int, easygui_glyph_metrics*);
 bool easygui_measure_string_easy_draw(easygui_resource, const char*, size_t, float*, float*);
+
+easygui_resource easygui_create_image_easy_draw(void* pPaintingContext, unsigned int width, unsigned int height, const void* pImageData);
+void easygui_delete_image_easy_draw(easygui_resource image);
+void easygui_get_image_size_easy_draw(easygui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut);
 
 easygui_context* easygui_create_context_easy_draw(easy2d_context* pDrawingContext)
 {
@@ -2860,12 +2869,17 @@ void easygui_register_easy_draw_callbacks(easygui_context* pContext, easy2d_cont
     callbacks.drawRoundRectOutline     = easygui_draw_round_rect_outline_easy_draw;
     callbacks.drawRoundRectWithOutline = easygui_draw_round_rect_with_outline_easy_draw;
     callbacks.drawText                 = easygui_draw_text_easy_draw;
+    callbacks.drawImage                = easygui_draw_image_easy_draw;
 
     callbacks.createFont               = easygui_create_font_easy_draw;
     callbacks.deleteFont               = easygui_delete_font_easy_draw;
     callbacks.getFontMetrics           = easygui_get_font_metrics_easy_draw;
     callbacks.getGlyphMetrics          = easygui_get_glyph_metrics_easy_draw;
     callbacks.measureString            = easygui_measure_string_easy_draw;
+
+    callbacks.createImage              = easygui_create_image_easy_draw;
+    callbacks.deleteImage              = easygui_delete_image_easy_draw;
+    callbacks.getImageSize             = easygui_get_image_size_easy_draw;
 
     easygui_register_painting_callbacks(pContext, pDrawingContext, callbacks);
 }
@@ -2961,6 +2975,14 @@ void easygui_draw_text_easy_draw(easygui_resource font, const char* text, int te
     easy2d_draw_text(pSurface, font, text, textSizeInBytes, posX, posY, easy2d_rgba(color.r, color.g, color.b, color.a), easy2d_rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a));
 }
 
+void easygui_draw_image_easy_draw(easygui_resource image, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight, void* pPaintData)
+{
+    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    assert(pSurface != NULL);
+
+    easy2d_draw_image(pSurface, image, dstX, dstY, dstWidth, dstHeight, srcX, srcY, srcWidth, srcHeight);
+}
+
 
 easygui_resource easygui_create_font_easy_draw(void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation)
 {
@@ -3011,6 +3033,22 @@ bool easygui_get_glyph_metrics_easy_draw(easygui_resource font, unsigned int utf
 bool easygui_measure_string_easy_draw(easygui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
     return easy2d_measure_string(font, text, textSizeInBytes, pWidthOut, pHeightOut);
+}
+
+
+easygui_resource easygui_create_image_easy_draw(void* pPaintingContext, unsigned int width, unsigned int height, const void* pImageData)
+{
+    return easy2d_create_image(pPaintingContext, width, height, pImageData);
+}
+
+void easygui_delete_image_easy_draw(easygui_resource image)
+{
+    easy2d_delete_image(image);
+}
+
+void easygui_get_image_size_easy_draw(easygui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut)
+{
+    easy2d_get_image_size(image, pWidthOut, pHeightOut);
 }
 
 #endif
