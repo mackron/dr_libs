@@ -978,7 +978,10 @@ bool easygui_get_font_metrics(easygui_font* pFont, easygui_font_metrics* pMetric
 bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
 
 /// Retrieves the dimensions of the given string when drawn with the given font.
-bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+///
+/// @remarks
+///     When the length of the text is 0, the width will be set to 0 and the height will be set to the line height.
+bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLengthInBytes, float* pWidthOut, float* pHeightOut);
 
 
 

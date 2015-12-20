@@ -2550,11 +2550,30 @@ bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_
     return pFont->pContext->paintingCallbacks.getGlyphMetrics(pFont->hResource, utf32, pMetricsOut);
 }
 
-bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
+bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLengthInBytes, float* pWidthOut, float* pHeightOut)
 {
     if (pFont == NULL) {
         return false;
     }
+
+    if (text == NULL || textLengthInBytes == 0)
+    {
+        easygui_font_metrics metrics;
+        if (!easygui_get_font_metrics(pFont, &metrics)) {
+            return false;
+        }
+
+        if (pWidthOut) {
+            *pWidthOut = 0;
+        }
+        if (pHeightOut) {
+            *pHeightOut = (float)metrics.lineHeight;
+        }
+
+        return true;
+    }
+
+    
 
     assert(pFont->pContext != NULL);
 
@@ -2562,7 +2581,7 @@ bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textSi
         return false;
     }
 
-    return pFont->pContext->paintingCallbacks.measureString(pFont->hResource, text, textSizeInBytes, pWidthOut, pHeightOut);
+    return pFont->pContext->paintingCallbacks.measureString(pFont->hResource, text, textLengthInBytes, pWidthOut, pHeightOut);
 }
 
 
