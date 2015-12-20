@@ -58,6 +58,7 @@ typedef unsigned char easy2d_byte;
 typedef struct easy2d_context easy2d_context;
 typedef struct easy2d_surface easy2d_surface;
 typedef struct easy2d_font easy2d_font;
+typedef struct easy2d_image easy2d_image;
 typedef struct easy2d_color easy2d_color;
 typedef struct easy2d_font_metrics easy2d_font_metrics;
 typedef struct easy2d_glyph_metrics easy2d_glyph_metrics;
@@ -109,6 +110,13 @@ typedef enum
 
 typedef enum
 {
+    easy2d_image_format_rgb8,
+    easy2d_image_format_rgba8
+
+} easy2d_image_format;
+
+typedef enum
+{
     easy2d_slant_none = 0,
     easy2d_slant_italic,
     easy2d_slant_oblique
@@ -122,6 +130,8 @@ typedef bool        (* easy2d_on_create_surface_proc)           (easy2d_surface*
 typedef void        (* easy2d_on_delete_surface_proc)           (easy2d_surface* pSurface);
 typedef bool        (* easy2d_on_create_font_proc)              (easy2d_font* pFont);
 typedef void        (* easy2d_on_delete_font_proc)              (easy2d_font* pFont);
+typedef bool        (* easy2d_on_create_image_proc)             (easy2d_image* pImage);
+typedef void        (* easy2d_on_delete_image_proc)             (easy2d_image* pImage);
 typedef void        (* easy2d_begin_draw_proc)                  (easy2d_surface* pSurface);
 typedef void        (* easy2d_end_draw_proc)                    (easy2d_surface* pSurface);
 typedef void        (* easy2d_clear_proc)                       (easy2d_surface* pSurface, easy2d_color color);
@@ -148,6 +158,8 @@ struct easy2d_drawing_callbacks
     easy2d_on_delete_surface_proc on_delete_surface;
     easy2d_on_create_font_proc    on_create_font;
     easy2d_on_delete_font_proc    on_delete_font;
+    easy2d_on_create_image_proc   on_create_image;
+    easy2d_on_delete_image_proc   on_delete_image;
 
     easy2d_begin_draw_proc                   begin_draw;
     easy2d_end_draw_proc                     end_draw;
@@ -167,9 +179,27 @@ struct easy2d_drawing_callbacks
     easy2d_measure_string_proc               measure_string;
 };
 
+struct easy2d_image
+{
+    /// A pointer to the context that owns the image.
+    easy2d_context* pContext;
+
+    /// The width of the image.
+    unsigned int width;
+
+    /// The height of the image.
+    unsigned int height;
+
+    /// The format of the image data.
+    easy2d_image_format format;
+
+    /// The extra bytes. The size of this buffer is equal to pContext->imageExtraBytes.
+    easy2d_byte pExtraData[1];
+};
+
 struct easy2d_font
 {
-    /// A pointer to the context that owns the surface.
+    /// A pointer to the context that owns the font.
     easy2d_context* pContext;
 
     /// The font family.
@@ -211,6 +241,9 @@ struct easy2d_context
     /// The drawing callbacks.
     easy2d_drawing_callbacks drawingCallbacks;
 
+    /// The number of extra bytes to allocate for each image.
+    size_t imageExtraBytes;
+
     /// The number of extra bytes to allocate for each font.
     size_t fontExtraBytes;
 
@@ -227,7 +260,7 @@ struct easy2d_context
 
 
 /// Creats a context.
-easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes);
+easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes);
 
 /// Deletes the given context.
 void easy2d_delete_context(easy2d_context* pContext);
@@ -311,6 +344,17 @@ bool easy2d_get_glyph_metrics(easy2d_font* pFont, unsigned int utf32, easy2d_gly
 bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 
+/// Creates an image that can be passed to easy2d_draw_image().
+///
+/// @remarks
+///     Images are immutable. If the data of an image needs to change, the image must be deleted and re-created.
+easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, easy2d_image_format format, const void* pData);
+
+/// Deletes the given image.
+void easy2d_delete_image(easy2d_image* pImage);
+
+/// Retrieves a pointer to the given image's extra data buffer.
+void* easy2d_get_image_extra_data(easy2d_image* pImage);
 
 
 /////////////////////////////////////////////////////////////////

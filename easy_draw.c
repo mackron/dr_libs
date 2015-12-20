@@ -10,12 +10,13 @@
 #endif
 
 
-easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes)
+easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes)
 {
     easy2d_context* pContext = (easy2d_context*)malloc(sizeof(easy2d_context) - sizeof(pContext->pExtraData) + contextExtraBytes);
     if (pContext != NULL)
     {
         pContext->drawingCallbacks  = drawingCallbacks;
+        pContext->imageExtraBytes   = imageExtraBytes;
         pContext->fontExtraBytes    = fontExtraBytes;
         pContext->surfaceExtraBytes = surfaceExtraBytes;
         pContext->contextExtraBytes = contextExtraBytes;
@@ -374,6 +375,57 @@ bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSize
 }
 
 
+easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, easy2d_image_format format, const void* pData)
+{
+    if (pContext == NULL) {
+        return NULL;
+    }
+
+    easy2d_image* pImage = malloc(sizeof(easy2d_image) - sizeof(pImage->pExtraData) + pContext->imageExtraBytes);
+    if (pImage == NULL) {
+        return NULL;
+    }
+
+    pImage->pContext = pContext;
+    pImage->width    = width;
+    pImage->height   = height;
+    pImage->format   = format;
+
+    if (pContext->drawingCallbacks.on_create_image != NULL) {
+        if (!pContext->drawingCallbacks.on_create_image(pImage)) {
+            free(pImage);
+            return NULL;
+        }
+    }
+
+    return pImage;
+}
+
+void easy2d_delete_image(easy2d_image* pImage)
+{
+    if (pImage == NULL) {
+        return;
+    }
+
+    assert(pImage->pContext != NULL);
+
+    if (pImage->pContext->drawingCallbacks.on_delete_image != NULL) {
+        pImage->pContext->drawingCallbacks.on_delete_image(pImage);
+    }
+
+    free(pImage);
+}
+
+void* easy2d_get_image_extra_data(easy2d_image* pImage)
+{
+    if (pImage == NULL) {
+        return NULL;
+    }
+
+    return pImage->pExtraData;
+}
+
+
 
 
 /////////////////////////////////////////////////////////////////
@@ -492,6 +544,13 @@ typedef struct
 
 } gdi_font_data;
 
+typedef struct
+{
+    /// A handle to the bitmap object.
+    HBITMAP hBitmap;
+
+} gdi_image_data;
+
 
 bool easy2d_on_create_context_gdi(easy2d_context* pContext);
 void easy2d_on_delete_context_gdi(easy2d_context* pContext);
@@ -499,6 +558,8 @@ bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float h
 void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface);
 bool easy2d_on_create_font_gdi(easy2d_font* pFont);
 void easy2d_on_delete_font_gdi(easy2d_font* pFont);
+bool easy2d_on_create_image_gdi(easy2d_image* pImage);
+void easy2d_on_delete_image_gdi(easy2d_image* pImage);
 
 void easy2d_begin_draw_gdi(easy2d_surface* pSurface);
 void easy2d_end_draw_gdi(easy2d_surface* pSurface);
@@ -560,6 +621,8 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.on_delete_surface            = easy2d_on_delete_surface_gdi;
     callbacks.on_create_font               = easy2d_on_create_font_gdi;
     callbacks.on_delete_font               = easy2d_on_delete_font_gdi;
+    callbacks.on_create_image              = easy2d_on_create_image_gdi;
+    callbacks.on_delete_image              = easy2d_on_delete_image_gdi;
 
     callbacks.begin_draw                   = easy2d_begin_draw_gdi;
     callbacks.end_draw                     = easy2d_end_draw_gdi;
@@ -578,7 +641,7 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.get_glyph_metrics            = easy2d_get_glyph_metrics_gdi;
     callbacks.measure_string               = easy2d_measure_string_gdi;
 
-    return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data), sizeof(gdi_font_data));
+    return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data), sizeof(gdi_font_data), sizeof(gdi_image_data));
 }
 
 easy2d_surface* easy2d_create_surface_gdi_HWND(easy2d_context* pContext, HWND hWnd)
@@ -827,6 +890,30 @@ void easy2d_on_delete_font_gdi(easy2d_font* pFont)
     }
 
     DeleteObject(pGDIData->hFont);
+}
+
+bool easy2d_on_create_image_gdi(easy2d_image* pImage)
+{
+    assert(pImage != NULL);
+    
+    gdi_image_data* pGDIData = easy2d_get_image_extra_data(pImage);
+    if (pGDIData == NULL) {
+        return false;
+    }
+
+    pGDIData->hBitmap = NULL;
+
+    return false;
+}
+
+void easy2d_on_delete_image_gdi(easy2d_image* pImage)
+{
+    assert(pImage != NULL);
+
+    gdi_image_data* pGDIData = easy2d_get_image_extra_data(pImage);
+    if (pGDIData == NULL) {
+        return;
+    }
 }
 
 
