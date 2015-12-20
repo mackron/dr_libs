@@ -487,6 +487,9 @@ typedef struct
     /// A handle to the Win32 font.
     HFONT hFont;
 
+    /// The font metrics for faster retrieval. We cache the metrics when the font is loaded.
+    easy2d_font_metrics metrics;
+
 } gdi_font_data;
 
 
@@ -782,6 +785,34 @@ bool easy2d_on_create_font_gdi(easy2d_font* pFont)
     if (pGDIData->hFont == NULL) {
         return false;
     }
+
+
+    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    if (pGDIContextData == NULL) {
+        return false;
+    }
+
+    // Cache the font metrics.
+    HGDIOBJ hPrevFont = SelectObject(pGDIContextData->hDC, pGDIData->hFont);
+    {
+        TEXTMETRIC metrics;
+        GetTextMetrics(pGDIContextData->hDC, &metrics);
+
+        pGDIData->metrics.ascent     = metrics.tmAscent;
+        pGDIData->metrics.descent    = metrics.tmDescent;
+        pGDIData->metrics.lineHeight = metrics.tmHeight;
+
+
+        const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
+
+        GLYPHMETRICS spaceMetrics;
+        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, ' ', GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
+        if (bitmapBufferSize == GDI_ERROR) {
+			pGDIData->metrics.spaceWidth = 4;
+        }
+    }
+    SelectObject(pGDIContextData->hDC, hPrevFont);
+
 
     return true;
 }
@@ -1085,36 +1116,8 @@ bool easy2d_get_font_metrics_gdi(easy2d_font* pFont, easy2d_font_metrics* pMetri
         return false;
     }
 
-    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
-    if (pGDIContextData == NULL) {
-        return false;
-    }
-
-
-    bool result = false;
-    HGDIOBJ hPrevFont = SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
-    {
-        TEXTMETRIC metrics;
-        GetTextMetrics(pGDIContextData->hDC, &metrics);
-
-        pMetricsOut->ascent     = metrics.tmAscent;
-        pMetricsOut->descent    = metrics.tmDescent;
-        pMetricsOut->lineHeight = metrics.tmHeight;
-
-
-        const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
-
-        GLYPHMETRICS spaceMetrics;
-        DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, ' ', GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
-        if (bitmapBufferSize != GDI_ERROR)
-        {
-			pMetricsOut->spaceWidth = spaceMetrics.gmBlackBoxX;
-            result = true;
-        }
-    }
-    SelectObject(pGDIContextData->hDC, hPrevFont);
-    
-    return result;
+    *pMetricsOut = pGDIFontData->metrics;
+    return true;
 }
 
 bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pGlyphMetrics)
