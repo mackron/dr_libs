@@ -939,10 +939,58 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage, const void* pData)
         return false;
     }
 
-    (void)pData;
-    pGDIData->hBitmap = NULL;
+    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pImage->pContext);
+    if (pGDIContextData == NULL) {
+        return false;
+    }
 
-    return false;
+
+    void* pBitmapWin32Data = NULL;
+
+    BITMAPINFO bmi;
+    ZeroMemory(&bmi, sizeof(bmi));
+    bmi.bmiHeader.biSize        = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biWidth       = pImage->width;
+    bmi.bmiHeader.biHeight      = pImage->height;
+    bmi.bmiHeader.biPlanes      = 1;
+    bmi.bmiHeader.biBitCount    = 32;   // Only supporting 32-bit formats.
+    bmi.bmiHeader.biCompression = BI_RGB;
+    HBITMAP hBitmap = CreateDIBSection(pGDIContextData->hDC, &bmi, DIB_RGB_COLORS, &pBitmapWin32Data, NULL, 0);
+    if (hBitmap == NULL) {
+        return false;
+    }
+
+    // We need to convert the data so it renders correctly with AlphaBlend().
+    for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+    {
+        const unsigned int iRowSrc = pImage->height - (iRow + 1);
+        const unsigned int iRowDst = iRow;
+
+        for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+        {
+            unsigned int  srcTexel = ((const unsigned int*)(pData           ))[  (iRowSrc * pImage->width) + iCol];
+            unsigned int* dstTexel = ((      unsigned int*)(pBitmapWin32Data)) + (iRowDst * pImage->width) + iCol;
+
+            unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+            unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
+            unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
+            unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
+
+            srcTexelB = srcTexelB * srcTexelA / 0xFF;
+            srcTexelG = srcTexelG * srcTexelA / 0xFF;
+            srcTexelR = srcTexelR * srcTexelA / 0xFF;
+
+            *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+        }
+    }
+
+    // Flush GDI to let it know we are finished with the bitmap object's data.
+    GdiFlush();
+
+    // At this point everything should be good.
+    pGDIData->hBitmap = hBitmap;
+
+    return true;
 }
 
 void easy2d_on_delete_image_gdi(easy2d_image* pImage)
@@ -953,6 +1001,9 @@ void easy2d_on_delete_image_gdi(easy2d_image* pImage)
     if (pGDIData == NULL) {
         return;
     }
+
+    DeleteObject(pGDIData->hBitmap);
+    pGDIData->hBitmap = NULL;
 }
 
 
@@ -1198,14 +1249,15 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, int d
         return;
     }
 
-    (void)dstX;
-    (void)dstY;
-    (void)dstWidth;
-    (void)dstHeight;
-    (void)srcX;
-    (void)srcY;
-    (void)srcWidth;
-    (void)srcHeight;
+    gdi_surface_data* pGDISurfaceData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDISurfaceData == NULL) {
+        return;
+    }
+
+    SelectObject(pGDISurfaceData->hIntermediateDC, pGDIImageData->hBitmap);
+
+    BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+    AlphaBlend(pGDISurfaceData->hDC, dstX, dstY, (int)dstWidth, (int)dstHeight, pGDISurfaceData->hIntermediateDC, srcX, srcY, srcWidth, srcHeight, blend);
 }
 
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom)
