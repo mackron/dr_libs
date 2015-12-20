@@ -110,6 +110,7 @@ typedef enum
 
 typedef enum
 {
+    easy2d_image_format_unknown,
     easy2d_image_format_rgb8,
     easy2d_image_format_rgba8
 
@@ -130,7 +131,7 @@ typedef bool        (* easy2d_on_create_surface_proc)           (easy2d_surface*
 typedef void        (* easy2d_on_delete_surface_proc)           (easy2d_surface* pSurface);
 typedef bool        (* easy2d_on_create_font_proc)              (easy2d_font* pFont);
 typedef void        (* easy2d_on_delete_font_proc)              (easy2d_font* pFont);
-typedef bool        (* easy2d_on_create_image_proc)             (easy2d_image* pImage);
+typedef bool        (* easy2d_on_create_image_proc)             (easy2d_image* pImage, const void* pData);
 typedef void        (* easy2d_on_delete_image_proc)             (easy2d_image* pImage);
 typedef void        (* easy2d_begin_draw_proc)                  (easy2d_surface* pSurface);
 typedef void        (* easy2d_end_draw_proc)                    (easy2d_surface* pSurface);
@@ -142,6 +143,7 @@ typedef void        (* easy2d_draw_round_rect_proc)             (easy2d_surface*
 typedef void        (* easy2d_draw_round_rect_outline_proc)     (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth);
 typedef void        (* easy2d_draw_round_rect_with_outline_proc)(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth, easy2d_color outlineColor);
 typedef void        (* easy2d_draw_text_proc)                   (easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
+typedef void        (* easy2d_draw_image_proc)                  (easy2d_surface* pSurface, easy2d_image* pImage, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight);
 typedef void        (* easy2d_set_clip_proc)                    (easy2d_surface* pSurface, float left, float top, float right, float bottom);
 typedef void        (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 typedef bool        (* easy2d_get_font_metrics_proc)            (easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
@@ -171,6 +173,7 @@ struct easy2d_drawing_callbacks
     easy2d_draw_round_rect_outline_proc      draw_round_rect_outline;
     easy2d_draw_round_rect_with_outline_proc draw_round_rect_with_outline;
     easy2d_draw_text_proc                    draw_text;
+    easy2d_draw_image_proc                   draw_image;
     easy2d_set_clip_proc                     set_clip;
     easy2d_get_clip_proc                     get_clip;
 
@@ -318,6 +321,9 @@ void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, f
 /// Draws a run of text.
 void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
 
+/// Draws an image.
+void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight);
+
 /// Sets the clipping rectangle.
 void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom);
 
@@ -355,6 +361,12 @@ void easy2d_delete_image(easy2d_image* pImage);
 
 /// Retrieves a pointer to the given image's extra data buffer.
 void* easy2d_get_image_extra_data(easy2d_image* pImage);
+
+/// Retrieves the size of the given image.
+void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut);
+
+/// Retrieves the format of the given image.
+easy2d_image_format easy2d_get_image_format(easy2d_image* pImage);
 
 
 /////////////////////////////////////////////////////////////////

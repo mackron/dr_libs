@@ -249,6 +249,19 @@ void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* 
     }
 }
 
+void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight)
+{
+    if (pSurface == NULL) {
+        return;
+    }
+
+    assert(pSurface->pContext != NULL);
+
+    if (pSurface->pContext->drawingCallbacks.draw_image) {
+        pSurface->pContext->drawingCallbacks.draw_image(pSurface, pImage, dstX, dstY, dstWidth, dstHeight, srcX, srcY, srcWidth, srcHeight);
+    }
+}
+
 void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom)
 {
     if (pSurface != NULL)
@@ -377,7 +390,7 @@ bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSize
 
 easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, easy2d_image_format format, const void* pData)
 {
-    if (pContext == NULL) {
+    if (pContext == NULL || width == 0 || height == 0 || format == easy2d_image_format_unknown || pData == NULL) {
         return NULL;
     }
 
@@ -392,7 +405,7 @@ easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, 
     pImage->format   = format;
 
     if (pContext->drawingCallbacks.on_create_image != NULL) {
-        if (!pContext->drawingCallbacks.on_create_image(pImage)) {
+        if (!pContext->drawingCallbacks.on_create_image(pImage, pData)) {
             free(pImage);
             return NULL;
         }
@@ -423,6 +436,29 @@ void* easy2d_get_image_extra_data(easy2d_image* pImage)
     }
 
     return pImage->pExtraData;
+}
+
+void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut)
+{
+    if (pImage == NULL) {
+        return;
+    }
+
+    if (pWidthOut) {
+        *pWidthOut = pImage->width;
+    }
+    if (pHeightOut) {
+        *pHeightOut = pImage->height;
+    }
+}
+
+easy2d_image_format easy2d_get_image_format(easy2d_image* pImage)
+{
+    if (pImage == NULL) {
+        return easy2d_image_format_unknown;
+    }
+
+    return pImage->format;
 }
 
 
@@ -488,6 +524,9 @@ typedef struct
 
     /// The HDC to use when drawing to the surface.
     HDC hDC;
+
+    /// The intermediate DC to use when drawing bitmaps.
+    HDC hIntermediateDC;
 
     /// The PAINTSTRUCT object that is filled by BeginPaint(). Only used when hWnd is non-null.
     PAINTSTRUCT ps;
@@ -558,7 +597,7 @@ bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float h
 void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface);
 bool easy2d_on_create_font_gdi(easy2d_font* pFont);
 void easy2d_on_delete_font_gdi(easy2d_font* pFont);
-bool easy2d_on_create_image_gdi(easy2d_image* pImage);
+bool easy2d_on_create_image_gdi(easy2d_image* pImage, const void* pData);
 void easy2d_on_delete_image_gdi(easy2d_image* pImage);
 
 void easy2d_begin_draw_gdi(easy2d_surface* pSurface);
@@ -571,6 +610,7 @@ void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top,
 void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth);
 void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
 void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
+void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight);
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom);
 void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
@@ -634,6 +674,7 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.draw_round_rect_outline      = easy2d_draw_round_rect_outline_gdi;
     callbacks.draw_round_rect_with_outline = easy2d_draw_round_rect_with_outline_gdi;
     callbacks.draw_text                    = easy2d_draw_text_gdi;
+    callbacks.draw_image                   = easy2d_draw_image_gdi;
     callbacks.set_clip                     = easy2d_set_clip_gdi;
     callbacks.get_clip                     = easy2d_get_clip_gdi;
 
@@ -754,6 +795,11 @@ bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float h
         return false;
     }
 
+    HDC hIntermediateDC = CreateCompatibleDC(hDC);
+    if (hIntermediateDC == NULL) {
+        return false;
+    }
+
 
     pGDISurfaceData->hWnd = NULL;
     
@@ -794,6 +840,9 @@ void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface)
     {
         DeleteObject(pGDIData->hBitmap);
         pGDIData->hBitmap = NULL;
+
+        DeleteDC(pGDIData->hIntermediateDC);
+        pGDIData->hIntermediateDC = NULL;
     }
 }
 
@@ -892,7 +941,7 @@ void easy2d_on_delete_font_gdi(easy2d_font* pFont)
     DeleteObject(pGDIData->hFont);
 }
 
-bool easy2d_on_create_image_gdi(easy2d_image* pImage)
+bool easy2d_on_create_image_gdi(easy2d_image* pImage, const void* pData)
 {
     assert(pImage != NULL);
     
@@ -901,6 +950,7 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage)
         return false;
     }
 
+    (void)pData;
     pGDIData->hBitmap = NULL;
 
     return false;
@@ -1150,6 +1200,23 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const ch
             ExtTextOutW(hDC, (int)posX, (int)posY, options, &rect, textW, textWLength, NULL);
         }
     }
+}
+
+void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight)
+{
+    gdi_image_data* pGDIImageData = easy2d_get_image_extra_data(pImage);
+    if (pGDIImageData == NULL) {
+        return;
+    }
+
+    (void)dstX;
+    (void)dstY;
+    (void)dstWidth;
+    (void)dstHeight;
+    (void)srcX;
+    (void)srcY;
+    (void)srcWidth;
+    (void)srcHeight;
 }
 
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom)
