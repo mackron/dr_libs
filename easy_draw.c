@@ -237,7 +237,7 @@ void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, f
     }
 }
 
-void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor)
+void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor)
 {
     if (pSurface != NULL)
     {
@@ -249,7 +249,7 @@ void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* 
     }
 }
 
-void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight)
+void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight)
 {
     if (pSurface == NULL) {
         return;
@@ -259,6 +259,19 @@ void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, int dstX,
 
     if (pSurface->pContext->drawingCallbacks.draw_image) {
         pSurface->pContext->drawingCallbacks.draw_image(pSurface, pImage, dstX, dstY, dstWidth, dstHeight, srcX, srcY, srcWidth, srcHeight);
+    }
+}
+
+void easy2d_draw_image_with_bkcolor(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easy2d_color bkcolor)
+{
+    if (pSurface == NULL) {
+        return;
+    }
+
+    assert(pSurface->pContext != NULL);
+
+    if (pSurface->pContext->drawingCallbacks.draw_image_with_bkcolor) {
+        pSurface->pContext->drawingCallbacks.draw_image_with_bkcolor(pSurface, pImage, dstX, dstY, dstWidth, dstHeight, srcX, srcY, srcWidth, srcHeight, bkcolor);
     }
 }
 
@@ -388,7 +401,7 @@ bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSize
 }
 
 
-easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, const void* pData)
+easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData)
 {
     if (pContext == NULL || width == 0 || height == 0 || pData == NULL) {
         return NULL;
@@ -404,7 +417,7 @@ easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, 
     pImage->height   = height;
 
     if (pContext->drawingCallbacks.on_create_image != NULL) {
-        if (!pContext->drawingCallbacks.on_create_image(pImage, pData)) {
+        if (!pContext->drawingCallbacks.on_create_image(pImage, stride, pData)) {
             free(pImage);
             return NULL;
         }
@@ -577,6 +590,9 @@ typedef struct
     /// A handle to the bitmap object.
     HBITMAP hBitmap;
 
+    /// A pointer to the raw bitmap data.
+    unsigned int* pBitmapData;
+
 } gdi_image_data;
 
 
@@ -586,7 +602,7 @@ bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float h
 void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface);
 bool easy2d_on_create_font_gdi(easy2d_font* pFont);
 void easy2d_on_delete_font_gdi(easy2d_font* pFont);
-bool easy2d_on_create_image_gdi(easy2d_image* pImage, const void* pData);
+bool easy2d_on_create_image_gdi(easy2d_image* pImage, unsigned int stride, const void* pData);
 void easy2d_on_delete_image_gdi(easy2d_image* pImage);
 
 void easy2d_begin_draw_gdi(easy2d_surface* pSurface);
@@ -598,8 +614,9 @@ void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, flo
 void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius);
 void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth);
 void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
-void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
-void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight);
+void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
+void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight);
+void easy2d_draw_image_with_bkcolor_gdi(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easy2d_color bkcolor);
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom);
 void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
@@ -664,6 +681,7 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.draw_round_rect_with_outline = easy2d_draw_round_rect_with_outline_gdi;
     callbacks.draw_text                    = easy2d_draw_text_gdi;
     callbacks.draw_image                   = easy2d_draw_image_gdi;
+    callbacks.draw_image_with_bkcolor      = easy2d_draw_image_with_bkcolor_gdi;
     callbacks.set_clip                     = easy2d_set_clip_gdi;
     callbacks.get_clip                     = easy2d_get_clip_gdi;
 
@@ -784,18 +802,18 @@ bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float h
         return false;
     }
 
-    HDC hIntermediateDC = CreateCompatibleDC(hDC);
+    HDC hIntermediateDC = CreateCompatibleDC(GetDC(GetDesktopWindow())); //CreateCompatibleDC(hDC);
     if (hIntermediateDC == NULL) {
         return false;
     }
 
-
+    pGDISurfaceData->hIntermediateDC = hIntermediateDC;
     pGDISurfaceData->hWnd = NULL;
     
 
     if (width != 0 && height != 0)
     {
-        pGDISurfaceData->hDC  = hDC;
+        pGDISurfaceData->hDC = hDC;
 
         BITMAPINFO bmi;
         ZeroMemory(&bmi, sizeof(bmi));
@@ -930,7 +948,7 @@ void easy2d_on_delete_font_gdi(easy2d_font* pFont)
     DeleteObject(pGDIData->hFont);
 }
 
-bool easy2d_on_create_image_gdi(easy2d_image* pImage, const void* pData)
+bool easy2d_on_create_image_gdi(easy2d_image* pImage, unsigned int stride, const void* pData)
 {
     assert(pImage != NULL);
     
@@ -968,7 +986,7 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage, const void* pData)
 
         for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
         {
-            unsigned int  srcTexel = ((const unsigned int*)(pData           ))[  (iRowSrc * pImage->width) + iCol];
+            unsigned int  srcTexel = ((const unsigned int*)(pData           ))[  (iRowSrc * (stride/4))        + iCol];
             unsigned int* dstTexel = ((      unsigned int*)(pBitmapWin32Data)) + (iRowDst * pImage->width) + iCol;
 
             unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
@@ -976,9 +994,9 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage, const void* pData)
             unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
             unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
 
-            srcTexelB = srcTexelB * srcTexelA / 0xFF;
-            srcTexelG = srcTexelG * srcTexelA / 0xFF;
-            srcTexelR = srcTexelR * srcTexelA / 0xFF;
+            srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
+            srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
+            srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
 
             *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
         }
@@ -988,7 +1006,8 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage, const void* pData)
     GdiFlush();
 
     // At this point everything should be good.
-    pGDIData->hBitmap = hBitmap;
+    pGDIData->hBitmap     = hBitmap;
+    pGDIData->pBitmapData = pBitmapWin32Data;
 
     return true;
 }
@@ -1192,7 +1211,7 @@ void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float lef
     }
 }
 
-void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, unsigned int textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor)
+void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor)
 {
     gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
     if (pGDIFontData == NULL) {
@@ -1242,7 +1261,7 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const ch
     }
 }
 
-void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight)
+void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight)
 {
     gdi_image_data* pGDIImageData = easy2d_get_image_extra_data(pImage);
     if (pGDIImageData == NULL) {
@@ -1257,7 +1276,72 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, int d
     SelectObject(pGDISurfaceData->hIntermediateDC, pGDIImageData->hBitmap);
 
     BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
-    AlphaBlend(pGDISurfaceData->hDC, dstX, dstY, (int)dstWidth, (int)dstHeight, pGDISurfaceData->hIntermediateDC, srcX, srcY, srcWidth, srcHeight, blend);
+    AlphaBlend(pGDISurfaceData->hDC, (int)dstX, (int)dstY, (int)dstWidth, (int)dstHeight, pGDISurfaceData->hIntermediateDC, (int)srcX, (int)srcY, (int)srcWidth, (int)srcHeight, blend);
+}
+
+void easy2d_draw_image_with_bkcolor_gdi(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easy2d_color bkcolor)
+{
+    // The easy way to implement this would be to simply draw a rectangle of the background color and then draw the image on top, however
+    // this results in overdraw and thus flickering. To avoid overdraw we will use an intermediary bitmap.
+
+    gdi_image_data* pGDIImageData = easy2d_get_image_extra_data(pImage);
+    if (pGDIImageData == NULL) {
+        return;
+    }
+
+    gdi_surface_data* pGDISurfaceData = easy2d_get_surface_extra_data(pSurface);
+    if (pGDISurfaceData == NULL) {
+        return;
+    }
+
+    unsigned int* pIntermediateBitmapData;
+    int intermediateBitmapWidth  = pImage->width;
+    int intermediateBitmapHeight = pImage->height;
+
+    BITMAPINFO bmi;
+    ZeroMemory(&bmi, sizeof(bmi));
+    bmi.bmiHeader.biSize        = sizeof(bmi.bmiHeader);
+    bmi.bmiHeader.biWidth       = intermediateBitmapWidth;
+    bmi.bmiHeader.biHeight      = intermediateBitmapHeight;
+    bmi.bmiHeader.biPlanes      = 1;
+    bmi.bmiHeader.biBitCount    = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+    HBITMAP hIntermediateBitmap = CreateDIBSection(pGDISurfaceData->hDC, &bmi, DIB_RGB_COLORS, &pIntermediateBitmapData, NULL, 0);
+    if (hIntermediateBitmap == 0) {
+        return;
+    }
+
+    for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+    {
+        for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+        {
+            unsigned int  srcTexel = pGDIImageData->pBitmapData[(iRow * pImage->width) + iCol];
+            unsigned int* dstTexel = pIntermediateBitmapData + (iRow * intermediateBitmapWidth) + iCol;
+
+            unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+            unsigned int srcTexelR = (srcTexel & 0x00FF0000) >> 16;
+            unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
+            unsigned int srcTexelB = (srcTexel & 0x000000FF) >> 0;
+
+            srcTexelB += (unsigned int)(bkcolor.b * ((255 - srcTexelA) / 255.0f));
+            srcTexelG += (unsigned int)(bkcolor.g * ((255 - srcTexelA) / 255.0f));
+            srcTexelR += (unsigned int)(bkcolor.r * ((255 - srcTexelA) / 255.0f));
+            srcTexelA = 0xFF;
+
+            *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+        }
+    }
+
+    // Flush GDI to let it know we are finished with the bitmap object's data.
+    GdiFlush();
+
+
+
+    HGDIOBJ hPrevBitmap = SelectObject(pGDISurfaceData->hIntermediateDC, hIntermediateBitmap);
+    StretchBlt(pGDISurfaceData->hDC, (int)dstX, (int)dstY, (int)dstWidth, (int)dstHeight, pGDISurfaceData->hIntermediateDC, (int)srcX, (int)srcY, (int)srcWidth, (int)srcHeight, SRCCOPY);
+    SelectObject(pGDISurfaceData->hIntermediateDC, hPrevBitmap);
+
+    DeleteObject(hIntermediateBitmap);
 }
 
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom)
