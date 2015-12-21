@@ -286,8 +286,9 @@ typedef void (* easygui_draw_rect_with_outline_proc)       (easygui_rect relativ
 typedef void (* easygui_draw_round_rect_proc)              (easygui_rect relativeRect, easygui_color color, float radius, void* pPaintData);
 typedef void (* easygui_draw_round_rect_outline_proc)      (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, void* pPaintData);
 typedef void (* easygui_draw_round_rect_with_outline_proc) (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData);
-typedef void (* easygui_draw_text_proc)                    (easygui_resource font, const char* text, int textSizeInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
-typedef void (* easygui_draw_image_proc)                   (easygui_resource image, int dstX, int dstY, unsigned int dstWidth, unsigned int dstHeight, int srcX, int srcY, unsigned int srcWidth, unsigned int srcHeight, void* pPaintData);
+typedef void (* easygui_draw_text_proc)                    (easygui_resource font, const char* text, int textLengthInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
+typedef void (* easygui_draw_image_proc)                   (easygui_resource image, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, void* pPaintData);
+typedef void (* easygui_draw_image_with_bkcolor_proc)      (easygui_resource image, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easygui_color bkcolor, void* pPaintData);
 
 typedef easygui_resource (* easygui_create_font_proc)      (void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation);
 typedef void             (* easygui_delete_font_proc)      (easygui_resource font);
@@ -295,7 +296,7 @@ typedef bool             (* easygui_get_font_metrics_proc) (easygui_resource fon
 typedef bool             (* easygui_get_glyph_metrics_proc)(easygui_resource font, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
 typedef bool             (* easygui_measure_string_proc)   (easygui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
-typedef easygui_resource (* easygui_create_image_proc)     (void* pPaintingContext, unsigned int width, unsigned int height, const void* pImageData);
+typedef easygui_resource (* easygui_create_image_proc)     (void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
 typedef void             (* easygui_delete_image_proc)     (easygui_resource image);
 typedef void             (* easygui_get_image_size_proc)   (easygui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut);
 
@@ -324,6 +325,7 @@ struct easygui_painting_callbacks
     easygui_draw_round_rect_with_outline_proc drawRoundRectWithOutline;
     easygui_draw_text_proc                    drawText;
     easygui_draw_image_proc                   drawImage;
+    easygui_draw_image_with_bkcolor_proc      drawImageWithBKColor;
 
     easygui_create_font_proc                  createFont;
     easygui_delete_font_proc                  deleteFont;
@@ -336,6 +338,14 @@ struct easygui_painting_callbacks
     easygui_get_image_size_proc               getImageSize;
 };
 
+struct easygui_image
+{
+    /// A pointer to the context that owns this image.
+    easygui_context* pContext;
+
+    /// The resource handle that is passed around to the callback functions.
+    easygui_resource hResource;
+};
 
 struct easygui_font
 {
@@ -972,6 +982,15 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
 ///     \c textSizeInBytes can be -1 in which case the text string is treated as null terminated.
 void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const char* text, int textLengthInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
 
+/// Draws an image.
+void easygui_draw_image(easygui_element* pElement, easygui_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, void* pPaintData);
+
+/// Draws an image with the given background color.
+///
+/// @remarks
+///     This is only useful for transparent images and avoiding overdraw.
+void easygui_draw_image_with_bkcolor(easygui_element* pElement, easygui_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easygui_color bkcolor, void* pPaintData);
+
 
 /// Creates a font resource.
 easygui_font* easygui_create_font(easygui_context* pContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation);
@@ -998,16 +1017,13 @@ bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLe
 ///     Images are immutable. If the data of an image needs to change, the image must be deleted and re-created.
 ///     @par
 ///     The image data must be in 32-bit, RGBA format where each component is in the range of 0 - 255.
-easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, const void* pData);
+easygui_image* easygui_create_image(easygui_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData);
 
 /// Deletes the given image.
-void easy2d_delete_image(easy2d_image* pImage);
-
-/// Retrieves a pointer to the given image's extra data buffer.
-void* easy2d_get_image_extra_data(easy2d_image* pImage);
+void easygui_delete_image(easygui_image* pImage);
 
 /// Retrieves the size of the given image.
-void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut);
+void easygui_get_image_size(easygui_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut);
 
 
 
