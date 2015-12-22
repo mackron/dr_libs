@@ -2477,7 +2477,7 @@ void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const cha
     pElement->pContext->paintingCallbacks.drawText(pFont->hResource, text, textLengthInBytes, absolutePosX, absolutePosY, color, backgroundColor, pPaintData);
 }
 
-void easygui_draw_image(easygui_element* pElement, easygui_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, void* pPaintData)
+void easygui_draw_image(easygui_element* pElement, easygui_image* pImage, easygui_draw_image_args* pArgs, void* pPaintData)
 {
     if (pElement == NULL || pImage == NULL) {
         return;
@@ -2485,36 +2485,12 @@ void easygui_draw_image(easygui_element* pElement, easygui_image* pImage, float 
 
     assert(pElement->pContext != NULL);
 
-    float absoluteDstX = dstX;
-    float absoluteDstY = dstY;
-    easygui_make_point_absolute(pElement, &absoluteDstX, &absoluteDstY);
+    easygui_make_point_absolute(pElement, &pArgs->dstX, &pArgs->dstX);
+    easygui_make_point_absolute(pElement, &pArgs->srcX, &pArgs->srcX);
+    easygui_make_point_absolute(pElement, &pArgs->dstBoundsX, &pArgs->dstBoundsY);
 
-    float absoluteSrcX = srcX;
-    float absoluteSrcY = srcY;
-    easygui_make_point_absolute(pElement, &absoluteSrcX, &absoluteSrcY);
-
-    pElement->pContext->paintingCallbacks.drawImage(pImage->hResource, absoluteDstX, absoluteDstY, dstWidth, dstHeight, absoluteSrcX, absoluteSrcY, srcWidth, srcHeight, pPaintData);
+    pElement->pContext->paintingCallbacks.drawImage(pImage->hResource, pArgs, pPaintData);
 }
-
-void easygui_draw_image_with_bkcolor(easygui_element* pElement, easygui_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easygui_color bkcolor, void* pPaintData)
-{
-    if (pElement == NULL || pImage == NULL) {
-        return;
-    }
-
-    assert(pElement->pContext != NULL);
-
-    float absoluteDstX = dstX;
-    float absoluteDstY = dstY;
-    easygui_make_point_absolute(pElement, &absoluteDstX, &absoluteDstY);
-
-    float absoluteSrcX = srcX;
-    float absoluteSrcY = srcY;
-    easygui_make_point_absolute(pElement, &absoluteSrcX, &absoluteSrcY);
-
-    pElement->pContext->paintingCallbacks.drawImageWithBKColor(pImage->hResource, absoluteDstX, absoluteDstY, dstWidth, dstHeight, absoluteSrcX, absoluteSrcY, srcWidth, srcHeight, bkcolor, pPaintData);
-}
-
 
 
 easygui_font* easygui_create_font(easygui_context* pContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation)
@@ -2932,8 +2908,7 @@ void easygui_draw_round_rect_easy_draw(easygui_rect, easygui_color, float, void*
 void easygui_draw_round_rect_outline_easy_draw(easygui_rect, easygui_color, float, float, void*);
 void easygui_draw_round_rect_with_outline_easy_draw(easygui_rect, easygui_color, float, float, easygui_color, void*);
 void easygui_draw_text_easy_draw(easygui_resource, const char*, int, float, float, easygui_color, easygui_color, void*);
-void easygui_draw_image_easy_draw(easygui_resource image, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, void* pPaintData);
-void easygui_draw_image_with_bkcolor_easy_draw(easygui_resource image, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easygui_color bkcolor, void* pPaintData);
+void easygui_draw_image_easy_draw(easygui_resource image, easygui_draw_image_args* pArgs, void* pPaintData);
 
 easygui_resource easygui_create_font_easy_draw(void*, const char*, unsigned int, easygui_font_weight, easygui_font_slant, float);
 void easygui_delete_font_easy_draw(easygui_resource);
@@ -2970,7 +2945,6 @@ void easygui_register_easy_draw_callbacks(easygui_context* pContext, easy2d_cont
     callbacks.drawRoundRectWithOutline = easygui_draw_round_rect_with_outline_easy_draw;
     callbacks.drawText                 = easygui_draw_text_easy_draw;
     callbacks.drawImage                = easygui_draw_image_easy_draw;
-    callbacks.drawImageWithBKColor     = easygui_draw_image_with_bkcolor_easy_draw;
 
     callbacks.createFont               = easygui_create_font_easy_draw;
     callbacks.deleteFont               = easygui_delete_font_easy_draw;
@@ -3076,20 +3050,29 @@ void easygui_draw_text_easy_draw(easygui_resource font, const char* text, int te
     easy2d_draw_text(pSurface, font, text, textSizeInBytes, posX, posY, easy2d_rgba(color.r, color.g, color.b, color.a), easy2d_rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a));
 }
 
-void easygui_draw_image_easy_draw(easygui_resource image, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, void* pPaintData)
+void easygui_draw_image_easy_draw(easygui_resource image, easygui_draw_image_args* pArgs, void* pPaintData)
 {
     easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_image(pSurface, image, dstX, dstY, dstWidth, dstHeight, srcX, srcY, srcWidth, srcHeight);
-}
-
-void easygui_draw_image_with_bkcolor_easy_draw(easygui_resource image, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easygui_color bkcolor, void* pPaintData)
-{
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
-    assert(pSurface != NULL);
-
-    easy2d_draw_image_with_bkcolor(pSurface, image, dstX, dstY, dstWidth, dstHeight, srcX, srcY, srcWidth, srcHeight, easy2d_rgba(bkcolor.r, bkcolor.g, bkcolor.b, bkcolor.a));
+    easy2d_draw_image_args args;
+    args.dstX            = pArgs->dstX;
+    args.dstY            = pArgs->dstY;
+    args.dstWidth        = pArgs->dstWidth;
+    args.dstHeight       = pArgs->dstHeight;
+    args.srcX            = pArgs->srcX;
+    args.srcY            = pArgs->srcY;
+    args.srcWidth        = pArgs->srcWidth;
+    args.srcHeight       = pArgs->srcHeight;
+    args.dstBoundsX      = pArgs->dstBoundsX;
+    args.dstBoundsY      = pArgs->dstBoundsY;
+    args.dstBoundsWidth  = pArgs->dstBoundsWidth;
+    args.dstBoundsHeight = pArgs->dstBoundsHeight;
+    args.foregroundTint  = easy2d_rgba(pArgs->foregroundTint.r, pArgs->foregroundTint.g, pArgs->foregroundTint.b, pArgs->foregroundTint.a);
+    args.backgroundColor = easy2d_rgba(pArgs->backgroundColor.r, pArgs->backgroundColor.g, pArgs->backgroundColor.b, pArgs->backgroundColor.a);
+    args.boundsColor     = easy2d_rgba(pArgs->boundsColor.r, pArgs->boundsColor.g, pArgs->boundsColor.b, pArgs->boundsColor.a);
+    args.options         = pArgs->options;
+    easy2d_draw_image(pSurface, image, &args);
 }
 
 

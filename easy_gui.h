@@ -252,6 +252,70 @@ struct easygui_rect
 };
 
 
+#define EASYGUI_IMAGE_DRAW_BACKGROUND    (1 << 0)
+#define EASYGUI_IMAGE_DRAW_BOUNDS        (1 << 1)
+#define EASYGUI_IMAGE_CLIP_BOUNDS        (1 << 2)        //< Clips the image to the bounds
+#define EASYGUI_IMAGE_ALIGN_CENTER       (1 << 3)
+#define EASYGUI_IMAGE_HINT_NO_ALPHA      (1 << 4)
+
+typedef struct
+{
+    /// The destination position on the x axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
+    float dstX;
+
+    /// The destination position on the y axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
+    float dstY;
+
+    /// The destination width.
+    float dstWidth;
+
+    /// The destination height.
+    float dstHeight;
+
+
+    /// The source offset on the x axis.
+    float srcX;
+
+    /// The source offset on the y axis.
+    float srcY;
+
+    /// The source width.
+    float srcWidth;
+
+    /// The source height.
+    float srcHeight;
+
+
+    /// The position of the destination's bounds on the x axis.
+    float dstBoundsX;
+
+    /// The position of the destination's bounds on the y axis.
+    float dstBoundsY;
+
+    /// The width of the destination's bounds.
+    float dstBoundsWidth;
+
+    /// The height of the destination's bounds.
+    float dstBoundsHeight;
+
+
+    /// The foreground tint color. This is not applied to the background color, and the alpha component is ignored.
+    easygui_color foregroundTint;
+
+    /// The background color. Only used if the EASY2D_IMAGE_DRAW_BACKGROUND option is set.
+    easygui_color backgroundColor;
+
+    /// The bounds color. This color is used for the region of the bounds that sit on the outside of the destination rectangle. This will
+    /// usually be set to the same value as backgroundColor, but it could also be used to draw a border around the image.
+    easygui_color boundsColor;
+
+
+    /// Flags for controlling how the image should be drawn.
+    unsigned int options;
+
+} easygui_draw_image_args;
+
+
 typedef void (* easygui_callback)();
 
 typedef void (* easygui_on_move_proc)                 (easygui_element* pElement, float newRelativePosX, float newRelativePosY);
@@ -287,8 +351,7 @@ typedef void (* easygui_draw_round_rect_proc)              (easygui_rect relativ
 typedef void (* easygui_draw_round_rect_outline_proc)      (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, void* pPaintData);
 typedef void (* easygui_draw_round_rect_with_outline_proc) (easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData);
 typedef void (* easygui_draw_text_proc)                    (easygui_resource font, const char* text, int textLengthInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
-typedef void (* easygui_draw_image_proc)                   (easygui_resource image, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, void* pPaintData);
-typedef void (* easygui_draw_image_with_bkcolor_proc)      (easygui_resource image, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easygui_color bkcolor, void* pPaintData);
+typedef void (* easygui_draw_image_proc)                   (easygui_resource image, easygui_draw_image_args* pArgs, void* pPaintData);
 
 typedef easygui_resource (* easygui_create_font_proc)      (void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation);
 typedef void             (* easygui_delete_font_proc)      (easygui_resource font);
@@ -325,7 +388,6 @@ struct easygui_painting_callbacks
     easygui_draw_round_rect_with_outline_proc drawRoundRectWithOutline;
     easygui_draw_text_proc                    drawText;
     easygui_draw_image_proc                   drawImage;
-    easygui_draw_image_with_bkcolor_proc      drawImageWithBKColor;
 
     easygui_create_font_proc                  createFont;
     easygui_delete_font_proc                  deleteFont;
@@ -952,9 +1014,6 @@ void easygui_get_clip(easygui_element* pElement, easygui_rect* pRelativeRect, vo
 /// Sets the clipping rectangle to apply to all future draw operations on this element.
 void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
 
-/// Draws a line on the given element.
-void easygui_draw_line(easygui_element* pElement, float startX, float startY, float endX, float endY, float lineWidth, easygui_color color, void* pPaintData);
-
 /// Draws a rectangle on the given element.
 void easygui_draw_rect(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, void* pPaintData);
 
@@ -983,13 +1042,7 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
 void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const char* text, int textLengthInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
 
 /// Draws an image.
-void easygui_draw_image(easygui_element* pElement, easygui_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, void* pPaintData);
-
-/// Draws an image with the given background color.
-///
-/// @remarks
-///     This is only useful for transparent images and avoiding overdraw.
-void easygui_draw_image_with_bkcolor(easygui_element* pElement, easygui_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easygui_color bkcolor, void* pPaintData);
+void easygui_draw_image(easygui_element* pElement, easygui_image* pImage, easygui_draw_image_args* pArgs, void* pPaintData);
 
 
 /// Creates a font resource.
