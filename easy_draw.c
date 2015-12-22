@@ -1330,7 +1330,7 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
         }
     }
 
-    if ((pArgs->options & EASY2D_IMAGE_DRAW_BACKGROUND) != 0 && pArgs->foregroundTint.r == 255 && pArgs->foregroundTint.g == 255 && pArgs->foregroundTint.b == 255)
+    if ((pArgs->options & EASY2D_IMAGE_DRAW_BACKGROUND) == 0 && pArgs->foregroundTint.r == 255 && pArgs->foregroundTint.g == 255 && pArgs->foregroundTint.b == 255)
     {
         // Fast path. No tint, no background.
         hSrcBitmap = pGDIImageData->hSrcBitmap;
@@ -1468,6 +1468,7 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
         BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
         AlphaBlend(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, blend);
     }
+
 
     if (prevDC != 0) {
         RestoreDC(pGDISurfaceData->hDC, prevDC);
