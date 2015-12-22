@@ -249,29 +249,16 @@ void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* 
     }
 }
 
-void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight)
+void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs)
 {
-    if (pSurface == NULL) {
+    if (pSurface == NULL || pImage == NULL || pArgs == NULL) {
         return;
     }
 
     assert(pSurface->pContext != NULL);
 
     if (pSurface->pContext->drawingCallbacks.draw_image) {
-        pSurface->pContext->drawingCallbacks.draw_image(pSurface, pImage, dstX, dstY, dstWidth, dstHeight, srcX, srcY, srcWidth, srcHeight);
-    }
-}
-
-void easy2d_draw_image_with_bkcolor(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easy2d_color bkcolor)
-{
-    if (pSurface == NULL) {
-        return;
-    }
-
-    assert(pSurface->pContext != NULL);
-
-    if (pSurface->pContext->drawingCallbacks.draw_image_with_bkcolor) {
-        pSurface->pContext->drawingCallbacks.draw_image_with_bkcolor(pSurface, pImage, dstX, dstY, dstWidth, dstHeight, srcX, srcY, srcWidth, srcHeight, bkcolor);
+        pSurface->pContext->drawingCallbacks.draw_image(pSurface, pImage, pArgs);
     }
 }
 
@@ -587,11 +574,18 @@ typedef struct
 
 typedef struct
 {
-    /// A handle to the bitmap object.
-    HBITMAP hBitmap;
+    /// A handle to the primary bitmap object.
+    HBITMAP hSrcBitmap;
 
     /// A pointer to the raw bitmap data.
-    unsigned int* pBitmapData;
+    unsigned int* pSrcBitmapData;
+
+    /// A handle to the secondary bitmap object that we use when we need to change the color values of
+    /// the primary bitmap before drawing.
+    HBITMAP hIntermediateBitmap;
+
+    /// A pointer to the raw data of the intermediate bitmap.
+    unsigned int* pIntermediateBitmapData;
 
 } gdi_image_data;
 
@@ -615,8 +609,7 @@ void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top,
 void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth);
 void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
 void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
-void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight);
-void easy2d_draw_image_with_bkcolor_gdi(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easy2d_color bkcolor);
+void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs);
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom);
 void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
@@ -681,7 +674,6 @@ easy2d_context* easy2d_create_context_gdi()
     callbacks.draw_round_rect_with_outline = easy2d_draw_round_rect_with_outline_gdi;
     callbacks.draw_text                    = easy2d_draw_text_gdi;
     callbacks.draw_image                   = easy2d_draw_image_gdi;
-    callbacks.draw_image_with_bkcolor      = easy2d_draw_image_with_bkcolor_gdi;
     callbacks.set_clip                     = easy2d_set_clip_gdi;
     callbacks.get_clip                     = easy2d_get_clip_gdi;
 
@@ -802,7 +794,7 @@ bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float h
         return false;
     }
 
-    HDC hIntermediateDC = CreateCompatibleDC(GetDC(GetDesktopWindow())); //CreateCompatibleDC(hDC);
+    HDC hIntermediateDC = CreateCompatibleDC(hDC);
     if (hIntermediateDC == NULL) {
         return false;
     }
@@ -963,8 +955,6 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage, unsigned int stride, const
     }
 
 
-    void* pBitmapWin32Data = NULL;
-
     BITMAPINFO bmi;
     ZeroMemory(&bmi, sizeof(bmi));
     bmi.bmiHeader.biSize        = sizeof(bmi.bmiHeader);
@@ -973,10 +963,17 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage, unsigned int stride, const
     bmi.bmiHeader.biPlanes      = 1;
     bmi.bmiHeader.biBitCount    = 32;   // Only supporting 32-bit formats.
     bmi.bmiHeader.biCompression = BI_RGB;
-    HBITMAP hBitmap = CreateDIBSection(pGDIContextData->hDC, &bmi, DIB_RGB_COLORS, &pBitmapWin32Data, NULL, 0);
-    if (hBitmap == NULL) {
+    pGDIData->hSrcBitmap = CreateDIBSection(pGDIContextData->hDC, &bmi, DIB_RGB_COLORS, &pGDIData->pSrcBitmapData, NULL, 0);
+    if (pGDIData->hSrcBitmap == NULL) {
         return false;
     }
+
+    pGDIData->hIntermediateBitmap = CreateDIBSection(pGDIContextData->hDC, &bmi, DIB_RGB_COLORS, &pGDIData->pIntermediateBitmapData, NULL, 0);
+    if (pGDIData->hIntermediateBitmap == NULL) {
+        DeleteObject(pGDIData->hSrcBitmap);
+        return false;
+    }
+
 
     // We need to convert the data so it renders correctly with AlphaBlend().
     for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
@@ -986,8 +983,8 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage, unsigned int stride, const
 
         for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
         {
-            unsigned int  srcTexel = ((const unsigned int*)(pData           ))[  (iRowSrc * (stride/4))        + iCol];
-            unsigned int* dstTexel = ((      unsigned int*)(pBitmapWin32Data)) + (iRowDst * pImage->width) + iCol;
+            unsigned int  srcTexel = ((const unsigned int*)(pData                   ))[  (iRowSrc * (stride/4))    + iCol];
+            unsigned int* dstTexel = ((      unsigned int*)(pGDIData->pSrcBitmapData)) + (iRowDst * pImage->width) + iCol;
 
             unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
             unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
@@ -1006,9 +1003,6 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage, unsigned int stride, const
     GdiFlush();
 
     // At this point everything should be good.
-    pGDIData->hBitmap     = hBitmap;
-    pGDIData->pBitmapData = pBitmapWin32Data;
-
     return true;
 }
 
@@ -1021,8 +1015,11 @@ void easy2d_on_delete_image_gdi(easy2d_image* pImage)
         return;
     }
 
-    DeleteObject(pGDIData->hBitmap);
-    pGDIData->hBitmap = NULL;
+    DeleteObject(pGDIData->hSrcBitmap);
+    pGDIData->hSrcBitmap = NULL;
+
+    DeleteObject(pGDIData->hIntermediateBitmap);
+    pGDIData->hIntermediateBitmap = NULL;
 }
 
 
@@ -1261,7 +1258,7 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const ch
     }
 }
 
-void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight)
+void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs)
 {
     gdi_image_data* pGDIImageData = easy2d_get_image_extra_data(pImage);
     if (pGDIImageData == NULL) {
@@ -1273,75 +1270,208 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, float
         return;
     }
 
-    SelectObject(pGDISurfaceData->hIntermediateDC, pGDIImageData->hBitmap);
 
-    BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
-    AlphaBlend(pGDISurfaceData->hDC, (int)dstX, (int)dstY, (int)dstWidth, (int)dstHeight, pGDISurfaceData->hIntermediateDC, (int)srcX, (int)srcY, (int)srcWidth, (int)srcHeight, blend);
-}
+    HBITMAP hSrcBitmap = NULL;
 
-void easy2d_draw_image_with_bkcolor_gdi(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easy2d_color bkcolor)
-{
-    // The easy way to implement this would be to simply draw a rectangle of the background color and then draw the image on top, however
-    // this results in overdraw and thus flickering. To avoid overdraw we will use an intermediary bitmap.
-
-    gdi_image_data* pGDIImageData = easy2d_get_image_extra_data(pImage);
-    if (pGDIImageData == NULL) {
-        return;
-    }
-
-    gdi_surface_data* pGDISurfaceData = easy2d_get_surface_extra_data(pSurface);
-    if (pGDISurfaceData == NULL) {
-        return;
-    }
-
-    unsigned int* pIntermediateBitmapData;
-    int intermediateBitmapWidth  = pImage->width;
-    int intermediateBitmapHeight = pImage->height;
-
-    BITMAPINFO bmi;
-    ZeroMemory(&bmi, sizeof(bmi));
-    bmi.bmiHeader.biSize        = sizeof(bmi.bmiHeader);
-    bmi.bmiHeader.biWidth       = intermediateBitmapWidth;
-    bmi.bmiHeader.biHeight      = intermediateBitmapHeight;
-    bmi.bmiHeader.biPlanes      = 1;
-    bmi.bmiHeader.biBitCount    = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    HBITMAP hIntermediateBitmap = CreateDIBSection(pGDISurfaceData->hDC, &bmi, DIB_RGB_COLORS, &pIntermediateBitmapData, NULL, 0);
-    if (hIntermediateBitmap == 0) {
-        return;
-    }
-
-    for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+    // Center the image if applicable.
+    if ((pArgs->options & EASY2D_IMAGE_ALIGN_CENTER) != 0)
     {
-        for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+        pArgs->dstX = pArgs->dstBoundsX + (pArgs->dstBoundsWidth  - pArgs->dstWidth)  / 2;
+        pArgs->dstY = pArgs->dstBoundsY + (pArgs->dstBoundsHeight - pArgs->dstHeight) / 2;
+    }
+
+    // Clip the image if applicable.
+    int prevDC = 0;
+    if ((pArgs->options & EASY2D_IMAGE_CLIP_BOUNDS) != 0)
+    {
+        // We only need to clip if part of the destination rectangle falls outside of the bounds.
+        if (pArgs->dstX < pArgs->dstBoundsX || pArgs->dstX + pArgs->dstWidth  > pArgs->dstBoundsX + pArgs->dstBoundsWidth ||
+            pArgs->dstY < pArgs->dstBoundsY || pArgs->dstY + pArgs->dstHeight > pArgs->dstBoundsY + pArgs->dstBoundsHeight)
         {
-            unsigned int  srcTexel = pGDIImageData->pBitmapData[(iRow * pImage->width) + iCol];
-            unsigned int* dstTexel = pIntermediateBitmapData + (iRow * intermediateBitmapWidth) + iCol;
+            if (pArgs->dstWidth != pArgs->srcWidth || pArgs->dstHeight != pArgs->srcHeight)
+            {
+                prevDC = SaveDC(pGDISurfaceData->hDC);
+            }
+            else
+            {
+                // There's no scaling so we can do a more efficient clip by simply adjusting the source and destination rectangles.
+                if (pArgs->dstX < pArgs->dstBoundsX)
+                {
+                    pArgs->srcWidth -= (pArgs->dstBoundsX - pArgs->dstX);
+                    pArgs->srcX     += (pArgs->dstBoundsX - pArgs->dstX);
+                    pArgs->dstWidth -= (pArgs->dstBoundsX - pArgs->dstX);
+                    pArgs->dstX      =  pArgs->dstBoundsX;
+                }
 
-            unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
-            unsigned int srcTexelR = (srcTexel & 0x00FF0000) >> 16;
-            unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
-            unsigned int srcTexelB = (srcTexel & 0x000000FF) >> 0;
+                if (pArgs->dstY < pArgs->dstBoundsY)
+                {
+                    pArgs->srcHeight -= (pArgs->dstBoundsY - pArgs->dstY);
+                    pArgs->srcY      += (pArgs->dstBoundsY - pArgs->dstY);
+                    pArgs->dstHeight -= (pArgs->dstBoundsY - pArgs->dstY);
+                    pArgs->dstY       =  pArgs->dstBoundsY;
+                }
 
-            srcTexelB += (unsigned int)(bkcolor.b * ((255 - srcTexelA) / 255.0f));
-            srcTexelG += (unsigned int)(bkcolor.g * ((255 - srcTexelA) / 255.0f));
-            srcTexelR += (unsigned int)(bkcolor.r * ((255 - srcTexelA) / 255.0f));
-            srcTexelA = 0xFF;
+                if (pArgs->dstX + pArgs->dstWidth > pArgs->dstBoundsX + pArgs->dstBoundsWidth)
+                {
+                    pArgs->srcWidth -= (pArgs->dstX + pArgs->dstWidth) - (pArgs->dstBoundsX + pArgs->dstBoundsWidth);
+                    pArgs->dstWidth -= (pArgs->dstX + pArgs->dstWidth) - (pArgs->dstBoundsX + pArgs->dstBoundsWidth);
+                }
 
-            *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+                if (pArgs->dstY + pArgs->dstHeight > pArgs->dstBoundsY + pArgs->dstBoundsHeight)
+                {
+                    pArgs->srcHeight -= (pArgs->dstY + pArgs->dstHeight) - (pArgs->dstBoundsY + pArgs->dstBoundsHeight);
+                    pArgs->dstHeight -= (pArgs->dstY + pArgs->dstHeight) - (pArgs->dstBoundsY + pArgs->dstBoundsHeight);
+                }
+
+                if (pArgs->dstWidth <= 0 || pArgs->dstHeight <= 0) {
+                    return;
+                }
+            }
         }
     }
 
-    // Flush GDI to let it know we are finished with the bitmap object's data.
-    GdiFlush();
+    if ((pArgs->options & EASY2D_IMAGE_DRAW_BACKGROUND) != 0 && pArgs->foregroundTint.r == 255 && pArgs->foregroundTint.g == 255 && pArgs->foregroundTint.b == 255)
+    {
+        // Fast path. No tint, no background.
+        hSrcBitmap = pGDIImageData->hSrcBitmap;
+    }
+    else
+    {
+        // Slow path. We need to manually change the color values of the intermediate bitmap and use that as the source when drawing it.
+        unsigned int* pSrcBitmapData = pGDIImageData->pSrcBitmapData;
+        unsigned int* pDstBitmapData = pGDIImageData->pIntermediateBitmapData;
+        for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+        {
+            for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+            {
+                unsigned int  srcTexel = *(pSrcBitmapData + (iRow * pImage->width) + iCol);
+                unsigned int* dstTexel =  (pDstBitmapData + (iRow * pImage->width) + iCol);
+
+                unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+                unsigned int srcTexelR = (unsigned int)(((srcTexel & 0x00FF0000) >> 16) * (pArgs->foregroundTint.r / 255.0f));
+                unsigned int srcTexelG = (unsigned int)(((srcTexel & 0x0000FF00) >> 8)  * (pArgs->foregroundTint.g / 255.0f));
+                unsigned int srcTexelB = (unsigned int)(((srcTexel & 0x000000FF) >> 0)  * (pArgs->foregroundTint.b / 255.0f));
+
+                if (srcTexelR > 255) srcTexelR = 255;
+                if (srcTexelG > 255) srcTexelG = 255;
+                if (srcTexelB > 255) srcTexelB = 255;
+
+                if ((pArgs->options & EASY2D_IMAGE_DRAW_BACKGROUND) != 0)
+                {
+                    srcTexelB += (unsigned int)(pArgs->backgroundColor.b * ((255 - srcTexelA) / 255.0f));
+                    srcTexelG += (unsigned int)(pArgs->backgroundColor.g * ((255 - srcTexelA) / 255.0f));
+                    srcTexelR += (unsigned int)(pArgs->backgroundColor.r * ((255 - srcTexelA) / 255.0f));
+                    srcTexelA = 0xFF;
+                }
+
+                *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+            }
+        }
+
+        // Flush GDI to let it know we are finished with the bitmap object's data.
+        GdiFlush();
+
+        // If we have drawn the background manually we don't need to do an alpha blend.
+        if ((pArgs->options & EASY2D_IMAGE_DRAW_BACKGROUND) != 0) {
+            pArgs->options |= EASY2D_IMAGE_HINT_NO_ALPHA;
+        }
+
+        hSrcBitmap = pGDIImageData->hIntermediateBitmap;
+    }
 
 
+    if ((pArgs->options & EASY2D_IMAGE_DRAW_BOUNDS) != 0)
+    {
+        // The bounds is the area sitting around the outside of the destination rectangle.
+        const float boundsLeft   = pArgs->dstBoundsX;
+        const float boundsTop    = pArgs->dstBoundsY;
+        const float boundsRight  = boundsLeft + pArgs->dstBoundsWidth;
+        const float boundsBottom = boundsTop + pArgs->dstBoundsHeight;
 
-    HGDIOBJ hPrevBitmap = SelectObject(pGDISurfaceData->hIntermediateDC, hIntermediateBitmap);
-    StretchBlt(pGDISurfaceData->hDC, (int)dstX, (int)dstY, (int)dstWidth, (int)dstHeight, pGDISurfaceData->hIntermediateDC, (int)srcX, (int)srcY, (int)srcWidth, (int)srcHeight, SRCCOPY);
-    SelectObject(pGDISurfaceData->hIntermediateDC, hPrevBitmap);
+        const float imageLeft   = pArgs->dstX;
+        const float imageTop    = pArgs->dstY;
+        const float imageRight  = imageLeft + pArgs->dstWidth;
+        const float imageBottom = imageTop + pArgs->dstHeight;
 
-    DeleteObject(hIntermediateBitmap);
+        const int pPolyCounts[] = {4, 4, 4, 4};
+        POINT pPoints[16];
+        int polyCount = 0;
+            
+        POINT* pNextPoly = pPoints;
+
+        // Left.
+        if (boundsLeft < imageLeft)
+        {
+            pNextPoly[0].x = (LONG)(boundsLeft); pNextPoly[0].y = (LONG)(boundsTop);
+            pNextPoly[1].x = (LONG)(boundsLeft); pNextPoly[1].y = (LONG)(boundsBottom);
+            pNextPoly[2].x = (LONG)(imageLeft);  pNextPoly[2].y = (LONG)((imageBottom < boundsBottom) ? imageBottom : boundsBottom);
+            pNextPoly[3].x = (LONG)(imageLeft);  pNextPoly[3].y = (LONG)((imageTop    > boundsTop)    ? imageTop    : boundsTop);
+
+            pNextPoly += 4;
+            polyCount += 1;
+        }
+
+        // Right.
+        if (boundsRight > imageRight)
+        {
+            pNextPoly[0].x = (LONG)(boundsRight); pNextPoly[0].y = (LONG)(boundsBottom);
+            pNextPoly[1].x = (LONG)(boundsRight); pNextPoly[1].y = (LONG)(boundsTop);
+            pNextPoly[2].x = (LONG)(imageRight);  pNextPoly[2].y = (LONG)((imageTop    > boundsTop)    ? imageTop    : boundsTop);
+            pNextPoly[3].x = (LONG)(imageRight);  pNextPoly[3].y = (LONG)((imageBottom < boundsBottom) ? imageBottom : boundsBottom);
+
+            pNextPoly += 4;
+            polyCount += 1;
+        }
+
+        // Top.
+        if (boundsTop < imageTop)
+        {
+            pNextPoly[0].x = (LONG)(boundsRight);                                           pNextPoly[0].y = (LONG)(boundsTop);
+            pNextPoly[1].x = (LONG)(boundsLeft);                                            pNextPoly[1].y = (LONG)(boundsTop);
+            pNextPoly[2].x = (LONG)((imageLeft  > boundsLeft)  ? imageLeft  : boundsLeft);  pNextPoly[2].y = (LONG)(imageTop);
+            pNextPoly[3].x = (LONG)((imageRight < boundsRight) ? imageRight : boundsRight); pNextPoly[3].y = (LONG)(imageTop);
+
+            pNextPoly += 4;
+            polyCount += 1;
+        }
+
+        // Bottom.
+        if (boundsBottom > imageBottom)
+        {
+            pNextPoly[0].x = (LONG)(boundsLeft);                                            pNextPoly[0].y = (LONG)(boundsBottom);
+            pNextPoly[1].x = (LONG)(boundsRight);                                           pNextPoly[1].y = (LONG)(boundsBottom);
+            pNextPoly[2].x = (LONG)((imageRight < boundsRight) ? imageRight : boundsRight); pNextPoly[2].y = (LONG)(imageBottom);
+            pNextPoly[3].x = (LONG)((imageLeft  > boundsLeft)  ? imageLeft  : boundsLeft);  pNextPoly[3].y = (LONG)(imageBottom);
+
+            pNextPoly += 4;
+            polyCount += 1;
+        }
+
+        if (polyCount > 0)
+        {
+            SelectObject(pGDISurfaceData->hDC, pGDISurfaceData->hStockNullPen);
+            SelectObject(pGDISurfaceData->hDC, pGDISurfaceData->hStockDCBrush);
+            SetDCBrushColor(pGDISurfaceData->hDC, RGB(pArgs->boundsColor.r, pArgs->boundsColor.g, pArgs->boundsColor.b));
+
+            PolyPolygon(pGDISurfaceData->hDC, pPoints, pPolyCounts, polyCount);
+        }
+    }
+
+
+    SelectObject(pGDISurfaceData->hIntermediateDC, hSrcBitmap);
+    if ((pArgs->options & EASY2D_IMAGE_HINT_NO_ALPHA) != 0)
+    {
+        StretchBlt(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, SRCCOPY);
+    }
+    else
+    {
+        BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+        AlphaBlend(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, blend);
+    }
+
+    if (prevDC != 0) {
+        RestoreDC(pGDISurfaceData->hDC, prevDC);
+    }
 }
 
 void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom)

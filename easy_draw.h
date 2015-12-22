@@ -117,6 +117,70 @@ typedef enum
 } easy2d_font_slant;
 
 
+#define EASY2D_IMAGE_DRAW_BACKGROUND    (1 << 0)
+#define EASY2D_IMAGE_DRAW_BOUNDS        (1 << 1)
+#define EASY2D_IMAGE_CLIP_BOUNDS        (1 << 2)        //< Clips the image to the bounds
+#define EASY2D_IMAGE_ALIGN_CENTER       (1 << 3)
+#define EASY2D_IMAGE_HINT_NO_ALPHA      (1 << 4)
+
+typedef struct
+{
+    /// The destination position on the x axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
+    float dstX;
+
+    /// The destination position on the y axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
+    float dstY;
+
+    /// The destination width.
+    float dstWidth;
+
+    /// The destination height.
+    float dstHeight;
+
+
+    /// The source offset on the x axis.
+    float srcX;
+
+    /// The source offset on the y axis.
+    float srcY;
+
+    /// The source width.
+    float srcWidth;
+
+    /// The source height.
+    float srcHeight;
+
+
+    /// The position of the destination's bounds on the x axis.
+    float dstBoundsX;
+
+    /// The position of the destination's bounds on the y axis.
+    float dstBoundsY;
+
+    /// The width of the destination's bounds.
+    float dstBoundsWidth;
+
+    /// The height of the destination's bounds.
+    float dstBoundsHeight;
+
+
+    /// The foreground tint color. This is not applied to the background color, and the alpha component is ignored.
+    easy2d_color foregroundTint;
+
+    /// The background color. Only used if the EASY2D_IMAGE_DRAW_BACKGROUND option is set.
+    easy2d_color backgroundColor;
+
+    /// The bounds color. This color is used for the region of the bounds that sit on the outside of the destination rectangle. This will
+    /// usually be set to the same value as backgroundColor, but it could also be used to draw a border around the image.
+    easy2d_color boundsColor;
+
+
+    /// Flags for controlling how the image should be drawn.
+    unsigned int options;
+
+} easy2d_draw_image_args;
+
+
 typedef bool (* easy2d_on_create_context_proc)           (easy2d_context* pContext);
 typedef void (* easy2d_on_delete_context_proc)           (easy2d_context* pContext);
 typedef bool (* easy2d_on_create_surface_proc)           (easy2d_surface* pSurface, float width, float height);
@@ -135,8 +199,7 @@ typedef void (* easy2d_draw_round_rect_proc)             (easy2d_surface* pSurfa
 typedef void (* easy2d_draw_round_rect_outline_proc)     (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth);
 typedef void (* easy2d_draw_round_rect_with_outline_proc)(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth, easy2d_color outlineColor);
 typedef void (* easy2d_draw_text_proc)                   (easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
-typedef void (* easy2d_draw_image_proc)                  (easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight);
-typedef void (* easy2d_draw_image_with_bkcolor_proc)     (easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easy2d_color bkcolor);
+typedef void (* easy2d_draw_image_proc)                  (easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs);
 typedef void (* easy2d_set_clip_proc)                    (easy2d_surface* pSurface, float left, float top, float right, float bottom);
 typedef void (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 typedef bool (* easy2d_get_font_metrics_proc)            (easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
@@ -167,7 +230,6 @@ struct easy2d_drawing_callbacks
     easy2d_draw_round_rect_with_outline_proc draw_round_rect_with_outline;
     easy2d_draw_text_proc                    draw_text;
     easy2d_draw_image_proc                   draw_image;
-    easy2d_draw_image_with_bkcolor_proc      draw_image_with_bkcolor;
     easy2d_set_clip_proc                     set_clip;
     easy2d_get_clip_proc                     get_clip;
 
@@ -313,10 +375,7 @@ void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, f
 void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
 
 /// Draws an image.
-void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight);
-
-/// Draws an image with a background color.
-void easy2d_draw_image_with_bkcolor(easy2d_surface* pSurface, easy2d_image* pImage, float dstX, float dstY, float dstWidth, float dstHeight, float srcX, float srcY, float srcWidth, float srcHeight, easy2d_color bkcolor);
+void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs);
 
 /// Sets the clipping rectangle.
 void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom);
