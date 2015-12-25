@@ -322,9 +322,29 @@ bool easyutil_get_log_folder_path(char* pathOut, size_t pathOutSize);
 /////////////////////////////////////////////////////////
 // DPI Awareness
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 /// Win32 Only: Makes the application DPI aware.
 void win32_make_dpi_aware();
+
+/// Win32 Only: Retrieves the base DPI to use as a reference when calculating DPI scaling.
+void win32_get_base_dpi(int* pDPIXOut, int* pDPIYOut);
+
+/// Win32 Only: Retrieves the system-wide DPI.
+void win32_get_system_dpi(int* pDPIXOut, int* pDPIYOut);
+
+/// Win32 Only: Retrieves the actual DPI of the monitor at the given index.
+///
+/// @remarks
+///     If per-monitor DPI is not supported, the system wide DPI settings will be used instead.
+///     @par
+///     This runs in linear time.
+void win32_get_monitor_dpi(int monitor, int* pDPIXOut, int* pDPIYOut);
+
+/// Win32 Only: Retrieves the number of monitors active at the time of calling.
+///
+/// @remarks
+///     This runs in linear time.
+int win32_get_monitor_count();
 #endif
 
 

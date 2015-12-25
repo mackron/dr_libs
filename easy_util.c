@@ -525,8 +525,16 @@ typedef enum PROCESS_DPI_AWARENESS {
     PROCESS_PER_MONITOR_DPI_AWARE = 2
 } PROCESS_DPI_AWARENESS;
 
+typedef enum MONITOR_DPI_TYPE {
+    MDT_EFFECTIVE_DPI = 0,
+    MDT_ANGULAR_DPI = 1,
+    MDT_RAW_DPI = 2,
+    MDT_DEFAULT = MDT_EFFECTIVE_DPI
+} MONITOR_DPI_TYPE;
+
 typedef BOOL    (__stdcall * PFN_SetProcessDPIAware)     (void);
 typedef HRESULT (__stdcall * PFN_SetProcessDpiAwareness) (PROCESS_DPI_AWARENESS);
+typedef HRESULT (__stdcall * PFN_GetDpiForMonitor)       (HMONITOR hmonitor, MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
 
 void win32_make_dpi_aware()
 {
@@ -571,6 +579,119 @@ void win32_make_dpi_aware()
             FreeLibrary(hUser32DLL);
         }
     }
+}
+
+void win32_get_base_dpi(int* pDPIXOut, int* pDPIYOut)
+{
+    if (pDPIXOut != NULL) {
+        *pDPIXOut = 96;
+    }
+
+    if (pDPIYOut != NULL) {
+        *pDPIYOut = 96;
+    }
+}
+
+void win32_get_system_dpi(int* pDPIXOut, int* pDPIYOut)
+{
+    if (pDPIXOut != NULL) {
+        *pDPIXOut = GetDeviceCaps(GetDC(NULL), LOGPIXELSX);
+    }
+
+    if (pDPIYOut != NULL) {
+        *pDPIYOut = GetDeviceCaps(GetDC(NULL), LOGPIXELSY);
+    }
+}
+
+
+typedef struct
+{
+    int monitorIndex;
+    int i;
+    int dpiX;
+    int dpiY;
+    PFN_GetDpiForMonitor _GetDpiForMonitor;
+
+} win32_get_monitor_dpi_data;
+
+static BOOL CALLBACK win32_get_monitor_dpi_callback(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
+{
+    win32_get_monitor_dpi_data* pData = (win32_get_monitor_dpi_data*)dwData;
+    if (pData->monitorIndex == pData->i)
+    {
+        UINT dpiX;
+        UINT dpiY;
+        if (pData->_GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY) != S_OK)
+        {
+            pData->dpiX = (int)dpiX;
+            pData->dpiY = (int)dpiY;
+        }
+        else
+        {
+            win32_get_system_dpi(&pData->dpiX, &pData->dpiY);
+        }
+
+        return FALSE;   // Return false to terminate the enumerator.
+    }
+
+    pData->i += 1;
+    return TRUE;
+}
+
+void win32_get_monitor_dpi(int monitor, int* pDPIXOut, int* pDPIYOut)
+{
+    // If multi-monitor DPI awareness is not supported we will need to fall back to system DPI.
+    HMODULE hSHCoreDLL = LoadLibraryW(L"shcore.dll");
+    if (hSHCoreDLL == NULL) {
+        win32_get_system_dpi(pDPIXOut, pDPIYOut);
+        return;
+    }
+
+    PFN_GetDpiForMonitor _GetDpiForMonitor = (PFN_GetDpiForMonitor)GetProcAddress(hSHCoreDLL, "GetDpiForMonitor");
+    if (_GetDpiForMonitor == NULL) {
+        win32_get_system_dpi(pDPIXOut, pDPIYOut);
+        FreeLibrary(hSHCoreDLL);
+        return;
+    }
+
+
+    win32_get_monitor_dpi_data data;
+    data.monitorIndex = monitor;
+    data.i = 0;
+    data.dpiX = 0;
+    data.dpiY = 0;
+    data._GetDpiForMonitor = _GetDpiForMonitor;
+    EnumDisplayMonitors(NULL, NULL, win32_get_monitor_dpi_callback, (LPARAM)&data);
+
+    if (pDPIXOut) {
+        *pDPIXOut = data.dpiX;
+    }
+
+    if (pDPIYOut) {
+        *pDPIYOut = data.dpiY;
+    }
+
+
+    FreeLibrary(hSHCoreDLL);
+}
+
+
+static BOOL CALLBACK win32_get_monitor_count_callback(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
+{
+    int *count = (int*)dwData;
+    (*count)++;
+
+    return TRUE;
+}
+
+int win32_get_monitor_count()
+{
+    int count = 0;
+    if (EnumDisplayMonitors(NULL, NULL, win32_get_monitor_count_callback, (LPARAM)&count)) {
+        return count;
+    }
+
+    return 0;
 }
 #endif
 
