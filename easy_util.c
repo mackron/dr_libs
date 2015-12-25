@@ -621,7 +621,7 @@ static BOOL CALLBACK win32_get_monitor_dpi_callback(HMONITOR hMonitor, HDC hdcMo
     {
         UINT dpiX;
         UINT dpiY;
-        if (pData->_GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY) != S_OK)
+        if (pData->_GetDpiForMonitor(hMonitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY) == S_OK)
         {
             pData->dpiX = (int)dpiX;
             pData->dpiY = (int)dpiY;
