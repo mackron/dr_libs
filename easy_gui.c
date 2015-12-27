@@ -1237,6 +1237,8 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
             pElement->absolutePosY          = 0;
             pElement->width                 = 0;
             pElement->height                = 0;
+            pElement->innerScaleX           = 1;
+            pElement->innerScaleY           = 1;
             pElement->flags                 = 0;
             pElement->onMove                = NULL;
             pElement->onSize                = NULL;
@@ -2128,6 +2130,67 @@ float easygui_get_height(const easygui_element * pElement)
     }
 
     return 0;
+}
+
+
+void easygui_set_inner_scale(easygui_element* pElement, float innerScaleX, float innerScaleY)
+{
+    if (pElement == NULL){
+        return;
+    }
+
+    pElement->innerScaleX = innerScaleX;
+    pElement->innerScaleY = innerScaleY;
+}
+
+void easygui_get_inner_scale(easygui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut)
+{
+    float innerScaleX = 1;
+    float innerScaleY = 1;
+
+    if (pElement != NULL)
+    {
+        innerScaleX = pElement->innerScaleX;
+        innerScaleY = pElement->innerScaleY;
+    }
+
+
+    if (pInnerScaleXOut) {
+        *pInnerScaleXOut = innerScaleX;
+    }
+    if (pInnerScaleYOut) {
+        *pInnerScaleYOut = innerScaleY;
+    }
+}
+
+void easygui_get_absolute_inner_scale(easygui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut)
+{
+    float innerScaleX = 1;
+    float innerScaleY = 1;
+
+    if (pElement != NULL)
+    {
+        innerScaleX = pElement->innerScaleX;
+        innerScaleY = pElement->innerScaleY;
+
+        if (pElement->pParent != NULL)
+        {
+            float parentInnerScaleX;
+            float parentInnerScaleY;
+            easygui_get_absolute_inner_scale(pElement->pParent, &parentInnerScaleX, &parentInnerScaleY);
+
+            innerScaleX *= parentInnerScaleX;
+            innerScaleY *= parentInnerScaleY;
+        }
+    }
+
+
+    if (pInnerScaleXOut) {
+        *pInnerScaleXOut = innerScaleX;
+    }
+    if (pInnerScaleYOut) {
+        *pInnerScaleYOut = innerScaleY;
+    }
 }
 
 

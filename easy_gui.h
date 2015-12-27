@@ -56,6 +56,18 @@
 // - An element's data structure does not store it's relative position but instead stores it's absolute position. The rationale
 //   for this is that storing it as relative complicates absolute positioning calculations because it would need to do a recursive
 //   traversal of the element's ancestors.
+// - Child elements can be scaled by setting an element's inner scale. The inner scale does not scale the element itself - only
+//   it's children.
+// - When an element is drawn, everything is scaled by the parent's inner scale. For example, if the inner scale is 2x and a
+//   100x100 quad is drawn, the quad will be scaled to 200x200. An exception to this rule is fonts, which are never scaled. This
+//   is because text is always drawn based on the size of the font.
+// - Applications should only need to work on unscaled coordinates. That is, an application should never need to worry about
+//   manual scaling, except for fonts. When positioning and sizing child elements, they should be done based on unscaled
+//   coordinates.
+// - Use the inner scale system for DPI awareness.
+// - The inner scale is applied recursively. That is, if a top level element has it's inner scale set to 2x and one of it's
+//   children has an inner scale of 2x, the actual inner scale of the child element will be 4x.
+//   
 //
 // Drawing/Painting
 // - Drawing is one of the more complex parts of the GUI because it can be a bit unintuitive regarding exactly when an element
@@ -76,7 +88,7 @@
 //   required, it can be disabled with easygui_disable_auto_dirty(). You may want to disable automatic dirtying if you are
 //   running a real-time application like a game which would redraw the entire GUI every frame anyway and thus not require
 //   handling of the paint message.
-// - Real-time application guidlines (games, etc.):
+// - Real-time application guidelines (games, etc.):
 //   - easygui_disable_auto_dirty()
 //   - easygui_draw(pTopLevelElement, 0, 0, viewportWidth, viewportHeight) at the end of every frame after your main loop.
 //
@@ -460,6 +472,13 @@ struct easygui_element
 
     /// The height of the element.
     float height;
+
+
+    /// The scale to apply to child elements on the x axis.
+    float innerScaleX;
+
+    /// The scale to apply to child elements on the y axis.
+    float innerScaleY;
 
 
     /// Boolean flags.
@@ -940,6 +959,24 @@ void easygui_set_size(easygui_element* pElement, float width, float height);
 void easygui_get_size(const easygui_element* pElement, float* widthOut, float* heightOut);
 float easygui_get_width(const easygui_element* pElement);
 float easygui_get_height(const easygui_element* pElement);
+
+
+/// Sets the inner scale of the given element.
+///
+/// @remarks
+///     This does not scale the element itself - only it's children.
+void easygui_set_inner_scale(easygui_element* pElement, float innerScaleX, float innerScaleY);
+
+/// Retrieves the inner scale of the given element.
+///
+/// @remarks
+///     This is a direct accessor and not recursive. Use easygui_get_absolute_inner_scale() for the actual
+///     inner scale.
+void easygui_get_inner_scale(easygui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut);
+
+/// Recursively retrieves the absolute scale fo the given element.
+void easygui_get_absolute_inner_scale(easygui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut);
+
 
 
 /// Retrieves the absolute rectangle for the given element.
