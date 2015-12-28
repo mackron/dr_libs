@@ -393,6 +393,9 @@ void easy2d_delete_font(easy2d_font* pFont);
 /// Retrieves a pointer to the given font's extra data buffer.
 void* easy2d_get_font_extra_data(easy2d_font* pFont);
 
+/// Retrieves the size of the given font.
+unsigned int easy2d_get_font_size(easy2d_font* pFont);
+
 /// Retrieves the metrics of the given font.
 bool easy2d_get_font_metrics(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
 

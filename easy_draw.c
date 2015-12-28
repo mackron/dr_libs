@@ -342,6 +342,15 @@ void* easy2d_get_font_extra_data(easy2d_font* pFont)
     return pFont->pExtraData;
 }
 
+unsigned int easy2d_get_font_size(easy2d_font* pFont)
+{
+    if (pFont == NULL) {
+        return 0;
+    }
+
+    return pFont->size;
+}
+
 bool easy2d_get_font_metrics(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut)
 {
     if (pFont == NULL) {
