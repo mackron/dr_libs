@@ -2816,6 +2816,15 @@ bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLe
     return result;
 }
 
+bool easygui_measure_string_by_element(easygui_font* pFont, const char* text, size_t textLengthInBytes, easygui_element* pElement, float* pWidthOut, float* pHeightOut)
+{
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    return easygui_measure_string(pFont, text, textLengthInBytes, scaleX, scaleY, pWidthOut, pHeightOut);
+}
+
 
 easygui_image* easygui_create_image(easygui_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData)
 {
