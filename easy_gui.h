@@ -169,6 +169,10 @@
 
 #include <stdbool.h>
 
+#ifndef EASYGUI_MAX_FONT_FAMILY_LENGTH
+#define EASYGUI_MAX_FONT_FAMILY_LENGTH  128
+#endif
+
 
 // Annotations.
 #ifndef PRIVATE
@@ -367,6 +371,7 @@ typedef void (* easygui_draw_image_proc)                   (easygui_resource ima
 
 typedef easygui_resource (* easygui_create_font_proc)      (void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation);
 typedef void             (* easygui_delete_font_proc)      (easygui_resource font);
+typedef unsigned int     (* easygui_get_font_size_proc)    (easygui_resource font);
 typedef bool             (* easygui_get_font_metrics_proc) (easygui_resource font, easygui_font_metrics* pMetricsOut);
 typedef bool             (* easygui_get_glyph_metrics_proc)(easygui_resource font, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
 typedef bool             (* easygui_measure_string_proc)   (easygui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
@@ -403,6 +408,7 @@ struct easygui_painting_callbacks
 
     easygui_create_font_proc                  createFont;
     easygui_delete_font_proc                  deleteFont;
+    easygui_get_font_size_proc                getFontSize;
     easygui_get_font_metrics_proc             getFontMetrics;
     easygui_get_glyph_metrics_proc            getGlyphMetrics;
     easygui_measure_string_proc               measureString;
@@ -426,8 +432,29 @@ struct easygui_font
     /// A pointer to the context that owns this font.
     easygui_context* pContext;
 
-    /// The resource handle that is passed around to the callback functions.
-    easygui_resource hResource;
+    /// The font family.
+    char family[EASYGUI_MAX_FONT_FAMILY_LENGTH];
+
+    /// The base size of the font. This is set to the value that was used to create the font in the first place.
+    unsigned int size;
+
+    /// The font's weight.
+    easygui_font_weight weight;
+
+    /// The fon't slant.
+    easygui_font_slant slant;
+
+    /// The fon't rotation.
+    float rotation;
+
+    /// The number of internal fonts in <pInternalFonts>
+    size_t internalFontCount;
+
+    /// A GUI font is actually a collection of font objects with the same family and style, but varying sizes. The variance
+    /// in sizes is used to implement scaling. There is an internal font resource for each font size which are stored in a
+    /// simple dynamically sized array. The first element in the array is the internal font representing the properties that
+    /// were passed in to easygui_create_font().
+    easygui_resource* pInternalFonts;
 };
 
 
@@ -1089,10 +1116,10 @@ easygui_font* easygui_create_font(easygui_context* pContext, const char* family,
 void easygui_delete_font(easygui_font* pFont);
 
 /// Retrieves the metrics of the given font.
-bool easygui_get_font_metrics(easygui_font* pFont, easygui_font_metrics* pMetricsOut);
+bool easygui_get_font_metrics(easygui_font* pFont, float scaleX, float scaleY, easygui_font_metrics* pMetricsOut);
 
 /// Retrieves the metrics of the glyph for the given character when rendered with the given font.
-bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
+bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, float scaleX, float scaleY, easygui_glyph_metrics* pMetricsOut);
 
 /// Retrieves the dimensions of the given string when drawn with the given font at the given scale.
 ///

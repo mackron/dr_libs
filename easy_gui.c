@@ -179,6 +179,12 @@ void easygui_post_outbound_event_release_keyboard_global(easygui_element* pEleme
 /// Posts a log message.
 void easygui_log(easygui_context* pContext, const char* message);
 
+/// Retrieves the internal font that would be used when scaled by the given amount.
+///
+/// @remarks
+///     If an internal font of the appropriate size has not yet been created, this function will create it.
+PRIVATE easygui_resource easygui_get_internal_font_by_scale(easygui_font* pFont, float scaleY);
+
 
 void easygui_begin_inbound_event(easygui_context* pContext)
 {
@@ -859,6 +865,62 @@ void easygui_log(easygui_context* pContext, const char* message)
 }
 
 
+PRIVATE easygui_resource easygui_get_internal_font_by_scale(easygui_font* pFont, float scaleY)
+{
+    assert(pFont != NULL);
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->paintingCallbacks.getFontSize == NULL)
+    {
+        if (pFont->internalFontCount == 0) {
+            return NULL;
+        }
+
+        return pFont->pInternalFonts[0];
+    }
+    
+
+    // First check to see if a font of the appropriate size has already been created.
+    unsigned int targetSize = (unsigned int)(pFont->size * scaleY);
+    if (targetSize == 0) {
+        targetSize = 1;
+    }
+
+    for (unsigned int i = 0; i < pFont->internalFontCount; ++i)
+    {
+        if (pFont->pContext->paintingCallbacks.getFontSize(pFont->pInternalFonts[i]) == targetSize) {
+            return pFont->pInternalFonts[i];
+        }
+    }
+
+
+    // At this point we know that a font of the appropriate size has not yet been loaded, so we need to try and load it now.
+    if (pFont->pContext->paintingCallbacks.createFont == NULL) {
+        return NULL;
+    }
+
+    easygui_resource internalFont = pFont->pContext->paintingCallbacks.createFont(pFont->pContext->pPaintingContext, pFont->family, targetSize, pFont->weight, pFont->slant, pFont->rotation);
+    if (internalFont == NULL) {
+        return NULL;
+    }
+
+    easygui_resource* pOldInternalFonts = pFont->pInternalFonts;
+    easygui_resource* pNewInternalFonts = malloc(sizeof(*pNewInternalFonts) * (pFont->internalFontCount + 1));
+
+    for (size_t i = 0; i < pFont->internalFontCount; ++i) {
+        pNewInternalFonts[i] = pOldInternalFonts[i];
+    }
+    pNewInternalFonts[pFont->internalFontCount] = internalFont;
+
+    pFont->pInternalFonts     = pNewInternalFonts;
+    pFont->internalFontCount += 1;
+
+
+    free(pOldInternalFonts);
+    return internalFont;
+}
+
+
 
 /////////////////////////////////////////////////////////////////
 //
@@ -886,6 +948,7 @@ easygui_context* easygui_create_context()
         pContext->paintingCallbacks.drawImage                = NULL;
         pContext->paintingCallbacks.createFont               = NULL;
         pContext->paintingCallbacks.deleteFont               = NULL;
+        pContext->paintingCallbacks.getFontSize              = NULL;
         pContext->paintingCallbacks.getFontMetrics           = NULL;
         pContext->paintingCallbacks.getGlyphMetrics          = NULL;
         pContext->paintingCallbacks.measureString            = NULL;
@@ -2663,7 +2726,12 @@ void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const cha
     float absolutePosY = posY * scaleX;
     easygui_make_point_absolute(pElement, &absolutePosX, &absolutePosY);
 
-    pElement->pContext->paintingCallbacks.drawText(pFont->hResource, text, textLengthInBytes, absolutePosX, absolutePosY, color, backgroundColor, pPaintData);
+    easygui_resource font = easygui_get_internal_font_by_scale(pFont, scaleY);
+    if (font == NULL) {
+        return;
+    }
+
+    pElement->pContext->paintingCallbacks.drawText(font, text, textLengthInBytes, absolutePosX, absolutePosY, color, backgroundColor, pPaintData);
 }
 
 void easygui_draw_image(easygui_element* pElement, easygui_image* pImage, easygui_draw_image_args* pArgs, void* pPaintData)
@@ -2717,9 +2785,19 @@ easygui_font* easygui_create_font(easygui_context* pContext, const char* family,
         return NULL;
     }
 
-    pFont->pContext  = pContext;
-    pFont->hResource = internalFont;
+    pFont->pContext          = pContext;
+    pFont->family[0]         = '\0';
+    pFont->size              = size;
+    pFont->weight            = weight;
+    pFont->slant             = slant;
+    pFont->rotation          = rotation;
+    pFont->internalFontCount = 1;
+    pFont->pInternalFonts    = malloc(sizeof(easygui_resource) * pFont->internalFontCount);
+    pFont->pInternalFonts[0] = internalFont;
 
+    if (family != NULL) {
+        strcpy_s(pFont->family, sizeof(pFont->family), family);
+    }
 
     return pFont;
 }
@@ -2732,17 +2810,21 @@ void easygui_delete_font(easygui_font* pFont)
 
     assert(pFont->pContext != NULL);
 
-    // Delete the internal font object.
+    // Delete the internal font objects first.
     if (pFont->pContext->paintingCallbacks.deleteFont) {
-        pFont->pContext->paintingCallbacks.deleteFont(pFont->hResource);
+        for (size_t i = 0; i < pFont->internalFontCount; ++i) {
+            pFont->pContext->paintingCallbacks.deleteFont(pFont->pInternalFonts[i]);
+        }
     }
 
-    // Free the font object last.
+    free(pFont->pInternalFonts);
     free(pFont);
 }
 
-bool easygui_get_font_metrics(easygui_font* pFont, easygui_font_metrics* pMetricsOut)
+bool easygui_get_font_metrics(easygui_font* pFont, float scaleX, float scaleY, easygui_font_metrics* pMetricsOut)
 {
+    (void)scaleX;
+
     if (pFont == NULL || pMetricsOut == NULL) {
         return false;
     }
@@ -2753,11 +2835,30 @@ bool easygui_get_font_metrics(easygui_font* pFont, easygui_font_metrics* pMetric
         return false;
     }
 
-    return pFont->pContext->paintingCallbacks.getFontMetrics(pFont->hResource, pMetricsOut);
+    easygui_resource font = easygui_get_internal_font_by_scale(pFont, scaleY);
+    if (font == NULL) {
+        return false;
+    }
+
+    bool result = pFont->pContext->paintingCallbacks.getFontMetrics(font, pMetricsOut);
+    if (result)
+    {
+        if (pMetricsOut != NULL)
+        {
+            pMetricsOut->ascent     = (unsigned int)(pMetricsOut->ascent     / scaleY);
+            pMetricsOut->descent    = (unsigned int)(pMetricsOut->descent    / scaleY);
+            pMetricsOut->lineHeight = (unsigned int)(pMetricsOut->lineHeight / scaleY);
+            pMetricsOut->spaceWidth = (unsigned int)(pMetricsOut->spaceWidth / scaleX);
+        }
+    }
+
+    return result;
 }
 
-bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_glyph_metrics* pMetricsOut)
+bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, float scaleX, float scaleY, easygui_glyph_metrics* pMetricsOut)
 {
+    (void)scaleY;
+
     if (pFont == NULL || pMetricsOut == NULL) {
         return false;
     }
@@ -2768,7 +2869,26 @@ bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_
         return false;
     }
 
-    return pFont->pContext->paintingCallbacks.getGlyphMetrics(pFont->hResource, utf32, pMetricsOut);
+    easygui_resource font = easygui_get_internal_font_by_scale(pFont, scaleY);
+    if (font == NULL) {
+        return false;
+    }
+
+    bool result = pFont->pContext->paintingCallbacks.getGlyphMetrics(font, utf32, pMetricsOut);
+    if (result)
+    {
+        if (pMetricsOut != NULL)
+        {
+            pMetricsOut->width    = (unsigned int)(pMetricsOut->width    / scaleX);
+            pMetricsOut->height   = (unsigned int)(pMetricsOut->height   / scaleY);
+            pMetricsOut->originX  = (unsigned int)(pMetricsOut->originX  / scaleX);
+            pMetricsOut->originY  = (unsigned int)(pMetricsOut->originY  / scaleY);
+            pMetricsOut->advanceX = (unsigned int)(pMetricsOut->advanceX / scaleX);
+            pMetricsOut->advanceY = (unsigned int)(pMetricsOut->advanceY / scaleY);
+        }
+    }
+    
+    return result;
 }
 
 bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLengthInBytes, float scaleX, float scaleY, float* pWidthOut, float* pHeightOut)
@@ -2780,7 +2900,7 @@ bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLe
     if (text == NULL || textLengthInBytes == 0)
     {
         easygui_font_metrics metrics;
-        if (!easygui_get_font_metrics(pFont, &metrics)) {
+        if (!easygui_get_font_metrics(pFont, scaleX, scaleY, &metrics)) {
             return false;
         }
 
@@ -2788,7 +2908,7 @@ bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLe
             *pWidthOut = 0;
         }
         if (pHeightOut) {
-            *pHeightOut = (float)metrics.lineHeight / scaleY;
+            *pHeightOut = (float)metrics.lineHeight;
         }
 
         return true;
@@ -2802,7 +2922,12 @@ bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLe
         return false;
     }
 
-    bool result = pFont->pContext->paintingCallbacks.measureString(pFont->hResource, text, textLengthInBytes, pWidthOut, pHeightOut);
+    easygui_resource font = easygui_get_internal_font_by_scale(pFont, scaleY);
+    if (font == NULL) {
+        return false;
+    }
+
+    bool result = pFont->pContext->paintingCallbacks.measureString(font, text, textLengthInBytes, pWidthOut, pHeightOut);
     if (result)
     {
         if (pWidthOut) {
@@ -3150,6 +3275,7 @@ void easygui_draw_image_easy_draw(easygui_resource image, easygui_draw_image_arg
 
 easygui_resource easygui_create_font_easy_draw(void*, const char*, unsigned int, easygui_font_weight, easygui_font_slant, float);
 void easygui_delete_font_easy_draw(easygui_resource);
+unsigned int easygui_get_font_size_easy_draw(easygui_resource hFont);
 bool easygui_get_font_metrics_easy_draw(easygui_resource, easygui_font_metrics*);
 bool easygui_get_glyph_metrics_easy_draw(easygui_resource, unsigned int, easygui_glyph_metrics*);
 bool easygui_measure_string_easy_draw(easygui_resource, const char*, size_t, float*, float*);
@@ -3186,6 +3312,7 @@ void easygui_register_easy_draw_callbacks(easygui_context* pContext, easy2d_cont
 
     callbacks.createFont               = easygui_create_font_easy_draw;
     callbacks.deleteFont               = easygui_delete_font_easy_draw;
+    callbacks.getFontSize              = easygui_get_font_size_easy_draw;
     callbacks.getFontMetrics           = easygui_get_font_metrics_easy_draw;
     callbacks.getGlyphMetrics          = easygui_get_glyph_metrics_easy_draw;
     callbacks.measureString            = easygui_measure_string_easy_draw;
@@ -3322,6 +3449,11 @@ easygui_resource easygui_create_font_easy_draw(void* pPaintingContext, const cha
 void easygui_delete_font_easy_draw(easygui_resource font)
 {
     easy2d_delete_font(font);
+}
+
+unsigned int easygui_get_font_size_easy_draw(easygui_resource font)
+{
+    return easy2d_get_font_size(font);
 }
 
 bool easygui_get_font_metrics_easy_draw(easygui_resource font, easygui_font_metrics* pMetricsOut)
