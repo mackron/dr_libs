@@ -1256,8 +1256,8 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const ch
                 GetTextExtentPoint32W(hDC, textW, textWLength, &textSize);
                 rect.left   = (LONG)posX;
                 rect.top    = (LONG)posY;
-                rect.right  = rect.left + textSize.cx;
-                rect.bottom = rect.top + textSize.cy;
+                rect.right  = (LONG)(posX + textSize.cx);
+                rect.bottom = (LONG)(posY + textSize.cy);
             }
                 
             SetTextColor(hDC, RGB(color.r, color.g, color.b));
