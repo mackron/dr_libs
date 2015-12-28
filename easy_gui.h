@@ -1096,9 +1096,13 @@ bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_
 
 /// Retrieves the dimensions of the given string when drawn with the given font.
 ///
+/// @param scale [in] The scale on the y axis the font will be drawn at.
+///
 /// @remarks
 ///     When the length of the text is 0, the width will be set to 0 and the height will be set to the line height.
-bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLengthInBytes, float* pWidthOut, float* pHeightOut);
+///     @par
+///     <scale> should be set to the scale at which the font will be drawn, on the y axis.
+bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLengthInBytes, float scaleX, float scaleY, float* pWidthOut, float* pHeightOut);
 
 
 /// Creates an image that can be passed to easy2d_draw_image().

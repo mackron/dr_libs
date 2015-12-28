@@ -2771,7 +2771,7 @@ bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, easygui_
     return pFont->pContext->paintingCallbacks.getGlyphMetrics(pFont->hResource, utf32, pMetricsOut);
 }
 
-bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLengthInBytes, float* pWidthOut, float* pHeightOut)
+bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLengthInBytes, float scaleX, float scaleY, float* pWidthOut, float* pHeightOut)
 {
     if (pFont == NULL) {
         return false;
@@ -2788,7 +2788,7 @@ bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLe
             *pWidthOut = 0;
         }
         if (pHeightOut) {
-            *pHeightOut = (float)metrics.lineHeight;
+            *pHeightOut = (float)metrics.lineHeight / scaleY;
         }
 
         return true;
@@ -2802,7 +2802,18 @@ bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLe
         return false;
     }
 
-    return pFont->pContext->paintingCallbacks.measureString(pFont->hResource, text, textLengthInBytes, pWidthOut, pHeightOut);
+    bool result = pFont->pContext->paintingCallbacks.measureString(pFont->hResource, text, textLengthInBytes, pWidthOut, pHeightOut);
+    if (result)
+    {
+        if (pWidthOut) {
+            *pWidthOut /= scaleX;
+        }
+        if (pHeightOut) {
+            *pHeightOut /= scaleY;
+        }
+    }
+
+    return result;
 }
 
 
