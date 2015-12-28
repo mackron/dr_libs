@@ -58,9 +58,9 @@
 //   traversal of the element's ancestors.
 // - Child elements can be scaled by setting an element's inner scale. The inner scale does not scale the element itself - only
 //   it's children.
-// - When an element is drawn, everything is scaled by the parent's inner scale. For example, if the inner scale is 2x and a
-//   100x100 quad is drawn, the quad will be scaled to 200x200. An exception to this rule is fonts, which are never scaled. This
-//   is because text is always drawn based on the size of the font.
+// - When an element is drawn, everything is scaled by it's inner scale. For example, if the inner scale is 2x and a 100x100 quad
+//   is drawn, the quad will be scaled to 200x200. An exception to this rule is fonts, which are never scaled. This 0s because
+//   text is always drawn based on the size of the font.
 // - Applications should only need to work on unscaled coordinates. That is, an application should never need to worry about
 //   manual scaling, except for fonts. When positioning and sizing child elements, they should be done based on unscaled
 //   coordinates.

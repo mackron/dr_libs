@@ -623,8 +623,13 @@ void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relat
 {
     if (easygui_begin_outbound_event(pElement))
     {
-        if (pElement->onMouseMove) {
-            pElement->onMouseMove(pElement, relativeMousePosX, relativeMousePosY);
+        if (pElement->onMouseMove)
+        {
+            float scaleX;
+            float scaleY;
+            easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+            pElement->onMouseMove(pElement, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
         }
         
         easygui_end_outbound_event(pElement);
@@ -635,8 +640,13 @@ void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, in
 {
     if (easygui_begin_outbound_event(pElement))
     {
-        if (pElement->onMouseButtonDown) {
-            pElement->onMouseButtonDown(pElement, mouseButton, relativeMousePosX, relativeMousePosY);
+        if (pElement->onMouseButtonDown)
+        {
+            float scaleX;
+            float scaleY;
+            easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+            pElement->onMouseButtonDown(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
         }
         
         easygui_end_outbound_event(pElement);
@@ -647,8 +657,13 @@ void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int 
 {
     if (easygui_begin_outbound_event(pElement))
     {
-        if (pElement->onMouseButtonUp) {
-            pElement->onMouseButtonUp(pElement, mouseButton, relativeMousePosX, relativeMousePosY);
+        if (pElement->onMouseButtonUp)
+        {
+            float scaleX;
+            float scaleY;
+            easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+            pElement->onMouseButtonUp(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
         }
         
         easygui_end_outbound_event(pElement);
@@ -659,8 +674,13 @@ void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement
 {
     if (easygui_begin_outbound_event(pElement))
     {
-        if (pElement->onMouseButtonDblClick) {
-            pElement->onMouseButtonDblClick(pElement, mouseButton, relativeMousePosX, relativeMousePosY);
+        if (pElement->onMouseButtonDblClick)
+        {
+            float scaleX;
+            float scaleY;
+            easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+            pElement->onMouseButtonDblClick(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
         }
         
         easygui_end_outbound_event(pElement);
@@ -671,8 +691,13 @@ void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delt
 {
     if (easygui_begin_outbound_event(pElement))
     {
-        if (pElement->onMouseWheel) {
-            pElement->onMouseWheel(pElement, delta, relativeMousePosX, relativeMousePosY);
+        if (pElement->onMouseWheel)
+        {
+            float scaleX;
+            float scaleY;
+            easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+            pElement->onMouseWheel(pElement, delta, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
         }
         
         easygui_end_outbound_event(pElement);
@@ -730,8 +755,13 @@ void easygui_post_outbound_event_dirty_global(easygui_element* pElement, easygui
 {
     if (pElement != NULL && pElement->pContext != NULL)
     {
-        if (pElement->pContext->onGlobalDirty) {
-            pElement->pContext->onGlobalDirty(pElement, relativeRect);
+        if (pElement->pContext->onGlobalDirty)
+        {
+            float scaleX;
+            float scaleY;
+            easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+            pElement->pContext->onGlobalDirty(pElement, easygui_scale_rect(relativeRect, scaleX, scaleY));
         }
     }
 }
@@ -1756,8 +1786,12 @@ bool easygui_find_element_under_point_iterator(easygui_element* pElement, easygu
     easygui_find_element_under_point_data* pData = pUserData;
     assert(pData != NULL);
 
-    float relativePosX = pData->absolutePosX;
-    float relativePosY = pData->absolutePosY;
+    float innerScaleX;
+    float innerScaleY;
+    easygui_get_absolute_inner_scale(pElement->pParent, &innerScaleX, &innerScaleY);
+
+    float relativePosX = pData->absolutePosX / innerScaleX;
+    float relativePosY = pData->absolutePosY / innerScaleY;
     easygui_make_point_relative(pElement, &relativePosX, &relativePosY);
     
     if (easygui_rect_contains_point(*pRelativeVisibleRect, relativePosX, relativePosY))
@@ -2297,7 +2331,6 @@ bool easygui_iterate_visible_elements(easygui_element* pParentElement, easygui_r
         return true;
     }
 
-
     easygui_rect clampedRelativeRect = relativeRect;
     if (easygui_clamp_rect_to_element(pParentElement, &clampedRelativeRect))
     {
@@ -2417,9 +2450,6 @@ void easygui_get_clip(easygui_element* pElement, easygui_rect* pRelativeRect, vo
 
     pElement->pContext->paintingCallbacks.getClip(pRelativeRect, pPaintData);
 
-    // The clip returned by the drawing callback will be absolute so we'll need to convert that to relative.
-    easygui_make_rect_relative(pElement, pRelativeRect);
-
     if (pRelativeRect)
     {
         float scaleX;
@@ -2431,6 +2461,9 @@ void easygui_get_clip(easygui_element* pElement, easygui_rect* pRelativeRect, vo
         pRelativeRect->right  /= scaleX;
         pRelativeRect->bottom /= scaleY;
     }
+
+    // The clip returned by the drawing callback will be absolute so we'll need to convert that to relative.
+    easygui_make_rect_relative(pElement, pRelativeRect);
 }
 
 void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData)
@@ -2453,8 +2486,9 @@ void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void
     float scaleY;
     easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
+    easygui_rect absoluteRect = relativeRect;
     easygui_make_rect_absolute(pElement, &absoluteRect);
+    absoluteRect = easygui_scale_rect(absoluteRect, scaleX, scaleY);
 
     pElement->pContext->paintingCallbacks.setClip(absoluteRect, pPaintData);
 }
@@ -2471,8 +2505,9 @@ void easygui_draw_rect(easygui_element* pElement, easygui_rect relativeRect, eas
     float scaleY;
     easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
+    easygui_rect absoluteRect = relativeRect;
     easygui_make_rect_absolute(pElement, &absoluteRect);
+    absoluteRect = easygui_scale_rect(absoluteRect, scaleX, scaleY);
 
     pElement->pContext->paintingCallbacks.drawRect(absoluteRect, color, pPaintData);
 }
@@ -2489,8 +2524,9 @@ void easygui_draw_rect_outline(easygui_element* pElement, easygui_rect relativeR
     float scaleY;
     easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
+    easygui_rect absoluteRect = relativeRect;
     easygui_make_rect_absolute(pElement, &absoluteRect);
+    absoluteRect = easygui_scale_rect(absoluteRect, scaleX, scaleY);
 
     if (scaleX == scaleY)
     {
@@ -2515,8 +2551,9 @@ void easygui_draw_rect_with_outline(easygui_element * pElement, easygui_rect rel
     float scaleY;
     easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
+    easygui_rect absoluteRect = relativeRect;
     easygui_make_rect_absolute(pElement, &absoluteRect);
+    absoluteRect = easygui_scale_rect(absoluteRect, scaleX, scaleY);
 
     if (scaleX == scaleY)
     {
@@ -2541,8 +2578,9 @@ void easygui_draw_round_rect(easygui_element* pElement, easygui_rect relativeRec
     float scaleY;
     easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
+    easygui_rect absoluteRect = relativeRect;
     easygui_make_rect_absolute(pElement, &absoluteRect);
+    absoluteRect = easygui_scale_rect(absoluteRect, scaleX, scaleY);
 
     if (scaleX == scaleY)
     {
@@ -2567,8 +2605,9 @@ void easygui_draw_round_rect_outline(easygui_element* pElement, easygui_rect rel
     float scaleY;
     easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
+    easygui_rect absoluteRect = relativeRect;
     easygui_make_rect_absolute(pElement, &absoluteRect);
+    absoluteRect = easygui_scale_rect(absoluteRect, scaleX, scaleY);
 
     if (scaleX == scaleY)
     {
@@ -2593,8 +2632,9 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
     float scaleY;
     easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
+    easygui_rect absoluteRect = relativeRect;
     easygui_make_rect_absolute(pElement, &absoluteRect);
+    absoluteRect = easygui_scale_rect(absoluteRect, scaleX, scaleY);
 
     if (scaleX == scaleY)
     {
@@ -2838,9 +2878,13 @@ void easygui_get_image_size(easygui_image* pImage, unsigned int* pWidthOut, unsi
 
 void easygui_on_size_fit_children_to_parent(easygui_element* pElement, float newWidth, float newHeight)
 {
+    float scaleX;
+    float scaleY;
+    easygui_get_inner_scale(pElement, &scaleX, &scaleY);
+
     for (easygui_element* pChild = pElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
     {
-        easygui_set_size(pChild, newWidth, newHeight);
+        easygui_set_size(pChild, newWidth / scaleX, newHeight / scaleY);
     }
 }
 
