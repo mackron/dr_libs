@@ -1228,6 +1228,7 @@ easygui_rect easygui_grow_rect(easygui_rect rect, float amount);
 ///     This will modify the <left> and <top> properties which means the rectangle will change position. To adjust only the size, scale the
 ///     rectangle manually.
 easygui_rect easygui_scale_rect(easygui_rect rect, float scaleX, float scaleY);
+easygui_rect easygui_scale_rect_and_round(easygui_rect rect, float scaleX, float scaleY);
 
 /// Creates a rectangle that contains both of the given rectangles.
 easygui_rect easygui_rect_union(easygui_rect rect0, easygui_rect rect1);
