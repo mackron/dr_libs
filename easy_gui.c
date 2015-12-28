@@ -2141,6 +2141,10 @@ void easygui_set_inner_scale(easygui_element* pElement, float innerScaleX, float
 
     pElement->innerScaleX = innerScaleX;
     pElement->innerScaleY = innerScaleY;
+
+    if (easygui_is_auto_dirty_enabled(pElement->pContext)) {
+        easygui_dirty(pElement, easygui_get_local_rect(pElement));
+    }
 }
 
 void easygui_get_inner_scale(easygui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut)
@@ -2183,7 +2187,6 @@ void easygui_get_absolute_inner_scale(easygui_element* pElement, float* pInnerSc
             innerScaleY *= parentInnerScaleY;
         }
     }
-
 
     if (pInnerScaleXOut) {
         *pInnerScaleXOut = innerScaleX;
@@ -2416,6 +2419,18 @@ void easygui_get_clip(easygui_element* pElement, easygui_rect* pRelativeRect, vo
 
     // The clip returned by the drawing callback will be absolute so we'll need to convert that to relative.
     easygui_make_rect_relative(pElement, pRelativeRect);
+
+    if (pRelativeRect)
+    {
+        float scaleX;
+        float scaleY;
+        easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+        pRelativeRect->left   /= scaleX;
+        pRelativeRect->top    /= scaleY;
+        pRelativeRect->right  /= scaleX;
+        pRelativeRect->bottom /= scaleY;
+    }
 }
 
 void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void* pPaintData)
@@ -2434,8 +2449,11 @@ void easygui_set_clip(easygui_element* pElement, easygui_rect relativeRect, void
         relativeRect.bottom = relativeRect.top;
     }
 
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-    easygui_rect absoluteRect = relativeRect;
+    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
     easygui_make_rect_absolute(pElement, &absoluteRect);
 
     pElement->pContext->paintingCallbacks.setClip(absoluteRect, pPaintData);
@@ -2449,7 +2467,11 @@ void easygui_draw_rect(easygui_element* pElement, easygui_rect relativeRect, eas
 
     assert(pElement->pContext != NULL);
 
-    easygui_rect absoluteRect = relativeRect;
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
     easygui_make_rect_absolute(pElement, &absoluteRect);
 
     pElement->pContext->paintingCallbacks.drawRect(absoluteRect, color, pPaintData);
@@ -2463,10 +2485,22 @@ void easygui_draw_rect_outline(easygui_element* pElement, easygui_rect relativeR
 
     assert(pElement->pContext != NULL);
 
-    easygui_rect absoluteRect = relativeRect;
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
     easygui_make_rect_absolute(pElement, &absoluteRect);
 
-    pElement->pContext->paintingCallbacks.drawRectOutline(absoluteRect, color, outlineWidth, pPaintData);
+    if (scaleX == scaleY)
+    {
+        pElement->pContext->paintingCallbacks.drawRectOutline(absoluteRect, color, outlineWidth * scaleX, pPaintData);
+    }
+    else
+    {
+        // TODO: This is incorrect. The left and right borders need to be scaled by scaleX and the top and bottom borders need to be scaled by scaleY.
+        pElement->pContext->paintingCallbacks.drawRectOutline(absoluteRect, color, outlineWidth * scaleX, pPaintData);
+    }
 }
 
 void easygui_draw_rect_with_outline(easygui_element * pElement, easygui_rect relativeRect, easygui_color color, float outlineWidth, easygui_color outlineColor, void * pPaintData)
@@ -2477,10 +2511,22 @@ void easygui_draw_rect_with_outline(easygui_element * pElement, easygui_rect rel
 
     assert(pElement->pContext != NULL);
 
-    easygui_rect absoluteRect = relativeRect;
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
     easygui_make_rect_absolute(pElement, &absoluteRect);
 
-    pElement->pContext->paintingCallbacks.drawRectWithOutline(absoluteRect, color, outlineWidth, outlineColor, pPaintData);
+    if (scaleX == scaleY)
+    {
+        pElement->pContext->paintingCallbacks.drawRectWithOutline(absoluteRect, color, outlineWidth * scaleX, outlineColor, pPaintData);
+    }
+    else
+    {
+        // TODO: This is incorrect. The left and right borders need to be scaled by scaleX and the top and bottom borders need to be scaled by scaleY.
+        pElement->pContext->paintingCallbacks.drawRectWithOutline(absoluteRect, color, outlineWidth * scaleX, outlineColor, pPaintData);
+    }
 }
 
 void easygui_draw_round_rect(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, float radius, void* pPaintData)
@@ -2491,10 +2537,22 @@ void easygui_draw_round_rect(easygui_element* pElement, easygui_rect relativeRec
 
     assert(pElement->pContext != NULL);
 
-    easygui_rect absoluteRect = relativeRect;
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
     easygui_make_rect_absolute(pElement, &absoluteRect);
 
-    pElement->pContext->paintingCallbacks.drawRoundRect(absoluteRect, color, radius, pPaintData);
+    if (scaleX == scaleY)
+    {
+        pElement->pContext->paintingCallbacks.drawRoundRect(absoluteRect, color, radius * scaleX, pPaintData);
+    }
+    else
+    {
+        // TODO: The corners need to be rounded based on an ellipse rather than a circle.
+        pElement->pContext->paintingCallbacks.drawRoundRect(absoluteRect, color, radius * scaleX, pPaintData);
+    }
 }
 
 void easygui_draw_round_rect_outline(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, void* pPaintData)
@@ -2505,10 +2563,22 @@ void easygui_draw_round_rect_outline(easygui_element* pElement, easygui_rect rel
 
     assert(pElement->pContext != NULL);
 
-    easygui_rect absoluteRect = relativeRect;
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
     easygui_make_rect_absolute(pElement, &absoluteRect);
 
-    pElement->pContext->paintingCallbacks.drawRoundRectOutline(absoluteRect, color, radius, outlineWidth, pPaintData);
+    if (scaleX == scaleY)
+    {
+        pElement->pContext->paintingCallbacks.drawRoundRectOutline(absoluteRect, color, radius * scaleX, outlineWidth, pPaintData);
+    }
+    else
+    {
+        // TODO: This is incorrect. The left and right borders need to be scaled by scaleX and the top and bottom borders need to be scaled by scaleY. The corners need to be rounded based on an ellipse rather than a circle.
+        pElement->pContext->paintingCallbacks.drawRoundRectOutline(absoluteRect, color, radius * scaleY, outlineWidth, pPaintData);
+    }
 }
 
 void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rect relativeRect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData)
@@ -2519,10 +2589,22 @@ void easygui_draw_round_rect_with_outline(easygui_element* pElement, easygui_rec
 
     assert(pElement->pContext != NULL);
 
-    easygui_rect absoluteRect = relativeRect;
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    easygui_rect absoluteRect = easygui_scale_rect(relativeRect, scaleX, scaleY);
     easygui_make_rect_absolute(pElement, &absoluteRect);
 
-    pElement->pContext->paintingCallbacks.drawRoundRectWithOutline(absoluteRect, color, radius, outlineWidth, outlineColor, pPaintData);
+    if (scaleX == scaleY)
+    {
+        pElement->pContext->paintingCallbacks.drawRoundRectWithOutline(absoluteRect, color, radius * scaleY, outlineWidth * scaleX, outlineColor, pPaintData);
+    }
+    else
+    {
+        // TODO: This is incorrect. The left and right borders need to be scaled by scaleX and the top and bottom borders need to be scaled by scaleY. The corners need to be rounded based on an ellipse rather than a circle.
+        pElement->pContext->paintingCallbacks.drawRoundRectWithOutline(absoluteRect, color, radius * scaleX, outlineWidth * scaleY, outlineColor, pPaintData);
+    }
 }
 
 void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const char* text, int textLengthInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData)
@@ -2533,8 +2615,12 @@ void easygui_draw_text(easygui_element* pElement, easygui_font* pFont, const cha
 
     assert(pElement->pContext != NULL);
 
-    float absolutePosX = posX;
-    float absolutePosY = posY;
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    float absolutePosX = posX * scaleX;
+    float absolutePosY = posY * scaleX;
     easygui_make_point_absolute(pElement, &absolutePosX, &absolutePosY);
 
     pElement->pContext->paintingCallbacks.drawText(pFont->hResource, text, textLengthInBytes, absolutePosX, absolutePosY, color, backgroundColor, pPaintData);
@@ -2548,9 +2634,23 @@ void easygui_draw_image(easygui_element* pElement, easygui_image* pImage, easygu
 
     assert(pElement->pContext != NULL);
 
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
     easygui_make_point_absolute(pElement, &pArgs->dstX, &pArgs->dstX);
     easygui_make_point_absolute(pElement, &pArgs->srcX, &pArgs->srcX);
     easygui_make_point_absolute(pElement, &pArgs->dstBoundsX, &pArgs->dstBoundsY);
+
+    pArgs->dstX            *= scaleX;
+    pArgs->dstY            *= scaleY;
+    pArgs->dstWidth        *= scaleX;
+    pArgs->dstHeight       *= scaleY;
+    pArgs->dstBoundsX      *= scaleX;
+    pArgs->dstBoundsY      *= scaleY;
+    pArgs->dstBoundsWidth  *= scaleX;
+    pArgs->dstBoundsHeight *= scaleY;
+
 
     pElement->pContext->paintingCallbacks.drawImage(pImage->hResource, pArgs, pPaintData);
 }
@@ -2913,6 +3013,17 @@ easygui_rect easygui_grow_rect(easygui_rect rect, float amount)
     result.top    -= amount;
     result.right  += amount;
     result.bottom += amount;
+
+    return result;
+}
+
+easygui_rect easygui_scale_rect(easygui_rect rect, float scaleX, float scaleY)
+{
+    easygui_rect result = rect;
+    result.left   *= scaleX;
+    result.top    *= scaleY;
+    result.right  *= scaleX;
+    result.bottom *= scaleY;
 
     return result;
 }

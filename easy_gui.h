@@ -1182,11 +1182,21 @@ easygui_rect easygui_make_inside_out_rect();
 /// Expands the given rectangle on all sides by the given amount.
 ///
 /// @remarks
-///     This will increase the width and height of the rectangle by amount x 2.
+///     This will increase the width and height of the rectangle by <amount> x 2.
 ///     @par
 ///     The growth amount can be negative, in which case it will be shrunk. Note that this does not do any checking to ensure the rectangle
 ///     contains positive dimensions after a shrink.
 easygui_rect easygui_grow_rect(easygui_rect rect, float amount);
+
+/// Scales the given rectangle.
+///
+/// @param scaleX [in] The scale to apply to <left> and <right>
+/// @param scaleY [in] The scale to apply to <top> and <bottom>
+///
+/// @remarks
+///     This will modify the <left> and <top> properties which means the rectangle will change position. To adjust only the size, scale the
+///     rectangle manually.
+easygui_rect easygui_scale_rect(easygui_rect rect, float scaleX, float scaleY);
 
 /// Creates a rectangle that contains both of the given rectangles.
 easygui_rect easygui_rect_union(easygui_rect rect0, easygui_rect rect1);
