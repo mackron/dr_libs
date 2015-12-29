@@ -197,6 +197,11 @@ static int strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
         dstSizeInBytes -= 1;
     }
 
+    if (dstSizeInBytes == 0 && iDst[0] != '\0') {
+        return EINVAL;  // Unterminated.
+    }
+
+
     const char* iSrc = src;
     while (dstSizeInBytes > 0 && iSrc[0] != '\0')
     {
