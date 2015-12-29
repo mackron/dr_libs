@@ -98,6 +98,10 @@ extern "C" {
 // MSVC Compatibility
 
 #ifndef EASYUTIL_NO_MSVC_COMPAT
+#ifndef _TRUNCATE
+#define _TRUNCATE ((size_t)-1)
+#endif
+
 /// A basic implementation of MSVC's strcpy_s().
 EASYUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
@@ -114,17 +118,16 @@ EASYUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
     
     char* iDst = dst;
     const char* iSrc = src;
-    size_t remainingSizeInBytes = dstSizeInBytes;
-    while (remainingSizeInBytes > 0 && iSrc[0] != '\0')
+    while (dstSizeInBytes > 0 && iSrc[0] != '\0')
     {
         iDst[0] = iSrc[0];
 
         iDst += 1;
         iSrc += 1;
-        remainingSizeInBytes -= 1;
+        dstSizeInBytes -= 1;
     }
 
-    if (remainingSizeInBytes > 0) {
+    if (dstSizeInBytes > 0) {
         iDst[0] = '\0';
     } else {
         dst[0] = '\0';
