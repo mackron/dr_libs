@@ -459,13 +459,16 @@ int easypath_extension_equal(const char* path, const char* extension)
         const char* ext1 = extension;
         const char* ext2 = easypath_extension(path);
 
+#if EASYPATH_USE_STDLIB
+    #ifdef _MSC_VER
+        return _stricmp(ext1, ext2) == 0;
+    #else
+        return strcasecmp(ext1, ext2) == 0;
+    #endif
+#else
         while (ext1[0] != '\0' && ext2[0] != '\0')
         {
-#if EASYPATH_USE_STDLIB
-            if (tolower(ext1[0]) != tolower(ext2[0]))
-#else
             if (ext1[0] != ext2[0])
-#endif
             {
                 return 0;
             }
@@ -474,8 +477,8 @@ int easypath_extension_equal(const char* path, const char* extension)
             ext2 += 1;
         }
 
-
         return ext1[0] == '\0' && ext2[0] == '\0';
+#endif
     }
 
     return 1;
