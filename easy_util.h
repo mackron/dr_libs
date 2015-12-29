@@ -103,7 +103,7 @@ extern "C" {
 #endif
 
 /// A basic implementation of MSVC's strcpy_s().
-EASYUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+static int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
     if (dst == 0) {
         return EINVAL;
@@ -138,7 +138,7 @@ EASYUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 }
 
 /// A basic implementation of MSVC's strncpy_s().
-EASYUTIL_INLINE int strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+static int strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
 {
     if (dst == 0) {
         return EINVAL;
