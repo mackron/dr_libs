@@ -187,7 +187,6 @@ static int strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
         return ERANGE;
     }
     if (src == 0) {
-        dst[0] = '\0';
         return EINVAL;
     }
 
@@ -211,7 +210,6 @@ static int strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
     if (dstSizeInBytes > 0) {
         iDst[0] = '\0';
     } else {
-        dst[0] = '\0';
         return ERANGE;
     }
 
