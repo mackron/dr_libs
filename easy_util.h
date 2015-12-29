@@ -670,6 +670,38 @@ bool easyutil_release_semaphore(easyutil_semaphore semaphore);
         classname(const classname &); \
         classname & operator=(const classname &);
 
+
+#ifndef EASYUTIL_NO_MSVC_COMPAT
+extern "C++"
+{
+
+template <size_t dstSizeInBytes>
+int strcpy_s(char (&dst)[dstSizeInBytes], const char* src)
+{
+    return strcpy_s(dst, dstSizeInBytes, src);
+}
+
+template <size_t dstSizeInBytes>
+int strncpy_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
+{
+    return strncpy_s(dst, dstSizeInBytes, src, count);
+}
+
+template <size_t dstSizeInBytes>
+int strcat_s(char (&dst)[dstSizeInBytes], const char* src)
+{
+    return strcat_s(dst, dstSizeInBytes, src);
+}
+
+template <size_t dstSizeInBytes>
+int strncat_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
+{
+    return strncat_s(dst, dstSizeInBytes, src, count);
+}
+
+}
+#endif
+
 #endif
 
 
