@@ -137,6 +137,46 @@ EASYUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
     return 0;
 }
 
+/// A basic implementation of MSVC's strncpy_s().
+EASYUTIL_INLINE int strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return EINVAL;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+    
+    if (count == ((size_t)-1)) {        // _TRUNCATE
+        count = dstSizeInBytes - 1;
+    }
+
+    char* iDst = dst;
+    const char* iSrc = src;
+    while (dstSizeInBytes > 0 && iSrc[0] != '\0' && count > 0)
+    {
+        iDst[0] = iSrc[0];
+
+        iDst += 1;
+        iSrc += 1;
+        dstSizeInBytes -= 1;
+        count -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        iDst[0] = '\0';
+    } else {
+        dst[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
+}
+
 // A wrapper for _stricmp/strcasecmp
 EASYUTIL_INLINE int _stricmp(const char* string1, const char* string2)
 {
