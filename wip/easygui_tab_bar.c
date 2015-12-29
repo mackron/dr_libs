@@ -18,6 +18,13 @@ struct easygui_tab_bar
     easygui_tab* pLastTab;
 
 
+    /// A pointer to the hovered tab.
+    easygui_tab* pHoveredTab;
+
+    /// A pointer to the active tab.
+    easygui_tab* pActiveTab;
+
+
     /// The default font to use for tab bar items.
     easygui_font* pFont;
 
@@ -28,7 +35,7 @@ struct easygui_tab_bar
     easygui_color tabBackgroundColorHovered;
 
     /// The background color of tab bar items while selected.
-    easygui_color tabBackbroundColorSelected;
+    easygui_color tabBackbroundColorActivated;
 
 
     /// The function to call when a tab needs to be measured.
@@ -70,7 +77,7 @@ struct easygui_tab
 
 easygui_element* eg_create_tab_bar(easygui_context* pContext, easygui_element* pParent, tb_orientation orientation, size_t extraDataSize, const void* pExtraData)
 {
-    if (pContext == NULL || orientation == tb_orientation_none) {
+    if (pContext == NULL) {
         return NULL;
     }
 
@@ -85,11 +92,13 @@ easygui_element* eg_create_tab_bar(easygui_context* pContext, easygui_element* p
     pTB->orientation = orientation;
     pTB->pFirstTab   = NULL;
     pTB->pLastTab    = NULL;
+    pTB->pHoveredTab = NULL;
+    pTB->pActiveTab  = NULL;
 
-    pTB->pFont                      = NULL;
-    pTB->tabBackgroundColor         = easygui_rgb(52, 52, 52);
-    pTB->tabBackgroundColorHovered  = easygui_rgb(0, 128, 255);
-    pTB->tabBackbroundColorSelected = easygui_rgb(80, 80, 80);
+    pTB->pFont                       = NULL;
+    pTB->tabBackgroundColor          = easygui_rgb(52, 52, 52);
+    pTB->tabBackgroundColorHovered   = easygui_rgb(0, 128, 255);
+    pTB->tabBackbroundColorActivated = easygui_rgb(80, 80, 80);
 
     pTB->onMeasureTab = NULL;
     pTB->onPaintTab   = NULL;
@@ -140,7 +149,7 @@ tb_orientation tb_get_orientation(easygui_element* pTBElement)
 {
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
-        return tb_orientation_none;
+        return tb_orientation_top;
     }
 
     return pTB->orientation;
@@ -192,6 +201,39 @@ void tb_set_on_paint_tab(easygui_element* pTBElement, tb_on_paint_tab_proc proc)
     pTB->onPaintTab = proc;
 }
 
+
+void tb_on_mouse_leave(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (pTB->pHoveredTab != NULL)
+    {
+        pTB->pHoveredTab = NULL;
+
+        if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+            easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+        }
+    }
+}
+
+void tb_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int relativeMousePosY)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+}
+
+void tb_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+}
 
 void tb_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect, void* pPaintData)
 {

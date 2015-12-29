@@ -19,9 +19,10 @@ extern "C" {
 
 typedef enum
 {
-    tb_orientation_none,
-    tb_orientation_vertical,
-    tb_orientation_horizontal
+    tb_orientation_top,
+    tb_orientation_bottom,
+    tb_orientation_left,
+    tb_orientation_right
 } tb_orientation;
 
 typedef struct easygui_tab easygui_tab;
@@ -66,6 +67,15 @@ void tb_set_on_measure_tab(easygui_element* pTBElement, tb_on_measure_tab_proc p
 /// Sets the function to call when a tab needs to be painted.
 void tb_set_on_paint_tab(easygui_element* pTBElement, tb_on_paint_tab_proc proc);
 
+
+/// Called when the mouse leave event needs to be processed for the given tab bar control.
+void tb_on_mouse_leave(easygui_element* pTBElement);
+
+/// Called when the mouse move event needs to be processed for the given tab bar control.
+void tb_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int relativeMousePosY);
+
+/// Called when the mouse button down event needs to be processed for the given tab bar control.
+void tb_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
 
 /// Called when the paint event needs to be processed for the given tab control.
 void tb_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect, void* pPaintData);
