@@ -197,7 +197,7 @@ static int strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
         dstSizeInBytes -= 1;
     }
 
-    if (dstSizeInBytes == 0 && iDst[0] != '\0') {
+    if (dstSizeInBytes == 0) {
         return EINVAL;  // Unterminated.
     }
 
@@ -210,6 +210,55 @@ static int strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
         iDst += 1;
         iSrc += 1;
         dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        iDst[0] = '\0';
+    } else {
+        return ERANGE;
+    }
+
+    return 0;
+}
+
+/// A basic implementation of MSVC's strncat_s()
+static int strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        return EINVAL;
+    }
+
+    char* iDst = dst;
+    while (dstSizeInBytes > 0 && iDst[0] != '\0')
+    {
+        iDst += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return EINVAL;  // Unterminated.
+    }
+
+
+    if (count == ((size_t)-1)) {        // _TRUNCATE
+        count = dstSizeInBytes - 1;
+    }
+
+    const char* iSrc = src;
+    while (dstSizeInBytes > 0 && iSrc[0] != '\0' && count > 0)
+    {
+        iDst[0] = iSrc[0];
+
+        iDst += 1;
+        iSrc += 1;
+        dstSizeInBytes -= 1;
+        count -= 1;
     }
 
     if (dstSizeInBytes > 0) {
