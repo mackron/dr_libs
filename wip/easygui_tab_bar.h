@@ -131,6 +131,15 @@ void tabbar_show_close_buttons(easygui_element* pTBElement);
 /// Hides the close buttons on each tab.
 void tabbar_hide_close_buttons(easygui_element* pTBElement);
 
+/// Enables the on_close event on middle click.
+void tabbar_enable_close_on_middle_click(easygui_element* pTBElement);
+
+/// Disables the on_close event on middle click.
+void tabbar_disable_close_on_middle_click(easygui_element* pTBElement);
+
+/// Determines whether or not close-on-middle-click is enabled.
+bool tabbar_is_close_on_middle_click_enabled(easygui_element* pTBElement);
+
 
 /// Called when the mouse leave event needs to be processed for the given tab bar control.
 void tabbar_on_mouse_leave(easygui_element* pTBElement);

@@ -77,6 +77,9 @@ struct easygui_tab_bar
     /// Whether or not the close buttons are being shown.
     bool isShowingCloseButton;
 
+    /// Whether or not close-on-middle-click is enabled.
+    bool isCloseOnMiddleClickEnabled;
+
     /// Whether or not the close button is hovered.
     bool isCloseButtonHovered;
 
@@ -180,6 +183,7 @@ easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_eleme
     pTB->closeButtonColorPressed     = easygui_rgb(192, 32, 32);
     pTB->isAutoSizeEnabled           = false;
     pTB->isShowingCloseButton        = false;
+    pTB->isCloseOnMiddleClickEnabled = false;
     pTB->isCloseButtonHovered        = false;
 
     pTB->onMeasureTab                = tabbar_on_measure_tab_default;
@@ -511,6 +515,36 @@ void tabbar_hide_close_buttons(easygui_element* pTBElement)
 }
 
 
+void tabbar_enable_close_on_middle_click(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->isCloseOnMiddleClickEnabled = true;
+}
+
+void tabbar_disable_close_on_middle_click(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->isCloseOnMiddleClickEnabled = false;
+}
+
+bool tabbar_is_close_on_middle_click_enabled(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    return pTB->isCloseOnMiddleClickEnabled;
+}
+
 
 void tabbar_on_mouse_leave(easygui_element* pTBElement)
 {
@@ -577,6 +611,19 @@ void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, i
 
             if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
                 easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+            }
+        }
+    }
+    else if (mouseButton == EASYGUI_MOUSE_BUTTON_MIDDLE)
+    {
+        if (pTB->isCloseOnMiddleClickEnabled)
+        {
+            easygui_tab* pHoveredTab = tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY, NULL);
+            if (pHoveredTab != NULL)
+            {
+                if (pTB->onTabClose) {
+                    pTB->onTabClose(pTBElement, pHoveredTab);
+                }
             }
         }
     }
