@@ -24,6 +24,9 @@ struct easygui_tab_bar
     /// A pointer to the active tab.
     easygui_tab* pActiveTab;
 
+    /// The tab whose close button is currently pressed, if any.
+    easygui_tab* pTabWithCloseButtonPressed;
+
 
     /// The default font to use for tab bar items.
     easygui_font* pFont;
@@ -43,8 +46,39 @@ struct easygui_tab_bar
     /// The padding to apply to the text of tabs.
     float tabPadding;
 
+    /// The image to use for the close button.
+    easygui_image* pCloseButtonImage;
+
+    /// The width of the close button when drawn on the tab. This is independant of the actual image's width.
+    float closeButtonWidth;
+
+    /// The height of the close button when drawn on the tab. This is independant of the actual image's height.
+    float closeButtonHeight;
+
+    /// The padding to the left of the close button.
+    float closeButtonPaddingLeft;
+
+    /// The default color of the close button.
+    easygui_color closeButtonColorDefault;
+
+    /// The color of the close button when the tab is hovered, but not the close button itself.
+    easygui_color closeButtonColorTabHovered;
+
+    /// The color of the close button when it is hovered.
+    easygui_color closeButtonColorHovered;
+
+    /// The color of the close button when it is pressed.
+    easygui_color closeButtonColorPressed;
+
+
     /// Whether or not auto-sizing is enabled. Disabled by default.
     bool isAutoSizeEnabled;
+
+    /// Whether or not the close buttons are being shown.
+    bool isShowingCloseButton;
+
+    /// Whether or not the close button is hovered.
+    bool isCloseButtonHovered;
 
 
     /// The function to call when a tab needs to be measured.
@@ -58,6 +92,9 @@ struct easygui_tab_bar
 
     /// The function to call when a tab is deactivated.
     tabbar_on_tab_deactivated_proc onTabDeactivated;
+
+    /// The function to call when a tab is closed via the close button.
+    tabbar_on_tab_close_proc onTabClose;
 
 
     /// The size of the extra data.
@@ -104,7 +141,7 @@ PRIVATE void tabbar_on_measure_tab_default(easygui_element* pTBElement, easygui_
 PRIVATE void tabbar_on_paint_tab_default(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
 
 /// Finds the tab sitting under the given point, if any.
-PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY);
+PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY, bool* pIsOverCloseButtonOut);
 
 easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_element* pParent, tabbar_orientation orientation, size_t extraDataSize, const void* pExtraData)
 {
@@ -120,24 +157,36 @@ easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_eleme
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
-    pTB->orientation = orientation;
-    pTB->pFirstTab   = NULL;
-    pTB->pLastTab    = NULL;
-    pTB->pHoveredTab = NULL;
-    pTB->pActiveTab  = NULL;
+    pTB->orientation                 = orientation;
+    pTB->pFirstTab                   = NULL;
+    pTB->pLastTab                    = NULL;
+    pTB->pHoveredTab                 = NULL;
+    pTB->pActiveTab                  = NULL;
+    pTB->pTabWithCloseButtonPressed  = NULL;
 
     pTB->pFont                       = NULL;
     pTB->tabTextColor                = easygui_rgb(224, 224, 224);
     pTB->tabBackgroundColor          = easygui_rgb(52, 52, 52);
-    pTB->tabBackgroundColorHovered   = easygui_rgb(0, 128, 255);
+    pTB->tabBackgroundColorHovered   = easygui_rgb(32, 128, 192);
     pTB->tabBackbroundColorActivated = easygui_rgb(80, 80, 80);
     pTB->tabPadding                  = 4;
+    pTB->pCloseButtonImage           = NULL;
+    pTB->closeButtonWidth            = 16;
+    pTB->closeButtonHeight           = 16;
+    pTB->closeButtonPaddingLeft      = 6;
+    pTB->closeButtonColorDefault     = pTB->tabBackgroundColor;
+    pTB->closeButtonColorTabHovered  = easygui_rgb(192, 192, 192);
+    pTB->closeButtonColorHovered     = easygui_rgb(255, 96, 96);
+    pTB->closeButtonColorPressed     = easygui_rgb(192, 32, 32);
     pTB->isAutoSizeEnabled           = false;
+    pTB->isShowingCloseButton        = false;
+    pTB->isCloseButtonHovered        = false;
 
     pTB->onMeasureTab                = tabbar_on_measure_tab_default;
     pTB->onPaintTab                  = tabbar_on_paint_tab_default;
     pTB->onTabActivated              = NULL;
     pTB->onTabDeactivated            = NULL;
+    pTB->onTabClose                  = NULL;
 
 
     pTB->extraDataSize = extraDataSize;
@@ -150,6 +199,7 @@ easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_eleme
     easygui_set_on_mouse_leave(pTBElement, tabbar_on_mouse_leave);
     easygui_set_on_mouse_move(pTBElement, tabbar_on_mouse_move);
     easygui_set_on_mouse_button_down(pTBElement, tabbar_on_mouse_button_down);
+    easygui_set_on_mouse_button_up(pTBElement, tabbar_on_mouse_button_up);
     easygui_set_on_paint(pTBElement, tabbar_on_paint);
 
     return pTBElement;
@@ -218,6 +268,31 @@ easygui_font* tabbar_get_font(easygui_element* pTBElement)
     }
 
     return pTB->pFont;
+}
+
+
+void tabbar_set_close_button_image(easygui_element* pTBElement, easygui_image* pImage)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->pCloseButtonImage = pImage;
+
+    if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+    }
+}
+
+easygui_image* tabbar_get_close_button_image(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return NULL;
+    }
+
+    return pTB->pCloseButtonImage;
 }
 
 
@@ -381,6 +456,36 @@ void tabbar_activate_tab(easygui_element* pTBElement, easygui_tab* pTab)
 }
 
 
+void tabbar_show_close_buttons(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->isShowingCloseButton = true;
+
+    if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+    }
+}
+
+void tabbar_hide_close_buttons(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->isShowingCloseButton = false;
+
+    if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+    }
+}
+
+
+
 void tabbar_on_mouse_leave(easygui_element* pTBElement)
 {
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
@@ -391,6 +496,7 @@ void tabbar_on_mouse_leave(easygui_element* pTBElement)
     if (pTB->pHoveredTab != NULL)
     {
         pTB->pHoveredTab = NULL;
+        pTB->isCloseButtonHovered = false;
 
         if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
             easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
@@ -405,12 +511,15 @@ void tabbar_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, in
         return;
     }
 
-    easygui_tab* pOldHoveredTab = pTB->pHoveredTab;
-    easygui_tab* pNewHoveredTab = tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY);
+    bool isCloseButtonHovered = false;
 
-    if (pOldHoveredTab != pNewHoveredTab)
+    easygui_tab* pOldHoveredTab = pTB->pHoveredTab;
+    easygui_tab* pNewHoveredTab = tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY, &isCloseButtonHovered);
+
+    if (pOldHoveredTab != pNewHoveredTab || pTB->isCloseButtonHovered != isCloseButtonHovered)
     {
         pTB->pHoveredTab = pNewHoveredTab;
+        pTB->isCloseButtonHovered = isCloseButtonHovered;
 
         if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
             easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
@@ -427,11 +536,54 @@ void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, i
 
     if (mouseButton == EASYGUI_MOUSE_BUTTON_LEFT)
     {
-        easygui_tab* pOldActiveTab = pTB->pActiveTab;
-        easygui_tab* pNewActiveTab = tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY);
+        bool isOverCloseButton = false;
 
-        if (pNewActiveTab != NULL && pOldActiveTab != pNewActiveTab) {
+        easygui_tab* pOldActiveTab = pTB->pActiveTab;
+        easygui_tab* pNewActiveTab = tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY, &isOverCloseButton);
+
+        if (pNewActiveTab != NULL && pOldActiveTab != pNewActiveTab && !isOverCloseButton) {
             tabbar_activate_tab(pTBElement, pNewActiveTab);
+        }
+
+        if (isOverCloseButton)
+        {   
+            pTB->pTabWithCloseButtonPressed = pNewActiveTab;
+
+            if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+                easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+            }
+        }
+    }
+}
+
+void tabbar_on_mouse_button_up(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (mouseButton == EASYGUI_MOUSE_BUTTON_LEFT)
+    {
+        if (pTB->pTabWithCloseButtonPressed)
+        {
+            // We need to check if the button was released while over the close button, and if so post the event.
+            bool releasedOverCloseButton = false;
+            easygui_tab* pTabUnderMouse = tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY, &releasedOverCloseButton);
+
+            if (releasedOverCloseButton && pTabUnderMouse == pTB->pTabWithCloseButtonPressed)
+            {
+                if (pTB->onTabClose) {
+                    pTB->onTabClose(pTBElement, pTB->pTabWithCloseButtonPressed);
+                }
+            }
+
+
+            pTB->pTabWithCloseButtonPressed = NULL;
+
+            if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+                easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+            }
         }
     }
 }
@@ -497,9 +649,18 @@ PRIVATE void tabbar_on_measure_tab_default(easygui_element* pTBElement, easygui_
         easygui_measure_string_by_element(pTB->pFont, pTab->text, strlen(pTab->text), pTBElement, &textWidth, &textHeight);
     }
 
+
+    float closeButtonWidth  = 0;
+    float closeButtonHeight = 0;
+    if (pTB->isShowingCloseButton && pTB->pCloseButtonImage != NULL)
+    {
+        closeButtonWidth  = pTB->closeButtonWidth + pTB->closeButtonPaddingLeft;
+        closeButtonHeight = pTB->closeButtonHeight;
+    }
+
  
     if (pWidthOut) {
-        *pWidthOut = textWidth + pTB->tabPadding*2;
+        *pWidthOut = textWidth + closeButtonWidth + pTB->tabPadding*2;
     }
     if (pHeightOut) {
         *pHeightOut = textHeight + pTB->tabPadding*2;
@@ -515,26 +676,79 @@ PRIVATE void tabbar_on_paint_tab_default(easygui_element* pTBElement, easygui_ta
 
     // Background.
     easygui_color bgcolor = pTB->tabBackgroundColor;
+    easygui_color closeButtonColor = pTB->closeButtonColorDefault;
+
     if (pTB->pHoveredTab == pTab) {
         bgcolor = pTB->tabBackgroundColorHovered;
+        closeButtonColor = pTB->closeButtonColorTabHovered;
     }
     if (pTB->pActiveTab == pTab) {
         bgcolor = pTB->tabBackbroundColorActivated;
+        closeButtonColor = pTB->closeButtonColorTabHovered;
+    }
+
+    if (pTB->pHoveredTab == pTab && pTB->isCloseButtonHovered) {
+        closeButtonColor = pTB->closeButtonColorHovered;
+
+        if (pTB->pTabWithCloseButtonPressed == pTB->pHoveredTab) {
+            closeButtonColor = pTB->closeButtonColorPressed;
+        }
     }
 
     easygui_draw_rect_outline(pTBElement, easygui_make_rect(offsetX, offsetY, offsetX + width, offsetY + height), bgcolor, pTB->tabPadding, pPaintData);
 
 
     // Text.
+    float textPosX = offsetX + pTB->tabPadding;
+    float textPosY = offsetY + pTB->tabPadding;
     if (pTab != NULL)
     {
-        float textPosX = offsetX + pTB->tabPadding;
-        float textPosY = offsetY + pTB->tabPadding;
         easygui_draw_text(pTBElement, pTB->pFont, pTab->text, strlen(pTab->text), textPosX, textPosY, pTB->tabTextColor, bgcolor, pPaintData);
+    }
+
+
+    // Close button.
+    if (pTB->isShowingCloseButton && pTB->pCloseButtonImage != NULL)
+    {
+        float textWidth  = 0;
+        float textHeight = 0;
+        if (pTab != NULL) {
+            easygui_measure_string_by_element(pTB->pFont, pTab->text, strlen(pTab->text), pTBElement, &textWidth, &textHeight);
+        }
+
+        float closeButtonPosX = textPosX + textWidth + pTB->closeButtonPaddingLeft;
+        float closeButtonPosY = textPosY;
+
+        unsigned int iconWidth;
+        unsigned int iconHeight;
+        easygui_get_image_size(pTB->pCloseButtonImage, &iconWidth, &iconHeight);
+
+        easygui_draw_image_args args;
+        args.dstX            = closeButtonPosX;
+        args.dstY            = closeButtonPosY;
+        args.dstWidth        = pTB->closeButtonWidth;
+        args.dstHeight       = pTB->closeButtonHeight;
+        args.srcX            = 0;
+        args.srcY            = 0;
+        args.srcWidth        = (float)iconWidth;
+        args.srcHeight       = (float)iconHeight;
+        args.dstBoundsX      = args.dstX;
+        args.dstBoundsY      = args.dstY;
+        args.dstBoundsWidth  = pTB->closeButtonWidth;
+        args.dstBoundsHeight = height - (pTB->tabPadding*2);
+        args.foregroundTint  = closeButtonColor;
+        args.backgroundColor = bgcolor;
+        args.boundsColor     = bgcolor;
+        args.options         = EASYGUI_IMAGE_DRAW_BACKGROUND | EASYGUI_IMAGE_DRAW_BOUNDS | EASYGUI_IMAGE_CLIP_BOUNDS | EASYGUI_IMAGE_ALIGN_CENTER;
+        easygui_draw_image(pTBElement, pTB->pCloseButtonImage, &args, pPaintData);
+
+
+        /// Space between the text and the padding.
+        easygui_draw_rect(pTBElement, easygui_make_rect(textPosX + textWidth, textPosY, closeButtonPosX, textPosY + textHeight), bgcolor, pPaintData);
     }
 }
 
-PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY)
+PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY, bool* pIsOverCloseButtonOut)
 {
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
@@ -549,7 +763,21 @@ PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, fl
         float tabHeight = 0;
         tabbar_measure_tab(pTBElement, pTab, &tabWidth, &tabHeight);
 
-        if (relativePosX >= runningPosX && relativePosX < runningPosX + tabWidth && relativePosY >= runningPosY && relativePosY < runningPosY + tabHeight) {
+        if (relativePosX >= runningPosX && relativePosX < runningPosX + tabWidth && relativePosY >= runningPosY && relativePosY < runningPosY + tabHeight)
+        {
+            if (pIsOverCloseButtonOut)
+            {
+                if (relativePosX >= runningPosX + tabWidth  - (pTB->tabPadding + pTB->closeButtonWidth)  && relativePosX < runningPosX + tabWidth  - pTB->tabPadding &&
+                    relativePosY >= runningPosY + tabHeight - (pTB->tabPadding + pTB->closeButtonHeight) && relativePosY < runningPosY + tabHeight - pTB->tabPadding)
+                {
+                    *pIsOverCloseButtonOut = true;
+                }
+                else
+                {
+                    *pIsOverCloseButtonOut = false;
+                }
+            }
+
             return pTab;
         }
 
@@ -558,6 +786,11 @@ PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, fl
         } else {
             runningPosY += tabHeight;
         }
+    }
+
+
+    if (pIsOverCloseButtonOut) {
+        *pIsOverCloseButtonOut = false;
     }
 
     return NULL;

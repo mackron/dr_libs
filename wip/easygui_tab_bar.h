@@ -31,6 +31,7 @@ typedef void (* tabbar_on_measure_tab_proc)    (easygui_element* pTBElement, eas
 typedef void (* tabbar_on_paint_tab_proc)      (easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
 typedef void (* tabbar_on_tab_activated_proc)  (easygui_element* pTBElement, easygui_tab* pTab);
 typedef void (* tabbar_on_tab_deactivated_proc)(easygui_element* pTBElement, easygui_tab* pTab);
+typedef void (* tabbar_on_tab_close_proc)      (easygui_element* pTBElement, easygui_tab* pTab);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -62,6 +63,12 @@ void tabbar_set_font(easygui_element* pTBElement, easygui_font* pFont);
 /// Retrieves the default font to use for tabs.
 easygui_font* tabbar_get_font(easygui_element* pTBElement);
 
+/// Sets the image to use for close buttons.
+void tabbar_set_close_button_image(easygui_element* pTBElement, easygui_image* pImage);
+
+/// Retrieves the image being used for the close buttons.
+easygui_image* tabbar_get_close_button_image(easygui_element* pTBElement);
+
 
 /// Sets the function to call when a tab needs to be measured.
 void tabbar_set_on_measure_tab(easygui_element* pTBElement, tabbar_on_measure_tab_proc proc);
@@ -74,6 +81,9 @@ void tabbar_set_on_tab_activated(easygui_element* pTBElement, tabbar_on_tab_acti
 
 /// Sets the function to call when a tab is deactivated.
 void tabbar_set_on_tab_deactivated(easygui_element* pTBElement, tabbar_on_tab_deactivated_proc proc);
+
+/// Sets the function to call when a tab is closed with the close button.
+void tabbar_set_on_tab_closed(easygui_element* pTBElement, tabbar_on_tab_close_proc proc);
 
 
 /// Measures the given tab.
@@ -112,6 +122,13 @@ bool tabbar_is_auto_size_enabled(easygui_element* pTBElement);
 void tabbar_activate_tab(easygui_element* pTBElement, easygui_tab* pTab);
 
 
+/// Shows the close buttons on each tab.
+void tabbar_show_close_buttons(easygui_element* pTBElement);
+
+/// Hides the close buttons on each tab.
+void tabbar_hide_close_buttons(easygui_element* pTBElement);
+
+
 /// Called when the mouse leave event needs to be processed for the given tab bar control.
 void tabbar_on_mouse_leave(easygui_element* pTBElement);
 
@@ -120,6 +137,9 @@ void tabbar_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, in
 
 /// Called when the mouse button down event needs to be processed for the given tab bar control.
 void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+
+/// Called when the mouse button up event needs to be processed for the given tab bar control.
+void tabbar_on_mouse_button_up(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
 
 /// Called when the paint event needs to be processed for the given tab control.
 void tabbar_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect, void* pPaintData);
