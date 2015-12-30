@@ -2855,6 +2855,15 @@ bool easygui_get_font_metrics(easygui_font* pFont, float scaleX, float scaleY, e
     return result;
 }
 
+bool easygui_get_font_metrics_by_element(easygui_font* pFont, easygui_element* pElement, easygui_font_metrics* pMetricsOut)
+{
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    return easygui_get_font_metrics(pFont, scaleX, scaleY, pMetricsOut);
+}
+
 bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, float scaleX, float scaleY, easygui_glyph_metrics* pMetricsOut)
 {
     (void)scaleY;
@@ -2889,6 +2898,15 @@ bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, float sc
     }
     
     return result;
+}
+
+bool easygui_get_glyph_metrics_by_element(easygui_font* pFont, unsigned int utf32, easygui_element* pElement, easygui_glyph_metrics* pMetricsOut)
+{
+    float scaleX;
+    float scaleY;
+    easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
+
+    return easygui_get_glyph_metrics(pFont, utf32, scaleX, scaleY, pMetricsOut);
 }
 
 bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLengthInBytes, float scaleX, float scaleY, float* pWidthOut, float* pHeightOut)

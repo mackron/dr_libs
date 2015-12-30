@@ -27,8 +27,10 @@ typedef enum
 
 typedef struct easygui_tab easygui_tab;
 
-typedef void (* tb_on_measure_tab_proc) (easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
-typedef void (* tb_on_paint_tab_proc)   (easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, easygui_color backgroundColor, float offsetX, float offsetY, float width, float height, void* pPaintData);
+typedef void (* tb_on_measure_tab_proc)        (easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
+typedef void (* tb_on_paint_tab_proc)          (easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
+typedef void (* tabbar_on_tab_activated_proc)  (easygui_element* pTBElement, easygui_tab* pTab);
+typedef void (* tabbar_on_tab_deactivated_proc)(easygui_element* pTBElement, easygui_tab* pTab);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -67,6 +69,44 @@ void tb_set_on_measure_tab(easygui_element* pTBElement, tb_on_measure_tab_proc p
 /// Sets the function to call when a tab needs to be painted.
 void tb_set_on_paint_tab(easygui_element* pTBElement, tb_on_paint_tab_proc proc);
 
+/// Sets the function to call when a tab is activated.
+void tabbar_set_on_tab_activated(easygui_element* pTBElement, tabbar_on_tab_activated_proc proc);
+
+/// Sets the function to call when a tab is deactivated.
+void tabbar_set_on_tab_deactivated(easygui_element* pTBElement, tabbar_on_tab_deactivated_proc proc);
+
+
+/// Measures the given tab.
+void tabbar_measure_tab(easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
+
+/// Paints the given tab.
+void tabbar_paint_tab(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
+
+
+/// Sets the width or height of the tab bar to that of it's tabs based on it's orientation.
+///
+/// @remarks
+///     If the orientation is set to top or bottom, the height will be resized and the width will be left alone. If the orientation
+///     is left or right, the width will be resized and the height will be left alone.
+///     @par
+///     If there is no tab measuring callback set, this will do nothing.
+void tabbar_resize_by_tabs(easygui_element* pTBElement);
+
+/// Enables auto-resizing based on tabs.
+///
+/// @remarks
+///     This follows the same resizing rules as per tabbar_resize_by_tabs().
+///
+/// @see
+///     tabbar_resize_by_tabs()
+void tabbar_enable_auto_size(easygui_element* pTBElement);
+
+/// Disables auto-resizing based on tabs.
+void tabbar_disable_auto_size(easygui_element* pTBElement);
+
+/// Determines whether or not auto-sizing is enabled.
+bool tabbar_is_auto_size_enabled(easygui_element* pTBElement);
+
 
 /// Called when the mouse leave event needs to be processed for the given tab bar control.
 void tb_on_mouse_leave(easygui_element* pTBElement);
@@ -90,10 +130,10 @@ void tb_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect,
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Creates and appends a tab
-easygui_tab* tb_create_and_append_tab(easygui_element* pTBElement, size_t extraDataSize, const void* pExtraData);
+easygui_tab* tb_create_and_append_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
 
 /// Creates and prepends a tab.
-easygui_tab* tb_create_and_prepend_tab(easygui_element* pTBElement, size_t extraDataSize, const void* pExtraData);
+easygui_tab* tb_create_and_prepend_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
 
 /// Recursively deletes a tree view item.
 void tab_delete(easygui_tab* pTab);
@@ -107,6 +147,12 @@ size_t tab_get_extra_data_size(easygui_tab* pTab);
 /// Retrieves a pointer to the extra data associated with the given tree-view item.
 void* tab_get_extra_data(easygui_tab* pTab);
 
+
+/// Sets the text of the given tab bar item.
+void tab_set_text(easygui_tab* pTab, const char* text);
+
+/// Retrieves the text of the given tab bar item.
+const char* tab_get_text(easygui_tab* pTab);
 
 
 #ifdef __cplusplus

@@ -28,6 +28,9 @@ struct easygui_tab_bar
     /// The default font to use for tab bar items.
     easygui_font* pFont;
 
+    /// The default color to use for tab bar item text.
+    easygui_color tabTextColor;
+
     /// The default background color of tab bar items.
     easygui_color tabBackgroundColor;
 
@@ -37,12 +40,24 @@ struct easygui_tab_bar
     /// The background color of tab bar items while selected.
     easygui_color tabBackbroundColorActivated;
 
+    /// The padding to apply to the text of tabs.
+    float tabPadding;
+
+    /// Whether or not auto-sizing is enabled. Disabled by default.
+    bool isAutoSizeEnabled;
+
 
     /// The function to call when a tab needs to be measured.
     tb_on_measure_tab_proc onMeasureTab;
 
     /// The function to call when a tab needs to be painted.
     tb_on_paint_tab_proc onPaintTab;
+
+    /// The function to call when a tab is activated.
+    tabbar_on_tab_activated_proc onTabActivated;
+
+    /// The function to call when a tab is deactivated.
+    tabbar_on_tab_deactivated_proc onTabDeactivated;
 
 
     /// The size of the extra data.
@@ -75,6 +90,22 @@ struct easygui_tab
     char pExtraData[1];
 };
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Tab
+//
+///////////////////////////////////////////////////////////////////////////////
+
+/// Default implementation of the item measure event.
+PRIVATE void tb_on_measure_tab_default(easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
+
+/// Paints the given menu item.
+PRIVATE void tb_on_paint_tab_default(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
+
+/// Finds the tab sitting under the given point, if any.
+PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY);
+
 easygui_element* eg_create_tab_bar(easygui_context* pContext, easygui_element* pParent, tb_orientation orientation, size_t extraDataSize, const void* pExtraData)
 {
     if (pContext == NULL) {
@@ -96,12 +127,18 @@ easygui_element* eg_create_tab_bar(easygui_context* pContext, easygui_element* p
     pTB->pActiveTab  = NULL;
 
     pTB->pFont                       = NULL;
+    pTB->tabTextColor                = easygui_rgb(224, 224, 224);
     pTB->tabBackgroundColor          = easygui_rgb(52, 52, 52);
     pTB->tabBackgroundColorHovered   = easygui_rgb(0, 128, 255);
     pTB->tabBackbroundColorActivated = easygui_rgb(80, 80, 80);
+    pTB->tabPadding                  = 4;
+    pTB->isAutoSizeEnabled           = false;
 
-    pTB->onMeasureTab = NULL;
-    pTB->onPaintTab   = NULL;
+    pTB->onMeasureTab                = tb_on_measure_tab_default;
+    pTB->onPaintTab                  = tb_on_paint_tab_default;
+    pTB->onTabActivated              = NULL;
+    pTB->onTabDeactivated            = NULL;
+
 
     pTB->extraDataSize = extraDataSize;
     if (pExtraData != NULL) {
@@ -110,6 +147,9 @@ easygui_element* eg_create_tab_bar(easygui_context* pContext, easygui_element* p
 
 
     // Event handlers.
+    easygui_set_on_mouse_leave(pTBElement, tb_on_mouse_leave);
+    easygui_set_on_mouse_move(pTBElement, tb_on_mouse_move);
+    easygui_set_on_mouse_button_down(pTBElement, tb_on_mouse_button_down);
     easygui_set_on_paint(pTBElement, tb_on_paint);
 
     return pTBElement;
@@ -201,6 +241,113 @@ void tb_set_on_paint_tab(easygui_element* pTBElement, tb_on_paint_tab_proc proc)
     pTB->onPaintTab = proc;
 }
 
+void tabbar_set_on_tab_activated(easygui_element* pTBElement, tabbar_on_tab_activated_proc proc)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->onTabActivated = proc;
+}
+
+void tabbar_set_on_tab_deactivated(easygui_element* pTBElement, tabbar_on_tab_deactivated_proc proc)
+{
+     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->onTabDeactivated = proc;
+}
+
+
+void tabbar_measure_tab(easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (pTB->onMeasureTab) {
+        pTB->onMeasureTab(pTBElement, pTab, pWidthOut, pHeightOut);
+    }
+}
+
+void tabbar_paint_tab(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (pTB->onPaintTab) {
+        pTB->onPaintTab(pTBElement, pTab, relativeClippingRect, offsetX, offsetY, width, height, pPaintData);
+    }
+}
+
+
+void tabbar_resize_by_tabs(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (pTB->onMeasureTab == NULL) {
+        return;
+    }
+
+    float maxWidth  = 0;
+    float maxHeight = 0;
+    for (easygui_tab* pTab = pTB->pFirstTab; pTab != NULL; pTab = pTab->pNextTab)
+    {
+        float tabWidth  = 0;
+        float tabHeight = 0;
+        tabbar_measure_tab(pTBElement, pTab, &tabWidth, &tabHeight);
+
+        maxWidth  = (tabWidth  > maxWidth)  ? tabWidth  : maxWidth;
+        maxHeight = (tabHeight > maxHeight) ? tabHeight : maxHeight;
+    }
+
+
+    if (pTB->orientation == tb_orientation_top || pTB->orientation == tb_orientation_bottom) {
+        easygui_set_size(pTBElement, easygui_get_width(pTBElement), maxHeight);
+    } else {
+        easygui_set_size(pTBElement, maxWidth, easygui_get_height(pTBElement));
+    }
+}
+
+void tabbar_enable_auto_size(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->isAutoSizeEnabled = true;
+}
+
+void tabbar_disable_auto_size(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->isAutoSizeEnabled = false;
+}
+
+bool tabbar_is_auto_size_enabled(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    return pTB->isAutoSizeEnabled;
+}
+
 
 void tb_on_mouse_leave(easygui_element* pTBElement)
 {
@@ -225,6 +372,18 @@ void tb_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int re
     if (pTB == NULL) {
         return;
     }
+
+    easygui_tab* pOldHoveredTab = pTB->pHoveredTab;
+    easygui_tab* pNewHoveredTab = tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY);
+
+    if (pOldHoveredTab != pNewHoveredTab)
+    {
+        pTB->pHoveredTab = pNewHoveredTab;
+
+        if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+            easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+        }
+    }
 }
 
 void tb_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
@@ -232,6 +391,31 @@ void tb_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int r
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
+    }
+
+    if (mouseButton == EASYGUI_MOUSE_BUTTON_LEFT)
+    {
+        easygui_tab* pOldActiveTab = pTB->pActiveTab;
+        easygui_tab* pNewActiveTab = tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY);
+
+        if (pNewActiveTab != NULL && pOldActiveTab != pNewActiveTab)
+        {
+            // The active tab has changed.
+            pTB->pActiveTab = pNewActiveTab;
+
+            if (pTB->onTabDeactivated) {
+                pTB->onTabDeactivated(pTBElement, pOldActiveTab);
+            }
+
+            if (pTB->onTabActivated) {
+                pTB->onTabActivated(pTBElement, pNewActiveTab);
+            }
+
+
+            if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+                easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+            }
+        }
     }
 }
 
@@ -242,7 +426,124 @@ void tb_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect,
         return;
     }
 
-    easygui_draw_rect(pTBElement, easygui_get_local_rect(pTBElement), pTB->tabBackgroundColor, pPaintData);
+
+    float tabbarWidth  = 0;
+    float tabbarHeight = 0;
+    easygui_get_size(pTBElement, &tabbarWidth, &tabbarHeight);
+
+
+    // Each tab.
+    float runningPosX = 0;
+    float runningPosY = 0;
+    for (easygui_tab* pTab = pTB->pFirstTab; pTab != NULL; pTab = pTab->pNextTab)
+    {
+        float tabWidth  = 0;
+        float tabHeight = 0;
+        tabbar_measure_tab(pTBElement, pTab, &tabWidth, &tabHeight);
+
+        tabbar_paint_tab(pTBElement, pTab, relativeClippingRect, runningPosX, runningPosY, tabWidth, tabHeight, pPaintData);
+
+        // After painting the tab, there may be a region of the background that was not drawn by the tab painting callback. We'll need to
+        // draw that here.
+        if (pTB->orientation == tb_orientation_top || pTB->orientation == tb_orientation_bottom) {
+            easygui_draw_rect(pTBElement, easygui_make_rect(runningPosX, runningPosY + tabHeight, runningPosX + tabWidth, tabbarHeight), pTB->tabBackgroundColor, pPaintData);
+        } else {
+            easygui_draw_rect(pTBElement, easygui_make_rect(runningPosX + tabWidth, runningPosY, tabbarWidth, runningPosY + tabHeight), pTB->tabBackgroundColor, pPaintData);
+        }
+
+
+
+        if (pTB->orientation == tb_orientation_top || pTB->orientation == tb_orientation_bottom) {
+            runningPosX += tabWidth;
+        } else {
+            runningPosY += tabHeight;
+        }
+    }
+
+
+    // Background. We just draw a quad around the region that is not covered by items.
+    easygui_draw_rect(pTBElement, easygui_make_rect(runningPosX, runningPosY, tabbarWidth, tabbarHeight), pTB->tabBackgroundColor, pPaintData);
+}
+
+
+PRIVATE void tb_on_measure_tab_default(easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    float textWidth  = 0;
+    float textHeight = 0;
+
+    if (pTab != NULL) {
+        easygui_measure_string_by_element(pTB->pFont, pTab->text, strlen(pTab->text), pTBElement, &textWidth, &textHeight);
+    }
+
+ 
+    if (pWidthOut) {
+        *pWidthOut = textWidth + pTB->tabPadding*2;
+    }
+    if (pHeightOut) {
+        *pHeightOut = textHeight + pTB->tabPadding*2;
+    }
+}
+
+PRIVATE void tb_on_paint_tab_default(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    // Background.
+    easygui_color bgcolor = pTB->tabBackgroundColor;
+    if (pTB->pHoveredTab == pTab) {
+        bgcolor = pTB->tabBackgroundColorHovered;
+    }
+    if (pTB->pActiveTab == pTab) {
+        bgcolor = pTB->tabBackbroundColorActivated;
+    }
+
+    easygui_draw_rect_outline(pTBElement, easygui_make_rect(offsetX, offsetY, offsetX + width, offsetY + height), bgcolor, pTB->tabPadding, pPaintData);
+
+
+    // Text.
+    if (pTab != NULL)
+    {
+        float textPosX = offsetX + pTB->tabPadding;
+        float textPosY = offsetY + pTB->tabPadding;
+        easygui_draw_text(pTBElement, pTB->pFont, pTab->text, strlen(pTab->text), textPosX, textPosY, pTB->tabTextColor, bgcolor, pPaintData);
+    }
+}
+
+PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return NULL;
+    }
+
+    float runningPosX = 0;
+    float runningPosY = 0;
+    for (easygui_tab* pTab = pTB->pFirstTab; pTab != NULL; pTab = pTab->pNextTab)
+    {
+        float tabWidth  = 0;
+        float tabHeight = 0;
+        tabbar_measure_tab(pTBElement, pTab, &tabWidth, &tabHeight);
+
+        if (relativePosX >= runningPosX && relativePosX < runningPosX + tabWidth && relativePosY >= runningPosY && relativePosY < runningPosY + tabHeight) {
+            return pTab;
+        }
+
+        if (pTB->orientation == tb_orientation_top || pTB->orientation == tb_orientation_bottom) {
+            runningPosX += tabWidth;
+        } else {
+            runningPosY += tabHeight;
+        }
+    }
+
+    return NULL;
 }
 
 
@@ -261,7 +562,7 @@ PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement);
 /// Detaches the given tab bar from it's tab bar element.
 PRIVATE void tab_detach(easygui_tab* pTab);
 
-PRIVATE easygui_tab* tb_create_tab(easygui_element* pTBElement, size_t extraDataSize, const void* pExtraData)
+PRIVATE easygui_tab* tb_create_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData)
 {
     if (pTBElement == NULL) {
         return NULL;
@@ -282,12 +583,16 @@ PRIVATE easygui_tab* tb_create_tab(easygui_element* pTBElement, size_t extraData
         memcpy(pTab->pExtraData, pExtraData, extraDataSize);
     }
 
+    if (text != NULL) {
+        strncpy_s(pTab->text, sizeof(pTab->text), text, _TRUNCATE);
+    }
+
     return pTab;
 }
 
-easygui_tab* tb_create_and_append_tab(easygui_element* pTBElement, size_t extraDataSize, const void* pExtraData)
+easygui_tab* tb_create_and_append_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData)
 {
-    easygui_tab* pTab = tb_create_tab(pTBElement, extraDataSize, pExtraData);
+    easygui_tab* pTab = tb_create_tab(pTBElement, text, extraDataSize, pExtraData);
     if (pTab != NULL)
     {
         tab_append(pTab, pTBElement);
@@ -296,9 +601,9 @@ easygui_tab* tb_create_and_append_tab(easygui_element* pTBElement, size_t extraD
     return pTab;
 }
 
-easygui_tab* tb_create_and_prepend_tab(easygui_element* pTBElement, size_t extraDataSize, const void* pExtraData)
+easygui_tab* tb_create_and_prepend_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData)
 {
-    easygui_tab* pTab = tb_create_tab(pTBElement, extraDataSize, pExtraData);
+    easygui_tab* pTab = tb_create_tab(pTBElement, text, extraDataSize, pExtraData);
     if (pTab != NULL)
     {
         tab_prepend(pTab, pTBElement);
@@ -345,6 +650,34 @@ void* tab_get_extra_data(easygui_tab* pTab)
 }
 
 
+void tab_set_text(easygui_tab* pTab, const char* text)
+{
+    if (pTab == NULL) {
+        return;
+    }
+
+    if (text != NULL) {
+        strncpy_s(pTab->text, sizeof(pTab->text), text, _TRUNCATE);
+    } else {
+        pTab->text[0] = '\0';
+    }
+
+    // The content of the menu has changed so we'll need to schedule a redraw.
+    if (easygui_is_auto_dirty_enabled(pTab->pTBElement->pContext)) {
+        easygui_dirty(pTab->pTBElement, easygui_get_local_rect(pTab->pTBElement));
+    }
+}
+
+const char* tab_get_text(easygui_tab* pTab)
+{
+    if (pTab == NULL) {
+        return NULL;
+    }
+
+    return pTab->text;
+}
+
+
 
 PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement)
 {
@@ -374,8 +707,14 @@ PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement)
     }
 
 
+    if (pTB->isAutoSizeEnabled) {
+        tabbar_resize_by_tabs(pTBElement);
+    }
+
     // The content of the menu has changed so we'll need to schedule a redraw.
-    easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+    if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+    }
 }
 
 PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement)
@@ -406,8 +745,14 @@ PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement)
     }
 
 
+    if (pTB->isAutoSizeEnabled) {
+        tabbar_resize_by_tabs(pTBElement);
+    }
+
     // The content of the menu has changed so we'll need to schedule a redraw.
-    easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+    if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+    }
 }
 
 PRIVATE void tab_detach(easygui_tab* pTab)
@@ -442,9 +787,15 @@ PRIVATE void tab_detach(easygui_tab* pTab)
     pTab->pPrevTab   = NULL;
     pTab->pTBElement = NULL;
 
+
+    if (pTB->isAutoSizeEnabled) {
+        tabbar_resize_by_tabs(pTab->pTBElement);
+    }
     
     // The content of the menu has changed so we'll need to schedule a redraw.
-    easygui_dirty(pTab->pTBElement, easygui_get_local_rect(pTab->pTBElement));
+    if (easygui_is_auto_dirty_enabled(pTab->pTBElement->pContext)) {
+        easygui_dirty(pTab->pTBElement, easygui_get_local_rect(pTab->pTBElement));
+    }
 }
 
 

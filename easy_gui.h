@@ -1118,8 +1118,14 @@ void easygui_delete_font(easygui_font* pFont);
 /// Retrieves the metrics of the given font.
 bool easygui_get_font_metrics(easygui_font* pFont, float scaleX, float scaleY, easygui_font_metrics* pMetricsOut);
 
+/// Retrieves the metrics of the given font based on the inner scale of the given element.
+bool easygui_get_font_metrics_by_element(easygui_font* pFont, easygui_element* pElement, easygui_font_metrics* pMetricsOut);
+
 /// Retrieves the metrics of the glyph for the given character when rendered with the given font.
 bool easygui_get_glyph_metrics(easygui_font* pFont, unsigned int utf32, float scaleX, float scaleY, easygui_glyph_metrics* pMetricsOut);
+
+/// Retrieves the metrics of the glyph for the given character when rendered with the given font at the scale of the given element's inner scale.
+bool easygui_get_glyph_metrics_by_element(easygui_font* pFont, unsigned int utf32, easygui_element* pElement, easygui_glyph_metrics* pMetricsOut);
 
 /// Retrieves the dimensions of the given string when drawn with the given font at the given scale.
 ///
