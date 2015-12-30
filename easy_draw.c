@@ -1467,7 +1467,7 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
     }
 
 
-    SelectObject(pGDISurfaceData->hIntermediateDC, hSrcBitmap);
+    HGDIOBJ hPrevBitmap = SelectObject(pGDISurfaceData->hIntermediateDC, hSrcBitmap);
     if ((pArgs->options & EASY2D_IMAGE_HINT_NO_ALPHA) != 0)
     {
         StretchBlt(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, SRCCOPY);
@@ -1477,6 +1477,7 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
         BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
         AlphaBlend(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, blend);
     }
+    SelectObject(pGDISurfaceData->hIntermediateDC, hPrevBitmap);
 
 
     if (prevDC != 0) {
