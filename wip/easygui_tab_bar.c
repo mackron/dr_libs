@@ -349,6 +349,38 @@ bool tabbar_is_auto_size_enabled(easygui_element* pTBElement)
 }
 
 
+void tabbar_activate_tab(easygui_element* pTBElement, easygui_tab* pTab)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    easygui_tab* pOldActiveTab = pTB->pActiveTab;
+    easygui_tab* pNewActiveTab = pTab;
+
+    if (pOldActiveTab == pNewActiveTab) {
+        return;     // The tab is already active - nothing to do.
+    }
+
+
+    pTB->pActiveTab = pNewActiveTab;
+
+    if (pTB->onTabDeactivated && pOldActiveTab != NULL) {
+        pTB->onTabDeactivated(pTBElement, pOldActiveTab);
+    }
+
+    if (pTB->onTabActivated && pNewActiveTab != NULL) {
+        pTB->onTabActivated(pTBElement, pNewActiveTab);
+    }
+
+
+    if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
+    }
+}
+
+
 void tabbar_on_mouse_leave(easygui_element* pTBElement)
 {
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
@@ -398,23 +430,8 @@ void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, i
         easygui_tab* pOldActiveTab = pTB->pActiveTab;
         easygui_tab* pNewActiveTab = tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY);
 
-        if (pNewActiveTab != NULL && pOldActiveTab != pNewActiveTab)
-        {
-            // The active tab has changed.
-            pTB->pActiveTab = pNewActiveTab;
-
-            if (pTB->onTabDeactivated) {
-                pTB->onTabDeactivated(pTBElement, pOldActiveTab);
-            }
-
-            if (pTB->onTabActivated) {
-                pTB->onTabActivated(pTBElement, pNewActiveTab);
-            }
-
-
-            if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
-                easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
-            }
+        if (pNewActiveTab != NULL && pOldActiveTab != pNewActiveTab) {
+            tabbar_activate_tab(pTBElement, pNewActiveTab);
         }
     }
 }

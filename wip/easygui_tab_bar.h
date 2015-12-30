@@ -108,6 +108,10 @@ void tabbar_disable_auto_size(easygui_element* pTBElement);
 bool tabbar_is_auto_size_enabled(easygui_element* pTBElement);
 
 
+/// Activates the given tab.
+void tabbar_activate_tab(easygui_element* pTBElement, easygui_tab* pTab);
+
+
 /// Called when the mouse leave event needs to be processed for the given tab bar control.
 void tabbar_on_mouse_leave(easygui_element* pTBElement);
 
