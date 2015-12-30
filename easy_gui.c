@@ -2746,8 +2746,7 @@ void easygui_draw_image(easygui_element* pElement, easygui_image* pImage, easygu
     float scaleY;
     easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-    easygui_make_point_absolute(pElement, &pArgs->dstX, &pArgs->dstX);
-    easygui_make_point_absolute(pElement, &pArgs->srcX, &pArgs->srcX);
+    easygui_make_point_absolute(pElement, &pArgs->dstX, &pArgs->dstY);
     easygui_make_point_absolute(pElement, &pArgs->dstBoundsX, &pArgs->dstBoundsY);
 
     pArgs->dstX            *= scaleX;
