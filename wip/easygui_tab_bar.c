@@ -207,9 +207,15 @@ easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_eleme
 
 void easygui_delete_tab_bar(easygui_element* pTBElement)
 {
-    if (pTBElement == NULL) {
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
         return;
     }
+
+    while (pTB->pFirstTab != NULL) {
+        tab_delete(pTB->pFirstTab);
+    }
+
 
     easygui_delete_element(pTBElement);
 }
@@ -328,12 +334,22 @@ void tabbar_set_on_tab_activated(easygui_element* pTBElement, tabbar_on_tab_acti
 
 void tabbar_set_on_tab_deactivated(easygui_element* pTBElement, tabbar_on_tab_deactivated_proc proc)
 {
-     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
 
     pTB->onTabDeactivated = proc;
+}
+
+void tabbar_set_on_tab_closed(easygui_element* pTBElement, tabbar_on_tab_close_proc proc)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->onTabClose = proc;
 }
 
 
@@ -453,6 +469,16 @@ void tabbar_activate_tab(easygui_element* pTBElement, easygui_tab* pTab)
     if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
         easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
     }
+}
+
+easygui_tab* tabbar_get_active_tab(easygui_element* pTBElement)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return NULL;
+    }
+
+    return pTB->pActiveTab;
 }
 
 
@@ -928,6 +954,26 @@ const char* tab_get_text(easygui_tab* pTab)
 }
 
 
+easygui_tab* tab_get_next_tab(easygui_tab* pTab)
+{
+    if (pTab == NULL) {
+        return NULL;
+    }
+
+    return pTab->pNextTab;
+}
+
+easygui_tab* tab_get_prev_tab(easygui_tab* pTab)
+{
+    if (pTab == NULL) {
+        return NULL;
+    }
+
+    return pTab->pPrevTab;
+}
+
+
+
 
 PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement)
 {
@@ -1011,8 +1057,26 @@ PRIVATE void tab_detach(easygui_tab* pTab)
         return;
     }
 
-    easygui_tab_bar* pTB = easygui_get_extra_data(pTab->pTBElement);
+    easygui_element* pTBElement = pTab->pTBElement;
+    if (pTBElement == NULL) {
+        return;
+    }
+
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     assert(pTB != NULL);
+
+    if (pTB->pHoveredTab == pTab) {
+        pTB->pHoveredTab = NULL;
+        pTB->isCloseButtonHovered = false;
+    }
+
+    if (pTB->pActiveTab == pTab) {
+        pTB->pActiveTab = NULL;
+    }
+
+    if (pTB->pTabWithCloseButtonPressed == pTab) {
+        pTB->pTabWithCloseButtonPressed = NULL;
+    }
 
 
     if (pTab->pNextTab != NULL) {
@@ -1039,12 +1103,12 @@ PRIVATE void tab_detach(easygui_tab* pTab)
 
 
     if (pTB->isAutoSizeEnabled) {
-        tabbar_resize_by_tabs(pTab->pTBElement);
+        tabbar_resize_by_tabs(pTBElement);
     }
     
     // The content of the menu has changed so we'll need to schedule a redraw.
-    if (easygui_is_auto_dirty_enabled(pTab->pTBElement->pContext)) {
-        easygui_dirty(pTab->pTBElement, easygui_get_local_rect(pTab->pTBElement));
+    if (easygui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        easygui_dirty(pTBElement, easygui_get_local_rect(pTBElement));
     }
 }
 

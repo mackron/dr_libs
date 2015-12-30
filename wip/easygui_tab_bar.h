@@ -121,6 +121,9 @@ bool tabbar_is_auto_size_enabled(easygui_element* pTBElement);
 /// Activates the given tab.
 void tabbar_activate_tab(easygui_element* pTBElement, easygui_tab* pTab);
 
+/// Retrieves a pointer to the currently active tab.
+easygui_tab* tabbar_get_active_tab(easygui_element* pTBElement);
+
 
 /// Shows the close buttons on each tab.
 void tabbar_show_close_buttons(easygui_element* pTBElement);
@@ -177,6 +180,13 @@ void tab_set_text(easygui_tab* pTab, const char* text);
 
 /// Retrieves the text of the given tab bar item.
 const char* tab_get_text(easygui_tab* pTab);
+
+
+/// Retrieves a pointer to the next tab in the tab bar.
+easygui_tab* tab_get_next_tab(easygui_tab* pTab);
+
+/// Retrieves a pointer to the previous tab in the tab bar.
+easygui_tab* tab_get_prev_tab(easygui_tab* pTab);
 
 
 #ifdef __cplusplus
