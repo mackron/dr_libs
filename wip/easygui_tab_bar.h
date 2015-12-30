@@ -19,16 +19,16 @@ extern "C" {
 
 typedef enum
 {
-    tb_orientation_top,
-    tb_orientation_bottom,
-    tb_orientation_left,
-    tb_orientation_right
-} tb_orientation;
+    tabbar_orientation_top,
+    tabbar_orientation_bottom,
+    tabbar_orientation_left,
+    tabbar_orientation_right
+} tabbar_orientation;
 
 typedef struct easygui_tab easygui_tab;
 
-typedef void (* tb_on_measure_tab_proc)        (easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
-typedef void (* tb_on_paint_tab_proc)          (easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
+typedef void (* tabbar_on_measure_tab_proc)    (easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
+typedef void (* tabbar_on_paint_tab_proc)      (easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
 typedef void (* tabbar_on_tab_activated_proc)  (easygui_element* pTBElement, easygui_tab* pTab);
 typedef void (* tabbar_on_tab_deactivated_proc)(easygui_element* pTBElement, easygui_tab* pTab);
 
@@ -40,34 +40,34 @@ typedef void (* tabbar_on_tab_deactivated_proc)(easygui_element* pTBElement, eas
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Creates a new tab bar control.
-easygui_element* eg_create_tab_bar(easygui_context* pContext, easygui_element* pParent, tb_orientation orientation, size_t extraDataSize, const void* pExtraData);
+easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_element* pParent, tabbar_orientation orientation, size_t extraDataSize, const void* pExtraData);
 
 /// Deletes the given tab bar control.
-void eg_delete_tab_bar(easygui_element* pTBElement);
+void easygui_delete_tab_bar(easygui_element* pTBElement);
 
 
 /// Retrieves the size of the extra data associated with the scrollbar.
-size_t tb_get_extra_data_size(easygui_element* pTBElement);
+size_t tabbar_get_extra_data_size(easygui_element* pTBElement);
 
 /// Retrieves a pointer to the extra data associated with the scrollbar.
-void* tb_get_extra_data(easygui_element* pTBElement);
+void* tabbar_get_extra_data(easygui_element* pTBElement);
 
 /// Retrieves the orientation of the given scrollbar.
-tb_orientation tb_get_orientation(easygui_element* pTBElement);
+tabbar_orientation tabbar_get_orientation(easygui_element* pTBElement);
 
 
 /// Sets the default font to use for tabs.
-void tb_set_font(easygui_element* pTBElement, easygui_font* pFont);
+void tabbar_set_font(easygui_element* pTBElement, easygui_font* pFont);
 
 /// Retrieves the default font to use for tabs.
-easygui_font* tb_get_font(easygui_element* pTBElement);
+easygui_font* tabbar_get_font(easygui_element* pTBElement);
 
 
 /// Sets the function to call when a tab needs to be measured.
-void tb_set_on_measure_tab(easygui_element* pTBElement, tb_on_measure_tab_proc proc);
+void tabbar_set_on_measure_tab(easygui_element* pTBElement, tabbar_on_measure_tab_proc proc);
 
 /// Sets the function to call when a tab needs to be painted.
-void tb_set_on_paint_tab(easygui_element* pTBElement, tb_on_paint_tab_proc proc);
+void tabbar_set_on_paint_tab(easygui_element* pTBElement, tabbar_on_paint_tab_proc proc);
 
 /// Sets the function to call when a tab is activated.
 void tabbar_set_on_tab_activated(easygui_element* pTBElement, tabbar_on_tab_activated_proc proc);
@@ -109,16 +109,16 @@ bool tabbar_is_auto_size_enabled(easygui_element* pTBElement);
 
 
 /// Called when the mouse leave event needs to be processed for the given tab bar control.
-void tb_on_mouse_leave(easygui_element* pTBElement);
+void tabbar_on_mouse_leave(easygui_element* pTBElement);
 
 /// Called when the mouse move event needs to be processed for the given tab bar control.
-void tb_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int relativeMousePosY);
+void tabbar_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int relativeMousePosY);
 
 /// Called when the mouse button down event needs to be processed for the given tab bar control.
-void tb_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
 
 /// Called when the paint event needs to be processed for the given tab control.
-void tb_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect, void* pPaintData);
+void tabbar_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect, void* pPaintData);
 
 
 
@@ -130,10 +130,10 @@ void tb_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect,
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Creates and appends a tab
-easygui_tab* tb_create_and_append_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
+easygui_tab* tabbar_create_and_append_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
 
 /// Creates and prepends a tab.
-easygui_tab* tb_create_and_prepend_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
+easygui_tab* tabbar_create_and_prepend_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
 
 /// Recursively deletes a tree view item.
 void tab_delete(easygui_tab* pTab);
