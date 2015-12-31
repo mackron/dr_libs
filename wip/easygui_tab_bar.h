@@ -125,6 +125,10 @@ void tabbar_activate_tab(easygui_element* pTBElement, easygui_tab* pTab);
 easygui_tab* tabbar_get_active_tab(easygui_element* pTBElement);
 
 
+/// Determines whether or not the given tab is in view.
+bool tabbar_is_tab_in_view(easygui_element* pTBElement, easygui_tab* pTab);
+
+
 /// Shows the close buttons on each tab.
 void tabbar_show_close_buttons(easygui_element* pTBElement);
 
@@ -196,6 +200,13 @@ easygui_tab* tab_get_next_tab(easygui_tab* pTab);
 
 /// Retrieves a pointer to the previous tab in the tab bar.
 easygui_tab* tab_get_prev_tab(easygui_tab* pTab);
+
+
+/// Moves the given tab to the front of the tab bar that owns it.
+void tab_move_to_front(easygui_tab* pTab);
+
+/// Determines whether or not the given tab is in view.
+bool tab_is_in_view(easygui_tab* pTab);
 
 
 #ifdef __cplusplus

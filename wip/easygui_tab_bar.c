@@ -486,6 +486,43 @@ easygui_tab* tabbar_get_active_tab(easygui_element* pTBElement)
 }
 
 
+bool tabbar_is_tab_in_view(easygui_element* pTBElement, easygui_tab* pTabIn)
+{
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    float tabbarWidth  = 0;
+    float tabbarHeight = 0;
+    easygui_get_size(pTBElement, &tabbarWidth, &tabbarHeight);
+
+
+    // Each tab.
+    float runningPosX = 0;
+    float runningPosY = 0;
+    for (easygui_tab* pTab = pTB->pFirstTab; pTab != NULL; pTab = pTab->pNextTab)
+    {
+        float tabWidth  = 0;
+        float tabHeight = 0;
+        tabbar_measure_tab(pTBElement, pTab, &tabWidth, &tabHeight);
+
+        if (pTab == pTabIn) {
+            return runningPosX + tabWidth <= tabbarWidth && runningPosY + tabHeight <= tabbarHeight;
+        }
+
+
+        if (pTB->orientation == tabbar_orientation_top || pTB->orientation == tabbar_orientation_bottom) {
+            runningPosX += tabWidth;
+        } else {
+            runningPosY += tabHeight;
+        }
+    }
+
+    return false;
+}
+
+
 void tabbar_show_close_buttons(easygui_element* pTBElement)
 {
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
@@ -682,6 +719,12 @@ void tabbar_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingR
         float tabWidth  = 0;
         float tabHeight = 0;
         tabbar_measure_tab(pTBElement, pTab, &tabWidth, &tabHeight);
+
+        // If a part of the tab is out of bounds, stop drawing.
+        if (runningPosX + tabWidth > tabbarWidth || runningPosY + tabHeight > tabbarHeight) {
+            break;
+        }
+
 
         tabbar_paint_tab(pTBElement, pTab, relativeClippingRect, runningPosX, runningPosY, tabWidth, tabHeight, pPaintData);
 
@@ -882,6 +925,12 @@ PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement);
 /// Prepends the given tab to the given tab bar.
 PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement);
 
+/// Detaches the given tab bar from it's tab bar element's hierarchy.
+///
+/// @remarks
+///     This does not deactivate the tab or what - it only detaches the tab from the hierarchy.
+PRIVATE void tab_detach_from_hierarchy(easygui_tab* pTab);
+
 /// Detaches the given tab bar from it's tab bar element.
 PRIVATE void tab_detach(easygui_tab* pTab);
 
@@ -1020,6 +1069,28 @@ easygui_tab* tab_get_prev_tab(easygui_tab* pTab)
 }
 
 
+void tab_move_to_front(easygui_tab* pTab)
+{
+    if (pTab == NULL) {
+        return;
+    }
+
+    easygui_element* pTBElement = pTab->pTBElement;
+    
+    tab_detach_from_hierarchy(pTab);
+    tab_prepend(pTab, pTBElement);
+}
+
+bool tab_is_in_view(easygui_tab* pTab)
+{
+    if (pTab == NULL) {
+        return false;
+    }
+
+    return tabbar_is_tab_in_view(pTab->pTBElement, pTab);
+}
+
+
 
 
 PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement)
@@ -1098,6 +1169,44 @@ PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement)
     }
 }
 
+PRIVATE void tab_detach_from_hierarchy(easygui_tab* pTab)
+{
+    if (pTab == NULL) {
+        return;
+    }
+
+    easygui_element* pTBElement = pTab->pTBElement;
+    if (pTBElement == NULL) {
+        return;
+    }
+
+    easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+
+    if (pTab->pNextTab != NULL) {
+        pTab->pNextTab->pPrevTab = pTab->pPrevTab;
+    }
+
+    if (pTab->pPrevTab != NULL) {
+        pTab->pPrevTab->pNextTab = pTab->pNextTab;
+    }
+
+
+    if (pTab == pTB->pFirstTab) {
+        pTB->pFirstTab = pTab->pNextTab;
+    }
+
+    if (pTab == pTB->pLastTab) {
+        pTB->pLastTab = pTab->pPrevTab;
+    }
+
+
+    pTab->pNextTab   = NULL;
+    pTab->pPrevTab   = NULL;
+    pTab->pTBElement = NULL;
+}
+
 PRIVATE void tab_detach(easygui_tab* pTab)
 {
     if (pTab == NULL) {
@@ -1126,27 +1235,7 @@ PRIVATE void tab_detach(easygui_tab* pTab)
     }
 
 
-    if (pTab->pNextTab != NULL) {
-        pTab->pNextTab->pPrevTab = pTab->pPrevTab;
-    }
-
-    if (pTab->pPrevTab != NULL) {
-        pTab->pPrevTab->pNextTab = pTab->pNextTab;
-    }
-
-
-    if (pTab == pTB->pFirstTab) {
-        pTB->pFirstTab = pTab->pNextTab;
-    }
-
-    if (pTab == pTB->pLastTab) {
-        pTB->pLastTab = pTab->pPrevTab;
-    }
-
-
-    pTab->pNextTab   = NULL;
-    pTab->pPrevTab   = NULL;
-    pTab->pTBElement = NULL;
+    tab_detach_from_hierarchy(pTab);
 
 
     if (pTB->isAutoSizeEnabled) {
