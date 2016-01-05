@@ -186,7 +186,6 @@ extern "C" {
 
 typedef struct easygui_context easygui_context;
 typedef struct easygui_element easygui_element;
-typedef struct easygui_event easygui_event;
 typedef struct easygui_color easygui_color;
 typedef struct easygui_rect easygui_rect;
 typedef struct easygui_painting_callbacks easygui_painting_callbacks;
