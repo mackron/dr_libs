@@ -159,12 +159,12 @@
 // following structure is assumed:
 // <Base Directory>
 //   - easy_draw
-//     - easy_draw.h
-//     - easy_draw.c
+//     - easy_2d.h
+//     - easy_2d.c
 //   - easy_gui
 //     - easy_gui.h
 //     - easy_gui.c
-#include "../easy_draw/easy_draw.h"
+#include "../easy_draw/easy_2d.h"
 #endif
 
 #include <stdbool.h>
