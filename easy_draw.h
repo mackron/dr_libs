@@ -16,8 +16,8 @@
 // #define EASY2D_NO_CAIRO
 //
 
-#ifndef easy_draw
-#define easy_draw
+#ifndef easy_2d
+#define easy_2d
 
 #include <stdlib.h>
 #include <stdbool.h>
