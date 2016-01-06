@@ -659,10 +659,6 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
             iCurrentLine += 1;
             run.width  = 0;
             run.height = (float)defaultFontMetrics.lineHeight;
-
-            // A new line means we need to increment the running y position by the running line height.
-            runningPosY += runningLineHeight;
-            runningLineHeight = 0;
         }
         else if (nextRunStart[0] == '\0')
         {
@@ -687,6 +683,13 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
         }
         pTL->textBoundsHeight = runningPosY + runningLineHeight;
 
+
+        // A new line means we need to increment the running y position by the running line height.
+        if (nextRunStart[0] == '\n')
+        {
+            runningPosY += runningLineHeight;
+            runningLineHeight = 0;
+        }
 
         // Add the run to the internal list.
         easygui_push_text_run(pTL, &run);
