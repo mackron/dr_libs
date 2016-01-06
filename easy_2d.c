@@ -1,6 +1,6 @@
 // Public Domain. See "unlicense" statement at the end of this file.
 
-#include "easy_draw.h"
+#include "easy_2d.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
