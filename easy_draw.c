@@ -929,6 +929,8 @@ bool easy2d_on_create_font_gdi(easy2d_font* pFont)
         DWORD bitmapBufferSize = GetGlyphOutlineW(pGDIContextData->hDC, ' ', GGO_NATIVE, &spaceMetrics, 0, NULL, &transform);
         if (bitmapBufferSize == GDI_ERROR) {
 			pGDIData->metrics.spaceWidth = 4;
+        } else {
+            pGDIData->metrics.spaceWidth = spaceMetrics.gmCellIncX;
         }
     }
     SelectObject(pGDIContextData->hDC, hPrevFont);
