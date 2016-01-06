@@ -25,6 +25,15 @@ extern "C" {
 
 typedef struct easygui_text_layout easygui_text_layout;
 
+typedef enum
+{
+    easygui_text_layout_alignment_left,
+    easygui_text_layout_alignment_top,
+    easygui_text_layout_alignment_center,
+    easygui_text_layout_alignment_right,
+    easygui_text_layout_alignment_bottom,
+} easygui_text_layout_alignment;
+
 typedef struct
 {
     /// A pointer to the start of the string. This is NOT null terminated.
@@ -139,6 +148,23 @@ void easygui_set_text_layout_tab_size(easygui_text_layout* pTL, unsigned int siz
 
 /// Retrieves the size of a tab in spaces.
 unsigned int easygui_get_text_layout_tab_size(easygui_text_layout* pTL);
+
+
+/// Sets the horizontal alignment of the given text layout.
+void easygui_set_text_layout_horizontal_align(easygui_text_layout* pTL, easygui_text_layout_alignment alignment);
+
+/// Retrieves the horizontal aligment of the given text layout.
+easygui_text_layout_alignment easygui_get_text_layout_horizontal_align(easygui_text_layout* pTL);
+
+/// Sets the vertical alignment of the given text layout.
+void easygui_set_text_layout_vertical_align(easygui_text_layout* pTL, easygui_text_layout_alignment alignment);
+
+/// Retrieves the vertical aligment of the given text layout.
+easygui_text_layout_alignment easygui_get_text_layout_vertical_align(easygui_text_layout* pTL);
+
+
+/// Retrieves the rectangle of the text relative to the bounds, taking alignment into account.
+easygui_rect easygui_get_text_layout_text_rect_relative_to_bounds(easygui_text_layout* pTL);
 
 
 /// Iterates over every visible text run in the given text layout.

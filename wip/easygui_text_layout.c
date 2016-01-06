@@ -3,6 +3,14 @@
 #include "easygui_text_layout.h"
 #include <assert.h>
 
+#ifndef OUT
+#define OUT
+#endif
+
+#ifndef DO_NOTHING
+#define DO_NOTHING
+#endif
+
 struct easygui_text_layout
 {
     /// The main text of the layout.
@@ -36,6 +44,12 @@ struct easygui_text_layout
 
     /// The size of a tab in spaces.
     unsigned int tabSizeInSpaces;
+
+    /// The horizontal alignment.
+    easygui_text_layout_alignment horzAlign;
+
+    /// The vertical alignment.
+    easygui_text_layout_alignment vertAlign;
 
 
     /// The total width of the text.
@@ -96,6 +110,12 @@ PRIVATE void easygui_push_text_run(easygui_text_layout* pTL, easygui_text_run* p
 /// Clears the internal list of text runs.
 PRIVATE void easygui_clear_text_runs(easygui_text_layout* pTL);
 
+/// Helper for calculating the offset to apply to each line based on the alignment of the given text layout.
+PRIVATE void easygui_calculate_line_alignment_offset(easygui_text_layout* pTL, float lineWidth, float* pOffsetXOut, float* pOffsetYOut);
+
+/// Helper for determine whether or not the given text run is whitespace.
+PRIVATE bool easygui_is_text_run_whitespace(easygui_text_layout* pTL, easygui_text_run* pRun);
+
 
 easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_t extraDataSize, void* pExtraData)
 {
@@ -118,6 +138,8 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->defaultTextColor       = easygui_rgb(224, 224, 224);
     pTL->defaultBackgroundColor = easygui_rgb(48, 48, 48);
     pTL->tabSizeInSpaces        = 4;
+    pTL->horzAlign              = easygui_text_layout_alignment_left;
+    pTL->vertAlign              = easygui_text_layout_alignment_top;
     pTL->textBoundsWidth        = 0;
     pTL->textBoundsHeight       = 0;
     pTL->pRuns                  = NULL;
@@ -351,12 +373,160 @@ unsigned int easygui_get_text_layout_tab_size(easygui_text_layout* pTL)
 }
 
 
+void easygui_set_text_layout_horizontal_align(easygui_text_layout* pTL, easygui_text_layout_alignment alignment)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    if (pTL->horzAlign != alignment)
+    {
+        pTL->horzAlign = alignment;
+        easygui_refresh_text_layout_alignment(pTL);
+    }
+}
+
+easygui_text_layout_alignment easygui_get_text_layout_horizontal_align(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return easygui_text_layout_alignment_left;
+    }
+
+    return pTL->horzAlign;
+}
+
+void easygui_set_text_layout_vertical_align(easygui_text_layout* pTL, easygui_text_layout_alignment alignment)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    if (pTL->vertAlign != alignment)
+    {
+        pTL->vertAlign = alignment;
+        easygui_refresh_text_layout_alignment(pTL);
+    }
+}
+
+easygui_text_layout_alignment easygui_get_text_layout_vertical_align(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return easygui_text_layout_alignment_top;
+    }
+
+    return pTL->vertAlign;
+}
+
+
+easygui_rect easygui_get_text_layout_text_rect_relative_to_bounds(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return easygui_make_rect(0, 0, 0, 0);
+    }
+
+    easygui_rect rect;
+    rect.left = 0;
+    rect.top  = 0;
+
+
+    switch (pTL->horzAlign)
+    {
+    case easygui_text_layout_alignment_right:
+        {
+            rect.left = pTL->containerWidth - pTL->textBoundsWidth;
+            break;
+        }
+
+    case easygui_text_layout_alignment_center:
+        {
+            rect.left = (pTL->containerWidth - pTL->textBoundsWidth) / 2;
+            break;
+        }
+
+    case easygui_text_layout_alignment_left:
+    case easygui_text_layout_alignment_top:     // Invalid for horizontal align.
+    case easygui_text_layout_alignment_bottom:  // Invalid for horizontal align.
+    default:
+        {
+            break;
+        }
+    }
+
+
+    switch (pTL->vertAlign)
+    {
+    case easygui_text_layout_alignment_bottom:
+        {
+            rect.top = pTL->containerHeight - pTL->textBoundsHeight;
+            break;
+        }
+
+    case easygui_text_layout_alignment_center:
+        {
+            rect.top = (pTL->containerHeight - pTL->textBoundsHeight) / 2;
+            break;
+        }
+
+    case easygui_text_layout_alignment_top:
+    case easygui_text_layout_alignment_left:    // Invalid for vertical align.
+    case easygui_text_layout_alignment_right:   // Invalid for vertical align.
+    default:
+        {
+            break;
+        }
+    }
+
+
+    rect.left  += pTL->innerOffsetX;
+    rect.top   += pTL->innerOffsetY;
+    rect.right  = rect.left + pTL->textBoundsWidth;
+    rect.bottom = rect.top  + pTL->textBoundsHeight;
+
+    return rect;
+}
+
+
 void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_layout_run_iterator_proc callback, void* pUserData)
 {
     if (pTL == NULL || callback == NULL) {
         return;
     }
 
+    // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
+    easygui_rect textRect = easygui_get_text_layout_text_rect_relative_to_bounds(pTL);
+
+    // This is a naive implementation. Can be improved a bit.
+    for (size_t iRun = 0; iRun < pTL->runCount; ++iRun)
+    {
+        easygui_text_run* pRun = pTL->pRuns + iRun;
+
+        if (!easygui_is_text_run_whitespace(pTL, pRun))
+        {
+            float runTop    = pRun->posY + textRect.top;
+            float runBottom = runTop     + pRun->height;
+
+            if (runBottom > 0 && runTop < pTL->containerHeight)
+            {
+                float runLeft  = pRun->posX + textRect.left;
+                float runRight = runLeft    + pRun->width;
+
+                if (runRight > 0 && runLeft < pTL->containerWidth)
+                {
+                    // The run is visible.
+                    easygui_text_run run = pTL->pRuns[iRun];
+                    run.pFont           = pTL->pDefaultFont;
+                    run.textColor       = pTL->defaultTextColor;
+                    run.backgroundColor = pTL->defaultBackgroundColor;
+                    run.text            = pTL->text + run.iChar;
+                    run.posX            = runLeft;
+                    run.posY            = runTop;
+                    callback(pTL, &run, pUserData);
+                }
+            }
+        }
+    }
+
+#if 0
     for (size_t iRun = 0; iRun < pTL->runCount; ++iRun)
     {
         easygui_text_run run = pTL->pRuns[iRun];
@@ -364,59 +534,6 @@ void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_la
         run.textColor       = pTL->defaultTextColor;
         run.backgroundColor = pTL->defaultBackgroundColor;
         run.text            = pTL->text + run.iChar;
-        callback(pTL, &run, pUserData);
-    }
-
-#if 0
-    // NOTE: THIS IS A TEMPORARY IMPLEMENTATION JUST TO GET SOMETHING BASIC WORKING.
-
-
-    easygui_text_run run;
-    run.posX            = 0;
-    run.posY            = 0;
-    run.width           = 0;
-    run.height          = 0;
-    run.pFont           = pTL->pDefaultFont;
-    run.textColor       = pTL->defaultTextColor;
-    run.backgroundColor = pTL->defaultBackgroundColor;
-
-    easygui_font_metrics fontMetrics;
-    easygui_get_font_metrics(run.pFont, 1, 1, &fontMetrics);
-    
-
-    // Iterate over each line and just increment the y pen position.
-    const char* text = pTL->text;
-    if (text == NULL) {
-        return;
-    }
-
-    const char* lineStart = pTL->text;
-    const char* lineEnd   = lineStart;
-
-    while (text[0] != '\0')
-    {
-        if (text[0] == '\n')
-        {
-            // We're at the end of the line.
-            lineEnd = text;
-
-
-            run.text = lineStart;
-            run.textLength = (unsigned int)(lineEnd - lineStart);
-            callback(pTL, &run, pUserData);
-
-            run.posY += fontMetrics.lineHeight;
-            lineStart = lineEnd + 1;
-        }
-
-        text += 1;
-    }
-
-    lineEnd = text;
-    if (lineStart < lineEnd)
-    {
-        run.text = lineStart;
-        run.textLength = (unsigned int)(lineEnd - lineStart);
         callback(pTL, &run, pUserData);
     }
 #endif
@@ -560,16 +677,15 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
         }
 
 
+        // The running line height needs to be updated by setting to the maximum size.
+        runningLineHeight = (run.height > runningLineHeight) ? run.height : runningLineHeight;
+
 
         // Update the text bounds.
         if (pTL->textBoundsWidth < run.posX + run.width) {
             pTL->textBoundsWidth = run.posX + run.width;
         }
-        pTL->textBoundsHeight = runningPosY + run.height;
-
-
-        // The running line height needs to be updated by setting to the maximum size.
-        runningLineHeight = (run.height > runningLineHeight) ? run.height : runningLineHeight;
+        pTL->textBoundsHeight = runningPosY + runningLineHeight;
 
 
         // Add the run to the internal list.
@@ -578,12 +694,126 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
         // Go to the next run string.
         nextRunStart = nextRunEnd;
     }
+
+    // If we were to return now the text would be alignment top/left. If the alignment is not top/left we need to refresh the layout.
+    if (pTL->horzAlign != easygui_text_layout_alignment_left || pTL->vertAlign != easygui_text_layout_alignment_top)
+    {
+        easygui_refresh_text_layout_alignment(pTL);
+    }
 }
 
 PRIVATE void easygui_refresh_text_layout_alignment(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return;
+    }
+
+    float runningPosY = 0;
+
+    unsigned int iCurrentLine = 0;
+    for (size_t iRun = 0; iRun < pTL->runCount; DO_NOTHING)     // iRun is incremented from within the loop.
+    {
+        float lineWidth  = 0;
+        float lineHeight = 0;
+
+        // This loop does a few things. First, it defines the end point for the loop after this one (jRun). Second, it calculates
+        // the line width which is needed for center and right alignment. Third it resets the position of each run to their
+        // unaligned equivalents which will be offsetted in the second loop.
+        size_t jRun;
+        for (jRun = iRun; jRun < pTL->runCount && pTL->pRuns[jRun].iLine == iCurrentLine; ++jRun)
+        {
+            easygui_text_run* pRun = pTL->pRuns + jRun;
+            pRun->posX = lineWidth;
+            pRun->posY = runningPosY;
+
+            lineWidth += pRun->width;
+            lineHeight = (lineHeight > pRun->height) ? lineHeight : pRun->height;
+        }
+
+        
+        // The actual alignment is done here.
+        float lineOffsetX;
+        float lineOffsetY;
+        easygui_calculate_line_alignment_offset(pTL, lineWidth, OUT &lineOffsetX, OUT &lineOffsetY);
+
+        for (DO_NOTHING; iRun < jRun; ++iRun)
+        {
+            easygui_text_run* pRun = pTL->pRuns + iRun;
+            pRun->posX += lineOffsetX;
+            pRun->posY += lineOffsetY;
+        }
+
+
+        // Go to the next line.
+        iCurrentLine += 1;
+        runningPosY  += lineHeight;
+    }
+}
+
+void easygui_calculate_line_alignment_offset(easygui_text_layout* pTL, float lineWidth, float* pOffsetXOut, float* pOffsetYOut)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    float offsetX = 0;
+    float offsetY = 0;
+
+    switch (pTL->horzAlign)
+    {
+    case easygui_text_layout_alignment_right:
+        {
+            offsetX = pTL->textBoundsWidth - lineWidth;
+            break;
+        }
+
+    case easygui_text_layout_alignment_center:
+        {
+            offsetX = (pTL->textBoundsWidth - lineWidth) / 2;
+            break;
+        }
+
+    case easygui_text_layout_alignment_left:
+    case easygui_text_layout_alignment_top:     // Invalid for horizontal alignment.
+    case easygui_text_layout_alignment_bottom:  // Invalid for horizontal alignment.
+    default:
+        {
+            offsetX = 0;
+            break;
+        }
+    }
+
+
+    switch (pTL->vertAlign)
+    {
+    case easygui_text_layout_alignment_bottom:
+        {
+            offsetY = pTL->textBoundsHeight - pTL->textBoundsHeight;
+            break;
+        }
+
+    case easygui_text_layout_alignment_center:
+        {
+            offsetY = (pTL->textBoundsHeight - pTL->textBoundsHeight) / 2;
+            break;
+        }
+
+    case easygui_text_layout_alignment_top:
+    case easygui_text_layout_alignment_left:    // Invalid for vertical alignment.
+    case easygui_text_layout_alignment_right:   // Invalid for vertical alignment.
+    default:
+        {
+            offsetY = 0;
+            break;
+        }
+    }
+
+
+    if (pOffsetXOut) {
+        *pOffsetXOut = offsetX;
+    }
+    if (pOffsetYOut) {
+        *pOffsetYOut = offsetY;
     }
 }
 
@@ -623,5 +853,19 @@ PRIVATE void easygui_clear_text_runs(easygui_text_layout* pTL)
     }
 
     pTL->runCount = 0;
+}
+
+PRIVATE bool easygui_is_text_run_whitespace(easygui_text_layout* pTL, easygui_text_run* pRun)
+{
+    if (pRun == NULL) {
+        return false;
+    }
+
+    if (pTL->text[pRun->iChar] != '\t' && pTL->text[pRun->iChar] != '\n')
+    {
+        return false;
+    }
+
+    return true;
 }
 
