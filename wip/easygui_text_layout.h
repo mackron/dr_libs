@@ -6,7 +6,7 @@
 // - Text layouts are used to make it easier to manage the layout of a block of text.
 // - Text layouts support basic editing which requires inbound events to be posted from the higher
 //   level application.
-// - Text layouts are not GUI elements. They are lower level objects that are used by a higher level
+// - Text layouts are not GUI elements. They are lower level objects that are used by higher level
 //   GUI elements.
 // - Text layouts normalize line endings to \n format. Keep this in mind when retrieving the text of
 //   a layout.
@@ -55,6 +55,19 @@ typedef struct
 
     /// The height of the run.
     float height;
+
+
+    // PROPERTIES BELOW ARE FOR INTERNAL USE ONLY
+
+    /// Index of the line the run is placed on. For runs that are new line characters, this will represent the number of lines that came before it. For
+    /// example, if this run represents the new-line character for the first line, this will be 0 and so on.
+    PRIVATE unsigned int iLine;
+
+    /// Index in the main text string of the first character of the run.
+    PRIVATE unsigned int iChar;
+
+    /// Index in the main text string of the character just past the last character in the run.
+    PRIVATE unsigned int iCharEnd;
 
 } easygui_text_run;
 
@@ -119,6 +132,13 @@ void easygui_set_text_layout_default_bg_color(easygui_text_layout* pTL, easygui_
 
 /// Retrieves the default background color of the given text layout.
 easygui_color easygui_get_text_layout_default_bg_color(easygui_text_layout* pTL);
+
+
+/// Sets the size of a tab in spaces.
+void easygui_set_text_layout_tab_size(easygui_text_layout* pTL, unsigned int sizeInSpaces);
+
+/// Retrieves the size of a tab in spaces.
+unsigned int easygui_get_text_layout_tab_size(easygui_text_layout* pTL);
 
 
 /// Iterates over every visible text run in the given text layout.
