@@ -390,10 +390,12 @@ typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easyg
 #define EASYGUI_MOUSE_BUTTON_MIDDLE     3
 
 // Common key codes.
+#define EASYGUI_BACKSPACE               0x08
 #define EASYGUI_ARROW_LEFT              0x25
 #define EASYGUI_ARROW_UP                0x26
 #define EASYGUI_ARROW_DOWN              0x27
 #define EASYGUI_ARROW_RIGHT             0x28
+#define EASYGUI_DELETE                  0x2E
 
 
 

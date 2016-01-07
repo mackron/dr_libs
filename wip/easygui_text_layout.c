@@ -149,6 +149,9 @@ PRIVATE bool easygui_find_last_run_on_line_starting_from_run(easygui_text_layout
 /// Finds the first run on the line that the given run is sitting on.
 PRIVATE bool easygui_find_first_run_on_line_starting_from_run(easygui_text_layout* pTL, unsigned int iRun, unsigned int* pFirstRunIndexOnLineOut);
 
+/// Finds the run containing the character at the given index.
+PRIVATE bool easygui_find_run_at_character(easygui_text_layout* pTL, unsigned int iChar, unsigned int* pRunIndexOut);
+
 
 /// Creates a blank text marker.
 PRIVATE easygui_text_marker easygui_new_text_marker();
@@ -198,6 +201,15 @@ PRIVATE bool easygui_move_marker_to_last_character_of_prev_run(easygui_text_layo
 /// Moves the given marker to the first character of the next run.
 PRIVATE bool easygui_move_marker_to_first_character_of_next_run(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
+/// Moves the given marker to the character at the given position.
+PRIVATE bool easygui_move_marker_to_character(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iChar);
+
+
+/// Updates the relative position of the given marker.
+///
+/// @remarks
+///     This assumes the iRun and iChar properties are valid.
+PRIVATE bool easygui_update_marker_relative_position(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Updates the sticky position of the given marker.
 PRIVATE void easygui_update_marker_sticky_position(easygui_text_layout* pTL, easygui_text_marker* pMarker);
@@ -646,58 +658,151 @@ easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL)
     return easygui_make_rect(cursorPosX, lineRect.top, cursorPosX + pTL->cursorWidth, lineRect.bottom);
 }
 
-void easygui_move_text_layout_cursor_left(easygui_text_layout* pTL)
+bool easygui_move_text_layout_cursor_left(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
-        return;
+        return false;
     }
 
-    easygui_move_marker_left(pTL, &pTL->cursor);
+    return easygui_move_marker_left(pTL, &pTL->cursor);
 }
 
-void easygui_move_text_layout_cursor_right(easygui_text_layout* pTL)
+bool easygui_move_text_layout_cursor_right(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
-        return;
+        return false;
     }
 
-    easygui_move_marker_right(pTL, &pTL->cursor);
+    return easygui_move_marker_right(pTL, &pTL->cursor);
 }
 
-void easygui_move_text_layout_cursor_up(easygui_text_layout* pTL)
+bool easygui_move_text_layout_cursor_up(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
-        return;
+        return false;
     }
 
-    easygui_move_marker_up(pTL, &pTL->cursor);
+    return easygui_move_marker_up(pTL, &pTL->cursor);
 }
 
-void easygui_move_text_layout_cursor_down(easygui_text_layout* pTL)
+bool easygui_move_text_layout_cursor_down(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
-        return;
+        return false;
     }
 
-    easygui_move_marker_down(pTL, &pTL->cursor);
+    return easygui_move_marker_down(pTL, &pTL->cursor);
 }
 
-void easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL)
+bool easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
-        return;
+        return false;
     }
 
-    easygui_move_marker_to_end_of_line(pTL, &pTL->cursor);
+    return easygui_move_marker_to_end_of_line(pTL, &pTL->cursor);
 }
 
-void easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL)
+bool easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return false;
+    }
+
+    return easygui_move_marker_to_start_of_line(pTL, &pTL->cursor);
+}
+
+
+void easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigned int character, unsigned int insertIndex)
+{
+    // Transform '\r' to '\n'.
+    if (character == '\r') {
+        character = '\n';
+    }
+
+
+    // TODO: Add proper support for UTF-8.
+    char* pOldText = pTL->text;
+    char* pNewText = malloc(pTL->textLength + 1 + 1);   // +1 for the new character and +1 for the null terminator.
+
+    if (insertIndex > 0) {
+        memcpy(pNewText, pOldText, insertIndex);
+    }
+
+    pNewText[insertIndex] = (char)character;
+
+    if (insertIndex < pTL->textLength) {
+        memcpy(pNewText + insertIndex + 1, pOldText + insertIndex, pTL->textLength - insertIndex);
+    }
+
+    pTL->textLength += 1;
+    pTL->text = pNewText;
+    pNewText[pTL->textLength] = '\0';
+
+    free(pOldText);
+    
+    
+
+
+    // The layout will have changed so it needs to be refreshed.
+    easygui_refresh_text_layout(pTL);
+}
+
+void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character)
+{
+    easygui_text_run* pRun = pTL->pRuns + pTL->cursor.iRun;
+    unsigned int iAbsoluteMarkerChar = pRun->iChar + pTL->cursor.iChar;
+
+    easygui_insert_character_into_text_layout(pTL, character, iAbsoluteMarkerChar);
+
+
+    // The marker needs to be updated based on the new layout and it's new position, which is one character ahead.
+    easygui_move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar + 1);
+
+    // The cursor's sticky position needs to be updated whenever the text is edited.
+    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+}
+
+void easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return;
     }
 
-    easygui_move_marker_to_start_of_line(pTL, &pTL->cursor);
+    // We just move the cursor to the left, and then delete the character to the right.
+    if (easygui_move_text_layout_cursor_left(pTL)) {
+        easygui_delete_character_to_right_of_cursor(pTL);
+    }
+}
+
+void easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    easygui_text_run* pRun = pTL->pRuns + pTL->cursor.iRun;
+    unsigned int iAbsoluteMarkerChar = pRun->iChar + pTL->cursor.iChar;
+
+    if (iAbsoluteMarkerChar < pTL->textLength)
+    {
+        // Remove the character from the string.
+        //m_text.EraseCharacterByIndex(iAbsoluteMarkerChar);
+
+        // TODO: Add proper support for UTF-8.
+        memmove(pTL->text + iAbsoluteMarkerChar, pTL->text + iAbsoluteMarkerChar + 1, pTL->textLength - iAbsoluteMarkerChar);
+        pTL->textLength -= 1;
+        pTL->text[pTL->textLength] = '\0';
+
+
+
+        // The layout will have changed.
+        easygui_refresh_text_layout(pTL);
+
+
+        // The marker needs to be updated based on the new layout.
+        easygui_move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar);
+    }
 }
 
 
@@ -869,8 +974,9 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
         else if (nextRunStart[0] == '\0')
         {
             // Null terminator.
-            run.width  = 0;
-            run.height = 0;
+            run.width      = 0;
+            run.height     = (float)defaultFontMetrics.lineHeight;
+            run.textLength = 0;
         }
         else
         {
@@ -1307,6 +1413,39 @@ PRIVATE bool easygui_find_first_run_on_line_starting_from_run(easygui_text_layou
 
     if (pFirstRunIndexOnLineOut) {
         *pFirstRunIndexOnLineOut = result;
+    }
+
+    return true;
+}
+
+PRIVATE bool easygui_find_run_at_character(easygui_text_layout* pTL, unsigned int iChar, unsigned int* pRunIndexOut)
+{
+    if (pTL == NULL || pTL->runCount == 0) {
+        return false;
+    }
+
+    unsigned int result = 0;
+    if (iChar < pTL->textLength)
+    {
+        for (unsigned int iRun = 0; iRun < pTL->runCount; ++iRun)
+        {
+            const easygui_text_run* pRun = pTL->pRuns + iRun;
+
+            if (iChar < pRun->iCharEnd)
+            {
+                result = iRun;
+                break;
+            }
+        }
+    }
+    else
+    {
+        // The character index is too high. Return the last run.
+        result = pTL->runCount - 1;
+    }
+
+    if (pRunIndexOut) {
+        *pRunIndexOut = result;
     }
 
     return true;
@@ -1761,6 +1900,61 @@ PRIVATE bool easygui_move_marker_to_first_character_of_next_run(easygui_text_lay
     }
 
     return false;
+}
+
+PRIVATE bool easygui_move_marker_to_character(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iChar)
+{
+    if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
+        return false;
+    }
+
+    // Clamp the character to the end of the string.
+    if (iChar > pTL->textLength) {
+        iChar = pTL->textLength;
+    }
+
+    easygui_find_run_at_character(pTL, iChar, &pMarker->iRun);
+        
+    assert(pMarker->iRun < pTL->runCount);
+    pMarker->iChar = iChar - pTL->pRuns[pMarker->iRun].iChar;
+
+
+    // The relative position depends on whether or not the run is a tab character.
+    return easygui_update_marker_relative_position(pTL, pMarker);
+}
+
+
+PRIVATE bool easygui_update_marker_relative_position(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+{
+    if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
+        return false;
+    }
+
+    float scaleX = 1;
+    float scaleY = 1;
+
+    const easygui_text_run* pRun = pTL->pRuns + pMarker->iRun;
+    if (pTL->text[pRun->iChar] == '\t')
+    {
+        const float tabWidth = easygui_get_text_layout_tab_width(pTL);
+
+        if (pMarker->iChar == 0)
+        {
+            // Simple case - it's the first tab character which means the relative position is just 0.
+            pMarker->relativePosX = 0;
+        }
+        else
+        {
+            pMarker->relativePosX  = tabWidth * ((pRun->posX + (tabWidth*(pMarker->iChar + 0))) / tabWidth);
+            pMarker->relativePosX -= pRun->posX;
+        }
+
+        return true;
+    }
+    else
+    {
+        return easygui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pTL->pRuns[pMarker->iRun].iChar, pMarker->iChar, scaleX, scaleY, OUT &pMarker->relativePosX);
+    }
 }
 
 PRIVATE void easygui_update_marker_sticky_position(easygui_text_layout* pTL, easygui_text_marker* pMarker)
