@@ -1246,6 +1246,9 @@ easygui_rect easygui_grow_rect(easygui_rect rect, float amount);
 ///     rectangle manually.
 easygui_rect easygui_scale_rect(easygui_rect rect, float scaleX, float scaleY);
 
+/// Offsets the given rectangle.
+easygui_rect easygui_offset_rect(easygui_rect rect, float offsetX, float offsetY);
+
 /// Creates a rectangle that contains both of the given rectangles.
 easygui_rect easygui_rect_union(easygui_rect rect0, easygui_rect rect1);
 

@@ -3275,6 +3275,11 @@ easygui_rect easygui_scale_rect(easygui_rect rect, float scaleX, float scaleY)
     return result;
 }
 
+easygui_rect easygui_offset_rect(easygui_rect rect, float offsetX, float offsetY)
+{
+    return easygui_make_rect(rect.left + offsetX, rect.top + offsetY, rect.right + offsetX, rect.bottom + offsetY);
+}
+
 easygui_rect easygui_rect_union(easygui_rect rect0, easygui_rect rect1)
 {
     easygui_rect result;
