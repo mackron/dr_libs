@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #ifndef PRIVATE
 #define PRIVATE
@@ -396,6 +397,36 @@ bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSize
     return false;
 }
 
+bool easy2d_get_text_cursor_position_from_point(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+{
+    if (pFont == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->drawingCallbacks.get_text_cursor_position_from_point) {
+        return pFont->pContext->drawingCallbacks.get_text_cursor_position_from_point(pFont, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
+    }
+
+    return false;
+}
+
+bool easy2d_get_text_cursor_position_from_char(easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+{
+    if (pFont == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    if (pFont->pContext->drawingCallbacks.get_text_cursor_position_from_char) {
+        return pFont->pContext->drawingCallbacks.get_text_cursor_position_from_char(pFont, text, characterIndex, pTextCursorPosXOut);
+    }
+
+    return false;
+}
+
 
 easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData)
 {
@@ -625,6 +656,8 @@ void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopO
 bool easy2d_get_font_metrics_gdi(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
 bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pGlyphMetrics);
 bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+bool easy2d_get_text_cursor_position_from_point_gdi(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+bool easy2d_get_text_cursor_position_from_char_gdi(easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
 /// Converts a char* to a wchar_t* string.
 wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, size_t textSizeInBytes, unsigned int* characterCountOut);
@@ -663,32 +696,34 @@ static int easy2d_utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
 easy2d_context* easy2d_create_context_gdi()
 {
     easy2d_drawing_callbacks callbacks;
-    callbacks.on_create_context            = easy2d_on_create_context_gdi;
-    callbacks.on_delete_context            = easy2d_on_delete_context_gdi;
-    callbacks.on_create_surface            = easy2d_on_create_surface_gdi;
-    callbacks.on_delete_surface            = easy2d_on_delete_surface_gdi;
-    callbacks.on_create_font               = easy2d_on_create_font_gdi;
-    callbacks.on_delete_font               = easy2d_on_delete_font_gdi;
-    callbacks.on_create_image              = easy2d_on_create_image_gdi;
-    callbacks.on_delete_image              = easy2d_on_delete_image_gdi;
+    callbacks.on_create_context                   = easy2d_on_create_context_gdi;
+    callbacks.on_delete_context                   = easy2d_on_delete_context_gdi;
+    callbacks.on_create_surface                   = easy2d_on_create_surface_gdi;
+    callbacks.on_delete_surface                   = easy2d_on_delete_surface_gdi;
+    callbacks.on_create_font                      = easy2d_on_create_font_gdi;
+    callbacks.on_delete_font                      = easy2d_on_delete_font_gdi;
+    callbacks.on_create_image                     = easy2d_on_create_image_gdi;
+    callbacks.on_delete_image                     = easy2d_on_delete_image_gdi;
 
-    callbacks.begin_draw                   = easy2d_begin_draw_gdi;
-    callbacks.end_draw                     = easy2d_end_draw_gdi;
-    callbacks.clear                        = easy2d_clear_gdi;
-    callbacks.draw_rect                    = easy2d_draw_rect_gdi;
-    callbacks.draw_rect_outline            = easy2d_draw_rect_outline_gdi;
-    callbacks.draw_rect_with_outline       = easy2d_draw_rect_with_outline_gdi;
-    callbacks.draw_round_rect              = easy2d_draw_round_rect_gdi;
-    callbacks.draw_round_rect_outline      = easy2d_draw_round_rect_outline_gdi;
-    callbacks.draw_round_rect_with_outline = easy2d_draw_round_rect_with_outline_gdi;
-    callbacks.draw_text                    = easy2d_draw_text_gdi;
-    callbacks.draw_image                   = easy2d_draw_image_gdi;
-    callbacks.set_clip                     = easy2d_set_clip_gdi;
-    callbacks.get_clip                     = easy2d_get_clip_gdi;
+    callbacks.begin_draw                          = easy2d_begin_draw_gdi;
+    callbacks.end_draw                            = easy2d_end_draw_gdi;
+    callbacks.clear                               = easy2d_clear_gdi;
+    callbacks.draw_rect                           = easy2d_draw_rect_gdi;
+    callbacks.draw_rect_outline                   = easy2d_draw_rect_outline_gdi;
+    callbacks.draw_rect_with_outline              = easy2d_draw_rect_with_outline_gdi;
+    callbacks.draw_round_rect                     = easy2d_draw_round_rect_gdi;
+    callbacks.draw_round_rect_outline             = easy2d_draw_round_rect_outline_gdi;
+    callbacks.draw_round_rect_with_outline        = easy2d_draw_round_rect_with_outline_gdi;
+    callbacks.draw_text                           = easy2d_draw_text_gdi;
+    callbacks.draw_image                          = easy2d_draw_image_gdi;
+    callbacks.set_clip                            = easy2d_set_clip_gdi;
+    callbacks.get_clip                            = easy2d_get_clip_gdi;
 
-    callbacks.get_font_metrics             = easy2d_get_font_metrics_gdi;
-    callbacks.get_glyph_metrics            = easy2d_get_glyph_metrics_gdi;
-    callbacks.measure_string               = easy2d_measure_string_gdi;
+    callbacks.get_font_metrics                    = easy2d_get_font_metrics_gdi;
+    callbacks.get_glyph_metrics                   = easy2d_get_glyph_metrics_gdi;
+    callbacks.measure_string                      = easy2d_measure_string_gdi;
+    callbacks.get_text_cursor_position_from_point = easy2d_get_text_cursor_position_from_point_gdi;
+    callbacks.get_text_cursor_position_from_char  = easy2d_get_text_cursor_position_from_char_gdi;
 
     return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data), sizeof(gdi_font_data), sizeof(gdi_image_data));
 }
@@ -1629,6 +1664,133 @@ bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, size_t text
     }
 
     return false;
+}
+
+bool easy2d_get_text_cursor_position_from_point_gdi(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+{
+    bool successful = false;
+
+    assert(pFont != NULL);
+
+    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    if (pGDIFontData == NULL) {
+        return false;
+    }
+
+    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    if (pGDIContextData == NULL) {
+        return false;
+    }
+
+
+    SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
+
+
+    GCP_RESULTS results;
+    ZeroMemory(&results, sizeof(results));
+    results.lStructSize = sizeof(results);
+    results.nGlyphs     = textSizeInBytes;
+
+    unsigned int textWLength;
+    wchar_t* textW = easy2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
+    if (textW != NULL)
+    {
+        results.lpCaretPos = malloc(sizeof(int) * results.nGlyphs);
+        if (results.lpCaretPos != NULL)
+        {
+            if (GetCharacterPlacementW(pGDIContextData->hDC, textW, results.nGlyphs, (int)maxWidth, &results, GCP_MAXEXTENT | GCP_USEKERNING) != 0)
+            {
+                unsigned int characterIndex = 0;
+                float textCursorPosX = 0;
+
+                for (unsigned int iChar = 0; iChar < results.nGlyphs; ++iChar)
+                {
+                    float charBoundsLeft  = (float)results.lpCaretPos[iChar];
+                    float charBoundsRight = 0;
+                    if (iChar < results.nGlyphs - 1) {
+                        charBoundsRight = (float)results.lpCaretPos[iChar + 1];
+                    } else {
+                        charBoundsRight = maxWidth;
+                    }
+
+                    if (inputPosX >= charBoundsLeft && inputPosX <= charBoundsRight)
+                    {
+                        // The input position is somewhere on top of this character. If it's positioned on the left side of the character, set the output
+                        // value to the character at iChar. Otherwise it should be set to the character at iChar + 1.
+                        float charBoundsRightHalf = charBoundsLeft + ceilf(((charBoundsRight - charBoundsLeft) / 2.0f));
+                        if (inputPosX <= charBoundsRightHalf) {
+                            textCursorPosX = charBoundsLeft;
+                            characterIndex = iChar;
+                        } else {
+                            textCursorPosX = charBoundsRight;
+                            characterIndex = iChar + 1;
+                        }
+                    }
+                }
+
+                if (pTextCursorPosXOut) {
+                    *pTextCursorPosXOut = textCursorPosX;
+                }
+                if (pCharacterIndexOut) {
+                    *pCharacterIndexOut = characterIndex;
+                }
+
+                successful = true;
+            }
+
+            free(results.lpCaretPos);
+        }
+    }
+
+    return successful;
+}
+
+bool easy2d_get_text_cursor_position_from_char_gdi(easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+{
+    bool successful = false;
+
+    assert(pFont != NULL);
+
+    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    if (pGDIFontData == NULL) {
+        return false;
+    }
+
+    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    if (pGDIContextData == NULL) {
+        return false;
+    }
+
+
+    SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
+
+
+    GCP_RESULTS results;
+    ZeroMemory(&results, sizeof(results));
+    results.lStructSize = sizeof(results);
+    results.nGlyphs     = characterIndex + 1;
+
+    unsigned int textWLength;
+    wchar_t* textW = easy2d_to_wchar_gdi(pFont->pContext, text, (int)results.nGlyphs, &textWLength);
+    if (textW != NULL)
+    {
+        results.lpCaretPos = malloc(sizeof(int) * results.nGlyphs);
+        if (results.lpCaretPos != NULL)
+        {
+            if (GetCharacterPlacementW(pGDIContextData->hDC, textW, results.nGlyphs, 0, &results, GCP_USEKERNING) != 0)
+            {
+                if (pTextCursorPosXOut) {
+                    *pTextCursorPosXOut = (float)results.lpCaretPos[characterIndex];
+                }
+                
+                successful = true;
+            }
+
+            free(results.lpCaretPos);
+        }
+    }
+
+    return successful;
 }
 
 

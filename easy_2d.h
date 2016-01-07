@@ -181,31 +181,32 @@ typedef struct
 } easy2d_draw_image_args;
 
 
-typedef bool (* easy2d_on_create_context_proc)           (easy2d_context* pContext);
-typedef void (* easy2d_on_delete_context_proc)           (easy2d_context* pContext);
-typedef bool (* easy2d_on_create_surface_proc)           (easy2d_surface* pSurface, float width, float height);
-typedef void (* easy2d_on_delete_surface_proc)           (easy2d_surface* pSurface);
-typedef bool (* easy2d_on_create_font_proc)              (easy2d_font* pFont);
-typedef void (* easy2d_on_delete_font_proc)              (easy2d_font* pFont);
-typedef bool (* easy2d_on_create_image_proc)             (easy2d_image* pImage, unsigned int stride, const void* pData);
-typedef void (* easy2d_on_delete_image_proc)             (easy2d_image* pImage);
-typedef void (* easy2d_begin_draw_proc)                  (easy2d_surface* pSurface);
-typedef void (* easy2d_end_draw_proc)                    (easy2d_surface* pSurface);
-typedef void (* easy2d_clear_proc)                       (easy2d_surface* pSurface, easy2d_color color);
-typedef void (* easy2d_draw_rect_proc)                   (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
-typedef void (* easy2d_draw_rect_outline_proc)           (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth);
-typedef void (* easy2d_draw_rect_with_outline_proc)      (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor);
-typedef void (* easy2d_draw_round_rect_proc)             (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width);
-typedef void (* easy2d_draw_round_rect_outline_proc)     (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth);
-typedef void (* easy2d_draw_round_rect_with_outline_proc)(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth, easy2d_color outlineColor);
-typedef void (* easy2d_draw_text_proc)                   (easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
-typedef void (* easy2d_draw_image_proc)                  (easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs);
-typedef void (* easy2d_set_clip_proc)                    (easy2d_surface* pSurface, float left, float top, float right, float bottom);
-typedef void (* easy2d_get_clip_proc)                    (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
-typedef bool (* easy2d_get_font_metrics_proc)            (easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
-typedef bool (* easy2d_get_glyph_metrics_proc)           (easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut);
-typedef bool (* easy2d_measure_string_proc)              (easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-
+typedef bool (* easy2d_on_create_context_proc)                  (easy2d_context* pContext);
+typedef void (* easy2d_on_delete_context_proc)                  (easy2d_context* pContext);
+typedef bool (* easy2d_on_create_surface_proc)                  (easy2d_surface* pSurface, float width, float height);
+typedef void (* easy2d_on_delete_surface_proc)                  (easy2d_surface* pSurface);
+typedef bool (* easy2d_on_create_font_proc)                     (easy2d_font* pFont);
+typedef void (* easy2d_on_delete_font_proc)                     (easy2d_font* pFont);
+typedef bool (* easy2d_on_create_image_proc)                    (easy2d_image* pImage, unsigned int stride, const void* pData);
+typedef void (* easy2d_on_delete_image_proc)                    (easy2d_image* pImage);
+typedef void (* easy2d_begin_draw_proc)                         (easy2d_surface* pSurface);
+typedef void (* easy2d_end_draw_proc)                           (easy2d_surface* pSurface);
+typedef void (* easy2d_clear_proc)                              (easy2d_surface* pSurface, easy2d_color color);
+typedef void (* easy2d_draw_rect_proc)                          (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
+typedef void (* easy2d_draw_rect_outline_proc)                  (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth);
+typedef void (* easy2d_draw_rect_with_outline_proc)             (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor);
+typedef void (* easy2d_draw_round_rect_proc)                    (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width);
+typedef void (* easy2d_draw_round_rect_outline_proc)            (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth);
+typedef void (* easy2d_draw_round_rect_with_outline_proc)       (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth, easy2d_color outlineColor);
+typedef void (* easy2d_draw_text_proc)                          (easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
+typedef void (* easy2d_draw_image_proc)                         (easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs);
+typedef void (* easy2d_set_clip_proc)                           (easy2d_surface* pSurface, float left, float top, float right, float bottom);
+typedef void (* easy2d_get_clip_proc)                           (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+typedef bool (* easy2d_get_font_metrics_proc)                   (easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
+typedef bool (* easy2d_get_glyph_metrics_proc)                  (easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut);
+typedef bool (* easy2d_measure_string_proc)                     (easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef bool (* easy2d_get_text_cursor_position_from_point_proc)(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+typedef bool (* easy2d_get_text_cursor_position_from_char_proc) (easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
 
 struct easy2d_drawing_callbacks
@@ -233,9 +234,11 @@ struct easy2d_drawing_callbacks
     easy2d_set_clip_proc                     set_clip;
     easy2d_get_clip_proc                     get_clip;
 
-    easy2d_get_font_metrics_proc             get_font_metrics;
-    easy2d_get_glyph_metrics_proc            get_glyph_metrics;
-    easy2d_measure_string_proc               measure_string;
+    easy2d_get_font_metrics_proc                    get_font_metrics;
+    easy2d_get_glyph_metrics_proc                   get_glyph_metrics;
+    easy2d_measure_string_proc                      measure_string;
+    easy2d_get_text_cursor_position_from_point_proc get_text_cursor_position_from_point;
+    easy2d_get_text_cursor_position_from_char_proc  get_text_cursor_position_from_char;
 };
 
 struct easy2d_image
@@ -404,6 +407,12 @@ bool easy2d_get_glyph_metrics(easy2d_font* pFont, unsigned int utf32, easy2d_gly
 
 /// Retrieves the dimensions of the given string when drawn with the given font.
 bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+
+/// Retrieves the position to place a text cursor based on the given point for the given string when drawn with the given font.
+bool easy2d_get_text_cursor_position_from_point(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+
+/// Retrieves the position to palce a text cursor based on the character at the given index for the given string when drawn with the given font.
+bool easy2d_get_text_cursor_position_from_char(easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
 
 /// Creates an image that can be passed to easy2d_draw_image().
