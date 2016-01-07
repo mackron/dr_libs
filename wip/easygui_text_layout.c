@@ -734,9 +734,11 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
     pTL->textBoundsWidth  = 0;
     pTL->textBoundsHeight = 0;
 
+    const float scaleX = 1;
+    const float scaleY = 1;
 
     easygui_font_metrics defaultFontMetrics;
-    easygui_get_font_metrics(pTL->pDefaultFont, 1, 1, &defaultFontMetrics);
+    easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics);
 
     const float tabWidth = easygui_get_text_layout_tab_width(pTL);
 
@@ -757,6 +759,7 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
         run.height         = 0;
         run.posX           = 0;
         run.posY           = runningPosY;
+        run.pFont          = pTL->pDefaultFont;
 
         // X position
         //
@@ -1068,7 +1071,7 @@ PRIVATE bool easygui_find_closest_run_to_point(easygui_text_layout* pTL, float i
     unsigned int iLastRunOnLinePlus1;
     if (easygui_find_closest_line_to_point(pTL, inputPosYRelativeToText, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
     {
-        unsigned int iRun = 0;
+        unsigned int iRunOut = 0;
 
         const easygui_text_run* pFirstRunOnLine = pTL->pRuns + iFirstRunOnLine;
         const easygui_text_run* pLastRunOnLine  = pTL->pRuns + (iLastRunOnLinePlus1 - 1);
@@ -1076,12 +1079,12 @@ PRIVATE bool easygui_find_closest_run_to_point(easygui_text_layout* pTL, float i
         if (inputPosXRelativeToText < pFirstRunOnLine->posX)
         {
             // It's to the left of the first run.
-            iRun = iFirstRunOnLine;
+            iRunOut = iFirstRunOnLine;
         }
         else if (inputPosXRelativeToText > pLastRunOnLine->posX + pLastRunOnLine->width)
         {
             // It's to the right of the last run.
-            iRun = iLastRunOnLinePlus1 - 1;
+            iRunOut = iLastRunOnLinePlus1 - 1;
         }
         else
         {
@@ -1092,14 +1095,14 @@ PRIVATE bool easygui_find_closest_run_to_point(easygui_text_layout* pTL, float i
 
                 if (inputPosXRelativeToText >= pRun->posX && inputPosXRelativeToText <= pRun->posX + pRun->width)
                 {
-                    iRun = iRun;
+                    iRunOut = iRun;
                     break;
                 }
             }
         }
 
         if (pRunIndexOut) {
-            *pRunIndexOut = iRun;
+            *pRunIndexOut = iRunOut;
         }
 
         return true;
