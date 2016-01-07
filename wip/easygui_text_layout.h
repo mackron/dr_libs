@@ -185,6 +185,9 @@ void easygui_move_text_layout_cursor_to_point(easygui_text_layout* pTL, float po
 /// Retrieves the position of the cursor, relative to the container.
 void easygui_get_text_layout_cursor_position(easygui_text_layout* pTL, float* pPosXOut, float* pPosYOut);
 
+/// Retrieves the rectangle of the cursor, relative to the container.
+easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL);
+
 
 /// Iterates over every visible text run in the given text layout.
 void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_layout_run_iterator_proc callback, void* pUserData);

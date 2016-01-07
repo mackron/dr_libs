@@ -629,6 +629,23 @@ void easygui_get_text_layout_cursor_position(easygui_text_layout* pTL, float* pP
     easygui_get_marker_position_relative_to_container(pTL, &pTL->cursor, pPosXOut, pPosYOut);
 }
 
+easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return easygui_make_rect(0, 0, 0, 0);
+    }
+
+    easygui_rect lineRect = easygui_make_rect(0, 0, 0, 0);
+    easygui_find_text_layout_line_info_by_index(pTL, pTL->pRuns[pTL->cursor.iRun].iLine, &lineRect, NULL, NULL);
+
+
+    float cursorPosX;
+    float cursorPosY;
+    easygui_get_text_layout_cursor_position(pTL, &cursorPosX, &cursorPosY);
+
+    return easygui_make_rect(cursorPosX, lineRect.top, cursorPosX + pTL->cursorWidth, lineRect.bottom);
+}
+
 
 void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_layout_run_iterator_proc callback, void* pUserData)
 {
