@@ -195,7 +195,7 @@ typedef struct easygui_font_metrics easygui_font_metrics;
 typedef struct easygui_glyph_metrics easygui_glyph_metrics;
 
 typedef unsigned char easygui_byte;
-typedef int easygui_key;
+typedef unsigned int easygui_key;
 
 typedef void* easygui_resource;
 
@@ -383,9 +383,18 @@ typedef void             (* easygui_get_image_size_proc)   (easygui_resource ima
 
 typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easygui_rect *pRelativeRect, void* pUserData);
 
+
+// Common mouse buttons.
 #define EASYGUI_MOUSE_BUTTON_LEFT       1
 #define EASYGUI_MOUSE_BUTTON_RIGHT      2
 #define EASYGUI_MOUSE_BUTTON_MIDDLE     3
+
+// Common key codes.
+#define EASYGUI_ARROW_LEFT              0x25
+#define EASYGUI_ARROW_UP                0x26
+#define EASYGUI_ARROW_DOWN              0x27
+#define EASYGUI_ARROW_RIGHT             0x28
+
 
 
 /// Structure containing callbacks for painting routines.
