@@ -2967,6 +2967,47 @@ bool easygui_measure_string_by_element(easygui_font* pFont, const char* text, si
     return easygui_measure_string(pFont, text, textLengthInBytes, scaleX, scaleY, pWidthOut, pHeightOut);
 }
 
+bool easygui_get_text_cursor_position_from_point(easygui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float scaleX, float scaleY, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+{
+    if (pFont == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    easygui_resource font = easygui_get_internal_font_by_scale(pFont, scaleY);
+    if (font == NULL) {
+        return false;
+    }
+
+    if (pFont->pContext->paintingCallbacks.getTextCursorPositionFromPoint) {
+        return pFont->pContext->paintingCallbacks.getTextCursorPositionFromPoint(font, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
+    }
+
+    return false;
+}
+
+bool easygui_get_text_cursor_position_from_char(easygui_font* pFont, const char* text, unsigned int characterIndex, float scaleX, float scaleY, float* pTextCursorPosXOut)
+{
+    if (pFont == NULL) {
+        return false;
+    }
+
+    assert(pFont->pContext != NULL);
+
+    easygui_resource font = easygui_get_internal_font_by_scale(pFont, scaleY);
+    if (font == NULL) {
+        return false;
+    }
+
+    if (pFont->pContext->paintingCallbacks.getTextCursorPositionFromChar) {
+        return pFont->pContext->paintingCallbacks.getTextCursorPositionFromChar(font, text, characterIndex, pTextCursorPosXOut);
+    }
+
+    return false;
+}
+
+
 
 easygui_image* easygui_create_image(easygui_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData)
 {
@@ -3296,6 +3337,8 @@ unsigned int easygui_get_font_size_easy_draw(easygui_resource hFont);
 bool easygui_get_font_metrics_easy_draw(easygui_resource, easygui_font_metrics*);
 bool easygui_get_glyph_metrics_easy_draw(easygui_resource, unsigned int, easygui_glyph_metrics*);
 bool easygui_measure_string_easy_draw(easygui_resource, const char*, size_t, float*, float*);
+bool easygui_get_text_cursor_position_from_point_easy_draw(easygui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+bool easygui_get_text_cursor_position_from_char_easy_draw(easygui_resource font, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
 easygui_resource easygui_create_image_easy_draw(void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
 void easygui_delete_image_easy_draw(easygui_resource image);
@@ -3314,29 +3357,31 @@ easygui_context* easygui_create_context_easy_draw(easy2d_context* pDrawingContex
 void easygui_register_easy_draw_callbacks(easygui_context* pContext, easy2d_context* pDrawingContext)
 {
     easygui_painting_callbacks callbacks;
-    callbacks.drawBegin                = easygui_draw_begin_easy_draw;
-    callbacks.drawEnd                  = easygui_draw_end_easy_draw;
-    callbacks.setClip                  = easygui_set_clip_easy_draw;
-    callbacks.getClip                  = easygui_get_clip_easy_draw;
-    callbacks.drawRect                 = easygui_draw_rect_easy_draw;
-    callbacks.drawRectOutline          = easygui_draw_rect_outline_easy_draw;
-    callbacks.drawRectWithOutline      = easygui_draw_rect_with_outline_easy_draw;
-    callbacks.drawRoundRect            = easygui_draw_round_rect_easy_draw;
-    callbacks.drawRoundRectOutline     = easygui_draw_round_rect_outline_easy_draw;
-    callbacks.drawRoundRectWithOutline = easygui_draw_round_rect_with_outline_easy_draw;
-    callbacks.drawText                 = easygui_draw_text_easy_draw;
-    callbacks.drawImage                = easygui_draw_image_easy_draw;
+    callbacks.drawBegin                      = easygui_draw_begin_easy_draw;
+    callbacks.drawEnd                        = easygui_draw_end_easy_draw;
+    callbacks.setClip                        = easygui_set_clip_easy_draw;
+    callbacks.getClip                        = easygui_get_clip_easy_draw;
+    callbacks.drawRect                       = easygui_draw_rect_easy_draw;
+    callbacks.drawRectOutline                = easygui_draw_rect_outline_easy_draw;
+    callbacks.drawRectWithOutline            = easygui_draw_rect_with_outline_easy_draw;
+    callbacks.drawRoundRect                  = easygui_draw_round_rect_easy_draw;
+    callbacks.drawRoundRectOutline           = easygui_draw_round_rect_outline_easy_draw;
+    callbacks.drawRoundRectWithOutline       = easygui_draw_round_rect_with_outline_easy_draw;
+    callbacks.drawText                       = easygui_draw_text_easy_draw;
+    callbacks.drawImage                      = easygui_draw_image_easy_draw;
 
-    callbacks.createFont               = easygui_create_font_easy_draw;
-    callbacks.deleteFont               = easygui_delete_font_easy_draw;
-    callbacks.getFontSize              = easygui_get_font_size_easy_draw;
-    callbacks.getFontMetrics           = easygui_get_font_metrics_easy_draw;
-    callbacks.getGlyphMetrics          = easygui_get_glyph_metrics_easy_draw;
-    callbacks.measureString            = easygui_measure_string_easy_draw;
+    callbacks.createFont                     = easygui_create_font_easy_draw;
+    callbacks.deleteFont                     = easygui_delete_font_easy_draw;
+    callbacks.getFontSize                    = easygui_get_font_size_easy_draw;
+    callbacks.getFontMetrics                 = easygui_get_font_metrics_easy_draw;
+    callbacks.getGlyphMetrics                = easygui_get_glyph_metrics_easy_draw;
+    callbacks.measureString                  = easygui_measure_string_easy_draw;
 
-    callbacks.createImage              = easygui_create_image_easy_draw;
-    callbacks.deleteImage              = easygui_delete_image_easy_draw;
-    callbacks.getImageSize             = easygui_get_image_size_easy_draw;
+    callbacks.createImage                    = easygui_create_image_easy_draw;
+    callbacks.deleteImage                    = easygui_delete_image_easy_draw;
+    callbacks.getImageSize                   = easygui_get_image_size_easy_draw;
+    callbacks.getTextCursorPositionFromPoint = easygui_get_text_cursor_position_from_point_easy_draw;
+    callbacks.getTextCursorPositionFromChar  = easygui_get_text_cursor_position_from_char_easy_draw;
 
     easygui_register_painting_callbacks(pContext, pDrawingContext, callbacks);
 }
@@ -3512,6 +3557,16 @@ bool easygui_get_glyph_metrics_easy_draw(easygui_resource font, unsigned int utf
 bool easygui_measure_string_easy_draw(easygui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
     return easy2d_measure_string(font, text, textSizeInBytes, pWidthOut, pHeightOut);
+}
+
+bool easygui_get_text_cursor_position_from_point_easy_draw(easygui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+{
+    return easy2d_get_text_cursor_position_from_point(font, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
+}
+
+bool easygui_get_text_cursor_position_from_char_easy_draw(easygui_resource font, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+{
+    return easy2d_get_text_cursor_position_from_char(font, text, characterIndex, pTextCursorPosXOut);
 }
 
 

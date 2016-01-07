@@ -167,6 +167,25 @@ easygui_text_layout_alignment easygui_get_text_layout_vertical_align(easygui_tex
 easygui_rect easygui_get_text_layout_text_rect_relative_to_bounds(easygui_text_layout* pTL);
 
 
+/// Sets the width of the text cursor.
+void easygui_set_text_layout_cursor_width(easygui_text_layout* pTL, float cursorWidth);
+
+/// Retrieves the width of the text cursor.
+float easygui_get_text_layout_cursor_width(easygui_text_layout* pTL);
+
+/// Sets the color of the text cursor.
+void easygui_set_text_layout_cursor_color(easygui_text_layout* pTL, easygui_color cursorColor);
+
+/// Retrieves the color of the text cursor.
+easygui_color easygui_get_text_layout_cursor_color(easygui_text_layout* pTL);
+
+/// Moves the cursor to the closest character based on the given input position.
+void easygui_move_text_layout_cursor_to_point(easygui_text_layout* pTL, float posX, float posY);
+
+/// Retrieves the position of the cursor, relative to the container.
+void easygui_get_text_layout_cursor_position(easygui_text_layout* pTL, float* pPosXOut, float* pPosYOut);
+
+
 /// Iterates over every visible text run in the given text layout.
 void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_layout_run_iterator_proc callback, void* pUserData);
 

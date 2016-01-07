@@ -368,12 +368,14 @@ typedef void (* easygui_draw_round_rect_with_outline_proc) (easygui_rect relativ
 typedef void (* easygui_draw_text_proc)                    (easygui_resource font, const char* text, int textLengthInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData);
 typedef void (* easygui_draw_image_proc)                   (easygui_resource image, easygui_draw_image_args* pArgs, void* pPaintData);
 
-typedef easygui_resource (* easygui_create_font_proc)      (void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation);
-typedef void             (* easygui_delete_font_proc)      (easygui_resource font);
-typedef unsigned int     (* easygui_get_font_size_proc)    (easygui_resource font);
-typedef bool             (* easygui_get_font_metrics_proc) (easygui_resource font, easygui_font_metrics* pMetricsOut);
-typedef bool             (* easygui_get_glyph_metrics_proc)(easygui_resource font, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
-typedef bool             (* easygui_measure_string_proc)   (easygui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef easygui_resource (* easygui_create_font_proc)                        (void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation);
+typedef void             (* easygui_delete_font_proc)                        (easygui_resource font);
+typedef unsigned int     (* easygui_get_font_size_proc)                      (easygui_resource font);
+typedef bool             (* easygui_get_font_metrics_proc)                   (easygui_resource font, easygui_font_metrics* pMetricsOut);
+typedef bool             (* easygui_get_glyph_metrics_proc)                  (easygui_resource font, unsigned int utf32, easygui_glyph_metrics* pMetricsOut);
+typedef bool             (* easygui_measure_string_proc)                     (easygui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef bool             (* easygui_get_text_cursor_position_from_point_proc)(easygui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+typedef bool             (* easygui_get_text_cursor_position_from_char_proc) (easygui_resource font, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
 typedef easygui_resource (* easygui_create_image_proc)     (void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
 typedef void             (* easygui_delete_image_proc)     (easygui_resource image);
@@ -389,32 +391,34 @@ typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easyg
 /// Structure containing callbacks for painting routines.
 struct easygui_painting_callbacks
 {
-    easygui_draw_begin_proc                   drawBegin;
-    easygui_draw_end_proc                     drawEnd;
+    easygui_draw_begin_proc                          drawBegin;
+    easygui_draw_end_proc                            drawEnd;
 
-    easygui_set_clip_proc                     setClip;
-    easygui_get_clip_proc                     getClip;
+    easygui_set_clip_proc                            setClip;
+    easygui_get_clip_proc                            getClip;
 
-    easygui_draw_line_proc                    drawLine;
-    easygui_draw_rect_proc                    drawRect;
-    easygui_draw_rect_outline_proc            drawRectOutline;
-    easygui_draw_rect_with_outline_proc       drawRectWithOutline;
-    easygui_draw_round_rect_proc              drawRoundRect;
-    easygui_draw_round_rect_outline_proc      drawRoundRectOutline;
-    easygui_draw_round_rect_with_outline_proc drawRoundRectWithOutline;
-    easygui_draw_text_proc                    drawText;
-    easygui_draw_image_proc                   drawImage;
+    easygui_draw_line_proc                           drawLine;
+    easygui_draw_rect_proc                           drawRect;
+    easygui_draw_rect_outline_proc                   drawRectOutline;
+    easygui_draw_rect_with_outline_proc              drawRectWithOutline;
+    easygui_draw_round_rect_proc                     drawRoundRect;
+    easygui_draw_round_rect_outline_proc             drawRoundRectOutline;
+    easygui_draw_round_rect_with_outline_proc        drawRoundRectWithOutline;
+    easygui_draw_text_proc                           drawText;
+    easygui_draw_image_proc                          drawImage;
 
-    easygui_create_font_proc                  createFont;
-    easygui_delete_font_proc                  deleteFont;
-    easygui_get_font_size_proc                getFontSize;
-    easygui_get_font_metrics_proc             getFontMetrics;
-    easygui_get_glyph_metrics_proc            getGlyphMetrics;
-    easygui_measure_string_proc               measureString;
+    easygui_create_font_proc                         createFont;
+    easygui_delete_font_proc                         deleteFont;
+    easygui_get_font_size_proc                       getFontSize;
+    easygui_get_font_metrics_proc                    getFontMetrics;
+    easygui_get_glyph_metrics_proc                   getGlyphMetrics;
+    easygui_measure_string_proc                      measureString;
+    easygui_get_text_cursor_position_from_point_proc getTextCursorPositionFromPoint;
+    easygui_get_text_cursor_position_from_char_proc  getTextCursorPositionFromChar;
 
-    easygui_create_image_proc                 createImage;
-    easygui_delete_image_proc                 deleteImage;
-    easygui_get_image_size_proc               getImageSize;
+    easygui_create_image_proc                        createImage;
+    easygui_delete_image_proc                        deleteImage;
+    easygui_get_image_size_proc                      getImageSize;
 };
 
 struct easygui_image
@@ -1136,6 +1140,14 @@ bool easygui_measure_string(easygui_font* pFont, const char* text, size_t textLe
 
 /// Retrieves the dimensions fo the given string when drawing with the given font at the scale of the given element.
 bool easygui_measure_string_by_element(easygui_font* pFont, const char* text, size_t textLengthInBytes, easygui_element* pElement, float* pWidthOut, float* pHeightOut);
+
+/// Retrieves the position to place a text cursor based on the given point for the given string when drawn with the given font.
+bool easygui_get_text_cursor_position_from_point(easygui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float scaleX, float scaleY, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+
+/// Retrieves the position to palce a text cursor based on the character at the given index for the given string when drawn with the given font.
+bool easygui_get_text_cursor_position_from_char(easygui_font* pFont, const char* text, unsigned int characterIndex, float scaleX, float scaleY, float* pTextCursorPosXOut);
+
+
 
 /// Creates an image that can be passed to easy2d_draw_image().
 ///
