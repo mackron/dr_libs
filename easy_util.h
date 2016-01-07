@@ -359,6 +359,15 @@ EASYUTIL_INLINE unsigned int utf16_to_utf32(unsigned short utf16[2])
     }
 }
 
+/// Converts a UTF-16 surrogate pair to UTF-32.
+EASYUTIL_INLINE unsigned int utf16pair_to_utf32(unsigned short utf160, unsigned short utf161)
+{
+    unsigned short utf16[2];
+    utf16[0] = utf160;
+    utf16[1] = utf161;
+    return utf16_to_utf32(utf16);
+}
+
 
 /////////////////////////////////////////////////////////
 // Aligned Allocations
