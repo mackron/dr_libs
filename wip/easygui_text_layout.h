@@ -188,6 +188,24 @@ void easygui_get_text_layout_cursor_position(easygui_text_layout* pTL, float* pP
 /// Retrieves the rectangle of the cursor, relative to the container.
 easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL);
 
+/// Moves the cursor of the given text layout to the left by one character.
+void easygui_move_text_layout_cursor_left(easygui_text_layout* pTL);
+
+/// Moves the cursor of the given text layout to the right by one character.
+void easygui_move_text_layout_cursor_right(easygui_text_layout* pTL);
+
+/// Moves the cursor of the given text layout up one line.
+void easygui_move_text_layout_cursor_up(easygui_text_layout* pTL);
+
+/// Moves the cursor of the given text layout down one line.
+void easygui_move_text_layout_cursor_down(easygui_text_layout* pTL);
+
+/// Moves the cursor of the given text layout to the end of the line.
+void easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL);
+
+/// Moves the cursor of the given text layout to the start of the line.
+void easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL);
+
 
 /// Iterates over every visible text run in the given text layout.
 void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_layout_run_iterator_proc callback, void* pUserData);

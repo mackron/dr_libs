@@ -646,6 +646,60 @@ easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL)
     return easygui_make_rect(cursorPosX, lineRect.top, cursorPosX + pTL->cursorWidth, lineRect.bottom);
 }
 
+void easygui_move_text_layout_cursor_left(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    easygui_move_marker_left(pTL, &pTL->cursor);
+}
+
+void easygui_move_text_layout_cursor_right(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    easygui_move_marker_right(pTL, &pTL->cursor);
+}
+
+void easygui_move_text_layout_cursor_up(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    easygui_move_marker_up(pTL, &pTL->cursor);
+}
+
+void easygui_move_text_layout_cursor_down(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    easygui_move_marker_down(pTL, &pTL->cursor);
+}
+
+void easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    easygui_move_marker_to_end_of_line(pTL, &pTL->cursor);
+}
+
+void easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    easygui_move_marker_to_start_of_line(pTL, &pTL->cursor);
+}
+
 
 void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_layout_run_iterator_proc callback, void* pUserData)
 {
