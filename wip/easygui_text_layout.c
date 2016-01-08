@@ -648,7 +648,22 @@ easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL)
     }
 
     easygui_rect lineRect = easygui_make_rect(0, 0, 0, 0);
-    easygui_find_text_layout_line_info_by_index(pTL, pTL->pRuns[pTL->cursor.iRun].iLine, &lineRect, NULL, NULL);
+
+    if (pTL->runCount > 0)
+    {
+        easygui_find_text_layout_line_info_by_index(pTL, pTL->pRuns[pTL->cursor.iRun].iLine, &lineRect, NULL, NULL);
+    }
+    else if (pTL->pDefaultFont != NULL)
+    { 
+        const float scaleX = 1;
+        const float scaleY = 1;
+
+        easygui_font_metrics defaultFontMetrics;
+        easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics);
+
+        lineRect.bottom = (float)defaultFontMetrics.lineHeight;
+    }
+    
 
 
     float cursorPosX;
@@ -750,8 +765,17 @@ void easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigne
 
 void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character)
 {
+    if (pTL == NULL) {
+        return;
+    }
+
+    unsigned int iAbsoluteMarkerChar = 0;
+
     easygui_text_run* pRun = pTL->pRuns + pTL->cursor.iRun;
-    unsigned int iAbsoluteMarkerChar = pRun->iChar + pTL->cursor.iChar;
+    if (pTL->cursor.iRun != 0 && pRun != NULL) {
+        iAbsoluteMarkerChar = pRun->iChar + pTL->cursor.iChar;
+    }
+    
 
     easygui_insert_character_into_text_layout(pTL, character, iAbsoluteMarkerChar);
 
@@ -777,7 +801,7 @@ void easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL)
 
 void easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
 {
-    if (pTL == NULL) {
+    if (pTL == NULL || pTL->runCount == 0) {
         return;
     }
 
@@ -1725,7 +1749,7 @@ PRIVATE bool easygui_move_marker_right(easygui_text_layout* pTL, easygui_text_ma
 
 PRIVATE bool easygui_move_marker_up(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
-    if (pTL == NULL || pMarker == NULL) {
+    if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
         return false;
     }
 
@@ -1758,7 +1782,7 @@ PRIVATE bool easygui_move_marker_up(easygui_text_layout* pTL, easygui_text_marke
 
 PRIVATE bool easygui_move_marker_down(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
-    if (pTL == NULL || pMarker == NULL) {
+    if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
         return false;
     }
 
