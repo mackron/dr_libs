@@ -327,7 +327,7 @@ size_t easygui_get_text_layout_text(easygui_text_layout* pTL, char* textOut, siz
     }
 
 
-    if (strcpy_s(textOut, textOutSize, pTL->text) == 0) {
+    if (strcpy_s(textOut, textOutSize, (pTL->text != NULL) ? pTL->text : "") == 0) {
         return pTL->textLength;
     }
 
