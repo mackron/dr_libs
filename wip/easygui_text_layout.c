@@ -86,6 +86,16 @@ struct easygui_text_layout
     /// The cursor.
     easygui_text_marker cursor;
 
+    /// The selection anchor.
+    easygui_text_marker selectionAnchor;
+
+
+    /// Whether or not we are in selection mode.
+    bool isInSelectionMode;
+
+    /// Whether or not anything is selected.
+    bool isAnythingSelected;
+
 
     /// A pointer to the buffer containing details about every run in the layout.
     easygui_text_run* pRuns;
@@ -243,6 +253,9 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->textBoundsWidth        = 0;
     pTL->textBoundsHeight       = 0;
     pTL->cursor                 = easygui_new_text_marker();
+    pTL->selectionAnchor        = easygui_new_text_marker();
+    pTL->isInSelectionMode      = false;
+    pTL->isAnythingSelected     = false;
     pTL->pRuns                  = NULL;
     pTL->runCount               = 0;
     pTL->runBufferSize          = 0;
@@ -827,6 +840,54 @@ void easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
         // The marker needs to be updated based on the new layout.
         easygui_move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar);
     }
+}
+
+
+void easygui_enter_selection_mode(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    if (!pTL->isInSelectionMode)
+    {
+        // If nothing is currently selected, we want to set the selection anchor to the current cursor position.
+        if (!pTL->isAnythingSelected) {
+            pTL->selectionAnchor = pTL->cursor;
+        }
+
+        pTL->isInSelectionMode = true;
+    }
+}
+
+void easygui_leave_selection_mode(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    if (pTL->isInSelectionMode)
+    {
+        pTL->isInSelectionMode = false;
+    }
+}
+
+bool easygui_is_text_layout_in_selection_mode(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    return pTL->isInSelectionMode;
+}
+
+bool easygui_is_anything_selected_in_text_layout(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    return pTL->isAnythingSelected;
 }
 
 

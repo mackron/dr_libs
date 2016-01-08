@@ -220,6 +220,22 @@ void easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL);
 void easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL);
 
 
+/// Enter's into selection mode.
+///
+/// @remarks
+///     An application will typically enter selection mode when the Shift key is pressed, and then leave when the key is released.
+void easygui_enter_selection_mode(easygui_text_layout* pTL);
+
+/// Leaves selection mode.
+void easygui_leave_selection_mode(easygui_text_layout* pTL);
+
+/// Determines whether or not the given text layout is in selection mode.
+bool easygui_is_text_layout_in_selection_mode(easygui_text_layout* pTL);
+
+/// Determines whether or not anything is selected in the given text layout.
+bool easygui_is_anything_selected_in_text_layout(easygui_text_layout* pTL);
+
+
 /// Iterates over every visible text run in the given text layout.
 void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_layout_run_iterator_proc callback, void* pUserData);
 
