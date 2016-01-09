@@ -849,7 +849,7 @@ void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int c
     unsigned int iAbsoluteMarkerChar = 0;
 
     easygui_text_run* pRun = pTL->pRuns + pTL->cursor.iRun;
-    if (pTL->cursor.iRun != 0 && pRun != NULL) {
+    if (pTL->runCount > 0 && pRun != NULL) {
         iAbsoluteMarkerChar = pRun->iChar + pTL->cursor.iChar;
     }
     
@@ -903,6 +903,49 @@ void easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
 
         // The marker needs to be updated based on the new layout.
         easygui_move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar);
+    }
+}
+
+void easygui_delete_selected_text(easygui_text_layout* pTL)
+{
+    // Don't do anything if nothing is selected.
+    if (!easygui_is_anything_selected_in_text_layout(pTL)) {
+        return;
+    }
+
+    easygui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
+    easygui_text_marker* pSelectionMarker1 = &pTL->cursor;
+    if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
+    {
+        easygui_text_marker* temp = pSelectionMarker0;
+        pSelectionMarker0 = pSelectionMarker1;
+        pSelectionMarker1 = temp;
+    }
+
+    unsigned int iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
+    unsigned int iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
+
+    unsigned int bytesToRemove = iSelectionChar1 - iSelectionChar0;
+    if (bytesToRemove > 0)
+    {
+        memmove(pTL->text + iSelectionChar0, pTL->text + iSelectionChar1, pTL->textLength - iSelectionChar1);
+        pTL->textLength -= bytesToRemove;
+        pTL->text[pTL->textLength] = '\0';
+
+        // The layout will have changed.
+        easygui_refresh_text_layout(pTL);
+
+
+        // The marker needs to be updated based on the new layout.
+        easygui_move_marker_to_character(pTL, &pTL->cursor, iSelectionChar0);
+
+        // The cursor's sticky position also needs to be updated.
+        easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+
+
+        // Reset the selection marker.
+        pTL->selectionAnchor = pTL->cursor;
+        pTL->isAnythingSelected = false;
     }
 }
 

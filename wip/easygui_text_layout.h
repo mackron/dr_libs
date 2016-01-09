@@ -219,6 +219,9 @@ void easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL);
 /// Deletes the character to the right of the cursor.
 void easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL);
 
+/// Deletes the currently selected text.
+void easygui_delete_selected_text(easygui_text_layout* pTL);
+
 
 /// Enter's into selection mode.
 ///
