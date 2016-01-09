@@ -962,10 +962,6 @@ void easygui_enter_selection_mode(easygui_text_layout* pTL)
     }
 
     pTL->selectionModeCounter += 1;
-
-    if (pTL->selectionModeCounter > 1) {
-        assert(false);
-    }
 }
 
 void easygui_leave_selection_mode(easygui_text_layout* pTL)
