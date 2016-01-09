@@ -60,6 +60,9 @@ struct easygui_text_layout
     /// The default background color.
     easygui_color defaultBackgroundColor;
 
+    /// The background color to use for selected text.
+    easygui_color selectionBackgroundColor;
+
     /// The size of a tab in spaces.
     unsigned int tabSizeInSpaces;
 
@@ -90,8 +93,9 @@ struct easygui_text_layout
     easygui_text_marker selectionAnchor;
 
 
-    /// Whether or not we are in selection mode.
-    bool isInSelectionMode;
+    /// The selection mode counter. When this is greater than 0 we are in selection mode, otherwise we are not. This
+    /// is incremented by enter_selection_mode() and decremented by leave_selection_mode().
+    unsigned int selectionModeCounter;
 
     /// Whether or not anything is selected.
     bool isAnythingSelected;
@@ -225,6 +229,13 @@ PRIVATE bool easygui_update_marker_relative_position(easygui_text_layout* pTL, e
 PRIVATE void easygui_update_marker_sticky_position(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 
+/// Helper function for determining whether or not there is any spacing between the selection markers.
+PRIVATE bool easygui_has_spacing_between_selection_markers(easygui_text_layout* pTL);
+
+/// Splits the given run into sub-runs based on the current selection rectangle. Returns the sub-run count.
+PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pTL, easygui_text_run* pRunToSplit, easygui_text_run pSubRunsOut[3]);
+
+
 easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_t extraDataSize, void* pExtraData)
 {
     if (pContext == NULL) {
@@ -236,29 +247,30 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
         return NULL;
     }
 
-    pTL->text                   = NULL;
-    pTL->textLength             = 0;
-    pTL->containerWidth         = 0;
-    pTL->containerHeight        = 0;
-    pTL->innerOffsetX           = 0;
-    pTL->innerOffsetY           = 0;
-    pTL->pDefaultFont           = NULL;
-    pTL->defaultTextColor       = easygui_rgb(224, 224, 224);
-    pTL->defaultBackgroundColor = easygui_rgb(48, 48, 48);
-    pTL->tabSizeInSpaces        = 4;
-    pTL->horzAlign              = easygui_text_layout_alignment_left;
-    pTL->vertAlign              = easygui_text_layout_alignment_top;
-    pTL->cursorWidth            = 1;
-    pTL->cursorColor            = easygui_rgb(224, 224, 224);
-    pTL->textBoundsWidth        = 0;
-    pTL->textBoundsHeight       = 0;
-    pTL->cursor                 = easygui_new_text_marker();
-    pTL->selectionAnchor        = easygui_new_text_marker();
-    pTL->isInSelectionMode      = false;
-    pTL->isAnythingSelected     = false;
-    pTL->pRuns                  = NULL;
-    pTL->runCount               = 0;
-    pTL->runBufferSize          = 0;
+    pTL->text                     = NULL;
+    pTL->textLength               = 0;
+    pTL->containerWidth           = 0;
+    pTL->containerHeight          = 0;
+    pTL->innerOffsetX             = 0;
+    pTL->innerOffsetY             = 0;
+    pTL->pDefaultFont             = NULL;
+    pTL->defaultTextColor         = easygui_rgb(224, 224, 224);
+    pTL->defaultBackgroundColor   = easygui_rgb(48, 48, 48);
+    pTL->selectionBackgroundColor = easygui_rgb(64, 128, 192);
+    pTL->tabSizeInSpaces          = 4;
+    pTL->horzAlign                = easygui_text_layout_alignment_left;
+    pTL->vertAlign                = easygui_text_layout_alignment_top;
+    pTL->cursorWidth              = 1;
+    pTL->cursorColor              = easygui_rgb(224, 224, 224);
+    pTL->textBoundsWidth          = 0;
+    pTL->textBoundsHeight         = 0;
+    pTL->cursor                   = easygui_new_text_marker();
+    pTL->selectionAnchor          = easygui_new_text_marker();
+    pTL->selectionModeCounter     = 0;
+    pTL->isAnythingSelected       = false;
+    pTL->pRuns                    = NULL;
+    pTL->runCount                 = 0;
+    pTL->runBufferSize            = 0;
 
     pTL->extraDataSize = extraDataSize;
     if (pExtraData != NULL) {
@@ -643,6 +655,10 @@ void easygui_move_text_layout_cursor_to_point(easygui_text_layout* pTL, float po
     }
 
     easygui_move_marker_to_point_relative_to_container(pTL, &pTL->cursor, posX, posY);
+
+    if (easygui_is_text_layout_in_selection_mode(pTL)) {
+        pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+    }
 }
 
 void easygui_get_text_layout_cursor_position(easygui_text_layout* pTL, float* pPosXOut, float* pPosYOut)
@@ -692,7 +708,15 @@ bool easygui_move_text_layout_cursor_left(easygui_text_layout* pTL)
         return false;
     }
 
-    return easygui_move_marker_left(pTL, &pTL->cursor);
+    if (easygui_move_marker_left(pTL, &pTL->cursor)) {
+        if (easygui_is_text_layout_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 bool easygui_move_text_layout_cursor_right(easygui_text_layout* pTL)
@@ -701,7 +725,15 @@ bool easygui_move_text_layout_cursor_right(easygui_text_layout* pTL)
         return false;
     }
 
-    return easygui_move_marker_right(pTL, &pTL->cursor);
+    if (easygui_move_marker_right(pTL, &pTL->cursor)) {
+        if (easygui_is_text_layout_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 bool easygui_move_text_layout_cursor_up(easygui_text_layout* pTL)
@@ -710,7 +742,15 @@ bool easygui_move_text_layout_cursor_up(easygui_text_layout* pTL)
         return false;
     }
 
-    return easygui_move_marker_up(pTL, &pTL->cursor);
+    if (easygui_move_marker_up(pTL, &pTL->cursor)) {
+        if (easygui_is_text_layout_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 bool easygui_move_text_layout_cursor_down(easygui_text_layout* pTL)
@@ -719,7 +759,15 @@ bool easygui_move_text_layout_cursor_down(easygui_text_layout* pTL)
         return false;
     }
 
-    return easygui_move_marker_down(pTL, &pTL->cursor);
+    if (easygui_move_marker_down(pTL, &pTL->cursor)) {
+        if (easygui_is_text_layout_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 bool easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL)
@@ -728,7 +776,15 @@ bool easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL)
         return false;
     }
 
-    return easygui_move_marker_to_end_of_line(pTL, &pTL->cursor);
+    if (easygui_move_marker_to_end_of_line(pTL, &pTL->cursor)) {
+        if (easygui_is_text_layout_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 bool easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL)
@@ -737,7 +793,15 @@ bool easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL)
         return false;
     }
 
-    return easygui_move_marker_to_start_of_line(pTL, &pTL->cursor);
+    if (easygui_move_marker_to_start_of_line(pTL, &pTL->cursor)) {
+        if (easygui_is_text_layout_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 
@@ -849,14 +913,15 @@ void easygui_enter_selection_mode(easygui_text_layout* pTL)
         return;
     }
 
-    if (!pTL->isInSelectionMode)
-    {
-        // If nothing is currently selected, we want to set the selection anchor to the current cursor position.
-        if (!pTL->isAnythingSelected) {
-            pTL->selectionAnchor = pTL->cursor;
-        }
+    // If we've just entered selection mode and nothing is currently selected, we want to set the selection anchor to the current cursor position.
+    if (!easygui_is_text_layout_in_selection_mode(pTL) && !pTL->isAnythingSelected) {
+        pTL->selectionAnchor = pTL->cursor;
+    }
 
-        pTL->isInSelectionMode = true;
+    pTL->selectionModeCounter += 1;
+
+    if (pTL->selectionModeCounter > 1) {
+        assert(false);
     }
 }
 
@@ -866,28 +931,36 @@ void easygui_leave_selection_mode(easygui_text_layout* pTL)
         return;
     }
 
-    if (pTL->isInSelectionMode)
-    {
-        pTL->isInSelectionMode = false;
+    if (pTL->selectionModeCounter > 0) {
+        pTL->selectionModeCounter -= 1;
     }
 }
 
 bool easygui_is_text_layout_in_selection_mode(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
-        return;
+        return false;
     }
 
-    return pTL->isInSelectionMode;
+    return pTL->selectionModeCounter > 0;
 }
 
 bool easygui_is_anything_selected_in_text_layout(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
-        return;
+        return false;
     }
 
     return pTL->isAnythingSelected;
+}
+
+void easygui_deselect_all_in_text_layout(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->isAnythingSelected = false;
 }
 
 
@@ -925,7 +998,23 @@ void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_la
                     run.text            = pTL->text + run.iChar;
                     run.posX            = runLeft;
                     run.posY            = runTop;
-                    callback(pTL, &run, pUserData);
+
+                    // We paint the run differently depending on whether or not anything is selected. If something is selected
+                    // we need to split the run into a maximum of 3 sub-runs so that the selection rectangle can be drawn correctly.
+                    if (easygui_is_anything_selected_in_text_layout(pTL))
+                    {
+                        easygui_text_run subruns[3];
+                        unsigned int subrunCount = easygui_split_text_run_by_selection(pTL, &run, subruns);
+                        for (unsigned int iSubrun = 0; iSubrun < subrunCount; ++iSubrun)
+                        {
+                            callback(pTL, subruns + iSubrun, pUserData);
+                        }
+                    }
+                    else
+                    {
+                        // Nothing is selected.
+                        callback(pTL, &run, pUserData);
+                    }
                 }
             }
         }
@@ -2051,3 +2140,132 @@ PRIVATE void easygui_update_marker_sticky_position(easygui_text_layout* pTL, eas
     pMarker->absoluteSickyPosX = pTL->pRuns[pMarker->iRun].posX + pMarker->relativePosX;
 }
 
+
+PRIVATE bool easygui_has_spacing_between_selection_markers(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return false;
+    }
+
+    return (pTL->cursor.iRun != pTL->selectionAnchor.iRun || pTL->cursor.iChar != pTL->selectionAnchor.iChar);
+}
+
+PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pTL, easygui_text_run* pRunToSplit, easygui_text_run pSubRunsOut[3])
+{
+    if (pTL == NULL || pRunToSplit == NULL || pSubRunsOut == NULL) {
+        return 0;
+    }
+
+    easygui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
+    easygui_text_marker* pSelectionMarker1 = &pTL->cursor;
+    if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
+    {
+        easygui_text_marker* temp = pSelectionMarker0;
+        pSelectionMarker0 = pSelectionMarker1;
+        pSelectionMarker1 = temp;
+    }
+
+    easygui_text_run* pSelectionRun0 = pTL->pRuns + pSelectionMarker0->iRun;
+    easygui_text_run* pSelectionRun1 = pTL->pRuns + pSelectionMarker1->iRun;
+
+    unsigned int iSelectionChar0 = pSelectionRun0->iChar + pSelectionMarker0->iChar;
+    unsigned int iSelectionChar1 = pSelectionRun1->iChar + pSelectionMarker1->iChar;
+
+    if (easygui_is_anything_selected_in_text_layout(pTL))
+    {
+        if (pRunToSplit->iChar <= iSelectionChar1 && pRunToSplit->iCharEnd >= iSelectionChar0)
+        {
+            // The run is somewhere inside the selection region.
+            for (int i = 0; i < 3; ++i) {
+                pSubRunsOut[i] = *pRunToSplit;
+            }
+
+            if (pRunToSplit->iChar >= iSelectionChar0)
+            {
+                // The first part of the run is selected.
+                if (pRunToSplit->iCharEnd <= iSelectionChar1)
+                {
+                    // The entire run is selected.
+                    pSubRunsOut[0].backgroundColor = pTL->selectionBackgroundColor;
+                    return 1;
+                }
+                else
+                {
+                    // The head part of the run is selected, and the tail is deselected.
+
+                    // Head.
+                    pSubRunsOut[0].backgroundColor = pTL->selectionBackgroundColor;
+                    pSubRunsOut[0].iCharEnd        = iSelectionChar1;
+                    pSubRunsOut[0].width           = pSelectionMarker1->relativePosX;
+                    pSubRunsOut[0].text            = pTL->text + pSubRunsOut[0].iChar;
+                    pSubRunsOut[0].textLength      = pSubRunsOut[0].iCharEnd - pSubRunsOut[0].iChar;
+                    
+                    // Tail.
+                    pSubRunsOut[1].iChar      = iSelectionChar1;
+                    pSubRunsOut[1].width      = pRunToSplit->width - pSelectionMarker1->relativePosX;
+                    pSubRunsOut[1].posX       = pSubRunsOut[0].posX + pSubRunsOut[0].width;
+                    pSubRunsOut[1].text       = pTL->text + pSubRunsOut[1].iChar;
+                    pSubRunsOut[1].textLength = pSubRunsOut[1].iCharEnd - pSubRunsOut[1].iChar;
+
+                    return 2;
+                }
+            }
+            else
+            {
+                // The first part of the run is deselected. There will be at least 2, but possibly 3 sub-runs in this case.
+                if (pRunToSplit->iCharEnd <= iSelectionChar1)
+                {
+                    // The head of the run is deselected and the tail is selected.
+                    
+                    // Head.
+                    pSubRunsOut[0].iCharEnd        = iSelectionChar0;
+                    pSubRunsOut[0].width           = pSelectionMarker0->relativePosX;
+                    pSubRunsOut[0].text            = pTL->text + pSubRunsOut[0].iChar;
+                    pSubRunsOut[0].textLength      = pSubRunsOut[0].iCharEnd - pSubRunsOut[0].iChar;
+                    
+                    // Tail.
+                    pSubRunsOut[1].backgroundColor = pTL->selectionBackgroundColor;
+                    pSubRunsOut[1].iChar           = iSelectionChar0;
+                    pSubRunsOut[1].width           = pRunToSplit->width - pSubRunsOut[0].width;
+                    pSubRunsOut[1].posX            = pSubRunsOut[0].posX + pSubRunsOut[0].width;
+                    pSubRunsOut[1].text            = pTL->text + pSubRunsOut[1].iChar;
+                    pSubRunsOut[1].textLength      = pSubRunsOut[1].iCharEnd - pSubRunsOut[1].iChar;
+
+                    return 2;
+                }
+                else
+                {
+                    // The head and tail are both deselected, and the middle section is selected.
+
+                    // Head.
+                    pSubRunsOut[0].iCharEnd   = iSelectionChar0;
+                    pSubRunsOut[0].width      = pSelectionMarker0->relativePosX;
+                    pSubRunsOut[0].text       = pTL->text + pSubRunsOut[0].iChar;
+                    pSubRunsOut[0].textLength = pSubRunsOut[0].iCharEnd - pSubRunsOut[0].iChar;
+
+                    // Mid.
+                    pSubRunsOut[1].iChar           = iSelectionChar0;
+                    pSubRunsOut[1].iCharEnd        = iSelectionChar1;
+                    pSubRunsOut[1].backgroundColor = pTL->selectionBackgroundColor;
+                    pSubRunsOut[1].width           = pSelectionMarker1->relativePosX - pSelectionMarker0->relativePosX;
+                    pSubRunsOut[1].posX            = pSubRunsOut[0].posX + pSubRunsOut[0].width;
+                    pSubRunsOut[1].text            = pTL->text + pSubRunsOut[1].iChar;
+                    pSubRunsOut[1].textLength      = pSubRunsOut[1].iCharEnd - pSubRunsOut[1].iChar;
+
+                    // Tail.
+                    pSubRunsOut[2].iChar      = iSelectionChar1;
+                    pSubRunsOut[2].width      = pRunToSplit->width - pSelectionMarker1->relativePosX;
+                    pSubRunsOut[2].posX       = pSubRunsOut[1].posX + pSubRunsOut[1].width;
+                    pSubRunsOut[2].text       = pTL->text + pSubRunsOut[2].iChar;
+                    pSubRunsOut[2].textLength = pSubRunsOut[2].iCharEnd - pSubRunsOut[2].iChar;
+
+                    return 3;
+                }
+            }
+        }
+    }
+
+    // If we get here it means the run is not within the selected region.
+    pSubRunsOut[0] = *pRunToSplit;
+    return 1;
+}
