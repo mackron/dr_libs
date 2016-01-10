@@ -52,6 +52,13 @@ void sb_set_page_size(easygui_element* pSBElement, int pageSize);
 int sb_get_page_size(easygui_element* pSBElement);
 
 
+/// Sets the range and page size.
+///
+/// @remarks
+///     Use this when both the range and page size need to be updated at the same time.
+void sb_set_range_and_page_size(easygui_element* pSBElement, int rangeMin, int rangeMax, int pageSize);
+
+
 /// Explicitly sets the scroll position.
 ///
 /// @remarks

@@ -274,6 +274,26 @@ int sb_get_page_size(easygui_element* pSBElement)
 }
 
 
+void sb_set_range_and_page_size(easygui_element* pSBElement, int rangeMin, int rangeMax, int pageSize)
+{
+    easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
+    if (pSB == NULL) {
+        return;
+    }
+
+    pSB->rangeMin = rangeMin;
+    pSB->rangeMax = rangeMax;
+    pSB->pageSize = pageSize;
+
+    
+    // Make sure the scroll position is still valid.
+    sb_scroll_to(pSBElement, sb_get_scroll_position(pSBElement));
+
+    // The thumb may have changed, so refresh it.
+    sb_refresh_thumb(pSBElement);
+}
+
+
 void sb_set_scroll_position(easygui_element* pSBElement, int position)
 {
     easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
