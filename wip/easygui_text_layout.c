@@ -699,7 +699,7 @@ easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL)
     float cursorPosY;
     easygui_get_text_layout_cursor_position(pTL, &cursorPosX, &cursorPosY);
 
-    return easygui_make_rect(cursorPosX, lineRect.top, cursorPosX + pTL->cursorWidth, lineRect.bottom);
+    return easygui_make_rect(cursorPosX, cursorPosY, cursorPosX + pTL->cursorWidth, cursorPosY + (lineRect.bottom - lineRect.top));
 }
 
 bool easygui_move_text_layout_cursor_left(easygui_text_layout* pTL)
