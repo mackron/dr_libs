@@ -120,6 +120,12 @@ void easygui_get_text_layout_container_size(easygui_text_layout* pTL, float* pCo
 /// Sets the inner offset of the given text layout.
 void easygui_set_text_layout_inner_offset(easygui_text_layout* pTL, float innerOffsetX, float innerOffsetY);
 
+/// Sets the inner offset of the given text layout on the x axis.
+void easygui_set_text_layout_inner_offset_x(easygui_text_layout* pTL, float innerOffsetX);
+
+/// Sets the inner offset of the given text layout on the y axis.
+void easygui_set_text_layout_inner_offset_y(easygui_text_layout* pTL, float innerOffsetY);
+
 /// Retrieves the inner offset of the given text layout.
 void easygui_get_text_layout_inner_offset(easygui_text_layout* pTL, float* pInnerOffsetX, float* pInnerOffsetY);
 
@@ -248,6 +254,22 @@ bool easygui_is_anything_selected_in_text_layout(easygui_text_layout* pTL);
 
 /// Deselects everything in the given text layout.
 void easygui_deselect_all_in_text_layout(easygui_text_layout* pTL);
+
+
+/// Retrieves the number of lines in the given text layout.
+unsigned int easygui_get_text_layout_line_count(easygui_text_layout* pTL);
+
+/// Retrieves the number of lines that can fit on the visible portion of the layout, starting from the given line.
+///
+/// @remarks
+///     Use this for controlling the page size for scrollbars.
+unsigned int easygui_get_visible_line_count_starting_at(easygui_text_layout* pTL, unsigned int iFirstLine);
+
+/// Retrieves the position of the line at the given index on the y axis.
+///
+/// @remarks
+///     Use this for calculating the inner offset for scrolling on the y axis.
+float easygui_get_text_layout_line_pos_y(easygui_text_layout* pTL, unsigned int iLine);
 
 
 /// Iterates over every visible text run in the given text layout.

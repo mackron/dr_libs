@@ -401,6 +401,24 @@ void easygui_set_text_layout_inner_offset(easygui_text_layout* pTL, float innerO
     pTL->innerOffsetY = innerOffsetY;
 }
 
+void easygui_set_text_layout_inner_offset_x(easygui_text_layout* pTL, float innerOffsetX)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->innerOffsetX = innerOffsetX;
+}
+
+void easygui_set_text_layout_inner_offset_y(easygui_text_layout* pTL, float innerOffsetY)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->innerOffsetY = innerOffsetY;
+}
+
 void easygui_get_text_layout_inner_offset(easygui_text_layout* pTL, float* pInnerOffsetX, float* pInnerOffsetY)
 {
     float innerOffsetX = 0;
@@ -1000,6 +1018,51 @@ void easygui_deselect_all_in_text_layout(easygui_text_layout* pTL)
     }
 
     pTL->isAnythingSelected = false;
+}
+
+
+unsigned int easygui_get_text_layout_line_count(easygui_text_layout* pTL)
+{
+    if (pTL == NULL || pTL->runCount == 0) {
+        return 0;
+    }
+
+    return pTL->pRuns[pTL->runCount - 1].iLine + 1;
+}
+
+unsigned int easygui_get_visible_line_count_starting_at(easygui_text_layout* pTL, unsigned int iFirstLine)
+{
+    if (pTL == NULL || pTL->runCount == 0) {
+        return 0;
+    }
+
+    const float scaleX = 1;
+    const float scaleY = 1;
+
+    // TODO: Make this more robust by supporting lines of various sizes. Also consider the empty space past the last line.
+
+    // Temporary for now.
+    easygui_font_metrics defaultFontMetrics;
+    if (!easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics)) {
+        return 0;
+    }
+
+    unsigned int count = (unsigned int)(pTL->containerHeight / defaultFontMetrics.lineHeight);
+    if (count == 0) {
+        return 1;
+    }
+
+    return count;
+}
+
+float easygui_get_text_layout_line_pos_y(easygui_text_layout* pTL, unsigned int iLine)
+{
+    easygui_rect lineRect;
+    if (!easygui_find_text_layout_line_info_by_index(pTL, iLine, &lineRect, NULL, NULL)) {
+        return 0;
+    }
+
+    return lineRect.top;
 }
 
 
