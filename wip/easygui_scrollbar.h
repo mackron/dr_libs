@@ -21,10 +21,10 @@ typedef void (* sb_on_scroll_proc)(easygui_element* pSBElement, int scrollPos);
 
 
 /// Creates a scrollbar element.
-easygui_element* eg_create_scrollbar(easygui_context* pContext, easygui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData);
+easygui_element* easygui_create_scrollbar(easygui_context* pContext, easygui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData);
 
 /// Deletes the given scrollbar element.
-void eg_delete_scrollbar(easygui_element* pSBElement);
+void easygui_delete_scrollbar(easygui_element* pSBElement);
 
 
 /// Retrieves the size of the extra data associated with the scrollbar.

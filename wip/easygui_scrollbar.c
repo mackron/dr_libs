@@ -115,7 +115,7 @@ PRIVATE int sb_maxi(int x, int y)
 }
 
 
-easygui_element* eg_create_scrollbar(easygui_context* pContext, easygui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData)
+easygui_element* easygui_create_scrollbar(easygui_context* pContext, easygui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData)
 {
     if (pContext == NULL || orientation == sb_orientation_none) {
         return NULL;
@@ -169,7 +169,7 @@ easygui_element* eg_create_scrollbar(easygui_context* pContext, easygui_element*
     return pSBElement;
 }
 
-void eg_delete_scrollbar(easygui_element* pSBElement)
+void easygui_delete_scrollbar(easygui_element* pSBElement)
 {
     if (pSBElement == NULL) {
         return;

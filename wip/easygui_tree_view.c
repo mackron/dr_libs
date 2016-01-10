@@ -236,11 +236,11 @@ easygui_element* eg_create_tree_view(easygui_context* pContext, easygui_element*
     eg_tree_view_scrollbar_data sbdata;
     sbdata.pTVElement = pTVElement;
 
-    pTV->pScrollbarV = eg_create_scrollbar(pContext, pTVElement, sb_orientation_vertical, sizeof(sbdata), &sbdata);
+    pTV->pScrollbarV = easygui_create_scrollbar(pContext, pTVElement, sb_orientation_vertical, sizeof(sbdata), &sbdata);
     easygui_set_on_mouse_enter(pTV->pScrollbarV, tv_on_mouse_enter_scrollbar);
     sb_set_on_scroll(pTV->pScrollbarV, tv_on_scroll_v);
     
-    pTV->pScrollbarH = eg_create_scrollbar(pContext, pTVElement, sb_orientation_horizontal, sizeof(sbdata), &sbdata);
+    pTV->pScrollbarH = easygui_create_scrollbar(pContext, pTVElement, sb_orientation_horizontal, sizeof(sbdata), &sbdata);
     easygui_set_on_mouse_enter(pTV->pScrollbarH, tv_on_mouse_enter_scrollbar);
     sb_set_on_scroll(pTV->pScrollbarH, tv_on_scroll_h);
 
