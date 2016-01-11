@@ -931,6 +931,9 @@ bool easygui_is_point_inside_element(easygui_element* pElement, float absolutePo
 /// Finds the element under the given point taking mouse pass-through and hit testing into account.
 easygui_element* easygui_find_element_under_point(easygui_element* pTopLevelElement, float absolutePosX, float absolutePosY);
 
+/// Determines whether or not the given element is currently sitting directly under the mouse.
+bool easygui_is_element_under_mouse(easygui_element* pTopLevelElement);
+
 
 
 //// Hierarchy ////

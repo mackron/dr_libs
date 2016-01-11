@@ -1888,6 +1888,15 @@ easygui_element* easygui_find_element_under_point(easygui_element* pTopLevelElem
     return data.pElementUnderPoint;
 }
 
+bool easygui_is_element_under_mouse(easygui_element* pElement)
+{
+    if (pElement == NULL) {
+        return NULL;
+    }
+
+    return easygui_find_element_under_point(pElement->pContext->pLastMouseMoveTopLevelElement, pElement->pContext->lastMouseMovePosX, pElement->pContext->lastMouseMovePosY);
+}
+
 
 
 //// Hierarchy ////
