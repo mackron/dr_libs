@@ -1052,8 +1052,8 @@ void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, in
         pTopLevelElement->pContext->pLastMouseMoveTopLevelElement = pTopLevelElement;
 
         /// The position of the mouse that was passed in from the last inbound mouse move event.
-        pTopLevelElement->pContext->lastMouseMovePosX = (float)mousePosY;
-        pTopLevelElement->pContext->lastMouseMovePosY = (float)mousePosX;
+        pTopLevelElement->pContext->lastMouseMovePosX = (float)mousePosX;
+        pTopLevelElement->pContext->lastMouseMovePosY = (float)mousePosY;
 
 
 
