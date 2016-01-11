@@ -1161,7 +1161,7 @@ void easygui_text_layout_set_on_paint_rect(easygui_text_layout* pTL, easygui_tex
 
 void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void* pUserData)
 {
-    if (pTL == NULL) {
+    if (pTL == NULL || pTL->onPaintText == NULL || pTL->onPaintRect == NULL) {
         return;
     }
 
@@ -1273,7 +1273,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                     float lineRight = pLastRun->posX + pLastRun->width + textRect.left;
 
                     // 1) The blank space to the left of the first run.
-                    if (pTL->onPaintRect && lineLeft > 0)
+                    if (lineLeft > 0)
                     {
                         if (lineSelectionOverhangLeft > 0) {
                             pTL->onPaintRect(pTL, easygui_make_rect(lineLeft - lineSelectionOverhangLeft, lineTop, lineLeft, lineBottom), pTL->selectionBackgroundColor, pUserData);
@@ -1284,57 +1284,50 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
 
 
                     // 2) The runs themselves.
-                    if (pTL->onPaintText)
+                    for (unsigned int iRun = line.iFirstRun; iRun <= line.iLastRun; ++iRun)
                     {
-                        for (unsigned int iRun = line.iFirstRun; iRun <= line.iLastRun; ++iRun)
+                        easygui_text_run* pRun = pTL->pRuns + iRun;
+
+                        float runLeft  = pRun->posX + textRect.left;
+                        float runRight = runLeft    + pRun->width;
+
+                        if (runRight > 0 && runLeft < pTL->containerWidth)
                         {
-                            easygui_text_run* pRun = pTL->pRuns + iRun;
-
-                            float runLeft  = pRun->posX + textRect.left;
-                            float runRight = runLeft    + pRun->width;
-
-                            if (runRight > 0 && runLeft < pTL->containerWidth)
+                            // The run is visible.
+                            if (!easygui_is_text_run_whitespace(pTL, pRun) || pTL->text[pRun->iChar] == '\t')
                             {
-                                // The run is visible.
-                                if (!easygui_is_text_run_whitespace(pTL, pRun))
-                                {
-                                    easygui_text_run run = pTL->pRuns[iRun];
-                                    run.pFont           = pTL->pDefaultFont;
-                                    run.textColor       = pTL->defaultTextColor;
-                                    run.backgroundColor = pTL->defaultBackgroundColor;
-                                    run.text            = pTL->text + run.iChar;
-                                    run.posX            = runLeft;
-                                    run.posY            = lineTop;
+                                easygui_text_run run = pTL->pRuns[iRun];
+                                run.pFont           = pTL->pDefaultFont;
+                                run.textColor       = pTL->defaultTextColor;
+                                run.backgroundColor = pTL->defaultBackgroundColor;
+                                run.text            = pTL->text + run.iChar;
+                                run.posX            = runLeft;
+                                run.posY            = lineTop;
 
-                                    // We paint the run differently depending on whether or not anything is selected. If something is selected
-                                    // we need to split the run into a maximum of 3 sub-runs so that the selection rectangle can be drawn correctly.
-                                    if (easygui_is_anything_selected_in_text_layout(pTL))
+                                // We paint the run differently depending on whether or not anything is selected. If something is selected
+                                // we need to split the run into a maximum of 3 sub-runs so that the selection rectangle can be drawn correctly.
+                                if (easygui_is_anything_selected_in_text_layout(pTL))
+                                {
+                                    easygui_text_run subruns[3];
+                                    unsigned int subrunCount = easygui_split_text_run_by_selection(pTL, &run, subruns);
+                                    for (unsigned int iSubRun = 0; iSubRun < subrunCount; ++iSubRun)
                                     {
-                                        easygui_text_run subruns[3];
-                                        unsigned int subrunCount = easygui_split_text_run_by_selection(pTL, &run, subruns);
-                                        for (unsigned int iSubrun = 0; iSubrun < subrunCount; ++iSubrun)
-                                        {
-                                            pTL->onPaintText(pTL, subruns + iSubrun, pUserData);
+                                        easygui_text_run* pSubRun = subruns + iSubRun;
+
+                                        if (!easygui_is_text_run_whitespace(pTL, pRun)) {
+                                            pTL->onPaintText(pTL, pSubRun, pUserData);
+                                        } else {
+                                            pTL->onPaintRect(pTL, easygui_make_rect(pSubRun->posX, lineTop, pSubRun->posX + pSubRun->width, lineBottom), pSubRun->backgroundColor, pUserData);
                                         }
-                                    }
-                                    else
-                                    {
-                                        // Nothing is selected.
-                                        pTL->onPaintText(pTL, &run, pUserData);
                                     }
                                 }
                                 else
                                 {
-                                    // It's a whitespace run. We need to draw the background of tab characters.
-                                    if (pTL->text[pRun->iChar] == '\t') {
-                                        if (pTL->onPaintRect) {
-                                            easygui_color bgcolor = pTL->defaultBackgroundColor;
-                                            if (easygui_text_layout__is_run_selected(pTL, iRun)) {
-                                                bgcolor = pTL->selectionBackgroundColor;
-                                            }
-
-                                            pTL->onPaintRect(pTL, easygui_make_rect(runLeft, lineTop, runRight, lineBottom), bgcolor, pUserData);
-                                        }
+                                    // Nothing is selected.
+                                    if (!easygui_is_text_run_whitespace(pTL, &run)) {
+                                        pTL->onPaintText(pTL, &run, pUserData);
+                                    } else {
+                                        pTL->onPaintRect(pTL, easygui_make_rect(run.posX, lineTop, run.posX + run.width, lineBottom), run.backgroundColor, pUserData);
                                     }
                                 }
                             }
@@ -1343,7 +1336,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
 
 
                     // 3) The blank space to the right of the last run.
-                    if (pTL->onPaintRect && lineRight < pTL->containerWidth)
+                    if (lineRight < pTL->containerWidth)
                     {
                         if (lineSelectionOverhangRight > 0) {
                             pTL->onPaintRect(pTL, easygui_make_rect(lineRight, lineTop, lineRight + lineSelectionOverhangRight, lineBottom), pTL->selectionBackgroundColor, pUserData);
