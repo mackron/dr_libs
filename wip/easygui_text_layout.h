@@ -283,10 +283,6 @@ void easygui_text_layout_set_on_paint_rect(easygui_text_layout* pTL, easygui_tex
 void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void* pUserData);
 
 
-/// Iterates over every visible text run in the given text layout.
-void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_layout_run_iterator_proc callback, void* pUserData);
-
-
 #ifdef __cplusplus
 }
 #endif

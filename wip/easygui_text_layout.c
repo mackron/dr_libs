@@ -1357,64 +1357,6 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
 }
 
 
-void easygui_iterate_visible_text_runs(easygui_text_layout* pTL, easygui_text_layout_run_iterator_proc callback, void* pUserData)
-{
-    if (pTL == NULL || callback == NULL) {
-        return;
-    }
-
-    // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
-    easygui_rect textRect = easygui_get_text_layout_text_rect_relative_to_bounds(pTL);
-
-    // This is a naive implementation. Can be improved a bit.
-    for (size_t iRun = 0; iRun < pTL->runCount; ++iRun)
-    {
-        easygui_text_run* pRun = pTL->pRuns + iRun;
-
-        if (!easygui_is_text_run_whitespace(pTL, pRun))
-        {
-            float runTop    = pRun->posY + textRect.top;
-            float runBottom = runTop     + pRun->height;
-
-            if (runBottom > 0 && runTop < pTL->containerHeight)
-            {
-                float runLeft  = pRun->posX + textRect.left;
-                float runRight = runLeft    + pRun->width;
-
-                if (runRight > 0 && runLeft < pTL->containerWidth)
-                {
-                    // The run is visible.
-                    easygui_text_run run = pTL->pRuns[iRun];
-                    run.pFont           = pTL->pDefaultFont;
-                    run.textColor       = pTL->defaultTextColor;
-                    run.backgroundColor = pTL->defaultBackgroundColor;
-                    run.text            = pTL->text + run.iChar;
-                    run.posX            = runLeft;
-                    run.posY            = runTop;
-
-                    // We paint the run differently depending on whether or not anything is selected. If something is selected
-                    // we need to split the run into a maximum of 3 sub-runs so that the selection rectangle can be drawn correctly.
-                    if (easygui_is_anything_selected_in_text_layout(pTL))
-                    {
-                        easygui_text_run subruns[3];
-                        unsigned int subrunCount = easygui_split_text_run_by_selection(pTL, &run, subruns);
-                        for (unsigned int iSubrun = 0; iSubrun < subrunCount; ++iSubrun)
-                        {
-                            callback(pTL, subruns + iSubrun, pUserData);
-                        }
-                    }
-                    else
-                    {
-                        // Nothing is selected.
-                        callback(pTL, &run, pUserData);
-                    }
-                }
-            }
-        }
-    }
-}
-
-
 PRIVATE bool easygui_next_run_string(const char* runStart, const char* textEndPastNullTerminator, const char** pRunEndOut)
 {
     assert(runStart <= textEndPastNullTerminator);
