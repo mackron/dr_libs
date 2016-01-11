@@ -101,6 +101,13 @@ struct easygui_text_layout
     bool isAnythingSelected;
 
 
+    /// The function to call when a text run needs to be painted.
+    easygui_text_layout_on_paint_text_proc onPaintText;
+
+    /// The function to call when a rectangle needs to be painted.
+    easygui_text_layout_on_paint_rect_proc onPaintRect;
+
+
     /// A pointer to the buffer containing details about every run in the layout.
     easygui_text_run* pRuns;
 
@@ -118,6 +125,26 @@ struct easygui_text_layout
     /// A pointer to the extra data.
     char pExtraData[1];
 };
+
+/// Structure containing information about a line. This is used by first_line() and next_line().
+typedef struct 
+{
+    /// The index of the line.
+    unsigned int index;
+
+    /// The position of the line on the y axis.
+    float posY;
+
+    /// The height of the line.
+    float height;
+
+    /// The index of the first run on the line.
+    unsigned int iFirstRun;
+
+    /// The index of the last run on the line.
+    unsigned int iLastRun;
+
+} easygui_text_layout_line;
 
 
 /// Performs a complete refresh of the given text layout.
@@ -235,6 +262,16 @@ PRIVATE bool easygui_has_spacing_between_selection_markers(easygui_text_layout* 
 /// Splits the given run into sub-runs based on the current selection rectangle. Returns the sub-run count.
 PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pTL, easygui_text_run* pRunToSplit, easygui_text_run pSubRunsOut[3]);
 
+/// Determines whether or not the run at the given index is selected.
+PRIVATE bool easygui_text_layout__is_run_selected(easygui_text_layout* pTL, unsigned int iRun);
+
+
+/// Retrieves an iterator to the first line in the text layout.
+PRIVATE bool easygui_text_layout__first_line(easygui_text_layout* pTL, easygui_text_layout_line* pLine);
+
+/// Retrieves an iterator to the next line in the text layout.
+PRIVATE bool easygui_text_layout__next_line(easygui_text_layout* pTL, easygui_text_layout_line* pLine);
+
 
 easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_t extraDataSize, void* pExtraData)
 {
@@ -268,6 +305,8 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->selectionAnchor          = easygui_new_text_marker();
     pTL->selectionModeCounter     = 0;
     pTL->isAnythingSelected       = false;
+    pTL->onPaintText              = NULL;
+    pTL->onPaintRect              = NULL;
     pTL->pRuns                    = NULL;
     pTL->runCount                 = 0;
     pTL->runBufferSize            = 0;
@@ -1063,6 +1102,209 @@ float easygui_get_text_layout_line_pos_y(easygui_text_layout* pTL, unsigned int 
     }
 
     return lineRect.top;
+}
+
+
+void easygui_text_layout_set_on_paint_text(easygui_text_layout* pTL, easygui_text_layout_on_paint_text_proc proc)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->onPaintText = proc;
+}
+
+void easygui_text_layout_set_on_paint_rect(easygui_text_layout* pTL, easygui_text_layout_on_paint_rect_proc proc)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->onPaintRect = proc;
+}
+
+void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void* pUserData)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    if (rect.left < 0) {
+        rect.left = 0;
+    }
+    if (rect.top < 0) {
+        rect.top = 0;
+    }
+    if (rect.right > pTL->containerWidth) {
+        rect.right = pTL->containerWidth;
+    }
+    if (rect.bottom > pTL->containerHeight) {
+        rect.bottom = pTL->containerHeight;
+    }
+
+    if (rect.right <= rect.left || rect.bottom <= rect.top) {
+        return;
+    }
+
+
+    const float scaleX = 1;
+    const float scaleY = 1;
+
+
+    // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
+    easygui_rect textRect = easygui_get_text_layout_text_rect_relative_to_bounds(pTL);
+
+    // We draw a rectangle above and below the text rectangle. The main text rectangle will be drawn by iterating over each visible run.
+    easygui_rect rectTop    = easygui_make_rect(0, 0, pTL->containerWidth, textRect.top);
+    easygui_rect rectBottom = easygui_make_rect(0, textRect.bottom, pTL->containerWidth, pTL->containerHeight);
+
+    if (pTL->onPaintRect)
+    {
+        if (rectTop.bottom > rect.top) {
+            pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pUserData);
+        }
+        
+        if (rectBottom.top < rect.bottom) {
+            pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pUserData);
+        }
+    }
+
+
+    // We draw line-by-line, starting from the first visible line.
+    easygui_text_layout_line line;
+    if (easygui_text_layout__first_line(pTL, &line))
+    {
+        do
+        {
+            float lineTop    = line.posY + textRect.top;
+            float lineBottom = lineTop + line.height;
+
+            if (lineTop < rect.bottom)
+            {
+                if (lineBottom > rect.top)
+                {
+                    // The line is visible. We draw in 3 main parts - 1) the blank space to the left of the first run; 2) the runs themselves; 3) the blank
+                    // space to the right of the last run.
+
+                    float lineSelectionOverhangLeft  = 0;
+                    float lineSelectionOverhangRight = 0;
+
+                    if (easygui_is_anything_selected_in_text_layout(pTL))
+                    {
+                        easygui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
+                        easygui_text_marker* pSelectionMarker1 = &pTL->cursor;
+                        if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
+                        {
+                            easygui_text_marker* temp = pSelectionMarker0;
+                            pSelectionMarker0 = pSelectionMarker1;
+                            pSelectionMarker1 = temp;
+                        }
+
+                        unsigned int iSelectionLine0 = pTL->pRuns[pSelectionMarker0->iRun].iLine;
+                        unsigned int iSelectionLine1 = pTL->pRuns[pSelectionMarker1->iRun].iLine;
+
+                        if (line.index >= iSelectionLine0 && line.index < iSelectionLine1)
+                        {
+                            easygui_font_metrics defaultFontMetrics;
+                            easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics);
+
+                            // TODO: Handle alignment.
+                            lineSelectionOverhangRight = (float)defaultFontMetrics.spaceWidth;
+                        }
+                    }
+
+
+                    easygui_text_run* pFirstRun = pTL->pRuns + line.iFirstRun;
+                    easygui_text_run* pLastRun  = pTL->pRuns + line.iLastRun;
+
+                    float lineLeft  = pFirstRun->posX + textRect.left;
+                    float lineRight = pLastRun->posX + pLastRun->width + textRect.left;
+
+                    // 1) The blank space to the left of the first run.
+                    if (pTL->onPaintRect && lineLeft > 0)
+                    {
+                        pTL->onPaintRect(pTL, easygui_make_rect(0, lineTop, lineLeft, lineBottom), pTL->defaultBackgroundColor, pUserData);
+                    }
+
+
+                    // 2) The runs themselves.
+                    if (pTL->onPaintText)
+                    {
+                        for (unsigned int iRun = line.iFirstRun; iRun <= line.iLastRun; ++iRun)
+                        {
+                            easygui_text_run* pRun = pTL->pRuns + iRun;
+
+                            float runLeft  = pRun->posX + textRect.left;
+                            float runRight = runLeft    + pRun->width;
+
+                            if (runRight > 0 && runLeft < pTL->containerWidth)
+                            {
+                                // The run is visible.
+                                if (!easygui_is_text_run_whitespace(pTL, pRun))
+                                {
+                                    easygui_text_run run = pTL->pRuns[iRun];
+                                    run.pFont           = pTL->pDefaultFont;
+                                    run.textColor       = pTL->defaultTextColor;
+                                    run.backgroundColor = pTL->defaultBackgroundColor;
+                                    run.text            = pTL->text + run.iChar;
+                                    run.posX            = runLeft;
+                                    run.posY            = lineTop;
+
+                                    // We paint the run differently depending on whether or not anything is selected. If something is selected
+                                    // we need to split the run into a maximum of 3 sub-runs so that the selection rectangle can be drawn correctly.
+                                    if (easygui_is_anything_selected_in_text_layout(pTL))
+                                    {
+                                        easygui_text_run subruns[3];
+                                        unsigned int subrunCount = easygui_split_text_run_by_selection(pTL, &run, subruns);
+                                        for (unsigned int iSubrun = 0; iSubrun < subrunCount; ++iSubrun)
+                                        {
+                                            pTL->onPaintText(pTL, subruns + iSubrun, pUserData);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Nothing is selected.
+                                        pTL->onPaintText(pTL, &run, pUserData);
+                                    }
+                                }
+                                else
+                                {
+                                    // It's a whitespace run. We need to draw the background of tab characters.
+                                    if (pTL->text[pRun->iChar] == '\t') {
+                                        if (pTL->onPaintRect) {
+                                            easygui_color bgcolor = pTL->defaultBackgroundColor;
+                                            if (easygui_text_layout__is_run_selected(pTL, iRun)) {
+                                                bgcolor = pTL->selectionBackgroundColor;
+                                            }
+
+                                            pTL->onPaintRect(pTL, easygui_make_rect(runLeft, lineTop, runRight, lineBottom), bgcolor, pUserData);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+
+                    // 3) The blank space to the right of the last run.
+                    if (pTL->onPaintRect && lineRight < pTL->containerWidth)
+                    {
+                        if (lineSelectionOverhangRight > 0) {
+                            pTL->onPaintRect(pTL, easygui_make_rect(lineRight, lineTop, lineRight + lineSelectionOverhangRight, lineBottom), pTL->selectionBackgroundColor, pUserData);
+                        }
+
+                        pTL->onPaintRect(pTL, easygui_make_rect(lineRight + lineSelectionOverhangRight, lineTop, pTL->containerWidth, lineBottom), pTL->defaultBackgroundColor, pUserData);
+                    }
+                }
+            }
+            else
+            {
+                // The line is below the rectangle which means no other line will be visible and we can terminate early.
+                break;
+            }
+
+        } while (easygui_text_layout__next_line(pTL, &line));
+    }
 }
 
 
@@ -2275,7 +2517,7 @@ PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pT
 
     if (easygui_is_anything_selected_in_text_layout(pTL))
     {
-        if (pRunToSplit->iChar <= iSelectionChar1 && pRunToSplit->iCharEnd >= iSelectionChar0)
+        if (pRunToSplit->iChar < iSelectionChar1 && pRunToSplit->iCharEnd > iSelectionChar0)
         {
             // The run is somewhere inside the selection region.
             for (int i = 0; i < 3; ++i) {
@@ -2370,4 +2612,97 @@ PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pT
     // If we get here it means the run is not within the selected region.
     pSubRunsOut[0] = *pRunToSplit;
     return 1;
+}
+
+PRIVATE bool easygui_text_layout__is_run_selected(easygui_text_layout* pTL, unsigned int iRun)
+{
+    if (easygui_is_anything_selected_in_text_layout(pTL))
+    {
+        easygui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
+        easygui_text_marker* pSelectionMarker1 = &pTL->cursor;
+        if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
+        {
+            easygui_text_marker* temp = pSelectionMarker0;
+            pSelectionMarker0 = pSelectionMarker1;
+            pSelectionMarker1 = temp;
+        }
+
+        unsigned int iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
+        unsigned int iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
+
+        return pTL->pRuns[iRun].iChar < iSelectionChar1 && pTL->pRuns[iRun].iCharEnd > iSelectionChar0;
+    }
+
+    return false;
+}
+
+
+PRIVATE bool easygui_text_layout__first_line(easygui_text_layout* pTL, easygui_text_layout_line* pLine)
+{
+    if (pTL == NULL || pLine == NULL || pTL->runCount == 0) {
+        return false;
+    }
+
+    pLine->index     = 0;
+    pLine->posY      = 0;
+    pLine->height    = 0;
+    pLine->iFirstRun = 0;
+    pLine->iLastRun  = 0;
+
+    // We need to find the last run in the line and the height. The height is determined by the run with the largest height.
+    while (pLine->iLastRun < pTL->runCount)
+    {
+        if (pLine->height < pTL->pRuns[pLine->iLastRun].height) {
+            pLine->height = pTL->pRuns[pLine->iLastRun].height;
+        }
+
+        pLine->iLastRun += 1;
+
+        if (pTL->pRuns[pLine->iLastRun].iLine != pLine->index) {
+            break;
+        }
+    }
+
+    if (pLine->iLastRun > 0) {
+        pLine->iLastRun -= 1;
+    }
+
+    return true;
+}
+
+PRIVATE bool easygui_text_layout__next_line(easygui_text_layout* pTL, easygui_text_layout_line* pLine)
+{
+    if (pTL == NULL || pLine == NULL || pTL->runCount == 0) {
+        return false;
+    }
+
+    // If there's no more runs, there is no next line.
+    if (pLine->iLastRun == pTL->runCount - 1) {
+        return false;
+    }
+
+    pLine->index     += 1;
+    pLine->posY      += pLine->height;
+    pLine->height    = 0;
+    pLine->iFirstRun = pLine->iLastRun + 1;
+    pLine->iLastRun  = pLine->iFirstRun;
+
+    while (pLine->iLastRun < pTL->runCount)
+    {
+        if (pLine->height < pTL->pRuns[pLine->iLastRun].height) {
+            pLine->height = pTL->pRuns[pLine->iLastRun].height;
+        }
+
+        pLine->iLastRun += 1;
+
+        if (pTL->pRuns[pLine->iLastRun].iLine != pLine->index) {
+            break;
+        }
+    }
+
+    if (pLine->iLastRun > 0) {
+        pLine->iLastRun -= 1;
+    }
+
+    return true;
 }

@@ -80,8 +80,9 @@ typedef struct
 
 } easygui_text_run;
 
-typedef void (* easygui_text_layout_run_iterator_proc)(easygui_text_layout* pLayout, easygui_text_run* pRun, void* pUserData);
-
+typedef void (* easygui_text_layout_run_iterator_proc)(easygui_text_layout* pTL, easygui_text_run* pRun, void* pUserData);
+typedef void (* easygui_text_layout_on_paint_text_proc)(easygui_text_layout* pTL, easygui_text_run* pRun, void* pUserData);
+typedef void (* easygui_text_layout_on_paint_rect_proc)(easygui_text_layout* pTL, easygui_rect rect, easygui_color color, void* pUserData);
 
 
 /// Creates a new text layout object.
@@ -270,6 +271,16 @@ unsigned int easygui_get_visible_line_count_starting_at(easygui_text_layout* pTL
 /// @remarks
 ///     Use this for calculating the inner offset for scrolling on the y axis.
 float easygui_get_text_layout_line_pos_y(easygui_text_layout* pTL, unsigned int iLine);
+
+
+/// Sets the function to call when a run of text needs to be painted for the given text layout.
+void easygui_text_layout_set_on_paint_text(easygui_text_layout* pTL, easygui_text_layout_on_paint_text_proc proc);
+
+/// Sets the function to call when a quad needs to the be painted for the given text layout.
+void easygui_text_layout_set_on_paint_rect(easygui_text_layout* pTL, easygui_text_layout_on_paint_rect_proc proc);
+
+/// Paints the given text layout by calling the appropriate painting callbacks.
+void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void* pUserData);
 
 
 /// Iterates over every visible text run in the given text layout.
