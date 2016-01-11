@@ -1078,15 +1078,51 @@ unsigned int easygui_get_visible_line_count_starting_at(easygui_text_layout* pTL
     const float scaleX = 1;
     const float scaleY = 1;
 
-    // TODO: Make this more robust by supporting lines of various sizes. Also consider the empty space past the last line.
+    unsigned int count = 0;
+    float lastLineBottom = 0;
 
-    // Temporary for now.
-    easygui_font_metrics defaultFontMetrics;
-    if (!easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics)) {
-        return 0;
+    // First thing we do is find the first line.
+    unsigned int iLine = 0;
+    easygui_text_layout_line line;
+    if (easygui_text_layout__first_line(pTL, &line))
+    {
+        do
+        {
+            if (iLine >= iFirstLine) {
+                break;
+            }
+
+            iLine += 1;
+        } while (easygui_text_layout__next_line(pTL, &line));
+
+
+        // At this point we are at the first line and we need to start counting.
+        do
+        {
+            if (line.posY + pTL->innerOffsetY >= pTL->containerHeight) {
+                break;
+            }
+
+            count += 1;
+            lastLineBottom = line.posY + line.height;
+
+        } while (easygui_text_layout__next_line(pTL, &line));
     }
 
-    unsigned int count = (unsigned int)(pTL->containerHeight / defaultFontMetrics.lineHeight);
+    
+    // At this point there may be some empty space below the last line, in which case we use the line height of the default font to fill
+    // out the remaining space.
+    if (lastLineBottom + pTL->innerOffsetY < pTL->containerHeight)
+    {
+        easygui_font_metrics defaultFontMetrics;
+        if (easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics))
+        {
+            count += (unsigned int)((pTL->containerHeight - (lastLineBottom + pTL->innerOffsetY)) / defaultFontMetrics.lineHeight);
+        }
+    }
+
+
+    
     if (count == 0) {
         return 1;
     }
@@ -1208,8 +1244,24 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                             easygui_font_metrics defaultFontMetrics;
                             easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics);
 
-                            // TODO: Handle alignment.
-                            lineSelectionOverhangRight = (float)defaultFontMetrics.spaceWidth;
+                            if (pTL->horzAlign == easygui_text_layout_alignment_right)
+                            {
+                                if (line.index > iSelectionLine0) {
+                                    lineSelectionOverhangLeft = (float)defaultFontMetrics.spaceWidth;
+                                }
+                            }
+                            else if (pTL->horzAlign == easygui_text_layout_alignment_center)
+                            {
+                                lineSelectionOverhangRight = (float)defaultFontMetrics.spaceWidth;
+
+                                if (line.index > iSelectionLine0) {
+                                    lineSelectionOverhangLeft = (float)defaultFontMetrics.spaceWidth;
+                                }
+                            }
+                            else
+                            {
+                                lineSelectionOverhangRight = (float)defaultFontMetrics.spaceWidth;
+                            }
                         }
                     }
 
@@ -1223,7 +1275,11 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                     // 1) The blank space to the left of the first run.
                     if (pTL->onPaintRect && lineLeft > 0)
                     {
-                        pTL->onPaintRect(pTL, easygui_make_rect(0, lineTop, lineLeft, lineBottom), pTL->defaultBackgroundColor, pUserData);
+                        if (lineSelectionOverhangLeft > 0) {
+                            pTL->onPaintRect(pTL, easygui_make_rect(lineLeft - lineSelectionOverhangLeft, lineTop, lineLeft, lineBottom), pTL->selectionBackgroundColor, pUserData);
+                        }
+
+                        pTL->onPaintRect(pTL, easygui_make_rect(0, lineTop, lineLeft - lineSelectionOverhangLeft, lineBottom), pTL->defaultBackgroundColor, pUserData);
                     }
 
 
