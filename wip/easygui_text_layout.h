@@ -12,6 +12,8 @@
 //   a layout.
 // - Text layouts use the notion of a container which is used for determining which text runs are
 //   visible.
+// - In order to save on memory, undo/redo is not enabled by default. To support undo/redo, call
+//   easygui_text_layout_enable_undo().
 //
 
 #ifndef easygui_text_layout_h
@@ -255,6 +257,35 @@ bool easygui_is_anything_selected_in_text_layout(easygui_text_layout* pTL);
 
 /// Deselects everything in the given text layout.
 void easygui_deselect_all_in_text_layout(easygui_text_layout* pTL);
+
+
+/// Enables undo/redo.
+void easygui_text_layout_enable_undo_redo(easygui_text_layout* pTL);
+
+/// Disables undo/redo.
+void easygui_text_layout_disable_undo_redo(easygui_text_layout* pTL);
+
+/// Prepares the next undo/redo point.
+///
+/// @remarks
+///     This captures the state that will be applied when the undo/redo point is undone.
+bool easygui_text_layout_prepare_undo_point(easygui_text_layout* pTL);
+
+/// Creates a snapshot of the current state of the text layout and pushes it to the top of the undo/redo stack.
+bool easygui_text_layout_create_undo_point(easygui_text_layout* pTL);
+
+/// Performs an undo operation.
+bool easygui_text_layout_undo(easygui_text_layout* pTL);
+
+/// Performs a redo operation.
+bool easygui_text_layout_redo(easygui_text_layout* pTL);
+
+/// Retrieves the number of undo points remaining in the stack.
+unsigned int easygui_text_layout_get_undo_points_remaining_count(easygui_text_layout* pTL);
+
+/// Retrieves the number of redo points remaining in the stack.
+unsigned int easygui_text_layout_get_redo_points_remaining_count(easygui_text_layout* pTL);
+
 
 
 /// Retrieves the number of lines in the given text layout.
