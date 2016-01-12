@@ -2281,7 +2281,11 @@ PRIVATE bool easygui_move_marker_to_point(easygui_text_layout* pTL, easygui_text
                 float tabLeft = pRun->posX + pMarker->relativePosX;
                 for (DO_NOTHING; pMarker->iChar < pRun->textLength; ++pMarker->iChar)
                 {
-                    const float tabRight = tabWidth * ((pRun->posX + (tabWidth*(pMarker->iChar + 1))) / tabWidth);
+                    float tabRight = tabWidth * ((pRun->posX + (tabWidth*(pMarker->iChar + 1))) / tabWidth);
+                    if (tabRight > pRun->posX + pRun->width) {
+                        tabRight = pRun->posX + pRun->width;
+                    }
+
                     if (inputPosXRelativeToText >= tabLeft && inputPosXRelativeToText <= tabRight)
                     {
                         // The input position is somewhere on top of this character. If it's positioned on the left side of the character, set the output
