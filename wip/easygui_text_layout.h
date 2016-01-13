@@ -258,6 +258,9 @@ bool easygui_is_anything_selected_in_text_layout(easygui_text_layout* pTL);
 /// Deselects everything in the given text layout.
 void easygui_deselect_all_in_text_layout(easygui_text_layout* pTL);
 
+/// Selects everything in the given text layout.
+void easygui_text_layout_select_all(easygui_text_layout* pTL);
+
 
 /// Enables undo/redo.
 void easygui_text_layout_enable_undo_redo(easygui_text_layout* pTL);

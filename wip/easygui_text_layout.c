@@ -1129,6 +1129,18 @@ void easygui_deselect_all_in_text_layout(easygui_text_layout* pTL)
     pTL->isAnythingSelected = false;
 }
 
+void easygui_text_layout_select_all(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    easygui_move_marker_to_start_of_text(pTL, &pTL->selectionAnchor);
+    easygui_move_marker_to_end_of_text(pTL, &pTL->cursor);
+
+    pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+}
+
 
 
 void easygui_text_layout_enable_undo_redo(easygui_text_layout* pTL)
@@ -3007,8 +3019,7 @@ PRIVATE void easygui_text_layout__push_undo_point_from_current_state(easygui_tex
     
     size_t textLength = pTL->textLength;
     pTL->preparedUndoRedoState.text = malloc(textLength + 1);
-    strcpy_s(pTL->preparedUndoRedoState.text, textLength + 1, pTL->text);
-    pTL->preparedUndoRedoState.text[textLength] = '\0';
+    strcpy_s(pTL->preparedUndoRedoState.text, textLength + 1, (pTL->text != NULL) ? pTL->text : "");
 
     pTL->preparedUndoRedoState.iCursorCharacter          = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
     pTL->preparedUndoRedoState.iSelectionAnchorCharacter = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->selectionAnchor);
