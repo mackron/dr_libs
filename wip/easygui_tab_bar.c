@@ -170,8 +170,8 @@ easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_eleme
     pTB->pFont                       = NULL;
     pTB->tabTextColor                = easygui_rgb(224, 224, 224);
     pTB->tabBackgroundColor          = easygui_rgb(58, 58, 58);
-    pTB->tabBackgroundColorHovered   = easygui_rgb(32, 128, 192);
-    pTB->tabBackbroundColorActivated = easygui_rgb(80, 80, 80);
+    pTB->tabBackgroundColorHovered   = easygui_rgb(16, 92, 160);
+    pTB->tabBackbroundColorActivated = easygui_rgb(32, 128, 192); //easygui_rgb(80, 80, 80);
     pTB->tabPadding                  = 4;
     pTB->pCloseButtonImage           = NULL;
     pTB->closeButtonWidth            = 16;
