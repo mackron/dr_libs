@@ -2985,12 +2985,11 @@ PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, uns
     {
         easygui_text_layout_undo_state* pState = pTL->pUndoRedoStateStack + pTL->iUndoRedoState;
 
-        free(pTL->text);
+        char* pOldText = pTL->text;
 
-        size_t textLength = strlen(pTL->text);
+        size_t textLength = strlen(pState->text);
         pTL->text = malloc(textLength + 1);
         strcpy_s(pTL->text, textLength + 1, pState->text);
-        pTL->text[textLength] = '\0';
         pTL->textLength = textLength;
 
 
@@ -3006,6 +3005,9 @@ PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, uns
 
         // The cursor's sticky position needs to be updated whenever the text is edited.
         easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+
+
+        free(pOldText);
     }
 }
 
@@ -3015,7 +3017,7 @@ PRIVATE void easygui_text_layout__push_undo_point_from_current_state(easygui_tex
         return;
     }
 
-    free(pTL->preparedUndoRedoState.text);
+    //free(pTL->preparedUndoRedoState.text);
     
     size_t textLength = pTL->textLength;
     pTL->preparedUndoRedoState.text = malloc(textLength + 1);
@@ -3029,9 +3031,12 @@ PRIVATE void easygui_text_layout__push_undo_point_from_current_state(easygui_tex
     easygui_text_layout_undo_state* pOldStack = pTL->pUndoRedoStateStack;
     easygui_text_layout_undo_state* pNewStack = malloc(sizeof(*pNewStack) * (pTL->undoRedoStateStackCount + 1));
 
-    memcpy(pNewStack, pOldStack, sizeof(*pNewStack) * (pTL->undoRedoStateStackCount));
+    if (pTL->undoRedoStateStackCount > 0) {
+        memcpy(pNewStack, pOldStack, sizeof(*pNewStack) * (pTL->undoRedoStateStackCount));
+    }
 
     pNewStack[pTL->undoRedoStateStackCount] = pTL->preparedUndoRedoState;
+    pTL->pUndoRedoStateStack = pNewStack;
     pTL->undoRedoStateStackCount += 1;
 
     free(pOldStack);
