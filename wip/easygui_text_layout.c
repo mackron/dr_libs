@@ -311,6 +311,9 @@ PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pT
 /// Determines whether or not the run at the given index is selected.
 PRIVATE bool easygui_text_layout__is_run_selected(easygui_text_layout* pTL, unsigned int iRun);
 
+/// Retrieves pointers to the selection markers in the correct order.
+PRIVATE bool easygui_text_layout__get_selection_markers(easygui_text_layout* pTL, easygui_text_marker** ppSelectionMarker0Out, easygui_text_marker** ppSelectionMarker1Out);
+
 
 /// Retrieves an iterator to the first line in the text layout.
 PRIVATE bool easygui_text_layout__first_line(easygui_text_layout* pTL, easygui_text_layout_line* pLine);
@@ -991,6 +994,72 @@ void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int c
     easygui_update_marker_sticky_position(pTL, &pTL->cursor);
 }
 
+void easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
+{
+    if (pTL == NULL || text == NULL) {
+        return;
+    }
+
+    size_t newTextLength = strlen(text);
+    if (newTextLength == 0) {
+        return;
+    }
+
+
+    // TODO: Add proper support for UTF-8.
+    char* pOldText = pTL->text;
+    char* pNewText = malloc(pTL->textLength + newTextLength + 1);   // +1 for the new character and +1 for the null terminator.
+
+    unsigned int insertIndex = 0;
+    if (pTL->runCount > 0) {
+        insertIndex = pTL->pRuns[pTL->cursor.iRun].iChar + pTL->cursor.iChar;
+    }
+
+    if (insertIndex > 0) {
+        memcpy(pNewText, pOldText, insertIndex);
+    }
+
+    //memcpy(pNewText + insertIndex, text, newTextLength);
+    
+    // Replace \r\n with \n.
+    {
+        char* dst = pNewText + insertIndex;
+        const char* src = text;
+        size_t srcLen = newTextLength;
+        while (*src != '\0' && srcLen > 0)
+        {
+            if (*src != '\r') {
+                *dst++ = *src;
+            }
+
+            src++;
+            srcLen -= 1;
+        }
+
+        newTextLength = dst - (pNewText + insertIndex);
+    }
+
+    if (insertIndex < pTL->textLength) {
+        memcpy(pNewText + insertIndex + newTextLength, pOldText + insertIndex, pTL->textLength - insertIndex);
+    }
+
+    pTL->textLength += newTextLength;
+    pTL->text = pNewText;
+    pNewText[pTL->textLength] = '\0';
+
+    free(pOldText);
+
+
+    // The layout will have changed so it needs to be refreshed.
+    easygui_refresh_text_layout(pTL);
+
+    // The marker needs to be updated based on the new layout and it's new position, which is one character ahead.
+    easygui_move_marker_to_character(pTL, &pTL->cursor, insertIndex + newTextLength);
+
+    // The cursor's sticky position needs to be updated whenever the text is edited.
+    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+}
+
 void easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
@@ -1139,6 +1208,35 @@ void easygui_text_layout_select_all(easygui_text_layout* pTL)
     easygui_move_marker_to_end_of_text(pTL, &pTL->cursor);
 
     pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+}
+
+size_t easygui_text_layout_get_selected_text(easygui_text_layout* pTL, char* textOut, size_t textOutSize)
+{
+    if (pTL == NULL || (textOut != NULL && textOutSize == 0)) {
+        return 0;
+    }
+
+    if (!easygui_is_anything_selected_in_text_layout(pTL)) {
+        return 0;
+    }
+
+
+    easygui_text_marker* pSelectionMarker0;
+    easygui_text_marker* pSelectionMarker1;
+    if (!easygui_text_layout__get_selection_markers(pTL, &pSelectionMarker0, &pSelectionMarker1)) {
+        return false;
+    }
+
+    unsigned int iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
+    unsigned int iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
+
+    size_t selectedTextLength = iSelectionChar1 - iSelectionChar0;
+
+    if (textOut != NULL) {
+        strncpy_s(textOut, textOutSize, pTL->text + iSelectionChar0, selectedTextLength);
+    }
+    
+    return selectedTextLength;
 }
 
 
@@ -2839,13 +2937,10 @@ PRIVATE bool easygui_text_layout__is_run_selected(easygui_text_layout* pTL, unsi
 {
     if (easygui_is_anything_selected_in_text_layout(pTL))
     {
-        easygui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
-        easygui_text_marker* pSelectionMarker1 = &pTL->cursor;
-        if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
-        {
-            easygui_text_marker* temp = pSelectionMarker0;
-            pSelectionMarker0 = pSelectionMarker1;
-            pSelectionMarker1 = temp;
+        easygui_text_marker* pSelectionMarker0;
+        easygui_text_marker* pSelectionMarker1;
+        if (!easygui_text_layout__get_selection_markers(pTL, &pSelectionMarker0, &pSelectionMarker1)) {
+            return false;
         }
 
         unsigned int iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
@@ -2855,6 +2950,36 @@ PRIVATE bool easygui_text_layout__is_run_selected(easygui_text_layout* pTL, unsi
     }
 
     return false;
+}
+
+PRIVATE bool easygui_text_layout__get_selection_markers(easygui_text_layout* pTL, easygui_text_marker** ppSelectionMarker0Out, easygui_text_marker** ppSelectionMarker1Out)
+{
+    bool result = false;
+
+    easygui_text_marker* pSelectionMarker0 = NULL;
+    easygui_text_marker* pSelectionMarker1 = NULL;
+    if (pTL != NULL && easygui_is_anything_selected_in_text_layout(pTL))
+    {
+        pSelectionMarker0 = &pTL->selectionAnchor;
+        pSelectionMarker1 = &pTL->cursor;
+        if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
+        {
+            easygui_text_marker* temp = pSelectionMarker0;
+            pSelectionMarker0 = pSelectionMarker1;
+            pSelectionMarker1 = temp;
+        }
+
+        result = true;
+    }
+
+    if (ppSelectionMarker0Out) {
+        *ppSelectionMarker0Out = pSelectionMarker0;
+    }
+    if (ppSelectionMarker1Out) {
+        *ppSelectionMarker1Out = pSelectionMarker1;
+    }
+
+    return result;
 }
 
 

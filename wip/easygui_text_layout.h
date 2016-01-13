@@ -222,6 +222,9 @@ void easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigne
 /// Inserts a character at the position of the cursor.
 void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character);
 
+/// Inserts a character at the position of the cursor.
+void easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text);
+
 /// Deletes the character to the left of the cursor.
 void easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL);
 
@@ -260,6 +263,15 @@ void easygui_deselect_all_in_text_layout(easygui_text_layout* pTL);
 
 /// Selects everything in the given text layout.
 void easygui_text_layout_select_all(easygui_text_layout* pTL);
+
+/// Retrieves a copy of the selected text.
+///
+/// @remarks
+///     This returns the length of the selected text. Call this once with <textOut> set to NULL to calculate the required size of the
+///     buffer.
+///     @par
+///     If the output buffer is not larger enough, the string will be truncated.
+size_t easygui_text_layout_get_selected_text(easygui_text_layout* pTL, char* textOut, size_t textOutLength);
 
 
 /// Enables undo/redo.
