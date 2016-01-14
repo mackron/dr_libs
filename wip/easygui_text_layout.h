@@ -82,9 +82,9 @@ typedef struct
 
 } easygui_text_run;
 
-typedef void (* easygui_text_layout_run_iterator_proc)(easygui_text_layout* pTL, easygui_text_run* pRun, void* pUserData);
 typedef void (* easygui_text_layout_on_paint_text_proc)(easygui_text_layout* pTL, easygui_text_run* pRun, void* pUserData);
 typedef void (* easygui_text_layout_on_paint_rect_proc)(easygui_text_layout* pTL, easygui_rect rect, easygui_color color, void* pUserData);
+typedef void (* easygui_text_layout_on_cursor_move_proc)(easygui_text_layout* pTL);
 
 
 /// Creates a new text layout object.
@@ -119,6 +119,12 @@ void easygui_set_text_layout_container_size(easygui_text_layout* pTL, float cont
 /// Retrieves the size of the container.
 void easygui_get_text_layout_container_size(easygui_text_layout* pTL, float* pContainerWidthOut, float* pContainerHeightOut);
 
+/// Retrieves the width of the container.
+float easygui_get_text_layout_container_width(easygui_text_layout* pTL);
+
+/// Retrieves the height of the container.
+float easygui_get_text_layout_container_height(easygui_text_layout* pTL);
+
 
 /// Sets the inner offset of the given text layout.
 void easygui_set_text_layout_inner_offset(easygui_text_layout* pTL, float innerOffsetX, float innerOffsetY);
@@ -131,6 +137,12 @@ void easygui_set_text_layout_inner_offset_y(easygui_text_layout* pTL, float inne
 
 /// Retrieves the inner offset of the given text layout.
 void easygui_get_text_layout_inner_offset(easygui_text_layout* pTL, float* pInnerOffsetX, float* pInnerOffsetY);
+
+/// Retrieves the inner offset of the given text layout on the x axis.
+float easygui_get_text_layout_inner_offset_x(easygui_text_layout* pTL);
+
+/// Retrieves the inner offset of the given text layout on the x axis.
+float easygui_get_text_layout_inner_offset_y(easygui_text_layout* pTL);
 
 
 /// Sets the default font to use for text runs.
@@ -197,6 +209,9 @@ void easygui_get_text_layout_cursor_position(easygui_text_layout* pTL, float* pP
 /// Retrieves the rectangle of the cursor, relative to the container.
 easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL);
 
+/// Retrieves the index of the line the cursor is currently sitting on.
+unsigned int easygui_text_layout_get_cursor_line(easygui_text_layout* pTL);
+
 /// Moves the cursor of the given text layout to the left by one character.
 bool easygui_move_text_layout_cursor_left(easygui_text_layout* pTL);
 
@@ -214,6 +229,9 @@ bool easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL);
 
 /// Moves the cursor of the given text layout to the start of the line.
 bool easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL);
+
+/// Sets the function to call when the cursor in the given text layout is mvoed.
+void easygui_text_layout_set_on_cursor_move(easygui_text_layout* pTL, easygui_text_layout_on_cursor_move_proc proc);
 
 
 /// Inserts a character into the given text layout.

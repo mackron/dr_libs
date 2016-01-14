@@ -133,6 +133,9 @@ struct easygui_text_layout
     /// The function to call when a rectangle needs to be painted.
     easygui_text_layout_on_paint_rect_proc onPaintRect;
 
+    /// The function to call when the cursor moves.
+    easygui_text_layout_on_cursor_move_proc onCursorMove;
+
 
     /// Whether or not undo/redo is enabled.
     bool isUndoRedoEnabled;
@@ -375,6 +378,7 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->isAnythingSelected         = false;
     pTL->onPaintText                = NULL;
     pTL->onPaintRect                = NULL;
+    pTL->onCursorMove               = NULL;
     pTL->isUndoRedoEnabled          = false;
     pTL->preparedUndoRedoState.text = NULL;
     pTL->pUndoRedoStateStack        = NULL;
@@ -502,6 +506,24 @@ void easygui_get_text_layout_container_size(easygui_text_layout* pTL, float* pCo
     }
 }
 
+float easygui_get_text_layout_container_width(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return 0;
+    }
+
+    return pTL->containerWidth;
+}
+
+float easygui_get_text_layout_container_height(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return 0;
+    }
+
+    return pTL->containerHeight;
+}
+
 
 void easygui_set_text_layout_inner_offset(easygui_text_layout* pTL, float innerOffsetX, float innerOffsetY)
 {
@@ -549,6 +571,24 @@ void easygui_get_text_layout_inner_offset(easygui_text_layout* pTL, float* pInne
     if (pInnerOffsetY) {
         *pInnerOffsetY = innerOffsetY;
     }
+}
+
+float easygui_get_text_layout_inner_offset_x(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return 0;
+    }
+
+    return pTL->innerOffsetX;
+}
+
+float easygui_get_text_layout_inner_offset_y(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return 0;
+    }
+
+    return pTL->innerOffsetY;
 }
 
 
@@ -784,7 +824,14 @@ void easygui_move_text_layout_cursor_to_point(easygui_text_layout* pTL, float po
         return;
     }
 
+    unsigned int iRunOld  = pTL->cursor.iRun;
+    unsigned int iCharOld = pTL->cursor.iChar;
     easygui_move_marker_to_point_relative_to_container(pTL, &pTL->cursor, posX, posY);
+
+    if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
+        pTL->onCursorMove(pTL);
+    }
+
 
     if (easygui_is_text_layout_in_selection_mode(pTL)) {
         pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
@@ -832,15 +879,30 @@ easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL)
     return easygui_make_rect(cursorPosX, cursorPosY, cursorPosX + pTL->cursorWidth, cursorPosY + (lineRect.bottom - lineRect.top));
 }
 
+unsigned int easygui_text_layout_get_cursor_line(easygui_text_layout* pTL)
+{
+    if (pTL == NULL || pTL->runCount == 0) {
+        return 0;
+    }
+
+    return pTL->pRuns[pTL->cursor.iRun].iLine;
+}
+
 bool easygui_move_text_layout_cursor_left(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
     }
 
+    unsigned int iRunOld  = pTL->cursor.iRun;
+    unsigned int iCharOld = pTL->cursor.iChar;
     if (easygui_move_marker_left(pTL, &pTL->cursor)) {
         if (easygui_is_text_layout_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
+            pTL->onCursorMove(pTL);
         }
 
         return true;
@@ -855,9 +917,15 @@ bool easygui_move_text_layout_cursor_right(easygui_text_layout* pTL)
         return false;
     }
 
+    unsigned int iRunOld  = pTL->cursor.iRun;
+    unsigned int iCharOld = pTL->cursor.iChar;
     if (easygui_move_marker_right(pTL, &pTL->cursor)) {
         if (easygui_is_text_layout_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
+            pTL->onCursorMove(pTL);
         }
 
         return true;
@@ -872,9 +940,15 @@ bool easygui_move_text_layout_cursor_up(easygui_text_layout* pTL)
         return false;
     }
 
+    unsigned int iRunOld  = pTL->cursor.iRun;
+    unsigned int iCharOld = pTL->cursor.iChar;
     if (easygui_move_marker_up(pTL, &pTL->cursor)) {
         if (easygui_is_text_layout_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
+            pTL->onCursorMove(pTL);
         }
 
         return true;
@@ -889,9 +963,15 @@ bool easygui_move_text_layout_cursor_down(easygui_text_layout* pTL)
         return false;
     }
 
+    unsigned int iRunOld  = pTL->cursor.iRun;
+    unsigned int iCharOld = pTL->cursor.iChar;
     if (easygui_move_marker_down(pTL, &pTL->cursor)) {
         if (easygui_is_text_layout_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
+            pTL->onCursorMove(pTL);
         }
 
         return true;
@@ -906,9 +986,15 @@ bool easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL)
         return false;
     }
 
+    unsigned int iRunOld  = pTL->cursor.iRun;
+    unsigned int iCharOld = pTL->cursor.iChar;
     if (easygui_move_marker_to_end_of_line(pTL, &pTL->cursor)) {
         if (easygui_is_text_layout_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
+            pTL->onCursorMove(pTL);
         }
 
         return true;
@@ -923,15 +1009,30 @@ bool easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL)
         return false;
     }
 
+    unsigned int iRunOld  = pTL->cursor.iRun;
+    unsigned int iCharOld = pTL->cursor.iChar;
     if (easygui_move_marker_to_start_of_line(pTL, &pTL->cursor)) {
         if (easygui_is_text_layout_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+        }
+
+        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
+            pTL->onCursorMove(pTL);
         }
 
         return true;
     }
 
     return false;
+}
+
+void easygui_text_layout_set_on_cursor_move(easygui_text_layout* pTL, easygui_text_layout_on_cursor_move_proc proc)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->onCursorMove = proc;
 }
 
 
