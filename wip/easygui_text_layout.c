@@ -1093,6 +1093,11 @@ void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int c
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
     easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+
+
+    if (pTL->onCursorMove) {
+        pTL->onCursorMove(pTL);
+    }
 }
 
 void easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
@@ -1159,6 +1164,11 @@ void easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
     easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+
+
+    if (pTL->onCursorMove) {
+        pTL->onCursorMove(pTL);
+    }
 }
 
 void easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL)
@@ -1238,6 +1248,10 @@ void easygui_delete_selected_text(easygui_text_layout* pTL)
 
         // The cursor's sticky position also needs to be updated.
         easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+
+        if (pTL->onCursorMove) {
+            pTL->onCursorMove(pTL);
+        }
 
 
         // Reset the selection marker.
