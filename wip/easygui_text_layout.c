@@ -29,8 +29,49 @@ typedef struct
 
 } easygui_text_marker;
 
+/// Keeps track of the current state of the text layout. Used for calculating the difference between two states for undo/redo.
 typedef struct
 {
+    /// The text. Can be null in some cases where it isn't used.
+    char* text;
+
+    /// The index of the character the cursor is positioned at.
+    size_t cursorPos;
+
+    /// The index of the character the selection anchor is positioned at.
+    size_t selectionAnchorPos;
+
+    /// Whether or not anything is selected.
+    bool isAnythingSelected;
+
+} easygui_text_layout_state;
+
+typedef struct
+{
+    /// Whether the undo point represents an insert or delete operation.
+    bool isInsert;
+
+    /// The different text. When <isInsert> is true, this is the newly inserted text. Otherwise, it is the
+    /// text that was removed.
+    char* diffText;
+
+    /// The index of the first character in the diff.
+    size_t diffStart;
+
+    /// The index of the last character in the diff, plus 1.
+    size_t diffEnd;
+
+
+    /// The state of the text layout at the time the undo point was prepared, not including the text. The <text> attribute
+    /// of this object is always null.
+    easygui_text_layout_state preparedState;
+
+    /// The state of the text layout at the time the undo point was committed, not including the text. The <text> attribute
+    /// of this object is always null.
+    easygui_text_layout_state committedState;
+
+
+
     /// The text at the point of the undo/redo point.
     char* text;
 
@@ -1323,6 +1364,10 @@ void easygui_text_layout_select_all(easygui_text_layout* pTL)
     easygui_move_marker_to_end_of_text(pTL, &pTL->cursor);
 
     pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+
+    if (pTL->onCursorMove) {
+        pTL->onCursorMove(pTL);
+    }
 }
 
 size_t easygui_text_layout_get_selected_text(easygui_text_layout* pTL, char* textOut, size_t textOutSize)
