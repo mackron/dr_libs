@@ -235,28 +235,44 @@ void easygui_text_layout_set_on_cursor_move(easygui_text_layout* pTL, easygui_te
 
 
 /// Inserts a character into the given text layout.
-void easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigned int character, unsigned int insertIndex);
+///
+/// @return True if the text within the text layout has changed.
+bool easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigned int character, unsigned int insertIndex);
 
 /// Deletes a range of text in the given text layout.
-void easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1);
+///
+/// @return True if the text within the text layout has changed.
+bool easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1);
 
 /// Inserts the given string at the given character index.
-void easygui_text_layout_insert_text_at(easygui_text_layout* pTL, const char* text, unsigned int insertIndex);
+///
+/// @return True if the text within the text layout has changed.
+bool easygui_text_layout_insert_text_at(easygui_text_layout* pTL, const char* text, unsigned int insertIndex);
 
 /// Inserts a character at the position of the cursor.
-void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character);
+///
+/// @return True if the text within the text layout has changed.
+bool easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character);
 
 /// Inserts a character at the position of the cursor.
-void easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text);
+///
+/// @return True if the text within the text layout has changed.
+bool easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text);
 
 /// Deletes the character to the left of the cursor.
-void easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL);
+///
+/// @return True if the text within the text layout has changed.
+bool easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL);
 
 /// Deletes the character to the right of the cursor.
-void easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL);
+///
+/// @return True if the text within the text layout has changed.
+bool easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL);
 
 /// Deletes the currently selected text.
-void easygui_delete_selected_text(easygui_text_layout* pTL);
+///
+/// @return True if the text within the text layout has changed.
+bool easygui_delete_selected_text(easygui_text_layout* pTL);
 
 
 /// Enter's into selection mode.

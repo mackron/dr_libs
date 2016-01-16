@@ -1053,8 +1053,12 @@ void easygui_text_layout_set_on_cursor_move(easygui_text_layout* pTL, easygui_te
 }
 
 
-void easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigned int character, unsigned int insertIndex)
+bool easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigned int character, unsigned int insertIndex)
 {
+    if (pTL == NULL) {
+        return false;
+    }
+
     // Transform '\r' to '\n'.
     if (character == '\r') {
         character = '\n';
@@ -1086,12 +1090,14 @@ void easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigne
 
     // The layout will have changed so it needs to be refreshed.
     easygui_refresh_text_layout(pTL);
+
+    return true;
 }
 
-void easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1)
+bool easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1)
 {
     if (pTL == NULL || iLastChPlus1 == iFirstCh) {
-        return;
+        return false;
     }
 
     if (iFirstCh > iLastChPlus1) {
@@ -1110,18 +1116,22 @@ void easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned in
 
         // The layout will have changed.
         easygui_refresh_text_layout(pTL);
+
+        return true;
     }
+
+    return false;
 }
 
-void easygui_text_layout_insert_text_at(easygui_text_layout* pTL, const char* text, unsigned int insertIndex)
+bool easygui_text_layout_insert_text_at(easygui_text_layout* pTL, const char* text, unsigned int insertIndex)
 {
     if (pTL == NULL || text == NULL) {
-        return;
+        return false;;
     }
 
     size_t newTextLength = strlen(text);
     if (newTextLength == 0) {
-        return;
+        return false;
     }
 
 
@@ -1165,12 +1175,14 @@ void easygui_text_layout_insert_text_at(easygui_text_layout* pTL, const char* te
 
     // The layout will have changed so it needs to be refreshed.
     easygui_refresh_text_layout(pTL);
+
+    return true;
 }
 
-void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character)
+bool easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character)
 {
     if (pTL == NULL) {
-        return;
+        return false;
     }
 
     unsigned int iAbsoluteMarkerChar = 0;
@@ -1194,12 +1206,14 @@ void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int c
     if (pTL->onCursorMove) {
         pTL->onCursorMove(pTL);
     }
+
+    return true;
 }
 
-void easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
+bool easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
 {
     if (pTL == NULL || text == NULL) {
-        return;
+        return false;
     }
 
     unsigned int cursorPos = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
@@ -1216,24 +1230,29 @@ void easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
     if (pTL->onCursorMove) {
         pTL->onCursorMove(pTL);
     }
+
+    return true;
 }
 
-void easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL)
+bool easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
-        return;
+        return false;;
     }
 
     // We just move the cursor to the left, and then delete the character to the right.
     if (easygui_move_text_layout_cursor_left(pTL)) {
         easygui_delete_character_to_right_of_cursor(pTL);
+        return true;
     }
+
+    return false;
 }
 
-void easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
+bool easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
 {
     if (pTL == NULL || pTL->runCount == 0) {
-        return;
+        return false;
     }
 
     easygui_text_run* pRun = pTL->pRuns + pTL->cursor.iRun;
@@ -1256,15 +1275,19 @@ void easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
 
 
         // The marker needs to be updated based on the new layout.
-        easygui_move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar);
+        //easygui_move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar);
+
+        return true;
     }
+
+    return false;
 }
 
-void easygui_delete_selected_text(easygui_text_layout* pTL)
+bool easygui_delete_selected_text(easygui_text_layout* pTL)
 {
     // Don't do anything if nothing is selected.
     if (!easygui_is_anything_selected_in_text_layout(pTL)) {
-        return;
+        return false;
     }
 
     easygui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
@@ -1279,23 +1302,26 @@ void easygui_delete_selected_text(easygui_text_layout* pTL)
     unsigned int iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
     unsigned int iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
 
-    easygui_text_layout_delete_text_range(pTL, iSelectionChar0, iSelectionChar1);
+    bool wasTextChanged = easygui_text_layout_delete_text_range(pTL, iSelectionChar0, iSelectionChar1);
+    if (wasTextChanged)
+    {
+        // The marker needs to be updated based on the new layout.
+        easygui_move_marker_to_character(pTL, &pTL->cursor, iSelectionChar0);
+
+        // The cursor's sticky position also needs to be updated.
+        easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+
+        if (pTL->onCursorMove) {
+            pTL->onCursorMove(pTL);
+        }
 
 
-    // The marker needs to be updated based on the new layout.
-    easygui_move_marker_to_character(pTL, &pTL->cursor, iSelectionChar0);
-
-    // The cursor's sticky position also needs to be updated.
-    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
-
-    if (pTL->onCursorMove) {
-        pTL->onCursorMove(pTL);
+        // Reset the selection marker.
+        pTL->selectionAnchor = pTL->cursor;
+        pTL->isAnythingSelected = false;
     }
 
-
-    // Reset the selection marker.
-    pTL->selectionAnchor = pTL->cursor;
-    pTL->isAnythingSelected = false;
+    return wasTextChanged;
 }
 
 
