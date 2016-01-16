@@ -48,51 +48,25 @@ typedef struct
 
 typedef struct
 {
-    /// Whether the undo point represents an insert or delete operation.
-    bool isInsert;
+    /// The position in the main string where the change is located. The length of the relevant string is used to determines how
+    /// large of a chunk of text needs to be replaced.
+    size_t diffPos;
 
-    /// The different text. When <isInsert> is true, this is the newly inserted text. Otherwise, it is the
-    /// text that was removed.
-    char* diffText;
+    /// The string that was replaced. On undo, this will be inserted into the text layout. Can be empty, in which case this state
+    /// object was created in response to an insert operation.
+    char* oldText;
 
-    /// The index of the first character in the diff.
-    size_t diffStart;
-
-    /// The index of the last character in the diff, plus 1.
-    size_t diffEnd;
-
+    /// The string that replaces the old text. On redo, this will be inserted into the text layout. This can be empty, in which case
+    /// this state object was created in response to a delete operation.
+    char* newText;
 
     /// The state of the text layout at the time the undo point was prepared, not including the text. The <text> attribute
     /// of this object is always null.
-    easygui_text_layout_state preparedState;
+    easygui_text_layout_state oldState;
 
     /// The state of the text layout at the time the undo point was committed, not including the text. The <text> attribute
     /// of this object is always null.
-    easygui_text_layout_state committedState;
-
-
-
-    /// The text at the point of the undo/redo point.
-    char* text;
-
-    /// The index of the character the cursor is positioned at.
-    unsigned int iCursorCharacter;
-
-    /// The index of the character the selection anchor is positioned at.
-    unsigned int iSelectionAnchorCharacter;
-
-    /// Whether or not anything is selected.
-    bool isAnythingSelected;
-
-
-    /// Undo Only: The index of the character the cursor is positioned at.
-    unsigned int iCursorCharacter_OnUndo;
-
-    /// Undo Only: The index of the character the selection anchor is positioned at.
-    unsigned int iSelectionAnchorCharacter_OnUndo;
-
-    /// Undo Only: Whether or not anything is selected.
-    bool isAnythingSelected_OnUndo;
+    easygui_text_layout_state newState;
 
 } easygui_text_layout_undo_state;
 
@@ -178,20 +152,17 @@ struct easygui_text_layout
     easygui_text_layout_on_cursor_move_proc onCursorMove;
 
 
-    /// Whether or not undo/redo is enabled.
-    bool isUndoRedoEnabled;
-
     /// The prepared undo/redo state. This will be filled with some state by PrepareUndoRedoPoint() and again with CreateUndoRedoPoint().
-    easygui_text_layout_undo_state preparedUndoRedoState;
+    easygui_text_layout_state preparedState;
 
     /// The undo/redo stack.
-    easygui_text_layout_undo_state* pUndoRedoStateStack;
+    easygui_text_layout_undo_state* pUndoStack;
 
     /// The number of items in the undo/redo stack.
-    unsigned int undoRedoStateStackCount;
+    unsigned int undoStackCount;
 
     /// The index of the undo/redo state item we are currently sitting on.
-    unsigned int iUndoRedoState;
+    unsigned int iUndoState;
 
 
     /// A pointer to the buffer containing details about every run in the layout.
@@ -366,22 +337,23 @@ PRIVATE bool easygui_text_layout__first_line(easygui_text_layout* pTL, easygui_t
 PRIVATE bool easygui_text_layout__next_line(easygui_text_layout* pTL, easygui_text_layout_line* pLine);
 
 
-/// Initializes the undo/redo stack.
-///
-/// @remarks
-///     When undo/redo is enabled, this will create a stack frame at position 0 which represents the original state
-///     at the time this function is called. When undo/redo is disabled, the state stack will be completely empty to
-///     save on memory.
-PRIVATE void easygui_text_layout__init_undo_stack(easygui_text_layout* pTL);
-
 /// Removes the undo/redo state stack items after the current undo/redo point.
 PRIVATE void easygui_text_layout__trim_undo_stack(easygui_text_layout* pTL);
-        
-/// Sets the layout based on the current undo/redo point.
-PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, unsigned int iCursorChar, unsigned int iSelectionAnchorChar, bool isAnythingSelected);
 
-/// Takes a snaphot of the current state and pushes it to the top of the undo/redo stack.
-PRIVATE void easygui_text_layout__push_undo_point_from_current_state(easygui_text_layout* pTL);
+/// Initializes the given undo state object by diff-ing the given layout states.
+PRIVATE bool easygui_text_layout__diff_states(easygui_text_layout_state* pPrevState, easygui_text_layout_state* pCurrentState, easygui_text_layout_undo_state* pUndoStateOut);
+
+/// Uninitializes the given undo state object. This basically just free's the internal string.
+PRIVATE void easygui_text_layout__uninit_undo_state(easygui_text_layout_undo_state* pUndoState);
+
+/// Pushes an undo state onto the undo stack.
+PRIVATE void easygui_text_layout__push_undo_state(easygui_text_layout* pTL, easygui_text_layout_undo_state* pUndoState);
+ 
+/// Applies the given undo state.
+PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, easygui_text_layout_undo_state* pUndoState);
+
+/// Applies the given undo state as a redo operation.
+PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, easygui_text_layout_undo_state* pUndoState);
 
 
 
@@ -420,11 +392,10 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->onPaintText                = NULL;
     pTL->onPaintRect                = NULL;
     pTL->onCursorMove               = NULL;
-    pTL->isUndoRedoEnabled          = false;
-    pTL->preparedUndoRedoState.text = NULL;
-    pTL->pUndoRedoStateStack        = NULL;
-    pTL->undoRedoStateStackCount    = 0;
-    pTL->iUndoRedoState             = 0;
+    pTL->preparedState.text         = NULL;
+    pTL->pUndoStack                 = NULL;
+    pTL->undoStackCount             = 0;
+    pTL->iUndoState                 = 0;
     pTL->pRuns                      = NULL;
     pTL->runCount                   = 0;
     pTL->runBufferSize              = 0;
@@ -443,6 +414,11 @@ void easygui_delete_text_layout(easygui_text_layout* pTL)
         return;
     }
 
+    easygui_text_layout_clear_undo_stack(pTL);
+
+    free(pTL->pRuns);
+    free(pTL->preparedState.text);
+    free(pTL->text);
     free(pTL);
 }
 
@@ -1112,6 +1088,85 @@ void easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigne
     easygui_refresh_text_layout(pTL);
 }
 
+void easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1)
+{
+    if (pTL == NULL || iLastChPlus1 == iFirstCh) {
+        return;
+    }
+
+    if (iFirstCh > iLastChPlus1) {
+        unsigned int temp = iFirstCh;
+        iFirstCh = iLastChPlus1;
+        iLastChPlus1 = temp;
+    }
+
+
+    unsigned int bytesToRemove = iLastChPlus1 - iFirstCh;
+    if (bytesToRemove > 0)
+    {
+        memmove(pTL->text + iFirstCh, pTL->text + iLastChPlus1, pTL->textLength - iLastChPlus1);
+        pTL->textLength -= bytesToRemove;
+        pTL->text[pTL->textLength] = '\0';
+
+        // The layout will have changed.
+        easygui_refresh_text_layout(pTL);
+    }
+}
+
+void easygui_text_layout_insert_text_at(easygui_text_layout* pTL, const char* text, unsigned int insertIndex)
+{
+    if (pTL == NULL || text == NULL) {
+        return;
+    }
+
+    size_t newTextLength = strlen(text);
+    if (newTextLength == 0) {
+        return;
+    }
+
+
+    // TODO: Add proper support for UTF-8.
+    char* pOldText = pTL->text;
+    char* pNewText = malloc(pTL->textLength + newTextLength + 1);   // +1 for the new character and +1 for the null terminator.
+
+    if (insertIndex > 0) {
+        memcpy(pNewText, pOldText, insertIndex);
+    }
+
+
+    // Replace \r\n with \n.
+    {
+        char* dst = pNewText + insertIndex;
+        const char* src = text;
+        size_t srcLen = newTextLength;
+        while (*src != '\0' && srcLen > 0)
+        {
+            if (*src != '\r') {
+                *dst++ = *src;
+            }
+
+            src++;
+            srcLen -= 1;
+        }
+
+        newTextLength = dst - (pNewText + insertIndex);
+    }
+
+    if (insertIndex < pTL->textLength) {
+        memcpy(pNewText + insertIndex + newTextLength, pOldText + insertIndex, pTL->textLength - insertIndex);
+    }
+
+    pTL->textLength += newTextLength;
+    pTL->text = pNewText;
+    pNewText[pTL->textLength] = '\0';
+
+    free(pOldText);
+
+
+    // The layout will have changed so it needs to be refreshed.
+    easygui_refresh_text_layout(pTL);
+}
+
 void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character)
 {
     if (pTL == NULL) {
@@ -1147,61 +1202,12 @@ void easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
         return;
     }
 
-    size_t newTextLength = strlen(text);
-    if (newTextLength == 0) {
-        return;
-    }
+    unsigned int cursorPos = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+    easygui_text_layout_insert_text_at(pTL, text, cursorPos);
 
-
-    // TODO: Add proper support for UTF-8.
-    char* pOldText = pTL->text;
-    char* pNewText = malloc(pTL->textLength + newTextLength + 1);   // +1 for the new character and +1 for the null terminator.
-
-    unsigned int insertIndex = 0;
-    if (pTL->runCount > 0) {
-        insertIndex = pTL->pRuns[pTL->cursor.iRun].iChar + pTL->cursor.iChar;
-    }
-
-    if (insertIndex > 0) {
-        memcpy(pNewText, pOldText, insertIndex);
-    }
-
-    //memcpy(pNewText + insertIndex, text, newTextLength);
-    
-    // Replace \r\n with \n.
-    {
-        char* dst = pNewText + insertIndex;
-        const char* src = text;
-        size_t srcLen = newTextLength;
-        while (*src != '\0' && srcLen > 0)
-        {
-            if (*src != '\r') {
-                *dst++ = *src;
-            }
-
-            src++;
-            srcLen -= 1;
-        }
-
-        newTextLength = dst - (pNewText + insertIndex);
-    }
-
-    if (insertIndex < pTL->textLength) {
-        memcpy(pNewText + insertIndex + newTextLength, pOldText + insertIndex, pTL->textLength - insertIndex);
-    }
-
-    pTL->textLength += newTextLength;
-    pTL->text = pNewText;
-    pNewText[pTL->textLength] = '\0';
-
-    free(pOldText);
-
-
-    // The layout will have changed so it needs to be refreshed.
-    easygui_refresh_text_layout(pTL);
 
     // The marker needs to be updated based on the new layout and it's new position, which is one character ahead.
-    easygui_move_marker_to_character(pTL, &pTL->cursor, insertIndex + newTextLength);
+    easygui_move_marker_to_character(pTL, &pTL->cursor, cursorPos + strlen(text));
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
     easygui_update_marker_sticky_position(pTL, &pTL->cursor);
@@ -1273,32 +1279,23 @@ void easygui_delete_selected_text(easygui_text_layout* pTL)
     unsigned int iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
     unsigned int iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
 
-    unsigned int bytesToRemove = iSelectionChar1 - iSelectionChar0;
-    if (bytesToRemove > 0)
-    {
-        memmove(pTL->text + iSelectionChar0, pTL->text + iSelectionChar1, pTL->textLength - iSelectionChar1);
-        pTL->textLength -= bytesToRemove;
-        pTL->text[pTL->textLength] = '\0';
-
-        // The layout will have changed.
-        easygui_refresh_text_layout(pTL);
+    easygui_text_layout_delete_text_range(pTL, iSelectionChar0, iSelectionChar1);
 
 
-        // The marker needs to be updated based on the new layout.
-        easygui_move_marker_to_character(pTL, &pTL->cursor, iSelectionChar0);
+    // The marker needs to be updated based on the new layout.
+    easygui_move_marker_to_character(pTL, &pTL->cursor, iSelectionChar0);
 
-        // The cursor's sticky position also needs to be updated.
-        easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+    // The cursor's sticky position also needs to be updated.
+    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
 
-        if (pTL->onCursorMove) {
-            pTL->onCursorMove(pTL);
-        }
-
-
-        // Reset the selection marker.
-        pTL->selectionAnchor = pTL->cursor;
-        pTL->isAnythingSelected = false;
+    if (pTL->onCursorMove) {
+        pTL->onCursorMove(pTL);
     }
+
+
+    // Reset the selection marker.
+    pTL->selectionAnchor = pTL->cursor;
+    pTL->isAnythingSelected = false;
 }
 
 
@@ -1401,98 +1398,100 @@ size_t easygui_text_layout_get_selected_text(easygui_text_layout* pTL, char* tex
 
 
 
-void easygui_text_layout_enable_undo_redo(easygui_text_layout* pTL)
-{
-    if (pTL == NULL) {
-        return;
-    }
-
-    if (!pTL->isUndoRedoEnabled)
-    {
-        pTL->isUndoRedoEnabled = true;
-        easygui_text_layout__init_undo_stack(pTL);
-    }
-}
-
-void easygui_text_layout_disable_undo_redo(easygui_text_layout* pTL)
-{
-    if (pTL == NULL) {
-        return;
-    }
-
-    if (pTL->isUndoRedoEnabled)
-    {
-        pTL->isUndoRedoEnabled = false;
-        easygui_text_layout__init_undo_stack(pTL);      // <-- This will clear the undo/redo stack.
-    }
-}
-
 bool easygui_text_layout_prepare_undo_point(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
     }
 
-    if (pTL->isUndoRedoEnabled)
-    {
-        pTL->preparedUndoRedoState.iCursorCharacter_OnUndo          = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
-        pTL->preparedUndoRedoState.iSelectionAnchorCharacter_OnUndo = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->selectionAnchor);
-        pTL->preparedUndoRedoState.isAnythingSelected_OnUndo        = pTL->isAnythingSelected;
-
-        return true;
+    // If we have a previously prepared state we'll need to clear it.
+    if (pTL->preparedState.text != NULL) {
+        free(pTL->preparedState.text);
     }
 
-    return false;
+    pTL->preparedState.text = malloc(pTL->textLength + 1);
+    strcpy_s(pTL->preparedState.text, pTL->textLength + 1, (pTL->text != NULL) ? pTL->text : "");
+
+    pTL->preparedState.cursorPos          = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+    pTL->preparedState.selectionAnchorPos = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->selectionAnchor);
+    pTL->preparedState.isAnythingSelected = pTL->isAnythingSelected;
+    
+    return true;
 }
 
-bool easygui_text_layout_create_undo_point(easygui_text_layout* pTL)
+bool easygui_text_layout_commit_undo_point(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
     }
 
-    if (pTL->isUndoRedoEnabled)
-    {
-        // Everything after the current undo/redo point needs to be removed.
-        easygui_text_layout__trim_undo_stack(pTL);
-
-        easygui_text_layout__push_undo_point_from_current_state(pTL);
-        pTL->iUndoRedoState += 1;
-
-        return true;
+    // The undo point must have been prepared earlier.
+    if (pTL->preparedState.text == NULL) {
+        return false;
     }
 
-    return false;
+
+    // The undo state is creating by diff-ing the prepared state and the current state.
+    easygui_text_layout_state currentState;
+    currentState.text               = pTL->text;
+    currentState.cursorPos          = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+    currentState.selectionAnchorPos = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->selectionAnchor);
+    currentState.isAnythingSelected = pTL->isAnythingSelected;
+
+    easygui_text_layout_undo_state undoState;
+    if (!easygui_text_layout__diff_states(&pTL->preparedState, &currentState, &undoState)) {
+        return false;
+    }
+
+
+    // At this point we have the undo state ready and we just need to add it the undo stack. Before doing so, however,
+    // we need to trim the end fo the stack.
+    easygui_text_layout__trim_undo_stack(pTL);
+    easygui_text_layout__push_undo_state(pTL, &undoState);
+
+    return true;
 }
 
 bool easygui_text_layout_undo(easygui_text_layout* pTL)
 {
-    if (pTL == NULL) {
+    if (pTL == NULL || pTL->pUndoStack == NULL) {
         return false;
     }
 
-    if (pTL->isUndoRedoEnabled)
+    if (easygui_text_layout_get_undo_points_remaining_count(pTL) > 0)
     {
-        if (pTL->iUndoRedoState > 0)
-        {
-            easygui_text_layout_undo_state* pPrevState = pTL->pUndoRedoStateStack + pTL->iUndoRedoState;
+        easygui_text_layout_undo_state* pUndoState = pTL->pUndoStack + (pTL->iUndoState - 1);
+        assert(pUndoState != NULL);
 
-            pTL->iUndoRedoState -= 1;
-            easygui_text_layout__apply_undo_state(pTL, pPrevState->iCursorCharacter_OnUndo, pPrevState->iSelectionAnchorCharacter_OnUndo, pPrevState->isAnythingSelected_OnUndo);
+        easygui_text_layout__apply_undo_state(pTL, pUndoState);
+        pTL->iUndoState -= 1;
 
-            return true;
-        }
+        return true;
     }
-        
+
     return false;
 }
 
 bool easygui_text_layout_redo(easygui_text_layout* pTL)
 {
-    if (pTL == NULL) {
+    if (pTL == NULL || pTL->pUndoStack == NULL) {
         return false;
     }
 
+    if (easygui_text_layout_get_redo_points_remaining_count(pTL) > 0)
+    {
+        easygui_text_layout_undo_state* pUndoState = pTL->pUndoStack + pTL->iUndoState;
+        assert(pUndoState != NULL);
+
+        easygui_text_layout__apply_redo_state(pTL, pUndoState);
+        pTL->iUndoState += 1;
+
+        return true;
+    }
+
+    return false;
+
+#if 0
     if (pTL->isUndoRedoEnabled)
     {
         if (pTL->iUndoRedoState + 1 < pTL->undoRedoStateStackCount)
@@ -1507,6 +1506,7 @@ bool easygui_text_layout_redo(easygui_text_layout* pTL)
     }
         
     return false;
+#endif
 }
 
 unsigned int easygui_text_layout_get_undo_points_remaining_count(easygui_text_layout* pTL)
@@ -1515,7 +1515,7 @@ unsigned int easygui_text_layout_get_undo_points_remaining_count(easygui_text_la
         return 0;
     }
 
-    return pTL->iUndoRedoState;
+    return pTL->iUndoState;
 }
 
 unsigned int easygui_text_layout_get_redo_points_remaining_count(easygui_text_layout* pTL)
@@ -1524,13 +1524,30 @@ unsigned int easygui_text_layout_get_redo_points_remaining_count(easygui_text_la
         return 0;
     }
 
-    if (pTL->undoRedoStateStackCount > 0)
+    if (pTL->undoStackCount > 0)
     {
-        assert(pTL->iUndoRedoState < pTL->undoRedoStateStackCount);
-        return pTL->undoRedoStateStackCount - pTL->iUndoRedoState - 1;
+        assert(pTL->iUndoState <= pTL->undoStackCount);
+        return pTL->undoStackCount - pTL->iUndoState;
     }
 
     return 0;
+}
+
+void easygui_text_layout_clear_undo_stack(easygui_text_layout* pTL)
+{
+    if (pTL == NULL || pTL->pUndoStack == NULL) {
+        return;
+    }
+    
+    for (unsigned int i = 0; i < pTL->undoStackCount; ++i) {
+        easygui_text_layout__uninit_undo_state(pTL->pUndoStack + i);
+    }
+
+    free(pTL->pUndoStack);
+
+    pTL->pUndoStack = NULL;
+    pTL->undoStackCount = 0;
+    pTL->iUndoState = 0;
 }
 
 
@@ -3213,116 +3230,173 @@ PRIVATE bool easygui_text_layout__next_line(easygui_text_layout* pTL, easygui_te
     return true;
 }
 
-
-PRIVATE void easygui_text_layout__clear_undo_stack(easygui_text_layout* pTL)
-{
-    if (pTL == NULL) {
-        return;
-    }
-
-    for (unsigned int i = 0; i < pTL->undoRedoStateStackCount; ++i) {
-        free(pTL->pUndoRedoStateStack[i].text);
-    }
-
-    free(pTL->pUndoRedoStateStack);
-    pTL->pUndoRedoStateStack = NULL;
-    pTL->undoRedoStateStackCount = 0;
-}
-
-PRIVATE void easygui_text_layout__init_undo_stack(easygui_text_layout* pTL)
-{
-    if (pTL == NULL) {
-        return;
-    }
-
-    pTL->iUndoRedoState = 0;
-    easygui_text_layout__clear_undo_stack(pTL);
-
-    if (pTL->isUndoRedoEnabled)
-    {
-        easygui_text_layout_prepare_undo_point(pTL);
-        easygui_text_layout__push_undo_point_from_current_state(pTL);   // <-- This does not increment m_iUndoRedoState.
-    }
-}
-
 PRIVATE void easygui_text_layout__trim_undo_stack(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return;
     }
 
-    while (pTL->undoRedoStateStackCount > pTL->iUndoRedoState + 1)
+    while (pTL->undoStackCount > pTL->iUndoState)
     {
-        free(pTL->pUndoRedoStateStack[pTL->undoRedoStateStackCount - 1].text);
-        pTL->pUndoRedoStateStack[pTL->undoRedoStateStackCount - 1].text = NULL;
-
-        pTL->undoRedoStateStackCount -= 1;
-    }
-}
+        unsigned int iLastItem = pTL->undoStackCount - 1;
         
-PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, unsigned int iCursorChar, unsigned int iSelectionAnchorChar, bool isAnythingSelected)
-{
-    if (pTL == NULL) {
-        return;
-    }
-
-    if (pTL->iUndoRedoState < pTL->undoRedoStateStackCount)
-    {
-        easygui_text_layout_undo_state* pState = pTL->pUndoRedoStateStack + pTL->iUndoRedoState;
-
-        char* pOldText = pTL->text;
-
-        size_t textLength = strlen(pState->text);
-        pTL->text = malloc(textLength + 1);
-        strcpy_s(pTL->text, textLength + 1, pState->text);
-        pTL->textLength = textLength;
-
-
-        pTL->isAnythingSelected = isAnythingSelected;
-            
-        // The text has changed which means the layout needs to be refreshed.
-        easygui_refresh_text_layout(pTL);
-
-
-        // Markers needs to be updated after refreshing the layout.
-        easygui_move_marker_to_character(pTL, &pTL->cursor, iCursorChar);
-        easygui_move_marker_to_character(pTL, &pTL->selectionAnchor, iSelectionAnchorChar);
-
-        // The cursor's sticky position needs to be updated whenever the text is edited.
-        easygui_update_marker_sticky_position(pTL, &pTL->cursor);
-
-
-        free(pOldText);
+        easygui_text_layout__uninit_undo_state(pTL->pUndoStack + iLastItem);
+        pTL->undoStackCount -= 1;
     }
 }
 
-PRIVATE void easygui_text_layout__push_undo_point_from_current_state(easygui_text_layout* pTL)
+PRIVATE bool easygui_text_layout__diff_states(easygui_text_layout_state* pPrevState, easygui_text_layout_state* pCurrentState, easygui_text_layout_undo_state* pUndoStateOut)
 {
-    if (pTL == NULL) {
+    if (pPrevState == NULL || pCurrentState == NULL || pUndoStateOut == NULL) {
+        return false;
+    }
+
+    if (pPrevState->text == NULL || pCurrentState->text == NULL) {
+        return false;
+    }
+
+    const char* prevText = pPrevState->text;
+    const char* currText = pCurrentState->text;
+    
+    const size_t prevLen = strlen(prevText);
+    const size_t currLen = strlen(currText);
+
+
+    // The first step is to find the position of the first differing character.
+    size_t sameChCountStart;
+    for (sameChCountStart = 0; sameChCountStart < prevLen && sameChCountStart < currLen; ++sameChCountStart)
+    {
+        char prevCh = prevText[sameChCountStart];
+        char currCh = currText[sameChCountStart];
+
+        if (prevCh != currCh) {
+            break;
+        }
+    }
+
+    // The next step is to find the position of the last differing character.
+    size_t sameChCountEnd;
+    for (sameChCountEnd = 0; sameChCountEnd < prevLen && sameChCountEnd < currLen; ++sameChCountEnd)
+    {
+        // Don't move beyond the first differing character.
+        if (prevLen - sameChCountEnd <= sameChCountStart ||
+            currLen - sameChCountEnd <= sameChCountStart)
+        {
+            break;
+        }
+
+        char prevCh = prevText[prevLen - sameChCountEnd - 1];
+        char currCh = currText[currLen - sameChCountEnd - 1];
+
+        if (prevCh != currCh) {
+            break;
+        }
+    }
+    
+    
+    // At this point we know which section of the text is different. We now need to initialize the undo state object.
+    pUndoStateOut->diffPos       = sameChCountStart;
+    pUndoStateOut->newState      = *pCurrentState;
+    pUndoStateOut->newState.text = NULL;
+    pUndoStateOut->oldState      = *pPrevState;
+    pUndoStateOut->oldState.text = NULL;
+    
+    size_t oldTextLen = prevLen - sameChCountStart - sameChCountEnd;
+    pUndoStateOut->oldText = malloc(oldTextLen + 1);
+    strncpy_s(pUndoStateOut->oldText, oldTextLen + 1, prevText + sameChCountStart, oldTextLen);
+
+    size_t newTextLen = currLen - sameChCountStart - sameChCountEnd;
+    pUndoStateOut->newText = malloc(newTextLen + 1);
+    strncpy_s(pUndoStateOut->newText, newTextLen + 1, currText + sameChCountStart, newTextLen);
+
+    return true;
+}
+
+PRIVATE void easygui_text_layout__uninit_undo_state(easygui_text_layout_undo_state* pUndoState)
+{
+    if (pUndoState == NULL) {
         return;
     }
 
-    //free(pTL->preparedUndoRedoState.text);
-    
-    size_t textLength = pTL->textLength;
-    pTL->preparedUndoRedoState.text = malloc(textLength + 1);
-    strcpy_s(pTL->preparedUndoRedoState.text, textLength + 1, (pTL->text != NULL) ? pTL->text : "");
+    free(pUndoState->oldText);
+    pUndoState->oldText = NULL;
 
-    pTL->preparedUndoRedoState.iCursorCharacter          = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
-    pTL->preparedUndoRedoState.iSelectionAnchorCharacter = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->selectionAnchor);
-    pTL->preparedUndoRedoState.isAnythingSelected        = pTL->isAnythingSelected;
+    free(pUndoState->newText);
+    pUndoState->newText = NULL;
+}
 
-
-    easygui_text_layout_undo_state* pOldStack = pTL->pUndoRedoStateStack;
-    easygui_text_layout_undo_state* pNewStack = malloc(sizeof(*pNewStack) * (pTL->undoRedoStateStackCount + 1));
-
-    if (pTL->undoRedoStateStackCount > 0) {
-        memcpy(pNewStack, pOldStack, sizeof(*pNewStack) * (pTL->undoRedoStateStackCount));
+PRIVATE void easygui_text_layout__push_undo_state(easygui_text_layout* pTL, easygui_text_layout_undo_state* pUndoState)
+{
+    if (pTL == NULL || pUndoState == NULL) {
+        return;
     }
 
-    pNewStack[pTL->undoRedoStateStackCount] = pTL->preparedUndoRedoState;
-    pTL->pUndoRedoStateStack = pNewStack;
-    pTL->undoRedoStateStackCount += 1;
+    assert(pTL->iUndoState == pTL->undoStackCount);
+
+
+    easygui_text_layout_undo_state* pOldStack = pTL->pUndoStack;
+    easygui_text_layout_undo_state* pNewStack = malloc(sizeof(*pNewStack) * (pTL->undoStackCount + 1));
+
+    if (pTL->undoStackCount > 0) {
+        memcpy(pNewStack, pOldStack, sizeof(*pNewStack) * (pTL->undoStackCount));
+    }
+
+    pNewStack[pTL->undoStackCount] = *pUndoState;
+    pTL->pUndoStack = pNewStack;
+    pTL->undoStackCount += 1;
+    pTL->iUndoState += 1;
 
     free(pOldStack);
+}
+
+PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, easygui_text_layout_undo_state* pUndoState)
+{
+    if (pTL == NULL || pUndoState == NULL) {
+        return;
+    }
+
+    // When undoing we want to remove the new text and replace it with the old text.
+
+    // Remove the new text.
+    easygui_text_layout_delete_text_range(pTL, pUndoState->diffPos, pUndoState->diffPos + strlen(pUndoState->newText));        // TODO: Replace this with a raw string replace. This will rebuild the text runs which is needlessly inefficient.
+
+    // Insert the old text.
+    easygui_text_layout_insert_text_at(pTL, pUndoState->oldText, pUndoState->diffPos);
+
+
+    // Markers needs to be updated after refreshing the layout.
+    easygui_move_marker_to_character(pTL, &pTL->cursor, pUndoState->oldState.cursorPos);
+    easygui_move_marker_to_character(pTL, &pTL->selectionAnchor, pUndoState->oldState.selectionAnchorPos);
+
+    // The cursor's sticky position needs to be updated whenever the text is edited.
+    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+    
+    // Ensure we mark the text as selected if appropriate.
+    pTL->isAnythingSelected = pUndoState->oldState.isAnythingSelected;
+}
+
+PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, easygui_text_layout_undo_state* pUndoState)
+{
+    if (pTL == NULL || pUndoState == NULL) {
+        return;
+    }
+
+    // An redo is just the opposite of an undo. We want to remove the old text and replace it with the new text.
+
+    // Remove the old text.
+    easygui_text_layout_delete_text_range(pTL, pUndoState->diffPos, pUndoState->diffPos + strlen(pUndoState->oldText));        // TODO: Replace this with a raw string replace. This will rebuild the text runs which is needlessly inefficient.
+
+    // Insert the new text.
+    easygui_text_layout_insert_text_at(pTL, pUndoState->newText, pUndoState->diffPos);
+
+
+    // Markers needs to be updated after refreshing the layout.
+    easygui_move_marker_to_character(pTL, &pTL->cursor, pUndoState->newState.cursorPos);
+    easygui_move_marker_to_character(pTL, &pTL->selectionAnchor, pUndoState->newState.selectionAnchorPos);
+
+    // The cursor's sticky position needs to be updated whenever the text is edited.
+    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+
+    // Ensure we mark the text as selected if appropriate.
+    pTL->isAnythingSelected = pUndoState->newState.isAnythingSelected;
 }

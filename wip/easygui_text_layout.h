@@ -237,6 +237,12 @@ void easygui_text_layout_set_on_cursor_move(easygui_text_layout* pTL, easygui_te
 /// Inserts a character into the given text layout.
 void easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigned int character, unsigned int insertIndex);
 
+/// Deletes a range of text in the given text layout.
+void easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1);
+
+/// Inserts the given string at the given character index.
+void easygui_text_layout_insert_text_at(easygui_text_layout* pTL, const char* text, unsigned int insertIndex);
+
 /// Inserts a character at the position of the cursor.
 void easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character);
 
@@ -292,12 +298,6 @@ void easygui_text_layout_select_all(easygui_text_layout* pTL);
 size_t easygui_text_layout_get_selected_text(easygui_text_layout* pTL, char* textOut, size_t textOutLength);
 
 
-/// Enables undo/redo.
-void easygui_text_layout_enable_undo_redo(easygui_text_layout* pTL);
-
-/// Disables undo/redo.
-void easygui_text_layout_disable_undo_redo(easygui_text_layout* pTL);
-
 /// Prepares the next undo/redo point.
 ///
 /// @remarks
@@ -305,7 +305,7 @@ void easygui_text_layout_disable_undo_redo(easygui_text_layout* pTL);
 bool easygui_text_layout_prepare_undo_point(easygui_text_layout* pTL);
 
 /// Creates a snapshot of the current state of the text layout and pushes it to the top of the undo/redo stack.
-bool easygui_text_layout_create_undo_point(easygui_text_layout* pTL);
+bool easygui_text_layout_commit_undo_point(easygui_text_layout* pTL);
 
 /// Performs an undo operation.
 bool easygui_text_layout_undo(easygui_text_layout* pTL);
@@ -318,6 +318,9 @@ unsigned int easygui_text_layout_get_undo_points_remaining_count(easygui_text_la
 
 /// Retrieves the number of redo points remaining in the stack.
 unsigned int easygui_text_layout_get_redo_points_remaining_count(easygui_text_layout* pTL);
+
+/// Clears the undo stack.
+void easygui_text_layout_clear_undo_stack(easygui_text_layout* pTL);
 
 
 
