@@ -208,109 +208,109 @@ typedef struct
 ///
 /// @remarks
 ///     This will delete every run and re-create them.
-PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL);
+PRIVATE void easygui_text_layout__refresh(easygui_text_layout* pTL);
 
 /// Refreshes the alignment of the given text layout.
-PRIVATE void easygui_refresh_text_layout_alignment(easygui_text_layout* pTL);
+PRIVATE void easygui_text_layout__refresh_alignment(easygui_text_layout* pTL);
 
 /// Appends a text run to the list of runs in the given text layout.
-PRIVATE void easygui_push_text_run(easygui_text_layout* pTL, easygui_text_run* pRun);
+PRIVATE void easygui_text_layout__push_text_run(easygui_text_layout* pTL, easygui_text_run* pRun);
 
 /// Clears the internal list of text runs.
-PRIVATE void easygui_clear_text_runs(easygui_text_layout* pTL);
+PRIVATE void easygui_text_layout__clear_text_runs(easygui_text_layout* pTL);
 
 /// Helper for calculating the offset to apply to each line based on the alignment of the given text layout.
-PRIVATE void easygui_calculate_line_alignment_offset(easygui_text_layout* pTL, float lineWidth, float* pOffsetXOut, float* pOffsetYOut);
+PRIVATE void easygui_text_layout__calculate_line_alignment_offset(easygui_text_layout* pTL, float lineWidth, float* pOffsetXOut, float* pOffsetYOut);
 
 /// Helper for determine whether or not the given text run is whitespace.
-PRIVATE bool easygui_is_text_run_whitespace(easygui_text_layout* pTL, easygui_text_run* pRun);
+PRIVATE bool easygui_text_layout__is_text_run_whitespace(easygui_text_layout* pTL, easygui_text_run* pRun);
 
 /// Helper for calculating the width of a tab.
-PRIVATE float easygui_get_text_layout_tab_width(easygui_text_layout* pTL);
+PRIVATE float easygui_text_layout__get_tab_width(easygui_text_layout* pTL);
 
 
 /// Finds the line that's closest to the given point relative to the text.
-PRIVATE bool easygui_find_closest_line_to_point(easygui_text_layout* pTL, float inputPosYRelativeToText, unsigned int* pFirstRunIndexOnLineOut, unsigned int* pLastRunIndexOnLinePlus1Out);
+PRIVATE bool easygui_text_layout__find_closest_line_to_point(easygui_text_layout* pTL, float inputPosYRelativeToText, unsigned int* pFirstRunIndexOnLineOut, unsigned int* pLastRunIndexOnLinePlus1Out);
 
 /// Finds the run that's closest to the given point relative to the text.
-PRIVATE bool easygui_find_closest_run_to_point(easygui_text_layout* pTL, float inputPosXRelativeToText, float inputPosYRelativeToText, unsigned int* pRunIndexOut);
+PRIVATE bool easygui_text_layout__find_closest_run_to_point(easygui_text_layout* pTL, float inputPosXRelativeToText, float inputPosYRelativeToText, unsigned int* pRunIndexOut);
 
 /// Retrieves some basic information about a line, namely the index of the last run on the line, and the line's height.
-PRIVATE bool easygui_find_text_layout_line_info(easygui_text_layout* pTL, unsigned int iFirstRunOnLine, unsigned int* pLastRunIndexOnLinePlus1Out, float* pLineHeightOut);
+PRIVATE bool easygui_text_layout__find_line_info(easygui_text_layout* pTL, unsigned int iFirstRunOnLine, unsigned int* pLastRunIndexOnLinePlus1Out, float* pLineHeightOut);
 
 /// Retrieves some basic information about a line by it's index.
-PRIVATE bool easygui_find_text_layout_line_info_by_index(easygui_text_layout* pTL, unsigned int iLine, easygui_rect* pRectOut, unsigned int* pFirstRunIndexOut, unsigned int* pLastRunIndexPlus1Out);
+PRIVATE bool easygui_text_layout__find_line_info_by_index(easygui_text_layout* pTL, unsigned int iLine, easygui_rect* pRectOut, unsigned int* pFirstRunIndexOut, unsigned int* pLastRunIndexPlus1Out);
 
 /// Finds the last run on the line that the given run is sitting on.
-PRIVATE bool easygui_find_last_run_on_line_starting_from_run(easygui_text_layout* pTL, unsigned int iRun, unsigned int* pLastRunIndexOnLineOut);
+PRIVATE bool easygui_text_layout__find_last_run_on_line_starting_from_run(easygui_text_layout* pTL, unsigned int iRun, unsigned int* pLastRunIndexOnLineOut);
 
 /// Finds the first run on the line that the given run is sitting on.
-PRIVATE bool easygui_find_first_run_on_line_starting_from_run(easygui_text_layout* pTL, unsigned int iRun, unsigned int* pFirstRunIndexOnLineOut);
+PRIVATE bool easygui_text_layout__find_first_run_on_line_starting_from_run(easygui_text_layout* pTL, unsigned int iRun, unsigned int* pFirstRunIndexOnLineOut);
 
 /// Finds the run containing the character at the given index.
-PRIVATE bool easygui_find_run_at_character(easygui_text_layout* pTL, unsigned int iChar, unsigned int* pRunIndexOut);
+PRIVATE bool easygui_text_layout__find_run_at_character(easygui_text_layout* pTL, unsigned int iChar, unsigned int* pRunIndexOut);
 
 
 /// Creates a blank text marker.
-PRIVATE easygui_text_marker easygui_new_text_marker();
+PRIVATE easygui_text_marker easygui_text_layout__new_marker();
 
 /// Moves the given text marker to the given point, relative to the container.
-PRIVATE bool easygui_move_marker_to_point_relative_to_container(easygui_text_layout* pTL, easygui_text_marker* pMarker, float inputPosX, float inputPosY);
+PRIVATE bool easygui_text_layout__move_marker_to_point_relative_to_container(easygui_text_layout* pTL, easygui_text_marker* pMarker, float inputPosX, float inputPosY);
 
 /// Retrieves the position of the given text marker relative to the container.
-PRIVATE void easygui_get_marker_position_relative_to_container(easygui_text_layout* pTL, easygui_text_marker* pMarker, float* pPosXOut, float* pPosYOut);
+PRIVATE void easygui_text_layout__get_marker_position_relative_to_container(easygui_text_layout* pTL, easygui_text_marker* pMarker, float* pPosXOut, float* pPosYOut);
 
 /// Moves the marker to the given point, relative to the text rectangle.
-PRIVATE bool easygui_move_marker_to_point(easygui_text_layout* pTL, easygui_text_marker* pMarker, float inputPosXRelativeToText, float inputPosYRelativeToText);
+PRIVATE bool easygui_text_layout__move_marker_to_point(easygui_text_layout* pTL, easygui_text_marker* pMarker, float inputPosXRelativeToText, float inputPosYRelativeToText);
 
 /// Moves the given marker to the left by one character.
-PRIVATE bool easygui_move_marker_left(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_left(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker to the right by one character.
-PRIVATE bool easygui_move_marker_right(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_right(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker up one line.
-PRIVATE bool easygui_move_marker_up(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_up(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker down one line.
-PRIVATE bool easygui_move_marker_down(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_down(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker to the end of the line it's currently sitting on.
-PRIVATE bool easygui_move_marker_to_end_of_line(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_to_end_of_line(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker to the start of the line it's currently sitting on.
-PRIVATE bool easygui_move_marker_to_start_of_line(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_to_start_of_line(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker to the end of the text.
-PRIVATE bool easygui_move_marker_to_end_of_text(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_to_end_of_text(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker to the start of the text.
-PRIVATE bool easygui_move_marker_to_start_of_text(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_to_start_of_text(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker to the last character of the given run.
-PRIVATE bool easygui_move_marker_to_last_character_of_run(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iRun);
+PRIVATE bool easygui_text_layout__move_marker_to_last_character_of_run(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iRun);
 
 /// Moves the given marker to the first character of the given run.
-PRIVATE bool easygui_move_marker_to_first_character_of_run(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iRun);
+PRIVATE bool easygui_text_layout__move_marker_to_first_character_of_run(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iRun);
 
 /// Moves the given marker to the last character of the previous run.
-PRIVATE bool easygui_move_marker_to_last_character_of_prev_run(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_to_last_character_of_prev_run(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker to the first character of the next run.
-PRIVATE bool easygui_move_marker_to_first_character_of_next_run(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__move_marker_to_first_character_of_next_run(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Moves the given marker to the character at the given position.
-PRIVATE bool easygui_move_marker_to_character(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iChar);
+PRIVATE bool easygui_text_layout__move_marker_to_character(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iChar);
 
 
 /// Updates the relative position of the given marker.
 ///
 /// @remarks
 ///     This assumes the iRun and iChar properties are valid.
-PRIVATE bool easygui_update_marker_relative_position(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE bool easygui_text_layout__update_marker_relative_position(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 /// Updates the sticky position of the given marker.
-PRIVATE void easygui_update_marker_sticky_position(easygui_text_layout* pTL, easygui_text_marker* pMarker);
+PRIVATE void easygui_text_layout__update_marker_sticky_position(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
 
 /// Retrieves the index of the character the given marker is located at.
@@ -318,10 +318,10 @@ PRIVATE unsigned int easygui_text_layout__get_marker_absolute_char_index(easygui
 
 
 /// Helper function for determining whether or not there is any spacing between the selection markers.
-PRIVATE bool easygui_has_spacing_between_selection_markers(easygui_text_layout* pTL);
+PRIVATE bool easygui_text_layout__has_spacing_between_selection_markers(easygui_text_layout* pTL);
 
 /// Splits the given run into sub-runs based on the current selection rectangle. Returns the sub-run count.
-PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pTL, easygui_text_run* pRunToSplit, easygui_text_run pSubRunsOut[3]);
+PRIVATE unsigned int easygui_text_layout__split_text_run_by_selection(easygui_text_layout* pTL, easygui_text_run* pRunToSplit, easygui_text_run pSubRunsOut[3]);
 
 /// Determines whether or not the run at the given index is selected.
 PRIVATE bool easygui_text_layout__is_run_selected(easygui_text_layout* pTL, unsigned int iRun);
@@ -385,8 +385,8 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->cursorColor                = easygui_rgb(224, 224, 224);
     pTL->textBoundsWidth            = 0;
     pTL->textBoundsHeight           = 0;
-    pTL->cursor                     = easygui_new_text_marker();
-    pTL->selectionAnchor            = easygui_new_text_marker();
+    pTL->cursor                     = easygui_text_layout__new_marker();
+    pTL->selectionAnchor            = easygui_text_layout__new_marker();
     pTL->selectionModeCounter       = 0;
     pTL->isAnythingSelected         = false;
     pTL->onPaintText                = NULL;
@@ -423,7 +423,7 @@ void easygui_delete_text_layout(easygui_text_layout* pTL)
 }
 
 
-size_t easygui_get_text_layout_extra_data_size(easygui_text_layout* pTL)
+size_t easygui_text_layout_get_extra_data_size(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return 0;
@@ -432,7 +432,7 @@ size_t easygui_get_text_layout_extra_data_size(easygui_text_layout* pTL)
     return pTL->extraDataSize;
 }
 
-void* easygui_get_text_layout_extra_data(easygui_text_layout* pTL)
+void* easygui_text_layout_get_extra_data(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return NULL;
@@ -442,7 +442,7 @@ void* easygui_get_text_layout_extra_data(easygui_text_layout* pTL)
 }
 
 
-void easygui_set_text_layout_text(easygui_text_layout* pTL, const char* text)
+void easygui_text_layout_set_text(easygui_text_layout* pTL, const char* text)
 {
     if (pTL == NULL) {
         return;
@@ -471,10 +471,10 @@ void easygui_set_text_layout_text(easygui_text_layout* pTL, const char* text)
 
 
     // A change in text means we need to refresh the layout.
-    easygui_refresh_text_layout(pTL);
+    easygui_text_layout__refresh(pTL);
 }
 
-size_t easygui_get_text_layout_text(easygui_text_layout* pTL, char* textOut, size_t textOutSize)
+size_t easygui_text_layout_get_text(easygui_text_layout* pTL, char* textOut, size_t textOutSize)
 {
     if (pTL == NULL) {
         return 0;
@@ -493,7 +493,7 @@ size_t easygui_get_text_layout_text(easygui_text_layout* pTL, char* textOut, siz
 }
 
 
-void easygui_set_text_layout_container_size(easygui_text_layout* pTL, float containerWidth, float containerHeight)
+void easygui_text_layout_set_container_size(easygui_text_layout* pTL, float containerWidth, float containerHeight)
 {
     if (pTL == NULL) {
         return;
@@ -503,7 +503,7 @@ void easygui_set_text_layout_container_size(easygui_text_layout* pTL, float cont
     pTL->containerHeight = containerHeight;
 }
 
-void easygui_get_text_layout_container_size(easygui_text_layout* pTL, float* pContainerWidthOut, float* pContainerHeightOut)
+void easygui_text_layout_get_container_size(easygui_text_layout* pTL, float* pContainerWidthOut, float* pContainerHeightOut)
 {
     float containerWidth  = 0;
     float containerHeight = 0;
@@ -523,7 +523,7 @@ void easygui_get_text_layout_container_size(easygui_text_layout* pTL, float* pCo
     }
 }
 
-float easygui_get_text_layout_container_width(easygui_text_layout* pTL)
+float easygui_text_layout_get_container_width(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return 0;
@@ -532,7 +532,7 @@ float easygui_get_text_layout_container_width(easygui_text_layout* pTL)
     return pTL->containerWidth;
 }
 
-float easygui_get_text_layout_container_height(easygui_text_layout* pTL)
+float easygui_text_layout_get_container_height(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return 0;
@@ -542,7 +542,7 @@ float easygui_get_text_layout_container_height(easygui_text_layout* pTL)
 }
 
 
-void easygui_set_text_layout_inner_offset(easygui_text_layout* pTL, float innerOffsetX, float innerOffsetY)
+void easygui_text_layout_set_inner_offset(easygui_text_layout* pTL, float innerOffsetX, float innerOffsetY)
 {
     if (pTL == NULL) {
         return;
@@ -552,7 +552,7 @@ void easygui_set_text_layout_inner_offset(easygui_text_layout* pTL, float innerO
     pTL->innerOffsetY = innerOffsetY;
 }
 
-void easygui_set_text_layout_inner_offset_x(easygui_text_layout* pTL, float innerOffsetX)
+void easygui_text_layout_set_inner_offset_x(easygui_text_layout* pTL, float innerOffsetX)
 {
     if (pTL == NULL) {
         return;
@@ -561,7 +561,7 @@ void easygui_set_text_layout_inner_offset_x(easygui_text_layout* pTL, float inne
     pTL->innerOffsetX = innerOffsetX;
 }
 
-void easygui_set_text_layout_inner_offset_y(easygui_text_layout* pTL, float innerOffsetY)
+void easygui_text_layout_set_inner_offset_y(easygui_text_layout* pTL, float innerOffsetY)
 {
     if (pTL == NULL) {
         return;
@@ -570,7 +570,7 @@ void easygui_set_text_layout_inner_offset_y(easygui_text_layout* pTL, float inne
     pTL->innerOffsetY = innerOffsetY;
 }
 
-void easygui_get_text_layout_inner_offset(easygui_text_layout* pTL, float* pInnerOffsetX, float* pInnerOffsetY)
+void easygui_text_layout_get_inner_offset(easygui_text_layout* pTL, float* pInnerOffsetX, float* pInnerOffsetY)
 {
     float innerOffsetX = 0;
     float innerOffsetY = 0;
@@ -590,7 +590,7 @@ void easygui_get_text_layout_inner_offset(easygui_text_layout* pTL, float* pInne
     }
 }
 
-float easygui_get_text_layout_inner_offset_x(easygui_text_layout* pTL)
+float easygui_text_layout_get_inner_offset_x(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return 0;
@@ -599,7 +599,7 @@ float easygui_get_text_layout_inner_offset_x(easygui_text_layout* pTL)
     return pTL->innerOffsetX;
 }
 
-float easygui_get_text_layout_inner_offset_y(easygui_text_layout* pTL)
+float easygui_text_layout_get_inner_offset_y(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return 0;
@@ -609,7 +609,7 @@ float easygui_get_text_layout_inner_offset_y(easygui_text_layout* pTL)
 }
 
 
-void easygui_set_text_layout_default_font(easygui_text_layout* pTL, easygui_font* pFont)
+void easygui_text_layout_set_default_font(easygui_text_layout* pTL, easygui_font* pFont)
 {
     if (pTL == NULL) {
         return;
@@ -618,10 +618,10 @@ void easygui_set_text_layout_default_font(easygui_text_layout* pTL, easygui_font
     pTL->pDefaultFont = pFont;
 
     // A change in font requires a layout refresh.
-    easygui_refresh_text_layout(pTL);
+    easygui_text_layout__refresh(pTL);
 }
 
-easygui_font* easygui_get_text_layout_default_font(easygui_text_layout* pTL)
+easygui_font* easygui_text_layout_get_default_font(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return NULL;
@@ -630,7 +630,7 @@ easygui_font* easygui_get_text_layout_default_font(easygui_text_layout* pTL)
     return pTL->pDefaultFont;
 }
 
-void easygui_set_text_layout_default_text_color(easygui_text_layout* pTL, easygui_color color)
+void easygui_text_layout_set_default_text_color(easygui_text_layout* pTL, easygui_color color)
 {
     if (pTL == NULL) {
         return;
@@ -639,7 +639,7 @@ void easygui_set_text_layout_default_text_color(easygui_text_layout* pTL, easygu
     pTL->defaultTextColor = color;
 }
 
-easygui_color easygui_get_text_layout_default_text_color(easygui_text_layout* pTL)
+easygui_color easygui_text_layout_get_default_text_color(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return easygui_rgb(0, 0, 0);
@@ -648,7 +648,7 @@ easygui_color easygui_get_text_layout_default_text_color(easygui_text_layout* pT
     return pTL->defaultTextColor;
 }
 
-void easygui_set_text_layout_default_bg_color(easygui_text_layout* pTL, easygui_color color)
+void easygui_text_layout_set_default_bg_color(easygui_text_layout* pTL, easygui_color color)
 {
     if (pTL == NULL) {
         return;
@@ -657,13 +657,13 @@ void easygui_set_text_layout_default_bg_color(easygui_text_layout* pTL, easygui_
     pTL->defaultBackgroundColor = color;
 }
 
-easygui_color easygui_get_text_layout_default_bg_color(easygui_text_layout* pTL)
+easygui_color easygui_text_layout_get_default_bg_color(easygui_text_layout* pTL)
 {
     return pTL->defaultBackgroundColor;
 }
 
 
-void easygui_set_text_layout_tab_size(easygui_text_layout* pTL, unsigned int sizeInSpaces)
+void easygui_text_layout_set_tab_size(easygui_text_layout* pTL, unsigned int sizeInSpaces)
 {
     if (pTL == NULL) {
         return;
@@ -672,11 +672,11 @@ void easygui_set_text_layout_tab_size(easygui_text_layout* pTL, unsigned int siz
     if (pTL->tabSizeInSpaces != sizeInSpaces)
     {
         pTL->tabSizeInSpaces = sizeInSpaces;
-        easygui_refresh_text_layout(pTL);
+        easygui_text_layout__refresh(pTL);
     }
 }
 
-unsigned int easygui_get_text_layout_tab_size(easygui_text_layout* pTL)
+unsigned int easygui_text_layout_get_tab_size(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return 0;
@@ -686,7 +686,7 @@ unsigned int easygui_get_text_layout_tab_size(easygui_text_layout* pTL)
 }
 
 
-void easygui_set_text_layout_horizontal_align(easygui_text_layout* pTL, easygui_text_layout_alignment alignment)
+void easygui_text_layout_set_horizontal_align(easygui_text_layout* pTL, easygui_text_layout_alignment alignment)
 {
     if (pTL == NULL) {
         return;
@@ -695,11 +695,11 @@ void easygui_set_text_layout_horizontal_align(easygui_text_layout* pTL, easygui_
     if (pTL->horzAlign != alignment)
     {
         pTL->horzAlign = alignment;
-        easygui_refresh_text_layout_alignment(pTL);
+        easygui_text_layout__refresh_alignment(pTL);
     }
 }
 
-easygui_text_layout_alignment easygui_get_text_layout_horizontal_align(easygui_text_layout* pTL)
+easygui_text_layout_alignment easygui_text_layout_get_horizontal_align(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return easygui_text_layout_alignment_left;
@@ -708,7 +708,7 @@ easygui_text_layout_alignment easygui_get_text_layout_horizontal_align(easygui_t
     return pTL->horzAlign;
 }
 
-void easygui_set_text_layout_vertical_align(easygui_text_layout* pTL, easygui_text_layout_alignment alignment)
+void easygui_text_layout_set_vertical_align(easygui_text_layout* pTL, easygui_text_layout_alignment alignment)
 {
     if (pTL == NULL) {
         return;
@@ -717,11 +717,11 @@ void easygui_set_text_layout_vertical_align(easygui_text_layout* pTL, easygui_te
     if (pTL->vertAlign != alignment)
     {
         pTL->vertAlign = alignment;
-        easygui_refresh_text_layout_alignment(pTL);
+        easygui_text_layout__refresh_alignment(pTL);
     }
 }
 
-easygui_text_layout_alignment easygui_get_text_layout_vertical_align(easygui_text_layout* pTL)
+easygui_text_layout_alignment easygui_text_layout_get_vertical_align(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return easygui_text_layout_alignment_top;
@@ -731,7 +731,7 @@ easygui_text_layout_alignment easygui_get_text_layout_vertical_align(easygui_tex
 }
 
 
-easygui_rect easygui_get_text_layout_text_rect_relative_to_bounds(easygui_text_layout* pTL)
+easygui_rect easygui_text_layout_get_text_rect_relative_to_bounds(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return easygui_make_rect(0, 0, 0, 0);
@@ -799,7 +799,7 @@ easygui_rect easygui_get_text_layout_text_rect_relative_to_bounds(easygui_text_l
 }
 
 
-void easygui_set_text_layout_cursor_width(easygui_text_layout* pTL, float cursorWidth)
+void easygui_text_layout_set_cursor_width(easygui_text_layout* pTL, float cursorWidth)
 {
     if (pTL == NULL) {
         return;
@@ -808,7 +808,7 @@ void easygui_set_text_layout_cursor_width(easygui_text_layout* pTL, float cursor
     pTL->cursorWidth = cursorWidth;
 }
 
-float easygui_get_text_layout_cursor_width(easygui_text_layout* pTL)
+float easygui_text_layout_get_cursor_width(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return 0;
@@ -817,7 +817,7 @@ float easygui_get_text_layout_cursor_width(easygui_text_layout* pTL)
     return pTL->cursorWidth;
 }
 
-void easygui_set_text_layout_cursor_color(easygui_text_layout* pTL, easygui_color cursorColor)
+void easygui_text_layout_set_cursor_color(easygui_text_layout* pTL, easygui_color cursorColor)
 {
     if (pTL == NULL) {
         return;
@@ -826,7 +826,7 @@ void easygui_set_text_layout_cursor_color(easygui_text_layout* pTL, easygui_colo
     pTL->cursorColor = cursorColor;
 }
 
-easygui_color easygui_get_text_layout_cursor_color(easygui_text_layout* pTL)
+easygui_color easygui_text_layout_get_cursor_color(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return easygui_rgb(0, 0, 0);
@@ -835,7 +835,7 @@ easygui_color easygui_get_text_layout_cursor_color(easygui_text_layout* pTL)
     return pTL->cursorColor;
 }
 
-void easygui_move_text_layout_cursor_to_point(easygui_text_layout* pTL, float posX, float posY)
+void easygui_text_layout_move_cursor_to_point(easygui_text_layout* pTL, float posX, float posY)
 {
     if (pTL == NULL) {
         return;
@@ -843,28 +843,28 @@ void easygui_move_text_layout_cursor_to_point(easygui_text_layout* pTL, float po
 
     unsigned int iRunOld  = pTL->cursor.iRun;
     unsigned int iCharOld = pTL->cursor.iChar;
-    easygui_move_marker_to_point_relative_to_container(pTL, &pTL->cursor, posX, posY);
+    easygui_text_layout__move_marker_to_point_relative_to_container(pTL, &pTL->cursor, posX, posY);
 
     if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
         pTL->onCursorMove(pTL);
     }
 
 
-    if (easygui_is_text_layout_in_selection_mode(pTL)) {
-        pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+    if (easygui_text_layout_is_in_selection_mode(pTL)) {
+        pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
     }
 }
 
-void easygui_get_text_layout_cursor_position(easygui_text_layout* pTL, float* pPosXOut, float* pPosYOut)
+void easygui_text_layout_get_cursor_position(easygui_text_layout* pTL, float* pPosXOut, float* pPosYOut)
 {
     if (pTL == NULL) {
         return;
     }
 
-    easygui_get_marker_position_relative_to_container(pTL, &pTL->cursor, pPosXOut, pPosYOut);
+    easygui_text_layout__get_marker_position_relative_to_container(pTL, &pTL->cursor, pPosXOut, pPosYOut);
 }
 
-easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL)
+easygui_rect easygui_text_layout_get_cursor_rect(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return easygui_make_rect(0, 0, 0, 0);
@@ -874,7 +874,7 @@ easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL)
 
     if (pTL->runCount > 0)
     {
-        easygui_find_text_layout_line_info_by_index(pTL, pTL->pRuns[pTL->cursor.iRun].iLine, &lineRect, NULL, NULL);
+        easygui_text_layout__find_line_info_by_index(pTL, pTL->pRuns[pTL->cursor.iRun].iLine, &lineRect, NULL, NULL);
     }
     else if (pTL->pDefaultFont != NULL)
     { 
@@ -891,7 +891,7 @@ easygui_rect easygui_get_text_layout_cursor_rect(easygui_text_layout* pTL)
 
     float cursorPosX;
     float cursorPosY;
-    easygui_get_text_layout_cursor_position(pTL, &cursorPosX, &cursorPosY);
+    easygui_text_layout_get_cursor_position(pTL, &cursorPosX, &cursorPosY);
 
     return easygui_make_rect(cursorPosX, cursorPosY, cursorPosX + pTL->cursorWidth, cursorPosY + (lineRect.bottom - lineRect.top));
 }
@@ -905,7 +905,7 @@ unsigned int easygui_text_layout_get_cursor_line(easygui_text_layout* pTL)
     return pTL->pRuns[pTL->cursor.iRun].iLine;
 }
 
-bool easygui_move_text_layout_cursor_left(easygui_text_layout* pTL)
+bool easygui_text_layout_move_cursor_left(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
@@ -913,9 +913,9 @@ bool easygui_move_text_layout_cursor_left(easygui_text_layout* pTL)
 
     unsigned int iRunOld  = pTL->cursor.iRun;
     unsigned int iCharOld = pTL->cursor.iChar;
-    if (easygui_move_marker_left(pTL, &pTL->cursor)) {
-        if (easygui_is_text_layout_in_selection_mode(pTL)) {
-            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+    if (easygui_text_layout__move_marker_left(pTL, &pTL->cursor)) {
+        if (easygui_text_layout_is_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
         if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
@@ -928,7 +928,7 @@ bool easygui_move_text_layout_cursor_left(easygui_text_layout* pTL)
     return false;
 }
 
-bool easygui_move_text_layout_cursor_right(easygui_text_layout* pTL)
+bool easygui_text_layout_move_cursor_right(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
@@ -936,9 +936,9 @@ bool easygui_move_text_layout_cursor_right(easygui_text_layout* pTL)
 
     unsigned int iRunOld  = pTL->cursor.iRun;
     unsigned int iCharOld = pTL->cursor.iChar;
-    if (easygui_move_marker_right(pTL, &pTL->cursor)) {
-        if (easygui_is_text_layout_in_selection_mode(pTL)) {
-            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+    if (easygui_text_layout__move_marker_right(pTL, &pTL->cursor)) {
+        if (easygui_text_layout_is_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
         if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
@@ -951,7 +951,7 @@ bool easygui_move_text_layout_cursor_right(easygui_text_layout* pTL)
     return false;
 }
 
-bool easygui_move_text_layout_cursor_up(easygui_text_layout* pTL)
+bool easygui_text_layout_move_cursor_up(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
@@ -959,9 +959,9 @@ bool easygui_move_text_layout_cursor_up(easygui_text_layout* pTL)
 
     unsigned int iRunOld  = pTL->cursor.iRun;
     unsigned int iCharOld = pTL->cursor.iChar;
-    if (easygui_move_marker_up(pTL, &pTL->cursor)) {
-        if (easygui_is_text_layout_in_selection_mode(pTL)) {
-            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+    if (easygui_text_layout__move_marker_up(pTL, &pTL->cursor)) {
+        if (easygui_text_layout_is_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
         if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
@@ -974,7 +974,7 @@ bool easygui_move_text_layout_cursor_up(easygui_text_layout* pTL)
     return false;
 }
 
-bool easygui_move_text_layout_cursor_down(easygui_text_layout* pTL)
+bool easygui_text_layout_move_cursor_down(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
@@ -982,9 +982,9 @@ bool easygui_move_text_layout_cursor_down(easygui_text_layout* pTL)
 
     unsigned int iRunOld  = pTL->cursor.iRun;
     unsigned int iCharOld = pTL->cursor.iChar;
-    if (easygui_move_marker_down(pTL, &pTL->cursor)) {
-        if (easygui_is_text_layout_in_selection_mode(pTL)) {
-            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+    if (easygui_text_layout__move_marker_down(pTL, &pTL->cursor)) {
+        if (easygui_text_layout_is_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
         if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
@@ -997,7 +997,7 @@ bool easygui_move_text_layout_cursor_down(easygui_text_layout* pTL)
     return false;
 }
 
-bool easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL)
+bool easygui_text_layout_move_cursor_to_end_of_line(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
@@ -1005,9 +1005,9 @@ bool easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL)
 
     unsigned int iRunOld  = pTL->cursor.iRun;
     unsigned int iCharOld = pTL->cursor.iChar;
-    if (easygui_move_marker_to_end_of_line(pTL, &pTL->cursor)) {
-        if (easygui_is_text_layout_in_selection_mode(pTL)) {
-            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+    if (easygui_text_layout__move_marker_to_end_of_line(pTL, &pTL->cursor)) {
+        if (easygui_text_layout_is_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
         if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
@@ -1020,7 +1020,7 @@ bool easygui_move_text_layout_cursor_to_end_of_line(easygui_text_layout* pTL)
     return false;
 }
 
-bool easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL)
+bool easygui_text_layout_move_cursor_to_start_of_line(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
@@ -1028,9 +1028,9 @@ bool easygui_move_text_layout_cursor_to_start_of_line(easygui_text_layout* pTL)
 
     unsigned int iRunOld  = pTL->cursor.iRun;
     unsigned int iCharOld = pTL->cursor.iChar;
-    if (easygui_move_marker_to_start_of_line(pTL, &pTL->cursor)) {
-        if (easygui_is_text_layout_in_selection_mode(pTL)) {
-            pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+    if (easygui_text_layout__move_marker_to_start_of_line(pTL, &pTL->cursor)) {
+        if (easygui_text_layout_is_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
         if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
@@ -1053,7 +1053,7 @@ void easygui_text_layout_set_on_cursor_move(easygui_text_layout* pTL, easygui_te
 }
 
 
-bool easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigned int character, unsigned int insertIndex)
+bool easygui_text_layout_insert_character(easygui_text_layout* pTL, unsigned int character, unsigned int insertIndex)
 {
     if (pTL == NULL) {
         return false;
@@ -1089,41 +1089,12 @@ bool easygui_insert_character_into_text_layout(easygui_text_layout* pTL, unsigne
 
 
     // The layout will have changed so it needs to be refreshed.
-    easygui_refresh_text_layout(pTL);
+    easygui_text_layout__refresh(pTL);
 
     return true;
 }
 
-bool easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1)
-{
-    if (pTL == NULL || iLastChPlus1 == iFirstCh) {
-        return false;
-    }
-
-    if (iFirstCh > iLastChPlus1) {
-        unsigned int temp = iFirstCh;
-        iFirstCh = iLastChPlus1;
-        iLastChPlus1 = temp;
-    }
-
-
-    unsigned int bytesToRemove = iLastChPlus1 - iFirstCh;
-    if (bytesToRemove > 0)
-    {
-        memmove(pTL->text + iFirstCh, pTL->text + iLastChPlus1, pTL->textLength - iLastChPlus1);
-        pTL->textLength -= bytesToRemove;
-        pTL->text[pTL->textLength] = '\0';
-
-        // The layout will have changed.
-        easygui_refresh_text_layout(pTL);
-
-        return true;
-    }
-
-    return false;
-}
-
-bool easygui_text_layout_insert_text_at(easygui_text_layout* pTL, const char* text, unsigned int insertIndex)
+bool easygui_text_layout_insert_text(easygui_text_layout* pTL, const char* text, unsigned int insertIndex)
 {
     if (pTL == NULL || text == NULL) {
         return false;;
@@ -1174,12 +1145,41 @@ bool easygui_text_layout_insert_text_at(easygui_text_layout* pTL, const char* te
 
 
     // The layout will have changed so it needs to be refreshed.
-    easygui_refresh_text_layout(pTL);
+    easygui_text_layout__refresh(pTL);
 
     return true;
 }
 
-bool easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character)
+bool easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1)
+{
+    if (pTL == NULL || iLastChPlus1 == iFirstCh) {
+        return false;
+    }
+
+    if (iFirstCh > iLastChPlus1) {
+        unsigned int temp = iFirstCh;
+        iFirstCh = iLastChPlus1;
+        iLastChPlus1 = temp;
+    }
+
+
+    unsigned int bytesToRemove = iLastChPlus1 - iFirstCh;
+    if (bytesToRemove > 0)
+    {
+        memmove(pTL->text + iFirstCh, pTL->text + iLastChPlus1, pTL->textLength - iLastChPlus1);
+        pTL->textLength -= bytesToRemove;
+        pTL->text[pTL->textLength] = '\0';
+
+        // The layout will have changed.
+        easygui_text_layout__refresh(pTL);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool easygui_text_layout_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int character)
 {
     if (pTL == NULL) {
         return false;
@@ -1193,14 +1193,14 @@ bool easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int c
     }
     
 
-    easygui_insert_character_into_text_layout(pTL, character, iAbsoluteMarkerChar);
+    easygui_text_layout_insert_character(pTL, character, iAbsoluteMarkerChar);
 
 
     // The marker needs to be updated based on the new layout and it's new position, which is one character ahead.
-    easygui_move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar + 1);
+    easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar + 1);
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
-    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+    easygui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
 
 
     if (pTL->onCursorMove) {
@@ -1210,21 +1210,21 @@ bool easygui_insert_character_at_cursor(easygui_text_layout* pTL, unsigned int c
     return true;
 }
 
-bool easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
+bool easygui_text_layout_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
 {
     if (pTL == NULL || text == NULL) {
         return false;
     }
 
     unsigned int cursorPos = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
-    easygui_text_layout_insert_text_at(pTL, text, cursorPos);
+    easygui_text_layout_insert_text(pTL, text, cursorPos);
 
 
     // The marker needs to be updated based on the new layout and it's new position, which is one character ahead.
-    easygui_move_marker_to_character(pTL, &pTL->cursor, cursorPos + strlen(text));
+    easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, cursorPos + strlen(text));
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
-    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+    easygui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
 
 
     if (pTL->onCursorMove) {
@@ -1234,22 +1234,22 @@ bool easygui_insert_text_at_cursor(easygui_text_layout* pTL, const char* text)
     return true;
 }
 
-bool easygui_delete_character_to_left_of_cursor(easygui_text_layout* pTL)
+bool easygui_text_layout_delete_character_to_left_of_cursor(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;;
     }
 
     // We just move the cursor to the left, and then delete the character to the right.
-    if (easygui_move_text_layout_cursor_left(pTL)) {
-        easygui_delete_character_to_right_of_cursor(pTL);
+    if (easygui_text_layout_move_cursor_left(pTL)) {
+        easygui_text_layout_delete_character_to_right_of_cursor(pTL);
         return true;
     }
 
     return false;
 }
 
-bool easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
+bool easygui_text_layout_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return false;
@@ -1271,11 +1271,11 @@ bool easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
 
 
         // The layout will have changed.
-        easygui_refresh_text_layout(pTL);
+        easygui_text_layout__refresh(pTL);
 
 
         // The marker needs to be updated based on the new layout.
-        //easygui_move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar);
+        //easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar);
 
         return true;
     }
@@ -1283,10 +1283,10 @@ bool easygui_delete_character_to_right_of_cursor(easygui_text_layout* pTL)
     return false;
 }
 
-bool easygui_delete_selected_text(easygui_text_layout* pTL)
+bool easygui_text_layout_delete_selected_text(easygui_text_layout* pTL)
 {
     // Don't do anything if nothing is selected.
-    if (!easygui_is_anything_selected_in_text_layout(pTL)) {
+    if (!easygui_text_layout_is_anything_selected(pTL)) {
         return false;
     }
 
@@ -1306,10 +1306,10 @@ bool easygui_delete_selected_text(easygui_text_layout* pTL)
     if (wasTextChanged)
     {
         // The marker needs to be updated based on the new layout.
-        easygui_move_marker_to_character(pTL, &pTL->cursor, iSelectionChar0);
+        easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, iSelectionChar0);
 
         // The cursor's sticky position also needs to be updated.
-        easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+        easygui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
 
         if (pTL->onCursorMove) {
             pTL->onCursorMove(pTL);
@@ -1325,21 +1325,21 @@ bool easygui_delete_selected_text(easygui_text_layout* pTL)
 }
 
 
-void easygui_enter_selection_mode(easygui_text_layout* pTL)
+void easygui_text_layout_enter_selection_mode(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return;
     }
 
     // If we've just entered selection mode and nothing is currently selected, we want to set the selection anchor to the current cursor position.
-    if (!easygui_is_text_layout_in_selection_mode(pTL) && !pTL->isAnythingSelected) {
+    if (!easygui_text_layout_is_in_selection_mode(pTL) && !pTL->isAnythingSelected) {
         pTL->selectionAnchor = pTL->cursor;
     }
 
     pTL->selectionModeCounter += 1;
 }
 
-void easygui_leave_selection_mode(easygui_text_layout* pTL)
+void easygui_text_layout_leave_selection_mode(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return;
@@ -1350,7 +1350,7 @@ void easygui_leave_selection_mode(easygui_text_layout* pTL)
     }
 }
 
-bool easygui_is_text_layout_in_selection_mode(easygui_text_layout* pTL)
+bool easygui_text_layout_is_in_selection_mode(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
@@ -1359,7 +1359,7 @@ bool easygui_is_text_layout_in_selection_mode(easygui_text_layout* pTL)
     return pTL->selectionModeCounter > 0;
 }
 
-bool easygui_is_anything_selected_in_text_layout(easygui_text_layout* pTL)
+bool easygui_text_layout_is_anything_selected(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
@@ -1368,7 +1368,7 @@ bool easygui_is_anything_selected_in_text_layout(easygui_text_layout* pTL)
     return pTL->isAnythingSelected;
 }
 
-void easygui_deselect_all_in_text_layout(easygui_text_layout* pTL)
+void easygui_text_layout_deselect_all(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return;
@@ -1383,10 +1383,10 @@ void easygui_text_layout_select_all(easygui_text_layout* pTL)
         return;
     }
 
-    easygui_move_marker_to_start_of_text(pTL, &pTL->selectionAnchor);
-    easygui_move_marker_to_end_of_text(pTL, &pTL->cursor);
+    easygui_text_layout__move_marker_to_start_of_text(pTL, &pTL->selectionAnchor);
+    easygui_text_layout__move_marker_to_end_of_text(pTL, &pTL->cursor);
 
-    pTL->isAnythingSelected = easygui_has_spacing_between_selection_markers(pTL);
+    pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
 
     if (pTL->onCursorMove) {
         pTL->onCursorMove(pTL);
@@ -1399,7 +1399,7 @@ size_t easygui_text_layout_get_selected_text(easygui_text_layout* pTL, char* tex
         return 0;
     }
 
-    if (!easygui_is_anything_selected_in_text_layout(pTL)) {
+    if (!easygui_text_layout_is_anything_selected(pTL)) {
         return 0;
     }
 
@@ -1578,7 +1578,7 @@ void easygui_text_layout_clear_undo_stack(easygui_text_layout* pTL)
 
 
 
-unsigned int easygui_get_text_layout_line_count(easygui_text_layout* pTL)
+unsigned int easygui_text_layout_get_line_count(easygui_text_layout* pTL)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
@@ -1587,7 +1587,7 @@ unsigned int easygui_get_text_layout_line_count(easygui_text_layout* pTL)
     return pTL->pRuns[pTL->runCount - 1].iLine + 1;
 }
 
-unsigned int easygui_get_visible_line_count_starting_at(easygui_text_layout* pTL, unsigned int iFirstLine)
+unsigned int easygui_text_layout_get_visible_line_count_starting_at(easygui_text_layout* pTL, unsigned int iFirstLine)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
@@ -1648,10 +1648,10 @@ unsigned int easygui_get_visible_line_count_starting_at(easygui_text_layout* pTL
     return count;
 }
 
-float easygui_get_text_layout_line_pos_y(easygui_text_layout* pTL, unsigned int iLine)
+float easygui_text_layout_get_line_pos_y(easygui_text_layout* pTL, unsigned int iLine)
 {
     easygui_rect lineRect;
-    if (!easygui_find_text_layout_line_info_by_index(pTL, iLine, &lineRect, NULL, NULL)) {
+    if (!easygui_text_layout__find_line_info_by_index(pTL, iLine, &lineRect, NULL, NULL)) {
         return 0;
     }
 
@@ -1706,7 +1706,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
 
 
     // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
-    easygui_rect textRect = easygui_get_text_layout_text_rect_relative_to_bounds(pTL);
+    easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
 
     // We draw a rectangle above and below the text rectangle. The main text rectangle will be drawn by iterating over each visible run.
     easygui_rect rectTop    = easygui_make_rect(0, 0, pTL->containerWidth, textRect.top);
@@ -1743,7 +1743,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                     float lineSelectionOverhangLeft  = 0;
                     float lineSelectionOverhangRight = 0;
 
-                    if (easygui_is_anything_selected_in_text_layout(pTL))
+                    if (easygui_text_layout_is_anything_selected(pTL))
                     {
                         easygui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
                         easygui_text_marker* pSelectionMarker1 = &pTL->cursor;
@@ -1812,7 +1812,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                         if (runRight > 0 && runLeft < pTL->containerWidth)
                         {
                             // The run is visible.
-                            if (!easygui_is_text_run_whitespace(pTL, pRun) || pTL->text[pRun->iChar] == '\t')
+                            if (!easygui_text_layout__is_text_run_whitespace(pTL, pRun) || pTL->text[pRun->iChar] == '\t')
                             {
                                 easygui_text_run run = pTL->pRuns[iRun];
                                 run.pFont           = pTL->pDefaultFont;
@@ -1824,15 +1824,15 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
 
                                 // We paint the run differently depending on whether or not anything is selected. If something is selected
                                 // we need to split the run into a maximum of 3 sub-runs so that the selection rectangle can be drawn correctly.
-                                if (easygui_is_anything_selected_in_text_layout(pTL))
+                                if (easygui_text_layout_is_anything_selected(pTL))
                                 {
                                     easygui_text_run subruns[3];
-                                    unsigned int subrunCount = easygui_split_text_run_by_selection(pTL, &run, subruns);
+                                    unsigned int subrunCount = easygui_text_layout__split_text_run_by_selection(pTL, &run, subruns);
                                     for (unsigned int iSubRun = 0; iSubRun < subrunCount; ++iSubRun)
                                     {
                                         easygui_text_run* pSubRun = subruns + iSubRun;
 
-                                        if (!easygui_is_text_run_whitespace(pTL, pRun)) {
+                                        if (!easygui_text_layout__is_text_run_whitespace(pTL, pRun)) {
                                             pTL->onPaintText(pTL, pSubRun, pUserData);
                                         } else {
                                             pTL->onPaintRect(pTL, easygui_make_rect(pSubRun->posX, lineTop, pSubRun->posX + pSubRun->width, lineBottom), pSubRun->backgroundColor, pUserData);
@@ -1842,7 +1842,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                                 else
                                 {
                                     // Nothing is selected.
-                                    if (!easygui_is_text_run_whitespace(pTL, &run)) {
+                                    if (!easygui_text_layout__is_text_run_whitespace(pTL, &run)) {
                                         pTL->onPaintText(pTL, &run, pUserData);
                                     } else {
                                         pTL->onPaintRect(pTL, easygui_make_rect(run.posX, lineTop, run.posX + run.width, lineBottom), run.backgroundColor, pUserData);
@@ -1918,7 +1918,7 @@ PRIVATE bool easygui_next_run_string(const char* runStart, const char* textEndPa
     return true;
 }
 
-PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
+PRIVATE void easygui_text_layout__refresh(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return;
@@ -1931,7 +1931,7 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
     // based on alignment.
 
     // Runs need to be cleared first.
-    easygui_clear_text_runs(pTL);
+    easygui_text_layout__clear_text_runs(pTL);
 
     // The text bounds also need to be reset at the top.
     pTL->textBoundsWidth  = 0;
@@ -1943,7 +1943,7 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
     easygui_font_metrics defaultFontMetrics;
     easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics);
 
-    const float tabWidth = easygui_get_text_layout_tab_width(pTL);
+    const float tabWidth = easygui_text_layout__get_tab_width(pTL);
 
     unsigned int iCurrentLine  = 0;
     float runningPosY       = 0;
@@ -2031,7 +2031,7 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
         }
 
         // Add the run to the internal list.
-        easygui_push_text_run(pTL, &run);
+        easygui_text_layout__push_text_run(pTL, &run);
 
         // Go to the next run string.
         nextRunStart = nextRunEnd;
@@ -2040,11 +2040,11 @@ PRIVATE void easygui_refresh_text_layout(easygui_text_layout* pTL)
     // If we were to return now the text would be alignment top/left. If the alignment is not top/left we need to refresh the layout.
     if (pTL->horzAlign != easygui_text_layout_alignment_left || pTL->vertAlign != easygui_text_layout_alignment_top)
     {
-        easygui_refresh_text_layout_alignment(pTL);
+        easygui_text_layout__refresh_alignment(pTL);
     }
 }
 
-PRIVATE void easygui_refresh_text_layout_alignment(easygui_text_layout* pTL)
+PRIVATE void easygui_text_layout__refresh_alignment(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return;
@@ -2076,7 +2076,7 @@ PRIVATE void easygui_refresh_text_layout_alignment(easygui_text_layout* pTL)
         // The actual alignment is done here.
         float lineOffsetX;
         float lineOffsetY;
-        easygui_calculate_line_alignment_offset(pTL, lineWidth, OUT &lineOffsetX, OUT &lineOffsetY);
+        easygui_text_layout__calculate_line_alignment_offset(pTL, lineWidth, OUT &lineOffsetX, OUT &lineOffsetY);
 
         for (DO_NOTHING; iRun < jRun; ++iRun)
         {
@@ -2092,7 +2092,7 @@ PRIVATE void easygui_refresh_text_layout_alignment(easygui_text_layout* pTL)
     }
 }
 
-void easygui_calculate_line_alignment_offset(easygui_text_layout* pTL, float lineWidth, float* pOffsetXOut, float* pOffsetYOut)
+void easygui_text_layout__calculate_line_alignment_offset(easygui_text_layout* pTL, float lineWidth, float* pOffsetXOut, float* pOffsetYOut)
 {
     if (pTL == NULL) {
         return;
@@ -2160,7 +2160,7 @@ void easygui_calculate_line_alignment_offset(easygui_text_layout* pTL, float lin
 }
 
 
-PRIVATE void easygui_push_text_run(easygui_text_layout* pTL, easygui_text_run* pRun)
+PRIVATE void easygui_text_layout__push_text_run(easygui_text_layout* pTL, easygui_text_run* pRun)
 {
     if (pTL == NULL) {
         return;
@@ -2188,7 +2188,7 @@ PRIVATE void easygui_push_text_run(easygui_text_layout* pTL, easygui_text_run* p
     pTL->runCount += 1;
 }
 
-PRIVATE void easygui_clear_text_runs(easygui_text_layout* pTL)
+PRIVATE void easygui_text_layout__clear_text_runs(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return;
@@ -2197,7 +2197,7 @@ PRIVATE void easygui_clear_text_runs(easygui_text_layout* pTL)
     pTL->runCount = 0;
 }
 
-PRIVATE bool easygui_is_text_run_whitespace(easygui_text_layout* pTL, easygui_text_run* pRun)
+PRIVATE bool easygui_text_layout__is_text_run_whitespace(easygui_text_layout* pTL, easygui_text_run* pRun)
 {
     if (pRun == NULL) {
         return false;
@@ -2211,7 +2211,7 @@ PRIVATE bool easygui_is_text_run_whitespace(easygui_text_layout* pTL, easygui_te
     return true;
 }
 
-PRIVATE float easygui_get_text_layout_tab_width(easygui_text_layout* pTL)
+PRIVATE float easygui_text_layout__get_tab_width(easygui_text_layout* pTL)
 {
     easygui_font_metrics defaultFontMetrics;
     easygui_get_font_metrics(pTL->pDefaultFont, 1, 1, &defaultFontMetrics);
@@ -2220,7 +2220,7 @@ PRIVATE float easygui_get_text_layout_tab_width(easygui_text_layout* pTL)
 }
 
 
-PRIVATE bool easygui_find_closest_line_to_point(easygui_text_layout* pTL, float inputPosYRelativeToText, unsigned int* pFirstRunIndexOnLineOut, unsigned int* pLastRunIndexOnLinePlus1Out)
+PRIVATE bool easygui_text_layout__find_closest_line_to_point(easygui_text_layout* pTL, float inputPosYRelativeToText, unsigned int* pFirstRunIndexOnLineOut, unsigned int* pLastRunIndexOnLinePlus1Out)
 {
     if (pTL == NULL) {
         return false;
@@ -2234,7 +2234,7 @@ PRIVATE bool easygui_find_closest_line_to_point(easygui_text_layout* pTL, float 
         float runningLineTop = 0;
 
         float lineHeight;
-        while (easygui_find_text_layout_line_info(pTL, iFirstRunOnLine, OUT &iLastRunOnLinePlus1, OUT &lineHeight))
+        while (easygui_text_layout__find_line_info(pTL, iFirstRunOnLine, OUT &iLastRunOnLinePlus1, OUT &lineHeight))
         {
             const float lineTop    = runningLineTop;
             const float lineBottom = lineTop + lineHeight;
@@ -2265,7 +2265,7 @@ PRIVATE bool easygui_find_closest_line_to_point(easygui_text_layout* pTL, float 
     return false;
 }
 
-PRIVATE bool easygui_find_closest_run_to_point(easygui_text_layout* pTL, float inputPosXRelativeToText, float inputPosYRelativeToText, unsigned int* pRunIndexOut)
+PRIVATE bool easygui_text_layout__find_closest_run_to_point(easygui_text_layout* pTL, float inputPosXRelativeToText, float inputPosYRelativeToText, unsigned int* pRunIndexOut)
 {
     if (pTL == NULL) {
         return false;
@@ -2273,7 +2273,7 @@ PRIVATE bool easygui_find_closest_run_to_point(easygui_text_layout* pTL, float i
 
     unsigned int iFirstRunOnLine;
     unsigned int iLastRunOnLinePlus1;
-    if (easygui_find_closest_line_to_point(pTL, inputPosYRelativeToText, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
+    if (easygui_text_layout__find_closest_line_to_point(pTL, inputPosYRelativeToText, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
     {
         unsigned int iRunOut = 0;
 
@@ -2318,7 +2318,7 @@ PRIVATE bool easygui_find_closest_run_to_point(easygui_text_layout* pTL, float i
     }
 }
 
-PRIVATE bool easygui_find_text_layout_line_info(easygui_text_layout* pTL, unsigned int iFirstRunOnLine, unsigned int* pLastRunIndexOnLinePlus1Out, float* pLineHeightOut)
+PRIVATE bool easygui_text_layout__find_line_info(easygui_text_layout* pTL, unsigned int iFirstRunOnLine, unsigned int* pLastRunIndexOnLinePlus1Out, float* pLineHeightOut)
 {
     if (pTL == NULL) {
         return false;
@@ -2352,7 +2352,7 @@ PRIVATE bool easygui_find_text_layout_line_info(easygui_text_layout* pTL, unsign
     return false;
 }
 
-PRIVATE bool easygui_find_text_layout_line_info_by_index(easygui_text_layout* pTL, unsigned int iLine, easygui_rect* pRectOut, unsigned int* pFirstRunIndexOut, unsigned int* pLastRunIndexPlus1Out)
+PRIVATE bool easygui_text_layout__find_line_info_by_index(easygui_text_layout* pTL, unsigned int iLine, easygui_rect* pRectOut, unsigned int* pFirstRunIndexOut, unsigned int* pLastRunIndexPlus1Out)
 {
     if (pTL == NULL) {
         return false;
@@ -2368,7 +2368,7 @@ PRIVATE bool easygui_find_text_layout_line_info_by_index(easygui_text_layout* pT
     {
         lineTop += lineHeight;
 
-        if (!easygui_find_text_layout_line_info(pTL, iFirstRunOnLine, &iLastRunOnLinePlus1, &lineHeight))
+        if (!easygui_text_layout__find_line_info(pTL, iFirstRunOnLine, &iLastRunOnLinePlus1, &lineHeight))
         {
             // There was an error retrieving information about the line.
             return false;
@@ -2403,7 +2403,7 @@ PRIVATE bool easygui_find_text_layout_line_info_by_index(easygui_text_layout* pT
     }
 }
 
-PRIVATE bool easygui_find_last_run_on_line_starting_from_run(easygui_text_layout* pTL, unsigned int iRun, unsigned int* pLastRunIndexOnLineOut)
+PRIVATE bool easygui_text_layout__find_last_run_on_line_starting_from_run(easygui_text_layout* pTL, unsigned int iRun, unsigned int* pLastRunIndexOnLineOut)
 {
     if (pTL == NULL) {
         return false;
@@ -2424,7 +2424,7 @@ PRIVATE bool easygui_find_last_run_on_line_starting_from_run(easygui_text_layout
     return true;
 }
 
-PRIVATE bool easygui_find_first_run_on_line_starting_from_run(easygui_text_layout* pTL, unsigned int iRun, unsigned int* pFirstRunIndexOnLineOut)
+PRIVATE bool easygui_text_layout__find_first_run_on_line_starting_from_run(easygui_text_layout* pTL, unsigned int iRun, unsigned int* pFirstRunIndexOnLineOut)
 {
     if (pTL == NULL) {
         return false;
@@ -2445,7 +2445,7 @@ PRIVATE bool easygui_find_first_run_on_line_starting_from_run(easygui_text_layou
     return true;
 }
 
-PRIVATE bool easygui_find_run_at_character(easygui_text_layout* pTL, unsigned int iChar, unsigned int* pRunIndexOut)
+PRIVATE bool easygui_text_layout__find_run_at_character(easygui_text_layout* pTL, unsigned int iChar, unsigned int* pRunIndexOut)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return false;
@@ -2479,7 +2479,7 @@ PRIVATE bool easygui_find_run_at_character(easygui_text_layout* pTL, unsigned in
 }
 
 
-PRIVATE easygui_text_marker easygui_new_text_marker()
+PRIVATE easygui_text_marker easygui_text_layout__new_marker()
 {
     easygui_text_marker marker;
     marker.iRun              = 0;
@@ -2490,7 +2490,7 @@ PRIVATE easygui_text_marker easygui_new_text_marker()
     return marker;
 }
 
-PRIVATE bool easygui_move_marker_to_point_relative_to_container(easygui_text_layout* pTL, easygui_text_marker* pMarker, float inputPosX, float inputPosY)
+PRIVATE bool easygui_text_layout__move_marker_to_point_relative_to_container(easygui_text_layout* pTL, easygui_text_marker* pMarker, float inputPosX, float inputPosY)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
@@ -2501,20 +2501,20 @@ PRIVATE bool easygui_move_marker_to_point_relative_to_container(easygui_text_lay
     pMarker->relativePosX      = 0;
     pMarker->absoluteSickyPosX = 0;
 
-    easygui_rect textRect = easygui_get_text_layout_text_rect_relative_to_bounds(pTL);
+    easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
     
     float inputPosXRelativeToText = inputPosX - textRect.left;
     float inputPosYRelativeToText = inputPosY - textRect.top;
-    if (easygui_move_marker_to_point(pTL, pMarker, inputPosXRelativeToText, inputPosYRelativeToText))
+    if (easygui_text_layout__move_marker_to_point(pTL, pMarker, inputPosXRelativeToText, inputPosYRelativeToText))
     {
-        easygui_update_marker_sticky_position(pTL, pMarker);
+        easygui_text_layout__update_marker_sticky_position(pTL, pMarker);
         return true;
     }
 
     return false;
 }
 
-PRIVATE void easygui_get_marker_position_relative_to_container(easygui_text_layout* pTL, easygui_text_marker* pMarker, float* pPosXOut, float* pPosYOut)
+PRIVATE void easygui_text_layout__get_marker_position_relative_to_container(easygui_text_layout* pTL, easygui_text_marker* pMarker, float* pPosXOut, float* pPosYOut)
 {
     if (pTL == NULL || pMarker == NULL) {
         return;
@@ -2525,7 +2525,7 @@ PRIVATE void easygui_get_marker_position_relative_to_container(easygui_text_layo
 
     if (pMarker->iRun < pTL->runCount)
     {
-        easygui_rect textRect = easygui_get_text_layout_text_rect_relative_to_bounds(pTL);
+        easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
 
         posX = textRect.left + pTL->pRuns[pMarker->iRun].posX + pMarker->relativePosX;
         posY = textRect.top  + pTL->pRuns[pMarker->iRun].posY;
@@ -2540,7 +2540,7 @@ PRIVATE void easygui_get_marker_position_relative_to_container(easygui_text_layo
     }
 }
 
-PRIVATE bool easygui_move_marker_to_point(easygui_text_layout* pTL, easygui_text_marker* pMarker, float inputPosXRelativeToText, float inputPosYRelativeToText)
+PRIVATE bool easygui_text_layout__move_marker_to_point(easygui_text_layout* pTL, easygui_text_marker* pMarker, float inputPosXRelativeToText, float inputPosYRelativeToText)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
@@ -2550,7 +2550,7 @@ PRIVATE bool easygui_move_marker_to_point(easygui_text_layout* pTL, easygui_text
     const float scaleY = 1;
 
     unsigned int iClosestRunToPoint;
-    if (easygui_find_closest_run_to_point(pTL, inputPosXRelativeToText, inputPosYRelativeToText, OUT &iClosestRunToPoint))
+    if (easygui_text_layout__find_closest_run_to_point(pTL, inputPosXRelativeToText, inputPosYRelativeToText, OUT &iClosestRunToPoint))
     {
         const easygui_text_run* pRun = pTL->pRuns + iClosestRunToPoint;
 
@@ -2589,7 +2589,7 @@ PRIVATE bool easygui_move_marker_to_point(easygui_text_layout* pTL, easygui_text
                 pMarker->iChar        = 0;
                 pMarker->relativePosX = 0;
 
-                const float tabWidth = easygui_get_text_layout_tab_width(pTL);
+                const float tabWidth = easygui_text_layout__get_tab_width(pTL);
 
                 float tabLeft = pRun->posX + pMarker->relativePosX;
                 for (DO_NOTHING; pMarker->iChar < pRun->textLength; ++pMarker->iChar)
@@ -2619,7 +2619,7 @@ PRIVATE bool easygui_move_marker_to_point(easygui_text_layout* pTL, easygui_text
 
                 // If we're past the last character in the tab run, we want to move to the start of the next run.
                 if (pMarker->iChar == pRun->textLength) {
-                    easygui_move_marker_to_first_character_of_next_run(pTL, pMarker);
+                    easygui_text_layout__move_marker_to_first_character_of_next_run(pTL, pMarker);
                 }
             }
             else
@@ -2630,7 +2630,7 @@ PRIVATE bool easygui_move_marker_to_point(easygui_text_layout* pTL, easygui_text
                 {
                     // If the marker is past the last character of the run it needs to be moved to the start of the next one.
                     if (pMarker->iChar == pRun->textLength) {
-                        easygui_move_marker_to_first_character_of_next_run(pTL, pMarker);
+                        easygui_text_layout__move_marker_to_first_character_of_next_run(pTL, pMarker);
                     }
                 }
                 else
@@ -2652,7 +2652,7 @@ PRIVATE bool easygui_move_marker_to_point(easygui_text_layout* pTL, easygui_text
     return true;
 }
 
-PRIVATE bool easygui_move_marker_left(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_left(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
@@ -2670,7 +2670,7 @@ PRIVATE bool easygui_move_marker_left(easygui_text_layout* pTL, easygui_text_mar
             const easygui_text_run* pRun = pTL->pRuns + pMarker->iRun;
             if (pTL->text[pRun->iChar] == '\t')
             {
-                const float tabWidth = easygui_get_text_layout_tab_width(pTL);
+                const float tabWidth = easygui_text_layout__get_tab_width(pTL);
 
                 if (pMarker->iChar == 0)
                 {
@@ -2694,20 +2694,20 @@ PRIVATE bool easygui_move_marker_left(easygui_text_layout* pTL, easygui_text_mar
         else
         {
             // We're at the beginning of the run which means we need to transfer the cursor to the end of the previous run.
-            if (!easygui_move_marker_to_last_character_of_prev_run(pTL, pMarker))
+            if (!easygui_text_layout__move_marker_to_last_character_of_prev_run(pTL, pMarker))
             {
                 return false;
             }
         }
 
-        easygui_update_marker_sticky_position(pTL, pMarker);
+        easygui_text_layout__update_marker_sticky_position(pTL, pMarker);
         return true;
     }
 
     return false;
 }
 
-PRIVATE bool easygui_move_marker_right(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_right(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
@@ -2725,7 +2725,7 @@ PRIVATE bool easygui_move_marker_right(easygui_text_layout* pTL, easygui_text_ma
             const easygui_text_run* pRun = pTL->pRuns + pMarker->iRun;
             if (pTL->text[pRun->iChar] == '\t')
             {
-                const float tabWidth = easygui_get_text_layout_tab_width(pTL);
+                const float tabWidth = easygui_text_layout__get_tab_width(pTL);
 
                 pMarker->relativePosX  = tabWidth * ((pRun->posX + (tabWidth*(pMarker->iChar + 0))) / tabWidth);
                 pMarker->relativePosX -= pRun->posX;
@@ -2741,20 +2741,20 @@ PRIVATE bool easygui_move_marker_right(easygui_text_layout* pTL, easygui_text_ma
         else
         {
             // We're at the end of the run which means we need to transfer the cursor to the beginning of the next run.
-            if (!easygui_move_marker_to_first_character_of_next_run(pTL, pMarker))
+            if (!easygui_text_layout__move_marker_to_first_character_of_next_run(pTL, pMarker))
             {
                 return false;
             }
         }
 
-        easygui_update_marker_sticky_position(pTL, pMarker);
+        easygui_text_layout__update_marker_sticky_position(pTL, pMarker);
         return true;
     }
 
     return false;
 }
 
-PRIVATE bool easygui_move_marker_up(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_up(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
         return false;
@@ -2766,11 +2766,11 @@ PRIVATE bool easygui_move_marker_up(easygui_text_layout* pTL, easygui_text_marke
         easygui_rect lineRect;
         unsigned int iFirstRunOnLine;
         unsigned int iLastRunOnLinePlus1;
-        if (easygui_find_text_layout_line_info_by_index(pTL, pOldRun->iLine - 1, OUT &lineRect, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
+        if (easygui_text_layout__find_line_info_by_index(pTL, pOldRun->iLine - 1, OUT &lineRect, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
         {
             float newMarkerPosX = pMarker->absoluteSickyPosX;
             float newMarkerPosY = lineRect.top;
-            easygui_move_marker_to_point(pTL, pMarker, newMarkerPosX, newMarkerPosY);
+            easygui_text_layout__move_marker_to_point(pTL, pMarker, newMarkerPosX, newMarkerPosY);
 
             return true;
         }
@@ -2787,7 +2787,7 @@ PRIVATE bool easygui_move_marker_up(easygui_text_layout* pTL, easygui_text_marke
     }
 }
 
-PRIVATE bool easygui_move_marker_down(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_down(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
         return false;
@@ -2798,11 +2798,11 @@ PRIVATE bool easygui_move_marker_down(easygui_text_layout* pTL, easygui_text_mar
     easygui_rect lineRect;
     unsigned int iFirstRunOnLine;
     unsigned int iLastRunOnLinePlus1;
-    if (easygui_find_text_layout_line_info_by_index(pTL, pOldRun->iLine + 1, OUT &lineRect, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
+    if (easygui_text_layout__find_line_info_by_index(pTL, pOldRun->iLine + 1, OUT &lineRect, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
     {
         float newMarkerPosX = pMarker->absoluteSickyPosX;
         float newMarkerPosY = lineRect.top;
-        easygui_move_marker_to_point(pTL, pMarker, newMarkerPosX, newMarkerPosY);
+        easygui_text_layout__move_marker_to_point(pTL, pMarker, newMarkerPosX, newMarkerPosY);
 
         return true;
     }
@@ -2813,59 +2813,59 @@ PRIVATE bool easygui_move_marker_down(easygui_text_layout* pTL, easygui_text_mar
     }
 }
 
-PRIVATE bool easygui_move_marker_to_end_of_line(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_to_end_of_line(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
     }
 
     unsigned int iLastRunOnLine;
-    if (easygui_find_last_run_on_line_starting_from_run(pTL, pMarker->iRun, &iLastRunOnLine))
+    if (easygui_text_layout__find_last_run_on_line_starting_from_run(pTL, pMarker->iRun, &iLastRunOnLine))
     {
-        return easygui_move_marker_to_last_character_of_run(pTL, pMarker, iLastRunOnLine);
+        return easygui_text_layout__move_marker_to_last_character_of_run(pTL, pMarker, iLastRunOnLine);
     }
 
     return false;
 }
 
-PRIVATE bool easygui_move_marker_to_start_of_line(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_to_start_of_line(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
     }
 
     unsigned int iFirstRunOnLine;
-    if (easygui_find_first_run_on_line_starting_from_run(pTL, pMarker->iRun, &iFirstRunOnLine))
+    if (easygui_text_layout__find_first_run_on_line_starting_from_run(pTL, pMarker->iRun, &iFirstRunOnLine))
     {
-        return easygui_move_marker_to_first_character_of_run(pTL, pMarker, iFirstRunOnLine);
+        return easygui_text_layout__move_marker_to_first_character_of_run(pTL, pMarker, iFirstRunOnLine);
     }
 
     return false;
 }
 
-PRIVATE bool easygui_move_marker_to_end_of_text(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_to_end_of_text(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
     }
 
     if (pTL->runCount > 0) {
-        return easygui_move_marker_to_last_character_of_run(pTL, pMarker, pTL->runCount - 1);
+        return easygui_text_layout__move_marker_to_last_character_of_run(pTL, pMarker, pTL->runCount - 1);
     }
 
     return false;
 }
 
-PRIVATE bool easygui_move_marker_to_start_of_text(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_to_start_of_text(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
     }
 
-    return easygui_move_marker_to_first_character_of_run(pTL, pMarker, 0);
+    return easygui_text_layout__move_marker_to_first_character_of_run(pTL, pMarker, 0);
 }
 
-PRIVATE bool easygui_move_marker_to_last_character_of_run(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iRun)
+PRIVATE bool easygui_text_layout__move_marker_to_last_character_of_run(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iRun)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
@@ -2880,7 +2880,7 @@ PRIVATE bool easygui_move_marker_to_last_character_of_run(easygui_text_layout* p
         if (pMarker->iChar > 0)
         {
             // At this point we are located one character past the last character - we need to move it left.
-            return easygui_move_marker_left(pTL, pMarker);
+            return easygui_text_layout__move_marker_left(pTL, pMarker);
         }
 
         return true;
@@ -2889,7 +2889,7 @@ PRIVATE bool easygui_move_marker_to_last_character_of_run(easygui_text_layout* p
     return false;
 }
 
-PRIVATE bool easygui_move_marker_to_first_character_of_run(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iRun)
+PRIVATE bool easygui_text_layout__move_marker_to_first_character_of_run(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iRun)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
@@ -2907,33 +2907,33 @@ PRIVATE bool easygui_move_marker_to_first_character_of_run(easygui_text_layout* 
     return false;
 }
 
-PRIVATE bool easygui_move_marker_to_last_character_of_prev_run(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_to_last_character_of_prev_run(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
     }
 
     if (pMarker->iRun > 0) {
-        return easygui_move_marker_to_last_character_of_run(pTL, pMarker, pMarker->iRun - 1);
+        return easygui_text_layout__move_marker_to_last_character_of_run(pTL, pMarker, pMarker->iRun - 1);
     }
 
     return false;
 }
 
-PRIVATE bool easygui_move_marker_to_first_character_of_next_run(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__move_marker_to_first_character_of_next_run(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
     }
 
     if (pTL->runCount > 0 && pMarker->iRun < pTL->runCount - 1) {
-        return easygui_move_marker_to_first_character_of_run(pTL, pMarker, pMarker->iRun + 1);
+        return easygui_text_layout__move_marker_to_first_character_of_run(pTL, pMarker, pMarker->iRun + 1);
     }
 
     return false;
 }
 
-PRIVATE bool easygui_move_marker_to_character(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iChar)
+PRIVATE bool easygui_text_layout__move_marker_to_character(easygui_text_layout* pTL, easygui_text_marker* pMarker, unsigned int iChar)
 {
     if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
         return false;
@@ -2944,18 +2944,18 @@ PRIVATE bool easygui_move_marker_to_character(easygui_text_layout* pTL, easygui_
         iChar = pTL->textLength;
     }
 
-    easygui_find_run_at_character(pTL, iChar, &pMarker->iRun);
+    easygui_text_layout__find_run_at_character(pTL, iChar, &pMarker->iRun);
         
     assert(pMarker->iRun < pTL->runCount);
     pMarker->iChar = iChar - pTL->pRuns[pMarker->iRun].iChar;
 
 
     // The relative position depends on whether or not the run is a tab character.
-    return easygui_update_marker_relative_position(pTL, pMarker);
+    return easygui_text_layout__update_marker_relative_position(pTL, pMarker);
 }
 
 
-PRIVATE bool easygui_update_marker_relative_position(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE bool easygui_text_layout__update_marker_relative_position(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
         return false;
@@ -2967,7 +2967,7 @@ PRIVATE bool easygui_update_marker_relative_position(easygui_text_layout* pTL, e
     const easygui_text_run* pRun = pTL->pRuns + pMarker->iRun;
     if (pTL->text[pRun->iChar] == '\t')
     {
-        const float tabWidth = easygui_get_text_layout_tab_width(pTL);
+        const float tabWidth = easygui_text_layout__get_tab_width(pTL);
 
         if (pMarker->iChar == 0)
         {
@@ -2988,7 +2988,7 @@ PRIVATE bool easygui_update_marker_relative_position(easygui_text_layout* pTL, e
     }
 }
 
-PRIVATE void easygui_update_marker_sticky_position(easygui_text_layout* pTL, easygui_text_marker* pMarker)
+PRIVATE void easygui_text_layout__update_marker_sticky_position(easygui_text_layout* pTL, easygui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL) {
         return;
@@ -3007,7 +3007,7 @@ PRIVATE unsigned int easygui_text_layout__get_marker_absolute_char_index(easygui
 }
 
 
-PRIVATE bool easygui_has_spacing_between_selection_markers(easygui_text_layout* pTL)
+PRIVATE bool easygui_text_layout__has_spacing_between_selection_markers(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return false;
@@ -3016,7 +3016,7 @@ PRIVATE bool easygui_has_spacing_between_selection_markers(easygui_text_layout* 
     return (pTL->cursor.iRun != pTL->selectionAnchor.iRun || pTL->cursor.iChar != pTL->selectionAnchor.iChar);
 }
 
-PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pTL, easygui_text_run* pRunToSplit, easygui_text_run pSubRunsOut[3])
+PRIVATE unsigned int easygui_text_layout__split_text_run_by_selection(easygui_text_layout* pTL, easygui_text_run* pRunToSplit, easygui_text_run pSubRunsOut[3])
 {
     if (pTL == NULL || pRunToSplit == NULL || pSubRunsOut == NULL) {
         return 0;
@@ -3037,7 +3037,7 @@ PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pT
     unsigned int iSelectionChar0 = pSelectionRun0->iChar + pSelectionMarker0->iChar;
     unsigned int iSelectionChar1 = pSelectionRun1->iChar + pSelectionMarker1->iChar;
 
-    if (easygui_is_anything_selected_in_text_layout(pTL))
+    if (easygui_text_layout_is_anything_selected(pTL))
     {
         if (pRunToSplit->iChar < iSelectionChar1 && pRunToSplit->iCharEnd > iSelectionChar0)
         {
@@ -3138,7 +3138,7 @@ PRIVATE unsigned int easygui_split_text_run_by_selection(easygui_text_layout* pT
 
 PRIVATE bool easygui_text_layout__is_run_selected(easygui_text_layout* pTL, unsigned int iRun)
 {
-    if (easygui_is_anything_selected_in_text_layout(pTL))
+    if (easygui_text_layout_is_anything_selected(pTL))
     {
         easygui_text_marker* pSelectionMarker0;
         easygui_text_marker* pSelectionMarker1;
@@ -3161,7 +3161,7 @@ PRIVATE bool easygui_text_layout__get_selection_markers(easygui_text_layout* pTL
 
     easygui_text_marker* pSelectionMarker0 = NULL;
     easygui_text_marker* pSelectionMarker1 = NULL;
-    if (pTL != NULL && easygui_is_anything_selected_in_text_layout(pTL))
+    if (pTL != NULL && easygui_text_layout_is_anything_selected(pTL))
     {
         pSelectionMarker0 = &pTL->selectionAnchor;
         pSelectionMarker1 = &pTL->cursor;
@@ -3387,15 +3387,15 @@ PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, eas
     easygui_text_layout_delete_text_range(pTL, pUndoState->diffPos, pUndoState->diffPos + strlen(pUndoState->newText));        // TODO: Replace this with a raw string replace. This will rebuild the text runs which is needlessly inefficient.
 
     // Insert the old text.
-    easygui_text_layout_insert_text_at(pTL, pUndoState->oldText, pUndoState->diffPos);
+    easygui_text_layout_insert_text(pTL, pUndoState->oldText, pUndoState->diffPos);
 
 
     // Markers needs to be updated after refreshing the layout.
-    easygui_move_marker_to_character(pTL, &pTL->cursor, pUndoState->oldState.cursorPos);
-    easygui_move_marker_to_character(pTL, &pTL->selectionAnchor, pUndoState->oldState.selectionAnchorPos);
+    easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, pUndoState->oldState.cursorPos);
+    easygui_text_layout__move_marker_to_character(pTL, &pTL->selectionAnchor, pUndoState->oldState.selectionAnchorPos);
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
-    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+    easygui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
     
     // Ensure we mark the text as selected if appropriate.
     pTL->isAnythingSelected = pUndoState->oldState.isAnythingSelected;
@@ -3413,15 +3413,15 @@ PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, eas
     easygui_text_layout_delete_text_range(pTL, pUndoState->diffPos, pUndoState->diffPos + strlen(pUndoState->oldText));        // TODO: Replace this with a raw string replace. This will rebuild the text runs which is needlessly inefficient.
 
     // Insert the new text.
-    easygui_text_layout_insert_text_at(pTL, pUndoState->newText, pUndoState->diffPos);
+    easygui_text_layout_insert_text(pTL, pUndoState->newText, pUndoState->diffPos);
 
 
     // Markers needs to be updated after refreshing the layout.
-    easygui_move_marker_to_character(pTL, &pTL->cursor, pUndoState->newState.cursorPos);
-    easygui_move_marker_to_character(pTL, &pTL->selectionAnchor, pUndoState->newState.selectionAnchorPos);
+    easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, pUndoState->newState.cursorPos);
+    easygui_text_layout__move_marker_to_character(pTL, &pTL->selectionAnchor, pUndoState->newState.selectionAnchorPos);
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
-    easygui_update_marker_sticky_position(pTL, &pTL->cursor);
+    easygui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
 
     // Ensure we mark the text as selected if appropriate.
     pTL->isAnythingSelected = pUndoState->newState.isAnythingSelected;
