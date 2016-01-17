@@ -82,6 +82,9 @@ struct easygui_text_layout
     /// The function to call when the text layout needs to be redrawn.
     easygui_text_layout_on_dirty_proc onDirty;
 
+    /// The function to call when the content of the text layout changes.
+    easygui_text_layout_on_text_changed_proc onTextChanged;
+
 
     /// The width of the container.
     float containerWidth;
@@ -379,6 +382,7 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->text                       = NULL;
     pTL->textLength                 = 0;
     pTL->onDirty                    = NULL;
+    pTL->onTextChanged              = NULL;
     pTL->containerWidth             = 0;
     pTL->containerHeight            = 0;
     pTL->innerOffsetX               = 0;
@@ -482,6 +486,10 @@ void easygui_text_layout_set_text(easygui_text_layout* pTL, const char* text)
     // A change in text means we need to refresh the layout.
     easygui_text_layout__refresh(pTL);
 
+    if (pTL->onTextChanged) {
+        pTL->onTextChanged(pTL);
+    }
+
     if (pTL->onDirty) {
         pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
     }
@@ -513,6 +521,15 @@ void easygui_text_layout_set_on_dirty(easygui_text_layout* pTL, easygui_text_lay
     }
 
     pTL->onDirty = proc;
+}
+
+void easygui_text_layout_set_on_text_changed(easygui_text_layout* pTL, easygui_text_layout_on_text_changed_proc proc)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->onTextChanged = proc;
 }
 
 
@@ -1206,6 +1223,10 @@ bool easygui_text_layout_insert_character(easygui_text_layout* pTL, unsigned int
     // The layout will have changed so it needs to be refreshed.
     easygui_text_layout__refresh(pTL);
 
+    if (pTL->onTextChanged) {
+        pTL->onTextChanged(pTL);
+    }
+
     if (pTL->onDirty) {
         pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
     }
@@ -1266,6 +1287,10 @@ bool easygui_text_layout_insert_text(easygui_text_layout* pTL, const char* text,
     // The layout will have changed so it needs to be refreshed.
     easygui_text_layout__refresh(pTL);
 
+    if (pTL->onTextChanged) {
+        pTL->onTextChanged(pTL);
+    }
+
     if (pTL->onDirty) {
         pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
     }
@@ -1295,6 +1320,10 @@ bool easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned in
 
         // The layout will have changed.
         easygui_text_layout__refresh(pTL);
+
+        if (pTL->onTextChanged) {
+            pTL->onTextChanged(pTL);
+        }
 
         if (pTL->onDirty) {
             pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -1396,6 +1425,10 @@ bool easygui_text_layout_delete_character_to_right_of_cursor(easygui_text_layout
 
         // The layout will have changed.
         easygui_text_layout__refresh(pTL);
+
+        if (pTL->onTextChanged) {
+            pTL->onTextChanged(pTL);
+        }
 
         if (pTL->onDirty) {
             pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -3513,6 +3546,10 @@ PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, eas
     pTL->isAnythingSelected = pUndoState->oldState.isAnythingSelected;
 
 
+    if (pTL->onTextChanged) {
+        pTL->onTextChanged(pTL);
+    }
+
     if (pTL->onDirty) {
         pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
     }
@@ -3543,6 +3580,10 @@ PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, eas
     // Ensure we mark the text as selected if appropriate.
     pTL->isAnythingSelected = pUndoState->newState.isAnythingSelected;
 
+
+    if (pTL->onTextChanged) {
+        pTL->onTextChanged(pTL);
+    }
 
     if (pTL->onDirty) {
         pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
