@@ -1499,6 +1499,10 @@ void easygui_text_layout_deselect_all(easygui_text_layout* pTL)
     }
 
     pTL->isAnythingSelected = false;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 void easygui_text_layout_select_all(easygui_text_layout* pTL)
@@ -2279,20 +2283,17 @@ PRIVATE void easygui_text_layout__push_text_run(easygui_text_layout* pTL, easygu
 
     if (pTL->runBufferSize == pTL->runCount)
     {
-        size_t newRunBufferSize = pTL->runBufferSize*2;
-        if (newRunBufferSize == 0) {
-            newRunBufferSize = 1;
+        pTL->runBufferSize = pTL->runBufferSize*2;
+        if (pTL->runBufferSize == 0) {
+            pTL->runBufferSize = 1;
         }
 
-        easygui_text_run* pOldRuns = pTL->pRuns;
-        easygui_text_run* pNewRuns = malloc(sizeof(easygui_text_run) * newRunBufferSize);     // +1 just to make sure we have at least 1 item in the buffer.
-
-        memcpy(pNewRuns, pOldRuns, sizeof(easygui_text_run) * pTL->runCount);
-
-        pTL->pRuns = pNewRuns;
-        pTL->runBufferSize = newRunBufferSize;
-
-        free(pOldRuns);
+        pTL->pRuns = realloc(pTL->pRuns, sizeof(easygui_text_run) * pTL->runBufferSize);
+        if (pTL->pRuns == NULL) {
+            pTL->runCount = 0;
+            pTL->runBufferSize = 0;
+            return;
+        }
     }
 
     pTL->pRuns[pTL->runCount] = *pRun;
