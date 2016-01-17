@@ -80,9 +80,10 @@ typedef struct
 
 } easygui_text_run;
 
-typedef void (* easygui_text_layout_on_paint_text_proc)(easygui_text_layout* pTL, easygui_text_run* pRun, void* pUserData);
-typedef void (* easygui_text_layout_on_paint_rect_proc)(easygui_text_layout* pTL, easygui_rect rect, easygui_color color, void* pUserData);
+typedef void (* easygui_text_layout_on_paint_text_proc) (easygui_text_layout* pTL, easygui_text_run* pRun, void* pUserData);
+typedef void (* easygui_text_layout_on_paint_rect_proc) (easygui_text_layout* pTL, easygui_rect rect, easygui_color color, void* pUserData);
 typedef void (* easygui_text_layout_on_cursor_move_proc)(easygui_text_layout* pTL);
+typedef void (* easygui_text_layout_on_dirty_proc)      (easygui_text_layout* pTL, easygui_rect rect);
 
 
 /// Creates a new text layout object.
@@ -109,6 +110,10 @@ void easygui_text_layout_set_text(easygui_text_layout* pTL, const char* text);
 /// @remarks
 ///     Call this function with <textOut> set to NULL to retieve the required size of <textOut>.
 size_t easygui_text_layout_get_text(easygui_text_layout* pTL, char* textOut, size_t textOutSize);
+
+
+/// Sets the function to call when a region of the text layout needs to be redrawn.
+void easygui_text_layout_set_on_dirty(easygui_text_layout* pTL, easygui_text_layout_on_dirty_proc proc);
 
 
 /// Sets the size of the container.

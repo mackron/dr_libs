@@ -79,6 +79,10 @@ struct easygui_text_layout
     size_t textLength;
 
 
+    /// The function to call when the text layout needs to be redrawn.
+    easygui_text_layout_on_dirty_proc onDirty;
+
+
     /// The width of the container.
     float containerWidth;
 
@@ -356,6 +360,10 @@ PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, eas
 PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, easygui_text_layout_undo_state* pUndoState);
 
 
+/// Retrieves a rectangle relative to the given text layout that's equal to the size of the container.
+PRIVATE easygui_rect easygui_text_layout__local_rect(easygui_text_layout* pTL);
+
+
 
 easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_t extraDataSize, void* pExtraData)
 {
@@ -370,6 +378,7 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
 
     pTL->text                       = NULL;
     pTL->textLength                 = 0;
+    pTL->onDirty                    = NULL;
     pTL->containerWidth             = 0;
     pTL->containerHeight            = 0;
     pTL->innerOffsetX               = 0;
@@ -472,6 +481,10 @@ void easygui_text_layout_set_text(easygui_text_layout* pTL, const char* text)
 
     // A change in text means we need to refresh the layout.
     easygui_text_layout__refresh(pTL);
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 size_t easygui_text_layout_get_text(easygui_text_layout* pTL, char* textOut, size_t textOutSize)
@@ -493,6 +506,16 @@ size_t easygui_text_layout_get_text(easygui_text_layout* pTL, char* textOut, siz
 }
 
 
+void easygui_text_layout_set_on_dirty(easygui_text_layout* pTL, easygui_text_layout_on_dirty_proc proc)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->onDirty = proc;
+}
+
+
 void easygui_text_layout_set_container_size(easygui_text_layout* pTL, float containerWidth, float containerHeight)
 {
     if (pTL == NULL) {
@@ -501,6 +524,10 @@ void easygui_text_layout_set_container_size(easygui_text_layout* pTL, float cont
 
     pTL->containerWidth  = containerWidth;
     pTL->containerHeight = containerHeight;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 void easygui_text_layout_get_container_size(easygui_text_layout* pTL, float* pContainerWidthOut, float* pContainerHeightOut)
@@ -550,6 +577,10 @@ void easygui_text_layout_set_inner_offset(easygui_text_layout* pTL, float innerO
 
     pTL->innerOffsetX = innerOffsetX;
     pTL->innerOffsetY = innerOffsetY;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 void easygui_text_layout_set_inner_offset_x(easygui_text_layout* pTL, float innerOffsetX)
@@ -559,6 +590,10 @@ void easygui_text_layout_set_inner_offset_x(easygui_text_layout* pTL, float inne
     }
 
     pTL->innerOffsetX = innerOffsetX;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 void easygui_text_layout_set_inner_offset_y(easygui_text_layout* pTL, float innerOffsetY)
@@ -568,6 +603,10 @@ void easygui_text_layout_set_inner_offset_y(easygui_text_layout* pTL, float inne
     }
 
     pTL->innerOffsetY = innerOffsetY;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 void easygui_text_layout_get_inner_offset(easygui_text_layout* pTL, float* pInnerOffsetX, float* pInnerOffsetY)
@@ -619,6 +658,10 @@ void easygui_text_layout_set_default_font(easygui_text_layout* pTL, easygui_font
 
     // A change in font requires a layout refresh.
     easygui_text_layout__refresh(pTL);
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 easygui_font* easygui_text_layout_get_default_font(easygui_text_layout* pTL)
@@ -637,6 +680,10 @@ void easygui_text_layout_set_default_text_color(easygui_text_layout* pTL, easygu
     }
 
     pTL->defaultTextColor = color;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 easygui_color easygui_text_layout_get_default_text_color(easygui_text_layout* pTL)
@@ -655,6 +702,10 @@ void easygui_text_layout_set_default_bg_color(easygui_text_layout* pTL, easygui_
     }
 
     pTL->defaultBackgroundColor = color;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 easygui_color easygui_text_layout_get_default_bg_color(easygui_text_layout* pTL)
@@ -673,6 +724,10 @@ void easygui_text_layout_set_tab_size(easygui_text_layout* pTL, unsigned int siz
     {
         pTL->tabSizeInSpaces = sizeInSpaces;
         easygui_text_layout__refresh(pTL);
+
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+        }
     }
 }
 
@@ -696,6 +751,10 @@ void easygui_text_layout_set_horizontal_align(easygui_text_layout* pTL, easygui_
     {
         pTL->horzAlign = alignment;
         easygui_text_layout__refresh_alignment(pTL);
+
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+        }
     }
 }
 
@@ -718,6 +777,10 @@ void easygui_text_layout_set_vertical_align(easygui_text_layout* pTL, easygui_te
     {
         pTL->vertAlign = alignment;
         easygui_text_layout__refresh_alignment(pTL);
+
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+        }
     }
 }
 
@@ -805,7 +868,12 @@ void easygui_text_layout_set_cursor_width(easygui_text_layout* pTL, float cursor
         return;
     }
 
+    easygui_rect oldCursorRect = easygui_text_layout_get_cursor_rect(pTL);
     pTL->cursorWidth = cursorWidth;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_rect_union(oldCursorRect, easygui_text_layout_get_cursor_rect(pTL)));
+    }
 }
 
 float easygui_text_layout_get_cursor_width(easygui_text_layout* pTL)
@@ -824,6 +892,10 @@ void easygui_text_layout_set_cursor_color(easygui_text_layout* pTL, easygui_colo
     }
 
     pTL->cursorColor = cursorColor;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout_get_cursor_rect(pTL));
+    }
 }
 
 easygui_color easygui_text_layout_get_cursor_color(easygui_text_layout* pTL)
@@ -845,8 +917,15 @@ void easygui_text_layout_move_cursor_to_point(easygui_text_layout* pTL, float po
     unsigned int iCharOld = pTL->cursor.iChar;
     easygui_text_layout__move_marker_to_point_relative_to_container(pTL, &pTL->cursor, posX, posY);
 
-    if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
-        pTL->onCursorMove(pTL);
+    if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar)
+    {
+        if (pTL->onCursorMove) {
+            pTL->onCursorMove(pTL);
+        }
+
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+        }
     }
 
 
@@ -918,8 +997,14 @@ bool easygui_text_layout_move_cursor_left(easygui_text_layout* pTL)
             pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
-        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
-            pTL->onCursorMove(pTL);
+        if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
+            if (pTL->onCursorMove) {
+                pTL->onCursorMove(pTL);
+            }
+
+            if (pTL->onDirty) {
+                pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+            }
         }
 
         return true;
@@ -941,8 +1026,14 @@ bool easygui_text_layout_move_cursor_right(easygui_text_layout* pTL)
             pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
-        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
-            pTL->onCursorMove(pTL);
+        if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
+            if (pTL->onCursorMove) {
+                pTL->onCursorMove(pTL);
+            }
+
+            if (pTL->onDirty) {
+                pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+            }
         }
 
         return true;
@@ -964,8 +1055,14 @@ bool easygui_text_layout_move_cursor_up(easygui_text_layout* pTL)
             pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
-        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
-            pTL->onCursorMove(pTL);
+        if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
+            if (pTL->onCursorMove) {
+                pTL->onCursorMove(pTL);
+            }
+
+            if (pTL->onDirty) {
+                pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+            }
         }
 
         return true;
@@ -987,8 +1084,14 @@ bool easygui_text_layout_move_cursor_down(easygui_text_layout* pTL)
             pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
-        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
-            pTL->onCursorMove(pTL);
+        if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
+            if (pTL->onCursorMove) {
+                pTL->onCursorMove(pTL);
+            }
+
+            if (pTL->onDirty) {
+                pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+            }
         }
 
         return true;
@@ -1010,8 +1113,14 @@ bool easygui_text_layout_move_cursor_to_end_of_line(easygui_text_layout* pTL)
             pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
-        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
-            pTL->onCursorMove(pTL);
+        if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
+            if (pTL->onCursorMove) {
+                pTL->onCursorMove(pTL);
+            }
+
+            if (pTL->onDirty) {
+                pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+            }
         }
 
         return true;
@@ -1033,8 +1142,14 @@ bool easygui_text_layout_move_cursor_to_start_of_line(easygui_text_layout* pTL)
             pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
 
-        if (pTL->onCursorMove && (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iRun)) {
-            pTL->onCursorMove(pTL);
+        if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
+            if (pTL->onCursorMove) {
+                pTL->onCursorMove(pTL);
+            }
+
+            if (pTL->onDirty) {
+                pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+            }
         }
 
         return true;
@@ -1090,6 +1205,10 @@ bool easygui_text_layout_insert_character(easygui_text_layout* pTL, unsigned int
 
     // The layout will have changed so it needs to be refreshed.
     easygui_text_layout__refresh(pTL);
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 
     return true;
 }
@@ -1147,6 +1266,10 @@ bool easygui_text_layout_insert_text(easygui_text_layout* pTL, const char* text,
     // The layout will have changed so it needs to be refreshed.
     easygui_text_layout__refresh(pTL);
 
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
+
     return true;
 }
 
@@ -1172,6 +1295,10 @@ bool easygui_text_layout_delete_text_range(easygui_text_layout* pTL, unsigned in
 
         // The layout will have changed.
         easygui_text_layout__refresh(pTL);
+
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+        }
 
         return true;
     }
@@ -1260,9 +1387,6 @@ bool easygui_text_layout_delete_character_to_right_of_cursor(easygui_text_layout
 
     if (iAbsoluteMarkerChar < pTL->textLength)
     {
-        // Remove the character from the string.
-        //m_text.EraseCharacterByIndex(iAbsoluteMarkerChar);
-
         // TODO: Add proper support for UTF-8.
         memmove(pTL->text + iAbsoluteMarkerChar, pTL->text + iAbsoluteMarkerChar + 1, pTL->textLength - iAbsoluteMarkerChar);
         pTL->textLength -= 1;
@@ -1273,9 +1397,9 @@ bool easygui_text_layout_delete_character_to_right_of_cursor(easygui_text_layout
         // The layout will have changed.
         easygui_text_layout__refresh(pTL);
 
-
-        // The marker needs to be updated based on the new layout.
-        //easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar);
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+        }
 
         return true;
     }
@@ -1390,6 +1514,10 @@ void easygui_text_layout_select_all(easygui_text_layout* pTL)
 
     if (pTL->onCursorMove) {
         pTL->onCursorMove(pTL);
+    }
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
     }
 }
 
@@ -1516,23 +1644,6 @@ bool easygui_text_layout_redo(easygui_text_layout* pTL)
     }
 
     return false;
-
-#if 0
-    if (pTL->isUndoRedoEnabled)
-    {
-        if (pTL->iUndoRedoState + 1 < pTL->undoRedoStateStackCount)
-        {
-            easygui_text_layout_undo_state* pNextState = pTL->pUndoRedoStateStack + (pTL->iUndoRedoState + 1);
-
-            pTL->iUndoRedoState += 1;
-            easygui_text_layout__apply_undo_state(pTL, pNextState->iCursorCharacter, pNextState->iSelectionAnchorCharacter, pNextState->isAnythingSelected);
-
-            return true;
-        }
-    }
-        
-    return false;
-#endif
 }
 
 unsigned int easygui_text_layout_get_undo_points_remaining_count(easygui_text_layout* pTL)
@@ -3399,6 +3510,11 @@ PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, eas
     
     // Ensure we mark the text as selected if appropriate.
     pTL->isAnythingSelected = pUndoState->oldState.isAnythingSelected;
+
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
 }
 
 PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, easygui_text_layout_undo_state* pUndoState)
@@ -3425,4 +3541,19 @@ PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, eas
 
     // Ensure we mark the text as selected if appropriate.
     pTL->isAnythingSelected = pUndoState->newState.isAnythingSelected;
+
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
+}
+
+
+PRIVATE easygui_rect easygui_text_layout__local_rect(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return easygui_make_rect(0, 0, 0, 0);
+    }
+
+    return easygui_make_rect(0, 0, pTL->containerWidth, pTL->containerHeight);
 }
