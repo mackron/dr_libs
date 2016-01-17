@@ -237,6 +237,12 @@ bool easygui_text_layout_move_cursor_to_end_of_line(easygui_text_layout* pTL);
 /// Moves the cursor of the given text layout to the start of the line.
 bool easygui_text_layout_move_cursor_to_start_of_line(easygui_text_layout* pTL);
 
+/// Moves the cursor to the start of the selected text.
+void easygui_text_layout_move_cursor_to_start_of_selection(easygui_text_layout* pTL);
+
+/// Moves the cursor to the end of the selected text.
+void easygui_text_layout_move_cursor_to_end_of_selection(easygui_text_layout* pTL);
+
 /// Sets the function to call when the cursor in the given text layout is mvoed.
 void easygui_text_layout_set_on_cursor_move(easygui_text_layout* pTL, easygui_text_layout_on_cursor_move_proc proc);
 
