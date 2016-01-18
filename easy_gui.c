@@ -162,9 +162,9 @@ void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, in
 void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
 void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
 void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY);
-void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, bool isAutoRepeated);
-void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key);
-void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, bool isAutoRepeated);
+void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, unsigned int stateFlags);
+void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key, unsigned int stateFlags);
+void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, unsigned int stateFlags);
 void easygui_post_outbound_event_dirty(easygui_element* pElement, easygui_rect relativeRect);
 void easygui_post_outbound_event_dirty_global(easygui_element* pElement, easygui_rect relativeRect);
 void easygui_post_outbound_event_capture_mouse(easygui_element* pElement);
@@ -721,36 +721,36 @@ void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delt
     }
 }
 
-void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, bool isAutoRepeated)
+void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, unsigned int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onKeyDown) {
-            pElement->onKeyDown(pElement, key, isAutoRepeated);
+            pElement->onKeyDown(pElement, key, stateFlags);
         }
         
         easygui_end_outbound_event(pElement);
     }
 }
 
-void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key)
+void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key, unsigned int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onKeyUp) {
-            pElement->onKeyUp(pElement, key);
+            pElement->onKeyUp(pElement, key, stateFlags);
         }
         
         easygui_end_outbound_event(pElement);
     }
 }
 
-void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, bool isAutoRepeated)
+void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, unsigned int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
         if (pElement->onPrintableKeyDown) {
-            pElement->onPrintableKeyDown(pElement, character, isAutoRepeated);
+            pElement->onPrintableKeyDown(pElement, character, stateFlags);
         }
         
         easygui_end_outbound_event(pElement);
@@ -1229,7 +1229,7 @@ void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, i
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, bool isAutoRepeated)
+void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, unsigned int stateFlags)
 {
     if (pContext == NULL) {
         return;
@@ -1238,13 +1238,13 @@ void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key 
     easygui_begin_inbound_event(pContext);
     {
         if (pContext->pElementWithKeyboardCapture != NULL) {
-            easygui_post_outbound_event_key_down(pContext->pElementWithKeyboardCapture, key, isAutoRepeated);
+            easygui_post_outbound_event_key_down(pContext->pElementWithKeyboardCapture, key, stateFlags);
         }
     }
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key)
+void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key, unsigned int stateFlags)
 {
     if (pContext == NULL) {
         return;
@@ -1253,13 +1253,13 @@ void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key ke
     easygui_begin_inbound_event(pContext);
     {
         if (pContext->pElementWithKeyboardCapture != NULL) {
-            easygui_post_outbound_event_key_up(pContext->pElementWithKeyboardCapture, key);
+            easygui_post_outbound_event_key_up(pContext->pElementWithKeyboardCapture, key, stateFlags);
         }
     }
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, bool isAutoRepeated)
+void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, unsigned int stateFlags)
 {
     if (pContext == NULL) {
         return;
@@ -1268,7 +1268,7 @@ void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, un
     easygui_begin_inbound_event(pContext);
     {
         if (pContext->pElementWithKeyboardCapture != NULL) {
-            easygui_post_outbound_event_printable_key_down(pContext->pElementWithKeyboardCapture, character, isAutoRepeated);
+            easygui_post_outbound_event_printable_key_down(pContext->pElementWithKeyboardCapture, character, stateFlags);
         }
     }
     easygui_end_inbound_event(pContext);

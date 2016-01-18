@@ -273,6 +273,11 @@ struct easygui_rect
 #define EASYGUI_IMAGE_ALIGN_CENTER       (1 << 3)
 #define EASYGUI_IMAGE_HINT_NO_ALPHA      (1 << 4)
 
+#define EASYGUI_KEY_STATE_AUTO_REPEATED  (1 << 0)        // Whether or not the key press is generated due to auto-repeating. Only used with key down events.
+#define EASYGUI_KEY_STATE_SHIFT_DOWN     (1 << 1)        // Whether or not a shift key is down at the time the key event is handled.
+#define EASYGUI_KEY_STATE_CTRL_DOWN      (1 << 2)        // Whether or not a ctrl key is down at the time the key event is handled.
+#define EASYGUI_KEY_STATE_ALT_DOWN       (1 << 3)        // Whether or not an alt key is down at the time the key event is handled.
+
 typedef struct
 {
     /// The destination position on the x axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
@@ -342,9 +347,9 @@ typedef void (* easygui_on_mouse_button_down_proc)    (easygui_element* pElement
 typedef void (* easygui_on_mouse_button_up_proc)      (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
 typedef void (* easygui_on_mouse_button_dblclick_proc)(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
 typedef void (* easygui_on_mouse_wheel_proc)          (easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY);
-typedef void (* easygui_on_key_down_proc)             (easygui_element* pElement, easygui_key key, bool isAutoRepeated);
-typedef void (* easygui_on_key_up_proc)               (easygui_element* pElement, easygui_key key);
-typedef void (* easygui_on_printable_key_down_proc)   (easygui_element* pElement, unsigned int character, bool isAutoRepeated);
+typedef void (* easygui_on_key_down_proc)             (easygui_element* pElement, easygui_key key, unsigned int stateFlags);
+typedef void (* easygui_on_key_up_proc)               (easygui_element* pElement, easygui_key key, unsigned int stateFlags);
+typedef void (* easygui_on_printable_key_down_proc)   (easygui_element* pElement, unsigned int character, unsigned int stateFlags);
 typedef void (* easygui_on_paint_proc)                (easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
 typedef void (* easygui_on_dirty_proc)                (easygui_element* pElement, easygui_rect relativeRect);
 typedef bool (* easygui_on_hittest_proc)              (easygui_element* pElement, float relativePosX, float relativePosY);
@@ -714,16 +719,16 @@ void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevel
 void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
 
 /// Posts a key down inbound event.
-void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, bool isAutoRepeated);
+void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, unsigned int stateFlags);
 
 /// Posts a key up inbound event.
-void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key);
+void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key, unsigned int stateFlags);
 
 /// Posts a printable key down inbound event.
 ///
 /// @remarks
 ///     The \c character argument should be a UTF-32 code point.
-void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, bool isAutoRepeated);
+void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, unsigned int stateFlags);
 
 
 /// Registers the global on_dirty event callback.
