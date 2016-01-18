@@ -834,10 +834,6 @@ bool easyutil_cmdline_next(easyutil_cmdline_iterator* i)
                 i->valueEnd[0] = '\0';
             }
 
-
-            // The argument needs to have escape characters removed.
-            easyutil_strrmchar(i->value, '\\');
-
             return true;
         }
         else
