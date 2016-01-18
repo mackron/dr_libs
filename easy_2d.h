@@ -94,25 +94,25 @@ struct easy2d_glyph_metrics
 
 typedef enum
 {
-    easy2d_weight_medium = 0,
-    easy2d_weight_thin,
-    easy2d_weight_extra_light,
-    easy2d_weight_light,
-    easy2d_weight_semi_bold,
-    easy2d_weight_bold,
-    easy2d_weight_extra_bold,
-    easy2d_weight_heavy,
+    easy2d_font_weight_medium = 0,
+    easy2d_font_weight_thin,
+    easy2d_font_weight_extra_light,
+    easy2d_font_weight_light,
+    easy2d_font_weight_semi_bold,
+    easy2d_font_weight_bold,
+    easy2d_font_weight_extra_bold,
+    easy2d_font_weight_heavy,
 
-    easy2d_weight_normal  = easy2d_weight_medium,
-    easy2d_weight_default = easy2d_weight_medium
+    easy2d_font_weight_normal  = easy2d_font_weight_medium,
+    easy2d_font_weight_default = easy2d_font_weight_medium
 
 } easy2d_font_weight;
 
 typedef enum
 {
-    easy2d_slant_none = 0,
-    easy2d_slant_italic,
-    easy2d_slant_oblique
+    easy2d_font_slant_none = 0,
+    easy2d_font_slant_italic,
+    easy2d_font_slant_oblique
 
 } easy2d_font_slant;
 

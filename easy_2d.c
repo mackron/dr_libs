@@ -902,19 +902,19 @@ bool easy2d_on_create_font_gdi(easy2d_font* pFont)
     LONG weightGDI = FW_REGULAR;
     switch (pFont->weight)
     {
-    case easy2d_weight_medium:      weightGDI = FW_MEDIUM;     break;
-    case easy2d_weight_thin:        weightGDI = FW_THIN;       break;
-    case easy2d_weight_extra_light: weightGDI = FW_EXTRALIGHT; break;
-    case easy2d_weight_light:       weightGDI = FW_LIGHT;      break;
-    case easy2d_weight_semi_bold:   weightGDI = FW_SEMIBOLD;   break;
-    case easy2d_weight_bold:        weightGDI = FW_BOLD;       break;
-    case easy2d_weight_extra_bold:  weightGDI = FW_EXTRABOLD;  break;
-    case easy2d_weight_heavy:       weightGDI = FW_HEAVY;      break;
+    case easy2d_font_weight_medium:      weightGDI = FW_MEDIUM;     break;
+    case easy2d_font_weight_thin:        weightGDI = FW_THIN;       break;
+    case easy2d_font_weight_extra_light: weightGDI = FW_EXTRALIGHT; break;
+    case easy2d_font_weight_light:       weightGDI = FW_LIGHT;      break;
+    case easy2d_font_weight_semi_bold:   weightGDI = FW_SEMIBOLD;   break;
+    case easy2d_font_weight_bold:        weightGDI = FW_BOLD;       break;
+    case easy2d_font_weight_extra_bold:  weightGDI = FW_EXTRABOLD;  break;
+    case easy2d_font_weight_heavy:       weightGDI = FW_HEAVY;      break;
     default: break;
     }
 
 	BYTE slantGDI = FALSE;
-    if (pFont->slant == easy2d_slant_italic || pFont->slant == easy2d_slant_oblique) {
+    if (pFont->slant == easy2d_font_slant_italic || pFont->slant == easy2d_font_slant_oblique) {
         slantGDI = TRUE;
     }
 
