@@ -273,11 +273,6 @@ struct easygui_rect
 #define EASYGUI_IMAGE_ALIGN_CENTER       (1 << 3)
 #define EASYGUI_IMAGE_HINT_NO_ALPHA      (1 << 4)
 
-#define EASYGUI_KEY_STATE_AUTO_REPEATED  (1 << 0)        // Whether or not the key press is generated due to auto-repeating. Only used with key down events.
-#define EASYGUI_KEY_STATE_SHIFT_DOWN     (1 << 1)        // Whether or not a shift key is down at the time the key event is handled.
-#define EASYGUI_KEY_STATE_CTRL_DOWN      (1 << 2)        // Whether or not a ctrl key is down at the time the key event is handled.
-#define EASYGUI_KEY_STATE_ALT_DOWN       (1 << 3)        // Whether or not an alt key is down at the time the key event is handled.
-
 typedef struct
 {
     /// The destination position on the x axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
@@ -404,6 +399,12 @@ typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easyg
 #define EASYGUI_ARROW_DOWN              0x27
 #define EASYGUI_ARROW_RIGHT             0x28
 #define EASYGUI_DELETE                  0x2E
+
+// Key state flags.
+#define EASYGUI_KEY_STATE_AUTO_REPEATED  (1 << 0)        // Whether or not the key press is generated due to auto-repeating. Only used with key down events.
+#define EASYGUI_KEY_STATE_SHIFT_DOWN     (1 << 1)        // Whether or not a shift key is down at the time the key event is handled.
+#define EASYGUI_KEY_STATE_CTRL_DOWN      (1 << 2)        // Whether or not a ctrl key is down at the time the key event is handled.
+#define EASYGUI_KEY_STATE_ALT_DOWN       (1 << 3)        // Whether or not an alt key is down at the time the key event is handled.
 
 
 
