@@ -80,11 +80,12 @@ typedef struct
 
 } easygui_text_run;
 
-typedef void (* easygui_text_layout_on_paint_text_proc)  (easygui_text_layout* pTL, easygui_text_run* pRun, void* pUserData);
-typedef void (* easygui_text_layout_on_paint_rect_proc)  (easygui_text_layout* pTL, easygui_rect rect, easygui_color color, void* pUserData);
-typedef void (* easygui_text_layout_on_cursor_move_proc) (easygui_text_layout* pTL);
-typedef void (* easygui_text_layout_on_dirty_proc)       (easygui_text_layout* pTL, easygui_rect rect);
-typedef void (* easygui_text_layout_on_text_changed_proc)(easygui_text_layout* pTL);
+typedef void (* easygui_text_layout_on_paint_text_proc)        (easygui_text_layout* pTL, easygui_text_run* pRun, void* pUserData);
+typedef void (* easygui_text_layout_on_paint_rect_proc)        (easygui_text_layout* pTL, easygui_rect rect, easygui_color color, void* pUserData);
+typedef void (* easygui_text_layout_on_cursor_move_proc)       (easygui_text_layout* pTL);
+typedef void (* easygui_text_layout_on_dirty_proc)             (easygui_text_layout* pTL, easygui_rect rect);
+typedef void (* easygui_text_layout_on_text_changed_proc)      (easygui_text_layout* pTL);
+typedef void (* easygui_text_layout_on_undo_point_changed_proc)(easygui_text_layout* pTL, unsigned int iUndoPoint);
 
 
 /// Creates a new text layout object.
@@ -118,6 +119,9 @@ void easygui_text_layout_set_on_dirty(easygui_text_layout* pTL, easygui_text_lay
 
 /// Sets the function to call when the content of the given text layout has changed.
 void easygui_text_layout_set_on_text_changed(easygui_text_layout* pTL, easygui_text_layout_on_text_changed_proc proc);
+
+/// Sets the function to call when the content of the given text layout's current undo point has moved.
+void easygui_text_layout_set_on_undo_point_changed(easygui_text_layout* pTL, easygui_text_layout_on_undo_point_changed_proc proc);
 
 
 /// Sets the size of the container.

@@ -85,6 +85,9 @@ struct easygui_text_layout
     /// The function to call when the content of the text layout changes.
     easygui_text_layout_on_text_changed_proc onTextChanged;
 
+    /// The function to call when the current undo point has changed.
+    easygui_text_layout_on_undo_point_changed_proc onUndoPointChanged;
+
 
     /// The width of the container.
     float containerWidth;
@@ -399,6 +402,7 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->textLength                 = 0;
     pTL->onDirty                    = NULL;
     pTL->onTextChanged              = NULL;
+    pTL->onUndoPointChanged         = NULL;
     pTL->containerWidth             = 0;
     pTL->containerHeight            = 0;
     pTL->innerOffsetX               = 0;
@@ -550,6 +554,15 @@ void easygui_text_layout_set_on_text_changed(easygui_text_layout* pTL, easygui_t
     }
 
     pTL->onTextChanged = proc;
+}
+
+void easygui_text_layout_set_on_undo_point_changed(easygui_text_layout* pTL, easygui_text_layout_on_undo_point_changed_proc proc)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->onUndoPointChanged = proc;
 }
 
 
@@ -1743,6 +1756,10 @@ bool easygui_text_layout_undo(easygui_text_layout* pTL)
         easygui_text_layout__apply_undo_state(pTL, pUndoState);
         pTL->iUndoState -= 1;
 
+        if (pTL->onUndoPointChanged) {
+            pTL->onUndoPointChanged(pTL, pTL->iUndoState);
+        }
+
         return true;
     }
 
@@ -1762,6 +1779,10 @@ bool easygui_text_layout_redo(easygui_text_layout* pTL)
 
         easygui_text_layout__apply_redo_state(pTL, pUndoState);
         pTL->iUndoState += 1;
+
+        if (pTL->onUndoPointChanged) {
+            pTL->onUndoPointChanged(pTL, pTL->iUndoState);
+        }
 
         return true;
     }
@@ -1807,7 +1828,14 @@ void easygui_text_layout_clear_undo_stack(easygui_text_layout* pTL)
 
     pTL->pUndoStack = NULL;
     pTL->undoStackCount = 0;
-    pTL->iUndoState = 0;
+
+    if (pTL->iUndoState > 0) {
+        pTL->iUndoState = 0;
+        
+        if (pTL->onUndoPointChanged) {
+            pTL->onUndoPointChanged(pTL, pTL->iUndoState);
+        }
+    }
 }
 
 
@@ -3629,6 +3657,10 @@ PRIVATE void easygui_text_layout__push_undo_state(easygui_text_layout* pTL, easy
     pTL->pUndoStack = pNewStack;
     pTL->undoStackCount += 1;
     pTL->iUndoState += 1;
+
+    if (pTL->onUndoPointChanged) {
+        pTL->onUndoPointChanged(pTL, pTL->iUndoState);
+    }
 
     free(pOldStack);
 }
