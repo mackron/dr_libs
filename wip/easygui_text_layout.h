@@ -213,6 +213,15 @@ void easygui_text_layout_set_cursor_blink_rate(easygui_text_layout* pTL, unsigne
 /// Retrieves the blink rate of the cursor in milliseconds.
 unsigned int easygui_text_layout_get_cursor_blink_rate(easygui_text_layout* pTL);
 
+/// Shows the cursor.
+void easygui_text_layout_show_cursor(easygui_text_layout* pTL);
+
+/// Hides the cursor.
+void easygui_text_layout_hide_cursor(easygui_text_layout* pTL);
+
+/// Determines whether or not the cursor is visible.
+bool easygui_text_layout_is_showing_cursor(easygui_text_layout* pTL);
+
 /// Moves the cursor to the closest character based on the given input position.
 void easygui_text_layout_move_cursor_to_point(easygui_text_layout* pTL, float posX, float posY);
 

@@ -134,6 +134,9 @@ struct easygui_text_layout
 
     /// Whether or not the cursor is showing based on it's blinking state.
     bool isCursorBlinkOn;
+
+    /// Whether or not the cursor is being shown. False by default.
+    bool isShowingCursor;
     
 
     /// The total width of the text.
@@ -412,6 +415,7 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->cursorBlinkRate            = 500;
     pTL->timeToNextCursorBlink      = pTL->cursorBlinkRate;
     pTL->isCursorBlinkOn            = true;
+    pTL->isShowingCursor            = false;
     pTL->textBoundsWidth            = 0;
     pTL->textBoundsHeight           = 0;
     pTL->cursor                     = easygui_text_layout__new_marker();
@@ -956,6 +960,46 @@ unsigned int easygui_text_layout_get_cursor_blink_rate(easygui_text_layout* pTL)
     }
 
     return pTL->cursorBlinkRate;
+}
+
+void easygui_text_layout_show_cursor(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    if (!pTL->isShowingCursor)
+    {
+        pTL->isShowingCursor = true;
+
+        pTL->timeToNextCursorBlink = pTL->cursorBlinkRate;
+        pTL->isCursorBlinkOn = true;
+
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, easygui_text_layout_get_cursor_rect(pTL));
+        }
+    }
+}
+
+void easygui_text_layout_hide_cursor(easygui_text_layout* pTL)
+{
+    if (pTL->isShowingCursor)
+    {
+        pTL->isShowingCursor = false;
+
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, easygui_text_layout_get_cursor_rect(pTL));
+        }
+    }
+}
+
+bool easygui_text_layout_is_showing_cursor(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return false;
+    }
+
+    return pTL->isShowingCursor;
 }
 
 void easygui_text_layout_move_cursor_to_point(easygui_text_layout* pTL, float posX, float posY)
@@ -2064,7 +2108,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
 
 
         // The cursor.
-        if (pTL->isCursorBlinkOn) {
+        if (pTL->isShowingCursor && pTL->isCursorBlinkOn) {
             pTL->onPaintRect(pTL, easygui_text_layout_get_cursor_rect(pTL), pTL->cursorColor, pUserData);
         }
     }
