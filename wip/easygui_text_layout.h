@@ -250,6 +250,9 @@ bool easygui_text_layout_move_cursor_up(easygui_text_layout* pTL);
 /// Moves the cursor of the given text layout down one line.
 bool easygui_text_layout_move_cursor_down(easygui_text_layout* pTL);
 
+/// Moves the cursor up or down the given number of lines.
+bool easygui_text_layout_move_cursor_y(easygui_text_layout* pTL, int amount);
+
 /// Moves the cursor of the given text layout to the end of the line.
 bool easygui_text_layout_move_cursor_to_end_of_line(easygui_text_layout* pTL);
 

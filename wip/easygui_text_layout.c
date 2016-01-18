@@ -297,6 +297,9 @@ PRIVATE bool easygui_text_layout__move_marker_up(easygui_text_layout* pTL, easyg
 /// Moves the given marker down one line.
 PRIVATE bool easygui_text_layout__move_marker_down(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
+/// Moves the given marker down one line.
+PRIVATE bool easygui_text_layout__move_marker_y(easygui_text_layout* pTL, easygui_text_marker* pMarker, int amount);
+
 /// Moves the given marker to the end of the line it's currently sitting on.
 PRIVATE bool easygui_text_layout__move_marker_to_end_of_line(easygui_text_layout* pTL, easygui_text_marker* pMarker);
 
@@ -1180,6 +1183,33 @@ bool easygui_text_layout_move_cursor_down(easygui_text_layout* pTL)
     unsigned int iRunOld  = pTL->cursor.iRun;
     unsigned int iCharOld = pTL->cursor.iChar;
     if (easygui_text_layout__move_marker_down(pTL, &pTL->cursor)) {
+        if (easygui_text_layout_is_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
+        }
+
+        if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
+            easygui_text_layout__on_cursor_move(pTL);
+
+            if (pTL->onDirty) {
+                pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+            }
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+bool easygui_text_layout_move_cursor_y(easygui_text_layout* pTL, int amount)
+{
+    if (pTL == NULL) {
+        return false;
+    }
+
+    unsigned int iRunOld  = pTL->cursor.iRun;
+    unsigned int iCharOld = pTL->cursor.iChar;
+    if (easygui_text_layout__move_marker_y(pTL, &pTL->cursor, amount)) {
         if (easygui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
         }
@@ -3100,31 +3130,7 @@ PRIVATE bool easygui_text_layout__move_marker_up(easygui_text_layout* pTL, easyg
         return false;
     }
 
-    const easygui_text_run* pOldRun = pTL->pRuns + pMarker->iRun;
-    if (pOldRun->iLine > 0)
-    {
-        easygui_rect lineRect;
-        unsigned int iFirstRunOnLine;
-        unsigned int iLastRunOnLinePlus1;
-        if (easygui_text_layout__find_line_info_by_index(pTL, pOldRun->iLine - 1, OUT &lineRect, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
-        {
-            float newMarkerPosX = pMarker->absoluteSickyPosX;
-            float newMarkerPosY = lineRect.top;
-            easygui_text_layout__move_marker_to_point(pTL, pMarker, newMarkerPosX, newMarkerPosY);
-
-            return true;
-        }
-        else
-        {
-            // An error occured while finding information about the line above.
-            return false;
-        }
-    }
-    else
-    {
-        // The cursor is already on the top line.
-        return false;
-    }
+    return easygui_text_layout__move_marker_y(pTL, pMarker, -1);
 }
 
 PRIVATE bool easygui_text_layout__move_marker_down(easygui_text_layout* pTL, easygui_text_marker* pMarker)
@@ -3133,12 +3139,33 @@ PRIVATE bool easygui_text_layout__move_marker_down(easygui_text_layout* pTL, eas
         return false;
     }
 
+    return easygui_text_layout__move_marker_y(pTL, pMarker, 1);
+}
+
+PRIVATE bool easygui_text_layout__move_marker_y(easygui_text_layout* pTL, easygui_text_marker* pMarker, int amount)
+{
+    if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
+        return false;
+    }
+
     const easygui_text_run* pOldRun = pTL->pRuns + pMarker->iRun;
+
+    int iNewLine = (int)pOldRun->iLine + amount;
+    if (iNewLine >= (int)easygui_text_layout_get_line_count(pTL)) {
+        iNewLine = (int)easygui_text_layout_get_line_count(pTL) - 1;
+    }
+    if (iNewLine < 0) {
+        iNewLine = 0;
+    }
+
+    if ((int)pOldRun->iLine == iNewLine) {
+        return false;   // The lines are the same.
+    }
 
     easygui_rect lineRect;
     unsigned int iFirstRunOnLine;
     unsigned int iLastRunOnLinePlus1;
-    if (easygui_text_layout__find_line_info_by_index(pTL, pOldRun->iLine + 1, OUT &lineRect, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
+    if (easygui_text_layout__find_line_info_by_index(pTL, (unsigned int)iNewLine, OUT &lineRect, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
     {
         float newMarkerPosX = pMarker->absoluteSickyPosX;
         float newMarkerPosY = lineRect.top;
@@ -3240,6 +3267,8 @@ PRIVATE bool easygui_text_layout__move_marker_to_first_character_of_run(easygui_
         pMarker->iRun         = iRun;
         pMarker->iChar        = 0;
         pMarker->relativePosX = 0;
+
+        easygui_text_layout__update_marker_sticky_position(pTL, pMarker);
 
         return true;
     }
