@@ -207,6 +207,12 @@ void easygui_text_layout_set_cursor_color(easygui_text_layout* pTL, easygui_colo
 /// Retrieves the color of the text cursor.
 easygui_color easygui_text_layout_get_cursor_color(easygui_text_layout* pTL);
 
+/// Sets the blink rate of the cursor in milliseconds.
+void easygui_text_layout_set_cursor_blink_rate(easygui_text_layout* pTL, unsigned int blinkRateInMilliseconds);
+
+/// Retrieves the blink rate of the cursor in milliseconds.
+unsigned int easygui_text_layout_get_cursor_blink_rate(easygui_text_layout* pTL);
+
 /// Moves the cursor to the closest character based on the given input position.
 void easygui_text_layout_move_cursor_to_point(easygui_text_layout* pTL, float posX, float posY);
 
@@ -377,6 +383,13 @@ void easygui_text_layout_set_on_paint_rect(easygui_text_layout* pTL, easygui_tex
 
 /// Paints the given text layout by calling the appropriate painting callbacks.
 void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void* pUserData);
+
+
+/// Steps the given text layout by the given number of milliseconds.
+///
+/// @remarks
+///     This will trigger the on_dirty callback when the cursor switches it's blink states.
+void easygui_text_layout_step(easygui_text_layout* pTL, unsigned int milliseconds);
 
 
 #ifdef __cplusplus

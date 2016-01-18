@@ -125,6 +125,15 @@ struct easygui_text_layout
 
     /// The color of the text cursor.
     easygui_color cursorColor;
+
+    /// The blink rate in milliseconds of the cursor.
+    unsigned int cursorBlinkRate;
+
+    /// The amount of time in milliseconds to toggle the cursor's blink state.
+    unsigned int timeToNextCursorBlink;
+
+    /// Whether or not the cursor is showing based on it's blinking state.
+    bool isCursorBlinkOn;
     
 
     /// The total width of the text.
@@ -367,6 +376,10 @@ PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, eas
 PRIVATE easygui_rect easygui_text_layout__local_rect(easygui_text_layout* pTL);
 
 
+/// Called when the cursor moves.
+PRIVATE void easygui_text_layout__on_cursor_move(easygui_text_layout* pTL);
+
+
 
 easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_t extraDataSize, void* pExtraData)
 {
@@ -396,6 +409,9 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->vertAlign                  = easygui_text_layout_alignment_top;
     pTL->cursorWidth                = 1;
     pTL->cursorColor                = easygui_rgb(224, 224, 224);
+    pTL->cursorBlinkRate            = 500;
+    pTL->timeToNextCursorBlink      = pTL->cursorBlinkRate;
+    pTL->isCursorBlinkOn            = true;
     pTL->textBoundsWidth            = 0;
     pTL->textBoundsHeight           = 0;
     pTL->cursor                     = easygui_text_layout__new_marker();
@@ -924,6 +940,24 @@ easygui_color easygui_text_layout_get_cursor_color(easygui_text_layout* pTL)
     return pTL->cursorColor;
 }
 
+void easygui_text_layout_set_cursor_blink_rate(easygui_text_layout* pTL, unsigned int blinkRateInMilliseconds)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->cursorBlinkRate = blinkRateInMilliseconds;
+}
+
+unsigned int easygui_text_layout_get_cursor_blink_rate(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return 0;
+    }
+
+    return pTL->cursorBlinkRate;
+}
+
 void easygui_text_layout_move_cursor_to_point(easygui_text_layout* pTL, float posX, float posY)
 {
     if (pTL == NULL) {
@@ -936,9 +970,7 @@ void easygui_text_layout_move_cursor_to_point(easygui_text_layout* pTL, float po
 
     if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar)
     {
-        if (pTL->onCursorMove) {
-            pTL->onCursorMove(pTL);
-        }
+        easygui_text_layout__on_cursor_move(pTL);
 
         if (pTL->onDirty) {
             pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -1015,9 +1047,7 @@ bool easygui_text_layout_move_cursor_left(easygui_text_layout* pTL)
         }
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
-            if (pTL->onCursorMove) {
-                pTL->onCursorMove(pTL);
-            }
+            easygui_text_layout__on_cursor_move(pTL);
 
             if (pTL->onDirty) {
                 pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -1044,9 +1074,7 @@ bool easygui_text_layout_move_cursor_right(easygui_text_layout* pTL)
         }
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
-            if (pTL->onCursorMove) {
-                pTL->onCursorMove(pTL);
-            }
+            easygui_text_layout__on_cursor_move(pTL);
 
             if (pTL->onDirty) {
                 pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -1073,9 +1101,7 @@ bool easygui_text_layout_move_cursor_up(easygui_text_layout* pTL)
         }
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
-            if (pTL->onCursorMove) {
-                pTL->onCursorMove(pTL);
-            }
+            easygui_text_layout__on_cursor_move(pTL);
 
             if (pTL->onDirty) {
                 pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -1102,9 +1128,7 @@ bool easygui_text_layout_move_cursor_down(easygui_text_layout* pTL)
         }
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
-            if (pTL->onCursorMove) {
-                pTL->onCursorMove(pTL);
-            }
+            easygui_text_layout__on_cursor_move(pTL);
 
             if (pTL->onDirty) {
                 pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -1131,9 +1155,7 @@ bool easygui_text_layout_move_cursor_to_end_of_line(easygui_text_layout* pTL)
         }
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
-            if (pTL->onCursorMove) {
-                pTL->onCursorMove(pTL);
-            }
+            easygui_text_layout__on_cursor_move(pTL);
 
             if (pTL->onDirty) {
                 pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -1160,9 +1182,7 @@ bool easygui_text_layout_move_cursor_to_start_of_line(easygui_text_layout* pTL)
         }
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
-            if (pTL->onCursorMove) {
-                pTL->onCursorMove(pTL);
-            }
+            easygui_text_layout__on_cursor_move(pTL);
 
             if (pTL->onDirty) {
                 pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -1389,9 +1409,7 @@ bool easygui_text_layout_insert_character_at_cursor(easygui_text_layout* pTL, un
     easygui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
 
 
-    if (pTL->onCursorMove) {
-        pTL->onCursorMove(pTL);
-    }
+    easygui_text_layout__on_cursor_move(pTL);
 
     return true;
 }
@@ -1413,9 +1431,7 @@ bool easygui_text_layout_insert_text_at_cursor(easygui_text_layout* pTL, const c
     easygui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
 
 
-    if (pTL->onCursorMove) {
-        pTL->onCursorMove(pTL);
-    }
+    easygui_text_layout__on_cursor_move(pTL);
 
     return true;
 }
@@ -1498,9 +1514,7 @@ bool easygui_text_layout_delete_selected_text(easygui_text_layout* pTL)
         // The cursor's sticky position also needs to be updated.
         easygui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
 
-        if (pTL->onCursorMove) {
-            pTL->onCursorMove(pTL);
-        }
+        easygui_text_layout__on_cursor_move(pTL);
 
 
         // Reset the selection marker.
@@ -1579,9 +1593,7 @@ void easygui_text_layout_select_all(easygui_text_layout* pTL)
 
     pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
 
-    if (pTL->onCursorMove) {
-        pTL->onCursorMove(pTL);
-    }
+    easygui_text_layout__on_cursor_move(pTL);
 
     if (pTL->onDirty) {
         pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
@@ -2049,6 +2061,34 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
             }
 
         } while (easygui_text_layout__next_line(pTL, &line));
+
+
+        // The cursor.
+        if (pTL->isCursorBlinkOn) {
+            pTL->onPaintRect(pTL, easygui_text_layout_get_cursor_rect(pTL), pTL->cursorColor, pUserData);
+        }
+    }
+}
+
+
+void easygui_text_layout_step(easygui_text_layout* pTL, unsigned int milliseconds)
+{
+    if (pTL == NULL || milliseconds == 0) {
+        return;
+    }
+
+    if (pTL->timeToNextCursorBlink < milliseconds)
+    {
+        pTL->isCursorBlinkOn = !pTL->isCursorBlinkOn;
+        pTL->timeToNextCursorBlink = pTL->cursorBlinkRate;
+
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, easygui_text_layout_get_cursor_rect(pTL));
+        }
+    }
+    else
+    {
+        pTL->timeToNextCursorBlink -= milliseconds;
     }
 }
 
@@ -3628,4 +3668,20 @@ PRIVATE easygui_rect easygui_text_layout__local_rect(easygui_text_layout* pTL)
     }
 
     return easygui_make_rect(0, 0, pTL->containerWidth, pTL->containerHeight);
+}
+
+
+PRIVATE void easygui_text_layout__on_cursor_move(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    // When the cursor moves we want to reset the cursor's blink state.
+    pTL->timeToNextCursorBlink = pTL->cursorBlinkRate;
+    pTL->isCursorBlinkOn = true;
+
+    if (pTL->onCursorMove) {
+        pTL->onCursorMove(pTL);
+    }
 }
