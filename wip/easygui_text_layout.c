@@ -2105,12 +2105,11 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
             }
 
         } while (easygui_text_layout__next_line(pTL, &line));
+    }
 
-
-        // The cursor.
-        if (pTL->isShowingCursor && pTL->isCursorBlinkOn) {
-            pTL->onPaintRect(pTL, easygui_text_layout_get_cursor_rect(pTL), pTL->cursorColor, pUserData);
-        }
+    // The cursor.
+    if (pTL->isShowingCursor && pTL->isCursorBlinkOn) {
+        pTL->onPaintRect(pTL, easygui_text_layout_get_cursor_rect(pTL), pTL->cursorColor, pUserData);
     }
 }
 
