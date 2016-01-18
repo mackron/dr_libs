@@ -392,6 +392,8 @@ typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easyg
 // Common key codes.
 #define EASYGUI_BACKSPACE               0x08
 #define EASYGUI_SHIFT                   0x10
+#define EASYGUI_PAGE_UP                 0x21
+#define EASYGUI_PAGE_DOWN               0x22
 #define EASYGUI_END                     0x23
 #define EASYGUI_HOME                    0x24
 #define EASYGUI_ARROW_LEFT              0x25
