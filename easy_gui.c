@@ -157,14 +157,14 @@ void easygui_post_outbound_event_move(easygui_element* pElement, float newRelati
 void easygui_post_outbound_event_size(easygui_element* pElement, float newWidth, float newHeight);
 void easygui_post_outbound_event_mouse_enter(easygui_element* pElement);
 void easygui_post_outbound_event_mouse_leave(easygui_element* pElement);
-void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
-void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
-void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
-void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
-void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY);
-void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, unsigned int stateFlags);
-void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key, unsigned int stateFlags);
-void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, unsigned int stateFlags);
+void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, int stateFlags);
+void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key, int stateFlags);
+void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, int stateFlags);
 void easygui_post_outbound_event_dirty(easygui_element* pElement, easygui_rect relativeRect);
 void easygui_post_outbound_event_dirty_global(easygui_element* pElement, easygui_rect relativeRect);
 void easygui_post_outbound_event_capture_mouse(easygui_element* pElement);
@@ -636,7 +636,7 @@ void easygui_post_outbound_event_mouse_leave(easygui_element* pElement)
     }
 }
 
-void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY)
+void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -646,14 +646,14 @@ void easygui_post_outbound_event_mouse_move(easygui_element* pElement, int relat
             float scaleY;
             easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-            pElement->onMouseMove(pElement, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
+            pElement->onMouseMove(pElement, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
         
         easygui_end_outbound_event(pElement);
     }
 }
 
-void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -663,14 +663,14 @@ void easygui_post_outbound_event_mouse_button_down(easygui_element* pElement, in
             float scaleY;
             easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-            pElement->onMouseButtonDown(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
+            pElement->onMouseButtonDown(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
         
         easygui_end_outbound_event(pElement);
     }
 }
 
-void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -680,14 +680,14 @@ void easygui_post_outbound_event_mouse_button_up(easygui_element* pElement, int 
             float scaleY;
             easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-            pElement->onMouseButtonUp(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
+            pElement->onMouseButtonUp(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
         
         easygui_end_outbound_event(pElement);
     }
 }
 
-void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -697,14 +697,14 @@ void easygui_post_outbound_event_mouse_button_dblclick(easygui_element* pElement
             float scaleY;
             easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-            pElement->onMouseButtonDblClick(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
+            pElement->onMouseButtonDblClick(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
         
         easygui_end_outbound_event(pElement);
     }
 }
 
-void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY)
+void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -714,14 +714,14 @@ void easygui_post_outbound_event_mouse_wheel(easygui_element* pElement, int delt
             float scaleY;
             easygui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
 
-            pElement->onMouseWheel(pElement, delta, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY));
+            pElement->onMouseWheel(pElement, delta, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
         
         easygui_end_outbound_event(pElement);
     }
 }
 
-void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, unsigned int stateFlags)
+void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key key, int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -733,7 +733,7 @@ void easygui_post_outbound_event_key_down(easygui_element* pElement, easygui_key
     }
 }
 
-void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key, unsigned int stateFlags)
+void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key key, int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -745,7 +745,7 @@ void easygui_post_outbound_event_key_up(easygui_element* pElement, easygui_key k
     }
 }
 
-void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, unsigned int stateFlags)
+void easygui_post_outbound_event_printable_key_down(easygui_element* pElement, unsigned int character, int stateFlags)
 {
     if (easygui_begin_outbound_event(pElement))
     {
@@ -1050,7 +1050,7 @@ void easygui_post_inbound_event_mouse_leave(easygui_element* pTopLevelElement)
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, int mousePosX, int mousePosY)
+void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, int mousePosX, int mousePosY, int stateFlags)
 {
     if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
         return;
@@ -1087,13 +1087,13 @@ void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, in
             float relativeMousePosY = (float)mousePosY;
             easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
-            easygui_post_outbound_event_mouse_move(pEventReceiver, (int)relativeMousePosX, (int)relativeMousePosY);
+            easygui_post_outbound_event_mouse_move(pEventReceiver, (int)relativeMousePosX, (int)relativeMousePosY, stateFlags);
         }
     }
     easygui_end_inbound_event(pTopLevelElement->pContext);
 }
 
-void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY)
+void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY, int stateFlags)
 {
     if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
         return;
@@ -1121,13 +1121,13 @@ void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElem
             float relativeMousePosY = (float)mousePosY;
             easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
-            easygui_post_outbound_event_mouse_button_down(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
+            easygui_post_outbound_event_mouse_button_down(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY, stateFlags);
         }
     }
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY)
+void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY, int stateFlags)
 {
     if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
         return;
@@ -1155,13 +1155,13 @@ void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElemen
             float relativeMousePosY = (float)mousePosY;
             easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
-            easygui_post_outbound_event_mouse_button_up(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
+            easygui_post_outbound_event_mouse_button_up(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY, stateFlags);
         }
     }
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY)
+void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY, int stateFlags)
 {
     if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
         return;
@@ -1189,13 +1189,13 @@ void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevel
             float relativeMousePosY = (float)mousePosY;
             easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
-            easygui_post_outbound_event_mouse_button_dblclick(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY);
+            easygui_post_outbound_event_mouse_button_dblclick(pEventReceiver, mouseButton, (int)relativeMousePosX, (int)relativeMousePosY, stateFlags);
         }
     }
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int delta, int mousePosX, int mousePosY)
+void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int delta, int mousePosX, int mousePosY, int stateFlags)
 {
     if (pTopLevelElement == NULL || pTopLevelElement->pContext == NULL) {
         return;
@@ -1223,13 +1223,13 @@ void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, i
             float relativeMousePosY = (float)mousePosY;
             easygui_make_point_relative(pEventReceiver, &relativeMousePosX, &relativeMousePosY);
 
-            easygui_post_outbound_event_mouse_wheel(pEventReceiver, delta, (int)relativeMousePosX, (int)relativeMousePosY);
+            easygui_post_outbound_event_mouse_wheel(pEventReceiver, delta, (int)relativeMousePosX, (int)relativeMousePosY, stateFlags);
         }
     }
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, unsigned int stateFlags)
+void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, int stateFlags)
 {
     if (pContext == NULL) {
         return;
@@ -1244,7 +1244,7 @@ void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key 
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key, unsigned int stateFlags)
+void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key, int stateFlags)
 {
     if (pContext == NULL) {
         return;
@@ -1259,7 +1259,7 @@ void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key ke
     easygui_end_inbound_event(pContext);
 }
 
-void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, unsigned int stateFlags)
+void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, int stateFlags)
 {
     if (pContext == NULL) {
         return;

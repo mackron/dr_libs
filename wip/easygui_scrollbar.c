@@ -562,8 +562,10 @@ void sb_on_mouse_leave(easygui_element* pSBElement)
     }
 }
 
-void sb_on_mouse_move(easygui_element* pSBElement, int relativeMousePosX, int relativeMousePosY)
+void sb_on_mouse_move(easygui_element* pSBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
+    (void)stateFlags;
+
     easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
@@ -609,8 +611,10 @@ void sb_on_mouse_move(easygui_element* pSBElement, int relativeMousePosX, int re
     }
 }
 
-void sb_on_mouse_button_down(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY)
+void sb_on_mouse_button_down(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
+    (void)stateFlags;
+
     easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
@@ -648,10 +652,11 @@ void sb_on_mouse_button_down(easygui_element* pSBElement, int button, int relati
     }
 }
 
-void sb_on_mouse_button_up(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY)
+void sb_on_mouse_button_up(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
+    (void)stateFlags;
 
     easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -670,10 +675,11 @@ void sb_on_mouse_button_up(easygui_element* pSBElement, int button, int relative
     }
 }
 
-void sb_on_mouse_wheel(easygui_element* pSBElement, int delta, int relativeMousePosX, int relativeMousePosY)
+void sb_on_mouse_wheel(easygui_element* pSBElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
+    (void)stateFlags;
 
     easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     if (pSB == NULL) {

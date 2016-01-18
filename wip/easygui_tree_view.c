@@ -636,8 +636,10 @@ void tv_on_mouse_leave(easygui_element* pTVElement)
     }
 }
 
-void tv_on_mouse_move(easygui_element* pTVElement, int relativeMousePosX, int relativeMousePosY)
+void tv_on_mouse_move(easygui_element* pTVElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
+    (void)stateFlags;
+
     eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
@@ -694,10 +696,11 @@ void tv_on_mouse_move(easygui_element* pTVElement, int relativeMousePosX, int re
     }
 }
 
-void tv_on_mouse_button_down(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+void tv_on_mouse_button_down(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
+    (void)stateFlags;
 
     eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
     if (pTV == NULL) {
@@ -735,11 +738,12 @@ void tv_on_mouse_button_down(easygui_element* pTVElement, int mouseButton, int r
     }
 }
 
-void tv_on_mouse_button_up(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+void tv_on_mouse_button_up(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)mouseButton;
     (void)relativeMousePosX;
     (void)relativeMousePosY;
+    (void)stateFlags;
 
     eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
     if (pTV == NULL) {
@@ -749,10 +753,11 @@ void tv_on_mouse_button_up(easygui_element* pTVElement, int mouseButton, int rel
     // TODO: Implement me.
 }
 
-void tv_on_mouse_button_dblclick(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+void tv_on_mouse_button_dblclick(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
+    (void)stateFlags;
 
     eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
     if (pTV == NULL) {
@@ -783,10 +788,11 @@ void tv_on_mouse_button_dblclick(easygui_element* pTVElement, int mouseButton, i
     }
 }
 
-void tv_on_mouse_wheel(easygui_element* pTVElement, int delta, int relativeMousePosX, int relativeMousePosY)
+void tv_on_mouse_wheel(easygui_element* pTVElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
+    (void)stateFlags;
 
     eg_tree_view* pTV = easygui_get_extra_data(pTVElement);
     if (pTV == NULL) {
@@ -1145,7 +1151,7 @@ PRIVATE void tv_on_scroll_v(easygui_element* pSBElement, int scrollPos)
 
     // As we scroll, the mouse will be placed over a different item. We just post a manual mouse_move event to trigger a refresh.
     if (pTV->isMouseOver) {
-        tv_on_mouse_move(pSB->pTVElement, pTV->relativeMousePosX, pTV->relativeMousePosY);
+        tv_on_mouse_move(pSB->pTVElement, pTV->relativeMousePosX, pTV->relativeMousePosY, 0);
     }
 
     // The paint routine is tied directly to the scrollbars, so all we need to do is mark it as dirty to trigger a redraw.

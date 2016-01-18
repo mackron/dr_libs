@@ -601,8 +601,10 @@ void tabbar_on_mouse_leave(easygui_element* pTBElement)
     }
 }
 
-void tabbar_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int relativeMousePosY)
+void tabbar_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
+    (void)stateFlags;
+
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
@@ -624,8 +626,10 @@ void tabbar_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, in
     }
 }
 
-void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
+    (void)stateFlags;
+
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
@@ -666,8 +670,10 @@ void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, i
     }
 }
 
-void tabbar_on_mouse_button_up(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY)
+void tabbar_on_mouse_button_up(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
+    (void)stateFlags;
+
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;

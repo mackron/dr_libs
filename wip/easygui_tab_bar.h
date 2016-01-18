@@ -149,13 +149,13 @@ bool tabbar_is_close_on_middle_click_enabled(easygui_element* pTBElement);
 void tabbar_on_mouse_leave(easygui_element* pTBElement);
 
 /// Called when the mouse move event needs to be processed for the given tab bar control.
-void tabbar_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int relativeMousePosY);
+void tabbar_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button down event needs to be processed for the given tab bar control.
-void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button up event needs to be processed for the given tab bar control.
-void tabbar_on_mouse_button_up(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+void tabbar_on_mouse_button_up(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the paint event needs to be processed for the given tab control.
 void tabbar_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect, void* pPaintData);

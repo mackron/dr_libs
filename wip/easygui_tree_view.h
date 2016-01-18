@@ -142,19 +142,19 @@ void tv_on_size(easygui_element* pTVElement, float newWidth, float newHeight);
 void tv_on_mouse_leave(easygui_element* pTVElement);
 
 /// Called when the mouse move event needs to be processed for the given tree-view control.
-void tv_on_mouse_move(easygui_element* pTVElement, int relativeMousePosX, int relativeMousePosY);
+void tv_on_mouse_move(easygui_element* pTVElement, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button down event needs to be processed for the given tree-view control.
-void tv_on_mouse_button_down(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+void tv_on_mouse_button_down(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button up event needs to be processed for the given tree-view control.
-void tv_on_mouse_button_up(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+void tv_on_mouse_button_up(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button double-click event needs to be processed for the given tree-view control.
-void tv_on_mouse_button_dblclick(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
+void tv_on_mouse_button_dblclick(easygui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse wheel event needs to be processed for the given tree-view control.
-void tv_on_mouse_wheel(easygui_element* pTVElement, int delta, int relativeMousePosX, int relativeMousePosY);
+void tv_on_mouse_wheel(easygui_element* pTVElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the paint event needs to be processed for the given tree-view control.
 void tv_on_paint(easygui_element* pTVElement, easygui_rect relativeClippingRect, void* pPaintData);

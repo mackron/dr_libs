@@ -337,14 +337,14 @@ typedef void (* easygui_on_move_proc)                 (easygui_element* pElement
 typedef void (* easygui_on_size_proc)                 (easygui_element* pElement, float newWidth, float newHeight);
 typedef void (* easygui_on_mouse_enter_proc)          (easygui_element* pElement);
 typedef void (* easygui_on_mouse_leave_proc)          (easygui_element* pElement);
-typedef void (* easygui_on_mouse_move_proc)           (easygui_element* pElement, int relativeMousePosX, int relativeMousePosY);
-typedef void (* easygui_on_mouse_button_down_proc)    (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
-typedef void (* easygui_on_mouse_button_up_proc)      (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
-typedef void (* easygui_on_mouse_button_dblclick_proc)(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY);
-typedef void (* easygui_on_mouse_wheel_proc)          (easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY);
-typedef void (* easygui_on_key_down_proc)             (easygui_element* pElement, easygui_key key, unsigned int stateFlags);
-typedef void (* easygui_on_key_up_proc)               (easygui_element* pElement, easygui_key key, unsigned int stateFlags);
-typedef void (* easygui_on_printable_key_down_proc)   (easygui_element* pElement, unsigned int character, unsigned int stateFlags);
+typedef void (* easygui_on_mouse_move_proc)           (easygui_element* pElement, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+typedef void (* easygui_on_mouse_button_down_proc)    (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+typedef void (* easygui_on_mouse_button_up_proc)      (easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+typedef void (* easygui_on_mouse_button_dblclick_proc)(easygui_element* pElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+typedef void (* easygui_on_mouse_wheel_proc)          (easygui_element* pElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+typedef void (* easygui_on_key_down_proc)             (easygui_element* pElement, easygui_key key, int stateFlags);
+typedef void (* easygui_on_key_up_proc)               (easygui_element* pElement, easygui_key key, int stateFlags);
+typedef void (* easygui_on_printable_key_down_proc)   (easygui_element* pElement, unsigned int character, int stateFlags);
 typedef void (* easygui_on_paint_proc)                (easygui_element* pElement, easygui_rect relativeRect, void* pPaintData);
 typedef void (* easygui_on_dirty_proc)                (easygui_element* pElement, easygui_rect relativeRect);
 typedef bool (* easygui_on_hittest_proc)              (easygui_element* pElement, float relativePosX, float relativePosY);
@@ -401,10 +401,16 @@ typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easyg
 #define EASYGUI_DELETE                  0x2E
 
 // Key state flags.
-#define EASYGUI_KEY_STATE_AUTO_REPEATED  (1 << 0)        // Whether or not the key press is generated due to auto-repeating. Only used with key down events.
-#define EASYGUI_KEY_STATE_SHIFT_DOWN     (1 << 1)        // Whether or not a shift key is down at the time the key event is handled.
-#define EASYGUI_KEY_STATE_CTRL_DOWN      (1 << 2)        // Whether or not a ctrl key is down at the time the key event is handled.
-#define EASYGUI_KEY_STATE_ALT_DOWN       (1 << 3)        // Whether or not an alt key is down at the time the key event is handled.
+#define EASYGUI_MOUSE_BUTTON_LEFT_DOWN   (1 << 0)
+#define EASYGUI_MOUSE_BUTTON_RIGHT_DOWN  (1 << 1)
+#define EASYGUI_MOUSE_BUTTON_MIDDLE_DOWN (1 << 2)
+#define EASYGUI_MOUSE_BUTTON_4_DOWN      (1 << 3)
+#define EASYGUI_MOUSE_BUTTON_5_DOWN      (1 << 4)
+#define EASYGUI_KEY_STATE_SHIFT_DOWN     (1 << 5)        // Whether or not a shift key is down at the time the input event is handled.
+#define EASYGUI_KEY_STATE_CTRL_DOWN      (1 << 6)        // Whether or not a ctrl key is down at the time the input event is handled.
+#define EASYGUI_KEY_STATE_ALT_DOWN       (1 << 7)        // Whether or not an alt key is down at the time the input event is handled.
+#define EASYGUI_KEY_STATE_AUTO_REPEATED  (1 << 31)       // Whether or not the key press is generated due to auto-repeating. Only used with key down events.
+
 
 
 
@@ -705,31 +711,31 @@ void easygui_delete_context(easygui_context* pContext);
 void easygui_post_inbound_event_mouse_leave(easygui_element* pTopLevelElement);
 
 /// Posts a mouse move inbound event.
-void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, int mousePosX, int mousePosY);
+void easygui_post_inbound_event_mouse_move(easygui_element* pTopLevelElement, int mousePosX, int mousePosY, int stateFlags);
 
 /// Posts a mouse button down inbound event.
-void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
+void easygui_post_inbound_event_mouse_button_down(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY, int stateFlags);
 
 /// Posts a mouse button up inbound event.
-void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
+void easygui_post_inbound_event_mouse_button_up(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY, int stateFlags);
 
 /// Posts a mouse button double-clicked inbound event.
-void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
+void easygui_post_inbound_event_mouse_button_dblclick(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY, int stateFlags);
 
 /// Posts a mouse wheel inbound event.
-void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY);
+void easygui_post_inbound_event_mouse_wheel(easygui_element* pTopLevelElement, int mouseButton, int mousePosX, int mousePosY, int stateFlags);
 
 /// Posts a key down inbound event.
-void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, unsigned int stateFlags);
+void easygui_post_inbound_event_key_down(easygui_context* pContext, easygui_key key, int stateFlags);
 
 /// Posts a key up inbound event.
-void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key, unsigned int stateFlags);
+void easygui_post_inbound_event_key_up(easygui_context* pContext, easygui_key key, int stateFlags);
 
 /// Posts a printable key down inbound event.
 ///
 /// @remarks
 ///     The \c character argument should be a UTF-32 code point.
-void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, unsigned int stateFlags);
+void easygui_post_inbound_event_printable_key_down(easygui_context* pContext, unsigned int character, int stateFlags);
 
 
 /// Registers the global on_dirty event callback.

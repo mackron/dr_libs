@@ -143,16 +143,16 @@ void sb_on_size(easygui_element* pSBElement, float newWidth, float newHeight);
 void sb_on_mouse_leave(easygui_element* pSBElement);
 
 /// Called when the mouse move event needs to be processed for the given scrollbar.
-void sb_on_mouse_move(easygui_element* pSBElement, int relativeMousePosX, int relativeMousePosY);
+void sb_on_mouse_move(easygui_element* pSBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button down event needs to be processed for the given scrollbar.
-void sb_on_mouse_button_down(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY);
+void sb_on_mouse_button_down(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button up event needs to be processed for the given scrollbar.
-void sb_on_mouse_button_up(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY);
+void sb_on_mouse_button_up(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse wheel event needs to be processed for the given scrollbar.
-void sb_on_mouse_wheel(easygui_element* pSBElement, int delta, int relativeMousePosX, int relativeMousePosY);
+void sb_on_mouse_wheel(easygui_element* pSBElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the paint event needs to be processed.
 void sb_on_paint(easygui_element* pSBElement, easygui_rect relativeClippingRect, void* pPaintData);
