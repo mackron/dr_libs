@@ -528,6 +528,38 @@ void easygui_apply_offset_to_children_recursive(easygui_element* pParentElement,
     }
 }
 
+PRIVATE void easygui_post_on_mouse_leave_recursive(easygui_context* pContext, easygui_element* pNewElementUnderMouse, easygui_element* pOldElementUnderMouse)
+{
+    easygui_element* pOldAncestor = pOldElementUnderMouse;
+    while (pOldAncestor != NULL)
+    {
+        bool isOldElementUnderMouse = pNewElementUnderMouse == pOldAncestor || easygui_is_ancestor(pOldAncestor, pNewElementUnderMouse);
+        if (!isOldElementUnderMouse)
+        {
+            easygui_post_outbound_event_mouse_leave(pOldAncestor);
+        }
+
+        pOldAncestor = pOldAncestor->pParent;
+    }
+}
+
+PRIVATE void easygui_post_on_mouse_enter_recursive(easygui_context* pContext, easygui_element* pNewElementUnderMouse, easygui_element* pOldElementUnderMouse)
+{
+    if (pNewElementUnderMouse == NULL) {
+        return;
+    }
+
+
+    if (pNewElementUnderMouse->pParent != NULL) {
+        easygui_post_on_mouse_enter_recursive(pContext, pNewElementUnderMouse->pParent, pOldElementUnderMouse);
+    }
+
+    bool wasNewElementUnderMouse = pOldElementUnderMouse == pNewElementUnderMouse || easygui_is_ancestor(pNewElementUnderMouse, pOldElementUnderMouse);
+    if (!wasNewElementUnderMouse)
+    {
+        easygui_post_outbound_event_mouse_enter(pNewElementUnderMouse);
+    }
+}
 
 void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easygui_element* pNewElementUnderMouse)
 {
@@ -547,31 +579,10 @@ void easygui_update_mouse_enter_and_leave_state(easygui_context* pContext, easyg
             // The the event handlers below, remember that ancestors are considered hovered if a descendant is the element under the mouse.
 
             // on_mouse_leave
-            easygui_element* pOldAncestor = pOldElementUnderMouse;
-            while (pOldAncestor != NULL)
-            {
-                bool isOldElementUnderMouse = pNewElementUnderMouse == pOldAncestor || easygui_is_ancestor(pOldAncestor, pNewElementUnderMouse);
-                if (!isOldElementUnderMouse)
-                {
-                    easygui_post_outbound_event_mouse_leave(pOldAncestor);
-                }
-
-                pOldAncestor = pOldAncestor->pParent;
-            }
-
+            easygui_post_on_mouse_leave_recursive(pContext, pNewElementUnderMouse, pOldElementUnderMouse);
 
             // on_mouse_enter
-            easygui_element* pNewAncestor = pNewElementUnderMouse;
-            while (pNewAncestor != NULL)
-            {
-                bool wasNewElementUnderMouse = pOldElementUnderMouse == pNewAncestor || easygui_is_ancestor(pNewAncestor, pOldElementUnderMouse);
-                if (!wasNewElementUnderMouse)
-                {
-                    easygui_post_outbound_event_mouse_enter(pNewAncestor);
-                }
-
-                pNewAncestor = pNewAncestor->pParent;
-            }
+            easygui_post_on_mouse_enter_recursive(pContext, pNewElementUnderMouse, pOldElementUnderMouse);
         }
     }
 }
