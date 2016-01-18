@@ -203,26 +203,26 @@ typedef void* easygui_resource;
 /// Font weights.
 typedef enum
 {
-    easygui_weight_medium = 0,
-    easygui_weight_thin,
-    easygui_weight_extra_light,
-    easygui_weight_light,
-    easygui_weight_semi_bold,
-    easygui_weight_bold,
-    easygui_weight_extra_bold,
-    easygui_weight_heavy,
+    easygui_font_weight_medium = 0,
+    easygui_font_weight_thin,
+    easygui_font_weight_extra_light,
+    easygui_font_weight_light,
+    easygui_font_weight_semi_bold,
+    easygui_font_weight_bold,
+    easygui_font_weight_extra_bold,
+    easygui_font_weight_heavy,
 
-    easygui_weight_normal  = easygui_weight_medium,
-    easygui_weight_default = easygui_weight_medium
+    easygui_font_weight_normal  = easygui_font_weight_medium,
+    easygui_font_weight_default = easygui_font_weight_medium
 
 } easygui_font_weight;
 
 /// Font slants.
 typedef enum
 {
-    easygui_slant_none = 0,
-    easygui_slant_italic,
-    easygui_slant_oblique
+    easygui_font_slant_none = 0,
+    easygui_font_slant_italic,
+    easygui_font_slant_oblique
 
 } easygui_font_slant;
 
