@@ -618,18 +618,31 @@ void sb_on_mouse_button_down(easygui_element* pSBElement, int button, int relati
 
     if (button == EASYGUI_MOUSE_BUTTON_LEFT)
     {
-        if (sb_is_thumb_visible(pSBElement) && easygui_rect_contains_point(sb_get_thumb_rect(pSBElement), (float)relativeMousePosX, (float)relativeMousePosY))
+        if (sb_is_thumb_visible(pSBElement))
         {
-            if (!pSB->thumbPressed)
+            easygui_rect thumbRect = sb_get_thumb_rect(pSBElement);
+            if (easygui_rect_contains_point(thumbRect, (float)relativeMousePosX, (float)relativeMousePosY))
             {
-                easygui_capture_mouse(pSBElement);
-                pSB->thumbPressed = true;
+                if (!pSB->thumbPressed)
+                {
+                    easygui_capture_mouse(pSBElement);
+                    pSB->thumbPressed = true;
 
-                pSB->thumbClickPosX = (float)relativeMousePosX;
-                pSB->thumbClickPosY = (float)relativeMousePosY;
-                sb_make_relative_to_thumb(pSBElement, &pSB->thumbClickPosX, &pSB->thumbClickPosY);
+                    pSB->thumbClickPosX = (float)relativeMousePosX;
+                    pSB->thumbClickPosY = (float)relativeMousePosY;
+                    sb_make_relative_to_thumb(pSBElement, &pSB->thumbClickPosX, &pSB->thumbClickPosY);
 
-                easygui_dirty(pSBElement, sb_get_thumb_rect(pSBElement));
+                    easygui_dirty(pSBElement, sb_get_thumb_rect(pSBElement));
+                }
+            }
+            else
+            {
+                // If the click position is above the thumb we want to scroll up by a page. If it's below the thumb, we scroll down by a page.
+                if (relativeMousePosY < thumbRect.top) {
+                    sb_scroll(pSBElement, -sb_get_page_size(pSBElement));
+                } else if (relativeMousePosY >= thumbRect.bottom) {
+                    sb_scroll(pSBElement,  sb_get_page_size(pSBElement));
+                }
             }
         }
     }
