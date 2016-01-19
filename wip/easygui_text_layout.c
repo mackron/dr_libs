@@ -2281,47 +2281,55 @@ void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float line
     // Now we draw each line.
     int iLine = 1;
     easygui_text_layout_line line;
-    if (easygui_text_layout__first_line(pTL, &line))
+    if (!easygui_text_layout__first_line(pTL, &line))
     {
-        do
-        {
-            float lineTop    = line.posY + textRect.top;
-            float lineBottom = lineTop + line.height;
-
-            if (lineTop < lineNumbersHeight)
-            {
-                if (lineBottom > 0)
-                {
-                    char iLineStr[64];
-                    _itoa_s(iLine, iLineStr, sizeof(iLineStr), 10);
-
-                    easygui_font* pFont = pTL->pDefaultFont;
-
-                    float textWidth;
-                    float textHeight;
-                    easygui_measure_string(pFont, iLineStr, strlen(iLineStr), scaleX, scaleY, &textWidth, &textHeight);
-
-                    easygui_text_run run = {0};
-                    run.pFont           = pFont;
-                    run.textColor       = textColor;
-                    run.backgroundColor = pTL->defaultBackgroundColor;
-                    run.text            = iLineStr;
-                    run.textLength      = strlen(iLineStr);
-                    run.posX            = lineNumbersWidth - textWidth;
-                    run.posY            = lineTop;
-                    onPaintText(pTL, &run, pUserData);
-                    onPaintRect(pTL, easygui_make_rect(0, lineTop, run.posX, lineBottom), run.backgroundColor, pUserData);
-                }
-            }
-            else
-            {
-                // The line is below the rectangle which means no other line will be visible and we can terminate early.
-                break;
-            }
-
-            iLine += 1;
-        } while (easygui_text_layout__next_line(pTL, &line));
+        // We failed to retrieve the first line which is probably due to the text layout being empty. We just fake the first line to
+        // ensure we get the number 1 to be drawn.
+        easygui_font_metrics fontMetrics;
+        easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &fontMetrics);
+        
+        line.height = (float)fontMetrics.lineHeight;
+        line.posY = 0;
     }
+
+    do
+    {
+        float lineTop    = line.posY + textRect.top;
+        float lineBottom = lineTop + line.height;
+
+        if (lineTop < lineNumbersHeight)
+        {
+            if (lineBottom > 0)
+            {
+                char iLineStr[64];
+                _itoa_s(iLine, iLineStr, sizeof(iLineStr), 10);
+
+                easygui_font* pFont = pTL->pDefaultFont;
+
+                float textWidth;
+                float textHeight;
+                easygui_measure_string(pFont, iLineStr, strlen(iLineStr), scaleX, scaleY, &textWidth, &textHeight);
+
+                easygui_text_run run = {0};
+                run.pFont           = pFont;
+                run.textColor       = textColor;
+                run.backgroundColor = pTL->defaultBackgroundColor;
+                run.text            = iLineStr;
+                run.textLength      = strlen(iLineStr);
+                run.posX            = lineNumbersWidth - textWidth;
+                run.posY            = lineTop;
+                onPaintText(pTL, &run, pUserData);
+                onPaintRect(pTL, easygui_make_rect(0, lineTop, run.posX, lineBottom), run.backgroundColor, pUserData);
+            }
+        }
+        else
+        {
+            // The line is below the rectangle which means no other line will be visible and we can terminate early.
+            break;
+        }
+
+        iLine += 1;
+    } while (easygui_text_layout__next_line(pTL, &line));
 }
 
 
