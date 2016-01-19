@@ -2248,6 +2248,85 @@ void easygui_text_layout_step(easygui_text_layout* pTL, unsigned int millisecond
 }
 
 
+
+void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float lineNumbersWidth, float lineNumbersHeight, easygui_color textColor, easygui_text_layout_on_paint_text_proc onPaintText, easygui_text_layout_on_paint_rect_proc onPaintRect, void* pUserData)
+{
+    if (pTL == NULL || onPaintText == NULL || onPaintRect == NULL) {
+        return;
+    }
+
+    float scaleX = 1;
+    float scaleY = 1;
+
+
+    // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
+    easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
+
+    // We draw a rectangle above and below the text rectangle. The main text rectangle will be drawn by iterating over each visible run.
+    easygui_rect rectTop    = easygui_make_rect(0, 0, lineNumbersWidth, textRect.top);
+    easygui_rect rectBottom = easygui_make_rect(0, textRect.bottom, lineNumbersWidth, lineNumbersHeight);
+
+    if (pTL->onPaintRect)
+    {
+        if (rectTop.bottom > 0) {
+            onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pUserData);
+        }
+        
+        if (rectBottom.top < lineNumbersHeight) {
+            onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pUserData);
+        }
+    }
+
+
+    // Now we draw each line.
+    int iLine = 1;
+    easygui_text_layout_line line;
+    if (easygui_text_layout__first_line(pTL, &line))
+    {
+        do
+        {
+            float lineTop    = line.posY + textRect.top;
+            float lineBottom = lineTop + line.height;
+
+            if (lineTop < lineNumbersHeight)
+            {
+                if (lineBottom > 0)
+                {
+                    char iLineStr[64];
+                    _itoa_s(iLine, iLineStr, sizeof(iLineStr), 10);
+
+                    easygui_font* pFont = pTL->pDefaultFont;
+
+                    float textWidth;
+                    float textHeight;
+                    easygui_measure_string(pFont, iLineStr, strlen(iLineStr), scaleX, scaleY, &textWidth, &textHeight);
+
+                    easygui_text_run run = {0};
+                    run.pFont           = pFont;
+                    run.textColor       = textColor;
+                    run.backgroundColor = pTL->defaultBackgroundColor;
+                    run.text            = iLineStr;
+                    run.textLength      = strlen(iLineStr);
+                    run.posX            = lineNumbersWidth - textWidth;
+                    run.posY            = lineTop;
+                    onPaintText(pTL, &run, pUserData);
+                    onPaintRect(pTL, easygui_make_rect(0, lineTop, run.posX, lineBottom), run.backgroundColor, pUserData);
+                }
+            }
+            else
+            {
+                // The line is below the rectangle which means no other line will be visible and we can terminate early.
+                break;
+            }
+
+            iLine += 1;
+        } while (easygui_text_layout__next_line(pTL, &line));
+    }
+}
+
+
+
+
 PRIVATE bool easygui_next_run_string(const char* runStart, const char* textEndPastNullTerminator, const char** pRunEndOut)
 {
     assert(runStart <= textEndPastNullTerminator);

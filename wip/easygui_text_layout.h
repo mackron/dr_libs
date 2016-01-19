@@ -414,6 +414,11 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
 void easygui_text_layout_step(easygui_text_layout* pTL, unsigned int milliseconds);
 
 
+
+/// Calls the given painting callbacks for the line numbers of the given text layout.
+void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float lineNumbersWidth, float lineNumbersHeight, easygui_color textColor, easygui_text_layout_on_paint_text_proc onPaintText, easygui_text_layout_on_paint_rect_proc onPaintRect, void* pUserData);
+
+
 #ifdef __cplusplus
 }
 #endif
