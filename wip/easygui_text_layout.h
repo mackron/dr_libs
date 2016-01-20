@@ -259,6 +259,12 @@ bool easygui_text_layout_move_cursor_to_end_of_line(easygui_text_layout* pTL);
 /// Moves the cursor of the given text layout to the start of the line.
 bool easygui_text_layout_move_cursor_to_start_of_line(easygui_text_layout* pTL);
 
+/// Moves the cursor of the given text layout to the end of the line at the given index.
+bool easygui_text_layout_move_cursor_to_end_of_line_by_index(easygui_text_layout* pTL, unsigned int iLine);
+
+/// Moves the cursor of the given text layout to the start of the line at the given index.
+bool easygui_text_layout_move_cursor_to_start_of_line_by_index(easygui_text_layout* pTL, unsigned int iLine);
+
 /// Moves the cursor of the given text layout to the end of the text.
 bool easygui_text_layout_move_cursor_to_end_of_text(easygui_text_layout* pTL);
 
@@ -270,6 +276,15 @@ void easygui_text_layout_move_cursor_to_start_of_selection(easygui_text_layout* 
 
 /// Moves the cursor to the end of the selected text.
 void easygui_text_layout_move_cursor_to_end_of_selection(easygui_text_layout* pTL);
+
+/// Determines whether or not the cursor is sitting at the start of the selection.
+bool easygui_text_layout_is_cursor_at_start_of_selection(easygui_text_layout* pTL);
+
+/// Determines whether or not the cursor is sitting at the end fo the selection.
+bool easygui_text_layout_is_cursor_at_end_of_selection(easygui_text_layout* pTL);
+
+/// Swaps the position of the cursor based on the current selection.
+void easygui_text_layout_swap_selection_markers(easygui_text_layout* pTL);
 
 /// Sets the function to call when the cursor in the given text layout is mvoed.
 void easygui_text_layout_set_on_cursor_move(easygui_text_layout* pTL, easygui_text_layout_on_cursor_move_proc proc);
@@ -354,6 +369,21 @@ void easygui_text_layout_select_all(easygui_text_layout* pTL);
 ///     If the output buffer is not larger enough, the string will be truncated.
 size_t easygui_text_layout_get_selected_text(easygui_text_layout* pTL, char* textOut, size_t textOutLength);
 
+/// Retrieves the index of the first line of the current selection.
+unsigned int easygui_text_layout_get_selection_first_line(easygui_text_layout* pTL);
+
+/// Retrieves the index of the last line of the current selection.
+unsigned int easygui_text_layout_get_selection_last_line(easygui_text_layout* pTL);
+
+/// Moves the selection anchor to the end of the given line.
+void easygui_text_layout_move_selection_anchor_to_end_of_line(easygui_text_layout* pTL, unsigned int iLine);
+
+/// Moves the selection anchor to the start of the given line.
+void easygui_text_layout_move_selection_anchor_to_start_of_line(easygui_text_layout* pTL, unsigned int iLine);
+
+/// Retrieves the line the selection anchor is sitting on.
+unsigned int easygui_text_layout_get_selection_anchor_line(easygui_text_layout* pTL);
+
 
 /// Prepares the next undo/redo point.
 ///
@@ -396,6 +426,9 @@ unsigned int easygui_text_layout_get_visible_line_count_starting_at(easygui_text
 ///     Use this for calculating the inner offset for scrolling on the y axis.
 float easygui_text_layout_get_line_pos_y(easygui_text_layout* pTL, unsigned int iLine);
 
+/// Finds the line under the given point on the y axis relative to the container.
+unsigned int easygui_text_layout_get_line_at_pos_y(easygui_text_layout* pTL, float posY);
+
 
 /// Sets the function to call when a run of text needs to be painted for the given text layout.
 void easygui_text_layout_set_on_paint_text(easygui_text_layout* pTL, easygui_text_layout_on_paint_text_proc proc);
@@ -412,7 +445,6 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
 /// @remarks
 ///     This will trigger the on_dirty callback when the cursor switches it's blink states.
 void easygui_text_layout_step(easygui_text_layout* pTL, unsigned int milliseconds);
-
 
 
 /// Calls the given painting callbacks for the line numbers of the given text layout.
