@@ -238,6 +238,9 @@ easygui_rect easygui_text_layout_get_cursor_rect(easygui_text_layout* pTL);
 /// Retrieves the index of the line the cursor is currently sitting on.
 unsigned int easygui_text_layout_get_cursor_line(easygui_text_layout* pTL);
 
+/// Retrieves the index of the column the cursor is currently sitting on.
+unsigned int easygui_text_layout_get_cursor_column(easygui_text_layout* pTL);
+
 /// Moves the cursor of the given text layout to the left by one character.
 bool easygui_text_layout_move_cursor_left(easygui_text_layout* pTL);
 

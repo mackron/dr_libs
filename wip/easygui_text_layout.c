@@ -1099,6 +1099,25 @@ unsigned int easygui_text_layout_get_cursor_line(easygui_text_layout* pTL)
     return pTL->pRuns[pTL->cursor.iRun].iLine;
 }
 
+unsigned int easygui_text_layout_get_cursor_column(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return 0;
+    }
+    
+    float scaleX = 1;
+    float scaleY = 1;
+
+    float posX;
+    float posY;
+    easygui_text_layout_get_cursor_position(pTL, &posX, &posY);
+
+    easygui_font_metrics fontMetrics;
+    easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &fontMetrics);
+
+    return (unsigned int)((int)posX / fontMetrics.spaceWidth);
+}
+
 bool easygui_text_layout_move_cursor_left(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
