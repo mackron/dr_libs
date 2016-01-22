@@ -80,8 +80,8 @@ typedef struct
 
 } easygui_text_run;
 
-typedef void (* easygui_text_layout_on_paint_text_proc)        (easygui_text_layout* pTL, easygui_text_run* pRun, void* pUserData);
-typedef void (* easygui_text_layout_on_paint_rect_proc)        (easygui_text_layout* pTL, easygui_rect rect, easygui_color color, void* pUserData);
+typedef void (* easygui_text_layout_on_paint_text_proc)        (easygui_text_layout* pTL, easygui_text_run* pRun, easygui_element* pElement, void* pPaintData);
+typedef void (* easygui_text_layout_on_paint_rect_proc)        (easygui_text_layout* pTL, easygui_rect rect, easygui_color color, easygui_element* pElement, void* pPaintData);
 typedef void (* easygui_text_layout_on_cursor_move_proc)       (easygui_text_layout* pTL);
 typedef void (* easygui_text_layout_on_dirty_proc)             (easygui_text_layout* pTL, easygui_rect rect);
 typedef void (* easygui_text_layout_on_text_changed_proc)      (easygui_text_layout* pTL);
@@ -440,7 +440,12 @@ void easygui_text_layout_set_on_paint_text(easygui_text_layout* pTL, easygui_tex
 void easygui_text_layout_set_on_paint_rect(easygui_text_layout* pTL, easygui_text_layout_on_paint_rect_proc proc);
 
 /// Paints the given text layout by calling the appropriate painting callbacks.
-void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void* pUserData);
+///
+/// @remarks
+///     Typically a text layout will be painted to a GUI element. A pointer to an element can be passed to this function
+///     which will be passed to the callback functions. This is purely for convenience and nothing is actually drawn to
+///     the element outside of the callback functions.
+void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easygui_element* pElement, void* pPaintData);
 
 
 /// Steps the given text layout by the given number of milliseconds.
@@ -451,7 +456,7 @@ void easygui_text_layout_step(easygui_text_layout* pTL, unsigned int millisecond
 
 
 /// Calls the given painting callbacks for the line numbers of the given text layout.
-void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float lineNumbersWidth, float lineNumbersHeight, easygui_color textColor, easygui_text_layout_on_paint_text_proc onPaintText, easygui_text_layout_on_paint_rect_proc onPaintRect, void* pUserData);
+void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float lineNumbersWidth, float lineNumbersHeight, easygui_color textColor, easygui_text_layout_on_paint_text_proc onPaintText, easygui_text_layout_on_paint_rect_proc onPaintRect, easygui_element* pElement, void* pPaintData);
 
 
 #ifdef __cplusplus

@@ -515,9 +515,13 @@ void easygui_text_layout_set_text(easygui_text_layout* pTL, const char* text)
 
     pTL->textLength = dst - pTL->text;
 
-
     // A change in text means we need to refresh the layout.
     easygui_text_layout__refresh(pTL);
+
+    // If the position of the cursor is past the last character we'll need to move it.
+    if (easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor) >= pTL->textLength) {
+        easygui_text_layout_move_cursor_to_end_of_text(pTL);
+    }
 
     if (pTL->onTextChanged) {
         pTL->onTextChanged(pTL);
@@ -2228,7 +2232,7 @@ void easygui_text_layout_set_on_paint_rect(easygui_text_layout* pTL, easygui_tex
     pTL->onPaintRect = proc;
 }
 
-void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void* pUserData)
+void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easygui_element* pElement, void* pPaintData)
 {
     if (pTL == NULL || pTL->onPaintText == NULL || pTL->onPaintRect == NULL) {
         return;
@@ -2266,11 +2270,11 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
     if (pTL->onPaintRect)
     {
         if (rectTop.bottom > rect.top) {
-            pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pUserData);
+            pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
         }
         
         if (rectBottom.top < rect.bottom) {
-            pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pUserData);
+            pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
         }
     }
 
@@ -2345,10 +2349,10 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                     if (lineLeft > 0)
                     {
                         if (lineSelectionOverhangLeft > 0) {
-                            pTL->onPaintRect(pTL, easygui_make_rect(lineLeft - lineSelectionOverhangLeft, lineTop, lineLeft, lineBottom), pTL->selectionBackgroundColor, pUserData);
+                            pTL->onPaintRect(pTL, easygui_make_rect(lineLeft - lineSelectionOverhangLeft, lineTop, lineLeft, lineBottom), pTL->selectionBackgroundColor, pElement, pPaintData);
                         }
 
-                        pTL->onPaintRect(pTL, easygui_make_rect(0, lineTop, lineLeft - lineSelectionOverhangLeft, lineBottom), pTL->defaultBackgroundColor, pUserData);
+                        pTL->onPaintRect(pTL, easygui_make_rect(0, lineTop, lineLeft - lineSelectionOverhangLeft, lineBottom), pTL->defaultBackgroundColor, pElement, pPaintData);
                     }
 
 
@@ -2384,9 +2388,9 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                                         easygui_text_run* pSubRun = subruns + iSubRun;
 
                                         if (!easygui_text_layout__is_text_run_whitespace(pTL, pRun)) {
-                                            pTL->onPaintText(pTL, pSubRun, pUserData);
+                                            pTL->onPaintText(pTL, pSubRun, pElement, pPaintData);
                                         } else {
-                                            pTL->onPaintRect(pTL, easygui_make_rect(pSubRun->posX, lineTop, pSubRun->posX + pSubRun->width, lineBottom), pSubRun->backgroundColor, pUserData);
+                                            pTL->onPaintRect(pTL, easygui_make_rect(pSubRun->posX, lineTop, pSubRun->posX + pSubRun->width, lineBottom), pSubRun->backgroundColor, pElement, pPaintData);
                                         }
                                     }
                                 }
@@ -2394,9 +2398,9 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                                 {
                                     // Nothing is selected.
                                     if (!easygui_text_layout__is_text_run_whitespace(pTL, &run)) {
-                                        pTL->onPaintText(pTL, &run, pUserData);
+                                        pTL->onPaintText(pTL, &run, pElement, pPaintData);
                                     } else {
-                                        pTL->onPaintRect(pTL, easygui_make_rect(run.posX, lineTop, run.posX + run.width, lineBottom), run.backgroundColor, pUserData);
+                                        pTL->onPaintRect(pTL, easygui_make_rect(run.posX, lineTop, run.posX + run.width, lineBottom), run.backgroundColor, pElement, pPaintData);
                                     }
                                 }
                             }
@@ -2408,10 +2412,10 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
                     if (lineRight < pTL->containerWidth)
                     {
                         if (lineSelectionOverhangRight > 0) {
-                            pTL->onPaintRect(pTL, easygui_make_rect(lineRight, lineTop, lineRight + lineSelectionOverhangRight, lineBottom), pTL->selectionBackgroundColor, pUserData);
+                            pTL->onPaintRect(pTL, easygui_make_rect(lineRight, lineTop, lineRight + lineSelectionOverhangRight, lineBottom), pTL->selectionBackgroundColor, pElement, pPaintData);
                         }
 
-                        pTL->onPaintRect(pTL, easygui_make_rect(lineRight + lineSelectionOverhangRight, lineTop, pTL->containerWidth, lineBottom), pTL->defaultBackgroundColor, pUserData);
+                        pTL->onPaintRect(pTL, easygui_make_rect(lineRight + lineSelectionOverhangRight, lineTop, pTL->containerWidth, lineBottom), pTL->defaultBackgroundColor, pElement, pPaintData);
                     }
                 }
             }
@@ -2426,7 +2430,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, void
 
     // The cursor.
     if (pTL->isShowingCursor && pTL->isCursorBlinkOn) {
-        pTL->onPaintRect(pTL, easygui_text_layout_get_cursor_rect(pTL), pTL->cursorColor, pUserData);
+        pTL->onPaintRect(pTL, easygui_text_layout_get_cursor_rect(pTL), pTL->cursorColor, pElement, pPaintData);
     }
 }
 
@@ -2454,7 +2458,7 @@ void easygui_text_layout_step(easygui_text_layout* pTL, unsigned int millisecond
 
 
 
-void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float lineNumbersWidth, float lineNumbersHeight, easygui_color textColor, easygui_text_layout_on_paint_text_proc onPaintText, easygui_text_layout_on_paint_rect_proc onPaintRect, void* pUserData)
+void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float lineNumbersWidth, float lineNumbersHeight, easygui_color textColor, easygui_text_layout_on_paint_text_proc onPaintText, easygui_text_layout_on_paint_rect_proc onPaintRect, easygui_element* pElement, void* pPaintData)
 {
     if (pTL == NULL || onPaintText == NULL || onPaintRect == NULL) {
         return;
@@ -2474,11 +2478,11 @@ void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float line
     if (pTL->onPaintRect)
     {
         if (rectTop.bottom > 0) {
-            onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pUserData);
+            onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
         }
         
         if (rectBottom.top < lineNumbersHeight) {
-            onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pUserData);
+            onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
         }
     }
 
@@ -2523,8 +2527,8 @@ void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float line
                 run.textLength      = strlen(iLineStr);
                 run.posX            = lineNumbersWidth - textWidth;
                 run.posY            = lineTop;
-                onPaintText(pTL, &run, pUserData);
-                onPaintRect(pTL, easygui_make_rect(0, lineTop, run.posX, lineBottom), run.backgroundColor, pUserData);
+                onPaintText(pTL, &run, pElement, pPaintData);
+                onPaintRect(pTL, easygui_make_rect(0, lineTop, run.posX, lineBottom), run.backgroundColor, pElement, pPaintData);
             }
         }
         else
@@ -2607,6 +2611,8 @@ PRIVATE void easygui_text_layout__refresh(easygui_text_layout* pTL)
 
     easygui_font_metrics defaultFontMetrics;
     easygui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics);
+
+    pTL->textBoundsHeight = (float)defaultFontMetrics.lineHeight;
 
     const float tabWidth = easygui_text_layout__get_tab_width(pTL);
 
@@ -3188,11 +3194,13 @@ PRIVATE void easygui_text_layout__get_marker_position_relative_to_container(easy
 
     if (pMarker->iRun < pTL->runCount)
     {
-        easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
-
-        posX = textRect.left + pTL->pRuns[pMarker->iRun].posX + pMarker->relativePosX;
-        posY = textRect.top  + pTL->pRuns[pMarker->iRun].posY;
+        posX = pTL->pRuns[pMarker->iRun].posX + pMarker->relativePosX;
+        posY = pTL->pRuns[pMarker->iRun].posY;
     }
+
+    easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
+    posX += textRect.left;
+    posY += textRect.top;
 
 
     if (pPosXOut) {
