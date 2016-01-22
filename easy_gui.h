@@ -798,7 +798,7 @@ void easygui_set_on_log(easygui_context* pContext, easygui_on_log onLog);
 // Elements
 
 /// Creates an element.
-easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent, size_t extraDataSize);
+easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent, size_t extraDataSize, const void* pExtraData);
 
 /// Deletes and element.
 void easygui_delete_element(easygui_element* pElement);

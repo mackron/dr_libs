@@ -152,7 +152,7 @@ easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_eleme
         return NULL;
     }
 
-    easygui_element* pTBElement = easygui_create_element(pContext, pParent, sizeof(easygui_tab_bar) - sizeof(char) + extraDataSize);
+    easygui_element* pTBElement = easygui_create_element(pContext, pParent, sizeof(easygui_tab_bar) - sizeof(char) + extraDataSize, NULL);
     if (pTBElement == NULL) {
         return NULL;
     }

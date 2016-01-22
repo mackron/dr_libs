@@ -55,7 +55,7 @@ easygui_element* easygui_create_textbox(easygui_context* pContext, easygui_eleme
         return NULL;
     }
 
-    easygui_element* pTBElement = easygui_create_element(pContext, pParent, sizeof(easygui_textbox) - sizeof(char) + extraDataSize);
+    easygui_element* pTBElement = easygui_create_element(pContext, pParent, sizeof(easygui_textbox) - sizeof(char) + extraDataSize, NULL);
     if (pTBElement == NULL) {
         return NULL;
     }
@@ -88,6 +88,7 @@ easygui_element* easygui_create_textbox(easygui_context* pContext, easygui_eleme
     easygui_text_layout_set_default_text_color(pTB->pTL, easygui_rgb(0, 0, 0));
     easygui_text_layout_set_cursor_color(pTB->pTL, easygui_rgb(0, 0, 0));
     easygui_text_layout_set_default_bg_color(pTB->pTL, easygui_rgb(255, 255, 255));
+    easygui_text_layout_set_active_line_bg_color(pTB->pTL, easygui_rgb(255, 255, 255));
     easygui_text_layout_set_vertical_align(pTB->pTL, easygui_text_layout_alignment_center);
 
     pTB->borderColor = easygui_rgb(0, 0, 0);
@@ -161,6 +162,16 @@ void easygui_textbox_set_background_color(easygui_element* pTBElement, easygui_c
     }
 
     easygui_text_layout_set_default_bg_color(pTB->pTL, color);
+}
+
+void easygui_textbox_set_active_line_background_color(easygui_element* pTBElement, easygui_color color)
+{
+    easygui_textbox* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    easygui_text_layout_set_active_line_bg_color(pTB->pTL, color);
 }
 
 void easygui_textbox_set_cursor_color(easygui_element* pTBElement, easygui_color color)

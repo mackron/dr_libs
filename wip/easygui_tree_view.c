@@ -217,7 +217,7 @@ PRIVATE eg_tree_view_item* tv_find_first_visible_item_on_page(easygui_element* p
 
 easygui_element* eg_create_tree_view(easygui_context* pContext, easygui_element* pParent, size_t extraDataSize, const void* pExtraData)
 {
-    easygui_element* pTVElement = easygui_create_element(pContext, pParent, sizeof(eg_tree_view) - sizeof(char) + extraDataSize);
+    easygui_element* pTVElement = easygui_create_element(pContext, pParent, sizeof(eg_tree_view) - sizeof(char) + extraDataSize, NULL);
     if (pTVElement == NULL) {
         return NULL;
     }

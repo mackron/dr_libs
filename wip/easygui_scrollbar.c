@@ -121,7 +121,7 @@ easygui_element* easygui_create_scrollbar(easygui_context* pContext, easygui_ele
         return NULL;
     }
 
-    easygui_element* pSBElement = easygui_create_element(pContext, pParent, sizeof(easygui_scrollbar) - sizeof(char) + extraDataSize);
+    easygui_element* pSBElement = easygui_create_element(pContext, pParent, sizeof(easygui_scrollbar) - sizeof(char) + extraDataSize, NULL);
     if (pSBElement == NULL) {
         return NULL;
     }

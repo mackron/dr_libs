@@ -1323,7 +1323,7 @@ void easygui_set_on_log(easygui_context* pContext, easygui_on_log onLog)
 /////////////////////////////////////////////////////////////////
 // Elements
 
-easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent, size_t extraDataSize)
+easygui_element* easygui_create_element(easygui_context* pContext, easygui_element* pParent, size_t extraDataSize, const void* pExtraData)
 {
     if (pContext != NULL)
     {
@@ -1363,8 +1363,11 @@ easygui_element* easygui_create_element(easygui_context* pContext, easygui_eleme
             pElement->onReleaseMouse        = NULL;
             pElement->onCaptureKeyboard     = NULL;
             pElement->onReleaseKeyboard     = NULL;
-            pElement->extraDataSize         = extraDataSize;
-            memset(pElement->pExtraData, 0, extraDataSize);
+
+            pElement->extraDataSize = extraDataSize;
+            if (pExtraData != NULL) {
+                memcpy(pElement->pExtraData, pExtraData, extraDataSize);
+            }
 
             // Add to the the hierarchy.
             easygui_append_without_detach_or_redraw(pElement, pElement->pParent);

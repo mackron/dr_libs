@@ -39,6 +39,9 @@ void easygui_textbox_set_text_color(easygui_element* pTBElement, easygui_color c
 /// Sets the background color of the given text box.
 void easygui_textbox_set_background_color(easygui_element* pTBElement, easygui_color color);
 
+/// Sets the background color for the line the caret is currently sitting on.
+void easygui_textbox_set_active_line_background_color(easygui_element* pTBElement, easygui_color color);
+
 /// Sets the color of the cursor of the given text box.
 void easygui_textbox_set_cursor_color(easygui_element* pTBElement, easygui_color color);
 
