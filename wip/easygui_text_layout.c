@@ -2260,29 +2260,28 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easy
     const float scaleY = 1;
 
 
-    // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
-    easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
-
-    // We draw a rectangle above and below the text rectangle. The main text rectangle will be drawn by iterating over each visible run.
-    easygui_rect rectTop    = easygui_make_rect(0, 0, pTL->containerWidth, textRect.top);
-    easygui_rect rectBottom = easygui_make_rect(0, textRect.bottom, pTL->containerWidth, pTL->containerHeight);
-
-    if (pTL->onPaintRect)
-    {
-        if (rectTop.bottom > rect.top) {
-            pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
-        }
-        
-        if (rectBottom.top < rect.bottom) {
-            pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
-        }
-    }
-
-
     // We draw line-by-line, starting from the first visible line.
     easygui_text_layout_line line;
     if (easygui_text_layout__first_line(pTL, &line))
     {
+        // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
+        easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
+
+        // We draw a rectangle above and below the text rectangle. The main text rectangle will be drawn by iterating over each visible run.
+        easygui_rect rectTop    = easygui_make_rect(0, 0, pTL->containerWidth, textRect.top);
+        easygui_rect rectBottom = easygui_make_rect(0, textRect.bottom, pTL->containerWidth, pTL->containerHeight);
+
+        if (pTL->onPaintRect)
+        {
+            if (rectTop.bottom > rect.top) {
+                pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
+            }
+        
+            if (rectBottom.top < rect.bottom) {
+                pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
+            }
+        }
+
         do
         {
             float lineTop    = line.posY + textRect.top;
@@ -2426,6 +2425,11 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easy
             }
 
         } while (easygui_text_layout__next_line(pTL, &line));
+    }
+    else
+    {
+        // There are no lines so we just draw a solid background.
+        pTL->onPaintRect(pTL, easygui_make_rect(0, 0, pTL->containerWidth, pTL->containerHeight), pTL->defaultBackgroundColor, pElement, pPaintData);
     }
 
     // The cursor.
