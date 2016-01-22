@@ -174,6 +174,12 @@ void easygui_text_layout_set_default_bg_color(easygui_text_layout* pTL, easygui_
 /// Retrieves the default background color of the given text layout.
 easygui_color easygui_text_layout_get_default_bg_color(easygui_text_layout* pTL);
 
+/// Sets the background color of the line the cursor is sitting on.
+void easygui_text_layout_set_active_line_bg_color(easygui_text_layout* pTL, easygui_color color);
+
+/// Retrieves the background color of the line the cursor is sitting on.
+easygui_color easygui_text_layout_get_active_line_bg_color(easygui_text_layout* pTL);
+
 
 /// Sets the size of a tab in spaces.
 void easygui_text_layout_set_tab_size(easygui_text_layout* pTL, unsigned int sizeInSpaces);

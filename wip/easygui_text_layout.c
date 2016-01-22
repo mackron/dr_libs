@@ -114,6 +114,9 @@ struct easygui_text_layout
     /// The background color to use for selected text.
     easygui_color selectionBackgroundColor;
 
+    /// The background color to use for the line the cursor is currently sitting on.
+    easygui_color lineBackgroundColor;
+
     /// The size of a tab in spaces.
     unsigned int tabSizeInSpaces;
 
@@ -420,6 +423,7 @@ easygui_text_layout* easygui_create_text_layout(easygui_context* pContext, size_
     pTL->defaultTextColor           = easygui_rgb(224, 224, 224);
     pTL->defaultBackgroundColor     = easygui_rgb(48, 48, 48);
     pTL->selectionBackgroundColor   = easygui_rgb(64, 128, 192);
+    pTL->lineBackgroundColor        = easygui_rgb(40, 40, 40);
     pTL->tabSizeInSpaces            = 4;
     pTL->horzAlign                  = easygui_text_layout_alignment_left;
     pTL->vertAlign                  = easygui_text_layout_alignment_top;
@@ -773,7 +777,33 @@ void easygui_text_layout_set_default_bg_color(easygui_text_layout* pTL, easygui_
 
 easygui_color easygui_text_layout_get_default_bg_color(easygui_text_layout* pTL)
 {
+    if (pTL == NULL) {
+        return easygui_rgb(0, 0, 0);
+    }
+
     return pTL->defaultBackgroundColor;
+}
+
+void easygui_text_layout_set_active_line_bg_color(easygui_text_layout* pTL, easygui_color color)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->lineBackgroundColor = color;
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
+}
+
+easygui_color easygui_text_layout_get_active_line_bg_color(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return easygui_rgb(0, 0, 0);
+    }
+
+    return pTL->lineBackgroundColor;
 }
 
 
@@ -2260,28 +2290,29 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easy
     const float scaleY = 1;
 
 
+    // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
+    easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
+
+    // We draw a rectangle above and below the text rectangle. The main text rectangle will be drawn by iterating over each visible run.
+    easygui_rect rectTop    = easygui_make_rect(0, 0, pTL->containerWidth, textRect.top);
+    easygui_rect rectBottom = easygui_make_rect(0, textRect.bottom, pTL->containerWidth, pTL->containerHeight);
+
+    if (pTL->onPaintRect)
+    {
+        if (rectTop.bottom > rect.top) {
+            pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
+        }
+        
+        if (rectBottom.top < rect.bottom) {
+            pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
+        }
+    }
+
+
     // We draw line-by-line, starting from the first visible line.
     easygui_text_layout_line line;
     if (easygui_text_layout__first_line(pTL, &line))
     {
-        // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
-        easygui_rect textRect = easygui_text_layout_get_text_rect_relative_to_bounds(pTL);
-
-        // We draw a rectangle above and below the text rectangle. The main text rectangle will be drawn by iterating over each visible run.
-        easygui_rect rectTop    = easygui_make_rect(0, 0, pTL->containerWidth, textRect.top);
-        easygui_rect rectBottom = easygui_make_rect(0, textRect.bottom, pTL->containerWidth, pTL->containerHeight);
-
-        if (pTL->onPaintRect)
-        {
-            if (rectTop.bottom > rect.top) {
-                pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
-            }
-        
-            if (rectBottom.top < rect.bottom) {
-                pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
-            }
-        }
-
         do
         {
             float lineTop    = line.posY + textRect.top;
@@ -2293,6 +2324,11 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easy
                 {
                     // The line is visible. We draw in 3 main parts - 1) the blank space to the left of the first run; 2) the runs themselves; 3) the blank
                     // space to the right of the last run.
+
+                    easygui_color bgcolor = pTL->defaultBackgroundColor;
+                    if (line.index == easygui_text_layout_get_cursor_line(pTL)) {
+                        bgcolor = pTL->lineBackgroundColor;
+                    }
 
                     float lineSelectionOverhangLeft  = 0;
                     float lineSelectionOverhangRight = 0;
@@ -2351,7 +2387,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easy
                             pTL->onPaintRect(pTL, easygui_make_rect(lineLeft - lineSelectionOverhangLeft, lineTop, lineLeft, lineBottom), pTL->selectionBackgroundColor, pElement, pPaintData);
                         }
 
-                        pTL->onPaintRect(pTL, easygui_make_rect(0, lineTop, lineLeft - lineSelectionOverhangLeft, lineBottom), pTL->defaultBackgroundColor, pElement, pPaintData);
+                        pTL->onPaintRect(pTL, easygui_make_rect(0, lineTop, lineLeft - lineSelectionOverhangLeft, lineBottom), bgcolor, pElement, pPaintData);
                     }
 
 
@@ -2371,7 +2407,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easy
                                 easygui_text_run run = pTL->pRuns[iRun];
                                 run.pFont           = pTL->pDefaultFont;
                                 run.textColor       = pTL->defaultTextColor;
-                                run.backgroundColor = pTL->defaultBackgroundColor;
+                                run.backgroundColor = bgcolor;
                                 run.text            = pTL->text + run.iChar;
                                 run.posX            = runLeft;
                                 run.posY            = lineTop;
@@ -2414,7 +2450,7 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easy
                             pTL->onPaintRect(pTL, easygui_make_rect(lineRight, lineTop, lineRight + lineSelectionOverhangRight, lineBottom), pTL->selectionBackgroundColor, pElement, pPaintData);
                         }
 
-                        pTL->onPaintRect(pTL, easygui_make_rect(lineRight + lineSelectionOverhangRight, lineTop, pTL->containerWidth, lineBottom), pTL->defaultBackgroundColor, pElement, pPaintData);
+                        pTL->onPaintRect(pTL, easygui_make_rect(lineRight + lineSelectionOverhangRight, lineTop, pTL->containerWidth, lineBottom), bgcolor, pElement, pPaintData);
                     }
                 }
             }
@@ -2428,8 +2464,10 @@ void easygui_text_layout_paint(easygui_text_layout* pTL, easygui_rect rect, easy
     }
     else
     {
-        // There are no lines so we just draw a solid background.
-        pTL->onPaintRect(pTL, easygui_make_rect(0, 0, pTL->containerWidth, pTL->containerHeight), pTL->defaultBackgroundColor, pElement, pPaintData);
+        // There are no lines so we do a simplified branch here.
+        float lineTop    = textRect.top;
+        float lineBottom = textRect.bottom;
+        pTL->onPaintRect(pTL, easygui_make_rect(0, lineTop, pTL->containerWidth, lineBottom), pTL->lineBackgroundColor, pElement, pPaintData);
     }
 
     // The cursor.
