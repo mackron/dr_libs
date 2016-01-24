@@ -18,7 +18,6 @@
 //   - IEEE 64-bit floating point.
 //   - A-law and u-law
 // - Data conversion APIs can be disabled by doing: #define EASY_WAV_NO_CONVERSION_API
-// - Seeking is not currently supported, but should be pretty simple to add later on.
 // 
 
 #ifndef easy_wav_h
@@ -100,7 +99,10 @@ easywav_info easywav_get_info(easywav* wav);
 ///     conversions which means you'll need to convert the data manually if required.
 unsigned int easywav_read(easywav* wav, unsigned int samplesToRead, void* bufferOut);
 
-// TODO: void easywav_seek(easywav* wav, unsigned int sample);
+/// Seeks to the given sample.
+///
+/// @return Zero if an error occurs, non-zero if successful.
+int easywav_seek(easywav* wav, unsigned int sample);
 
 
 
@@ -161,6 +163,7 @@ easywav* easywav_open_file(const char* filename);
 
 #ifdef EASY_WAV_IMPLEMENTATION
 #include <stdlib.h>
+#include <assert.h>
 
 #ifndef EASY_WAV_NO_STDIO
 #include <stdio.h>
@@ -389,6 +392,57 @@ unsigned int easywav_read(easywav* wav, unsigned int samplesToRead, void* buffer
     return bytesRead / (wav->info.bitsPerSample / 8);
 }
 
+int easywav_seek(easywav* wav, unsigned int sample)
+{
+    // Seeking should be compatible with wave files > 2GB.
+
+    if (wav == NULL || wav->onSeek == NULL) {
+        return 0;
+    }
+
+    // If there are no samples, just return true without doing anything.
+    if (wav->info.sampleCount == 0) {
+        return 1;
+    }
+
+    // Make sure the sample is clamped.
+    if (sample >= wav->info.sampleCount) {
+        sample = wav->info.sampleCount - 1;
+    }
+
+
+    size_t totalSizeInBytes = wav->info.sampleCount * (wav->info.bitsPerSample / 8);
+    assert(totalSizeInBytes >= wav->bytesRemaining);
+
+    size_t currentBytePos = totalSizeInBytes - wav->bytesRemaining;
+    size_t targetBytePos  = sample * (wav->info.bitsPerSample / 8);
+
+    size_t offset;
+    int direction;
+    if (currentBytePos < targetBytePos) {
+        // Offset forward.
+        offset = targetBytePos - currentBytePos;
+        direction = 1;
+    } else {
+        // Offset backwards.
+        offset = currentBytePos - targetBytePos;
+        direction = -1;
+    }
+
+    while (offset > 0)
+    {
+        int offset32 = ((offset > INT_MAX) ? INT_MAX : (int)offset);
+        wav->onSeek(wav->userData, offset32 * direction);
+
+        wav->bytesRemaining -= (offset32 * direction);
+        offset -= offset32;
+    }
+
+    return 1;
+}
+
+
+#ifndef EASY_WAV_NO_CONVERSION_API
 unsigned int easywav_read_f32(easywav* wav, unsigned int samplesToRead, float* bufferOut)
 {
     if (wav == NULL || samplesToRead == 0 || bufferOut == NULL) {
@@ -704,6 +758,8 @@ void easywav_ulaw_to_f32(unsigned int sampleCount, const unsigned char* ulaw, fl
         *f32Out++ = t / 32768.0f;
     }
 }
+#endif EASY_WAV_NO_CONVERSION_API
+
 #endif  //EASY_WAV_IMPLEMENTATION
 
 #ifdef __cplusplus
