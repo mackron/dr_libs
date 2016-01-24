@@ -82,20 +82,21 @@ typedef struct
 } easywav_info;
 
 
-// When a chunk of memory needs to be read it'll call a function with this definition. The return value is
-// the number of bytes actually read. A return value of 0 indicates an error.
+/// Callback for when data is read. Return value is the number of bytes actually read.
 typedef size_t (* easywav_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
 
-// When the current read position in the wav file needs to seek it'll be done via call to a function with
-// this definition. Seeking is always done as an offset from the current position. The return value is a
-// boolean - 0 indicates an error, non-zero indicates success.
+/// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
+/// is 0 on failure, non-zero success.
 typedef int (* easywav_seek_proc)(void* userData, int offset);
 
 
 /// Opens a .wav file using the given callbacks.
+///
+/// @remarks
+///     Returns null on error.
 easywav* easywav_open(easywav_read_proc onRead, easywav_seek_proc onSeek, void* userData);
 
-/// Closes the given easy_wav object.
+/// Closes the given easywav object.
 void easywav_close(easywav* wav);
 
 /// Retrieves information about the given wav file.
@@ -106,6 +107,8 @@ easywav_info easywav_get_info(easywav* wav);
 /// @remarks
 ///     This is typically the most efficient way to retrieve audio data, but it does not do any format
 ///     conversions which means you'll need to convert the data manually if required.
+///     @par
+///     If the return value is less than <samplesToRead> it means the end of the file has been reached.
 unsigned int easywav_read(easywav* wav, unsigned int samplesToRead, void* bufferOut);
 
 /// Seeks to the given sample.
