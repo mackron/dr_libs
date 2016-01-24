@@ -1,6 +1,9 @@
 # About
-A simple library for audio playback and recording. Just placeholder at
-the moment.
+A collection of simple, public domain libraries related to audio
+processing. Each library is independant of each other.
+ - easy_audio - A library for audio playback and recording. This is
+   very work-in-progress and should not be used for anything serious.
+ - easy_wav - A simple library for reading audio data from wave files.
 
 
 # License
