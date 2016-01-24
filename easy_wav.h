@@ -747,6 +747,7 @@ void easywav_s24PCM_to_f32(unsigned int sampleCount, const unsigned char* s24PCM
     if (s24PCM == NULL || f32Out == NULL) {
         return;
     }
+
     for (unsigned int i = 0; i < sampleCount; ++i)
     {
         unsigned int s0 = s24PCM[i*3 + 0];
