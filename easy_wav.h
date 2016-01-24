@@ -450,11 +450,10 @@ void easywav_close(easywav* wav)
     }
 #endif
 
-#ifndef EASY_WAV_NO_OPEN_MEMORY
+    // If we opened the file with easywav_open_memory() we will want to free() the user data.
     if (wav->onRead == easywav__on_read_memory && wav->onSeek == easywav__on_seek_memory) {
         free(wav->userData);
     }
-#endif
 
     free(wav);
 }
