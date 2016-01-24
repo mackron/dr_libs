@@ -18,7 +18,20 @@
 //   - IEEE 64-bit floating point.
 //   - A-law and u-law
 // - Data conversion APIs can be disabled by doing: #define EASY_WAV_NO_CONVERSION_API
-// 
+//
+
+//
+// OPTIONS
+//
+// #define EASY_WAV_NO_CONVERSION_API
+//   Excludes conversion APIs such as easywav_read_f32() and easywav_s16PCM_to_f32().
+//
+// #define EASY_WAV_NO_STDIO
+//   Excludes stdio helpers APIs. I.e. excludes easywav_open_file().
+//
+// #define EASY_WAV_NO_OPEN_MEMORY
+//   Excludes easywav_open_memory().
+//
 
 #ifndef easy_wav_h
 #define easy_wav_h
@@ -154,6 +167,18 @@ easywav* easywav_open_file(const char* filename);
 
 #endif  //EASY_WAV_NO_STDIO
 
+#ifndef EASY_WAV_NO_OPEN_MEMORY
+
+/// Helper for opening a file from a pre-allocated memory buffer.
+///
+/// @remarks
+///     This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
+///     the lifetime of the easywav object.
+///     @par
+///     The buffer should contain the contents of the entire wave file, not just the sample data.
+easywav* easywav_open_memory(const void* data, size_t dataSize);
+
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -163,6 +188,7 @@ easywav* easywav_open_file(const char* filename);
 
 #ifdef EASY_WAV_IMPLEMENTATION
 #include <stdlib.h>
+#include <string.h> // For memcpy()
 #include <assert.h>
 
 #ifndef EASY_WAV_NO_STDIO
@@ -219,7 +245,75 @@ easywav* easywav_open_file(const char* filename)
 
     return easywav_open(easywav__on_read_stdio, easywav__on_seek_stdio, pFile);
 }
-#endif
+#endif  //EASY_WAV_NO_STDIO
+
+#ifndef EASY_WAV_NO_OPEN_MEMORY
+typedef struct
+{
+    /// A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
+    const unsigned char* data;
+
+    /// The size of the data.
+    size_t dataSize;
+
+    /// The position we're currently sitting at.
+    size_t currentReadPos;
+
+} easywav_memory;
+
+static size_t easywav__on_read_memory(void* userData, void* bufferOut, size_t bytesToRead)
+{
+    easywav_memory* memory = userData;
+    assert(memory != NULL);
+    assert(memory->dataSize >= memory->currentReadPos);
+
+    size_t bytesRemaining = memory->dataSize - memory->currentReadPos;
+    if (bytesToRead > bytesRemaining) {
+        bytesToRead = bytesRemaining;
+    }
+
+    if (bytesToRead > 0) {
+        memcpy(bufferOut, memory->data + memory->currentReadPos, bytesToRead);
+        memory->currentReadPos += bytesToRead;
+    }
+
+    return bytesToRead;
+}
+
+static int easywav__on_seek_memory(void* userData, int offset)
+{
+    easywav_memory* memory = userData;
+    assert(memory != NULL);
+
+    if (offset > 0) {
+        if (memory->currentReadPos + offset > memory->dataSize) {
+            offset = memory->dataSize - memory->currentReadPos;     // Trying to seek too far forward.
+        }
+    } else {
+        if (memory->currentReadPos < (size_t)-offset) {
+            offset = -(int)memory->currentReadPos;                  // Trying to seek too far backwards.
+        }
+    }
+
+    // This will never underflow thanks to the clamps above.
+    memory->currentReadPos += offset;
+
+    return 1;
+}
+
+easywav* easywav_open_memory(const void* data, size_t dataSize)
+{
+    easywav_memory* userData = malloc(sizeof(*userData));
+    if (userData == NULL) {
+        return NULL;
+    }
+
+    userData->data = data;
+    userData->dataSize = dataSize;
+    userData->currentReadPos = 0;
+    return easywav_open(easywav__on_read_memory, easywav__on_seek_memory, userData);
+}
+#endif  //EASY_WAV_NO_OPEN_MEMORY
 
 
 easywav* easywav_open(easywav_read_proc onRead, easywav_seek_proc onSeek, void* userData)
@@ -357,6 +451,12 @@ void easywav_close(easywav* wav)
     // was used by looking at the onRead and onSeek callbacks.
     if (wav->onRead == easywav__on_read_stdio && wav->onSeek == easywav__on_seek_stdio) {
         fclose((FILE*)wav->userData);
+    }
+#endif
+
+#ifndef EASY_WAV_NO_OPEN_MEMORY
+    if (wav->onRead == easywav__on_read_memory && wav->onSeek == easywav__on_seek_memory) {
+        free(wav->userData);
     }
 #endif
 
