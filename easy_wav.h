@@ -9,7 +9,7 @@
 //   is completely untested.
 // - Samples are always interleaved.
 // - The default read function does not do any data conversion. Use easywav_read_f32() to read and convert audio data
-//   to IEEE 32-bit floating point samples. Supported formats include the following:
+//   to IEEE 32-bit floating point samples. Supported internal formats include the following:
 //   - Signed 16-bit PCM
 //   - Signed 24-bit PCM
 //   - Signed 32-bit PCM
@@ -17,7 +17,6 @@
 //   - IEEE 32-bit floating point.
 //   - IEEE 64-bit floating point.
 //   - A-law and u-law
-// - Data conversion APIs can be disabled by doing: #define EASY_WAV_NO_CONVERSION_API
 //
 
 //
@@ -27,10 +26,7 @@
 //   Excludes conversion APIs such as easywav_read_f32() and easywav_s16PCM_to_f32().
 //
 // #define EASY_WAV_NO_STDIO
-//   Excludes stdio helpers APIs. I.e. excludes easywav_open_file().
-//
-// #define EASY_WAV_NO_OPEN_MEMORY
-//   Excludes easywav_open_memory().
+//   Excludes easywav_open_file().
 //
 
 #ifndef easy_wav_h
@@ -167,8 +163,6 @@ easywav* easywav_open_file(const char* filename);
 
 #endif  //EASY_WAV_NO_STDIO
 
-#ifndef EASY_WAV_NO_OPEN_MEMORY
-
 /// Helper for opening a file from a pre-allocated memory buffer.
 ///
 /// @remarks
@@ -178,7 +172,7 @@ easywav* easywav_open_file(const char* filename);
 ///     The buffer should contain the contents of the entire wave file, not just the sample data.
 easywav* easywav_open_memory(const void* data, size_t dataSize);
 
-#endif
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -247,7 +241,7 @@ easywav* easywav_open_file(const char* filename)
 }
 #endif  //EASY_WAV_NO_STDIO
 
-#ifndef EASY_WAV_NO_OPEN_MEMORY
+
 typedef struct
 {
     /// A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
@@ -313,7 +307,6 @@ easywav* easywav_open_memory(const void* data, size_t dataSize)
     userData->currentReadPos = 0;
     return easywav_open(easywav__on_read_memory, easywav__on_seek_memory, userData);
 }
-#endif  //EASY_WAV_NO_OPEN_MEMORY
 
 
 easywav* easywav_open(easywav_read_proc onRead, easywav_seek_proc onSeek, void* userData)
