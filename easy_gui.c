@@ -20,6 +20,7 @@
 // Context Flags
 #define IS_CONTEXT_DEAD                     (1U << 0)
 #define IS_AUTO_DIRTY_DISABLED              (1U << 1)
+#define IS_RELEASING_KEYBOARD               (1U << 2)
 
 // Element Flags
 #define IS_ELEMENT_HIDDEN                   (1U << 0)
@@ -972,6 +973,7 @@ easygui_context* easygui_create_context()
         pContext->pElementUnderMouse                         = NULL;
         pContext->pElementWithMouseCapture                   = NULL;
         pContext->pElementWithKeyboardCapture                = NULL;
+        pContext->pElementWantingKeyboardCapture             = NULL;
         pContext->flags                                      = 0;
         pContext->onGlobalDirty                              = NULL;
         pContext->onGlobalCaptureMouse                       = NULL;
@@ -1632,6 +1634,12 @@ void easygui_capture_keyboard(easygui_element* pElement)
     }
 
 
+    if ((pElement->pContext->flags & IS_RELEASING_KEYBOARD) != 0) {
+        pElement->pContext->pElementWantingKeyboardCapture = pElement;
+        return;
+    }
+
+
     if (pElement->pContext->pElementWithKeyboardCapture != pElement)
     {
         // Release the previous capture first.
@@ -1655,13 +1663,23 @@ void easygui_release_keyboard(easygui_context* pContext)
         return;
     }
 
+    // It is reasonable to expect that an application will want to change keyboard focus from within the release_keyboard
+    // event handler. The problem with this is that is can cause a infinite dependency chain. We need to handle that case
+    // by setting a flag that keeps track of whether or not we are in the middle of a release_keyboard event. At the end
+    // we look at the element that want's the keyboard focuse and explicitly capture it at the end.
 
-    // Events need to be posted before setting the internal pointer.
-    easygui_post_outbound_event_release_keyboard(pContext->pElementWithKeyboardCapture);
-    easygui_post_outbound_event_release_keyboard_global(pContext->pElementWithKeyboardCapture);
+    pContext->flags |= IS_RELEASING_KEYBOARD;
+    {
+        easygui_post_outbound_event_release_keyboard(pContext->pElementWithKeyboardCapture);
+        easygui_post_outbound_event_release_keyboard_global(pContext->pElementWithKeyboardCapture); 
 
+        pContext->pElementWithKeyboardCapture = NULL;
+    }
+    pContext->flags &= ~IS_RELEASING_KEYBOARD;
 
-    pContext->pElementWithKeyboardCapture = NULL;
+    // Explicitly capture the keyboard.
+    easygui_capture_keyboard(pContext->pElementWantingKeyboardCapture);
+    pContext->pElementWantingKeyboardCapture = NULL;
 }
 
 easygui_element* easygui_get_element_with_keyboard_capture(easygui_context* pContext)

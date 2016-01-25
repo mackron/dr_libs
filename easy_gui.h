@@ -639,6 +639,11 @@ struct easygui_context
     /// A pointer to the element with the keyboard focus.
     easygui_element* pElementWithKeyboardCapture;
 
+    /// A pointer to the element that wants the keyboard focus. If for some reason an element isn't able to immediately
+    /// capture the keyboard (such as while in the middle of a release_keyboard event handler) this will be set to that
+    /// particular element. This will then be used to capture the keyboard at a later time when it is able.
+    easygui_element* pElementWantingKeyboardCapture;
+
 
     /// Boolean flags.
     unsigned int flags;
