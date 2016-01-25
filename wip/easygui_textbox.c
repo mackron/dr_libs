@@ -559,8 +559,10 @@ void easygui_textbox_on_paint(easygui_element* pTBElement, easygui_rect relative
     easygui_text_layout_paint(pTB->pTL, easygui_grow_rect(paddingRect, -pTB->padding), pTBElement, pPaintData);
 }
 
-void easygui_textbox_on_capture_keyboard(easygui_element* pTBElement)
+void easygui_textbox_on_capture_keyboard(easygui_element* pTBElement, easygui_element* pPrevCapturedElement)
 {
+    (void)pPrevCapturedElement;
+
     easygui_textbox* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
@@ -569,8 +571,10 @@ void easygui_textbox_on_capture_keyboard(easygui_element* pTBElement)
     easygui_text_layout_show_cursor(pTB->pTL);
 }
 
-void easygui_textbox_on_release_keyboard(easygui_element* pTBElement)
+void easygui_textbox_on_release_keyboard(easygui_element* pTBElement, easygui_element* pNewCapturedElement)
 {
+    (void)pNewCapturedElement;
+
     easygui_textbox* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;

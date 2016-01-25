@@ -172,10 +172,10 @@ void easygui_post_outbound_event_capture_mouse(easygui_element* pElement);
 void easygui_post_outbound_event_capture_mouse_global(easygui_element* pElement);
 void easygui_post_outbound_event_release_mouse(easygui_element* pElement);
 void easygui_post_outbound_event_release_mouse_global(easygui_element* pElement);
-void easygui_post_outbound_event_capture_keyboard(easygui_element* pElement);
-void easygui_post_outbound_event_capture_keyboard_global(easygui_element* pElement);
-void easygui_post_outbound_event_release_keyboard(easygui_element* pElement);
-void easygui_post_outbound_event_release_keyboard_global(easygui_element* pElement);
+void easygui_post_outbound_event_capture_keyboard(easygui_element* pElement, easygui_element* pPrevCapturedElement);
+void easygui_post_outbound_event_capture_keyboard_global(easygui_element* pElement, easygui_element* pPrevCapturedElement);
+void easygui_post_outbound_event_release_keyboard(easygui_element* pElement, easygui_element* pNewCapturedElement);
+void easygui_post_outbound_event_release_keyboard_global(easygui_element* pElement, easygui_element* pNewCapturedElement);
 
 /// Posts a log message.
 void easygui_log(easygui_context* pContext, const char* message);
@@ -825,42 +825,42 @@ void easygui_post_outbound_event_release_mouse_global(easygui_element* pElement)
 }
 
 
-void easygui_post_outbound_event_capture_keyboard(easygui_element* pElement)
+void easygui_post_outbound_event_capture_keyboard(easygui_element* pElement, easygui_element* pPrevCapturedElement)
 {
     if (pElement != NULL)
     {
         if (pElement->onCaptureKeyboard) {
-            pElement->onCaptureKeyboard(pElement);
+            pElement->onCaptureKeyboard(pElement, pPrevCapturedElement);
         }
     }
 }
 
-void easygui_post_outbound_event_capture_keyboard_global(easygui_element* pElement)
+void easygui_post_outbound_event_capture_keyboard_global(easygui_element* pElement, easygui_element* pPrevCapturedElement)
 {
     if (pElement != NULL && pElement->pContext != NULL)
     {
         if (pElement->pContext->onGlobalCaptureKeyboard) {
-            pElement->pContext->onGlobalCaptureKeyboard(pElement);
+            pElement->pContext->onGlobalCaptureKeyboard(pElement, pPrevCapturedElement);
         }
     }
 }
 
-void easygui_post_outbound_event_release_keyboard(easygui_element* pElement)
+void easygui_post_outbound_event_release_keyboard(easygui_element* pElement, easygui_element* pNewCapturedElement)
 {
     if (pElement != NULL)
     {
         if (pElement->onReleaseKeyboard) {
-            pElement->onReleaseKeyboard(pElement);
+            pElement->onReleaseKeyboard(pElement, pNewCapturedElement);
         }
     }
 }
 
-void easygui_post_outbound_event_release_keyboard_global(easygui_element* pElement)
+void easygui_post_outbound_event_release_keyboard_global(easygui_element* pElement, easygui_element* pNewCapturedElement)
 {
     if (pElement != NULL && pElement->pContext != NULL)
     {
         if (pElement->pContext->onGlobalReleaseKeyboard) {
-            pElement->pContext->onGlobalReleaseKeyboard(pElement);
+            pElement->pContext->onGlobalReleaseKeyboard(pElement, pNewCapturedElement);
         }
     }
 }
@@ -1623,6 +1623,29 @@ easygui_element* easygui_get_element_with_mouse_capture(easygui_context* pContex
 }
 
 
+PRIVATE void easygui_release_keyboard_private(easygui_context* pContext, easygui_element* pNewCapturedElement)
+{
+    assert(pContext != NULL);
+
+    // It is reasonable to expect that an application will want to change keyboard focus from within the release_keyboard
+    // event handler. The problem with this is that is can cause a infinite dependency chain. We need to handle that case
+    // by setting a flag that keeps track of whether or not we are in the middle of a release_keyboard event. At the end
+    // we look at the element that want's the keyboard focuse and explicitly capture it at the end.
+
+    pContext->flags |= IS_RELEASING_KEYBOARD;
+    {
+        easygui_post_outbound_event_release_keyboard(pContext->pElementWithKeyboardCapture, pNewCapturedElement);
+        easygui_post_outbound_event_release_keyboard_global(pContext->pElementWithKeyboardCapture, pNewCapturedElement); 
+
+        pContext->pElementWithKeyboardCapture = NULL;
+    }
+    pContext->flags &= ~IS_RELEASING_KEYBOARD;
+
+    // Explicitly capture the keyboard.
+    easygui_capture_keyboard(pContext->pElementWantingKeyboardCapture);
+    pContext->pElementWantingKeyboardCapture = NULL;
+}
+
 void easygui_capture_keyboard(easygui_element* pElement)
 {
     if (pElement == NULL) {
@@ -1643,8 +1666,9 @@ void easygui_capture_keyboard(easygui_element* pElement)
     if (pElement->pContext->pElementWithKeyboardCapture != pElement)
     {
         // Release the previous capture first.
-        if (pElement->pContext->pElementWithKeyboardCapture != NULL) {
-            easygui_release_keyboard(pElement->pContext);
+        easygui_element* pPrevElementWithKeyboardCapture = pElement->pContext->pElementWithKeyboardCapture;
+        if (pPrevElementWithKeyboardCapture != NULL) {
+            easygui_release_keyboard_private(pElement->pContext, pElement);
         }
 
         assert(pElement->pContext->pElementWithKeyboardCapture == NULL);
@@ -1652,8 +1676,8 @@ void easygui_capture_keyboard(easygui_element* pElement)
         pElement->pContext->pElementWithKeyboardCapture = pElement;
 
         // Two events need to be posted - the global on_capture_mouse event and the local on_capture_mouse event.
-        easygui_post_outbound_event_capture_keyboard(pElement);
-        easygui_post_outbound_event_capture_keyboard_global(pElement);
+        easygui_post_outbound_event_capture_keyboard(pElement, pPrevElementWithKeyboardCapture);
+        easygui_post_outbound_event_capture_keyboard_global(pElement, pPrevElementWithKeyboardCapture);
     }
 }
 
@@ -1663,23 +1687,7 @@ void easygui_release_keyboard(easygui_context* pContext)
         return;
     }
 
-    // It is reasonable to expect that an application will want to change keyboard focus from within the release_keyboard
-    // event handler. The problem with this is that is can cause a infinite dependency chain. We need to handle that case
-    // by setting a flag that keeps track of whether or not we are in the middle of a release_keyboard event. At the end
-    // we look at the element that want's the keyboard focuse and explicitly capture it at the end.
-
-    pContext->flags |= IS_RELEASING_KEYBOARD;
-    {
-        easygui_post_outbound_event_release_keyboard(pContext->pElementWithKeyboardCapture);
-        easygui_post_outbound_event_release_keyboard_global(pContext->pElementWithKeyboardCapture); 
-
-        pContext->pElementWithKeyboardCapture = NULL;
-    }
-    pContext->flags &= ~IS_RELEASING_KEYBOARD;
-
-    // Explicitly capture the keyboard.
-    easygui_capture_keyboard(pContext->pElementWantingKeyboardCapture);
-    pContext->pElementWantingKeyboardCapture = NULL;
+    easygui_release_keyboard_private(pContext, NULL);
 }
 
 easygui_element* easygui_get_element_with_keyboard_capture(easygui_context* pContext)

@@ -93,10 +93,10 @@ void easygui_textbox_on_printable_key_down(easygui_element* pTBElement, unsigned
 void easygui_textbox_on_paint(easygui_element* pTBElement, easygui_rect relativeRect, void* pPaintData);
 
 /// on_capture_keyboard
-void easygui_textbox_on_capture_keyboard(easygui_element* pTBElement);
+void easygui_textbox_on_capture_keyboard(easygui_element* pTBElement, easygui_element* pPrevCapturedElement);
 
 /// on_release_keyboard
-void easygui_textbox_on_release_keyboard(easygui_element* pTBElement);
+void easygui_textbox_on_release_keyboard(easygui_element* pTBElement, easygui_element* pNewCapturedElement);
 
 /// on_capture_mouse
 void easygui_textbox_on_capture_mouse(easygui_element* pTBElement);

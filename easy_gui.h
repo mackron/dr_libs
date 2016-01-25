@@ -350,8 +350,8 @@ typedef void (* easygui_on_dirty_proc)                (easygui_element* pElement
 typedef bool (* easygui_on_hittest_proc)              (easygui_element* pElement, float relativePosX, float relativePosY);
 typedef void (* easygui_on_capture_mouse_proc)        (easygui_element* pElement);
 typedef void (* easygui_on_release_mouse_proc)        (easygui_element* pElement);
-typedef void (* easygui_on_capture_keyboard_proc)     (easygui_element* pElement);
-typedef void (* easygui_on_release_keyboard_proc)     (easygui_element* pElement);
+typedef void (* easygui_on_capture_keyboard_proc)     (easygui_element* pElement, easygui_element* pPrevCapturedElement);
+typedef void (* easygui_on_release_keyboard_proc)     (easygui_element* pElement, easygui_element* pNewCapturedElement);
 typedef void (* easygui_on_log)                       (easygui_context* pContext, const char* message);
 
 typedef void (* easygui_draw_begin_proc)                   (void* pPaintData);
@@ -392,6 +392,7 @@ typedef bool (* easygui_visible_iteration_proc)(easygui_element* pElement, easyg
 // Common key codes.
 #define EASYGUI_BACKSPACE               0x08
 #define EASYGUI_SHIFT                   0x10
+#define EASYGUI_ESCAPE                  0x1B
 #define EASYGUI_PAGE_UP                 0x21
 #define EASYGUI_PAGE_DOWN               0x22
 #define EASYGUI_END                     0x23
