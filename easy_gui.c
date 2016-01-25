@@ -1634,10 +1634,11 @@ PRIVATE void easygui_release_keyboard_private(easygui_context* pContext, easygui
 
     pContext->flags |= IS_RELEASING_KEYBOARD;
     {
-        easygui_post_outbound_event_release_keyboard(pContext->pElementWithKeyboardCapture, pNewCapturedElement);
-        easygui_post_outbound_event_release_keyboard_global(pContext->pElementWithKeyboardCapture, pNewCapturedElement); 
-
+        easygui_element* pPrevCapturedElement = pContext->pElementWithKeyboardCapture;
         pContext->pElementWithKeyboardCapture = NULL;
+
+        easygui_post_outbound_event_release_keyboard(pPrevCapturedElement, pNewCapturedElement);
+        easygui_post_outbound_event_release_keyboard_global(pPrevCapturedElement, pNewCapturedElement); 
     }
     pContext->flags &= ~IS_RELEASING_KEYBOARD;
 
