@@ -67,6 +67,9 @@ void easygui_textbox_step(easygui_element* pTBElement, unsigned int milliseconds
 /// Sets the blink rate of the cursor in milliseconds.
 void easygui_textbox_set_cursor_blink_rate(easygui_element* pTBElement, unsigned int blinkRateInMilliseconds);
 
+/// Moves the caret to the end of the text.
+void easygui_textbox_move_cursor_to_end_of_text(easygui_element* pTBElement);
+
 
 /// on_size.
 void easygui_textbox_on_size(easygui_element* pTBElement, float newWidth, float newHeight);

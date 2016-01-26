@@ -255,6 +255,16 @@ void easygui_textbox_set_cursor_blink_rate(easygui_element* pTBElement, unsigned
     easygui_text_layout_set_cursor_blink_rate(pTB->pTL, blinkRateInMilliseconds);
 }
 
+void easygui_textbox_move_cursor_to_end_of_text(easygui_element* pTBElement)
+{
+    easygui_textbox* pTB = easygui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    easygui_text_layout_move_cursor_to_end_of_text(pTB->pTL);
+}
+
 
 void easygui_textbox_on_size(easygui_element* pTBElement, float newWidth, float newHeight)
 {
