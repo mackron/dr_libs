@@ -378,6 +378,7 @@ const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int
         char prevChar = '\0';
         while (strEnd[0] != '\0' && (strEnd[0] != '\"' || prevChar == '\\'))
         {
+            prevChar = strEnd[0];
             strEnd += 1;
         }
     }
@@ -390,25 +391,23 @@ const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int
     }
 
 
-    // If the output buffer is large enough to hold the token, copy the token into it.
+    // If the output buffer is large enough to hold the token, copy the token into it. When we copy the token we need to
+    // ensure we don't include the escape character.
     //assert(strEnd >= strBeg);
 
-    size_t tokenLength = (size_t)(strEnd - strBeg);
-    if ((size_t)tokenOutSize > tokenLength)
+    while (tokenOutSize > 1 && strBeg < strEnd)
     {
-        // The output buffer is large enough.
-        for (size_t i = 0; i < tokenLength; ++i) {
-            tokenOut[i] = strBeg[i];
+        if (strBeg[0] == '\\' && strBeg[1] == '\"' && strBeg < strEnd) {
+            strBeg += 1;
         }
 
-        tokenOut[tokenLength] = '\0';
+        *tokenOut++ = *strBeg++; 
+        tokenOutSize -= 1;
     }
-    else
-    {
-        // The output buffer is too small. Set it to an empty string.
-        if (tokenOutSize > 0) {
-            tokenOut[0] = '\0';
-        }
+
+    // Null-terminate.
+    if (tokenOutSize > 0) {
+        *tokenOut = '\0';
     }
 
 
