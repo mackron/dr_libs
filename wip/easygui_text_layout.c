@@ -1152,6 +1152,15 @@ unsigned int easygui_text_layout_get_cursor_column(easygui_text_layout* pTL)
     return (unsigned int)((int)posX / fontMetrics.spaceWidth);
 }
 
+unsigned int easygui_text_layout_get_cursor_character(easygui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return 0;
+    }
+
+    return easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+}
+
 bool easygui_text_layout_move_cursor_left(easygui_text_layout* pTL)
 {
     if (pTL == NULL) {
@@ -1451,6 +1460,10 @@ bool easygui_text_layout_move_cursor_to_start_of_text(easygui_text_layout* pTL)
 
 void easygui_text_layout_move_cursor_to_start_of_selection(easygui_text_layout* pTL)
 {
+    if (pTL == NULL) {
+        return;
+    }
+
     easygui_text_marker* pSelectionMarker0;
     easygui_text_marker* pSelectionMarker1;
     if (easygui_text_layout__get_selection_markers(pTL, &pSelectionMarker0, &pSelectionMarker1))
@@ -1466,6 +1479,10 @@ void easygui_text_layout_move_cursor_to_start_of_selection(easygui_text_layout* 
 
 void easygui_text_layout_move_cursor_to_end_of_selection(easygui_text_layout* pTL)
 {
+    if (pTL == NULL) {
+        return;
+    }
+
     easygui_text_marker* pSelectionMarker0;
     easygui_text_marker* pSelectionMarker1;
     if (easygui_text_layout__get_selection_markers(pTL, &pSelectionMarker0, &pSelectionMarker1))
@@ -1475,6 +1492,29 @@ void easygui_text_layout_move_cursor_to_end_of_selection(easygui_text_layout* pT
 
         if (pTL->onDirty) {
             pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+        }
+    }
+}
+
+void easygui_text_layout_move_cursor_to_character(easygui_text_layout* pTL, unsigned int characterIndex)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    unsigned int iRunOld  = pTL->cursor.iRun;
+    unsigned int iCharOld = pTL->cursor.iChar;
+    if (easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, characterIndex)) {
+        if (easygui_text_layout_is_in_selection_mode(pTL)) {
+            pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
+        }
+
+        if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
+            easygui_text_layout__on_cursor_move(pTL);
+
+            if (pTL->onDirty) {
+                pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+            }
         }
     }
 }
@@ -1893,6 +1933,24 @@ void easygui_text_layout_select_all(easygui_text_layout* pTL)
 
     easygui_text_layout__move_marker_to_start_of_text(pTL, &pTL->selectionAnchor);
     easygui_text_layout__move_marker_to_end_of_text(pTL, &pTL->cursor);
+
+    pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
+
+    easygui_text_layout__on_cursor_move(pTL);
+
+    if (pTL->onDirty) {
+        pTL->onDirty(pTL, easygui_text_layout__local_rect(pTL));
+    }
+}
+
+void easygui_text_layout_select(easygui_text_layout* pTL, unsigned int firstCharacter, unsigned int lastCharacter)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    easygui_text_layout__move_marker_to_character(pTL, &pTL->selectionAnchor, firstCharacter);
+    easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, lastCharacter);
 
     pTL->isAnythingSelected = easygui_text_layout__has_spacing_between_selection_markers(pTL);
 
@@ -2581,6 +2639,56 @@ void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float line
 
         iLine += 1;
     } while (easygui_text_layout__next_line(pTL, &line));
+}
+
+
+bool easygui_text_layout_find_next(easygui_text_layout* pTL, const char* text, unsigned int* pSelectionStartOut, unsigned int* pSelectionEndOut)
+{
+    if (pTL == NULL || text == NULL || text[0] == '\0') {
+        return false;
+    }
+
+    unsigned int cursorPos = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+    char* nextOccurance = strstr(pTL->text + cursorPos, text);
+    if (nextOccurance == NULL) {
+        nextOccurance = strstr(pTL->text, text);
+    }
+
+    if (nextOccurance == NULL) {
+        return false;
+    }
+
+    if (pSelectionStartOut) {
+        *pSelectionStartOut = (unsigned int)(nextOccurance - pTL->text);
+    }
+    if (pSelectionEndOut) {
+        *pSelectionEndOut = (unsigned int)(nextOccurance - pTL->text) + strlen(text);
+    }
+
+    return true;
+}
+
+bool easygui_text_layout_find_next_no_loop(easygui_text_layout* pTL, const char* text, unsigned int* pSelectionStartOut, unsigned int* pSelectionEndOut)
+{
+    if (pTL == NULL || text == NULL || text[0] == '\0') {
+        return false;
+    }
+
+    unsigned int cursorPos = easygui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+
+    char* nextOccurance = strstr(pTL->text + cursorPos, text);
+    if (nextOccurance == NULL) {
+        return false;
+    }
+
+    if (pSelectionStartOut) {
+        *pSelectionStartOut = (unsigned int)(nextOccurance - pTL->text);
+    }
+    if (pSelectionEndOut) {
+        *pSelectionEndOut = (unsigned int)(nextOccurance - pTL->text) + strlen(text);
+    }
+
+    return true;
 }
 
 

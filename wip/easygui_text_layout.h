@@ -247,6 +247,9 @@ unsigned int easygui_text_layout_get_cursor_line(easygui_text_layout* pTL);
 /// Retrieves the index of the column the cursor is currently sitting on.
 unsigned int easygui_text_layout_get_cursor_column(easygui_text_layout* pTL);
 
+/// Retrieves the index of the character the cursor is currently sitting on.
+unsigned int easygui_text_layout_get_cursor_character(easygui_text_layout* pTL);
+
 /// Moves the cursor of the given text layout to the left by one character.
 bool easygui_text_layout_move_cursor_left(easygui_text_layout* pTL);
 
@@ -285,6 +288,9 @@ void easygui_text_layout_move_cursor_to_start_of_selection(easygui_text_layout* 
 
 /// Moves the cursor to the end of the selected text.
 void easygui_text_layout_move_cursor_to_end_of_selection(easygui_text_layout* pTL);
+
+/// Moves the cursor to the given character index.
+void easygui_text_layout_move_cursor_to_character(easygui_text_layout* pTL, unsigned int characterIndex);
 
 /// Determines whether or not the cursor is sitting at the start of the selection.
 bool easygui_text_layout_is_cursor_at_start_of_selection(easygui_text_layout* pTL);
@@ -368,6 +374,9 @@ void easygui_text_layout_deselect_all(easygui_text_layout* pTL);
 
 /// Selects everything in the given text layout.
 void easygui_text_layout_select_all(easygui_text_layout* pTL);
+
+/// Selects the given range of text.
+void easygui_text_layout_select(easygui_text_layout* pTL, unsigned int firstCharacter, unsigned int lastCharacter);
 
 /// Retrieves a copy of the selected text.
 ///
@@ -463,6 +472,14 @@ void easygui_text_layout_step(easygui_text_layout* pTL, unsigned int millisecond
 
 /// Calls the given painting callbacks for the line numbers of the given text layout.
 void easygui_text_layout_paint_line_numbers(easygui_text_layout* pTL, float lineNumbersWidth, float lineNumbersHeight, easygui_color textColor, easygui_text_layout_on_paint_text_proc onPaintText, easygui_text_layout_on_paint_rect_proc onPaintRect, easygui_element* pElement, void* pPaintData);
+
+
+/// Finds the given string starting from the cursor and then looping back.
+bool easygui_text_layout_find_next(easygui_text_layout* pTL, const char* text, unsigned int* pSelectionStartOut, unsigned int* pSelectionEndOut);
+
+/// Finds the given string starting from the cursor, but does not loop back.
+bool easygui_text_layout_find_next_no_loop(easygui_text_layout* pTL, const char* text, unsigned int* pSelectionStartOut, unsigned int* pSelectionEndOut);
+
 
 
 #ifdef __cplusplus
