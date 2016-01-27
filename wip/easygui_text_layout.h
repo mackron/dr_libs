@@ -447,6 +447,15 @@ float easygui_text_layout_get_line_pos_y(easygui_text_layout* pTL, unsigned int 
 /// Finds the line under the given point on the y axis relative to the container.
 unsigned int easygui_text_layout_get_line_at_pos_y(easygui_text_layout* pTL, float posY);
 
+/// Retrieves the index of the first character of the line at the given index.
+unsigned int easygui_text_layout_get_line_first_character(easygui_text_layout* pTL, unsigned int iLine);
+
+/// Retrieves the index of the last character of the line at the given index.
+unsigned int easygui_text_layout_get_line_last_character(easygui_text_layout* pTL, unsigned int iLine);
+
+/// Retrieves teh index of the first and last character of the line at the given index.
+void easygui_text_layout_get_line_character_range(easygui_text_layout* pTL, unsigned int iLine, unsigned int* pCharStartOut, unsigned int* pCharEndOut);
+
 
 /// Sets the function to call when a run of text needs to be painted for the given text layout.
 void easygui_text_layout_set_on_paint_text(easygui_text_layout* pTL, easygui_text_layout_on_paint_text_proc proc);

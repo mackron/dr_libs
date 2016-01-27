@@ -2301,6 +2301,68 @@ unsigned int easygui_text_layout_get_line_at_pos_y(easygui_text_layout* pTL, flo
     return pTL->pRuns[iRun].iLine;
 }
 
+unsigned int easygui_text_layout_get_line_first_character(easygui_text_layout* pTL, unsigned int iLine)
+{
+    if (pTL == NULL || pTL->runCount == 0) {
+        return 0;
+    }
+
+    unsigned int firstRunIndex0;
+    unsigned int lastRunIndexPlus1;
+    if (easygui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &firstRunIndex0, &lastRunIndexPlus1)) {
+        return pTL->pRuns[firstRunIndex0].iChar;
+    }
+
+    return 0;
+}
+
+unsigned int easygui_text_layout_get_line_last_character(easygui_text_layout* pTL, unsigned int iLine)
+{
+    if (pTL == NULL || pTL->runCount == 0) {
+        return 0;
+    }
+
+    unsigned int firstRunIndex0;
+    unsigned int lastRunIndexPlus1;
+    if (easygui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &firstRunIndex0, &lastRunIndexPlus1)) {
+        unsigned int charEnd = pTL->pRuns[lastRunIndexPlus1 - 1].iCharEnd;
+        if (charEnd > 0) {
+            charEnd -= 1;
+        }
+
+        return charEnd;
+    }
+
+    return 0;
+}
+
+void easygui_text_layout_get_line_character_range(easygui_text_layout* pTL, unsigned int iLine, unsigned int* pCharStartOut, unsigned int* pCharEndOut)
+{
+    if (pTL == NULL || pTL->runCount == 0) {
+        return;
+    }
+
+    unsigned int charStart = 0;
+    unsigned int charEnd = 0;
+
+    unsigned int firstRunIndex0;
+    unsigned int lastRunIndexPlus1;
+    if (easygui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &firstRunIndex0, &lastRunIndexPlus1)) {
+        charStart = pTL->pRuns[firstRunIndex0].iChar;
+        charEnd   = pTL->pRuns[lastRunIndexPlus1 - 1].iCharEnd;
+        if (charEnd > 0) {
+            charEnd -= 1;
+        }
+    }
+
+    if (pCharStartOut) {
+        *pCharStartOut = charStart;
+    }
+    if (pCharEndOut) {
+        *pCharEndOut = charEnd;
+    }
+}
+
 
 void easygui_text_layout_set_on_paint_text(easygui_text_layout* pTL, easygui_text_layout_on_paint_text_proc proc)
 {
@@ -4239,11 +4301,21 @@ PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, eas
 
     // When undoing we want to remove the new text and replace it with the old text.
 
-    // Remove the new text.
-    easygui_text_layout_delete_text_range(pTL, pUndoState->diffPos, pUndoState->diffPos + strlen(pUndoState->newText));        // TODO: Replace this with a raw string replace. This will rebuild the text runs which is needlessly inefficient.
+    unsigned int iFirstCh     = pUndoState->diffPos;
+    unsigned int iLastChPlus1 = pUndoState->diffPos + strlen(pUndoState->newText);
+    unsigned int bytesToRemove = iLastChPlus1 - iFirstCh;
+    if (bytesToRemove > 0)
+    {
+        memmove(pTL->text + iFirstCh, pTL->text + iLastChPlus1, pTL->textLength - iLastChPlus1);
+        pTL->textLength -= bytesToRemove;
+        pTL->text[pTL->textLength] = '\0';
+    }
+
+    // TODO: This needs improving because it results in multiple onTextChanged and onDirty events being posted.
 
     // Insert the old text.
     easygui_text_layout_insert_text(pTL, pUndoState->oldText, pUndoState->diffPos);
+
 
 
     // Markers needs to be updated after refreshing the layout.
@@ -4274,11 +4346,21 @@ PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, eas
 
     // An redo is just the opposite of an undo. We want to remove the old text and replace it with the new text.
 
-    // Remove the old text.
-    easygui_text_layout_delete_text_range(pTL, pUndoState->diffPos, pUndoState->diffPos + strlen(pUndoState->oldText));        // TODO: Replace this with a raw string replace. This will rebuild the text runs which is needlessly inefficient.
+    unsigned int iFirstCh     = pUndoState->diffPos;
+    unsigned int iLastChPlus1 = pUndoState->diffPos + strlen(pUndoState->oldText);
+    unsigned int bytesToRemove = iLastChPlus1 - iFirstCh;
+    if (bytesToRemove > 0)
+    {
+        memmove(pTL->text + iFirstCh, pTL->text + iLastChPlus1, pTL->textLength - iLastChPlus1);
+        pTL->textLength -= bytesToRemove;
+        pTL->text[pTL->textLength] = '\0';
+    }
+
+    // TODO: This needs improving because it results in multiple onTextChanged and onDirty events being posted.
 
     // Insert the new text.
     easygui_text_layout_insert_text(pTL, pUndoState->newText, pUndoState->diffPos);
+
 
 
     // Markers needs to be updated after refreshing the layout.
