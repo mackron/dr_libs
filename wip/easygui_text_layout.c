@@ -4317,6 +4317,9 @@ PRIVATE void easygui_text_layout__apply_undo_state(easygui_text_layout* pTL, eas
     easygui_text_layout_insert_text(pTL, pUndoState->oldText, pUndoState->diffPos);
 
 
+    // The layout will have changed so it needs to be refreshed.
+    easygui_text_layout__refresh(pTL);
+
 
     // Markers needs to be updated after refreshing the layout.
     easygui_text_layout__move_marker_to_character(pTL, &pTL->cursor, pUndoState->oldState.cursorPos);
@@ -4361,6 +4364,9 @@ PRIVATE void easygui_text_layout__apply_redo_state(easygui_text_layout* pTL, eas
     // Insert the new text.
     easygui_text_layout_insert_text(pTL, pUndoState->newText, pUndoState->diffPos);
 
+
+    // The layout will have changed so it needs to be refreshed.
+    easygui_text_layout__refresh(pTL);
 
 
     // Markers needs to be updated after refreshing the layout.
