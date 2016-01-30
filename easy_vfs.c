@@ -3023,7 +3023,6 @@ bool easyvfs_isvalidarchive_zip(easyvfs_context* pContext, const char* path)
 }
 
 
-size_t easyvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n);
 size_t easyvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n)
 {
     // The opaque type is a pointer to a easyvfs_file object which represents the file of the archive.
