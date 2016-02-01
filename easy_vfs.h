@@ -1556,20 +1556,20 @@ PRIVATE bool easyvfs_read_native_file(easyvfs_handle file, void* pDataOut, size_
 
         DWORD bytesRead;
         BOOL result = ReadFile((HANDLE)file, pDst, bytesToProcess, &bytesRead, NULL);
-        if (!result)
+        if (!result || bytesRead != bytesToProcess)
         {
             // We failed to read the chunk.
             totalBytesRead += bytesRead;
 
             if (pBytesReadOut) {
                 *pBytesReadOut = totalBytesRead;
-                return false;
+                return result;
             }
         }
 
-        pDst += bytesToProcess;
-        bytesRemaining -= bytesToProcess;
-        totalBytesRead += bytesToProcess;
+        pDst += bytesRead;
+        bytesRemaining -= bytesRead;
+        totalBytesRead += bytesRead;
     }
 
 
@@ -1600,20 +1600,20 @@ PRIVATE bool easyvfs_write_native_file(easyvfs_handle file, const void* pData, s
 
         DWORD bytesWritten;
         BOOL result = WriteFile((HANDLE)file, pSrc, bytesToProcess, &bytesWritten, NULL);
-        if (!result)
+        if (!result || bytesWritten != bytesToProcess)
         {
             // We failed to write the chunk.
             totalBytesWritten += bytesWritten;
 
             if (pBytesWrittenOut) {
                 *pBytesWrittenOut = totalBytesWritten;
-                return false;
+                return result;
             }
         }
 
-        pSrc += bytesToProcess;
-        bytesRemaining -= bytesToProcess;
-        totalBytesWritten += bytesToProcess;
+        pSrc += bytesWritten;
+        bytesRemaining -= bytesWritten;
+        totalBytesWritten += bytesWritten;
     }
 
     if (pBytesWrittenOut) {
