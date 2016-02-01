@@ -3531,8 +3531,6 @@ PRIVATE bool easygui_text_layout__move_marker_to_point(easygui_text_layout* pTL,
         // Couldn't find a run.
         return false;
     }
-
-    return true;
 }
 
 PRIVATE bool easygui_text_layout__move_marker_left(easygui_text_layout* pTL, easygui_text_marker* pMarker)
@@ -3729,8 +3727,8 @@ PRIVATE bool easygui_text_layout__move_marker_to_end_of_line_by_index(easygui_te
         return false;
     }
 
-    int iFirstRun;
-    int iLastRunPlus1;
+    unsigned int iFirstRun;
+    unsigned int iLastRunPlus1;
     if (easygui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &iFirstRun, &iLastRunPlus1))
     {
         return easygui_text_layout__move_marker_to_last_character_of_run(pTL, pMarker, iLastRunPlus1 - 1);
@@ -3745,8 +3743,8 @@ PRIVATE bool easygui_text_layout__move_marker_to_start_of_line_by_index(easygui_
         return false;
     }
 
-    int iFirstRun;
-    int iLastRunPlus1;
+    unsigned int iFirstRun;
+    unsigned int iLastRunPlus1;
     if (easygui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &iFirstRun, &iLastRunPlus1))
     {
         return easygui_text_layout__move_marker_to_first_character_of_run(pTL, pMarker, iFirstRun);
