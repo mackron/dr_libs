@@ -1686,7 +1686,7 @@ bool easy2d_get_text_cursor_position_from_point_gdi(easy2d_font* pFont, const ch
     SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
 
 
-    GCP_RESULTS results;
+    GCP_RESULTSW results;
     ZeroMemory(&results, sizeof(results));
     results.lStructSize = sizeof(results);
     results.nGlyphs     = textSizeInBytes;
@@ -1765,7 +1765,7 @@ bool easy2d_get_text_cursor_position_from_char_gdi(easy2d_font* pFont, const cha
     SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
 
 
-    GCP_RESULTS results;
+    GCP_RESULTSW results;
     ZeroMemory(&results, sizeof(results));
     results.lStructSize = sizeof(results);
     results.nGlyphs     = characterIndex + 1;
