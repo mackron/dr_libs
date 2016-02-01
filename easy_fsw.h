@@ -179,9 +179,9 @@ int easyfsw_peek_event(easyfsw_context* pContext, easyfsw_event* pEventOut);
 // The number of FILE_NOTIFY_INFORMATION structures in the buffer that's passed to ReadDirectoryChangesW()
 #define WIN32_RDC_FNI_COUNT     EASYFSW_EVENT_QUEUE_SIZE
 
-#include <stdlib.h>
+//#include <stdlib.h>
 #include <assert.h>
-#include <string.h>
+//#include <string.h>
 
 
 #if defined(_WIN32)
@@ -208,6 +208,9 @@ PRIVATE void easyfsw_zeromemory(void* dst, size_t sizeInBytes)
     ZeroMemory(dst, sizeInBytes);
 }
 #else
+#include <stdlib.h>
+#include <string.h>
+
 PRIVATE void* easyfsw_malloc(size_t sizeInBytes)
 {
     return malloc(sizeInBytes);
