@@ -300,7 +300,7 @@ void draudio_delete_output_device(draudio_device* pDevice);
 ///
 /// @remarks
 ///     This will fail if 3D positioning is requested when the sound has more than 1 channel.
-draudio_buffer* draudio_create_buffer(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, unsigned int extraDataSize);
+draudio_buffer* draudio_create_buffer(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, size_t extraDataSize);
 
 /// Deletes the given buffer.
 void draudio_delete_buffer(draudio_buffer* pBuffer);
@@ -314,7 +314,7 @@ void* draudio_get_buffer_extra_data(draudio_buffer* pBuffer);
 
 
 /// Sets the audio data of the given buffer.
-void draudio_set_buffer_data(draudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
+void draudio_set_buffer_data(draudio_buffer* pBuffer, size_t offset, const void* pData, size_t dataSizeInBytes);
 
 
 /// Begins or resumes playing the given buffer.
@@ -378,7 +378,7 @@ void draudio_remove_markers(draudio_buffer* pBuffer);
 ///     This will fail if the buffer is not in a stopped state.
 ///     @par
 ///     Set the event ID to DRAUDIO_EVENT_ID_MARKER + n, where "n" is your own application-specific identifier.
-bool draudio_register_marker_callback(draudio_buffer* pBuffer, unsigned int offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
+bool draudio_register_marker_callback(draudio_buffer* pBuffer, size_t offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
 
 /// Registers the callback to fire when the buffer stops playing.
 ///
@@ -493,8 +493,8 @@ void draudio_unlock_mutex(draudio_mutex mutex);
 //// STREAMING ////
 typedef int draudio_bool;
 
-typedef draudio_bool (* draudio_stream_read_proc)(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
-typedef draudio_bool (* draudio_stream_seek_proc)(void* pUserData, unsigned int offsetInBytesFromStart);
+typedef draudio_bool (* draudio_stream_read_proc)(void* pUserData, void* pDataOut, size_t bytesToRead, size_t* bytesReadOut);
+typedef draudio_bool (* draudio_stream_seek_proc)(void* pUserData, size_t offsetInBytesFromStart);
 
 typedef struct
 {
@@ -528,7 +528,7 @@ typedef struct
 draudio_buffer* draudio_create_streaming_buffer(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, draudio_streaming_callbacks callbacks, unsigned int extraDataSize);
 
 /// Retrieves the size of the extra data of the given streaming buffer..
-unsigned int draudio_get_streaming_buffer_extra_data_size(draudio_buffer* pBuffer);
+size_t draudio_get_streaming_buffer_extra_data_size(draudio_buffer* pBuffer);
 
 /// Retrieves a pointer to the extra data of the given streaming buffer.
 void* draudio_get_streaming_buffer_extra_data(draudio_buffer* pBuffer);
@@ -559,8 +559,8 @@ typedef struct draudio_sound draudio_sound;
 typedef struct draudio_world draudio_world;
 
 typedef void    (* draudio_on_sound_delete_proc)   (draudio_sound* pSound);
-typedef draudio_bool (* draudio_on_sound_read_data_proc)(draudio_sound* pSound, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
-typedef draudio_bool (* draudio_on_sound_seek_data_proc)(draudio_sound* pSound, unsigned int offsetInBytesFromStart);
+typedef draudio_bool (* draudio_on_sound_read_data_proc)(draudio_sound* pSound, void* pDataOut, size_t bytesToRead, size_t* bytesReadOut);
+typedef draudio_bool (* draudio_on_sound_seek_data_proc)(draudio_sound* pSound, size_t offsetInBytesFromStart);
 
 /// The structure that is used for creating a sound object.
 typedef struct
@@ -684,7 +684,7 @@ void draudio_delete_all_sounds(draudio_world* pWorld);
 
 
 /// Retrieves the size in bytes of the given sound's extra data.
-unsigned int draudio_get_sound_extra_data_size(draudio_sound* pSound);
+size_t draudio_get_sound_extra_data_size(draudio_sound* pSound);
 
 /// Retrieves a pointer to the buffer containing the given sound's extra data.
 void* draudio_get_sound_extra_data(draudio_sound* pSound);
@@ -813,38 +813,38 @@ int draudio_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 }
 
 
-typedef void                     (* draudio_delete_context_proc)(draudio_context* pContext);
+typedef void                   (* draudio_delete_context_proc)(draudio_context* pContext);
 typedef draudio_device*        (* draudio_create_output_device_proc)(draudio_context* pContext, unsigned int deviceIndex);
-typedef void                     (* draudio_delete_output_device_proc)(draudio_device* pDevice);
-typedef unsigned int             (* draudio_get_output_device_count_proc)(draudio_context* pContext);
-typedef bool                     (* draudio_get_output_device_info_proc)(draudio_context* pContext, unsigned int deviceIndex, draudio_device_info* pInfoOut);
-typedef draudio_buffer*        (* draudio_create_buffer_proc)(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, unsigned int extraDataSize);
-typedef void                     (* draudio_delete_buffer_proc)(draudio_buffer* pBuffer);
-typedef unsigned int             (* draudio_get_buffer_extra_data_size_proc)(draudio_buffer* pBuffer);
-typedef void*                    (* draudio_get_buffer_extra_data_proc)(draudio_buffer* pBuffer);
-typedef void                     (* draudio_set_buffer_data_proc)(draudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
-typedef void                     (* draudio_play_proc)(draudio_buffer* pBuffer, bool loop);
-typedef void                     (* draudio_pause_proc)(draudio_buffer* pBuffer);
-typedef void                     (* draudio_stop_proc)(draudio_buffer* pBuffer);
+typedef void                   (* draudio_delete_output_device_proc)(draudio_device* pDevice);
+typedef unsigned int           (* draudio_get_output_device_count_proc)(draudio_context* pContext);
+typedef bool                   (* draudio_get_output_device_info_proc)(draudio_context* pContext, unsigned int deviceIndex, draudio_device_info* pInfoOut);
+typedef draudio_buffer*        (* draudio_create_buffer_proc)(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, size_t extraDataSize);
+typedef void                   (* draudio_delete_buffer_proc)(draudio_buffer* pBuffer);
+typedef unsigned int           (* draudio_get_buffer_extra_data_size_proc)(draudio_buffer* pBuffer);
+typedef void*                  (* draudio_get_buffer_extra_data_proc)(draudio_buffer* pBuffer);
+typedef void                   (* draudio_set_buffer_data_proc)(draudio_buffer* pBuffer, size_t offset, const void* pData, size_t dataSizeInBytes);
+typedef void                   (* draudio_play_proc)(draudio_buffer* pBuffer, bool loop);
+typedef void                   (* draudio_pause_proc)(draudio_buffer* pBuffer);
+typedef void                   (* draudio_stop_proc)(draudio_buffer* pBuffer);
 typedef draudio_playback_state (* draudio_get_playback_state_proc)(draudio_buffer* pBuffer);
-typedef void                     (* draudio_set_playback_position_proc)(draudio_buffer* pBuffer, unsigned int position);
-typedef unsigned int             (* draudio_get_playback_position_proc)(draudio_buffer* pBuffer);
-typedef void                     (* draudio_set_pan_proc)(draudio_buffer* pBuffer, float pan);
-typedef float                    (* draudio_get_pan_proc)(draudio_buffer* pBuffer);
-typedef void                     (* draudio_set_volume_proc)(draudio_buffer* pBuffer, float volume);
-typedef float                    (* draudio_get_volume_proc)(draudio_buffer* pBuffer);
-typedef void                     (* draudio_remove_markers_proc)(draudio_buffer* pBuffer);
-typedef bool                     (* draudio_register_marker_callback_proc)(draudio_buffer* pBuffer, unsigned int offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
-typedef bool                     (* draudio_register_stop_callback_proc)(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
-typedef bool                     (* draudio_register_pause_callback_proc)(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
-typedef bool                     (* draudio_register_play_callback_proc)(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
-typedef void                     (* draudio_set_position_proc)(draudio_buffer* pBuffer, float x, float y, float z);
-typedef void                     (* draudio_get_position_proc)(draudio_buffer* pBuffer, float* pPosOut);
-typedef void                     (* draudio_set_listener_position_proc)(draudio_device* pDevice, float x, float y, float z);
-typedef void                     (* draudio_get_listener_position_proc)(draudio_device* pDevice, float* pPosOut);
-typedef void                     (* draudio_set_listener_orientation_proc)(draudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ);
-typedef void                     (* draudio_get_listener_orientation_proc)(draudio_device* pDevice, float* pForwardOut, float* pUpOut);
-typedef void                     (* draudio_set_3d_mode_proc)(draudio_buffer* pBuffer, draudio_3d_mode mode);
+typedef void                   (* draudio_set_playback_position_proc)(draudio_buffer* pBuffer, unsigned int position);
+typedef unsigned int           (* draudio_get_playback_position_proc)(draudio_buffer* pBuffer);
+typedef void                   (* draudio_set_pan_proc)(draudio_buffer* pBuffer, float pan);
+typedef float                  (* draudio_get_pan_proc)(draudio_buffer* pBuffer);
+typedef void                   (* draudio_set_volume_proc)(draudio_buffer* pBuffer, float volume);
+typedef float                  (* draudio_get_volume_proc)(draudio_buffer* pBuffer);
+typedef void                   (* draudio_remove_markers_proc)(draudio_buffer* pBuffer);
+typedef bool                   (* draudio_register_marker_callback_proc)(draudio_buffer* pBuffer, size_t offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
+typedef bool                   (* draudio_register_stop_callback_proc)(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
+typedef bool                   (* draudio_register_pause_callback_proc)(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
+typedef bool                   (* draudio_register_play_callback_proc)(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
+typedef void                   (* draudio_set_position_proc)(draudio_buffer* pBuffer, float x, float y, float z);
+typedef void                   (* draudio_get_position_proc)(draudio_buffer* pBuffer, float* pPosOut);
+typedef void                   (* draudio_set_listener_position_proc)(draudio_device* pDevice, float x, float y, float z);
+typedef void                   (* draudio_get_listener_position_proc)(draudio_device* pDevice, float* pPosOut);
+typedef void                   (* draudio_set_listener_orientation_proc)(draudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ);
+typedef void                   (* draudio_get_listener_orientation_proc)(draudio_device* pDevice, float* pForwardOut, float* pUpOut);
+typedef void                   (* draudio_set_3d_mode_proc)(draudio_buffer* pBuffer, draudio_3d_mode mode);
 typedef draudio_3d_mode        (* draudio_get_3d_mode_proc)(draudio_buffer* pBuffer);
 
 struct draudio_context
@@ -1014,7 +1014,7 @@ void draudio_delete_output_device(draudio_device* pDevice)
 }
 
 
-draudio_buffer* draudio_create_buffer(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, unsigned int extraDataSize)
+draudio_buffer* draudio_create_buffer(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, size_t extraDataSize)
 {
     if (pDevice == NULL) {
         return NULL;
@@ -1094,7 +1094,7 @@ void* draudio_get_buffer_extra_data(draudio_buffer* pBuffer)
 }
 
 
-void draudio_set_buffer_data(draudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes)
+void draudio_set_buffer_data(draudio_buffer* pBuffer, size_t offset, const void* pData, size_t dataSizeInBytes)
 {
     if (pBuffer == NULL) {
         return;
@@ -1245,7 +1245,7 @@ void draudio_remove_markers(draudio_buffer* pBuffer)
     pBuffer->pDevice->pContext->remove_markers(pBuffer);
 }
 
-bool draudio_register_marker_callback(draudio_buffer* pBuffer, unsigned int offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
+bool draudio_register_marker_callback(draudio_buffer* pBuffer, size_t offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
 {
     if (pBuffer == NULL) {
         return false;
@@ -1519,10 +1519,10 @@ typedef struct
     bool isLoopingEnabled;
 
     /// The size of the extra data.
-    unsigned int extraDataSize;
+    size_t extraDataSize;
 
     /// The size of an individual chunk. A chunk is half the size of the buffer.
-    unsigned int chunkSize;
+    size_t chunkSize;
 
     /// A pointer to the temporary buffer for loading chunk data.
     unsigned char pTempChunkData[1];
@@ -1530,7 +1530,7 @@ typedef struct
 } ea_streaming_buffer_data;
 
 
-bool ea_streaming_buffer_load_next_chunk(draudio_buffer* pBuffer, ea_streaming_buffer_data* pStreamingData, unsigned int offset, unsigned int chunkSize)
+bool ea_streaming_buffer_load_next_chunk(draudio_buffer* pBuffer, ea_streaming_buffer_data* pStreamingData, size_t offset, size_t chunkSize)
 {
     assert(pStreamingData != NULL);
     assert(pStreamingData->callbacks.read != NULL);
@@ -1542,7 +1542,7 @@ bool ea_streaming_buffer_load_next_chunk(draudio_buffer* pBuffer, ea_streaming_b
         return true;
     }
 
-    unsigned int bytesRead;
+    size_t bytesRead;
     if (!pStreamingData->callbacks.read(pStreamingData->callbacks.pUserData, pStreamingData->pTempChunkData, chunkSize, &bytesRead))
     {
         // There was an error reading the data. We might have run out of data.
@@ -1583,7 +1583,7 @@ void ea_steaming_buffer_marker_callback(draudio_buffer* pBuffer, unsigned int ev
     ea_streaming_buffer_data* pStreamingData = pUserData;
     assert(pStreamingData != NULL);
     
-    unsigned int offset = 0;
+    size_t offset = 0;
     if (eventID == DRAUDIO_STREAMING_MARKER_0) {
         offset = pStreamingData->chunkSize;
     }
@@ -1619,7 +1619,7 @@ draudio_buffer* draudio_create_streaming_buffer(draudio_device* pDevice, draudio
     bufferDesc.sizeInBytes  = pBufferDesc->sampleRate * pBufferDesc->channels * (pBufferDesc->bitsPerSample / 8);
     bufferDesc.pData        = NULL;
 
-    unsigned int chunkSize = bufferDesc.sizeInBytes / 2;
+    size_t chunkSize = bufferDesc.sizeInBytes / 2;
 
     draudio_buffer* pBuffer = draudio_create_buffer(pDevice, &bufferDesc, sizeof(ea_streaming_buffer_data) - sizeof(unsigned char) + chunkSize + extraDataSize);
     if (pBuffer == NULL) {
@@ -1646,7 +1646,7 @@ draudio_buffer* draudio_create_streaming_buffer(draudio_device* pDevice, draudio
 }
 
 
-unsigned int draudio_get_streaming_buffer_extra_data_size(draudio_buffer* pBuffer)
+size_t draudio_get_streaming_buffer_extra_data_size(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return 0;
@@ -1722,7 +1722,7 @@ bool draudio_is_streaming_buffer_looping(draudio_buffer* pBuffer)
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-DRAUDIO_PRIVATE draudio_bool draudio_on_sound_read_callback(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut)
+DRAUDIO_PRIVATE draudio_bool draudio_on_sound_read_callback(void* pUserData, void* pDataOut, size_t bytesToRead, size_t* bytesReadOut)
 {
     draudio_sound* pSound = pUserData;
     assert(pSound != NULL);
@@ -1740,7 +1740,7 @@ DRAUDIO_PRIVATE draudio_bool draudio_on_sound_read_callback(void* pUserData, voi
     return result;
 }
 
-DRAUDIO_PRIVATE static draudio_bool draudio_on_sound_seek_callback(void* pUserData, unsigned int offsetInBytesFromStart)
+DRAUDIO_PRIVATE static draudio_bool draudio_on_sound_seek_callback(void* pUserData, size_t offsetInBytesFromStart)
 {
     draudio_sound* pSound = pUserData;
     assert(pSound != NULL);
@@ -1977,7 +1977,7 @@ void draudio_delete_all_sounds(draudio_world* pWorld)
 }
 
 
-unsigned int draudio_get_sound_extra_data_size(draudio_sound* pSound)
+size_t draudio_get_sound_extra_data_size(draudio_sound* pSound)
 {
     if (pSound == NULL) {
         return 0;
@@ -3381,7 +3381,7 @@ void draudio_delete_output_device_dsound(draudio_device* pDevice)
 }
 
 
-draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, unsigned int extraDataSize)
+draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, size_t extraDataSize)
 {
     draudio_device_dsound* pDeviceDS = (draudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
@@ -3424,7 +3424,7 @@ draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_bu
     memset(&descDS, 0, sizeof(DSBUFFERDESC)); 
     descDS.dwSize          = sizeof(DSBUFFERDESC); 
     descDS.dwFlags         = DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPOSITIONNOTIFY | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
-    descDS.dwBufferBytes   = pBufferDesc->sizeInBytes;
+    descDS.dwBufferBytes   = (DWORD)pBufferDesc->sizeInBytes;
     descDS.lpwfxFormat     = (WAVEFORMATEX*)&wf;
 
     LPDIRECTSOUNDBUFFER8   pDSBuffer   = NULL;
@@ -3577,7 +3577,7 @@ void* draudio_get_buffer_extra_data_dsound(draudio_buffer* pBuffer)
 }
 
 
-bool draudio_set_buffer_data_dsound(draudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes)
+bool draudio_set_buffer_data_dsound(draudio_buffer* pBuffer, size_t offset, const void* pData, size_t dataSizeInBytes)
 {
     draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
@@ -3585,7 +3585,7 @@ bool draudio_set_buffer_data_dsound(draudio_buffer* pBuffer, unsigned int offset
 
     LPVOID lpvWrite;
     DWORD dwLength;
-    HRESULT hr = IDirectSoundBuffer8_Lock(pBufferDS->pDSBuffer, offset, dataSizeInBytes, &lpvWrite, &dwLength, NULL, NULL, 0);
+    HRESULT hr = IDirectSoundBuffer8_Lock(pBufferDS->pDSBuffer, (DWORD)offset, (DWORD)dataSizeInBytes, &lpvWrite, &dwLength, NULL, NULL, 0);
     if (FAILED(hr)) {
         return false;
     }
@@ -3803,7 +3803,7 @@ void draudio_remove_markers_dsound(draudio_buffer* pBuffer)
     pBufferDS->markerEventCount = 0;
 }
 
-bool draudio_register_marker_callback_dsound(draudio_buffer* pBuffer, unsigned int offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
+bool draudio_register_marker_callback_dsound(draudio_buffer* pBuffer, size_t offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
 {
     draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
@@ -3823,7 +3823,7 @@ bool draudio_register_marker_callback_dsound(draudio_buffer* pBuffer, unsigned i
     }
 
     // draudio_create_event_dsound() will initialize the marker offset to 0, so we'll need to set it manually here.
-    pEvent->markerOffset = offsetInBytes;
+    pEvent->markerOffset = (DWORD)offsetInBytes;
 
     pBufferDS->pMarkerEvents[pBufferDS->markerEventCount] = pEvent;
     pBufferDS->markerEventCount += 1;
@@ -4119,7 +4119,7 @@ draudio_context* draudio_create_context_dsound()
 {
     // Load the DLL.
     HMODULE hDSoundDLL = LoadLibraryW(L"dsound.dll");
-    if (FAILED(hDSoundDLL)) {
+    if (hDSoundDLL == NULL) {
         return NULL;
     }
 
