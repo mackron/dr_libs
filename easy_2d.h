@@ -1,5 +1,10 @@
 // Public Domain. See "unlicense" statement at the end of this file.
 
+// ABOUT
+// 
+// easy_2d is a simple library for drawing simple 2D graphics.
+//
+//
 //
 // QUICK NOTES
 //
@@ -8,13 +13,20 @@
 //   OpenGL state and whatnot.
 // - This library is not thread safe.
 //
-
+//
 //
 // OPTIONS
 //
 // #define EASY2D_NO_GDI
-// #define EASY2D_NO_CAIRO
+//   Excludes the GDI back-end.
 //
+// #define EASY2D_NO_CAIRO
+//   Excludes the Cairo back-end.
+//
+//
+//
+// TODO
+// - Document resource management.
 
 #ifndef easy_2d
 #define easy_2d
