@@ -1230,7 +1230,7 @@ PRIVATE bool drvfs_copy_and_append_path(char* dst, unsigned int dstSizeInBytes, 
 // function, each iterator in the chain should be placed at the end of the path.
 //
 // This does not write the null terminator.
-unsigned int drvfs_easypath_clean_trywrite(drvfs_pathiterator* iterators, unsigned int iteratorCount, char* pathOut, unsigned int pathOutSizeInBytes, unsigned int ignoreCounter)
+unsigned int drvfs_path_clean_trywrite(drvfs_pathiterator* iterators, unsigned int iteratorCount, char* pathOut, unsigned int pathOutSizeInBytes, unsigned int ignoreCounter)
 {
     if (iteratorCount == 0) {
         return 0;
@@ -1288,7 +1288,7 @@ unsigned int drvfs_easypath_clean_trywrite(drvfs_pathiterator* iterators, unsign
     if (prev.segment.length > 0)
     {
         iterators[iteratorCount - 1] = prev;
-        bytesWritten = drvfs_easypath_clean_trywrite(iterators, iteratorCount, pathOut, pathOutSizeInBytes, ignoreCounter);
+        bytesWritten = drvfs_path_clean_trywrite(iterators, iteratorCount, pathOut, pathOutSizeInBytes, ignoreCounter);
     }
 
 
@@ -1344,7 +1344,7 @@ PRIVATE int drvfs_append_and_clean(char* dst, unsigned int dstSizeInBytes, const
         }
 
 
-        unsigned int bytesWritten = drvfs_easypath_clean_trywrite(last, 2, dst, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+        unsigned int bytesWritten = drvfs_path_clean_trywrite(last, 2, dst, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
         if (dstSizeInBytes > bytesWritten)
         {
             dst[bytesWritten] = '\0';
