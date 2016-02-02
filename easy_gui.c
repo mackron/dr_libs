@@ -9,6 +9,9 @@
 
 #include <stdio.h>  // For testing. Delete Me.
 
+#ifndef EASYGUI_PRIVATE
+#define EASYGUI_PRIVATE static
+#endif
 
 /////////////////////////////////////////////////////////////////
 //
@@ -184,7 +187,7 @@ void easygui_log(easygui_context* pContext, const char* message);
 ///
 /// @remarks
 ///     If an internal font of the appropriate size has not yet been created, this function will create it.
-PRIVATE easygui_resource easygui_get_internal_font_by_scale(easygui_font* pFont, float scaleY);
+EASYGUI_PRIVATE easygui_resource easygui_get_internal_font_by_scale(easygui_font* pFont, float scaleY);
 
 
 void easygui_begin_inbound_event(easygui_context* pContext)
@@ -529,7 +532,7 @@ void easygui_apply_offset_to_children_recursive(easygui_element* pParentElement,
     }
 }
 
-PRIVATE void easygui_post_on_mouse_leave_recursive(easygui_context* pContext, easygui_element* pNewElementUnderMouse, easygui_element* pOldElementUnderMouse)
+EASYGUI_PRIVATE void easygui_post_on_mouse_leave_recursive(easygui_context* pContext, easygui_element* pNewElementUnderMouse, easygui_element* pOldElementUnderMouse)
 {
     easygui_element* pOldAncestor = pOldElementUnderMouse;
     while (pOldAncestor != NULL)
@@ -544,7 +547,7 @@ PRIVATE void easygui_post_on_mouse_leave_recursive(easygui_context* pContext, ea
     }
 }
 
-PRIVATE void easygui_post_on_mouse_enter_recursive(easygui_context* pContext, easygui_element* pNewElementUnderMouse, easygui_element* pOldElementUnderMouse)
+EASYGUI_PRIVATE void easygui_post_on_mouse_enter_recursive(easygui_context* pContext, easygui_element* pNewElementUnderMouse, easygui_element* pOldElementUnderMouse)
 {
     if (pNewElementUnderMouse == NULL) {
         return;
@@ -877,7 +880,7 @@ void easygui_log(easygui_context* pContext, const char* message)
 }
 
 
-PRIVATE easygui_resource easygui_get_internal_font_by_scale(easygui_font* pFont, float scaleY)
+EASYGUI_PRIVATE easygui_resource easygui_get_internal_font_by_scale(easygui_font* pFont, float scaleY)
 {
     assert(pFont != NULL);
     assert(pFont->pContext != NULL);
@@ -1623,7 +1626,7 @@ easygui_element* easygui_get_element_with_mouse_capture(easygui_context* pContex
 }
 
 
-PRIVATE void easygui_release_keyboard_private(easygui_context* pContext, easygui_element* pNewCapturedElement)
+EASYGUI_PRIVATE void easygui_release_keyboard_private(easygui_context* pContext, easygui_element* pNewCapturedElement)
 {
     assert(pContext != NULL);
 

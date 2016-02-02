@@ -5,6 +5,10 @@
 
 typedef struct easygui_tab_bar easygui_tab_bar;
 
+#ifndef EASYGUI_PRIVATE
+#define EASYGUI_PRIVATE static
+#endif
+
 struct easygui_tab_bar
 {
     /// The orientation.
@@ -138,13 +142,13 @@ struct easygui_tab
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Default implementation of the item measure event.
-PRIVATE void tabbar_on_measure_tab_default(easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
+EASYGUI_PRIVATE void tabbar_on_measure_tab_default(easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
 
 /// Paints the given menu item.
-PRIVATE void tabbar_on_paint_tab_default(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
+EASYGUI_PRIVATE void tabbar_on_paint_tab_default(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
 
 /// Finds the tab sitting under the given point, if any.
-PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY, bool* pIsOverCloseButtonOut);
+EASYGUI_PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY, bool* pIsOverCloseButtonOut);
 
 easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_element* pParent, tabbar_orientation orientation, size_t extraDataSize, const void* pExtraData)
 {
@@ -757,7 +761,7 @@ void tabbar_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingR
 }
 
 
-PRIVATE void tabbar_on_measure_tab_default(easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut)
+EASYGUI_PRIVATE void tabbar_on_measure_tab_default(easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut)
 {
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
@@ -789,7 +793,7 @@ PRIVATE void tabbar_on_measure_tab_default(easygui_element* pTBElement, easygui_
     }
 }
 
-PRIVATE void tabbar_on_paint_tab_default(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData)
+EASYGUI_PRIVATE void tabbar_on_paint_tab_default(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData)
 {
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
@@ -870,7 +874,7 @@ PRIVATE void tabbar_on_paint_tab_default(easygui_element* pTBElement, easygui_ta
     }
 }
 
-PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY, bool* pIsOverCloseButtonOut)
+EASYGUI_PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, float relativePosX, float relativePosY, bool* pIsOverCloseButtonOut)
 {
     easygui_tab_bar* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {
@@ -926,21 +930,21 @@ PRIVATE easygui_tab* tabbar_find_tab_under_point(easygui_element* pTBElement, fl
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Appends the given tab to the given tab bar.
-PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement);
+EASYGUI_PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement);
 
 /// Prepends the given tab to the given tab bar.
-PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement);
+EASYGUI_PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement);
 
 /// Detaches the given tab bar from it's tab bar element's hierarchy.
 ///
 /// @remarks
 ///     This does not deactivate the tab or what - it only detaches the tab from the hierarchy.
-PRIVATE void tab_detach_from_hierarchy(easygui_tab* pTab);
+EASYGUI_PRIVATE void tab_detach_from_hierarchy(easygui_tab* pTab);
 
 /// Detaches the given tab bar from it's tab bar element.
-PRIVATE void tab_detach(easygui_tab* pTab);
+EASYGUI_PRIVATE void tab_detach(easygui_tab* pTab);
 
-PRIVATE easygui_tab* tb_create_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData)
+EASYGUI_PRIVATE easygui_tab* tb_create_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData)
 {
     if (pTBElement == NULL) {
         return NULL;
@@ -1099,7 +1103,7 @@ bool tab_is_in_view(easygui_tab* pTab)
 
 
 
-PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement)
+EASYGUI_PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement)
 {
     if (pTab == NULL || pTBElement == NULL) {
         return;
@@ -1137,7 +1141,7 @@ PRIVATE void tab_append(easygui_tab* pTab, easygui_element* pTBElement)
     }
 }
 
-PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement)
+EASYGUI_PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement)
 {
     if (pTab == NULL || pTBElement == NULL) {
         return;
@@ -1175,7 +1179,7 @@ PRIVATE void tab_prepend(easygui_tab* pTab, easygui_element* pTBElement)
     }
 }
 
-PRIVATE void tab_detach_from_hierarchy(easygui_tab* pTab)
+EASYGUI_PRIVATE void tab_detach_from_hierarchy(easygui_tab* pTab)
 {
     if (pTab == NULL) {
         return;
@@ -1213,7 +1217,7 @@ PRIVATE void tab_detach_from_hierarchy(easygui_tab* pTab)
     pTab->pTBElement = NULL;
 }
 
-PRIVATE void tab_detach(easygui_tab* pTab)
+EASYGUI_PRIVATE void tab_detach(easygui_tab* pTab)
 {
     if (pTab == NULL) {
         return;

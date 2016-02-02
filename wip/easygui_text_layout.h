@@ -70,13 +70,13 @@ typedef struct
 
     /// Index of the line the run is placed on. For runs that are new line characters, this will represent the number of lines that came before it. For
     /// example, if this run represents the new-line character for the first line, this will be 0 and so on.
-    PRIVATE unsigned int iLine;
+    unsigned int iLine;
 
     /// Index in the main text string of the first character of the run.
-    PRIVATE unsigned int iChar;
+    unsigned int iChar;
 
     /// Index in the main text string of the character just past the last character in the run.
-    PRIVATE unsigned int iCharEnd;
+    unsigned int iCharEnd;
 
 } easygui_text_run;
 

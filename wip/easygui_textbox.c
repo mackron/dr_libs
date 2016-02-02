@@ -4,6 +4,10 @@
 #include "easygui_text_layout.h"
 #include <assert.h>
 
+#ifndef EASYGUI_PRIVATE
+#define EASYGUI_PRIVATE static
+#endif
+
 typedef struct
 {
     /// The text layout.
@@ -30,23 +34,23 @@ typedef struct
 
 
 /// Retrieves the offset to draw the text in the text box.
-PRIVATE void easygui_textbox__get_text_offset(easygui_element* pTBElement, float* pOffsetXOut, float* pOffsetYOut);
+EASYGUI_PRIVATE void easygui_textbox__get_text_offset(easygui_element* pTBElement, float* pOffsetXOut, float* pOffsetYOut);
 
 /// Calculates the required size of the text layout.
-PRIVATE void easygui_textbox__calculate_text_layout_container_size(easygui_element* pTBElement, float* pWidthOut, float* pHeightOut);
+EASYGUI_PRIVATE void easygui_textbox__calculate_text_layout_container_size(easygui_element* pTBElement, float* pWidthOut, float* pHeightOut);
 
 /// Retrieves the rectangle of the text layout's container.
-PRIVATE easygui_rect easygui_textbox__get_text_rect(easygui_element* pTBElement);
+EASYGUI_PRIVATE easygui_rect easygui_textbox__get_text_rect(easygui_element* pTBElement);
 
 
 /// on_paint_rect()
-PRIVATE void easygui_textbox__on_text_layout_paint_rect(easygui_text_layout* pLayout, easygui_rect rect, easygui_color color, easygui_element* pTBElement, void* pPaintData);
+EASYGUI_PRIVATE void easygui_textbox__on_text_layout_paint_rect(easygui_text_layout* pLayout, easygui_rect rect, easygui_color color, easygui_element* pTBElement, void* pPaintData);
 
 /// on_paint_text()
-PRIVATE void easygui_textbox__on_text_layout_paint_text(easygui_text_layout* pTL, easygui_text_run* pRun, easygui_element* pTBElement, void* pPaintData);
+EASYGUI_PRIVATE void easygui_textbox__on_text_layout_paint_text(easygui_text_layout* pTL, easygui_text_run* pRun, easygui_element* pTBElement, void* pPaintData);
 
 /// on_dirty()
-PRIVATE void easygui_textbox__on_text_layout_dirty(easygui_text_layout* pLayout, easygui_rect rect);
+EASYGUI_PRIVATE void easygui_textbox__on_text_layout_dirty(easygui_text_layout* pLayout, easygui_rect rect);
 
 
 easygui_element* easygui_create_textbox(easygui_context* pContext, easygui_element* pParent, size_t extraDataSize, const void* pExtraData)
@@ -512,7 +516,7 @@ void easygui_textbox_on_printable_key_down(easygui_element* pTBElement, unsigned
 }
 
 
-PRIVATE void easygui_textbox__on_text_layout_paint_rect(easygui_text_layout* pTL, easygui_rect rect, easygui_color color, easygui_element* pTBElement, void* pPaintData)
+EASYGUI_PRIVATE void easygui_textbox__on_text_layout_paint_rect(easygui_text_layout* pTL, easygui_rect rect, easygui_color color, easygui_element* pTBElement, void* pPaintData)
 {
     float offsetX;
     float offsetY;
@@ -521,7 +525,7 @@ PRIVATE void easygui_textbox__on_text_layout_paint_rect(easygui_text_layout* pTL
     easygui_draw_rect(pTBElement, easygui_offset_rect(rect, offsetX, offsetY), color, pPaintData);
 }
 
-PRIVATE void easygui_textbox__on_text_layout_paint_text(easygui_text_layout* pTL, easygui_text_run* pRun, easygui_element* pTBElement, void* pPaintData)
+EASYGUI_PRIVATE void easygui_textbox__on_text_layout_paint_text(easygui_text_layout* pTL, easygui_text_run* pRun, easygui_element* pTBElement, void* pPaintData)
 {
     float offsetX;
     float offsetY;
@@ -530,7 +534,7 @@ PRIVATE void easygui_textbox__on_text_layout_paint_text(easygui_text_layout* pTL
     easygui_draw_text(pTBElement, pRun->pFont, pRun->text, (int)pRun->textLength, (float)pRun->posX + offsetX, (float)pRun->posY + offsetY, pRun->textColor, pRun->backgroundColor, pPaintData);
 }
 
-PRIVATE void easygui_textbox__on_text_layout_dirty(easygui_text_layout* pTL, easygui_rect rect)
+EASYGUI_PRIVATE void easygui_textbox__on_text_layout_dirty(easygui_text_layout* pTL, easygui_rect rect)
 {
     easygui_element* pTBElement = *(easygui_element**)easygui_text_layout_get_extra_data(pTL);
     if (pTBElement == NULL) {
@@ -614,7 +618,7 @@ void easygui_textbox_on_release_mouse(easygui_element* pTBElement)
 
 
 
-PRIVATE void easygui_textbox__get_text_offset(easygui_element* pTBElement, float* pOffsetXOut, float* pOffsetYOut)
+EASYGUI_PRIVATE void easygui_textbox__get_text_offset(easygui_element* pTBElement, float* pOffsetXOut, float* pOffsetYOut)
 {
     float offsetX = 0;
     float offsetY = 0;
@@ -635,7 +639,7 @@ PRIVATE void easygui_textbox__get_text_offset(easygui_element* pTBElement, float
     }
 }
 
-PRIVATE void easygui_textbox__calculate_text_layout_container_size(easygui_element* pTBElement, float* pWidthOut, float* pHeightOut)
+EASYGUI_PRIVATE void easygui_textbox__calculate_text_layout_container_size(easygui_element* pTBElement, float* pWidthOut, float* pHeightOut)
 {
     float width  = 0;
     float height = 0;
@@ -655,7 +659,7 @@ PRIVATE void easygui_textbox__calculate_text_layout_container_size(easygui_eleme
     }
 }
 
-PRIVATE easygui_rect easygui_textbox__get_text_rect(easygui_element* pTBElement)
+EASYGUI_PRIVATE easygui_rect easygui_textbox__get_text_rect(easygui_element* pTBElement)
 {
     easygui_textbox* pTB = easygui_get_extra_data(pTBElement);
     if (pTB == NULL) {

@@ -173,12 +173,6 @@
 #endif
 
 
-// Annotations.
-#ifndef PRIVATE
-#define PRIVATE
-#endif
-
-
 #ifdef __cplusplus
 extern "C" {
 #endif

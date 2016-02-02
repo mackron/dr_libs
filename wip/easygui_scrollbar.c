@@ -4,7 +4,9 @@
 #include <math.h>       // For round()
 #include <assert.h>
 
-//#include <stdio.h>      // For testing. Delete me.
+#ifndef EASYGUI_PRIVATE
+#define EASYGUI_PRIVATE static
+#endif
 
 #define EASYGUI_MIN_SCROLLBAR_THUMB_SIZE    8
 
@@ -79,37 +81,37 @@ typedef struct
 
 
 /// Refreshes the given scrollbar's thumb layout and redraws it.
-PRIVATE void sb_refresh_thumb(easygui_element* pSBElement);
+EASYGUI_PRIVATE void sb_refresh_thumb(easygui_element* pSBElement);
 
 /// Calculates the size of the thumb. This does not change the state of the thumb.
-PRIVATE float sb_calculate_thumb_size(easygui_element* pSBElement);
+EASYGUI_PRIVATE float sb_calculate_thumb_size(easygui_element* pSBElement);
 
 /// Calculates the position of the thumb. This does not change the state of the thumb.
-PRIVATE float sb_calculate_thumb_position(easygui_element* pSBElement);
+EASYGUI_PRIVATE float sb_calculate_thumb_position(easygui_element* pSBElement);
 
 /// Retrieves the size of the given scrollbar's track. For vertical alignments, it's the height of the element, otherwise it's the width.
-PRIVATE float sb_get_track_size(easygui_element* pSBElement);
+EASYGUI_PRIVATE float sb_get_track_size(easygui_element* pSBElement);
 
 /// Makes the given point that's relative to the given scrollbar relative to it's thumb.
-PRIVATE void sb_make_relative_to_thumb(easygui_element* pSBElement, float* pPosX, float* pPosY);
+EASYGUI_PRIVATE void sb_make_relative_to_thumb(easygui_element* pSBElement, float* pPosX, float* pPosY);
 
 /// Calculates the scroll position based on the current position of the thumb. This is used for scrolling while dragging the thumb.
-PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(easygui_element* pScrollba, float thumbPosr);
+EASYGUI_PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(easygui_element* pScrollba, float thumbPosr);
 
 /// Simple clamp function.
-PRIVATE float sb_clampf(float n, float lower, float upper)
+EASYGUI_PRIVATE float sb_clampf(float n, float lower, float upper)
 {
     return n <= lower ? lower : n >= upper ? upper : n;
 }
 
 /// Simple clamp function.
-PRIVATE int sb_clampi(int n, int lower, int upper)
+EASYGUI_PRIVATE int sb_clampi(int n, int lower, int upper)
 {
     return n <= lower ? lower : n >= upper ? upper : n;
 }
 
 /// Simple max function.
-PRIVATE int sb_maxi(int x, int y)
+EASYGUI_PRIVATE int sb_maxi(int x, int y)
 {
     return (x > y) ? x : y;
 }
@@ -731,7 +733,7 @@ void sb_on_paint(easygui_element* pSBElement, easygui_rect relativeClippingRect,
 
 
 
-PRIVATE void sb_refresh_thumb(easygui_element* pSBElement)
+EASYGUI_PRIVATE void sb_refresh_thumb(easygui_element* pSBElement)
 {
     easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
@@ -748,7 +750,7 @@ PRIVATE void sb_refresh_thumb(easygui_element* pSBElement)
     }
 }
 
-PRIVATE float sb_calculate_thumb_size(easygui_element* pSBElement)
+EASYGUI_PRIVATE float sb_calculate_thumb_size(easygui_element* pSBElement)
 {
     const easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
@@ -766,7 +768,7 @@ PRIVATE float sb_calculate_thumb_size(easygui_element* pSBElement)
     return thumbSize;
 }
 
-PRIVATE float sb_calculate_thumb_position(easygui_element* pSBElement)
+EASYGUI_PRIVATE float sb_calculate_thumb_position(easygui_element* pSBElement)
 {
     const easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
@@ -785,7 +787,7 @@ PRIVATE float sb_calculate_thumb_position(easygui_element* pSBElement)
     return thumbPos;
 }
 
-PRIVATE float sb_get_track_size(easygui_element* pSBElement)
+EASYGUI_PRIVATE float sb_get_track_size(easygui_element* pSBElement)
 {
     const easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);
@@ -797,7 +799,7 @@ PRIVATE float sb_get_track_size(easygui_element* pSBElement)
     }
 }
 
-PRIVATE void sb_make_relative_to_thumb(easygui_element* pSBElement, float* pPosX, float* pPosY)
+EASYGUI_PRIVATE void sb_make_relative_to_thumb(easygui_element* pSBElement, float* pPosX, float* pPosY)
 {
     easygui_rect thumbRect = sb_get_thumb_rect(pSBElement);
 
@@ -810,7 +812,7 @@ PRIVATE void sb_make_relative_to_thumb(easygui_element* pSBElement, float* pPosX
     }
 }
 
-PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(easygui_element* pSBElement, float thumbPos)
+EASYGUI_PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(easygui_element* pSBElement, float thumbPos)
 {
     const easygui_scrollbar* pSB = easygui_get_extra_data(pSBElement);
     assert(pSB != NULL);

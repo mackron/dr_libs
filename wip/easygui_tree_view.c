@@ -5,6 +5,10 @@
 #include <easy_gui/wip/easygui_scrollbar.h>
 #include <assert.h>
 
+#ifndef PRIVATE
+#define PRIVATE static
+#endif
+
 typedef struct eg_tree_view eg_tree_view;
 
 struct eg_tree_view
