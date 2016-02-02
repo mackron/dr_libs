@@ -3399,7 +3399,7 @@ easygui_resource easygui_create_image_easy_draw(void* pPaintingContext, unsigned
 void easygui_delete_image_easy_draw(easygui_resource image);
 void easygui_get_image_size_easy_draw(easygui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut);
 
-easygui_context* easygui_create_context_easy_draw(easy2d_context* pDrawingContext)
+easygui_context* easygui_create_context_easy_draw(dr2d_context* pDrawingContext)
 {
     easygui_context* pContext = easygui_create_context();
     if (pContext != NULL) {
@@ -3409,7 +3409,7 @@ easygui_context* easygui_create_context_easy_draw(easy2d_context* pDrawingContex
     return pContext;
 }
 
-void easygui_register_easy_draw_callbacks(easygui_context* pContext, easy2d_context* pDrawingContext)
+void easygui_register_easy_draw_callbacks(easygui_context* pContext, dr2d_context* pDrawingContext)
 {
     easygui_painting_callbacks callbacks;
     callbacks.drawBegin                      = easygui_draw_begin_easy_draw;
@@ -3444,100 +3444,100 @@ void easygui_register_easy_draw_callbacks(easygui_context* pContext, easy2d_cont
 
 void easygui_draw_begin_easy_draw(void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_begin_draw(pSurface);
+    dr2d_begin_draw(pSurface);
 }
 
 void easygui_draw_end_easy_draw(void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_end_draw(pSurface);
+    dr2d_end_draw(pSurface);
 }
 
 void easygui_set_clip_easy_draw(easygui_rect rect, void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_set_clip(pSurface, rect.left, rect.top, rect.right, rect.bottom);
+    dr2d_set_clip(pSurface, rect.left, rect.top, rect.right, rect.bottom);
 }
 
 void easygui_get_clip_easy_draw(easygui_rect* pRectOut, void* pPaintData)
 {
     assert(pRectOut != NULL);
 
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_get_clip(pSurface, &pRectOut->left, &pRectOut->top, &pRectOut->right, &pRectOut->bottom);
+    dr2d_get_clip(pSurface, &pRectOut->left, &pRectOut->top, &pRectOut->right, &pRectOut->bottom);
 }
 
 void easygui_draw_rect_easy_draw(easygui_rect rect, easygui_color color, void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_rect(pSurface, rect.left, rect.top, rect.right, rect.bottom, easy2d_rgba(color.r, color.g, color.b, color.a));
+    dr2d_draw_rect(pSurface, rect.left, rect.top, rect.right, rect.bottom, dr2d_rgba(color.r, color.g, color.b, color.a));
 }
 
 void easygui_draw_rect_outline_easy_draw(easygui_rect rect, easygui_color color, float outlineWidth, void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_rect_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, easy2d_rgba(color.r, color.g, color.b, color.a), outlineWidth);
+    dr2d_draw_rect_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, dr2d_rgba(color.r, color.g, color.b, color.a), outlineWidth);
 }
 
 void easygui_draw_rect_with_outline_easy_draw(easygui_rect rect, easygui_color color, float outlineWidth, easygui_color outlineColor, void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_rect_with_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, easy2d_rgba(color.r, color.g, color.b, color.a), outlineWidth, easy2d_rgba(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a));
+    dr2d_draw_rect_with_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, dr2d_rgba(color.r, color.g, color.b, color.a), outlineWidth, dr2d_rgba(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a));
 }
 
 void easygui_draw_round_rect_easy_draw(easygui_rect rect, easygui_color color, float radius, void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_round_rect(pSurface, rect.left, rect.top, rect.right, rect.bottom, easy2d_rgba(color.r, color.g, color.b, color.a), radius);
+    dr2d_draw_round_rect(pSurface, rect.left, rect.top, rect.right, rect.bottom, dr2d_rgba(color.r, color.g, color.b, color.a), radius);
 }
 
 void easygui_draw_round_rect_outline_easy_draw(easygui_rect rect, easygui_color color, float radius, float outlineWidth, void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_round_rect_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, easy2d_rgba(color.r, color.g, color.b, color.a), radius, outlineWidth);
+    dr2d_draw_round_rect_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, dr2d_rgba(color.r, color.g, color.b, color.a), radius, outlineWidth);
 }
 
 void easygui_draw_round_rect_with_outline_easy_draw(easygui_rect rect, easygui_color color, float radius, float outlineWidth, easygui_color outlineColor, void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_round_rect_with_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, easy2d_rgba(color.r, color.g, color.b, color.a), radius, outlineWidth, easy2d_rgba(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a));
+    dr2d_draw_round_rect_with_outline(pSurface, rect.left, rect.top, rect.right, rect.bottom, dr2d_rgba(color.r, color.g, color.b, color.a), radius, outlineWidth, dr2d_rgba(outlineColor.r, outlineColor.g, outlineColor.b, outlineColor.a));
 }
 
 void easygui_draw_text_easy_draw(easygui_resource font, const char* text, int textSizeInBytes, float posX, float posY, easygui_color color, easygui_color backgroundColor, void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_text(pSurface, font, text, textSizeInBytes, posX, posY, easy2d_rgba(color.r, color.g, color.b, color.a), easy2d_rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a));
+    dr2d_draw_text(pSurface, font, text, textSizeInBytes, posX, posY, dr2d_rgba(color.r, color.g, color.b, color.a), dr2d_rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a));
 }
 
 void easygui_draw_image_easy_draw(easygui_resource image, easygui_draw_image_args* pArgs, void* pPaintData)
 {
-    easy2d_surface* pSurface = (easy2d_surface*)pPaintData;
+    dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    easy2d_draw_image_args args;
+    dr2d_draw_image_args args;
     args.dstX            = pArgs->dstX;
     args.dstY            = pArgs->dstY;
     args.dstWidth        = pArgs->dstWidth;
@@ -3550,35 +3550,35 @@ void easygui_draw_image_easy_draw(easygui_resource image, easygui_draw_image_arg
     args.dstBoundsY      = pArgs->dstBoundsY;
     args.dstBoundsWidth  = pArgs->dstBoundsWidth;
     args.dstBoundsHeight = pArgs->dstBoundsHeight;
-    args.foregroundTint  = easy2d_rgba(pArgs->foregroundTint.r, pArgs->foregroundTint.g, pArgs->foregroundTint.b, pArgs->foregroundTint.a);
-    args.backgroundColor = easy2d_rgba(pArgs->backgroundColor.r, pArgs->backgroundColor.g, pArgs->backgroundColor.b, pArgs->backgroundColor.a);
-    args.boundsColor     = easy2d_rgba(pArgs->boundsColor.r, pArgs->boundsColor.g, pArgs->boundsColor.b, pArgs->boundsColor.a);
+    args.foregroundTint  = dr2d_rgba(pArgs->foregroundTint.r, pArgs->foregroundTint.g, pArgs->foregroundTint.b, pArgs->foregroundTint.a);
+    args.backgroundColor = dr2d_rgba(pArgs->backgroundColor.r, pArgs->backgroundColor.g, pArgs->backgroundColor.b, pArgs->backgroundColor.a);
+    args.boundsColor     = dr2d_rgba(pArgs->boundsColor.r, pArgs->boundsColor.g, pArgs->boundsColor.b, pArgs->boundsColor.a);
     args.options         = pArgs->options;
-    easy2d_draw_image(pSurface, image, &args);
+    dr2d_draw_image(pSurface, image, &args);
 }
 
 
 easygui_resource easygui_create_font_easy_draw(void* pPaintingContext, const char* family, unsigned int size, easygui_font_weight weight, easygui_font_slant slant, float rotation)
 {
-    return easy2d_create_font(pPaintingContext, family, size, weight, slant, rotation);
+    return dr2d_create_font(pPaintingContext, family, size, weight, slant, rotation);
 }
 
 void easygui_delete_font_easy_draw(easygui_resource font)
 {
-    easy2d_delete_font(font);
+    dr2d_delete_font(font);
 }
 
 unsigned int easygui_get_font_size_easy_draw(easygui_resource font)
 {
-    return easy2d_get_font_size(font);
+    return dr2d_get_font_size(font);
 }
 
 bool easygui_get_font_metrics_easy_draw(easygui_resource font, easygui_font_metrics* pMetricsOut)
 {
     assert(pMetricsOut != NULL);
 
-    easy2d_font_metrics metrics;
-    if (!easy2d_get_font_metrics(font, &metrics)) {
+    dr2d_font_metrics metrics;
+    if (!dr2d_get_font_metrics(font, &metrics)) {
         return false;
     }
 
@@ -3594,8 +3594,8 @@ bool easygui_get_glyph_metrics_easy_draw(easygui_resource font, unsigned int utf
 {
     assert(pMetricsOut != NULL);
 
-    easy2d_glyph_metrics metrics;
-    if (!easy2d_get_glyph_metrics(font, utf32, &metrics)) {
+    dr2d_glyph_metrics metrics;
+    if (!dr2d_get_glyph_metrics(font, utf32, &metrics)) {
         return false;
     }
 
@@ -3611,33 +3611,33 @@ bool easygui_get_glyph_metrics_easy_draw(easygui_resource font, unsigned int utf
 
 bool easygui_measure_string_easy_draw(easygui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
-    return easy2d_measure_string(font, text, textSizeInBytes, pWidthOut, pHeightOut);
+    return dr2d_measure_string(font, text, textSizeInBytes, pWidthOut, pHeightOut);
 }
 
 bool easygui_get_text_cursor_position_from_point_easy_draw(easygui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
 {
-    return easy2d_get_text_cursor_position_from_point(font, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
+    return dr2d_get_text_cursor_position_from_point(font, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
 }
 
 bool easygui_get_text_cursor_position_from_char_easy_draw(easygui_resource font, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
 {
-    return easy2d_get_text_cursor_position_from_char(font, text, characterIndex, pTextCursorPosXOut);
+    return dr2d_get_text_cursor_position_from_char(font, text, characterIndex, pTextCursorPosXOut);
 }
 
 
 easygui_resource easygui_create_image_easy_draw(void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData)
 {
-    return easy2d_create_image(pPaintingContext, width, height, stride, pImageData);
+    return dr2d_create_image(pPaintingContext, width, height, stride, pImageData);
 }
 
 void easygui_delete_image_easy_draw(easygui_resource image)
 {
-    easy2d_delete_image(image);
+    dr2d_delete_image(image);
 }
 
 void easygui_get_image_size_easy_draw(easygui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut)
 {
-    easy2d_get_image_size(image, pWidthOut, pHeightOut);
+    dr2d_get_image_size(image, pWidthOut, pHeightOut);
 }
 
 #endif

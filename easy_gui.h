@@ -158,13 +158,12 @@
 // If you're using easy_draw integration, set the path below to the relative location of easy_draw. By default, the
 // following structure is assumed:
 // <Base Directory>
-//   - easy_draw
-//     - easy_2d.h
-//     - easy_2d.c
+//   - dr_libs
+//     - dr_2d.h
 //   - easy_gui
 //     - easy_gui.h
 //     - easy_gui.c
-#include "../easy_draw/easy_2d.h"
+#include "../dr_libs/dr_2d.h"
 #endif
 
 #include <stdbool.h>
@@ -275,10 +274,10 @@ struct easygui_rect
 
 typedef struct
 {
-    /// The destination position on the x axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
+    /// The destination position on the x axis. This is ignored if the DR2D_IMAGE_ALIGN_CENTER option is set.
     float dstX;
 
-    /// The destination position on the y axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
+    /// The destination position on the y axis. This is ignored if the DR2D_IMAGE_ALIGN_CENTER option is set.
     float dstY;
 
     /// The destination width.
@@ -317,7 +316,7 @@ typedef struct
     /// The foreground tint color. This is not applied to the background color, and the alpha component is ignored.
     easygui_color foregroundTint;
 
-    /// The background color. Only used if the EASY2D_IMAGE_DRAW_BACKGROUND option is set.
+    /// The background color. Only used if the DR2D_IMAGE_DRAW_BACKGROUND option is set.
     easygui_color backgroundColor;
 
     /// The bounds color. This color is used for the region of the bounds that sit on the outside of the destination rectangle. This will
@@ -1186,7 +1185,7 @@ bool easygui_get_text_cursor_position_from_char(easygui_font* pFont, const char*
 
 
 
-/// Creates an image that can be passed to easy2d_draw_image().
+/// Creates an image that can be passed to dr2d_draw_image().
 ///
 /// @remarks
 ///     Images are immutable. If the data of an image needs to change, the image must be deleted and re-created.
@@ -1314,13 +1313,13 @@ bool easygui_rect_equal(easygui_rect rect0, easygui_rect rect1);
 ///
 /// @remarks
 ///     This is equivalent to easygui_create_context() followed by easygui_register_easy_draw_callbacks().
-easygui_context* easygui_create_context_easy_draw(easy2d_context* pDrawingContext);
+easygui_context* easygui_create_context_easy_draw(dr2d_context* pDrawingContext);
 
 /// Registers the drawing callbacks for use with easy_draw.
 ///
 /// @remarks
 ///     The user data of each callback is assumed to be a pointer to an easydraw_surface object.
-void easygui_register_easy_draw_callbacks(easygui_context* pContext, easy2d_context* pDrawingContext);
+void easygui_register_easy_draw_callbacks(easygui_context* pContext, dr2d_context* pDrawingContext);
 
 #endif
 
