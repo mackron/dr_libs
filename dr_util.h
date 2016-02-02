@@ -528,12 +528,9 @@ dr_semaphore dr_create_semaphore(int initialValue);
 void dr_delete_semaphore(dr_semaphore semaphore);
 
 /// Waits on the given semaphore object and decrements it's counter by one upon returning.
-///
-/// @remarks
-///     This will block so long as the counter is > 0.
 bool dr_wait_semaphore(dr_semaphore semaphore);
 
-/// Releases the given semaphore and increments it's counter by one up returning.
+/// Releases the given semaphore and increments it's counter by one upon returning.
 bool dr_release_semaphore(dr_semaphore semaphore);
 
 
