@@ -15,3 +15,7 @@ work-in-progress.
 - dr_wav: A simple library for reading audio data from .wav files.
 - dr_flac: A placeholder library for reading audio data from FLAC files. This is not
 implemented yet.
+- dr_2d: A work-in-progress library for drawing 2D graphics.
+- dr_mtl: A compiler for materials for use in graphics software. Takes a material file
+(such as Wavefront MTL files), compiles it into an intermediate bytecode representation,
+then generates shader code (GLSL, etc.)
