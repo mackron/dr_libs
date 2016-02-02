@@ -2,12 +2,12 @@
 
 // ABOUT
 //
-// easy_path is a simple path manipulation library. At it's core this is just a string manipulation library - it
+// dr_path is a simple path manipulation library. At it's core this is just a string manipulation library - it
 // doesn't do anything with the actual file system such as checking whether or not a path points to an actual file
 // or whatnot.
 // 
 // Features:
-// - It's made up of just one file - easy_path.h
+// - It's made up of just one file - dr_path.h
 // - No dependencies except for stdint.h and stdbool.h
 // - Never uses the heap
 // - Public domain
@@ -17,13 +17,13 @@
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
-//   #define EASY_PATH_IMPLEMENTATION
-//   #include "easy_path.h"
+//   #define DR_PATH_IMPLEMENTATION
+//   #include "dr_path.h"
 //
-// You can then #include easy_path.h in other parts of the program as you would with any other header file.
+// You can then #include dr_path.h in other parts of the program as you would with any other header file.
 
-#ifndef easy_path_h
-#define easy_path_h
+#ifndef dr_path_h
+#define dr_path_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +32,7 @@ extern "C" {
 
 // Set this to 0 to avoid using the standard library. This adds a dependency, however it is likely more efficient for things like
 // finding the length of a null-terminated string.
-#define EASYPATH_USE_STDLIB     1
+#define DRPATH_USE_STDLIB     1
 
 
 // Structure representing a section of a path.
@@ -41,15 +41,15 @@ typedef struct
     unsigned int offset;
     unsigned int length;
 
-} easypath_segment;
+} drpath_segment;
 
 // Structure used for iterating over a path while at the same time providing useful and easy-to-use information about the iteration.
-typedef struct easypath_iterator 
+typedef struct drpath_iterator 
 {
     const char* path;
-    easypath_segment segment;
+    drpath_segment segment;
 
-} easypath_iterator;
+} drpath_iterator;
 
 
 
@@ -61,42 +61,42 @@ typedef struct easypath_iterator
 /// @param s1     [in] The segment of the second path to compare.
 ///
 /// @return 1 if the strings are equal; 0 otherwise.
-int easypath_segments_equal(const char* s0Path, const easypath_segment s0, const char* s1Path, const easypath_segment s1);
+int drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1);
 
 
 /// Creates an iterator for iterating over each segment in a path.
 ///
 /// @param path [in] The path whose segments are being iterated.
 ///
-/// @return An iterator object that is passed to easypath_next().
-easypath_iterator easypath_first(const char* path);
+/// @return An iterator object that is passed to drpath_next().
+drpath_iterator drpath_first(const char* path);
 
 /// Creates an iterator beginning at the last segment.
-easypath_iterator easypath_last(const char* path);
+drpath_iterator drpath_last(const char* path);
 
 /// Goes to the next segment in the path as per the given iterator.
 ///
 /// @param i [in] A pointer to the iterator to increment.
 ///
 /// @return True if the iterator contains a valid value. Use this to determine when to terminate iteration.
-int easypath_next(easypath_iterator* i);
+int drpath_next(drpath_iterator* i);
 
 /// Goes to the previous segment in the path.
 ///
 /// @param i [in] A pointer to the iterator to decrement.
 ///
 /// @return 1 if the iterator contains a valid value. Use this to determine when to terminate iteration.
-int easypath_prev(easypath_iterator* i);
+int drpath_prev(drpath_iterator* i);
 
 /// Determines if the given iterator is at the end.
 ///
 /// @param i [in] The iterator to check.
-int easypath_at_end(easypath_iterator i);
+int drpath_at_end(drpath_iterator i);
 
 /// Determines if the given iterator is at the start.
 ///
 /// @param i [in] The iterator to check.
-int easypath_at_start(easypath_iterator i);
+int drpath_at_start(drpath_iterator i);
 
 /// Compares the string values of two iterators for equality.
 ///
@@ -104,18 +104,18 @@ int easypath_at_start(easypath_iterator i);
 /// @param i1 [in] The second iterator to compare.
 ///
 /// @return 1 if the strings are equal; 0 otherwise.
-int easypath_iterators_equal(const easypath_iterator i0, const easypath_iterator i1);
+int drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1);
 
 
 /// Converts the slashes in the given path to forward slashes.
 ///
 /// @param path [in] The path whose slashes are being converted.
-void easypath_to_forward_slashes(char* path);
+void drpath_to_forward_slashes(char* path);
 
 /// Converts the slashes in the given path to back slashes.
 ///
 /// @param path [in] The path whose slashes are being converted.
-void easypath_to_backslashes(char* path);
+void drpath_to_backslashes(char* path);
 
 
 /// Determines whether or not the given path is a decendant of another.
@@ -126,8 +126,8 @@ void easypath_to_backslashes(char* path);
 /// @remarks
 ///     As an example, "C:/My/Folder" is a descendant of "C:/".
 ///     @par
-///     If either path contains "." or "..", clean it with easypath_clean() before calling this.
-int easypath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
+///     If either path contains "." or "..", clean it with drpath_clean() before calling this.
+int drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
 
 /// Determines whether or not the given path is a direct child of another.
 ///
@@ -137,12 +137,12 @@ int easypath_is_descendant(const char* descendantAbsolutePath, const char* paren
 /// @remarks
 ///     As an example, "C:/My/Folder" is NOT a child of "C:/" - it is a descendant. Alternatively, "C:/My" IS a child of "C:/".
 ///     @par
-///     If either path contains "." or "..", clean it with easypath_clean() before calling this.
-int easypath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath);
+///     If either path contains "." or "..", clean it with drpath_clean() before calling this.
+int drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath);
 
 
 /// Modifies the given path by transforming it into it's base path.
-void easypath_base_path(char* path);
+void drpath_base_path(char* path);
 
 /// Retrieves the base path from the given path, not including the trailing slash.
 ///
@@ -154,7 +154,7 @@ void easypath_base_path(char* path);
 ///     As an example, when "path" is "C:/MyFolder/MyFile", the output will be "C:/MyFolder". Note that there is no trailing slash.
 ///     @par
 ///     If "path" is something like "/MyFolder", the return value will be an empty string.
-void easypath_copy_base_path(const char* path, char* baseOut, unsigned int baseSizeInBytes);
+void drpath_copy_base_path(const char* path, char* baseOut, unsigned int baseSizeInBytes);
 
 /// Finds the file name portion of the path.
 ///
@@ -166,10 +166,10 @@ void easypath_copy_base_path(const char* path, char* baseOut, unsigned int baseS
 ///     A path with a trailing slash will return an empty string.
 ///     @par
 ///     The return value is just an offset of "path".
-const char* easypath_file_name(const char* path);
+const char* drpath_file_name(const char* path);
 
 /// Copies the file name into the given buffer.
-const char* easypath_copy_file_name(const char* path, char* fileNameOut, unsigned int fileNameSizeInBytes);
+const char* drpath_copy_file_name(const char* path, char* fileNameOut, unsigned int fileNameSizeInBytes);
 
 /// Finds the file extension of the given file path.
 ///
@@ -183,7 +183,7 @@ const char* easypath_copy_file_name(const char* path, char* fileNameOut, unsigne
 ///     The return value is just an offset of "path".
 ///     @par
 ///     On a path such as "filename.ext1.ext2" the returned string will be "ext2".
-const char* easypath_extension(const char* path);
+const char* drpath_extension(const char* path);
 
 
 /// Checks whether or not the two paths are equal.
@@ -198,24 +198,24 @@ const char* easypath_extension(const char* path);
 ///     @par
 ///     This is more than just a string comparison. Rather, this splits the path and compares each segment. The path "C:/My/Folder" is considered
 ///     equal to to "C:\\My\\Folder".
-int easypath_equal(const char* path1, const char* path2);
+int drpath_equal(const char* path1, const char* path2);
 
 /// Checks if the extension of the given path is equal to the given extension.
 ///
 /// @remarks
 ///     By default this is NOT case-sensitive, however if the standard library is disable, it is case-sensitive.
-int easypath_extension_equal(const char* path, const char* extension);
+int drpath_extension_equal(const char* path, const char* extension);
 
 
 /// Determines whether or not the given path is relative.
 ///
 /// @param path [in] The path to check.
-int easypath_is_relative(const char* path);
+int drpath_is_relative(const char* path);
 
 /// Determines whether or not the given path is absolute.
 ///
 /// @param path [in] The path to check.
-int easypath_is_absolute(const char* path);
+int drpath_is_absolute(const char* path);
 
 
 /// Appends two paths together, ensuring there is not double up on the last slash.
@@ -226,13 +226,13 @@ int easypath_is_absolute(const char* path);
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "other" is a relative path.
-int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* other);
+int drpath_append(char* base, unsigned int baseBufferSizeInBytes, const char* other);
 
 /// Appends an iterator object to the given base path.
-int easypath_append_iterator(char* base, unsigned int baseBufferSizeInBytes, easypath_iterator i);
+int drpath_append_iterator(char* base, unsigned int baseBufferSizeInBytes, drpath_iterator i);
 
 /// Appends an extension to the given path.
-int easypath_append_extension(char* base, unsigned int baseBufferSizeInBytes, const char* extension);
+int drpath_append_extension(char* base, unsigned int baseBufferSizeInBytes, const char* extension);
 
 /// Appends two paths together, and copyies them to a separate buffer.
 ///
@@ -245,7 +245,7 @@ int easypath_append_extension(char* base, unsigned int baseBufferSizeInBytes, co
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "other" is a relative path.
-int easypath_copy_and_append(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
+int drpath_copy_and_append(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
 
 /// Appends a base path and an iterator together, and copyies them to a separate buffer.
 ///
@@ -258,7 +258,7 @@ int easypath_copy_and_append(char* dst, unsigned int dstSizeInBytes, const char*
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "i" is a valid iterator.
-int easypath_copy_and_append_iterator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i);
+int drpath_copy_and_append_iterator(char* dst, unsigned int dstSizeInBytes, const char* base, drpath_iterator i);
 
 /// Appends an extension to the given base path and copies them to a separate buffer.
 /// @param dst            [out] The destination buffer.
@@ -267,7 +267,7 @@ int easypath_copy_and_append_iterator(char* dst, unsigned int dstSizeInBytes, co
 /// @param extension      [in]  The relative path to append to "base".
 ///
 /// @return 1 if the paths were appended successfully; 0 otherwise.
-int easypath_copy_and_append_extension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension);
+int drpath_copy_and_append_extension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension);
 
 
 /// Cleans the path and resolves the ".." and "." segments.
@@ -288,27 +288,27 @@ int easypath_copy_and_append_extension(char* dst, unsigned int dstSizeInBytes, c
 ///     The path "my/messy/../../../path" (note how there are too many ".." segments) will return "path" (the extra ".." segments will be dropped.)
 ///     @par
 ///     If an error occurs, such as an invalid input path, 0 will be returned.
-unsigned int easypath_clean(const char* path, char* pathOut, unsigned int pathOutSizeInBytes);
+unsigned int drpath_clean(const char* path, char* pathOut, unsigned int pathOutSizeInBytes);
 
 /// Appends one path to the other and then cleans it.
-int easypath_append_and_clean(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
+int drpath_append_and_clean(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other);
 
 
 /// Removes the extension from the given path.
 ///
 /// @remarks
 ///     If the given path does not have an extension, 1 will be returned, but the string will be left unmodified.
-int easypath_remove_extension(char* path);
+int drpath_remove_extension(char* path);
 
 /// Creates a copy of the given string and removes the extension.
-int easypath_copy_and_remove_extension(char* dst, unsigned int dstSizeInBytes, const char* path);
+int drpath_copy_and_remove_extension(char* dst, unsigned int dstSizeInBytes, const char* path);
 
 
 /// Removes the last segment from the given path.
-int easypath_remove_file_name(char* path);
+int drpath_remove_file_name(char* path);
 
 /// Creates a copy of the given string and removes the extension.
-int easypath_copy_and_remove_file_name(char* dst, unsigned int dstSizeInBytes, const char* path);
+int drpath_copy_and_remove_file_name(char* dst, unsigned int dstSizeInBytes, const char* path);
 
 
 /// Converts an absolute path to a relative path.
@@ -317,7 +317,7 @@ int easypath_copy_and_remove_file_name(char* dst, unsigned int dstSizeInBytes, c
 ///
 /// @remarks
 ///     This will normalize every slash to forward slashes.
-int easypath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, unsigned int relativePathOutSizeInBytes);
+int drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, unsigned int relativePathOutSizeInBytes);
 
 /// Converts a relative path to an absolute path based on a base path.
 ///
@@ -325,24 +325,24 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
 ///
 /// @remarks
 ///     This is equivalent to an append followed by a clean. Slashes will be normalized to forward slashes.
-int easypath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, unsigned int absolutePathOutSizeInBytes);
+int drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, unsigned int absolutePathOutSizeInBytes);
 
 
 /// strlen()
-unsigned int easypath_strlen(const char* str);
+unsigned int drpath_strlen(const char* str);
 
 /// strcpy_s() implementation.
-int easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src);
+int drpath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src);
 
-/// easypath_strncpy()
-int easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes);
+/// drpath_strncpy()
+int drpath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  //easy_path_h
+#endif  //dr_path_h
 
 
 
@@ -351,15 +351,15 @@ int easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, un
 // IMPLEMENTATION
 //
 ///////////////////////////////////////////////////////////////////////////////
-#ifdef EASY_PATH_IMPLEMENTATION
-#if EASYPATH_USE_STDLIB
+#ifdef DR_PATH_IMPLEMENTATION
+#if DRPATH_USE_STDLIB
 #include <string.h>
 #include <ctype.h>
 #endif
 
-unsigned int easypath_strlen(const char* str)
+unsigned int drpath_strlen(const char* str)
 {
-#if EASYPATH_USE_STDLIB
+#if DRPATH_USE_STDLIB
     return (unsigned int)strlen(str);
 #else
     const char* pathEnd = path;
@@ -372,9 +372,9 @@ unsigned int easypath_strlen(const char* str)
 #endif
 }
 
-int easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
+int drpath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 {
-#if EASYPATH_USE_STDLIB && (defined(_MSC_VER))
+#if DRPATH_USE_STDLIB && (defined(_MSC_VER))
     return strcpy_s(dst, dstSizeInBytes, src);
 #else
     if (dst == 0) {
@@ -411,9 +411,9 @@ int easypath_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 #endif
 }
 
-int easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
+int drpath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, unsigned int srcSizeInBytes)
 {
-#if EASYPATH_USE_STDLIB && (defined(_MSC_VER))
+#if DRPATH_USE_STDLIB && (defined(_MSC_VER))
     return strncpy_s(dst, dstSizeInBytes, src, srcSizeInBytes);
 #else
     while (dstSizeInBytes > 0 && src[0] != '\0' && srcSizeInBytes > 0)
@@ -440,9 +440,9 @@ int easypath_strncpy(char* dst, unsigned int dstSizeInBytes, const char* src, un
 }
 
 
-easypath_iterator easypath_first(const char* path)
+drpath_iterator drpath_first(const char* path)
 {
-    easypath_iterator i;
+    drpath_iterator i;
     i.path = path;
     i.segment.offset = 0;
     i.segment.length = 0;
@@ -450,18 +450,18 @@ easypath_iterator easypath_first(const char* path)
     return i;
 }
 
-easypath_iterator easypath_last(const char* path)
+drpath_iterator drpath_last(const char* path)
 {
-    easypath_iterator i;
+    drpath_iterator i;
     i.path = path;
-    i.segment.offset = easypath_strlen(path);
+    i.segment.offset = drpath_strlen(path);
     i.segment.length = 0;
 
-    easypath_prev(&i);
+    drpath_prev(&i);
     return i;
 }
 
-int easypath_next(easypath_iterator* i)
+int drpath_next(drpath_iterator* i)
 {
     if (i != 0 && i->path != 0)
     {
@@ -491,7 +491,7 @@ int easypath_next(easypath_iterator* i)
     return 0;
 }
 
-int easypath_prev(easypath_iterator* i)
+int drpath_prev(drpath_iterator* i)
 {
     if (i != 0 && i->path != 0 && i->segment.offset > 0)
     {
@@ -528,23 +528,23 @@ int easypath_prev(easypath_iterator* i)
     return 0;
 }
 
-int easypath_at_end(easypath_iterator i)
+int drpath_at_end(drpath_iterator i)
 {
     return i.path == 0 || i.path[i.segment.offset] == '\0';
 }
 
-int easypath_at_start(easypath_iterator i)
+int drpath_at_start(drpath_iterator i)
 {
-    //return !easypath_prev(&i);
+    //return !drpath_prev(&i);
     return i.path != 0 && i.segment.offset == 0;
 }
 
-int easypath_iterators_equal(const easypath_iterator i0, const easypath_iterator i1)
+int drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1)
 {
-    return easypath_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
+    return drpath_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
 }
 
-int easypath_segments_equal(const char* s0Path, const easypath_segment s0, const char* s1Path, const easypath_segment s1)
+int drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1)
 {
     if (s0Path != 0 && s1Path != 0)
     {
@@ -566,7 +566,7 @@ int easypath_segments_equal(const char* s0Path, const easypath_segment s0, const
 }
 
 
-void easypath_to_forward_slashes(char* path)
+void drpath_to_forward_slashes(char* path)
 {
     if (path != 0)
     {
@@ -582,7 +582,7 @@ void easypath_to_forward_slashes(char* path)
     }
 }
 
-void easypath_to_backslashes(char* path)
+void drpath_to_backslashes(char* path)
 {
     if (path != 0)
     {
@@ -599,17 +599,17 @@ void easypath_to_backslashes(char* path)
 }
 
 
-int easypath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
+int drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
 {
-    easypath_iterator iParent = easypath_first(parentAbsolutePath);
-    easypath_iterator iChild  = easypath_first(descendantAbsolutePath);
+    drpath_iterator iParent = drpath_first(parentAbsolutePath);
+    drpath_iterator iChild  = drpath_first(descendantAbsolutePath);
 
-    while (easypath_next(&iParent))
+    while (drpath_next(&iParent))
     {
-        if (easypath_next(&iChild))
+        if (drpath_next(&iChild))
         {
             // If the segment is different, the paths are different and thus it is not a descendant.
-            if (!easypath_iterators_equal(iParent, iChild))
+            if (!drpath_iterators_equal(iParent, iChild))
             {
                 return 0;
             }
@@ -623,20 +623,20 @@ int easypath_is_descendant(const char* descendantAbsolutePath, const char* paren
 
     // At this point we have finished iteration of the parent, which should be shorter one. We now do one final iteration of
     // the descendant to ensure it is indeed shorter. If so, it's a descendant.
-    return easypath_next(&iChild);
+    return drpath_next(&iChild);
 }
 
-int easypath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
+int drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
 {
-    easypath_iterator iParent = easypath_first(parentAbsolutePath);
-    easypath_iterator iChild  = easypath_first(childAbsolutePath);
+    drpath_iterator iParent = drpath_first(parentAbsolutePath);
+    drpath_iterator iChild  = drpath_first(childAbsolutePath);
 
-    while (easypath_next(&iParent))
+    while (drpath_next(&iParent))
     {
-        if (easypath_next(&iChild))
+        if (drpath_next(&iChild))
         {
             // If the segment is different, the paths are different and thus it is not a descendant.
-            if (!easypath_iterators_equal(iParent, iChild))
+            if (!drpath_iterators_equal(iParent, iChild))
             {
                 return 0;
             }
@@ -650,10 +650,10 @@ int easypath_is_child(const char* childAbsolutePath, const char* parentAbsoluteP
 
     // At this point we have finished iteration of the parent, which should be shorter one. We now do a couple of iterations of
     // the child to ensure it is indeed a direct child.
-    if (easypath_next(&iChild))
+    if (drpath_next(&iChild))
     {
         // It could be a child. If the next iteration fails, it's a direct child and we want to return true.
-        if (!easypath_next(&iChild))
+        if (!drpath_next(&iChild))
         {
             return 1;
         }
@@ -662,7 +662,7 @@ int easypath_is_child(const char* childAbsolutePath, const char* parentAbsoluteP
     return 0;
 }
 
-void easypath_base_path(char* path)
+void drpath_base_path(char* path)
 {
     if (path != 0)
     {
@@ -697,16 +697,16 @@ void easypath_base_path(char* path)
     }
 }
 
-void easypath_copy_base_path(const char* path, char* baseOut, unsigned int baseSizeInBytes)
+void drpath_copy_base_path(const char* path, char* baseOut, unsigned int baseSizeInBytes)
 {
     if (path != 0 && baseOut != 0 && baseSizeInBytes > 0)
     {
-        easypath_strcpy(baseOut, baseSizeInBytes, path);
-        easypath_base_path(baseOut);
+        drpath_strcpy(baseOut, baseSizeInBytes, path);
+        drpath_base_path(baseOut);
     }
 }
 
-const char* easypath_file_name(const char* path)
+const char* drpath_file_name(const char* path)
 {
     if (path != 0)
     {
@@ -737,21 +737,21 @@ const char* easypath_file_name(const char* path)
     return 0;
 }
 
-const char* easypath_copy_file_name(const char* path, char* fileNameOut, unsigned int fileNameSizeInBytes)
+const char* drpath_copy_file_name(const char* path, char* fileNameOut, unsigned int fileNameSizeInBytes)
 {
-    const char* fileName = easypath_file_name(path);
+    const char* fileName = drpath_file_name(path);
     if (fileName != 0) {
-        easypath_strcpy(fileNameOut, fileNameSizeInBytes, fileName);
+        drpath_strcpy(fileNameOut, fileNameSizeInBytes, fileName);
     }
 
     return fileName;
 }
 
-const char* easypath_extension(const char* path)
+const char* drpath_extension(const char* path)
 {
     if (path != 0)
     {
-        const char* extension     = easypath_file_name(path);
+        const char* extension     = drpath_file_name(path);
         const char* lastoccurance = 0;
 
         // Just find the last '.' and return.
@@ -774,24 +774,24 @@ const char* easypath_extension(const char* path)
 }
 
 
-int easypath_equal(const char* path1, const char* path2)
+int drpath_equal(const char* path1, const char* path2)
 {
     if (path1 != 0 && path2 != 0)
     {
-        easypath_iterator iPath1 = easypath_first(path1);
-        easypath_iterator iPath2 = easypath_first(path2);
+        drpath_iterator iPath1 = drpath_first(path1);
+        drpath_iterator iPath2 = drpath_first(path2);
 
-        int isPath1Valid = easypath_next(&iPath1);
-        int isPath2Valid = easypath_next(&iPath2);
+        int isPath1Valid = drpath_next(&iPath1);
+        int isPath2Valid = drpath_next(&iPath2);
         while (isPath1Valid && isPath2Valid)
         {
-            if (!easypath_iterators_equal(iPath1, iPath2))
+            if (!drpath_iterators_equal(iPath1, iPath2))
             {
                 return 0;
             }
 
-            isPath1Valid = easypath_next(&iPath1);
-            isPath2Valid = easypath_next(&iPath2);
+            isPath1Valid = drpath_next(&iPath1);
+            isPath2Valid = drpath_next(&iPath2);
         }
 
 
@@ -802,14 +802,14 @@ int easypath_equal(const char* path1, const char* path2)
     return 0;
 }
 
-int easypath_extension_equal(const char* path, const char* extension)
+int drpath_extension_equal(const char* path, const char* extension)
 {
     if (path != 0 && extension != 0)
     {
         const char* ext1 = extension;
-        const char* ext2 = easypath_extension(path);
+        const char* ext2 = drpath_extension(path);
 
-#if EASYPATH_USE_STDLIB
+#if DRPATH_USE_STDLIB
     #ifdef _MSC_VER
         return _stricmp(ext1, ext2) == 0;
     #else
@@ -836,7 +836,7 @@ int easypath_extension_equal(const char* path, const char* extension)
 
 
 
-int easypath_is_relative(const char* path)
+int drpath_is_relative(const char* path)
 {
     if (path != 0 && path[0] != '\0')
     {
@@ -857,18 +857,18 @@ int easypath_is_relative(const char* path)
     return 1;
 }
 
-int easypath_is_absolute(const char* path)
+int drpath_is_absolute(const char* path)
 {
-    return !easypath_is_relative(path);
+    return !drpath_is_relative(path);
 }
 
 
-int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* other)
+int drpath_append(char* base, unsigned int baseBufferSizeInBytes, const char* other)
 {
     if (base != 0 && other != 0)
     {
-        unsigned int path1Length = easypath_strlen(base);
-        unsigned int path2Length = easypath_strlen(other);
+        unsigned int path1Length = drpath_strlen(base);
+        unsigned int path2Length = drpath_strlen(other);
 
         if (path1Length < baseBufferSizeInBytes)
         {
@@ -886,7 +886,7 @@ int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* 
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easypath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
+            drpath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
 
 
             return 1;
@@ -896,11 +896,11 @@ int easypath_append(char* base, unsigned int baseBufferSizeInBytes, const char* 
     return 0;
 }
 
-int easypath_append_iterator(char* base, unsigned int baseBufferSizeInBytes, easypath_iterator i)
+int drpath_append_iterator(char* base, unsigned int baseBufferSizeInBytes, drpath_iterator i)
 {
     if (base != 0)
     {
-        unsigned int path1Length = easypath_strlen(base);
+        unsigned int path1Length = drpath_strlen(base);
         unsigned int path2Length = (unsigned int)i.segment.length;
 
         if (path1Length < baseBufferSizeInBytes)
@@ -919,7 +919,7 @@ int easypath_append_iterator(char* base, unsigned int baseBufferSizeInBytes, eas
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            easypath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
+            drpath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
 
             return 1;
@@ -929,12 +929,12 @@ int easypath_append_iterator(char* base, unsigned int baseBufferSizeInBytes, eas
     return 0;
 }
 
-int easypath_append_extension(char* base, unsigned int baseBufferSizeInBytes, const char* extension)
+int drpath_append_extension(char* base, unsigned int baseBufferSizeInBytes, const char* extension)
 {
     if (base != 0 && extension != 0)
     {
-        unsigned int baseLength = easypath_strlen(base);
-        unsigned int extLength  = easypath_strlen(extension);
+        unsigned int baseLength = drpath_strlen(base);
+        unsigned int extLength  = drpath_strlen(extension);
 
         if (baseLength < baseBufferSizeInBytes)
         {
@@ -946,7 +946,7 @@ int easypath_append_extension(char* base, unsigned int baseBufferSizeInBytes, co
                 extLength = baseBufferSizeInBytes - baseLength - 1;      // -1 for the null terminator.
             }
 
-            easypath_strncpy(base + baseLength, baseBufferSizeInBytes - baseLength, extension, extLength);
+            drpath_strncpy(base + baseLength, baseBufferSizeInBytes - baseLength, extension, extLength);
 
 
             return 1;
@@ -956,34 +956,34 @@ int easypath_append_extension(char* base, unsigned int baseBufferSizeInBytes, co
     return 0;
 }
 
-int easypath_copy_and_append(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
+int drpath_copy_and_append(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
 {
     if (dst != 0 && dstSizeInBytes > 0)
     {
-        easypath_strcpy(dst, dstSizeInBytes, base);
-        return easypath_append(dst, dstSizeInBytes, other);
+        drpath_strcpy(dst, dstSizeInBytes, base);
+        return drpath_append(dst, dstSizeInBytes, other);
     }
 
     return 0;
 }
 
-int easypath_copy_and_append_iterator(char* dst, unsigned int dstSizeInBytes, const char* base, easypath_iterator i)
+int drpath_copy_and_append_iterator(char* dst, unsigned int dstSizeInBytes, const char* base, drpath_iterator i)
 {
     if (dst != 0 && dstSizeInBytes > 0)
     {
-        easypath_strcpy(dst, dstSizeInBytes, base);
-        return easypath_append_iterator(dst, dstSizeInBytes, i);
+        drpath_strcpy(dst, dstSizeInBytes, base);
+        return drpath_append_iterator(dst, dstSizeInBytes, i);
     }
 
     return 0;
 }
 
-int easypath_copy_and_append_extension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension)
+int drpath_copy_and_append_extension(char* dst, unsigned int dstSizeInBytes, const char* base, const char* extension)
 {
     if (dst != 0 && dstSizeInBytes > 0)
     {
-        easypath_strcpy(dst, dstSizeInBytes, base);
-        return easypath_append_extension(dst, dstSizeInBytes, extension);
+        drpath_strcpy(dst, dstSizeInBytes, base);
+        return drpath_append_extension(dst, dstSizeInBytes, extension);
     }
 
     return 0;
@@ -995,13 +995,13 @@ int easypath_copy_and_append_extension(char* dst, unsigned int dstSizeInBytes, c
 // function, each iterator in the chain should be placed at the end of the path.
 //
 // This does not write the null terminator.
-unsigned int _easypath_clean_trywrite(easypath_iterator* iterators, unsigned int iteratorCount, char* pathOut, unsigned int pathOutSizeInBytes, unsigned int ignoreCounter)
+unsigned int _drpath_clean_trywrite(drpath_iterator* iterators, unsigned int iteratorCount, char* pathOut, unsigned int pathOutSizeInBytes, unsigned int ignoreCounter)
 {
     if (iteratorCount == 0) {
         return 0;
     }
 
-    easypath_iterator isegment = iterators[iteratorCount - 1];
+    drpath_iterator isegment = iterators[iteratorCount - 1];
 
 
     // If this segment is a ".", we ignore it. If it is a ".." we ignore it and increment "ignoreCount".
@@ -1034,8 +1034,8 @@ unsigned int _easypath_clean_trywrite(easypath_iterator* iterators, unsigned int
     // The previous segment needs to be written before we can write this one.
     unsigned int bytesWritten = 0;
 
-    easypath_iterator prev = isegment;
-    if (!easypath_prev(&prev))
+    drpath_iterator prev = isegment;
+    if (!drpath_prev(&prev))
     {
         if (iteratorCount > 1)
         {
@@ -1053,7 +1053,7 @@ unsigned int _easypath_clean_trywrite(easypath_iterator* iterators, unsigned int
     if (prev.segment.length > 0)
     {
         iterators[iteratorCount - 1] = prev;
-        bytesWritten = _easypath_clean_trywrite(iterators, iteratorCount, pathOut, pathOutSizeInBytes, ignoreCounter);
+        bytesWritten = _drpath_clean_trywrite(iterators, iteratorCount, pathOut, pathOutSizeInBytes, ignoreCounter);
     }
 
 
@@ -1075,12 +1075,12 @@ unsigned int _easypath_clean_trywrite(easypath_iterator* iterators, unsigned int
 
             if (pathOutSizeInBytes >= isegment.segment.length)
             {
-                easypath_strncpy(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, isegment.segment.length);
+                drpath_strncpy(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, isegment.segment.length);
                 bytesWritten += isegment.segment.length;
             }
             else
             {
-                easypath_strncpy(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, pathOutSizeInBytes);
+                drpath_strncpy(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, pathOutSizeInBytes);
                 bytesWritten += pathOutSizeInBytes;
             }
         }
@@ -1089,14 +1089,14 @@ unsigned int _easypath_clean_trywrite(easypath_iterator* iterators, unsigned int
     return bytesWritten;
 }
 
-unsigned int easypath_clean(const char* path, char* pathOut, unsigned int pathOutSizeInBytes)
+unsigned int drpath_clean(const char* path, char* pathOut, unsigned int pathOutSizeInBytes)
 {
     if (path != 0)
     {
-        easypath_iterator last = easypath_last(path);
+        drpath_iterator last = drpath_last(path);
         if (last.segment.length > 0)
         {
-            unsigned int bytesWritten = _easypath_clean_trywrite(&last, 1, pathOut, pathOutSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+            unsigned int bytesWritten = _drpath_clean_trywrite(&last, 1, pathOut, pathOutSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
             if (pathOutSizeInBytes > bytesWritten)
             {
                 pathOut[bytesWritten] = '\0';
@@ -1109,15 +1109,15 @@ unsigned int easypath_clean(const char* path, char* pathOut, unsigned int pathOu
     return 0;
 }
 
-int easypath_append_and_clean(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
+int drpath_append_and_clean(char* dst, unsigned int dstSizeInBytes, const char* base, const char* other)
 {
     if (base != 0 && other != 0)
     {
         int iLastSeg = -1;
 
-        easypath_iterator last[2];
-        last[0] = easypath_last(base);
-        last[1] = easypath_last(other);
+        drpath_iterator last[2];
+        last[0] = drpath_last(base);
+        last[1] = drpath_last(other);
 
         if (last[1].segment.length > 0) {
             iLastSeg = 1;
@@ -1129,7 +1129,7 @@ int easypath_append_and_clean(char* dst, unsigned int dstSizeInBytes, const char
         }
 
 
-        unsigned int bytesWritten = _easypath_clean_trywrite(last, 2, dst, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+        unsigned int bytesWritten = _drpath_clean_trywrite(last, 2, dst, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
         if (dstSizeInBytes > bytesWritten)
         {
             dst[bytesWritten] = '\0';
@@ -1142,11 +1142,11 @@ int easypath_append_and_clean(char* dst, unsigned int dstSizeInBytes, const char
 }
 
 
-int easypath_remove_extension(char* path)
+int drpath_remove_extension(char* path)
 {
     if (path != 0)
     {
-        const char* extension = easypath_extension(path);
+        const char* extension = drpath_extension(path);
         if (extension != 0)
         {
             extension -= 1;
@@ -1159,17 +1159,17 @@ int easypath_remove_extension(char* path)
     return 0;
 }
 
-int easypath_copy_and_remove_extension(char* dst, unsigned int dstSizeInBytes, const char* path)
+int drpath_copy_and_remove_extension(char* dst, unsigned int dstSizeInBytes, const char* path)
 {
     if (dst != 0 && dstSizeInBytes > 0 && path != 0)
     {
-        const char* extension = easypath_extension(path);
+        const char* extension = drpath_extension(path);
         if (extension != 0)
         {
             extension -= 1;
         }
 
-        easypath_strncpy(dst, dstSizeInBytes, path, (unsigned int)(extension - path));
+        drpath_strncpy(dst, dstSizeInBytes, path, (unsigned int)(extension - path));
         return 1;
     }
 
@@ -1177,7 +1177,7 @@ int easypath_copy_and_remove_extension(char* dst, unsigned int dstSizeInBytes, c
 }
 
 
-int easypath_remove_file_name(char* path)
+int drpath_remove_file_name(char* path)
 {
     if (path == NULL) {
         return 0;
@@ -1186,10 +1186,10 @@ int easypath_remove_file_name(char* path)
 
     // We just create an iterator that starts at the last segment. We then move back one and place a null terminator at the end of
     // that segment. That will ensure the resulting path is not left with a slash.
-    easypath_iterator iLast = easypath_last(path);
+    drpath_iterator iLast = drpath_last(path);
     
-    easypath_iterator iSecondLast = iLast;
-    if (easypath_prev(&iSecondLast))
+    drpath_iterator iSecondLast = iLast;
+    if (drpath_prev(&iSecondLast))
     {
         // There is a segment before it so we just place a null terminator at the end.
         path[iSecondLast.segment.offset + iSecondLast.segment.length] = '\0';
@@ -1203,7 +1203,7 @@ int easypath_remove_file_name(char* path)
     return 1;
 }
 
-int easypath_copy_and_remove_file_name(char* dst, unsigned int dstSizeInBytes, const char* path)
+int drpath_copy_and_remove_file_name(char* dst, unsigned int dstSizeInBytes, const char* path)
 {
     if (dst == NULL) {
         return 0;
@@ -1221,13 +1221,13 @@ int easypath_copy_and_remove_file_name(char* dst, unsigned int dstSizeInBytes, c
 
     // We just create an iterator that starts at the last segment. We then move back one and place a null terminator at the end of
     // that segment. That will ensure the resulting path is not left with a slash.
-    easypath_iterator iLast = easypath_last(path);
+    drpath_iterator iLast = drpath_last(path);
     
-    easypath_iterator iSecondLast = iLast;
-    if (easypath_prev(&iSecondLast))
+    drpath_iterator iSecondLast = iLast;
+    if (drpath_prev(&iSecondLast))
     {
         // There is a segment before it so we just place a null terminator at the end.
-        return easypath_strncpy(dst, dstSizeInBytes, path, iSecondLast.segment.offset + iSecondLast.segment.length) == 0;
+        return drpath_strncpy(dst, dstSizeInBytes, path, iSecondLast.segment.offset + iSecondLast.segment.length) == 0;
     }
     else
     {
@@ -1238,7 +1238,7 @@ int easypath_copy_and_remove_file_name(char* dst, unsigned int dstSizeInBytes, c
 }
 
 
-int easypath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, unsigned int relativePathOutSizeInBytes)
+int drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, unsigned int relativePathOutSizeInBytes)
 {
     // We do this in to phases. The first phase just iterates past each segment of both the path to convert and the
     // base path until we find two that are not equal. The second phase just adds the appropriate ".." segments.
@@ -1252,10 +1252,10 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
     }
 
 
-    easypath_iterator iPath = easypath_first(absolutePathToMakeRelative);
-    easypath_iterator iBase = easypath_first(absolutePathToMakeRelativeTo);
+    drpath_iterator iPath = drpath_first(absolutePathToMakeRelative);
+    drpath_iterator iBase = drpath_first(absolutePathToMakeRelativeTo);
 
-    if (easypath_at_end(iPath) && easypath_at_end(iBase))
+    if (drpath_at_end(iPath) && drpath_at_end(iBase))
     {
         // Looks like both paths are empty.
         relativePathOut[0] = '\0';
@@ -1266,10 +1266,10 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
     // Phase 1: Get past the common section.
     int isPathAtEnd = 0;
     int isBaseAtEnd = 0;
-    while (!isPathAtEnd && !isBaseAtEnd && easypath_iterators_equal(iPath, iBase))
+    while (!isPathAtEnd && !isBaseAtEnd && drpath_iterators_equal(iPath, iBase))
     {
-        isPathAtEnd = !easypath_next(&iPath);
-        isBaseAtEnd = !easypath_next(&iBase);
+        isPathAtEnd = !drpath_next(&iPath);
+        isBaseAtEnd = !drpath_next(&iBase);
     }
 
     if (iPath.segment.offset == 0)
@@ -1284,7 +1284,7 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
     char* pDst = relativePathOut;
     unsigned int bytesAvailable = relativePathOutSizeInBytes;
 
-    if (!easypath_at_end(iBase))
+    if (!drpath_at_end(iBase))
     {
         do
         {
@@ -1320,12 +1320,12 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
                 pDst += 2;
                 bytesAvailable -= 2;
             }
-        } while (easypath_next(&iBase));
+        } while (drpath_next(&iBase));
     }
 
 
     // Now we just append whatever is left of the main path. We want the path to be clean, so we append segment-by-segment.
-    if (!easypath_at_end(iPath))
+    if (!drpath_at_end(iPath))
     {
         do
         {
@@ -1353,7 +1353,7 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
                 return 0;
             }
         
-            if (easypath_strncpy(pDst, bytesAvailable, iPath.path + iPath.segment.offset, iPath.segment.length) != 0)
+            if (drpath_strncpy(pDst, bytesAvailable, iPath.path + iPath.segment.offset, iPath.segment.length) != 0)
             {
                 // Error copying the string. Probably ran out of room in the output buffer.
                 relativePathOut[0] = '\0';
@@ -1364,7 +1364,7 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
             bytesAvailable -= iPath.segment.length;
 
 
-        } while (easypath_next(&iPath));
+        } while (drpath_next(&iPath));
     }
 
 
@@ -1375,11 +1375,11 @@ int easypath_to_relative(const char* absolutePathToMakeRelative, const char* abs
     return 1;
 }
 
-int easypath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, unsigned int absolutePathOutSizeInBytes)
+int drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, unsigned int absolutePathOutSizeInBytes)
 {
-    return easypath_append_and_clean(absolutePathOut, absolutePathOutSizeInBytes, basePath, relativePathToMakeAbsolute);
+    return drpath_append_and_clean(absolutePathOut, absolutePathOutSizeInBytes, basePath, relativePathToMakeAbsolute);
 }
-#endif  //EASY_PATH_IMPLEMENTATION
+#endif  //DR_PATH_IMPLEMENTATION
 
 /*
 This is free and unencumbered software released into the public domain.
