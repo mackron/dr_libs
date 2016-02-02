@@ -2,23 +2,23 @@
 
 // ABOUT
 // 
-// easy_2d is a simple library for drawing simple 2D graphics.
+// dr_2d is a simple library for drawing simple 2D graphics.
 //
 //
 //
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
-//   #define EASY_2D_IMPLEMENTATION
-//   #include "easy_2d.h"
+//   #define DR_2D_IMPLEMENTATION
+//   #include "dr_2d.h"
 //
-// You can then #include easy_2d.h in other parts of the program as you would with any other header file.
+// You can then #include dr_2d.h in other parts of the program as you would with any other header file.
 //
 //
 //
 // QUICK NOTES
 //
-// - Drawing must be done inside a easy2d_begin_draw() and easy2d_end_draw() pair. Rationale: 1) required for compatibility
+// - Drawing must be done inside a dr2d_begin_draw() and dr2d_end_draw() pair. Rationale: 1) required for compatibility
 //   with GDI's BeginPaint() and EndPaint() APIs; 2) gives implementations opportunity to save and restore state, such as
 //   OpenGL state and whatnot.
 // - This library is not thread safe.
@@ -27,10 +27,10 @@
 //
 // OPTIONS
 //
-// #define EASY2D_NO_GDI
+// #define DR2D_NO_GDI
 //   Excludes the GDI back-end.
 //
-// #define EASY2D_NO_CAIRO
+// #define DR2D_NO_CAIRO
 //   Excludes the Cairo back-end.
 //
 //
@@ -38,8 +38,8 @@
 // TODO
 // - Document resource management.
 
-#ifndef easy_2d_h
-#define easy_2d_h
+#ifndef dr_2d_h
+#define dr_2d_h
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -48,18 +48,18 @@
 #include <windows.h>
 
 // No Cairo on Win32 builds.
-#ifndef EASY2D_NO_CAIRO
-#define EASY2D_NO_CAIRO
+#ifndef DR2D_NO_CAIRO
+#define DR2D_NO_CAIRO
 #endif
 #else
 // No GDI on non-Win32 builds.
-#ifndef EASY2D_NO_GDI
-#define EASY2D_NO_GDI
+#ifndef DR2D_NO_GDI
+#define DR2D_NO_GDI
 #endif
 #endif
 
-#ifndef EASY2D_MAX_FONT_FAMILY_LENGTH
-#define EASY2D_MAX_FONT_FAMILY_LENGTH   128
+#ifndef DR2D_MAX_FONT_FAMILY_LENGTH
+#define DR2D_MAX_FONT_FAMILY_LENGTH   128
 #endif
 
 
@@ -74,28 +74,28 @@ extern "C" {
 //
 /////////////////////////////////////////////////////////////////
 
-typedef unsigned char easy2d_byte;
+typedef unsigned char dr2d_byte;
 
-typedef struct easy2d_context easy2d_context;
-typedef struct easy2d_surface easy2d_surface;
-typedef struct easy2d_font easy2d_font;
-typedef struct easy2d_image easy2d_image;
-typedef struct easy2d_color easy2d_color;
-typedef struct easy2d_font_metrics easy2d_font_metrics;
-typedef struct easy2d_glyph_metrics easy2d_glyph_metrics;
-typedef struct easy2d_drawing_callbacks easy2d_drawing_callbacks;
+typedef struct dr2d_context dr2d_context;
+typedef struct dr2d_surface dr2d_surface;
+typedef struct dr2d_font dr2d_font;
+typedef struct dr2d_image dr2d_image;
+typedef struct dr2d_color dr2d_color;
+typedef struct dr2d_font_metrics dr2d_font_metrics;
+typedef struct dr2d_glyph_metrics dr2d_glyph_metrics;
+typedef struct dr2d_drawing_callbacks dr2d_drawing_callbacks;
 
 
 /// Structure representing an RGBA color. Color components are specified in the range of 0 - 255.
-struct easy2d_color
+struct dr2d_color
 {
-    easy2d_byte r;
-    easy2d_byte g;
-    easy2d_byte b;
-    easy2d_byte a;
+    dr2d_byte r;
+    dr2d_byte g;
+    dr2d_byte b;
+    dr2d_byte a;
 };
 
-struct easy2d_font_metrics
+struct dr2d_font_metrics
 {
     int ascent;
     int descent;
@@ -103,7 +103,7 @@ struct easy2d_font_metrics
     int spaceWidth;
 };
 
-struct easy2d_glyph_metrics
+struct dr2d_glyph_metrics
 {
     int width;
     int height;
@@ -115,41 +115,41 @@ struct easy2d_glyph_metrics
 
 typedef enum
 {
-    easy2d_font_weight_medium = 0,
-    easy2d_font_weight_thin,
-    easy2d_font_weight_extra_light,
-    easy2d_font_weight_light,
-    easy2d_font_weight_semi_bold,
-    easy2d_font_weight_bold,
-    easy2d_font_weight_extra_bold,
-    easy2d_font_weight_heavy,
+    dr2d_font_weight_medium = 0,
+    dr2d_font_weight_thin,
+    dr2d_font_weight_extra_light,
+    dr2d_font_weight_light,
+    dr2d_font_weight_semi_bold,
+    dr2d_font_weight_bold,
+    dr2d_font_weight_extra_bold,
+    dr2d_font_weight_heavy,
 
-    easy2d_font_weight_normal  = easy2d_font_weight_medium,
-    easy2d_font_weight_default = easy2d_font_weight_medium
+    dr2d_font_weight_normal  = dr2d_font_weight_medium,
+    dr2d_font_weight_default = dr2d_font_weight_medium
 
-} easy2d_font_weight;
+} dr2d_font_weight;
 
 typedef enum
 {
-    easy2d_font_slant_none = 0,
-    easy2d_font_slant_italic,
-    easy2d_font_slant_oblique
+    dr2d_font_slant_none = 0,
+    dr2d_font_slant_italic,
+    dr2d_font_slant_oblique
 
-} easy2d_font_slant;
+} dr2d_font_slant;
 
 
-#define EASY2D_IMAGE_DRAW_BACKGROUND    (1 << 0)
-#define EASY2D_IMAGE_DRAW_BOUNDS        (1 << 1)
-#define EASY2D_IMAGE_CLIP_BOUNDS        (1 << 2)        //< Clips the image to the bounds
-#define EASY2D_IMAGE_ALIGN_CENTER       (1 << 3)
-#define EASY2D_IMAGE_HINT_NO_ALPHA      (1 << 4)
+#define DR2D_IMAGE_DRAW_BACKGROUND    (1 << 0)
+#define DR2D_IMAGE_DRAW_BOUNDS        (1 << 1)
+#define DR2D_IMAGE_CLIP_BOUNDS        (1 << 2)        //< Clips the image to the bounds
+#define DR2D_IMAGE_ALIGN_CENTER       (1 << 3)
+#define DR2D_IMAGE_HINT_NO_ALPHA      (1 << 4)
 
 typedef struct
 {
-    /// The destination position on the x axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
+    /// The destination position on the x axis. This is ignored if the DR2D_IMAGE_ALIGN_CENTER option is set.
     float dstX;
 
-    /// The destination position on the y axis. This is ignored if the EASY2D_IMAGE_ALIGN_CENTER option is set.
+    /// The destination position on the y axis. This is ignored if the DR2D_IMAGE_ALIGN_CENTER option is set.
     float dstY;
 
     /// The destination width.
@@ -186,86 +186,86 @@ typedef struct
 
 
     /// The foreground tint color. This is not applied to the background color, and the alpha component is ignored.
-    easy2d_color foregroundTint;
+    dr2d_color foregroundTint;
 
-    /// The background color. Only used if the EASY2D_IMAGE_DRAW_BACKGROUND option is set.
-    easy2d_color backgroundColor;
+    /// The background color. Only used if the DR2D_IMAGE_DRAW_BACKGROUND option is set.
+    dr2d_color backgroundColor;
 
     /// The bounds color. This color is used for the region of the bounds that sit on the outside of the destination rectangle. This will
     /// usually be set to the same value as backgroundColor, but it could also be used to draw a border around the image.
-    easy2d_color boundsColor;
+    dr2d_color boundsColor;
 
 
     /// Flags for controlling how the image should be drawn.
     unsigned int options;
 
-} easy2d_draw_image_args;
+} dr2d_draw_image_args;
 
 
-typedef bool (* easy2d_on_create_context_proc)                  (easy2d_context* pContext);
-typedef void (* easy2d_on_delete_context_proc)                  (easy2d_context* pContext);
-typedef bool (* easy2d_on_create_surface_proc)                  (easy2d_surface* pSurface, float width, float height);
-typedef void (* easy2d_on_delete_surface_proc)                  (easy2d_surface* pSurface);
-typedef bool (* easy2d_on_create_font_proc)                     (easy2d_font* pFont);
-typedef void (* easy2d_on_delete_font_proc)                     (easy2d_font* pFont);
-typedef bool (* easy2d_on_create_image_proc)                    (easy2d_image* pImage, unsigned int stride, const void* pData);
-typedef void (* easy2d_on_delete_image_proc)                    (easy2d_image* pImage);
-typedef void (* easy2d_begin_draw_proc)                         (easy2d_surface* pSurface);
-typedef void (* easy2d_end_draw_proc)                           (easy2d_surface* pSurface);
-typedef void (* easy2d_clear_proc)                              (easy2d_surface* pSurface, easy2d_color color);
-typedef void (* easy2d_draw_rect_proc)                          (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
-typedef void (* easy2d_draw_rect_outline_proc)                  (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth);
-typedef void (* easy2d_draw_rect_with_outline_proc)             (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor);
-typedef void (* easy2d_draw_round_rect_proc)                    (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width);
-typedef void (* easy2d_draw_round_rect_outline_proc)            (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth);
-typedef void (* easy2d_draw_round_rect_with_outline_proc)       (easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float width, float outlineWidth, easy2d_color outlineColor);
-typedef void (* easy2d_draw_text_proc)                          (easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
-typedef void (* easy2d_draw_image_proc)                         (easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs);
-typedef void (* easy2d_set_clip_proc)                           (easy2d_surface* pSurface, float left, float top, float right, float bottom);
-typedef void (* easy2d_get_clip_proc)                           (easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
-typedef bool (* easy2d_get_font_metrics_proc)                   (easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
-typedef bool (* easy2d_get_glyph_metrics_proc)                  (easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut);
-typedef bool (* easy2d_measure_string_proc)                     (easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-typedef bool (* easy2d_get_text_cursor_position_from_point_proc)(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
-typedef bool (* easy2d_get_text_cursor_position_from_char_proc) (easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+typedef bool (* dr2d_on_create_context_proc)                  (dr2d_context* pContext);
+typedef void (* dr2d_on_delete_context_proc)                  (dr2d_context* pContext);
+typedef bool (* dr2d_on_create_surface_proc)                  (dr2d_surface* pSurface, float width, float height);
+typedef void (* dr2d_on_delete_surface_proc)                  (dr2d_surface* pSurface);
+typedef bool (* dr2d_on_create_font_proc)                     (dr2d_font* pFont);
+typedef void (* dr2d_on_delete_font_proc)                     (dr2d_font* pFont);
+typedef bool (* dr2d_on_create_image_proc)                    (dr2d_image* pImage, unsigned int stride, const void* pData);
+typedef void (* dr2d_on_delete_image_proc)                    (dr2d_image* pImage);
+typedef void (* dr2d_begin_draw_proc)                         (dr2d_surface* pSurface);
+typedef void (* dr2d_end_draw_proc)                           (dr2d_surface* pSurface);
+typedef void (* dr2d_clear_proc)                              (dr2d_surface* pSurface, dr2d_color color);
+typedef void (* dr2d_draw_rect_proc)                          (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color);
+typedef void (* dr2d_draw_rect_outline_proc)                  (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth);
+typedef void (* dr2d_draw_rect_with_outline_proc)             (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor);
+typedef void (* dr2d_draw_round_rect_proc)                    (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width);
+typedef void (* dr2d_draw_round_rect_outline_proc)            (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth);
+typedef void (* dr2d_draw_round_rect_with_outline_proc)       (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth, dr2d_color outlineColor);
+typedef void (* dr2d_draw_text_proc)                          (dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor);
+typedef void (* dr2d_draw_image_proc)                         (dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs);
+typedef void (* dr2d_set_clip_proc)                           (dr2d_surface* pSurface, float left, float top, float right, float bottom);
+typedef void (* dr2d_get_clip_proc)                           (dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+typedef bool (* dr2d_get_font_metrics_proc)                   (dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
+typedef bool (* dr2d_get_glyph_metrics_proc)                  (dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pMetricsOut);
+typedef bool (* dr2d_measure_string_proc)                     (dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef bool (* dr2d_get_text_cursor_position_from_point_proc)(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+typedef bool (* dr2d_get_text_cursor_position_from_char_proc) (dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
 
-struct easy2d_drawing_callbacks
+struct dr2d_drawing_callbacks
 {
-    easy2d_on_create_context_proc on_create_context;
-    easy2d_on_delete_context_proc on_delete_context;
-    easy2d_on_create_surface_proc on_create_surface;
-    easy2d_on_delete_surface_proc on_delete_surface;
-    easy2d_on_create_font_proc    on_create_font;
-    easy2d_on_delete_font_proc    on_delete_font;
-    easy2d_on_create_image_proc   on_create_image;
-    easy2d_on_delete_image_proc   on_delete_image;
+    dr2d_on_create_context_proc on_create_context;
+    dr2d_on_delete_context_proc on_delete_context;
+    dr2d_on_create_surface_proc on_create_surface;
+    dr2d_on_delete_surface_proc on_delete_surface;
+    dr2d_on_create_font_proc    on_create_font;
+    dr2d_on_delete_font_proc    on_delete_font;
+    dr2d_on_create_image_proc   on_create_image;
+    dr2d_on_delete_image_proc   on_delete_image;
 
-    easy2d_begin_draw_proc                   begin_draw;
-    easy2d_end_draw_proc                     end_draw;
-    easy2d_clear_proc                        clear;
-    easy2d_draw_rect_proc                    draw_rect;
-    easy2d_draw_rect_outline_proc            draw_rect_outline;
-    easy2d_draw_rect_with_outline_proc       draw_rect_with_outline;
-    easy2d_draw_round_rect_proc              draw_round_rect;
-    easy2d_draw_round_rect_outline_proc      draw_round_rect_outline;
-    easy2d_draw_round_rect_with_outline_proc draw_round_rect_with_outline;
-    easy2d_draw_text_proc                    draw_text;
-    easy2d_draw_image_proc                   draw_image;
-    easy2d_set_clip_proc                     set_clip;
-    easy2d_get_clip_proc                     get_clip;
+    dr2d_begin_draw_proc                   begin_draw;
+    dr2d_end_draw_proc                     end_draw;
+    dr2d_clear_proc                        clear;
+    dr2d_draw_rect_proc                    draw_rect;
+    dr2d_draw_rect_outline_proc            draw_rect_outline;
+    dr2d_draw_rect_with_outline_proc       draw_rect_with_outline;
+    dr2d_draw_round_rect_proc              draw_round_rect;
+    dr2d_draw_round_rect_outline_proc      draw_round_rect_outline;
+    dr2d_draw_round_rect_with_outline_proc draw_round_rect_with_outline;
+    dr2d_draw_text_proc                    draw_text;
+    dr2d_draw_image_proc                   draw_image;
+    dr2d_set_clip_proc                     set_clip;
+    dr2d_get_clip_proc                     get_clip;
 
-    easy2d_get_font_metrics_proc                    get_font_metrics;
-    easy2d_get_glyph_metrics_proc                   get_glyph_metrics;
-    easy2d_measure_string_proc                      measure_string;
-    easy2d_get_text_cursor_position_from_point_proc get_text_cursor_position_from_point;
-    easy2d_get_text_cursor_position_from_char_proc  get_text_cursor_position_from_char;
+    dr2d_get_font_metrics_proc                    get_font_metrics;
+    dr2d_get_glyph_metrics_proc                   get_glyph_metrics;
+    dr2d_measure_string_proc                      measure_string;
+    dr2d_get_text_cursor_position_from_point_proc get_text_cursor_position_from_point;
+    dr2d_get_text_cursor_position_from_char_proc  get_text_cursor_position_from_char;
 };
 
-struct easy2d_image
+struct dr2d_image
 {
     /// A pointer to the context that owns the image.
-    easy2d_context* pContext;
+    dr2d_context* pContext;
 
     /// The width of the image.
     unsigned int width;
@@ -274,37 +274,37 @@ struct easy2d_image
     unsigned int height;
 
     /// The extra bytes. The size of this buffer is equal to pContext->imageExtraBytes.
-    easy2d_byte pExtraData[1];
+    dr2d_byte pExtraData[1];
 };
 
-struct easy2d_font
+struct dr2d_font
 {
     /// A pointer to the context that owns the font.
-    easy2d_context* pContext;
+    dr2d_context* pContext;
 
     /// The font family.
-    char family[EASY2D_MAX_FONT_FAMILY_LENGTH];
+    char family[DR2D_MAX_FONT_FAMILY_LENGTH];
 
     /// The size of the font.
     unsigned int size;
 
     /// The font's weight.
-    easy2d_font_weight weight;
+    dr2d_font_weight weight;
 
     /// The font's slant.
-    easy2d_font_slant slant;
+    dr2d_font_slant slant;
 
     /// The font's rotation, in degrees.
     float rotation;
 
     /// The extra bytes. The size of this buffer is equal to pContext->fontExtraBytes.
-    easy2d_byte pExtraData[1];
+    dr2d_byte pExtraData[1];
 };
 
-struct easy2d_surface
+struct dr2d_surface
 {
     /// A pointer to the context that owns the surface.
-    easy2d_context* pContext;
+    dr2d_context* pContext;
 
     /// The width of the surface.
     float width;
@@ -313,13 +313,13 @@ struct easy2d_surface
     float height;
 
     /// The extra bytes. The size of this buffer is equal to pContext->surfaceExtraBytes.
-    easy2d_byte pExtraData[1];
+    dr2d_byte pExtraData[1];
 };
 
-struct easy2d_context
+struct dr2d_context
 {
     /// The drawing callbacks.
-    easy2d_drawing_callbacks drawingCallbacks;
+    dr2d_drawing_callbacks drawingCallbacks;
 
     /// The number of extra bytes to allocate for each image.
     size_t imageExtraBytes;
@@ -334,124 +334,124 @@ struct easy2d_context
     size_t contextExtraBytes;
 
     /// The extra bytes.
-    easy2d_byte pExtraData[1];
+    dr2d_byte pExtraData[1];
 };
 
 
 
 /// Creats a context.
-easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes);
+dr2d_context* dr2d_create_context(dr2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes);
 
 /// Deletes the given context.
-void easy2d_delete_context(easy2d_context* pContext);
+void dr2d_delete_context(dr2d_context* pContext);
 
 /// Retrieves a pointer to the given context's extra data buffer.
-void* easy2d_get_context_extra_data(easy2d_context* pContext);
+void* dr2d_get_context_extra_data(dr2d_context* pContext);
 
 
 /// Creates a surface.
-easy2d_surface* easy2d_create_surface(easy2d_context* pContext, float width, float height);
+dr2d_surface* dr2d_create_surface(dr2d_context* pContext, float width, float height);
 
 /// Deletes the given surface.
-void easy2d_delete_surface(easy2d_surface* pSurface);
+void dr2d_delete_surface(dr2d_surface* pSurface);
 
 /// Retrieves the width of the surface.
-float easy2d_get_surface_width(const easy2d_surface* pSurface);
+float dr2d_get_surface_width(const dr2d_surface* pSurface);
 
 /// Retrieves the height of the surface.
-float easy2d_get_surface_height(const easy2d_surface* pSurface);
+float dr2d_get_surface_height(const dr2d_surface* pSurface);
 
 /// Retrieves a pointer to the given surface's extra data buffer.
-void* easy2d_get_surface_extra_data(easy2d_surface* pSurface);
+void* dr2d_get_surface_extra_data(dr2d_surface* pSurface);
 
 
 
 //// Drawing ////
 
 /// Marks the beginning of a paint operation.
-void easy2d_begin_draw(easy2d_surface* pSurface);
+void dr2d_begin_draw(dr2d_surface* pSurface);
 
 /// Marks the end of a paint operation.
-void easy2d_end_draw(easy2d_surface* pSurface);
+void dr2d_end_draw(dr2d_surface* pSurface);
 
 /// Clears the given surface with the given color.
-void easy2d_clear(easy2d_surface* pSurface, easy2d_color color);
+void dr2d_clear(dr2d_surface* pSurface, dr2d_color color);
 
 /// Draws a filled rectangle without an outline.
-void easy2d_draw_rect(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
+void dr2d_draw_rect(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color);
 
 /// Draws the outline of the given rectangle.
-void easy2d_draw_rect_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth);
+void dr2d_draw_rect_outline(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth);
 
 /// Draws a filled rectangle with an outline.
-void easy2d_draw_rect_with_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor);
+void dr2d_draw_rect_with_outline(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor);
 
 /// Draws a filled rectangle without an outline with rounded corners.
-void easy2d_draw_round_rect(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius);
+void dr2d_draw_round_rect(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius);
 
 /// Draws the outline of the given rectangle with rounded corners.
-void easy2d_draw_round_rect_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth);
+void dr2d_draw_round_rect_outline(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth);
 
 /// Draws a filled rectangle with an outline.
-void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
+void dr2d_draw_round_rect_with_outline(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth, dr2d_color outlineColor);
 
 /// Draws a run of text.
-void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
+void dr2d_draw_text(dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor);
 
 /// Draws an image.
-void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs);
+void dr2d_draw_image(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs);
 
 /// Sets the clipping rectangle.
-void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom);
+void dr2d_set_clip(dr2d_surface* pSurface, float left, float top, float right, float bottom);
 
 /// Retrieves the clipping rectangle.
-void easy2d_get_clip(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+void dr2d_get_clip(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
 
-/// Creates a font that can be passed to easy2d_draw_text().
-easy2d_font* easy2d_create_font(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation);
+/// Creates a font that can be passed to dr2d_draw_text().
+dr2d_font* dr2d_create_font(dr2d_context* pContext, const char* family, unsigned int size, dr2d_font_weight weight, dr2d_font_slant slant, float rotation);
 
-/// Deletes a font that was previously created with easy2d_create_font()
-void easy2d_delete_font(easy2d_font* pFont);
+/// Deletes a font that was previously created with dr2d_create_font()
+void dr2d_delete_font(dr2d_font* pFont);
 
 /// Retrieves a pointer to the given font's extra data buffer.
-void* easy2d_get_font_extra_data(easy2d_font* pFont);
+void* dr2d_get_font_extra_data(dr2d_font* pFont);
 
 /// Retrieves the size of the given font.
-unsigned int easy2d_get_font_size(easy2d_font* pFont);
+unsigned int dr2d_get_font_size(dr2d_font* pFont);
 
 /// Retrieves the metrics of the given font.
-bool easy2d_get_font_metrics(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
+bool dr2d_get_font_metrics(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
 
 /// Retrieves the metrics of the glyph for the given character when rendered with the given font.
-bool easy2d_get_glyph_metrics(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut);
+bool dr2d_get_glyph_metrics(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pMetricsOut);
 
 /// Retrieves the dimensions of the given string when drawn with the given font.
-bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+bool dr2d_measure_string(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 /// Retrieves the position to place a text cursor based on the given point for the given string when drawn with the given font.
-bool easy2d_get_text_cursor_position_from_point(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+bool dr2d_get_text_cursor_position_from_point(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
 
 /// Retrieves the position to palce a text cursor based on the character at the given index for the given string when drawn with the given font.
-bool easy2d_get_text_cursor_position_from_char(easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
 
-/// Creates an image that can be passed to easy2d_draw_image().
+/// Creates an image that can be passed to dr2d_draw_image().
 ///
 /// @remarks
 ///     Images are immutable. If the data of an image needs to change, the image must be deleted and re-created.
 ///     @par
 ///     The image data must be in 32-bit, RGBA format where each component is in the range of 0 - 255.
-easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData);
+dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData);
 
 /// Deletes the given image.
-void easy2d_delete_image(easy2d_image* pImage);
+void dr2d_delete_image(dr2d_image* pImage);
 
 /// Retrieves a pointer to the given image's extra data buffer.
-void* easy2d_get_image_extra_data(easy2d_image* pImage);
+void* dr2d_get_image_extra_data(dr2d_image* pImage);
 
 /// Retrieves the size of the given image.
-void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut);
+void dr2d_get_image_size(dr2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut);
 
 
 /////////////////////////////////////////////////////////////////
@@ -461,10 +461,10 @@ void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsign
 /////////////////////////////////////////////////////////////////
 
 /// Creates a color object from a set of RGBA color components.
-easy2d_color easy2d_rgba(easy2d_byte r, easy2d_byte g, easy2d_byte b, easy2d_byte a);
+dr2d_color dr2d_rgba(dr2d_byte r, dr2d_byte g, dr2d_byte b, dr2d_byte a);
 
 /// Creates a fully opaque color object from a set of RGB color components.
-easy2d_color easy2d_rgb(easy2d_byte r, easy2d_byte g, easy2d_byte b);
+dr2d_color dr2d_rgb(dr2d_byte r, dr2d_byte g, dr2d_byte b);
 
 
 
@@ -476,31 +476,31 @@ easy2d_color easy2d_rgb(easy2d_byte r, easy2d_byte g, easy2d_byte b);
 // When using GDI as the rendering back-end you will usually want to only call drawing functions in response to a WM_PAINT message.
 //
 /////////////////////////////////////////////////////////////////
-#ifndef EASY2D_NO_GDI
+#ifndef DR2D_NO_GDI
 
 /// Creates a 2D context with GDI as the backend.
-easy2d_context* easy2d_create_context_gdi();
+dr2d_context* dr2d_create_context_gdi();
 
 /// Creates a surface that draws directly to the given window.
 ///
 /// @remarks
 ///     When using this kind of surface, the internal HBITMAP is not used.
-easy2d_surface* easy2d_create_surface_gdi_HWND(easy2d_context* pContext, HWND hWnd);
+dr2d_surface* dr2d_create_surface_gdi_HWND(dr2d_context* pContext, HWND hWnd);
 
 /// Retrieves the internal HDC that we have been rendering to for the given surface.
 ///
 /// @remarks
-///     This assumes the given surface was created from a context that was created from easy2d_create_context_gdi()
-HDC easy2d_get_HDC(easy2d_surface* pSurface);
+///     This assumes the given surface was created from a context that was created from dr2d_create_context_gdi()
+HDC dr2d_get_HDC(dr2d_surface* pSurface);
 
 /// Retrieves the internal HBITMAP object that we have been rendering to.
 ///
 /// @remarks
-///     This assumes the given surface was created from a context that was created from easy2d_create_context_gdi().
-HBITMAP easy2d_get_HBITMAP(easy2d_surface* pSurface);
+///     This assumes the given surface was created from a context that was created from dr2d_create_context_gdi().
+HBITMAP dr2d_get_HBITMAP(dr2d_surface* pSurface);
 
-/// Retrieves the internal HFONT object from the given easy2d_font object.
-HFONT easy2d_get_HFONT(easy2d_font* pFont);
+/// Retrieves the internal HFONT object from the given dr2d_font object.
+HFONT dr2d_get_HFONT(dr2d_font* pFont);
 
 #endif  // GDI
 
@@ -511,20 +511,20 @@ HFONT easy2d_get_HFONT(easy2d_font* pFont);
 // CAIRO 2D API
 //
 /////////////////////////////////////////////////////////////////
-#ifndef EASY2D_NO_CAIRO
+#ifndef DR2D_NO_CAIRO
 #include <cairo/cairo.h>
 
 /// Creates a 2D context with Cairo as the backend.
-easy2d_context* easy2d_create_context_cairo();
+dr2d_context* dr2d_create_context_cairo();
 
 /// Retrieves the internal cairo_surface_t object from the given surface.
 ///
 /// @remarks
-///     This assumes the given surface was created from a context that was created with easy2d_create_context_cairo().
-cairo_surface_t* easy2d_get_cairo_surface_t(easy2d_surface* pSurface);
+///     This assumes the given surface was created from a context that was created with dr2d_create_context_cairo().
+cairo_surface_t* dr2d_get_cairo_surface_t(dr2d_surface* pSurface);
 
 /// Retrieves the internal cairo_t object from the given surface.
-cairo_t* easy2d_get_cairo_t(easy2d_surface* pSurface);
+cairo_t* dr2d_get_cairo_t(dr2d_surface* pSurface);
 
 #endif  // Cairo
 
@@ -533,7 +533,7 @@ cairo_t* easy2d_get_cairo_t(easy2d_surface* pSurface);
 }
 #endif
 
-#endif  //easy_2d_h
+#endif  //dr_2d_h
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -541,20 +541,20 @@ cairo_t* easy2d_get_cairo_t(easy2d_surface* pSurface);
 // IMPLEMENTATION
 //
 ///////////////////////////////////////////////////////////////////////////////
-#ifdef EASY_2D_IMPLEMENTATION
+#ifdef DR_2D_IMPLEMENTATION
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-#ifndef EASY2D_PRIVATE
-#define EASY2D_PRIVATE static
+#ifndef DR2D_PRIVATE
+#define DR2D_PRIVATE static
 #endif
 
 
-easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes)
+dr2d_context* dr2d_create_context(dr2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes)
 {
-    easy2d_context* pContext = (easy2d_context*)malloc(sizeof(easy2d_context) - sizeof(pContext->pExtraData) + contextExtraBytes);
+    dr2d_context* pContext = (dr2d_context*)malloc(sizeof(dr2d_context) - sizeof(pContext->pExtraData) + contextExtraBytes);
     if (pContext != NULL)
     {
         pContext->drawingCallbacks  = drawingCallbacks;
@@ -581,7 +581,7 @@ easy2d_context* easy2d_create_context(easy2d_drawing_callbacks drawingCallbacks,
     return pContext;
 }
 
-void easy2d_delete_context(easy2d_context* pContext)
+void dr2d_delete_context(dr2d_context* pContext)
 {
     if (pContext != NULL) {
         if (pContext->drawingCallbacks.on_delete_context != NULL) {
@@ -592,17 +592,17 @@ void easy2d_delete_context(easy2d_context* pContext)
     }
 }
 
-void* easy2d_get_context_extra_data(easy2d_context* pContext)
+void* dr2d_get_context_extra_data(dr2d_context* pContext)
 {
     return pContext->pExtraData;
 }
 
 
-easy2d_surface* easy2d_create_surface(easy2d_context* pContext, float width, float height)
+dr2d_surface* dr2d_create_surface(dr2d_context* pContext, float width, float height)
 {
     if (pContext != NULL)
     {
-        easy2d_surface* pSurface = (easy2d_surface*)malloc(sizeof(easy2d_surface) - sizeof(pContext->pExtraData) + pContext->surfaceExtraBytes);
+        dr2d_surface* pSurface = (dr2d_surface*)malloc(sizeof(dr2d_surface) - sizeof(pContext->pExtraData) + pContext->surfaceExtraBytes);
         if (pSurface != NULL)
         {
             pSurface->pContext = pContext;
@@ -629,7 +629,7 @@ easy2d_surface* easy2d_create_surface(easy2d_context* pContext, float width, flo
     return NULL;
 }
 
-void easy2d_delete_surface(easy2d_surface* pSurface)
+void dr2d_delete_surface(dr2d_surface* pSurface)
 {
     if (pSurface != NULL)
     {
@@ -643,7 +643,7 @@ void easy2d_delete_surface(easy2d_surface* pSurface)
     }
 }
 
-float easy2d_get_surface_width(const easy2d_surface* pSurface)
+float dr2d_get_surface_width(const dr2d_surface* pSurface)
 {
     if (pSurface != NULL) {
         return pSurface->width;
@@ -652,7 +652,7 @@ float easy2d_get_surface_width(const easy2d_surface* pSurface)
     return 0;
 }
 
-float easy2d_get_surface_height(const easy2d_surface* pSurface)
+float dr2d_get_surface_height(const dr2d_surface* pSurface)
 {
     if (pSurface != NULL) {
         return pSurface->height;
@@ -661,7 +661,7 @@ float easy2d_get_surface_height(const easy2d_surface* pSurface)
     return 0;
 }
 
-void* easy2d_get_surface_extra_data(easy2d_surface* pSurface)
+void* dr2d_get_surface_extra_data(dr2d_surface* pSurface)
 {
     if (pSurface != NULL) {
         return pSurface->pExtraData;
@@ -671,7 +671,7 @@ void* easy2d_get_surface_extra_data(easy2d_surface* pSurface)
 }
 
 
-void easy2d_begin_draw(easy2d_surface* pSurface)
+void dr2d_begin_draw(dr2d_surface* pSurface)
 {
     if (pSurface != NULL)
     {
@@ -683,7 +683,7 @@ void easy2d_begin_draw(easy2d_surface* pSurface)
     }
 }
 
-void easy2d_end_draw(easy2d_surface* pSurface)
+void dr2d_end_draw(dr2d_surface* pSurface)
 {
     if (pSurface != NULL)
     {
@@ -695,7 +695,7 @@ void easy2d_end_draw(easy2d_surface* pSurface)
     }
 }
 
-void easy2d_clear(easy2d_surface * pSurface, easy2d_color color)
+void dr2d_clear(dr2d_surface * pSurface, dr2d_color color)
 {
     if (pSurface != NULL)
     {
@@ -707,7 +707,7 @@ void easy2d_clear(easy2d_surface * pSurface, easy2d_color color)
     }
 }
 
-void easy2d_draw_rect(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color)
+void dr2d_draw_rect(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color)
 {
     if (pSurface != NULL)
     {
@@ -719,7 +719,7 @@ void easy2d_draw_rect(easy2d_surface* pSurface, float left, float top, float rig
     }
 }
 
-void easy2d_draw_rect_outline(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth)
+void dr2d_draw_rect_outline(dr2d_surface * pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth)
 {
     if (pSurface != NULL)
     {
@@ -731,7 +731,7 @@ void easy2d_draw_rect_outline(easy2d_surface * pSurface, float left, float top, 
     }
 }
 
-void easy2d_draw_rect_with_outline(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor)
+void dr2d_draw_rect_with_outline(dr2d_surface * pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor)
 {
     if (pSurface != NULL)
     {
@@ -743,7 +743,7 @@ void easy2d_draw_rect_with_outline(easy2d_surface * pSurface, float left, float 
     }
 }
 
-void easy2d_draw_round_rect(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius)
+void dr2d_draw_round_rect(dr2d_surface * pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius)
 {
     if (pSurface != NULL)
     {
@@ -755,7 +755,7 @@ void easy2d_draw_round_rect(easy2d_surface * pSurface, float left, float top, fl
     }
 }
 
-void easy2d_draw_round_rect_outline(easy2d_surface * pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth)
+void dr2d_draw_round_rect_outline(dr2d_surface * pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth)
 {
     if (pSurface != NULL)
     {
@@ -767,7 +767,7 @@ void easy2d_draw_round_rect_outline(easy2d_surface * pSurface, float left, float
     }
 }
 
-void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor)
+void dr2d_draw_round_rect_with_outline(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth, dr2d_color outlineColor)
 {
     if (pSurface != NULL)
     {
@@ -779,7 +779,7 @@ void easy2d_draw_round_rect_with_outline(easy2d_surface* pSurface, float left, f
     }
 }
 
-void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor)
+void dr2d_draw_text(dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor)
 {
     if (pSurface != NULL)
     {
@@ -791,7 +791,7 @@ void easy2d_draw_text(easy2d_surface* pSurface, easy2d_font* pFont, const char* 
     }
 }
 
-void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs)
+void dr2d_draw_image(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs)
 {
     if (pSurface == NULL || pImage == NULL || pArgs == NULL) {
         return;
@@ -804,7 +804,7 @@ void easy2d_draw_image(easy2d_surface* pSurface, easy2d_image* pImage, easy2d_dr
     }
 }
 
-void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float right, float bottom)
+void dr2d_set_clip(dr2d_surface* pSurface, float left, float top, float right, float bottom)
 {
     if (pSurface != NULL)
     {
@@ -816,7 +816,7 @@ void easy2d_set_clip(easy2d_surface* pSurface, float left, float top, float righ
     }
 }
 
-void easy2d_get_clip(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut)
+void dr2d_get_clip(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut)
 {
     if (pSurface != NULL)
     {
@@ -828,13 +828,13 @@ void easy2d_get_clip(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, 
     }
 }
 
-easy2d_font* easy2d_create_font(easy2d_context* pContext, const char* family, unsigned int size, easy2d_font_weight weight, easy2d_font_slant slant, float rotation)
+dr2d_font* dr2d_create_font(dr2d_context* pContext, const char* family, unsigned int size, dr2d_font_weight weight, dr2d_font_slant slant, float rotation)
 {
     if (pContext == NULL) {
         return NULL;
     }
 
-    easy2d_font* pFont = malloc(sizeof(easy2d_font) - sizeof(pFont->pExtraData) + pContext->fontExtraBytes);
+    dr2d_font* pFont = malloc(sizeof(dr2d_font) - sizeof(pFont->pExtraData) + pContext->fontExtraBytes);
     if (pFont == NULL) {
         return NULL;
     }
@@ -860,7 +860,7 @@ easy2d_font* easy2d_create_font(easy2d_context* pContext, const char* family, un
     return pFont;
 }
 
-void easy2d_delete_font(easy2d_font* pFont)
+void dr2d_delete_font(dr2d_font* pFont)
 {
     if (pFont == NULL) {
         return;
@@ -875,7 +875,7 @@ void easy2d_delete_font(easy2d_font* pFont)
     free(pFont);
 }
 
-void* easy2d_get_font_extra_data(easy2d_font* pFont)
+void* dr2d_get_font_extra_data(dr2d_font* pFont)
 {
     if (pFont == NULL) {
         return NULL;
@@ -884,7 +884,7 @@ void* easy2d_get_font_extra_data(easy2d_font* pFont)
     return pFont->pExtraData;
 }
 
-unsigned int easy2d_get_font_size(easy2d_font* pFont)
+unsigned int dr2d_get_font_size(dr2d_font* pFont)
 {
     if (pFont == NULL) {
         return 0;
@@ -893,7 +893,7 @@ unsigned int easy2d_get_font_size(easy2d_font* pFont)
     return pFont->size;
 }
 
-bool easy2d_get_font_metrics(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut)
+bool dr2d_get_font_metrics(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut)
 {
     if (pFont == NULL) {
         return false;
@@ -908,7 +908,7 @@ bool easy2d_get_font_metrics(easy2d_font* pFont, easy2d_font_metrics* pMetricsOu
     return false;
 }
 
-bool easy2d_get_glyph_metrics(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pMetricsOut)
+bool dr2d_get_glyph_metrics(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pMetricsOut)
 {
     if (pFont == NULL || pMetricsOut == NULL) {
         return false;
@@ -923,7 +923,7 @@ bool easy2d_get_glyph_metrics(easy2d_font* pFont, unsigned int utf32, easy2d_gly
     return false;
 }
 
-bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
+bool dr2d_measure_string(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
     if (pFont == NULL) {
         return false;
@@ -938,7 +938,7 @@ bool easy2d_measure_string(easy2d_font* pFont, const char* text, size_t textSize
     return false;
 }
 
-bool easy2d_get_text_cursor_position_from_point(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+bool dr2d_get_text_cursor_position_from_point(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
 {
     if (pFont == NULL) {
         return false;
@@ -953,7 +953,7 @@ bool easy2d_get_text_cursor_position_from_point(easy2d_font* pFont, const char* 
     return false;
 }
 
-bool easy2d_get_text_cursor_position_from_char(easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
 {
     if (pFont == NULL) {
         return false;
@@ -969,13 +969,13 @@ bool easy2d_get_text_cursor_position_from_char(easy2d_font* pFont, const char* t
 }
 
 
-easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData)
+dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData)
 {
     if (pContext == NULL || width == 0 || height == 0 || pData == NULL) {
         return NULL;
     }
 
-    easy2d_image* pImage = malloc(sizeof(easy2d_image) - sizeof(pImage->pExtraData) + pContext->imageExtraBytes);
+    dr2d_image* pImage = malloc(sizeof(dr2d_image) - sizeof(pImage->pExtraData) + pContext->imageExtraBytes);
     if (pImage == NULL) {
         return NULL;
     }
@@ -994,7 +994,7 @@ easy2d_image* easy2d_create_image(easy2d_context* pContext, unsigned int width, 
     return pImage;
 }
 
-void easy2d_delete_image(easy2d_image* pImage)
+void dr2d_delete_image(dr2d_image* pImage)
 {
     if (pImage == NULL) {
         return;
@@ -1009,7 +1009,7 @@ void easy2d_delete_image(easy2d_image* pImage)
     free(pImage);
 }
 
-void* easy2d_get_image_extra_data(easy2d_image* pImage)
+void* dr2d_get_image_extra_data(dr2d_image* pImage)
 {
     if (pImage == NULL) {
         return NULL;
@@ -1018,7 +1018,7 @@ void* easy2d_get_image_extra_data(easy2d_image* pImage)
     return pImage->pExtraData;
 }
 
-void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut)
+void dr2d_get_image_size(dr2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut)
 {
     if (pImage == NULL) {
         return;
@@ -1040,9 +1040,9 @@ void easy2d_get_image_size(easy2d_image* pImage, unsigned int* pWidthOut, unsign
 //
 /////////////////////////////////////////////////////////////////
 
-easy2d_color easy2d_rgba(easy2d_byte r, easy2d_byte g, easy2d_byte b, easy2d_byte a)
+dr2d_color dr2d_rgba(dr2d_byte r, dr2d_byte g, dr2d_byte b, dr2d_byte a)
 {
-    easy2d_color color;
+    dr2d_color color;
     color.r = r;
     color.g = g;
     color.b = b;
@@ -1051,9 +1051,9 @@ easy2d_color easy2d_rgba(easy2d_byte r, easy2d_byte g, easy2d_byte b, easy2d_byt
     return color;
 }
 
-easy2d_color easy2d_rgb(easy2d_byte r, easy2d_byte g, easy2d_byte b)
+dr2d_color dr2d_rgb(dr2d_byte r, dr2d_byte g, dr2d_byte b)
 {
-    easy2d_color color;
+    dr2d_color color;
     color.r = r;
     color.g = g;
     color.b = b;
@@ -1070,7 +1070,7 @@ easy2d_color easy2d_rgb(easy2d_byte r, easy2d_byte g, easy2d_byte b)
 // WINDOWS GDI 2D API
 //
 /////////////////////////////////////////////////////////////////
-#ifndef EASY2D_NO_GDI
+#ifndef DR2D_NO_GDI
 
 typedef struct
 {
@@ -1088,7 +1088,7 @@ typedef struct
 
 typedef struct
 {
-    /// The window to draw to. The can be null, which is the case when creating the surface with easy2d_create_surface(). When this
+    /// The window to draw to. The can be null, which is the case when creating the surface with dr2d_create_surface(). When this
     /// is non-null the size of the surface is always tied to the window.
     HWND hWnd;
 
@@ -1149,7 +1149,7 @@ typedef struct
     HFONT hFont;
 
     /// The font metrics for faster retrieval. We cache the metrics when the font is loaded.
-    easy2d_font_metrics metrics;
+    dr2d_font_metrics metrics;
 
 } gdi_font_data;
 
@@ -1171,40 +1171,40 @@ typedef struct
 } gdi_image_data;
 
 
-bool easy2d_on_create_context_gdi(easy2d_context* pContext);
-void easy2d_on_delete_context_gdi(easy2d_context* pContext);
-bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float height);
-void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface);
-bool easy2d_on_create_font_gdi(easy2d_font* pFont);
-void easy2d_on_delete_font_gdi(easy2d_font* pFont);
-bool easy2d_on_create_image_gdi(easy2d_image* pImage, unsigned int stride, const void* pData);
-void easy2d_on_delete_image_gdi(easy2d_image* pImage);
+bool dr2d_on_create_context_gdi(dr2d_context* pContext);
+void dr2d_on_delete_context_gdi(dr2d_context* pContext);
+bool dr2d_on_create_surface_gdi(dr2d_surface* pSurface, float width, float height);
+void dr2d_on_delete_surface_gdi(dr2d_surface* pSurface);
+bool dr2d_on_create_font_gdi(dr2d_font* pFont);
+void dr2d_on_delete_font_gdi(dr2d_font* pFont);
+bool dr2d_on_create_image_gdi(dr2d_image* pImage, unsigned int stride, const void* pData);
+void dr2d_on_delete_image_gdi(dr2d_image* pImage);
 
-void easy2d_begin_draw_gdi(easy2d_surface* pSurface);
-void easy2d_end_draw_gdi(easy2d_surface* pSurface);
-void easy2d_clear_gdi(easy2d_surface* pSurface, easy2d_color color);
-void easy2d_draw_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
-void easy2d_draw_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth);
-void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor);
-void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius);
-void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth);
-void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor);
-void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor);
-void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs);
-void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom);
-void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+void dr2d_begin_draw_gdi(dr2d_surface* pSurface);
+void dr2d_end_draw_gdi(dr2d_surface* pSurface);
+void dr2d_clear_gdi(dr2d_surface* pSurface, dr2d_color color);
+void dr2d_draw_rect_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color);
+void dr2d_draw_rect_outline_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth);
+void dr2d_draw_rect_with_outline_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor);
+void dr2d_draw_round_rect_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius);
+void dr2d_draw_round_rect_outline_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth);
+void dr2d_draw_round_rect_with_outline_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth, dr2d_color outlineColor);
+void dr2d_draw_text_gdi(dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor);
+void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs);
+void dr2d_set_clip_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom);
+void dr2d_get_clip_gdi(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
-bool easy2d_get_font_metrics_gdi(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut);
-bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pGlyphMetrics);
-bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-bool easy2d_get_text_cursor_position_from_point_gdi(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
-bool easy2d_get_text_cursor_position_from_char_gdi(easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+bool dr2d_get_font_metrics_gdi(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
+bool dr2d_get_glyph_metrics_gdi(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pGlyphMetrics);
+bool dr2d_measure_string_gdi(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
 /// Converts a char* to a wchar_t* string.
-wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, size_t textSizeInBytes, unsigned int* characterCountOut);
+wchar_t* dr2d_to_wchar_gdi(dr2d_context* pContext, const char* text, size_t textSizeInBytes, unsigned int* characterCountOut);
 
 /// Converts a UTF-32 character to a UTF-16.
-static int easy2d_utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
+static int dr2d_utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
 {
     if (utf16 == NULL) {
         return 0;
@@ -1234,46 +1234,46 @@ static int easy2d_utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
     }
 }
 
-easy2d_context* easy2d_create_context_gdi()
+dr2d_context* dr2d_create_context_gdi()
 {
-    easy2d_drawing_callbacks callbacks;
-    callbacks.on_create_context                   = easy2d_on_create_context_gdi;
-    callbacks.on_delete_context                   = easy2d_on_delete_context_gdi;
-    callbacks.on_create_surface                   = easy2d_on_create_surface_gdi;
-    callbacks.on_delete_surface                   = easy2d_on_delete_surface_gdi;
-    callbacks.on_create_font                      = easy2d_on_create_font_gdi;
-    callbacks.on_delete_font                      = easy2d_on_delete_font_gdi;
-    callbacks.on_create_image                     = easy2d_on_create_image_gdi;
-    callbacks.on_delete_image                     = easy2d_on_delete_image_gdi;
+    dr2d_drawing_callbacks callbacks;
+    callbacks.on_create_context                   = dr2d_on_create_context_gdi;
+    callbacks.on_delete_context                   = dr2d_on_delete_context_gdi;
+    callbacks.on_create_surface                   = dr2d_on_create_surface_gdi;
+    callbacks.on_delete_surface                   = dr2d_on_delete_surface_gdi;
+    callbacks.on_create_font                      = dr2d_on_create_font_gdi;
+    callbacks.on_delete_font                      = dr2d_on_delete_font_gdi;
+    callbacks.on_create_image                     = dr2d_on_create_image_gdi;
+    callbacks.on_delete_image                     = dr2d_on_delete_image_gdi;
 
-    callbacks.begin_draw                          = easy2d_begin_draw_gdi;
-    callbacks.end_draw                            = easy2d_end_draw_gdi;
-    callbacks.clear                               = easy2d_clear_gdi;
-    callbacks.draw_rect                           = easy2d_draw_rect_gdi;
-    callbacks.draw_rect_outline                   = easy2d_draw_rect_outline_gdi;
-    callbacks.draw_rect_with_outline              = easy2d_draw_rect_with_outline_gdi;
-    callbacks.draw_round_rect                     = easy2d_draw_round_rect_gdi;
-    callbacks.draw_round_rect_outline             = easy2d_draw_round_rect_outline_gdi;
-    callbacks.draw_round_rect_with_outline        = easy2d_draw_round_rect_with_outline_gdi;
-    callbacks.draw_text                           = easy2d_draw_text_gdi;
-    callbacks.draw_image                          = easy2d_draw_image_gdi;
-    callbacks.set_clip                            = easy2d_set_clip_gdi;
-    callbacks.get_clip                            = easy2d_get_clip_gdi;
+    callbacks.begin_draw                          = dr2d_begin_draw_gdi;
+    callbacks.end_draw                            = dr2d_end_draw_gdi;
+    callbacks.clear                               = dr2d_clear_gdi;
+    callbacks.draw_rect                           = dr2d_draw_rect_gdi;
+    callbacks.draw_rect_outline                   = dr2d_draw_rect_outline_gdi;
+    callbacks.draw_rect_with_outline              = dr2d_draw_rect_with_outline_gdi;
+    callbacks.draw_round_rect                     = dr2d_draw_round_rect_gdi;
+    callbacks.draw_round_rect_outline             = dr2d_draw_round_rect_outline_gdi;
+    callbacks.draw_round_rect_with_outline        = dr2d_draw_round_rect_with_outline_gdi;
+    callbacks.draw_text                           = dr2d_draw_text_gdi;
+    callbacks.draw_image                          = dr2d_draw_image_gdi;
+    callbacks.set_clip                            = dr2d_set_clip_gdi;
+    callbacks.get_clip                            = dr2d_get_clip_gdi;
 
-    callbacks.get_font_metrics                    = easy2d_get_font_metrics_gdi;
-    callbacks.get_glyph_metrics                   = easy2d_get_glyph_metrics_gdi;
-    callbacks.measure_string                      = easy2d_measure_string_gdi;
-    callbacks.get_text_cursor_position_from_point = easy2d_get_text_cursor_position_from_point_gdi;
-    callbacks.get_text_cursor_position_from_char  = easy2d_get_text_cursor_position_from_char_gdi;
+    callbacks.get_font_metrics                    = dr2d_get_font_metrics_gdi;
+    callbacks.get_glyph_metrics                   = dr2d_get_glyph_metrics_gdi;
+    callbacks.measure_string                      = dr2d_measure_string_gdi;
+    callbacks.get_text_cursor_position_from_point = dr2d_get_text_cursor_position_from_point_gdi;
+    callbacks.get_text_cursor_position_from_char  = dr2d_get_text_cursor_position_from_char_gdi;
 
-    return easy2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data), sizeof(gdi_font_data), sizeof(gdi_image_data));
+    return dr2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data), sizeof(gdi_font_data), sizeof(gdi_image_data));
 }
 
-easy2d_surface* easy2d_create_surface_gdi_HWND(easy2d_context* pContext, HWND hWnd)
+dr2d_surface* dr2d_create_surface_gdi_HWND(dr2d_context* pContext, HWND hWnd)
 {
-    easy2d_surface* pSurface = easy2d_create_surface(pContext, 0, 0);
+    dr2d_surface* pSurface = dr2d_create_surface(pContext, 0, 0);
     if (pSurface != NULL) {
-        gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+        gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
         if (pGDIData != NULL) {
             pGDIData->hWnd = hWnd;
         }
@@ -1282,10 +1282,10 @@ easy2d_surface* easy2d_create_surface_gdi_HWND(easy2d_context* pContext, HWND hW
     return pSurface;
 }
 
-HDC easy2d_get_HDC(easy2d_surface* pSurface)
+HDC dr2d_get_HDC(dr2d_surface* pSurface)
 {
     if (pSurface != NULL) {
-        gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+        gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
         if (pGDIData != NULL) {
             return pGDIData->hDC;
         }
@@ -1294,10 +1294,10 @@ HDC easy2d_get_HDC(easy2d_surface* pSurface)
     return NULL;
 }
 
-HBITMAP easy2d_get_HBITMAP(easy2d_surface* pSurface)
+HBITMAP dr2d_get_HBITMAP(dr2d_surface* pSurface)
 {
     if (pSurface != NULL) {
-        gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+        gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
         if (pGDIData != NULL) {
             return pGDIData->hBitmap;
         }
@@ -1306,9 +1306,9 @@ HBITMAP easy2d_get_HBITMAP(easy2d_surface* pSurface)
     return NULL;
 }
 
-HFONT easy2d_get_HFONT(easy2d_font* pFont)
+HFONT dr2d_get_HFONT(dr2d_font* pFont)
 {
-    gdi_font_data* pGDIData = easy2d_get_font_extra_data(pFont);
+    gdi_font_data* pGDIData = dr2d_get_font_extra_data(pFont);
     if (pGDIData == NULL) {
         return NULL;
     }
@@ -1317,12 +1317,12 @@ HFONT easy2d_get_HFONT(easy2d_font* pFont)
 }
 
 
-bool easy2d_on_create_context_gdi(easy2d_context* pContext)
+bool dr2d_on_create_context_gdi(dr2d_context* pContext)
 {
     assert(pContext != NULL);
 
     // We need to create the DC that all of our rendering commands will be drawn to.
-    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
+    gdi_context_data* pGDIData = dr2d_get_context_extra_data(pContext);
     if (pGDIData == NULL) {
         return false;
     }
@@ -1344,11 +1344,11 @@ bool easy2d_on_create_context_gdi(easy2d_context* pContext)
     return true;
 }
 
-void easy2d_on_delete_context_gdi(easy2d_context* pContext)
+void dr2d_on_delete_context_gdi(dr2d_context* pContext)
 {
     assert(pContext != NULL);
 
-    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
+    gdi_context_data* pGDIData = dr2d_get_context_extra_data(pContext);
     if (pGDIData != NULL)
     {
         free(pGDIData->wcharBuffer);
@@ -1360,16 +1360,16 @@ void easy2d_on_delete_context_gdi(easy2d_context* pContext)
     }
 }
 
-bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float height)
+bool dr2d_on_create_surface_gdi(dr2d_surface* pSurface, float width, float height)
 {
     assert(pSurface != NULL);
 
-    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pSurface->pContext);
+    gdi_context_data* pGDIContextData = dr2d_get_context_extra_data(pSurface->pContext);
     if (pGDIContextData == NULL) {
         return false;
     }
 
-    gdi_surface_data* pGDISurfaceData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDISurfaceData = dr2d_get_surface_extra_data(pSurface);
     if (pGDISurfaceData == NULL) {
         return false;
     }
@@ -1415,11 +1415,11 @@ bool easy2d_on_create_surface_gdi(easy2d_surface* pSurface, float width, float h
     return true;
 }
 
-void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface)
+void dr2d_on_delete_surface_gdi(dr2d_surface* pSurface)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
         DeleteObject(pGDIData->hBitmap);
@@ -1430,11 +1430,11 @@ void easy2d_on_delete_surface_gdi(easy2d_surface* pSurface)
     }
 }
 
-bool easy2d_on_create_font_gdi(easy2d_font* pFont)
+bool dr2d_on_create_font_gdi(dr2d_font* pFont)
 {
     assert(pFont != NULL);
 
-    gdi_font_data* pGDIData = easy2d_get_font_extra_data(pFont);
+    gdi_font_data* pGDIData = dr2d_get_font_extra_data(pFont);
     if (pGDIData == NULL) {
         return false;
     }
@@ -1443,19 +1443,19 @@ bool easy2d_on_create_font_gdi(easy2d_font* pFont)
     LONG weightGDI = FW_REGULAR;
     switch (pFont->weight)
     {
-    case easy2d_font_weight_medium:      weightGDI = FW_MEDIUM;     break;
-    case easy2d_font_weight_thin:        weightGDI = FW_THIN;       break;
-    case easy2d_font_weight_extra_light: weightGDI = FW_EXTRALIGHT; break;
-    case easy2d_font_weight_light:       weightGDI = FW_LIGHT;      break;
-    case easy2d_font_weight_semi_bold:   weightGDI = FW_SEMIBOLD;   break;
-    case easy2d_font_weight_bold:        weightGDI = FW_BOLD;       break;
-    case easy2d_font_weight_extra_bold:  weightGDI = FW_EXTRABOLD;  break;
-    case easy2d_font_weight_heavy:       weightGDI = FW_HEAVY;      break;
+    case dr2d_font_weight_medium:      weightGDI = FW_MEDIUM;     break;
+    case dr2d_font_weight_thin:        weightGDI = FW_THIN;       break;
+    case dr2d_font_weight_extra_light: weightGDI = FW_EXTRALIGHT; break;
+    case dr2d_font_weight_light:       weightGDI = FW_LIGHT;      break;
+    case dr2d_font_weight_semi_bold:   weightGDI = FW_SEMIBOLD;   break;
+    case dr2d_font_weight_bold:        weightGDI = FW_BOLD;       break;
+    case dr2d_font_weight_extra_bold:  weightGDI = FW_EXTRABOLD;  break;
+    case dr2d_font_weight_heavy:       weightGDI = FW_HEAVY;      break;
     default: break;
     }
 
 	BYTE slantGDI = FALSE;
-    if (pFont->slant == easy2d_font_slant_italic || pFont->slant == easy2d_font_slant_oblique) {
+    if (pFont->slant == dr2d_font_slant_italic || pFont->slant == dr2d_font_slant_oblique) {
         slantGDI = TRUE;
     }
 
@@ -1483,7 +1483,7 @@ bool easy2d_on_create_font_gdi(easy2d_font* pFont)
     }
 
 
-    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    gdi_context_data* pGDIContextData = dr2d_get_context_extra_data(pFont->pContext);
     if (pGDIContextData == NULL) {
         return false;
     }
@@ -1515,11 +1515,11 @@ bool easy2d_on_create_font_gdi(easy2d_font* pFont)
     return true;
 }
 
-void easy2d_on_delete_font_gdi(easy2d_font* pFont)
+void dr2d_on_delete_font_gdi(dr2d_font* pFont)
 {
     assert(pFont != NULL);
 
-    gdi_font_data* pGDIData = easy2d_get_font_extra_data(pFont);
+    gdi_font_data* pGDIData = dr2d_get_font_extra_data(pFont);
     if (pGDIData == NULL) {
         return;
     }
@@ -1527,16 +1527,16 @@ void easy2d_on_delete_font_gdi(easy2d_font* pFont)
     DeleteObject(pGDIData->hFont);
 }
 
-bool easy2d_on_create_image_gdi(easy2d_image* pImage, unsigned int stride, const void* pData)
+bool dr2d_on_create_image_gdi(dr2d_image* pImage, unsigned int stride, const void* pData)
 {
     assert(pImage != NULL);
     
-    gdi_image_data* pGDIData = easy2d_get_image_extra_data(pImage);
+    gdi_image_data* pGDIData = dr2d_get_image_extra_data(pImage);
     if (pGDIData == NULL) {
         return false;
     }
 
-    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pImage->pContext);
+    gdi_context_data* pGDIContextData = dr2d_get_context_extra_data(pImage->pContext);
     if (pGDIContextData == NULL) {
         return false;
     }
@@ -1593,11 +1593,11 @@ bool easy2d_on_create_image_gdi(easy2d_image* pImage, unsigned int stride, const
     return true;
 }
 
-void easy2d_on_delete_image_gdi(easy2d_image* pImage)
+void dr2d_on_delete_image_gdi(dr2d_image* pImage)
 {
     assert(pImage != NULL);
 
-    gdi_image_data* pGDIData = easy2d_get_image_extra_data(pImage);
+    gdi_image_data* pGDIData = dr2d_get_image_extra_data(pImage);
     if (pGDIData == NULL) {
         return;
     }
@@ -1610,19 +1610,19 @@ void easy2d_on_delete_image_gdi(easy2d_image* pImage)
 }
 
 
-void easy2d_begin_draw_gdi(easy2d_surface* pSurface)
+void dr2d_begin_draw_gdi(dr2d_surface* pSurface)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL) {
         if (pGDIData->hWnd != NULL) {
             pGDIData->hDC = BeginPaint(pGDIData->hWnd, &pGDIData->ps);
         } else {
-            SelectObject(easy2d_get_HDC(pSurface), pGDIData->hBitmap);
+            SelectObject(dr2d_get_HDC(pSurface), pGDIData->hBitmap);
         }
 
-        HDC hDC = easy2d_get_HDC(pSurface);
+        HDC hDC = dr2d_get_HDC(pSurface);
 
         pGDIData->hStockDCBrush   = GetStockObject(DC_BRUSH);
         pGDIData->hStockNullBrush = GetStockObject(NULL_BRUSH);
@@ -1639,13 +1639,13 @@ void easy2d_begin_draw_gdi(easy2d_surface* pSurface)
     }
 }
 
-void easy2d_end_draw_gdi(easy2d_surface* pSurface)
+void dr2d_end_draw_gdi(dr2d_surface* pSurface)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL) {
-        HDC hDC = easy2d_get_HDC(pSurface);
+        HDC hDC = dr2d_get_HDC(pSurface);
 
         SelectClipRgn(hDC, NULL);
 
@@ -1662,21 +1662,21 @@ void easy2d_end_draw_gdi(easy2d_surface* pSurface)
     }
 }
 
-void easy2d_clear_gdi(easy2d_surface* pSurface, easy2d_color color)
+void dr2d_clear_gdi(dr2d_surface* pSurface, dr2d_color color)
 {
     assert(pSurface != NULL);
 
-    easy2d_draw_rect_gdi(pSurface, 0, 0, pSurface->width, pSurface->height, color);
+    dr2d_draw_rect_gdi(pSurface, 0, 0, pSurface->width, pSurface->height, color);
 }
 
-void easy2d_draw_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color)
+void dr2d_draw_rect_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface);
+        HDC hDC = dr2d_get_HDC(pSurface);
 
         SelectObject(hDC, pGDIData->hStockNullPen);
         SelectObject(hDC, pGDIData->hStockDCBrush);
@@ -1688,14 +1688,14 @@ void easy2d_draw_rect_gdi(easy2d_surface* pSurface, float left, float top, float
     }
 }
 
-void easy2d_draw_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth)
+void dr2d_draw_rect_outline_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface);
+        HDC hDC = dr2d_get_HDC(pSurface);
 
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(color.r, color.g, color.b));
         if (hPen != NULL)
@@ -1710,14 +1710,14 @@ void easy2d_draw_rect_outline_gdi(easy2d_surface* pSurface, float left, float to
     }
 }
 
-void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float outlineWidth, easy2d_color outlineColor)
+void dr2d_draw_rect_with_outline_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface);
+        HDC hDC = dr2d_get_HDC(pSurface);
 
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(outlineColor.r, outlineColor.g, outlineColor.b));
         if (hPen != NULL)
@@ -1733,14 +1733,14 @@ void easy2d_draw_rect_with_outline_gdi(easy2d_surface* pSurface, float left, flo
     }
 }
 
-void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius)
+void dr2d_draw_round_rect_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface);
+        HDC hDC = dr2d_get_HDC(pSurface);
 
         SelectObject(hDC, pGDIData->hStockNullPen);
         SelectObject(hDC, pGDIData->hStockDCBrush);
@@ -1750,14 +1750,14 @@ void easy2d_draw_round_rect_gdi(easy2d_surface* pSurface, float left, float top,
     }
 }
 
-void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth)
+void dr2d_draw_round_rect_outline_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface);
+        HDC hDC = dr2d_get_HDC(pSurface);
 
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(color.r, color.g, color.b));
         if (hPen != NULL)
@@ -1772,14 +1772,14 @@ void easy2d_draw_round_rect_outline_gdi(easy2d_surface* pSurface, float left, fl
     }
 }
 
-void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color, float radius, float outlineWidth, easy2d_color outlineColor)
+void dr2d_draw_round_rect_with_outline_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth, dr2d_color outlineColor)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface);
+        HDC hDC = dr2d_get_HDC(pSurface);
 
         HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(outlineColor.r, outlineColor.g, outlineColor.b));
         if (hPen != NULL)
@@ -1795,15 +1795,15 @@ void easy2d_draw_round_rect_with_outline_gdi(easy2d_surface* pSurface, float lef
     }
 }
 
-void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, easy2d_color color, easy2d_color backgroundColor)
+void dr2d_draw_text_gdi(dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor)
 {
-    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    gdi_font_data* pGDIFontData = dr2d_get_font_extra_data(pFont);
     if (pGDIFontData == NULL) {
         return;
     }
 
 
-    HDC hDC = easy2d_get_HDC(pSurface);
+    HDC hDC = dr2d_get_HDC(pSurface);
 
     HFONT hFontGDI = pGDIFontData->hFont;
     if (hFontGDI != NULL)
@@ -1811,7 +1811,7 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const ch
         // We actually want to use the W version of TextOut because otherwise unicode doesn't work properly.
 
         unsigned int textWLength;
-        wchar_t* textW = easy2d_to_wchar_gdi(pSurface->pContext, text, textSizeInBytes, &textWLength);
+        wchar_t* textW = dr2d_to_wchar_gdi(pSurface->pContext, text, textSizeInBytes, &textWLength);
         if (textW != NULL)
         {
             SelectObject(hDC, hFontGDI);
@@ -1845,14 +1845,14 @@ void easy2d_draw_text_gdi(easy2d_surface* pSurface, easy2d_font* pFont, const ch
     }
 }
 
-void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2d_draw_image_args* pArgs)
+void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs)
 {
-    gdi_image_data* pGDIImageData = easy2d_get_image_extra_data(pImage);
+    gdi_image_data* pGDIImageData = dr2d_get_image_extra_data(pImage);
     if (pGDIImageData == NULL) {
         return;
     }
 
-    gdi_surface_data* pGDISurfaceData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDISurfaceData = dr2d_get_surface_extra_data(pSurface);
     if (pGDISurfaceData == NULL) {
         return;
     }
@@ -1861,7 +1861,7 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
     HBITMAP hSrcBitmap = NULL;
 
     // Center the image if applicable.
-    if ((pArgs->options & EASY2D_IMAGE_ALIGN_CENTER) != 0)
+    if ((pArgs->options & DR2D_IMAGE_ALIGN_CENTER) != 0)
     {
         pArgs->dstX = pArgs->dstBoundsX + (pArgs->dstBoundsWidth  - pArgs->dstWidth)  / 2;
         pArgs->dstY = pArgs->dstBoundsY + (pArgs->dstBoundsHeight - pArgs->dstHeight) / 2;
@@ -1869,7 +1869,7 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
 
     // Clip the image if applicable.
     int prevDC = 0;
-    if ((pArgs->options & EASY2D_IMAGE_CLIP_BOUNDS) != 0)
+    if ((pArgs->options & DR2D_IMAGE_CLIP_BOUNDS) != 0)
     {
         // We only need to clip if part of the destination rectangle falls outside of the bounds.
         if (pArgs->dstX < pArgs->dstBoundsX || pArgs->dstX + pArgs->dstWidth  > pArgs->dstBoundsX + pArgs->dstBoundsWidth ||
@@ -1917,7 +1917,7 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
         }
     }
 
-    if ((pArgs->options & EASY2D_IMAGE_DRAW_BACKGROUND) == 0 && pArgs->foregroundTint.r == 255 && pArgs->foregroundTint.g == 255 && pArgs->foregroundTint.b == 255)
+    if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) == 0 && pArgs->foregroundTint.r == 255 && pArgs->foregroundTint.g == 255 && pArgs->foregroundTint.b == 255)
     {
         // Fast path. No tint, no background.
         hSrcBitmap = pGDIImageData->hSrcBitmap;
@@ -1943,7 +1943,7 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
                 if (srcTexelG > 255) srcTexelG = 255;
                 if (srcTexelB > 255) srcTexelB = 255;
 
-                if ((pArgs->options & EASY2D_IMAGE_DRAW_BACKGROUND) != 0)
+                if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) != 0)
                 {
                     srcTexelB += (unsigned int)(pArgs->backgroundColor.b * ((255 - srcTexelA) / 255.0f));
                     srcTexelG += (unsigned int)(pArgs->backgroundColor.g * ((255 - srcTexelA) / 255.0f));
@@ -1959,15 +1959,15 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
         GdiFlush();
 
         // If we have drawn the background manually we don't need to do an alpha blend.
-        if ((pArgs->options & EASY2D_IMAGE_DRAW_BACKGROUND) != 0) {
-            pArgs->options |= EASY2D_IMAGE_HINT_NO_ALPHA;
+        if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) != 0) {
+            pArgs->options |= DR2D_IMAGE_HINT_NO_ALPHA;
         }
 
         hSrcBitmap = pGDIImageData->hIntermediateBitmap;
     }
 
 
-    if ((pArgs->options & EASY2D_IMAGE_DRAW_BOUNDS) != 0)
+    if ((pArgs->options & DR2D_IMAGE_DRAW_BOUNDS) != 0)
     {
         // The bounds is the area sitting around the outside of the destination rectangle.
         const float boundsLeft   = pArgs->dstBoundsX;
@@ -2046,7 +2046,7 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
 
 
     HGDIOBJ hPrevBitmap = SelectObject(pGDISurfaceData->hIntermediateDC, hSrcBitmap);
-    if ((pArgs->options & EASY2D_IMAGE_HINT_NO_ALPHA) != 0)
+    if ((pArgs->options & DR2D_IMAGE_HINT_NO_ALPHA) != 0)
     {
         StretchBlt(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, SRCCOPY);
     }
@@ -2063,29 +2063,29 @@ void easy2d_draw_image_gdi(easy2d_surface* pSurface, easy2d_image* pImage, easy2
     }
 }
 
-void easy2d_set_clip_gdi(easy2d_surface* pSurface, float left, float top, float right, float bottom)
+void dr2d_set_clip_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
-        HDC hDC = easy2d_get_HDC(pSurface);
+        HDC hDC = dr2d_get_HDC(pSurface);
 
         SelectClipRgn(hDC, NULL);
         IntersectClipRect(hDC, (int)left, (int)top, (int)right, (int)bottom);
     }
 }
 
-void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut)
+void dr2d_get_clip_gdi(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut)
 {
     assert(pSurface != NULL);
 
-    gdi_surface_data* pGDIData = easy2d_get_surface_extra_data(pSurface);
+    gdi_surface_data* pGDIData = dr2d_get_surface_extra_data(pSurface);
     if (pGDIData != NULL)
     {
         RECT rect;
-        GetClipBox(easy2d_get_HDC(pSurface), &rect);
+        GetClipBox(dr2d_get_HDC(pSurface), &rect);
 
         if (pLeftOut != NULL) {
             *pLeftOut = (float)rect.left;
@@ -2104,12 +2104,12 @@ void easy2d_get_clip_gdi(easy2d_surface* pSurface, float* pLeftOut, float* pTopO
 
 
 
-bool easy2d_get_font_metrics_gdi(easy2d_font* pFont, easy2d_font_metrics* pMetricsOut)
+bool dr2d_get_font_metrics_gdi(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut)
 {
     assert(pFont != NULL);
     assert(pMetricsOut != NULL);
 
-    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    gdi_font_data* pGDIFontData = dr2d_get_font_extra_data(pFont);
     if (pGDIFontData == NULL) {
         return false;
     }
@@ -2118,17 +2118,17 @@ bool easy2d_get_font_metrics_gdi(easy2d_font* pFont, easy2d_font_metrics* pMetri
     return true;
 }
 
-bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d_glyph_metrics* pGlyphMetrics)
+bool dr2d_get_glyph_metrics_gdi(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pGlyphMetrics)
 {
     assert(pFont != NULL);
     assert(pGlyphMetrics != NULL);
 
-    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    gdi_font_data* pGDIFontData = dr2d_get_font_extra_data(pFont);
     if (pGDIFontData == NULL) {
         return false;
     }
 
-    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    gdi_context_data* pGDIContextData = dr2d_get_context_extra_data(pFont->pContext);
     if (pGDIContextData == NULL) {
         return false;
     }
@@ -2140,7 +2140,7 @@ bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d
     const MAT2 transform = {{0, 1}, {0, 0}, {0, 0}, {0, 1}};        // <-- Identity matrix
 
     unsigned short utf16[2];
-    int utf16Len = easy2d_utf32_to_utf16(utf32, utf16);
+    int utf16Len = dr2d_utf32_to_utf16(utf32, utf16);
 
     WCHAR glyphIndices[2];
 
@@ -2169,16 +2169,16 @@ bool easy2d_get_glyph_metrics_gdi(easy2d_font* pFont, unsigned int utf32, easy2d
     return false;
 }
 
-bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
+bool dr2d_measure_string_gdi(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
     assert(pFont != NULL);
 
-    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    gdi_font_data* pGDIFontData = dr2d_get_font_extra_data(pFont);
     if (pGDIFontData == NULL) {
         return false;
     }
 
-    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    gdi_context_data* pGDIContextData = dr2d_get_context_extra_data(pFont->pContext);
     if (pGDIContextData == NULL) {
         return false;
     }
@@ -2187,7 +2187,7 @@ bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, size_t text
     SelectObject(pGDIContextData->hDC, pGDIFontData->hFont);
 
     unsigned int textWLength;
-    wchar_t* textW = easy2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
+    wchar_t* textW = dr2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
     if (textW != NULL)
     {
         SIZE sizeWin32;
@@ -2207,18 +2207,18 @@ bool easy2d_measure_string_gdi(easy2d_font* pFont, const char* text, size_t text
     return false;
 }
 
-bool easy2d_get_text_cursor_position_from_point_gdi(easy2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
 {
     bool successful = false;
 
     assert(pFont != NULL);
 
-    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    gdi_font_data* pGDIFontData = dr2d_get_font_extra_data(pFont);
     if (pGDIFontData == NULL) {
         return false;
     }
 
-    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    gdi_context_data* pGDIContextData = dr2d_get_context_extra_data(pFont->pContext);
     if (pGDIContextData == NULL) {
         return false;
     }
@@ -2233,7 +2233,7 @@ bool easy2d_get_text_cursor_position_from_point_gdi(easy2d_font* pFont, const ch
     results.nGlyphs     = (UINT)textSizeInBytes;
 
     unsigned int textWLength;
-    wchar_t* textW = easy2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
+    wchar_t* textW = dr2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
     if (textW != NULL)
     {
         results.lpCaretPos = malloc(sizeof(int) * results.nGlyphs);
@@ -2286,18 +2286,18 @@ bool easy2d_get_text_cursor_position_from_point_gdi(easy2d_font* pFont, const ch
     return successful;
 }
 
-bool easy2d_get_text_cursor_position_from_char_gdi(easy2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
 {
     bool successful = false;
 
     assert(pFont != NULL);
 
-    gdi_font_data* pGDIFontData = easy2d_get_font_extra_data(pFont);
+    gdi_font_data* pGDIFontData = dr2d_get_font_extra_data(pFont);
     if (pGDIFontData == NULL) {
         return false;
     }
 
-    gdi_context_data* pGDIContextData = easy2d_get_context_extra_data(pFont->pContext);
+    gdi_context_data* pGDIContextData = dr2d_get_context_extra_data(pFont->pContext);
     if (pGDIContextData == NULL) {
         return false;
     }
@@ -2312,7 +2312,7 @@ bool easy2d_get_text_cursor_position_from_char_gdi(easy2d_font* pFont, const cha
     results.nGlyphs     = characterIndex + 1;
 
     unsigned int textWLength;
-    wchar_t* textW = easy2d_to_wchar_gdi(pFont->pContext, text, (int)results.nGlyphs, &textWLength);
+    wchar_t* textW = dr2d_to_wchar_gdi(pFont->pContext, text, (int)results.nGlyphs, &textWLength);
     if (textW != NULL)
     {
         results.lpCaretPos = malloc(sizeof(int) * results.nGlyphs);
@@ -2335,13 +2335,13 @@ bool easy2d_get_text_cursor_position_from_char_gdi(easy2d_font* pFont, const cha
 }
 
 
-wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, size_t textSizeInBytes, unsigned int* characterCountOut)
+wchar_t* dr2d_to_wchar_gdi(dr2d_context* pContext, const char* text, size_t textSizeInBytes, unsigned int* characterCountOut)
 {
     if (pContext == NULL || text == NULL) {
         return NULL;
     }
 
-    gdi_context_data* pGDIData = easy2d_get_context_extra_data(pContext);
+    gdi_context_data* pGDIData = dr2d_get_context_extra_data(pContext);
     if (pGDIData == NULL) {
         return NULL;
     }
@@ -2379,7 +2379,7 @@ wchar_t* easy2d_to_wchar_gdi(easy2d_context* pContext, const char* text, size_t 
 // CAIRO 2D API
 //
 /////////////////////////////////////////////////////////////////
-#ifndef EASY2D_NO_CAIRO
+#ifndef DR2D_NO_CAIRO
 
 typedef struct
 {
@@ -2388,32 +2388,32 @@ typedef struct
 
 }cairo_surface_data;
 
-bool easy2d_on_create_context_cairo(easy2d_context* pContext);
-void easy2d_on_delete_context_cairo(easy2d_context* pContext);
-bool easy2d_on_create_surface_cairo(easy2d_surface* pSurface, float width, float height);
-void easy2d_on_delete_surface_cairo(easy2d_surface* pSurface);
-void easy2d_begin_draw_cairo(easy2d_surface* pSurface);
-void easy2d_end_draw_cairo(easy2d_surface* pSurface);
-void easy2d_draw_rect_cairo(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color);
+bool dr2d_on_create_context_cairo(dr2d_context* pContext);
+void dr2d_on_delete_context_cairo(dr2d_context* pContext);
+bool dr2d_on_create_surface_cairo(dr2d_surface* pSurface, float width, float height);
+void dr2d_on_delete_surface_cairo(dr2d_surface* pSurface);
+void dr2d_begin_draw_cairo(dr2d_surface* pSurface);
+void dr2d_end_draw_cairo(dr2d_surface* pSurface);
+void dr2d_draw_rect_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color);
 
 
-easy2d_context* easy2d_create_context_cairo()
+dr2d_context* dr2d_create_context_cairo()
 {
-    easy2d_drawing_callbacks callbacks;
-    callbacks.on_create_context = easy2d_on_create_context_cairo;
-    callbacks.on_delete_context = easy2d_on_delete_context_cairo;
-    callbacks.on_create_surface = easy2d_on_create_surface_cairo;
-    callbacks.on_delete_surface = easy2d_on_delete_surface_cairo;
-    callbacks.begin_draw        = easy2d_begin_draw_cairo;
-    callbacks.end_draw          = easy2d_end_draw_cairo;
-    callbacks.draw_rect         = easy2d_draw_rect_cairo;
+    dr2d_drawing_callbacks callbacks;
+    callbacks.on_create_context = dr2d_on_create_context_cairo;
+    callbacks.on_delete_context = dr2d_on_delete_context_cairo;
+    callbacks.on_create_surface = dr2d_on_create_surface_cairo;
+    callbacks.on_delete_surface = dr2d_on_delete_surface_cairo;
+    callbacks.begin_draw        = dr2d_begin_draw_cairo;
+    callbacks.end_draw          = dr2d_end_draw_cairo;
+    callbacks.draw_rect         = dr2d_draw_rect_cairo;
 
-    return easy2d_create_context(callbacks, 0, sizeof(cairo_surface_data));
+    return dr2d_create_context(callbacks, 0, sizeof(cairo_surface_data));
 }
 
-cairo_surface_t* easy2d_get_cairo_surface_t(easy2d_surface* pSurface)
+cairo_surface_t* dr2d_get_cairo_surface_t(dr2d_surface* pSurface)
 {
-    cairo_surface_data* pCairoData = easy2d_get_surface_extra_data(pSurface);
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
     if (pCairoData != NULL) {
         return pCairoData->pCairoSurface;
     }
@@ -2421,9 +2421,9 @@ cairo_surface_t* easy2d_get_cairo_surface_t(easy2d_surface* pSurface)
     return NULL;
 }
 
-cairo_t* easy2d_get_cairo_t(easy2d_surface* pSurface)
+cairo_t* dr2d_get_cairo_t(dr2d_surface* pSurface)
 {
-    cairo_surface_data* pCairoData = easy2d_get_surface_extra_data(pSurface);
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
     if (pCairoData != NULL) {
         return pCairoData->pCairoContext;
     }
@@ -2432,7 +2432,7 @@ cairo_t* easy2d_get_cairo_t(easy2d_surface* pSurface)
 }
 
 
-bool easy2d_on_create_context_cairo(easy2d_context* pContext)
+bool dr2d_on_create_context_cairo(dr2d_context* pContext)
 {
     assert(pContext != NULL);
     (void)pContext;
@@ -2440,17 +2440,17 @@ bool easy2d_on_create_context_cairo(easy2d_context* pContext)
     return true;
 }
 
-void easy2d_on_delete_context_cairo(easy2d_context* pContext)
+void dr2d_on_delete_context_cairo(dr2d_context* pContext)
 {
     assert(pContext != NULL);
     (void)pContext;
 }
 
-bool easy2d_on_create_surface_cairo(easy2d_surface* pSurface, float width, float height)
+bool dr2d_on_create_surface_cairo(dr2d_surface* pSurface, float width, float height)
 {
     assert(pSurface != NULL);
 
-    cairo_surface_data* pCairoData = easy2d_get_surface_extra_data(pSurface);
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
     if (pCairoData == NULL) {
         return false;
     }
@@ -2470,11 +2470,11 @@ bool easy2d_on_create_surface_cairo(easy2d_surface* pSurface, float width, float
     return true;
 }
 
-void easy2d_on_delete_surface_cairo(easy2d_surface* pSurface)
+void dr2d_on_delete_surface_cairo(dr2d_surface* pSurface)
 {
     assert(pSurface != NULL);
 
-    cairo_surface_data* pCairoData = easy2d_get_surface_extra_data(pSurface);
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
     if (pCairoData != NULL)
     {
         cairo_destroy(pCairoData->pCairoContext);
@@ -2483,27 +2483,27 @@ void easy2d_on_delete_surface_cairo(easy2d_surface* pSurface)
 }
 
 
-void easy2d_begin_draw_cairo(easy2d_surface* pSurface)
+void dr2d_begin_draw_cairo(dr2d_surface* pSurface)
 {
     assert(pSurface != NULL);
 
-    cairo_surface_data* pCairoData = easy2d_get_surface_extra_data(pSurface);
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
     if (pCairoData != NULL)
     {
     }
 }
 
-void easy2d_end_draw_cairo(easy2d_surface* pSurface)
+void dr2d_end_draw_cairo(dr2d_surface* pSurface)
 {
     assert(pSurface != NULL);
     (void)pSurface;
 }
 
-void easy2d_draw_rect_cairo(easy2d_surface* pSurface, float left, float top, float right, float bottom, easy2d_color color)
+void dr2d_draw_rect_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color)
 {
     assert(pSurface != NULL);
 
-    cairo_surface_data* pCairoData = easy2d_get_surface_extra_data(pSurface);
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
     if (pCairoData != NULL)
     {
         cairo_set_source_rgba(pCairoData->pCairoContext, color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0);

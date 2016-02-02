@@ -10,13 +10,13 @@
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
-//   #define EASY_SOFT2D_IMPLEMENTATION
-//   #include "easy_soft2d.h"
+//   #define DR_SOFT2D_IMPLEMENTATION
+//   #include "dr_soft2d.h"
 //
 // You can then #include this file in other parts of the program as you would with any other header file.
 
-#ifndef easy_soft2d_h
-#define easy_soft2d_h
+#ifndef dr_soft2d_h
+#define dr_soft2d_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,7 +101,7 @@ soft2d_rect soft2d_make_rect(int left, int top, int right, int bottom);
 }
 #endif
 
-#endif  //easy_soft2d_h
+#endif  //dr_soft2d_h
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -109,7 +109,7 @@ soft2d_rect soft2d_make_rect(int left, int top, int right, int bottom);
 // IMPLEMENTATION
 //
 ///////////////////////////////////////////////////////////////////////////////
-#ifdef EASY_SOFT2D_IMPLEMENTATION
+#ifdef DR_SOFT2D_IMPLEMENTATION
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
