@@ -14,13 +14,13 @@
 // - This library is only concerned with playback and recording of raw audio data. It does not load audio files
 //   such as WAV, OGG and MP3.
 // - Before you can create an output (playback) or input (recording) device you need to first create a context.
-// - Each backend (DirectSound, ALSA, etc.) has it's own context. Using easyaudio_create_context() will find
-//   a backend implementation based on the platform easy_audio has been compiled for.
-// - A context for a specific backend can be created as well. For example, easyaudio_create_context_dsound() will
+// - Each backend (DirectSound, ALSA, etc.) has it's own context. Using draudio_create_context() will find
+//   a backend implementation based on the platform dr_audio has been compiled for.
+// - A context for a specific backend can be created as well. For example, draudio_create_context_dsound() will
 //   create a context which uses DirectSound as it's backend.
 // - Currently, devices are enumerated once when the context is created. Thus, when a device is plugged in or
-//   unplugged it will not be detected by easy_audio and the context will need to be deleted and re-created.
-// - Currently, easy_audio will only consider the first EASYAUDIO_MAX_DEVICE_COUNT output and input devices, which
+//   unplugged it will not be detected by dr_audio and the context will need to be deleted and re-created.
+// - Currently, dr_audio will only consider the first DRAUDIO_MAX_DEVICE_COUNT output and input devices, which
 //   is currently set to 16 and should be plenty for the vast majority of cases. Feel free to increase (or decrease)
 //   this number to suit your own requirements.
 //
@@ -35,7 +35,7 @@
 //   buffer can be filled with new data.
 // - Due to the inherent multi-threaded nature of audio playback, events can be fired from any thread. It is up
 //   to the application to ensure events are handled safely.
-// - Currently, the maximum number of markers is set by EASYAUDIO_MAX_MARKER_COUNT which is set to 4 by default. This
+// - Currently, the maximum number of markers is set by DRAUDIO_MAX_MARKER_COUNT which is set to 4 by default. This
 //   can be increased, however doing so increases memory usage for each sound buffer.
 //
 // Performance Considerations
@@ -46,7 +46,7 @@
 //
 // OPTIONS
 //
-// #define EASYAUDIO_NO_DIRECTSOUND
+// #define DRAUDIO_NO_DIRECTSOUND
 //   Disables support for the DirectSound backend. Note that at the moment this is the only backend available for
 //   Windows platforms, so you will likely not want to set this. DirectSound will only be compiled on Win32 builds.
 //
@@ -63,8 +63,8 @@
 // - Implement attenuation min/max distances
 //
 
-#ifndef easy_audio_h
-#define easy_audio_h
+#ifndef dr_audio_h
+#define dr_audio_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -74,96 +74,96 @@ extern "C" {
 #include <stdint.h>
 
 
-#define EASYAUDIO_MAX_DEVICE_COUNT          16
-#define EASYAUDIO_MAX_MARKER_COUNT          4
-#define EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE    1024        // The maximum number of messages that can be cached in the internal message queues.
+#define DRAUDIO_MAX_DEVICE_COUNT          16
+#define DRAUDIO_MAX_MARKER_COUNT          4
+#define DRAUDIO_MAX_MESSAGE_QUEUE_SIZE    1024        // The maximum number of messages that can be cached in the internal message queues.
 
 
-#if defined(_WIN32) && !defined(EASYAUDIO_NO_DIRECTSOUND)
-#define EASYAUDIO_BUILD_DSOUND
+#if defined(_WIN32) && !defined(DRAUDIO_NO_DIRECTSOUND)
+#define DRAUDIO_BUILD_DSOUND
 #endif
 
 
-#define EASYAUDIO_EVENT_ID_STOP     0xFFFFFFFF
-#define EASYAUDIO_EVENT_ID_PAUSE    0xFFFFFFFE
-#define EASYAUDIO_EVENT_ID_PLAY     0xFFFFFFFD
-#define EASYAUDIO_EVENT_ID_MARKER   0
+#define DRAUDIO_EVENT_ID_STOP     0xFFFFFFFF
+#define DRAUDIO_EVENT_ID_PAUSE    0xFFFFFFFE
+#define DRAUDIO_EVENT_ID_PLAY     0xFFFFFFFD
+#define DRAUDIO_EVENT_ID_MARKER   0
 
-#define EASYAUDIO_ENABLE_3D         (1 << 0)
-#define EASYAUDIO_RELATIVE_3D       (1 << 1)        // <-- Uses relative 3D positioning by default instead of absolute. Only used if EASYAUDIO_ENABLE_3D is also specified.
+#define DRAUDIO_ENABLE_3D         (1 << 0)
+#define DRAUDIO_RELATIVE_3D       (1 << 1)        // <-- Uses relative 3D positioning by default instead of absolute. Only used if DRAUDIO_ENABLE_3D is also specified.
 
 
 // Data formats.
 typedef enum
 {
-    easyaudio_format_pcm,
-    easyaudio_format_float
+    draudio_format_pcm,
+    draudio_format_float
 
-} easyaudio_format;
+} draudio_format;
 
 // Playback states.
 typedef enum
 {
-    easyaudio_stopped,
-    easyaudio_paused,
-    easyaudio_playing
+    draudio_stopped,
+    draudio_paused,
+    draudio_playing
 
-} easyaudio_playback_state;
+} draudio_playback_state;
 
 // Effect types.
 typedef enum
 {
-    easyaudio_effect_type_none,
-    easyaudio_effect_type_i3dl2reverb,
-    easyaudio_effect_type_chorus,
-    easyaudio_effect_type_compressor,
-    easyaudio_effect_type_distortion,
-    easyaudio_effect_type_echo,
-    easyaudio_effect_type_flanger
+    draudio_effect_type_none,
+    draudio_effect_type_i3dl2reverb,
+    draudio_effect_type_chorus,
+    draudio_effect_type_compressor,
+    draudio_effect_type_distortion,
+    draudio_effect_type_echo,
+    draudio_effect_type_flanger
 
-} easyaudio_effect_type;
+} draudio_effect_type;
 
 // 3D processing modes.
 typedef enum
 {
-    easyaudio_3d_mode_absolute,
-    easyaudio_3d_mode_relative,
-    easyaudio_3d_mode_disabled
+    draudio_3d_mode_absolute,
+    draudio_3d_mode_relative,
+    draudio_3d_mode_disabled
 
-} easyaudio_3d_mode;
+} draudio_3d_mode;
 
 
-typedef struct easyaudio_context easyaudio_context;
-typedef struct easyaudio_device easyaudio_device;
-typedef struct easyaudio_buffer easyaudio_buffer;
+typedef struct draudio_context draudio_context;
+typedef struct draudio_device draudio_device;
+typedef struct draudio_buffer draudio_buffer;
 
-typedef void (* easyaudio_event_callback_proc)(easyaudio_buffer* pBuffer, unsigned int eventID, void *pUserData);
+typedef void (* draudio_event_callback_proc)(draudio_buffer* pBuffer, unsigned int eventID, void *pUserData);
 
 typedef struct
 {
     /// The callback function.
-    easyaudio_event_callback_proc callback;
+    draudio_event_callback_proc callback;
 
     /// The user data.
     void* pUserData;
 
-} easyaudio_event_callback;
+} draudio_event_callback;
 
 typedef struct
 {
     /// The description of the device.
     char description[256];
 
-} easyaudio_device_info;
+} draudio_device_info;
 
 typedef struct
 {
     /// Boolean flags.
-    ///   EASYAUDIO_ENABLE_3D: Enable 3D positioning
+    ///   DRAUDIO_ENABLE_3D: Enable 3D positioning
     unsigned int flags;
 
     /// The data format.
-    easyaudio_format format;
+    draudio_format format;
 
     /// The number of channels. This should be 1 for mono, 2 for stereo.
     unsigned int channels;
@@ -180,12 +180,12 @@ typedef struct
     /// A pointer to the initial data.
     void* pData;
 
-} easyaudio_buffer_desc;
+} draudio_buffer_desc;
 
 typedef struct
 {
     /// The effect type.
-    easyaudio_effect_type type;
+    draudio_effect_type type;
 
     struct
     {
@@ -251,19 +251,19 @@ typedef struct
         float phase;
     } flanger;
 
-} easyaudio_effect;
+} draudio_effect;
 
 
 /// Creates a context which chooses an appropriate backend based on the given platform.
-easyaudio_context* easyaudio_create_context();
+draudio_context* draudio_create_context();
 
-#ifdef EASYAUDIO_BUILD_DSOUND
+#ifdef DRAUDIO_BUILD_DSOUND
 /// Creates a context that uses DirectSound for it's backend.
-easyaudio_context* easyaudio_create_context_dsound();
+draudio_context* draudio_create_context_dsound();
 #endif
 
 /// Deletes the given context.
-void easyaudio_delete_context(easyaudio_context* pContext);
+void draudio_delete_context(draudio_context* pContext);
 
 
 
@@ -277,10 +277,10 @@ void easyaudio_delete_context(easyaudio_context* pContext);
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Retrieves the number of output devices that were enumerated when the context was created.
-unsigned int easyaudio_get_output_device_count(easyaudio_context* pContext);
+unsigned int draudio_get_output_device_count(draudio_context* pContext);
 
 /// Retrieves information about the device at the given index.
-bool easyaudio_get_output_device_info(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut);
+bool draudio_get_output_device_info(draudio_context* pContext, unsigned int deviceIndex, draudio_device_info* pInfoOut);
 
 
 /// Creates a output device.
@@ -290,31 +290,31 @@ bool easyaudio_get_output_device_info(easyaudio_context* pContext, unsigned int 
 ///
 /// @remarks
 ///     Use a device index of 0 to use the default output device.
-easyaudio_device* easyaudio_create_output_device(easyaudio_context* pContext, unsigned int deviceIndex);
+draudio_device* draudio_create_output_device(draudio_context* pContext, unsigned int deviceIndex);
 
 /// Deletes the given output device.
-void easyaudio_delete_output_device(easyaudio_device* pDevice);
+void draudio_delete_output_device(draudio_device* pDevice);
 
 
 /// Create a buffer.
 ///
 /// @remarks
 ///     This will fail if 3D positioning is requested when the sound has more than 1 channel.
-easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, unsigned int extraDataSize);
+draudio_buffer* draudio_create_buffer(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, unsigned int extraDataSize);
 
 /// Deletes the given buffer.
-void easyaudio_delete_buffer(easyaudio_buffer* pBuffer);
+void draudio_delete_buffer(draudio_buffer* pBuffer);
 
 
 /// Retrieves the size in bytes of the given buffer's extra data.
-unsigned int easyaudio_get_buffer_extra_data_size(easyaudio_buffer* pBuffer);
+unsigned int draudio_get_buffer_extra_data_size(draudio_buffer* pBuffer);
 
 /// Retrieves a pointer to the given buffer's extra data.
-void* easyaudio_get_buffer_extra_data(easyaudio_buffer* pBuffer);
+void* draudio_get_buffer_extra_data(draudio_buffer* pBuffer);
 
 
 /// Sets the audio data of the given buffer.
-void easyaudio_set_buffer_data(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
+void draudio_set_buffer_data(draudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
 
 
 /// Begins or resumes playing the given buffer.
@@ -322,36 +322,36 @@ void easyaudio_set_buffer_data(easyaudio_buffer* pBuffer, unsigned int offset, c
 /// @remarks
 ///     If the sound is already playing, it will continue to play, but the \c loop setting will be replaced with that specified
 ///     by the most recent call.
-void easyaudio_play(easyaudio_buffer* pBuffer, bool loop);
+void draudio_play(draudio_buffer* pBuffer, bool loop);
 
 /// Pauses playback of the given buffer.
-void easyaudio_pause(easyaudio_buffer* pBuffer);
+void draudio_pause(draudio_buffer* pBuffer);
 
 /// Stops playback of the given buffer.
-void easyaudio_stop(easyaudio_buffer* pBuffer);
+void draudio_stop(draudio_buffer* pBuffer);
 
 /// Retrieves the playback state of the given buffer.
-easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer);
+draudio_playback_state draudio_get_playback_state(draudio_buffer* pBuffer);
 
 /// Determines whether or not the given audio buffer is looping.
-bool easyaudio_is_looping(easyaudio_buffer* pBuffer);
+bool draudio_is_looping(draudio_buffer* pBuffer);
 
 
 /// Sets the playback position for the given buffer.
-void easyaudio_set_playback_position(easyaudio_buffer* pBuffer, unsigned int position);
+void draudio_set_playback_position(draudio_buffer* pBuffer, unsigned int position);
 
 /// Retrieves hte playback position of the given buffer.
-unsigned int easyaudio_get_playback_position(easyaudio_buffer* pBuffer);
+unsigned int draudio_get_playback_position(draudio_buffer* pBuffer);
 
 
 /// Sets the pan of the given buffer.
 ///
 /// @remarks
 ///     This does nothing for 3D sounds.
-void easyaudio_set_pan(easyaudio_buffer* pBuffer, float pan);
+void draudio_set_pan(draudio_buffer* pBuffer, float pan);
 
 /// Retrieves the pan of the given buffer.
-float easyaudio_get_pan(easyaudio_buffer* pBuffer);
+float draudio_get_pan(draudio_buffer* pBuffer);
 
 
 /// Sets the volume of the given buffer.
@@ -361,14 +361,14 @@ float easyaudio_get_pan(easyaudio_buffer* pBuffer);
 /// @remarks
 ///     Amplificiation is not currently supported, so the maximum value is 1. A value of 1 represents the volume of the original
 ///     data.
-void easyaudio_set_volume(easyaudio_buffer* pBuffer, float volume);
+void draudio_set_volume(draudio_buffer* pBuffer, float volume);
 
 /// Retrieves the volume of the sound.
-float easyaudio_get_volume(easyaudio_buffer* pBuffer);
+float draudio_get_volume(draudio_buffer* pBuffer);
 
 
 /// Removes every marker.
-void easyaudio_remove_markers(easyaudio_buffer* pBuffer);
+void draudio_remove_markers(draudio_buffer* pBuffer);
 
 /// Registers the callback to fire when the playback position hits a certain position in the given buffer.
 ///
@@ -377,8 +377,8 @@ void easyaudio_remove_markers(easyaudio_buffer* pBuffer);
 /// @remarks
 ///     This will fail if the buffer is not in a stopped state.
 ///     @par
-///     Set the event ID to EASYAUDIO_EVENT_ID_MARKER + n, where "n" is your own application-specific identifier.
-bool easyaudio_register_marker_callback(easyaudio_buffer* pBuffer, unsigned int offsetInBytes, easyaudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
+///     Set the event ID to DRAUDIO_EVENT_ID_MARKER + n, where "n" is your own application-specific identifier.
+bool draudio_register_marker_callback(draudio_buffer* pBuffer, unsigned int offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
 
 /// Registers the callback to fire when the buffer stops playing.
 ///
@@ -387,7 +387,7 @@ bool easyaudio_register_marker_callback(easyaudio_buffer* pBuffer, unsigned int 
 ///     with a null callback while the buffer is in the middle of playback in which case the callback will be cleared.
 ///     @par
 ///     The will replace any previous callback.
-bool easyaudio_register_stop_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
+bool draudio_register_stop_callback(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
 
 /// Registers the callback to fire when the buffer is paused.
 ///
@@ -396,7 +396,7 @@ bool easyaudio_register_stop_callback(easyaudio_buffer* pBuffer, easyaudio_event
 ///     with a null callback while the buffer is in the middle of playback in which case the callback will be cleared.
 ///     @par
 ///     The will replace any previous callback.
-bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
+bool draudio_register_pause_callback(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
 
 /// Registers the callback to fire when the buffer begins playing from either a stopped or paused state.
 ///
@@ -405,49 +405,49 @@ bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_even
 ///     with a null callback while the buffer is in the middle of playback in which case the callback will be cleared.
 ///     @par
 ///     The will replace any previous callback.
-bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
+bool draudio_register_play_callback(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
 
 
 /// Retrieves the callback that is currently set for the stop event.
-easyaudio_event_callback easyaudio_get_stop_callback(easyaudio_buffer* pBuffer);
+draudio_event_callback draudio_get_stop_callback(draudio_buffer* pBuffer);
 
 /// Retrieves the callback that is currently set for the pause event.
-easyaudio_event_callback easyaudio_get_pause_callback(easyaudio_buffer* pBuffer);
+draudio_event_callback draudio_get_pause_callback(draudio_buffer* pBuffer);
 
 /// Retrieves the callback that is currently set for the play event.
-easyaudio_event_callback easyaudio_get_play_callback(easyaudio_buffer* pBuffer);
+draudio_event_callback draudio_get_play_callback(draudio_buffer* pBuffer);
 
 
 /// Sets the position of the given buffer in 3D space.
 ///
 /// @remarks
 ///     This does nothing for buffers that do not support 3D positioning.
-void easyaudio_set_position(easyaudio_buffer* pBuffer, float x, float y, float z);
+void draudio_set_position(draudio_buffer* pBuffer, float x, float y, float z);
 
 /// Retrieves the position of the given buffer in 3D space.
-void easyaudio_get_position(easyaudio_buffer* pBuffer, float* pPosOut);
+void draudio_get_position(draudio_buffer* pBuffer, float* pPosOut);
 
 /// Sets the position of the listener for the given output device.
-void easyaudio_set_listener_position(easyaudio_device* pDevice, float x, float y, float z);
+void draudio_set_listener_position(draudio_device* pDevice, float x, float y, float z);
 
 /// Retrieves the position of the listner for the given output device.
-void easyaudio_get_listener_position(easyaudio_device* pDevice, float* pPosOut);
+void draudio_get_listener_position(draudio_device* pDevice, float* pPosOut);
 
 /// Sets the orientation of the listener for the given output device.
-void easyaudio_set_listener_orientation(easyaudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ);
+void draudio_set_listener_orientation(draudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ);
 
 /// Retrieves the orientation of the listener for the given output device.
-void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwardOut, float* pUpOut);
+void draudio_get_listener_orientation(draudio_device* pDevice, float* pForwardOut, float* pUpOut);
 
 
 /// Sets the 3D processing mode (absolute, relative or disabled).
 ///
 /// @remarks
 ///     This applies to position, orientation and velocity.
-void easyaudio_set_3d_mode(easyaudio_buffer* pBuffer, easyaudio_3d_mode mode);
+void draudio_set_3d_mode(draudio_buffer* pBuffer, draudio_3d_mode mode);
 
 /// Retrieves the 3D processing mode (absolute, relative or disabled).
-easyaudio_3d_mode easyaudio_get_3d_mode(easyaudio_buffer* pBuffer);
+draudio_3d_mode draudio_get_3d_mode(draudio_buffer* pBuffer);
 
 
 
@@ -473,28 +473,28 @@ easyaudio_3d_mode easyaudio_get_3d_mode(easyaudio_buffer* pBuffer);
 
 //// SYNCHRONIZATION ////
 
-typedef void* easyaudio_mutex;
+typedef void* draudio_mutex;
 
 /// Creates a mutex object.
-easyaudio_mutex easyaudio_create_mutex();
+draudio_mutex draudio_create_mutex();
 
 /// Deletes a mutex object.
-void easyaudio_delete_mutex(easyaudio_mutex mutex);
+void draudio_delete_mutex(draudio_mutex mutex);
 
 /// Locks the given mutex.
-void easyaudio_lock_mutex(easyaudio_mutex mutex);
+void draudio_lock_mutex(draudio_mutex mutex);
 
 /// Unlocks the given mutex.
-void easyaudio_unlock_mutex(easyaudio_mutex mutex);
+void draudio_unlock_mutex(draudio_mutex mutex);
 
 
 
 
 //// STREAMING ////
-typedef int easyaudio_bool;
+typedef int draudio_bool;
 
-typedef easyaudio_bool (* easyaudio_stream_read_proc)(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
-typedef easyaudio_bool (* easyaudio_stream_seek_proc)(void* pUserData, unsigned int offsetInBytesFromStart);
+typedef draudio_bool (* draudio_stream_read_proc)(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
+typedef draudio_bool (* draudio_stream_seek_proc)(void* pUserData, unsigned int offsetInBytesFromStart);
 
 typedef struct
 {
@@ -502,42 +502,42 @@ typedef struct
     void* pUserData;
 
     /// A pointer to the function to call when more data needs to be read.
-    easyaudio_stream_read_proc read;
+    draudio_stream_read_proc read;
 
     /// Seeks source data from the beginning of the file.
-    easyaudio_stream_seek_proc seek;
+    draudio_stream_seek_proc seek;
 
-} easyaudio_streaming_callbacks;
+} draudio_streaming_callbacks;
 
 
 /// Creates a buffer that's pre-configured for use for streaming audio data.
 ///
 /// @remarks
 ///     This function is just a high-level convenience wrapper. The returned buffer is just a regular buffer with pre-configured
-///     markers attached to the buffer. This will attach 3 markers in total which means there is only EASYAUDIO_MAX_MARKER_COUNT - 3
+///     markers attached to the buffer. This will attach 3 markers in total which means there is only DRAUDIO_MAX_MARKER_COUNT - 3
 ///     marker slots available to the application.
 ///     @par
-///     You must play the buffer with easyaudio_play_streaming_buffer() because the underlying buffer management is slightly different
+///     You must play the buffer with draudio_play_streaming_buffer() because the underlying buffer management is slightly different
 ///     to a regular buffer.
 ///     @par
 ///     Looping and stop callbacks may be inaccurate by up to half a second.
 ///     @par
 ///     Callback functions use bytes to determine how much data to process. This is always a multiple of samples * channels, however.
 ///     @par
-///     The first chunk of data is not loaded until the buffer is played with easyaudio_play_streaming_buffer().
-easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, easyaudio_streaming_callbacks callbacks, unsigned int extraDataSize);
+///     The first chunk of data is not loaded until the buffer is played with draudio_play_streaming_buffer().
+draudio_buffer* draudio_create_streaming_buffer(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, draudio_streaming_callbacks callbacks, unsigned int extraDataSize);
 
 /// Retrieves the size of the extra data of the given streaming buffer..
-unsigned int easyaudio_get_streaming_buffer_extra_data_size(easyaudio_buffer* pBuffer);
+unsigned int draudio_get_streaming_buffer_extra_data_size(draudio_buffer* pBuffer);
 
 /// Retrieves a pointer to the extra data of the given streaming buffer.
-void* easyaudio_get_streaming_buffer_extra_data(easyaudio_buffer* pBuffer);
+void* draudio_get_streaming_buffer_extra_data(draudio_buffer* pBuffer);
 
 /// Begins playing the given streaming buffer.
-bool easyaudio_play_streaming_buffer(easyaudio_buffer* pBuffer, bool loop);
+bool draudio_play_streaming_buffer(draudio_buffer* pBuffer, bool loop);
 
 /// Determines whether or not the given streaming buffer is looping.
-bool easyaudio_is_streaming_buffer_looping(easyaudio_buffer* pBuffer);
+bool draudio_is_streaming_buffer_looping(draudio_buffer* pBuffer);
 
 
 
@@ -555,22 +555,22 @@ bool easyaudio_is_streaming_buffer_looping(easyaudio_buffer* pBuffer);
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-typedef struct easyaudio_sound easyaudio_sound;
-typedef struct easyaudio_world easyaudio_world;
+typedef struct draudio_sound draudio_sound;
+typedef struct draudio_world draudio_world;
 
-typedef void    (* easyaudio_on_sound_delete_proc)   (easyaudio_sound* pSound);
-typedef easyaudio_bool (* easyaudio_on_sound_read_data_proc)(easyaudio_sound* pSound, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
-typedef easyaudio_bool (* easyaudio_on_sound_seek_data_proc)(easyaudio_sound* pSound, unsigned int offsetInBytesFromStart);
+typedef void    (* draudio_on_sound_delete_proc)   (draudio_sound* pSound);
+typedef draudio_bool (* draudio_on_sound_read_data_proc)(draudio_sound* pSound, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut);
+typedef draudio_bool (* draudio_on_sound_seek_data_proc)(draudio_sound* pSound, unsigned int offsetInBytesFromStart);
 
 /// The structure that is used for creating a sound object.
 typedef struct
 {
     /// Boolean flags.
-    ///   EASYAUDIO_ENABLE_3D: Enable 3D positioning
+    ///   DRAUDIO_ENABLE_3D: Enable 3D positioning
     unsigned int flags;
 
     /// The data format.
-    easyaudio_format format;
+    draudio_format format;
 
     /// The number of channels. This should be 1 for mono, 2 for stereo.
     unsigned int channels;
@@ -592,15 +592,15 @@ typedef struct
 
     /// A pointer to the function to call when the sound is being deleted. This gives the application the opportunity
     /// to delete internal objects that are used for streaming or whatnot.
-    easyaudio_on_sound_delete_proc onDelete;
+    draudio_on_sound_delete_proc onDelete;
 
-    /// A pointer to the function to call when easy_audio needs to request a chunk of audio data. This is only used when
+    /// A pointer to the function to call when dr_audio needs to request a chunk of audio data. This is only used when
     /// streaming data.
-    easyaudio_on_sound_read_data_proc onRead;
+    draudio_on_sound_read_data_proc onRead;
 
-    /// A pointer to the function to call when easy_audio needs to seek the audio data. This is only used when streaming
+    /// A pointer to the function to call when dr_audio needs to seek the audio data. This is only used when streaming
     /// data.
-    easyaudio_on_sound_seek_data_proc onSeek;
+    draudio_on_sound_seek_data_proc onSeek;
 
 
     /// The size of the extra data to associate with the sound. Extra data is how an application can link custom data to the
@@ -611,25 +611,25 @@ typedef struct
     /// and can be null.
     const void* pExtraData;
 
-} easyaudio_sound_desc;
+} draudio_sound_desc;
 
-struct easyaudio_sound
+struct draudio_sound
 {
     /// A pointer to the world that owns the sound.
-    easyaudio_world* pWorld;
+    draudio_world* pWorld;
 
     /// A pointer to the audio buffer for playback.
-    easyaudio_buffer* pBuffer;
+    draudio_buffer* pBuffer;
 
 
     /// [Internal Use Only] The state of the buffer's playback at the time the associated world overwrote it.
-    easyaudio_playback_state prevPlaybackState;
+    draudio_playback_state prevPlaybackState;
 
     /// [Internal Use Only] A pointer to the next sound in the local list.
-    easyaudio_sound* pNextSound;
+    draudio_sound* pNextSound;
 
     /// [Internal Use Only] A pointer ot the previous sound in the local list.
-    easyaudio_sound* pPrevSound;
+    draudio_sound* pPrevSound;
 
     /// [Internal Use Only] Keeps track of whether or not a streaming buffer is being used.
     bool isUsingStreamingBuffer;
@@ -641,107 +641,107 @@ struct easyaudio_sound
     bool markedForDeletion;
 
     /// [Internal Use Only] the onDelete function. Can be null.
-    easyaudio_on_sound_delete_proc onDelete;
+    draudio_on_sound_delete_proc onDelete;
 
     /// [Internal Use Only] The onRead streaming function. Can be null, in which case streaming will not be used.
-    easyaudio_on_sound_read_data_proc onRead;
+    draudio_on_sound_read_data_proc onRead;
 
     /// [Internal Use Only] The onSeek streaming function. Can be null, in which case streaming will not be used.
-    easyaudio_on_sound_seek_data_proc onSeek;
+    draudio_on_sound_seek_data_proc onSeek;
 };
 
-struct easyaudio_world
+struct draudio_world
 {
-    /// A pointer to the easy_audio device to output audio to.
-    easyaudio_device* pDevice;
+    /// A pointer to the dr_audio device to output audio to.
+    draudio_device* pDevice;
 
     /// The global playback state of the world.
-    easyaudio_playback_state playbackState;
+    draudio_playback_state playbackState;
 
     /// A pointer to the first sound in the local list of sounds.
-    easyaudio_sound* pFirstSound;
+    draudio_sound* pFirstSound;
 
     /// Mutex for thread-safety.
-    easyaudio_mutex lock;
+    draudio_mutex lock;
 };
 
 
 /// Creates a new sound world which will output audio from the given device.
-easyaudio_world* easyaudio_create_world(easyaudio_device* pDevice);
+draudio_world* draudio_create_world(draudio_device* pDevice);
 
-/// Deletes a sound world that was previously created with easyaudio_create_world().
-void easyaudio_delete_world(easyaudio_world* pWorld);
+/// Deletes a sound world that was previously created with draudio_create_world().
+void draudio_delete_world(draudio_world* pWorld);
 
 
 /// Creates a sound in 3D space.
-easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound_desc desc);
+draudio_sound* draudio_create_sound(draudio_world* pWorld, draudio_sound_desc desc);
 
-/// Deletes a sound that was previously created with easyaudio_create_sound().
-void easyaudio_delete_sound(easyaudio_sound* pSound);
+/// Deletes a sound that was previously created with draudio_create_sound().
+void draudio_delete_sound(draudio_sound* pSound);
 
 /// Deletes every sound from the given world.
-void easyaudio_delete_all_sounds(easyaudio_world* pWorld);
+void draudio_delete_all_sounds(draudio_world* pWorld);
 
 
 /// Retrieves the size in bytes of the given sound's extra data.
-unsigned int easyaudio_get_sound_extra_data_size(easyaudio_sound* pSound);
+unsigned int draudio_get_sound_extra_data_size(draudio_sound* pSound);
 
 /// Retrieves a pointer to the buffer containing the given sound's extra data.
-void* easyaudio_get_sound_extra_data(easyaudio_sound* pSound);
+void* draudio_get_sound_extra_data(draudio_sound* pSound);
 
 
 /// Plays or resumes the given sound.
-void easyaudio_play_sound(easyaudio_sound* pSound, bool loop);
+void draudio_play_sound(draudio_sound* pSound, bool loop);
 
 /// Pauses playback the given sound.
-void easyaudio_pause_sound(easyaudio_sound* pSound);
+void draudio_pause_sound(draudio_sound* pSound);
 
 /// Stops playback of the given sound.
-void easyaudio_stop_sound(easyaudio_sound* pSound);
+void draudio_stop_sound(draudio_sound* pSound);
 
 /// Retrieves the playback state of the given sound.
-easyaudio_playback_state easyaudio_get_sound_playback_state(easyaudio_sound* pSound);
+draudio_playback_state draudio_get_sound_playback_state(draudio_sound* pSound);
 
 /// Determines if the given sound is looping.
-bool easyaudio_is_sound_looping(easyaudio_sound* pSound);
+bool draudio_is_sound_looping(draudio_sound* pSound);
 
 
 /// Begins playing a sound using the given streaming callbacks.
-void easyaudio_play_inline_sound(easyaudio_world* pWorld, easyaudio_sound_desc desc);
+void draudio_play_inline_sound(draudio_world* pWorld, draudio_sound_desc desc);
 
 /// Begins playing the given sound at the given position.
-void easyaudio_play_inline_sound_3f(easyaudio_world* pWorld, easyaudio_sound_desc desc, float posX, float posY, float posZ);
+void draudio_play_inline_sound_3f(draudio_world* pWorld, draudio_sound_desc desc, float posX, float posY, float posZ);
 
 
 /// Stops playback of all sounds in the given world.
-void easyaudio_stop_all_sounds(easyaudio_world* pWorld);
+void draudio_stop_all_sounds(draudio_world* pWorld);
 
 /// Pauses playback of all sounds in the given world.
-void easyaudio_pause_all_sounds(easyaudio_world* pWorld);
+void draudio_pause_all_sounds(draudio_world* pWorld);
 
 /// Resumes playback of all sounds in the given world.
-void easyaudio_resume_all_sounds(easyaudio_world* pWorld);
+void draudio_resume_all_sounds(draudio_world* pWorld);
 
 
 /// Sets the callback for the stop event for the given sound.
-void easyaudio_set_sound_stop_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData);
+void draudio_set_sound_stop_callback(draudio_sound* pSound, draudio_event_callback_proc callback, void* pUserData);
 
 /// Sets the callback for the pause event for the given sound.
-void easyaudio_set_sound_pause_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData);
+void draudio_set_sound_pause_callback(draudio_sound* pSound, draudio_event_callback_proc callback, void* pUserData);
 
 /// Sets the callback for the play event for the given sound.
-void easyaudio_set_sound_play_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData);
+void draudio_set_sound_play_callback(draudio_sound* pSound, draudio_event_callback_proc callback, void* pUserData);
 
 
 /// Sets the position of the given sound.
-void easyaudio_set_sound_position(easyaudio_sound* pSound, float posX, float posY, float posZ);
+void draudio_set_sound_position(draudio_sound* pSound, float posX, float posY, float posZ);
 
 
 /// Sets the 3D mode of the given sound (absolute positioning, relative positioning, no positioning).
-void easyaudio_set_sound_3d_mode(easyaudio_sound* pSound, easyaudio_3d_mode mode);
+void draudio_set_sound_3d_mode(draudio_sound* pSound, draudio_3d_mode mode);
 
 /// Retrieves the 3D mode of the given sound.
-easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound);
+draudio_3d_mode draudio_get_sound_3d_mode(draudio_sound* pSound);
 
 
 
@@ -749,14 +749,14 @@ easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound);
 }
 #endif
 
-#endif  //easy_audio_h
+#endif  //dr_audio_h
 
 ///////////////////////////////////////////////////////////////////////////////
 //
 // IMPLEMENTATION
 //
 ///////////////////////////////////////////////////////////////////////////////
-#ifdef EASY_AUDIO_IMPLEMENTATION
+#ifdef DR_AUDIO_IMPLEMENTATION
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -764,8 +764,8 @@ easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound);
 
 
 // Annotations
-#ifndef EASYAUDIO_PRIVATE
-#define EASYAUDIO_PRIVATE
+#ifndef DRAUDIO_PRIVATE
+#define DRAUDIO_PRIVATE
 #endif
 
 
@@ -773,7 +773,7 @@ easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound);
 // Utilities
 
 // strcpy()
-int easyaudio_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
+int draudio_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 {
 #if defined(_MSC_VER)
     return strcpy_s(dst, dstSizeInBytes, src);
@@ -813,101 +813,101 @@ int easyaudio_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 }
 
 
-typedef void                     (* easyaudio_delete_context_proc)(easyaudio_context* pContext);
-typedef easyaudio_device*        (* easyaudio_create_output_device_proc)(easyaudio_context* pContext, unsigned int deviceIndex);
-typedef void                     (* easyaudio_delete_output_device_proc)(easyaudio_device* pDevice);
-typedef unsigned int             (* easyaudio_get_output_device_count_proc)(easyaudio_context* pContext);
-typedef bool                     (* easyaudio_get_output_device_info_proc)(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut);
-typedef easyaudio_buffer*        (* easyaudio_create_buffer_proc)(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, unsigned int extraDataSize);
-typedef void                     (* easyaudio_delete_buffer_proc)(easyaudio_buffer* pBuffer);
-typedef unsigned int             (* easyaudio_get_buffer_extra_data_size_proc)(easyaudio_buffer* pBuffer);
-typedef void*                    (* easyaudio_get_buffer_extra_data_proc)(easyaudio_buffer* pBuffer);
-typedef void                     (* easyaudio_set_buffer_data_proc)(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
-typedef void                     (* easyaudio_play_proc)(easyaudio_buffer* pBuffer, bool loop);
-typedef void                     (* easyaudio_pause_proc)(easyaudio_buffer* pBuffer);
-typedef void                     (* easyaudio_stop_proc)(easyaudio_buffer* pBuffer);
-typedef easyaudio_playback_state (* easyaudio_get_playback_state_proc)(easyaudio_buffer* pBuffer);
-typedef void                     (* easyaudio_set_playback_position_proc)(easyaudio_buffer* pBuffer, unsigned int position);
-typedef unsigned int             (* easyaudio_get_playback_position_proc)(easyaudio_buffer* pBuffer);
-typedef void                     (* easyaudio_set_pan_proc)(easyaudio_buffer* pBuffer, float pan);
-typedef float                    (* easyaudio_get_pan_proc)(easyaudio_buffer* pBuffer);
-typedef void                     (* easyaudio_set_volume_proc)(easyaudio_buffer* pBuffer, float volume);
-typedef float                    (* easyaudio_get_volume_proc)(easyaudio_buffer* pBuffer);
-typedef void                     (* easyaudio_remove_markers_proc)(easyaudio_buffer* pBuffer);
-typedef bool                     (* easyaudio_register_marker_callback_proc)(easyaudio_buffer* pBuffer, unsigned int offsetInBytes, easyaudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
-typedef bool                     (* easyaudio_register_stop_callback_proc)(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
-typedef bool                     (* easyaudio_register_pause_callback_proc)(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
-typedef bool                     (* easyaudio_register_play_callback_proc)(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData);
-typedef void                     (* easyaudio_set_position_proc)(easyaudio_buffer* pBuffer, float x, float y, float z);
-typedef void                     (* easyaudio_get_position_proc)(easyaudio_buffer* pBuffer, float* pPosOut);
-typedef void                     (* easyaudio_set_listener_position_proc)(easyaudio_device* pDevice, float x, float y, float z);
-typedef void                     (* easyaudio_get_listener_position_proc)(easyaudio_device* pDevice, float* pPosOut);
-typedef void                     (* easyaudio_set_listener_orientation_proc)(easyaudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ);
-typedef void                     (* easyaudio_get_listener_orientation_proc)(easyaudio_device* pDevice, float* pForwardOut, float* pUpOut);
-typedef void                     (* easyaudio_set_3d_mode_proc)(easyaudio_buffer* pBuffer, easyaudio_3d_mode mode);
-typedef easyaudio_3d_mode        (* easyaudio_get_3d_mode_proc)(easyaudio_buffer* pBuffer);
+typedef void                     (* draudio_delete_context_proc)(draudio_context* pContext);
+typedef draudio_device*        (* draudio_create_output_device_proc)(draudio_context* pContext, unsigned int deviceIndex);
+typedef void                     (* draudio_delete_output_device_proc)(draudio_device* pDevice);
+typedef unsigned int             (* draudio_get_output_device_count_proc)(draudio_context* pContext);
+typedef bool                     (* draudio_get_output_device_info_proc)(draudio_context* pContext, unsigned int deviceIndex, draudio_device_info* pInfoOut);
+typedef draudio_buffer*        (* draudio_create_buffer_proc)(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, unsigned int extraDataSize);
+typedef void                     (* draudio_delete_buffer_proc)(draudio_buffer* pBuffer);
+typedef unsigned int             (* draudio_get_buffer_extra_data_size_proc)(draudio_buffer* pBuffer);
+typedef void*                    (* draudio_get_buffer_extra_data_proc)(draudio_buffer* pBuffer);
+typedef void                     (* draudio_set_buffer_data_proc)(draudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes);
+typedef void                     (* draudio_play_proc)(draudio_buffer* pBuffer, bool loop);
+typedef void                     (* draudio_pause_proc)(draudio_buffer* pBuffer);
+typedef void                     (* draudio_stop_proc)(draudio_buffer* pBuffer);
+typedef draudio_playback_state (* draudio_get_playback_state_proc)(draudio_buffer* pBuffer);
+typedef void                     (* draudio_set_playback_position_proc)(draudio_buffer* pBuffer, unsigned int position);
+typedef unsigned int             (* draudio_get_playback_position_proc)(draudio_buffer* pBuffer);
+typedef void                     (* draudio_set_pan_proc)(draudio_buffer* pBuffer, float pan);
+typedef float                    (* draudio_get_pan_proc)(draudio_buffer* pBuffer);
+typedef void                     (* draudio_set_volume_proc)(draudio_buffer* pBuffer, float volume);
+typedef float                    (* draudio_get_volume_proc)(draudio_buffer* pBuffer);
+typedef void                     (* draudio_remove_markers_proc)(draudio_buffer* pBuffer);
+typedef bool                     (* draudio_register_marker_callback_proc)(draudio_buffer* pBuffer, unsigned int offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData);
+typedef bool                     (* draudio_register_stop_callback_proc)(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
+typedef bool                     (* draudio_register_pause_callback_proc)(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
+typedef bool                     (* draudio_register_play_callback_proc)(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData);
+typedef void                     (* draudio_set_position_proc)(draudio_buffer* pBuffer, float x, float y, float z);
+typedef void                     (* draudio_get_position_proc)(draudio_buffer* pBuffer, float* pPosOut);
+typedef void                     (* draudio_set_listener_position_proc)(draudio_device* pDevice, float x, float y, float z);
+typedef void                     (* draudio_get_listener_position_proc)(draudio_device* pDevice, float* pPosOut);
+typedef void                     (* draudio_set_listener_orientation_proc)(draudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ);
+typedef void                     (* draudio_get_listener_orientation_proc)(draudio_device* pDevice, float* pForwardOut, float* pUpOut);
+typedef void                     (* draudio_set_3d_mode_proc)(draudio_buffer* pBuffer, draudio_3d_mode mode);
+typedef draudio_3d_mode        (* draudio_get_3d_mode_proc)(draudio_buffer* pBuffer);
 
-struct easyaudio_context
+struct draudio_context
 {
     // Callbacks.
-    easyaudio_delete_context_proc delete_context;
-    easyaudio_create_output_device_proc create_output_device;
-    easyaudio_delete_output_device_proc delete_output_device;
-    easyaudio_get_output_device_count_proc get_output_device_count;
-    easyaudio_get_output_device_info_proc get_output_device_info;
-    easyaudio_create_buffer_proc create_buffer;
-    easyaudio_delete_buffer_proc delete_buffer;
-    easyaudio_get_buffer_extra_data_size_proc get_buffer_extra_data_size;
-    easyaudio_get_buffer_extra_data_proc get_buffer_extra_data;
-    easyaudio_set_buffer_data_proc set_buffer_data;
-    easyaudio_play_proc play;
-    easyaudio_pause_proc pause;
-    easyaudio_stop_proc stop;
-    easyaudio_get_playback_state_proc get_playback_state;
-    easyaudio_set_playback_position_proc set_playback_position;
-    easyaudio_get_playback_position_proc get_playback_position;
-    easyaudio_set_pan_proc set_pan;
-    easyaudio_get_pan_proc get_pan;
-    easyaudio_set_volume_proc set_volume;
-    easyaudio_get_volume_proc get_volume;
-    easyaudio_remove_markers_proc remove_markers;
-    easyaudio_register_marker_callback_proc register_marker_callback;
-    easyaudio_register_stop_callback_proc register_stop_callback;
-    easyaudio_register_pause_callback_proc register_pause_callback;
-    easyaudio_register_play_callback_proc register_play_callback;
-    easyaudio_set_position_proc set_position;
-    easyaudio_get_position_proc get_position;
-    easyaudio_set_listener_position_proc set_listener_position;
-    easyaudio_get_listener_position_proc get_listener_position;
-    easyaudio_set_listener_orientation_proc set_listener_orientation;
-    easyaudio_get_listener_orientation_proc get_listener_orientation;
-    easyaudio_set_3d_mode_proc set_3d_mode;
-    easyaudio_get_3d_mode_proc get_3d_mode;
+    draudio_delete_context_proc delete_context;
+    draudio_create_output_device_proc create_output_device;
+    draudio_delete_output_device_proc delete_output_device;
+    draudio_get_output_device_count_proc get_output_device_count;
+    draudio_get_output_device_info_proc get_output_device_info;
+    draudio_create_buffer_proc create_buffer;
+    draudio_delete_buffer_proc delete_buffer;
+    draudio_get_buffer_extra_data_size_proc get_buffer_extra_data_size;
+    draudio_get_buffer_extra_data_proc get_buffer_extra_data;
+    draudio_set_buffer_data_proc set_buffer_data;
+    draudio_play_proc play;
+    draudio_pause_proc pause;
+    draudio_stop_proc stop;
+    draudio_get_playback_state_proc get_playback_state;
+    draudio_set_playback_position_proc set_playback_position;
+    draudio_get_playback_position_proc get_playback_position;
+    draudio_set_pan_proc set_pan;
+    draudio_get_pan_proc get_pan;
+    draudio_set_volume_proc set_volume;
+    draudio_get_volume_proc get_volume;
+    draudio_remove_markers_proc remove_markers;
+    draudio_register_marker_callback_proc register_marker_callback;
+    draudio_register_stop_callback_proc register_stop_callback;
+    draudio_register_pause_callback_proc register_pause_callback;
+    draudio_register_play_callback_proc register_play_callback;
+    draudio_set_position_proc set_position;
+    draudio_get_position_proc get_position;
+    draudio_set_listener_position_proc set_listener_position;
+    draudio_get_listener_position_proc get_listener_position;
+    draudio_set_listener_orientation_proc set_listener_orientation;
+    draudio_get_listener_orientation_proc get_listener_orientation;
+    draudio_set_3d_mode_proc set_3d_mode;
+    draudio_get_3d_mode_proc get_3d_mode;
 };
 
-struct easyaudio_device
+struct draudio_device
 {
     /// The context that owns this device.
-    easyaudio_context* pContext;
+    draudio_context* pContext;
 
     /// Whether or not the device is marked for deletion. A device is not always deleted straight away, so we use this
     /// to determine whether or not it has been marked for deletion.
     bool markedForDeletion;
 };
 
-struct easyaudio_buffer
+struct draudio_buffer
 {
     /// The device that owns this buffer.
-    easyaudio_device* pDevice;
+    draudio_device* pDevice;
 
     /// The stop callback.
-    easyaudio_event_callback stopCallback;
+    draudio_event_callback stopCallback;
 
     /// The pause callback.
-    easyaudio_event_callback pauseCallback;
+    draudio_event_callback pauseCallback;
 
     /// The play callback.
-    easyaudio_event_callback playCallback;
+    draudio_event_callback playCallback;
 
     /// Whether or not playback is looping.
     bool isLooping;
@@ -918,12 +918,12 @@ struct easyaudio_buffer
 };
 
 
-easyaudio_context* easyaudio_create_context()
+draudio_context* draudio_create_context()
 {
-    easyaudio_context* pContext = NULL;
+    draudio_context* pContext = NULL;
 
-#ifdef EASYAUDIO_BUILD_DSOUND
-    pContext = easyaudio_create_context_dsound();
+#ifdef DRAUDIO_BUILD_DSOUND
+    pContext = draudio_create_context_dsound();
     if (pContext != NULL) {
         return pContext;
     }
@@ -936,7 +936,7 @@ easyaudio_context* easyaudio_create_context()
     return pContext;
 }
 
-void easyaudio_delete_context(easyaudio_context* pContext)
+void draudio_delete_context(draudio_context* pContext)
 {
     if (pContext == NULL) {
         return;
@@ -957,7 +957,7 @@ void easyaudio_delete_context(easyaudio_context* pContext)
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-unsigned int easyaudio_get_output_device_count(easyaudio_context* pContext)
+unsigned int draudio_get_output_device_count(draudio_context* pContext)
 {
     if (pContext == NULL) {
         return 0;
@@ -966,7 +966,7 @@ unsigned int easyaudio_get_output_device_count(easyaudio_context* pContext)
     return pContext->get_output_device_count(pContext);
 }
 
-bool easyaudio_get_output_device_info(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut)
+bool draudio_get_output_device_info(draudio_context* pContext, unsigned int deviceIndex, draudio_device_info* pInfoOut)
 {
     if (pContext == NULL) {
         return false;
@@ -980,13 +980,13 @@ bool easyaudio_get_output_device_info(easyaudio_context* pContext, unsigned int 
 }
 
 
-easyaudio_device* easyaudio_create_output_device(easyaudio_context* pContext, unsigned int deviceIndex)
+draudio_device* draudio_create_output_device(draudio_context* pContext, unsigned int deviceIndex)
 {
     if (pContext == NULL) {
         return NULL;
     }
 
-    easyaudio_device* pDevice = pContext->create_output_device(pContext, deviceIndex);
+    draudio_device* pDevice = pContext->create_output_device(pContext, deviceIndex);
     if (pDevice != NULL)
     {
         pDevice->markedForDeletion = false;
@@ -995,7 +995,7 @@ easyaudio_device* easyaudio_create_output_device(easyaudio_context* pContext, un
     return pDevice;
 }
 
-void easyaudio_delete_output_device(easyaudio_device* pDevice)
+void draudio_delete_output_device(draudio_device* pDevice)
 {
     if (pDevice == NULL) {
         return;
@@ -1014,7 +1014,7 @@ void easyaudio_delete_output_device(easyaudio_device* pDevice)
 }
 
 
-easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, unsigned int extraDataSize)
+draudio_buffer* draudio_create_buffer(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, unsigned int extraDataSize)
 {
     if (pDevice == NULL) {
         return NULL;
@@ -1026,13 +1026,13 @@ easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_b
 
     assert(pDevice->pContext != NULL);
 
-    easyaudio_buffer* pBuffer = pDevice->pContext->create_buffer(pDevice, pBufferDesc, extraDataSize);
+    draudio_buffer* pBuffer = pDevice->pContext->create_buffer(pDevice, pBufferDesc, extraDataSize);
     if (pBuffer != NULL)
     {
         pBuffer->pDevice           = pDevice;
-        pBuffer->stopCallback      = (easyaudio_event_callback){NULL, NULL};
-        pBuffer->pauseCallback     = (easyaudio_event_callback){NULL, NULL};
-        pBuffer->playCallback      = (easyaudio_event_callback){NULL, NULL};
+        pBuffer->stopCallback      = (draudio_event_callback){NULL, NULL};
+        pBuffer->pauseCallback     = (draudio_event_callback){NULL, NULL};
+        pBuffer->playCallback      = (draudio_event_callback){NULL, NULL};
         pBuffer->isLooping         = false;
         pBuffer->markedForDeletion = false;
     }
@@ -1040,7 +1040,7 @@ easyaudio_buffer* easyaudio_create_buffer(easyaudio_device* pDevice, easyaudio_b
     return pBuffer;
 }
 
-void easyaudio_delete_buffer(easyaudio_buffer* pBuffer)
+void draudio_delete_buffer(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return;
@@ -1056,13 +1056,13 @@ void easyaudio_delete_buffer(easyaudio_buffer* pBuffer)
 
 
     // The sound needs to be stopped first.
-    easyaudio_stop(pBuffer);
+    draudio_stop(pBuffer);
 
     // Now we need to remove every event.
-    easyaudio_remove_markers(pBuffer);
-    easyaudio_register_stop_callback(pBuffer, NULL, NULL);
-    easyaudio_register_pause_callback(pBuffer, NULL, NULL);
-    easyaudio_register_play_callback(pBuffer, NULL, NULL);
+    draudio_remove_markers(pBuffer);
+    draudio_register_stop_callback(pBuffer, NULL, NULL);
+    draudio_register_pause_callback(pBuffer, NULL, NULL);
+    draudio_register_play_callback(pBuffer, NULL, NULL);
 
 
     assert(pBuffer->pDevice != NULL);
@@ -1071,7 +1071,7 @@ void easyaudio_delete_buffer(easyaudio_buffer* pBuffer)
 }
 
 
-unsigned int easyaudio_get_buffer_extra_data_size(easyaudio_buffer* pBuffer)
+unsigned int draudio_get_buffer_extra_data_size(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return 0;
@@ -1082,7 +1082,7 @@ unsigned int easyaudio_get_buffer_extra_data_size(easyaudio_buffer* pBuffer)
     return pBuffer->pDevice->pContext->get_buffer_extra_data_size(pBuffer);
 }
 
-void* easyaudio_get_buffer_extra_data(easyaudio_buffer* pBuffer)
+void* draudio_get_buffer_extra_data(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return NULL;
@@ -1094,7 +1094,7 @@ void* easyaudio_get_buffer_extra_data(easyaudio_buffer* pBuffer)
 }
 
 
-void easyaudio_set_buffer_data(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes)
+void draudio_set_buffer_data(draudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes)
 {
     if (pBuffer == NULL) {
         return;
@@ -1109,7 +1109,7 @@ void easyaudio_set_buffer_data(easyaudio_buffer* pBuffer, unsigned int offset, c
     pBuffer->pDevice->pContext->set_buffer_data(pBuffer, offset, pData, dataSizeInBytes);
 }
 
-void easyaudio_play(easyaudio_buffer* pBuffer, bool loop)
+void draudio_play(draudio_buffer* pBuffer, bool loop)
 {
     if (pBuffer == NULL) {
         return;
@@ -1122,7 +1122,7 @@ void easyaudio_play(easyaudio_buffer* pBuffer, bool loop)
     pBuffer->pDevice->pContext->play(pBuffer, loop);
 }
 
-void easyaudio_pause(easyaudio_buffer* pBuffer)
+void draudio_pause(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return;
@@ -1133,7 +1133,7 @@ void easyaudio_pause(easyaudio_buffer* pBuffer)
     pBuffer->pDevice->pContext->pause(pBuffer);
 }
 
-void easyaudio_stop(easyaudio_buffer* pBuffer)
+void draudio_stop(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return;
@@ -1144,10 +1144,10 @@ void easyaudio_stop(easyaudio_buffer* pBuffer)
     pBuffer->pDevice->pContext->stop(pBuffer);
 }
 
-easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer)
+draudio_playback_state draudio_get_playback_state(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
-        return easyaudio_stopped;
+        return draudio_stopped;
     }
 
     assert(pBuffer->pDevice != NULL);
@@ -1155,7 +1155,7 @@ easyaudio_playback_state easyaudio_get_playback_state(easyaudio_buffer* pBuffer)
     return pBuffer->pDevice->pContext->get_playback_state(pBuffer);
 }
 
-bool easyaudio_is_looping(easyaudio_buffer* pBuffer)
+bool draudio_is_looping(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return false;
@@ -1165,7 +1165,7 @@ bool easyaudio_is_looping(easyaudio_buffer* pBuffer)
 }
 
 
-void easyaudio_set_playback_position(easyaudio_buffer* pBuffer, unsigned int position)
+void draudio_set_playback_position(draudio_buffer* pBuffer, unsigned int position)
 {
     if (pBuffer == NULL) {
         return;
@@ -1176,7 +1176,7 @@ void easyaudio_set_playback_position(easyaudio_buffer* pBuffer, unsigned int pos
     pBuffer->pDevice->pContext->set_playback_position(pBuffer, position);
 }
 
-unsigned int easyaudio_get_playback_position(easyaudio_buffer* pBuffer)
+unsigned int draudio_get_playback_position(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return 0;
@@ -1188,7 +1188,7 @@ unsigned int easyaudio_get_playback_position(easyaudio_buffer* pBuffer)
 }
 
 
-void easyaudio_set_pan(easyaudio_buffer* pBuffer, float pan)
+void draudio_set_pan(draudio_buffer* pBuffer, float pan)
 {
     if (pBuffer == NULL) {
         return;
@@ -1199,7 +1199,7 @@ void easyaudio_set_pan(easyaudio_buffer* pBuffer, float pan)
     pBuffer->pDevice->pContext->set_pan(pBuffer, pan);
 }
 
-float easyaudio_get_pan(easyaudio_buffer* pBuffer)
+float draudio_get_pan(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return 0.0f;
@@ -1211,7 +1211,7 @@ float easyaudio_get_pan(easyaudio_buffer* pBuffer)
 }
 
 
-void easyaudio_set_volume(easyaudio_buffer* pBuffer, float volume)
+void draudio_set_volume(draudio_buffer* pBuffer, float volume)
 {
     if (pBuffer == NULL) {
         return;
@@ -1222,7 +1222,7 @@ void easyaudio_set_volume(easyaudio_buffer* pBuffer, float volume)
     pBuffer->pDevice->pContext->set_volume(pBuffer, volume);
 }
 
-float easyaudio_get_volume(easyaudio_buffer* pBuffer)
+float draudio_get_volume(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return 1.0f;
@@ -1234,7 +1234,7 @@ float easyaudio_get_volume(easyaudio_buffer* pBuffer)
 }
 
 
-void easyaudio_remove_markers(easyaudio_buffer* pBuffer)
+void draudio_remove_markers(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return;
@@ -1245,20 +1245,20 @@ void easyaudio_remove_markers(easyaudio_buffer* pBuffer)
     pBuffer->pDevice->pContext->remove_markers(pBuffer);
 }
 
-bool easyaudio_register_marker_callback(easyaudio_buffer* pBuffer, unsigned int offsetInBytes, easyaudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
+bool draudio_register_marker_callback(draudio_buffer* pBuffer, unsigned int offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
 {
     if (pBuffer == NULL) {
         return false;
     }
 
-    if (eventID == EASYAUDIO_EVENT_ID_STOP ||
-        eventID == EASYAUDIO_EVENT_ID_PAUSE ||
-        eventID == EASYAUDIO_EVENT_ID_PLAY)
+    if (eventID == DRAUDIO_EVENT_ID_STOP ||
+        eventID == DRAUDIO_EVENT_ID_PAUSE ||
+        eventID == DRAUDIO_EVENT_ID_PLAY)
     {
         return false;
     }
 
-    if (easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
+    if (draudio_get_playback_state(pBuffer) != draudio_stopped) {
         return false;
     }
 
@@ -1267,13 +1267,13 @@ bool easyaudio_register_marker_callback(easyaudio_buffer* pBuffer, unsigned int 
     return pBuffer->pDevice->pContext->register_marker_callback(pBuffer, offsetInBytes, callback, eventID, pUserData);
 }
 
-bool easyaudio_register_stop_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData)
+bool draudio_register_stop_callback(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData)
 {
     if (pBuffer == NULL) {
         return false;
     }
 
-    if (callback != NULL && easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
+    if (callback != NULL && draudio_get_playback_state(pBuffer) != draudio_stopped) {
         return false;
     }
 
@@ -1285,13 +1285,13 @@ bool easyaudio_register_stop_callback(easyaudio_buffer* pBuffer, easyaudio_event
     return pBuffer->pDevice->pContext->register_stop_callback(pBuffer, callback, pUserData);
 }
 
-bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData)
+bool draudio_register_pause_callback(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData)
 {
     if (pBuffer == NULL) {
         return false;
     }
 
-    if (callback != NULL && easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
+    if (callback != NULL && draudio_get_playback_state(pBuffer) != draudio_stopped) {
         return false;
     }
 
@@ -1303,13 +1303,13 @@ bool easyaudio_register_pause_callback(easyaudio_buffer* pBuffer, easyaudio_even
     return pBuffer->pDevice->pContext->register_pause_callback(pBuffer, callback, pUserData);
 }
 
-bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData)
+bool draudio_register_play_callback(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData)
 {
     if (pBuffer == NULL) {
         return false;
     }
 
-    if (callback != NULL && easyaudio_get_playback_state(pBuffer) != easyaudio_stopped) {
+    if (callback != NULL && draudio_get_playback_state(pBuffer) != draudio_stopped) {
         return false;
     }
 
@@ -1322,35 +1322,35 @@ bool easyaudio_register_play_callback(easyaudio_buffer* pBuffer, easyaudio_event
 }
 
 
-easyaudio_event_callback easyaudio_get_stop_callback(easyaudio_buffer* pBuffer)
+draudio_event_callback draudio_get_stop_callback(draudio_buffer* pBuffer)
 {
     if (pBuffer != NULL) {
         return pBuffer->stopCallback;
     } else {
-        return (easyaudio_event_callback){NULL, NULL};
+        return (draudio_event_callback){NULL, NULL};
     }
 }
 
-easyaudio_event_callback easyaudio_get_pause_callback(easyaudio_buffer* pBuffer)
+draudio_event_callback draudio_get_pause_callback(draudio_buffer* pBuffer)
 {
     if (pBuffer != NULL) {
         return pBuffer->pauseCallback;
     } else {
-        return (easyaudio_event_callback){NULL, NULL};
+        return (draudio_event_callback){NULL, NULL};
     }
 }
 
-easyaudio_event_callback easyaudio_get_play_callback(easyaudio_buffer* pBuffer)
+draudio_event_callback draudio_get_play_callback(draudio_buffer* pBuffer)
 {
     if (pBuffer != NULL) {
         return pBuffer->playCallback;
     } else {
-        return (easyaudio_event_callback){NULL, NULL};
+        return (draudio_event_callback){NULL, NULL};
     }
 }
 
 
-void easyaudio_set_position(easyaudio_buffer* pBuffer, float x, float y, float z)
+void draudio_set_position(draudio_buffer* pBuffer, float x, float y, float z)
 {
     if (pBuffer == NULL) {
         return;
@@ -1361,7 +1361,7 @@ void easyaudio_set_position(easyaudio_buffer* pBuffer, float x, float y, float z
     pBuffer->pDevice->pContext->set_position(pBuffer, x, y, z);
 }
 
-void easyaudio_get_position(easyaudio_buffer* pBuffer, float* pPosOut)
+void draudio_get_position(draudio_buffer* pBuffer, float* pPosOut)
 {
     if (pBuffer == NULL) {
         return;
@@ -1377,7 +1377,7 @@ void easyaudio_get_position(easyaudio_buffer* pBuffer, float* pPosOut)
 }
 
 
-void easyaudio_set_listener_position(easyaudio_device* pDevice, float x, float y, float z)
+void draudio_set_listener_position(draudio_device* pDevice, float x, float y, float z)
 {
     if (pDevice == NULL) {
         return;
@@ -1386,7 +1386,7 @@ void easyaudio_set_listener_position(easyaudio_device* pDevice, float x, float y
     pDevice->pContext->set_listener_position(pDevice, x, y, z);
 }
 
-void easyaudio_get_listener_position(easyaudio_device* pDevice, float* pPosOut)
+void draudio_get_listener_position(draudio_device* pDevice, float* pPosOut)
 {
     if (pDevice == NULL || pPosOut == NULL) {
         return;
@@ -1395,7 +1395,7 @@ void easyaudio_get_listener_position(easyaudio_device* pDevice, float* pPosOut)
     pDevice->pContext->get_listener_position(pDevice, pPosOut);
 }
 
-void easyaudio_set_listener_orientation(easyaudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ)
+void draudio_set_listener_orientation(draudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ)
 {
     if (pDevice == NULL) {
         return;
@@ -1404,7 +1404,7 @@ void easyaudio_set_listener_orientation(easyaudio_device* pDevice, float forward
     pDevice->pContext->set_listener_orientation(pDevice, forwardX, forwardY, forwardZ, upX, upY, upZ);
 }
 
-void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwardOut, float* pUpOut)
+void draudio_get_listener_orientation(draudio_device* pDevice, float* pForwardOut, float* pUpOut)
 {
     if (pDevice == NULL) {
         return;
@@ -1414,7 +1414,7 @@ void easyaudio_get_listener_orientation(easyaudio_device* pDevice, float* pForwa
 }
 
 
-void easyaudio_set_3d_mode(easyaudio_buffer* pBuffer, easyaudio_3d_mode mode)
+void draudio_set_3d_mode(draudio_buffer* pBuffer, draudio_3d_mode mode)
 {
     if (pBuffer == NULL) {
         return;
@@ -1425,10 +1425,10 @@ void easyaudio_set_3d_mode(easyaudio_buffer* pBuffer, easyaudio_3d_mode mode)
     pBuffer->pDevice->pContext->set_3d_mode(pBuffer, mode);
 }
 
-easyaudio_3d_mode easyaudio_get_3d_mode(easyaudio_buffer* pBuffer)
+draudio_3d_mode draudio_get_3d_mode(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
-        return easyaudio_3d_mode_disabled;
+        return draudio_3d_mode_disabled;
     }
 
     assert(pBuffer->pDevice != NULL);
@@ -1467,9 +1467,9 @@ easyaudio_3d_mode easyaudio_get_3d_mode(easyaudio_buffer* pBuffer)
 #if defined(_WIN32)
 #include <windows.h>
 
-easyaudio_mutex easyaudio_create_mutex()
+draudio_mutex draudio_create_mutex()
 {
-    easyaudio_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
+    draudio_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
     if (mutex != NULL)
     {
         InitializeCriticalSection(mutex);
@@ -1478,18 +1478,18 @@ easyaudio_mutex easyaudio_create_mutex()
     return mutex;
 }
 
-void easyaudio_delete_mutex(easyaudio_mutex mutex)
+void draudio_delete_mutex(draudio_mutex mutex)
 {
     DeleteCriticalSection(mutex);
     free(mutex);
 }
 
-void easyaudio_lock_mutex(easyaudio_mutex mutex)
+void draudio_lock_mutex(draudio_mutex mutex)
 {
     EnterCriticalSection(mutex);
 }
 
-void easyaudio_unlock_mutex(easyaudio_mutex mutex)
+void draudio_unlock_mutex(draudio_mutex mutex)
 {
     LeaveCriticalSection(mutex);
 }
@@ -1499,15 +1499,15 @@ void easyaudio_unlock_mutex(easyaudio_mutex mutex)
 
 //// STREAMING ////
 
-#define EASYAUDIO_STREAMING_MARKER_0    EASYAUDIO_EVENT_ID_MARKER + 0
-#define EASYAUDIO_STREAMING_MARKER_1    EASYAUDIO_EVENT_ID_MARKER + 1
+#define DRAUDIO_STREAMING_MARKER_0    DRAUDIO_EVENT_ID_MARKER + 0
+#define DRAUDIO_STREAMING_MARKER_1    DRAUDIO_EVENT_ID_MARKER + 1
 
-#define EASYAUDIO_STREAMING_CHUNK_INVALID   0
+#define DRAUDIO_STREAMING_CHUNK_INVALID   0
 
 typedef struct
 {
     /// The steaming buffer callbacks.
-    easyaudio_streaming_callbacks callbacks;
+    draudio_streaming_callbacks callbacks;
 
     /// Keeps track of whether or not we are at the start of the playback.
     bool atStart;
@@ -1530,7 +1530,7 @@ typedef struct
 } ea_streaming_buffer_data;
 
 
-bool ea_streaming_buffer_load_next_chunk(easyaudio_buffer* pBuffer, ea_streaming_buffer_data* pStreamingData, unsigned int offset, unsigned int chunkSize)
+bool ea_streaming_buffer_load_next_chunk(draudio_buffer* pBuffer, ea_streaming_buffer_data* pStreamingData, unsigned int offset, unsigned int chunkSize)
 {
     assert(pStreamingData != NULL);
     assert(pStreamingData->callbacks.read != NULL);
@@ -1552,7 +1552,7 @@ bool ea_streaming_buffer_load_next_chunk(easyaudio_buffer* pBuffer, ea_streaming
 
     pStreamingData->stopAtEndOfCurrentChunk = false;
 
-    easyaudio_set_buffer_data(pBuffer, offset, pStreamingData->pTempChunkData, bytesRead);
+    draudio_set_buffer_data(pBuffer, offset, pStreamingData->pTempChunkData, bytesRead);
 
     if (chunkSize > bytesRead)
     {
@@ -1569,7 +1569,7 @@ bool ea_streaming_buffer_load_next_chunk(easyaudio_buffer* pBuffer, ea_streaming
         else
         {
             memset(pStreamingData->pTempChunkData + bytesRead, 0, chunkSize - bytesRead);
-            easyaudio_set_buffer_data(pBuffer, offset + bytesRead, pStreamingData->pTempChunkData + bytesRead, chunkSize - bytesRead);
+            draudio_set_buffer_data(pBuffer, offset + bytesRead, pStreamingData->pTempChunkData + bytesRead, chunkSize - bytesRead);
 
             pStreamingData->stopAtEndOfCurrentChunk = true;
         }
@@ -1578,20 +1578,20 @@ bool ea_streaming_buffer_load_next_chunk(easyaudio_buffer* pBuffer, ea_streaming
     return true;
 }
 
-void ea_steaming_buffer_marker_callback(easyaudio_buffer* pBuffer, unsigned int eventID, void *pUserData)
+void ea_steaming_buffer_marker_callback(draudio_buffer* pBuffer, unsigned int eventID, void *pUserData)
 {
     ea_streaming_buffer_data* pStreamingData = pUserData;
     assert(pStreamingData != NULL);
     
     unsigned int offset = 0;
-    if (eventID == EASYAUDIO_STREAMING_MARKER_0) {
+    if (eventID == DRAUDIO_STREAMING_MARKER_0) {
         offset = pStreamingData->chunkSize;
     }
 
     if (pStreamingData->stopAtEndOfCurrentChunk)
     {
         if (!pStreamingData->atStart) {
-            easyaudio_stop(pBuffer);
+            draudio_stop(pBuffer);
         }
     }
     else
@@ -1603,7 +1603,7 @@ void ea_steaming_buffer_marker_callback(easyaudio_buffer* pBuffer, unsigned int 
 }
 
 
-easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, easyaudio_streaming_callbacks callbacks, unsigned int extraDataSize)
+draudio_buffer* draudio_create_streaming_buffer(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, draudio_streaming_callbacks callbacks, unsigned int extraDataSize)
 {
     if (callbacks.read == NULL) {
         return NULL;
@@ -1615,19 +1615,19 @@ easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, e
 
 
     // We are determining for ourselves what the size of the buffer should be. We need to create our own copy rather than modify the input descriptor.
-    easyaudio_buffer_desc bufferDesc = *pBufferDesc;
+    draudio_buffer_desc bufferDesc = *pBufferDesc;
     bufferDesc.sizeInBytes  = pBufferDesc->sampleRate * pBufferDesc->channels * (pBufferDesc->bitsPerSample / 8);
     bufferDesc.pData        = NULL;
 
     unsigned int chunkSize = bufferDesc.sizeInBytes / 2;
 
-    easyaudio_buffer* pBuffer = easyaudio_create_buffer(pDevice, &bufferDesc, sizeof(ea_streaming_buffer_data) - sizeof(unsigned char) + chunkSize + extraDataSize);
+    draudio_buffer* pBuffer = draudio_create_buffer(pDevice, &bufferDesc, sizeof(ea_streaming_buffer_data) - sizeof(unsigned char) + chunkSize + extraDataSize);
     if (pBuffer == NULL) {
         return NULL;
     }
 
 
-    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    ea_streaming_buffer_data* pStreamingData = draudio_get_buffer_extra_data(pBuffer);
     assert(pStreamingData != NULL);
 
     pStreamingData->callbacks               = callbacks;
@@ -1638,51 +1638,51 @@ easyaudio_buffer* easyaudio_create_streaming_buffer(easyaudio_device* pDevice, e
 
     // Register two markers - one for the first half and another for the second half. When a half is finished playing we need to 
     // replace it with new data.
-    easyaudio_register_marker_callback(pBuffer, 0,         ea_steaming_buffer_marker_callback, EASYAUDIO_STREAMING_MARKER_0, pStreamingData);
-    easyaudio_register_marker_callback(pBuffer, chunkSize, ea_steaming_buffer_marker_callback, EASYAUDIO_STREAMING_MARKER_1, pStreamingData);
+    draudio_register_marker_callback(pBuffer, 0,         ea_steaming_buffer_marker_callback, DRAUDIO_STREAMING_MARKER_0, pStreamingData);
+    draudio_register_marker_callback(pBuffer, chunkSize, ea_steaming_buffer_marker_callback, DRAUDIO_STREAMING_MARKER_1, pStreamingData);
 
 
     return pBuffer;
 }
 
 
-unsigned int easyaudio_get_streaming_buffer_extra_data_size(easyaudio_buffer* pBuffer)
+unsigned int draudio_get_streaming_buffer_extra_data_size(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return 0;
     }
 
-    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    ea_streaming_buffer_data* pStreamingData = draudio_get_buffer_extra_data(pBuffer);
     assert(pStreamingData != NULL);
 
     return pStreamingData->extraDataSize;
 }
 
-void* easyaudio_get_streaming_buffer_extra_data(easyaudio_buffer* pBuffer)
+void* draudio_get_streaming_buffer_extra_data(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return NULL;
     }
 
-    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    ea_streaming_buffer_data* pStreamingData = draudio_get_buffer_extra_data(pBuffer);
     assert(pStreamingData != NULL);
 
     return ((char*)pStreamingData->pTempChunkData) + pStreamingData->chunkSize;
 }
 
 
-bool easyaudio_play_streaming_buffer(easyaudio_buffer* pBuffer, bool loop)
+bool draudio_play_streaming_buffer(draudio_buffer* pBuffer, bool loop)
 {
     if (pBuffer == NULL) {
         return false;
     }
 
 
-    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    ea_streaming_buffer_data* pStreamingData = draudio_get_buffer_extra_data(pBuffer);
     assert(pStreamingData != NULL);
 
     // If the buffer was previously in a paused state, we just play like normal. If it was in a stopped state we need to start from the beginning.
-    if (easyaudio_get_playback_state(pBuffer) == easyaudio_stopped)
+    if (draudio_get_playback_state(pBuffer) == draudio_stopped)
     {
         // We need to load some initial data into the first chunk.
         pStreamingData->atStart = true;
@@ -1697,18 +1697,18 @@ bool easyaudio_play_streaming_buffer(easyaudio_buffer* pBuffer, bool loop)
 
 
     pStreamingData->isLoopingEnabled = loop;
-    easyaudio_play(pBuffer, true);      // <-- Always loop on a streaming buffer. Actual looping is done a bit differently for streaming buffers.
+    draudio_play(pBuffer, true);      // <-- Always loop on a streaming buffer. Actual looping is done a bit differently for streaming buffers.
 
     return true;
 }
 
-bool easyaudio_is_streaming_buffer_looping(easyaudio_buffer* pBuffer)
+bool draudio_is_streaming_buffer_looping(draudio_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return false;
     }
 
-    ea_streaming_buffer_data* pStreamingData = easyaudio_get_buffer_extra_data(pBuffer);
+    ea_streaming_buffer_data* pStreamingData = draudio_get_buffer_extra_data(pBuffer);
     assert(pStreamingData != NULL);
 
     return pStreamingData->isLoopingEnabled;
@@ -1722,63 +1722,63 @@ bool easyaudio_is_streaming_buffer_looping(easyaudio_buffer* pBuffer)
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-EASYAUDIO_PRIVATE easyaudio_bool easyaudio_on_sound_read_callback(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut)
+DRAUDIO_PRIVATE draudio_bool draudio_on_sound_read_callback(void* pUserData, void* pDataOut, unsigned int bytesToRead, unsigned int* bytesReadOut)
 {
-    easyaudio_sound* pSound = pUserData;
+    draudio_sound* pSound = pUserData;
     assert(pSound != NULL);
     assert(pSound->onRead != NULL);
     
     bool result = false;
-    easyaudio_lock_mutex(pSound->pWorld->lock);
+    draudio_lock_mutex(pSound->pWorld->lock);
     {
         if (!pSound->markedForDeletion) {
             result = pSound->onRead(pSound, pDataOut, bytesToRead, bytesReadOut);
         }
     }
-    easyaudio_unlock_mutex(pSound->pWorld->lock);
+    draudio_unlock_mutex(pSound->pWorld->lock);
     
     return result;
 }
 
-EASYAUDIO_PRIVATE static easyaudio_bool easyaudio_on_sound_seek_callback(void* pUserData, unsigned int offsetInBytesFromStart)
+DRAUDIO_PRIVATE static draudio_bool draudio_on_sound_seek_callback(void* pUserData, unsigned int offsetInBytesFromStart)
 {
-    easyaudio_sound* pSound = pUserData;
+    draudio_sound* pSound = pUserData;
     assert(pSound != NULL);
     assert(pSound->onRead != NULL);
     
     bool result = false;
-    easyaudio_lock_mutex(pSound->pWorld->lock);
+    draudio_lock_mutex(pSound->pWorld->lock);
     {
         if (!pSound->markedForDeletion) {
             result = pSound->onSeek(pSound, offsetInBytesFromStart);
         }
     }
-    easyaudio_unlock_mutex(pSound->pWorld->lock);
+    draudio_unlock_mutex(pSound->pWorld->lock);
 
     return result;
 }
 
 
-EASYAUDIO_PRIVATE static void easyaudio_inline_sound_stop_callback(easyaudio_buffer* pBuffer, unsigned int eventID, void *pUserData)
+DRAUDIO_PRIVATE static void draudio_inline_sound_stop_callback(draudio_buffer* pBuffer, unsigned int eventID, void *pUserData)
 {
     (void)eventID;
 
     assert(pBuffer != NULL);
-    assert(eventID == EASYAUDIO_EVENT_ID_STOP);
+    assert(eventID == DRAUDIO_EVENT_ID_STOP);
     assert(pUserData != NULL);
 
-    easyaudio_sound* pSound = pUserData;
-    easyaudio_delete_sound(pSound);
+    draudio_sound* pSound = pUserData;
+    draudio_delete_sound(pSound);
 }
 
 
-EASYAUDIO_PRIVATE void easyaudio_prepend_sound(easyaudio_sound* pSound)
+DRAUDIO_PRIVATE void draudio_prepend_sound(draudio_sound* pSound)
 {
     assert(pSound != NULL);
     assert(pSound->pWorld != NULL);
     assert(pSound->pPrevSound == NULL);
 
-    easyaudio_lock_mutex(pSound->pWorld->lock);
+    draudio_lock_mutex(pSound->pWorld->lock);
     {
         pSound->pNextSound = pSound->pWorld->pFirstSound;
 
@@ -1788,10 +1788,10 @@ EASYAUDIO_PRIVATE void easyaudio_prepend_sound(easyaudio_sound* pSound)
 
         pSound->pWorld->pFirstSound = pSound;
     }
-    easyaudio_unlock_mutex(pSound->pWorld->lock);
+    draudio_unlock_mutex(pSound->pWorld->lock);
 }
 
-EASYAUDIO_PRIVATE void easyaudio_remove_sound_nolock(easyaudio_sound* pSound)
+DRAUDIO_PRIVATE void draudio_remove_sound_nolock(draudio_sound* pSound)
 {
     assert(pSound != NULL);
     assert(pSound->pWorld != NULL);
@@ -1810,45 +1810,45 @@ EASYAUDIO_PRIVATE void easyaudio_remove_sound_nolock(easyaudio_sound* pSound)
 }
 
 
-EASYAUDIO_PRIVATE bool easyaudio_is_inline_sound(easyaudio_sound* pSound)
+DRAUDIO_PRIVATE bool draudio_is_inline_sound(draudio_sound* pSound)
 {
     assert(pSound != NULL);
-    return easyaudio_get_stop_callback(pSound->pBuffer).callback == easyaudio_inline_sound_stop_callback;
+    return draudio_get_stop_callback(pSound->pBuffer).callback == draudio_inline_sound_stop_callback;
 }
 
 
-easyaudio_world* easyaudio_create_world(easyaudio_device* pDevice)
+draudio_world* draudio_create_world(draudio_device* pDevice)
 {
-    easyaudio_world* pWorld = malloc(sizeof(*pWorld));
+    draudio_world* pWorld = malloc(sizeof(*pWorld));
     if (pWorld != NULL)
     {
         pWorld->pDevice       = pDevice;
-        pWorld->playbackState = easyaudio_playing;
+        pWorld->playbackState = draudio_playing;
         pWorld->pFirstSound   = NULL;
-        pWorld->lock          = easyaudio_create_mutex();
+        pWorld->lock          = draudio_create_mutex();
     }
 
     return pWorld;
 }
 
-void easyaudio_delete_world(easyaudio_world* pWorld)
+void draudio_delete_world(draudio_world* pWorld)
 {
     if (pWorld == NULL) {
         return;
     }
 
     // Delete every sound first.
-    easyaudio_delete_all_sounds(pWorld);
+    draudio_delete_all_sounds(pWorld);
 
     // Delete the lock after deleting every sound because we still need thread-safety at this point.
-    easyaudio_delete_mutex(pWorld->lock);
+    draudio_delete_mutex(pWorld->lock);
 
     // Free the world last.
     free(pWorld);
 }
 
 
-easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound_desc desc)
+draudio_sound* draudio_create_sound(draudio_world* pWorld, draudio_sound_desc desc)
 {
     if (pWorld == NULL) {
         return NULL;
@@ -1859,13 +1859,13 @@ easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound
         return NULL;
     }
 
-    easyaudio_sound* pSound = malloc(sizeof(*pSound));
+    draudio_sound* pSound = malloc(sizeof(*pSound));
     if (pSound == NULL) {
         return NULL;
     }
 
     pSound->pWorld                 = pWorld;
-    pSound->prevPlaybackState      = easyaudio_stopped;
+    pSound->prevPlaybackState      = draudio_stopped;
     pSound->pNextSound             = NULL;
     pSound->pPrevSound             = NULL;
     pSound->isUsingStreamingBuffer = desc.sizeInBytes == 0 || desc.pData == NULL;
@@ -1874,7 +1874,7 @@ easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound
     pSound->onRead                 = desc.onRead;
     pSound->onSeek                 = desc.onSeek;
 
-    easyaudio_buffer_desc bufferDesc;
+    draudio_buffer_desc bufferDesc;
     bufferDesc.flags         = desc.flags;
     bufferDesc.format        = desc.format;
     bufferDesc.channels      = desc.channels;
@@ -1885,23 +1885,23 @@ easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound
 
     if (pSound->isUsingStreamingBuffer)
     {
-        easyaudio_streaming_callbacks streamingCallbacks;
+        draudio_streaming_callbacks streamingCallbacks;
         streamingCallbacks.pUserData = pSound;
-        streamingCallbacks.read      = easyaudio_on_sound_read_callback;
-        streamingCallbacks.seek      = easyaudio_on_sound_seek_callback;
+        streamingCallbacks.read      = draudio_on_sound_read_callback;
+        streamingCallbacks.seek      = draudio_on_sound_seek_callback;
 
-        pSound->pBuffer = easyaudio_create_streaming_buffer(pWorld->pDevice, &bufferDesc, streamingCallbacks, desc.extraDataSize);
+        pSound->pBuffer = draudio_create_streaming_buffer(pWorld->pDevice, &bufferDesc, streamingCallbacks, desc.extraDataSize);
         if (pSound->pBuffer != NULL && desc.pExtraData != NULL)
         {
-            memcpy(easyaudio_get_streaming_buffer_extra_data(pSound->pBuffer), desc.pExtraData, desc.extraDataSize);
+            memcpy(draudio_get_streaming_buffer_extra_data(pSound->pBuffer), desc.pExtraData, desc.extraDataSize);
         }
     }
     else
     {
-        pSound->pBuffer = easyaudio_create_buffer(pWorld->pDevice, &bufferDesc, desc.extraDataSize);
+        pSound->pBuffer = draudio_create_buffer(pWorld->pDevice, &bufferDesc, desc.extraDataSize);
         if (pSound->pBuffer != NULL && desc.pExtraData != NULL)
         {
-            memcpy(easyaudio_get_buffer_extra_data(pSound->pBuffer), desc.pExtraData, desc.extraDataSize);
+            memcpy(draudio_get_buffer_extra_data(pSound->pBuffer), desc.pExtraData, desc.extraDataSize);
         }
     }
 
@@ -1914,19 +1914,19 @@ easyaudio_sound* easyaudio_create_sound(easyaudio_world* pWorld, easyaudio_sound
 
 
     // Only attach the sound to the internal list at the end when we know everything has worked.
-    easyaudio_prepend_sound(pSound);
+    draudio_prepend_sound(pSound);
 
     return pSound;
 }
 
-void easyaudio_delete_sound(easyaudio_sound* pSound)
+void draudio_delete_sound(draudio_sound* pSound)
 {
     if (pSound == NULL) {
         return;
     }
 
 
-    easyaudio_lock_mutex(pSound->pWorld->lock);
+    draudio_lock_mutex(pSound->pWorld->lock);
     {
         if (pSound->markedForDeletion) {
             assert(false);
@@ -1937,13 +1937,13 @@ void easyaudio_delete_sound(easyaudio_sound* pSound)
 
 
         // Remove the sound from the internal list first.
-        easyaudio_remove_sound_nolock(pSound);
+        draudio_remove_sound_nolock(pSound);
 
 
         // If we're deleting an inline sound, we want to remove the stop event callback. If we don't do this, we'll end up trying to delete
         // the sound twice.
-        if (easyaudio_is_inline_sound(pSound)) {
-            easyaudio_register_stop_callback(pSound->pBuffer, NULL, NULL);
+        if (draudio_is_inline_sound(pSound)) {
+            draudio_register_stop_callback(pSound->pBuffer, NULL, NULL);
         }
 
 
@@ -1956,247 +1956,247 @@ void easyaudio_delete_sound(easyaudio_sound* pSound)
 
 
         // Delete the internal audio buffer before letting the host application know about the deletion.
-        easyaudio_delete_buffer(pSound->pBuffer);
+        draudio_delete_buffer(pSound->pBuffer);
     }
-    easyaudio_unlock_mutex(pSound->pWorld->lock);
+    draudio_unlock_mutex(pSound->pWorld->lock);
 
 
     // Only free the sound after the application has been made aware the sound is being deleted.
     free(pSound);
 }
 
-void easyaudio_delete_all_sounds(easyaudio_world* pWorld)
+void draudio_delete_all_sounds(draudio_world* pWorld)
 {
     if (pWorld == NULL) {
         return;
     }
 
     while (pWorld->pFirstSound != NULL) {
-        easyaudio_delete_sound(pWorld->pFirstSound);
+        draudio_delete_sound(pWorld->pFirstSound);
     }
 }
 
 
-unsigned int easyaudio_get_sound_extra_data_size(easyaudio_sound* pSound)
+unsigned int draudio_get_sound_extra_data_size(draudio_sound* pSound)
 {
     if (pSound == NULL) {
         return 0;
     }
 
     if (pSound->isUsingStreamingBuffer) {
-        return easyaudio_get_streaming_buffer_extra_data_size(pSound->pBuffer);
+        return draudio_get_streaming_buffer_extra_data_size(pSound->pBuffer);
     } else {
-        return easyaudio_get_buffer_extra_data_size(pSound->pBuffer);
+        return draudio_get_buffer_extra_data_size(pSound->pBuffer);
     }
 }
 
-void* easyaudio_get_sound_extra_data(easyaudio_sound* pSound)
+void* draudio_get_sound_extra_data(draudio_sound* pSound)
 {
     if (pSound == NULL) {
         return NULL;
     }
 
     if (pSound->isUsingStreamingBuffer) {
-        return easyaudio_get_streaming_buffer_extra_data(pSound->pBuffer);
+        return draudio_get_streaming_buffer_extra_data(pSound->pBuffer);
     } else {
-        return easyaudio_get_buffer_extra_data(pSound->pBuffer);
+        return draudio_get_buffer_extra_data(pSound->pBuffer);
     }
 }
 
 
-void easyaudio_play_sound(easyaudio_sound* pSound, bool loop)
+void draudio_play_sound(draudio_sound* pSound, bool loop)
 {
     if (pSound != NULL) {
         if (pSound->isUsingStreamingBuffer) {
-            easyaudio_play_streaming_buffer(pSound->pBuffer, loop);
+            draudio_play_streaming_buffer(pSound->pBuffer, loop);
         } else {
-            easyaudio_play(pSound->pBuffer, loop);
+            draudio_play(pSound->pBuffer, loop);
         }
     }
 }
 
-void easyaudio_pause_sound(easyaudio_sound* pSound)
+void draudio_pause_sound(draudio_sound* pSound)
 {
     if (pSound != NULL) {
-        easyaudio_pause(pSound->pBuffer);
+        draudio_pause(pSound->pBuffer);
     }
 }
 
-void easyaudio_stop_sound(easyaudio_sound* pSound)
+void draudio_stop_sound(draudio_sound* pSound)
 {
     if (pSound != NULL) {
-        easyaudio_stop(pSound->pBuffer);
+        draudio_stop(pSound->pBuffer);
     }
 }
 
-easyaudio_playback_state easyaudio_get_sound_playback_state(easyaudio_sound* pSound)
+draudio_playback_state draudio_get_sound_playback_state(draudio_sound* pSound)
 {
     if (pSound == NULL) {
-        return easyaudio_stopped;
+        return draudio_stopped;
     }
 
-    return easyaudio_get_playback_state(pSound->pBuffer);
+    return draudio_get_playback_state(pSound->pBuffer);
 }
 
-bool easyaudio_is_sound_looping(easyaudio_sound* pSound)
+bool draudio_is_sound_looping(draudio_sound* pSound)
 {
     if (pSound == NULL) {
         return false;
     }
 
     if (pSound->isUsingStreamingBuffer) {
-        return easyaudio_is_streaming_buffer_looping(pSound->pBuffer);
+        return draudio_is_streaming_buffer_looping(pSound->pBuffer);
     } else {
-        return easyaudio_is_looping(pSound->pBuffer);
+        return draudio_is_looping(pSound->pBuffer);
     }
 }
 
 
 
-void easyaudio_play_inline_sound(easyaudio_world* pWorld, easyaudio_sound_desc desc)
+void draudio_play_inline_sound(draudio_world* pWorld, draudio_sound_desc desc)
 {
     if (pWorld == NULL) {
         return;
     }
 
     // We need to explicitly ensure 3D positioning is disabled.
-    desc.flags &= ~EASYAUDIO_ENABLE_3D;
+    desc.flags &= ~DRAUDIO_ENABLE_3D;
 
-    easyaudio_sound* pSound = easyaudio_create_sound(pWorld, desc);
+    draudio_sound* pSound = draudio_create_sound(pWorld, desc);
     if (pSound != NULL)
     {
         // For inline sounds we set a callback for when the sound is stopped. When this callback is fired, the sound is deleted.
-        easyaudio_set_sound_stop_callback(pSound, easyaudio_inline_sound_stop_callback, pSound);
+        draudio_set_sound_stop_callback(pSound, draudio_inline_sound_stop_callback, pSound);
 
         // Start playing the sound once everything else has been set up.
-        easyaudio_play_sound(pSound, false);
+        draudio_play_sound(pSound, false);
     }
 }
 
-void easyaudio_play_inline_sound_3f(easyaudio_world* pWorld, easyaudio_sound_desc desc, float posX, float posY, float posZ)
+void draudio_play_inline_sound_3f(draudio_world* pWorld, draudio_sound_desc desc, float posX, float posY, float posZ)
 {
     if (pWorld == NULL) {
         return;
     }
 
-    easyaudio_sound* pSound = easyaudio_create_sound(pWorld, desc);
+    draudio_sound* pSound = draudio_create_sound(pWorld, desc);
     if (pSound != NULL)
     {
         // For inline sounds we set a callback for when the sound is stopped. When this callback is fired, the sound is deleted.
-        easyaudio_set_sound_stop_callback(pSound, easyaudio_inline_sound_stop_callback, pSound);
+        draudio_set_sound_stop_callback(pSound, draudio_inline_sound_stop_callback, pSound);
 
         // Set the position before playing anything.
-        easyaudio_set_sound_position(pSound, posX, posY, posZ);
+        draudio_set_sound_position(pSound, posX, posY, posZ);
 
         // Start playing the sound once everything else has been set up.
-        easyaudio_play_sound(pSound, false);
+        draudio_play_sound(pSound, false);
     }
 }
 
 
-void easyaudio_stop_all_sounds(easyaudio_world* pWorld)
+void draudio_stop_all_sounds(draudio_world* pWorld)
 {
     if (pWorld == NULL) {
         return;
     }
 
-    bool wasPlaying = pWorld->playbackState == easyaudio_playing;
-    if (pWorld->playbackState != easyaudio_stopped)
+    bool wasPlaying = pWorld->playbackState == draudio_playing;
+    if (pWorld->playbackState != draudio_stopped)
     {
         // We need to loop over every sound and stop them. We also need to keep track of their previous playback state
         // so that when resume_all_sounds() is called, it can be restored correctly.
-        for (easyaudio_sound* pSound = pWorld->pFirstSound; pSound != NULL; pSound = pSound->pNextSound)
+        for (draudio_sound* pSound = pWorld->pFirstSound; pSound != NULL; pSound = pSound->pNextSound)
         {
             if (wasPlaying) {
-                pSound->prevPlaybackState = easyaudio_get_sound_playback_state(pSound);
+                pSound->prevPlaybackState = draudio_get_sound_playback_state(pSound);
             }
 
-            easyaudio_stop_sound(pSound);
+            draudio_stop_sound(pSound);
         }
     }
 }
 
-void easyaudio_pause_all_sounds(easyaudio_world* pWorld)
+void draudio_pause_all_sounds(draudio_world* pWorld)
 {
     if (pWorld == NULL) {
         return;
     }
 
-    if (pWorld->playbackState == easyaudio_playing)
+    if (pWorld->playbackState == draudio_playing)
     {
         // We need to loop over every sound and stop them. We also need to keep track of their previous playback state
         // so that when resume_all_sounds() is called, it can be restored correctly.
-        for (easyaudio_sound* pSound = pWorld->pFirstSound; pSound != NULL; pSound = pSound->pNextSound)
+        for (draudio_sound* pSound = pWorld->pFirstSound; pSound != NULL; pSound = pSound->pNextSound)
         {
-            pSound->prevPlaybackState = easyaudio_get_sound_playback_state(pSound);
-            easyaudio_pause_sound(pSound);
+            pSound->prevPlaybackState = draudio_get_sound_playback_state(pSound);
+            draudio_pause_sound(pSound);
         }
     }
 }
 
-void easyaudio_resume_all_sounds(easyaudio_world* pWorld)
+void draudio_resume_all_sounds(draudio_world* pWorld)
 {
     if (pWorld == NULL) {
         return;
     }
 
-    if (pWorld->playbackState != easyaudio_playing)
+    if (pWorld->playbackState != draudio_playing)
     {
         // When resuming playback, we use the previous playback state to determine how to resume.
-        for (easyaudio_sound* pSound = pWorld->pFirstSound; pSound != NULL; pSound = pSound->pNextSound)
+        for (draudio_sound* pSound = pWorld->pFirstSound; pSound != NULL; pSound = pSound->pNextSound)
         {
-            if (pSound->prevPlaybackState == easyaudio_playing) {
-                easyaudio_play_sound(pSound, easyaudio_is_sound_looping(pSound));
+            if (pSound->prevPlaybackState == draudio_playing) {
+                draudio_play_sound(pSound, draudio_is_sound_looping(pSound));
             }
         }
     }
 }
 
 
-void easyaudio_set_sound_stop_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData)
+void draudio_set_sound_stop_callback(draudio_sound* pSound, draudio_event_callback_proc callback, void* pUserData)
 {
     if (pSound != NULL) {
-        easyaudio_register_stop_callback(pSound->pBuffer, callback, pUserData);
+        draudio_register_stop_callback(pSound->pBuffer, callback, pUserData);
     }
 }
 
-void easyaudio_set_sound_pause_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData)
+void draudio_set_sound_pause_callback(draudio_sound* pSound, draudio_event_callback_proc callback, void* pUserData)
 {
     if (pSound != NULL) {
-        easyaudio_register_pause_callback(pSound->pBuffer, callback, pUserData);
+        draudio_register_pause_callback(pSound->pBuffer, callback, pUserData);
     }
 }
 
-void easyaudio_set_sound_play_callback(easyaudio_sound* pSound, easyaudio_event_callback_proc callback, void* pUserData)
+void draudio_set_sound_play_callback(draudio_sound* pSound, draudio_event_callback_proc callback, void* pUserData)
 {
     if (pSound != NULL) {
-        easyaudio_register_play_callback(pSound->pBuffer, callback, pUserData);
-    }
-}
-
-
-void easyaudio_set_sound_position(easyaudio_sound* pSound, float posX, float posY, float posZ)
-{
-    if (pSound != NULL) {
-        easyaudio_set_position(pSound->pBuffer, posX, posY, posZ);
+        draudio_register_play_callback(pSound->pBuffer, callback, pUserData);
     }
 }
 
 
-void easyaudio_set_sound_3d_mode(easyaudio_sound* pSound, easyaudio_3d_mode mode)
+void draudio_set_sound_position(draudio_sound* pSound, float posX, float posY, float posZ)
 {
     if (pSound != NULL) {
-        easyaudio_set_3d_mode(pSound->pBuffer, mode);
+        draudio_set_position(pSound->pBuffer, posX, posY, posZ);
     }
 }
 
-easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound)
+
+void draudio_set_sound_3d_mode(draudio_sound* pSound, draudio_3d_mode mode)
+{
+    if (pSound != NULL) {
+        draudio_set_3d_mode(pSound->pBuffer, mode);
+    }
+}
+
+draudio_3d_mode draudio_get_sound_3d_mode(draudio_sound* pSound)
 {
     if (pSound == NULL) {
-        return easyaudio_3d_mode_disabled;
+        return draudio_3d_mode_disabled;
     }
 
-    return easyaudio_get_3d_mode(pSound->pBuffer);
+    return draudio_get_3d_mode(pSound->pBuffer);
 }
 
 
@@ -2227,7 +2227,7 @@ easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound)
 // as stop, pause, play and marker events.)
 //
 ///////////////////////////////////////////////////////////////////////////////
-#ifdef EASYAUDIO_BUILD_DSOUND
+#ifdef DRAUDIO_BUILD_DSOUND
 #include <windows.h>
 #include <dsound.h>
 #include <mmreg.h>
@@ -2237,11 +2237,11 @@ easyaudio_3d_mode easyaudio_get_sound_3d_mode(easyaudio_sound* pSound)
 
 //// Message Queue ////
 
-#define EASYAUDIO_MESSAGE_ID_UNKNOWN            0
-#define EASYAUDIO_MESSAGE_ID_EVENT              1
-#define EASYAUDIO_MESSAGE_ID_DELETE_BUFFER      2
-#define EASYAUDIO_MESSAGE_ID_DELETE_DEVICE      3
-#define EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD   4
+#define DRAUDIO_MESSAGE_ID_UNKNOWN            0
+#define DRAUDIO_MESSAGE_ID_EVENT              1
+#define DRAUDIO_MESSAGE_ID_DELETE_BUFFER      2
+#define DRAUDIO_MESSAGE_ID_DELETE_DEVICE      3
+#define DRAUDIO_MESSAGE_ID_TERMINATE_THREAD   4
 
 /// Structure representing an individual message
 typedef struct
@@ -2250,7 +2250,7 @@ typedef struct
     int id;
 
     /// A pointer to the relevant buffer.
-    easyaudio_buffer* pBuffer;
+    draudio_buffer* pBuffer;
 
 
     // The message-specific data.
@@ -2259,7 +2259,7 @@ typedef struct
         struct
         {
             /// A pointer to the callback function.
-            easyaudio_event_callback_proc callback;
+            draudio_event_callback_proc callback;
 
             /// The event ID.
             unsigned int eventID;
@@ -2296,13 +2296,13 @@ typedef struct
             LPDIRECTSOUND3DLISTENER8 pDSListener;
 
             /// A pointer to the device object being deleted.
-            easyaudio_device* pDevice;
+            draudio_device* pDevice;
 
         } delete_device;
 
     } data;
 
-} easyaudio_message_dsound;
+} draudio_message_dsound;
 
 
 /// Structure representing the main message queue.
@@ -2312,7 +2312,7 @@ typedef struct
 typedef struct
 {
     /// The buffer containing the list of events.
-    easyaudio_message_dsound messages[EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE];
+    draudio_message_dsound messages[DRAUDIO_MAX_MESSAGE_QUEUE_SIZE];
 
     /// The number of active messages in the queue.
     unsigned int messageCount;
@@ -2321,9 +2321,9 @@ typedef struct
     unsigned int iFirstMessage;
 
     /// The mutex for synchronizing access to message pushing and popping.
-    easyaudio_mutex queueLock;
+    draudio_mutex queueLock;
 
-    /// The semaphore that's used for blocking easyaudio_next_message_dsound(). The maximum value is set to EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE.
+    /// The semaphore that's used for blocking draudio_next_message_dsound(). The maximum value is set to DRAUDIO_MAX_MESSAGE_QUEUE_SIZE.
     HANDLE hMessageSemaphore;
 
     /// The message handling thread.
@@ -2332,19 +2332,19 @@ typedef struct
     /// Keeps track of whether or not the queue is deleted. We use this to ensure a thread does not try to post an event.
     bool isDeleted;
 
-} easyaudio_message_queue_dsound;
+} draudio_message_queue_dsound;
 
 
 /// The function to run on the message handling thread. This is implemented down the bottom.
-DWORD WINAPI MessageHandlingThread_DSound(easyaudio_message_queue_dsound* pQueue);
+DWORD WINAPI MessageHandlingThread_DSound(draudio_message_queue_dsound* pQueue);
 
 /// Posts a new message. This is thread safe.
-void easyaudio_post_message_dsound(easyaudio_message_queue_dsound* pQueue, easyaudio_message_dsound msg);
+void draudio_post_message_dsound(draudio_message_queue_dsound* pQueue, draudio_message_dsound msg);
 
 
 
 /// Initializes the given mesasge queue.
-bool easyaudio_init_message_queue_dsound(easyaudio_message_queue_dsound* pQueue)
+bool draudio_init_message_queue_dsound(draudio_message_queue_dsound* pQueue)
 {
     if (pQueue == NULL) {
         return false;
@@ -2353,15 +2353,15 @@ bool easyaudio_init_message_queue_dsound(easyaudio_message_queue_dsound* pQueue)
     pQueue->messageCount  = 0;
     pQueue->iFirstMessage = 0;
 
-    pQueue->queueLock = easyaudio_create_mutex();
+    pQueue->queueLock = draudio_create_mutex();
     if (pQueue->queueLock == NULL) {
         return false;
     }
 
-    pQueue->hMessageSemaphore = CreateSemaphoreA(NULL, 0, EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE, NULL);
+    pQueue->hMessageSemaphore = CreateSemaphoreA(NULL, 0, DRAUDIO_MAX_MESSAGE_QUEUE_SIZE, NULL);
     if (pQueue->hMessageSemaphore == NULL)
     {
-        easyaudio_delete_mutex(pQueue->queueLock);
+        draudio_delete_mutex(pQueue->queueLock);
         return false;
     }
 
@@ -2369,7 +2369,7 @@ bool easyaudio_init_message_queue_dsound(easyaudio_message_queue_dsound* pQueue)
     if (pQueue->hMessageHandlingThread == NULL)
     {
         CloseHandle(pQueue->hMessageSemaphore);
-        easyaudio_delete_mutex(pQueue->queueLock);
+        draudio_delete_mutex(pQueue->queueLock);
         return false;
     }
 
@@ -2379,13 +2379,13 @@ bool easyaudio_init_message_queue_dsound(easyaudio_message_queue_dsound* pQueue)
 }
 
 /// Uninitializes the given message queue.
-void easyaudio_uninit_message_queue_dsound(easyaudio_message_queue_dsound* pQueue)
+void draudio_uninit_message_queue_dsound(draudio_message_queue_dsound* pQueue)
 {
-    // We need to make sure the thread is closed properly before returning from here. To do this we just post an EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD
+    // We need to make sure the thread is closed properly before returning from here. To do this we just post an DRAUDIO_MESSAGE_ID_TERMINATE_THREAD
     // event to the message queue and wait for the thread to finish.
-    easyaudio_message_dsound msg;
-    msg.id = EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD;
-    easyaudio_post_message_dsound(pQueue, msg);
+    draudio_message_dsound msg;
+    msg.id = DRAUDIO_MESSAGE_ID_TERMINATE_THREAD;
+    draudio_post_message_dsound(pQueue, msg);
 
 
     // Once we posted the event we just wait for the thread to process it and terminate.
@@ -2400,19 +2400,19 @@ void easyaudio_uninit_message_queue_dsound(easyaudio_message_queue_dsound* pQueu
 
     
     pQueue->isDeleted = true;
-    easyaudio_lock_mutex(pQueue->queueLock);
+    draudio_lock_mutex(pQueue->queueLock);
     {
         pQueue->messageCount  = 0;
         pQueue->iFirstMessage = 0;
     }
-    easyaudio_unlock_mutex(pQueue->queueLock);
+    draudio_unlock_mutex(pQueue->queueLock);
 
-    easyaudio_delete_mutex(pQueue->queueLock);
+    draudio_delete_mutex(pQueue->queueLock);
     pQueue->queueLock = NULL;
 }
 
 
-void easyaudio_post_message_dsound(easyaudio_message_queue_dsound* pQueue, easyaudio_message_dsound msg)
+void draudio_post_message_dsound(draudio_message_queue_dsound* pQueue, draudio_message_dsound msg)
 {
     assert(pQueue != NULL);
 
@@ -2420,66 +2420,66 @@ void easyaudio_post_message_dsound(easyaudio_message_queue_dsound* pQueue, easya
         return;
     }
 
-    easyaudio_lock_mutex(pQueue->queueLock);
+    draudio_lock_mutex(pQueue->queueLock);
     {
-        if (pQueue->messageCount < EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE)
+        if (pQueue->messageCount < DRAUDIO_MAX_MESSAGE_QUEUE_SIZE)
         {
-            pQueue->messages[(pQueue->iFirstMessage + pQueue->messageCount) % EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE] = msg;
+            pQueue->messages[(pQueue->iFirstMessage + pQueue->messageCount) % DRAUDIO_MAX_MESSAGE_QUEUE_SIZE] = msg;
             pQueue->messageCount += 1;
 
             ReleaseSemaphore(pQueue->hMessageSemaphore, 1, NULL);
         }
     }
-    easyaudio_unlock_mutex(pQueue->queueLock);
+    draudio_unlock_mutex(pQueue->queueLock);
 }
 
 
 /// Retrieves the next message in the queue.
 ///
 /// @remarks
-///     This blocks until a message is available. This will return false when it receives the EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD message.
-bool easyaudio_next_message_dsound(easyaudio_message_queue_dsound* pQueue, easyaudio_message_dsound* pMsgOut)
+///     This blocks until a message is available. This will return false when it receives the DRAUDIO_MESSAGE_ID_TERMINATE_THREAD message.
+bool draudio_next_message_dsound(draudio_message_queue_dsound* pQueue, draudio_message_dsound* pMsgOut)
 {
     if (WaitForSingleObject(pQueue->hMessageSemaphore, INFINITE) == WAIT_OBJECT_0)   // Wait for a message to become available.
     {
-        easyaudio_message_dsound msg;
-        msg.id = EASYAUDIO_MESSAGE_ID_UNKNOWN;
+        draudio_message_dsound msg;
+        msg.id = DRAUDIO_MESSAGE_ID_UNKNOWN;
 
-        easyaudio_lock_mutex(pQueue->queueLock);
+        draudio_lock_mutex(pQueue->queueLock);
         {
             assert(pQueue->messageCount > 0);
 
             msg = pQueue->messages[pQueue->iFirstMessage];
 
-            pQueue->iFirstMessage = (pQueue->iFirstMessage + 1) % EASYAUDIO_MAX_MESSAGE_QUEUE_SIZE;
+            pQueue->iFirstMessage = (pQueue->iFirstMessage + 1) % DRAUDIO_MAX_MESSAGE_QUEUE_SIZE;
             pQueue->messageCount -= 1;
         }
-        easyaudio_unlock_mutex(pQueue->queueLock);
+        draudio_unlock_mutex(pQueue->queueLock);
 
 
         if (pMsgOut != NULL) {
             pMsgOut[0] = msg;
         }
 
-        return msg.id != EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD;
+        return msg.id != DRAUDIO_MESSAGE_ID_TERMINATE_THREAD;
     }
 
     return false;
 }
 
 
-DWORD WINAPI MessageHandlingThread_DSound(easyaudio_message_queue_dsound* pQueue)
+DWORD WINAPI MessageHandlingThread_DSound(draudio_message_queue_dsound* pQueue)
 {
     assert(pQueue != NULL);
 
-    easyaudio_message_dsound msg;
-    while (easyaudio_next_message_dsound(pQueue, &msg))
+    draudio_message_dsound msg;
+    while (draudio_next_message_dsound(pQueue, &msg))
     {
-        assert(msg.id != EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD);        // <-- easyaudio_next_message_dsound() will return false when it receives EASYAUDIO_MESSAGE_ID_TERMINATE_THREAD.
+        assert(msg.id != DRAUDIO_MESSAGE_ID_TERMINATE_THREAD);        // <-- draudio_next_message_dsound() will return false when it receives DRAUDIO_MESSAGE_ID_TERMINATE_THREAD.
 
         switch (msg.id)
         {
-            case EASYAUDIO_MESSAGE_ID_EVENT:
+            case DRAUDIO_MESSAGE_ID_EVENT:
             {
                 assert(msg.data.callback_event.callback != NULL);
 
@@ -2487,7 +2487,7 @@ DWORD WINAPI MessageHandlingThread_DSound(easyaudio_message_queue_dsound* pQueue
                 break;
             }
 
-            case EASYAUDIO_MESSAGE_ID_DELETE_BUFFER:
+            case DRAUDIO_MESSAGE_ID_DELETE_BUFFER:
             {
                 if (msg.data.delete_buffer.pDSNotify != NULL) {
                     IDirectSoundNotify_Release(msg.data.delete_buffer.pDSNotify);
@@ -2505,7 +2505,7 @@ DWORD WINAPI MessageHandlingThread_DSound(easyaudio_message_queue_dsound* pQueue
                 break;
             }
 
-            case EASYAUDIO_MESSAGE_ID_DELETE_DEVICE:
+            case DRAUDIO_MESSAGE_ID_DELETE_DEVICE:
             {
                 if (msg.data.delete_device.pDSListener != NULL) {
                     IDirectSound3DListener_Release(msg.data.delete_device.pDSListener);
@@ -2539,29 +2539,29 @@ DWORD WINAPI MessageHandlingThread_DSound(easyaudio_message_queue_dsound* pQueue
 
 
 /// Deactivates (but does not delete) every event associated with the given buffer.
-void easyaudio_deactivate_buffer_events_dsound(easyaudio_buffer* pBuffer);
+void draudio_deactivate_buffer_events_dsound(draudio_buffer* pBuffer);
 
 
 //// Event Management ////
 
-typedef struct easyaudio_event_manager_dsound easyaudio_event_manager_dsound;
-typedef struct easyaudio_event_dsound easyaudio_event_dsound;
+typedef struct draudio_event_manager_dsound draudio_event_manager_dsound;
+typedef struct draudio_event_dsound draudio_event_dsound;
 
-struct easyaudio_event_dsound
+struct draudio_event_dsound
 {
     /// A pointer to the event manager that owns this event.
-    easyaudio_event_manager_dsound* pEventManager;
+    draudio_event_manager_dsound* pEventManager;
 
     /// The event.
     HANDLE hEvent;
 
     /// The callback.
-    easyaudio_event_callback_proc callback;
+    draudio_event_callback_proc callback;
 
     /// A pointer to the applicable buffer.
-    easyaudio_buffer* pBuffer;
+    draudio_buffer* pBuffer;
 
-    /// The event ID. For on_stop events, this will be set to EASYAUDIO_EVENT_STOP
+    /// The event ID. For on_stop events, this will be set to DRAUDIO_EVENT_STOP
     unsigned int eventID;
 
     /// A pointer to the user data.
@@ -2571,16 +2571,16 @@ struct easyaudio_event_dsound
     DWORD markerOffset;
 
     /// Events are stored in a linked list. This is a pointer to the next event in the list.
-    easyaudio_event_dsound* pNextEvent;
+    draudio_event_dsound* pNextEvent;
 
     /// A pointer to the previous event.
-    easyaudio_event_dsound* pPrevEvent;
+    draudio_event_dsound* pPrevEvent;
 };
 
-struct easyaudio_event_manager_dsound
+struct draudio_event_manager_dsound
 {
     /// A pointer to the message queue where messages will be posted for event processing.
-    easyaudio_message_queue_dsound* pMessageQueue;
+    draudio_message_queue_dsound* pMessageQueue;
 
 
     /// A handle to the event worker thread.
@@ -2593,33 +2593,33 @@ struct easyaudio_event_manager_dsound
     HANDLE hRefreshEvent;
 
     /// The mutex to use when refreshing the worker thread. This is used to ensure only one refresh is done at a time.
-    easyaudio_mutex refreshMutex;
+    draudio_mutex refreshMutex;
 
     /// The synchronization lock.
-    easyaudio_mutex mainLock;
+    draudio_mutex mainLock;
 
-    /// The event object for notifying easy_audio when an event has finished being handled by the event handling thread.
+    /// The event object for notifying dr_audio when an event has finished being handled by the event handling thread.
     HANDLE hEventCompletionLock;
 
 
     /// The first event in a list.
-    easyaudio_event_dsound* pFirstEvent;
+    draudio_event_dsound* pFirstEvent;
 
     /// The last event in the list of events.
-    easyaudio_event_dsound* pLastEvent;
+    draudio_event_dsound* pLastEvent;
 };
 
 
 /// Locks the event manager.
-void easyaudio_lock_events_dsound(easyaudio_event_manager_dsound* pEventManager)
+void draudio_lock_events_dsound(draudio_event_manager_dsound* pEventManager)
 {
-    easyaudio_lock_mutex(pEventManager->mainLock);
+    draudio_lock_mutex(pEventManager->mainLock);
 }
 
 /// Unlocks the event manager.
-void easyaudio_unlock_events_dsound(easyaudio_event_manager_dsound* pEventManager)
+void draudio_unlock_events_dsound(draudio_event_manager_dsound* pEventManager)
 {
-    easyaudio_unlock_mutex(pEventManager->mainLock);
+    draudio_unlock_mutex(pEventManager->mainLock);
 }
 
 
@@ -2627,11 +2627,11 @@ void easyaudio_unlock_events_dsound(easyaudio_event_manager_dsound* pEventManage
 ///
 /// @remarks
 ///     This will be used when moving the event to a new location in the list or when it is being deleted.
-void easyaudio_remove_event_dsound_nolock(easyaudio_event_dsound* pEvent)
+void draudio_remove_event_dsound_nolock(draudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
     
-    easyaudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
+    draudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
     assert(pEventManager != NULL);
 
     if (pEventManager->pFirstEvent == pEvent) {
@@ -2655,28 +2655,28 @@ void easyaudio_remove_event_dsound_nolock(easyaudio_event_dsound* pEvent)
     pEvent->pPrevEvent = NULL;
 }
 
-/// @copydoc easyaudio_remove_event_dsound_nolock()
-void easyaudio_remove_event_dsound(easyaudio_event_dsound* pEvent)
+/// @copydoc draudio_remove_event_dsound_nolock()
+void draudio_remove_event_dsound(draudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
 
-    easyaudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
-    easyaudio_lock_events_dsound(pEventManager);
+    draudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
+    draudio_lock_events_dsound(pEventManager);
     {
-        easyaudio_remove_event_dsound_nolock(pEvent);
+        draudio_remove_event_dsound_nolock(pEvent);
     }
-    easyaudio_unlock_events_dsound(pEventManager);
+    draudio_unlock_events_dsound(pEventManager);
 }
 
 /// Adds the given event to the end of the internal list.
-void easyaudio_append_event_dsound(easyaudio_event_dsound* pEvent)
+void draudio_append_event_dsound(draudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
 
-    easyaudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
-    easyaudio_lock_events_dsound(pEventManager);
+    draudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
+    draudio_lock_events_dsound(pEventManager);
     {
-        easyaudio_remove_event_dsound_nolock(pEvent);
+        draudio_remove_event_dsound_nolock(pEvent);
 
         assert(pEvent->pNextEvent == NULL);
 
@@ -2691,17 +2691,17 @@ void easyaudio_append_event_dsound(easyaudio_event_dsound* pEvent)
 
         pEventManager->pLastEvent = pEvent;
     }
-    easyaudio_unlock_events_dsound(pEventManager);
+    draudio_unlock_events_dsound(pEventManager);
 }
 
-void easyaudio_refresh_worker_thread_event_queue(easyaudio_event_manager_dsound* pEventManager)
+void draudio_refresh_worker_thread_event_queue(draudio_event_manager_dsound* pEventManager)
 {
     assert(pEventManager != NULL);
 
     // To refresh the worker thread we just need to signal the refresh event. We then just need to wait for
     // processing to finish which we can do by waiting on another event to become signaled.
 
-    easyaudio_lock_mutex(pEventManager->refreshMutex);
+    draudio_lock_mutex(pEventManager->refreshMutex);
     {
         // Signal a refresh.
         SetEvent(pEventManager->hRefreshEvent);
@@ -2709,12 +2709,12 @@ void easyaudio_refresh_worker_thread_event_queue(easyaudio_event_manager_dsound*
         // Wait for refreshing to complete.
         WaitForSingleObject(pEventManager->hEventCompletionLock, INFINITE);
     }
-    easyaudio_unlock_mutex(pEventManager->refreshMutex);
+    draudio_unlock_mutex(pEventManager->refreshMutex);
 }
 
 
 /// Closes the Win32 event handle of the given event.
-void easyaudio_close_win32_event_handle_dsound(easyaudio_event_dsound* pEvent)
+void draudio_close_win32_event_handle_dsound(draudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
     assert(pEvent->pEventManager != NULL);
@@ -2723,7 +2723,7 @@ void easyaudio_close_win32_event_handle_dsound(easyaudio_event_dsound* pEvent)
     // At the time of calling this function, pEvent should have been removed from the internal list. The issue is that
     // the event notification thread is waiting on it. Thus, we need to refresh the worker thread to ensure the event
     // have been flushed from that queue. To do this we just signal a special event that's used to trigger a refresh.
-    easyaudio_refresh_worker_thread_event_queue(pEvent->pEventManager);
+    draudio_refresh_worker_thread_event_queue(pEvent->pEventManager);
 
     // The worker thread should not be waiting on the event so we can go ahead and close the handle now.
     CloseHandle(pEvent->hEvent);
@@ -2732,24 +2732,24 @@ void easyaudio_close_win32_event_handle_dsound(easyaudio_event_dsound* pEvent)
 
 
 /// Updates the given event to use the given callback and user data.
-void easyaudio_update_event_dsound(easyaudio_event_dsound* pEvent, easyaudio_event_callback_proc callback, void* pUserData)
+void draudio_update_event_dsound(draudio_event_dsound* pEvent, draudio_event_callback_proc callback, void* pUserData)
 {
     assert(pEvent != NULL);
 
     pEvent->callback  = callback;
     pEvent->pUserData = pUserData;
 
-    easyaudio_refresh_worker_thread_event_queue(pEvent->pEventManager);
+    draudio_refresh_worker_thread_event_queue(pEvent->pEventManager);
 }
 
 /// Creates a new event, but does not activate it.
 ///
 /// @remarks
 ///     When an event is created, it just sits dormant and will never be triggered until it has been
-///     activated with easyaudio_activate_event_dsound().
-easyaudio_event_dsound* easyaudio_create_event_dsound(easyaudio_event_manager_dsound* pEventManager, easyaudio_event_callback_proc callback, easyaudio_buffer* pBuffer, unsigned int eventID, void* pUserData)
+///     activated with draudio_activate_event_dsound().
+draudio_event_dsound* draudio_create_event_dsound(draudio_event_manager_dsound* pEventManager, draudio_event_callback_proc callback, draudio_buffer* pBuffer, unsigned int eventID, void* pUserData)
 {
-    easyaudio_event_dsound* pEvent = malloc(sizeof(easyaudio_event_dsound));
+    draudio_event_dsound* pEvent = malloc(sizeof(draudio_event_dsound));
     if (pEvent != NULL)
     {
         pEvent->pEventManager = pEventManager;
@@ -2763,11 +2763,11 @@ easyaudio_event_dsound* easyaudio_create_event_dsound(easyaudio_event_manager_ds
         pEvent->pPrevEvent    = NULL;
 
         // Append the event to the internal list.
-        easyaudio_append_event_dsound(pEvent);
+        draudio_append_event_dsound(pEvent);
 
         // This roundabout way of setting the callback and user data is to ensure the worker thread is made aware that it needs
         // to refresh it's local event data.
-        easyaudio_update_event_dsound(pEvent, callback, pUserData);
+        draudio_update_event_dsound(pEvent, callback, pUserData);
     }
 
     return pEvent;
@@ -2777,7 +2777,7 @@ easyaudio_event_dsound* easyaudio_create_event_dsound(easyaudio_event_manager_ds
 ///
 /// @remarks
 ///     This will not return until the event has been deleted completely.
-void easyaudio_delete_event_dsound(easyaudio_event_dsound* pEvent)
+void draudio_delete_event_dsound(draudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
 
@@ -2789,11 +2789,11 @@ void easyaudio_delete_event_dsound(easyaudio_event_dsound* pEvent)
     pEvent->markerOffset = 0;
 
     // Remove the event from the list.
-    easyaudio_remove_event_dsound(pEvent);
+    draudio_remove_event_dsound(pEvent);
 
     // Close the Win32 event handle.
     if (pEvent->hEvent != NULL) {
-        easyaudio_close_win32_event_handle_dsound(pEvent);
+        draudio_close_win32_event_handle_dsound(pEvent);
     }
 
 
@@ -2803,7 +2803,7 @@ void easyaudio_delete_event_dsound(easyaudio_event_dsound* pEvent)
 
 
 /// Gathers the event handles and callback data for all of the relevant buffer events.
-unsigned int easyaudio_gather_events_dsound(easyaudio_event_manager_dsound *pEventManager, HANDLE* pHandlesOut, easyaudio_event_dsound** ppEventsOut, unsigned int outputBufferSize)
+unsigned int draudio_gather_events_dsound(draudio_event_manager_dsound *pEventManager, HANDLE* pHandlesOut, draudio_event_dsound** ppEventsOut, unsigned int outputBufferSize)
 {
     assert(pEventManager != NULL);
     assert(pHandlesOut != NULL);
@@ -2811,7 +2811,7 @@ unsigned int easyaudio_gather_events_dsound(easyaudio_event_manager_dsound *pEve
     assert(outputBufferSize >= 2);
 
     unsigned int i = 2;
-    easyaudio_lock_events_dsound(pEventManager);
+    draudio_lock_events_dsound(pEventManager);
     {
         pHandlesOut[0] = pEventManager->hTerminateEvent;
         ppEventsOut[0] = NULL;
@@ -2820,7 +2820,7 @@ unsigned int easyaudio_gather_events_dsound(easyaudio_event_manager_dsound *pEve
         ppEventsOut[1] = NULL;
 
 
-        easyaudio_event_dsound* pEvent = pEventManager->pFirstEvent;
+        draudio_event_dsound* pEvent = pEventManager->pFirstEvent;
         while (i < outputBufferSize && pEvent != NULL)
         {
             if (pEvent->hEvent != NULL)
@@ -2834,13 +2834,13 @@ unsigned int easyaudio_gather_events_dsound(easyaudio_event_manager_dsound *pEve
             pEvent = pEvent->pNextEvent;
         }
     }
-    easyaudio_unlock_events_dsound(pEventManager);
+    draudio_unlock_events_dsound(pEventManager);
 
     return i;
 }
 
 /// The entry point to the event worker thread.
-DWORD WINAPI DSound_EventWorkerThreadProc(easyaudio_event_manager_dsound *pEventManager)
+DWORD WINAPI DSound_EventWorkerThreadProc(draudio_event_manager_dsound *pEventManager)
 {
     if (pEventManager != NULL)
     {
@@ -2848,15 +2848,15 @@ DWORD WINAPI DSound_EventWorkerThreadProc(easyaudio_event_manager_dsound *pEvent
         HANDLE hRefreshEvent   = pEventManager->hRefreshEvent;
 
         HANDLE eventHandles[1024];
-        easyaudio_event_dsound* events[1024];
-        unsigned int eventCount = easyaudio_gather_events_dsound(pEventManager, eventHandles, events, 1024);   // <-- Initial gather.
+        draudio_event_dsound* events[1024];
+        unsigned int eventCount = draudio_gather_events_dsound(pEventManager, eventHandles, events, 1024);   // <-- Initial gather.
 
         bool requestedRefresh = false;
         for (;;)
         {
             if (requestedRefresh)
             {
-                eventCount = easyaudio_gather_events_dsound(pEventManager, eventHandles, events, 1024);
+                eventCount = draudio_gather_events_dsound(pEventManager, eventHandles, events, 1024);
 
                 // Refreshing is done, so now we need to let other threads know about it.
                 SetEvent(pEventManager->hEventCompletionLock);
@@ -2888,7 +2888,7 @@ DWORD WINAPI DSound_EventWorkerThreadProc(easyaudio_event_manager_dsound *pEvent
 
 
                 // If we get here if means we have hit a callback event.
-                easyaudio_event_dsound* pEvent = events[eventIndex];
+                draudio_event_dsound* pEvent = events[eventIndex];
                 if (pEvent->callback != NULL)
                 {
                     assert(pEvent->hEvent == hEvent);
@@ -2896,17 +2896,17 @@ DWORD WINAPI DSound_EventWorkerThreadProc(easyaudio_event_manager_dsound *pEvent
                     // The stop event will be signaled by DirectSound when IDirectSoundBuffer::Stop() is called. The problem is that we need to call that when the
                     // sound is paused as well. Thus, we need to check if we got the stop event, and if so DON'T call the callback function if it is in a non-stopped
                     // state.
-                    bool isStopEventButNotStopped = pEvent->eventID == EASYAUDIO_EVENT_ID_STOP && easyaudio_get_playback_state(pEvent->pBuffer) != easyaudio_stopped;
+                    bool isStopEventButNotStopped = pEvent->eventID == DRAUDIO_EVENT_ID_STOP && draudio_get_playback_state(pEvent->pBuffer) != draudio_stopped;
                     if (!isStopEventButNotStopped)
                     {
                         // We don't call the callback directly. Instead we post a message to the message handling thread for processing later.
-                        easyaudio_message_dsound msg;
-                        msg.id      = EASYAUDIO_MESSAGE_ID_EVENT;
+                        draudio_message_dsound msg;
+                        msg.id      = DRAUDIO_MESSAGE_ID_EVENT;
                         msg.pBuffer = pEvent->pBuffer;
                         msg.data.callback_event.callback  = pEvent->callback;
                         msg.data.callback_event.eventID   = pEvent->eventID;
                         msg.data.callback_event.pUserData = pEvent->pUserData;
-                        easyaudio_post_message_dsound(pEventManager->pMessageQueue, msg);
+                        draudio_post_message_dsound(pEventManager->pMessageQueue, msg);
                     }
                 }
             }
@@ -2918,7 +2918,7 @@ DWORD WINAPI DSound_EventWorkerThreadProc(easyaudio_event_manager_dsound *pEvent
 
 
 /// Initializes the event manager by creating the thread and event objects.
-bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventManager, easyaudio_message_queue_dsound* pMessageQueue)
+bool draudio_init_event_manager_dsound(draudio_event_manager_dsound* pEventManager, draudio_message_queue_dsound* pMessageQueue)
 {
     assert(pEventManager != NULL);
     assert(pMessageQueue != NULL);
@@ -2937,7 +2937,7 @@ bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventM
         return false;
     }
 
-    easyaudio_mutex refreshMutex = easyaudio_create_mutex();
+    draudio_mutex refreshMutex = draudio_create_mutex();
     if (refreshMutex == NULL)
     {
         CloseHandle(hTerminateEvent);
@@ -2945,12 +2945,12 @@ bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventM
         return false;
     }
 
-    easyaudio_mutex mainLock = easyaudio_create_mutex();
+    draudio_mutex mainLock = draudio_create_mutex();
     if (mainLock == NULL)
     {
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
-        easyaudio_delete_mutex(refreshMutex);
+        draudio_delete_mutex(refreshMutex);
         return false;
     }
 
@@ -2959,8 +2959,8 @@ bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventM
     {
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
-        easyaudio_delete_mutex(refreshMutex);
-        easyaudio_delete_mutex(mainLock);
+        draudio_delete_mutex(refreshMutex);
+        draudio_delete_mutex(mainLock);
         return false;
     }
 
@@ -2970,8 +2970,8 @@ bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventM
     {
         CloseHandle(hTerminateEvent);
         CloseHandle(hRefreshEvent);
-        easyaudio_delete_mutex(refreshMutex);
-        easyaudio_delete_mutex(mainLock);
+        draudio_delete_mutex(refreshMutex);
+        draudio_delete_mutex(mainLock);
         CloseHandle(hEventCompletionLock);
         return false;
     }
@@ -2996,14 +2996,14 @@ bool easyaudio_init_event_manager_dsound(easyaudio_event_manager_dsound* pEventM
 ///     This does not return until the worker thread has been terminated completely.
 ///     @par
 ///     This will delete every event, so any pointers to events will be made invalid upon calling this function.
-void easyaudio_uninit_event_manager_dsound(easyaudio_event_manager_dsound* pEventManager)
+void draudio_uninit_event_manager_dsound(draudio_event_manager_dsound* pEventManager)
 {
     assert(pEventManager != NULL);
 
 
     // Cleanly delete every event first.
     while (pEventManager->pFirstEvent != NULL) {
-        easyaudio_delete_event_dsound(pEventManager->pFirstEvent);
+        draudio_delete_event_dsound(pEventManager->pFirstEvent);
     }
 
 
@@ -3023,10 +3023,10 @@ void easyaudio_uninit_event_manager_dsound(easyaudio_event_manager_dsound* pEven
     CloseHandle(pEventManager->hRefreshEvent);
     pEventManager->hRefreshEvent = NULL;
 
-    easyaudio_delete_mutex(pEventManager->refreshMutex);
+    draudio_delete_mutex(pEventManager->refreshMutex);
     pEventManager->refreshMutex = NULL;
 
-    easyaudio_delete_mutex(pEventManager->mainLock);
+    draudio_delete_mutex(pEventManager->mainLock);
     pEventManager->mainLock = NULL;
 
 
@@ -3060,12 +3060,12 @@ typedef struct
     /// The module name of the DirectSound driver corresponding to this device.
     char moduleName[256];
 
-} easyaudio_device_info_dsound;
+} draudio_device_info_dsound;
 
 typedef struct
 {
     /// The base context data. This must always be the first item in the struct.
-    easyaudio_context base;
+    draudio_context base;
 
     /// A handle to the dsound.dll file that was loaded by LoadLibrary().
     HMODULE hDSoundDLL;
@@ -3082,7 +3082,7 @@ typedef struct
     unsigned int outputDeviceCount;
 
     /// The buffer containing the list of enumerated output devices.
-    easyaudio_device_info_dsound outputDeviceInfo[EASYAUDIO_MAX_DEVICE_COUNT];
+    draudio_device_info_dsound outputDeviceInfo[DRAUDIO_MAX_DEVICE_COUNT];
 
 
     /// The number of capture devices that were iterated when the context was created. This is static, so if the user was to unplug
@@ -3090,22 +3090,22 @@ typedef struct
     unsigned int inputDeviceCount;
 
     /// The buffer containing the list of enumerated input devices.
-    easyaudio_device_info_dsound inputDeviceInfo[EASYAUDIO_MAX_DEVICE_COUNT];
+    draudio_device_info_dsound inputDeviceInfo[DRAUDIO_MAX_DEVICE_COUNT];
 
 
     /// The event manager.
-    easyaudio_event_manager_dsound eventManager;
+    draudio_event_manager_dsound eventManager;
 
 
     /// The message queue.
-    easyaudio_message_queue_dsound messageQueue;
+    draudio_message_queue_dsound messageQueue;
 
-} easyaudio_context_dsound;
+} draudio_context_dsound;
 
 typedef struct
 {
     /// The base device data. This must always be the first item in the struct.
-    easyaudio_device base;
+    draudio_device base;
 
     /// A pointer to the DIRECTSOUND object that was created with DirectSoundCreate8().
     LPDIRECTSOUND8 pDS;
@@ -3116,12 +3116,12 @@ typedef struct
     /// A pointer to the DIRECTSOUND3DLISTENER8 object associated with the device.
     LPDIRECTSOUND3DLISTENER8 pDSListener;
 
-} easyaudio_device_dsound;
+} draudio_device_dsound;
 
 typedef struct
 {
     /// The base buffer data. This must always be the first item in the struct.
-    easyaudio_buffer base;
+    draudio_buffer base;
 
     /// A pointer to the DirectSound buffer object.
     LPDIRECTSOUNDBUFFER8 pDSBuffer;
@@ -3133,23 +3133,23 @@ typedef struct
     LPDIRECTSOUNDNOTIFY8 pDSNotify;
 
     /// The current playback state.
-    easyaudio_playback_state playbackState;
+    draudio_playback_state playbackState;
 
 
-    /// The number of marker events that have been registered. This will never be more than EASYAUDIO_MAX_MARKER_COUNT.
+    /// The number of marker events that have been registered. This will never be more than DRAUDIO_MAX_MARKER_COUNT.
     unsigned int markerEventCount;
 
     /// The marker events.
-    easyaudio_event_dsound* pMarkerEvents[EASYAUDIO_MAX_MARKER_COUNT];
+    draudio_event_dsound* pMarkerEvents[DRAUDIO_MAX_MARKER_COUNT];
 
     /// The event to trigger when the sound is stopped.
-    easyaudio_event_dsound* pStopEvent;
+    draudio_event_dsound* pStopEvent;
 
     /// The event to trigger when the sound is paused.
-    easyaudio_event_dsound* pPauseEvent;
+    draudio_event_dsound* pPauseEvent;
 
     /// The event to trigger when the sound is played or resumed.
-    easyaudio_event_dsound* pPlayEvent;
+    draudio_event_dsound* pPlayEvent;
 
 
     /// The size in bytes of the buffer's extra data.
@@ -3158,16 +3158,16 @@ typedef struct
     /// The buffer's extra data.
     unsigned char pExtraData[1];
 
-} easyaudio_buffer_dsound;
+} draudio_buffer_dsound;
 
 
-void easyaudio_activate_buffer_events_dsound(easyaudio_buffer* pBuffer)
+void draudio_activate_buffer_events_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     unsigned int dwPositionNotifies = 0;
-    DSBPOSITIONNOTIFY n[EASYAUDIO_MAX_MARKER_COUNT + 1];        // +1 because we use this array for the markers + stop event.
+    DSBPOSITIONNOTIFY n[DRAUDIO_MAX_MARKER_COUNT + 1];        // +1 because we use this array for the markers + stop event.
 
     // Stop
     if (pBufferDS->pStopEvent != NULL)
@@ -3200,9 +3200,9 @@ void easyaudio_activate_buffer_events_dsound(easyaudio_buffer* pBuffer)
 #endif
 }
 
-void easyaudio_deactivate_buffer_events_dsound(easyaudio_buffer* pBuffer)
+void draudio_deactivate_buffer_events_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
 
@@ -3217,32 +3217,32 @@ void easyaudio_deactivate_buffer_events_dsound(easyaudio_buffer* pBuffer)
 }
 
 
-void easyaudio_delete_context_dsound(easyaudio_context* pContext)
+void draudio_delete_context_dsound(draudio_context* pContext)
 {
-    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pContext;
+    draudio_context_dsound* pContextDS = (draudio_context_dsound*)pContext;
     assert(pContextDS != NULL);
 
-    easyaudio_uninit_event_manager_dsound(&pContextDS->eventManager);
+    draudio_uninit_event_manager_dsound(&pContextDS->eventManager);
 
     // The message queue needs to uninitialized after the DirectSound marker notification thread.
-    easyaudio_uninit_message_queue_dsound(&pContextDS->messageQueue);
+    draudio_uninit_message_queue_dsound(&pContextDS->messageQueue);
 
     FreeLibrary(pContextDS->hDSoundDLL);
     free(pContextDS);
 }
 
 
-unsigned int easyaudio_get_output_device_count_dsound(easyaudio_context* pContext)
+unsigned int draudio_get_output_device_count_dsound(draudio_context* pContext)
 {
-    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pContext;
+    draudio_context_dsound* pContextDS = (draudio_context_dsound*)pContext;
     assert(pContextDS != NULL);
 
     return pContextDS->outputDeviceCount;
 }
 
-bool easyaudio_get_output_device_info_dsound(easyaudio_context* pContext, unsigned int deviceIndex, easyaudio_device_info* pInfoOut)
+bool draudio_get_output_device_info_dsound(draudio_context* pContext, unsigned int deviceIndex, draudio_device_info* pInfoOut)
 {
-    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pContext;
+    draudio_context_dsound* pContextDS = (draudio_context_dsound*)pContext;
     assert(pContextDS != NULL);
     assert(pInfoOut != NULL);
 
@@ -3251,15 +3251,15 @@ bool easyaudio_get_output_device_info_dsound(easyaudio_context* pContext, unsign
     }
 
 
-    easyaudio_strcpy(pInfoOut->description, sizeof(pInfoOut->description), pContextDS->outputDeviceInfo[deviceIndex].description);
+    draudio_strcpy(pInfoOut->description, sizeof(pInfoOut->description), pContextDS->outputDeviceInfo[deviceIndex].description);
 
     return true;
 }
 
 
-easyaudio_device* easyaudio_create_output_device_dsound(easyaudio_context* pContext, unsigned int deviceIndex)
+draudio_device* draudio_create_output_device_dsound(draudio_context* pContext, unsigned int deviceIndex)
 {
-    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pContext;
+    draudio_context_dsound* pContextDS = (draudio_context_dsound*)pContext;
     assert(pContextDS != NULL);
 
     if (deviceIndex >= pContextDS->outputDeviceCount) {
@@ -3334,7 +3334,7 @@ easyaudio_device* easyaudio_create_output_device_dsound(easyaudio_context* pCont
     }
 
 
-    easyaudio_device_dsound* pDeviceDS = malloc(sizeof(easyaudio_device_dsound));
+    draudio_device_dsound* pDeviceDS = malloc(sizeof(draudio_device_dsound));
     if (pDeviceDS != NULL)
     {
         pDeviceDS->base.pContext    = pContext;
@@ -3342,7 +3342,7 @@ easyaudio_device* easyaudio_create_output_device_dsound(easyaudio_context* pCont
         pDeviceDS->pDSPrimaryBuffer = pDSPrimaryBuffer;
         pDeviceDS->pDSListener      = pDSListener;
 
-        return (easyaudio_device*)pDeviceDS;
+        return (draudio_device*)pDeviceDS;
     }
     else
     {
@@ -3353,24 +3353,24 @@ easyaudio_device* easyaudio_create_output_device_dsound(easyaudio_context* pCont
     }
 }
 
-void easyaudio_delete_output_device_dsound(easyaudio_device* pDevice)
+void draudio_delete_output_device_dsound(draudio_device* pDevice)
 {
-    easyaudio_device_dsound* pDeviceDS = (easyaudio_device_dsound*)pDevice;
+    draudio_device_dsound* pDeviceDS = (draudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
 
-    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pDevice->pContext;
+    draudio_context_dsound* pContextDS = (draudio_context_dsound*)pDevice->pContext;
     assert(pContextDS != NULL);
 
     // The device id not deleted straight away. Instead we post a message to the message for delayed processing. The reason for this is that buffer
     // deletion is also delayed which means we want to ensure any delayed processing of buffers is handled before deleting the device.
-    easyaudio_message_dsound msg;
-    msg.id      = EASYAUDIO_MESSAGE_ID_DELETE_DEVICE;
+    draudio_message_dsound msg;
+    msg.id      = DRAUDIO_MESSAGE_ID_DELETE_DEVICE;
     msg.pBuffer = NULL;
     msg.data.delete_device.pDSListener      = pDeviceDS->pDSListener;
     msg.data.delete_device.pDSPrimaryBuffer = pDeviceDS->pDSPrimaryBuffer;
     msg.data.delete_device.pDS              = pDeviceDS->pDS;
     msg.data.delete_device.pDevice          = pDevice;
-    easyaudio_post_message_dsound(&pContextDS->messageQueue, msg);
+    draudio_post_message_dsound(&pContextDS->messageQueue, msg);
 
 #if 0
     IDirectSound3DListener_Release(pDeviceDS->pDSListener);
@@ -3381,18 +3381,18 @@ void easyaudio_delete_output_device_dsound(easyaudio_device* pDevice)
 }
 
 
-easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easyaudio_buffer_desc* pBufferDesc, unsigned int extraDataSize)
+draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_buffer_desc* pBufferDesc, unsigned int extraDataSize)
 {
-    easyaudio_device_dsound* pDeviceDS = (easyaudio_device_dsound*)pDevice;
+    draudio_device_dsound* pDeviceDS = (draudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
     assert(pBufferDesc != NULL);
 
-    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pDevice->pContext;
+    draudio_context_dsound* pContextDS = (draudio_context_dsound*)pDevice->pContext;
     assert(pContextDS != NULL);
 
 
     // 3D is only valid for mono sounds.
-    if (pBufferDesc->channels > 1 && (pBufferDesc->flags & EASYAUDIO_ENABLE_3D) != 0) {
+    if (pBufferDesc->channels > 1 && (pBufferDesc->flags & DRAUDIO_ENABLE_3D) != 0) {
         return NULL;
     }
 
@@ -3407,9 +3407,9 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     wf.Samples.wValidBitsPerSample = wf.Format.wBitsPerSample;
     wf.dwChannelMask = 0;
 
-    if (pBufferDesc->format == easyaudio_format_pcm) {
+    if (pBufferDesc->format == draudio_format_pcm) {
         wf.SubFormat = g_KSDATAFORMAT_SUBTYPE_PCM_GUID;
-    } else if (pBufferDesc->format == easyaudio_format_float) {
+    } else if (pBufferDesc->format == draudio_format_float) {
         wf.SubFormat = g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
     } else {
         return NULL;
@@ -3429,7 +3429,7 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
 
     LPDIRECTSOUNDBUFFER8   pDSBuffer   = NULL;
     LPDIRECTSOUND3DBUFFER8 pDSBuffer3D = NULL;
-    if ((pBufferDesc->flags & EASYAUDIO_ENABLE_3D) == 0)
+    if ((pBufferDesc->flags & DRAUDIO_ENABLE_3D) == 0)
     {
         // 3D Disabled.
         descDS.dwFlags |= DSBCAPS_CTRLPAN;
@@ -3474,7 +3474,7 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
 
         IDirectSound3DBuffer_SetPosition(pDSBuffer3D, 0, 0, 0, DS3D_IMMEDIATE);
 
-        if ((pBufferDesc->flags & EASYAUDIO_RELATIVE_3D) != 0) {
+        if ((pBufferDesc->flags & DRAUDIO_RELATIVE_3D) != 0) {
             IDirectSound3DBuffer_SetMode(pDSBuffer3D, DS3DMODE_HEADRELATIVE, DS3D_IMMEDIATE);
         }
     }
@@ -3491,7 +3491,7 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     }
 
 
-    easyaudio_buffer_dsound* pBufferDS = malloc(sizeof(easyaudio_buffer_dsound) - sizeof(pBufferDS->pExtraData) + extraDataSize);
+    draudio_buffer_dsound* pBufferDS = malloc(sizeof(draudio_buffer_dsound) - sizeof(pBufferDS->pExtraData) + extraDataSize);
     if (pBufferDS == NULL) {
         IDirectSound3DBuffer_Release(pDSBuffer3D);
         IDirectSoundBuffer8_Release(pDSBuffer);
@@ -3502,7 +3502,7 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
     pBufferDS->pDSBuffer         = pDSBuffer;
     pBufferDS->pDSBuffer3D       = pDSBuffer3D;
     pBufferDS->pDSNotify         = pDSNotify;
-    pBufferDS->playbackState     = easyaudio_stopped;
+    pBufferDS->playbackState     = draudio_stopped;
 
     pBufferDS->markerEventCount  = 0;
     memset(pBufferDS->pMarkerEvents, 0, sizeof(pBufferDS->pMarkerEvents));
@@ -3514,33 +3514,33 @@ easyaudio_buffer* easyaudio_create_buffer_dsound(easyaudio_device* pDevice, easy
 
     // Fill with initial data, if applicable.
     if (pBufferDesc->pData != NULL) {
-        easyaudio_set_buffer_data((easyaudio_buffer*)pBufferDS, 0, pBufferDesc->pData, pBufferDesc->sizeInBytes);
+        draudio_set_buffer_data((draudio_buffer*)pBufferDS, 0, pBufferDesc->pData, pBufferDesc->sizeInBytes);
     }
 
-    return (easyaudio_buffer*)pBufferDS;
+    return (draudio_buffer*)pBufferDS;
 }
 
-void easyaudio_delete_buffer_dsound(easyaudio_buffer* pBuffer)
+void draudio_delete_buffer_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
     assert(pBuffer->pDevice != NULL);
 
-    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pBuffer->pDevice->pContext;
+    draudio_context_dsound* pContextDS = (draudio_context_dsound*)pBuffer->pDevice->pContext;
     assert(pContextDS != NULL);
 
 
     // Deactivate the DirectSound notify events for sanity.
-    easyaudio_deactivate_buffer_events_dsound(pBuffer);
+    draudio_deactivate_buffer_events_dsound(pBuffer);
 
 
-    easyaudio_message_dsound msg;
-    msg.id      = EASYAUDIO_MESSAGE_ID_DELETE_BUFFER;
+    draudio_message_dsound msg;
+    msg.id      = DRAUDIO_MESSAGE_ID_DELETE_BUFFER;
     msg.pBuffer = pBuffer;
     msg.data.delete_buffer.pDSNotify   = pBufferDS->pDSNotify;
     msg.data.delete_buffer.pDSBuffer3D = pBufferDS->pDSBuffer3D;
     msg.data.delete_buffer.pDSBuffer   = pBufferDS->pDSBuffer;
-    easyaudio_post_message_dsound(&pContextDS->messageQueue, msg);
+    draudio_post_message_dsound(&pContextDS->messageQueue, msg);
 
 #if 0
     if (pBufferDS->pDSNotify != NULL) {
@@ -3560,26 +3560,26 @@ void easyaudio_delete_buffer_dsound(easyaudio_buffer* pBuffer)
 }
 
 
-unsigned int easyaudio_get_buffer_extra_data_size_dsound(easyaudio_buffer* pBuffer)
+unsigned int draudio_get_buffer_extra_data_size_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     return pBufferDS->extraDataSize;
 }
 
-void* easyaudio_get_buffer_extra_data_dsound(easyaudio_buffer* pBuffer)
+void* draudio_get_buffer_extra_data_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     return pBufferDS->pExtraData;
 }
 
 
-bool easyaudio_set_buffer_data_dsound(easyaudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes)
+bool draudio_set_buffer_data_dsound(draudio_buffer* pBuffer, unsigned int offset, const void* pData, unsigned int dataSizeInBytes)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
     assert(pData != NULL);
 
@@ -3602,20 +3602,20 @@ bool easyaudio_set_buffer_data_dsound(easyaudio_buffer* pBuffer, unsigned int of
 }
 
 
-void easyaudio_play_dsound(easyaudio_buffer* pBuffer, bool loop)
+void draudio_play_dsound(draudio_buffer* pBuffer, bool loop)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     bool postEvent = true;
-    if (pBufferDS->playbackState == easyaudio_playing) {
+    if (pBufferDS->playbackState == draudio_playing) {
         postEvent = false;
     }
 
 
     // Events need to be activated.
-    if (pBufferDS->playbackState == easyaudio_stopped) {
-        easyaudio_activate_buffer_events_dsound(pBuffer);
+    if (pBufferDS->playbackState == draudio_stopped) {
+        draudio_activate_buffer_events_dsound(pBuffer);
     }
 
 
@@ -3624,7 +3624,7 @@ void easyaudio_play_dsound(easyaudio_buffer* pBuffer, bool loop)
         dwFlags |= DSBPLAY_LOOPING;
     }
 
-    pBufferDS->playbackState = easyaudio_playing;
+    pBufferDS->playbackState = draudio_playing;
     IDirectSoundBuffer8_Play(pBufferDS->pDSBuffer, 0, 0, dwFlags);
 
     // If we have a play event we need to signal the event which will cause the worker thread to call the callback function.
@@ -3633,14 +3633,14 @@ void easyaudio_play_dsound(easyaudio_buffer* pBuffer, bool loop)
     }
 }
 
-void easyaudio_pause_dsound(easyaudio_buffer* pBuffer)
+void draudio_pause_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
-    if (pBufferDS->playbackState == easyaudio_playing)
+    if (pBufferDS->playbackState == draudio_playing)
     {
-        pBufferDS->playbackState = easyaudio_paused;
+        pBufferDS->playbackState = draudio_paused;
         IDirectSoundBuffer8_Stop(pBufferDS->pDSBuffer);
 
         // If we have a pause event we need to signal the event which will cause the worker thread to call the callback function.
@@ -3650,20 +3650,20 @@ void easyaudio_pause_dsound(easyaudio_buffer* pBuffer)
     }
 }
 
-void easyaudio_stop_dsound(easyaudio_buffer* pBuffer)
+void draudio_stop_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
-    if (pBufferDS->playbackState == easyaudio_playing)
+    if (pBufferDS->playbackState == draudio_playing)
     {
-        pBufferDS->playbackState = easyaudio_stopped;
+        pBufferDS->playbackState = draudio_stopped;
         IDirectSoundBuffer8_Stop(pBufferDS->pDSBuffer);
         IDirectSoundBuffer8_SetCurrentPosition(pBufferDS->pDSBuffer, 0);
     }
-    else if (pBufferDS->playbackState == easyaudio_paused)
+    else if (pBufferDS->playbackState == draudio_paused)
     {
-        pBufferDS->playbackState = easyaudio_stopped;
+        pBufferDS->playbackState = draudio_stopped;
         IDirectSoundBuffer8_SetCurrentPosition(pBufferDS->pDSBuffer, 0);
 
         if (pBufferDS->pStopEvent != NULL) {
@@ -3672,26 +3672,26 @@ void easyaudio_stop_dsound(easyaudio_buffer* pBuffer)
     }
 }
 
-easyaudio_playback_state easyaudio_get_playback_state_dsound(easyaudio_buffer* pBuffer)
+draudio_playback_state draudio_get_playback_state_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     return pBufferDS->playbackState;
 }
 
 
-void easyaudio_set_playback_position_dsound(easyaudio_buffer* pBuffer, unsigned int position)
+void draudio_set_playback_position_dsound(draudio_buffer* pBuffer, unsigned int position)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     pBufferDS->pDSBuffer->lpVtbl->SetCurrentPosition(pBufferDS->pDSBuffer, position);
 }
 
-unsigned int easyaudio_get_playback_position_dsound(easyaudio_buffer* pBuffer)
+unsigned int draudio_get_playback_position_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     DWORD position;
@@ -3704,9 +3704,9 @@ unsigned int easyaudio_get_playback_position_dsound(easyaudio_buffer* pBuffer)
 }
 
 
-void easyaudio_set_pan_dsound(easyaudio_buffer* pBuffer, float pan)
+void draudio_set_pan_dsound(draudio_buffer* pBuffer, float pan)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     LONG panDB;
@@ -3729,9 +3729,9 @@ void easyaudio_set_pan_dsound(easyaudio_buffer* pBuffer, float pan)
     IDirectSoundBuffer_SetPan(pBufferDS->pDSBuffer, panDB);
 }
 
-float easyaudio_get_pan_dsound(easyaudio_buffer* pBuffer)
+float draudio_get_pan_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     LONG panDB;
@@ -3753,9 +3753,9 @@ float easyaudio_get_pan_dsound(easyaudio_buffer* pBuffer)
 }
 
 
-void easyaudio_set_volume_dsound(easyaudio_buffer* pBuffer, float volume)
+void draudio_set_volume_dsound(draudio_buffer* pBuffer, float volume)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     LONG volumeDB;
@@ -3772,9 +3772,9 @@ void easyaudio_set_volume_dsound(easyaudio_buffer* pBuffer, float volume)
     IDirectSoundBuffer_SetVolume(pBufferDS->pDSBuffer, volumeDB);
 }
 
-float easyaudio_get_volume_dsound(easyaudio_buffer* pBuffer)
+float draudio_get_volume_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     LONG volumeDB;
@@ -3787,15 +3787,15 @@ float easyaudio_get_volume_dsound(easyaudio_buffer* pBuffer)
 }
 
 
-void easyaudio_remove_markers_dsound(easyaudio_buffer* pBuffer)
+void draudio_remove_markers_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     for (unsigned int iMarker = 0; iMarker < pBufferDS->markerEventCount; ++iMarker)
     {
         if (pBufferDS->pMarkerEvents[iMarker] != NULL) {
-            easyaudio_delete_event_dsound(pBufferDS->pMarkerEvents[iMarker]);
+            draudio_delete_event_dsound(pBufferDS->pMarkerEvents[iMarker]);
             pBufferDS->pMarkerEvents[iMarker] = NULL;
         }
     }
@@ -3803,26 +3803,26 @@ void easyaudio_remove_markers_dsound(easyaudio_buffer* pBuffer)
     pBufferDS->markerEventCount = 0;
 }
 
-bool easyaudio_register_marker_callback_dsound(easyaudio_buffer* pBuffer, unsigned int offsetInBytes, easyaudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
+bool draudio_register_marker_callback_dsound(draudio_buffer* pBuffer, unsigned int offsetInBytes, draudio_event_callback_proc callback, unsigned int eventID, void* pUserData)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
-    assert(pBufferDS->markerEventCount <= EASYAUDIO_MAX_MARKER_COUNT);
+    assert(pBufferDS->markerEventCount <= DRAUDIO_MAX_MARKER_COUNT);
 
-    if (pBufferDS->markerEventCount == EASYAUDIO_MAX_MARKER_COUNT) {
+    if (pBufferDS->markerEventCount == DRAUDIO_MAX_MARKER_COUNT) {
         // Too many markers.
         return false;
     }
 
-    easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pBuffer->pDevice->pContext;
+    draudio_context_dsound* pContextDS = (draudio_context_dsound*)pBuffer->pDevice->pContext;
     assert(pContextDS != NULL);
 
-    easyaudio_event_dsound* pEvent = easyaudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, eventID, pUserData);
+    draudio_event_dsound* pEvent = draudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, eventID, pUserData);
     if (pEvent == NULL) {
         return false;
     }
 
-    // easyaudio_create_event_dsound() will initialize the marker offset to 0, so we'll need to set it manually here.
+    // draudio_create_event_dsound() will initialize the marker offset to 0, so we'll need to set it manually here.
     pEvent->markerOffset = offsetInBytes;
 
     pBufferDS->pMarkerEvents[pBufferDS->markerEventCount] = pEvent;
@@ -3831,15 +3831,15 @@ bool easyaudio_register_marker_callback_dsound(easyaudio_buffer* pBuffer, unsign
     return true;
 }
 
-bool easyaudio_register_stop_callback_dsound(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData)
+bool draudio_register_stop_callback_dsound(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     if (callback == NULL)
     {
         if (pBufferDS->pStopEvent != NULL) {
-            easyaudio_delete_event_dsound(pBufferDS->pStopEvent);
+            draudio_delete_event_dsound(pBufferDS->pStopEvent);
             pBufferDS->pStopEvent = NULL;
         }
 
@@ -3847,28 +3847,28 @@ bool easyaudio_register_stop_callback_dsound(easyaudio_buffer* pBuffer, easyaudi
     }
     else
     {
-        easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pBuffer->pDevice->pContext;
+        draudio_context_dsound* pContextDS = (draudio_context_dsound*)pBuffer->pDevice->pContext;
 
         // If we already have a stop event, just replace the existing one.
         if (pBufferDS->pStopEvent != NULL) {
-            easyaudio_update_event_dsound(pBufferDS->pStopEvent, callback, pUserData);
+            draudio_update_event_dsound(pBufferDS->pStopEvent, callback, pUserData);
         } else {
-            pBufferDS->pStopEvent = easyaudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, EASYAUDIO_EVENT_ID_STOP, pUserData);
+            pBufferDS->pStopEvent = draudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, DRAUDIO_EVENT_ID_STOP, pUserData);
         }
 
         return pBufferDS->pStopEvent != NULL;
     }
 }
 
-bool easyaudio_register_pause_callback_dsound(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData)
+bool draudio_register_pause_callback_dsound(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
     
     if (callback == NULL)
     {
         if (pBufferDS->pPauseEvent != NULL) {
-            easyaudio_delete_event_dsound(pBufferDS->pPauseEvent);
+            draudio_delete_event_dsound(pBufferDS->pPauseEvent);
             pBufferDS->pPauseEvent = NULL;
         }
 
@@ -3876,28 +3876,28 @@ bool easyaudio_register_pause_callback_dsound(easyaudio_buffer* pBuffer, easyaud
     }
     else
     {
-        easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pBuffer->pDevice->pContext;
+        draudio_context_dsound* pContextDS = (draudio_context_dsound*)pBuffer->pDevice->pContext;
 
         // If we already have a stop event, just replace the existing one.
         if (pBufferDS->pPauseEvent != NULL) {
-            easyaudio_update_event_dsound(pBufferDS->pPauseEvent, callback, pUserData);
+            draudio_update_event_dsound(pBufferDS->pPauseEvent, callback, pUserData);
         } else {
-            pBufferDS->pPauseEvent = easyaudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, EASYAUDIO_EVENT_ID_PAUSE, pUserData);
+            pBufferDS->pPauseEvent = draudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, DRAUDIO_EVENT_ID_PAUSE, pUserData);
         }
 
         return pBufferDS->pPauseEvent != NULL;
     }
 }
 
-bool easyaudio_register_play_callback_dsound(easyaudio_buffer* pBuffer, easyaudio_event_callback_proc callback, void* pUserData)
+bool draudio_register_play_callback_dsound(draudio_buffer* pBuffer, draudio_event_callback_proc callback, void* pUserData)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
     
     if (callback == NULL)
     {
         if (pBufferDS->pPlayEvent != NULL) {
-            easyaudio_delete_event_dsound(pBufferDS->pPlayEvent);
+            draudio_delete_event_dsound(pBufferDS->pPlayEvent);
             pBufferDS->pPlayEvent = NULL;
         }
 
@@ -3905,13 +3905,13 @@ bool easyaudio_register_play_callback_dsound(easyaudio_buffer* pBuffer, easyaudi
     }
     else
     {
-        easyaudio_context_dsound* pContextDS = (easyaudio_context_dsound*)pBuffer->pDevice->pContext;
+        draudio_context_dsound* pContextDS = (draudio_context_dsound*)pBuffer->pDevice->pContext;
 
         // If we already have a stop event, just replace the existing one.
         if (pBufferDS->pPlayEvent != NULL) {
-            easyaudio_update_event_dsound(pBufferDS->pPlayEvent, callback, pUserData);
+            draudio_update_event_dsound(pBufferDS->pPlayEvent, callback, pUserData);
         } else {
-            pBufferDS->pPlayEvent = easyaudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, EASYAUDIO_EVENT_ID_PLAY, pUserData);
+            pBufferDS->pPlayEvent = draudio_create_event_dsound(&pContextDS->eventManager, callback, pBuffer, DRAUDIO_EVENT_ID_PLAY, pUserData);
         }
 
         return pBufferDS->pPlayEvent != NULL;
@@ -3920,9 +3920,9 @@ bool easyaudio_register_play_callback_dsound(easyaudio_buffer* pBuffer, easyaudi
 
 
 
-void easyaudio_set_position_dsound(easyaudio_buffer* pBuffer, float x, float y, float z)
+void draudio_set_position_dsound(draudio_buffer* pBuffer, float x, float y, float z)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     if (pBufferDS->pDSBuffer3D != NULL) {
@@ -3930,9 +3930,9 @@ void easyaudio_set_position_dsound(easyaudio_buffer* pBuffer, float x, float y, 
     }
 }
 
-void easyaudio_get_position_dsound(easyaudio_buffer* pBuffer, float* pPosOut)
+void draudio_get_position_dsound(draudio_buffer* pBuffer, float* pPosOut)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
     assert(pPosOut != NULL);
 
@@ -3954,17 +3954,17 @@ void easyaudio_get_position_dsound(easyaudio_buffer* pBuffer, float* pPosOut)
 }
 
 
-void easyaudio_set_listener_position_dsound(easyaudio_device* pDevice, float x, float y, float z)
+void draudio_set_listener_position_dsound(draudio_device* pDevice, float x, float y, float z)
 {
-    easyaudio_device_dsound* pDeviceDS = (easyaudio_device_dsound*)pDevice;
+    draudio_device_dsound* pDeviceDS = (draudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
 
     IDirectSound3DListener_SetPosition(pDeviceDS->pDSListener, x, y, z, DS3D_IMMEDIATE);
 }
 
-void easyaudio_get_listener_position_dsound(easyaudio_device* pDevice, float* pPosOut)
+void draudio_get_listener_position_dsound(draudio_device* pDevice, float* pPosOut)
 {
-    easyaudio_device_dsound* pDeviceDS = (easyaudio_device_dsound*)pDevice;
+    draudio_device_dsound* pDeviceDS = (draudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
     assert(pPosOut != NULL);
 
@@ -3977,17 +3977,17 @@ void easyaudio_get_listener_position_dsound(easyaudio_device* pDevice, float* pP
 }
 
 
-void easyaudio_set_listener_orientation_dsound(easyaudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ)
+void draudio_set_listener_orientation_dsound(draudio_device* pDevice, float forwardX, float forwardY, float forwardZ, float upX, float upY, float upZ)
 {
-    easyaudio_device_dsound* pDeviceDS = (easyaudio_device_dsound*)pDevice;
+    draudio_device_dsound* pDeviceDS = (draudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
 
     IDirectSound3DListener_SetOrientation(pDeviceDS->pDSListener, forwardX, forwardY, forwardZ, upX, upY, upZ, DS3D_IMMEDIATE);
 }
 
-void easyaudio_get_listener_orientation_dsound(easyaudio_device* pDevice, float* pForwardOut, float* pUpOut)
+void draudio_get_listener_orientation_dsound(draudio_device* pDevice, float* pForwardOut, float* pUpOut)
 {
-    easyaudio_device_dsound* pDeviceDS = (easyaudio_device_dsound*)pDevice;
+    draudio_device_dsound* pDeviceDS = (draudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
     assert(pForwardOut != NULL);
     assert(pUpOut != NULL);
@@ -4005,9 +4005,9 @@ void easyaudio_get_listener_orientation_dsound(easyaudio_device* pDevice, float*
     pUpOut[2] = up.z;
 }
 
-void easyaudio_set_3d_mode_dsound(easyaudio_buffer* pBuffer, easyaudio_3d_mode mode)
+void draudio_set_3d_mode_dsound(draudio_buffer* pBuffer, draudio_3d_mode mode)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     if (pBufferDS->pDSBuffer3D == NULL) {
@@ -4016,40 +4016,40 @@ void easyaudio_set_3d_mode_dsound(easyaudio_buffer* pBuffer, easyaudio_3d_mode m
 
 
     DWORD dwMode = DS3DMODE_NORMAL;
-    if (mode == easyaudio_3d_mode_relative) {
+    if (mode == draudio_3d_mode_relative) {
         dwMode = DS3DMODE_HEADRELATIVE;
-    } else if (mode == easyaudio_3d_mode_disabled) {
+    } else if (mode == draudio_3d_mode_disabled) {
         dwMode = DS3DMODE_DISABLE;
     }
 
     IDirectSound3DBuffer_SetMode(pBufferDS->pDSBuffer3D, dwMode, DS3D_IMMEDIATE);
 }
 
-easyaudio_3d_mode easyaudio_get_3d_mode_dsound(easyaudio_buffer* pBuffer)
+draudio_3d_mode draudio_get_3d_mode_dsound(draudio_buffer* pBuffer)
 {
-    easyaudio_buffer_dsound* pBufferDS = (easyaudio_buffer_dsound*)pBuffer;
+    draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
 
     if (pBufferDS->pDSBuffer3D == NULL) {
-        return easyaudio_3d_mode_disabled;
+        return draudio_3d_mode_disabled;
     }
 
 
     DWORD dwMode;
     if (FAILED(IDirectSound3DBuffer_GetMode(pBufferDS->pDSBuffer3D, &dwMode))) {
-        return easyaudio_3d_mode_disabled;
+        return draudio_3d_mode_disabled;
     }
 
 
     if (dwMode == DS3DMODE_NORMAL) {
-        return easyaudio_3d_mode_absolute;
+        return draudio_3d_mode_absolute;
     }
 
     if (dwMode == DS3DMODE_HEADRELATIVE) {
-        return easyaudio_3d_mode_relative;
+        return draudio_3d_mode_relative;
     }
 
-    return easyaudio_3d_mode_disabled;
+    return draudio_3d_mode_disabled;
 }
 
 
@@ -4060,10 +4060,10 @@ static BOOL CALLBACK DSEnumCallback_OutputDevices(LPGUID lpGuid, LPCSTR lpcstrDe
     // The first device enumerated is always called the Primary Sound Driver, and the lpGUID parameter of the callback is
     // NULL. This device represents the preferred output device set by the user in Control Panel.
 
-    easyaudio_context_dsound* pContextDS = lpContext;
+    draudio_context_dsound* pContextDS = lpContext;
     assert(pContextDS != NULL);
 
-    if (pContextDS->outputDeviceCount < EASYAUDIO_MAX_DEVICE_COUNT)
+    if (pContextDS->outputDeviceCount < DRAUDIO_MAX_DEVICE_COUNT)
     {
         if (lpGuid != NULL) {
             memcpy(&pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].guid, lpGuid, sizeof(GUID));
@@ -4071,8 +4071,8 @@ static BOOL CALLBACK DSEnumCallback_OutputDevices(LPGUID lpGuid, LPCSTR lpcstrDe
             memset(&pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].guid, 0, sizeof(GUID));
         }
         
-        easyaudio_strcpy(pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].description, 256, lpcstrDescription);
-        easyaudio_strcpy(pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].moduleName,  256, lpcstrModule);
+        draudio_strcpy(pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].description, 256, lpcstrDescription);
+        draudio_strcpy(pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].moduleName,  256, lpcstrModule);
 
         pContextDS->outputDeviceCount += 1;
         return TRUE;
@@ -4091,10 +4091,10 @@ static BOOL CALLBACK DSEnumCallback_InputDevices(LPGUID lpGuid, LPCSTR lpcstrDes
     // The first device enumerated is always called the Primary Sound Driver, and the lpGUID parameter of the callback is
     // NULL. This device represents the preferred output device set by the user in Control Panel.
 
-    easyaudio_context_dsound* pContextDS = lpContext;
+    draudio_context_dsound* pContextDS = lpContext;
     assert(pContextDS != NULL);
 
-    if (pContextDS->inputDeviceCount < EASYAUDIO_MAX_DEVICE_COUNT)
+    if (pContextDS->inputDeviceCount < DRAUDIO_MAX_DEVICE_COUNT)
     {
         if (lpGuid != NULL) {
             memcpy(&pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].guid, lpGuid, sizeof(GUID));
@@ -4102,8 +4102,8 @@ static BOOL CALLBACK DSEnumCallback_InputDevices(LPGUID lpGuid, LPCSTR lpcstrDes
             memset(&pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].guid, 0, sizeof(GUID));
         }
 
-        easyaudio_strcpy(pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].description, 256, lpcstrDescription);
-        easyaudio_strcpy(pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].moduleName,  256, lpcstrModule);
+        draudio_strcpy(pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].description, 256, lpcstrDescription);
+        draudio_strcpy(pContextDS->inputDeviceInfo[pContextDS->inputDeviceCount].moduleName,  256, lpcstrModule);
 
         pContextDS->inputDeviceCount += 1;
         return TRUE;
@@ -4115,7 +4115,7 @@ static BOOL CALLBACK DSEnumCallback_InputDevices(LPGUID lpGuid, LPCSTR lpcstrDes
     }
 }
 
-easyaudio_context* easyaudio_create_context_dsound()
+draudio_context* draudio_create_context_dsound()
 {
     // Load the DLL.
     HMODULE hDSoundDLL = LoadLibraryW(L"dsound.dll");
@@ -4152,42 +4152,42 @@ easyaudio_context* easyaudio_create_context_dsound()
 
 
     // At this point we can almost certainly assume DirectSound is usable so we'll now go ahead and create the context.
-    easyaudio_context_dsound* pContext = malloc(sizeof(easyaudio_context_dsound));
+    draudio_context_dsound* pContext = malloc(sizeof(draudio_context_dsound));
     if (pContext != NULL)
     {
-        pContext->base.delete_context             = easyaudio_delete_context_dsound;
-        pContext->base.create_output_device       = easyaudio_create_output_device_dsound;
-        pContext->base.delete_output_device       = easyaudio_delete_output_device_dsound;
-        pContext->base.get_output_device_count    = easyaudio_get_output_device_count_dsound;
-        pContext->base.get_output_device_info     = easyaudio_get_output_device_info_dsound;
-        pContext->base.create_buffer              = easyaudio_create_buffer_dsound;
-        pContext->base.delete_buffer              = easyaudio_delete_buffer_dsound;
-        pContext->base.get_buffer_extra_data_size = easyaudio_get_buffer_extra_data_size_dsound;
-        pContext->base.get_buffer_extra_data      = easyaudio_get_buffer_extra_data_dsound;
-        pContext->base.set_buffer_data            = easyaudio_set_buffer_data_dsound;
-        pContext->base.play                       = easyaudio_play_dsound;
-        pContext->base.pause                      = easyaudio_pause_dsound;
-        pContext->base.stop                       = easyaudio_stop_dsound;
-        pContext->base.get_playback_state         = easyaudio_get_playback_state_dsound;
-        pContext->base.set_playback_position      = easyaudio_set_playback_position_dsound;
-        pContext->base.get_playback_position      = easyaudio_get_playback_position_dsound;
-        pContext->base.set_pan                    = easyaudio_set_pan_dsound;
-        pContext->base.get_pan                    = easyaudio_get_pan_dsound;
-        pContext->base.set_volume                 = easyaudio_set_volume_dsound;
-        pContext->base.get_volume                 = easyaudio_get_volume_dsound;
-        pContext->base.remove_markers             = easyaudio_remove_markers_dsound;
-        pContext->base.register_marker_callback   = easyaudio_register_marker_callback_dsound;
-        pContext->base.register_stop_callback     = easyaudio_register_stop_callback_dsound;
-        pContext->base.register_pause_callback    = easyaudio_register_pause_callback_dsound;
-        pContext->base.register_play_callback     = easyaudio_register_play_callback_dsound;
-        pContext->base.set_position        = easyaudio_set_position_dsound;
-        pContext->base.get_position        = easyaudio_get_position_dsound;
-        pContext->base.set_listener_position      = easyaudio_set_listener_position_dsound;
-        pContext->base.get_listener_position      = easyaudio_get_listener_position_dsound;
-        pContext->base.set_listener_orientation   = easyaudio_set_listener_orientation_dsound;
-        pContext->base.get_listener_orientation   = easyaudio_get_listener_orientation_dsound;
-        pContext->base.set_3d_mode                = easyaudio_set_3d_mode_dsound;
-        pContext->base.get_3d_mode                = easyaudio_get_3d_mode_dsound;
+        pContext->base.delete_context             = draudio_delete_context_dsound;
+        pContext->base.create_output_device       = draudio_create_output_device_dsound;
+        pContext->base.delete_output_device       = draudio_delete_output_device_dsound;
+        pContext->base.get_output_device_count    = draudio_get_output_device_count_dsound;
+        pContext->base.get_output_device_info     = draudio_get_output_device_info_dsound;
+        pContext->base.create_buffer              = draudio_create_buffer_dsound;
+        pContext->base.delete_buffer              = draudio_delete_buffer_dsound;
+        pContext->base.get_buffer_extra_data_size = draudio_get_buffer_extra_data_size_dsound;
+        pContext->base.get_buffer_extra_data      = draudio_get_buffer_extra_data_dsound;
+        pContext->base.set_buffer_data            = draudio_set_buffer_data_dsound;
+        pContext->base.play                       = draudio_play_dsound;
+        pContext->base.pause                      = draudio_pause_dsound;
+        pContext->base.stop                       = draudio_stop_dsound;
+        pContext->base.get_playback_state         = draudio_get_playback_state_dsound;
+        pContext->base.set_playback_position      = draudio_set_playback_position_dsound;
+        pContext->base.get_playback_position      = draudio_get_playback_position_dsound;
+        pContext->base.set_pan                    = draudio_set_pan_dsound;
+        pContext->base.get_pan                    = draudio_get_pan_dsound;
+        pContext->base.set_volume                 = draudio_set_volume_dsound;
+        pContext->base.get_volume                 = draudio_get_volume_dsound;
+        pContext->base.remove_markers             = draudio_remove_markers_dsound;
+        pContext->base.register_marker_callback   = draudio_register_marker_callback_dsound;
+        pContext->base.register_stop_callback     = draudio_register_stop_callback_dsound;
+        pContext->base.register_pause_callback    = draudio_register_pause_callback_dsound;
+        pContext->base.register_play_callback     = draudio_register_play_callback_dsound;
+        pContext->base.set_position        = draudio_set_position_dsound;
+        pContext->base.get_position        = draudio_get_position_dsound;
+        pContext->base.set_listener_position      = draudio_set_listener_position_dsound;
+        pContext->base.get_listener_position      = draudio_get_listener_position_dsound;
+        pContext->base.set_listener_orientation   = draudio_set_listener_orientation_dsound;
+        pContext->base.get_listener_orientation   = draudio_get_listener_orientation_dsound;
+        pContext->base.set_3d_mode                = draudio_set_3d_mode_dsound;
+        pContext->base.get_3d_mode                = draudio_get_3d_mode_dsound;
 
         pContext->hDSoundDLL                      = hDSoundDLL;
         pContext->pDirectSoundCreate8             = pDirectSoundCreate8;
@@ -4204,7 +4204,7 @@ easyaudio_context* easyaudio_create_context_dsound()
         pContext->pDirectSoundCaptureEnumerateA(DSEnumCallback_InputDevices, pContext);
 
         // The message queue and marker notification thread.
-        if (!easyaudio_init_message_queue_dsound(&pContext->messageQueue) || !easyaudio_init_event_manager_dsound(&pContext->eventManager, &pContext->messageQueue))
+        if (!draudio_init_message_queue_dsound(&pContext->messageQueue) || !draudio_init_event_manager_dsound(&pContext->eventManager, &pContext->messageQueue))
         {
             // Failed to initialize the event manager.
             FreeLibrary(hDSoundDLL);
@@ -4214,9 +4214,9 @@ easyaudio_context* easyaudio_create_context_dsound()
         }
     }
 
-    return (easyaudio_context*)pContext;
+    return (draudio_context*)pContext;
 }
-#endif  // !EASYAUDIO_BUILD_DSOUND
+#endif  // !DRAUDIO_BUILD_DSOUND
 
 
 ///////////////////////////////////////////////////////////////////////////////

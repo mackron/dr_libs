@@ -12,8 +12,8 @@
 //
 //
 
-#ifndef easy_flac_h
-#define easy_flac_h
+#ifndef dr_flac_h
+#define dr_flac_h
 
 #include <stdint.h>
 
@@ -36,26 +36,26 @@ typedef struct
     /// calculate the required size of a buffer to hold the entire audio data.
     unsigned int sampleCount;
 
-} easyflac_info;
+} drflac_info;
 
-typedef struct easyflac easyflac;
+typedef struct drflac drflac;
 
 /// Callback for when data is read. Return value is the number of bytes actually read.
-typedef size_t (* easyflac_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
+typedef size_t (* drflac_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
 
 /// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
 /// is 0 on failure, non-zero success.
-typedef int (* easyflac_seek_proc)(void* userData, int offset);
+typedef int (* drflac_seek_proc)(void* userData, int offset);
 
 
 /// Opens a flac decoder.
-easyflac* easyflac_open(easyflac_read_proc onRead, easyflac_seek_proc onSeek, void* userData);
+drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* userData);
 
 /// Closes the given flac decoder.
-void easyflac_close(easyflac* flac);
+void drflac_close(drflac* flac);
 
 /// Retrieves information about the given flac decoder.
-easyflac_info easyflac_get_info(easyflac* flac);
+drflac_info drflac_get_info(drflac* flac);
 
 
 
