@@ -109,181 +109,179 @@ extern "C" {
 /////////////////////////////////////////////////////////
 // MSVC Compatibility
 
+// A basic implementation of MSVC's strcpy_s().
+static int dr_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t i;
+    for (i = 0; i < dstSizeInBytes && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (i < dstSizeInBytes) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+}
+
+// A basic implementation of MSVC's strncpy_s().
+static int dr_strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return EINVAL;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+    
+    size_t maxcount = count;
+    if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
+        maxcount = dstSizeInBytes - 1;
+    }
+
+    size_t i;
+    for (i = 0; i < maxcount && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (src[i] == '\0' || i == count || count == ((size_t)-1)) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+}
+
+// A basic implementation of MSVC's strcat_s().
+static int dr_strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    char* dstorig = dst;
+
+    while (dstSizeInBytes > 0 && dst[0] != '\0') {
+        dst += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return EINVAL;  // Unterminated.
+    }
+
+
+    while (dstSizeInBytes > 0 && src[0] != '\0') {
+        *dst++ = *src++;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        dst[0] = '\0';
+    } else {
+        dstorig[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
+}
+
+// A basic implementation of MSVC's strncat_s()
+static int dr_strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        return EINVAL;
+    }
+
+    char* dstorig = dst;
+
+    while (dstSizeInBytes > 0 && dst[0] != '\0') {
+        dst += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return EINVAL;  // Unterminated.
+    }
+
+
+    if (count == ((size_t)-1)) {        // _TRUNCATE
+        count = dstSizeInBytes - 1;
+    }
+
+    while (dstSizeInBytes > 0 && src[0] != '\0' && count > 0)
+    {
+        *dst++ = *src++;
+        dstSizeInBytes -= 1;
+        count -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        dst[0] = '\0';
+    } else {
+        dstorig[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
+}
+
 #ifndef DRUTIL_NO_MSVC_COMPAT
 #ifndef _TRUNCATE
 #define _TRUNCATE ((size_t)-1)
 #endif
 
-/// A basic implementation of MSVC's strcpy_s().
-static int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+DRUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
-    if (dst == 0) {
-        return EINVAL;
-    }
-    if (dstSizeInBytes == 0) {
-        return ERANGE;
-    }
-    if (src == 0) {
-        dst[0] = '\0';
-        return EINVAL;
-    }
-    
-    char* iDst = dst;
-    const char* iSrc = src;
-    while (dstSizeInBytes > 0 && iSrc[0] != '\0')
-    {
-        iDst[0] = iSrc[0];
-
-        iDst += 1;
-        iSrc += 1;
-        dstSizeInBytes -= 1;
-    }
-
-    if (dstSizeInBytes > 0) {
-        iDst[0] = '\0';
-    } else {
-        dst[0] = '\0';
-        return ERANGE;
-    }
-
-    return 0;
+    return dr_strcpy_s(dst, dstSizeInBytes, src);
 }
 
-/// A basic implementation of MSVC's strncpy_s().
-static int strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+DRUTIL_INLINE int strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
 {
-    if (dst == 0) {
-        return EINVAL;
-    }
-    if (dstSizeInBytes == 0) {
-        return EINVAL;
-    }
-    if (src == 0) {
-        dst[0] = '\0';
-        return EINVAL;
-    }
-    
-    if (count == ((size_t)-1)) {        // _TRUNCATE
-        count = dstSizeInBytes - 1;
-    }
-
-    char* iDst = dst;
-    const char* iSrc = src;
-    while (dstSizeInBytes > 0 && iSrc[0] != '\0' && count > 0)
-    {
-        iDst[0] = iSrc[0];
-
-        iDst += 1;
-        iSrc += 1;
-        dstSizeInBytes -= 1;
-        count -= 1;
-    }
-
-    if (dstSizeInBytes > 0) {
-        iDst[0] = '\0';
-    } else {
-        dst[0] = '\0';
-        return ERANGE;
-    }
-
-    return 0;
+    return dr_strncpy_s(dst, dstSizeInBytes, src, count);
 }
 
-/// A basic implementation of MSVC's strcat_s().
-static int strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
+DRUTIL_INLINE int strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
-    if (dst == 0) {
-        return EINVAL;
-    }
-    if (dstSizeInBytes == 0) {
-        return ERANGE;
-    }
-    if (src == 0) {
-        return EINVAL;
-    }
-
-    char* iDst = dst;
-    while (dstSizeInBytes > 0 && iDst[0] != '\0')
-    {
-        iDst += 1;
-        dstSizeInBytes -= 1;
-    }
-
-    if (dstSizeInBytes == 0) {
-        return EINVAL;  // Unterminated.
-    }
-
-
-    const char* iSrc = src;
-    while (dstSizeInBytes > 0 && iSrc[0] != '\0')
-    {
-        iDst[0] = iSrc[0];
-
-        iDst += 1;
-        iSrc += 1;
-        dstSizeInBytes -= 1;
-    }
-
-    if (dstSizeInBytes > 0) {
-        iDst[0] = '\0';
-    } else {
-        return ERANGE;
-    }
-
-    return 0;
+    return dr_strcat_s(dst, dstSizeInBytes, src);
 }
 
-/// A basic implementation of MSVC's strncat_s()
-static int strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+DRUTIL_INLINE int strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
 {
-    if (dst == 0) {
-        return EINVAL;
-    }
-    if (dstSizeInBytes == 0) {
-        return ERANGE;
-    }
-    if (src == 0) {
-        return EINVAL;
-    }
-
-    char* iDst = dst;
-    while (dstSizeInBytes > 0 && iDst[0] != '\0')
-    {
-        iDst += 1;
-        dstSizeInBytes -= 1;
-    }
-
-    if (dstSizeInBytes == 0) {
-        return EINVAL;  // Unterminated.
-    }
-
-
-    if (count == ((size_t)-1)) {        // _TRUNCATE
-        count = dstSizeInBytes - 1;
-    }
-
-    const char* iSrc = src;
-    while (dstSizeInBytes > 0 && iSrc[0] != '\0' && count > 0)
-    {
-        iDst[0] = iSrc[0];
-
-        iDst += 1;
-        iSrc += 1;
-        dstSizeInBytes -= 1;
-        count -= 1;
-    }
-
-    if (dstSizeInBytes > 0) {
-        iDst[0] = '\0';
-    } else {
-        return ERANGE;
-    }
-
-    return 0;
+    return dr_strncat_s(dst, dstSizeInBytes, src, count);
 }
 
-
-// A wrapper for _stricmp/strcasecmp
 DRUTIL_INLINE int _stricmp(const char* string1, const char* string2)
 {
     return strcasecmp(string1, string2);
