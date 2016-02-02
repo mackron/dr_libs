@@ -2,7 +2,7 @@
 
 // ABOUT
 //
-// easy_fsw is a simple library for watching for changes to the file system. This is not a full-featured library
+// dr_fsw is a simple library for watching for changes to the file system. This is not a full-featured library
 // and is only intended for basic use cases.
 //
 // Limitations:
@@ -13,36 +13,36 @@
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
-//   #define EASY_VFS_IMPLEMENTATION
-//   #include "easy_vfs.h"
+//   #define DR_FSW_IMPLEMENTATION
+//   #include "dr_fsw.h"
 //
-// You can then #include easy_vfs.h in other parts of the program as you would with any other header file.
+// You can then #include dr_vfs.h in other parts of the program as you would with any other header file.
 //
 // Example:
 //      // Startup.
-//      easyfsw_context* context = easyfsw_create_context();
+//      drfsw_context* context = drfsw_create_context();
 //      if (context == NULL)
 //      {
 //          // There was an error creating the context...
 //      }
 //      
-//      easyfsw_add_directory(context, "C:/My/Folder");
-//      easyfsw_add_directory(context, "C:/My/Other/Folder");
+//      drfsw_add_directory(context, "C:/My/Folder");
+//      drfsw_add_directory(context, "C:/My/Other/Folder");
 //      
 //      ...
 //      
 //      // Meanwhile, in another thread...
 //      void MyOtherThreadEntryProc()
 //      {
-//          easyfsw_event e;
-//          while (isMyApplicationStillAlive && easyfsw_next_event(context, &e))
+//          drfsw_event e;
+//          while (isMyApplicationStillAlive && drfsw_next_event(context, &e))
 //          {
 //              switch (e.type)
 //              {
-//              case easyfsw_event_type_created: OnFileCreated(e.absolutePath); break;
-//              case easyfsw_event_type_deleted: OnFileDeleted(e.absolutePath); break;
-//              case easyfsw_event_type_renamed: OnFileRenamed(e.absolutePath, e.absolutePathNew); break;
-//              case easyfsw_event_type_updated: OnFileUpdated(e.absolutePath); break;
+//              case drfsw_event_type_created: OnFileCreated(e.absolutePath); break;
+//              case drfsw_event_type_deleted: OnFileDeleted(e.absolutePath); break;
+//              case drfsw_event_type_renamed: OnFileRenamed(e.absolutePath, e.absolutePathNew); break;
+//              case drfsw_event_type_updated: OnFileUpdated(e.absolutePath); break;
 //              default: break;
 //              }
 //          }
@@ -51,9 +51,9 @@
 //      ...
 //      
 //      // Shutdown
-//      easyfsw_context* contextOld = context;
+//      drfsw_context* contextOld = context;
 //      context = NULL;
-//      easyfsw_delete_context(contextOld);
+//      drfsw_delete_context(contextOld);
 //
 // Directories are watched recursively, so try to avoid using this on high level directories
 // like "C:\". Also avoid watching a directory that is a descendant of another directory that's
@@ -63,19 +63,19 @@
 // library will normalize all of that internally depending on the platform. Note, however,
 // that events always report their paths with forward slashes.
 // 
-// You don't need to wait for events on a separate thread, however easyfsw_next_event() is
+// You don't need to wait for events on a separate thread, however drfsw_next_event() is
 // a blocking call, so it's usually best to do so. Alternatively, you can use
-// easyfsw_peek_event() which is the same, except non-blocking. Avoid using both
-// easyfsw_next_event() and easyfsw_peek_event() at the same time because both will remove
+// drfsw_peek_event() which is the same, except non-blocking. Avoid using both
+// drfsw_next_event() and drfsw_peek_event() at the same time because both will remove
 // the event from the internal queue so it likely won't work the way you expect.
 // 
 // The shutdown sequence is a bit strange, but since another thread is accessing that pointer,
-// you should set any shared pointers to null before calling easyfsw_delete_context(). That way,
-// the next call to easyfsw_next_event() will pass in a null pointer which will cause it to
+// you should set any shared pointers to null before calling drfsw_delete_context(). That way,
+// the next call to drfsw_next_event() will pass in a null pointer which will cause it to
 // immediately return with zero and thus break the loop and terminate the thread. It is up to
-// the application to ensure the pointer passed to easyfsw_next_event() is valid. Deleting a context
-// will cause a waiting call to easyfsw_next_event() to return 0, however there is a chance that the
-// context is deleted before easyfsw_next_event() has entered into it's wait state. It's up to the
+// the application to ensure the pointer passed to drfsw_next_event() is valid. Deleting a context
+// will cause a waiting call to drfsw_next_event() to return 0, however there is a chance that the
+// context is deleted before drfsw_next_event() has entered into it's wait state. It's up to the
 // application to make sure the context remains valid.
 //
 //
@@ -89,8 +89,8 @@
 //  - Win32: There is a known issue with the ReadDirectoryChangesW() watch technique (which is used internally)
 //    where some events won't get processed if a large number of files change in a short period of time.
 
-#ifndef easy_fsw_h
-#define easy_fsw_h
+#ifndef dr_fsw_h
+#define dr_fsw_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -100,85 +100,85 @@ extern "C" {
 // string. When this is changed the source file will need to be recompiled. Most of the time leaving this at 256 is fine, but it's
 // not a problem to increase the size if you are encountering issues. Note that increasing this value will increase memory usage
 // on both the heap and the stack.
-#ifndef EASYFSW_MAX_PATH
-//#define EASYFSW_MAX_PATH    256U
-#define EASYFSW_MAX_PATH    1024U
-//#define EASYFSW_MAX_PATH    4096U
+#ifndef DRFSW_MAX_PATH
+//#define DRFSW_MAX_PATH    256U
+#define DRFSW_MAX_PATH    1024U
+//#define DRFSW_MAX_PATH    4096U
 #endif
 
 // The maximum size of the event queue before it overflows.
-#define EASYFSW_EVENT_QUEUE_SIZE        1024U
+#define DRFSW_EVENT_QUEUE_SIZE        1024U
 
 
 // The different event types.
 typedef enum 
 {
-    easyfsw_event_type_created,
-    easyfsw_event_type_deleted,
-    easyfsw_event_type_renamed,
-    easyfsw_event_type_updated
+    drfsw_event_type_created,
+    drfsw_event_type_deleted,
+    drfsw_event_type_renamed,
+    drfsw_event_type_updated
 
-} easyfsw_event_type;
+} drfsw_event_type;
 
 
 // Structure containing information about an event.
 typedef struct
 {
     // The type of the event: created, deleted, renamed or updated.
-    easyfsw_event_type type;
+    drfsw_event_type type;
 
     // The absolute path of the file. For renamed events, this is the old name.
-    char absolutePath[EASYFSW_MAX_PATH];
+    char absolutePath[DRFSW_MAX_PATH];
 
     // The new file name. This is only used for renamed events. For other event types, this will be an empty string.
-    char absolutePathNew[EASYFSW_MAX_PATH];
+    char absolutePathNew[DRFSW_MAX_PATH];
 
     // The absolute base path. For renamed events, this is the old base path.
-    char absoluteBasePath[EASYFSW_MAX_PATH];
+    char absoluteBasePath[DRFSW_MAX_PATH];
 
     // The absolute base path for the new file name. This is only used for renamed events. For other event types, this will be an empty string.
-    char absoluteBasePathNew[EASYFSW_MAX_PATH];
+    char absoluteBasePathNew[DRFSW_MAX_PATH];
 
-} easyfsw_event;
+} drfsw_event;
 
 
-typedef void* easyfsw_context;
+typedef void* drfsw_context;
 
 
 // Creates a file system watcher.
 //
 // This will create a background thread that will do the actual checking.
-easyfsw_context* easyfsw_create_context(void);
+drfsw_context* drfsw_create_context(void);
 
 // Deletes the given file system watcher.
 //
 // This will not return until the thread watching for changes has returned.
 //
 // You do not need to remove the watched directories beforehand - this function will make sure everything is cleaned up properly.
-void easyfsw_delete_context(easyfsw_context* pContext);
+void drfsw_delete_context(drfsw_context* pContext);
 
 
 // Adds a directory to watch. This will watch for files and folders recursively.
-int easyfsw_add_directory(easyfsw_context* pContext, const char* absolutePath);
+int drfsw_add_directory(drfsw_context* pContext, const char* absolutePath);
 
 // Removes a watched directory.
-void easyfsw_remove_directory(easyfsw_context* pContext, const char* absolutePath);
+void drfsw_remove_directory(drfsw_context* pContext, const char* absolutePath);
 
 // Helper for removing every watched directory.
-void easyfsw_remove_all_directories(easyfsw_context* pContext);
+void drfsw_remove_all_directories(drfsw_context* pContext);
 
 // Determines whether or not the given directory is being watched.
-int easyfsw_is_watching_directory(easyfsw_context* pContext, const char* absolutePath);
+int drfsw_is_watching_directory(drfsw_context* pContext, const char* absolutePath);
 
 
 // Waits for an event from the file system.
 //
-// This is a blocking function. Call easyfsw_peek_event() to do a non-blocking call. If an error occurs, or the context is deleted, 0
+// This is a blocking function. Call drfsw_peek_event() to do a non-blocking call. If an error occurs, or the context is deleted, 0
 // will be returned and the memory pointed to by pEventOut will be undefined.
 //
 // This can be called from any thread, however it should not be called from multiple threads simultaneously.
 //
-// Use caution when using this combined with easyfsw_peek_event(). In almost all cases you should use just one or the other at any
+// Use caution when using this combined with drfsw_peek_event(). In almost all cases you should use just one or the other at any
 // given time.
 //
 // It is up to the application to ensure the context is still valid before calling this function.
@@ -186,12 +186,12 @@ int easyfsw_is_watching_directory(easyfsw_context* pContext, const char* absolut
 // Example Usage:
 //
 // void MyFSWatcher() {
-//     easyfsw_event e;
-//     while (isMyContextStillAlive && easyfsw_next_event(context, e)) {
+//     drfsw_event e;
+//     while (isMyContextStillAlive && drfsw_next_event(context, e)) {
 //         // Do something with the event...
 //     }
 // }
-int easyfsw_next_event(easyfsw_context* pContext, easyfsw_event* pEventOut);
+int drfsw_next_event(drfsw_context* pContext, drfsw_event* pEventOut);
 
 // Checks to see if there is a pending event, and if so, returns non-zero and fills the given structure with the event details. This
 // removes the event from the queue.
@@ -199,14 +199,14 @@ int easyfsw_next_event(easyfsw_context* pContext, easyfsw_event* pEventOut);
 // This can be called from any thread, however it should not be called from multiple threads simultaneously.
 //
 // It is up to the application to ensure the context is still valid before calling this function.
-int easyfsw_peek_event(easyfsw_context* pContext, easyfsw_event* pEventOut);
+int drfsw_peek_event(drfsw_context* pContext, drfsw_event* pEventOut);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  //easy_vfs_h
+#endif  //dr_vfs_h
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -214,7 +214,7 @@ int easyfsw_peek_event(easyfsw_context* pContext, easyfsw_event* pEventOut);
 // IMPLEMENTATION
 //
 ///////////////////////////////////////////////////////////////////////////////
-#ifdef EASY_FSW_IMPLEMENTATION
+#ifdef DR_FSW_IMPLEMENTATION
 
 // NOTES:
 //
@@ -240,7 +240,7 @@ int easyfsw_peek_event(easyfsw_context* pContext, easyfsw_event* pEventOut);
 #define PRIVATE static
 
 // The number of FILE_NOTIFY_INFORMATION structures in the buffer that's passed to ReadDirectoryChangesW()
-#define WIN32_RDC_FNI_COUNT     EASYFSW_EVENT_QUEUE_SIZE
+#define WIN32_RDC_FNI_COUNT     DRFSW_EVENT_QUEUE_SIZE
 
 #include <assert.h>
 
@@ -248,22 +248,22 @@ int easyfsw_peek_event(easyfsw_context* pContext, easyfsw_event* pEventOut);
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-PRIVATE void* easyfsw_malloc(size_t sizeInBytes)
+PRIVATE void* drfsw_malloc(size_t sizeInBytes)
 {
     return HeapAlloc(GetProcessHeap(), 0, sizeInBytes);
 }
 
-PRIVATE void easyfsw_free(void* p)
+PRIVATE void drfsw_free(void* p)
 {
     HeapFree(GetProcessHeap(), 0, p);
 }
 
-PRIVATE void easyfsw_memcpy(void* dst, const void* src, size_t sizeInBytes)
+PRIVATE void drfsw_memcpy(void* dst, const void* src, size_t sizeInBytes)
 {
     CopyMemory(dst, src, sizeInBytes);
 }
 
-PRIVATE void easyfsw_zeromemory(void* dst, size_t sizeInBytes)
+PRIVATE void drfsw_zeromemory(void* dst, size_t sizeInBytes)
 {
     ZeroMemory(dst, sizeInBytes);
 }
@@ -271,29 +271,29 @@ PRIVATE void easyfsw_zeromemory(void* dst, size_t sizeInBytes)
 #include <stdlib.h>
 #include <string.h>
 
-PRIVATE void* easyfsw_malloc(size_t sizeInBytes)
+PRIVATE void* drfsw_malloc(size_t sizeInBytes)
 {
     return malloc(sizeInBytes);
 }
 
-PRIVATE void easyfsw_free(void* p)
+PRIVATE void drfsw_free(void* p)
 {
     free(p);
 }
 
-PRIVATE void easyfsw_memcpy(void* dst, const void* src, size_t sizeInBytes)
+PRIVATE void drfsw_memcpy(void* dst, const void* src, size_t sizeInBytes)
 {
     memcpy(dst, src, sizeInBytes);
 }
 
-PRIVATE void easyfsw_zeromemory(void* dst, size_t sizeInBytes)
+PRIVATE void drfsw_zeromemory(void* dst, size_t sizeInBytes)
 {
     memset(dst, 0, sizeInBytes);
 }
 #endif
 
 
-PRIVATE int easyfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
+PRIVATE int drfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 {
 #if defined(_MSC_VER)
     return strcpy_s(dst, dstSizeInBytes, src);
@@ -333,35 +333,35 @@ PRIVATE int easyfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* s
 }
 
 
-PRIVATE int easyfsw_event_init(easyfsw_event* pEvent, easyfsw_event_type type, const char* absolutePath, const char* absolutePathNew, const char* absoluteBasePath, const char* absoluteBasePathNew)
+PRIVATE int drfsw_event_init(drfsw_event* pEvent, drfsw_event_type type, const char* absolutePath, const char* absolutePathNew, const char* absoluteBasePath, const char* absoluteBasePathNew)
 {
     if (pEvent != NULL)
     {
         pEvent->type = type;
 
         if (absolutePath != NULL) {
-            easyfsw_strcpy(pEvent->absolutePath, EASYFSW_MAX_PATH, absolutePath);
+            drfsw_strcpy(pEvent->absolutePath, DRFSW_MAX_PATH, absolutePath);
         } else {
-            easyfsw_zeromemory(pEvent->absolutePath, EASYFSW_MAX_PATH);
+            drfsw_zeromemory(pEvent->absolutePath, DRFSW_MAX_PATH);
         }
 
         if (absolutePathNew != NULL) {
-            easyfsw_strcpy(pEvent->absolutePathNew, EASYFSW_MAX_PATH, absolutePathNew);
+            drfsw_strcpy(pEvent->absolutePathNew, DRFSW_MAX_PATH, absolutePathNew);
         } else {
-            easyfsw_zeromemory(pEvent->absolutePathNew, EASYFSW_MAX_PATH);
+            drfsw_zeromemory(pEvent->absolutePathNew, DRFSW_MAX_PATH);
         }
 
 
         if (absoluteBasePath != NULL) {
-            easyfsw_strcpy(pEvent->absoluteBasePath, EASYFSW_MAX_PATH, absoluteBasePath);
+            drfsw_strcpy(pEvent->absoluteBasePath, DRFSW_MAX_PATH, absoluteBasePath);
         } else {
-            easyfsw_zeromemory(pEvent->absoluteBasePath, EASYFSW_MAX_PATH);
+            drfsw_zeromemory(pEvent->absoluteBasePath, DRFSW_MAX_PATH);
         }
 
         if (absoluteBasePathNew != NULL) {
-            easyfsw_strcpy(pEvent->absoluteBasePathNew, EASYFSW_MAX_PATH, absoluteBasePathNew);
+            drfsw_strcpy(pEvent->absoluteBasePathNew, DRFSW_MAX_PATH, absoluteBasePathNew);
         } else {
-            easyfsw_zeromemory(pEvent->absoluteBasePathNew, EASYFSW_MAX_PATH);
+            drfsw_zeromemory(pEvent->absoluteBasePathNew, DRFSW_MAX_PATH);
         }
 
         return 1;
@@ -374,9 +374,9 @@ PRIVATE int easyfsw_event_init(easyfsw_event* pEvent, easyfsw_event_type type, c
 typedef struct
 {
     // The buffer containing the events in the queue.
-    easyfsw_event* pBuffer;
+    drfsw_event* pBuffer;
 
-    // The size of the buffer, in easyfsw_event's.
+    // The size of the buffer, in drfsw_event's.
     unsigned int bufferSize;
 
     // The number of items in the queue.
@@ -386,18 +386,18 @@ typedef struct
     unsigned int indexFirst;
 
 #if defined(_WIN32)
-    // The semaphore for blocking in easyfsw_next_event().
+    // The semaphore for blocking in drfsw_next_event().
     HANDLE hSemaphore;
 
-    // The mutex for synchronizing access to the buffer. This is needed because easyfsw_next_event() will need to read the buffer while
-    // another thread is filling it with events. In addition, it will help to keep easyfsw_next_event() and easyfsw_peek_event() playing
+    // The mutex for synchronizing access to the buffer. This is needed because drfsw_next_event() will need to read the buffer while
+    // another thread is filling it with events. In addition, it will help to keep drfsw_next_event() and drfsw_peek_event() playing
     // nicely with each other.
     HANDLE hLock;
 #endif
 
-} easyfsw_event_queue;
+} drfsw_event_queue;
 
-PRIVATE int easyfsw_event_queue_init(easyfsw_event_queue* pQueue)
+PRIVATE int drfsw_event_queue_init(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
@@ -407,10 +407,10 @@ PRIVATE int easyfsw_event_queue_init(easyfsw_event_queue* pQueue)
         pQueue->count      = 0;
 
 #if defined(_WIN32)
-        pQueue->hSemaphore = CreateSemaphoreW(NULL, 0, EASYFSW_EVENT_QUEUE_SIZE, NULL);
+        pQueue->hSemaphore = CreateSemaphoreW(NULL, 0, DRFSW_EVENT_QUEUE_SIZE, NULL);
         if (pQueue->hSemaphore == NULL)
         {
-            easyfsw_free(pQueue->pBuffer);
+            drfsw_free(pQueue->pBuffer);
             return 0;
         }
 
@@ -418,7 +418,7 @@ PRIVATE int easyfsw_event_queue_init(easyfsw_event_queue* pQueue)
         if (pQueue->hLock == NULL)
         {
             CloseHandle(pQueue->hSemaphore);
-            easyfsw_free(pQueue->pBuffer);
+            drfsw_free(pQueue->pBuffer);
             return 0;
         }
 #endif
@@ -429,11 +429,11 @@ PRIVATE int easyfsw_event_queue_init(easyfsw_event_queue* pQueue)
     return 0;
 }
 
-PRIVATE void easyfsw_event_queue_uninit(easyfsw_event_queue* pQueue)
+PRIVATE void drfsw_event_queue_uninit(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
-        easyfsw_free(pQueue->pBuffer);
+        drfsw_free(pQueue->pBuffer);
         pQueue->pBuffer = NULL;
 
         pQueue->bufferSize = 0;
@@ -450,14 +450,14 @@ PRIVATE void easyfsw_event_queue_uninit(easyfsw_event_queue* pQueue)
     }
 }
 
-PRIVATE easyfsw_event_queue* easyfsw_event_queue_create()
+PRIVATE drfsw_event_queue* drfsw_event_queue_create()
 {
-    easyfsw_event_queue* pQueue = easyfsw_malloc(sizeof(easyfsw_event_queue));
+    drfsw_event_queue* pQueue = drfsw_malloc(sizeof(drfsw_event_queue));
     if (pQueue != NULL)
     {
-        if (!easyfsw_event_queue_init(pQueue))
+        if (!drfsw_event_queue_init(pQueue))
         {
-            easyfsw_free(pQueue);
+            drfsw_free(pQueue);
             pQueue = NULL;
         }
     }
@@ -465,16 +465,16 @@ PRIVATE easyfsw_event_queue* easyfsw_event_queue_create()
     return pQueue;
 }
 
-PRIVATE void easyfsw_event_queue_delete(easyfsw_event_queue* pQueue)
+PRIVATE void drfsw_event_queue_delete(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
-        easyfsw_event_queue_uninit(pQueue);
-        easyfsw_free(pQueue);
+        drfsw_event_queue_uninit(pQueue);
+        drfsw_free(pQueue);
     }
 }
 
-PRIVATE unsigned int easyfsw_event_queue_getcount(easyfsw_event_queue* pQueue)
+PRIVATE unsigned int drfsw_event_queue_getcount(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
@@ -484,7 +484,7 @@ PRIVATE unsigned int easyfsw_event_queue_getcount(easyfsw_event_queue* pQueue)
     return 0;
 }
 
-PRIVATE void easyfsw_event_queue_inflate(easyfsw_event_queue* pQueue)
+PRIVATE void drfsw_event_queue_inflate(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
@@ -494,13 +494,13 @@ PRIVATE void easyfsw_event_queue_inflate(easyfsw_event_queue* pQueue)
             newBufferSize = pQueue->bufferSize*2;
         }
 
-        easyfsw_event* pOldBuffer = pQueue->pBuffer;
-        easyfsw_event* pNewBuffer = easyfsw_malloc(newBufferSize * sizeof(easyfsw_event));
+        drfsw_event* pOldBuffer = pQueue->pBuffer;
+        drfsw_event* pNewBuffer = drfsw_malloc(newBufferSize * sizeof(drfsw_event));
 
         for (unsigned int iDst = 0; iDst < pQueue->count; ++iDst)
         {
             unsigned int iSrc = (pQueue->indexFirst + iDst) % pQueue->bufferSize;
-            easyfsw_memcpy(pNewBuffer + iDst, pOldBuffer + iSrc, sizeof(easyfsw_event));
+            drfsw_memcpy(pNewBuffer + iDst, pOldBuffer + iSrc, sizeof(drfsw_event));
         }
 
 
@@ -508,18 +508,18 @@ PRIVATE void easyfsw_event_queue_inflate(easyfsw_event_queue* pQueue)
         pQueue->pBuffer    = pNewBuffer;
         pQueue->indexFirst = 0;
 
-        easyfsw_free(pOldBuffer);
+        drfsw_free(pOldBuffer);
     }
 }
 
-PRIVATE int easyfsw_event_queue_pushback(easyfsw_event_queue* pQueue, easyfsw_event* pEvent)
+PRIVATE int drfsw_event_queue_pushback(drfsw_event_queue* pQueue, drfsw_event* pEvent)
 {
     if (pQueue != NULL)
     {
         if (pEvent != NULL)
         {
-            unsigned int count = easyfsw_event_queue_getcount(pQueue);
-            if (count == EASYFSW_EVENT_QUEUE_SIZE)
+            unsigned int count = drfsw_event_queue_getcount(pQueue);
+            if (count == DRFSW_EVENT_QUEUE_SIZE)
             {
                 // We've hit the limit.
                 return 0;
@@ -527,14 +527,14 @@ PRIVATE int easyfsw_event_queue_pushback(easyfsw_event_queue* pQueue, easyfsw_ev
 
             if (count == pQueue->bufferSize)
             {
-                easyfsw_event_queue_inflate(pQueue);
+                drfsw_event_queue_inflate(pQueue);
                 assert(count < pQueue->bufferSize);
             }
 
 
             // Insert the value.
             unsigned int iDst = (pQueue->indexFirst + pQueue->count) % pQueue->bufferSize;
-            easyfsw_memcpy(pQueue->pBuffer + iDst, pEvent, sizeof(easyfsw_event));
+            drfsw_memcpy(pQueue->pBuffer + iDst, pEvent, sizeof(drfsw_event));
 
 
             // Increment the counter.
@@ -548,13 +548,13 @@ PRIVATE int easyfsw_event_queue_pushback(easyfsw_event_queue* pQueue, easyfsw_ev
     return 0;
 }
 
-PRIVATE int easyfsw_event_queue_pop(easyfsw_event_queue* pQueue, easyfsw_event* pEventOut)
+PRIVATE int drfsw_event_queue_pop(drfsw_event_queue* pQueue, drfsw_event* pEventOut)
 {
     if (pQueue != NULL && pQueue->count > 0)
     {
         if (pEventOut != NULL)
         {
-            easyfsw_memcpy(pEventOut, pQueue->pBuffer + pQueue->indexFirst, sizeof(easyfsw_event));
+            drfsw_memcpy(pEventOut, pQueue->pBuffer + pQueue->indexFirst, sizeof(drfsw_event));
             pQueue->indexFirst = (pQueue->indexFirst + 1) % pQueue->bufferSize;
         }
 
@@ -570,7 +570,7 @@ PRIVATE int easyfsw_event_queue_pop(easyfsw_event_queue* pQueue, easyfsw_event* 
 
 
 // A simple function for appending a relative path to an absolute path. This does not resolve "." and ".." components.
-PRIVATE int easyfsw_make_absolute_path(const char* absolutePart, const char* relativePart, char absolutePathOut[EASYFSW_MAX_PATH])
+PRIVATE int drfsw_make_absolute_path(const char* absolutePart, const char* relativePart, char absolutePathOut[DRFSW_MAX_PATH])
 {
     size_t absolutePartLength = strlen(absolutePart);
     size_t relativePartLength = strlen(relativePart);
@@ -582,15 +582,15 @@ PRIVATE int easyfsw_make_absolute_path(const char* absolutePart, const char* rel
             absolutePartLength -= 1;
         }
 
-        if (absolutePartLength > EASYFSW_MAX_PATH)
+        if (absolutePartLength > DRFSW_MAX_PATH)
         {
-            absolutePartLength = EASYFSW_MAX_PATH - 1;
+            absolutePartLength = DRFSW_MAX_PATH - 1;
         }
     }
 
-    if (absolutePartLength + relativePartLength + 1 > EASYFSW_MAX_PATH)
+    if (absolutePartLength + relativePartLength + 1 > DRFSW_MAX_PATH)
     {
-        relativePartLength = EASYFSW_MAX_PATH - 1 - absolutePartLength - 1;     // -1 for the null terminate and -1 for the slash.
+        relativePartLength = DRFSW_MAX_PATH - 1 - absolutePartLength - 1;     // -1 for the null terminate and -1 for the slash.
     }
 
 
@@ -611,12 +611,12 @@ PRIVATE int easyfsw_make_absolute_path(const char* absolutePart, const char* rel
 }
 
 // Replaces the back slashes with forward slashes in the given string. This operates on the string in place.
-PRIVATE int easyfsw_to_forward_slashes(char* path)
+PRIVATE int drfsw_to_forward_slashes(char* path)
 {
     if (path != NULL)
     {
         unsigned int counter = 0;
-        while (*path++ != '\0' && counter++ < EASYFSW_MAX_PATH)
+        while (*path++ != '\0' && counter++ < DRFSW_MAX_PATH)
         {
             if (*path == '\\')
             {
@@ -642,9 +642,9 @@ typedef struct
     // The number of pointers in the list.
     unsigned int count;
 
-} easyfsw_list;
+} drfsw_list;
 
-PRIVATE int easyfsw_list_init(easyfsw_list* pList)
+PRIVATE int drfsw_list_init(drfsw_list* pList)
 {
     if (pList != NULL)
     {
@@ -658,15 +658,15 @@ PRIVATE int easyfsw_list_init(easyfsw_list* pList)
     return 0;
 }
 
-PRIVATE void easyfsw_list_uninit(easyfsw_list* pList)
+PRIVATE void drfsw_list_uninit(drfsw_list* pList)
 {
     if (pList != NULL)
     {
-        easyfsw_free(pList->buffer);
+        drfsw_free(pList->buffer);
     }
 }
 
-PRIVATE void easyfsw_list_inflate(easyfsw_list* pList)
+PRIVATE void drfsw_list_inflate(drfsw_list* pList)
 {
     if (pList != NULL)
     {
@@ -677,7 +677,7 @@ PRIVATE void easyfsw_list_inflate(easyfsw_list* pList)
         }
 
         void** pOldBuffer = pList->buffer;
-        void** pNewBuffer = easyfsw_malloc(newBufferSize*sizeof(void*));
+        void** pNewBuffer = drfsw_malloc(newBufferSize*sizeof(void*));
 
         // Move everything over to the new buffer.
         for (unsigned int i = 0; i < pList->count; ++i)
@@ -691,13 +691,13 @@ PRIVATE void easyfsw_list_inflate(easyfsw_list* pList)
     }
 }
 
-PRIVATE void easyfsw_list_pushback(easyfsw_list* pList, void* pItem)
+PRIVATE void drfsw_list_pushback(drfsw_list* pList, void* pItem)
 {
     if (pList != NULL)
     {
         if (pList->count == pList->bufferSize)
         {
-            easyfsw_list_inflate(pList);
+            drfsw_list_inflate(pList);
             assert(pList->count < pList->bufferSize);
 
             pList->buffer[pList->count] = pItem;
@@ -706,7 +706,7 @@ PRIVATE void easyfsw_list_pushback(easyfsw_list* pList, void* pItem)
     }
 }
 
-PRIVATE void easyfsw_list_removebyindex(easyfsw_list* pList, unsigned int index)
+PRIVATE void drfsw_list_removebyindex(drfsw_list* pList, unsigned int index)
 {
     if (pList != NULL)
     {
@@ -723,19 +723,19 @@ PRIVATE void easyfsw_list_removebyindex(easyfsw_list* pList, unsigned int index)
     }
 }
 
-PRIVATE void easyfsw_list_popback(easyfsw_list* pList)
+PRIVATE void drfsw_list_popback(drfsw_list* pList)
 {
     if (pList != NULL)
     {
         assert(pList->count > 0);
 
-        easyfsw_list_removebyindex(pList, pList->count - 1);
+        drfsw_list_removebyindex(pList, pList->count - 1);
     }
 }
 
 
 #if defined(_WIN32)
-#define EASYFSW_MAX_PATH_W      (EASYFSW_MAX_PATH / sizeof(wchar_t))
+#define DRFSW_MAX_PATH_W      (DRFSW_MAX_PATH / sizeof(wchar_t))
 
 ///////////////////////////////////////////////
 // ReadDirectoryChangesW
@@ -745,12 +745,12 @@ static const int WIN32_RDC_PENDING_DELETE = (1 << 1);
 
 
 // Replaces the forward slashes to back slashes for use with Win32. This operates on the string in place.
-PRIVATE int easyfsw_to_back_slashes_wchar(wchar_t* path)
+PRIVATE int drfsw_to_back_slashes_wchar(wchar_t* path)
 {
     if (path != NULL)
     {
         unsigned int counter = 0;
-        while (*path++ != L'\0' && counter++ < EASYFSW_MAX_PATH_W)
+        while (*path++ != L'\0' && counter++ < DRFSW_MAX_PATH_W)
         {
             if (*path == L'/')
             {
@@ -764,25 +764,25 @@ PRIVATE int easyfsw_to_back_slashes_wchar(wchar_t* path)
     return 0;
 }
 
-// Converts a UTF-8 string to wchar_t for use with Win32. Free the returned pointer with easyfsw_free().
-PRIVATE int easyfsw_utf8_to_wchar(const char* str, wchar_t wstrOut[EASYFSW_MAX_PATH_W])
+// Converts a UTF-8 string to wchar_t for use with Win32. Free the returned pointer with drfsw_free().
+PRIVATE int drfsw_utf8_to_wchar(const char* str, wchar_t wstrOut[DRFSW_MAX_PATH_W])
 {
-    int wcharsWritten = MultiByteToWideChar(CP_UTF8, 0, str, -1, wstrOut, EASYFSW_MAX_PATH_W);
+    int wcharsWritten = MultiByteToWideChar(CP_UTF8, 0, str, -1, wstrOut, DRFSW_MAX_PATH_W);
     if (wcharsWritten > 0)
     {
-        assert((unsigned int)wcharsWritten <= EASYFSW_MAX_PATH_W);
+        assert((unsigned int)wcharsWritten <= DRFSW_MAX_PATH_W);
         return 1;
     }
 
     return 0;
 }
 
-PRIVATE int easyfsw_wchar_to_utf8(const wchar_t* wstr, int wstrCC, char pathOut[EASYFSW_MAX_PATH])
+PRIVATE int drfsw_wchar_to_utf8(const wchar_t* wstr, int wstrCC, char pathOut[DRFSW_MAX_PATH])
 {
-    int bytesWritten = WideCharToMultiByte(CP_UTF8, 0, wstr, wstrCC, pathOut, EASYFSW_MAX_PATH - 1, NULL, NULL);
+    int bytesWritten = WideCharToMultiByte(CP_UTF8, 0, wstr, wstrCC, pathOut, DRFSW_MAX_PATH - 1, NULL, NULL);
     if (bytesWritten > 0)
     {
-        assert((unsigned int)bytesWritten < EASYFSW_MAX_PATH);
+        assert((unsigned int)bytesWritten < DRFSW_MAX_PATH);
         pathOut[bytesWritten] = '\0';
 
         return 1;
@@ -791,51 +791,51 @@ PRIVATE int easyfsw_wchar_to_utf8(const wchar_t* wstr, int wstrCC, char pathOut[
     return 0;
 }
 
-// Converts a UTF-8 path to wchar_t and converts the slashes to backslashes for use with Win32. Free the returned pointer with easyfsw_free().
-PRIVATE int easyfsw_to_win32_path_wchar(const char* path, wchar_t wpathOut[EASYFSW_MAX_PATH_W])
+// Converts a UTF-8 path to wchar_t and converts the slashes to backslashes for use with Win32. Free the returned pointer with drfsw_free().
+PRIVATE int drfsw_to_win32_path_wchar(const char* path, wchar_t wpathOut[DRFSW_MAX_PATH_W])
 {
-    if (easyfsw_utf8_to_wchar(path, wpathOut))
+    if (drfsw_utf8_to_wchar(path, wpathOut))
     {
-        return easyfsw_to_back_slashes_wchar(wpathOut);
+        return drfsw_to_back_slashes_wchar(wpathOut);
     }
 
     return 0;
 }
 
 // Converts a wchar_t Win32 path to a char unix style path (forward slashes instead of back).
-PRIVATE int easyfsw_from_win32_path(const wchar_t* wpath, int wpathCC, char pathOut[EASYFSW_MAX_PATH])
+PRIVATE int drfsw_from_win32_path(const wchar_t* wpath, int wpathCC, char pathOut[DRFSW_MAX_PATH])
 {
-    if (easyfsw_wchar_to_utf8(wpath, wpathCC, pathOut))
+    if (drfsw_wchar_to_utf8(wpath, wpathCC, pathOut))
     {
-        return easyfsw_to_forward_slashes(pathOut);
+        return drfsw_to_forward_slashes(pathOut);
     }
 
     return 0;
 }
 
 
-PRIVATE VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
-PRIVATE VOID CALLBACK easyfsw_win32_schedulewatchAPC(ULONG_PTR dwParam);
-PRIVATE VOID CALLBACK easyfsw_win32_cancelioAPC(ULONG_PTR dwParam);
+PRIVATE VOID CALLBACK drfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
+PRIVATE VOID CALLBACK drfsw_win32_schedulewatchAPC(ULONG_PTR dwParam);
+PRIVATE VOID CALLBACK drfsw_win32_cancelioAPC(ULONG_PTR dwParam);
 
 typedef struct
 {
     // Thelist containing pointers to the watched directory objects. This is not thread safe.
-    easyfsw_list list;
+    drfsw_list list;
 
     // The lock for synchronizing access to the list.
     HANDLE hLock;
 
-} easyfsw_directory_list_win32;
+} drfsw_directory_list_win32;
 
 // Structure representing the watcher context for the Win32 RDC method.
 typedef struct
 {
     // The list of watched directories.
-    easyfsw_directory_list_win32 watchedDirectories;
+    drfsw_directory_list_win32 watchedDirectories;
 
     // The event queue.
-    easyfsw_event_queue eventQueue;
+    drfsw_event_queue eventQueue;
 
 
     // A handle to the watcher thread.
@@ -851,27 +851,27 @@ typedef struct
     // Whether or not the watch thread needs to be terminated.
     BOOL terminateThread;
 
-} easyfsw_context_win32;
+} drfsw_context_win32;
 
-PRIVATE easyfsw_context* easyfsw_create_context_win32(void);
-PRIVATE void easyfsw_delete_context_win32(easyfsw_context_win32* pContext);
-PRIVATE int easyfsw_add_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath);
-PRIVATE void easyfsw_remove_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath);
-PRIVATE void easyfsw_remove_all_directories_win32(easyfsw_context_win32* pContext);
-PRIVATE int easyfsw_is_watching_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath);
-PRIVATE int easyfsw_next_event_win32(easyfsw_context_win32* pContext, easyfsw_event* pEventOut);
-PRIVATE int easyfsw_peek_event_win32(easyfsw_context_win32* pContext, easyfsw_event* pEventOut);
-PRIVATE void easyfsw_postevent_win32(easyfsw_context_win32* pContext, easyfsw_event* pEvent);
+PRIVATE drfsw_context* drfsw_create_context_win32(void);
+PRIVATE void drfsw_delete_context_win32(drfsw_context_win32* pContext);
+PRIVATE int drfsw_add_directory_win32(drfsw_context_win32* pContext, const char* absolutePath);
+PRIVATE void drfsw_remove_directory_win32(drfsw_context_win32* pContext, const char* absolutePath);
+PRIVATE void drfsw_remove_all_directories_win32(drfsw_context_win32* pContext);
+PRIVATE int drfsw_is_watching_directory_win32(drfsw_context_win32* pContext, const char* absolutePath);
+PRIVATE int drfsw_next_event_win32(drfsw_context_win32* pContext, drfsw_event* pEventOut);
+PRIVATE int drfsw_peek_event_win32(drfsw_context_win32* pContext, drfsw_event* pEventOut);
+PRIVATE void drfsw_postevent_win32(drfsw_context_win32* pContext, drfsw_event* pEvent);
 
 
 // Structure representing a directory that's being watched with the Win32 RDC method.
 typedef struct
 {
     // A pointer to the context that owns this directory.
-    easyfsw_context_win32* pContext;
+    drfsw_context_win32* pContext;
 
     // The absolute path of the directory being watched.
-    char absolutePath[EASYFSW_MAX_PATH];
+    char absolutePath[DRFSW_MAX_PATH];
 
     // The handle representing the directory. This is created with CreateFile() which means the directory itself will become locked
     // because the operating system see's it as "in use". It is possible to modify the files and folder inside the directory, though.
@@ -881,7 +881,7 @@ typedef struct
 	OVERLAPPED overlapped;
 
     // A pointer to the buffer containing the notification objects that is passed to the notification callback specified with
-    // ReadDirectoryChangesW(). This must be aligned to a DWORD boundary, but easyfsw_malloc() will do that for us, so that should not
+    // ReadDirectoryChangesW(). This must be aligned to a DWORD boundary, but drfsw_malloc() will do that for us, so that should not
     // be an issue.
     FILE_NOTIFY_INFORMATION* pFNIBuffer1;
     FILE_NOTIFY_INFORMATION* pFNIBuffer2;
@@ -892,12 +892,12 @@ typedef struct
     // Flags describing the state of the directory.
     int flags;
 
-} easyfsw_directory_win32;
+} drfsw_directory_win32;
 
-PRIVATE int easyfsw_directory_win32_beginwatch(easyfsw_directory_win32* pDirectory);
+PRIVATE int drfsw_directory_win32_beginwatch(drfsw_directory_win32* pDirectory);
 
 
-PRIVATE void easyfsw_directory_win32_uninit(easyfsw_directory_win32* pDirectory)
+PRIVATE void drfsw_directory_win32_uninit(drfsw_directory_win32* pDirectory)
 {
     if (pDirectory != NULL)
     {
@@ -907,20 +907,20 @@ PRIVATE void easyfsw_directory_win32_uninit(easyfsw_directory_win32* pDirectory)
             pDirectory->hDirectory = NULL;
         }
 
-        easyfsw_free(pDirectory->pFNIBuffer1);
+        drfsw_free(pDirectory->pFNIBuffer1);
         pDirectory->pFNIBuffer1 = NULL;
 
-        easyfsw_free(pDirectory->pFNIBuffer2);
+        drfsw_free(pDirectory->pFNIBuffer2);
         pDirectory->pFNIBuffer2 = NULL;
     }
 }
 
-PRIVATE int easyfsw_directory_win32_init(easyfsw_directory_win32* pDirectory, easyfsw_context_win32* pContext, const char* absolutePath)
+PRIVATE int drfsw_directory_win32_init(drfsw_directory_win32* pDirectory, drfsw_context_win32* pContext, const char* absolutePath)
 {
     if (pDirectory != NULL)
     {
         pDirectory->pContext             = pContext;
-        easyfsw_zeromemory(pDirectory->absolutePath, EASYFSW_MAX_PATH);
+        drfsw_zeromemory(pDirectory->absolutePath, DRFSW_MAX_PATH);
         pDirectory->hDirectory           = NULL;
         pDirectory->pFNIBuffer1          = NULL;
         pDirectory->pFNIBuffer2          = NULL;
@@ -933,8 +933,8 @@ PRIVATE int easyfsw_directory_win32_init(easyfsw_directory_win32* pDirectory, ea
             memcpy(pDirectory->absolutePath, absolutePath, length);
             pDirectory->absolutePath[length] = '\0';
 
-            wchar_t absolutePathWithBackSlashes[EASYFSW_MAX_PATH_W];
-            if (easyfsw_to_win32_path_wchar(absolutePath, absolutePathWithBackSlashes))
+            wchar_t absolutePathWithBackSlashes[DRFSW_MAX_PATH_W];
+            if (drfsw_to_win32_path_wchar(absolutePath, absolutePathWithBackSlashes))
             {
                 pDirectory->hDirectory = CreateFileW(
                     absolutePathWithBackSlashes,
@@ -956,8 +956,8 @@ PRIVATE int easyfsw_directory_win32_init(easyfsw_directory_win32* pDirectory, ea
                     pDirectory->overlapped.hEvent = pDirectory;
 
                     pDirectory->fniBufferSizeInBytes = WIN32_RDC_FNI_COUNT * sizeof(FILE_NOTIFY_INFORMATION);
-                    pDirectory->pFNIBuffer1 = easyfsw_malloc(pDirectory->fniBufferSizeInBytes);
-                    pDirectory->pFNIBuffer2 = easyfsw_malloc(pDirectory->fniBufferSizeInBytes);
+                    pDirectory->pFNIBuffer1 = drfsw_malloc(pDirectory->fniBufferSizeInBytes);
+                    pDirectory->pFNIBuffer2 = drfsw_malloc(pDirectory->fniBufferSizeInBytes);
                     if (pDirectory->pFNIBuffer1 != NULL && pDirectory->pFNIBuffer2 != NULL)
                     {
                         // At this point the directory is initialized, however it is not yet being watched. The watch needs to be triggered from
@@ -967,17 +967,17 @@ PRIVATE int easyfsw_directory_win32_init(easyfsw_directory_win32* pDirectory, ea
                     }
                     else
                     {
-                        easyfsw_directory_win32_uninit(pDirectory);
+                        drfsw_directory_win32_uninit(pDirectory);
                     }
                 }
                 else
                 {
-                    easyfsw_directory_win32_uninit(pDirectory);
+                    drfsw_directory_win32_uninit(pDirectory);
                 }
             }
             else
             {
-                easyfsw_directory_win32_uninit(pDirectory);
+                drfsw_directory_win32_uninit(pDirectory);
             }
         }
     }
@@ -985,12 +985,12 @@ PRIVATE int easyfsw_directory_win32_init(easyfsw_directory_win32* pDirectory, ea
     return 0;
 }
 
-PRIVATE int easyfsw_directory_win32_schedulewatch(easyfsw_directory_win32* pDirectory)
+PRIVATE int drfsw_directory_win32_schedulewatch(drfsw_directory_win32* pDirectory)
 {
     if (pDirectory != NULL)
     {
         pDirectory->flags |= WIN32_RDC_PENDING_WATCH;
-        QueueUserAPC(easyfsw_win32_schedulewatchAPC, pDirectory->pContext->hThread, (ULONG_PTR)pDirectory);
+        QueueUserAPC(drfsw_win32_schedulewatchAPC, pDirectory->pContext->hThread, (ULONG_PTR)pDirectory);
 
         return 1;
     }
@@ -998,12 +998,12 @@ PRIVATE int easyfsw_directory_win32_schedulewatch(easyfsw_directory_win32* pDire
     return 0;
 }
 
-PRIVATE int easyfsw_directory_win32_scheduledelete(easyfsw_directory_win32* pDirectory)
+PRIVATE int drfsw_directory_win32_scheduledelete(drfsw_directory_win32* pDirectory)
 {
     if (pDirectory != NULL)
     {
         pDirectory->flags |= WIN32_RDC_PENDING_DELETE;
-        QueueUserAPC(easyfsw_win32_cancelioAPC, pDirectory->pContext->hThread, (ULONG_PTR)pDirectory);
+        QueueUserAPC(drfsw_win32_cancelioAPC, pDirectory->pContext->hThread, (ULONG_PTR)pDirectory);
 
         return 1;
     }
@@ -1011,7 +1011,7 @@ PRIVATE int easyfsw_directory_win32_scheduledelete(easyfsw_directory_win32* pDir
     return 0;
 }
 
-PRIVATE int easyfsw_directory_win32_beginwatch(easyfsw_directory_win32* pDirectory)
+PRIVATE int drfsw_directory_win32_beginwatch(drfsw_directory_win32* pDirectory)
 {
     // This function should only be called from the worker thread.
 
@@ -1019,7 +1019,7 @@ PRIVATE int easyfsw_directory_win32_beginwatch(easyfsw_directory_win32* pDirecto
     {
         DWORD dwNotifyFilter = FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION;
         DWORD dwBytes        = 0;
-        if (ReadDirectoryChangesW(pDirectory->hDirectory, pDirectory->pFNIBuffer1, pDirectory->fniBufferSizeInBytes, TRUE, dwNotifyFilter, &dwBytes, &pDirectory->overlapped, easyfsw_win32_completionroutine))
+        if (ReadDirectoryChangesW(pDirectory->hDirectory, pDirectory->pFNIBuffer1, pDirectory->fniBufferSizeInBytes, TRUE, dwNotifyFilter, &dwBytes, &pDirectory->overlapped, drfsw_win32_completionroutine))
         {
             pDirectory->flags &= ~WIN32_RDC_PENDING_WATCH;
             return 1;
@@ -1032,11 +1032,11 @@ PRIVATE int easyfsw_directory_win32_beginwatch(easyfsw_directory_win32* pDirecto
 
 
 
-PRIVATE int easyfsw_directory_list_win32_init(easyfsw_directory_list_win32* pDirectories)
+PRIVATE int drfsw_directory_list_win32_init(drfsw_directory_list_win32* pDirectories)
 {
     if (pDirectories != NULL)
     {
-        easyfsw_list_init(&pDirectories->list);
+        drfsw_list_init(&pDirectories->list);
 
         pDirectories->hLock = CreateEvent(NULL, FALSE, TRUE, NULL);
         if (pDirectories->hLock != NULL)
@@ -1048,11 +1048,11 @@ PRIVATE int easyfsw_directory_list_win32_init(easyfsw_directory_list_win32* pDir
     return 0;
 }
 
-PRIVATE void easyfsw_directory_list_win32_uninit(easyfsw_directory_list_win32* pDirectories)
+PRIVATE void drfsw_directory_list_win32_uninit(drfsw_directory_list_win32* pDirectories)
 {
     if (pDirectories != NULL)
     {
-        easyfsw_list_uninit(&pDirectories->list);
+        drfsw_list_uninit(&pDirectories->list);
 
         CloseHandle(pDirectories->hLock);
         pDirectories->hLock = NULL;
@@ -1063,9 +1063,9 @@ PRIVATE void easyfsw_directory_list_win32_uninit(easyfsw_directory_list_win32* p
 
 
 
-PRIVATE VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
+PRIVATE VOID CALLBACK drfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
 {
-    easyfsw_directory_win32* pDirectory = (easyfsw_directory_win32*)lpOverlapped->hEvent;
+    drfsw_directory_win32* pDirectory = (drfsw_directory_win32*)lpOverlapped->hEvent;
     if (pDirectory != NULL)
     {
         if (dwErrorCode == ERROR_OPERATION_ABORTED)
@@ -1073,9 +1073,9 @@ PRIVATE VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD d
             // When we get here, CancelIo() was called on the directory. We treat this as a signal that the context has requested that the directory
             // be deleted. At this point the directory has been removed from the context's internal list and we just need to uninitialize and free
             // the directory object.
-            easyfsw_context_win32* pContext = pDirectory->pContext;
-            easyfsw_directory_win32_uninit(pDirectory);
-            easyfsw_free(pDirectory);
+            drfsw_context_win32* pContext = pDirectory->pContext;
+            drfsw_directory_win32_uninit(pDirectory);
+            drfsw_free(pDirectory);
 
             ReleaseSemaphore(pContext->hDeleteDirSemaphore, 1, NULL);
             return;
@@ -1095,33 +1095,33 @@ PRIVATE VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD d
         // Begin watching again (call ReadDirectoryChangesW() again) as soon as possible. At this point we are not currently watching
         // for changes to the directory, so we need to start that before posting events. To start watching we need to send a signal to
         // the worker thread which will do the actual call to ReadDirectoryChangesW().
-        easyfsw_directory_win32_schedulewatch(pDirectory);
+        drfsw_directory_win32_schedulewatch(pDirectory);
 
 
-        // Now we loop through all of our notifications and post the event to the context for later processing by easyfsw_next_event()
-        // and easyfsw_peek_event().
-        char absolutePathOld[EASYFSW_MAX_PATH];
-        char absoluteBasePathOld[EASYFSW_MAX_PATH];
-        easyfsw_context_win32* pContext = pDirectory->pContext;     // Just for convenience.
+        // Now we loop through all of our notifications and post the event to the context for later processing by drfsw_next_event()
+        // and drfsw_peek_event().
+        char absolutePathOld[DRFSW_MAX_PATH];
+        char absoluteBasePathOld[DRFSW_MAX_PATH];
+        drfsw_context_win32* pContext = pDirectory->pContext;     // Just for convenience.
 
 
         FILE_NOTIFY_INFORMATION* pFNI = pDirectory->pFNIBuffer2;
         for (;;)
         {
-            char relativePath[EASYFSW_MAX_PATH];
-            if (easyfsw_from_win32_path(pFNI->FileName, pFNI->FileNameLength / sizeof(wchar_t), relativePath))
+            char relativePath[DRFSW_MAX_PATH];
+            if (drfsw_from_win32_path(pFNI->FileName, pFNI->FileNameLength / sizeof(wchar_t), relativePath))
             {
-                char absolutePath[EASYFSW_MAX_PATH];
-                if (easyfsw_make_absolute_path(pDirectory->absolutePath, relativePath, absolutePath))
+                char absolutePath[DRFSW_MAX_PATH];
+                if (drfsw_make_absolute_path(pDirectory->absolutePath, relativePath, absolutePath))
                 {
                     switch (pFNI->Action)
                     {
                     case FILE_ACTION_ADDED:
                         {
-                            easyfsw_event e;
-                            if (easyfsw_event_init(&e, easyfsw_event_type_created, absolutePath, NULL, pDirectory->absolutePath, NULL))
+                            drfsw_event e;
+                            if (drfsw_event_init(&e, drfsw_event_type_created, absolutePath, NULL, pDirectory->absolutePath, NULL))
                             {
-                                easyfsw_postevent_win32(pContext, &e);
+                                drfsw_postevent_win32(pContext, &e);
                             }
 
                             break;
@@ -1129,10 +1129,10 @@ PRIVATE VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD d
 
                     case FILE_ACTION_REMOVED:
                         {
-                            easyfsw_event e;
-                            if (easyfsw_event_init(&e, easyfsw_event_type_deleted, absolutePath, NULL, pDirectory->absolutePath, NULL))
+                            drfsw_event e;
+                            if (drfsw_event_init(&e, drfsw_event_type_deleted, absolutePath, NULL, pDirectory->absolutePath, NULL))
                             {
-                                easyfsw_postevent_win32(pContext, &e);
+                                drfsw_postevent_win32(pContext, &e);
                             }
 
                             break;
@@ -1140,17 +1140,17 @@ PRIVATE VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD d
 
                     case FILE_ACTION_RENAMED_OLD_NAME:
                         {
-                            easyfsw_strcpy(absolutePathOld,     sizeof(absolutePathOld),     absolutePath);
-                            easyfsw_strcpy(absoluteBasePathOld, sizeof(absoluteBasePathOld), pDirectory->absolutePath);
+                            drfsw_strcpy(absolutePathOld,     sizeof(absolutePathOld),     absolutePath);
+                            drfsw_strcpy(absoluteBasePathOld, sizeof(absoluteBasePathOld), pDirectory->absolutePath);
 
                             break;
                         }
                     case FILE_ACTION_RENAMED_NEW_NAME:
                         {
-                            easyfsw_event e;
-                            if (easyfsw_event_init(&e, easyfsw_event_type_renamed, absolutePathOld, absolutePath, absoluteBasePathOld, pDirectory->absolutePath))
+                            drfsw_event e;
+                            if (drfsw_event_init(&e, drfsw_event_type_renamed, absolutePathOld, absolutePath, absoluteBasePathOld, pDirectory->absolutePath))
                             {
-                                easyfsw_postevent_win32(pContext, &e);
+                                drfsw_postevent_win32(pContext, &e);
                             }
 
                             break;
@@ -1158,10 +1158,10 @@ PRIVATE VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD d
 
                     case FILE_ACTION_MODIFIED:
                         {
-                            easyfsw_event e;
-                            if (easyfsw_event_init(&e, easyfsw_event_type_updated, absolutePath, NULL, pDirectory->absolutePath, NULL))
+                            drfsw_event e;
+                            if (drfsw_event_init(&e, drfsw_event_type_updated, absolutePath, NULL, pDirectory->absolutePath, NULL))
                             {
-                                easyfsw_postevent_win32(pContext, &e);
+                                drfsw_postevent_win32(pContext, &e);
                             }
 
                             break;
@@ -1184,21 +1184,21 @@ PRIVATE VOID CALLBACK easyfsw_win32_completionroutine(DWORD dwErrorCode, DWORD d
     }
 }
 
-PRIVATE VOID CALLBACK easyfsw_win32_schedulewatchAPC(ULONG_PTR dwParam)
+PRIVATE VOID CALLBACK drfsw_win32_schedulewatchAPC(ULONG_PTR dwParam)
 {
-    easyfsw_directory_win32* pDirectory = (easyfsw_directory_win32*)dwParam;
+    drfsw_directory_win32* pDirectory = (drfsw_directory_win32*)dwParam;
     if (pDirectory != NULL)
     {
         if ((pDirectory->flags & WIN32_RDC_PENDING_WATCH) != 0)
         {
-            easyfsw_directory_win32_beginwatch(pDirectory);
+            drfsw_directory_win32_beginwatch(pDirectory);
         }
     }
 }
 
-PRIVATE VOID CALLBACK easyfsw_win32_cancelioAPC(ULONG_PTR dwParam)
+PRIVATE VOID CALLBACK drfsw_win32_cancelioAPC(ULONG_PTR dwParam)
 {
-    easyfsw_directory_win32* pDirectory = (easyfsw_directory_win32*)dwParam;
+    drfsw_directory_win32* pDirectory = (drfsw_directory_win32*)dwParam;
     if (pDirectory != NULL)
     {
         if ((pDirectory->flags & WIN32_RDC_PENDING_DELETE) != 0)
@@ -1206,7 +1206,7 @@ PRIVATE VOID CALLBACK easyfsw_win32_cancelioAPC(ULONG_PTR dwParam)
             // We don't free the directory structure from here. Instead we just call CancelIo(). This will trigger
             // the ERROR_OPERATION_ABORTED error in the notification callback which is where the real delete will
             // occur. That is also where the synchronization lock is released that the thread that called
-            // easyfsw_delete_directory() is waiting on.
+            // drfsw_delete_directory() is waiting on.
             CancelIo(pDirectory->hDirectory);
 
             // The directory needs to be removed from the context's list. The directory object will be freed in the
@@ -1216,7 +1216,7 @@ PRIVATE VOID CALLBACK easyfsw_win32_cancelioAPC(ULONG_PTR dwParam)
             {
                 if (pDirectory == pDirectory->pContext->watchedDirectories.list.buffer[i])
                 {
-                    easyfsw_list_removebyindex(&pDirectory->pContext->watchedDirectories.list, i);
+                    drfsw_list_removebyindex(&pDirectory->pContext->watchedDirectories.list, i);
                     break;
                 }
             }
@@ -1227,7 +1227,7 @@ PRIVATE VOID CALLBACK easyfsw_win32_cancelioAPC(ULONG_PTR dwParam)
 
 
 
-PRIVATE DWORD WINAPI _WatcherThreadProc_RDC(easyfsw_context_win32 *pContextRDC)
+PRIVATE DWORD WINAPI _WatcherThreadProc_RDC(drfsw_context_win32 *pContextRDC)
 {
     while (!pContextRDC->terminateThread)
     {
@@ -1255,14 +1255,14 @@ PRIVATE DWORD WINAPI _WatcherThreadProc_RDC(easyfsw_context_win32 *pContextRDC)
     return 0;
 }
 
-PRIVATE easyfsw_context* easyfsw_create_context_win32()
+PRIVATE drfsw_context* drfsw_create_context_win32()
 {
-    easyfsw_context_win32* pContext = easyfsw_malloc(sizeof(easyfsw_context_win32));
+    drfsw_context_win32* pContext = drfsw_malloc(sizeof(drfsw_context_win32));
     if (pContext != NULL)
     {
-        if (easyfsw_directory_list_win32_init(&pContext->watchedDirectories))
+        if (drfsw_directory_list_win32_init(&pContext->watchedDirectories))
         {
-            if (easyfsw_event_queue_init(&pContext->eventQueue))
+            if (drfsw_event_queue_init(&pContext->eventQueue))
             {
                 pContext->hTerminateEvent     = CreateEvent(NULL, FALSE, FALSE, NULL);
                 pContext->hDeleteDirSemaphore = CreateSemaphoreW(NULL, 0, 1, NULL);
@@ -1279,28 +1279,28 @@ PRIVATE easyfsw_context* easyfsw_create_context_win32()
                     {
                         CloseHandle(pContext->hTerminateEvent);
 
-                        easyfsw_free(pContext);
+                        drfsw_free(pContext);
                         pContext = NULL;
                     }
                 }
                 else
                 {
-                    easyfsw_free(pContext);
+                    drfsw_free(pContext);
                     pContext = NULL;
                 }
             }
         }
     }
 
-    return (easyfsw_context*)pContext;
+    return (drfsw_context*)pContext;
 }
 
-PRIVATE void easyfsw_delete_context_win32(easyfsw_context_win32* pContext)
+PRIVATE void drfsw_delete_context_win32(drfsw_context_win32* pContext)
 {
     if (pContext != NULL)
     {
         // Every watched directory needs to be removed.
-        easyfsw_remove_all_directories_win32(pContext);
+        drfsw_remove_all_directories_win32(pContext);
 
 
         // Signal the close event, and wait for the thread to finish.
@@ -1314,7 +1314,7 @@ PRIVATE void easyfsw_delete_context_win32(easyfsw_context_win32* pContext)
         // We need to wait for the event queue to finish up before deleting the context for real. If we don't do this nextevent() may try
         // to access the context and then crash.
         WaitForSingleObject(pContext->eventQueue.hLock, INFINITE);
-        easyfsw_event_queue_uninit(&pContext->eventQueue);      // <-- This will close pContext->eventQueue.hLock so no need to call SetEvent().
+        drfsw_event_queue_uninit(&pContext->eventQueue);      // <-- This will close pContext->eventQueue.hLock so no need to call SetEvent().
 
 
         // The worker thread events need to be closed.
@@ -1328,17 +1328,17 @@ PRIVATE void easyfsw_delete_context_win32(easyfsw_context_win32* pContext)
 
 
         // Free the memory.
-        easyfsw_free(pContext);
+        drfsw_free(pContext);
     }
 }
 
-PRIVATE easyfsw_directory_win32* easyfsw_find_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath, unsigned int* pIndexOut)
+PRIVATE drfsw_directory_win32* drfsw_find_directory_win32(drfsw_context_win32* pContext, const char* absolutePath, unsigned int* pIndexOut)
 {
     assert(pContext != NULL);
 
     for (unsigned int iDirectory = 0; iDirectory < pContext->watchedDirectories.list.count; ++iDirectory)
     {
-        easyfsw_directory_win32* pDirectory = pContext->watchedDirectories.list.buffer[iDirectory];
+        drfsw_directory_win32* pDirectory = pContext->watchedDirectories.list.buffer[iDirectory];
         if (pDirectory != NULL)
         {
             if (strcmp(absolutePath, pDirectory->absolutePath) == 0)
@@ -1356,16 +1356,16 @@ PRIVATE easyfsw_directory_win32* easyfsw_find_directory_win32(easyfsw_context_wi
     return NULL;
 }
 
-PRIVATE int easyfsw_add_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath)
+PRIVATE int drfsw_add_directory_win32(drfsw_context_win32* pContext, const char* absolutePath)
 {
     if (pContext != NULL)
     {
-        easyfsw_directory_win32* pDirectory = easyfsw_malloc(sizeof(easyfsw_directory_win32));
+        drfsw_directory_win32* pDirectory = drfsw_malloc(sizeof(drfsw_directory_win32));
         if (pDirectory != NULL)
         {
-            if (!easyfsw_is_watching_directory_win32(pContext, absolutePath))
+            if (!drfsw_is_watching_directory_win32(pContext, absolutePath))
             {
-                if (easyfsw_directory_win32_init(pDirectory, pContext, absolutePath))
+                if (drfsw_directory_win32_init(pDirectory, pContext, absolutePath))
                 {
                     // At this point the directory has been initialized, but it's not yet being watched. To do this, we need to call ReadDirectoryChangesW() from
                     // the worker thread which means we need to signal an event which the worker thread will be waiting on. When the worker thread receives the
@@ -1373,25 +1373,25 @@ PRIVATE int easyfsw_add_directory_win32(easyfsw_context_win32* pContext, const c
                     // the event, we need to make sure the directory is added to the context's list.
                     WaitForSingleObject(pContext->watchedDirectories.hLock, INFINITE);
                     {
-                        easyfsw_list_pushback(&pContext->watchedDirectories.list, pDirectory);
+                        drfsw_list_pushback(&pContext->watchedDirectories.list, pDirectory);
                     }
                     SetEvent(pContext->watchedDirectories.hLock);
 
                     // The directory is now in the list and we can send the signal.
-                    easyfsw_directory_win32_schedulewatch(pDirectory);
+                    drfsw_directory_win32_schedulewatch(pDirectory);
 
 
                     return 1;
                 }
                 else
                 {
-                    easyfsw_free(pDirectory);
+                    drfsw_free(pDirectory);
                     pDirectory = NULL;
                 }
             }
             else
             {
-                easyfsw_free(pDirectory);
+                drfsw_free(pDirectory);
                 pDirectory = NULL;
             }
         }
@@ -1403,12 +1403,12 @@ PRIVATE int easyfsw_add_directory_win32(easyfsw_context_win32* pContext, const c
     return 0;
 }
 
-PRIVATE void easyfsw_remove_directory_win32_no_lock(easyfsw_context_win32* pContext, const char* absolutePath)
+PRIVATE void drfsw_remove_directory_win32_no_lock(drfsw_context_win32* pContext, const char* absolutePath)
 {
     assert(pContext != NULL);
 
     unsigned int index;
-    easyfsw_directory_win32* pDirectory = easyfsw_find_directory_win32(pContext, absolutePath, &index);
+    drfsw_directory_win32* pDirectory = drfsw_find_directory_win32(pContext, absolutePath, &index);
     if (pDirectory != NULL)
     {
         // When removing a directory, we need to call CancelIo() on the file handle we created for the directory. The problem is that
@@ -1416,7 +1416,7 @@ PRIVATE void easyfsw_remove_directory_win32_no_lock(easyfsw_context_win32* pCont
         // code. To do this we need to signal an event which the worker thread is waiting on. The worker thread will then call CancelIo()
         // which in turn will trigger the correct error code in the notification callback. The notification callback is where the
         // the object will be deleted for real and will release the synchronization lock that this function is waiting on below.
-        easyfsw_directory_win32_scheduledelete(pDirectory);
+        drfsw_directory_win32_scheduledelete(pDirectory);
 
         // Now we need to wait for the relevant event to become signaled. This will become signaled when the worker thread has finished
         // deleting the file handle and whatnot from it's end.
@@ -1424,19 +1424,19 @@ PRIVATE void easyfsw_remove_directory_win32_no_lock(easyfsw_context_win32* pCont
     }
 }
 
-PRIVATE void easyfsw_remove_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath)
+PRIVATE void drfsw_remove_directory_win32(drfsw_context_win32* pContext, const char* absolutePath)
 {
     if (pContext != NULL)
     {
         WaitForSingleObject(pContext->watchedDirectories.hLock, INFINITE);
         {
-            easyfsw_remove_directory_win32_no_lock(pContext, absolutePath);
+            drfsw_remove_directory_win32_no_lock(pContext, absolutePath);
         }
         SetEvent(pContext->watchedDirectories.hLock);
     }
 }
 
-PRIVATE void easyfsw_remove_all_directories_win32(easyfsw_context_win32* pContext)
+PRIVATE void drfsw_remove_all_directories_win32(drfsw_context_win32* pContext)
 {
     if (pContext != NULL)
     {
@@ -1444,25 +1444,25 @@ PRIVATE void easyfsw_remove_all_directories_win32(easyfsw_context_win32* pContex
         {
             for (unsigned int i = pContext->watchedDirectories.list.count; i > 0; --i)
             {
-                easyfsw_remove_directory_win32_no_lock(pContext, ((easyfsw_directory_win32*)pContext->watchedDirectories.list.buffer[i - 1])->absolutePath);
+                drfsw_remove_directory_win32_no_lock(pContext, ((drfsw_directory_win32*)pContext->watchedDirectories.list.buffer[i - 1])->absolutePath);
             }
         }
         SetEvent(pContext->watchedDirectories.hLock);
     }
 }
 
-PRIVATE int easyfsw_is_watching_directory_win32(easyfsw_context_win32* pContext, const char* absolutePath)
+PRIVATE int drfsw_is_watching_directory_win32(drfsw_context_win32* pContext, const char* absolutePath)
 {
     if (pContext != NULL)
     {
-        return easyfsw_find_directory_win32(pContext, absolutePath, NULL) != NULL;
+        return drfsw_find_directory_win32(pContext, absolutePath, NULL) != NULL;
     }
 
     return 0;
 }
 
 
-PRIVATE int easyfsw_next_event_win32(easyfsw_context_win32* pContext, easyfsw_event* pEvent)
+PRIVATE int drfsw_next_event_win32(drfsw_context_win32* pContext, drfsw_event* pEvent)
 {
     int result = 0;
     if (pContext != NULL && !pContext->terminateThread)
@@ -1491,7 +1491,7 @@ PRIVATE int easyfsw_next_event_win32(easyfsw_context_win32* pContext, easyfsw_ev
                     DWORD eventLockResult = WaitForSingleObject(pContext->eventQueue.hLock, INFINITE);
                     if (eventLockResult == WAIT_OBJECT_0)
                     {
-                        easyfsw_event_queue_pop(&pContext->eventQueue, pEvent);
+                        drfsw_event_queue_pop(&pContext->eventQueue, pEvent);
                     }
                     SetEvent(pContext->eventQueue.hLock);
 
@@ -1516,7 +1516,7 @@ PRIVATE int easyfsw_next_event_win32(easyfsw_context_win32* pContext, easyfsw_ev
     return result;
 }
 
-PRIVATE int easyfsw_peek_event_win32(easyfsw_context_win32* pContext, easyfsw_event* pEvent)
+PRIVATE int drfsw_peek_event_win32(drfsw_context_win32* pContext, drfsw_event* pEvent)
 {
     int result = 0;
     if (pContext != NULL)
@@ -1529,9 +1529,9 @@ PRIVATE int easyfsw_peek_event_win32(easyfsw_context_win32* pContext, easyfsw_ev
             // Now we just copy over the data by popping it from the queue.
             if (eventLockResult == WAIT_OBJECT_0)
             {
-                if (easyfsw_event_queue_getcount(&pContext->eventQueue) > 0)
+                if (drfsw_event_queue_getcount(&pContext->eventQueue) > 0)
                 {
-                    easyfsw_event_queue_pop(&pContext->eventQueue, pEvent);
+                    drfsw_event_queue_pop(&pContext->eventQueue, pEvent);
                     result = 1;
                 }
                 else
@@ -1551,19 +1551,19 @@ PRIVATE int easyfsw_peek_event_win32(easyfsw_context_win32* pContext, easyfsw_ev
     return result;
 }
 
-PRIVATE void easyfsw_postevent_win32(easyfsw_context_win32* pContext, easyfsw_event* pEvent)
+PRIVATE void drfsw_postevent_win32(drfsw_context_win32* pContext, drfsw_event* pEvent)
 {
     if (pContext != NULL && pEvent != NULL)
     {
         // Add the event to the queue.
         WaitForSingleObject(pContext->eventQueue.hLock, INFINITE);
         {
-            easyfsw_event_queue_pushback(&pContext->eventQueue, pEvent);
+            drfsw_event_queue_pushback(&pContext->eventQueue, pEvent);
         }
         SetEvent(pContext->eventQueue.hLock);
 
 
-        // Release the semaphore so that easyfsw_next_event() can handle it.
+        // Release the semaphore so that drfsw_next_event() can handle it.
         ReleaseSemaphore(pContext->eventQueue.hSemaphore, 1, NULL);
     }
 }
@@ -1573,46 +1573,46 @@ PRIVATE void easyfsw_postevent_win32(easyfsw_context_win32* pContext, easyfsw_ev
 ////////////////////////////////////
 // Public API for Win32
 
-easyfsw_context* easyfsw_create_context()
+drfsw_context* drfsw_create_context()
 {
-    return easyfsw_create_context_win32();
+    return drfsw_create_context_win32();
 }
 
-void easyfsw_delete_context(easyfsw_context* pContext)
+void drfsw_delete_context(drfsw_context* pContext)
 {
-    easyfsw_delete_context_win32((easyfsw_context_win32*)pContext);
-}
-
-
-int easyfsw_add_directory(easyfsw_context* pContext, const char* absolutePath)
-{
-    return easyfsw_add_directory_win32((easyfsw_context_win32*)pContext, absolutePath);
-}
-
-void easyfsw_remove_directory(easyfsw_context* pContext, const char* absolutePath)
-{
-    easyfsw_remove_directory_win32((easyfsw_context_win32*)pContext, absolutePath);
-}
-
-void easyfsw_remove_all_directories(easyfsw_context* pContext)
-{
-    easyfsw_remove_all_directories_win32((easyfsw_context_win32*)pContext);
-}
-
-int easyfsw_is_watching_directory(easyfsw_context* pContext, const char* absolutePath)
-{
-    return easyfsw_is_watching_directory_win32((easyfsw_context_win32*)pContext, absolutePath);
+    drfsw_delete_context_win32((drfsw_context_win32*)pContext);
 }
 
 
-int easyfsw_next_event(easyfsw_context* pContext, easyfsw_event* pEventOut)
+int drfsw_add_directory(drfsw_context* pContext, const char* absolutePath)
 {
-    return easyfsw_next_event_win32((easyfsw_context_win32*)pContext, pEventOut);
+    return drfsw_add_directory_win32((drfsw_context_win32*)pContext, absolutePath);
 }
 
-int easyfsw_peek_event(easyfsw_context* pContext, easyfsw_event* pEventOut)
+void drfsw_remove_directory(drfsw_context* pContext, const char* absolutePath)
 {
-    return easyfsw_peek_event_win32((easyfsw_context_win32*)pContext, pEventOut);
+    drfsw_remove_directory_win32((drfsw_context_win32*)pContext, absolutePath);
+}
+
+void drfsw_remove_all_directories(drfsw_context* pContext)
+{
+    drfsw_remove_all_directories_win32((drfsw_context_win32*)pContext);
+}
+
+int drfsw_is_watching_directory(drfsw_context* pContext, const char* absolutePath)
+{
+    return drfsw_is_watching_directory_win32((drfsw_context_win32*)pContext, absolutePath);
+}
+
+
+int drfsw_next_event(drfsw_context* pContext, drfsw_event* pEventOut)
+{
+    return drfsw_next_event_win32((drfsw_context_win32*)pContext, pEventOut);
+}
+
+int drfsw_peek_event(drfsw_context* pContext, drfsw_event* pEventOut)
+{
+    return drfsw_peek_event_win32((drfsw_context_win32*)pContext, pEventOut);
 }
 
 
@@ -1623,7 +1623,7 @@ int easyfsw_peek_event(easyfsw_context* pContext, easyfsw_event* pEventOut)
     #pragma GCC diagnostic pop
 #endif
 
-#endif //EASY_FSW_IMPLEMENTATION
+#endif //DR_FSW_IMPLEMENTATION
 
 
 
