@@ -10,3 +10,8 @@ such as Zip files.
 any particular category.
 - dr_math: A very incomplete vector math library. You don't want to be using this
 right now.
+- dr_audio: A simple library for audio playback and recording. Very incomplete and
+work-in-progress.
+- dr_wav: A simple library for reading audio data from .wav files.
+- dr_flac: A placeholder library for reading audio data from FLAC files. This is not
+implemented yet.
