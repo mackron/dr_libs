@@ -825,7 +825,7 @@ PRIVATE void tabbar_on_paint_tab_default(easygui_element* pTBElement, easygui_ta
     float textPosY = offsetY + pTB->tabPadding;
     if (pTab != NULL)
     {
-        easygui_draw_text(pTBElement, pTB->pFont, pTab->text, strlen(pTab->text), textPosX, textPosY, pTB->tabTextColor, bgcolor, pPaintData);
+        easygui_draw_text(pTBElement, pTB->pFont, pTab->text, (int)strlen(pTab->text), textPosX, textPosY, pTB->tabTextColor, bgcolor, pPaintData);
     }
 
 

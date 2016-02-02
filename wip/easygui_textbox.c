@@ -527,7 +527,7 @@ PRIVATE void easygui_textbox__on_text_layout_paint_text(easygui_text_layout* pTL
     float offsetY;
     easygui_textbox__get_text_offset(pTBElement, &offsetX, &offsetY);
 
-    easygui_draw_text(pTBElement, pRun->pFont, pRun->text, pRun->textLength, (float)pRun->posX + offsetX, (float)pRun->posY + offsetY, pRun->textColor, pRun->backgroundColor, pPaintData);
+    easygui_draw_text(pTBElement, pRun->pFont, pRun->text, (int)pRun->textLength, (float)pRun->posX + offsetX, (float)pRun->posY + offsetY, pRun->textColor, pRun->backgroundColor, pPaintData);
 }
 
 PRIVATE void easygui_textbox__on_text_layout_dirty(easygui_text_layout* pTL, easygui_rect rect)
