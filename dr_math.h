@@ -13,15 +13,15 @@
 //   the API is easier to use.
 //   - Use radians() and degrees() to convert between the two.
 
-#ifndef easy_math
-#define easy_math
+#ifndef dr_math_h
+#define dr_math_h
 
 #include <math.h>
 
 #if defined(_MSC_VER)
-#define MATHCALL __forceinline
+#define DR_MATHCALL static __forceinline
 #else
-#define MATHCALL inline
+#define DR_MATHCALL static inline
 #endif
 
 
@@ -75,7 +75,7 @@ typedef struct
 //
 ///////////////////////////////////////////////
 
-vec4 MATHCALL vec4_xyzw(float x, float y, float z, float w)
+vec4 DR_MATHCALL vec4_xyzw(float x, float y, float z, float w)
 {
     vec4 result;
     result.x = x;
@@ -85,39 +85,39 @@ vec4 MATHCALL vec4_xyzw(float x, float y, float z, float w)
 
     return result;
 }
-vec4 MATHCALL vec4_zero()
+vec4 DR_MATHCALL vec4_zero()
 {
     return (vec4){0, 0, 0, 0};
 }
-vec4 MATHCALL vec4_one()
+vec4 DR_MATHCALL vec4_one()
 {
     return (vec4){1, 1, 1, 1};
 }
 
 
 
-vec4 MATHCALL vec4_add(vec4 a, vec4 b)
+vec4 DR_MATHCALL vec4_add(vec4 a, vec4 b)
 {
     return vec4_xyzw(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
 }
 
-vec4 MATHCALL vec4_sub(vec4 a, vec4 b)
+vec4 DR_MATHCALL vec4_sub(vec4 a, vec4 b)
 {
     return vec4_xyzw(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
 }
 
 
-vec4 MATHCALL vec4_mul(vec4 a, vec4 b)
+vec4 DR_MATHCALL vec4_mul(vec4 a, vec4 b)
 {
     return vec4_xyzw(a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w);
 }
-vec4 MATHCALL vec4_mul_1f(vec4 a, float x)
+vec4 DR_MATHCALL vec4_mul_1f(vec4 a, float x)
 {
     return vec4_xyzw(a.x * x, a.y * x, a.z * x, a.w * x);
 }
 
 
-vec4 MATHCALL vec4_div(vec4 a, vec4 b)
+vec4 DR_MATHCALL vec4_div(vec4 a, vec4 b)
 {
     return vec4_xyzw(a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w);
 }
@@ -130,7 +130,7 @@ vec4 MATHCALL vec4_div(vec4 a, vec4 b)
 //
 ///////////////////////////////////////////////
 
-vec3 MATHCALL vec3_xyz(float x, float y, float z)
+vec3 DR_MATHCALL vec3_xyz(float x, float y, float z)
 {
     vec3 result;
     result.x = x;
@@ -139,38 +139,38 @@ vec3 MATHCALL vec3_xyz(float x, float y, float z)
 
     return result;
 }
-vec3 MATHCALL vec3_zero()
+vec3 DR_MATHCALL vec3_zero()
 {
     return (vec3){0, 0, 0};
 }
-vec3 MATHCALL vec3_one()
+vec3 DR_MATHCALL vec3_one()
 {
     return (vec3){1, 1, 1};
 }
 
 
-vec3 MATHCALL vec3_add(vec3 a, vec3 b)
+vec3 DR_MATHCALL vec3_add(vec3 a, vec3 b)
 {
     return vec3_xyz(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
-vec3 MATHCALL vec3_sub(vec3 a, vec3 b)
+vec3 DR_MATHCALL vec3_sub(vec3 a, vec3 b)
 {
     return vec3_xyz(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
 
-vec3 MATHCALL vec3_mul(vec3 a, vec3 b)
+vec3 DR_MATHCALL vec3_mul(vec3 a, vec3 b)
 {
     return vec3_xyz(a.x * b.x, a.y * b.y, a.z * b.z);
 }
-vec3 MATHCALL vec3_mul_1f(vec3 a, float x)
+vec3 DR_MATHCALL vec3_mul_1f(vec3 a, float x)
 {
     return vec3_xyz(a.x * x, a.y * x, a.z * x);
 }
 
 
-vec3 MATHCALL vec3_div(vec3 a, vec3 b)
+vec3 DR_MATHCALL vec3_div(vec3 a, vec3 b)
 {
     return vec3_xyz(a.x / b.x, a.y / b.y, a.z / b.z);
 }
@@ -185,7 +185,7 @@ vec3 MATHCALL vec3_div(vec3 a, vec3 b)
 //
 ///////////////////////////////////////////////
 
-quat MATHCALL quat_xyzw(float x, float y, float z, float w)
+quat DR_MATHCALL quat_xyzw(float x, float y, float z, float w)
 {
     quat result;
     result.x = x;
@@ -196,7 +196,7 @@ quat MATHCALL quat_xyzw(float x, float y, float z, float w)
     return result;
 }
 
-quat MATHCALL quat_identity()
+quat DR_MATHCALL quat_identity()
 {
     return (quat){0, 0, 0, 1};
 }
@@ -218,7 +218,7 @@ typedef struct
     vec3 scale;
 }transform_t;
 
-transform_t MATHCALL transform_init(vec3 position, quat rotation, vec3 scale)
+transform_t DR_MATHCALL transform_init(vec3 position, quat rotation, vec3 scale)
 {
     transform_t result;
     result.position = position;
@@ -228,7 +228,7 @@ transform_t MATHCALL transform_init(vec3 position, quat rotation, vec3 scale)
     return result;
 }
 
-transform_t MATHCALL transform_identity()
+transform_t DR_MATHCALL transform_identity()
 {
     transform_t result;
     result.position = vec3_zero();
@@ -239,7 +239,7 @@ transform_t MATHCALL transform_identity()
 }
 
 
-transform_t MATHCALL transform_translate(transform_t transform, vec3 offset)
+transform_t DR_MATHCALL transform_translate(transform_t transform, vec3 offset)
 {
     transform_t result = transform;
     result.position = vec3_add(transform.position, offset);
@@ -280,7 +280,7 @@ transform_t MATHCALL transform_translate(transform_t transform, vec3 offset)
 }
 #endif
 
-#endif
+#endif  //dr_math_h
 
 /*
 This is free and unencumbered software released into the public domain.
