@@ -295,13 +295,13 @@ DRUTIL_INLINE int _stricmp(const char* string1, const char* string2)
 // String Helpers
 
 /// Removes every occurance of the given character from the given string.
-void drutil_strrmchar(char* str, char c);
+void dr_strrmchar(char* str, char c);
 
 /// Finds the first non-whitespace character in the given string.
-const char* drutil_first_non_whitespace(const char* str);
+const char* dr_first_non_whitespace(const char* str);
 
 /// Finds the first occurance of a whitespace character in the given string.
-const char* drutil_first_whitespace(const char* str);
+const char* dr_first_whitespace(const char* str);
 
 
 /////////////////////////////////////////////////////////
@@ -316,7 +316,7 @@ const char* drutil_first_whitespace(const char* str);
 /// @remarks
 ///     It is assumed the <utf16> is large enough to hold at least 2 unsigned shorts. <utf16> will be padded with 0 for unused
 ///     components.
-DRUTIL_INLINE int utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
+DRUTIL_INLINE int dr_utf32_to_utf16_ch(unsigned int utf32, unsigned short utf16[2])
 {
     if (utf16 == NULL) {
         return 0;
@@ -347,7 +347,7 @@ DRUTIL_INLINE int utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
 }
 
 /// Converts a UTF-16 character to UTF-32.
-DRUTIL_INLINE unsigned int utf16_to_utf32(unsigned short utf16[2])
+DRUTIL_INLINE unsigned int dr_utf16_to_utf32_ch(unsigned short utf16[2])
 {
     if (utf16 == NULL) {
         return 0;
@@ -372,12 +372,12 @@ DRUTIL_INLINE unsigned int utf16_to_utf32(unsigned short utf16[2])
 }
 
 /// Converts a UTF-16 surrogate pair to UTF-32.
-DRUTIL_INLINE unsigned int utf16pair_to_utf32(unsigned short utf160, unsigned short utf161)
+DRUTIL_INLINE unsigned int dr_utf16pair_to_utf32_ch(unsigned short utf160, unsigned short utf161)
 {
     unsigned short utf16[2];
     utf16[0] = utf160;
     utf16[1] = utf161;
-    return utf16_to_utf32(utf16);
+    return dr_utf16_to_utf32_ch(utf16);
 }
 
 
@@ -385,7 +385,7 @@ DRUTIL_INLINE unsigned int utf16pair_to_utf32(unsigned short utf160, unsigned sh
 // Aligned Allocations
 
 #ifndef DRUTIL_NO_ALIGNED_MALLOC
-DRUTIL_INLINE void* aligned_malloc(size_t alignment, size_t size)
+DRUTIL_INLINE void* dr_aligned_malloc(size_t alignment, size_t size)
 {
 #if defined(_WIN32) || defined(_WIN64)
     return _aligned_malloc(size, alignment);
@@ -399,7 +399,7 @@ DRUTIL_INLINE void* aligned_malloc(size_t alignment, size_t size)
 #endif
 }
 
-DRUTIL_INLINE void aligned_free(void* ptr)
+DRUTIL_INLINE void dr_aligned_free(void* ptr)
 {
 #if defined(_WIN32) || defined(_WIN64)
     _aligned_free(ptr);
@@ -435,7 +435,7 @@ typedef void   (* dr_key_value_error_proc)(void* pUserData, const char* message,
 ///      - A value can be wrapped in double-quote characters in which case the last double-quote character acts as the end point.
 ///     @par
 ///     If an error occurs, that line will be skipped and processing will continue.
-void drutil_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
+void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
 
 
 
@@ -456,7 +456,7 @@ void drutil_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pa
 ///     This will handle double-quoted strings, so a string such as "My \"Complex String\"" contains two tokens: "My" and "\"Complex String\"".
 ///     @par
 ///     This function has no dependencies.
-const char* drutil_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize);
+const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize);
 
 
 
@@ -467,13 +467,13 @@ const char* drutil_next_token(const char* tokens, char* tokenOut, unsigned int t
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be ~/.config
-bool drutil_get_config_folder_path(char* pathOut, size_t pathOutSize);
+bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize);
 
 /// Retrieves the path of the user's log directory.
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be var/log
-bool drutil_get_log_folder_path(char* pathOut, size_t pathOutSize);
+bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize);
 
 
 
@@ -482,13 +482,13 @@ bool drutil_get_log_folder_path(char* pathOut, size_t pathOutSize);
 
 #if defined(_WIN32)
 /// Win32 Only: Makes the application DPI aware.
-void win32_make_dpi_aware();
+void dr_win32_make_dpi_aware();
 
 /// Win32 Only: Retrieves the base DPI to use as a reference when calculating DPI scaling.
-void win32_get_base_dpi(int* pDPIXOut, int* pDPIYOut);
+void dr_win32_get_base_dpi(int* pDPIXOut, int* pDPIYOut);
 
 /// Win32 Only: Retrieves the system-wide DPI.
-void win32_get_system_dpi(int* pDPIXOut, int* pDPIYOut);
+void dr_win32_get_system_dpi(int* pDPIXOut, int* pDPIYOut);
 
 /// Win32 Only: Retrieves the actual DPI of the monitor at the given index.
 ///
@@ -496,13 +496,13 @@ void win32_get_system_dpi(int* pDPIXOut, int* pDPIYOut);
 ///     If per-monitor DPI is not supported, the system wide DPI settings will be used instead.
 ///     @par
 ///     This runs in linear time.
-void win32_get_monitor_dpi(int monitor, int* pDPIXOut, int* pDPIYOut);
+void dr_win32_get_monitor_dpi(int monitor, int* pDPIXOut, int* pDPIYOut);
 
 /// Win32 Only: Retrieves the number of monitors active at the time of calling.
 ///
 /// @remarks
 ///     This runs in linear time.
-int win32_get_monitor_count();
+int dr_win32_get_monitor_count();
 #endif
 
 
@@ -511,10 +511,10 @@ int win32_get_monitor_count();
 // Date / Time
 
 /// Retrieves a time_t as of the time the function was called.
-time_t drutil_now();
+time_t dr_now();
 
 /// Formats a data/time string.
-void drutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
+void dr_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
 
 
 
@@ -530,9 +530,9 @@ void drutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
 //
 // Below is an example:
 //
-// drutil_cmdline cmdline;
-// if (drutil_init_cmdline(&cmdline, argc, argv)) {
-//     drutil_parse_cmdline(&cmdline, my_cmdline_handler, pMyUserData);
+// dr_cmdline cmdline;
+// if (dr_init_cmdline(&cmdline, argc, argv)) {
+//     dr_parse_cmdline(&cmdline, my_cmdline_handler, pMyUserData);
 // }
 //
 // void my_cmdline_handler(const char* key, const char* value, void* pUserData)
@@ -561,8 +561,8 @@ void drutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
 // For segments such as "-abcd file.txt", "a", "b", "c", "d" will be sent with NULL values, and "file.txt" will be
 // posted with a NULL key.
 
-typedef struct drutil_cmdline drutil_cmdline;
-struct drutil_cmdline
+typedef struct dr_cmdline dr_cmdline;
+struct dr_cmdline
 {
     // argv style.
     int argc;
@@ -573,17 +573,17 @@ struct drutil_cmdline
 
 };
 
-typedef bool drutil_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
+typedef bool dr_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
 
 
 /// Initializes a command line object.
-bool drutil_init_cmdline(drutil_cmdline* pCmdLine, int argc, char** argv);
+bool dr_init_cmdline(dr_cmdline* pCmdLine, int argc, char** argv);
 
 /// Initializes a command line object using a Win32 style command line.
-bool drutil_init_cmdline_win32(drutil_cmdline* pCmdLine, const char* args);
+bool dr_init_cmdline_win32(dr_cmdline* pCmdLine, const char* args);
 
 /// Parses the given command line.
-void drutil_parse_cmdline(drutil_cmdline* pCmdLine, drutil_cmdline_parse_proc callback, void* pUserData);
+void dr_parse_cmdline(dr_cmdline* pCmdLine, dr_cmdline_parse_proc callback, void* pUserData);
 
 
 
@@ -596,12 +596,12 @@ void drutil_parse_cmdline(drutil_cmdline* pCmdLine, drutil_cmdline_parse_proc ca
 ///
 /// @remarks
 ///     This is not 100% accurate and should be considered an approximation.
-void drutil_sleep(unsigned int milliseconds);
+void dr_sleep(unsigned int milliseconds);
 
 
 /// Thread.
-typedef void* drutil_thread;
-typedef int (* drutil_thread_entry_proc)(void* pData);
+typedef void* dr_thread;
+typedef int (* dr_thread_entry_proc)(void* pData);
 
 /// Creates and begins executing a new thread.
 ///
@@ -610,69 +610,69 @@ typedef int (* drutil_thread_entry_proc)(void* pData);
 ///     @par
 ///     Creating a thread should be considered an expensive operation. For high performance, you should create threads
 ///     and load time and cache them.
-drutil_thread drutil_create_thread(drutil_thread_entry_proc entryProc, void* pData);
+dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData);
 
 /// Deletes the given thread.
 ///
 /// @remarks
 ///     This does not actually exit the thread, but rather deletes the memory that was allocated for the thread
-///     object returned by drutil_create_thread().
+///     object returned by dr_create_thread().
 ///     @par
-///     It is usually best to wait for the thread to terminate naturally with drutil_wait_thread() before calling
+///     It is usually best to wait for the thread to terminate naturally with dr_wait_thread() before calling
 ///     this function, however it is still safe to do something like the following.
 ///     @code
-///     drutil_delete_thread(drutil_create_thread(my_thread_proc, pData))
+///     dr_delete_thread(dr_create_thread(my_thread_proc, pData))
 ///     @endcode
-void drutil_delete_thread(drutil_thread thread);
+void dr_delete_thread(dr_thread thread);
 
 /// Waits for the given thread to terminate.
-void drutil_wait_thread(drutil_thread thread);
+void dr_wait_thread(dr_thread thread);
 
 /// Helper function for waiting for a thread and then deleting the handle after it has terminated.
-void drutil_wait_and_delete_thread(drutil_thread thread);
+void dr_wait_and_delete_thread(dr_thread thread);
 
 
 
 /// Mutex
-typedef void* drutil_mutex;
+typedef void* dr_mutex;
 
 /// Creates a mutex object.
 ///
 /// @remarks
 ///     If an error occurs, 0 is returned. Otherwise a handle the size of a pointer is returned.
-drutil_mutex drutil_create_mutex();
+dr_mutex drutil_create_mutex();
 
 /// Deletes a mutex object.
-void drutil_delete_mutex(drutil_mutex mutex);
+void dr_delete_mutex(dr_mutex mutex);
 
 /// Locks the given mutex.
-void drutil_lock_mutex(drutil_mutex mutex);
+void dr_lock_mutex(dr_mutex mutex);
 
 /// Unlocks the given mutex.
-void drutil_unlock_mutex(drutil_mutex mutex);
+void dr_unlock_mutex(dr_mutex mutex);
 
 
 
 /// Semaphore
-typedef void* drutil_semaphore;
+typedef void* dr_semaphore;
 
 /// Creates a semaphore object.
 ///
 /// @remarks
 ///     If an error occurs, 0 is returned. Otherwise a handle the size of a pointer is returned.
-drutil_semaphore drutil_create_semaphore(int initialValue);
+dr_semaphore dr_create_semaphore(int initialValue);
 
 /// Deletes the given semaphore.
-void drutil_delete_semaphore(drutil_semaphore semaphore);
+void dr_delete_semaphore(dr_semaphore semaphore);
 
 /// Waits on the given semaphore object and decrements it's counter by one upon returning.
 ///
 /// @remarks
 ///     This will block so long as the counter is > 0.
-bool drutil_wait_semaphore(drutil_semaphore semaphore);
+bool dr_wait_semaphore(dr_semaphore semaphore);
 
 /// Releases the given semaphore and increments it's counter by one up returning.
-bool drutil_release_semaphore(drutil_semaphore semaphore);
+bool dr_release_semaphore(dr_semaphore semaphore);
 
 
 
@@ -751,7 +751,7 @@ int strncat_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
 /////////////////////////////////////////////////////////
 // String Helpers
 
-void drutil_strrmchar(char* str, char c)
+void dr_strrmchar(char* str, char c)
 {
     char* src = str;
     char* dst = str;
@@ -770,7 +770,7 @@ void drutil_strrmchar(char* str, char c)
     dst[0] = '\0';
 }
 
-const char* drutil_first_non_whitespace(const char* str)
+const char* dr_first_non_whitespace(const char* str)
 {
     if (str == NULL) {
         return NULL;
@@ -783,7 +783,7 @@ const char* drutil_first_non_whitespace(const char* str)
     return str;
 }
 
-const char* drutil_first_whitespace(const char* str)
+const char* dr_first_whitespace(const char* str)
 {
     if (str == NULL) {
         return NULL;
@@ -801,7 +801,7 @@ const char* drutil_first_whitespace(const char* str)
 /////////////////////////////////////////////////////////
 // Key/Value Pair Parsing
 
-void drutil_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData)
+void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData)
 {
     if (onRead == NULL) {
         return;
@@ -1088,7 +1088,7 @@ void drutil_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pa
 /////////////////////////////////////////////////////////
 // Basic Tokenizer
 
-const char* drutil_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize)
+const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize)
 {
     if (tokens == NULL) {
         return NULL;
@@ -1169,7 +1169,7 @@ const char* drutil_next_token(const char* tokens, char* tokenOut, unsigned int t
 #if defined(_WIN32) || defined(_WIN64)
 #include <shlobj.h>
 
-bool drutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
+bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     // The documentation for SHGetFolderPathA() says that the output path should be the size of MAX_PATH. We'll enforce
     // that just to be safe.
@@ -1200,16 +1200,16 @@ bool drutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
     return 1;
 }
 
-bool drutil_get_log_folder_path(char* pathOut, size_t pathOutSize)
+bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
-    return drutil_get_config_folder_path(pathOut, pathOutSize);
+    return dr_get_config_folder_path(pathOut, pathOutSize);
 }
 #else
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
 
-bool drutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
+bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     const char* configdir = getenv("XDG_CONFIG_HOME");
     if (configdir != NULL)
@@ -1246,7 +1246,7 @@ bool drutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
     return 0;
 }
 
-bool drutil_get_log_folder_path(char* pathOut, size_t pathOutSize)
+bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
     return strcpy_s(pathOut, pathOutSize, "var/log");
 }
@@ -1276,7 +1276,7 @@ typedef BOOL    (__stdcall * PFN_SetProcessDPIAware)     (void);
 typedef HRESULT (__stdcall * PFN_SetProcessDpiAwareness) (PROCESS_DPI_AWARENESS);
 typedef HRESULT (__stdcall * PFN_GetDpiForMonitor)       (HMONITOR hmonitor, MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
 
-void win32_make_dpi_aware()
+void dr_win32_make_dpi_aware()
 {
     bool fallBackToDiscouragedAPI = false;
 
@@ -1321,7 +1321,7 @@ void win32_make_dpi_aware()
     }
 }
 
-void win32_get_base_dpi(int* pDPIXOut, int* pDPIYOut)
+void dr_win32_get_base_dpi(int* pDPIXOut, int* pDPIYOut)
 {
     if (pDPIXOut != NULL) {
         *pDPIXOut = 96;
@@ -1332,7 +1332,7 @@ void win32_get_base_dpi(int* pDPIXOut, int* pDPIYOut)
     }
 }
 
-void win32_get_system_dpi(int* pDPIXOut, int* pDPIYOut)
+void dr_win32_get_system_dpi(int* pDPIXOut, int* pDPIYOut)
 {
     if (pDPIXOut != NULL) {
         *pDPIXOut = GetDeviceCaps(GetDC(NULL), LOGPIXELSX);
@@ -1368,7 +1368,7 @@ static BOOL CALLBACK win32_get_monitor_dpi_callback(HMONITOR hMonitor, HDC hdcMo
         }
         else
         {
-            win32_get_system_dpi(&pData->dpiX, &pData->dpiY);
+            dr_win32_get_system_dpi(&pData->dpiX, &pData->dpiY);
         }
 
         return FALSE;   // Return false to terminate the enumerator.
@@ -1378,18 +1378,18 @@ static BOOL CALLBACK win32_get_monitor_dpi_callback(HMONITOR hMonitor, HDC hdcMo
     return TRUE;
 }
 
-void win32_get_monitor_dpi(int monitor, int* pDPIXOut, int* pDPIYOut)
+void dr_win32_get_monitor_dpi(int monitor, int* pDPIXOut, int* pDPIYOut)
 {
     // If multi-monitor DPI awareness is not supported we will need to fall back to system DPI.
     HMODULE hSHCoreDLL = LoadLibraryW(L"shcore.dll");
     if (hSHCoreDLL == NULL) {
-        win32_get_system_dpi(pDPIXOut, pDPIYOut);
+        dr_win32_get_system_dpi(pDPIXOut, pDPIYOut);
         return;
     }
 
     PFN_GetDpiForMonitor _GetDpiForMonitor = (PFN_GetDpiForMonitor)GetProcAddress(hSHCoreDLL, "GetDpiForMonitor");
     if (_GetDpiForMonitor == NULL) {
-        win32_get_system_dpi(pDPIXOut, pDPIYOut);
+        dr_win32_get_system_dpi(pDPIXOut, pDPIYOut);
         FreeLibrary(hSHCoreDLL);
         return;
     }
@@ -1424,7 +1424,7 @@ static BOOL CALLBACK win32_get_monitor_count_callback(HMONITOR hMonitor, HDC hdc
     return TRUE;
 }
 
-int win32_get_monitor_count()
+int dr_win32_get_monitor_count()
 {
     int count = 0;
     if (EnumDisplayMonitors(NULL, NULL, win32_get_monitor_count_callback, (LPARAM)&count)) {
@@ -1440,12 +1440,12 @@ int win32_get_monitor_count()
 /////////////////////////////////////////////////////////
 // Date / Time
 
-time_t drutil_now()
+time_t dr_now()
 {
     return time(NULL);
 }
 
-void drutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize)
+void dr_datetime_short(time_t t, char* strOut, unsigned int strOutSize)
 {
 #if defined(_MSC_VER)
 	struct tm local;
@@ -1464,7 +1464,7 @@ void drutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize)
 
 typedef struct
 {
-    drutil_cmdline* pCmdLine;
+    dr_cmdline* pCmdLine;
     char* value;
 
     // Win32 style data.
@@ -1476,7 +1476,7 @@ typedef struct
 
 } drutil_cmdline_iterator;
 
-drutil_cmdline_iterator drutil_cmdline_begin(drutil_cmdline* pCmdLine)
+drutil_cmdline_iterator drutil_cmdline_begin(dr_cmdline* pCmdLine)
 {
     drutil_cmdline_iterator i;
     i.pCmdLine      = pCmdLine;
@@ -1597,7 +1597,7 @@ bool drutil_cmdline_next(drutil_cmdline_iterator* i)
 }
 
 
-bool drutil_init_cmdline(drutil_cmdline* pCmdLine, int argc, char** argv)
+bool dr_init_cmdline(dr_cmdline* pCmdLine, int argc, char** argv)
 {
     if (pCmdLine == NULL) {
         return false;
@@ -1610,7 +1610,7 @@ bool drutil_init_cmdline(drutil_cmdline* pCmdLine, int argc, char** argv)
     return true;
 }
 
-bool drutil_init_cmdline_win32(drutil_cmdline* pCmdLine, const char* args)
+bool dr_init_cmdline_win32(dr_cmdline* pCmdLine, const char* args)
 {
     if (pCmdLine == NULL) {
         return false;
@@ -1623,7 +1623,7 @@ bool drutil_init_cmdline_win32(drutil_cmdline* pCmdLine, const char* args)
     return true;
 }
 
-void drutil_parse_cmdline(drutil_cmdline* pCmdLine, drutil_cmdline_parse_proc callback, void* pUserData)
+void dr_parse_cmdline(dr_cmdline* pCmdLine, dr_cmdline_parse_proc callback, void* pUserData)
 {
     if (pCmdLine == NULL || callback == NULL) {
         return;
@@ -1733,7 +1733,7 @@ void drutil_parse_cmdline(drutil_cmdline* pCmdLine, drutil_cmdline_parse_proc ca
 #if defined(_WIN32)
 #include <windows.h>
 
-void drutil_sleep(unsigned int milliseconds)
+void dr_sleep(unsigned int milliseconds)
 {
     Sleep((DWORD)milliseconds);
 }
@@ -1745,7 +1745,7 @@ typedef struct
     HANDLE hThread;
 
     /// The entry point.
-    drutil_thread_entry_proc entryProc;
+    dr_thread_entry_proc entryProc;
 
     /// The user data to pass to the thread's entry point.
     void* pData;
@@ -1760,7 +1760,7 @@ static DWORD WINAPI drutil_thread_entry_proc_win32(drutil_thread_win32* pThreadW
     assert(pThreadWin32 != NULL);
 
     void* pEntryProcData = pThreadWin32->pData;
-    drutil_thread_entry_proc entryProc = pThreadWin32->entryProc;
+    dr_thread_entry_proc entryProc = pThreadWin32->entryProc;
     assert(entryProc != NULL);
 
     pThreadWin32->isInEntryProc = true;
@@ -1768,7 +1768,7 @@ static DWORD WINAPI drutil_thread_entry_proc_win32(drutil_thread_win32* pThreadW
     return (DWORD)entryProc(pEntryProcData);
 }
 
-drutil_thread drutil_create_thread(drutil_thread_entry_proc entryProc, void* pData)
+dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
 {
     if (entryProc == NULL) {
         return NULL;
@@ -1788,14 +1788,14 @@ drutil_thread drutil_create_thread(drutil_thread_entry_proc entryProc, void* pDa
         }
 
         // Wait for the new thread to enter into it's entry point before returning. We need to do this so we can safely
-        // support something like drutil_delete_thread(drutil_create_thread(my_thread_proc, pData)).
+        // support something like dr_delete_thread(dr_create_thread(my_thread_proc, pData)).
         while (!pThreadWin32->isInEntryProc) {}
     }
 
-    return (drutil_thread)pThreadWin32;
+    return (dr_thread)pThreadWin32;
 }
 
-void drutil_delete_thread(drutil_thread thread)
+void dr_delete_thread(dr_thread thread)
 {
     drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)thread;
     if (pThreadWin32 != NULL)
@@ -1806,7 +1806,7 @@ void drutil_delete_thread(drutil_thread thread)
     free(pThreadWin32);
 }
 
-void drutil_wait_thread(drutil_thread thread)
+void dr_wait_thread(dr_thread thread)
 {
     drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)thread;
     if (pThreadWin32 != NULL)
@@ -1815,17 +1815,17 @@ void drutil_wait_thread(drutil_thread thread)
     }
 }
 
-void drutil_wait_and_delete_thread(drutil_thread thread)
+void dr_wait_and_delete_thread(dr_thread thread)
 {
-    drutil_wait_thread(thread);
-    drutil_delete_thread(thread);
+    dr_wait_thread(thread);
+    dr_delete_thread(thread);
 }
 
 
 
-drutil_mutex drutil_create_mutex()
+dr_mutex drutil_create_mutex()
 {
-    drutil_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
+    dr_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
     if (mutex != NULL)
     {
         InitializeCriticalSection(mutex);
@@ -1834,39 +1834,39 @@ drutil_mutex drutil_create_mutex()
     return mutex;
 }
 
-void drutil_delete_mutex(drutil_mutex mutex)
+void dr_delete_mutex(dr_mutex mutex)
 {
     DeleteCriticalSection(mutex);
     free(mutex);
 }
 
-void drutil_lock_mutex(drutil_mutex mutex)
+void dr_lock_mutex(dr_mutex mutex)
 {
     EnterCriticalSection(mutex);
 }
 
-void drutil_unlock_mutex(drutil_mutex mutex)
+void dr_unlock_mutex(dr_mutex mutex)
 {
     LeaveCriticalSection(mutex);
 }
 
 
-drutil_semaphore drutil_create_semaphore(int initialValue)
+dr_semaphore dr_create_semaphore(int initialValue)
 {
     return (void*)CreateSemaphoreA(NULL, initialValue, LONG_MAX, NULL);
 }
 
-void drutil_delete_semaphore(drutil_semaphore semaphore)
+void dr_delete_semaphore(dr_semaphore semaphore)
 {
     CloseHandle(semaphore);
 }
 
-bool drutil_wait_semaphore(drutil_semaphore semaphore)
+bool dr_wait_semaphore(dr_semaphore semaphore)
 {
     return WaitForSingleObject((HANDLE)semaphore, INFINITE) == WAIT_OBJECT_0;
 }
 
-bool drutil_release_semaphore(drutil_semaphore semaphore)
+bool dr_release_semaphore(dr_semaphore semaphore)
 {
     return ReleaseSemaphore((HANDLE)semaphore, 1, NULL);
 }
@@ -1878,7 +1878,7 @@ bool drutil_release_semaphore(drutil_semaphore semaphore)
 #include <fcntl.h>
 #include <semaphore.h>
 
-void drutil_sleep(unsigned int milliseconds)
+void dr_sleep(unsigned int milliseconds)
 {
     usleep(milliseconds * 1000);    // <-- usleep is in microseconds.
 }
@@ -1890,7 +1890,7 @@ typedef struct
     pthread_t pthread;
 
     /// The entry point.
-    drutil_thread_entry_proc entryProc;
+    dr_thread_entry_proc entryProc;
 
     /// The user data to pass to the thread's entry point.
     void* pData;
@@ -1906,7 +1906,7 @@ static void* drutil_thread_entry_proc_posix(void* pDataIn)
     assert(pThreadPosix != NULL);
 
     void* pEntryProcData = pThreadPosix->pData;
-    drutil_thread_entry_proc entryProc = pThreadPosix->entryProc;
+    dr_thread_entry_proc entryProc = pThreadPosix->entryProc;
     assert(entryProc != NULL);
 
     pThreadPosix->isInEntryProc = true;
@@ -1914,7 +1914,7 @@ static void* drutil_thread_entry_proc_posix(void* pDataIn)
     return (void*)(size_t)entryProc(pEntryProcData);
 }
 
-drutil_thread drutil_create_thread(drutil_thread_entry_proc entryProc, void* pData)
+dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
 {
     if (entryProc == NULL) {
         return NULL;
@@ -1933,19 +1933,19 @@ drutil_thread drutil_create_thread(drutil_thread_entry_proc entryProc, void* pDa
         }
 
         // Wait for the new thread to enter into it's entry point before returning. We need to do this so we can safely
-        // support something like drutil_delete_thread(drutil_create_thread(my_thread_proc, pData)).
+        // support something like dr_delete_thread(dr_create_thread(my_thread_proc, pData)).
         while (!pThreadPosix->isInEntryProc) {}
     }
 
-    return (drutil_thread)pThreadPosix;
+    return (dr_thread)pThreadPosix;
 }
 
-void drutil_delete_thread(drutil_thread thread)
+void dr_delete_thread(dr_thread thread)
 {
     free(thread);
 }
 
-void drutil_wait_thread(drutil_thread thread)
+void dr_wait_thread(dr_thread thread)
 {
     drutil_thread_posix* pThreadPosix = (drutil_thread_posix*)thread;
     if (pThreadPosix != NULL)
@@ -1956,7 +1956,7 @@ void drutil_wait_thread(drutil_thread thread)
 
 
 
-drutil_mutex drutil_create_mutex()
+dr_mutex drutil_create_mutex()
 {
     pthread_mutex_t* mutex = malloc(sizeof(pthread_mutex_t));
     if (pthread_mutex_init(mutex, NULL) != 0) {
@@ -1967,24 +1967,24 @@ drutil_mutex drutil_create_mutex()
     return mutex;
 }
 
-void drutil_delete_mutex(drutil_mutex mutex)
+void dr_delete_mutex(dr_mutex mutex)
 {
     pthread_mutex_destroy(mutex);
 }
 
-void drutil_lock_mutex(drutil_mutex mutex)
+void dr_lock_mutex(dr_mutex mutex)
 {
     pthread_mutex_lock(mutex);
 }
 
-void drutil_unlock_mutex(drutil_mutex mutex)
+void dr_unlock_mutex(dr_mutex mutex)
 {
     pthread_mutex_unlock(mutex);
 }
 
 
 
-drutil_semaphore drutil_create_semaphore(int initialValue)
+dr_semaphore dr_create_semaphore(int initialValue)
 {
     sem_t* semaphore = malloc(sizeof(sem_t));
     if (sem_init(semaphore, 0, (unsigned int)initialValue) == -1) {
@@ -1995,17 +1995,17 @@ drutil_semaphore drutil_create_semaphore(int initialValue)
     return semaphore;
 }
 
-void drutil_delete_semaphore(drutil_semaphore semaphore)
+void dr_delete_semaphore(dr_semaphore semaphore)
 {
     sem_close(semaphore);
 }
 
-bool drutil_wait_semaphore(drutil_semaphore semaphore)
+bool dr_wait_semaphore(dr_semaphore semaphore)
 {
     return sem_wait(semaphore) != -1;
 }
 
-bool drutil_release_semaphore(drutil_semaphore semaphore)
+bool dr_release_semaphore(dr_semaphore semaphore)
 {
     return sem_post(semaphore) != -1;
 }
