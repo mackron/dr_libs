@@ -1689,7 +1689,7 @@ bool easy2d_get_text_cursor_position_from_point_gdi(easy2d_font* pFont, const ch
     GCP_RESULTSW results;
     ZeroMemory(&results, sizeof(results));
     results.lStructSize = sizeof(results);
-    results.nGlyphs     = textSizeInBytes;
+    results.nGlyphs     = (UINT)textSizeInBytes;
 
     unsigned int textWLength;
     wchar_t* textW = easy2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
