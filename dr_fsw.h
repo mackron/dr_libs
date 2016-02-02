@@ -236,8 +236,9 @@ int drfsw_peek_event(drfsw_context* pContext, drfsw_event* pEventOut);
     #pragma GCC diagnostic ignored "-Wcast-align"
 #endif
 
-
-#define PRIVATE static
+#ifndef DRFSW_PRIVATE
+#define DRFSW_PRIVATE static
+#endif
 
 // The number of FILE_NOTIFY_INFORMATION structures in the buffer that's passed to ReadDirectoryChangesW()
 #define WIN32_RDC_FNI_COUNT     DRFSW_EVENT_QUEUE_SIZE
@@ -245,25 +246,24 @@ int drfsw_peek_event(drfsw_context* pContext, drfsw_event* pEventOut);
 #include <assert.h>
 
 #if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-PRIVATE void* drfsw_malloc(size_t sizeInBytes)
+DRFSW_PRIVATE void* drfsw_malloc(size_t sizeInBytes)
 {
     return HeapAlloc(GetProcessHeap(), 0, sizeInBytes);
 }
 
-PRIVATE void drfsw_free(void* p)
+DRFSW_PRIVATE void drfsw_free(void* p)
 {
     HeapFree(GetProcessHeap(), 0, p);
 }
 
-PRIVATE void drfsw_memcpy(void* dst, const void* src, size_t sizeInBytes)
+DRFSW_PRIVATE void drfsw_memcpy(void* dst, const void* src, size_t sizeInBytes)
 {
     CopyMemory(dst, src, sizeInBytes);
 }
 
-PRIVATE void drfsw_zeromemory(void* dst, size_t sizeInBytes)
+DRFSW_PRIVATE void drfsw_zeromemory(void* dst, size_t sizeInBytes)
 {
     ZeroMemory(dst, sizeInBytes);
 }
@@ -271,29 +271,29 @@ PRIVATE void drfsw_zeromemory(void* dst, size_t sizeInBytes)
 #include <stdlib.h>
 #include <string.h>
 
-PRIVATE void* drfsw_malloc(size_t sizeInBytes)
+DRFSW_PRIVATE void* drfsw_malloc(size_t sizeInBytes)
 {
     return malloc(sizeInBytes);
 }
 
-PRIVATE void drfsw_free(void* p)
+DRFSW_PRIVATE void drfsw_free(void* p)
 {
     free(p);
 }
 
-PRIVATE void drfsw_memcpy(void* dst, const void* src, size_t sizeInBytes)
+DRFSW_PRIVATE void drfsw_memcpy(void* dst, const void* src, size_t sizeInBytes)
 {
     memcpy(dst, src, sizeInBytes);
 }
 
-PRIVATE void drfsw_zeromemory(void* dst, size_t sizeInBytes)
+DRFSW_PRIVATE void drfsw_zeromemory(void* dst, size_t sizeInBytes)
 {
     memset(dst, 0, sizeInBytes);
 }
 #endif
 
 
-PRIVATE int drfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
+DRFSW_PRIVATE int drfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src)
 {
 #if defined(_MSC_VER)
     return strcpy_s(dst, dstSizeInBytes, src);
@@ -333,7 +333,7 @@ PRIVATE int drfsw_strcpy(char* dst, unsigned int dstSizeInBytes, const char* src
 }
 
 
-PRIVATE int drfsw_event_init(drfsw_event* pEvent, drfsw_event_type type, const char* absolutePath, const char* absolutePathNew, const char* absoluteBasePath, const char* absoluteBasePathNew)
+DRFSW_PRIVATE int drfsw_event_init(drfsw_event* pEvent, drfsw_event_type type, const char* absolutePath, const char* absolutePathNew, const char* absoluteBasePath, const char* absoluteBasePathNew)
 {
     if (pEvent != NULL)
     {
@@ -397,7 +397,7 @@ typedef struct
 
 } drfsw_event_queue;
 
-PRIVATE int drfsw_event_queue_init(drfsw_event_queue* pQueue)
+DRFSW_PRIVATE int drfsw_event_queue_init(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
@@ -429,7 +429,7 @@ PRIVATE int drfsw_event_queue_init(drfsw_event_queue* pQueue)
     return 0;
 }
 
-PRIVATE void drfsw_event_queue_uninit(drfsw_event_queue* pQueue)
+DRFSW_PRIVATE void drfsw_event_queue_uninit(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
@@ -450,7 +450,7 @@ PRIVATE void drfsw_event_queue_uninit(drfsw_event_queue* pQueue)
     }
 }
 
-PRIVATE drfsw_event_queue* drfsw_event_queue_create()
+DRFSW_PRIVATE drfsw_event_queue* drfsw_event_queue_create()
 {
     drfsw_event_queue* pQueue = drfsw_malloc(sizeof(drfsw_event_queue));
     if (pQueue != NULL)
@@ -465,7 +465,7 @@ PRIVATE drfsw_event_queue* drfsw_event_queue_create()
     return pQueue;
 }
 
-PRIVATE void drfsw_event_queue_delete(drfsw_event_queue* pQueue)
+DRFSW_PRIVATE void drfsw_event_queue_delete(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
@@ -474,7 +474,7 @@ PRIVATE void drfsw_event_queue_delete(drfsw_event_queue* pQueue)
     }
 }
 
-PRIVATE unsigned int drfsw_event_queue_getcount(drfsw_event_queue* pQueue)
+DRFSW_PRIVATE unsigned int drfsw_event_queue_getcount(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
@@ -484,7 +484,7 @@ PRIVATE unsigned int drfsw_event_queue_getcount(drfsw_event_queue* pQueue)
     return 0;
 }
 
-PRIVATE void drfsw_event_queue_inflate(drfsw_event_queue* pQueue)
+DRFSW_PRIVATE void drfsw_event_queue_inflate(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
     {
@@ -512,7 +512,7 @@ PRIVATE void drfsw_event_queue_inflate(drfsw_event_queue* pQueue)
     }
 }
 
-PRIVATE int drfsw_event_queue_pushback(drfsw_event_queue* pQueue, drfsw_event* pEvent)
+DRFSW_PRIVATE int drfsw_event_queue_pushback(drfsw_event_queue* pQueue, drfsw_event* pEvent)
 {
     if (pQueue != NULL)
     {
@@ -548,7 +548,7 @@ PRIVATE int drfsw_event_queue_pushback(drfsw_event_queue* pQueue, drfsw_event* p
     return 0;
 }
 
-PRIVATE int drfsw_event_queue_pop(drfsw_event_queue* pQueue, drfsw_event* pEventOut)
+DRFSW_PRIVATE int drfsw_event_queue_pop(drfsw_event_queue* pQueue, drfsw_event* pEventOut)
 {
     if (pQueue != NULL && pQueue->count > 0)
     {
@@ -570,7 +570,7 @@ PRIVATE int drfsw_event_queue_pop(drfsw_event_queue* pQueue, drfsw_event* pEvent
 
 
 // A simple function for appending a relative path to an absolute path. This does not resolve "." and ".." components.
-PRIVATE int drfsw_make_absolute_path(const char* absolutePart, const char* relativePart, char absolutePathOut[DRFSW_MAX_PATH])
+DRFSW_PRIVATE int drfsw_make_absolute_path(const char* absolutePart, const char* relativePart, char absolutePathOut[DRFSW_MAX_PATH])
 {
     size_t absolutePartLength = strlen(absolutePart);
     size_t relativePartLength = strlen(relativePart);
@@ -611,7 +611,7 @@ PRIVATE int drfsw_make_absolute_path(const char* absolutePart, const char* relat
 }
 
 // Replaces the back slashes with forward slashes in the given string. This operates on the string in place.
-PRIVATE int drfsw_to_forward_slashes(char* path)
+DRFSW_PRIVATE int drfsw_to_forward_slashes(char* path)
 {
     if (path != NULL)
     {
@@ -644,7 +644,7 @@ typedef struct
 
 } drfsw_list;
 
-PRIVATE int drfsw_list_init(drfsw_list* pList)
+DRFSW_PRIVATE int drfsw_list_init(drfsw_list* pList)
 {
     if (pList != NULL)
     {
@@ -658,7 +658,7 @@ PRIVATE int drfsw_list_init(drfsw_list* pList)
     return 0;
 }
 
-PRIVATE void drfsw_list_uninit(drfsw_list* pList)
+DRFSW_PRIVATE void drfsw_list_uninit(drfsw_list* pList)
 {
     if (pList != NULL)
     {
@@ -666,7 +666,7 @@ PRIVATE void drfsw_list_uninit(drfsw_list* pList)
     }
 }
 
-PRIVATE void drfsw_list_inflate(drfsw_list* pList)
+DRFSW_PRIVATE void drfsw_list_inflate(drfsw_list* pList)
 {
     if (pList != NULL)
     {
@@ -691,7 +691,7 @@ PRIVATE void drfsw_list_inflate(drfsw_list* pList)
     }
 }
 
-PRIVATE void drfsw_list_pushback(drfsw_list* pList, void* pItem)
+DRFSW_PRIVATE void drfsw_list_pushback(drfsw_list* pList, void* pItem)
 {
     if (pList != NULL)
     {
@@ -706,7 +706,7 @@ PRIVATE void drfsw_list_pushback(drfsw_list* pList, void* pItem)
     }
 }
 
-PRIVATE void drfsw_list_removebyindex(drfsw_list* pList, unsigned int index)
+DRFSW_PRIVATE void drfsw_list_removebyindex(drfsw_list* pList, unsigned int index)
 {
     if (pList != NULL)
     {
@@ -723,7 +723,7 @@ PRIVATE void drfsw_list_removebyindex(drfsw_list* pList, unsigned int index)
     }
 }
 
-PRIVATE void drfsw_list_popback(drfsw_list* pList)
+DRFSW_PRIVATE void drfsw_list_popback(drfsw_list* pList)
 {
     if (pList != NULL)
     {
@@ -745,7 +745,7 @@ static const int WIN32_RDC_PENDING_DELETE = (1 << 1);
 
 
 // Replaces the forward slashes to back slashes for use with Win32. This operates on the string in place.
-PRIVATE int drfsw_to_back_slashes_wchar(wchar_t* path)
+DRFSW_PRIVATE int drfsw_to_back_slashes_wchar(wchar_t* path)
 {
     if (path != NULL)
     {
@@ -765,7 +765,7 @@ PRIVATE int drfsw_to_back_slashes_wchar(wchar_t* path)
 }
 
 // Converts a UTF-8 string to wchar_t for use with Win32. Free the returned pointer with drfsw_free().
-PRIVATE int drfsw_utf8_to_wchar(const char* str, wchar_t wstrOut[DRFSW_MAX_PATH_W])
+DRFSW_PRIVATE int drfsw_utf8_to_wchar(const char* str, wchar_t wstrOut[DRFSW_MAX_PATH_W])
 {
     int wcharsWritten = MultiByteToWideChar(CP_UTF8, 0, str, -1, wstrOut, DRFSW_MAX_PATH_W);
     if (wcharsWritten > 0)
@@ -777,7 +777,7 @@ PRIVATE int drfsw_utf8_to_wchar(const char* str, wchar_t wstrOut[DRFSW_MAX_PATH_
     return 0;
 }
 
-PRIVATE int drfsw_wchar_to_utf8(const wchar_t* wstr, int wstrCC, char pathOut[DRFSW_MAX_PATH])
+DRFSW_PRIVATE int drfsw_wchar_to_utf8(const wchar_t* wstr, int wstrCC, char pathOut[DRFSW_MAX_PATH])
 {
     int bytesWritten = WideCharToMultiByte(CP_UTF8, 0, wstr, wstrCC, pathOut, DRFSW_MAX_PATH - 1, NULL, NULL);
     if (bytesWritten > 0)
@@ -792,7 +792,7 @@ PRIVATE int drfsw_wchar_to_utf8(const wchar_t* wstr, int wstrCC, char pathOut[DR
 }
 
 // Converts a UTF-8 path to wchar_t and converts the slashes to backslashes for use with Win32. Free the returned pointer with drfsw_free().
-PRIVATE int drfsw_to_win32_path_wchar(const char* path, wchar_t wpathOut[DRFSW_MAX_PATH_W])
+DRFSW_PRIVATE int drfsw_to_win32_path_wchar(const char* path, wchar_t wpathOut[DRFSW_MAX_PATH_W])
 {
     if (drfsw_utf8_to_wchar(path, wpathOut))
     {
@@ -803,7 +803,7 @@ PRIVATE int drfsw_to_win32_path_wchar(const char* path, wchar_t wpathOut[DRFSW_M
 }
 
 // Converts a wchar_t Win32 path to a char unix style path (forward slashes instead of back).
-PRIVATE int drfsw_from_win32_path(const wchar_t* wpath, int wpathCC, char pathOut[DRFSW_MAX_PATH])
+DRFSW_PRIVATE int drfsw_from_win32_path(const wchar_t* wpath, int wpathCC, char pathOut[DRFSW_MAX_PATH])
 {
     if (drfsw_wchar_to_utf8(wpath, wpathCC, pathOut))
     {
@@ -814,9 +814,9 @@ PRIVATE int drfsw_from_win32_path(const wchar_t* wpath, int wpathCC, char pathOu
 }
 
 
-PRIVATE VOID CALLBACK drfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
-PRIVATE VOID CALLBACK drfsw_win32_schedulewatchAPC(ULONG_PTR dwParam);
-PRIVATE VOID CALLBACK drfsw_win32_cancelioAPC(ULONG_PTR dwParam);
+DRFSW_PRIVATE VOID CALLBACK drfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped);
+DRFSW_PRIVATE VOID CALLBACK drfsw_win32_schedulewatchAPC(ULONG_PTR dwParam);
+DRFSW_PRIVATE VOID CALLBACK drfsw_win32_cancelioAPC(ULONG_PTR dwParam);
 
 typedef struct
 {
@@ -853,15 +853,15 @@ typedef struct
 
 } drfsw_context_win32;
 
-PRIVATE drfsw_context* drfsw_create_context_win32(void);
-PRIVATE void drfsw_delete_context_win32(drfsw_context_win32* pContext);
-PRIVATE int drfsw_add_directory_win32(drfsw_context_win32* pContext, const char* absolutePath);
-PRIVATE void drfsw_remove_directory_win32(drfsw_context_win32* pContext, const char* absolutePath);
-PRIVATE void drfsw_remove_all_directories_win32(drfsw_context_win32* pContext);
-PRIVATE int drfsw_is_watching_directory_win32(drfsw_context_win32* pContext, const char* absolutePath);
-PRIVATE int drfsw_next_event_win32(drfsw_context_win32* pContext, drfsw_event* pEventOut);
-PRIVATE int drfsw_peek_event_win32(drfsw_context_win32* pContext, drfsw_event* pEventOut);
-PRIVATE void drfsw_postevent_win32(drfsw_context_win32* pContext, drfsw_event* pEvent);
+DRFSW_PRIVATE drfsw_context* drfsw_create_context_win32(void);
+DRFSW_PRIVATE void drfsw_delete_context_win32(drfsw_context_win32* pContext);
+DRFSW_PRIVATE int drfsw_add_directory_win32(drfsw_context_win32* pContext, const char* absolutePath);
+DRFSW_PRIVATE void drfsw_remove_directory_win32(drfsw_context_win32* pContext, const char* absolutePath);
+DRFSW_PRIVATE void drfsw_remove_all_directories_win32(drfsw_context_win32* pContext);
+DRFSW_PRIVATE int drfsw_is_watching_directory_win32(drfsw_context_win32* pContext, const char* absolutePath);
+DRFSW_PRIVATE int drfsw_next_event_win32(drfsw_context_win32* pContext, drfsw_event* pEventOut);
+DRFSW_PRIVATE int drfsw_peek_event_win32(drfsw_context_win32* pContext, drfsw_event* pEventOut);
+DRFSW_PRIVATE void drfsw_postevent_win32(drfsw_context_win32* pContext, drfsw_event* pEvent);
 
 
 // Structure representing a directory that's being watched with the Win32 RDC method.
@@ -894,10 +894,10 @@ typedef struct
 
 } drfsw_directory_win32;
 
-PRIVATE int drfsw_directory_win32_beginwatch(drfsw_directory_win32* pDirectory);
+DRFSW_PRIVATE int drfsw_directory_win32_beginwatch(drfsw_directory_win32* pDirectory);
 
 
-PRIVATE void drfsw_directory_win32_uninit(drfsw_directory_win32* pDirectory)
+DRFSW_PRIVATE void drfsw_directory_win32_uninit(drfsw_directory_win32* pDirectory)
 {
     if (pDirectory != NULL)
     {
@@ -915,7 +915,7 @@ PRIVATE void drfsw_directory_win32_uninit(drfsw_directory_win32* pDirectory)
     }
 }
 
-PRIVATE int drfsw_directory_win32_init(drfsw_directory_win32* pDirectory, drfsw_context_win32* pContext, const char* absolutePath)
+DRFSW_PRIVATE int drfsw_directory_win32_init(drfsw_directory_win32* pDirectory, drfsw_context_win32* pContext, const char* absolutePath)
 {
     if (pDirectory != NULL)
     {
@@ -985,7 +985,7 @@ PRIVATE int drfsw_directory_win32_init(drfsw_directory_win32* pDirectory, drfsw_
     return 0;
 }
 
-PRIVATE int drfsw_directory_win32_schedulewatch(drfsw_directory_win32* pDirectory)
+DRFSW_PRIVATE int drfsw_directory_win32_schedulewatch(drfsw_directory_win32* pDirectory)
 {
     if (pDirectory != NULL)
     {
@@ -998,7 +998,7 @@ PRIVATE int drfsw_directory_win32_schedulewatch(drfsw_directory_win32* pDirector
     return 0;
 }
 
-PRIVATE int drfsw_directory_win32_scheduledelete(drfsw_directory_win32* pDirectory)
+DRFSW_PRIVATE int drfsw_directory_win32_scheduledelete(drfsw_directory_win32* pDirectory)
 {
     if (pDirectory != NULL)
     {
@@ -1011,7 +1011,7 @@ PRIVATE int drfsw_directory_win32_scheduledelete(drfsw_directory_win32* pDirecto
     return 0;
 }
 
-PRIVATE int drfsw_directory_win32_beginwatch(drfsw_directory_win32* pDirectory)
+DRFSW_PRIVATE int drfsw_directory_win32_beginwatch(drfsw_directory_win32* pDirectory)
 {
     // This function should only be called from the worker thread.
 
@@ -1032,7 +1032,7 @@ PRIVATE int drfsw_directory_win32_beginwatch(drfsw_directory_win32* pDirectory)
 
 
 
-PRIVATE int drfsw_directory_list_win32_init(drfsw_directory_list_win32* pDirectories)
+DRFSW_PRIVATE int drfsw_directory_list_win32_init(drfsw_directory_list_win32* pDirectories)
 {
     if (pDirectories != NULL)
     {
@@ -1048,7 +1048,7 @@ PRIVATE int drfsw_directory_list_win32_init(drfsw_directory_list_win32* pDirecto
     return 0;
 }
 
-PRIVATE void drfsw_directory_list_win32_uninit(drfsw_directory_list_win32* pDirectories)
+DRFSW_PRIVATE void drfsw_directory_list_win32_uninit(drfsw_directory_list_win32* pDirectories)
 {
     if (pDirectories != NULL)
     {
@@ -1063,7 +1063,7 @@ PRIVATE void drfsw_directory_list_win32_uninit(drfsw_directory_list_win32* pDire
 
 
 
-PRIVATE VOID CALLBACK drfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
+DRFSW_PRIVATE VOID CALLBACK drfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered, LPOVERLAPPED lpOverlapped)
 {
     drfsw_directory_win32* pDirectory = (drfsw_directory_win32*)lpOverlapped->hEvent;
     if (pDirectory != NULL)
@@ -1184,7 +1184,7 @@ PRIVATE VOID CALLBACK drfsw_win32_completionroutine(DWORD dwErrorCode, DWORD dwN
     }
 }
 
-PRIVATE VOID CALLBACK drfsw_win32_schedulewatchAPC(ULONG_PTR dwParam)
+DRFSW_PRIVATE VOID CALLBACK drfsw_win32_schedulewatchAPC(ULONG_PTR dwParam)
 {
     drfsw_directory_win32* pDirectory = (drfsw_directory_win32*)dwParam;
     if (pDirectory != NULL)
@@ -1196,7 +1196,7 @@ PRIVATE VOID CALLBACK drfsw_win32_schedulewatchAPC(ULONG_PTR dwParam)
     }
 }
 
-PRIVATE VOID CALLBACK drfsw_win32_cancelioAPC(ULONG_PTR dwParam)
+DRFSW_PRIVATE VOID CALLBACK drfsw_win32_cancelioAPC(ULONG_PTR dwParam)
 {
     drfsw_directory_win32* pDirectory = (drfsw_directory_win32*)dwParam;
     if (pDirectory != NULL)
@@ -1227,7 +1227,7 @@ PRIVATE VOID CALLBACK drfsw_win32_cancelioAPC(ULONG_PTR dwParam)
 
 
 
-PRIVATE DWORD WINAPI _WatcherThreadProc_RDC(drfsw_context_win32 *pContextRDC)
+DRFSW_PRIVATE DWORD WINAPI _WatcherThreadProc_RDC(drfsw_context_win32 *pContextRDC)
 {
     while (!pContextRDC->terminateThread)
     {
@@ -1255,7 +1255,7 @@ PRIVATE DWORD WINAPI _WatcherThreadProc_RDC(drfsw_context_win32 *pContextRDC)
     return 0;
 }
 
-PRIVATE drfsw_context* drfsw_create_context_win32()
+DRFSW_PRIVATE drfsw_context* drfsw_create_context_win32()
 {
     drfsw_context_win32* pContext = drfsw_malloc(sizeof(drfsw_context_win32));
     if (pContext != NULL)
@@ -1295,7 +1295,7 @@ PRIVATE drfsw_context* drfsw_create_context_win32()
     return (drfsw_context*)pContext;
 }
 
-PRIVATE void drfsw_delete_context_win32(drfsw_context_win32* pContext)
+DRFSW_PRIVATE void drfsw_delete_context_win32(drfsw_context_win32* pContext)
 {
     if (pContext != NULL)
     {
@@ -1332,7 +1332,7 @@ PRIVATE void drfsw_delete_context_win32(drfsw_context_win32* pContext)
     }
 }
 
-PRIVATE drfsw_directory_win32* drfsw_find_directory_win32(drfsw_context_win32* pContext, const char* absolutePath, unsigned int* pIndexOut)
+DRFSW_PRIVATE drfsw_directory_win32* drfsw_find_directory_win32(drfsw_context_win32* pContext, const char* absolutePath, unsigned int* pIndexOut)
 {
     assert(pContext != NULL);
 
@@ -1356,7 +1356,7 @@ PRIVATE drfsw_directory_win32* drfsw_find_directory_win32(drfsw_context_win32* p
     return NULL;
 }
 
-PRIVATE int drfsw_add_directory_win32(drfsw_context_win32* pContext, const char* absolutePath)
+DRFSW_PRIVATE int drfsw_add_directory_win32(drfsw_context_win32* pContext, const char* absolutePath)
 {
     if (pContext != NULL)
     {
@@ -1403,7 +1403,7 @@ PRIVATE int drfsw_add_directory_win32(drfsw_context_win32* pContext, const char*
     return 0;
 }
 
-PRIVATE void drfsw_remove_directory_win32_no_lock(drfsw_context_win32* pContext, const char* absolutePath)
+DRFSW_PRIVATE void drfsw_remove_directory_win32_no_lock(drfsw_context_win32* pContext, const char* absolutePath)
 {
     assert(pContext != NULL);
 
@@ -1424,7 +1424,7 @@ PRIVATE void drfsw_remove_directory_win32_no_lock(drfsw_context_win32* pContext,
     }
 }
 
-PRIVATE void drfsw_remove_directory_win32(drfsw_context_win32* pContext, const char* absolutePath)
+DRFSW_PRIVATE void drfsw_remove_directory_win32(drfsw_context_win32* pContext, const char* absolutePath)
 {
     if (pContext != NULL)
     {
@@ -1436,7 +1436,7 @@ PRIVATE void drfsw_remove_directory_win32(drfsw_context_win32* pContext, const c
     }
 }
 
-PRIVATE void drfsw_remove_all_directories_win32(drfsw_context_win32* pContext)
+DRFSW_PRIVATE void drfsw_remove_all_directories_win32(drfsw_context_win32* pContext)
 {
     if (pContext != NULL)
     {
@@ -1451,7 +1451,7 @@ PRIVATE void drfsw_remove_all_directories_win32(drfsw_context_win32* pContext)
     }
 }
 
-PRIVATE int drfsw_is_watching_directory_win32(drfsw_context_win32* pContext, const char* absolutePath)
+DRFSW_PRIVATE int drfsw_is_watching_directory_win32(drfsw_context_win32* pContext, const char* absolutePath)
 {
     if (pContext != NULL)
     {
@@ -1462,7 +1462,7 @@ PRIVATE int drfsw_is_watching_directory_win32(drfsw_context_win32* pContext, con
 }
 
 
-PRIVATE int drfsw_next_event_win32(drfsw_context_win32* pContext, drfsw_event* pEvent)
+DRFSW_PRIVATE int drfsw_next_event_win32(drfsw_context_win32* pContext, drfsw_event* pEvent)
 {
     int result = 0;
     if (pContext != NULL && !pContext->terminateThread)
@@ -1516,7 +1516,7 @@ PRIVATE int drfsw_next_event_win32(drfsw_context_win32* pContext, drfsw_event* p
     return result;
 }
 
-PRIVATE int drfsw_peek_event_win32(drfsw_context_win32* pContext, drfsw_event* pEvent)
+DRFSW_PRIVATE int drfsw_peek_event_win32(drfsw_context_win32* pContext, drfsw_event* pEvent)
 {
     int result = 0;
     if (pContext != NULL)
@@ -1551,7 +1551,7 @@ PRIVATE int drfsw_peek_event_win32(drfsw_context_win32* pContext, drfsw_event* p
     return result;
 }
 
-PRIVATE void drfsw_postevent_win32(drfsw_context_win32* pContext, drfsw_event* pEvent)
+DRFSW_PRIVATE void drfsw_postevent_win32(drfsw_context_win32* pContext, drfsw_event* pEvent)
 {
     if (pContext != NULL && pEvent != NULL)
     {

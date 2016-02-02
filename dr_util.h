@@ -85,14 +85,6 @@ extern "C" {
     #ifndef UNUSED
     #define UNUSED(x) ((void)x)
     #endif
-
-    #ifndef PRIVATE
-    #define PRIVATE
-    #endif
-
-    #ifndef PUBLIC
-    #define PUBLIC
-    #endif
 #endif
 
 
@@ -1739,7 +1731,6 @@ void drutil_parse_cmdline(drutil_cmdline* pCmdLine, drutil_cmdline_parse_proc ca
 // Threading
 
 #if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 void drutil_sleep(unsigned int milliseconds)
