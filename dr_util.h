@@ -10,13 +10,13 @@
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
-//   #define EASY_UTIL_IMPLEMENTATION
-//   #include "easy_util.h"
+//   #define DR_UTIL_IMPLEMENTATION
+//   #include "dr_util.h"
 //
-// You can then #include easy_util.h in other parts of the program as you would with any other header file.
+// You can then #include dr_util.h in other parts of the program as you would with any other header file.
 
-#ifndef easy_util_h
-#define easy_util_h
+#ifndef dr_util_h
+#define dr_util_h
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,34 +25,34 @@ extern "C" {
 /////////////////////////////////////////////////////////
 // Options
 
-#ifdef EASYUTIL_ONLY_ANNOTATIONS
-    #define EASYUTIL_NO_MSVC_COMPAT
-    #define EASYUTIL_NO_ALIGNED_MALLOC
-    #define EASYUTIL_NO_MINMAXCLAMP
+#ifdef DRUTIL_ONLY_ANNOTATIONS
+    #define DRUTIL_NO_MSVC_COMPAT
+    #define DRUTIL_NO_ALIGNED_MALLOC
+    #define DRUTIL_NO_MINMAXCLAMP
 #endif
 
-#ifdef EASYUTIL_ONLY_MSVC_COMPAT
-    #define EASYUTIL_NO_ANNOTATIONS
-    #define EASYUTIL_NO_ALIGNED_MALLOC
-    #define EASYUTIL_NO_MINMAXCLAMP
+#ifdef DRUTIL_ONLY_MSVC_COMPAT
+    #define DRUTIL_NO_ANNOTATIONS
+    #define DRUTIL_NO_ALIGNED_MALLOC
+    #define DRUTIL_NO_MINMAXCLAMP
 #endif
 
-#ifdef EASYUTIL_ONLY_ALIGNED_MALLOC
-    #define EASYUTIL_NO_ANNOTATIONS
-    #define EASYUTIL_NO_MSVC_COMPAT
-    #define EASYUTIL_NO_MINMAXCLAMP
+#ifdef DRUTIL_ONLY_ALIGNED_MALLOC
+    #define DRUTIL_NO_ANNOTATIONS
+    #define DRUTIL_NO_MSVC_COMPAT
+    #define DRUTIL_NO_MINMAXCLAMP
 #endif
 
 
 // Disable MSVC compatibility if we're compiling with it.
-#if !defined(EASYUTIL_NO_MSVC_COMPAT) && defined(_MSC_VER)
-    #define EASYUTIL_NO_MSVC_COMPAT
+#if !defined(DRUTIL_NO_MSVC_COMPAT) && defined(_MSC_VER)
+    #define DRUTIL_NO_MSVC_COMPAT
 #endif
 
 #if defined(_MSC_VER)
-#define EASYUTIL_INLINE static __inline
+#define DRUTIL_INLINE static __inline
 #else
-#define EASYUTIL_INLINE static inline
+#define DRUTIL_INLINE static inline
 #endif
 
 
@@ -61,7 +61,7 @@ extern "C" {
 #include <time.h>
 #include <stdbool.h>
 
-#ifndef EASYUTIL_NO_MSVC_COMPAT
+#ifndef DRUTIL_NO_MSVC_COMPAT
 #include <errno.h>
 #endif
 
@@ -73,7 +73,7 @@ extern "C" {
 /////////////////////////////////////////////////////////
 // Annotations
 
-#ifndef EASYUTIL_NO_ANNOTATIONS
+#ifndef DRUTIL_NO_ANNOTATIONS
     #ifndef IN
     #define IN
     #endif
@@ -99,17 +99,17 @@ extern "C" {
 /////////////////////////////////////////////////////////
 // min/max/clamp
 
-#ifndef EASYUTIL_NO_MINMAXCLAMP
-    #ifndef easy_min
-    #define easy_min(x, y) (((x) < (y)) ? (x) : (y))
+#ifndef DRUTIL_NO_MINMAXCLAMP
+    #ifndef dr_min
+    #define dr_min(x, y) (((x) < (y)) ? (x) : (y))
     #endif
 
-    #ifndef easy_max
-    #define easy_max(x, y) (((x) > (y)) ? (x) : (y))
+    #ifndef dr_max
+    #define dr_max(x, y) (((x) > (y)) ? (x) : (y))
     #endif
 
-    #ifndef easy_clamp
-    #define easy_clamp(x, low, high) (easy_max(low, easy_min(x, high)))
+    #ifndef dr_clamp
+    #define dr_clamp(x, low, high) (dr_max(low, dr_min(x, high)))
     #endif
 #endif
 
@@ -117,7 +117,7 @@ extern "C" {
 /////////////////////////////////////////////////////////
 // MSVC Compatibility
 
-#ifndef EASYUTIL_NO_MSVC_COMPAT
+#ifndef DRUTIL_NO_MSVC_COMPAT
 #ifndef _TRUNCATE
 #define _TRUNCATE ((size_t)-1)
 #endif
@@ -292,7 +292,7 @@ static int strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t c
 
 
 // A wrapper for _stricmp/strcasecmp
-EASYUTIL_INLINE int _stricmp(const char* string1, const char* string2)
+DRUTIL_INLINE int _stricmp(const char* string1, const char* string2)
 {
     return strcasecmp(string1, string2);
 }
@@ -303,13 +303,13 @@ EASYUTIL_INLINE int _stricmp(const char* string1, const char* string2)
 // String Helpers
 
 /// Removes every occurance of the given character from the given string.
-void easyutil_strrmchar(char* str, char c);
+void drutil_strrmchar(char* str, char c);
 
 /// Finds the first non-whitespace character in the given string.
-const char* easyutil_first_non_whitespace(const char* str);
+const char* drutil_first_non_whitespace(const char* str);
 
 /// Finds the first occurance of a whitespace character in the given string.
-const char* easyutil_first_whitespace(const char* str);
+const char* drutil_first_whitespace(const char* str);
 
 
 /////////////////////////////////////////////////////////
@@ -324,7 +324,7 @@ const char* easyutil_first_whitespace(const char* str);
 /// @remarks
 ///     It is assumed the <utf16> is large enough to hold at least 2 unsigned shorts. <utf16> will be padded with 0 for unused
 ///     components.
-EASYUTIL_INLINE int utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
+DRUTIL_INLINE int utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
 {
     if (utf16 == NULL) {
         return 0;
@@ -355,7 +355,7 @@ EASYUTIL_INLINE int utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
 }
 
 /// Converts a UTF-16 character to UTF-32.
-EASYUTIL_INLINE unsigned int utf16_to_utf32(unsigned short utf16[2])
+DRUTIL_INLINE unsigned int utf16_to_utf32(unsigned short utf16[2])
 {
     if (utf16 == NULL) {
         return 0;
@@ -380,7 +380,7 @@ EASYUTIL_INLINE unsigned int utf16_to_utf32(unsigned short utf16[2])
 }
 
 /// Converts a UTF-16 surrogate pair to UTF-32.
-EASYUTIL_INLINE unsigned int utf16pair_to_utf32(unsigned short utf160, unsigned short utf161)
+DRUTIL_INLINE unsigned int utf16pair_to_utf32(unsigned short utf160, unsigned short utf161)
 {
     unsigned short utf16[2];
     utf16[0] = utf160;
@@ -392,8 +392,8 @@ EASYUTIL_INLINE unsigned int utf16pair_to_utf32(unsigned short utf160, unsigned 
 /////////////////////////////////////////////////////////
 // Aligned Allocations
 
-#ifndef EASYUTIL_NO_ALIGNED_MALLOC
-EASYUTIL_INLINE void* aligned_malloc(size_t alignment, size_t size)
+#ifndef DRUTIL_NO_ALIGNED_MALLOC
+DRUTIL_INLINE void* aligned_malloc(size_t alignment, size_t size)
 {
 #if defined(_WIN32) || defined(_WIN64)
     return _aligned_malloc(size, alignment);
@@ -407,7 +407,7 @@ EASYUTIL_INLINE void* aligned_malloc(size_t alignment, size_t size)
 #endif
 }
 
-EASYUTIL_INLINE void aligned_free(void* ptr)
+DRUTIL_INLINE void aligned_free(void* ptr)
 {
 #if defined(_WIN32) || defined(_WIN64)
     _aligned_free(ptr);
@@ -415,16 +415,16 @@ EASYUTIL_INLINE void aligned_free(void* ptr)
     free(ptr);
 #endif
 }
-#endif  // !EASYUTIL_NO_ALIGNED_MALLOC
+#endif  // !DRUTIL_NO_ALIGNED_MALLOC
 
 
 
 /////////////////////////////////////////////////////////
 // Key/Value Pair Parsing
 
-typedef size_t (* key_value_read_proc) (void* pUserData, void* pDataOut, size_t bytesToRead);
-typedef void   (* key_value_pair_proc) (void* pUserData, const char* key, const char* value);
-typedef void   (* key_value_error_proc)(void* pUserData, const char* message, unsigned int line);
+typedef size_t (* dr_key_value_read_proc) (void* pUserData, void* pDataOut, size_t bytesToRead);
+typedef void   (* dr_key_value_pair_proc) (void* pUserData, const char* key, const char* value);
+typedef void   (* dr_key_value_error_proc)(void* pUserData, const char* message, unsigned int line);
 
 /// Parses a series of simple Key/Value pairs.
 ///
@@ -443,7 +443,7 @@ typedef void   (* key_value_error_proc)(void* pUserData, const char* message, un
 ///      - A value can be wrapped in double-quote characters in which case the last double-quote character acts as the end point.
 ///     @par
 ///     If an error occurs, that line will be skipped and processing will continue.
-void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_proc onPair, key_value_error_proc onError, void* pUserData);
+void drutil_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
 
 
 
@@ -464,7 +464,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 ///     This will handle double-quoted strings, so a string such as "My \"Complex String\"" contains two tokens: "My" and "\"Complex String\"".
 ///     @par
 ///     This function has no dependencies.
-const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize);
+const char* drutil_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize);
 
 
 
@@ -475,13 +475,13 @@ const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be ~/.config
-bool easyutil_get_config_folder_path(char* pathOut, size_t pathOutSize);
+bool drutil_get_config_folder_path(char* pathOut, size_t pathOutSize);
 
 /// Retrieves the path of the user's log directory.
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be var/log
-bool easyutil_get_log_folder_path(char* pathOut, size_t pathOutSize);
+bool drutil_get_log_folder_path(char* pathOut, size_t pathOutSize);
 
 
 
@@ -519,10 +519,10 @@ int win32_get_monitor_count();
 // Date / Time
 
 /// Retrieves a time_t as of the time the function was called.
-time_t easyutil_now();
+time_t drutil_now();
 
 /// Formats a data/time string.
-void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
+void drutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
 
 
 
@@ -538,9 +538,9 @@ void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
 //
 // Below is an example:
 //
-// easyutil_cmdline cmdline;
-// if (easyutil_init_cmdline(&cmdline, argc, argv)) {
-//     easyutil_parse_cmdline(&cmdline, my_cmdline_handler, pMyUserData);
+// drutil_cmdline cmdline;
+// if (drutil_init_cmdline(&cmdline, argc, argv)) {
+//     drutil_parse_cmdline(&cmdline, my_cmdline_handler, pMyUserData);
 // }
 //
 // void my_cmdline_handler(const char* key, const char* value, void* pUserData)
@@ -569,8 +569,8 @@ void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
 // For segments such as "-abcd file.txt", "a", "b", "c", "d" will be sent with NULL values, and "file.txt" will be
 // posted with a NULL key.
 
-typedef struct easyutil_cmdline easyutil_cmdline;
-struct easyutil_cmdline
+typedef struct drutil_cmdline drutil_cmdline;
+struct drutil_cmdline
 {
     // argv style.
     int argc;
@@ -581,17 +581,17 @@ struct easyutil_cmdline
 
 };
 
-typedef bool easyutil_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
+typedef bool drutil_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
 
 
 /// Initializes a command line object.
-bool easyutil_init_cmdline(easyutil_cmdline* pCmdLine, int argc, char** argv);
+bool drutil_init_cmdline(drutil_cmdline* pCmdLine, int argc, char** argv);
 
 /// Initializes a command line object using a Win32 style command line.
-bool easyutil_init_cmdline_win32(easyutil_cmdline* pCmdLine, const char* args);
+bool drutil_init_cmdline_win32(drutil_cmdline* pCmdLine, const char* args);
 
 /// Parses the given command line.
-void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_proc callback, void* pUserData);
+void drutil_parse_cmdline(drutil_cmdline* pCmdLine, drutil_cmdline_parse_proc callback, void* pUserData);
 
 
 
@@ -604,12 +604,12 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
 ///
 /// @remarks
 ///     This is not 100% accurate and should be considered an approximation.
-void easyutil_sleep(unsigned int milliseconds);
+void drutil_sleep(unsigned int milliseconds);
 
 
 /// Thread.
-typedef void* easyutil_thread;
-typedef int (* easyutil_thread_entry_proc)(void* pData);
+typedef void* drutil_thread;
+typedef int (* drutil_thread_entry_proc)(void* pData);
 
 /// Creates and begins executing a new thread.
 ///
@@ -618,69 +618,69 @@ typedef int (* easyutil_thread_entry_proc)(void* pData);
 ///     @par
 ///     Creating a thread should be considered an expensive operation. For high performance, you should create threads
 ///     and load time and cache them.
-easyutil_thread easyutil_create_thread(easyutil_thread_entry_proc entryProc, void* pData);
+drutil_thread drutil_create_thread(drutil_thread_entry_proc entryProc, void* pData);
 
 /// Deletes the given thread.
 ///
 /// @remarks
 ///     This does not actually exit the thread, but rather deletes the memory that was allocated for the thread
-///     object returned by easyutil_create_thread().
+///     object returned by drutil_create_thread().
 ///     @par
-///     It is usually best to wait for the thread to terminate naturally with easyutil_wait_thread() before calling
+///     It is usually best to wait for the thread to terminate naturally with drutil_wait_thread() before calling
 ///     this function, however it is still safe to do something like the following.
 ///     @code
-///     easyutil_delete_thread(easyutil_create_thread(my_thread_proc, pData))
+///     drutil_delete_thread(drutil_create_thread(my_thread_proc, pData))
 ///     @endcode
-void easyutil_delete_thread(easyutil_thread thread);
+void drutil_delete_thread(drutil_thread thread);
 
 /// Waits for the given thread to terminate.
-void easyutil_wait_thread(easyutil_thread thread);
+void drutil_wait_thread(drutil_thread thread);
 
 /// Helper function for waiting for a thread and then deleting the handle after it has terminated.
-void easyutil_wait_and_delete_thread(easyutil_thread thread);
+void drutil_wait_and_delete_thread(drutil_thread thread);
 
 
 
 /// Mutex
-typedef void* easyutil_mutex;
+typedef void* drutil_mutex;
 
 /// Creates a mutex object.
 ///
 /// @remarks
 ///     If an error occurs, 0 is returned. Otherwise a handle the size of a pointer is returned.
-easyutil_mutex easyutil_create_mutex();
+drutil_mutex drutil_create_mutex();
 
 /// Deletes a mutex object.
-void easyutil_delete_mutex(easyutil_mutex mutex);
+void drutil_delete_mutex(drutil_mutex mutex);
 
 /// Locks the given mutex.
-void easyutil_lock_mutex(easyutil_mutex mutex);
+void drutil_lock_mutex(drutil_mutex mutex);
 
 /// Unlocks the given mutex.
-void easyutil_unlock_mutex(easyutil_mutex mutex);
+void drutil_unlock_mutex(drutil_mutex mutex);
 
 
 
 /// Semaphore
-typedef void* easyutil_semaphore;
+typedef void* drutil_semaphore;
 
 /// Creates a semaphore object.
 ///
 /// @remarks
 ///     If an error occurs, 0 is returned. Otherwise a handle the size of a pointer is returned.
-easyutil_semaphore easyutil_create_semaphore(int initialValue);
+drutil_semaphore drutil_create_semaphore(int initialValue);
 
 /// Deletes the given semaphore.
-void easyutil_delete_semaphore(easyutil_semaphore semaphore);
+void drutil_delete_semaphore(drutil_semaphore semaphore);
 
 /// Waits on the given semaphore object and decrements it's counter by one upon returning.
 ///
 /// @remarks
 ///     This will block so long as the counter is > 0.
-bool easyutil_wait_semaphore(easyutil_semaphore semaphore);
+bool drutil_wait_semaphore(drutil_semaphore semaphore);
 
 /// Releases the given semaphore and increments it's counter by one up returning.
-bool easyutil_release_semaphore(easyutil_semaphore semaphore);
+bool drutil_release_semaphore(drutil_semaphore semaphore);
 
 
 
@@ -700,7 +700,7 @@ bool easyutil_release_semaphore(easyutil_semaphore semaphore);
         classname & operator=(const classname &);
 
 
-#ifndef EASYUTIL_NO_MSVC_COMPAT
+#ifndef DRUTIL_NO_MSVC_COMPAT
 extern "C++"
 {
 
@@ -739,7 +739,7 @@ int strncat_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
 }
 #endif
 
-#endif  //easy_util_h
+#endif  //dr_util_h
 
 
 
@@ -749,7 +749,7 @@ int strncat_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifdef EASY_UTIL_IMPLEMENTATION
+#ifdef DR_UTIL_IMPLEMENTATION
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -759,7 +759,7 @@ int strncat_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
 /////////////////////////////////////////////////////////
 // String Helpers
 
-void easyutil_strrmchar(char* str, char c)
+void drutil_strrmchar(char* str, char c)
 {
     char* src = str;
     char* dst = str;
@@ -778,7 +778,7 @@ void easyutil_strrmchar(char* str, char c)
     dst[0] = '\0';
 }
 
-const char* easyutil_first_non_whitespace(const char* str)
+const char* drutil_first_non_whitespace(const char* str)
 {
     if (str == NULL) {
         return NULL;
@@ -791,7 +791,7 @@ const char* easyutil_first_non_whitespace(const char* str)
     return str;
 }
 
-const char* easyutil_first_whitespace(const char* str)
+const char* drutil_first_whitespace(const char* str)
 {
     if (str == NULL) {
         return NULL;
@@ -809,7 +809,7 @@ const char* easyutil_first_whitespace(const char* str)
 /////////////////////////////////////////////////////////
 // Key/Value Pair Parsing
 
-void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_proc onPair, key_value_error_proc onError, void* pUserData)
+void drutil_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData)
 {
     if (onRead == NULL) {
         return;
@@ -1096,7 +1096,7 @@ void easyutil_parse_key_value_pairs(key_value_read_proc onRead, key_value_pair_p
 /////////////////////////////////////////////////////////
 // Basic Tokenizer
 
-const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize)
+const char* drutil_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize)
 {
     if (tokens == NULL) {
         return NULL;
@@ -1177,7 +1177,7 @@ const char* easyutil_next_token(const char* tokens, char* tokenOut, unsigned int
 #if defined(_WIN32) || defined(_WIN64)
 #include <shlobj.h>
 
-bool easyutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
+bool drutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     // The documentation for SHGetFolderPathA() says that the output path should be the size of MAX_PATH. We'll enforce
     // that just to be safe.
@@ -1208,16 +1208,16 @@ bool easyutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
     return 1;
 }
 
-bool easyutil_get_log_folder_path(char* pathOut, size_t pathOutSize)
+bool drutil_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
-    return easyutil_get_config_folder_path(pathOut, pathOutSize);
+    return drutil_get_config_folder_path(pathOut, pathOutSize);
 }
 #else
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
 
-bool easyutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
+bool drutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     const char* configdir = getenv("XDG_CONFIG_HOME");
     if (configdir != NULL)
@@ -1254,7 +1254,7 @@ bool easyutil_get_config_folder_path(char* pathOut, size_t pathOutSize)
     return 0;
 }
 
-bool easyutil_get_log_folder_path(char* pathOut, size_t pathOutSize)
+bool drutil_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
     return strcpy_s(pathOut, pathOutSize, "var/log");
 }
@@ -1448,12 +1448,12 @@ int win32_get_monitor_count()
 /////////////////////////////////////////////////////////
 // Date / Time
 
-time_t easyutil_now()
+time_t drutil_now()
 {
     return time(NULL);
 }
 
-void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize)
+void drutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize)
 {
 #if defined(_MSC_VER)
 	struct tm local;
@@ -1472,7 +1472,7 @@ void easyutil_datetime_short(time_t t, char* strOut, unsigned int strOutSize)
 
 typedef struct
 {
-    easyutil_cmdline* pCmdLine;
+    drutil_cmdline* pCmdLine;
     char* value;
 
     // Win32 style data.
@@ -1482,11 +1482,11 @@ typedef struct
     // argv style data.
     int iarg;   // <-- This starts at -1 so that the first call to next() increments it to 0.
 
-} easyutil_cmdline_iterator;
+} drutil_cmdline_iterator;
 
-easyutil_cmdline_iterator easyutil_cmdline_begin(easyutil_cmdline* pCmdLine)
+drutil_cmdline_iterator drutil_cmdline_begin(drutil_cmdline* pCmdLine)
 {
-    easyutil_cmdline_iterator i;
+    drutil_cmdline_iterator i;
     i.pCmdLine      = pCmdLine;
     i.value         = NULL;
     i.win32_payload = NULL;
@@ -1514,7 +1514,7 @@ easyutil_cmdline_iterator easyutil_cmdline_begin(easyutil_cmdline* pCmdLine)
     return i;
 }
 
-bool easyutil_cmdline_next(easyutil_cmdline_iterator* i)
+bool drutil_cmdline_next(drutil_cmdline_iterator* i)
 {
     if (i != NULL && i->pCmdLine != NULL)
     {
@@ -1605,7 +1605,7 @@ bool easyutil_cmdline_next(easyutil_cmdline_iterator* i)
 }
 
 
-bool easyutil_init_cmdline(easyutil_cmdline* pCmdLine, int argc, char** argv)
+bool drutil_init_cmdline(drutil_cmdline* pCmdLine, int argc, char** argv)
 {
     if (pCmdLine == NULL) {
         return false;
@@ -1618,7 +1618,7 @@ bool easyutil_init_cmdline(easyutil_cmdline* pCmdLine, int argc, char** argv)
     return true;
 }
 
-bool easyutil_init_cmdline_win32(easyutil_cmdline* pCmdLine, const char* args)
+bool drutil_init_cmdline_win32(drutil_cmdline* pCmdLine, const char* args)
 {
     if (pCmdLine == NULL) {
         return false;
@@ -1631,7 +1631,7 @@ bool easyutil_init_cmdline_win32(easyutil_cmdline* pCmdLine, const char* args)
     return true;
 }
 
-void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_proc callback, void* pUserData)
+void drutil_parse_cmdline(drutil_cmdline* pCmdLine, drutil_cmdline_parse_proc callback, void* pUserData)
 {
     if (pCmdLine == NULL || callback == NULL) {
         return;
@@ -1643,15 +1643,15 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
     char* pKey = NULL;
     char* pVal = NULL;
 
-    easyutil_cmdline_iterator arg = easyutil_cmdline_begin(pCmdLine);
-    if (easyutil_cmdline_next(&arg))
+    drutil_cmdline_iterator arg = drutil_cmdline_begin(pCmdLine);
+    if (drutil_cmdline_next(&arg))
     {
         if (!callback("[path]", arg.value, pUserData)) {
             return;
         }
     }
 
-    while (easyutil_cmdline_next(&arg))
+    while (drutil_cmdline_next(&arg))
     {
         if (arg.value[0] == '-')
         {
@@ -1742,7 +1742,7 @@ void easyutil_parse_cmdline(easyutil_cmdline* pCmdLine, easyutil_cmdline_parse_p
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-void easyutil_sleep(unsigned int milliseconds)
+void drutil_sleep(unsigned int milliseconds)
 {
     Sleep((DWORD)milliseconds);
 }
@@ -1754,7 +1754,7 @@ typedef struct
     HANDLE hThread;
 
     /// The entry point.
-    easyutil_thread_entry_proc entryProc;
+    drutil_thread_entry_proc entryProc;
 
     /// The user data to pass to the thread's entry point.
     void* pData;
@@ -1762,14 +1762,14 @@ typedef struct
     /// Set to true by the entry function. We use this to wait for the entry function to start.
     bool isInEntryProc;
 
-} easyutil_thread_win32;
+} drutil_thread_win32;
 
-static DWORD WINAPI easyutil_thread_entry_proc_win32(easyutil_thread_win32* pThreadWin32)
+static DWORD WINAPI drutil_thread_entry_proc_win32(drutil_thread_win32* pThreadWin32)
 {
     assert(pThreadWin32 != NULL);
 
     void* pEntryProcData = pThreadWin32->pData;
-    easyutil_thread_entry_proc entryProc = pThreadWin32->entryProc;
+    drutil_thread_entry_proc entryProc = pThreadWin32->entryProc;
     assert(entryProc != NULL);
 
     pThreadWin32->isInEntryProc = true;
@@ -1777,36 +1777,36 @@ static DWORD WINAPI easyutil_thread_entry_proc_win32(easyutil_thread_win32* pThr
     return (DWORD)entryProc(pEntryProcData);
 }
 
-easyutil_thread easyutil_create_thread(easyutil_thread_entry_proc entryProc, void* pData)
+drutil_thread drutil_create_thread(drutil_thread_entry_proc entryProc, void* pData)
 {
     if (entryProc == NULL) {
         return NULL;
     }
 
-    easyutil_thread_win32* pThreadWin32 = malloc(sizeof(*pThreadWin32));
+    drutil_thread_win32* pThreadWin32 = malloc(sizeof(*pThreadWin32));
     if (pThreadWin32 != NULL)
     {
         pThreadWin32->entryProc     = entryProc;
         pThreadWin32->pData         = pData;
         pThreadWin32->isInEntryProc = false;
 
-        pThreadWin32->hThread = CreateThread(NULL, 0, easyutil_thread_entry_proc_win32, pThreadWin32, 0, NULL);
+        pThreadWin32->hThread = CreateThread(NULL, 0, drutil_thread_entry_proc_win32, pThreadWin32, 0, NULL);
         if (pThreadWin32 == NULL) {
             free(pThreadWin32);
             return NULL;
         }
 
         // Wait for the new thread to enter into it's entry point before returning. We need to do this so we can safely
-        // support something like easyutil_delete_thread(easyutil_create_thread(my_thread_proc, pData)).
+        // support something like drutil_delete_thread(drutil_create_thread(my_thread_proc, pData)).
         while (!pThreadWin32->isInEntryProc) {}
     }
 
-    return (easyutil_thread)pThreadWin32;
+    return (drutil_thread)pThreadWin32;
 }
 
-void easyutil_delete_thread(easyutil_thread thread)
+void drutil_delete_thread(drutil_thread thread)
 {
-    easyutil_thread_win32* pThreadWin32 = (easyutil_thread_win32*)thread;
+    drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)thread;
     if (pThreadWin32 != NULL)
     {
         CloseHandle(pThreadWin32->hThread);
@@ -1815,26 +1815,26 @@ void easyutil_delete_thread(easyutil_thread thread)
     free(pThreadWin32);
 }
 
-void easyutil_wait_thread(easyutil_thread thread)
+void drutil_wait_thread(drutil_thread thread)
 {
-    easyutil_thread_win32* pThreadWin32 = (easyutil_thread_win32*)thread;
+    drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)thread;
     if (pThreadWin32 != NULL)
     {
         WaitForSingleObject(pThreadWin32->hThread, INFINITE);
     }
 }
 
-void easyutil_wait_and_delete_thread(easyutil_thread thread)
+void drutil_wait_and_delete_thread(drutil_thread thread)
 {
-    easyutil_wait_thread(thread);
-    easyutil_delete_thread(thread);
+    drutil_wait_thread(thread);
+    drutil_delete_thread(thread);
 }
 
 
 
-easyutil_mutex easyutil_create_mutex()
+drutil_mutex drutil_create_mutex()
 {
-    easyutil_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
+    drutil_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
     if (mutex != NULL)
     {
         InitializeCriticalSection(mutex);
@@ -1843,39 +1843,39 @@ easyutil_mutex easyutil_create_mutex()
     return mutex;
 }
 
-void easyutil_delete_mutex(easyutil_mutex mutex)
+void drutil_delete_mutex(drutil_mutex mutex)
 {
     DeleteCriticalSection(mutex);
     free(mutex);
 }
 
-void easyutil_lock_mutex(easyutil_mutex mutex)
+void drutil_lock_mutex(drutil_mutex mutex)
 {
     EnterCriticalSection(mutex);
 }
 
-void easyutil_unlock_mutex(easyutil_mutex mutex)
+void drutil_unlock_mutex(drutil_mutex mutex)
 {
     LeaveCriticalSection(mutex);
 }
 
 
-easyutil_semaphore easyutil_create_semaphore(int initialValue)
+drutil_semaphore drutil_create_semaphore(int initialValue)
 {
     return (void*)CreateSemaphoreA(NULL, initialValue, LONG_MAX, NULL);
 }
 
-void easyutil_delete_semaphore(easyutil_semaphore semaphore)
+void drutil_delete_semaphore(drutil_semaphore semaphore)
 {
     CloseHandle(semaphore);
 }
 
-bool easyutil_wait_semaphore(easyutil_semaphore semaphore)
+bool drutil_wait_semaphore(drutil_semaphore semaphore)
 {
     return WaitForSingleObject((HANDLE)semaphore, INFINITE) == WAIT_OBJECT_0;
 }
 
-bool easyutil_release_semaphore(easyutil_semaphore semaphore)
+bool drutil_release_semaphore(drutil_semaphore semaphore)
 {
     return ReleaseSemaphore((HANDLE)semaphore, 1, NULL);
 }
@@ -1887,7 +1887,7 @@ bool easyutil_release_semaphore(easyutil_semaphore semaphore)
 #include <fcntl.h>
 #include <semaphore.h>
 
-void easyutil_sleep(unsigned int milliseconds)
+void drutil_sleep(unsigned int milliseconds)
 {
     usleep(milliseconds * 1000);    // <-- usleep is in microseconds.
 }
@@ -1899,7 +1899,7 @@ typedef struct
     pthread_t pthread;
 
     /// The entry point.
-    easyutil_thread_entry_proc entryProc;
+    drutil_thread_entry_proc entryProc;
 
     /// The user data to pass to the thread's entry point.
     void* pData;
@@ -1907,15 +1907,15 @@ typedef struct
     /// Set to true by the entry function. We use this to wait for the entry function to start.
     bool isInEntryProc;
 
-} easyutil_thread_posix;
+} drutil_thread_posix;
 
-static void* easyutil_thread_entry_proc_posix(void* pDataIn)
+static void* drutil_thread_entry_proc_posix(void* pDataIn)
 {
-    easyutil_thread_posix* pThreadPosix = pDataIn;
+    drutil_thread_posix* pThreadPosix = pDataIn;
     assert(pThreadPosix != NULL);
 
     void* pEntryProcData = pThreadPosix->pData;
-    easyutil_thread_entry_proc entryProc = pThreadPosix->entryProc;
+    drutil_thread_entry_proc entryProc = pThreadPosix->entryProc;
     assert(entryProc != NULL);
 
     pThreadPosix->isInEntryProc = true;
@@ -1923,40 +1923,40 @@ static void* easyutil_thread_entry_proc_posix(void* pDataIn)
     return (void*)(size_t)entryProc(pEntryProcData);
 }
 
-easyutil_thread easyutil_create_thread(easyutil_thread_entry_proc entryProc, void* pData)
+drutil_thread drutil_create_thread(drutil_thread_entry_proc entryProc, void* pData)
 {
     if (entryProc == NULL) {
         return NULL;
     }
 
-    easyutil_thread_posix* pThreadPosix = malloc(sizeof(*pThreadPosix));
+    drutil_thread_posix* pThreadPosix = malloc(sizeof(*pThreadPosix));
     if (pThreadPosix != NULL)
     {
         pThreadPosix->entryProc     = entryProc;
         pThreadPosix->pData         = pData;
         pThreadPosix->isInEntryProc = false;
 
-        if (pthread_create(&pThreadPosix->pthread, NULL, easyutil_thread_entry_proc_posix, pThreadPosix) != 0) {
+        if (pthread_create(&pThreadPosix->pthread, NULL, drutil_thread_entry_proc_posix, pThreadPosix) != 0) {
             free(pThreadPosix);
             return NULL;
         }
 
         // Wait for the new thread to enter into it's entry point before returning. We need to do this so we can safely
-        // support something like easyutil_delete_thread(easyutil_create_thread(my_thread_proc, pData)).
+        // support something like drutil_delete_thread(drutil_create_thread(my_thread_proc, pData)).
         while (!pThreadPosix->isInEntryProc) {}
     }
 
-    return (easyutil_thread)pThreadPosix;
+    return (drutil_thread)pThreadPosix;
 }
 
-void easyutil_delete_thread(easyutil_thread thread)
+void drutil_delete_thread(drutil_thread thread)
 {
     free(thread);
 }
 
-void easyutil_wait_thread(easyutil_thread thread)
+void drutil_wait_thread(drutil_thread thread)
 {
-    easyutil_thread_posix* pThreadPosix = (easyutil_thread_posix*)thread;
+    drutil_thread_posix* pThreadPosix = (drutil_thread_posix*)thread;
     if (pThreadPosix != NULL)
     {
         pthread_join(pThreadPosix->pthread, NULL);
@@ -1965,7 +1965,7 @@ void easyutil_wait_thread(easyutil_thread thread)
 
 
 
-easyutil_mutex easyutil_create_mutex()
+drutil_mutex drutil_create_mutex()
 {
     pthread_mutex_t* mutex = malloc(sizeof(pthread_mutex_t));
     if (pthread_mutex_init(mutex, NULL) != 0) {
@@ -1976,24 +1976,24 @@ easyutil_mutex easyutil_create_mutex()
     return mutex;
 }
 
-void easyutil_delete_mutex(easyutil_mutex mutex)
+void drutil_delete_mutex(drutil_mutex mutex)
 {
     pthread_mutex_destroy(mutex);
 }
 
-void easyutil_lock_mutex(easyutil_mutex mutex)
+void drutil_lock_mutex(drutil_mutex mutex)
 {
     pthread_mutex_lock(mutex);
 }
 
-void easyutil_unlock_mutex(easyutil_mutex mutex)
+void drutil_unlock_mutex(drutil_mutex mutex)
 {
     pthread_mutex_unlock(mutex);
 }
 
 
 
-easyutil_semaphore easyutil_create_semaphore(int initialValue)
+drutil_semaphore drutil_create_semaphore(int initialValue)
 {
     sem_t* semaphore = malloc(sizeof(sem_t));
     if (sem_init(semaphore, 0, (unsigned int)initialValue) == -1) {
@@ -2004,23 +2004,23 @@ easyutil_semaphore easyutil_create_semaphore(int initialValue)
     return semaphore;
 }
 
-void easyutil_delete_semaphore(easyutil_semaphore semaphore)
+void drutil_delete_semaphore(drutil_semaphore semaphore)
 {
     sem_close(semaphore);
 }
 
-bool easyutil_wait_semaphore(easyutil_semaphore semaphore)
+bool drutil_wait_semaphore(drutil_semaphore semaphore)
 {
     return sem_wait(semaphore) != -1;
 }
 
-bool easyutil_release_semaphore(easyutil_semaphore semaphore)
+bool drutil_release_semaphore(drutil_semaphore semaphore)
 {
     return sem_post(semaphore) != -1;
 }
 #endif
 
-#endif  //EASY_UTIL_IMPLEMENTATION
+#endif  //DR_UTIL_IMPLEMENTATION
 
 
 /*
