@@ -12,6 +12,24 @@
 // This file includes code from miniz.c which has been stripped down to include only what's needed to support
 // Zip files at basic level. Every public API has been namespaced with "easyvfs_" to avoid naming conflicts.
 //
+// Some noteworthy features:
+// - Supports verbose absolute paths to avoid ambiguity. For example you can specify a path
+//   such as "my/package.zip/file.txt"
+// - Supports shortened, transparent paths by automatically scanning for supported archives. The
+//   path "my/package.zip/file.txt" can be shortened to "my/file.txt", for example.
+// - Fully recursive. A path such as "pack1.zip/pack2.zip/file.txt" should work just fine.
+// - Easily supports custom package formats without the need to modify the original source code.
+//   Look at easyvfs_register_archive_backend() and the implementation of Zip archives for an
+//   example.
+// - No compulsory dependencies except for the C standard library.
+//
+// Limitations:
+// - When a file contained within a Zip file is opened, the entire uncompressed data is loaded
+//   onto the heap. Keep this in mind when working with large files.
+// - Zip, PAK and Wavefront MTL archives are read-only at the moment.
+// - Only Windows is supported at the moment, but Linux is coming very soon.
+// - easy_vfs is not currently thread-safe. This will be addressed soon.
+//
 //
 //
 // USAGE
@@ -21,6 +39,37 @@
 //   #include "easy_vfs.h"
 //
 // You can then #include easy_vfs.h in other parts of the program as you would with any other header file.
+//
+// Example:
+//      // Create a context.
+//      easyvfs_context* pVFS = easyvfs_create_context();
+//      if (pVFS == NULL)
+//      {
+//          // There was an error creating the context.
+//      }
+//      
+//      // Add your base directories for loading from relative paths. If you do not specify at
+//      // least one base directory you will need to load from absolute paths.
+//      easyvfs_add_base_directory(pVFS, "C:/Users/Admin");
+//      easyvfs_add_base_directory(pVFS, "C:/My/Folder");
+//      
+//      ...
+//      
+//      // Open a file. A relative path was specified which means it will first check it against
+//      // "C:/Users/Admin". If it can't be found it will then check against "C:/My/Folder".
+//      easyvfs_file* pFile = easyvfs_open(pVFS, "my/file.txt", EASYVFS_READ, 0);
+//      if (pFile == NULL)
+//      {
+//          // There was an error loading the file. It probably doesn't exist.
+//      }
+//      
+//      easyvfs_read(pFile, buffer, bufferSize, NULL);
+//      easyvfs_close(pFile);
+//      
+//      ...
+//      
+//      // Shutdown.
+//      easyvfs_delete_context(pVFS);
 //
 //
 //
@@ -45,8 +94,6 @@
 //
 // QUICK NOTES
 //
-// - easy_vfs is not currently thread-safe. This will be addressed soon. This should only be an issue when adding
-//   and removing base directories and back-ends while trying to open/close files.
 // - The library works by using the notion of an "archive" to create an abstraction around the file system.
 // - Conceptually, and archive is just a grouping of files and folders. An archive can be a directory on
 //   the native file system or an actual archive file such as a .zip file.

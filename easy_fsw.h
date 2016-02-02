@@ -5,6 +5,9 @@
 // easy_fsw is a simple library for watching for changes to the file system. This is not a full-featured library
 // and is only intended for basic use cases.
 //
+// Limitations:
+// - Only Windows is supported at the moment.
+//
 //
 //
 // USAGE
@@ -14,6 +17,66 @@
 //   #include "easy_vfs.h"
 //
 // You can then #include easy_vfs.h in other parts of the program as you would with any other header file.
+//
+// Example:
+//      // Startup.
+//      easyfsw_context* context = easyfsw_create_context();
+//      if (context == NULL)
+//      {
+//          // There was an error creating the context...
+//      }
+//      
+//      easyfsw_add_directory(context, "C:/My/Folder");
+//      easyfsw_add_directory(context, "C:/My/Other/Folder");
+//      
+//      ...
+//      
+//      // Meanwhile, in another thread...
+//      void MyOtherThreadEntryProc()
+//      {
+//          easyfsw_event e;
+//          while (isMyApplicationStillAlive && easyfsw_next_event(context, &e))
+//          {
+//              switch (e.type)
+//              {
+//              case easyfsw_event_type_created: OnFileCreated(e.absolutePath); break;
+//              case easyfsw_event_type_deleted: OnFileDeleted(e.absolutePath); break;
+//              case easyfsw_event_type_renamed: OnFileRenamed(e.absolutePath, e.absolutePathNew); break;
+//              case easyfsw_event_type_updated: OnFileUpdated(e.absolutePath); break;
+//              default: break;
+//              }
+//          }
+//      }
+//      
+//      ...
+//      
+//      // Shutdown
+//      easyfsw_context* contextOld = context;
+//      context = NULL;
+//      easyfsw_delete_context(contextOld);
+//
+// Directories are watched recursively, so try to avoid using this on high level directories
+// like "C:\". Also avoid watching a directory that is a descendant of another directory that's
+// already being watched.
+// 
+// It does not matter whether or not paths are specified with forward or back slashes; the
+// library will normalize all of that internally depending on the platform. Note, however,
+// that events always report their paths with forward slashes.
+// 
+// You don't need to wait for events on a separate thread, however easyfsw_next_event() is
+// a blocking call, so it's usually best to do so. Alternatively, you can use
+// easyfsw_peek_event() which is the same, except non-blocking. Avoid using both
+// easyfsw_next_event() and easyfsw_peek_event() at the same time because both will remove
+// the event from the internal queue so it likely won't work the way you expect.
+// 
+// The shutdown sequence is a bit strange, but since another thread is accessing that pointer,
+// you should set any shared pointers to null before calling easyfsw_delete_context(). That way,
+// the next call to easyfsw_next_event() will pass in a null pointer which will cause it to
+// immediately return with zero and thus break the loop and terminate the thread. It is up to
+// the application to ensure the pointer passed to easyfsw_next_event() is valid. Deleting a context
+// will cause a waiting call to easyfsw_next_event() to return 0, however there is a chance that the
+// context is deleted before easyfsw_next_event() has entered into it's wait state. It's up to the
+// application to make sure the context remains valid.
 //
 //
 //
