@@ -64,7 +64,7 @@ typedef struct drpath_iterator
 /// @param s1     [in] The segment of the second path to compare.
 ///
 /// @return 1 if the strings are equal; 0 otherwise.
-int drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1);
+bool drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1);
 
 
 /// Creates an iterator for iterating over each segment in a path.
@@ -82,24 +82,24 @@ drpath_iterator drpath_last(const char* path);
 /// @param i [in] A pointer to the iterator to increment.
 ///
 /// @return True if the iterator contains a valid value. Use this to determine when to terminate iteration.
-int drpath_next(drpath_iterator* i);
+bool drpath_next(drpath_iterator* i);
 
 /// Goes to the previous segment in the path.
 ///
 /// @param i [in] A pointer to the iterator to decrement.
 ///
 /// @return 1 if the iterator contains a valid value. Use this to determine when to terminate iteration.
-int drpath_prev(drpath_iterator* i);
+bool drpath_prev(drpath_iterator* i);
 
 /// Determines if the given iterator is at the end.
 ///
 /// @param i [in] The iterator to check.
-int drpath_at_end(drpath_iterator i);
+bool drpath_at_end(drpath_iterator i);
 
 /// Determines if the given iterator is at the start.
 ///
 /// @param i [in] The iterator to check.
-int drpath_at_start(drpath_iterator i);
+bool drpath_at_start(drpath_iterator i);
 
 /// Compares the string values of two iterators for equality.
 ///
@@ -107,7 +107,7 @@ int drpath_at_start(drpath_iterator i);
 /// @param i1 [in] The second iterator to compare.
 ///
 /// @return 1 if the strings are equal; 0 otherwise.
-int drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1);
+bool drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1);
 
 
 /// Converts the slashes in the given path to forward slashes.
@@ -130,7 +130,7 @@ void drpath_to_backslashes(char* path);
 ///     As an example, "C:/My/Folder" is a descendant of "C:/".
 ///     @par
 ///     If either path contains "." or "..", clean it with drpath_clean() before calling this.
-int drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
+bool drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
 
 /// Determines whether or not the given path is a direct child of another.
 ///
@@ -141,7 +141,7 @@ int drpath_is_descendant(const char* descendantAbsolutePath, const char* parentA
 ///     As an example, "C:/My/Folder" is NOT a child of "C:/" - it is a descendant. Alternatively, "C:/My" IS a child of "C:/".
 ///     @par
 ///     If either path contains "." or "..", clean it with drpath_clean() before calling this.
-int drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath);
+bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath);
 
 
 /// Modifies the given path by transforming it into it's base path.
@@ -201,24 +201,24 @@ const char* drpath_extension(const char* path);
 ///     @par
 ///     This is more than just a string comparison. Rather, this splits the path and compares each segment. The path "C:/My/Folder" is considered
 ///     equal to to "C:\\My\\Folder".
-int drpath_equal(const char* path1, const char* path2);
+bool drpath_equal(const char* path1, const char* path2);
 
 /// Checks if the extension of the given path is equal to the given extension.
 ///
 /// @remarks
 ///     By default this is NOT case-sensitive, however if the standard library is disable, it is case-sensitive.
-int drpath_extension_equal(const char* path, const char* extension);
+bool drpath_extension_equal(const char* path, const char* extension);
 
 
 /// Determines whether or not the given path is relative.
 ///
 /// @param path [in] The path to check.
-int drpath_is_relative(const char* path);
+bool drpath_is_relative(const char* path);
 
 /// Determines whether or not the given path is absolute.
 ///
 /// @param path [in] The path to check.
-int drpath_is_absolute(const char* path);
+bool drpath_is_absolute(const char* path);
 
 
 /// Appends two paths together, ensuring there is not double up on the last slash.
@@ -229,13 +229,13 @@ int drpath_is_absolute(const char* path);
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "other" is a relative path.
-int drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other);
+bool drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other);
 
 /// Appends an iterator object to the given base path.
-int drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i);
+bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i);
 
 /// Appends an extension to the given path.
-int drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension);
+bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension);
 
 /// Appends two paths together, and copyies them to a separate buffer.
 ///
@@ -248,7 +248,7 @@ int drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "other" is a relative path.
-int drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other);
+bool drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other);
 
 /// Appends a base path and an iterator together, and copyies them to a separate buffer.
 ///
@@ -261,7 +261,7 @@ int drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, c
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "i" is a valid iterator.
-int drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i);
+bool drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i);
 
 /// Appends an extension to the given base path and copies them to a separate buffer.
 /// @param dst            [out] The destination buffer.
@@ -270,7 +270,7 @@ int drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char
 /// @param extension      [in]  The relative path to append to "base".
 ///
 /// @return 1 if the paths were appended successfully; 0 otherwise.
-int drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension);
+bool drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension);
 
 
 /// Cleans the path and resolves the ".." and "." segments.
@@ -301,17 +301,17 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
 ///
 /// @remarks
 ///     If the given path does not have an extension, 1 will be returned, but the string will be left unmodified.
-int drpath_remove_extension(char* path);
+bool drpath_remove_extension(char* path);
 
 /// Creates a copy of the given string and removes the extension.
-int drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path);
+bool drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path);
 
 
 /// Removes the last segment from the given path.
-int drpath_remove_file_name(char* path);
+bool drpath_remove_file_name(char* path);
 
 /// Creates a copy of the given string and removes the extension.
-int drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const char* path);
+bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const char* path);
 
 
 /// Converts an absolute path to a relative path.
@@ -320,7 +320,7 @@ int drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const cha
 ///
 /// @remarks
 ///     This will normalize every slash to forward slashes.
-int drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, size_t relativePathOutSizeInBytes);
+bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, size_t relativePathOutSizeInBytes);
 
 /// Converts a relative path to an absolute path based on a base path.
 ///
@@ -328,7 +328,7 @@ int drpath_to_relative(const char* absolutePathToMakeRelative, const char* absol
 ///
 /// @remarks
 ///     This is equivalent to an append followed by a clean. Slashes will be normalized to forward slashes.
-int drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes);
+bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes);
 
 
 /// strlen()
@@ -464,7 +464,7 @@ drpath_iterator drpath_last(const char* path)
     return i;
 }
 
-int drpath_next(drpath_iterator* i)
+bool drpath_next(drpath_iterator* i)
 {
     if (i != 0 && i->path != 0)
     {
@@ -494,7 +494,7 @@ int drpath_next(drpath_iterator* i)
     return 0;
 }
 
-int drpath_prev(drpath_iterator* i)
+bool drpath_prev(drpath_iterator* i)
 {
     if (i != 0 && i->path != 0 && i->segment.offset > 0)
     {
@@ -531,23 +531,23 @@ int drpath_prev(drpath_iterator* i)
     return 0;
 }
 
-int drpath_at_end(drpath_iterator i)
+bool drpath_at_end(drpath_iterator i)
 {
     return i.path == 0 || i.path[i.segment.offset] == '\0';
 }
 
-int drpath_at_start(drpath_iterator i)
+bool drpath_at_start(drpath_iterator i)
 {
     //return !drpath_prev(&i);
     return i.path != 0 && i.segment.offset == 0;
 }
 
-int drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1)
+bool drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1)
 {
     return drpath_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
 }
 
-int drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1)
+bool drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1)
 {
     if (s0Path != 0 && s1Path != 0)
     {
@@ -602,7 +602,7 @@ void drpath_to_backslashes(char* path)
 }
 
 
-int drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
+bool drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
 {
     drpath_iterator iParent = drpath_first(parentAbsolutePath);
     drpath_iterator iChild  = drpath_first(descendantAbsolutePath);
@@ -629,7 +629,7 @@ int drpath_is_descendant(const char* descendantAbsolutePath, const char* parentA
     return drpath_next(&iChild);
 }
 
-int drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
+bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
 {
     drpath_iterator iParent = drpath_first(parentAbsolutePath);
     drpath_iterator iChild  = drpath_first(childAbsolutePath);
@@ -777,7 +777,7 @@ const char* drpath_extension(const char* path)
 }
 
 
-int drpath_equal(const char* path1, const char* path2)
+bool drpath_equal(const char* path1, const char* path2)
 {
     if (path1 != 0 && path2 != 0)
     {
@@ -805,7 +805,7 @@ int drpath_equal(const char* path1, const char* path2)
     return 0;
 }
 
-int drpath_extension_equal(const char* path, const char* extension)
+bool drpath_extension_equal(const char* path, const char* extension)
 {
     if (path != 0 && extension != 0)
     {
@@ -839,7 +839,7 @@ int drpath_extension_equal(const char* path, const char* extension)
 
 
 
-int drpath_is_relative(const char* path)
+bool drpath_is_relative(const char* path)
 {
     if (path != 0 && path[0] != '\0')
     {
@@ -860,13 +860,13 @@ int drpath_is_relative(const char* path)
     return 1;
 }
 
-int drpath_is_absolute(const char* path)
+bool drpath_is_absolute(const char* path)
 {
     return !drpath_is_relative(path);
 }
 
 
-int drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
+bool drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
 {
     if (base != 0 && other != 0)
     {
@@ -899,7 +899,7 @@ int drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
     return 0;
 }
 
-int drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i)
+bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i)
 {
     if (base != 0)
     {
@@ -932,7 +932,7 @@ int drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iter
     return 0;
 }
 
-int drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension)
+bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension)
 {
     if (base != 0 && extension != 0)
     {
@@ -959,7 +959,7 @@ int drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char
     return 0;
 }
 
-int drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
+bool drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
 {
     if (dst != 0 && dstSizeInBytes > 0)
     {
@@ -970,7 +970,7 @@ int drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, c
     return 0;
 }
 
-int drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i)
+bool drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i)
 {
     if (dst != 0 && dstSizeInBytes > 0)
     {
@@ -981,7 +981,7 @@ int drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char
     return 0;
 }
 
-int drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension)
+bool drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension)
 {
     if (dst != 0 && dstSizeInBytes > 0)
     {
@@ -1145,7 +1145,7 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
 }
 
 
-int drpath_remove_extension(char* path)
+bool drpath_remove_extension(char* path)
 {
     if (path != 0)
     {
@@ -1162,7 +1162,7 @@ int drpath_remove_extension(char* path)
     return 0;
 }
 
-int drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path)
+bool drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path)
 {
     if (dst != 0 && dstSizeInBytes > 0 && path != 0)
     {
@@ -1180,7 +1180,7 @@ int drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const cha
 }
 
 
-int drpath_remove_file_name(char* path)
+bool drpath_remove_file_name(char* path)
 {
     if (path == NULL) {
         return 0;
@@ -1206,7 +1206,7 @@ int drpath_remove_file_name(char* path)
     return 1;
 }
 
-int drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const char* path)
+bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const char* path)
 {
     if (dst == NULL) {
         return 0;
@@ -1241,7 +1241,7 @@ int drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const cha
 }
 
 
-int drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, size_t relativePathOutSizeInBytes)
+bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, size_t relativePathOutSizeInBytes)
 {
     // We do this in to phases. The first phase just iterates past each segment of both the path to convert and the
     // base path until we find two that are not equal. The second phase just adds the appropriate ".." segments.
@@ -1378,7 +1378,7 @@ int drpath_to_relative(const char* absolutePathToMakeRelative, const char* absol
     return 1;
 }
 
-int drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes)
+bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes)
 {
     return drpath_append_and_clean(absolutePathOut, absolutePathOutSizeInBytes, basePath, relativePathToMakeAbsolute) != 0;
 }
