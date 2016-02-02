@@ -63,7 +63,7 @@ typedef struct drpath_iterator
 /// @param s1Path [in] The second path.
 /// @param s1     [in] The segment of the second path to compare.
 ///
-/// @return 1 if the strings are equal; 0 otherwise.
+/// @return true if the strings are equal; false otherwise.
 bool drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1);
 
 
@@ -88,7 +88,7 @@ bool drpath_next(drpath_iterator* i);
 ///
 /// @param i [in] A pointer to the iterator to decrement.
 ///
-/// @return 1 if the iterator contains a valid value. Use this to determine when to terminate iteration.
+/// @return true if the iterator contains a valid value. Use this to determine when to terminate iteration.
 bool drpath_prev(drpath_iterator* i);
 
 /// Determines if the given iterator is at the end.
@@ -106,7 +106,7 @@ bool drpath_at_start(drpath_iterator i);
 /// @param i0 [in] The first iterator to compare.
 /// @param i1 [in] The second iterator to compare.
 ///
-/// @return 1 if the strings are equal; 0 otherwise.
+/// @return true if the strings are equal; false otherwise.
 bool drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1);
 
 
@@ -194,7 +194,7 @@ const char* drpath_extension(const char* path);
 /// @param path1 [in] The first path.
 /// @param path2 [in] The second path.
 ///
-/// @return 1 if the paths are equal, 0 otherwise.
+/// @return true if the paths are equal, false otherwise.
 ///
 /// @remarks
 ///     This is case-sensitive.
@@ -244,7 +244,7 @@ bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const cha
 /// @param base           [in]  The base directory.
 /// @param other          [in]  The relative path to append to "base".
 ///
-/// @return 1 if the paths were appended successfully; 0 otherwise.
+/// @return true if the paths were appended successfully; false otherwise.
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "other" is a relative path.
@@ -257,7 +257,7 @@ bool drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, 
 /// @param base           [in]  The base directory.
 /// @param i              [in]  The iterator to append.
 ///
-/// @return 1 if the paths were appended successfully; 0 otherwise.
+/// @return true if the paths were appended successfully; false otherwise.
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "i" is a valid iterator.
@@ -269,7 +269,7 @@ bool drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const cha
 /// @param base           [in]  The base directory.
 /// @param extension      [in]  The relative path to append to "base".
 ///
-/// @return 1 if the paths were appended successfully; 0 otherwise.
+/// @return true if the paths were appended successfully; false otherwise.
 bool drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension);
 
 
@@ -316,7 +316,7 @@ bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const ch
 
 /// Converts an absolute path to a relative path.
 ///
-/// @return 1 if the conversion was successful; 0 if there was an error.
+/// @return true if the conversion was successful; false if there was an error.
 ///
 /// @remarks
 ///     This will normalize every slash to forward slashes.
@@ -324,7 +324,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
 
 /// Converts a relative path to an absolute path based on a base path.
 ///
-/// @return 1 if the conversion was successful; 0 if there was an error.
+/// @return true if the conversion was successful; false if there was an error.
 ///
 /// @remarks
 ///     This is equivalent to an append followed by a clean. Slashes will be normalized to forward slashes.
@@ -478,7 +478,7 @@ bool drpath_next(drpath_iterator* i)
 
         if (i->path[i->segment.offset] == '\0')
         {
-            return 0;
+            return false;
         }
 
 
@@ -488,10 +488,10 @@ bool drpath_next(drpath_iterator* i)
             i->segment.length += 1;
         }
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 bool drpath_prev(drpath_iterator* i)
@@ -507,7 +507,7 @@ bool drpath_prev(drpath_iterator* i)
 
         if (i->segment.offset == 0)
         {
-            return 0;
+            return false;
         }
 
 
@@ -525,10 +525,10 @@ bool drpath_prev(drpath_iterator* i)
 
         i->segment.length = offsetEnd - i->segment.offset;
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 bool drpath_at_end(drpath_iterator i)
@@ -538,7 +538,6 @@ bool drpath_at_end(drpath_iterator i)
 
 bool drpath_at_start(drpath_iterator i)
 {
-    //return !drpath_prev(&i);
     return i.path != 0 && i.segment.offset == 0;
 }
 
@@ -557,15 +556,15 @@ bool drpath_segments_equal(const char* s0Path, const drpath_segment s0, const ch
             {
                 if (s0Path[s0.offset + i] != s1Path[s1.offset + i])
                 {
-                    return 0;
+                    return false;
                 }
             }
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 
@@ -614,13 +613,13 @@ bool drpath_is_descendant(const char* descendantAbsolutePath, const char* parent
             // If the segment is different, the paths are different and thus it is not a descendant.
             if (!drpath_iterators_equal(iParent, iChild))
             {
-                return 0;
+                return false;
             }
         }
         else
         {
             // The descendant is shorter which means it's impossible for it to be a descendant.
-            return 0;
+            return false;
         }
     }
 
@@ -641,13 +640,13 @@ bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePa
             // If the segment is different, the paths are different and thus it is not a descendant.
             if (!drpath_iterators_equal(iParent, iChild))
             {
-                return 0;
+                return false;
             }
         }
         else
         {
             // The descendant is shorter which means it's impossible for it to be a descendant.
-            return 0;
+            return false;
         }
     }
 
@@ -658,11 +657,11 @@ bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePa
         // It could be a child. If the next iteration fails, it's a direct child and we want to return true.
         if (!drpath_next(&iChild))
         {
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 void drpath_base_path(char* path)
@@ -790,7 +789,7 @@ bool drpath_equal(const char* path1, const char* path2)
         {
             if (!drpath_iterators_equal(iPath1, iPath2))
             {
-                return 0;
+                return false;
             }
 
             isPath1Valid = drpath_next(&iPath1);
@@ -802,7 +801,7 @@ bool drpath_equal(const char* path1, const char* path2)
         return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
     }
 
-    return 0;
+    return false;
 }
 
 bool drpath_extension_equal(const char* path, const char* extension)
@@ -823,7 +822,7 @@ bool drpath_extension_equal(const char* path, const char* extension)
         {
             if (ext1[0] != ext2[0])
             {
-                return 0;
+                return false;
             }
 
             ext1 += 1;
@@ -834,7 +833,7 @@ bool drpath_extension_equal(const char* path, const char* extension)
 #endif
     }
 
-    return 1;
+    return true;
 }
 
 
@@ -845,19 +844,19 @@ bool drpath_is_relative(const char* path)
     {
         if (path[0] == '/')
         {
-            return 0;
+            return false;
         }
 
         if (path[1] != '\0')
         {
             if (((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z')) && path[1] == ':')
             {
-                return 0;
+                return false;
             }
         }
     }
 
-    return 1;
+    return true;
 }
 
 bool drpath_is_absolute(const char* path)
@@ -892,11 +891,11 @@ bool drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
             drpath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
 
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i)
@@ -925,11 +924,11 @@ bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_ite
             drpath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension)
@@ -952,11 +951,11 @@ bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const cha
             drpath_strncpy(base + baseLength, baseBufferSizeInBytes - baseLength, extension, extLength);
 
 
-            return 1;
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
 bool drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
@@ -967,7 +966,7 @@ bool drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, 
         return drpath_append(dst, dstSizeInBytes, other);
     }
 
-    return 0;
+    return false;
 }
 
 bool drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i)
@@ -978,7 +977,7 @@ bool drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const cha
         return drpath_append_iterator(dst, dstSizeInBytes, i);
     }
 
-    return 0;
+    return false;
 }
 
 bool drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension)
@@ -989,7 +988,7 @@ bool drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const ch
         return drpath_append_extension(dst, dstSizeInBytes, extension);
     }
 
-    return 0;
+    return false;
 }
 
 
@@ -1156,10 +1155,10 @@ bool drpath_remove_extension(char* path)
             path[(extension - path)] = '\0';
         }
 
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 bool drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path)
@@ -1173,17 +1172,17 @@ bool drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const ch
         }
 
         drpath_strncpy(dst, dstSizeInBytes, path, (size_t)(extension - path));
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 
 bool drpath_remove_file_name(char* path)
 {
     if (path == NULL) {
-        return 0;
+        return false;
     }
 
 
@@ -1203,22 +1202,22 @@ bool drpath_remove_file_name(char* path)
         path[0] = '\0';
     }
 
-    return 1;
+    return true;
 }
 
 bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const char* path)
 {
     if (dst == NULL) {
-        return 0;
+        return false;
     }
 
     if (dstSizeInBytes == 0) {
-        return 0;
+        return false;
     }
 
     if (path == NULL) {
         dst[0] = '\0';
-        return 0;
+        return false;
     }
 
 
@@ -1236,7 +1235,7 @@ bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const ch
     {
         // This is already the last segment, so just place a null terminator at the beginning of the string.
         dst[0] = '\0';
-        return 1;
+        return true;
     }
 }
 
@@ -1247,11 +1246,11 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
     // base path until we find two that are not equal. The second phase just adds the appropriate ".." segments.
 
     if (relativePathOut == 0) {
-        return 0;
+        return false;
     }
 
     if (relativePathOutSizeInBytes == 0) {
-        return 0;
+        return false;
     }
 
 
@@ -1262,7 +1261,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
     {
         // Looks like both paths are empty.
         relativePathOut[0] = '\0';
-        return 0;
+        return false;
     }
 
 
@@ -1279,7 +1278,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
     {
         // The path is not relative to the base path.
         relativePathOut[0] = '\0';
-        return 0;
+        return false;
     }
 
 
@@ -1297,7 +1296,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
                 {
                     // Ran out of room.
                     relativePathOut[0] = '\0';
-                    return 0;
+                    return false;
                 }
 
                 pDst[0] = '/';
@@ -1314,7 +1313,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
                 {
                     // Ran out of room.
                     relativePathOut[0] = '\0';
-                    return 0;
+                    return false;
                 }
 
                 pDst[0] = '.';
@@ -1339,7 +1338,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
                 {
                     // Ran out of room.
                     relativePathOut[0] = '\0';
-                    return 0;
+                    return false;
                 }
 
                 pDst[0] = '/';
@@ -1353,14 +1352,14 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
             {
                 // Ran out of room.
                 relativePathOut[0] = '\0';
-                return 0;
+                return false;
             }
         
             if (drpath_strncpy(pDst, bytesAvailable, iPath.path + iPath.segment.offset, iPath.segment.length) != 0)
             {
                 // Error copying the string. Probably ran out of room in the output buffer.
                 relativePathOut[0] = '\0';
-                return 0;
+                return false;
             }
 
             pDst += iPath.segment.length;
@@ -1375,7 +1374,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
     //assert(bytesAvailable > 0);
     pDst[0] = '\0';
 
-    return 1;
+    return true;
 }
 
 bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes)
