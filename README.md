@@ -8,3 +8,5 @@ such as Zip files.
 - dr_path: A path manipulation library.
 - dr_util: A library with miscellaneous functionality that doesn't really belong to
 any particular category.
+- dr_math: A very incomplete vector math library. You don't want to be using this
+right now.
