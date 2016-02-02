@@ -390,27 +390,19 @@ int drpath_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
         dst[0] = '\0';
         return EINVAL;
     }
-    
-    char* iDst = dst;
-    const char* iSrc = src;
-    size_t remainingSizeInBytes = dstSizeInBytes;
-    while (remainingSizeInBytes > 0 && iSrc[0] != '\0')
-    {
-        iDst[0] = iSrc[0];
 
-        iDst += 1;
-        iSrc += 1;
-        remainingSizeInBytes -= 1;
+    size_t i;
+    for (i = 0; i < dstSizeInBytes && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
     }
 
-    if (remainingSizeInBytes > 0) {
-        iDst[0] = '\0';
-    } else {
-        dst[0] = '\0';
-        return ERANGE;
+    if (i < dstSizeInBytes) {
+        dst[i] = '\0';
+        return 0;
     }
 
-    return 0;
+    dst[0] = '\0';
+    return ERANGE;
 #endif
 }
 
@@ -419,26 +411,34 @@ int drpath_strncpy(char* dst, size_t dstSizeInBytes, const char* src, size_t src
 #if DRPATH_USE_STDLIB && (defined(_MSC_VER))
     return strncpy_s(dst, dstSizeInBytes, src, srcSizeInBytes);
 #else
-    while (dstSizeInBytes > 0 && src[0] != '\0' && srcSizeInBytes > 0)
-    {
-        dst[0] = src[0];
-
-        dst += 1;
-        src += 1;
-        dstSizeInBytes -= 1;
-        srcSizeInBytes -= 1;
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return EINVAL;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+    
+    size_t maxcount = count;
+    if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
+        maxcount = dstSizeInBytes - 1;
     }
 
-    if (dstSizeInBytes > 0)
-    {
-        dst[0] = '\0';
+    size_t i;
+    for (i = 0; i < maxcount && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (src[i] == '\0' || i == count || count == ((size_t)-1)) {
+        dst[i] = '\0';
         return 0;
     }
-    else
-    {
-        // Ran out of room.
-        return ERANGE;
-    }
+
+    dst[0] = '\0';
+    return ERANGE;
 #endif
 }
 
