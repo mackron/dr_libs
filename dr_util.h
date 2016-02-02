@@ -110,152 +110,16 @@ extern "C" {
 // MSVC Compatibility
 
 // A basic implementation of MSVC's strcpy_s().
-static int dr_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
-{
-    if (dst == 0) {
-        return EINVAL;
-    }
-    if (dstSizeInBytes == 0) {
-        return ERANGE;
-    }
-    if (src == 0) {
-        dst[0] = '\0';
-        return EINVAL;
-    }
-
-    size_t i;
-    for (i = 0; i < dstSizeInBytes && src[i] != '\0'; ++i) {
-        dst[i] = src[i];
-    }
-
-    if (i < dstSizeInBytes) {
-        dst[i] = '\0';
-        return 0;
-    }
-
-    dst[0] = '\0';
-    return ERANGE;
-}
+int dr_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src);
 
 // A basic implementation of MSVC's strncpy_s().
-static int dr_strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
-{
-    if (dst == 0) {
-        return EINVAL;
-    }
-    if (dstSizeInBytes == 0) {
-        return EINVAL;
-    }
-    if (src == 0) {
-        dst[0] = '\0';
-        return EINVAL;
-    }
-    
-    size_t maxcount = count;
-    if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
-        maxcount = dstSizeInBytes - 1;
-    }
-
-    size_t i;
-    for (i = 0; i < maxcount && src[i] != '\0'; ++i) {
-        dst[i] = src[i];
-    }
-
-    if (src[i] == '\0' || i == count || count == ((size_t)-1)) {
-        dst[i] = '\0';
-        return 0;
-    }
-
-    dst[0] = '\0';
-    return ERANGE;
-}
+int dr_strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count);
 
 // A basic implementation of MSVC's strcat_s().
-static int dr_strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
-{
-    if (dst == 0) {
-        return EINVAL;
-    }
-    if (dstSizeInBytes == 0) {
-        return ERANGE;
-    }
-    if (src == 0) {
-        dst[0] = '\0';
-        return EINVAL;
-    }
-
-    char* dstorig = dst;
-
-    while (dstSizeInBytes > 0 && dst[0] != '\0') {
-        dst += 1;
-        dstSizeInBytes -= 1;
-    }
-
-    if (dstSizeInBytes == 0) {
-        return EINVAL;  // Unterminated.
-    }
-
-
-    while (dstSizeInBytes > 0 && src[0] != '\0') {
-        *dst++ = *src++;
-        dstSizeInBytes -= 1;
-    }
-
-    if (dstSizeInBytes > 0) {
-        dst[0] = '\0';
-    } else {
-        dstorig[0] = '\0';
-        return ERANGE;
-    }
-
-    return 0;
-}
+int dr_strcat_s(char* dst, size_t dstSizeInBytes, const char* src);
 
 // A basic implementation of MSVC's strncat_s()
-static int dr_strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
-{
-    if (dst == 0) {
-        return EINVAL;
-    }
-    if (dstSizeInBytes == 0) {
-        return ERANGE;
-    }
-    if (src == 0) {
-        return EINVAL;
-    }
-
-    char* dstorig = dst;
-
-    while (dstSizeInBytes > 0 && dst[0] != '\0') {
-        dst += 1;
-        dstSizeInBytes -= 1;
-    }
-
-    if (dstSizeInBytes == 0) {
-        return EINVAL;  // Unterminated.
-    }
-
-
-    if (count == ((size_t)-1)) {        // _TRUNCATE
-        count = dstSizeInBytes - 1;
-    }
-
-    while (dstSizeInBytes > 0 && src[0] != '\0' && count > 0)
-    {
-        *dst++ = *src++;
-        dstSizeInBytes -= 1;
-        count -= 1;
-    }
-
-    if (dstSizeInBytes > 0) {
-        dst[0] = '\0';
-    } else {
-        dstorig[0] = '\0';
-        return ERANGE;
-    }
-
-    return 0;
-}
+int dr_strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count);
 
 #ifndef DRUTIL_NO_MSVC_COMPAT
 #ifndef _TRUNCATE
@@ -745,6 +609,149 @@ int strncat_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
 #include <stdio.h>
 #include <string.h>     // For memmove()
 
+int dr_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t i;
+    for (i = 0; i < dstSizeInBytes && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (i < dstSizeInBytes) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+}
+
+int dr_strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return EINVAL;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+    
+    size_t maxcount = count;
+    if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
+        maxcount = dstSizeInBytes - 1;
+    }
+
+    size_t i;
+    for (i = 0; i < maxcount && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (src[i] == '\0' || i == count || count == ((size_t)-1)) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+}
+
+int dr_strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    char* dstorig = dst;
+
+    while (dstSizeInBytes > 0 && dst[0] != '\0') {
+        dst += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return EINVAL;  // Unterminated.
+    }
+
+
+    while (dstSizeInBytes > 0 && src[0] != '\0') {
+        *dst++ = *src++;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        dst[0] = '\0';
+    } else {
+        dstorig[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
+}
+
+int dr_strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        return EINVAL;
+    }
+
+    char* dstorig = dst;
+
+    while (dstSizeInBytes > 0 && dst[0] != '\0') {
+        dst += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return EINVAL;  // Unterminated.
+    }
+
+
+    if (count == ((size_t)-1)) {        // _TRUNCATE
+        count = dstSizeInBytes - 1;
+    }
+
+    while (dstSizeInBytes > 0 && src[0] != '\0' && count > 0)
+    {
+        *dst++ = *src++;
+        dstSizeInBytes -= 1;
+        count -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        dst[0] = '\0';
+    } else {
+        dstorig[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
+}
 
 /////////////////////////////////////////////////////////
 // String Helpers
