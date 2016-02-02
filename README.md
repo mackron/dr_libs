@@ -34,10 +34,13 @@ Limitations:
 
  
 ## How to use it
-Just add easy_vfs.c and easy_vfs.h your project's source tree and you should be good to go. You
-will also need to add miniz.c to your project if you are needing support for Zip files.
+easy_vfs is a single-file library. To use it, do something like the following in one .c file.
+   #define EASY_VFS_IMPLEMENTATION
+   #include "easy_vfs.h"
 
-Define EASYVFS_NO_ZIP / EASYVFS_NO_PAK / EASYVFS_NO_MTL to disable support for a particular type
+You can then #include easy_vfs.h in other parts of the program as you would with any other header file.
+
+Define EASY_VFS_NO_ZIP / EASY_VFS_NO_PAK / EASY_VFS_NO_MTL to disable support for a particular type
 of archive. This is useful if you want to keep the size of your builds down. You can do this at
 the compiler level, or just add them to the top of easy_vfs.c.
 
@@ -59,13 +62,13 @@ easyvfs_add_base_directory(pVFS, "C:/My/Folder");
 
 // Open a file. A relative path was specified which means it will first check it against
 // "C:/Users/Admin". If it can't be found it will then check against "C:/My/Folder".
-easyvfs_file* pFile = easyvfs_open(pVFS, "my/file.txt", EASYVFS_READ);
+easyvfs_file* pFile = easyvfs_open(pVFS, "my/file.txt", EASYVFS_READ, 0);
 if (pFile == NULL)
 {
 	// There was an error loading the file. It probably doesn't exist.
 }
 
-easyvfs_read(pFile, buffer, bufferSize);
+easyvfs_read(pFile, buffer, bufferSize, NULL);
 easyvfs_close(pFile);
 
 ...
@@ -95,9 +98,11 @@ simple, small and easy to integrate into a project.
 
 
 ## How to use it
-The library is made up of just two files - one header file and one source file. Just add the
-files to your project's source tree and you should be good. There are no dependencies except
-for the standard library for malloc(), etc.
+easy_fsw is a single-file library. To use it, do something like the following in one .c file.
+   #define EASY_FSW_IMPLEMENTATION
+   #include "easy_fsw.h"
+
+You can then #include easy_fsw.h in other parts of the program as you would with any other header file.
 
 Below is a usage example:
 ```c
