@@ -6,8 +6,8 @@
 #include <string.h>
 #include <math.h>
 
-#ifndef PRIVATE
-#define PRIVATE
+#ifndef EASY2D_PRIVATE
+#define EASY2D_PRIVATE static
 #endif
 
 

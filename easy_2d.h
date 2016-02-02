@@ -23,7 +23,6 @@
 #include <stdbool.h>
 
 #if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 // No Cairo on Win32 builds.
