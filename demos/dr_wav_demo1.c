@@ -13,15 +13,24 @@
 int main(int argc, char** argv)
 {
     //drwav* pWav = drwav_open_file("M1F1-uint8-AFsp.wav");
-    //drwav* pWav = drwav_open_file("M1F1-float64-AFsp.wav");
-    //drwav* pWav = drwav_open_file("M1F1-float32-AFsp.wav");
-    drwav* pWav = drwav_open_file("M1F1-int32-AFsp.wav");
-    //drwav* pWav = drwav_open_file("M1F1-int24-AFsp.wav");
-    //drwav* pWav = drwav_open_file("M1F1-Alaw-AFsp.wav");
-    //drwav* pWav = drwav_open_file("M1F1-mulaw-AFsp.wav");
-    //drwav* pWav = drwav_open_file("M1F1-int16-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-uint8WE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-int12-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-int12WE-AFsp.wav");
-    //drwav* pWav = drwav_open_file("Track09.wav");
+    //drwav* pWav = drwav_open_file("M1F1-int16-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-int16WE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-int24-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-int24WE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-int32-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-int32WE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-float32-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-float32WE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-float64-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-float64WE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-Alaw-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-AlawWE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-mulaw-AFsp.wav");
+    drwav* pWav = drwav_open_file("M1F1-mulawWE-AFsp.wav");
+    
     //drwav* pWav = drwav_open_file("Utopia Critical Stop.WAV");
     //drwav* pWav = drwav_open_file("GLASS.WAV");
     //drwav* pWav = drwav_open_file("Ptjunk.wav");
