@@ -239,13 +239,13 @@ drgui_element* eg_create_tree_view(drgui_context* pContext, drgui_element* pPare
     eg_tree_view_scrollbar_data sbdata;
     sbdata.pTVElement = pTVElement;
 
-    pTV->pScrollbarV = drgui_create_scrollbar(pContext, pTVElement, sb_orientation_vertical, sizeof(sbdata), &sbdata);
+    pTV->pScrollbarV = drgui_create_scrollbar(pContext, pTVElement, drgui_sb_orientation_vertical, sizeof(sbdata), &sbdata);
     drgui_set_on_mouse_enter(pTV->pScrollbarV, tv_on_mouse_enter_scrollbar);
-    sb_set_on_scroll(pTV->pScrollbarV, tv_on_scroll_v);
+    drgui_sb_set_on_scroll(pTV->pScrollbarV, tv_on_scroll_v);
     
-    pTV->pScrollbarH = drgui_create_scrollbar(pContext, pTVElement, sb_orientation_horizontal, sizeof(sbdata), &sbdata);
+    pTV->pScrollbarH = drgui_create_scrollbar(pContext, pTVElement, drgui_sb_orientation_horizontal, sizeof(sbdata), &sbdata);
     drgui_set_on_mouse_enter(pTV->pScrollbarH, tv_on_mouse_enter_scrollbar);
-    sb_set_on_scroll(pTV->pScrollbarH, tv_on_scroll_h);
+    drgui_sb_set_on_scroll(pTV->pScrollbarH, tv_on_scroll_h);
 
 
     pTV->defaultBGColor    = drgui_rgb(96, 96, 96);
@@ -286,7 +286,7 @@ drgui_element* eg_create_tree_view(drgui_context* pContext, drgui_element* pPare
 
 
     // Set the mouse wheel scale to 3 by default for the vertical scrollbar.
-    sb_set_mouse_wheel_scele(pTV->pScrollbarV, 3);
+    drgui_sb_set_mouse_wheel_scele(pTV->pScrollbarV, 3);
 
 
     return pTVElement;
@@ -671,7 +671,7 @@ void tv_on_mouse_move(drgui_element* pTVElement, int relativeMousePosX, int rela
     {
         if (pTV->onItemMouseMove)
         {
-            float relativeMousePosXToItem = (float)relativeMousePosX - newHoveredItemMetrics.posX + sb_get_scroll_position(pTV->pScrollbarH);
+            float relativeMousePosXToItem = (float)relativeMousePosX - newHoveredItemMetrics.posX + drgui_sb_get_scroll_position(pTV->pScrollbarH);
             float relativeMousePosYToItem = (float)relativeMousePosY - newHoveredItemMetrics.posY;
 
             if (relativeMousePosXToItem >= 0 && relativeMousePosXToItem < newHoveredItemMetrics.width &&
@@ -802,7 +802,7 @@ void tv_on_mouse_wheel(drgui_element* pTVElement, int delta, int relativeMousePo
         return;
     }
 
-    sb_scroll(pTV->pScrollbarV, -delta * sb_get_mouse_wheel_scale(pTV->pScrollbarV));
+    drgui_sb_scroll(pTV->pScrollbarV, -delta * drgui_sb_get_mouse_wheel_scale(pTV->pScrollbarV));
 }
 
 void tv_on_paint(drgui_element* pTVElement, drgui_rect relativeClippingRect, void* pPaintData)
@@ -908,22 +908,22 @@ PRIVATE void tv_refresh_scrollbar_ranges(drgui_element* pTVElement)
     if (totalItemCount == 0)
     {
         // Vertical.
-        sb_set_range(pTV->pScrollbarV, 0, 0);
-        sb_set_page_size(pTV->pScrollbarV, 0);
+        drgui_sb_set_range(pTV->pScrollbarV, 0, 0);
+        drgui_sb_set_page_size(pTV->pScrollbarV, 0);
 
         // Horizontal.
-        sb_set_range(pTV->pScrollbarH, 0, 0);
-        sb_set_page_size(pTV->pScrollbarH, 0);
+        drgui_sb_set_range(pTV->pScrollbarH, 0, 0);
+        drgui_sb_set_page_size(pTV->pScrollbarH, 0);
     }
     else
     {
         // Vertical.
-        sb_set_range(pTV->pScrollbarV, 0, (int)totalItemCount - 1); // - 1 because it's a 0-based range.
-        sb_set_page_size(pTV->pScrollbarV, pageItemCount);
+        drgui_sb_set_range(pTV->pScrollbarV, 0, (int)totalItemCount - 1); // - 1 because it's a 0-based range.
+        drgui_sb_set_page_size(pTV->pScrollbarV, pageItemCount);
 
         // Horizontal.
-        sb_set_range(pTV->pScrollbarH, 0, (int)innerWidth);
-        sb_set_page_size(pTV->pScrollbarH, (int)drgui_get_relative_position_x(pTV->pScrollbarV));
+        drgui_sb_set_range(pTV->pScrollbarH, 0, (int)innerWidth);
+        drgui_sb_set_page_size(pTV->pScrollbarH, (int)drgui_get_relative_position_x(pTV->pScrollbarV));
     }
 }
 
@@ -1063,7 +1063,7 @@ PRIVATE void tv_paint_item(drgui_element* pTVElement, eg_tree_view_item* pItem, 
             bgcolor = pTV->defaultBGColor;
         }
 
-        float innerOffsetX = (float)-sb_get_scroll_position(pTV->pScrollbarH);
+        float innerOffsetX = (float)-drgui_sb_get_scroll_position(pTV->pScrollbarH);
 
         // Left.
         if (posX + innerOffsetX > 0) {
@@ -1129,7 +1129,7 @@ PRIVATE void tv_deselect_all_items_recursive(eg_tree_view_item* pItem)
 
 PRIVATE void tv_on_mouse_enter_scrollbar(drgui_element* pSBElement)
 {
-    eg_tree_view_scrollbar_data* pSB = sb_get_extra_data(pSBElement);
+    eg_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -1142,7 +1142,7 @@ PRIVATE void tv_on_scroll_v(drgui_element* pSBElement, int scrollPos)
 {
     (void)scrollPos;
 
-    eg_tree_view_scrollbar_data* pSB = sb_get_extra_data(pSBElement);
+    eg_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -1165,7 +1165,7 @@ PRIVATE void tv_on_scroll_h(drgui_element* pSBElement, int scrollPos)
 {
     (void)scrollPos;
 
-    eg_tree_view_scrollbar_data* pSB = sb_get_extra_data(pSBElement);
+    eg_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -1194,7 +1194,7 @@ PRIVATE eg_tree_view_item* tv_find_first_visible_item_on_page(drgui_element* pTV
     {
         do
         {
-            if (index == sb_get_scroll_position(pTV->pScrollbarV)) {
+            if (index == drgui_sb_get_scroll_position(pTV->pScrollbarV)) {
                 return i.pItem;
             }
 

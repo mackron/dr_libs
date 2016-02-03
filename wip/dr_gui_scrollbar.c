@@ -13,7 +13,7 @@
 typedef struct
 {
     /// The orientation.
-    sb_orientation orientation;
+    drgui_sb_orientation orientation;
 
     /// The minimum scroll range.
     int rangeMin;
@@ -46,7 +46,7 @@ typedef struct
     drgui_color thumbColorPressed;
 
     /// The function to call when the scroll position changes.
-    sb_on_scroll_proc onScroll;
+    drgui_sb_on_scroll_proc onScroll;
 
 
     /// The current size of the thumb.
@@ -81,45 +81,45 @@ typedef struct
 
 
 /// Refreshes the given scrollbar's thumb layout and redraws it.
-DRGUI_PRIVATE void sb_refresh_thumb(drgui_element* pSBElement);
+DRGUI_PRIVATE void drgui_sb_refresh_thumb(drgui_element* pSBElement);
 
 /// Calculates the size of the thumb. This does not change the state of the thumb.
-DRGUI_PRIVATE float sb_calculate_thumb_size(drgui_element* pSBElement);
+DRGUI_PRIVATE float drgui_sb_calculate_thumb_size(drgui_element* pSBElement);
 
 /// Calculates the position of the thumb. This does not change the state of the thumb.
-DRGUI_PRIVATE float sb_calculate_thumb_position(drgui_element* pSBElement);
+DRGUI_PRIVATE float drgui_sb_calculate_thumb_position(drgui_element* pSBElement);
 
 /// Retrieves the size of the given scrollbar's track. For vertical alignments, it's the height of the element, otherwise it's the width.
-DRGUI_PRIVATE float sb_get_track_size(drgui_element* pSBElement);
+DRGUI_PRIVATE float drgui_sb_get_track_size(drgui_element* pSBElement);
 
 /// Makes the given point that's relative to the given scrollbar relative to it's thumb.
-DRGUI_PRIVATE void sb_make_relative_to_thumb(drgui_element* pSBElement, float* pPosX, float* pPosY);
+DRGUI_PRIVATE void drgui_sb_make_relative_to_thumb(drgui_element* pSBElement, float* pPosX, float* pPosY);
 
 /// Calculates the scroll position based on the current position of the thumb. This is used for scrolling while dragging the thumb.
-DRGUI_PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(drgui_element* pScrollba, float thumbPosr);
+DRGUI_PRIVATE int drgui_sb_calculate_scroll_pos_from_thumb_pos(drgui_element* pScrollba, float thumbPosr);
 
 /// Simple clamp function.
-DRGUI_PRIVATE float sb_clampf(float n, float lower, float upper)
+DRGUI_PRIVATE float drgui_sb_clampf(float n, float lower, float upper)
 {
     return n <= lower ? lower : n >= upper ? upper : n;
 }
 
 /// Simple clamp function.
-DRGUI_PRIVATE int sb_clampi(int n, int lower, int upper)
+DRGUI_PRIVATE int drgui_sb_clampi(int n, int lower, int upper)
 {
     return n <= lower ? lower : n >= upper ? upper : n;
 }
 
 /// Simple max function.
-DRGUI_PRIVATE int sb_maxi(int x, int y)
+DRGUI_PRIVATE int drgui_sb_maxi(int x, int y)
 {
     return (x > y) ? x : y;
 }
 
 
-drgui_element* drgui_create_scrollbar(drgui_context* pContext, drgui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData)
+drgui_element* drgui_create_scrollbar(drgui_context* pContext, drgui_element* pParent, drgui_sb_orientation orientation, size_t extraDataSize, const void* pExtraData)
 {
-    if (pContext == NULL || orientation == sb_orientation_none) {
+    if (pContext == NULL || orientation == drgui_sb_orientation_none) {
         return NULL;
     }
 
@@ -159,13 +159,13 @@ drgui_element* drgui_create_scrollbar(drgui_context* pContext, drgui_element* pP
 
 
     // Default event handlers.
-    drgui_set_on_size(pSBElement, sb_on_size);
-    drgui_set_on_mouse_leave(pSBElement, sb_on_mouse_leave);
-    drgui_set_on_mouse_move(pSBElement, sb_on_mouse_move);
-    drgui_set_on_mouse_button_down(pSBElement, sb_on_mouse_button_down);
-    drgui_set_on_mouse_button_up(pSBElement, sb_on_mouse_button_up);
-    drgui_set_on_mouse_wheel(pSBElement, sb_on_mouse_wheel);
-    drgui_set_on_paint(pSBElement, sb_on_paint);
+    drgui_set_on_size(pSBElement, drgui_sb_on_size);
+    drgui_set_on_mouse_leave(pSBElement, drgui_sb_on_mouse_leave);
+    drgui_set_on_mouse_move(pSBElement, drgui_sb_on_mouse_move);
+    drgui_set_on_mouse_button_down(pSBElement, drgui_sb_on_mouse_button_down);
+    drgui_set_on_mouse_button_up(pSBElement, drgui_sb_on_mouse_button_up);
+    drgui_set_on_mouse_wheel(pSBElement, drgui_sb_on_mouse_wheel);
+    drgui_set_on_paint(pSBElement, drgui_sb_on_paint);
 
 
     return pSBElement;
@@ -181,7 +181,7 @@ void drgui_delete_scrollbar(drgui_element* pSBElement)
 }
 
 
-size_t sb_get_extra_data_size(drgui_element* pSBElement)
+size_t drgui_sb_get_extra_data_size(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -191,7 +191,7 @@ size_t sb_get_extra_data_size(drgui_element* pSBElement)
     return pSB->extraDataSize;
 }
 
-void* sb_get_extra_data(drgui_element* pSBElement)
+void* drgui_sb_get_extra_data(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -202,18 +202,18 @@ void* sb_get_extra_data(drgui_element* pSBElement)
 }
 
 
-sb_orientation sb_get_orientation(drgui_element* pSBElement)
+drgui_sb_orientation drgui_sb_get_orientation(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
-        return sb_orientation_none;
+        return drgui_sb_orientation_none;
     }
 
     return pSB->orientation;
 }
 
 
-void sb_set_range(drgui_element* pSBElement, int rangeMin, int rangeMax)
+void drgui_sb_set_range(drgui_element* pSBElement, int rangeMin, int rangeMax)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -225,13 +225,13 @@ void sb_set_range(drgui_element* pSBElement, int rangeMin, int rangeMax)
 
     
     // Make sure the scroll position is still valid.
-    sb_scroll_to(pSBElement, sb_get_scroll_position(pSBElement));
+    drgui_sb_scroll_to(pSBElement, drgui_sb_get_scroll_position(pSBElement));
 
     // The thumb may have changed, so refresh it.
-    sb_refresh_thumb(pSBElement);
+    drgui_sb_refresh_thumb(pSBElement);
 }
 
-void sb_get_range(drgui_element* pSBElement, int* pRangeMinOut, int* pRangeMaxOut)
+void drgui_sb_get_range(drgui_element* pSBElement, int* pRangeMinOut, int* pRangeMaxOut)
 {    
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -248,7 +248,7 @@ void sb_get_range(drgui_element* pSBElement, int* pRangeMinOut, int* pRangeMaxOu
 }
 
 
-void sb_set_page_size(drgui_element* pSBElement, int pageSize)
+void drgui_sb_set_page_size(drgui_element* pSBElement, int pageSize)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -259,13 +259,13 @@ void sb_set_page_size(drgui_element* pSBElement, int pageSize)
 
 
     // Make sure the scroll position is still valid.
-    sb_scroll_to(pSBElement, sb_get_scroll_position(pSBElement));
+    drgui_sb_scroll_to(pSBElement, drgui_sb_get_scroll_position(pSBElement));
 
     // The thumb may have changed, so refresh it.
-    sb_refresh_thumb(pSBElement);
+    drgui_sb_refresh_thumb(pSBElement);
 }
 
-int sb_get_page_size(drgui_element* pSBElement)
+int drgui_sb_get_page_size(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -276,7 +276,7 @@ int sb_get_page_size(drgui_element* pSBElement)
 }
 
 
-void sb_set_range_and_page_size(drgui_element* pSBElement, int rangeMin, int rangeMax, int pageSize)
+void drgui_sb_set_range_and_page_size(drgui_element* pSBElement, int rangeMin, int rangeMax, int pageSize)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -289,31 +289,31 @@ void sb_set_range_and_page_size(drgui_element* pSBElement, int rangeMin, int ran
 
     
     // Make sure the scroll position is still valid.
-    sb_scroll_to(pSBElement, sb_get_scroll_position(pSBElement));
+    drgui_sb_scroll_to(pSBElement, drgui_sb_get_scroll_position(pSBElement));
 
     // The thumb may have changed, so refresh it.
-    sb_refresh_thumb(pSBElement);
+    drgui_sb_refresh_thumb(pSBElement);
 }
 
 
-void sb_set_scroll_position(drgui_element* pSBElement, int position)
+void drgui_sb_set_scroll_position(drgui_element* pSBElement, int position)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    int newScrollPos = sb_clampi(position, pSB->rangeMin, sb_maxi(0, pSB->rangeMax - pSB->pageSize + 1));
+    int newScrollPos = drgui_sb_clampi(position, pSB->rangeMin, drgui_sb_maxi(0, pSB->rangeMax - pSB->pageSize + 1));
     if (newScrollPos != pSB->scrollPos)
     {
         pSB->scrollPos = newScrollPos;
 
         // The position of the thumb has changed, so refresh it.
-        sb_refresh_thumb(pSBElement);
+        drgui_sb_refresh_thumb(pSBElement);
     }
 }
 
-int sb_get_scroll_position(drgui_element* pSBElement)
+int drgui_sb_get_scroll_position(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -324,17 +324,17 @@ int sb_get_scroll_position(drgui_element* pSBElement)
 }
 
 
-void sb_scroll(drgui_element* pSBElement, int offset)
+void drgui_sb_scroll(drgui_element* pSBElement, int offset)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    sb_scroll_to(pSBElement, pSB->scrollPos + offset);
+    drgui_sb_scroll_to(pSBElement, pSB->scrollPos + offset);
 }
 
-void sb_scroll_to(drgui_element* pSBElement, int newScrollPos)
+void drgui_sb_scroll_to(drgui_element* pSBElement, int newScrollPos)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -342,7 +342,7 @@ void sb_scroll_to(drgui_element* pSBElement, int newScrollPos)
     }
 
     int oldScrollPos = pSB->scrollPos;
-    sb_set_scroll_position(pSBElement, newScrollPos);
+    drgui_sb_set_scroll_position(pSBElement, newScrollPos);
 
     if (oldScrollPos != pSB->scrollPos)
     {
@@ -353,7 +353,7 @@ void sb_scroll_to(drgui_element* pSBElement, int newScrollPos)
 }
 
 
-void sb_enable_thumb_auto_hide(drgui_element* pSBElement)
+void drgui_sb_enable_thumb_auto_hide(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -365,11 +365,11 @@ void sb_enable_thumb_auto_hide(drgui_element* pSBElement)
         pSB->autoHideThumb = true;
 
         // The thumb needs to be refreshed in order to show the correct state.
-        sb_refresh_thumb(pSBElement);
+        drgui_sb_refresh_thumb(pSBElement);
     }
 }
 
-void sb_disable_thumb_auto_hide(drgui_element* pSBElement)
+void drgui_sb_disable_thumb_auto_hide(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -381,11 +381,11 @@ void sb_disable_thumb_auto_hide(drgui_element* pSBElement)
         pSB->autoHideThumb = false;
 
         // The thumb needs to be refreshed in order to show the correct state.
-        sb_refresh_thumb(pSBElement);
+        drgui_sb_refresh_thumb(pSBElement);
     }
 }
 
-bool sb_is_thumb_auto_hide_enabled(drgui_element* pSBElement)
+bool drgui_sb_is_thumb_auto_hide_enabled(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -395,7 +395,7 @@ bool sb_is_thumb_auto_hide_enabled(drgui_element* pSBElement)
     return pSB->autoHideThumb;
 }
 
-bool sb_is_thumb_visible(drgui_element* pSBElement)
+bool drgui_sb_is_thumb_visible(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -411,7 +411,7 @@ bool sb_is_thumb_visible(drgui_element* pSBElement)
 }
 
 
-void sb_set_mouse_wheel_scele(drgui_element* pSBElement, int scale)
+void drgui_sb_set_mouse_wheel_scele(drgui_element* pSBElement, int scale)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -421,7 +421,7 @@ void sb_set_mouse_wheel_scele(drgui_element* pSBElement, int scale)
     pSB->mouseWheelScale = scale;
 }
 
-int sb_get_mouse_wheel_scale(drgui_element* pSBElement)
+int drgui_sb_get_mouse_wheel_scale(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -432,7 +432,7 @@ int sb_get_mouse_wheel_scale(drgui_element* pSBElement)
 }
 
 
-void sb_set_track_color(drgui_element* pSBElement, drgui_color color)
+void drgui_sb_set_track_color(drgui_element* pSBElement, drgui_color color)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -442,7 +442,7 @@ void sb_set_track_color(drgui_element* pSBElement, drgui_color color)
     pSB->trackColor = color;
 }
 
-void sb_set_default_thumb_color(drgui_element* pSBElement, drgui_color color)
+void drgui_sb_set_default_thumb_color(drgui_element* pSBElement, drgui_color color)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -452,7 +452,7 @@ void sb_set_default_thumb_color(drgui_element* pSBElement, drgui_color color)
     pSB->thumbColor = color;
 }
 
-void sb_set_hovered_thumb_color(drgui_element* pSBElement, drgui_color color)
+void drgui_sb_set_hovered_thumb_color(drgui_element* pSBElement, drgui_color color)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -462,7 +462,7 @@ void sb_set_hovered_thumb_color(drgui_element* pSBElement, drgui_color color)
     pSB->thumbColorHovered = color;
 }
 
-void sb_set_pressed_thumb_color(drgui_element* pSBElement, drgui_color color)
+void drgui_sb_set_pressed_thumb_color(drgui_element* pSBElement, drgui_color color)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -473,7 +473,7 @@ void sb_set_pressed_thumb_color(drgui_element* pSBElement, drgui_color color)
 }
 
 
-void sb_set_on_scroll(drgui_element* pSBElement, sb_on_scroll_proc onScroll)
+void drgui_sb_set_on_scroll(drgui_element* pSBElement, drgui_sb_on_scroll_proc onScroll)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -483,7 +483,7 @@ void sb_set_on_scroll(drgui_element* pSBElement, sb_on_scroll_proc onScroll)
     pSB->onScroll = onScroll;
 }
 
-sb_on_scroll_proc sb_get_on_scroll(drgui_element* pSBElement)
+drgui_sb_on_scroll_proc drgui_sb_get_on_scroll(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -494,7 +494,7 @@ sb_on_scroll_proc sb_get_on_scroll(drgui_element* pSBElement)
 }
 
 
-drgui_rect sb_get_thumb_rect(drgui_element* pSBElement)
+drgui_rect drgui_sb_get_thumb_rect(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -505,7 +505,7 @@ drgui_rect sb_get_thumb_rect(drgui_element* pSBElement)
     rect.left = pSB->thumbPadding;
     rect.top  = pSB->thumbPadding;
     
-    if (pSB->orientation == sb_orientation_vertical)
+    if (pSB->orientation == drgui_sb_orientation_vertical)
     {
         // Vertical.
         rect.left   = pSB->thumbPadding;
@@ -526,7 +526,7 @@ drgui_rect sb_get_thumb_rect(drgui_element* pSBElement)
 }
 
 
-void sb_on_size(drgui_element* pSBElement, float newWidth, float newHeight)
+void drgui_sb_on_size(drgui_element* pSBElement, float newWidth, float newHeight)
 {
     (void)newWidth;
     (void)newHeight;
@@ -536,10 +536,10 @@ void sb_on_size(drgui_element* pSBElement, float newWidth, float newHeight)
         return;
     }
 
-    sb_refresh_thumb(pSBElement);
+    drgui_sb_refresh_thumb(pSBElement);
 }
 
-void sb_on_mouse_leave(drgui_element* pSBElement)
+void drgui_sb_on_mouse_leave(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
@@ -560,11 +560,11 @@ void sb_on_mouse_leave(drgui_element* pSBElement)
     }
 
     if (needsRedraw) {
-        drgui_dirty(pSBElement, sb_get_thumb_rect(pSBElement));
+        drgui_dirty(pSBElement, drgui_sb_get_thumb_rect(pSBElement));
     }
 }
 
-void sb_on_mouse_move(drgui_element* pSBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+void drgui_sb_on_mouse_move(drgui_element* pSBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)stateFlags;
 
@@ -578,32 +578,32 @@ void sb_on_mouse_move(drgui_element* pSBElement, int relativeMousePosX, int rela
         // The thumb is pressed. Drag it.
         float thumbRelativeMousePosX = (float)relativeMousePosX;
         float thumbRelativeMousePosY = (float)relativeMousePosY;
-        sb_make_relative_to_thumb(pSBElement, &thumbRelativeMousePosX, &thumbRelativeMousePosY);
+        drgui_sb_make_relative_to_thumb(pSBElement, &thumbRelativeMousePosX, &thumbRelativeMousePosY);
 
         float dragOffsetX = thumbRelativeMousePosX - pSB->thumbClickPosX;
         float dragOffsetY = thumbRelativeMousePosY - pSB->thumbClickPosY;
 
         float destTrackPos = pSB->thumbPos;
-        if (pSB->orientation == sb_orientation_vertical) {
+        if (pSB->orientation == drgui_sb_orientation_vertical) {
             destTrackPos += dragOffsetY;
         } else {
             destTrackPos += dragOffsetX;
         }
 
-        int destScrollPos = sb_calculate_scroll_pos_from_thumb_pos(pSBElement, destTrackPos);
+        int destScrollPos = drgui_sb_calculate_scroll_pos_from_thumb_pos(pSBElement, destTrackPos);
         if (destScrollPos != pSB->scrollPos)
         {
-            sb_scroll_to(pSBElement, destScrollPos);
+            drgui_sb_scroll_to(pSBElement, destScrollPos);
         }
     }
     else
     {
         // The thumb is not pressed. We just need to check if the hovered state has change and redraw if required.
-        if (sb_is_thumb_visible(pSBElement))
+        if (drgui_sb_is_thumb_visible(pSBElement))
         {
             bool wasThumbHovered = pSB->thumbHovered;
         
-            drgui_rect thumbRect = sb_get_thumb_rect(pSBElement);
+            drgui_rect thumbRect = drgui_sb_get_thumb_rect(pSBElement);
             pSB->thumbHovered = drgui_rect_contains_point(thumbRect, (float)relativeMousePosX, (float)relativeMousePosY);
         
             if (wasThumbHovered != pSB->thumbHovered) {
@@ -613,7 +613,7 @@ void sb_on_mouse_move(drgui_element* pSBElement, int relativeMousePosX, int rela
     }
 }
 
-void sb_on_mouse_button_down(drgui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+void drgui_sb_on_mouse_button_down(drgui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)stateFlags;
 
@@ -624,9 +624,9 @@ void sb_on_mouse_button_down(drgui_element* pSBElement, int button, int relative
 
     if (button == DRGUI_MOUSE_BUTTON_LEFT)
     {
-        if (sb_is_thumb_visible(pSBElement))
+        if (drgui_sb_is_thumb_visible(pSBElement))
         {
-            drgui_rect thumbRect = sb_get_thumb_rect(pSBElement);
+            drgui_rect thumbRect = drgui_sb_get_thumb_rect(pSBElement);
             if (drgui_rect_contains_point(thumbRect, (float)relativeMousePosX, (float)relativeMousePosY))
             {
                 if (!pSB->thumbPressed)
@@ -636,25 +636,25 @@ void sb_on_mouse_button_down(drgui_element* pSBElement, int button, int relative
 
                     pSB->thumbClickPosX = (float)relativeMousePosX;
                     pSB->thumbClickPosY = (float)relativeMousePosY;
-                    sb_make_relative_to_thumb(pSBElement, &pSB->thumbClickPosX, &pSB->thumbClickPosY);
+                    drgui_sb_make_relative_to_thumb(pSBElement, &pSB->thumbClickPosX, &pSB->thumbClickPosY);
 
-                    drgui_dirty(pSBElement, sb_get_thumb_rect(pSBElement));
+                    drgui_dirty(pSBElement, drgui_sb_get_thumb_rect(pSBElement));
                 }
             }
             else
             {
                 // If the click position is above the thumb we want to scroll up by a page. If it's below the thumb, we scroll down by a page.
                 if (relativeMousePosY < thumbRect.top) {
-                    sb_scroll(pSBElement, -sb_get_page_size(pSBElement));
+                    drgui_sb_scroll(pSBElement, -drgui_sb_get_page_size(pSBElement));
                 } else if (relativeMousePosY >= thumbRect.bottom) {
-                    sb_scroll(pSBElement,  sb_get_page_size(pSBElement));
+                    drgui_sb_scroll(pSBElement,  drgui_sb_get_page_size(pSBElement));
                 }
             }
         }
     }
 }
 
-void sb_on_mouse_button_up(drgui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+void drgui_sb_on_mouse_button_up(drgui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
@@ -672,12 +672,12 @@ void sb_on_mouse_button_up(drgui_element* pSBElement, int button, int relativeMo
             drgui_release_mouse(pSBElement->pContext);
             pSB->thumbPressed = false;
 
-            drgui_dirty(pSBElement, sb_get_thumb_rect(pSBElement));
+            drgui_dirty(pSBElement, drgui_sb_get_thumb_rect(pSBElement));
         }
     }
 }
 
-void sb_on_mouse_wheel(drgui_element* pSBElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+void drgui_sb_on_mouse_wheel(drgui_element* pSBElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
@@ -688,10 +688,10 @@ void sb_on_mouse_wheel(drgui_element* pSBElement, int delta, int relativeMousePo
         return;
     }
 
-    sb_scroll(pSBElement, -delta * sb_get_mouse_wheel_scale(pSBElement));
+    drgui_sb_scroll(pSBElement, -delta * drgui_sb_get_mouse_wheel_scale(pSBElement));
 }
 
-void sb_on_paint(drgui_element* pSBElement, drgui_rect relativeClippingRect, void* pPaintData)
+void drgui_sb_on_paint(drgui_element* pSBElement, drgui_rect relativeClippingRect, void* pPaintData)
 {
     (void)relativeClippingRect;
 
@@ -700,9 +700,9 @@ void sb_on_paint(drgui_element* pSBElement, drgui_rect relativeClippingRect, voi
         return;
     }
 
-    drgui_rect thumbRect = sb_get_thumb_rect(pSBElement);
+    drgui_rect thumbRect = drgui_sb_get_thumb_rect(pSBElement);
 
-    if (sb_is_thumb_visible(pSBElement))
+    if (drgui_sb_is_thumb_visible(pSBElement))
     {
         // The thumb is visible.
 
@@ -733,75 +733,75 @@ void sb_on_paint(drgui_element* pSBElement, drgui_rect relativeClippingRect, voi
 
 
 
-DRGUI_PRIVATE void sb_refresh_thumb(drgui_element* pSBElement)
+DRGUI_PRIVATE void drgui_sb_refresh_thumb(drgui_element* pSBElement)
 {
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
-    drgui_rect oldThumbRect = sb_get_thumb_rect(pSBElement);
+    drgui_rect oldThumbRect = drgui_sb_get_thumb_rect(pSBElement);
 
-    pSB->thumbSize = sb_calculate_thumb_size(pSBElement);
-    pSB->thumbPos  = sb_calculate_thumb_position(pSBElement);
+    pSB->thumbSize = drgui_sb_calculate_thumb_size(pSBElement);
+    pSB->thumbPos  = drgui_sb_calculate_thumb_position(pSBElement);
 
-    drgui_rect newThumbRect = sb_get_thumb_rect(pSBElement);
+    drgui_rect newThumbRect = drgui_sb_get_thumb_rect(pSBElement);
     if (!drgui_rect_equal(oldThumbRect, newThumbRect))
     {
         drgui_dirty(pSBElement, drgui_rect_union(oldThumbRect, newThumbRect));
     }
 }
 
-DRGUI_PRIVATE float sb_calculate_thumb_size(drgui_element* pSBElement)
+DRGUI_PRIVATE float drgui_sb_calculate_thumb_size(drgui_element* pSBElement)
 {
     const drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
-    float trackSize = sb_get_track_size(pSBElement);
+    float trackSize = drgui_sb_get_track_size(pSBElement);
     float range = (float)(pSB->rangeMax - pSB->rangeMin + 1);
         
     float thumbSize = DRGUI_MIN_SCROLLBAR_THUMB_SIZE;
     if (range > 0)
     {
         thumbSize = roundf((trackSize / range) * pSB->pageSize);
-        thumbSize = sb_clampf(thumbSize, DRGUI_MIN_SCROLLBAR_THUMB_SIZE, trackSize);
+        thumbSize = drgui_sb_clampf(thumbSize, DRGUI_MIN_SCROLLBAR_THUMB_SIZE, trackSize);
     }
 
     return thumbSize;
 }
 
-DRGUI_PRIVATE float sb_calculate_thumb_position(drgui_element* pSBElement)
+DRGUI_PRIVATE float drgui_sb_calculate_thumb_position(drgui_element* pSBElement)
 {
     const drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
-    float trackSize = sb_get_track_size(pSBElement);
-    float thumbSize = sb_calculate_thumb_size(pSBElement);
+    float trackSize = drgui_sb_get_track_size(pSBElement);
+    float thumbSize = drgui_sb_calculate_thumb_size(pSBElement);
     float range = (float)(pSB->rangeMax - pSB->rangeMin + 1);
 
     float thumbPos = 0;
     if (range > pSB->pageSize)
     {
         thumbPos = roundf((trackSize / range) * pSB->scrollPos);
-        thumbPos = sb_clampf(thumbPos, 0, trackSize - thumbSize);
+        thumbPos = drgui_sb_clampf(thumbPos, 0, trackSize - thumbSize);
     }
 
     return thumbPos;
 }
 
-DRGUI_PRIVATE float sb_get_track_size(drgui_element* pSBElement)
+DRGUI_PRIVATE float drgui_sb_get_track_size(drgui_element* pSBElement)
 {
     const drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
-    if (pSB->orientation == sb_orientation_vertical) {
+    if (pSB->orientation == drgui_sb_orientation_vertical) {
         return drgui_get_height(pSBElement) - (pSB->thumbPadding*2);
     } else {
         return drgui_get_width(pSBElement) - (pSB->thumbPadding*2);
     }
 }
 
-DRGUI_PRIVATE void sb_make_relative_to_thumb(drgui_element* pSBElement, float* pPosX, float* pPosY)
+DRGUI_PRIVATE void drgui_sb_make_relative_to_thumb(drgui_element* pSBElement, float* pPosX, float* pPosY)
 {
-    drgui_rect thumbRect = sb_get_thumb_rect(pSBElement);
+    drgui_rect thumbRect = drgui_sb_get_thumb_rect(pSBElement);
 
     if (pPosX != NULL) {
         *pPosX -= thumbRect.left;
@@ -812,12 +812,12 @@ DRGUI_PRIVATE void sb_make_relative_to_thumb(drgui_element* pSBElement, float* p
     }
 }
 
-DRGUI_PRIVATE int sb_calculate_scroll_pos_from_thumb_pos(drgui_element* pSBElement, float thumbPos)
+DRGUI_PRIVATE int drgui_sb_calculate_scroll_pos_from_thumb_pos(drgui_element* pSBElement, float thumbPos)
 {
     const drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
-    float trackSize = sb_get_track_size(pSBElement);
+    float trackSize = drgui_sb_get_track_size(pSBElement);
     float range     = (float)(pSB->rangeMax - pSB->rangeMin + 1);
 
     return (int)roundf(thumbPos / (trackSize / range));
