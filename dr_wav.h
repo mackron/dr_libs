@@ -268,7 +268,7 @@ static unsigned short drwav__read_u16(const unsigned char* data)
     if (drwav__is_little_endian()) {
         return (data[0] << 0) | (data[1] << 8);
     } else {
-        return (data[1] << 0) | (data[1] << 8);
+        return (data[1] << 0) | (data[0] << 8);
     }
 }
 
