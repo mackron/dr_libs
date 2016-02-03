@@ -670,16 +670,16 @@ static int drwav__pcm_to_f32(unsigned int sampleCount, const unsigned char* pPCM
 
     // Slightly more optimal implementation for common formats.
     if (bytesPerSample == 2) {
-        //drwav_s16PCM_to_f32(sampleCount, (const short*)pPCM, f32Out);
-        //return 1;
+        drwav_s16PCM_to_f32(sampleCount, (const short*)pPCM, f32Out);
+        return 1;
     }
     if (bytesPerSample == 3) {
-        //drwav_s24PCM_to_f32(sampleCount, pPCM, f32Out);
-        //return 1;
+        drwav_s24PCM_to_f32(sampleCount, pPCM, f32Out);
+        return 1;
     }
     if (bytesPerSample == 4) {
-        //drwav_s32PCM_to_f32(sampleCount, (const int*)pPCM, f32Out);
-        //return 1;
+        drwav_s32PCM_to_f32(sampleCount, (const int*)pPCM, f32Out);
+        return 1;
     }
 
 
