@@ -6,16 +6,16 @@
 // - This control is only the tab bar itself - this does not handle tab pages and content switching and whatnot.
 //
 
-#ifndef easygui_tab_bar_h
-#define easygui_tab_bar_h
+#ifndef drgui_tab_bar_h
+#define drgui_tab_bar_h
 
-#include <easy_gui/easy_gui.h>
+#include <dr_libs/dr_gui.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define EASYGUI_MAX_TAB_TEXT_LENGTH   256
+#define DRGUI_MAX_TAB_TEXT_LENGTH   256
 
 typedef enum
 {
@@ -25,13 +25,13 @@ typedef enum
     tabbar_orientation_right
 } tabbar_orientation;
 
-typedef struct easygui_tab easygui_tab;
+typedef struct drgui_tab drgui_tab;
 
-typedef void (* tabbar_on_measure_tab_proc)    (easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
-typedef void (* tabbar_on_paint_tab_proc)      (easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
-typedef void (* tabbar_on_tab_activated_proc)  (easygui_element* pTBElement, easygui_tab* pTab);
-typedef void (* tabbar_on_tab_deactivated_proc)(easygui_element* pTBElement, easygui_tab* pTab);
-typedef void (* tabbar_on_tab_close_proc)      (easygui_element* pTBElement, easygui_tab* pTab);
+typedef void (* tabbar_on_measure_tab_proc)    (drgui_element* pTBElement, drgui_tab* pTab, float* pWidthOut, float* pHeightOut);
+typedef void (* tabbar_on_paint_tab_proc)      (drgui_element* pTBElement, drgui_tab* pTab, drgui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
+typedef void (* tabbar_on_tab_activated_proc)  (drgui_element* pTBElement, drgui_tab* pTab);
+typedef void (* tabbar_on_tab_deactivated_proc)(drgui_element* pTBElement, drgui_tab* pTab);
+typedef void (* tabbar_on_tab_close_proc)      (drgui_element* pTBElement, drgui_tab* pTab);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -41,56 +41,56 @@ typedef void (* tabbar_on_tab_close_proc)      (easygui_element* pTBElement, eas
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Creates a new tab bar control.
-easygui_element* easygui_create_tab_bar(easygui_context* pContext, easygui_element* pParent, tabbar_orientation orientation, size_t extraDataSize, const void* pExtraData);
+drgui_element* drgui_create_tab_bar(drgui_context* pContext, drgui_element* pParent, tabbar_orientation orientation, size_t extraDataSize, const void* pExtraData);
 
 /// Deletes the given tab bar control.
-void easygui_delete_tab_bar(easygui_element* pTBElement);
+void drgui_delete_tab_bar(drgui_element* pTBElement);
 
 
 /// Retrieves the size of the extra data associated with the scrollbar.
-size_t tabbar_get_extra_data_size(easygui_element* pTBElement);
+size_t tabbar_get_extra_data_size(drgui_element* pTBElement);
 
 /// Retrieves a pointer to the extra data associated with the scrollbar.
-void* tabbar_get_extra_data(easygui_element* pTBElement);
+void* tabbar_get_extra_data(drgui_element* pTBElement);
 
 /// Retrieves the orientation of the given scrollbar.
-tabbar_orientation tabbar_get_orientation(easygui_element* pTBElement);
+tabbar_orientation tabbar_get_orientation(drgui_element* pTBElement);
 
 
 /// Sets the default font to use for tabs.
-void tabbar_set_font(easygui_element* pTBElement, easygui_font* pFont);
+void tabbar_set_font(drgui_element* pTBElement, drgui_font* pFont);
 
 /// Retrieves the default font to use for tabs.
-easygui_font* tabbar_get_font(easygui_element* pTBElement);
+drgui_font* tabbar_get_font(drgui_element* pTBElement);
 
 /// Sets the image to use for close buttons.
-void tabbar_set_close_button_image(easygui_element* pTBElement, easygui_image* pImage);
+void tabbar_set_close_button_image(drgui_element* pTBElement, drgui_image* pImage);
 
 /// Retrieves the image being used for the close buttons.
-easygui_image* tabbar_get_close_button_image(easygui_element* pTBElement);
+drgui_image* tabbar_get_close_button_image(drgui_element* pTBElement);
 
 
 /// Sets the function to call when a tab needs to be measured.
-void tabbar_set_on_measure_tab(easygui_element* pTBElement, tabbar_on_measure_tab_proc proc);
+void tabbar_set_on_measure_tab(drgui_element* pTBElement, tabbar_on_measure_tab_proc proc);
 
 /// Sets the function to call when a tab needs to be painted.
-void tabbar_set_on_paint_tab(easygui_element* pTBElement, tabbar_on_paint_tab_proc proc);
+void tabbar_set_on_paint_tab(drgui_element* pTBElement, tabbar_on_paint_tab_proc proc);
 
 /// Sets the function to call when a tab is activated.
-void tabbar_set_on_tab_activated(easygui_element* pTBElement, tabbar_on_tab_activated_proc proc);
+void tabbar_set_on_tab_activated(drgui_element* pTBElement, tabbar_on_tab_activated_proc proc);
 
 /// Sets the function to call when a tab is deactivated.
-void tabbar_set_on_tab_deactivated(easygui_element* pTBElement, tabbar_on_tab_deactivated_proc proc);
+void tabbar_set_on_tab_deactivated(drgui_element* pTBElement, tabbar_on_tab_deactivated_proc proc);
 
 /// Sets the function to call when a tab is closed with the close button.
-void tabbar_set_on_tab_closed(easygui_element* pTBElement, tabbar_on_tab_close_proc proc);
+void tabbar_set_on_tab_closed(drgui_element* pTBElement, tabbar_on_tab_close_proc proc);
 
 
 /// Measures the given tab.
-void tabbar_measure_tab(easygui_element* pTBElement, easygui_tab* pTab, float* pWidthOut, float* pHeightOut);
+void tabbar_measure_tab(drgui_element* pTBElement, drgui_tab* pTab, float* pWidthOut, float* pHeightOut);
 
 /// Paints the given tab.
-void tabbar_paint_tab(easygui_element* pTBElement, easygui_tab* pTab, easygui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
+void tabbar_paint_tab(drgui_element* pTBElement, drgui_tab* pTab, drgui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
 
 
 /// Sets the width or height of the tab bar to that of it's tabs based on it's orientation.
@@ -100,7 +100,7 @@ void tabbar_paint_tab(easygui_element* pTBElement, easygui_tab* pTab, easygui_re
 ///     is left or right, the width will be resized and the height will be left alone.
 ///     @par
 ///     If there is no tab measuring callback set, this will do nothing.
-void tabbar_resize_by_tabs(easygui_element* pTBElement);
+void tabbar_resize_by_tabs(drgui_element* pTBElement);
 
 /// Enables auto-resizing based on tabs.
 ///
@@ -109,56 +109,56 @@ void tabbar_resize_by_tabs(easygui_element* pTBElement);
 ///
 /// @see
 ///     tabbar_resize_by_tabs()
-void tabbar_enable_auto_size(easygui_element* pTBElement);
+void tabbar_enable_auto_size(drgui_element* pTBElement);
 
 /// Disables auto-resizing based on tabs.
-void tabbar_disable_auto_size(easygui_element* pTBElement);
+void tabbar_disable_auto_size(drgui_element* pTBElement);
 
 /// Determines whether or not auto-sizing is enabled.
-bool tabbar_is_auto_size_enabled(easygui_element* pTBElement);
+bool tabbar_is_auto_size_enabled(drgui_element* pTBElement);
 
 
 /// Activates the given tab.
-void tabbar_activate_tab(easygui_element* pTBElement, easygui_tab* pTab);
+void tabbar_activate_tab(drgui_element* pTBElement, drgui_tab* pTab);
 
 /// Retrieves a pointer to the currently active tab.
-easygui_tab* tabbar_get_active_tab(easygui_element* pTBElement);
+drgui_tab* tabbar_get_active_tab(drgui_element* pTBElement);
 
 
 /// Determines whether or not the given tab is in view.
-bool tabbar_is_tab_in_view(easygui_element* pTBElement, easygui_tab* pTab);
+bool tabbar_is_tab_in_view(drgui_element* pTBElement, drgui_tab* pTab);
 
 
 /// Shows the close buttons on each tab.
-void tabbar_show_close_buttons(easygui_element* pTBElement);
+void tabbar_show_close_buttons(drgui_element* pTBElement);
 
 /// Hides the close buttons on each tab.
-void tabbar_hide_close_buttons(easygui_element* pTBElement);
+void tabbar_hide_close_buttons(drgui_element* pTBElement);
 
 /// Enables the on_close event on middle click.
-void tabbar_enable_close_on_middle_click(easygui_element* pTBElement);
+void tabbar_enable_close_on_middle_click(drgui_element* pTBElement);
 
 /// Disables the on_close event on middle click.
-void tabbar_disable_close_on_middle_click(easygui_element* pTBElement);
+void tabbar_disable_close_on_middle_click(drgui_element* pTBElement);
 
 /// Determines whether or not close-on-middle-click is enabled.
-bool tabbar_is_close_on_middle_click_enabled(easygui_element* pTBElement);
+bool tabbar_is_close_on_middle_click_enabled(drgui_element* pTBElement);
 
 
 /// Called when the mouse leave event needs to be processed for the given tab bar control.
-void tabbar_on_mouse_leave(easygui_element* pTBElement);
+void tabbar_on_mouse_leave(drgui_element* pTBElement);
 
 /// Called when the mouse move event needs to be processed for the given tab bar control.
-void tabbar_on_mouse_move(easygui_element* pTBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void tabbar_on_mouse_move(drgui_element* pTBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button down event needs to be processed for the given tab bar control.
-void tabbar_on_mouse_button_down(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void tabbar_on_mouse_button_down(drgui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button up event needs to be processed for the given tab bar control.
-void tabbar_on_mouse_button_up(easygui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void tabbar_on_mouse_button_up(drgui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the paint event needs to be processed for the given tab control.
-void tabbar_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingRect, void* pPaintData);
+void tabbar_on_paint(drgui_element* pTBElement, drgui_rect relativeClippingRect, void* pPaintData);
 
 
 
@@ -170,43 +170,43 @@ void tabbar_on_paint(easygui_element* pTBElement, easygui_rect relativeClippingR
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Creates and appends a tab
-easygui_tab* tabbar_create_and_append_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
+drgui_tab* tabbar_create_and_append_tab(drgui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
 
 /// Creates and prepends a tab.
-easygui_tab* tabbar_create_and_prepend_tab(easygui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
+drgui_tab* tabbar_create_and_prepend_tab(drgui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
 
 /// Recursively deletes a tree view item.
-void tab_delete(easygui_tab* pTab);
+void tab_delete(drgui_tab* pTab);
 
 /// Retrieves the tree-view GUI element that owns the given item.
-easygui_element* tab_get_tab_bar_element(easygui_tab* pTab);
+drgui_element* tab_get_tab_bar_element(drgui_tab* pTab);
 
 /// Retrieves the size of the extra data associated with the given tree-view item.
-size_t tab_get_extra_data_size(easygui_tab* pTab);
+size_t tab_get_extra_data_size(drgui_tab* pTab);
 
 /// Retrieves a pointer to the extra data associated with the given tree-view item.
-void* tab_get_extra_data(easygui_tab* pTab);
+void* tab_get_extra_data(drgui_tab* pTab);
 
 
 /// Sets the text of the given tab bar item.
-void tab_set_text(easygui_tab* pTab, const char* text);
+void tab_set_text(drgui_tab* pTab, const char* text);
 
 /// Retrieves the text of the given tab bar item.
-const char* tab_get_text(easygui_tab* pTab);
+const char* tab_get_text(drgui_tab* pTab);
 
 
 /// Retrieves a pointer to the next tab in the tab bar.
-easygui_tab* tab_get_next_tab(easygui_tab* pTab);
+drgui_tab* tab_get_next_tab(drgui_tab* pTab);
 
 /// Retrieves a pointer to the previous tab in the tab bar.
-easygui_tab* tab_get_prev_tab(easygui_tab* pTab);
+drgui_tab* tab_get_prev_tab(drgui_tab* pTab);
 
 
 /// Moves the given tab to the front of the tab bar that owns it.
-void tab_move_to_front(easygui_tab* pTab);
+void tab_move_to_front(drgui_tab* pTab);
 
 /// Determines whether or not the given tab is in view.
-bool tab_is_in_view(easygui_tab* pTab);
+bool tab_is_in_view(drgui_tab* pTab);
 
 
 #ifdef __cplusplus

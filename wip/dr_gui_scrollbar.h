@@ -1,9 +1,9 @@
 // Public domain. See "unlicense" statement at the end of this file.
 
-#ifndef easygui_scrollbar_h
-#define easygui_scrollbar_h
+#ifndef drgui_scrollbar_h
+#define drgui_scrollbar_h
 
-#include <easy_gui/easy_gui.h>
+#include <dr_libs/dr_gui.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,46 +17,46 @@ typedef enum
 
 } sb_orientation;
 
-typedef void (* sb_on_scroll_proc)(easygui_element* pSBElement, int scrollPos);
+typedef void (* sb_on_scroll_proc)(drgui_element* pSBElement, int scrollPos);
 
 
 /// Creates a scrollbar element.
-easygui_element* easygui_create_scrollbar(easygui_context* pContext, easygui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData);
+drgui_element* drgui_create_scrollbar(drgui_context* pContext, drgui_element* pParent, sb_orientation orientation, size_t extraDataSize, const void* pExtraData);
 
 /// Deletes the given scrollbar element.
-void easygui_delete_scrollbar(easygui_element* pSBElement);
+void drgui_delete_scrollbar(drgui_element* pSBElement);
 
 
 /// Retrieves the size of the extra data associated with the scrollbar.
-size_t sb_get_extra_data_size(easygui_element* pSBElement);
+size_t sb_get_extra_data_size(drgui_element* pSBElement);
 
 /// Retrieves a pointer to the extra data associated with the scrollbar.
-void* sb_get_extra_data(easygui_element* pSBElement);
+void* sb_get_extra_data(drgui_element* pSBElement);
 
 
 /// Retrieves the orientation of the given scrollbar.
-sb_orientation sb_get_orientation(easygui_element* pSBElement);
+sb_orientation sb_get_orientation(drgui_element* pSBElement);
 
 
 /// Sets the given scrollbar's range.
-void sb_set_range(easygui_element* pSBElement, int rangeMin, int rangeMax);
+void sb_set_range(drgui_element* pSBElement, int rangeMin, int rangeMax);
 
 /// Retrieves the given scrollbar's range.
-void sb_get_range(easygui_element* pSBElement, int* pRangeMinOut, int* pRangeMaxOut);
+void sb_get_range(drgui_element* pSBElement, int* pRangeMinOut, int* pRangeMaxOut);
 
 
 /// Sets the page size of the given scrollbar's page.
-void sb_set_page_size(easygui_element* pSBElement, int pageSize);
+void sb_set_page_size(drgui_element* pSBElement, int pageSize);
 
 /// Retrieves the page size of the given scrollbar's page.
-int sb_get_page_size(easygui_element* pSBElement);
+int sb_get_page_size(drgui_element* pSBElement);
 
 
 /// Sets the range and page size.
 ///
 /// @remarks
 ///     Use this when both the range and page size need to be updated at the same time.
-void sb_set_range_and_page_size(easygui_element* pSBElement, int rangeMin, int rangeMax, int pageSize);
+void sb_set_range_and_page_size(drgui_element* pSBElement, int rangeMin, int rangeMax, int pageSize);
 
 
 /// Explicitly sets the scroll position.
@@ -65,17 +65,17 @@ void sb_set_range_and_page_size(easygui_element* pSBElement, int rangeMin, int r
 ///     This will move the thumb, but not post the on_scroll event.
 ///     @par
 ///     The scroll position will be clamped to the current range, minus the page size.
-void sb_set_scroll_position(easygui_element* pSBElement, int position);
+void sb_set_scroll_position(drgui_element* pSBElement, int position);
 
 /// Retrieves the scroll position.
-int sb_get_scroll_position(easygui_element* pSBElement);
+int sb_get_scroll_position(drgui_element* pSBElement);
 
 
 /// Scrolls by the given amount.
 ///
 /// @remarks
 ///     If the resulting scroll position differs from the old one, the on on_scroll event will be posted.
-void sb_scroll(easygui_element* pSBElement, int offset);
+void sb_scroll(drgui_element* pSBElement, int offset);
 
 /// Scrolls to the given position.
 ///
@@ -83,79 +83,79 @@ void sb_scroll(easygui_element* pSBElement, int offset);
 ///     This differs from sb_set_scroll_position in that it will post the on_scroll event.
 ///     @par
 ///     Note that the actual maximum scrollable position is equal to the maximum range value minus the page size.
-void sb_scroll_to(easygui_element* pSBElement, int newScrollPos);
+void sb_scroll_to(drgui_element* pSBElement, int newScrollPos);
 
 
 /// Enables auto-hiding of the thumb.
-void sb_enable_thumb_auto_hide(easygui_element* pSBElement);
+void sb_enable_thumb_auto_hide(drgui_element* pSBElement);
 
 /// Disables auto-hiding of the thumb.
-void sb_disable_thumb_auto_hide(easygui_element* pSBElement);
+void sb_disable_thumb_auto_hide(drgui_element* pSBElement);
 
 /// Determines whether or not thumb auto-hiding is enabled.
-bool sb_is_thumb_auto_hide_enabled(easygui_element* pSBElement);
+bool sb_is_thumb_auto_hide_enabled(drgui_element* pSBElement);
 
 /// Determines whether or not the thumb is visible.
 ///
 /// @remarks
 ///     This is determined by whether or not the thumb is set to auto-hide and the current range and page size.
-bool sb_is_thumb_visible(easygui_element* pSBElement);
+bool sb_is_thumb_visible(drgui_element* pSBElement);
 
 
 /// Sets the mouse wheel scale.
 ///
 /// @remarks
 ///     Set this to a negative value to reverse the direction.
-void sb_set_mouse_wheel_scele(easygui_element* pSBElement, int scale);
+void sb_set_mouse_wheel_scele(drgui_element* pSBElement, int scale);
 
 /// Retrieves the mouse wheel scale.
-int sb_get_mouse_wheel_scale(easygui_element* pSBElement);
+int sb_get_mouse_wheel_scale(drgui_element* pSBElement);
 
 
 /// Sets the color of the track.
-void sb_set_track_color(easygui_element* pSBElement, easygui_color color);
+void sb_set_track_color(drgui_element* pSBElement, drgui_color color);
 
 /// Sets the default color of the thumb.
-void sb_set_default_thumb_color(easygui_element* pSBElement, easygui_color color);
+void sb_set_default_thumb_color(drgui_element* pSBElement, drgui_color color);
 
 /// Sets the hovered color of the thumb.
-void sb_set_hovered_thumb_color(easygui_element* pSBElement, easygui_color color);
+void sb_set_hovered_thumb_color(drgui_element* pSBElement, drgui_color color);
 
 /// Sets the pressed color of the thumb.
-void sb_set_pressed_thumb_color(easygui_element* pSBElement, easygui_color color);
+void sb_set_pressed_thumb_color(drgui_element* pSBElement, drgui_color color);
 
 
 /// Sets the function to call when the given scrollbar is scrolled.
-void sb_set_on_scroll(easygui_element* pSBElement, sb_on_scroll_proc onScroll);
+void sb_set_on_scroll(drgui_element* pSBElement, sb_on_scroll_proc onScroll);
 
 /// Retrieves the function call when the given scrollbar is scrolled.
-sb_on_scroll_proc sb_get_on_scroll(easygui_element* pSBElement);
+sb_on_scroll_proc sb_get_on_scroll(drgui_element* pSBElement);
 
 
 /// Calculates the relative rectangle of the given scrollbar's thumb.
-easygui_rect sb_get_thumb_rect(easygui_element* pSBElement);
+drgui_rect sb_get_thumb_rect(drgui_element* pSBElement);
 
 
 /// Called when the size event needs to be processed for the given scrollbar.
-void sb_on_size(easygui_element* pSBElement, float newWidth, float newHeight);
+void sb_on_size(drgui_element* pSBElement, float newWidth, float newHeight);
 
 /// Called when the mouse leave event needs to be processed for the given scrollbar.
-void sb_on_mouse_leave(easygui_element* pSBElement);
+void sb_on_mouse_leave(drgui_element* pSBElement);
 
 /// Called when the mouse move event needs to be processed for the given scrollbar.
-void sb_on_mouse_move(easygui_element* pSBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void sb_on_mouse_move(drgui_element* pSBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button down event needs to be processed for the given scrollbar.
-void sb_on_mouse_button_down(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void sb_on_mouse_button_down(drgui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse button up event needs to be processed for the given scrollbar.
-void sb_on_mouse_button_up(easygui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void sb_on_mouse_button_up(drgui_element* pSBElement, int button, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the mouse wheel event needs to be processed for the given scrollbar.
-void sb_on_mouse_wheel(easygui_element* pSBElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+void sb_on_mouse_wheel(drgui_element* pSBElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
 /// Called when the paint event needs to be processed.
-void sb_on_paint(easygui_element* pSBElement, easygui_rect relativeClippingRect, void* pPaintData);
+void sb_on_paint(drgui_element* pSBElement, drgui_rect relativeClippingRect, void* pPaintData);
 
 
 #ifdef __cplusplus
