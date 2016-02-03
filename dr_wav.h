@@ -1,24 +1,39 @@
 // Public domain. See "unlicense" statement at the end of this file.
 
+// ABOUT
+//
+// This is a simple library is for loading .wav files and retrieving it's audio data. It does not explicitly support
+// every possible combination of data formats and configurations, but should work fine for the most common ones.
+//
+//
+//
+// USAGE
+//
+// This is a single-file library. To use it, do something like the following in one .c file.
+//   #define DR_WAV_IMPLEMENTATION
+//   #include "dr_wav.h"
+//
+// You can then #include this file in other parts of the program as you would with any other header file.
+//
+//
 //
 // QUICK NOTES
 //
-// - dr_wav is a simple library is for loading .wav files and retrieving it's audio data. It does not explicitly support
-//   every possible combination of data formats and configurations, but should work fine for the most common ones.
-// - This library is still very early in development. Expect a few bugs, especially on on big-endian architectures which
-//   is completely untested.
 // - Samples are always interleaved.
 // - The default read function does not do any data conversion. Use drwav_read_f32() to read and convert audio data
-//   to IEEE 32-bit floating point samples. Supported internal formats include the following:
+//   to IEEE 32-bit floating point samples. Tested and supported internal formats include the following:
 //   - Unsigned 8-bit PCM
+//   - Signed 12-bit PCM
 //   - Signed 16-bit PCM
 //   - Signed 24-bit PCM
 //   - Signed 32-bit PCM
 //   - IEEE 32-bit floating point.
 //   - IEEE 64-bit floating point.
 //   - A-law and u-law
+// - Microsoft ADPCM is not currently supported.
+// - This library does not do strict validation - it will try it's hardest to open every wav file.
 //
-
+//
 //
 // OPTIONS
 //
@@ -27,61 +42,76 @@
 //
 // #define DR_WAV_NO_STDIO
 //   Excludes drwav_open_file().
-//
 
 #ifndef dr_wav_h
 #define dr_wav_h
 
 #include <stdint.h>
-#include <math.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/// The different support internal formats.
-typedef enum
-{
-    drwav_format_unknown,
-    drwav_format_unsigned_pcm_8,
-    drwav_format_signed_pcm_12,
-    drwav_format_signed_pcm_16,
-    drwav_format_signed_pcm_24,
-    drwav_format_signed_pcm_32,
-    drwav_format_float_32,
-    drwav_format_float_64,
-    drwav_format_alaw,
-    drwav_format_ulaw
-} drwav_format;
+// Common data formats.
+#define DR_WAVE_FORMAT_PCM          0x1
+#define DR_WAVE_FORMAT_ADPCM        0x2     // Not currently supported.
+#define DR_WAVE_FORMAT_IEEE_FLOAT   0x3
+#define DR_WAVE_FORMAT_ALAW         0x6
+#define DR_WAVE_FORMAT_MULAW        0x7
+#define DR_WAVE_FORMAT_EXTENSIBLE   0xFFFE
 
 typedef struct drwav drwav;
 
 typedef struct
 {
-    /// The number of channels making up the audio data. When this is set to 1 it is mono, 2 is stereo, etc.
-    unsigned int channels;
-
-    /// The sample rate. Usually set to something like 44100.
-    unsigned int sampleRate;
-
-    /// The internal format of the wav file. The audio data is converted from this format when it is read. This
-    /// will be set to drwav_format_unknown if it is a format unrecognized by dr_wav. In this case, applications
-    /// should use formatTag to identify the data format. In addition, drwav_read_f32() will fail if this is set
-    /// to drwav_format_unknown.
-    drwav_format internalFormat;
-
-    /// The number of bits per sample. This is tied to <internalFormat> and is only really used internally.
-    unsigned int bitsPerSample;
-
-    /// The number of bytes per sample.
-    unsigned int bytesPerSample;
-
     /// The format tag exactly as specified in the wave file's "fmt" chunk. This can be used by applications
     /// that require support for data formats not listed in the drwav_format enum.
     unsigned short formatTag;
 
-    /// The total number of samples making up the audio data. Use <sampleCount> * (<bitsPerSample> / 8) to
-    /// calculate the required size of a buffer to hold the entire audio data.
+    /// The number of channels making up the audio data. When this is set to 1 it is mono, 2 is stereo, etc.
+    unsigned short channels;
+
+    /// The sample rate. Usually set to something like 44100.
+    unsigned int sampleRate;
+
+    /// Average bytes per second. You probably don't need this, but it's left here for informational purposes.
+    unsigned int avgBytesPerSec;
+
+    /// Block align. This is equal to the number of channels * bytes per sample.
+    unsigned short blockAlign;
+
+    /// Bit's per sample.
+    unsigned short bitsPerSample;
+
+    /// The size of the extended data. Only used internally for validation, but left here for informational purposes.
+    unsigned short extendedSize;
+
+    /// The number of valid bits per sample. When <formatTag> is equal to WAVE_FORMAT_EXTENSIBLE, <bitsPerSample>
+    /// is always rounded up to the nearest multiple of 8. This variable contains information about exactly how
+    /// many bits a valid per sample. Mainly used for informational purposes.
+    unsigned short validBitsPerSample;
+
+    /// The channel mask. Not used at the moment.
+    unsigned int channelMask;
+
+    /// The sub-format, exactly as specified by the wave file.
+    unsigned char subFormat[16];
+
+} drwav_fmt;
+
+typedef struct
+{
+    /// Structure containing format information exactly as specified by the wav file.
+    drwav_fmt fmt;
+
+    /// The number of bytes per sample.
+    unsigned short bytesPerSample;
+
+    /// Equal to fmt.formatTag, or the value specified by fmt.subFormat is fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE).
+    unsigned short translatedFormatTag;
+
+    /// The total number of samples making up the audio data. Use <sampleCount> * <bytesPerSample> to calculate
+    /// the required size of a buffer to hold the entire audio data.
     unsigned int sampleCount;
 
 } drwav_info;
@@ -107,6 +137,13 @@ void drwav_close(drwav* wav);
 /// Retrieves information about the given wav file.
 drwav_info drwav_get_info(drwav* wav);
 
+/// Reads raw audio data.
+///
+/// @remarks
+///     This is the lowest level function for reading audio data. It simply reads the given number of
+///     bytes of the raw internal sample data.
+size_t drwav_read_raw(drwav* wav, void* bufferOut, size_t bytesToRead);
+
 /// Reads a chunk of audio data in the native internal format.
 ///
 /// @remarks
@@ -114,7 +151,12 @@ drwav_info drwav_get_info(drwav* wav);
 ///     conversions which means you'll need to convert the data manually if required.
 ///     @par
 ///     If the return value is less than <samplesToRead> it means the end of the file has been reached.
-unsigned int drwav_read(drwav* wav, unsigned int samplesToRead, void* bufferOut);
+///     @par
+///     The number of samples that are actually read is clamped based on the size of the output buffer.
+///     @par
+///     This function will only work when sample data is of a fixed size. If you are using an unusual
+///     format which uses variable sized samples, consider using drwav_read_raw(), but don't combine them.
+unsigned int drwav_read(drwav* wav, unsigned int samplesToRead, void* bufferOut, size_t bufferOutSize);
 
 /// Seeks to the given sample.
 ///
@@ -136,9 +178,6 @@ unsigned int drwav_read_f32(drwav* wav, unsigned int samplesToRead, float* buffe
 
 /// Low-level function for converting unsigned 8-bit PCM samples to IEEE 32-bit floating point samples.
 void drwav_u8PCM_to_f32(unsigned int sampleCount, const unsigned char* u8PCM, float* f32Out);
-
-/// Low-level function for converting signed 12-bit PCM samples to IEEE 32-bit floating point samples.
-void drwav_s12PCM_to_f32(unsigned int sampleCount, const unsigned char* s12PCM, float* f32Out);
 
 /// Low-level function for converting signed 16-bit PCM samples to IEEE 32-bit floating point samples.
 void drwav_s16PCM_to_f32(unsigned int sampleCount, const short* s16PCM, float* f32Out);
@@ -200,12 +239,6 @@ drwav* drwav_open_memory(const void* data, size_t dataSize);
 #include <stdio.h>
 #endif
 
-#define DR_WAVE_FORMAT_PCM          0x1
-#define DR_WAVE_FORMAT_IEEE_FLOAT   0x3
-#define DR_WAVE_FORMAT_ALAW         0x6
-#define DR_WAVE_FORMAT_MULAW        0x7
-#define DR_WAVE_FORMAT_EXTENSIBLE   65534
-
 struct drwav
 {
     /// Information about the wav file.
@@ -223,6 +256,103 @@ struct drwav
     /// The number of bytes remaining in the data chunk.
     size_t bytesRemaining;
 };
+
+static int drwav__is_little_endian()
+{
+    int n = 1;
+    return (*(char*)&n) == 1;
+}
+
+static unsigned short drwav__read_u16(const unsigned char* data)
+{
+    if (drwav__is_little_endian()) {
+        return (data[0] << 0) | (data[1] << 8);
+    } else {
+        return (data[1] << 0) | (data[1] << 8);
+    }
+}
+
+static unsigned int drwav__read_u32(const unsigned char* data)
+{
+    if (drwav__is_little_endian()) {
+        return (data[0] << 0) | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+    } else {
+        return (data[3] << 0) | (data[2] << 8) | (data[1] << 16) | (data[0] << 24);
+    }
+}
+
+static void drwav__read_guid(const unsigned char* data, unsigned char* guid)
+{
+    for (int i = 0; i < 16; ++i) {
+        guid[i] = data[i];
+    }
+}
+
+static int drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void* userData, drwav_fmt* fmtOut)
+{
+    unsigned char fmt[24];
+    if (onRead(userData, fmt, sizeof(fmt)) != sizeof(fmt)) {
+        return 0;    // Failed to read data.
+    }
+
+    if (fmt[0] != 'f' || fmt[1] != 'm' || fmt[2] != 't' || fmt[3] != ' ') {
+        return 0;    // Expecting "fmt " (lower case).
+    }
+
+    unsigned int chunkSize = drwav__read_u32(fmt + 4);
+    if (chunkSize < 16) {
+        return 0;    // The fmt chunk should always be at least 16 bytes.
+    }
+
+    if (chunkSize != 16 && chunkSize != 18 && chunkSize != 40) {
+        return 0;    // Unexpected chunk size.
+    }
+
+    fmtOut->formatTag      = drwav__read_u16(fmt + 8);
+    fmtOut->channels       = drwav__read_u16(fmt + 10);
+    fmtOut->sampleRate     = drwav__read_u32(fmt + 12);
+    fmtOut->avgBytesPerSec = drwav__read_u32(fmt + 16);
+    fmtOut->blockAlign     = drwav__read_u16(fmt + 20);
+    fmtOut->bitsPerSample  = drwav__read_u16(fmt + 22);
+    
+    if (chunkSize > 16) {
+        if (chunkSize == 18) {
+            return onSeek(userData, 2);
+        } else {
+            assert(chunkSize == 40);
+
+            unsigned char fmt_cbSize[2];
+            if (onRead(userData, fmt_cbSize, sizeof(fmt_cbSize)) != sizeof(fmt_cbSize)) {
+                return 0;    // Expecting more data.
+            }
+
+            fmtOut->extendedSize = drwav__read_u16(fmt_cbSize + 0);
+            if (fmtOut->extendedSize != 22) {
+                return 0;    // Expecting cbSize to equal 22.
+            }
+
+            unsigned char fmtext[22];
+            if (onRead(userData, fmtext, sizeof(fmtext)) != sizeof(fmtext)) {
+                return 0;    // Expecting more data.
+            }
+
+            fmtOut->validBitsPerSample = drwav__read_u16(fmtext + 0);
+            fmtOut->channelMask        = drwav__read_u32(fmtext + 2);
+            drwav__read_guid(fmtext + 6, fmtOut->subFormat);
+        }
+    } else {
+        fmtOut->extendedSize       = 0;
+        fmtOut->validBitsPerSample = 0;
+        fmtOut->channelMask        = 0;
+        
+        for (int i = 0; i < sizeof(fmtOut->subFormat); ++i) {
+            fmtOut->subFormat[i] = 0;
+        }
+    }
+
+    return 1;
+}
+
 
 #ifndef DR_WAV_NO_STDIO
 static size_t drwav__on_read_stdio(void* userData, void* bufferOut, size_t bytesToRead)
@@ -335,10 +465,10 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* userData
     }
 
     if (riff[0] != 'R' || riff[1] != 'I' || riff[2] != 'F' || riff[3] != 'F') {
-        return NULL;    // Expecting "RIFF". TODO LATER: Add support for "RIFX" (big-ending data).
+        return NULL;    // Expecting "RIFF".
     }
 
-    unsigned int chunkSize = (riff[4] << 0) | (riff[5] << 8) | (riff[6] << 16) | (riff[7] << 24);
+    unsigned int chunkSize = drwav__read_u32(riff + 4);
     if (chunkSize < 36) {
         return NULL;    // Chunk size should always be at least 36 bytes.
     }
@@ -350,60 +480,17 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* userData
 
 
     // The next 24 bytes should be the "fmt " chunk.
-    unsigned char fmt[24];
-    if (onRead(userData, fmt, sizeof(fmt)) != sizeof(fmt)) {
-        return NULL;    // Failed to read data.
+    drwav_fmt fmt;
+    if (!drwav__read_fmt(onRead, onSeek, userData, &fmt)) {
+        return NULL;    // Failed to read the "fmt " chunk.
     }
 
-    if (fmt[0] != 'f' || fmt[1] != 'm' || fmt[2] != 't' || fmt[3] != ' ') {
-        return NULL;    // Expecting "fmt " (lower case).
-    }
 
-    chunkSize = (fmt[4] << 0) | (fmt[5] << 8) | (fmt[6] << 16) | (fmt[7] << 24);
-    if (chunkSize < 16) {
-        return NULL;    // The fmt chunk should always be at least 16 bytes.
+    // Translate the internal format.
+    unsigned short translatedFormatTag = fmt.formatTag;
+    if (translatedFormatTag == DR_WAVE_FORMAT_EXTENSIBLE) {
+        translatedFormatTag = (fmt.subFormat[0] << 0) | (fmt.subFormat[1] << 1);
     }
-
-    unsigned short wFormatTag     = (fmt[ 8] << 0) | (fmt[ 9] << 8);
-    unsigned short nChannels      = (fmt[10] << 0) | (fmt[11] << 8);
-    unsigned int   nSamplesPerSec = (fmt[12] << 0) | (fmt[13] << 8) | (fmt[14] << 16) | (fmt[15] << 24);
-    unsigned short nBlockAlign    = (fmt[20] << 0) | (fmt[21]);
-    unsigned short wBitsPerSample = (fmt[22] << 0) | (fmt[23] << 8);
-    
-    if (chunkSize > 16) {
-        onSeek(userData, chunkSize - 16);
-    }
-
-    // Validate the internal format.
-    drwav_format internalFormat = drwav_format_unknown;
-    if (wFormatTag == DR_WAVE_FORMAT_PCM) {
-        if (wBitsPerSample == 8) {
-            internalFormat = drwav_format_unsigned_pcm_8;
-        } else if (wBitsPerSample == 12) {
-            internalFormat = drwav_format_signed_pcm_12;
-        } else if (wBitsPerSample == 16) {
-            internalFormat = drwav_format_signed_pcm_16;
-        } else if (wBitsPerSample == 24) {
-            internalFormat = drwav_format_signed_pcm_24;
-        } else if (wBitsPerSample == 32) {
-            internalFormat = drwav_format_signed_pcm_32;
-        }
-    } else if (wFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT) {
-        if (wBitsPerSample == 32) {
-            internalFormat = drwav_format_float_32;
-        } else if (wBitsPerSample == 64) {
-            internalFormat = drwav_format_float_64;
-        }
-    } else if (wFormatTag == DR_WAVE_FORMAT_ALAW) {
-        if (wBitsPerSample == 8) {
-            internalFormat = drwav_format_alaw;
-        }
-    } else if (wFormatTag == DR_WAVE_FORMAT_MULAW) {
-        if (wBitsPerSample == 8) {
-            internalFormat = drwav_format_ulaw;
-        }
-    }
-
 
     
     // The next chunk we care about is the "data" chunk. This is not necessarily the next chunk so we'll need to loop.
@@ -415,12 +502,18 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* userData
             return NULL;    // Failed to read data. Probably reached the end.
         }
 
-        dataSize = (chunk[4] << 0) | (chunk[5] << 8) | (chunk[6] << 16) | (chunk[7] << 24);
+        dataSize = drwav__read_u32(chunk + 4);
         if (chunk[0] == 'd' && chunk[1] == 'a' && chunk[2] == 't' && chunk[3] == 'a') {
             break;  // We found the data chunk.
         }
 
         // If we get here it means we didn't find the "data" chunk. Seek past it.
+
+        // Make sure we seek past the pad byte.
+        if (dataSize % 2 != 0) {
+            dataSize += 1;
+        }
+
         if (!onSeek(userData, (int)dataSize)) {
             return NULL;    // Failed to seek past the chunk. Probably reached the end.
         }
@@ -433,13 +526,10 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* userData
         return NULL;
     }
 
-    wav->info.channels       = (unsigned int)nChannels;
-    wav->info.sampleRate     = nSamplesPerSec;
-    wav->info.internalFormat = internalFormat;
-    wav->info.bitsPerSample  = (unsigned int)wBitsPerSample;
-    wav->info.bytesPerSample = (unsigned int)(nBlockAlign / nChannels);
-    wav->info.formatTag      = wFormatTag;
-    wav->info.sampleCount    = dataSize / wav->info.bytesPerSample;
+    wav->info.fmt                 = fmt;
+    wav->info.bytesPerSample      = (unsigned int)(fmt.blockAlign / fmt.channels);
+    wav->info.translatedFormatTag = translatedFormatTag;
+    wav->info.sampleCount         = dataSize / wav->info.bytesPerSample;
 
     wav->onRead         = onRead;
     wav->onSeek         = onSeek;
@@ -482,21 +572,35 @@ drwav_info drwav_get_info(drwav* wav)
 }
 
 
-unsigned int drwav_read(drwav* wav, unsigned int samplesToRead, void* bufferOut)
+size_t drwav_read_raw(drwav* wav, void* bufferOut, size_t bytesToRead)
 {
-    if (wav == NULL || samplesToRead == 0 || bufferOut == NULL) {
+    if (wav == NULL || bytesToRead == 0 || bufferOut == NULL) {
         return 0;
     }
 
-    size_t bytesToRead = samplesToRead * wav->info.bytesPerSample;
     if (bytesToRead > wav->bytesRemaining) {
         bytesToRead = wav->bytesRemaining;
     }
 
     size_t bytesRead = wav->onRead(wav->userData, bufferOut, bytesToRead);
-    
-    wav->bytesRemaining -= bytesRead;
 
+    wav->bytesRemaining -= bytesRead;
+    return bytesRead;
+}
+
+unsigned int drwav_read(drwav* wav, unsigned int samplesToRead, void* bufferOut, size_t bufferOutSize)
+{
+    if (wav == NULL || samplesToRead == 0 || bufferOut == NULL) {
+        return 0;
+    }
+
+    unsigned int maxSamples = (unsigned int)(bufferOutSize / wav->info.bytesPerSample);
+    if (samplesToRead > maxSamples) {
+        samplesToRead = maxSamples;
+    }
+
+    size_t bytesRead = drwav_read_raw(wav, bufferOut, samplesToRead * wav->info.bytesPerSample);
+    
     return (unsigned int)(bytesRead / wav->info.bytesPerSample);
 }
 
@@ -551,6 +655,71 @@ int drwav_seek(drwav* wav, unsigned int sample)
 
 
 #ifndef DR_WAV_NO_CONVERSION_API
+static int drwav__pcm_to_f32(unsigned int sampleCount, const unsigned char* pPCM, unsigned short bytesPerSample, float* f32Out)
+{
+    if (pPCM == NULL || f32Out == NULL) {
+        return 0;
+    }
+
+    // Special case for 8-bit sample data because it's treated as unsigned.
+    if (bytesPerSample == 1) {
+        drwav_u8PCM_to_f32(sampleCount, pPCM, f32Out);
+        return 1;
+    }
+
+
+    // Slightly more optimal implementation for common formats.
+    if (bytesPerSample == 2) {
+        //drwav_s16PCM_to_f32(sampleCount, (const short*)pPCM, f32Out);
+        //return 1;
+    }
+    if (bytesPerSample == 3) {
+        //drwav_s24PCM_to_f32(sampleCount, pPCM, f32Out);
+        //return 1;
+    }
+    if (bytesPerSample == 4) {
+        //drwav_s32PCM_to_f32(sampleCount, (const int*)pPCM, f32Out);
+        //return 1;
+    }
+
+
+    // Generic, slow converter.
+    for (unsigned int i = 0; i < sampleCount; ++i)
+    {
+        unsigned int sample = 0;
+        unsigned int shift  = (8 - bytesPerSample) * 8;
+        for (unsigned short j = 0; j < bytesPerSample && j < 4; ++j) {
+            sample |= (unsigned int)(pPCM[j]) << shift;
+            shift  += 8;
+        }
+
+        pPCM += bytesPerSample;
+        *f32Out++ = (float)((int)sample / 2147483648.0);
+    }
+
+    return 1;
+}
+
+static int drwav__ieee_to_f32(unsigned int sampleCount, const unsigned char* pDataIn, unsigned short bytesPerSample, float* f32Out)
+{
+    if (pDataIn == NULL || f32Out == NULL) {
+        return 0;
+    }
+
+    if (bytesPerSample == 32) {
+        for (unsigned int i = 0; i < sampleCount; ++i) {
+            *f32Out++ = ((float*)pDataIn)[i];
+        }
+        return 1;
+    } else {
+        drwav_f64_to_f32(sampleCount, (double*)pDataIn, f32Out);
+        return 1;
+    }
+
+    return 0;
+}
+
+
 unsigned int drwav_read_f32(drwav* wav, unsigned int samplesToRead, float* bufferOut)
 {
     if (wav == NULL || samplesToRead == 0 || bufferOut == NULL) {
@@ -558,222 +727,95 @@ unsigned int drwav_read_f32(drwav* wav, unsigned int samplesToRead, float* buffe
     }
 
     // Fast path.
-    if (wav->info.internalFormat == drwav_format_float_32) {
-        return drwav_read(wav, samplesToRead, bufferOut);
+    if (wav->info.translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT && wav->info.bytesPerSample == 4) {
+        return drwav_read(wav, samplesToRead, bufferOut, samplesToRead * sizeof(float));
     }
 
-    
+
     // Slow path. Need to read and convert.
-    unsigned int samplesRead = 0;
-    switch (wav->info.internalFormat)
+    unsigned int totalSamplesRead = 0;
+
+    if (wav->info.translatedFormatTag == DR_WAVE_FORMAT_PCM)
     {
-        case drwav_format_unsigned_pcm_8:
+        char sampleData[4096];
+        while (samplesToRead > 0)
         {
-            // unsigned 8-bit PCM -> 32-bit float
-            while (samplesRead < samplesToRead)
-            {
-                unsigned char rawSamples[4096];
-
-                unsigned int rawSamplesToRead = sizeof(rawSamples);
-                if (rawSamplesToRead > samplesToRead) {
-                    rawSamplesToRead = samplesToRead;
-                }
-                
-                unsigned int rawSamplesRead = drwav_read(wav, rawSamplesToRead, rawSamples);
-                if (rawSamplesRead == 0) {
-                    break;
-                }
-
-                drwav_u8PCM_to_f32(rawSamplesRead, rawSamples, bufferOut);
-                bufferOut += rawSamplesRead;
-
-                samplesToRead -= rawSamplesRead;
-                samplesRead += rawSamplesRead;
+            unsigned int samplesRead = drwav_read(wav, samplesToRead, sampleData, sizeof(sampleData));
+            if (samplesRead == 0) {
+                break;
             }
-        } break;
 
-        case drwav_format_signed_pcm_12:
-        {
-            // signed 12-bit PCM -> 32-bit float.
-            while (samplesRead < samplesToRead)
-            {
-                unsigned char rawSamples[2048];
+            drwav__pcm_to_f32(samplesRead, sampleData, wav->info.bytesPerSample, bufferOut);
+            bufferOut += samplesRead;
 
-                unsigned int rawSamplesToRead = 2048;
-                if (rawSamplesToRead > samplesToRead) {
-                    rawSamplesToRead = samplesToRead;
-                }
-                
-                unsigned int rawSamplesRead = drwav_read(wav, rawSamplesToRead, rawSamples);
-                if (rawSamplesRead == 0) {
-                    break;
-                }
+            samplesToRead    -= samplesRead;
+            totalSamplesRead += samplesRead;
+        }
 
-                drwav_s12PCM_to_f32(rawSamplesRead, rawSamples, bufferOut);
-                bufferOut += rawSamplesRead;
-
-                samplesToRead -= rawSamplesRead;
-                samplesRead += rawSamplesRead;
-            }
-        } break;
-
-        case drwav_format_signed_pcm_16:
-        {
-            // signed 16-bit PCM -> 32-bit float
-            while (samplesRead < samplesToRead)
-            {
-                short rawSamples[2048];
-
-                unsigned int rawSamplesToRead = 2048;
-                if (rawSamplesToRead > samplesToRead) {
-                    rawSamplesToRead = samplesToRead;
-                }
-                
-                unsigned int rawSamplesRead = drwav_read(wav, rawSamplesToRead, rawSamples);
-                if (rawSamplesRead == 0) {
-                    break;
-                }
-
-                drwav_s16PCM_to_f32(rawSamplesRead, rawSamples, bufferOut);
-                bufferOut += rawSamplesRead;
-
-                samplesToRead -= rawSamplesRead;
-                samplesRead += rawSamplesRead;
-            }
-        } break;
-
-        case drwav_format_signed_pcm_24:
-        {
-            // signed 24-bit PCM -> 32-bit float
-            while (samplesRead < samplesToRead)
-            {
-                unsigned char rawSamples[3072];
-
-                unsigned int rawSamplesToRead = 3072;
-                if (rawSamplesToRead > samplesToRead) {
-                    rawSamplesToRead = samplesToRead;
-                }
-                
-                unsigned int rawSamplesRead = drwav_read(wav, rawSamplesToRead, rawSamples);
-                if (rawSamplesRead == 0) {
-                    break;
-                }
-
-                drwav_s24PCM_to_f32(rawSamplesRead, rawSamples, bufferOut);
-                bufferOut += rawSamplesRead;
-
-                samplesToRead -= rawSamplesRead;
-                samplesRead += rawSamplesRead;
-            }
-        } break;
-
-        case drwav_format_signed_pcm_32:
-        {
-            // signed 32-bit PCM -> 32-bit float
-            while (samplesRead < samplesToRead)
-            {
-                int rawSamples[1024];
-
-                unsigned int rawSamplesToRead = 1024;
-                if (rawSamplesToRead > samplesToRead) {
-                    rawSamplesToRead = samplesToRead;
-                }
-                
-                unsigned int rawSamplesRead = drwav_read(wav, rawSamplesToRead, rawSamples);
-                if (rawSamplesRead == 0) {
-                    break;
-                }
-
-                drwav_s32PCM_to_f32(rawSamplesRead, rawSamples, bufferOut);
-                bufferOut += rawSamplesRead;
-
-                samplesToRead -= rawSamplesRead;
-                samplesRead += rawSamplesRead;
-            }
-        } break;
-
-        case drwav_format_float_64:
-        {
-            // 64-bit float -> 32-bit float
-            while (samplesRead < samplesToRead)
-            {
-                double rawSamples[512];
-
-                unsigned int rawSamplesToRead = 512;
-                if (rawSamplesToRead > samplesToRead) {
-                    rawSamplesToRead = samplesToRead;
-                }
-                
-                unsigned int rawSamplesRead = drwav_read(wav, rawSamplesToRead, rawSamples);
-                if (rawSamplesRead == 0) {
-                    break;
-                }
-
-                drwav_f64_to_f32(rawSamplesRead, rawSamples, bufferOut);
-                bufferOut += rawSamplesRead;
-
-                samplesToRead -= rawSamplesRead;
-                samplesRead += rawSamplesRead;
-            }
-        } break;
-
-        case drwav_format_alaw:
-        {
-            // A-law -> 32-bit float
-            while (samplesRead < samplesToRead)
-            {
-                unsigned char rawSamples[4096];
-
-                unsigned int rawSamplesToRead = 4096;
-                if (rawSamplesToRead > samplesToRead) {
-                    rawSamplesToRead = samplesToRead;
-                }
-                
-                unsigned int rawSamplesRead = drwav_read(wav, rawSamplesToRead, rawSamples);
-                if (rawSamplesRead == 0) {
-                    break;
-                }
-
-                drwav_alaw_to_f32(rawSamplesRead, rawSamples, bufferOut);
-                bufferOut += rawSamplesRead;
-
-                samplesToRead -= rawSamplesRead;
-                samplesRead += rawSamplesRead;
-            }
-        } break;
-
-        case drwav_format_ulaw:
-        {
-            // u-law -> 32-bit float
-            while (samplesRead < samplesToRead)
-            {
-                unsigned char rawSamples[4096];
-
-                unsigned int rawSamplesToRead = 4096;
-                if (rawSamplesToRead > samplesToRead) {
-                    rawSamplesToRead = samplesToRead;
-                }
-                
-                unsigned int rawSamplesRead = drwav_read(wav, rawSamplesToRead, rawSamples);
-                if (rawSamplesRead == 0) {
-                    break;
-                }
-
-                drwav_ulaw_to_f32(rawSamplesRead, rawSamples, bufferOut);
-                bufferOut += rawSamplesRead;
-
-                samplesToRead -= rawSamplesRead;
-                samplesRead += rawSamplesRead;
-            }
-        } break;
-
-        case drwav_format_float_32:
-        case drwav_format_unknown:
-        default: break;
+        return totalSamplesRead;
     }
 
+    if (wav->info.translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT)
+    {
+        char sampleData[4096];
+        while (samplesToRead > 0)
+        {
+            unsigned int samplesRead = drwav_read(wav, samplesToRead, sampleData, sizeof(sampleData));
+            if (samplesRead == 0) {
+                break;
+            }
 
-    return samplesRead;
+            drwav__ieee_to_f32(samplesRead, sampleData, wav->info.bytesPerSample, bufferOut);
+            bufferOut += samplesRead;
+
+            samplesToRead    -= samplesRead;
+            totalSamplesRead += samplesRead;
+        }
+
+        return totalSamplesRead;
+    }
+
+    if (wav->info.translatedFormatTag == DR_WAVE_FORMAT_ALAW)
+    {
+        char sampleData[4096];
+        while (samplesToRead > 0)
+        {
+            unsigned int samplesRead = drwav_read(wav, samplesToRead, sampleData, sizeof(sampleData));
+            if (samplesRead == 0) {
+                break;
+            }
+
+            drwav_alaw_to_f32(samplesRead, sampleData, bufferOut);
+            bufferOut += samplesRead;
+
+            samplesToRead    -= samplesRead;
+            totalSamplesRead += samplesRead;
+        }
+
+        return totalSamplesRead;
+    }
+
+    if (wav->info.translatedFormatTag == DR_WAVE_FORMAT_MULAW)
+    {
+        char sampleData[4096];
+        while (samplesToRead > 0)
+        {
+            unsigned int samplesRead = drwav_read(wav, samplesToRead, sampleData, sizeof(sampleData));
+            if (samplesRead == 0) {
+                break;
+            }
+
+            drwav_ulaw_to_f32(samplesRead, sampleData, bufferOut);
+            bufferOut += samplesRead;
+
+            samplesToRead    -= samplesRead;
+            totalSamplesRead += samplesRead;
+        }
+
+        return totalSamplesRead;
+    }
+
+    return totalSamplesRead;
 }
 
 void drwav_u8PCM_to_f32(unsigned int sampleCount, const unsigned char* u8PCM, float* f32Out)
@@ -785,22 +827,6 @@ void drwav_u8PCM_to_f32(unsigned int sampleCount, const unsigned char* u8PCM, fl
     for (unsigned int i = 0; i < sampleCount; ++i)
     {
         *f32Out++ = (u8PCM[i] / 255.0f) * 2 - 1;
-    }
-}
-
-void drwav_s12PCM_to_f32(unsigned int sampleCount, const unsigned char* s12PCM, float* f32Out)
-{
-    if (s12PCM == NULL || f32Out == NULL) {
-        return;
-    }
-
-    for (unsigned int i = 0; i < sampleCount; ++i)
-    {
-        unsigned short s12PCM0 = *s12PCM++;
-        unsigned short s12PCM1 = *s12PCM++;
-        short sample = (s12PCM0 | (s12PCM1 << 8));
-
-        *f32Out++ = sample / 32768.0f;
     }
 }
 
@@ -829,7 +855,7 @@ void drwav_s24PCM_to_f32(unsigned int sampleCount, const unsigned char* s24PCM, 
         unsigned int s2 = s24PCM[i*3 + 2];
 
         int sample32 = (int)((s0 << 8) | (s1 << 16) | (s2 << 24));
-        *f32Out++ = sample32 / 2147483648.0f;
+        *f32Out++ = (float)(sample32 / 2147483648.0);
     }
 }
 
@@ -841,7 +867,7 @@ void drwav_s32PCM_to_f32(unsigned int sampleCount, const int* s32PCM, float* f32
 
     for (unsigned int i = 0; i < sampleCount; ++i)
     {
-        *f32Out++ = s32PCM[i] / 2147483648.0f;
+        *f32Out++ = (float)(s32PCM[i] / 2147483648.0);
     }
 }
 

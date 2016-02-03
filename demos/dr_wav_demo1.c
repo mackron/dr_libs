@@ -15,12 +15,17 @@ int main(int argc, char** argv)
     //drwav* pWav = drwav_open_file("M1F1-uint8-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-float64-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-float32-AFsp.wav");
-    //drwav* pWav = drwav_open_file("M1F1-int32-AFsp.wav");
+    drwav* pWav = drwav_open_file("M1F1-int32-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-int24-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-Alaw-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-mulaw-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-int16-AFsp.wav");
-    drwav* pWav = drwav_open_file("M1F1-int12WE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-int12WE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("Track09.wav");
+    //drwav* pWav = drwav_open_file("Utopia Critical Stop.WAV");
+    //drwav* pWav = drwav_open_file("GLASS.WAV");
+    //drwav* pWav = drwav_open_file("Ptjunk.wav");
+    //drwav* pWav = drwav_open_file("Pmiscck.wav"); 
     if (pWav == NULL) {
         return -1;
     }
@@ -32,11 +37,11 @@ int main(int argc, char** argv)
 
     // This horribly ineffcient loop is just to test reading of audio files where the bits per sample do
     // not cleanly fit within a byte (for example 12 bits per sample).
-    float* pRunningData = pData;
+    /*float* pRunningData = pData;
     while (drwav_read_f32(pWav, 1, pRunningData) > 0) {
         pRunningData += 1;
-    }
-    //drwav_read_f32(pWav, info.sampleCount, pData);
+    }*/
+    drwav_read_f32(pWav, info.sampleCount, pData);
 
 
     draudio_context* pContext = draudio_create_context();
@@ -51,8 +56,8 @@ int main(int argc, char** argv)
 
     draudio_buffer_desc bufferDesc;
     bufferDesc.format        = draudio_format_float;
-    bufferDesc.channels      = info.channels;
-    bufferDesc.sampleRate    = info.sampleRate;
+    bufferDesc.channels      = info.fmt.channels;
+    bufferDesc.sampleRate    = info.fmt.sampleRate;
     bufferDesc.bitsPerSample = sizeof(float)*8;
     bufferDesc.sizeInBytes   = dataSize;
     bufferDesc.pData         = pData;
