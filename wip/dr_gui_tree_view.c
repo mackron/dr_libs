@@ -8,12 +8,12 @@
 #define PRIVATE static
 #endif
 
-typedef struct eg_tree_view eg_tree_view;
+typedef struct drgui_tree_view drgui_tree_view;
 
-struct eg_tree_view
+struct drgui_tree_view
 {
     /// The root tree-view item.
-    eg_tree_view_item* pRootItem;
+    drgui_tree_view_item* pRootItem;
 
     /// The vertical scrollbar.
     drgui_element* pScrollbarV;
@@ -36,23 +36,23 @@ struct eg_tree_view
 
 
     /// The function to call when an item needs to handle a mouse movement event.
-    tvi_on_mouse_move_proc onItemMouseMove;
+    drgui_tvi_on_mouse_move_proc onItemMouseMove;
 
     /// The function to call when an item needs to handle a mouse leave event.
-    tvi_on_mouse_leave_proc onItemMouseLeave;
+    drgui_tvi_on_mouse_leave_proc onItemMouseLeave;
 
     /// The function to call when an item needs to be drawn.
-    tvi_on_paint_proc onItemPaint;
+    drgui_tvi_on_paint_proc onItemPaint;
 
     /// The function to call when an item needs to be measured.
-    tvi_measure_proc onItemMeasure;
+    drgui_tvi_measure_proc onItemMeasure;
 
     /// The function to call when an item is picked.
-    tvi_on_picked_proc onItemPicked;
+    drgui_tvi_on_picked_proc onItemPicked;
 
 
     /// A pointer to the item the mouse is current hovered over.
-    eg_tree_view_item* pHoveredItem;
+    drgui_tree_view_item* pHoveredItem;
 
     /// Whether or not the mouse is hovered over the arrow of pHoveredItem.
     bool isMouseOverArrow;
@@ -81,26 +81,26 @@ struct eg_tree_view
     char pExtraData[1];
 };
 
-struct eg_tree_view_item
+struct drgui_tree_view_item
 {
     /// The tree-view control that owns this item.
     drgui_element* pTVElement;
 
 
     /// A pointer to the parent item.
-    eg_tree_view_item* pParent;
+    drgui_tree_view_item* pParent;
 
     /// A pointer to the first child.
-    eg_tree_view_item* pFirstChild;
+    drgui_tree_view_item* pFirstChild;
 
     /// A pointer to the last child.
-    eg_tree_view_item* pLastChild;
+    drgui_tree_view_item* pLastChild;
 
     /// A pointer to the next sibling.
-    eg_tree_view_item* pNextSibling;
+    drgui_tree_view_item* pNextSibling;
 
     /// A pointer to the prev sibling.
-    eg_tree_view_item* pPrevSibling;
+    drgui_tree_view_item* pPrevSibling;
 
 
     /// Whether or not the item is select.
@@ -120,7 +120,7 @@ struct eg_tree_view_item
 typedef struct
 {
     /// A pointer to the relevant item.
-    eg_tree_view_item* pItem;
+    drgui_tree_view_item* pItem;
 
     /// The width of the item.
     float width;
@@ -137,7 +137,7 @@ typedef struct
     /// The depth of the item. This is used to calculate the offset of the item.
     int depth;
 
-} eg_tree_view_iterator;
+} drgui_tree_view_iterator;
 
 typedef struct
 {
@@ -153,14 +153,14 @@ typedef struct
     /// Top position of the item on the y axis.
     float posY;
 
-} eg_tree_view_item_metrics;
+} drgui_tree_view_item_metrics;
 
 typedef struct
 {
     /// A pointer to the tree-view control that owns the scrollbar.
     drgui_element* pTVElement;
 
-} eg_tree_view_scrollbar_data;
+} drgui_tree_view_scrollbar_data;
 
 
 
@@ -172,80 +172,80 @@ typedef struct
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Refreshes the layout of the given tree-view control and schedules a redraw.
-PRIVATE void tv_refresh_and_redraw(drgui_element* pTVElement);
+PRIVATE void drgui_tv_refresh_and_redraw(drgui_element* pTVElement);
 
 /// Repositions and resizes the scrollbars of the given tree-view control.
-PRIVATE void tv_refresh_scrollbar_layouts(drgui_element* pTVElement);
+PRIVATE void drgui_tv_refresh_scrollbar_layouts(drgui_element* pTVElement);
 
 /// Refreshes the ranges and page sizes of the scrollbars of the given tree-view control.
-PRIVATE void tv_refresh_scrollbar_ranges(drgui_element* pTVElement);
+PRIVATE void drgui_tv_refresh_scrollbar_ranges(drgui_element* pTVElement);
 
 /// Retrieves the rectangle of the little space that sits between the two scrollbars.
-PRIVATE drgui_rect tv_get_scrollbar_dead_space_rect(drgui_element* pTVElement);
+PRIVATE drgui_rect drgui_tv_get_scrollbar_dead_space_rect(drgui_element* pTVElement);
 
 /// Retrieves the rectangle region that does not include the scrollbars. This rectangle is used for clipping when drawing the tree-view.
-PRIVATE drgui_rect tv_get_inner_rect(drgui_element* pTVElement);
+PRIVATE drgui_rect drgui_tv_get_inner_rect(drgui_element* pTVElement);
 
 /// Paints the items of the given tree-view control.
-PRIVATE void tv_paint_items(drgui_element* pTVElement, drgui_rect relativeClippingRect, void* pPaintData, float* pItemsBottomOut);
+PRIVATE void drgui_tv_paint_items(drgui_element* pTVElement, drgui_rect relativeClippingRect, void* pPaintData, float* pItemsBottomOut);
 
 /// Creates an iterator beginning at the given item.
-PRIVATE bool tv_begin_at(eg_tree_view_item* pFirst, eg_tree_view_iterator* pIteratorOut);
+PRIVATE bool drgui_tv_begin_at(drgui_tree_view_item* pFirst, drgui_tree_view_iterator* pIteratorOut);
 
 /// Moves to the next item in the iterator.
-PRIVATE bool tv_next_visible(eg_tree_view_iterator* pIterator);
+PRIVATE bool drgui_tv_next_visible(drgui_tree_view_iterator* pIterator);
 
 /// Paints the given item.
-PRIVATE void tv_paint_item(drgui_element* pTVElement, eg_tree_view_item* pItem, drgui_rect relativeClippingRect, float posX, float posY, float width, float height, void* pPaintData);
+PRIVATE void drgui_tv_paint_item(drgui_element* pTVElement, drgui_tree_view_item* pItem, drgui_rect relativeClippingRect, float posX, float posY, float width, float height, void* pPaintData);
 
 /// Finds the item under the given point.
-PRIVATE eg_tree_view_item* tv_find_item_under_point(drgui_element* pTV, float relativePosX, float relativePosY, eg_tree_view_item_metrics* pMetricsOut);
+PRIVATE drgui_tree_view_item* drgui_tv_find_item_under_point(drgui_element* pTV, float relativePosX, float relativePosY, drgui_tree_view_item_metrics* pMetricsOut);
 
 /// Recursively deselects every item, including the given one.
-PRIVATE void tv_deselect_all_items_recursive(eg_tree_view_item* pItem);
+PRIVATE void drgui_tv_deselect_all_items_recursive(drgui_tree_view_item* pItem);
 
 /// Called when the mouse enters a scrollbar. We use this to ensure there are no items marked as hovered as the use moves the
 /// mouse from the tree-view to the scrollbars.
-PRIVATE void tv_on_mouse_enter_scrollbar(drgui_element* pSBElement);
+PRIVATE void drgui_tv_on_mouse_enter_scrollbar(drgui_element* pSBElement);
 
 /// Called when the vertical scrollbar is scrolled.
-PRIVATE void tv_on_scroll_v(drgui_element* pSBElement, int scrollPos);
+PRIVATE void drgui_tv_on_scroll_v(drgui_element* pSBElement, int scrollPos);
 
 /// Called when the horizontal scrollbar is scrolled.
-PRIVATE void tv_on_scroll_h(drgui_element* pSBElement, int scrollPos);
+PRIVATE void drgui_tv_on_scroll_h(drgui_element* pSBElement, int scrollPos);
 
 /// Retrieves a pointer to the first visible item on the page, based on the scroll position.
-PRIVATE eg_tree_view_item* tv_find_first_visible_item_on_page(drgui_element* pTVElement);
+PRIVATE drgui_tree_view_item* drgui_tv_find_first_visible_item_on_page(drgui_element* pTVElement);
 
 
-drgui_element* eg_create_tree_view(drgui_context* pContext, drgui_element* pParent, size_t extraDataSize, const void* pExtraData)
+drgui_element* drgui_create_tree_view(drgui_context* pContext, drgui_element* pParent, size_t extraDataSize, const void* pExtraData)
 {
-    drgui_element* pTVElement = drgui_create_element(pContext, pParent, sizeof(eg_tree_view) - sizeof(char) + extraDataSize, NULL);
+    drgui_element* pTVElement = drgui_create_element(pContext, pParent, sizeof(drgui_tree_view) - sizeof(char) + extraDataSize, NULL);
     if (pTVElement == NULL) {
         return NULL;
     }
 
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
 
-    pTV->pRootItem = tv_create_item(pTVElement, NULL, 0, NULL);
+    pTV->pRootItem = drgui_tv_create_item(pTVElement, NULL, 0, NULL);
     if (pTV->pRootItem == NULL) {
         return NULL;
     }
 
 
-    eg_tree_view_scrollbar_data sbdata;
+    drgui_tree_view_scrollbar_data sbdata;
     sbdata.pTVElement = pTVElement;
 
     pTV->pScrollbarV = drgui_create_scrollbar(pContext, pTVElement, drgui_sb_orientation_vertical, sizeof(sbdata), &sbdata);
-    drgui_set_on_mouse_enter(pTV->pScrollbarV, tv_on_mouse_enter_scrollbar);
-    drgui_sb_set_on_scroll(pTV->pScrollbarV, tv_on_scroll_v);
+    drgui_set_on_mouse_enter(pTV->pScrollbarV, drgui_tv_on_mouse_enter_scrollbar);
+    drgui_sb_set_on_scroll(pTV->pScrollbarV, drgui_tv_on_scroll_v);
     
     pTV->pScrollbarH = drgui_create_scrollbar(pContext, pTVElement, drgui_sb_orientation_horizontal, sizeof(sbdata), &sbdata);
-    drgui_set_on_mouse_enter(pTV->pScrollbarH, tv_on_mouse_enter_scrollbar);
-    drgui_sb_set_on_scroll(pTV->pScrollbarH, tv_on_scroll_h);
+    drgui_set_on_mouse_enter(pTV->pScrollbarH, drgui_tv_on_mouse_enter_scrollbar);
+    drgui_sb_set_on_scroll(pTV->pScrollbarH, drgui_tv_on_scroll_h);
 
 
     pTV->defaultBGColor    = drgui_rgb(96, 96, 96);
@@ -275,14 +275,14 @@ drgui_element* eg_create_tree_view(drgui_context* pContext, drgui_element* pPare
 
 
     // Default event handlers.
-    drgui_set_on_size(pTVElement, tv_on_size);
-    drgui_set_on_mouse_leave(pTVElement, tv_on_mouse_leave);
-    drgui_set_on_mouse_move(pTVElement, tv_on_mouse_move);
-    drgui_set_on_mouse_button_down(pTVElement, tv_on_mouse_button_down);
-    drgui_set_on_mouse_button_up(pTVElement, tv_on_mouse_button_up);
-    drgui_set_on_mouse_button_dblclick(pTVElement, tv_on_mouse_button_dblclick);
-    drgui_set_on_mouse_wheel(pTVElement, tv_on_mouse_wheel);
-    drgui_set_on_paint(pTVElement, tv_on_paint);
+    drgui_set_on_size(pTVElement, drgui_tv_on_size);
+    drgui_set_on_mouse_leave(pTVElement, drgui_tv_on_mouse_leave);
+    drgui_set_on_mouse_move(pTVElement, drgui_tv_on_mouse_move);
+    drgui_set_on_mouse_button_down(pTVElement, drgui_tv_on_mouse_button_down);
+    drgui_set_on_mouse_button_up(pTVElement, drgui_tv_on_mouse_button_up);
+    drgui_set_on_mouse_button_dblclick(pTVElement, drgui_tv_on_mouse_button_dblclick);
+    drgui_set_on_mouse_wheel(pTVElement, drgui_tv_on_mouse_wheel);
+    drgui_set_on_paint(pTVElement, drgui_tv_on_paint);
 
 
     // Set the mouse wheel scale to 3 by default for the vertical scrollbar.
@@ -292,24 +292,24 @@ drgui_element* eg_create_tree_view(drgui_context* pContext, drgui_element* pPare
     return pTVElement;
 }
 
-void eg_delete_tree_view(drgui_element* pTVElement)
+void drgui_delete_tree_view(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
 
     // Recursively delete the tree view items.
-    tvi_delete(pTV->pRootItem);
+    drgui_tvi_delete(pTV->pRootItem);
 
     // Delete the element last.
     drgui_delete_element(pTVElement);
 }
 
 
-size_t tv_get_extra_data_size(drgui_element* pTVElement)
+size_t drgui_tv_get_extra_data_size(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return 0;
     }
@@ -317,9 +317,9 @@ size_t tv_get_extra_data_size(drgui_element* pTVElement)
     return pTV->extraDataSize;
 }
 
-void* tv_get_extra_data(drgui_element* pTVElement)
+void* drgui_tv_get_extra_data(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -327,9 +327,9 @@ void* tv_get_extra_data(drgui_element* pTVElement)
     return pTV->pExtraData;
 }
 
-eg_tree_view_item* tv_get_root_item(drgui_element* pTVElement)
+drgui_tree_view_item* drgui_tv_get_root_item(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -337,9 +337,9 @@ eg_tree_view_item* tv_get_root_item(drgui_element* pTVElement)
     return pTV->pRootItem;
 }
 
-drgui_element* tv_get_vertical_scrollbar(drgui_element* pTVElement)
+drgui_element* drgui_tv_get_vertical_scrollbar(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -347,9 +347,9 @@ drgui_element* tv_get_vertical_scrollbar(drgui_element* pTVElement)
     return pTV->pScrollbarV;
 }
 
-drgui_element* tv_get_horizontal_scrollbar(drgui_element* pTVElement)
+drgui_element* drgui_tv_get_horizontal_scrollbar(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -358,9 +358,9 @@ drgui_element* tv_get_horizontal_scrollbar(drgui_element* pTVElement)
 }
 
 
-void tv_set_default_background_color(drgui_element* pTVElement, drgui_color color)
+void drgui_tv_set_default_background_color(drgui_element* pTVElement, drgui_color color)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -368,9 +368,9 @@ void tv_set_default_background_color(drgui_element* pTVElement, drgui_color colo
     pTV->defaultBGColor = color;
 }
 
-drgui_color tv_get_default_background_color(drgui_element* pTVElement)
+drgui_color drgui_tv_get_default_background_color(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_rgb(0, 0, 0);
     }
@@ -378,9 +378,9 @@ drgui_color tv_get_default_background_color(drgui_element* pTVElement)
     return pTV->defaultBGColor;
 }
 
-void tv_set_hovered_background_color(drgui_element* pTVElement, drgui_color color)
+void drgui_tv_set_hovered_background_color(drgui_element* pTVElement, drgui_color color)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -388,9 +388,9 @@ void tv_set_hovered_background_color(drgui_element* pTVElement, drgui_color colo
     pTV->hoveredBGColor = color;
 }
 
-drgui_color tv_get_hovered_background_color(drgui_element* pTVElement)
+drgui_color drgui_tv_get_hovered_background_color(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_rgb(0, 0, 0);
     }
@@ -398,9 +398,9 @@ drgui_color tv_get_hovered_background_color(drgui_element* pTVElement)
     return pTV->hoveredBGColor;
 }
 
-void tv_set_selected_background_color(drgui_element* pTVElement, drgui_color color)
+void drgui_tv_set_selected_background_color(drgui_element* pTVElement, drgui_color color)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -408,9 +408,9 @@ void tv_set_selected_background_color(drgui_element* pTVElement, drgui_color col
     pTV->selectedBGColor = color;
 }
 
-drgui_color tv_get_selected_background_color(drgui_element* pTVElement)
+drgui_color drgui_tv_get_selected_background_color(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_rgb(0, 0, 0);
     }
@@ -418,9 +418,9 @@ drgui_color tv_get_selected_background_color(drgui_element* pTVElement)
     return pTV->selectedBGColor;
 }
 
-void tv_set_child_offset_x(drgui_element* pTVElement, float childOffsetX)
+void drgui_tv_set_child_offset_x(drgui_element* pTVElement, float childOffsetX)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -428,9 +428,9 @@ void tv_set_child_offset_x(drgui_element* pTVElement, float childOffsetX)
     pTV->childOffsetX = childOffsetX;
 }
 
-float tv_get_child_offset_x(drgui_element* pTVElement)
+float drgui_tv_get_child_offset_x(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return 0;
     }
@@ -439,9 +439,9 @@ float tv_get_child_offset_x(drgui_element* pTVElement)
 }
 
 
-bool tv_measure_item(drgui_element* pTVElement, eg_tree_view_item* pItem, float* pWidthOut, float* pHeightOut)
+bool drgui_tv_measure_item(drgui_element* pTVElement, drgui_tree_view_item* pItem, float* pWidthOut, float* pHeightOut)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return false;
     }
@@ -459,23 +459,23 @@ bool tv_measure_item(drgui_element* pTVElement, eg_tree_view_item* pItem, float*
     return false;
 }
 
-void tv_deselect_all_items(drgui_element* pTVElement)
+void drgui_tv_deselect_all_items(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
 
-    tv_deselect_all_items_recursive(pTV->pRootItem);
+    drgui_tv_deselect_all_items_recursive(pTV->pRootItem);
 
     // TODO: Only redraw the region that actually changed.
     drgui_dirty(pTVElement, drgui_get_local_rect(pTVElement));
 }
 
 
-void tv_enable_multi_select(drgui_element* pTVElement)
+void drgui_tv_enable_multi_select(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -483,9 +483,9 @@ void tv_enable_multi_select(drgui_element* pTVElement)
     pTV->isMultiSelectEnabled = true;
 }
 
-void tv_disable_multi_select(drgui_element* pTVElement)
+void drgui_tv_disable_multi_select(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -493,9 +493,9 @@ void tv_disable_multi_select(drgui_element* pTVElement)
     pTV->isMultiSelectEnabled = false;
 }
 
-bool tv_is_multi_select_enabled(drgui_element* pTVElement)
+bool drgui_tv_is_multi_select_enabled(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return false;
     }
@@ -503,42 +503,42 @@ bool tv_is_multi_select_enabled(drgui_element* pTVElement)
     return pTV->isMultiSelectEnabled;
 }
 
-eg_tree_view_item* tv_get_first_selected_item(drgui_element* pTVElement)
+drgui_tree_view_item* drgui_tv_get_first_selected_item(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
 
-    eg_tree_view_iterator i;
-    if (tv_begin_at(pTV->pRootItem->pFirstChild, &i))
+    drgui_tree_view_iterator i;
+    if (drgui_tv_begin_at(pTV->pRootItem->pFirstChild, &i))
     {
         do
         {
-            if (tvi_is_selected(i.pItem)) {
+            if (drgui_tvi_is_selected(i.pItem)) {
                 return i.pItem;
             }
 
-        } while (tv_next_visible(&i));
+        } while (drgui_tv_next_visible(&i));
     }
 
     return NULL;
 }
 
-eg_tree_view_item* tv_get_next_selected_item(drgui_element* pTVElement, eg_tree_view_item* pItem)
+drgui_tree_view_item* drgui_tv_get_next_selected_item(drgui_element* pTVElement, drgui_tree_view_item* pItem)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
 
-    eg_tree_view_iterator i;
-    if (tv_begin_at(pItem, &i))
+    drgui_tree_view_iterator i;
+    if (drgui_tv_begin_at(pItem, &i))
     {
         // Note that we're not including <pItem> in this iteration.
-        while (tv_next_visible(&i))
+        while (drgui_tv_next_visible(&i))
         {
-            if (tvi_is_selected(i.pItem)) {
+            if (drgui_tvi_is_selected(i.pItem)) {
                 return i.pItem;
             }
         }
@@ -548,9 +548,9 @@ eg_tree_view_item* tv_get_next_selected_item(drgui_element* pTVElement, eg_tree_
 }
 
 
-void tv_set_on_item_mouse_move(drgui_element* pTVElement, tvi_on_mouse_move_proc proc)
+void drgui_tv_set_on_item_mouse_move(drgui_element* pTVElement, drgui_tvi_on_mouse_move_proc proc)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -558,9 +558,9 @@ void tv_set_on_item_mouse_move(drgui_element* pTVElement, tvi_on_mouse_move_proc
     pTV->onItemMouseMove = proc;
 }
 
-void tv_set_on_item_mouse_leave(drgui_element* pTVElement, tvi_on_mouse_leave_proc proc)
+void drgui_tv_set_on_item_mouse_leave(drgui_element* pTVElement, drgui_tvi_on_mouse_leave_proc proc)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -568,9 +568,9 @@ void tv_set_on_item_mouse_leave(drgui_element* pTVElement, tvi_on_mouse_leave_pr
     pTV->onItemMouseLeave = proc;
 }
 
-void tv_set_on_item_paint(drgui_element* pTVElement, tvi_on_paint_proc proc)
+void drgui_tv_set_on_item_paint(drgui_element* pTVElement, drgui_tvi_on_paint_proc proc)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -578,9 +578,9 @@ void tv_set_on_item_paint(drgui_element* pTVElement, tvi_on_paint_proc proc)
     pTV->onItemPaint = proc;
 }
 
-void tv_set_on_item_measure(drgui_element* pTVElement, tvi_measure_proc proc)
+void drgui_tv_set_on_item_measure(drgui_element* pTVElement, drgui_tvi_measure_proc proc)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -588,9 +588,9 @@ void tv_set_on_item_measure(drgui_element* pTVElement, tvi_measure_proc proc)
     pTV->onItemMeasure = proc;
 }
 
-void tv_set_on_item_picked(drgui_element* pTVElement, tvi_on_picked_proc proc)
+void drgui_tv_set_on_item_picked(drgui_element* pTVElement, drgui_tvi_on_picked_proc proc)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -599,26 +599,26 @@ void tv_set_on_item_picked(drgui_element* pTVElement, tvi_on_picked_proc proc)
 }
 
 
-void tv_on_size(drgui_element* pTVElement, float newWidth, float newHeight)
+void drgui_tv_on_size(drgui_element* pTVElement, float newWidth, float newHeight)
 {
     (void)newWidth;
     (void)newHeight;
 
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
 
     // Move the scrollbars.
-    tv_refresh_scrollbar_layouts(pTVElement);
+    drgui_tv_refresh_scrollbar_layouts(pTVElement);
 
     // Refresh the scrollbar ranges.
-    tv_refresh_scrollbar_ranges(pTVElement);
+    drgui_tv_refresh_scrollbar_ranges(pTVElement);
 }
 
-void tv_on_mouse_leave(drgui_element* pTVElement)
+void drgui_tv_on_mouse_leave(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -639,11 +639,11 @@ void tv_on_mouse_leave(drgui_element* pTVElement)
     }
 }
 
-void tv_on_mouse_move(drgui_element* pTVElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+void drgui_tv_on_mouse_move(drgui_element* pTVElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)stateFlags;
 
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -654,15 +654,15 @@ void tv_on_mouse_move(drgui_element* pTVElement, int relativeMousePosX, int rela
 
     // If the mouse has entered into the dead space between the scrollbars, we just pretend the mouse has left the tree-view
     // control entirely by posting a manual on_mouse_leave event and returning straight away.
-    if (drgui_rect_contains_point(tv_get_scrollbar_dead_space_rect(pTVElement), (float)relativeMousePosX, (float)relativeMousePosY)) {
-        tv_on_mouse_leave(pTVElement);
+    if (drgui_rect_contains_point(drgui_tv_get_scrollbar_dead_space_rect(pTVElement), (float)relativeMousePosX, (float)relativeMousePosY)) {
+        drgui_tv_on_mouse_leave(pTVElement);
         return;
     }
 
 
-    eg_tree_view_item_metrics newHoveredItemMetrics;
-    eg_tree_view_item* pNewHoveredItem = tv_find_item_under_point(pTVElement, (float)relativeMousePosX, (float)relativeMousePosY, &newHoveredItemMetrics);
-    eg_tree_view_item* pOldHoveredItem = pTV->pHoveredItem;
+    drgui_tree_view_item_metrics newHoveredItemMetrics;
+    drgui_tree_view_item* pNewHoveredItem = drgui_tv_find_item_under_point(pTVElement, (float)relativeMousePosX, (float)relativeMousePosY, &newHoveredItemMetrics);
+    drgui_tree_view_item* pOldHoveredItem = pTV->pHoveredItem;
 
     bool wasMouseOverArrow = pTV->isMouseOverArrow;
     pTV->isMouseOverArrow = false;
@@ -699,13 +699,13 @@ void tv_on_mouse_move(drgui_element* pTVElement, int relativeMousePosX, int rela
     }
 }
 
-void tv_on_mouse_button_down(drgui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+void drgui_tv_on_mouse_button_down(drgui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -714,41 +714,41 @@ void tv_on_mouse_button_down(drgui_element* pTVElement, int mouseButton, int rel
     {
         if (pTV->isMouseOverArrow)
         {
-            if (tvi_is_expanded(pTV->pHoveredItem)) {
-                tvi_collapse(pTV->pHoveredItem);
+            if (drgui_tvi_is_expanded(pTV->pHoveredItem)) {
+                drgui_tvi_collapse(pTV->pHoveredItem);
             } else {
-                tvi_expand(pTV->pHoveredItem);
+                drgui_tvi_expand(pTV->pHoveredItem);
             }
         }
         else
         {
             if (pTV->isMultiSelectEnabled)
             {
-                if (tvi_is_selected(pTV->pHoveredItem)) {
-                    tvi_deselect(pTV->pHoveredItem);
+                if (drgui_tvi_is_selected(pTV->pHoveredItem)) {
+                    drgui_tvi_deselect(pTV->pHoveredItem);
                 } else {
-                    tvi_select(pTV->pHoveredItem);
+                    drgui_tvi_select(pTV->pHoveredItem);
                 }
             }
             else
             {
                 // TODO: Check if range selection is enabled and handle it here.
 
-                tv_deselect_all_items(pTVElement);
-                tvi_select(pTV->pHoveredItem);
+                drgui_tv_deselect_all_items(pTVElement);
+                drgui_tvi_select(pTV->pHoveredItem);
             }
         }
     }
 }
 
-void tv_on_mouse_button_up(drgui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+void drgui_tv_on_mouse_button_up(drgui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)mouseButton;
     (void)relativeMousePosX;
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -756,13 +756,13 @@ void tv_on_mouse_button_up(drgui_element* pTVElement, int mouseButton, int relat
     // TODO: Implement me.
 }
 
-void tv_on_mouse_button_dblclick(drgui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+void drgui_tv_on_mouse_button_dblclick(drgui_element* pTVElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -771,13 +771,13 @@ void tv_on_mouse_button_dblclick(drgui_element* pTVElement, int mouseButton, int
     {
         if (!pTV->isMouseOverArrow)
         {
-            if (tvi_has_children(pTV->pHoveredItem))
+            if (drgui_tvi_has_children(pTV->pHoveredItem))
             {
                 // It is a parent item, so toggle it.
-                if (tvi_is_expanded(pTV->pHoveredItem)) {
-                    tvi_collapse(pTV->pHoveredItem);
+                if (drgui_tvi_is_expanded(pTV->pHoveredItem)) {
+                    drgui_tvi_collapse(pTV->pHoveredItem);
                 } else {
-                    tvi_expand(pTV->pHoveredItem);
+                    drgui_tvi_expand(pTV->pHoveredItem);
                 }
             }
             else
@@ -791,13 +791,13 @@ void tv_on_mouse_button_dblclick(drgui_element* pTVElement, int mouseButton, int
     }
 }
 
-void tv_on_mouse_wheel(drgui_element* pTVElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+void drgui_tv_on_mouse_wheel(drgui_element* pTVElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     (void)relativeMousePosX;
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -805,20 +805,20 @@ void tv_on_mouse_wheel(drgui_element* pTVElement, int delta, int relativeMousePo
     drgui_sb_scroll(pTV->pScrollbarV, -delta * drgui_sb_get_mouse_wheel_scale(pTV->pScrollbarV));
 }
 
-void tv_on_paint(drgui_element* pTVElement, drgui_rect relativeClippingRect, void* pPaintData)
+void drgui_tv_on_paint(drgui_element* pTVElement, drgui_rect relativeClippingRect, void* pPaintData)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
 
     // The dead space between the scrollbars should always be drawn with the default background color.
-    drgui_draw_rect(pTVElement, tv_get_scrollbar_dead_space_rect(pTVElement), pTV->defaultBGColor, pPaintData);
+    drgui_draw_rect(pTVElement, drgui_tv_get_scrollbar_dead_space_rect(pTVElement), pTV->defaultBGColor, pPaintData);
 
     // The clipping rectangle needs to be clamped to the local rectangle that is shrunk such that it does not
     // include the scrollbars. If we don't do this we'll end up drawing underneath the scrollbars which will
     // cause flickering.
-    drgui_rect innerClippingRect = drgui_clamp_rect(tv_get_inner_rect(pTVElement), relativeClippingRect);
+    drgui_rect innerClippingRect = drgui_clamp_rect(drgui_tv_get_inner_rect(pTVElement), relativeClippingRect);
     drgui_set_clip(pTVElement, innerClippingRect, pPaintData);
 
 
@@ -830,7 +830,7 @@ void tv_on_paint(drgui_element* pTVElement, drgui_rect relativeClippingRect, voi
     // items which is used to determine how much empty space is remaining below it so we can draw a quad over
     // that part.
     float itemsBottom = 0;
-    tv_paint_items(pTVElement, innerClippingRect, pPaintData, &itemsBottom);
+    drgui_tv_paint_items(pTVElement, innerClippingRect, pPaintData, &itemsBottom);
 
 
     // At this point the items have been drawn. All that remains is the part of the background that is not
@@ -842,24 +842,24 @@ void tv_on_paint(drgui_element* pTVElement, drgui_rect relativeClippingRect, voi
 }
 
 
-PRIVATE void tv_refresh_and_redraw(drgui_element* pTVElement)
+PRIVATE void drgui_tv_refresh_and_redraw(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
 
 
     // Refresh scrollbar ranges and page sizes.
-    tv_refresh_scrollbar_ranges(pTVElement);
+    drgui_tv_refresh_scrollbar_ranges(pTVElement);
 
     // For now, just redraw the entire control.
     drgui_dirty(pTVElement, drgui_get_local_rect(pTVElement));
 }
 
-PRIVATE void tv_refresh_scrollbar_layouts(drgui_element* pTVElement)
+PRIVATE void drgui_tv_refresh_scrollbar_layouts(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -874,9 +874,9 @@ PRIVATE void tv_refresh_scrollbar_layouts(drgui_element* pTVElement)
     drgui_set_relative_position(pTV->pScrollbarH, 0, drgui_get_height(pTVElement) - drgui_get_height(pTV->pScrollbarH));
 }
 
-PRIVATE void tv_refresh_scrollbar_ranges(drgui_element* pTVElement)
+PRIVATE void drgui_tv_refresh_scrollbar_ranges(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -885,8 +885,8 @@ PRIVATE void tv_refresh_scrollbar_ranges(drgui_element* pTVElement)
     unsigned int totalItemCount = 0;
     unsigned int pageItemCount = 0;
 
-    eg_tree_view_iterator i;
-    if (tv_begin_at(pTV->pRootItem->pFirstChild, &i))
+    drgui_tree_view_iterator i;
+    if (drgui_tv_begin_at(pTV->pRootItem->pFirstChild, &i))
     {
         do
         {
@@ -902,7 +902,7 @@ PRIVATE void tv_refresh_scrollbar_ranges(drgui_element* pTVElement)
 
             totalItemCount += 1;
 
-        } while (tv_next_visible(&i));
+        } while (drgui_tv_next_visible(&i));
     }
 
     if (totalItemCount == 0)
@@ -927,9 +927,9 @@ PRIVATE void tv_refresh_scrollbar_ranges(drgui_element* pTVElement)
     }
 }
 
-PRIVATE drgui_rect tv_get_scrollbar_dead_space_rect(drgui_element* pTVElement)
+PRIVATE drgui_rect drgui_tv_get_scrollbar_dead_space_rect(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_make_rect(0, 0, 0, 0);
     }
@@ -937,9 +937,9 @@ PRIVATE drgui_rect tv_get_scrollbar_dead_space_rect(drgui_element* pTVElement)
     return drgui_make_rect(drgui_get_width(pTV->pScrollbarH), drgui_get_height(pTV->pScrollbarV), drgui_get_width(pTVElement), drgui_get_height(pTVElement));
 }
 
-PRIVATE drgui_rect tv_get_inner_rect(drgui_element* pTVElement)
+PRIVATE drgui_rect drgui_tv_get_inner_rect(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_make_rect(0, 0, 0, 0);
     }
@@ -951,9 +951,9 @@ PRIVATE drgui_rect tv_get_inner_rect(drgui_element* pTVElement)
     return result;
 }
 
-PRIVATE void tv_paint_items(drgui_element* pTVElement, drgui_rect relativeClippingRect, void* pPaintData, float* pItemsBottomOut)
+PRIVATE void drgui_tv_paint_items(drgui_element* pTVElement, drgui_rect relativeClippingRect, void* pPaintData, float* pItemsBottomOut)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -962,19 +962,19 @@ PRIVATE void tv_paint_items(drgui_element* pTVElement, drgui_rect relativeClippi
 
     // For now we will begin at the root item, but later we want to begin at the first visible item which will be based on the
     // scroll position.
-    eg_tree_view_iterator i;
-    if (tv_begin_at(tv_find_first_visible_item_on_page(pTVElement), &i))
+    drgui_tree_view_iterator i;
+    if (drgui_tv_begin_at(drgui_tv_find_first_visible_item_on_page(pTVElement), &i))
     {
         do
         {
-            tv_paint_item(pTVElement, i.pItem, relativeClippingRect, i.posX, i.posY, i.width, i.height, pPaintData);
+            drgui_tv_paint_item(pTVElement, i.pItem, relativeClippingRect, i.posX, i.posY, i.width, i.height, pPaintData);
             
             // Restore the clipping rectangle in case the application changed the clipping rectangle.
             drgui_set_clip(pTVElement, relativeClippingRect, pPaintData);
 
             itemsBottom = i.posY + i.height;
 
-        } while (itemsBottom < relativeClippingRect.bottom && tv_next_visible(&i));
+        } while (itemsBottom < relativeClippingRect.bottom && drgui_tv_next_visible(&i));
     }
 
 
@@ -983,27 +983,27 @@ PRIVATE void tv_paint_items(drgui_element* pTVElement, drgui_rect relativeClippi
     }
 }
 
-PRIVATE bool tv_begin_at(eg_tree_view_item* pFirst, eg_tree_view_iterator* pIteratorOut)
+PRIVATE bool drgui_tv_begin_at(drgui_tree_view_item* pFirst, drgui_tree_view_iterator* pIteratorOut)
 {
     if (pFirst == NULL || pIteratorOut == NULL) {
         return false;
     }
 
-    if (!tv_measure_item(pFirst->pTVElement, pFirst, &pIteratorOut->width, &pIteratorOut->height)) {
+    if (!drgui_tv_measure_item(pFirst->pTVElement, pFirst, &pIteratorOut->width, &pIteratorOut->height)) {
         return false;
     }
 
-    const int depth = tvi_get_depth(pFirst);
+    const int depth = drgui_tvi_get_depth(pFirst);
 
     pIteratorOut->pItem = pFirst;
     pIteratorOut->depth = depth;
-    pIteratorOut->posX  = depth * tv_get_child_offset_x(pFirst->pTVElement);
+    pIteratorOut->posX  = depth * drgui_tv_get_child_offset_x(pFirst->pTVElement);
     pIteratorOut->posY  = 0;
     
     return true;
 }
 
-PRIVATE bool tv_next_visible(eg_tree_view_iterator* pIterator)
+PRIVATE bool drgui_tv_next_visible(drgui_tree_view_iterator* pIterator)
 {
     assert(pIterator != NULL);
 
@@ -1011,19 +1011,19 @@ PRIVATE bool tv_next_visible(eg_tree_view_iterator* pIterator)
         return false;
     }
 
-    eg_tree_view* pTV = drgui_get_extra_data(pIterator->pItem->pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pIterator->pItem->pTVElement);
     if (pTV == NULL) {
         return false;
     }
 
-    if (tvi_has_children(pIterator->pItem) && tvi_is_expanded(pIterator->pItem))
+    if (drgui_tvi_has_children(pIterator->pItem) && drgui_tvi_is_expanded(pIterator->pItem))
     {
         pIterator->pItem = pIterator->pItem->pFirstChild;
         pIterator->depth += 1;
     }
     else
     {
-        pIterator->pItem = tvi_next_visible_non_child(pIterator->pItem, &pIterator->depth);
+        pIterator->pItem = drgui_tvi_next_visible_non_child(pIterator->pItem, &pIterator->depth);
     }
 
 
@@ -1031,19 +1031,19 @@ PRIVATE bool tv_next_visible(eg_tree_view_iterator* pIterator)
         return false;
     }
 
-    pIterator->posX  = pIterator->depth * tv_get_child_offset_x(pIterator->pItem->pTVElement);
+    pIterator->posX  = pIterator->depth * drgui_tv_get_child_offset_x(pIterator->pItem->pTVElement);
     pIterator->posY += pIterator->height;
 
-    if (!tv_measure_item(pIterator->pItem->pTVElement, pIterator->pItem, &pIterator->width, &pIterator->height)) {
+    if (!drgui_tv_measure_item(pIterator->pItem->pTVElement, pIterator->pItem, &pIterator->width, &pIterator->height)) {
         return false;
     }
 
     return true;
 }
 
-PRIVATE void tv_paint_item(drgui_element* pTVElement, eg_tree_view_item* pItem, drgui_rect relativeClippingRect, float posX, float posY, float width, float height, void* pPaintData)
+PRIVATE void drgui_tv_paint_item(drgui_element* pTVElement, drgui_tree_view_item* pItem, drgui_rect relativeClippingRect, float posX, float posY, float width, float height, void* pPaintData)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1055,7 +1055,7 @@ PRIVATE void tv_paint_item(drgui_element* pTVElement, eg_tree_view_item* pItem, 
         
         // The background section to the left and right of the main content is done first, by us.
         drgui_color bgcolor;
-        if (tvi_is_selected(pItem)) {
+        if (drgui_tvi_is_selected(pItem)) {
             bgcolor = pTV->selectedBGColor;
         } else if (pTV->pHoveredItem == pItem) {
             bgcolor = pTV->hoveredBGColor;
@@ -1082,19 +1082,19 @@ PRIVATE void tv_paint_item(drgui_element* pTVElement, eg_tree_view_item* pItem, 
     }
 }
 
-PRIVATE eg_tree_view_item* tv_find_item_under_point(drgui_element* pTVElement, float relativePosX, float relativePosY, eg_tree_view_item_metrics* pMetricsOut)
+PRIVATE drgui_tree_view_item* drgui_tv_find_item_under_point(drgui_element* pTVElement, float relativePosX, float relativePosY, drgui_tree_view_item_metrics* pMetricsOut)
 {
     (void)relativePosX; // <-- Unused because we treat items as though they are infinitely wide.
 
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
 
     // For now we will begin at the root item, but later we want to begin at the first visible item which will be based on the
     // scroll position.
-    eg_tree_view_iterator i;
-    if (tv_begin_at(tv_find_first_visible_item_on_page(pTVElement), &i))
+    drgui_tree_view_iterator i;
+    if (drgui_tv_begin_at(drgui_tv_find_first_visible_item_on_page(pTVElement), &i))
     {
         do
         {
@@ -1111,66 +1111,66 @@ PRIVATE eg_tree_view_item* tv_find_item_under_point(drgui_element* pTVElement, f
                 return i.pItem;
             }
 
-        } while ((i.posY + i.height < drgui_get_relative_position_y(pTV->pScrollbarH)) && tv_next_visible(&i));
+        } while ((i.posY + i.height < drgui_get_relative_position_y(pTV->pScrollbarH)) && drgui_tv_next_visible(&i));
     }
 
     return NULL;
 }
 
-PRIVATE void tv_deselect_all_items_recursive(eg_tree_view_item* pItem)
+PRIVATE void drgui_tv_deselect_all_items_recursive(drgui_tree_view_item* pItem)
 {
     pItem->isSelected = false;
 
-    for (eg_tree_view_item* pChild = pItem->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
+    for (drgui_tree_view_item* pChild = pItem->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
     {
-        tv_deselect_all_items_recursive(pChild);
+        drgui_tv_deselect_all_items_recursive(pChild);
     }
 }
 
-PRIVATE void tv_on_mouse_enter_scrollbar(drgui_element* pSBElement)
+PRIVATE void drgui_tv_on_mouse_enter_scrollbar(drgui_element* pSBElement)
 {
-    eg_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
+    drgui_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
     // We just pretend the mouse has left the tree-view entirely. This will ensure any item marked as hovered is unmarked and redrawn.
-    tv_on_mouse_leave(pSB->pTVElement);
+    drgui_tv_on_mouse_leave(pSB->pTVElement);
 }
 
-PRIVATE void tv_on_scroll_v(drgui_element* pSBElement, int scrollPos)
+PRIVATE void drgui_tv_on_scroll_v(drgui_element* pSBElement, int scrollPos)
 {
     (void)scrollPos;
 
-    eg_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
+    drgui_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    eg_tree_view* pTV = drgui_get_extra_data(pSB->pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pSB->pTVElement);
     if (pTV == NULL) {
         return;
     }
 
     // As we scroll, the mouse will be placed over a different item. We just post a manual mouse_move event to trigger a refresh.
     if (pTV->isMouseOver) {
-        tv_on_mouse_move(pSB->pTVElement, pTV->relativeMousePosX, pTV->relativeMousePosY, 0);
+        drgui_tv_on_mouse_move(pSB->pTVElement, pTV->relativeMousePosX, pTV->relativeMousePosY, 0);
     }
 
     // The paint routine is tied directly to the scrollbars, so all we need to do is mark it as dirty to trigger a redraw.
     drgui_dirty(pSB->pTVElement, drgui_get_local_rect(pSB->pTVElement));
 }
 
-PRIVATE void tv_on_scroll_h(drgui_element* pSBElement, int scrollPos)
+PRIVATE void drgui_tv_on_scroll_h(drgui_element* pSBElement, int scrollPos)
 {
     (void)scrollPos;
 
-    eg_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
+    drgui_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    eg_tree_view* pTV = drgui_get_extra_data(pSB->pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pSB->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1179,9 +1179,9 @@ PRIVATE void tv_on_scroll_h(drgui_element* pSBElement, int scrollPos)
     drgui_dirty(pSB->pTVElement, drgui_get_local_rect(pSB->pTVElement));
 }
 
-PRIVATE eg_tree_view_item* tv_find_first_visible_item_on_page(drgui_element* pTVElement)
+PRIVATE drgui_tree_view_item* drgui_tv_find_first_visible_item_on_page(drgui_element* pTVElement)
 {
-    eg_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -1189,8 +1189,8 @@ PRIVATE eg_tree_view_item* tv_find_first_visible_item_on_page(drgui_element* pTV
     // We just keep iterating until we hit the index of the scroll position.
     int index = 0;
 
-    eg_tree_view_iterator i;
-    if (tv_begin_at(pTV->pRootItem->pFirstChild, &i))
+    drgui_tree_view_iterator i;
+    if (drgui_tv_begin_at(pTV->pRootItem->pFirstChild, &i))
     {
         do
         {
@@ -1200,7 +1200,7 @@ PRIVATE eg_tree_view_item* tv_find_first_visible_item_on_page(drgui_element* pTV
 
             index += 1;
 
-        } while (tv_next_visible(&i));
+        } while (drgui_tv_next_visible(&i));
     }
 
     return NULL;
@@ -1215,9 +1215,9 @@ PRIVATE eg_tree_view_item* tv_find_first_visible_item_on_page(drgui_element* pTV
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Detaches the given tree-view item from it's parent and siblings.
-PRIVATE void tvi_detach(eg_tree_view_item* pItem);
+PRIVATE void drgui_tvi_detach(drgui_tree_view_item* pItem);
 
-eg_tree_view_item* tv_create_item(drgui_element* pTVElement, eg_tree_view_item* pParent, size_t extraDataSize, const void* pExtraData)
+drgui_tree_view_item* drgui_tv_create_item(drgui_element* pTVElement, drgui_tree_view_item* pParent, size_t extraDataSize, const void* pExtraData)
 {
     if (pTVElement == NULL) {
         return NULL;
@@ -1228,7 +1228,7 @@ eg_tree_view_item* tv_create_item(drgui_element* pTVElement, eg_tree_view_item* 
     }
 
 
-    eg_tree_view_item* pItem = malloc(sizeof(*pItem) + extraDataSize - sizeof(pItem->pExtraData));
+    drgui_tree_view_item* pItem = malloc(sizeof(*pItem) + extraDataSize - sizeof(pItem->pExtraData));
     if (pItem == NULL) {
         return NULL;
     }
@@ -1249,12 +1249,12 @@ eg_tree_view_item* tv_create_item(drgui_element* pTVElement, eg_tree_view_item* 
 
 
     // Append the item to the end of the parent item.
-    tvi_append(pItem, pParent);
+    drgui_tvi_append(pItem, pParent);
 
     return pItem;
 }
 
-void tvi_delete(eg_tree_view_item* pItem)
+void drgui_tvi_delete(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return;
@@ -1263,23 +1263,23 @@ void tvi_delete(eg_tree_view_item* pItem)
 
     // Children need to be deleted first.
     while (pItem->pFirstChild != NULL) {
-        tvi_delete(pItem->pFirstChild);
+        drgui_tvi_delete(pItem->pFirstChild);
     }
 
     // We need to grab a pointer to the main tree-view control so we can refresh and redraw it after we have detached the item.
     drgui_element* pTVElement = pItem->pTVElement;
 
     // The item needs to be completely detached first.
-    tvi_detach(pItem);
+    drgui_tvi_detach(pItem);
 
     // Refresh the layout and redraw the tree-view control.
-    tv_refresh_and_redraw(pTVElement);
+    drgui_tv_refresh_and_redraw(pTVElement);
 
     // Free the item last for safety.
     free(pItem);
 }
 
-drgui_element* tvi_get_tree_view_element(eg_tree_view_item* pItem)
+drgui_element* drgui_tvi_get_tree_view_element(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return NULL;
@@ -1288,7 +1288,7 @@ drgui_element* tvi_get_tree_view_element(eg_tree_view_item* pItem)
     return pItem->pTVElement;
 }
 
-size_t tvi_get_extra_data_size(eg_tree_view_item* pItem)
+size_t drgui_tvi_get_extra_data_size(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return 0;
@@ -1297,7 +1297,7 @@ size_t tvi_get_extra_data_size(eg_tree_view_item* pItem)
     return pItem->extraDataSize;
 }
 
-void* tvi_get_extra_data(eg_tree_view_item* pItem)
+void* drgui_tvi_get_extra_data(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return NULL;
@@ -1307,7 +1307,7 @@ void* tvi_get_extra_data(eg_tree_view_item* pItem)
 }
 
 
-eg_tree_view_item* tvi_get_parent(eg_tree_view_item* pItem)
+drgui_tree_view_item* drgui_tvi_get_parent(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return NULL;
@@ -1316,7 +1316,7 @@ eg_tree_view_item* tvi_get_parent(eg_tree_view_item* pItem)
     return pItem->pParent;
 }
 
-eg_tree_view_item* tvi_get_first_child(eg_tree_view_item* pItem)
+drgui_tree_view_item* drgui_tvi_get_first_child(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return NULL;
@@ -1325,7 +1325,7 @@ eg_tree_view_item* tvi_get_first_child(eg_tree_view_item* pItem)
     return pItem->pFirstChild;
 }
 
-eg_tree_view_item* tvi_get_last_child(eg_tree_view_item* pItem)
+drgui_tree_view_item* drgui_tvi_get_last_child(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return NULL;
@@ -1334,7 +1334,7 @@ eg_tree_view_item* tvi_get_last_child(eg_tree_view_item* pItem)
     return pItem->pLastChild;
 }
 
-eg_tree_view_item* tvi_get_next_sibling(eg_tree_view_item* pItem)
+drgui_tree_view_item* drgui_tvi_get_next_sibling(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return NULL;
@@ -1343,7 +1343,7 @@ eg_tree_view_item* tvi_get_next_sibling(eg_tree_view_item* pItem)
     return pItem->pNextSibling;
 }
 
-eg_tree_view_item* tvi_get_prev_sibling(eg_tree_view_item* pItem)
+drgui_tree_view_item* drgui_tvi_get_prev_sibling(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return NULL;
@@ -1352,13 +1352,13 @@ eg_tree_view_item* tvi_get_prev_sibling(eg_tree_view_item* pItem)
     return pItem->pPrevSibling;
 }
 
-void tvi_append(eg_tree_view_item* pItem, eg_tree_view_item* pParent)
+void drgui_tvi_append(drgui_tree_view_item* pItem, drgui_tree_view_item* pParent)
 {
     if (pItem == NULL) {
         return;
     }
 
-    eg_tree_view* pTV = drgui_get_extra_data(pItem->pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pItem->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1368,7 +1368,7 @@ void tvi_append(eg_tree_view_item* pItem, eg_tree_view_item* pParent)
     if (pParent == NULL)
     {
         if (pTV->pRootItem != NULL) {
-            tvi_append(pItem, pTV->pRootItem);
+            drgui_tvi_append(pItem, pTV->pRootItem);
         }
     }
     else
@@ -1376,7 +1376,7 @@ void tvi_append(eg_tree_view_item* pItem, eg_tree_view_item* pParent)
         assert(pItem->pTVElement == pParent->pTVElement);
 
         // Detach the child from it's current parent first.
-        tvi_detach(pItem);
+        drgui_tvi_detach(pItem);
 
         pItem->pParent = pParent;
         assert(pItem->pParent != NULL);
@@ -1394,17 +1394,17 @@ void tvi_append(eg_tree_view_item* pItem, eg_tree_view_item* pParent)
 
 
         // Refresh the layout and redraw the tree-view control.
-        tv_refresh_and_redraw(pItem->pTVElement);
+        drgui_tv_refresh_and_redraw(pItem->pTVElement);
     }
 }
 
-void tvi_prepend(eg_tree_view_item* pItem, eg_tree_view_item* pParent)
+void drgui_tvi_prepend(drgui_tree_view_item* pItem, drgui_tree_view_item* pParent)
 {
     if (pItem == NULL) {
         return;
     }
 
-    eg_tree_view* pTV = drgui_get_extra_data(pItem->pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pItem->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1414,7 +1414,7 @@ void tvi_prepend(eg_tree_view_item* pItem, eg_tree_view_item* pParent)
     if (pParent == NULL)
     {
         if (pTV->pRootItem != NULL) {   
-            tvi_prepend(pItem, pTV->pRootItem);
+            drgui_tvi_prepend(pItem, pTV->pRootItem);
         }
     }
     else
@@ -1422,7 +1422,7 @@ void tvi_prepend(eg_tree_view_item* pItem, eg_tree_view_item* pParent)
         assert(pItem->pTVElement == pParent->pTVElement);
 
         // Detach the child from it's current parent first.
-        tvi_detach(pItem);
+        drgui_tvi_detach(pItem);
 
         pItem->pParent = pParent;
         assert(pItem->pParent != NULL);
@@ -1440,17 +1440,17 @@ void tvi_prepend(eg_tree_view_item* pItem, eg_tree_view_item* pParent)
 
 
         // Refresh the layout and redraw the tree-view control.
-        tv_refresh_and_redraw(pItem->pTVElement);
+        drgui_tv_refresh_and_redraw(pItem->pTVElement);
     }
 }
 
-void tvi_append_sibling(eg_tree_view_item* pItemToAppend, eg_tree_view_item* pItemToAppendTo)
+void drgui_tvi_append_sibling(drgui_tree_view_item* pItemToAppend, drgui_tree_view_item* pItemToAppendTo)
 {
     if (pItemToAppend == NULL) {
         return;
     }
 
-    eg_tree_view* pTV = drgui_get_extra_data(pItemToAppend->pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pItemToAppend->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1460,7 +1460,7 @@ void tvi_append_sibling(eg_tree_view_item* pItemToAppend, eg_tree_view_item* pIt
     if (pItemToAppendTo == NULL)
     {
         if (pTV->pRootItem != NULL) {
-            tvi_append(pItemToAppend, pTV->pRootItem);
+            drgui_tvi_append(pItemToAppend, pTV->pRootItem);
         }
     }
     else
@@ -1468,7 +1468,7 @@ void tvi_append_sibling(eg_tree_view_item* pItemToAppend, eg_tree_view_item* pIt
         assert(pItemToAppend->pTVElement == pItemToAppendTo->pTVElement);
 
         // Detach the child from it's current parent first.
-        tvi_detach(pItemToAppend);
+        drgui_tvi_detach(pItemToAppend);
 
 
         pItemToAppend->pParent = pItemToAppendTo->pParent;
@@ -1486,17 +1486,17 @@ void tvi_append_sibling(eg_tree_view_item* pItemToAppend, eg_tree_view_item* pIt
 
 
         // Refresh the layout and redraw the tree-view control.
-        tv_refresh_and_redraw(pItemToAppend->pTVElement);
+        drgui_tv_refresh_and_redraw(pItemToAppend->pTVElement);
     }
 }
 
-void tvi_prepend_sibling(eg_tree_view_item* pItemToPrepend, eg_tree_view_item* pItemToPrependTo)
+void drgui_tvi_prepend_sibling(drgui_tree_view_item* pItemToPrepend, drgui_tree_view_item* pItemToPrependTo)
 {
     if (pItemToPrepend == NULL) {
         return;
     }
 
-    eg_tree_view* pTV = drgui_get_extra_data(pItemToPrepend->pTVElement);
+    drgui_tree_view* pTV = drgui_get_extra_data(pItemToPrepend->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1506,7 +1506,7 @@ void tvi_prepend_sibling(eg_tree_view_item* pItemToPrepend, eg_tree_view_item* p
     if (pItemToPrependTo == NULL)
     {
         if (pTV->pRootItem != NULL) {
-            tvi_prepend(pItemToPrepend, pTV->pRootItem);
+            drgui_tvi_prepend(pItemToPrepend, pTV->pRootItem);
         }
     }
     else
@@ -1514,7 +1514,7 @@ void tvi_prepend_sibling(eg_tree_view_item* pItemToPrepend, eg_tree_view_item* p
         assert(pItemToPrepend->pTVElement == pItemToPrependTo->pTVElement);
 
         // Detach the child from it's current parent first.
-        tvi_detach(pItemToPrepend);
+        drgui_tvi_detach(pItemToPrepend);
 
 
         pItemToPrepend->pParent = pItemToPrependTo->pParent;
@@ -1532,12 +1532,12 @@ void tvi_prepend_sibling(eg_tree_view_item* pItemToPrepend, eg_tree_view_item* p
 
 
         // Refresh the layout and redraw the tree-view control.
-        tv_refresh_and_redraw(pItemToPrepend->pTVElement);
+        drgui_tv_refresh_and_redraw(pItemToPrepend->pTVElement);
     }
 }
 
 
-bool tvi_has_children(eg_tree_view_item* pItem)
+bool drgui_tvi_has_children(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return false;
@@ -1546,16 +1546,16 @@ bool tvi_has_children(eg_tree_view_item* pItem)
     return pItem->pFirstChild != NULL;
 }
 
-int tvi_get_depth(eg_tree_view_item* pItem)
+int drgui_tvi_get_depth(drgui_tree_view_item* pItem)
 {
-    if (pItem->pParent == NULL || pItem->pParent == tv_get_root_item(pItem->pTVElement)) {
+    if (pItem->pParent == NULL || pItem->pParent == drgui_tv_get_root_item(pItem->pTVElement)) {
         return 0;
     }
 
-    return tvi_get_depth(pItem->pParent) + 1;
+    return drgui_tvi_get_depth(pItem->pParent) + 1;
 }
 
-eg_tree_view_item* tvi_next_visible_non_child(eg_tree_view_item* pItem, int* pDepthInOut)
+drgui_tree_view_item* drgui_tvi_next_visible_non_child(drgui_tree_view_item* pItem, int* pDepthInOut)
 {
     if (pItem == NULL) {
         return NULL;
@@ -1570,11 +1570,11 @@ eg_tree_view_item* tvi_next_visible_non_child(eg_tree_view_item* pItem, int* pDe
         *pDepthInOut -= 1;
     }
     
-    return tvi_next_visible_non_child(pItem->pParent, pDepthInOut);
+    return drgui_tvi_next_visible_non_child(pItem->pParent, pDepthInOut);
 }
 
 
-void tvi_select(eg_tree_view_item* pItem)
+void drgui_tvi_select(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return;
@@ -1587,7 +1587,7 @@ void tvi_select(eg_tree_view_item* pItem)
     }
 }
 
-void tvi_deselect(eg_tree_view_item* pItem)
+void drgui_tvi_deselect(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return;
@@ -1600,7 +1600,7 @@ void tvi_deselect(eg_tree_view_item* pItem)
     }
 }
 
-bool tvi_is_selected(eg_tree_view_item* pItem)
+bool drgui_tvi_is_selected(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return false;
@@ -1609,7 +1609,7 @@ bool tvi_is_selected(eg_tree_view_item* pItem)
     return pItem->isSelected;
 }
 
-void tvi_expand(eg_tree_view_item* pItem)
+void drgui_tvi_expand(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return;
@@ -1618,11 +1618,11 @@ void tvi_expand(eg_tree_view_item* pItem)
     if (!pItem->isExpanded)
     {
         pItem->isExpanded = true;
-        tv_refresh_and_redraw(pItem->pTVElement);
+        drgui_tv_refresh_and_redraw(pItem->pTVElement);
     }
 }
 
-void tvi_collapse(eg_tree_view_item* pItem)
+void drgui_tvi_collapse(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return;
@@ -1631,11 +1631,11 @@ void tvi_collapse(eg_tree_view_item* pItem)
     if (pItem->isExpanded)
     {
         pItem->isExpanded = false;
-        tv_refresh_and_redraw(pItem->pTVElement);
+        drgui_tv_refresh_and_redraw(pItem->pTVElement);
     }
 }
 
-bool tvi_is_expanded(eg_tree_view_item* pItem)
+bool drgui_tvi_is_expanded(drgui_tree_view_item* pItem)
 {
     if (pItem == NULL) {
         return false;
@@ -1646,7 +1646,7 @@ bool tvi_is_expanded(eg_tree_view_item* pItem)
 
 
 
-PRIVATE void tvi_detach(eg_tree_view_item* pItem)
+PRIVATE void drgui_tvi_detach(drgui_tree_view_item* pItem)
 {
     assert(pItem != NULL);
 
