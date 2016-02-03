@@ -14,11 +14,13 @@ int main(int argc, char** argv)
 {
     //drwav* pWav = drwav_open_file("M1F1-uint8-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-float64-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-float32-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-int32-AFsp.wav");
-    //drwav* pWav = drwav_open_file("M1F1-int16-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-int24-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-Alaw-AFsp.wav");
-    drwav* pWav = drwav_open_file("M1F1-mulaw-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-mulaw-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-int16-AFsp.wav");
+    drwav* pWav = drwav_open_file("M1F1-int12WE-AFsp.wav");
     if (pWav == NULL) {
         return -1;
     }
@@ -28,14 +30,21 @@ int main(int argc, char** argv)
     unsigned int dataSize = info.sampleCount * sizeof(float);
     float* pData = malloc(dataSize);
 
-    drwav_read_f32(pWav, info.sampleCount, pData);
+    // This horribly ineffcient loop is just to test reading of audio files where the bits per sample do
+    // not cleanly fit within a byte (for example 12 bits per sample).
+    float* pRunningData = pData;
+    while (drwav_read_f32(pWav, 1, pRunningData) > 0) {
+        pRunningData += 1;
+    }
+    //drwav_read_f32(pWav, info.sampleCount, pData);
 
-    easyaudio_context* pContext = draudio_create_context();
+
+    draudio_context* pContext = draudio_create_context();
     if (pContext == NULL) {
         return -2;
     }
 
-    easyaudio_device* pDevice = draudio_create_output_device(pContext, 0);
+    draudio_device* pDevice = draudio_create_output_device(pContext, 0);
     if (pDevice == NULL) {
         return -3;
     }
