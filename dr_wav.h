@@ -489,7 +489,7 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* userData
     // Translate the internal format.
     unsigned short translatedFormatTag = fmt.formatTag;
     if (translatedFormatTag == DR_WAVE_FORMAT_EXTENSIBLE) {
-        translatedFormatTag = (fmt.subFormat[0] << 0) | (fmt.subFormat[1] << 1);
+        translatedFormatTag = drwav__read_u16(fmt.subFormat + 0);
     }
 
     

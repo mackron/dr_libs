@@ -29,7 +29,10 @@ int main(int argc, char** argv)
     //drwav* pWav = drwav_open_file("M1F1-Alaw-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-AlawWE-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-mulaw-AFsp.wav");
-    drwav* pWav = drwav_open_file("M1F1-mulawWE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-mulawWE-AFsp.wav");
+    //drwav* pWav = drwav_open_file("stereol.wav");
+    //drwav* pWav = drwav_open_file("stereofl.wav");
+    drwav* pWav = drwav_open_file("drmapan.wav");
     
     //drwav* pWav = drwav_open_file("Utopia Critical Stop.WAV");
     //drwav* pWav = drwav_open_file("GLASS.WAV");
@@ -64,6 +67,7 @@ int main(int argc, char** argv)
     }
 
     draudio_buffer_desc bufferDesc;
+    memset(&bufferDesc, 0, sizeof(&bufferDesc));
     bufferDesc.format        = draudio_format_float;
     bufferDesc.channels      = info.fmt.channels;
     bufferDesc.sampleRate    = info.fmt.sampleRate;
