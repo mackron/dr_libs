@@ -1508,7 +1508,7 @@ DRVFS_PRIVATE size_t drvfs_append_and_clean(char* dst, size_t dstSizeInBytes, co
             }
         }
 
-        bytesWritten += drvfs_path_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+        bytesWritten += drvfs_path_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - bytesWritten - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
         if (dstSizeInBytes > bytesWritten) {
             dst[bytesWritten] = '\0';
         }
