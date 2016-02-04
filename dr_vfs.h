@@ -2362,10 +2362,12 @@ DRVFS_PRIVATE bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, siz
         totalBytesRead += bytesRead;
     }
 #else
-    ssize_t totalBytesRead = read(DRVFS_HANDLE_TO_FD(file), pDataOut, bytesToRead);
-    if (totalBytesRead == -1) {
+    ssize_t bytesRead = read(DRVFS_HANDLE_TO_FD(file), pDataOut, bytesToRead);
+    if (bytesRead == -1) {
         return false;
     }
+
+    totalBytesRead = (size_t)bytesRead;
 #endif
 
     if (pBytesReadOut != NULL) {
@@ -2410,10 +2412,12 @@ DRVFS_PRIVATE bool drvfs_write_native_file(drvfs_handle file, const void* pData,
         totalBytesWritten += bytesWritten;
     }
 #else
-    ssize_t totalBytesWritten = write(DRVFS_HANDLE_TO_FD(file), pData, bytesToWrite);
-    if (totalBytesWritten == -1) {
+    ssize_t bytesWritten = write(DRVFS_HANDLE_TO_FD(file), pData, bytesToWrite);
+    if (bytesWritten == -1) {
         return false;
     }
+
+    totalBytesWritten = bytesWritten;
 #endif
 
     if (pBytesWrittenOut != NULL) {
