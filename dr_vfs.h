@@ -1497,7 +1497,15 @@ DRVFS_PRIVATE size_t drvfs_append_and_clean(char* dst, size_t dstSizeInBytes, co
             return 0;   // Both input strings are empty.
         }
 
-        size_t bytesWritten = drvfs_path_clean_trywrite(last, 2, dst, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+        size_t bytesWritten = 0;
+        if (base[0] == '/') {
+            if (dst != NULL && dstSizeInBytes > 1) {
+                dst[0] = '/';
+                bytesWritten = 1;
+            }
+        }
+
+        bytesWritten += drvfs_path_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
         if (dstSizeInBytes > bytesWritten) {
             dst[bytesWritten] = '\0';
         }
@@ -2048,7 +2056,6 @@ DRVFS_PRIVATE void drvfs_flush_native_file(drvfs_handle file)
 DRVFS_PRIVATE bool drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info* fi)
 {
     assert(absolutePath != NULL);
-    assert(fi != NULL);
 
     // <fi> is allowed to be null, in which case the call is equivalent to simply checking if the file exists.
     if (fi == NULL) {
@@ -2099,6 +2106,10 @@ DRVFS_PRIVATE bool drvfs_get_native_file_info(const char* absolutePath, drvfs_fi
 #include <sys/types.h>
 #include <fcntl.h>
 
+#ifdef __linux__
+#include <sys/sendfile.h>
+#endif
+
 #ifdef _MSC_VER
 #define stat64 _stat64
 #endif
@@ -2117,7 +2128,7 @@ DRVFS_PRIVATE int drvfs__open_fd(const char* absolutePath, int flags)
 
     return fd;
 #else
-    return open64(absolutePath, flags, 0444);
+    return open64(absolutePath, flags, 0666);
 #endif
 }
 
@@ -2275,56 +2286,56 @@ DRVFS_PRIVATE bool drvfs_copy_native_file(const char* absolutePathSrc, const cha
         return !failIfExists;
     }
 
-//#ifdef _WIN32
-//    return CopyFileA(absolutePathSrc, absolutePathDst, failIfExists);
-//#else
-    // TODO: Look at implementing this with posix IO functions instead (open(), close()).
-    // TODO: Look at using sendfile() on Linux platforms.
-    FILE* srcFile;
-    FILE* dstFile;
-#ifdef _MSC_VER
-    if (fopen_s(&srcFile, absolutePathSrc, "rb") != 0) {
-        return false;
-    }
-    if (fopen_s(&dstFile, absolutePathDst, "wb") != 0) {
-        fclose(srcFile);
-        return false;
-    }
+#ifdef _WIN32
+    return CopyFileA(absolutePathSrc, absolutePathDst, failIfExists);
 #else
-    srcFile = fopen(absolutePathSrc, "rb");
-    if (srcFile == NULL) {
+    int fdSrc = drvfs__open_fd(absolutePathSrc, O_RDONLY);
+    if (fdSrc == -1) {
         return false;
     }
 
-    dstFile = fopen(absolutePathDst, "wb");
-    if (dstFile == NULL) {
-        fclose(dstFile);
+    int fdDst = drvfs__open_fd(absolutePathDst, O_WRONLY | O_TRUNC | O_CREAT | ((failIfExists) ? O_EXCL : 0));
+    if (fdDst == -1) {
+        drvfs__close_fd(fdSrc);
         return false;
     }
-#endif
 
     bool result = true;
 
-    char buffer[BUFSIZ];
-    size_t bytesRead;
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), srcFile)) > 0) {
-        if (fwrite(buffer, 1, bytesRead, dstFile) != bytesRead) {
-            result = false;
-            break;
+    struct stat64 info;
+    if (drvfs__fstat64(fdSrc, &info) == 0)
+    {
+#ifdef __linux__
+        ssize_t bytesRemaining = info.st_size;
+        while (bytesRemaining > 0) {
+            ssize_t bytesCopied = sendfile(fdDst, fdSrc, NULL, bytesRemaining);
+            if (bytesCopied == -1) {
+                result = false;
+                break;
+            }
+
+            bytesRemaining -= bytesCopied;
         }
+#else
+        char buffer[BUFSIZ];
+        int bytesRead;
+        while ((bytesRead = read(fdSrc, buffer, sizeof(buffer))) > 0) {
+            if (write(fdDst, buffer, bytesRead) != bytesRead) {
+                result = false;
+                break;
+            }
+        }
+#endif
     }
 
-    fclose(dstFile);
-    fclose(srcFile);
+    drvfs__close_fd(fdDst);
+    drvfs__close_fd(fdSrc);
 
     // Permissions.
-    struct stat64 info;
-    if (drvfs__stat64(absolutePathSrc, &info) == 0) {
-        drvfs__chmod(absolutePathDst, info.st_mode & 07777);
-    }
+    drvfs__chmod(absolutePathDst, info.st_mode & 07777);
 
     return result;
-//#endif
+#endif
 }
 
 DRVFS_PRIVATE bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
@@ -2464,13 +2475,13 @@ DRVFS_PRIVATE drvfs_uint64 drvfs_get_native_file_size(drvfs_handle file)
 
 DRVFS_PRIVATE void drvfs_flush_native_file(drvfs_handle file)
 {
-    fflush((FILE*)file);
+    // The posix implementation does not require flushing.
+    (void)file;
 }
 
 DRVFS_PRIVATE bool drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info* fi)
 {
     assert(absolutePath != NULL);
-    assert(fi != NULL);
 
     struct stat64 info;
     if (stat64(absolutePath, &info) != 0) {
@@ -2606,7 +2617,10 @@ DRVFS_PRIVATE bool drvfs_get_file_info__native(drvfs_handle archive, const char*
         return false;
     }
 
-    memset(fi, 0, sizeof(*fi));
+    if (fi != NULL) {
+        memset(fi, 0, sizeof(*fi));
+    }
+
     return drvfs_get_native_file_info(absolutePath, fi);
 }
 
@@ -3014,6 +3028,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_from_absolute_path(drvfs_c
 
     if (absolutePath[0] == '/') {
         runningPath[0] = '/';
+        runningPath[1] = '\0';
     }
 
     drvfs_pathiterator segment = drvfs_begin_path_iteration(absolutePath);
@@ -4003,7 +4018,7 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
     if (strcmp(pSrcArchive->absolutePath, pDstArchive->absolutePath) == 0 && pDstArchive->callbacks.copy_file)
     {
         // Intra-archive copy.
-        result = pDstArchive->callbacks.copy_file(pDstArchive, srcRelativePath, dstRelativePath, failIfExists);
+        result = pDstArchive->callbacks.copy_file(pDstArchive->internalArchiveHandle, srcRelativePath, dstRelativePath, failIfExists);
     }
     else
     {
@@ -4030,7 +4045,7 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
                 {
                     char chunk[4096];
                     size_t bytesRead;
-                    while (drvfs_read(pSrcFile, chunk, sizeof(chunk), &bytesRead))
+                    while (drvfs_read(pSrcFile, chunk, sizeof(chunk), &bytesRead) && bytesRead > 0)
                     {
                         drvfs_write(pDstFile, chunk, bytesRead, NULL);
                     }
