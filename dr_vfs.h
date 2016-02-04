@@ -122,9 +122,12 @@
 #ifndef dr_vfs_h
 #define dr_vfs_h
 
+// These need to be defined before including any headers, but we don't want to expose it to the public header.
+#ifdef DR_VFS_IMPLEMENTATION
 #define __USE_LARGEFILE64
 #define _LARGEFILE_SOURCE
 #define _LARGEFILE64_SOURCE
+#endif
 
 #include <stdbool.h>
 #include <stddef.h>
