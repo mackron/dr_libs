@@ -47,14 +47,14 @@
 //      {
 //          // There was an error creating the context.
 //      }
-//      
+//
 //      // Add your base directories for loading from relative paths. If you do not specify at
 //      // least one base directory you will need to load from absolute paths.
 //      drvfs_add_base_directory(pVFS, "C:/Users/Admin");
 //      drvfs_add_base_directory(pVFS, "C:/My/Folder");
-//      
+//
 //      ...
-//      
+//
 //      // Open a file. A relative path was specified which means it will first check it against
 //      // "C:/Users/Admin". If it can't be found it will then check against "C:/My/Folder".
 //      drvfs_file* pFile = drvfs_open(pVFS, "my/file.txt", DRVFS_READ, 0);
@@ -62,12 +62,12 @@
 //      {
 //          // There was an error loading the file. It probably doesn't exist.
 //      }
-//      
+//
 //      drvfs_read(pFile, buffer, bufferSize, NULL);
 //      drvfs_close(pFile);
-//      
+//
 //      ...
-//      
+//
 //      // Shutdown.
 //      drvfs_delete_context(pVFS);
 //
@@ -104,6 +104,8 @@
 // - Archive backends cannot currently share the same extension. For example, many package file formats use the .pak
 //   extension, however only one backend can use that .pak extension.
 // - For safety, if you want to overwrite a file you must explicitly call drvfs_open() with the DRVFS_TRUNCATE flag.
+// - Platforms other than Windows do not use buffering. That is, they use read() and write() instead of fread() and
+//   fwrite().
 //
 //
 //
@@ -120,8 +122,12 @@
 #ifndef dr_vfs_h
 #define dr_vfs_h
 
+#define __USE_LARGEFILE64
+#define _LARGEFILE_SOURCE
+#define _LARGEFILE64_SOURCE
+
 #include <stdbool.h>
-#include <stdint.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -224,7 +230,7 @@ struct drvfs_file_info
     // The time the file was last modified.
     drvfs_uint64 lastModifiedTime;
 
-    // File attributes. 
+    // File attributes.
     unsigned int attributes;
 
     // Padding. Unused.
@@ -518,7 +524,9 @@ bool drvfs_eof(drvfs_file* pFile);
 #ifdef DR_VFS_IMPLEMENTATION
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <assert.h>
+#include <errno.h>
 
 #ifndef DRVFS_PRIVATE
 #define DRVFS_PRIVATE static
@@ -527,6 +535,167 @@ bool drvfs_eof(drvfs_file* pFile);
 // Whether or not the file owns the archive object it's part of.
 #define DR_VFS_OWNS_PARENT_ARCHIVE       0x00000001
 
+
+static int drvfs__strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+#ifdef _MSC_VER
+    return strcpy_s(dst, dstSizeInBytes, src);
+#else
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t i;
+    for (i = 0; i < dstSizeInBytes && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (i < dstSizeInBytes) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+#endif
+}
+
+int drvfs__strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+#ifdef _MSC_VER
+    return strncpy_s(dst, dstSizeInBytes, src, count);
+#else
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return EINVAL;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t maxcount = count;
+    if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
+        maxcount = dstSizeInBytes - 1;
+    }
+
+    size_t i;
+    for (i = 0; i < maxcount && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (src[i] == '\0' || i == count || count == ((size_t)-1)) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+#endif
+}
+
+int drvfs__strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    char* dstorig = dst;
+
+    while (dstSizeInBytes > 0 && dst[0] != '\0') {
+        dst += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return EINVAL;  // Unterminated.
+    }
+
+
+    while (dstSizeInBytes > 0 && src[0] != '\0') {
+        *dst++ = *src++;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        dst[0] = '\0';
+    } else {
+        dstorig[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
+}
+
+int drvfs__strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        return EINVAL;
+    }
+
+    char* dstorig = dst;
+
+    while (dstSizeInBytes > 0 && dst[0] != '\0') {
+        dst += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return EINVAL;  // Unterminated.
+    }
+
+
+    if (count == ((size_t)-1)) {        // _TRUNCATE
+        count = dstSizeInBytes - 1;
+    }
+
+    while (dstSizeInBytes > 0 && src[0] != '\0' && count > 0)
+    {
+        *dst++ = *src++;
+        dstSizeInBytes -= 1;
+        count -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        dst[0] = '\0';
+    } else {
+        dstorig[0] = '\0';
+        return ERANGE;
+    }
+
+    return 0;
+}
+
+DRVFS_PRIVATE int drvfs__stricmp(const char* string1, const char* string2)
+{
+#ifdef _MSC_VER
+    return _stricmp(string1, string2);
+#else
+    return strcasecmp(string1, string2);
+#endif
+}
 
 
 typedef struct
@@ -557,7 +726,7 @@ DRVFS_PRIVATE bool drvfs_basedirs_init(drvfs_basedirs* pBasePaths)
     pBasePaths->pBuffer    = 0;
     pBasePaths->bufferSize = 0;
     pBasePaths->count      = 0;
-    
+
     return true;
 }
 
@@ -588,7 +757,7 @@ DRVFS_PRIVATE bool drvfs_basedirs_inflateandinsert(drvfs_basedirs* pBasePaths, c
         memcpy(pNewBuffer + iDst, pOldBuffer + iDst, sizeof(drvfs_basepath));
     }
 
-    strcpy_s((pNewBuffer + index)->absolutePath, DRVFS_MAX_PATH, absolutePath);
+    drvfs__strcpy_s((pNewBuffer + index)->absolutePath, DRVFS_MAX_PATH, absolutePath);
 
     for (unsigned int iDst = index; iDst < pBasePaths->count; ++iDst) {
         memcpy(pNewBuffer + iDst + 1, pOldBuffer + iDst, sizeof(drvfs_basepath));
@@ -629,7 +798,7 @@ DRVFS_PRIVATE bool drvfs_basedirs_insert(drvfs_basedirs* pBasePaths, const char*
             return false;
         }
 
-        strcpy_s((pBasePaths->pBuffer + index)->absolutePath, DRVFS_MAX_PATH, absolutePath);
+        drvfs__strcpy_s((pBasePaths->pBuffer + index)->absolutePath, DRVFS_MAX_PATH, absolutePath);
         pBasePaths->count += 1;
 
         return true;
@@ -733,16 +902,6 @@ DRVFS_PRIVATE bool drvfs_callbacklist_pushback(drvfs_callbacklist* pList, drvfs_
     pList->count  += 1;
 
     return true;
-}
-
-DRVFS_PRIVATE void drvfs_callbacklist_clear(drvfs_callbacklist* pList)
-{
-    if (pList == NULL) {
-        return;
-    }
-
-    drvfs_callbacklist_uninit(pList);
-    drvfs_callbacklist_init(pList);
 }
 
 
@@ -908,11 +1067,6 @@ DRVFS_PRIVATE drvfs_pathiterator drvfs_last_path_segment(const char* path)
     return i;
 }
 
-DRVFS_PRIVATE bool drvfs_at_end_of_path(drvfs_pathiterator i)
-{
-    return !drvfs_next_path_segment(&i);
-}
-
 DRVFS_PRIVATE bool drvfs_path_segments_equal(const char* s0Path, const drvfs_pathsegment s0, const char* s1Path, const drvfs_pathsegment s1)
 {
     if (s0Path != 0 && s1Path != 0)
@@ -962,7 +1116,7 @@ DRVFS_PRIVATE bool drvfs_append_path_iterator(char* base, size_t baseBufferSizeI
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
+            drvfs__strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
 
             return true;
@@ -1037,7 +1191,7 @@ DRVFS_PRIVATE bool drvfs_is_path_descendant(const char* descendantAbsolutePath, 
 
 DRVFS_PRIVATE bool drvfs_copy_base_path(const char* path, char* baseOut, size_t baseSizeInBytes)
 {
-    if (strcpy_s(baseOut, baseSizeInBytes, path) == 0)
+    if (drvfs__strcpy_s(baseOut, baseSizeInBytes, path) == 0)
     {
         if (baseOut != 0)
         {
@@ -1208,7 +1362,7 @@ DRVFS_PRIVATE bool drvfs_append_path(char* base, size_t baseBufferSizeInBytes, c
                 path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
             }
 
-            strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
+            drvfs__strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
 
 
             return 1;
@@ -1222,7 +1376,7 @@ DRVFS_PRIVATE bool drvfs_copy_and_append_path(char* dst, size_t dstSizeInBytes, 
 {
     if (dst != NULL && dstSizeInBytes > 0)
     {
-        strcpy_s(dst, dstSizeInBytes, base);
+        drvfs__strcpy_s(dst, dstSizeInBytes, base);
         return drvfs_append_path(dst, dstSizeInBytes, other);
     }
 
@@ -1268,7 +1422,7 @@ size_t drvfs_path_clean_trywrite(drvfs_pathiterator* iterators, unsigned int ite
         }
     }
 
-    
+
     // The previous segment needs to be written before we can write this one.
     size_t bytesWritten = 0;
 
@@ -1313,12 +1467,12 @@ size_t drvfs_path_clean_trywrite(drvfs_pathiterator* iterators, unsigned int ite
 
             if (pathOutSizeInBytes >= isegment.segment.length)
             {
-                strncpy_s(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, isegment.segment.length);
+                drvfs__strncpy_s(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, isegment.segment.length);
                 bytesWritten += isegment.segment.length;
             }
             else
             {
-                strncpy_s(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, pathOutSizeInBytes);
+                drvfs__strncpy_s(pathOut, pathOutSizeInBytes, isegment.path + isegment.segment.offset, pathOutSizeInBytes);
                 bytesWritten += pathOutSizeInBytes;
             }
         }
@@ -1331,25 +1485,16 @@ DRVFS_PRIVATE size_t drvfs_append_and_clean(char* dst, size_t dstSizeInBytes, co
 {
     if (base != 0 && other != 0)
     {
-        int iLastSeg = -1;
-
         drvfs_pathiterator last[2];
         last[0] = drvfs_last_path_segment(base);
         last[1] = drvfs_last_path_segment(other);
 
-        if (last[1].segment.length > 0) {
-            iLastSeg = 1;
-        } else if (last[0].segment.length > 0) {
-            iLastSeg = 0;
-        } else {
-            // Both input strings are empty.
-            return 0;
+        if (last[0].segment.length == 0 && last[1].segment.length == 0) {
+            return 0;   // Both input strings are empty.
         }
 
-
         size_t bytesWritten = drvfs_path_clean_trywrite(last, 2, dst, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
-        if (dstSizeInBytes > bytesWritten)
-        {
+        if (dstSizeInBytes > bytesWritten) {
             dst[bytesWritten] = '\0';
         }
 
@@ -1377,7 +1522,7 @@ DRVFS_PRIVATE bool drvfs_validate_write_path(drvfs_context* pContext, const char
             return false;
         }
     } else {
-        if (strcpy_s(absolutePathOut, absolutePathOutSize, absoluteOrRelativePath) != 0) {
+        if (drvfs__strcpy_s(absolutePathOut, absolutePathOutSize, absoluteOrRelativePath) != 0) {
             return false;
         }
     }
@@ -1537,7 +1682,7 @@ DRVFS_PRIVATE void drvfs_end_native_iteration(drvfs_handle iterator)
     if (pIterator->hFind) {
         FindClose(pIterator->hFind);
     }
-    
+
     free(pIterator);
 }
 
@@ -1559,7 +1704,7 @@ DRVFS_PRIVATE bool drvfs_next_native_iteration(drvfs_handle iterator, drvfs_file
         {
             // The absolute path actually needs to be set to the relative path. The higher level APIs are the once responsible for translating
             // it back to an absolute path.
-            strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), pIterator->ffd.cFileName);
+            drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), pIterator->ffd.cFileName);
 
             ULARGE_INTEGER liSize;
             liSize.LowPart  = pIterator->ffd.nFileSizeLow;
@@ -1589,6 +1734,75 @@ DRVFS_PRIVATE bool drvfs_next_native_iteration(drvfs_handle iterator, drvfs_file
     }
 
     return false;
+}
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+
+typedef struct
+{
+    DIR* dir;
+    char directoryPath[1];
+} drvfs_iterator_posix;
+
+DRVFS_PRIVATE drvfs_handle drvfs_begin_native_iteration(const char* absolutePath)
+{
+    DIR* dir = opendir(absolutePath);
+    if (dir == NULL) {
+        return NULL;
+    }
+
+    drvfs_iterator_posix* pIterator = malloc(sizeof(drvfs_iterator_posix) + strlen(absolutePath));
+    if (pIterator == NULL) {
+        return NULL;
+    }
+
+    pIterator->dir = dir;
+    drvfs__strcpy_s(pIterator->directoryPath, strlen(absolutePath) + 1, absolutePath);
+
+    return pIterator;
+}
+
+DRVFS_PRIVATE void drvfs_end_native_iteration(drvfs_handle iterator)
+{
+    drvfs_iterator_posix* pIterator = iterator;
+    if (pIterator == NULL) {
+        return;
+    }
+
+    closedir(pIterator->dir);
+    free(pIterator);
+}
+
+DRVFS_PRIVATE bool drvfs_next_native_iteration(drvfs_handle iterator, drvfs_file_info* fi)
+{
+    drvfs_iterator_posix* pIterator = iterator;
+    if (pIterator == NULL || pIterator->dir == NULL) {
+        return false;
+    }
+
+    struct dirent* info = readdir(pIterator->dir);
+    if (info == NULL) {
+        return false;
+    }
+
+    // Skip over "." and ".." folders.
+    while (strcmp(info->d_name, ".") == 0 || strcmp(info->d_name, "..") == 0) {
+        info = readdir(pIterator->dir);
+        if (info == NULL) {
+            return false;
+        }
+    }
+
+    char fileAbsolutePath[DRVFS_MAX_PATH];
+    drvfs_copy_and_append_path(fileAbsolutePath, sizeof(fileAbsolutePath), pIterator->directoryPath, info->d_name);
+
+    if (drvfs_get_native_file_info(fileAbsolutePath, fi)) {
+        drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), info->d_name);
+    }
+
+    return true;
 }
 #endif
 
@@ -1871,14 +2085,25 @@ DRVFS_PRIVATE bool drvfs_get_native_file_info(const char* absolutePath, drvfs_fi
 
 #ifdef _WIN32
 #include <direct.h>
-#endif
 #include <io.h>
+#endif
+#include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <fcntl.h>
+
+#ifdef _MSC_VER
+typedef _stat64 stat64
+#endif
+
+#define DRVFS_HANDLE_TO_FD(file) ((int)(size_t)(file - 1))
+#define DRVFS_FD_TO_HANDLE(fd)   ((drvfs_handle)(size_t)(fd + 1))
+
 
 DRVFS_PRIVATE int drvfs__open_fd(const char* absolutePath, int flags)
 {
-#if _MSC_VER
+#ifdef _MSC_VER
     int fd;
     if (_sopen_s(&fd, absolutePath, flags, _SH_DENYWR, _S_IREAD | _S_IWRITE) != 0) {
         return -1;
@@ -1889,6 +2114,43 @@ DRVFS_PRIVATE int drvfs__open_fd(const char* absolutePath, int flags)
     return open64(absolutePath, flags, 0444);
 #endif
 }
+
+DRVFS_PRIVATE void drvfs__close_fd(int fd)
+{
+#ifdef _MSC_VER
+    _close(fd);
+#else
+    close(fd);
+#endif
+}
+
+DRVFS_PRIVATE int drvfs__stat64(const char* filename, struct stat64* st)
+{
+#ifdef _MSC_VER
+    return _stat64(filename, st);
+#else
+    return stat64(filename, st);
+#endif
+}
+
+DRVFS_PRIVATE int drvfs__fstat64(int fd, struct stat64* st)
+{
+#ifdef _MSC_VER
+    return _fstat64(fd, st);
+#else
+    return fstat64(fd, st);
+#endif
+}
+
+DRVFS_PRIVATE int drvfs__chmod(const char* filename, __mode_t mode)
+{
+#ifdef _MSC_VER
+    return _chmod(filename, mode);
+#else
+    return chmod(filename, mode);
+#endif
+}
+
 
 DRVFS_PRIVATE drvfs_handle drvfs_open_native_file(const char* absolutePath, unsigned int accessMode)
 {
@@ -1936,51 +2198,32 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_native_file(const char* absolutePath, unsi
         return NULL;
     }
 
-
-    // We wrap the file descriptor in FILE object so we can get buffered IO which is consistent with the Win32 backend.
-    const char* format = NULL;
-    if ((accessMode & DRVFS_READ) != 0) {
-        if ((accessMode & DRVFS_WRITE) != 0) {
-            format = "r+b";
-        } else {
-            format = "rb";
-        }
-    } else {
-        format = "w";
-    }
-
-    FILE* file = _fdopen(fd, format);
-    if (file == NULL) {
-        _close(fd);
-        return NULL;
-    }
-
-    return (drvfs_handle)file;
+    return DRVFS_FD_TO_HANDLE(fd);
 }
 
 DRVFS_PRIVATE void drvfs_close_native_file(drvfs_handle file)
 {
-    fclose(file);
+    drvfs__close_fd(DRVFS_HANDLE_TO_FD(file));
 }
 
 DRVFS_PRIVATE bool drvfs_is_native_directory(const char* absolutePath)
 {
-    struct _stat64 info;
-    if (_stat64(absolutePath, &info) != 0) {
+    struct stat64 info;
+    if (drvfs__stat64(absolutePath, &info) != 0) {
         return false;   // Likely the folder doesn't exist.
     }
 
-    return (info.st_mode & S_IFDIR) != 0;   // Only return true if it's a directory. Return false if it's a file.
+    return S_ISDIR(info.st_mode);   // Only return true if it's a directory. Return false if it's a file.
 }
 
 DRVFS_PRIVATE bool drvfs_is_native_file(const char* absolutePath)
 {
-    struct _stat64 info;
-    if (_stat64(absolutePath, &info) != 0) {
-        return false;   // Likely the file doesn't exist.
+    struct stat64 info;
+    if (drvfs__stat64(absolutePath, &info) != 0) {
+        return false;   // Likely the folder doesn't exist.
     }
 
-    return (info.st_mode & S_IFDIR) == 0;   // Only return true if it's a file. Return false if it's a directory.
+    return !S_ISDIR(info.st_mode);  // Only return true if it's a file. Return false if it's a directory.
 }
 
 DRVFS_PRIVATE bool drvfs_delete_native_file(const char* absolutePath)
@@ -2051,9 +2294,9 @@ DRVFS_PRIVATE bool drvfs_copy_native_file(const char* absolutePathSrc, const cha
     fclose(srcFile);
 
     // Permissions.
-    struct _stat64 info;
-    if (_stat64(absolutePathSrc, &info) == 0) {
-        _chmod(absolutePathDst, info.st_mode & 07777);
+    struct stat64 info;
+    if (drvfs__stat64(absolutePathSrc, &info) == 0) {
+        drvfs__chmod(absolutePathDst, info.st_mode & 07777);
     }
 
     return result;
@@ -2062,7 +2305,10 @@ DRVFS_PRIVATE bool drvfs_copy_native_file(const char* absolutePathSrc, const cha
 
 DRVFS_PRIVATE bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
 {
-    size_t totalBytesRead = fread(pDataOut, 1, bytesToRead, (FILE*)file);
+    ssize_t totalBytesRead = read(DRVFS_HANDLE_TO_FD(file), pDataOut, bytesToRead);
+    if (totalBytesRead == -1) {
+        return false;
+    }
 
     if (pBytesReadOut != NULL) {
         *pBytesReadOut = totalBytesRead;
@@ -2073,7 +2319,10 @@ DRVFS_PRIVATE bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, siz
 
 DRVFS_PRIVATE bool drvfs_write_native_file(drvfs_handle file, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
 {
-    size_t totalBytesWritten = fwrite(pData, 1, bytesToWrite, (FILE*)file);
+    ssize_t totalBytesWritten = write(DRVFS_HANDLE_TO_FD(file), pData, bytesToWrite);
+    if (totalBytesWritten == -1) {
+        return false;
+    }
 
     if (pBytesWrittenOut != NULL) {
         *pBytesWrittenOut = totalBytesWritten;
@@ -2092,25 +2341,25 @@ DRVFS_PRIVATE bool drvfs_seek_native_file(drvfs_handle file, drvfs_int64 bytesTo
     }
 
 #ifdef _MSC_VER
-    return _fseeki64((FILE*)file, bytesToSeek, stdioOrigin) == 0;
+    return _lseeki64(DRVFS_HANDLE_TO_FD(file), bytesToSeek, stdioOrigin) == 0;
 #else
-    return fseek64((FILE*)file, bytesToSeek, stdioOrigin) == 0;
+    return lseek64(DRVFS_HANDLE_TO_FD(file), bytesToSeek, stdioOrigin);
 #endif
 }
 
 DRVFS_PRIVATE drvfs_uint64 drvfs_tell_native_file(drvfs_handle file)
 {
 #ifdef _MSC_VER
-    return _ftelli64((FILE*)file);
+    return _lseeki64(DRVFS_HANDLE_TO_FD(file), 0, SEEK_CUR);
 #else
-    return fseek64((FILE*)file);
+    return lseek64(DRVFS_HANDLE_TO_FD(file), 0, SEEK_CUR);
 #endif
 }
 
 DRVFS_PRIVATE drvfs_uint64 drvfs_get_native_file_size(drvfs_handle file)
 {
-    struct _stat64 info;
-    if (_fstat64(_fileno((FILE*)file), &info) != 0) {
+    struct stat64 info;
+    if (drvfs__fstat64(DRVFS_HANDLE_TO_FD(file), &info) != 0) {
         return 0;
     }
 
@@ -2127,23 +2376,23 @@ DRVFS_PRIVATE bool drvfs_get_native_file_info(const char* absolutePath, drvfs_fi
     assert(absolutePath != NULL);
     assert(fi != NULL);
 
-    struct _stat64 info;
-    if (_stat64(absolutePath, &info) != 0) {
+    struct stat64 info;
+    if (stat64(absolutePath, &info) != 0) {
         return false;   // Likely the file doesn't exist.
     }
 
     // <fi> is allowed to be null, in which case the call is equivalent to simply checking if the file exists.
     if (fi != NULL)
     {
-        strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), absolutePath);
+        drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), absolutePath);
         fi->sizeInBytes      = info.st_size;
         fi->lastModifiedTime = info.st_mtime;
 
         fi->attributes = 0;
-        if ((info.st_mode & S_IFDIR) != 0) {
+        if (S_ISDIR(info.st_mode)) {
             fi->attributes |= DRVFS_FILE_ATTRIBUTE_DIRECTORY;
         }
-        if ((info.st_mode & S_IWRITE) == 0) {
+        if ((info.st_mode & S_IWUSR) == 0) {
             fi->attributes |= DRVFS_FILE_ATTRIBUTE_READONLY;
         }
     }
@@ -2239,7 +2488,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_archive__native__special(const char* absol
         return NULL;
     }
 
-    strcpy_s(pNativeArchive->absolutePath, absolutePathLen + 1, absolutePath);
+    drvfs__strcpy_s(pNativeArchive->absolutePath, absolutePathLen + 1, absolutePath);
     pNativeArchive->accessMode = accessMode;
 
     return (drvfs_handle)pNativeArchive;
@@ -2261,7 +2510,7 @@ DRVFS_PRIVATE bool drvfs_get_file_info__native(drvfs_handle archive, const char*
         return false;
     }
 
-    memset(fi, sizeof(fi), 0);
+    memset(fi, 0, sizeof(*fi));
     return drvfs_get_native_file_info(absolutePath, fi);
 }
 
@@ -2521,8 +2770,8 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_native_archive(drvfs_context* pContext, 
     pArchive->callbacks.tell_file          = drvfs_tell_file__native;
     pArchive->callbacks.file_size          = drvfs_file_size__native;
     pArchive->callbacks.flush_file         = drvfs_flush__native;
-    strcpy_s(pArchive->absolutePath, sizeof(pArchive->absolutePath), absolutePath);
-    
+    drvfs__strcpy_s(pArchive->absolutePath, sizeof(pArchive->absolutePath), absolutePath);
+
     return pArchive;
 }
 
@@ -2592,7 +2841,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_recursively_from_verbose_p
     if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, relativePath, &fi))
     {
         // The file is in this archive.
-        strcpy_s(relativePathOut, relativePathOutSize, relativePath);
+        drvfs__strcpy_s(relativePathOut, relativePathOutSize, relativePath);
         return pParentArchive;
     }
     else
@@ -2650,7 +2899,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_recursively_from_verbose_p
         }
 
         // The running path is not part of this archive.
-        strcpy_s(relativePathOut, relativePathOutSize, relativePath);
+        drvfs__strcpy_s(relativePathOut, relativePathOutSize, relativePath);
         return pParentArchive;
     }
 }
@@ -2666,6 +2915,10 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_from_absolute_path(drvfs_c
 
     char runningPath[DRVFS_MAX_PATH];
     runningPath[0] = '\0';
+
+    if (absolutePath[0] == '/') {
+        runningPath[0] = '/';
+    }
 
     drvfs_pathiterator segment = drvfs_begin_path_iteration(absolutePath);
     while (drvfs_next_path_segment(&segment))
@@ -2703,7 +2956,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_from_absolute_path(drvfs_c
             }
             else
             {
-                strcpy_s(relativePathOut, relativePathOutSize, segment.path + segment.segment.offset);
+                drvfs__strcpy_s(relativePathOut, relativePathOutSize, segment.path + segment.segment.offset);
                 return pNativeArchive;
             }
         }
@@ -2727,7 +2980,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_
     if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, relativePath, &fi))
     {
         // The file is in this archive.
-        strcpy_s(relativePathOut, relativePathOutSize, relativePath);
+        drvfs__strcpy_s(relativePathOut, relativePathOutSize, relativePath);
         return pParentArchive;
     }
     else
@@ -2735,7 +2988,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_
         // The file does not exist within this archive. We need to search the parent archive recursively. We never search above
         // the path specified by rootSearchPath.
         char runningPath[DRVFS_MAX_PATH];
-        strcpy_s(runningPath, sizeof(runningPath), rootSearchPath);
+        drvfs__strcpy_s(runningPath, sizeof(runningPath), rootSearchPath);
 
         // Part of rootSearchPath and relativePath will be overlapping. We want to begin searching at the non-overlapping section.
         drvfs_pathiterator pathSeg0 = drvfs_begin_path_iteration(rootSearchPath);
@@ -2754,7 +3007,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_
         while (drvfs_next_path_segment(&pathseg))
         {
             char runningPathBase[DRVFS_MAX_PATH];
-            strcpy_s(runningPathBase, sizeof(runningPathBase), runningPath);
+            drvfs__strcpy_s(runningPathBase, sizeof(runningPathBase), runningPath);
 
             if (!drvfs_append_path_iterator(runningPath, sizeof(runningPath), pathseg)) {
                 return NULL;
@@ -2841,7 +3094,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_from_relative_path(drvfs_c
             return NULL;
         }
 
-        if (strcpy_s(adjustedRelativePath, sizeof(adjustedRelativePath), relativePath) != 0) {
+        if (drvfs__strcpy_s(adjustedRelativePath, sizeof(adjustedRelativePath), relativePath) != 0) {
             drvfs_close_archive(pBaseArchive);
             return NULL;
         }
@@ -2892,7 +3145,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_archive_from_relative_path(drvfs_context
             return NULL;
         }
 
-        if (strcpy_s(adjustedRelativePath, sizeof(adjustedRelativePath), relativePath) != 0) {
+        if (drvfs__strcpy_s(adjustedRelativePath, sizeof(adjustedRelativePath), relativePath) != 0) {
             drvfs_close_archive(pBaseArchive);
             return NULL;
         }
@@ -3090,7 +3343,7 @@ void drvfs_set_base_write_directory(drvfs_context* pContext, const char* absolut
     if (absolutePath == NULL) {
         memset(pContext->writeBaseDirectory, 0, sizeof(pContext->writeBaseDirectory));
     } else {
-        strcpy_s(pContext->writeBaseDirectory, sizeof(pContext->writeBaseDirectory), absolutePath);
+        drvfs__strcpy_s(pContext->writeBaseDirectory, sizeof(pContext->writeBaseDirectory), absolutePath);
     }
 }
 
@@ -3100,7 +3353,7 @@ bool drvfs_get_base_write_directory(drvfs_context* pContext, char* absolutePathO
         return false;
     }
 
-    return strcpy_s(absolutePathOut, absolutePathOutSize, pContext->writeBaseDirectory) == 0;
+    return drvfs__strcpy_s(absolutePathOut, absolutePathOutSize, pContext->writeBaseDirectory) == 0;
 }
 
 void drvfs_enable_write_directory_guard(drvfs_context* pContext)
@@ -3202,7 +3455,7 @@ drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* abs
             }
 
             if (relativePathOut) {
-                if (strcpy_s(relativePathOut, relativePathOutSize, drvfs_file_name(absoluteOrRelativePath)) != 0) {
+                if (drvfs__strcpy_s(relativePathOut, relativePathOutSize, drvfs_file_name(absoluteOrRelativePath)) != 0) {
                     drvfs_close_archive(pArchive);
                     return NULL;
                 }
@@ -3412,7 +3665,7 @@ bool drvfs_get_file_info(drvfs_context* pContext, const char* absoluteOrRelative
     if (pContext == NULL || absoluteOrRelativePath == NULL) {
         return false;
     }
-    
+
     char relativePath[DRVFS_MAX_PATH];
     drvfs_archive* pOwnerArchive = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, DRVFS_READ, relativePath, sizeof(relativePath));
     if (pOwnerArchive == NULL) {
@@ -3502,7 +3755,7 @@ bool drvfs_next(drvfs_context* pContext, drvfs_iterator* pIterator)
     // At this point the pIterator->info.absolutePath is actually referring to a relative path. We need to convert it to an absolute path.
     if (result) {
         char relativePath[DRVFS_MAX_PATH];
-        strcpy_s(relativePath, sizeof(relativePath), pIterator->info.absolutePath);
+        drvfs__strcpy_s(relativePath, sizeof(relativePath), pIterator->info.absolutePath);
         drvfs_copy_and_append_path(pIterator->info.absolutePath, sizeof(pIterator->info.absolutePath), pIterator->pArchive->absolutePath, relativePath);
     }
 
@@ -3649,7 +3902,7 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
     }
 
 
-        
+
     bool result = false;
     if (strcmp(pSrcArchive->absolutePath, pDstArchive->absolutePath) == 0 && pDstArchive->callbacks.copy_file)
     {
@@ -3719,7 +3972,7 @@ bool drvfs_is_archive_path(drvfs_context* pContext, const char* path)
 // High Level API
 //
 ///////////////////////////////////////////////////////////////////////////////
-
+#include <stdint.h>
 void drvfs_free(void* p)
 {
     free(p);
@@ -3733,7 +3986,7 @@ bool drvfs_find_absolute_path(drvfs_context* pContext, const char* relativePath,
 
     drvfs_file_info fi;
     if (drvfs_get_file_info(pContext, relativePath, &fi)) {
-        return strcpy_s(absolutePathOut, absolutePathOutSize, fi.absolutePath) == 0;
+        return drvfs__strcpy_s(absolutePathOut, absolutePathOutSize, fi.absolutePath) == 0;
     }
 
     return false;
@@ -3805,7 +4058,7 @@ void* drvfs_open_and_read_binary_file(drvfs_context* pContext, const char* absol
         return NULL;
     }
 
-    
+
     if (!drvfs_read(pFile, pData, (size_t)fileSize, NULL))
     {
         free(pData);
@@ -3850,7 +4103,7 @@ char* drvfs_open_and_read_text_file(drvfs_context* pContext, const char* absolut
         return NULL;
     }
 
-    
+
     if (!drvfs_read(pFile, pData, (size_t)fileSize, NULL))
     {
         free(pData);
@@ -4897,24 +5150,6 @@ static time_t mz_zip_dos_to_time_t(int dos_time, int dos_date)
   tm.tm_hour = (dos_time >> 11) & 31; tm.tm_min = (dos_time >> 5) & 63; tm.tm_sec = (dos_time << 1) & 62;
   return mktime(&tm);
 }
-
-static void mz_zip_time_to_dos_time(time_t time, mz_uint16 *pDOS_time, mz_uint16 *pDOS_date)
-{
-#ifdef _MSC_VER
-  struct tm tm_struct;
-  struct tm *tm = &tm_struct;
-  errno_t err = localtime_s(tm, &time);
-  if (err)
-  {
-    *pDOS_date = 0; *pDOS_time = 0;
-    return;
-  }
-#else
-  struct tm *tm = localtime(&time);
-#endif
-  *pDOS_time = (mz_uint16)(((tm->tm_hour) << 11) + ((tm->tm_min) << 5) + ((tm->tm_sec) >> 1));
-  *pDOS_date = (mz_uint16)(((tm->tm_year + 1900 - 1980) << 9) + ((tm->tm_mon + 1) << 5) + tm->tm_mday);
-}
 #endif
 
 static mz_bool mz_zip_reader_init_internal(mz_zip_archive *pZip, mz_uint32 flags)
@@ -5115,14 +5350,6 @@ mz_bool drvfs_mz_zip_reader_init(mz_zip_archive *pZip, mz_uint64 size, mz_uint32
     return MZ_FALSE;
   }
   return MZ_TRUE;
-}
-
-static size_t mz_zip_mem_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n)
-{
-  mz_zip_archive *pZip = (mz_zip_archive *)pOpaque;
-  size_t s = (file_ofs >= pZip->m_archive_size) ? 0 : (size_t)MZ_MIN(pZip->m_archive_size - file_ofs, n);
-  memcpy(pBuf, (const mz_uint8 *)pZip->m_pState->m_pMem + file_ofs, s);
-  return s;
 }
 
 mz_uint drvfs_mz_zip_reader_get_num_files(mz_zip_archive *pZip)
@@ -5564,7 +5791,7 @@ DRVFS_PRIVATE size_t drvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, 
 
 DRVFS_PRIVATE bool drvfs_is_valid_extension__zip(const char* extension)
 {
-    return _stricmp(extension, "zip") == 0;
+    return drvfs__stricmp(extension, "zip") == 0;
 }
 
 DRVFS_PRIVATE drvfs_handle drvfs_open_archive__zip(drvfs_file* pArchiveFile, unsigned int accessMode)
@@ -5616,13 +5843,13 @@ DRVFS_PRIVATE bool drvfs_get_file_info__zip(drvfs_handle archive, const char* re
         // sometimes the folders won't actually be included in the central directory at all which means we need to do a
         // manual check across every file in the archive.
         char relativePathWithSlash[DRVFS_MAX_PATH];
-        strcpy_s(relativePathWithSlash, sizeof(relativePathWithSlash), relativePath);
-        strcat_s(relativePathWithSlash, sizeof(relativePathWithSlash), "/");
+        drvfs__strcpy_s(relativePathWithSlash, sizeof(relativePathWithSlash), relativePath);
+        drvfs__strcat_s(relativePathWithSlash, sizeof(relativePathWithSlash), "/");
         fileIndex = drvfs_mz_zip_reader_locate_file(pZip, relativePath, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
         if (fileIndex == -1)
         {
             // We still couldn't find the directory even with the trailing slash. There's a chace it's a folder that's
-            // simply not included in the central directory. It's appears the "Send to -> Compressed (zipped) folder" 
+            // simply not included in the central directory. It's appears the "Send to -> Compressed (zipped) folder"
             // functionality in Windows does this.
             mz_uint numFiles = drvfs_mz_zip_reader_get_num_files(pZip);
             for (mz_uint iFile = 0; iFile < numFiles; ++iFile)
@@ -5634,7 +5861,7 @@ DRVFS_PRIVATE bool drvfs_get_file_info__zip(drvfs_handle archive, const char* re
                     {
                         // This file is within a folder with a path of relativePath which means we can imply that relativePath
                         // is a folder.
-                        strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
+                        drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
                         fi->sizeInBytes      = 0;
                         fi->lastModifiedTime = 0;
                         fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY | DRVFS_FILE_ATTRIBUTE_DIRECTORY;
@@ -5655,7 +5882,7 @@ DRVFS_PRIVATE bool drvfs_get_file_info__zip(drvfs_handle archive, const char* re
         mz_zip_archive_file_stat zipStat;
         if (drvfs_mz_zip_reader_file_stat(pZip, (mz_uint)fileIndex, &zipStat))
         {
-            strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
+            drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
             fi->sizeInBytes      = zipStat.m_uncomp_size;
             fi->lastModifiedTime = (drvfs_uint64)zipStat.m_time;
             fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY;
@@ -5688,13 +5915,13 @@ DRVFS_PRIVATE drvfs_handle drvfs_begin_iteration__zip(drvfs_handle archive, cons
     {
         // The same issue applies here as documented in drvfs_get_file_info__zip().
         char relativePathWithSlash[DRVFS_MAX_PATH];
-        strcpy_s(relativePathWithSlash, sizeof(relativePathWithSlash), relativePath);
-        strcat_s(relativePathWithSlash, sizeof(relativePathWithSlash), "/");
+        drvfs__strcpy_s(relativePathWithSlash, sizeof(relativePathWithSlash), relativePath);
+        drvfs__strcat_s(relativePathWithSlash, sizeof(relativePathWithSlash), "/");
         directoryFileIndex = drvfs_mz_zip_reader_locate_file(pZip, relativePath, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
         if (directoryFileIndex == -1)
         {
             // We still couldn't find the directory even with the trailing slash. There's a chace it's a folder that's
-            // simply not included in the central directory. It's appears the "Send to -> Compressed (zipped) folder" 
+            // simply not included in the central directory. It's appears the "Send to -> Compressed (zipped) folder"
             // functionality in Windows does this.
             mz_uint numFiles = drvfs_mz_zip_reader_get_num_files(pZip);
             for (mz_uint iFile = 0; iFile < numFiles; ++iFile)
@@ -5715,14 +5942,14 @@ DRVFS_PRIVATE drvfs_handle drvfs_begin_iteration__zip(drvfs_handle archive, cons
         }
     }
 
-    
-    
+
+
 on_success:;
     drvfs_iterator_zip* pZipIterator = malloc(sizeof(drvfs_iterator_zip));
     if (pZipIterator != NULL)
     {
         pZipIterator->index = 0;
-        strcpy_s(pZipIterator->directoryPath, sizeof(pZipIterator->directoryPath), relativePath);
+        drvfs__strcpy_s(pZipIterator->directoryPath, sizeof(pZipIterator->directoryPath), relativePath);
     }
 
     return pZipIterator;
@@ -5733,7 +5960,7 @@ DRVFS_PRIVATE void drvfs_end_iteration__zip(drvfs_handle archive, drvfs_handle i
     (void)archive;
     assert(archive != NULL);
     assert(iterator != NULL);
-    
+
     free(iterator);
 }
 
@@ -5763,7 +5990,7 @@ DRVFS_PRIVATE bool drvfs_next_iteration__zip(drvfs_handle archive, drvfs_handle 
                     mz_zip_archive_file_stat zipStat;
                     if (drvfs_mz_zip_reader_file_stat(pZip, iFile, &zipStat))
                     {
-                        strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), filePath);
+                        drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), filePath);
                         fi->sizeInBytes      = zipStat.m_uncomp_size;
                         fi->lastModifiedTime = (drvfs_uint64)zipStat.m_time;
                         fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY;
@@ -6144,7 +6371,7 @@ DRVFS_PRIVATE bool drvfs_iterator_pak_append_processed_dir(drvfs_iterator_pak* p
                 pNewBuffer[iDst] = pOldBuffer[iDst];
             }
 
-            strcpy_s(pNewBuffer[pIterator->processedDirCount].path, 64, path);
+            drvfs__strcpy_s(pNewBuffer[pIterator->processedDirCount].path, 64, path);
 
 
             pIterator->pProcessedDirs     = pNewBuffer;
@@ -6214,7 +6441,7 @@ DRVFS_PRIVATE void drvfs_pak_delete(drvfs_archive_pak* pArchive)
 
 DRVFS_PRIVATE bool drvfs_is_valid_extension__pak(const char* extension)
 {
-    return _stricmp(extension, "pak") == 0;
+    return drvfs__stricmp(extension, "pak") == 0;
 }
 
 
@@ -6338,7 +6565,7 @@ DRVFS_PRIVATE bool drvfs_get_file_info__pak(drvfs_handle archive, const char* re
         if (strcmp(pFile->name, relativePath) == 0)
         {
             // It's a file.
-            strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
+            drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
             fi->sizeInBytes      = (drvfs_uint64)pFile->sizeInBytes;
             fi->lastModifiedTime = 0;
             fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY;
@@ -6348,7 +6575,7 @@ DRVFS_PRIVATE bool drvfs_get_file_info__pak(drvfs_handle archive, const char* re
         else if (drvfs_is_path_descendant(pFile->name, relativePath))
         {
             // It's a directory.
-            strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
+            drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
             fi->sizeInBytes      = 0;
             fi->lastModifiedTime = 0;
             fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY | DRVFS_FILE_ATTRIBUTE_DIRECTORY;
@@ -6369,7 +6596,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_begin_iteration__pak(drvfs_handle archive, cons
     if (pIterator != NULL)
     {
         pIterator->index = 0;
-        strcpy_s(pIterator->directoryPath, sizeof(pIterator->directoryPath), relativePath);
+        drvfs__strcpy_s(pIterator->directoryPath, sizeof(pIterator->directoryPath), relativePath);
         pIterator->processedDirCount = 0;
         pIterator->pProcessedDirs    = NULL;
     }
@@ -6404,7 +6631,7 @@ DRVFS_PRIVATE bool drvfs_next_iteration__pak(drvfs_handle archive, drvfs_handle 
         if (drvfs_is_path_child(pFile->name, pIterator->directoryPath))
         {
             // It's a file.
-            strcpy_s(fi->absolutePath, DRVFS_MAX_PATH, pFile->name);
+            drvfs__strcpy_s(fi->absolutePath, DRVFS_MAX_PATH, pFile->name);
             fi->sizeInBytes      = (drvfs_uint64)pFile->sizeInBytes;
             fi->lastModifiedTime = 0;
             fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY;
@@ -6427,7 +6654,7 @@ DRVFS_PRIVATE bool drvfs_next_iteration__pak(drvfs_handle archive, drvfs_handle 
             if (!drvfs_iterator_pak_has_dir_been_processed(pIterator, childDir))
             {
                 // It's a directory.
-                strcpy_s(fi->absolutePath, DRVFS_MAX_PATH, childDir);
+                drvfs__strcpy_s(fi->absolutePath, DRVFS_MAX_PATH, childDir);
                 fi->sizeInBytes      = 0;
                 fi->lastModifiedTime = 0;
                 fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY | DRVFS_FILE_ATTRIBUTE_DIRECTORY;
@@ -6525,7 +6752,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_file__pak(drvfs_handle archive, const char
         }
     }
 
-   
+
     return NULL;
 }
 
@@ -6712,7 +6939,7 @@ DRVFS_PRIVATE void drvfs_register_pak_backend(drvfs_context* pContext)
 #ifndef DR_VFS_NO_MTL
 typedef struct
 {
-    // The byte offset within the archive 
+    // The byte offset within the archive
     drvfs_uint64 offset;
 
     // The size of the file, in bytes.
@@ -6978,7 +7205,7 @@ DRVFS_PRIVATE bool drvfs_mtl_loadmtlname(drvfs_openarchive_mtl_state* pState, vo
 
 DRVFS_PRIVATE bool drvfs_is_valid_extension__mtl(const char* extension)
 {
-    return _stricmp(extension, "mtl") == 0;
+    return drvfs__stricmp(extension, "mtl") == 0;
 }
 
 DRVFS_PRIVATE drvfs_handle drvfs_open_archive__mtl(drvfs_file* pArchiveFile, unsigned int accessMode)
@@ -7076,7 +7303,7 @@ DRVFS_PRIVATE bool drvfs_get_file_info__mtl(drvfs_handle archive, const char* re
             // We found the file.
             if (fi != NULL)
             {
-                strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
+                drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
                 fi->sizeInBytes      = mtl->pFiles[iFile].sizeInBytes;
                 fi->lastModifiedTime = 0;
                 fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY;
@@ -7132,7 +7359,7 @@ DRVFS_PRIVATE bool drvfs_next_iteration__mtl(drvfs_handle archive, drvfs_handle 
     {
         if (fi != NULL)
         {
-            strcpy_s(fi->absolutePath, DRVFS_MAX_PATH, mtl->pFiles[pIterator->index].name);
+            drvfs__strcpy_s(fi->absolutePath, DRVFS_MAX_PATH, mtl->pFiles[pIterator->index].name);
             fi->sizeInBytes      = mtl->pFiles[pIterator->index].sizeInBytes;
             fi->lastModifiedTime = 0;
             fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY;
@@ -7141,7 +7368,7 @@ DRVFS_PRIVATE bool drvfs_next_iteration__mtl(drvfs_handle archive, drvfs_handle 
         pIterator->index += 1;
         return true;
     }
-    
+
     return false;
 }
 
