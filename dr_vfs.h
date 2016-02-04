@@ -27,7 +27,6 @@
 // - When a file contained within a Zip file is opened, the entire uncompressed data is loaded
 //   onto the heap. Keep this in mind when working with large files.
 // - Zip, PAK and Wavefront MTL archives are read-only at the moment.
-// - Only Windows is supported at the moment, but Linux is coming very soon.
 // - dr_vfs is not currently thread-safe. This will be addressed soon.
 //
 //
@@ -77,10 +76,6 @@
 //
 // To use these options, just place the appropriate #define's in the .c file before including this file.
 //
-// #define DR_VFS_FORCE_STDIO
-//   Force the use the C standard library's IO functions for file handling on all platforms. Note that this currently
-//   only affects the Windows platform. All other platforms use stdio regardless of whether or not this is set.
-//
 // #define DR_VFS_NO_ZIP
 //   Disable built-in support for Zip files.
 //
@@ -106,6 +101,9 @@
 // - For safety, if you want to overwrite a file you must explicitly call drvfs_open() with the DRVFS_TRUNCATE flag.
 // - Platforms other than Windows do not use buffering. That is, they use read() and write() instead of fread() and
 //   fwrite().
+// - On Linux platforms, if you are having issues with opening files larger than 2GB, make sure this file is the first
+//   file included in the .c file. This ensures the _LARGEFILE64_SOURCE macro is defined before any other header file
+//   as required for the use of 64-bit variants of the POSIX APIs.
 //
 //
 //
@@ -123,7 +121,7 @@
 #define dr_vfs_h
 
 // These need to be defined before including any headers, but we don't want to expose it to the public header.
-#ifdef DR_VFS_IMPLEMENTATION
+#if defined(DR_VFS_IMPLEMENTATION) && !defined(_WIN32)
 #define __USE_LARGEFILE64
 #define _LARGEFILE_SOURCE
 #define _LARGEFILE64_SOURCE
