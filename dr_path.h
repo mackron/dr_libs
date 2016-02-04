@@ -1130,10 +1130,16 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
             return 0;
         }
 
+        size_t bytesWritten = 0;
+        if (base[0] == '/') {
+            if (dst != NULL && dstSizeInBytes > 1) {
+                dst[0] = '/';
+                bytesWritten = 1;
+            }
+        }
 
-        size_t bytesWritten = _drpath_clean_trywrite(last, 2, dst, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
-        if (dstSizeInBytes > bytesWritten)
-        {
+        bytesWritten += _drpath_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+        if (dstSizeInBytes > bytesWritten) {
             dst[bytesWritten] = '\0';
         }
 
