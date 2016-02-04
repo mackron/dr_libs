@@ -71,11 +71,11 @@ bool drpath_segments_equal(const char* s0Path, const drpath_segment s0, const ch
 ///
 /// @param path [in] The path whose segments are being iterated.
 ///
-/// @return An iterator object that is passed to drpath_next().
-drpath_iterator drpath_first(const char* path);
+/// @return True if at least one segment is found; false if it's an empty path.
+bool drpath_first(const char* path, drpath_iterator* i);
 
 /// Creates an iterator beginning at the last segment.
-drpath_iterator drpath_last(const char* path);
+bool drpath_last(const char* path, drpath_iterator* i);
 
 /// Goes to the next segment in the path as per the given iterator.
 ///
@@ -108,6 +108,16 @@ bool drpath_at_start(drpath_iterator i);
 ///
 /// @return true if the strings are equal; false otherwise.
 bool drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1);
+
+
+/// Determines whether or not the given iterator refers to the root segment of a path.
+bool drpath_is_root_segment(const drpath_iterator i);
+
+/// Determines whether or not the given iterator refers to a Linux style root directory ("/")
+bool drpath_is_linux_style_root_segment(const drpath_iterator i);
+
+/// Determines whether or not the given iterator refers to a Windows style root directory.
+bool drpath_is_win32_style_root_segment(const drpath_iterator i);
 
 
 /// Converts the slashes in the given path to forward slashes.
@@ -443,25 +453,34 @@ int drpath_strncpy(char* dst, size_t dstSizeInBytes, const char* src, size_t src
 }
 
 
-drpath_iterator drpath_first(const char* path)
+bool drpath_first(const char* path, drpath_iterator* i)
 {
-    drpath_iterator i;
-    i.path = path;
-    i.segment.offset = 0;
-    i.segment.length = 0;
+    if (path == NULL || path[0] == '\0' || i == NULL) {
+        return false;
+    }
 
-    return i;
+    i->path = path;
+    i->segment.offset = 0;
+    i->segment.length = 0;
+
+    while (i->path[i->segment.length] != '\0' && (i->path[i->segment.length] != '/' && i->path[i->segment.length] != '\\')) {
+        i->segment.length += 1;
+    }
+
+    return true;
 }
 
-drpath_iterator drpath_last(const char* path)
+bool drpath_last(const char* path, drpath_iterator* i)
 {
-    drpath_iterator i;
-    i.path = path;
-    i.segment.offset = drpath_strlen(path);
-    i.segment.length = 0;
+    if (path == NULL || path[0] == '\0' || i == NULL) {
+        return false;
+    }
 
-    drpath_prev(&i);
-    return i;
+    i->path = path;
+    i->segment.offset = drpath_strlen(path);
+    i->segment.length = 0;
+
+    return drpath_prev(i);
 }
 
 bool drpath_next(drpath_iterator* i)
@@ -471,20 +490,16 @@ bool drpath_next(drpath_iterator* i)
         i->segment.offset = i->segment.offset + i->segment.length;
         i->segment.length = 0;
 
-        while (i->path[i->segment.offset] != '\0' && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\'))
-        {
+        while (i->path[i->segment.offset] != '\0' && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\')) {
             i->segment.offset += 1;
         }
 
-        if (i->path[i->segment.offset] == '\0')
-        {
+        if (i->path[i->segment.offset] == '\0') {
             return false;
         }
 
 
-
-        while (i->path[i->segment.offset + i->segment.length] != '\0' && (i->path[i->segment.offset + i->segment.length] != '/' && i->path[i->segment.offset + i->segment.length] != '\\'))
-        {
+        while (i->path[i->segment.offset + i->segment.length] != '\0' && (i->path[i->segment.offset + i->segment.length] != '/' && i->path[i->segment.offset + i->segment.length] != '\\')) {
             i->segment.length += 1;
         }
 
@@ -505,20 +520,22 @@ bool drpath_prev(drpath_iterator* i)
             i->segment.offset -= 1;
         } while (i->segment.offset > 0 && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\'));
 
-        if (i->segment.offset == 0)
-        {
+        if (i->segment.offset == 0) {
+            if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
+                i->segment.length = 0;
+                return true;
+            }
+
             return false;
         }
 
 
         size_t offsetEnd = i->segment.offset + 1;
-        while (i->segment.offset > 0 && (i->path[i->segment.offset] != '/' && i->path[i->segment.offset] != '\\'))
-        {
+        while (i->segment.offset > 0 && (i->path[i->segment.offset] != '/' && i->path[i->segment.offset] != '\\')) {
             i->segment.offset -= 1;
         }
 
-        if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\')
-        {
+        if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
             i->segment.offset += 1;
         }
 
@@ -568,6 +585,40 @@ bool drpath_segments_equal(const char* s0Path, const drpath_segment s0, const ch
 }
 
 
+bool drpath_is_root_segment(const drpath_iterator i)
+{
+    return drpath_is_linux_style_root_segment(i) || drpath_is_win32_style_root_segment(i);
+}
+
+bool drpath_is_linux_style_root_segment(const drpath_iterator i)
+{
+    if (i.path == NULL) {
+        return false;
+    }
+
+    if (i.segment.offset == 0 && i.segment.length == 0) {
+        return true;    // "/" style root.
+    }
+
+    return false;
+}
+
+bool drpath_is_win32_style_root_segment(const drpath_iterator i)
+{
+    if (i.path == NULL) {
+        return false;
+    }
+
+    if (i.segment.offset == 0 && i.segment.length == 2) {
+        if (((i.path[0] >= 'a' && i.path[0] <= 'z') || (i.path[0] >= 'A' && i.path[0] <= 'Z')) && i.path[1] == ':') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 void drpath_to_forward_slashes(char* path)
 {
     if (path != 0)
@@ -603,62 +654,64 @@ void drpath_to_backslashes(char* path)
 
 bool drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
 {
-    drpath_iterator iParent = drpath_first(parentAbsolutePath);
-    drpath_iterator iChild  = drpath_first(descendantAbsolutePath);
+    drpath_iterator iChild;
+    if (!drpath_first(descendantAbsolutePath, &iChild)) {
+        return false;   // The descendant is an empty string which makes it impossible for it to be a descendant.
+    }
 
-    while (drpath_next(&iParent))
+    drpath_iterator iParent;
+    if (drpath_first(parentAbsolutePath, &iParent))
     {
-        if (drpath_next(&iChild))
+        do
         {
             // If the segment is different, the paths are different and thus it is not a descendant.
-            if (!drpath_iterators_equal(iParent, iChild))
-            {
+            if (!drpath_iterators_equal(iParent, iChild)) {
                 return false;
             }
-        }
-        else
-        {
-            // The descendant is shorter which means it's impossible for it to be a descendant.
-            return false;
-        }
+
+            if (!drpath_next(&iChild)) {
+                return false;   // The descendant is shorter which means it's impossible for it to be a descendant.
+            }
+
+        } while (drpath_next(&iParent));
     }
+
+    return true;
 
     // At this point we have finished iteration of the parent, which should be shorter one. We now do one final iteration of
     // the descendant to ensure it is indeed shorter. If so, it's a descendant.
-    return drpath_next(&iChild);
+    //return drpath_next(&iChild);
 }
 
 bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
 {
-    drpath_iterator iParent = drpath_first(parentAbsolutePath);
-    drpath_iterator iChild  = drpath_first(childAbsolutePath);
-
-    while (drpath_next(&iParent))
-    {
-        if (drpath_next(&iChild))
-        {
-            // If the segment is different, the paths are different and thus it is not a descendant.
-            if (!drpath_iterators_equal(iParent, iChild))
-            {
-                return false;
-            }
-        }
-        else
-        {
-            // The descendant is shorter which means it's impossible for it to be a descendant.
-            return false;
-        }
+    drpath_iterator iChild;
+    if (!drpath_first(childAbsolutePath, &iChild)) {
+        return false;   // The descendant is an empty string which makes it impossible for it to be a descendant.
     }
 
-    // At this point we have finished iteration of the parent, which should be shorter one. We now do a couple of iterations of
-    // the child to ensure it is indeed a direct child.
-    if (drpath_next(&iChild))
+    drpath_iterator iParent;
+    if (drpath_first(parentAbsolutePath, &iParent))
     {
-        // It could be a child. If the next iteration fails, it's a direct child and we want to return true.
-        if (!drpath_next(&iChild))
+        do
         {
-            return true;
-        }
+            // If the segment is different, the paths are different and thus it is not a descendant.
+            if (!drpath_iterators_equal(iParent, iChild)) {
+                return false;
+            }
+
+            if (!drpath_next(&iChild)) {
+                return false;   // The descendant is shorter which means it's impossible for it to be a descendant.
+            }
+
+        } while (drpath_next(&iParent));
+    }
+
+    // At this point we have finished iteration of the parent, which should be shorter one. We now do one more iterations of
+    // the child to ensure it is indeed a direct child and not a deeper descendant.
+    if (!drpath_next(&iChild))
+    {
+        return true;
     }
 
     return false;
@@ -780,25 +833,31 @@ bool drpath_equal(const char* path1, const char* path2)
 {
     if (path1 != 0 && path2 != 0)
     {
-        drpath_iterator iPath1 = drpath_first(path1);
-        drpath_iterator iPath2 = drpath_first(path2);
-
-        int isPath1Valid = drpath_next(&iPath1);
-        int isPath2Valid = drpath_next(&iPath2);
-        while (isPath1Valid && isPath2Valid)
-        {
-            if (!drpath_iterators_equal(iPath1, iPath2))
-            {
-                return false;
-            }
-
-            isPath1Valid = drpath_next(&iPath1);
-            isPath2Valid = drpath_next(&iPath2);
+        if (path1 == path2 || (path1[0] == '\0' && path2[0] == '\0')) {
+            return true;    // Two empty paths are treated as the same.
         }
 
+        drpath_iterator iPath1;
+        drpath_iterator iPath2;
+        if (drpath_first(path1, &iPath1) && drpath_first(path2, &iPath2))
+        {
+            bool isPath1Valid;
+            bool isPath2Valid;
 
-        // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
-        return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
+            do
+            {
+                if (!drpath_iterators_equal(iPath1, iPath2)) {
+                    return false;
+                }
+
+                isPath1Valid = drpath_next(&iPath1);
+                isPath2Valid = drpath_next(&iPath2);
+
+            } while (isPath1Valid && isPath2Valid);
+
+            // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
+            return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
+        }
     }
 
     return false;
@@ -996,7 +1055,7 @@ bool drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const ch
 // This function recursively cleans a path which is defined as a chain of iterators. This function works backwards, which means at the time of calling this
 // function, each iterator in the chain should be placed at the end of the path.
 //
-// This does not write the null terminator.
+// This does not write the null terminator, nor a leading slash for absolute paths.
 size_t _drpath_clean_trywrite(drpath_iterator* iterators, unsigned int iteratorCount, char* pathOut, size_t pathOutSizeInBytes, unsigned int ignoreCounter)
 {
     if (iteratorCount == 0) {
@@ -1025,8 +1084,7 @@ size_t _drpath_clean_trywrite(drpath_iterator* iterators, unsigned int iteratorC
         else
         {
             // It's a regular segment, so decrement the ignore counter.
-            if (ignoreCounter > 0)
-            {
+            if (ignoreCounter > 0) {
                 ignoreCounter -= 1;
             }
         }
@@ -1095,12 +1153,19 @@ size_t drpath_clean(const char* path, char* pathOut, size_t pathOutSizeInBytes)
 {
     if (path != 0)
     {
-        drpath_iterator last = drpath_last(path);
-        if (last.segment.length > 0)
+        drpath_iterator last;
+        if (drpath_last(path, &last))
         {
-            size_t bytesWritten = _drpath_clean_trywrite(&last, 1, pathOut, pathOutSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
-            if (pathOutSizeInBytes > bytesWritten)
-            {
+            size_t bytesWritten = 0;
+            if (path[0] == '/') {
+                if (pathOut != NULL && pathOutSizeInBytes > 1) {
+                    pathOut[0] = '/';
+                    bytesWritten = 1;
+                }
+            }
+
+            bytesWritten += _drpath_clean_trywrite(&last, 1, pathOut + bytesWritten, pathOutSizeInBytes - bytesWritten - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+            if (pathOutSizeInBytes > bytesWritten) {
                 pathOut[bytesWritten] = '\0';
             }
 
@@ -1116,10 +1181,10 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
     if (base != 0 && other != 0)
     {
         drpath_iterator last[2];
-        last[0] = drpath_last(base);
-        last[1] = drpath_last(other);
+        bool isPathEmpty0 = !drpath_last(base,  last + 0);
+        bool isPathEmpty1 = !drpath_last(other, last + 1);
 
-        if (last[0].segment.length == 0 && last[1].segment.length == 0) {
+        if (isPathEmpty0 && isPathEmpty1) {
             return 0;   // Both input strings are empty.
         }
 
@@ -1131,7 +1196,7 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
             }
         }
 
-        bytesWritten += _drpath_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+        bytesWritten += _drpath_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - bytesWritten - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
         if (dstSizeInBytes > bytesWritten) {
             dst[bytesWritten] = '\0';
         }
@@ -1187,13 +1252,25 @@ bool drpath_remove_file_name(char* path)
 
     // We just create an iterator that starts at the last segment. We then move back one and place a null terminator at the end of
     // that segment. That will ensure the resulting path is not left with a slash.
-    drpath_iterator iLast = drpath_last(path);
-    
+    drpath_iterator iLast;
+    if (!drpath_last(path, &iLast)) {
+        return false;   // The path is empty.
+    }
+
+    if (drpath_is_root_segment(iLast)) {
+        return false;
+    }
+
+
     drpath_iterator iSecondLast = iLast;
     if (drpath_prev(&iSecondLast))
     {
-        // There is a segment before it so we just place a null terminator at the end.
-        path[iSecondLast.segment.offset + iSecondLast.segment.length] = '\0';
+        // There is a segment before it so we just place a null terminator at the end, but only if it's not the root of a Linux-style absolute path.
+        if (drpath_is_linux_style_root_segment(iSecondLast)) {
+            path[iLast.segment.offset] = '\0';
+        } else {
+            path[iSecondLast.segment.offset + iSecondLast.segment.length] = '\0';
+        }
     }
     else
     {
@@ -1209,11 +1286,9 @@ bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const ch
     if (dst == NULL) {
         return false;
     }
-
     if (dstSizeInBytes == 0) {
         return false;
     }
-
     if (path == NULL) {
         dst[0] = '\0';
         return false;
@@ -1222,13 +1297,36 @@ bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const ch
 
     // We just create an iterator that starts at the last segment. We then move back one and place a null terminator at the end of
     // that segment. That will ensure the resulting path is not left with a slash.
-    drpath_iterator iLast = drpath_last(path);
-    
+    drpath_iterator iLast;
+    if (!drpath_last(path, &iLast)) {
+        dst[0] = '\0';
+        return false;   // The path is empty.
+    }
+
+    if (drpath_is_linux_style_root_segment(iLast)) {
+        if (dstSizeInBytes > 1) {
+            dst[0] = '/'; dst[1] = '\0';
+            return false;
+        } else {
+            dst[0] = '\0';
+            return false;
+        }
+    }
+
+    if (drpath_is_win32_style_root_segment(iLast)) {
+        return drpath_strncpy(dst, dstSizeInBytes, path + iLast.segment.offset, iLast.segment.length) == 0;
+    }
+
+
     drpath_iterator iSecondLast = iLast;
     if (drpath_prev(&iSecondLast))
     {
-        // There is a segment before it so we just place a null terminator at the end.
-        return drpath_strncpy(dst, dstSizeInBytes, path, iSecondLast.segment.offset + iSecondLast.segment.length) == 0;
+        // There is a segment before it so we just place a null terminator at the end, but only if it's not the root of a Linux-style absolute path.
+        if (drpath_is_linux_style_root_segment(iSecondLast)) {
+            return drpath_strcpy(dst, dstSizeInBytes, "/");
+        } else {
+            return drpath_strncpy(dst, dstSizeInBytes, path, iSecondLast.segment.offset + iSecondLast.segment.length) == 0;
+        }
     }
     else
     {
@@ -1247,16 +1345,17 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
     if (relativePathOut == 0) {
         return false;
     }
-
     if (relativePathOutSizeInBytes == 0) {
         return false;
     }
 
 
-    drpath_iterator iPath = drpath_first(absolutePathToMakeRelative);
-    drpath_iterator iBase = drpath_first(absolutePathToMakeRelativeTo);
+    drpath_iterator iPath;
+    drpath_iterator iBase;
+    bool isPathEmpty = !drpath_first(absolutePathToMakeRelative, &iPath);
+    bool isBaseEmpty = !drpath_first(absolutePathToMakeRelativeTo, &iBase);
 
-    if (drpath_at_end(iPath) && drpath_at_end(iBase))
+    if (isPathEmpty && isBaseEmpty)
     {
         // Looks like both paths are empty.
         relativePathOut[0] = '\0';
