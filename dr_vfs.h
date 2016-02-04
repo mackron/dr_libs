@@ -524,9 +524,13 @@ bool drvfs_eof(drvfs_file* pFile);
 #ifdef DR_VFS_IMPLEMENTATION
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <assert.h>
+
+#ifndef _WIN32
+#include <strings.h>
 #include <errno.h>
+#include <unistd.h>
+#endif
 
 #ifndef DRVFS_PRIVATE
 #define DRVFS_PRIVATE static
@@ -1935,8 +1939,9 @@ DRVFS_PRIVATE bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, siz
 
             if (pBytesReadOut) {
                 *pBytesReadOut = totalBytesRead;
-                return result;
             }
+
+            return result;
         }
 
         pDst += bytesRead;
@@ -1979,8 +1984,9 @@ DRVFS_PRIVATE bool drvfs_write_native_file(drvfs_handle file, const void* pData,
 
             if (pBytesWrittenOut) {
                 *pBytesWrittenOut = totalBytesWritten;
-                return result;
             }
+
+            return result;
         }
 
         pSrc += bytesWritten;
@@ -2085,19 +2091,19 @@ DRVFS_PRIVATE bool drvfs_get_native_file_info(const char* absolutePath, drvfs_fi
 
 #ifdef _WIN32
 #include <direct.h>
-#include <io.h>
+    #ifdef _MSC_VER
+    #include <io.h>
+    #endif
 #endif
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <fcntl.h>
 
 #ifdef _MSC_VER
-typedef _stat64 stat64
+#define stat64 _stat64
 #endif
 
-#define DRVFS_HANDLE_TO_FD(file) ((int)(size_t)(file - 1))
+#define DRVFS_HANDLE_TO_FD(file) ((int)((size_t)file) - 1)
 #define DRVFS_FD_TO_HANDLE(fd)   ((drvfs_handle)(size_t)(fd + 1))
 
 
@@ -2142,12 +2148,30 @@ DRVFS_PRIVATE int drvfs__fstat64(int fd, struct stat64* st)
 #endif
 }
 
-DRVFS_PRIVATE int drvfs__chmod(const char* filename, __mode_t mode)
+DRVFS_PRIVATE int drvfs__chmod(const char* filename, int mode)
 {
 #ifdef _MSC_VER
     return _chmod(filename, mode);
 #else
     return chmod(filename, mode);
+#endif
+}
+
+DRVFS_PRIVATE int drvfs__mode_is_dir(int mode)
+{
+#ifdef _MSC_VER
+    return (mode & S_IFDIR) != 0;
+#else
+    return S_ISDIR(mode);
+#endif
+}
+
+DRVFS_PRIVATE int drvfs__mode_has_write_permission(int mode)
+{
+#ifdef _MSC_VER
+    return (mode & S_IWRITE) != 0;
+#else
+    return (mode & S_IWUSR) != 0;
 #endif
 }
 
@@ -2213,7 +2237,7 @@ DRVFS_PRIVATE bool drvfs_is_native_directory(const char* absolutePath)
         return false;   // Likely the folder doesn't exist.
     }
 
-    return S_ISDIR(info.st_mode);   // Only return true if it's a directory. Return false if it's a file.
+    return drvfs__mode_is_dir(info.st_mode);   // Only return true if it's a directory. Return false if it's a file.
 }
 
 DRVFS_PRIVATE bool drvfs_is_native_file(const char* absolutePath)
@@ -2223,7 +2247,7 @@ DRVFS_PRIVATE bool drvfs_is_native_file(const char* absolutePath)
         return false;   // Likely the folder doesn't exist.
     }
 
-    return !S_ISDIR(info.st_mode);  // Only return true if it's a file. Return false if it's a directory.
+    return !drvfs__mode_is_dir(info.st_mode);  // Only return true if it's a file. Return false if it's a directory.
 }
 
 DRVFS_PRIVATE bool drvfs_delete_native_file(const char* absolutePath)
@@ -2305,10 +2329,44 @@ DRVFS_PRIVATE bool drvfs_copy_native_file(const char* absolutePathSrc, const cha
 
 DRVFS_PRIVATE bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
 {
+    size_t totalBytesRead = 0;
+
+#ifdef _WIN32
+    char* pDst = pDataOut;
+    drvfs_uint64 bytesRemaining = bytesToRead;
+    while (bytesRemaining > 0)
+    {
+        unsigned int bytesToProcess;
+        if (bytesRemaining > INT_MAX) {
+            bytesToProcess = INT_MAX;
+        } else {
+            bytesToProcess = (unsigned int)bytesRemaining;
+        }
+
+
+        int bytesRead = _read(DRVFS_HANDLE_TO_FD(file), pDst, bytesToProcess);
+        if (bytesRead == -1 || bytesRead != bytesToProcess)
+        {
+            // We failed to read the chunk.
+            totalBytesRead += bytesRead;
+
+            if (pBytesReadOut) {
+                *pBytesReadOut = totalBytesRead;
+            }
+
+            return bytesRead != -1;
+        }
+
+        pDst += bytesRead;
+        bytesRemaining -= bytesRead;
+        totalBytesRead += bytesRead;
+    }
+#else
     ssize_t totalBytesRead = read(DRVFS_HANDLE_TO_FD(file), pDataOut, bytesToRead);
     if (totalBytesRead == -1) {
         return false;
     }
+#endif
 
     if (pBytesReadOut != NULL) {
         *pBytesReadOut = totalBytesRead;
@@ -2319,10 +2377,44 @@ DRVFS_PRIVATE bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, siz
 
 DRVFS_PRIVATE bool drvfs_write_native_file(drvfs_handle file, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
 {
+    size_t totalBytesWritten = 0;
+
+#ifdef _WIN32
+    const char* pSrc = pData;
+
+    size_t bytesRemaining = bytesToWrite;
+    while (bytesRemaining > 0)
+    {
+        unsigned int bytesToProcess;
+        if (bytesRemaining > INT_MAX) {
+            bytesToProcess = INT_MAX;
+        } else {
+            bytesToProcess = (unsigned int)bytesRemaining;
+        }
+
+        int bytesWritten = _write(DRVFS_HANDLE_TO_FD(file), pSrc, bytesToProcess);
+        if (bytesWritten == -1 || bytesWritten != bytesToProcess)
+        {
+            // We failed to write the chunk.
+            totalBytesWritten += bytesWritten;
+
+            if (pBytesWrittenOut) {
+                *pBytesWrittenOut = totalBytesWritten;
+            }
+
+            return bytesWritten != -1;
+        }
+
+        pSrc += bytesWritten;
+        bytesRemaining -= bytesWritten;
+        totalBytesWritten += bytesWritten;
+    }
+#else
     ssize_t totalBytesWritten = write(DRVFS_HANDLE_TO_FD(file), pData, bytesToWrite);
     if (totalBytesWritten == -1) {
         return false;
     }
+#endif
 
     if (pBytesWrittenOut != NULL) {
         *pBytesWrittenOut = totalBytesWritten;
@@ -2389,10 +2481,10 @@ DRVFS_PRIVATE bool drvfs_get_native_file_info(const char* absolutePath, drvfs_fi
         fi->lastModifiedTime = info.st_mtime;
 
         fi->attributes = 0;
-        if (S_ISDIR(info.st_mode)) {
+        if (drvfs__mode_is_dir(info.st_mode)) {
             fi->attributes |= DRVFS_FILE_ATTRIBUTE_DIRECTORY;
         }
-        if ((info.st_mode & S_IWUSR) == 0) {
+        if (drvfs__mode_has_write_permission(info.st_mode) == false) {
             fi->attributes |= DRVFS_FILE_ATTRIBUTE_READONLY;
         }
     }
