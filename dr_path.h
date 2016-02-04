@@ -1115,19 +1115,12 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
 {
     if (base != 0 && other != 0)
     {
-        int iLastSeg = -1;
-
         drpath_iterator last[2];
         last[0] = drpath_last(base);
         last[1] = drpath_last(other);
 
-        if (last[1].segment.length > 0) {
-            iLastSeg = 1;
-        } else if (last[0].segment.length > 0) {
-            iLastSeg = 0;
-        } else {
-            // Both input strings are empty.
-            return 0;
+        if (last[0].segment.length == 0 && last[1].segment.length == 0) {
+            return 0;   // Both input strings are empty.
         }
 
         size_t bytesWritten = 0;
