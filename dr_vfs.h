@@ -3602,6 +3602,16 @@ drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* re
     pFile->flags              = 0;
     pFile->extraDataSize      = extraDataSize;
 
+    // The lock.
+#ifdef _WIN32
+    InitializeCriticalSection(&pFile->lock);
+#else
+    if (pthread_mutex_init(&pFile->lock, NULL) != 0) {
+        drvfs_close(pFile);
+        return NULL;
+    }
+#endif
+
     return pFile;
 }
 
@@ -3635,16 +3645,6 @@ drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePa
 
     // When using this API, we want to claim ownership of the archive so that it's closed when we close this file.
     pFile->flags |= DR_VFS_OWNS_PARENT_ARCHIVE;
-
-    // The lock.
-#ifdef _WIN32
-    InitializeCriticalSection(&pFile->lock);
-#else
-    if (pthread_mutex_init(&pFile->lock, NULL) != 0) {
-        drvfs_close(pFile);
-        return NULL;
-    }
-#endif
 
     return pFile;
 }
@@ -3693,7 +3693,7 @@ bool drvfs_read(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* p
         return false;
     }
 
-    bool result = drvfs_read(pFile, pDataOut, bytesToRead, pBytesReadOut);
+    bool result = drvfs_read_nolock(pFile, pDataOut, bytesToRead, pBytesReadOut);
 
     drvfs_unlock(pFile);
     return result;
@@ -3756,7 +3756,7 @@ drvfs_uint64 drvfs_tell(drvfs_file* pFile)
         return 0;
     }
 
-    drvfs_uint64 result = drvfs_tell(pFile);
+    drvfs_uint64 result = drvfs_tell_nolock(pFile);
 
     drvfs_unlock(pFile);
     return result;
@@ -5959,16 +5959,20 @@ DRVFS_PRIVATE size_t drvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, 
     drvfs_file* pZipFile = pOpaque;
     assert(pZipFile != NULL);
 
-    drvfs_seek(pZipFile, (drvfs_int64)file_ofs, drvfs_origin_start);
+    if (!drvfs_lock(pZipFile)) {
+        return 0;
+    }
+
+    drvfs_seek_nolock(pZipFile, (drvfs_int64)file_ofs, drvfs_origin_start);
 
     size_t bytesRead;
-    int result = drvfs_read(pZipFile, pBuf, (unsigned int)n, &bytesRead);
-    if (result == 0)
-    {
+    int result = drvfs_read_nolock(pZipFile, pBuf, (unsigned int)n, &bytesRead);
+    if (result == 0) {
         // Failed to read the file.
         bytesRead = 0;
     }
 
+    drvfs_unlock(pZipFile);
     return (size_t)bytesRead;
 }
 
