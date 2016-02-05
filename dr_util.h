@@ -256,7 +256,7 @@ DRUTIL_INLINE void* dr_aligned_malloc(size_t alignment, size_t size)
     if (posix_memalign(&pResult, alignment, size) == 0) {
         return pResult;
     }
-    
+
     return 0;
 #endif
 }
@@ -645,7 +645,7 @@ int dr_strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count
         dst[0] = '\0';
         return EINVAL;
     }
-    
+
     size_t maxcount = count;
     if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
         maxcount = dstSizeInBytes - 1;
@@ -850,7 +850,7 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
 
         if (skipWhitespaceBeforeProcessing)
         {
-            while (pC < pChunkEnd && pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r') {
+            while (pC < pChunkEnd && (pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r')) {
                 pC += 1;
             }
 
@@ -870,7 +870,7 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
             //// Key ////
 
             // Skip whitespace.
-            while (pC < pChunkEnd && pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r') {
+            while (pC < pChunkEnd && (pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r')) {
                 pC += 1;
             }
 
@@ -881,7 +881,7 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
             }
 
             if (pC[0] == '\n') {
-                // Found the end of the line. 
+                // Found the end of the line.
                 pC += 1;
                 currentLine += 1;
                 continue;
@@ -939,7 +939,7 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
             //// Value ////
 
             // Skip whitespace.
-            while (pC < pChunkEnd && pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r') {
+            while (pC < pChunkEnd && (pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r')) {
                 pC += 1;
             }
 
@@ -957,7 +957,7 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
                     pKEnd = pChunk + (pKEnd - pK);
                     pK = pChunk;
                     pC = pChunk + lineSizeSoFar;
-                    while (pC < pChunkEnd && pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r') {
+                    while (pC < pChunkEnd && (pC[0] == ' ' || pC[0] == '\t' || pC[0] == '\r')) {
                         pC += 1;
                     }
                 }
@@ -1108,7 +1108,7 @@ const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int token
 
     const char* strBeg = tokens;
     const char* strEnd = strBeg;
-    
+
     if (strEnd[0] == '\"')
     {
         // It's double-quoted - loop until the next unescaped quote character.
@@ -1144,7 +1144,7 @@ const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int token
             strBeg += 1;
         }
 
-        *tokenOut++ = *strBeg++; 
+        *tokenOut++ = *strBeg++;
         tokenOutSize -= 1;
     }
 
