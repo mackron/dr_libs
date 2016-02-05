@@ -2,7 +2,10 @@
 
 #include "dr_gui_text_layout.h"
 #include <math.h>
+#include <stdio.h>
 #include <assert.h>
+#include <string.h>
+#include <errno.h>
 
 #ifndef OUT
 #define OUT
@@ -15,6 +18,74 @@
 #ifndef DRGUI_PRIVATE
 #define DRGUI_PRIVATE static
 #endif
+
+static int drgui__strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+#ifdef _MSC_VER
+    return strcpy_s(dst, dstSizeInBytes, src);
+#else
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t i;
+    for (i = 0; i < dstSizeInBytes && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (i < dstSizeInBytes) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+#endif
+}
+
+static int drgui__strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+#ifdef _MSC_VER
+    return strncpy_s(dst, dstSizeInBytes, src, count);
+#else
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return EINVAL;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t maxcount = count;
+    if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
+        maxcount = dstSizeInBytes - 1;
+    }
+
+    size_t i;
+    for (i = 0; i < maxcount && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (src[i] == '\0' || i == count || count == ((size_t)-1)) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+#endif
+}
+
 
 typedef struct
 {
@@ -147,7 +218,7 @@ struct drgui_text_layout
 
     /// Whether or not the cursor is being shown. False by default.
     bool isShowingCursor;
-    
+
 
     /// The total width of the text.
     float textBoundsWidth;
@@ -213,7 +284,7 @@ struct drgui_text_layout
 };
 
 /// Structure containing information about a line. This is used by first_line() and next_line().
-typedef struct 
+typedef struct
 {
     /// The index of the line.
     unsigned int index;
@@ -362,7 +433,7 @@ DRGUI_PRIVATE bool drgui_text_layout__has_spacing_between_selection_markers(drgu
 DRGUI_PRIVATE unsigned int drgui_text_layout__split_text_run_by_selection(drgui_text_layout* pTL, drgui_text_run* pRunToSplit, drgui_text_run pSubRunsOut[3]);
 
 /// Determines whether or not the run at the given index is selected.
-DRGUI_PRIVATE bool drgui_text_layout__is_run_selected(drgui_text_layout* pTL, unsigned int iRun);
+//DRGUI_PRIVATE bool drgui_text_layout__is_run_selected(drgui_text_layout* pTL, unsigned int iRun);
 
 /// Retrieves pointers to the selection markers in the correct order.
 DRGUI_PRIVATE bool drgui_text_layout__get_selection_markers(drgui_text_layout* pTL, drgui_text_marker** ppSelectionMarker0Out, drgui_text_marker** ppSelectionMarker1Out);
@@ -386,7 +457,7 @@ DRGUI_PRIVATE void drgui_text_layout__uninit_undo_state(drgui_text_layout_undo_s
 
 /// Pushes an undo state onto the undo stack.
 DRGUI_PRIVATE void drgui_text_layout__push_undo_state(drgui_text_layout* pTL, drgui_text_layout_undo_state* pUndoState);
- 
+
 /// Applies the given undo state.
 DRGUI_PRIVATE void drgui_text_layout__apply_undo_state(drgui_text_layout* pTL, drgui_text_layout_undo_state* pUndoState);
 
@@ -551,7 +622,7 @@ size_t drgui_text_layout_get_text(drgui_text_layout* pTL, char* textOut, size_t 
     }
 
 
-    if (strcpy_s(textOut, textOutSize, (pTL->text != NULL) ? pTL->text : "") == 0) {
+    if (drgui__strcpy_s(textOut, textOutSize, (pTL->text != NULL) ? pTL->text : "") == 0) {
         return pTL->textLength;
     }
 
@@ -1109,7 +1180,7 @@ drgui_rect drgui_text_layout_get_cursor_rect(drgui_text_layout* pTL)
         drgui_text_layout__find_line_info_by_index(pTL, pTL->pRuns[pTL->cursor.iRun].iLine, &lineRect, NULL, NULL);
     }
     else if (pTL->pDefaultFont != NULL)
-    { 
+    {
         const float scaleX = 1;
         const float scaleY = 1;
 
@@ -1118,7 +1189,7 @@ drgui_rect drgui_text_layout_get_cursor_rect(drgui_text_layout* pTL)
 
         lineRect.bottom = (float)defaultFontMetrics.lineHeight;
     }
-    
+
 
 
     float cursorPosX;
@@ -1142,7 +1213,7 @@ unsigned int drgui_text_layout_get_cursor_column(drgui_text_layout* pTL)
     if (pTL == NULL) {
         return 0;
     }
-    
+
     float scaleX = 1;
     float scaleY = 1;
 
@@ -1613,8 +1684,8 @@ bool drgui_text_layout_insert_character(drgui_text_layout* pTL, unsigned int cha
     pNewText[pTL->textLength] = '\0';
 
     free(pOldText);
-    
-    
+
+
 
 
     // The layout will have changed so it needs to be refreshed.
@@ -1744,7 +1815,7 @@ bool drgui_text_layout_insert_character_at_cursor(drgui_text_layout* pTL, unsign
     if (pTL->runCount > 0 && pRun != NULL) {
         iAbsoluteMarkerChar = pRun->iChar + pTL->cursor.iChar;
     }
-    
+
 
     drgui_text_layout_insert_character(pTL, character, iAbsoluteMarkerChar);
 
@@ -1842,7 +1913,7 @@ bool drgui_text_layout_delete_selected_text(drgui_text_layout* pTL)
 
     drgui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
     drgui_text_marker* pSelectionMarker1 = &pTL->cursor;
-    if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
+    if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)
     {
         drgui_text_marker* temp = pSelectionMarker0;
         pSelectionMarker0 = pSelectionMarker1;
@@ -1988,9 +2059,9 @@ size_t drgui_text_layout_get_selected_text(drgui_text_layout* pTL, char* textOut
     size_t selectedTextLength = iSelectionChar1 - iSelectionChar0;
 
     if (textOut != NULL) {
-        strncpy_s(textOut, textOutSize, pTL->text + iSelectionChar0, selectedTextLength);
+        drgui__strncpy_s(textOut, textOutSize, pTL->text + iSelectionChar0, selectedTextLength);
     }
-    
+
     return selectedTextLength;
 }
 
@@ -2067,12 +2138,12 @@ bool drgui_text_layout_prepare_undo_point(drgui_text_layout* pTL)
     }
 
     pTL->preparedState.text = malloc(pTL->textLength + 1);
-    strcpy_s(pTL->preparedState.text, pTL->textLength + 1, (pTL->text != NULL) ? pTL->text : "");
+    drgui__strcpy_s(pTL->preparedState.text, pTL->textLength + 1, (pTL->text != NULL) ? pTL->text : "");
 
     pTL->preparedState.cursorPos          = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
     pTL->preparedState.selectionAnchorPos = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->selectionAnchor);
     pTL->preparedState.isAnythingSelected = pTL->isAnythingSelected;
-    
+
     return true;
 }
 
@@ -2186,7 +2257,7 @@ void drgui_text_layout_clear_undo_stack(drgui_text_layout* pTL)
     if (pTL == NULL || pTL->pUndoStack == NULL) {
         return;
     }
-    
+
     for (unsigned int i = 0; i < pTL->undoStackCount; ++i) {
         drgui_text_layout__uninit_undo_state(pTL->pUndoStack + i);
     }
@@ -2198,7 +2269,7 @@ void drgui_text_layout_clear_undo_stack(drgui_text_layout* pTL)
 
     if (pTL->iUndoState > 0) {
         pTL->iUndoState = 0;
-        
+
         if (pTL->onUndoPointChanged) {
             pTL->onUndoPointChanged(pTL, pTL->iUndoState);
         }
@@ -2256,7 +2327,7 @@ unsigned int drgui_text_layout_get_visible_line_count_starting_at(drgui_text_lay
         } while (drgui_text_layout__next_line(pTL, &line));
     }
 
-    
+
     // At this point there may be some empty space below the last line, in which case we use the line height of the default font to fill
     // out the remaining space.
     if (lastLineBottom + pTL->innerOffsetY < pTL->containerHeight)
@@ -2269,7 +2340,7 @@ unsigned int drgui_text_layout_get_visible_line_count_starting_at(drgui_text_lay
     }
 
 
-    
+
     if (count == 0) {
         return 1;
     }
@@ -2294,7 +2365,7 @@ unsigned int drgui_text_layout_get_line_at_pos_y(drgui_text_layout* pTL, float p
     }
 
     drgui_rect textRect = drgui_text_layout_get_text_rect_relative_to_bounds(pTL);
-    
+
     unsigned int iRun;
 
     float inputPosYRelativeToText = posY - textRect.top;
@@ -2426,7 +2497,7 @@ void drgui_text_layout_paint(drgui_text_layout* pTL, drgui_rect rect, drgui_elem
         if (rectTop.bottom > rect.top) {
             pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
         }
-        
+
         if (rectBottom.top < rect.bottom) {
             pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
         }
@@ -2461,7 +2532,7 @@ void drgui_text_layout_paint(drgui_text_layout* pTL, drgui_rect rect, drgui_elem
                     {
                         drgui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
                         drgui_text_marker* pSelectionMarker1 = &pTL->cursor;
-                        if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
+                        if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)
                         {
                             drgui_text_marker* temp = pSelectionMarker0;
                             pSelectionMarker0 = pSelectionMarker1;
@@ -2646,7 +2717,7 @@ void drgui_text_layout_paint_line_numbers(drgui_text_layout* pTL, float lineNumb
         if (rectTop.bottom > 0) {
             onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
         }
-        
+
         if (rectBottom.top < lineNumbersHeight) {
             onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
         }
@@ -2662,7 +2733,7 @@ void drgui_text_layout_paint_line_numbers(drgui_text_layout* pTL, float lineNumb
         // ensure we get the number 1 to be drawn.
         drgui_font_metrics fontMetrics;
         drgui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &fontMetrics);
-        
+
         line.height = (float)fontMetrics.lineHeight;
         line.posY = 0;
     }
@@ -2677,7 +2748,11 @@ void drgui_text_layout_paint_line_numbers(drgui_text_layout* pTL, float lineNumb
             if (lineBottom > 0)
             {
                 char iLineStr[64];
+                #ifdef _MSC_VER
                 _itoa_s(iLine, iLineStr, sizeof(iLineStr), 10);
+                #else
+                snprintf(iLineStr, sizeof(iLineStr), "%d", iLine);
+                #endif
 
                 drgui_font* pFont = pTL->pDefaultFont;
 
@@ -2959,7 +3034,7 @@ DRGUI_PRIVATE void drgui_text_layout__refresh_alignment(drgui_text_layout* pTL)
             lineHeight = (lineHeight > pRun->height) ? lineHeight : pRun->height;
         }
 
-        
+
         // The actual alignment is done here.
         float lineOffsetX;
         float lineOffsetY;
@@ -3099,7 +3174,7 @@ DRGUI_PRIVATE float drgui_text_layout__get_tab_width(drgui_text_layout* pTL)
 {
     drgui_font_metrics defaultFontMetrics;
     drgui_get_font_metrics(pTL->pDefaultFont, 1, 1, &defaultFontMetrics);
-                
+
     return (float)(defaultFontMetrics.spaceWidth * pTL->tabSizeInSpaces);
 }
 
@@ -3387,7 +3462,7 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_point_relative_to_container
     pMarker->absoluteSickyPosX = 0;
 
     drgui_rect textRect = drgui_text_layout_get_text_rect_relative_to_bounds(pTL);
-    
+
     float inputPosXRelativeToText = inputPosX - textRect.left;
     float inputPosYRelativeToText = inputPosY - textRect.top;
     if (drgui_text_layout__move_marker_to_point(pTL, pMarker, inputPosXRelativeToText, inputPosYRelativeToText))
@@ -3861,7 +3936,7 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_character(drgui_text_layout
     }
 
     drgui_text_layout__find_run_at_character(pTL, iChar, &pMarker->iRun);
-        
+
     assert(pMarker->iRun < pTL->runCount);
     pMarker->iChar = iChar - pTL->pRuns[pMarker->iRun].iChar;
 
@@ -3940,7 +4015,7 @@ DRGUI_PRIVATE unsigned int drgui_text_layout__split_text_run_by_selection(drgui_
 
     drgui_text_marker* pSelectionMarker0 = &pTL->selectionAnchor;
     drgui_text_marker* pSelectionMarker1 = &pTL->cursor;
-    if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
+    if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)
     {
         drgui_text_marker* temp = pSelectionMarker0;
         pSelectionMarker0 = pSelectionMarker1;
@@ -3981,7 +4056,7 @@ DRGUI_PRIVATE unsigned int drgui_text_layout__split_text_run_by_selection(drgui_
                     pSubRunsOut[0].width           = pSelectionMarker1->relativePosX;
                     pSubRunsOut[0].text            = pTL->text + pSubRunsOut[0].iChar;
                     pSubRunsOut[0].textLength      = pSubRunsOut[0].iCharEnd - pSubRunsOut[0].iChar;
-                    
+
                     // Tail.
                     pSubRunsOut[1].iChar      = iSelectionChar1;
                     pSubRunsOut[1].width      = pRunToSplit->width - pSelectionMarker1->relativePosX;
@@ -3998,13 +4073,13 @@ DRGUI_PRIVATE unsigned int drgui_text_layout__split_text_run_by_selection(drgui_
                 if (pRunToSplit->iCharEnd <= iSelectionChar1)
                 {
                     // The head of the run is deselected and the tail is selected.
-                    
+
                     // Head.
                     pSubRunsOut[0].iCharEnd        = iSelectionChar0;
                     pSubRunsOut[0].width           = pSelectionMarker0->relativePosX;
                     pSubRunsOut[0].text            = pTL->text + pSubRunsOut[0].iChar;
                     pSubRunsOut[0].textLength      = pSubRunsOut[0].iCharEnd - pSubRunsOut[0].iChar;
-                    
+
                     // Tail.
                     pSubRunsOut[1].backgroundColor = pTL->selectionBackgroundColor;
                     pSubRunsOut[1].iChar           = iSelectionChar0;
@@ -4052,6 +4127,7 @@ DRGUI_PRIVATE unsigned int drgui_text_layout__split_text_run_by_selection(drgui_
     return 1;
 }
 
+#if 0
 DRGUI_PRIVATE bool drgui_text_layout__is_run_selected(drgui_text_layout* pTL, unsigned int iRun)
 {
     if (drgui_text_layout_is_anything_selected(pTL))
@@ -4070,6 +4146,7 @@ DRGUI_PRIVATE bool drgui_text_layout__is_run_selected(drgui_text_layout* pTL, un
 
     return false;
 }
+#endif
 
 DRGUI_PRIVATE bool drgui_text_layout__get_selection_markers(drgui_text_layout* pTL, drgui_text_marker** ppSelectionMarker0Out, drgui_text_marker** ppSelectionMarker1Out)
 {
@@ -4081,7 +4158,7 @@ DRGUI_PRIVATE bool drgui_text_layout__get_selection_markers(drgui_text_layout* p
     {
         pSelectionMarker0 = &pTL->selectionAnchor;
         pSelectionMarker1 = &pTL->cursor;
-        if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)    
+        if (pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar > pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar)
         {
             drgui_text_marker* temp = pSelectionMarker0;
             pSelectionMarker0 = pSelectionMarker1;
@@ -4181,7 +4258,7 @@ DRGUI_PRIVATE void drgui_text_layout__trim_undo_stack(drgui_text_layout* pTL)
     while (pTL->undoStackCount > pTL->iUndoState)
     {
         unsigned int iLastItem = pTL->undoStackCount - 1;
-        
+
         drgui_text_layout__uninit_undo_state(pTL->pUndoStack + iLastItem);
         pTL->undoStackCount -= 1;
     }
@@ -4199,7 +4276,7 @@ DRGUI_PRIVATE bool drgui_text_layout__diff_states(drgui_text_layout_state* pPrev
 
     const char* prevText = pPrevState->text;
     const char* currText = pCurrentState->text;
-    
+
     const size_t prevLen = strlen(prevText);
     const size_t currLen = strlen(currText);
 
@@ -4234,22 +4311,22 @@ DRGUI_PRIVATE bool drgui_text_layout__diff_states(drgui_text_layout_state* pPrev
             break;
         }
     }
-    
-    
+
+
     // At this point we know which section of the text is different. We now need to initialize the undo state object.
     pUndoStateOut->diffPos       = sameChCountStart;
     pUndoStateOut->newState      = *pCurrentState;
     pUndoStateOut->newState.text = NULL;
     pUndoStateOut->oldState      = *pPrevState;
     pUndoStateOut->oldState.text = NULL;
-    
+
     size_t oldTextLen = prevLen - sameChCountStart - sameChCountEnd;
     pUndoStateOut->oldText = malloc(oldTextLen + 1);
-    strncpy_s(pUndoStateOut->oldText, oldTextLen + 1, prevText + sameChCountStart, oldTextLen);
+    drgui__strncpy_s(pUndoStateOut->oldText, oldTextLen + 1, prevText + sameChCountStart, oldTextLen);
 
     size_t newTextLen = currLen - sameChCountStart - sameChCountEnd;
     pUndoStateOut->newText = malloc(newTextLen + 1);
-    strncpy_s(pUndoStateOut->newText, newTextLen + 1, currText + sameChCountStart, newTextLen);
+    drgui__strncpy_s(pUndoStateOut->newText, newTextLen + 1, currText + sameChCountStart, newTextLen);
 
     return true;
 }
@@ -4329,7 +4406,7 @@ DRGUI_PRIVATE void drgui_text_layout__apply_undo_state(drgui_text_layout* pTL, d
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
     drgui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
-    
+
     // Ensure we mark the text as selected if appropriate.
     pTL->isAnythingSelected = pUndoState->oldState.isAnythingSelected;
 

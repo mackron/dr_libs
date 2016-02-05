@@ -1,7 +1,9 @@
 // Public domain. See "unlicense" statement at the end of this file.
 
 #include "dr_gui_tab_bar.h"
+#include <string.h>
 #include <assert.h>
+#include <errno.h>
 
 typedef struct drgui_tab_bar drgui_tab_bar;
 
@@ -133,6 +135,43 @@ struct drgui_tab
     /// A pointer to the extra data buffer.
     char pExtraData[1];
 };
+
+
+static int drgui__strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+#ifdef _MSC_VER
+    return strncpy_s(dst, dstSizeInBytes, src, count);
+#else
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return EINVAL;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t maxcount = count;
+    if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
+        maxcount = dstSizeInBytes - 1;
+    }
+
+    size_t i;
+    for (i = 0; i < maxcount && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (src[i] == '\0' || i == count || count == ((size_t)-1)) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+#endif
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -651,7 +690,7 @@ void drgui_tabbar_on_mouse_button_down(drgui_element* pTBElement, int mouseButto
         }
 
         if (isOverCloseButton)
-        {   
+        {
             pTB->pTabWithCloseButtonPressed = pNewActiveTab;
 
             if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
@@ -777,14 +816,11 @@ DRGUI_PRIVATE void drgui_tabbar_on_measure_tab_default(drgui_element* pTBElement
 
 
     float closeButtonWidth  = 0;
-    float closeButtonHeight = 0;
-    if (pTB->isShowingCloseButton && pTB->pCloseButtonImage != NULL)
-    {
+    if (pTB->isShowingCloseButton && pTB->pCloseButtonImage != NULL) {
         closeButtonWidth  = pTB->closeButtonWidth + pTB->closeButtonPaddingLeft;
-        closeButtonHeight = pTB->closeButtonHeight;
     }
 
- 
+
     if (pWidthOut) {
         *pWidthOut = textWidth + closeButtonWidth + pTB->tabPadding*2;
     }
@@ -795,6 +831,8 @@ DRGUI_PRIVATE void drgui_tabbar_on_measure_tab_default(drgui_element* pTBElement
 
 DRGUI_PRIVATE void drgui_tabbar_on_paint_tab_default(drgui_element* pTBElement, drgui_tab* pTab, drgui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData)
 {
+    (void)relativeClippingRect;
+
     drgui_tab_bar* pTB = drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
@@ -959,14 +997,14 @@ DRGUI_PRIVATE drgui_tab* tb_create_tab(drgui_element* pTBElement, const char* te
     pTab->pNextTab   = NULL;
     pTab->pPrevTab   = NULL;
     pTab->text[0]    = '\0';
-    
+
     pTab->extraDataSize = extraDataSize;
     if (pExtraData) {
         memcpy(pTab->pExtraData, pExtraData, extraDataSize);
     }
 
     if (text != NULL) {
-        strncpy_s(pTab->text, sizeof(pTab->text), text, _TRUNCATE);
+        drgui__strncpy_s(pTab->text, sizeof(pTab->text), text, (size_t)-1); // -1 = _TRUNCATE
     }
 
     return pTab;
@@ -1039,7 +1077,7 @@ void tab_set_text(drgui_tab* pTab, const char* text)
     }
 
     if (text != NULL) {
-        strncpy_s(pTab->text, sizeof(pTab->text), text, _TRUNCATE);
+        drgui__strncpy_s(pTab->text, sizeof(pTab->text), text, (size_t)-1); // -1 = _TRUNCATE
     } else {
         pTab->text[0] = '\0';
     }
@@ -1086,7 +1124,7 @@ void tab_move_to_front(drgui_tab* pTab)
     }
 
     drgui_element* pTBElement = pTab->pTBElement;
-    
+
     tab_detach_from_hierarchy(pTab);
     tab_prepend(pTab, pTBElement);
 }
@@ -1251,7 +1289,7 @@ DRGUI_PRIVATE void tab_detach(drgui_tab* pTab)
     if (pTB->isAutoSizeEnabled) {
         drgui_tabbar_resize_by_tabs(pTBElement);
     }
-    
+
     // The content of the menu has changed so we'll need to schedule a redraw.
     if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
         drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
