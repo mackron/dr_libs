@@ -677,10 +677,6 @@ bool drpath_is_descendant(const char* descendantAbsolutePath, const char* parent
     }
 
     return true;
-
-    // At this point we have finished iteration of the parent, which should be shorter one. We now do one final iteration of
-    // the descendant to ensure it is indeed shorter. If so, it's a descendant.
-    //return drpath_next(&iChild);
 }
 
 bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
