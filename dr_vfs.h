@@ -562,6 +562,7 @@ bool drvfs_eof(drvfs_file* pFile);
 #else
 #include <strings.h>
 #include <errno.h>
+#include <pthread.h>
 #endif
 
 #ifndef DRVFS_PRIVATE
