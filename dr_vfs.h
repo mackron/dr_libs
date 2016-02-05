@@ -2034,7 +2034,7 @@ DRVFS_PRIVATE bool drvfs_next_native_iteration(drvfs_handle iterator, drvfs_file
 #include <fcntl.h>
 #include <dirent.h>
 #include <unistd.h>
-
+#include <limits.h>
 
 #ifdef __linux__
 #include <sys/sendfile.h>
@@ -2214,47 +2214,55 @@ DRVFS_PRIVATE bool drvfs_copy_native_file(const char* absolutePathSrc, const cha
 
 DRVFS_PRIVATE bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
 {
-    // TODO: The return valid is a signed valid, but the bytesToWrite variable is unsigned. Need to properly handle the
-    //       case of bytesToWrite being larger than the maximum valid of a ssize_t which means we'll need to potentially
-    //       do two calls.
+    // The documentation for read() states that if the number of bytes being read (bytesToRead) is larger than SSIZE_MAX,
+    // the result is unspecified. We'll make things a bit more robust by explicitly checking for this and handling it.
+    char* pDataOut8 = pDataOut;
+    bool result = true;
 
     size_t totalBytesRead = 0;
+    while (bytesToRead > 0)
+    {
+        ssize_t bytesRead = read(DRVFS_HANDLE_TO_FD(file), pDataOut8 + totalBytesRead, (bytesToRead > SSIZE_MAX) ? SSIZE_MAX : bytesToRead);
+        if (bytesRead == -1) {
+            result = false;
+            break;
+        }
 
-    ssize_t bytesRead = read(DRVFS_HANDLE_TO_FD(file), pDataOut, bytesToRead);
-    if (bytesRead == -1) {
-        return false;
+        totalBytesRead += bytesRead;
+        bytesToRead    -= bytesRead;
     }
 
-    totalBytesRead = (size_t)bytesRead;
-
-
-    if (pBytesReadOut != NULL) {
+    if (pBytesReadOut) {
         *pBytesReadOut = totalBytesRead;
     }
 
-    return true;
+    return result;
 }
 
 DRVFS_PRIVATE bool drvfs_write_native_file(drvfs_handle file, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
 {
-    // TODO: The return valid is a signed valid, but the bytesToWrite variable is unsigned. Need to properly handle the
-    //       case of bytesToWrite being larger than the maximum valid of a ssize_t which means we'll need to potentially
-    //       do two calls.
+    // We want to handle writes in the same way as we do reads due to the return valid being signed.
+    const char* pDataIn8 = pData;
+    bool result = true;
 
     size_t totalBytesWritten = 0;
+    while (bytesToWrite > 0)
+    {
+        ssize_t bytesWritten = write(DRVFS_HANDLE_TO_FD(file), pDataIn8 + totalBytesWritten, (bytesToWrite > SSIZE_MAX) ? SSIZE_MAX : bytesToWrite);
+        if (bytesWritten == -1) {
+            result = false;
+            break;
+        }
 
-    ssize_t bytesWritten = write(DRVFS_HANDLE_TO_FD(file), pData, bytesToWrite);
-    if (bytesWritten == -1) {
-        return false;
+        totalBytesWritten += bytesWritten;
+        bytesToWrite      -= bytesWritten;
     }
-
-    totalBytesWritten = bytesWritten;
 
     if (pBytesWrittenOut != NULL) {
         *pBytesWrittenOut = totalBytesWritten;
     }
 
-    return true;
+    return result;
 }
 
 DRVFS_PRIVATE bool drvfs_seek_native_file(drvfs_handle file, drvfs_int64 bytesToSeek, drvfs_seek_origin origin)
