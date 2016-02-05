@@ -46,7 +46,7 @@
 #ifndef dr_wav_h
 #define dr_wav_h
 
-#include <stdint.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -233,6 +233,7 @@ drwav* drwav_open_memory(const void* data, size_t dataSize);
 #ifdef DR_WAV_IMPLEMENTATION
 #include <stdlib.h>
 #include <string.h> // For memcpy()
+#include <limits.h>
 #include <assert.h>
 
 #ifndef DR_WAV_NO_STDIO
@@ -314,7 +315,7 @@ static int drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void*
     fmtOut->avgBytesPerSec = drwav__read_u32(fmt + 16);
     fmtOut->blockAlign     = drwav__read_u16(fmt + 20);
     fmtOut->bitsPerSample  = drwav__read_u16(fmt + 22);
-    
+
     if (chunkSize > 16) {
         if (chunkSize == 18) {
             return onSeek(userData, 2);
@@ -344,10 +345,7 @@ static int drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void*
         fmtOut->extendedSize       = 0;
         fmtOut->validBitsPerSample = 0;
         fmtOut->channelMask        = 0;
-        
-        for (int i = 0; i < sizeof(fmtOut->subFormat); ++i) {
-            fmtOut->subFormat[i] = 0;
-        }
+        memset(fmtOut->subFormat, 0, sizeof(fmtOut->subFormat));
     }
 
     return 1;
@@ -472,7 +470,7 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* userData
     if (chunkSize < 36) {
         return NULL;    // Chunk size should always be at least 36 bytes.
     }
-    
+
     if (riff[8] != 'W' || riff[9] != 'A' || riff[10] != 'V' || riff[11] != 'E') {
         return NULL;    // Expecting "WAVE".
     }
@@ -492,7 +490,7 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* userData
         translatedFormatTag = drwav__read_u16(fmt.subFormat + 0);
     }
 
-    
+
     // The next chunk we care about is the "data" chunk. This is not necessarily the next chunk so we'll need to loop.
     unsigned int dataSize;
     for (;;)
@@ -600,7 +598,7 @@ unsigned int drwav_read(drwav* wav, unsigned int samplesToRead, void* bufferOut,
     }
 
     size_t bytesRead = drwav_read_raw(wav, bufferOut, samplesToRead * wav->info.bytesPerSample);
-    
+
     return (unsigned int)(bytesRead / wav->info.bytesPerSample);
 }
 
@@ -737,7 +735,7 @@ unsigned int drwav_read_f32(drwav* wav, unsigned int samplesToRead, float* buffe
 
     if (wav->info.translatedFormatTag == DR_WAVE_FORMAT_PCM)
     {
-        char sampleData[4096];
+        unsigned char sampleData[4096];
         while (samplesToRead > 0)
         {
             unsigned int samplesRead = drwav_read(wav, samplesToRead, sampleData, sizeof(sampleData));
@@ -757,7 +755,7 @@ unsigned int drwav_read_f32(drwav* wav, unsigned int samplesToRead, float* buffe
 
     if (wav->info.translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT)
     {
-        char sampleData[4096];
+        unsigned char sampleData[4096];
         while (samplesToRead > 0)
         {
             unsigned int samplesRead = drwav_read(wav, samplesToRead, sampleData, sizeof(sampleData));
@@ -777,7 +775,7 @@ unsigned int drwav_read_f32(drwav* wav, unsigned int samplesToRead, float* buffe
 
     if (wav->info.translatedFormatTag == DR_WAVE_FORMAT_ALAW)
     {
-        char sampleData[4096];
+        unsigned char sampleData[4096];
         while (samplesToRead > 0)
         {
             unsigned int samplesRead = drwav_read(wav, samplesToRead, sampleData, sizeof(sampleData));
@@ -797,7 +795,7 @@ unsigned int drwav_read_f32(drwav* wav, unsigned int samplesToRead, float* buffe
 
     if (wav->info.translatedFormatTag == DR_WAVE_FORMAT_MULAW)
     {
-        char sampleData[4096];
+        unsigned char sampleData[4096];
         while (samplesToRead > 0)
         {
             unsigned int samplesRead = drwav_read(wav, samplesToRead, sampleData, sizeof(sampleData));
@@ -938,7 +936,7 @@ void drwav_ulaw_to_f32(unsigned int sampleCount, const unsigned char* ulaw, floa
         *f32Out++ = t / 32768.0f;
     }
 }
-#endif DR_WAV_NO_CONVERSION_API
+#endif  //DR_WAV_NO_CONVERSION_API
 
 #endif  //DR_WAV_IMPLEMENTATION
 
