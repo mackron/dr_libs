@@ -987,433 +987,454 @@ struct drvfs_file
 
 
 //// Path Manipulation ////
-typedef struct
+//
+// Functionality below is taken straight from dr_path, but namespaced as "drvfs" to avoid naming conflicts.
+
+// Structure representing a section of a path.
+typedef struct 
 {
     size_t offset;
     size_t length;
-} drvfs_pathsegment;
 
-typedef struct
+} drvfs_drpath_segment;
+
+// Structure used for iterating over a path while at the same time providing useful and easy-to-use information about the iteration.
+typedef struct drvfs_drpath_iterator 
 {
     const char* path;
-    drvfs_pathsegment segment;
-}drvfs_pathiterator;
+    drvfs_drpath_segment segment;
 
-DRVFS_PRIVATE bool drvfs_next_path_segment(drvfs_pathiterator* i)
+} drvfs_drpath_iterator;
+
+DRVFS_PRIVATE bool drvfs_drpath_next(drvfs_drpath_iterator* i)
 {
-    if (i != 0 && i->path != 0)
-    {
-        i->segment.offset = i->segment.offset + i->segment.length;
-        i->segment.length = 0;
-
-        while (i->path[i->segment.offset] != '\0' && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\')) {
-            i->segment.offset += 1;
-        }
-
-        if (i->path[i->segment.offset] == '\0') {
-            return false;
-        }
-
-
-        while (i->path[i->segment.offset + i->segment.length] != '\0' && (i->path[i->segment.offset + i->segment.length] != '/' && i->path[i->segment.offset + i->segment.length] != '\\')) {
-            i->segment.length += 1;
-        }
-
-        return true;
+    if (i == NULL || i->path == NULL) {
+        return false;
     }
 
-    return false;
+    i->segment.offset = i->segment.offset + i->segment.length;
+    i->segment.length = 0;
+
+    while (i->path[i->segment.offset] != '\0' && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\')) {
+        i->segment.offset += 1;
+    }
+
+    if (i->path[i->segment.offset] == '\0') {
+        return false;
+    }
+
+
+    while (i->path[i->segment.offset + i->segment.length] != '\0' && (i->path[i->segment.offset + i->segment.length] != '/' && i->path[i->segment.offset + i->segment.length] != '\\')) {
+        i->segment.length += 1;
+    }
+
+    return true;
 }
 
-bool drvfs_prev_path_segment(drvfs_pathiterator* i)
+DRVFS_PRIVATE bool drvfs_drpath_prev(drvfs_drpath_iterator* i)
 {
-    if (i != 0 && i->path != 0 && i->segment.offset > 0)
+    if (i == NULL || i->path == NULL || i->segment.offset == 0) {
+        return false;
+    }
+
+    i->segment.length = 0;
+
+    do
     {
-        i->segment.length = 0;
+        i->segment.offset -= 1;
+    } while (i->segment.offset > 0 && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\'));
+
+    if (i->segment.offset == 0) {
+        if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
+            i->segment.length = 0;
+            return true;
+        }
+
+        return false;
+    }
+
+
+    size_t offsetEnd = i->segment.offset + 1;
+    while (i->segment.offset > 0 && (i->path[i->segment.offset] != '/' && i->path[i->segment.offset] != '\\')) {
+        i->segment.offset -= 1;
+    }
+
+    if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
+        i->segment.offset += 1;
+    }
+
+
+    i->segment.length = offsetEnd - i->segment.offset;
+
+    return true;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_first(const char* path, drvfs_drpath_iterator* i)
+{
+    if (path == 0 || path[0] == '\0' || i == 0) {
+        return false;
+    }
+
+    i->path = path;
+    i->segment.offset = 0;
+    i->segment.length = 0;
+
+    while (i->path[i->segment.length] != '\0' && (i->path[i->segment.length] != '/' && i->path[i->segment.length] != '\\')) {
+        i->segment.length += 1;
+    }
+
+    return true;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_last(const char* path, drvfs_drpath_iterator* i)
+{
+    if (path == 0 || path[0] == '\0' || i == 0) {
+        return false;
+    }
+
+    i->path = path;
+    i->segment.offset = strlen(path);
+    i->segment.length = 0;
+
+    return drvfs_drpath_prev(i);
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_segments_equal(const char* s0Path, const drvfs_drpath_segment s0, const char* s1Path, const drvfs_drpath_segment s1)
+{
+    if (s0Path == NULL || s1Path == NULL) {
+        return false;
+    }
+
+    if (s0.length != s1.length) {
+        return false;
+    }
+
+    return strncmp(s0Path + s0.offset, s1Path + s1.offset, s0.length) == 0;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_iterators_equal(const drvfs_drpath_iterator i0, const drvfs_drpath_iterator i1)
+{
+    return drvfs_drpath_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drvfs_drpath_iterator i)
+{
+    if (base == NULL) {
+        return false;
+    }
+
+    size_t path1Length = strlen(base);
+    size_t path2Length = i.segment.length;
+
+    if (path1Length >= baseBufferSizeInBytes) {
+        return false;
+    }
+
+    // Slash.
+    if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\') {
+        base[path1Length] = '/';
+        path1Length += 1;
+    }
+
+    // Other part.
+    if (path1Length + path2Length >= baseBufferSizeInBytes) {
+        path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
+    }
+
+    drvfs__strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
+
+    return true;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
+{
+    drvfs_drpath_iterator iChild;
+    if (!drvfs_drpath_first(descendantAbsolutePath, &iChild)) {
+        return false;   // The descendant is an empty string which makes it impossible for it to be a descendant.
+    }
+
+    drvfs_drpath_iterator iParent;
+    if (drvfs_drpath_first(parentAbsolutePath, &iParent))
+    {
+        do
+        {
+            // If the segment is different, the paths are different and thus it is not a descendant.
+            if (!drvfs_drpath_iterators_equal(iParent, iChild)) {
+                return false;
+            }
+
+            if (!drvfs_drpath_next(&iChild)) {
+                return false;   // The descendant is shorter which means it's impossible for it to be a descendant.
+            }
+
+        } while (drvfs_drpath_next(&iParent));
+    }
+
+    return true;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
+{
+    drvfs_drpath_iterator iChild;
+    if (!drvfs_drpath_first(childAbsolutePath, &iChild)) {
+        return false;   // The descendant is an empty string which makes it impossible for it to be a descendant.
+    }
+
+    drvfs_drpath_iterator iParent;
+    if (drvfs_drpath_first(parentAbsolutePath, &iParent))
+    {
+        do
+        {
+            // If the segment is different, the paths are different and thus it is not a descendant.
+            if (!drvfs_drpath_iterators_equal(iParent, iChild)) {
+                return false;
+            }
+
+            if (!drvfs_drpath_next(&iChild)) {
+                return false;   // The descendant is shorter which means it's impossible for it to be a descendant.
+            }
+
+        } while (drvfs_drpath_next(&iParent));
+    }
+
+    // At this point we have finished iteration of the parent, which should be shorter one. We now do one more iterations of
+    // the child to ensure it is indeed a direct child and not a deeper descendant.
+    return !drvfs_drpath_next(&iChild);
+}
+
+DRVFS_PRIVATE void drvfs_drpath_base_path(char* path)
+{
+    if (path == NULL) {
+        return;
+    }
+
+    char* baseend = path;
+
+    // We just loop through the path until we find the last slash.
+    while (path[0] != '\0') {
+        if (path[0] == '/' || path[0] == '\\') {
+            baseend = path;
+        }
+
+        path += 1;
+    }
+
+
+    // Now we just loop backwards until we hit the first non-slash.
+    while (baseend > path) {
+        if (baseend[0] != '/' && baseend[0] != '\\') {
+            break;
+        }
+
+        baseend -= 1;
+    }
+
+
+    // We just put a null terminator on the end.
+    baseend[0] = '\0';
+}
+
+DRVFS_PRIVATE void drvfs_drpath_copy_base_path(const char* path, char* baseOut, size_t baseSizeInBytes)
+{
+    if (path == NULL || baseOut == NULL || baseSizeInBytes == 0) {
+        return;
+    }
+
+    drvfs__strcpy_s(baseOut, baseSizeInBytes, path);
+    drvfs_drpath_base_path(baseOut);
+}
+
+DRVFS_PRIVATE const char* drvfs_drpath_file_name(const char* path)
+{
+    if (path == NULL) {
+        return NULL;
+    }
+
+    const char* fileName = path;
+
+    // We just loop through the path until we find the last slash.
+    while (path[0] != '\0') {
+        if (path[0] == '/' || path[0] == '\\') {
+            fileName = path;
+        }
+
+        path += 1;
+    }
+
+    // At this point the file name is sitting on a slash, so just move forward.
+    while (fileName[0] != '\0' && (fileName[0] == '/' || fileName[0] == '\\')) {
+        fileName += 1;
+    }
+
+    return fileName;
+}
+
+DRVFS_PRIVATE const char* drvfs_drpath_extension(const char* path)
+{
+    if (path == NULL) {
+        return NULL;
+    }
+
+    const char* extension     = drvfs_drpath_file_name(path);
+    const char* lastoccurance = 0;
+
+    // Just find the last '.' and return.
+    while (extension[0] != '\0')
+    {
+        extension += 1;
+
+        if (extension[0] == '.') {
+            extension    += 1;
+            lastoccurance = extension;
+        }
+    }
+
+    return (lastoccurance != 0) ? lastoccurance : extension;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_equal(const char* path1, const char* path2)
+{
+    if (path1 == NULL || path2 == NULL) {
+        return false;
+    }
+
+    if (path1 == path2 || (path1[0] == '\0' && path2[0] == '\0')) {
+        return true;    // Two empty paths are treated as the same.
+    }
+
+    drvfs_drpath_iterator iPath1;
+    drvfs_drpath_iterator iPath2;
+    if (drvfs_drpath_first(path1, &iPath1) && drvfs_drpath_first(path2, &iPath2))
+    {
+        bool isPath1Valid;
+        bool isPath2Valid;
 
         do
         {
-            i->segment.offset -= 1;
-        } while (i->segment.offset > 0 && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\'));
-
-        if (i->segment.offset == 0)
-        {
-            return 0;
-        }
-
-
-        size_t offsetEnd = i->segment.offset + 1;
-        while (i->segment.offset > 0 && (i->path[i->segment.offset] != '/' && i->path[i->segment.offset] != '\\'))
-        {
-            i->segment.offset -= 1;
-        }
-
-        if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\')
-        {
-            i->segment.offset += 1;
-        }
-
-
-        i->segment.length = offsetEnd - i->segment.offset;
-
-        return true;
-    }
-
-    return false;
-}
-
-DRVFS_PRIVATE drvfs_pathiterator drvfs_begin_path_iteration(const char* path)
-{
-    drvfs_pathiterator i;
-    i.path = path;
-    i.segment.offset = 0;
-    i.segment.length = 0;
-
-    return i;
-}
-
-DRVFS_PRIVATE drvfs_pathiterator drvfs_last_path_segment(const char* path)
-{
-    drvfs_pathiterator i;
-    i.path = path;
-    i.segment.offset = strlen(path);
-    i.segment.length = 0;
-
-    drvfs_prev_path_segment(&i);
-    return i;
-}
-
-DRVFS_PRIVATE bool drvfs_path_segments_equal(const char* s0Path, const drvfs_pathsegment s0, const char* s1Path, const drvfs_pathsegment s1)
-{
-    if (s0Path != 0 && s1Path != 0)
-    {
-        if (s0.length == s1.length)
-        {
-            for (size_t i = 0; i < s0.length; ++i)
-            {
-                if (s0Path[s0.offset + i] != s1Path[s1.offset + i])
-                {
-                    return false;
-                }
+            if (!drvfs_drpath_iterators_equal(iPath1, iPath2)) {
+                return false;
             }
 
-            return true;
-        }
-    }
+            isPath1Valid = drvfs_drpath_next(&iPath1);
+            isPath2Valid = drvfs_drpath_next(&iPath2);
 
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_pathiterators_equal(const drvfs_pathiterator i0, const drvfs_pathiterator i1)
-{
-    return drvfs_path_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
-}
-
-DRVFS_PRIVATE bool drvfs_append_path_iterator(char* base, size_t baseBufferSizeInBytes, drvfs_pathiterator i)
-{
-    if (base != 0)
-    {
-        size_t path1Length = strlen(base);
-        size_t path2Length = (size_t)i.segment.length;
-
-        if (path1Length < baseBufferSizeInBytes)
-        {
-            // Slash.
-            if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\')
-            {
-                base[path1Length] = '/';
-                path1Length += 1;
-            }
-
-
-            // Other part.
-            if (path1Length + path2Length >= baseBufferSizeInBytes)
-            {
-                path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
-            }
-
-            drvfs__strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
-
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_is_path_child(const char* childAbsolutePath, const char* parentAbsolutePath)
-{
-    drvfs_pathiterator iParent = drvfs_begin_path_iteration(parentAbsolutePath);
-    drvfs_pathiterator iChild  = drvfs_begin_path_iteration(childAbsolutePath);
-
-    while (drvfs_next_path_segment(&iParent))
-    {
-        if (drvfs_next_path_segment(&iChild))
-        {
-            // If the segment is different, the paths are different and thus it is not a descendant.
-            if (!drvfs_pathiterators_equal(iParent, iChild))
-            {
-                return 0;
-            }
-        }
-        else
-        {
-            // The descendant is shorter which means it's impossible for it to be a descendant.
-            return 0;
-        }
-    }
-
-    // At this point we have finished iteration of the parent, which should be shorter one. We now do a couple of iterations of
-    // the child to ensure it is indeed a direct child.
-    if (drvfs_next_path_segment(&iChild))
-    {
-        // It could be a child. If the next iteration fails, it's a direct child and we want to return true.
-        if (!drvfs_next_path_segment(&iChild))
-        {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-DRVFS_PRIVATE bool drvfs_is_path_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
-{
-    drvfs_pathiterator iParent = drvfs_begin_path_iteration(parentAbsolutePath);
-    drvfs_pathiterator iChild  = drvfs_begin_path_iteration(descendantAbsolutePath);
-
-    while (drvfs_next_path_segment(&iParent))
-    {
-        if (drvfs_next_path_segment(&iChild))
-        {
-            // If the segment is different, the paths are different and thus it is not a descendant.
-            if (!drvfs_pathiterators_equal(iParent, iChild))
-            {
-                return 0;
-            }
-        }
-        else
-        {
-            // The descendant is shorter which means it's impossible for it to be a descendant.
-            return 0;
-        }
-    }
-
-    // At this point we have finished iteration of the parent, which should be shorter one. We now do one final iteration of
-    // the descendant to ensure it is indeed shorter. If so, it's a descendant.
-    return drvfs_next_path_segment(&iChild);
-}
-
-DRVFS_PRIVATE bool drvfs_copy_base_path(const char* path, char* baseOut, size_t baseSizeInBytes)
-{
-    if (drvfs__strcpy_s(baseOut, baseSizeInBytes, path) == 0)
-    {
-        if (baseOut != 0)
-        {
-            char* baseend = baseOut;
-
-            // We just loop through the path until we find the last slash.
-            while (baseOut[0] != '\0')
-            {
-                if (baseOut[0] == '/' || baseOut[0] == '\\')
-                {
-                    baseend = baseOut;
-                }
-
-                baseOut += 1;
-            }
-
-
-            // Now we just loop backwards until we hit the first non-slash.
-            while (baseend > baseOut)
-            {
-                if (baseend[0] != '/' && baseend[0] != '\\')
-                {
-                    break;
-                }
-
-                baseend -= 1;
-            }
-
-
-            // We just put a null terminator on the end.
-            baseend[0] = '\0';
-
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-DRVFS_PRIVATE const char* drvfs_file_name(const char* path)
-{
-    if (path != 0)
-    {
-        const char* fileName = path;
-
-        // We just loop through the path until we find the last slash.
-        while (path[0] != '\0')
-        {
-            if (path[0] == '/' || path[0] == '\\')
-            {
-                fileName = path;
-            }
-
-            path += 1;
-        }
-
-
-        // At this point the file name is sitting on a slash, so just move forward.
-        while (fileName[0] != '\0' && (fileName[0] == '/' || fileName[0] == '\\'))
-        {
-            fileName += 1;
-        }
-
-
-        return fileName;
-    }
-
-    return 0;
-}
-
-DRVFS_PRIVATE const char* drvfs_extension(const char* path)
-{
-    if (path != 0)
-    {
-        const char* extension = drvfs_file_name(path);
-        const char* lastoccurance = 0;
-
-        // Just find the last '.' and return.
-        while (extension[0] != '\0')
-        {
-            extension += 1;
-
-            if (extension[0] == '.')
-            {
-                extension += 1;
-                lastoccurance = extension;
-            }
-        }
-
-        return (lastoccurance != 0) ? lastoccurance : extension;
-    }
-
-    return 0;
-}
-
-DRVFS_PRIVATE bool drvfs_paths_equal(const char* path1, const char* path2)
-{
-    if (path1 != 0 && path2 != 0)
-    {
-        drvfs_pathiterator iPath1 = drvfs_begin_path_iteration(path1);
-        drvfs_pathiterator iPath2 = drvfs_begin_path_iteration(path2);
-
-        int isPath1Valid = drvfs_next_path_segment(&iPath1);
-        int isPath2Valid = drvfs_next_path_segment(&iPath2);
-        while (isPath1Valid && isPath2Valid)
-        {
-            if (!drvfs_pathiterators_equal(iPath1, iPath2))
-            {
-                return 0;
-            }
-
-            isPath1Valid = drvfs_next_path_segment(&iPath1);
-            isPath2Valid = drvfs_next_path_segment(&iPath2);
-        }
-
+        } while (isPath1Valid && isPath2Valid);
 
         // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
         return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
     }
 
-    return 0;
+    return false;
 }
 
-DRVFS_PRIVATE bool drvfs_is_path_relative(const char* path)
+DRVFS_PRIVATE bool drvfs_drpath_is_linux_style_root_segment(const drvfs_drpath_iterator i)
 {
-    if (path != 0 && path[0] != '\0')
-    {
-        if (path[0] == '/')
-        {
-            return 0;
-        }
-
-        if (path[1] != '\0')
-        {
-            if (((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z')) && path[1] == ':')
-            {
-                return 0;
-            }
-        }
+    if (i.path == NULL) {
+        return false;
     }
 
-    return 1;
+    if (i.segment.offset == 0 && i.segment.length == 0) {
+        return true;    // "/" style root.
+    }
+
+    return false;
 }
 
-DRVFS_PRIVATE bool drvfs_is_path_absolute(const char* path)
+DRVFS_PRIVATE bool drvfs_drpath_is_win32_style_root_segment(const drvfs_drpath_iterator i)
 {
-    return !drvfs_is_path_relative(path);
-}
+    if (i.path == NULL) {
+        return false;
+    }
 
-DRVFS_PRIVATE bool drvfs_append_path(char* base, size_t baseBufferSizeInBytes, const char* other)
-{
-    if (base != 0 && other != 0)
-    {
-        size_t path1Length = strlen(base);
-        size_t path2Length = strlen(other);
-
-        if (path1Length < baseBufferSizeInBytes)
-        {
-            // Slash.
-            if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\') {
-                base[path1Length] = '/';
-                path1Length += 1;
-            }
-
-
-            // Other part.
-            if (path1Length + path2Length >= baseBufferSizeInBytes) {
-                path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
-            }
-
-            drvfs__strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
-
-
-            return 1;
+    if (i.segment.offset == 0 && i.segment.length == 2) {
+        if (((i.path[0] >= 'a' && i.path[0] <= 'z') || (i.path[0] >= 'A' && i.path[0] <= 'Z')) && i.path[1] == ':') {
+            return true;
         }
     }
 
-    return 0;
+    return false;
 }
 
-DRVFS_PRIVATE bool drvfs_copy_and_append_path(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
+DRVFS_PRIVATE bool drvfs_drpath_is_root_segment(const drvfs_drpath_iterator i)
 {
-    if (dst != NULL && dstSizeInBytes > 0)
-    {
-        drvfs__strcpy_s(dst, dstSizeInBytes, base);
-        return drvfs_append_path(dst, dstSizeInBytes, other);
+    return drvfs_drpath_is_linux_style_root_segment(i) || drvfs_drpath_is_win32_style_root_segment(i);
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_is_relative(const char* path)
+{
+    if (path == NULL) {
+        return false;
     }
 
-    return 0;
+    drvfs_drpath_iterator seg;
+    if (drvfs_drpath_first(path, &seg)) {
+        return !drvfs_drpath_is_root_segment(seg);
+    }
+
+    // We'll get here if the path is empty. We consider this to be a relative path.
+    return true;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_is_absolute(const char* path)
+{
+    return !drvfs_drpath_is_relative(path);
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
+{
+    if (base == NULL || other == NULL) {
+        return false;
+    }
+
+    size_t path1Length = strlen(base);
+    size_t path2Length = strlen(other);
+
+    if (path1Length >= baseBufferSizeInBytes) {
+        return false;
+    }
+
+
+    // Slash.
+    if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\') {
+        base[path1Length] = '/';
+        path1Length += 1;
+    }
+
+    // Other part.
+    if (path1Length + path2Length >= baseBufferSizeInBytes) {
+        path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
+    }
+
+    drvfs__strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
+
+    return true;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
+{
+    if (dst == NULL || dstSizeInBytes == 0) {
+        return false;
+    }
+
+    drvfs__strcpy_s(dst, dstSizeInBytes, base);
+    return drvfs_drpath_append(dst, dstSizeInBytes, other);
 }
 
 // This function recursively cleans a path which is defined as a chain of iterators. This function works backwards, which means at the time of calling this
 // function, each iterator in the chain should be placed at the end of the path.
 //
-// This does not write the null terminator.
-size_t drvfs_path_clean_trywrite(drvfs_pathiterator* iterators, unsigned int iteratorCount, char* pathOut, size_t pathOutSizeInBytes, unsigned int ignoreCounter)
+// This does not write the null terminator, nor a leading slash for absolute paths.
+DRVFS_PRIVATE size_t _drvfs_drpath_clean_trywrite(drvfs_drpath_iterator* iterators, unsigned int iteratorCount, char* pathOut, size_t pathOutSizeInBytes, unsigned int ignoreCounter)
 {
     if (iteratorCount == 0) {
         return 0;
     }
 
-    drvfs_pathiterator isegment = iterators[iteratorCount - 1];
+    drvfs_drpath_iterator isegment = iterators[iteratorCount - 1];
 
 
     // If this segment is a ".", we ignore it. If it is a ".." we ignore it and increment "ignoreCount".
-    bool ignoreThisSegment = ignoreCounter > 0 && isegment.segment.length > 0;
+    int ignoreThisSegment = ignoreCounter > 0 && isegment.segment.length > 0;
 
     if (isegment.segment.length == 1 && isegment.path[isegment.segment.offset] == '.')
     {
@@ -1431,19 +1452,18 @@ size_t drvfs_path_clean_trywrite(drvfs_pathiterator* iterators, unsigned int ite
         else
         {
             // It's a regular segment, so decrement the ignore counter.
-            if (ignoreCounter > 0)
-            {
+            if (ignoreCounter > 0) {
                 ignoreCounter -= 1;
             }
         }
     }
 
-
+    
     // The previous segment needs to be written before we can write this one.
     size_t bytesWritten = 0;
 
-    drvfs_pathiterator prev = isegment;
-    if (!drvfs_prev_path_segment(&prev))
+    drvfs_drpath_iterator prev = isegment;
+    if (!drvfs_drpath_prev(&prev))
     {
         if (iteratorCount > 1)
         {
@@ -1461,7 +1481,7 @@ size_t drvfs_path_clean_trywrite(drvfs_pathiterator* iterators, unsigned int ite
     if (prev.segment.length > 0)
     {
         iterators[iteratorCount - 1] = prev;
-        bytesWritten = drvfs_path_clean_trywrite(iterators, iteratorCount, pathOut, pathOutSizeInBytes, ignoreCounter);
+        bytesWritten = _drvfs_drpath_clean_trywrite(iterators, iteratorCount, pathOut, pathOutSizeInBytes, ignoreCounter);
     }
 
 
@@ -1497,35 +1517,34 @@ size_t drvfs_path_clean_trywrite(drvfs_pathiterator* iterators, unsigned int ite
     return bytesWritten;
 }
 
-DRVFS_PRIVATE size_t drvfs_append_and_clean(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
+DRVFS_PRIVATE size_t drvfs_drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
 {
-    if (base != 0 && other != 0)
-    {
-        drvfs_pathiterator last[2];
-        last[0] = drvfs_last_path_segment(base);
-        last[1] = drvfs_last_path_segment(other);
-
-        if (last[0].segment.length == 0 && last[1].segment.length == 0) {
-            return 0;   // Both input strings are empty.
-        }
-
-        size_t bytesWritten = 0;
-        if (base[0] == '/') {
-            if (dst != NULL && dstSizeInBytes > 1) {
-                dst[0] = '/';
-                bytesWritten = 1;
-            }
-        }
-
-        bytesWritten += drvfs_path_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - bytesWritten - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
-        if (dstSizeInBytes > bytesWritten) {
-            dst[bytesWritten] = '\0';
-        }
-
-        return bytesWritten + 1;
+    if (base == NULL || other == NULL) {
+        return 0;
     }
 
-    return 0;
+    drvfs_drpath_iterator last[2];
+    bool isPathEmpty0 = !drvfs_drpath_last(base,  last + 0);
+    bool isPathEmpty1 = !drvfs_drpath_last(other, last + 1);
+
+    if (isPathEmpty0 && isPathEmpty1) {
+        return 0;   // Both input strings are empty.
+    }
+
+    size_t bytesWritten = 0;
+    if (base[0] == '/') {
+        if (dst != NULL && dstSizeInBytes > 1) {
+            dst[0] = '/';
+            bytesWritten = 1;
+        }
+    }
+
+    bytesWritten += _drvfs_drpath_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - bytesWritten - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+    if (dstSizeInBytes > bytesWritten) {
+        dst[bytesWritten] = '\0';
+    }
+
+    return bytesWritten + 1;
 }
 
 
@@ -1539,8 +1558,8 @@ DRVFS_PRIVATE bool drvfs_mkdir_recursive_native(const char* absolutePath);
 DRVFS_PRIVATE bool drvfs_validate_write_path(drvfs_context* pContext, const char* absoluteOrRelativePath, char* absolutePathOut, unsigned int absolutePathOutSize)
 {
     // If the path is relative, we need to convert to absolute. Then, if the write directory guard is enabled, we need to check that it's a descendant of the base path.
-    if (drvfs_is_path_relative(absoluteOrRelativePath)) {
-        if (drvfs_append_and_clean(absolutePathOut, absolutePathOutSize, pContext->writeBaseDirectory, absoluteOrRelativePath)) {
+    if (drvfs_drpath_is_relative(absoluteOrRelativePath)) {
+        if (drvfs_drpath_append_and_clean(absolutePathOut, absolutePathOutSize, pContext->writeBaseDirectory, absoluteOrRelativePath)) {
             absoluteOrRelativePath = absolutePathOut;
         } else {
             return false;
@@ -1551,10 +1570,10 @@ DRVFS_PRIVATE bool drvfs_validate_write_path(drvfs_context* pContext, const char
         }
     }
 
-    assert(drvfs_is_path_absolute(absoluteOrRelativePath));
+    assert(drvfs_drpath_is_absolute(absoluteOrRelativePath));
 
     if (drvfs_is_write_directory_guard_enabled(pContext)) {
-        if (drvfs_is_path_descendant(absoluteOrRelativePath, pContext->writeBaseDirectory)) {
+        if (drvfs_drpath_is_descendant(absoluteOrRelativePath, pContext->writeBaseDirectory)) {
             return true;
         } else {
             return false;
@@ -1692,10 +1711,10 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_native_file(const char* absolutePath, unsi
         if ((accessMode & DRVFS_WRITE) != 0 && (accessMode & DRVFS_CREATE_DIRS) != 0)
         {
             char dirAbsolutePath[DRVFS_MAX_PATH];
-            if (drvfs_copy_base_path(absolutePath, dirAbsolutePath, sizeof(dirAbsolutePath))) {
-                if (!drvfs_is_native_directory(dirAbsolutePath) && drvfs_mkdir_recursive_native(dirAbsolutePath)) {
-                    hFile = CreateFileA(absolutePath, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
-                }
+            drvfs_drpath_copy_base_path(absolutePath, dirAbsolutePath, sizeof(dirAbsolutePath));
+
+            if (!drvfs_is_native_directory(dirAbsolutePath) && drvfs_mkdir_recursive_native(dirAbsolutePath)) {
+                hFile = CreateFileA(absolutePath, dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
             }
         }
     }
@@ -1930,7 +1949,7 @@ typedef struct
 
 DRVFS_PRIVATE drvfs_handle drvfs_begin_native_iteration(const char* absolutePath)
 {
-    assert(drvfs_is_path_absolute(absolutePath));
+    assert(drvfs_drpath_is_absolute(absolutePath));
 
     char searchQuery[DRVFS_MAX_PATH];
     if (strcpy_s(searchQuery, sizeof(searchQuery), absolutePath) != 0) {
@@ -2103,7 +2122,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_native_file(const char* absolutePath, unsi
         // the access mode flags for DRVFS_CREATE_DIRS and try creating the directory structure.
         if ((accessMode & DRVFS_WRITE) != 0 && (accessMode & DRVFS_CREATE_DIRS) != 0) {
             char dirAbsolutePath[DRVFS_MAX_PATH];
-            if (drvfs_copy_base_path(absolutePath, dirAbsolutePath, sizeof(dirAbsolutePath))) {
+            if (drvfs_drpath_copy_base_path(absolutePath, dirAbsolutePath, sizeof(dirAbsolutePath))) {
                 if (!drvfs_is_native_directory(dirAbsolutePath) && drvfs_mkdir_recursive_native(dirAbsolutePath)) {
                     fd = drvfs__open_fd(absolutePath, flags);
                 }
@@ -2160,7 +2179,7 @@ DRVFS_PRIVATE bool drvfs_mkdir_native(const char* absolutePath)
 
 DRVFS_PRIVATE bool drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists)
 {
-    if (drvfs_paths_equal(absolutePathSrc, absolutePathDst)) {
+    if (drvfs_drpath_equal(absolutePathSrc, absolutePathDst)) {
         return !failIfExists;
     }
 
@@ -2382,7 +2401,7 @@ DRVFS_PRIVATE bool drvfs_next_native_iteration(drvfs_handle iterator, drvfs_file
     }
 
     char fileAbsolutePath[DRVFS_MAX_PATH];
-    drvfs_copy_and_append_path(fileAbsolutePath, sizeof(fileAbsolutePath), pIterator->directoryPath, info->d_name);
+    drvfs_drpath_copy_and_append(fileAbsolutePath, sizeof(fileAbsolutePath), pIterator->directoryPath, info->d_name);
 
     if (drvfs_get_native_file_info(fileAbsolutePath, fi)) {
         drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), info->d_name);
@@ -2398,15 +2417,18 @@ DRVFS_PRIVATE bool drvfs_mkdir_recursive_native(const char* absolutePath)
     char runningPath[DRVFS_MAX_PATH];
     runningPath[0] = '\0';
 
-    drvfs_pathiterator iPathSeg = drvfs_begin_path_iteration(absolutePath);
+    drvfs_drpath_iterator iPathSeg;
+    if (!drvfs_drpath_first(absolutePath, &iPathSeg)) {
+        return false;
+    }
 
     // Never check the first segment because we can assume it always exists - it will always be the drive root.
-    if (drvfs_next_path_segment(&iPathSeg) && drvfs_append_path_iterator(runningPath, sizeof(runningPath), iPathSeg))
+    if (drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg))
     {
         // Loop over every directory until we find one that does not exist.
-        while (drvfs_next_path_segment(&iPathSeg))
+        while (drvfs_drpath_next(&iPathSeg))
         {
-            if (!drvfs_append_path_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
+            if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
                 return false;
             }
 
@@ -2422,9 +2444,9 @@ DRVFS_PRIVATE bool drvfs_mkdir_recursive_native(const char* absolutePath)
 
         // At this point all we need to do is create the remaining directories - we can assert that the directory does not exist
         // rather than actually checking it which should be a bit more efficient.
-        while (drvfs_next_path_segment(&iPathSeg))
+        while (drvfs_drpath_next(&iPathSeg))
         {
-            if (!drvfs_append_path_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
+            if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
                 return false;
             }
 
@@ -2497,7 +2519,7 @@ DRVFS_PRIVATE bool drvfs_get_file_info__native(drvfs_handle archive, const char*
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRVFS_MAX_PATH];
-    if (!drvfs_copy_and_append_path(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
+    if (!drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
         return false;
     }
 
@@ -2514,7 +2536,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_begin_iteration__native(drvfs_handle archive, c
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRVFS_MAX_PATH];
-    if (!drvfs_copy_and_append_path(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
+    if (!drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
         return NULL;
     }
 
@@ -2547,7 +2569,7 @@ DRVFS_PRIVATE bool drvfs_delete_file__native(drvfs_handle archive, const char* r
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRVFS_MAX_PATH];
-    if (!drvfs_copy_and_append_path(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
+    if (!drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
         return false;
     }
 
@@ -2563,12 +2585,12 @@ DRVFS_PRIVATE bool drvfs_rename_file__native(drvfs_handle archive, const char* r
     assert(pNativeArchive != NULL);
 
     char absolutePathOld[DRVFS_MAX_PATH];
-    if (!drvfs_copy_and_append_path(absolutePathOld, sizeof(absolutePathOld), pNativeArchive->absolutePath, relativePathOld)) {
+    if (!drvfs_drpath_copy_and_append(absolutePathOld, sizeof(absolutePathOld), pNativeArchive->absolutePath, relativePathOld)) {
         return false;
     }
 
     char absolutePathNew[DRVFS_MAX_PATH];
-    if (!drvfs_copy_and_append_path(absolutePathNew, sizeof(absolutePathNew), pNativeArchive->absolutePath, relativePathNew)) {
+    if (!drvfs_drpath_copy_and_append(absolutePathNew, sizeof(absolutePathNew), pNativeArchive->absolutePath, relativePathNew)) {
         return false;
     }
 
@@ -2583,7 +2605,7 @@ DRVFS_PRIVATE bool drvfs_create_directory__native(drvfs_handle archive, const ch
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRVFS_MAX_PATH];
-    if (!drvfs_copy_and_append_path(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
+    if (!drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
         return false;
     }
 
@@ -2599,12 +2621,12 @@ DRVFS_PRIVATE bool drvfs_copy_file__native(drvfs_handle archive, const char* rel
     assert(pNativeArchive != NULL);
 
     char absolutePathSrc[DRVFS_MAX_PATH];
-    if (!drvfs_copy_and_append_path(absolutePathSrc, sizeof(absolutePathSrc), pNativeArchive->absolutePath, relativePathSrc)) {
+    if (!drvfs_drpath_copy_and_append(absolutePathSrc, sizeof(absolutePathSrc), pNativeArchive->absolutePath, relativePathSrc)) {
         return false;
     }
 
     char absolutePathDst[DRVFS_MAX_PATH];
-    if (!drvfs_copy_and_append_path(absolutePathDst, sizeof(absolutePathDst), pNativeArchive->absolutePath, relativePathDst)) {
+    if (!drvfs_drpath_copy_and_append(absolutePathDst, sizeof(absolutePathDst), pNativeArchive->absolutePath, relativePathDst)) {
         return false;
     }
 
@@ -2620,7 +2642,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_file__native(drvfs_handle archive, const c
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRVFS_MAX_PATH];
-    if (drvfs_copy_and_append_path(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
+    if (drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
         return drvfs_open_native_file(absolutePath, accessMode);
     }
 
@@ -2796,7 +2818,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_non_native_archive(drvfs_archive* pParen
     pArchive->internalArchiveHandle = internalArchiveHandle;
     pArchive->flags                 = 0;
     pArchive->callbacks             = *pBackEndCallbacks;
-    drvfs_copy_and_append_path(pArchive->absolutePath, sizeof(pArchive->absolutePath), pParentArchive->absolutePath, relativePath);
+    drvfs_drpath_copy_and_append(pArchive->absolutePath, sizeof(pArchive->absolutePath), pParentArchive->absolutePath, relativePath);
 
     return pArchive;
 }
@@ -2808,7 +2830,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_non_native_archive_from_path(drvfs_archi
     assert(relativePath != NULL);
 
     drvfs_archive_callbacks backendCallbacks;
-    if (!drvfs_find_backend_by_extension(pParentArchive->pContext, drvfs_extension(relativePath), &backendCallbacks)) {
+    if (!drvfs_find_backend_by_extension(pParentArchive->pContext, drvfs_drpath_extension(relativePath), &backendCallbacks)) {
         return NULL;
     }
 
@@ -2843,53 +2865,59 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_recursively_from_verbose_p
         char runningPath[DRVFS_MAX_PATH];
         runningPath[0] = '\0';
 
-        drvfs_pathiterator segment = drvfs_begin_path_iteration(relativePath);
-        while (drvfs_next_path_segment(&segment))
+        //drvfs_drpath_iterator segment = drvfs_begin_path_iteration(relativePath);
+        //while (drvfs_next_path_segment(&segment))
+
+        drvfs_drpath_iterator segment;
+        if (drvfs_drpath_first(relativePath, &segment))
         {
-            if (!drvfs_append_path_iterator(runningPath, sizeof(runningPath), segment)) {
-                return NULL;
-            }
-
-            if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, runningPath, &fi))
+            do
             {
-                if ((fi.attributes & DRVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
+                if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), segment)) {
+                    return NULL;
+                }
+
+                if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, runningPath, &fi))
                 {
-                    // The running path points to an actual file. It could be a sub-archive.
-                    drvfs_archive_callbacks backendCallbacks;
-                    if (drvfs_find_backend_by_extension(pParentArchive->pContext, drvfs_extension(runningPath), &backendCallbacks))
+                    if ((fi.attributes & DRVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
                     {
-                        drvfs_file* pNextArchiveFile = drvfs_open_file_from_archive(pParentArchive, runningPath, accessMode, 0);
-                        if (pNextArchiveFile == NULL) {
-                            break;    // Failed to open the archive file.
-                        }
-
-                        drvfs_archive* pNextArchive = drvfs_open_non_native_archive(pParentArchive, pNextArchiveFile, &backendCallbacks, runningPath, accessMode);
-                        if (pNextArchive == NULL) {
-                            drvfs_close(pNextArchiveFile);
-                            break;
-                        }
-
-                        // At this point we should have an archive. We now need to call this function recursively if there are any segments left.
-                        drvfs_pathiterator nextsegment = segment;
-                        if (drvfs_next_path_segment(&nextsegment))
+                        // The running path points to an actual file. It could be a sub-archive.
+                        drvfs_archive_callbacks backendCallbacks;
+                        if (drvfs_find_backend_by_extension(pParentArchive->pContext, drvfs_drpath_extension(runningPath), &backendCallbacks))
                         {
-                            drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_verbose_path(pNextArchive, nextsegment.path + nextsegment.segment.offset, accessMode, relativePathOut, relativePathOutSize);
-                            if (pOwnerArchive == NULL) {
-                                drvfs_close_archive(pNextArchive);
+                            drvfs_file* pNextArchiveFile = drvfs_open_file_from_archive(pParentArchive, runningPath, accessMode, 0);
+                            if (pNextArchiveFile == NULL) {
+                                break;    // Failed to open the archive file.
+                            }
+
+                            drvfs_archive* pNextArchive = drvfs_open_non_native_archive(pParentArchive, pNextArchiveFile, &backendCallbacks, runningPath, accessMode);
+                            if (pNextArchive == NULL) {
+                                drvfs_close(pNextArchiveFile);
                                 break;
                             }
 
-                            return pOwnerArchive;
-                        }
-                        else
-                        {
-                            // We reached the end of the path. If we get here it means the file doesn't exist, because otherwise we would have caught it in the check right at the top.
-                            drvfs_close_archive(pNextArchive);
-                            break;
+                            // At this point we should have an archive. We now need to call this function recursively if there are any segments left.
+                            drvfs_drpath_iterator nextsegment = segment;
+                            if (drvfs_drpath_next(&nextsegment))
+                            {
+                                drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_verbose_path(pNextArchive, nextsegment.path + nextsegment.segment.offset, accessMode, relativePathOut, relativePathOutSize);
+                                if (pOwnerArchive == NULL) {
+                                    drvfs_close_archive(pNextArchive);
+                                    break;
+                                }
+
+                                return pOwnerArchive;
+                            }
+                            else
+                            {
+                                // We reached the end of the path. If we get here it means the file doesn't exist, because otherwise we would have caught it in the check right at the top.
+                                drvfs_close_archive(pNextArchive);
+                                break;
+                            }
                         }
                     }
                 }
-            }
+            } while (drvfs_drpath_next(&segment));
         }
 
         // The running path is not part of this archive.
@@ -2915,46 +2943,48 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_from_absolute_path(drvfs_c
         runningPath[1] = '\0';
     }
 
-    drvfs_pathiterator segment = drvfs_begin_path_iteration(absolutePath);
-    while (drvfs_next_path_segment(&segment))
+    drvfs_drpath_iterator segment;
+    if (drvfs_drpath_first(absolutePath, &segment))
     {
-        if (!drvfs_append_path_iterator(runningPath, sizeof(runningPath), segment)) {
-            return NULL;
-        }
-
-        if (!drvfs_is_native_directory(runningPath))
+        do
         {
-            char dirAbsolutePath[DRVFS_MAX_PATH];
-            if (!drvfs_copy_base_path(runningPath, dirAbsolutePath, sizeof(dirAbsolutePath))) {
+            if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), segment)) {
                 return NULL;
             }
 
-            drvfs_archive* pNativeArchive = drvfs_open_native_archive(pContext, dirAbsolutePath, accessMode);
-            if (pNativeArchive == NULL) {
-                return NULL;    // Failed to open the native archive.
-            }
-
-
-            // The running path is not a native directory. It could be an archive file.
-            drvfs_archive_callbacks backendCallbacks;
-            if (drvfs_find_backend_by_extension(pContext, drvfs_extension(runningPath), &backendCallbacks))
+            if (!drvfs_is_native_directory(runningPath))
             {
-                // The running path refers to an archive file. We need to try opening the archive here. If this fails, we
-                // need to return NULL.
-                drvfs_archive* pArchive = drvfs_open_owner_archive_recursively_from_verbose_path(pNativeArchive, segment.path + segment.segment.offset, accessMode, relativePathOut, relativePathOutSize);
-                if (pArchive == NULL) {
-                    drvfs_close_archive(pNativeArchive);
-                    return NULL;
+                char dirAbsolutePath[DRVFS_MAX_PATH];
+                drvfs_drpath_copy_base_path(runningPath, dirAbsolutePath, sizeof(dirAbsolutePath));
+
+                drvfs_archive* pNativeArchive = drvfs_open_native_archive(pContext, dirAbsolutePath, accessMode);
+                if (pNativeArchive == NULL) {
+                    return NULL;    // Failed to open the native archive.
                 }
 
-                return pArchive;
+
+                // The running path is not a native directory. It could be an archive file.
+                drvfs_archive_callbacks backendCallbacks;
+                if (drvfs_find_backend_by_extension(pContext, drvfs_drpath_extension(runningPath), &backendCallbacks))
+                {
+                    // The running path refers to an archive file. We need to try opening the archive here. If this fails, we
+                    // need to return NULL.
+                    drvfs_archive* pArchive = drvfs_open_owner_archive_recursively_from_verbose_path(pNativeArchive, segment.path + segment.segment.offset, accessMode, relativePathOut, relativePathOutSize);
+                    if (pArchive == NULL) {
+                        drvfs_close_archive(pNativeArchive);
+                        return NULL;
+                    }
+
+                    return pArchive;
+                }
+                else
+                {
+                    drvfs__strcpy_s(relativePathOut, relativePathOutSize, segment.path + segment.segment.offset);
+                    return pNativeArchive;
+                }
             }
-            else
-            {
-                drvfs__strcpy_s(relativePathOut, relativePathOutSize, segment.path + segment.segment.offset);
-                return pNativeArchive;
-            }
-        }
+
+        } while (drvfs_drpath_next(&segment));
     }
 
     return NULL;
@@ -2986,9 +3016,15 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_
         drvfs__strcpy_s(runningPath, sizeof(runningPath), rootSearchPath);
 
         // Part of rootSearchPath and relativePath will be overlapping. We want to begin searching at the non-overlapping section.
-        drvfs_pathiterator pathSeg0 = drvfs_begin_path_iteration(rootSearchPath);
-        drvfs_pathiterator pathSeg1 = drvfs_begin_path_iteration(relativePath);
-        while (drvfs_next_path_segment(&pathSeg0) && drvfs_next_path_segment(&pathSeg1)) {}
+        drvfs_drpath_iterator pathSeg0;
+        drvfs_drpath_iterator pathSeg1;
+        bool isSeg0Valid = drvfs_drpath_first(rootSearchPath, &pathSeg0);
+        bool isSeg1Valid = drvfs_drpath_first(relativePath,   &pathSeg1);
+        while (isSeg0Valid && isSeg1Valid) {
+            isSeg0Valid = drvfs_drpath_next(&pathSeg0);
+            isSeg1Valid = drvfs_drpath_next(&pathSeg1);
+        }
+
         relativePath = pathSeg1.path + pathSeg1.segment.offset;
 
         // Searching works as such:
@@ -2998,69 +3034,73 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_
         //       Else
         //           Search each archive file in this directory
         //       Endif
-        drvfs_pathiterator pathseg = drvfs_begin_path_iteration(relativePath);
-        while (drvfs_next_path_segment(&pathseg))
+        drvfs_drpath_iterator pathseg;
+        if (drvfs_drpath_first(relativePath, &pathseg))
         {
-            char runningPathBase[DRVFS_MAX_PATH];
-            drvfs__strcpy_s(runningPathBase, sizeof(runningPathBase), runningPath);
-
-            if (!drvfs_append_path_iterator(runningPath, sizeof(runningPath), pathseg)) {
-                return NULL;
-            }
-
-            drvfs_archive* pNextArchive = drvfs_open_non_native_archive_from_path(pParentArchive, runningPath, accessMode);
-            if (pNextArchive != NULL)
+            do
             {
-                // It's an archive segment. We need to check this archive recursively, starting from the next segment.
-                drvfs_pathiterator nextseg = pathseg;
-                if (!drvfs_next_path_segment(&nextseg)) {
-                    // Should never actually get here, but if we do it means we've reached the end of the path. Assume the file could not be found.
-                    drvfs_close_archive(pNextArchive);
+                char runningPathBase[DRVFS_MAX_PATH];
+                drvfs__strcpy_s(runningPathBase, sizeof(runningPathBase), runningPath);
+
+                if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), pathseg)) {
                     return NULL;
                 }
 
-                drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", nextseg.path + nextseg.segment.offset, accessMode, relativePathOut, relativePathOutSize);
-                if (pOwnerArchive == NULL) {
-                    drvfs_close_archive(pNextArchive);
-                    return NULL;
-                }
-
-                return pOwnerArchive;
-            }
-            else
-            {
-                // It's not an archive segment. We need to search.
-                if (pParentArchive->callbacks.begin_iteration == NULL || pParentArchive->callbacks.next_iteration == NULL || pParentArchive->callbacks.end_iteration == NULL) {
-                    return NULL;
-                }
-
-                drvfs_handle iterator = pParentArchive->callbacks.begin_iteration(pParentArchive->internalArchiveHandle, runningPathBase);
-                if (iterator == NULL) {
-                    return NULL;
-                }
-
-                while (pParentArchive->callbacks.next_iteration(pParentArchive->internalArchiveHandle, iterator, &fi))
+                drvfs_archive* pNextArchive = drvfs_open_non_native_archive_from_path(pParentArchive, runningPath, accessMode);
+                if (pNextArchive != NULL)
                 {
-                    if ((fi.attributes & DRVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
+                    // It's an archive segment. We need to check this archive recursively, starting from the next segment.
+                    drvfs_drpath_iterator nextseg = pathseg;
+                    if (!drvfs_drpath_next(&nextseg)) {
+                        // Should never actually get here, but if we do it means we've reached the end of the path. Assume the file could not be found.
+                        drvfs_close_archive(pNextArchive);
+                        return NULL;
+                    }
+
+                    drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", nextseg.path + nextseg.segment.offset, accessMode, relativePathOut, relativePathOutSize);
+                    if (pOwnerArchive == NULL) {
+                        drvfs_close_archive(pNextArchive);
+                        return NULL;
+                    }
+
+                    return pOwnerArchive;
+                }
+                else
+                {
+                    // It's not an archive segment. We need to search.
+                    if (pParentArchive->callbacks.begin_iteration == NULL || pParentArchive->callbacks.next_iteration == NULL || pParentArchive->callbacks.end_iteration == NULL) {
+                        return NULL;
+                    }
+
+                    drvfs_handle iterator = pParentArchive->callbacks.begin_iteration(pParentArchive->internalArchiveHandle, runningPathBase);
+                    if (iterator == NULL) {
+                        return NULL;
+                    }
+
+                    while (pParentArchive->callbacks.next_iteration(pParentArchive->internalArchiveHandle, iterator, &fi))
                     {
-                        // It's a file which means it could be an archive. Note that fi.absolutePath is actually relative to the parent archive.
-                        pNextArchive = drvfs_open_non_native_archive_from_path(pParentArchive, fi.absolutePath, accessMode);
-                        if (pNextArchive != NULL)
+                        if ((fi.attributes & DRVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
                         {
-                            // It's an archive, so check it.
-                            drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", pathseg.path + pathseg.segment.offset, accessMode, relativePathOut, relativePathOutSize);
-                            if (pOwnerArchive != NULL) {
-                                pParentArchive->callbacks.end_iteration(pParentArchive->internalArchiveHandle, iterator);
-                                return pOwnerArchive;
-                            } else {
-                                drvfs_close_archive(pNextArchive);
+                            // It's a file which means it could be an archive. Note that fi.absolutePath is actually relative to the parent archive.
+                            pNextArchive = drvfs_open_non_native_archive_from_path(pParentArchive, fi.absolutePath, accessMode);
+                            if (pNextArchive != NULL)
+                            {
+                                // It's an archive, so check it.
+                                drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", pathseg.path + pathseg.segment.offset, accessMode, relativePathOut, relativePathOutSize);
+                                if (pOwnerArchive != NULL) {
+                                    pParentArchive->callbacks.end_iteration(pParentArchive->internalArchiveHandle, iterator);
+                                    return pOwnerArchive;
+                                } else {
+                                    drvfs_close_archive(pNextArchive);
+                                }
                             }
                         }
                     }
+
+                    pParentArchive->callbacks.end_iteration(pParentArchive->internalArchiveHandle, iterator);
                 }
 
-                pParentArchive->callbacks.end_iteration(pParentArchive->internalArchiveHandle, iterator);
-            }
+            } while (drvfs_drpath_next(&pathseg));
         }
     }
 
@@ -3074,7 +3114,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_from_relative_path(drvfs_c
     assert(pContext != NULL);
     assert(absoluteBasePath != NULL);
     assert(relativePath != NULL);
-    assert(drvfs_is_path_absolute(absoluteBasePath));
+    assert(drvfs_drpath_is_absolute(absoluteBasePath));
 
     char adjustedRelativePath[DRVFS_MAX_PATH];
     char relativeBasePath[DRVFS_MAX_PATH];
@@ -3101,7 +3141,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_from_relative_path(drvfs_c
             return NULL;
         }
 
-        if (!drvfs_copy_and_append_path(adjustedRelativePath, sizeof(adjustedRelativePath), relativeBasePath, relativePath)) {
+        if (!drvfs_drpath_copy_and_append(adjustedRelativePath, sizeof(adjustedRelativePath), relativeBasePath, relativePath)) {
             drvfs_close_archive(pBaseArchive);
             return NULL;
         }
@@ -3125,7 +3165,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_archive_from_relative_path(drvfs_context
     assert(pContext != NULL);
     assert(absoluteBasePath != NULL);
     assert(relativePath != NULL);
-    assert(drvfs_is_path_absolute(absoluteBasePath));
+    assert(drvfs_drpath_is_absolute(absoluteBasePath));
 
     char adjustedRelativePath[DRVFS_MAX_PATH];
     char relativeBasePath[DRVFS_MAX_PATH];
@@ -3152,7 +3192,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_archive_from_relative_path(drvfs_context
             return NULL;
         }
 
-        if (!drvfs_copy_and_append_path(adjustedRelativePath, sizeof(adjustedRelativePath), relativeBasePath, relativePath)) {
+        if (!drvfs_drpath_copy_and_append(adjustedRelativePath, sizeof(adjustedRelativePath), relativeBasePath, relativePath)) {
             drvfs_close_archive(pBaseArchive);
             return NULL;
         }
@@ -3284,7 +3324,7 @@ void drvfs_remove_base_directory(drvfs_context* pContext, const char* absolutePa
     }
 
     for (unsigned int iPath = 0; iPath < pContext->baseDirectories.count; /*DO NOTHING*/) {
-        if (drvfs_paths_equal(pContext->baseDirectories.pBuffer[iPath].absolutePath, absolutePath)) {
+        if (drvfs_drpath_equal(pContext->baseDirectories.pBuffer[iPath].absolutePath, absolutePath)) {
             drvfs_basedirs_remove(&pContext->baseDirectories, iPath);
         } else {
             ++iPath;
@@ -3387,7 +3427,7 @@ drvfs_archive* drvfs_open_archive(drvfs_context* pContext, const char* absoluteO
         return NULL;
     }
 
-    if (drvfs_is_path_absolute(absoluteOrRelativePath))
+    if (drvfs_drpath_is_absolute(absoluteOrRelativePath))
     {
         if (drvfs_is_native_directory(absoluteOrRelativePath))
         {
@@ -3434,15 +3474,13 @@ drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* abs
         return NULL;
     }
 
-    if (drvfs_is_path_absolute(absoluteOrRelativePath))
+    if (drvfs_drpath_is_absolute(absoluteOrRelativePath))
     {
         if (drvfs_is_native_file(absoluteOrRelativePath) || drvfs_is_native_directory(absoluteOrRelativePath))
         {
             // It's a native file. The owner archive is the directory it's directly sitting in.
             char dirAbsolutePath[DRVFS_MAX_PATH];
-            if (!drvfs_copy_base_path(absoluteOrRelativePath, dirAbsolutePath, sizeof(dirAbsolutePath))) {
-                return NULL;
-            }
+            drvfs_drpath_copy_base_path(absoluteOrRelativePath, dirAbsolutePath, sizeof(dirAbsolutePath));
 
             drvfs_archive* pArchive = drvfs_open_archive(pContext, dirAbsolutePath, accessMode);
             if (pArchive == NULL) {
@@ -3450,7 +3488,7 @@ drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* abs
             }
 
             if (relativePathOut) {
-                if (drvfs__strcpy_s(relativePathOut, relativePathOutSize, drvfs_file_name(absoluteOrRelativePath)) != 0) {
+                if (drvfs__strcpy_s(relativePathOut, relativePathOutSize, drvfs_drpath_file_name(absoluteOrRelativePath)) != 0) {
                     drvfs_close_archive(pArchive);
                     return NULL;
                 }
@@ -3673,7 +3711,7 @@ bool drvfs_get_file_info(drvfs_context* pContext, const char* absoluteOrRelative
     }
 
     if (result && fi != NULL) {
-        drvfs_copy_and_append_path(fi->absolutePath, sizeof(fi->absolutePath), pOwnerArchive->absolutePath, relativePath);
+        drvfs_drpath_copy_and_append(fi->absolutePath, sizeof(fi->absolutePath), pOwnerArchive->absolutePath, relativePath);
     }
 
     drvfs_close_archive(pOwnerArchive);
@@ -3751,7 +3789,7 @@ bool drvfs_next(drvfs_context* pContext, drvfs_iterator* pIterator)
     if (result) {
         char relativePath[DRVFS_MAX_PATH];
         drvfs__strcpy_s(relativePath, sizeof(relativePath), pIterator->info.absolutePath);
-        drvfs_copy_and_append_path(pIterator->info.absolutePath, sizeof(pIterator->info.absolutePath), pIterator->pArchive->absolutePath, relativePath);
+        drvfs_drpath_copy_and_append(pIterator->info.absolutePath, sizeof(pIterator->info.absolutePath), pIterator->pArchive->absolutePath, relativePath);
     }
 
     return result;
@@ -3831,7 +3869,7 @@ bool drvfs_rename_file(drvfs_context* pContext, const char* pathOld, const char*
         drvfs_archive* pArchiveNew = drvfs_open_owner_archive(pContext, pathNew, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePathNew, sizeof(relativePathNew));
         if (pArchiveNew != NULL)
         {
-            if (drvfs_paths_equal(pArchiveOld->absolutePath, pArchiveNew->absolutePath) && pArchiveOld->callbacks.rename_file) {
+            if (drvfs_drpath_equal(pArchiveOld->absolutePath, pArchiveNew->absolutePath) && pArchiveOld->callbacks.rename_file) {
                 result = pArchiveOld->callbacks.rename_file(pArchiveOld, relativePathOld, relativePathNew);
             }
 
@@ -3910,7 +3948,7 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
         if (areBothArchivesNative)
         {
             char srcPathAbsolute[DRVFS_MAX_PATH];
-            drvfs_copy_and_append_path(srcPathAbsolute, sizeof(srcPathAbsolute), pSrcArchive->absolutePath, srcPath);
+            drvfs_drpath_copy_and_append(srcPathAbsolute, sizeof(srcPathAbsolute), pSrcArchive->absolutePath, srcPath);
 
             result = drvfs_copy_native_file(srcPathAbsolute, dstPathAbsolute, failIfExists);
         }
@@ -3957,7 +3995,7 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
 
 bool drvfs_is_archive_path(drvfs_context* pContext, const char* path)
 {
-    return drvfs_find_backend_by_extension(pContext, drvfs_extension(path), NULL);
+    return drvfs_find_backend_by_extension(pContext, drvfs_drpath_extension(path), NULL);
 }
 
 
@@ -4010,7 +4048,7 @@ bool drvfs_is_base_directory(drvfs_context* pContext, const char* baseDir)
     }
 
     for (unsigned int i = 0; i < drvfs_get_base_directory_count(pContext); ++i) {
-        if (drvfs_paths_equal(drvfs_get_base_directory_by_index(pContext, i), baseDir)) {
+        if (drvfs_drpath_equal(drvfs_get_base_directory_by_index(pContext, i), baseDir)) {
             return true;
         }
     }
@@ -4189,15 +4227,19 @@ bool drvfs_create_directory_recursive(drvfs_context* pContext, const char* path)
     char runningPath[DRVFS_MAX_PATH];
     runningPath[0] = '\0';
 
-    drvfs_pathiterator iPathSeg = drvfs_begin_path_iteration(absolutePath);
+    //drvfs_drpath_iterator iPathSeg = drvfs_begin_path_iteration(absolutePath);
+    drvfs_drpath_iterator iPathSeg;
+    if (!drvfs_drpath_first(absolutePath, &iPathSeg)) {
+        return false;
+    }
 
     // Never check the first segment because we can assume it always exists - it will always be the drive root.
-    if (drvfs_next_path_segment(&iPathSeg) && drvfs_append_path_iterator(runningPath, sizeof(runningPath), iPathSeg))
+    if (drvfs_drpath_next(&iPathSeg) && drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg))
     {
         // Loop over every directory until we find one that does not exist.
-        while (drvfs_next_path_segment(&iPathSeg))
+        while (drvfs_drpath_next(&iPathSeg))
         {
-            if (!drvfs_append_path_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
+            if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
                 return false;
             }
 
@@ -4213,9 +4255,9 @@ bool drvfs_create_directory_recursive(drvfs_context* pContext, const char* path)
 
         // At this point all we need to do is create the remaining directories - we can assert that the directory does not exist
         // rather than actually checking it which should be a bit more efficient.
-        while (drvfs_next_path_segment(&iPathSeg))
+        while (drvfs_drpath_next(&iPathSeg))
         {
-            if (!drvfs_append_path_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
+            if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
                 return false;
             }
 
@@ -5852,7 +5894,7 @@ DRVFS_PRIVATE bool drvfs_get_file_info__zip(drvfs_handle archive, const char* re
                 char filePath[DRVFS_MAX_PATH];
                 if (drvfs_mz_zip_reader_get_filename(pZip, iFile, filePath, DRVFS_MAX_PATH) > 0)
                 {
-                    if (drvfs_is_path_child(filePath, relativePath))
+                    if (drvfs_drpath_is_child(filePath, relativePath))
                     {
                         // This file is within a folder with a path of relativePath which means we can imply that relativePath
                         // is a folder.
@@ -5924,7 +5966,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_begin_iteration__zip(drvfs_handle archive, cons
                 char filePath[DRVFS_MAX_PATH];
                 if (drvfs_mz_zip_reader_get_filename(pZip, iFile, filePath, DRVFS_MAX_PATH) > 0)
                 {
-                    if (drvfs_is_path_child(filePath, relativePath))
+                    if (drvfs_drpath_is_child(filePath, relativePath))
                     {
                         // This file is within a folder with a path of relativePath which means we can imply that relativePath
                         // is a folder.
@@ -5978,7 +6020,7 @@ DRVFS_PRIVATE bool drvfs_next_iteration__zip(drvfs_handle archive, drvfs_handle 
         char filePath[DRVFS_MAX_PATH];
         if (drvfs_mz_zip_reader_get_filename(pZip, iFile, filePath, DRVFS_MAX_PATH) > 0)
         {
-            if (drvfs_is_path_child(filePath, pZipIterator->directoryPath))
+            if (drvfs_drpath_is_child(filePath, pZipIterator->directoryPath))
             {
                 if (fi != NULL)
                 {
@@ -6567,7 +6609,7 @@ DRVFS_PRIVATE bool drvfs_get_file_info__pak(drvfs_handle archive, const char* re
 
             return true;
         }
-        else if (drvfs_is_path_descendant(pFile->name, relativePath))
+        else if (drvfs_drpath_is_descendant(pFile->name, relativePath))
         {
             // It's a directory.
             drvfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
@@ -6623,7 +6665,7 @@ DRVFS_PRIVATE bool drvfs_next_iteration__pak(drvfs_handle archive, drvfs_handle 
         unsigned int iFile = pIterator->index++;
 
         drvfs_file_pak* pFile = pak->pFiles + iFile;
-        if (drvfs_is_path_child(pFile->name, pIterator->directoryPath))
+        if (drvfs_drpath_is_child(pFile->name, pIterator->directoryPath))
         {
             // It's a file.
             drvfs__strcpy_s(fi->absolutePath, DRVFS_MAX_PATH, pFile->name);
@@ -6633,7 +6675,7 @@ DRVFS_PRIVATE bool drvfs_next_iteration__pak(drvfs_handle archive, drvfs_handle 
 
             return true;
         }
-        else if (drvfs_is_path_descendant(pFile->name, pIterator->directoryPath))
+        else if (drvfs_drpath_is_descendant(pFile->name, pIterator->directoryPath))
         {
             // It's a directory. This needs special handling because we don't want to iterate over the same directory multiple times.
             const char* childDirEnd = pFile->name + strlen(pIterator->directoryPath) + 1;    // +1 for the slash.
