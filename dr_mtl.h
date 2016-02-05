@@ -1,7 +1,7 @@
 // Public Domain. See "unlicense" statement at the end of this file.
 
 // ABOUT
-// 
+//
 // dr_mtl is a library for loading materials for use in 2D or 3D graphics. But it's a bit different to
 // what you may expect. It does not reprsent materials as a static data, but rather as a series of
 // instructions that interface with a set of inputs. Indeed, this library is more like a compiler - you
@@ -34,7 +34,7 @@
 // TODO
 // - Add more documentation.
 // - Add a demo to demonstrate the awesomeness of this library.
-// - Add trigonometric instructions. 
+// - Add trigonometric instructions.
 
 #ifndef dr_mtl_h
 #define dr_mtl_h
@@ -902,6 +902,8 @@ bool drmtl_codegen_glsl_uniforms(drmtl_material* pMaterial, char* codeOut, unsig
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
+#include <limits.h>
 
 #if defined(__clang__)
     #pragma GCC diagnostic push
@@ -924,7 +926,7 @@ bool drmtl_codegen_glsl_uniforms(drmtl_material* pMaterial, char* codeOut, unsig
 // Utilities
 
 // strcpy()
-int drmtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
+static int drmtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 {
 #if defined(_MSC_VER)
     return strcpy_s(dst, dstSizeInBytes, src);
@@ -939,7 +941,7 @@ int drmtl_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
         dst[0] = '\0';
         return EINVAL;
     }
-    
+
     char* iDst = dst;
     const char* iSrc = src;
     size_t remainingSizeInBytes = dstSizeInBytes;
@@ -2943,7 +2945,7 @@ bool drmtl_wavefront_atof(const char* str, const char* strEnd, const char** strE
             }
         }
 
-            
+
         if (strEndOut != NULL)
         {
             *strEndOut = str;
@@ -2980,7 +2982,7 @@ bool drmtl_wavefront_atof_3(const char* str, const char* strEnd, const char** st
                 return 0;
             }
         }
-        
+
 
         valueOut[0] = value[0];
         valueOut[1] = value[1];
@@ -3115,7 +3117,7 @@ bool drmtl_wavefront_parse_N(const char* pDataCur, const char* pDataEnd, float* 
 {
     assert(pDataCur != NULL);
     assert(pDataEnd != NULL);
-    
+
     return drmtl_wavefront_atof(pDataCur, pDataEnd, &pDataEnd, valueOut);
 }
 
@@ -3303,14 +3305,14 @@ bool drmtl_wavefront_compile(drmtl_material* pMaterial, drmtl_wavefront* pWavefr
     unsigned int specularExponentResultID = (unsigned int)-1;
     unsigned int alphaResultID = (unsigned int)-1;
 
-    
+
     // Identifiers.
     drmtl_appendidentifier(pMaterial, drmtl_identifier_float2(texcoordInputName), &texCoordID);
     drmtl_appendidentifier(pMaterial, drmtl_identifier_float4("DiffuseColor"), &diffuseID);
     drmtl_appendidentifier(pMaterial, drmtl_identifier_float3("SpecularColor"), &specularID);
     drmtl_appendidentifier(pMaterial, drmtl_identifier_float("SpecularExponent"), &specularExponentID);
     drmtl_appendidentifier(pMaterial, drmtl_identifier_float("Alpha"), &alphaID);
-    
+
     if (pWavefront->diffuseMap[0] != '\0') {
         drmtl_appendidentifier(pMaterial, drmtl_identifier_tex2d("DiffuseMap"), &diffuseMapID);
         drmtl_appendidentifier(pMaterial, drmtl_identifier_float4("DiffuseResult"), &diffuseResultID);
@@ -3335,7 +3337,7 @@ bool drmtl_wavefront_compile(drmtl_material* pMaterial, drmtl_wavefront* pWavefr
     drmtl_appendpublicinput(pMaterial, drmtl_input_float3(specularID, pWavefront->specular[0], pWavefront->specular[1], pWavefront->specular[2]));
     drmtl_appendpublicinput(pMaterial, drmtl_input_float(specularExponentID, pWavefront->specularExponent));
     drmtl_appendpublicinput(pMaterial, drmtl_input_float(alphaID, pWavefront->alpha));
-    
+
     if (pWavefront->diffuseMap[0] != '\0') {
         drmtl_appendpublicinput(pMaterial, drmtl_input_tex(diffuseMapID, pWavefront->diffuseMap));
     }
@@ -3380,7 +3382,7 @@ bool drmtl_wavefront_compile(drmtl_material* pMaterial, drmtl_wavefront* pWavefr
     } else {
         drmtl_appendinstruction(pMaterial, drmtl_retf1(specularExponentID));
     }
-    
+
     drmtl_appendchannel(pMaterial, drmtl_channel_float("AlphaChannel"));
     if (pWavefront->alphaMap[0] != '\0') {
         drmtl_appendinstruction(pMaterial, drmtl_var(alphaResultID));
