@@ -67,7 +67,7 @@
 // - Use the inner scale system for DPI awareness.
 // - The inner scale is applied recursively. That is, if a top level element has it's inner scale set to 2x and one of it's
 //   children has an inner scale of 2x, the actual inner scale of the child element will be 4x.
-//   
+//
 //
 // Drawing/Painting
 // - Drawing is one of the more complex parts of the GUI because it can be a bit unintuitive regarding exactly when an element
@@ -1333,10 +1333,9 @@ void drgui_register_easy_draw_callbacks(drgui_context* pContext, dr2d_context* p
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <errno.h>
 #include <float.h>
 #include <math.h>
-
-#include <stdio.h>  // For testing. Delete Me.
 
 #ifndef DRGUI_PRIVATE
 #define DRGUI_PRIVATE static
@@ -1358,6 +1357,38 @@ void drgui_register_easy_draw_callbacks(drgui_context* pContext, dr2d_context* p
 #define IS_ELEMENT_HIDDEN                   (1U << 0)
 #define IS_ELEMENT_CLIPPING_DISABLED        (1U << 1)
 #define IS_ELEMENT_DEAD                     (1U << 31)
+
+
+static int drgui__strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+#ifdef _MSC_VER
+    return strcpy_s(dst, dstSizeInBytes, src);
+#else
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t i;
+    for (i = 0; i < dstSizeInBytes && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (i < dstSizeInBytes) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+#endif
+}
 
 
 /// Increments the inbound event counter
@@ -1863,6 +1894,8 @@ void drgui_apply_offset_to_children_recursive(drgui_element* pParentElement, flo
 
 DRGUI_PRIVATE void drgui_post_on_mouse_leave_recursive(drgui_context* pContext, drgui_element* pNewElementUnderMouse, drgui_element* pOldElementUnderMouse)
 {
+    (void)pContext;
+
     drgui_element* pOldAncestor = pOldElementUnderMouse;
     while (pOldAncestor != NULL)
     {
@@ -1981,7 +2014,7 @@ void drgui_post_outbound_event_mouse_move(drgui_element* pElement, int relativeM
 
             pElement->onMouseMove(pElement, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
-        
+
         drgui_end_outbound_event(pElement);
     }
 }
@@ -1998,7 +2031,7 @@ void drgui_post_outbound_event_mouse_button_down(drgui_element* pElement, int mo
 
             pElement->onMouseButtonDown(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
-        
+
         drgui_end_outbound_event(pElement);
     }
 }
@@ -2015,7 +2048,7 @@ void drgui_post_outbound_event_mouse_button_up(drgui_element* pElement, int mous
 
             pElement->onMouseButtonUp(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
-        
+
         drgui_end_outbound_event(pElement);
     }
 }
@@ -2032,7 +2065,7 @@ void drgui_post_outbound_event_mouse_button_dblclick(drgui_element* pElement, in
 
             pElement->onMouseButtonDblClick(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
-        
+
         drgui_end_outbound_event(pElement);
     }
 }
@@ -2049,7 +2082,7 @@ void drgui_post_outbound_event_mouse_wheel(drgui_element* pElement, int delta, i
 
             pElement->onMouseWheel(pElement, delta, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
         }
-        
+
         drgui_end_outbound_event(pElement);
     }
 }
@@ -2061,7 +2094,7 @@ void drgui_post_outbound_event_key_down(drgui_element* pElement, drgui_key key, 
         if (pElement->onKeyDown) {
             pElement->onKeyDown(pElement, key, stateFlags);
         }
-        
+
         drgui_end_outbound_event(pElement);
     }
 }
@@ -2073,7 +2106,7 @@ void drgui_post_outbound_event_key_up(drgui_element* pElement, drgui_key key, in
         if (pElement->onKeyUp) {
             pElement->onKeyUp(pElement, key, stateFlags);
         }
-        
+
         drgui_end_outbound_event(pElement);
     }
 }
@@ -2085,7 +2118,7 @@ void drgui_post_outbound_event_printable_key_down(drgui_element* pElement, unsig
         if (pElement->onPrintableKeyDown) {
             pElement->onPrintableKeyDown(pElement, character, stateFlags);
         }
-        
+
         drgui_end_outbound_event(pElement);
     }
 }
@@ -2222,7 +2255,7 @@ DRGUI_PRIVATE drgui_resource drgui_get_internal_font_by_scale(drgui_font* pFont,
 
         return pFont->pInternalFonts[0];
     }
-    
+
 
     // First check to see if a font of the appropriate size has already been created.
     unsigned int targetSize = (unsigned int)(pFont->size * scaleY);
@@ -2705,7 +2738,7 @@ drgui_element* drgui_create_element(drgui_context* pContext, drgui_element* pPar
 
             // Add to the the hierarchy.
             drgui_append_without_detach_or_redraw(pElement, pElement->pParent);
-            
+
 
             // Have the element positioned at 0,0 relative to the parent by default.
             if (pParent != NULL) {
@@ -2738,7 +2771,7 @@ void drgui_delete_element(drgui_element* pElement)
     }
 
 
-    
+
 
     // Orphan the element first.
     drgui_detach_without_redraw(pElement);
@@ -2781,7 +2814,7 @@ void drgui_delete_element(drgui_element* pElement)
         drgui_log(pContext, "WARNING: Deleting an element while it is being marked as dirty.");
         pContext->pDirtyTopLevelElement = NULL;
     }
-    
+
 
 
     // Deleting this element may have resulted in the mouse entering a new element. Here is where we do a mouse enter/leave update.
@@ -2970,7 +3003,7 @@ DRGUI_PRIVATE void drgui_release_keyboard_private(drgui_context* pContext, drgui
         pContext->pElementWithKeyboardCapture = NULL;
 
         drgui_post_outbound_event_release_keyboard(pPrevCapturedElement, pNewCapturedElement);
-        drgui_post_outbound_event_release_keyboard_global(pPrevCapturedElement, pNewCapturedElement); 
+        drgui_post_outbound_event_release_keyboard_global(pPrevCapturedElement, pNewCapturedElement);
     }
     pContext->flags &= ~IS_RELEASING_KEYBOARD;
 
@@ -3178,7 +3211,7 @@ bool drgui_is_point_inside_element_bounds(const drgui_element* pElement, float a
     {
         return false;
     }
-    
+
     if (absolutePosX >= pElement->absolutePosX + pElement->width ||
         absolutePosY >= pElement->absolutePosY + pElement->height)
     {
@@ -3229,7 +3262,7 @@ bool drgui_find_element_under_point_iterator(drgui_element* pElement, drgui_rect
     float relativePosX = pData->absolutePosX / innerScaleX;
     float relativePosY = pData->absolutePosY / innerScaleY;
     drgui_make_point_relative(pElement, &relativePosX, &relativePosY);
-    
+
     if (drgui_rect_contains_point(*pRelativeVisibleRect, relativePosX, relativePosY))
     {
         if (pElement->onHitTest) {
@@ -3306,7 +3339,7 @@ void drgui_append(drgui_element* pChildElement, drgui_element* pParentElement)
     } else {
         drgui_detach_without_redraw(pChildElement);
     }
-    
+
 
     // Now we attach it to the end of the new parent.
     if (pParentElement != NULL) {
@@ -3451,7 +3484,7 @@ void drgui_set_absolute_position(drgui_element* pElement, float positionX, float
                 if (newRelativePosX != oldRelativePosX || newRelativePosY != oldRelativePosY) {
                     drgui_post_outbound_event_move(pElement, newRelativePosX, newRelativePosY);
                 }
-                
+
 
                 drgui_apply_offset_to_children_recursive(pElement, offsetX, offsetY);
             }
@@ -3693,7 +3726,7 @@ drgui_rect drgui_get_absolute_rect(const drgui_element* pElement)
         rect.right  = 0;
         rect.bottom = 0;
     }
-    
+
     return rect;
 }
 
@@ -3714,7 +3747,7 @@ drgui_rect drgui_get_relative_rect(const drgui_element* pElement)
         rect.right  = 0;
         rect.bottom = 0;
     }
-    
+
     return rect;
 }
 
@@ -4177,7 +4210,7 @@ drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsig
     pFont->pInternalFonts[0] = internalFont;
 
     if (family != NULL) {
-        strcpy_s(pFont->family, sizeof(pFont->family), family);
+        drgui__strcpy_s(pFont->family, sizeof(pFont->family), family);
     }
 
     return pFont;
@@ -4277,7 +4310,7 @@ bool drgui_get_glyph_metrics(drgui_font* pFont, unsigned int utf32, float scaleX
             pMetricsOut->advanceY = (unsigned int)(pMetricsOut->advanceY / scaleY);
         }
     }
-    
+
     return result;
 }
 
@@ -4313,7 +4346,7 @@ bool drgui_measure_string(drgui_font* pFont, const char* text, size_t textLength
         return true;
     }
 
-    
+
 
     assert(pFont->pContext != NULL);
 
@@ -4351,6 +4384,8 @@ bool drgui_measure_string_by_element(drgui_font* pFont, const char* text, size_t
 
 bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float scaleX, float scaleY, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
 {
+    (void)scaleX;
+
     if (pFont == NULL) {
         return false;
     }
@@ -4371,6 +4406,8 @@ bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* te
 
 bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* text, unsigned int characterIndex, float scaleX, float scaleY, float* pTextCursorPosXOut)
 {
+    (void)scaleX;
+
     if (pFont == NULL) {
         return false;
     }
