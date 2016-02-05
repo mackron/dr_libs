@@ -5,7 +5,7 @@
 // dr_path is a simple path manipulation library. At it's core this is just a string manipulation library - it
 // doesn't do anything with the actual file system such as checking whether or not a path points to an actual file
 // or whatnot.
-// 
+//
 // Features:
 // - It's made up of just one file with no dependencies except for the standard library.
 // - Never uses the heap
@@ -33,7 +33,7 @@ extern "C" {
 
 
 // Structure representing a section of a path.
-typedef struct 
+typedef struct
 {
     size_t offset;
     size_t length;
@@ -41,7 +41,7 @@ typedef struct
 } drpath_segment;
 
 // Structure used for iterating over a path while at the same time providing useful and easy-to-use information about the iteration.
-typedef struct drpath_iterator 
+typedef struct drpath_iterator
 {
     const char* path;
     drpath_segment segment;
@@ -335,13 +335,6 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
 bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes);
 
 
-/// strcpy_s() implementation.
-int drpath_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
-
-/// drpath_strncpy()
-int drpath_strncpy(char* dst, size_t dstSizeInBytes, const char* src, size_t srcSizeInBytes);
-
-
 #ifdef __cplusplus
 }
 #endif
@@ -358,10 +351,11 @@ int drpath_strncpy(char* dst, size_t dstSizeInBytes, const char* src, size_t src
 #ifdef DR_PATH_IMPLEMENTATION
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
 
 static int drpath_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 {
-#if DRPATH_USE_STDLIB && (defined(_MSC_VER))
+#if defined(_MSC_VER)
     return strcpy_s(dst, dstSizeInBytes, src);
 #else
     if (dst == 0) {
@@ -405,7 +399,7 @@ static int drpath_strncpy(char* dst, size_t dstSizeInBytes, const char* src, siz
         dst[0] = '\0';
         return EINVAL;
     }
-    
+
     size_t maxcount = count;
     if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
         maxcount = dstSizeInBytes - 1;
@@ -999,7 +993,7 @@ size_t _drpath_clean_trywrite(drpath_iterator* iterators, unsigned int iteratorC
         }
     }
 
-    
+
     // The previous segment needs to be written before we can write this one.
     size_t bytesWritten = 0;
 
@@ -1357,7 +1351,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
                 relativePathOut[0] = '\0';
                 return false;
             }
-        
+
             if (drpath_strncpy(pDst, bytesAvailable, iPath.path + iPath.segment.offset, iPath.segment.length) != 0)
             {
                 // Error copying the string. Probably ran out of room in the output buffer.
