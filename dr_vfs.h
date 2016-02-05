@@ -991,7 +991,7 @@ struct drvfs_file
 // Functionality below is taken straight from dr_path, but namespaced as "drvfs" to avoid naming conflicts.
 
 // Structure representing a section of a path.
-typedef struct 
+typedef struct
 {
     size_t offset;
     size_t length;
@@ -999,7 +999,7 @@ typedef struct
 } drvfs_drpath_segment;
 
 // Structure used for iterating over a path while at the same time providing useful and easy-to-use information about the iteration.
-typedef struct drvfs_drpath_iterator 
+typedef struct drvfs_drpath_iterator
 {
     const char* path;
     drvfs_drpath_segment segment;
@@ -1458,7 +1458,7 @@ DRVFS_PRIVATE size_t _drvfs_drpath_clean_trywrite(drvfs_drpath_iterator* iterato
         }
     }
 
-    
+
     // The previous segment needs to be written before we can write this one.
     size_t bytesWritten = 0;
 
@@ -2120,12 +2120,13 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_native_file(const char* absolutePath, unsi
     {
         // We failed to open the file, however it could be because the directory structure is not in place. We need to check
         // the access mode flags for DRVFS_CREATE_DIRS and try creating the directory structure.
-        if ((accessMode & DRVFS_WRITE) != 0 && (accessMode & DRVFS_CREATE_DIRS) != 0) {
+        if ((accessMode & DRVFS_WRITE) != 0 && (accessMode & DRVFS_CREATE_DIRS) != 0)
+        {
             char dirAbsolutePath[DRVFS_MAX_PATH];
-            if (drvfs_drpath_copy_base_path(absolutePath, dirAbsolutePath, sizeof(dirAbsolutePath))) {
-                if (!drvfs_is_native_directory(dirAbsolutePath) && drvfs_mkdir_recursive_native(dirAbsolutePath)) {
-                    fd = drvfs__open_fd(absolutePath, flags);
-                }
+            drvfs_drpath_copy_base_path(absolutePath, dirAbsolutePath, sizeof(dirAbsolutePath));
+
+            if (!drvfs_is_native_directory(dirAbsolutePath) && drvfs_mkdir_recursive_native(dirAbsolutePath)) {
+                fd = drvfs__open_fd(absolutePath, flags);
             }
         }
     }
