@@ -460,69 +460,64 @@ bool drpath_last(const char* path, drpath_iterator* i)
 bool drpath_next(drpath_iterator* i)
 {
     if (i == 0 || i->path == 0) {
+        return false;
     }
 
-    if (i != 0 && i->path != 0)
-    {
-        i->segment.offset = i->segment.offset + i->segment.length;
-        i->segment.length = 0;
+    i->segment.offset = i->segment.offset + i->segment.length;
+    i->segment.length = 0;
 
-        while (i->path[i->segment.offset] != '\0' && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\')) {
-            i->segment.offset += 1;
-        }
-
-        if (i->path[i->segment.offset] == '\0') {
-            return false;
-        }
-
-
-        while (i->path[i->segment.offset + i->segment.length] != '\0' && (i->path[i->segment.offset + i->segment.length] != '/' && i->path[i->segment.offset + i->segment.length] != '\\')) {
-            i->segment.length += 1;
-        }
-
-        return true;
+    while (i->path[i->segment.offset] != '\0' && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\')) {
+        i->segment.offset += 1;
     }
 
-    return false;
+    if (i->path[i->segment.offset] == '\0') {
+        return false;
+    }
+
+
+    while (i->path[i->segment.offset + i->segment.length] != '\0' && (i->path[i->segment.offset + i->segment.length] != '/' && i->path[i->segment.offset + i->segment.length] != '\\')) {
+        i->segment.length += 1;
+    }
+
+    return true;
 }
 
 bool drpath_prev(drpath_iterator* i)
 {
-    if (i != 0 && i->path != 0 && i->segment.offset > 0)
-    {
-        i->segment.length = 0;
-
-        do
-        {
-            i->segment.offset -= 1;
-        } while (i->segment.offset > 0 && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\'));
-
-        if (i->segment.offset == 0) {
-            if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
-                i->segment.length = 0;
-                return true;
-            }
-
-            return false;
-        }
-
-
-        size_t offsetEnd = i->segment.offset + 1;
-        while (i->segment.offset > 0 && (i->path[i->segment.offset] != '/' && i->path[i->segment.offset] != '\\')) {
-            i->segment.offset -= 1;
-        }
-
-        if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
-            i->segment.offset += 1;
-        }
-
-
-        i->segment.length = offsetEnd - i->segment.offset;
-
-        return true;
+    if (i == NULL || i->path == NULL || i->segment.offset == 0) {
+        return false;
     }
 
-    return false;
+    i->segment.length = 0;
+
+    do
+    {
+        i->segment.offset -= 1;
+    } while (i->segment.offset > 0 && (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\'));
+
+    if (i->segment.offset == 0) {
+        if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
+            i->segment.length = 0;
+            return true;
+        }
+
+        return false;
+    }
+
+
+    size_t offsetEnd = i->segment.offset + 1;
+    while (i->segment.offset > 0 && (i->path[i->segment.offset] != '/' && i->path[i->segment.offset] != '\\')) {
+        i->segment.offset -= 1;
+    }
+
+    if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
+        i->segment.offset += 1;
+    }
+
+
+    i->segment.length = offsetEnd - i->segment.offset;
+
+    return true;
 }
 
 bool drpath_at_end(drpath_iterator i)
@@ -542,23 +537,15 @@ bool drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1)
 
 bool drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1)
 {
-    if (s0Path != 0 && s1Path != 0)
-    {
-        if (s0.length == s1.length)
-        {
-            for (unsigned int i = 0; i < s0.length; ++i)
-            {
-                if (s0Path[s0.offset + i] != s1Path[s1.offset + i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
+    if (s0Path == NULL || s1Path == NULL) {
+        return false;
     }
 
-    return false;
+    if (s0.length != s1.length) {
+        return false;
+    }
+
+    return strncmp(s0Path + s0.offset, s1Path + s1.offset, s0.length) == 0;
 }
 
 
@@ -598,33 +585,31 @@ bool drpath_is_win32_style_root_segment(const drpath_iterator i)
 
 void drpath_to_forward_slashes(char* path)
 {
-    if (path != 0)
-    {
-        while (path[0] != '\0')
-        {
-            if (path[0] == '\\')
-            {
-                path[0] = '/';
-            }
+    if (path == NULL) {
+        return;
+    }
 
-            path += 1;
+    while (path[0] != '\0') {
+        if (path[0] == '\\') {
+            path[0] = '/';
         }
+
+        path += 1;
     }
 }
 
 void drpath_to_backslashes(char* path)
 {
-    if (path != 0)
-    {
-        while (path[0] != '\0')
-        {
-            if (path[0] == '/')
-            {
-                path[0] = '\\';
-            }
+    if (path == NULL) {
+        return;
+    }
 
-            path += 1;
+    while (path[0] != '\0') {
+        if (path[0] == '/') {
+            path[0] = '\\';
         }
+
+        path += 1;
     }
 }
 
@@ -692,77 +677,69 @@ bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePa
 
 void drpath_base_path(char* path)
 {
-    if (path != 0)
-    {
-        char* baseend = path;
-
-        // We just loop through the path until we find the last slash.
-        while (path[0] != '\0')
-        {
-            if (path[0] == '/' || path[0] == '\\')
-            {
-                baseend = path;
-            }
-
-            path += 1;
-        }
-
-
-        // Now we just loop backwards until we hit the first non-slash.
-        while (baseend > path)
-        {
-            if (baseend[0] != '/' && baseend[0] != '\\')
-            {
-                break;
-            }
-
-            baseend -= 1;
-        }
-
-
-        // We just put a null terminator on the end.
-        baseend[0] = '\0';
+    if (path == NULL) {
+        return;
     }
+
+    char* baseend = path;
+
+    // We just loop through the path until we find the last slash.
+    while (path[0] != '\0') {
+        if (path[0] == '/' || path[0] == '\\') {
+            baseend = path;
+        }
+
+        path += 1;
+    }
+
+
+    // Now we just loop backwards until we hit the first non-slash.
+    while (baseend > path) {
+        if (baseend[0] != '/' && baseend[0] != '\\') {
+            break;
+        }
+
+        baseend -= 1;
+    }
+
+
+    // We just put a null terminator on the end.
+    baseend[0] = '\0';
 }
 
 void drpath_copy_base_path(const char* path, char* baseOut, size_t baseSizeInBytes)
 {
-    if (path != 0 && baseOut != 0 && baseSizeInBytes > 0)
-    {
-        drpath_strcpy(baseOut, baseSizeInBytes, path);
-        drpath_base_path(baseOut);
+    if (path == NULL || baseOut == NULL || baseSizeInBytes == 0) {
+        return;
     }
+
+    drpath_strcpy(baseOut, baseSizeInBytes, path);
+    drpath_base_path(baseOut);
 }
 
 const char* drpath_file_name(const char* path)
 {
-    if (path != 0)
-    {
-        const char* fileName = path;
-
-        // We just loop through the path until we find the last slash.
-        while (path[0] != '\0')
-        {
-            if (path[0] == '/' || path[0] == '\\')
-            {
-                fileName = path;
-            }
-
-            path += 1;
-        }
-
-
-        // At this point the file name is sitting on a slash, so just move forward.
-        while (fileName[0] != '\0' && (fileName[0] == '/' || fileName[0] == '\\'))
-        {
-            fileName += 1;
-        }
-
-
-        return fileName;
+    if (path == NULL) {
+        return NULL;
     }
 
-    return 0;
+    const char* fileName = path;
+
+    // We just loop through the path until we find the last slash.
+    while (path[0] != '\0') {
+        if (path[0] == '/' || path[0] == '\\') {
+            fileName = path;
+        }
+
+        path += 1;
+    }
+
+    // At this point the file name is sitting on a slash, so just move forward.
+    while (fileName[0] != '\0' && (fileName[0] == '/' || fileName[0] == '\\')) {
+        fileName += 1;
+    }
+
+    return fileName;
 }
 
 const char* drpath_copy_file_name(const char* path, char* fileNameOut, size_t fileNameSizeInBytes)
@@ -777,60 +754,58 @@ const char* drpath_copy_file_name(const char* path, char* fileNameOut, size_t fi
 
 const char* drpath_extension(const char* path)
 {
-    if (path != 0)
-    {
-        const char* extension     = drpath_file_name(path);
-        const char* lastoccurance = 0;
-
-        // Just find the last '.' and return.
-        while (extension[0] != '\0')
-        {
-            extension += 1;
-
-            if (extension[0] == '.')
-            {
-                extension    += 1;
-                lastoccurance = extension;
-            }
-        }
-
-
-        return (lastoccurance != 0) ? lastoccurance : extension;
+    if (path == NULL) {
+        return NULL;
     }
 
-    return 0;
+    const char* extension     = drpath_file_name(path);
+    const char* lastoccurance = 0;
+
+    // Just find the last '.' and return.
+    while (extension[0] != '\0')
+    {
+        extension += 1;
+
+        if (extension[0] == '.') {
+            extension    += 1;
+            lastoccurance = extension;
+        }
+    }
+
+    return (lastoccurance != 0) ? lastoccurance : extension;
 }
 
 
 bool drpath_equal(const char* path1, const char* path2)
 {
-    if (path1 != 0 && path2 != 0)
+    if (path1 == NULL || path2 == NULL) {
+        return false;
+    }
+
+    if (path1 == path2 || (path1[0] == '\0' && path2[0] == '\0')) {
+        return true;    // Two empty paths are treated as the same.
+    }
+
+    drpath_iterator iPath1;
+    drpath_iterator iPath2;
+    if (drpath_first(path1, &iPath1) && drpath_first(path2, &iPath2))
     {
-        if (path1 == path2 || (path1[0] == '\0' && path2[0] == '\0')) {
-            return true;    // Two empty paths are treated as the same.
-        }
+        bool isPath1Valid;
+        bool isPath2Valid;
 
-        drpath_iterator iPath1;
-        drpath_iterator iPath2;
-        if (drpath_first(path1, &iPath1) && drpath_first(path2, &iPath2))
+        do
         {
-            bool isPath1Valid;
-            bool isPath2Valid;
+            if (!drpath_iterators_equal(iPath1, iPath2)) {
+                return false;
+            }
 
-            do
-            {
-                if (!drpath_iterators_equal(iPath1, iPath2)) {
-                    return false;
-                }
+            isPath1Valid = drpath_next(&iPath1);
+            isPath2Valid = drpath_next(&iPath2);
 
-                isPath1Valid = drpath_next(&iPath1);
-                isPath2Valid = drpath_next(&iPath2);
+        } while (isPath1Valid && isPath2Valid);
 
-            } while (isPath1Valid && isPath2Valid);
-
-            // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
-            return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
-        }
+        // At this point either iPath1 and/or iPath2 have finished iterating. If both of them are at the end, the two paths are equal.
+        return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
     }
 
     return false;
@@ -838,56 +813,34 @@ bool drpath_equal(const char* path1, const char* path2)
 
 bool drpath_extension_equal(const char* path, const char* extension)
 {
-    if (path != 0 && extension != 0)
-    {
-        const char* ext1 = extension;
-        const char* ext2 = drpath_extension(path);
-
-#if DRPATH_USE_STDLIB
-    #ifdef _MSC_VER
-        return _stricmp(ext1, ext2) == 0;
-    #else
-        return strcasecmp(ext1, ext2) == 0;
-    #endif
-#else
-        while (ext1[0] != '\0' && ext2[0] != '\0')
-        {
-            if (ext1[0] != ext2[0])
-            {
-                return false;
-            }
-
-            ext1 += 1;
-            ext2 += 1;
-        }
-
-        return ext1[0] == '\0' && ext2[0] == '\0';
-#endif
+    if (path == NULL || extension == NULL) {
+        return false;
     }
 
-    return true;
+    const char* ext1 = extension;
+    const char* ext2 = drpath_extension(path);
+
+#ifdef _MSC_VER
+    return _stricmp(ext1, ext2) == 0;
+#else
+    return strcasecmp(ext1, ext2) == 0;
+#endif
 }
 
 
 
 bool drpath_is_relative(const char* path)
 {
-    if (path != 0 && path[0] != '\0')
-    {
-        if (path[0] == '/')
-        {
-            return false;
-        }
-
-        if (path[1] != '\0')
-        {
-            if (((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z')) && path[1] == ':')
-            {
-                return false;
-            }
-        }
+    if (path == NULL) {
+        return false;
     }
 
+    drpath_iterator seg;
+    if (drpath_first(path, &seg)) {
+        return drpath_is_root_segment(seg);
+    }
+
+    // We'll get here if the path is empty. We consider this to be a relative path.
     return true;
 }
 
@@ -899,128 +852,116 @@ bool drpath_is_absolute(const char* path)
 
 bool drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
 {
-    if (base != 0 && other != 0)
-    {
-        size_t path1Length = strlen(base);
-        size_t path2Length = strlen(other);
-
-        if (path1Length < baseBufferSizeInBytes)
-        {
-            // Slash.
-            if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\')
-            {
-                base[path1Length] = '/';
-                path1Length += 1;
-            }
-
-
-            // Other part.
-            if (path1Length + path2Length >= baseBufferSizeInBytes)
-            {
-                path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
-            }
-
-            drpath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
-
-
-            return true;
-        }
+    if (base == NULL || other == NULL) {
+        return false;
     }
 
-    return false;
+    size_t path1Length = strlen(base);
+    size_t path2Length = strlen(other);
+
+    if (path1Length >= baseBufferSizeInBytes) {
+        return false;
+    }
+
+
+    // Slash.
+    if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\') {
+        base[path1Length] = '/';
+        path1Length += 1;
+    }
+
+    // Other part.
+    if (path1Length + path2Length >= baseBufferSizeInBytes) {
+        path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
+    }
+
+    drpath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
+
+    return true;
 }
 
 bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i)
 {
-    if (base != 0)
-    {
-        size_t path1Length = strlen(base);
-        size_t path2Length = i.segment.length;
-
-        if (path1Length < baseBufferSizeInBytes)
-        {
-            // Slash.
-            if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\')
-            {
-                base[path1Length] = '/';
-                path1Length += 1;
-            }
-
-
-            // Other part.
-            if (path1Length + path2Length >= baseBufferSizeInBytes)
-            {
-                path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
-            }
-
-            drpath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
-
-
-            return true;
-        }
+    if (base == NULL) {
+        return false;
     }
 
-    return false;
+    size_t path1Length = strlen(base);
+    size_t path2Length = i.segment.length;
+
+    if (path1Length >= baseBufferSizeInBytes) {
+        return false;
+    }
+
+    // Slash.
+    if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\') {
+        base[path1Length] = '/';
+        path1Length += 1;
+    }
+
+    // Other part.
+    if (path1Length + path2Length >= baseBufferSizeInBytes) {
+        path2Length = baseBufferSizeInBytes - path1Length - 1;      // -1 for the null terminator.
+    }
+
+    drpath_strncpy(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
+
+    return true;
 }
 
 bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension)
 {
-    if (base != 0 && extension != 0)
-    {
-        size_t baseLength = strlen(base);
-        size_t extLength  = strlen(extension);
-
-        if (baseLength < baseBufferSizeInBytes)
-        {
-            base[baseLength] = '.';
-            baseLength += 1;
-
-            if (baseLength + extLength >= baseBufferSizeInBytes)
-            {
-                extLength = baseBufferSizeInBytes - baseLength - 1;      // -1 for the null terminator.
-            }
-
-            drpath_strncpy(base + baseLength, baseBufferSizeInBytes - baseLength, extension, extLength);
-
-
-            return true;
-        }
+    if (base == NULL || extension == NULL) {
+        return false;
     }
 
-    return false;
+    size_t baseLength = strlen(base);
+    size_t extLength  = strlen(extension);
+
+    if (baseLength >= baseBufferSizeInBytes) {
+        return false;
+    }
+
+    base[baseLength] = '.';
+    baseLength += 1;
+
+    if (baseLength + extLength >= baseBufferSizeInBytes) {
+        extLength = baseBufferSizeInBytes - baseLength - 1;      // -1 for the null terminator.
+    }
+
+    drpath_strncpy(base + baseLength, baseBufferSizeInBytes - baseLength, extension, extLength);
+
+    return true;
 }
 
 bool drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
 {
-    if (dst != 0 && dstSizeInBytes > 0)
-    {
-        drpath_strcpy(dst, dstSizeInBytes, base);
-        return drpath_append(dst, dstSizeInBytes, other);
+    if (dst == NULL || dstSizeInBytes == 0) {
+        return false;
     }
 
-    return false;
+    drpath_strcpy(dst, dstSizeInBytes, base);
+    return drpath_append(dst, dstSizeInBytes, other);
 }
 
 bool drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i)
 {
-    if (dst != 0 && dstSizeInBytes > 0)
-    {
-        drpath_strcpy(dst, dstSizeInBytes, base);
-        return drpath_append_iterator(dst, dstSizeInBytes, i);
+    if (dst == NULL || dstSizeInBytes == 0) {
+        return false;
     }
 
-    return false;
+    drpath_strcpy(dst, dstSizeInBytes, base);
+    return drpath_append_iterator(dst, dstSizeInBytes, i);
 }
 
 bool drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension)
 {
-    if (dst != 0 && dstSizeInBytes > 0)
-    {
-        drpath_strcpy(dst, dstSizeInBytes, base);
-        return drpath_append_extension(dst, dstSizeInBytes, extension);
+    if (dst == NULL || dstSizeInBytes == 0) {
+        return false;
     }
 
-    return false;
+    drpath_strcpy(dst, dstSizeInBytes, base);
+    return drpath_append_extension(dst, dstSizeInBytes, extension);
 }
 
 
@@ -1124,54 +1065,24 @@ size_t _drpath_clean_trywrite(drpath_iterator* iterators, unsigned int iteratorC
 
 size_t drpath_clean(const char* path, char* pathOut, size_t pathOutSizeInBytes)
 {
-    if (path != 0)
-    {
-        drpath_iterator last;
-        if (drpath_last(path, &last))
-        {
-            size_t bytesWritten = 0;
-            if (path[0] == '/') {
-                if (pathOut != NULL && pathOutSizeInBytes > 1) {
-                    pathOut[0] = '/';
-                    bytesWritten = 1;
-                }
-            }
-
-            bytesWritten += _drpath_clean_trywrite(&last, 1, pathOut + bytesWritten, pathOutSizeInBytes - bytesWritten - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
-            if (pathOutSizeInBytes > bytesWritten) {
-                pathOut[bytesWritten] = '\0';
-            }
-
-            return bytesWritten + 1;
-        }
+    if (path == NULL) {
+        return 0;
     }
 
-    return 0;
-}
-
-size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
-{
-    if (base != 0 && other != 0)
+    drpath_iterator last;
+    if (drpath_last(path, &last))
     {
-        drpath_iterator last[2];
-        bool isPathEmpty0 = !drpath_last(base,  last + 0);
-        bool isPathEmpty1 = !drpath_last(other, last + 1);
-
-        if (isPathEmpty0 && isPathEmpty1) {
-            return 0;   // Both input strings are empty.
-        }
-
         size_t bytesWritten = 0;
-        if (base[0] == '/') {
-            if (dst != NULL && dstSizeInBytes > 1) {
-                dst[0] = '/';
+        if (path[0] == '/') {
+            if (pathOut != NULL && pathOutSizeInBytes > 1) {
+                pathOut[0] = '/';
                 bytesWritten = 1;
             }
         }
 
-        bytesWritten += _drpath_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - bytesWritten - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
-        if (dstSizeInBytes > bytesWritten) {
-            dst[bytesWritten] = '\0';
+        bytesWritten += _drpath_clean_trywrite(&last, 1, pathOut + bytesWritten, pathOutSizeInBytes - bytesWritten - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+        if (pathOutSizeInBytes > bytesWritten) {
+            pathOut[bytesWritten] = '\0';
         }
 
         return bytesWritten + 1;
@@ -1180,39 +1091,65 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
     return 0;
 }
 
+size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
+{
+    if (base == NULL || other == NULL) {
+        return 0;
+    }
+
+    drpath_iterator last[2];
+    bool isPathEmpty0 = !drpath_last(base,  last + 0);
+    bool isPathEmpty1 = !drpath_last(other, last + 1);
+
+    if (isPathEmpty0 && isPathEmpty1) {
+        return 0;   // Both input strings are empty.
+    }
+
+    size_t bytesWritten = 0;
+    if (base[0] == '/') {
+        if (dst != NULL && dstSizeInBytes > 1) {
+            dst[0] = '/';
+            bytesWritten = 1;
+        }
+    }
+
+    bytesWritten += _drpath_clean_trywrite(last, 2, dst + bytesWritten, dstSizeInBytes - bytesWritten - 1, 0);  // -1 to ensure there is enough room for a null terminator later on.
+    if (dstSizeInBytes > bytesWritten) {
+        dst[bytesWritten] = '\0';
+    }
+
+    return bytesWritten + 1;
+}
+
 
 bool drpath_remove_extension(char* path)
 {
-    if (path != 0)
-    {
-        const char* extension = drpath_extension(path);
-        if (extension != 0)
-        {
-            extension -= 1;
-            path[(extension - path)] = '\0';
-        }
-
-        return true;
+    if (path == NULL) {
+        return false;
     }
 
-    return false;
+    const char* extension = drpath_extension(path);
+    if (extension != NULL) {
+        extension -= 1;
+        path[(extension - path)] = '\0';
+    }
+
+    return true;
 }
 
 bool drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path)
 {
-    if (dst != 0 && dstSizeInBytes > 0 && path != 0)
-    {
-        const char* extension = drpath_extension(path);
-        if (extension != 0)
-        {
-            extension -= 1;
-        }
-
-        drpath_strncpy(dst, dstSizeInBytes, path, (size_t)(extension - path));
-        return true;
+    if (dst == NULL || dstSizeInBytes == 0 || path == NULL) {
+        return false;
     }
 
-    return false;
+    const char* extension = drpath_extension(path);
+    if (extension != NULL) {
+        extension -= 1;
+    }
+
+    drpath_strncpy(dst, dstSizeInBytes, path, (size_t)(extension - path));
+    return true;
 }
 
 
