@@ -6238,59 +6238,6 @@ DRVFS_PRIVATE bool drvfs_next_iteration__zip(drvfs_handle archive, drvfs_handle 
     return false;
 }
 
-DRVFS_PRIVATE bool drvfs_delete_file__zip(drvfs_handle archive, const char* relativePath)
-{
-    (void)archive;
-    (void)relativePath;
-
-    assert(archive != NULL);
-    assert(relativePath != 0);
-
-    // All files are read-only for now.
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_rename_file__zip(drvfs_handle archive, const char* relativePathOld, const char* relativePathNew)
-{
-    (void)archive;
-    (void)relativePathOld;
-    (void)relativePathNew;
-
-    assert(archive != 0);
-    assert(relativePathOld != 0);
-    assert(relativePathNew != 0);
-
-    // All files are read-only for now.
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_create_directory__zip(drvfs_handle archive, const char* relativePath)
-{
-    (void)archive;
-    (void)relativePath;
-
-    assert(archive != 0);
-    assert(relativePath != 0);
-
-    // All files are read-only for now.
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_copy_file__zip(drvfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists)
-{
-    (void)archive;
-    (void)relativePathSrc;
-    (void)relativePathDst;
-    (void)failIfExists;
-
-    assert(archive != 0);
-    assert(relativePathSrc != 0);
-    assert(relativePathDst != 0);
-
-    // No support for this at the moment because it's read-only for now.
-    return false;
-}
-
 DRVFS_PRIVATE drvfs_handle drvfs_open_file__zip(drvfs_handle archive, const char* relativePath, unsigned int accessMode)
 {
     assert(archive != NULL);
@@ -6494,10 +6441,10 @@ DRVFS_PRIVATE void drvfs_register_zip_backend(drvfs_context* pContext)
     callbacks.begin_iteration    = drvfs_begin_iteration__zip;
     callbacks.end_iteration      = drvfs_end_iteration__zip;
     callbacks.next_iteration     = drvfs_next_iteration__zip;
-    callbacks.delete_file        = drvfs_delete_file__zip;
-    callbacks.rename_file        = drvfs_rename_file__zip;
-    callbacks.create_directory   = drvfs_create_directory__zip;
-    callbacks.copy_file          = drvfs_copy_file__zip;
+    callbacks.delete_file        = NULL;
+    callbacks.rename_file        = NULL;
+    callbacks.create_directory   = NULL;
+    callbacks.copy_file          = NULL;
     callbacks.open_file          = drvfs_open_file__zip;
     callbacks.close_file         = drvfs_close_file__zip;
     callbacks.read_file          = drvfs_read_file__zip;
@@ -6896,59 +6843,6 @@ DRVFS_PRIVATE bool drvfs_next_iteration__pak(drvfs_handle archive, drvfs_handle 
     return false;
 }
 
-DRVFS_PRIVATE bool drvfs_delete_file__pak(drvfs_handle archive, const char* relativePath)
-{
-    (void)archive;
-    (void)relativePath;
-
-    assert(archive != NULL);
-    assert(relativePath != 0);
-
-    // All files are read-only for now.
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_rename_file__pak(drvfs_handle archive, const char* relativePathOld, const char* relativePathNew)
-{
-    (void)archive;
-    (void)relativePathOld;
-    (void)relativePathNew;
-
-    assert(archive != 0);
-    assert(relativePathOld != 0);
-    assert(relativePathNew != 0);
-
-    // All files are read-only for now.
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_create_directory__pak(drvfs_handle archive, const char* relativePath)
-{
-    (void)archive;
-    (void)relativePath;
-
-    assert(archive != 0);
-    assert(relativePath != 0);
-
-    // All files are read-only for now.
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_copy_file__pak(drvfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists)
-{
-    (void)archive;
-    (void)relativePathSrc;
-    (void)relativePathDst;
-    (void)failIfExists;
-
-    assert(archive != 0);
-    assert(relativePathSrc != 0);
-    assert(relativePathDst != 0);
-
-    // No support for this at the moment because it's read-only for now.
-    return false;
-}
-
 DRVFS_PRIVATE drvfs_handle drvfs_open_file__pak(drvfs_handle archive, const char* relativePath, unsigned int accessMode)
 {
     assert(relativePath != NULL);
@@ -7145,10 +7039,10 @@ DRVFS_PRIVATE void drvfs_register_pak_backend(drvfs_context* pContext)
     callbacks.begin_iteration    = drvfs_begin_iteration__pak;
     callbacks.end_iteration      = drvfs_end_iteration__pak;
     callbacks.next_iteration     = drvfs_next_iteration__pak;
-    callbacks.delete_file        = drvfs_delete_file__pak;
-    callbacks.rename_file        = drvfs_rename_file__pak;
-    callbacks.create_directory   = drvfs_create_directory__pak;
-    callbacks.copy_file          = drvfs_copy_file__pak;
+    callbacks.delete_file        = NULL;
+    callbacks.rename_file        = NULL;
+    callbacks.create_directory   = NULL;
+    callbacks.copy_file          = NULL;
     callbacks.open_file          = drvfs_open_file__pak;
     callbacks.close_file         = drvfs_close_file__pak;
     callbacks.read_file          = drvfs_read_file__pak;
@@ -7609,59 +7503,6 @@ DRVFS_PRIVATE bool drvfs_next_iteration__mtl(drvfs_handle archive, drvfs_handle 
     return false;
 }
 
-DRVFS_PRIVATE bool drvfs_delete_file__mtl(drvfs_handle archive, const char* relativePath)
-{
-    (void)archive;
-    (void)relativePath;
-
-    assert(archive != NULL);
-    assert(relativePath != 0);
-
-    // All files are read-only for now.
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_rename_file__mtl(drvfs_handle archive, const char* relativePathOld, const char* relativePathNew)
-{
-    (void)archive;
-    (void)relativePathOld;
-    (void)relativePathNew;
-
-    assert(archive != 0);
-    assert(relativePathOld != 0);
-    assert(relativePathNew != 0);
-
-    // All files are read-only for now.
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_create_directory__mtl(drvfs_handle archive, const char* relativePath)
-{
-    (void)archive;
-    (void)relativePath;
-
-    assert(archive != 0);
-    assert(relativePath != 0);
-
-    // All files are read-only for now.
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_copy_file__mtl(drvfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists)
-{
-    (void)archive;
-    (void)relativePathSrc;
-    (void)relativePathDst;
-    (void)failIfExists;
-
-    assert(archive != 0);
-    assert(relativePathSrc != 0);
-    assert(relativePathDst != 0);
-
-    // No support for this at the moment because it's read-only for now.
-    return false;
-}
-
 DRVFS_PRIVATE drvfs_handle drvfs_open_file__mtl(drvfs_handle archive, const char* relativePath, unsigned int accessMode)
 {
     assert(relativePath != NULL);
@@ -7856,10 +7697,10 @@ DRVFS_PRIVATE void drvfs_register_mtl_backend(drvfs_context* pContext)
     callbacks.begin_iteration    = drvfs_begin_iteration__mtl;
     callbacks.end_iteration      = drvfs_end_iteration__mtl;
     callbacks.next_iteration     = drvfs_next_iteration__mtl;
-    callbacks.delete_file        = drvfs_delete_file__mtl;
-    callbacks.rename_file        = drvfs_rename_file__mtl;
-    callbacks.create_directory   = drvfs_create_directory__mtl;
-    callbacks.copy_file          = drvfs_copy_file__mtl;
+    callbacks.delete_file        = NULL;
+    callbacks.rename_file        = NULL;
+    callbacks.create_directory   = NULL;
+    callbacks.copy_file          = NULL;
     callbacks.open_file          = drvfs_open_file__mtl;
     callbacks.close_file         = drvfs_close_file__mtl;
     callbacks.read_file          = drvfs_read_file__mtl;
