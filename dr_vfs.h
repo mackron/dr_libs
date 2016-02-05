@@ -16,7 +16,8 @@
 // - Supports verbose absolute paths to avoid ambiguity. For example you can specify a path
 //   such as "my/package.zip/file.txt"
 // - Supports shortened, transparent paths by automatically scanning for supported archives. The
-//   path "my/package.zip/file.txt" can be shortened to "my/file.txt", for example.
+//   path "my/package.zip/file.txt" can be shortened to "my/file.txt", for example. This does not
+//   work for absolute paths, however. See notes below.
 // - Fully recursive. A path such as "pack1.zip/pack2.zip/file.txt" should work just fine.
 // - Easily supports custom package formats without the need to modify the original source code.
 //   Look at drvfs_register_archive_backend() and the implementation of Zip archives for an
@@ -93,8 +94,11 @@
 // - Conceptually, and archive is just a grouping of files and folders. An archive can be a directory on the native
 //   file system or an actual archive file such as a .zip file.
 // - When iterating over files and folder, the order is undefined. Do not assume alphabetical.
-// - When specifying an absolute path, it is assumed to be verbos. When specifying a relative path, it does not need
-//   to be verbose.
+// - When a path includes the name of the package file, such as "my/package.zip/file.txt" (note how the .zip file is
+//   included in the path), it is referred to as a verbose path.
+// - When specifying an absolute path, it is assumed to be verbose. When specifying a relative path, it does not need
+//   to be verbose, in which case the library will try to search for it. A path such as "my/package.zip/file.txt" is
+//   equivalent to "m/file.txt".
 // - Archive backends are selected based on their extension.
 // - Archive backends cannot currently share the same extension. For example, many package file formats use the .pak
 //   extension, however only one backend can use that .pak extension.
@@ -104,6 +108,7 @@
 // - On Linux platforms, if you are having issues with opening files larger than 2GB, make sure this file is the first
 //   file included in the .c file. This ensures the _LARGEFILE64_SOURCE macro is defined before any other header file
 //   as required for the use of 64-bit variants of the POSIX APIs.
+// - Base paths must be absolute and verbose.
 //
 //
 //
@@ -237,9 +242,6 @@ struct drvfs_file_info
 
     // File attributes.
     unsigned int attributes;
-
-    // Padding. Unused.
-    unsigned int padding4;
 };
 
 struct drvfs_iterator
@@ -392,6 +394,30 @@ size_t drvfs_get_extra_data_size(drvfs_file* pFile);
 void* drvfs_get_extra_data(drvfs_file* pFile);
 
 
+// lock_file()
+//
+// If false is returned it means there was an error and the operation should be aborted.
+bool drvfs_lock(drvfs_file* pFile);
+
+// unlock_file()
+void drvfs_unlock(drvfs_file* pFile);
+
+// read_nolock()
+bool drvfs_read_nolock(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
+
+// write_nolock()
+bool drvfs_write_nolock(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
+
+// seek_nolock()
+bool drvfs_seek_nolock(drvfs_file* pFile, drvfs_int64 bytesToSeek, drvfs_seek_origin origin);
+
+// tell_nolock()
+drvfs_uint64 drvfs_tell_nolock(drvfs_file* pFile);
+
+// size_nolock()
+drvfs_uint64 drvfs_size_nolock(drvfs_file* pFile);
+
+
 // Retrieves information about the file at the given path.
 //
 // <fi> is allowed to be null, in which case the call is equivalent to simply checking if the file exists.
@@ -531,7 +557,9 @@ bool drvfs_eof(drvfs_file* pFile);
 #include <string.h>
 #include <assert.h>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <strings.h>
 #include <errno.h>
 #endif
@@ -976,6 +1004,14 @@ struct drvfs_file
     // Flags. Can be a combination of the following:
     //   DR_VFS_OWNS_PARENT_ARCHIVE
     int flags;
+
+
+    // The critical section for locking and unlocking files.
+#ifdef _WIN32
+    CRITICAL_SECTION lock;
+#else
+    pthread_mutex_t lock;
+#endif
 
 
     // The size of the extra data.
@@ -1669,8 +1705,6 @@ DRVFS_PRIVATE bool drvfs_next_native_iteration(drvfs_handle iterator, drvfs_file
 
 
 #ifdef DR_VFS_USE_WIN32
-#include <windows.h>
-
 DRVFS_PRIVATE drvfs_handle drvfs_open_native_file(const char* absolutePath, unsigned int accessMode)
 {
     assert(absolutePath != NULL);
@@ -3594,34 +3628,56 @@ drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePa
 
     drvfs_file* pFile = drvfs_open_file_from_archive(pArchive, relativePath, accessMode, extraDataSize);
     if (pFile == NULL) {
+        drvfs_close_archive(pArchive);
         return NULL;
     }
 
     // When using this API, we want to claim ownership of the archive so that it's closed when we close this file.
     pFile->flags |= DR_VFS_OWNS_PARENT_ARCHIVE;
 
+    // The lock.
+#ifdef _WIN32
+    InitializeCriticalSection(&pFile->lock);
+#else
+    if (pthread_mutex_init(&pFile->lock, NULL) != 0) {
+        drvfs_close(pFile);
+        return NULL;
+    }
+#endif
+
     return pFile;
 }
 
 void drvfs_close(drvfs_file* pFile)
 {
-    if (pFile == NULL) {
+    if (!drvfs_lock(pFile)) {
         return;
     }
 
     if (pFile->pArchive != NULL && pFile->pArchive->callbacks.close_file) {
         pFile->pArchive->callbacks.close_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle);
+        pFile->internalFileHandle = NULL;
     }
-
 
     if ((pFile->flags & DR_VFS_OWNS_PARENT_ARCHIVE) != 0) {
         drvfs_close_archive(pFile->pArchive);
+        pFile->pArchive = NULL;
     }
+
+    drvfs_unlock(pFile);
+
+
+    // The lock.
+#ifdef _WIN32
+    DeleteCriticalSection(&pFile->lock);
+#else
+    pthread_mutex_destroy(&pFile->lock);
+#endif
 
     free(pFile);
 }
 
-bool drvfs_read(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
+bool drvfs_read_nolock(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
 {
     if (pFile == NULL || pDataOut == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.read_file == NULL) {
         return false;
@@ -3630,7 +3686,19 @@ bool drvfs_read(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* p
     return pFile->pArchive->callbacks.read_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, pDataOut, bytesToRead, pBytesReadOut);
 }
 
-bool drvfs_write(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
+bool drvfs_read(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
+{
+    if (!drvfs_lock(pFile)) {
+        return false;
+    }
+
+    bool result = drvfs_read(pFile, pDataOut, bytesToRead, pBytesReadOut);
+
+    drvfs_unlock(pFile);
+    return result;
+}
+
+bool drvfs_write_nolock(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
 {
     if (pFile == NULL || pData == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.write_file == NULL) {
         return false;
@@ -3639,7 +3707,19 @@ bool drvfs_write(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size
     return pFile->pArchive->callbacks.write_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, pData, bytesToWrite, pBytesWrittenOut);
 }
 
-bool drvfs_seek(drvfs_file* pFile, drvfs_int64 bytesToSeek, drvfs_seek_origin origin)
+bool drvfs_write(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
+{
+    if (!drvfs_lock(pFile)) {
+        return false;
+    }
+
+    bool result = drvfs_write_nolock(pFile, pData, bytesToWrite, pBytesWrittenOut);
+
+    drvfs_unlock(pFile);
+    return result;
+}
+
+bool drvfs_seek_nolock(drvfs_file* pFile, drvfs_int64 bytesToSeek, drvfs_seek_origin origin)
 {
     if (pFile == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.seek_file == NULL) {
         return false;
@@ -3648,7 +3728,19 @@ bool drvfs_seek(drvfs_file* pFile, drvfs_int64 bytesToSeek, drvfs_seek_origin or
     return pFile->pArchive->callbacks.seek_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, bytesToSeek, origin);
 }
 
-drvfs_uint64 drvfs_tell(drvfs_file* pFile)
+bool drvfs_seek(drvfs_file* pFile, drvfs_int64 bytesToSeek, drvfs_seek_origin origin)
+{
+    if (!drvfs_lock(pFile)) {
+        return false;
+    }
+
+    bool result = drvfs_seek_nolock(pFile, bytesToSeek, origin);
+
+    drvfs_unlock(pFile);
+    return result;
+}
+
+drvfs_uint64 drvfs_tell_nolock(drvfs_file* pFile)
 {
     if (pFile == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.tell_file == NULL) {
         return false;
@@ -3657,13 +3749,37 @@ drvfs_uint64 drvfs_tell(drvfs_file* pFile)
     return pFile->pArchive->callbacks.tell_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle);
 }
 
-drvfs_uint64 drvfs_size(drvfs_file* pFile)
+drvfs_uint64 drvfs_tell(drvfs_file* pFile)
+{
+    if (!drvfs_lock(pFile)) {
+        return 0;
+    }
+
+    drvfs_uint64 result = drvfs_tell(pFile);
+
+    drvfs_unlock(pFile);
+    return result;
+}
+
+drvfs_uint64 drvfs_size_nolock(drvfs_file* pFile)
 {
     if (pFile == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.file_size == NULL) {
         return 0;
     }
 
     return pFile->pArchive->callbacks.file_size(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle);
+}
+
+drvfs_uint64 drvfs_size(drvfs_file* pFile)
+{
+    if (!drvfs_lock(pFile)) {
+        return false;
+    }
+
+    drvfs_uint64 result = drvfs_size_nolock(pFile);
+
+    drvfs_unlock(pFile);
+    return result;
 }
 
 void drvfs_flush(drvfs_file* pFile)
@@ -3691,6 +3807,35 @@ void* drvfs_get_extra_data(drvfs_file* pFile)
     }
 
     return pFile->pExtraData;
+}
+
+
+bool drvfs_lock(drvfs_file* pFile)
+{
+    if (pFile == NULL || pFile->internalFileHandle == NULL) {
+        return false;
+    }
+
+#ifdef _WIN32
+    EnterCriticalSection(&pFile->lock);
+#else
+    pthread_mutex_lock(&pFile->lock);
+#endif
+
+    return true;
+}
+
+void drvfs_unlock(drvfs_file* pFile)
+{
+    if (pFile == NULL || pFile->internalFileHandle == NULL) {
+        return;
+    }
+
+#ifdef _WIN32
+    EnterCriticalSection(&pFile->lock);
+#else
+    pthread_mutex_unlock(&pFile->lock);
+#endif
 }
 
 
