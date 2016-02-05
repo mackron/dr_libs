@@ -90,8 +90,8 @@
 // QUICK NOTES
 //
 // - The library works by using the notion of an "archive" to create an abstraction around the file system.
-// - Conceptually, and archive is just a grouping of files and folders. An archive can be a directory on
-//   the native file system or an actual archive file such as a .zip file.
+// - Conceptually, and archive is just a grouping of files and folders. An archive can be a directory on the native
+//   file system or an actual archive file such as a .zip file.
 // - When iterating over files and folder, the order is undefined. Do not assume alphabetical.
 // - When specifying an absolute path, it is assumed to be verbos. When specifying a relative path, it does not need
 //   to be verbose.
@@ -122,9 +122,13 @@
 
 // These need to be defined before including any headers, but we don't want to expose it to the public header.
 #if defined(DR_VFS_IMPLEMENTATION) && !defined(_WIN32)
-#define __USE_LARGEFILE64
-#define _LARGEFILE_SOURCE
+#ifndef _LARGEFILE64_SOURCE
 #define _LARGEFILE64_SOURCE
+#endif
+
+#ifndef _FILE_OFFSET_BITS
+#define _FILE_OFFSET_BITS 64
+#endif
 #endif
 
 #include <stdbool.h>
@@ -530,7 +534,6 @@ bool drvfs_eof(drvfs_file* pFile);
 #ifndef _WIN32
 #include <strings.h>
 #include <errno.h>
-#include <unistd.h>
 #endif
 
 #ifndef DRVFS_PRIVATE
@@ -2030,6 +2033,8 @@ DRVFS_PRIVATE bool drvfs_next_native_iteration(drvfs_handle iterator, drvfs_file
 #include <sys/types.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <unistd.h>
+
 
 #ifdef __linux__
 #include <sys/sendfile.h>
@@ -2043,11 +2048,6 @@ DRVFS_PRIVATE int drvfs__open_fd(const char* absolutePath, int flags)
     return open64(absolutePath, flags, 0666);
 }
 
-DRVFS_PRIVATE void drvfs__close_fd(int fd)
-{
-    close(fd);
-}
-
 DRVFS_PRIVATE int drvfs__stat64(const char* filename, struct stat64* st)
 {
     return stat64(filename, st);
@@ -2056,11 +2056,6 @@ DRVFS_PRIVATE int drvfs__stat64(const char* filename, struct stat64* st)
 DRVFS_PRIVATE int drvfs__fstat64(int fd, struct stat64* st)
 {
     return fstat64(fd, st);
-}
-
-DRVFS_PRIVATE int drvfs__chmod(const char* filename, int mode)
-{
-    return chmod(filename, mode);
 }
 
 DRVFS_PRIVATE int drvfs__mode_is_dir(int mode)
@@ -2125,7 +2120,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_native_file(const char* absolutePath, unsi
 
 DRVFS_PRIVATE void drvfs_close_native_file(drvfs_handle file)
 {
-    drvfs__close_fd(DRVFS_HANDLE_TO_FD(file));
+    close(DRVFS_HANDLE_TO_FD(file));
 }
 
 DRVFS_PRIVATE bool drvfs_is_native_directory(const char* absolutePath)
@@ -2176,7 +2171,7 @@ DRVFS_PRIVATE bool drvfs_copy_native_file(const char* absolutePathSrc, const cha
 
     int fdDst = drvfs__open_fd(absolutePathDst, O_WRONLY | O_TRUNC | O_CREAT | ((failIfExists) ? O_EXCL : 0));
     if (fdDst == -1) {
-        drvfs__close_fd(fdSrc);
+        close(fdSrc);
         return false;
     }
 
@@ -2208,11 +2203,11 @@ DRVFS_PRIVATE bool drvfs_copy_native_file(const char* absolutePathSrc, const cha
 #endif
     }
 
-    drvfs__close_fd(fdDst);
-    drvfs__close_fd(fdSrc);
+    close(fdDst);
+    close(fdSrc);
 
     // Permissions.
-    drvfs__chmod(absolutePathDst, info.st_mode & 07777);
+    chmod(absolutePathDst, info.st_mode & 07777);
 
     return result;
 }
