@@ -607,7 +607,7 @@ bool drvfs_eof(drvfs_file* pFile);
 #define DR_VFS_OWNS_PARENT_ARCHIVE       0x00000001
 
 
-static int drvfs__strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+DRVFS_PRIVATE int drvfs__strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
 #ifdef _MSC_VER
     return strcpy_s(dst, dstSizeInBytes, src);
@@ -638,7 +638,7 @@ static int drvfs__strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 #endif
 }
 
-int drvfs__strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+DRVFS_PRIVATE int drvfs__strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
 {
 #ifdef _MSC_VER
     return strncpy_s(dst, dstSizeInBytes, src, count);
@@ -674,7 +674,7 @@ int drvfs__strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t c
 #endif
 }
 
-int drvfs__strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
+DRVFS_PRIVATE int drvfs__strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
 #ifdef _MSC_VER
     return strcat_s(dst, dstSizeInBytes, src);
@@ -718,7 +718,7 @@ int drvfs__strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
 #endif
 }
 
-int drvfs__strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+DRVFS_PRIVATE int drvfs__strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
 {
 #ifdef _MSC_VER
     return strncat_s(dst, dstSizeInBytes, src, count);
