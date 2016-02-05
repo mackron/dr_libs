@@ -7,8 +7,7 @@
 // or whatnot.
 // 
 // Features:
-// - It's made up of just one file - dr_path.h
-// - No dependencies except for stdint.h and stdbool.h
+// - It's made up of just one file with no dependencies except for the standard library.
 // - Never uses the heap
 // - Public domain
 //
@@ -25,17 +24,12 @@
 #ifndef dr_path_h
 #define dr_path_h
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
-// Set this to 0 to avoid using the standard library. This adds a dependency, however it is likely more efficient for things like
-// finding the length of a null-terminated string.
-#define DRPATH_USE_STDLIB     1
 
 
 // Structure representing a section of a path.
@@ -341,9 +335,6 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
 bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes);
 
 
-/// strlen()
-size_t drpath_strlen(const char* str);
-
 /// strcpy_s() implementation.
 int drpath_strcpy(char* dst, size_t dstSizeInBytes, const char* src);
 
@@ -365,27 +356,10 @@ int drpath_strncpy(char* dst, size_t dstSizeInBytes, const char* src, size_t src
 //
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef DR_PATH_IMPLEMENTATION
-#if DRPATH_USE_STDLIB
 #include <string.h>
 #include <ctype.h>
-#endif
 
-size_t drpath_strlen(const char* str)
-{
-#if DRPATH_USE_STDLIB
-    return strlen(str);
-#else
-    const char* pathEnd = path;
-    while (pathEnd[0] != '\0')
-    {
-        pathEnd += 1;
-    }
-
-    return pathEnd - path;
-#endif
-}
-
-int drpath_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
+static int drpath_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 {
 #if DRPATH_USE_STDLIB && (defined(_MSC_VER))
     return strcpy_s(dst, dstSizeInBytes, src);
@@ -416,10 +390,10 @@ int drpath_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
 #endif
 }
 
-int drpath_strncpy(char* dst, size_t dstSizeInBytes, const char* src, size_t srcSizeInBytes)
+static int drpath_strncpy(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
 {
-#if DRPATH_USE_STDLIB && (defined(_MSC_VER))
-    return strncpy_s(dst, dstSizeInBytes, src, srcSizeInBytes);
+#if defined(_MSC_VER)
+    return strncpy_s(dst, dstSizeInBytes, src, count);
 #else
     if (dst == 0) {
         return EINVAL;
@@ -455,7 +429,7 @@ int drpath_strncpy(char* dst, size_t dstSizeInBytes, const char* src, size_t src
 
 bool drpath_first(const char* path, drpath_iterator* i)
 {
-    if (path == NULL || path[0] == '\0' || i == NULL) {
+    if (path == 0 || path[0] == '\0' || i == 0) {
         return false;
     }
 
@@ -472,12 +446,12 @@ bool drpath_first(const char* path, drpath_iterator* i)
 
 bool drpath_last(const char* path, drpath_iterator* i)
 {
-    if (path == NULL || path[0] == '\0' || i == NULL) {
+    if (path == 0 || path[0] == '\0' || i == 0) {
         return false;
     }
 
     i->path = path;
-    i->segment.offset = drpath_strlen(path);
+    i->segment.offset = strlen(path);
     i->segment.length = 0;
 
     return drpath_prev(i);
@@ -485,6 +459,9 @@ bool drpath_last(const char* path, drpath_iterator* i)
 
 bool drpath_next(drpath_iterator* i)
 {
+    if (i == 0 || i->path == 0) {
+    }
+
     if (i != 0 && i->path != 0)
     {
         i->segment.offset = i->segment.offset + i->segment.length;
@@ -924,8 +901,8 @@ bool drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
 {
     if (base != 0 && other != 0)
     {
-        size_t path1Length = drpath_strlen(base);
-        size_t path2Length = drpath_strlen(other);
+        size_t path1Length = strlen(base);
+        size_t path2Length = strlen(other);
 
         if (path1Length < baseBufferSizeInBytes)
         {
@@ -957,7 +934,7 @@ bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_ite
 {
     if (base != 0)
     {
-        size_t path1Length = drpath_strlen(base);
+        size_t path1Length = strlen(base);
         size_t path2Length = i.segment.length;
 
         if (path1Length < baseBufferSizeInBytes)
@@ -990,8 +967,8 @@ bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const cha
 {
     if (base != 0 && extension != 0)
     {
-        size_t baseLength = drpath_strlen(base);
-        size_t extLength  = drpath_strlen(extension);
+        size_t baseLength = strlen(base);
+        size_t extLength  = strlen(extension);
 
         if (baseLength < baseBufferSizeInBytes)
         {
