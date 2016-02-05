@@ -28,7 +28,7 @@
 // - When a file contained within a Zip file is opened, the entire uncompressed data is loaded
 //   onto the heap. Keep this in mind when working with large files.
 // - Zip, PAK and Wavefront MTL archives are read-only at the moment.
-// - dr_vfs is not currently thread-safe. This will be addressed soon.
+// - dr_vfs is not fully thread-safe. See notes below.
 //
 //
 //
@@ -88,6 +88,41 @@
 //
 //
 //
+// THREAD SAFETY
+//
+// dr_vfs is not fully thread safe. Known unsafe functionality includes:
+// - Opening a file while adding or removing base directories and backends
+// - Closing a file while doing anything on that file object
+//   - drvfs_open() will malloc() the drvfs_file object, and drvfs_close() will free() it with no garbage collection
+//     nor reference counting.
+//
+// The issues mentioned above should not be an issue for the vast majority of cases. Base directories and backends
+// will typically be registered once during initialization when the context is created, and it's unlikely an
+// application will want to close a file while simultaneously trying to use it on another thread without doing it's
+// own synchronization anyway.
+//
+// Thread-safety has not been completely ignored either. It is possible to read, write and seek on multiple threads.
+// In this case it is a simple matter of first-in first-served. Also, APIs are in place to allow an application to
+// do it's own synchronization. An application can use drvfs_lock() and drvfs_unlock() to lock and unlock a file using
+// simple mutal exclusion. Inside the lock/unlock pair the application can then use the "_nolock" variation of the
+// relevant APIs:
+// - drvfs_read_nolock()
+// - drvfs_write_nolock()
+// - drvfs_seek_nolock()
+// - drvfs_tell_nolock()
+// - drvfs_size_nolock()
+//
+// Opening two files that share the same archive should work fine across multiple threads. For example, if you have
+// an archive called MyArchive.zip and then open two files within that archive, you can do work with each of those
+// files independently on separate threads. This functionality depends on the implementation of the relevant backend,
+// however.
+//
+// When implementing a backend, it is important to keep synchronization in mind when reading data from the host
+// archive file. To help with this, use the drvfs_lock() and drvfs_unlock() combined with the "_nolock" variations
+// of the APIs listed above.
+//
+//
+//
 // QUICK NOTES
 //
 // - The library works by using the notion of an "archive" to create an abstraction around the file system.
@@ -114,7 +149,6 @@
 //
 // TODO:
 //
-// - Make thread-safe.
 // - Proper error codes.
 // - Change drvfs_rename_file() to drvfs_move_file() to enable better flexibility.
 // - Test large files.
@@ -394,27 +428,27 @@ size_t drvfs_get_extra_data_size(drvfs_file* pFile);
 void* drvfs_get_extra_data(drvfs_file* pFile);
 
 
-// lock_file()
+// Locks the given file for simple mutal exclusion.
 //
 // If false is returned it means there was an error and the operation should be aborted.
 bool drvfs_lock(drvfs_file* pFile);
 
-// unlock_file()
+// Unlocks the given file for simple mutal exclusion.
 void drvfs_unlock(drvfs_file* pFile);
 
-// read_nolock()
+// Unlocked drvfs_read() - should only be called inside a drvfs_lock()/drvfs_unlock() pair.
 bool drvfs_read_nolock(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
 
-// write_nolock()
+// Unlocked drvfs_write() - should only be called inside a drvfs_lock()/drvfs_unlock() pair.
 bool drvfs_write_nolock(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
 
-// seek_nolock()
+// Unlocked drvfs_seek() - should only be called inside a drvfs_lock()/drvfs_unlock() pair.
 bool drvfs_seek_nolock(drvfs_file* pFile, drvfs_int64 bytesToSeek, drvfs_seek_origin origin);
 
-// tell_nolock()
+// Unlocked drvfs_tell() - should only be called inside a drvfs_lock()/drvfs_unlock() pair.
 drvfs_uint64 drvfs_tell_nolock(drvfs_file* pFile);
 
-// size_nolock()
+// Unlocked drvfs_size() - should only be called inside a drvfs_lock()/drvfs_unlock() pair.
 drvfs_uint64 drvfs_size_nolock(drvfs_file* pFile);
 
 
@@ -6638,17 +6672,21 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, uns
     assert(pArchiveFile != NULL);
     assert(drvfs_tell(pArchiveFile) == 0);
 
+    if (!drvfs_lock(pArchiveFile)) {
+        return NULL;
+    }
+
     drvfs_archive_pak* pak = drvfs_pak_create(pArchiveFile, accessMode);
     if (pak != NULL)
     {
         // First 4 bytes should equal "PACK"
-        if (drvfs_read(pArchiveFile, pak->id, 4, NULL))
+        if (drvfs_read_nolock(pArchiveFile, pak->id, 4, NULL))
         {
             if (pak->id[0] == 'P' && pak->id[1] == 'A' && pak->id[2] == 'C' && pak->id[3] == 'K')
             {
-                if (drvfs_read(pArchiveFile, &pak->directoryOffset, 4, NULL))
+                if (drvfs_read_nolock(pArchiveFile, &pak->directoryOffset, 4, NULL))
                 {
-                    if (drvfs_read(pArchiveFile, &pak->directoryLength, 4, NULL))
+                    if (drvfs_read_nolock(pArchiveFile, &pak->directoryLength, 4, NULL))
                     {
                         // We loaded the header just fine so now we want to allocate space for each file in the directory and load them. Note that
                         // this does not load the file data itself, just information about the files like their name and size.
@@ -6663,10 +6701,10 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, uns
                                 if (pak->pFiles != NULL)
                                 {
                                     // Seek to the directory listing before trying to read it.
-                                    if (drvfs_seek(pArchiveFile, pak->directoryOffset, drvfs_origin_start))
+                                    if (drvfs_seek_nolock(pArchiveFile, pak->directoryOffset, drvfs_origin_start))
                                     {
                                         size_t bytesRead;
-                                        if (drvfs_read(pArchiveFile, pak->pFiles, pak->directoryLength, &bytesRead) && bytesRead == pak->directoryLength)
+                                        if (drvfs_read_nolock(pArchiveFile, pak->pFiles, pak->directoryLength, &bytesRead) && bytesRead == pak->directoryLength)
                                         {
                                             // All good!
                                         }
@@ -6728,6 +6766,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, uns
         }
     }
 
+    drvfs_unlock(pArchiveFile);
     return pak;
 }
 
@@ -6974,12 +7013,17 @@ DRVFS_PRIVATE bool drvfs_read_file__pak(drvfs_handle archive, drvfs_handle file,
         bytesToRead = bytesAvailable;     // Safe cast, as per the check above.
     }
 
+    if (!drvfs_lock(pak->pArchiveFile)) {
+        return false;
+    }
+
     drvfs_seek(pak->pArchiveFile, (drvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), drvfs_origin_start);
     int result = drvfs_read(pak->pArchiveFile, pDataOut, bytesToRead, pBytesReadOut);
     if (result != 0) {
         pOpenedFile->readPointer += bytesToRead;
     }
 
+    drvfs_unlock(pak->pArchiveFile);
     return result;
 }
 
@@ -7240,7 +7284,7 @@ DRVFS_PRIVATE bool drvfs_mtl_loadnextchunk(drvfs_openarchive_mtl_state* pState)
         pState->chunkSize = (pState->bytesRemaining > 4096) ? 4096 : (unsigned int)pState->bytesRemaining;
         assert(pState->chunkSize);
 
-        if (drvfs_read(pState->pFile, pState->chunk, pState->chunkSize, NULL))
+        if (drvfs_read_nolock(pState->pFile, pState->chunk, pState->chunkSize, NULL))
         {
             pState->bytesRemaining -= pState->chunkSize;
             pState->chunkPointer = pState->chunk;
@@ -7401,6 +7445,10 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_archive__mtl(drvfs_file* pArchiveFile, uns
     assert(pArchiveFile != NULL);
     assert(drvfs_tell(pArchiveFile) == 0);
 
+    if (!drvfs_lock(pArchiveFile)) {
+        return NULL;
+    }
+
     drvfs_archive_mtl* mtl = drvfs_mtl_create(pArchiveFile, accessMode);
     if (mtl == NULL) {
         return NULL;
@@ -7468,6 +7516,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_archive__mtl(drvfs_file* pArchiveFile, uns
         mtl = NULL;
     }
 
+    drvfs_unlock(pArchiveFile);
     return mtl;
 }
 
@@ -7674,8 +7723,12 @@ DRVFS_PRIVATE bool drvfs_read_file__mtl(drvfs_handle archive, drvfs_handle file,
         bytesToRead = (size_t)bytesAvailable;     // Safe cast, as per the check above.
     }
 
-    drvfs_seek(mtl->pArchiveFile, (drvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), drvfs_origin_start);
-    int result = drvfs_read(mtl->pArchiveFile, pDataOut, bytesToRead, pBytesReadOut);
+    if (!drvfs_lock(mtl->pArchiveFile)) {
+        return false;
+    }
+
+    drvfs_seek_nolock(mtl->pArchiveFile, (drvfs_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), drvfs_origin_start);
+    int result = drvfs_read_nolock(mtl->pArchiveFile, pDataOut, bytesToRead, pBytesReadOut);
     if (result != 0) {
         pOpenedFile->readPointer += bytesToRead;
     }
