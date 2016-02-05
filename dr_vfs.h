@@ -154,7 +154,7 @@
 // - Test large files.
 // - Document performance issues.
 // - Consider making it so persistent constant strings (such as base paths) use dynamically allocated strings rather
-//   than fixed size arrays of DRVFS_MAX_PATH.
+//   than fixed sized arrays of DRVFS_MAX_PATH.
 
 #ifndef dr_vfs_h
 #define dr_vfs_h
