@@ -459,7 +459,7 @@ bool drpath_last(const char* path, drpath_iterator* i)
 
 bool drpath_next(drpath_iterator* i)
 {
-    if (i == 0 || i->path == 0) {
+    if (i == NULL || i->path == NULL) {
         return false;
     }
 
@@ -667,12 +667,7 @@ bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePa
 
     // At this point we have finished iteration of the parent, which should be shorter one. We now do one more iterations of
     // the child to ensure it is indeed a direct child and not a deeper descendant.
-    if (!drpath_next(&iChild))
-    {
-        return true;
-    }
-
-    return false;
+    return !drpath_next(&iChild);
 }
 
 void drpath_base_path(char* path)
@@ -745,7 +740,7 @@ const char* drpath_file_name(const char* path)
 const char* drpath_copy_file_name(const char* path, char* fileNameOut, size_t fileNameSizeInBytes)
 {
     const char* fileName = drpath_file_name(path);
-    if (fileName != 0) {
+    if (fileName != NULL) {
         drpath_strcpy(fileNameOut, fileNameSizeInBytes, fileName);
     }
 
@@ -837,7 +832,7 @@ bool drpath_is_relative(const char* path)
 
     drpath_iterator seg;
     if (drpath_first(path, &seg)) {
-        return drpath_is_root_segment(seg);
+        return !drpath_is_root_segment(seg);
     }
 
     // We'll get here if the path is empty. We consider this to be a relative path.
