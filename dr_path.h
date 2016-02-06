@@ -149,7 +149,9 @@ bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePa
 
 
 /// Modifies the given path by transforming it into it's base path.
-void drpath_base_path(char* path);
+///
+/// Returns <path>, for convenience.
+char* drpath_base_path(char* path);
 
 /// Retrieves the base path from the given path, not including the trailing slash.
 ///
@@ -664,12 +666,13 @@ bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePa
     return !drpath_next(&iChild);
 }
 
-void drpath_base_path(char* path)
+char* drpath_base_path(char* path)
 {
     if (path == NULL) {
-        return;
+        return NULL;
     }
 
+    char* pathorig = path;
     char* baseend = path;
 
     // We just loop through the path until we find the last slash.
@@ -694,6 +697,8 @@ void drpath_base_path(char* path)
 
     // We just put a null terminator on the end.
     baseend[0] = '\0';
+
+    return pathorig;
 }
 
 void drpath_copy_base_path(const char* path, char* baseOut, size_t baseSizeInBytes)
