@@ -325,6 +325,12 @@ const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int token
 /////////////////////////////////////////////////////////
 // Known Folders
 
+/// Retrieves the path of the executable.
+///
+/// @remarks
+///     Currently only works on Windows and Linux. Other platforms will be added as they're needed.
+bool dr_get_executable_path(char* pathOut, size_t pathOutSize);
+
 /// Retrieves the path of the user's config directory.
 ///
 /// @remarks
@@ -1169,8 +1175,37 @@ const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int token
 /////////////////////////////////////////////////////////
 // Known Folders
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 #include <shlobj.h>
+
+bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
+{
+    if (pathOut == NULL || pathOutSize == 0) {
+        return 0;
+    }
+
+    DWORD length = GetModuleFileNameA(NULL, pathOut, (DWORD)pathOutSize);
+    if (length == 0) {
+        pathOut[0] = '\0';
+        return false;
+    }
+
+    // Force null termination.
+    if (length == pathOutSize) {
+        pathOut[length - 1] = '\0';
+    }
+
+    // Back slashes need to be normalized to forward.
+    while (pathOut[0] != '\0') {
+        if (pathOut[0] == '\\') {
+            pathOut[0] = '/';
+        }
+
+        pathOut += 1;
+    }
+
+    return true;
+}
 
 bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
@@ -1211,6 +1246,27 @@ bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
+
+bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
+{
+    if (pathOut == NULL || pathOutSize == 0) {
+        return 0;
+    }
+
+    ssize_t length = readlink("/proc/self/exe", pathOut, pathOutSize);
+    if (length == -1) {
+        pathOut[0] = '\0';
+        return false;
+    }
+
+    if (length == pathOutSize) {
+        pathOut[length - 1] = '\0';
+    } else {
+        pathOut[length] = '\0';
+    }
+
+    return true;
+}
 
 bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
