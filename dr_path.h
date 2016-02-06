@@ -887,6 +887,14 @@ bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_ite
         return false;
     }
 
+    if (drpath_is_linux_style_root_segment(i)) {
+        if (baseBufferSizeInBytes > 1) {
+            base[0] = '/';
+            base[1] = '\0';
+            return true;
+        }
+    }
+
     // Slash.
     if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\') {
         base[path1Length] = '/';

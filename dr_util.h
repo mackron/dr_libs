@@ -1259,7 +1259,7 @@ bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
         return false;
     }
 
-    if (length == pathOutSize) {
+    if ((size_t)length == pathOutSize) {
         pathOut[length - 1] = '\0';
     } else {
         pathOut[length] = '\0';
@@ -1790,6 +1790,8 @@ typedef struct
 
 bool dr_cmdline_key_exists_callback(const char* key, const char* value, void* pUserData)
 {
+    (void)value;
+
     dr_cmdline_key_exists_data* pData = pUserData;
     assert(pData != NULL);
 

@@ -1188,6 +1188,39 @@ DRVFS_PRIVATE bool drvfs_drpath_iterators_equal(const drvfs_drpath_iterator i0, 
     return drvfs_drpath_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
 }
 
+DRVFS_PRIVATE bool drvfs_drpath_is_linux_style_root_segment(const drvfs_drpath_iterator i)
+{
+    if (i.path == NULL) {
+        return false;
+    }
+
+    if (i.segment.offset == 0 && i.segment.length == 0) {
+        return true;    // "/" style root.
+    }
+
+    return false;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_is_win32_style_root_segment(const drvfs_drpath_iterator i)
+{
+    if (i.path == NULL) {
+        return false;
+    }
+
+    if (i.segment.offset == 0 && i.segment.length == 2) {
+        if (((i.path[0] >= 'a' && i.path[0] <= 'z') || (i.path[0] >= 'A' && i.path[0] <= 'Z')) && i.path[1] == ':') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+DRVFS_PRIVATE bool drvfs_drpath_is_root_segment(const drvfs_drpath_iterator i)
+{
+    return drvfs_drpath_is_linux_style_root_segment(i) || drvfs_drpath_is_win32_style_root_segment(i);
+}
+
 DRVFS_PRIVATE bool drvfs_drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drvfs_drpath_iterator i)
 {
     if (base == NULL) {
@@ -1200,6 +1233,15 @@ DRVFS_PRIVATE bool drvfs_drpath_append_iterator(char* base, size_t baseBufferSiz
     if (path1Length >= baseBufferSizeInBytes) {
         return false;
     }
+
+    if (drvfs_drpath_is_linux_style_root_segment(i)) {
+        if (baseBufferSizeInBytes > 1) {
+            base[0] = '/';
+            base[1] = '\0';
+            return true;
+        }
+    }
+
 
     // Slash.
     if (path1Length > 0 && base[path1Length - 1] != '/' && base[path1Length - 1] != '\\') {
@@ -1396,39 +1438,6 @@ DRVFS_PRIVATE bool drvfs_drpath_equal(const char* path1, const char* path2)
     }
 
     return false;
-}
-
-DRVFS_PRIVATE bool drvfs_drpath_is_linux_style_root_segment(const drvfs_drpath_iterator i)
-{
-    if (i.path == NULL) {
-        return false;
-    }
-
-    if (i.segment.offset == 0 && i.segment.length == 0) {
-        return true;    // "/" style root.
-    }
-
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_drpath_is_win32_style_root_segment(const drvfs_drpath_iterator i)
-{
-    if (i.path == NULL) {
-        return false;
-    }
-
-    if (i.segment.offset == 0 && i.segment.length == 2) {
-        if (((i.path[0] >= 'a' && i.path[0] <= 'z') || (i.path[0] >= 'A' && i.path[0] <= 'Z')) && i.path[1] == ':') {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-DRVFS_PRIVATE bool drvfs_drpath_is_root_segment(const drvfs_drpath_iterator i)
-{
-    return drvfs_drpath_is_linux_style_root_segment(i) || drvfs_drpath_is_win32_style_root_segment(i);
 }
 
 DRVFS_PRIVATE bool drvfs_drpath_is_relative(const char* path)
