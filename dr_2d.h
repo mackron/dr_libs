@@ -1,7 +1,7 @@
 // Public Domain. See "unlicense" statement at the end of this file.
 
 // ABOUT
-// 
+//
 // dr_2d is a simple library for drawing simple 2D graphics.
 //
 //
@@ -545,11 +545,43 @@ cairo_t* dr2d_get_cairo_t(dr2d_surface* pSurface);
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <math.h>
 
 #ifndef DR2D_PRIVATE
 #define DR2D_PRIVATE static
 #endif
+
+static int dr2d_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+#ifdef _WIN32
+    return strcpy_s(dst, dstSizeInBytes, src);
+#else
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return ERANGE;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t i;
+    for (i = 0; i < dstSizeInBytes && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (i < dstSizeInBytes) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+#endif
+}
 
 
 dr2d_context* dr2d_create_context(dr2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes)
@@ -847,7 +879,7 @@ dr2d_font* dr2d_create_font(dr2d_context* pContext, const char* family, unsigned
     pFont->rotation  = rotation;
 
     if (family != NULL) {
-        strcpy_s(pFont->family, sizeof(pFont->family), family);
+        dr2d_strcpy_s(pFont->family, sizeof(pFont->family), family);
     }
 
     if (pContext->drawingCallbacks.on_create_font != NULL) {
@@ -1386,7 +1418,7 @@ bool dr2d_on_create_surface_gdi(dr2d_surface* pSurface, float width, float heigh
 
     pGDISurfaceData->hIntermediateDC = hIntermediateDC;
     pGDISurfaceData->hWnd = NULL;
-    
+
 
     if (width != 0 && height != 0)
     {
@@ -1464,7 +1496,7 @@ bool dr2d_on_create_font_gdi(dr2d_font* pFont)
 	memset(&logfont, 0, sizeof(logfont));
 
 
-    
+
     logfont.lfHeight      = -(LONG)pFont->size;
 	logfont.lfWeight      = weightGDI;
 	logfont.lfItalic      = slantGDI;
@@ -1472,7 +1504,7 @@ bool dr2d_on_create_font_gdi(dr2d_font* pFont)
 	logfont.lfQuality     = (pFont->size > 36) ? ANTIALIASED_QUALITY : CLEARTYPE_QUALITY;
     logfont.lfEscapement  = (LONG)pFont->rotation * 10;
     logfont.lfOrientation = (LONG)pFont->rotation * 10;
-    
+
     size_t familyLength = strlen(pFont->family);
 	memcpy(logfont.lfFaceName, pFont->family, (familyLength < 31) ? familyLength : 31);
 
@@ -1530,7 +1562,7 @@ void dr2d_on_delete_font_gdi(dr2d_font* pFont)
 bool dr2d_on_create_image_gdi(dr2d_image* pImage, unsigned int stride, const void* pData)
 {
     assert(pImage != NULL);
-    
+
     gdi_image_data* pGDIData = dr2d_get_image_extra_data(pImage);
     if (pGDIData == NULL) {
         return false;
@@ -1628,7 +1660,7 @@ void dr2d_begin_draw_gdi(dr2d_surface* pSurface)
         pGDIData->hStockNullBrush = GetStockObject(NULL_BRUSH);
         pGDIData->hStockDCPen     = GetStockObject(DC_PEN);
         pGDIData->hStockNullPen   = GetStockObject(NULL_PEN);
-        
+
         // Retrieve the defaults so they can be restored later.
         pGDIData->hPrevPen       = GetCurrentObject(hDC, OBJ_PEN);
         pGDIData->hPrevBrush     = GetCurrentObject(hDC, OBJ_BRUSH);
@@ -1725,7 +1757,7 @@ void dr2d_draw_rect_with_outline_gdi(dr2d_surface* pSurface, float left, float t
             SelectObject(hDC, hPen);
             SelectObject(hDC, pGDIData->hStockDCBrush);
             SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
-            
+
             Rectangle(hDC, (int)left, (int)top, (int)right, (int)bottom);
 
             DeleteObject(hPen);
@@ -1837,7 +1869,7 @@ void dr2d_draw_text_gdi(dr2d_surface* pSurface, dr2d_font* pFont, const char* te
                 rect.right  = (LONG)(posX + textSize.cx);
                 rect.bottom = (LONG)(posY + textSize.cy);
             }
-                
+
             SetTextColor(hDC, RGB(color.r, color.g, color.b));
 
             ExtTextOutW(hDC, (int)posX, (int)posY, options, &rect, textW, textWLength, NULL);
@@ -1983,7 +2015,7 @@ void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_i
         const int pPolyCounts[] = {4, 4, 4, 4};
         POINT pPoints[16];
         int polyCount = 0;
-            
+
         POINT* pNextPoly = pPoints;
 
         // Left.
@@ -2165,7 +2197,7 @@ bool dr2d_get_glyph_metrics_gdi(dr2d_font* pFont, unsigned int utf32, dr2d_glyph
             return true;
         }
     }
-    
+
     return false;
 }
 
@@ -2323,7 +2355,7 @@ bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* t
                 if (pTextCursorPosXOut) {
                     *pTextCursorPosXOut = (float)results.lpCaretPos[characterIndex];
                 }
-                
+
                 successful = true;
             }
 
@@ -2386,29 +2418,82 @@ typedef struct
     cairo_surface_t* pCairoSurface;
     cairo_t* pCairoContext;
 
-}cairo_surface_data;
+} cairo_surface_data;
+
+typedef struct
+{
+    int unused;
+
+} cairo_font_data;
+
+typedef struct
+{
+    int unused;
+
+} cairo_image_data;
 
 bool dr2d_on_create_context_cairo(dr2d_context* pContext);
 void dr2d_on_delete_context_cairo(dr2d_context* pContext);
 bool dr2d_on_create_surface_cairo(dr2d_surface* pSurface, float width, float height);
 void dr2d_on_delete_surface_cairo(dr2d_surface* pSurface);
+bool dr2d_on_create_font_cairo(dr2d_font* pFont);
+void dr2d_on_delete_font_cairo(dr2d_font* pFont);
+bool dr2d_on_create_image_cairo(dr2d_image* pImage, unsigned int stride, const void* pData);
+void dr2d_on_delete_image_cairo(dr2d_image* pImage);
+
 void dr2d_begin_draw_cairo(dr2d_surface* pSurface);
 void dr2d_end_draw_cairo(dr2d_surface* pSurface);
+void dr2d_clear_cairo(dr2d_surface* pSurface, dr2d_color color);
 void dr2d_draw_rect_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color);
+void dr2d_draw_rect_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth);
+void dr2d_draw_rect_with_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor);
+void dr2d_draw_round_rect_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius);
+void dr2d_draw_round_rect_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth);
+void dr2d_draw_round_rect_with_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth, dr2d_color outlineColor);
+void dr2d_draw_text_cairo(dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor);
+void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs);
+void dr2d_set_clip_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom);
+void dr2d_get_clip_cairo(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+
+bool dr2d_get_font_metrics_cairo(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
+bool dr2d_get_glyph_metrics_cairo(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pGlyphMetrics);
+bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+bool dr2d_get_text_cursor_position_from_char_cairo(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
 
 dr2d_context* dr2d_create_context_cairo()
 {
     dr2d_drawing_callbacks callbacks;
-    callbacks.on_create_context = dr2d_on_create_context_cairo;
-    callbacks.on_delete_context = dr2d_on_delete_context_cairo;
-    callbacks.on_create_surface = dr2d_on_create_surface_cairo;
-    callbacks.on_delete_surface = dr2d_on_delete_surface_cairo;
-    callbacks.begin_draw        = dr2d_begin_draw_cairo;
-    callbacks.end_draw          = dr2d_end_draw_cairo;
-    callbacks.draw_rect         = dr2d_draw_rect_cairo;
+    callbacks.on_create_context                   = dr2d_on_create_context_cairo;
+    callbacks.on_delete_context                   = dr2d_on_delete_context_cairo;
+    callbacks.on_create_surface                   = dr2d_on_create_surface_cairo;
+    callbacks.on_delete_surface                   = dr2d_on_delete_surface_cairo;
+    callbacks.on_create_font                      = dr2d_on_create_font_cairo;
+    callbacks.on_delete_font                      = dr2d_on_delete_font_cairo;
+    callbacks.on_create_image                     = dr2d_on_create_image_cairo;
+    callbacks.on_delete_image                     = dr2d_on_delete_image_cairo;
 
-    return dr2d_create_context(callbacks, 0, sizeof(cairo_surface_data));
+    callbacks.begin_draw                          = dr2d_begin_draw_cairo;
+    callbacks.end_draw                            = dr2d_end_draw_cairo;
+    callbacks.clear                               = dr2d_clear_cairo;
+    callbacks.draw_rect                           = dr2d_draw_rect_cairo;
+    callbacks.draw_rect_outline                   = dr2d_draw_rect_outline_cairo;
+    callbacks.draw_rect_with_outline              = dr2d_draw_rect_with_outline_cairo;
+    callbacks.draw_round_rect                     = dr2d_draw_round_rect_cairo;
+    callbacks.draw_round_rect_outline             = dr2d_draw_round_rect_outline_cairo;
+    callbacks.draw_round_rect_with_outline        = dr2d_draw_round_rect_with_outline_cairo;
+    callbacks.draw_text                           = dr2d_draw_text_cairo;
+    callbacks.draw_image                          = dr2d_draw_image_cairo;
+    callbacks.set_clip                            = dr2d_set_clip_cairo;
+    callbacks.get_clip                            = dr2d_get_clip_cairo;
+
+    callbacks.get_font_metrics                    = dr2d_get_font_metrics_cairo;
+    callbacks.get_glyph_metrics                   = dr2d_get_glyph_metrics_cairo;
+    callbacks.measure_string                      = dr2d_measure_string_cairo;
+    callbacks.get_text_cursor_position_from_point = dr2d_get_text_cursor_position_from_point_cairo;
+
+    return dr2d_create_context(callbacks, 0, sizeof(cairo_surface_data), sizeof(cairo_font_data), sizeof(cairo_image_data));
 }
 
 cairo_surface_t* dr2d_get_cairo_surface_t(dr2d_surface* pSurface)
@@ -2482,14 +2567,35 @@ void dr2d_on_delete_surface_cairo(dr2d_surface* pSurface)
     }
 }
 
+bool dr2d_on_create_font_cairo(dr2d_font* pFont)
+{
+    // TODO: Implement Me.
+    return false;
+}
+
+void dr2d_on_delete_font_cairo(dr2d_font* pFont)
+{
+    // TODO: Implement Me.
+}
+
+bool dr2d_on_create_image_cairo(dr2d_image* pImage, unsigned int stride, const void* pData)
+{
+    // TODO: Implement Me.
+    return false;
+}
+
+void dr2d_on_delete_image_cairo(dr2d_image* pImage)
+{
+    // TODO: Implement Me.
+}
+
 
 void dr2d_begin_draw_cairo(dr2d_surface* pSurface)
 {
     assert(pSurface != NULL);
 
     cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
-    if (pCairoData != NULL)
-    {
+    if (pCairoData != NULL) {
     }
 }
 
@@ -2497,6 +2603,11 @@ void dr2d_end_draw_cairo(dr2d_surface* pSurface)
 {
     assert(pSurface != NULL);
     (void)pSurface;
+}
+
+void dr2d_clear_cairo(dr2d_surface* pSurface, dr2d_color color)
+{
+    // TODO: Implement Me.
 }
 
 void dr2d_draw_rect_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color)
@@ -2510,6 +2621,82 @@ void dr2d_draw_rect_cairo(dr2d_surface* pSurface, float left, float top, float r
         cairo_rectangle(pCairoData->pCairoContext, left, top, (right - left), (bottom - top));
         cairo_fill(pCairoData->pCairoContext);
     }
+}
+
+void dr2d_draw_rect_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth)
+{
+    // TODO: Implement Me.
+}
+
+void dr2d_draw_rect_with_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor)
+{
+    // TODO: Implement Me.
+}
+
+void dr2d_draw_round_rect_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius)
+{
+    // TODO: Implement Me.
+}
+
+void dr2d_draw_round_rect_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth)
+{
+    // TODO: Implement Me.
+}
+
+void dr2d_draw_round_rect_with_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth, dr2d_color outlineColor)
+{
+    // TODO: Implement Me.
+}
+
+void dr2d_draw_text_cairo(dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor)
+{
+    // TODO: Implement Me.
+}
+
+void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs)
+{
+    // TODO: Implement Me.
+}
+
+void dr2d_set_clip_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom)
+{
+    // TODO: Implement Me.
+}
+
+void dr2d_get_clip_cairo(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut)
+{
+    // TODO: Implement Me.
+}
+
+
+bool dr2d_get_font_metrics_cairo(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut)
+{
+    // TODO: Implement Me.
+    return false;
+}
+
+bool dr2d_get_glyph_metrics_cairo(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pGlyphMetrics)
+{
+    // TODO: Implement Me.
+    return false;
+}
+
+bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
+{
+    // TODO: Implement Me.
+    return false;
+}
+
+bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+{
+    // TODO: Implement Me.
+    return false;
+}
+
+bool dr2d_get_text_cursor_position_from_char_cairo(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+{
+    // TODO: Implement Me.
+    return false;
 }
 #endif  // Cairo
 #endif
