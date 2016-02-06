@@ -2326,6 +2326,10 @@ DRVFS_PRIVATE bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, siz
             break;
         }
 
+        if (bytesRead == 0) {
+            break;  // Reached the end.
+        }
+
         totalBytesRead += bytesRead;
         bytesToRead    -= bytesRead;
     }
@@ -2348,6 +2352,11 @@ DRVFS_PRIVATE bool drvfs_write_native_file(drvfs_handle file, const void* pData,
     {
         ssize_t bytesWritten = write(DRVFS_HANDLE_TO_FD(file), pDataIn8 + totalBytesWritten, (bytesToWrite > SSIZE_MAX) ? SSIZE_MAX : bytesToWrite);
         if (bytesWritten == -1) {
+            result = false;
+            break;
+        }
+
+        if (bytesWritten == 0) {
             result = false;
             break;
         }
