@@ -447,7 +447,8 @@ bool dr_init_cmdline_win32(dr_cmdline* pCmdLine, const char* args);
 /// Parses the given command line.
 void dr_parse_cmdline(dr_cmdline* pCmdLine, dr_cmdline_parse_proc callback, void* pUserData);
 
-
+/// Helper for determining whether or not the given key exists.
+bool dr_cmdline_key_exists(dr_cmdline* pCmdLine, const char* key);
 
 
 
@@ -1725,6 +1726,34 @@ void dr_parse_cmdline(dr_cmdline* pCmdLine, dr_cmdline_parse_proc callback, void
     }
 }
 
+typedef struct
+{
+    bool exists;
+    const char* key;
+} dr_cmdline_key_exists_data;
+
+bool dr_cmdline_key_exists_callback(const char* key, const char* value, void* pUserData)
+{
+    dr_cmdline_key_exists_data* pData = pUserData;
+    assert(pData != NULL);
+
+    if (strcmp(pData->key, key) == 0) {
+        pData->exists = true;
+        return false;
+    }
+
+    return true;
+}
+
+bool dr_cmdline_key_exists(dr_cmdline* pCmdLine, const char* key)
+{
+    dr_cmdline_key_exists_data data;
+    data.exists = false;
+    data.key = key;
+    dr_parse_cmdline(pCmdLine, dr_cmdline_key_exists_callback, &data);
+
+    return data.exists;
+}
 
 
 
