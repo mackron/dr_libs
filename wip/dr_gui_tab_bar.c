@@ -780,7 +780,7 @@ void drgui_tabbar_on_paint(drgui_element* pTBElement, drgui_rect relativeClippin
         // After painting the tab, there may be a region of the background that was not drawn by the tab painting callback. We'll need to
         // draw that here.
         if (pTB->orientation == drgui_tabbar_orientation_top || pTB->orientation == drgui_tabbar_orientation_bottom) {
-            drgui_draw_rect(pTBElement, drgui_make_rect(runningPosX, runningPosY + tabHeight, runningPosX + tabWidth, tabbarHeight), pTB->tabBackgroundColor, pPaintData);
+            drgui_draw_rect(pTBElement, drgui_make_rect(runningPosX, runningPosY + tabHeight, tabbarWidth, tabbarHeight), pTB->tabBackgroundColor, pPaintData);
         } else {
             drgui_draw_rect(pTBElement, drgui_make_rect(runningPosX + tabWidth, runningPosY, tabbarWidth, runningPosY + tabHeight), pTB->tabBackgroundColor, pPaintData);
         }
