@@ -2418,11 +2418,20 @@ typedef struct
     cairo_surface_t* pCairoSurface;
     cairo_t* pCairoContext;
 
+    float clipRectLeft;
+    float clipRectTop;
+    float clipRectRight;
+    float clipRectBottom;
+
 } cairo_surface_data;
 
 typedef struct
 {
-    int unused;
+    cairo_font_face_t* pFace;
+    cairo_scaled_font_t* pFont;
+
+    // The font metrics. This is initialized when the font is created.
+    dr2d_font_metrics metrics;
 
 } cairo_font_data;
 
@@ -2569,23 +2578,85 @@ void dr2d_on_delete_surface_cairo(dr2d_surface* pSurface)
 
 bool dr2d_on_create_font_cairo(dr2d_font* pFont)
 {
-    // TODO: Implement Me.
-    return false;
+    cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
+    if (pCairoFont == NULL) {
+        return false;
+    }
+
+    cairo_font_slant_t cairoSlant = CAIRO_FONT_SLANT_NORMAL;
+    if (pFont->slant == dr2d_font_slant_italic) {
+        cairoSlant = CAIRO_FONT_SLANT_ITALIC;
+    } else if (pFont->slant == dr2d_font_slant_oblique) {
+        cairoSlant = CAIRO_FONT_SLANT_OBLIQUE;
+    }
+
+    cairo_font_weight_t cairoWeight = CAIRO_FONT_WEIGHT_NORMAL;
+    if (pFont->weight == dr2d_font_weight_bold || pFont->weight == dr2d_font_weight_semi_bold || pFont->weight == dr2d_font_weight_extra_bold || pFont->weight == dr2d_font_weight_heavy) {
+        cairoWeight = CAIRO_FONT_WEIGHT_BOLD;
+    }
+
+    pCairoFont->pFace = cairo_toy_font_face_create(pFont->family, cairoSlant, cairoWeight);
+    if (pCairoFont->pFace == NULL) {
+        return false;
+    }
+
+    cairo_matrix_t fontMatrix;
+    cairo_matrix_init_scale(&fontMatrix, (double)pFont->size, (double)pFont->size);
+    cairo_matrix_rotate(&fontMatrix, pFont->rotation * (3.14159265 / 180.0));
+
+    cairo_matrix_t ctm;
+    cairo_matrix_init_identity(&ctm);
+
+    cairo_font_options_t* options = cairo_font_options_create();
+    cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_SUBPIXEL);    // TODO: Control this with option flags in pFont.
+
+    pCairoFont->pFont = cairo_scaled_font_create(pCairoFont->pFace, &fontMatrix, &ctm, options);
+    if (pCairoFont->pFont == NULL) {
+        cairo_font_face_destroy(pCairoFont->pFace);
+        return false;
+    }
+
+
+    // Metrics.
+    cairo_font_extents_t fontMetrics;
+    cairo_scaled_font_extents(pCairoFont->pFont, &fontMetrics);
+
+    pCairoFont->metrics.ascent     = fontMetrics.ascent;
+    pCairoFont->metrics.descent    = fontMetrics.descent;
+    pCairoFont->metrics.lineHeight = fontMetrics.height;
+
+    // The width of a space needs to be retrieved via glyph metrics.
+    const char space[] = " ";
+    cairo_text_extents_t spaceMetrics;
+    cairo_scaled_font_text_extents(pCairoFont->pFont, space, &spaceMetrics);
+    pCairoFont->metrics.spaceWidth = spaceMetrics.x_advance;
+
+    return true;
 }
 
 void dr2d_on_delete_font_cairo(dr2d_font* pFont)
 {
-    // TODO: Implement Me.
+    cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
+    if (pCairoFont == NULL) {
+        return;
+    }
+
+    cairo_scaled_font_destroy(pCairoFont->pFont);
+    cairo_font_face_destroy(pCairoFont->pFace);
 }
 
 bool dr2d_on_create_image_cairo(dr2d_image* pImage, unsigned int stride, const void* pData)
 {
+    (void)pImage;
+    (void)stride;
+    (void)pData;
     // TODO: Implement Me.
     return false;
 }
 
 void dr2d_on_delete_image_cairo(dr2d_image* pImage)
 {
+    (void)pImage;
     // TODO: Implement Me.
 }
 
@@ -2607,7 +2678,9 @@ void dr2d_end_draw_cairo(dr2d_surface* pSurface)
 
 void dr2d_clear_cairo(dr2d_surface* pSurface, dr2d_color color)
 {
-    // TODO: Implement Me.
+    // TODO: I forget... is this supposed to ignore the current clip? If so, this needs to be changed so that
+    //       the clip is reset first then restored afterwards.
+    dr2d_draw_rect_cairo(pSurface, 0, 0, dr2d_get_surface_width(pSurface), dr2d_get_surface_height(pSurface), color);
 }
 
 void dr2d_draw_rect_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color)
@@ -2625,76 +2698,296 @@ void dr2d_draw_rect_cairo(dr2d_surface* pSurface, float left, float top, float r
 
 void dr2d_draw_rect_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth)
 {
-    // TODO: Implement Me.
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
+    if (pCairoData == NULL) {
+        return;
+    }
+
+    cairo_t* cr = pCairoData->pCairoContext;
+
+    cairo_set_source_rgba(cr, color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0);
+
+    // We do this as 4 separate rectangles.
+    cairo_rectangle(cr, left, top, outlineWidth, bottom - top);                                                     // Left
+    cairo_fill(cr);
+    cairo_rectangle(cr, right - outlineWidth, top, outlineWidth, bottom - top);                                     // Right
+    cairo_fill(cr);
+    cairo_rectangle(cr, left + outlineWidth, top, right - left - (outlineWidth*2), outlineWidth);                   // Top
+    cairo_fill(cr);
+    cairo_rectangle(cr, left + outlineWidth, bottom - outlineWidth, right - left - (outlineWidth*2), outlineWidth); // Bottom
+    cairo_fill(cr);
 }
 
 void dr2d_draw_rect_with_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor)
 {
-    // TODO: Implement Me.
+    dr2d_draw_rect_cairo(pSurface, left + outlineWidth, top + outlineWidth, right - outlineWidth, bottom - outlineWidth, color);
+    dr2d_draw_rect_outline_cairo(pSurface, left, top, right, bottom, outlineColor, outlineWidth);
 }
 
 void dr2d_draw_round_rect_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius)
 {
-    // TODO: Implement Me.
+    // FIXME: This does not draw rounded corners.
+    (void)radius;
+
+    dr2d_draw_rect_cairo(pSurface, left, top, right, bottom, color);
 }
 
 void dr2d_draw_round_rect_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth)
 {
-    // TODO: Implement Me.
+    // FIXME: This does not draw rounded corners.
+    (void)radius;
+
+    dr2d_draw_rect_outline_cairo(pSurface, left, top, right, bottom, color, outlineWidth);
 }
 
 void dr2d_draw_round_rect_with_outline_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float radius, float outlineWidth, dr2d_color outlineColor)
 {
-    // TODO: Implement Me.
+    // FIXME: This does not draw rounded corners.
+    (void)radius;
+
+    dr2d_draw_rect_with_outline_cairo(pSurface, left, top, right, bottom, color, outlineWidth, outlineColor);
 }
 
 void dr2d_draw_text_cairo(dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor)
 {
-    // TODO: Implement Me.
+    cairo_surface_data* pCairoSurface = dr2d_get_surface_extra_data(pSurface);
+    if (pCairoSurface == NULL) {
+        return;
+    }
+
+    cairo_t* cr = pCairoSurface->pCairoContext;
+
+
+    cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
+    if (pCairoFont == NULL) {
+        return;
+    }
+
+    // Cairo expends null terminated strings, however the input string is not guaranteed to be null terminated.
+    char* textNT;
+    if (textSizeInBytes != (size_t)-1) {
+        textNT = malloc(textSizeInBytes + 1);
+        memcpy(textNT, text, textSizeInBytes);
+        textNT[textSizeInBytes] = '\0';
+    } else {
+        textNT = (char*)text;
+    }
+
+    cairo_font_extents_t fontMetrics;
+    cairo_scaled_font_extents(pCairoFont->pFont, &fontMetrics);
+
+
+    cairo_set_scaled_font(cr, pCairoFont->pFont);
+
+
+
+    // Background.
+    cairo_text_extents_t textMetrics;
+    cairo_text_extents(cr, textNT, &textMetrics);
+    cairo_set_source_rgba(cr, backgroundColor.r / 255.0, backgroundColor.g / 255.0, backgroundColor.b / 255.0, backgroundColor.a / 255.0);
+    cairo_rectangle(cr, posX, posY, textMetrics.x_advance, fontMetrics.height);
+    cairo_fill(cr);
+
+
+    // Text.
+    cairo_move_to(cr, posX, posY + fontMetrics.ascent);
+    cairo_set_source_rgba(cr, color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0);
+    cairo_show_text(cr, textNT);
+
+
+    if (textNT != text) {
+        free(textNT);
+    }
 }
 
 void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs)
 {
+    (void)pSurface;
+    (void)pImage;
+    (void)pArgs;
     // TODO: Implement Me.
 }
 
 void dr2d_set_clip_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom)
 {
-    // TODO: Implement Me.
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
+    if (pCairoData == NULL) {
+        return;
+    }
+
+    pCairoData->clipRectLeft   = left;
+    pCairoData->clipRectTop    = top;
+    pCairoData->clipRectRight  = right;
+    pCairoData->clipRectBottom = bottom;
+
+    cairo_reset_clip(pCairoData->pCairoContext);
+    cairo_rectangle(pCairoData->pCairoContext, left, top, right - left, bottom - top);
+    cairo_clip(pCairoData->pCairoContext);
 }
 
 void dr2d_get_clip_cairo(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut)
 {
-    // TODO: Implement Me.
+    (void)pSurface;
+    (void)pLeftOut;
+    (void)pTopOut;
+    (void)pRightOut;
+    (void)pBottomOut;
+
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
+    if (pCairoData == NULL) {
+        return;
+    }
+
+    if (pLeftOut)   { *pLeftOut   = pCairoData->clipRectLeft;   }
+    if (pTopOut)    { *pTopOut    = pCairoData->clipRectTop;    }
+    if (pRightOut)  { *pRightOut  = pCairoData->clipRectRight;  }
+    if (pBottomOut) { *pBottomOut = pCairoData->clipRectBottom; }
 }
 
 
 bool dr2d_get_font_metrics_cairo(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut)
 {
-    // TODO: Implement Me.
-    return false;
+    cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
+    if (pCairoFont == NULL) {
+        return false;
+    }
+
+    if (pMetricsOut) {
+        *pMetricsOut = pCairoFont->metrics;
+    }
+
+    return true;
+}
+
+static size_t dr2d__utf32_to_utf8(unsigned int utf32, char* utf8, size_t utf8Size)
+{
+    // NOTE: This function is untested.
+
+    size_t utf8ByteCount = 0;
+    if (utf32 < 0x80) {
+        utf8ByteCount = 1;
+    } else if (utf32 < 0x800) {
+        utf8ByteCount = 2;
+    } else if (utf32 < 0x10000) {
+        utf8ByteCount = 3;
+    } else if (utf32 < 0x110000) {
+        utf8ByteCount = 4;
+    }
+
+    if (utf8ByteCount > utf8Size) {
+        if (utf8 != NULL && utf8Size > 0) {
+            utf8[0] = '\0';
+        }
+        return 0;
+    }
+
+    utf8 += utf8ByteCount;
+    if (utf8ByteCount < utf8Size) {
+        utf8[0] = '\0'; // Null terminate.
+    }
+
+    const unsigned char firstByteMark[7] = {0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC};
+    switch (utf8ByteCount)
+    {
+        case 4: *--utf8 = (char)((utf32 | 0x80) & 0xBF); utf32 >>= 6;
+        case 3: *--utf8 = (char)((utf32 | 0x80) & 0xBF); utf32 >>= 6;
+        case 2: *--utf8 = (char)((utf32 | 0x80) & 0xBF); utf32 >>= 6;
+        case 1: *--utf8 = (char)(utf32 | firstByteMark[utf8ByteCount]);
+        default: break;
+    }
+
+    return utf8ByteCount;
 }
 
 bool dr2d_get_glyph_metrics_cairo(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pGlyphMetrics)
 {
-    // TODO: Implement Me.
-    return false;
+    cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
+    if (pCairoFont == NULL) {
+        return false;
+    }
+
+    // The UTF-32 code point needs to be converted to a UTF-8 character.
+    char utf8[16];
+    size_t utf8len = dr2d__utf32_to_utf8(utf32, utf8, sizeof(utf8)); // This will null-terminate.
+    if (utf8len == 0) {
+        return false;   // Error converting UTF-32 to UTF-8.
+    }
+
+
+    cairo_text_extents_t glyphExtents;
+    cairo_scaled_font_text_extents(pCairoFont->pFont, utf8, &glyphExtents);
+
+    if (pGlyphMetrics)
+    {
+        pGlyphMetrics->width    = glyphExtents.width;
+        pGlyphMetrics->height   = glyphExtents.height;
+        pGlyphMetrics->originX  = glyphExtents.x_bearing;
+        pGlyphMetrics->originY  = glyphExtents.y_bearing;
+        pGlyphMetrics->advanceX = glyphExtents.x_advance;
+        pGlyphMetrics->advanceY = glyphExtents.y_advance;
+    }
+
+    return true;
 }
 
 bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
-    // TODO: Implement Me.
+    cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
+    if (pCairoFont == NULL) {
+        return false;
+    }
+
+
+    // Cairo expends null terminated strings, however the input string is not guaranteed to be null terminated.
+    char* textNT;
+    if (textSizeInBytes != (size_t)-1) {
+        textNT = malloc(textSizeInBytes + 1);
+        memcpy(textNT, text, textSizeInBytes);
+        textNT[textSizeInBytes] = '\0';
+    } else {
+        textNT = (char*)text;
+    }
+
+
+    cairo_text_extents_t textMetrics;
+    cairo_scaled_font_text_extents(pCairoFont->pFont, textNT, &textMetrics);
+
+    if (pWidthOut) {
+        *pWidthOut = textMetrics.x_advance;
+    }
+    if (pHeightOut) {
+        *pHeightOut = pCairoFont->metrics.lineHeight;
+    }
+
+
+    if (textNT != text) {
+        free(textNT);
+    }
+
     return false;
 }
 
 bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
 {
+    (void)pFont;
+    (void)text;
+    (void)textSizeInBytes;
+    (void)maxWidth;
+    (void)inputPosX;
+    (void)pTextCursorPosXOut;
+    (void)pCharacterIndexOut;
+
     // TODO: Implement Me.
     return false;
 }
 
 bool dr2d_get_text_cursor_position_from_char_cairo(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
 {
+    (void)pFont;
+    (void)text;
+    (void)characterIndex;
+    (void)pTextCursorPosXOut;
+
     // TODO: Implement Me.
     return false;
 }
