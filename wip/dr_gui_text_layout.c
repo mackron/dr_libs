@@ -3181,15 +3181,16 @@ DRGUI_PRIVATE float drgui_text_layout__get_tab_width(drgui_text_layout* pTL)
 
 DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layout* pTL, float inputPosYRelativeToText, unsigned int* pFirstRunIndexOnLineOut, unsigned int* pLastRunIndexOnLinePlus1Out)
 {
-    if (pTL == NULL) {
-        return false;
-    }
+    unsigned int iFirstRunOnLine     = 0;
+    unsigned int iLastRunOnLinePlus1 = 0;
 
-    if (pTL->runCount > 0)
+    bool result = true;
+    if (pTL == NULL || pTL->runCount == 0)
     {
-        unsigned int iFirstRunOnLine     = 0;
-        unsigned int iLastRunOnLinePlus1 = 0;
-
+        result = false;
+    }
+    else
+    {
         float runningLineTop = 0;
 
         float lineHeight;
@@ -3197,13 +3198,6 @@ DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layo
         {
             const float lineTop    = runningLineTop;
             const float lineBottom = lineTop + lineHeight;
-
-            if (pFirstRunIndexOnLineOut) {
-                *pFirstRunIndexOnLineOut = iFirstRunOnLine;
-            }
-            if (pLastRunIndexOnLinePlus1Out) {
-                *pLastRunIndexOnLinePlus1Out = iLastRunOnLinePlus1;
-            }
 
             if (inputPosYRelativeToText < lineBottom)
             {
@@ -3217,11 +3211,17 @@ DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layo
                 runningLineTop  = lineBottom;
             }
         }
-
-        return true;
     }
 
-    return false;
+
+    if (pFirstRunIndexOnLineOut) {
+        *pFirstRunIndexOnLineOut = iFirstRunOnLine;
+    }
+    if (pLastRunIndexOnLinePlus1Out) {
+        *pLastRunIndexOnLinePlus1Out = iLastRunOnLinePlus1;
+    }
+
+    return result;
 }
 
 DRGUI_PRIVATE bool drgui_text_layout__find_closest_run_to_point(drgui_text_layout* pTL, float inputPosXRelativeToText, float inputPosYRelativeToText, unsigned int* pRunIndexOut)
