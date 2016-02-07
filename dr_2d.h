@@ -1729,16 +1729,17 @@ void dr2d_draw_rect_outline_gdi(dr2d_surface* pSurface, float left, float top, f
     {
         HDC hDC = dr2d_get_HDC(pSurface);
 
-        HPEN hPen = CreatePen(PS_SOLID | PS_INSIDEFRAME, (int)outlineWidth, RGB(color.r, color.g, color.b));
-        if (hPen != NULL)
-        {
-            SelectObject(hDC, pGDIData->hStockNullBrush);
-            SelectObject(hDC, hPen);
+        SelectObject(hDC, pGDIData->hStockNullPen);
+        SelectObject(hDC, pGDIData->hStockDCBrush);
+        SetDCBrushColor(hDC, RGB(color.r, color.g, color.b));
 
-            Rectangle(hDC, (int)left, (int)top, (int)right, (int)bottom);
+        // Now draw the rectangle. The documentation for this says that the width and height is 1 pixel less when the pen is null. Therefore we will
+        // increase the width and height by 1 since we have got the pen set to null.
 
-            DeleteObject(hPen);
-        }
+        Rectangle(hDC, (int)left,                   (int)top,                     (int)(left + outlineWidth + 1),  (int)(bottom + 1));              // Left.
+        Rectangle(hDC, (int)(right - outlineWidth), (int)top,                     (int)(right + 1),                (int)(bottom + 1));              // Right.
+        Rectangle(hDC, (int)(left + outlineWidth),  (int)top,                     (int)(right - outlineWidth + 1), (int)(top + outlineWidth + 1));  // Top
+        Rectangle(hDC, (int)(left + outlineWidth),  (int)(bottom - outlineWidth), (int)(right - outlineWidth + 1), (int)(bottom + 1));              // Bottom
     }
 }
 
