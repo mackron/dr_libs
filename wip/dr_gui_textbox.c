@@ -2,6 +2,7 @@
 
 #include "dr_gui_textbox.h"
 #include "dr_gui_text_layout.h"
+#include <string.h>
 #include <assert.h>
 
 #ifndef DRGUI_PRIVATE
@@ -289,6 +290,8 @@ void drgui_textbox_on_size(drgui_element* pTBElement, float newWidth, float newH
 
 void drgui_textbox_on_mouse_move(drgui_element* pTBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
+    (void)stateFlags;
+
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
@@ -341,6 +344,10 @@ void drgui_textbox_on_mouse_button_down(drgui_element* pTBElement, int mouseButt
 
 void drgui_textbox_on_mouse_button_up(drgui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
+    (void)relativeMousePosX;
+    (void)relativeMousePosY;
+    (void)stateFlags;
+
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
@@ -358,6 +365,11 @@ void drgui_textbox_on_mouse_button_up(drgui_element* pTBElement, int mouseButton
 
 void drgui_textbox_on_mouse_button_dblclick(drgui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
+    (void)mouseButton;
+    (void)relativeMousePosX;
+    (void)relativeMousePosY;
+    (void)stateFlags;
+
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
@@ -386,7 +398,7 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
                 }
             }
             if (wasTextChanged) { drgui_text_layout_commit_undo_point(pTB->pTL); }
-            
+
             break;
         }
 
@@ -423,7 +435,7 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
             if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
                 drgui_text_layout_leave_selection_mode(pTB->pTL);
             }
-            
+
             break;
         }
 
@@ -499,6 +511,8 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
 
 void drgui_textbox_on_printable_key_down(drgui_element* pTBElement, unsigned int utf32, int stateFlags)
 {
+    (void)stateFlags;
+
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
@@ -518,6 +532,8 @@ void drgui_textbox_on_printable_key_down(drgui_element* pTBElement, unsigned int
 
 DRGUI_PRIVATE void drgui_textbox__on_text_layout_paint_rect(drgui_text_layout* pTL, drgui_rect rect, drgui_color color, drgui_element* pTBElement, void* pPaintData)
 {
+    (void)pTL;
+
     float offsetX;
     float offsetY;
     drgui_textbox__get_text_offset(pTBElement, &offsetX, &offsetY);
@@ -527,6 +543,8 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_paint_rect(drgui_text_layout* p
 
 DRGUI_PRIVATE void drgui_textbox__on_text_layout_paint_text(drgui_text_layout* pTL, drgui_text_run* pRun, drgui_element* pTBElement, void* pPaintData)
 {
+    (void)pTL;
+
     float offsetX;
     float offsetY;
     drgui_textbox__get_text_offset(pTBElement, &offsetX, &offsetY);

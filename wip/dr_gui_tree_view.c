@@ -3,6 +3,7 @@
 #include "dr_gui_tree_view.h"
 #include "dr_gui_scrollbar.h"
 #include <assert.h>
+#include <string.h>
 
 #ifndef PRIVATE
 #define PRIVATE static
@@ -27,7 +28,7 @@ struct drgui_tree_view
 
     /// The hovered background color.
     drgui_color hoveredBGColor;
-    
+
     /// The selected background color.
     drgui_color selectedBGColor;
 
@@ -242,7 +243,7 @@ drgui_element* drgui_create_tree_view(drgui_context* pContext, drgui_element* pP
     pTV->pScrollbarV = drgui_create_scrollbar(pContext, pTVElement, drgui_sb_orientation_vertical, sizeof(sbdata), &sbdata);
     drgui_set_on_mouse_enter(pTV->pScrollbarV, drgui_tv_on_mouse_enter_scrollbar);
     drgui_sb_set_on_scroll(pTV->pScrollbarV, drgui_tv_on_scroll_v);
-    
+
     pTV->pScrollbarH = drgui_create_scrollbar(pContext, pTVElement, drgui_sb_orientation_horizontal, sizeof(sbdata), &sbdata);
     drgui_set_on_mouse_enter(pTV->pScrollbarH, drgui_tv_on_mouse_enter_scrollbar);
     drgui_sb_set_on_scroll(pTV->pScrollbarH, drgui_tv_on_scroll_h);
@@ -633,7 +634,7 @@ void drgui_tv_on_mouse_leave(drgui_element* pTVElement)
 
         pTV->pHoveredItem     = NULL;
         pTV->isMouseOverArrow = false;
-        
+
         // For now just redraw the entire control, but should optimize this to only redraw the regions of the new and old hovered items.
         drgui_dirty(pTVElement, drgui_get_local_rect(pTVElement));
     }
@@ -868,7 +869,7 @@ PRIVATE void drgui_tv_refresh_scrollbar_layouts(drgui_element* pTVElement)
     // Vertical scrollbar.
     drgui_set_size(pTV->pScrollbarV, 16, drgui_get_height(pTVElement) - 16);
     drgui_set_relative_position(pTV->pScrollbarV, drgui_get_width(pTVElement) - drgui_get_width(pTV->pScrollbarV), 0);
-    
+
     // Horizontal scrollbar.
     drgui_set_size(pTV->pScrollbarH, drgui_get_width(pTVElement) - 16, 16);
     drgui_set_relative_position(pTV->pScrollbarH, 0, drgui_get_height(pTVElement) - drgui_get_height(pTV->pScrollbarH));
@@ -968,7 +969,7 @@ PRIVATE void drgui_tv_paint_items(drgui_element* pTVElement, drgui_rect relative
         do
         {
             drgui_tv_paint_item(pTVElement, i.pItem, relativeClippingRect, i.posX, i.posY, i.width, i.height, pPaintData);
-            
+
             // Restore the clipping rectangle in case the application changed the clipping rectangle.
             drgui_set_clip(pTVElement, relativeClippingRect, pPaintData);
 
@@ -999,7 +1000,7 @@ PRIVATE bool drgui_tv_begin_at(drgui_tree_view_item* pFirst, drgui_tree_view_ite
     pIteratorOut->depth = depth;
     pIteratorOut->posX  = depth * drgui_tv_get_child_offset_x(pFirst->pTVElement);
     pIteratorOut->posY  = 0;
-    
+
     return true;
 }
 
@@ -1052,7 +1053,7 @@ PRIVATE void drgui_tv_paint_item(drgui_element* pTVElement, drgui_tree_view_item
     {
         // We draw an item in two main parts, with the first part being the background section to the left and right of the item and the
         // second part being the item itself. The first part we do ourselves, whereas the second part we pass off to the host application.
-        
+
         // The background section to the left and right of the main content is done first, by us.
         drgui_color bgcolor;
         if (drgui_tvi_is_selected(pItem)) {
@@ -1069,7 +1070,7 @@ PRIVATE void drgui_tv_paint_item(drgui_element* pTVElement, drgui_tree_view_item
         if (posX + innerOffsetX > 0) {
             drgui_draw_rect(pTVElement, drgui_make_rect(0, posY, posX + innerOffsetX, posY + height), bgcolor, pPaintData);
         }
-        
+
         // Right.
         if (posX + width + innerOffsetX < drgui_get_relative_position_x(pTV->pScrollbarV)) {
             drgui_draw_rect(pTVElement, drgui_make_rect(posX + width + innerOffsetX, posY, drgui_get_relative_position_x(pTV->pScrollbarV), posY + height), bgcolor, pPaintData);
@@ -1413,7 +1414,7 @@ void drgui_tvi_prepend(drgui_tree_view_item* pItem, drgui_tree_view_item* pParen
     // If a parent was not specified, prepend to the root item.
     if (pParent == NULL)
     {
-        if (pTV->pRootItem != NULL) {   
+        if (pTV->pRootItem != NULL) {
             drgui_tvi_prepend(pItem, pTV->pRootItem);
         }
     }
@@ -1569,7 +1570,7 @@ drgui_tree_view_item* drgui_tvi_next_visible_non_child(drgui_tree_view_item* pIt
     if (pDepthInOut != NULL) {
         *pDepthInOut -= 1;
     }
-    
+
     return drgui_tvi_next_visible_non_child(pItem->pParent, pDepthInOut);
 }
 
