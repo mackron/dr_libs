@@ -510,6 +510,10 @@ struct drgui_element
     drgui_element* pNextDeadElement;
 
 
+    /// The type of the element, as a string. This is only every used by the host application, and is intended to be used as way
+    /// to selectively perform certain operations on specific types of GUI elements.
+    char type[64];
+
 
     /// The absolute position of the element on the x axis. A position of 0 is the left side of the surface it is attached to.
     float absolutePosX;
@@ -807,6 +811,17 @@ size_t drgui_get_extra_data_size(drgui_element* pElement);
 /// Retrieves a pointer to the extra data of the given element.
 void* drgui_get_extra_data(drgui_element* pElement);
 
+
+/// Sets the type of the element.
+///
+/// The type name cannot be more than 63 characters in length.
+bool drgui_set_type(drgui_element* pElement, const char* type);
+
+/// Retrieves the type fo the element.
+const char* drgui_get_type(drgui_element* pElement);
+
+/// Determines whether or not the given element is of the given type.
+bool drgui_is_of_type(drgui_element* pElement, const char* type);
 
 
 /// Hides the given element.
@@ -2863,6 +2878,34 @@ void* drgui_get_extra_data(drgui_element* pElement)
     }
 
     return NULL;
+}
+
+
+bool drgui_set_type(drgui_element* pElement, const char* type)
+{
+    if (pElement == NULL) {
+        return false;
+    }
+
+    return drgui__strcpy_s(pElement->type, sizeof(pElement->type), (type == NULL) ? "" : type) == 0;
+}
+
+const char* drgui_get_type(drgui_element* pElement)
+{
+    if (pElement == NULL) {
+        return NULL;
+    }
+
+    return pElement->type;
+}
+
+bool drgui_is_of_type(drgui_element* pElement, const char* type)
+{
+    if (pElement == NULL) {
+        return NULL;
+    }
+
+    return strncmp(pElement->type, type, strlen(type)) == 0;
 }
 
 
