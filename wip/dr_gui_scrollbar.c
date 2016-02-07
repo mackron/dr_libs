@@ -2,6 +2,7 @@
 
 #include "dr_gui_scrollbar.h"
 #include <math.h>       // For round()
+#include <string.h>
 #include <assert.h>
 
 #ifndef DRGUI_PRIVATE
@@ -223,7 +224,7 @@ void drgui_sb_set_range(drgui_element* pSBElement, int rangeMin, int rangeMax)
     pSB->rangeMin = rangeMin;
     pSB->rangeMax = rangeMax;
 
-    
+
     // Make sure the scroll position is still valid.
     drgui_sb_scroll_to(pSBElement, drgui_sb_get_scroll_position(pSBElement));
 
@@ -232,7 +233,7 @@ void drgui_sb_set_range(drgui_element* pSBElement, int rangeMin, int rangeMax)
 }
 
 void drgui_sb_get_range(drgui_element* pSBElement, int* pRangeMinOut, int* pRangeMaxOut)
-{    
+{
     drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
@@ -241,7 +242,7 @@ void drgui_sb_get_range(drgui_element* pSBElement, int* pRangeMinOut, int* pRang
     if (pRangeMinOut != NULL) {
         *pRangeMinOut = pSB->rangeMin;
     }
-    
+
     if (pRangeMaxOut != NULL) {
         *pRangeMaxOut = pSB->rangeMax;
     }
@@ -287,7 +288,7 @@ void drgui_sb_set_range_and_page_size(drgui_element* pSBElement, int rangeMin, i
     pSB->rangeMax = rangeMax;
     pSB->pageSize = pageSize;
 
-    
+
     // Make sure the scroll position is still valid.
     drgui_sb_scroll_to(pSBElement, drgui_sb_get_scroll_position(pSBElement));
 
@@ -504,7 +505,7 @@ drgui_rect drgui_sb_get_thumb_rect(drgui_element* pSBElement)
     drgui_rect rect = {0, 0, 0, 0};
     rect.left = pSB->thumbPadding;
     rect.top  = pSB->thumbPadding;
-    
+
     if (pSB->orientation == drgui_sb_orientation_vertical)
     {
         // Vertical.
@@ -602,10 +603,10 @@ void drgui_sb_on_mouse_move(drgui_element* pSBElement, int relativeMousePosX, in
         if (drgui_sb_is_thumb_visible(pSBElement))
         {
             bool wasThumbHovered = pSB->thumbHovered;
-        
+
             drgui_rect thumbRect = drgui_sb_get_thumb_rect(pSBElement);
             pSB->thumbHovered = drgui_rect_contains_point(thumbRect, (float)relativeMousePosX, (float)relativeMousePosY);
-        
+
             if (wasThumbHovered != pSB->thumbHovered) {
                 drgui_dirty(pSBElement, thumbRect);
             }
@@ -757,7 +758,7 @@ DRGUI_PRIVATE float drgui_sb_calculate_thumb_size(drgui_element* pSBElement)
 
     float trackSize = drgui_sb_get_track_size(pSBElement);
     float range = (float)(pSB->rangeMax - pSB->rangeMin + 1);
-        
+
     float thumbSize = DRGUI_MIN_SCROLLBAR_THUMB_SIZE;
     if (range > 0)
     {
