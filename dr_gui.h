@@ -2902,7 +2902,7 @@ const char* drgui_get_type(drgui_element* pElement)
 bool drgui_is_of_type(drgui_element* pElement, const char* type)
 {
     if (pElement == NULL) {
-        return NULL;
+        return false;
     }
 
     return strncmp(pElement->type, type, strlen(type)) == 0;
