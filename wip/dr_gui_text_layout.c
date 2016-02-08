@@ -3211,8 +3211,11 @@ DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layo
                 runningLineTop  = lineBottom;
             }
         }
-    }
 
+        if (iFirstRunOnLine == iLastRunOnLinePlus1 && iFirstRunOnLine > 0) {
+            iFirstRunOnLine -= 1;
+        }
+    }
 
     if (pFirstRunIndexOnLineOut) {
         *pFirstRunIndexOnLineOut = iFirstRunOnLine;
@@ -3255,10 +3258,9 @@ DRGUI_PRIVATE bool drgui_text_layout__find_closest_run_to_point(drgui_text_layou
             for (unsigned int iRun = iFirstRunOnLine; iRun < iLastRunOnLinePlus1; ++iRun)
             {
                 const drgui_text_run* pRun = pTL->pRuns + iRun;
+                iRunOut = iRun;
 
-                if (inputPosXRelativeToText >= pRun->posX && inputPosXRelativeToText <= pRun->posX + pRun->width)
-                {
-                    iRunOut = iRun;
+                if (inputPosXRelativeToText >= pRun->posX && inputPosXRelativeToText <= pRun->posX + pRun->width) {
                     break;
                 }
             }
