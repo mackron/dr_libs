@@ -2794,7 +2794,7 @@ void dr2d_draw_text_cairo(dr2d_surface* pSurface, dr2d_font* pFont, const char* 
 
 
     // Text.
-    cairo_move_to(cr, posX, posY + pCairoFont->metrics.ascent - 1);
+    cairo_move_to(cr, posX, posY + pCairoFont->metrics.ascent);
     cairo_set_source_rgba(cr, color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0);
     cairo_show_text(cr, textNT);
 
@@ -2977,27 +2977,112 @@ bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSi
 
 bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
 {
-    (void)pFont;
-    (void)text;
-    (void)textSizeInBytes;
-    (void)maxWidth;
-    (void)inputPosX;
-    (void)pTextCursorPosXOut;
-    (void)pCharacterIndexOut;
+    cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
+    if (pCairoFont == NULL) {
+        return false;
+    }
 
-    // TODO: Implement Me.
-    return false;
+    cairo_glyph_t* pGlyphs = NULL;
+    int glyphCount = 0;
+    cairo_status_t result = cairo_scaled_font_text_to_glyphs(pCairoFont->pFont, 0, 0, text, textSizeInBytes, &pGlyphs, &glyphCount, NULL, NULL, NULL);
+    if (result != CAIRO_STATUS_SUCCESS) {
+        return false;
+    }
+
+    float cursorPosX = 0;
+    int charIndex = 0;
+
+    // We just iterate over each glyph until we find the one sitting under <inputPosX>.
+    float runningPosX = 0;
+    for (int iGlyph = 0; iGlyph < glyphCount; ++iGlyph)
+    {
+        cairo_text_extents_t glyphMetrics;
+        cairo_scaled_font_glyph_extents(pCairoFont->pFont, pGlyphs + iGlyph, 1, &glyphMetrics);
+
+        float glyphLeft  = runningPosX;
+        float glyphRight = glyphLeft + glyphMetrics.x_advance;
+
+        // Are we sitting on top of inputPosX?
+        if (inputPosX >= glyphLeft && inputPosX < glyphRight)
+        {
+            float glyphHalf = glyphLeft + ceilf(((glyphRight - glyphLeft) / 2.0f));
+            if (inputPosX <= glyphHalf) {
+                cursorPosX = glyphLeft;
+                charIndex  = iGlyph;
+            } else {
+                cursorPosX = glyphRight;
+                charIndex  = iGlyph + 1;
+            }
+
+            break;
+        }
+        else
+        {
+            // Have we moved past maxWidth?
+            if (glyphRight > maxWidth)
+            {
+                cursorPosX = maxWidth;
+                charIndex  = iGlyph;
+                break;
+            }
+            else
+            {
+                runningPosX = glyphRight;
+
+                cursorPosX = runningPosX;
+                charIndex  = iGlyph;
+            }
+        }
+    }
+
+    cairo_glyph_free(pGlyphs);
+
+    if (pTextCursorPosXOut) {
+        *pTextCursorPosXOut = cursorPosX;
+    }
+    if (pCharacterIndexOut) {
+        *pCharacterIndexOut = charIndex;
+    }
+
+    return true;
 }
 
 bool dr2d_get_text_cursor_position_from_char_cairo(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
 {
-    (void)pFont;
-    (void)text;
-    (void)characterIndex;
-    (void)pTextCursorPosXOut;
+    cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
+    if (pCairoFont == NULL) {
+        return false;
+    }
 
-    // TODO: Implement Me.
-    return false;
+    cairo_glyph_t* pGlyphs = NULL;
+    int glyphCount = 0;
+    cairo_status_t result = cairo_scaled_font_text_to_glyphs(pCairoFont->pFont, 0, 0, text, -1, &pGlyphs, &glyphCount, NULL, NULL, NULL);
+    if (result != CAIRO_STATUS_SUCCESS) {
+        return false;
+    }
+
+    float cursorPosX = 0;
+
+    // We just iterate over each glyph until we find the one sitting under <inputPosX>.
+    for (int iGlyph = 0; iGlyph < glyphCount; ++iGlyph)
+    {
+        if (iGlyph == (int)characterIndex) {
+            break;
+        }
+
+        cairo_text_extents_t glyphMetrics;
+        cairo_scaled_font_glyph_extents(pCairoFont->pFont, pGlyphs + iGlyph, 1, &glyphMetrics);
+
+        cursorPosX += glyphMetrics.x_advance;
+    }
+
+    cairo_glyph_free(pGlyphs);
+
+    if (pTextCursorPosXOut) {
+        *pTextCursorPosXOut = cursorPosX;
+    }
+
+    return true;
 }
 #endif  // Cairo
 #endif
