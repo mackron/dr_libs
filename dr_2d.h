@@ -2502,6 +2502,8 @@ dr2d_context* dr2d_create_context_cairo()
     callbacks.get_glyph_metrics                   = dr2d_get_glyph_metrics_cairo;
     callbacks.measure_string                      = dr2d_measure_string_cairo;
     callbacks.get_text_cursor_position_from_point = dr2d_get_text_cursor_position_from_point_cairo;
+    callbacks.get_text_cursor_position_from_char  = dr2d_get_text_cursor_position_from_char_cairo;
+
 
     return dr2d_create_context(callbacks, 0, sizeof(cairo_surface_data), sizeof(cairo_font_data), sizeof(cairo_image_data));
 }
@@ -2624,7 +2626,8 @@ bool dr2d_on_create_font_cairo(dr2d_font* pFont)
 
     pCairoFont->metrics.ascent     = fontMetrics.ascent;
     pCairoFont->metrics.descent    = fontMetrics.descent;
-    pCairoFont->metrics.lineHeight = fontMetrics.height;
+    //pCairoFont->metrics.lineHeight = fontMetrics.height;
+    pCairoFont->metrics.lineHeight = fontMetrics.ascent + fontMetrics.descent;
 
     // The width of a space needs to be retrieved via glyph metrics.
     const char space[] = " ";
@@ -2667,8 +2670,11 @@ void dr2d_begin_draw_cairo(dr2d_surface* pSurface)
     assert(pSurface != NULL);
 
     cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
-    if (pCairoData != NULL) {
+    if (pCairoData == NULL) {
+        return;
     }
+
+    cairo_set_antialias(pCairoData->pCairoContext, CAIRO_ANTIALIAS_NONE);
 }
 
 void dr2d_end_draw_cairo(dr2d_surface* pSurface)
@@ -2774,9 +2780,6 @@ void dr2d_draw_text_cairo(dr2d_surface* pSurface, dr2d_font* pFont, const char* 
         textNT = (char*)text;
     }
 
-    cairo_font_extents_t fontMetrics;
-    cairo_scaled_font_extents(pCairoFont->pFont, &fontMetrics);
-
 
     cairo_set_scaled_font(cr, pCairoFont->pFont);
 
@@ -2786,12 +2789,12 @@ void dr2d_draw_text_cairo(dr2d_surface* pSurface, dr2d_font* pFont, const char* 
     cairo_text_extents_t textMetrics;
     cairo_text_extents(cr, textNT, &textMetrics);
     cairo_set_source_rgba(cr, backgroundColor.r / 255.0, backgroundColor.g / 255.0, backgroundColor.b / 255.0, backgroundColor.a / 255.0);
-    cairo_rectangle(cr, posX, posY, textMetrics.x_advance, fontMetrics.height);
+    cairo_rectangle(cr, posX, posY, textMetrics.x_advance, pCairoFont->metrics.ascent + pCairoFont->metrics.descent);
     cairo_fill(cr);
 
 
     // Text.
-    cairo_move_to(cr, posX, posY + fontMetrics.ascent);
+    cairo_move_to(cr, posX, posY + pCairoFont->metrics.ascent - 1);
     cairo_set_source_rgba(cr, color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0);
     cairo_show_text(cr, textNT);
 
@@ -2943,6 +2946,9 @@ bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSi
     char* textNT;
     if (textSizeInBytes != (size_t)-1) {
         textNT = malloc(textSizeInBytes + 1);
+        if (textNT == NULL) {
+            return false;
+        }
         memcpy(textNT, text, textSizeInBytes);
         textNT[textSizeInBytes] = '\0';
     } else {
@@ -2957,7 +2963,8 @@ bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSi
         *pWidthOut = textMetrics.x_advance;
     }
     if (pHeightOut) {
-        *pHeightOut = pCairoFont->metrics.lineHeight;
+        //*pHeightOut = textMetrics.height;
+        *pHeightOut = pCairoFont->metrics.ascent + pCairoFont->metrics.descent;
     }
 
 
@@ -2965,7 +2972,7 @@ bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSi
         free(textNT);
     }
 
-    return false;
+    return true;
 }
 
 bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
