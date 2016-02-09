@@ -2438,7 +2438,11 @@ typedef struct
 
 typedef struct
 {
-    int unused;
+    /// Images in Cairo are implemented as surfaces.
+    cairo_surface_t* pCairoSurface;
+
+    /// A pointer to the raw data.
+    unsigned char* pData;
 
 } cairo_image_data;
 
@@ -2651,17 +2655,58 @@ void dr2d_on_delete_font_cairo(dr2d_font* pFont)
 
 bool dr2d_on_create_image_cairo(dr2d_image* pImage, unsigned int stride, const void* pData)
 {
-    (void)pImage;
-    (void)stride;
-    (void)pData;
-    // TODO: Implement Me.
-    return false;
+    cairo_image_data* pCairoImage = dr2d_get_image_extra_data(pImage);
+    if (pCairoImage == NULL) {
+        return false;
+    }
+
+    size_t dataSize = pImage->height * pImage->width * 4;
+    pCairoImage->pData = malloc(dataSize);
+    if (pCairoImage->pData == NULL) {
+        return false;
+    }
+
+    for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+    {
+        const unsigned int iRowSrc = iRow; //pImage->height - (iRow + 1);
+        const unsigned int iRowDst = iRow;
+
+        for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+        {
+            unsigned int  srcTexel = ((const unsigned int*)(pData             ))[  (iRowSrc * (stride/4))    + iCol];
+            unsigned int* dstTexel = ((      unsigned int*)(pCairoImage->pData)) + (iRowDst * pImage->width) + iCol;
+
+            unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+            unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
+            unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
+            unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
+
+            srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
+            srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
+            srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+
+            *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+        }
+    }
+
+    pCairoImage->pCairoSurface = cairo_image_surface_create_for_data(pCairoImage->pData, CAIRO_FORMAT_ARGB32, (int)pImage->width, (int)pImage->height, (int)pImage->width*4);
+    if (pCairoImage->pCairoSurface == NULL) {
+        free(pCairoImage->pData);
+        return false;
+    }
+
+    return true;
 }
 
 void dr2d_on_delete_image_cairo(dr2d_image* pImage)
 {
-    (void)pImage;
-    // TODO: Implement Me.
+    cairo_image_data* pCairoImage = dr2d_get_image_extra_data(pImage);
+    if (pCairoImage == NULL) {
+        return;
+    }
+
+    cairo_surface_destroy(pCairoImage->pCairoSurface);
+    free(pCairoImage->pData);
 }
 
 
@@ -2680,7 +2725,13 @@ void dr2d_begin_draw_cairo(dr2d_surface* pSurface)
 void dr2d_end_draw_cairo(dr2d_surface* pSurface)
 {
     assert(pSurface != NULL);
-    (void)pSurface;
+
+    cairo_surface_data* pCairoData = dr2d_get_surface_extra_data(pSurface);
+    if (pCairoData == NULL) {
+        return;
+    }
+
+    cairo_set_antialias(pCairoData->pCairoContext, CAIRO_ANTIALIAS_DEFAULT);
 }
 
 void dr2d_clear_cairo(dr2d_surface* pSurface, dr2d_color color)
@@ -2806,10 +2857,43 @@ void dr2d_draw_text_cairo(dr2d_surface* pSurface, dr2d_font* pFont, const char* 
 
 void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs)
 {
-    (void)pSurface;
-    (void)pImage;
-    (void)pArgs;
-    // TODO: Implement Me.
+    cairo_surface_data* pCairoSurface = dr2d_get_surface_extra_data(pSurface);
+    if (pCairoSurface == NULL) {
+        return;
+    }
+
+    cairo_image_data* pCairoImage = dr2d_get_image_extra_data(pImage);
+    if (pCairoImage == NULL) {
+        return;
+    }
+
+    cairo_t* cr = pCairoSurface->pCairoContext;
+
+    cairo_save(cr);
+    cairo_translate(cr, pArgs->dstX, pArgs->dstY);
+    cairo_scale(cr, pArgs->dstWidth / pArgs->srcWidth, pArgs->dstWidth / pArgs->srcWidth);
+
+    // Background.
+    if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) != 0)
+    {
+        cairo_set_source_rgba(cr, pArgs->backgroundColor.r / 255.0, pArgs->backgroundColor.g / 255.0, pArgs->backgroundColor.b / 255.0, pArgs->backgroundColor.a / 255.0);
+        cairo_rectangle(cr, 0, 0, pArgs->dstWidth, pArgs->dstHeight);
+        cairo_fill(cr);
+    }
+
+
+    cairo_set_source_surface(cr, pCairoImage->pCairoSurface, pArgs->srcX, pArgs->srcY);
+    cairo_paint(cr);
+
+
+    // Tint.
+    //cairo_set_operator(cr, CAIRO_OPERATOR_MULTIPLY);
+    //cairo_set_source_rgb(cr, pArgs->foregroundTint.r / 255.0, pArgs->foregroundTint.g / 255.0, pArgs->foregroundTint.b / 255.0);
+    //cairo_rectangle(cr, 0, 0, pArgs->dstWidth, pArgs->dstHeight);
+    //cairo_fill(cr);
+
+
+    cairo_restore(cr);
 }
 
 void dr2d_set_clip_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom)
