@@ -1405,6 +1405,42 @@ static int drgui__strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 #endif
 }
 
+int drgui__strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+#ifdef _MSC_VER
+    return strncpy_s(dst, dstSizeInBytes, src, count);
+#else
+    if (dst == 0) {
+        return EINVAL;
+    }
+    if (dstSizeInBytes == 0) {
+        return EINVAL;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    size_t maxcount = count;
+    if (count == ((size_t)-1) || count >= dstSizeInBytes) {        // -1 = _TRUNCATE
+        maxcount = dstSizeInBytes - 1;
+    }
+
+    size_t i;
+    for (i = 0; i < maxcount && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (src[i] == '\0' || i == count || count == ((size_t)-1)) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return ERANGE;
+#endif
+}
+
 
 /// Increments the inbound event counter
 ///
@@ -5052,8 +5088,16 @@ void drgui_get_image_size_dr_2d(drgui_resource image, unsigned int* pWidthOut, u
     dr2d_get_image_size(image, pWidthOut, pHeightOut);
 }
 
-#endif
-#endif
+#endif  //DRGUI_NO_DR_2D
+#endif  //DR_GUI_IMPLEMENTATION
+
+#ifdef DR_GUI_INCLUDE_WIP
+#include "wip/dr_gui_text_layout.h"
+#include "wip/dr_gui_scrollbar.h"
+#include "wip/dr_gui_tab_bar.h"
+#include "wip/dr_gui_textbox.h"
+#include "wip/dr_gui_tree_view.h"
+#endif  //DR_GUI_INCLUDE_WIP
 
 /*
 This is free and unencumbered software released into the public domain.
