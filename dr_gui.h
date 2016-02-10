@@ -51,6 +51,7 @@
 //   - on_capture_keyboard: Called when an element is given the keyboard focus and gives the application the opportunity to
 //     apply the keyboard focus to the container window. Set with drgui_set_global_on_capture_keyboard().
 //   - on_release_keyboard: Called when an element loses the keyboard focus. The opposite of on_capture_keyboard.
+//   - on_change_cursor: Called when the current cursor needs to be changed as a result of the mouse moving over a new element.
 //
 // Layout
 // - An element's data structure does not store it's relative position but instead stores it's absolute position. The rationale
@@ -190,11 +191,24 @@ typedef unsigned int drgui_key;
 
 typedef void* drgui_resource;
 
+/// Common system cursors.
+typedef enum
+{
+    drgui_cursor_none,
+    drgui_cursor_default,
+    drgui_cursor_arrow = drgui_cursor_default,
+    drgui_cursor_text,
+    drgui_cursor_cross,
+    drgui_cursor_size_ns,           // North/South resize arrows.
+    drgui_cursor_size_we,           // West/East resize arrows.
+    drgui_cursor_size_nesw,         // North/East, South/West resize arrows.
+    drgui_cursor_size_nwse          // North/West, South/East resize arrows.
+} drgui_cursor_type;
 
 /// Font weights.
 typedef enum
 {
-    drgui_font_weight_medium = 0,
+    drgui_font_weight_medium,
     drgui_font_weight_thin,
     drgui_font_weight_extra_light,
     drgui_font_weight_light,
@@ -211,7 +225,7 @@ typedef enum
 /// Font slants.
 typedef enum
 {
-    drgui_font_slant_none = 0,
+    drgui_font_slant_none,
     drgui_font_slant_italic,
     drgui_font_slant_oblique
 
@@ -343,6 +357,7 @@ typedef void (* drgui_on_capture_mouse_proc)        (drgui_element* pElement);
 typedef void (* drgui_on_release_mouse_proc)        (drgui_element* pElement);
 typedef void (* drgui_on_capture_keyboard_proc)     (drgui_element* pElement, drgui_element* pPrevCapturedElement);
 typedef void (* drgui_on_release_keyboard_proc)     (drgui_element* pElement, drgui_element* pNewCapturedElement);
+typedef void (* drgui_on_change_cursor_proc)        (drgui_element* pElement, drgui_cursor_type cursor);
 typedef void (* drgui_on_log)                       (drgui_context* pContext, const char* message);
 
 typedef void (* drgui_draw_begin_proc)                   (void* pPaintData);
@@ -360,17 +375,17 @@ typedef void (* drgui_draw_text_proc)                    (drgui_resource font, c
 typedef void (* drgui_draw_image_proc)                   (drgui_resource image, drgui_draw_image_args* pArgs, void* pPaintData);
 
 typedef drgui_resource (* drgui_create_font_proc)                        (void* pPaintingContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation);
-typedef void             (* drgui_delete_font_proc)                        (drgui_resource font);
-typedef unsigned int     (* drgui_get_font_size_proc)                      (drgui_resource font);
-typedef bool             (* drgui_get_font_metrics_proc)                   (drgui_resource font, drgui_font_metrics* pMetricsOut);
-typedef bool             (* drgui_get_glyph_metrics_proc)                  (drgui_resource font, unsigned int utf32, drgui_glyph_metrics* pMetricsOut);
-typedef bool             (* drgui_measure_string_proc)                     (drgui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-typedef bool             (* drgui_get_text_cursor_position_from_point_proc)(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
-typedef bool             (* drgui_get_text_cursor_position_from_char_proc) (drgui_resource font, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+typedef void           (* drgui_delete_font_proc)                        (drgui_resource font);
+typedef unsigned int   (* drgui_get_font_size_proc)                      (drgui_resource font);
+typedef bool           (* drgui_get_font_metrics_proc)                   (drgui_resource font, drgui_font_metrics* pMetricsOut);
+typedef bool           (* drgui_get_glyph_metrics_proc)                  (drgui_resource font, unsigned int utf32, drgui_glyph_metrics* pMetricsOut);
+typedef bool           (* drgui_measure_string_proc)                     (drgui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef bool           (* drgui_get_text_cursor_position_from_point_proc)(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+typedef bool           (* drgui_get_text_cursor_position_from_char_proc) (drgui_resource font, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
 
-typedef drgui_resource (* drgui_create_image_proc)     (void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
-typedef void             (* drgui_delete_image_proc)     (drgui_resource image);
-typedef void             (* drgui_get_image_size_proc)   (drgui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut);
+typedef drgui_resource (* drgui_create_image_proc)  (void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
+typedef void           (* drgui_delete_image_proc)  (drgui_resource image);
+typedef void           (* drgui_get_image_size_proc)(drgui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut);
 
 typedef bool (* drgui_visible_iteration_proc)(drgui_element* pElement, drgui_rect *pRelativeRect, void* pUserData);
 
@@ -535,6 +550,10 @@ struct drgui_element
     float innerScaleY;
 
 
+    /// The cursor. Defaults to drge_cursor_default.
+    drgui_cursor_type cursor;
+
+
     /// Boolean flags.
     unsigned int flags;
 
@@ -640,6 +659,8 @@ struct drgui_context
     /// particular element. This will then be used to capture the keyboard at a later time when it is able.
     drgui_element* pElementWantingKeyboardCapture;
 
+    /// The current cursor.
+    drgui_cursor_type currentCursor;
 
     /// Boolean flags.
     unsigned int flags;
@@ -659,6 +680,9 @@ struct drgui_context
 
     /// The global event handler to call when an element releases the keyboard.
     drgui_on_release_keyboard_proc onGlobalReleaseKeyboard;
+
+    /// The global event handler to call when the system cursor needs to change.
+    drgui_on_change_cursor_proc onChangeCursor;
 
 
     /// The function to call when a log message is posted.
@@ -788,6 +812,12 @@ void drgui_set_global_on_capture_keyboard(drgui_context* pContext, drgui_on_capt
 ///     at the element level.
 void drgui_set_global_on_release_keyboard(drgui_context* pContext, drgui_on_capture_keyboard_proc onReleaseKeyboard);
 
+/// Sets the global on_change_cursor event callback.
+///
+/// @remarks
+///     This is called whenever the operating system needs to change the cursor.
+void drgui_set_global_on_change_cursor(drgui_context* pContext, drgui_on_change_cursor_proc onChangeCursor);
+
 
 /// Registers the callback to call when a log message is posted.
 void drgui_set_on_log(drgui_context* pContext, drgui_on_log onLog);
@@ -876,6 +906,13 @@ void drgui_release_keyboard(drgui_context* pContext);
 
 /// Retrieves a pointer to the element with the keyboard capture.
 drgui_element* drgui_get_element_with_keyboard_capture(drgui_context* pContext);
+
+
+/// Sets the cursor to use when the mouse enters the given GUI element.
+void drgui_set_cursor(drgui_element* pElement, drgui_cursor_type cursor);
+
+/// Retrieves the cursor to use when the mouse enters the given GUI element.
+drgui_cursor_type drgui_get_cursor(drgui_element* pElement);
 
 
 //// Events ////
@@ -1926,6 +1963,21 @@ void drgui_auto_dirty(drgui_element* pElement, drgui_rect relativeRect)
 }
 
 
+void drgui__change_cursor(drgui_element* pElement, drgui_cursor_type cursor)
+{
+    if (pElement == NULL || pElement->pContext == NULL) {
+        return;
+    }
+
+    pElement->pContext->currentCursor = cursor;
+    
+    if (pElement->pContext->onChangeCursor) {
+        pElement->pContext->onChangeCursor(pElement, cursor);
+    }
+}
+
+
+
 void drgui_apply_offset_to_children_recursive(drgui_element* pParentElement, float offsetX, float offsetY)
 {
     assert(pParentElement != NULL);
@@ -1991,6 +2043,16 @@ void drgui_update_mouse_enter_and_leave_state(drgui_context* pContext, drgui_ele
         if (pContext->pElementWithMouseCapture == NULL)
         {
             pContext->pElementUnderMouse = pNewElementUnderMouse;
+
+            drgui_cursor_type newCursor = drgui_cursor_default;
+            if (pNewElementUnderMouse != NULL) {
+                newCursor = pNewElementUnderMouse->cursor;
+            }
+
+            if (newCursor != pContext->currentCursor) {
+                drgui__change_cursor(pNewElementUnderMouse, newCursor);
+            }
+
 
 
             // The the event handlers below, remember that ancestors are considered hovered if a descendant is the element under the mouse.
@@ -2349,7 +2411,6 @@ DRGUI_PRIVATE drgui_resource drgui_get_internal_font_by_scale(drgui_font* pFont,
 }
 
 
-
 /////////////////////////////////////////////////////////////////
 //
 // CORE API
@@ -2390,12 +2451,14 @@ drgui_context* drgui_create_context()
         pContext->pElementWithMouseCapture                   = NULL;
         pContext->pElementWithKeyboardCapture                = NULL;
         pContext->pElementWantingKeyboardCapture             = NULL;
+        pContext->currentCursor                              = drgui_cursor_default;
         pContext->flags                                      = 0;
         pContext->onGlobalDirty                              = NULL;
         pContext->onGlobalCaptureMouse                       = NULL;
         pContext->onGlobalReleaseMouse                       = NULL;
         pContext->onGlobalCaptureKeyboard                    = NULL;
         pContext->onGlobalReleaseKeyboard                    = NULL;
+        pContext->onChangeCursor                             = NULL;
         pContext->onLog                                      = NULL;
         pContext->pLastMouseMoveTopLevelElement              = NULL;
         pContext->lastMouseMovePosX                          = 0;
@@ -2729,6 +2792,13 @@ void drgui_set_global_on_release_keyboard(drgui_context* pContext, drgui_on_capt
     }
 }
 
+void drgui_set_global_on_change_cursor(drgui_context* pContext, drgui_on_change_cursor_proc onChangeCursor)
+{
+    if (pContext != NULL) {
+        pContext->onChangeCursor = onChangeCursor;
+    }
+}
+
 void drgui_set_on_log(drgui_context* pContext, drgui_on_log onLog)
 {
     if (pContext != NULL) {
@@ -2761,6 +2831,7 @@ drgui_element* drgui_create_element(drgui_context* pContext, drgui_element* pPar
             pElement->height                = 0;
             pElement->innerScaleX           = 1;
             pElement->innerScaleY           = 1;
+            pElement->cursor                = drgui_cursor_default;
             pElement->flags                 = 0;
             pElement->onMove                = NULL;
             pElement->onSize                = NULL;
@@ -3142,6 +3213,29 @@ drgui_element* drgui_get_element_with_keyboard_capture(drgui_context* pContext)
     }
 
     return pContext->pElementWithKeyboardCapture;
+}
+
+
+void drgui_set_cursor(drgui_element* pElement, drgui_cursor_type cursor)
+{
+    if (pElement == NULL) {
+        return;
+    }
+
+    pElement->cursor = cursor;
+
+    if (drgui_is_element_under_mouse(pElement) && pElement->pContext->currentCursor != cursor) {
+        drgui__change_cursor(pElement, cursor);
+    }
+}
+
+drgui_cursor_type drgui_get_cursor(drgui_element* pElement)
+{
+    if (pElement == NULL) {
+        return drgui_cursor_none;
+    }
+
+    return pElement->cursor;
 }
 
 

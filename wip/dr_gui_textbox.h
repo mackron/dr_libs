@@ -306,6 +306,7 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
         return NULL;
     }
 
+    drgui_set_cursor(pTBElement, drgui_cursor_text);
     drgui_set_on_size(pTBElement, drgui_textbox_on_size);
     drgui_set_on_mouse_move(pTBElement, drgui_textbox_on_mouse_move);
     drgui_set_on_mouse_button_down(pTBElement, drgui_textbox_on_mouse_button_down);
