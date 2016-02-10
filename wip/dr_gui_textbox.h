@@ -52,6 +52,12 @@ void drgui_textbox_set_border_width(drgui_element* pTBElement, float borderWidth
 /// Sets the amount of padding to apply to given text box.
 void drgui_textbox_set_padding(drgui_element* pTBElement, float padding);
 
+/// Sets the vertical alignment of the given text box.
+void drgui_textbox_set_vertical_align(drgui_element* pTBElement, drgui_text_layout_alignment align);
+
+/// Sets the horizontal alignment of the given text box.
+void drgui_textbox_set_horizontal_align(drgui_element* pTBElement, drgui_text_layout_alignment align);
+
 
 /// Sets the text of the given text box.
 void drgui_textbox_set_text(drgui_element* pTBElement, const char* text);
@@ -67,6 +73,43 @@ void drgui_textbox_set_cursor_blink_rate(drgui_element* pTBElement, unsigned int
 
 /// Moves the caret to the end of the text.
 void drgui_textbox_move_cursor_to_end_of_text(drgui_element* pTBElement);
+
+/// Determines whether or not anything is selected in the given text box.
+bool drgui_textbox_is_anything_selected(drgui_element* pTBElement);
+
+/// Selects all of the text inside the text box.
+void drgui_textbox_select_all(drgui_element* pTBElement);
+
+/// Retrieves a copy of the selected text.
+///
+/// @remarks
+///     This returns the length of the selected text. Call this once with <textOut> set to NULL to calculate the required size of the
+///     buffer.
+///     @par
+///     If the output buffer is not larger enough, the string will be truncated.
+size_t drgui_textbox_get_selected_text(drgui_element* pTBElement, char* textOut, size_t textOutLength);
+
+/// Deletes the character to the right of the cursor.
+///
+/// @return True if the text within the text layout has changed.
+bool drgui_textbox_delete_character_to_right_of_cursor(drgui_element* pTBElement);
+
+/// Deletes the currently selected text.
+///
+/// @return True if the text within the text layout has changed.
+bool drgui_textbox_delete_selected_text(drgui_element* pTBElement);
+
+/// Inserts a character at the position of the cursor.
+///
+/// @return True if the text within the text layout has changed.
+bool drgui_textbox_insert_text_at_cursor(drgui_element* pTBElement, const char* text);
+
+/// Performs an undo operation.
+bool drgui_textbox_undo(drgui_element* pTBElement);
+
+/// Performs a redo operation.
+bool drgui_textbox_redo(drgui_element* pTBElement);
+
 
 
 /// on_size.
@@ -315,14 +358,34 @@ void drgui_textbox_set_border_width(drgui_element* pTBElement, float borderWidth
     pTB->borderWidth = borderWidth;
 }
 
-void drgui_textbox_set_padding(drgui_element* pTBElement, float paddingX)
+void drgui_textbox_set_padding(drgui_element* pTBElement, float padding)
 {
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
 
-    pTB->padding = paddingX;
+    pTB->padding = padding;
+}
+
+void drgui_textbox_set_vertical_align(drgui_element* pTBElement, drgui_text_layout_alignment align)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_text_layout_set_vertical_align(pTB->pTL, align);
+}
+
+void drgui_textbox_set_horizontal_align(drgui_element* pTBElement, drgui_text_layout_alignment align)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_text_layout_set_horizontal_align(pTB->pTL, align);
 }
 
 
@@ -374,6 +437,108 @@ void drgui_textbox_move_cursor_to_end_of_text(drgui_element* pTBElement)
     }
 
     drgui_text_layout_move_cursor_to_end_of_text(pTB->pTL);
+}
+
+
+bool drgui_textbox_is_anything_selected(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    return drgui_text_layout_is_anything_selected(pTB->pTL);
+}
+
+void drgui_textbox_select_all(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_text_layout_select_all(pTB->pTL);
+}
+
+size_t drgui_textbox_get_selected_text(drgui_element* pTBElement, char* textOut, size_t textOutLength)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return drgui_text_layout_get_selected_text(pTB->pTL, textOut, textOutLength);
+}
+
+bool drgui_textbox_delete_character_to_right_of_cursor(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    bool wasTextChanged = false;
+    drgui_text_layout_prepare_undo_point(pTB->pTL);
+    {
+        wasTextChanged = drgui_text_layout_delete_character_to_right_of_cursor(pTB->pTL);
+    }
+    if (wasTextChanged) { drgui_text_layout_commit_undo_point(pTB->pTL); }
+
+    return wasTextChanged;
+}
+
+bool drgui_textbox_delete_selected_text(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    bool wasTextChanged = false;
+    drgui_text_layout_prepare_undo_point(pTB->pTL);
+    {
+        wasTextChanged = drgui_text_layout_delete_selected_text(pTB->pTL);
+    }
+    if (wasTextChanged) { drgui_text_layout_commit_undo_point(pTB->pTL); }
+
+    return wasTextChanged;
+}
+
+bool drgui_textbox_insert_text_at_cursor(drgui_element* pTBElement, const char* text)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;;
+    }
+
+    bool wasTextChanged = false;
+    drgui_text_layout_prepare_undo_point(pTB->pTL);
+    {
+        wasTextChanged = drgui_text_layout_insert_text_at_cursor(pTB->pTL, text);
+    }
+    if (wasTextChanged) { drgui_text_layout_commit_undo_point(pTB->pTL); }
+
+    return wasTextChanged;
+}
+
+bool drgui_textbox_undo(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    return drgui_text_layout_undo(pTB->pTL);
+}
+
+bool drgui_textbox_redo(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    return drgui_text_layout_redo(pTB->pTL);
 }
 
 
@@ -693,8 +858,9 @@ void drgui_textbox_on_paint(drgui_element* pTBElement, drgui_rect relativeRect, 
     drgui_draw_rect_outline(pTBElement, paddingRect, drgui_text_layout_get_default_bg_color(pTB->pTL), pTB->padding, pPaintData);
 
     // Text.
-    drgui_set_clip(pTBElement, drgui_clamp_rect(drgui_textbox__get_text_rect(pTBElement), relativeRect), pPaintData);
-    drgui_text_layout_paint(pTB->pTL, drgui_grow_rect(paddingRect, -pTB->padding), pTBElement, pPaintData);
+    drgui_rect textRect = drgui_clamp_rect(drgui_textbox__get_text_rect(pTBElement), relativeRect);
+    drgui_set_clip(pTBElement, textRect, pPaintData);
+    drgui_text_layout_paint(pTB->pTL, drgui_grow_rect(textRect, -pTB->padding), pTBElement, pPaintData);
 }
 
 void drgui_textbox_on_capture_keyboard(drgui_element* pTBElement, drgui_element* pPrevCapturedElement)
@@ -751,7 +917,7 @@ DRGUI_PRIVATE void drgui_textbox__get_text_offset(drgui_element* pTBElement, flo
     if (pTB != NULL)
     {
         offsetX = pTB->borderWidth + pTB->padding;
-        offsetY = pTB->borderWidth;
+        offsetY = pTB->borderWidth + pTB->padding;
     }
 
 
@@ -771,8 +937,8 @@ DRGUI_PRIVATE void drgui_textbox__calculate_text_layout_container_size(drgui_ele
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
     if (pTB != NULL)
     {
-        width  = drgui_get_width(pTBElement) - (pTB->borderWidth + pTB->padding)*2;
-        height = drgui_get_height(pTBElement) - pTB->borderWidth*2;
+        width  = drgui_get_width(pTBElement)  - (pTB->borderWidth + pTB->padding)*2;
+        height = drgui_get_height(pTBElement) - (pTB->borderWidth + pTB->padding)*2;
     }
 
     if (pWidthOut != NULL) {

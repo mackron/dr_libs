@@ -206,6 +206,11 @@ void tab_move_to_front(drgui_tab* pTab);
 /// Determines whether or not the given tab is in view.
 bool tab_is_in_view(drgui_tab* pTab);
 
+/// Moves the given tab into view, if it's not already.
+///
+/// If the tab is out of view, it will be repositioned to the front of the tab bar.
+void drgui_tab_move_into_view(drgui_tab* pTab);
+
 
 #ifdef __cplusplus
 }
@@ -1305,6 +1310,13 @@ bool tab_is_in_view(drgui_tab* pTab)
     }
 
     return drgui_tabbar_is_tab_in_view(pTab->pTBElement, pTab);
+}
+
+void drgui_tab_move_into_view(drgui_tab* pTab)
+{
+    if (!tab_is_in_view(pTab)) {
+        tab_move_to_front(pTab);
+    }
 }
 
 
