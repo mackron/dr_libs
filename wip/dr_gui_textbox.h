@@ -127,6 +127,9 @@ void drgui_textbox_on_mouse_button_up(drgui_element* pTBElement, int mouseButton
 /// on_mouse_button_dblclick.
 void drgui_textbox_on_mouse_button_dblclick(drgui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
 
+/// on_mouse_wheel
+void drgui_textbox_on_mouse_wheel(drgui_element* pTBElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+
 /// on_key_down.
 void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int stateFlags);
 
@@ -163,6 +166,15 @@ typedef struct
     /// The text layout.
     drgui_text_layout* pTL;
 
+    /// The vertical scrollbar.
+    drgui_element* pVertScrollbar;
+
+    /// The horizontal scrollbar.
+    drgui_element* pHorzScrollbar;
+
+    /// The line numbers element.
+    drgui_element* pLineNumbers;
+
 
     /// The color of the border.
     drgui_color borderColor;
@@ -172,6 +184,19 @@ typedef struct
 
     /// The amount of padding to apply the left and right of the text.
     float padding;
+
+    /// The padding to the right of the line numbers.
+    float lineNumbersPaddingRight;
+
+
+    /// The desired width of the vertical scrollbar.
+    float vertScrollbarSize;
+
+    /// The desired height of the horizontal scrollbar.
+    float horzScrollbarSize;
+
+    /// When selecting lines by clicking and dragging on the line numbers, keeps track of the line to anchor the selection to.
+    unsigned int iLineSelectAnchor;
 
 
     /// The size of the extra data.
@@ -192,6 +217,40 @@ DRGUI_PRIVATE void drgui_textbox__calculate_text_layout_container_size(drgui_ele
 /// Retrieves the rectangle of the text layout's container.
 DRGUI_PRIVATE drgui_rect drgui_textbox__get_text_rect(drgui_element* pTBElement);
 
+/// Refreshes the range, page sizes and layouts of the scrollbars.
+DRGUI_PRIVATE void drgui_textbox__refresh_scrollbars(drgui_element* pTBElement);
+
+/// Refreshes the range and page sizes of the scrollbars.
+DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_ranges(drgui_element* pTBElement);
+
+/// Refreshes the size and position of the scrollbars.
+DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_layouts(drgui_element* pTBElement);
+
+/// Retrieves a rectangle representing the space between the edges of the two scrollbars.
+DRGUI_PRIVATE drgui_rect drgui_textbox__get_scrollbar_dead_space_rect(drgui_element* pTBElement);
+
+
+/// Called when the mouse enters the line numbers element.
+//DRGUI_PRIVATE void drgui_textbox__on_mouse_enter_line_numbers(drgui_element* pLineNumbers);
+
+/// Called when the mouse leaves the line numbers element.
+//DRGUI_PRIVATE void drgui_textbox__on_mouse_leave_line_numbers(drgui_element* pLineNumbers);
+
+/// Called when a mouse button is pressed on the line numbers element.
+DRGUI_PRIVATE void drgui_textbox__on_mouse_move_line_numbers(drgui_element* pLineNumbers, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+
+/// Called when a mouse button is pressed on the line numbers element.
+DRGUI_PRIVATE void drgui_textbox__on_mouse_button_down_line_numbers(drgui_element* pLineNumbers, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+
+/// Called when a mouse button is pressed on the line numbers element.
+DRGUI_PRIVATE void drgui_textbox__on_mouse_button_up_line_numbers(drgui_element* pLineNumbers, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags);
+
+/// Called when the line numbers element needs to be drawn.
+DRGUI_PRIVATE void drgui_textbox__on_paint_line_numbers(drgui_element* pLineNumbers, drgui_rect relativeRect, void* pPaintData);
+
+/// Refreshes the line number of the given text editor.
+DRGUI_PRIVATE void drgui_textbox__refresh_line_numbers(drgui_element* pTBElement);
+
 
 /// on_paint_rect()
 DRGUI_PRIVATE void drgui_textbox__on_text_layout_paint_rect(drgui_text_layout* pLayout, drgui_rect rect, drgui_color color, drgui_element* pTBElement, void* pPaintData);
@@ -201,6 +260,39 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_paint_text(drgui_text_layout* p
 
 /// on_dirty()
 DRGUI_PRIVATE void drgui_textbox__on_text_layout_dirty(drgui_text_layout* pLayout, drgui_rect rect);
+
+/// on_cursor_move()
+DRGUI_PRIVATE void drgui_textbox__on_text_layout_cursor_move(drgui_text_layout* pLayout);
+
+/// on_text_changed()
+DRGUI_PRIVATE void drgui_textbox__on_text_layout_text_changed(drgui_text_layout* pLayout);
+
+
+DRGUI_PRIVATE void drgui_textbox__on_vscroll(drgui_element* pSBElement, int scrollPos)
+{
+    drgui_element* pTBElement = *(drgui_element**)drgui_sb_get_extra_data(pSBElement);
+    assert(pTBElement != NULL);
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    drgui_text_layout_set_inner_offset_y(pTB->pTL, -drgui_text_layout_get_line_pos_y(pTB->pTL, scrollPos));
+
+    // The line numbers need to be redrawn.
+    drgui_dirty(pTB->pLineNumbers, drgui_get_local_rect(pTB->pLineNumbers));
+}
+
+DRGUI_PRIVATE void drgui_textbox__on_hscroll(drgui_element* pSBElement, int scrollPos)
+{
+    drgui_element* pTBElement = *(drgui_element**)drgui_sb_get_extra_data(pSBElement);
+    assert(pTBElement != NULL);
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    drgui_text_layout_set_inner_offset_x(pTB->pTL, (float)-scrollPos);
+}
+
 
 
 drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pParent, size_t extraDataSize, const void* pExtraData)
@@ -219,6 +311,7 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     drgui_set_on_mouse_button_down(pTBElement, drgui_textbox_on_mouse_button_down);
     drgui_set_on_mouse_button_up(pTBElement, drgui_textbox_on_mouse_button_up);
     drgui_set_on_mouse_button_dblclick(pTBElement, drgui_textbox_on_mouse_button_dblclick);
+    drgui_set_on_mouse_wheel(pTBElement, drgui_textbox_on_mouse_wheel);
     drgui_set_on_key_down(pTBElement, drgui_textbox_on_key_down);
     drgui_set_on_printable_key_down(pTBElement, drgui_textbox_on_printable_key_down);
     drgui_set_on_paint(pTBElement, drgui_textbox_on_paint);
@@ -230,6 +323,25 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
+    pTB->pVertScrollbar = drgui_create_scrollbar(pContext, pTBElement, drgui_sb_orientation_vertical, sizeof(&pTBElement), &pTBElement);
+    //drgui_set_on_mouse_enter(pTB->pVertScrollbar, text_editor_on_scrollbar_mouse_enter);
+    //drgui_set_on_mouse_leave(pTB->pVertScrollbar, text_editor_on_scrollbar_mouse_leave);
+    drgui_sb_set_on_scroll(pTB->pVertScrollbar, drgui_textbox__on_vscroll);
+    drgui_sb_set_mouse_wheel_scele(pTB->pVertScrollbar, 3);
+
+    pTB->pHorzScrollbar = drgui_create_scrollbar(pContext, pTBElement, drgui_sb_orientation_horizontal, sizeof(&pTBElement), &pTBElement);
+    //drgui_set_on_mouse_enter(pTB->pHorzScrollbar, text_editor_on_scrollbar_mouse_enter);
+    //drgui_set_on_mouse_leave(pTB->pHorzScrollbar, text_editor_on_scrollbar_mouse_leave);
+    drgui_sb_set_on_scroll(pTB->pHorzScrollbar, drgui_textbox__on_hscroll);
+
+    pTB->pLineNumbers = drgui_create_element(pContext, pTBElement, sizeof(&pTBElement), &pTBElement);
+    //drgui_set_on_mouse_enter(pTB->pLineNumbers, text_editor_on_mouse_enter_line_numbers);
+    //drgui_set_on_mouse_leave(pTB->pLineNumbers, text_editor_on_mouse_leave_line_numbers);
+    drgui_set_on_mouse_move(pTB->pLineNumbers, drgui_textbox__on_mouse_move_line_numbers);
+    drgui_set_on_mouse_button_down(pTB->pLineNumbers, drgui_textbox__on_mouse_button_down_line_numbers);
+    drgui_set_on_mouse_button_up(pTB->pLineNumbers, drgui_textbox__on_mouse_button_up_line_numbers);
+    drgui_set_on_paint(pTB->pLineNumbers, drgui_textbox__on_paint_line_numbers);
+
     pTB->pTL = drgui_create_text_layout(pContext, sizeof(&pTBElement), &pTBElement);
     if (pTB->pTL == NULL) {
         drgui_delete_element(pTBElement);
@@ -239,6 +351,8 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     drgui_text_layout_set_on_paint_rect(pTB->pTL, drgui_textbox__on_text_layout_paint_rect);
     drgui_text_layout_set_on_paint_text(pTB->pTL, drgui_textbox__on_text_layout_paint_text);
     drgui_text_layout_set_on_dirty(pTB->pTL, drgui_textbox__on_text_layout_dirty);
+    drgui_text_layout_set_on_cursor_move(pTB->pTL, drgui_textbox__on_text_layout_cursor_move);
+    drgui_text_layout_set_on_text_changed(pTB->pTL, drgui_textbox__on_text_layout_text_changed);
     drgui_text_layout_set_default_text_color(pTB->pTL, drgui_rgb(0, 0, 0));
     drgui_text_layout_set_cursor_color(pTB->pTL, drgui_rgb(0, 0, 0));
     drgui_text_layout_set_default_bg_color(pTB->pTL, drgui_rgb(255, 255, 255));
@@ -248,6 +362,10 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     pTB->borderColor = drgui_rgb(0, 0, 0);
     pTB->borderWidth = 1;
     pTB->padding     = 2;
+    pTB->lineNumbersPaddingRight = 16;
+    pTB->vertScrollbarSize = 16;
+    pTB->horzScrollbarSize = 16;
+    pTB->iLineSelectAnchor = 0;
 
     pTB->extraDataSize = extraDataSize;
     if (pExtraData != NULL) {
@@ -557,6 +675,12 @@ void drgui_textbox_on_size(drgui_element* pTBElement, float newWidth, float newH
     float containerHeight;
     drgui_textbox__calculate_text_layout_container_size(pTBElement, &containerWidth, &containerHeight);
     drgui_text_layout_set_container_size(pTB->pTL, containerWidth, containerHeight);
+
+    // Scrollbars need to be refreshed first.
+    drgui_textbox__refresh_scrollbars(pTBElement);
+
+    // Line numbers need to be refreshed.
+    drgui_textbox__refresh_line_numbers(pTBElement);
 }
 
 void drgui_textbox_on_mouse_move(drgui_element* pTBElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
@@ -648,6 +772,20 @@ void drgui_textbox_on_mouse_button_dblclick(drgui_element* pTBElement, int mouse
 
 }
 
+void drgui_textbox_on_mouse_wheel(drgui_element* pTBElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+{
+    (void)relativeMousePosX;
+    (void)relativeMousePosY;
+    (void)stateFlags;
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_sb_scroll(pTB->pVertScrollbar, -delta * drgui_sb_get_mouse_wheel_scale(pTB->pVertScrollbar));
+}
+
 void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int stateFlags)
 {
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
@@ -729,6 +867,45 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
 
             break;
         }
+
+        case DRGUI_ARROW_UP:
+        {
+            if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
+                drgui_text_layout_enter_selection_mode(pTB->pTL);
+            }
+
+            if (drgui_text_layout_is_anything_selected(pTB->pTL) && !drgui_text_layout_is_in_selection_mode(pTB->pTL)) {
+                drgui_text_layout_deselect_all(pTB->pTL);
+            }
+
+            drgui_text_layout_move_cursor_up(pTB->pTL);
+
+            if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
+                drgui_text_layout_leave_selection_mode(pTB->pTL);
+            }
+
+            break;
+        }
+
+        case DRGUI_ARROW_DOWN:
+        {
+            if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
+                drgui_text_layout_enter_selection_mode(pTB->pTL);
+            }
+
+            if (drgui_text_layout_is_anything_selected(pTB->pTL) && !drgui_text_layout_is_in_selection_mode(pTB->pTL)) {
+                drgui_text_layout_deselect_all(pTB->pTL);
+            }
+
+            drgui_text_layout_move_cursor_down(pTB->pTL);
+
+            if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
+                drgui_text_layout_leave_selection_mode(pTB->pTL);
+            }
+
+            break;
+        }
+
 
         case DRGUI_END:
         {
@@ -842,6 +1019,65 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_dirty(drgui_text_layout* pTL, d
     drgui_dirty(pTBElement, drgui_offset_rect(rect, offsetX, offsetY));
 }
 
+DRGUI_PRIVATE void drgui_textbox__on_text_layout_cursor_move(drgui_text_layout* pTL)
+{
+    // If the cursor is off the edge of the container we want to scroll it into position.
+    drgui_element* pTBElement = *(drgui_element**)drgui_text_layout_get_extra_data(pTL);
+    if (pTBElement == NULL) {
+        return;
+    }
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    // If the cursor is above or below the container, we need to scroll vertically.
+    int iLine = (int)drgui_text_layout_get_cursor_line(pTB->pTL);
+    if (iLine < drgui_sb_get_scroll_position(pTB->pVertScrollbar)) {
+        drgui_sb_scroll_to(pTB->pVertScrollbar, iLine);
+    }
+
+    int iBottomLine = drgui_sb_get_scroll_position(pTB->pVertScrollbar) + drgui_sb_get_page_size(pTB->pVertScrollbar) - 1;
+    if (iLine >= iBottomLine) {
+        drgui_sb_scroll_to(pTB->pVertScrollbar, iLine - (drgui_sb_get_page_size(pTB->pVertScrollbar) - 1) + 1);
+    }
+
+
+    // If the cursor is to the left or right of the container we need to scroll horizontally.
+    float cursorPosX;
+    float cursorPosY;
+    drgui_text_layout_get_cursor_position(pTB->pTL, &cursorPosX, &cursorPosY);
+
+    if (cursorPosX < 0) {
+        drgui_sb_scroll_to(pTB->pHorzScrollbar, (int)(cursorPosX - drgui_text_layout_get_inner_offset_x(pTB->pTL)) - 100);
+    }
+    if (cursorPosX >= drgui_text_layout_get_container_width(pTB->pTL)) {
+        drgui_sb_scroll_to(pTB->pHorzScrollbar, (int)(cursorPosX - drgui_text_layout_get_inner_offset_x(pTB->pTL) - drgui_text_layout_get_container_width(pTB->pTL)) + 100);
+    }
+}
+
+DRGUI_PRIVATE void drgui_textbox__on_text_layout_text_changed(drgui_text_layout* pTL)
+{
+    drgui_element* pTBElement = *(drgui_element**)drgui_text_layout_get_extra_data(pTL);
+    if (pTBElement == NULL) {
+        return;
+    }
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    // Scrollbars need to be refreshed whenever text is changed.
+    drgui_textbox__refresh_scrollbars(pTBElement);
+
+    // The line numbers need to be redrawn.
+    // TODO: This can probably be optimized a bit so that it is only redrawn if a line was inserted or deleted.
+    drgui_dirty(pTB->pLineNumbers, drgui_get_local_rect(pTB->pLineNumbers));
+}
+
+
 void drgui_textbox_on_paint(drgui_element* pTBElement, drgui_rect relativeRect, void* pPaintData)
 {
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
@@ -849,18 +1085,22 @@ void drgui_textbox_on_paint(drgui_element* pTBElement, drgui_rect relativeRect, 
         return;
     }
 
+    drgui_rect textRect = drgui_textbox__get_text_rect(pTBElement);
+
     // Border.
     drgui_rect borderRect = drgui_get_local_rect(pTBElement);
     drgui_draw_rect_outline(pTBElement, borderRect, pTB->borderColor, pTB->borderWidth, pPaintData);
 
     // Padding.
-    drgui_rect paddingRect = drgui_grow_rect(borderRect, -pTB->borderWidth);
+    drgui_rect paddingRect = drgui_grow_rect(textRect, pTB->padding);
     drgui_draw_rect_outline(pTBElement, paddingRect, drgui_text_layout_get_default_bg_color(pTB->pTL), pTB->padding, pPaintData);
 
     // Text.
-    drgui_rect textRect = drgui_clamp_rect(drgui_textbox__get_text_rect(pTBElement), relativeRect);
     drgui_set_clip(pTBElement, textRect, pPaintData);
-    drgui_text_layout_paint(pTB->pTL, drgui_grow_rect(textRect, -pTB->padding), pTBElement, pPaintData);
+    drgui_text_layout_paint(pTB->pTL, textRect, pTBElement, pPaintData);
+
+    // The dead space between the scrollbars should always be drawn with the default background color.
+    drgui_draw_rect(pTBElement, drgui_textbox__get_scrollbar_dead_space_rect(pTBElement), drgui_rgb(48, 48, 48), pPaintData);
 }
 
 void drgui_textbox_on_capture_keyboard(drgui_element* pTBElement, drgui_element* pPrevCapturedElement)
@@ -916,7 +1156,12 @@ DRGUI_PRIVATE void drgui_textbox__get_text_offset(drgui_element* pTBElement, flo
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
     if (pTB != NULL)
     {
-        offsetX = pTB->borderWidth + pTB->padding;
+        float lineNumbersWidth = 0;
+        if (drgui_is_visible(pTB->pLineNumbers)) {
+            lineNumbersWidth = drgui_get_width(pTB->pLineNumbers);
+        }
+
+        offsetX = pTB->borderWidth + pTB->padding + lineNumbersWidth;
         offsetY = pTB->borderWidth + pTB->padding;
     }
 
@@ -937,8 +1182,23 @@ DRGUI_PRIVATE void drgui_textbox__calculate_text_layout_container_size(drgui_ele
     drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
     if (pTB != NULL)
     {
-        width  = drgui_get_width(pTBElement)  - (pTB->borderWidth + pTB->padding)*2;
-        height = drgui_get_height(pTBElement) - (pTB->borderWidth + pTB->padding)*2;
+        float horzScrollbarSize = 0;
+        if (drgui_is_visible(pTB->pHorzScrollbar)) {
+            horzScrollbarSize = drgui_get_height(pTB->pHorzScrollbar);
+        }
+
+        float vertScrollbarSize = 0;
+        if (drgui_is_visible(pTB->pVertScrollbar)) {
+            vertScrollbarSize = drgui_get_width(pTB->pVertScrollbar);
+        }
+
+        float lineNumbersWidth = 0;
+        if (drgui_is_visible(pTB->pLineNumbers)) {
+            lineNumbersWidth = drgui_get_width(pTB->pLineNumbers);
+        }
+
+        width  = drgui_get_width(pTBElement)  - (pTB->borderWidth + pTB->padding)*2 - vertScrollbarSize - lineNumbersWidth;
+        height = drgui_get_height(pTBElement) - (pTB->borderWidth + pTB->padding)*2 - horzScrollbarSize;
     }
 
     if (pWidthOut != NULL) {
@@ -966,6 +1226,314 @@ DRGUI_PRIVATE drgui_rect drgui_textbox__get_text_rect(drgui_element* pTBElement)
 
     return drgui_make_rect(offsetX, offsetY, offsetX + width, offsetY + height);
 }
+
+
+DRGUI_PRIVATE void drgui_textbox__refresh_scrollbars(drgui_element* pTBElement)
+{
+    // The layout depends on the range because we may be dynamically hiding and showing the scrollbars depending on the range. Thus, we
+    // refresh the range first. However, dynamically showing and hiding the scrollbars (which is done when the layout is refreshed) affects
+    // the size of the text box, which in turn affects the range. Thus, we need to refresh the ranges a second time after the layouts.
+
+    drgui_textbox__refresh_scrollbar_ranges(pTBElement);
+    drgui_textbox__refresh_scrollbar_layouts(pTBElement);
+    drgui_textbox__refresh_scrollbar_ranges(pTBElement);
+}
+
+DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_ranges(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    // The vertical scrollbar is based on the line count.
+    unsigned int lineCount = drgui_text_layout_get_line_count(pTB->pTL);
+    unsigned int pageSize  = drgui_text_layout_get_visible_line_count_starting_at(pTB->pTL, drgui_sb_get_scroll_position(pTB->pVertScrollbar));
+    drgui_sb_set_range_and_page_size(pTB->pVertScrollbar, 0, lineCount + pageSize - 1 - 1, pageSize);     // -1 to make the range 0 based. -1 to ensure at least one line is visible.
+
+    if (drgui_sb_is_thumb_visible(pTB->pVertScrollbar)) {
+        if (!drgui_is_visible(pTB->pVertScrollbar)) {
+            drgui_show(pTB->pVertScrollbar);
+        }
+    } else {
+        if (drgui_is_visible(pTB->pVertScrollbar)) {
+            drgui_hide(pTB->pVertScrollbar);
+        }
+    }
+
+
+    // The horizontal scrollbar is a per-pixel scrollbar, and is based on the width of the text versus the width of the container.
+    drgui_rect textRect = drgui_text_layout_get_text_rect_relative_to_bounds(pTB->pTL);
+    float containerWidth;
+    drgui_text_layout_get_container_size(pTB->pTL, &containerWidth, NULL);
+    drgui_sb_set_range_and_page_size(pTB->pHorzScrollbar, 0, (int)(textRect.right - textRect.left + (containerWidth/2)), (int)containerWidth);
+
+    if (drgui_sb_is_thumb_visible(pTB->pHorzScrollbar)) {
+        if (!drgui_is_visible(pTB->pHorzScrollbar)) {
+            drgui_show(pTB->pHorzScrollbar);
+            drgui_textbox__refresh_line_numbers(pTBElement);
+        }
+    } else {
+        if (drgui_is_visible(pTB->pHorzScrollbar)) {
+            drgui_hide(pTB->pHorzScrollbar);
+            drgui_textbox__refresh_line_numbers(pTBElement);
+        }
+    }
+}
+
+DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_layouts(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    float offsetLeft   = pTB->borderWidth;
+    float offsetTop    = pTB->borderWidth;
+    float offsetRight  = pTB->borderWidth;
+    float offsetBottom = pTB->borderWidth;
+
+    float scrollbarSizeH = drgui_sb_is_thumb_visible(pTB->pHorzScrollbar) ? pTB->horzScrollbarSize : 0;
+    float scrollbarSizeV = drgui_sb_is_thumb_visible(pTB->pVertScrollbar) ? pTB->vertScrollbarSize : 0;
+
+    drgui_set_size(pTB->pVertScrollbar, scrollbarSizeV, drgui_get_height(pTBElement) - scrollbarSizeH - (offsetTop + offsetBottom));
+    drgui_set_size(pTB->pHorzScrollbar, drgui_get_width(pTBElement) - scrollbarSizeV - (offsetLeft + offsetRight), scrollbarSizeH);
+
+    drgui_set_relative_position(pTB->pVertScrollbar, drgui_get_width(pTBElement) - scrollbarSizeV - offsetRight, offsetTop);
+    drgui_set_relative_position(pTB->pHorzScrollbar, offsetLeft, drgui_get_height(pTBElement) - scrollbarSizeH - offsetBottom);
+
+
+    // A change in the layout of the horizontal scrollbar will affect the layout of the line numbers.
+    drgui_textbox__refresh_line_numbers(pTBElement);
+}
+
+DRGUI_PRIVATE drgui_rect drgui_textbox__get_scrollbar_dead_space_rect(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    float offsetLeft   = pTB->borderWidth;
+    float offsetTop    = pTB->borderWidth;
+    float offsetRight  = pTB->borderWidth;
+    float offsetBottom = pTB->borderWidth;
+
+    float scrollbarSizeH = drgui_is_visible(pTB->pHorzScrollbar) ? drgui_get_width(pTB->pHorzScrollbar) : 0;
+    float scrollbarSizeV = drgui_is_visible(pTB->pVertScrollbar) ? drgui_get_height(pTB->pVertScrollbar) : 0;
+
+    return drgui_make_rect(scrollbarSizeH + offsetLeft, scrollbarSizeV + offsetTop, drgui_get_width(pTBElement) - offsetRight, drgui_get_height(pTBElement) - offsetBottom);
+}
+
+/*
+DRGUI_PRIVATE void drgui_textbox__on_mouse_enter_line_numbers(drgui_element* pLineNumbers)
+{
+    ak_window* pWindow = ak_get_element_window(pLineNumbers);
+    assert(pWindow != NULL);
+
+    ak_set_window_cursor(pWindow, ak_cursor_type_default);
+}
+
+DRGUI_PRIVATE void drgui_textbox__on_mouse_leave_line_numbers(drgui_element* pLineNumbers)
+{
+    // If the cursor is still over the main text box we'll want to change the cursor to the ibeam.
+    drgui_element* pTBElement = *(drgui_element**)drgui_get_extra_data(pLineNumbers);
+    assert(pTBElement != NULL);
+
+    if (drgui_is_element_under_mouse(pTBElement))
+    {
+        ak_window* pWindow = ak_get_element_window(pTBElement);
+        assert(pWindow != NULL);
+
+        ak_set_window_cursor(pWindow, ak_cursor_type_ibeam);
+    }
+}
+*/
+
+DRGUI_PRIVATE void drgui_textbox__on_mouse_move_line_numbers(drgui_element* pLineNumbers, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+{
+    (void)relativeMousePosX;
+
+    drgui_element* pTBElement = *(drgui_element**)drgui_get_extra_data(pLineNumbers);
+    assert(pTBElement != NULL);
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    if ((stateFlags & DRGUI_MOUSE_BUTTON_LEFT_DOWN) != 0)
+    {
+        if (drgui_get_element_with_mouse_capture(pLineNumbers->pContext) == pLineNumbers)
+        {
+            // We just move the cursor around based on the line number we've moved over.
+            drgui_text_layout_enter_selection_mode(pTB->pTL);
+            {
+                //float offsetX = pTextEditorData->padding;
+                float offsetY = pTB->padding;
+                unsigned int iLine = drgui_text_layout_get_line_at_pos_y(pTB->pTL, relativeMousePosY - offsetY);
+                unsigned int iAnchorLine = pTB->iLineSelectAnchor;
+                unsigned int lineCount = drgui_text_layout_get_line_count(pTB->pTL);
+
+                unsigned int iSelectionFirstLine = drgui_text_layout_get_selection_first_line(pTB->pTL);
+                unsigned int iSelectionLastLine = drgui_text_layout_get_selection_last_line(pTB->pTL);
+                if (iSelectionLastLine != iSelectionFirstLine) {
+                    iSelectionLastLine -= 1;
+                }
+
+                // If we're moving updwards we want to position the cursor at the start of the line. Otherwise we want to move the cursor to the start
+                // of the next line, or the end of the text.
+                bool movingUp = false;
+                if (iLine < iAnchorLine) {
+                    movingUp = true;
+                }
+
+                // If we're moving up the selection anchor needs to be placed at the end of the last line. Otherwise we need to move it to the start
+                // of the first line.
+                if (movingUp) {
+                    if (iAnchorLine + 1 < lineCount) {
+                        drgui_text_layout_move_selection_anchor_to_start_of_line(pTB->pTL, iAnchorLine + 1);
+                    } else {
+                        drgui_text_layout_move_selection_anchor_to_end_of_line(pTB->pTL, iAnchorLine);
+                    }
+                } else {
+                    drgui_text_layout_move_selection_anchor_to_start_of_line(pTB->pTL, iAnchorLine);
+                }
+
+
+                // If we're moving up we want the cursor to be placed at the start of the selection range. Otherwise we want to place the cursor
+                // at the end of the selection range.
+                if (movingUp) {
+                    drgui_text_layout_move_cursor_to_start_of_line_by_index(pTB->pTL, iLine);
+                } else {
+                    if (iLine + 1 < lineCount) {
+                        drgui_text_layout_move_cursor_to_start_of_line_by_index(pTB->pTL, iLine + 1);
+                    } else {
+                        drgui_text_layout_move_cursor_to_end_of_line_by_index(pTB->pTL, iLine);
+                    }
+                }
+            }
+            drgui_text_layout_leave_selection_mode(pTB->pTL);
+        }
+    }
+}
+
+DRGUI_PRIVATE void drgui_textbox__on_mouse_button_down_line_numbers(drgui_element* pLineNumbers, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+{
+    (void)relativeMousePosX;
+    (void)stateFlags;
+
+    drgui_element* pTBElement = *(drgui_element**)drgui_get_extra_data(pLineNumbers);
+    assert(pTBElement != NULL);
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    if (mouseButton == DRGUI_MOUSE_BUTTON_LEFT)
+    {
+        //float offsetX = pTextEditorData->padding;
+        float offsetY = pTB->padding;
+        pTB->iLineSelectAnchor = drgui_text_layout_get_line_at_pos_y(pTB->pTL, relativeMousePosY - offsetY);
+
+        drgui_text_layout_deselect_all(pTB->pTL);
+
+        drgui_text_layout_move_cursor_to_start_of_line_by_index(pTB->pTL, pTB->iLineSelectAnchor);
+
+        drgui_text_layout_enter_selection_mode(pTB->pTL);
+        {
+            if (pTB->iLineSelectAnchor + 1 < drgui_text_layout_get_line_count(pTB->pTL)) {
+                drgui_text_layout_move_cursor_to_start_of_line_by_index(pTB->pTL, pTB->iLineSelectAnchor + 1);
+            } else {
+                drgui_text_layout_move_cursor_to_end_of_line(pTB->pTL);
+            }
+        }
+        drgui_text_layout_leave_selection_mode(pTB->pTL);
+
+        drgui_capture_mouse(pLineNumbers);
+    }
+}
+
+DRGUI_PRIVATE void drgui_textbox__on_mouse_button_up_line_numbers(drgui_element* pLineNumbers, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
+{
+    (void)relativeMousePosX;
+    (void)relativeMousePosY;
+    (void)stateFlags;
+
+    drgui_element* pTBElement = *(drgui_element**)drgui_get_extra_data(pLineNumbers);
+    assert(pTBElement != NULL);
+
+    if (mouseButton == DRGUI_MOUSE_BUTTON_LEFT)
+    {
+        drgui_release_mouse(pLineNumbers->pContext);
+    }
+}
+
+DRGUI_PRIVATE void drgui_textbox__on_paint_rect_line_numbers(drgui_text_layout* pLayout, drgui_rect rect, drgui_color color, drgui_element* pTBElement, void* pPaintData)
+{
+    (void)pLayout;
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    float offsetX = pTB->padding;
+    float offsetY = pTB->padding;
+
+    drgui_draw_rect(pTB->pLineNumbers, drgui_offset_rect(rect, offsetX, offsetY), color, pPaintData);
+}
+
+DRGUI_PRIVATE void drgui_textbox__on_paint_text_line_numbers(drgui_text_layout* pLayout, drgui_text_run* pRun, drgui_element* pTBElement, void* pPaintData)
+{
+    (void)pLayout;
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    float offsetX = pTB->padding;
+    float offsetY = pTB->padding;
+    drgui_draw_text(pTB->pLineNumbers, pRun->pFont, pRun->text, (int)pRun->textLength, (float)pRun->posX + offsetX, (float)pRun->posY + offsetY, pRun->textColor, pRun->backgroundColor, pPaintData);
+}
+
+DRGUI_PRIVATE void drgui_textbox__on_paint_line_numbers(drgui_element* pLineNumbers, drgui_rect relativeRect, void* pPaintData)
+{
+    (void)relativeRect;
+
+    drgui_element* pTBElement = *((drgui_element**)drgui_get_extra_data(pLineNumbers));
+    assert(pTBElement != NULL);
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    float lineNumbersWidth  = drgui_get_width(pLineNumbers) - (pTB->padding*2) - pTB->lineNumbersPaddingRight;
+    float lineNumbersHeight = drgui_get_height(pLineNumbers) - (pTB->padding*2);
+
+    drgui_text_layout_paint_line_numbers(pTB->pTL, lineNumbersWidth, lineNumbersHeight, drgui_rgb(80, 160, 192), drgui_textbox__on_paint_text_line_numbers, drgui_textbox__on_paint_rect_line_numbers, pTBElement, pPaintData);
+
+    drgui_draw_rect_outline(pLineNumbers, drgui_get_local_rect(pLineNumbers), drgui_text_layout_get_default_bg_color(pTB->pTL), pTB->padding, pPaintData);
+
+    // Right padding.
+    drgui_rect rightPaddingRect = drgui_get_local_rect(pLineNumbers);
+    rightPaddingRect.right -= pTB->padding;
+    rightPaddingRect.left   = rightPaddingRect.right - pTB->lineNumbersPaddingRight;
+    drgui_draw_rect(pLineNumbers, rightPaddingRect, drgui_text_layout_get_default_bg_color(pTB->pTL), pPaintData);
+}
+
+DRGUI_PRIVATE void drgui_textbox__refresh_line_numbers(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    assert(pTB != NULL);
+
+    float lineNumbersWidth = 0;
+    if (drgui_is_visible(pTB->pLineNumbers)) {
+        lineNumbersWidth = 64;
+    }
+
+    float scrollbarHeight = drgui_is_visible(pTB->pHorzScrollbar) ? drgui_get_height(pTB->pHorzScrollbar) : 0;
+    drgui_set_size(pTB->pLineNumbers, lineNumbersWidth, drgui_get_height(pTBElement) - scrollbarHeight);
+
+
+    // The size of the text container may have changed.
+    float textEditorWidth;
+    float textEditorHeight;
+    drgui_textbox__calculate_text_layout_container_size(pTBElement, &textEditorWidth, &textEditorHeight);
+    drgui_text_layout_set_container_size(pTB->pTL, textEditorWidth, textEditorHeight);
+
+
+    // Force a redraw just to be sure everything is in a valid state.
+    drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+}
+
 #endif
 
 
