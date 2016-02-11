@@ -2900,15 +2900,12 @@ void drgui_text_layout_paint(drgui_text_layout* pTL, drgui_rect rect, drgui_elem
     drgui_rect rectTop    = drgui_make_rect(0, 0, pTL->containerWidth, textRect.top);
     drgui_rect rectBottom = drgui_make_rect(0, textRect.bottom, pTL->containerWidth, pTL->containerHeight);
 
-    if (pTL->onPaintRect)
-    {
-        if (rectTop.bottom > rect.top) {
-            pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
-        }
+    if (rectTop.bottom > rect.top) {
+        pTL->onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
+    }
 
-        if (rectBottom.top < rect.bottom) {
-            pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
-        }
+    if (rectBottom.top < rect.bottom) {
+        pTL->onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
     }
 
 

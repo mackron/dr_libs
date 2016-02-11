@@ -325,19 +325,14 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     assert(pTB != NULL);
 
     pTB->pVertScrollbar = drgui_create_scrollbar(pContext, pTBElement, drgui_sb_orientation_vertical, sizeof(&pTBElement), &pTBElement);
-    //drgui_set_on_mouse_enter(pTB->pVertScrollbar, text_editor_on_scrollbar_mouse_enter);
-    //drgui_set_on_mouse_leave(pTB->pVertScrollbar, text_editor_on_scrollbar_mouse_leave);
     drgui_sb_set_on_scroll(pTB->pVertScrollbar, drgui_textbox__on_vscroll);
     drgui_sb_set_mouse_wheel_scele(pTB->pVertScrollbar, 3);
 
     pTB->pHorzScrollbar = drgui_create_scrollbar(pContext, pTBElement, drgui_sb_orientation_horizontal, sizeof(&pTBElement), &pTBElement);
-    //drgui_set_on_mouse_enter(pTB->pHorzScrollbar, text_editor_on_scrollbar_mouse_enter);
-    //drgui_set_on_mouse_leave(pTB->pHorzScrollbar, text_editor_on_scrollbar_mouse_leave);
     drgui_sb_set_on_scroll(pTB->pHorzScrollbar, drgui_textbox__on_hscroll);
 
     pTB->pLineNumbers = drgui_create_element(pContext, pTBElement, sizeof(&pTBElement), &pTBElement);
-    //drgui_set_on_mouse_enter(pTB->pLineNumbers, text_editor_on_mouse_enter_line_numbers);
-    //drgui_set_on_mouse_leave(pTB->pLineNumbers, text_editor_on_mouse_leave_line_numbers);
+    drgui_hide(pTB->pLineNumbers);
     drgui_set_on_mouse_move(pTB->pLineNumbers, drgui_textbox__on_mouse_move_line_numbers);
     drgui_set_on_mouse_button_down(pTB->pLineNumbers, drgui_textbox__on_mouse_button_down_line_numbers);
     drgui_set_on_mouse_button_up(pTB->pLineNumbers, drgui_textbox__on_mouse_button_up_line_numbers);
@@ -1097,11 +1092,11 @@ void drgui_textbox_on_paint(drgui_element* pTBElement, drgui_rect relativeRect, 
     drgui_draw_rect_outline(pTBElement, paddingRect, drgui_text_layout_get_default_bg_color(pTB->pTL), pTB->padding, pPaintData);
 
     // Text.
-    drgui_set_clip(pTBElement, textRect, pPaintData);
-    drgui_text_layout_paint(pTB->pTL, textRect, pTBElement, pPaintData);
+    drgui_set_clip(pTBElement, drgui_clamp_rect(textRect, relativeRect), pPaintData);
+    drgui_text_layout_paint(pTB->pTL, drgui_offset_rect(drgui_clamp_rect(textRect, relativeRect), -textRect.left, -textRect.top), pTBElement, pPaintData);
 
     // The dead space between the scrollbars should always be drawn with the default background color.
-    drgui_draw_rect(pTBElement, drgui_textbox__get_scrollbar_dead_space_rect(pTBElement), drgui_rgb(48, 48, 48), pPaintData);
+    drgui_draw_rect(pTBElement, drgui_textbox__get_scrollbar_dead_space_rect(pTBElement), drgui_text_layout_get_default_bg_color(pTB->pTL), pPaintData);
 }
 
 void drgui_textbox_on_capture_keyboard(drgui_element* pTBElement, drgui_element* pPrevCapturedElement)
@@ -1316,6 +1311,10 @@ DRGUI_PRIVATE drgui_rect drgui_textbox__get_scrollbar_dead_space_rect(drgui_elem
 
     float scrollbarSizeH = drgui_is_visible(pTB->pHorzScrollbar) ? drgui_get_width(pTB->pHorzScrollbar) : 0;
     float scrollbarSizeV = drgui_is_visible(pTB->pVertScrollbar) ? drgui_get_height(pTB->pVertScrollbar) : 0;
+
+    if (scrollbarSizeH == 0 && scrollbarSizeV == 0) {
+        return drgui_make_rect(0, 0, 0, 0);
+    }
 
     return drgui_make_rect(scrollbarSizeH + offsetLeft, scrollbarSizeV + offsetTop, drgui_get_width(pTBElement) - offsetRight, drgui_get_height(pTBElement) - offsetBottom);
 }
