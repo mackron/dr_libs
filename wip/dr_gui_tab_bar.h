@@ -174,37 +174,37 @@ drgui_tab* drgui_tabbar_create_and_append_tab(drgui_element* pTBElement, const c
 drgui_tab* drgui_tabbar_create_and_prepend_tab(drgui_element* pTBElement, const char* text, size_t extraDataSize, const void* pExtraData);
 
 /// Recursively deletes a tree view item.
-void tab_delete(drgui_tab* pTab);
+void drgui_tab_delete(drgui_tab* pTab);
 
 /// Retrieves the tree-view GUI element that owns the given item.
-drgui_element* tab_get_tab_bar_element(drgui_tab* pTab);
+drgui_element* drgui_tab_get_tab_bar_element(drgui_tab* pTab);
 
 /// Retrieves the size of the extra data associated with the given tree-view item.
-size_t tab_get_extra_data_size(drgui_tab* pTab);
+size_t drgui_tab_get_extra_data_size(drgui_tab* pTab);
 
 /// Retrieves a pointer to the extra data associated with the given tree-view item.
-void* tab_get_extra_data(drgui_tab* pTab);
+void* drgui_tab_get_extra_data(drgui_tab* pTab);
 
 
 /// Sets the text of the given tab bar item.
-void tab_set_text(drgui_tab* pTab, const char* text);
+void drgui_tab_set_text(drgui_tab* pTab, const char* text);
 
 /// Retrieves the text of the given tab bar item.
-const char* tab_get_text(drgui_tab* pTab);
+const char* drgui_tab_get_text(drgui_tab* pTab);
 
 
 /// Retrieves a pointer to the next tab in the tab bar.
-drgui_tab* tab_get_next_tab(drgui_tab* pTab);
+drgui_tab* drgui_tab_get_next_tab(drgui_tab* pTab);
 
 /// Retrieves a pointer to the previous tab in the tab bar.
-drgui_tab* tab_get_prev_tab(drgui_tab* pTab);
+drgui_tab* drgui_tab_get_prev_tab(drgui_tab* pTab);
 
 
 /// Moves the given tab to the front of the tab bar that owns it.
-void tab_move_to_front(drgui_tab* pTab);
+void drgui_tab_move_to_front(drgui_tab* pTab);
 
 /// Determines whether or not the given tab is in view.
-bool tab_is_in_view(drgui_tab* pTab);
+bool drgui_tab_is_in_view(drgui_tab* pTab);
 
 /// Moves the given tab into view, if it's not already.
 ///
@@ -434,7 +434,7 @@ void drgui_delete_tab_bar(drgui_element* pTBElement)
     }
 
     while (pTB->pFirstTab != NULL) {
-        tab_delete(pTB->pFirstTab);
+        drgui_tab_delete(pTB->pFirstTab);
     }
 
 
@@ -1206,7 +1206,7 @@ drgui_tab* drgui_tabbar_create_and_prepend_tab(drgui_element* pTBElement, const 
     return pTab;
 }
 
-void tab_delete(drgui_tab* pTab)
+void drgui_tab_delete(drgui_tab* pTab)
 {
     if (pTab == NULL) {
         return;
@@ -1216,7 +1216,7 @@ void tab_delete(drgui_tab* pTab)
     free(pTab);
 }
 
-drgui_element* tab_get_tab_bar_element(drgui_tab* pTab)
+drgui_element* drgui_tab_get_tab_bar_element(drgui_tab* pTab)
 {
     if (pTab == NULL) {
         return NULL;
@@ -1225,7 +1225,7 @@ drgui_element* tab_get_tab_bar_element(drgui_tab* pTab)
     return pTab->pTBElement;
 }
 
-size_t tab_get_extra_data_size(drgui_tab* pTab)
+size_t drgui_tab_get_extra_data_size(drgui_tab* pTab)
 {
     if (pTab == NULL) {
         return 0;
@@ -1234,7 +1234,7 @@ size_t tab_get_extra_data_size(drgui_tab* pTab)
     return pTab->extraDataSize;
 }
 
-void* tab_get_extra_data(drgui_tab* pTab)
+void* drgui_tab_get_extra_data(drgui_tab* pTab)
 {
     if (pTab == NULL) {
         return NULL;
@@ -1244,7 +1244,7 @@ void* tab_get_extra_data(drgui_tab* pTab)
 }
 
 
-void tab_set_text(drgui_tab* pTab, const char* text)
+void drgui_tab_set_text(drgui_tab* pTab, const char* text)
 {
     if (pTab == NULL) {
         return;
@@ -1262,7 +1262,7 @@ void tab_set_text(drgui_tab* pTab, const char* text)
     }
 }
 
-const char* tab_get_text(drgui_tab* pTab)
+const char* drgui_tab_get_text(drgui_tab* pTab)
 {
     if (pTab == NULL) {
         return NULL;
@@ -1272,7 +1272,7 @@ const char* tab_get_text(drgui_tab* pTab)
 }
 
 
-drgui_tab* tab_get_next_tab(drgui_tab* pTab)
+drgui_tab* drgui_tab_get_next_tab(drgui_tab* pTab)
 {
     if (pTab == NULL) {
         return NULL;
@@ -1281,7 +1281,7 @@ drgui_tab* tab_get_next_tab(drgui_tab* pTab)
     return pTab->pNextTab;
 }
 
-drgui_tab* tab_get_prev_tab(drgui_tab* pTab)
+drgui_tab* drgui_tab_get_prev_tab(drgui_tab* pTab)
 {
     if (pTab == NULL) {
         return NULL;
@@ -1291,7 +1291,7 @@ drgui_tab* tab_get_prev_tab(drgui_tab* pTab)
 }
 
 
-void tab_move_to_front(drgui_tab* pTab)
+void drgui_tab_move_to_front(drgui_tab* pTab)
 {
     if (pTab == NULL) {
         return;
@@ -1303,7 +1303,7 @@ void tab_move_to_front(drgui_tab* pTab)
     tab_prepend(pTab, pTBElement);
 }
 
-bool tab_is_in_view(drgui_tab* pTab)
+bool drgui_tab_is_in_view(drgui_tab* pTab)
 {
     if (pTab == NULL) {
         return false;
@@ -1314,8 +1314,8 @@ bool tab_is_in_view(drgui_tab* pTab)
 
 void drgui_tab_move_into_view(drgui_tab* pTab)
 {
-    if (!tab_is_in_view(pTab)) {
-        tab_move_to_front(pTab);
+    if (!drgui_tab_is_in_view(pTab)) {
+        drgui_tab_move_to_front(pTab);
     }
 }
 
