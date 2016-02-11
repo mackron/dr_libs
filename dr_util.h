@@ -45,7 +45,7 @@ extern "C" {
 
 
 // Disable MSVC compatibility if we're compiling with it.
-#if !defined(DRUTIL_NO_MSVC_COMPAT) && defined(_MSC_VER)
+#if !defined(DRUTIL_NO_MSVC_COMPAT) && (defined(_MSC_VER))
     #define DRUTIL_NO_MSVC_COMPAT
 #endif
 
@@ -146,10 +146,12 @@ DRUTIL_INLINE int strncat_s(char* dst, size_t dstSizeInBytes, const char* src, s
     return dr_strncat_s(dst, dstSizeInBytes, src, count);
 }
 
+#ifndef __MINGW32__
 DRUTIL_INLINE int _stricmp(const char* string1, const char* string2)
 {
     return strcasecmp(string1, string2);
 }
+#endif
 #endif
 
 
@@ -612,6 +614,7 @@ int strncat_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>     // For memmove()
+#include <errno.h>
 
 int dr_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
@@ -1844,8 +1847,9 @@ typedef struct
 
 } drutil_thread_win32;
 
-static DWORD WINAPI drutil_thread_entry_proc_win32(drutil_thread_win32* pThreadWin32)
+static DWORD WINAPI drutil_thread_entry_proc_win32(LPVOID pUserData)
 {
+    drutil_thread_win32* pThreadWin32 = pUserData;
     assert(pThreadWin32 != NULL);
 
     void* pEntryProcData = pThreadWin32->pData;

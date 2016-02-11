@@ -5102,7 +5102,7 @@ void drgui_draw_image_dr_2d(drgui_resource image, drgui_draw_image_args* pArgs, 
 
 drgui_resource drgui_create_font_dr_2d(void* pPaintingContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation)
 {
-    return dr2d_create_font(pPaintingContext, family, size, weight, slant, rotation);
+    return dr2d_create_font(pPaintingContext, family, size, (dr2d_font_weight)weight, (dr2d_font_slant)slant, rotation);
 }
 
 void drgui_delete_font_dr_2d(drgui_resource font)

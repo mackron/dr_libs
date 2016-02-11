@@ -3611,14 +3611,14 @@ DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layo
             }
             else
             {
-                // It's not on this line - go to the next one.
+                // It's not on this line - go to the next one, unless we're already on the last line.
+                if (iLastRunOnLinePlus1 == pTL->runCount) {
+                    break;
+                }
+                
                 iFirstRunOnLine = iLastRunOnLinePlus1;
                 runningLineTop  = lineBottom;
             }
-        }
-
-        if (iFirstRunOnLine == iLastRunOnLinePlus1 && iFirstRunOnLine > 0) {
-            iFirstRunOnLine -= 1;
         }
     }
 

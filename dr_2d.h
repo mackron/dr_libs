@@ -1582,12 +1582,12 @@ bool dr2d_on_create_image_gdi(dr2d_image* pImage, unsigned int stride, const voi
     bmi.bmiHeader.biPlanes      = 1;
     bmi.bmiHeader.biBitCount    = 32;   // Only supporting 32-bit formats.
     bmi.bmiHeader.biCompression = BI_RGB;
-    pGDIData->hSrcBitmap = CreateDIBSection(pGDIContextData->hDC, &bmi, DIB_RGB_COLORS, &pGDIData->pSrcBitmapData, NULL, 0);
+    pGDIData->hSrcBitmap = CreateDIBSection(pGDIContextData->hDC, &bmi, DIB_RGB_COLORS, (void**)&pGDIData->pSrcBitmapData, NULL, 0);
     if (pGDIData->hSrcBitmap == NULL) {
         return false;
     }
 
-    pGDIData->hIntermediateBitmap = CreateDIBSection(pGDIContextData->hDC, &bmi, DIB_RGB_COLORS, &pGDIData->pIntermediateBitmapData, NULL, 0);
+    pGDIData->hIntermediateBitmap = CreateDIBSection(pGDIContextData->hDC, &bmi, DIB_RGB_COLORS, (void**)&pGDIData->pIntermediateBitmapData, NULL, 0);
     if (pGDIData->hIntermediateBitmap == NULL) {
         DeleteObject(pGDIData->hSrcBitmap);
         return false;

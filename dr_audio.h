@@ -6,7 +6,7 @@
 // If you've stumbled across this library, be aware that this is very, very early in development. A lot of APIs
 // are very temporary, in particular the effects API which at the moment are tied very closely to DirectSound.
 //
-// Currently, the only backend available is DirectSound while I figure out the API. 
+// Currently, the only backend available is DirectSound while I figure out the API.
 //
 // General
 // - This library is NOT thread safe. Functions can be called from any thread, but it is up to the host application
@@ -355,7 +355,7 @@ float draudio_get_pan(draudio_buffer* pBuffer);
 
 
 /// Sets the volume of the given buffer.
-/// 
+///
 /// @param volume [in] The new volume.
 ///
 /// @remarks
@@ -788,7 +788,7 @@ int draudio_strcpy(char* dst, size_t dstSizeInBytes, const char* src)
         dst[0] = '\0';
         return EINVAL;
     }
-    
+
     char* iDst = dst;
     const char* iSrc = src;
     size_t remainingSizeInBytes = dstSizeInBytes;
@@ -1582,7 +1582,7 @@ void ea_steaming_buffer_marker_callback(draudio_buffer* pBuffer, unsigned int ev
 {
     ea_streaming_buffer_data* pStreamingData = pUserData;
     assert(pStreamingData != NULL);
-    
+
     size_t offset = 0;
     if (eventID == DRAUDIO_STREAMING_MARKER_0) {
         offset = pStreamingData->chunkSize;
@@ -1636,7 +1636,7 @@ draudio_buffer* draudio_create_streaming_buffer(draudio_device* pDevice, draudio
     pStreamingData->isLoopingEnabled        = false;
     pStreamingData->chunkSize               = chunkSize;
 
-    // Register two markers - one for the first half and another for the second half. When a half is finished playing we need to 
+    // Register two markers - one for the first half and another for the second half. When a half is finished playing we need to
     // replace it with new data.
     draudio_register_marker_callback(pBuffer, 0,         ea_steaming_buffer_marker_callback, DRAUDIO_STREAMING_MARKER_0, pStreamingData);
     draudio_register_marker_callback(pBuffer, chunkSize, ea_steaming_buffer_marker_callback, DRAUDIO_STREAMING_MARKER_1, pStreamingData);
@@ -1727,7 +1727,7 @@ DRAUDIO_PRIVATE draudio_bool draudio_on_sound_read_callback(void* pUserData, voi
     draudio_sound* pSound = pUserData;
     assert(pSound != NULL);
     assert(pSound->onRead != NULL);
-    
+
     bool result = false;
     draudio_lock_mutex(pSound->pWorld->lock);
     {
@@ -1736,7 +1736,7 @@ DRAUDIO_PRIVATE draudio_bool draudio_on_sound_read_callback(void* pUserData, voi
         }
     }
     draudio_unlock_mutex(pSound->pWorld->lock);
-    
+
     return result;
 }
 
@@ -1745,7 +1745,7 @@ DRAUDIO_PRIVATE static draudio_bool draudio_on_sound_seek_callback(void* pUserDa
     draudio_sound* pSound = pUserData;
     assert(pSound != NULL);
     assert(pSound->onRead != NULL);
-    
+
     bool result = false;
     draudio_lock_mutex(pSound->pWorld->lock);
     {
@@ -1803,7 +1803,7 @@ DRAUDIO_PRIVATE void draudio_remove_sound_nolock(draudio_sound* pSound)
     if (pSound->pNextSound != NULL) {
         pSound->pNextSound->pPrevSound = pSound->pPrevSound;
     }
-    
+
     if (pSound->pPrevSound != NULL) {
         pSound->pPrevSound->pNextSound = pSound->pNextSound;
     }
@@ -2233,6 +2233,9 @@ draudio_3d_mode draudio_get_sound_3d_mode(draudio_sound* pSound)
 #include <mmreg.h>
 #include <stdio.h>      // For testing and debugging with printf(). Delete this later.
 
+// Define a NULL GUID for use later on. If we don't do this and use GUID_NULL we'll end
+// up with a link error.
+GUID DRAUDIO_GUID_NULL = {0x00000000, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
 
 
 //// Message Queue ////
@@ -2276,10 +2279,10 @@ typedef struct
             LPDIRECTSOUNDBUFFER8 pDSBuffer;
 
             /// A pointer to the 3D DirectSound buffer object. This will be NULL if 3D positioning is disabled for the buffer.
-            LPDIRECTSOUND3DBUFFER8 pDSBuffer3D;
+            LPDIRECTSOUND3DBUFFER pDSBuffer3D;
 
             /// A pointer to the object for handling notification events.
-            LPDIRECTSOUNDNOTIFY8 pDSNotify;
+            LPDIRECTSOUNDNOTIFY pDSNotify;
 
         } delete_buffer;
 
@@ -2293,7 +2296,7 @@ typedef struct
             LPDIRECTSOUNDBUFFER pDSPrimaryBuffer;
 
             /// A pointer to the DIRECTSOUND3DLISTENER8 object associated with the device.
-            LPDIRECTSOUND3DLISTENER8 pDSListener;
+            LPDIRECTSOUND3DLISTENER pDSListener;
 
             /// A pointer to the device object being deleted.
             draudio_device* pDevice;
@@ -2398,7 +2401,7 @@ void draudio_uninit_message_queue_dsound(draudio_message_queue_dsound* pQueue)
     CloseHandle(pQueue->hMessageSemaphore);
     pQueue->hMessageSemaphore = NULL;
 
-    
+
     pQueue->isDeleted = true;
     draudio_lock_mutex(pQueue->queueLock);
     {
@@ -2510,7 +2513,7 @@ DWORD WINAPI MessageHandlingThread_DSound(draudio_message_queue_dsound* pQueue)
                 if (msg.data.delete_device.pDSListener != NULL) {
                     IDirectSound3DListener_Release(msg.data.delete_device.pDSListener);
                 }
-                
+
                 if (msg.data.delete_device.pDSPrimaryBuffer != NULL) {
                     IDirectSoundBuffer_Release(msg.data.delete_device.pDSPrimaryBuffer);
                 }
@@ -2630,7 +2633,7 @@ void draudio_unlock_events_dsound(draudio_event_manager_dsound* pEventManager)
 void draudio_remove_event_dsound_nolock(draudio_event_dsound* pEvent)
 {
     assert(pEvent != NULL);
-    
+
     draudio_event_manager_dsound* pEventManager = pEvent->pEventManager;
     assert(pEventManager != NULL);
 
@@ -2830,7 +2833,7 @@ unsigned int draudio_gather_events_dsound(draudio_event_manager_dsound *pEventMa
 
                 i += 1;
             }
-        
+
             pEvent = pEvent->pNextEvent;
         }
     }
@@ -2863,7 +2866,7 @@ DWORD WINAPI DSound_EventWorkerThreadProc(draudio_event_manager_dsound *pEventMa
                 requestedRefresh = false;
             }
 
-            
+
 
             DWORD rc = WaitForMultipleObjects(eventCount, eventHandles, FALSE, INFINITE);
             if (rc >= WAIT_OBJECT_0 && rc < eventCount)
@@ -3037,17 +3040,17 @@ void draudio_uninit_event_manager_dsound(draudio_event_manager_dsound* pEventMan
 
 //// End Event Management ////
 
-static GUID g_DSListenerGUID                       = {0x279AFA84, 0x4981, 0x11CE, 0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60};
-static GUID g_DirectSoundBuffer8GUID               = {0x6825a449, 0x7524, 0x4d82, 0x92, 0x0f, 0x50, 0xe3, 0x6a, 0xb3, 0xab, 0x1e};
-static GUID g_DirectSound3DBuffer8GUID             = {0x279AFA86, 0x4981, 0x11CE, 0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60};
-static GUID g_DirectSoundNotifyGUID                = {0xb0210783, 0x89cd, 0x11d0, 0xaf, 0x08, 0x00, 0xa0, 0xc9, 0x25, 0xcd, 0x16};
-static GUID g_KSDATAFORMAT_SUBTYPE_PCM_GUID        = {0x00000001, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71};
-static GUID g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID = {0x00000003, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71};
+static GUID g_DSListenerGUID                       = {0x279AFA84, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+static GUID g_DirectSoundBuffer8GUID               = {0x6825a449, 0x7524, 0x4d82, {0x92, 0x0f, 0x50, 0xe3, 0x6a, 0xb3, 0xab, 0x1e}};
+static GUID g_DirectSound3DBuffer8GUID             = {0x279AFA86, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+static GUID g_DirectSoundNotifyGUID                = {0xb0210783, 0x89cd, 0x11d0, {0xaf, 0x08, 0x00, 0xa0, 0xc9, 0x25, 0xcd, 0x16}};
+static GUID g_KSDATAFORMAT_SUBTYPE_PCM_GUID        = {0x00000001, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
+static GUID g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID = {0x00000003, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
 
-typedef HRESULT (WINAPI * pDirectSoundCreate8Proc)(_In_opt_ LPCGUID pcGuidDevice, _Outptr_ LPDIRECTSOUND8 *ppDS8, _Pre_null_ LPUNKNOWN pUnkOuter);
-typedef HRESULT (WINAPI * pDirectSoundEnumerateAProc)(_In_ LPDSENUMCALLBACKA pDSEnumCallback, _In_opt_ LPVOID pContext);
-typedef HRESULT (WINAPI * pDirectSoundCaptureCreate8Proc)(_In_opt_ LPCGUID pcGuidDevice, _Outptr_ LPDIRECTSOUNDCAPTURE8 *ppDSC8, _Pre_null_ LPUNKNOWN pUnkOuter);
-typedef HRESULT (WINAPI * pDirectSoundCaptureEnumerateAProc)(_In_ LPDSENUMCALLBACKA pDSEnumCallback, _In_opt_ LPVOID pContext);
+typedef HRESULT (WINAPI * pDirectSoundCreate8Proc)(LPCGUID pcGuidDevice, LPDIRECTSOUND8 *ppDS8, LPUNKNOWN pUnkOuter);
+typedef HRESULT (WINAPI * pDirectSoundEnumerateAProc)(LPDSENUMCALLBACKA pDSEnumCallback, LPVOID pContext);
+typedef HRESULT (WINAPI * pDirectSoundCaptureCreate8Proc)(LPCGUID pcGuidDevice, LPDIRECTSOUNDCAPTURE8 *ppDSC8, LPUNKNOWN pUnkOuter);
+typedef HRESULT (WINAPI * pDirectSoundCaptureEnumerateAProc)(LPDSENUMCALLBACKA pDSEnumCallback, LPVOID pContext);
 
 typedef struct
 {
@@ -3114,7 +3117,7 @@ typedef struct
     LPDIRECTSOUNDBUFFER pDSPrimaryBuffer;
 
     /// A pointer to the DIRECTSOUND3DLISTENER8 object associated with the device.
-    LPDIRECTSOUND3DLISTENER8 pDSListener;
+    LPDIRECTSOUND3DLISTENER pDSListener;
 
 } draudio_device_dsound;
 
@@ -3127,10 +3130,10 @@ typedef struct
     LPDIRECTSOUNDBUFFER8 pDSBuffer;
 
     /// A pointer to the 3D DirectSound buffer object. This will be NULL if 3D positioning is disabled for the buffer.
-    LPDIRECTSOUND3DBUFFER8 pDSBuffer3D;
+    LPDIRECTSOUND3DBUFFER pDSBuffer3D;
 
     /// A pointer to the object for handling notification events.
-    LPDIRECTSOUNDNOTIFY8 pDSNotify;
+    LPDIRECTSOUNDNOTIFY pDSNotify;
 
     /// The current playback state.
     draudio_playback_state playbackState;
@@ -3276,7 +3279,7 @@ draudio_device* draudio_create_output_device_dsound(draudio_context* pContext, u
     } else {
         hr = pContextDS->pDirectSoundCreate8(&pContextDS->outputDeviceInfo[deviceIndex].guid, &pDS, NULL);
     }
-    
+
     if (FAILED(hr)) {
         return NULL;
     }
@@ -3295,7 +3298,7 @@ draudio_device* draudio_create_output_device_dsound(draudio_context* pContext, u
     memset(&descDSPrimary, 0, sizeof(DSBUFFERDESC));
     descDSPrimary.dwSize          = sizeof(DSBUFFERDESC);
     descDSPrimary.dwFlags         = DSBCAPS_PRIMARYBUFFER | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRL3D;
-    descDSPrimary.guid3DAlgorithm = GUID_NULL;
+    descDSPrimary.guid3DAlgorithm = DRAUDIO_GUID_NULL;
 
     LPDIRECTSOUNDBUFFER pDSPrimaryBuffer;
     hr = IDirectSound_CreateSoundBuffer(pDS, &descDSPrimary, &pDSPrimaryBuffer, NULL);
@@ -3325,7 +3328,7 @@ draudio_device* draudio_create_output_device_dsound(draudio_context* pContext, u
 
 
     // Listener.
-    LPDIRECTSOUND3DLISTENER8 pDSListener = NULL;
+    LPDIRECTSOUND3DLISTENER pDSListener = NULL;
     hr = pDSPrimaryBuffer->lpVtbl->QueryInterface(pDSPrimaryBuffer, &g_DSListenerGUID, (LPVOID*)&pDSListener);
     if (FAILED(hr)) {
         IDirectSoundBuffer_Release(pDSPrimaryBuffer);
@@ -3414,21 +3417,21 @@ draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_bu
     } else {
         return NULL;
     }
-    
+
 
 
     // We want to try and create a 3D enabled buffer, however this will fail whenever the number of channels is > 1. In this case
     // we do not want to attempt to create a 3D enabled buffer because it will just fail anyway. Instead we'll just create a normal
     // buffer with panning enabled.
     DSBUFFERDESC descDS;
-    memset(&descDS, 0, sizeof(DSBUFFERDESC)); 
-    descDS.dwSize          = sizeof(DSBUFFERDESC); 
+    memset(&descDS, 0, sizeof(DSBUFFERDESC));
+    descDS.dwSize          = sizeof(DSBUFFERDESC);
     descDS.dwFlags         = DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPOSITIONNOTIFY | DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS;
     descDS.dwBufferBytes   = (DWORD)pBufferDesc->sizeInBytes;
     descDS.lpwfxFormat     = (WAVEFORMATEX*)&wf;
 
-    LPDIRECTSOUNDBUFFER8   pDSBuffer   = NULL;
-    LPDIRECTSOUND3DBUFFER8 pDSBuffer3D = NULL;
+    LPDIRECTSOUNDBUFFER8  pDSBuffer   = NULL;
+    LPDIRECTSOUND3DBUFFER pDSBuffer3D = NULL;
     if ((pBufferDesc->flags & DRAUDIO_ENABLE_3D) == 0)
     {
         // 3D Disabled.
@@ -3440,7 +3443,7 @@ draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_bu
             return NULL;
         }
 
-        hr = pDSBufferTemp->lpVtbl->QueryInterface(pDSBufferTemp, &g_DirectSoundBuffer8GUID, &pDSBuffer);
+        hr = pDSBufferTemp->lpVtbl->QueryInterface(pDSBufferTemp, &g_DirectSoundBuffer8GUID, (void**)&pDSBuffer);
         if (FAILED(hr)) {
             IDirectSoundBuffer_Release(pDSBufferTemp);
             return NULL;
@@ -3459,7 +3462,7 @@ draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_bu
             return NULL;
         }
 
-        hr = pDSBufferTemp->lpVtbl->QueryInterface(pDSBufferTemp, &g_DirectSoundBuffer8GUID, &pDSBuffer);
+        hr = pDSBufferTemp->lpVtbl->QueryInterface(pDSBufferTemp, &g_DirectSoundBuffer8GUID, (void**)&pDSBuffer);
         if (FAILED(hr)) {
             IDirectSoundBuffer_Release(pDSBufferTemp);
             return NULL;
@@ -3467,7 +3470,7 @@ draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_bu
         IDirectSoundBuffer_Release(pDSBufferTemp);
 
 
-        hr = IDirectSoundBuffer_QueryInterface(pDSBuffer, &g_DirectSound3DBuffer8GUID, &pDSBuffer3D);
+        hr = IDirectSoundBuffer_QueryInterface(pDSBuffer, &g_DirectSound3DBuffer8GUID, (void**)&pDSBuffer3D);
         if (FAILED(hr)) {
             return NULL;
         }
@@ -3482,8 +3485,8 @@ draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_bu
 
 
     // We need to create a notification object so we can notify the host application when the playback buffer hits a certain point.
-    LPDIRECTSOUNDNOTIFY8 pDSNotify;
-    HRESULT hr = pDSBuffer->lpVtbl->QueryInterface(pDSBuffer, &g_DirectSoundNotifyGUID, &pDSNotify);
+    LPDIRECTSOUNDNOTIFY pDSNotify;
+    HRESULT hr = pDSBuffer->lpVtbl->QueryInterface(pDSBuffer, &g_DirectSoundNotifyGUID, (void**)&pDSNotify);
     if (FAILED(hr)) {
         IDirectSound3DBuffer_Release(pDSBuffer3D);
         IDirectSoundBuffer8_Release(pDSBuffer);
@@ -3509,7 +3512,7 @@ draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_bu
     pBufferDS->pStopEvent        = NULL;
     pBufferDS->pPauseEvent       = NULL;
     pBufferDS->pPlayEvent        = NULL;
-    
+
 
 
     // Fill with initial data, if applicable.
@@ -3577,7 +3580,7 @@ void* draudio_get_buffer_extra_data_dsound(draudio_buffer* pBuffer)
 }
 
 
-bool draudio_set_buffer_data_dsound(draudio_buffer* pBuffer, size_t offset, const void* pData, size_t dataSizeInBytes)
+void draudio_set_buffer_data_dsound(draudio_buffer* pBuffer, size_t offset, const void* pData, size_t dataSizeInBytes)
 {
     draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
@@ -3587,7 +3590,7 @@ bool draudio_set_buffer_data_dsound(draudio_buffer* pBuffer, size_t offset, cons
     DWORD dwLength;
     HRESULT hr = IDirectSoundBuffer8_Lock(pBufferDS->pDSBuffer, (DWORD)offset, (DWORD)dataSizeInBytes, &lpvWrite, &dwLength, NULL, NULL, 0);
     if (FAILED(hr)) {
-        return false;
+        return;
     }
 
     assert(dataSizeInBytes <= dwLength);
@@ -3595,10 +3598,8 @@ bool draudio_set_buffer_data_dsound(draudio_buffer* pBuffer, size_t offset, cons
 
     hr = IDirectSoundBuffer8_Unlock(pBufferDS->pDSBuffer, lpvWrite, dwLength, NULL, 0);
     if (FAILED(hr)) {
-        return false;
+        return;
     }
-
-    return true;
 }
 
 
@@ -3740,7 +3741,7 @@ float draudio_get_pan_dsound(draudio_buffer* pBuffer)
         return 0;
     }
 
-    
+
     if (panDB < 0) {
         return -(1 - (float)(1.0f / powf(10.0f, -panDB / (20.0f*100.0f))));
     }
@@ -3864,7 +3865,7 @@ bool draudio_register_pause_callback_dsound(draudio_buffer* pBuffer, draudio_eve
 {
     draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
-    
+
     if (callback == NULL)
     {
         if (pBufferDS->pPauseEvent != NULL) {
@@ -3893,7 +3894,7 @@ bool draudio_register_play_callback_dsound(draudio_buffer* pBuffer, draudio_even
 {
     draudio_buffer_dsound* pBufferDS = (draudio_buffer_dsound*)pBuffer;
     assert(pBufferDS != NULL);
-    
+
     if (callback == NULL)
     {
         if (pBufferDS->pPlayEvent != NULL) {
@@ -4070,7 +4071,7 @@ static BOOL CALLBACK DSEnumCallback_OutputDevices(LPGUID lpGuid, LPCSTR lpcstrDe
         } else {
             memset(&pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].guid, 0, sizeof(GUID));
         }
-        
+
         draudio_strcpy(pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].description, 256, lpcstrDescription);
         draudio_strcpy(pContextDS->outputDeviceInfo[pContextDS->outputDeviceCount].moduleName,  256, lpcstrModule);
 
