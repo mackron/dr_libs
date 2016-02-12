@@ -42,6 +42,11 @@
 //
 // #define DR_WAV_NO_STDIO
 //   Excludes drwav_open_file().
+//
+//
+//
+// TODO:
+// - Have the seek callback take an absolute position rather than an offset. This way it will match with dr_flac.
 
 #ifndef dr_wav_h
 #define dr_wav_h
