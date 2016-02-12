@@ -99,7 +99,7 @@
 // OPTIONS
 //
 // #define DRGUI_NO_DR_2D
-//   Disable easy_draw integration. Disabling dr_2d will require you to implement your own drawing callbacks.
+//   Disable dr_2d integration. Disabling dr_2d will require you to implement your own drawing callbacks.
 //
 
 
