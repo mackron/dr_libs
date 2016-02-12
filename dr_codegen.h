@@ -26,6 +26,14 @@ extern "C" {
 // Free the returned pointer with free().
 char* dr_codegen_buffer_to_c_array(const unsigned char* buffer, unsigned int size, const char* variableName);
 
+// Frees a buffer that was created by dr_codegen.
+void dr_codegen_free(void* buffer);
+
+// memcpy()
+void dr_codegen_memcpy(void* dst, const void* src, unsigned int size);
+
+// strlen() implementation for dr_codegen().
+unsigned int dr_codegen_strlen(const char* str);
 
 
 #ifdef __cplusplus
@@ -41,8 +49,12 @@ char* dr_codegen_buffer_to_c_array(const unsigned char* buffer, unsigned int siz
 //
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef DR_CODEGEN_IMPLEMENTATION
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <stdlib.h>
 #include <string.h>
+#endif
 
 char* dr_codegen_buffer_to_c_array(const unsigned char* buffer, unsigned int size, const char* variableName)
 {
@@ -50,25 +62,29 @@ char* dr_codegen_buffer_to_c_array(const unsigned char* buffer, unsigned int siz
     const char* header = "static const unsigned char ";
     const char* declarationTail = "[] = {\n";
 
-    size_t headerLen          = strlen(header);
-    size_t variableNameLen    = strlen(variableName);
-    size_t declarationTailLen = strlen(declarationTail);
+    size_t headerLen          = dr_codegen_strlen(header);
+    size_t variableNameLen    = dr_codegen_strlen(variableName);
+    size_t declarationTailLen = dr_codegen_strlen(declarationTail);
 
-    size_t totalLen = headerLen + variableNameLen + declarationTailLen;  // +6 for the "[] = {\n" part
+    size_t totalLen = headerLen + variableNameLen + declarationTailLen;
     totalLen += size * 6;                                                // x6 because we store 6 character's per byte.
     totalLen += (size / bytesPerLine + 1) * 4;                           // Indentation.
     totalLen += 2;                                                       // +2 for the "};" at the end.
 
+#ifdef _WIN32
+    char* output = HeapAlloc(GetProcessHeap(), 0, totalLen);
+#else
     char* output = malloc(totalLen);                                     // No need for +1 for the null terminator because the last byte will not have a trailing "," which leaves room.
+#endif
 
     char* runningOutput = output;
-    memcpy(runningOutput, header, headerLen);
+    dr_codegen_memcpy(runningOutput, header, headerLen);
     runningOutput += headerLen;
 
-    memcpy(runningOutput, variableName, variableNameLen);
+    dr_codegen_memcpy(runningOutput, variableName, variableNameLen);
     runningOutput += variableNameLen;
 
-    memcpy(runningOutput, declarationTail, declarationTailLen);
+    dr_codegen_memcpy(runningOutput, declarationTail, declarationTailLen);
     runningOutput += declarationTailLen;
 
     for (unsigned int i = 0; i < size; ++i)
@@ -104,6 +120,35 @@ char* dr_codegen_buffer_to_c_array(const unsigned char* buffer, unsigned int siz
     runningOutput[1] = ';';
     runningOutput[2] = '\0';
     return output;
+}
+
+void dr_codegen_free(void* buffer)
+{
+#ifdef _WIN32
+    HeapFree(GetProcessHeap(), 0, buffer);
+#else
+    free(buffer);
+#endif
+}
+
+void dr_codegen_memcpy(void* dst, const void* src, unsigned int sizeInBytes)
+{
+    unsigned char* dst8 = dst;
+    const unsigned char* src8 = src;
+
+    for (unsigned int i = 0; i < sizeInBytes; ++i) {
+        *dst8++ = *src8++;
+    }
+}
+
+unsigned int dr_codegen_strlen(const char* str)
+{
+    unsigned int i = 0;
+    while (*str++ != '\0') {
+        i += 1;
+    }
+
+    return i;
 }
 #endif
 
