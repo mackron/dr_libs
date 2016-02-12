@@ -16,7 +16,7 @@
 //   #define DR_FSW_IMPLEMENTATION
 //   #include "dr_fsw.h"
 //
-// You can then #include dr_vfs.h in other parts of the program as you would with any other header file.
+// You can then #include this file in other parts of the program as you would with any other header file.
 //
 // Example:
 //      // Startup.
