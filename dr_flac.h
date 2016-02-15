@@ -230,10 +230,10 @@ static inline void drflac__copy_byte(unsigned char b, unsigned char* pOut, unsig
     }
 
     unsigned int hiMaskOut = 0xFF << (8 - bitOffsetOut);
-    unsigned int loMaskOut = ~loMaskOut;
+    unsigned int loMaskOut = ~hiMaskOut;
 
     unsigned int hiMaskIn  = 0xFF << (bitOffsetOut);
-    unsigned int loMaskIn  = ~loMaskIn;
+    unsigned int loMaskIn  = ~hiMaskIn;
     
     pOut[0] = (pOut[0] & hiMaskOut) | ((b & hiMaskIn) >> bitOffsetOut);
     pOut[1] = (pOut[1] & loMaskOut) | ((b & loMaskIn) << (8 - bitOffsetOut));
@@ -364,6 +364,22 @@ static unsigned int drflac__read_bits(drflac* pFlac, unsigned int bitsToRead, un
     }
 
     return bitsRead;
+}
+
+static inline int drflac__read_next_bit(drflac* pFlac)
+{
+    assert(pFlac != NULL);
+
+    if (pFlac->leftoverBitsRemaining == 0) {
+        if (drflac__read_bytes(pFlac, &pFlac->leftoverByte, 1) != 1) {
+            return -1;  // Ran out of data.
+        }
+
+        pFlac->leftoverBitsRemaining = 8;
+    }
+
+    pFlac->leftoverBitsRemaining -= 1;
+    return (pFlac->leftoverByte & (1 << pFlac->leftoverBitsRemaining)) >> pFlac->leftoverBitsRemaining;
 }
 
 
@@ -633,6 +649,15 @@ static drflac_bool drflac__read_frame_header(drflac_read_proc onRead, void* user
     pFrameHeader->channelAssignment = channelAssignment;
     pFrameHeader->bitsPerSample     = bitsPerSampleTable[bitsPerSample];
 
+    mostRecentBytesRead = onRead(userData, &pFrameHeader->crc8, 1);
+    if (mostRecentBytesRead != 1) {
+        result = drflac_false;
+        goto done_reading_frame_header;
+    }
+
+    totalBytesRead += 1;
+
+
     result = drflac_true;
 
 
@@ -656,28 +681,21 @@ static drflac_bool drflac__read_next_frame_header(drflac* pFlac)
     return result;
 }
 
-static drflac_bool drflac__read_subframe_header(drflac* pFlac, drflac_SUBFRAME_HEADER* pSubframeHeader, size_t* pBitsReadOut)
+static drflac_bool drflac__read_subframe_header(drflac* pFlac, drflac_SUBFRAME_HEADER* pSubframeHeader)
 {
-    size_t totalBitsRead = 0;
     drflac_bool result = drflac_false;
 
-#if 0
     unsigned char header;
-    if (onRead(userData, &header, 1) != 1) {
+    if (drflac__read_bits(pFlac, 8, &header, 0) != 8) {
         goto done_reading_subframe_header;
     }
-
-    totalBitsRead = 8;
-
 
     // First bit should always be 0.
     if ((header & 0x80) != 0) {
-        result = drflac_false;
         goto done_reading_subframe_header;
     }
 
-    // Next 6 bits is the subframe type.
-    int type = (header & 0x7E);
+    int type = (header & 0x7E) >> 1;
     if (type == 0) {
         pSubframeHeader->subframeType = DRFLAC_SUBFRAME_CONSTANT;
     } else if (type == 1) {
@@ -685,18 +703,35 @@ static drflac_bool drflac__read_subframe_header(drflac* pFlac, drflac_SUBFRAME_H
     } else {
         if ((type & 0x20) != 0) {
             pSubframeHeader->subframeType = DRFLAC_SUBFRAME_LPC;
-            pSubframeHeader->lpcOrder = (type & 0x1F);
+            pSubframeHeader->lpcOrder = (type & 0x1F) + 1;
         } else if ((type & 0x08) != 0) {
-            pSubframeHeader->subframeType = 
+            pSubframeHeader->subframeType = DRFLAC_SUBFRAME_FIXED;
+            pSubframeHeader->lpcOrder = (type & 0x07);
+            if (pSubframeHeader->lpcOrder > 4) {
+                pSubframeHeader->subframeType = DRFLAC_SUBFRAME_RESERVED;
+                pSubframeHeader->lpcOrder = 0;
+            }
+        } else {
+            pSubframeHeader->subframeType = DRFLAC_SUBFRAME_RESERVED;
         }
     }
-#endif
 
-done_reading_subframe_header:
-    if (pBitsReadOut != NULL) {
-        *pBitsReadOut = totalBitsRead;
+    if (pSubframeHeader->subframeType == DRFLAC_SUBFRAME_RESERVED) {
+        goto done_reading_subframe_header;
     }
 
+    // Wasted bits per sample.
+    pSubframeHeader->wastedBitsPerSample = 0;
+    if ((header & 0x01) == 1) {
+        do {
+            pSubframeHeader->wastedBitsPerSample += 1;
+        } while (drflac__read_next_bit(pFlac) == 0);
+    }
+
+    result = drflac_true;
+
+
+done_reading_subframe_header:
     return result;
 }
 
@@ -728,10 +763,11 @@ static drflac_bool drflac__begin_next_frame(drflac* pFlac)
     int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrameHeader.channelAssignment);
     for (int i = 0; i < channelCount; ++i)
     {
-        unsigned char header;
-        if (pFlac->onRead(pFlac->userData, &header, 1) != 0) {
-            return drflac_false;    // Ran out of data.
+        if (!drflac__read_subframe_header(pFlac, pFlac->currentSubframeHeaders + i)) {
+            return drflac_false;
         }
+
+        // TODO: Seek to the residual and decode it or seek past it.
     }
 
 
