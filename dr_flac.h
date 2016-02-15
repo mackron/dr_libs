@@ -210,41 +210,158 @@ drflac* drflac_open_file(const char* filename)
 }
 #endif  //DR_FLAC_NO_STDIO
 
+static inline unsigned char drflac__extract_byte(const unsigned char* pIn, unsigned int bitOffsetIn)
+{
+    if (bitOffsetIn == 0) {
+        return pIn[0];
+    }
 
-// The lowest level function for reading data from the FLAC stream. Bits are always filled from highest to lowest.
-static unsigned int drflac__read_bits(drflac* pFlac, unsigned int bitsToRead, unsigned char* pDataOut)
+    unsigned int hiMask = 0xFF << (8 - bitOffsetIn);
+    unsigned int loMask = ~hiMask;
+
+    return ((pIn[0] & loMask) << bitOffsetIn) | ((pIn[1] & hiMask) >> (8 - bitOffsetIn));
+}
+
+static inline void drflac__copy_byte(unsigned char b, unsigned char* pOut, unsigned int bitOffsetOut)
+{
+    if (bitOffsetOut == 0) {
+        pOut[0] = b;
+        return;
+    }
+
+    unsigned int hiMaskOut = 0xFF << (8 - bitOffsetOut);
+    unsigned int loMaskOut = ~loMaskOut;
+
+    unsigned int hiMaskIn  = 0xFF << (bitOffsetOut);
+    unsigned int loMaskIn  = ~loMaskIn;
+    
+    pOut[0] = (pOut[0] & hiMaskOut) | ((b & hiMaskIn) >> bitOffsetOut);
+    pOut[1] = (pOut[1] & loMaskOut) | ((b & loMaskIn) << (8 - bitOffsetOut));
+}
+
+static inline void drflac__copy_bits(unsigned int bitCount, const unsigned char* pIn, unsigned int bitOffsetIn, unsigned char* pOut, unsigned int bitOffsetOut)
+{
+    assert(bitCount > 0);
+    assert(pIn != NULL);
+    assert(bitOffsetIn < 8);
+    assert(pOut != NULL);
+    assert(bitOffsetOut < 8);
+
+    // Loop over the input buffer, byte by byte.
+    while (bitCount > 0)
+    {
+        if (bitOffsetIn + bitCount <= 8) {
+            drflac__copy_byte(pIn[0] << bitOffsetIn, pOut, bitOffsetOut);
+            break;
+        } else {
+            drflac__copy_byte(drflac__extract_byte(pIn, bitOffsetIn), pOut, bitOffsetOut);
+            bitCount -= 8;
+        }
+
+
+        pIn  += 1;
+        pOut += 1;
+    }
+}
+
+static inline size_t drflac__read_bytes(drflac* pFlac, void* pOut, size_t bytesToRead)
 {
     assert(pFlac != NULL);
-    assert(pDataOut != NULL);
-    assert(pFlac->leftoverBitsRemaining <= 7);  
+    assert(pOut != NULL);
+    assert(bytesToRead > 0);
 
-    // We load in 3 parts - the part where the first set of bits are located in pFlac->leftoverBits, the part containing whole bytes and then
-    // the part at the end which may consume only a part of the byte.
+    size_t bytesRead = pFlac->onRead(pFlac->userData, pOut, bytesToRead);
+    pFlac->currentReadPos += bytesRead;
+
+    return bytesRead;
+}
+
+static inline int drflac__seek_to(drflac* pFlac, long long offsetFromStart)
+{
+    assert(pFlac != NULL);
+
+    int result = pFlac->onSeek(pFlac->userData, offsetFromStart);
+    pFlac->currentReadPos = offsetFromStart;
+
+    return result;
+}
+
+static unsigned int drflac__read_bits(drflac* pFlac, unsigned int bitsToRead, unsigned char* pOut, unsigned int bitOffsetOut)
+{
+    assert(pFlac != NULL);
+    assert(pOut != NULL);
+    assert(pFlac->leftoverBitsRemaining <= 7);  
 
     unsigned int bitsRead = 0;
 
-    // Part 1 - the part currently sitting in 
+    // Leftover bits
     if (pFlac->leftoverBitsRemaining > 0) {
         if (bitsToRead >= pFlac->leftoverBitsRemaining) {
-            pDataOut[0] = (pFlac->leftoverByte & ~(0xFF << pFlac->leftoverBitsRemaining)) << (8 - pFlac->leftoverBitsRemaining);
+            drflac__copy_bits(pFlac->leftoverBitsRemaining, &pFlac->leftoverByte, 8 - pFlac->leftoverBitsRemaining, pOut, bitOffsetOut);
             bitsRead = pFlac->leftoverBitsRemaining;
             pFlac->leftoverBitsRemaining = 0;
         } else {
             // The whole data is entirely contained within the leftover bits.
-            pDataOut[0] = ((pFlac->leftoverByte & ~(0xFF << pFlac->leftoverBitsRemaining)) >> (pFlac->leftoverBitsRemaining - bitsToRead)) << (8 - pFlac->leftoverBitsRemaining);
+            drflac__copy_bits(bitsToRead, &pFlac->leftoverByte, 8 - pFlac->leftoverBitsRemaining, pOut, bitOffsetOut);
             pFlac->leftoverBitsRemaining -= bitsRead;
             return bitsToRead;
         }
     }
 
-    // Part 2 - wholy contained bytes.
-    unsigned int bytesToRead = (bitsToRead - bitsRead) / 8;
+    assert(pFlac->leftoverBitsRemaining == 0);
+
+    unsigned int bitOffset = bitsRead + bitOffsetOut;
+
+    // Wholy contained bytes.
+    size_t bytesToRead = (bitsToRead - bitsRead) / 8;
     if (bytesToRead > 0)
     {
+        if (bitOffset % 8 == 0)
+        {
+            // Aligned read. Faster.
+            pOut += (bitOffset >> 3);
 
+            size_t bytesRead = drflac__read_bytes(pFlac, pOut, bytesToRead);
+            bitsRead += bytesRead * 8;
+
+            if (bytesRead != bytesToRead) { // <-- did we run out of data?
+                return bitsRead;
+            }
+
+            pOut += bytesRead;
+        }
+        else
+        {
+            // Unaligned read. Slower.
+            while (bytesToRead > 0)
+            {
+                unsigned char nextByte;
+                if (drflac__read_bytes(pFlac, &nextByte, 1) != 1) {
+                    return bitsRead;
+                }
+
+                drflac__copy_bits(8, &nextByte, 0, pOut, bitOffset);
+
+                bytesToRead -= 1;
+                bitsRead += 8;
+                pOut += 1;
+            }
+        }
     }
 
+    // Trailing bits.
+    unsigned int bitsRemaining = (bitsToRead - bitsRead);
+    if (bitsRemaining > 0)
+    {
+        assert(bitsRemaining < 8);
 
+        if (drflac__read_bytes(pFlac, &pFlac->leftoverByte, 1) != 1) {
+            return bitsRead;    // Ran out of data.
+        }
+
+        drflac__copy_bits(bitsRemaining, &pFlac->leftoverByte, 0, pOut, bitOffset);
+        pFlac->leftoverBitsRemaining = 8 - bitsRemaining;
+    }
 
     return bitsRead;
 }
@@ -723,6 +840,8 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* user
     pFlac->onRead                         = onRead;
     pFlac->onSeek                         = onSeek;
     pFlac->userData                       = userData;
+    pFlac->leftoverByte                   = 0;
+    pFlac->leftoverBitsRemaining          = 0;
     pFlac->info                           = streaminfo;
     pFlac->applicationMetadataPos         = applicationMetadataPos;
     pFlac->applicationMetadataSize        = applicationMetadataSize;
