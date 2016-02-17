@@ -540,8 +540,28 @@ done_reading_utf8:
 // Converts a stream of bits of a variable length to a signed 32-bit number. Assumes the input data is big-endian.
 static inline int drflac__to_signed_32(unsigned char* pIn, int bitOffsetIn, int bitCount)
 {
-    // TODO: Implement Me.
-    return 0;
+    int result = 0;
+
+    // TODO: Add support for big-endian.
+    if (!drflac__is_little_endian()) {
+        assert(0);      // No support for big-endian at the moment.
+    }
+
+    if (bitCount > 24) {
+        result = (pIn[0] << (bitCount - 8)) | (pIn[1] << (bitCount - 16)) | (pIn[2] << (bitCount - 24)) | (pIn[3] >> (8 - (bitCount - 24)));
+    } else if (bitCount > 16) {
+        result = (pIn[0] << (bitCount - 8)) | (pIn[1] << (bitCount - 16)) | (pIn[2] >> (8 - (bitCount - 16)));
+    } else if (bitCount > 8) {
+        result = (pIn[0] << (bitCount - 8)) | (pIn[1] >> (8 - (bitCount - 8)));
+    } else {
+        result = (pIn[0] >> (8 - bitCount));
+    }
+
+    if ((pIn[0] & 0x80)) {
+        result |= (0xFFFFFFFF << bitCount);
+    }
+
+    return result;
 }
 
 static inline int drflac__read_and_decode_rice(drflac* pFlac, unsigned char m)
@@ -562,36 +582,6 @@ static inline int drflac__read_and_decode_rice(drflac* pFlac, unsigned char m)
     }
 
     return decodedValue;
-
-#if 0
-    int sign = 0;
-    if (drflac__read_next_bit(pFlac) != 0) {
-        sign = 0x80000000;
-    }
-
-    int decodedValue = 0;
-    for (unsigned char i = 0; i < m; ++i) {
-        if (drflac__read_next_bit(pFlac) != 0) {
-            decodedValue |= (1 << (m - i - 1));
-        }
-    }
-
-    // We need to keep reading bits until we find a 1.
-    int zeroCounter = 0;
-    while (drflac__read_next_bit(pFlac) == 1) {
-        zeroCounter += 1;
-    }
-    
-    if (zeroCounter > 0) {
-        decodedValue |= (1 << (zeroCounter + m - 1));
-    }
-
-    if (sign == 0x80000000) {
-        decodedValue = ~decodedValue + 1;
-    }
-    
-    return decodedValue;
-#endif
 }
 
 static inline int drflac__calculate_prediction(drflac* pFlac, int order)
@@ -916,7 +906,7 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                     return drflac_false;
                 }
 
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = drflac__to_signed_32(originalSample, 0,pSubframe->bitsPerSample);
+                pFlac->decodedSamples[pFlac->decodedSampleCount] = drflac__to_signed_32(originalSample, 0, pSubframe->bitsPerSample);
                 pFlac->decodedSampleCount += 1;
             }
 
