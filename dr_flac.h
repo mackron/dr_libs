@@ -727,7 +727,7 @@ static drflac_bool drflac__read_utf8_coded_number(drflac* pFlac, long long* pNum
 
 
 
-// Converts a stream of bits of a variable length to an unsigned 32-bit number. Assumes the input data is big-endian and the first bit
+// Converts a stream of bits of a variable length to an unsigned integer. Assumes the input data is big-endian and the first bit
 // is at an offset of bitOffsetIn.
 static inline unsigned int drflac__to_uint16(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
 {
@@ -771,7 +771,7 @@ static inline unsigned long long drflac__to_uint64(unsigned char* pIn, unsigned 
     return result;
 }
 
-// Converts a stream of bits of a variable length to a signed 32-bit number. Assumes the input data is big-endian and the first bit
+// Converts a stream of bits of a variable length to a signed integer. Assumes the input data is big-endian and the first bit
 // is at an offset of bitOffsetIn.
 static inline int drflac__to_int32(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
 {
