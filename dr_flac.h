@@ -15,6 +15,12 @@
 extern "C" {
 #endif
 
+#define DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT           0
+#define DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE             8
+#define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
+#define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
+
+
 /// Callback for when data is read. Return value is the number of bytes actually read.
 typedef size_t (* drflac_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
 
@@ -26,19 +32,13 @@ typedef long long (* drflac_tell_proc)(void* userData);
 
 typedef struct
 {
-    int _isLastBlock;  // Used internally.
+    /// The absolute position of the first byte of the data of the block. This is just past the block's header.
+    long long pos;
 
-    int minBlockSize;
-    int maxBlockSize;
-    int minFrameSize;
-    int maxFrameSize;
-    int sampleRate;
-    int channels;
-    int bitsPerSample;
-    long long totalSampleCount;
-    unsigned char md5[16];
+    /// The size in bytes of the block's data.
+    unsigned int sizeInBytes;
 
-} drflac_STREAMINFO;
+} drflac_block;
 
 typedef struct
 {
@@ -53,9 +53,6 @@ typedef struct
     int channelAssignment;
     int bitsPerSample;
     unsigned char crc8;
-
-    // The number of samples in each subframe.
-    int subframeSampleCount;
 
 } drflac_FRAME_HEADER;
 
@@ -74,6 +71,33 @@ typedef struct
     int bitsPerSample;
 
 } drflac_subframe;
+
+typedef struct
+{
+    // If the stream uses fixed block sizes, this will be set to the frame number. If variable block sizes are used, this will always be 0.
+    unsigned long long frameNumber;
+
+    // If the stream uses variable block sizes, this will be set to the index of the first sample. If fixed block sizes are used, this will
+    // always be set to 0.
+    unsigned long long sampleNumber;
+
+    // The number of samples in each sub-frame within this frame.
+    unsigned int blockSize;
+
+    // The sample rate of this frame.
+    unsigned int sampleRate;
+
+    // The channel assignment of this frame. This is not always set to the channel count. If interchannel decorrelation is being used this
+    // will be set to DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE, DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE or DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE.
+    unsigned int channelAssignment;
+
+    // The number of bits per sample within this frame.
+    unsigned int bitsPerSample;
+
+    // The list of sub-frames within the frame. There is one sub-frame for each channel, and there's a maximum of 8 channels.
+    drflac_subframe subframes[8];
+
+} drflac_frame;
 
 typedef struct
 {
@@ -97,14 +121,42 @@ typedef struct
     unsigned char leftoverBitsRemaining;
 
 
-    /// The STREAMINFO block. Use this to find information like channel counts and sample rate.
-    drflac_STREAMINFO info;
+    /// The maximum block size, in samples. This number represents the number of samples in each channel (not combined.)
+    unsigned int maxBlockSize;
 
-    /// The position in the file of the application as defined by the APPLICATION block, if any. A valid of 0 means it doesn't exist.
-    long long applicationMetadataPos;
+    /// The sample rate. Will be set to something like 44100.
+    unsigned int sampleRate;
 
-    /// The size of the application data. Does not include the registration ID or block header.
-    int applicationMetadataSize;
+    /// The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc. Maxium 8. This is set based on the
+    /// value specified in the STREAMINFO block.
+    unsigned int channels;
+
+    /// The bits per sample. Will be set to somthing like 16, 24, etc.
+    unsigned int bitsPerSample;
+
+    /// The total number of samples making up the stream. This includes every channel. For example, if the stream has 2 channels,
+    /// with each channel having a total of 4096, this value will be set to 4096*2 = 8192.
+    unsigned long long totalSampleCount;
+    
+
+    /// The location and size of the APPLICATION block.
+    drflac_block applicationBlock;
+
+    /// The location and size of the SEEKTABLE block.
+    drflac_block seektableBlock;
+
+    /// The location and size of the VORBIS_COMMENT block.
+    drflac_block vorbisCommentBlock;
+
+    /// The location and size of the CUESHEET block.
+    drflac_block cuesheetBlock;
+
+    /// The location and size of the PICTURE block.
+    drflac_block pictureBlock;
+
+
+    /// Information about the frame the decoder is currently sitting on.
+    drflac_frame currentFrame;
 
 
     /// Information about the current frame.
@@ -139,7 +191,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
 void drflac_close(drflac* flac);
 
 /// Reads sample data from the given FLAC decoder, output as signed 32-bit PCM .
-unsigned int drflac_read_s32(drflac* flac, unsigned int samplesToRead, int* bufferOut);
+unsigned int drflac_read_s32(drflac* flac, size_t samplesToRead, int* bufferOut);
 
 
 
@@ -197,11 +249,6 @@ typedef int drflac_bool;
 
 #define DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE  0
 #define DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2 1
-
-#define DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT           0
-#define DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE             8
-#define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
-#define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
 #ifndef DR_FLAC_NO_STDIO
 #include <stdio.h>
@@ -877,9 +924,8 @@ static drflac_bool drflac__read_next_frame_header(drflac* pFlac)
     }
     
 
-    pFlac->currentFrameHeader.channelAssignment   = channelAssignment;
-    pFlac->currentFrameHeader.bitsPerSample       = bitsPerSampleTable[bitsPerSample];
-    pFlac->currentFrameHeader.subframeSampleCount = pFlac->currentFrameHeader.blockSize;
+    pFlac->currentFrameHeader.channelAssignment = channelAssignment;
+    pFlac->currentFrameHeader.bitsPerSample     = bitsPerSampleTable[bitsPerSample];
 
     if (drflac__grab_bytes(pFlac, &pFlac->currentFrameHeader.crc8, 1) != 1) {
         return drflac_false;
@@ -978,7 +1024,7 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
             int sample = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
 
             // TODO: We don't really need to expand this, but I'm just doing it for now to just get things working.
-            for (int i = 0; i < pFlac->currentFrameHeader.subframeSampleCount; ++i) {
+            for (int i = 0; i < pFlac->currentFrameHeader.blockSize; ++i) {
                 pFlac->decodedSamples[pFlac->decodedSampleCount] = sample;
                 pFlac->decodedSampleCount += 1;
             }
@@ -987,7 +1033,7 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
 
         case DRFLAC_SUBFRAME_VERBATIM:
         {
-            for (int i = 0; i < pFlac->currentFrameHeader.subframeSampleCount; ++i) {
+            for (int i = 0; i < pFlac->currentFrameHeader.blockSize; ++i) {
                 unsigned char originalSample[4];
                 if (drflac__read_bits(pFlac, pSubframe->bitsPerSample, originalSample, 0) != pSubframe->bitsPerSample) {
                     return drflac_false;
@@ -1330,7 +1376,6 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
     }
 
     // The first metadata block should be the STREAMINFO block. We don't care about everything in here.
-
     unsigned int blockSize;
     drflac_bool isLastBlock;
     int blockType = drflac__read_block_header(onRead, userData, &blockSize, &isLastBlock);
@@ -1343,33 +1388,18 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
         return drflac_false;
     }
 
-    drflac_STREAMINFO streaminfo;
-    streaminfo.minBlockSize     = drflac__to_int32(blockData + 0,  0, 16);
-    streaminfo.maxBlockSize     = drflac__to_int32(blockData + 2,  0, 16);
-    streaminfo.minFrameSize     = drflac__to_int32(blockData + 4,  0, 24);
-    streaminfo.maxFrameSize     = drflac__to_int32(blockData + 7,  0, 24);
-    streaminfo.sampleRate       = drflac__to_int32(blockData + 10, 0, 20);
-    streaminfo.channels         = drflac__to_int32(blockData + 12, 4,  3) + 1;
-    streaminfo.bitsPerSample    = drflac__to_int32(blockData + 12, 7,  5) + 1;
-    streaminfo.totalSampleCount = drflac__to_int64(blockData + 13, 4, 36) * streaminfo.channels;
-    
-    for (int i = 0; i < 16; ++i) {
-        streaminfo.md5[i] = blockData[22 + i];
-    }
+    unsigned int maxBlockSize           = drflac__to_uint32(blockData + 2,  0, 16);
+    unsigned int sampleRate             = drflac__to_uint32(blockData + 10, 0, 20);
+    unsigned int channels               = drflac__to_uint32(blockData + 12, 4,  3) + 1;
+    unsigned int bitsPerSample          = drflac__to_uint32(blockData + 12, 7,  5) + 1;
+    unsigned long long totalSampleCount = drflac__to_uint64(blockData + 13, 4, 36) * channels;
 
 
-    long long currentPos = 42;  // 42 = 4 bytes "fLaC" header + 38 byte STREAMINFO block.
-
-    long long applicationMetadataPos   = 0;
-    int applicationMetadataSize        = 0;
-    long long seektableMetadataPos     = 0;
-    int seektableMetadataSize          = 0;
-    long long vorbisCommentMetadataPos = 0;
-    int vorbisCommentMetadataSize      = 0;
-    long long cuesheetMetadataPos      = 0;
-    int cuesheetMetadataSize           = 0;
-    long long pictureMetadataPos       = 0;
-    int pictureMetadataSize            = 0;
+    drflac_block applicationBlock;
+    drflac_block seektableBlock;
+    drflac_block vorbisCommentBlock;
+    drflac_block cuesheetBlock;
+    drflac_block pictureBlock;
 
     while (!isLastBlock)
     {
@@ -1378,32 +1408,32 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
         {
             case DRFLAC_BLOCK_TYPE_APPLICATION:
             {
-                applicationMetadataPos = onTell(userData);
-                applicationMetadataSize = blockSize;
+                applicationBlock.pos = onTell(userData);
+                applicationBlock.sizeInBytes = blockSize;
             } break;
 
             case DRFLAC_BLOCK_TYPE_SEEKTABLE:
             {
-                seektableMetadataPos = onTell(userData);
-                seektableMetadataSize = blockSize;
+                seektableBlock.pos = onTell(userData);
+                seektableBlock.sizeInBytes = blockSize;
             } break;
 
             case DRFLAC_BLOCK_TYPE_VORBIS_COMMENT:
             {
-                vorbisCommentMetadataPos = onTell(userData);
-                vorbisCommentMetadataSize = blockSize;
+                vorbisCommentBlock.pos = onTell(userData);
+                vorbisCommentBlock.sizeInBytes = blockSize;
             } break;
 
             case DRFLAC_BLOCK_TYPE_CUESHEET:
             {
-                cuesheetMetadataPos = onTell(userData);
-                cuesheetMetadataSize = blockSize;
+                cuesheetBlock.pos = onTell(userData);
+                cuesheetBlock.sizeInBytes = blockSize;
             } break;
 
             case DRFLAC_BLOCK_TYPE_PICTURE:
             {
-                pictureMetadataPos = onTell(userData);
-                pictureMetadataSize = blockSize;
+                pictureBlock.pos = onTell(userData);
+                pictureBlock.sizeInBytes = blockSize;
             } break;
 
             
@@ -1420,7 +1450,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
 
     
     // At this point we should be sitting right at the start of the very first frame.
-    drflac* pFlac = malloc(sizeof(*pFlac) - sizeof(pFlac->decodedSamples) + (streaminfo.maxBlockSize * 4 * streaminfo.channels));     // x4 because a sample is at most 32-bit (4 bytes).
+    drflac* pFlac = malloc(sizeof(*pFlac) - sizeof(pFlac->decodedSamples) + (maxBlockSize * 4 * channels));     // x4 because a sample is at most 32-bit (4 bytes).
     if (pFlac == NULL) {
         return NULL;
     }
@@ -1431,9 +1461,16 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
     pFlac->userData                       = userData;
     pFlac->leftoverByte                   = 0;
     pFlac->leftoverBitsRemaining          = 0;
-    pFlac->info                           = streaminfo;
-    pFlac->applicationMetadataPos         = applicationMetadataPos;
-    pFlac->applicationMetadataSize        = applicationMetadataSize;
+    pFlac->maxBlockSize                   = maxBlockSize;
+    pFlac->sampleRate                     = sampleRate;
+    pFlac->channels                       = channels;
+    pFlac->bitsPerSample                  = bitsPerSample;
+    pFlac->totalSampleCount               = totalSampleCount;
+    pFlac->applicationBlock               = applicationBlock;
+    pFlac->seektableBlock                 = seektableBlock;
+    pFlac->vorbisCommentBlock             = vorbisCommentBlock;
+    pFlac->cuesheetBlock                  = cuesheetBlock;
+    pFlac->pictureBlock                   = pictureBlock;
     memset(&pFlac->currentFrameHeader, 0, sizeof(pFlac->currentFrameHeader));
     memset(&pFlac->currentSubframes, 0, sizeof(pFlac->currentSubframes));
     pFlac->samplesRemainingInCurrentFrame = 0;
@@ -1448,13 +1485,13 @@ void drflac_close(drflac* pFlac)
     free(pFlac);
 }
 
-unsigned int drflac_read_s32(drflac* pFlac, unsigned int samplesToRead, int* bufferOut)
+unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
 {
     if (pFlac == NULL || samplesToRead == 0 || bufferOut == NULL) {
         return 0;
     }
 
-    unsigned int samplesRead = 0;
+    size_t samplesRead = 0;
     while (samplesToRead > 0)
     {
         // If we've run out of samples in this frame, go to the next.
@@ -1529,11 +1566,11 @@ unsigned int drflac_read_s32(drflac* pFlac, unsigned int samplesToRead, int* buf
                 }
 
 
-                decodedSample <<= (32 - pFlac->info.bitsPerSample);
+                decodedSample <<= (32 - pFlac->bitsPerSample);
 
 
                 *bufferOut++ = decodedSample;
-                pFlac->nextSampleChannel = (pFlac->nextSampleChannel + 1) % pFlac->info.channels;
+                pFlac->nextSampleChannel = (pFlac->nextSampleChannel + 1) % pFlac->channels;
 
                 samplesRead += 1;
                 pFlac->samplesRemainingInCurrentFrame -= 1;
