@@ -15,12 +15,6 @@
 extern "C" {
 #endif
 
-#define DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT           0
-#define DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE             8
-#define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
-#define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
-
-
 // Callback for when data is read. Return value is the number of bytes actually read.
 typedef size_t (* drflac_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
 
@@ -230,6 +224,11 @@ typedef int drflac_bool;
 
 #define DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE  0
 #define DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2 1
+
+#define DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT           0
+#define DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE             8
+#define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
+#define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
 #ifndef DR_FLAC_NO_STDIO
 #include <stdio.h>
