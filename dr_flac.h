@@ -21,21 +21,21 @@ extern "C" {
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
 
-/// Callback for when data is read. Return value is the number of bytes actually read.
+// Callback for when data is read. Return value is the number of bytes actually read.
 typedef size_t (* drflac_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
 
-/// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value is 0 on failure, non-zero success.
+// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value is 0 on failure, non-zero success.
 typedef int (* drflac_seek_proc)(void* userData, int offset);
 
-/// Callback for when the read position needs to be queried.
+// Callback for when the read position needs to be queried.
 typedef long long (* drflac_tell_proc)(void* userData);
 
 typedef struct
 {
-    /// The absolute position of the first byte of the data of the block. This is just past the block's header.
+    // The absolute position of the first byte of the data of the block. This is just past the block's header.
     long long pos;
 
-    /// The size in bytes of the block's data.
+    // The size in bytes of the block's data.
     unsigned int sizeInBytes;
 
 } drflac_block;
@@ -88,79 +88,76 @@ typedef struct
 
 typedef struct
 {
-    /// The function to call when more data needs to be read. This is set by drflac_open().
+    // The function to call when more data needs to be read. This is set by drflac_open().
     drflac_read_proc onRead;
 
-    /// The function to call when the current read position needs to be moved.
+    // The function to call when the current read position needs to be moved.
     drflac_seek_proc onSeek;
 
-    /// The function to call when the current read position needs to be queried.
+    // The function to call when the current read position needs to be queried.
     drflac_tell_proc onTell;
 
-    /// The user data to pass around to onRead and onSeek.
+    // The user data to pass around to onRead and onSeek.
     void* userData;
 
 
-    /// The temporary byte containing containing the bits that have not yet been read.
+    // The temporary byte containing containing the bits that have not yet been read.
     unsigned char leftoverByte;
 
-    /// The number of bits remaining in the byte the reader is currently sitting on.
+    // The number of bits remaining in the byte the reader is currently sitting on.
     unsigned char leftoverBitsRemaining;
 
 
-    /// The maximum block size, in samples. This number represents the number of samples in each channel (not combined.)
+    // The maximum block size, in samples. This number represents the number of samples in each channel (not combined.)
     unsigned int maxBlockSize;
 
-    /// The sample rate. Will be set to something like 44100.
+    // The sample rate. Will be set to something like 44100.
     unsigned int sampleRate;
 
-    /// The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc. Maxium 8. This is set based on the
-    /// value specified in the STREAMINFO block.
+    // The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc. Maxium 8. This is set based on the
+    // value specified in the STREAMINFO block.
     unsigned int channels;
 
-    /// The bits per sample. Will be set to somthing like 16, 24, etc.
+    // The bits per sample. Will be set to somthing like 16, 24, etc.
     unsigned int bitsPerSample;
 
-    /// The total number of samples making up the stream. This includes every channel. For example, if the stream has 2 channels,
-    /// with each channel having a total of 4096, this value will be set to 4096*2 = 8192.
+    // The total number of samples making up the stream. This includes every channel. For example, if the stream has 2 channels,
+    // with each channel having a total of 4096, this value will be set to 4096*2 = 8192.
     unsigned long long totalSampleCount;
     
 
-    /// The location and size of the APPLICATION block.
+    // The location and size of the APPLICATION block.
     drflac_block applicationBlock;
 
-    /// The location and size of the SEEKTABLE block.
+    // The location and size of the SEEKTABLE block.
     drflac_block seektableBlock;
 
-    /// The location and size of the VORBIS_COMMENT block.
+    // The location and size of the VORBIS_COMMENT block.
     drflac_block vorbisCommentBlock;
 
-    /// The location and size of the CUESHEET block.
+    // The location and size of the CUESHEET block.
     drflac_block cuesheetBlock;
 
-    /// The location and size of the PICTURE block.
+    // The location and size of the PICTURE block.
     drflac_block pictureBlock;
 
 
-    /// Information about the frame the decoder is currently sitting on.
+    // Information about the frame the decoder is currently sitting on.
     drflac_frame currentFrame;
 
 
-    /// Information about the subframes of the current frame. There is one of these per channel, and there is a maximum of 8 channels.
-    drflac_subframe currentSubframes[8];
-
-    /// The number of samples remaining in the current frame. We use this to determine when a new frame needs to be begun.
+    // The number of samples remaining in the current frame. We use this to determine when a new frame needs to be begun.
     long long samplesRemainingInCurrentFrame;
 
-    /// The index of the channel that the next sample belongs to. We use this for interleaving, and is never larger than the the channel count as
-    /// specified by currentFrameHeader.channelAssignment-1.
+    // The index of the channel that the next sample belongs to. We use this for interleaving, and is never larger than the the channel count as
+    // specified by currentFrameHeader.channelAssignment-1.
     int nextSampleChannel;
 
 
-    /// The number of valid decoded samples in <decodedSamples> (below). We use this to keep track of where to place newly decoded samples.
+    // The number of valid decoded samples in <decodedSamples> (below). We use this to keep track of where to place newly decoded samples.
     unsigned int decodedSampleCount;
 
-    /// A pointer the decoded sample data. This section is allocated once at initialization time and sized based on the maximum block size.
+    // A pointer the decoded sample data. This section is allocated once at initialization time and sized based on the maximum block size.
     int decodedSamples[1];
 
 } drflac;
@@ -168,20 +165,20 @@ typedef struct
 
 
 
-/// Opens a FLAC decoder.
+// Opens a FLAC decoder.
 drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* userData);
 
-/// Closes the given FLAC decoder.
+// Closes the given FLAC decoder.
 void drflac_close(drflac* flac);
 
-/// Reads sample data from the given FLAC decoder, output as signed 32-bit PCM .
+// Reads sample data from the given FLAC decoder, output as signed 32-bit PCM .
 unsigned int drflac_read_s32(drflac* flac, size_t samplesToRead, int* bufferOut);
 
 
 
 
 #ifndef DR_FLAC_NO_STDIO
-/// Opens a flac decoder from the file at the given path.
+// Opens a flac decoder from the file at the given path.
 drflac* drflac_open_file(const char* pFile);
 #endif
 
@@ -998,7 +995,7 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
 {
     assert(pFlac != NULL);
 
-    drflac_subframe* pSubframe = pFlac->currentSubframes + subframeIndex;
+    drflac_subframe* pSubframe = pFlac->currentFrame.subframes + subframeIndex;
     if (!drflac__read_subframe_header(pFlac, pSubframe)) {
         return drflac_false;
     }
@@ -1315,7 +1312,7 @@ static drflac_bool drflac__begin_next_frame(drflac* pFlac)      // TODO: Rename 
     }
 
     // At this point we have the frame header, but we need to retrieve information about each sub-frame. There is one sub-frame for each channel.
-    memset(&pFlac->currentSubframes, 0, sizeof(pFlac->currentSubframes));
+    memset(&pFlac->currentFrame.subframes, 0, sizeof(pFlac->currentFrame.subframes));
     pFlac->decodedSampleCount = 0;
 
     int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
@@ -1478,7 +1475,6 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
     pFlac->cuesheetBlock                  = cuesheetBlock;
     pFlac->pictureBlock                   = pictureBlock;
     memset(&pFlac->currentFrame, 0, sizeof(pFlac->currentFrame));
-    memset(&pFlac->currentSubframes, 0, sizeof(pFlac->currentSubframes));
     pFlac->samplesRemainingInCurrentFrame = 0;
     pFlac->nextSampleChannel              = 0;
     pFlac->decodedSampleCount             = 0;
@@ -1515,7 +1511,7 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
             while (pFlac->samplesRemainingInCurrentFrame > 0 && samplesToRead > 0)
             {
                 unsigned long long nextSampleInFrame = ((pFlac->currentFrame.blockSize * channelCount) - pFlac->samplesRemainingInCurrentFrame) / channelCount;
-                unsigned long long sampleIndex0 = pFlac->currentSubframes[pFlac->nextSampleChannel].firstDecodedSampleOffset + nextSampleInFrame;
+                unsigned long long sampleIndex0 = pFlac->currentFrame.subframes[pFlac->nextSampleChannel].firstDecodedSampleOffset + nextSampleInFrame;
 
                 int decodedSample = 0;
                 switch (pFlac->currentFrame.channelAssignment)
@@ -1525,8 +1521,8 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                         if (pFlac->nextSampleChannel == 0) {
                             decodedSample = pFlac->decodedSamples[sampleIndex0];
                         } else {
-                            int side = pFlac->decodedSamples[pFlac->currentSubframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            int left = pFlac->decodedSamples[pFlac->currentSubframes[pFlac->nextSampleChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            int side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            int left = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
                             decodedSample = left - side;
                         }
 
@@ -1535,8 +1531,8 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                     case DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE:
                     {
                         if (pFlac->nextSampleChannel == 0) {
-                            int side  = pFlac->decodedSamples[pFlac->currentSubframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            int right = pFlac->decodedSamples[pFlac->currentSubframes[pFlac->nextSampleChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            int side  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            int right = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
                             decodedSample = side + right;
                         } else {
                             decodedSample = pFlac->decodedSamples[sampleIndex0];
@@ -1549,14 +1545,14 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                         int mid;
                         int side;
                         if (pFlac->nextSampleChannel == 0) {
-                            mid  = pFlac->decodedSamples[pFlac->currentSubframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            side = pFlac->decodedSamples[pFlac->currentSubframes[pFlac->nextSampleChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
 
                             mid = (((unsigned int)mid) << 1) | (side & 0x01);
                             decodedSample = (mid + side) >> 1;
                         } else {
-                            mid  = pFlac->decodedSamples[pFlac->currentSubframes[pFlac->nextSampleChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
-                            side = pFlac->decodedSamples[pFlac->currentSubframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
 
                             mid = (((unsigned int)mid) << 1) | (side & 0x01);
                             decodedSample = (mid - side) >> 1;
