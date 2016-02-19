@@ -3312,7 +3312,7 @@ draudio_device* draudio_create_output_device_dsound(draudio_context* pContext, u
     wf.Format.cbSize               = sizeof(wf);
     wf.Format.wFormatTag           = WAVE_FORMAT_EXTENSIBLE;
     wf.Format.nChannels            = 2;
-    wf.Format.nSamplesPerSec       = 44100;
+    wf.Format.nSamplesPerSec       = 48000;
     wf.Format.wBitsPerSample       = 32;
     wf.Format.nBlockAlign          = (wf.Format.nChannels * wf.Format.wBitsPerSample) / 8;
     wf.Format.nAvgBytesPerSec      = wf.Format.nBlockAlign * wf.Format.nSamplesPerSec;
