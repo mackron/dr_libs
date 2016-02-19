@@ -774,11 +774,8 @@ static inline int drflac__read_and_decode_rice(drflac* pFlac, unsigned char m)
     }
 
     unsigned int decodedValue = 0;
-    for (unsigned char i = 0; i < m; ++i) {
-        if (drflac__read_next_bit(pFlac) != 0) {
-            decodedValue |= (1 << (m - i - 1));
-        }
-    }
+    drflac__read_uint32(pFlac, m, &decodedValue);
+
 
     decodedValue |= (zeroCounter << m);
     if ((decodedValue & 0x01)) {
