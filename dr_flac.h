@@ -942,12 +942,12 @@ static drflac_bool drflac__read_subframe_header(drflac* pFlac, drflac_subframe* 
 
     unsigned char header;
     if (drflac__read_bits(pFlac, 8, &header, 0) != 8) {
-        goto done_reading_subframe_header;
+        return drflac_false;
     }
 
     // First bit should always be 0.
     if ((header & 0x80) != 0) {
-        goto done_reading_subframe_header;
+        return drflac_false;
     }
 
     int type = (header & 0x7E) >> 1;
@@ -972,7 +972,7 @@ static drflac_bool drflac__read_subframe_header(drflac* pFlac, drflac_subframe* 
     }
 
     if (pSubframe->subframeType == DRFLAC_SUBFRAME_RESERVED) {
-        goto done_reading_subframe_header;
+        return drflac_false;
     }
 
     // Wasted bits per sample.
@@ -983,11 +983,7 @@ static drflac_bool drflac__read_subframe_header(drflac* pFlac, drflac_subframe* 
         } while (drflac__read_next_bit(pFlac) == 0);
     }
 
-    result = drflac_true;
-
-
-done_reading_subframe_header:
-    return result;
+    return drflac_true;
 }
 
 static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
