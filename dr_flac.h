@@ -239,6 +239,96 @@ drflac* drflac_open_file(const char* filename)
 }
 #endif  //DR_FLAC_NO_STDIO
 
+
+static inline drflac_bool drflac__is_little_endian()
+{
+    int n = 1;
+    return (*(char*)&n) == 1;
+}
+
+static inline unsigned short drflac__swap_endian_uint16(unsigned short n)
+{
+#ifdef _MSC_VER
+    return _byteswap_ushort(n);
+#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC__ >= 3))
+    return __builtin_bswap16(n);
+#else
+    return ((n & 0xFF00) >> 8) | ((n & 0x00FF) << 8);
+#endif
+}
+
+static inline unsigned int drflac__swap_endian_uint32(unsigned int n)
+{
+#ifdef _MSC_VER
+    return _byteswap_ulong(n);
+#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC__ >= 3))
+    return __builtin_bswap32(n);
+#else
+    return ((n & 0xFF000000) >> 24) |
+           ((n & 0x00FF0000) >>  8) |
+           ((n & 0x0000FF00) <<  8) |
+           ((n & 0x000000FF) << 24);
+#endif
+}
+
+static inline unsigned long long drflac__swap_endian_uint64(unsigned long long n)
+{
+#ifdef _MSC_VER
+    return _byteswap_uint64(n);
+#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC__ >= 3))
+    return __builtin_bswap64(n);
+#else
+    return ((n & 0xFF00000000000000ULL) >> 56) |
+           ((n & 0x00FF000000000000ULL) >> 40) |
+           ((n & 0x0000FF0000000000ULL) >> 24) |
+           ((n & 0x000000FF00000000ULL) >>  8) |
+           ((n & 0x00000000FF000000ULL) <<  8) |
+           ((n & 0x0000000000FF0000ULL) << 24) |
+           ((n & 0x000000000000FF00ULL) << 40) |
+           ((n & 0x00000000000000FFULL) << 56);
+#endif
+}
+
+static inline unsigned short drflac__be2host_16(unsigned short n)
+{
+#ifdef __linux__
+    return be16toh(n);
+#else
+    if (drflac__is_little_endian()) {
+        return drflac__swap_endian_uint16(n);
+    }
+
+    return n;
+#endif
+}
+
+static inline unsigned int drflac__be2host_32(unsigned int n)
+{
+#ifdef __linux__
+    return be32toh(n);
+#else
+    if (drflac__is_little_endian()) {
+        return drflac__swap_endian_uint32(n);
+    }
+
+    return n;
+#endif
+}
+
+static inline unsigned long long drflac__be2host_64(unsigned long long n)
+{
+#ifdef __linux__
+    return be64toh(n);
+#else
+    if (drflac__is_little_endian()) {
+        return drflac__swap_endian_uint64(n);
+    }
+
+    return n;
+#endif
+}
+
+
 static inline unsigned char drflac__extract_byte(const unsigned char* pIn, unsigned int bitOffsetIn)
 {
     if (bitOffsetIn == 0) {
@@ -327,16 +417,21 @@ static inline void drflac__copy_bits(unsigned int bitCount, const unsigned char*
     }
 }
 
-static inline size_t drflac__read_bytes(drflac* pFlac, void* pOut, size_t bytesToRead)
+static inline size_t drflac__grab_bytes(drflac* pFlac, void* pOut, size_t bytesToRead)
 {
     assert(pFlac != NULL);
     assert(pOut != NULL);
     assert(bytesToRead > 0);
 
+    // This function grabs bytes directly from the stream. We should never be calling this while not being aligned to
+    // a byte boundary. To help detect potential hard-to-find errors we'll place an assert here to ensure we only ever
+    // call this while aligned.
+    assert(pFlac->leftoverBitsRemaining == 0);
+
     return pFlac->onRead(pFlac->userData, pOut, bytesToRead);
 }
 
-static inline int drflac__seek_to(drflac* pFlac, long long offsetFromStart)
+static inline int drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
 {
     assert(pFlac != NULL);
 
@@ -372,7 +467,12 @@ static unsigned int drflac__read_bits(drflac* pFlac, unsigned int bitsToRead, un
 {
     assert(pFlac != NULL);
     assert(pOut != NULL);
-    assert(pFlac->leftoverBitsRemaining <= 7);  
+    assert(pFlac->leftoverBitsRemaining <= 7);
+
+    // Optimization for byte-aligned reads.
+    if (pFlac->leftoverBitsRemaining == 0 && bitOffsetOut == 0 && (bitsToRead % 8) == 0) {
+        return drflac__grab_bytes(pFlac, pOut, bitsToRead / 8) * 8;
+    }
 
     unsigned int bitsRead = 0;
 
@@ -403,7 +503,7 @@ static unsigned int drflac__read_bits(drflac* pFlac, unsigned int bitsToRead, un
             // Aligned read. Faster.
             pOut += (bitOffset >> 3);
 
-            size_t bytesRead = drflac__read_bytes(pFlac, pOut, bytesToRead);
+            size_t bytesRead = drflac__grab_bytes(pFlac, pOut, bytesToRead);
             bitsRead += bytesRead * 8;
 
             if (bytesRead != bytesToRead) { // <-- did we run out of data?
@@ -418,7 +518,7 @@ static unsigned int drflac__read_bits(drflac* pFlac, unsigned int bitsToRead, un
             while (bytesToRead > 0)
             {
                 unsigned char nextByte;
-                if (drflac__read_bytes(pFlac, &nextByte, 1) != 1) {
+                if (drflac__grab_bytes(pFlac, &nextByte, 1) != 1) {
                     return bitsRead;
                 }
 
@@ -437,7 +537,7 @@ static unsigned int drflac__read_bits(drflac* pFlac, unsigned int bitsToRead, un
     {
         assert(bitsRemaining < 8);
 
-        if (drflac__read_bytes(pFlac, &pFlac->leftoverByte, 1) != 1) {
+        if (drflac__grab_bytes(pFlac, &pFlac->leftoverByte, 1) != 1) {
             return bitsRead;    // Ran out of data.
         }
 
@@ -455,7 +555,7 @@ static inline int drflac__read_next_bit(drflac* pFlac)
     assert(pFlac != NULL);
 
     if (pFlac->leftoverBitsRemaining == 0) {
-        if (drflac__read_bytes(pFlac, &pFlac->leftoverByte, 1) != 1) {
+        if (drflac__grab_bytes(pFlac, &pFlac->leftoverByte, 1) != 1) {
             return -1;  // Ran out of data.
         }
 
@@ -466,20 +566,68 @@ static inline int drflac__read_next_bit(drflac* pFlac)
     return (pFlac->leftoverByte & (1 << pFlac->leftoverBitsRemaining)) >> pFlac->leftoverBitsRemaining;
 }
 
-
-static inline drflac_bool drflac__is_little_endian()
+static inline drflac_bool drflac__read_uint16(drflac* pFlac, unsigned int bitCount, unsigned short* pResult)
 {
-    int n = 1;
-    return (*(char*)&n) == 1;
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 16);
+
+    unsigned int result = 0;
+    if (drflac__read_bits(pFlac, bitCount, (unsigned char*)&result, 16 - bitCount) != bitCount) {
+        return drflac_false;
+    }
+
+    *pResult = drflac__be2host_16(result);
+    return drflac_true;
 }
+
+static inline drflac_bool drflac__read_uint32(drflac* pFlac, unsigned int bitCount, unsigned int* pResult)
+{
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 32);
+
+    unsigned int result = 0;
+    if (drflac__read_bits(pFlac, bitCount, (unsigned char*)&result, 32 - bitCount) != bitCount) {
+        return drflac_false;
+    }
+
+    *pResult = drflac__be2host_32(result);
+    return drflac_true;
+}
+
+static inline drflac_bool drflac__read_uint64(drflac* pFlac, unsigned int bitCount, unsigned long long* pResult)
+{
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 64);
+
+    unsigned long long result = 0;
+    if (drflac__read_bits(pFlac, bitCount, (unsigned char*)&result, 64 - bitCount) != bitCount) {
+        return drflac_false;
+    }
+
+    *pResult = drflac__be2host_64(result);
+    return drflac_true;
+}
+
+
+
 
 static drflac_bool drflac__read_utf8_coded_number(drflac* pFlac, long long* pNumberOut)
 {
     assert(pFlac != NULL);
     assert(pNumberOut != NULL);
 
+    // We should never need to read UTF-8 data while not being aligned to a byte boundary. Therefore we can grab the data
+    // directly from the input stream rather than using drflac__read_bits().
+    assert(pFlac->leftoverBitsRemaining == 0);
+
     unsigned char utf8[7] = {0};
-    if (pFlac->onRead(pFlac->userData, utf8, 1) != 1) {
+    if (drflac__grab_bytes(pFlac, utf8, 1) != 1) {
         *pNumberOut = 0;
         return drflac_false;
     }
@@ -510,7 +658,7 @@ static drflac_bool drflac__read_utf8_coded_number(drflac* pFlac, long long* pNum
     // Read extra bytes.
     assert(byteCount > 1);
 
-    if (pFlac->onRead(pFlac->userData, utf8 + 1, byteCount - 1) != byteCount - 1) {
+    if (drflac__grab_bytes(pFlac, utf8 + 1, byteCount - 1) != byteCount - 1) {
         *pNumberOut = 0;
         return drflac_false;     // Ran out of data.
     }
@@ -548,63 +696,7 @@ static drflac_bool drflac__read_utf8_coded_number(drflac* pFlac, long long* pNum
     return drflac_true;
 }
 
-static inline unsigned int drflac__swap_endian_uint32(unsigned int n)
-{
-#ifdef _MSC_VER
-    return _byteswap_ulong(n);
-#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC__ >= 3))
-    return __builtin_bswap32(n);
-#else
-    return ((n & 0xFF000000) >> 24) |
-           ((n & 0x00FF0000) >>  8) |
-           ((n & 0x0000FF00) <<  8) |
-           ((n & 0x000000FF) << 24);
-#endif
-}
 
-static inline unsigned long long drflac__swap_endian_uint64(unsigned long long n)
-{
-#ifdef _MSC_VER
-    return _byteswap_uint64(n);
-#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC__ >= 3))
-    return __builtin_bswap64(n);
-#else
-    return ((n & 0xFF00000000000000ULL) >> 56) |
-           ((n & 0x00FF000000000000ULL) >> 40) |
-           ((n & 0x0000FF0000000000ULL) >> 24) |
-           ((n & 0x000000FF00000000ULL) >>  8) |
-           ((n & 0x00000000FF000000ULL) <<  8) |
-           ((n & 0x0000000000FF0000ULL) << 24) |
-           ((n & 0x000000000000FF00ULL) << 40) |
-           ((n & 0x00000000000000FFULL) << 56);
-#endif
-}
-
-static inline unsigned int drflac__be2host_32(unsigned int n)
-{
-#ifdef __linux__
-    return be32toh(n);
-#else
-    if (drflac__is_little_endian()) {
-        return drflac__swap_endian_uint32(n);
-    }
-
-    return n;
-#endif
-}
-
-static inline unsigned long long drflac__be2host_64(unsigned long long n)
-{
-#ifdef __linux__
-    return be64toh(n);
-#else
-    if (drflac__is_little_endian()) {
-        return drflac__swap_endian_uint64(n);
-    }
-
-    return n;
-#endif
-}
 
 
 // Converts a stream of bits of a variable length to an unsigned 32-bit number. Assumes the input data is big-endian and the first bit
@@ -621,28 +713,6 @@ static inline unsigned int drflac__to_uint32(unsigned char* pIn, unsigned int bi
     }
 
     return result;
-
-#if 0
-    // TODO: Add support for big-endian.
-    if (!drflac__is_little_endian()) {
-        assert(0);      // No support for big-endian at the moment.
-    }
-
-    unsigned char byteMaskBeg = ~(0xFFU >> bitOffsetIn) | ~(0xFFU << (8 - (bitOffsetIn + bitCount)));
-    unsigned char byteMaskEnd = 0;
-
-    if (bitCount > 24) {
-        result = (pIn[0] << (bitCount - 8)) | (pIn[1] << (bitCount - 16)) | (pIn[2] << (bitCount - 24)) | (pIn[3] >> (8 - (bitCount - 24)));
-    } else if (bitCount > 16) {
-        result = (pIn[0] << (bitCount - 8)) | (pIn[1] << (bitCount - 16)) | (pIn[2] >> (8 - (bitCount - 16)));
-    } else if (bitCount > 8) {
-        result = (pIn[0] << (bitCount - 8)) | (pIn[1] >> (8 - (bitCount - 8)));
-    } else {
-        result = ((pIn[0] & byteMaskBeg) >> (8 - (bitOffsetIn + bitCount)));
-    }
-
-    return result;
-#endif
 }
 
 static inline unsigned long long drflac__to_uint64(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
@@ -726,11 +796,14 @@ static drflac_bool drflac__read_next_frame_header(drflac* pFlac)
     assert(pFlac != NULL);
     assert(pFlac->onRead != NULL);
 
+    // Frame headers should always be aligned to a byte boundary so we use drflac__grab_bytes() directly instead of the
+    // less efficient drflac__read_bits().
+
     const int sampleRateTable[12]   = {0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000};
     const int bitsPerSampleTable[8] = {0, 8, 12, -1, 16, 20, 24, -1};   // -1 = reserved.
 
     unsigned char headerDataFixed[4];
-    if ((pFlac->onRead(pFlac->userData, headerDataFixed, sizeof(headerDataFixed))) != sizeof(headerDataFixed)) {
+    if (drflac__grab_bytes(pFlac, headerDataFixed, sizeof(headerDataFixed)) != sizeof(headerDataFixed)) {
         return drflac_false;
     }
 
@@ -762,14 +835,14 @@ static drflac_bool drflac__read_next_frame_header(drflac* pFlac)
         pFlac->currentFrameHeader.blockSize = 576 * (1 << (blockSize - 2));
     } else if (blockSize == 6) {
         unsigned char actualBlockSize;
-        if (pFlac->onRead(pFlac->userData, &actualBlockSize, 1) != 1) {
+        if (drflac__grab_bytes(pFlac->userData, &actualBlockSize, 1) != 1) {
             return drflac_false;
         }
 
         pFlac->currentFrameHeader.blockSize = actualBlockSize + 1;
     } else if (blockSize == 7) {
         unsigned char actualBlockSize[2];
-        if (pFlac->onRead(pFlac->userData, &actualBlockSize, 2) != 2) {
+        if (drflac__grab_bytes(pFlac, &actualBlockSize, 2) != 2) {
             return drflac_false;
         }
 
@@ -790,14 +863,14 @@ static drflac_bool drflac__read_next_frame_header(drflac* pFlac)
         pFlac->currentFrameHeader.sampleRate = (int)actualSampleRate_kHz * 1000;
     } else if (sampleRate == 13) {
         unsigned char actualSampleRate_Hz[2];
-        if (pFlac->onRead(pFlac->userData, &actualSampleRate_Hz, 2) != 2) {
+        if (drflac__grab_bytes(pFlac, &actualSampleRate_Hz, 2) != 2) {
             return drflac_false;
         }
 
         pFlac->currentFrameHeader.sampleRate = drflac__to_int32(actualSampleRate_Hz, 0, 24);
     } else if (sampleRate == 14) {
         unsigned char actualSampleRate_tensOfHz[2];
-        if (pFlac->onRead(pFlac->userData, &actualSampleRate_tensOfHz, 2) != 2) {
+        if (drflac__grab_bytes(pFlac, &actualSampleRate_tensOfHz, 2) != 2) {
             return drflac_false;
         }
 
@@ -811,7 +884,7 @@ static drflac_bool drflac__read_next_frame_header(drflac* pFlac)
     pFlac->currentFrameHeader.bitsPerSample       = bitsPerSampleTable[bitsPerSample];
     pFlac->currentFrameHeader.subframeSampleCount = pFlac->currentFrameHeader.blockSize;
 
-    if (pFlac->onRead(pFlac->userData, &pFlac->currentFrameHeader.crc8, 1) != 1) {
+    if (drflac__grab_bytes(pFlac, &pFlac->currentFrameHeader.crc8, 1) != 1) {
         return drflac_false;
     }
 
@@ -1205,8 +1278,11 @@ static drflac_bool drflac__begin_next_frame(drflac* pFlac)      // TODO: Rename 
     }
 
     // Padding to byte alignment.
-    unsigned char padding = 0xFF;   // Initializing to 0xFF for testing. Delete later.
-    drflac__read_bits(pFlac, pFlac->leftoverBitsRemaining, &padding, 0);
+    unsigned char padding;
+    if (pFlac->leftoverBitsRemaining > 0) {
+        drflac__read_bits(pFlac, pFlac->leftoverBitsRemaining, &padding, 0);
+    }
+    
 
     // CRC.
     unsigned char crc[2];
