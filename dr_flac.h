@@ -12,11 +12,15 @@
 // - Add an API to retrieve samples in their original format rather than 32-bit.
 // - Add an API to retrieve samples in 32-bit floating point format for consistency with dr_wav. Make it optional through the use
 //   of a #define, just like dr_wav does it.
+// - Look at removing the onTell callback function to make using the library just that bit easier. Also consider making onSeek
+//   optional, in which case seeking and metadata block retrieval will be disabled.
+// - Use the standard sized types such as uint32_t, etc.
 
 #ifndef dr_flac_h
 #define dr_flac_h
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,17 +47,40 @@ typedef struct
 
 typedef struct
 {
-    int subframeType;
-    int wastedBitsPerSample;
+    // The type of the subframe: SUBFRAME_CONSTANT, SUBFRAME_VERBATIM, SUBFRAME_FIXED or SUBFRAME_LPC.
+    unsigned int subframeType;
 
-    int lpcOrder;   // Used by both SUBFRAME_FIXED and SUBFRAME_LPC
+    // The number of wasted bits per sample as specified by the sub-frame header.
+    unsigned int wastedBitsPerSample;
 
-    // The offset of the first decoded sample in the decoded sample buffer.
-    unsigned int firstDecodedSampleOffset;
+
+    // The order to use for the prediction stage for SUBFRAME_FIXED and SUBFRAME_LPC.
+    unsigned int lpcOrder;
+
+    // The bit shift to apply at the end of the prediction stage. Only used with SUBFRAME_LPC. Note how this is signed.
+    int lpcShift;
+
+    // The coefficients to use for the prediction stage. For SUBFRAME_FIXED this is set to a pre-defined set of values based on lpcOrder. There
+    // is a maximum of 32 coefficients. The number of valid values in this array is equal to lpcOrder.
+    int lpcCoefficients[32];
+
+    // The previous samples to use for the prediction stage. Only used with SUBFRAME_FIXED and SUBFRAME_LPC. The number of items in this array
+    // is equal to lpcOrder.
+    int lpcPrevSamples[32];
+    
 
     // The number of bits per sample for this subframe. This is not always equal to the current frame's bit per sample because
     // side channels for when Interchannel Decorrelation is being used require an extra bit per sample.
     int bitsPerSample;
+
+
+    // A pointer to the buffer containing the decoded samples in the subframe. This pointer is an offset from drflac::pHeap, or
+    // NULL if the heap is not being used. Note that it's a signed 32-bit integer for each value.
+    int32_t* pDecodedSamples;
+
+
+    // The offset of the first decoded sample in the decoded sample buffer.
+    unsigned int firstDecodedSampleOffset;
 
 } drflac_subframe;
 
@@ -86,10 +113,6 @@ typedef struct
     // The number of samples left to be read in this frame. This is initially set to the block size multiplied by the channel count. As samples
     // are read, this will be decremented. When it reaches 0, the decoder will see this frame as fully consumed and load the next frame.
     unsigned long long samplesRemaining;
-
-    // The index of channel the next sample belongs to. This is only ever used for interleaving and is never larger than the channel count minus 1.
-    // TODO: Look at getting rid of this - it can be derived from samplesRemaining and the channel count.
-    unsigned int nextChannel;
 
 
     // The list of sub-frames within the frame. There is one sub-frame for each channel, and there's a maximum of 8 channels.
@@ -157,9 +180,14 @@ typedef struct
     drflac_frame currentFrame;
 
 
-    // A pointer to a block of memory sitting on the heap. This will be set to NULL if the heap is not being used.
+    // A pointer to a block of memory sitting on the heap. This will be set to NULL if the heap is not being used. Currently, this stores
+    // the decoded Rice codes for each channel in the current frame.
     void* pHeap;
 
+
+
+
+    // EVERYTHING BELOW IS TEMP.
 
     // The number of valid decoded samples in <decodedSamples> (below). We use this to keep track of where to place newly decoded samples.
     unsigned int decodedSampleCount;
@@ -178,7 +206,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
 // Closes the given FLAC decoder.
 void drflac_close(drflac* flac);
 
-// Reads sample data from the given FLAC decoder, output as signed 32-bit PCM .
+// Reads sample data from the given FLAC decoder, output as signed 32-bit PCM.
 unsigned int drflac_read_s32(drflac* flac, size_t samplesToRead, int* bufferOut);
 
 
@@ -457,6 +485,84 @@ static inline void drflac__copy_bits(unsigned int bitCount, const unsigned char*
     }
 }
 
+// Converts a stream of bits of a variable length to an unsigned integer. Assumes the input data is big-endian and the first bit
+// is at an offset of bitOffsetIn.
+static inline unsigned int drflac__to_uint16(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
+{
+    assert(bitCount <= 16);
+
+    unsigned int result = 0;
+    drflac__copy_bits(bitCount, pIn, bitOffsetIn, (unsigned char*)&result, 16 - bitCount);
+
+    if (drflac__is_little_endian()) {
+        result = drflac__swap_endian_uint16(result);
+    }
+
+    return result;
+}
+
+static inline unsigned int drflac__to_uint32(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
+{
+    assert(bitCount <= 32);
+
+    unsigned int result = 0;
+    drflac__copy_bits(bitCount, pIn, bitOffsetIn, (unsigned char*)&result, 32 - bitCount);
+
+    if (drflac__is_little_endian()) {
+        result = drflac__swap_endian_uint32(result);
+    }
+
+    return result;
+}
+
+static inline unsigned long long drflac__to_uint64(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
+{
+    assert(bitCount <= 64);
+
+    unsigned long long result = 0;
+    drflac__copy_bits(bitCount, pIn, bitOffsetIn, (unsigned char*)&result, 64 - bitCount);
+
+    if (drflac__is_little_endian()) {
+        result = drflac__swap_endian_uint64(result);
+    }
+
+    return result;
+}
+
+// Converts a stream of bits of a variable length to a signed integer. Assumes the input data is big-endian and the first bit
+// is at an offset of bitOffsetIn.
+static inline int drflac__to_int32(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
+{
+    int leadingBytes = bitOffsetIn / 8;
+    if (leadingBytes > 0) {
+        pIn += leadingBytes;
+        bitOffsetIn -= (leadingBytes * 8);
+    }
+
+    unsigned int result = drflac__to_uint32(pIn, bitOffsetIn, bitCount);
+    if ((pIn[0] & (1 << (8 - bitOffsetIn - 1)))) {
+        result |= (0xFFFFFFFF << bitCount);
+    }
+
+    return (int)result;
+}
+
+static inline long long drflac__to_int64(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
+{
+    int leadingBytes = bitOffsetIn / 8;
+    if (leadingBytes > 0) {
+        pIn += leadingBytes;
+        bitOffsetIn -= (leadingBytes * 8);
+    }
+
+    unsigned long long result = drflac__to_uint64(pIn, bitOffsetIn, bitCount);
+    if ((pIn[0] & (1 << (8 - bitOffsetIn - 1)))) {
+        result |= (0xFFFFFFFFFFFFFFFFULL << bitCount);
+    }
+
+    return (long long)result;
+}
+
 static inline size_t drflac__grab_bytes(drflac* pFlac, void* pOut, size_t bytesToRead)
 {
     assert(pFlac != NULL);
@@ -638,6 +744,22 @@ static inline drflac_bool drflac__read_uint32(drflac* pFlac, unsigned int bitCou
     return drflac_true;
 }
 
+static inline drflac_bool drflac__read_int32(drflac* pFlac, unsigned int bitCount, int* pResult)
+{
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 32);
+
+    unsigned char data[4];
+    if (drflac__read_bits(pFlac, bitCount, data, 0) != bitCount) {
+        return drflac_false;
+    }
+
+    *pResult = drflac__to_int32(data, 0, bitCount);
+    return drflac_true;
+}
+
 static inline drflac_bool drflac__read_uint64(drflac* pFlac, unsigned int bitCount, unsigned long long* pResult)
 {
     assert(pFlac != NULL);
@@ -653,6 +775,8 @@ static inline drflac_bool drflac__read_uint64(drflac* pFlac, unsigned int bitCou
     *pResult = drflac__be2host_64(result);
     return drflac_true;
 }
+
+
 
 
 
@@ -739,86 +863,7 @@ static drflac_bool drflac__read_utf8_coded_number(drflac* pFlac, long long* pNum
 
 
 
-// Converts a stream of bits of a variable length to an unsigned integer. Assumes the input data is big-endian and the first bit
-// is at an offset of bitOffsetIn.
-static inline unsigned int drflac__to_uint16(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
-{
-    assert(bitCount <= 16);
-
-    unsigned int result = 0;
-    drflac__copy_bits(bitCount, pIn, bitOffsetIn, (unsigned char*)&result, 16 - bitCount);
-
-    if (drflac__is_little_endian()) {
-        result = drflac__swap_endian_uint16(result);
-    }
-
-    return result;
-}
-
-static inline unsigned int drflac__to_uint32(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
-{
-    assert(bitCount <= 32);
-
-    unsigned int result = 0;
-    drflac__copy_bits(bitCount, pIn, bitOffsetIn, (unsigned char*)&result, 32 - bitCount);
-
-    if (drflac__is_little_endian()) {
-        result = drflac__swap_endian_uint32(result);
-    }
-
-    return result;
-}
-
-static inline unsigned long long drflac__to_uint64(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
-{
-    assert(bitCount <= 64);
-
-    unsigned long long result = 0;
-    drflac__copy_bits(bitCount, pIn, bitOffsetIn, (unsigned char*)&result, 64 - bitCount);
-
-    if (drflac__is_little_endian()) {
-        result = drflac__swap_endian_uint64(result);
-    }
-
-    return result;
-}
-
-// Converts a stream of bits of a variable length to a signed integer. Assumes the input data is big-endian and the first bit
-// is at an offset of bitOffsetIn.
-static inline int drflac__to_int32(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
-{
-    int leadingBytes = bitOffsetIn / 8;
-    if (leadingBytes > 0) {
-        pIn += leadingBytes;
-        bitOffsetIn -= (leadingBytes * 8);
-    }
-
-    unsigned int result = drflac__to_uint32(pIn, bitOffsetIn, bitCount);
-    if ((pIn[0] & (1 << (8 - bitOffsetIn - 1)))) {
-        result |= (0xFFFFFFFF << bitCount);
-    }
-
-    return (int)result;
-}
-
-static inline long long drflac__to_int64(unsigned char* pIn, unsigned int bitOffsetIn, unsigned int bitCount)
-{
-    int leadingBytes = bitOffsetIn / 8;
-    if (leadingBytes > 0) {
-        pIn += leadingBytes;
-        bitOffsetIn -= (leadingBytes * 8);
-    }
-
-    unsigned long long result = drflac__to_uint64(pIn, bitOffsetIn, bitCount);
-    if ((pIn[0] & (1 << (8 - bitOffsetIn - 1)))) {
-        result |= (0xFFFFFFFFFFFFFFFFULL << bitCount);
-    }
-
-    return (long long)result;
-}
-
-
-static inline int drflac__read_and_decode_rice(drflac* pFlac, unsigned char m)
+static inline drflac_bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char m, int* pValueOut)
 {
     // TODO: Profile and optimize this. Will probably need to look at decoding Rice codes in groups.
 
@@ -838,7 +883,117 @@ static inline int drflac__read_and_decode_rice(drflac* pFlac, unsigned char m)
         decodedValue = (decodedValue >> 1);
     }
 
-    return (int)decodedValue;
+    *pValueOut = (int)decodedValue;
+    return drflac_true;
+}
+
+// Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice
+// codes.
+static drflac_bool drflac__read_and_decode_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam, int* pResidualOut)
+{
+    assert(pFlac != NULL);
+    assert(count > 0);
+    assert(pResidualOut != NULL);
+
+    for (unsigned int i = 0; i < count; ++i) {
+        if (!drflac__read_and_decode_rice(pFlac, riceParam, pResidualOut)) {
+            return drflac_false;
+        }
+
+        pResidualOut += 1;
+    }
+
+    return drflac_true;
+}
+
+// Reads unencoded residual values.
+static drflac_bool drflac__read_and_decode_residual__unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, int* pResidualOut)
+{
+    assert(pFlac != NULL);
+    assert(count > 0);
+    assert(unencodedBitsPerSample > 0 && unencodedBitsPerSample <= 32);
+    assert(pResidualOut != NULL);
+
+    for (unsigned int i = 0; i < count; ++i)
+    {
+        if (!drflac__read_int32(pFlac, unencodedBitsPerSample, pResidualOut)) {
+            return drflac_false;
+        }
+
+        pResidualOut += 1;
+    }
+
+    return drflac_true;
+}
+
+// Reads and decodes the residual for the sub-frame the decoder is currently sitting on. This function should be called
+// when the decoder is sitting at the very start of the RESIDUAL block. The first <order> residuals will be set to 0. The
+// <blockSize> and <order> parameters are used to determine how many residual values need to be decoded.
+static drflac_bool drflac__read_and_decode_residual(drflac* pFlac, unsigned int blockSize, unsigned int order, int* pResidualOut)
+{
+    assert(pFlac != NULL);
+    assert(blockSize != 0);
+    assert(pResidualOut != NULL);       // <-- Should we allow NULL, in which case we just seek past the residual rather than do a full decode?
+
+    unsigned char residualMethod = 0;
+    drflac__read_bits(pFlac, 2, &residualMethod, 6);
+
+    if (residualMethod != DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE && residualMethod != DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
+        return drflac_false;    // Unknown or unsupported residual coding method.
+    }
+
+
+    // We use a residual of 0 for the first <order> values.
+    for (unsigned int i = 0; i < order; ++i) {
+        *pResidualOut++ = 0;
+    }
+
+
+    unsigned char partitionOrder = 0;
+    drflac__read_bits(pFlac, 4, &partitionOrder, 4);
+
+    unsigned int samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
+    unsigned int partitionsRemaining = (1 << partitionOrder);
+    for (;;)
+    {
+        unsigned char riceParam = 0;
+        if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE) {
+            drflac__read_bits(pFlac, 4, &riceParam, 4);
+            if (riceParam == 16) {
+                riceParam = 0xFF;
+            }
+        } else if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
+            drflac__read_bits(pFlac, 5, &riceParam, 3);
+            if (riceParam == 32) {
+                riceParam = 0xFF;
+            }
+        }
+
+        if (riceParam != 0xFF) {
+            if (!drflac__read_and_decode_residual__rice(pFlac, samplesInPartition, riceParam, pResidualOut)) {
+                return drflac_false;
+            }
+        } else {
+            unsigned char unencodedBitsPerSample = 0;
+            drflac__read_bits(pFlac, 5, &unencodedBitsPerSample, 3);
+
+            if (!drflac__read_and_decode_residual__unencoded(pFlac, samplesInPartition, unencodedBitsPerSample, pResidualOut)) {
+                return drflac_false;
+            }
+        }
+
+        pResidualOut += samplesInPartition;
+
+        
+        if (partitionsRemaining == 1) {
+            break;
+        }
+
+        partitionsRemaining -= 1;
+        samplesInPartition = blockSize / (1 << partitionOrder);
+    }
+
+    return drflac_true;
 }
 
 
@@ -1034,8 +1189,11 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
 
             int sample = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
 
-            // TODO: We don't really need to expand this, but I'm just doing it for now to just get things working.
+            // We don't really need to expand this, but it does simplify the process of reading samples. If this becomes a performance issue (unlikely)
+            // we'll want to look at a more efficient way.
             for (unsigned int i = 0; i < pFlac->currentFrame.blockSize; ++i) {
+                pSubframe->pDecodedSamples[i] = sample;
+
                 pFlac->decodedSamples[pFlac->decodedSampleCount] = sample;
                 pFlac->decodedSampleCount += 1;
             }
@@ -1050,24 +1208,15 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                     return drflac_false;
                 }
 
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
+                pSubframe->pDecodedSamples[i] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
+
+                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
                 pFlac->decodedSampleCount += 1;
             }
         } break;
 
         case DRFLAC_SUBFRAME_FIXED:
         {
-            // Warm up samples.
-            for (int i = 0; i < pSubframe->lpcOrder; ++i) {
-                unsigned char originalSample[4] = {0};
-                if (drflac__read_bits(pFlac, pSubframe->bitsPerSample, originalSample, 0) != pSubframe->bitsPerSample) {
-                    return drflac_false;
-                }
-
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
-                pFlac->decodedSampleCount += 1;
-            }
-
             int lpcCoefficientsTable[5][4] = {
                 {0,  0, 0,  0},
                 {1,  0, 0,  0},
@@ -1076,105 +1225,62 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                 {4, -6, 4, -1}
             };
 
-
-            unsigned char residualMethod = 0;
-            drflac__read_bits(pFlac, 2, &residualMethod, 6);
-
-            unsigned char partitionOrder = 0;
-            drflac__read_bits(pFlac, 4, &partitionOrder, 4);
-
-            int samplesRemainingInPartition;
-            if (partitionOrder == 0) {
-                samplesRemainingInPartition = pFlac->currentFrame.blockSize - pSubframe->lpcOrder;
-            } else {
-                samplesRemainingInPartition = (pFlac->currentFrame.blockSize / (1 << partitionOrder)) - pSubframe->lpcOrder;
-            }
-
-            int partitionsRemaining = (1 << partitionOrder);
-            do
-            {
-                unsigned char riceParam = 0;
-                if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE) {
-                    drflac__read_bits(pFlac, 4, &riceParam, 4);
-                    if (riceParam == 16) {
-                        riceParam = 0xFF;
-                    }
-                } else if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
-                    drflac__read_bits(pFlac, 5, &riceParam, 3);
-                    if (riceParam == 32) {
-                        riceParam = 0xFF;
-                    }
-                }
-                
-
-                if (riceParam != 0xFF)
-                {
-                    // Rice encoded.
-                    while (samplesRemainingInPartition > 0)
-                    {
-                        // Residual.
-                        int residual = drflac__read_and_decode_rice(pFlac, riceParam);
-
-                        // Prediction.
-                        long long prediction = 0;
-                        for (int i = 0; i < pSubframe->lpcOrder; ++i) {
-                            prediction += (long long)lpcCoefficientsTable[pSubframe->lpcOrder][i] * (long long)pFlac->decodedSamples[pFlac->decodedSampleCount - i - 1];
-                        }
-
-
-                        pFlac->decodedSamples[pFlac->decodedSampleCount] = (int)prediction + residual;
-                        pFlac->decodedSampleCount += 1;
-
-                        samplesRemainingInPartition -= 1;
-                    }
-                }
-                else
-                {
-                    // Unencoded with each number being unencodedBitsPerSample in size.
-                    unsigned char unencodedBitsPerSample = 0;
-                    drflac__read_bits(pFlac, 5, &unencodedBitsPerSample, 3);
-
-                    while (samplesRemainingInPartition > 0)
-                    {
-                        // Residual.
-                        unsigned char residualBytes[4];
-                        drflac__read_bits(pFlac, unencodedBitsPerSample, residualBytes, 0);
-                        int residual = drflac__to_int32(residualBytes, 0, unencodedBitsPerSample);
-
-                        // Prediction.
-                        long long prediction = 0;
-                        for (int i = 0; i < pSubframe->lpcOrder; ++i) {
-                            prediction += (long long)lpcCoefficientsTable[pSubframe->lpcOrder][i] * (long long)pFlac->decodedSamples[pFlac->decodedSampleCount - i - 1];
-                        }
-
-
-                        pFlac->decodedSamples[pFlac->decodedSampleCount] = (int)prediction + residual;
-                        pFlac->decodedSampleCount += 1;
-
-                        samplesRemainingInPartition -= 1;
-                    }
-                }
-
-
-                partitionsRemaining -= 1;
-                if (partitionsRemaining > 0) {
-                    samplesRemainingInPartition = (pFlac->currentFrame.blockSize / (1 << partitionOrder));
-                }
-
-            } while (partitionsRemaining > 0);
-        } break;
-
-        case DRFLAC_SUBFRAME_LPC:
-        {
-            // Warm up samples.
-            for (int i = 0; i < pSubframe->lpcOrder; ++i) {
+            // Warm up samples and coefficients.
+            for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
                 unsigned char originalSample[4] = {0};
                 if (drflac__read_bits(pFlac, pSubframe->bitsPerSample, originalSample, 0) != pSubframe->bitsPerSample) {
                     return drflac_false;
                 }
 
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
+                pSubframe->lpcPrevSamples[i] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
+                //pFlac->decodedSamples[pFlac->decodedSampleCount] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
+                //pFlac->decodedSampleCount += 1;
+
+                pSubframe->lpcCoefficients[i] = lpcCoefficientsTable[pSubframe->lpcOrder][i];
+            }
+
+            pSubframe->pDecodedSamples = ((int*)pFlac->pHeap) + (pFlac->currentFrame.blockSize * subframeIndex);
+            if (!drflac__read_and_decode_residual(pFlac, pFlac->currentFrame.blockSize, pSubframe->lpcOrder, pSubframe->pDecodedSamples)) {
+                return drflac_false;
+            }
+
+
+            // Warm up samples are unencoded.
+            for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
+                pSubframe->pDecodedSamples[i] = pSubframe->lpcPrevSamples[i];
+
+                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
                 pFlac->decodedSampleCount += 1;
+            }
+
+            // We have the residual, so now we need to decode.
+            for (unsigned int i = pSubframe->lpcOrder; i < pFlac->currentFrame.blockSize; ++i)
+            {
+                int prediction = 0;
+                for (unsigned int j = 0; j < pSubframe->lpcOrder; ++j) {
+                    prediction += pSubframe->lpcCoefficients[j] * pFlac->decodedSamples[pFlac->decodedSampleCount - j - 1];
+                }
+
+                pSubframe->pDecodedSamples[i] += prediction;
+
+                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
+                pFlac->decodedSampleCount += 1;
+            }
+
+        } break;
+
+        case DRFLAC_SUBFRAME_LPC:
+        {
+            // Warm up samples.
+            for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
+                unsigned char originalSample[4] = {0};
+                if (drflac__read_bits(pFlac, pSubframe->bitsPerSample, originalSample, 0) != pSubframe->bitsPerSample) {
+                    return drflac_false;
+                }
+
+                pSubframe->lpcPrevSamples[i] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
+                //pFlac->decodedSamples[pFlac->decodedSampleCount] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
+                //pFlac->decodedSampleCount += 1;
             }
 
             unsigned char lpcPrecision = 0;
@@ -1189,105 +1295,43 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
             lpcPrecision += 1;
             lpcShift >>= 3;
 
-            int lpcCoefficients[32];
-            for (int i = 0; i < pSubframe->lpcOrder; ++i) {
+            for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
                 unsigned char coefficient[2] = {0};
                 if (drflac__read_bits(pFlac, lpcPrecision, coefficient, 0) != lpcPrecision) {
                     return drflac_false;
                 }
 
-                lpcCoefficients[i] = drflac__to_int32(coefficient, 0, lpcPrecision);
+                pSubframe->lpcCoefficients[i] = drflac__to_int32(coefficient, 0, lpcPrecision);
             }
 
-            unsigned char residualMethod = 0;
-            drflac__read_bits(pFlac, 2, &residualMethod, 6);
-
-            unsigned char partitionOrder = 0;
-            drflac__read_bits(pFlac, 4, &partitionOrder, 4);
-
-            int samplesRemainingInPartition;
-            if (partitionOrder == 0) {
-                samplesRemainingInPartition = pFlac->currentFrame.blockSize - pSubframe->lpcOrder;
-            } else {
-                samplesRemainingInPartition = (pFlac->currentFrame.blockSize / (1 << partitionOrder)) - pSubframe->lpcOrder;
+            pSubframe->pDecodedSamples = ((int*)pFlac->pHeap) + (pFlac->currentFrame.blockSize * subframeIndex);
+            if (!drflac__read_and_decode_residual(pFlac, pFlac->currentFrame.blockSize, pSubframe->lpcOrder, pSubframe->pDecodedSamples)) {
+                return drflac_false;
             }
 
-            int partitionsRemaining = (1 << partitionOrder);
-            do
+            // Warm up samples are unencoded.
+            for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
+                pSubframe->pDecodedSamples[i] = pSubframe->lpcPrevSamples[i];
+
+                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
+                pFlac->decodedSampleCount += 1;
+            }
+
+            // Decode the remaining samples.
+            for (unsigned int i = pSubframe->lpcOrder; i < pFlac->currentFrame.blockSize; ++i)
             {
-                unsigned char riceParam = 0;
-                if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE) {
-                    drflac__read_bits(pFlac, 4, &riceParam, 4);
-                    if (riceParam == 16) {
-                        riceParam = 0xFF;
-                    }
-                } else if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
-                    drflac__read_bits(pFlac, 5, &riceParam, 3);
-                    if (riceParam == 32) {
-                        riceParam = 0xFF;
-                    }
+                long long prediction = 0;
+                for (unsigned int j = 0; j < pSubframe->lpcOrder; ++j) {
+                    prediction += (long long)pSubframe->lpcCoefficients[j] * (long long)pFlac->decodedSamples[pFlac->decodedSampleCount - j - 1];
                 }
-                
+                prediction >>= lpcShift;
 
-                if (riceParam != 0xFF)
-                {
-                    // Rice encoded.
-                    while (samplesRemainingInPartition > 0)
-                    {
-                        // Residual.
-                        int residual = drflac__read_and_decode_rice(pFlac, riceParam);
-
-                        // Prediction.
-                        long long prediction = 0;
-                        for (int i = 0; i < pSubframe->lpcOrder; ++i) {
-                            prediction += (long long)lpcCoefficients[i] * (long long)pFlac->decodedSamples[pFlac->decodedSampleCount - i - 1];
-                        }
-
-                        prediction >>= lpcShift;
+                pSubframe->pDecodedSamples[i] += (int)prediction;
 
 
-                        pFlac->decodedSamples[pFlac->decodedSampleCount] = (int)prediction + residual;
-                        pFlac->decodedSampleCount += 1;
-
-                        samplesRemainingInPartition -= 1;
-                    }
-                }
-                else
-                {
-                    // Unencoded with each number being unencodedBitsPerSample in size.
-                    unsigned char unencodedBitsPerSample = 0;
-                    drflac__read_bits(pFlac, 5, &unencodedBitsPerSample, 3);
-
-                    while (samplesRemainingInPartition > 0)
-                    {
-                        // Residual.
-                        unsigned char residualBytes[4];
-                        drflac__read_bits(pFlac, unencodedBitsPerSample, residualBytes, 0);
-                        int residual = drflac__to_int32(residualBytes, 0, unencodedBitsPerSample);
-
-                        // Prediction.
-                        long long prediction = 0;
-                        for (int i = 0; i < pSubframe->lpcOrder; ++i) {
-                            prediction += (long long)lpcCoefficients[i] * (long long)pFlac->decodedSamples[pFlac->decodedSampleCount - i - 1];
-                        }
-
-                        prediction >>= lpcShift;
-
-
-                        pFlac->decodedSamples[pFlac->decodedSampleCount] = (int)prediction + residual;
-                        pFlac->decodedSampleCount += 1;
-
-                        samplesRemainingInPartition -= 1;
-                    }
-                }
-
-
-                partitionsRemaining -= 1;
-                if (partitionsRemaining > 0) {
-                    samplesRemainingInPartition = (pFlac->currentFrame.blockSize / (1 << partitionOrder));
-                }
-
-            } while (partitionsRemaining > 0);
+                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
+                pFlac->decodedSampleCount += 1;
+            }
 
         } break;
 
@@ -1461,30 +1505,39 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
 
     
     // At this point we should be sitting right at the start of the very first frame.
-    drflac* pFlac = malloc(sizeof(*pFlac) - sizeof(pFlac->decodedSamples) + (maxBlockSize * 4 * channels));     // x4 because a sample is at most 32-bit (4 bytes).
+    drflac* pFlac = malloc(sizeof(*pFlac) - sizeof(pFlac->decodedSamples) + (maxBlockSize * 4 * channels));     // x4 because a sample is at most 32-bit (4 bytes). The extra allocated data is temp and will be replaced with pHeap.
     if (pFlac == NULL) {
         return NULL;
     }
 
-    pFlac->onRead                         = onRead;
-    pFlac->onSeek                         = onSeek;
-    pFlac->onTell                         = onTell;
-    pFlac->userData                       = userData;
-    pFlac->leftoverByte                   = 0;
-    pFlac->leftoverBitsRemaining          = 0;
-    pFlac->maxBlockSize                   = maxBlockSize;
-    pFlac->sampleRate                     = sampleRate;
-    pFlac->channels                       = channels;
-    pFlac->bitsPerSample                  = bitsPerSample;
-    pFlac->totalSampleCount               = totalSampleCount;
-    pFlac->applicationBlock               = applicationBlock;
-    pFlac->seektableBlock                 = seektableBlock;
-    pFlac->vorbisCommentBlock             = vorbisCommentBlock;
-    pFlac->cuesheetBlock                  = cuesheetBlock;
-    pFlac->pictureBlock                   = pictureBlock;
+    pFlac->onRead                = onRead;
+    pFlac->onSeek                = onSeek;
+    pFlac->onTell                = onTell;
+    pFlac->userData              = userData;
+    pFlac->leftoverByte          = 0;
+    pFlac->leftoverBitsRemaining = 0;
+    pFlac->maxBlockSize          = maxBlockSize;
+    pFlac->sampleRate            = sampleRate;
+    pFlac->channels              = channels;
+    pFlac->bitsPerSample         = bitsPerSample;
+    pFlac->totalSampleCount      = totalSampleCount;
+    pFlac->applicationBlock      = applicationBlock;
+    pFlac->seektableBlock        = seektableBlock;
+    pFlac->vorbisCommentBlock    = vorbisCommentBlock;
+    pFlac->cuesheetBlock         = cuesheetBlock;
+    pFlac->pictureBlock          = pictureBlock;
     memset(&pFlac->currentFrame, 0, sizeof(pFlac->currentFrame));
-    pFlac->pHeap                          = NULL;
-    pFlac->decodedSampleCount             = 0;
+    pFlac->pHeap                 = NULL;
+    pFlac->decodedSampleCount    = 0;
+
+    // TODO: Make the heap optional.
+    //if (isUsingHeap)
+    {
+        // The size of the heap is determined by the maximum number of samples in each frame. This is calculated from the maximum block
+        // size multiplied by the channel count. We need a single signed 32-bit integer for each sample which is used to stored the
+        // decoded residual of each sample.
+        pFlac->pHeap = malloc(maxBlockSize * channels * sizeof(int32_t));
+    }
 
     return pFlac;
 }
@@ -1513,23 +1566,27 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
         else
         {
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
+            unsigned long long totalSamplesInFrame = pFlac->currentFrame.blockSize * channelCount;
 
             // We still have samples remaining in the current frame so we need to retrieve them.
             while (pFlac->currentFrame.samplesRemaining > 0 && samplesToRead > 0)
             {
-                unsigned long long nextSampleInFrame = ((pFlac->currentFrame.blockSize * channelCount) - pFlac->currentFrame.samplesRemaining) / channelCount;
-                unsigned long long sampleIndex0 = pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel].firstDecodedSampleOffset + nextSampleInFrame;
+                unsigned long long samplesReadFromFrame = totalSamplesInFrame - pFlac->currentFrame.samplesRemaining;
+                unsigned int channelIndex = samplesReadFromFrame % channelCount;
+
+                unsigned long long nextSampleInFrame = samplesReadFromFrame / channelCount;
+                unsigned long long sampleIndex0 = pFlac->currentFrame.subframes[channelIndex].firstDecodedSampleOffset + nextSampleInFrame;
 
                 int decodedSample = 0;
                 switch (pFlac->currentFrame.channelAssignment)
                 {
                     case DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE:
                     {
-                        if (pFlac->currentFrame.nextChannel == 0) {
+                        if (channelIndex == 0) {
                             decodedSample = pFlac->decodedSamples[sampleIndex0];
                         } else {
-                            int side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            int left = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            int side = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            int left = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex - 1].firstDecodedSampleOffset + nextSampleInFrame];
                             decodedSample = left - side;
                         }
 
@@ -1537,9 +1594,9 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
 
                     case DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE:
                     {
-                        if (pFlac->currentFrame.nextChannel == 0) {
-                            int side  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            int right = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
+                        if (channelIndex == 0) {
+                            int side  = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            int right = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 1].firstDecodedSampleOffset + nextSampleInFrame];
                             decodedSample = side + right;
                         } else {
                             decodedSample = pFlac->decodedSamples[sampleIndex0];
@@ -1551,15 +1608,15 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                     {
                         int mid;
                         int side;
-                        if (pFlac->currentFrame.nextChannel == 0) {
-                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
+                        if (channelIndex == 0) {
+                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 1].firstDecodedSampleOffset + nextSampleInFrame];
 
                             mid = (((unsigned int)mid) << 1) | (side & 0x01);
                             decodedSample = (mid + side) >> 1;
                         } else {
-                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
-                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex - 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 0].firstDecodedSampleOffset + nextSampleInFrame];
 
                             mid = (((unsigned int)mid) << 1) | (side & 0x01);
                             decodedSample = (mid - side) >> 1;
@@ -1579,7 +1636,6 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
 
 
                 *bufferOut++ = decodedSample;
-                pFlac->currentFrame.nextChannel = (pFlac->currentFrame.nextChannel + 1) % pFlac->channels;
 
                 samplesRead += 1;
                 pFlac->currentFrame.samplesRemaining -= 1;
