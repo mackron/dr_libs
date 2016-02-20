@@ -195,7 +195,7 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
 void drflac_close(drflac* pFlac);
 
 // Reads sample data from the given FLAC decoder, output as signed 32-bit PCM.
-unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* pBufferOut);
+size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* pBufferOut);
 
 
 
@@ -605,7 +605,7 @@ static unsigned int drflac__read_bits(drflac* pFlac, unsigned int bitsToRead, un
 
     // Optimization for byte-aligned reads.
     if (pFlac->leftoverBitsRemaining == 0 && bitOffsetOut == 0 && (bitsToRead % 8) == 0) {
-        return drflac__grab_bytes(pFlac, pOut, bitsToRead / 8) * 8;
+        return (unsigned int)drflac__grab_bytes(pFlac, pOut, bitsToRead / 8) * 8;
     }
 
     unsigned int bitsRead = 0;
@@ -638,7 +638,7 @@ static unsigned int drflac__read_bits(drflac* pFlac, unsigned int bitsToRead, un
             pOut += (bitOffset >> 3);
 
             size_t bytesRead = drflac__grab_bytes(pFlac, pOut, bytesToRead);
-            bitsRead += bytesRead * 8;
+            bitsRead += (unsigned int)bytesRead * 8;
 
             if (bytesRead != bytesToRead) { // <-- did we run out of data?
                 return bitsRead;
@@ -1507,7 +1507,7 @@ void drflac_close(drflac* pFlac)
     free(pFlac->pHeap);
 }
 
-unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
+size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
 {
     if (pFlac == NULL || samplesToRead == 0 || bufferOut == NULL) {
         return 0;
