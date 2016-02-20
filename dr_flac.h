@@ -9,12 +9,13 @@
 //
 //
 // TODO
-// - Add an API to retrieve samples in their original format rather than 32-bit.
+// - Lots of optimizations:
+//   - Bit reading functionality has a LOT of room for improvement. Need to look at reading words at a time rather than bytes.
 // - Add an API to retrieve samples in 32-bit floating point format for consistency with dr_wav. Make it optional through the use
 //   of a #define, just like dr_wav does it.
 // - Look at removing the onTell callback function to make using the library just that bit easier. Also consider making onSeek
 //   optional, in which case seeking and metadata block retrieval will be disabled.
-// - Use the standard sized types such as uint32_t, etc.
+// - Get GCC and Linux builds working.
 
 #ifndef dr_flac_h
 #define dr_flac_h
@@ -203,7 +204,6 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex);
 
 
 
-
 #ifndef DR_FLAC_NO_STDIO
 // Opens a flac decoder from the file at the given path.
 bool drflac_open_file(drflac* pFlac, const char* pFile);
@@ -259,6 +259,13 @@ bool drflac_open_file(drflac* pFlac, const char* pFile);
 #define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
+typedef struct
+{
+    uint64_t firstSample;
+    uint64_t frameOffset;   // The offset from the first byte of the header of the first frame.
+    uint16_t sampleCount;
+} drflac_seekpoint;
+
 #ifndef DR_FLAC_NO_STDIO
 #include <stdio.h>
 
@@ -302,7 +309,7 @@ static inline bool drflac__is_little_endian()
     return (*(char*)&n) == 1;
 }
 
-static inline unsigned short drflac__swap_endian_uint16(unsigned short n)
+static inline uint16_t drflac__swap_endian_uint16(uint16_t n)
 {
 #ifdef _MSC_VER
     return _byteswap_ushort(n);
@@ -313,7 +320,7 @@ static inline unsigned short drflac__swap_endian_uint16(unsigned short n)
 #endif
 }
 
-static inline unsigned int drflac__swap_endian_uint32(unsigned int n)
+static inline uint32_t drflac__swap_endian_uint32(uint32_t n)
 {
 #ifdef _MSC_VER
     return _byteswap_ulong(n);
@@ -327,7 +334,7 @@ static inline unsigned int drflac__swap_endian_uint32(unsigned int n)
 #endif
 }
 
-static inline unsigned long long drflac__swap_endian_uint64(unsigned long long n)
+static inline uint64_t drflac__swap_endian_uint64(uint64_t n)
 {
 #ifdef _MSC_VER
     return _byteswap_uint64(n);
@@ -345,7 +352,7 @@ static inline unsigned long long drflac__swap_endian_uint64(unsigned long long n
 #endif
 }
 
-static inline unsigned short drflac__be2host_16(unsigned short n)
+static inline uint16_t drflac__be2host_16(uint16_t n)
 {
 #ifdef __linux__
     return be16toh(n);
@@ -358,7 +365,7 @@ static inline unsigned short drflac__be2host_16(unsigned short n)
 #endif
 }
 
-static inline unsigned int drflac__be2host_32(unsigned int n)
+static inline uint32_t drflac__be2host_32(uint32_t n)
 {
 #ifdef __linux__
     return be32toh(n);
@@ -371,7 +378,7 @@ static inline unsigned int drflac__be2host_32(unsigned int n)
 #endif
 }
 
-static inline unsigned long long drflac__be2host_64(unsigned long long n)
+static inline uint64_t drflac__be2host_64(uint64_t n)
 {
 #ifdef __linux__
     return be64toh(n);
@@ -565,7 +572,7 @@ static inline size_t drflac__grab_bytes(drflac* pFlac, void* pOut, size_t bytesT
     return pFlac->onRead(pFlac->userData, pOut, bytesToRead);
 }
 
-static inline int drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
+static inline bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
 {
     assert(pFlac != NULL);
 
@@ -1726,24 +1733,82 @@ static bool drflac__seek_to_sample__brute_force(drflac* pFlac, uint64_t sampleIn
     }
 
     return drflac_read_s32(pFlac, samplesToDecode, NULL);
+}
+
+static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleIndex)
+{
+    assert(pFlac != NULL);
+
+    if (pFlac->seektableBlock.pos == 0) {
+        return false;
+    }
+
+    if (!drflac__seek_to_byte(pFlac, pFlac->seektableBlock.pos)) {
+        return false;
+    }
+
+    // The number of seek points is derived from the size of the SEEKTABLE block.
+    unsigned int seekpointCount = pFlac->seektableBlock.sizeInBytes / 18;   // 18 = the size of each seek point.
+    if (seekpointCount == 0) {
+        return false;   // Would this ever happen?
+    }
 
 
+    drflac_seekpoint closestSeekpoint = {0};
 
-    // Below is a simple, but ultra inefficient seek that just simply decodes <sampleIndex> samples into a NULL buffer.
-#if 0
-    drflac__seek_to_first_frame(pFlac);
+    unsigned int seekpointsRemaining = seekpointCount;
+    while (seekpointsRemaining > 0)
+    {
+        drflac_seekpoint seekpoint;
+        drflac__read_uint64(pFlac, 64, &seekpoint.firstSample);
+        drflac__read_uint64(pFlac, 64, &seekpoint.frameOffset);
+        drflac__read_uint16(pFlac, 16, &seekpoint.sampleCount);
 
-    uint64_t samplesToSeek = sampleIndex;
-    while (samplesToSeek > SIZE_MAX) {
-        if (drflac_read_s32(pFlac, SIZE_MAX, NULL) != SIZE_MAX) {
+        if (seekpoint.firstSample * pFlac->channels > sampleIndex) {
+            break;
+        }
+
+        closestSeekpoint = seekpoint;
+        seekpointsRemaining -= 1;
+    }
+
+    // At this point we should have found the seekpoint closest to our sample. We need to seek to it using basically the same
+    // technique as we use with the brute force method.
+    drflac__seek_to_byte(pFlac, pFlac->firstFramePos + closestSeekpoint.frameOffset);
+
+    uint64_t firstSampleInFrame = 0;
+    uint64_t lastSampleInFrame = 0;
+    for (;;)
+    {
+        // We need to read the frame's header in order to determine the range of samples it contains.
+        if (!drflac__read_next_frame_header(pFlac)) {
             return false;
         }
 
-        samplesToSeek -= SIZE_MAX;
+        drflac__get_current_frame_sample_range(pFlac, &firstSampleInFrame, &lastSampleInFrame);
+        if (sampleIndex >= firstSampleInFrame && sampleIndex <= lastSampleInFrame) {
+            break;  // The sample is in this frame.
+        }
+
+        if (!drflac__seek_to_next_frame(pFlac)) {
+            return false;
+        }
     }
 
-    return drflac_read_s32(pFlac, (size_t)sampleIndex, NULL) == sampleIndex;    // <-- Safe cast to size_t.
-#endif
+    // At this point we should be sitting on the first byte of the frame containing the sample. We need to decode every sample up to (but
+    // not including) the sample we're seeking to.
+    assert(firstSampleInFrame <= sampleIndex);
+    size_t samplesToDecode = (size_t)(sampleIndex - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
+    if (samplesToDecode == 0) {
+        return true;
+    }
+
+    // At this point we are just sitting on the byte after the frame header. We need to decode the frame before reading anything from it.
+    if (!drflac__decode_frame(pFlac)) {
+        return false;
+    }
+
+    return drflac_read_s32(pFlac, samplesToDecode, NULL);
 }
 
 
@@ -1994,15 +2059,12 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
     }
 
 
-    bool hasSeekTable = false;
-    if (hasSeekTable) {
-        // TODO: Use seek table.
-        //drflac__seek_to_sample__seek_table(pFlac, sampleIndex);
-    } else {
+    // First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower.
+    if (!drflac__seek_to_sample__seek_table(pFlac, sampleIndex)) {
         return drflac__seek_to_sample__brute_force(pFlac, sampleIndex);
     }
 
-    return false;
+    return true;
 }
 
 
