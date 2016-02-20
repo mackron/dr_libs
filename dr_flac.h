@@ -51,21 +51,21 @@ typedef struct
 typedef struct
 {
     // The type of the subframe: SUBFRAME_CONSTANT, SUBFRAME_VERBATIM, SUBFRAME_FIXED or SUBFRAME_LPC.
-    unsigned int subframeType;
+    unsigned char subframeType;
 
     // The number of wasted bits per sample as specified by the sub-frame header.
-    unsigned int wastedBitsPerSample;
+    unsigned char wastedBitsPerSample;
 
 
     // The order to use for the prediction stage for SUBFRAME_FIXED and SUBFRAME_LPC.
-    unsigned int lpcOrder;
+    unsigned char lpcOrder;
 
     // The bit shift to apply at the end of the prediction stage. Only used with SUBFRAME_LPC. Note how this is signed.
-    int lpcShift;
+    unsigned char lpcShift;
 
     // The coefficients to use for the prediction stage. For SUBFRAME_FIXED this is set to a pre-defined set of values based on lpcOrder. There
     // is a maximum of 32 coefficients. The number of valid values in this array is equal to lpcOrder.
-    int lpcCoefficients[32];
+    short lpcCoefficients[32];
 
     // The previous samples to use for the prediction stage. Only used with SUBFRAME_FIXED and SUBFRAME_LPC. The number of items in this array
     // is equal to lpcOrder.
@@ -73,7 +73,7 @@ typedef struct
     
 
     // The number of bits per sample for this subframe. This is not always equal to the current frame's bit per sample because
-    // side channels for when Interchannel Decorrelation is being used require an extra bit per sample.
+    // an extra bit is required for side channels when interchannel decorrelation is being used.
     int bitsPerSample;
 
 
@@ -85,25 +85,25 @@ typedef struct
 
 typedef struct
 {
-    // If the stream uses fixed block sizes, this will be set to the frame number. If variable block sizes are used, this will always be 0.
-    unsigned long long frameNumber;
-
     // If the stream uses variable block sizes, this will be set to the index of the first sample. If fixed block sizes are used, this will
     // always be set to 0.
     unsigned long long sampleNumber;
 
-    // The number of samples in each sub-frame within this frame.
-    unsigned int blockSize;
+    // If the stream uses fixed block sizes, this will be set to the frame number. If variable block sizes are used, this will always be 0.
+    unsigned int frameNumber;
 
     // The sample rate of this frame.
     unsigned int sampleRate;
 
+    // The number of samples in each sub-frame within this frame.
+    unsigned short blockSize;
+
     // The channel assignment of this frame. This is not always set to the channel count. If interchannel decorrelation is being used this
     // will be set to DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE, DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE or DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE.
-    unsigned int channelAssignment;
+    unsigned char channelAssignment;
 
     // The number of bits per sample within this frame.
-    unsigned int bitsPerSample;
+    unsigned char bitsPerSample;
 
     // The frame's CRC. This is set, but unused at the moment.
     unsigned char crc8;
@@ -111,7 +111,7 @@ typedef struct
 
     // The number of samples left to be read in this frame. This is initially set to the block size multiplied by the channel count. As samples
     // are read, this will be decremented. When it reaches 0, the decoder will see this frame as fully consumed and load the next frame.
-    unsigned long long samplesRemaining;
+    unsigned int samplesRemaining;
 
 
     // The list of sub-frames within the frame. There is one sub-frame for each channel, and there's a maximum of 8 channels.
@@ -141,18 +141,18 @@ typedef struct
     unsigned char leftoverBitsRemaining;
 
 
-    // The maximum block size, in samples. This number represents the number of samples in each channel (not combined.)
-    unsigned int maxBlockSize;
-
     // The sample rate. Will be set to something like 44100.
     unsigned int sampleRate;
 
-    // The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc. Maxium 8. This is set based on the
+    // The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc. Maximum 8. This is set based on the
     // value specified in the STREAMINFO block.
-    unsigned int channels;
+    unsigned char channels;
 
     // The bits per sample. Will be set to somthing like 16, 24, etc.
-    unsigned int bitsPerSample;
+    unsigned char bitsPerSample;
+
+    // The maximum block size, in samples. This number represents the number of samples in each channel (not combined.)
+    unsigned short maxBlockSize;
 
     // The total number of samples making up the stream. This includes every channel. For example, if the stream has 2 channels,
     // with each channel having a total of 4096, this value will be set to 2*4096 = 8192.
@@ -765,7 +765,7 @@ static inline drflac_bool drflac__read_uint64(drflac* pFlac, unsigned int bitCou
 }
 
 
-static drflac_bool drflac__read_utf8_coded_number(drflac* pFlac, long long* pNumberOut)
+static drflac_bool drflac__read_utf8_coded_number(drflac* pFlac, unsigned long long* pNumberOut)
 {
     assert(pFlac != NULL);
     assert(pNumberOut != NULL);
@@ -812,7 +812,7 @@ static drflac_bool drflac__read_utf8_coded_number(drflac* pFlac, long long* pNum
     }
 
     // At this point we have the raw UTF-8 data and we just need to decode it.
-    long long result = ((long long)(utf8[0] & (0xFF >> (byteCount + 1))));
+    unsigned long long result = ((long long)(utf8[0] & (0xFF >> (byteCount + 1))));
     if (drflac__is_little_endian())
     {
         switch (byteCount)
@@ -1019,9 +1019,11 @@ static drflac_bool drflac__read_next_frame_header(drflac* pFlac)
             return drflac_false;
         }
     } else {
-        if (!drflac__read_utf8_coded_number(pFlac, &pFlac->currentFrame.frameNumber)) {
+        unsigned long long frameNumber = 0;
+        if (!drflac__read_utf8_coded_number(pFlac, &frameNumber)) {
             return drflac_false;
         }
+        pFlac->currentFrame.frameNumber  = (unsigned int)frameNumber;   // <-- Safe cast.
         pFlac->currentFrame.sampleNumber = 0;
     }
 
@@ -1192,7 +1194,7 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
 
         case DRFLAC_SUBFRAME_FIXED:
         {
-            int lpcCoefficientsTable[5][4] = {
+            short lpcCoefficientsTable[5][4] = {
                 {0,  0, 0,  0},
                 {1,  0, 0,  0},
                 {2, -1, 0,  0},
@@ -1269,7 +1271,7 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                     return drflac_false;
                 }
 
-                pSubframe->lpcCoefficients[i] = drflac__to_int32(coefficient, 0, lpcPrecision);
+                pSubframe->lpcCoefficients[i] = (short)drflac__to_int32(coefficient, 0, lpcPrecision);
             }
 
             pSubframe->pDecodedSamples = ((int*)pFlac->pHeap) + (pFlac->currentFrame.blockSize * subframeIndex);
