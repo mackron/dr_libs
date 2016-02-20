@@ -15,12 +15,14 @@
 // - Look at removing the onTell callback function to make using the library just that bit easier. Also consider making onSeek
 //   optional, in which case seeking and metadata block retrieval will be disabled.
 // - Use the standard sized types such as uint32_t, etc.
+// - Use stdbool.h
 
 #ifndef dr_flac_h
 #define dr_flac_h
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -187,20 +189,20 @@ typedef struct
 
 
 // Opens a FLAC decoder.
-drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* userData);
+bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* pUserData);
 
 // Closes the given FLAC decoder.
-void drflac_close(drflac* flac);
+void drflac_close(drflac* pFlac);
 
 // Reads sample data from the given FLAC decoder, output as signed 32-bit PCM.
-unsigned int drflac_read_s32(drflac* flac, size_t samplesToRead, int* bufferOut);
+unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* pBufferOut);
 
 
 
 
 #ifndef DR_FLAC_NO_STDIO
 // Opens a flac decoder from the file at the given path.
-drflac* drflac_open_file(const char* pFile);
+bool drflac_open_file(drflac* pFlac, const char* pFile);
 #endif
 
 
@@ -260,36 +262,36 @@ typedef int drflac_bool;
 #ifndef DR_FLAC_NO_STDIO
 #include <stdio.h>
 
-static size_t drflac__on_read_stdio(void* userData, void* bufferOut, size_t bytesToRead)
+static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
-    return fread(bufferOut, 1, bytesToRead, (FILE*)userData);
+    return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-static int drflac__on_seek_stdio(void* userData, int offset)
+static int drflac__on_seek_stdio(void* pUserData, int offset)
 {
-    return fseek((FILE*)userData, offset, SEEK_CUR) == 0;
+    return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
 }
 
-static long long drflac__on_tell_stdio(void* userData)
+static long long drflac__on_tell_stdio(void* pUserData)
 {
-    return ftell((FILE*)userData);
+    return ftell((FILE*)pUserData);
 }
 
-drflac* drflac_open_file(const char* filename)
+bool drflac_open_file(drflac* pFlac, const char* filename)
 {
     FILE* pFile;
 #ifdef _MSC_VER
     if (fopen_s(&pFile, filename, "rb") != 0) {
-        return NULL;
+        return false;
     }
 #else
     pFile = fopen(filename, "rb");
     if (pFile == NULL) {
-        return NULL;
+        return false;
     }
 #endif
 
-    return drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, drflac__on_tell_stdio, pFile);
+    return drflac_open(pFlac, drflac__on_read_stdio, drflac__on_seek_stdio, drflac__on_tell_stdio, pFile);
 }
 #endif  //DR_FLAC_NO_STDIO
 
@@ -1377,15 +1379,15 @@ done_reading_block_header:
     return blockType;
 }
 
-drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* userData)
+bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* userData)
 {
-    if (onRead == NULL || onSeek == NULL) {
-        return NULL;
+    if (pFlac == NULL || onRead == NULL || onSeek == NULL || onTell == NULL) {
+        return drflac_false;
     }
 
     unsigned char id[4];
     if (onRead(userData, id, 4) != 4 || id[0] != 'f' || id[1] != 'L' || id[2] != 'a' || id[3] != 'C') {
-        return NULL;    // Not a FLAC stream.
+        return drflac_false;    // Not a FLAC stream.
     }
 
     // The first metadata block should be the STREAMINFO block. We don't care about everything in here.
@@ -1393,7 +1395,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
     drflac_bool isLastBlock;
     int blockType = drflac__read_block_header(onRead, userData, &blockSize, &isLastBlock);
     if (blockType != DRFLAC_BLOCK_TYPE_STREAMINFO && blockSize != 34) {
-        return NULL;
+        return drflac_false;
     }
     
     unsigned char blockData[34];    // Total size of the STREAMINFO should be 38 bytes.
@@ -1457,17 +1459,12 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
         }
 
         if (!onSeek(userData, blockSize)) {
-            return NULL;    // Failed to seek past this block. 
+            return drflac_false;    // Failed to seek past this block. 
         }
     }
 
     
     // At this point we should be sitting right at the start of the very first frame.
-    drflac* pFlac = malloc(sizeof(*pFlac));
-    if (pFlac == NULL) {
-        return NULL;
-    }
-
     pFlac->onRead                = onRead;
     pFlac->onSeek                = onSeek;
     pFlac->onTell                = onTell;
@@ -1496,12 +1493,16 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
         pFlac->pHeap = malloc(maxBlockSize * channels * sizeof(int32_t));
     }
 
-    return pFlac;
+    return drflac_true;
 }
 
 void drflac_close(drflac* pFlac)
 {
-    free(pFlac);
+    if (pFlac == NULL) {
+        return;
+    }
+
+    free(pFlac->pHeap);
 }
 
 unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
@@ -1522,10 +1523,12 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
         }
         else
         {
+            // TODO: This could do with a bit of clean up.
+            // We still have samples remaining in the current frame so we need to retrieve them.
+
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
             unsigned long long totalSamplesInFrame = pFlac->currentFrame.blockSize * channelCount;
 
-            // We still have samples remaining in the current frame so we need to retrieve them.
             while (pFlac->currentFrame.samplesRemaining > 0 && samplesToRead > 0)
             {
                 unsigned long long samplesReadFromFrame = totalSamplesInFrame - pFlac->currentFrame.samplesRemaining;
