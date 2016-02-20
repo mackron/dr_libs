@@ -35,6 +35,7 @@ typedef int (* drflac_seek_proc)(void* userData, int offset);
 // Callback for when the read position needs to be queried.
 typedef long long (* drflac_tell_proc)(void* userData);
 
+
 typedef struct
 {
     // The absolute position of the first byte of the data of the block. This is just past the block's header.
@@ -77,10 +78,6 @@ typedef struct
     // A pointer to the buffer containing the decoded samples in the subframe. This pointer is an offset from drflac::pHeap, or
     // NULL if the heap is not being used. Note that it's a signed 32-bit integer for each value.
     int32_t* pDecodedSamples;
-
-
-    // The offset of the first decoded sample in the decoded sample buffer.
-    unsigned int firstDecodedSampleOffset;
 
 } drflac_subframe;
 
@@ -183,17 +180,6 @@ typedef struct
     // A pointer to a block of memory sitting on the heap. This will be set to NULL if the heap is not being used. Currently, this stores
     // the decoded Rice codes for each channel in the current frame.
     void* pHeap;
-
-
-
-
-    // EVERYTHING BELOW IS TEMP.
-
-    // The number of valid decoded samples in <decodedSamples> (below). We use this to keep track of where to place newly decoded samples.
-    unsigned int decodedSampleCount;
-
-    // A pointer the decoded sample data. This section is allocated once at initialization time and sized based on the maximum block size.
-    int decodedSamples[1];
 
 } drflac;
 
@@ -777,10 +763,6 @@ static inline drflac_bool drflac__read_uint64(drflac* pFlac, unsigned int bitCou
 }
 
 
-
-
-
-
 static drflac_bool drflac__read_utf8_coded_number(drflac* pFlac, long long* pNumberOut)
 {
     assert(pFlac != NULL);
@@ -887,8 +869,7 @@ static inline drflac_bool drflac__read_and_decode_rice(drflac* pFlac, unsigned c
     return drflac_true;
 }
 
-// Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice
-// codes.
+// Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 static drflac_bool drflac__read_and_decode_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam, int* pResidualOut)
 {
     assert(pFlac != NULL);
@@ -1163,8 +1144,6 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
         return drflac_false;
     }
 
-    pSubframe->firstDecodedSampleOffset = pFlac->decodedSampleCount;
-
     // Side channels require an extra bit per sample. Took a while to figure that one out...
     pSubframe->bitsPerSample = pFlac->currentFrame.bitsPerSample;
     if ((pFlac->currentFrame.channelAssignment == DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE || pFlac->currentFrame.channelAssignment == DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE) && subframeIndex == 1) {
@@ -1193,9 +1172,6 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
             // we'll want to look at a more efficient way.
             for (unsigned int i = 0; i < pFlac->currentFrame.blockSize; ++i) {
                 pSubframe->pDecodedSamples[i] = sample;
-
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = sample;
-                pFlac->decodedSampleCount += 1;
             }
 
         } break;
@@ -1209,9 +1185,6 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                 }
 
                 pSubframe->pDecodedSamples[i] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
-
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
-                pFlac->decodedSampleCount += 1;
             }
         } break;
 
@@ -1232,10 +1205,7 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                     return drflac_false;
                 }
 
-                pSubframe->lpcPrevSamples[i] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
-                //pFlac->decodedSamples[pFlac->decodedSampleCount] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
-                //pFlac->decodedSampleCount += 1;
-
+                pSubframe->lpcPrevSamples[i]  = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
                 pSubframe->lpcCoefficients[i] = lpcCoefficientsTable[pSubframe->lpcOrder][i];
             }
 
@@ -1248,23 +1218,21 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
             // Warm up samples are unencoded.
             for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
                 pSubframe->pDecodedSamples[i] = pSubframe->lpcPrevSamples[i];
-
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
-                pFlac->decodedSampleCount += 1;
             }
 
-            // We have the residual, so now we need to decode.
-            for (unsigned int i = pSubframe->lpcOrder; i < pFlac->currentFrame.blockSize; ++i)
+            // We have the residual, so now we need to decode. The order can be 0 with SUBFRAME_FIXED, in which case we just leave everything
+            // equal to the residual.
+            if (pSubframe->lpcOrder > 0)
             {
-                int prediction = 0;
-                for (unsigned int j = 0; j < pSubframe->lpcOrder; ++j) {
-                    prediction += pSubframe->lpcCoefficients[j] * pFlac->decodedSamples[pFlac->decodedSampleCount - j - 1];
+                for (unsigned int i = pSubframe->lpcOrder; i < pFlac->currentFrame.blockSize; ++i)
+                {
+                    int prediction = 0;
+                    for (unsigned int j = 0; j < pSubframe->lpcOrder; ++j) {
+                        prediction += pSubframe->lpcCoefficients[j] * pSubframe->pDecodedSamples[i - j - 1];
+                    }
+
+                    pSubframe->pDecodedSamples[i] += prediction;
                 }
-
-                pSubframe->pDecodedSamples[i] += prediction;
-
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
-                pFlac->decodedSampleCount += 1;
             }
 
         } break;
@@ -1279,8 +1247,6 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                 }
 
                 pSubframe->lpcPrevSamples[i] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
-                //pFlac->decodedSamples[pFlac->decodedSampleCount] = drflac__to_int32(originalSample, 0, pSubframe->bitsPerSample);
-                //pFlac->decodedSampleCount += 1;
             }
 
             unsigned char lpcPrecision = 0;
@@ -1312,9 +1278,6 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
             // Warm up samples are unencoded.
             for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
                 pSubframe->pDecodedSamples[i] = pSubframe->lpcPrevSamples[i];
-
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
-                pFlac->decodedSampleCount += 1;
             }
 
             // Decode the remaining samples.
@@ -1322,15 +1285,11 @@ static drflac_bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
             {
                 long long prediction = 0;
                 for (unsigned int j = 0; j < pSubframe->lpcOrder; ++j) {
-                    prediction += (long long)pSubframe->lpcCoefficients[j] * (long long)pFlac->decodedSamples[pFlac->decodedSampleCount - j - 1];
+                    prediction += (long long)pSubframe->lpcCoefficients[j] * (long long)pSubframe->pDecodedSamples[i - j - 1];
                 }
                 prediction >>= lpcShift;
 
                 pSubframe->pDecodedSamples[i] += (int)prediction;
-
-
-                pFlac->decodedSamples[pFlac->decodedSampleCount] = pSubframe->pDecodedSamples[i];
-                pFlac->decodedSampleCount += 1;
             }
 
         } break;
@@ -1365,7 +1324,6 @@ static drflac_bool drflac__begin_next_frame(drflac* pFlac)      // TODO: Rename 
 
     // At this point we have the frame header, but we need to retrieve information about each sub-frame. There is one sub-frame for each channel.
     memset(&pFlac->currentFrame.subframes, 0, sizeof(pFlac->currentFrame.subframes));
-    pFlac->decodedSampleCount = 0;
 
     int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
     for (int i = 0; i < channelCount; ++i)
@@ -1505,7 +1463,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
 
     
     // At this point we should be sitting right at the start of the very first frame.
-    drflac* pFlac = malloc(sizeof(*pFlac) - sizeof(pFlac->decodedSamples) + (maxBlockSize * 4 * channels));     // x4 because a sample is at most 32-bit (4 bytes). The extra allocated data is temp and will be replaced with pHeap.
+    drflac* pFlac = malloc(sizeof(*pFlac));
     if (pFlac == NULL) {
         return NULL;
     }
@@ -1528,7 +1486,6 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
     pFlac->pictureBlock          = pictureBlock;
     memset(&pFlac->currentFrame, 0, sizeof(pFlac->currentFrame));
     pFlac->pHeap                 = NULL;
-    pFlac->decodedSampleCount    = 0;
 
     // TODO: Make the heap optional.
     //if (isUsingHeap)
@@ -1575,7 +1532,6 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                 unsigned int channelIndex = samplesReadFromFrame % channelCount;
 
                 unsigned long long nextSampleInFrame = samplesReadFromFrame / channelCount;
-                unsigned long long sampleIndex0 = pFlac->currentFrame.subframes[channelIndex].firstDecodedSampleOffset + nextSampleInFrame;
 
                 int decodedSample = 0;
                 switch (pFlac->currentFrame.channelAssignment)
@@ -1583,10 +1539,10 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                     case DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE:
                     {
                         if (channelIndex == 0) {
-                            decodedSample = pFlac->decodedSamples[sampleIndex0];
+                            decodedSample = pFlac->currentFrame.subframes[channelIndex].pDecodedSamples[nextSampleInFrame];
                         } else {
-                            int side = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            int left = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex - 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            int side = pFlac->currentFrame.subframes[channelIndex + 0].pDecodedSamples[nextSampleInFrame];
+                            int left = pFlac->currentFrame.subframes[channelIndex - 1].pDecodedSamples[nextSampleInFrame];
                             decodedSample = left - side;
                         }
 
@@ -1595,11 +1551,11 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                     case DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE:
                     {
                         if (channelIndex == 0) {
-                            int side  = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            int right = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            int side  = pFlac->currentFrame.subframes[channelIndex + 0].pDecodedSamples[nextSampleInFrame];
+                            int right = pFlac->currentFrame.subframes[channelIndex + 1].pDecodedSamples[nextSampleInFrame];
                             decodedSample = side + right;
                         } else {
-                            decodedSample = pFlac->decodedSamples[sampleIndex0];
+                            decodedSample = pFlac->currentFrame.subframes[channelIndex].pDecodedSamples[nextSampleInFrame];
                         }
 
                     } break;
@@ -1609,14 +1565,14 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                         int mid;
                         int side;
                         if (channelIndex == 0) {
-                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            mid  = pFlac->currentFrame.subframes[channelIndex + 0].pDecodedSamples[nextSampleInFrame];
+                            side = pFlac->currentFrame.subframes[channelIndex + 1].pDecodedSamples[nextSampleInFrame];
 
                             mid = (((unsigned int)mid) << 1) | (side & 0x01);
                             decodedSample = (mid + side) >> 1;
                         } else {
-                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex - 1].firstDecodedSampleOffset + nextSampleInFrame];
-                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[channelIndex + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            mid  = pFlac->currentFrame.subframes[channelIndex - 1].pDecodedSamples[nextSampleInFrame];
+                            side = pFlac->currentFrame.subframes[channelIndex + 0].pDecodedSamples[nextSampleInFrame];
 
                             mid = (((unsigned int)mid) << 1) | (side & 0x01);
                             decodedSample = (mid - side) >> 1;
@@ -1627,7 +1583,7 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                     case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT:
                     default:
                     {
-                        decodedSample = pFlac->decodedSamples[sampleIndex0];
+                        decodedSample = pFlac->currentFrame.subframes[channelIndex].pDecodedSamples[nextSampleInFrame];
                     } break;
                 }
 
