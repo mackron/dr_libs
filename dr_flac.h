@@ -209,6 +209,12 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex);
 bool drflac_open_file(drflac* pFlac, const char* pFile);
 #endif
 
+// Helper for opening a file from a pre-allocated memory buffer.
+//
+// This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
+// the lifetime of the drwav object.
+bool drflac_open_memory(drflac* pFlac, const void* data, size_t dataSize);
+
 
 #ifdef __cplusplus
 }
@@ -301,6 +307,81 @@ bool drflac_open_file(drflac* pFlac, const char* filename)
     return drflac_open(pFlac, drflac__on_read_stdio, drflac__on_seek_stdio, drflac__on_tell_stdio, pFile);
 }
 #endif  //DR_FLAC_NO_STDIO
+
+
+typedef struct
+{
+    /// A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
+    const unsigned char* data;
+
+    /// The size of the data.
+    size_t dataSize;
+
+    /// The position we're currently sitting at.
+    size_t currentReadPos;
+
+} drflac_memory;
+
+static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
+{
+    drflac_memory* memory = pUserData;
+    assert(memory != NULL);
+    assert(memory->dataSize >= memory->currentReadPos);
+
+    size_t bytesRemaining = memory->dataSize - memory->currentReadPos;
+    if (bytesToRead > bytesRemaining) {
+        bytesToRead = bytesRemaining;
+    }
+
+    if (bytesToRead > 0) {
+        memcpy(bufferOut, memory->data + memory->currentReadPos, bytesToRead);
+        memory->currentReadPos += bytesToRead;
+    }
+
+    return bytesToRead;
+}
+
+static int drflac__on_seek_memory(void* pUserData, int offset)
+{
+    drflac_memory* memory = pUserData;
+    assert(memory != NULL);
+
+    if (offset > 0) {
+        if (memory->currentReadPos + offset > memory->dataSize) {
+            offset = memory->dataSize - memory->currentReadPos;     // Trying to seek too far forward.
+        }
+    } else {
+        if (memory->currentReadPos < (size_t)-offset) {
+            offset = -(int)memory->currentReadPos;                  // Trying to seek too far backwards.
+        }
+    }
+
+    // This will never underflow thanks to the clamps above.
+    memory->currentReadPos += offset;
+
+    return 1;
+}
+
+static long long drflac__on_tell_memory(void* pUserData)
+{
+    drflac_memory* memory = pUserData;
+    assert(memory != NULL);
+
+    return (long long)memory->currentReadPos;
+}
+
+bool drflac_open_memory(drflac* pFlac, const void* data, size_t dataSize)
+{
+    drflac_memory* pUserData = malloc(sizeof(*pUserData));
+    if (pUserData == NULL) {
+        return false;
+    }
+
+    pUserData->data = data;
+    pUserData->dataSize = dataSize;
+    pUserData->currentReadPos = 0;
+    return drflac_open(pFlac, drflac__on_read_memory, drflac__on_seek_memory, drflac__on_tell_memory, pUserData);
+}
 
 
 static inline bool drflac__is_little_endian()
@@ -1592,7 +1673,7 @@ static bool drflac__seek_frame(drflac* pFlac)
     return true;
 }
 
-static bool drflac__begin_next_frame(drflac* pFlac)      // TODO: Rename this to drflac__decode_next_frame().
+static bool drflac__read_and_decode_next_frame(drflac* pFlac)      // TODO: Rename this to drflac__decode_next_frame().
 {
     assert(pFlac != NULL);
 
@@ -1936,6 +2017,19 @@ void drflac_close(drflac* pFlac)
         return;
     }
 
+#ifndef DR_FLAC_NO_STDIO
+    // If we opened the file with drflac_open_file() we will want to close the file handle. We can know whether or not drflac_open_file()
+    // was used by looking at the callbacks.
+    if (pFlac->onRead == drflac__on_read_stdio) {
+        fclose((FILE*)pFlac->userData);
+    }
+#endif
+
+    // If we opened the file with drflac_open_memory() we will want to free() the user data.
+    if (pFlac->onRead == drflac__on_read_memory) {
+        free(pFlac->userData);
+    }
+
     free(pFlac->pHeap);
 }
 
@@ -1953,7 +2047,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
         // If we've run out of samples in this frame, go to the next.
         if (pFlac->currentFrame.samplesRemaining == 0)
         {
-            if (!drflac__begin_next_frame(pFlac)) {
+            if (!drflac__read_and_decode_next_frame(pFlac)) {
                 break;  // Couldn't read the next frame, so just break from the loop and return.
             }
         }
