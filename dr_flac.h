@@ -705,7 +705,7 @@ static unsigned int drflac__seek_bits(drflac* pFlac, unsigned int bitsToSeek)
     assert(pFlac->leftoverBitsRemaining == 0);
 
     // Wholy contained bytes.
-    size_t bytesToSeek = (bitsToSeek - bitsSeeked) / 8;
+    int bytesToSeek = (int)(bitsToSeek - bitsSeeked) / 8;
     if (bytesToSeek > 0) {
         if (!pFlac->onSeek(pFlac->userData, bytesToSeek)) {
             return false;
