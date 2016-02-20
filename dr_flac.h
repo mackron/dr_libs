@@ -5,6 +5,13 @@
 // - This has not been tested on big-endian architectures.
 // - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as the application does it's own thread-safety.
 // - dr_flac does not currently do any CRC checks.
+//
+//
+//
+// TODO
+// - Add an API to retrieve samples in their original format rather than 32-bit.
+// - Add an API to retrieve samples in 32-bit floating point format for consistency with dr_wav. Make it optional through the use
+//   of a #define, just like dr_wav does it.
 
 #ifndef dr_flac_h
 #define dr_flac_h
@@ -75,6 +82,16 @@ typedef struct
     // The frame's CRC. This is set, but unused at the moment.
     unsigned char crc8;
 
+
+    // The number of samples left to be read in this frame. This is initially set to the block size multiplied by the channel count. As samples
+    // are read, this will be decremented. When it reaches 0, the decoder will see this frame as fully consumed and load the next frame.
+    unsigned long long samplesRemaining;
+
+    // The index of channel the next sample belongs to. This is only ever used for interleaving and is never larger than the channel count minus 1.
+    // TODO: Look at getting rid of this - it can be derived from samplesRemaining and the channel count.
+    unsigned int nextChannel;
+
+
     // The list of sub-frames within the frame. There is one sub-frame for each channel, and there's a maximum of 8 channels.
     drflac_subframe subframes[8];
 
@@ -116,7 +133,7 @@ typedef struct
     unsigned int bitsPerSample;
 
     // The total number of samples making up the stream. This includes every channel. For example, if the stream has 2 channels,
-    // with each channel having a total of 4096, this value will be set to 4096*2 = 8192.
+    // with each channel having a total of 4096, this value will be set to 2*4096 = 8192.
     unsigned long long totalSampleCount;
     
 
@@ -140,12 +157,8 @@ typedef struct
     drflac_frame currentFrame;
 
 
-    // The number of samples remaining in the current frame. We use this to determine when a new frame needs to be begun.
-    long long samplesRemainingInCurrentFrame;
-
-    // The index of the channel that the next sample belongs to. We use this for interleaving, and is never larger than the the channel count as
-    // specified by currentFrameHeader.channelAssignment-1.
-    int nextSampleChannel;
+    // A pointer to a block of memory sitting on the heap. This will be set to NULL if the heap is not being used.
+    void* pHeap;
 
 
     // The number of valid decoded samples in <decodedSamples> (below). We use this to keep track of where to place newly decoded samples.
@@ -1329,7 +1342,7 @@ static drflac_bool drflac__begin_next_frame(drflac* pFlac)      // TODO: Rename 
     unsigned char crc[2];
     drflac__read_bits(pFlac, 16, crc, 0);
 
-    pFlac->samplesRemainingInCurrentFrame = pFlac->currentFrame.blockSize * drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
+    pFlac->currentFrame.samplesRemaining = pFlac->currentFrame.blockSize * drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
 
     return drflac_true;
 }
@@ -1470,8 +1483,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tel
     pFlac->cuesheetBlock                  = cuesheetBlock;
     pFlac->pictureBlock                   = pictureBlock;
     memset(&pFlac->currentFrame, 0, sizeof(pFlac->currentFrame));
-    pFlac->samplesRemainingInCurrentFrame = 0;
-    pFlac->nextSampleChannel              = 0;
+    pFlac->pHeap                          = NULL;
     pFlac->decodedSampleCount             = 0;
 
     return pFlac;
@@ -1492,7 +1504,7 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
     while (samplesToRead > 0)
     {
         // If we've run out of samples in this frame, go to the next.
-        if (pFlac->samplesRemainingInCurrentFrame == 0)
+        if (pFlac->currentFrame.samplesRemaining == 0)
         {
             if (!drflac__begin_next_frame(pFlac)) {
                 break;  // Couldn't read the next frame, so just break from the loop and return.
@@ -1503,21 +1515,21 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
 
             // We still have samples remaining in the current frame so we need to retrieve them.
-            while (pFlac->samplesRemainingInCurrentFrame > 0 && samplesToRead > 0)
+            while (pFlac->currentFrame.samplesRemaining > 0 && samplesToRead > 0)
             {
-                unsigned long long nextSampleInFrame = ((pFlac->currentFrame.blockSize * channelCount) - pFlac->samplesRemainingInCurrentFrame) / channelCount;
-                unsigned long long sampleIndex0 = pFlac->currentFrame.subframes[pFlac->nextSampleChannel].firstDecodedSampleOffset + nextSampleInFrame;
+                unsigned long long nextSampleInFrame = ((pFlac->currentFrame.blockSize * channelCount) - pFlac->currentFrame.samplesRemaining) / channelCount;
+                unsigned long long sampleIndex0 = pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel].firstDecodedSampleOffset + nextSampleInFrame;
 
                 int decodedSample = 0;
                 switch (pFlac->currentFrame.channelAssignment)
                 {
                     case DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE:
                     {
-                        if (pFlac->nextSampleChannel == 0) {
+                        if (pFlac->currentFrame.nextChannel == 0) {
                             decodedSample = pFlac->decodedSamples[sampleIndex0];
                         } else {
-                            int side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            int left = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            int side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            int left = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
                             decodedSample = left - side;
                         }
 
@@ -1525,9 +1537,9 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
 
                     case DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE:
                     {
-                        if (pFlac->nextSampleChannel == 0) {
-                            int side  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            int right = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
+                        if (pFlac->currentFrame.nextChannel == 0) {
+                            int side  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            int right = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
                             decodedSample = side + right;
                         } else {
                             decodedSample = pFlac->decodedSamples[sampleIndex0];
@@ -1539,15 +1551,15 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
                     {
                         int mid;
                         int side;
-                        if (pFlac->nextSampleChannel == 0) {
-                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
-                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
+                        if (pFlac->currentFrame.nextChannel == 0) {
+                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 1].firstDecodedSampleOffset + nextSampleInFrame];
 
                             mid = (((unsigned int)mid) << 1) | (side & 0x01);
                             decodedSample = (mid + side) >> 1;
                         } else {
-                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
-                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->nextSampleChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
+                            mid  = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel - 1].firstDecodedSampleOffset + nextSampleInFrame];
+                            side = pFlac->decodedSamples[pFlac->currentFrame.subframes[pFlac->currentFrame.nextChannel + 0].firstDecodedSampleOffset + nextSampleInFrame];
 
                             mid = (((unsigned int)mid) << 1) | (side & 0x01);
                             decodedSample = (mid - side) >> 1;
@@ -1567,10 +1579,10 @@ unsigned int drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut
 
 
                 *bufferOut++ = decodedSample;
-                pFlac->nextSampleChannel = (pFlac->nextSampleChannel + 1) % pFlac->channels;
+                pFlac->currentFrame.nextChannel = (pFlac->currentFrame.nextChannel + 1) % pFlac->channels;
 
                 samplesRead += 1;
-                pFlac->samplesRemainingInCurrentFrame -= 1;
+                pFlac->currentFrame.samplesRemaining -= 1;
                 samplesToRead -= 1;
             }
         }
