@@ -943,7 +943,7 @@ static bool drflac__read_and_decode_residual__unencoded(drflac* pFlac, unsigned 
 }
 
 // Reads and decodes the residual for the sub-frame the decoder is currently sitting on. This function should be called
-// when the decoder is sitting at the very start of the RESIDUAL block. The first <order> residuals will be set to 0. The
+// when the decoder is sitting at the very start of the RESIDUAL block. The first <order> residuals will be ignored. The
 // <blockSize> and <order> parameters are used to determine how many residual values need to be decoded.
 static bool drflac__read_and_decode_residual(drflac* pFlac, unsigned int blockSize, unsigned int order, int* pResidualOut)
 {
@@ -960,11 +960,8 @@ static bool drflac__read_and_decode_residual(drflac* pFlac, unsigned int blockSi
         return false;    // Unknown or unsupported residual coding method.
     }
 
-
-    // We use a residual of 0 for the first <order> values.
-    for (unsigned int i = 0; i < order; ++i) {
-        *pResidualOut++ = 0;
-    }
+    // Ignore the first <order> values.
+    pResidualOut += order;
 
 
     unsigned char partitionOrder;
@@ -1340,6 +1337,7 @@ static bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
 
                 pSubframe->lpcPrevSamples[i]  = sample;
                 pSubframe->lpcCoefficients[i] = lpcCoefficientsTable[pSubframe->lpcOrder][i];
+                pSubframe->pDecodedSamples[i] = sample;
             }
 
             
@@ -1347,11 +1345,6 @@ static bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                 return false;
             }
 
-
-            // Warm up samples are unencoded.
-            for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
-                pSubframe->pDecodedSamples[i] = pSubframe->lpcPrevSamples[i];
-            }
 
             // We have the residual, so now we need to decode. The order can be 0 with SUBFRAME_FIXED, in which case we just leave everything
             // equal to the residual.
@@ -1379,7 +1372,8 @@ static bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                     return false;
                 }
 
-                pSubframe->lpcPrevSamples[i] = sample;
+                pSubframe->lpcPrevSamples[i]  = sample;
+                pSubframe->pDecodedSamples[i] = sample;
             }
 
             unsigned char lpcPrecision;
@@ -1408,10 +1402,6 @@ static bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
                 return false;
             }
 
-            // Warm up samples are unencoded.
-            for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
-                pSubframe->pDecodedSamples[i] = pSubframe->lpcPrevSamples[i];
-            }
 
             // Decode the remaining samples.
             for (unsigned int i = pSubframe->lpcOrder; i < pFlac->currentFrame.blockSize; ++i)
