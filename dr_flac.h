@@ -888,6 +888,69 @@ static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
     return true;
 }
 
+// Seeks to the next set bit, and returns it's offset.
+static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOffsetOut)
+{
+    // Slow naive method.
+#if 0
+    unsigned int zeroCounter = 0;
+    while (drflac__read_next_bit(pFlac) == 0) {
+        zeroCounter += 1;
+    }
+    
+    *pOffsetOut = zeroCounter;
+    return true;
+#endif
+
+
+    // Experiment #1: Not-so-slow-but-still-slow naive method.
+    // Result: A tiny bit faster, but nothing special.
+#if 1
+    unsigned int prevLeftoverBitsRemaining = pFlac->leftoverBitsRemaining;
+    while (pFlac->leftoverBitsRemaining > 0)
+    {
+        if (pFlac->leftoverBytes & (1ULL << (pFlac->leftoverBitsRemaining - 1))) {
+            *pOffsetOut = (prevLeftoverBitsRemaining - pFlac->leftoverBitsRemaining);
+            pFlac->leftoverBitsRemaining -= 1;
+            return true;
+        }
+
+        pFlac->leftoverBitsRemaining -= 1;
+    }
+
+    // If we get here it means we've ran out of leftover. We just need to load more and keep looking. If it's not
+    // in this chunk there is no hope in finding it.
+    drflac__grab_leftover_bytes(pFlac);
+    if (pFlac->leftoverBitsRemaining == 0) {
+        return false;   // No more data avaialable.
+    }
+
+    while (pFlac->leftoverBitsRemaining > 0)
+    {
+        if (pFlac->leftoverBytes & (1ULL << (pFlac->leftoverBitsRemaining - 1))) {
+            *pOffsetOut = (prevLeftoverBitsRemaining + ((sizeof(pFlac->leftoverBytes)*8) - pFlac->leftoverBitsRemaining));
+            pFlac->leftoverBitsRemaining -= 1;
+            return true;
+        }
+
+        pFlac->leftoverBitsRemaining -= 1;
+    }
+
+    return false;
+#endif
+
+    // Experiment #2: A divide and conquer type thing where we take a 32-bit mask and check if any bits are set in it. If
+    // not, just move to the next 32-bits.
+#if 0
+    uint64_t mask1  = 0x1;
+    uint64_t mask2  = 0x3;
+    uint64_t mask4  = 0xF;
+    uint64_t mask8  = 0xFF;
+    uint64_t mask16 = 0xFFFF;
+    uint64_t mask32 = 0xFFFFFFFF;
+#endif
+}
+
 
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 static bool drflac__read_and_decode_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam, int* pResidualOut)
@@ -896,6 +959,45 @@ static bool drflac__read_and_decode_residual__rice(drflac* pFlac, unsigned int c
     assert(count > 0);
     assert(pResidualOut != NULL);
 
+    
+
+    for (;;)
+    {
+        // We need to find the first set bit from the current position.
+
+        unsigned int zeroCounter;
+        if (!drflac__seek_to_next_set_bit(pFlac, &zeroCounter)) {
+            return false;
+        }
+
+        unsigned int decodedValue = 0;
+        if (riceParam > 0) {
+            drflac__read_uint32(pFlac, riceParam, &decodedValue);
+        }
+    
+
+        decodedValue |= (zeroCounter << riceParam);
+        if ((decodedValue & 0x01)) {
+            decodedValue = ~(decodedValue >> 1);
+        } else {
+            decodedValue = (decodedValue >> 1);
+        }
+
+        *pResidualOut = (int)decodedValue;
+
+        
+
+        if (count == 1) {
+            return true;
+        }
+
+        count -= 1;
+        pResidualOut += 1;
+    }
+
+    return true;
+
+#if 0
     for (unsigned int i = 0; i < count; ++i) {
         if (!drflac__read_and_decode_rice(pFlac, riceParam, pResidualOut)) {
             return false;
@@ -905,6 +1007,7 @@ static bool drflac__read_and_decode_residual__rice(drflac* pFlac, unsigned int c
     }
 
     return true;
+#endif
 }
 
 // Reads and seeks past a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
