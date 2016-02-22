@@ -140,11 +140,25 @@ typedef struct
     // The current byte position in the client's data stream.
     uint64_t currentBytePos;
 
+
+    // Crappy bit reading stuff.
+#if 0
     // The temporary byte containing containing the bits that have not yet been read.
     uint64_t leftoverBytes;
 
     // The number of bits remaining in the byte the reader is currently sitting on.
     unsigned char leftoverBitsRemaining;
+#endif
+
+    // BIT READING EXPERIMENT #1
+#if 1
+    // The cached data which was most recently read from the client. When data is read from the client, it is placed within this
+    // variable. As data is read, it's bit-shifted such that the next valid bit is sitting on the most significant bit.
+    uint64_t cache;
+
+    // The number of bits that have been consumed by the cache. This is used to determine how many valid bits are remaining.
+    size_t consumedBits;
+#endif
 
 
     // The sample rate. Will be set to something like 44100.
@@ -480,7 +494,398 @@ static inline uint64_t drflac__be2host_64(uint64_t n)
 }
 
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// THE ADVENTURES OF EFFICIENTLY READING DATA FROM A BITSTREAM
+//     by David Reid
+//
+// There are three main performance issues to consider when decoding a FLAC stream:
+//   1) Reading data from a stream of bits
+//   2) Rice codes
+//   3) Prediction evaluation
+//
+// So far dr_flac does a terrible job of all three of these things, but the hardest thing for me has been figuring out the bit
+// streaming stuff. This little section is a sort of journal in my adventures in figuring out how to efficiently read variable
+// length numbers from a stream of bits.
+//
+//
+// --- Chapter 1: Lessons Learn so Far ---
+// The very first implementation I tried worked by loading one single byte of data at a time from the client. This was terrible.
+// The problem is quite obvious - there was just too many calls being made back to the client for extra data. The obvious fix for
+// this is to read in several bytes at a time - say, 8 bytes (64 bits).
+//
+// Loading 64 bits at a time instead of 8 makes a huge difference - the time spent on the client side retrieving data barely
+// shows up in profiling. This is good, but of course when one issue is fixed, other issues become more obvious. The problem I
+// now faced is that the 32-bit build was almost 2x slower than the 64-bit build. The reason is obvious - the 64-bit build uses
+// native 64-bit arithmatic which is not available to the 32-bit build. I could be lazy and just leave it as is, but unfortunately
+// many developers still distribute 32-bit builds of their software for the Windows platform. Also, it turns out even when using
+// a 64-bit bin the reference FLAC decoder is still 3x faster. A complete rethinking of this is needed.
+// 
+// So how do we fix it? As I'm writing this sentence I've still got no idea. The next sections are going to detail my thought
+// process on how I try to figure out this problem and implement a truly optimal solution.
+//
+//
+// --- Chapter 2: The Experiments ---
+// Experiment #1 - February 22, 2016 - 3:39 PM
+// As I'm writing this sentence I'm going through that phase where I think every programmer has been where I feel like I need to
+// take a step back and completely rethink the problem. One of the problems I had with the previous implementations is that I
+// actually struggled to get the functionality working at all nevermind getting is optimal. This is an issue for me because the
+// problem itself is conceptually quite simple - you just read a given number of bits from the cached data, but if there isn't
+// enough just fetch more data and continue. Often times I've found that by simplifying a problem, it often ends up faster as
+// a side effect, so I think my first experiment will be one of figuring out how to simplify the problem.
+//
+// The complexities I faced with the previous implementations off the top of my head:
+// 1) Figuring out the masking to use when isolating specific bits.
+// 2) Figuring out the exact number of bits to shift.
+// 3) Trying to shift outside the range of [0..63]. A bit shift of 64 is actually erroneous on 64-bit builds in MSVC.
+//
+// So lets now brainstorm ideas on how to simplify these problems.
+//
+// Problem 1) The first problem is figuring how to mask out the specific bits needing to be read. The existing implementation uses
+// a variable to keep track of how many valid bits are remaining in the cache. This combined with the number of bits being
+// requested is used to calculate the mask. The current implementation leaves the cached data exactly as is for it's lifetime
+// and depends on calculating a mask depending on how many valid bits are remaining and how many bits are being requested. After
+// thinking about this for a bit, we'll experiment with bit-shifting the cached data such that the next valid bit is sitting on
+// the most significant bit (1 << 63). This should simplify the mask calculations quite a bit.
+//
+// Problem 2) When we isolate the bits within the cache they need to be shifted in a way where it's in a suitable format for the
+// output variable. Calculating this shift is annoyingly complex in the currently implementation, but with the above experiment
+// it may become a bit simpler - will see how that one turns out first.
+//
+// Result - February 22, 2016 - 10:12 PM
+// Excitement got the better of me and I just jumped straight in. This new implementation is a LOT simpler, and is now "only" 2x
+// slower than the reference implementation. At this point I'm happy with the simplicity of this system so I'm keeping the
+// general design as-is for now. There is still the issue of 64-bit wide bit manipulation so the next experiment will be looking
+// at using 32-bit shifts instead.
+//
+//
+// Experiment #2 - February 22, 2016 - 10:16 PM
+// The next experiment is to use a 32-bit cache instead of 64-bit. This will result in more frequent fetches from the client, but
+// more efficient bit manipulation.
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
 //// Bit Reading ////
+
+// BIT READING ATTEMPT #2
+//
+// This uses a 64-bit dynamically bit-shifted cache - as bits are read, the cache is shifted such that the first valid bit is
+// sitting on the most significant bit.
+#if 1
+#define DRFLAC_CACHE_SIZE_BYTES                 (sizeof(pFlac->cache))
+#define DRFLAC_CACHE_SIZE_BITS                  (sizeof(pFlac->cache)*8)
+#define DRFLAC_CACHE_BITS_REMAINING             (DRFLAC_CACHE_SIZE_BITS - (pFlac->consumedBits))
+#define DRFLAC_CACHE_SELECTION_MASK(_bitCount)  (~(((uint64_t)-1LL) >> (_bitCount)))
+#define DRFLAC_CACHE_SELECTION_SHIFT(_bitCount) (DRFLAC_CACHE_SIZE_BITS - (_bitCount))
+#define DRFLAC_CACHE_SELECT(_bitCount)          ((pFlac->cache) & DRFLAC_CACHE_SELECTION_MASK(_bitCount))
+#define DRFLAC_CACHE_SELECT_AND_SHIFT(_bitCount)(DRFLAC_CACHE_SELECT(_bitCount) >> DRFLAC_CACHE_SELECTION_SHIFT(_bitCount))
+
+static inline bool drflac__reload_cache(drflac* pFlac)
+{
+    size_t bytesRead = pFlac->onRead(pFlac->userData, &pFlac->cache, DRFLAC_CACHE_SIZE_BYTES);
+    if (bytesRead == 0) {
+        return false;
+    }
+
+    pFlac->currentBytePos += bytesRead;
+
+    if (bytesRead == DRFLAC_CACHE_SIZE_BYTES) {
+        pFlac->consumedBits = 0;
+    } else {
+        pFlac->consumedBits = (DRFLAC_CACHE_SIZE_BYTES - bytesRead) * 8;
+    }
+
+    pFlac->cache = drflac__be2host_64(pFlac->cache);
+    return true;
+}
+
+static bool drflac__seek_bits(drflac* pFlac, size_t bitsToSeek)
+{
+    if (bitsToSeek <= DRFLAC_CACHE_BITS_REMAINING) {
+        pFlac->consumedBits += bitsToSeek;
+        pFlac->cache <<= bitsToSeek;
+        return true;
+    } else {
+        // It straddles the cached data. This function isn't called too frequently so I'm favouring simplicity here. All we do is simply
+        // reload the cache and call this function recursively.
+        bitsToSeek -= DRFLAC_CACHE_BITS_REMAINING;
+        pFlac->consumedBits += DRFLAC_CACHE_BITS_REMAINING;
+        pFlac->cache <<= DRFLAC_CACHE_BITS_REMAINING;
+
+        size_t wholeBytesRemaining = bitsToSeek/8;
+        if (wholeBytesRemaining) {
+            pFlac->onSeek(pFlac->userData, (int)wholeBytesRemaining);
+            pFlac->currentBytePos += wholeBytesRemaining;
+        }
+
+        bitsToSeek -= wholeBytesRemaining*8;
+        if (bitsToSeek > 0) {
+            if (!drflac__reload_cache(pFlac)) {
+                return false;
+            }
+
+            return drflac__seek_bits(pFlac, bitsToSeek);
+        }
+
+        return true;
+    }
+}
+
+static inline bool drflac__read_uint64(drflac* pFlac, unsigned int bitCount, uint64_t* pResultOut)
+{
+    assert(bitCount <= 64);
+    assert(DRFLAC_CACHE_SIZE_BITS == 64);   // <-- This is a temporary assert for now. Later on we'll experiment with a 32-bit cache.
+
+    if (bitCount <= DRFLAC_CACHE_BITS_REMAINING) {
+        *pResultOut = DRFLAC_CACHE_SELECT_AND_SHIFT(bitCount);
+        pFlac->consumedBits += bitCount;
+        pFlac->cache <<= bitCount;
+        return true;
+    } else {
+        // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
+        size_t bitCountHi = DRFLAC_CACHE_BITS_REMAINING;
+        size_t bitCountLo = bitCount - bitCountHi;
+        uint64_t resultHi = DRFLAC_CACHE_SELECT_AND_SHIFT(bitCountHi);
+        
+        if (!drflac__reload_cache(pFlac)) {
+            return false;
+        }
+
+        *pResultOut = (resultHi << bitCountLo) | DRFLAC_CACHE_SELECT_AND_SHIFT(bitCountLo);
+        pFlac->consumedBits += bitCountLo;
+        pFlac->cache <<= bitCountLo;
+        return true;
+    }
+}
+
+static inline bool drflac__read_int64(drflac* pFlac, unsigned int bitCount, int64_t* pResultOut)
+{
+    assert(bitCount <= 64);
+
+    uint64_t result;
+    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
+        return false;
+    }
+
+    if ((result & (1ULL << (bitCount - 1)))) {  // TODO: See if we can get rid of this branch.
+        result |= (-1LL << bitCount);
+    }
+
+    *pResultOut = (int64_t)result;
+    return true;
+}
+
+static inline bool drflac__read_uint32(drflac* pFlac, unsigned int bitCount, uint32_t* pResult)
+{
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 32);
+
+    uint64_t result;
+    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
+        return false;
+    }
+
+    *pResult = (uint32_t)result;
+    return true;
+}
+
+static inline bool drflac__read_int32(drflac* pFlac, unsigned int bitCount, int32_t* pResult)
+{
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 32);
+
+    int64_t result;
+    if (!drflac__read_int64(pFlac, bitCount, &result)) {
+        return false;
+    }
+
+    *pResult = (int32_t)result;
+    return true;
+}
+
+static inline bool drflac__read_uint16(drflac* pFlac, unsigned int bitCount, uint16_t* pResult)
+{
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 16);
+
+    uint64_t result;
+    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
+        return false;
+    }
+
+    *pResult = (uint16_t)result;
+    return true;
+}
+
+static inline bool drflac__read_int16(drflac* pFlac, unsigned int bitCount, int16_t* pResult)
+{
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 16);
+
+    int64_t result;
+    if (!drflac__read_int64(pFlac, bitCount, &result)) {
+        return false;
+    }
+
+    *pResult = (int16_t)result;
+    return true;
+}
+
+static inline bool drflac__read_uint8(drflac* pFlac, unsigned int bitCount, uint8_t* pResult)
+{
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 8);
+
+    uint64_t result;
+    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
+        return false;
+    }
+
+    *pResult = (uint8_t)result;
+    return true;
+}
+
+static inline bool drflac__read_int8(drflac* pFlac, unsigned int bitCount, int8_t* pResult)
+{
+    assert(pFlac != NULL);
+    assert(pResult != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 8);
+
+    int64_t result;
+    if (!drflac__read_int64(pFlac, bitCount, &result)) {
+        return false;
+    }
+
+    *pResult = (int8_t)result;
+    return true;
+}
+
+static inline int drflac__read_next_bit(drflac* pFlac)
+{
+    assert(pFlac != NULL);
+
+    if (DRFLAC_CACHE_BITS_REMAINING == 0) {
+        if (!drflac__reload_cache(pFlac)) {
+            return -1;
+        }
+    }
+
+    int result = DRFLAC_CACHE_SELECT_AND_SHIFT(1);
+    pFlac->consumedBits += 1;
+    pFlac->cache <<= 1;
+
+    return result;
+}
+
+static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* pOffsetOut)
+{
+    // Slow naive method.
+#if 0
+    unsigned int zeroCounter = 0;
+    while (drflac__read_next_bit(pFlac) == 0) {
+        zeroCounter += 1;
+    }
+    
+    *pOffsetOut = zeroCounter;
+    return true;
+#endif
+
+#if 1
+    // Experiment #1: Not-so-slow-but-still-slow naive method.
+    size_t prevConsumedBits = pFlac->consumedBits;
+    while (pFlac->consumedBits < DRFLAC_CACHE_SIZE_BITS)
+    {
+        if (DRFLAC_CACHE_SELECT(1)) {
+            *pOffsetOut = (unsigned int)(pFlac->consumedBits - prevConsumedBits);
+            pFlac->consumedBits += 1;
+            pFlac->cache <<= 1;
+            return true;
+        }
+
+        pFlac->consumedBits += 1;
+        pFlac->cache <<= 1;
+    }
+
+    // If we get here it means we've run out of data in the cache.
+    if (!drflac__reload_cache(pFlac)) {
+        return false;
+    }
+
+    size_t counter1 = DRFLAC_CACHE_SIZE_BITS - prevConsumedBits;
+    while (pFlac->consumedBits < DRFLAC_CACHE_SIZE_BITS)
+    {
+        if (DRFLAC_CACHE_SELECT(1)) {
+            *pOffsetOut = (unsigned int)(counter1 + pFlac->consumedBits);
+            pFlac->consumedBits += 1;
+            pFlac->cache <<= 1;
+            return true;
+        }
+
+        pFlac->consumedBits += 1;
+        pFlac->cache <<= 1;
+    }
+
+    return false;
+#endif
+
+#if 0
+    unsigned int counter = 1;
+    while (pFlac->consumedBits + counter <= DRFLAC_CACHE_SIZE_BITS)
+    {
+        if (DRFLAC_CACHE_SELECT(counter)) {
+            pFlac->consumedBits += counter;
+            pFlac->cache <<= counter;
+            *pOffsetOut = counter - 1;
+            return true;
+        }
+
+        counter += 1;
+    }
+
+    // If we get here it means we've run out of data in the cache.
+    if (!drflac__reload_cache(pFlac)) {
+        return false;
+    }
+
+    unsigned int counter2 = 1;
+    while (pFlac->consumedBits + counter2 <= DRFLAC_CACHE_SIZE_BITS)
+    {
+        if (DRFLAC_CACHE_SELECT(counter2)) {
+            pFlac->consumedBits += counter2;
+            pFlac->cache <<= counter2;
+            *pOffsetOut = counter + counter2 - 2;
+            return true;
+        }
+
+        counter2 += 1;
+    }
+
+    return false;
+#endif
+}
+#endif
+
+
+// BIT READING ATTEMPT #1
+//
+// This uses a 64-bit static cache.
+#if 0
 static inline size_t drflac__grab_leftover_bytes(drflac* pFlac)
 {
     assert(pFlac != NULL);
@@ -509,53 +914,10 @@ static inline size_t drflac__grab_leftover_bytes(drflac* pFlac)
     return bytesRead;
 }
 
-static inline bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
-{
-    assert(pFlac != NULL);
-
-    long long bytesToMove = offsetFromStart - pFlac->currentBytePos;
-    if (bytesToMove == 0) {
-        return 1;
-    }
-
-    if (bytesToMove > 0x7FFFFFFF) {
-        while (bytesToMove > 0x7FFFFFFF) {
-            if (!pFlac->onSeek(pFlac->userData, 0x7FFFFFFF)) {
-                return 0;
-            }
-
-            pFlac->currentBytePos += 0x7FFFFFFF;
-            bytesToMove -= 0x7FFFFFFF;
-        }
-    } else {
-        while (bytesToMove < (int)0x80000000) {
-            if (!pFlac->onSeek(pFlac->userData, (int)0x80000000)) {
-                return 0;
-            }
-
-            pFlac->currentBytePos += (int)0x80000000;
-            bytesToMove -= (int)0x80000000;
-        }
-    }
-
-    assert(bytesToMove <= 0x7FFFFFFF && bytesToMove >= (int)0x80000000);
-
-    bool result = pFlac->onSeek(pFlac->userData, (int)bytesToMove);    // <-- Safe cast as per the assert above.
-    pFlac->currentBytePos += (int)bytesToMove;
-    pFlac->leftoverBitsRemaining = 0;
-
-    return result;
-}
-
-static inline long long drflac__tell(drflac* pFlac)
-{
-    assert(pFlac != NULL);
-    return pFlac->currentBytePos - (pFlac->leftoverBitsRemaining / 8);
-}
-
 static unsigned int drflac__seek_bits(drflac* pFlac, unsigned int bitsToSeek)
 {
     assert(pFlac != NULL);
+    assert(bitsToSeek < 64);
 
     unsigned int bitsSeeked = 0;
 
@@ -793,9 +1155,53 @@ static inline bool drflac__read_int8(drflac* pFlac, unsigned int bitCount, int8_
     *pResult = (int8_t)result;
     return true;
 }
+#endif  // BIT READING ATTEMPT #1
 
 
 
+static inline bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
+{
+    assert(pFlac != NULL);
+
+    long long bytesToMove = offsetFromStart - pFlac->currentBytePos;
+    if (bytesToMove == 0) {
+        return 1;
+    }
+
+    if (bytesToMove > 0x7FFFFFFF) {
+        while (bytesToMove > 0x7FFFFFFF) {
+            if (!pFlac->onSeek(pFlac->userData, 0x7FFFFFFF)) {
+                return 0;
+            }
+
+            pFlac->currentBytePos += 0x7FFFFFFF;
+            bytesToMove -= 0x7FFFFFFF;
+        }
+    } else {
+        while (bytesToMove < (int)0x80000000) {
+            if (!pFlac->onSeek(pFlac->userData, (int)0x80000000)) {
+                return 0;
+            }
+
+            pFlac->currentBytePos += (int)0x80000000;
+            bytesToMove -= (int)0x80000000;
+        }
+    }
+
+    assert(bytesToMove <= 0x7FFFFFFF && bytesToMove >= (int)0x80000000);
+
+    bool result = pFlac->onSeek(pFlac->userData, (int)bytesToMove);    // <-- Safe cast as per the assert above.
+    pFlac->currentBytePos += (int)bytesToMove;
+
+    pFlac->consumedBits = DRFLAC_CACHE_SIZE_BITS;
+    return result;
+}
+
+static inline long long drflac__tell(drflac* pFlac)
+{
+    assert(pFlac != NULL);
+    return pFlac->currentBytePos - DRFLAC_CACHE_SIZE_BYTES + (pFlac->consumedBits);
+}
 
 
 
@@ -806,7 +1212,7 @@ static bool drflac__read_utf8_coded_number(drflac* pFlac, unsigned long long* pN
 
     // We should never need to read UTF-8 data while not being aligned to a byte boundary. Therefore we can grab the data
     // directly from the input stream rather than using drflac__read_uint8().
-    assert((pFlac->leftoverBitsRemaining % 8) == 0);
+    assert((pFlac->consumedBits % 8) == 0);
 
     unsigned char utf8[7] = {0};
     if (!drflac__read_uint8(pFlac, 8, utf8)) {
@@ -899,11 +1305,12 @@ static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
     return true;
 }
 
+#if 0
 // Seeks to the next set bit, and returns it's offset.
 static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOffsetOut)
 {
     // Slow naive method.
-#if 0
+#if 1
     unsigned int zeroCounter = 0;
     while (drflac__read_next_bit(pFlac) == 0) {
         zeroCounter += 1;
@@ -913,10 +1320,12 @@ static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOf
     return true;
 #endif
 
+    // Experiment #2: Not-so-slow-but-still-slow naive method.
+
 
     // Experiment #1: Not-so-slow-but-still-slow naive method.
     // Result: A tiny bit faster, but nothing special.
-#if 1
+#if 0
     unsigned int prevLeftoverBitsRemaining = pFlac->leftoverBitsRemaining;
     while (pFlac->leftoverBitsRemaining > 0)
     {
@@ -961,12 +1370,13 @@ static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOf
     uint64_t mask32 = 0xFFFFFFFF;
 #endif
 }
+#endif
 
 
 static inline bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char riceParam, int* pValueOut)
 {
     unsigned int zeroCounter;
-    if (!drflac__seek_to_next_set_bit(pFlac, &zeroCounter)) {
+    if (!drflac__seek_past_next_set_bit(pFlac, &zeroCounter)) {
         return false;
     }
 
@@ -1044,6 +1454,11 @@ static bool drflac__decode_samples_with_residual__fixed_rice(drflac* pFlac, unsi
     {
         case 0:
         {
+            for (int i = 0; i < (int)count; ++i) {
+                if (!drflac__read_and_decode_rice(pFlac, riceParam, pDecodedSamples + i)) {
+                    return false;
+                }
+            }
         } break;
 
         case 1:
@@ -1866,7 +2281,7 @@ static bool drflac__decode_frame(drflac* pFlac)
     }
 
     // At the end of the frame sits the padding and CRC. We don't use these so we can just seek past.
-    drflac__seek_bits(pFlac, (pFlac->leftoverBitsRemaining % 8) + 16);
+    drflac__seek_bits(pFlac, (DRFLAC_CACHE_BITS_REMAINING & 7) + 16);
 
 
     pFlac->currentFrame.samplesRemaining = pFlac->currentFrame.blockSize * drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
@@ -1885,7 +2300,7 @@ static bool drflac__seek_frame(drflac* pFlac)
     }
 
     // Padding and CRC.
-    drflac__seek_bits(pFlac, (pFlac->leftoverBitsRemaining % 8) + 16);
+    drflac__seek_bits(pFlac, (DRFLAC_CACHE_BITS_REMAINING & 7) + 16);
 
     return true;
 }
@@ -1965,8 +2380,10 @@ static bool drflac__seek_to_first_frame(drflac* pFlac)
     assert(pFlac != NULL);
     
     bool result = drflac__seek_to_byte(pFlac, (long long)pFlac->firstFramePos);
-    pFlac->leftoverBitsRemaining = 0;
-    pFlac->leftoverBytes = 0;
+    pFlac->consumedBits = DRFLAC_CACHE_SIZE_BITS;
+    pFlac->cache = 0;
+    //pFlac->leftoverBitsRemaining = 0;
+    //pFlac->leftoverBytes = 0;
 
     memset(&pFlac->currentFrame, 0, sizeof(pFlac->currentFrame));
 
@@ -2130,6 +2547,7 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
     pFlac->onTell         = onTell;
     pFlac->userData       = userData;
     pFlac->currentBytePos = 4;   // Set to 4 because we just read the ID which is 4 bytes.
+    pFlac->consumedBits   = DRFLAC_CACHE_SIZE_BITS;
     
     
     // The first metadata block should be the STREAMINFO block. We don't care about everything in here.
@@ -2139,7 +2557,6 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
     if (blockType != DRFLAC_BLOCK_TYPE_STREAMINFO && blockSize != 34) {
         return false;
     }
-
 
     drflac__seek_bits(pFlac, 16);   // minBlockSize
     drflac__read_uint16(pFlac, 16, &pFlac->maxBlockSize);
