@@ -1032,71 +1032,128 @@ static bool drflac__decode_samples_with_residual__fixed_rice(drflac* pFlac, unsi
     assert(pFlac != NULL);
     assert(count > 0);
 
-    short lpcCoefficientsTable[5][4] = {
+    /*short lpcCoefficientsTable[5][4] = {
         {0,  0, 0,  0},
         {1,  0, 0,  0},
         {2, -1, 0,  0},
         {3, -3, 1,  0},
         {4, -6, 4, -1}
-    };
+    };*/
 
-    for (int i = 0; i < (int)count; ++i)
+    switch (order)
     {
-        // We need to find the first set bit from the current position.
-
-        if (!drflac__read_and_decode_rice(pFlac, riceParam, pDecodedSamples + i)) {
-            return false;
-        }
-        
-        switch (order)
+        case 0:
         {
-            case 0:
-            {
-            } break;
+        } break;
 
-            case 1:
-            {
+        case 1:
+        {
+            for (int i = 0; i < (int)count; ++i) {
+                if (!drflac__read_and_decode_rice(pFlac, riceParam, pDecodedSamples + i)) {
+                    return false;
+                }
+
                 pDecodedSamples[i] += (int)(1*pDecodedSamples[i-1]);
-            } break;
+            }
+        } break;
 
-            case 2:
-            {
+        case 2:
+        {
+            for (int i = 0; i < (int)count; ++i) {
+                if (!drflac__read_and_decode_rice(pFlac, riceParam, pDecodedSamples + i)) {
+                    return false;
+                }
+
                 pDecodedSamples[i] += (int)(2*pDecodedSamples[i-1] + -1*pDecodedSamples[i-2]);
-            } break;
+            }
+        } break;
 
-            case 3:
-            {
+        case 3:
+        {
+            for (int i = 0; i < (int)count; ++i) {
+                if (!drflac__read_and_decode_rice(pFlac, riceParam, pDecodedSamples + i)) {
+                    return false;
+                }
+
                 pDecodedSamples[i] += (int)(3*pDecodedSamples[i-1] + -3*pDecodedSamples[i-2] + 1*pDecodedSamples[i-3]);
-            } break;
+            }
+        } break;
 
-            case 4:
-            {
+        case 4:
+        {
+            for (int i = 0; i < (int)count; ++i) {
+                if (!drflac__read_and_decode_rice(pFlac, riceParam, pDecodedSamples + i)) {
+                    return false;
+                }
+
                 pDecodedSamples[i] += (int)(4*pDecodedSamples[i-1] + -6*pDecodedSamples[i-2] + 4*pDecodedSamples[i-3] + -1*pDecodedSamples[i-4]);
-            } break;
+            }
+        } break;
 
-            default: return false;
-        }
+        default: return false;
     }
 
     return true;
 }
 
-static bool drflac__decode_samples_with_residual__fixed_unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int order, int* pResidualOut)
+static bool drflac__decode_samples_with_residual__fixed_unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int order, int* pDecodedSamples)
 {
     assert(pFlac != NULL);
     assert(count > 0);
     assert(unencodedBitsPerSample > 0 && unencodedBitsPerSample <= 32);
-    assert(pResidualOut != NULL);
+    assert(pDecodedSamples != NULL);
 
-    for (unsigned int i = 0; i < count; ++i)
+    switch (order)
     {
-        if (!drflac__read_int32(pFlac, unencodedBitsPerSample, pResidualOut)) {
-            return false;
-        }
+        case 0:
+        {
+        } break;
 
-        // TODO: Prediction.
+        case 1:
+        {
+            for (int i = 0; i < (int)count; ++i) {
+                if (!drflac__read_int32(pFlac, unencodedBitsPerSample, pDecodedSamples)) {
+                    return false;
+                }
 
-        pResidualOut += 1;
+                pDecodedSamples[i] += (int)(1*pDecodedSamples[i-1]);
+            }
+        } break;
+
+        case 2:
+        {
+            for (int i = 0; i < (int)count; ++i) {
+                if (!drflac__read_int32(pFlac, unencodedBitsPerSample, pDecodedSamples)) {
+                    return false;
+                }
+
+                pDecodedSamples[i] += (int)(2*pDecodedSamples[i-1] + -1*pDecodedSamples[i-2]);
+            }
+        } break;
+
+        case 3:
+        {
+            for (int i = 0; i < (int)count; ++i) {
+                if (!drflac__read_int32(pFlac, unencodedBitsPerSample, pDecodedSamples)) {
+                    return false;
+                }
+
+                pDecodedSamples[i] += (int)(3*pDecodedSamples[i-1] + -3*pDecodedSamples[i-2] + 1*pDecodedSamples[i-3]);
+            }
+        } break;
+
+        case 4:
+        {
+            for (int i = 0; i < (int)count; ++i) {
+                if (!drflac__read_int32(pFlac, unencodedBitsPerSample, pDecodedSamples)) {
+                    return false;
+                }
+
+                pDecodedSamples[i] += (int)(4*pDecodedSamples[i-1] + -6*pDecodedSamples[i-2] + 4*pDecodedSamples[i-3] + -1*pDecodedSamples[i-4]);
+            }
+        } break;
+
+        default: return false;
     }
 
     return true;
