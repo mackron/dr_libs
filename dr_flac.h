@@ -2177,13 +2177,16 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                     const int* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
                     const int* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
 
+                    unsigned int unusedBitsPerSample0 = unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+                    unsigned int unusedBitsPerSample1 = unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+
                     for (size_t i = 0; i < alignedSampleCountPerChannel; ++i) {
                         int left  = pDecodedSamples0[i];
                         int side  = pDecodedSamples1[i];
                         int right = left - side;
 
-                        bufferOut[i*2+0] = left  << unusedBitsPerSample;
-                        bufferOut[i*2+1] = right << unusedBitsPerSample;
+                        bufferOut[i*2+0] = left  << unusedBitsPerSample0;
+                        bufferOut[i*2+1] = right << unusedBitsPerSample1;
                     }
                 } break;
 
@@ -2192,13 +2195,16 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                     const int* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
                     const int* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
 
+                    unsigned int unusedBitsPerSample0 = unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+                    unsigned int unusedBitsPerSample1 = unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+
                     for (size_t i = 0; i < alignedSampleCountPerChannel; ++i) {
                         int side  = pDecodedSamples0[i];
                         int right = pDecodedSamples1[i];
                         int left  = right + side;
 
-                        bufferOut[i*2+0] = left  << unusedBitsPerSample;
-                        bufferOut[i*2+1] = right << unusedBitsPerSample;
+                        bufferOut[i*2+0] = left  << unusedBitsPerSample0;
+                        bufferOut[i*2+1] = right << unusedBitsPerSample1;
                     }
                 } break;
 
@@ -2207,12 +2213,15 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                     const int* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
                     const int* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
 
+                    unsigned int unusedBitsPerSample0 = unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+                    unsigned int unusedBitsPerSample1 = unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+
                     for (size_t i = 0; i < alignedSampleCountPerChannel; ++i) {
                         int side = pDecodedSamples1[i];
                         int mid  = (((uint32_t)pDecodedSamples0[i]) << 1) | (side & 0x01);
 
-                        bufferOut[i*2+0] = ((mid + side) >> 1) << unusedBitsPerSample;
-                        bufferOut[i*2+1] = ((mid - side) >> 1) << unusedBitsPerSample;
+                        bufferOut[i*2+0] = ((mid + side) >> 1) << unusedBitsPerSample0;
+                        bufferOut[i*2+1] = ((mid - side) >> 1) << unusedBitsPerSample1;
                     }
                 } break;
 
@@ -2225,9 +2234,12 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                         const int* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
                         const int* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
 
+                        unsigned int unusedBitsPerSample0 = unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+                        unsigned int unusedBitsPerSample1 = unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+
                         for (size_t i = 0; i < alignedSampleCountPerChannel; ++i) {
-                            bufferOut[i*2+0] = pDecodedSamples0[i] << unusedBitsPerSample;
-                            bufferOut[i*2+1] = pDecodedSamples1[i] << unusedBitsPerSample;
+                            bufferOut[i*2+0] = pDecodedSamples0[i] << unusedBitsPerSample0;
+                            bufferOut[i*2+1] = pDecodedSamples1[i] << unusedBitsPerSample1;
                         }
                     }
                     else
