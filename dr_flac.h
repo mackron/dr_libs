@@ -1188,9 +1188,13 @@ static bool drflac__decode_samples_with_residual__unencoded(drflac* pFlac, unsig
             return false;
         }
 
-        // TODO: Prediction.
+        long long prediction = 0;
+        for (int j = 0; j < (int)order; ++j) {
+            prediction += (long long)coefficients[j] * (long long)pResidualOut[i - j - 1];
+        }
+        prediction >>= shift;
 
-        pResidualOut += 1;
+        pResidualOut[i] += (int)prediction;
     }
 
     return true;
