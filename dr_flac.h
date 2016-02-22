@@ -856,7 +856,7 @@ static bool drflac__read_utf8_coded_number(drflac* pFlac, unsigned long long* pN
 
 
 
-
+#if 0
 static inline bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char m, int* pValueOut)
 {
     // TODO: Profile and optimize this. Will probably need to look at decoding Rice codes in groups.
@@ -883,6 +883,7 @@ static inline bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char m, 
     *pValueOut = (int)decodedValue;
     return true;
 }
+#endif
 
 static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
 {
@@ -902,7 +903,7 @@ static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
 static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOffsetOut)
 {
     // Slow naive method.
-#if 1
+#if 0
     unsigned int zeroCounter = 0;
     while (drflac__read_next_bit(pFlac) == 0) {
         zeroCounter += 1;
@@ -915,7 +916,7 @@ static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOf
 
     // Experiment #1: Not-so-slow-but-still-slow naive method.
     // Result: A tiny bit faster, but nothing special.
-#if 0
+#if 1
     unsigned int prevLeftoverBitsRemaining = pFlac->leftoverBitsRemaining;
     while (pFlac->leftoverBitsRemaining > 0)
     {
@@ -962,8 +963,33 @@ static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOf
 }
 
 
+static inline bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char riceParam, int* pValueOut)
+{
+    unsigned int zeroCounter;
+    if (!drflac__seek_to_next_set_bit(pFlac, &zeroCounter)) {
+        return false;
+    }
+
+    unsigned int decodedValue = 0;
+    if (riceParam > 0) {
+        drflac__read_uint32(pFlac, riceParam, &decodedValue);
+    }
+    
+
+    decodedValue |= (zeroCounter << riceParam);
+    if ((decodedValue & 0x01)) {
+        decodedValue = ~(decodedValue >> 1);
+    } else {
+        decodedValue = (decodedValue >> 1);
+    }
+
+    *pValueOut = (int)decodedValue;
+    return true;
+}
+
+
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
-static bool drflac__read_and_decode_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam, unsigned int order, int shift, const short* coefficients, int* pResidualOut)
+static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam, unsigned int order, int shift, const short* coefficients, int* pResidualOut)
 {
     assert(pFlac != NULL);
     assert(count > 0);
@@ -972,28 +998,10 @@ static bool drflac__read_and_decode_residual__rice(drflac* pFlac, unsigned int c
     for (int i = 0; i < (int)count; ++i)
     {
         // We need to find the first set bit from the current position.
-
-        unsigned int zeroCounter;
-        if (!drflac__seek_to_next_set_bit(pFlac, &zeroCounter)) {
+        if (!drflac__read_and_decode_rice(pFlac, riceParam, pResidualOut + i)) {
             return false;
         }
-
-        unsigned int decodedValue = 0;
-        if (riceParam > 0) {
-            drflac__read_uint32(pFlac, riceParam, &decodedValue);
-        }
-    
-
-        decodedValue |= (zeroCounter << riceParam);
-        if ((decodedValue & 0x01)) {
-            decodedValue = ~(decodedValue >> 1);
-        } else {
-            decodedValue = (decodedValue >> 1);
-        }
-
-        pResidualOut[i] = (int)decodedValue;
-
-
+        
         
         long long prediction = 0;
         for (int j = 0; j < (int)order; ++j) {
@@ -1019,25 +1027,61 @@ static bool drflac__read_and_decode_residual__rice(drflac* pFlac, unsigned int c
 #endif
 }
 
-// Reads and seeks past a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
-static bool drflac__read_and_seek_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam)
+static bool drflac__decode_samples_with_residual__fixed_rice(drflac* pFlac, unsigned int count, unsigned char riceParam, unsigned int order, int* pDecodedSamples)
 {
     assert(pFlac != NULL);
     assert(count > 0);
 
-    for (unsigned int i = 0; i < count; ++i) {
-        if (!drflac__read_and_seek_rice(pFlac, riceParam)) {
+    short lpcCoefficientsTable[5][4] = {
+        {0,  0, 0,  0},
+        {1,  0, 0,  0},
+        {2, -1, 0,  0},
+        {3, -3, 1,  0},
+        {4, -6, 4, -1}
+    };
+
+    for (int i = 0; i < (int)count; ++i)
+    {
+        // We need to find the first set bit from the current position.
+
+        if (!drflac__read_and_decode_rice(pFlac, riceParam, pDecodedSamples + i)) {
             return false;
         }
+        
+        switch (order)
+        {
+            case 0:
+            {
+            } break;
 
-        // TODO: Prediction.
+            case 1:
+            {
+                pDecodedSamples[i] += (int)(1*pDecodedSamples[i-1]);
+            } break;
+
+            case 2:
+            {
+                pDecodedSamples[i] += (int)(2*pDecodedSamples[i-1] + -1*pDecodedSamples[i-2]);
+            } break;
+
+            case 3:
+            {
+                pDecodedSamples[i] += (int)(3*pDecodedSamples[i-1] + -3*pDecodedSamples[i-2] + 1*pDecodedSamples[i-3]);
+            } break;
+
+            case 4:
+            {
+                pDecodedSamples[i] += (int)(4*pDecodedSamples[i-1] + -6*pDecodedSamples[i-2] + 4*pDecodedSamples[i-3] + -1*pDecodedSamples[i-4]);
+            } break;
+
+            default: return false;
+        }
     }
 
     return true;
 }
 
-// Reads unencoded residual values.
-static bool drflac__read_and_decode_residual__unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int order, int shift, const short* coefficients, int* pResidualOut)
+static bool drflac__decode_samples_with_residual__fixed_unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int order, int* pResidualOut)
 {
     assert(pFlac != NULL);
     assert(count > 0);
@@ -1050,6 +1094,8 @@ static bool drflac__read_and_decode_residual__unencoded(drflac* pFlac, unsigned 
             return false;
         }
 
+        // TODO: Prediction.
+
         pResidualOut += 1;
     }
 
@@ -1057,6 +1103,117 @@ static bool drflac__read_and_decode_residual__unencoded(drflac* pFlac, unsigned 
 }
 
 
+// Reads and seeks past a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
+static bool drflac__read_and_seek_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam)
+{
+    assert(pFlac != NULL);
+    assert(count > 0);
+
+    for (unsigned int i = 0; i < count; ++i) {
+        if (!drflac__read_and_seek_rice(pFlac, riceParam)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool drflac__decode_samples_with_residual__unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int order, int shift, const short* coefficients, int* pResidualOut)
+{
+    assert(pFlac != NULL);
+    assert(count > 0);
+    assert(unencodedBitsPerSample > 0 && unencodedBitsPerSample <= 32);
+    assert(pResidualOut != NULL);
+
+    for (unsigned int i = 0; i < count; ++i)
+    {
+        if (!drflac__read_int32(pFlac, unencodedBitsPerSample, pResidualOut)) {
+            return false;
+        }
+
+        // TODO: Prediction.
+
+        pResidualOut += 1;
+    }
+
+    return true;
+}
+
+
+static bool drflac__decode_samples_with_residual__fixed(drflac* pFlac, unsigned int blockSize, unsigned int order, int* pDecodedSamples)
+{
+    assert(pFlac != NULL);
+    assert(blockSize != 0);
+    assert(pDecodedSamples != NULL);       // <-- Should we allow NULL, in which case we just seek past the residual rather than do a full decode?
+
+    unsigned char residualMethod;
+    if (!drflac__read_uint8(pFlac, 2, &residualMethod)) {
+        return false;
+    }
+
+    if (residualMethod != DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE && residualMethod != DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
+        return false;    // Unknown or unsupported residual coding method.
+    }
+
+    // Ignore the first <order> values.
+    pDecodedSamples += order;
+
+
+    unsigned char partitionOrder;
+    if (!drflac__read_uint8(pFlac, 4, &partitionOrder)) {
+        return false;
+    }
+
+
+    unsigned int samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
+    unsigned int partitionsRemaining = (1 << partitionOrder);
+    for (;;)
+    {
+        unsigned char riceParam = 0;
+        if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE) {
+            if (!drflac__read_uint8(pFlac, 4, &riceParam)) {
+                return false;
+            }
+            if (riceParam == 16) {
+                riceParam = 0xFF;
+            }
+        } else if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
+            if (!drflac__read_uint8(pFlac, 5, &riceParam)) {
+                return false;
+            }
+            if (riceParam == 32) {
+                riceParam = 0xFF;
+            }
+        }
+
+        if (riceParam != 0xFF) {
+            if (!drflac__decode_samples_with_residual__fixed_rice(pFlac, samplesInPartition, riceParam, order, pDecodedSamples)) {
+                return false;
+            }
+        } else {
+            unsigned char unencodedBitsPerSample = 0;
+            if (!drflac__read_uint8(pFlac, 5, &unencodedBitsPerSample)) {
+                return false;
+            }
+
+            if (!drflac__decode_samples_with_residual__fixed_unencoded(pFlac, samplesInPartition, unencodedBitsPerSample, order, pDecodedSamples)) {
+                return false;
+            }
+        }
+
+        pDecodedSamples += samplesInPartition;
+
+        
+        if (partitionsRemaining == 1) {
+            break;
+        }
+
+        partitionsRemaining -= 1;
+        samplesInPartition = blockSize / (1 << partitionOrder);
+    }
+
+    return true;
+}
 
 
 
@@ -1110,7 +1267,7 @@ static bool drflac__decode_samples_with_residual(drflac* pFlac, unsigned int blo
         }
 
         if (riceParam != 0xFF) {
-            if (!drflac__read_and_decode_residual__rice(pFlac, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
+            if (!drflac__decode_samples_with_residual__rice(pFlac, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
                 return false;
             }
         } else {
@@ -1119,7 +1276,7 @@ static bool drflac__decode_samples_with_residual(drflac* pFlac, unsigned int blo
                 return false;
             }
 
-            if (!drflac__read_and_decode_residual__unencoded(pFlac, samplesInPartition, unencodedBitsPerSample, order, shift, coefficients, pDecodedSamples)) {
+            if (!drflac__decode_samples_with_residual__unencoded(pFlac, samplesInPartition, unencodedBitsPerSample, order, shift, coefficients, pDecodedSamples)) {
                 return false;
             }
         }
@@ -1263,7 +1420,7 @@ static bool drflac__decode_samples__fixed(drflac* pFlac, drflac_subframe* pSubfr
     }
 
             
-    if (!drflac__decode_samples_with_residual(pFlac, pFlac->currentFrame.blockSize, pSubframe->lpcOrder, 0, pSubframe->lpcCoefficients, pSubframe->pDecodedSamples)) {
+    if (!drflac__decode_samples_with_residual__fixed(pFlac, pFlac->currentFrame.blockSize, pSubframe->lpcOrder, /*0, lpcCoefficientsTable[pSubframe->lpcOrder],*/ pSubframe->pDecodedSamples)) {
         return false;
     }
 
