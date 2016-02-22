@@ -493,6 +493,7 @@ static inline size_t drflac__grab_leftover_bytes(drflac* pFlac)
     if (drflac__is_little_endian()) {
         pFlac->leftoverBytes = drflac__swap_endian_uint64(pFlac->leftoverBytes);
     }
+    
 
     if (bytesRead < sizeof(pFlac->leftoverBytes))
     {
@@ -502,6 +503,8 @@ static inline size_t drflac__grab_leftover_bytes(drflac* pFlac)
 
         // TODO: We may need to set a flag here to let other parts know that we're sitting at the end of the file.
     }
+
+    
 
     return bytesRead;
 }
@@ -620,6 +623,8 @@ static inline bool drflac__read_uint64(drflac* pFlac, unsigned int bitCount, uin
     assert(bitCount > 0);
     assert(bitCount <= 64);
 
+    // TODO: This could do with some cleanup and clarification... I'm sure it's also more complicated than it needs to be.
+
     uint64_t result = 0;
     if (pFlac->leftoverBitsRemaining > 0) {
         uint64_t leftoverMask = (((uint64_t)-1LL) >> ((uint64_t)((sizeof(pFlac->leftoverBytes)*8) - pFlac->leftoverBitsRemaining)));
@@ -641,7 +646,11 @@ static inline bool drflac__read_uint64(drflac* pFlac, unsigned int bitCount, uin
             drflac__grab_leftover_bytes(pFlac);
 
             uint64_t leftoverMask = ~(((uint64_t)-1LL) >> bitCount);
-            result |= (pFlac->leftoverBytes & leftoverMask) >> ((sizeof(pFlac->leftoverBytes)*8) - bitCount);
+            if (pFlac->leftoverBitsRemaining < sizeof(pFlac->leftoverBytes)*8) {
+                leftoverMask >>= (sizeof(pFlac->leftoverBytes)*8 - pFlac->leftoverBitsRemaining);
+            }
+
+            result |= ((pFlac->leftoverBytes & leftoverMask) << ((sizeof(pFlac->leftoverBytes)*8 - pFlac->leftoverBitsRemaining))) >> ((sizeof(pFlac->leftoverBytes)*8) - bitCount);
 
             pFlac->leftoverBitsRemaining -= bitCount;
             goto done_reading_uint64;
@@ -893,7 +902,7 @@ static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
 static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOffsetOut)
 {
     // Slow naive method.
-#if 0
+#if 1
     unsigned int zeroCounter = 0;
     while (drflac__read_next_bit(pFlac) == 0) {
         zeroCounter += 1;
@@ -906,7 +915,7 @@ static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOf
 
     // Experiment #1: Not-so-slow-but-still-slow naive method.
     // Result: A tiny bit faster, but nothing special.
-#if 1
+#if 0
     unsigned int prevLeftoverBitsRemaining = pFlac->leftoverBitsRemaining;
     while (pFlac->leftoverBitsRemaining > 0)
     {
@@ -959,8 +968,6 @@ static bool drflac__read_and_decode_residual__rice(drflac* pFlac, unsigned int c
     assert(pFlac != NULL);
     assert(count > 0);
     assert(pResidualOut != NULL);
-
-    
 
     for (int i = 0; i < (int)count; ++i)
     {
