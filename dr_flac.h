@@ -613,6 +613,9 @@ static inline uint64_t drflac__be2host_64(uint64_t n)
 // compared to 32-bit, so the next experiment will be to convert the 64-bit build to use drflac__read_uint32() as that base
 // and see if we can get comparible performance. If so we can avoid some annoying code duplication.
 //
+// Result: As expected there is no noticeable difference in performance so now drflac__read_uint32() is the base function for
+// reading values from the bit stream for all platforms.
+//
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -782,147 +785,6 @@ static bool drflac__seek_bits(drflac* pFlac, size_t bitsToSeek)
     }
 }
 
-#ifdef DRFLAC_64BIT
-static inline bool drflac__read_uint64(drflac* pFlac, unsigned int bitCount, uint64_t* pResultOut)
-{
-    assert(bitCount <= 64);
-    assert(DRFLAC_CACHE_SIZE_BITS == 64);   // <-- This is a temporary assert for now. Later on we'll experiment with a 32-bit cache.
-
-    if (bitCount <= DRFLAC_CACHE_BITS_REMAINING) {
-        *pResultOut = DRFLAC_CACHE_SELECT_AND_SHIFT(bitCount);
-        pFlac->consumedBits += bitCount;
-        pFlac->cache <<= bitCount;
-        return true;
-    } else {
-        // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
-        size_t bitCountHi = DRFLAC_CACHE_BITS_REMAINING;
-        size_t bitCountLo = bitCount - bitCountHi;
-        uint64_t resultHi = DRFLAC_CACHE_SELECT_AND_SHIFT(bitCountHi);
-        
-        if (!drflac__reload_cache(pFlac)) {
-            return false;
-        }
-
-        *pResultOut = (resultHi << bitCountLo) | DRFLAC_CACHE_SELECT_AND_SHIFT(bitCountLo);
-        pFlac->consumedBits += bitCountLo;
-        pFlac->cache <<= bitCountLo;
-        return true;
-    }
-}
-
-static inline bool drflac__read_int64(drflac* pFlac, unsigned int bitCount, int64_t* pResultOut)
-{
-    assert(bitCount <= 64);
-
-    uint64_t result;
-    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    if ((result & (1ULL << (bitCount - 1)))) {  // TODO: See if we can get rid of this branch.
-        result |= (-1LL << bitCount);
-    }
-
-    *pResultOut = (int64_t)result;
-    return true;
-}
-
-static inline bool drflac__read_uint32(drflac* pFlac, unsigned int bitCount, uint32_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 32);
-
-    uint64_t result;
-    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (uint32_t)result;
-    return true;
-}
-
-static inline bool drflac__read_int32(drflac* pFlac, unsigned int bitCount, int32_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 32);
-
-    int64_t result;
-    if (!drflac__read_int64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (int32_t)result;
-    return true;
-}
-
-static inline bool drflac__read_uint16(drflac* pFlac, unsigned int bitCount, uint16_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 16);
-
-    uint64_t result;
-    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (uint16_t)result;
-    return true;
-}
-
-static inline bool drflac__read_int16(drflac* pFlac, unsigned int bitCount, int16_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 16);
-
-    int64_t result;
-    if (!drflac__read_int64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (int16_t)result;
-    return true;
-}
-
-static inline bool drflac__read_uint8(drflac* pFlac, unsigned int bitCount, uint8_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 8);
-
-    uint64_t result;
-    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (uint8_t)result;
-    return true;
-}
-
-static inline bool drflac__read_int8(drflac* pFlac, unsigned int bitCount, int8_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 8);
-
-    int64_t result;
-    if (!drflac__read_int64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (int8_t)result;
-    return true;
-}
-#else
 static inline bool drflac__read_uint32(drflac* pFlac, unsigned int bitCount, uint32_t* pResultOut)
 {
     assert(pFlac != NULL);
@@ -942,7 +804,7 @@ static inline bool drflac__read_uint32(drflac* pFlac, unsigned int bitCount, uin
             pFlac->consumedBits += bitCount;
             pFlac->cache <<= bitCount;
         } else {
-            *pResultOut = pFlac->cache;
+            *pResultOut = (uint32_t)pFlac->cache;
             pFlac->consumedBits = DRFLAC_CACHE_SIZE_BITS;
             pFlac->cache = 0;
         }
@@ -1083,7 +945,7 @@ static inline bool drflac__read_int8(drflac* pFlac, unsigned int bitCount, int8_
     *pResult = (int8_t)result;
     return true;
 }
-#endif
+
 
 static inline int drflac__read_next_bit(drflac* pFlac)
 {
