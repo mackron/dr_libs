@@ -1129,7 +1129,18 @@ static inline bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char ric
     return true;
 }
 
-static inline int drflac__calculate_prediction(unsigned int order, int shift, const short* coefficients, int* pDecodedSamples)
+static int drflac__calculate_prediction_32(unsigned int order, int shift, const short* coefficients, int* pDecodedSamples)
+{
+    int prediction = 0;
+    for (int j = 0; j < (int)order; ++j) {
+        prediction += coefficients[j] * pDecodedSamples[-j-1];
+    }
+    prediction >>= shift;
+
+    return prediction;
+}
+
+static int drflac__calculate_prediction(unsigned int order, int shift, const short* coefficients, int* pDecodedSamples)
 {
     long long prediction = 0;
     for (int j = 0; j < (int)order; ++j) {
@@ -1139,9 +1150,6 @@ static inline int drflac__calculate_prediction(unsigned int order, int shift, co
 
     return (int)prediction;
 }
-
-//static uint64_t totalZeroCount = 0;
-//static uint64_t totalSampleCount = 0;
 
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 //
@@ -1280,7 +1288,13 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
 #endif
 #endif
         
-        pSamplesOut[i] = (int)decodedRice + drflac__calculate_prediction(order, shift, coefficients, pSamplesOut + i);
+        // In order to properly calculate the prediction when the bits per sample is >16 we need to do it using 64-bit arithmetic. We can assume this
+        // is probably going to be slower on 32-bit systems so we'll do a more optimized 32-bit version when the bits per sample is low enough.
+        if (pFlac->currentFrame.bitsPerSample <= 16) {
+            pSamplesOut[i] = (int)decodedRice + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i);
+        } else {
+            pSamplesOut[i] = (int)decodedRice + drflac__calculate_prediction(order, shift, coefficients, pSamplesOut + i);
+        }
     }
 
     return true;
@@ -1302,7 +1316,7 @@ static bool drflac__read_and_seek_residual__rice(drflac* pFlac, unsigned int cou
     return true;
 }
 
-static bool drflac__decode_samples_with_residual__unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int order, int shift, const short* coefficients, int* pResidualOut)
+static bool drflac__decode_samples_with_residual__unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int order, int shift, const short* coefficients, int* pSamplesOut)
 {
     assert(pFlac != NULL);
     assert(count > 0);
@@ -1311,17 +1325,11 @@ static bool drflac__decode_samples_with_residual__unencoded(drflac* pFlac, unsig
 
     for (unsigned int i = 0; i < count; ++i)
     {
-        if (!drflac__read_int32(pFlac, unencodedBitsPerSample, pResidualOut)) {
+        if (!drflac__read_int32(pFlac, unencodedBitsPerSample, pSamplesOut + i)) {
             return false;
         }
 
-        long long prediction = 0;
-        for (int j = 0; j < (int)order; ++j) {
-            prediction += (long long)coefficients[j] * (long long)pResidualOut[i - j - 1];
-        }
-        prediction >>= shift;
-
-        pResidualOut[i] += (int)prediction;
+        pSamplesOut[i] += drflac__calculate_prediction(order, shift, coefficients, pSamplesOut + i);
     }
 
     return true;
