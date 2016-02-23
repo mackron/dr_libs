@@ -31,7 +31,6 @@
 extern "C" {
 #endif
 
-
 // Check if we can enable 64-bit optimizations.
 #if defined(_WIN64)
 #define DRFLAC_64BIT
@@ -154,17 +153,6 @@ typedef struct
     uint64_t currentBytePos;
 
 
-    // Crappy bit reading stuff.
-#if 0
-    // The temporary byte containing containing the bits that have not yet been read.
-    uint64_t leftoverBytes;
-
-    // The number of bits remaining in the byte the reader is currently sitting on.
-    unsigned char leftoverBitsRemaining;
-#endif
-
-    // BIT READING EXPERIMENT #1
-#if 1
     // The cached data which was most recently read from the client. When data is read from the client, it is placed within this
     // variable. As data is read, it's bit-shifted such that the next valid bit is sitting on the most significant bit.
 #ifdef DRFLAC_64BIT
@@ -175,15 +163,11 @@ typedef struct
     uint32_t cacheL2[32];
 #endif
 
-    
-
     // The index of the next valid cache line in the "L2" cache.
     size_t nextL2Line;
 
-
     // The number of bits that have been consumed by the cache. This is used to determine how many valid bits are remaining.
     size_t consumedBits;
-#endif
 
 
     // The sample rate. Will be set to something like 44100.
@@ -436,17 +420,6 @@ static inline bool drflac__is_little_endian()
     return (*(char*)&n) == 1;
 }
 
-static inline uint16_t drflac__swap_endian_uint16(uint16_t n)
-{
-#ifdef _MSC_VER
-    return _byteswap_ushort(n);
-#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC__ >= 3))
-    return __builtin_bswap16(n);
-#else
-    return ((n & 0xFF00) >> 8) | ((n & 0x00FF) << 8);
-#endif
-}
-
 static inline uint32_t drflac__swap_endian_uint32(uint32_t n)
 {
 #ifdef _MSC_VER
@@ -479,18 +452,6 @@ static inline uint64_t drflac__swap_endian_uint64(uint64_t n)
 #endif
 }
 
-static inline uint16_t drflac__be2host_16(uint16_t n)
-{
-#ifdef __linux__
-    return be16toh(n);
-#else
-    if (drflac__is_little_endian()) {
-        return drflac__swap_endian_uint16(n);
-    }
-
-    return n;
-#endif
-}
 
 static inline uint32_t drflac__be2host_32(uint32_t n)
 {
@@ -517,6 +478,7 @@ static inline uint64_t drflac__be2host_64(uint64_t n)
     return n;
 #endif
 }
+
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -621,16 +583,10 @@ static inline uint64_t drflac__be2host_64(uint64_t n)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-
-
-//// Bit Reading ////
-
 // BIT READING ATTEMPT #2
 //
 // This uses a 64-bit dynamically bit-shifted cache - as bits are read, the cache is shifted such that the first valid bit is
 // sitting on the most significant bit.
-#if 1
 #define DRFLAC_CACHE_L1_SIZE_BYTES                 (sizeof(pFlac->cache))
 #define DRFLAC_CACHE_L1_SIZE_BITS                  (sizeof(pFlac->cache)*8)
 #define DRFLAC_CACHE_L1_BITS_REMAINING             (DRFLAC_CACHE_L1_SIZE_BITS - (pFlac->consumedBits))
@@ -642,9 +598,9 @@ static inline uint64_t drflac__be2host_64(uint64_t n)
 #define DRFLAC_CACHE_L1_SELECTION_SHIFT(_bitCount) (DRFLAC_CACHE_L1_SIZE_BITS - (_bitCount))
 #define DRFLAC_CACHE_L1_SELECT(_bitCount)          ((pFlac->cache) & DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount))
 #define DRFLAC_CACHE_L1_SELECT_AND_SHIFT(_bitCount)(DRFLAC_CACHE_L1_SELECT(_bitCount) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(_bitCount))
-#define DRFLAC_CACHE_L2_SIZE_BYTES              (sizeof(pFlac->cacheL2))
-#define DRFLAC_CACHE_L2_LINE_COUNT              (sizeof(pFlac->cacheL2) / sizeof(pFlac->cacheL2[0]))
-#define DRFLAC_CACHE_L2_LINES_REMAINING         (DRFLAC_CACHE_L2_LINE_COUNT - pFlac->nextL2Line)
+#define DRFLAC_CACHE_L2_SIZE_BYTES                 (sizeof(pFlac->cacheL2))
+#define DRFLAC_CACHE_L2_LINE_COUNT                 (sizeof(pFlac->cacheL2) / sizeof(pFlac->cacheL2[0]))
+#define DRFLAC_CACHE_L2_LINES_REMAINING            (DRFLAC_CACHE_L2_LINE_COUNT - pFlac->nextL2Line)
 
 static inline bool drflac__reload_cache_from_l2(drflac* pFlac)
 {
@@ -1025,319 +981,7 @@ static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* p
 
     return false;
 #endif
-
-#if 0
-    unsigned int counter = 1;
-    while (pFlac->consumedBits + counter <= DRFLAC_CACHE_SIZE_BITS)
-    {
-        if (DRFLAC_CACHE_L1_SELECT(counter)) {
-            pFlac->consumedBits += counter;
-            pFlac->cache <<= counter;
-            *pOffsetOut = counter - 1;
-            return true;
-        }
-
-        counter += 1;
-    }
-
-    // If we get here it means we've run out of data in the cache.
-    if (!drflac__reload_cache(pFlac)) {
-        return false;
-    }
-
-    unsigned int counter2 = 1;
-    while (pFlac->consumedBits + counter2 <= DRFLAC_CACHE_SIZE_BITS)
-    {
-        if (DRFLAC_CACHE_L1_SELECT(counter2)) {
-            pFlac->consumedBits += counter2;
-            pFlac->cache <<= counter2;
-            *pOffsetOut = counter + counter2 - 2;
-            return true;
-        }
-
-        counter2 += 1;
-    }
-
-    return false;
-#endif
 }
-#endif
-
-
-// BIT READING ATTEMPT #1
-//
-// This uses a 64-bit static cache.
-#if 0
-static inline size_t drflac__grab_leftover_bytes(drflac* pFlac)
-{
-    assert(pFlac != NULL);
-
-    size_t bytesRead = pFlac->onRead(pFlac->userData, &pFlac->leftoverBytes, sizeof(pFlac->leftoverBytes));
-    pFlac->currentBytePos += bytesRead;
-
-    pFlac->leftoverBitsRemaining = (uint8_t)(bytesRead << 3);
-
-    if (drflac__is_little_endian()) {
-        pFlac->leftoverBytes = drflac__swap_endian_uint64(pFlac->leftoverBytes);
-    }
-    
-
-    if (bytesRead < sizeof(pFlac->leftoverBytes))
-    {
-        // If we get here it means we've run out of data. We just make a small adjustment to the leftover to ensure we don't try
-        // reading any invalid data.
-        pFlac->leftoverBytes >>= (sizeof(pFlac->leftoverBytes) - bytesRead) * 8;
-
-        // TODO: We may need to set a flag here to let other parts know that we're sitting at the end of the file.
-    }
-
-    
-
-    return bytesRead;
-}
-
-static unsigned int drflac__seek_bits(drflac* pFlac, unsigned int bitsToSeek)
-{
-    assert(pFlac != NULL);
-    assert(bitsToSeek < 64);
-
-    unsigned int bitsSeeked = 0;
-
-    // Leftover bits
-    if (pFlac->leftoverBitsRemaining > 0) {
-        if (bitsToSeek >= pFlac->leftoverBitsRemaining) {
-            bitsSeeked = pFlac->leftoverBitsRemaining;
-            pFlac->leftoverBitsRemaining = 0;
-        } else {
-            // The whole data is entirely contained within the leftover bits.
-            pFlac->leftoverBitsRemaining -= bitsToSeek;
-            return bitsToSeek;
-        }
-    }
-
-    assert(pFlac->leftoverBitsRemaining == 0);
-
-    // Wholy contained bytes.
-    int bytesToSeek = (int)(bitsToSeek - bitsSeeked) / 8;
-    if (bytesToSeek > 0) {
-        if (!pFlac->onSeek(pFlac->userData, bytesToSeek)) {
-            return false;
-        }
-
-        pFlac->currentBytePos += bytesToSeek;
-        bitsSeeked += bytesToSeek * 8;
-    }
-
-    // Trailing bits.
-    unsigned int bitsRemaining = (bitsToSeek - bitsSeeked);
-    if (bitsRemaining > 0)
-    {
-        assert(bitsRemaining < 8);
-
-        if (drflac__grab_leftover_bytes(pFlac) != sizeof(pFlac->leftoverBytes)) {
-            return bitsSeeked;    // Ran out of data.
-        }
-
-        bitsSeeked += bitsRemaining;
-        pFlac->leftoverBitsRemaining -= bitsRemaining;
-    }
-
-
-    return bitsSeeked;
-}
-
-static inline int drflac__read_next_bit(drflac* pFlac)
-{
-    assert(pFlac != NULL);
-
-    if (pFlac->leftoverBitsRemaining == 0) {
-        if (drflac__grab_leftover_bytes(pFlac) == 0) {
-            return -1;  // Ran out of data.
-        }
-    }
-
-    pFlac->leftoverBitsRemaining -= 1;
-    return (pFlac->leftoverBytes & (1ULL << pFlac->leftoverBitsRemaining)) >> pFlac->leftoverBitsRemaining;
-}
-
-static inline bool drflac__read_uint64(drflac* pFlac, unsigned int bitCount, uint64_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 64);
-
-    // TODO: This could do with some cleanup and clarification... I'm sure it's also more complicated than it needs to be.
-
-    uint64_t result = 0;
-    if (pFlac->leftoverBitsRemaining > 0) {
-        uint64_t leftoverMask = (((uint64_t)-1LL) >> ((uint64_t)((sizeof(pFlac->leftoverBytes)*8) - pFlac->leftoverBitsRemaining)));
-        if (pFlac->leftoverBitsRemaining > bitCount) {
-            // The whole value is contained within the leftover.
-            leftoverMask ^= (((uint64_t)-1LL) >> ((uint64_t)(((sizeof(pFlac->leftoverBytes)*8) - pFlac->leftoverBitsRemaining) + bitCount)));
-            pFlac->leftoverBitsRemaining -= bitCount;
-            result = (pFlac->leftoverBytes & leftoverMask) >> pFlac->leftoverBitsRemaining;
-            goto done_reading_uint64;
-        } else if (pFlac->leftoverBitsRemaining == bitCount) {
-            pFlac->leftoverBitsRemaining -= bitCount;
-            result = (pFlac->leftoverBytes & leftoverMask) >> pFlac->leftoverBitsRemaining;
-            goto done_reading_uint64;
-        } else {
-            // Only part of the value is contained within the leftover.
-            result = (pFlac->leftoverBytes & leftoverMask) << (bitCount - pFlac->leftoverBitsRemaining);
-            bitCount -= pFlac->leftoverBitsRemaining;
-
-            drflac__grab_leftover_bytes(pFlac);
-
-            uint64_t leftoverMask = ~(((uint64_t)-1LL) >> bitCount);
-            if (pFlac->leftoverBitsRemaining < sizeof(pFlac->leftoverBytes)*8) {
-                leftoverMask >>= (sizeof(pFlac->leftoverBytes)*8 - pFlac->leftoverBitsRemaining);
-            }
-
-            result |= ((pFlac->leftoverBytes & leftoverMask) << ((sizeof(pFlac->leftoverBytes)*8 - pFlac->leftoverBitsRemaining))) >> ((sizeof(pFlac->leftoverBytes)*8) - bitCount);
-
-            pFlac->leftoverBitsRemaining -= bitCount;
-            goto done_reading_uint64;
-        }
-    }
-
-    // At this point there should be no leftover bits remaining and we'll need to grab the bytes directly from the client.
-    assert(pFlac->leftoverBitsRemaining == 0);
-
-    // We need to read in the leftover and just copy over the first <bitCount> bits, which will always be fully contained within the leftover.
-    drflac__grab_leftover_bytes(pFlac);
-
-    if (bitCount < sizeof(pFlac->leftoverBytes)*8) {
-        uint64_t leftoverMask = ~(((uint64_t)-1LL) >> bitCount);
-        result = (pFlac->leftoverBytes & leftoverMask) >> ((sizeof(pFlac->leftoverBytes)*8) - bitCount);
-        pFlac->leftoverBitsRemaining -= bitCount;
-    } else {
-        result = pFlac->leftoverBytes;
-        pFlac->leftoverBitsRemaining = 0;
-    }
-
-
-done_reading_uint64:
-    *pResult = result;
-    return true;
-}
-
-static inline bool drflac__read_int64(drflac* pFlac, unsigned int bitCount, int64_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 64);
-
-    uint64_t result;
-    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    if ((result & (1ULL << (bitCount - 1)))) {
-        result |= (-1LL << bitCount);
-    }
-
-    *pResult = (int64_t)result;
-    return true;
-}
-
-static inline bool drflac__read_uint32(drflac* pFlac, unsigned int bitCount, uint32_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 32);
-
-    uint64_t result;
-    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (uint32_t)result;
-    return true;
-}
-
-static inline bool drflac__read_int32(drflac* pFlac, unsigned int bitCount, int32_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 32);
-
-    int64_t result;
-    if (!drflac__read_int64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (int32_t)result;
-    return true;
-}
-
-static inline bool drflac__read_uint16(drflac* pFlac, unsigned int bitCount, uint16_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 16);
-
-    uint64_t result;
-    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (uint16_t)result;
-    return true;
-}
-
-static inline bool drflac__read_int16(drflac* pFlac, unsigned int bitCount, int16_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 16);
-
-    int64_t result;
-    if (!drflac__read_int64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (int16_t)result;
-    return true;
-}
-
-static inline bool drflac__read_uint8(drflac* pFlac, unsigned int bitCount, uint8_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 8);
-
-    uint64_t result;
-    if (!drflac__read_uint64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (uint8_t)result;
-    return true;
-}
-
-static inline bool drflac__read_int8(drflac* pFlac, unsigned int bitCount, int8_t* pResult)
-{
-    assert(pFlac != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 8);
-
-    int64_t result;
-    if (!drflac__read_int64(pFlac, bitCount, &result)) {
-        return false;
-    }
-
-    *pResult = (int8_t)result;
-    return true;
-}
-#endif  // BIT READING ATTEMPT #1
 
 
 
@@ -1444,35 +1088,6 @@ static bool drflac__read_utf8_coded_number(drflac* pFlac, unsigned long long* pN
 
 
 
-#if 0
-static inline bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char m, int* pValueOut)
-{
-    // TODO: Profile and optimize this. Will probably need to look at decoding Rice codes in groups.
-
-    unsigned int zeroCounter = 0;
-    while (drflac__read_next_bit(pFlac) == 0) {
-        zeroCounter += 1;
-    }
-
-    unsigned int decodedValue = 0;
-    if (m > 0) {
-        drflac__read_uint32(pFlac, m, &decodedValue);
-    }
-    
-
-
-    decodedValue |= (zeroCounter << m);
-    if ((decodedValue & 0x01)) {
-        decodedValue = ~(decodedValue >> 1);
-    } else {
-        decodedValue = (decodedValue >> 1);
-    }
-
-    *pValueOut = (int)decodedValue;
-    return true;
-}
-#endif
-
 static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
 {
     // TODO: Profile and optimize this. Will probably need to look at decoding Rice codes in groups.
@@ -1486,74 +1101,6 @@ static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
     
     return true;
 }
-
-#if 0
-// Seeks to the next set bit, and returns it's offset.
-static inline bool drflac__seek_to_next_set_bit(drflac* pFlac, unsigned int* pOffsetOut)
-{
-    // Slow naive method.
-#if 1
-    unsigned int zeroCounter = 0;
-    while (drflac__read_next_bit(pFlac) == 0) {
-        zeroCounter += 1;
-    }
-    
-    *pOffsetOut = zeroCounter;
-    return true;
-#endif
-
-    // Experiment #2: Not-so-slow-but-still-slow naive method.
-
-
-    // Experiment #1: Not-so-slow-but-still-slow naive method.
-    // Result: A tiny bit faster, but nothing special.
-#if 0
-    unsigned int prevLeftoverBitsRemaining = pFlac->leftoverBitsRemaining;
-    while (pFlac->leftoverBitsRemaining > 0)
-    {
-        if (pFlac->leftoverBytes & (1ULL << (pFlac->leftoverBitsRemaining - 1))) {
-            *pOffsetOut = (prevLeftoverBitsRemaining - pFlac->leftoverBitsRemaining);
-            pFlac->leftoverBitsRemaining -= 1;
-            return true;
-        }
-
-        pFlac->leftoverBitsRemaining -= 1;
-    }
-
-    // If we get here it means we've ran out of leftover. We just need to load more and keep looking. If it's not
-    // in this chunk there is no hope in finding it.
-    drflac__grab_leftover_bytes(pFlac);
-    if (pFlac->leftoverBitsRemaining == 0) {
-        return false;   // No more data avaialable.
-    }
-
-    while (pFlac->leftoverBitsRemaining > 0)
-    {
-        if (pFlac->leftoverBytes & (1ULL << (pFlac->leftoverBitsRemaining - 1))) {
-            *pOffsetOut = (prevLeftoverBitsRemaining + ((sizeof(pFlac->leftoverBytes)*8) - pFlac->leftoverBitsRemaining));
-            pFlac->leftoverBitsRemaining -= 1;
-            return true;
-        }
-
-        pFlac->leftoverBitsRemaining -= 1;
-    }
-
-    return false;
-#endif
-
-    // Experiment #2: A divide and conquer type thing where we take a 32-bit mask and check if any bits are set in it. If
-    // not, just move to the next 32-bits.
-#if 0
-    uint64_t mask1  = 0x1;
-    uint64_t mask2  = 0x3;
-    uint64_t mask4  = 0xF;
-    uint64_t mask8  = 0xFF;
-    uint64_t mask16 = 0xFFFF;
-    uint64_t mask32 = 0xFFFFFFFF;
-#endif
-}
-#endif
-
 
 static inline bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char riceParam, int* pValueOut)
 {
@@ -1605,18 +1152,6 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
     }
 
     return true;
-
-#if 0
-    for (unsigned int i = 0; i < count; ++i) {
-        if (!drflac__read_and_decode_rice(pFlac, riceParam, pResidualOut)) {
-            return false;
-        }
-
-        pResidualOut += 1;
-    }
-
-    return true;
-#endif
 }
 
 
