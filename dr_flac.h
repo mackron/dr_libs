@@ -920,8 +920,8 @@ static inline int drflac__read_next_bit(drflac* pFlac)
 
 static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* pOffsetOut)
 {
-    // Slow naive method.
 #if 0
+    // Slow naive method.
     unsigned int zeroCounter = 0;
     while (drflac__read_next_bit(pFlac) == 0) {
         zeroCounter += 1;
@@ -931,7 +931,7 @@ static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* p
     return true;
 #endif
 
-#if 1
+#if 0
     // Experiment #1: Not-so-slow-but-still-slow naive method.
     size_t prevConsumedBits = pFlac->consumedBits;
     while (pFlac->consumedBits < DRFLAC_CACHE_L1_SIZE_BITS)
@@ -976,6 +976,51 @@ static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* p
     }
 
     return false;
+#endif
+
+#if 1
+    unsigned int zeroCounter = 0;
+    while (pFlac->cache == 0) {
+        zeroCounter += (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING;
+        if (!drflac__reload_cache(pFlac)) {
+            return false;
+        }
+    }
+
+    // At this point the cache should not be zero, in which case we know the first set bit should be somewhere in here. There is
+    // not need for us to perform any cache reloading logic here which should make things much faster.
+    assert(pFlac->cache != 0);
+
+    unsigned int setBitOffsetPlus1;
+    if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(1))) {
+        setBitOffsetPlus1 = 1;
+    } else if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(2))) {
+        setBitOffsetPlus1 = 2;
+    } else if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(3))) {
+        setBitOffsetPlus1 = 3;
+    } else if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(4))) {
+        setBitOffsetPlus1 = 4;
+    } else {
+        if (pFlac->cache == 1) {
+            setBitOffsetPlus1 = DRFLAC_CACHE_L1_SIZE_BITS;
+        } else {
+            setBitOffsetPlus1 = 5;
+            for (;;)
+            {
+                if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(setBitOffsetPlus1))) {
+                    break;
+                }
+
+                setBitOffsetPlus1 += 1;
+            }
+        }
+    }
+
+    pFlac->consumedBits += setBitOffsetPlus1;
+    pFlac->cache <<= setBitOffsetPlus1;
+
+    *pOffsetOut = zeroCounter + setBitOffsetPlus1 - 1;
+    return true;
 #endif
 }
 
@@ -1161,9 +1206,10 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
 
     for (int i = 0; i < (int)count; ++i)
     {
-        // We need to find the first set bit from the current position.
 #if 0
-        if (!drflac__read_and_decode_rice(pFlac, riceParam, pSamplesOut + i)) {
+        // Simpler, but slightly slower way of decoding the Rice code.
+        int decodedRice;
+        if (!drflac__read_and_decode_rice(pFlac, riceParam, &decodedRice)) {
             return false;
         }
 #endif
@@ -1181,7 +1227,7 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         // not need for us to perform any cache reloading logic here which should make things much faster.
         assert(pFlac->cache != 0);
 
-#if 1
+
         unsigned int decodedRice;
 
         unsigned int setBitOffsetPlus1;
@@ -1256,32 +1302,9 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         } else {
             decodedRice = (decodedRice >> 1);
         }
-
-#endif
-
-#if 0
-        unsigned int zeroCounter2;
-        if (!drflac__seek_past_next_set_bit(pFlac, &zeroCounter2)) {
-            return false;
-        }
-
-        zeroCounter += zeroCounter2;
-
-        unsigned int decodedRice = 0;
-        if (riceParam > 0) {
-            drflac__read_uint32(pFlac, riceParam, &decodedRice);
-        }
-    
-
-        decodedRice |= (zeroCounter << riceParam);
-        if ((decodedRice & 0x01)) {
-            decodedRice = ~(decodedRice >> 1);
-        } else {
-            decodedRice = (decodedRice >> 1);
-        }
-#endif
 #endif
         
+
         // In order to properly calculate the prediction when the bits per sample is >16 we need to do it using 64-bit arithmetic. We can assume this
         // is probably going to be slower on 32-bit systems so we'll do a more optimized 32-bit version when the bits per sample is low enough.
         if (pFlac->currentFrame.bitsPerSample <= 16) {
