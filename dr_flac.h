@@ -121,6 +121,7 @@ typedef struct
     // The order to use for the prediction stage for SUBFRAME_FIXED and SUBFRAME_LPC.
     unsigned char lpcOrder;
 
+#ifdef DRFLAC_NO_HEAP____WORK_IN_PROGRESS
     // The bit shift to apply at the end of the prediction stage. Only used with SUBFRAME_LPC. Note how this is signed.
     unsigned char lpcShift;
 
@@ -131,6 +132,7 @@ typedef struct
     // The previous samples to use for the prediction stage. Only used with SUBFRAME_FIXED and SUBFRAME_LPC. The number of items in this array
     // is equal to lpcOrder.
     int lpcPrevSamples[32];
+#endif
 
 
     // The number of bits per sample for this subframe. This is not always equal to the current frame's bit per sample because
@@ -257,9 +259,11 @@ typedef struct
     // The position of the first frame in the stream. This is only ever used for seeking.
     unsigned long long firstFramePos;
 
+#ifndef DRFLAC_NO_HEAP____WORK_IN_PROGRESS
     // A pointer to a block of memory sitting on the heap. This will be set to NULL if the heap is not being used. Currently, this stores
     // the decoded Rice codes for each channel in the current frame.
     void* pHeap;
+#endif
 
 } drflac;
 
@@ -1515,8 +1519,10 @@ static bool drflac__decode_samples__fixed(drflac* pFlac, drflac_subframe* pSubfr
             return false;
         }
 
+#ifdef DRFLAC_NO_HEAP____WORK_IN_PROGRESS
         pSubframe->lpcPrevSamples[i]  = sample;
         pSubframe->lpcCoefficients[i] = lpcCoefficientsTable[pSubframe->lpcOrder][i];
+#endif
         pSubframe->pDecodedSamples[i] = sample;
     }
 
@@ -1537,7 +1543,9 @@ static bool drflac__decode_samples__lpc(drflac* pFlac, drflac_subframe* pSubfram
             return false;
         }
 
+#ifdef DRFLAC_NO_HEAP____WORK_IN_PROGRESS
         pSubframe->lpcPrevSamples[i]  = sample;
+#endif
         pSubframe->pDecodedSamples[i] = sample;
     }
 
@@ -1557,13 +1565,14 @@ static bool drflac__decode_samples__lpc(drflac* pFlac, drflac_subframe* pSubfram
     }
 
 
+    short coefficients[32];
     for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
-        if (!drflac__read_int16(pFlac, lpcPrecision, pSubframe->lpcCoefficients + i)) {
+        if (!drflac__read_int16(pFlac, lpcPrecision, coefficients + i)) {
             return false;
         }
     }
 
-    if (!drflac__decode_samples_with_residual(pFlac, pFlac->currentFrame.blockSize, pSubframe->wastedBitsPerSample, pSubframe->lpcOrder, lpcShift, pSubframe->lpcCoefficients, pSubframe->pDecodedSamples)) {
+    if (!drflac__decode_samples_with_residual(pFlac, pFlac->currentFrame.blockSize, pSubframe->wastedBitsPerSample, pSubframe->lpcOrder, lpcShift, coefficients, pSubframe->pDecodedSamples)) {
         return false;
     }
 
@@ -2259,17 +2268,15 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
     // At this point we should be sitting right at the start of the very first frame.
     pFlac->firstFramePos = drflac__tell(pFlac);
 
-    // TODO: Make the heap optional.
-    //if (isUsingHeap)
-    {
-        // The size of the heap is determined by the maximum number of samples in each frame. This is calculated from the maximum block
-        // size multiplied by the channel count. We need a single signed 32-bit integer for each sample which is used to stored the
-        // decoded residual of each sample.
-        pFlac->pHeap = malloc(pFlac->maxBlockSize * pFlac->channels * sizeof(int32_t));
-        if (pFlac->pHeap == NULL) {
-            return false;
-        }
+#ifndef DRFLAC_NO_HEAP____WORK_IN_PROGRESS
+    // The size of the heap is determined by the maximum number of samples in each frame. This is calculated from the maximum block
+    // size multiplied by the channel count. We need a single signed 32-bit integer for each sample which is used to stored the
+    // decoded residual of each sample.
+    pFlac->pHeap = malloc(pFlac->maxBlockSize * pFlac->channels * sizeof(int32_t));
+    if (pFlac->pHeap == NULL) {
+        return false;
     }
+#endif
 
     return true;
 }
