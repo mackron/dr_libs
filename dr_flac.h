@@ -43,7 +43,7 @@
 //
 // QUICK NOTES
 //
-// - This currently decodes files at about 1.5x-1.75x slower than the reference implementation. I'm working on getting that
+// - This currently decodes files at about 1.25x-1.5x slower than the reference implementation. I'm working on getting that
 //   at about parity.
 // - This should work fine with valid FLAC files, but it won't work very well when the STREAMINFO block is unavailable and
 //   when a stream starts in the middle of a frame. This is something I plan on addressing.
@@ -1018,7 +1018,7 @@ static bool drflac__read_utf8_coded_number(drflac* pFlac, unsigned long long* pN
 
 
 
-static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
+static DRFLAC_INLINE bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
 {
     unsigned int unused;
     if (!drflac__seek_past_next_set_bit(pFlac, &unused)) {
@@ -1235,6 +1235,7 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction(unsigned int order, in
     return (int32_t)(prediction >> shift);
 }
 
+
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 //
 // This is the most expensive function in the library. It does both the Rice decoding and the prediction in a single loop iteration.
@@ -1243,6 +1244,20 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
     assert(pFlac != NULL);
     assert(count > 0);
     assert(pSamplesOut != NULL);
+
+    static unsigned int bitOffsetTable[] = {
+        0,
+        4,
+        3, 3,
+        2, 2, 2, 2,
+        1, 1, 1, 1, 1, 1, 1, 1
+    };
+
+#ifdef DRFLAC_64BIT
+    uint64_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
+#else
+    uint32_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
+#endif
 
     for (int i = 0; i < (int)count; ++i)
     {
@@ -1257,16 +1272,7 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         // At this point the cache should not be zero, in which case we know the first set bit should be somewhere in here. There is
         // no need for us to perform any cache reloading logic here which should make things much faster.
         assert(pFlac->cache != 0);
-
         unsigned int decodedRice;
-
-        unsigned int bitOffsetTable[] = {
-            0,
-            4,
-            3, 3,
-            2, 2, 2, 2,
-            1, 1, 1, 1, 1, 1, 1, 1
-        };
 
         unsigned int setBitOffsetPlus1 = bitOffsetTable[DRFLAC_CACHE_L1_SELECT_AND_SHIFT(4)];
         if (setBitOffsetPlus1 > 0) {
@@ -1294,7 +1300,7 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         unsigned int riceLength = setBitOffsetPlus1 + riceParam;
         if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING)
         {
-            bitsLo = (pFlac->cache & (DRFLAC_CACHE_L1_SELECTION_MASK(riceParam) >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS - riceLength);
+            bitsLo = (pFlac->cache & (riceParamMask >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS - riceLength);
 
             pFlac->consumedBits += riceLength;
             pFlac->cache <<= riceLength;
@@ -1335,10 +1341,10 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
 
         // In order to properly calculate the prediction when the bits per sample is >16 we need to do it using 64-bit arithmetic. We can assume this
         // is probably going to be slower on 32-bit systems so we'll do a more optimized 32-bit version when the bits per sample is low enough.
-        if (pFlac->currentFrame.bitsPerSample <= 16) {
-            pSamplesOut[i] = (((int)decodedRice + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i)) << wastedBitsPerSample);
-        } else {
+        if (pFlac->currentFrame.bitsPerSample > 16) {
             pSamplesOut[i] = (((int)decodedRice + drflac__calculate_prediction(order, shift, coefficients, pSamplesOut + i)) << wastedBitsPerSample);
+        } else {
+            pSamplesOut[i] = (((int)decodedRice + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i)) << wastedBitsPerSample);
         }
     }
 
