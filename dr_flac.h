@@ -2178,14 +2178,30 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
         return false;
     }
 
-    drflac__seek_bits(pFlac, 16);   // minBlockSize
-    drflac__read_uint16(pFlac, 16, &pFlac->maxBlockSize);
-    drflac__seek_bits(pFlac, 48);   // minFrameSize + maxFrameSize
-    drflac__read_uint32(pFlac, 20, &pFlac->sampleRate);
-    drflac__read_uint8(pFlac, 3, &pFlac->channels);
-    drflac__read_uint8(pFlac, 5, &pFlac->bitsPerSample);
-    drflac__read_uint64(pFlac, 36, &pFlac->totalSampleCount);
-    drflac__seek_bits(pFlac, 128);  // MD5
+    if (!drflac__seek_bits(pFlac, 16)) {   // minBlockSize
+        return false;
+    }
+    if (!drflac__read_uint16(pFlac, 16, &pFlac->maxBlockSize)) {
+        return false;
+    }
+    if (!drflac__seek_bits(pFlac, 48)) {   // minFrameSize + maxFrameSize
+        return false;
+    }
+    if (!drflac__read_uint32(pFlac, 20, &pFlac->sampleRate)) {
+        return false;
+    }
+    if (!drflac__read_uint8(pFlac, 3, &pFlac->channels)) {
+        return false;
+    }
+    if (!drflac__read_uint8(pFlac, 5, &pFlac->bitsPerSample)) {
+        return false;
+    }
+    if (!drflac__read_uint64(pFlac, 36, &pFlac->totalSampleCount)) {
+        return false;
+    }
+    if (!drflac__seek_bits(pFlac, 128)) {  // MD5
+        return false;
+    }
 
     pFlac->channels += 1;
     pFlac->bitsPerSample += 1;
@@ -2234,7 +2250,9 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
             default: break;
         }
 
-        drflac__seek_bits(pFlac, blockSize*8);
+        if (!drflac__seek_bits(pFlac, blockSize*8)) {
+            return false;
+        }
     }
 
 
@@ -2248,6 +2266,9 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
         // size multiplied by the channel count. We need a single signed 32-bit integer for each sample which is used to stored the
         // decoded residual of each sample.
         pFlac->pHeap = malloc(pFlac->maxBlockSize * pFlac->channels * sizeof(int32_t));
+        if (pFlac->pHeap == NULL) {
+            return false;
+        }
     }
 
     return true;
