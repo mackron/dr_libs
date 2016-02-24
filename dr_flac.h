@@ -882,65 +882,6 @@ static int drflac__read_next_bit(drflac* pFlac)
 
 static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* pOffsetOut)
 {
-#if 0
-    // Slow naive method.
-    unsigned int zeroCounter = 0;
-    while (drflac__read_next_bit(pFlac) == 0) {
-        zeroCounter += 1;
-    }
-
-    *pOffsetOut = zeroCounter;
-    return true;
-#endif
-
-#if 0
-    // Experiment #1: Not-so-slow-but-still-slow naive method.
-    size_t prevConsumedBits = pFlac->consumedBits;
-    while (pFlac->consumedBits < DRFLAC_CACHE_L1_SIZE_BITS)
-    {
-        if (DRFLAC_CACHE_L1_SELECT(1)) {
-            *pOffsetOut = (unsigned int)(pFlac->consumedBits - prevConsumedBits);
-            pFlac->consumedBits += 1;
-            pFlac->cache <<= 1;
-            return true;
-        }
-
-        pFlac->consumedBits += 1;
-        pFlac->cache <<= 1;
-    }
-
-    // If we get here it means we've run out of data in the cache.
-    if (!drflac__reload_cache(pFlac)) {
-        return false;
-    }
-
-    size_t counter1 = DRFLAC_CACHE_L1_SIZE_BITS - prevConsumedBits;
-    for (;;)
-    {
-        size_t prevConsumedBits2 = pFlac->consumedBits;
-        while (pFlac->consumedBits < DRFLAC_CACHE_L1_SIZE_BITS)
-        {
-            if (DRFLAC_CACHE_L1_SELECT(1)) {
-                *pOffsetOut = (unsigned int)(counter1 + (pFlac->consumedBits - prevConsumedBits2));
-                pFlac->consumedBits += 1;
-                pFlac->cache <<= 1;
-                return true;
-            }
-
-            pFlac->consumedBits += 1;
-            pFlac->cache <<= 1;
-        }
-
-        counter1 += DRFLAC_CACHE_L1_SIZE_BITS;
-        if (!drflac__reload_cache(pFlac)) {
-            return false;
-        }
-    }
-
-    return false;
-#endif
-
-#if 1
     unsigned int zeroCounter = 0;
     while (pFlac->cache == 0) {
         zeroCounter += (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING;
@@ -983,7 +924,6 @@ static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* p
 
     *pOffsetOut = zeroCounter + setBitOffsetPlus1 - 1;
     return true;
-#endif
 }
 
 
