@@ -1037,26 +1037,205 @@ static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
     return true;
 }
 
-static int32_t drflac__calculate_prediction_32(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
-{
-    int prediction = 0;
-    for (int j = 0; j < (int)order; ++j) {
-        prediction += coefficients[j] * pDecodedSamples[-j-1];
-    }
-    prediction >>= shift;
 
-    return (int32_t)prediction;
+// The next two functions are responsible for calculating the prediction.
+//
+// When the bits per sample is >16 we need to use 64-bit integer arithmetic because otherwise we'll run out of precision. It's
+// safe to assume this will be slower on 32-bit platforms so we use a more optimal solution when the bits per sample is <=16.
+//
+//
+// Optimization Experiment #1
+//
+// The first optimization experiment I'm trying here is a loop unroll for the most common LPC orders. I've done a little test
+// and the results are as follows, in order of most common:
+// 1)  order = 8  : 93.1M
+// 2)  order = 7  : 36.6M
+// 3)  order = 3  : 33.2M
+// 4)  order = 6  : 20.9M
+// 5)  order = 5  : 18.1M
+// 6)  order = 4  : 15.8M
+// 7)  order = 12 : 10.8M
+// 8)  order = 2  :  9.8M
+// 9)  order = 1  :  1.6M
+// 10) order = 10 :  1.0M
+// 11) order = 9  :  0.8M
+// 12) order = 11 :  0.8M
+//
+// We'll experiment with unrolling the top 8 most common ones. We'll ignore the least common ones since there seems to be a
+// large drop off there.
+//
+// Result: There's a tiny improvement in some cases, but it could just be within margin of error so unsure if it's worthwhile'
+// just yet.
+static DRFLAC_INLINE int32_t drflac__calculate_prediction_32(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
+{
+    // 32-bit version.
+    int prediction;
+    if (order == 8)
+    {
+        prediction  = coefficients[0] * pDecodedSamples[-1];
+        prediction += coefficients[1] * pDecodedSamples[-2];
+        prediction += coefficients[2] * pDecodedSamples[-3];
+        prediction += coefficients[3] * pDecodedSamples[-4];
+        prediction += coefficients[4] * pDecodedSamples[-5];
+        prediction += coefficients[5] * pDecodedSamples[-6];
+        prediction += coefficients[6] * pDecodedSamples[-7];
+        prediction += coefficients[7] * pDecodedSamples[-8];
+    }
+    else if (order == 7)
+    {
+        prediction  = coefficients[0] * pDecodedSamples[-1];
+        prediction += coefficients[1] * pDecodedSamples[-2];
+        prediction += coefficients[2] * pDecodedSamples[-3];
+        prediction += coefficients[3] * pDecodedSamples[-4];
+        prediction += coefficients[4] * pDecodedSamples[-5];
+        prediction += coefficients[5] * pDecodedSamples[-6];
+        prediction += coefficients[6] * pDecodedSamples[-7];
+    }
+    else if (order == 3)
+    {
+        prediction  = coefficients[0] * pDecodedSamples[-1];
+        prediction += coefficients[1] * pDecodedSamples[-2];
+        prediction += coefficients[2] * pDecodedSamples[-3];
+    }
+    else if (order == 6)
+    {
+        prediction  = coefficients[0] * pDecodedSamples[-1];
+        prediction += coefficients[1] * pDecodedSamples[-2];
+        prediction += coefficients[2] * pDecodedSamples[-3];
+        prediction += coefficients[3] * pDecodedSamples[-4];
+        prediction += coefficients[4] * pDecodedSamples[-5];
+        prediction += coefficients[5] * pDecodedSamples[-6];
+    }
+    else if (order == 5)
+    {
+        prediction  = coefficients[0] * pDecodedSamples[-1];
+        prediction += coefficients[1] * pDecodedSamples[-2];
+        prediction += coefficients[2] * pDecodedSamples[-3];
+        prediction += coefficients[3] * pDecodedSamples[-4];
+        prediction += coefficients[4] * pDecodedSamples[-5];
+    }
+    else if (order == 4)
+    {
+        prediction  = coefficients[0] * pDecodedSamples[-1];
+        prediction += coefficients[1] * pDecodedSamples[-2];
+        prediction += coefficients[2] * pDecodedSamples[-3];
+        prediction += coefficients[3] * pDecodedSamples[-4];
+    }
+    else if (order == 12)
+    {
+        prediction  = coefficients[0]  * pDecodedSamples[-1];
+        prediction += coefficients[1]  * pDecodedSamples[-2];
+        prediction += coefficients[2]  * pDecodedSamples[-3];
+        prediction += coefficients[3]  * pDecodedSamples[-4];
+        prediction += coefficients[4]  * pDecodedSamples[-5];
+        prediction += coefficients[5]  * pDecodedSamples[-6];
+        prediction += coefficients[6]  * pDecodedSamples[-7];
+        prediction += coefficients[7]  * pDecodedSamples[-8];
+        prediction += coefficients[8]  * pDecodedSamples[-9];
+        prediction += coefficients[9]  * pDecodedSamples[-10];
+        prediction += coefficients[10] * pDecodedSamples[-11];
+        prediction += coefficients[11] * pDecodedSamples[-12];
+    }
+    else if (order == 2)
+    {
+        prediction  = coefficients[0] * pDecodedSamples[-1];
+        prediction += coefficients[1] * pDecodedSamples[-2];
+    }
+    else
+    {
+        prediction = 0;
+        for (int j = 0; j < (int)order; ++j) {
+            prediction += coefficients[j] * pDecodedSamples[-j-1];
+        }
+    }
+
+    return (int32_t)(prediction >> shift);
 }
 
-static int32_t drflac__calculate_prediction(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
+static DRFLAC_INLINE int32_t drflac__calculate_prediction(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
 {
-    long long prediction = 0;
-    for (int j = 0; j < (int)order; ++j) {
-        prediction += (long long)coefficients[j] * (long long)pDecodedSamples[-j-1];
+    // 64-bit version.
+    long long prediction;
+    if (order == 8)
+    {
+        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction += (long long)coefficients[4] * (long long)pDecodedSamples[-5];
+        prediction += (long long)coefficients[5] * (long long)pDecodedSamples[-6];
+        prediction += (long long)coefficients[6] * (long long)pDecodedSamples[-7];
+        prediction += (long long)coefficients[7] * (long long)pDecodedSamples[-8];
     }
-    prediction >>= shift;
+    else if (order == 7)
+    {
+        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction += (long long)coefficients[4] * (long long)pDecodedSamples[-5];
+        prediction += (long long)coefficients[5] * (long long)pDecodedSamples[-6];
+        prediction += (long long)coefficients[6] * (long long)pDecodedSamples[-7];
+    }
+    else if (order == 3)
+    {
+        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
+    }
+    else if (order == 6)
+    {
+        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction += (long long)coefficients[4] * (long long)pDecodedSamples[-5];
+        prediction += (long long)coefficients[5] * (long long)pDecodedSamples[-6];
+    }
+    else if (order == 5)
+    {
+        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction += (long long)coefficients[4] * (long long)pDecodedSamples[-5];
+    }
+    else if (order == 4)
+    {
+        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
+    }
+    else if (order == 12)
+    {
+        prediction  = (long long)coefficients[0]  * (long long)pDecodedSamples[-1];
+        prediction += (long long)coefficients[1]  * (long long)pDecodedSamples[-2];
+        prediction += (long long)coefficients[2]  * (long long)pDecodedSamples[-3];
+        prediction += (long long)coefficients[3]  * (long long)pDecodedSamples[-4];
+        prediction += (long long)coefficients[4]  * (long long)pDecodedSamples[-5];
+        prediction += (long long)coefficients[5]  * (long long)pDecodedSamples[-6];
+        prediction += (long long)coefficients[6]  * (long long)pDecodedSamples[-7];
+        prediction += (long long)coefficients[7]  * (long long)pDecodedSamples[-8];
+        prediction += (long long)coefficients[8]  * (long long)pDecodedSamples[-9];
+        prediction += (long long)coefficients[9]  * (long long)pDecodedSamples[-10];
+        prediction += (long long)coefficients[10] * (long long)pDecodedSamples[-11];
+        prediction += (long long)coefficients[11] * (long long)pDecodedSamples[-12];
+    }
+    else if (order == 2)
+    {
+        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
+    }
+    else
+    {
+        prediction = 0;
+        for (int j = 0; j < (int)order; ++j) {
+            prediction += (long long)coefficients[j] * (long long)pDecodedSamples[-j-1];
+        }
+    }
 
-    return (int32_t)prediction;
+    return (int32_t)(prediction >> shift);
 }
 
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
