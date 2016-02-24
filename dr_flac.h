@@ -233,7 +233,7 @@ typedef struct
 
     // The total number of samples making up the stream. This includes every channel. For example, if the stream has 2 channels,
     // with each channel having a total of 4096, this value will be set to 2*4096 = 8192.
-    unsigned long long totalSampleCount;
+    uint64_t totalSampleCount;
 
 
     // The location and size of the APPLICATION block.
@@ -341,7 +341,7 @@ bool drflac_open_memory(drflac* pFlac, const void* data, size_t dataSize);
 #define DRFLAC_SUBFRAME_VERBATIM                        1
 #define DRFLAC_SUBFRAME_FIXED                           8
 #define DRFLAC_SUBFRAME_LPC                             32
-#define DRFLAC_SUBFRAME_RESERVED                        -1
+#define DRFLAC_SUBFRAME_RESERVED                        255
 
 #define DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE  0
 #define DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2 1
@@ -376,11 +376,13 @@ bool drflac_open_file(drflac* pFlac, const char* filename)
     FILE* pFile;
 #ifdef _MSC_VER
     if (fopen_s(&pFile, filename, "rb") != 0) {
+        memset(pFlac, 0, sizeof(*pFlac));
         return false;
     }
 #else
     pFile = fopen(filename, "rb");
     if (pFile == NULL) {
+        memset(pFlac, 0, sizeof(*pFlac));
         return false;
     }
 #endif
@@ -447,6 +449,7 @@ bool drflac_open_memory(drflac* pFlac, const void* data, size_t dataSize)
 {
     drflac_memory* pUserData = malloc(sizeof(*pUserData));
     if (pUserData == NULL) {
+        memset(pFlac, 0, sizeof(*pFlac));
         return false;
     }
 
