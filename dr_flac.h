@@ -2195,9 +2195,15 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
     while (seekpointsRemaining > 0)
     {
         drflac_seekpoint seekpoint;
-        drflac__read_uint64(pFlac, 64, &seekpoint.firstSample);
-        drflac__read_uint64(pFlac, 64, &seekpoint.frameOffset);
-        drflac__read_uint16(pFlac, 16, &seekpoint.sampleCount);
+        if (!drflac__read_uint64(pFlac, 64, &seekpoint.firstSample)) {
+            break;
+        }
+        if (!drflac__read_uint64(pFlac, 64, &seekpoint.frameOffset)) {
+            break;
+        }
+        if (!drflac__read_uint16(pFlac, 16, &seekpoint.sampleCount)) {
+            break;
+        }
 
         if (seekpoint.firstSample * pFlac->channels > sampleIndex) {
             break;
