@@ -1,9 +1,60 @@
 // Public domain. See "unlicense" statement at the end of this file.
 
+// ABOUT
+//
+// This is a simple library for decoding FLAC files.
+//
+//
+//
+// USAGE
+//
+// This is a single-file library. To use it, do something like the following in one .c file.
+//   #define DR_FLAC_IMPLEMENTATION
+//   #include "dr_flac.h"
+//
+// You can then #include this file in other parts of the program as you would with any other header file. To decode audio data,
+// do something like the following (error checking left out for brevity):
+//
+//     drflac flac;
+//     drflac_open_file(&flac, "MySong.flac");
+//
+//     int* pSamples = malloc(flac.totalSampleCount * sizeof(int));
+//     size_t numberOfSamplesActuallyRead = drflac_read_s32(&flac, flac.totalSampleCount, pSamples);
+//     
+//     ... pSamples now contains the decoded samples as signed 32-bit PCM ...
+//
+// The drflac object represents the decoder. It is a transparent type so all the information you need, such as the number of
+// channels and the bits per sample, should be directly accessible - just make sure you don't change their values.
+//
+// You do not need to decode the entire stream in one go - you just specify how many samples you'd like at any given time and
+// the decoder will give you as many samples as it can, up to the amount requested. Later on when you need the next batch of
+// samples, just call it again. Example:
+//
+//     while (drflac_read_s32(&flac, chunkSize, pChunkSamples) > 0) {
+//         do_something();
+//     }
+//
+// You can see to a specific sample with drflac_seek_to_sample(). The given sample is based on interleaving. So as an example,
+// if you were to seek to the sample at index 0 in a stereo stream, you'll be seeking to the first sample of the left channel.
+// The sample at index 1 will be the first sample of the right channel. The sample at index 2 will be the second sample of the
+// left channel, etc.
+//
+//
+//
 // QUICK NOTES
 //
+// - This currently decodes files at about 1.5x-1.75x slower than the reference implementation. I'm working on getting that
+//   at about parity.
+// - This should work fine with valid FLAC files, but it won't work very well when the STREAMINFO block is unavailable and
+//   when a stream starts in the middle of a frame. This is something I plan on addressing.
+// - Audio data is retrieved as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
+// - Only 16- and 24-bits-per-sample encoded audio data has been tested, but the decoder does not do any hard coding for this
+//   so it should work fine with any value.
 // - This has not been tested on big-endian architectures.
-// - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as the application does it's own thread-safety.
+// - Rice codes in unencoded binary form (see https://xiph.org/flac/format.html#rice_partition) has not been tested. If anybody
+//   knows where I can find some test files for this, let me know.
+// - Perverse and erroneous files have not been tested. Again, if you know where I can get some test files let me know.
+// - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as you do your own synchronization.
 // - dr_flac does not currently do any CRC checks.
 //
 //
@@ -12,14 +63,12 @@
 // - Lots of optimizations:
 //   - Sample prediction calculation can probably be improved. Random ideas:
 //     - Look at unrolling the loop for the most common values of the LPC order.
-//     - When the bits per sample is <=16 could we pack two 32-bit values into 64-bit variables and do a SIMD type thing?
-// - Lots of testing:
-//   - Big endian is untested.
-//   - Unencoded Rice residual is untested.
-// - Add an API to retrieve samples in 32-bit floating point format for consistency with dr_wav. Make it optional through the use
-//   of a #define, just like dr_wav does it.
+//     - When the bits per sample is <=16, could we pack two 32-bit values into 64-bit variables and do a SIMD type thing?
+// - Implement a proper test suite.
+// - Add support for initializing the decoder without a STREAMINFO block. Build a synthethic test to get support working at at least
+//   a basic level.
 // - Get GCC and Linux builds working.
-// - 
+// - Add support for retrieving metadata blocks so applications can retrieve the album art or whatnot.
 
 #ifndef dr_flac_h
 #define dr_flac_h
@@ -219,13 +268,22 @@ typedef struct
 
 
 // Opens a FLAC decoder.
+//
+// This is the lowest level function for opening a FLAC stream. You can also use drflac_open_file() and drflac_open_memory()
+// to open the stream from a file or from a block of memory respectively.
+//
+// At the moment the STREAMINFO block must be present for this to succeed.
+//
+// The onRead and onSeek callbacks are used to read and seek data provided by the client - these are how dr_flac 
 bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData);
 
 // Closes the given FLAC decoder.
 void drflac_close(drflac* pFlac);
 
 // Reads sample data from the given FLAC decoder, output as signed 32-bit PCM.
-size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* pBufferOut);
+//
+// Returns the number of samples actually read.
+uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* pBufferOut);
 
 // Seeks to the sample at the given index.
 bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex);
@@ -313,11 +371,6 @@ static int drflac__on_seek_stdio(void* pUserData, int offset)
     return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
 }
 
-static long long drflac__on_tell_stdio(void* pUserData)
-{
-    return ftell((FILE*)pUserData);
-}
-
 bool drflac_open_file(drflac* pFlac, const char* filename)
 {
     FILE* pFile;
@@ -388,14 +441,6 @@ static int drflac__on_seek_memory(void* pUserData, int offset)
     memory->currentReadPos += offset;
 
     return 1;
-}
-
-static long long drflac__on_tell_memory(void* pUserData)
-{
-    drflac_memory* memory = pUserData;
-    assert(memory != NULL);
-
-    return (long long)memory->currentReadPos;
 }
 
 bool drflac_open_memory(drflac* pFlac, const void* data, size_t dataSize)
@@ -584,8 +629,10 @@ static inline uint64_t drflac__be2host_64(uint64_t n)
 
 // BIT READING ATTEMPT #2
 //
-// This uses a 64-bit dynamically bit-shifted cache - as bits are read, the cache is shifted such that the first valid bit is
-// sitting on the most significant bit.
+// This uses a 32- or 64-bit dynamically bit-shifted cache - as bits are read, the cache is shifted such that the first valid bit is
+// sitting on the most significant bit. It uses the notion of an L1 and an L2 cache (borrowed from CPU architecture), where the L1
+// cache is a 32- or 64-bit unsigned integer (depending on whether or not a 32- or 64-bit build is being compiled) and the L2 is
+// an array of "cache lines", with each cache line being the same size as the L1. Data flows from the client -> L2 -> L1.
 #define DRFLAC_CACHE_L1_SIZE_BYTES                 (sizeof(pFlac->cache))
 #define DRFLAC_CACHE_L1_SIZE_BITS                  (sizeof(pFlac->cache)*8)
 #define DRFLAC_CACHE_L1_BITS_REMAINING             (DRFLAC_CACHE_L1_SIZE_BITS - (pFlac->consumedBits))
@@ -1576,7 +1623,7 @@ static bool drflac__decode_samples__fixed(drflac* pFlac, drflac_subframe* pSubfr
     return true;
 }
 
-static bool drflac__decode_samples__lcp(drflac* pFlac, drflac_subframe* pSubframe)
+static bool drflac__decode_samples__lpc(drflac* pFlac, drflac_subframe* pSubframe)
 {
     // Warm up samples.
     for (unsigned int i = 0; i < pSubframe->lpcOrder; ++i) {
@@ -1835,7 +1882,7 @@ static bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
 
         case DRFLAC_SUBFRAME_LPC:
         {
-            drflac__decode_samples__lcp(pFlac, pSubframe);
+            drflac__decode_samples__lpc(pFlac, pSubframe);
         } break;
 
         default: return false;
@@ -2322,7 +2369,7 @@ void drflac_close(drflac* pFlac)
     free(pFlac->pHeap);
 }
 
-size_t drflac__read_s32__misaligned(drflac* pFlac, size_t samplesToRead, int* bufferOut)
+uint64_t drflac__read_s32__misaligned(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferOut)
 {
     unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
     
@@ -2331,7 +2378,7 @@ size_t drflac__read_s32__misaligned(drflac* pFlac, size_t samplesToRead, int* bu
     assert(pFlac->currentFrame.samplesRemaining > 0 && samplesToRead <= pFlac->currentFrame.samplesRemaining);
 
 
-    size_t samplesRead = 0;
+    uint64_t samplesRead = 0;
     while (samplesToRead > 0)
     {
         uint64_t totalSamplesInFrame = pFlac->currentFrame.blockSize * channelCount;
@@ -2409,9 +2456,9 @@ size_t drflac__read_s32__misaligned(drflac* pFlac, size_t samplesToRead, int* bu
     return samplesRead;
 }
 
-size_t drflac__seek_forward_by_samples(drflac* pFlac, size_t samplesToRead)
+uint64_t drflac__seek_forward_by_samples(drflac* pFlac, uint64_t samplesToRead)
 {
-    size_t samplesRead = 0;
+    uint64_t samplesRead = 0;
     while (samplesToRead > 0)
     {
         if (pFlac->currentFrame.samplesRemaining == 0)
@@ -2431,7 +2478,7 @@ size_t drflac__seek_forward_by_samples(drflac* pFlac, size_t samplesToRead)
     return samplesRead;
 }
 
-size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
+uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferOut)
 {
     // Note that <bufferOut> is allowed to be null, in which case this will be treated as something like a seek.
     if (pFlac == NULL || samplesToRead == 0) {
@@ -2443,7 +2490,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
     }
 
 
-    size_t samplesRead = 0;
+    uint64_t samplesRead = 0;
     while (samplesToRead > 0)
     {
         // If we've run out of samples in this frame, go to the next.
@@ -2463,7 +2510,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
 
             int misalignedSampleCount = samplesReadFromFrameSoFar % channelCount;
             if (misalignedSampleCount > 0) {
-                size_t misalignedSamplesRead = drflac__read_s32__misaligned(pFlac, misalignedSampleCount, bufferOut);
+                uint64_t misalignedSamplesRead = drflac__read_s32__misaligned(pFlac, misalignedSampleCount, bufferOut);
                 samplesRead   += misalignedSamplesRead;
                 samplesReadFromFrameSoFar += misalignedSamplesRead;
                 bufferOut     += misalignedSamplesRead;
@@ -2471,7 +2518,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
             }
 
 
-            size_t alignedSampleCountPerChannel = samplesToRead / channelCount;
+            uint64_t alignedSampleCountPerChannel = samplesToRead / channelCount;
             if (alignedSampleCountPerChannel > pFlac->currentFrame.samplesRemaining / channelCount) {
                 alignedSampleCountPerChannel = pFlac->currentFrame.samplesRemaining / channelCount;
             }
@@ -2486,7 +2533,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                     const int* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
                     const int* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
 
-                    for (size_t i = 0; i < alignedSampleCountPerChannel; ++i) {
+                    for (uint64_t i = 0; i < alignedSampleCountPerChannel; ++i) {
                         int left  = pDecodedSamples0[i];
                         int side  = pDecodedSamples1[i];
                         int right = left - side;
@@ -2501,7 +2548,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                     const int* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
                     const int* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
 
-                    for (size_t i = 0; i < alignedSampleCountPerChannel; ++i) {
+                    for (uint64_t i = 0; i < alignedSampleCountPerChannel; ++i) {
                         int side  = pDecodedSamples0[i];
                         int right = pDecodedSamples1[i];
                         int left  = right + side;
@@ -2516,7 +2563,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                     const int* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
                     const int* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
 
-                    for (size_t i = 0; i < alignedSampleCountPerChannel; ++i) {
+                    for (uint64_t i = 0; i < alignedSampleCountPerChannel; ++i) {
                         int side = pDecodedSamples1[i];
                         int mid  = (((uint32_t)pDecodedSamples0[i]) << 1) | (side & 0x01);
 
@@ -2534,7 +2581,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                         const int* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
                         const int* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
 
-                        for (size_t i = 0; i < alignedSampleCountPerChannel; ++i) {
+                        for (uint64_t i = 0; i < alignedSampleCountPerChannel; ++i) {
                             bufferOut[i*2+0] = pDecodedSamples0[i] << unusedBitsPerSample;
                             bufferOut[i*2+1] = pDecodedSamples1[i] << unusedBitsPerSample;
                         }
@@ -2542,7 +2589,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                     else
                     {
                         // Generic interleaving.
-                        for (size_t i = 0; i < alignedSampleCountPerChannel; ++i) {
+                        for (uint64_t i = 0; i < alignedSampleCountPerChannel; ++i) {
                             for (unsigned int j = 0; j < channelCount; ++j) {
                                 bufferOut[(i*channelCount)+j] = (pFlac->currentFrame.subframes[j].pDecodedSamples[firstAlignedSampleInFrame + i]) << unusedBitsPerSample;
                             }
@@ -2551,7 +2598,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
                 } break;
             }
 
-            size_t alignedSamplesRead = alignedSampleCountPerChannel * channelCount;
+            uint64_t alignedSamplesRead = alignedSampleCountPerChannel * channelCount;
             samplesRead   += alignedSamplesRead;
             samplesReadFromFrameSoFar += alignedSamplesRead;
             bufferOut     += alignedSamplesRead;
@@ -2563,7 +2610,7 @@ size_t drflac_read_s32(drflac* pFlac, size_t samplesToRead, int* bufferOut)
             // At this point we may still have some excess samples left to read.
             if (samplesToRead > 0 && pFlac->currentFrame.samplesRemaining > 0)
             {
-                size_t excessSamplesRead = 0;
+                uint64_t excessSamplesRead = 0;
                 if (samplesToRead < pFlac->currentFrame.samplesRemaining) {
                     excessSamplesRead = drflac__read_s32__misaligned(pFlac, samplesToRead, bufferOut);
                 } else {
