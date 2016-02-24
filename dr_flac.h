@@ -1044,7 +1044,7 @@ static bool drflac__read_utf8_coded_number(drflac* pFlac, unsigned long long* pN
 
     // We should never need to read UTF-8 data while not being aligned to a byte boundary. Therefore we can grab the data
     // directly from the input stream rather than using drflac__read_uint8().
-    assert((pFlac->consumedBits % 8) == 0);
+    assert((pFlac->consumedBits & 7) == 0);
 
     unsigned char utf8[7] = {0};
     if (!drflac__read_uint8(pFlac, 8, utf8)) {
@@ -1132,7 +1132,7 @@ static inline bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char ric
     return true;
 }
 
-static int drflac__calculate_prediction_32(unsigned int order, int shift, const short* coefficients, int* pDecodedSamples)
+static int32_t drflac__calculate_prediction_32(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
 {
     int prediction = 0;
     for (int j = 0; j < (int)order; ++j) {
@@ -1140,10 +1140,10 @@ static int drflac__calculate_prediction_32(unsigned int order, int shift, const 
     }
     prediction >>= shift;
 
-    return prediction;
+    return (int32_t)prediction;
 }
 
-static int drflac__calculate_prediction(unsigned int order, int shift, const short* coefficients, int* pDecodedSamples)
+static int32_t drflac__calculate_prediction(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
 {
     long long prediction = 0;
     for (int j = 0; j < (int)order; ++j) {
@@ -1151,7 +1151,7 @@ static int drflac__calculate_prediction(unsigned int order, int shift, const sho
     }
     prediction >>= shift;
 
-    return (int)prediction;
+    return (int32_t)prediction;
 }
 
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
@@ -1766,7 +1766,7 @@ static bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
 
     // Need to handle wasted bits per sample.
     pSubframe->bitsPerSample -= pSubframe->wastedBitsPerSample;
-    pSubframe->pDecodedSamples = ((int*)pFlac->pHeap) + (pFlac->currentFrame.blockSize * subframeIndex);
+    pSubframe->pDecodedSamples = ((int32_t*)pFlac->pHeap) + (pFlac->currentFrame.blockSize * subframeIndex);
 
     switch (pSubframe->subframeType)
     {
@@ -1880,17 +1880,12 @@ static bool drflac__seek_subframe(drflac* pFlac, int subframeIndex)
 }
 
 
-static int drflac__get_channel_count_from_channel_assignment(int channelAssignment)
+static DRFLAC_INLINE int drflac__get_channel_count_from_channel_assignment(int channelAssignment)
 {
-    if (channelAssignment >= 0 && channelAssignment <= 7) {
-        return channelAssignment + 1;
-    }
+    assert(channelAssignment <= 10);
 
-    if (channelAssignment >= 8 && channelAssignment <= 10) {
-        return 2;
-    }
-
-    return 0;
+    int lookup[] = {1, 2, 3, 4, 5, 6, 7, 8, 2, 2, 2};
+    return lookup[channelAssignment];
 }
 
 static bool drflac__decode_frame(drflac* pFlac)
@@ -1911,7 +1906,7 @@ static bool drflac__decode_frame(drflac* pFlac)
     }
 
 
-    pFlac->currentFrame.samplesRemaining = pFlac->currentFrame.blockSize * drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
+    pFlac->currentFrame.samplesRemaining = pFlac->currentFrame.blockSize * channelCount;
 
     return true;
 }
@@ -1930,7 +1925,7 @@ static bool drflac__seek_frame(drflac* pFlac)
     return drflac__seek_bits(pFlac, (DRFLAC_CACHE_L1_BITS_REMAINING & 7) + 16);
 }
 
-static bool drflac__read_and_decode_next_frame(drflac* pFlac)      // TODO: Rename this to drflac__decode_next_frame().
+static bool drflac__read_and_decode_next_frame(drflac* pFlac)
 {
     assert(pFlac != NULL);
 
@@ -1941,7 +1936,7 @@ static bool drflac__read_and_decode_next_frame(drflac* pFlac)      // TODO: Rena
     return drflac__decode_frame(pFlac);
 }
 
-static unsigned int drflac__read_block_header(drflac* pFlac, unsigned int* pBlockSizeOut, bool* pIsLastBlockOut)
+static unsigned int drflac__read_block_header(drflac* pFlac, unsigned int* pBlockSizeOut, bool* pIsLastBlockOut)    // Returns the block type.
 {
     assert(pFlac != NULL);
 
@@ -2014,7 +2009,7 @@ static bool drflac__seek_to_first_frame(drflac* pFlac)
     return result;
 }
 
-static bool drflac__seek_to_next_frame(drflac* pFlac)
+static DRFLAC_INLINE bool drflac__seek_to_next_frame(drflac* pFlac)
 {
     // This function should only ever be called while the decoder is sitting on the first byte past the FRAME_HEADER section.
     assert(pFlac != NULL);
