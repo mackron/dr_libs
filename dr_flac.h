@@ -163,6 +163,10 @@ typedef struct
     // The number of bits that have been consumed by the cache. This is used to determine how many valid bits are remaining.
     size_t consumedBits;
 
+    // Unused L2 lines. This will always be 0 until the end of the stream is hit. Used for correctly calculating the current byte
+    // position of the read pointer in the stream.
+    size_t unusedL2Lines;
+
 
     // The sample rate. Will be set to something like 44100.
     unsigned int sampleRate;
@@ -628,6 +632,7 @@ static inline bool drflac__reload_cache_from_l2(drflac* pFlac)
         }
 
         pFlac->nextL2Line = offset;
+        pFlac->unusedL2Lines = offset;
 
         // At this point there may be some leftover unaligned bytes. We need to seek backwards so we don't lose
         // those bytes.
@@ -1062,13 +1067,19 @@ static inline bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart
 
     pFlac->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS;
     pFlac->cache = 0;
+    pFlac->nextL2Line = DRFLAC_CACHE_L2_LINE_COUNT; // <-- This clears the L2 cache.
+
     return result;
 }
 
 static inline long long drflac__tell(drflac* pFlac)
 {
     assert(pFlac != NULL);
-    return pFlac->currentBytePos - DRFLAC_CACHE_L1_SIZE_BYTES + (pFlac->consumedBits);
+
+    size_t uneadBytesFromL1 = (DRFLAC_CACHE_L1_SIZE_BYTES - (pFlac->consumedBits/8));
+    size_t uneadBytesFromL2 = (DRFLAC_CACHE_L2_SIZE_BYTES - ((pFlac->nextL2Line - pFlac->unusedL2Lines)*DRFLAC_CACHE_L1_SIZE_BYTES));
+
+    return pFlac->currentBytePos - uneadBytesFromL1 - uneadBytesFromL2;
 }
 
 
@@ -1857,7 +1868,7 @@ static bool drflac__seek_subframe(drflac* pFlac, int subframeIndex)
     {
         case DRFLAC_SUBFRAME_CONSTANT:
         {
-            if (drflac__seek_bits(pFlac, pSubframe->bitsPerSample) != pSubframe->bitsPerSample) {
+            if (!drflac__seek_bits(pFlac, pSubframe->bitsPerSample)) {
                 return false;
             }
         } break;
@@ -1865,7 +1876,7 @@ static bool drflac__seek_subframe(drflac* pFlac, int subframeIndex)
         case DRFLAC_SUBFRAME_VERBATIM:
         {
             unsigned int bitsToSeek = pFlac->currentFrame.blockSize * pSubframe->bitsPerSample;
-            if (drflac__seek_bits(pFlac, bitsToSeek) != pFlac->currentFrame.blockSize) {
+            if (!drflac__seek_bits(pFlac, bitsToSeek)) {
                 return false;
             }
         } break;
@@ -1873,7 +1884,7 @@ static bool drflac__seek_subframe(drflac* pFlac, int subframeIndex)
         case DRFLAC_SUBFRAME_FIXED:
         {
             unsigned int bitsToSeek = pSubframe->lpcOrder * pSubframe->bitsPerSample;
-            if (drflac__seek_bits(pFlac, bitsToSeek) != bitsToSeek) {
+            if (!drflac__seek_bits(pFlac, bitsToSeek)) {
                 return false;
             }
 
@@ -1885,7 +1896,7 @@ static bool drflac__seek_subframe(drflac* pFlac, int subframeIndex)
         case DRFLAC_SUBFRAME_LPC:
         {
             unsigned int bitsToSeek = pSubframe->lpcOrder * pSubframe->bitsPerSample;
-            if (drflac__seek_bits(pFlac, bitsToSeek) != bitsToSeek) {
+            if (!drflac__seek_bits(pFlac, bitsToSeek)) {
                 return false;
             }
 
@@ -1900,7 +1911,7 @@ static bool drflac__seek_subframe(drflac* pFlac, int subframeIndex)
             
 
             bitsToSeek = (pSubframe->lpcOrder * lpcPrecision) + 5;    // +5 for shift.
-            if (drflac__seek_bits(pFlac, bitsToSeek) != bitsToSeek) {
+            if (!drflac__seek_bits(pFlac, bitsToSeek)) {
                 return false;
             }
 
@@ -1942,7 +1953,9 @@ static bool drflac__decode_frame(drflac* pFlac)
     }
 
     // At the end of the frame sits the padding and CRC. We don't use these so we can just seek past.
-    drflac__seek_bits(pFlac, (DRFLAC_CACHE_L1_BITS_REMAINING & 7) + 16);
+    if (!drflac__seek_bits(pFlac, (DRFLAC_CACHE_L1_BITS_REMAINING & 7) + 16)) {
+        return false;
+    }
 
 
     pFlac->currentFrame.samplesRemaining = pFlac->currentFrame.blockSize * drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.channelAssignment);
@@ -1961,9 +1974,7 @@ static bool drflac__seek_frame(drflac* pFlac)
     }
 
     // Padding and CRC.
-    drflac__seek_bits(pFlac, (DRFLAC_CACHE_L1_BITS_REMAINING & 7) + 16);
-
-    return true;
+    return drflac__seek_bits(pFlac, (DRFLAC_CACHE_L1_BITS_REMAINING & 7) + 16);
 }
 
 static bool drflac__read_and_decode_next_frame(drflac* pFlac)      // TODO: Rename this to drflac__decode_next_frame().
@@ -2045,6 +2056,7 @@ static bool drflac__seek_to_first_frame(drflac* pFlac)
     pFlac->cache = 0;
 
     memset(&pFlac->currentFrame, 0, sizeof(pFlac->currentFrame));
+    
 
     return result;
 }
@@ -2172,20 +2184,15 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
         }
     }
 
-    // At this point we should be sitting on the first byte of the frame containing the sample. We need to decode every sample up to (but
-    // not including) the sample we're seeking to.
     assert(firstSampleInFrame <= sampleIndex);
-    size_t samplesToDecode = (size_t)(sampleIndex - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
-    if (samplesToDecode == 0) {
-        return true;
-    }
 
     // At this point we are just sitting on the byte after the frame header. We need to decode the frame before reading anything from it.
     if (!drflac__decode_frame(pFlac)) {
         return false;
     }
 
-    return drflac_read_s32(pFlac, samplesToDecode, NULL);
+    size_t samplesToDecode = (size_t)(sampleIndex - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
+    return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;
 }
 
 
