@@ -61,9 +61,7 @@
 //
 // TODO
 // - Lots of optimizations:
-//   - Sample prediction calculation can probably be improved. Random ideas:
-//     - Look at unrolling the loop for the most common values of the LPC order.
-//     - When the bits per sample is <=16, could we pack two 32-bit values into 64-bit variables and do a SIMD type thing?
+//   - Sample prediction calculation can probably be improved.
 // - Implement a proper test suite.
 // - Add support for initializing the decoder without a STREAMINFO block. Build a synthethic test to get support working at at least
 //   a basic level.
@@ -260,8 +258,7 @@ typedef struct
     unsigned long long firstFramePos;
 
 #ifndef DRFLAC_NO_HEAP____WORK_IN_PROGRESS
-    // A pointer to a block of memory sitting on the heap. This will be set to NULL if the heap is not being used. Currently, this stores
-    // the decoded Rice codes for each channel in the current frame.
+    // A pointer to a block of memory sitting on the heap.
     void* pHeap;
 #endif
 
@@ -877,16 +874,16 @@ static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* p
     // no need for us to perform any cache reloading logic here which should make things much faster.
     assert(pFlac->cache != 0);
 
-    unsigned int setBitOffsetPlus1;
-    if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(1))) {
-        setBitOffsetPlus1 = 1;
-    } else if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(2))) {
-        setBitOffsetPlus1 = 2;
-    } else if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(3))) {
-        setBitOffsetPlus1 = 3;
-    } else if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(4))) {
-        setBitOffsetPlus1 = 4;
-    } else {
+    unsigned int bitOffsetTable[] = {
+        0,
+        4,
+        3, 3,
+        2, 2, 2, 2,
+        1, 1, 1, 1, 1, 1, 1, 1
+    };
+
+    unsigned int setBitOffsetPlus1 = bitOffsetTable[DRFLAC_CACHE_L1_SELECT_AND_SHIFT(4)];
+    if (setBitOffsetPlus1 == 0) {
         if (pFlac->cache == 1) {
             setBitOffsetPlus1 = DRFLAC_CACHE_L1_SIZE_BITS;
         } else {
@@ -1261,22 +1258,19 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         // no need for us to perform any cache reloading logic here which should make things much faster.
         assert(pFlac->cache != 0);
 
-
         unsigned int decodedRice;
 
-        unsigned int setBitOffsetPlus1;
-        if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(1))) {
-            setBitOffsetPlus1 = 1;
-            decodedRice = (zeroCounter + 0) << riceParam;
-        } else if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(2))) {
-            setBitOffsetPlus1 = 2;
-            decodedRice = (zeroCounter + 1) << riceParam;
-        } else if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(3))) {
-            setBitOffsetPlus1 = 3;
-            decodedRice = (zeroCounter + 2) << riceParam;
-        } else if ((pFlac->cache & DRFLAC_CACHE_L1_SELECT(4))) {
-            setBitOffsetPlus1 = 4;
-            decodedRice = (zeroCounter + 3) << riceParam;
+        unsigned int bitOffsetTable[] = {
+            0,
+            4,
+            3, 3,
+            2, 2, 2, 2,
+            1, 1, 1, 1, 1, 1, 1, 1
+        };
+
+        unsigned int setBitOffsetPlus1 = bitOffsetTable[DRFLAC_CACHE_L1_SELECT_AND_SHIFT(4)];
+        if (setBitOffsetPlus1 > 0) {
+            decodedRice = (zeroCounter + (setBitOffsetPlus1-1)) << riceParam;
         } else {
             if (pFlac->cache == 1) {
                 setBitOffsetPlus1 = DRFLAC_CACHE_L1_SIZE_BITS;
@@ -1294,6 +1288,7 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
                 }
             }
         }
+
 
         unsigned int bitsLo;
         unsigned int riceLength = setBitOffsetPlus1 + riceParam;
