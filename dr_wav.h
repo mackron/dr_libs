@@ -2,7 +2,7 @@
 
 // ABOUT
 //
-// This is a simple library is for loading .wav files and retrieving it's audio data. It does not explicitly support
+// This is a simple library for loading .wav files and retrieving it's audio data. It does not explicitly support
 // every possible combination of data formats and configurations, but should work fine for the most common ones.
 //
 //
