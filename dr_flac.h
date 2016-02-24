@@ -1653,8 +1653,8 @@ static bool drflac__read_next_frame_header(drflac* pFlac)
     // At the moment the sync code is as a form of basic validation. The CRC is stored, but is unused at the moment. This
     // should probably be handled better in the future.
 
-    const int sampleRateTable[12]   = {0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000};
-    const int bitsPerSampleTable[8] = {0, 8, 12, -1, 16, 20, 24, -1};   // -1 = reserved.
+    const int sampleRateTable[12]       = {0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000};
+    const uint8_t bitsPerSampleTable[8] = {0, 8, 12, (uint8_t)-1, 16, 20, 24, (uint8_t)-1};   // -1 = reserved.
 
     unsigned short syncCode = 0;
     if (!drflac__read_uint16(pFlac, 14, &syncCode)) {
@@ -1760,7 +1760,11 @@ static bool drflac__read_next_frame_header(drflac* pFlac)
 
 
     pFlac->currentFrame.channelAssignment = channelAssignment;
-    pFlac->currentFrame.bitsPerSample     = bitsPerSampleTable[bitsPerSample];
+
+    pFlac->currentFrame.bitsPerSample = bitsPerSampleTable[bitsPerSample];
+    if (pFlac->currentFrame.bitsPerSample == 0) {
+        pFlac->currentFrame.bitsPerSample = pFlac->bitsPerSample;
+    }
 
     if (drflac__read_uint8(pFlac, 8, &pFlac->currentFrame.crc8) != 1) {
         return false;
@@ -1815,7 +1819,7 @@ static bool drflac__read_subframe_header(drflac* pFlac, drflac_subframe* pSubfra
         if (!drflac__seek_past_next_set_bit(pFlac, &wastedBitsPerSample)) {
             return false;
         }
-        pSubframe->wastedBitsPerSample = wastedBitsPerSample + 1;
+        pSubframe->wastedBitsPerSample = (unsigned char)wastedBitsPerSample + 1;
     }
 
     return true;
