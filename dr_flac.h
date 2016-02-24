@@ -1064,7 +1064,7 @@ static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
 // We'll experiment with unrolling the top 8 most common ones. We'll ignore the least common ones since there seems to be a
 // large drop off there.
 //
-// Result: There's a tiny improvement in some cases, but it could just be within margin of error so unsure if it's worthwhile'
+// Result: There's a tiny improvement in some cases, but it could just be within margin of error so unsure if it's worthwhile
 // just yet.
 static DRFLAC_INLINE int32_t drflac__calculate_prediction_32(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
 {
