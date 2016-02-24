@@ -863,23 +863,6 @@ static bool drflac__read_int8(drflac* pFlac, unsigned int bitCount, int8_t* pRes
 }
 
 
-static int drflac__read_next_bit(drflac* pFlac)
-{
-    assert(pFlac != NULL);
-
-    if (DRFLAC_CACHE_L1_BITS_REMAINING == 0) {
-        if (!drflac__reload_cache(pFlac)) {
-            return -1;
-        }
-    }
-
-    int result = DRFLAC_CACHE_L1_SELECT_AND_SHIFT(1);
-    pFlac->consumedBits += 1;
-    pFlac->cache <<= 1;
-
-    return result;
-}
-
 static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* pOffsetOut)
 {
     unsigned int zeroCounter = 0;
@@ -891,7 +874,7 @@ static inline bool drflac__seek_past_next_set_bit(drflac* pFlac, unsigned int* p
     }
 
     // At this point the cache should not be zero, in which case we know the first set bit should be somewhere in here. There is
-    // not need for us to perform any cache reloading logic here which should make things much faster.
+    // no need for us to perform any cache reloading logic here which should make things much faster.
     assert(pFlac->cache != 0);
 
     unsigned int setBitOffsetPlus1;
@@ -1040,39 +1023,17 @@ static bool drflac__read_utf8_coded_number(drflac* pFlac, unsigned long long* pN
 
 static inline bool drflac__read_and_seek_rice(drflac* pFlac, unsigned char m)
 {
-    // TODO: Profile and optimize this. Will probably need to look at decoding Rice codes in groups.
-
-    while (drflac__read_next_bit(pFlac) == 0) {
-    }
-
-    if (m > 0) {
-        drflac__seek_bits(pFlac, m);
-    }
-
-    return true;
-}
-
-static inline bool drflac__read_and_decode_rice(drflac* pFlac, unsigned char riceParam, int* pValueOut)
-{
-    unsigned int zeroCounter;
-    if (!drflac__seek_past_next_set_bit(pFlac, &zeroCounter)) {
+    unsigned int unused;
+    if (!drflac__seek_past_next_set_bit(pFlac, &unused)) {
         return false;
     }
 
-    unsigned int decodedValue = 0;
-    if (riceParam > 0) {
-        drflac__read_uint32(pFlac, riceParam, &decodedValue);
+    if (m > 0) {
+        if (!drflac__seek_bits(pFlac, m)) {
+            return false;
+        }
     }
 
-
-    decodedValue |= (zeroCounter << riceParam);
-    if ((decodedValue & 0x01)) {
-        decodedValue = ~(decodedValue >> 1);
-    } else {
-        decodedValue = (decodedValue >> 1);
-    }
-
-    *pValueOut = (int)decodedValue;
     return true;
 }
 
@@ -1101,11 +1062,6 @@ static int32_t drflac__calculate_prediction(unsigned int order, int shift, const
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 //
 // This is the most expensive function in the library. It does both the Rice decoding and the prediction in a single loop iteration.
-//
-// Brainstorming Session #1
-// - Each Rice code is made up of two general parts: The part up to and including the first set bit, and the <riceParam> bits following.
-// - Can quickly check if any bits are set in the cache by simply checking if it is equal to 0. If it's equal to 0 we can immediately
-//   load in the next cache line. If it's not zero, we can find the first set bit while avoiding cache reloading logic.
 static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam, unsigned int wastedBitsPerSample, unsigned int order, int shift, const short* coefficients, int* pSamplesOut)
 {
     assert(pFlac != NULL);
@@ -1114,15 +1070,6 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
 
     for (int i = 0; i < (int)count; ++i)
     {
-#if 0
-        // Simpler, but slightly slower way of decoding the Rice code.
-        int decodedRice;
-        if (!drflac__read_and_decode_rice(pFlac, riceParam, &decodedRice)) {
-            return false;
-        }
-#endif
-
-#if 1
         unsigned int zeroCounter = 0;
         while (pFlac->cache == 0) {
             zeroCounter += (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING;
@@ -1132,7 +1079,7 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         }
 
         // At this point the cache should not be zero, in which case we know the first set bit should be somewhere in here. There is
-        // not need for us to perform any cache reloading logic here which should make things much faster.
+        // no need for us to perform any cache reloading logic here which should make things much faster.
         assert(pFlac->cache != 0);
 
 
@@ -1210,7 +1157,6 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         } else {
             decodedRice = (decodedRice >> 1);
         }
-#endif
 
 
         // In order to properly calculate the prediction when the bits per sample is >16 we need to do it using 64-bit arithmetic. We can assume this
