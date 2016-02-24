@@ -67,7 +67,6 @@
 // - Implement a proper test suite.
 // - Add support for initializing the decoder without a STREAMINFO block. Build a synthethic test to get support working at at least
 //   a basic level.
-// - Get GCC and Linux builds working.
 // - Add support for retrieving metadata blocks so applications can retrieve the album art or whatnot.
 
 #ifndef dr_flac_h
