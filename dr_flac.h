@@ -10,15 +10,16 @@
 //
 // TODO
 // - Lots of optimizations:
-//   - Bit reading functionality has a LOT of room for improvement. Need to look at reading words at a time rather than bytes.
+//   - Sample prediction calculation can probably be improved. Random ideas:
+//     - Look at unrolling the loop for the most common values of the LPC order.
+//     - When the bits per sample is <=16 could we pack two 32-bit values into 64-bit variables and do a SIMD type thing?
 // - Lots of testing:
 //   - Big endian is untested.
 //   - Unencoded Rice residual is untested.
 // - Add an API to retrieve samples in 32-bit floating point format for consistency with dr_wav. Make it optional through the use
 //   of a #define, just like dr_wav does it.
-// - Look at removing the onTell callback function to make using the library just that bit easier. Also consider making onSeek
-//   optional, in which case seeking and metadata block retrieval will be disabled.
 // - Get GCC and Linux builds working.
+// - 
 
 #ifndef dr_flac_h
 #define dr_flac_h
