@@ -1761,6 +1761,7 @@ DRAUDIO_PRIVATE static draudio_bool draudio_on_sound_seek_callback(void* pUserDa
 
 DRAUDIO_PRIVATE static void draudio_inline_sound_stop_callback(draudio_buffer* pBuffer, unsigned int eventID, void *pUserData)
 {
+    (void)pBuffer;
     (void)eventID;
 
     assert(pBuffer != NULL);
@@ -3389,10 +3390,6 @@ draudio_buffer* draudio_create_buffer_dsound(draudio_device* pDevice, draudio_bu
     draudio_device_dsound* pDeviceDS = (draudio_device_dsound*)pDevice;
     assert(pDeviceDS != NULL);
     assert(pBufferDesc != NULL);
-
-    draudio_context_dsound* pContextDS = (draudio_context_dsound*)pDevice->pContext;
-    assert(pContextDS != NULL);
-
 
     // 3D is only valid for mono sounds.
     if (pBufferDesc->channels > 1 && (pBufferDesc->flags & DRAUDIO_ENABLE_3D) != 0) {
