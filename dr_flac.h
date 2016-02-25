@@ -21,7 +21,7 @@
 //     int* pSamples = malloc(flac.totalSampleCount * sizeof(int));
 //     size_t numberOfSamplesActuallyRead = drflac_read_s32(&flac, flac.totalSampleCount, pSamples);
 //
-//     ... pSamples now contains the decoded samples as signed 32-bit PCM ...
+//     ... pSamples now contains the decoded samples as interleaved signed 32-bit PCM ...
 //
 // The drflac object represents the decoder. It is a transparent type so all the information you need, such as the number of
 // channels and the bits per sample, should be directly accessible - just make sure you don't change their values.
@@ -34,17 +34,24 @@
 //         do_something();
 //     }
 //
-// You can see to a specific sample with drflac_seek_to_sample(). The given sample is based on interleaving. So as an example,
+// You can seek to a specific sample with drflac_seek_to_sample(). The given sample is based on interleaving. So as an example,
 // if you were to seek to the sample at index 0 in a stereo stream, you'll be seeking to the first sample of the left channel.
 // The sample at index 1 will be the first sample of the right channel. The sample at index 2 will be the second sample of the
 // left channel, etc.
 //
 //
 //
+// OPTIONS
+//
+// #define DR_FLAC_NO_WIN32_IO
+//   Don't use the Win32 API internally for drflac_open_file(). Setting this will force stdio FILE APIs instead.
+//
+//
+//
 // QUICK NOTES
 //
-// - This currently decodes files at about 1.25x-1.5x slower than the reference implementation. I'm working on getting that
-//   at about parity.
+// - Based on my own tests, the 32-bit build is about about 1.25x-1.5x slower than the reference implementation. The 64-bit
+//   build is at about parity.
 // - This should work fine with valid FLAC files, but it won't work very well when the STREAMINFO block is unavailable and
 //   when a stream starts in the middle of a frame. This is something I plan on addressing.
 // - Audio data is retrieved as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
@@ -88,6 +95,20 @@ extern "C" {
 #define DRFLAC_64BIT
 #endif
 #endif
+
+#ifdef DRFLAC_64BIT
+typedef uint64_t drflac_cache_t;
+#else
+typedef uint32_t drflac_cache_t;
+#endif
+
+// As data is read from the client it is placed into an internal buffer for fast access. This controls the
+// size of that buffer. Larger values means more speed, but also more memory. In my testing there is diminishing
+// returns after about 4K, but you can fiddle with this to suit your own needs. Must be a multiple of 256.
+#ifndef DRFLAC_BUFFER_SIZE
+#define DRFLAC_BUFFER_SIZE   4096
+#endif
+
 
 
 // Callback for when data is read. Return value is the number of bytes actually read.
@@ -198,16 +219,15 @@ typedef struct
 
     // The cached data which was most recently read from the client. When data is read from the client, it is placed within this
     // variable. As data is read, it's bit-shifted such that the next valid bit is sitting on the most significant bit.
-#ifdef DRFLAC_64BIT
-    uint64_t cache;
-    uint64_t cacheL2[32];
-#else
-    uint32_t cache;
-    uint32_t cacheL2[32];
-#endif
+    drflac_cache_t cache;
+    drflac_cache_t cacheL2[32];
+
 
     // The index of the next valid cache line in the "L2" cache.
     size_t nextL2Line;
+
+    // The index of the next valid cache line in the "L3" cache.
+    size_t nextL3Line;
 
     // The number of bits that have been consumed by the cache. This is used to determine how many valid bits are remaining.
     size_t consumedBits;
@@ -215,6 +235,10 @@ typedef struct
     // Unused L2 lines. This will always be 0 until the end of the stream is hit. Used for correctly calculating the current byte
     // position of the read pointer in the stream.
     size_t unusedL2Lines;
+
+    // Unused L3 lines. This will always be 0 until the end of the stream is hit. Used for correctly calculating the current byte
+    // position of the read pointer in the stream.
+    size_t unusedL3Lines;
 
 
     // The sample rate. Will be set to something like 44100.
@@ -227,7 +251,7 @@ typedef struct
     // The bits per sample. Will be set to somthing like 16, 24, etc.
     unsigned char bitsPerSample;
 
-    // The maximum block size, in samples. This number represents the number of samples in each channel (not combined.)
+    // The maximum block size, in samples. This number represents the number of samples in each channel (not combined).
     unsigned short maxBlockSize;
 
     // The total number of samples making up the stream. This includes every channel. For example, if the stream has 2 channels,
@@ -260,6 +284,12 @@ typedef struct
 #ifndef DRFLAC_NO_HEAP____WORK_IN_PROGRESS
     // A pointer to a block of memory sitting on the heap.
     void* pHeap;
+
+    // A pointer to the L3 cache.
+    drflac_cache_t* cacheL3;
+
+    // A pointer to the decoded sample data. This is an offset from pHeap.
+    int32_t* pDecodedSamples;
 #endif
 
 } drflac;
@@ -365,6 +395,7 @@ typedef struct
 } drflac_seekpoint;
 
 #ifndef DR_FLAC_NO_STDIO
+#if defined(DR_FLAC_NO_WIN32_IO) || !defined(_WIN32)
 #include <stdio.h>
 
 static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
@@ -395,6 +426,34 @@ bool drflac_open_file(drflac* pFlac, const char* filename)
 
     return drflac_open(pFlac, drflac__on_read_stdio, drflac__on_seek_stdio, pFile);
 }
+#else
+#include <windows.h>
+
+static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
+{
+    assert(bytesToRead < 0xFFFFFFFF);   // dr_flac will never request huge amounts of data at a time. This is a safe assertion.
+
+    DWORD bytesRead;
+    ReadFile((HANDLE)pUserData, bufferOut, (DWORD)bytesToRead, &bytesRead, NULL);
+
+    return (size_t)bytesRead;
+}
+
+static int drflac__on_seek_stdio(void* pUserData, int offset)
+{
+    return SetFilePointer((HANDLE)pUserData, offset, NULL, FILE_CURRENT) != INVALID_SET_FILE_POINTER;
+}
+
+bool drflac_open_file(drflac* pFlac, const char* filename)
+{
+    HANDLE hFile = CreateFileA(filename, FILE_GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    return drflac_open(pFlac, drflac__on_read_stdio, drflac__on_seek_stdio, (void*)hFile);
+}
+#endif
 #endif  //DR_FLAC_NO_STDIO
 
 
@@ -536,33 +595,116 @@ static DRFLAC_INLINE uint64_t drflac__be2host_64(uint64_t n)
 // BIT READING ATTEMPT #2
 //
 // This uses a 32- or 64-bit bit-shifted cache - as bits are read, the cache is shifted such that the first valid bit is sitting
-// on the most significant bit. It uses the notion of an L1 and an L2 cache (borrowed from CPU architecture), where the L1 cache
+// on the most significant bit. It uses the notion of an L1, L2 and L3 cache (borrowed from CPU architecture), where the L1 cache
 // is a 32- or 64-bit unsigned integer (depending on whether or not a 32- or 64-bit build is being compiled) and the L2 is an
-// array of "cache lines", with each cache line being the same size as the L1. Data flows from the client -> L2 -> L1.
-#define DRFLAC_CACHE_L1_SIZE_BYTES                 (sizeof(pFlac->cache))
-#define DRFLAC_CACHE_L1_SIZE_BITS                  (sizeof(pFlac->cache)*8)
-#define DRFLAC_CACHE_L1_BITS_REMAINING             (DRFLAC_CACHE_L1_SIZE_BITS - (pFlac->consumedBits))
+// array of "cache lines", with each cache line being the same size as the L1. The L3 is a buffer of about 4KB which is where
+// data from onRead() is placed. Data flows from onRead() -> L3 -> L2 -> L1 with each one being faster than the previous. The
+// idea is to keep it hierarchial so that the most frequent operations hit the fast path
+#define DRFLAC_CACHE_L1_SIZE_BYTES                  (sizeof(pFlac->cache))
+#define DRFLAC_CACHE_L1_SIZE_BITS                   (sizeof(pFlac->cache)*8)
+#define DRFLAC_CACHE_L1_BITS_REMAINING              (DRFLAC_CACHE_L1_SIZE_BITS - (pFlac->consumedBits))
 #ifdef DRFLAC_64BIT
-#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)  (~(((uint64_t)-1LL) >> (_bitCount)))
+#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)   (~(((uint64_t)-1LL) >> (_bitCount)))
 #else
-#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)  (~(((uint32_t)-1) >> (_bitCount)))
+#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)   (~(((uint32_t)-1) >> (_bitCount)))
 #endif
-#define DRFLAC_CACHE_L1_SELECTION_SHIFT(_bitCount) (DRFLAC_CACHE_L1_SIZE_BITS - (_bitCount))
-#define DRFLAC_CACHE_L1_SELECT(_bitCount)          ((pFlac->cache) & DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount))
-#define DRFLAC_CACHE_L1_SELECT_AND_SHIFT(_bitCount)(DRFLAC_CACHE_L1_SELECT(_bitCount) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(_bitCount))
-#define DRFLAC_CACHE_L2_SIZE_BYTES                 (sizeof(pFlac->cacheL2))
-#define DRFLAC_CACHE_L2_LINE_COUNT                 (sizeof(pFlac->cacheL2) / sizeof(pFlac->cacheL2[0]))
-#define DRFLAC_CACHE_L2_LINES_REMAINING            (DRFLAC_CACHE_L2_LINE_COUNT - pFlac->nextL2Line)
+#define DRFLAC_CACHE_L1_SELECTION_SHIFT(_bitCount)  (DRFLAC_CACHE_L1_SIZE_BITS - (_bitCount))
+#define DRFLAC_CACHE_L1_SELECT(_bitCount)           ((pFlac->cache) & DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount))
+#define DRFLAC_CACHE_L1_SELECT_AND_SHIFT(_bitCount) (DRFLAC_CACHE_L1_SELECT(_bitCount) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(_bitCount))
+#define DRFLAC_CACHE_L2_SIZE_BYTES                  (sizeof(pFlac->cacheL2))
+#define DRFLAC_CACHE_L2_LINE_COUNT                  (DRFLAC_CACHE_L2_SIZE_BYTES / sizeof(pFlac->cacheL2[0]))
+#define DRFLAC_CACHE_L2_LINES_REMAINING             (DRFLAC_CACHE_L2_LINE_COUNT - pFlac->nextL2Line)
+#define DRFLAC_CACHE_L3_SIZE_BYTES                  (DRFLAC_BUFFER_SIZE)
+#define DRFLAC_CACHE_L3_LINE_COUNT                  (DRFLAC_CACHE_L3_SIZE_BYTES / DRFLAC_CACHE_L2_SIZE_BYTES)
+#define DRFLAC_CACHE_L3_LINES_REMAINING             (DRFLAC_CACHE_L3_LINE_COUNT - pFlac->nextL3Line)
 
-static DRFLAC_INLINE bool drflac__reload_cache_from_l2(drflac* pFlac)
+static DRFLAC_INLINE void drflac__move_l3_to_l2(drflac* pFlac)
 {
+    drflac_cache_t* cacheL3 = pFlac->cacheL3 + (pFlac->nextL3Line*DRFLAC_CACHE_L2_LINE_COUNT);
+    memcpy(pFlac->cacheL2, cacheL3, DRFLAC_CACHE_L2_SIZE_BYTES);
+
+    pFlac->nextL3Line += 1;
+}
+
+static DRFLAC_INLINE bool drflac__reload_l2_cache_from_l3(drflac* pFlac)
+{
+    if (pFlac->cacheL3 != NULL) {
+        // Fast path. Check if the data is available in the L3 cache.
+        if (pFlac->nextL3Line < DRFLAC_CACHE_L3_LINE_COUNT) {
+            drflac__move_l3_to_l2(pFlac);
+            return true;
+        }
+
+        // Slow path. If we get here it means we've run out of data in the L3 cache. We'll need to fetch more from the client.
+        size_t bytesRead = pFlac->onRead(pFlac->userData, pFlac->cacheL3, DRFLAC_CACHE_L3_SIZE_BYTES);
+        pFlac->currentBytePos += bytesRead;
+
+        pFlac->nextL3Line = 0;
+        if (bytesRead == DRFLAC_CACHE_L3_SIZE_BYTES) {
+            drflac__move_l3_to_l2(pFlac);
+            return true;
+        }
+
+        // Really slow path (hit at most once per stream). If we get here it means we were unable to retrieve enough data to fill the entire
+        // L3 cache. It probably means we've reached the end of the stream.
+        size_t alignedL2LineCount = bytesRead / DRFLAC_CACHE_L2_SIZE_BYTES;
+        if (alignedL2LineCount > 0)
+        {
+            size_t offset = DRFLAC_CACHE_L3_LINE_COUNT - alignedL2LineCount;
+            for (size_t i = alignedL2LineCount; i > 0; --i) {
+                for (size_t j = 0; j < DRFLAC_CACHE_L2_LINE_COUNT; ++j) {
+                    pFlac->cacheL3[((i-1 + offset)*DRFLAC_CACHE_L2_LINE_COUNT)+j] = pFlac->cacheL3[((i-1)*DRFLAC_CACHE_L2_LINE_COUNT)+j];
+                }
+            }
+
+            pFlac->nextL3Line = offset;
+            pFlac->unusedL3Lines = offset;
+
+            // At this point there may be some leftover unaligned bytes. We need to seek backwards so we don't lose
+            // those bytes.
+            size_t unalignedBytes = bytesRead - (alignedL2LineCount * DRFLAC_CACHE_L2_SIZE_BYTES);
+            if (unalignedBytes > 0) {
+                pFlac->onSeek(pFlac->userData, -(int)unalignedBytes);
+                pFlac->currentBytePos -= unalignedBytes;
+            }
+
+            drflac__move_l3_to_l2(pFlac);
+            return true;
+        }
+        else
+        {
+            // If we get into this branch it means we weren't able to load any L2-aligned data. We just need to seek backwards by the leftover
+            // bytes and return false.
+            if (bytesRead > 0) {
+                pFlac->onSeek(pFlac->userData, -(int)bytesRead);
+                pFlac->currentBytePos -= bytesRead;
+            }
+
+            pFlac->nextL3Line = DRFLAC_CACHE_L3_LINE_COUNT;
+            return false;
+        }
+    }
+
+    return false;
+}
+
+static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac* pFlac)
+{
+    // Fast path. Try loading straight from L2.
     if (pFlac->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT) {
         pFlac->cache = pFlac->cacheL2[pFlac->nextL2Line++];
         return true;
     }
 
+    // Less fast path. Try reloading the L2 cache.
+    if (drflac__reload_l2_cache_from_l3(pFlac)) {
+        pFlac->cache = pFlac->cacheL2[0];
+        pFlac->nextL2Line = 1;
+        return true;
+    }
 
-    // If we get here it means we've run out of data in the L2 cache. We'll need to fetch more from the client.
+
+    // If we get here it means we've run out of data in the L2 cache and the L3 cache was unable to restock it. We'll need to fetch more from the client.
     size_t bytesRead = pFlac->onRead(pFlac->userData, pFlac->cacheL2, DRFLAC_CACHE_L2_SIZE_BYTES);
     pFlac->currentBytePos += bytesRead;
 
@@ -615,7 +757,8 @@ static DRFLAC_INLINE bool drflac__reload_cache_from_l2(drflac* pFlac)
 
 static bool drflac__reload_cache(drflac* pFlac)
 {
-    if (drflac__reload_cache_from_l2(pFlac)) {
+    // Fast path. Try just moving the next value in the L2 cache to the L1 cache.
+    if (drflac__reload_l1_cache_from_l2(pFlac)) {
 #ifdef DRFLAC_64BIT
         pFlac->cache = drflac__be2host_64(pFlac->cache);
 #else
@@ -624,6 +767,8 @@ static bool drflac__reload_cache(drflac* pFlac)
         pFlac->consumedBits = 0;
         return true;
     }
+
+    // Slow path.
 
     // If we get here it means we have failed to load the L1 cache from the L2. Likely we've just reached the end of the stream and the last
     // few bytes did not meet the alignment requirements for the L2 cache. In this case we need to fall back to a slower path and read the
@@ -679,9 +824,29 @@ static bool drflac__seek_bits(drflac* pFlac, size_t bitsToSeek)
                 bitsToSeek -= DRFLAC_CACHE_L2_LINES_REMAINING * DRFLAC_CACHE_L1_SIZE_BITS;
                 pFlac->nextL2Line += DRFLAC_CACHE_L2_LINES_REMAINING;
 
-                pFlac->onSeek(pFlac->userData, (int)wholeBytesRemaining);
-                pFlac->currentBytePos += wholeBytesRemaining;
-                bitsToSeek -= wholeBytesRemaining*8;
+                if (wholeBytesRemaining > 0)
+                {
+                    // The next bytes to seek will be located in the L3 cache. 
+                    size_t wholeL3CacheLinesRemaining = wholeBytesRemaining / DRFLAC_CACHE_L2_SIZE_BYTES;
+                    if (wholeL3CacheLinesRemaining < DRFLAC_CACHE_L3_LINES_REMAINING)
+                    {
+                        wholeBytesRemaining -= wholeL3CacheLinesRemaining * DRFLAC_CACHE_L2_SIZE_BYTES;
+                        bitsToSeek -= wholeL3CacheLinesRemaining * DRFLAC_CACHE_L2_SIZE_BYTES * 8;
+                        pFlac->nextL3Line += wholeL3CacheLinesRemaining;
+                    }
+                    else
+                    {
+                        if (pFlac->cacheL3 != NULL) {
+                            wholeBytesRemaining -= DRFLAC_CACHE_L3_LINES_REMAINING * DRFLAC_CACHE_L2_SIZE_BYTES;
+                            bitsToSeek -= DRFLAC_CACHE_L3_LINES_REMAINING * DRFLAC_CACHE_L2_SIZE_BYTES * 8;
+                            pFlac->nextL3Line += DRFLAC_CACHE_L3_LINES_REMAINING;
+                        }
+
+                        pFlac->onSeek(pFlac->userData, (int)wholeBytesRemaining);
+                        pFlac->currentBytePos += wholeBytesRemaining;
+                        bitsToSeek -= wholeBytesRemaining*8;
+                    }
+                }
             }
         }
 
@@ -945,6 +1110,7 @@ static bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
     pFlac->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS;
     pFlac->cache = 0;
     pFlac->nextL2Line = DRFLAC_CACHE_L2_LINE_COUNT; // <-- This clears the L2 cache.
+    pFlac->nextL3Line = DRFLAC_CACHE_L3_LINE_COUNT; // <-- This clears the L3 cache.
 
     return result;
 }
@@ -953,10 +1119,14 @@ static long long drflac__tell(drflac* pFlac)
 {
     assert(pFlac != NULL);
 
-    size_t uneadBytesFromL1 = (DRFLAC_CACHE_L1_SIZE_BYTES - (pFlac->consumedBits/8));
-    size_t uneadBytesFromL2 = (DRFLAC_CACHE_L2_SIZE_BYTES - ((pFlac->nextL2Line - pFlac->unusedL2Lines)*DRFLAC_CACHE_L1_SIZE_BYTES));
+    size_t unreadBytesFromL1 = (DRFLAC_CACHE_L1_SIZE_BYTES - (pFlac->consumedBits/8));
+    size_t unreadBytesFromL2 = (DRFLAC_CACHE_L2_SIZE_BYTES - ((pFlac->nextL2Line - pFlac->unusedL2Lines)*DRFLAC_CACHE_L1_SIZE_BYTES));
+    size_t unreadBytesFromL3 = (DRFLAC_CACHE_L3_SIZE_BYTES - ((pFlac->nextL3Line - pFlac->unusedL3Lines)*DRFLAC_CACHE_L2_SIZE_BYTES));
+    if (pFlac->cacheL3 == NULL) {
+        unreadBytesFromL3 = 0;
+    }
 
-    return pFlac->currentBytePos - uneadBytesFromL1 - uneadBytesFromL2;
+    return pFlac->currentBytePos - unreadBytesFromL1 - unreadBytesFromL2 - unreadBytesFromL3;
 }
 
 
@@ -1239,7 +1409,7 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction(unsigned int order, in
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 //
 // This is the most expensive function in the library. It does both the Rice decoding and the prediction in a single loop iteration.
-static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam, unsigned int wastedBitsPerSample, unsigned int order, int shift, const short* coefficients, int* pSamplesOut)
+static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam, unsigned int order, int shift, const short* coefficients, int* pSamplesOut)
 {
     assert(pFlac != NULL);
     assert(count > 0);
@@ -1300,7 +1470,7 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         unsigned int riceLength = setBitOffsetPlus1 + riceParam;
         if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING)
         {
-            bitsLo = (pFlac->cache & (riceParamMask >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS - riceLength);
+            bitsLo = (unsigned int)((pFlac->cache & (riceParamMask >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS - riceLength));
 
             pFlac->consumedBits += riceLength;
             pFlac->cache <<= riceLength;
@@ -1342,9 +1512,9 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         // In order to properly calculate the prediction when the bits per sample is >16 we need to do it using 64-bit arithmetic. We can assume this
         // is probably going to be slower on 32-bit systems so we'll do a more optimized 32-bit version when the bits per sample is low enough.
         if (pFlac->currentFrame.bitsPerSample > 16) {
-            pSamplesOut[i] = (((int)decodedRice + drflac__calculate_prediction(order, shift, coefficients, pSamplesOut + i)) << wastedBitsPerSample);
+            pSamplesOut[i] = ((int)decodedRice + drflac__calculate_prediction(order, shift, coefficients, pSamplesOut + i));
         } else {
-            pSamplesOut[i] = (((int)decodedRice + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i)) << wastedBitsPerSample);
+            pSamplesOut[i] = ((int)decodedRice + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i));
         }
     }
 
@@ -1367,7 +1537,7 @@ static bool drflac__read_and_seek_residual__rice(drflac* pFlac, unsigned int cou
     return true;
 }
 
-static bool drflac__decode_samples_with_residual__unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int wastedBitsPerSample, unsigned int order, int shift, const short* coefficients, int* pSamplesOut)
+static bool drflac__decode_samples_with_residual__unencoded(drflac* pFlac, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int order, int shift, const short* coefficients, int* pSamplesOut)
 {
     assert(pFlac != NULL);
     assert(count > 0);
@@ -1381,7 +1551,6 @@ static bool drflac__decode_samples_with_residual__unencoded(drflac* pFlac, unsig
         }
 
         pSamplesOut[i] += drflac__calculate_prediction(order, shift, coefficients, pSamplesOut + i);
-        pSamplesOut[i] <<= wastedBitsPerSample;
     }
 
     return true;
@@ -1391,7 +1560,7 @@ static bool drflac__decode_samples_with_residual__unencoded(drflac* pFlac, unsig
 // Reads and decodes the residual for the sub-frame the decoder is currently sitting on. This function should be called
 // when the decoder is sitting at the very start of the RESIDUAL block. The first <order> residuals will be ignored. The
 // <blockSize> and <order> parameters are used to determine how many residual values need to be decoded.
-static bool drflac__decode_samples_with_residual(drflac* pFlac, unsigned int blockSize, unsigned int wastedBitsPerSample, unsigned int order, int shift, const short* coefficients, int* pDecodedSamples)
+static bool drflac__decode_samples_with_residual(drflac* pFlac, unsigned int blockSize, unsigned int order, int shift, const short* coefficients, int* pDecodedSamples)
 {
     assert(pFlac != NULL);
     assert(blockSize != 0);
@@ -1438,7 +1607,7 @@ static bool drflac__decode_samples_with_residual(drflac* pFlac, unsigned int blo
         }
 
         if (riceParam != 0xFF) {
-            if (!drflac__decode_samples_with_residual__rice(pFlac, samplesInPartition, riceParam, wastedBitsPerSample, order, shift, coefficients, pDecodedSamples)) {
+            if (!drflac__decode_samples_with_residual__rice(pFlac, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
                 return false;
             }
         } else {
@@ -1447,7 +1616,7 @@ static bool drflac__decode_samples_with_residual(drflac* pFlac, unsigned int blo
                 return false;
             }
 
-            if (!drflac__decode_samples_with_residual__unencoded(pFlac, samplesInPartition, unencodedBitsPerSample, wastedBitsPerSample, order, shift, coefficients, pDecodedSamples)) {
+            if (!drflac__decode_samples_with_residual__unencoded(pFlac, samplesInPartition, unencodedBitsPerSample, order, shift, coefficients, pDecodedSamples)) {
                 return false;
             }
         }
@@ -1548,7 +1717,7 @@ static bool drflac__decode_samples__constant(drflac* pFlac, drflac_subframe* pSu
     // We don't really need to expand this, but it does simplify the process of reading samples. If this becomes a performance issue (unlikely)
     // we'll want to look at a more efficient way.
     for (unsigned int i = 0; i < pFlac->currentFrame.blockSize; ++i) {
-        pSubframe->pDecodedSamples[i] = sample << pSubframe->wastedBitsPerSample;
+        pSubframe->pDecodedSamples[i] = sample;
     }
 
     return true;
@@ -1562,7 +1731,7 @@ static bool drflac__decode_samples__verbatim(drflac* pFlac, drflac_subframe* pSu
             return false;
         }
 
-        pSubframe->pDecodedSamples[i] = sample << pSubframe->wastedBitsPerSample;
+        pSubframe->pDecodedSamples[i] = sample;
     }
 
     return true;
@@ -1593,7 +1762,7 @@ static bool drflac__decode_samples__fixed(drflac* pFlac, drflac_subframe* pSubfr
     }
 
 
-    if (!drflac__decode_samples_with_residual(pFlac, pFlac->currentFrame.blockSize, pSubframe->wastedBitsPerSample, pSubframe->lpcOrder, 0, lpcCoefficientsTable[pSubframe->lpcOrder], pSubframe->pDecodedSamples)) {
+    if (!drflac__decode_samples_with_residual(pFlac, pFlac->currentFrame.blockSize, pSubframe->lpcOrder, 0, lpcCoefficientsTable[pSubframe->lpcOrder], pSubframe->pDecodedSamples)) {
         return false;
     }
 
@@ -1638,7 +1807,7 @@ static bool drflac__decode_samples__lpc(drflac* pFlac, drflac_subframe* pSubfram
         }
     }
 
-    if (!drflac__decode_samples_with_residual(pFlac, pFlac->currentFrame.blockSize, pSubframe->wastedBitsPerSample, pSubframe->lpcOrder, lpcShift, coefficients, pSubframe->pDecodedSamples)) {
+    if (!drflac__decode_samples_with_residual(pFlac, pFlac->currentFrame.blockSize, pSubframe->lpcOrder, lpcShift, coefficients, pSubframe->pDecodedSamples)) {
         return false;
     }
 
@@ -1845,7 +2014,7 @@ static bool drflac__decode_subframe(drflac* pFlac, int subframeIndex)
 
     // Need to handle wasted bits per sample.
     pSubframe->bitsPerSample -= pSubframe->wastedBitsPerSample;
-    pSubframe->pDecodedSamples = ((int32_t*)pFlac->pHeap) + (pFlac->currentFrame.blockSize * subframeIndex);
+    pSubframe->pDecodedSamples = pFlac->pDecodedSamples + (pFlac->currentFrame.blockSize * subframeIndex);
 
     switch (pSubframe->subframeType)
     {
@@ -1894,7 +2063,7 @@ static bool drflac__seek_subframe(drflac* pFlac, int subframeIndex)
 
     // Need to handle wasted bits per sample.
     pSubframe->bitsPerSample -= pSubframe->wastedBitsPerSample;
-    pSubframe->pDecodedSamples = ((int*)pFlac->pHeap) + (pFlac->currentFrame.blockSize * subframeIndex);
+    pSubframe->pDecodedSamples = pFlac->pDecodedSamples + (pFlac->currentFrame.blockSize * subframeIndex);
 
     switch (pSubframe->subframeType)
     {
@@ -2246,6 +2415,7 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
     pFlac->userData       = userData;
     pFlac->currentBytePos = 4;   // Set to 4 because we just read the ID which is 4 bytes.
     pFlac->nextL2Line     = DRFLAC_CACHE_L2_LINE_COUNT; // <-- Initialize to this to force a client-side data retrieval right from the start.
+    pFlac->nextL3Line     = DRFLAC_CACHE_L3_LINE_COUNT; // <-- Initialize to this to force a client-side data retrieval right from the start.
     pFlac->consumedBits   = DRFLAC_CACHE_L1_SIZE_BITS;
 
 
@@ -2254,32 +2424,32 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
     bool isLastBlock;
     int blockType = drflac__read_block_header(pFlac, &blockSize, &isLastBlock);
     if (blockType != DRFLAC_BLOCK_TYPE_STREAMINFO && blockSize != 34) {
-        return false;
+        goto error;
     }
 
     if (!drflac__seek_bits(pFlac, 16)) {   // minBlockSize
-        return false;
+        goto error;
     }
     if (!drflac__read_uint16(pFlac, 16, &pFlac->maxBlockSize)) {
-        return false;
+        goto error;
     }
     if (!drflac__seek_bits(pFlac, 48)) {   // minFrameSize + maxFrameSize
-        return false;
+        goto error;
     }
     if (!drflac__read_uint32(pFlac, 20, &pFlac->sampleRate)) {
-        return false;
+        goto error;
     }
     if (!drflac__read_uint8(pFlac, 3, &pFlac->channels)) {
-        return false;
+        goto error;
     }
     if (!drflac__read_uint8(pFlac, 5, &pFlac->bitsPerSample)) {
-        return false;
+        goto error;
     }
     if (!drflac__read_uint64(pFlac, 36, &pFlac->totalSampleCount)) {
-        return false;
+        goto error;
     }
     if (!drflac__seek_bits(pFlac, 128)) {  // MD5
-        return false;
+        goto error;
     }
 
     pFlac->channels += 1;
@@ -2330,7 +2500,7 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
         }
 
         if (!drflac__seek_bits(pFlac, blockSize*8)) {
-            return false;
+            goto error;
         }
     }
 
@@ -2338,17 +2508,25 @@ bool drflac_open(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
     // At this point we should be sitting right at the start of the very first frame.
     pFlac->firstFramePos = drflac__tell(pFlac);
 
+
 #ifndef DRFLAC_NO_HEAP____WORK_IN_PROGRESS
     // The size of the heap is determined by the maximum number of samples in each frame. This is calculated from the maximum block
     // size multiplied by the channel count. We need a single signed 32-bit integer for each sample which is used to stored the
     // decoded residual of each sample.
-    pFlac->pHeap = malloc(pFlac->maxBlockSize * pFlac->channels * sizeof(int32_t));
+    pFlac->pHeap = malloc((DRFLAC_BUFFER_SIZE) + (pFlac->maxBlockSize * pFlac->channels * sizeof(int32_t)));
     if (pFlac->pHeap == NULL) {
         return false;
     }
+
+    pFlac->cacheL3 = pFlac->pHeap;
+    pFlac->pDecodedSamples = (int32_t*)(((uint8_t*)pFlac->pHeap) + DRFLAC_BUFFER_SIZE);
 #endif
 
     return true;
+
+error:
+    free(pFlac->pHeap);
+    return false;
 }
 
 void drflac_close(drflac* pFlac)
@@ -2446,7 +2624,7 @@ uint64_t drflac__read_s32__misaligned(drflac* pFlac, uint64_t samplesToRead, int
         }
 
 
-        decodedSample <<= (32 - pFlac->bitsPerSample);
+        decodedSample <<= (32 - pFlac->bitsPerSample) << pFlac->currentFrame.subframes[channelIndex].wastedBitsPerSample;
 
         if (bufferOut) {
             *bufferOut++ = decodedSample;
@@ -2542,8 +2720,8 @@ uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferO
                         int side  = pDecodedSamples1[i];
                         int right = left - side;
 
-                        bufferOut[i*2+0] = left  << unusedBitsPerSample;
-                        bufferOut[i*2+1] = right << unusedBitsPerSample;
+                        bufferOut[i*2+0] = left  << (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample);
+                        bufferOut[i*2+1] = right << (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample);
                     }
                 } break;
 
@@ -2557,8 +2735,8 @@ uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferO
                         int right = pDecodedSamples1[i];
                         int left  = right + side;
 
-                        bufferOut[i*2+0] = left  << unusedBitsPerSample;
-                        bufferOut[i*2+1] = right << unusedBitsPerSample;
+                        bufferOut[i*2+0] = left  << (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample);
+                        bufferOut[i*2+1] = right << (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample);
                     }
                 } break;
 
@@ -2571,8 +2749,8 @@ uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferO
                         int side = pDecodedSamples1[i];
                         int mid  = (((uint32_t)pDecodedSamples0[i]) << 1) | (side & 0x01);
 
-                        bufferOut[i*2+0] = ((mid + side) >> 1) << unusedBitsPerSample;
-                        bufferOut[i*2+1] = ((mid - side) >> 1) << unusedBitsPerSample;
+                        bufferOut[i*2+0] = ((mid + side) >> 1) << (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample);
+                        bufferOut[i*2+1] = ((mid - side) >> 1) << (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample);
                     }
                 } break;
 
@@ -2586,8 +2764,8 @@ uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferO
                         const int* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
 
                         for (uint64_t i = 0; i < alignedSampleCountPerChannel; ++i) {
-                            bufferOut[i*2+0] = pDecodedSamples0[i] << unusedBitsPerSample;
-                            bufferOut[i*2+1] = pDecodedSamples1[i] << unusedBitsPerSample;
+                            bufferOut[i*2+0] = pDecodedSamples0[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample);
+                            bufferOut[i*2+1] = pDecodedSamples1[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample);
                         }
                     }
                     else
@@ -2595,7 +2773,7 @@ uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferO
                         // Generic interleaving.
                         for (uint64_t i = 0; i < alignedSampleCountPerChannel; ++i) {
                             for (unsigned int j = 0; j < channelCount; ++j) {
-                                bufferOut[(i*channelCount)+j] = (pFlac->currentFrame.subframes[j].pDecodedSamples[firstAlignedSampleInFrame + i]) << unusedBitsPerSample;
+                                bufferOut[(i*channelCount)+j] = (pFlac->currentFrame.subframes[j].pDecodedSamples[firstAlignedSampleInFrame + i]) << (unusedBitsPerSample + pFlac->currentFrame.subframes[j].wastedBitsPerSample);
                             }
                         }
                     }
