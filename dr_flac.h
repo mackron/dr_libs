@@ -1292,6 +1292,7 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
     };
 
     drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
+    drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SIZE_BITS - riceParam;
 
     for (int i = 0; i < (int)count; ++i)
     {
@@ -1341,13 +1342,13 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
         }
         else
         {
-            pFlac->consumedBits += setBitOffsetPlus1;
+            pFlac->consumedBits += riceLength;
             pFlac->cache <<= setBitOffsetPlus1;
 
             // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
-            size_t bitCountHi = DRFLAC_CACHE_L1_BITS_REMAINING;
-            size_t bitCountLo = riceParam - bitCountHi;
-            uint32_t resultHi = DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bitCountHi);
+            size_t bitCountLo = pFlac->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS;
+            drflac_cache_t resultHi = pFlac->cache & riceParamMask;    // <-- This mask is OK because all bits after the first bits are always zero.
+
 
             if (pFlac->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT) {
                 pFlac->cache = drflac__be2host__cache_line(pFlac->cacheL2[pFlac->nextL2Line++]);
@@ -1358,7 +1359,7 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
                 }
             }
 
-            bitsLo = (resultHi << bitCountLo) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bitCountLo);
+            bitsLo = (unsigned int)((resultHi >> resultHiShift) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bitCountLo));
             pFlac->consumedBits = bitCountLo;
             pFlac->cache <<= bitCountLo;
         }
