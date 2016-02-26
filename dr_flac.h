@@ -123,8 +123,8 @@ typedef uint32_t drflac_cache_t;
 // Callback for when data is read. Return value is the number of bytes actually read.
 typedef size_t (* drflac_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
 
-// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value is 0 on failure, non-zero success.
-typedef int (* drflac_seek_proc)(void* userData, int offset);
+// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value is false on failure, true success.
+typedef bool (* drflac_seek_proc)(void* userData, int offset);
 
 
 typedef struct
@@ -382,7 +382,7 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
     return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-static int drflac__on_seek_stdio(void* pUserData, int offset)
+static bool drflac__on_seek_stdio(void* pUserData, int offset)
 {
     return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
 }
@@ -416,19 +416,19 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
     return (size_t)bytesRead;
 }
 
-static int drflac__on_seek_stdio(void* pUserData, int offset)
+static bool drflac__on_seek_stdio(void* pUserData, int offset)
 {
     return SetFilePointer((HANDLE)pUserData, offset, NULL, FILE_CURRENT) != INVALID_SET_FILE_POINTER;
 }
 
-bool drflac_open_file(drflac* pFlac, const char* filename)
+drflac* drflac_open_file(const char* filename)
 {
     HANDLE hFile = CreateFileA(filename, FILE_GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
         return false;
     }
 
-    return drflac_open(pFlac, drflac__on_read_stdio, drflac__on_seek_stdio, (void*)hFile);
+    return drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)hFile);
 }
 #endif
 #endif  //DR_FLAC_NO_STDIO
@@ -466,7 +466,7 @@ static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t by
     return bytesToRead;
 }
 
-static int drflac__on_seek_memory(void* pUserData, int offset)
+static bool drflac__on_seek_memory(void* pUserData, int offset)
 {
     drflac_memory* memory = pUserData;
     assert(memory != NULL);
