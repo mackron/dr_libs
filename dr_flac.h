@@ -1233,7 +1233,8 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_32(unsigned int order,
 #endif
 
     // Experiment #2. See if we can use a switch and let the compiler optimize it to a jump table.
-    // Result: VC++ definitely optimizes this to a jump table as expected. I expect other compilers should do the same, but I've not verified yet.
+    // Result: VC++ definitely optimizes this to a single jmp as expected. I expect other compilers should do the same, but I've
+    // not verified yet.
 #if 1
     int prediction = 0;
 
@@ -1409,10 +1410,10 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction(unsigned int order, in
     }
 #endif
 
-    // Experiment #2. See if we can use a switch and let the compiler optimize it to a jump table.
-    // Result: VC++ optimizes this to an efficient jump table on the 64-bit build, but for some reason the 32-bit version compiles to
-    // less efficient code. Thus, we use this version on the 64-bit build and the uglier version above for the 32-bit build. If anyone
-    // has an idea on how I can get VC++ to generate an efficient jump table for the 32-bit build let me know.
+    // Experiment #2. See if we can use a switch and let the compiler optimize it to a single jmp instruction.
+    // Result: VC++ optimizes this to a single jmp on the 64-bit build, but for some reason the 32-bit version compiles to less efficient
+    // code. Thus, we use this version on the 64-bit build and the uglier version above for the 32-bit build. If anyone has an idea on how
+    // I can get VC++ to generate an efficient jump table for the 32-bit build let me know.
 #ifdef DRFLAC_64BIT
     long long prediction = 0;
 
@@ -1459,7 +1460,8 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction(unsigned int order, in
 
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 //
-// This is the most expensive function in the library. It does both the Rice decoding and the prediction in a single loop iteration.
+// This is the most frequently called function in the library. It does both the Rice decoding and the prediction in a single loop
+// iteration.
 static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned int count, unsigned char riceParam, unsigned int order, int shift, const short* coefficients, int* pSamplesOut)
 {
     assert(pFlac != NULL);
