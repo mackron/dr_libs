@@ -289,7 +289,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUse
 // Closes the given FLAC decoder.
 void drflac_close(drflac* pFlac);
 
-// Reads sample data from the given FLAC decoder, output as signed 32-bit PCM.
+// Reads sample data from the given FLAC decoder, output as interleaved signed 32-bit PCM.
 //
 // Returns the number of samples actually read.
 uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* pBufferOut);
