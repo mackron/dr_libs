@@ -63,17 +63,16 @@
 //
 // - Based on my own tests, the 32-bit build is about about 1.1x-1.25x slower than the reference implementation. The 64-bit
 //   build is at about parity.
-// - This should work fine with valid FLAC files, but it won't work very well when the STREAMINFO block is unavailable and
-//   when a stream starts in the middle of a frame. This is something I plan on addressing.
+// - This should work fine with valid native FLAC files, but it won't work very well when the STREAMINFO block is unavailable
+//   and when a stream starts in the middle of a frame. This is something I plan on addressing.
 // - Audio data is retrieved as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
-// - Only 16- and 24-bits-per-sample encoded audio data has been tested, but the decoder does not do any hard coding for this
-//   so it should work fine with any value.
 // - This has not been tested on big-endian architectures.
 // - Rice codes in unencoded binary form (see https://xiph.org/flac/format.html#rice_partition) has not been tested. If anybody
 //   knows where I can find some test files for this, let me know.
 // - Perverse and erroneous files have not been tested. Again, if you know where I can get some test files let me know.
 // - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as you do your own synchronization.
 // - dr_flac does not currently do any CRC checks.
+// - Ogg encapsulation is not supported, but I want to add it at some point.
 //
 //
 //
@@ -82,6 +81,7 @@
 // - Add support for initializing the decoder without a STREAMINFO block. Build a synthethic test to get support working at at least
 //   a basic level.
 // - Add support for retrieving metadata blocks so applications can retrieve the album art or whatnot.
+// - Add support for Ogg encapsulation.
 
 #ifndef dr_flac_h
 #define dr_flac_h
