@@ -13,10 +13,12 @@
 //   #include "dr_flac.h"
 //
 // You can then #include this file in other parts of the program as you would with any other header file. To decode audio data,
-// do something like the following (error checking left out for brevity):
+// do something like the following:
 //
-//     drflac flac;
-//     drflac_open_file(&flac, "MySong.flac");
+//     drflac* pFlac = drflac_open_file("MySong.flac");
+//     if (pFlac == NULL) {
+//         ... Failed to open FLAC file ...
+//     }
 //
 //     int* pSamples = malloc(flac.totalSampleCount * sizeof(int));
 //     size_t numberOfSamplesActuallyRead = drflac_read_s32(&flac, flac.totalSampleCount, pSamples);
@@ -567,6 +569,12 @@ static DRFLAC_INLINE uint64_t drflac__be2host_64(uint64_t n)
 #endif
 }
 
+#ifdef DRFLAC_64BIT
+#define drflac__be2host__cache_line drflac__be2host_64
+#else
+#define drflac__be2host__cache_line drflac__be2host_32
+#endif
+
 
 // BIT READING ATTEMPT #2
 //
@@ -653,11 +661,7 @@ static bool drflac__reload_cache(drflac* pFlac)
 {
     // Fast path. Try just moving the next value in the L2 cache to the L1 cache.
     if (drflac__reload_l1_cache_from_l2(pFlac)) {
-#ifdef DRFLAC_64BIT
-        pFlac->cache = drflac__be2host_64(pFlac->cache);
-#else
-        pFlac->cache = drflac__be2host_32(pFlac->cache);
-#endif
+        pFlac->cache = drflac__be2host__cache_line(pFlac->cache);
         pFlac->consumedBits = 0;
         return true;
     }
@@ -677,12 +681,7 @@ static bool drflac__reload_cache(drflac* pFlac)
     assert(bytesRead < DRFLAC_CACHE_L1_SIZE_BYTES);
     pFlac->consumedBits = (DRFLAC_CACHE_L1_SIZE_BYTES - bytesRead) * 8;
 
-#ifdef DRFLAC_64BIT
-    pFlac->cache = drflac__be2host_64(pFlac->cache);
-#else
-    pFlac->cache = drflac__be2host_32(pFlac->cache);
-#endif
-
+    pFlac->cache = drflac__be2host__cache_line(pFlac->cache);
     pFlac->cache &= DRFLAC_CACHE_L1_SELECTION_MASK(DRFLAC_CACHE_L1_SIZE_BITS - pFlac->consumedBits);    // <-- Make sure the consumed bits are always set to zero. Other parts of the library depend on this property.
     return true;
 }
@@ -1345,21 +1344,23 @@ static bool drflac__decode_samples_with_residual__rice(drflac* pFlac, unsigned i
             pFlac->consumedBits += setBitOffsetPlus1;
             pFlac->cache <<= setBitOffsetPlus1;
 
-            if (riceParam > 0)
-            {
-                // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
-                size_t bitCountHi = DRFLAC_CACHE_L1_BITS_REMAINING;
-                size_t bitCountLo = riceParam - bitCountHi;
-                uint32_t resultHi = DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bitCountHi);
+            // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
+            size_t bitCountHi = DRFLAC_CACHE_L1_BITS_REMAINING;
+            size_t bitCountLo = riceParam - bitCountHi;
+            uint32_t resultHi = DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bitCountHi);
 
+            if (pFlac->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT) {
+                pFlac->cache = drflac__be2host__cache_line(pFlac->cacheL2[pFlac->nextL2Line++]);
+            } else {
+                // Slow path. We need to fetch more data from the client.
                 if (!drflac__reload_cache(pFlac)) {
                     return false;
                 }
-
-                bitsLo = (resultHi << bitCountLo) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bitCountLo);
-                pFlac->consumedBits += bitCountLo;
-                pFlac->cache <<= bitCountLo;
             }
+
+            bitsLo = (resultHi << bitCountLo) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bitCountLo);
+            pFlac->consumedBits = bitCountLo;
+            pFlac->cache <<= bitCountLo;
         }
 
 
