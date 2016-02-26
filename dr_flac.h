@@ -46,10 +46,13 @@
 // OPTIONS
 // #define these options before including this file.
 //
+// #define DR_FLAC_NO_STDIO
+//   Disable drflac_open_file().
+//
 // #define DR_FLAC_NO_WIN32_IO
 //   Don't use the Win32 API internally for drflac_open_file(). Setting this will force stdio FILE APIs instead. This is
 //   mainly for testing, but it's left here in case somebody might find use for it. dr_flac will use the Win32 API by
-//   default.
+//   default. Ignored when DR_FLAC_NO_STDIO is #defined.
 //
 // #define DR_FLAC_BUFFER_SIZE <number>
 //   Defines the size of the internal buffer to store data from onRead(). This buffer is used to reduce the number of calls
