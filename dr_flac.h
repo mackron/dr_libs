@@ -20,8 +20,8 @@
 //         ... Failed to open FLAC file ...
 //     }
 //
-//     int* pSamples = malloc(flac.totalSampleCount * sizeof(int));
-//     size_t numberOfSamplesActuallyRead = drflac_read_s32(&flac, flac.totalSampleCount, pSamples);
+//     int32_t* pSamples = malloc(pFlac->totalSampleCount * sizeof(int32_t));
+//     uint64_t numberOfSamplesActuallyRead = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSamples);
 //
 //     ... pSamples now contains the decoded samples as interleaved signed 32-bit PCM ...
 //
@@ -32,7 +32,7 @@
 // the decoder will give you as many samples as it can, up to the amount requested. Later on when you need the next batch of
 // samples, just call it again. Example:
 //
-//     while (drflac_read_s32(&flac, chunkSize, pChunkSamples) > 0) {
+//     while (drflac_read_s32(pFlac, chunkSize, pChunkSamples) > 0) {
 //         do_something();
 //     }
 //
