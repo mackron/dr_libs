@@ -2545,6 +2545,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* user
 
 
     // At this point we should be sitting right at the start of the very first frame.
+    tempFlac.firstFramePos = drflac__tell(&tempFlac);
 
     drflac* pFlac = malloc(sizeof(*pFlac) - sizeof(pFlac->pExtraData) + (tempFlac.maxBlockSize * tempFlac.channels * sizeof(int32_t)));
     memcpy(pFlac, &tempFlac, sizeof(tempFlac) - sizeof(pFlac->pExtraData));
