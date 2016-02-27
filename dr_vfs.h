@@ -7369,7 +7369,7 @@ DRVFS_PRIVATE drvfs_handle drvfs_open_archive__mtl(drvfs_file* pArchiveFile, uns
     // We create a state object that is used to help us with chunk management.
     drvfs_openarchive_mtl_state state;
     state.pFile              = pArchiveFile;
-    state.archiveSizeInBytes = drvfs_size(pArchiveFile);
+    state.archiveSizeInBytes = drvfs_size_nolock(pArchiveFile);
     state.bytesRemaining     = state.archiveSizeInBytes;
     state.chunkSize          = 0;
     state.chunkPointer       = state.chunk;
