@@ -761,6 +761,7 @@ draudio_3d_mode draudio_get_sound_3d_mode(draudio_sound* pSound);
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <errno.h>
 
 
 // Annotations
@@ -1492,6 +1493,34 @@ void draudio_lock_mutex(draudio_mutex mutex)
 void draudio_unlock_mutex(draudio_mutex mutex)
 {
     LeaveCriticalSection(mutex);
+}
+#else
+#include <pthread.h>
+
+draudio_mutex draudio_create_mutex()
+{
+    pthread_mutex_t* mutex = malloc(sizeof(pthread_mutex_t));
+    if (pthread_mutex_init(mutex, NULL) != 0) {
+        free(mutex);
+        mutex = NULL;
+    }
+
+    return mutex;
+}
+
+void draudio_delete_mutex(draudio_mutex mutex)
+{
+    pthread_mutex_destroy(mutex);
+}
+
+void draudio_lock_mutex(draudio_mutex mutex)
+{
+    pthread_mutex_lock(mutex);
+}
+
+void draudio_unlock_mutex(draudio_mutex mutex)
+{
+    pthread_mutex_unlock(mutex);
 }
 #endif
 
