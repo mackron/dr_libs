@@ -67,8 +67,8 @@ int main(int argc, char** argv)
     draudio_buffer_desc bufferDesc;
     memset(&bufferDesc, 0, sizeof(&bufferDesc));
     bufferDesc.format        = draudio_format_float;
-    bufferDesc.channels      = pWav->fmt.channels;
-    bufferDesc.sampleRate    = pWav->fmt.sampleRate;
+    bufferDesc.channels      = pWav->channels;
+    bufferDesc.sampleRate    = pWav->sampleRate;
     bufferDesc.bitsPerSample = sizeof(float)*8;
     bufferDesc.sizeInBytes   = dataSize;
     bufferDesc.pData         = pData;

@@ -126,6 +126,15 @@ typedef struct
     /// Structure containing format information exactly as specified by the wav file.
     drwav_fmt fmt;
 
+    /// The sample rate. Will be set to something like 44100.
+    unsigned int sampleRate;
+
+    /// The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc.
+    unsigned short channels;
+
+    /// The bits per sample. Will be set to somthing like 16, 24, etc.
+    unsigned short bitsPerSample;
+
     /// The number of bytes per sample.
     unsigned short bytesPerSample;
 
@@ -523,15 +532,17 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
         return NULL;
     }
 
+    pWav->onRead              = onRead;
+    pWav->onSeek              = onSeek;
+    pWav->pUserData           = pUserData;
     pWav->fmt                 = fmt;
+    pWav->sampleRate          = fmt.sampleRate;
+    pWav->channels            = fmt.channels;
+    pWav->bitsPerSample       = fmt.bitsPerSample;
     pWav->bytesPerSample      = (unsigned int)(fmt.blockAlign / fmt.channels);
     pWav->translatedFormatTag = translatedFormatTag;
     pWav->sampleCount         = dataSize / pWav->bytesPerSample;
-
-    pWav->onRead         = onRead;
-    pWav->onSeek         = onSeek;
-    pWav->pUserData      = pUserData;
-    pWav->bytesRemaining = dataSize;
+    pWav->bytesRemaining      = dataSize;
 
     return pWav;
 }
