@@ -46,8 +46,9 @@
 //
 //
 // TODO:
-// - Add seamless support for w64. This is very similar to WAVE, but supports files >2GB. There's no real reason this
+// - Add seamless support for w64. This is very similar to WAVE, but supports files >4GB. There's no real reason this
 //   can't be added to dr_wav and have it work seamlessly.
+// - Add drwav_read_s32() for consistency with dr_flac.
 // - Look at making this not use the heap.
 
 #ifndef dr_wav_h
