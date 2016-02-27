@@ -4,7 +4,7 @@
 // taken verbatim from the repository at https://github.com/KhronosGroup/Vulkan-Docs with the only modification
 // being the removal of function prototype declarations and replacing #include "vk_platform.h" with the actual
 // contents of vk_platform.h. This section is copyright The Khronos Group Inc. Licence text is included.
-//       
+//
 // The second part is the dr_vulkan-specific section which is public domain. This section is just basic function
 // pointer retrieval.
 
@@ -215,7 +215,7 @@ extern "C"
 #define VK_VERSION_PATCH(version) ((uint32_t)(version) & 0xfff)
 
 #define VK_NULL_HANDLE 0
-        
+
 
 
 #define VK_DEFINE_HANDLE(object) typedef struct object##_T* object;
@@ -226,7 +226,7 @@ extern "C"
 #else
         #define VK_DEFINE_NON_DISPATCHABLE_HANDLE(object) typedef uint64_t object;
 #endif
-        
+
 
 
 typedef uint32_t VkFlags;
@@ -3157,7 +3157,7 @@ PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
 PFN_vkGetPhysicalDeviceXlibPresentationSupportKHR vkGetPhysicalDeviceXlibPresentationSupportKHR;
 #endif
 
-#ifdef VK_KHR_xcb_surface 
+#ifdef VK_KHR_xcb_surface
 PFN_vkCreateXcbSurfaceKHR vkCreateXcbSurfaceKHR;
 PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR vkGetPhysicalDeviceXcbPresentationSupportKHR;
 #endif
@@ -3200,7 +3200,7 @@ PFN_vkDebugReportMessageEXT vkDebugReportMessageEXT;
 static unsigned int g_drvkInitCount = 0;
 static VkFlags g_drvkInitFlags = 0;
 
-#ifdef _WIN32
+#if defined(_WIN32)
 #include <windows.h>
 static HMODULE g_hVulkanDLL = NULL;
 
@@ -3214,6 +3214,21 @@ PFN_vkVoidFunction drvk_get_proc_address(const char* name)
     }
 
     return (PFN_vkVoidFunction)GetProcAddress(g_hVulkanDLL, name);
+}
+#elif defined(__linux__)
+#include <dlfcn.h>
+static void* g_pVulkanSO = NULL;
+
+PFN_vkVoidFunction drvk_get_proc_address(const char* name)
+{
+    if (g_pVulkanSO == NULL) {
+        g_pVulkanSO = dlopen(name, RTLD_LAZY | RTLD_LOCAL);
+        if (g_pVulkanSO == NULL) {
+            return NULL;
+        }
+    }
+
+    return (PFN_vkVoidFunction)dlsym(g_pVulkanSO, name);
 }
 #else
 #error dr_vulkan is not currently supported on this platform.
@@ -3400,7 +3415,7 @@ VkBool32 drvkInit(VkFlags whatToInit)
         vkGetPhysicalDeviceXlibPresentationSupportKHR = (PFN_vkGetPhysicalDeviceXlibPresentationSupportKHR)drvk_get_proc_address("vkGetPhysicalDeviceXlibPresentationSupportKHR");
         #endif
 
-        #ifdef VK_KHR_xcb_surface 
+        #ifdef VK_KHR_xcb_surface
         vkCreateXcbSurfaceKHR = (PFN_vkCreateXcbSurfaceKHR)drvk_get_proc_address("vkCreateXcbSurfaceKHR");
         vkGetPhysicalDeviceXcbPresentationSupportKHR = (PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR)drvk_get_proc_address("vkGetPhysicalDeviceXcbPresentationSupportKHR");
         #endif
