@@ -69,126 +69,123 @@ extern "C" {
 #define DR_WAVE_FORMAT_MULAW        0x7
 #define DR_WAVE_FORMAT_EXTENSIBLE   0xFFFE
 
-/// Callback for when data is read. Return value is the number of bytes actually read.
+// Callback for when data is read. Return value is the number of bytes actually read.
 typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 
-/// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
-/// is 0 on failure, non-zero success.
+// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
+// is 0 on failure, non-zero success.
 typedef int (* drwav_seek_proc)(void* pUserData, int offset);
 
 typedef struct
 {
-    /// The format tag exactly as specified in the wave file's "fmt" chunk. This can be used by applications
-    /// that require support for data formats not listed in the drwav_format enum.
+    // The format tag exactly as specified in the wave file's "fmt" chunk. This can be used by applications
+    // that require support for data formats not listed in the drwav_format enum.
     unsigned short formatTag;
 
-    /// The number of channels making up the audio data. When this is set to 1 it is mono, 2 is stereo, etc.
+    // The number of channels making up the audio data. When this is set to 1 it is mono, 2 is stereo, etc.
     unsigned short channels;
 
-    /// The sample rate. Usually set to something like 44100.
+    // The sample rate. Usually set to something like 44100.
     unsigned int sampleRate;
 
-    /// Average bytes per second. You probably don't need this, but it's left here for informational purposes.
+    // Average bytes per second. You probably don't need this, but it's left here for informational purposes.
     unsigned int avgBytesPerSec;
 
-    /// Block align. This is equal to the number of channels * bytes per sample.
+    // Block align. This is equal to the number of channels * bytes per sample.
     unsigned short blockAlign;
 
-    /// Bit's per sample.
+    // Bit's per sample.
     unsigned short bitsPerSample;
 
-    /// The size of the extended data. Only used internally for validation, but left here for informational purposes.
+    // The size of the extended data. Only used internally for validation, but left here for informational purposes.
     unsigned short extendedSize;
 
-    /// The number of valid bits per sample. When <formatTag> is equal to WAVE_FORMAT_EXTENSIBLE, <bitsPerSample>
-    /// is always rounded up to the nearest multiple of 8. This variable contains information about exactly how
-    /// many bits a valid per sample. Mainly used for informational purposes.
+    // The number of valid bits per sample. When <formatTag> is equal to WAVE_FORMAT_EXTENSIBLE, <bitsPerSample>
+    // is always rounded up to the nearest multiple of 8. This variable contains information about exactly how
+    // many bits a valid per sample. Mainly used for informational purposes.
     unsigned short validBitsPerSample;
 
-    /// The channel mask. Not used at the moment.
+    // The channel mask. Not used at the moment.
     unsigned int channelMask;
 
-    /// The sub-format, exactly as specified by the wave file.
+    // The sub-format, exactly as specified by the wave file.
     unsigned char subFormat[16];
 
 } drwav_fmt;
 
 typedef struct
 {
-    /// A pointer to the function to call when more data is needed.
+    // A pointer to the function to call when more data is needed.
     drwav_read_proc onRead;
 
-    /// A pointer to the function to call when the wav file needs to be seeked.
+    // A pointer to the function to call when the wav file needs to be seeked.
     drwav_seek_proc onSeek;
 
-    /// The user data to pass to callbacks.
+    // The user data to pass to callbacks.
     void* pUserData;
 
 
-    /// Structure containing format information exactly as specified by the wav file.
+    // Structure containing format information exactly as specified by the wav file.
     drwav_fmt fmt;
 
-    /// The sample rate. Will be set to something like 44100.
+    // The sample rate. Will be set to something like 44100.
     unsigned int sampleRate;
 
-    /// The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc.
+    // The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc.
     unsigned short channels;
 
-    /// The bits per sample. Will be set to somthing like 16, 24, etc.
+    // The bits per sample. Will be set to somthing like 16, 24, etc.
     unsigned short bitsPerSample;
 
-    /// The number of bytes per sample.
+    // The number of bytes per sample.
     unsigned short bytesPerSample;
 
-    /// Equal to fmt.formatTag, or the value specified by fmt.subFormat is fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE).
+    // Equal to fmt.formatTag, or the value specified by fmt.subFormat is fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE).
     unsigned short translatedFormatTag;
 
-    /// The total number of samples making up the audio data. Use <totalSampleCount> * <bytesPerSample> to calculate
-    /// the required size of a buffer to hold the entire audio data.
+    // The total number of samples making up the audio data. Use <totalSampleCount> * <bytesPerSample> to calculate
+    // the required size of a buffer to hold the entire audio data.
     uint64_t totalSampleCount;
 
     
 
-    /// The number of bytes remaining in the data chunk.
+    // The number of bytes remaining in the data chunk.
     uint64_t bytesRemaining;
 
 } drwav;
 
 
-/// Opens a .wav file using the given callbacks.
-///
-/// @remarks
-///     Returns null on error.
+// Opens a .wav file using the given callbacks.
+//
+// Returns null on error.
 drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
-/// Closes the given drwav object.
+// Closes the given drwav object.
 void drwav_close(drwav* pWav);
 
 
-/// Reads raw audio data.
-///
-/// @remarks
-///     This is the lowest level function for reading audio data. It simply reads the given number of
-///     bytes of the raw internal sample data.
+// Reads raw audio data.
+//
+// This is the lowest level function for reading audio data. It simply reads the given number of
+// bytes of the raw internal sample data.
 size_t drwav_read_raw(drwav* pWav, void* pBufferOut, size_t bytesToRead);
 
-/// Reads a chunk of audio data in the native internal format.
-///
-/// @remarks
-///     This is typically the most efficient way to retrieve audio data, but it does not do any format
-///     conversions which means you'll need to convert the data manually if required.
-///     @par
-///     If the return value is less than <samplesToRead> it means the end of the file has been reached.
-///     @par
-///     The number of samples that are actually read is clamped based on the size of the output buffer.
-///     @par
-///     This function will only work when sample data is of a fixed size. If you are using an unusual
-///     format which uses variable sized samples, consider using drwav_read_raw(), but don't combine them.
+// Reads a chunk of audio data in the native internal format.
+//
+// This is typically the most efficient way to retrieve audio data, but it does not do any format
+// conversions which means you'll need to convert the data manually if required.
+//
+// If the return value is less than <samplesToRead> it means the end of the file has been reached.
+//
+// The number of samples that are actually read is clamped based on the size of the output buffer.
+//
+// This function will only work when sample data is of a fixed size. If you are using an unusual
+// format which uses variable sized samples, consider using drwav_read_raw(), but don't combine them.
 size_t drwav_read(drwav* pWav, size_t samplesToRead, void* pBufferOut, size_t bufferOutSize);
 
-/// Seeks to the given sample.
-///
-/// @return Zero if an error occurs, non-zero if successful.
+// Seeks to the given sample.
+//
+// The return value is zero if an error occurs, non-zero if successful.
 int drwav_seek(drwav* pWav, uint64_t sample);
 
 
@@ -196,33 +193,32 @@ int drwav_seek(drwav* pWav, uint64_t sample);
 //// Convertion Utilities ////
 #ifndef DR_WAV_NO_CONVERSION_API
 
-/// Reads a chunk of audio data and converts it to IEEE 32-bit floating point samples.
-///
-/// @return The number of samples actually read.
-///
-/// @remarks
-///     If the return value is less than <samplesToRead> it means the end of the file has been reached.
+// Reads a chunk of audio data and converts it to IEEE 32-bit floating point samples.
+//
+// Returns the number of samples actually read.
+//
+// If the return value is less than <samplesToRead> it means the end of the file has been reached.
 size_t drwav_read_f32(drwav* pWav, size_t samplesToRead, float* pBufferOut);
 
-/// Low-level function for converting unsigned 8-bit PCM samples to IEEE 32-bit floating point samples.
+// Low-level function for converting unsigned 8-bit PCM samples to IEEE 32-bit floating point samples.
 void drwav_u8PCM_to_f32(size_t totalSampleCount, const unsigned char* u8PCM, float* f32Out);
 
-/// Low-level function for converting signed 16-bit PCM samples to IEEE 32-bit floating point samples.
+// Low-level function for converting signed 16-bit PCM samples to IEEE 32-bit floating point samples.
 void drwav_s16PCM_to_f32(size_t totalSampleCount, const short* s16PCM, float* f32Out);
 
-/// Low-level function for converting signed 24-bit PCM samples to IEEE 32-bit floating point samples.
+// Low-level function for converting signed 24-bit PCM samples to IEEE 32-bit floating point samples.
 void drwav_s24PCM_to_f32(size_t totalSampleCount, const unsigned char* s24PCM, float* f32Out);
 
-/// Low-level function for converting signed 32-bit PCM samples to IEEE 32-bit floating point samples.
+// Low-level function for converting signed 32-bit PCM samples to IEEE 32-bit floating point samples.
 void drwav_s32PCM_to_f32(size_t totalSampleCount, const int* s32PCM, float* f32Out);
 
-/// Low-level function for converting IEEE 64-bit floating point samples to IEEE 32-bit floating point samples.
+// Low-level function for converting IEEE 64-bit floating point samples to IEEE 32-bit floating point samples.
 void drwav_f64_to_f32(size_t totalSampleCount, const double* f64In, float* f32Out);
 
-/// Low-level function for converting A-law samples to IEEE 32-bit floating point samples.
+// Low-level function for converting A-law samples to IEEE 32-bit floating point samples.
 void drwav_alaw_to_f32(size_t totalSampleCount, const unsigned char* alaw, float* f32Out);
 
-/// Low-level function for converting u-law samples to IEEE 32-bit floating point samples.
+// Low-level function for converting u-law samples to IEEE 32-bit floating point samples.
 void drwav_ulaw_to_f32(size_t totalSampleCount, const unsigned char* ulaw, float* f32Out);
 
 #endif  //DR_WAV_NO_CONVERSION_API
@@ -232,31 +228,29 @@ void drwav_ulaw_to_f32(size_t totalSampleCount, const unsigned char* ulaw, float
 
 #ifndef DR_WAV_NO_STDIO
 
-/// Helper for opening a wave file using stdio.
-///
-/// @remarks
-///     This holds the internal FILE object until drwav_close() is called. Keep this in mind if you're
-///     employing caching.
+// Helper for opening a wave file using stdio.
+//
+// This holds the internal FILE object until drwav_close() is called. Keep this in mind if you're
+// employing caching.
 drwav* drwav_open_file(const char* filename);
 
 #endif  //DR_WAV_NO_STDIO
 
-/// Helper for opening a file from a pre-allocated memory buffer.
-///
-/// @remarks
-///     This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
-///     the lifetime of the drwav object.
-///     @par
-///     The buffer should contain the contents of the entire wave file, not just the sample data.
+// Helper for opening a file from a pre-allocated memory buffer.
+//
+// This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
+// the lifetime of the drwav object.
+//
+// The buffer should contain the contents of the entire wave file, not just the sample data.
 drwav* drwav_open_memory(const void* data, size_t dataSize);
 
 
 
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 //
 // IMPLEMENTATION
 //
-///////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////
 
 #ifdef DR_WAV_IMPLEMENTATION
 #include <stdlib.h>
@@ -394,13 +388,13 @@ drwav* drwav_open_file(const char* filename)
 
 typedef struct
 {
-    /// A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
+    // A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
     const unsigned char* data;
 
-    /// The size of the data.
+    // The size of the data.
     size_t dataSize;
 
-    /// The position we're currently sitting at.
+    // The position we're currently sitting at.
     size_t currentReadPos;
 
 } drwav_memory;
