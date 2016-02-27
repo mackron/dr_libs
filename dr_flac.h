@@ -1953,7 +1953,7 @@ static bool drflac__read_next_frame_header(drflac* pFlac)
     }
 
 
-    if (sampleRate >= 0 && sampleRate <= 11) {
+    if (sampleRate <= 11) {
         pFlac->currentFrame.sampleRate = sampleRateTable[sampleRate];
     } else if (sampleRate == 12) {
         if (!drflac__read_uint32(pFlac, 8, &pFlac->currentFrame.sampleRate)) {
