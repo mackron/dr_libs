@@ -67,7 +67,12 @@ extern "C" {
 #define DR_WAVE_FORMAT_MULAW        0x7
 #define DR_WAVE_FORMAT_EXTENSIBLE   0xFFFE
 
-typedef struct drwav drwav;
+/// Callback for when data is read. Return value is the number of bytes actually read.
+typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
+
+/// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
+/// is 0 on failure, non-zero success.
+typedef int (* drwav_seek_proc)(void* pUserData, int offset);
 
 typedef struct
 {
@@ -123,13 +128,24 @@ typedef struct
 
 } drwav_info;
 
+typedef struct
+{
+    /// Information about the wav file.
+    drwav_info info;
 
-/// Callback for when data is read. Return value is the number of bytes actually read.
-typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
+    /// A pointer to the function to call when more data is needed.
+    drwav_read_proc onRead;
 
-/// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
-/// is 0 on failure, non-zero success.
-typedef int (* drwav_seek_proc)(void* pUserData, int offset);
+    /// A pointer to the function to call when the wav file needs to be seeked.
+    drwav_seek_proc onSeek;
+
+    /// The user data to pass to callbacks.
+    void* pUserData;
+
+    /// The number of bytes remaining in the data chunk.
+    size_t bytesRemaining;
+
+} drwav;
 
 
 /// Opens a .wav file using the given callbacks.
@@ -246,24 +262,6 @@ drwav* drwav_open_memory(const void* data, size_t dataSize);
 #ifndef DR_WAV_NO_STDIO
 #include <stdio.h>
 #endif
-
-struct drwav
-{
-    /// Information about the wav file.
-    drwav_info info;
-
-    /// A pointer to the function to call when more data is needed.
-    drwav_read_proc onRead;
-
-    /// A pointer to the function to call when the wav file needs to be seeked.
-    drwav_seek_proc onSeek;
-
-    /// The user data to pass to callbacks.
-    void* pUserData;
-
-    /// The number of bytes remaining in the data chunk.
-    size_t bytesRemaining;
-};
 
 static int drwav__is_little_endian()
 {
