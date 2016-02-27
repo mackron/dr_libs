@@ -428,11 +428,11 @@ static int drwav__on_seek_memory(void* userData, int offset)
 
     if (offset > 0) {
         if (memory->currentReadPos + offset > memory->dataSize) {
-            offset = memory->dataSize - memory->currentReadPos;     // Trying to seek too far forward.
+            offset = (int)(memory->dataSize - memory->currentReadPos);      // Trying to seek too far forward.
         }
     } else {
         if (memory->currentReadPos < (size_t)-offset) {
-            offset = -(int)memory->currentReadPos;                  // Trying to seek too far backwards.
+            offset = -(int)memory->currentReadPos;                          // Trying to seek too far backwards.
         }
     }
 

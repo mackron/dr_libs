@@ -12,7 +12,7 @@
 
 int main(int argc, char** argv)
 {
-    //drwav* pWav = drwav_open_file("M1F1-uint8-AFsp.wav");
+    drwav* pWav = drwav_open_file("M1F1-uint8-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-uint8WE-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-int12-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-int12WE-AFsp.wav");
@@ -32,7 +32,7 @@ int main(int argc, char** argv)
     //drwav* pWav = drwav_open_file("M1F1-mulawWE-AFsp.wav");
     //drwav* pWav = drwav_open_file("stereol.wav");
     //drwav* pWav = drwav_open_file("stereofl.wav");
-    drwav* pWav = drwav_open_file("drmapan.wav");
+    //drwav* pWav = drwav_open_file("drmapan.wav");
     
     //drwav* pWav = drwav_open_file("Utopia Critical Stop.WAV");
     //drwav* pWav = drwav_open_file("GLASS.WAV");
@@ -54,7 +54,7 @@ int main(int argc, char** argv)
         pRunningData += 1;
     }*/
     drwav_read_f32(pWav, info.sampleCount, pData);
-
+    
 
     draudio_context* pContext = draudio_create_context();
     if (pContext == NULL) {
