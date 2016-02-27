@@ -42,9 +42,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    drwav_info info = drwav_get_info(pWav);
-
-    unsigned int dataSize = info.sampleCount * sizeof(float);
+    unsigned int dataSize = pWav->sampleCount * sizeof(float);
     float* pData = malloc(dataSize);
 
     // This horribly ineffcient loop is just to test reading of audio files where the bits per sample do
@@ -53,7 +51,7 @@ int main(int argc, char** argv)
     while (drwav_read_f32(pWav, 1, pRunningData) > 0) {
         pRunningData += 1;
     }*/
-    drwav_read_f32(pWav, info.sampleCount, pData);
+    drwav_read_f32(pWav, pWav->sampleCount, pData);
     
 
     draudio_context* pContext = draudio_create_context();
@@ -69,8 +67,8 @@ int main(int argc, char** argv)
     draudio_buffer_desc bufferDesc;
     memset(&bufferDesc, 0, sizeof(&bufferDesc));
     bufferDesc.format        = draudio_format_float;
-    bufferDesc.channels      = info.fmt.channels;
-    bufferDesc.sampleRate    = info.fmt.sampleRate;
+    bufferDesc.channels      = pWav->fmt.channels;
+    bufferDesc.sampleRate    = pWav->fmt.sampleRate;
     bufferDesc.bitsPerSample = sizeof(float)*8;
     bufferDesc.sizeInBytes   = dataSize;
     bufferDesc.pData         = pData;

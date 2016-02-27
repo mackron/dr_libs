@@ -113,6 +113,16 @@ typedef struct
 
 typedef struct
 {
+    /// A pointer to the function to call when more data is needed.
+    drwav_read_proc onRead;
+
+    /// A pointer to the function to call when the wav file needs to be seeked.
+    drwav_seek_proc onSeek;
+
+    /// The user data to pass to callbacks.
+    void* pUserData;
+
+
     /// Structure containing format information exactly as specified by the wav file.
     drwav_fmt fmt;
 
@@ -126,21 +136,7 @@ typedef struct
     /// the required size of a buffer to hold the entire audio data.
     unsigned int sampleCount;
 
-} drwav_info;
-
-typedef struct
-{
-    /// Information about the wav file.
-    drwav_info info;
-
-    /// A pointer to the function to call when more data is needed.
-    drwav_read_proc onRead;
-
-    /// A pointer to the function to call when the wav file needs to be seeked.
-    drwav_seek_proc onSeek;
-
-    /// The user data to pass to callbacks.
-    void* pUserData;
+    
 
     /// The number of bytes remaining in the data chunk.
     size_t bytesRemaining;
@@ -157,8 +153,6 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
 /// Closes the given drwav object.
 void drwav_close(drwav* pWav);
 
-/// Retrieves information about the given wav file.
-drwav_info drwav_get_info(drwav* pWav);
 
 /// Reads raw audio data.
 ///
@@ -529,10 +523,10 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
         return NULL;
     }
 
-    pWav->info.fmt                 = fmt;
-    pWav->info.bytesPerSample      = (unsigned int)(fmt.blockAlign / fmt.channels);
-    pWav->info.translatedFormatTag = translatedFormatTag;
-    pWav->info.sampleCount         = dataSize / pWav->info.bytesPerSample;
+    pWav->fmt                 = fmt;
+    pWav->bytesPerSample      = (unsigned int)(fmt.blockAlign / fmt.channels);
+    pWav->translatedFormatTag = translatedFormatTag;
+    pWav->sampleCount         = dataSize / pWav->bytesPerSample;
 
     pWav->onRead         = onRead;
     pWav->onSeek         = onSeek;
@@ -565,16 +559,6 @@ void drwav_close(drwav* pWav)
 }
 
 
-drwav_info drwav_get_info(drwav* pWav)
-{
-    if (pWav == NULL) {
-        return (drwav_info){0};
-    }
-
-    return pWav->info;
-}
-
-
 size_t drwav_read_raw(drwav* pWav, void* pBufferOut, size_t bytesToRead)
 {
     if (pWav == NULL || bytesToRead == 0 || pBufferOut == NULL) {
@@ -597,14 +581,14 @@ unsigned int drwav_read(drwav* pWav, unsigned int samplesToRead, void* pBufferOu
         return 0;
     }
 
-    unsigned int maxSamples = (unsigned int)(bufferOutSize / pWav->info.bytesPerSample);
+    unsigned int maxSamples = (unsigned int)(bufferOutSize / pWav->bytesPerSample);
     if (samplesToRead > maxSamples) {
         samplesToRead = maxSamples;
     }
 
-    size_t bytesRead = drwav_read_raw(pWav, pBufferOut, samplesToRead * pWav->info.bytesPerSample);
+    size_t bytesRead = drwav_read_raw(pWav, pBufferOut, samplesToRead * pWav->bytesPerSample);
 
-    return (unsigned int)(bytesRead / pWav->info.bytesPerSample);
+    return (unsigned int)(bytesRead / pWav->bytesPerSample);
 }
 
 int drwav_seek(drwav* pWav, unsigned int sample)
@@ -616,21 +600,21 @@ int drwav_seek(drwav* pWav, unsigned int sample)
     }
 
     // If there are no samples, just return true without doing anything.
-    if (pWav->info.sampleCount == 0) {
+    if (pWav->sampleCount == 0) {
         return 1;
     }
 
     // Make sure the sample is clamped.
-    if (sample >= pWav->info.sampleCount) {
-        sample = pWav->info.sampleCount - 1;
+    if (sample >= pWav->sampleCount) {
+        sample = pWav->sampleCount - 1;
     }
 
 
-    size_t totalSizeInBytes = pWav->info.sampleCount * pWav->info.bytesPerSample;
+    size_t totalSizeInBytes = pWav->sampleCount * pWav->bytesPerSample;
     assert(totalSizeInBytes >= pWav->bytesRemaining);
 
     size_t currentBytePos = totalSizeInBytes - pWav->bytesRemaining;
-    size_t targetBytePos  = sample * pWav->info.bytesPerSample;
+    size_t targetBytePos  = sample * pWav->bytesPerSample;
 
     size_t offset;
     int direction;
@@ -730,7 +714,7 @@ unsigned int drwav_read_f32(drwav* pWav, unsigned int samplesToRead, float* pBuf
     }
 
     // Fast path.
-    if (pWav->info.translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT && pWav->info.bytesPerSample == 4) {
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT && pWav->bytesPerSample == 4) {
         return drwav_read(pWav, samplesToRead, pBufferOut, samplesToRead * sizeof(float));
     }
 
@@ -738,7 +722,7 @@ unsigned int drwav_read_f32(drwav* pWav, unsigned int samplesToRead, float* pBuf
     // Slow path. Need to read and convert.
     unsigned int totalSamplesRead = 0;
 
-    if (pWav->info.translatedFormatTag == DR_WAVE_FORMAT_PCM)
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM)
     {
         unsigned char sampleData[4096];
         while (samplesToRead > 0)
@@ -748,7 +732,7 @@ unsigned int drwav_read_f32(drwav* pWav, unsigned int samplesToRead, float* pBuf
                 break;
             }
 
-            drwav__pcm_to_f32(samplesRead, sampleData, pWav->info.bytesPerSample, pBufferOut);
+            drwav__pcm_to_f32(samplesRead, sampleData, pWav->bytesPerSample, pBufferOut);
             pBufferOut += samplesRead;
 
             samplesToRead    -= samplesRead;
@@ -758,7 +742,7 @@ unsigned int drwav_read_f32(drwav* pWav, unsigned int samplesToRead, float* pBuf
         return totalSamplesRead;
     }
 
-    if (pWav->info.translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT)
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT)
     {
         unsigned char sampleData[4096];
         while (samplesToRead > 0)
@@ -768,7 +752,7 @@ unsigned int drwav_read_f32(drwav* pWav, unsigned int samplesToRead, float* pBuf
                 break;
             }
 
-            drwav__ieee_to_f32(samplesRead, sampleData, pWav->info.bytesPerSample, pBufferOut);
+            drwav__ieee_to_f32(samplesRead, sampleData, pWav->bytesPerSample, pBufferOut);
             pBufferOut += samplesRead;
 
             samplesToRead    -= samplesRead;
@@ -778,7 +762,7 @@ unsigned int drwav_read_f32(drwav* pWav, unsigned int samplesToRead, float* pBuf
         return totalSamplesRead;
     }
 
-    if (pWav->info.translatedFormatTag == DR_WAVE_FORMAT_ALAW)
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ALAW)
     {
         unsigned char sampleData[4096];
         while (samplesToRead > 0)
@@ -798,7 +782,7 @@ unsigned int drwav_read_f32(drwav* pWav, unsigned int samplesToRead, float* pBuf
         return totalSamplesRead;
     }
 
-    if (pWav->info.translatedFormatTag == DR_WAVE_FORMAT_MULAW)
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_MULAW)
     {
         unsigned char sampleData[4096];
         while (samplesToRead > 0)
