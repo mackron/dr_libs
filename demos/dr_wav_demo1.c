@@ -12,7 +12,7 @@
 
 int main(int argc, char** argv)
 {
-    drwav* pWav = drwav_open_file("M1F1-uint8-AFsp.wav");
+    //drwav* pWav = drwav_open_file("M1F1-uint8-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-uint8WE-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-int12-AFsp.wav");
     //drwav* pWav = drwav_open_file("M1F1-int12WE-AFsp.wav");
@@ -36,13 +36,13 @@ int main(int argc, char** argv)
     
     //drwav* pWav = drwav_open_file("Utopia Critical Stop.WAV");
     //drwav* pWav = drwav_open_file("GLASS.WAV");
-    //drwav* pWav = drwav_open_file("Ptjunk.wav");
+    drwav* pWav = drwav_open_file("Ptjunk.wav");
     //drwav* pWav = drwav_open_file("Pmiscck.wav"); 
     if (pWav == NULL) {
         return -1;
     }
 
-    unsigned int dataSize = pWav->sampleCount * sizeof(float);
+    size_t dataSize = (size_t)pWav->totalSampleCount * sizeof(float);
     float* pData = malloc(dataSize);
 
     // This horribly ineffcient loop is just to test reading of audio files where the bits per sample do
@@ -51,7 +51,7 @@ int main(int argc, char** argv)
     while (drwav_read_f32(pWav, 1, pRunningData) > 0) {
         pRunningData += 1;
     }*/
-    drwav_read_f32(pWav, pWav->sampleCount, pData);
+    drwav_read_f32(pWav, (size_t)pWav->totalSampleCount, pData);
     
 
     draudio_context* pContext = draudio_create_context();
