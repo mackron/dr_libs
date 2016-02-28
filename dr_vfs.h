@@ -57,7 +57,7 @@
 //
 //      // Open a file. A relative path was specified which means it will first check it against
 //      // "C:/Users/Admin". If it can't be found it will then check against "C:/My/Folder".
-//      drvfs_file* pFile = drvfs_open(pVFS, "my/file.txt", DRVFS_READ, 0);
+//      drvfs_file* pFile = drvfs_open(pVFS, "my/file.txt", DRVFS_READ);
 //      if (pFile == NULL)
 //      {
 //          // There was an error loading the file. It probably doesn't exist.
