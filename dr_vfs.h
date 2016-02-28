@@ -133,7 +133,7 @@
 //   included in the path), it is referred to as a verbose path.
 // - When specifying an absolute path, it is assumed to be verbose. When specifying a relative path, it does not need
 //   to be verbose, in which case the library will try to search for it. A path such as "my/package.zip/file.txt" is
-//   equivalent to "m/file.txt".
+//   equivalent to "my/file.txt".
 // - Archive backends are selected based on their extension.
 // - Archive backends cannot currently share the same extension. For example, many package file formats use the .pak
 //   extension, however only one backend can use that .pak extension.
@@ -197,6 +197,17 @@ extern "C" {
 #define DRVFS_FILE_ATTRIBUTE_DIRECTORY    0x00000001
 #define DRVFS_FILE_ATTRIBUTE_READONLY     0x00000002
 
+// Result codes.
+typedef enum
+{
+    drvfs_success             =  0,
+    drvfs_unknown_error       = -1,
+    drvfs_bad_access          = -2, // Trying to open a read-only file in write mode, trying to open a directory in write mode, etc.
+    drvfs_does_not_exist      = -3,
+    drvfs_already_exists      = -4,
+    drvfs_permission_denied   = -5,
+    drvfs_too_many_open_files = -6,
+} drvfs_result;
 
 // The allowable seeking origins.
 typedef enum
@@ -388,14 +399,14 @@ drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* abs
 void drvfs_close_archive(drvfs_archive* pArchive);
 
 // Opens a file relative to the given archive.
-drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* relativePath, unsigned int accessMode, size_t extraDataSize);
+drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* relativePath, unsigned int accessMode);
 
 
 
 // Opens a file.
 //
 // When opening the file in write mode, the write pointer will always be sitting at the start of the file.
-drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, size_t extraDataSize);
+drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode);
 
 // Closes the given file.
 void drvfs_close(drvfs_file* pFile);
@@ -420,12 +431,6 @@ drvfs_uint64 drvfs_size(drvfs_file* pFile);
 
 // Flushes the given file.
 void drvfs_flush(drvfs_file* pFile);
-
-// Retrieves the size of the extra data for the given file.
-size_t drvfs_get_extra_data_size(drvfs_file* pFile);
-
-// Retrieves a pointer to the extra data for the given file.
-void* drvfs_get_extra_data(drvfs_file* pFile);
 
 
 // Locks the given file for simple mutal exclusion.
@@ -1047,13 +1052,6 @@ struct drvfs_file
 #else
     pthread_mutex_t lock;
 #endif
-
-
-    // The size of the extra data.
-    size_t extraDataSize;
-
-    // A pointer to the extra data.
-    char pExtraData[1];
 };
 
 
@@ -2922,7 +2920,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_non_native_archive_from_path(drvfs_archi
         return NULL;
     }
 
-    drvfs_file* pArchiveFile = drvfs_open_file_from_archive(pParentArchive, relativePath, accessMode, 0);
+    drvfs_file* pArchiveFile = drvfs_open_file_from_archive(pParentArchive, relativePath, accessMode);
     if (pArchiveFile == NULL) {
         return NULL;
     }
@@ -2973,7 +2971,7 @@ DRVFS_PRIVATE drvfs_archive* drvfs_open_owner_archive_recursively_from_verbose_p
                         drvfs_archive_callbacks backendCallbacks;
                         if (drvfs_find_backend_by_extension(pParentArchive->pContext, drvfs_drpath_extension(runningPath), &backendCallbacks))
                         {
-                            drvfs_file* pNextArchiveFile = drvfs_open_file_from_archive(pParentArchive, runningPath, accessMode, 0);
+                            drvfs_file* pNextArchiveFile = drvfs_open_file_from_archive(pParentArchive, runningPath, accessMode);
                             if (pNextArchiveFile == NULL) {
                                 break;    // Failed to open the archive file.
                             }
@@ -3632,7 +3630,7 @@ void drvfs_close_archive(drvfs_archive* pArchive)
     free(pArchive);
 }
 
-drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* relativePath, unsigned int accessMode, size_t extraDataSize)
+drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* relativePath, unsigned int accessMode)
 {
     if (pArchive == NULL || relativePath == NULL || pArchive->callbacks.open_file == NULL) {
         return NULL;
@@ -3644,7 +3642,7 @@ drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* re
     }
 
     // At this point the file is opened and we can create the file object.
-    drvfs_file* pFile = malloc(sizeof(*pFile) - sizeof(pFile->pExtraData) + extraDataSize);
+    drvfs_file* pFile = malloc(sizeof(*pFile));
     if (pFile == NULL) {
         return NULL;
     }
@@ -3652,7 +3650,6 @@ drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* re
     pFile->pArchive           = pArchive;
     pFile->internalFileHandle = internalFileHandle;
     pFile->flags              = 0;
-    pFile->extraDataSize      = extraDataSize;
 
     // The lock.
 #ifdef _WIN32
@@ -3668,7 +3665,7 @@ drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* re
 }
 
 
-drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, size_t extraDataSize)
+drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode)
 {
     if (pContext == NULL || absoluteOrRelativePath == NULL) {
         return NULL;
@@ -3689,7 +3686,7 @@ drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePa
         return NULL;
     }
 
-    drvfs_file* pFile = drvfs_open_file_from_archive(pArchive, relativePath, accessMode, extraDataSize);
+    drvfs_file* pFile = drvfs_open_file_from_archive(pArchive, relativePath, accessMode);
     if (pFile == NULL) {
         drvfs_close_archive(pArchive);
         return NULL;
@@ -3842,24 +3839,6 @@ void drvfs_flush(drvfs_file* pFile)
     }
 
     pFile->pArchive->callbacks.flush_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle);
-}
-
-size_t drvfs_get_extra_data_size(drvfs_file* pFile)
-{
-    if (pFile == NULL) {
-        return 0;
-    }
-
-    return pFile->extraDataSize;
-}
-
-void* drvfs_get_extra_data(drvfs_file* pFile)
-{
-    if (pFile == NULL) {
-        return NULL;
-    }
-
-    return pFile->pExtraData;
 }
 
 
@@ -4160,8 +4139,8 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
             }
             else
             {
-                drvfs_file* pSrcFile = drvfs_open_file_from_archive(pSrcArchive, srcRelativePath, DRVFS_READ, 0);
-                drvfs_file* pDstFile = drvfs_open_file_from_archive(pDstArchive, dstRelativePath, DRVFS_WRITE | DRVFS_TRUNCATE, 0);
+                drvfs_file* pSrcFile = drvfs_open_file_from_archive(pSrcArchive, srcRelativePath, DRVFS_READ);
+                drvfs_file* pDstFile = drvfs_open_file_from_archive(pDstArchive, dstRelativePath, DRVFS_WRITE | DRVFS_TRUNCATE);
                 if (pSrcFile != NULL && pDstFile != NULL)
                 {
                     char chunk[4096];
@@ -4268,7 +4247,7 @@ bool drvfs_write_line(drvfs_file* pFile, const char* str)
 
 void* drvfs_open_and_read_binary_file(drvfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut)
 {
-    drvfs_file* pFile = drvfs_open(pContext, absoluteOrRelativePath, DRVFS_READ, 0);
+    drvfs_file* pFile = drvfs_open(pContext, absoluteOrRelativePath, DRVFS_READ);
     if (pFile == NULL) {
         return NULL;
     }
@@ -4313,7 +4292,7 @@ void* drvfs_open_and_read_binary_file(drvfs_context* pContext, const char* absol
 
 char* drvfs_open_and_read_text_file(drvfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut)
 {
-    drvfs_file* pFile = drvfs_open(pContext, absoluteOrRelativePath, DRVFS_READ, 0);
+    drvfs_file* pFile = drvfs_open(pContext, absoluteOrRelativePath, DRVFS_READ);
     if (pFile == NULL) {
         return NULL;
     }
@@ -4361,7 +4340,7 @@ char* drvfs_open_and_read_text_file(drvfs_context* pContext, const char* absolut
 
 bool drvfs_open_and_write_binary_file(drvfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize)
 {
-    drvfs_file* pFile = drvfs_open(pContext, absoluteOrRelativePath, DRVFS_WRITE | DRVFS_TRUNCATE, 0);
+    drvfs_file* pFile = drvfs_open(pContext, absoluteOrRelativePath, DRVFS_WRITE | DRVFS_TRUNCATE);
     if (pFile == NULL) {
         return false;
     }
