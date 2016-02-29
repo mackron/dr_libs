@@ -417,13 +417,13 @@ void drvfs_close(drvfs_file* pFile);
 //
 // Returns true if successful; false otherwise. If the value output to <pBytesReadOut> is less than <bytesToRead> it means the file is at the end. In this case,
 // true is still returned.
-bool drvfs_read(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
+drvfs_result drvfs_read(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
 
 // Writes data to the given file.
-bool drvfs_write(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
+drvfs_result drvfs_write(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
 
 // Seeks the file pointer by the given number of bytes, relative to the specified origin.
-bool drvfs_seek(drvfs_file* pFile, int64_t bytesToSeek, drvfs_seek_origin origin);
+drvfs_result drvfs_seek(drvfs_file* pFile, int64_t bytesToSeek, drvfs_seek_origin origin);
 
 // Retrieves the current position of the file pointer.
 uint64_t drvfs_tell(drvfs_file* pFile);
@@ -444,13 +444,13 @@ bool drvfs_lock(drvfs_file* pFile);
 void drvfs_unlock(drvfs_file* pFile);
 
 // Unlocked drvfs_read() - should only be called inside a drvfs_lock()/drvfs_unlock() pair.
-bool drvfs_read_nolock(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
+drvfs_result drvfs_read_nolock(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
 
 // Unlocked drvfs_write() - should only be called inside a drvfs_lock()/drvfs_unlock() pair.
-bool drvfs_write_nolock(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
+drvfs_result drvfs_write_nolock(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
 
 // Unlocked drvfs_seek() - should only be called inside a drvfs_lock()/drvfs_unlock() pair.
-bool drvfs_seek_nolock(drvfs_file* pFile, int64_t bytesToSeek, drvfs_seek_origin origin);
+drvfs_result drvfs_seek_nolock(drvfs_file* pFile, int64_t bytesToSeek, drvfs_seek_origin origin);
 
 // Unlocked drvfs_tell() - should only be called inside a drvfs_lock()/drvfs_unlock() pair.
 uint64_t drvfs_tell_nolock(drvfs_file* pFile);
@@ -3737,64 +3737,79 @@ void drvfs_close(drvfs_file* pFile)
     free(pFile);
 }
 
-bool drvfs_read_nolock(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
+drvfs_result drvfs_read_nolock(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
 {
     if (pFile == NULL || pDataOut == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.read_file == NULL) {
-        return false;
+        return drvfs_invalid_args;
     }
 
-    return pFile->pArchive->callbacks.read_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, pDataOut, bytesToRead, pBytesReadOut);
+    bool result = pFile->pArchive->callbacks.read_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, pDataOut, bytesToRead, pBytesReadOut);
+    if (!result) {
+        return drvfs_unknown_error;
+    }
+
+    return drvfs_success;
 }
 
-bool drvfs_read(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
+drvfs_result drvfs_read(drvfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
 {
     if (!drvfs_lock(pFile)) {
-        return false;
+        return drvfs_unknown_error;
     }
 
-    bool result = drvfs_read_nolock(pFile, pDataOut, bytesToRead, pBytesReadOut);
+    drvfs_result result = drvfs_read_nolock(pFile, pDataOut, bytesToRead, pBytesReadOut);
 
     drvfs_unlock(pFile);
     return result;
 }
 
-bool drvfs_write_nolock(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
+drvfs_result drvfs_write_nolock(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
 {
     if (pFile == NULL || pData == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.write_file == NULL) {
-        return false;
+        return drvfs_invalid_args;
     }
 
-    return pFile->pArchive->callbacks.write_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, pData, bytesToWrite, pBytesWrittenOut);
+    bool result = pFile->pArchive->callbacks.write_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, pData, bytesToWrite, pBytesWrittenOut);
+    if (!result) {
+        return drvfs_unknown_error;
+    }
+
+    return drvfs_success;
 }
 
-bool drvfs_write(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
+drvfs_result drvfs_write(drvfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
 {
     if (!drvfs_lock(pFile)) {
-        return false;
+        return drvfs_unknown_error;
     }
 
-    bool result = drvfs_write_nolock(pFile, pData, bytesToWrite, pBytesWrittenOut);
+    drvfs_result result = drvfs_write_nolock(pFile, pData, bytesToWrite, pBytesWrittenOut);
 
     drvfs_unlock(pFile);
     return result;
 }
 
-bool drvfs_seek_nolock(drvfs_file* pFile, int64_t bytesToSeek, drvfs_seek_origin origin)
+drvfs_result drvfs_seek_nolock(drvfs_file* pFile, int64_t bytesToSeek, drvfs_seek_origin origin)
 {
     if (pFile == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.seek_file == NULL) {
-        return false;
+        return drvfs_invalid_args;
     }
 
-    return pFile->pArchive->callbacks.seek_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, bytesToSeek, origin);
+    bool result = pFile->pArchive->callbacks.seek_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, bytesToSeek, origin);
+    if (!result) {
+        return drvfs_unknown_error;
+    }
+
+    return drvfs_success;
 }
 
-bool drvfs_seek(drvfs_file* pFile, int64_t bytesToSeek, drvfs_seek_origin origin)
+drvfs_result drvfs_seek(drvfs_file* pFile, int64_t bytesToSeek, drvfs_seek_origin origin)
 {
     if (!drvfs_lock(pFile)) {
-        return false;
+        return drvfs_unknown_error;
     }
 
-    bool result = drvfs_seek_nolock(pFile, bytesToSeek, origin);
+    drvfs_result result = drvfs_seek_nolock(pFile, bytesToSeek, origin);
 
     drvfs_unlock(pFile);
     return result;
@@ -4155,7 +4170,7 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
                 {
                     char chunk[4096];
                     size_t bytesRead;
-                    while (drvfs_read(pSrcFile, chunk, sizeof(chunk), &bytesRead) && bytesRead > 0)
+                    while (drvfs_read(pSrcFile, chunk, sizeof(chunk), &bytesRead) == drvfs_success && bytesRead > 0)
                     {
                         drvfs_write(pDstFile, chunk, bytesRead, NULL);
                     }
@@ -4246,7 +4261,7 @@ bool drvfs_is_base_directory(drvfs_context* pContext, const char* baseDir)
 
 bool drvfs_write_string(drvfs_file* pFile, const char* str)
 {
-    return drvfs_write(pFile, str, (unsigned int)strlen(str), NULL);
+    return drvfs_write(pFile, str, (unsigned int)strlen(str), NULL) == drvfs_success;
 }
 
 bool drvfs_write_line(drvfs_file* pFile, const char* str)
@@ -4280,7 +4295,7 @@ void* drvfs_open_and_read_binary_file(drvfs_context* pContext, const char* absol
     }
 
 
-    if (!drvfs_read(pFile, pData, (size_t)fileSize, NULL))
+    if (drvfs_read(pFile, pData, (size_t)fileSize, NULL) != drvfs_success)
     {
         free(pData);
         if (pSizeInBytesOut != NULL) {
@@ -4325,7 +4340,7 @@ char* drvfs_open_and_read_text_file(drvfs_context* pContext, const char* absolut
     }
 
 
-    if (!drvfs_read(pFile, pData, (size_t)fileSize, NULL))
+    if (drvfs_read(pFile, pData, (size_t)fileSize, NULL) != drvfs_success)
     {
         free(pData);
         if (pSizeInBytesOut != NULL) {
@@ -4355,10 +4370,10 @@ bool drvfs_open_and_write_binary_file(drvfs_context* pContext, const char* absol
         return false;
     }
 
-    bool result = drvfs_write(pFile, pData, dataSize, NULL);
+    drvfs_result result = drvfs_write(pFile, pData, dataSize, NULL);
 
     drvfs_close(pFile);
-    return result;
+    return result == drvfs_success;
 }
 
 bool drvfs_open_and_write_text_file(drvfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData)
@@ -6919,8 +6934,8 @@ DRVFS_PRIVATE bool drvfs_read_file__pak(drvfs_handle archive, drvfs_handle file,
     }
 
     drvfs_seek(pak->pArchiveFile, (int64_t)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), drvfs_origin_start);
-    int result = drvfs_read(pak->pArchiveFile, pDataOut, bytesToRead, pBytesReadOut);
-    if (result != 0) {
+    drvfs_result result = drvfs_read(pak->pArchiveFile, pDataOut, bytesToRead, pBytesReadOut);
+    if (result == drvfs_success) {
         pOpenedFile->readPointer += bytesToRead;
     }
 
