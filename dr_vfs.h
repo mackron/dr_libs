@@ -207,19 +207,18 @@ typedef enum
     drvfs_success                =  0,
     drvfs_unknown_error          = -1,
     drvfs_invalid_args           = -2,      // Bad input arguments like a file path string is equal to NULL or whatnot.
-    drvfs_bad_access             = -3,      // Trying to open a read-only file in write mode, trying to open a directory in write mode, etc.
-    drvfs_does_not_exist         = -4,
-    drvfs_already_exists         = -5,
-    drvfs_permission_denied      = -6,
-    drvfs_too_many_open_files    = -7,
-    drvfs_no_backend             = -8,
-    drvfs_out_of_memory          = -9,
-    drvfs_not_in_write_directory = -10,     // A write operation is required, but the given path is not within the write directory or it's sub-directories.
-    drvfs_path_too_long          = -11,
-    drvfs_no_space               = -12,
-    drvfs_not_directory          = -13,
-    drvfs_too_large              = -14,
-    drvfs_at_end_of_file         = -15,
+    drvfs_does_not_exist         = -3,
+    drvfs_already_exists         = -4,
+    drvfs_permission_denied      = -5,
+    drvfs_too_many_open_files    = -6,
+    drvfs_no_backend             = -7,
+    drvfs_out_of_memory          = -8,
+    drvfs_not_in_write_directory = -9,     // A write operation is required, but the given path is not within the write directory or it's sub-directories.
+    drvfs_path_too_long          = -10,
+    drvfs_no_space               = -11,
+    drvfs_not_directory          = -12,
+    drvfs_too_large              = -13,
+    drvfs_at_end_of_file         = -14,
 } drvfs_result;
 
 // The allowable seeking origins.
@@ -2198,9 +2197,9 @@ static drvfs_result drvfs__errno_to_result()
 {
     switch (errno)
     {
-    case EACCES:       return drvfs_bad_access;
+    case EACCES:       return drvfs_permission_denied;
     case EEXIST:       return drvfs_already_exists;
-    case EISDIR:       return drvfs_bad_access;
+    case EISDIR:       return drvfs_permission_denied;
     case EMFILE:       return drvfs_too_many_open_files;
     case ENFILE:       return drvfs_too_many_open_files;
     case ENAMETOOLONG: return drvfs_path_too_long;
@@ -2209,8 +2208,8 @@ static drvfs_result drvfs__errno_to_result()
     case ENOSPC:       return drvfs_no_space;
     case ENOTDIR:      return drvfs_not_directory;
     case EOVERFLOW:    return drvfs_too_large;
-    case EROFS:        return drvfs_bad_access;
-    case ETXTBSY:      return drvfs_bad_access;
+    case EROFS:        return drvfs_permission_denied;
+    case ETXTBSY:      return drvfs_permission_denied;
     case EBADF:        return drvfs_invalid_args;
     case EINVAL:       return drvfs_invalid_args;
     default:           return drvfs_unknown_error;
@@ -2261,7 +2260,7 @@ static drvfs_result drvfs_open_native_file(const char* absolutePath, unsigned in
         if ((accessMode & DRVFS_WRITE) != 0) {
             flags = O_WRONLY;
         } else {
-            return drvfs_bad_access;    // Neither read nor write mode was specified.
+            return drvfs_permission_denied;    // Neither read nor write mode was specified.
         }
     }
 
@@ -6362,7 +6361,7 @@ static drvfs_result drvfs_open_file__zip(drvfs_handle archive, const char* relat
 
     // Only supporting read-only for now.
     if ((accessMode & DRVFS_WRITE) != 0) {
-        return drvfs_bad_access;
+        return drvfs_permission_denied;
     }
 
 
@@ -6452,7 +6451,7 @@ static drvfs_result drvfs_write_file__zip(drvfs_handle archive, drvfs_handle fil
         *pBytesWrittenOut = 0;
     }
 
-    return drvfs_bad_access;
+    return drvfs_permission_denied;
 }
 
 static drvfs_result drvfs_seek_file__zip(drvfs_handle archive, drvfs_handle file, int64_t bytesToSeek, drvfs_seek_origin origin)
@@ -6968,7 +6967,7 @@ static drvfs_result drvfs_open_file__pak(drvfs_handle archive, const char* relat
 
     // Only supporting read-only for now.
     if ((accessMode & DRVFS_WRITE) != 0) {
-        return drvfs_bad_access;
+        return drvfs_permission_denied;
     }
 
 
@@ -7058,7 +7057,7 @@ static drvfs_result drvfs_write_file__pak(drvfs_handle archive, drvfs_handle fil
         *pBytesWrittenOut = 0;
     }
 
-    return drvfs_bad_access;
+    return drvfs_permission_denied;
 }
 
 static drvfs_result drvfs_seek_file__pak(drvfs_handle archive, drvfs_handle file, int64_t bytesToSeek, drvfs_seek_origin origin)
@@ -7632,7 +7631,7 @@ static drvfs_result drvfs_open_file__mtl(drvfs_handle archive, const char* relat
 
     // Only supporting read-only for now.
     if ((accessMode & DRVFS_WRITE) != 0) {
-        return drvfs_bad_access;
+        return drvfs_permission_denied;
     }
 
     drvfs_archive_mtl* mtl = archive;
