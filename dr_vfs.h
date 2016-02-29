@@ -4115,17 +4115,14 @@ drvfs_result drvfs_delete_file(drvfs_context* pContext, const char* path)
         return drvfs_does_not_exist;
     }
 
-    bool result = false;
+    drvfs_result result = drvfs_no_backend;
     if (pArchive->callbacks.delete_file) {
         result = pArchive->callbacks.delete_file(pArchive->internalArchiveHandle, relativePath);
     }
 
     drvfs_close_archive(pArchive);
 
-    if (!result) {
-        return drvfs_unknown_error;
-    }
-    return drvfs_success;
+    return result;
 }
 
 drvfs_result drvfs_rename_file(drvfs_context* pContext, const char* pathOld, const char* pathNew)
@@ -4152,7 +4149,7 @@ drvfs_result drvfs_rename_file(drvfs_context* pContext, const char* pathOld, con
     }
 
 
-    bool result = false;
+    drvfs_result result = drvfs_unknown_error;
 
     char relativePathOld[DRVFS_MAX_PATH];
     drvfs_archive* pArchiveOld = drvfs_open_owner_archive(pContext, pathOld, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePathOld, sizeof(relativePathOld));
@@ -4172,11 +4169,7 @@ drvfs_result drvfs_rename_file(drvfs_context* pContext, const char* pathOld, con
         drvfs_close_archive(pArchiveOld);
     }
 
-
-    if (!result) {
-        return drvfs_does_not_exist;
-    }
-    return drvfs_success;
+    return result;
 }
 
 drvfs_result drvfs_create_directory(drvfs_context* pContext, const char* path)
@@ -4196,17 +4189,14 @@ drvfs_result drvfs_create_directory(drvfs_context* pContext, const char* path)
         return drvfs_not_in_write_directory;
     }
 
-    bool result = false;
+    drvfs_result result = drvfs_no_backend;
     if (pArchive->callbacks.create_directory) {
         result = pArchive->callbacks.create_directory(pArchive->internalArchiveHandle, relativePath);
     }
 
     drvfs_close_archive(pArchive);
 
-    if (!result) {
-        return drvfs_unknown_error;
-    }
-    return drvfs_success;
+    return result;
 }
 
 drvfs_result drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists)
