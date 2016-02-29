@@ -201,13 +201,17 @@ extern "C" {
 // Result codes.
 typedef enum
 {
-    drvfs_success             =  0,
-    drvfs_unknown_error       = -1,
-    drvfs_bad_access          = -2, // Trying to open a read-only file in write mode, trying to open a directory in write mode, etc.
-    drvfs_does_not_exist      = -3,
-    drvfs_already_exists      = -4,
-    drvfs_permission_denied   = -5,
-    drvfs_too_many_open_files = -6,
+    drvfs_success                =  0,
+    drvfs_unknown_error          = -1,
+    drvfs_invalid_args           = -2,      // Bad input arguments like a file path string is equal to NULL or whatnot.
+    drvfs_bad_access             = -3,      // Trying to open a read-only file in write mode, trying to open a directory in write mode, etc.
+    drvfs_does_not_exist         = -4,
+    drvfs_already_exists         = -5,
+    drvfs_permission_denied      = -6,
+    drvfs_too_many_open_files    = -7,
+    drvfs_no_backend             = -8,
+    drvfs_out_of_memory          = -9,
+    drvfs_not_in_write_directory = -10,     // A write operation is required, but the given path is not within the write directory or it's sub-directories.
 } drvfs_result;
 
 // The allowable seeking origins.
@@ -404,7 +408,7 @@ drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* re
 // Opens a file.
 //
 // When opening the file in write mode, the write pointer will always be sitting at the start of the file.
-drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode);
+drvfs_result drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, drvfs_file** ppFileOut);
 
 // Closes the given file.
 void drvfs_close(drvfs_file* pFile);
@@ -3663,10 +3667,17 @@ drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* re
 }
 
 
-drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode)
+drvfs_result drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, drvfs_file** ppFile)
 {
+    if (ppFile == NULL) {
+        return drvfs_invalid_args;
+    }
+
+    // Always set the output file to null at the start for safety.
+    *ppFile = NULL;
+
     if (pContext == NULL || absoluteOrRelativePath == NULL) {
-        return NULL;
+        return drvfs_invalid_args;
     }
 
     char absolutePathForWriteMode[DRVFS_MAX_PATH];
@@ -3674,26 +3685,27 @@ drvfs_file* drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativePa
         if (drvfs_validate_write_path(pContext, absoluteOrRelativePath, absolutePathForWriteMode, sizeof(absolutePathForWriteMode))) {
             absoluteOrRelativePath = absolutePathForWriteMode;
         } else {
-            return NULL;
+            return drvfs_not_in_write_directory;
         }
     }
 
     char relativePath[DRVFS_MAX_PATH];
     drvfs_archive* pArchive = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, drvfs_archive_access_mode(accessMode), relativePath, sizeof(relativePath));
     if (pArchive == NULL) {
-        return NULL;
+        return drvfs_does_not_exist;
     }
 
     drvfs_file* pFile = drvfs_open_file_from_archive(pArchive, relativePath, accessMode);
     if (pFile == NULL) {
         drvfs_close_archive(pArchive);
-        return NULL;
+        return drvfs_does_not_exist;
     }
 
     // When using this API, we want to claim ownership of the archive so that it's closed when we close this file.
     pFile->flags |= DR_VFS_OWNS_PARENT_ARCHIVE;
 
-    return pFile;
+    *ppFile = pFile;
+    return drvfs_success;
 }
 
 void drvfs_close(drvfs_file* pFile)
@@ -4245,8 +4257,8 @@ bool drvfs_write_line(drvfs_file* pFile, const char* str)
 
 void* drvfs_open_and_read_binary_file(drvfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut)
 {
-    drvfs_file* pFile = drvfs_open(pContext, absoluteOrRelativePath, DRVFS_READ);
-    if (pFile == NULL) {
+    drvfs_file* pFile;
+    if (drvfs_open(pContext, absoluteOrRelativePath, DRVFS_READ, &pFile) != drvfs_success) {
         return NULL;
     }
 
@@ -4290,8 +4302,8 @@ void* drvfs_open_and_read_binary_file(drvfs_context* pContext, const char* absol
 
 char* drvfs_open_and_read_text_file(drvfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut)
 {
-    drvfs_file* pFile = drvfs_open(pContext, absoluteOrRelativePath, DRVFS_READ);
-    if (pFile == NULL) {
+    drvfs_file* pFile;
+    if (drvfs_open(pContext, absoluteOrRelativePath, DRVFS_READ, &pFile) != drvfs_success) {
         return NULL;
     }
 
@@ -4338,8 +4350,8 @@ char* drvfs_open_and_read_text_file(drvfs_context* pContext, const char* absolut
 
 bool drvfs_open_and_write_binary_file(drvfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize)
 {
-    drvfs_file* pFile = drvfs_open(pContext, absoluteOrRelativePath, DRVFS_WRITE | DRVFS_TRUNCATE);
-    if (pFile == NULL) {
+    drvfs_file* pFile;
+    if (drvfs_open(pContext, absoluteOrRelativePath, DRVFS_WRITE | DRVFS_TRUNCATE, &pFile) != drvfs_success) {
         return false;
     }
 
