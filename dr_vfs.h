@@ -493,7 +493,7 @@ drvfs_result drvfs_rename_file(drvfs_context* pContext, const char* pathOld, con
 // Creates a directory.
 //
 // The path must be a absolute, or relative to the write directory.
-bool drvfs_create_directory(drvfs_context* pContext, const char* path);
+drvfs_result drvfs_create_directory(drvfs_context* pContext, const char* path);
 
 // Copies a file.
 //
@@ -4096,21 +4096,21 @@ drvfs_result drvfs_rename_file(drvfs_context* pContext, const char* pathOld, con
     return drvfs_success;
 }
 
-bool drvfs_create_directory(drvfs_context* pContext, const char* path)
+drvfs_result drvfs_create_directory(drvfs_context* pContext, const char* path)
 {
     if (pContext == NULL || path == NULL) {
-        return false;
+        return drvfs_invalid_args;
     }
 
     char absolutePath[DRVFS_MAX_PATH];
     if (!drvfs_validate_write_path(pContext, path, absolutePath, sizeof(absolutePath))) {
-        return false;
+        return drvfs_not_in_write_directory;
     }
 
     char relativePath[DRVFS_MAX_PATH];
     drvfs_archive* pArchive = drvfs_open_owner_archive(pContext, absolutePath, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePath, sizeof(relativePath));
     if (pArchive == NULL) {
-        return false;
+        return drvfs_not_in_write_directory;
     }
 
     bool result = false;
@@ -4119,7 +4119,11 @@ bool drvfs_create_directory(drvfs_context* pContext, const char* path)
     }
 
     drvfs_close_archive(pArchive);
-    return result;
+
+    if (!result) {
+        return drvfs_unknown_error;
+    }
+    return drvfs_success;
 }
 
 bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists)
@@ -4458,7 +4462,7 @@ bool drvfs_create_directory_recursive(drvfs_context* pContext, const char* path)
             }
 
             if (!drvfs_is_existing_directory(pContext, runningPath)) {
-                if (!drvfs_create_directory(pContext, runningPath)) {
+                if (drvfs_create_directory(pContext, runningPath) != drvfs_success) {
                     return false;
                 }
 
@@ -4477,7 +4481,7 @@ bool drvfs_create_directory_recursive(drvfs_context* pContext, const char* path)
 
             assert(!drvfs_is_existing_directory(pContext, runningPath));
 
-            if (!drvfs_create_directory(pContext, runningPath)) {
+            if (drvfs_create_directory(pContext, runningPath) != drvfs_success) {
                 return false;
             }
         }
