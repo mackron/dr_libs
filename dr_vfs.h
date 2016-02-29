@@ -212,6 +212,10 @@ typedef enum
     drvfs_no_backend             = -8,
     drvfs_out_of_memory          = -9,
     drvfs_not_in_write_directory = -10,     // A write operation is required, but the given path is not within the write directory or it's sub-directories.
+    drvfs_path_too_long          = -11,
+    drvfs_no_space               = -12,
+    drvfs_not_directory          = -13,
+    drvfs_too_large              = -14,
 } drvfs_result;
 
 // The allowable seeking origins.
@@ -241,7 +245,7 @@ typedef bool         (* drvfs_next_iteration_proc)    (drvfs_handle archive, drv
 typedef bool         (* drvfs_delete_file_proc)       (drvfs_handle archive, const char* relativePath);
 typedef bool         (* drvfs_rename_file_proc)       (drvfs_handle archive, const char* relativePathOld, const char* relativePathNew);
 typedef bool         (* drvfs_create_directory_proc)  (drvfs_handle archive, const char* relativePath);
-typedef bool         (* drvfs_copy_file_proc)         (drvfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists);
+typedef drvfs_result (* drvfs_copy_file_proc)         (drvfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists);
 typedef drvfs_handle (* drvfs_open_file_proc)         (drvfs_handle archive, const char* relativePath, unsigned int accessMode);
 typedef void         (* drvfs_close_file_proc)        (drvfs_handle archive, drvfs_handle file);
 typedef bool         (* drvfs_read_file_proc)         (drvfs_handle archive, drvfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
@@ -498,7 +502,7 @@ drvfs_result drvfs_create_directory(drvfs_context* pContext, const char* path);
 // Copies a file.
 //
 // The destination path must be a absolute, or relative to the write directory.
-bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists);
+drvfs_result drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists);
 
 
 // Determines whether or not the given path refers to an archive file.
@@ -1706,7 +1710,7 @@ static bool drvfs_rename_native_file(const char* absolutePathOld, const char* ab
 static bool drvfs_mkdir_native(const char* absolutePath);
 
 // Creates a copy of a native file.
-static bool drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists);
+static drvfs_result drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists);
 
 // Reads data from the given native file.
 static bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
@@ -1745,6 +1749,20 @@ static bool drvfs_next_native_iteration(drvfs_handle iterator, drvfs_file_info* 
 
 
 #ifdef DR_VFS_USE_WIN32
+static drvfs_result drvfs__GetLastError_to_result()
+{
+    switch (GetLastError())
+    {
+    case ERROR_SUCCESS:             return drvfs_success;
+    case ERROR_FILE_NOT_FOUND:      return drvfs_does_not_exist;
+    case ERROR_PATH_NOT_FOUND:      return drvfs_does_not_exist;
+    case ERROR_TOO_MANY_OPEN_FILES: return drvfs_too_many_open_files;
+    case ERROR_ACCESS_DENIED:       return drvfs_permission_denied;
+    case ERROR_NOT_ENOUGH_MEMORY:   return drvfs_out_of_memory;
+    default: return drvfs_unknown_error;
+    }
+}
+
 static drvfs_handle drvfs_open_native_file(const char* absolutePath, unsigned int accessMode)
 {
     assert(absolutePath != NULL);
@@ -1837,9 +1855,14 @@ static bool drvfs_mkdir_native(const char* absolutePath)
     return CreateDirectoryA(absolutePath, NULL);
 }
 
-static bool drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists)
+static drvfs_result drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists)
 {
-    return CopyFileA(absolutePathSrc, absolutePathDst, failIfExists);
+    BOOL wasSuccessful = CopyFileA(absolutePathSrc, absolutePathDst, failIfExists);
+    if (wasSuccessful) {
+        return drvfs_success;
+    }
+
+    return drvfs__GetLastError_to_result();
 }
 
 static bool drvfs_read_native_file(drvfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut)
@@ -2136,6 +2159,27 @@ static bool drvfs_next_native_iteration(drvfs_handle iterator, drvfs_file_info* 
 #define DRVFS_HANDLE_TO_FD(file) ((int)((size_t)file) - 1)
 #define DRVFS_FD_TO_HANDLE(fd)   ((drvfs_handle)(size_t)(fd + 1))
 
+static drvfs_result drvfs__errno_to_result()
+{
+    switch (errno)
+    {
+    case EACCES:       return drvfs_bad_access;
+    case EEXIST:       return drvfs_already_exists;
+    case EISDIR:       return drvfs_bad_access;
+    case EMFILE:       return drvfs_too_many_open_files;
+    case ENFILE:       return drvfs_too_many_open_files;
+    case ENAMETOOLONG: return drvfs_path_too_long;
+    case ENOENT:       return drvfs_does_not_exist;
+    case ENOMEM:       return drvfs_out_of_memory;
+    case ENOSPC:       return drvfs_no_space;
+    case ENOTDIR:      return drvfs_not_directory;
+    case EOVERFLOW:    return drvfs_too_large;
+    case EROFS:        return drvfs_bad_access;
+    case ETXTBSY:      return drvfs_bad_access;
+    default:           return drvfs_unknown_error;
+    }
+}
+
 static int drvfs__open_fd(const char* absolutePath, int flags)
 {
     return open64(absolutePath, flags, 0666);
@@ -2252,24 +2296,28 @@ static bool drvfs_mkdir_native(const char* absolutePath)
     return mkdir(absolutePath, 0777) == 0;
 }
 
-static bool drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists)
+static drvfs_result drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists)
 {
     if (drvfs_drpath_equal(absolutePathSrc, absolutePathDst)) {
-        return !failIfExists;
+        if (!failIfExists) {
+            return drvfs_success;
+        } else {
+            return drvfs_already_exists;
+        }
     }
 
     int fdSrc = drvfs__open_fd(absolutePathSrc, O_RDONLY);
     if (fdSrc == -1) {
-        return false;
+        return drvfs__errno_to_result();
     }
 
     int fdDst = drvfs__open_fd(absolutePathDst, O_WRONLY | O_TRUNC | O_CREAT | ((failIfExists) ? O_EXCL : 0));
     if (fdDst == -1) {
         close(fdSrc);
-        return false;
+        return drvfs__errno_to_result();
     }
 
-    bool result = true;
+    drvfs_result result = drvfs_success;
 
     struct stat64 info;
     if (drvfs__fstat64(fdSrc, &info) == 0)
@@ -2279,7 +2327,7 @@ static bool drvfs_copy_native_file(const char* absolutePathSrc, const char* abso
         while (bytesRemaining > 0) {
             ssize_t bytesCopied = sendfile(fdDst, fdSrc, NULL, bytesRemaining);
             if (bytesCopied == -1) {
-                result = false;
+                result = drvfs__errno_to_result();
                 break;
             }
 
@@ -2290,11 +2338,15 @@ static bool drvfs_copy_native_file(const char* absolutePathSrc, const char* abso
         int bytesRead;
         while ((bytesRead = read(fdSrc, buffer, sizeof(buffer))) > 0) {
             if (write(fdDst, buffer, bytesRead) != bytesRead) {
-                result = false;
+                result = drvfs__errno_to_result();
                 break;
             }
         }
 #endif
+    }
+    else
+    {
+        result = drvfs__errno_to_result();
     }
 
     close(fdDst);
@@ -2696,7 +2748,7 @@ static bool drvfs_create_directory__native(drvfs_handle archive, const char* rel
     return drvfs_mkdir_native(absolutePath);
 }
 
-static bool drvfs_copy_file__native(drvfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists)
+static drvfs_result drvfs_copy_file__native(drvfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists)
 {
     assert(relativePathSrc != NULL);
     assert(relativePathDst != NULL);
@@ -2706,12 +2758,12 @@ static bool drvfs_copy_file__native(drvfs_handle archive, const char* relativePa
 
     char absolutePathSrc[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePathSrc, sizeof(absolutePathSrc), pNativeArchive->absolutePath, relativePathSrc)) {
-        return false;
+        return drvfs_unknown_error;
     }
 
     char absolutePathDst[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePathDst, sizeof(absolutePathDst), pNativeArchive->absolutePath, relativePathDst)) {
-        return false;
+        return drvfs_unknown_error;
     }
 
     return drvfs_copy_native_file(absolutePathSrc, absolutePathDst, failIfExists);
@@ -4126,15 +4178,15 @@ drvfs_result drvfs_create_directory(drvfs_context* pContext, const char* path)
     return drvfs_success;
 }
 
-bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists)
+drvfs_result drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists)
 {
     if (pContext == NULL || srcPath == NULL || dstPath == NULL) {
-        return false;
+        return drvfs_invalid_args;
     }
 
     char dstPathAbsolute[DRVFS_MAX_PATH];
     if (!drvfs_validate_write_path(pContext, dstPath, dstPathAbsolute, sizeof(dstPathAbsolute))) {
-        return false;
+        return drvfs_not_in_write_directory;
     }
 
 
@@ -4142,19 +4194,19 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
     char srcRelativePath[DRVFS_MAX_PATH];
     drvfs_archive* pSrcArchive = drvfs_open_owner_archive(pContext, srcPath, drvfs_archive_access_mode(DRVFS_READ), srcRelativePath, sizeof(srcRelativePath));
     if (pSrcArchive == NULL) {
-        return false;
+        return drvfs_does_not_exist;
     }
 
     char dstRelativePath[DRVFS_MAX_PATH];
     drvfs_archive* pDstArchive = drvfs_open_owner_archive(pContext, dstPathAbsolute, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), dstRelativePath, sizeof(dstRelativePath));
     if (pDstArchive == NULL) {
         drvfs_close_archive(pSrcArchive);
-        return false;
+        return drvfs_does_not_exist;
     }
 
 
 
-    bool result = false;
+    drvfs_result result = drvfs_success;
     if (strcmp(pSrcArchive->absolutePath, pDstArchive->absolutePath) == 0 && pDstArchive->callbacks.copy_file)
     {
         // Intra-archive copy.
@@ -4175,7 +4227,7 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
             // Inter-archive copy. This is a theoretically slower path because we do everything manually. Probably not much slower in practice, though.
             if (failIfExists && pDstArchive->callbacks.get_file_info(pDstArchive, dstRelativePath, NULL) == true)
             {
-                result = false;
+                result = drvfs_already_exists;
             }
             else
             {
@@ -4190,11 +4242,12 @@ bool drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const char* d
                         drvfs_write(pDstFile, chunk, bytesRead, NULL);
                     }
 
-                    result = true;
+                    result = drvfs_success;
                 }
                 else
                 {
-                    result = false;
+                    // TODO: Make this a more descriptive error.
+                    result = drvfs_unknown_error;
                 }
 
                 drvfs_close(pSrcFile);
