@@ -226,8 +226,8 @@ typedef void (* dr2d_get_clip_proc)                           (dr2d_surface* pSu
 typedef bool (* dr2d_get_font_metrics_proc)                   (dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
 typedef bool (* dr2d_get_glyph_metrics_proc)                  (dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pMetricsOut);
 typedef bool (* dr2d_measure_string_proc)                     (dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-typedef bool (* dr2d_get_text_cursor_position_from_point_proc)(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
-typedef bool (* dr2d_get_text_cursor_position_from_char_proc) (dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+typedef bool (* dr2d_get_text_cursor_position_from_point_proc)(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
+typedef bool (* dr2d_get_text_cursor_position_from_char_proc) (dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
 
 struct dr2d_drawing_callbacks
@@ -430,10 +430,10 @@ bool dr2d_get_glyph_metrics(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_met
 bool dr2d_measure_string(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
 
 /// Retrieves the position to place a text cursor based on the given point for the given string when drawn with the given font.
-bool dr2d_get_text_cursor_position_from_point(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+bool dr2d_get_text_cursor_position_from_point(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
 
 /// Retrieves the position to palce a text cursor based on the character at the given index for the given string when drawn with the given font.
-bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
 
 /// Creates an image that can be passed to dr2d_draw_image().
@@ -970,7 +970,7 @@ bool dr2d_measure_string(dr2d_font* pFont, const char* text, size_t textSizeInBy
     return false;
 }
 
-bool dr2d_get_text_cursor_position_from_point(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+bool dr2d_get_text_cursor_position_from_point(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut)
 {
     if (pFont == NULL) {
         return false;
@@ -985,7 +985,7 @@ bool dr2d_get_text_cursor_position_from_point(dr2d_font* pFont, const char* text
     return false;
 }
 
-bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut)
 {
     if (pFont == NULL) {
         return false;
@@ -1229,8 +1229,8 @@ void dr2d_get_clip_gdi(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, 
 bool dr2d_get_font_metrics_gdi(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
 bool dr2d_get_glyph_metrics_gdi(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pGlyphMetrics);
 bool dr2d_measure_string_gdi(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
-bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
+bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
 /// Converts a char* to a wchar_t* string.
 wchar_t* dr2d_to_wchar_gdi(dr2d_context* pContext, const char* text, size_t textSizeInBytes, unsigned int* characterCountOut);
@@ -2240,7 +2240,7 @@ bool dr2d_measure_string_gdi(dr2d_font* pFont, const char* text, size_t textSize
     return false;
 }
 
-bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut)
 {
     bool successful = false;
 
@@ -2319,7 +2319,7 @@ bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* 
     return successful;
 }
 
-bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut)
 {
     bool successful = false;
 
@@ -2342,7 +2342,7 @@ bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* t
     GCP_RESULTSW results;
     ZeroMemory(&results, sizeof(results));
     results.lStructSize = sizeof(results);
-    results.nGlyphs     = characterIndex + 1;
+    results.nGlyphs     = (DWORD)(characterIndex + 1);
 
     unsigned int textWLength;
     wchar_t* textW = dr2d_to_wchar_gdi(pFont->pContext, text, (int)results.nGlyphs, &textWLength);
@@ -2472,8 +2472,8 @@ void dr2d_get_clip_cairo(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut
 bool dr2d_get_font_metrics_cairo(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
 bool dr2d_get_glyph_metrics_cairo(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pGlyphMetrics);
 bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
-bool dr2d_get_text_cursor_position_from_char_cairo(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
+bool dr2d_get_text_cursor_position_from_char_cairo(dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
 
 dr2d_context* dr2d_create_context_cairo()
@@ -3059,7 +3059,7 @@ bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSi
     return true;
 }
 
-bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut)
 {
     cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
     if (pCairoFont == NULL) {
@@ -3131,7 +3131,7 @@ bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char
     return true;
 }
 
-bool dr2d_get_text_cursor_position_from_char_cairo(dr2d_font* pFont, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+bool dr2d_get_text_cursor_position_from_char_cairo(dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut)
 {
     cairo_font_data* pCairoFont = dr2d_get_font_extra_data(pFont);
     if (pCairoFont == NULL) {

@@ -68,13 +68,13 @@ typedef struct
 
     /// Index of the line the run is placed on. For runs that are new line characters, this will represent the number of lines that came before it. For
     /// example, if this run represents the new-line character for the first line, this will be 0 and so on.
-    unsigned int iLine;
+    size_t iLine;
 
     /// Index in the main text string of the first character of the run.
-    unsigned int iChar;
+    size_t iChar;
 
     /// Index in the main text string of the character just past the last character in the run.
-    unsigned int iCharEnd;
+    size_t iCharEnd;
 
 } drgui_text_run;
 
@@ -240,13 +240,13 @@ void drgui_text_layout_get_cursor_position(drgui_text_layout* pTL, float* pPosXO
 drgui_rect drgui_text_layout_get_cursor_rect(drgui_text_layout* pTL);
 
 /// Retrieves the index of the line the cursor is currently sitting on.
-unsigned int drgui_text_layout_get_cursor_line(drgui_text_layout* pTL);
+size_t drgui_text_layout_get_cursor_line(drgui_text_layout* pTL);
 
 /// Retrieves the index of the column the cursor is currently sitting on.
-unsigned int drgui_text_layout_get_cursor_column(drgui_text_layout* pTL);
+size_t drgui_text_layout_get_cursor_column(drgui_text_layout* pTL);
 
 /// Retrieves the index of the character the cursor is currently sitting on.
-unsigned int drgui_text_layout_get_cursor_character(drgui_text_layout* pTL);
+size_t drgui_text_layout_get_cursor_character(drgui_text_layout* pTL);
 
 /// Moves the cursor of the given text layout to the left by one character.
 bool drgui_text_layout_move_cursor_left(drgui_text_layout* pTL);
@@ -270,10 +270,10 @@ bool drgui_text_layout_move_cursor_to_end_of_line(drgui_text_layout* pTL);
 bool drgui_text_layout_move_cursor_to_start_of_line(drgui_text_layout* pTL);
 
 /// Moves the cursor of the given text layout to the end of the line at the given index.
-bool drgui_text_layout_move_cursor_to_end_of_line_by_index(drgui_text_layout* pTL, unsigned int iLine);
+bool drgui_text_layout_move_cursor_to_end_of_line_by_index(drgui_text_layout* pTL, size_t iLine);
 
 /// Moves the cursor of the given text layout to the start of the line at the given index.
-bool drgui_text_layout_move_cursor_to_start_of_line_by_index(drgui_text_layout* pTL, unsigned int iLine);
+bool drgui_text_layout_move_cursor_to_start_of_line_by_index(drgui_text_layout* pTL, size_t iLine);
 
 /// Moves the cursor of the given text layout to the end of the text.
 bool drgui_text_layout_move_cursor_to_end_of_text(drgui_text_layout* pTL);
@@ -288,7 +288,7 @@ void drgui_text_layout_move_cursor_to_start_of_selection(drgui_text_layout* pTL)
 void drgui_text_layout_move_cursor_to_end_of_selection(drgui_text_layout* pTL);
 
 /// Moves the cursor to the given character index.
-void drgui_text_layout_move_cursor_to_character(drgui_text_layout* pTL, unsigned int characterIndex);
+void drgui_text_layout_move_cursor_to_character(drgui_text_layout* pTL, size_t characterIndex);
 
 /// Determines whether or not the cursor is sitting at the start of the selection.
 bool drgui_text_layout_is_cursor_at_start_of_selection(drgui_text_layout* pTL);
@@ -306,17 +306,17 @@ void drgui_text_layout_set_on_cursor_move(drgui_text_layout* pTL, drgui_text_lay
 /// Inserts a character into the given text layout.
 ///
 /// @return True if the text within the text layout has changed.
-bool drgui_text_layout_insert_character(drgui_text_layout* pTL, unsigned int character, unsigned int insertIndex);
+bool drgui_text_layout_insert_character(drgui_text_layout* pTL, unsigned int character, size_t insertIndex);
 
 /// Inserts the given string at the given character index.
 ///
 /// @return True if the text within the text layout has changed.
-bool drgui_text_layout_insert_text(drgui_text_layout* pTL, const char* text, unsigned int insertIndex);
+bool drgui_text_layout_insert_text(drgui_text_layout* pTL, const char* text, size_t insertIndex);
 
 /// Deletes a range of text in the given text layout.
 ///
 /// @return True if the text within the text layout has changed.
-bool drgui_text_layout_delete_text_range(drgui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1);
+bool drgui_text_layout_delete_text_range(drgui_text_layout* pTL, size_t iFirstCh, size_t iLastChPlus1);
 
 /// Inserts a character at the position of the cursor.
 ///
@@ -374,7 +374,7 @@ void drgui_text_layout_deselect_all(drgui_text_layout* pTL);
 void drgui_text_layout_select_all(drgui_text_layout* pTL);
 
 /// Selects the given range of text.
-void drgui_text_layout_select(drgui_text_layout* pTL, unsigned int firstCharacter, unsigned int lastCharacter);
+void drgui_text_layout_select(drgui_text_layout* pTL, size_t firstCharacter, size_t lastCharacter);
 
 /// Retrieves a copy of the selected text.
 ///
@@ -386,19 +386,19 @@ void drgui_text_layout_select(drgui_text_layout* pTL, unsigned int firstCharacte
 size_t drgui_text_layout_get_selected_text(drgui_text_layout* pTL, char* textOut, size_t textOutLength);
 
 /// Retrieves the index of the first line of the current selection.
-unsigned int drgui_text_layout_get_selection_first_line(drgui_text_layout* pTL);
+size_t drgui_text_layout_get_selection_first_line(drgui_text_layout* pTL);
 
 /// Retrieves the index of the last line of the current selection.
-unsigned int drgui_text_layout_get_selection_last_line(drgui_text_layout* pTL);
+size_t drgui_text_layout_get_selection_last_line(drgui_text_layout* pTL);
 
 /// Moves the selection anchor to the end of the given line.
-void drgui_text_layout_move_selection_anchor_to_end_of_line(drgui_text_layout* pTL, unsigned int iLine);
+void drgui_text_layout_move_selection_anchor_to_end_of_line(drgui_text_layout* pTL, size_t iLine);
 
 /// Moves the selection anchor to the start of the given line.
-void drgui_text_layout_move_selection_anchor_to_start_of_line(drgui_text_layout* pTL, unsigned int iLine);
+void drgui_text_layout_move_selection_anchor_to_start_of_line(drgui_text_layout* pTL, size_t iLine);
 
 /// Retrieves the line the selection anchor is sitting on.
-unsigned int drgui_text_layout_get_selection_anchor_line(drgui_text_layout* pTL);
+size_t drgui_text_layout_get_selection_anchor_line(drgui_text_layout* pTL);
 
 
 /// Prepares the next undo/redo point.
@@ -428,31 +428,31 @@ void drgui_text_layout_clear_undo_stack(drgui_text_layout* pTL);
 
 
 /// Retrieves the number of lines in the given text layout.
-unsigned int drgui_text_layout_get_line_count(drgui_text_layout* pTL);
+size_t drgui_text_layout_get_line_count(drgui_text_layout* pTL);
 
 /// Retrieves the number of lines that can fit on the visible portion of the layout, starting from the given line.
 ///
 /// @remarks
 ///     Use this for controlling the page size for scrollbars.
-unsigned int drgui_text_layout_get_visible_line_count_starting_at(drgui_text_layout* pTL, unsigned int iFirstLine);
+size_t drgui_text_layout_get_visible_line_count_starting_at(drgui_text_layout* pTL, size_t iFirstLine);
 
 /// Retrieves the position of the line at the given index on the y axis.
 ///
 /// @remarks
 ///     Use this for calculating the inner offset for scrolling on the y axis.
-float drgui_text_layout_get_line_pos_y(drgui_text_layout* pTL, unsigned int iLine);
+float drgui_text_layout_get_line_pos_y(drgui_text_layout* pTL, size_t iLine);
 
 /// Finds the line under the given point on the y axis relative to the container.
-unsigned int drgui_text_layout_get_line_at_pos_y(drgui_text_layout* pTL, float posY);
+size_t drgui_text_layout_get_line_at_pos_y(drgui_text_layout* pTL, float posY);
 
 /// Retrieves the index of the first character of the line at the given index.
-unsigned int drgui_text_layout_get_line_first_character(drgui_text_layout* pTL, unsigned int iLine);
+size_t drgui_text_layout_get_line_first_character(drgui_text_layout* pTL, size_t iLine);
 
 /// Retrieves the index of the last character of the line at the given index.
-unsigned int drgui_text_layout_get_line_last_character(drgui_text_layout* pTL, unsigned int iLine);
+size_t drgui_text_layout_get_line_last_character(drgui_text_layout* pTL, size_t iLine);
 
 /// Retrieves teh index of the first and last character of the line at the given index.
-void drgui_text_layout_get_line_character_range(drgui_text_layout* pTL, unsigned int iLine, unsigned int* pCharStartOut, unsigned int* pCharEndOut);
+void drgui_text_layout_get_line_character_range(drgui_text_layout* pTL, size_t iLine, size_t* pCharStartOut, size_t* pCharEndOut);
 
 
 /// Sets the function to call when a run of text needs to be painted for the given text layout.
@@ -482,10 +482,10 @@ void drgui_text_layout_paint_line_numbers(drgui_text_layout* pTL, float lineNumb
 
 
 /// Finds the given string starting from the cursor and then looping back.
-bool drgui_text_layout_find_next(drgui_text_layout* pTL, const char* text, unsigned int* pSelectionStartOut, unsigned int* pSelectionEndOut);
+bool drgui_text_layout_find_next(drgui_text_layout* pTL, const char* text, size_t* pSelectionStartOut, size_t* pSelectionEndOut);
 
 /// Finds the given string starting from the cursor, but does not loop back.
-bool drgui_text_layout_find_next_no_loop(drgui_text_layout* pTL, const char* text, unsigned int* pSelectionStartOut, unsigned int* pSelectionEndOut);
+bool drgui_text_layout_find_next_no_loop(drgui_text_layout* pTL, const char* text, size_t* pSelectionStartOut, size_t* pSelectionEndOut);
 
 #ifdef __cplusplus
 }
@@ -498,10 +498,10 @@ bool drgui_text_layout_find_next_no_loop(drgui_text_layout* pTL, const char* tex
 typedef struct
 {
     /// The index of the run within the line the marker is positioned on.
-    unsigned int iRun;
+    size_t iRun;
 
     /// The index of the character within the run the marker is positioned to the left of.
-    unsigned int iChar;
+    size_t iChar;
 
     /// The position on the x axis, relative to the x position of the run.
     float relativePosX;
@@ -695,7 +695,7 @@ struct drgui_text_layout
 typedef struct
 {
     /// The index of the line.
-    unsigned int index;
+    size_t index;
 
     /// The position of the line on the y axis.
     float posY;
@@ -704,10 +704,10 @@ typedef struct
     float height;
 
     /// The index of the first run on the line.
-    unsigned int iFirstRun;
+    size_t iFirstRun;
 
     /// The index of the last run on the line.
-    unsigned int iLastRun;
+    size_t iLastRun;
 
 } drgui_text_layout_line;
 
@@ -738,25 +738,25 @@ DRGUI_PRIVATE float drgui_text_layout__get_tab_width(drgui_text_layout* pTL);
 
 
 /// Finds the line that's closest to the given point relative to the text.
-DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layout* pTL, float inputPosYRelativeToText, unsigned int* pFirstRunIndexOnLineOut, unsigned int* pLastRunIndexOnLinePlus1Out);
+DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layout* pTL, float inputPosYRelativeToText, size_t* pFirstRunIndexOnLineOut, size_t* pLastRunIndexOnLinePlus1Out);
 
 /// Finds the run that's closest to the given point relative to the text.
-DRGUI_PRIVATE bool drgui_text_layout__find_closest_run_to_point(drgui_text_layout* pTL, float inputPosXRelativeToText, float inputPosYRelativeToText, unsigned int* pRunIndexOut);
+DRGUI_PRIVATE bool drgui_text_layout__find_closest_run_to_point(drgui_text_layout* pTL, float inputPosXRelativeToText, float inputPosYRelativeToText, size_t* pRunIndexOut);
 
 /// Retrieves some basic information about a line, namely the index of the last run on the line, and the line's height.
-DRGUI_PRIVATE bool drgui_text_layout__find_line_info(drgui_text_layout* pTL, unsigned int iFirstRunOnLine, unsigned int* pLastRunIndexOnLinePlus1Out, float* pLineHeightOut);
+DRGUI_PRIVATE bool drgui_text_layout__find_line_info(drgui_text_layout* pTL, size_t iFirstRunOnLine, size_t* pLastRunIndexOnLinePlus1Out, float* pLineHeightOut);
 
 /// Retrieves some basic information about a line by it's index.
-DRGUI_PRIVATE bool drgui_text_layout__find_line_info_by_index(drgui_text_layout* pTL, unsigned int iLine, drgui_rect* pRectOut, unsigned int* pFirstRunIndexOut, unsigned int* pLastRunIndexPlus1Out);
+DRGUI_PRIVATE bool drgui_text_layout__find_line_info_by_index(drgui_text_layout* pTL, size_t iLine, drgui_rect* pRectOut, size_t* pFirstRunIndexOut, size_t* pLastRunIndexPlus1Out);
 
 /// Finds the last run on the line that the given run is sitting on.
-DRGUI_PRIVATE bool drgui_text_layout__find_last_run_on_line_starting_from_run(drgui_text_layout* pTL, unsigned int iRun, unsigned int* pLastRunIndexOnLineOut);
+DRGUI_PRIVATE bool drgui_text_layout__find_last_run_on_line_starting_from_run(drgui_text_layout* pTL, size_t iRun, size_t* pLastRunIndexOnLineOut);
 
 /// Finds the first run on the line that the given run is sitting on.
-DRGUI_PRIVATE bool drgui_text_layout__find_first_run_on_line_starting_from_run(drgui_text_layout* pTL, unsigned int iRun, unsigned int* pFirstRunIndexOnLineOut);
+DRGUI_PRIVATE bool drgui_text_layout__find_first_run_on_line_starting_from_run(drgui_text_layout* pTL, size_t iRun, size_t* pFirstRunIndexOnLineOut);
 
 /// Finds the run containing the character at the given index.
-DRGUI_PRIVATE bool drgui_text_layout__find_run_at_character(drgui_text_layout* pTL, unsigned int iChar, unsigned int* pRunIndexOut);
+DRGUI_PRIVATE bool drgui_text_layout__find_run_at_character(drgui_text_layout* pTL, size_t iChar, size_t* pRunIndexOut);
 
 
 /// Creates a blank text marker.
@@ -793,10 +793,10 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_end_of_line(drgui_text_layo
 DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_start_of_line(drgui_text_layout* pTL, drgui_text_marker* pMarker);
 
 /// Moves the given marker to the end of the line at the given index.
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_end_of_line_by_index(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iLine);
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_end_of_line_by_index(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iLine);
 
 /// Moves the given marker to the start of the line at the given index.
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_start_of_line_by_index(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iLine);
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_start_of_line_by_index(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iLine);
 
 /// Moves the given marker to the end of the text.
 DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_end_of_text(drgui_text_layout* pTL, drgui_text_marker* pMarker);
@@ -805,10 +805,10 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_end_of_text(drgui_text_layo
 DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_start_of_text(drgui_text_layout* pTL, drgui_text_marker* pMarker);
 
 /// Moves the given marker to the last character of the given run.
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_last_character_of_run(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iRun);
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_last_character_of_run(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iRun);
 
 /// Moves the given marker to the first character of the given run.
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_first_character_of_run(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iRun);
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_first_character_of_run(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iRun);
 
 /// Moves the given marker to the last character of the previous run.
 DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_last_character_of_prev_run(drgui_text_layout* pTL, drgui_text_marker* pMarker);
@@ -817,7 +817,7 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_last_character_of_prev_run(
 DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_first_character_of_next_run(drgui_text_layout* pTL, drgui_text_marker* pMarker);
 
 /// Moves the given marker to the character at the given position.
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_character(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iChar);
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_character(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iChar);
 
 
 /// Updates the relative position of the given marker.
@@ -831,17 +831,15 @@ DRGUI_PRIVATE void drgui_text_layout__update_marker_sticky_position(drgui_text_l
 
 
 /// Retrieves the index of the character the given marker is located at.
-DRGUI_PRIVATE unsigned int drgui_text_layout__get_marker_absolute_char_index(drgui_text_layout* pTL, drgui_text_marker* pMarker);
+DRGUI_PRIVATE size_t drgui_text_layout__get_marker_absolute_char_index(drgui_text_layout* pTL, drgui_text_marker* pMarker);
 
 
 /// Helper function for determining whether or not there is any spacing between the selection markers.
 DRGUI_PRIVATE bool drgui_text_layout__has_spacing_between_selection_markers(drgui_text_layout* pTL);
 
 /// Splits the given run into sub-runs based on the current selection rectangle. Returns the sub-run count.
-DRGUI_PRIVATE unsigned int drgui_text_layout__split_text_run_by_selection(drgui_text_layout* pTL, drgui_text_run* pRunToSplit, drgui_text_run pSubRunsOut[3]);
+DRGUI_PRIVATE size_t drgui_text_layout__split_text_run_by_selection(drgui_text_layout* pTL, drgui_text_run* pRunToSplit, drgui_text_run pSubRunsOut[3]);
 
-/// Determines whether or not the run at the given index is selected.
-//DRGUI_PRIVATE bool drgui_text_layout__is_run_selected(drgui_text_layout* pTL, unsigned int iRun);
 
 /// Retrieves pointers to the selection markers in the correct order.
 DRGUI_PRIVATE bool drgui_text_layout__get_selection_markers(drgui_text_layout* pTL, drgui_text_marker** ppSelectionMarker0Out, drgui_text_marker** ppSelectionMarker1Out);
@@ -1547,8 +1545,8 @@ void drgui_text_layout_move_cursor_to_point(drgui_text_layout* pTL, float posX, 
         return;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     drgui_text_layout__move_marker_to_point_relative_to_container(pTL, &pTL->cursor, posX, posY);
 
     if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar)
@@ -1607,7 +1605,7 @@ drgui_rect drgui_text_layout_get_cursor_rect(drgui_text_layout* pTL)
     return drgui_make_rect(cursorPosX, cursorPosY, cursorPosX + pTL->cursorWidth, cursorPosY + (lineRect.bottom - lineRect.top));
 }
 
-unsigned int drgui_text_layout_get_cursor_line(drgui_text_layout* pTL)
+size_t drgui_text_layout_get_cursor_line(drgui_text_layout* pTL)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
@@ -1616,7 +1614,7 @@ unsigned int drgui_text_layout_get_cursor_line(drgui_text_layout* pTL)
     return pTL->pRuns[pTL->cursor.iRun].iLine;
 }
 
-unsigned int drgui_text_layout_get_cursor_column(drgui_text_layout* pTL)
+size_t drgui_text_layout_get_cursor_column(drgui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return 0;
@@ -1635,7 +1633,7 @@ unsigned int drgui_text_layout_get_cursor_column(drgui_text_layout* pTL)
     return (unsigned int)((int)posX / fontMetrics.spaceWidth);
 }
 
-unsigned int drgui_text_layout_get_cursor_character(drgui_text_layout* pTL)
+size_t drgui_text_layout_get_cursor_character(drgui_text_layout* pTL)
 {
     if (pTL == NULL) {
         return 0;
@@ -1650,8 +1648,8 @@ bool drgui_text_layout_move_cursor_left(drgui_text_layout* pTL)
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_left(pTL, &pTL->cursor)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1677,8 +1675,8 @@ bool drgui_text_layout_move_cursor_right(drgui_text_layout* pTL)
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_right(pTL, &pTL->cursor)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1704,8 +1702,8 @@ bool drgui_text_layout_move_cursor_up(drgui_text_layout* pTL)
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_up(pTL, &pTL->cursor)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1731,8 +1729,8 @@ bool drgui_text_layout_move_cursor_down(drgui_text_layout* pTL)
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_down(pTL, &pTL->cursor)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1758,8 +1756,8 @@ bool drgui_text_layout_move_cursor_y(drgui_text_layout* pTL, int amount)
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_y(pTL, &pTL->cursor, amount)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1785,8 +1783,8 @@ bool drgui_text_layout_move_cursor_to_end_of_line(drgui_text_layout* pTL)
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_to_end_of_line(pTL, &pTL->cursor)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1812,8 +1810,8 @@ bool drgui_text_layout_move_cursor_to_start_of_line(drgui_text_layout* pTL)
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_to_start_of_line(pTL, &pTL->cursor)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1833,14 +1831,14 @@ bool drgui_text_layout_move_cursor_to_start_of_line(drgui_text_layout* pTL)
     return false;
 }
 
-bool drgui_text_layout_move_cursor_to_end_of_line_by_index(drgui_text_layout* pTL, unsigned int iLine)
+bool drgui_text_layout_move_cursor_to_end_of_line_by_index(drgui_text_layout* pTL, size_t iLine)
 {
     if (pTL == NULL) {
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_to_end_of_line_by_index(pTL, &pTL->cursor, iLine)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1860,14 +1858,14 @@ bool drgui_text_layout_move_cursor_to_end_of_line_by_index(drgui_text_layout* pT
     return false;
 }
 
-bool drgui_text_layout_move_cursor_to_start_of_line_by_index(drgui_text_layout* pTL, unsigned int iLine)
+bool drgui_text_layout_move_cursor_to_start_of_line_by_index(drgui_text_layout* pTL, size_t iLine)
 {
     if (pTL == NULL) {
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_to_start_of_line_by_index(pTL, &pTL->cursor, iLine)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1893,8 +1891,8 @@ bool drgui_text_layout_move_cursor_to_end_of_text(drgui_text_layout* pTL)
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_to_end_of_text(pTL, &pTL->cursor)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1920,8 +1918,8 @@ bool drgui_text_layout_move_cursor_to_start_of_text(drgui_text_layout* pTL)
         return false;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_to_start_of_text(pTL, &pTL->cursor)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -1979,14 +1977,14 @@ void drgui_text_layout_move_cursor_to_end_of_selection(drgui_text_layout* pTL)
     }
 }
 
-void drgui_text_layout_move_cursor_to_character(drgui_text_layout* pTL, unsigned int characterIndex)
+void drgui_text_layout_move_cursor_to_character(drgui_text_layout* pTL, size_t characterIndex)
 {
     if (pTL == NULL) {
         return;
     }
 
-    unsigned int iRunOld  = pTL->cursor.iRun;
-    unsigned int iCharOld = pTL->cursor.iChar;
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
     if (drgui_text_layout__move_marker_to_character(pTL, &pTL->cursor, characterIndex)) {
         if (drgui_text_layout_is_in_selection_mode(pTL)) {
             pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
@@ -2034,8 +2032,8 @@ void drgui_text_layout_swap_selection_markers(drgui_text_layout* pTL)
     drgui_text_marker* pSelectionMarker1;
     if (drgui_text_layout__get_selection_markers(pTL, &pSelectionMarker0, &pSelectionMarker1))
     {
-        unsigned int iRunOld  = pTL->cursor.iRun;
-        unsigned int iCharOld = pTL->cursor.iChar;
+        size_t iRunOld  = pTL->cursor.iRun;
+        size_t iCharOld = pTL->cursor.iChar;
 
         drgui_text_marker temp = *pSelectionMarker0;
         *pSelectionMarker0 = *pSelectionMarker1;
@@ -2061,7 +2059,7 @@ void drgui_text_layout_set_on_cursor_move(drgui_text_layout* pTL, drgui_text_lay
 }
 
 
-bool drgui_text_layout_insert_character(drgui_text_layout* pTL, unsigned int character, unsigned int insertIndex)
+bool drgui_text_layout_insert_character(drgui_text_layout* pTL, unsigned int character, size_t insertIndex)
 {
     if (pTL == NULL) {
         return false;
@@ -2110,7 +2108,7 @@ bool drgui_text_layout_insert_character(drgui_text_layout* pTL, unsigned int cha
     return true;
 }
 
-bool drgui_text_layout_insert_text(drgui_text_layout* pTL, const char* text, unsigned int insertIndex)
+bool drgui_text_layout_insert_text(drgui_text_layout* pTL, const char* text, size_t insertIndex)
 {
     if (pTL == NULL || text == NULL) {
         return false;;
@@ -2174,20 +2172,20 @@ bool drgui_text_layout_insert_text(drgui_text_layout* pTL, const char* text, uns
     return true;
 }
 
-bool drgui_text_layout_delete_text_range(drgui_text_layout* pTL, unsigned int iFirstCh, unsigned int iLastChPlus1)
+bool drgui_text_layout_delete_text_range(drgui_text_layout* pTL, size_t iFirstCh, size_t iLastChPlus1)
 {
     if (pTL == NULL || iLastChPlus1 == iFirstCh) {
         return false;
     }
 
     if (iFirstCh > iLastChPlus1) {
-        unsigned int temp = iFirstCh;
+        size_t temp = iFirstCh;
         iFirstCh = iLastChPlus1;
         iLastChPlus1 = temp;
     }
 
 
-    unsigned int bytesToRemove = iLastChPlus1 - iFirstCh;
+    size_t bytesToRemove = iLastChPlus1 - iFirstCh;
     if (bytesToRemove > 0)
     {
         memmove(pTL->text + iFirstCh, pTL->text + iLastChPlus1, pTL->textLength - iLastChPlus1);
@@ -2217,7 +2215,7 @@ bool drgui_text_layout_insert_character_at_cursor(drgui_text_layout* pTL, unsign
         return false;
     }
 
-    unsigned int iAbsoluteMarkerChar = 0;
+    size_t iAbsoluteMarkerChar = 0;
 
     drgui_text_run* pRun = pTL->pRuns + pTL->cursor.iRun;
     if (pTL->runCount > 0 && pRun != NULL) {
@@ -2246,7 +2244,7 @@ bool drgui_text_layout_insert_text_at_cursor(drgui_text_layout* pTL, const char*
         return false;
     }
 
-    unsigned int cursorPos = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+    size_t cursorPos = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
     drgui_text_layout_insert_text(pTL, text, cursorPos);
 
 
@@ -2284,7 +2282,7 @@ bool drgui_text_layout_delete_character_to_right_of_cursor(drgui_text_layout* pT
     }
 
     drgui_text_run* pRun = pTL->pRuns + pTL->cursor.iRun;
-    unsigned int iAbsoluteMarkerChar = pRun->iChar + pTL->cursor.iChar;
+    size_t iAbsoluteMarkerChar = pRun->iChar + pTL->cursor.iChar;
 
     if (iAbsoluteMarkerChar < pTL->textLength)
     {
@@ -2328,8 +2326,8 @@ bool drgui_text_layout_delete_selected_text(drgui_text_layout* pTL)
         pSelectionMarker1 = temp;
     }
 
-    unsigned int iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
-    unsigned int iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
+    size_t iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
+    size_t iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
 
     bool wasTextChanged = drgui_text_layout_delete_text_range(pTL, iSelectionChar0, iSelectionChar1);
     if (wasTextChanged)
@@ -2426,7 +2424,7 @@ void drgui_text_layout_select_all(drgui_text_layout* pTL)
     }
 }
 
-void drgui_text_layout_select(drgui_text_layout* pTL, unsigned int firstCharacter, unsigned int lastCharacter)
+void drgui_text_layout_select(drgui_text_layout* pTL, size_t firstCharacter, size_t lastCharacter)
 {
     if (pTL == NULL) {
         return;
@@ -2461,8 +2459,8 @@ size_t drgui_text_layout_get_selected_text(drgui_text_layout* pTL, char* textOut
         return false;
     }
 
-    unsigned int iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
-    unsigned int iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
+    size_t iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
+    size_t iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
 
     size_t selectedTextLength = iSelectionChar1 - iSelectionChar0;
 
@@ -2473,7 +2471,7 @@ size_t drgui_text_layout_get_selected_text(drgui_text_layout* pTL, char* textOut
     return selectedTextLength;
 }
 
-unsigned int drgui_text_layout_get_selection_first_line(drgui_text_layout* pTL)
+size_t drgui_text_layout_get_selection_first_line(drgui_text_layout* pTL)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
@@ -2488,7 +2486,7 @@ unsigned int drgui_text_layout_get_selection_first_line(drgui_text_layout* pTL)
     return pTL->pRuns[pSelectionMarker0->iRun].iLine;
 }
 
-unsigned int drgui_text_layout_get_selection_last_line(drgui_text_layout* pTL)
+size_t drgui_text_layout_get_selection_last_line(drgui_text_layout* pTL)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
@@ -2503,7 +2501,7 @@ unsigned int drgui_text_layout_get_selection_last_line(drgui_text_layout* pTL)
     return pTL->pRuns[pSelectionMarker1->iRun].iLine;
 }
 
-void drgui_text_layout_move_selection_anchor_to_end_of_line(drgui_text_layout* pTL, unsigned int iLine)
+void drgui_text_layout_move_selection_anchor_to_end_of_line(drgui_text_layout* pTL, size_t iLine)
 {
     if (pTL == NULL) {
         return;
@@ -2513,7 +2511,7 @@ void drgui_text_layout_move_selection_anchor_to_end_of_line(drgui_text_layout* p
     pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
 }
 
-void drgui_text_layout_move_selection_anchor_to_start_of_line(drgui_text_layout* pTL, unsigned int iLine)
+void drgui_text_layout_move_selection_anchor_to_start_of_line(drgui_text_layout* pTL, size_t iLine)
 {
     if (pTL == NULL) {
         return;
@@ -2523,7 +2521,7 @@ void drgui_text_layout_move_selection_anchor_to_start_of_line(drgui_text_layout*
     pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
 }
 
-unsigned int drgui_text_layout_get_selection_anchor_line(drgui_text_layout* pTL)
+size_t drgui_text_layout_get_selection_anchor_line(drgui_text_layout* pTL)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
@@ -2686,7 +2684,7 @@ void drgui_text_layout_clear_undo_stack(drgui_text_layout* pTL)
 
 
 
-unsigned int drgui_text_layout_get_line_count(drgui_text_layout* pTL)
+size_t drgui_text_layout_get_line_count(drgui_text_layout* pTL)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
@@ -2695,7 +2693,7 @@ unsigned int drgui_text_layout_get_line_count(drgui_text_layout* pTL)
     return pTL->pRuns[pTL->runCount - 1].iLine + 1;
 }
 
-unsigned int drgui_text_layout_get_visible_line_count_starting_at(drgui_text_layout* pTL, unsigned int iFirstLine)
+size_t drgui_text_layout_get_visible_line_count_starting_at(drgui_text_layout* pTL, size_t iFirstLine)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
@@ -2756,7 +2754,7 @@ unsigned int drgui_text_layout_get_visible_line_count_starting_at(drgui_text_lay
     return count;
 }
 
-float drgui_text_layout_get_line_pos_y(drgui_text_layout* pTL, unsigned int iLine)
+float drgui_text_layout_get_line_pos_y(drgui_text_layout* pTL, size_t iLine)
 {
     drgui_rect lineRect;
     if (!drgui_text_layout__find_line_info_by_index(pTL, iLine, &lineRect, NULL, NULL)) {
@@ -2766,7 +2764,7 @@ float drgui_text_layout_get_line_pos_y(drgui_text_layout* pTL, unsigned int iLin
     return lineRect.top;
 }
 
-unsigned int drgui_text_layout_get_line_at_pos_y(drgui_text_layout* pTL, float posY)
+size_t drgui_text_layout_get_line_at_pos_y(drgui_text_layout* pTL, float posY)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
@@ -2774,7 +2772,7 @@ unsigned int drgui_text_layout_get_line_at_pos_y(drgui_text_layout* pTL, float p
 
     drgui_rect textRect = drgui_text_layout_get_text_rect_relative_to_bounds(pTL);
 
-    unsigned int iRun;
+    size_t iRun;
 
     float inputPosYRelativeToText = posY - textRect.top;
     if (!drgui_text_layout__find_closest_run_to_point(pTL, 0, inputPosYRelativeToText, &iRun)) {
@@ -2784,14 +2782,14 @@ unsigned int drgui_text_layout_get_line_at_pos_y(drgui_text_layout* pTL, float p
     return pTL->pRuns[iRun].iLine;
 }
 
-unsigned int drgui_text_layout_get_line_first_character(drgui_text_layout* pTL, unsigned int iLine)
+size_t drgui_text_layout_get_line_first_character(drgui_text_layout* pTL, size_t iLine)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
     }
 
-    unsigned int firstRunIndex0;
-    unsigned int lastRunIndexPlus1;
+    size_t firstRunIndex0;
+    size_t lastRunIndexPlus1;
     if (drgui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &firstRunIndex0, &lastRunIndexPlus1)) {
         return pTL->pRuns[firstRunIndex0].iChar;
     }
@@ -2799,16 +2797,16 @@ unsigned int drgui_text_layout_get_line_first_character(drgui_text_layout* pTL, 
     return 0;
 }
 
-unsigned int drgui_text_layout_get_line_last_character(drgui_text_layout* pTL, unsigned int iLine)
+size_t drgui_text_layout_get_line_last_character(drgui_text_layout* pTL, size_t iLine)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return 0;
     }
 
-    unsigned int firstRunIndex0;
-    unsigned int lastRunIndexPlus1;
+    size_t firstRunIndex0;
+    size_t lastRunIndexPlus1;
     if (drgui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &firstRunIndex0, &lastRunIndexPlus1)) {
-        unsigned int charEnd = pTL->pRuns[lastRunIndexPlus1 - 1].iCharEnd;
+        size_t charEnd = pTL->pRuns[lastRunIndexPlus1 - 1].iCharEnd;
         if (charEnd > 0) {
             charEnd -= 1;
         }
@@ -2819,17 +2817,17 @@ unsigned int drgui_text_layout_get_line_last_character(drgui_text_layout* pTL, u
     return 0;
 }
 
-void drgui_text_layout_get_line_character_range(drgui_text_layout* pTL, unsigned int iLine, unsigned int* pCharStartOut, unsigned int* pCharEndOut)
+void drgui_text_layout_get_line_character_range(drgui_text_layout* pTL, size_t iLine, size_t* pCharStartOut, size_t* pCharEndOut)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return;
     }
 
-    unsigned int charStart = 0;
-    unsigned int charEnd = 0;
+    size_t charStart = 0;
+    size_t charEnd = 0;
 
-    unsigned int firstRunIndex0;
-    unsigned int lastRunIndexPlus1;
+    size_t firstRunIndex0;
+    size_t lastRunIndexPlus1;
     if (drgui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &firstRunIndex0, &lastRunIndexPlus1)) {
         charStart = pTL->pRuns[firstRunIndex0].iChar;
         charEnd   = pTL->pRuns[lastRunIndexPlus1 - 1].iCharEnd;
@@ -2944,8 +2942,8 @@ void drgui_text_layout_paint(drgui_text_layout* pTL, drgui_rect rect, drgui_elem
                             pSelectionMarker1 = temp;
                         }
 
-                        unsigned int iSelectionLine0 = pTL->pRuns[pSelectionMarker0->iRun].iLine;
-                        unsigned int iSelectionLine1 = pTL->pRuns[pSelectionMarker1->iRun].iLine;
+                        size_t iSelectionLine0 = pTL->pRuns[pSelectionMarker0->iRun].iLine;
+                        size_t iSelectionLine1 = pTL->pRuns[pSelectionMarker1->iRun].iLine;
 
                         if (line.index >= iSelectionLine0 && line.index < iSelectionLine1)
                         {
@@ -2992,7 +2990,7 @@ void drgui_text_layout_paint(drgui_text_layout* pTL, drgui_rect rect, drgui_elem
 
 
                     // 2) The runs themselves.
-                    for (unsigned int iRun = line.iFirstRun; iRun <= line.iLastRun; ++iRun)
+                    for (size_t iRun = line.iFirstRun; iRun <= line.iLastRun; ++iRun)
                     {
                         drgui_text_run* pRun = pTL->pRuns + iRun;
 
@@ -3017,8 +3015,8 @@ void drgui_text_layout_paint(drgui_text_layout* pTL, drgui_rect rect, drgui_elem
                                 if (drgui_text_layout_is_anything_selected(pTL))
                                 {
                                     drgui_text_run subruns[3];
-                                    unsigned int subrunCount = drgui_text_layout__split_text_run_by_selection(pTL, &run, subruns);
-                                    for (unsigned int iSubRun = 0; iSubRun < subrunCount; ++iSubRun)
+                                    size_t subrunCount = drgui_text_layout__split_text_run_by_selection(pTL, &run, subruns);
+                                    for (size_t iSubRun = 0; iSubRun < subrunCount; ++iSubRun)
                                     {
                                         drgui_text_run* pSubRun = subruns + iSubRun;
 
@@ -3188,13 +3186,13 @@ void drgui_text_layout_paint_line_numbers(drgui_text_layout* pTL, float lineNumb
 }
 
 
-bool drgui_text_layout_find_next(drgui_text_layout* pTL, const char* text, unsigned int* pSelectionStartOut, unsigned int* pSelectionEndOut)
+bool drgui_text_layout_find_next(drgui_text_layout* pTL, const char* text, size_t* pSelectionStartOut, size_t* pSelectionEndOut)
 {
     if (pTL == NULL || text == NULL || text[0] == '\0') {
         return false;
     }
 
-    unsigned int cursorPos = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+    size_t cursorPos = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
     char* nextOccurance = strstr(pTL->text + cursorPos, text);
     if (nextOccurance == NULL) {
         nextOccurance = strstr(pTL->text, text);
@@ -3205,22 +3203,22 @@ bool drgui_text_layout_find_next(drgui_text_layout* pTL, const char* text, unsig
     }
 
     if (pSelectionStartOut) {
-        *pSelectionStartOut = (unsigned int)(nextOccurance - pTL->text);
+        *pSelectionStartOut = nextOccurance - pTL->text;
     }
     if (pSelectionEndOut) {
-        *pSelectionEndOut = (unsigned int)(nextOccurance - pTL->text) + strlen(text);
+        *pSelectionEndOut = (nextOccurance - pTL->text) + strlen(text);
     }
 
     return true;
 }
 
-bool drgui_text_layout_find_next_no_loop(drgui_text_layout* pTL, const char* text, unsigned int* pSelectionStartOut, unsigned int* pSelectionEndOut)
+bool drgui_text_layout_find_next_no_loop(drgui_text_layout* pTL, const char* text, size_t* pSelectionStartOut, size_t* pSelectionEndOut)
 {
     if (pTL == NULL || text == NULL || text[0] == '\0') {
         return false;
     }
 
-    unsigned int cursorPos = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+    size_t cursorPos = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
 
     char* nextOccurance = strstr(pTL->text + cursorPos, text);
     if (nextOccurance == NULL) {
@@ -3228,10 +3226,10 @@ bool drgui_text_layout_find_next_no_loop(drgui_text_layout* pTL, const char* tex
     }
 
     if (pSelectionStartOut) {
-        *pSelectionStartOut = (unsigned int)(nextOccurance - pTL->text);
+        *pSelectionStartOut = nextOccurance - pTL->text;
     }
     if (pSelectionEndOut) {
-        *pSelectionEndOut = (unsigned int)(nextOccurance - pTL->text) + strlen(text);
+        *pSelectionEndOut = (nextOccurance - pTL->text) + strlen(text);
     }
 
     return true;
@@ -3312,7 +3310,7 @@ DRGUI_PRIVATE void drgui_text_layout__refresh(drgui_text_layout* pTL)
 
     const float tabWidth = drgui_text_layout__get_tab_width(pTL);
 
-    unsigned int iCurrentLine  = 0;
+    size_t iCurrentLine  = 0;
     float runningPosY       = 0;
     float runningLineHeight = 0;
 
@@ -3354,8 +3352,8 @@ DRGUI_PRIVATE void drgui_text_layout__refresh(drgui_text_layout* pTL)
         if (nextRunStart[0] == '\t')
         {
             // Tab.
-            const unsigned int tabCount = run.iCharEnd - run.iChar;
-            run.width  = (float)(((tabCount*(unsigned int)tabWidth) - ((unsigned int)run.posX % (unsigned int)tabWidth)));
+            size_t tabCount = run.iCharEnd - run.iChar;
+            run.width  = (float)(((tabCount*(size_t)tabWidth) - ((size_t)run.posX % (size_t)tabWidth)));
             run.height = (float)defaultFontMetrics.lineHeight;
         }
         else if (nextRunStart[0] == '\n')
@@ -3584,10 +3582,10 @@ DRGUI_PRIVATE float drgui_text_layout__get_tab_width(drgui_text_layout* pTL)
 }
 
 
-DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layout* pTL, float inputPosYRelativeToText, unsigned int* pFirstRunIndexOnLineOut, unsigned int* pLastRunIndexOnLinePlus1Out)
+DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layout* pTL, float inputPosYRelativeToText, size_t* pFirstRunIndexOnLineOut, size_t* pLastRunIndexOnLinePlus1Out)
 {
-    unsigned int iFirstRunOnLine     = 0;
-    unsigned int iLastRunOnLinePlus1 = 0;
+    size_t iFirstRunOnLine     = 0;
+    size_t iLastRunOnLinePlus1 = 0;
 
     bool result = true;
     if (pTL == NULL || pTL->runCount == 0)
@@ -3632,17 +3630,17 @@ DRGUI_PRIVATE bool drgui_text_layout__find_closest_line_to_point(drgui_text_layo
     return result;
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__find_closest_run_to_point(drgui_text_layout* pTL, float inputPosXRelativeToText, float inputPosYRelativeToText, unsigned int* pRunIndexOut)
+DRGUI_PRIVATE bool drgui_text_layout__find_closest_run_to_point(drgui_text_layout* pTL, float inputPosXRelativeToText, float inputPosYRelativeToText, size_t* pRunIndexOut)
 {
     if (pTL == NULL) {
         return false;
     }
 
-    unsigned int iFirstRunOnLine;
-    unsigned int iLastRunOnLinePlus1;
+    size_t iFirstRunOnLine;
+    size_t iLastRunOnLinePlus1;
     if (drgui_text_layout__find_closest_line_to_point(pTL, inputPosYRelativeToText, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
     {
-        unsigned int iRunOut = 0;
+        size_t iRunOut = 0;
 
         const drgui_text_run* pFirstRunOnLine = pTL->pRuns + iFirstRunOnLine;
         const drgui_text_run* pLastRunOnLine  = pTL->pRuns + (iLastRunOnLinePlus1 - 1);
@@ -3660,7 +3658,7 @@ DRGUI_PRIVATE bool drgui_text_layout__find_closest_run_to_point(drgui_text_layou
         else
         {
             // It's in the middle of the line. We just iterate over each run on the line and return the first one that contains the point.
-            for (unsigned int iRun = iFirstRunOnLine; iRun < iLastRunOnLinePlus1; ++iRun)
+            for (size_t iRun = iFirstRunOnLine; iRun < iLastRunOnLinePlus1; ++iRun)
             {
                 const drgui_text_run* pRun = pTL->pRuns + iRun;
                 iRunOut = iRun;
@@ -3684,7 +3682,7 @@ DRGUI_PRIVATE bool drgui_text_layout__find_closest_run_to_point(drgui_text_layou
     }
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__find_line_info(drgui_text_layout* pTL, unsigned int iFirstRunOnLine, unsigned int* pLastRunIndexOnLinePlus1Out, float* pLineHeightOut)
+DRGUI_PRIVATE bool drgui_text_layout__find_line_info(drgui_text_layout* pTL, size_t iFirstRunOnLine, size_t* pLastRunIndexOnLinePlus1Out, float* pLineHeightOut)
 {
     if (pTL == NULL) {
         return false;
@@ -3692,10 +3690,10 @@ DRGUI_PRIVATE bool drgui_text_layout__find_line_info(drgui_text_layout* pTL, uns
 
     if (iFirstRunOnLine < pTL->runCount)
     {
-        const unsigned int iLine = pTL->pRuns[iFirstRunOnLine].iLine;
+        const size_t iLine = pTL->pRuns[iFirstRunOnLine].iLine;
         float lineHeight = 0;
 
-        unsigned int iRun;
+        size_t iRun;
         for (iRun = iFirstRunOnLine; iRun < pTL->runCount && pTL->pRuns[iRun].iLine == iLine; ++iRun)
         {
             if (lineHeight < pTL->pRuns[iRun].height) {
@@ -3718,19 +3716,19 @@ DRGUI_PRIVATE bool drgui_text_layout__find_line_info(drgui_text_layout* pTL, uns
     return false;
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__find_line_info_by_index(drgui_text_layout* pTL, unsigned int iLine, drgui_rect* pRectOut, unsigned int* pFirstRunIndexOut, unsigned int* pLastRunIndexPlus1Out)
+DRGUI_PRIVATE bool drgui_text_layout__find_line_info_by_index(drgui_text_layout* pTL, size_t iLine, drgui_rect* pRectOut, size_t* pFirstRunIndexOut, size_t* pLastRunIndexPlus1Out)
 {
     if (pTL == NULL) {
         return false;
     }
 
-    unsigned int iFirstRunOnLine     = 0;
-    unsigned int iLastRunOnLinePlus1 = 0;
+    size_t iFirstRunOnLine     = 0;
+    size_t iLastRunOnLinePlus1 = 0;
 
     float lineTop    = 0;
     float lineHeight = 0;
 
-    for (unsigned int iCurrentLine = 0; iCurrentLine <= iLine; ++iCurrentLine)
+    for (size_t iCurrentLine = 0; iCurrentLine <= iLine; ++iCurrentLine)
     {
         iFirstRunOnLine = iLastRunOnLinePlus1;
         lineTop += lineHeight;
@@ -3770,15 +3768,15 @@ DRGUI_PRIVATE bool drgui_text_layout__find_line_info_by_index(drgui_text_layout*
     }
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__find_last_run_on_line_starting_from_run(drgui_text_layout* pTL, unsigned int iRun, unsigned int* pLastRunIndexOnLineOut)
+DRGUI_PRIVATE bool drgui_text_layout__find_last_run_on_line_starting_from_run(drgui_text_layout* pTL, size_t iRun, size_t* pLastRunIndexOnLineOut)
 {
     if (pTL == NULL) {
         return false;
     }
 
-    unsigned int result = iRun;
+    size_t result = iRun;
 
-    unsigned int iLine = pTL->pRuns[iRun].iLine;
+    size_t iLine = pTL->pRuns[iRun].iLine;
     for (/* Do Nothing*/; iRun < pTL->runCount && pTL->pRuns[iRun].iLine == iLine; ++iRun)
     {
         result = iRun;
@@ -3791,15 +3789,15 @@ DRGUI_PRIVATE bool drgui_text_layout__find_last_run_on_line_starting_from_run(dr
     return true;
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__find_first_run_on_line_starting_from_run(drgui_text_layout* pTL, unsigned int iRun, unsigned int* pFirstRunIndexOnLineOut)
+DRGUI_PRIVATE bool drgui_text_layout__find_first_run_on_line_starting_from_run(drgui_text_layout* pTL, size_t iRun, size_t* pFirstRunIndexOnLineOut)
 {
     if (pTL == NULL) {
         return false;
     }
 
-    unsigned int result = iRun;
+    size_t result = iRun;
 
-    unsigned int iLine = pTL->pRuns[iRun].iLine;
+    size_t iLine = pTL->pRuns[iRun].iLine;
     for (/* Do Nothing*/; iRun > 0 && pTL->pRuns[iRun - 1].iLine == iLine; --iRun)
     {
         result = iRun - 1;
@@ -3812,16 +3810,16 @@ DRGUI_PRIVATE bool drgui_text_layout__find_first_run_on_line_starting_from_run(d
     return true;
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__find_run_at_character(drgui_text_layout* pTL, unsigned int iChar, unsigned int* pRunIndexOut)
+DRGUI_PRIVATE bool drgui_text_layout__find_run_at_character(drgui_text_layout* pTL, size_t iChar, size_t* pRunIndexOut)
 {
     if (pTL == NULL || pTL->runCount == 0) {
         return false;
     }
 
-    unsigned int result = 0;
+    size_t result = 0;
     if (iChar < pTL->textLength)
     {
-        for (unsigned int iRun = 0; iRun < pTL->runCount; ++iRun)
+        for (size_t iRun = 0; iRun < pTL->runCount; ++iRun)
         {
             const drgui_text_run* pRun = pTL->pRuns + iRun;
 
@@ -3918,7 +3916,7 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_point(drgui_text_layout* pT
     const float scaleX = 1;
     const float scaleY = 1;
 
-    unsigned int iClosestRunToPoint;
+    size_t iClosestRunToPoint;
     if (drgui_text_layout__find_closest_run_to_point(pTL, inputPosXRelativeToText, inputPosYRelativeToText, OUT &iClosestRunToPoint))
     {
         const drgui_text_run* pRun = pTL->pRuns + iClosestRunToPoint;
@@ -4160,9 +4158,9 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_y(drgui_text_layout* pTL, drgu
     }
 
     drgui_rect lineRect;
-    unsigned int iFirstRunOnLine;
-    unsigned int iLastRunOnLinePlus1;
-    if (drgui_text_layout__find_line_info_by_index(pTL, (unsigned int)iNewLine, OUT &lineRect, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
+    size_t iFirstRunOnLine;
+    size_t iLastRunOnLinePlus1;
+    if (drgui_text_layout__find_line_info_by_index(pTL, iNewLine, OUT &lineRect, OUT &iFirstRunOnLine, OUT &iLastRunOnLinePlus1))
     {
         float newMarkerPosX = pMarker->absoluteSickyPosX;
         float newMarkerPosY = lineRect.top;
@@ -4183,7 +4181,7 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_end_of_line(drgui_text_layo
         return false;
     }
 
-    unsigned int iLastRunOnLine;
+    size_t iLastRunOnLine;
     if (drgui_text_layout__find_last_run_on_line_starting_from_run(pTL, pMarker->iRun, &iLastRunOnLine))
     {
         return drgui_text_layout__move_marker_to_last_character_of_run(pTL, pMarker, iLastRunOnLine);
@@ -4198,7 +4196,7 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_start_of_line(drgui_text_la
         return false;
     }
 
-    unsigned int iFirstRunOnLine;
+    size_t iFirstRunOnLine;
     if (drgui_text_layout__find_first_run_on_line_starting_from_run(pTL, pMarker->iRun, &iFirstRunOnLine))
     {
         return drgui_text_layout__move_marker_to_first_character_of_run(pTL, pMarker, iFirstRunOnLine);
@@ -4207,14 +4205,14 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_start_of_line(drgui_text_la
     return false;
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_end_of_line_by_index(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iLine)
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_end_of_line_by_index(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iLine)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
     }
 
-    unsigned int iFirstRun;
-    unsigned int iLastRunPlus1;
+    size_t iFirstRun;
+    size_t iLastRunPlus1;
     if (drgui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &iFirstRun, &iLastRunPlus1))
     {
         return drgui_text_layout__move_marker_to_last_character_of_run(pTL, pMarker, iLastRunPlus1 - 1);
@@ -4223,14 +4221,14 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_end_of_line_by_index(drgui_
     return false;
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_start_of_line_by_index(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iLine)
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_start_of_line_by_index(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iLine)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
     }
 
-    unsigned int iFirstRun;
-    unsigned int iLastRunPlus1;
+    size_t iFirstRun;
+    size_t iLastRunPlus1;
     if (drgui_text_layout__find_line_info_by_index(pTL, iLine, NULL, &iFirstRun, &iLastRunPlus1))
     {
         return drgui_text_layout__move_marker_to_first_character_of_run(pTL, pMarker, iFirstRun);
@@ -4261,7 +4259,7 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_start_of_text(drgui_text_la
     return drgui_text_layout__move_marker_to_first_character_of_run(pTL, pMarker, 0);
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_last_character_of_run(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iRun)
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_last_character_of_run(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iRun)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
@@ -4285,7 +4283,7 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_last_character_of_run(drgui
     return false;
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_first_character_of_run(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iRun)
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_first_character_of_run(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iRun)
 {
     if (pTL == NULL || pMarker == NULL) {
         return false;
@@ -4331,7 +4329,7 @@ DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_first_character_of_next_run
     return false;
 }
 
-DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_character(drgui_text_layout* pTL, drgui_text_marker* pMarker, unsigned int iChar)
+DRGUI_PRIVATE bool drgui_text_layout__move_marker_to_character(drgui_text_layout* pTL, drgui_text_marker* pMarker, size_t iChar)
 {
     if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
         return false;
@@ -4395,7 +4393,7 @@ DRGUI_PRIVATE void drgui_text_layout__update_marker_sticky_position(drgui_text_l
     pMarker->absoluteSickyPosX = pTL->pRuns[pMarker->iRun].posX + pMarker->relativePosX;
 }
 
-DRGUI_PRIVATE unsigned int drgui_text_layout__get_marker_absolute_char_index(drgui_text_layout* pTL, drgui_text_marker* pMarker)
+DRGUI_PRIVATE size_t drgui_text_layout__get_marker_absolute_char_index(drgui_text_layout* pTL, drgui_text_marker* pMarker)
 {
     if (pTL == NULL || pMarker == NULL || pTL->runCount == 0) {
         return 0;
@@ -4414,7 +4412,7 @@ DRGUI_PRIVATE bool drgui_text_layout__has_spacing_between_selection_markers(drgu
     return (pTL->cursor.iRun != pTL->selectionAnchor.iRun || pTL->cursor.iChar != pTL->selectionAnchor.iChar);
 }
 
-DRGUI_PRIVATE unsigned int drgui_text_layout__split_text_run_by_selection(drgui_text_layout* pTL, drgui_text_run* pRunToSplit, drgui_text_run pSubRunsOut[3])
+DRGUI_PRIVATE size_t drgui_text_layout__split_text_run_by_selection(drgui_text_layout* pTL, drgui_text_run* pRunToSplit, drgui_text_run pSubRunsOut[3])
 {
     if (pTL == NULL || pRunToSplit == NULL || pSubRunsOut == NULL) {
         return 0;
@@ -4432,8 +4430,8 @@ DRGUI_PRIVATE unsigned int drgui_text_layout__split_text_run_by_selection(drgui_
     drgui_text_run* pSelectionRun0 = pTL->pRuns + pSelectionMarker0->iRun;
     drgui_text_run* pSelectionRun1 = pTL->pRuns + pSelectionMarker1->iRun;
 
-    unsigned int iSelectionChar0 = pSelectionRun0->iChar + pSelectionMarker0->iChar;
-    unsigned int iSelectionChar1 = pSelectionRun1->iChar + pSelectionMarker1->iChar;
+    size_t iSelectionChar0 = pSelectionRun0->iChar + pSelectionMarker0->iChar;
+    size_t iSelectionChar1 = pSelectionRun1->iChar + pSelectionMarker1->iChar;
 
     if (drgui_text_layout_is_anything_selected(pTL))
     {
@@ -4787,9 +4785,9 @@ DRGUI_PRIVATE void drgui_text_layout__apply_undo_state(drgui_text_layout* pTL, d
 
     // When undoing we want to remove the new text and replace it with the old text.
 
-    unsigned int iFirstCh     = pUndoState->diffPos;
-    unsigned int iLastChPlus1 = pUndoState->diffPos + strlen(pUndoState->newText);
-    unsigned int bytesToRemove = iLastChPlus1 - iFirstCh;
+    size_t iFirstCh     = pUndoState->diffPos;
+    size_t iLastChPlus1 = pUndoState->diffPos + strlen(pUndoState->newText);
+    size_t bytesToRemove = iLastChPlus1 - iFirstCh;
     if (bytesToRemove > 0)
     {
         memmove(pTL->text + iFirstCh, pTL->text + iLastChPlus1, pTL->textLength - iLastChPlus1);
@@ -4835,9 +4833,9 @@ DRGUI_PRIVATE void drgui_text_layout__apply_redo_state(drgui_text_layout* pTL, d
 
     // An redo is just the opposite of an undo. We want to remove the old text and replace it with the new text.
 
-    unsigned int iFirstCh     = pUndoState->diffPos;
-    unsigned int iLastChPlus1 = pUndoState->diffPos + strlen(pUndoState->oldText);
-    unsigned int bytesToRemove = iLastChPlus1 - iFirstCh;
+    size_t iFirstCh     = pUndoState->diffPos;
+    size_t iLastChPlus1 = pUndoState->diffPos + strlen(pUndoState->oldText);
+    size_t bytesToRemove = iLastChPlus1 - iFirstCh;
     if (bytesToRemove > 0)
     {
         memmove(pTL->text + iFirstCh, pTL->text + iLastChPlus1, pTL->textLength - iLastChPlus1);

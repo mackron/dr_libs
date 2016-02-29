@@ -196,7 +196,7 @@ typedef struct
     float horzScrollbarSize;
 
     /// When selecting lines by clicking and dragging on the line numbers, keeps track of the line to anchor the selection to.
-    unsigned int iLineSelectAnchor;
+    size_t iLineSelectAnchor;
 
 
     /// The size of the extra data.
@@ -1241,9 +1241,9 @@ DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_ranges(drgui_element* pTBEle
     assert(pTB != NULL);
 
     // The vertical scrollbar is based on the line count.
-    unsigned int lineCount = drgui_text_layout_get_line_count(pTB->pTL);
-    unsigned int pageSize  = drgui_text_layout_get_visible_line_count_starting_at(pTB->pTL, drgui_sb_get_scroll_position(pTB->pVertScrollbar));
-    drgui_sb_set_range_and_page_size(pTB->pVertScrollbar, 0, lineCount + pageSize - 1 - 1, pageSize);     // -1 to make the range 0 based. -1 to ensure at least one line is visible.
+    size_t lineCount = drgui_text_layout_get_line_count(pTB->pTL);
+    size_t pageSize  = drgui_text_layout_get_visible_line_count_starting_at(pTB->pTL, drgui_sb_get_scroll_position(pTB->pVertScrollbar));
+    drgui_sb_set_range_and_page_size(pTB->pVertScrollbar, 0, (int)(lineCount + pageSize - 1 - 1), (int)pageSize);     // -1 to make the range 0 based. -1 to ensure at least one line is visible.
 
     if (drgui_sb_is_thumb_visible(pTB->pVertScrollbar)) {
         if (!drgui_is_visible(pTB->pVertScrollbar)) {
@@ -1363,12 +1363,12 @@ DRGUI_PRIVATE void drgui_textbox__on_mouse_move_line_numbers(drgui_element* pLin
             {
                 //float offsetX = pTextEditorData->padding;
                 float offsetY = pTB->padding;
-                unsigned int iLine = drgui_text_layout_get_line_at_pos_y(pTB->pTL, relativeMousePosY - offsetY);
-                unsigned int iAnchorLine = pTB->iLineSelectAnchor;
-                unsigned int lineCount = drgui_text_layout_get_line_count(pTB->pTL);
+                size_t iLine = drgui_text_layout_get_line_at_pos_y(pTB->pTL, relativeMousePosY - offsetY);
+                size_t iAnchorLine = pTB->iLineSelectAnchor;
+                size_t lineCount = drgui_text_layout_get_line_count(pTB->pTL);
 
-                unsigned int iSelectionFirstLine = drgui_text_layout_get_selection_first_line(pTB->pTL);
-                unsigned int iSelectionLastLine = drgui_text_layout_get_selection_last_line(pTB->pTL);
+                size_t iSelectionFirstLine = drgui_text_layout_get_selection_first_line(pTB->pTL);
+                size_t iSelectionLastLine = drgui_text_layout_get_selection_last_line(pTB->pTL);
                 if (iSelectionLastLine != iSelectionFirstLine) {
                     iSelectionLastLine -= 1;
                 }

@@ -380,8 +380,8 @@ typedef unsigned int   (* drgui_get_font_size_proc)                      (drgui_
 typedef bool           (* drgui_get_font_metrics_proc)                   (drgui_resource font, drgui_font_metrics* pMetricsOut);
 typedef bool           (* drgui_get_glyph_metrics_proc)                  (drgui_resource font, unsigned int utf32, drgui_glyph_metrics* pMetricsOut);
 typedef bool           (* drgui_measure_string_proc)                     (drgui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-typedef bool           (* drgui_get_text_cursor_position_from_point_proc)(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
-typedef bool           (* drgui_get_text_cursor_position_from_char_proc) (drgui_resource font, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+typedef bool           (* drgui_get_text_cursor_position_from_point_proc)(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
+typedef bool           (* drgui_get_text_cursor_position_from_char_proc) (drgui_resource font, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
 typedef drgui_resource (* drgui_create_image_proc)  (void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
 typedef void           (* drgui_delete_image_proc)  (drgui_resource image);
@@ -1222,10 +1222,10 @@ bool drgui_measure_string(drgui_font* pFont, const char* text, size_t textLength
 bool drgui_measure_string_by_element(drgui_font* pFont, const char* text, size_t textLengthInBytes, drgui_element* pElement, float* pWidthOut, float* pHeightOut);
 
 /// Retrieves the position to place a text cursor based on the given point for the given string when drawn with the given font.
-bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float scaleX, float scaleY, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
+bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float scaleX, float scaleY, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
 
 /// Retrieves the position to palce a text cursor based on the character at the given index for the given string when drawn with the given font.
-bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* text, unsigned int characterIndex, float scaleX, float scaleY, float* pTextCursorPosXOut);
+bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* text, size_t characterIndex, float scaleX, float scaleY, float* pTextCursorPosXOut);
 
 
 
@@ -4555,7 +4555,7 @@ bool drgui_measure_string_by_element(drgui_font* pFont, const char* text, size_t
     return drgui_measure_string(pFont, text, textLengthInBytes, scaleX, scaleY, pWidthOut, pHeightOut);
 }
 
-bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float scaleX, float scaleY, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float scaleX, float scaleY, float* pTextCursorPosXOut, size_t* pCharacterIndexOut)
 {
     (void)scaleX;
 
@@ -4577,7 +4577,7 @@ bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* te
     return false;
 }
 
-bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* text, unsigned int characterIndex, float scaleX, float scaleY, float* pTextCursorPosXOut)
+bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* text, size_t characterIndex, float scaleX, float scaleY, float* pTextCursorPosXOut)
 {
     (void)scaleX;
 
@@ -4934,8 +4934,8 @@ unsigned int drgui_get_font_size_dr_2d(drgui_resource hFont);
 bool drgui_get_font_metrics_dr_2d(drgui_resource, drgui_font_metrics*);
 bool drgui_get_glyph_metrics_dr_2d(drgui_resource, unsigned int, drgui_glyph_metrics*);
 bool drgui_measure_string_dr_2d(drgui_resource, const char*, size_t, float*, float*);
-bool drgui_get_text_cursor_position_from_point_dr_2d(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut);
-bool drgui_get_text_cursor_position_from_char_dr_2d(drgui_resource font, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut);
+bool drgui_get_text_cursor_position_from_point_dr_2d(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
+bool drgui_get_text_cursor_position_from_char_dr_2d(drgui_resource font, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
 drgui_resource drgui_create_image_dr_2d(void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
 void drgui_delete_image_dr_2d(drgui_resource image);
@@ -5156,12 +5156,12 @@ bool drgui_measure_string_dr_2d(drgui_resource font, const char* text, size_t te
     return dr2d_measure_string(font, text, textSizeInBytes, pWidthOut, pHeightOut);
 }
 
-bool drgui_get_text_cursor_position_from_point_dr_2d(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, unsigned int* pCharacterIndexOut)
+bool drgui_get_text_cursor_position_from_point_dr_2d(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut)
 {
     return dr2d_get_text_cursor_position_from_point(font, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
 }
 
-bool drgui_get_text_cursor_position_from_char_dr_2d(drgui_resource font, const char* text, unsigned int characterIndex, float* pTextCursorPosXOut)
+bool drgui_get_text_cursor_position_from_char_dr_2d(drgui_resource font, const char* text, size_t characterIndex, float* pTextCursorPosXOut)
 {
     return dr2d_get_text_cursor_position_from_char(font, text, characterIndex, pTextCursorPosXOut);
 }
