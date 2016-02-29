@@ -488,7 +488,7 @@ drvfs_result drvfs_delete_file(drvfs_context* pContext, const char* path);
 // The path must be a absolute, or relative to the write directory. This will fail if the file already exists. This will
 // fail if the old and new paths are across different archives. Consider using drvfs_copy_file() for more flexibility
 // with moving files to a different location.
-bool drvfs_rename_file(drvfs_context* pContext, const char* pathOld, const char* pathNew);
+drvfs_result drvfs_rename_file(drvfs_context* pContext, const char* pathOld, const char* pathNew);
 
 // Creates a directory.
 //
@@ -4045,30 +4045,31 @@ drvfs_result drvfs_delete_file(drvfs_context* pContext, const char* path)
     return drvfs_success;
 }
 
-bool drvfs_rename_file(drvfs_context* pContext, const char* pathOld, const char* pathNew)
+drvfs_result drvfs_rename_file(drvfs_context* pContext, const char* pathOld, const char* pathNew)
 {
     // Renaming/moving is not supported across different archives.
 
     if (pContext == NULL || pathOld == NULL || pathNew == NULL) {
-        return false;
+        return drvfs_invalid_args;
     }
 
-    bool result = false;
 
     char absolutePathOld[DRVFS_MAX_PATH];
     if (drvfs_validate_write_path(pContext, pathOld, absolutePathOld, sizeof(absolutePathOld))) {
         pathOld = absolutePathOld;
     } else {
-        return 0;
+        return drvfs_not_in_write_directory;
     }
 
     char absolutePathNew[DRVFS_MAX_PATH];
     if (drvfs_validate_write_path(pContext, pathNew, absolutePathNew, sizeof(absolutePathNew))) {
         pathNew = absolutePathNew;
     } else {
-        return 0;
+        return drvfs_not_in_write_directory;
     }
 
+
+    bool result = false;
 
     char relativePathOld[DRVFS_MAX_PATH];
     drvfs_archive* pArchiveOld = drvfs_open_owner_archive(pContext, pathOld, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePathOld, sizeof(relativePathOld));
@@ -4088,7 +4089,11 @@ bool drvfs_rename_file(drvfs_context* pContext, const char* pathOld, const char*
         drvfs_close_archive(pArchiveOld);
     }
 
-    return result;
+
+    if (!result) {
+        return drvfs_does_not_exist;
+    }
+    return drvfs_success;
 }
 
 bool drvfs_create_directory(drvfs_context* pContext, const char* path)
