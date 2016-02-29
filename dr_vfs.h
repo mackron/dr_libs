@@ -481,7 +481,7 @@ void drvfs_end(drvfs_context* pContext, drvfs_iterator* pIterator);
 // Deletes the file at the given path.
 //
 // The path must be a absolute, or relative to the write directory.
-bool drvfs_delete_file(drvfs_context* pContext, const char* path);
+drvfs_result drvfs_delete_file(drvfs_context* pContext, const char* path);
 
 // Renames the given file.
 //
@@ -4014,22 +4014,22 @@ void drvfs_end(drvfs_context* pContext, drvfs_iterator* pIterator)
     memset(pIterator, 0, sizeof(*pIterator));
 }
 
-bool drvfs_delete_file(drvfs_context* pContext, const char* path)
+drvfs_result drvfs_delete_file(drvfs_context* pContext, const char* path)
 {
     if (pContext == NULL || path == NULL) {
-        return false;
+        return drvfs_invalid_args;
     }
 
     char absolutePath[DRVFS_MAX_PATH];
     if (!drvfs_validate_write_path(pContext, path, absolutePath, sizeof(absolutePath))) {
-        return false;
+        return drvfs_not_in_write_directory;
     }
 
 
     char relativePath[DRVFS_MAX_PATH];
     drvfs_archive* pArchive = drvfs_open_owner_archive(pContext, absolutePath, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePath, sizeof(relativePath));
     if (pArchive == NULL) {
-        return false;
+        return drvfs_does_not_exist;
     }
 
     bool result = false;
@@ -4038,7 +4038,11 @@ bool drvfs_delete_file(drvfs_context* pContext, const char* path)
     }
 
     drvfs_close_archive(pArchive);
-    return result;
+
+    if (!result) {
+        return drvfs_unknown_error;
+    }
+    return drvfs_success;
 }
 
 bool drvfs_rename_file(drvfs_context* pContext, const char* pathOld, const char* pathNew)
