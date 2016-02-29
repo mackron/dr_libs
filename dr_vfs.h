@@ -250,7 +250,7 @@ typedef drvfs_result (* drvfs_delete_file_proc)       (drvfs_handle archive, con
 typedef drvfs_result (* drvfs_rename_file_proc)       (drvfs_handle archive, const char* relativePathOld, const char* relativePathNew);
 typedef drvfs_result (* drvfs_create_directory_proc)  (drvfs_handle archive, const char* relativePath);
 typedef drvfs_result (* drvfs_copy_file_proc)         (drvfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists);
-typedef drvfs_handle (* drvfs_open_file_proc)         (drvfs_handle archive, const char* relativePath, unsigned int accessMode);
+typedef drvfs_result (* drvfs_open_file_proc)         (drvfs_handle archive, const char* relativePath, unsigned int accessMode, drvfs_handle* pHandleOut);
 typedef void         (* drvfs_close_file_proc)        (drvfs_handle archive, drvfs_handle file);
 typedef drvfs_result (* drvfs_read_file_proc)         (drvfs_handle archive, drvfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
 typedef drvfs_result (* drvfs_write_file_proc)        (drvfs_handle archive, drvfs_handle file, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
@@ -1693,7 +1693,7 @@ static unsigned int drvfs_archive_access_mode(unsigned int fileAccessMode)
 // files that are sitting on the native file system.
 //
 // The given file path must be absolute.
-static drvfs_handle drvfs_open_native_file(const char* absolutePath, unsigned int accessMode);
+static drvfs_result drvfs_open_native_file(const char* absolutePath, unsigned int accessMode, drvfs_handle* pHandleOut);
 
 // Closes the given native file.
 static void drvfs_close_native_file(drvfs_handle file);
@@ -1769,9 +1769,10 @@ static drvfs_result drvfs__GetLastError_to_result()
     }
 }
 
-static drvfs_handle drvfs_open_native_file(const char* absolutePath, unsigned int accessMode)
+static drvfs_result drvfs_open_native_file(const char* absolutePath, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(absolutePath != NULL);
+    assert(pHandleOut != NULL);
 
     DWORD dwDesiredAccess       = 0;
     DWORD dwShareMode           = 0;
@@ -1818,10 +1819,11 @@ static drvfs_handle drvfs_open_native_file(const char* absolutePath, unsigned in
     }
 
     if (hFile != INVALID_HANDLE_VALUE) {
-        return (drvfs_handle)hFile;
+        *pHandleOut = (drvfs_handle)hFile;
+        return drvfs_success;
     }
 
-    return NULL;
+    return drvfs__GetLastError_to_result();
 }
 
 static void drvfs_close_native_file(drvfs_handle file)
@@ -2241,9 +2243,12 @@ static int drvfs__mode_has_write_permission(int mode)
 }
 
 
-static drvfs_handle drvfs_open_native_file(const char* absolutePath, unsigned int accessMode)
+static drvfs_result drvfs_open_native_file(const char* absolutePath, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(absolutePath != NULL);
+    assert(pHandleOut != NULL);
+    
+    *pHandleOut = NULL;
 
     int flags = 0;
     if ((accessMode & DRVFS_READ) != 0) {
@@ -2256,7 +2261,7 @@ static drvfs_handle drvfs_open_native_file(const char* absolutePath, unsigned in
         if ((accessMode & DRVFS_WRITE) != 0) {
             flags = O_WRONLY;
         } else {
-            return NULL;    // Neither read nor write mode was specified.
+            return drvfs_bad_access;    // Neither read nor write mode was specified.
         }
     }
 
@@ -2285,10 +2290,11 @@ static drvfs_handle drvfs_open_native_file(const char* absolutePath, unsigned in
     }
 
     if (fd == -1) {
-        return NULL;
+        return drvfs__errno_to_result();
     }
 
-    return DRVFS_FD_TO_HANDLE(fd);
+    *pHandleOut = DRVFS_FD_TO_HANDLE(fd);
+    return drvfs_success;
 }
 
 static void drvfs_close_native_file(drvfs_handle file)
@@ -2820,7 +2826,7 @@ static drvfs_result drvfs_copy_file__native(drvfs_handle archive, const char* re
     return drvfs_copy_native_file(absolutePathSrc, absolutePathDst, failIfExists);
 }
 
-static drvfs_handle drvfs_open_file__native(drvfs_handle archive, const char* relativePath, unsigned int accessMode)
+static drvfs_result drvfs_open_file__native(drvfs_handle archive, const char* relativePath, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(archive != NULL);
     assert(relativePath != NULL);
@@ -2830,10 +2836,10 @@ static drvfs_handle drvfs_open_file__native(drvfs_handle archive, const char* re
 
     char absolutePath[DRVFS_MAX_PATH];
     if (drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
-        return drvfs_open_native_file(absolutePath, accessMode);
+        return drvfs_open_native_file(absolutePath, accessMode, pHandleOut);
     }
 
-    return NULL;
+    return drvfs_path_too_long;
 }
 
 static void drvfs_close_file__native(drvfs_handle archive, drvfs_handle file)
@@ -3734,8 +3740,9 @@ drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* re
         return NULL;
     }
 
-    drvfs_handle internalFileHandle = pArchive->callbacks.open_file(pArchive->internalArchiveHandle, relativePath, accessMode);
-    if (internalFileHandle == NULL) {
+    drvfs_handle internalFileHandle;
+    drvfs_result result = pArchive->callbacks.open_file(pArchive->internalArchiveHandle, relativePath, accessMode, &internalFileHandle);
+    if (result != drvfs_success) {
         return NULL;
     }
 
@@ -6345,38 +6352,42 @@ static bool drvfs_next_iteration__zip(drvfs_handle archive, drvfs_handle iterato
     return false;
 }
 
-static drvfs_handle drvfs_open_file__zip(drvfs_handle archive, const char* relativePath, unsigned int accessMode)
+static drvfs_result drvfs_open_file__zip(drvfs_handle archive, const char* relativePath, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(archive != NULL);
+    assert(pHandleOut != NULL);
     assert(relativePath != NULL);
+
+    *pHandleOut = NULL;
 
     // Only supporting read-only for now.
     if ((accessMode & DRVFS_WRITE) != 0) {
-        return NULL;
+        return drvfs_bad_access;
     }
 
 
     mz_zip_archive* pZip = archive;
     int fileIndex = drvfs_mz_zip_reader_locate_file(pZip, relativePath, NULL, MZ_ZIP_FLAG_CASE_SENSITIVE);
     if (fileIndex == -1) {
-        return NULL;
+        return drvfs_does_not_exist;
     }
 
     drvfs_openedfile_zip* pOpenedFile = malloc(sizeof(*pOpenedFile));
     if (pOpenedFile == NULL) {
-        return NULL;
+        return drvfs_out_of_memory;
     }
 
     pOpenedFile->pData = drvfs_mz_zip_reader_extract_to_heap(pZip, (mz_uint)fileIndex, &pOpenedFile->sizeInBytes, 0);
     if (pOpenedFile->pData == NULL) {
         free(pOpenedFile);
-        return NULL;
+        return drvfs_unknown_error;
     }
 
     pOpenedFile->index = (mz_uint)fileIndex;
     pOpenedFile->readPointer = 0;
 
-    return pOpenedFile;
+    *pHandleOut = pOpenedFile;
+    return drvfs_success;
 }
 
 static void drvfs_close_file__zip(drvfs_handle archive, drvfs_handle file)
@@ -6950,13 +6961,14 @@ static bool drvfs_next_iteration__pak(drvfs_handle archive, drvfs_handle iterato
     return false;
 }
 
-static drvfs_handle drvfs_open_file__pak(drvfs_handle archive, const char* relativePath, unsigned int accessMode)
+static drvfs_result drvfs_open_file__pak(drvfs_handle archive, const char* relativePath, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(relativePath != NULL);
+    assert(pHandleOut != NULL);
 
     // Only supporting read-only for now.
     if ((accessMode & DRVFS_WRITE) != 0) {
-        return NULL;
+        return drvfs_bad_access;
     }
 
 
@@ -6975,13 +6987,14 @@ static drvfs_handle drvfs_open_file__pak(drvfs_handle archive, const char* relat
                 pOpenedFile->sizeInBytes     = pak->pFiles[iFile].sizeInBytes;
                 pOpenedFile->readPointer     = 0;
 
-                return pOpenedFile;
+                *pHandleOut = pOpenedFile;
+                return drvfs_success;
             }
         }
     }
 
 
-    return NULL;
+    return drvfs_does_not_exist;
 }
 
 static void drvfs_close_file__pak(drvfs_handle archive, drvfs_handle file)
@@ -7610,13 +7623,16 @@ static bool drvfs_next_iteration__mtl(drvfs_handle archive, drvfs_handle iterato
     return false;
 }
 
-static drvfs_handle drvfs_open_file__mtl(drvfs_handle archive, const char* relativePath, unsigned int accessMode)
+static drvfs_result drvfs_open_file__mtl(drvfs_handle archive, const char* relativePath, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(relativePath != NULL);
+    assert(pHandleOut != NULL);
+
+    *pHandleOut = NULL;
 
     // Only supporting read-only for now.
     if ((accessMode & DRVFS_WRITE) != 0) {
-        return NULL;
+        return drvfs_bad_access;
     }
 
     drvfs_archive_mtl* mtl = archive;
@@ -7634,12 +7650,13 @@ static drvfs_handle drvfs_open_file__mtl(drvfs_handle archive, const char* relat
                 pOpenedFile->sizeInBytes     = mtl->pFiles[iFile].sizeInBytes;
                 pOpenedFile->readPointer     = 0;
 
-                return pOpenedFile;
+                *pHandleOut = pOpenedFile;
+                return drvfs_success;
             }
         }
     }
 
-    return NULL;
+    return drvfs_does_not_exist;
 }
 
 static void drvfs_close_file__mtl(drvfs_handle archive, drvfs_handle file)
