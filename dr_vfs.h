@@ -242,7 +242,7 @@ typedef struct drvfs_iterator  drvfs_iterator;
 typedef bool         (* drvfs_is_valid_extension_proc)(const char* extension);
 typedef drvfs_handle (* drvfs_open_archive_proc)      (drvfs_file* pArchiveFile, unsigned int accessMode);
 typedef void         (* drvfs_close_archive_proc)     (drvfs_handle archive);
-typedef bool         (* drvfs_get_file_info_proc)     (drvfs_handle archive, const char* relativePath, drvfs_file_info* fi);
+typedef drvfs_result (* drvfs_get_file_info_proc)     (drvfs_handle archive, const char* relativePath, drvfs_file_info* fi);
 typedef drvfs_handle (* drvfs_begin_iteration_proc)   (drvfs_handle archive, const char* relativePath);
 typedef void         (* drvfs_end_iteration_proc)     (drvfs_handle archive, drvfs_handle iterator);
 typedef bool         (* drvfs_next_iteration_proc)    (drvfs_handle archive, drvfs_handle iterator, drvfs_file_info* fi);
@@ -1737,7 +1737,7 @@ static void drvfs_flush_native_file(drvfs_handle file);
 // Retrieves information about the file OR DIRECTORY at the given path on the native file system.
 //
 // <fi> is allowed to be null, in which case the call is equivalent to simply checking if the file or directory exists.
-static bool drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info* fi);
+static drvfs_result drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info* fi);
 
 // Creates an iterator for iterating over the native files in the given directory.
 //
@@ -2028,13 +2028,17 @@ static void drvfs_flush_native_file(drvfs_handle file)
     FlushFileBuffers((HANDLE)file);
 }
 
-static bool drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info* fi)
+static drvfs_result drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info* fi)
 {
     assert(absolutePath != NULL);
 
     // <fi> is allowed to be null, in which case the call is equivalent to simply checking if the file exists.
     if (fi == NULL) {
-        return GetFileAttributesA(absolutePath) != INVALID_FILE_ATTRIBUTES;
+        if (GetFileAttributesA(absolutePath) == INVALID_FILE_ATTRIBUTES) {
+            return drvfs_success;
+        }
+
+        return drvfs_does_not_exist;
     }
 
     WIN32_FILE_ATTRIBUTE_DATA fad;
@@ -2060,10 +2064,10 @@ static bool drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info
             fi->attributes |= DRVFS_FILE_ATTRIBUTE_READONLY;
         }
 
-        return true;
+        return drvfs_success;
     }
 
-    return false;
+    return drvfs__GetLastError_to_result();
 }
 
 typedef struct
@@ -2500,13 +2504,13 @@ static void drvfs_flush_native_file(drvfs_handle file)
     (void)file;
 }
 
-static bool drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info* fi)
+static drvfs_result drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info* fi)
 {
     assert(absolutePath != NULL);
 
     struct stat64 info;
     if (stat64(absolutePath, &info) != 0) {
-        return false;   // Likely the file doesn't exist.
+        return drvfs__errno_to_result();
     }
 
     // <fi> is allowed to be null, in which case the call is equivalent to simply checking if the file exists.
@@ -2525,7 +2529,7 @@ static bool drvfs_get_native_file_info(const char* absolutePath, drvfs_file_info
         }
     }
 
-    return true;
+    return drvfs_success;
 }
 
 typedef struct
@@ -2696,14 +2700,14 @@ static void drvfs_close_archive__native(drvfs_handle archive)
     free(archive);
 }
 
-static bool drvfs_get_file_info__native(drvfs_handle archive, const char* relativePath, drvfs_file_info* fi)
+static drvfs_result drvfs_get_file_info__native(drvfs_handle archive, const char* relativePath, drvfs_file_info* fi)
 {
     drvfs_archive_native* pNativeArchive = archive;
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
-        return false;
+        return drvfs_path_too_long;
     }
 
     if (fi != NULL) {
@@ -3037,7 +3041,7 @@ static drvfs_archive* drvfs_open_owner_archive_recursively_from_verbose_path(drv
     }
 
     drvfs_file_info fi;
-    if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, relativePath, &fi))
+    if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, relativePath, &fi) == drvfs_success)
     {
         // The file is in this archive.
         drvfs__strcpy_s(relativePathOut, relativePathOutSize, relativePath);
@@ -3047,9 +3051,6 @@ static drvfs_archive* drvfs_open_owner_archive_recursively_from_verbose_path(drv
     {
         char runningPath[DRVFS_MAX_PATH];
         runningPath[0] = '\0';
-
-        //drvfs_drpath_iterator segment = drvfs_begin_path_iteration(relativePath);
-        //while (drvfs_next_path_segment(&segment))
 
         drvfs_drpath_iterator segment;
         if (drvfs_drpath_first(relativePath, &segment))
@@ -3185,7 +3186,7 @@ static drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_path(dr
 
     // Always try the direct route by checking if the file exists within the archive first.
     drvfs_file_info fi;
-    if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, relativePath, &fi))
+    if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, relativePath, &fi) == drvfs_success)
     {
         // The file is in this archive.
         drvfs__strcpy_s(relativePathOut, relativePathOutSize, relativePath);
@@ -3988,23 +3989,17 @@ drvfs_result drvfs_get_file_info(drvfs_context* pContext, const char* absoluteOr
         return drvfs_does_not_exist;
     }
 
-    bool result = false;
+    drvfs_result result = drvfs_no_backend;
     if (pOwnerArchive->callbacks.get_file_info) {
         result = pOwnerArchive->callbacks.get_file_info(pOwnerArchive->internalArchiveHandle, relativePath, fi);
     }
 
-    if (result && fi != NULL) {
+    if (result == drvfs_success && fi != NULL) {
         drvfs_drpath_copy_and_append(fi->absolutePath, sizeof(fi->absolutePath), pOwnerArchive->absolutePath, relativePath);
     }
 
     drvfs_close_archive(pOwnerArchive);
-    
-
-    if (!result) {
-        return drvfs_unknown_error;
-    }
-
-    return drvfs_success;
+    return result;
 }
 
 
@@ -4247,7 +4242,7 @@ drvfs_result drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const
         else
         {
             // Inter-archive copy. This is a theoretically slower path because we do everything manually. Probably not much slower in practice, though.
-            if (failIfExists && pDstArchive->callbacks.get_file_info(pDstArchive, dstRelativePath, NULL) == true)
+            if (failIfExists && pDstArchive->callbacks.get_file_info(pDstArchive, dstRelativePath, NULL) == drvfs_success)
             {
                 result = drvfs_already_exists;
             }
@@ -6164,7 +6159,7 @@ static void drvfs_close_archive__zip(drvfs_handle archive)
     free(archive);
 }
 
-static bool drvfs_get_file_info__zip(drvfs_handle archive, const char* relativePath, drvfs_file_info* fi)
+static drvfs_result drvfs_get_file_info__zip(drvfs_handle archive, const char* relativePath, drvfs_file_info* fi)
 {
     assert(archive != NULL);
 
@@ -6200,12 +6195,12 @@ static bool drvfs_get_file_info__zip(drvfs_handle archive, const char* relativeP
                         fi->lastModifiedTime = 0;
                         fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY | DRVFS_FILE_ATTRIBUTE_DIRECTORY;
 
-                        return true;
+                        return drvfs_success;
                     }
                 }
             }
 
-            return false;
+            return drvfs_does_not_exist;
         }
     }
 
@@ -6224,11 +6219,11 @@ static bool drvfs_get_file_info__zip(drvfs_handle archive, const char* relativeP
                 fi->attributes |= DRVFS_FILE_ATTRIBUTE_DIRECTORY;
             }
 
-            return true;
+            return drvfs_success;
         }
     }
 
-    return true;
+    return drvfs_success;
 }
 
 static drvfs_handle drvfs_begin_iteration__zip(drvfs_handle archive, const char* relativePath)
@@ -6837,7 +6832,7 @@ static void drvfs_close_archive__pak(drvfs_handle archive)
     drvfs_pak_delete(pPak);
 }
 
-static bool drvfs_get_file_info__pak(drvfs_handle archive, const char* relativePath, drvfs_file_info* fi)
+static drvfs_result drvfs_get_file_info__pak(drvfs_handle archive, const char* relativePath, drvfs_file_info* fi)
 {
     // We can determine whether or not the path refers to a file or folder by checking it the path is parent of any
     // files in the archive. If so, it's a folder, otherwise it's a file (so long as it exists).
@@ -6856,7 +6851,7 @@ static bool drvfs_get_file_info__pak(drvfs_handle archive, const char* relativeP
             fi->lastModifiedTime = 0;
             fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY;
 
-            return true;
+            return drvfs_success;
         }
         else if (drvfs_drpath_is_descendant(pFile->name, relativePath))
         {
@@ -6866,11 +6861,11 @@ static bool drvfs_get_file_info__pak(drvfs_handle archive, const char* relativeP
             fi->lastModifiedTime = 0;
             fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY | DRVFS_FILE_ATTRIBUTE_DIRECTORY;
 
-            return true;
+            return drvfs_success;
         }
     }
 
-    return false;
+    return drvfs_does_not_exist;
 }
 
 static drvfs_handle drvfs_begin_iteration__pak(drvfs_handle archive, const char* relativePath)
@@ -7534,7 +7529,7 @@ static void drvfs_close_archive__mtl(drvfs_handle archive)
     drvfs_mtl_delete(mtl);
 }
 
-static bool drvfs_get_file_info__mtl(drvfs_handle archive, const char* relativePath, drvfs_file_info* fi)
+static drvfs_result drvfs_get_file_info__mtl(drvfs_handle archive, const char* relativePath, drvfs_file_info* fi)
 {
     drvfs_archive_mtl* mtl = archive;
     assert(mtl != NULL);
@@ -7552,11 +7547,11 @@ static bool drvfs_get_file_info__mtl(drvfs_handle archive, const char* relativeP
                 fi->attributes       = DRVFS_FILE_ATTRIBUTE_READONLY;
             }
 
-            return 1;
+            return drvfs_success;
         }
     }
 
-    return 0;
+    return drvfs_does_not_exist;
 }
 
 static drvfs_handle drvfs_begin_iteration__mtl(drvfs_handle archive, const char* relativePath)
