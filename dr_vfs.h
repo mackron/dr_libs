@@ -462,11 +462,11 @@ uint64_t drvfs_size_nolock(drvfs_file* pFile);
 // Retrieves information about the file at the given path.
 //
 // <fi> is allowed to be null, in which case the call is equivalent to simply checking if the file exists.
-bool drvfs_get_file_info(drvfs_context* pContext, const char* absoluteOrRelativePath, drvfs_file_info* fi);
+drvfs_result drvfs_get_file_info(drvfs_context* pContext, const char* absoluteOrRelativePath, drvfs_file_info* fi);
 
 
 // Creates an iterator for iterating over the files and folders in the given directory.
-bool drvfs_begin(drvfs_context* pContext, const char* path, drvfs_iterator* pIteratorOut);
+bool drvfs_begin(drvfs_context* pContext, const char* absoluteOrRelativePath, drvfs_iterator* pIteratorOut);
 
 // Goes to the next file or folder based on the given iterator.
 bool drvfs_next(drvfs_context* pContext, drvfs_iterator* pIterator);
@@ -522,10 +522,10 @@ bool drvfs_is_archive_path(drvfs_context* pContext, const char* path);
 void drvfs_free(void* p);
 
 // Finds the absolute, verbose path of the given path.
-bool drvfs_find_absolute_path(drvfs_context* pContext, const char* relativePath, char* absolutePathOut, unsigned int absolutePathOutSize);
+bool drvfs_find_absolute_path(drvfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize);
 
 // Finds the absolute, verbose path of the given path, using the given path as the higest priority base path.
-bool drvfs_find_absolute_path_explicit_base(drvfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathOutSize);
+bool drvfs_find_absolute_path_explicit_base(drvfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize);
 
 // Helper function for determining whether or not the given path refers to a base directory.
 bool drvfs_is_base_directory(drvfs_context* pContext, const char* baseDir);
@@ -3896,16 +3896,16 @@ void drvfs_unlock(drvfs_file* pFile)
 }
 
 
-bool drvfs_get_file_info(drvfs_context* pContext, const char* absoluteOrRelativePath, drvfs_file_info* fi)
+drvfs_result drvfs_get_file_info(drvfs_context* pContext, const char* absoluteOrRelativePath, drvfs_file_info* fi)
 {
     if (pContext == NULL || absoluteOrRelativePath == NULL) {
-        return false;
+        return drvfs_invalid_args;
     }
 
     char relativePath[DRVFS_MAX_PATH];
     drvfs_archive* pOwnerArchive = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, DRVFS_READ, relativePath, sizeof(relativePath));
     if (pOwnerArchive == NULL) {
-        return false;
+        return drvfs_does_not_exist;
     }
 
     bool result = false;
@@ -3918,7 +3918,13 @@ bool drvfs_get_file_info(drvfs_context* pContext, const char* absoluteOrRelative
     }
 
     drvfs_close_archive(pOwnerArchive);
-    return result;
+    
+
+    if (!result) {
+        return drvfs_unknown_error;
+    }
+
+    return drvfs_success;
 }
 
 
@@ -4214,21 +4220,21 @@ void drvfs_free(void* p)
     free(p);
 }
 
-bool drvfs_find_absolute_path(drvfs_context* pContext, const char* relativePath, char* absolutePathOut, unsigned int absolutePathOutSize)
+bool drvfs_find_absolute_path(drvfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize)
 {
     if (pContext == NULL || relativePath == NULL || absolutePathOut == NULL || absolutePathOutSize == 0) {
         return false;
     }
 
     drvfs_file_info fi;
-    if (drvfs_get_file_info(pContext, relativePath, &fi)) {
+    if (drvfs_get_file_info(pContext, relativePath, &fi) == drvfs_success) {
         return drvfs__strcpy_s(absolutePathOut, absolutePathOutSize, fi.absolutePath) == 0;
     }
 
     return false;
 }
 
-bool drvfs_find_absolute_path_explicit_base(drvfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, unsigned int absolutePathOutSize)
+bool drvfs_find_absolute_path_explicit_base(drvfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize)
 {
     if (pContext == NULL || relativePath == NULL || highestPriorityBasePath == NULL || absolutePathOut == NULL || absolutePathOutSize == 0) {
         return false;
@@ -4385,13 +4391,13 @@ bool drvfs_open_and_write_text_file(drvfs_context* pContext, const char* absolut
 bool drvfs_exists(drvfs_context* pContext, const char* absoluteOrRelativePath)
 {
     drvfs_file_info fi;
-    return drvfs_get_file_info(pContext, absoluteOrRelativePath, &fi);
+    return drvfs_get_file_info(pContext, absoluteOrRelativePath, &fi) == drvfs_success;
 }
 
 bool drvfs_is_existing_file(drvfs_context* pContext, const char* absoluteOrRelativePath)
 {
     drvfs_file_info fi;
-    if (drvfs_get_file_info(pContext, absoluteOrRelativePath, &fi))
+    if (drvfs_get_file_info(pContext, absoluteOrRelativePath, &fi) == drvfs_success)
     {
         return (fi.attributes & DRVFS_FILE_ATTRIBUTE_DIRECTORY) == 0;
     }
@@ -4402,7 +4408,7 @@ bool drvfs_is_existing_file(drvfs_context* pContext, const char* absoluteOrRelat
 bool drvfs_is_existing_directory(drvfs_context* pContext, const char* absoluteOrRelativePath)
 {
     drvfs_file_info fi;
-    if (drvfs_get_file_info(pContext, absoluteOrRelativePath, &fi))
+    if (drvfs_get_file_info(pContext, absoluteOrRelativePath, &fi) == drvfs_success)
     {
         return (fi.attributes & DRVFS_FILE_ATTRIBUTE_DIRECTORY) != 0;
     }
