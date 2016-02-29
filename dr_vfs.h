@@ -242,9 +242,9 @@ typedef bool         (* drvfs_get_file_info_proc)     (drvfs_handle archive, con
 typedef drvfs_handle (* drvfs_begin_iteration_proc)   (drvfs_handle archive, const char* relativePath);
 typedef void         (* drvfs_end_iteration_proc)     (drvfs_handle archive, drvfs_handle iterator);
 typedef bool         (* drvfs_next_iteration_proc)    (drvfs_handle archive, drvfs_handle iterator, drvfs_file_info* fi);
-typedef bool         (* drvfs_delete_file_proc)       (drvfs_handle archive, const char* relativePath);
-typedef bool         (* drvfs_rename_file_proc)       (drvfs_handle archive, const char* relativePathOld, const char* relativePathNew);
-typedef bool         (* drvfs_create_directory_proc)  (drvfs_handle archive, const char* relativePath);
+typedef drvfs_result (* drvfs_delete_file_proc)       (drvfs_handle archive, const char* relativePath);
+typedef drvfs_result (* drvfs_rename_file_proc)       (drvfs_handle archive, const char* relativePathOld, const char* relativePathNew);
+typedef drvfs_result (* drvfs_create_directory_proc)  (drvfs_handle archive, const char* relativePath);
 typedef drvfs_result (* drvfs_copy_file_proc)         (drvfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists);
 typedef drvfs_handle (* drvfs_open_file_proc)         (drvfs_handle archive, const char* relativePath, unsigned int accessMode);
 typedef void         (* drvfs_close_file_proc)        (drvfs_handle archive, drvfs_handle file);
@@ -1698,16 +1698,16 @@ static void drvfs_close_native_file(drvfs_handle file);
 static bool drvfs_is_native_directory(const char* absolutePath);
 
 // Determines whether or not the given path refers to a file on the native file system. This will return false for directories.
-static bool drvfs_is_native_file(const char* absolutePath);
+static drvfs_result drvfs_is_native_file(const char* absolutePath);
 
 // Deletes a native file.
-static bool drvfs_delete_native_file(const char* absolutePath);
+static drvfs_result drvfs_delete_native_file(const char* absolutePath);
 
 // Renames a native file. Fails if the target already exists.
-static bool drvfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew);
+static drvfs_result drvfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew);
 
 // Creates a directory on the native file system.
-static bool drvfs_mkdir_native(const char* absolutePath);
+static drvfs_result drvfs_mkdir_native(const char* absolutePath);
 
 // Creates a copy of a native file.
 static drvfs_result drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists);
@@ -1759,6 +1759,7 @@ static drvfs_result drvfs__GetLastError_to_result()
     case ERROR_TOO_MANY_OPEN_FILES: return drvfs_too_many_open_files;
     case ERROR_ACCESS_DENIED:       return drvfs_permission_denied;
     case ERROR_NOT_ENOUGH_MEMORY:   return drvfs_out_of_memory;
+    case ERROR_DISK_FULL:           return drvfs_no_space;
     default: return drvfs_unknown_error;
     }
 }
@@ -1829,30 +1830,48 @@ static bool drvfs_is_native_directory(const char* absolutePath)
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
-static bool drvfs_delete_native_file(const char* absolutePath)
+static drvfs_result drvfs_delete_native_file(const char* absolutePath)
 {
+    BOOL wasSuccessful;
+
     DWORD attributes = GetFileAttributesA(absolutePath);
     if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-        return DeleteFileA(absolutePath);
+        wasSuccessful = DeleteFileA(absolutePath);
     } else {
-        return RemoveDirectoryA(absolutePath);
+        wasSuccessful = RemoveDirectoryA(absolutePath);
     }
+
+    if (wasSuccessful) {
+        return drvfs_success;
+    }
+
+    return drvfs__GetLastError_to_result();
 }
 
-static bool drvfs_is_native_file(const char* absolutePath)
+static drvfs_result drvfs_is_native_file(const char* absolutePath)
 {
     DWORD attributes = GetFileAttributesA(absolutePath);
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
-static bool drvfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew)
+static drvfs_result drvfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew)
 {
-    return MoveFileExA(absolutePathOld, absolutePathNew, 0);
+    BOOL wasSuccessful = MoveFileExA(absolutePathOld, absolutePathNew, 0);
+    if (wasSuccessful) {
+        return drvfs_success;
+    }
+
+    return drvfs__GetLastError_to_result();
 }
 
-static bool drvfs_mkdir_native(const char* absolutePath)
+static drvfs_result drvfs_mkdir_native(const char* absolutePath)
 {
-    return CreateDirectoryA(absolutePath, NULL);
+    bool wasSuccessful = CreateDirectoryA(absolutePath, NULL);
+    if (wasSuccessful) {
+        return drvfs_success;
+    }
+
+    return drvfs__GetLastError_to_result();
 }
 
 static drvfs_result drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists)
@@ -2281,19 +2300,31 @@ static bool drvfs_is_native_file(const char* absolutePath)
     return !drvfs__mode_is_dir(info.st_mode);  // Only return true if it's a file. Return false if it's a directory.
 }
 
-static bool drvfs_delete_native_file(const char* absolutePath)
+static drvfs_result drvfs_delete_native_file(const char* absolutePath)
 {
-    return remove(absolutePath) == 0;
+    if (remove(absolutePath) == 0) {
+        return drvfs_success;
+    }
+
+    return drvfs__errno_to_result();
 }
 
-static bool drvfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew)
+static drvfs_result drvfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew)
 {
-    return rename(absolutePathOld, absolutePathNew) == 0;
+    if (rename(absolutePathOld, absolutePathNew) == 0) {
+        return drvfs_success;
+    }
+
+    return drvfs__errno_to_result();
 }
 
-static bool drvfs_mkdir_native(const char* absolutePath)
+static drvfs_result drvfs_mkdir_native(const char* absolutePath)
 {
-    return mkdir(absolutePath, 0777) == 0;
+    if (mkdir(absolutePath, 0777) == 0) {
+        return drvfs_success;
+    }
+
+    return drvfs__errno_to_result();
 }
 
 static drvfs_result drvfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists)
@@ -2697,7 +2728,7 @@ static bool drvfs_next_iteration__native(drvfs_handle archive, drvfs_handle iter
     return drvfs_next_native_iteration(iterator, fi);
 }
 
-static bool drvfs_delete_file__native(drvfs_handle archive, const char* relativePath)
+static drvfs_result drvfs_delete_file__native(drvfs_handle archive, const char* relativePath)
 {
     assert(relativePath != NULL);
 
@@ -2706,13 +2737,13 @@ static bool drvfs_delete_file__native(drvfs_handle archive, const char* relative
 
     char absolutePath[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
-        return false;
+        return drvfs_unknown_error;
     }
 
     return drvfs_delete_native_file(absolutePath);
 }
 
-static bool drvfs_rename_file__native(drvfs_handle archive, const char* relativePathOld, const char* relativePathNew)
+static drvfs_result drvfs_rename_file__native(drvfs_handle archive, const char* relativePathOld, const char* relativePathNew)
 {
     assert(relativePathOld != NULL);
     assert(relativePathNew != NULL);
@@ -2722,18 +2753,18 @@ static bool drvfs_rename_file__native(drvfs_handle archive, const char* relative
 
     char absolutePathOld[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePathOld, sizeof(absolutePathOld), pNativeArchive->absolutePath, relativePathOld)) {
-        return false;
+        return drvfs_unknown_error;
     }
 
     char absolutePathNew[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePathNew, sizeof(absolutePathNew), pNativeArchive->absolutePath, relativePathNew)) {
-        return false;
+        return drvfs_unknown_error;
     }
 
     return drvfs_rename_native_file(absolutePathOld, absolutePathNew);
 }
 
-static bool drvfs_create_directory__native(drvfs_handle archive, const char* relativePath)
+static drvfs_result drvfs_create_directory__native(drvfs_handle archive, const char* relativePath)
 {
     assert(relativePath != NULL);
 
@@ -2742,7 +2773,7 @@ static bool drvfs_create_directory__native(drvfs_handle archive, const char* rel
 
     char absolutePath[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
-        return false;
+        return drvfs_unknown_error;
     }
 
     return drvfs_mkdir_native(absolutePath);
