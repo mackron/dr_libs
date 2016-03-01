@@ -1702,7 +1702,7 @@ static void drvfs_close_native_file(drvfs_handle file);
 static bool drvfs_is_native_directory(const char* absolutePath);
 
 // Determines whether or not the given path refers to a file on the native file system. This will return false for directories.
-static drvfs_result drvfs_is_native_file(const char* absolutePath);
+static bool drvfs_is_native_file(const char* absolutePath);
 
 // Deletes a native file.
 static drvfs_result drvfs_delete_native_file(const char* absolutePath);
@@ -1837,6 +1837,12 @@ static bool drvfs_is_native_directory(const char* absolutePath)
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
+static bool drvfs_is_native_file(const char* absolutePath)
+{
+    DWORD attributes = GetFileAttributesA(absolutePath);
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
 static drvfs_result drvfs_delete_native_file(const char* absolutePath)
 {
     BOOL wasSuccessful;
@@ -1853,12 +1859,6 @@ static drvfs_result drvfs_delete_native_file(const char* absolutePath)
     }
 
     return drvfs__GetLastError_to_result();
-}
-
-static drvfs_result drvfs_is_native_file(const char* absolutePath)
-{
-    DWORD attributes = GetFileAttributesA(absolutePath);
-    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
 static drvfs_result drvfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew)
