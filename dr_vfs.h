@@ -392,7 +392,7 @@ bool drvfs_is_write_directory_guard_enabled(drvfs_context* pContext);
 // The given path must be either absolute, or relative to one of the base directories.
 //
 // The path can be nested, such as "C:/my_zip_file.zip/my_inner_zip_file.zip".
-drvfs_archive* drvfs_open_archive(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode);
+drvfs_result drvfs_open_archive(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, drvfs_archive** ppArchiveOut);
 
 // Opens the archive that owns the given file.
 //
@@ -2945,21 +2945,24 @@ static void drvfs_recursively_claim_ownership_or_parent_archive(drvfs_archive* p
 }
 
 // Opens a native archive.
-static drvfs_archive* drvfs_open_native_archive(drvfs_context* pContext, const char* absolutePath, unsigned int accessMode)
+static drvfs_result drvfs_open_native_archive(drvfs_context* pContext, const char* absolutePath, unsigned int accessMode, drvfs_archive** ppArchive)
 {
     assert(pContext != NULL);
+    assert(ppArchive != NULL);
     assert(absolutePath != NULL);
+
+    *ppArchive = NULL;
 
     drvfs_handle internalArchiveHandle;
     drvfs_result result = drvfs_open_archive__native__special(absolutePath, accessMode, &internalArchiveHandle);
     if (result != drvfs_success) {
-        return NULL;
+        return result;
     }
 
     drvfs_archive* pArchive = malloc(sizeof(*pArchive));
     if (pArchive == NULL) {
         drvfs_close_archive__native(internalArchiveHandle);
-        return NULL;
+        return drvfs_out_of_memory;
     }
 
     pArchive->pContext                     = pContext;
@@ -2988,7 +2991,8 @@ static drvfs_archive* drvfs_open_native_archive(drvfs_context* pContext, const c
     pArchive->callbacks.flush_file         = drvfs_flush__native;
     drvfs__strcpy_s(pArchive->absolutePath, sizeof(pArchive->absolutePath), absolutePath);
 
-    return pArchive;
+    *ppArchive = pArchive;
+    return drvfs_success;
 }
 
 // Opens an archive from a file and callbacks.
@@ -3156,8 +3160,9 @@ static drvfs_archive* drvfs_open_owner_archive_from_absolute_path(drvfs_context*
                 char dirAbsolutePath[DRVFS_MAX_PATH];
                 drvfs_drpath_copy_base_path(runningPath, dirAbsolutePath, sizeof(dirAbsolutePath));
 
-                drvfs_archive* pNativeArchive = drvfs_open_native_archive(pContext, dirAbsolutePath, accessMode);
-                if (pNativeArchive == NULL) {
+                drvfs_archive* pNativeArchive;
+                drvfs_result result = drvfs_open_native_archive(pContext, dirAbsolutePath, accessMode, &pNativeArchive);
+                if (result != drvfs_success) {
                     return NULL;    // Failed to open the native archive.
                 }
 
@@ -3323,8 +3328,8 @@ static drvfs_archive* drvfs_open_owner_archive_from_relative_path(drvfs_context*
     drvfs_archive* pBaseArchive = NULL;
     if (drvfs_is_native_directory(absoluteBasePath))
     {
-        pBaseArchive = drvfs_open_native_archive(pContext, absoluteBasePath, accessMode);
-        if (pBaseArchive == NULL) {
+        drvfs_result result = drvfs_open_native_archive(pContext, absoluteBasePath, accessMode, &pBaseArchive);
+        if (result != drvfs_success) {
             return NULL;
         }
 
@@ -3374,8 +3379,8 @@ static drvfs_archive* drvfs_open_archive_from_relative_path(drvfs_context* pCont
     drvfs_archive* pBaseArchive = NULL;
     if (drvfs_is_native_directory(absoluteBasePath))
     {
-        pBaseArchive = drvfs_open_native_archive(pContext, absoluteBasePath, accessMode);
-        if (pBaseArchive == NULL) {
+        drvfs_result result = drvfs_open_native_archive(pContext, absoluteBasePath, accessMode, &pBaseArchive);
+        if (result != drvfs_success) {
             return NULL;
         }
 
@@ -3620,10 +3625,16 @@ bool drvfs_is_write_directory_guard_enabled(drvfs_context* pContext)
 
 
 
-drvfs_archive* drvfs_open_archive(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode)
+drvfs_result drvfs_open_archive(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, drvfs_archive** ppArchiveOut)
 {
+    if (ppArchiveOut == NULL) {
+        return drvfs_invalid_args;
+    }
+
+    *ppArchiveOut = NULL;
+
     if (pContext == NULL || absoluteOrRelativePath == NULL) {
-        return NULL;
+        return drvfs_invalid_args;
     }
 
     if (drvfs_drpath_is_absolute(absoluteOrRelativePath))
@@ -3631,7 +3642,7 @@ drvfs_archive* drvfs_open_archive(drvfs_context* pContext, const char* absoluteO
         if (drvfs_is_native_directory(absoluteOrRelativePath))
         {
             // It's a native directory.
-            return drvfs_open_native_archive(pContext, absoluteOrRelativePath, accessMode);
+            return drvfs_open_native_archive(pContext, absoluteOrRelativePath, accessMode, ppArchiveOut);
         }
         else
         {
@@ -3639,7 +3650,7 @@ drvfs_archive* drvfs_open_archive(drvfs_context* pContext, const char* absoluteO
             char relativePath[DRVFS_MAX_PATH];
             drvfs_archive* pOwnerArchive = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, accessMode, relativePath, sizeof(relativePath));
             if (pOwnerArchive == NULL) {
-                return NULL;
+                return drvfs_does_not_exist;
             }
 
             drvfs_archive* pArchive = drvfs_open_non_native_archive_from_path(pOwnerArchive, relativePath, accessMode);
@@ -3647,7 +3658,8 @@ drvfs_archive* drvfs_open_archive(drvfs_context* pContext, const char* absoluteO
                 drvfs_recursively_claim_ownership_or_parent_archive(pArchive);
             }
 
-            return pArchive;
+            *ppArchiveOut = pArchive;
+            return drvfs_success;
         }
     }
     else
@@ -3659,12 +3671,14 @@ drvfs_archive* drvfs_open_archive(drvfs_context* pContext, const char* absoluteO
             drvfs_archive* pArchive = drvfs_open_archive_from_relative_path(pContext, drvfs_get_base_directory_by_index(pContext, iBaseDir), absoluteOrRelativePath, accessMode);
             if (pArchive != NULL) {
                 drvfs_recursively_claim_ownership_or_parent_archive(pArchive);
-                return pArchive;
+
+                *ppArchiveOut = pArchive;
+                return drvfs_success;
             }
         }
     }
 
-    return NULL;
+    return drvfs_does_not_exist;
 }
 
 drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, char* relativePathOut, size_t relativePathOutSize)
@@ -3681,8 +3695,9 @@ drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* abs
             char dirAbsolutePath[DRVFS_MAX_PATH];
             drvfs_drpath_copy_base_path(absoluteOrRelativePath, dirAbsolutePath, sizeof(dirAbsolutePath));
 
-            drvfs_archive* pArchive = drvfs_open_archive(pContext, dirAbsolutePath, accessMode);
-            if (pArchive == NULL) {
+            drvfs_archive* pArchive;
+            drvfs_result result = drvfs_open_archive(pContext, dirAbsolutePath, accessMode, &pArchive);
+            if (result != drvfs_success) {
                 return NULL;
             }
 
@@ -4037,8 +4052,8 @@ bool drvfs_begin(drvfs_context* pContext, const char* absoluteOrRelativePath, dr
     // the owner archive. If both fail, we return false.
 
     char relativePath[DRVFS_MAX_PATH];
-    pIteratorOut->pArchive = drvfs_open_archive(pContext, absoluteOrRelativePath, DRVFS_READ);
-    if (pIteratorOut->pArchive != NULL) {
+    drvfs_result result = drvfs_open_archive(pContext, absoluteOrRelativePath, DRVFS_READ, &pIteratorOut->pArchive);
+    if (result == drvfs_success) {
         relativePath[0] = '\0';
     } else {
         pIteratorOut->pArchive = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, DRVFS_READ, relativePath, sizeof(relativePath));
