@@ -3099,7 +3099,7 @@ static drvfs_result drvfs_open_owner_archive_recursively_from_verbose_path(drvfs
                     return drvfs_path_too_long;
                 }
 
-                if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, runningPath, &fi))
+                if (pParentArchive->callbacks.get_file_info(pParentArchive->internalArchiveHandle, runningPath, &fi) == drvfs_success)
                 {
                     if ((fi.attributes & DRVFS_FILE_ATTRIBUTE_DIRECTORY) == 0)
                     {
