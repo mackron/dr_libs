@@ -403,13 +403,13 @@ drvfs_result drvfs_open_archive(drvfs_context* pContext, const char* absoluteOrR
 // If the given file is an archive itself, the archive that owns that archive will be opened. If the file
 // is a file on the native file system, the returned archive will represent the folder it's directly
 // contained in.
-drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, char* relativePathOut, size_t relativePathOutSize);
+drvfs_result drvfs_open_owner_archive(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, char* relativePathOut, size_t relativePathOutSize, drvfs_archive** ppArchiveOut);
 
 // Closes the given archive.
 void drvfs_close_archive(drvfs_archive* pArchive);
 
 // Opens a file relative to the given archive.
-drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* relativePath, unsigned int accessMode);
+drvfs_result drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* relativePath, unsigned int accessMode, drvfs_file** ppFileOut);
 
 
 
@@ -3040,8 +3040,9 @@ static drvfs_archive* drvfs_open_non_native_archive_from_path(drvfs_archive* pPa
         return NULL;
     }
 
-    drvfs_file* pArchiveFile = drvfs_open_file_from_archive(pParentArchive, relativePath, accessMode);
-    if (pArchiveFile == NULL) {
+    drvfs_file* pArchiveFile;
+    drvfs_result result = drvfs_open_file_from_archive(pParentArchive, relativePath, accessMode, &pArchiveFile);
+    if (result != drvfs_success) {
         return NULL;
     }
 
@@ -3088,7 +3089,8 @@ static drvfs_archive* drvfs_open_owner_archive_recursively_from_verbose_path(drv
                         drvfs_archive_callbacks backendCallbacks;
                         if (drvfs_find_backend_by_extension(pParentArchive->pContext, drvfs_drpath_extension(runningPath), &backendCallbacks))
                         {
-                            drvfs_file* pNextArchiveFile = drvfs_open_file_from_archive(pParentArchive, runningPath, accessMode);
+                            drvfs_file* pNextArchiveFile;
+                            drvfs_result result = drvfs_open_file_from_archive(pParentArchive, runningPath, accessMode, &pNextArchiveFile);
                             if (pNextArchiveFile == NULL) {
                                 break;    // Failed to open the archive file.
                             }
@@ -3340,8 +3342,8 @@ static drvfs_archive* drvfs_open_owner_archive_from_relative_path(drvfs_context*
     }
     else
     {
-        pBaseArchive = drvfs_open_owner_archive(pContext, absoluteBasePath, accessMode, relativeBasePath, sizeof(relativeBasePath));
-        if (pBaseArchive == NULL) {
+        drvfs_result result = drvfs_open_owner_archive(pContext, absoluteBasePath, accessMode, relativeBasePath, sizeof(relativeBasePath), &pBaseArchive);
+        if (result != drvfs_success) {
             return NULL;
         }
 
@@ -3391,8 +3393,8 @@ static drvfs_archive* drvfs_open_archive_from_relative_path(drvfs_context* pCont
     }
     else
     {
-        pBaseArchive = drvfs_open_owner_archive(pContext, absoluteBasePath, accessMode, relativeBasePath, sizeof(relativeBasePath));
-        if (pBaseArchive == NULL) {
+        drvfs_result result = drvfs_open_owner_archive(pContext, absoluteBasePath, accessMode, relativeBasePath, sizeof(relativeBasePath), &pBaseArchive);
+        if (result != drvfs_success) {
             return NULL;
         }
 
@@ -3648,15 +3650,19 @@ drvfs_result drvfs_open_archive(drvfs_context* pContext, const char* absoluteOrR
         {
             // It's not a native directory. We can just use drvfs_open_owner_archive() in this case.
             char relativePath[DRVFS_MAX_PATH];
-            drvfs_archive* pOwnerArchive = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, accessMode, relativePath, sizeof(relativePath));
-            if (pOwnerArchive == NULL) {
-                return drvfs_does_not_exist;
+            drvfs_archive* pOwnerArchive;
+            drvfs_result result = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, accessMode, relativePath, sizeof(relativePath), &pOwnerArchive);
+            if (result != drvfs_success) {
+                return result;
             }
 
             drvfs_archive* pArchive = drvfs_open_non_native_archive_from_path(pOwnerArchive, relativePath, accessMode);
-            if (pArchive != NULL) {
-                drvfs_recursively_claim_ownership_or_parent_archive(pArchive);
+            if (pArchive == NULL) {
+                drvfs_close_archive(pOwnerArchive);
+                return drvfs_does_not_exist;
             }
+
+            drvfs_recursively_claim_ownership_or_parent_archive(pArchive);
 
             *ppArchiveOut = pArchive;
             return drvfs_success;
@@ -3681,10 +3687,16 @@ drvfs_result drvfs_open_archive(drvfs_context* pContext, const char* absoluteOrR
     return drvfs_does_not_exist;
 }
 
-drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, char* relativePathOut, size_t relativePathOutSize)
+drvfs_result drvfs_open_owner_archive(drvfs_context* pContext, const char* absoluteOrRelativePath, unsigned int accessMode, char* relativePathOut, size_t relativePathOutSize, drvfs_archive** ppArchiveOut)
 {
+    if (ppArchiveOut == NULL) {
+        return drvfs_invalid_args;
+    }
+
+    *ppArchiveOut = NULL;
+
     if (pContext == NULL || absoluteOrRelativePath == NULL) {
-        return NULL;
+        return drvfs_invalid_args;
     }
 
     if (drvfs_drpath_is_absolute(absoluteOrRelativePath))
@@ -3698,17 +3710,18 @@ drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* abs
             drvfs_archive* pArchive;
             drvfs_result result = drvfs_open_archive(pContext, dirAbsolutePath, accessMode, &pArchive);
             if (result != drvfs_success) {
-                return NULL;
+                return result;
             }
 
             if (relativePathOut) {
                 if (drvfs__strcpy_s(relativePathOut, relativePathOutSize, drvfs_drpath_file_name(absoluteOrRelativePath)) != 0) {
                     drvfs_close_archive(pArchive);
-                    return NULL;
+                    return drvfs_path_too_long;
                 }
             }
 
-            return pArchive;
+            *ppArchiveOut = pArchive;
+            return drvfs_success;
         }
         else
         {
@@ -3716,7 +3729,9 @@ drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* abs
             drvfs_archive* pArchive = drvfs_open_owner_archive_from_absolute_path(pContext, absoluteOrRelativePath, accessMode, relativePathOut, relativePathOutSize);
             if (pArchive != NULL) {
                 drvfs_recursively_claim_ownership_or_parent_archive(pArchive);
-                return pArchive;
+
+                *ppArchiveOut = pArchive;
+                return drvfs_success;
             }
         }
     }
@@ -3729,12 +3744,14 @@ drvfs_archive* drvfs_open_owner_archive(drvfs_context* pContext, const char* abs
             drvfs_archive* pArchive = drvfs_open_owner_archive_from_relative_path(pContext, drvfs_get_base_directory_by_index(pContext, iBaseDir), absoluteOrRelativePath, accessMode, relativePathOut, relativePathOutSize);
             if (pArchive != NULL) {
                 drvfs_recursively_claim_ownership_or_parent_archive(pArchive);
-                return pArchive;
+
+                *ppArchiveOut = pArchive;
+                return drvfs_success;
             }
         }
     }
 
-    return NULL;
+    return drvfs_does_not_exist;
 }
 
 void drvfs_close_archive(drvfs_archive* pArchive)
@@ -3758,22 +3775,29 @@ void drvfs_close_archive(drvfs_archive* pArchive)
     free(pArchive);
 }
 
-drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* relativePath, unsigned int accessMode)
+drvfs_result drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* relativePath, unsigned int accessMode, drvfs_file** ppFileOut)
 {
+    if (ppFileOut == NULL) {
+        return drvfs_invalid_args;
+    }
+
+    *ppFileOut = NULL;
+
     if (pArchive == NULL || relativePath == NULL || pArchive->callbacks.open_file == NULL) {
-        return NULL;
+        return drvfs_invalid_args;
     }
 
     drvfs_handle internalFileHandle;
     drvfs_result result = pArchive->callbacks.open_file(pArchive->internalArchiveHandle, relativePath, accessMode, &internalFileHandle);
     if (result != drvfs_success) {
-        return NULL;
+        return result;
     }
 
     // At this point the file is opened and we can create the file object.
     drvfs_file* pFile = malloc(sizeof(*pFile));
     if (pFile == NULL) {
-        return NULL;
+        pArchive->callbacks.close_file(pArchive->internalArchiveHandle, internalFileHandle);
+        return drvfs_out_of_memory;
     }
 
     pFile->pArchive           = pArchive;
@@ -3786,11 +3810,12 @@ drvfs_file* drvfs_open_file_from_archive(drvfs_archive* pArchive, const char* re
 #else
     if (pthread_mutex_init(&pFile->lock, NULL) != 0) {
         drvfs_close(pFile);
-        return NULL;
+        return drvfs_unknown_error;
     }
 #endif
 
-    return pFile;
+    *ppFileOut = pFile;
+    return drvfs_success;
 }
 
 
@@ -3817,15 +3842,17 @@ drvfs_result drvfs_open(drvfs_context* pContext, const char* absoluteOrRelativeP
     }
 
     char relativePath[DRVFS_MAX_PATH];
-    drvfs_archive* pArchive = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, drvfs_archive_access_mode(accessMode), relativePath, sizeof(relativePath));
-    if (pArchive == NULL) {
-        return drvfs_does_not_exist;
+    drvfs_archive* pArchive;
+    drvfs_result result = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, drvfs_archive_access_mode(accessMode), relativePath, sizeof(relativePath), &pArchive);
+    if (result != drvfs_success) {
+        return result;
     }
 
-    drvfs_file* pFile = drvfs_open_file_from_archive(pArchive, relativePath, accessMode);
-    if (pFile == NULL) {
+    drvfs_file* pFile;
+    result = drvfs_open_file_from_archive(pArchive, relativePath, accessMode, &pFile);
+    if (result != drvfs_success) {
         drvfs_close_archive(pArchive);
-        return drvfs_does_not_exist;
+        return result;
     }
 
     // When using this API, we want to claim ownership of the archive so that it's closed when we close this file.
@@ -4015,12 +4042,13 @@ drvfs_result drvfs_get_file_info(drvfs_context* pContext, const char* absoluteOr
     }
 
     char relativePath[DRVFS_MAX_PATH];
-    drvfs_archive* pOwnerArchive = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, DRVFS_READ, relativePath, sizeof(relativePath));
-    if (pOwnerArchive == NULL) {
-        return drvfs_does_not_exist;
+    drvfs_archive* pOwnerArchive;
+    drvfs_result result = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, DRVFS_READ, relativePath, sizeof(relativePath), &pOwnerArchive);
+    if (result != drvfs_success) {
+        return result;
     }
 
-    drvfs_result result = drvfs_no_backend;
+    result = drvfs_no_backend;
     if (pOwnerArchive->callbacks.get_file_info) {
         result = pOwnerArchive->callbacks.get_file_info(pOwnerArchive->internalArchiveHandle, relativePath, fi);
     }
@@ -4056,12 +4084,13 @@ bool drvfs_begin(drvfs_context* pContext, const char* absoluteOrRelativePath, dr
     if (result == drvfs_success) {
         relativePath[0] = '\0';
     } else {
-        pIteratorOut->pArchive = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, DRVFS_READ, relativePath, sizeof(relativePath));
+        result = drvfs_open_owner_archive(pContext, absoluteOrRelativePath, DRVFS_READ, relativePath, sizeof(relativePath), &pIteratorOut->pArchive);
+        if (result != drvfs_success) {
+            return false;
+        }
     }
 
-    if (pIteratorOut->pArchive == NULL) {
-        return false;
-    }
+    assert(pIteratorOut->pArchive != NULL);
 
 
     if (pIteratorOut->pArchive->callbacks.begin_iteration) {
@@ -4137,18 +4166,18 @@ drvfs_result drvfs_delete_file(drvfs_context* pContext, const char* path)
 
 
     char relativePath[DRVFS_MAX_PATH];
-    drvfs_archive* pArchive = drvfs_open_owner_archive(pContext, absolutePath, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePath, sizeof(relativePath));
-    if (pArchive == NULL) {
-        return drvfs_does_not_exist;
+    drvfs_archive* pArchive;
+    drvfs_result result = drvfs_open_owner_archive(pContext, absolutePath, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePath, sizeof(relativePath), &pArchive);
+    if (result != drvfs_success) {
+        return result;
     }
 
-    drvfs_result result = drvfs_no_backend;
+    result = drvfs_no_backend;
     if (pArchive->callbacks.delete_file) {
         result = pArchive->callbacks.delete_file(pArchive->internalArchiveHandle, relativePath);
     }
 
     drvfs_close_archive(pArchive);
-
     return result;
 }
 
@@ -4176,18 +4205,20 @@ drvfs_result drvfs_rename_file(drvfs_context* pContext, const char* pathOld, con
     }
 
 
-    drvfs_result result = drvfs_unknown_error;
-
     char relativePathOld[DRVFS_MAX_PATH];
-    drvfs_archive* pArchiveOld = drvfs_open_owner_archive(pContext, pathOld, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePathOld, sizeof(relativePathOld));
+    drvfs_archive* pArchiveOld;
+    drvfs_result result = drvfs_open_owner_archive(pContext, pathOld, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePathOld, sizeof(relativePathOld), &pArchiveOld);
     if (pArchiveOld != NULL)
     {
         char relativePathNew[DRVFS_MAX_PATH];
-        drvfs_archive* pArchiveNew = drvfs_open_owner_archive(pContext, pathNew, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePathNew, sizeof(relativePathNew));
+        drvfs_archive* pArchiveNew;
+        drvfs_result result = drvfs_open_owner_archive(pContext, pathNew, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePathNew, sizeof(relativePathNew), &pArchiveNew);
         if (pArchiveNew != NULL)
         {
             if (drvfs_drpath_equal(pArchiveOld->absolutePath, pArchiveNew->absolutePath) && pArchiveOld->callbacks.rename_file) {
                 result = pArchiveOld->callbacks.rename_file(pArchiveOld, relativePathOld, relativePathNew);
+            } else {
+                result = drvfs_permission_denied; // Attempting to rename across different archives which is not supported.
             }
 
             drvfs_close_archive(pArchiveNew);
@@ -4211,18 +4242,18 @@ drvfs_result drvfs_create_directory(drvfs_context* pContext, const char* path)
     }
 
     char relativePath[DRVFS_MAX_PATH];
-    drvfs_archive* pArchive = drvfs_open_owner_archive(pContext, absolutePath, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePath, sizeof(relativePath));
-    if (pArchive == NULL) {
-        return drvfs_not_in_write_directory;
+    drvfs_archive* pArchive;
+    drvfs_result result = drvfs_open_owner_archive(pContext, absolutePath, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePath, sizeof(relativePath), &pArchive);
+    if (result != drvfs_success) {
+        return result;
     }
 
-    drvfs_result result = drvfs_no_backend;
+    result = drvfs_no_backend;
     if (pArchive->callbacks.create_directory) {
         result = pArchive->callbacks.create_directory(pArchive->internalArchiveHandle, relativePath);
     }
 
     drvfs_close_archive(pArchive);
-
     return result;
 }
 
@@ -4240,21 +4271,23 @@ drvfs_result drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const
 
     // We want to open the archive of both the source and destination. If they are the same archive we'll do an intra-archive copy.
     char srcRelativePath[DRVFS_MAX_PATH];
-    drvfs_archive* pSrcArchive = drvfs_open_owner_archive(pContext, srcPath, drvfs_archive_access_mode(DRVFS_READ), srcRelativePath, sizeof(srcRelativePath));
-    if (pSrcArchive == NULL) {
-        return drvfs_does_not_exist;
+    drvfs_archive* pSrcArchive;
+    drvfs_result result = drvfs_open_owner_archive(pContext, srcPath, drvfs_archive_access_mode(DRVFS_READ), srcRelativePath, sizeof(srcRelativePath), &pSrcArchive);
+    if (result != drvfs_success) {
+        return result;
     }
 
     char dstRelativePath[DRVFS_MAX_PATH];
-    drvfs_archive* pDstArchive = drvfs_open_owner_archive(pContext, dstPathAbsolute, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), dstRelativePath, sizeof(dstRelativePath));
-    if (pDstArchive == NULL) {
+    drvfs_archive* pDstArchive;
+    result = drvfs_open_owner_archive(pContext, dstPathAbsolute, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), dstRelativePath, sizeof(dstRelativePath), &pDstArchive);
+    if (result != drvfs_success) {
         drvfs_close_archive(pSrcArchive);
-        return drvfs_does_not_exist;
+        return result;
     }
 
 
 
-    drvfs_result result = drvfs_success;
+    result = drvfs_success;
     if (strcmp(pSrcArchive->absolutePath, pDstArchive->absolutePath) == 0 && pDstArchive->callbacks.copy_file)
     {
         // Intra-archive copy.
@@ -4279,23 +4312,30 @@ drvfs_result drvfs_copy_file(drvfs_context* pContext, const char* srcPath, const
             }
             else
             {
-                drvfs_file* pSrcFile = drvfs_open_file_from_archive(pSrcArchive, srcRelativePath, DRVFS_READ);
-                drvfs_file* pDstFile = drvfs_open_file_from_archive(pDstArchive, dstRelativePath, DRVFS_WRITE | DRVFS_TRUNCATE);
-                if (pSrcFile != NULL && pDstFile != NULL)
-                {
-                    char chunk[4096];
-                    size_t bytesRead;
-                    while (drvfs_read(pSrcFile, chunk, sizeof(chunk), &bytesRead) == drvfs_success && bytesRead > 0)
-                    {
-                        drvfs_write(pDstFile, chunk, bytesRead, NULL);
-                    }
-
-                    result = drvfs_success;
+                drvfs_file* pSrcFile;
+                result = drvfs_open_file_from_archive(pSrcArchive, srcRelativePath, DRVFS_READ, &pSrcFile);
+                if (result != drvfs_success) {
+                    return result;
                 }
-                else
+
+                drvfs_file* pDstFile;
+                result = drvfs_open_file_from_archive(pDstArchive, dstRelativePath, DRVFS_WRITE | DRVFS_TRUNCATE, &pDstFile);
+                if (result != drvfs_success) {
+                    drvfs_close(pSrcFile);
+                    return result;
+                }
+
+                assert(pSrcFile != NULL);
+                assert(pDstFile != NULL);
+
+                char chunk[4096];
+                size_t bytesRead;
+                while (drvfs_read(pSrcFile, chunk, sizeof(chunk), &bytesRead) == drvfs_success && bytesRead > 0)
                 {
-                    // TODO: Make this a more descriptive error.
-                    result = drvfs_unknown_error;
+                    result = drvfs_write(pDstFile, chunk, bytesRead, NULL);
+                    if (result != drvfs_success) {
+                        break;
+                    }
                 }
 
                 drvfs_close(pSrcFile);
