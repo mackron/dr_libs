@@ -2626,7 +2626,7 @@ static bool drvfs_mkdir_recursive_native(const char* absolutePath)
             }
 
             if (!drvfs_is_native_directory(runningPath)) {
-                if (!drvfs_mkdir_native(runningPath)) {
+                if (drvfs_mkdir_native(runningPath) != drvfs_success) {
                     return false;
                 }
 
@@ -2645,7 +2645,7 @@ static bool drvfs_mkdir_recursive_native(const char* absolutePath)
 
             assert(!drvfs_is_native_directory(runningPath));
 
-            if (!drvfs_mkdir_native(runningPath)) {
+            if (drvfs_mkdir_native(runningPath) != drvfs_success) {
                 return false;
             }
         }
