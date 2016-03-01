@@ -3226,13 +3226,16 @@ static drvfs_result drvfs_open_owner_archive_from_absolute_path(drvfs_context* p
 }
 
 // Recursively opens the archive that owns the file specified by the given relative path.
-static drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_path(drvfs_archive* pParentArchive, const char* rootSearchPath, const char* relativePath, unsigned int accessMode, char* relativePathOut, size_t relativePathOutSize)
+static drvfs_result drvfs_open_owner_archive_recursively_from_relative_path(drvfs_archive* pParentArchive, const char* rootSearchPath, const char* relativePath, unsigned int accessMode, char* relativePathOut, size_t relativePathOutSize, drvfs_archive** ppArchiveOut)
 {
     assert(pParentArchive != NULL);
     assert(relativePath != NULL);
+    assert(ppArchiveOut != NULL);
+
+    *ppArchiveOut = NULL;
 
     if (pParentArchive->callbacks.get_file_info == NULL) {
-        return NULL;
+        return drvfs_no_backend;
     }
 
     // Always try the direct route by checking if the file exists within the archive first.
@@ -3241,7 +3244,8 @@ static drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_path(dr
     {
         // The file is in this archive.
         drvfs__strcpy_s(relativePathOut, relativePathOutSize, relativePath);
-        return pParentArchive;
+        *ppArchiveOut = pParentArchive;
+        return drvfs_success;
     }
     else
     {
@@ -3278,7 +3282,7 @@ static drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_path(dr
                 drvfs__strcpy_s(runningPathBase, sizeof(runningPathBase), runningPath);
 
                 if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), pathseg)) {
-                    return NULL;
+                    return drvfs_path_too_long;
                 }
 
                 drvfs_archive* pNextArchive;
@@ -3290,27 +3294,29 @@ static drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_path(dr
                     if (!drvfs_drpath_next(&nextseg)) {
                         // Should never actually get here, but if we do it means we've reached the end of the path. Assume the file could not be found.
                         drvfs_close_archive(pNextArchive);
-                        return NULL;
+                        return drvfs_unknown_error;
                     }
 
-                    drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", nextseg.path + nextseg.segment.offset, accessMode, relativePathOut, relativePathOutSize);
+                    drvfs_archive* pOwnerArchive;
+                    result = drvfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", nextseg.path + nextseg.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pOwnerArchive);
                     if (pOwnerArchive == NULL) {
                         drvfs_close_archive(pNextArchive);
-                        return NULL;
+                        return drvfs_does_not_exist;
                     }
 
-                    return pOwnerArchive;
+                    *ppArchiveOut = pOwnerArchive;
+                    return drvfs_success;
                 }
                 else
                 {
                     // It's not an archive segment. We need to search.
                     if (pParentArchive->callbacks.begin_iteration == NULL || pParentArchive->callbacks.next_iteration == NULL || pParentArchive->callbacks.end_iteration == NULL) {
-                        return NULL;
+                        return drvfs_no_backend;
                     }
 
                     drvfs_handle iterator = pParentArchive->callbacks.begin_iteration(pParentArchive->internalArchiveHandle, runningPathBase);
                     if (iterator == NULL) {
-                        return NULL;
+                        return drvfs_no_backend;
                     }
 
                     while (pParentArchive->callbacks.next_iteration(pParentArchive->internalArchiveHandle, iterator, &fi))
@@ -3322,10 +3328,12 @@ static drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_path(dr
                             if (pNextArchive != NULL)
                             {
                                 // It's an archive, so check it.
-                                drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", pathseg.path + pathseg.segment.offset, accessMode, relativePathOut, relativePathOutSize);
+                                drvfs_archive* pOwnerArchive;
+                                result = drvfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", pathseg.path + pathseg.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pOwnerArchive);
                                 if (pOwnerArchive != NULL) {
                                     pParentArchive->callbacks.end_iteration(pParentArchive->internalArchiveHandle, iterator);
-                                    return pOwnerArchive;
+                                    *ppArchiveOut = pOwnerArchive;
+                                    return drvfs_success;
                                 } else {
                                     drvfs_close_archive(pNextArchive);
                                 }
@@ -3340,17 +3348,20 @@ static drvfs_archive* drvfs_open_owner_archive_recursively_from_relative_path(dr
         }
     }
 
-    return NULL;
+    return drvfs_does_not_exist;
 }
 
 // Opens the archive that owns the file at the given path that's relative to the given base path. This supports non-verbose paths and will search
 // the file system for the archive.
-static drvfs_archive* drvfs_open_owner_archive_from_relative_path(drvfs_context* pContext, const char* absoluteBasePath, const char* relativePath, unsigned int accessMode, char* relativePathOut, size_t relativePathOutSize)
+static drvfs_result drvfs_open_owner_archive_from_relative_path(drvfs_context* pContext, const char* absoluteBasePath, const char* relativePath, unsigned int accessMode, char* relativePathOut, size_t relativePathOutSize, drvfs_archive** ppArchiveOut)
 {
     assert(pContext != NULL);
     assert(absoluteBasePath != NULL);
     assert(relativePath != NULL);
     assert(drvfs_drpath_is_absolute(absoluteBasePath));
+    assert(ppArchiveOut != NULL);
+
+    *ppArchiveOut = NULL;
 
     char adjustedRelativePath[DRVFS_MAX_PATH];
     char relativeBasePath[DRVFS_MAX_PATH];
@@ -3362,46 +3373,52 @@ static drvfs_archive* drvfs_open_owner_archive_from_relative_path(drvfs_context*
     {
         drvfs_result result = drvfs_open_native_archive(pContext, absoluteBasePath, accessMode, &pBaseArchive);
         if (result != drvfs_success) {
-            return NULL;
+            return result;
         }
 
         if (drvfs__strcpy_s(adjustedRelativePath, sizeof(adjustedRelativePath), relativePath) != 0) {
             drvfs_close_archive(pBaseArchive);
-            return NULL;
+            return drvfs_path_too_long;
         }
     }
     else
     {
         drvfs_result result = drvfs_open_owner_archive(pContext, absoluteBasePath, accessMode, relativeBasePath, sizeof(relativeBasePath), &pBaseArchive);
         if (result != drvfs_success) {
-            return NULL;
+            return result;
         }
 
         if (!drvfs_drpath_copy_and_append(adjustedRelativePath, sizeof(adjustedRelativePath), relativeBasePath, relativePath)) {
             drvfs_close_archive(pBaseArchive);
-            return NULL;
+            return drvfs_path_too_long;
         }
     }
 
 
     // We couldn't open the archive file from here, so we'll need to search for the owner archive recursively.
-    drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_relative_path(pBaseArchive, relativeBasePath, adjustedRelativePath, accessMode, relativePathOut, relativePathOutSize);
+    drvfs_archive* pOwnerArchive;
+    drvfs_result result = drvfs_open_owner_archive_recursively_from_relative_path(pBaseArchive, relativeBasePath, adjustedRelativePath, accessMode, relativePathOut, relativePathOutSize, &pOwnerArchive);
     if (pOwnerArchive == NULL) {
-        return NULL;
+        return result;
     }
 
     drvfs_recursively_claim_ownership_or_parent_archive(pOwnerArchive);
-    return pOwnerArchive;
+
+    *ppArchiveOut = pOwnerArchive;
+    return drvfs_success;
 }
 
 // Opens an archive from a path that's relative to the given base path. This supports non-verbose paths and will search
 // the file system for the archive.
-static drvfs_archive* drvfs_open_archive_from_relative_path(drvfs_context* pContext, const char* absoluteBasePath, const char* relativePath, unsigned int accessMode)
+static drvfs_result drvfs_open_archive_from_relative_path(drvfs_context* pContext, const char* absoluteBasePath, const char* relativePath, unsigned int accessMode, drvfs_archive** ppArchiveOut)
 {
     assert(pContext != NULL);
     assert(absoluteBasePath != NULL);
     assert(relativePath != NULL);
     assert(drvfs_drpath_is_absolute(absoluteBasePath));
+    assert(ppArchiveOut != NULL);
+
+    *ppArchiveOut = NULL;
 
     char adjustedRelativePath[DRVFS_MAX_PATH];
     char relativeBasePath[DRVFS_MAX_PATH];
@@ -3413,24 +3430,24 @@ static drvfs_archive* drvfs_open_archive_from_relative_path(drvfs_context* pCont
     {
         drvfs_result result = drvfs_open_native_archive(pContext, absoluteBasePath, accessMode, &pBaseArchive);
         if (result != drvfs_success) {
-            return NULL;
+            return result;
         }
 
         if (drvfs__strcpy_s(adjustedRelativePath, sizeof(adjustedRelativePath), relativePath) != 0) {
             drvfs_close_archive(pBaseArchive);
-            return NULL;
+            return drvfs_path_too_long;
         }
     }
     else
     {
         drvfs_result result = drvfs_open_owner_archive(pContext, absoluteBasePath, accessMode, relativeBasePath, sizeof(relativeBasePath), &pBaseArchive);
         if (result != drvfs_success) {
-            return NULL;
+            return result;
         }
 
         if (!drvfs_drpath_copy_and_append(adjustedRelativePath, sizeof(adjustedRelativePath), relativeBasePath, relativePath)) {
             drvfs_close_archive(pBaseArchive);
-            return NULL;
+            return drvfs_path_too_long;
         }
     }
 
@@ -3443,7 +3460,8 @@ static drvfs_archive* drvfs_open_archive_from_relative_path(drvfs_context* pCont
     {
         // We couldn't open the archive file from here, so we'll need to search for the owner archive recursively.
         char archiveRelativePath[DRVFS_MAX_PATH];
-        drvfs_archive* pOwnerArchive = drvfs_open_owner_archive_recursively_from_relative_path(pBaseArchive, relativeBasePath, adjustedRelativePath, accessMode, archiveRelativePath, sizeof(archiveRelativePath));
+        drvfs_archive* pOwnerArchive;
+        result = drvfs_open_owner_archive_recursively_from_relative_path(pBaseArchive, relativeBasePath, adjustedRelativePath, accessMode, archiveRelativePath, sizeof(archiveRelativePath), &pOwnerArchive);
         if (pOwnerArchive != NULL)
         {
             drvfs_recursively_claim_ownership_or_parent_archive(pOwnerArchive);
@@ -3451,16 +3469,18 @@ static drvfs_archive* drvfs_open_archive_from_relative_path(drvfs_context* pCont
             result = drvfs_open_non_native_archive_from_path(pOwnerArchive, archiveRelativePath, accessMode, &pArchive);
             if (pArchive == NULL) {
                 drvfs_close_archive(pOwnerArchive);
-                return NULL;
+                return result;
             }
         }
     }
 
     if (pArchive == NULL) {
         drvfs_close_archive(pBaseArchive);
+        return drvfs_does_not_exist;
     }
 
-    return pArchive;
+    *ppArchiveOut = pArchive;
+    return drvfs_success;
 }
 
 //// Back-End Registration ////
@@ -3706,7 +3726,8 @@ drvfs_result drvfs_open_archive(drvfs_context* pContext, const char* absoluteOrR
 
         for (unsigned int iBaseDir = 0; iBaseDir < drvfs_get_base_directory_count(pContext); ++iBaseDir)
         {
-            drvfs_archive* pArchive = drvfs_open_archive_from_relative_path(pContext, drvfs_get_base_directory_by_index(pContext, iBaseDir), absoluteOrRelativePath, accessMode);
+            drvfs_archive* pArchive;
+            drvfs_result result = drvfs_open_archive_from_relative_path(pContext, drvfs_get_base_directory_by_index(pContext, iBaseDir), absoluteOrRelativePath, accessMode, &pArchive);
             if (pArchive != NULL) {
                 drvfs_recursively_claim_ownership_or_parent_archive(pArchive);
 
@@ -3776,8 +3797,10 @@ drvfs_result drvfs_open_owner_archive(drvfs_context* pContext, const char* absol
 
         for (unsigned int iBaseDir = 0; iBaseDir < drvfs_get_base_directory_count(pContext); ++iBaseDir)
         {
-            drvfs_archive* pArchive = drvfs_open_owner_archive_from_relative_path(pContext, drvfs_get_base_directory_by_index(pContext, iBaseDir), absoluteOrRelativePath, accessMode, relativePathOut, relativePathOutSize);
-            if (pArchive != NULL) {
+            drvfs_archive* pArchive;
+            drvfs_result result = drvfs_open_owner_archive_from_relative_path(pContext, drvfs_get_base_directory_by_index(pContext, iBaseDir), absoluteOrRelativePath, accessMode, relativePathOut, relativePathOutSize, &pArchive);
+            if (pArchive != NULL)
+            {
                 drvfs_recursively_claim_ownership_or_parent_archive(pArchive);
 
                 *ppArchiveOut = pArchive;
