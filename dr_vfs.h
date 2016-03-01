@@ -219,6 +219,7 @@ typedef enum
     drvfs_not_directory          = -12,
     drvfs_too_large              = -13,
     drvfs_at_end_of_file         = -14,
+    drvfs_invalid_archive        = -15,
 } drvfs_result;
 
 // The allowable seeking origins.
@@ -239,7 +240,7 @@ typedef struct drvfs_file_info drvfs_file_info;
 typedef struct drvfs_iterator  drvfs_iterator;
 
 typedef bool         (* drvfs_is_valid_extension_proc)(const char* extension);
-typedef drvfs_handle (* drvfs_open_archive_proc)      (drvfs_file* pArchiveFile, unsigned int accessMode);
+typedef drvfs_result (* drvfs_open_archive_proc)      (drvfs_file* pArchiveFile, unsigned int accessMode, drvfs_handle* pHandleOut);
 typedef void         (* drvfs_close_archive_proc)     (drvfs_handle archive);
 typedef drvfs_result (* drvfs_get_file_info_proc)     (drvfs_handle archive, const char* relativePath, drvfs_file_info* fi);
 typedef drvfs_handle (* drvfs_begin_iteration_proc)   (drvfs_handle archive, const char* relativePath);
@@ -2669,7 +2670,7 @@ typedef struct
 
 } drvfs_archive_native;
 
-static drvfs_handle drvfs_open_archive__native(drvfs_file* pArchiveFile, unsigned int accessMode)
+static drvfs_result drvfs_open_archive__native(drvfs_file* pArchiveFile, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     (void)pArchiveFile;
     (void)accessMode;
@@ -2679,24 +2680,29 @@ static drvfs_handle drvfs_open_archive__native(drvfs_file* pArchiveFile, unsigne
     // included here for this assert so we can ensure we don't incorrectly call this function.
     assert(false);
 
-    return 0;
+    *pHandleOut = NULL;
+    return drvfs_unknown_error;
 }
 
-static drvfs_handle drvfs_open_archive__native__special(const char* absolutePath, unsigned int accessMode)
+static drvfs_result drvfs_open_archive__native__special(const char* absolutePath, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(absolutePath != NULL);       // There is no notion of a file for native archives (which are just directories on the file system).
+    assert(pHandleOut != NULL);
+
+    *pHandleOut = NULL;
 
     size_t absolutePathLen = strlen(absolutePath);
 
     drvfs_archive_native* pNativeArchive = malloc(sizeof(*pNativeArchive) + absolutePathLen + 1);
     if (pNativeArchive == NULL) {
-        return NULL;
+        return drvfs_out_of_memory;
     }
 
     drvfs__strcpy_s(pNativeArchive->absolutePath, absolutePathLen + 1, absolutePath);
     pNativeArchive->accessMode = accessMode;
 
-    return (drvfs_handle)pNativeArchive;
+    *pHandleOut = (drvfs_handle)pNativeArchive;
+    return drvfs_success;
 }
 
 static void drvfs_close_archive__native(drvfs_handle archive)
@@ -2944,13 +2950,15 @@ static drvfs_archive* drvfs_open_native_archive(drvfs_context* pContext, const c
     assert(pContext != NULL);
     assert(absolutePath != NULL);
 
-    drvfs_handle internalArchiveHandle = drvfs_open_archive__native__special(absolutePath, accessMode);
-    if (internalArchiveHandle == NULL) {
+    drvfs_handle internalArchiveHandle;
+    drvfs_result result = drvfs_open_archive__native__special(absolutePath, accessMode, &internalArchiveHandle);
+    if (result != drvfs_success) {
         return NULL;
     }
 
     drvfs_archive* pArchive = malloc(sizeof(*pArchive));
     if (pArchive == NULL) {
+        drvfs_close_archive__native(internalArchiveHandle);
         return NULL;
     }
 
@@ -2994,13 +3002,15 @@ static drvfs_archive* drvfs_open_non_native_archive(drvfs_archive* pParentArchiv
         return NULL;
     }
 
-    drvfs_handle internalArchiveHandle = pBackEndCallbacks->open_archive(pArchiveFile, accessMode);
-    if (internalArchiveHandle == NULL) {
+    drvfs_handle internalArchiveHandle;
+    drvfs_result result = pBackEndCallbacks->open_archive(pArchiveFile, accessMode, &internalArchiveHandle);
+    if (result != drvfs_success) {
         return NULL;
     }
 
     drvfs_archive* pArchive = malloc(sizeof(*pArchive));
     if (pArchive == NULL) {
+        pBackEndCallbacks->close_archive(internalArchiveHandle);
         return NULL;
     }
 
@@ -6129,20 +6139,23 @@ static bool drvfs_is_valid_extension__zip(const char* extension)
     return drvfs__stricmp(extension, "zip") == 0;
 }
 
-static drvfs_handle drvfs_open_archive__zip(drvfs_file* pArchiveFile, unsigned int accessMode)
+static drvfs_result drvfs_open_archive__zip(drvfs_file* pArchiveFile, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(pArchiveFile != NULL);
+    assert(pHandleOut != NULL);
     assert(drvfs_tell(pArchiveFile) == 0);
+
+    *pHandleOut = NULL;
 
     // Only support read-only mode at the moment.
     if ((accessMode & DRVFS_WRITE) != 0) {
-        return NULL;
+        return drvfs_permission_denied;
     }
 
 
     mz_zip_archive* pZip = malloc(sizeof(mz_zip_archive));
     if (pZip == NULL) {
-        return NULL;
+        return drvfs_out_of_memory;
     }
 
     memset(pZip, 0, sizeof(mz_zip_archive));
@@ -6151,10 +6164,11 @@ static drvfs_handle drvfs_open_archive__zip(drvfs_file* pArchiveFile, unsigned i
     pZip->m_pIO_opaque = pArchiveFile;
     if (!drvfs_mz_zip_reader_init(pZip, drvfs_size(pArchiveFile), 0)) {
         free(pZip);
-        return NULL;
+        return drvfs_unknown_error;
     }
 
-    return pZip;
+    *pHandleOut = pZip;
+    return drvfs_success;
 }
 
 static void drvfs_close_archive__zip(drvfs_handle archive)
@@ -6731,26 +6745,30 @@ static bool drvfs_is_valid_extension__pak(const char* extension)
 }
 
 
-static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned int accessMode)
+static drvfs_result drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(pArchiveFile != NULL);
+    assert(pHandleOut != NULL);
     assert(drvfs_tell(pArchiveFile) == 0);
 
+    *pHandleOut = NULL;
+
     if (!drvfs_lock(pArchiveFile)) {
-        return NULL;
+        return drvfs_unknown_error;
     }
 
+    drvfs_result result = drvfs_success;
     drvfs_archive_pak* pak = drvfs_pak_create(pArchiveFile, accessMode);
     if (pak != NULL)
     {
         // First 4 bytes should equal "PACK"
-        if (drvfs_read_nolock(pArchiveFile, pak->id, 4, NULL))
+        if (drvfs_read_nolock(pArchiveFile, pak->id, 4, NULL) == drvfs_success)
         {
             if (pak->id[0] == 'P' && pak->id[1] == 'A' && pak->id[2] == 'C' && pak->id[3] == 'K')
             {
-                if (drvfs_read_nolock(pArchiveFile, &pak->directoryOffset, 4, NULL))
+                if (drvfs_read_nolock(pArchiveFile, &pak->directoryOffset, 4, NULL) == drvfs_success)
                 {
-                    if (drvfs_read_nolock(pArchiveFile, &pak->directoryLength, 4, NULL))
+                    if (drvfs_read_nolock(pArchiveFile, &pak->directoryLength, 4, NULL) == drvfs_success)
                     {
                         // We loaded the header just fine so now we want to allocate space for each file in the directory and load them. Note that
                         // this does not load the file data itself, just information about the files like their name and size.
@@ -6765,10 +6783,10 @@ static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                                 if (pak->pFiles != NULL)
                                 {
                                     // Seek to the directory listing before trying to read it.
-                                    if (drvfs_seek_nolock(pArchiveFile, pak->directoryOffset, drvfs_origin_start))
+                                    if (drvfs_seek_nolock(pArchiveFile, pak->directoryOffset, drvfs_origin_start) == drvfs_success)
                                     {
                                         size_t bytesRead;
-                                        if (drvfs_read_nolock(pArchiveFile, pak->pFiles, pak->directoryLength, &bytesRead) && bytesRead == pak->directoryLength)
+                                        if (drvfs_read_nolock(pArchiveFile, pak->pFiles, pak->directoryLength, &bytesRead) == drvfs_success && bytesRead == pak->directoryLength)
                                         {
                                             // All good!
                                         }
@@ -6777,6 +6795,7 @@ static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                                             // Failed to read the directory listing.
                                             drvfs_pak_delete(pak);
                                             pak = NULL;
+                                            result = drvfs_unknown_error;
                                         }
                                     }
                                     else
@@ -6784,6 +6803,7 @@ static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                                         // Failed to seek to the directory listing.
                                         drvfs_pak_delete(pak);
                                         pak = NULL;
+                                        result = drvfs_unknown_error;
                                     }
                                 }
                                 else
@@ -6791,6 +6811,7 @@ static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                                     // Failed to allocate memory for the file info buffer.
                                     drvfs_pak_delete(pak);
                                     pak = NULL;
+                                    result = drvfs_out_of_memory;
                                 }
                             }
                         }
@@ -6799,6 +6820,7 @@ static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                             // The directory length is not a multiple of 64 - something is wrong with the file.
                             drvfs_pak_delete(pak);
                             pak = NULL;
+                            result = drvfs_unknown_error;
                         }
                     }
                     else
@@ -6806,6 +6828,7 @@ static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                         // Failed to read the directory length.
                         drvfs_pak_delete(pak);
                         pak = NULL;
+                        result = drvfs_unknown_error;
                     }
                 }
                 else
@@ -6813,6 +6836,7 @@ static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                     // Failed to read the directory offset.
                     drvfs_pak_delete(pak);
                     pak = NULL;
+                    result = drvfs_unknown_error;
                 }
             }
             else
@@ -6820,6 +6844,7 @@ static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                 // Not a pak file.
                 drvfs_pak_delete(pak);
                 pak = NULL;
+                result = drvfs_unknown_error;
             }
         }
         else
@@ -6827,11 +6852,13 @@ static drvfs_handle drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
             // Failed to read the header.
             drvfs_pak_delete(pak);
             pak = NULL;
+            result = drvfs_unknown_error;
         }
     }
 
     drvfs_unlock(pArchiveFile);
-    return pak;
+    *pHandleOut = pak;
+    return result;
 }
 
 static void drvfs_close_archive__pak(drvfs_handle archive)
@@ -7453,19 +7480,24 @@ static bool drvfs_is_valid_extension__mtl(const char* extension)
     return drvfs__stricmp(extension, "mtl") == 0;
 }
 
-static drvfs_handle drvfs_open_archive__mtl(drvfs_file* pArchiveFile, unsigned int accessMode)
+static drvfs_result drvfs_open_archive__mtl(drvfs_file* pArchiveFile, unsigned int accessMode, drvfs_handle* pHandleOut)
 {
     assert(pArchiveFile != NULL);
+    assert(pHandleOut != NULL);
     assert(drvfs_tell(pArchiveFile) == 0);
 
+    *pHandleOut = NULL;
+
     if (!drvfs_lock(pArchiveFile)) {
-        return NULL;
+        return drvfs_unknown_error;
     }
 
     drvfs_archive_mtl* mtl = drvfs_mtl_create(pArchiveFile, accessMode);
     if (mtl == NULL) {
-        return NULL;
+        return drvfs_invalid_archive;
     }
+
+    drvfs_result result = drvfs_success;
 
     // We create a state object that is used to help us with chunk management.
     drvfs_openarchive_mtl_state state;
@@ -7527,10 +7559,12 @@ static drvfs_handle drvfs_open_archive__mtl(drvfs_file* pArchiveFile, unsigned i
     {
         drvfs_mtl_delete(mtl);
         mtl = NULL;
+        result = drvfs_invalid_archive;
     }
 
     drvfs_unlock(pArchiveFile);
-    return mtl;
+    *pHandleOut = mtl;
+    return result;
 }
 
 static void drvfs_close_archive__mtl(drvfs_handle archive)
