@@ -6237,8 +6237,8 @@ static size_t drvfs_mz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *p
     drvfs_seek_nolock(pZipFile, (int64_t)file_ofs, drvfs_origin_start);
 
     size_t bytesRead;
-    int result = drvfs_read_nolock(pZipFile, pBuf, (unsigned int)n, &bytesRead);
-    if (result == 0) {
+    drvfs_result result = drvfs_read_nolock(pZipFile, pBuf, (unsigned int)n, &bytesRead);
+    if (result != drvfs_success) {
         // Failed to read the file.
         bytesRead = 0;
     }
