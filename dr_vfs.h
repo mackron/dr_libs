@@ -2768,7 +2768,7 @@ static drvfs_result drvfs_delete_file__native(drvfs_handle archive, const char* 
 
     char absolutePath[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
-        return drvfs_unknown_error;
+        return drvfs_path_too_long;
     }
 
     return drvfs_delete_native_file(absolutePath);
@@ -2784,12 +2784,12 @@ static drvfs_result drvfs_rename_file__native(drvfs_handle archive, const char* 
 
     char absolutePathOld[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePathOld, sizeof(absolutePathOld), pNativeArchive->absolutePath, relativePathOld)) {
-        return drvfs_unknown_error;
+        return drvfs_path_too_long;
     }
 
     char absolutePathNew[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePathNew, sizeof(absolutePathNew), pNativeArchive->absolutePath, relativePathNew)) {
-        return drvfs_unknown_error;
+        return drvfs_path_too_long;
     }
 
     return drvfs_rename_native_file(absolutePathOld, absolutePathNew);
@@ -2804,7 +2804,7 @@ static drvfs_result drvfs_create_directory__native(drvfs_handle archive, const c
 
     char absolutePath[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePath, sizeof(absolutePath), pNativeArchive->absolutePath, relativePath)) {
-        return drvfs_unknown_error;
+        return drvfs_path_too_long;
     }
 
     return drvfs_mkdir_native(absolutePath);
@@ -2820,12 +2820,12 @@ static drvfs_result drvfs_copy_file__native(drvfs_handle archive, const char* re
 
     char absolutePathSrc[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePathSrc, sizeof(absolutePathSrc), pNativeArchive->absolutePath, relativePathSrc)) {
-        return drvfs_unknown_error;
+        return drvfs_path_too_long;
     }
 
     char absolutePathDst[DRVFS_MAX_PATH];
     if (!drvfs_drpath_copy_and_append(absolutePathDst, sizeof(absolutePathDst), pNativeArchive->absolutePath, relativePathDst)) {
-        return drvfs_unknown_error;
+        return drvfs_path_too_long;
     }
 
     return drvfs_copy_native_file(absolutePathSrc, absolutePathDst, failIfExists);
@@ -6164,7 +6164,7 @@ static drvfs_result drvfs_open_archive__zip(drvfs_file* pArchiveFile, unsigned i
     pZip->m_pIO_opaque = pArchiveFile;
     if (!drvfs_mz_zip_reader_init(pZip, drvfs_size(pArchiveFile), 0)) {
         free(pZip);
-        return drvfs_unknown_error;
+        return drvfs_invalid_archive;
     }
 
     *pHandleOut = pZip;
@@ -6795,7 +6795,7 @@ static drvfs_result drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                                             // Failed to read the directory listing.
                                             drvfs_pak_delete(pak);
                                             pak = NULL;
-                                            result = drvfs_unknown_error;
+                                            result = drvfs_invalid_archive;
                                         }
                                     }
                                     else
@@ -6803,7 +6803,7 @@ static drvfs_result drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                                         // Failed to seek to the directory listing.
                                         drvfs_pak_delete(pak);
                                         pak = NULL;
-                                        result = drvfs_unknown_error;
+                                        result = drvfs_invalid_archive;
                                     }
                                 }
                                 else
@@ -6820,7 +6820,7 @@ static drvfs_result drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                             // The directory length is not a multiple of 64 - something is wrong with the file.
                             drvfs_pak_delete(pak);
                             pak = NULL;
-                            result = drvfs_unknown_error;
+                            result = drvfs_invalid_archive;
                         }
                     }
                     else
@@ -6828,7 +6828,7 @@ static drvfs_result drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                         // Failed to read the directory length.
                         drvfs_pak_delete(pak);
                         pak = NULL;
-                        result = drvfs_unknown_error;
+                        result = drvfs_invalid_archive;
                     }
                 }
                 else
@@ -6836,7 +6836,7 @@ static drvfs_result drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                     // Failed to read the directory offset.
                     drvfs_pak_delete(pak);
                     pak = NULL;
-                    result = drvfs_unknown_error;
+                    result = drvfs_invalid_archive;
                 }
             }
             else
@@ -6844,7 +6844,7 @@ static drvfs_result drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
                 // Not a pak file.
                 drvfs_pak_delete(pak);
                 pak = NULL;
-                result = drvfs_unknown_error;
+                result = drvfs_invalid_archive;
             }
         }
         else
@@ -6852,7 +6852,7 @@ static drvfs_result drvfs_open_archive__pak(drvfs_file* pArchiveFile, unsigned i
             // Failed to read the header.
             drvfs_pak_delete(pak);
             pak = NULL;
-            result = drvfs_unknown_error;
+            result = drvfs_invalid_archive;
         }
     }
 
