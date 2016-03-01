@@ -4270,7 +4270,7 @@ drvfs_result drvfs_rename_file(drvfs_context* pContext, const char* pathOld, con
     {
         char relativePathNew[DRVFS_MAX_PATH];
         drvfs_archive* pArchiveNew;
-        drvfs_result result = drvfs_open_owner_archive(pContext, pathNew, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePathNew, sizeof(relativePathNew), &pArchiveNew);
+        result = drvfs_open_owner_archive(pContext, pathNew, drvfs_archive_access_mode(DRVFS_READ | DRVFS_WRITE), relativePathNew, sizeof(relativePathNew), &pArchiveNew);
         if (pArchiveNew != NULL)
         {
             if (drvfs_drpath_equal(pArchiveOld->absolutePath, pArchiveNew->absolutePath) && pArchiveOld->callbacks.rename_file) {
@@ -7438,13 +7438,13 @@ static bool drvfs_mtl_loadnextchunk(drvfs_openarchive_mtl_state* pState)
         pState->chunkSize = (pState->bytesRemaining > 4096) ? 4096 : (unsigned int)pState->bytesRemaining;
         assert(pState->chunkSize);
 
-        if (drvfs_read_nolock(pState->pFile, pState->chunk, pState->chunkSize, NULL))
+        if (drvfs_read_nolock(pState->pFile, pState->chunk, pState->chunkSize, NULL) == drvfs_success)
         {
             pState->bytesRemaining -= pState->chunkSize;
             pState->chunkPointer = pState->chunk;
             pState->chunkEnd     = pState->chunk + pState->chunkSize;
 
-            return 1;
+            return true;
         }
         else
         {
@@ -7456,7 +7456,7 @@ static bool drvfs_mtl_loadnextchunk(drvfs_openarchive_mtl_state* pState)
         }
     }
 
-    return 0;
+    return false;
 }
 
 static bool drvfs_mtl_loadnewmtl(drvfs_openarchive_mtl_state* pState)
@@ -7471,21 +7471,21 @@ static bool drvfs_mtl_loadnewmtl(drvfs_openarchive_mtl_state* pState)
         {
             if (!drvfs_mtl_loadnextchunk(pState))
             {
-                return 0;
+                return false;
             }
         }
 
 
         if (pState->chunkPointer[0] != newmtl[i])
         {
-            return 0;
+            return false;
         }
 
         pState->chunkPointer += 1;
     }
 
     // At this point the first 6 characters equal "newmtl".
-    return 1;
+    return true;
 }
 
 static bool drvfs_mtl_skipline(drvfs_openarchive_mtl_state* pState)
@@ -7504,7 +7504,7 @@ static bool drvfs_mtl_skipline(drvfs_openarchive_mtl_state* pState)
                 return drvfs_mtl_loadnextchunk(pState);
             }
 
-            return 1;
+            return true;
         }
 
         pState->chunkPointer += 1;
@@ -7516,7 +7516,7 @@ static bool drvfs_mtl_skipline(drvfs_openarchive_mtl_state* pState)
         return drvfs_mtl_skipline(pState);
     }
 
-    return 0;
+    return false;
 }
 
 static bool drvfs_mtl_skipwhitespace(drvfs_openarchive_mtl_state* pState)
@@ -7528,7 +7528,7 @@ static bool drvfs_mtl_skipwhitespace(drvfs_openarchive_mtl_state* pState)
         const char c = pState->chunkPointer[0];
         if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
         {
-            return 1;
+            return true;
         }
 
         pState->chunkPointer += 1;
@@ -7539,7 +7539,7 @@ static bool drvfs_mtl_skipwhitespace(drvfs_openarchive_mtl_state* pState)
         return drvfs_mtl_skipwhitespace(pState);
     }
 
-    return 0;
+    return false;
 }
 
 static bool drvfs_mtl_loadmtlname(drvfs_openarchive_mtl_state* pState, void* dst, unsigned int dstSizeInBytes)
@@ -7555,7 +7555,7 @@ static bool drvfs_mtl_loadmtlname(drvfs_openarchive_mtl_state* pState, void* dst
         {
             // We've found the end of the name. Null terminate and return.
             *dst8 = '\0';
-            return 1;
+            return true;
         }
         else
         {
@@ -7578,13 +7578,13 @@ static bool drvfs_mtl_loadmtlname(drvfs_openarchive_mtl_state* pState, void* dst
         else
         {
             // We reached the end of the file, but the name may be valid.
-            return 1;
+            return true;
         }
     }
     else
     {
         // We ran out of room in the buffer.
-        return 0;
+        return false;
     }
 }
 
