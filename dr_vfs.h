@@ -578,7 +578,7 @@ bool drvfs_is_existing_file(drvfs_context* pContext, const char* absoluteOrRelat
 bool drvfs_is_existing_directory(drvfs_context* pContext, const char* absoluteOrRelativePath);
 
 // Same as drvfs_mkdir(), except creates the entire directory structure recursively.
-bool drvfs_create_directory_recursive(drvfs_context* pContext, const char* path);
+drvfs_result drvfs_create_directory_recursive(drvfs_context* pContext, const char* path);
 
 // Determines whether or not the given file is at the end.
 //
@@ -4624,45 +4624,43 @@ bool drvfs_is_existing_directory(drvfs_context* pContext, const char* absoluteOr
     return false;
 }
 
-bool drvfs_create_directory_recursive(drvfs_context* pContext, const char* path)
+drvfs_result drvfs_create_directory_recursive(drvfs_context* pContext, const char* path)
 {
     if (pContext == NULL || path == NULL) {
-        return false;
+        return drvfs_invalid_args;
     }
 
     // We just iterate over each segment and try creating each directory if it doesn't exist.
-    bool result = false;
-
     char absolutePath[DRVFS_MAX_PATH];
     if (drvfs_validate_write_path(pContext, path, absolutePath, DRVFS_MAX_PATH)) {
         path = absolutePath;
     } else {
-        return false;
+        return drvfs_not_in_write_directory;
     }
 
 
     char runningPath[DRVFS_MAX_PATH];
     runningPath[0] = '\0';
 
-    //drvfs_drpath_iterator iPathSeg = drvfs_begin_path_iteration(absolutePath);
     drvfs_drpath_iterator iPathSeg;
     if (!drvfs_drpath_first(absolutePath, &iPathSeg)) {
-        return false;
+        return drvfs_invalid_args;
     }
 
     // Never check the first segment because we can assume it always exists - it will always be the drive root.
-    if (drvfs_drpath_next(&iPathSeg) && drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg))
+    if (drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg))
     {
         // Loop over every directory until we find one that does not exist.
         while (drvfs_drpath_next(&iPathSeg))
         {
             if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
-                return false;
+                return drvfs_path_too_long;
             }
 
             if (!drvfs_is_existing_directory(pContext, runningPath)) {
-                if (drvfs_create_directory(pContext, runningPath) != drvfs_success) {
-                    return false;
+                drvfs_result result = drvfs_create_directory(pContext, runningPath);
+                if (result != drvfs_success) {
+                    return result;
                 }
 
                 break;
@@ -4675,21 +4673,24 @@ bool drvfs_create_directory_recursive(drvfs_context* pContext, const char* path)
         while (drvfs_drpath_next(&iPathSeg))
         {
             if (!drvfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
-                return false;
+                return drvfs_path_too_long;
             }
 
             assert(!drvfs_is_existing_directory(pContext, runningPath));
 
-            if (drvfs_create_directory(pContext, runningPath) != drvfs_success) {
-                return false;
+            drvfs_result result = drvfs_create_directory(pContext, runningPath);
+            if (result != drvfs_success) {
+                return result;
             }
         }
 
 
-        result = true;
+        return drvfs_success;
     }
-
-    return result;
+    else
+    {
+        return drvfs_invalid_args;
+    }
 }
 
 bool drvfs_eof(drvfs_file* pFile)
