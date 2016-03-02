@@ -1083,6 +1083,9 @@ void drgui_textbox_on_paint(drgui_element* pTBElement, drgui_rect relativeRect, 
 
     drgui_rect textRect = drgui_textbox__get_text_rect(pTBElement);
 
+    // The dead space between the scrollbars should always be drawn with the default background color.
+    drgui_draw_rect(pTBElement, drgui_textbox__get_scrollbar_dead_space_rect(pTBElement), drgui_text_layout_get_default_bg_color(pTB->pTL), pPaintData);
+
     // Border.
     drgui_rect borderRect = drgui_get_local_rect(pTBElement);
     drgui_draw_rect_outline(pTBElement, borderRect, pTB->borderColor, pTB->borderWidth, pPaintData);
@@ -1094,9 +1097,6 @@ void drgui_textbox_on_paint(drgui_element* pTBElement, drgui_rect relativeRect, 
     // Text.
     drgui_set_clip(pTBElement, drgui_clamp_rect(textRect, relativeRect), pPaintData);
     drgui_text_layout_paint(pTB->pTL, drgui_offset_rect(drgui_clamp_rect(textRect, relativeRect), -textRect.left, -textRect.top), pTBElement, pPaintData);
-
-    // The dead space between the scrollbars should always be drawn with the default background color.
-    drgui_draw_rect(pTBElement, drgui_textbox__get_scrollbar_dead_space_rect(pTBElement), drgui_text_layout_get_default_bg_color(pTB->pTL), pPaintData);
 }
 
 void drgui_textbox_on_capture_keyboard(drgui_element* pTBElement, drgui_element* pPrevCapturedElement)
