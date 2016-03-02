@@ -803,9 +803,7 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
                 }
             }
             if (wasTextChanged) { drgui_text_layout_commit_undo_point(pTB->pTL); }
-
-            break;
-        }
+        } break;
 
         case DRGUI_DELETE:
         {
@@ -819,9 +817,7 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
                 }
             }
             if (wasTextChanged) { drgui_text_layout_commit_undo_point(pTB->pTL); }
-
-            break;
-        }
+        } break;
 
 
         case DRGUI_ARROW_LEFT:
@@ -840,9 +836,7 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
             if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
                 drgui_text_layout_leave_selection_mode(pTB->pTL);
             }
-
-            break;
-        }
+        } break;
 
         case DRGUI_ARROW_RIGHT:
         {
@@ -860,9 +854,7 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
             if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
                 drgui_text_layout_leave_selection_mode(pTB->pTL);
             }
-
-            break;
-        }
+        } break;
 
         case DRGUI_ARROW_UP:
         {
@@ -879,9 +871,7 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
             if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
                 drgui_text_layout_leave_selection_mode(pTB->pTL);
             }
-
-            break;
-        }
+        } break;
 
         case DRGUI_ARROW_DOWN:
         {
@@ -898,9 +888,7 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
             if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
                 drgui_text_layout_leave_selection_mode(pTB->pTL);
             }
-
-            break;
-        }
+        } break;
 
 
         case DRGUI_END:
@@ -922,9 +910,7 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
             if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
                 drgui_text_layout_leave_selection_mode(pTB->pTL);
             }
-
-            break;
-        }
+        } break;
 
         case DRGUI_HOME:
         {
@@ -945,9 +931,55 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
             if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
                 drgui_text_layout_leave_selection_mode(pTB->pTL);
             }
+        } break;
 
-            break;
-        }
+        case DRGUI_PAGE_UP:
+        {
+            if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
+                drgui_text_layout_enter_selection_mode(pTB->pTL);
+            }
+
+            if (drgui_text_layout_is_anything_selected(pTB->pTL) && !drgui_text_layout_is_in_selection_mode(pTB->pTL)) {
+                drgui_text_layout_deselect_all(pTB->pTL);
+            }
+
+            int scrollOffset = drgui_sb_get_page_size(pTB->pVertScrollbar);
+            if ((stateFlags & DRGUI_KEY_STATE_CTRL_DOWN) == 0) {
+                drgui_sb_scroll(pTB->pVertScrollbar, -scrollOffset);
+            }
+
+            drgui_text_layout_move_cursor_y(pTB->pTL, -drgui_sb_get_page_size(pTB->pVertScrollbar));
+
+            if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
+                drgui_text_layout_leave_selection_mode(pTB->pTL);
+            }
+        } break;
+
+        case DRGUI_PAGE_DOWN:
+        {
+            if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
+                drgui_text_layout_enter_selection_mode(pTB->pTL);
+            }
+
+            if (drgui_text_layout_is_anything_selected(pTB->pTL) && !drgui_text_layout_is_in_selection_mode(pTB->pTL)) {
+                drgui_text_layout_deselect_all(pTB->pTL);
+            }
+
+            int scrollOffset = drgui_sb_get_page_size(pTB->pVertScrollbar);
+            if (scrollOffset > (int)(drgui_text_layout_get_line_count(pTB->pTL) - drgui_text_layout_get_cursor_line(pTB->pTL))) {
+                scrollOffset = 0;
+            }
+
+            if ((stateFlags & DRGUI_KEY_STATE_CTRL_DOWN) == 0) {
+                drgui_sb_scroll(pTB->pVertScrollbar, scrollOffset);
+            }
+
+            drgui_text_layout_move_cursor_y(pTB->pTL, drgui_sb_get_page_size(pTB->pVertScrollbar));
+
+            if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) != 0) {
+                drgui_text_layout_leave_selection_mode(pTB->pTL);
+            }
+        } break;
 
         default: break;
     }
