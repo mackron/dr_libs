@@ -14,6 +14,9 @@
 extern "C" {
 #endif
 
+typedef void (* drgui_textbox_on_cursor_move_proc)(drgui_element* pTBElement);
+
+
 /// Creates a new text box control.
 drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pParent, size_t extraDataSize, const void* pExtraData);
 
@@ -111,6 +114,17 @@ bool drgui_textbox_undo(drgui_element* pTBElement);
 bool drgui_textbox_redo(drgui_element* pTBElement);
 
 
+/// Retrieves the index of the line the cursor is current sitting on.
+size_t drgui_textbox_get_cursor_line(drgui_element* pTBElement);
+
+/// Retrieves the index of the column the cursor is current sitting on.
+size_t drgui_textbox_get_cursor_column(drgui_element* pTBElement);
+
+
+/// Sets the function to call when the cursor moves.
+void drgui_textbox_set_on_cursor_move(drgui_element* pTBElement, drgui_textbox_on_cursor_move_proc proc);
+
+
 
 /// on_size.
 void drgui_textbox_on_size(drgui_element* pTBElement, float newWidth, float newHeight);
@@ -199,6 +213,10 @@ typedef struct
     size_t iLineSelectAnchor;
 
 
+    /// The function to call when the text cursor/caret moves.
+    drgui_textbox_on_cursor_move_proc onCursorMove;
+
+
     /// The size of the extra data.
     size_t extraDataSize;
 
@@ -229,12 +247,6 @@ DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_layouts(drgui_element* pTBEl
 /// Retrieves a rectangle representing the space between the edges of the two scrollbars.
 DRGUI_PRIVATE drgui_rect drgui_textbox__get_scrollbar_dead_space_rect(drgui_element* pTBElement);
 
-
-/// Called when the mouse enters the line numbers element.
-//DRGUI_PRIVATE void drgui_textbox__on_mouse_enter_line_numbers(drgui_element* pLineNumbers);
-
-/// Called when the mouse leaves the line numbers element.
-//DRGUI_PRIVATE void drgui_textbox__on_mouse_leave_line_numbers(drgui_element* pLineNumbers);
 
 /// Called when a mouse button is pressed on the line numbers element.
 DRGUI_PRIVATE void drgui_textbox__on_mouse_move_line_numbers(drgui_element* pLineNumbers, int relativeMousePosX, int relativeMousePosY, int stateFlags);
@@ -362,6 +374,7 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     pTB->vertScrollbarSize = 16;
     pTB->horzScrollbarSize = 16;
     pTB->iLineSelectAnchor = 0;
+    pTB->onCursorMove = NULL;
 
     pTB->extraDataSize = extraDataSize;
     if (pExtraData != NULL) {
@@ -653,6 +666,38 @@ bool drgui_textbox_redo(drgui_element* pTBElement)
     }
 
     return drgui_text_layout_redo(pTB->pTL);
+}
+
+
+size_t drgui_textbox_get_cursor_line(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return drgui_text_layout_get_cursor_line(pTB->pTL);
+}
+
+size_t drgui_textbox_get_cursor_column(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return drgui_text_layout_get_cursor_column(pTB->pTL);
+}
+
+
+void drgui_textbox_set_on_cursor_move(drgui_element* pTBElement, drgui_textbox_on_cursor_move_proc proc)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->onCursorMove = proc;
 }
 
 
@@ -1082,6 +1127,11 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_cursor_move(drgui_text_layout* 
     }
     if (cursorPosX >= drgui_text_layout_get_container_width(pTB->pTL)) {
         drgui_sb_scroll_to(pTB->pHorzScrollbar, (int)(cursorPosX - drgui_text_layout_get_inner_offset_x(pTB->pTL) - drgui_text_layout_get_container_width(pTB->pTL)) + 100);
+    }
+
+
+    if (pTB->onCursorMove) {
+        pTB->onCursorMove(pTBElement);
     }
 }
 
