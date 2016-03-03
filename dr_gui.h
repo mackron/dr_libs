@@ -2049,9 +2049,11 @@ void drgui_update_mouse_enter_and_leave_state(drgui_context* pContext, drgui_ele
                 newCursor = pNewElementUnderMouse->cursor;
             }
 
-            if (newCursor != pContext->currentCursor) {
-                drgui__change_cursor(pNewElementUnderMouse, newCursor);
-            }
+            
+            // It's intuitive to check that the new cursor is different to the old one before trying to change it, but that is not actually
+            // what we want to do. We'll let the event handler manage it themselves because it's possible the window manager might do some
+            // window-specific cursor management and the old and new elements are on different windows.
+            drgui__change_cursor(pNewElementUnderMouse, newCursor);
 
 
 
