@@ -143,6 +143,13 @@ bool drgui_textbox_find_and_replace_next(drgui_element* pTBElement, const char* 
 bool drgui_textbox_find_and_replace_all(drgui_element* pTBElement, const char* text, const char* replacement);
 
 
+/// Shows the line numbers.
+void drgui_textbox_show_line_numbers(drgui_element* pTBElement);
+
+/// Hides the line numbers.
+void drgui_textbox_hide_line_numbers(drgui_element* pTBElement);
+
+
 /// Sets the function to call when the cursor moves.
 void drgui_textbox_set_on_cursor_move(drgui_element* pTBElement, drgui_textbox_on_cursor_move_proc proc);
 
@@ -858,6 +865,29 @@ bool drgui_textbox_find_and_replace_all(drgui_element* pTBElement, const char* t
     drgui_sb_scroll_to(pTB->pVertScrollbar, originalScrollPosY);
 
     return wasTextChanged;
+}
+
+
+void drgui_textbox_show_line_numbers(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_show(pTB->pLineNumbers);
+    drgui_textbox__refresh_line_numbers(pTBElement);
+}
+
+void drgui_textbox_hide_line_numbers(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_hide(pTB->pLineNumbers);
+    drgui_textbox__refresh_line_numbers(pTBElement);
 }
 
 
@@ -1599,30 +1629,6 @@ DRGUI_PRIVATE drgui_rect drgui_textbox__get_scrollbar_dead_space_rect(drgui_elem
     return drgui_make_rect(scrollbarSizeH + offsetLeft, scrollbarSizeV + offsetTop, drgui_get_width(pTBElement) - offsetRight, drgui_get_height(pTBElement) - offsetBottom);
 }
 
-/*
-DRGUI_PRIVATE void drgui_textbox__on_mouse_enter_line_numbers(drgui_element* pLineNumbers)
-{
-    ak_window* pWindow = ak_get_element_window(pLineNumbers);
-    assert(pWindow != NULL);
-
-    ak_set_window_cursor(pWindow, ak_cursor_type_default);
-}
-
-DRGUI_PRIVATE void drgui_textbox__on_mouse_leave_line_numbers(drgui_element* pLineNumbers)
-{
-    // If the cursor is still over the main text box we'll want to change the cursor to the ibeam.
-    drgui_element* pTBElement = *(drgui_element**)drgui_get_extra_data(pLineNumbers);
-    assert(pTBElement != NULL);
-
-    if (drgui_is_element_under_mouse(pTBElement))
-    {
-        ak_window* pWindow = ak_get_element_window(pTBElement);
-        assert(pWindow != NULL);
-
-        ak_set_window_cursor(pWindow, ak_cursor_type_ibeam);
-    }
-}
-*/
 
 DRGUI_PRIVATE void drgui_textbox__on_mouse_move_line_numbers(drgui_element* pLineNumbers, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
