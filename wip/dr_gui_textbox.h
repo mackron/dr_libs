@@ -78,6 +78,9 @@ void drgui_textbox_set_cursor_blink_rate(drgui_element* pTBElement, unsigned int
 /// Moves the caret to the end of the text.
 void drgui_textbox_move_cursor_to_end_of_text(drgui_element* pTBElement);
 
+/// Moves the caret to the beginning of the line at the given index.
+void drgui_textbox_move_cursor_to_start_of_line_by_index(drgui_element* pTBElement, size_t iLine);
+
 /// Determines whether or not anything is selected in the given text box.
 bool drgui_textbox_is_anything_selected(drgui_element* pTBElement);
 
@@ -120,12 +123,24 @@ unsigned int drgui_textbox_get_undo_points_remaining_count(drgui_element* pTBEle
 /// Retrieves the number of redo points remaining.
 unsigned int drgui_textbox_get_redo_points_remaining_count(drgui_element* pTBElement);
 
-
 /// Retrieves the index of the line the cursor is current sitting on.
 size_t drgui_textbox_get_cursor_line(drgui_element* pTBElement);
 
 /// Retrieves the index of the column the cursor is current sitting on.
 size_t drgui_textbox_get_cursor_column(drgui_element* pTBElement);
+
+/// Retrieves the number of lines in the given text box.
+size_t drgui_textbox_get_line_count(drgui_element* pTBElement);
+
+
+/// Finds and selects the next occurance of the given string, starting from the cursor and looping back to the start.
+bool drgui_textbox_find_and_select_next(drgui_element* pTBElement, const char* text);
+
+/// Finds the next occurance of the given string and replaces it with another.
+bool drgui_textbox_find_and_replace_next(drgui_element* pTBElement, const char* text, const char* replacement);
+
+/// Finds every occurance of the given string and replaces it with another.
+bool drgui_textbox_find_and_replace_all(drgui_element* pTBElement, const char* text, const char* replacement);
 
 
 /// Sets the function to call when the cursor moves.
@@ -584,6 +599,16 @@ void drgui_textbox_move_cursor_to_end_of_text(drgui_element* pTBElement)
     drgui_text_layout_move_cursor_to_end_of_text(pTB->pTL);
 }
 
+void drgui_textbox_move_cursor_to_start_of_line_by_index(drgui_element* pTBElement, size_t iLine)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_text_layout_move_cursor_to_start_of_line_by_index(pTB->pTL, iLine);
+}
+
 
 bool drgui_textbox_is_anything_selected(drgui_element* pTBElement)
 {
@@ -725,6 +750,114 @@ size_t drgui_textbox_get_cursor_column(drgui_element* pTBElement)
     }
 
     return drgui_text_layout_get_cursor_column(pTB->pTL);
+}
+
+size_t drgui_textbox_get_line_count(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return drgui_text_layout_get_line_count(pTB->pTL);
+}
+
+
+bool drgui_textbox_find_and_select_next(drgui_element* pTBElement, const char* text)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    size_t selectionStart;
+    size_t selectionEnd;
+    if (drgui_text_layout_find_next(pTB->pTL, text, &selectionStart, &selectionEnd))
+    {
+        drgui_text_layout_select(pTB->pTL, selectionStart, selectionEnd);
+        drgui_text_layout_move_cursor_to_end_of_selection(pTB->pTL);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool drgui_textbox_find_and_replace_next(drgui_element* pTBElement, const char* text, const char* replacement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    bool wasTextChanged = false;
+    drgui_text_layout_prepare_undo_point(pTB->pTL);
+    {
+        size_t selectionStart;
+        size_t selectionEnd;
+        if (drgui_text_layout_find_next(pTB->pTL, text, &selectionStart, &selectionEnd))
+        {
+            drgui_text_layout_select(pTB->pTL, selectionStart, selectionEnd);
+            drgui_text_layout_move_cursor_to_end_of_selection(pTB->pTL);
+
+            wasTextChanged = drgui_text_layout_delete_selected_text(pTB->pTL) || wasTextChanged;
+            wasTextChanged = drgui_text_layout_insert_text_at_cursor(pTB->pTL, replacement) || wasTextChanged;
+        }
+    }
+    if (wasTextChanged) { drgui_text_layout_commit_undo_point(pTB->pTL); }
+
+    return wasTextChanged;
+}
+
+bool drgui_textbox_find_and_replace_all(drgui_element* pTBElement, const char* text, const char* replacement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    size_t originalCursorLine = drgui_text_layout_get_cursor_line(pTB->pTL);
+    size_t originalCursorPos = drgui_text_layout_get_cursor_character(pTB->pTL) - drgui_text_layout_get_line_first_character(pTB->pTL, originalCursorLine);
+    int originalScrollPosX = drgui_sb_get_scroll_position(pTB->pHorzScrollbar);
+    int originalScrollPosY = drgui_sb_get_scroll_position(pTB->pVertScrollbar);
+
+    bool wasTextChanged = false;
+    drgui_text_layout_prepare_undo_point(pTB->pTL);
+    {
+        // It's important that we don't replace the replacement text. To handle this, we just move the cursor to the top of the text and find
+        // and replace every occurance without looping.
+        drgui_text_layout_move_cursor_to_start_of_text(pTB->pTL);
+
+        size_t selectionStart;
+        size_t selectionEnd;
+        while (drgui_text_layout_find_next_no_loop(pTB->pTL, text, &selectionStart, &selectionEnd))
+        {
+            drgui_text_layout_select(pTB->pTL, selectionStart, selectionEnd);
+            drgui_text_layout_move_cursor_to_end_of_selection(pTB->pTL);
+
+            wasTextChanged = drgui_text_layout_delete_selected_text(pTB->pTL) || wasTextChanged;
+            wasTextChanged = drgui_text_layout_insert_text_at_cursor(pTB->pTL, replacement) || wasTextChanged;
+        }
+
+        // The cursor may have moved so we'll need to restore it.
+        size_t lineCharStart;
+        size_t lineCharEnd;
+        drgui_text_layout_get_line_character_range(pTB->pTL, originalCursorLine, &lineCharStart, &lineCharEnd);
+
+        size_t newCursorPos = lineCharStart + originalCursorPos;
+        if (newCursorPos > lineCharEnd) {
+            newCursorPos = lineCharEnd;
+        }
+        drgui_text_layout_move_cursor_to_character(pTB->pTL, newCursorPos);
+    }
+    if (wasTextChanged) { drgui_text_layout_commit_undo_point(pTB->pTL); }
+
+
+    // The scroll positions may have moved so we'll need to restore them.
+    drgui_sb_scroll_to(pTB->pHorzScrollbar, originalScrollPosX);
+    drgui_sb_scroll_to(pTB->pVertScrollbar, originalScrollPosY);
+
+    return wasTextChanged;
 }
 
 
