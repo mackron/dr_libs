@@ -15,6 +15,7 @@ extern "C" {
 #endif
 
 typedef void (* drgui_textbox_on_cursor_move_proc)(drgui_element* pTBElement);
+typedef void (* drgui_textbox_on_undo_point_changed_proc)(drgui_element* pTBElement, unsigned int iUndoPoint);
 
 
 /// Creates a new text box control.
@@ -113,6 +114,12 @@ bool drgui_textbox_undo(drgui_element* pTBElement);
 /// Performs a redo operation.
 bool drgui_textbox_redo(drgui_element* pTBElement);
 
+/// Retrieves the number of undo points remaining.
+unsigned int drgui_textbox_get_undo_points_remaining_count(drgui_element* pTBElement);
+
+/// Retrieves the number of redo points remaining.
+unsigned int drgui_textbox_get_redo_points_remaining_count(drgui_element* pTBElement);
+
 
 /// Retrieves the index of the line the cursor is current sitting on.
 size_t drgui_textbox_get_cursor_line(drgui_element* pTBElement);
@@ -123,6 +130,9 @@ size_t drgui_textbox_get_cursor_column(drgui_element* pTBElement);
 
 /// Sets the function to call when the cursor moves.
 void drgui_textbox_set_on_cursor_move(drgui_element* pTBElement, drgui_textbox_on_cursor_move_proc proc);
+
+/// Sets the function to call when the undo point changes.
+void drgui_textbox_set_on_undo_point_changed(drgui_element* pTBElement, drgui_textbox_on_undo_point_changed_proc proc);
 
 
 
@@ -216,6 +226,9 @@ typedef struct
     /// The function to call when the text cursor/caret moves.
     drgui_textbox_on_cursor_move_proc onCursorMove;
 
+    /// The function to call when the undo point changes.
+    drgui_textbox_on_undo_point_changed_proc onUndoPointChanged;
+
 
     /// The size of the extra data.
     size_t extraDataSize;
@@ -271,13 +284,16 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_paint_rect(drgui_text_layout* p
 DRGUI_PRIVATE void drgui_textbox__on_text_layout_paint_text(drgui_text_layout* pTL, drgui_text_run* pRun, drgui_element* pTBElement, void* pPaintData);
 
 /// on_dirty()
-DRGUI_PRIVATE void drgui_textbox__on_text_layout_dirty(drgui_text_layout* pLayout, drgui_rect rect);
+DRGUI_PRIVATE void drgui_textbox__on_text_layout_dirty(drgui_text_layout* pTL, drgui_rect rect);
 
 /// on_cursor_move()
-DRGUI_PRIVATE void drgui_textbox__on_text_layout_cursor_move(drgui_text_layout* pLayout);
+DRGUI_PRIVATE void drgui_textbox__on_text_layout_cursor_move(drgui_text_layout* pTL);
 
 /// on_text_changed()
-DRGUI_PRIVATE void drgui_textbox__on_text_layout_text_changed(drgui_text_layout* pLayout);
+DRGUI_PRIVATE void drgui_textbox__on_text_layout_text_changed(drgui_text_layout* pTL);
+
+/// on_undo_point_changed()
+DRGUI_PRIVATE void drgui_textbox__on_text_layout_undo_point_changed(drgui_text_layout* pTL, unsigned int iUndoPoint);
 
 
 DRGUI_PRIVATE void drgui_textbox__on_vscroll(drgui_element* pSBElement, int scrollPos)
@@ -361,6 +377,7 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     drgui_text_layout_set_on_dirty(pTB->pTL, drgui_textbox__on_text_layout_dirty);
     drgui_text_layout_set_on_cursor_move(pTB->pTL, drgui_textbox__on_text_layout_cursor_move);
     drgui_text_layout_set_on_text_changed(pTB->pTL, drgui_textbox__on_text_layout_text_changed);
+    drgui_text_layout_set_on_undo_point_changed(pTB->pTL, drgui_textbox__on_text_layout_undo_point_changed);
     drgui_text_layout_set_default_text_color(pTB->pTL, drgui_rgb(0, 0, 0));
     drgui_text_layout_set_cursor_color(pTB->pTL, drgui_rgb(0, 0, 0));
     drgui_text_layout_set_default_bg_color(pTB->pTL, drgui_rgb(255, 255, 255));
@@ -375,6 +392,7 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     pTB->horzScrollbarSize = 16;
     pTB->iLineSelectAnchor = 0;
     pTB->onCursorMove = NULL;
+    pTB->onUndoPointChanged = NULL;
 
     pTB->extraDataSize = extraDataSize;
     if (pExtraData != NULL) {
@@ -668,6 +686,26 @@ bool drgui_textbox_redo(drgui_element* pTBElement)
     return drgui_text_layout_redo(pTB->pTL);
 }
 
+unsigned int drgui_textbox_get_undo_points_remaining_count(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    return drgui_text_layout_get_undo_points_remaining_count(pTB->pTL);
+}
+
+unsigned int drgui_textbox_get_redo_points_remaining_count(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return false;
+    }
+
+    return drgui_text_layout_get_redo_points_remaining_count(pTB->pTL);
+}
+
 
 size_t drgui_textbox_get_cursor_line(drgui_element* pTBElement)
 {
@@ -698,6 +736,16 @@ void drgui_textbox_set_on_cursor_move(drgui_element* pTBElement, drgui_textbox_o
     }
 
     pTB->onCursorMove = proc;
+}
+
+void drgui_textbox_set_on_undo_point_changed(drgui_element* pTBElement, drgui_textbox_on_undo_point_changed_proc proc)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->onUndoPointChanged = proc;
 }
 
 
@@ -1153,6 +1201,23 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_text_changed(drgui_text_layout*
     // The line numbers need to be redrawn.
     // TODO: This can probably be optimized a bit so that it is only redrawn if a line was inserted or deleted.
     drgui_dirty(pTB->pLineNumbers, drgui_get_local_rect(pTB->pLineNumbers));
+}
+
+DRGUI_PRIVATE void drgui_textbox__on_text_layout_undo_point_changed(drgui_text_layout* pTL, unsigned int iUndoPoint)
+{
+    drgui_element* pTBElement = *(drgui_element**)drgui_text_layout_get_extra_data(pTL);
+    if (pTBElement == NULL) {
+        return;
+    }
+
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (pTB->onUndoPointChanged) {
+        pTB->onUndoPointChanged(pTBElement, iUndoPoint);
+    }
 }
 
 
