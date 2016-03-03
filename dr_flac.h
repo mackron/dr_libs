@@ -310,7 +310,7 @@ drflac* drflac_open_file(const char* pFile);
 // Helper for opening a file from a pre-allocated memory buffer.
 //
 // This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
-// the lifetime of the drwav object.
+// the lifetime of the decoder.
 drflac* drflac_open_memory(const void* data, size_t dataSize);
 
 
