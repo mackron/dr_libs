@@ -4820,6 +4820,8 @@ DRGUI_PRIVATE void drgui_text_layout__apply_undo_state(drgui_text_layout* pTL, d
         pTL->onTextChanged(pTL);
     }
 
+    drgui_text_layout__on_cursor_move(pTL);
+
     if (pTL->onDirty) {
         pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
     }
@@ -4867,6 +4869,8 @@ DRGUI_PRIVATE void drgui_text_layout__apply_redo_state(drgui_text_layout* pTL, d
     if (pTL->onTextChanged) {
         pTL->onTextChanged(pTL);
     }
+
+    drgui_text_layout__on_cursor_move(pTL);
 
     if (pTL->onDirty) {
         pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
