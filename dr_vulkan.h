@@ -2966,6 +2966,7 @@ typedef void (VKAPI_PTR *PFN_vkDebugReportMessageEXT)(VkInstance instance, VkDeb
 #define DRVK_INIT_ALL_EXTENSIONS        (DRVK_INIT_KHR_EXTENSIONS | DRVK_INIT_EXT_EXTENSIONS)
 #define DRVK_INIT_ALL                   0xFFFFFFFF
 
+
 // Global initialization function which loads the requested function pointers.
 //
 // This can be called multiple times with different flags each time. Initialization is additive. For example,
@@ -2985,6 +2986,66 @@ VkBool32 drvkInitInstanceAPIs(VkInstance instance);
 //
 // Do not use this if your application uses more than one VkInstance.
 VkInstance drvkInitInstance(const VkApplicationInfo* pApplicationInfo, uint32_t enabledLayerCount, const char* const* ppEnabledLayerNames, uint32_t enabledExtensionCount, const char* const* ppEnabledExtensionNames);
+
+
+typedef struct
+{
+    // The Vulkan representation of the queue.
+    VkQueue vkQueue;
+
+    // The queue flags indicating the capabilities of the queue.
+    VkQueueFlags queueFlags;
+
+    // The index of the queue family.
+    uint32_t familyIndex;
+
+    // The local index of this queue.
+    uint32_t localIndex;
+
+} drvk_queue;
+
+typedef struct
+{
+    // The physical device.
+    VkPhysicalDevice vkPhysicalDevice;
+
+    // The logical device.
+    VkDevice vkDevice;
+
+    // The number of usable queues by this device.
+    uint32_t queueCount;
+
+    // The list of usable queue's for this device.
+    drvk_queue* pQueues;
+
+} drvk_device;
+
+typedef struct
+{
+    // The global Vulkan instance.
+    VkInstance instance;
+
+    // The device count. This abstraction ties logical devices to physical devices in a 1:1 relationship for simplicity.
+    uint32_t deviceCount;
+
+    // The list of devices.
+    drvk_device* pDevices;
+
+} drvk_context;
+
+// Creates a high-level dr_vulkan context.
+drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo);
+
+// Deletes a high-level dr_vulkan context.
+void drvkDeleteContext(drvk_context* pVulkan);
+
+
+// Retrieves the device count.
+uint32_t drvkGetDeviceCount(drvk_context* pVulkan);
+
+// Retrieves the device at the given index.
+VkDevice drvkGetDevice(drvk_context* pVulkan, uint32_t deviceIndex);
+
 
 
 //// Vulkan Prototypes ////
@@ -3519,5 +3580,216 @@ void drvkUninit()
 #endif
     }
 }
+
+
+drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo)
+{
+    if (!drvkInit(DRVK_INIT_ALL)) {
+        return NULL;
+    }
+
+    VkPhysicalDevice* pPhysicalDevices = NULL;
+    VkDevice* pLogicalDevices = NULL;
+    drvk_device* pDevices = NULL;
+
+
+    const char* instanceExtensions[] =  {
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+#endif
+        VK_EXT_DEBUG_REPORT_EXTENSION_NAME
+    };
+
+    VkInstance instance = drvkInitInstance(pApplicationInfo, 0, NULL, sizeof(instanceExtensions) / sizeof(instanceExtensions[0]), instanceExtensions);
+    if (instance == NULL) {
+        return NULL;
+    }
+
+
+    // Physical devices.
+    uint32_t deviceCount;
+    if (vkEnumeratePhysicalDevices(instance, &deviceCount, NULL) != VK_SUCCESS) {
+        return NULL;
+    }
+
+    pPhysicalDevices = malloc(sizeof(VkPhysicalDevice) * deviceCount);
+    if (pPhysicalDevices == NULL) {
+        goto on_error;
+    }
+
+    if (vkEnumeratePhysicalDevices(instance, &deviceCount, pPhysicalDevices) != VK_SUCCESS) {
+        goto on_error;
+    }
+
+
+    pDevices = malloc(sizeof(*pDevices) * deviceCount);
+    if (pDevices == NULL) {
+        goto on_error;
+    }
+
+
+    // Logical devices. This abstraction creates one logical device per physical device.
+    pLogicalDevices = malloc(sizeof(VkDevice) * deviceCount);
+    if (pLogicalDevices == NULL) {
+        goto on_error;
+    }
+
+    for (uint32_t iDevice = 0; iDevice < deviceCount; ++iDevice)
+    {
+        float* pQueuePriorities = NULL;
+        VkDeviceQueueCreateInfo* pDeviceQueueInfo = NULL;
+        VkQueueFamilyProperties* pQueueFamilyProps = NULL;
+
+
+        uint32_t queueFamilyCount;
+        vkGetPhysicalDeviceQueueFamilyProperties(pPhysicalDevices[iDevice], &queueFamilyCount, NULL);
+
+        pQueueFamilyProps = malloc(sizeof(VkQueueFamilyProperties) * queueFamilyCount);
+        if (pQueueFamilyProps == NULL) {
+            goto on_create_device_error;
+        }
+
+        vkGetPhysicalDeviceQueueFamilyProperties(pPhysicalDevices[iDevice], &queueFamilyCount, pQueueFamilyProps);
+
+
+        pQueuePriorities = malloc(sizeof(float) * queueFamilyCount);
+        if (pQueuePriorities == NULL) {
+            goto on_create_device_error;
+        }
+
+        pDeviceQueueInfo = malloc(sizeof(VkDeviceQueueCreateInfo) * queueFamilyCount);
+        if (pDeviceQueueInfo == NULL) {
+            goto on_create_device_error;
+        }
+
+        uint32_t queueCount = 0;
+        for (uint32_t iQueueFamily = 0; iQueueFamily < queueFamilyCount; ++iQueueFamily)
+        {
+            pDeviceQueueInfo[iQueueFamily].sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            pDeviceQueueInfo[iQueueFamily].pNext            = NULL;
+            pDeviceQueueInfo[iQueueFamily].flags            = 0;
+            pDeviceQueueInfo[iQueueFamily].queueCount       = pQueueFamilyProps[iQueueFamily].queueCount;
+            pDeviceQueueInfo[iQueueFamily].queueFamilyIndex = iQueueFamily;
+            pDeviceQueueInfo[iQueueFamily].pQueuePriorities = pQueuePriorities;
+
+            queueCount += pQueueFamilyProps[iQueueFamily].queueCount;
+        }
+
+
+
+        pDevices[iDevice].vkPhysicalDevice = pPhysicalDevices[iDevice];
+
+        VkPhysicalDeviceFeatures physicalDeviceFeatures;
+        vkGetPhysicalDeviceFeatures(pDevices[iDevice].vkPhysicalDevice, &physicalDeviceFeatures);
+
+        VkDeviceCreateInfo deviceInfo;
+        deviceInfo.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        deviceInfo.pNext                   = NULL;
+        deviceInfo.flags                   = 0;
+        deviceInfo.queueCreateInfoCount    = queueFamilyCount;
+        deviceInfo.pQueueCreateInfos       = pDeviceQueueInfo;
+        deviceInfo.enabledLayerCount       = 0;
+        deviceInfo.ppEnabledLayerNames     = NULL;
+        deviceInfo.enabledExtensionCount   = 0;
+        deviceInfo.ppEnabledExtensionNames = NULL;
+        deviceInfo.pEnabledFeatures        = &physicalDeviceFeatures;
+        if (vkCreateDevice(pDevices[iDevice].vkPhysicalDevice, &deviceInfo, NULL, &pDevices[iDevice].vkDevice) != VK_SUCCESS) {
+            goto on_create_device_error;
+        }
+
+        pDevices[iDevice].queueCount = queueCount;
+        pDevices[iDevice].pQueues = malloc(sizeof(drvk_queue) * queueCount);
+        if (pDevices[iDevice].pQueues == NULL) {
+            goto on_create_device_error;
+        }
+
+
+        uint32_t iRunningQueue = 0;
+        for (uint32_t iQueueFamily = 0; iQueueFamily < queueFamilyCount; ++iQueueFamily)
+        {
+            for (uint32_t iQueue = 0; iQueue < pQueueFamilyProps[iQueueFamily].queueCount; ++iQueue)
+            {
+                vkGetDeviceQueue(pDevices[iDevice].vkDevice, iQueueFamily, iQueue, &pDevices[iDevice].pQueues[iRunningQueue].vkQueue);
+                pDevices[iDevice].pQueues[iRunningQueue].queueFlags  = pQueueFamilyProps[iQueueFamily].queueFlags;
+                pDevices[iDevice].pQueues[iRunningQueue].familyIndex = iQueueFamily;
+                pDevices[iDevice].pQueues[iRunningQueue].localIndex  = iQueue;
+
+                iRunningQueue += 1;
+            }
+        }
+
+
+        continue;
+
+    on_create_device_error:
+        for (uint32_t iPrevDevice = 0; iPrevDevice < iDevice; ++iPrevDevice) {
+            vkDestroyDevice(pDevices[iPrevDevice].vkDevice, NULL);
+        }
+
+        free(pQueuePriorities);
+        free(pDeviceQueueInfo);
+        free(pQueueFamilyProps);
+        goto on_error;
+    }
+
+
+    // At this point we should have our devices and queues all ready to go which means we can now create our main context object and return.
+    drvk_context* pContext = malloc(sizeof(*pContext));
+    if (pContext == NULL) {
+        goto on_error;
+    }
+
+    pContext->instance    = instance;
+    pContext->deviceCount = deviceCount;
+    pContext->pDevices    = pDevices;
+
+    return pContext;
+
+
+on_error:
+    free(pPhysicalDevices);
+    free(pLogicalDevices);
+    free(pDevices);
+    vkDestroyInstance(instance, NULL);
+    drvkUninit();
+    return NULL;
+}
+
+void drvkDeleteContext(drvk_context* pVulkan)
+{
+    if (pVulkan == NULL || pVulkan->instance == NULL) {
+        return;
+    }
+
+
+    for (uint32_t i = 0; i < pVulkan->deviceCount; ++i) {
+        vkDestroyDevice(pVulkan->pDevices[i].vkDevice, NULL);
+        free(pVulkan->pDevices[i].pQueues);
+    }
+
+    free(pVulkan->pDevices);
+    free(pVulkan);
+    drvkUninit();
+}
+
+
+uint32_t drvkGetDeviceCount(drvk_context* pVulkan)
+{
+    assert(pVulkan != NULL);
+    return pVulkan->deviceCount;
+}
+
+VkPhysicalDevice drvkGetPhysicalDevice(drvk_context* pVulkan, uint32_t deviceIndex)
+{
+    assert(pVulkan != NULL);
+    return pVulkan->pDevices[deviceIndex].vkPhysicalDevice;
+}
+
+VkDevice drvkGetDevice(drvk_context* pVulkan, uint32_t deviceIndex)
+{
+    assert(pVulkan != NULL);
+    return pVulkan->pDevices[deviceIndex].vkDevice;
+}
+
 
 #endif
