@@ -3052,6 +3052,9 @@ void drvkDeleteContext(drvk_context* pVulkan);
 // Retrieves the device count.
 uint32_t drvkGetDeviceCount(drvk_context* pVulkan);
 
+// Retrieves the physical device at the given index.
+VkPhysicalDevice drvkGetPhysicalDevice(drvk_context* pVulkan, uint32_t deviceIndex);
+
 // Retrieves the device at the given index.
 VkDevice drvkGetDevice(drvk_context* pVulkan, uint32_t deviceIndex);
 
