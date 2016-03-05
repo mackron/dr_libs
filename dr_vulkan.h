@@ -3002,6 +3002,9 @@ typedef struct
     // The local index of this queue.
     uint32_t localIndex;
 
+    // The command pool to use when creating a command buffer that will be added to this queue.
+    VkCommandPool commandPool;
+
 } drvk_queue;
 
 typedef struct
@@ -3011,6 +3014,12 @@ typedef struct
 
     // The logical device.
     VkDevice vkDevice;
+
+    // The number of command pools used by this device. There is one of these for each queue family.
+    uint32_t commandPoolCount;
+
+    // A pointer to the list of command pools to use when allocating command buffers.
+    VkCommandPool* pCommandPools;
 
     // The number of usable queues by this device.
     uint32_t queueCount;
@@ -3703,16 +3712,33 @@ drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo)
             goto on_create_device_error;
         }
 
+        pDevices[iDevice].commandPoolCount = queueFamilyCount;
+        pDevices[iDevice].pCommandPools = malloc(sizeof(VkCommandPool) * queueFamilyCount);
+
 
         uint32_t iRunningQueue = 0;
         for (uint32_t iQueueFamily = 0; iQueueFamily < queueFamilyCount; ++iQueueFamily)
         {
+            VkCommandPoolCreateInfo commandPoolInfo;
+            commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+            commandPoolInfo.pNext = NULL;
+            commandPoolInfo.flags = 0;
+            commandPoolInfo.queueFamilyIndex = iQueueFamily;
+            if (vkCreateCommandPool(pDevices[iDevice].vkDevice, &commandPoolInfo, NULL, &pDevices[iDevice].pCommandPools[iQueueFamily]) != VK_SUCCESS) {
+                for (uint32_t iPrevQueueFamily = 0; iPrevQueueFamily < iQueueFamily; ++iPrevQueueFamily) {
+                    vkDestroyCommandPool(pDevices[iDevice].vkDevice, pDevices[iDevice].pCommandPools[iPrevQueueFamily], NULL);
+                }
+                goto on_create_device_error;
+            }
+
+
             for (uint32_t iQueue = 0; iQueue < pQueueFamilyProps[iQueueFamily].queueCount; ++iQueue)
             {
                 vkGetDeviceQueue(pDevices[iDevice].vkDevice, iQueueFamily, iQueue, &pDevices[iDevice].pQueues[iRunningQueue].vkQueue);
                 pDevices[iDevice].pQueues[iRunningQueue].queueFlags  = pQueueFamilyProps[iQueueFamily].queueFlags;
                 pDevices[iDevice].pQueues[iRunningQueue].familyIndex = iQueueFamily;
                 pDevices[iDevice].pQueues[iRunningQueue].localIndex  = iQueue;
+                pDevices[iDevice].pQueues[iRunningQueue].commandPool = pDevices[iDevice].pCommandPools[iQueueFamily]; 
 
                 iRunningQueue += 1;
             }
@@ -3723,6 +3749,10 @@ drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo)
 
     on_create_device_error:
         for (uint32_t iPrevDevice = 0; iPrevDevice < iDevice; ++iPrevDevice) {
+            for (uint32_t iCommandPool = 0; iCommandPool < pDevices[iPrevDevice].commandPoolCount; ++iCommandPool) {
+                vkDestroyCommandPool(pDevices[iPrevDevice].vkDevice, pDevices[iPrevDevice].pCommandPools[iCommandPool], NULL);
+            }
+
             vkDestroyDevice(pDevices[iPrevDevice].vkDevice, NULL);
         }
 
@@ -3775,19 +3805,16 @@ void drvkDeleteContext(drvk_context* pVulkan)
 
 uint32_t drvkGetDeviceCount(drvk_context* pVulkan)
 {
-    assert(pVulkan != NULL);
     return pVulkan->deviceCount;
 }
 
 VkPhysicalDevice drvkGetPhysicalDevice(drvk_context* pVulkan, uint32_t deviceIndex)
 {
-    assert(pVulkan != NULL);
     return pVulkan->pDevices[deviceIndex].vkPhysicalDevice;
 }
 
 VkDevice drvkGetDevice(drvk_context* pVulkan, uint32_t deviceIndex)
 {
-    assert(pVulkan != NULL);
     return pVulkan->pDevices[deviceIndex].vkDevice;
 }
 
