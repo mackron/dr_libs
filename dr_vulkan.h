@@ -2990,6 +2990,10 @@ VkBool32 drvkInitInstanceAPIs(VkInstance instance);
 VkInstance drvkInitInstance(const VkApplicationInfo* pApplicationInfo, uint32_t enabledLayerCount, const char* const* ppEnabledLayerNames, uint32_t enabledExtensionCount, const char* const* ppEnabledExtensionNames);
 
 
+// High level helper for creating a semaphore.
+VkResult drvkCreateSemaphore(VkDevice device, VkSemaphore* pSemaphore);
+
+
 typedef struct
 {
     // The Vulkan representation of the queue.
@@ -3538,6 +3542,25 @@ VkBool32 drvkInit(VkFlags whatToInit)
     return VK_TRUE;
 }
 
+void drvkUninit()
+{
+    if (g_drvkInitCount == 0) {
+        return;
+    }
+
+    g_drvkInitCount -= 1;
+    if (g_drvkInitCount == 0)
+    {
+        g_drvkInitFlags = 0;
+
+#if _WIN32
+        FreeLibrary(g_hVulkanDLL);
+        g_hVulkanDLL = NULL;
+#endif
+    }
+}
+
+
 VkBool32 drvkInitInstanceAPIs(VkInstance instance)
 {
     if (instance == NULL || vkGetInstanceProcAddr == NULL) {
@@ -3587,23 +3610,18 @@ VkInstance drvkInitInstance(const VkApplicationInfo* pApplicationInfo, uint32_t 
     return vkInstance;
 }
 
-void drvkUninit()
+
+VkResult drvkCreateSemaphore(VkDevice device, VkSemaphore* pSemaphore)
 {
-    if (g_drvkInitCount == 0) {
-        return;
-    }
+    VkSemaphoreCreateInfo semInfo;
+    semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semInfo.pNext = NULL;
+    semInfo.flags = 0;
 
-    g_drvkInitCount -= 1;
-    if (g_drvkInitCount == 0)
-    {
-        g_drvkInitFlags = 0;
-
-#if _WIN32
-        FreeLibrary(g_hVulkanDLL);
-        g_hVulkanDLL = NULL;
-#endif
-    }
+    return vkCreateSemaphore(device, &semInfo, NULL, pSemaphore);
 }
+
+
 
 
 drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo)
