@@ -2966,6 +2966,8 @@ typedef void (VKAPI_PTR *PFN_vkDebugReportMessageEXT)(VkInstance instance, VkDeb
 #define DRVK_INIT_ALL_EXTENSIONS        (DRVK_INIT_KHR_EXTENSIONS | DRVK_INIT_EXT_EXTENSIONS)
 #define DRVK_INIT_ALL                   0xFFFFFFFF
 
+#define DRVK_INVALID_MEMORY_TYPE_INDEX  0xFFFFFFFF
+
 
 // Global initialization function which loads the requested function pointers.
 //
@@ -3027,6 +3029,9 @@ typedef struct
     // The list of usable queue's for this device.
     drvk_queue* pQueues;
 
+    // The memory properties of the physical device.
+    VkPhysicalDeviceMemoryProperties memoryProps;
+
 } drvk_device;
 
 typedef struct
@@ -3058,6 +3063,13 @@ VkPhysicalDevice drvkGetPhysicalDevice(drvk_context* pVulkan, uint32_t deviceInd
 // Retrieves the device at the given index.
 VkDevice drvkGetDevice(drvk_context* pVulkan, uint32_t deviceIndex);
 
+
+// A helper function for finding the first queue with the given flags. The flags can be a combination of the Vulkan capability flags (VK_QUEUE_GRAPHICS_BIT, etc.)
+drvk_queue* drvkFindFirstQueueWithFlags(drvk_context* pVulkan, uint32_t deviceIndex, VkQueueFlags flags);
+
+// A helper function for retrieving the index of the memory type that supports the given properties. This is used when allocating memory. Returns DRVK_INVALID_MEMORY_TYPE_INDEX
+// if a memory type with the given flags could not be found.
+uint32_t drvkGetMemoryTypeIndex(drvk_context* pVulkan, uint32_t deviceIndex, VkMemoryPropertyFlags propertyFlags);
 
 
 //// Vulkan Prototypes ////
@@ -3748,6 +3760,8 @@ drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo)
         }
 
 
+        vkGetPhysicalDeviceMemoryProperties(pDevices[iDevice].vkPhysicalDevice, &pDevices[iDevice].memoryProps);
+
         continue;
 
     on_create_device_error:
@@ -3821,5 +3835,27 @@ VkDevice drvkGetDevice(drvk_context* pVulkan, uint32_t deviceIndex)
     return pVulkan->pDevices[deviceIndex].vkDevice;
 }
 
+
+drvk_queue* drvkFindFirstQueueWithFlags(drvk_context* pVulkan, uint32_t deviceIndex, VkQueueFlags flags)
+{
+    for (uint32_t iQueue = 0; iQueue < pVulkan->pDevices[deviceIndex].queueCount; ++iQueue) {
+        if ((pVulkan->pDevices[deviceIndex].pQueues[iQueue].queueFlags & flags) == flags) {
+            return &pVulkan->pDevices[deviceIndex].pQueues[iQueue];
+        }
+    }
+
+    return NULL;
+}
+
+uint32_t drvkGetMemoryTypeIndex(drvk_context* pVulkan, uint32_t deviceIndex, VkMemoryPropertyFlags propertyFlags)
+{
+    for (uint32_t i = 0; i < pVulkan->pDevices[deviceIndex].memoryProps.memoryTypeCount; ++i) {
+        if ((pVulkan->pDevices[deviceIndex].memoryProps.memoryTypes[i].propertyFlags & propertyFlags) == propertyFlags) {
+            return i;
+        }
+    }
+
+    return DRVK_INVALID_MEMORY_TYPE_INDEX;
+}
 
 #endif
