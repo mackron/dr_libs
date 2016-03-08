@@ -3076,6 +3076,14 @@ drvk_queue* drvkFindFirstQueueWithFlags(drvk_context* pVulkan, uint32_t deviceIn
 uint32_t drvkGetMemoryTypeIndex(drvk_context* pVulkan, uint32_t deviceIndex, VkMemoryPropertyFlags propertyFlags);
 
 
+// Helper for allocating memory.
+VkResult drvkAllocateMemory(drvk_context* pVulkan, uint32_t deviceIndex, VkDeviceSize allocationSize, VkMemoryPropertyFlags propertyFlags, VkDeviceMemory* pMemory);
+
+// Helper for allocating memory for the given image.
+VkResult drvkAllocateImageMemory(drvk_context* pVulkan, uint32_t deviceIndex, VkImage image, VkMemoryPropertyFlags propertyFlags, VkDeviceMemory* pMemory);
+
+
+
 //// Vulkan Prototypes ////
 PFN_vkCreateInstance vkCreateInstance;
 PFN_vkDestroyInstance vkDestroyInstance;
@@ -3623,7 +3631,6 @@ VkResult drvkCreateSemaphore(VkDevice device, VkSemaphore* pSemaphore)
 
 
 
-
 drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo)
 {
     if (!drvkInit(DRVK_INIT_ALL)) {
@@ -3874,6 +3881,26 @@ uint32_t drvkGetMemoryTypeIndex(drvk_context* pVulkan, uint32_t deviceIndex, VkM
     }
 
     return DRVK_INVALID_MEMORY_TYPE_INDEX;
+}
+
+
+VkResult drvkAllocateMemory(drvk_context* pVulkan, uint32_t deviceIndex, VkDeviceSize allocationSize, VkMemoryPropertyFlags propertyFlags, VkDeviceMemory* pMemory)
+{
+    VkMemoryAllocateInfo memoryAllocInfo;
+    memoryAllocInfo.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    memoryAllocInfo.pNext           = NULL;
+    memoryAllocInfo.allocationSize  = allocationSize;
+    memoryAllocInfo.memoryTypeIndex = drvkGetMemoryTypeIndex(pVulkan, deviceIndex, propertyFlags);
+
+    return vkAllocateMemory(drvkGetDevice(pVulkan, deviceIndex), &memoryAllocInfo, NULL, pMemory);
+}
+
+VkResult drvkAllocateImageMemory(drvk_context* pVulkan, uint32_t deviceIndex, VkImage image, VkMemoryPropertyFlags propertyFlags, VkDeviceMemory* pMemory)
+{
+    VkMemoryRequirements imageMemoryReqs;
+    vkGetImageMemoryRequirements(drvkGetDevice(pVulkan, deviceIndex), image, &imageMemoryReqs);
+
+    return drvkAllocateMemory(pVulkan, deviceIndex, imageMemoryReqs.size, propertyFlags, pMemory);
 }
 
 #endif
