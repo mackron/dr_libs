@@ -3071,6 +3071,11 @@ VkDevice drvkGetDevice(drvk_context* pVulkan, uint32_t deviceIndex);
 // A helper function for finding the first queue with the given flags. The flags can be a combination of the Vulkan capability flags (VK_QUEUE_GRAPHICS_BIT, etc.)
 drvk_queue* drvkFindFirstQueueWithFlags(drvk_context* pVulkan, uint32_t deviceIndex, VkQueueFlags flags);
 
+// A helper for finding multiple queues with the given flags. This function will try to find unique queues, but you should not assume that each returned queue is unique. This
+// function will either return queueCount queues, or none. As an example, if the device has only a single queue, but 2 queues are requested, both of the returned queues will
+// be the same.
+VkResult drvkFindQueuesWithFlags(drvk_context* pVulkan, uint32_t deviceIndex, VkQueueFlags flags, uint32_t queueCount, drvk_queue** pQueues);
+
 // A helper function for retrieving the index of the memory type that supports the given properties. This is used when allocating memory. Returns DRVK_INVALID_MEMORY_TYPE_INDEX
 // if a memory type with the given flags could not be found.
 uint32_t drvkGetMemoryTypeIndex(drvk_context* pVulkan, uint32_t deviceIndex, VkMemoryPropertyFlags propertyFlags);
@@ -3870,6 +3875,26 @@ drvk_queue* drvkFindFirstQueueWithFlags(drvk_context* pVulkan, uint32_t deviceIn
     }
 
     return NULL;
+}
+
+VkResult drvkFindQueuesWithFlags(drvk_context* pVulkan, uint32_t deviceIndex, VkQueueFlags flags, uint32_t queueCount, drvk_queue** pQueues)
+{
+    for (uint32_t iQueueOut = 0; iQueueOut < queueCount; /*DO NOTHING*/)
+{
+        for (uint32_t iQueue = 0; iQueue < pVulkan->pDevices[deviceIndex].queueCount && iQueueOut < queueCount; ++iQueue)
+        {
+            if ((pVulkan->pDevices[deviceIndex].pQueues[iQueue].queueFlags & flags) == flags) {
+                pQueues[iQueueOut++] = &pVulkan->pDevices[deviceIndex].pQueues[iQueue];
+            }
+        }
+
+        // If at this point we haven't found any queues with the required support flags it means we never will.
+        if (iQueueOut == 0) {
+            return VK_ERROR_FEATURE_NOT_PRESENT;
+        }
+    }
+
+    return VK_SUCCESS;
 }
 
 uint32_t drvkGetMemoryTypeIndex(drvk_context* pVulkan, uint32_t deviceIndex, VkMemoryPropertyFlags propertyFlags)
