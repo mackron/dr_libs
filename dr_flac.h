@@ -607,7 +607,7 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac* pFlac)
         return true;
     }
 
-    // If we get here it means we've run out of data in the L2 cache and the L3 cache was unable to restock it. We'll need to fetch more from the client.
+    // If we get here it means we've run out of data in the L2 cache. We'll need to fetch more from the client.
     size_t bytesRead = pFlac->onRead(pFlac->userData, pFlac->cacheL2, DRFLAC_CACHE_L2_SIZE_BYTES);
     pFlac->currentBytePos += bytesRead;
 
