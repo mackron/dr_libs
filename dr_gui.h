@@ -272,11 +272,14 @@ struct drgui_rect
 };
 
 
-#define DRGUI_IMAGE_DRAW_BACKGROUND    (1 << 0)
-#define DRGUI_IMAGE_DRAW_BOUNDS        (1 << 1)
-#define DRGUI_IMAGE_CLIP_BOUNDS        (1 << 2)        //< Clips the image to the bounds
-#define DRGUI_IMAGE_ALIGN_CENTER       (1 << 3)
-#define DRGUI_IMAGE_HINT_NO_ALPHA      (1 << 4)
+#define DRGUI_IMAGE_DRAW_BACKGROUND     (1 << 0)
+#define DRGUI_IMAGE_DRAW_BOUNDS         (1 << 1)
+#define DRGUI_IMAGE_CLIP_BOUNDS         (1 << 2)        //< Clips the image to the bounds
+#define DRGUI_IMAGE_ALIGN_CENTER        (1 << 3)
+#define DRGUI_IMAGE_HINT_NO_ALPHA       (1 << 4)
+
+#define DRGUI_READ                      (1 << 0)
+#define DRGUI_WRITE                     (1 << 1)
 
 typedef struct
 {
@@ -383,9 +386,11 @@ typedef bool           (* drgui_measure_string_proc)                     (drgui_
 typedef bool           (* drgui_get_text_cursor_position_from_point_proc)(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
 typedef bool           (* drgui_get_text_cursor_position_from_char_proc) (drgui_resource font, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
-typedef drgui_resource (* drgui_create_image_proc)  (void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
-typedef void           (* drgui_delete_image_proc)  (drgui_resource image);
-typedef void           (* drgui_get_image_size_proc)(drgui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut);
+typedef drgui_resource (* drgui_create_image_proc)    (void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
+typedef void           (* drgui_delete_image_proc)    (drgui_resource image);
+typedef void           (* drgui_get_image_size_proc)  (drgui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut);
+typedef void*          (* drgui_map_image_data_proc)  (drgui_resource image, unsigned int accessFlags);
+typedef void           (* drgui_unmap_image_data_proc)(drgui_resource image);
 
 typedef bool (* drgui_visible_iteration_proc)(drgui_element* pElement, drgui_rect *pRelativeRect, void* pUserData);
 
@@ -454,6 +459,8 @@ struct drgui_painting_callbacks
     drgui_create_image_proc                        createImage;
     drgui_delete_image_proc                        deleteImage;
     drgui_get_image_size_proc                      getImageSize;
+    drgui_map_image_data_proc                      mapImageData;
+    drgui_unmap_image_data_proc                    unmapImageData;
 };
 
 struct drgui_image
@@ -1235,6 +1242,8 @@ bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* tex
 ///     Images are immutable. If the data of an image needs to change, the image must be deleted and re-created.
 ///     @par
 ///     The image data must be in 32-bit, RGBA format where each component is in the range of 0 - 255.
+///     @par
+///     pData can be null in which case the image's data is undefined.
 drgui_image* drgui_create_image(drgui_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData);
 
 /// Deletes the given image.
@@ -1242,6 +1251,19 @@ void drgui_delete_image(drgui_image* pImage);
 
 /// Retrieves the size of the given image.
 void drgui_get_image_size(drgui_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut);
+
+/// Retrieves a pointer to a buffer representing the given image's data.
+///
+/// Call drgui_unmap_image_data() when you are done with this function.
+///
+/// Use this function to access an image's data. The returned pointer does not necessarilly point to the image's actual data, so when
+/// writing to this pointer, nothing is actually updated until drgui_unmap_image_data() is called.
+///
+/// The returned data will contain the image data at the time of the mapping.
+void* drgui_map_image_data(drgui_image* pImage, unsigned int accessFlags);
+
+/// Unmaps the given image data.
+void drgui_unmap_image_data(drgui_image* pImage);
 
 
 
@@ -2446,6 +2468,8 @@ drgui_context* drgui_create_context()
         pContext->paintingCallbacks.createImage              = NULL;
         pContext->paintingCallbacks.deleteImage              = NULL;
         pContext->paintingCallbacks.getImageSize             = NULL;
+        pContext->paintingCallbacks.mapImageData             = NULL;
+        pContext->paintingCallbacks.unmapImageData           = NULL;
         pContext->inboundEventCounter                        = 0;
         pContext->outboundEventLockCounter                   = 0;
         pContext->pFirstDeadElement                          = NULL;
@@ -4663,6 +4687,32 @@ void drgui_get_image_size(drgui_image* pImage, unsigned int* pWidthOut, unsigned
     pImage->pContext->paintingCallbacks.getImageSize(pImage->hResource, pWidthOut, pHeightOut);
 }
 
+void* drgui_map_image_data(drgui_image* pImage, unsigned int accessFlags)
+{
+    if (pImage == NULL) {
+        return NULL;
+    }
+
+    if (pImage->pContext->paintingCallbacks.mapImageData == NULL || pImage->pContext->paintingCallbacks.unmapImageData == NULL) {
+        return NULL;
+    }
+
+    return pImage->pContext->paintingCallbacks.mapImageData(pImage->hResource, accessFlags);
+}
+
+void drgui_unmap_image_data(drgui_image* pImage)
+{
+    if (pImage == NULL) {
+        return;
+    }
+
+    if (pImage->pContext->paintingCallbacks.unmapImageData == NULL) {
+        return;
+    }
+
+    pImage->pContext->paintingCallbacks.unmapImageData(pImage->hResource);
+}
+
 
 
 /////////////////////////////////////////////////////////////////
@@ -4942,6 +4992,8 @@ bool drgui_get_text_cursor_position_from_char_dr_2d(drgui_resource font, const c
 drgui_resource drgui_create_image_dr_2d(void* pPaintingContext, unsigned int width, unsigned int height, unsigned int stride, const void* pImageData);
 void drgui_delete_image_dr_2d(drgui_resource image);
 void drgui_get_image_size_dr_2d(drgui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut);
+void* drgui_map_image_data_dr_2d(drgui_resource image, unsigned int accessFlags);
+void drgui_unmap_image_data_dr_2d(drgui_resource image);
 
 drgui_context* drgui_create_context_dr_2d(dr2d_context* pDrawingContext)
 {
@@ -4979,6 +5031,9 @@ void drgui_register_dr_2d_callbacks(drgui_context* pContext, dr2d_context* pDraw
     callbacks.createImage                    = drgui_create_image_dr_2d;
     callbacks.deleteImage                    = drgui_delete_image_dr_2d;
     callbacks.getImageSize                   = drgui_get_image_size_dr_2d;
+    callbacks.mapImageData                   = drgui_map_image_data_dr_2d;
+    callbacks.unmapImageData                 = drgui_unmap_image_data_dr_2d;
+
     callbacks.getTextCursorPositionFromPoint = drgui_get_text_cursor_position_from_point_dr_2d;
     callbacks.getTextCursorPositionFromChar  = drgui_get_text_cursor_position_from_char_dr_2d;
 
@@ -5182,6 +5237,16 @@ void drgui_delete_image_dr_2d(drgui_resource image)
 void drgui_get_image_size_dr_2d(drgui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut)
 {
     dr2d_get_image_size(image, pWidthOut, pHeightOut);
+}
+
+void* drgui_map_image_data_dr_2d(drgui_resource image, unsigned int accessFlags)
+{
+    return dr2d_map_image_data(image, accessFlags);
+}
+
+void drgui_unmap_image_data_dr_2d(drgui_resource image)
+{
+    dr2d_unmap_image_data(image);
 }
 
 #endif  //DRGUI_NO_DR_2D
