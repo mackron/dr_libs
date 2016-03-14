@@ -138,11 +138,14 @@ typedef enum
 } dr2d_font_slant;
 
 
-#define DR2D_IMAGE_DRAW_BACKGROUND    (1 << 0)
-#define DR2D_IMAGE_DRAW_BOUNDS        (1 << 1)
-#define DR2D_IMAGE_CLIP_BOUNDS        (1 << 2)        //< Clips the image to the bounds
-#define DR2D_IMAGE_ALIGN_CENTER       (1 << 3)
-#define DR2D_IMAGE_HINT_NO_ALPHA      (1 << 4)
+#define DR2D_IMAGE_DRAW_BACKGROUND      (1 << 0)
+#define DR2D_IMAGE_DRAW_BOUNDS          (1 << 1)
+#define DR2D_IMAGE_CLIP_BOUNDS          (1 << 2)        //< Clips the image to the bounds
+#define DR2D_IMAGE_ALIGN_CENTER         (1 << 3)
+#define DR2D_IMAGE_HINT_NO_ALPHA        (1 << 4)
+
+#define DR2D_READ                       (1 << 0)
+#define DR2D_WRITE                      (1 << 1)
 
 typedef struct
 {
@@ -202,32 +205,34 @@ typedef struct
 } dr2d_draw_image_args;
 
 
-typedef bool (* dr2d_on_create_context_proc)                  (dr2d_context* pContext);
-typedef void (* dr2d_on_delete_context_proc)                  (dr2d_context* pContext);
-typedef bool (* dr2d_on_create_surface_proc)                  (dr2d_surface* pSurface, float width, float height);
-typedef void (* dr2d_on_delete_surface_proc)                  (dr2d_surface* pSurface);
-typedef bool (* dr2d_on_create_font_proc)                     (dr2d_font* pFont);
-typedef void (* dr2d_on_delete_font_proc)                     (dr2d_font* pFont);
-typedef bool (* dr2d_on_create_image_proc)                    (dr2d_image* pImage, unsigned int stride, const void* pData);
-typedef void (* dr2d_on_delete_image_proc)                    (dr2d_image* pImage);
-typedef void (* dr2d_begin_draw_proc)                         (dr2d_surface* pSurface);
-typedef void (* dr2d_end_draw_proc)                           (dr2d_surface* pSurface);
-typedef void (* dr2d_clear_proc)                              (dr2d_surface* pSurface, dr2d_color color);
-typedef void (* dr2d_draw_rect_proc)                          (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color);
-typedef void (* dr2d_draw_rect_outline_proc)                  (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth);
-typedef void (* dr2d_draw_rect_with_outline_proc)             (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor);
-typedef void (* dr2d_draw_round_rect_proc)                    (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width);
-typedef void (* dr2d_draw_round_rect_outline_proc)            (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth);
-typedef void (* dr2d_draw_round_rect_with_outline_proc)       (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth, dr2d_color outlineColor);
-typedef void (* dr2d_draw_text_proc)                          (dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor);
-typedef void (* dr2d_draw_image_proc)                         (dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs);
-typedef void (* dr2d_set_clip_proc)                           (dr2d_surface* pSurface, float left, float top, float right, float bottom);
-typedef void (* dr2d_get_clip_proc)                           (dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
-typedef bool (* dr2d_get_font_metrics_proc)                   (dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
-typedef bool (* dr2d_get_glyph_metrics_proc)                  (dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pMetricsOut);
-typedef bool (* dr2d_measure_string_proc)                     (dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-typedef bool (* dr2d_get_text_cursor_position_from_point_proc)(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
-typedef bool (* dr2d_get_text_cursor_position_from_char_proc) (dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
+typedef bool  (* dr2d_on_create_context_proc)                  (dr2d_context* pContext);
+typedef void  (* dr2d_on_delete_context_proc)                  (dr2d_context* pContext);
+typedef bool  (* dr2d_on_create_surface_proc)                  (dr2d_surface* pSurface, float width, float height);
+typedef void  (* dr2d_on_delete_surface_proc)                  (dr2d_surface* pSurface);
+typedef bool  (* dr2d_on_create_font_proc)                     (dr2d_font* pFont);
+typedef void  (* dr2d_on_delete_font_proc)                     (dr2d_font* pFont);
+typedef bool  (* dr2d_on_create_image_proc)                    (dr2d_image* pImage, unsigned int stride, const void* pData);
+typedef void  (* dr2d_on_delete_image_proc)                    (dr2d_image* pImage);
+typedef void  (* dr2d_begin_draw_proc)                         (dr2d_surface* pSurface);
+typedef void  (* dr2d_end_draw_proc)                           (dr2d_surface* pSurface);
+typedef void  (* dr2d_clear_proc)                              (dr2d_surface* pSurface, dr2d_color color);
+typedef void  (* dr2d_draw_rect_proc)                          (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color);
+typedef void  (* dr2d_draw_rect_outline_proc)                  (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth);
+typedef void  (* dr2d_draw_rect_with_outline_proc)             (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor);
+typedef void  (* dr2d_draw_round_rect_proc)                    (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width);
+typedef void  (* dr2d_draw_round_rect_outline_proc)            (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth);
+typedef void  (* dr2d_draw_round_rect_with_outline_proc)       (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth, dr2d_color outlineColor);
+typedef void  (* dr2d_draw_text_proc)                          (dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor);
+typedef void  (* dr2d_draw_image_proc)                         (dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs);
+typedef void  (* dr2d_set_clip_proc)                           (dr2d_surface* pSurface, float left, float top, float right, float bottom);
+typedef void  (* dr2d_get_clip_proc)                           (dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+typedef void* (* dr2d_map_image_data_proc)                     (dr2d_image* pImage, unsigned int accessFlags);
+typedef void  (* dr2d_unmap_image_data_proc)                   (dr2d_image* pImage);
+typedef bool  (* dr2d_get_font_metrics_proc)                   (dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
+typedef bool  (* dr2d_get_glyph_metrics_proc)                  (dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pMetricsOut);
+typedef bool  (* dr2d_measure_string_proc)                     (dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef bool  (* dr2d_get_text_cursor_position_from_point_proc)(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
+typedef bool  (* dr2d_get_text_cursor_position_from_char_proc) (dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
 
 struct dr2d_drawing_callbacks
@@ -255,6 +260,9 @@ struct dr2d_drawing_callbacks
     dr2d_set_clip_proc                     set_clip;
     dr2d_get_clip_proc                     get_clip;
 
+    dr2d_map_image_data_proc   map_image_data;
+    dr2d_unmap_image_data_proc unmap_image_data;
+
     dr2d_get_font_metrics_proc                    get_font_metrics;
     dr2d_get_glyph_metrics_proc                   get_glyph_metrics;
     dr2d_measure_string_proc                      measure_string;
@@ -272,6 +280,9 @@ struct dr2d_image
 
     /// The height of the image.
     unsigned int height;
+
+    /// Whether or not the image's data is already mapped.
+    bool isMapped;
 
     /// The extra bytes. The size of this buffer is equal to pContext->imageExtraBytes.
     dr2d_byte pExtraData[1];
@@ -442,6 +453,8 @@ bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text,
 ///     Images are immutable. If the data of an image needs to change, the image must be deleted and re-created.
 ///     @par
 ///     The image data must be in 32-bit, RGBA format where each component is in the range of 0 - 255.
+///     @par
+///     If pData is NULL, the default image data is undefined.
 dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData);
 
 /// Deletes the given image.
@@ -452,6 +465,23 @@ void* dr2d_get_image_extra_data(dr2d_image* pImage);
 
 /// Retrieves the size of the given image.
 void dr2d_get_image_size(dr2d_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut);
+
+/// Retrieves a pointer to a buffer representing the given image's data.
+///
+/// Call dr2d_unmap_image_data() when you are done with this function.
+///
+/// Use this function to access an image's data. The returned pointer does not necessarilly point to the image's actual data, so when
+/// writing to this pointer, nothing is guaranteed to be updated until dr2d_unmap_image_data() is called.
+///
+/// The returned data will contain the image data at the time of the mapping.
+///
+/// This will fail if the image's data is already mapped.
+void* dr2d_map_image_data(dr2d_image* pImage, unsigned int accessFlags);
+
+/// Unmaps the given image's data.
+///
+/// A flush is done at this point to ensure the actual underlying image data is updated.
+void dr2d_unmap_image_data(dr2d_image* pImage);
 
 
 /////////////////////////////////////////////////////////////////
@@ -1003,7 +1033,7 @@ bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text,
 
 dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData)
 {
-    if (pContext == NULL || width == 0 || height == 0 || pData == NULL) {
+    if (pContext == NULL || width == 0 || height == 0) {
         return NULL;
     }
 
@@ -1015,6 +1045,7 @@ dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsign
     pImage->pContext = pContext;
     pImage->width    = width;
     pImage->height   = height;
+    pImage->isMapped = false;
 
     if (pContext->drawingCallbacks.on_create_image != NULL) {
         if (!pContext->drawingCallbacks.on_create_image(pImage, stride, pData)) {
@@ -1062,6 +1093,30 @@ void dr2d_get_image_size(dr2d_image* pImage, unsigned int* pWidthOut, unsigned i
     if (pHeightOut) {
         *pHeightOut = pImage->height;
     }
+}
+
+void* dr2d_map_image_data(dr2d_image* pImage, unsigned int accessFlags)
+{
+    if (pImage == NULL || pImage->pContext->drawingCallbacks.map_image_data == NULL || pImage->pContext->drawingCallbacks.unmap_image_data == NULL || pImage->isMapped) {
+        return NULL;
+    }
+
+    void* pImageData = pImage->pContext->drawingCallbacks.map_image_data(pImage, accessFlags);
+    if (pImageData != NULL) {
+        pImage->isMapped = true;
+    }
+
+    return pImageData;
+}
+
+void dr2d_unmap_image_data(dr2d_image* pImage)
+{
+    if (pImage == NULL || pImage->pContext->drawingCallbacks.unmap_image_data == NULL || !pImage->isMapped) {
+        return;
+    }
+
+    pImage->pContext->drawingCallbacks.unmap_image_data(pImage);
+    pImage->isMapped = false;
 }
 
 
@@ -1200,6 +1255,13 @@ typedef struct
     /// A pointer to the raw data of the intermediate bitmap.
     unsigned int* pIntermediateBitmapData;
 
+
+    /// A pointer to the mapped data. This is null when the image data is not mapped.
+    void* pMappedImageData;
+
+    /// The mapping flags.
+    unsigned int mapAccessFlags;
+
 } gdi_image_data;
 
 
@@ -1225,6 +1287,9 @@ void dr2d_draw_text_gdi(dr2d_surface* pSurface, dr2d_font* pFont, const char* te
 void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs);
 void dr2d_set_clip_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom);
 void dr2d_get_clip_gdi(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+
+void* dr2d_map_image_data_gdi(dr2d_image* pImage, unsigned accessFlags);
+void dr2d_unmap_image_data_gdi(dr2d_image* pImage);
 
 bool dr2d_get_font_metrics_gdi(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
 bool dr2d_get_glyph_metrics_gdi(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pGlyphMetrics);
@@ -1291,6 +1356,9 @@ dr2d_context* dr2d_create_context_gdi()
     callbacks.draw_image                          = dr2d_draw_image_gdi;
     callbacks.set_clip                            = dr2d_set_clip_gdi;
     callbacks.get_clip                            = dr2d_get_clip_gdi;
+
+    callbacks.map_image_data                      = dr2d_map_image_data_gdi;
+    callbacks.unmap_image_data                    = dr2d_unmap_image_data_gdi;
 
     callbacks.get_font_metrics                    = dr2d_get_font_metrics_gdi;
     callbacks.get_glyph_metrics                   = dr2d_get_glyph_metrics_gdi;
@@ -1595,31 +1663,38 @@ bool dr2d_on_create_image_gdi(dr2d_image* pImage, unsigned int stride, const voi
 
 
     // We need to convert the data so it renders correctly with AlphaBlend().
-    for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+    if (pData != NULL)
     {
-        const unsigned int iRowSrc = pImage->height - (iRow + 1);
-        const unsigned int iRowDst = iRow;
-
-        for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+        for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
         {
-            unsigned int  srcTexel = ((const unsigned int*)(pData                   ))[  (iRowSrc * (stride/4))    + iCol];
-            unsigned int* dstTexel = ((      unsigned int*)(pGDIData->pSrcBitmapData)) + (iRowDst * pImage->width) + iCol;
+            const unsigned int iRowSrc = pImage->height - (iRow + 1);
+            const unsigned int iRowDst = iRow;
 
-            unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
-            unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
-            unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
-            unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
+            for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+            {
+                unsigned int  srcTexel = ((const unsigned int*)(pData                   ))[  (iRowSrc * (stride/4))    + iCol];
+                unsigned int* dstTexel = ((      unsigned int*)(pGDIData->pSrcBitmapData)) + (iRowDst * pImage->width) + iCol;
 
-            srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
-            srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
-            srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+                unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+                unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
+                unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
+                unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
 
-            *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+                srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
+                srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
+                srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+
+                *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+            }
         }
     }
 
     // Flush GDI to let it know we are finished with the bitmap object's data.
     GdiFlush();
+
+
+    pGDIData->pMappedImageData = NULL;
+    pGDIData->mapAccessFlags = 0;
 
     // At this point everything should be good.
     return true;
@@ -2136,6 +2211,92 @@ void dr2d_get_clip_gdi(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, 
 }
 
 
+void* dr2d_map_image_data_gdi(dr2d_image* pImage, unsigned accessFlags)
+{
+    assert(pImage != NULL);
+
+    gdi_image_data* pGDIImageData = dr2d_get_image_extra_data(pImage);
+    if (pGDIImageData == NULL) {
+        return NULL;
+    }
+
+    assert(pGDIImageData->pMappedImageData == NULL);    // This function should never be called while the image is already mapped.
+
+    pGDIImageData->mapAccessFlags = accessFlags;
+    pGDIImageData->pMappedImageData = malloc(pImage->width * pImage->height * 4);
+    if (pGDIImageData->pMappedImageData == NULL) {
+        return NULL;
+    }
+
+    for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+    {
+        const unsigned int iRowSrc = pImage->height - (iRow + 1);
+        const unsigned int iRowDst = iRow;
+
+        for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+        {
+            unsigned int  srcTexel = ((const unsigned int*)(pGDIImageData->pSrcBitmapData))[    (iRowSrc * pImage->width) + iCol];
+            unsigned int* dstTexel = ((      unsigned int*)(pGDIImageData->pMappedImageData)) + (iRowDst * pImage->width) + iCol;
+
+            unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+            unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
+            unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
+            unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
+
+            srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
+            srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
+            srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+
+            *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+        }
+    }
+
+    return pGDIImageData->pMappedImageData;
+}
+
+void dr2d_unmap_image_data_gdi(dr2d_image* pImage)
+{
+    assert(pImage != NULL);
+
+    gdi_image_data* pGDIImageData = dr2d_get_image_extra_data(pImage);
+    if (pGDIImageData == NULL) {
+        return;
+    }
+
+    assert(pGDIImageData->pMappedImageData != NULL);    // This function should never be called while the image is not mapped.
+
+    // Update the actual image data if applicable.
+    if (pGDIImageData->mapAccessFlags & DR2D_WRITE)
+    {
+        for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+        {
+            const unsigned int iRowSrc = pImage->height - (iRow + 1);
+            const unsigned int iRowDst = iRow;
+
+            for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+            {
+                unsigned int  srcTexel = ((const unsigned int*)(pGDIImageData->pMappedImageData))[(iRowSrc * pImage->width) + iCol];
+                unsigned int* dstTexel = ((      unsigned int*)(pGDIImageData->pSrcBitmapData)) + (iRowDst * pImage->width) + iCol;
+
+                unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+                unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
+                unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
+                unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
+
+                srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
+                srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
+                srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+
+                *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+            }
+        }
+    }
+
+    free(pGDIImageData->pMappedImageData);
+    pGDIImageData->pMappedImageData = NULL;
+    pGDIImageData->mapAccessFlags = 0;
+}
+
 
 bool dr2d_get_font_metrics_gdi(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut)
 {
@@ -2502,6 +2663,9 @@ dr2d_context* dr2d_create_context_cairo()
     callbacks.set_clip                            = dr2d_set_clip_cairo;
     callbacks.get_clip                            = dr2d_get_clip_cairo;
 
+    callbacks.map_image_data                      = dr2d_map_image_data_cairo;
+    callbacks.unmap_image_data                    = dr2d_unmap_image_data_cairo;
+
     callbacks.get_font_metrics                    = dr2d_get_font_metrics_cairo;
     callbacks.get_glyph_metrics                   = dr2d_get_glyph_metrics_cairo;
     callbacks.measure_string                      = dr2d_measure_string_cairo;
@@ -2666,26 +2830,29 @@ bool dr2d_on_create_image_cairo(dr2d_image* pImage, unsigned int stride, const v
         return false;
     }
 
-    for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+    if (pData != NULL)
     {
-        const unsigned int iRowSrc = iRow; //pImage->height - (iRow + 1);
-        const unsigned int iRowDst = iRow;
-
-        for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+        for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
         {
-            unsigned int  srcTexel = ((const unsigned int*)(pData             ))[  (iRowSrc * (stride/4))    + iCol];
-            unsigned int* dstTexel = ((      unsigned int*)(pCairoImage->pData)) + (iRowDst * pImage->width) + iCol;
+            const unsigned int iRowSrc = iRow; //pImage->height - (iRow + 1);
+            const unsigned int iRowDst = iRow;
 
-            unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
-            unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
-            unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
-            unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
+            for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+            {
+                unsigned int  srcTexel = ((const unsigned int*)(pData             ))[  (iRowSrc * (stride/4))    + iCol];
+                unsigned int* dstTexel = ((      unsigned int*)(pCairoImage->pData)) + (iRowDst * pImage->width) + iCol;
 
-            srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
-            srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
-            srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+                unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+                unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
+                unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
+                unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
 
-            *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+                srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
+                srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
+                srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+
+                *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+            }
         }
     }
 
