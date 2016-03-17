@@ -44,8 +44,7 @@
 // Example:
 //      // Create a context.
 //      drfs_context* pVFS = drfs_create_context();
-//      if (pVFS == NULL)
-//      {
+//      if (pVFS == NULL) {
 //          // There was an error creating the context.
 //      }
 //
@@ -58,13 +57,17 @@
 //
 //      // Open a file. A relative path was specified which means it will first check it against
 //      // "C:/Users/Admin". If it can't be found it will then check against "C:/My/Folder".
-//      drfs_file* pFile = drfs_open(pVFS, "my/file.txt", DRFS_READ);
-//      if (pFile == NULL)
-//      {
+//      drfs_file* pFile;
+//      drfs_result result = drfs_open(pVFS, "my/file.txt", DRFS_READ, &pFile);
+//      if (result != drfs_success) {
 //          // There was an error loading the file. It probably doesn't exist.
 //      }
 //
-//      drfs_read(pFile, buffer, bufferSize, NULL);
+//      result = drfs_read(pFile, buffer, bufferSize, NULL);
+//      if (result != drfs_success) {
+//          // There was an error reading the file.
+//      }
+//
 //      drfs_close(pFile);
 //
 //      ...
