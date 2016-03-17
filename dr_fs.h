@@ -155,7 +155,6 @@
 //
 // - Test result code consistency.
 //   - Result from drfs_read() when the end of the file has been reached.
-// - On the Windows build, have an option to use the Events API for mutal exclusion so we can better test for deadlocks.
 // - Change drfs_rename_file() to drfs_move_file() to enable better flexibility.
 // - Test large files.
 // - Document performance issues.
@@ -1057,7 +1056,11 @@ struct drfs_file
 
     // The critical section for locking and unlocking files.
 #ifdef _WIN32
+#ifdef DR_FS_WIN32_USE_EVENT_MUTEX
+    HANDLE lock;
+#else
     CRITICAL_SECTION lock;
+#endif
 #else
     pthread_mutex_t lock;
 #endif
@@ -3867,7 +3870,11 @@ drfs_result drfs_open_file_from_archive(drfs_archive* pArchive, const char* rela
 
     // The lock.
 #ifdef _WIN32
+#ifdef DR_FS_WIN32_USE_EVENT_MUTEX
+    pFile->lock = CreateEvent(NULL, FALSE, TRUE, NULL);
+#else
     InitializeCriticalSection(&pFile->lock);
+#endif
 #else
     if (pthread_mutex_init(&pFile->lock, NULL) != 0) {
         drfs_close(pFile);
@@ -3944,7 +3951,11 @@ void drfs_close(drfs_file* pFile)
 
     // The lock.
 #ifdef _WIN32
+#ifdef DR_FS_WIN32_USE_EVENT_MUTEX
+    CloseHandle(pFile->lock);
+#else
     DeleteCriticalSection(&pFile->lock);
+#endif
 #else
     pthread_mutex_destroy(&pFile->lock);
 #endif
@@ -4074,7 +4085,11 @@ bool drfs_lock(drfs_file* pFile)
     }
 
 #ifdef _WIN32
+#ifdef DR_FS_WIN32_USE_EVENT_MUTEX
+    WaitForSingleObject(pFile->lock, INFINITE);
+#else
     EnterCriticalSection(&pFile->lock);
+#endif
 #else
     pthread_mutex_lock(&pFile->lock);
 #endif
@@ -4089,7 +4104,11 @@ void drfs_unlock(drfs_file* pFile)
     }
 
 #ifdef _WIN32
-    EnterCriticalSection(&pFile->lock);
+#ifdef DR_FS_WIN32_USE_EVENT_MUTEX
+    SetEvent(pFile->lock);
+#else
+    LeaveCriticalSection(&pFile->lock);
+#endif
 #else
     pthread_mutex_unlock(&pFile->lock);
 #endif
