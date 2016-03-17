@@ -585,7 +585,7 @@ drfs_result drfs_create_directory_recursive(drfs_context* pContext, const char* 
 
 // Determines whether or not the given file is at the end.
 //
-// This is just a high-level helper function equivalent to drfs_tell(pFile) == drfs_file_size(pFile).
+// This is just a high-level helper function equivalent to drfs_tell(pFile) == drfs_size(pFile).
 bool drfs_eof(drfs_file* pFile);
 
 
