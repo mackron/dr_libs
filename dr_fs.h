@@ -150,7 +150,6 @@
 //
 // TODO:
 //
-// - Proper error codes.
 // - Test result code consistency.
 //   - Result from drfs_read() when the end of the file has been reached.
 // - On the Windows build, have an option to use the Events API for mutal exclusion so we can better test for deadlocks.
@@ -240,25 +239,25 @@ typedef struct drfs_file      drfs_file;
 typedef struct drfs_file_info drfs_file_info;
 typedef struct drfs_iterator  drfs_iterator;
 
-typedef bool         (* drfs_is_valid_extension_proc)(const char* extension);
+typedef bool        (* drfs_is_valid_extension_proc)(const char* extension);
 typedef drfs_result (* drfs_open_archive_proc)      (drfs_file* pArchiveFile, unsigned int accessMode, drfs_handle* pHandleOut);
-typedef void         (* drfs_close_archive_proc)     (drfs_handle archive);
+typedef void        (* drfs_close_archive_proc)     (drfs_handle archive);
 typedef drfs_result (* drfs_get_file_info_proc)     (drfs_handle archive, const char* relativePath, drfs_file_info* fi);
 typedef drfs_handle (* drfs_begin_iteration_proc)   (drfs_handle archive, const char* relativePath);
-typedef void         (* drfs_end_iteration_proc)     (drfs_handle archive, drfs_handle iterator);
-typedef bool         (* drfs_next_iteration_proc)    (drfs_handle archive, drfs_handle iterator, drfs_file_info* fi);
+typedef void        (* drfs_end_iteration_proc)     (drfs_handle archive, drfs_handle iterator);
+typedef bool        (* drfs_next_iteration_proc)    (drfs_handle archive, drfs_handle iterator, drfs_file_info* fi);
 typedef drfs_result (* drfs_delete_file_proc)       (drfs_handle archive, const char* relativePath);
 typedef drfs_result (* drfs_rename_file_proc)       (drfs_handle archive, const char* relativePathOld, const char* relativePathNew);
 typedef drfs_result (* drfs_create_directory_proc)  (drfs_handle archive, const char* relativePath);
 typedef drfs_result (* drfs_copy_file_proc)         (drfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists);
 typedef drfs_result (* drfs_open_file_proc)         (drfs_handle archive, const char* relativePath, unsigned int accessMode, drfs_handle* pHandleOut);
-typedef void         (* drfs_close_file_proc)        (drfs_handle archive, drfs_handle file);
+typedef void        (* drfs_close_file_proc)        (drfs_handle archive, drfs_handle file);
 typedef drfs_result (* drfs_read_file_proc)         (drfs_handle archive, drfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
 typedef drfs_result (* drfs_write_file_proc)        (drfs_handle archive, drfs_handle file, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
 typedef drfs_result (* drfs_seek_file_proc)         (drfs_handle archive, drfs_handle file, int64_t bytesToSeek, drfs_seek_origin origin);
-typedef uint64_t     (* drfs_tell_file_proc)         (drfs_handle archive, drfs_handle file);
-typedef uint64_t     (* drfs_file_size_proc)         (drfs_handle archive, drfs_handle file);
-typedef void         (* drfs_flush_file_proc)        (drfs_handle archive, drfs_handle file);
+typedef uint64_t    (* drfs_tell_file_proc)         (drfs_handle archive, drfs_handle file);
+typedef uint64_t    (* drfs_file_size_proc)         (drfs_handle archive, drfs_handle file);
+typedef void        (* drfs_flush_file_proc)        (drfs_handle archive, drfs_handle file);
 
 typedef struct
 {
