@@ -206,7 +206,7 @@ int drfsw_peek_event(drfsw_context* pContext, drfsw_event* pEventOut);
 }
 #endif
 
-#endif  //dr_vfs_h
+#endif  //dr_fsw_h
 
 
 ///////////////////////////////////////////////////////////////////////////////
