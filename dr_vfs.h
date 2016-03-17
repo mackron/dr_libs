@@ -6,8 +6,8 @@
 
 // ABOUT
 //
-// dr_vfs is a simple library which allows one to open files from both the native file system and
-// archive/package files such as Zip files.
+// dr_vfs is a simple library which abstracts file IO to allow one to open files from both the native file
+// system and archive/package files such as Zip files using a common API.
 //
 // This file includes code from miniz.c which has been stripped down to include only what's needed to support
 // Zip files at basic level. Every public API has been namespaced with "drvfs_" to avoid naming conflicts.
@@ -29,6 +29,7 @@
 //   onto the heap. Keep this in mind when working with large files.
 // - Zip, PAK and Wavefront MTL archives are read-only at the moment.
 // - dr_vfs is not fully thread-safe. See notes below.
+// - Asynchronous IO is not supported.
 //
 //
 //
