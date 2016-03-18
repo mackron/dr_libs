@@ -155,11 +155,17 @@
 //
 // - Test result code consistency.
 //   - Result from drfs_read() when the end of the file has been reached.
-// - Change drfs_rename_file() to drfs_move_file() to enable better flexibility.
 // - Test large files.
 // - Document performance issues.
 // - Consider making it so persistent constant strings (such as base paths) use dynamically allocated strings rather
 //   than fixed sized arrays of DRFS_MAX_PATH.
+// - Replace the miniz reading functionality with a custom one:
+//   - There is a sort-of-bug where miniz does not correctly enumerate directories in a zip file that was created with
+//     the "Send to -> Compressed (zipped) folder" functionality in Windows Explorer. This is more of a thing with
+//     Windows Explorer more than anything, but it'd be nice if it would Just Work.
+//   - miniz does not support streamed reading yet. Instead, one must decompress the entire file onto the heap which
+//     is a bit untidy and doesn't work well with very large files.
+//   - ZIP64 is not supported.
 
 #ifndef dr_fs_h
 #define dr_fs_h
@@ -249,8 +255,8 @@ typedef drfs_handle (* drfs_begin_iteration_proc)   (drfs_handle archive, const 
 typedef void        (* drfs_end_iteration_proc)     (drfs_handle archive, drfs_handle iterator);
 typedef bool        (* drfs_next_iteration_proc)    (drfs_handle archive, drfs_handle iterator, drfs_file_info* fi);
 typedef drfs_result (* drfs_delete_file_proc)       (drfs_handle archive, const char* relativePath);
-typedef drfs_result (* drfs_rename_file_proc)       (drfs_handle archive, const char* relativePathOld, const char* relativePathNew);
 typedef drfs_result (* drfs_create_directory_proc)  (drfs_handle archive, const char* relativePath);
+typedef drfs_result (* drfs_move_file_proc)         (drfs_handle archive, const char* relativePathOld, const char* relativePathNew);
 typedef drfs_result (* drfs_copy_file_proc)         (drfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists);
 typedef drfs_result (* drfs_open_file_proc)         (drfs_handle archive, const char* relativePath, unsigned int accessMode, drfs_handle* pHandleOut);
 typedef void        (* drfs_close_file_proc)        (drfs_handle archive, drfs_handle file);
@@ -271,8 +277,8 @@ typedef struct
     drfs_end_iteration_proc      end_iteration;
     drfs_next_iteration_proc     next_iteration;
     drfs_delete_file_proc        delete_file;
-    drfs_rename_file_proc        rename_file;
     drfs_create_directory_proc   create_directory;
+    drfs_move_file_proc          move_file;
     drfs_copy_file_proc          copy_file;
     drfs_open_file_proc          open_file;
     drfs_close_file_proc         close_file;
@@ -493,17 +499,21 @@ void drfs_end(drfs_context* pContext, drfs_iterator* pIterator);
 // The path must be a absolute, or relative to the write directory.
 drfs_result drfs_delete_file(drfs_context* pContext, const char* path);
 
-// Renames the given file.
-//
-// The path must be a absolute, or relative to the write directory. This will fail if the file already exists. This will
-// fail if the old and new paths are across different archives. Consider using drfs_copy_file() for more flexibility
-// with moving files to a different location.
-drfs_result drfs_rename_file(drfs_context* pContext, const char* pathOld, const char* pathNew);
-
 // Creates a directory.
 //
 // The path must be a absolute, or relative to the write directory.
 drfs_result drfs_create_directory(drfs_context* pContext, const char* path);
+
+// Moves or renames the given file.
+//
+// The path must be a absolute, or relative to the write directory. This will fail if:
+//   - the file already exists
+//   - the old and new paths are across different archives
+//   - the archive containing both the old and new paths is read-only
+//   - the destinations directory structure does not exist
+//
+// Consider using drfs_copy_file() for more flexibility with moving files to a different location.
+drfs_result drfs_move_file(drfs_context* pContext, const char* pathOld, const char* pathNew);
 
 // Copies a file.
 //
@@ -579,7 +589,7 @@ bool drfs_is_existing_file(drfs_context* pContext, const char* absoluteOrRelativ
 // Determines if the given path refers to an existing directory.
 bool drfs_is_existing_directory(drfs_context* pContext, const char* absoluteOrRelativePath);
 
-// Same as drfs_mkdir(), except creates the entire directory structure recursively.
+// Same as drfs_create_directory(), except creates the entire directory structure recursively.
 drfs_result drfs_create_directory_recursive(drfs_context* pContext, const char* path);
 
 // Determines whether or not the given file is at the end.
@@ -1713,11 +1723,11 @@ static bool drfs_is_native_file(const char* absolutePath);
 // Deletes a native file.
 static drfs_result drfs_delete_native_file(const char* absolutePath);
 
-// Renames a native file. Fails if the target already exists.
-static drfs_result drfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew);
-
 // Creates a directory on the native file system.
 static drfs_result drfs_mkdir_native(const char* absolutePath);
+
+// Moves or renames a native file. Fails if the target already exists.
+static drfs_result drfs_move_native_file(const char* absolutePathOld, const char* absolutePathNew);
 
 // Creates a copy of a native file.
 static drfs_result drfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists);
@@ -1867,9 +1877,9 @@ static drfs_result drfs_delete_native_file(const char* absolutePath)
     return drfs__GetLastError_to_result();
 }
 
-static drfs_result drfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew)
+static drfs_result drfs_mkdir_native(const char* absolutePath)
 {
-    BOOL wasSuccessful = MoveFileExA(absolutePathOld, absolutePathNew, 0);
+    bool wasSuccessful = CreateDirectoryA(absolutePath, NULL);
     if (wasSuccessful) {
         return drfs_success;
     }
@@ -1877,9 +1887,9 @@ static drfs_result drfs_rename_native_file(const char* absolutePathOld, const ch
     return drfs__GetLastError_to_result();
 }
 
-static drfs_result drfs_mkdir_native(const char* absolutePath)
+static drfs_result drfs_move_native_file(const char* absolutePathOld, const char* absolutePathNew)
 {
-    bool wasSuccessful = CreateDirectoryA(absolutePath, NULL);
+    BOOL wasSuccessful = MoveFileExA(absolutePathOld, absolutePathNew, 0);
     if (wasSuccessful) {
         return drfs_success;
     }
@@ -2337,7 +2347,7 @@ static drfs_result drfs_delete_native_file(const char* absolutePath)
     return drfs__errno_to_result();
 }
 
-static drfs_result drfs_rename_native_file(const char* absolutePathOld, const char* absolutePathNew)
+static drfs_result drfs_move_native_file(const char* absolutePathOld, const char* absolutePathNew)
 {
     if (rename(absolutePathOld, absolutePathNew) == 0) {
         return drfs_success;
@@ -2780,7 +2790,7 @@ static drfs_result drfs_delete_file__native(drfs_handle archive, const char* rel
     return drfs_delete_native_file(absolutePath);
 }
 
-static drfs_result drfs_rename_file__native(drfs_handle archive, const char* relativePathOld, const char* relativePathNew)
+static drfs_result drfs_move_file__native(drfs_handle archive, const char* relativePathOld, const char* relativePathNew)
 {
     assert(relativePathOld != NULL);
     assert(relativePathNew != NULL);
@@ -2798,7 +2808,7 @@ static drfs_result drfs_rename_file__native(drfs_handle archive, const char* rel
         return drfs_path_too_long;
     }
 
-    return drfs_rename_native_file(absolutePathOld, absolutePathNew);
+    return drfs_move_native_file(absolutePathOld, absolutePathNew);
 }
 
 static drfs_result drfs_create_directory__native(drfs_handle archive, const char* relativePath)
@@ -2984,8 +2994,8 @@ static drfs_result drfs_open_native_archive(drfs_context* pContext, const char* 
     pArchive->callbacks.end_iteration      = drfs_end_iteration__native;
     pArchive->callbacks.next_iteration     = drfs_next_iteration__native;
     pArchive->callbacks.delete_file        = drfs_delete_file__native;
-    pArchive->callbacks.rename_file        = drfs_rename_file__native;
     pArchive->callbacks.create_directory   = drfs_create_directory__native;
+    pArchive->callbacks.move_file          = drfs_move_file__native;
     pArchive->callbacks.copy_file          = drfs_copy_file__native;
     pArchive->callbacks.open_file          = drfs_open_file__native;
     pArchive->callbacks.close_file         = drfs_close_file__native;
@@ -4261,55 +4271,6 @@ drfs_result drfs_delete_file(drfs_context* pContext, const char* path)
     return result;
 }
 
-drfs_result drfs_rename_file(drfs_context* pContext, const char* pathOld, const char* pathNew)
-{
-    // Renaming/moving is not supported across different archives.
-
-    if (pContext == NULL || pathOld == NULL || pathNew == NULL) {
-        return drfs_invalid_args;
-    }
-
-
-    char absolutePathOld[DRFS_MAX_PATH];
-    if (drfs_validate_write_path(pContext, pathOld, absolutePathOld, sizeof(absolutePathOld))) {
-        pathOld = absolutePathOld;
-    } else {
-        return drfs_not_in_write_directory;
-    }
-
-    char absolutePathNew[DRFS_MAX_PATH];
-    if (drfs_validate_write_path(pContext, pathNew, absolutePathNew, sizeof(absolutePathNew))) {
-        pathNew = absolutePathNew;
-    } else {
-        return drfs_not_in_write_directory;
-    }
-
-
-    char relativePathOld[DRFS_MAX_PATH];
-    drfs_archive* pArchiveOld;
-    drfs_result result = drfs_open_owner_archive(pContext, pathOld, drfs_archive_access_mode(DRFS_READ | DRFS_WRITE), relativePathOld, sizeof(relativePathOld), &pArchiveOld);
-    if (pArchiveOld != NULL)
-    {
-        char relativePathNew[DRFS_MAX_PATH];
-        drfs_archive* pArchiveNew;
-        result = drfs_open_owner_archive(pContext, pathNew, drfs_archive_access_mode(DRFS_READ | DRFS_WRITE), relativePathNew, sizeof(relativePathNew), &pArchiveNew);
-        if (pArchiveNew != NULL)
-        {
-            if (drfs_drpath_equal(pArchiveOld->absolutePath, pArchiveNew->absolutePath) && pArchiveOld->callbacks.rename_file) {
-                result = pArchiveOld->callbacks.rename_file(pArchiveOld, relativePathOld, relativePathNew);
-            } else {
-                result = drfs_permission_denied; // Attempting to rename across different archives which is not supported.
-            }
-
-            drfs_close_archive(pArchiveNew);
-        }
-
-        drfs_close_archive(pArchiveOld);
-    }
-
-    return result;
-}
-
 drfs_result drfs_create_directory(drfs_context* pContext, const char* path)
 {
     if (pContext == NULL || path == NULL) {
@@ -4334,6 +4295,67 @@ drfs_result drfs_create_directory(drfs_context* pContext, const char* path)
     }
 
     drfs_close_archive(pArchive);
+    return result;
+}
+
+drfs_result drfs_move_file(drfs_context* pContext, const char* pathOld, const char* pathNew)
+{
+    // Renaming/moving is not supported across different archives.
+
+    if (pContext == NULL || pathOld == NULL || pathNew == NULL) {
+        return drfs_invalid_args;
+    }
+
+
+    char absolutePathOld[DRFS_MAX_PATH];
+    if (drfs_validate_write_path(pContext, pathOld, absolutePathOld, sizeof(absolutePathOld))) {
+        pathOld = absolutePathOld;
+    } else {
+        return drfs_not_in_write_directory;
+    }
+
+    char absolutePathNew[DRFS_MAX_PATH];
+    if (drfs_validate_write_path(pContext, pathNew, absolutePathNew, sizeof(absolutePathNew))) {
+        pathNew = absolutePathNew;
+    } else {
+        return drfs_not_in_write_directory;
+    }
+
+
+
+
+
+    char relativePathOld[DRFS_MAX_PATH];
+    drfs_archive* pArchiveOld;
+    drfs_result result = drfs_open_owner_archive(pContext, pathOld, drfs_archive_access_mode(DRFS_READ | DRFS_WRITE), relativePathOld, sizeof(relativePathOld), &pArchiveOld);
+    if (pArchiveOld != NULL)
+    {
+        char relativePathNew[DRFS_MAX_PATH];
+        drfs_archive* pArchiveNew;
+        result = drfs_open_owner_archive(pContext, pathNew, drfs_archive_access_mode(DRFS_READ | DRFS_WRITE), relativePathNew, sizeof(relativePathNew), &pArchiveNew);
+        if (pArchiveNew != NULL)
+        {
+            bool areBothArchivesNative = (pArchiveOld->callbacks.move_file == pArchiveNew->callbacks.move_file && pArchiveNew->callbacks.move_file == drfs_move_file__native);
+            if (areBothArchivesNative)
+            {
+                result = drfs_move_native_file(absolutePathOld, absolutePathNew);
+            }
+            else
+            {
+                if (drfs_drpath_equal(pArchiveOld->absolutePath, pArchiveNew->absolutePath) && pArchiveOld->callbacks.move_file) {
+                    result = pArchiveOld->callbacks.move_file(pArchiveOld, relativePathOld, relativePathNew);
+                } else {
+                    result = drfs_permission_denied; // Attempting to rename across different archives which is not supported.
+                }
+            }
+
+            drfs_close_archive(pArchiveNew);
+
+        }
+
+        drfs_close_archive(pArchiveOld);
+    }
+
     return result;
 }
 
@@ -6709,7 +6731,7 @@ static void drfs_register_zip_backend(drfs_context* pContext)
     callbacks.end_iteration      = drfs_end_iteration__zip;
     callbacks.next_iteration     = drfs_next_iteration__zip;
     callbacks.delete_file        = NULL;
-    callbacks.rename_file        = NULL;
+    callbacks.move_file          = NULL;
     callbacks.create_directory   = NULL;
     callbacks.copy_file          = NULL;
     callbacks.open_file          = drfs_open_file__zip;
@@ -7322,7 +7344,7 @@ static void drfs_register_pak_backend(drfs_context* pContext)
     callbacks.end_iteration      = drfs_end_iteration__pak;
     callbacks.next_iteration     = drfs_next_iteration__pak;
     callbacks.delete_file        = NULL;
-    callbacks.rename_file        = NULL;
+    callbacks.move_file          = NULL;
     callbacks.create_directory   = NULL;
     callbacks.copy_file          = NULL;
     callbacks.open_file          = drfs_open_file__pak;
@@ -7990,7 +8012,7 @@ static void drfs_register_mtl_backend(drfs_context* pContext)
     callbacks.end_iteration      = drfs_end_iteration__mtl;
     callbacks.next_iteration     = drfs_next_iteration__mtl;
     callbacks.delete_file        = NULL;
-    callbacks.rename_file        = NULL;
+    callbacks.move_file          = NULL;
     callbacks.create_directory   = NULL;
     callbacks.copy_file          = NULL;
     callbacks.open_file          = drfs_open_file__mtl;
