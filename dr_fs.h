@@ -22,7 +22,7 @@
 // - Easily supports custom package formats without the need to modify the original source code.
 //   Look at drfs_register_archive_backend() and the implementation of Zip archives for an
 //   example.
-// - No compulsory dependencies except for the C standard library.
+// - No dependencies except for the C standard library.
 //
 // Limitations:
 // - When a file contained within a Zip file is opened, the entire uncompressed data is loaded
@@ -154,8 +154,6 @@
 // TODO:
 //
 // - Test result code consistency.
-//   - Result from drfs_read() when the end of the file has been reached.
-// - Test large files.
 // - Document performance issues.
 // - Consider making it so persistent constant strings (such as base paths) use dynamically allocated strings rather
 //   than fixed sized arrays of DRFS_MAX_PATH.
@@ -431,8 +429,9 @@ void drfs_close(drfs_file* pFile);
 
 // Reads data from the given file.
 //
-// Returns true if successful; false otherwise. If the value output to <pBytesReadOut> is less than <bytesToRead> it means the file is at the end. In this case,
-// true is still returned.
+// Returns true if successful; false otherwise. If the value output to <pBytesReadOut> is less than <bytesToRead> it means the file is at the end.
+//
+// Do not use the return value to check if the end of the file has been reached. Instead, compare <bytesRead> to the value returned to <pBytesReadOut>.
 drfs_result drfs_read(drfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
 
 // Writes data to the given file.
