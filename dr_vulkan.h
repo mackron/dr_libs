@@ -3087,9 +3087,12 @@ VkResult drvkAllocateMemory(drvk_context* pVulkan, uint32_t deviceIndex, VkDevic
 // Helper for allocating memory for the given image.
 VkResult drvkAllocateImageMemory(drvk_context* pVulkan, uint32_t deviceIndex, VkImage image, VkMemoryPropertyFlags propertyFlags, VkDeviceMemory* pMemory);
 
-
 // Helper for calculating the size of a packed image of the given dimensions and format.
 VkDeviceSize drvkCalculateTightlyPackedImageSize(uint32_t width, uint32_t height, uint32_t depth, VkFormat format);
+
+
+// Helper for beginning a command buffer.
+VkResult drvkBeginCommandBuffer(VkCommandBuffer commandBuffer, VkCommandBufferUsageFlags flags, VkCommandBufferInheritanceInfo* pInheritanceInfo);
 
 
 
@@ -4132,6 +4135,16 @@ VkDeviceSize drvkCalculateTightlyPackedImageSize(uint32_t width, uint32_t height
     }
 
     return 0;
+}
+
+VkResult drvkBeginCommandBuffer(VkCommandBuffer commandBuffer, VkCommandBufferUsageFlags flags, VkCommandBufferInheritanceInfo* pInheritanceInfo)
+{
+    VkCommandBufferBeginInfo beginInfo;
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.pNext = NULL;
+    beginInfo.flags = flags;
+    beginInfo.pInheritanceInfo = pInheritanceInfo;
+    return vkBeginCommandBuffer(commandBuffer, &beginInfo);
 }
 
 #endif
