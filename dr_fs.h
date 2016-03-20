@@ -226,6 +226,7 @@ typedef enum
     drfs_too_large              = -13,
     drfs_at_end_of_file         = -14,
     drfs_invalid_archive        = -15,
+    drfs_negative_seek          = -16
 } drfs_result;
 
 // The allowable seeking origins.
@@ -1780,6 +1781,7 @@ static drfs_result drfs__GetLastError_to_result()
     case ERROR_NOT_ENOUGH_MEMORY:   return drfs_out_of_memory;
     case ERROR_DISK_FULL:           return drfs_no_space;
     case ERROR_HANDLE_EOF:          return drfs_at_end_of_file;
+    case ERROR_NEGATIVE_SEEK:       return drfs_negative_seek;
     default: return drfs_unknown_error;
     }
 }
