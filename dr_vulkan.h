@@ -3052,7 +3052,7 @@ typedef struct
 } drvk_context;
 
 // Creates a high-level dr_vulkan context.
-drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo);
+drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo, uint32_t enabledDeviceExtensionCount, const char* const* ppEnabledDeviceExtensions);
 
 // Deletes a high-level dr_vulkan context.
 void drvkDeleteContext(drvk_context* pVulkan);
@@ -3643,7 +3643,7 @@ VkResult drvkCreateSemaphore(VkDevice device, VkSemaphore* pSemaphore)
 
 
 
-drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo)
+drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo, uint32_t enabledDeviceExtensionCount, const char* const* ppEnabledDeviceExtensions)
 {
     if (!drvkInit(DRVK_INIT_ALL)) {
         return NULL;
@@ -3751,8 +3751,8 @@ drvk_context* drvkCreateContext(const VkApplicationInfo* pApplicationInfo)
         deviceInfo.pQueueCreateInfos       = pDeviceQueueInfo;
         deviceInfo.enabledLayerCount       = 0;
         deviceInfo.ppEnabledLayerNames     = NULL;
-        deviceInfo.enabledExtensionCount   = 0;
-        deviceInfo.ppEnabledExtensionNames = NULL;
+        deviceInfo.enabledExtensionCount   = enabledDeviceExtensionCount;
+        deviceInfo.ppEnabledExtensionNames = ppEnabledDeviceExtensions;
         deviceInfo.pEnabledFeatures        = &physicalDeviceFeatures;
         if (vkCreateDevice(pDevices[iDevice].vkPhysicalDevice, &deviceInfo, NULL, &pDevices[iDevice].vkDevice) != VK_SUCCESS) {
             goto on_create_device_error;
