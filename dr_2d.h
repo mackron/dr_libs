@@ -147,6 +147,8 @@ typedef enum
 #define DR2D_READ                       (1 << 0)
 #define DR2D_WRITE                      (1 << 1)
 
+#define DR2D_FONT_NO_CLEARTYPE          (1 << 0)
+
 typedef struct
 {
     /// The destination position on the x axis. This is ignored if the DR2D_IMAGE_ALIGN_CENTER option is set.
@@ -308,6 +310,10 @@ struct dr2d_font
     /// The font's rotation, in degrees.
     float rotation;
 
+    /// Flags. Can be a combination of the following.
+    ///   DR2D_FONT_NO_CLEARTYPE
+    unsigned int flags;
+
     /// The extra bytes. The size of this buffer is equal to pContext->fontExtraBytes.
     dr2d_byte pExtraData[1];
 };
@@ -420,7 +426,7 @@ void dr2d_get_clip(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, floa
 
 
 /// Creates a font that can be passed to dr2d_draw_text().
-dr2d_font* dr2d_create_font(dr2d_context* pContext, const char* family, unsigned int size, dr2d_font_weight weight, dr2d_font_slant slant, float rotation);
+dr2d_font* dr2d_create_font(dr2d_context* pContext, const char* family, unsigned int size, dr2d_font_weight weight, dr2d_font_slant slant, float rotation, unsigned int flags);
 
 /// Deletes a font that was previously created with dr2d_create_font()
 void dr2d_delete_font(dr2d_font* pFont);
@@ -890,7 +896,7 @@ void dr2d_get_clip(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, floa
     }
 }
 
-dr2d_font* dr2d_create_font(dr2d_context* pContext, const char* family, unsigned int size, dr2d_font_weight weight, dr2d_font_slant slant, float rotation)
+dr2d_font* dr2d_create_font(dr2d_context* pContext, const char* family, unsigned int size, dr2d_font_weight weight, dr2d_font_slant slant, float rotation, unsigned int flags)
 {
     if (pContext == NULL) {
         return NULL;
@@ -907,6 +913,7 @@ dr2d_font* dr2d_create_font(dr2d_context* pContext, const char* family, unsigned
     pFont->weight    = weight;
     pFont->slant     = slant;
     pFont->rotation  = rotation;
+    pFont->flags     = flags;
 
     if (family != NULL) {
         dr2d_strcpy_s(pFont->family, sizeof(pFont->family), family);
@@ -1569,7 +1576,8 @@ bool dr2d_on_create_font_gdi(dr2d_font* pFont)
 	logfont.lfWeight      = weightGDI;
 	logfont.lfItalic      = slantGDI;
 	logfont.lfCharSet     = DEFAULT_CHARSET;
-	logfont.lfQuality     = (pFont->size > 36) ? ANTIALIASED_QUALITY : CLEARTYPE_QUALITY;
+	//logfont.lfQuality     = (pFont->size > 36) ? ANTIALIASED_QUALITY : CLEARTYPE_QUALITY;
+    logfont.lfQuality     = (pFont->flags & DR2D_FONT_NO_CLEARTYPE) ? ANTIALIASED_QUALITY : CLEARTYPE_QUALITY;
     logfont.lfEscapement  = (LONG)pFont->rotation * 10;
     logfont.lfOrientation = (LONG)pFont->rotation * 10;
 
