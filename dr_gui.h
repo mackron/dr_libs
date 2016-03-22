@@ -281,6 +281,8 @@ struct drgui_rect
 #define DRGUI_READ                      (1 << 0)
 #define DRGUI_WRITE                     (1 << 1)
 
+#define DRGUI_FONT_NO_CLEARTYPE         (1 << 0)
+
 typedef struct
 {
     /// The destination position on the x axis. This is ignored if the DR2D_IMAGE_ALIGN_CENTER option is set.
@@ -377,7 +379,7 @@ typedef void (* drgui_draw_round_rect_with_outline_proc) (drgui_rect relativeRec
 typedef void (* drgui_draw_text_proc)                    (drgui_resource font, const char* text, int textLengthInBytes, float posX, float posY, drgui_color color, drgui_color backgroundColor, void* pPaintData);
 typedef void (* drgui_draw_image_proc)                   (drgui_resource image, drgui_draw_image_args* pArgs, void* pPaintData);
 
-typedef drgui_resource (* drgui_create_font_proc)                        (void* pPaintingContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation);
+typedef drgui_resource (* drgui_create_font_proc)                        (void* pPaintingContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation, unsigned int flags);
 typedef void           (* drgui_delete_font_proc)                        (drgui_resource font);
 typedef unsigned int   (* drgui_get_font_size_proc)                      (drgui_resource font);
 typedef bool           (* drgui_get_font_metrics_proc)                   (drgui_resource font, drgui_font_metrics* pMetricsOut);
@@ -491,6 +493,10 @@ struct drgui_font
 
     /// The fon't rotation.
     float rotation;
+
+    /// The font's flags. Can be a combination of the following:
+    ///   DRGUI_FONT_NO_CLEARTYPE
+    unsigned int flags;
 
     /// The number of internal fonts in <pInternalFonts>
     size_t internalFontCount;
@@ -1200,7 +1206,7 @@ void drgui_draw_image(drgui_element* pElement, drgui_image* pImage, drgui_draw_i
 
 
 /// Creates a font resource.
-drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation);
+drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation, unsigned int flags);
 
 /// Deletes a font resource.
 void drgui_delete_font(drgui_font* pFont);
@@ -2413,7 +2419,7 @@ DRGUI_PRIVATE drgui_resource drgui_get_internal_font_by_scale(drgui_font* pFont,
         return NULL;
     }
 
-    drgui_resource internalFont = pFont->pContext->paintingCallbacks.createFont(pFont->pContext->pPaintingContext, pFont->family, targetSize, pFont->weight, pFont->slant, pFont->rotation);
+    drgui_resource internalFont = pFont->pContext->paintingCallbacks.createFont(pFont->pContext->pPaintingContext, pFont->family, targetSize, pFont->weight, pFont->slant, pFont->rotation, pFont->flags);
     if (internalFont == NULL) {
         return NULL;
     }
@@ -4377,7 +4383,7 @@ void drgui_draw_image(drgui_element* pElement, drgui_image* pImage, drgui_draw_i
 }
 
 
-drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation)
+drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation, unsigned int flags)
 {
     if (pContext == NULL) {
         return NULL;
@@ -4388,7 +4394,7 @@ drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsig
     }
 
 
-    drgui_resource internalFont = pContext->paintingCallbacks.createFont(pContext->pPaintingContext, family, size, weight, slant, rotation);
+    drgui_resource internalFont = pContext->paintingCallbacks.createFont(pContext->pPaintingContext, family, size, weight, slant, rotation, flags);
     if (internalFont == NULL) {
         return NULL;
     }
@@ -4404,6 +4410,7 @@ drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsig
     pFont->weight            = weight;
     pFont->slant             = slant;
     pFont->rotation          = rotation;
+    pFont->flags             = flags;
     pFont->internalFontCount = 1;
     pFont->pInternalFonts    = malloc(sizeof(drgui_resource) * pFont->internalFontCount);
     pFont->pInternalFonts[0] = internalFont;
@@ -4980,7 +4987,7 @@ void drgui_draw_round_rect_with_outline_dr_2d(drgui_rect, drgui_color, float, fl
 void drgui_draw_text_dr_2d(drgui_resource, const char*, int, float, float, drgui_color, drgui_color, void*);
 void drgui_draw_image_dr_2d(drgui_resource image, drgui_draw_image_args* pArgs, void* pPaintData);
 
-drgui_resource drgui_create_font_dr_2d(void*, const char*, unsigned int, drgui_font_weight, drgui_font_slant, float);
+drgui_resource drgui_create_font_dr_2d(void*, const char*, unsigned int, drgui_font_weight, drgui_font_slant, float, unsigned int flags);
 void drgui_delete_font_dr_2d(drgui_resource);
 unsigned int drgui_get_font_size_dr_2d(drgui_resource hFont);
 bool drgui_get_font_metrics_dr_2d(drgui_resource, drgui_font_metrics*);
@@ -5157,9 +5164,9 @@ void drgui_draw_image_dr_2d(drgui_resource image, drgui_draw_image_args* pArgs, 
 }
 
 
-drgui_resource drgui_create_font_dr_2d(void* pPaintingContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation)
+drgui_resource drgui_create_font_dr_2d(void* pPaintingContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation, unsigned int flags)
 {
-    return dr2d_create_font(pPaintingContext, family, size, (dr2d_font_weight)weight, (dr2d_font_slant)slant, rotation);
+    return dr2d_create_font(pPaintingContext, family, size, (dr2d_font_weight)weight, (dr2d_font_slant)slant, rotation, flags);
 }
 
 void drgui_delete_font_dr_2d(drgui_resource font)
