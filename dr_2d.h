@@ -139,10 +139,7 @@ typedef enum
 
 
 #define DR2D_IMAGE_DRAW_BACKGROUND      (1 << 0)
-#define DR2D_IMAGE_DRAW_BOUNDS          (1 << 1)
-#define DR2D_IMAGE_CLIP_BOUNDS          (1 << 2)        //< Clips the image to the bounds
-#define DR2D_IMAGE_ALIGN_CENTER         (1 << 3)
-#define DR2D_IMAGE_HINT_NO_ALPHA        (1 << 4)
+#define DR2D_IMAGE_HINT_NO_ALPHA        (1 << 1)
 
 #define DR2D_READ                       (1 << 0)
 #define DR2D_WRITE                      (1 << 1)
@@ -177,28 +174,11 @@ typedef struct
     float srcHeight;
 
 
-    /// The position of the destination's bounds on the x axis.
-    float dstBoundsX;
-
-    /// The position of the destination's bounds on the y axis.
-    float dstBoundsY;
-
-    /// The width of the destination's bounds.
-    float dstBoundsWidth;
-
-    /// The height of the destination's bounds.
-    float dstBoundsHeight;
-
-
     /// The foreground tint color. This is not applied to the background color, and the alpha component is ignored.
     dr2d_color foregroundTint;
 
     /// The background color. Only used if the DR2D_IMAGE_DRAW_BACKGROUND option is set.
     dr2d_color backgroundColor;
-
-    /// The bounds color. This color is used for the region of the bounds that sit on the outside of the destination rectangle. This will
-    /// usually be set to the same value as backgroundColor, but it could also be used to draw a border around the image.
-    dr2d_color boundsColor;
 
 
     /// Flags for controlling how the image should be drawn.
@@ -1976,63 +1956,6 @@ void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_i
 
     HBITMAP hSrcBitmap = NULL;
 
-    // Center the image if applicable.
-    if ((pArgs->options & DR2D_IMAGE_ALIGN_CENTER) != 0)
-    {
-        pArgs->dstX = pArgs->dstBoundsX + (pArgs->dstBoundsWidth  - pArgs->dstWidth)  / 2;
-        pArgs->dstY = pArgs->dstBoundsY + (pArgs->dstBoundsHeight - pArgs->dstHeight) / 2;
-    }
-
-    // Clip the image if applicable.
-    int prevDC = 0;
-    if ((pArgs->options & DR2D_IMAGE_CLIP_BOUNDS) != 0)
-    {
-        // We only need to clip if part of the destination rectangle falls outside of the bounds.
-        if (pArgs->dstX < pArgs->dstBoundsX || pArgs->dstX + pArgs->dstWidth  > pArgs->dstBoundsX + pArgs->dstBoundsWidth ||
-            pArgs->dstY < pArgs->dstBoundsY || pArgs->dstY + pArgs->dstHeight > pArgs->dstBoundsY + pArgs->dstBoundsHeight)
-        {
-            if (pArgs->dstWidth != pArgs->srcWidth || pArgs->dstHeight != pArgs->srcHeight)
-            {
-                prevDC = SaveDC(pGDISurfaceData->hDC);
-            }
-            else
-            {
-                // There's no scaling so we can do a more efficient clip by simply adjusting the source and destination rectangles.
-                if (pArgs->dstX < pArgs->dstBoundsX)
-                {
-                    pArgs->srcWidth -= (pArgs->dstBoundsX - pArgs->dstX);
-                    pArgs->srcX     += (pArgs->dstBoundsX - pArgs->dstX);
-                    pArgs->dstWidth -= (pArgs->dstBoundsX - pArgs->dstX);
-                    pArgs->dstX      =  pArgs->dstBoundsX;
-                }
-
-                if (pArgs->dstY < pArgs->dstBoundsY)
-                {
-                    pArgs->srcHeight -= (pArgs->dstBoundsY - pArgs->dstY);
-                    pArgs->srcY      += (pArgs->dstBoundsY - pArgs->dstY);
-                    pArgs->dstHeight -= (pArgs->dstBoundsY - pArgs->dstY);
-                    pArgs->dstY       =  pArgs->dstBoundsY;
-                }
-
-                if (pArgs->dstX + pArgs->dstWidth > pArgs->dstBoundsX + pArgs->dstBoundsWidth)
-                {
-                    pArgs->srcWidth -= (pArgs->dstX + pArgs->dstWidth) - (pArgs->dstBoundsX + pArgs->dstBoundsWidth);
-                    pArgs->dstWidth -= (pArgs->dstX + pArgs->dstWidth) - (pArgs->dstBoundsX + pArgs->dstBoundsWidth);
-                }
-
-                if (pArgs->dstY + pArgs->dstHeight > pArgs->dstBoundsY + pArgs->dstBoundsHeight)
-                {
-                    pArgs->srcHeight -= (pArgs->dstY + pArgs->dstHeight) - (pArgs->dstBoundsY + pArgs->dstBoundsHeight);
-                    pArgs->dstHeight -= (pArgs->dstY + pArgs->dstHeight) - (pArgs->dstBoundsY + pArgs->dstBoundsHeight);
-                }
-
-                if (pArgs->dstWidth <= 0 || pArgs->dstHeight <= 0) {
-                    return;
-                }
-            }
-        }
-    }
-
     if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) == 0 && pArgs->foregroundTint.r == 255 && pArgs->foregroundTint.g == 255 && pArgs->foregroundTint.b == 255)
     {
         // Fast path. No tint, no background.
@@ -2082,85 +2005,6 @@ void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_i
         hSrcBitmap = pGDIImageData->hIntermediateBitmap;
     }
 
-
-    if ((pArgs->options & DR2D_IMAGE_DRAW_BOUNDS) != 0)
-    {
-        // The bounds is the area sitting around the outside of the destination rectangle.
-        const float boundsLeft   = pArgs->dstBoundsX;
-        const float boundsTop    = pArgs->dstBoundsY;
-        const float boundsRight  = boundsLeft + pArgs->dstBoundsWidth;
-        const float boundsBottom = boundsTop + pArgs->dstBoundsHeight;
-
-        const float imageLeft   = pArgs->dstX;
-        const float imageTop    = pArgs->dstY;
-        const float imageRight  = imageLeft + pArgs->dstWidth;
-        const float imageBottom = imageTop + pArgs->dstHeight;
-
-        const int pPolyCounts[] = {4, 4, 4, 4};
-        POINT pPoints[16];
-        int polyCount = 0;
-
-        POINT* pNextPoly = pPoints;
-
-        // Left.
-        if (boundsLeft < imageLeft)
-        {
-            pNextPoly[0].x = (LONG)(boundsLeft); pNextPoly[0].y = (LONG)(boundsTop);
-            pNextPoly[1].x = (LONG)(boundsLeft); pNextPoly[1].y = (LONG)(boundsBottom);
-            pNextPoly[2].x = (LONG)(imageLeft);  pNextPoly[2].y = (LONG)((imageBottom < boundsBottom) ? imageBottom : boundsBottom);
-            pNextPoly[3].x = (LONG)(imageLeft);  pNextPoly[3].y = (LONG)((imageTop    > boundsTop)    ? imageTop    : boundsTop);
-
-            pNextPoly += 4;
-            polyCount += 1;
-        }
-
-        // Right.
-        if (boundsRight > imageRight)
-        {
-            pNextPoly[0].x = (LONG)(boundsRight); pNextPoly[0].y = (LONG)(boundsBottom);
-            pNextPoly[1].x = (LONG)(boundsRight); pNextPoly[1].y = (LONG)(boundsTop);
-            pNextPoly[2].x = (LONG)(imageRight);  pNextPoly[2].y = (LONG)((imageTop    > boundsTop)    ? imageTop    : boundsTop);
-            pNextPoly[3].x = (LONG)(imageRight);  pNextPoly[3].y = (LONG)((imageBottom < boundsBottom) ? imageBottom : boundsBottom);
-
-            pNextPoly += 4;
-            polyCount += 1;
-        }
-
-        // Top.
-        if (boundsTop < imageTop)
-        {
-            pNextPoly[0].x = (LONG)(boundsRight);                                           pNextPoly[0].y = (LONG)(boundsTop);
-            pNextPoly[1].x = (LONG)(boundsLeft);                                            pNextPoly[1].y = (LONG)(boundsTop);
-            pNextPoly[2].x = (LONG)((imageLeft  > boundsLeft)  ? imageLeft  : boundsLeft);  pNextPoly[2].y = (LONG)(imageTop);
-            pNextPoly[3].x = (LONG)((imageRight < boundsRight) ? imageRight : boundsRight); pNextPoly[3].y = (LONG)(imageTop);
-
-            pNextPoly += 4;
-            polyCount += 1;
-        }
-
-        // Bottom.
-        if (boundsBottom > imageBottom)
-        {
-            pNextPoly[0].x = (LONG)(boundsLeft);                                            pNextPoly[0].y = (LONG)(boundsBottom);
-            pNextPoly[1].x = (LONG)(boundsRight);                                           pNextPoly[1].y = (LONG)(boundsBottom);
-            pNextPoly[2].x = (LONG)((imageRight < boundsRight) ? imageRight : boundsRight); pNextPoly[2].y = (LONG)(imageBottom);
-            pNextPoly[3].x = (LONG)((imageLeft  > boundsLeft)  ? imageLeft  : boundsLeft);  pNextPoly[3].y = (LONG)(imageBottom);
-
-            pNextPoly += 4;
-            polyCount += 1;
-        }
-
-        if (polyCount > 0)
-        {
-            SelectObject(pGDISurfaceData->hDC, pGDISurfaceData->hStockNullPen);
-            SelectObject(pGDISurfaceData->hDC, pGDISurfaceData->hStockDCBrush);
-            SetDCBrushColor(pGDISurfaceData->hDC, RGB(pArgs->boundsColor.r, pArgs->boundsColor.g, pArgs->boundsColor.b));
-
-            PolyPolygon(pGDISurfaceData->hDC, pPoints, pPolyCounts, polyCount);
-        }
-    }
-
-
     HGDIOBJ hPrevBitmap = SelectObject(pGDISurfaceData->hIntermediateDC, hSrcBitmap);
     if ((pArgs->options & DR2D_IMAGE_HINT_NO_ALPHA) != 0)
     {
@@ -2172,11 +2016,6 @@ void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_i
         AlphaBlend(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, blend);
     }
     SelectObject(pGDISurfaceData->hIntermediateDC, hPrevBitmap);
-
-
-    if (prevDC != 0) {
-        RestoreDC(pGDISurfaceData->hDC, prevDC);
-    }
 }
 
 void dr2d_set_clip_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom)
