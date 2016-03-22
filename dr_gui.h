@@ -273,10 +273,10 @@ struct drgui_rect
 
 
 #define DRGUI_IMAGE_DRAW_BACKGROUND     (1 << 0)
-#define DRGUI_IMAGE_DRAW_BOUNDS         (1 << 1)
-#define DRGUI_IMAGE_CLIP_BOUNDS         (1 << 2)        //< Clips the image to the bounds
-#define DRGUI_IMAGE_ALIGN_CENTER        (1 << 3)
-#define DRGUI_IMAGE_HINT_NO_ALPHA       (1 << 4)
+#define DRGUI_IMAGE_HINT_NO_ALPHA       (1 << 1)
+#define DRGUI_IMAGE_DRAW_BOUNDS         (1 << 2)
+#define DRGUI_IMAGE_CLIP_BOUNDS         (1 << 3)        //< Clips the image to the bounds
+#define DRGUI_IMAGE_ALIGN_CENTER        (1 << 4)
 
 #define DRGUI_READ                      (1 << 0)
 #define DRGUI_WRITE                     (1 << 1)
@@ -4378,8 +4378,105 @@ void drgui_draw_image(drgui_element* pElement, drgui_image* pImage, drgui_draw_i
     pArgs->dstBoundsWidth  *= scaleX;
     pArgs->dstBoundsHeight *= scaleY;
 
+    if ((pArgs->options & DRGUI_IMAGE_ALIGN_CENTER) != 0)
+    {
+        pArgs->dstX = pArgs->dstBoundsX + (pArgs->dstBoundsWidth  - pArgs->dstWidth)  / 2;
+        pArgs->dstY = pArgs->dstBoundsY + (pArgs->dstBoundsHeight - pArgs->dstHeight) / 2;
+    }
+
+    bool restoreClip = false;
+    drgui_rect prevClip;
+    if ((pArgs->options & DRGUI_IMAGE_CLIP_BOUNDS) != 0)
+    {
+        // We only need to clip if part of the destination rectangle falls outside of the bounds.
+        if (pArgs->dstX < pArgs->dstBoundsX || pArgs->dstX + pArgs->dstWidth  > pArgs->dstBoundsX + pArgs->dstBoundsWidth ||
+            pArgs->dstY < pArgs->dstBoundsY || pArgs->dstY + pArgs->dstHeight > pArgs->dstBoundsY + pArgs->dstBoundsHeight)
+        {
+            // We can do a more efficient clip by adjusting the offset and size of the image, but it will only work if there is no scaling.
+            if (pArgs->dstWidth != pArgs->srcWidth || pArgs->dstHeight != pArgs->srcHeight)
+            {
+                pElement->pContext->paintingCallbacks.getClip(&prevClip, pPaintData);
+                restoreClip = true;
+
+                pElement->pContext->paintingCallbacks.setClip(drgui_make_rect(pArgs->dstBoundsX, pArgs->dstBoundsY, pArgs->dstBoundsX + pArgs->dstBoundsWidth, pArgs->dstBoundsY + pArgs->dstBoundsHeight), pPaintData);
+            }
+            else
+            {
+                // There's no scaling so we can do a more efficient clip by simply adjusting the source and destination rectangles.
+                if (pArgs->dstX < pArgs->dstBoundsX)
+                {
+                    pArgs->srcWidth -= (pArgs->dstBoundsX - pArgs->dstX);
+                    pArgs->srcX     += (pArgs->dstBoundsX - pArgs->dstX);
+                    pArgs->dstWidth -= (pArgs->dstBoundsX - pArgs->dstX);
+                    pArgs->dstX      =  pArgs->dstBoundsX;
+                }
+
+                if (pArgs->dstY < pArgs->dstBoundsY)
+                {
+                    pArgs->srcHeight -= (pArgs->dstBoundsY - pArgs->dstY);
+                    pArgs->srcY      += (pArgs->dstBoundsY - pArgs->dstY);
+                    pArgs->dstHeight -= (pArgs->dstBoundsY - pArgs->dstY);
+                    pArgs->dstY       =  pArgs->dstBoundsY;
+                }
+
+                if (pArgs->dstX + pArgs->dstWidth > pArgs->dstBoundsX + pArgs->dstBoundsWidth)
+                {
+                    pArgs->srcWidth -= (pArgs->dstX + pArgs->dstWidth) - (pArgs->dstBoundsX + pArgs->dstBoundsWidth);
+                    pArgs->dstWidth -= (pArgs->dstX + pArgs->dstWidth) - (pArgs->dstBoundsX + pArgs->dstBoundsWidth);
+                }
+
+                if (pArgs->dstY + pArgs->dstHeight > pArgs->dstBoundsY + pArgs->dstBoundsHeight)
+                {
+                    pArgs->srcHeight -= (pArgs->dstY + pArgs->dstHeight) - (pArgs->dstBoundsY + pArgs->dstBoundsHeight);
+                    pArgs->dstHeight -= (pArgs->dstY + pArgs->dstHeight) - (pArgs->dstBoundsY + pArgs->dstBoundsHeight);
+                }
+
+                if (pArgs->dstWidth <= 0 || pArgs->dstHeight <= 0) {
+                    return;
+                }
+            }
+        }
+    }
+
+    if ((pArgs->options & DRGUI_IMAGE_DRAW_BOUNDS) != 0)
+    {
+        // The bounds is the area sitting around the outside of the destination rectangle.
+        const float boundsLeft   = pArgs->dstBoundsX;
+        const float boundsTop    = pArgs->dstBoundsY;
+        const float boundsRight  = boundsLeft + pArgs->dstBoundsWidth;
+        const float boundsBottom = boundsTop + pArgs->dstBoundsHeight;
+
+        const float imageLeft   = pArgs->dstX;
+        const float imageTop    = pArgs->dstY;
+        const float imageRight  = imageLeft + pArgs->dstWidth;
+        const float imageBottom = imageTop + pArgs->dstHeight;
+
+        // Left.
+        if (boundsLeft < imageLeft) {
+            pElement->pContext->paintingCallbacks.drawRect(drgui_make_rect(boundsLeft, boundsTop, imageLeft, boundsBottom), pArgs->boundsColor, pPaintData);
+        }
+
+        // Right.
+        if (boundsRight > imageRight) {
+            pElement->pContext->paintingCallbacks.drawRect(drgui_make_rect(imageRight, boundsTop, boundsRight, boundsBottom), pArgs->boundsColor, pPaintData);
+        }
+
+        // Top.
+        if (boundsTop < imageTop) {
+            pElement->pContext->paintingCallbacks.drawRect(drgui_make_rect(imageLeft, boundsTop, imageRight, imageTop), pArgs->boundsColor, pPaintData);
+        }
+
+        // Bottom.
+        if (boundsBottom > imageBottom) {
+            pElement->pContext->paintingCallbacks.drawRect(drgui_make_rect(imageLeft, imageBottom, imageRight, boundsBottom), pArgs->boundsColor, pPaintData);
+        }
+    }
 
     pElement->pContext->paintingCallbacks.drawImage(pImage->hResource, pArgs, pPaintData);
+
+    if (restoreClip) {
+        pElement->pContext->paintingCallbacks.setClip(prevClip, pPaintData);
+    }
 }
 
 
@@ -5152,13 +5249,8 @@ void drgui_draw_image_dr_2d(drgui_resource image, drgui_draw_image_args* pArgs, 
     args.srcY            = pArgs->srcY;
     args.srcWidth        = pArgs->srcWidth;
     args.srcHeight       = pArgs->srcHeight;
-    args.dstBoundsX      = pArgs->dstBoundsX;
-    args.dstBoundsY      = pArgs->dstBoundsY;
-    args.dstBoundsWidth  = pArgs->dstBoundsWidth;
-    args.dstBoundsHeight = pArgs->dstBoundsHeight;
     args.foregroundTint  = dr2d_rgba(pArgs->foregroundTint.r, pArgs->foregroundTint.g, pArgs->foregroundTint.b, pArgs->foregroundTint.a);
     args.backgroundColor = dr2d_rgba(pArgs->backgroundColor.r, pArgs->backgroundColor.g, pArgs->backgroundColor.b, pArgs->backgroundColor.a);
-    args.boundsColor     = dr2d_rgba(pArgs->boundsColor.r, pArgs->boundsColor.g, pArgs->boundsColor.b, pArgs->boundsColor.a);
     args.options         = pArgs->options;
     dr2d_draw_image(pSurface, image, &args);
 }
