@@ -75,7 +75,7 @@ typedef struct
 //
 ///////////////////////////////////////////////
 
-DR_MATHCALL vec4 vec4_xyzw(float x, float y, float z, float w)
+DR_MATHCALL vec4 vec4f(float x, float y, float z, float w)
 {
     vec4 result;
     result.x = x;
@@ -84,6 +84,10 @@ DR_MATHCALL vec4 vec4_xyzw(float x, float y, float z, float w)
     result.w = w;
 
     return result;
+}
+DR_MATHCALL vec4 vec4v(const float* v)
+{
+    return vec4f(v[0], v[1], v[2], v[3]);
 }
 DR_MATHCALL vec4 vec4_zero()
 {
@@ -98,28 +102,28 @@ DR_MATHCALL vec4 vec4_one()
 
 DR_MATHCALL vec4 vec4_add(vec4 a, vec4 b)
 {
-    return vec4_xyzw(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
+    return vec4f(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
 }
 
 DR_MATHCALL vec4 vec4_sub(vec4 a, vec4 b)
 {
-    return vec4_xyzw(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
+    return vec4f(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
 }
 
 
 DR_MATHCALL vec4 vec4_mul(vec4 a, vec4 b)
 {
-    return vec4_xyzw(a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w);
+    return vec4f(a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w);
 }
 DR_MATHCALL vec4 vec4_mul_1f(vec4 a, float x)
 {
-    return vec4_xyzw(a.x * x, a.y * x, a.z * x, a.w * x);
+    return vec4f(a.x * x, a.y * x, a.z * x, a.w * x);
 }
 
 
 DR_MATHCALL vec4 vec4_div(vec4 a, vec4 b)
 {
-    return vec4_xyzw(a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w);
+    return vec4f(a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w);
 }
 
 
@@ -130,7 +134,7 @@ DR_MATHCALL vec4 vec4_div(vec4 a, vec4 b)
 //
 ///////////////////////////////////////////////
 
-DR_MATHCALL vec3 vec3_xyz(float x, float y, float z)
+DR_MATHCALL vec3 vec3f(float x, float y, float z)
 {
     vec3 result;
     result.x = x;
@@ -138,6 +142,10 @@ DR_MATHCALL vec3 vec3_xyz(float x, float y, float z)
     result.z = z;
 
     return result;
+}
+DR_MATHCALL vec3 vec3v(const float* v)
+{
+    return vec3f(v[0], v[1], v[2]);
 }
 DR_MATHCALL vec3 vec3_zero()
 {
@@ -151,28 +159,28 @@ DR_MATHCALL vec3 vec3_one()
 
 DR_MATHCALL vec3 vec3_add(vec3 a, vec3 b)
 {
-    return vec3_xyz(a.x + b.x, a.y + b.y, a.z + b.z);
+    return vec3f(a.x + b.x, a.y + b.y, a.z + b.z);
 }
 
 DR_MATHCALL vec3 vec3_sub(vec3 a, vec3 b)
 {
-    return vec3_xyz(a.x - b.x, a.y - b.y, a.z - b.z);
+    return vec3f(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
 
 DR_MATHCALL vec3 vec3_mul(vec3 a, vec3 b)
 {
-    return vec3_xyz(a.x * b.x, a.y * b.y, a.z * b.z);
+    return vec3f(a.x * b.x, a.y * b.y, a.z * b.z);
 }
 DR_MATHCALL vec3 vec3_mul_1f(vec3 a, float x)
 {
-    return vec3_xyz(a.x * x, a.y * x, a.z * x);
+    return vec3f(a.x * x, a.y * x, a.z * x);
 }
 
 
 DR_MATHCALL vec3 vec3_div(vec3 a, vec3 b)
 {
-    return vec3_xyz(a.x / b.x, a.y / b.y, a.z / b.z);
+    return vec3f(a.x / b.x, a.y / b.y, a.z / b.z);
 }
 
 
@@ -185,7 +193,7 @@ DR_MATHCALL vec3 vec3_div(vec3 a, vec3 b)
 //
 ///////////////////////////////////////////////
 
-DR_MATHCALL quat quat_xyzw(float x, float y, float z, float w)
+DR_MATHCALL quat quatf(float x, float y, float z, float w)
 {
     quat result;
     result.x = x;
@@ -194,6 +202,10 @@ DR_MATHCALL quat quat_xyzw(float x, float y, float z, float w)
     result.w = w;
 
     return result;
+}
+DR_MATHCALL quat quatv(const float* v)
+{
+    return quatf(v[0], v[1], v[2], v[3]);
 }
 
 DR_MATHCALL quat quat_identity()
