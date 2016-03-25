@@ -8,7 +8,6 @@
 //   faster than the FPU(s) on modern CPUs; 3) The library can always implement functions that work on __m128 variables directly
 //   in the future if the need arises.
 // - Use DISABLE_SSE to disable SSE implementations.
-// - SSE is disabled on x86/MSVC builds due to pass-by-value errors with aligned types.
 // - Angles are always specified in degrees, unless otherwise noted. Rationale: Degrees are easier to use for humans which means
 //   the API is easier to use.
 //   - Use radians() and degrees() to convert between the two.
@@ -24,6 +23,7 @@
 #define DR_MATHCALL static inline
 #endif
 
+#define DR_PI       3.14159265358979323846
 
 #ifdef __cplusplus
 extern "C" {
@@ -67,6 +67,18 @@ typedef struct
 } quat;
 
 
+// Radians to degrees.
+DR_MATHCALL float degrees(float radians)
+{
+    return radians * 57.29577951308232087685f;
+}
+
+// Degrees to radians.
+DR_MATHCALL float radians(float degrees)
+{
+    return degrees * 0.01745329251994329577f;
+}
+
 
 
 ///////////////////////////////////////////////
@@ -91,11 +103,11 @@ DR_MATHCALL vec4 vec4v(const float* v)
 }
 DR_MATHCALL vec4 vec4_zero()
 {
-    return (vec4){0, 0, 0, 0};
+    return vec4f(0, 0, 0, 0);
 }
 DR_MATHCALL vec4 vec4_one()
 {
-    return (vec4){1, 1, 1, 1};
+    return vec4f(1, 1, 1, 1);
 }
 
 
@@ -149,11 +161,11 @@ DR_MATHCALL vec3 vec3v(const float* v)
 }
 DR_MATHCALL vec3 vec3_zero()
 {
-    return (vec3){0, 0, 0};
+    return vec3f(0, 0, 0);
 }
 DR_MATHCALL vec3 vec3_one()
 {
-    return (vec3){1, 1, 1};
+    return vec3f(1, 1, 1);
 }
 
 
@@ -185,6 +197,53 @@ DR_MATHCALL vec3 vec3_div(vec3 a, vec3 b)
 
 
 
+///////////////////////////////////////////////
+//
+// MAT4
+//
+///////////////////////////////////////////////
+
+DR_MATHCALL mat4 mat4f(vec4 col0, vec4 col1, vec4 col2, vec4 col3)
+{
+    mat4 result;
+    result.col0 = col0;
+    result.col1 = col1;
+    result.col2 = col2;
+    result.col3 = col3;
+
+    return result;
+}
+
+DR_MATHCALL mat4 mat4_identity()
+{
+    mat4 result;
+    result.col0 = vec4f(1, 0, 0, 0);
+    result.col1 = vec4f(0, 1, 0, 0);
+    result.col2 = vec4f(0, 0, 1, 0);
+    result.col3 = vec4f(0, 0, 0, 1);
+
+    return result;
+}
+
+DR_MATHCALL mat4 mat4_ortho(float left, float right, float bottom, float top, float znear, float zfar)
+{
+    float rml = right - left;
+    float tmb = top - bottom;
+    float fmn = zfar - znear;
+
+    float rpl = right + left;
+    float tpb = top + bottom;
+    float fpn = zfar + znear;
+
+    mat4 result;
+    result.col0 = vec4f(2/rml, 0, 0,  0);
+    result.col1 = vec4f(0, 2/tmb, 0,  0);
+    result.col2 = vec4f(0, 0, -2/fmn, 0);
+    result.col3 = vec4f(-(rpl/rml), -(tpb/tmb), -(fpn/fmn), 1);
+
+    return result;
+}
+
 
 
 ///////////////////////////////////////////////
@@ -210,7 +269,7 @@ DR_MATHCALL quat quatv(const float* v)
 
 DR_MATHCALL quat quat_identity()
 {
-    return (quat){0, 0, 0, 1};
+    return quatf(0, 0, 0, 1);
 }
 
 
