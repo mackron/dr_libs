@@ -3923,6 +3923,9 @@ VkResult drvkAllocateMemory(drvk_context* pVulkan, uint32_t deviceIndex, VkDevic
     memoryAllocInfo.pNext           = NULL;
     memoryAllocInfo.allocationSize  = allocationSize;
     memoryAllocInfo.memoryTypeIndex = drvkGetMemoryTypeIndex(pVulkan, deviceIndex, propertyFlags);
+    if (memoryAllocInfo.memoryTypeIndex == DRVK_INVALID_MEMORY_TYPE_INDEX) {
+        return VK_ERROR_FEATURE_NOT_PRESENT;
+    }
 
     return vkAllocateMemory(drvkGetDevice(pVulkan, deviceIndex), &memoryAllocInfo, NULL, pMemory);
 }
