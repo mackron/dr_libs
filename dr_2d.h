@@ -137,6 +137,13 @@ typedef enum
 
 } dr2d_font_slant;
 
+typedef enum
+{
+    dr2d_image_format_rgba8,
+    dr2d_image_format_abgr8,
+    dr2d_image_format_argb8,
+} dr2d_image_format;
+
 
 #define DR2D_IMAGE_DRAW_BACKGROUND      (1 << 0)
 #define DR2D_IMAGE_HINT_NO_ALPHA        (1 << 1)
@@ -187,34 +194,35 @@ typedef struct
 } dr2d_draw_image_args;
 
 
-typedef bool  (* dr2d_on_create_context_proc)                  (dr2d_context* pContext);
-typedef void  (* dr2d_on_delete_context_proc)                  (dr2d_context* pContext);
-typedef bool  (* dr2d_on_create_surface_proc)                  (dr2d_surface* pSurface, float width, float height);
-typedef void  (* dr2d_on_delete_surface_proc)                  (dr2d_surface* pSurface);
-typedef bool  (* dr2d_on_create_font_proc)                     (dr2d_font* pFont);
-typedef void  (* dr2d_on_delete_font_proc)                     (dr2d_font* pFont);
-typedef bool  (* dr2d_on_create_image_proc)                    (dr2d_image* pImage, unsigned int stride, const void* pData);
-typedef void  (* dr2d_on_delete_image_proc)                    (dr2d_image* pImage);
-typedef void  (* dr2d_begin_draw_proc)                         (dr2d_surface* pSurface);
-typedef void  (* dr2d_end_draw_proc)                           (dr2d_surface* pSurface);
-typedef void  (* dr2d_clear_proc)                              (dr2d_surface* pSurface, dr2d_color color);
-typedef void  (* dr2d_draw_rect_proc)                          (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color);
-typedef void  (* dr2d_draw_rect_outline_proc)                  (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth);
-typedef void  (* dr2d_draw_rect_with_outline_proc)             (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor);
-typedef void  (* dr2d_draw_round_rect_proc)                    (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width);
-typedef void  (* dr2d_draw_round_rect_outline_proc)            (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth);
-typedef void  (* dr2d_draw_round_rect_with_outline_proc)       (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth, dr2d_color outlineColor);
-typedef void  (* dr2d_draw_text_proc)                          (dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor);
-typedef void  (* dr2d_draw_image_proc)                         (dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs);
-typedef void  (* dr2d_set_clip_proc)                           (dr2d_surface* pSurface, float left, float top, float right, float bottom);
-typedef void  (* dr2d_get_clip_proc)                           (dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
-typedef void* (* dr2d_map_image_data_proc)                     (dr2d_image* pImage, unsigned int accessFlags);
-typedef void  (* dr2d_unmap_image_data_proc)                   (dr2d_image* pImage);
-typedef bool  (* dr2d_get_font_metrics_proc)                   (dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
-typedef bool  (* dr2d_get_glyph_metrics_proc)                  (dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pMetricsOut);
-typedef bool  (* dr2d_measure_string_proc)                     (dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
-typedef bool  (* dr2d_get_text_cursor_position_from_point_proc)(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
-typedef bool  (* dr2d_get_text_cursor_position_from_char_proc) (dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
+typedef bool              (* dr2d_on_create_context_proc)                  (dr2d_context* pContext);
+typedef void              (* dr2d_on_delete_context_proc)                  (dr2d_context* pContext);
+typedef bool              (* dr2d_on_create_surface_proc)                  (dr2d_surface* pSurface, float width, float height);
+typedef void              (* dr2d_on_delete_surface_proc)                  (dr2d_surface* pSurface);
+typedef bool              (* dr2d_on_create_font_proc)                     (dr2d_font* pFont);
+typedef void              (* dr2d_on_delete_font_proc)                     (dr2d_font* pFont);
+typedef bool              (* dr2d_on_create_image_proc)                    (dr2d_image* pImage, unsigned int stride, const void* pData);
+typedef void              (* dr2d_on_delete_image_proc)                    (dr2d_image* pImage);
+typedef void              (* dr2d_begin_draw_proc)                         (dr2d_surface* pSurface);
+typedef void              (* dr2d_end_draw_proc)                           (dr2d_surface* pSurface);
+typedef void              (* dr2d_clear_proc)                              (dr2d_surface* pSurface, dr2d_color color);
+typedef void              (* dr2d_draw_rect_proc)                          (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color);
+typedef void              (* dr2d_draw_rect_outline_proc)                  (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth);
+typedef void              (* dr2d_draw_rect_with_outline_proc)             (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float outlineWidth, dr2d_color outlineColor);
+typedef void              (* dr2d_draw_round_rect_proc)                    (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width);
+typedef void              (* dr2d_draw_round_rect_outline_proc)            (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth);
+typedef void              (* dr2d_draw_round_rect_with_outline_proc)       (dr2d_surface* pSurface, float left, float top, float right, float bottom, dr2d_color color, float width, float outlineWidth, dr2d_color outlineColor);
+typedef void              (* dr2d_draw_text_proc)                          (dr2d_surface* pSurface, dr2d_font* pFont, const char* text, size_t textSizeInBytes, float posX, float posY, dr2d_color color, dr2d_color backgroundColor);
+typedef void              (* dr2d_draw_image_proc)                         (dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_image_args* pArgs);
+typedef void              (* dr2d_set_clip_proc)                           (dr2d_surface* pSurface, float left, float top, float right, float bottom);
+typedef void              (* dr2d_get_clip_proc)                           (dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
+typedef dr2d_image_format (* dr2d_get_optimal_image_format_proc)           (dr2d_context* pContext);
+typedef void*             (* dr2d_map_image_data_proc)                     (dr2d_image* pImage, unsigned int accessFlags);
+typedef void              (* dr2d_unmap_image_data_proc)                   (dr2d_image* pImage);
+typedef bool              (* dr2d_get_font_metrics_proc)                   (dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
+typedef bool              (* dr2d_get_glyph_metrics_proc)                  (dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pMetricsOut);
+typedef bool              (* dr2d_measure_string_proc)                     (dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
+typedef bool              (* dr2d_get_text_cursor_position_from_point_proc)(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
+typedef bool              (* dr2d_get_text_cursor_position_from_char_proc) (dr2d_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
 
 struct dr2d_drawing_callbacks
@@ -242,8 +250,9 @@ struct dr2d_drawing_callbacks
     dr2d_set_clip_proc                     set_clip;
     dr2d_get_clip_proc                     get_clip;
 
-    dr2d_map_image_data_proc   map_image_data;
-    dr2d_unmap_image_data_proc unmap_image_data;
+    dr2d_get_optimal_image_format_proc     get_optimal_image_format;
+    dr2d_map_image_data_proc               map_image_data;
+    dr2d_unmap_image_data_proc             unmap_image_data;
 
     dr2d_get_font_metrics_proc                    get_font_metrics;
     dr2d_get_glyph_metrics_proc                   get_glyph_metrics;
@@ -262,6 +271,9 @@ struct dr2d_image
 
     /// The height of the image.
     unsigned int height;
+
+    /// The format of the image data.
+    dr2d_image_format format;
 
     /// Whether or not the image's data is already mapped.
     bool isMapped;
@@ -436,12 +448,12 @@ bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text,
 /// Creates an image that can be passed to dr2d_draw_image().
 ///
 /// @remarks
-///     Images are immutable. If the data of an image needs to change, the image must be deleted and re-created.
-///     @par
-///     The image data must be in 32-bit, RGBA format where each component is in the range of 0 - 255.
+///     The dimensions and format of an image are immutable. If these need to change, then the image needs to be deleted and re-created.
 ///     @par
 ///     If pData is NULL, the default image data is undefined.
-dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData);
+///     @par
+///     Use dr2d_map_image_data() and dr2d_unmap_image_data() to update or retrieve image data.
+dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsigned int height, dr2d_image_format format, unsigned int stride, const void* pData);
 
 /// Deletes the given image.
 void dr2d_delete_image(dr2d_image* pImage);
@@ -468,6 +480,9 @@ void* dr2d_map_image_data(dr2d_image* pImage, unsigned int accessFlags);
 ///
 /// A flush is done at this point to ensure the actual underlying image data is updated.
 void dr2d_unmap_image_data(dr2d_image* pImage);
+
+/// Retrieves the optimal image format for the given context. This depends on the backend.
+dr2d_image_format dr2d_get_optimal_image_format(dr2d_context* pContext);
 
 
 /////////////////////////////////////////////////////////////////
@@ -1018,7 +1033,7 @@ bool dr2d_get_text_cursor_position_from_char(dr2d_font* pFont, const char* text,
 }
 
 
-dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsigned int height, unsigned int stride, const void* pData)
+dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsigned int height, dr2d_image_format format, unsigned int stride, const void* pData)
 {
     if (pContext == NULL || width == 0 || height == 0) {
         return NULL;
@@ -1032,6 +1047,7 @@ dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsign
     pImage->pContext = pContext;
     pImage->width    = width;
     pImage->height   = height;
+    pImage->format   = format;
     pImage->isMapped = false;
 
     if (pContext->drawingCallbacks.on_create_image != NULL) {
@@ -1104,6 +1120,15 @@ void dr2d_unmap_image_data(dr2d_image* pImage)
 
     pImage->pContext->drawingCallbacks.unmap_image_data(pImage);
     pImage->isMapped = false;
+}
+
+dr2d_image_format dr2d_get_optimal_image_format(dr2d_context* pContext)
+{
+    if (pContext == NULL || pContext->drawingCallbacks.get_optimal_image_format == NULL) {
+        return dr2d_image_format_rgba8;
+    }
+
+    return pContext->drawingCallbacks.get_optimal_image_format(pContext);
 }
 
 
@@ -1275,6 +1300,7 @@ void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_i
 void dr2d_set_clip_gdi(dr2d_surface* pSurface, float left, float top, float right, float bottom);
 void dr2d_get_clip_gdi(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
+dr2d_image_format dr2d_get_optimal_image_format_gdi(dr2d_context* pContext);
 void* dr2d_map_image_data_gdi(dr2d_image* pImage, unsigned accessFlags);
 void dr2d_unmap_image_data_gdi(dr2d_image* pImage);
 
@@ -1344,6 +1370,7 @@ dr2d_context* dr2d_create_context_gdi()
     callbacks.set_clip                            = dr2d_set_clip_gdi;
     callbacks.get_clip                            = dr2d_get_clip_gdi;
 
+    callbacks.get_optimal_image_format            = dr2d_get_optimal_image_format_gdi;
     callbacks.map_image_data                      = dr2d_map_image_data_gdi;
     callbacks.unmap_image_data                    = dr2d_unmap_image_data_gdi;
 
@@ -2057,6 +2084,12 @@ void dr2d_get_clip_gdi(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, 
     }
 }
 
+
+dr2d_image_format dr2d_get_optimal_image_format_gdi(dr2d_context* pContext)
+{
+    (void)pContext;
+    return dr2d_image_format_abgr8;
+}
 
 void* dr2d_map_image_data_gdi(dr2d_image* pImage, unsigned accessFlags)
 {
