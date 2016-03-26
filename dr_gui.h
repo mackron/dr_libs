@@ -235,7 +235,7 @@ typedef enum
 typedef enum
 {
     drgui_image_format_rgba8,
-    drgui_image_format_abgr8,
+    drgui_image_format_bgra8,
     drgui_image_format_argb8,
 } drgui_image_format;
 
@@ -5352,7 +5352,7 @@ drgui_resource drgui_create_image_dr_2d(void* pPaintingContext, unsigned int wid
     dr2d_image_format dr2dFormat;
     switch (format)
     {
-    case drgui_image_format_abgr8: dr2dFormat = dr2d_image_format_abgr8; break;
+    case drgui_image_format_bgra8: dr2dFormat = dr2d_image_format_bgra8; break;
     case drgui_image_format_argb8: dr2dFormat = dr2d_image_format_argb8; break;
     default: dr2dFormat = dr2d_image_format_rgba8;
     }
