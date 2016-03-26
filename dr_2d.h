@@ -1163,6 +1163,42 @@ dr2d_color dr2d_rgb(dr2d_byte r, dr2d_byte g, dr2d_byte b)
 
 
 
+/////////////////////////////////////////////////////////////////
+//
+// PRIVATE UTILITY API
+//
+/////////////////////////////////////////////////////////////////
+
+// RGBA8 <-> ABGR8 swap with alpha pre-multiply and vertical flip.
+void dr2d__rgba8_abgr8_swap__premul_flip(const void* pSrc, void* pDst, unsigned int width, unsigned int height, unsigned int srcStride, unsigned int dstStride)
+{
+    assert(pSrc != NULL);
+    assert(pDst != NULL);
+
+    for (unsigned int iRow = 0; iRow < height; ++iRow)
+    {
+        const unsigned int iRowSrc = height - (iRow + 1);
+        const unsigned int iRowDst = iRow;
+
+        for (unsigned int iCol = 0; iCol < width; ++iCol)
+        {
+            unsigned int  srcTexel = ((const unsigned int*)(pSrc))[  (iRowSrc * (srcStride/4)) + iCol];
+            unsigned int* dstTexel = ((      unsigned int*)(pDst)) + (iRowDst * (dstStride/4)) + iCol;
+
+            unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+            unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
+            unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
+            unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
+
+            srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
+            srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
+            srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+
+            *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+        }
+    }
+}
+
 
 /////////////////////////////////////////////////////////////////
 //
@@ -1678,30 +1714,8 @@ bool dr2d_on_create_image_gdi(dr2d_image* pImage, unsigned int stride, const voi
 
 
     // We need to convert the data so it renders correctly with AlphaBlend().
-    if (pData != NULL)
-    {
-        for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
-        {
-            const unsigned int iRowSrc = pImage->height - (iRow + 1);
-            const unsigned int iRowDst = iRow;
-
-            for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
-            {
-                unsigned int  srcTexel = ((const unsigned int*)(pData                   ))[  (iRowSrc * (stride/4))    + iCol];
-                unsigned int* dstTexel = ((      unsigned int*)(pGDIData->pSrcBitmapData)) + (iRowDst * pImage->width) + iCol;
-
-                unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
-                unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
-                unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
-                unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
-
-                srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
-                srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
-                srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
-
-                *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
-            }
-        }
+    if (pData != NULL) {
+        dr2d__rgba8_abgr8_swap__premul_flip(pData, pGDIData->pSrcBitmapData, pImage->width, pImage->height, stride, pImage->width*4);
     }
 
     // Flush GDI to let it know we are finished with the bitmap object's data.
@@ -2035,7 +2049,11 @@ void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_i
     HGDIOBJ hPrevBitmap = SelectObject(pGDISurfaceData->hIntermediateDC, hSrcBitmap);
     if ((pArgs->options & DR2D_IMAGE_HINT_NO_ALPHA) != 0)
     {
-        StretchBlt(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, SRCCOPY);
+        if (pArgs->dstWidth == pArgs->srcWidth && pArgs->dstHeight == pArgs->srcHeight) {
+            BitBlt(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, SRCCOPY);
+        } else {
+            StretchBlt(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, SRCCOPY);
+        }
     }
     else
     {
@@ -2103,31 +2121,39 @@ void* dr2d_map_image_data_gdi(dr2d_image* pImage, unsigned accessFlags)
     assert(pGDIImageData->pMappedImageData == NULL);    // This function should never be called while the image is already mapped.
 
     pGDIImageData->mapAccessFlags = accessFlags;
-    pGDIImageData->pMappedImageData = malloc(pImage->width * pImage->height * 4);
-    if (pGDIImageData->pMappedImageData == NULL) {
-        return NULL;
-    }
 
-    for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
+    if (pImage->format == dr2d_image_format_abgr8)
     {
-        const unsigned int iRowSrc = pImage->height - (iRow + 1);
-        const unsigned int iRowDst = iRow;
+        pGDIImageData->pMappedImageData = pGDIImageData->pSrcBitmapData;
+    }
+    else
+    {
+        pGDIImageData->pMappedImageData = malloc(pImage->width * pImage->height * 4);
+        if (pGDIImageData->pMappedImageData == NULL) {
+            return NULL;
+        }
 
-        for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+        for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
         {
-            unsigned int  srcTexel = ((const unsigned int*)(pGDIImageData->pSrcBitmapData))[    (iRowSrc * pImage->width) + iCol];
-            unsigned int* dstTexel = ((      unsigned int*)(pGDIImageData->pMappedImageData)) + (iRowDst * pImage->width) + iCol;
+            const unsigned int iRowSrc = pImage->height - (iRow + 1);
+            const unsigned int iRowDst = iRow;
 
-            unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
-            unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
-            unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
-            unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
+            for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
+            {
+                unsigned int  srcTexel = ((const unsigned int*)(pGDIImageData->pSrcBitmapData))[    (iRowSrc * pImage->width) + iCol];
+                unsigned int* dstTexel = ((      unsigned int*)(pGDIImageData->pMappedImageData)) + (iRowDst * pImage->width) + iCol;
 
-            srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
-            srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
-            srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+                unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
+                unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
+                unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
+                unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
 
-            *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+                srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
+                srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
+                srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
+
+                *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
+            }
         }
     }
 
@@ -2145,34 +2171,21 @@ void dr2d_unmap_image_data_gdi(dr2d_image* pImage)
 
     assert(pGDIImageData->pMappedImageData != NULL);    // This function should never be called while the image is not mapped.
 
-    // Update the actual image data if applicable.
-    if (pGDIImageData->mapAccessFlags & DR2D_WRITE)
+    if (pImage->format == dr2d_image_format_abgr8)
     {
-        for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
-        {
-            const unsigned int iRowSrc = pImage->height - (iRow + 1);
-            const unsigned int iRowDst = iRow;
-
-            for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
-            {
-                unsigned int  srcTexel = ((const unsigned int*)(pGDIImageData->pMappedImageData))[(iRowSrc * pImage->width) + iCol];
-                unsigned int* dstTexel = ((      unsigned int*)(pGDIImageData->pSrcBitmapData)) + (iRowDst * pImage->width) + iCol;
-
-                unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
-                unsigned int srcTexelB = (srcTexel & 0x00FF0000) >> 16;
-                unsigned int srcTexelG = (srcTexel & 0x0000FF00) >> 8;
-                unsigned int srcTexelR = (srcTexel & 0x000000FF) >> 0;
-
-                srcTexelB = (unsigned int)(srcTexelB * (srcTexelA / 255.0f));
-                srcTexelG = (unsigned int)(srcTexelG * (srcTexelA / 255.0f));
-                srcTexelR = (unsigned int)(srcTexelR * (srcTexelA / 255.0f));
-
-                *dstTexel = (srcTexelR << 16) | (srcTexelG << 8) | (srcTexelB << 0) | (srcTexelA << 24);
-            }
+        // It's in the native format, so just do a flush.
+        GdiFlush();
+    }
+    else
+    {
+        // Update the actual image data if applicable.
+        if (pGDIImageData->mapAccessFlags & DR2D_WRITE) {
+            dr2d__rgba8_abgr8_swap__premul_flip(pGDIImageData->pMappedImageData, pGDIImageData->pSrcBitmapData, pImage->width, pImage->height, pImage->width*4, pImage->width*4);
         }
+
+        free(pGDIImageData->pMappedImageData);
     }
 
-    free(pGDIImageData->pMappedImageData);
     pGDIImageData->pMappedImageData = NULL;
     pGDIImageData->mapAccessFlags = 0;
 }
