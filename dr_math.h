@@ -244,6 +244,57 @@ DR_MATHCALL mat4 mat4_ortho(float left, float right, float bottom, float top, fl
     return result;
 }
 
+DR_MATHCALL mat4 mat4_translate(vec3 translation)
+{
+    mat4 result;
+    result.col0 = vec4f(1, 0, 0, 0);
+    result.col1 = vec4f(0, 1, 0, 0);
+    result.col2 = vec4f(0, 0, 1, 0);
+    result.col3 = vec4f(translation.x, translation.y, translation.z, 1);
+
+    return result;
+}
+
+DR_MATHCALL mat4 mat4_rotate(float angle, vec3 axis)
+{
+    float c = cosf(radians(angle));
+    float s = sinf(radians(angle));
+
+    float x = axis.x;
+    float y = axis.y;
+    float z = axis.z;
+
+    float xx = x*x;
+    float xy = x*y;
+    float xz = x*z;
+    float yy = y*y;
+    float yz = y*z;
+    float zz = z*z;
+
+    float xs = x*s;
+    float ys = y*s;
+    float zs = z*s;
+
+    mat4 result;
+    result.col0 = vec4f(xx * (1 - c) + c,  xy * (1 - c) - zs, xz * (1 - c) + ys, 0);
+    result.col1 = vec4f(xy * (1 - c) + zs, yy * (1 - c) + c,  yz * (1 - c) - xs, 0);
+    result.col2 = vec4f(xz * (1 - c) - ys, yz * (1 - c) + xs, zz * (1 - c) + c,  0);
+    result.col3 = vec4f(0,                 0,                 0,                 1);
+
+    return result;
+}
+
+DR_MATHCALL mat4 mat4_scale(vec3 scale)
+{
+    mat4 result;
+    result.col0 = vec4f(scale.x, 0, 0, 0);
+    result.col1 = vec4f(0, scale.y, 0, 0);
+    result.col2 = vec4f(0, 0, scale.z, 0);
+    result.col3 = vec4f(0, 0, 0, 1);
+
+    return result;
+}
+
 
 
 ///////////////////////////////////////////////
