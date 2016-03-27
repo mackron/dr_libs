@@ -6,10 +6,10 @@
 // QUICK NOTES
 // - This library does not use SSE for it's basic types (vec4, etc.). Rationale: 1) It keeps things simple; 2) SSE is not always
 //   faster than the FPU(s) on modern CPUs; 3) The library can always implement functions that work on __m128 variables directly
-//   in the future if the need arises.
-// - Use DISABLE_SSE to disable SSE implementations.
-// - Angles are always specified in degrees, unless otherwise noted. Rationale: Degrees are easier to use for humans which means
-//   the API is easier to use.
+//   in the future if the need arises; 4) It doesn't work well with the pass-by-value API this library uses.
+// - Use DISABLE_SSE to disable SSE optimized functions.
+// - Angles are always specified in radians, unless otherwise noted. Rationale: Consistency with the standard library and most
+//   other math libraries.
 //   - Use radians() and degrees() to convert between the two.
 
 #ifndef dr_math_h
@@ -255,10 +255,10 @@ DR_MATHCALL mat4 mat4_translate(vec3 translation)
     return result;
 }
 
-DR_MATHCALL mat4 mat4_rotate(float angle, vec3 axis)
+DR_MATHCALL mat4 mat4_rotate(float angleInRadians, vec3 axis)
 {
-    float c = cosf(radians(angle));
-    float s = sinf(radians(angle));
+    float c = cosf(angleInRadians);
+    float s = sinf(angleInRadians);
 
     float x = axis.x;
     float y = axis.y;
