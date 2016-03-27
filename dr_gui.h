@@ -1160,6 +1160,12 @@ void drgui_enable_auto_dirty(drgui_context* pContext);
 bool drgui_is_auto_dirty_enabled(drgui_context* pContext);
 
 
+/// Begins accumulating a dirty rectangle.
+void drgui_begin_dirty(drgui_element* pElement);
+
+/// Ends accumulating a dirty rectangle, and requests a redraw from the backend if the counter reaches zero.
+void drgui_end_dirty(drgui_element* pElement);
+
 /// Marks a region of the given element as dirty.
 ///
 /// @remarks
@@ -1954,41 +1960,21 @@ void drgui_begin_auto_dirty(drgui_element* pElement, drgui_rect relativeRect)
     assert(pElement           != NULL);
     assert(pElement->pContext != NULL);
 
-    if (drgui_is_auto_dirty_enabled(pElement->pContext))
-    {
-        drgui_context* pContext = pElement->pContext;
-
-        if (pContext->pDirtyTopLevelElement == NULL) {
-            pContext->pDirtyTopLevelElement = drgui_find_top_level_element(pElement);
-        }
-
-        assert(pContext->pDirtyTopLevelElement == drgui_find_top_level_element(pElement));
-
-
-        pContext->dirtyRect = drgui_rect_union(pContext->dirtyRect, drgui_make_rect_absolute(pElement, &relativeRect));
-        pContext->dirtyCounter += 1;
+    if (drgui_is_auto_dirty_enabled(pElement->pContext)) {
+        drgui_begin_dirty(pElement);
+        drgui_dirty(pElement, relativeRect);
     }
 }
 
 void drgui_end_auto_dirty(drgui_element* pElement)
 {
-    assert(pElement           != NULL);
-    assert(pElement->pContext != NULL);
+    assert(pElement != NULL);
 
     drgui_context* pContext = pElement->pContext;
-    if (drgui_is_auto_dirty_enabled(pContext))
-    {
-        assert(pContext->pDirtyTopLevelElement != NULL);
-        assert(pContext->dirtyCounter > 0);
+    assert(pContext != NULL);
 
-        pContext->dirtyCounter -= 1;
-        if (pContext->dirtyCounter == 0)
-        {
-            drgui_dirty(pContext->pDirtyTopLevelElement, pContext->dirtyRect);
-
-            pContext->pDirtyTopLevelElement = NULL;
-            pContext->dirtyRect             = drgui_make_inside_out_rect();
-        }
+    if (drgui_is_auto_dirty_enabled(pContext)) {
+        drgui_end_dirty(pElement);
     }
 }
 
@@ -1998,8 +1984,7 @@ void drgui_auto_dirty(drgui_element* pElement, drgui_rect relativeRect)
     assert(pElement->pContext != NULL);
 
     if (drgui_is_auto_dirty_enabled(pElement->pContext)) {
-        drgui_begin_auto_dirty(pElement, relativeRect);
-        drgui_end_auto_dirty(pElement);
+        drgui_dirty(pElement, relativeRect);
     }
 }
 
@@ -3872,9 +3857,7 @@ void drgui_set_inner_scale(drgui_element* pElement, float innerScaleX, float inn
     pElement->innerScaleX = innerScaleX;
     pElement->innerScaleY = innerScaleY;
 
-    if (drgui_is_auto_dirty_enabled(pElement->pContext)) {
-        drgui_dirty(pElement, drgui_get_local_rect(pElement));
-    }
+    drgui_auto_dirty(pElement, drgui_get_local_rect(pElement));
 }
 
 void drgui_get_inner_scale(drgui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut)
@@ -4087,13 +4070,60 @@ bool drgui_is_auto_dirty_enabled(drgui_context* pContext)
 }
 
 
+void drgui_begin_dirty(drgui_element* pElement)
+{
+    if (pElement == NULL) {
+        return;
+    }
+
+    drgui_context* pContext = pElement->pContext;
+    assert(pContext != NULL);
+
+    if (pContext->pDirtyTopLevelElement == NULL) {
+        pContext->pDirtyTopLevelElement = drgui_find_top_level_element(pElement);
+    }
+
+    assert(pContext->pDirtyTopLevelElement == drgui_find_top_level_element(pElement));
+
+    pContext->dirtyCounter += 1;
+}
+
+void drgui_end_dirty(drgui_element* pElement)
+{
+    if (pElement == NULL) {
+        return;
+    }
+
+    drgui_context* pContext = pElement->pContext;
+    assert(pContext != NULL);
+
+    assert(pContext->pDirtyTopLevelElement != NULL);
+    assert(pContext->dirtyCounter > 0);
+
+    pContext->dirtyCounter -= 1;
+    if (pContext->dirtyCounter == 0)
+    {
+        drgui_post_outbound_event_dirty_global(pContext->pDirtyTopLevelElement, pContext->dirtyRect);
+
+        pContext->pDirtyTopLevelElement = NULL;
+        pContext->dirtyRect             = drgui_make_inside_out_rect();
+    }
+}
+
 void drgui_dirty(drgui_element* pElement, drgui_rect relativeRect)
 {
     if (pElement == NULL) {
         return;
     }
 
-    drgui_post_outbound_event_dirty_global(pElement, relativeRect);
+    drgui_context* pContext = pElement->pContext;
+    assert(pContext != NULL);
+
+    drgui_begin_dirty(pElement);
+    {
+        pContext->dirtyRect = drgui_rect_union(pContext->dirtyRect, drgui_make_rect_absolute(pElement, &relativeRect));
+    }
+    drgui_end_dirty(pElement);
 }
 
 
