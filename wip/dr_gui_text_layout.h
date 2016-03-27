@@ -230,9 +230,6 @@ void drgui_text_layout_hide_cursor(drgui_text_layout* pTL);
 /// Determines whether or not the cursor is visible.
 bool drgui_text_layout_is_showing_cursor(drgui_text_layout* pTL);
 
-/// Moves the cursor to the closest character based on the given input position.
-void drgui_text_layout_move_cursor_to_point(drgui_text_layout* pTL, float posX, float posY);
-
 /// Retrieves the position of the cursor, relative to the container.
 void drgui_text_layout_get_cursor_position(drgui_text_layout* pTL, float* pPosXOut, float* pPosYOut);
 
@@ -247,6 +244,9 @@ size_t drgui_text_layout_get_cursor_column(drgui_text_layout* pTL);
 
 /// Retrieves the index of the character the cursor is currently sitting on.
 size_t drgui_text_layout_get_cursor_character(drgui_text_layout* pTL);
+
+/// Moves the cursor to the closest character based on the given input position.
+void drgui_text_layout_move_cursor_to_point(drgui_text_layout* pTL, float posX, float posY);
 
 /// Moves the cursor of the given text layout to the left by one character.
 bool drgui_text_layout_move_cursor_left(drgui_text_layout* pTL);
@@ -1539,31 +1539,6 @@ bool drgui_text_layout_is_showing_cursor(drgui_text_layout* pTL)
     return pTL->isShowingCursor;
 }
 
-void drgui_text_layout_move_cursor_to_point(drgui_text_layout* pTL, float posX, float posY)
-{
-    if (pTL == NULL) {
-        return;
-    }
-
-    size_t iRunOld  = pTL->cursor.iRun;
-    size_t iCharOld = pTL->cursor.iChar;
-    drgui_text_layout__move_marker_to_point_relative_to_container(pTL, &pTL->cursor, posX, posY);
-
-    if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar)
-    {
-        drgui_text_layout__on_cursor_move(pTL);
-
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-        }
-    }
-
-
-    if (drgui_text_layout_is_in_selection_mode(pTL)) {
-        pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
-    }
-}
-
 void drgui_text_layout_get_cursor_position(drgui_text_layout* pTL, float* pPosXOut, float* pPosYOut)
 {
     if (pTL == NULL) {
@@ -1640,6 +1615,30 @@ size_t drgui_text_layout_get_cursor_character(drgui_text_layout* pTL)
     }
 
     return drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+}
+
+void drgui_text_layout_move_cursor_to_point(drgui_text_layout* pTL, float posX, float posY)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    size_t iRunOld  = pTL->cursor.iRun;
+    size_t iCharOld = pTL->cursor.iChar;
+    drgui_text_layout__move_marker_to_point_relative_to_container(pTL, &pTL->cursor, posX, posY);
+
+    if (drgui_text_layout_is_in_selection_mode(pTL)) {
+        pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
+    }
+
+    if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar)
+    {
+        drgui_text_layout__on_cursor_move(pTL);
+
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
+        }
+    }
 }
 
 bool drgui_text_layout_move_cursor_left(drgui_text_layout* pTL)
