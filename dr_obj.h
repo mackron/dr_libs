@@ -1,0 +1,945 @@
+// Public domain. See "unlicense" statement at the end of this file.
+
+// ABOUT
+//
+// dr_obj is a simple library for loading OBJ mesh files. This does not load MTL files, but does keep track of them
+// to allow an application to do their own loading. Only a tiny subset of features are currently supported:
+//   - Only basic triangle/face polygonal meshes are supported.
+//   - Freeform meshes are not supported (Bazier curves, etc.)
+//   - Groups are ignored.
+//
+//
+//
+// USAGE
+//
+// This is a single-file library. To use it, do something like the following in one .c file.
+//   #define DR_OBJ_IMPLEMENTATION
+//   #include "dr_obj.h"
+//
+// You can then #include this file in other parts of the program as you would with any other header file.
+// 
+//
+//
+// OPTIONS
+// #define these options before including this file.
+//
+// #define DR_OBJ_NO_STDIO
+//   Disable drobj_load_file().
+//
+//
+//
+// QUICK NOTES
+// - Only triangle polygonal geometry is currently supported.
+//
+//
+//
+// TODO
+// 
+
+#ifndef dr_obj_h
+#define dr_obj_h
+
+#include <stddef.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Callback for when data is read. Return value is the number of bytes actually read.
+typedef size_t (* drobj_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
+
+// Callback for when the loader needs to be seeked back to the start of the file.
+typedef bool (* drobj_seek_to_start_proc)(void* userData);
+
+typedef struct
+{
+    // The length of the name.
+    size_t nameLength;
+
+    // The name.
+    char name[1];
+
+} drobj_mtllib;
+
+typedef struct
+{
+    // The index of the first face that uses this material.
+    uint32_t firstFace;
+
+    // The number of faces that use this material (starting from <firstFace>).
+    uint32_t faceCount;
+
+    // The length of the material name.
+    size_t nameLength;
+
+    // The name of the material.
+    char name[1];
+
+} drobj_material;
+
+typedef struct
+{
+    float v[3];
+} drobj_vec3;
+
+typedef struct
+{
+    float v[4];
+} drobj_vec4;
+
+typedef struct
+{
+    int positionIndex;
+    int texcoordIndex;
+    int normalIndex;
+} drobj_face_vertex;
+
+typedef struct
+{
+    drobj_face_vertex v[3];
+} drobj_face;
+
+typedef struct
+{
+    // The material library count.
+    uint32_t materialLibCount;
+
+    // A pointer to the list of material libraries.
+    drobj_mtllib* pMaterialLibs;
+
+
+    // The number of materials used by the mesh.
+    uint32_t materialCount;
+
+    // A pointer to the list of materials used by the mesh.
+    drobj_material* pMaterials;
+
+
+    // The number of positions.
+    uint32_t positionCount;
+    
+    // The buffer containing the vertex positions.
+    drobj_vec4* pPositions;
+
+
+    // The number of texture coordinates.
+    uint32_t texCoordCount;
+
+    // The buffer containing the text coordinates.
+    drobj_vec3* pTexCoords;
+
+
+    // The number of normals.
+    uint32_t normalCount;
+
+    // The buffer containing the normal positions.
+    drobj_vec3* pNormals;
+
+
+    // The face count.
+    uint32_t faceCount;
+
+    // A pointer to the face data.
+    drobj_face* pFaces;
+
+
+    // A pointer to the raw data. This contains the vertex and index data.
+    char pData[1];
+
+} drobj;
+
+
+// Loads an OBJ file using the given callbacks.
+drobj* drobj_load(drobj_read_proc onRead, drobj_seek_to_start_proc onSeek, void* pUserData);
+
+// Deletes the given OBJ file.
+void drobj_delete(drobj* pOBJ);
+
+
+#ifndef DR_OBJ_NO_STDIO
+// Loads an OBJ file from an actual file.
+drobj* drobj_load_file(const char* pFile);
+#endif
+
+// Helper for loading an OBJ file from a block of memory.
+drobj* drobj_load_memory(const void* pData, size_t dataSize);
+
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif  // dr_obj_h
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// IMPLEMENTATION
+//
+///////////////////////////////////////////////////////////////////////////////
+#ifdef DR_OBJ_IMPLEMENTATION
+
+#ifndef DR_OBJ_NO_STDIO
+#include <stdio.h>
+
+static size_t drobj__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
+{
+    return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
+}
+
+static bool drobj__on_seek_stdio(void* pUserData)
+{
+    return fseek((FILE*)pUserData, 0, SEEK_SET) == 0;
+}
+
+drobj* drobj_load_file(const char* filename)
+{
+    FILE* pFile;
+#ifdef _MSC_VER
+    if (fopen_s(&pFile, filename, "rb") != 0) {
+        return false;
+    }
+#else
+    pFile = fopen(filename, "rb");
+    if (pFile == NULL) {
+        return false;
+    }
+#endif
+
+    return drobj_load(drobj__on_read_stdio, drobj__on_seek_stdio, pFile);
+}
+#endif  // DR_OBJ_NO_STDIO
+
+
+typedef struct
+{
+    // A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
+    const unsigned char* data;
+
+    // The size of the data.
+    size_t dataSize;
+
+    // The position we're currently sitting at.
+    size_t currentReadPos;
+
+} drobj_memory;
+
+static size_t drobj__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
+{
+    drobj_memory* memory = pUserData;
+    assert(memory != NULL);
+    assert(memory->dataSize >= memory->currentReadPos);
+
+    size_t bytesRemaining = memory->dataSize - memory->currentReadPos;
+    if (bytesToRead > bytesRemaining) {
+        bytesToRead = bytesRemaining;
+    }
+
+    if (bytesToRead > 0) {
+        memcpy(bufferOut, memory->data + memory->currentReadPos, bytesToRead);
+        memory->currentReadPos += bytesToRead;
+    }
+
+    return bytesToRead;
+}
+
+static bool drobj__on_seek_memory(void* pUserData)
+{
+    drobj_memory* memory = pUserData;
+    assert(memory != NULL);
+
+    memory->currentReadPos = 0;
+    return 1;
+}
+
+drobj* drobj_load_memory(const void* data, size_t dataSize)
+{
+    drobj_memory* pUserData = malloc(sizeof(*pUserData));
+    if (pUserData == NULL) {
+        return false;
+    }
+
+    pUserData->data = data;
+    pUserData->dataSize = dataSize;
+    pUserData->currentReadPos = 0;
+    return drobj_load(drobj__on_read_memory, drobj__on_seek_memory, pUserData);
+}
+
+
+typedef struct
+{
+    drobj_read_proc onRead;
+    drobj_seek_to_start_proc onSeek;
+    void* pUserData;
+
+    
+    char buffer[64];
+    char* pNextBytes;
+    size_t bytesRemaining;
+
+    uint32_t materialLibCount;
+    uint32_t materialCount;
+    uint32_t positionCount;
+    uint32_t texcoordCount;
+    uint32_t normalCount;
+    uint32_t faceCount;
+
+    size_t totalMaterialLibsSize;
+    size_t totalMaterialSize;
+    size_t allocationSize;
+    
+} drobj_load_context;
+
+static inline bool drobj__is_whitespace(char c)
+{
+    return c == '\0' || c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
+}
+
+static inline bool drobj__is_valid_digit(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+bool drobj__load_next_chunk(drobj_load_context* pLoadContext)
+{
+    assert(pLoadContext != NULL);
+
+    pLoadContext->bytesRemaining = pLoadContext->onRead(pLoadContext->pUserData, pLoadContext->buffer, sizeof(pLoadContext->buffer));
+    if (pLoadContext->bytesRemaining == 0) {
+        pLoadContext->pNextBytes = NULL;
+        return false;
+    }
+
+
+    pLoadContext->pNextBytes = pLoadContext->buffer;
+    return true;
+}
+
+bool drobj__seek_past_whitespace(drobj_load_context* pLoadContext)
+{
+    assert(pLoadContext != NULL);
+
+    for (;;)
+    {
+        while (pLoadContext->bytesRemaining > 0)
+        {
+            if (!drobj__is_whitespace(pLoadContext->pNextBytes[0])) {
+                return true;
+            }
+
+            pLoadContext->pNextBytes     += 1;
+            pLoadContext->bytesRemaining -= 1;
+        }
+
+        if (!drobj__load_next_chunk(pLoadContext)) {
+            return false;
+        }
+    }
+}
+
+char* drobj__find_end_of_line(const drobj_load_context* pLoadContext)
+{
+    assert(pLoadContext != NULL);
+
+    // This function does not load a new chunk. If it runs out of data in the chunk it will return false.
+    char* pLineEnd = pLoadContext->pNextBytes;
+    size_t bytesRemaining = pLoadContext->bytesRemaining;
+    while (bytesRemaining > 0)
+    {
+        if (pLineEnd[0] == '\0' || pLineEnd[0] == '\n' || (pLineEnd[0] == '\r' && bytesRemaining > 1 && pLineEnd[1] == '\n') || pLineEnd[0] == '#') {
+            return pLineEnd;
+        }
+
+        pLineEnd       += 1;
+        bytesRemaining -= 1;
+    }
+
+    // If we get here it means we've run out of data in the buffer. We don't want to read the next chunk in this function so
+    // we return false in this case.
+    return NULL;
+}
+
+bool drobj__seek_to_next_line(drobj_load_context* pLoadContext)
+{
+    assert(pLoadContext != NULL);
+
+    for (;;)
+    {
+        while (pLoadContext->bytesRemaining > 0)
+        {
+            if (pLoadContext->pNextBytes[0] == '\n')
+            {
+                pLoadContext->pNextBytes     += 1;
+                pLoadContext->bytesRemaining -= 1;
+
+                return true;
+            }
+            else if (pLoadContext->pNextBytes[0] == '\r' && pLoadContext->bytesRemaining > 1 && pLoadContext->pNextBytes[1] == '\n')     // Win32 line endings.
+            {
+                pLoadContext->pNextBytes     += 2;
+                pLoadContext->bytesRemaining -= 2;
+
+                return true;
+            }
+            else
+            {
+                pLoadContext->pNextBytes     += 1;
+                pLoadContext->bytesRemaining -= 1;
+            }
+        }
+
+        if (!drobj__load_next_chunk(pLoadContext)) {
+            return false;
+        }
+    }
+
+    return false;
+}
+
+bool drobj__read_next_line(drobj_load_context* pLoadContext, char** pLineBeg, char** pLineEnd)
+{
+    assert(pLineBeg != NULL);
+    assert(pLineEnd != NULL);
+
+    // We don't want to include whitespace in the result.
+    if (!drobj__seek_past_whitespace(pLoadContext)) {
+        return false;
+    }
+
+    // The entire line must be contained within pLoadContext->buffer.
+
+    char* lineBeg = pLoadContext->pNextBytes;
+    char* lineEnd = drobj__find_end_of_line(pLoadContext);
+    if (lineEnd == NULL)
+    {
+        // If we get here it means we've either reached the end of the file or ran out of data in the buffer. If we've simply reached the
+        // end of the file it's not an error. If we've run out of data we need to load the next chunk.
+        size_t lineLengthSoFar = pLoadContext->bytesRemaining;
+        memmove(pLoadContext->buffer, lineBeg, lineLengthSoFar);
+
+        lineBeg = pLoadContext->buffer;
+        lineEnd = lineBeg + lineLengthSoFar;
+
+        pLoadContext->bytesRemaining = pLoadContext->onRead(pLoadContext->pUserData, pLoadContext->buffer + lineLengthSoFar, sizeof(pLoadContext->buffer) - lineLengthSoFar) + lineLengthSoFar;
+        if (pLoadContext->bytesRemaining > 0)
+        {
+            // At this point we should have the rest of the line in the buffer so we just try finding the end of it again.
+            pLoadContext->pNextBytes = pLoadContext->buffer;
+            lineEnd = drobj__find_end_of_line(pLoadContext);
+        }
+        
+        if (lineEnd == NULL)
+        {
+            pLoadContext->pNextBytes    += pLoadContext->bytesRemaining;
+            pLoadContext->bytesRemaining = 0;
+
+            *pLineBeg = lineBeg;
+            *pLineEnd = lineBeg + lineLengthSoFar;
+            return true;
+        }
+    }
+
+
+
+    // We don't want to return empty lines, so if the line is empty, just try getting the next one.
+    if (lineEnd == lineBeg)
+    {
+        if (!drobj__seek_to_next_line(pLoadContext)) {
+            return false;
+        }
+
+        return drobj__read_next_line(pLoadContext, pLineBeg, pLineEnd);
+    }
+    else
+    {
+        // At this point we should be good. We need to move to the start of the next line.
+        size_t lineLength = (lineEnd - lineBeg);
+        if (lineLength > pLoadContext->bytesRemaining) {
+            lineLength = pLoadContext->bytesRemaining;
+        }
+
+        pLoadContext->pNextBytes     += lineLength;
+        pLoadContext->bytesRemaining -= lineLength;
+        drobj__seek_to_next_line(pLoadContext);
+
+        *pLineBeg = lineBeg;
+        *pLineEnd = lineEnd;
+        return true;
+    }
+}
+
+size_t drobj__parse_mtl_name(const char* pMtlName, const char* pLineEnd, char* pMtlNameOut)
+{
+    while (pMtlName < pLineEnd && drobj__is_whitespace(pMtlName[0])) {
+        pMtlName += 1;
+    }
+
+    const char* pNameBeg = pMtlName;
+    const char* pLastNonWhitespaceChar = pMtlName;
+
+    while (pMtlName[0] != '#' && pMtlName[0] != '\n' && pMtlName < pLineEnd) {
+        if (!drobj__is_whitespace(pMtlName[0])) {
+            pLastNonWhitespaceChar = pMtlName;
+        }
+
+        pMtlName += 1;
+    }
+
+    size_t nameLength = pLastNonWhitespaceChar - pNameBeg + 1;
+
+    if (pMtlNameOut != NULL)
+    {
+        if (nameLength > 0) {
+            memcpy(pMtlNameOut, pNameBeg, nameLength);
+        }
+
+        pMtlNameOut[nameLength] = '\0';
+    }
+
+    return nameLength;
+}
+
+
+
+
+// Special implementation of atof() for converting a string to a float.
+bool drobj__atof(const char* str, const char* strEnd, float* pResultOut, const char** strEndOut)
+{
+    // Skip leading whitespace.
+    while (str < strEnd && drobj__is_whitespace(*str)) {
+        str += 1;
+    }
+
+
+    // Check that we have a string after moving the whitespace.
+    if (str < strEnd)
+    {
+        float sign  = 1.0f;
+        float value = 0.0f;
+
+        // Sign.
+        if (*str == '-')
+        {
+            sign = -1.0f;
+            str += 1;
+        }
+        else if (*str == '+')
+        {
+            sign = 1.0f;
+            str += 1;
+        }
+
+
+        // Digits before the decimal point.
+        while (str < strEnd && drobj__is_valid_digit(*str))
+        {
+            value = value * 10.0f + (*str - '0');
+
+            str += 1;
+        }
+
+        // Digits after the decimal point.
+        if (*str == '.')
+        {
+            float pow10 = 10.0f;
+
+            str += 1;
+            while (str < strEnd && drobj__is_valid_digit(*str))
+            {
+                value += (*str - '0') / pow10;
+                pow10 *= 10.0f;
+
+                str += 1;
+            }
+        }
+
+            
+        if (strEndOut != NULL) {
+            *strEndOut = str;
+        }
+
+        *pResultOut = sign * value;
+        return true;
+    }
+    else
+    {
+        // Empty string.
+        *pResultOut = 0;
+        return false;
+    }
+}
+
+
+// Parses a single index in a face's p/t/n string.
+int drobj__parse_face_vertex_index(const char* str, const char* strEnd, const char** strEndOut)
+{
+    int sign  = 1;
+    int value = 0;
+
+    if (str < strEnd)
+    {
+        // Sign.
+        if (*str == '-')
+        {
+            sign = -1;
+            str += 1;
+        }
+        else if (*str == '+')
+        {
+            sign = 1;
+            str += 1;
+        }
+
+
+        // Value.
+        while (str < strEnd && drobj__is_valid_digit(*str))
+        {
+            value = value * 10 + (*str - '0');
+            str += 1;
+        }
+    }
+
+
+    if (strEndOut != NULL) {
+        *strEndOut = str;
+    }
+        
+    return sign * value;
+}
+
+
+// Parses a face vertex index string in p/t/n format.
+drobj_face_vertex drobj__parse_face_vertex(const char* str, const char* strEnd, const char** strEndOut)
+{
+    drobj_face_vertex result;
+    result.positionIndex = 0;
+    result.texcoordIndex = 0;
+    result.normalIndex   = 0;
+
+
+    // Skip leading whitespace.
+    while (str < strEnd && drobj__is_whitespace(*str)) {
+        str += 1;
+    }
+
+
+    // Check that we have a string after moving the whitespace.
+    if (str < strEnd)
+    {
+        result.positionIndex = drobj__parse_face_vertex_index(str, strEnd, &str);
+
+        str += 1;   // Move past the slash.
+        result.texcoordIndex = drobj__parse_face_vertex_index(str, strEnd, &str);
+
+        str += 1;   // Move past the slash.
+        result.normalIndex   = drobj__parse_face_vertex_index(str, strEnd, &str);
+    }
+        
+
+    if (strEndOut != NULL) {
+        *strEndOut = str;
+    }
+
+    return result;
+}
+
+// Parses a face index string. The string is assumed to be in the format p0/t0/n0 p1/t1/n1 p2/t2/n2.
+void drobj__parse_face(const char* str, const char* strEnd, drobj_face* pFaceOut)
+{
+    assert(str      != NULL);
+    assert(strEnd   != NULL);
+    assert(pFaceOut != NULL);
+
+    pFaceOut->v[0] = drobj__parse_face_vertex(str, strEnd, &str);
+    pFaceOut->v[1] = drobj__parse_face_vertex(str, strEnd, &str);
+    pFaceOut->v[2] = drobj__parse_face_vertex(str, strEnd, &str);
+}
+
+
+// Parses the value of a "v" element.
+void drobj__parse_v(const char* str, const char* strEnd, drobj_vec4* pResultOut)
+{
+    assert(str        != NULL);
+    assert(strEnd     != NULL);
+    assert(pResultOut != NULL);
+
+    // Format: x y z w
+    // w is optional.
+
+    drobj__atof(str, strEnd, &pResultOut->v[0], &str);
+    drobj__atof(str, strEnd, &pResultOut->v[1], &str);
+    drobj__atof(str, strEnd, &pResultOut->v[2], &str);
+
+    if (!drobj__atof(str, strEnd, &pResultOut->v[3], &str)) {   // <-- The w component is optional. Defaults to 1.
+        pResultOut->v[3] = 1;
+    }
+}
+
+// Parses the valid of a "vn" element.
+void drobj__parse_vn(const char* str, const char* strEnd, drobj_vec3* pResultOut)
+{
+    assert(str        != NULL);
+    assert(strEnd     != NULL);
+    assert(pResultOut != NULL);
+
+    // Format: x y z
+    drobj__atof(str, strEnd, &pResultOut->v[0], &str);
+    drobj__atof(str, strEnd, &pResultOut->v[1], &str);
+    drobj__atof(str, strEnd, &pResultOut->v[2], &str);
+}
+
+// Parses the valid of a "vt" element.
+void drobj__parse_vt(const char* str, const char* strEnd, drobj_vec3* pResultOut)
+{
+    assert(str        != NULL);
+    assert(strEnd     != NULL);
+    assert(pResultOut != NULL);
+
+    // Format: x y z
+    // y and z are optional. Both default to zero.
+    drobj__atof(str, strEnd, &pResultOut->v[0], &str);
+    
+    if (!drobj__atof(str, strEnd, &pResultOut->v[1], &str)) {
+        pResultOut->v[1] = 0;
+        pResultOut->v[2] = 0;
+        return;
+    }
+
+    if (!drobj__atof(str, strEnd, &pResultOut->v[2], &str)) {
+        pResultOut->v[2] = 0;
+        return;
+    }
+}
+
+bool drobj__load_stage1(drobj_load_context* pLoadContext)
+{
+    assert(pLoadContext != NULL);
+    assert(pLoadContext->onRead != NULL);
+
+    char* lineBeg;
+    char* lineEnd;
+    while (drobj__read_next_line(pLoadContext, &lineBeg, &lineEnd))     // <-- This will handle comments and leading whitespace for us.
+    {
+        if (lineBeg[0] == 'v' && drobj__is_whitespace(lineBeg[1]))
+        {
+            // Position.
+            pLoadContext->positionCount += 1;
+        }
+        else if (lineBeg[0] == 'v' && lineBeg[1] == 't' && drobj__is_whitespace(lineBeg[2]))
+        {
+            // Texture coordinate.
+            pLoadContext->texcoordCount += 1;
+        }
+        else if (lineBeg[0] == 'v' && lineBeg[1] == 'n' && drobj__is_whitespace(lineBeg[2]))
+        {
+            // Normal.
+            pLoadContext->normalCount += 1;
+        }
+        else if (lineBeg[0] == 'f' && drobj__is_whitespace(lineBeg[1]))
+        {
+            // Face.
+            pLoadContext->faceCount += 1;
+        }
+        else if (lineBeg[0] == 'm' && lineBeg[1] == 't' && lineBeg[2] == 'l' && lineBeg[3] == 'l' && lineBeg[4] == 'i' && lineBeg[5] == 'b' && drobj__is_whitespace(lineBeg[6]))
+        {
+            // mtllib.
+            pLoadContext->materialLibCount += 1;
+            pLoadContext->totalMaterialLibsSize += (sizeof(drobj_mtllib) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, NULL) + 1;    // +1 for null terminator.
+        }
+        else if (lineBeg[0] == 'u' && lineBeg[1] == 's' && lineBeg[2] == 'e' && lineBeg[3] == 'm' && lineBeg[4] == 't' && lineBeg[5] == 'l' && drobj__is_whitespace(lineBeg[6]))
+        {
+            // usemtl.
+            pLoadContext->materialCount += 1;
+            pLoadContext->totalMaterialSize += (sizeof(drobj_material) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, NULL) + 1;    // +1 for null terminator.
+        }
+        else
+        {
+            // Either an unknown label, or we simply don't care about it. Skip the line.
+            continue;
+        }
+    }
+
+    // We always want at least one position, texture coordinate and normal.
+    if (pLoadContext->positionCount == 0) {
+        pLoadContext->positionCount = 1;
+    }
+    if (pLoadContext->texcoordCount == 0) {
+        pLoadContext->texcoordCount = 1;
+    }
+    if (pLoadContext->normalCount == 0) {
+        pLoadContext->normalCount = 1;
+    }
+
+    pLoadContext->allocationSize =
+        pLoadContext->totalMaterialLibsSize +
+        pLoadContext->totalMaterialSize +
+        pLoadContext->positionCount * sizeof(drobj_vec4) + 
+        pLoadContext->texcoordCount * sizeof(drobj_vec3) +
+        pLoadContext->normalCount   * sizeof(drobj_vec3) +
+        pLoadContext->faceCount     * sizeof(drobj_face);
+
+    return true;
+}
+
+bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
+{
+    assert(pOBJ != NULL);
+
+    pLoadContext->materialLibCount = 0;
+    pLoadContext->materialCount    = 0;
+    pLoadContext->positionCount    = 0;
+    pLoadContext->texcoordCount    = 0;
+    pLoadContext->normalCount      = 0;
+    pLoadContext->faceCount        = 0;
+
+    drobj_mtllib* pNextMtlLib = pOBJ->pMaterialLibs;
+    drobj_material* pNextMtl = pOBJ->pMaterials;
+    drobj_material* pPrevMtl = NULL;
+
+    char* lineBeg;
+    char* lineEnd;
+    while (drobj__read_next_line(pLoadContext, &lineBeg, &lineEnd))     // <-- This will handle comments and leading whitespace for us.
+    {
+#if 0
+        char temp[4096];
+        strncpy_s(temp, sizeof(temp), lineBeg, lineEnd - lineBeg);
+        printf("%s\n", temp);
+#endif
+
+        if (lineBeg[0] == 'v' && drobj__is_whitespace(lineBeg[1]))
+        {
+            // Position.
+            drobj__parse_v(lineBeg, lineEnd, &pOBJ->pPositions[pLoadContext->positionCount]);
+            pLoadContext->positionCount += 1;
+        }
+        else if (lineBeg[0] == 'v' && lineBeg[1] == 't' && drobj__is_whitespace(lineBeg[2]))
+        {
+            // Texture coordinate.
+            drobj__parse_vt(lineBeg, lineEnd, &pOBJ->pTexCoords[pLoadContext->texcoordCount]);
+            pLoadContext->texcoordCount += 1;
+        }
+        else if (lineBeg[0] == 'v' && lineBeg[1] == 'n' && drobj__is_whitespace(lineBeg[2]))
+        {
+            // Normal.
+            drobj__parse_vn(lineBeg, lineEnd, &pOBJ->pNormals[pLoadContext->normalCount]);
+            pLoadContext->normalCount += 1;
+        }
+        else if (lineBeg[0] == 'f' && drobj__is_whitespace(lineBeg[1]))
+        {
+            // Face.
+            drobj__parse_face(lineBeg, lineEnd, &pOBJ->pFaces[pLoadContext->faceCount]);
+            pLoadContext->faceCount += 1;
+        }
+        else if (lineBeg[0] == 'm' && lineBeg[1] == 't' && lineBeg[2] == 'l' && lineBeg[3] == 'l' && lineBeg[4] == 'i' && lineBeg[5] == 'b' && drobj__is_whitespace(lineBeg[6]))
+        {
+            // mtllib.
+            pLoadContext->materialLibCount += 1;
+            pLoadContext->totalMaterialLibsSize += (sizeof(drobj_mtllib) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, pNextMtlLib->name) + 1;    // +1 for null terminator.
+            pNextMtlLib = (drobj_mtllib*)((char*)pNextMtlLib + pLoadContext->totalMaterialLibsSize);
+        }
+        else if (lineBeg[0] == 'u' && lineBeg[1] == 's' && lineBeg[2] == 'e' && lineBeg[3] == 'm' && lineBeg[4] == 't' && lineBeg[5] == 'l' && drobj__is_whitespace(lineBeg[6]))
+        {
+            // usemtl.
+            if (pPrevMtl != NULL) {
+                pPrevMtl->faceCount = pLoadContext->faceCount - pPrevMtl->firstFace;
+            }
+
+            pPrevMtl = pNextMtl;
+
+            pLoadContext->materialCount += 1;
+            pLoadContext->totalMaterialSize += (sizeof(drobj_material) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, pNextMtl->name) + 1;    // +1 for null terminator.
+            pNextMtl = (drobj_material*)((char*)pNextMtl + pLoadContext->totalMaterialSize);
+            pNextMtl->firstFace = pLoadContext->faceCount;
+        }
+        else
+        {
+            // Either an unknown label, or we simply don't care about it. Skip the line.
+            continue;
+        }
+    }
+
+    if (pNextMtl != NULL) {
+        pNextMtl->faceCount = pLoadContext->faceCount - pNextMtl->firstFace;
+    }
+
+    // We always want at least one position, texture coordinate and normal. The first pass will have allocated memory for at least one of each.
+    if (pLoadContext->positionCount == 0) {
+        pOBJ->pPositions[0].v[0] = 0;
+        pOBJ->pPositions[0].v[1] = 0;
+        pOBJ->pPositions[0].v[2] = 0;
+        pOBJ->pPositions[0].v[3] = 1;
+    }
+    if (pLoadContext->texcoordCount == 0) {
+        pOBJ->pTexCoords[0].v[0] = 0;
+        pOBJ->pTexCoords[0].v[1] = 0;
+        pOBJ->pTexCoords[0].v[2] = 0;
+    }
+    if (pLoadContext->normalCount == 0) {
+        pOBJ->pNormals[0].v[0] = 0;
+        pOBJ->pNormals[0].v[1] = 0;
+        pOBJ->pNormals[0].v[2] = 0;
+    }
+
+
+    return true;
+}
+
+drobj* drobj_load(drobj_read_proc onRead, drobj_seek_to_start_proc onSeek, void* pUserData)
+{
+    if (onRead == NULL || onSeek == NULL) {
+        return NULL;
+    }
+
+    // Loading is done is two stages. The first stage is a pre-load to determine the size of the allocation. The second stage
+    // is where the data is actually loaded.
+    drobj_load_context loadContext;
+    memset(&loadContext, 0, sizeof(loadContext));
+    loadContext.onRead    = onRead;
+    loadContext.onSeek    = onSeek;
+    loadContext.pUserData = pUserData;
+
+    bool result = drobj__load_stage1(&loadContext);
+    if (!result) {
+        return NULL;
+    }
+
+    // After the pre-load we need to seek back to the start and do the actual load.
+    if (!onSeek(pUserData)) {
+        return NULL;
+    }
+
+    drobj* pOBJ = malloc(sizeof(*pOBJ) - sizeof(pOBJ->pData) + loadContext.allocationSize);
+    if (pOBJ == NULL) {
+        return NULL;
+    }
+
+    pOBJ->materialLibCount = loadContext.materialLibCount;
+    pOBJ->pMaterialLibs    = (drobj_mtllib*)pOBJ->pData;
+    pOBJ->materialCount    = loadContext.materialCount;
+    pOBJ->pMaterials       = (drobj_material*)(((char*)pOBJ->pData) + loadContext.totalMaterialLibsSize);
+    pOBJ->positionCount    = loadContext.positionCount;
+    pOBJ->pPositions       = (drobj_vec4*)(((char*)pOBJ->pMaterials) + loadContext.totalMaterialSize);
+    pOBJ->texCoordCount    = loadContext.texcoordCount;
+    pOBJ->pTexCoords       = (drobj_vec3*)(((char*)pOBJ->pPositions) + (loadContext.positionCount * sizeof(*pOBJ->pPositions)));
+    pOBJ->normalCount      = loadContext.normalCount;
+    pOBJ->pNormals         = (drobj_vec3*)(((char*)pOBJ->pTexCoords) + (loadContext.texcoordCount * sizeof(*pOBJ->pTexCoords)));
+    pOBJ->faceCount        = loadContext.faceCount;
+    pOBJ->pFaces           = (drobj_face*)(((char*)pOBJ->pNormals) + (loadContext.normalCount * sizeof(*pOBJ->pNormals)));
+
+    result = drobj__load_stage2(pOBJ, &loadContext);
+    if (!result) {
+        free(pOBJ);
+        return NULL;
+    }
+
+    return pOBJ;
+}
+
+void drobj_delete(drobj* pOBJ)
+{
+    free(pOBJ);
+}
+
+#endif // DR_OBJ_IMPLEMENTATION
