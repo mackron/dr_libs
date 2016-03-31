@@ -167,6 +167,16 @@ drobj* drobj_load_file(const char* pFile);
 drobj* drobj_load_memory(const void* pData, size_t dataSize);
 
 
+// Frees an internal allocation.
+void drobj_free(void* pData);
+
+
+// Helper for interleaving the vertex data of the given OBJ object.
+//
+// Free the returned pointers with drobj_free().
+void drobj_interleave_p3t2n3(drobj* pOBJ, uint32_t* pVertexCountOut, float** ppVertexDataOut, uint32_t* pIndexCountOut, uint32_t** ppIndexDataOut);
+
+
 #ifdef __cplusplus
 }
 #endif
@@ -266,6 +276,94 @@ drobj* drobj_load_memory(const void* data, size_t dataSize)
     pUserData->currentReadPos = 0;
     return drobj_load(drobj__on_read_memory, drobj__on_seek_memory, pUserData);
 }
+
+
+void drobj_free(void* pData)
+{
+    free(pData);
+}
+
+
+bool drobj__find_face_vertex(uint32_t vertexCount, drobj_face_vertex* pVertices, drobj_face_vertex vertex, uint32_t* pIndexOut)
+{
+    for (uint32_t i = 0; i < vertexCount; ++i) {
+        if (pVertices[i].positionIndex == vertex.positionIndex && pVertices[i].texcoordIndex == vertex.texcoordIndex && pVertices[i].normalIndex == vertex.normalIndex) {
+            *pIndexOut = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void drobj_interleave_p3t2n3(drobj* pOBJ, uint32_t* pVertexCountOut, float** ppVertexDataOut, uint32_t* pIndexCountOut, uint32_t** ppIndexDataOut)
+{
+    // When interleaving we want to ensure we don't copy over duplicate vertices. For example, a quad will be made up of two triangles, with two
+    // vertices being shared by both faces (along the common edge dividing the two triangles). We don't want to duplicate that data, so when creating
+    // an index for a face, we first want to check that it hasn't already been added.
+
+    // Create output buffers large enough to contain the interleaved data.
+    uint32_t indexCount = 0;
+    uint32_t* pIndexData = malloc(sizeof(uint32_t) * pOBJ->faceCount*3);
+
+    uint32_t vertexCount = 0;
+    float* pVertexData = malloc((sizeof(float)*(3+2+3)) * pOBJ->faceCount*3);
+
+
+    uint32_t uniqueVertexCount = 0;
+    drobj_face_vertex* pUniqueVertices = malloc(sizeof(drobj_face_vertex) * pOBJ->faceCount*3);
+
+    for (uint32_t iFace = 0; iFace < pOBJ->faceCount; ++iFace)
+    {
+        for (uint32_t iFaceVertex = 0; iFaceVertex < 3; ++iFaceVertex)
+        {
+            uint32_t index;
+            if (!drobj__find_face_vertex(uniqueVertexCount, pUniqueVertices, pOBJ->pFaces[iFace].v[iFaceVertex], &index))
+            {
+                pUniqueVertices[uniqueVertexCount] = pOBJ->pFaces[iFace].v[iFaceVertex];
+                index = uniqueVertexCount++;
+
+                pVertexData[(index*8) + 0] = pOBJ->pPositions[pOBJ->pFaces[iFace].v[iFaceVertex].positionIndex].v[0];
+                pVertexData[(index*8) + 1] = pOBJ->pPositions[pOBJ->pFaces[iFace].v[iFaceVertex].positionIndex].v[1];
+                pVertexData[(index*8) + 2] = pOBJ->pPositions[pOBJ->pFaces[iFace].v[iFaceVertex].positionIndex].v[2];
+
+                pVertexData[(index*8) + 3] = pOBJ->pTexCoords[pOBJ->pFaces[iFace].v[iFaceVertex].texcoordIndex].v[0];
+                pVertexData[(index*8) + 4] = pOBJ->pTexCoords[pOBJ->pFaces[iFace].v[iFaceVertex].texcoordIndex].v[1];
+
+                pVertexData[(index*8) + 5] = pOBJ->pNormals[pOBJ->pFaces[iFace].v[iFaceVertex].normalIndex].v[0];
+                pVertexData[(index*8) + 6] = pOBJ->pNormals[pOBJ->pFaces[iFace].v[iFaceVertex].normalIndex].v[1];
+                pVertexData[(index*8) + 7] = pOBJ->pNormals[pOBJ->pFaces[iFace].v[iFaceVertex].normalIndex].v[2];
+            }
+
+            pIndexData[indexCount++] = index;
+        }
+    }
+
+
+    free(pUniqueVertices);
+
+    if (pIndexCountOut) {
+        *pIndexCountOut = indexCount;
+    }
+
+    if (pVertexCountOut) {
+        *pVertexCountOut = vertexCount;
+    }
+
+    
+    if (ppIndexDataOut != NULL) {
+        *ppIndexDataOut = pIndexData;
+    } else {
+        free(pIndexData);
+    }
+
+    if (ppVertexDataOut != NULL) {
+        *ppVertexDataOut = pVertexData;
+    } else {
+        free(pIndexData);
+    }
+}
+
 
 
 typedef struct
