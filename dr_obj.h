@@ -829,7 +829,31 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         else if (lineBeg[0] == 'f' && drobj__is_whitespace(lineBeg[1]))
         {
             // Face.
-            drobj__parse_face(lineBeg, lineEnd, &pOBJ->pFaces[pLoadContext->faceCount]);
+            drobj_face face;
+            drobj__parse_face(lineBeg, lineEnd, &face);
+
+            // Faces can have negative indices which are interpreted as being relative. Positive values are one based so they need to be changed to 0 based, also.
+            for (int i = 0; i < 3; ++i) {
+                if (face.v[i].positionIndex > 0) {
+                    face.v[i].positionIndex -= 1;
+                } else {
+                    face.v[i].positionIndex += pOBJ->positionCount;
+                }
+
+                if (face.v[i].texcoordIndex > 0) {
+                    face.v[i].texcoordIndex -= 1;
+                } else {
+                    face.v[i].texcoordIndex += pOBJ->texCoordCount;
+                }
+
+                if (face.v[i].normalIndex > 0) {
+                    face.v[i].normalIndex -= 1;
+                } else {
+                    face.v[i].normalIndex += pOBJ->normalCount;
+                }
+            }
+
+            pOBJ->pFaces[pLoadContext->faceCount] = face;
             pLoadContext->faceCount += 1;
         }
         else if (lineBeg[0] == 'm' && lineBeg[1] == 't' && lineBeg[2] == 'l' && lineBeg[3] == 'l' && lineBeg[4] == 'i' && lineBeg[5] == 'b' && drobj__is_whitespace(lineBeg[6]))
