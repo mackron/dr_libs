@@ -257,6 +257,17 @@ DR_MATHCALL mat4 mat4_perspective(float fovy, float aspect, float znear, float z
     return result;
 }
 
+DR_MATHCALL mat4 mat4_vulkan_clip_correction()
+{
+    mat4 result;
+    result.col0 = vec4f(1,  0, 0,    0);
+    result.col1 = vec4f(0, -1, 0,    0);
+    result.col2 = vec4f(0,  0, 0.5f, 0);
+    result.col3 = vec4f(0,  0, 0.5f, 1);
+
+    return result;
+}
+
 DR_MATHCALL mat4 mat4_translate(vec3 translation)
 {
     mat4 result;
