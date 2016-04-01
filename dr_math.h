@@ -246,13 +246,13 @@ DR_MATHCALL mat4 mat4_ortho(float left, float right, float bottom, float top, fl
 
 DR_MATHCALL mat4 mat4_perspective(float fovy, float aspect, float znear, float zfar)
 {
-    float f = cosf(fovy)/sinf(fovy) / 2;
+    float f = (float)tan(DR_PI/2 - fovy/2);
 
     mat4 result;
     result.col0 = vec4f(f / aspect, 0, 0, 0);
     result.col1 = vec4f(0, f, 0, 0);
     result.col2 = vec4f(0, 0,     (zfar + znear) / (znear - zfar), -1);
-    result.col3 = vec4f(0, 0, 2 * (zfar * znear) / (znear - zfar),  0);
+    result.col3 = vec4f(0, 0, (2 * zfar * znear) / (znear - zfar),  0);
 
     return result;
 }
@@ -319,6 +319,50 @@ DR_MATHCALL mat4 mat4_scale(vec3 scale)
     return result;
 }
 
+
+DR_MATHCALL mat4 mat4_mul(mat4 a, mat4 b)
+{
+    const vec4 a0 = a.col0;
+    const vec4 a1 = a.col1;
+    const vec4 a2 = a.col2;
+    const vec4 a3 = a.col3;
+
+    const vec4 b0 = b.col0;
+    const vec4 b1 = b.col1;
+    const vec4 b2 = b.col2;
+    const vec4 b3 = b.col3;
+
+    mat4 result;
+    result.col0 = vec4f(
+        a0.x*b0.x + a1.x*b0.y + a2.x*b0.z + a3.x*b0.w,
+        a0.y*b0.x + a1.y*b0.y + a2.y*b0.z + a3.y*b0.w,
+        a0.z*b0.x + a1.z*b0.y + a2.z*b0.z + a3.z*b0.w,
+        a0.w*b0.x + a1.w*b0.y + a2.w*b0.z + a3.w*b0.w
+    );
+
+    result.col1 = vec4f(
+        a0.x*b1.x + a1.x*b1.y + a2.x*b1.z + a3.x*b1.w,
+        a0.y*b1.x + a1.y*b1.y + a2.y*b1.z + a3.y*b1.w,
+        a0.z*b1.x + a1.z*b1.y + a2.z*b1.z + a3.z*b1.w,
+        a0.w*b1.x + a1.w*b1.y + a2.w*b1.z + a3.w*b1.w
+    );
+
+    result.col2 = vec4f(
+        a0.x*b2.x + a1.x*b2.y + a2.x*b2.z + a3.x*b2.w,
+        a0.y*b2.x + a1.y*b2.y + a2.y*b2.z + a3.y*b2.w,
+        a0.z*b2.x + a1.z*b2.y + a2.z*b2.z + a3.z*b2.w,
+        a0.w*b2.x + a1.w*b2.y + a2.w*b2.z + a3.w*b2.w
+    );
+
+    result.col3 = vec4f(
+        a0.x*b3.x + a1.x*b3.y + a2.x*b3.z + a3.x*b3.w,
+        a0.y*b3.x + a1.y*b3.y + a2.y*b3.z + a3.y*b3.w,
+        a0.z*b3.x + a1.z*b3.y + a2.z*b3.z + a3.z*b3.w,
+        a0.w*b3.x + a1.w*b3.y + a2.w*b3.z + a3.w*b3.w
+    );
+
+    return result;
+}
 
 
 ///////////////////////////////////////////////
