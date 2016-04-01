@@ -56,7 +56,7 @@ typedef bool (* drobj_seek_to_start_proc)(void* userData);
 typedef struct
 {
     // The length of the name.
-    size_t nameLength;
+    //size_t nameLength;
 
     // The name.
     char name[1];
@@ -72,7 +72,7 @@ typedef struct
     uint32_t faceCount;
 
     // The length of the material name.
-    size_t nameLength;
+    //size_t nameLength;
 
     // The name of the material.
     char name[1];
@@ -333,6 +333,8 @@ void drobj_interleave_p3t2n3(drobj* pOBJ, uint32_t* pVertexCountOut, float** ppV
                 pVertexData[(index*8) + 5] = pOBJ->pNormals[pOBJ->pFaces[iFace].v[iFaceVertex].normalIndex].v[0];
                 pVertexData[(index*8) + 6] = pOBJ->pNormals[pOBJ->pFaces[iFace].v[iFaceVertex].normalIndex].v[1];
                 pVertexData[(index*8) + 7] = pOBJ->pNormals[pOBJ->pFaces[iFace].v[iFaceVertex].normalIndex].v[2];
+
+                vertexCount += 1;
             }
 
             pIndexData[indexCount++] = index;
@@ -909,26 +911,26 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         if (lineBeg[0] == 'v' && drobj__is_whitespace(lineBeg[1]))
         {
             // Position.
-            drobj__parse_v(lineBeg, lineEnd, &pOBJ->pPositions[pLoadContext->positionCount]);
+            drobj__parse_v(lineBeg + 2, lineEnd, &pOBJ->pPositions[pLoadContext->positionCount]);
             pLoadContext->positionCount += 1;
         }
         else if (lineBeg[0] == 'v' && lineBeg[1] == 't' && drobj__is_whitespace(lineBeg[2]))
         {
             // Texture coordinate.
-            drobj__parse_vt(lineBeg, lineEnd, &pOBJ->pTexCoords[pLoadContext->texcoordCount]);
+            drobj__parse_vt(lineBeg + 3, lineEnd, &pOBJ->pTexCoords[pLoadContext->texcoordCount]);
             pLoadContext->texcoordCount += 1;
         }
         else if (lineBeg[0] == 'v' && lineBeg[1] == 'n' && drobj__is_whitespace(lineBeg[2]))
         {
             // Normal.
-            drobj__parse_vn(lineBeg, lineEnd, &pOBJ->pNormals[pLoadContext->normalCount]);
+            drobj__parse_vn(lineBeg + 3, lineEnd, &pOBJ->pNormals[pLoadContext->normalCount]);
             pLoadContext->normalCount += 1;
         }
         else if (lineBeg[0] == 'f' && drobj__is_whitespace(lineBeg[1]))
         {
             // Face.
             drobj_face face;
-            drobj__parse_face(lineBeg, lineEnd, &face);
+            drobj__parse_face(lineBeg + 2, lineEnd, &face);
 
             // Faces can have negative indices which are interpreted as being relative. Positive values are one based so they need to be changed to 0 based, also.
             for (int i = 0; i < 3; ++i) {
@@ -964,6 +966,8 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         else if (lineBeg[0] == 'u' && lineBeg[1] == 's' && lineBeg[2] == 'e' && lineBeg[3] == 'm' && lineBeg[4] == 't' && lineBeg[5] == 'l' && drobj__is_whitespace(lineBeg[6]))
         {
             // usemtl.
+            pNextMtl->firstFace = pLoadContext->faceCount;
+
             if (pPrevMtl != NULL) {
                 pPrevMtl->faceCount = pLoadContext->faceCount - pPrevMtl->firstFace;
             }
@@ -973,7 +977,6 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
             pLoadContext->materialCount += 1;
             pLoadContext->totalMaterialSize += (sizeof(drobj_material) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, pNextMtl->name) + 1;    // +1 for null terminator.
             pNextMtl = (drobj_material*)((char*)pNextMtl + pLoadContext->totalMaterialSize);
-            pNextMtl->firstFace = pLoadContext->faceCount;
         }
         else
         {
@@ -982,8 +985,8 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         }
     }
 
-    if (pNextMtl != NULL) {
-        pNextMtl->faceCount = pLoadContext->faceCount - pNextMtl->firstFace;
+    if (pPrevMtl != NULL) {
+        pPrevMtl->faceCount = pLoadContext->faceCount - pPrevMtl->firstFace;
     }
 
     // We always want at least one position, texture coordinate and normal. The first pass will have allocated memory for at least one of each.
