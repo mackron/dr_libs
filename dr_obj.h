@@ -55,9 +55,6 @@ typedef bool (* drobj_seek_to_start_proc)(void* userData);
 
 typedef struct
 {
-    // The length of the name.
-    //size_t nameLength;
-
     // The name.
     char name[1];
 
@@ -70,9 +67,6 @@ typedef struct
 
     // The number of faces that use this material (starting from <firstFace>).
     uint32_t faceCount;
-
-    // The length of the material name.
-    //size_t nameLength;
 
     // The name of the material.
     char name[1];
