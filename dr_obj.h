@@ -887,12 +887,14 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
 {
     assert(pOBJ != NULL);
 
-    pLoadContext->materialLibCount = 0;
-    pLoadContext->materialCount    = 0;
-    pLoadContext->positionCount    = 0;
-    pLoadContext->texcoordCount    = 0;
-    pLoadContext->normalCount      = 0;
-    pLoadContext->faceCount        = 0;
+    pLoadContext->materialLibCount      = 0;
+    pLoadContext->materialCount         = 0;
+    pLoadContext->positionCount         = 0;
+    pLoadContext->texcoordCount         = 0;
+    pLoadContext->normalCount           = 0;
+    pLoadContext->faceCount             = 0;
+    pLoadContext->totalMaterialLibsSize = 0;
+    pLoadContext->totalMaterialSize     = 0;
 
     drobj_mtllib* pNextMtlLib = pOBJ->pMaterialLibs;
     drobj_material* pNextMtl = pOBJ->pMaterials;
@@ -937,19 +939,19 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
                 if (face.v[i].positionIndex > 0) {
                     face.v[i].positionIndex -= 1;
                 } else {
-                    face.v[i].positionIndex += pOBJ->positionCount;
+                    face.v[i].positionIndex += pLoadContext->positionCount;
                 }
 
                 if (face.v[i].texcoordIndex > 0) {
                     face.v[i].texcoordIndex -= 1;
                 } else {
-                    face.v[i].texcoordIndex += pOBJ->texCoordCount;
+                    face.v[i].texcoordIndex += pLoadContext->texcoordCount;
                 }
 
                 if (face.v[i].normalIndex > 0) {
                     face.v[i].normalIndex -= 1;
                 } else {
-                    face.v[i].normalIndex += pOBJ->normalCount;
+                    face.v[i].normalIndex += pLoadContext->normalCount;
                 }
             }
 
@@ -961,7 +963,7 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
             // mtllib.
             pLoadContext->materialLibCount += 1;
             pLoadContext->totalMaterialLibsSize += (sizeof(drobj_mtllib) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, pNextMtlLib->name) + 1;    // +1 for null terminator.
-            pNextMtlLib = (drobj_mtllib*)((char*)pNextMtlLib + pLoadContext->totalMaterialLibsSize);
+            pNextMtlLib = (drobj_mtllib*)((char*)pOBJ->pMaterialLibs + pLoadContext->totalMaterialLibsSize);
         }
         else if (lineBeg[0] == 'u' && lineBeg[1] == 's' && lineBeg[2] == 'e' && lineBeg[3] == 'm' && lineBeg[4] == 't' && lineBeg[5] == 'l' && drobj__is_whitespace(lineBeg[6]))
         {
@@ -976,7 +978,7 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
 
             pLoadContext->materialCount += 1;
             pLoadContext->totalMaterialSize += (sizeof(drobj_material) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, pNextMtl->name) + 1;    // +1 for null terminator.
-            pNextMtl = (drobj_material*)((char*)pNextMtl + pLoadContext->totalMaterialSize);
+            pNextMtl = (drobj_material*)((char*)pOBJ->pMaterials + pLoadContext->totalMaterialSize);
         }
         else
         {
