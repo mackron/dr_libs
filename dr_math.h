@@ -244,6 +244,19 @@ DR_MATHCALL mat4 mat4_ortho(float left, float right, float bottom, float top, fl
     return result;
 }
 
+DR_MATHCALL mat4 mat4_perspective(float fovy, float aspect, float znear, float zfar)
+{
+    float f = cosf(fovy)/sinf(fovy) / 2;
+
+    mat4 result;
+    result.col0 = vec4f(f / aspect, 0, 0, 0);
+    result.col1 = vec4f(0, f, 0, 0);
+    result.col2 = vec4f(0, 0,     (zfar + znear) / (znear - zfar), -1);
+    result.col3 = vec4f(0, 0, 2 * (zfar * znear) / (znear - zfar),  0);
+
+    return result;
+}
+
 DR_MATHCALL mat4 mat4_translate(vec3 translation)
 {
     mat4 result;
