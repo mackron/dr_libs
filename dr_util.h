@@ -121,6 +121,9 @@ int dr_strcat_s(char* dst, size_t dstSizeInBytes, const char* src);
 // A basic implementation of MSVC's strncat_s()
 int dr_strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count);
 
+// A basic implementation of MSVC's _atoi_s()
+int dr_itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix);
+
 #ifndef DRUTIL_NO_MSVC_COMPAT
 #ifndef _TRUNCATE
 #define _TRUNCATE ((size_t)-1)
@@ -152,6 +155,11 @@ DRUTIL_INLINE int _stricmp(const char* string1, const char* string2)
     return strcasecmp(string1, string2);
 }
 #endif
+
+DRUTIL_INLINE int _itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
+{
+    return dr_itoa_s(value, dst, dstSizeInBytes, radix);
+}
 #endif
 
 
@@ -755,6 +763,72 @@ int dr_strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count
     } else {
         dstorig[0] = '\0';
         return ERANGE;
+    }
+
+    return 0;
+}
+
+int dr_itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
+{
+    if (dst == NULL || dstSizeInBytes == 0) {
+        return EINVAL;
+    }
+    if (radix < 2 || radix > 36) {
+        dst[0] = '\0';
+        return EINVAL;
+    }
+
+    int sign = (value < 0 && radix == 10) ? -1 : 1;     // The negative sign is only used when the base is 10.
+
+    unsigned int valueU;
+    if (value < 0) {
+        valueU = -value;
+    } else {
+        valueU = value;
+    }
+
+    char* dstEnd = dst;
+    do
+    {
+        int remainder = valueU % radix;
+        if (remainder > 9) {
+            *dstEnd = (remainder - 10) + 'a';
+        } else {
+            *dstEnd = remainder + '0';
+        }
+
+        dstEnd += 1;
+        dstSizeInBytes -= 1;
+        valueU /= radix;
+    } while (dstSizeInBytes > 0 && valueU > 0);
+
+    if (dstSizeInBytes == 0) {
+        dst[0] = '\0';
+        return EINVAL;  // Ran out of room in the output buffer.
+    }
+
+    if (sign < 0) {
+        *dstEnd++ = '-';
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        dst[0] = '\0';
+        return EINVAL;  // Ran out of room in the output buffer.   
+    }
+
+    *dstEnd = '\0';
+
+
+    // At this point the string will be reversed.
+    dstEnd -= 1;
+    while (dst < dstEnd) {
+        char temp = *dst;
+        *dst = *dstEnd;
+        *dstEnd = temp;
+
+        dst += 1;
+        dstEnd -= 1;
     }
 
     return 0;
