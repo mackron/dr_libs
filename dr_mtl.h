@@ -856,7 +856,7 @@ drmtl_property drmtl_property_bool(const char* name, bool value);
 ///     @par
 ///     MTL files require texture coordinates in order to know how to select the appropriate sample from textures. The
 ///     of the variable to use is specified in "texcoordInputName", and assumed to have at least 2 components (x and y).
-bool drmtl_compile_wavefront_mtl(drmtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName);
+bool drmtl_compile_wavefront_mtl(drmtl_material* pMaterial, const char* mtlData, size_t mtlDataSizeInBytes, const char* texcoordInputName);
 #endif
 
 
@@ -872,10 +872,10 @@ bool drmtl_compile_wavefront_mtl(drmtl_material* pMaterial, const char* mtlData,
 
 #ifndef DRMTL_NO_GLSL_CODEGEN
 /// Generates GLSL code for the channel with the given name.
-bool drmtl_codegen_glsl_channel(drmtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWrittenOut);
+bool drmtl_codegen_glsl_channel(drmtl_material* pMaterial, const char* channelName, char* codeOut, size_t codeOutSizeInBytes, size_t* pBytesWrittenOut);
 
 /// Generates GLSL code for the uniform variables as defined by the material's public input variables.
-bool drmtl_codegen_glsl_uniforms(drmtl_material* pMaterial, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWritteOut);
+bool drmtl_codegen_glsl_uniforms(drmtl_material* pMaterial, char* codeOut, size_t codeOutSizeInBytes, size_t* pBytesWritteOut);
 #endif
 
 
@@ -3405,7 +3405,7 @@ bool drmtl_wavefront_compile(drmtl_material* pMaterial, drmtl_wavefront* pWavefr
 }
 
 
-bool drmtl_compile_wavefront_mtl(drmtl_material* pMaterial, const char* mtlData, unsigned int mtlDataSizeInBytes, const char* texcoordInputName)
+bool drmtl_compile_wavefront_mtl(drmtl_material* pMaterial, const char* mtlData, size_t mtlDataSizeInBytes, const char* texcoordInputName)
 {
     if (pMaterial != NULL && mtlData != NULL && mtlDataSizeInBytes > 0)
     {
@@ -4359,7 +4359,7 @@ bool drmtl_codegen_glsl_channel_function_close(drmtl_codegen_glsl* pCodegen)
     return drmtl_codegen_glsl_write(pCodegen, "}\n");
 }
 
-bool drmtl_codegen_glsl_channel(drmtl_material* pMaterial, const char* channelName, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWrittenOut)
+bool drmtl_codegen_glsl_channel(drmtl_material* pMaterial, const char* channelName, char* codeOut, size_t codeOutSizeInBytes, size_t* pBytesWrittenOut)
 {
     if (pMaterial != NULL)
     {
@@ -4428,7 +4428,7 @@ bool drmtl_codegen_glsl_uniform(drmtl_codegen_glsl* pCodegen, drmtl_input* pInpu
     return 0;
 }
 
-bool drmtl_codegen_glsl_uniforms(drmtl_material* pMaterial, char* codeOut, unsigned int codeOutSizeInBytes, unsigned int* pBytesWritteOut)
+bool drmtl_codegen_glsl_uniforms(drmtl_material* pMaterial, char* codeOut, size_t codeOutSizeInBytes, size_t* pBytesWritteOut)
 {
     if (pMaterial != NULL)
     {
