@@ -14,6 +14,13 @@
 //   #include "dr_util.h"
 //
 // You can then #include dr_util.h in other parts of the program as you would with any other header file.
+//
+//
+//
+// OPTIONS
+//
+// #define DR_UTIL_WIN32_USE_CRITICAL_SECTION_MUTEX
+//   - Use the Win32 CRITICAL_SECTION API for mutex objects.
 
 #ifndef dr_util_h
 #define dr_util_h
@@ -1989,7 +1996,7 @@ void dr_wait_and_delete_thread(dr_thread thread)
 }
 
 
-
+#ifdef DR_UTIL_WIN32_USE_CRITICAL_SECTION_MUTEX
 dr_mutex drutil_create_mutex()
 {
     dr_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
@@ -2016,6 +2023,27 @@ void dr_unlock_mutex(dr_mutex mutex)
 {
     LeaveCriticalSection(mutex);
 }
+#else
+dr_mutex drutil_create_mutex()
+{
+    return CreateEventA(NULL, FALSE, TRUE, NULL);
+}
+
+void dr_delete_mutex(dr_mutex mutex)
+{
+    CloseHandle((HANDLE)mutex);
+}
+
+void dr_lock_mutex(dr_mutex mutex)
+{
+    WaitForSingleObject((HANDLE)mutex, INFINITE);
+}
+
+void dr_unlock_mutex(dr_mutex mutex)
+{
+    SetEvent((HANDLE)mutex);
+}
+#endif
 
 
 dr_semaphore dr_create_semaphore(int initialValue)
