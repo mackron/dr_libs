@@ -484,6 +484,9 @@ bool dr_cmdline_key_exists(dr_cmdline* pCmdLine, const char* key);
 ///     This is not 100% accurate and should be considered an approximation.
 void dr_sleep(unsigned int milliseconds);
 
+/// Retrieves the number of logical cores on system.
+unsigned int dr_get_logical_processor_count();
+
 
 /// Thread.
 typedef void* dr_thread;
@@ -526,7 +529,7 @@ typedef void* dr_mutex;
 ///
 /// @remarks
 ///     If an error occurs, 0 is returned. Otherwise a handle the size of a pointer is returned.
-dr_mutex drutil_create_mutex();
+dr_mutex dr_create_mutex();
 
 /// Deletes a mutex object.
 void dr_delete_mutex(dr_mutex mutex);
@@ -1911,6 +1914,14 @@ void dr_sleep(unsigned int milliseconds)
     Sleep((DWORD)milliseconds);
 }
 
+unsigned int dr_get_logical_processor_count()
+{
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+
+    return (unsigned int)sysinfo.dwNumberOfProcessors;
+}
+
 
 typedef struct
 {
@@ -1997,7 +2008,7 @@ void dr_wait_and_delete_thread(dr_thread thread)
 
 
 #ifdef DR_UTIL_WIN32_USE_CRITICAL_SECTION_MUTEX
-dr_mutex drutil_create_mutex()
+dr_mutex dr_create_mutex()
 {
     dr_mutex mutex = malloc(sizeof(CRITICAL_SECTION));
     if (mutex != NULL)
@@ -2024,7 +2035,7 @@ void dr_unlock_mutex(dr_mutex mutex)
     LeaveCriticalSection(mutex);
 }
 #else
-dr_mutex drutil_create_mutex()
+dr_mutex dr_create_mutex()
 {
     return CreateEventA(NULL, FALSE, TRUE, NULL);
 }
@@ -2076,6 +2087,11 @@ bool dr_release_semaphore(dr_semaphore semaphore)
 void dr_sleep(unsigned int milliseconds)
 {
     usleep(milliseconds * 1000);    // <-- usleep is in microseconds.
+}
+
+unsigned int dr_get_logical_processor_count()
+{
+    return (unsigned int)sysconf(_SC_NPROCESSORS_ONLN);
 }
 
 
@@ -2151,7 +2167,7 @@ void dr_wait_thread(dr_thread thread)
 
 
 
-dr_mutex drutil_create_mutex()
+dr_mutex dr_create_mutex()
 {
     pthread_mutex_t* mutex = malloc(sizeof(pthread_mutex_t));
     if (pthread_mutex_init(mutex, NULL) != 0) {
