@@ -498,7 +498,7 @@ typedef int (* dr_thread_entry_proc)(void* pData);
 ///     This will not return until the thread has entered into it's entry point.
 ///     @par
 ///     Creating a thread should be considered an expensive operation. For high performance, you should create threads
-///     and load time and cache them.
+///     at load time and cache them.
 dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData);
 
 /// Deletes the given thread.
@@ -1974,7 +1974,10 @@ dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
 
         // Wait for the new thread to enter into it's entry point before returning. We need to do this so we can safely
         // support something like dr_delete_thread(dr_create_thread(my_thread_proc, pData)).
-        while (!pThreadWin32->isInEntryProc) {}
+        //
+        // On Win32 there are times when this can get stuck in an infinite loop - I expect is something to do with some
+        // bad scheduling by the OS. This can be "fixed" by sleeping for a bit.
+        while (!pThreadWin32->isInEntryProc) { dr_sleep(0); }
     }
 
     return (dr_thread)pThreadWin32;
