@@ -204,7 +204,7 @@ typedef struct
     drflac_seek_proc onSeek;
 
     // The user data to pass around to onRead and onSeek.
-    void* userData;
+    void* pUserData;
 
 
     // The sample rate. Will be set to something like 44100.
@@ -608,7 +608,7 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac* pFlac)
     }
 
     // If we get here it means we've run out of data in the L2 cache. We'll need to fetch more from the client.
-    size_t bytesRead = pFlac->onRead(pFlac->userData, pFlac->cacheL2, DRFLAC_CACHE_L2_SIZE_BYTES);
+    size_t bytesRead = pFlac->onRead(pFlac->pUserData, pFlac->cacheL2, DRFLAC_CACHE_L2_SIZE_BYTES);
     pFlac->currentBytePos += bytesRead;
 
     pFlac->nextL2Line = 0;
@@ -637,7 +637,7 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac* pFlac)
         // those bytes.
         size_t unalignedBytes = bytesRead - (alignedL1LineCount * DRFLAC_CACHE_L1_SIZE_BYTES);
         if (unalignedBytes > 0) {
-            pFlac->onSeek(pFlac->userData, -(int)unalignedBytes);
+            pFlac->onSeek(pFlac->pUserData, -(int)unalignedBytes);
             pFlac->currentBytePos -= unalignedBytes;
         }
 
@@ -649,7 +649,7 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac* pFlac)
         // If we get into this branch it means we weren't able to load any L1-aligned data. We just need to seek
         // backwards by the leftover bytes and return false.
         if (bytesRead > 0) {
-            pFlac->onSeek(pFlac->userData, -(int)bytesRead);
+            pFlac->onSeek(pFlac->pUserData, -(int)bytesRead);
             pFlac->currentBytePos -= bytesRead;
         }
 
@@ -672,7 +672,7 @@ static bool drflac__reload_cache(drflac* pFlac)
     // If we get here it means we have failed to load the L1 cache from the L2. Likely we've just reached the end of the stream and the last
     // few bytes did not meet the alignment requirements for the L2 cache. In this case we need to fall back to a slower path and read the
     // data straight from the client into the L1 cache. This should only really happen once per stream so efficiency is not important.
-    size_t bytesRead = pFlac->onRead(pFlac->userData, &pFlac->cache, DRFLAC_CACHE_L1_SIZE_BYTES);
+    size_t bytesRead = pFlac->onRead(pFlac->pUserData, &pFlac->cache, DRFLAC_CACHE_L1_SIZE_BYTES);
     if (bytesRead == 0) {
         return false;
     }
@@ -718,7 +718,7 @@ static bool drflac__seek_bits(drflac* pFlac, size_t bitsToSeek)
                 bitsToSeek -= DRFLAC_CACHE_L2_LINES_REMAINING * DRFLAC_CACHE_L1_SIZE_BITS;
                 pFlac->nextL2Line += DRFLAC_CACHE_L2_LINES_REMAINING;
 
-                pFlac->onSeek(pFlac->userData, (int)wholeBytesRemaining);
+                pFlac->onSeek(pFlac->pUserData, (int)wholeBytesRemaining);
                 pFlac->currentBytePos += wholeBytesRemaining;
                 bitsToSeek -= wholeBytesRemaining*8;
             }
@@ -958,7 +958,7 @@ static bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
 
     if (bytesToMove > 0x7FFFFFFF) {
         while (bytesToMove > 0x7FFFFFFF) {
-            if (!pFlac->onSeek(pFlac->userData, 0x7FFFFFFF)) {
+            if (!pFlac->onSeek(pFlac->pUserData, 0x7FFFFFFF)) {
                 return 0;
             }
 
@@ -967,7 +967,7 @@ static bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
         }
     } else {
         while (bytesToMove < (int)0x80000000) {
-            if (!pFlac->onSeek(pFlac->userData, (int)0x80000000)) {
+            if (!pFlac->onSeek(pFlac->pUserData, (int)0x80000000)) {
                 return 0;
             }
 
@@ -978,7 +978,7 @@ static bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
 
     assert(bytesToMove <= 0x7FFFFFFF && bytesToMove >= (int)0x80000000);
 
-    bool result = pFlac->onSeek(pFlac->userData, (int)bytesToMove);    // <-- Safe cast as per the assert above.
+    bool result = pFlac->onSeek(pFlac->pUserData, (int)bytesToMove);    // <-- Safe cast as per the assert above.
     pFlac->currentBytePos += (int)bytesToMove;
 
     pFlac->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS;
@@ -2443,14 +2443,14 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
 }
 
 
-drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* userData)
+drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData)
 {
     if (onRead == NULL || onSeek == NULL) {
         return false;
     }
 
     unsigned char id[4];
-    if (onRead(userData, id, 4) != 4 || id[0] != 'f' || id[1] != 'L' || id[2] != 'a' || id[3] != 'C') {
+    if (onRead(pUserData, id, 4) != 4 || id[0] != 'f' || id[1] != 'L' || id[2] != 'a' || id[3] != 'C') {
         return false;    // Not a FLAC stream.
     }
 
@@ -2458,7 +2458,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* user
     memset(&tempFlac, 0, sizeof(tempFlac));
     tempFlac.onRead         = onRead;
     tempFlac.onSeek         = onSeek;
-    tempFlac.userData       = userData;
+    tempFlac.pUserData      = pUserData;
     tempFlac.currentBytePos = 4;
     tempFlac.nextL2Line     = sizeof(tempFlac.cacheL2) / sizeof(tempFlac.cacheL2[0]); // <-- Initialize to this to force a client-side data retrieval right from the start.
     tempFlac.consumedBits   = sizeof(tempFlac.cache)*8;
@@ -2569,13 +2569,17 @@ void drflac_close(drflac* pFlac)
     // If we opened the file with drflac_open_file() we will want to close the file handle. We can know whether or not drflac_open_file()
     // was used by looking at the callbacks.
     if (pFlac->onRead == drflac__on_read_stdio) {
-        fclose((FILE*)pFlac->userData);
+#if defined(DR_OPUS_NO_WIN32_IO) || !defined(_WIN32)
+        fclose((FILE*)pFlac->pUserData);
+#else
+        CloseHandle((HANDLE)pFlac->pUserData);
+#endif
     }
 #endif
 
     // If we opened the file with drflac_open_memory() we will want to free() the user data.
     if (pFlac->onRead == drflac__on_read_memory) {
-        free(pFlac->userData);
+        free(pFlac->pUserData);
     }
 }
 
