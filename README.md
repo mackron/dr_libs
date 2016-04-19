@@ -7,6 +7,7 @@ more detailed information.
 - [dr_wav](https://mackron.github.io/dr_wav): A simple library for reading audio data from .wav files.
 - dr_obj: A simple library for loading Wavefront OBJ files. Currently only supports a tiny subset of
 features.
+- dr_pcx: A library for loading PCX image files.
 - dr_fs: A library that abstracts file IO to allow one to load files from both the native file system
 and archives such as Zip files.
 - dr_fsw: A library for watching for changes to the file system. Currently only supports Windows.
