@@ -452,7 +452,7 @@ typedef struct
 
 static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
-    drflac_memory* memory = pUserData;
+    drflac_memory* memory = (drflac_memory*)pUserData;
     assert(memory != NULL);
     assert(memory->dataSize >= memory->currentReadPos);
 
@@ -471,7 +471,7 @@ static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t by
 
 static bool drflac__on_seek_memory(void* pUserData, int offset)
 {
-    drflac_memory* memory = pUserData;
+    drflac_memory* memory = (drflac_memory*)pUserData;
     assert(memory != NULL);
 
     if (offset > 0) {
@@ -492,12 +492,12 @@ static bool drflac__on_seek_memory(void* pUserData, int offset)
 
 drflac* drflac_open_memory(const void* data, size_t dataSize)
 {
-    drflac_memory* pUserData = malloc(sizeof(*pUserData));
+    drflac_memory* pUserData = (drflac_memory*)malloc(sizeof(*pUserData));
     if (pUserData == NULL) {
         return false;
     }
 
-    pUserData->data = data;
+    pUserData->data = (const unsigned char*)data;
     pUserData->dataSize = dataSize;
     pUserData->currentReadPos = 0;
     return drflac_open(drflac__on_read_memory, drflac__on_seek_memory, pUserData);
@@ -2552,7 +2552,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUse
     // At this point we should be sitting right at the start of the very first frame.
     tempFlac.firstFramePos = drflac__tell(&tempFlac);
 
-    drflac* pFlac = malloc(sizeof(*pFlac) - sizeof(pFlac->pExtraData) + (tempFlac.maxBlockSize * tempFlac.channels * sizeof(int32_t)));
+    drflac* pFlac = (drflac*)malloc(sizeof(*pFlac) - sizeof(pFlac->pExtraData) + (tempFlac.maxBlockSize * tempFlac.channels * sizeof(int32_t)));
     memcpy(pFlac, &tempFlac, sizeof(tempFlac) - sizeof(pFlac->pExtraData));
     pFlac->pDecodedSamples = (int32_t*)pFlac->pExtraData;
 
