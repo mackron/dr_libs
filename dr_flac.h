@@ -2569,7 +2569,7 @@ void drflac_close(drflac* pFlac)
     // If we opened the file with drflac_open_file() we will want to close the file handle. We can know whether or not drflac_open_file()
     // was used by looking at the callbacks.
     if (pFlac->onRead == drflac__on_read_stdio) {
-#if defined(DR_OPUS_NO_WIN32_IO) || !defined(_WIN32)
+#if defined(DR_FLAC_NO_WIN32_IO) || !defined(_WIN32)
         fclose((FILE*)pFlac->pUserData);
 #else
         CloseHandle((HANDLE)pFlac->pUserData);
