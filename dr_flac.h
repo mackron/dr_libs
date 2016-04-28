@@ -2581,6 +2581,8 @@ void drflac_close(drflac* pFlac)
     if (pFlac->onRead == drflac__on_read_memory) {
         free(pFlac->pUserData);
     }
+
+    free(pFlac);
 }
 
 uint64_t drflac__read_s32__misaligned(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferOut)
