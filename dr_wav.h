@@ -722,8 +722,6 @@ static int drwav__ieee_to_f32(size_t totalSampleCount, const unsigned char* pDat
         drwav_f64_to_f32(totalSampleCount, (double*)pDataIn, f32Out);
         return 1;
     }
-
-    return 0;
 }
 
 
