@@ -79,7 +79,7 @@ typedef int (* drwav_seek_proc)(void* pUserData, int offset);
 typedef struct
 {
     // The format tag exactly as specified in the wave file's "fmt" chunk. This can be used by applications
-    // that require support for data formats not listed in the drwav_format enum.
+    // that require support for data formats not natively supported by dr_wav.
     unsigned short formatTag;
 
     // The number of channels making up the audio data. When this is set to 1 it is mono, 2 is stereo, etc.
@@ -140,7 +140,7 @@ typedef struct
     // The number of bytes per sample.
     unsigned short bytesPerSample;
 
-    // Equal to fmt.formatTag, or the value specified by fmt.subFormat is fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE).
+    // Equal to fmt.formatTag, or the value specified by fmt.subFormat if fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE).
     unsigned short translatedFormatTag;
 
     // The total number of samples making up the audio data. Use <totalSampleCount> * <bytesPerSample> to calculate
@@ -148,7 +148,6 @@ typedef struct
     uint64_t totalSampleCount;
 
     
-
     // The number of bytes remaining in the data chunk.
     uint64_t bytesRemaining;
 
@@ -230,8 +229,9 @@ void drwav_ulaw_to_f32(size_t totalSampleCount, const unsigned char* ulaw, float
 
 // Helper for opening a wave file using stdio.
 //
-// This holds the internal FILE object until drwav_close() is called. Keep this in mind if you're
-// employing caching.
+// This holds the internal FILE object until drwav_close() is called. Keep this in mind if you're caching drwav
+// objects because the operating system may restrict the number of file handles an application can have open at
+// any given time.
 drwav* drwav_open_file(const char* filename);
 
 #endif  //DR_WAV_NO_STDIO
