@@ -673,6 +673,13 @@ struct drgui_text_layout
     unsigned int iUndoState;
 
 
+    /// The counter used to determine when an onDirty event needs to be posted.
+    unsigned int dirtyCounter;
+
+    /// The accumulated dirty rectangle. When dirtyCounter hits 0, this is the rectangle that's posted to the onDirty callback.
+    drgui_rect accumulatedDirtyRect;
+
+
     /// A pointer to the buffer containing details about every run in the layout.
     drgui_text_run* pRuns;
 
@@ -878,6 +885,16 @@ DRGUI_PRIVATE drgui_rect drgui_text_layout__local_rect(drgui_text_layout* pTL);
 /// Called when the cursor moves.
 DRGUI_PRIVATE void drgui_text_layout__on_cursor_move(drgui_text_layout* pTL);
 
+/// Called when the text layout needs to be redrawn.
+DRGUI_PRIVATE void drgui_text_layout__on_dirty(drgui_text_layout* pTL, drgui_rect rect);
+
+/// Increments the counter. The counter is decremented with drgui_text_layout__end_dirty(). Use this for batching redraws.
+DRGUI_PRIVATE void drgui_text_layout__begin_dirty(drgui_text_layout* pTL);
+
+/// Decrements the dirty counter, and if it hits 0 posts the onDirty callback.
+DRGUI_PRIVATE void drgui_text_layout__end_dirty(drgui_text_layout* pTL);
+
+
 
 
 drgui_text_layout* drgui_create_text_layout(drgui_context* pContext, size_t extraDataSize, void* pExtraData)
@@ -927,6 +944,8 @@ drgui_text_layout* drgui_create_text_layout(drgui_context* pContext, size_t extr
     pTL->pUndoStack                 = NULL;
     pTL->undoStackCount             = 0;
     pTL->iUndoState                 = 0;
+    pTL->dirtyCounter               = 0;
+    pTL->accumulatedDirtyRect       = drgui_make_inside_out_rect();
     pTL->pRuns                      = NULL;
     pTL->runCount                   = 0;
     pTL->runBufferSize              = 0;
@@ -1012,9 +1031,7 @@ void drgui_text_layout_set_text(drgui_text_layout* pTL, const char* text)
         pTL->onTextChanged(pTL);
     }
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 size_t drgui_text_layout_get_text(drgui_text_layout* pTL, char* textOut, size_t textOutSize)
@@ -1073,9 +1090,7 @@ void drgui_text_layout_set_container_size(drgui_text_layout* pTL, float containe
     pTL->containerWidth  = containerWidth;
     pTL->containerHeight = containerHeight;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 void drgui_text_layout_get_container_size(drgui_text_layout* pTL, float* pContainerWidthOut, float* pContainerHeightOut)
@@ -1126,9 +1141,7 @@ void drgui_text_layout_set_inner_offset(drgui_text_layout* pTL, float innerOffse
     pTL->innerOffsetX = innerOffsetX;
     pTL->innerOffsetY = innerOffsetY;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 void drgui_text_layout_set_inner_offset_x(drgui_text_layout* pTL, float innerOffsetX)
@@ -1139,9 +1152,7 @@ void drgui_text_layout_set_inner_offset_x(drgui_text_layout* pTL, float innerOff
 
     pTL->innerOffsetX = innerOffsetX;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 void drgui_text_layout_set_inner_offset_y(drgui_text_layout* pTL, float innerOffsetY)
@@ -1152,9 +1163,7 @@ void drgui_text_layout_set_inner_offset_y(drgui_text_layout* pTL, float innerOff
 
     pTL->innerOffsetY = innerOffsetY;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 void drgui_text_layout_get_inner_offset(drgui_text_layout* pTL, float* pInnerOffsetX, float* pInnerOffsetY)
@@ -1206,10 +1215,7 @@ void drgui_text_layout_set_default_font(drgui_text_layout* pTL, drgui_font* pFon
 
     // A change in font requires a layout refresh.
     drgui_text_layout__refresh(pTL);
-
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 drgui_font* drgui_text_layout_get_default_font(drgui_text_layout* pTL)
@@ -1229,9 +1235,7 @@ void drgui_text_layout_set_default_text_color(drgui_text_layout* pTL, drgui_colo
 
     pTL->defaultTextColor = color;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 drgui_color drgui_text_layout_get_default_text_color(drgui_text_layout* pTL)
@@ -1251,9 +1255,7 @@ void drgui_text_layout_set_default_bg_color(drgui_text_layout* pTL, drgui_color 
 
     pTL->defaultBackgroundColor = color;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 drgui_color drgui_text_layout_get_default_bg_color(drgui_text_layout* pTL)
@@ -1273,9 +1275,7 @@ void drgui_text_layout_set_active_line_bg_color(drgui_text_layout* pTL, drgui_co
 
     pTL->lineBackgroundColor = color;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 drgui_color drgui_text_layout_get_active_line_bg_color(drgui_text_layout* pTL)
@@ -1297,11 +1297,9 @@ void drgui_text_layout_set_tab_size(drgui_text_layout* pTL, unsigned int sizeInS
     if (pTL->tabSizeInSpaces != sizeInSpaces)
     {
         pTL->tabSizeInSpaces = sizeInSpaces;
-        drgui_text_layout__refresh(pTL);
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-        }
+        drgui_text_layout__refresh(pTL);
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
     }
 }
 
@@ -1324,11 +1322,9 @@ void drgui_text_layout_set_horizontal_align(drgui_text_layout* pTL, drgui_text_l
     if (pTL->horzAlign != alignment)
     {
         pTL->horzAlign = alignment;
-        drgui_text_layout__refresh_alignment(pTL);
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-        }
+        drgui_text_layout__refresh_alignment(pTL);
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
     }
 }
 
@@ -1350,11 +1346,9 @@ void drgui_text_layout_set_vertical_align(drgui_text_layout* pTL, drgui_text_lay
     if (pTL->vertAlign != alignment)
     {
         pTL->vertAlign = alignment;
-        drgui_text_layout__refresh_alignment(pTL);
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-        }
+        drgui_text_layout__refresh_alignment(pTL);
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
     }
 }
 
@@ -1445,9 +1439,7 @@ void drgui_text_layout_set_cursor_width(drgui_text_layout* pTL, float cursorWidt
     drgui_rect oldCursorRect = drgui_text_layout_get_cursor_rect(pTL);
     pTL->cursorWidth = cursorWidth;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_rect_union(oldCursorRect, drgui_text_layout_get_cursor_rect(pTL)));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_rect_union(oldCursorRect, drgui_text_layout_get_cursor_rect(pTL)));
 }
 
 float drgui_text_layout_get_cursor_width(drgui_text_layout* pTL)
@@ -1467,9 +1459,7 @@ void drgui_text_layout_set_cursor_color(drgui_text_layout* pTL, drgui_color curs
 
     pTL->cursorColor = cursorColor;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout_get_cursor_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout_get_cursor_rect(pTL));
 }
 
 drgui_color drgui_text_layout_get_cursor_color(drgui_text_layout* pTL)
@@ -1512,9 +1502,7 @@ void drgui_text_layout_show_cursor(drgui_text_layout* pTL)
         pTL->timeToNextCursorBlink = pTL->cursorBlinkRate;
         pTL->isCursorBlinkOn = true;
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout_get_cursor_rect(pTL));
-        }
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout_get_cursor_rect(pTL));
     }
 }
 
@@ -1524,9 +1512,7 @@ void drgui_text_layout_hide_cursor(drgui_text_layout* pTL)
     {
         pTL->isShowingCursor = false;
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout_get_cursor_rect(pTL));
-        }
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout_get_cursor_rect(pTL));
     }
 }
 
@@ -1631,13 +1617,9 @@ void drgui_text_layout_move_cursor_to_point(drgui_text_layout* pTL, float posX, 
         pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
     }
 
-    if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar)
-    {
+    if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
         drgui_text_layout__on_cursor_move(pTL);
-
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-        }
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
     }
 }
 
@@ -1656,10 +1638,7 @@ bool drgui_text_layout_move_cursor_left(drgui_text_layout* pTL)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1683,10 +1662,7 @@ bool drgui_text_layout_move_cursor_right(drgui_text_layout* pTL)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1710,10 +1686,7 @@ bool drgui_text_layout_move_cursor_up(drgui_text_layout* pTL)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1737,10 +1710,7 @@ bool drgui_text_layout_move_cursor_down(drgui_text_layout* pTL)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1764,10 +1734,7 @@ bool drgui_text_layout_move_cursor_y(drgui_text_layout* pTL, int amount)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1791,10 +1758,7 @@ bool drgui_text_layout_move_cursor_to_end_of_line(drgui_text_layout* pTL)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1818,10 +1782,7 @@ bool drgui_text_layout_move_cursor_to_start_of_line(drgui_text_layout* pTL)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1845,10 +1806,7 @@ bool drgui_text_layout_move_cursor_to_end_of_line_by_index(drgui_text_layout* pT
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1872,10 +1830,7 @@ bool drgui_text_layout_move_cursor_to_start_of_line_by_index(drgui_text_layout* 
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1899,10 +1854,7 @@ bool drgui_text_layout_move_cursor_to_end_of_text(drgui_text_layout* pTL)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1926,10 +1878,7 @@ bool drgui_text_layout_move_cursor_to_start_of_text(drgui_text_layout* pTL)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
 
         return true;
@@ -1951,9 +1900,7 @@ void drgui_text_layout_move_cursor_to_start_of_selection(drgui_text_layout* pTL)
         pTL->cursor = *pSelectionMarker0;
         pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-        }
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
     }
 }
 
@@ -1970,9 +1917,7 @@ void drgui_text_layout_move_cursor_to_end_of_selection(drgui_text_layout* pTL)
         pTL->cursor = *pSelectionMarker1;
         pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-        }
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
     }
 }
 
@@ -1991,10 +1936,7 @@ void drgui_text_layout_move_cursor_to_character(drgui_text_layout* pTL, size_t c
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
     }
 }
@@ -2040,10 +1982,7 @@ void drgui_text_layout_swap_selection_markers(drgui_text_layout* pTL)
 
         if (iRunOld != pTL->cursor.iRun || iCharOld != pTL->cursor.iChar) {
             drgui_text_layout__on_cursor_move(pTL);
-
-            if (pTL->onDirty) {
-                pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-            }
+            drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
         }
     }
 }
@@ -2100,9 +2039,7 @@ bool drgui_text_layout_insert_character(drgui_text_layout* pTL, unsigned int cha
         pTL->onTextChanged(pTL);
     }
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 
     return true;
 }
@@ -2164,9 +2101,7 @@ bool drgui_text_layout_insert_text(drgui_text_layout* pTL, const char* text, siz
         pTL->onTextChanged(pTL);
     }
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 
     return true;
 }
@@ -2198,9 +2133,7 @@ bool drgui_text_layout_delete_text_range(drgui_text_layout* pTL, size_t iFirstCh
             pTL->onTextChanged(pTL);
         }
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-        }
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 
         return true;
     }
@@ -2221,17 +2154,18 @@ bool drgui_text_layout_insert_character_at_cursor(drgui_text_layout* pTL, unsign
         iAbsoluteMarkerChar = pRun->iChar + pTL->cursor.iChar;
     }
 
+    drgui_text_layout__begin_dirty(pTL);
+    {
+        drgui_text_layout_insert_character(pTL, character, iAbsoluteMarkerChar);
+        drgui_text_layout__move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar + 1);
+    }
+    drgui_text_layout__end_dirty(pTL);
 
-    drgui_text_layout_insert_character(pTL, character, iAbsoluteMarkerChar);
-
-
-    // The marker needs to be updated based on the new layout and it's new position, which is one character ahead.
-    drgui_text_layout__move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar + 1);
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
     drgui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
 
-
+    
     drgui_text_layout__on_cursor_move(pTL);
 
     return true;
@@ -2243,16 +2177,17 @@ bool drgui_text_layout_insert_text_at_cursor(drgui_text_layout* pTL, const char*
         return false;
     }
 
-    size_t cursorPos = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
-    drgui_text_layout_insert_text(pTL, text, cursorPos);
+    drgui_text_layout__begin_dirty(pTL);
+    {
+        size_t cursorPos = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
+        drgui_text_layout_insert_text(pTL, text, cursorPos);
+        drgui_text_layout__move_marker_to_character(pTL, &pTL->cursor, cursorPos + strlen(text));
+    }
+    drgui_text_layout__end_dirty(pTL);
 
-
-    // The marker needs to be updated based on the new layout and it's new position, which is one character ahead.
-    drgui_text_layout__move_marker_to_character(pTL, &pTL->cursor, cursorPos + strlen(text));
 
     // The cursor's sticky position needs to be updated whenever the text is edited.
     drgui_text_layout__update_marker_sticky_position(pTL, &pTL->cursor);
-
 
     drgui_text_layout__on_cursor_move(pTL);
 
@@ -2299,9 +2234,7 @@ bool drgui_text_layout_delete_character_to_right_of_cursor(drgui_text_layout* pT
             pTL->onTextChanged(pTL);
         }
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-        }
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 
         return true;
     }
@@ -2328,6 +2261,7 @@ bool drgui_text_layout_delete_selected_text(drgui_text_layout* pTL)
     size_t iSelectionChar0 = pTL->pRuns[pSelectionMarker0->iRun].iChar + pSelectionMarker0->iChar;
     size_t iSelectionChar1 = pTL->pRuns[pSelectionMarker1->iRun].iChar + pSelectionMarker1->iChar;
 
+    drgui_text_layout__begin_dirty(pTL);
     bool wasTextChanged = drgui_text_layout_delete_text_range(pTL, iSelectionChar0, iSelectionChar1);
     if (wasTextChanged)
     {
@@ -2345,6 +2279,7 @@ bool drgui_text_layout_delete_selected_text(drgui_text_layout* pTL)
         pTL->isAnythingSelected = false;
     }
 
+    drgui_text_layout__end_dirty(pTL);
     return wasTextChanged;
 }
 
@@ -2400,9 +2335,7 @@ void drgui_text_layout_deselect_all(drgui_text_layout* pTL)
 
     pTL->isAnythingSelected = false;
 
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 void drgui_text_layout_select_all(drgui_text_layout* pTL)
@@ -2417,10 +2350,7 @@ void drgui_text_layout_select_all(drgui_text_layout* pTL)
     pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
 
     drgui_text_layout__on_cursor_move(pTL);
-
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 void drgui_text_layout_select(drgui_text_layout* pTL, size_t firstCharacter, size_t lastCharacter)
@@ -2435,10 +2365,7 @@ void drgui_text_layout_select(drgui_text_layout* pTL, size_t firstCharacter, siz
     pTL->isAnythingSelected = drgui_text_layout__has_spacing_between_selection_markers(pTL);
 
     drgui_text_layout__on_cursor_move(pTL);
-
-    if (pTL->onDirty) {
-        pTL->onDirty(pTL, drgui_text_layout__local_rect(pTL));
-    }
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout__local_rect(pTL));
 }
 
 size_t drgui_text_layout_get_selected_text(drgui_text_layout* pTL, char* textOut, size_t textOutSize)
@@ -3085,9 +3012,7 @@ void drgui_text_layout_step(drgui_text_layout* pTL, unsigned int milliseconds)
         pTL->isCursorBlinkOn = !pTL->isCursorBlinkOn;
         pTL->timeToNextCursorBlink = pTL->cursorBlinkRate;
 
-        if (pTL->onDirty) {
-            pTL->onDirty(pTL, drgui_text_layout_get_cursor_rect(pTL));
-        }
+        drgui_text_layout__on_dirty(pTL, drgui_text_layout_get_cursor_rect(pTL));
     }
     else
     {
@@ -4899,6 +4824,43 @@ DRGUI_PRIVATE void drgui_text_layout__on_cursor_move(drgui_text_layout* pTL)
 
     if (pTL->onCursorMove) {
         pTL->onCursorMove(pTL);
+    }
+}
+
+DRGUI_PRIVATE void drgui_text_layout__on_dirty(drgui_text_layout* pTL, drgui_rect rect)
+{
+    drgui_text_layout__begin_dirty(pTL);
+    {
+        pTL->accumulatedDirtyRect = drgui_rect_union(pTL->accumulatedDirtyRect, rect);
+    }
+    drgui_text_layout__end_dirty(pTL);
+}
+
+DRGUI_PRIVATE void drgui_text_layout__begin_dirty(drgui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->dirtyCounter += 1;
+}
+
+DRGUI_PRIVATE void drgui_text_layout__end_dirty(drgui_text_layout* pTL)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    assert(pTL->dirtyCounter > 0);
+
+    pTL->dirtyCounter -= 1;
+
+    if (pTL->dirtyCounter == 0) {
+        if (pTL->onDirty) {
+            pTL->onDirty(pTL, pTL->accumulatedDirtyRect);
+        }
+
+        pTL->accumulatedDirtyRect = drgui_make_inside_out_rect();
     }
 }
 #endif  //DR_GUI_IMPLEMENTATION
