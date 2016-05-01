@@ -2,7 +2,7 @@
 
 // ABOUT
 //
-// This is a simple library for decoding FLAC files.
+// dr_flac is a simple library for decoding FLAC files.
 //
 //
 //
@@ -58,7 +58,7 @@
 //   Defines the size of the internal buffer to store data from onRead(). This buffer is used to reduce the number of calls
 //   back to the client for more data. Larger values means more memory, but better performance. My tests show diminishing
 //   returns after about 4KB (which is the default). Consider reducing this if you have a very efficient implementation of
-//   onRead(), or increase it if it's very inefficient.
+//   onRead(), or increase it if it's very inefficient. Must be a multiple of 8.
 //
 //
 //
