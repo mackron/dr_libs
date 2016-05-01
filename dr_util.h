@@ -802,9 +802,9 @@ int dr_itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
     {
         int remainder = valueU % radix;
         if (remainder > 9) {
-            *dstEnd = (remainder - 10) + 'a';
+            *dstEnd = (char)((remainder - 10) + 'a');
         } else {
-            *dstEnd = remainder + '0';
+            *dstEnd = (char)(remainder + '0');
         }
 
         dstEnd += 1;
@@ -1502,6 +1502,9 @@ typedef struct
 
 static BOOL CALLBACK win32_get_monitor_dpi_callback(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
+    (void)hdcMonitor;
+    (void)lprcMonitor;
+
     win32_get_monitor_dpi_data* pData = (win32_get_monitor_dpi_data*)dwData;
     if (pData->monitorIndex == pData->i)
     {
@@ -1564,6 +1567,10 @@ void dr_win32_get_monitor_dpi(int monitor, int* pDPIXOut, int* pDPIYOut)
 
 static BOOL CALLBACK win32_get_monitor_count_callback(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
+    (void)hMonitor;
+    (void)hdcMonitor;
+    (void)lprcMonitor;
+
     int *count = (int*)dwData;
     (*count)++;
 

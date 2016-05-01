@@ -57,7 +57,7 @@ typedef struct
     unsigned int components;
 
     // A pointer to the raw image data, tightly packed. Each component is always 8-bit.
-    char pData[1];
+    uint8_t pData[1];
 
 } drpcx;
 
@@ -347,10 +347,12 @@ bool drpcx__decode_2bit(drpcx_decoder* pDecoder)
 
 bool drpcx__decode_4bit(drpcx_decoder* pDecoder)
 {
-    drpcx* pPCX = pDecoder->pPCX;
-    uint32_t rleCount = 0;
-    uint32_t rleValue = 0;
-    uint32_t stride = pPCX->width * pPCX->components;
+    (void)pDecoder;
+
+    //drpcx* pPCX = pDecoder->pPCX;
+    //uint32_t rleCount = 0;
+    //uint32_t rleValue = 0;
+    //uint32_t stride = pPCX->width * pPCX->components;
 
     // TODO: Implement me.
     return false;
@@ -359,8 +361,8 @@ bool drpcx__decode_4bit(drpcx_decoder* pDecoder)
 bool drpcx__decode_8bit(drpcx_decoder* pDecoder)
 {
     drpcx* pPCX = pDecoder->pPCX;
-    uint32_t rleCount = 0;
-    uint32_t rleValue = 0;
+    uint8_t rleCount = 0;
+    uint8_t rleValue = 0;
     uint32_t stride = pPCX->width * pPCX->components;
 
     if (pDecoder->bitPlanes == 3 || pDecoder->bitPlanes == 4)
