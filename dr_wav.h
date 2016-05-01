@@ -401,7 +401,7 @@ typedef struct
 
 static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t bytesToRead)
 {
-    drwav_memory* memory = pUserData;
+    drwav_memory* memory = (drwav_memory*)pUserData;
     assert(memory != NULL);
     assert(memory->dataSize >= memory->currentReadPos);
 
@@ -420,7 +420,7 @@ static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t by
 
 static int drwav__on_seek_memory(void* pUserData, int offset)
 {
-    drwav_memory* memory = pUserData;
+    drwav_memory* memory = (drwav_memory*)pUserData;
     assert(memory != NULL);
 
     if (offset > 0) {
@@ -441,12 +441,12 @@ static int drwav__on_seek_memory(void* pUserData, int offset)
 
 drwav* drwav_open_memory(const void* data, size_t dataSize)
 {
-    drwav_memory* pUserData = malloc(sizeof(*pUserData));
+    drwav_memory* pUserData = (drwav_memory*)malloc(sizeof(*pUserData));
     if (pUserData == NULL) {
         return NULL;
     }
 
-    pUserData->data = data;
+    pUserData->data = (const unsigned char*)data;
     pUserData->dataSize = dataSize;
     pUserData->currentReadPos = 0;
     return drwav_open(drwav__on_read_memory, drwav__on_seek_memory, pUserData);
@@ -536,7 +536,7 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
 
     // At this point we should be sitting on the first byte of the raw audio data.
 
-    drwav* pWav = malloc(sizeof(*pWav));
+    drwav* pWav = (drwav*)malloc(sizeof(*pWav));
     if (pWav == NULL) {
         return NULL;
     }
