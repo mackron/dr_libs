@@ -150,6 +150,19 @@ void drgui_textbox_show_line_numbers(drgui_element* pTBElement);
 void drgui_textbox_hide_line_numbers(drgui_element* pTBElement);
 
 
+/// Disables the vertical scrollbar.
+void drgui_textbox_disable_vertical_scrollbar(drgui_element* pTBElement);
+
+/// Enables the vertical scrollbar.
+void drgui_textbox_enable_vertical_scrollbar(drgui_element* pTBElement);
+
+/// Disables the horizontal scrollbar.
+void drgui_textbox_disable_horizontal_scrollbar(drgui_element* pTBElement);
+
+/// Enables the horizontal scrollbar.
+void drgui_textbox_enable_horizontal_scrollbar(drgui_element* pTBElement);
+
+
 /// Sets the function to call when the cursor moves.
 void drgui_textbox_set_on_cursor_move(drgui_element* pTBElement, drgui_textbox_on_cursor_move_proc proc);
 
@@ -240,6 +253,13 @@ typedef struct
 
     /// The desired height of the horizontal scrollbar.
     float horzScrollbarSize;
+
+    /// Whether or not the vertical scrollbar is enabled.
+    bool isVertScrollbarEnabled;
+
+    /// Whether or not the horizontal scrollbar is enabled.
+    bool isHorzScrollbarEnabled;
+
 
     /// When selecting lines by clicking and dragging on the line numbers, keeps track of the line to anchor the selection to.
     size_t iLineSelectAnchor;
@@ -412,6 +432,8 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     pTB->lineNumbersPaddingRight = 16;
     pTB->vertScrollbarSize = 16;
     pTB->horzScrollbarSize = 16;
+    pTB->isVertScrollbarEnabled = true;
+    pTB->isHorzScrollbarEnabled = true;
     pTB->iLineSelectAnchor = 0;
     pTB->onCursorMove = NULL;
     pTB->onUndoPointChanged = NULL;
@@ -888,6 +910,59 @@ void drgui_textbox_hide_line_numbers(drgui_element* pTBElement)
 
     drgui_hide(pTB->pLineNumbers);
     drgui_textbox__refresh_line_numbers(pTBElement);
+}
+
+
+void drgui_textbox_disable_vertical_scrollbar(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (pTB->isVertScrollbarEnabled) {
+        pTB->isVertScrollbarEnabled = false;
+        drgui_textbox__refresh_scrollbars(pTBElement);
+    }
+}
+
+void drgui_textbox_enable_vertical_scrollbar(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (!pTB->isVertScrollbarEnabled) {
+        pTB->isVertScrollbarEnabled = true;
+        drgui_textbox__refresh_scrollbars(pTBElement);
+    }
+}
+
+void drgui_textbox_disable_horizontal_scrollbar(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (pTB->isHorzScrollbarEnabled) {
+        pTB->isHorzScrollbarEnabled = false;
+        drgui_textbox__refresh_scrollbars(pTBElement);
+    }
+}
+
+void drgui_textbox_enable_horizontal_scrollbar(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (!pTB->isHorzScrollbarEnabled) {
+        pTB->isHorzScrollbarEnabled = true;
+        drgui_textbox__refresh_scrollbars(pTBElement);
+    }
 }
 
 
@@ -1595,8 +1670,8 @@ DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_layouts(drgui_element* pTBEl
     float offsetRight  = pTB->borderWidth;
     float offsetBottom = pTB->borderWidth;
 
-    float scrollbarSizeH = drgui_sb_is_thumb_visible(pTB->pHorzScrollbar) ? pTB->horzScrollbarSize : 0;
-    float scrollbarSizeV = drgui_sb_is_thumb_visible(pTB->pVertScrollbar) ? pTB->vertScrollbarSize : 0;
+    float scrollbarSizeH = (drgui_sb_is_thumb_visible(pTB->pHorzScrollbar) && pTB->isHorzScrollbarEnabled) ? pTB->horzScrollbarSize : 0;
+    float scrollbarSizeV = (drgui_sb_is_thumb_visible(pTB->pVertScrollbar) && pTB->isVertScrollbarEnabled) ? pTB->vertScrollbarSize : 0;
 
     drgui_set_size(pTB->pVertScrollbar, scrollbarSizeV, drgui_get_height(pTBElement) - scrollbarSizeH - (offsetTop + offsetBottom));
     drgui_set_size(pTB->pHorzScrollbar, drgui_get_width(pTBElement) - scrollbarSizeV - (offsetLeft + offsetRight), scrollbarSizeH);
@@ -1619,8 +1694,8 @@ DRGUI_PRIVATE drgui_rect drgui_textbox__get_scrollbar_dead_space_rect(drgui_elem
     float offsetRight  = pTB->borderWidth;
     float offsetBottom = pTB->borderWidth;
 
-    float scrollbarSizeH = drgui_is_visible(pTB->pHorzScrollbar) ? drgui_get_width(pTB->pHorzScrollbar) : 0;
-    float scrollbarSizeV = drgui_is_visible(pTB->pVertScrollbar) ? drgui_get_height(pTB->pVertScrollbar) : 0;
+    float scrollbarSizeH = (drgui_is_visible(pTB->pHorzScrollbar) && pTB->isHorzScrollbarEnabled) ? drgui_get_width(pTB->pHorzScrollbar) : 0;
+    float scrollbarSizeV = (drgui_is_visible(pTB->pVertScrollbar) && pTB->isHorzScrollbarEnabled) ? drgui_get_height(pTB->pVertScrollbar) : 0;
 
     if (scrollbarSizeH == 0 && scrollbarSizeV == 0) {
         return drgui_make_rect(0, 0, 0, 0);
