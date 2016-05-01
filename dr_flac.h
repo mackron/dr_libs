@@ -2256,7 +2256,7 @@ done_reading_block_header:
     }
 
     if (pIsLastBlockOut) {
-        *pIsLastBlockOut = isLastBlock;
+        *pIsLastBlockOut = isLastBlock != 0;
     }
 
     return blockType;
@@ -2362,7 +2362,7 @@ static bool drflac__seek_to_sample__brute_force(drflac* pFlac, uint64_t sampleIn
         return false;
     }
 
-    return drflac_read_s32(pFlac, samplesToDecode, NULL);
+    return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;
 }
 
 static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleIndex)
