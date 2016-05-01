@@ -817,6 +817,8 @@ static bool drflac__read_uint64(drflac* pFlac, unsigned int bitCount, uint64_t* 
     return true;
 }
 
+// Function below is unused, but leaving it here in case I need to quickly add it again.
+#if 0
 static bool drflac__read_int64(drflac* pFlac, unsigned int bitCount, int64_t* pResultOut)
 {
     assert(bitCount <= 64);
@@ -833,6 +835,7 @@ static bool drflac__read_int64(drflac* pFlac, unsigned int bitCount, int64_t* pR
     *pResultOut = (int64_t)result;
     return true;
 }
+#endif
 
 static bool drflac__read_uint16(drflac* pFlac, unsigned int bitCount, uint16_t* pResult)
 {
