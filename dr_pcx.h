@@ -34,9 +34,11 @@
 #ifndef dr_pcx_h
 #define dr_pcx_h
 
-#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -176,12 +178,13 @@ typedef struct
     uint32_t bitPlanes;
     uint32_t bytesPerLine;
     uint32_t stride;
+    uint32_t version;
 } drpcx_decoder;
 
 static uint8_t drpcx_read_byte(drpcx_decoder* pReader)
 {
     uint8_t byte = 0;
-    pReader->onRead(pReader->pUserData, &byte, 1);
+    size_t bytesRead = pReader->onRead(pReader->pUserData, &byte, 1);
 
     return byte;
 }
@@ -296,6 +299,107 @@ bool drpcx__decode_2bit(drpcx_decoder* pDecoder)
     uint32_t rleValue = 0;
     uint32_t stride = pPCX->width * pPCX->components;
 
+    switch (pDecoder->bitPlanes)
+    {
+        case 1:
+        {
+            uint8_t paletteCGA[48];
+            paletteCGA[ 0] = 0x00; paletteCGA[ 1] = 0x00; paletteCGA[ 2] = 0x00;    // #000000
+            paletteCGA[ 3] = 0x00; paletteCGA[ 4] = 0x00; paletteCGA[ 5] = 0xAA;    // #0000AA
+            paletteCGA[ 6] = 0x00; paletteCGA[ 7] = 0xAA; paletteCGA[ 8] = 0x00;    // #00AA00
+            paletteCGA[ 9] = 0x00; paletteCGA[10] = 0xAA; paletteCGA[11] = 0xAA;    // #00AAAA
+            paletteCGA[12] = 0xAA; paletteCGA[13] = 0x00; paletteCGA[14] = 0x00;    // #AA0000
+            paletteCGA[15] = 0xAA; paletteCGA[16] = 0x00; paletteCGA[17] = 0xAA;    // #AA00AA
+            paletteCGA[18] = 0xAA; paletteCGA[19] = 0x55; paletteCGA[20] = 0x00;    // #AA5500
+            paletteCGA[21] = 0xAA; paletteCGA[22] = 0xAA; paletteCGA[23] = 0xAA;    // #AAAAAA
+            paletteCGA[24] = 0x55; paletteCGA[25] = 0x55; paletteCGA[26] = 0x55;    // #555555
+            paletteCGA[27] = 0x55; paletteCGA[28] = 0x55; paletteCGA[29] = 0xFF;    // #5555FF
+            paletteCGA[30] = 0x55; paletteCGA[31] = 0xFF; paletteCGA[32] = 0x55;    // #55FF55
+            paletteCGA[33] = 0x55; paletteCGA[34] = 0xFF; paletteCGA[35] = 0xFF;    // #55FFFF
+            paletteCGA[36] = 0xFF; paletteCGA[37] = 0x55; paletteCGA[38] = 0x55;    // #FF5555
+            paletteCGA[39] = 0xFF; paletteCGA[40] = 0x55; paletteCGA[41] = 0xFF;    // #FF55FF
+            paletteCGA[42] = 0xFF; paletteCGA[43] = 0xFF; paletteCGA[44] = 0x55;    // #FFFF55
+            paletteCGA[45] = 0xFF; paletteCGA[46] = 0xFF; paletteCGA[47] = 0xFF;    // #FFFFFF
+
+            uint8_t cgaBGColor   = pDecoder->palette16[0] >> 4;
+            uint8_t i = (pDecoder->palette16[3] & 0x20) >> 5;
+            uint8_t p = (pDecoder->palette16[3] & 0x40) >> 6;
+            //uint8_t c = (pDecoder->palette16[3] & 0x80) >> 7;    // Color or monochrome. How is monochrome handled?
+
+            for (uint32_t y = 0; y < pPCX->height; ++y)
+            {
+                uint8_t* pRow = pPCX->pData;
+                if (pDecoder->flipped) {
+                    pRow += (pPCX->height - y - 1) * stride;
+                } else {
+                    pRow += y * stride;
+                }
+
+                for (uint32_t x = 0; x < pDecoder->bytesPerLine; ++x)
+                {
+                    if (rleCount == 0) {
+                        rleValue = drpcx_read_byte(pDecoder);
+                        if ((rleValue & 0xC0) == 0xC0) {
+                            rleCount = rleValue & 0x3F;
+                            rleValue = drpcx_read_byte(pDecoder);
+                        } else {
+                            rleCount = 1;
+                        }
+                    }
+
+                    rleCount -= 1;
+
+                    for (int bit = 0; bit < 4; ++bit)
+                    {
+                        if (x*4 + bit < pPCX->width)
+                        {
+                            uint8_t mask = (3 << ((3 - bit) * 2));
+                            uint8_t paletteIndex = (rleValue & mask) >> ((3 - bit) * 2);
+
+                            uint8_t cgaIndex;
+                            if (paletteIndex == 0) {    // Background.
+                                cgaIndex = cgaBGColor;
+                            } else {                    // Foreground
+                                cgaIndex = ((paletteIndex*2 + p) + (i*8));
+                            }
+
+                            pRow[0] = paletteCGA[cgaIndex*3 + 0];
+                            pRow[1] = paletteCGA[cgaIndex*3 + 1];
+                            pRow[2] = paletteCGA[cgaIndex*3 + 2];
+                            pRow += 3;
+                        }
+                    }
+                }
+            }
+
+#if 1
+            uint8_t paletteMarker = drpcx_read_byte(pDecoder);
+            if (paletteMarker == 0x0C)
+            {
+                int a; a = 0;
+            }
+#endif
+
+#if 0
+            uint8_t paletteMarker = 0;
+            do
+            {
+                paletteMarker = drpcx_read_byte(pDecoder);
+            } while (paletteMarker != 0x0C);
+#endif
+
+            return true;
+
+        } break;
+
+        case 4:
+        {
+        } break;
+
+        default: return false;
+    }
+
+#if 0
     if (pDecoder->bitPlanes == 1)
     {
         // NOTE: THIS IS WRONG. I think the palette needs to be converted to CGA, but I'm not fully sure.
@@ -341,6 +445,7 @@ bool drpcx__decode_2bit(drpcx_decoder* pDecoder)
 
         return true;
     }
+#endif
 
     return false;
 }
@@ -482,7 +587,7 @@ drpcx* drpcx_load(drpcx_read_proc onRead, void* pUserData, bool flipped)
         return NULL;    // Not a PCX file.
     }
 
-    //uint8_t version = header[1];    // Unused.
+    uint8_t version = header[1];
 
     uint8_t encoding = header[2];
     if (encoding != 1) {
@@ -525,6 +630,7 @@ drpcx* drpcx_load(drpcx_read_proc onRead, void* pUserData, bool flipped)
     decoder.palette16 = palette16;
     decoder.bitPlanes = bitPlanes;
     decoder.bytesPerLine = bytesPerLine;
+    decoder.version = version;
 
     switch (bpp)
     {
