@@ -634,7 +634,7 @@ uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, bool flipped, int* 
 
     if (!result) {
         free(pcx.pImageData);
-        return false;
+        return NULL;
     }
 
     if (x) *x = pcx.width;
