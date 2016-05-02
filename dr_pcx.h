@@ -25,11 +25,12 @@
 //
 //
 // QUICK NOTES
-// - 1- and 2-bit per pixel images are not properly supported.
+// - 2-bpp/4-plane and 4-bpp/1-plane formats have not been tested.
+//
 //
 //
 // TODO
-// - Fix decoding of 1- and 2-bit per pixel images.
+// - Test 2-bpp/4-plane and 4-bpp/1-plane formats.
 
 #ifndef dr_pcx_h
 #define dr_pcx_h
@@ -478,15 +479,78 @@ bool drpcx__decode_2bit(drpcx_decoder* pDecoder)
 
 bool drpcx__decode_4bit(drpcx_decoder* pDecoder)
 {
-    (void)pDecoder;
+    // NOTE: This is completely untested. If anybody knows where I can get a test file please let me know or send it through to me!
+    // TODO: Test Me.
 
-    //drpcx* pPCX = pDecoder->pPCX;
-    //uint32_t rleCount = 0;
-    //uint32_t rleValue = 0;
-    //uint32_t stride = pPCX->width * pPCX->components;
+    if (pDecoder->bitPlanes > 1) {
+        return false;
+    }
 
-    // TODO: Implement me.
-    return false;
+    drpcx* pPCX = pDecoder->pPCX;
+    uint32_t rleCount = 0;
+    uint32_t rleValue = 0;
+    uint32_t stride = pPCX->width * pPCX->components;
+
+    for (uint32_t y = 0; y < pPCX->height; ++y)
+    {
+        for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c)
+        {
+            uint8_t* pRow = pPCX->pData;
+            if (pDecoder->flipped) {
+                pRow += (pPCX->height - y - 1) * stride;
+            } else {
+                pRow += y * stride;
+            }
+
+            for (uint32_t x = 0; x < pDecoder->bytesPerLine; ++x)
+            {
+                if (rleCount == 0) {
+                    rleValue = drpcx_read_byte(pDecoder);
+                    if ((rleValue & 0xC0) == 0xC0) {
+                        rleCount = rleValue & 0x3F;
+                        rleValue = drpcx_read_byte(pDecoder);
+                    } else {
+                        rleCount = 1;
+                    }
+                }
+
+                rleCount -= 1;
+
+                for (int nibble = 0; (nibble < 2) && ((x*2 + nibble) < pPCX->width); ++nibble)
+                {
+                    uint8_t mask = (4 << (1 - nibble));
+                    uint8_t paletteIndex = (rleValue & mask) >> (1 - nibble);
+
+                    pRow[c] = paletteIndex;
+                    pRow += pDecoder->bitPlanes;
+                }
+            }
+        }
+
+
+        uint8_t* pRow = pPCX->pData;
+        if (pDecoder->flipped) {
+            pRow += (pPCX->height - y - 1) * stride;
+        } else {
+            pRow += y * stride;
+        }
+
+        for (uint32_t x = 0; x < pPCX->width; ++x)
+        {
+            uint8_t paletteIndex = 0;
+            for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c) {
+                paletteIndex |= ((pRow[c] & 0x0F) << c);
+            }
+
+            for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c) {
+                pRow[c] = pDecoder->palette16[paletteIndex*3 + c];
+            }
+                    
+            pRow += pDecoder->bitPlanes;
+        }
+    }
+
+    return true;
 }
 
 bool drpcx__decode_8bit(drpcx_decoder* pDecoder)
