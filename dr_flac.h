@@ -132,28 +132,18 @@ typedef bool (* drflac_seek_proc)(void* userData, int offset);
 
 typedef struct
 {
-    // The absolute position of the first byte of the data of the block. This is just past the block's header.
-    long long pos;
-
-    // The size in bytes of the block's data.
-    unsigned int sizeInBytes;
-
-} drflac_block;
-
-typedef struct
-{
     // The type of the subframe: SUBFRAME_CONSTANT, SUBFRAME_VERBATIM, SUBFRAME_FIXED or SUBFRAME_LPC.
-    unsigned char subframeType;
+    uint8_t subframeType;
 
     // The number of wasted bits per sample as specified by the sub-frame header.
-    unsigned char wastedBitsPerSample;
+    uint8_t wastedBitsPerSample;
 
     // The order to use for the prediction stage for SUBFRAME_FIXED and SUBFRAME_LPC.
-    unsigned char lpcOrder;
+    uint8_t lpcOrder;
 
     // The number of bits per sample for this subframe. This is not always equal to the current frame's bit per sample because
     // an extra bit is required for side channels when interchannel decorrelation is being used.
-    int bitsPerSample;
+    uint32_t bitsPerSample;
 
     // A pointer to the buffer containing the decoded samples in the subframe. This pointer is an offset from drflac::pHeap, or
     // NULL if the heap is not being used. Note that it's a signed 32-bit integer for each value.
@@ -165,30 +155,30 @@ typedef struct
 {
     // If the stream uses variable block sizes, this will be set to the index of the first sample. If fixed block sizes are used, this will
     // always be set to 0.
-    unsigned long long sampleNumber;
+    uint64_t sampleNumber;
 
     // If the stream uses fixed block sizes, this will be set to the frame number. If variable block sizes are used, this will always be 0.
-    unsigned int frameNumber;
+    uint32_t frameNumber;
 
     // The sample rate of this frame.
-    unsigned int sampleRate;
+    uint32_t sampleRate;
 
     // The number of samples in each sub-frame within this frame.
-    unsigned short blockSize;
+    uint16_t blockSize;
 
     // The channel assignment of this frame. This is not always set to the channel count. If interchannel decorrelation is being used this
     // will be set to DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE, DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE or DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE.
-    unsigned char channelAssignment;
+    uint8_t channelAssignment;
 
     // The number of bits per sample within this frame.
-    unsigned char bitsPerSample;
+    uint8_t bitsPerSample;
 
     // The frame's CRC. This is set, but unused at the moment.
-    unsigned char crc8;
+    uint8_t crc8;
 
     // The number of samples left to be read in this frame. This is initially set to the block size multiplied by the channel count. As samples
     // are read, this will be decremented. When it reaches 0, the decoder will see this frame as fully consumed and load the next frame.
-    unsigned int samplesRemaining;
+    uint32_t samplesRemaining;
 
     // The list of sub-frames within the frame. There is one sub-frame for each channel, and there's a maximum of 8 channels.
     drflac_subframe subframes[8];
@@ -208,17 +198,17 @@ typedef struct
 
 
     // The sample rate. Will be set to something like 44100.
-    unsigned int sampleRate;
+    uint32_t sampleRate;
 
     // The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc. Maximum 8. This is set based on the
     // value specified in the STREAMINFO block.
-    unsigned char channels;
+    uint8_t channels;
 
     // The bits per sample. Will be set to somthing like 16, 24, etc.
-    unsigned char bitsPerSample;
+    uint8_t bitsPerSample;
 
     // The maximum block size, in samples. This number represents the number of samples in each channel (not combined).
-    unsigned short maxBlockSize;
+    uint16_t maxBlockSize;
 
     // The total number of samples making up the stream. This includes every channel. For example, if the stream has 2 channels,
     // with each channel having a total of 4096, this value will be set to 2*4096 = 8192.
@@ -236,7 +226,7 @@ typedef struct
     drflac_frame currentFrame;
 
     // The position of the first frame in the stream. This is only ever used for seeking.
-    unsigned long long firstFramePos;
+    uint64_t firstFramePos;
 
 
 
@@ -263,7 +253,7 @@ typedef struct
     int32_t* pDecodedSamples;
 
     // Variable length extra data. We attach this to the end of the object so we avoid unnecessary mallocs.
-    char pExtraData[1];
+    uint8_t pExtraData[1];
 
 } drflac;
 
