@@ -184,7 +184,7 @@ typedef struct
 static uint8_t drpcx_read_byte(drpcx_decoder* pReader)
 {
     uint8_t byte = 0;
-    size_t bytesRead = pReader->onRead(pReader->pUserData, &byte, 1);
+    pReader->onRead(pReader->pUserData, &byte, 1);
 
     return byte;
 }
@@ -192,59 +192,59 @@ static uint8_t drpcx_read_byte(drpcx_decoder* pReader)
 bool drpcx__decode_1bit(drpcx_decoder* pDecoder)
 {
     drpcx* pPCX = pDecoder->pPCX;
-    uint32_t rleCount = 0;
-    uint32_t rleValue = 0;
+    uint8_t rleCount = 0;
+    uint8_t rleValue = 0;
+    uint8_t rleBits  = 0;
     uint32_t stride = pPCX->width * pPCX->components;
 
-    if (pDecoder->bitPlanes == 1)
+    switch (pDecoder->bitPlanes)
     {
-        for (uint32_t y = 0; y < pPCX->height; ++y)
+        case 1:
         {
-            uint8_t* pRow = pPCX->pData;
-            if (pDecoder->flipped) {
-                pRow += (pPCX->height - y - 1) * stride;
-            } else {
-                pRow += y * stride;
-            }
-
-            for (uint32_t x = 0; x < pDecoder->bytesPerLine; ++x)
+            for (uint32_t y = 0; y < pPCX->height; ++y)
             {
-                if (rleCount == 0) {
-                    rleValue = drpcx_read_byte(pDecoder);
-                    if ((rleValue & 0xC0) == 0xC0) {
-                        rleCount = rleValue & 0x3F;
-                        rleValue = drpcx_read_byte(pDecoder);
-                    } else {
-                        rleCount = 1;
-                    }
+                uint8_t* pRow = pPCX->pData;
+                if (pDecoder->flipped) {
+                    pRow += (pPCX->height - y - 1) * stride;
+                } else {
+                    pRow += y * stride;
                 }
 
-                rleCount -= 1;
-
-                for (int bit = 0; bit < 8; ++bit)
+                for (uint32_t x = 0; x < pDecoder->bytesPerLine; ++x)
                 {
-                    if (x*8 + bit < pPCX->width)
+                    if (rleCount == 0) {
+                        rleValue = drpcx_read_byte(pDecoder);
+                        if ((rleValue & 0xC0) == 0xC0) {
+                            rleCount = rleValue & 0x3F;
+                            rleValue = drpcx_read_byte(pDecoder);
+                        } else {
+                            rleCount = 1;
+                        }
+                    }
+
+                    rleCount -= 1;
+
+                    for (int bit = 0; (bit < 8) && ((x*8 + bit) < pPCX->width); ++bit)
                     {
                         uint8_t mask = (1 << (7 - bit));
                         uint8_t paletteIndex = (rleValue & mask) >> (7 - bit);
 
-                        pRow[0] = pDecoder->palette16[paletteIndex*3 + 0];
-                        pRow[1] = pDecoder->palette16[paletteIndex*3 + 1];
-                        pRow[2] = pDecoder->palette16[paletteIndex*3 + 2];
+                        pRow[0] = paletteIndex * 255;
+                        pRow[1] = paletteIndex * 255;
+                        pRow[2] = paletteIndex * 255;
                         pRow += pPCX->components;
                     }
                 }
             }
-        }
 
-        return true;
-    }
-    else
-    {
-        if (pDecoder->bitPlanes == 3 || pDecoder->bitPlanes == 4)
+            return true;
+
+        } break;
+
+        case 2:
+        case 3:
+        case 4:
         {
-            // NOTE: THIS IS WRONG.
-
             for (uint32_t y = 0; y < pPCX->height; ++y)
             {
                 for (uint32_t component = 0; component < pPCX->components; ++component)
@@ -266,30 +266,53 @@ bool drpcx__decode_1bit(drpcx_decoder* pDecoder)
                             } else {
                                 rleCount = 1;
                             }
+
+                            rleBits = rleValue;
                         }
 
                         rleCount -= 1;
 
-                        for (int bit = 0; bit < 8; ++bit)
+                        for (int bit = 0; (bit < 8) && ((x*8 + bit) < pPCX->width); ++bit)
                         {
-                            if (x*8 + bit < pPCX->width)
-                            {
-                                uint8_t mask = (1 << (7 - bit));
-                                uint8_t paletteIndex = (rleValue & mask) >> (7 - bit);
+                            uint8_t mask = (1 << (7 - bit));
+                            uint8_t paletteIndex = (rleValue & mask) >> (7 - bit);
 
-                                pRow[component] = pDecoder->palette16[paletteIndex*3 + component];
-                                pRow += pPCX->components;
-                            }
+                            pRow[component] = paletteIndex;
+                            pRow += pPCX->components;
                         }
                     }
+                }
+
+
+                uint8_t* pRow = pPCX->pData;
+                if (pDecoder->flipped) {
+                    pRow += (pPCX->height - y - 1) * stride;
+                } else {
+                    pRow += y * stride;
+                }
+
+                for (uint32_t x = 0; x < pPCX->width; ++x)
+                {
+                    uint8_t paletteIndex = 0;
+                    for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c) {
+                        if (pRow[c] > 0) {
+                            paletteIndex |= (1 << c);
+                        }
+                    }
+
+                    for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c) {
+                        pRow[c] = pDecoder->palette16[paletteIndex*3 + c];
+                    }
+                    
+                    pRow += pDecoder->bitPlanes;
                 }
             }
 
             return true;
         }
-    }
 
-    return false;
+        default: return false;
+    }
 }
 
 bool drpcx__decode_2bit(drpcx_decoder* pDecoder)
@@ -360,7 +383,7 @@ bool drpcx__decode_2bit(drpcx_decoder* pDecoder)
                             if (paletteIndex == 0) {    // Background.
                                 cgaIndex = cgaBGColor;
                             } else {                    // Foreground
-                                cgaIndex = ((paletteIndex*2 + p) + (i*8));
+                                cgaIndex = (((paletteIndex << 1) + p) + (i << 3));
                             }
 
                             pRow[0] = paletteCGA[cgaIndex*3 + 0];
@@ -372,80 +395,27 @@ bool drpcx__decode_2bit(drpcx_decoder* pDecoder)
                 }
             }
 
-#if 1
-            uint8_t paletteMarker = drpcx_read_byte(pDecoder);
-            if (paletteMarker == 0x0C)
-            {
-                int a; a = 0;
+            // TODO: According to http://www.fysnet.net/pcxfile.htm, we should use the palette at the end of the file
+            //       instead of the standard CGA palette if the version is equal to 5. With my test files the palette
+            //       at the end of the file does not exist. Research this one.
+            if (pDecoder->version == 5) {
+                uint8_t paletteMarker = drpcx_read_byte(pDecoder);
+                if (paletteMarker == 0x0C) {
+                    // TODO: Implement Me.
+                }
             }
-#endif
-
-#if 0
-            uint8_t paletteMarker = 0;
-            do
-            {
-                paletteMarker = drpcx_read_byte(pDecoder);
-            } while (paletteMarker != 0x0C);
-#endif
-
+            
             return true;
 
         } break;
 
         case 4:
         {
+            // TODO: Implement Me.
         } break;
 
         default: return false;
     }
-
-#if 0
-    if (pDecoder->bitPlanes == 1)
-    {
-        // NOTE: THIS IS WRONG. I think the palette needs to be converted to CGA, but I'm not fully sure.
-
-        for (uint32_t y = 0; y < pPCX->height; ++y)
-        {
-            uint8_t* pRow = pPCX->pData;
-            if (pDecoder->flipped) {
-                pRow += (pPCX->height - y - 1) * stride;
-            } else {
-                pRow += y * stride;
-            }
-
-            for (uint32_t x = 0; x < pDecoder->bytesPerLine; ++x)
-            {
-                if (rleCount == 0) {
-                    rleValue = drpcx_read_byte(pDecoder);
-                    if ((rleValue & 0xC0) == 0xC0) {
-                        rleCount = rleValue & 0x3F;
-                        rleValue = drpcx_read_byte(pDecoder);
-                    } else {
-                        rleCount = 1;
-                    }
-                }
-
-                rleCount -= 1;
-
-                for (int bit = 0; bit < 4; ++bit)
-                {
-                    if (x*4 + bit < pPCX->width)
-                    {
-                        uint8_t mask = (3 << ((3 - bit) * 2));
-                        uint8_t paletteIndex = (rleValue & mask) >> ((3 - bit) * 2);
-
-                        pRow[0] = pDecoder->palette16[paletteIndex*3 + 0];
-                        pRow[1] = pDecoder->palette16[paletteIndex*3 + 1];
-                        pRow[2] = pDecoder->palette16[paletteIndex*3 + 2];
-                        pRow += 3;
-                    }
-                }
-            }
-        }
-
-        return true;
-    }
-#endif
 
     return false;
 }
