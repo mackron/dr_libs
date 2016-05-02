@@ -194,7 +194,6 @@ bool drpcx__decode_1bit(drpcx_decoder* pDecoder)
     drpcx* pPCX = pDecoder->pPCX;
     uint8_t rleCount = 0;
     uint8_t rleValue = 0;
-    uint8_t rleBits  = 0;
     uint32_t stride = pPCX->width * pPCX->components;
 
     switch (pDecoder->bitPlanes)
@@ -247,7 +246,7 @@ bool drpcx__decode_1bit(drpcx_decoder* pDecoder)
         {
             for (uint32_t y = 0; y < pPCX->height; ++y)
             {
-                for (uint32_t component = 0; component < pPCX->components; ++component)
+                for (uint32_t component = 0; component < pDecoder->bitPlanes; ++component)
                 {
                     uint8_t* pRow = pPCX->pData;
                     if (pDecoder->flipped) {
@@ -266,8 +265,6 @@ bool drpcx__decode_1bit(drpcx_decoder* pDecoder)
                             } else {
                                 rleCount = 1;
                             }
-
-                            rleBits = rleValue;
                         }
 
                         rleCount -= 1;
@@ -295,9 +292,7 @@ bool drpcx__decode_1bit(drpcx_decoder* pDecoder)
                 {
                     uint8_t paletteIndex = 0;
                     for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c) {
-                        if (pRow[c] > 0) {
-                            paletteIndex |= (1 << c);
-                        }
+                        paletteIndex |= ((pRow[c] & 0x01) << c);
                     }
 
                     for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c) {
@@ -406,13 +401,74 @@ bool drpcx__decode_2bit(drpcx_decoder* pDecoder)
             }
             
             return true;
-
-        } break;
+        };
 
         case 4:
         {
-            // TODO: Implement Me.
-        } break;
+            // NOTE: This is completely untested. If anybody knows where I can get a test file please let me know or send it through to me!
+            // TODO: Test Me.
+
+            for (uint32_t y = 0; y < pPCX->height; ++y)
+            {
+                for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c)
+                {
+                    uint8_t* pRow = pPCX->pData;
+                    if (pDecoder->flipped) {
+                        pRow += (pPCX->height - y - 1) * stride;
+                    } else {
+                        pRow += y * stride;
+                    }
+
+                    for (uint32_t x = 0; x < pDecoder->bytesPerLine; ++x)
+                    {
+                        if (rleCount == 0) {
+                            rleValue = drpcx_read_byte(pDecoder);
+                            if ((rleValue & 0xC0) == 0xC0) {
+                                rleCount = rleValue & 0x3F;
+                                rleValue = drpcx_read_byte(pDecoder);
+                            } else {
+                                rleCount = 1;
+                            }
+                        }
+
+                        rleCount -= 1;
+
+                        for (int bitpair = 0; (bitpair < 4) && ((x*4 + bitpair) < pPCX->width); ++bitpair)
+                        {
+                            uint8_t mask = (4 << (3 - bitpair));
+                            uint8_t paletteIndex = (rleValue & mask) >> (3 - bitpair);
+
+                            pRow[c] = paletteIndex;
+                            pRow += pDecoder->bitPlanes;
+                        }
+                    }
+                }
+
+
+                uint8_t* pRow = pPCX->pData;
+                if (pDecoder->flipped) {
+                    pRow += (pPCX->height - y - 1) * stride;
+                } else {
+                    pRow += y * stride;
+                }
+
+                for (uint32_t x = 0; x < pPCX->width; ++x)
+                {
+                    uint8_t paletteIndex = 0;
+                    for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c) {
+                        paletteIndex |= ((pRow[c] & 0x03) << c);
+                    }
+
+                    for (uint32_t c = 0; c < pDecoder->bitPlanes; ++c) {
+                        pRow[c] = pDecoder->palette16[paletteIndex*3 + c];
+                    }
+                    
+                    pRow += pDecoder->bitPlanes;
+                }
+            }
+
+            return true;
+        };
 
         default: return false;
     }
