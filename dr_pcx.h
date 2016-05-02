@@ -267,7 +267,7 @@ bool drpcx__decode_1bit(drpcx* pPCX)
         {
             for (uint32_t y = 0; y < pPCX->height; ++y)
             {
-                for (uint32_t component = 0; component < pPCX->header.bitPlanes; ++component)
+                for (uint32_t c = 0; c < pPCX->header.bitPlanes; ++c)
                 {
                     uint8_t* pRow = drpcx__row_ptr(pPCX, y);
                     for (uint32_t x = 0; x < pPCX->header.bytesPerLine; ++x)
@@ -282,7 +282,7 @@ bool drpcx__decode_1bit(drpcx* pPCX)
                             uint8_t mask = (1 << (7 - bit));
                             uint8_t paletteIndex = (rleValue & mask) >> (7 - bit);
 
-                            pRow[component] = paletteIndex;
+                            pRow[0] |= ((paletteIndex & 0x01) << c);
                             pRow += pPCX->components;
                         }
                     }
@@ -292,16 +292,12 @@ bool drpcx__decode_1bit(drpcx* pPCX)
                 uint8_t* pRow = drpcx__row_ptr(pPCX, y);
                 for (uint32_t x = 0; x < pPCX->width; ++x)
                 {
-                    uint8_t paletteIndex = 0;
-                    for (uint32_t c = 0; c < pPCX->header.bitPlanes; ++c) {
-                        paletteIndex |= ((pRow[c] & 0x01) << c);
-                    }
-
-                    for (uint32_t c = 0; c < pPCX->header.bitPlanes; ++c) {
+                    uint8_t paletteIndex = pRow[0];
+                    for (uint32_t c = 0; c < pPCX->components; ++c) {
                         pRow[c] = pPCX->header.palette16[paletteIndex*3 + c];
                     }
                     
-                    pRow += pPCX->header.bitPlanes;
+                    pRow += pPCX->components;
                 }
             }
 
@@ -412,8 +408,8 @@ bool drpcx__decode_2bit(drpcx* pPCX)
                             uint8_t mask = (4 << (3 - bitpair));
                             uint8_t paletteIndex = (rleValue & mask) >> (3 - bitpair);
 
-                            pRow[c] = paletteIndex;
-                            pRow += pPCX->header.bitPlanes;
+                            pRow[0] |= ((paletteIndex & 0x03) << (c*2));
+                            pRow += pPCX->components;
                         }
                     }
                 }
@@ -422,16 +418,12 @@ bool drpcx__decode_2bit(drpcx* pPCX)
                 uint8_t* pRow = drpcx__row_ptr(pPCX, y);
                 for (uint32_t x = 0; x < pPCX->width; ++x)
                 {
-                    uint8_t paletteIndex = 0;
-                    for (uint32_t c = 0; c < pPCX->header.bitPlanes; ++c) {
-                        paletteIndex |= ((pRow[c] & 0x03) << c);
-                    }
-
+                    uint8_t paletteIndex = pRow[0];
                     for (uint32_t c = 0; c < pPCX->header.bitPlanes; ++c) {
                         pRow[c] = pPCX->header.palette16[paletteIndex*3 + c];
                     }
                     
-                    pRow += pPCX->header.bitPlanes;
+                    pRow += pPCX->components;
                 }
             }
 
@@ -471,8 +463,8 @@ bool drpcx__decode_4bit(drpcx* pPCX)
                     uint8_t mask = (4 << (1 - nibble));
                     uint8_t paletteIndex = (rleValue & mask) >> (1 - nibble);
 
-                    pRow[c] = paletteIndex;
-                    pRow += pPCX->header.bitPlanes;
+                    pRow[0] |= ((paletteIndex & 0x0F) << (c*4)); 
+                    pRow += pPCX->components;
                 }
             }
         }
@@ -481,16 +473,12 @@ bool drpcx__decode_4bit(drpcx* pPCX)
         uint8_t* pRow = drpcx__row_ptr(pPCX, y);
         for (uint32_t x = 0; x < pPCX->width; ++x)
         {
-            uint8_t paletteIndex = 0;
-            for (uint32_t c = 0; c < pPCX->header.bitPlanes; ++c) {
-                paletteIndex |= ((pRow[c] & 0x0F) << c);
-            }
-
-            for (uint32_t c = 0; c < pPCX->header.bitPlanes; ++c) {
+            uint8_t paletteIndex = pRow[0];
+            for (uint32_t c = 0; c < pPCX->components; ++c) {
                 pRow[c] = pPCX->header.palette16[paletteIndex*3 + c];
             }
                     
-            pRow += pPCX->header.bitPlanes;
+            pRow += pPCX->components;
         }
     }
 
@@ -559,7 +547,7 @@ bool drpcx__decode_8bit(drpcx* pPCX)
         {
             for (uint32_t y = 0; y < pPCX->height; ++y)
             {
-                for (uint32_t c = 0; c < pPCX->header.bitPlanes; ++c)
+                for (uint32_t c = 0; c < pPCX->components; ++c)
                 {
                     uint8_t* pRow = drpcx__row_ptr(pPCX, y);
                     for (uint32_t x = 0; x < pPCX->header.bytesPerLine; ++x)
@@ -615,7 +603,7 @@ uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, bool flipped, int* 
     pcx.height = pcx.header.bottom - pcx.header.top + 1;
     pcx.components = (pcx.header.bpp == 8 && pcx.header.bitPlanes == 4) ? 4 : 3;
     size_t dataSize = pcx.width * pcx.height * pcx.components;
-    pcx.pImageData = malloc(dataSize);
+    pcx.pImageData = calloc(1, dataSize);   // <-- Clearing to zero is important! Required for proper decoding.
     if (pcx.pImageData == NULL) {
         return NULL;    // Failed to allocate memory.
     }
