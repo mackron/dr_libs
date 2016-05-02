@@ -304,7 +304,7 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex);
 
 #ifndef DR_FLAC_NO_STDIO
 // Opens a flac decoder from the file at the given path.
-drflac* drflac_open_file(const char* pFile);
+drflac* drflac_open_file(const char* filename);
 #endif
 
 // Helper for opening a file from a pre-allocated memory buffer.
@@ -312,6 +312,19 @@ drflac* drflac_open_file(const char* pFile);
 // This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
 // the lifetime of the decoder.
 drflac* drflac_open_memory(const void* data, size_t dataSize);
+
+
+
+//// High Level APIs ////
+
+#ifndef DR_FLAC_NO_STDIO
+// Opens a FLAC file and fully decodes it in a single operation. The return value is a pointer to the sample data
+// as interleaved signed 32-bit PCM. The returned data must be freed with drflac_free().
+int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+#endif
+
+// Frees data returned by drflac_init_and_decode_*().
+void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
 
 
 #ifdef __cplusplus
@@ -2872,6 +2885,55 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
 }
 
 
+
+//// High Level APIs ////
+
+#ifndef DR_FLAC_NO_STDIO
+int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+{
+    // Safety.
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drflac* pFlac = drflac_open_file(filename);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    uint64_t dataSize = pFlac->totalSampleCount * sizeof(int32_t);
+    if (dataSize > SIZE_MAX) {
+        drflac_close(pFlac);
+        return NULL;    // The decoded data is too big.
+    }
+
+    int32_t* pSampleData = malloc((size_t)dataSize);    // <-- Safe cast as per the check above.
+    if (pSampleData == NULL) {
+        drflac_close(pFlac);
+        return NULL;
+    }
+
+    uint64_t samplesDecoded = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSampleData);
+    if (samplesDecoded != pFlac->totalSampleCount) {
+        drflac_close(pFlac);
+        free(pSampleData);
+        return NULL;    // Something went wrong when decoding the FLAC stream.
+    }
+
+
+    if (sampleRate) *sampleRate = pFlac->sampleRate;
+    if (channels) *channels = pFlac->channels;
+    if (totalSampleCount) *totalSampleCount = pFlac->totalSampleCount;
+
+    drflac_close(pFlac);
+    return pSampleData;
+}
+#endif
+
+void drflac_free(void* pSampleDataReturnedByOpenAndDecode)
+{
+    free(pSampleDataReturnedByOpenAndDecode);
+}
 #endif  //DR_FLAC_IMPLEMENTATION
 
 
