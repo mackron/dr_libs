@@ -1045,17 +1045,6 @@ static bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
     return result;
 }
 
-static long long drflac__tell(drflac* pFlac)
-{
-    assert(pFlac != NULL);
-
-    size_t unreadBytesFromL1 = (DRFLAC_CACHE_L1_SIZE_BYTES - (pFlac->consumedBits/8));
-    size_t unreadBytesFromL2 = (DRFLAC_CACHE_L2_SIZE_BYTES - ((pFlac->nextL2Line - pFlac->unusedL2Lines)*DRFLAC_CACHE_L1_SIZE_BYTES));
-
-    return pFlac->currentBytePos - unreadBytesFromL1 - unreadBytesFromL2;
-}
-
-
 
 static bool drflac__read_utf8_coded_number(drflac* pFlac, unsigned long long* pNumberOut)
 {
@@ -2284,39 +2273,6 @@ static bool drflac__read_and_decode_next_frame(drflac* pFlac)
     }
 
     return drflac__decode_frame(pFlac);
-}
-
-static unsigned int drflac__read_block_header(drflac* pFlac, unsigned int* pBlockSizeOut, bool* pIsLastBlockOut)    // Returns the block type.
-{
-    assert(pFlac != NULL);
-
-    unsigned char isLastBlock = 1;
-    unsigned char blockType = DRFLAC_BLOCK_TYPE_INVALID;
-    unsigned int blockSize = 0;
-
-    if (!drflac__read_uint8(pFlac, 1, &isLastBlock)) {
-        goto done_reading_block_header;
-    }
-
-    if (!drflac__read_uint8(pFlac, 7, &blockType)) {
-        goto done_reading_block_header;
-    }
-
-    if (!drflac__read_uint32(pFlac, 24, &blockSize)) {
-        goto done_reading_block_header;
-    }
-
-
-done_reading_block_header:
-    if (pBlockSizeOut) {
-        *pBlockSizeOut = blockSize;
-    }
-
-    if (pIsLastBlockOut) {
-        *pIsLastBlockOut = isLastBlock != 0;
-    }
-
-    return blockType;
 }
 
 
