@@ -225,20 +225,11 @@ typedef struct
     uint64_t totalSampleCount;
 
 
-    // The location and size of the APPLICATION block.
-    drflac_block applicationBlock;
+    // The position of the seektable in the file.
+    uint64_t seektablePos;
 
-    // The location and size of the SEEKTABLE block.
-    drflac_block seektableBlock;
-
-    // The location and size of the VORBIS_COMMENT block.
-    drflac_block vorbisCommentBlock;
-
-    // The location and size of the CUESHEET block.
-    drflac_block cuesheetBlock;
-
-    // The location and size of the PICTURE block.
-    drflac_block pictureBlock;
+    // The size of the seektable.
+    uint32_t seektableSize;
 
 
     // Information about the frame the decoder is currently sitting on.
@@ -2385,16 +2376,16 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
 {
     assert(pFlac != NULL);
 
-    if (pFlac->seektableBlock.pos == 0) {
+    if (pFlac->seektablePos == 0) {
         return false;
     }
 
-    if (!drflac__seek_to_byte(pFlac, pFlac->seektableBlock.pos)) {
+    if (!drflac__seek_to_byte(pFlac, pFlac->seektablePos)) {
         return false;
     }
 
     // The number of seek points is derived from the size of the SEEKTABLE block.
-    unsigned int seekpointCount = pFlac->seektableBlock.sizeInBytes / 18;   // 18 = the size of each seek point.
+    unsigned int seekpointCount = pFlac->seektableSize / 18;   // 18 = the size of each seek point.
     if (seekpointCount == 0) {
         return false;   // Would this ever happen?
     }
@@ -2610,10 +2601,9 @@ bool drflac_init(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek
     pFlac->channels         = (uint8_t)init.channels;
     pFlac->bitsPerSample    = (uint8_t)init.bitsPerSample;
     pFlac->totalSampleCount = init.totalSampleCount;
+    pFlac->seektablePos     = init.seektablePos;
+    pFlac->seektableSize    = init.seektableSize;
     pFlac->firstFramePos    = init.runningFilePos;
-
-    pFlac->seektableBlock.pos = init.seektablePos;
-    pFlac->seektableBlock.sizeInBytes = init.seektableSize;
 
     return false;
 }
@@ -2665,10 +2655,9 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUse
     pFlac->bitsPerSample    = (uint8_t)init.bitsPerSample;
     pFlac->totalSampleCount = init.totalSampleCount;
     pFlac->firstFramePos    = init.runningFilePos;
+    pFlac->seektablePos     = init.seektablePos;
+    pFlac->seektableSize    = init.seektableSize;
     pFlac->pDecodedSamples  = (int32_t*)pFlac->pExtraData;
-
-    pFlac->seektableBlock.pos = init.seektablePos;
-    pFlac->seektableBlock.sizeInBytes = init.seektableSize;
 
     return pFlac;
 }
