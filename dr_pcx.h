@@ -121,7 +121,7 @@ typedef struct
 
 static size_t drpcx__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
-    drpcx_memory* memory = pUserData;
+    drpcx_memory* memory = (drpcx_memory*)pUserData;
     assert(memory != NULL);
     assert(memory->dataSize >= memory->currentReadPos);
 
