@@ -39,7 +39,6 @@
 #ifndef dr_obj_h
 #define dr_obj_h
 
-#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -184,6 +183,9 @@ void drobj_interleave_p3t2n3(drobj* pOBJ, uint32_t* pVertexCountOut, float** ppV
 //
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef DR_OBJ_IMPLEMENTATION
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
 #ifndef DR_OBJ_NO_STDIO
 #include <stdio.h>
@@ -488,8 +490,6 @@ bool drobj__seek_to_next_line(drobj_load_context* pLoadContext)
             return false;
         }
     }
-
-    return false;
 }
 
 bool drobj__read_next_line(drobj_load_context* pLoadContext, char** pLineBeg, char** pLineEnd)
