@@ -145,7 +145,7 @@ typedef struct
     // an extra bit is required for side channels when interchannel decorrelation is being used.
     uint32_t bitsPerSample;
 
-    // A pointer to the buffer containing the decoded samples in the subframe. This pointer is an offset from drflac::pHeap, or
+    // A pointer to the buffer containing the decoded samples in the subframe. This pointer is an offset from drflac::pExtraData, or
     // NULL if the heap is not being used. Note that it's a signed 32-bit integer for each value.
     int32_t* pDecodedSamples;
 
