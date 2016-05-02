@@ -2459,118 +2459,216 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
 }
 
 
-drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData)
+
+// Initializes a flac decoder.
+//
+// The difference with drflac_init() and drflac_open() is that _init() allows you to initialize a drflac decoder
+// from a pre-allocated structure. However, due to details with the implementation, when decoding samples from
+// a decoder initialized with this API, it must be done whole frame's at a time. This can make memory management
+// a bit more flexible, but it comes at the cost of a harder to use API.
+//
+// The drflac object does not need to be uninitialized.
+bool drflac_init(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData);
+
+// The decoder must be uninitialized with drflac_uninit() so that the file can be closed.
+bool drflac_init_from_file(drflac* pFlac, const char* filename);
+
+typedef struct
 {
-    if (onRead == NULL || onSeek == NULL) {
-        return NULL;
+    uint32_t sampleRate;
+    uint32_t channels;
+    uint32_t bitsPerSample;
+    uint64_t totalSampleCount;
+    uint16_t maxBlockSize;
+    uint64_t runningFilePos;
+    uint64_t seektablePos;
+    uint32_t seektableSize;
+} drflac_init_info;
+
+void drflac__decode_block_header(uint32_t blockHeader, uint8_t* isLastBlock, uint8_t* blockType, uint32_t* blockSize)
+{
+    blockHeader = drflac__be2host_32(blockHeader);
+    *isLastBlock = (blockHeader & (0x01 << 31)) >> 31;
+    *blockType   = (blockHeader & (0x7F << 24)) >> 24;
+    *blockSize   = (blockHeader & 0xFFFFFF);
+}
+
+bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData)
+{
+    if (pInit == NULL || onRead == NULL || onSeek == NULL) {
+        return false;
     }
 
     unsigned char id[4];
     if (onRead(pUserData, id, 4) != 4 || id[0] != 'f' || id[1] != 'L' || id[2] != 'a' || id[3] != 'C') {
-        return NULL;    // Not a FLAC stream.
+        return false;    // Not a FLAC stream.
     }
-
-    drflac tempFlac;
-    memset(&tempFlac, 0, sizeof(tempFlac));
-    tempFlac.onRead         = onRead;
-    tempFlac.onSeek         = onSeek;
-    tempFlac.pUserData      = pUserData;
-    tempFlac.currentBytePos = 4;
-    tempFlac.nextL2Line     = sizeof(tempFlac.cacheL2) / sizeof(tempFlac.cacheL2[0]); // <-- Initialize to this to force a client-side data retrieval right from the start.
-    tempFlac.consumedBits   = sizeof(tempFlac.cache)*8;
 
     // The first metadata block should be the STREAMINFO block. We don't care about everything in here.
-    unsigned int blockSize;
-    bool isLastBlock;
-    int blockType = drflac__read_block_header(&tempFlac, &blockSize, &isLastBlock);
-    if (blockType != DRFLAC_BLOCK_TYPE_STREAMINFO && blockSize != 34) {
-        return NULL;
+    uint32_t blockHeader;
+    if (onRead(pUserData, &blockHeader, 4) != 4) {
+        return false;    // Ran out of data.
     }
 
-    if (!drflac__seek_bits(&tempFlac, 16)) {   // minBlockSize
-        return NULL;
-    }
-    if (!drflac__read_uint16(&tempFlac, 16, &tempFlac.maxBlockSize)) {
-        return NULL;
-    }
-    if (!drflac__seek_bits(&tempFlac, 48)) {   // minFrameSize + maxFrameSize
-        return NULL;
-    }
-    if (!drflac__read_uint32(&tempFlac, 20, &tempFlac.sampleRate)) {
-        return NULL;
-    }
-    if (!drflac__read_uint8(&tempFlac, 3, &tempFlac.channels)) {
-        return NULL;
-    }
-    if (!drflac__read_uint8(&tempFlac, 5, &tempFlac.bitsPerSample)) {
-        return NULL;
-    }
-    if (!drflac__read_uint64(&tempFlac, 36, &tempFlac.totalSampleCount)) {
-        return NULL;
-    }
-    if (!drflac__seek_bits(&tempFlac, 128)) {  // MD5
-        return NULL;
+    uint8_t  isLastBlock = (blockHeader & (0x01 << 31)) >> 31;
+    uint8_t  blockType   = (blockHeader & (0x7F << 24)) >> 24;
+    uint32_t blockSize   = (blockHeader & 0xFFFFFF);
+    drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
+    if (blockType != DRFLAC_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
+        return false;    // Invalid block type. First block must be the STREAMINFO block.
     }
 
-    tempFlac.channels += 1;
-    tempFlac.bitsPerSample += 1;
-    tempFlac.totalSampleCount *= tempFlac.channels;
+    // min/max block size.
+    uint32_t blockSizes;
+    if (onRead(pUserData, &blockSizes, 4) != 4) {
+        return false;
+    }
 
+    // min/max frame size. Don't care about this.
+    if (!onSeek(pUserData, 6)) {
+        return false;
+    }
+
+    // Sample rate, channels, bits per sample and total sample count.
+    uint64_t importantProps;
+    if (onRead(pUserData, &importantProps, 8) != 8) {
+        return false;
+    }
+
+    // MD5
+    if (!onSeek(pUserData, 16)) {
+        return false;
+    }
+
+
+    importantProps = drflac__be2host_64(importantProps);
+    pInit->sampleRate       = (uint32_t)((importantProps & 0xFFFFF00000000000ULL) >> 44ULL);
+    pInit->channels         = (uint32_t)((importantProps & 0x00000E0000000000ULL) >> 41ULL) + 1;
+    pInit->bitsPerSample    = (uint32_t)((importantProps & 0x000001F000000000ULL) >> 36ULL) + 1;
+    pInit->totalSampleCount = (importantProps & 0x0000000FFFFFFFFFULL) * pInit->channels;
+    pInit->maxBlockSize     = drflac__be2host_32(blockSizes) & 0x0000FFFF;    // Don't care about the min block size - only the max (used for determining the size of the memory allocation).
+
+    // The next blocks are optional. We need to skip over them before we can start reading sample data. We want to keep track of the seektable so we can do efficient seeking.
+    pInit->runningFilePos = 42;
+    pInit->seektablePos = 0;
+    pInit->seektableSize = 0;
     while (!isLastBlock)
     {
-        blockType = drflac__read_block_header(&tempFlac, &blockSize, &isLastBlock);
+        if (onRead(pUserData, &blockHeader, 4) != 4) {
+            return false;
+        }
+        pInit->runningFilePos += 4;
 
+        drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
         switch (blockType)
         {
-            case DRFLAC_BLOCK_TYPE_APPLICATION:
-            {
-                tempFlac.applicationBlock.pos = drflac__tell(&tempFlac);
-                tempFlac.applicationBlock.sizeInBytes = blockSize;
-            } break;
-
             case DRFLAC_BLOCK_TYPE_SEEKTABLE:
             {
-                tempFlac.seektableBlock.pos = drflac__tell(&tempFlac);
-                tempFlac.seektableBlock.sizeInBytes = blockSize;
+                pInit->seektablePos  = pInit->runningFilePos;
+                pInit->seektableSize = blockSize;
             } break;
 
+            case DRFLAC_BLOCK_TYPE_APPLICATION:
             case DRFLAC_BLOCK_TYPE_VORBIS_COMMENT:
-            {
-                tempFlac.vorbisCommentBlock.pos = drflac__tell(&tempFlac);
-                tempFlac.vorbisCommentBlock.sizeInBytes = blockSize;
-            } break;
-
             case DRFLAC_BLOCK_TYPE_CUESHEET:
-            {
-                tempFlac.cuesheetBlock.pos = drflac__tell(&tempFlac);
-                tempFlac.cuesheetBlock.sizeInBytes = blockSize;
-            } break;
-
             case DRFLAC_BLOCK_TYPE_PICTURE:
-            {
-                tempFlac.pictureBlock.pos = drflac__tell(&tempFlac);
-                tempFlac.pictureBlock.sizeInBytes = blockSize;
-            } break;
-
-
-            // These blocks we either don't care about or aren't supporting.
             case DRFLAC_BLOCK_TYPE_PADDING:
             case DRFLAC_BLOCK_TYPE_INVALID:
             default: break;
         }
 
-        if (!drflac__seek_bits(&tempFlac, blockSize*8)) {
-            return NULL;
+        if (!onSeek(pUserData, blockSize)) {
+            return false;
         }
+        pInit->runningFilePos += blockSize;
     }
 
+    return true;
+}
 
-    // At this point we should be sitting right at the start of the very first frame.
-    tempFlac.firstFramePos = drflac__tell(&tempFlac);
+#ifdef DR_FLAC_EXPERIMENTAL
+bool drflac_init(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData)
+{
+    if (pFlac == NULL) {
+        return false;
+    }
 
-    drflac* pFlac = (drflac*)malloc(sizeof(*pFlac) - sizeof(pFlac->pExtraData) + (tempFlac.maxBlockSize * tempFlac.channels * sizeof(int32_t)));
-    memcpy(pFlac, &tempFlac, sizeof(tempFlac) - sizeof(pFlac->pExtraData));
-    pFlac->pDecodedSamples = (int32_t*)pFlac->pExtraData;
+    drflac_init_info init;
+    if (!drflac__init_private(&init, onRead, onSeek, pUserData)) {
+        return false;
+    }
+    
+    memset(pFlac, 0, sizeof(*pFlac));
+    pFlac->onRead           = onRead;
+    pFlac->onSeek           = onSeek;
+    pFlac->pUserData        = pUserData;
+    pFlac->currentBytePos   = init.runningFilePos;
+    pFlac->nextL2Line       = sizeof(pFlac->cacheL2) / sizeof(pFlac->cacheL2[0]); // <-- Initialize to this to force a client-side data retrieval right from the start.
+    pFlac->consumedBits     = sizeof(pFlac->cache)*8;
+    pFlac->maxBlockSize     = init.maxBlockSize;
+    pFlac->sampleRate       = init.sampleRate;
+    pFlac->channels         = (uint8_t)init.channels;
+    pFlac->bitsPerSample    = (uint8_t)init.bitsPerSample;
+    pFlac->totalSampleCount = init.totalSampleCount;
+    pFlac->firstFramePos    = init.runningFilePos;
+
+    pFlac->seektableBlock.pos = init.seektablePos;
+    pFlac->seektableBlock.sizeInBytes = init.seektableSize;
+
+    return false;
+}
+
+bool drflac_init_from_file(drflac* pFlac, const char* filename)
+{
+    // TODO: DONT FORGET ABOUT THE WIN32 IO BACKEND!
+
+    FILE* pFile;
+#ifdef _MSC_VER
+    if (fopen_s(&pFile, filename, "rb") != 0) {
+        return false;
+    }
+#else
+    pFile = fopen(filename, "rb");
+    if (pFile == NULL) {
+        return false;
+    }
+#endif
+
+    return drflac_init(pFlac, drflac__on_read_stdio, drflac__on_seek_stdio, pFile);
+}
+#endif
+
+
+
+drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData)
+{
+    drflac_init_info init;
+    if (!drflac__init_private(&init, onRead, onSeek, pUserData)) {
+        return false;
+    }
+
+    size_t allocationSize = sizeof(drflac) - sizeof(char);
+    allocationSize += init.maxBlockSize * init.channels * sizeof(int32_t);
+    allocationSize += init.seektableSize;
+
+    drflac* pFlac = (drflac*)malloc(allocationSize);
+    memset(pFlac, 0, sizeof(*pFlac));
+    pFlac->onRead           = onRead;
+    pFlac->onSeek           = onSeek;
+    pFlac->pUserData        = pUserData;
+    pFlac->currentBytePos   = init.runningFilePos;
+    pFlac->nextL2Line       = sizeof(pFlac->cacheL2) / sizeof(pFlac->cacheL2[0]); // <-- Initialize to this to force a client-side data retrieval right from the start.
+    pFlac->consumedBits     = sizeof(pFlac->cache)*8;
+    pFlac->maxBlockSize     = init.maxBlockSize;
+    pFlac->sampleRate       = init.sampleRate;
+    pFlac->channels         = (uint8_t)init.channels;
+    pFlac->bitsPerSample    = (uint8_t)init.bitsPerSample;
+    pFlac->totalSampleCount = init.totalSampleCount;
+    pFlac->firstFramePos    = init.runningFilePos;
+    pFlac->pDecodedSamples  = (int32_t*)pFlac->pExtraData;
+
+    pFlac->seektableBlock.pos = init.seektablePos;
+    pFlac->seektableBlock.sizeInBytes = init.seektableSize;
 
     return pFlac;
 }
