@@ -141,7 +141,7 @@ static size_t drpcx__on_read_memory(void* pUserData, void* bufferOut, size_t byt
 uint8_t* drpcx_load_memory(const void* data, size_t dataSize, bool flipped, int* x, int* y, int* comp)
 {
     drpcx_memory memory;
-    memory.data = data;
+    memory.data = (const unsigned char*)data;
     memory.dataSize = dataSize;
     memory.currentReadPos = 0;
     return drpcx_load(drpcx__on_read_memory, &memory, flipped, x, y, comp);
@@ -603,7 +603,7 @@ uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, bool flipped, int* 
     pcx.height = pcx.header.bottom - pcx.header.top + 1;
     pcx.components = (pcx.header.bpp == 8 && pcx.header.bitPlanes == 4) ? 4 : 3;
     size_t dataSize = pcx.width * pcx.height * pcx.components;
-    pcx.pImageData = calloc(1, dataSize);   // <-- Clearing to zero is important! Required for proper decoding.
+    pcx.pImageData = (uint8_t*)calloc(1, dataSize);   // <-- Clearing to zero is important! Required for proper decoding.
     if (pcx.pImageData == NULL) {
         return NULL;    // Failed to allocate memory.
     }
