@@ -35,11 +35,8 @@
 #ifndef dr_pcx_h
 #define dr_pcx_h
 
-#include <stdlib.h>
-#include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <assert.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,6 +75,9 @@ uint8_t* drpcx_load_memory(const void* data, size_t dataSize, bool flipped, int*
 //
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef DR_PCX_IMPLEMENTATION
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 
 #ifndef DR_PCX_NO_STDIO
 #include <stdio.h>
