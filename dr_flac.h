@@ -323,7 +323,7 @@ drflac* drflac_open_memory(const void* data, size_t dataSize);
 int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
 #endif
 
-// Frees data returned by drflac_init_and_decode_*().
+// Frees data returned by drflac_open_and_decode_*().
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
 
 
