@@ -850,7 +850,7 @@ static bool drfs_basedirs_inflateandinsert(drfs_basedirs* pBasePaths, const char
     unsigned int newBufferSize = (pBasePaths->bufferSize == 0) ? 2 : pBasePaths->bufferSize*2;
 
     drfs_basepath* pOldBuffer = pBasePaths->pBuffer;
-    drfs_basepath* pNewBuffer = malloc(newBufferSize * sizeof(drfs_basepath));
+    drfs_basepath* pNewBuffer = (drfs_basepath*)malloc(newBufferSize * sizeof(drfs_basepath));
     if (pNewBuffer == NULL) {
         return false;
     }
@@ -975,7 +975,7 @@ static bool drfs_callbacklist_inflate(drfs_callbacklist* pList)
     }
 
     drfs_archive_callbacks* pOldBuffer = pList->pBuffer;
-    drfs_archive_callbacks* pNewBuffer = malloc((pList->count + 1) * sizeof(drfs_archive_callbacks));
+    drfs_archive_callbacks* pNewBuffer = (drfs_archive_callbacks*)malloc((pList->count + 1) * sizeof(drfs_archive_callbacks));
     if (pNewBuffer == NULL) {
         return false;
     }
@@ -1880,7 +1880,7 @@ static drfs_result drfs_delete_native_file(const char* absolutePath)
 
 static drfs_result drfs_mkdir_native(const char* absolutePath)
 {
-    bool wasSuccessful = CreateDirectoryA(absolutePath, NULL);
+    BOOL wasSuccessful = CreateDirectoryA(absolutePath, NULL);
     if (wasSuccessful) {
         return drfs_success;
     }
@@ -1915,7 +1915,7 @@ static drfs_result drfs_read_native_file(drfs_handle file, void* pDataOut, size_
 
     size_t totalBytesRead = 0;
 
-    char* pDst = pDataOut;
+    char* pDst = (char*)pDataOut;
     uint64_t bytesRemaining = bytesToRead;
     while (bytesRemaining > 0)
     {
@@ -1960,7 +1960,7 @@ static drfs_result drfs_write_native_file(drfs_handle file, const void* pData, s
     // we handle data > 4GB correctly.
 
     size_t totalBytesWritten = 0;
-    const char* pSrc = pData;
+    const char* pSrc = (const char*)pData;
 
     size_t bytesRemaining = bytesToWrite;
     while (bytesRemaining > 0)
@@ -2114,7 +2114,7 @@ static drfs_handle drfs_begin_native_iteration(const char* absolutePath)
     searchQuery[searchQueryLength + 1] = '*';
     searchQuery[searchQueryLength + 2] = '\0';
 
-    drfs_iterator_win32* pIterator = malloc(sizeof(*pIterator) + searchQueryLength);
+    drfs_iterator_win32* pIterator = (drfs_iterator_win32*)malloc(sizeof(*pIterator) + searchQueryLength);
     if (pIterator == NULL) {
         return NULL;
     }
@@ -2133,7 +2133,7 @@ static drfs_handle drfs_begin_native_iteration(const char* absolutePath)
 
 static void drfs_end_native_iteration(drfs_handle iterator)
 {
-    drfs_iterator_win32* pIterator = iterator;
+    drfs_iterator_win32* pIterator = (drfs_iterator_win32*)iterator;
     assert(pIterator != NULL);
 
     if (pIterator->hFind) {
@@ -2145,7 +2145,7 @@ static void drfs_end_native_iteration(drfs_handle iterator)
 
 static bool drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi)
 {
-    drfs_iterator_win32* pIterator = iterator;
+    drfs_iterator_win32* pIterator = (drfs_iterator_win32*)iterator;
     assert(pIterator != NULL);
 
     if (pIterator->hFind != INVALID_HANDLE_VALUE && pIterator->hFind != NULL)
@@ -2710,7 +2710,7 @@ static drfs_result drfs_open_archive__native__special(const char* absolutePath, 
 
     size_t absolutePathLen = strlen(absolutePath);
 
-    drfs_archive_native* pNativeArchive = malloc(sizeof(*pNativeArchive) + absolutePathLen + 1);
+    drfs_archive_native* pNativeArchive = (drfs_archive_native*)malloc(sizeof(*pNativeArchive) + absolutePathLen + 1);
     if (pNativeArchive == NULL) {
         return drfs_out_of_memory;
     }
@@ -2730,7 +2730,7 @@ static void drfs_close_archive__native(drfs_handle archive)
 
 static drfs_result drfs_get_file_info__native(drfs_handle archive, const char* relativePath, drfs_file_info* fi)
 {
-    drfs_archive_native* pNativeArchive = archive;
+    drfs_archive_native* pNativeArchive = (drfs_archive_native*)archive;
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRFS_MAX_PATH];
@@ -2747,7 +2747,7 @@ static drfs_result drfs_get_file_info__native(drfs_handle archive, const char* r
 
 static drfs_handle drfs_begin_iteration__native(drfs_handle archive, const char* relativePath)
 {
-    drfs_archive_native* pNativeArchive = archive;
+    drfs_archive_native* pNativeArchive = (drfs_archive_native*)archive;
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRFS_MAX_PATH];
@@ -2780,7 +2780,7 @@ static drfs_result drfs_delete_file__native(drfs_handle archive, const char* rel
 {
     assert(relativePath != NULL);
 
-    drfs_archive_native* pNativeArchive = archive;
+    drfs_archive_native* pNativeArchive = (drfs_archive_native*)archive;
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRFS_MAX_PATH];
@@ -2796,7 +2796,7 @@ static drfs_result drfs_move_file__native(drfs_handle archive, const char* relat
     assert(relativePathOld != NULL);
     assert(relativePathNew != NULL);
 
-    drfs_archive_native* pNativeArchive = archive;
+    drfs_archive_native* pNativeArchive = (drfs_archive_native*)archive;
     assert(pNativeArchive != NULL);
 
     char absolutePathOld[DRFS_MAX_PATH];
@@ -2816,7 +2816,7 @@ static drfs_result drfs_create_directory__native(drfs_handle archive, const char
 {
     assert(relativePath != NULL);
 
-    drfs_archive_native* pNativeArchive = archive;
+    drfs_archive_native* pNativeArchive = (drfs_archive_native*)archive;
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRFS_MAX_PATH];
@@ -2832,7 +2832,7 @@ static drfs_result drfs_copy_file__native(drfs_handle archive, const char* relat
     assert(relativePathSrc != NULL);
     assert(relativePathDst != NULL);
 
-    drfs_archive_native* pNativeArchive = archive;
+    drfs_archive_native* pNativeArchive = (drfs_archive_native*)archive;
     assert(pNativeArchive != NULL);
 
     char absolutePathSrc[DRFS_MAX_PATH];
@@ -2853,7 +2853,7 @@ static drfs_result drfs_open_file__native(drfs_handle archive, const char* relat
     assert(archive != NULL);
     assert(relativePath != NULL);
 
-    drfs_archive_native* pNativeArchive = archive;
+    drfs_archive_native* pNativeArchive = (drfs_archive_native*)archive;
     assert(pNativeArchive != NULL);
 
     char absolutePath[DRFS_MAX_PATH];
@@ -2976,7 +2976,7 @@ static drfs_result drfs_open_native_archive(drfs_context* pContext, const char* 
         return result;
     }
 
-    drfs_archive* pArchive = malloc(sizeof(*pArchive));
+    drfs_archive* pArchive = (drfs_archive*)malloc(sizeof(*pArchive));
     if (pArchive == NULL) {
         drfs_close_archive__native(internalArchiveHandle);
         return drfs_out_of_memory;
@@ -3032,7 +3032,7 @@ static drfs_result drfs_open_non_native_archive(drfs_archive* pParentArchive, dr
         return result;
     }
 
-    drfs_archive* pArchive = malloc(sizeof(*pArchive));
+    drfs_archive* pArchive = (drfs_archive*)malloc(sizeof(*pArchive));
     if (pArchive == NULL) {
         pBackEndCallbacks->close_archive(internalArchiveHandle);
         return drfs_out_of_memory;
@@ -3523,7 +3523,7 @@ static void drfs_register_mtl_backend(drfs_context* pContext);
 
 drfs_context* drfs_create_context()
 {
-    drfs_context* pContext = malloc(sizeof(*pContext));
+    drfs_context* pContext = (drfs_context*)malloc(sizeof(*pContext));
     if (pContext == NULL) {
         return NULL;
     }
@@ -3868,7 +3868,7 @@ drfs_result drfs_open_file_from_archive(drfs_archive* pArchive, const char* rela
     }
 
     // At this point the file is opened and we can create the file object.
-    drfs_file* pFile = malloc(sizeof(*pFile));
+    drfs_file* pFile = (drfs_file*)malloc(sizeof(*pFile));
     if (pFile == NULL) {
         pArchive->callbacks.close_file(pArchive->internalArchiveHandle, internalFileHandle);
         return drfs_out_of_memory;
@@ -4618,7 +4618,7 @@ char* drfs_open_and_read_text_file(drfs_context* pContext, const char* absoluteO
     }
 
     drfs_close(pFile);
-    return pData;
+    return (char*)pData;
 }
 
 bool drfs_open_and_write_binary_file(drfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize)
@@ -4832,7 +4832,7 @@ typedef void *(*drfs_mz_realloc_func)(void *opaque, void *address, size_t items,
 
 // ------------------- Types and macros
 
-typedef unsigned char drfs_drfs_mz_uint8;
+typedef unsigned char drfs_mz_uint8;
 typedef signed short drfs_mz_int16;
 typedef unsigned short drfs_drfs_mz_uint16;
 typedef unsigned int drfs_drfs_mz_uint32;
@@ -5025,7 +5025,7 @@ typedef enum
 
 // Main low-level decompressor coroutine function. This is the only function actually needed for decompression. All the other functions are just high-level helpers for improved usability.
 // This is a universal API, i.e. it can be used as a building block to build any desired higher level decompression API. In the limit case, it can be called once per every byte input or output.
-drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_drfs_mz_uint8 *pIn_buf_next, size_t *pIn_buf_size, drfs_drfs_mz_uint8 *pOut_buf_start, drfs_drfs_mz_uint8 *pOut_buf_next, size_t *pOut_buf_size, const drfs_drfs_mz_uint32 decomp_flags);
+drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_mz_uint8 *pIn_buf_next, size_t *pIn_buf_size, drfs_mz_uint8 *pOut_buf_start, drfs_mz_uint8 *pOut_buf_next, size_t *pOut_buf_size, const drfs_drfs_mz_uint32 decomp_flags);
 
 // Internal/private bits follow.
 enum
@@ -5036,7 +5036,7 @@ enum
 
 typedef struct
 {
-  drfs_drfs_mz_uint8 m_code_size[DRFS_TINFL_MAX_HUFF_SYMBOLS_0];
+  drfs_mz_uint8 m_code_size[DRFS_TINFL_MAX_HUFF_SYMBOLS_0];
   drfs_mz_int16 m_look_up[DRFS_TINFL_FAST_LOOKUP_SIZE], m_tree[DRFS_TINFL_MAX_HUFF_SYMBOLS_0 * 2];
 } drfs_tinfl_huff_table;
 
@@ -5058,7 +5058,7 @@ struct drfs_tinfl_decompressor_tag
   drfs_tinfl_bit_buf_t m_bit_buf;
   size_t m_dist_from_out_buf_start;
   drfs_tinfl_huff_table m_tables[DRFS_TINFL_MAX_HUFF_TABLES];
-  drfs_drfs_mz_uint8 m_raw_header[4], m_len_codes[DRFS_TINFL_MAX_HUFF_SYMBOLS_0 + DRFS_TINFL_MAX_HUFF_SYMBOLS_1 + 137];
+  drfs_mz_uint8 m_raw_header[4], m_len_codes[DRFS_TINFL_MAX_HUFF_SYMBOLS_0 + DRFS_TINFL_MAX_HUFF_SYMBOLS_1 + 137];
 };
 
 #ifdef __cplusplus
@@ -5092,8 +5092,8 @@ typedef unsigned char mz_validate_uint64[sizeof(drfs_mz_uint64)==8 ? 1 : -1];
   #define DRFS_MZ_READ_LE16(p) *((const drfs_drfs_mz_uint16 *)(p))
   #define DRFS_MZ_READ_LE32(p) *((const drfs_drfs_mz_uint32 *)(p))
 #else
-  #define DRFS_MZ_READ_LE16(p) ((drfs_drfs_mz_uint32)(((const drfs_drfs_mz_uint8 *)(p))[0]) | ((drfs_drfs_mz_uint32)(((const drfs_drfs_mz_uint8 *)(p))[1]) << 8U))
-  #define DRFS_MZ_READ_LE32(p) ((drfs_drfs_mz_uint32)(((const drfs_drfs_mz_uint8 *)(p))[0]) | ((drfs_drfs_mz_uint32)(((const drfs_drfs_mz_uint8 *)(p))[1]) << 8U) | ((drfs_drfs_mz_uint32)(((const drfs_drfs_mz_uint8 *)(p))[2]) << 16U) | ((drfs_drfs_mz_uint32)(((const drfs_drfs_mz_uint8 *)(p))[3]) << 24U))
+  #define DRFS_MZ_READ_LE16(p) ((drfs_drfs_mz_uint32)(((const drfs_mz_uint8 *)(p))[0]) | ((drfs_drfs_mz_uint32)(((const drfs_mz_uint8 *)(p))[1]) << 8U))
+  #define DRFS_MZ_READ_LE32(p) ((drfs_drfs_mz_uint32)(((const drfs_mz_uint8 *)(p))[0]) | ((drfs_drfs_mz_uint32)(((const drfs_mz_uint8 *)(p))[1]) << 8U) | ((drfs_drfs_mz_uint32)(((const drfs_mz_uint8 *)(p))[2]) << 16U) | ((drfs_drfs_mz_uint32)(((const drfs_mz_uint8 *)(p))[3]) << 24U))
 #endif
 
 #ifdef _MSC_VER
@@ -5130,13 +5130,13 @@ drfs_mz_ulong drfs_mz_adler32(drfs_mz_ulong adler, const unsigned char *ptr, siz
 }
 
 // Karl Malbrain's compact CRC-32. See "A compact CCITT crc16 and crc32 C implementation that balances processor cache usage against speed": http://www.geocities.com/malbrain/
-drfs_mz_ulong drfs_mz_crc32(drfs_mz_ulong crc, const drfs_drfs_mz_uint8 *ptr, size_t buf_len)
+drfs_mz_ulong drfs_mz_crc32(drfs_mz_ulong crc, const drfs_mz_uint8 *ptr, size_t buf_len)
 {
   static const drfs_drfs_mz_uint32 s_crc32[16] = { 0, 0x1db71064, 0x3b6e20c8, 0x26d930ac, 0x76dc4190, 0x6b6b51f4, 0x4db26158, 0x5005713c,
     0xedb88320, 0xf00f9344, 0xd6d6a3e8, 0xcb61b38c, 0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c };
   drfs_drfs_mz_uint32 crcu32 = (drfs_drfs_mz_uint32)crc;
   if (!ptr) return DRFS_MZ_CRC32_INIT;
-  crcu32 = ~crcu32; while (buf_len--) { drfs_drfs_mz_uint8 b = *ptr++; crcu32 = (crcu32 >> 4) ^ s_crc32[(crcu32 & 0xF) ^ (b & 0xF)]; crcu32 = (crcu32 >> 4) ^ s_crc32[(crcu32 & 0xF) ^ (b >> 4)]; }
+  crcu32 = ~crcu32; while (buf_len--) { drfs_mz_uint8 b = *ptr++; crcu32 = (crcu32 >> 4) ^ s_crc32[(crcu32 & 0xF) ^ (b & 0xF)]; crcu32 = (crcu32 >> 4) ^ s_crc32[(crcu32 & 0xF) ^ (b >> 4)]; }
   return ~crcu32;
 }
 
@@ -5216,18 +5216,18 @@ void drfs_mz_free(void *p)
     code_len = DRFS_TINFL_FAST_LOOKUP_BITS; do { temp = (pHuff)->m_tree[~temp + ((bit_buf >> code_len++) & 1)]; } while (temp < 0); \
   } sym = temp; bit_buf >>= code_len; num_bits -= code_len; } DRFS_MZ_MACRO_END
 
-drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_drfs_mz_uint8 *pIn_buf_next, size_t *pIn_buf_size, drfs_drfs_mz_uint8 *pOut_buf_start, drfs_drfs_mz_uint8 *pOut_buf_next, size_t *pOut_buf_size, const drfs_drfs_mz_uint32 decomp_flags)
+drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_mz_uint8 *pIn_buf_next, size_t *pIn_buf_size, drfs_mz_uint8 *pOut_buf_start, drfs_mz_uint8 *pOut_buf_next, size_t *pOut_buf_size, const drfs_drfs_mz_uint32 decomp_flags)
 {
   static const int s_length_base[31] = { 3,4,5,6,7,8,9,10,11,13, 15,17,19,23,27,31,35,43,51,59, 67,83,99,115,131,163,195,227,258,0,0 };
   static const int s_length_extra[31]= { 0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0,0,0 };
   static const int s_dist_base[32] = { 1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193, 257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577,0,0};
   static const int s_dist_extra[32] = { 0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13};
-  static const drfs_drfs_mz_uint8 s_length_dezigzag[19] = { 16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15 };
+  static const drfs_mz_uint8 s_length_dezigzag[19] = { 16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15 };
   static const int s_min_table_sizes[3] = { 257, 1, 4 };
 
   drfs_tinfl_status status = DRFS_TINFL_STATUS_FAILED; drfs_drfs_mz_uint32 num_bits, dist, counter, num_extra; drfs_tinfl_bit_buf_t bit_buf;
-  const drfs_drfs_mz_uint8 *pIn_buf_cur = pIn_buf_next, *const pIn_buf_end = pIn_buf_next + *pIn_buf_size;
-  drfs_drfs_mz_uint8 *pOut_buf_cur = pOut_buf_next, *const pOut_buf_end = pOut_buf_next + *pOut_buf_size;
+  const drfs_mz_uint8 *pIn_buf_cur = pIn_buf_next, *const pIn_buf_end = pIn_buf_next + *pIn_buf_size;
+  drfs_mz_uint8 *pOut_buf_cur = pOut_buf_next, *const pOut_buf_end = pOut_buf_next + *pOut_buf_size;
   size_t out_buf_size_mask = (decomp_flags & DRFS_TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) ? (size_t)-1 : ((pOut_buf_next - pOut_buf_start) + *pOut_buf_size) - 1, dist_from_out_buf_start;
 
   // Ensure the output buffer's size is a power of 2, unless the output buffer is large enough to hold the entire output file (in which case it doesn't matter).
@@ -5257,7 +5257,7 @@ drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_d
       {
         DRFS_TINFL_GET_BITS(51, dist, 8);
         while (pOut_buf_cur >= pOut_buf_end) { DRFS_TINFL_CR_RETURN(52, DRFS_TINFL_STATUS_HAS_MORE_OUTPUT); }
-        *pOut_buf_cur++ = (drfs_drfs_mz_uint8)dist;
+        *pOut_buf_cur++ = (drfs_mz_uint8)dist;
         counter--;
       }
       while (counter)
@@ -5286,14 +5286,14 @@ drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_d
     {
       if (r->m_type == 1)
       {
-        drfs_drfs_mz_uint8 *p = r->m_tables[0].m_code_size; drfs_mz_uint i;
+        drfs_mz_uint8 *p = r->m_tables[0].m_code_size; drfs_mz_uint i;
         r->m_table_sizes[0] = 288; r->m_table_sizes[1] = 32; DRFS_TINFL_MEMSET(r->m_tables[1].m_code_size, 5, 32);
         for ( i = 0; i <= 143; ++i) *p++ = 8; for ( ; i <= 255; ++i) *p++ = 9; for ( ; i <= 279; ++i) *p++ = 7; for ( ; i <= 287; ++i) *p++ = 8;
       }
       else
       {
         for (counter = 0; counter < 3; counter++) { DRFS_TINFL_GET_BITS(11, r->m_table_sizes[counter], "\05\05\04"[counter]); r->m_table_sizes[counter] += s_min_table_sizes[counter]; }
-        DRFS_MZ_CLEAR_OBJ(r->m_tables[2].m_code_size); for (counter = 0; counter < r->m_table_sizes[2]; counter++) { drfs_mz_uint s; DRFS_TINFL_GET_BITS(14, s, 3); r->m_tables[2].m_code_size[s_length_dezigzag[counter]] = (drfs_drfs_mz_uint8)s; }
+        DRFS_MZ_CLEAR_OBJ(r->m_tables[2].m_code_size); for (counter = 0; counter < r->m_table_sizes[2]; counter++) { drfs_mz_uint s; DRFS_TINFL_GET_BITS(14, s, 3); r->m_tables[2].m_code_size[s_length_dezigzag[counter]] = (drfs_mz_uint8)s; }
         r->m_table_sizes[2] = 19;
       }
       for ( ; (int)r->m_type >= 0; r->m_type--)
@@ -5325,7 +5325,7 @@ drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_d
         {
           for (counter = 0; counter < (r->m_table_sizes[0] + r->m_table_sizes[1]); )
           {
-            drfs_mz_uint s; DRFS_TINFL_HUFF_DECODE(16, dist, &r->m_tables[2]); if (dist < 16) { r->m_len_codes[counter++] = (drfs_drfs_mz_uint8)dist; continue; }
+            drfs_mz_uint s; DRFS_TINFL_HUFF_DECODE(16, dist, &r->m_tables[2]); if (dist < 16) { r->m_len_codes[counter++] = (drfs_mz_uint8)dist; continue; }
             if ((dist == 16) && (!counter))
             {
               DRFS_TINFL_CR_RETURN_FOREVER(17, DRFS_TINFL_STATUS_FAILED);
@@ -5342,7 +5342,7 @@ drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_d
       }
       for ( ; ; )
       {
-        drfs_drfs_mz_uint8 *pSrc;
+        drfs_mz_uint8 *pSrc;
         for ( ; ; )
         {
           if (((pIn_buf_end - pIn_buf_cur) < 4) || ((pOut_buf_end - pOut_buf_cur) < 2))
@@ -5351,7 +5351,7 @@ drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_d
             if (counter >= 256)
               break;
             while (pOut_buf_cur >= pOut_buf_end) { DRFS_TINFL_CR_RETURN(24, DRFS_TINFL_STATUS_HAS_MORE_OUTPUT); }
-            *pOut_buf_cur++ = (drfs_drfs_mz_uint8)counter;
+            *pOut_buf_cur++ = (drfs_mz_uint8)counter;
           }
           else
           {
@@ -5382,14 +5382,14 @@ drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_d
             }
             bit_buf >>= code_len; num_bits -= code_len;
 
-            pOut_buf_cur[0] = (drfs_drfs_mz_uint8)counter;
+            pOut_buf_cur[0] = (drfs_mz_uint8)counter;
             if (sym2 & 256)
             {
               pOut_buf_cur++;
               counter = sym2;
               break;
             }
-            pOut_buf_cur[1] = (drfs_drfs_mz_uint8)sym2;
+            pOut_buf_cur[1] = (drfs_mz_uint8)sym2;
             pOut_buf_cur += 2;
           }
         }
@@ -5422,7 +5422,7 @@ drfs_tinfl_status drfs_tinfl_decompress(drfs_tinfl_decompressor *r, const drfs_d
 #if DRFS_MINIZ_USE_UNALIGNED_LOADS_AND_STORES
         else if ((counter >= 9) && (counter <= dist))
         {
-          const drfs_drfs_mz_uint8 *pSrc_end = pSrc + (counter & ~7);
+          const drfs_mz_uint8 *pSrc_end = pSrc + (counter & ~7);
           do
           {
             ((drfs_drfs_mz_uint32 *)pOut_buf_cur)[0] = ((const drfs_drfs_mz_uint32 *)pSrc)[0];
@@ -5471,7 +5471,7 @@ common_exit:
   *pIn_buf_size = pIn_buf_cur - pIn_buf_next; *pOut_buf_size = pOut_buf_cur - pOut_buf_next;
   if ((decomp_flags & (DRFS_TINFL_FLAG_PARSE_ZLIB_HEADER | DRFS_TINFL_FLAG_COMPUTE_ADLER32)) && (status >= 0))
   {
-    const drfs_drfs_mz_uint8 *ptr = pOut_buf_next; size_t buf_len = *pOut_buf_size;
+    const drfs_mz_uint8 *ptr = pOut_buf_next; size_t buf_len = *pOut_buf_size;
     drfs_drfs_mz_uint32 i, s1 = r->m_check_adler32 & 0xffff, s2 = r->m_check_adler32 >> 16; size_t block_len = buf_len % 5552;
     while (buf_len)
     {
@@ -5497,7 +5497,7 @@ void *drfs_tinfl_decompress_mem_to_heap(const void *pSrc_buf, size_t src_buf_len
   for ( ; ; )
   {
     size_t src_buf_size = src_buf_len - src_buf_ofs, dst_buf_size = out_buf_capacity - *pOut_len, new_out_buf_capacity;
-    drfs_tinfl_status status = drfs_tinfl_decompress(&decomp, (const drfs_drfs_mz_uint8*)pSrc_buf + src_buf_ofs, &src_buf_size, (drfs_drfs_mz_uint8*)pBuf, pBuf ? (drfs_drfs_mz_uint8*)pBuf + *pOut_len : NULL, &dst_buf_size,
+    drfs_tinfl_status status = drfs_tinfl_decompress(&decomp, (const drfs_mz_uint8*)pSrc_buf + src_buf_ofs, &src_buf_size, (drfs_mz_uint8*)pBuf, pBuf ? (drfs_mz_uint8*)pBuf + *pOut_len : NULL, &dst_buf_size,
       (flags & ~DRFS_TINFL_FLAG_HAS_MORE_INPUT) | DRFS_TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF);
     if ((status < 0) || (status == DRFS_TINFL_STATUS_NEEDS_MORE_INPUT))
     {
@@ -5520,7 +5520,7 @@ void *drfs_tinfl_decompress_mem_to_heap(const void *pSrc_buf, size_t src_buf_len
 size_t drfs_tinfl_decompress_mem_to_mem(void *pOut_buf, size_t out_buf_len, const void *pSrc_buf, size_t src_buf_len, int flags)
 {
   drfs_tinfl_decompressor decomp; drfs_tinfl_status status; drfs_tinfl_init(&decomp);
-  status = drfs_tinfl_decompress(&decomp, (const drfs_drfs_mz_uint8*)pSrc_buf, &src_buf_len, (drfs_drfs_mz_uint8*)pOut_buf, (drfs_drfs_mz_uint8*)pOut_buf, &out_buf_len, (flags & ~DRFS_TINFL_FLAG_HAS_MORE_INPUT) | DRFS_TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF);
+  status = drfs_tinfl_decompress(&decomp, (const drfs_mz_uint8*)pSrc_buf, &src_buf_len, (drfs_mz_uint8*)pOut_buf, (drfs_mz_uint8*)pOut_buf, &out_buf_len, (flags & ~DRFS_TINFL_FLAG_HAS_MORE_INPUT) | DRFS_TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF);
   return (status != DRFS_TINFL_STATUS_DONE) ? DRFS_TINFL_DECOMPRESS_MEM_TO_MEM_FAILED : out_buf_len;
 }
 
@@ -5528,14 +5528,14 @@ int drfs_tinfl_decompress_mem_to_callback(const void *pIn_buf, size_t *pIn_buf_s
 {
   int result = 0;
   drfs_tinfl_decompressor decomp;
-  drfs_drfs_mz_uint8 *pDict = (drfs_drfs_mz_uint8*)DRFS_MZ_MALLOC(DRFS_TINFL_LZ_DICT_SIZE); size_t in_buf_ofs = 0, dict_ofs = 0;
+  drfs_mz_uint8 *pDict = (drfs_mz_uint8*)DRFS_MZ_MALLOC(DRFS_TINFL_LZ_DICT_SIZE); size_t in_buf_ofs = 0, dict_ofs = 0;
   if (!pDict)
     return DRFS_TINFL_STATUS_FAILED;
   drfs_tinfl_init(&decomp);
   for ( ; ; )
   {
     size_t in_buf_size = *pIn_buf_size - in_buf_ofs, dst_buf_size = DRFS_TINFL_LZ_DICT_SIZE - dict_ofs;
-    drfs_tinfl_status status = drfs_tinfl_decompress(&decomp, (const drfs_drfs_mz_uint8*)pIn_buf + in_buf_ofs, &in_buf_size, pDict, pDict + dict_ofs, &dst_buf_size,
+    drfs_tinfl_status status = drfs_tinfl_decompress(&decomp, (const drfs_mz_uint8*)pIn_buf + in_buf_ofs, &in_buf_size, pDict, pDict + dict_ofs, &dst_buf_size,
       (flags & ~(DRFS_TINFL_FLAG_HAS_MORE_INPUT | DRFS_TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF)));
     in_buf_ofs += in_buf_size;
     if ((dst_buf_size) && (!(*pPut_buf_func)(pDict + dict_ofs, (int)dst_buf_size, pPut_buf_user)))
@@ -5636,7 +5636,7 @@ static DRFS_MZ_FORCEINLINE drfs_mz_bool drfs_mz_zip_array_ensure_room(drfs_mz_zi
 static DRFS_MZ_FORCEINLINE drfs_mz_bool drfs_mz_zip_array_push_back(drfs_mz_zip_archive *pZip, drfs_mz_zip_array *pArray, const void *pElements, size_t n)
 {
   size_t orig_size = pArray->m_size; if (!drfs_mz_zip_array_resize(pZip, pArray, orig_size + n, DRFS_MZ_TRUE)) return DRFS_MZ_FALSE;
-  memcpy((drfs_drfs_mz_uint8*)pArray->m_p + orig_size * pArray->m_element_size, pElements, n * pArray->m_element_size);
+  memcpy((drfs_mz_uint8*)pArray->m_p + orig_size * pArray->m_element_size, pElements, n * pArray->m_element_size);
   return DRFS_MZ_TRUE;
 }
 
@@ -5669,7 +5669,7 @@ static drfs_mz_bool drfs_mz_zip_reader_init_internal(drfs_mz_zip_archive *pZip, 
   if (NULL == (pZip->m_pState = (drfs_mz_zip_internal_state *)pZip->m_pAlloc(pZip->m_pAlloc_opaque, 1, sizeof(drfs_mz_zip_internal_state))))
     return DRFS_MZ_FALSE;
   memset(pZip->m_pState, 0, sizeof(drfs_mz_zip_internal_state));
-  DRFS_MZ_ZIP_ARRAY_SET_ELEMENT_SIZE(&pZip->m_pState->m_central_dir, sizeof(drfs_drfs_mz_uint8));
+  DRFS_MZ_ZIP_ARRAY_SET_ELEMENT_SIZE(&pZip->m_pState->m_central_dir, sizeof(drfs_mz_uint8));
   DRFS_MZ_ZIP_ARRAY_SET_ELEMENT_SIZE(&pZip->m_pState->m_central_dir_offsets, sizeof(drfs_drfs_mz_uint32));
   DRFS_MZ_ZIP_ARRAY_SET_ELEMENT_SIZE(&pZip->m_pState->m_sorted_central_dir_offsets, sizeof(drfs_drfs_mz_uint32));
   return DRFS_MZ_TRUE;
@@ -5677,10 +5677,10 @@ static drfs_mz_bool drfs_mz_zip_reader_init_internal(drfs_mz_zip_archive *pZip, 
 
 static DRFS_MZ_FORCEINLINE drfs_mz_bool drfs_mz_zip_reader_filename_less(const drfs_mz_zip_array *pCentral_dir_array, const drfs_mz_zip_array *pCentral_dir_offsets, drfs_mz_uint l_index, drfs_mz_uint r_index)
 {
-  const drfs_drfs_mz_uint8 *pL = &DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_array, drfs_drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_offsets, drfs_drfs_mz_uint32, l_index)), *pE;
-  const drfs_drfs_mz_uint8 *pR = &DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_array, drfs_drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_offsets, drfs_drfs_mz_uint32, r_index));
+  const drfs_mz_uint8 *pL = &DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_array, drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_offsets, drfs_drfs_mz_uint32, l_index)), *pE;
+  const drfs_mz_uint8 *pR = &DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_array, drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_offsets, drfs_drfs_mz_uint32, r_index));
   drfs_mz_uint l_len = DRFS_MZ_READ_LE16(pL + DRFS_MZ_ZIP_CDH_FILENAME_LEN_OFS), r_len = DRFS_MZ_READ_LE16(pR + DRFS_MZ_ZIP_CDH_FILENAME_LEN_OFS);
-  drfs_drfs_mz_uint8 l = 0, r = 0;
+  drfs_mz_uint8 l = 0, r = 0;
   pL += DRFS_MZ_ZIP_CENTRAL_DIR_HEADER_SIZE; pR += DRFS_MZ_ZIP_CENTRAL_DIR_HEADER_SIZE;
   pE = pL + DRFS_MZ_MIN(l_len, r_len);
   while (pL < pE)
@@ -5741,8 +5741,8 @@ static drfs_mz_bool drfs_mz_zip_reader_read_central_dir(drfs_mz_zip_archive *pZi
   drfs_mz_uint cdir_size, num_this_disk, cdir_disk_index;
   drfs_mz_uint64 cdir_ofs;
   drfs_mz_int64 cur_file_ofs;
-  const drfs_drfs_mz_uint8 *p;
-  drfs_drfs_mz_uint32 buf_u32[4096 / sizeof(drfs_drfs_mz_uint32)]; drfs_drfs_mz_uint8 *pBuf = (drfs_drfs_mz_uint8 *)buf_u32;
+  const drfs_mz_uint8 *p;
+  drfs_drfs_mz_uint32 buf_u32[4096 / sizeof(drfs_drfs_mz_uint32)]; drfs_mz_uint8 *pBuf = (drfs_mz_uint8 *)buf_u32;
   drfs_mz_bool sort_central_dir = ((flags & DRFS_MZ_ZIP_FLAG_DO_NOT_SORT_CENTRAL_DIRECTORY) == 0);
   // Basic sanity checks - reject files which are too small, and check the first 4 bytes of the file to make sure a local header is there.
   if (pZip->m_archive_size < DRFS_MZ_ZIP_END_OF_CENTRAL_DIR_HEADER_SIZE)
@@ -5806,13 +5806,13 @@ static drfs_mz_bool drfs_mz_zip_reader_read_central_dir(drfs_mz_zip_archive *pZi
       return DRFS_MZ_FALSE;
 
     // Now create an index into the central directory file records, do some basic sanity checking on each record, and check for zip64 entries (which are not yet supported).
-    p = (const drfs_drfs_mz_uint8 *)pZip->m_pState->m_central_dir.m_p;
+    p = (const drfs_mz_uint8 *)pZip->m_pState->m_central_dir.m_p;
     for (n = cdir_size, i = 0; i < pZip->m_total_files; ++i)
     {
       drfs_mz_uint total_header_size, comp_size, decomp_size, disk_index;
       if ((n < DRFS_MZ_ZIP_CENTRAL_DIR_HEADER_SIZE) || (DRFS_MZ_READ_LE32(p) != DRFS_MZ_ZIP_CENTRAL_DIR_HEADER_SIG))
         return DRFS_MZ_FALSE;
-      DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir_offsets, drfs_drfs_mz_uint32, i) = (drfs_drfs_mz_uint32)(p - (const drfs_drfs_mz_uint8 *)pZip->m_pState->m_central_dir.m_p);
+      DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir_offsets, drfs_drfs_mz_uint32, i) = (drfs_drfs_mz_uint32)(p - (const drfs_mz_uint8 *)pZip->m_pState->m_central_dir.m_p);
       if (sort_central_dir)
         DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_sorted_central_dir_offsets, drfs_drfs_mz_uint32, i) = i;
       comp_size = DRFS_MZ_READ_LE32(p + DRFS_MZ_ZIP_CDH_COMPRESSED_SIZE_OFS);
@@ -5856,17 +5856,17 @@ drfs_mz_uint drfs_mz_zip_reader_get_num_files(drfs_mz_zip_archive *pZip)
   return pZip ? pZip->m_total_files : 0;
 }
 
-static DRFS_MZ_FORCEINLINE const drfs_drfs_mz_uint8 *drfs_mz_zip_reader_get_cdh(drfs_mz_zip_archive *pZip, drfs_mz_uint file_index)
+static DRFS_MZ_FORCEINLINE const drfs_mz_uint8 *drfs_mz_zip_reader_get_cdh(drfs_mz_zip_archive *pZip, drfs_mz_uint file_index)
 {
   if ((!pZip) || (!pZip->m_pState) || (file_index >= pZip->m_total_files) || (pZip->m_zip_mode != DRFS_MZ_ZIP_MODE_READING))
     return NULL;
-  return &DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir, drfs_drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir_offsets, drfs_drfs_mz_uint32, file_index));
+  return &DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir, drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir_offsets, drfs_drfs_mz_uint32, file_index));
 }
 
 drfs_mz_bool drfs_mz_zip_reader_is_file_a_directory(drfs_mz_zip_archive *pZip, drfs_mz_uint file_index)
 {
   drfs_mz_uint filename_len, external_attr;
-  const drfs_drfs_mz_uint8 *p = drfs_mz_zip_reader_get_cdh(pZip, file_index);
+  const drfs_mz_uint8 *p = drfs_mz_zip_reader_get_cdh(pZip, file_index);
   if (!p)
     return DRFS_MZ_FALSE;
 
@@ -5891,7 +5891,7 @@ drfs_mz_bool drfs_mz_zip_reader_is_file_a_directory(drfs_mz_zip_archive *pZip, d
 drfs_mz_bool drfs_mz_zip_reader_file_stat(drfs_mz_zip_archive *pZip, drfs_mz_uint file_index, drfs_drfs_mz_zip_archive_file_stat *pStat)
 {
   drfs_mz_uint n;
-  const drfs_drfs_mz_uint8 *p = drfs_mz_zip_reader_get_cdh(pZip, file_index);
+  const drfs_mz_uint8 *p = drfs_mz_zip_reader_get_cdh(pZip, file_index);
   if ((!p) || (!pStat))
     return DRFS_MZ_FALSE;
 
@@ -5926,7 +5926,7 @@ drfs_mz_bool drfs_mz_zip_reader_file_stat(drfs_mz_zip_archive *pZip, drfs_mz_uin
 drfs_mz_uint drfs_mz_zip_reader_get_filename(drfs_mz_zip_archive *pZip, drfs_mz_uint file_index, char *pFilename, drfs_mz_uint filename_buf_size)
 {
   drfs_mz_uint n;
-  const drfs_drfs_mz_uint8 *p = drfs_mz_zip_reader_get_cdh(pZip, file_index);
+  const drfs_mz_uint8 *p = drfs_mz_zip_reader_get_cdh(pZip, file_index);
   if (!p) { if (filename_buf_size) pFilename[0] = '\0'; return 0; }
   n = DRFS_MZ_READ_LE16(p + DRFS_MZ_ZIP_CDH_FILENAME_LEN_OFS);
   if (filename_buf_size)
@@ -5951,9 +5951,9 @@ static DRFS_MZ_FORCEINLINE drfs_mz_bool drfs_mz_zip_reader_string_equal(const ch
 
 static DRFS_MZ_FORCEINLINE int drfs_mz_zip_reader_filename_compare(const drfs_mz_zip_array *pCentral_dir_array, const drfs_mz_zip_array *pCentral_dir_offsets, drfs_mz_uint l_index, const char *pR, drfs_mz_uint r_len)
 {
-  const drfs_drfs_mz_uint8 *pL = &DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_array, drfs_drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_offsets, drfs_drfs_mz_uint32, l_index)), *pE;
+  const drfs_mz_uint8 *pL = &DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_array, drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(pCentral_dir_offsets, drfs_drfs_mz_uint32, l_index)), *pE;
   drfs_mz_uint l_len = DRFS_MZ_READ_LE16(pL + DRFS_MZ_ZIP_CDH_FILENAME_LEN_OFS);
-  drfs_drfs_mz_uint8 l = 0, r = 0;
+  drfs_mz_uint8 l = 0, r = 0;
   pL += DRFS_MZ_ZIP_CENTRAL_DIR_HEADER_SIZE;
   pE = pL + DRFS_MZ_MIN(l_len, r_len);
   while (pL < pE)
@@ -5998,7 +5998,7 @@ int drfs_mz_zip_reader_locate_file(drfs_mz_zip_archive *pZip, const char *pName,
   comment_len = pComment ? strlen(pComment) : 0; if (comment_len > 0xFFFF) return -1;
   for (file_index = 0; file_index < pZip->m_total_files; file_index++)
   {
-    const drfs_drfs_mz_uint8 *pHeader = &DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir, drfs_drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir_offsets, drfs_drfs_mz_uint32, file_index));
+    const drfs_mz_uint8 *pHeader = &DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir, drfs_mz_uint8, DRFS_MZ_ZIP_ARRAY_ELEMENT(&pZip->m_pState->m_central_dir_offsets, drfs_drfs_mz_uint32, file_index));
     drfs_mz_uint filename_len = DRFS_MZ_READ_LE16(pHeader + DRFS_MZ_ZIP_CDH_FILENAME_LEN_OFS);
     const char *pFilename = (const char *)pHeader + DRFS_MZ_ZIP_CENTRAL_DIR_HEADER_SIZE;
     if (filename_len < name_len)
@@ -6033,7 +6033,7 @@ drfs_mz_bool drfs_mz_zip_reader_extract_to_mem_no_alloc(drfs_mz_zip_archive *pZi
   drfs_mz_uint64 needed_size, cur_file_ofs, comp_remaining, out_buf_ofs = 0, read_buf_size, read_buf_ofs = 0, read_buf_avail;
   drfs_drfs_mz_zip_archive_file_stat file_stat;
   void *pRead_buf;
-  drfs_drfs_mz_uint32 local_header_u32[(DRFS_MZ_ZIP_LOCAL_DIR_HEADER_SIZE + sizeof(drfs_drfs_mz_uint32) - 1) / sizeof(drfs_drfs_mz_uint32)]; drfs_drfs_mz_uint8 *pLocal_header = (drfs_drfs_mz_uint8 *)local_header_u32;
+  drfs_drfs_mz_uint32 local_header_u32[(DRFS_MZ_ZIP_LOCAL_DIR_HEADER_SIZE + sizeof(drfs_drfs_mz_uint32) - 1) / sizeof(drfs_drfs_mz_uint32)]; drfs_mz_uint8 *pLocal_header = (drfs_mz_uint8 *)local_header_u32;
   drfs_tinfl_decompressor inflator;
 
   if ((buf_size) && (!pBuf))
@@ -6080,7 +6080,7 @@ drfs_mz_bool drfs_mz_zip_reader_extract_to_mem_no_alloc(drfs_mz_zip_archive *pZi
     // The file is stored or the caller has requested the compressed data.
     if (pZip->m_pRead(pZip->m_pIO_opaque, cur_file_ofs, pBuf, (size_t)needed_size) != needed_size)
       return DRFS_MZ_FALSE;
-    return ((flags & DRFS_MZ_ZIP_FLAG_COMPRESSED_DATA) != 0) || (drfs_mz_crc32(DRFS_MZ_CRC32_INIT, (const drfs_drfs_mz_uint8 *)pBuf, (size_t)file_stat.m_uncomp_size) == file_stat.m_crc32);
+    return ((flags & DRFS_MZ_ZIP_FLAG_COMPRESSED_DATA) != 0) || (drfs_mz_crc32(DRFS_MZ_CRC32_INIT, (const drfs_mz_uint8 *)pBuf, (size_t)file_stat.m_uncomp_size) == file_stat.m_crc32);
   }
 
   // Decompress the file either directly from memory or from a file input buffer.
@@ -6089,7 +6089,7 @@ drfs_mz_bool drfs_mz_zip_reader_extract_to_mem_no_alloc(drfs_mz_zip_archive *pZi
   if (pZip->m_pState->m_pMem)
   {
     // Read directly from the archive in memory.
-    pRead_buf = (drfs_drfs_mz_uint8 *)pZip->m_pState->m_pMem + cur_file_ofs;
+    pRead_buf = (drfs_mz_uint8 *)pZip->m_pState->m_pMem + cur_file_ofs;
     read_buf_size = read_buf_avail = file_stat.m_comp_size;
     comp_remaining = 0;
   }
@@ -6098,7 +6098,7 @@ drfs_mz_bool drfs_mz_zip_reader_extract_to_mem_no_alloc(drfs_mz_zip_archive *pZi
     // Use a user provided read buffer.
     if (!user_read_buf_size)
       return DRFS_MZ_FALSE;
-    pRead_buf = (drfs_drfs_mz_uint8 *)pUser_read_buf;
+    pRead_buf = (drfs_mz_uint8 *)pUser_read_buf;
     read_buf_size = user_read_buf_size;
     read_buf_avail = 0;
     comp_remaining = file_stat.m_comp_size;
@@ -6135,7 +6135,7 @@ drfs_mz_bool drfs_mz_zip_reader_extract_to_mem_no_alloc(drfs_mz_zip_archive *pZi
       read_buf_ofs = 0;
     }
     in_buf_size = (size_t)read_buf_avail;
-    status = drfs_tinfl_decompress(&inflator, (drfs_drfs_mz_uint8 *)pRead_buf + read_buf_ofs, &in_buf_size, (drfs_drfs_mz_uint8 *)pBuf, (drfs_drfs_mz_uint8 *)pBuf + out_buf_ofs, &out_buf_size, DRFS_TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | (comp_remaining ? DRFS_TINFL_FLAG_HAS_MORE_INPUT : 0));
+    status = drfs_tinfl_decompress(&inflator, (drfs_mz_uint8 *)pRead_buf + read_buf_ofs, &in_buf_size, (drfs_mz_uint8 *)pBuf, (drfs_mz_uint8 *)pBuf + out_buf_ofs, &out_buf_size, DRFS_TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | (comp_remaining ? DRFS_TINFL_FLAG_HAS_MORE_INPUT : 0));
     read_buf_avail -= in_buf_size;
     read_buf_ofs += in_buf_size;
     out_buf_ofs += out_buf_size;
@@ -6144,7 +6144,7 @@ drfs_mz_bool drfs_mz_zip_reader_extract_to_mem_no_alloc(drfs_mz_zip_archive *pZi
   if (status == DRFS_TINFL_STATUS_DONE)
   {
     // Make sure the entire file was decompressed, and check its CRC.
-    if ((out_buf_ofs != file_stat.m_uncomp_size) || (drfs_mz_crc32(DRFS_MZ_CRC32_INIT, (const drfs_drfs_mz_uint8 *)pBuf, (size_t)file_stat.m_uncomp_size) != file_stat.m_crc32))
+    if ((out_buf_ofs != file_stat.m_uncomp_size) || (drfs_mz_crc32(DRFS_MZ_CRC32_INIT, (const drfs_mz_uint8 *)pBuf, (size_t)file_stat.m_uncomp_size) != file_stat.m_crc32))
       status = DRFS_TINFL_STATUS_FAILED;
   }
 
@@ -6175,7 +6175,7 @@ drfs_mz_bool drfs_mz_zip_reader_extract_file_to_mem(drfs_mz_zip_archive *pZip, c
 void *drfs_mz_zip_reader_extract_to_heap(drfs_mz_zip_archive *pZip, drfs_mz_uint file_index, size_t *pSize, drfs_mz_uint flags)
 {
   drfs_mz_uint64 comp_size, uncomp_size, alloc_size;
-  const drfs_drfs_mz_uint8 *p = drfs_mz_zip_reader_get_cdh(pZip, file_index);
+  const drfs_mz_uint8 *p = drfs_mz_zip_reader_get_cdh(pZip, file_index);
   void *pBuf;
 
   if (pSize)
@@ -6258,7 +6258,7 @@ typedef struct
     // A pointer to the buffer containing the entire uncompressed data of the file. Unfortunately this is the only way I'm aware of for
     // reading file data from miniz.c so we'll just stick with it for now. We use a pointer to an 8-bit type so we can easily calculate
     // offsets.
-    drfs_drfs_mz_uint8* pData;
+    drfs_mz_uint8* pData;
 
     // The size of the file in bytes so we can guard against overflowing reads.
     size_t sizeInBytes;
@@ -6271,7 +6271,7 @@ typedef struct
 static size_t drfs_drfs_mz_file_read_func(void *pOpaque, drfs_mz_uint64 file_ofs, void *pBuf, size_t n)
 {
     // The opaque type is a pointer to a drfs_file object which represents the file of the archive.
-    drfs_file* pZipFile = pOpaque;
+    drfs_file* pZipFile = (drfs_file*)pOpaque;
     assert(pZipFile != NULL);
 
     if (!drfs_lock(pZipFile)) {
@@ -6311,7 +6311,7 @@ static drfs_result drfs_open_archive__zip(drfs_file* pArchiveFile, unsigned int 
     }
 
 
-    drfs_mz_zip_archive* pZip = malloc(sizeof(drfs_mz_zip_archive));
+    drfs_mz_zip_archive* pZip = (drfs_mz_zip_archive*)malloc(sizeof(drfs_mz_zip_archive));
     if (pZip == NULL) {
         return drfs_out_of_memory;
     }
@@ -6333,7 +6333,7 @@ static void drfs_close_archive__zip(drfs_handle archive)
 {
     assert(archive != NULL);
 
-    drfs_mz_zip_reader_end(archive);
+    drfs_mz_zip_reader_end((drfs_mz_zip_archive*)archive);
     free(archive);
 }
 
@@ -6341,7 +6341,7 @@ static drfs_result drfs_get_file_info__zip(drfs_handle archive, const char* rela
 {
     assert(archive != NULL);
 
-    drfs_mz_zip_archive* pZip = archive;
+    drfs_mz_zip_archive* pZip = (drfs_mz_zip_archive*)archive;
     int fileIndex = drfs_mz_zip_reader_locate_file(pZip, relativePath, NULL, DRFS_MZ_ZIP_FLAG_CASE_SENSITIVE);
     if (fileIndex == -1)
     {
@@ -6408,7 +6408,7 @@ static drfs_handle drfs_begin_iteration__zip(drfs_handle archive, const char* re
 {
     assert(relativePath != NULL);
 
-    drfs_mz_zip_archive* pZip = archive;
+    drfs_mz_zip_archive* pZip = (drfs_mz_zip_archive*)archive;
     assert(pZip != NULL);
 
     int directoryFileIndex = -1;
@@ -6452,7 +6452,7 @@ static drfs_handle drfs_begin_iteration__zip(drfs_handle archive, const char* re
 
 
 on_success:;
-    drfs_iterator_zip* pZipIterator = malloc(sizeof(drfs_iterator_zip));
+    drfs_iterator_zip* pZipIterator = (drfs_iterator_zip*)malloc(sizeof(drfs_iterator_zip));
     if (pZipIterator != NULL)
     {
         pZipIterator->index = 0;
@@ -6477,12 +6477,12 @@ static bool drfs_next_iteration__zip(drfs_handle archive, drfs_handle iterator, 
     assert(archive != NULL);
     assert(iterator != NULL);
 
-    drfs_iterator_zip* pZipIterator = iterator;
+    drfs_iterator_zip* pZipIterator = (drfs_iterator_zip*)iterator;
     if (pZipIterator == NULL) {
         return false;
     }
 
-    drfs_mz_zip_archive* pZip = archive;
+    drfs_mz_zip_archive* pZip = (drfs_mz_zip_archive*)archive;
     while (pZipIterator->index < drfs_mz_zip_reader_get_num_files(pZip))
     {
         unsigned int iFile = pZipIterator->index++;
@@ -6537,18 +6537,18 @@ static drfs_result drfs_open_file__zip(drfs_handle archive, const char* relative
     }
 
 
-    drfs_mz_zip_archive* pZip = archive;
+    drfs_mz_zip_archive* pZip = (drfs_mz_zip_archive*)archive;
     int fileIndex = drfs_mz_zip_reader_locate_file(pZip, relativePath, NULL, DRFS_MZ_ZIP_FLAG_CASE_SENSITIVE);
     if (fileIndex == -1) {
         return drfs_does_not_exist;
     }
 
-    drfs_openedfile_zip* pOpenedFile = malloc(sizeof(*pOpenedFile));
+    drfs_openedfile_zip* pOpenedFile = (drfs_openedfile_zip*)malloc(sizeof(*pOpenedFile));
     if (pOpenedFile == NULL) {
         return drfs_out_of_memory;
     }
 
-    pOpenedFile->pData = drfs_mz_zip_reader_extract_to_heap(pZip, (drfs_mz_uint)fileIndex, &pOpenedFile->sizeInBytes, 0);
+    pOpenedFile->pData = (drfs_mz_uint8*)drfs_mz_zip_reader_extract_to_heap(pZip, (drfs_mz_uint)fileIndex, &pOpenedFile->sizeInBytes, 0);
     if (pOpenedFile->pData == NULL) {
         free(pOpenedFile);
         return drfs_unknown_error;
@@ -6563,10 +6563,10 @@ static drfs_result drfs_open_file__zip(drfs_handle archive, const char* relative
 
 static void drfs_close_file__zip(drfs_handle archive, drfs_handle file)
 {
-    drfs_openedfile_zip* pOpenedFile = file;
+    drfs_openedfile_zip* pOpenedFile = (drfs_openedfile_zip*)file;
     assert(pOpenedFile != NULL);
 
-    drfs_mz_zip_archive* pZip = archive;
+    drfs_mz_zip_archive* pZip = (drfs_mz_zip_archive*)archive;
     assert(pZip != NULL);
 
     pZip->m_pFree(pZip->m_pAlloc_opaque, pOpenedFile->pData);
@@ -6581,7 +6581,7 @@ static drfs_result drfs_read_file__zip(drfs_handle archive, drfs_handle file, vo
     assert(pDataOut != NULL);
     assert(bytesToRead > 0);
 
-    drfs_openedfile_zip* pOpenedFile = file;
+    drfs_openedfile_zip* pOpenedFile = (drfs_openedfile_zip*)file;
     if (pOpenedFile == NULL) {
         return drfs_invalid_args;
     }
@@ -6633,7 +6633,7 @@ static drfs_result drfs_seek_file__zip(drfs_handle archive, drfs_handle file, in
     assert(archive != NULL);
     assert(file != NULL);
 
-    drfs_openedfile_zip* pOpenedFile = file;
+    drfs_openedfile_zip* pOpenedFile = (drfs_openedfile_zip*)file;
     if (pOpenedFile == NULL) {
         return drfs_invalid_args;
     }
@@ -6688,7 +6688,7 @@ static uint64_t drfs_tell_file__zip(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
-    drfs_openedfile_zip* pOpenedFile = file;
+    drfs_openedfile_zip* pOpenedFile = (drfs_openedfile_zip*)file;
     assert(pOpenedFile != NULL);
 
     return pOpenedFile->readPointer;
@@ -6698,7 +6698,7 @@ static uint64_t drfs_file_size__zip(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
-    drfs_openedfile_zip* pOpenedFile = file;
+    drfs_openedfile_zip* pOpenedFile = (drfs_openedfile_zip*)file;
     assert(pOpenedFile != NULL);
 
     return pOpenedFile->sizeInBytes;
@@ -6820,7 +6820,7 @@ static bool drfs_iterator_pak_append_processed_dir(drfs_iterator_pak* pIterator,
     if (pIterator != NULL && path != NULL)
     {
         drfs_path_pak* pOldBuffer = pIterator->pProcessedDirs;
-        drfs_path_pak* pNewBuffer = malloc(sizeof(drfs_path_pak) * (pIterator->processedDirCount + 1));
+        drfs_path_pak* pNewBuffer = (drfs_path_pak*)malloc(sizeof(drfs_path_pak) * (pIterator->processedDirCount + 1));
 
         if (pNewBuffer != 0)
         {
@@ -6875,7 +6875,7 @@ typedef struct
 
 static drfs_archive_pak* drfs_pak_create(drfs_file* pArchiveFile, unsigned int accessMode)
 {
-    drfs_archive_pak* pak = malloc(sizeof(*pak));
+    drfs_archive_pak* pak = (drfs_archive_pak*)malloc(sizeof(*pak));
     if (pak != NULL)
     {
         pak->pArchiveFile    = pArchiveFile;
@@ -6937,7 +6937,7 @@ static drfs_result drfs_open_archive__pak(drfs_file* pArchiveFile, unsigned int 
                             {
                                 assert((sizeof(drfs_file_pak) * fileCount) == pak->directoryLength);
 
-                                pak->pFiles = malloc(pak->directoryLength);
+                                pak->pFiles = (drfs_file_pak*)malloc(pak->directoryLength);
                                 if (pak->pFiles != NULL)
                                 {
                                     // Seek to the directory listing before trying to read it.
@@ -7021,7 +7021,7 @@ static drfs_result drfs_open_archive__pak(drfs_file* pArchiveFile, unsigned int 
 
 static void drfs_close_archive__pak(drfs_handle archive)
 {
-    drfs_archive_pak* pPak = archive;
+    drfs_archive_pak* pPak = (drfs_archive_pak*)archive;
     assert(pPak != NULL);
 
     drfs_pak_delete(pPak);
@@ -7031,7 +7031,7 @@ static drfs_result drfs_get_file_info__pak(drfs_handle archive, const char* rela
 {
     // We can determine whether or not the path refers to a file or folder by checking it the path is parent of any
     // files in the archive. If so, it's a folder, otherwise it's a file (so long as it exists).
-    drfs_archive_pak* pak = archive;
+    drfs_archive_pak* pak = (drfs_archive_pak*)archive;
     assert(pak != NULL);
 
     unsigned int fileCount = pak->directoryLength / 64;
@@ -7068,7 +7068,7 @@ static drfs_handle drfs_begin_iteration__pak(drfs_handle archive, const char* re
     (void)archive;
     assert(relativePath != NULL);
 
-    drfs_iterator_pak* pIterator = malloc(sizeof(drfs_iterator_pak));
+    drfs_iterator_pak* pIterator = (drfs_iterator_pak*)malloc(sizeof(drfs_iterator_pak));
     if (pIterator != NULL)
     {
         pIterator->index = 0;
@@ -7084,7 +7084,7 @@ static void drfs_end_iteration__pak(drfs_handle archive, drfs_handle iterator)
 {
     (void)archive;
 
-    drfs_iterator_pak* pIterator = iterator;
+    drfs_iterator_pak* pIterator = (drfs_iterator_pak*)iterator;
     assert(pIterator != NULL);
 
     free(pIterator);
@@ -7092,10 +7092,10 @@ static void drfs_end_iteration__pak(drfs_handle archive, drfs_handle iterator)
 
 static bool drfs_next_iteration__pak(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
 {
-    drfs_iterator_pak* pIterator = iterator;
+    drfs_iterator_pak* pIterator = (drfs_iterator_pak*)iterator;
     assert(pIterator != NULL);
 
-    drfs_archive_pak* pak = archive;
+    drfs_archive_pak* pak = (drfs_archive_pak*)archive;
     assert(pak != NULL);
 
     unsigned int fileCount = pak->directoryLength / 64;
@@ -7156,7 +7156,7 @@ static drfs_result drfs_open_file__pak(drfs_handle archive, const char* relative
     }
 
 
-    drfs_archive_pak* pak = archive;
+    drfs_archive_pak* pak = (drfs_archive_pak*)archive;
     assert(pak != NULL);
 
     for (unsigned int iFile = 0; iFile < (pak->directoryLength / 64); ++iFile)
@@ -7164,7 +7164,7 @@ static drfs_result drfs_open_file__pak(drfs_handle archive, const char* relative
         if (strcmp(relativePath, pak->pFiles[iFile].name) == 0)
         {
             // We found the file.
-            drfs_openedfile_pak* pOpenedFile = malloc(sizeof(*pOpenedFile));
+            drfs_openedfile_pak* pOpenedFile = (drfs_openedfile_pak*)malloc(sizeof(*pOpenedFile));
             if (pOpenedFile != NULL)
             {
                 pOpenedFile->offsetInArchive = pak->pFiles[iFile].offset;
@@ -7185,7 +7185,7 @@ static void drfs_close_file__pak(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
-    drfs_openedfile_pak* pOpenedFile = file;
+    drfs_openedfile_pak* pOpenedFile = (drfs_openedfile_pak*)file;
     assert(pOpenedFile != NULL);
 
     free(pOpenedFile);
@@ -7196,10 +7196,10 @@ static drfs_result drfs_read_file__pak(drfs_handle archive, drfs_handle file, vo
     assert(pDataOut != NULL);
     assert(bytesToRead > 0);
 
-    drfs_archive_pak* pak = archive;
+    drfs_archive_pak* pak = (drfs_archive_pak*)archive;
     assert(pak != NULL);
 
-    drfs_openedfile_pak* pOpenedFile = file;
+    drfs_openedfile_pak* pOpenedFile = (drfs_openedfile_pak*)file;
     assert(pOpenedFile != NULL);
 
     // The read pointer should never go past the file size.
@@ -7249,44 +7249,28 @@ static drfs_result drfs_seek_file__pak(drfs_handle archive, drfs_handle file, in
 {
     (void)archive;
 
-    drfs_openedfile_pak* pOpenedFile = file;
+    drfs_openedfile_pak* pOpenedFile = (drfs_openedfile_pak*)file;
     assert(pOpenedFile != NULL);
 
     uint64_t newPos = pOpenedFile->readPointer;
-    if (origin == drfs_origin_current)
-    {
-        if ((int64_t)newPos + bytesToSeek >= 0)
-        {
+    if (origin == drfs_origin_current) {
+        if ((int64_t)newPos + bytesToSeek >= 0) {
             newPos = (uint64_t)((int64_t)newPos + bytesToSeek);
+        } else {
+            return drfs_invalid_args;   // Trying to seek to before the beginning of the file.
         }
-        else
-        {
-            // Trying to seek to before the beginning of the file.
-            return drfs_invalid_args;
-        }
-    }
-    else if (origin == drfs_origin_start)
-    {
+    } else if (origin == drfs_origin_start) {
         assert(bytesToSeek >= 0);
         newPos = (uint64_t)bytesToSeek;
-    }
-    else if (origin == drfs_origin_end)
-    {
+    } else if (origin == drfs_origin_end) {
         assert(bytesToSeek >= 0);
-        if ((uint64_t)bytesToSeek <= pOpenedFile->sizeInBytes)
-        {
+        if ((uint64_t)bytesToSeek <= pOpenedFile->sizeInBytes) {
             newPos = pOpenedFile->sizeInBytes - (uint64_t)bytesToSeek;
+        } else {
+            return drfs_invalid_args;   // Trying to seek to before the beginning of the file.
         }
-        else
-        {
-            // Trying to seek to before the beginning of the file.
-            return drfs_invalid_args;
-        }
-    }
-    else
-    {
-        // Should never get here.
-        return drfs_unknown_error;
+    } else {
+        return drfs_unknown_error;  // Should never get here.
     }
 
 
@@ -7302,7 +7286,7 @@ static uint64_t drfs_tell_file__pak(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
-    drfs_openedfile_pak* pOpenedFile = file;
+    drfs_openedfile_pak* pOpenedFile = (drfs_openedfile_pak*)file;
     assert(pOpenedFile != NULL);
 
     return pOpenedFile->readPointer;
@@ -7312,7 +7296,7 @@ static uint64_t drfs_file_size__pak(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
-    drfs_openedfile_pak* pOpenedFile = file;
+    drfs_openedfile_pak* pOpenedFile = (drfs_openedfile_pak*)file;
     assert(pOpenedFile != NULL);
 
     return pOpenedFile->sizeInBytes;
@@ -7419,7 +7403,7 @@ typedef struct
 
 static drfs_archive_mtl* drfs_mtl_create(drfs_file* pArchiveFile, unsigned int accessMode)
 {
-    drfs_archive_mtl* mtl = malloc(sizeof(drfs_archive_mtl));
+    drfs_archive_mtl* mtl = (drfs_archive_mtl*)malloc(sizeof(drfs_archive_mtl));
     if (mtl != NULL)
     {
         mtl->pArchiveFile = pArchiveFile;
@@ -7442,7 +7426,7 @@ static void drfs_mtl_addfile(drfs_archive_mtl* pArchive, drfs_file_mtl* pFile)
     if (pArchive != NULL && pFile != NULL)
     {
         drfs_file_mtl* pOldBuffer = pArchive->pFiles;
-        drfs_file_mtl* pNewBuffer = malloc(sizeof(drfs_file_mtl) * (pArchive->fileCount + 1));
+        drfs_file_mtl* pNewBuffer = (drfs_file_mtl*)malloc(sizeof(drfs_file_mtl) * (pArchive->fileCount + 1));
 
         if (pNewBuffer != 0)
         {
@@ -7591,7 +7575,7 @@ static bool drfs_mtl_loadmtlname(drfs_openarchive_mtl_state* pState, void* dst, 
     assert(pState != NULL);
 
     // We loop over character by character until we find a whitespace, "#" character or the end of the file.
-    char* dst8 = dst;
+    char* dst8 = (char*)dst;
     while (dstSizeInBytes > 0 && pState->chunkPointer < pState->chunkEnd)
     {
         const char c = pState->chunkPointer[0];
@@ -7727,7 +7711,7 @@ static drfs_result drfs_open_archive__mtl(drfs_file* pArchiveFile, unsigned int 
 
 static void drfs_close_archive__mtl(drfs_handle archive)
 {
-    drfs_archive_mtl* mtl = archive;
+    drfs_archive_mtl* mtl = (drfs_archive_mtl*)archive;
     assert(mtl != NULL);
 
     drfs_mtl_delete(mtl);
@@ -7735,7 +7719,7 @@ static void drfs_close_archive__mtl(drfs_handle archive)
 
 static drfs_result drfs_get_file_info__mtl(drfs_handle archive, const char* relativePath, drfs_file_info* fi)
 {
-    drfs_archive_mtl* mtl = archive;
+    drfs_archive_mtl* mtl = (drfs_archive_mtl*)archive;
     assert(mtl != NULL);
 
     for (unsigned int iFile = 0; iFile < mtl->fileCount; ++iFile)
@@ -7762,14 +7746,14 @@ static drfs_handle drfs_begin_iteration__mtl(drfs_handle archive, const char* re
 {
     assert(relativePath != NULL);
 
-    drfs_archive_mtl* mtl = archive;
+    drfs_archive_mtl* mtl = (drfs_archive_mtl*)archive;
     assert(mtl != NULL);
 
     if (mtl->fileCount > 0)
     {
         if (relativePath[0] == '\0' || (relativePath[0] == '/' && relativePath[1] == '\0'))     // This is a flat archive, so no sub-folders.
         {
-            drfs_iterator_mtl* pIterator = malloc(sizeof(*pIterator));
+            drfs_iterator_mtl* pIterator = (drfs_iterator_mtl*)malloc(sizeof(*pIterator));
             if (pIterator != NULL)
             {
                 pIterator->index = 0;
@@ -7785,16 +7769,16 @@ static void drfs_end_iteration__mtl(drfs_handle archive, drfs_handle iterator)
 {
     (void)archive;
 
-    drfs_iterator_mtl* pIterator = iterator;
+    drfs_iterator_mtl* pIterator = (drfs_iterator_mtl*)iterator;
     free(pIterator);
 }
 
 static bool drfs_next_iteration__mtl(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
 {
-    drfs_archive_mtl* mtl = archive;
+    drfs_archive_mtl* mtl = (drfs_archive_mtl*)archive;
     assert(mtl != NULL);
 
-    drfs_iterator_mtl* pIterator = iterator;
+    drfs_iterator_mtl* pIterator = (drfs_iterator_mtl*)iterator;
     assert(pIterator != NULL);
 
     if (pIterator->index < mtl->fileCount)
@@ -7826,7 +7810,7 @@ static drfs_result drfs_open_file__mtl(drfs_handle archive, const char* relative
         return drfs_permission_denied;
     }
 
-    drfs_archive_mtl* mtl = archive;
+    drfs_archive_mtl* mtl = (drfs_archive_mtl*)archive;
     assert(mtl != NULL);
 
     for (unsigned int iFile = 0; iFile < mtl->fileCount; ++iFile)
@@ -7834,7 +7818,7 @@ static drfs_result drfs_open_file__mtl(drfs_handle archive, const char* relative
         if (strcmp(relativePath, mtl->pFiles[iFile].name) == 0)
         {
             // We found the file.
-            drfs_openedfile_mtl* pOpenedFile = malloc(sizeof(drfs_openedfile_mtl));
+            drfs_openedfile_mtl* pOpenedFile = (drfs_openedfile_mtl*)malloc(sizeof(drfs_openedfile_mtl));
             if (pOpenedFile != NULL)
             {
                 pOpenedFile->offsetInArchive = mtl->pFiles[iFile].offset;
@@ -7854,7 +7838,7 @@ static void drfs_close_file__mtl(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
-    drfs_openedfile_mtl* pOpenedFile = file;
+    drfs_openedfile_mtl* pOpenedFile = (drfs_openedfile_mtl*)file;
     assert(pOpenedFile != NULL);
 
     free(pOpenedFile);
@@ -7865,10 +7849,10 @@ static drfs_result drfs_read_file__mtl(drfs_handle archive, drfs_handle file, vo
     assert(pDataOut != NULL);
     assert(bytesToRead > 0);
 
-    drfs_archive_mtl* mtl = archive;
+    drfs_archive_mtl* mtl = (drfs_archive_mtl*)archive;
     assert(mtl != NULL);
 
-    drfs_openedfile_mtl* pOpenedFile = file;
+    drfs_openedfile_mtl* pOpenedFile = (drfs_openedfile_mtl*)file;
     assert(pOpenedFile != NULL);
 
     // The read pointer should never go past the file size.
@@ -7916,44 +7900,28 @@ static drfs_result drfs_seek_file__mtl(drfs_handle archive, drfs_handle file, in
 {
     (void)archive;
 
-    drfs_openedfile_mtl* pOpenedFile = file;
+    drfs_openedfile_mtl* pOpenedFile = (drfs_openedfile_mtl*)file;
     assert(pOpenedFile != NULL);
 
     uint64_t newPos = pOpenedFile->readPointer;
-    if (origin == drfs_origin_current)
-    {
-        if ((int64_t)newPos + bytesToSeek >= 0)
-        {
+    if (origin == drfs_origin_current) {
+        if ((int64_t)newPos + bytesToSeek >= 0) {
             newPos = (uint64_t)((int64_t)newPos + bytesToSeek);
+        } else {
+            return drfs_invalid_args;   // Trying to seek to before the beginning of the file.
         }
-        else
-        {
-            // Trying to seek to before the beginning of the file.
-            return drfs_invalid_args;
-        }
-    }
-    else if (origin == drfs_origin_start)
-    {
+    } else if (origin == drfs_origin_start) {
         assert(bytesToSeek >= 0);
         newPos = (uint64_t)bytesToSeek;
-    }
-    else if (origin == drfs_origin_end)
-    {
+    } else if (origin == drfs_origin_end) {
         assert(bytesToSeek >= 0);
-        if ((uint64_t)bytesToSeek <= pOpenedFile->sizeInBytes)
-        {
+        if ((uint64_t)bytesToSeek <= pOpenedFile->sizeInBytes) {
             newPos = pOpenedFile->sizeInBytes - (uint64_t)bytesToSeek;
+        } else {
+            return drfs_invalid_args;   // Trying to seek to before the beginning of the file.
         }
-        else
-        {
-            // Trying to seek to before the beginning of the file.
-            return drfs_invalid_args;
-        }
-    }
-    else
-    {
-        // Should never get here.
-        return drfs_unknown_error;
+    } else {
+        return drfs_unknown_error;  // Should never get here.
     }
 
 
@@ -7969,7 +7937,7 @@ static uint64_t drfs_tell_file__mtl(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
-    drfs_openedfile_mtl* pOpenedFile = file;
+    drfs_openedfile_mtl* pOpenedFile = (drfs_openedfile_mtl*)file;
     assert(pOpenedFile != NULL);
 
     return pOpenedFile->readPointer;
@@ -7979,7 +7947,7 @@ static uint64_t drfs_file_size__mtl(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
-    drfs_openedfile_mtl* pOpenedFile = file;
+    drfs_openedfile_mtl* pOpenedFile = (drfs_openedfile_mtl*)file;
     assert(pOpenedFile != NULL);
 
     return pOpenedFile->sizeInBytes;
