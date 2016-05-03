@@ -2457,20 +2457,6 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
 
 
 
-// Initializes a flac decoder.
-//
-// The difference with drflac_init() and drflac_open() is that _init() allows you to initialize a drflac decoder
-// from a pre-allocated structure. However, due to details with the implementation, when decoding samples from
-// a decoder initialized with this API, it must be done whole frame's at a time. This can make memory management
-// a bit more flexible, but it comes at the cost of a harder to use API.
-//
-// The drflac object does not need to be uninitialized.
-bool drflac_init(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData);
-bool drflac_init_with_metadata(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData);
-
-// The decoder must be uninitialized with drflac_uninit() so that the file can be closed.
-bool drflac_init_from_file(drflac* pFlac, const char* filename);
-
 typedef struct
 {
     drflac_read_proc onRead;
@@ -3016,41 +3002,6 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
     pFlac->pUserData = &pFlac->memoryStream;
     return pFlac;
 }
-
-
-
-#ifdef DR_FLAC_EXPERIMENTAL
-bool drflac_init(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData)
-{
-    return drflac_init_with_metadata(pFlac, onRead, onSeek, NULL, pUserData);
-}
-
-bool drflac_init_with_metadata(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData)
-{
-    if (pFlac == NULL) {
-        return false;
-    }
-
-    drflac_init_info init;
-    if (!drflac__init_private(&init, onRead, onSeek, onMeta, pUserData, pUserData)) {
-        return false;
-    }
-    
-    drflac__init_from_info(pFlac, &init);
-
-    return false;
-}
-
-bool drflac_init_from_file(drflac* pFlac, const char* filename)
-{
-    drflac_file file = drflac__open_file_handle(filename);
-    if (file == NULL) {
-        return false;
-    }
-
-    return drflac_init(pFlac, drflac__on_read_stdio, drflac__on_seek_stdio, (void*)file);
-}
-#endif
 
 
 
