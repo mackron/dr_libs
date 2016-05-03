@@ -1235,7 +1235,7 @@ bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const ch
     {
         // There is a segment before it so we just place a null terminator at the end, but only if it's not the root of a Linux-style absolute path.
         if (drpath_is_linux_style_root_segment(iSecondLast)) {
-            return drpath_strcpy(dst, dstSizeInBytes, "/");
+            return drpath_strcpy(dst, dstSizeInBytes, "/") == 0;
         } else {
             return drpath_strncpy(dst, dstSizeInBytes, path, iSecondLast.segment.offset + iSecondLast.segment.length) == 0;
         }
