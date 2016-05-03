@@ -515,167 +515,6 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
 
-drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD);
-
-#ifndef DR_FLAC_NO_STDIO
-#if defined(DR_FLAC_NO_WIN32_IO) || !defined(_WIN32)
-#include <stdio.h>
-
-static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
-{
-    return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
-}
-
-static bool drflac__on_seek_stdio(void* pUserData, int offset)
-{
-    return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
-}
-
-drflac* drflac_open_file(const char* filename)
-{
-    FILE* pFile;
-#ifdef _MSC_VER
-    if (fopen_s(&pFile, filename, "rb") != 0) {
-        return NULL;
-    }
-#else
-    pFile = fopen(filename, "rb");
-    if (pFile == NULL) {
-        return NULL;
-    }
-#endif
-
-    return drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, pFile);
-}
-
-drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData)
-{
-    FILE* pFile;
-#ifdef _MSC_VER
-    if (fopen_s(&pFile, filename, "rb") != 0) {
-        return NULL;
-    }
-#else
-    pFile = fopen(filename, "rb");
-    if (pFile == NULL) {
-        return NULL;
-    }
-#endif
-
-    return drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, pFile, pUserData);
-}
-#else
-#include <windows.h>
-
-static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
-{
-    assert(bytesToRead < 0xFFFFFFFF);   // dr_flac will never request huge amounts of data at a time. This is a safe assertion.
-
-    DWORD bytesRead;
-    ReadFile((HANDLE)pUserData, bufferOut, (DWORD)bytesToRead, &bytesRead, NULL);
-
-    return (size_t)bytesRead;
-}
-
-static bool drflac__on_seek_stdio(void* pUserData, int offset)
-{
-    return SetFilePointer((HANDLE)pUserData, offset, NULL, FILE_CURRENT) != INVALID_SET_FILE_POINTER;
-}
-
-drflac* drflac_open_file(const char* filename)
-{
-    HANDLE hFile = CreateFileA(filename, FILE_GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE) {
-        return NULL;
-    }
-
-    return drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)hFile);
-}
-
-drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData)
-{
-    HANDLE hFile = CreateFileA(filename, FILE_GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE) {
-        return NULL;
-    }
-
-    return drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, (void*)hFile, pUserData);
-}
-#endif
-#endif  //DR_FLAC_NO_STDIO
-
-static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
-{
-    drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
-    assert(memoryStream != NULL);
-    assert(memoryStream->dataSize >= memoryStream->currentReadPos);
-
-    size_t bytesRemaining = memoryStream->dataSize - memoryStream->currentReadPos;
-    if (bytesToRead > bytesRemaining) {
-        bytesToRead = bytesRemaining;
-    }
-
-    if (bytesToRead > 0) {
-        memcpy(bufferOut, memoryStream->data + memoryStream->currentReadPos, bytesToRead);
-        memoryStream->currentReadPos += bytesToRead;
-    }
-
-    return bytesToRead;
-}
-
-static bool drflac__on_seek_memory(void* pUserData, int offset)
-{
-    drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
-    assert(memoryStream != NULL);
-
-    if (offset > 0) {
-        if (memoryStream->currentReadPos + offset > memoryStream->dataSize) {
-            offset = (int)(memoryStream->dataSize - memoryStream->currentReadPos);     // Trying to seek too far forward.
-        }
-    } else {
-        if (memoryStream->currentReadPos < (size_t)-offset) {
-            offset = -(int)memoryStream->currentReadPos;                  // Trying to seek too far backwards.
-        }
-    }
-
-    // This will never underflow thanks to the clamps above.
-    memoryStream->currentReadPos += offset;
-    return true;
-}
-
-drflac* drflac_open_memory(const void* data, size_t dataSize)
-{
-    drflac__memory_stream memoryStream;
-    memoryStream.data = (const unsigned char*)data;
-    memoryStream.dataSize = dataSize;
-    memoryStream.currentReadPos = 0;
-    drflac* pFlac = drflac_open(drflac__on_read_memory, drflac__on_seek_memory, &memoryStream);
-    if (pFlac == NULL) {
-        return NULL;
-    }
-
-    pFlac->memoryStream = memoryStream;
-    pFlac->pUserData = &pFlac->memoryStream;
-    return pFlac;
-}
-
-drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drflac_meta_proc onMeta, void* pUserData)
-{
-    drflac__memory_stream memoryStream;
-    memoryStream.data = (const unsigned char*)data;
-    memoryStream.dataSize = dataSize;
-    memoryStream.currentReadPos = 0;
-    drflac* pFlac = drflac_open_with_metadata_private(drflac__on_read_memory, drflac__on_seek_memory, onMeta, &memoryStream, pUserData);
-    if (pFlac == NULL) {
-        return NULL;
-    }
-
-    pFlac->memoryStream = memoryStream;
-    pFlac->pUserData = &pFlac->memoryStream;
-    return pFlac;
-}
-
-
 //// Endian Management ////
 static DRFLAC_INLINE bool drflac__is_little_endian()
 {
@@ -3005,6 +2844,172 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
 
 
+#ifndef DR_FLAC_NO_STDIO
+typedef void* drflac_file;
+
+#if defined(DR_FLAC_NO_WIN32_IO) || !defined(_WIN32)
+#include <stdio.h>
+
+static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
+{
+    return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
+}
+
+static bool drflac__on_seek_stdio(void* pUserData, int offset)
+{
+    return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
+}
+
+static drflac_file drflac__open_file_handle(const char* filename)
+{
+    FILE* pFile;
+#ifdef _MSC_VER
+    if (fopen_s(&pFile, filename, "rb") != 0) {
+        return NULL;
+    }
+#else
+    pFile = fopen(filename, "rb");
+    if (pFile == NULL) {
+        return NULL;
+    }
+#endif
+
+    return (drflac_file)pFile;
+}
+
+static void drflac__close_file(drflac_file file)
+{
+    fclose((FILE*)file);
+}
+#else
+#include <windows.h>
+
+static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
+{
+    assert(bytesToRead < 0xFFFFFFFF);   // dr_flac will never request huge amounts of data at a time. This is a safe assertion.
+
+    DWORD bytesRead;
+    ReadFile((HANDLE)pUserData, bufferOut, (DWORD)bytesToRead, &bytesRead, NULL);
+
+    return (size_t)bytesRead;
+}
+
+static bool drflac__on_seek_stdio(void* pUserData, int offset)
+{
+    return SetFilePointer((HANDLE)pUserData, offset, NULL, FILE_CURRENT) != INVALID_SET_FILE_POINTER;
+}
+
+static drflac_file drflac__open_file_handle(const char* filename)
+{
+    HANDLE hFile = CreateFileA(filename, FILE_GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return NULL;
+    }
+
+    return (drflac_file)hFile;
+}
+
+static void drflac__close_file(drflac_file file)
+{
+    CloseHandle((HANDLE)file);
+}
+#endif
+
+
+drflac* drflac_open_file(const char* filename)
+{
+    drflac_file file = drflac__open_file_handle(filename);
+    if (file == NULL) {
+        return NULL;
+    }
+
+    return drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)file);
+}
+
+drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData)
+{
+    drflac_file file = drflac__open_file_handle(filename);
+    if (file == NULL) {
+        return NULL;
+    }
+
+    return drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, (void*)file, pUserData);
+}
+#endif  //DR_FLAC_NO_STDIO
+
+static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
+{
+    drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
+    assert(memoryStream != NULL);
+    assert(memoryStream->dataSize >= memoryStream->currentReadPos);
+
+    size_t bytesRemaining = memoryStream->dataSize - memoryStream->currentReadPos;
+    if (bytesToRead > bytesRemaining) {
+        bytesToRead = bytesRemaining;
+    }
+
+    if (bytesToRead > 0) {
+        memcpy(bufferOut, memoryStream->data + memoryStream->currentReadPos, bytesToRead);
+        memoryStream->currentReadPos += bytesToRead;
+    }
+
+    return bytesToRead;
+}
+
+static bool drflac__on_seek_memory(void* pUserData, int offset)
+{
+    drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
+    assert(memoryStream != NULL);
+
+    if (offset > 0) {
+        if (memoryStream->currentReadPos + offset > memoryStream->dataSize) {
+            offset = (int)(memoryStream->dataSize - memoryStream->currentReadPos);     // Trying to seek too far forward.
+        }
+    } else {
+        if (memoryStream->currentReadPos < (size_t)-offset) {
+            offset = -(int)memoryStream->currentReadPos;                  // Trying to seek too far backwards.
+        }
+    }
+
+    // This will never underflow thanks to the clamps above.
+    memoryStream->currentReadPos += offset;
+    return true;
+}
+
+drflac* drflac_open_memory(const void* data, size_t dataSize)
+{
+    drflac__memory_stream memoryStream;
+    memoryStream.data = (const unsigned char*)data;
+    memoryStream.dataSize = dataSize;
+    memoryStream.currentReadPos = 0;
+    drflac* pFlac = drflac_open(drflac__on_read_memory, drflac__on_seek_memory, &memoryStream);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    pFlac->memoryStream = memoryStream;
+    pFlac->pUserData = &pFlac->memoryStream;
+    return pFlac;
+}
+
+drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drflac_meta_proc onMeta, void* pUserData)
+{
+    drflac__memory_stream memoryStream;
+    memoryStream.data = (const unsigned char*)data;
+    memoryStream.dataSize = dataSize;
+    memoryStream.currentReadPos = 0;
+    drflac* pFlac = drflac_open_with_metadata_private(drflac__on_read_memory, drflac__on_seek_memory, onMeta, &memoryStream, pUserData);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    pFlac->memoryStream = memoryStream;
+    pFlac->pUserData = &pFlac->memoryStream;
+    return pFlac;
+}
+
+
+
 #ifdef DR_FLAC_EXPERIMENTAL
 bool drflac_init(drflac* pFlac, drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData)
 {
@@ -3029,21 +3034,12 @@ bool drflac_init_with_metadata(drflac* pFlac, drflac_read_proc onRead, drflac_se
 
 bool drflac_init_from_file(drflac* pFlac, const char* filename)
 {
-    // TODO: DONT FORGET ABOUT THE WIN32 IO BACKEND!
-
-    FILE* pFile;
-#ifdef _MSC_VER
-    if (fopen_s(&pFile, filename, "rb") != 0) {
+    drflac_file file = drflac__open_file_handle(filename);
+    if (file == NULL) {
         return false;
     }
-#else
-    pFile = fopen(filename, "rb");
-    if (pFile == NULL) {
-        return false;
-    }
-#endif
 
-    return drflac_init(pFlac, drflac__on_read_stdio, drflac__on_seek_stdio, pFile);
+    return drflac_init(pFlac, drflac__on_read_stdio, drflac__on_seek_stdio, (void*)file);
 }
 #endif
 
@@ -3069,11 +3065,7 @@ void drflac_close(drflac* pFlac)
     // If we opened the file with drflac_open_file() we will want to close the file handle. We can know whether or not drflac_open_file()
     // was used by looking at the callbacks.
     if (pFlac->onRead == drflac__on_read_stdio) {
-#if defined(DR_FLAC_NO_WIN32_IO) || !defined(_WIN32)
-        fclose((FILE*)pFlac->pUserData);
-#else
-        CloseHandle((HANDLE)pFlac->pUserData);
-#endif
+        drflac__close_file((drflac_file)pFlac->pUserData);
     }
 #endif
 
