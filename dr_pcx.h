@@ -101,7 +101,10 @@ uint8_t* drpcx_load_file(const char* filename, bool flipped, int* x, int* y, int
     }
 #endif
 
-    return drpcx_load(drpcx__on_read_stdio, pFile, flipped, x, y, comp);
+    uint8_t* pImageData = drpcx_load(drpcx__on_read_stdio, pFile, flipped, x, y, comp);
+
+    fclose(pFile);
+    return pImageData;
 }
 #endif  // DR_PCX_NO_STDIO
 
@@ -110,13 +113,8 @@ typedef struct
 {
     // A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
     const unsigned char* data;
-
-    // The size of the data.
     size_t dataSize;
-
-    // The position we're currently sitting at.
     size_t currentReadPos;
-
 } drpcx_memory;
 
 static size_t drpcx__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
