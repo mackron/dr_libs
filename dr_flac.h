@@ -17,13 +17,13 @@
 //
 //     drflac* pFlac = drflac_open_file("MySong.flac");
 //     if (pFlac == NULL) {
-//         ... Failed to open FLAC file ...
+//         // Failed to open FLAC file
 //     }
 //
 //     int32_t* pSamples = malloc(pFlac->totalSampleCount * sizeof(int32_t));
 //     uint64_t numberOfSamplesActuallyRead = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSamples);
 //
-//     ... pSamples now contains the decoded samples as interleaved signed 32-bit PCM ...
+//     // pSamples now contains the decoded samples as interleaved signed 32-bit PCM.
 //
 // The drflac object represents the decoder. It is a transparent type so all the information you need, such as the number of
 // channels and the bits per sample, should be directly accessible - just make sure you don't change their values.
@@ -413,10 +413,19 @@ typedef struct
 //
 // The onRead and onSeek callbacks are used to read and seek data provided by the client.
 drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData);
+
+// Opens a FLAC decoder and notifies the caller of the metadata chunks (album art, etc.).
+//
+// This is slower that drflac_open(), so avoid this one if you don't need metadata. Internally, this will do a malloc()
+// and free() for every metadata block except for STREAMINFO and PADDING blocks.
+//
+// The caller is notified of the metadata via the onMeta callback. The metadata will all be handled before the function
+// returns.
 drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData);
 
 // Closes the given FLAC decoder.
 void drflac_close(drflac* pFlac);
+
 
 // Reads sample data from the given FLAC decoder, output as interleaved signed 32-bit PCM.
 //
@@ -429,16 +438,24 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex);
 
 
 #ifndef DR_FLAC_NO_STDIO
-// Opens a flac decoder from the file at the given path.
+// Opens a FLAC decoder from the file at the given path.
 drflac* drflac_open_file(const char* filename);
+
+// Opens a FLAC decoder from the file at the given path and notifies the caller of the metadata chunks (album art, etc.)
+//
+// Look at the documentation for drflac_open_with_metadata() for more information on how metadata is handled.
 drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData);
 #endif
 
-// Helper for opening a file from a pre-allocated memory buffer.
+// Opens a FLAC decoder from a pre-allocated block of memory
 //
 // This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
 // the lifetime of the decoder.
 drflac* drflac_open_memory(const void* data, size_t dataSize);
+
+// Opens a FLAC decoder from a pre-allocated block of memory and notifies the caller of the metadata chunks (album art, etc.)
+//
+// Look at the documentation for drflac_open_with_metadata() for more information on how metadata is handled.
 drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drflac_meta_proc onMeta, void* pUserData);
 
 
