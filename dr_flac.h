@@ -765,6 +765,20 @@ static DRFLAC_INLINE uint64_t drflac__be2host_64(uint64_t n)
 }
 
 
+static DRFLAC_INLINE uint32_t drflac__le2host_32(uint32_t n)
+{
+#ifdef __linux__
+    return le32toh(n);
+#else
+    if (!drflac__is_little_endian()) {
+        return drflac__swap_endian_uint32(n);
+    }
+
+    return n;
+#endif
+}
+
+
 #ifdef DRFLAC_64BIT
 #define drflac__be2host__cache_line drflac__be2host_64
 #else
@@ -2817,9 +2831,9 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                     metadata.rawDataSize = blockSize;
 
                     const char* pRunningData = (const char*)pRawData;
-                    metadata.data.vorbis_comment.vendorLength = *(uint32_t*)pRunningData; pRunningData += 4;
-                    metadata.data.vorbis_comment.vendor       = pRunningData;             pRunningData += metadata.data.vorbis_comment.vendorLength;
-                    metadata.data.vorbis_comment.commentCount = *(uint32_t*)pRunningData; pRunningData += 4;
+                    metadata.data.vorbis_comment.vendorLength = drflac__le2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.vorbis_comment.vendor       = pRunningData;                                 pRunningData += metadata.data.vorbis_comment.vendorLength;
+                    metadata.data.vorbis_comment.commentCount = drflac__le2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
                     metadata.data.vorbis_comment.comments     = pRunningData;
                     onMeta(pUserDataMD, &metadata);
 
@@ -3425,7 +3439,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
         return NULL;
     }
 
-    uint32_t length = *(uint32_t*)pIter->pRunningData;
+    uint32_t length = drflac__le2host_32(*(uint32_t*)pIter->pRunningData);
     pIter->pRunningData += 4;
 
     const char* pComment = pIter->pRunningData;
