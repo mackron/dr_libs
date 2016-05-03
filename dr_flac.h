@@ -134,44 +134,47 @@ typedef enum
     drflac_metadata_type_invalid        = 127
 } drflac_metadata_type;
 
-typedef union
+typedef struct
 {
     drflac_metadata_type type;
 
-    struct
+    union
     {
-        int notYetImplemented;
-    } streaminfo;
+        struct
+        {
+            int notYetImplemented;
+        } streaminfo;
 
-    struct
-    {
-        int notYetImplemented;
-    } padding;
+        struct
+        {
+            int notYetImplemented;
+        } padding;
 
-    struct
-    {
-        int notYetImplemented;
-    } application;
+        struct
+        {
+            int notYetImplemented;
+        } application;
 
-    struct
-    {
-        int notYetImplemented;
-    } seektable;
+        struct
+        {
+            int notYetImplemented;
+        } seektable;
 
-    struct
-    {
-        int notYetImplemented;
-    } vorbis_comment;
+        struct
+        {
+            int notYetImplemented;
+        } vorbis_comment;
 
-    struct
-    {
-        int notYetImplemented;
-    } cuesheet;
+        struct
+        {
+            int notYetImplemented;
+        } cuesheet;
 
-    struct
-    {
-        int notYetImplemented;
-    } picture;
+        struct
+        {
+            int notYetImplemented;
+        } picture;
+    } data;
 
 } drflac_metadata;
 
@@ -254,6 +257,10 @@ typedef struct
 
     // The user data to pass around to onRead and onSeek.
     void* pUserData;
+
+    // The user data posted to the metadata callback function. This will often be the same as pUserData, but will be different
+    // for decoders opened with drflac_open_file_with_metadata() and drflac_open_memory_with_metadata().
+    void* pUserDataMD;
 
 
     // The sample rate. Will be set to something like 44100.
@@ -346,6 +353,7 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex);
 #ifndef DR_FLAC_NO_STDIO
 // Opens a flac decoder from the file at the given path.
 drflac* drflac_open_file(const char* filename);
+drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData);
 #endif
 
 // Helper for opening a file from a pre-allocated memory buffer.
@@ -430,6 +438,8 @@ typedef struct
     uint16_t sampleCount;
 } drflac_seekpoint;
 
+drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD);
+
 #ifndef DR_FLAC_NO_STDIO
 #if defined(DR_FLAC_NO_WIN32_IO) || !defined(_WIN32)
 #include <stdio.h>
@@ -460,6 +470,23 @@ drflac* drflac_open_file(const char* filename)
 
     return drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, pFile);
 }
+
+drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData)
+{
+    FILE* pFile;
+#ifdef _MSC_VER
+    if (fopen_s(&pFile, filename, "rb") != 0) {
+        return NULL;
+    }
+#else
+    pFile = fopen(filename, "rb");
+    if (pFile == NULL) {
+        return NULL;
+    }
+#endif
+
+    return drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, pFile, pUserData);
+}
 #else
 #include <windows.h>
 
@@ -486,6 +513,22 @@ drflac* drflac_open_file(const char* filename)
     }
 
     return drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)hFile);
+}
+
+drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData)
+{
+    HANDLE hFile = CreateFileA(filename, FILE_GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return NULL;
+    }
+
+    drflac* pFlac = drflac_open_with_metadata(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, (void*)hFile);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    pFlac->pUserDataMD = pUserData;
+    return pFlac;
 }
 #endif
 #endif  //DR_FLAC_NO_STDIO
@@ -2473,6 +2516,11 @@ bool drflac_init_from_file(drflac* pFlac, const char* filename);
 
 typedef struct
 {
+    drflac_read_proc onRead;
+    drflac_seek_proc onSeek;
+    drflac_meta_proc onMeta;
+    void* pUserData;
+    void* pUserDataMD;
     uint32_t sampleRate;
     uint32_t channels;
     uint32_t bitsPerSample;
@@ -2491,11 +2539,17 @@ void drflac__decode_block_header(uint32_t blockHeader, uint8_t* isLastBlock, uin
     *blockSize   = (blockHeader & 0xFFFFFF);
 }
 
-bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData)
+bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
     if (pInit == NULL || onRead == NULL || onSeek == NULL) {
         return false;
     }
+
+    pInit->onRead      = onRead;
+    pInit->onSeek      = onSeek;
+    pInit->onMeta      = onMeta;
+    pInit->pUserData   = pUserData;
+    pInit->pUserDataMD = pUserDataMD;
 
     unsigned char id[4];
     if (onRead(pUserData, id, 4) != 4 || id[0] != 'f' || id[1] != 'L' || id[2] != 'a' || id[3] != 'C') {
@@ -2549,7 +2603,8 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
     if (onMeta) {
         drflac_metadata metadata;
         metadata.type = drflac_metadata_type_streaminfo;
-        metadata.streaminfo.notYetImplemented = 0;
+        metadata.data.streaminfo.notYetImplemented = 0;
+        onMeta(pUserDataMD, &metadata);
     }
 
 
@@ -2573,7 +2628,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
             case DRFLAC_BLOCK_TYPE_APPLICATION:
             {
                 metadata.type = drflac_metadata_type_application;
-                metadata.seektable.notYetImplemented = 0;
+                metadata.data.seektable.notYetImplemented = 0;
             } break;
 
             case DRFLAC_BLOCK_TYPE_SEEKTABLE:
@@ -2582,31 +2637,31 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 pInit->seektableSize = blockSize;
 
                 metadata.type = drflac_metadata_type_seektable;
-                metadata.seektable.notYetImplemented = 0;
+                metadata.data.seektable.notYetImplemented = 0;
             } break;
 
             case DRFLAC_BLOCK_TYPE_VORBIS_COMMENT:
             {
                 metadata.type = drflac_metadata_type_vorbis_comment;
-                metadata.seektable.notYetImplemented = 0;
+                metadata.data.seektable.notYetImplemented = 0;
             } break;
 
             case DRFLAC_BLOCK_TYPE_CUESHEET:
             {
                 metadata.type = drflac_metadata_type_cuesheet;
-                metadata.seektable.notYetImplemented = 0;
+                metadata.data.seektable.notYetImplemented = 0;
             } break;
 
             case DRFLAC_BLOCK_TYPE_PICTURE:
             {
                 metadata.type = drflac_metadata_type_picture;
-                metadata.seektable.notYetImplemented = 0;
+                metadata.data.seektable.notYetImplemented = 0;
             } break;
 
             case DRFLAC_BLOCK_TYPE_PADDING:
             {
                 metadata.type = drflac_metadata_type_padding;
-                metadata.seektable.notYetImplemented = 0;
+                metadata.data.seektable.notYetImplemented = 0;
             } break;
 
             case DRFLAC_BLOCK_TYPE_INVALID:
@@ -2619,23 +2674,24 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
         pInit->runningFilePos += blockSize;
 
         if (onMeta) {
-            onMeta(pUserData, &metadata);
+            onMeta(pUserDataMD, &metadata);
         }
     }
 
     return true;
 }
 
-void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData)
+void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
 {
     assert(pFlac != NULL);
     assert(pInit != NULL);
 
     memset(pFlac, 0, sizeof(*pFlac));
-    pFlac->onRead           = onRead;
-    pFlac->onSeek           = onSeek;
-    pFlac->onMeta           = onMeta;
-    pFlac->pUserData        = pUserData;
+    pFlac->onRead           = pInit->onRead;
+    pFlac->onSeek           = pInit->onSeek;
+    pFlac->onMeta           = pInit->onMeta;
+    pFlac->pUserData        = pInit->pUserData;
+    pFlac->pUserDataMD      = pInit->pUserDataMD;
     pFlac->currentBytePos   = pInit->runningFilePos;
     pFlac->nextL2Line       = sizeof(pFlac->cacheL2) / sizeof(pFlac->cacheL2[0]); // <-- Initialize to this to force a client-side data retrieval right from the start.
     pFlac->consumedBits     = sizeof(pFlac->cache)*8;
@@ -2648,6 +2704,25 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit, drflac_read_
     pFlac->seektableSize    = pInit->seektableSize;
     pFlac->firstFramePos    = pInit->runningFilePos;
 }
+
+drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+{
+    drflac_init_info init;
+    if (!drflac__init_private(&init, onRead, onSeek, onMeta, pUserData, pUserDataMD)) {
+        return false;
+    }
+
+    size_t allocationSize = sizeof(drflac) - sizeof(char);
+    allocationSize += init.maxBlockSize * init.channels * sizeof(int32_t);
+    allocationSize += init.seektableSize;
+
+    drflac* pFlac = (drflac*)malloc(allocationSize);
+    drflac__init_from_info(pFlac, &init);
+    pFlac->pDecodedSamples = (int32_t*)pFlac->pExtraData;
+
+    return pFlac;
+}
+
 
 
 #ifdef DR_FLAC_EXPERIMENTAL
@@ -2663,11 +2738,11 @@ bool drflac_init_with_metadata(drflac* pFlac, drflac_read_proc onRead, drflac_se
     }
 
     drflac_init_info init;
-    if (!drflac__init_private(&init, onRead, onSeek, onMeta, pUserData)) {
+    if (!drflac__init_private(&init, onRead, onSeek, onMeta, pUserData, pUserData)) {
         return false;
     }
     
-    drflac__init_from_info(pFlac, &init, onRead, onSeek, onMeta, pUserData);
+    drflac__init_from_info(pFlac, &init);
 
     return false;
 }
@@ -2696,25 +2771,12 @@ bool drflac_init_from_file(drflac* pFlac, const char* filename)
 
 drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData)
 {
-    return drflac_open_with_metadata(onRead, onSeek, NULL, pUserData);
+    return drflac_open_with_metadata_private(onRead, onSeek, NULL, pUserData, pUserData);
 }
 
 drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData)
 {
-    drflac_init_info init;
-    if (!drflac__init_private(&init, onRead, onSeek, onMeta, pUserData)) {
-        return false;
-    }
-
-    size_t allocationSize = sizeof(drflac) - sizeof(char);
-    allocationSize += init.maxBlockSize * init.channels * sizeof(int32_t);
-    allocationSize += init.seektableSize;
-
-    drflac* pFlac = (drflac*)malloc(allocationSize);
-    drflac__init_from_info(pFlac, &init, onRead, onSeek, onMeta, pUserData);
-    pFlac->pDecodedSamples = (int32_t*)pFlac->pExtraData;
-
-    return pFlac;
+    return drflac_open_with_metadata_private(onRead, onSeek, onMeta, pUserData, pUserData);
 }
 
 void drflac_close(drflac* pFlac)
