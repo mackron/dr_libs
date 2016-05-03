@@ -445,11 +445,19 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
 
 //// High Level APIs ////
 
+// Opens a FLAC stream from the given callbacks and fully decodes it in a single operation. The return value is a
+// pointer to the sample data as interleaved signed 32-bit PCM. The returned data must be freed with drflac_free().
+int32_t* drflac_open_and_decode(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+
 #ifndef DR_FLAC_NO_STDIO
 // Opens a FLAC file and fully decodes it in a single operation. The return value is a pointer to the sample data
 // as interleaved signed 32-bit PCM. The returned data must be freed with drflac_free().
 int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
 #endif
+
+// Opens a FLAC file from a block of memory and fully decodes it in a single operation. The return value is a pointer
+// to the sample data as interleaved signed 32-bit PCM. The returned data must be freed with drflac_free().
+int32_t* drflac_open_and_decode_memory(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
 
 // Frees data returned by drflac_open_and_decode_*().
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
@@ -3319,18 +3327,9 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
 
 //// High Level APIs ////
 
-#ifndef DR_FLAC_NO_STDIO
-int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
 {
-    // Safety.
-    if (sampleRate) *sampleRate = 0;
-    if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
-
-    drflac* pFlac = drflac_open_file(filename);
-    if (pFlac == NULL) {
-        return NULL;
-    }
+    assert(pFlac != NULL);
 
     uint64_t dataSize = pFlac->totalSampleCount * sizeof(int32_t);
     if (dataSize > SIZE_MAX) {
@@ -3359,7 +3358,51 @@ int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleR
     drflac_close(pFlac);
     return pSampleData;
 }
+
+int32_t* drflac_open_and_decode(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+{
+    // Safety.
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drflac* pFlac = drflac_open(onRead, onSeek, pUserData);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    return drflac__full_decode_and_close(pFlac, sampleRate, channels, totalSampleCount);
+}
+
+#ifndef DR_FLAC_NO_STDIO
+int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drflac* pFlac = drflac_open_file(filename);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    return drflac__full_decode_and_close(pFlac, sampleRate, channels, totalSampleCount);
+}
 #endif
+
+int32_t* drflac_open_and_decode_memory(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drflac* pFlac = drflac_open_memory(data, dataSize);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    return drflac__full_decode_and_close(pFlac, sampleRate, channels, totalSampleCount);
+}
 
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode)
 {
