@@ -3,23 +3,18 @@ This repository is a container for single-file, public domain libraries written 
 file in this library are independant of the others, except where noted. Click the links for
 more detailed information.
 
-- [dr_flac](https://mackron.github.io/dr_flac): A simple library for decoding FLAC files.
-- [dr_wav](https://mackron.github.io/dr_wav): A simple library for reading audio data from .wav files.
-- dr_obj: A simple library for loading Wavefront OBJ files. Currently only supports a tiny subset of
-features.
-- dr_pcx: A library for loading PCX image files.
-- dr_fs: A library that abstracts file IO to allow one to load files from both the native file system
-and archives such as Zip files.
-- dr_fsw: A library for watching for changes to the file system. Currently only supports Windows.
-- dr_path: A path manipulation library.
-- dr_gui: A low-level GUI library.
-- dr_util: A library with miscellaneous functionality that doesn't really belong to
-any particular category.
-- dr_mtl: A compiler for materials for use in graphics software. Takes a material file
-(such as Wavefront MTL files), compiles it into an intermediate bytecode representation,
-then generates shader code (GLSL, etc.)
-- dr_audio (WIP): A simple library for audio playback and recording. Very incomplete and
-work-in-progress.
-- dr_2d (WIP): A work-in-progress library for drawing 2D graphics.
-- dr_math (WIP): A very incomplete vector math library. You don't want to be using this
-right now.
+Library                                         | Version | Description
+----------------------------------------------- | ------- | -----------
+[dr_flac](https://mackron.github.io/dr_flac)    | 0       | FLAC audio decoder.
+[dr_wav](https://mackron.github.io/dr_wav)      | 0       | WAV audio loader.
+dr_obj                                          | 0       | Wavefront OBJ model loader.
+dr_pcx                                          | 0       | PCX image loader.
+dr_fs                                           | 0       | File system abstraction for loading files from the native file system and archives.
+dr_fsw                                          | 0       | Watch for changes to the file system. Windows only.
+dr_path                                         | 0       | File path manipulation.
+dr_gui                                          | 0       | Low level GUI system.
+dr_util                                         | 0       | Miscellaneous stuff that doesn't belong to any specific category.
+dr_mtl                                          | 0       | Loads material files and converts it to shader source (GLSL, etc.)
+dr_math                                         | 0       | Vector math library. Very incomplete.
+dr_audio (WIP)                                  | 0       | Audio playback. Work in progress.
+dr_2d (WIP)                                     | 0       | 2D graphics rendering. Work in progress.
