@@ -212,7 +212,10 @@ typedef struct
 
         struct
         {
-            int notYetImplemented;
+            uint32_t vendorLength;
+            const char* vendor;
+            uint32_t commentCount;
+            const char* comments;
         } vorbis_comment;
 
         struct
@@ -2783,8 +2786,6 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
             case DRFLAC_METADATA_BLOCK_TYPE_VORBIS_COMMENT:
             {
                 if (onMeta) {
-                    metadata.data.vorbis_comment.notYetImplemented = 0;
-
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
                         return false;
@@ -2797,6 +2798,12 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
 
                     metadata.pRawData = pRawData;
                     metadata.rawDataSize = blockSize;
+
+                    const char* pRunningData = (const char*)pRawData;
+                    metadata.data.vorbis_comment.vendorLength = *(uint32_t*)pRunningData; pRunningData += 4;
+                    metadata.data.vorbis_comment.vendor       = pRunningData;             pRunningData += metadata.data.vorbis_comment.vendorLength;
+                    metadata.data.vorbis_comment.commentCount = *(uint32_t*)pRunningData; pRunningData += 4;
+                    metadata.data.vorbis_comment.comments     = pRunningData;
                     onMeta(pUserDataMD, &metadata);
 
                     free(pRawData);
