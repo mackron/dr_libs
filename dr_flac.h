@@ -134,6 +134,16 @@ typedef enum
     drflac_metadata_type_invalid        = 127
 } drflac_metadata_type;
 
+// Packing is important on this structure because we map this directly to the raw data within the SEEKTABLE metadata block.
+#pragma pack(2)
+typedef struct
+{
+    uint64_t firstSample;
+    uint64_t frameOffset;   // The offset from the first byte of the header of the first frame.
+    uint16_t sampleCount;
+} drflac_seekpoint;
+#pragma pack()
+
 typedef struct
 {
     // The metadata type. Use this to know how to interpret the data below.
@@ -168,7 +178,8 @@ typedef struct
 
         struct
         {
-            int notYetImplemented;
+            uint32_t seekpointCount;
+            const drflac_seekpoint* pSeekpoints;
         } seektable;
 
         struct
@@ -443,12 +454,6 @@ void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
 #define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
-typedef struct
-{
-    uint64_t firstSample;
-    uint64_t frameOffset;   // The offset from the first byte of the header of the first frame.
-    uint16_t sampleCount;
-} drflac_seekpoint;
 
 drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD);
 
@@ -627,6 +632,18 @@ static DRFLAC_INLINE bool drflac__is_little_endian()
     return (*(char*)&n) == 1;
 }
 
+static DRFLAC_INLINE uint16_t drflac__swap_endian_uint16(uint16_t n)
+{
+#ifdef _MSC_VER
+    return _byteswap_ushort(n);
+#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC__ >= 3))
+    return __builtin_bswap16(n);
+#else
+    return ((n & 0xFF00) >> 8) |
+           ((n & 0x00FF) << 8);
+#endif
+}
+
 static DRFLAC_INLINE uint32_t drflac__swap_endian_uint32(uint32_t n)
 {
 #ifdef _MSC_VER
@@ -659,6 +676,18 @@ static DRFLAC_INLINE uint64_t drflac__swap_endian_uint64(uint64_t n)
 #endif
 }
 
+static DRFLAC_INLINE uint16_t drflac__be2host_16(uint16_t n)
+{
+#ifdef __linux__
+    return be16toh(n);
+#else
+    if (drflac__is_little_endian()) {
+        return drflac__swap_endian_uint16(n);
+    }
+
+    return n;
+#endif
+}
 
 static DRFLAC_INLINE uint32_t drflac__be2host_32(uint32_t n)
 {
@@ -685,6 +714,7 @@ static DRFLAC_INLINE uint64_t drflac__be2host_64(uint64_t n)
     return n;
 #endif
 }
+
 
 #ifdef DRFLAC_64BIT
 #define drflac__be2host__cache_line drflac__be2host_64
@@ -2649,9 +2679,9 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
         {
             case DRFLAC_BLOCK_TYPE_APPLICATION:
             {
-                metadata.type = drflac_metadata_type_application;
-
                 if (onMeta) {
+                    metadata.type = drflac_metadata_type_application;
+
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
                         return false;
@@ -2678,25 +2708,44 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 pInit->seektablePos  = pInit->runningFilePos;
                 pInit->seektableSize = blockSize;
 
-                metadata.type = drflac_metadata_type_seektable;
-                metadata.data.seektable.notYetImplemented = 0;
-
                 if (onMeta) {
-                    if (!onSeek(pUserData, blockSize)) {
+                    metadata.type = drflac_metadata_type_seektable;
+
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
                         return false;
                     }
 
+                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+                    metadata.data.seektable.seekpointCount = blockSize/sizeof(drflac_seekpoint);
+                    metadata.data.seektable.pSeekpoints = (const drflac_seekpoint*)pRawData;
+
+                    // Endian swap.
+                    for (uint32_t iSeekpoint = 0; iSeekpoint < metadata.data.seektable.seekpointCount; ++iSeekpoint) {
+                        drflac_seekpoint* pSeekpoint = (drflac_seekpoint*)pRawData + iSeekpoint;
+                        pSeekpoint->firstSample = drflac__be2host_64(pSeekpoint->firstSample);
+                        pSeekpoint->frameOffset = drflac__be2host_64(pSeekpoint->frameOffset);
+                        pSeekpoint->sampleCount = drflac__be2host_16(pSeekpoint->sampleCount);
+                    }
+
                     onMeta(pUserDataMD, &metadata);
+
+                    free(pRawData);
                 }
             } break;
 
             case DRFLAC_BLOCK_TYPE_VORBIS_COMMENT:
             {
-                metadata.type = drflac_metadata_type_vorbis_comment;
-                metadata.pRawData = NULL;
-                metadata.data.vorbis_comment.notYetImplemented = 0;
-
                 if (onMeta) {
+                    metadata.type = drflac_metadata_type_vorbis_comment;
+                    metadata.data.vorbis_comment.notYetImplemented = 0;
+
                     if (!onSeek(pUserData, blockSize)) {
                         return false;
                     }
@@ -2707,11 +2756,10 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
 
             case DRFLAC_BLOCK_TYPE_CUESHEET:
             {
-                metadata.type = drflac_metadata_type_cuesheet;
-                metadata.pRawData = NULL;
-                metadata.data.cuesheet.notYetImplemented = 0;
-
                 if (onMeta) {
+                    metadata.type = drflac_metadata_type_cuesheet;
+                    metadata.data.cuesheet.notYetImplemented = 0;
+
                     if (!onSeek(pUserData, blockSize)) {
                         return false;
                     }
@@ -2722,11 +2770,10 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
 
             case DRFLAC_BLOCK_TYPE_PICTURE:
             {
-                metadata.type = drflac_metadata_type_picture;
-                metadata.pRawData = NULL;
-                metadata.data.picture.notYetImplemented = 0;
-
                 if (onMeta) {
+                    metadata.type = drflac_metadata_type_picture;
+                    metadata.data.picture.notYetImplemented = 0;
+
                     if (!onSeek(pUserData, blockSize)) {
                         return false;
                     }
@@ -2737,11 +2784,10 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
 
             case DRFLAC_BLOCK_TYPE_PADDING:
             {
-                metadata.type = drflac_metadata_type_padding;
-                metadata.pRawData = NULL;
-                metadata.data.padding.unused = 0;
-
                 if (onMeta) {
+                    metadata.type = drflac_metadata_type_padding;
+                    metadata.data.padding.unused = 0;
+
                     // Padding doesn't have anything meaningful in it, so just skip over it.
                     if (!onSeek(pUserData, blockSize)) {
                         return false;
