@@ -845,8 +845,7 @@ void drwav_u8PCM_to_f32(size_t totalSampleCount, const unsigned char* u8PCM, flo
         return;
     }
 
-    for (size_t i = 0; i < totalSampleCount; ++i)
-    {
+    for (size_t i = 0; i < totalSampleCount; ++i) {
         *f32Out++ = (u8PCM[i] / 255.0f) * 2 - 1;
     }
 }
@@ -857,8 +856,7 @@ void drwav_s16PCM_to_f32(size_t totalSampleCount, const short* s16PCM, float* f3
         return;
     }
 
-    for (size_t i = 0; i < totalSampleCount; ++i)
-    {
+    for (size_t i = 0; i < totalSampleCount; ++i) {
         *f32Out++ = s16PCM[i] / 32768.0f;
     }
 }
@@ -869,8 +867,7 @@ void drwav_s24PCM_to_f32(size_t totalSampleCount, const unsigned char* s24PCM, f
         return;
     }
 
-    for (size_t i = 0; i < totalSampleCount; ++i)
-    {
+    for (size_t i = 0; i < totalSampleCount; ++i) {
         unsigned int s0 = s24PCM[i*3 + 0];
         unsigned int s1 = s24PCM[i*3 + 1];
         unsigned int s2 = s24PCM[i*3 + 2];
@@ -886,8 +883,7 @@ void drwav_s32PCM_to_f32(size_t totalSampleCount, const int* s32PCM, float* f32O
         return;
     }
 
-    for (size_t i = 0; i < totalSampleCount; ++i)
-    {
+    for (size_t i = 0; i < totalSampleCount; ++i) {
         *f32Out++ = (float)(s32PCM[i] / 2147483648.0);
     }
 }
@@ -898,8 +894,7 @@ void drwav_f64_to_f32(size_t totalSampleCount, const double* f64In, float* f32Ou
         return;
     }
 
-    for (size_t i = 0; i < totalSampleCount; ++i)
-    {
+    for (size_t i = 0; i < totalSampleCount; ++i) {
         *f32Out++ = (float)f64In[i];
     }
 }
