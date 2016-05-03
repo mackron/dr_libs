@@ -75,6 +75,14 @@ typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t byt
 // is 0 on failure, non-zero success.
 typedef int (* drwav_seek_proc)(void* pUserData, int offset);
 
+// Structure for internal use. Only used for loaders opened with drwav_open_memory.
+typedef struct
+{
+    const unsigned char* data;
+    size_t dataSize;
+    size_t currentReadPos;
+} drwav__memory_stream;
+
 typedef struct
 {
     // The format tag exactly as specified in the wave file's "fmt" chunk. This can be used by applications
@@ -149,6 +157,10 @@ typedef struct
     
     // The number of bytes remaining in the data chunk.
     uint64_t bytesRemaining;
+
+
+    // A hack to avoid a malloc() when opening a decoder with drflac_open_memory().
+    drwav__memory_stream memoryStream;
 
 } drwav;
 
@@ -392,22 +404,9 @@ drwav* drwav_open_file(const char* filename)
 #endif  //DR_WAV_NO_STDIO
 
 
-typedef struct
-{
-    // A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
-    const unsigned char* data;
-
-    // The size of the data.
-    size_t dataSize;
-
-    // The position we're currently sitting at.
-    size_t currentReadPos;
-
-} drwav_memory;
-
 static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t bytesToRead)
 {
-    drwav_memory* memory = (drwav_memory*)pUserData;
+    drwav__memory_stream* memory = (drwav__memory_stream*)pUserData;
     assert(memory != NULL);
     assert(memory->dataSize >= memory->currentReadPos);
 
@@ -426,7 +425,7 @@ static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t by
 
 static int drwav__on_seek_memory(void* pUserData, int offset)
 {
-    drwav_memory* memory = (drwav_memory*)pUserData;
+    drwav__memory_stream* memory = (drwav__memory_stream*)pUserData;
     assert(memory != NULL);
 
     if (offset > 0) {
@@ -441,21 +440,24 @@ static int drwav__on_seek_memory(void* pUserData, int offset)
 
     // This will never underflow thanks to the clamps above.
     memory->currentReadPos += offset;
-
     return 1;
 }
 
 drwav* drwav_open_memory(const void* data, size_t dataSize)
 {
-    drwav_memory* pUserData = (drwav_memory*)malloc(sizeof(*pUserData));
-    if (pUserData == NULL) {
+    drwav__memory_stream memoryStream;
+    memoryStream.data = (const unsigned char*)data;
+    memoryStream.dataSize = dataSize;
+    memoryStream.currentReadPos = 0;
+
+    drwav* pWav = drwav_open(drwav__on_read_memory, drwav__on_seek_memory, &memoryStream);
+    if (pWav == NULL) {
         return NULL;
     }
 
-    pUserData->data = (const unsigned char*)data;
-    pUserData->dataSize = dataSize;
-    pUserData->currentReadPos = 0;
-    return drwav_open(drwav__on_read_memory, drwav__on_seek_memory, pUserData);
+    pWav->memoryStream = memoryStream;
+    pWav->pUserData = &pWav->memoryStream;
+    return pWav;
 }
 
 
@@ -565,15 +567,10 @@ void drwav_uninit(drwav* pWav)
 #ifndef DR_WAV_NO_STDIO
     // If we opened the file with drwav_open_file() we will want to close the file handle. We can know whether or not drwav_open_file()
     // was used by looking at the onRead and onSeek callbacks.
-    if (pWav->onRead == drwav__on_read_stdio && pWav->onSeek == drwav__on_seek_stdio) {
+    if (pWav->onRead == drwav__on_read_stdio) {
         fclose((FILE*)pWav->pUserData);
     }
 #endif
-
-    // If we opened the file with drwav_open_memory() we will want to free() the user data.
-    if (pWav->onRead == drwav__on_read_memory && pWav->onSeek == drwav__on_seek_memory) {
-        free(pWav->pUserData);
-    }
 }
 
 
