@@ -361,6 +361,7 @@ drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc on
 // This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
 // the lifetime of the decoder.
 drflac* drflac_open_memory(const void* data, size_t dataSize);
+drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drflac_meta_proc onMeta, void* pUserData);
 
 
 
@@ -522,13 +523,7 @@ drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc on
         return NULL;
     }
 
-    drflac* pFlac = drflac_open_with_metadata(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, (void*)hFile);
-    if (pFlac == NULL) {
-        return NULL;
-    }
-
-    pFlac->pUserDataMD = pUserData;
-    return pFlac;
+    return drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, (void*)hFile, pUserData);
 }
 #endif
 #endif  //DR_FLAC_NO_STDIO
@@ -598,6 +593,19 @@ drflac* drflac_open_memory(const void* data, size_t dataSize)
     pUserData->dataSize = dataSize;
     pUserData->currentReadPos = 0;
     return drflac_open(drflac__on_read_memory, drflac__on_seek_memory, pUserData);
+}
+
+drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drflac_meta_proc onMeta, void* pUserData)
+{
+    drflac_memory* memory = (drflac_memory*)malloc(sizeof(*memory));
+    if (memory == NULL) {
+        return NULL;
+    }
+
+    memory->data = (const unsigned char*)data;
+    memory->dataSize = dataSize;
+    memory->currentReadPos = 0;
+    return drflac_open_with_metadata_private(drflac__on_read_memory, drflac__on_seek_memory, onMeta, &memory, pUserData);
 }
 
 
