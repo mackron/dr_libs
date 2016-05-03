@@ -83,7 +83,7 @@
 // - Implement a proper test suite.
 // - Add support for initializing the decoder without a STREAMINFO block. Build a synthethic test to get support working at at least
 //   a basic level.
-// - Add support for CUESHEET metadata blocks.
+// - Test CUESHEET metadata blocks.
 // - Add support for Ogg encapsulation.
 
 #ifndef dr_flac_h
@@ -220,7 +220,11 @@ typedef struct
 
         struct
         {
-            int notYetImplemented;
+            char catalog[128];
+            uint64_t leadInSampleCount;
+            bool isCD;
+            uint8_t trackCount;
+            const uint8_t* pTrackData;
         } cuesheet;
 
         struct
@@ -2685,8 +2689,6 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
             case DRFLAC_METADATA_BLOCK_TYPE_CUESHEET:
             {
                 if (onMeta) {
-                    metadata.data.cuesheet.notYetImplemented = 0;
-
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
                         return false;
@@ -2699,6 +2701,13 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
 
                     metadata.pRawData = pRawData;
                     metadata.rawDataSize = blockSize;
+
+                    const char* pRunningData = (const char*)pRawData;
+                    memcpy(metadata.data.cuesheet.catalog, pRunningData, 128);                               pRunningData += 128;
+                    metadata.data.cuesheet.leadInSampleCount = drflac__be2host_64(*(uint64_t*)pRunningData); pRunningData += 4;
+                    metadata.data.cuesheet.isCD              = ((pRunningData[0] & 0x80) >> 7) != 0;         pRunningData += 259;
+                    metadata.data.cuesheet.trackCount        = pRunningData[0];                              pRunningData += 1;
+                    metadata.data.cuesheet.pTrackData        = (const uint8_t*)pRunningData;
                     onMeta(pUserDataMD, &metadata);
 
                     free(pRawData);
