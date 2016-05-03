@@ -440,6 +440,23 @@ int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleR
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
 
 
+// Structure representing an iterator for iterating over vorbis comments in a VORBIS_COMMENT metadata block.
+typedef struct
+{
+    uint32_t countRemaining;
+    const char* pRunningData;
+} drflac_vorbis_comment_iterator;
+
+// Initializes a vorbis comment iterator. This can be used for iterating over the vorbis comments in a VORBIS_COMMENT
+// metadata block.
+void drflac_init_vorbis_comment_iterator(drflac_vorbis_comment_iterator* pIter, uint32_t commentCount, const char* pComments);
+
+// Goes to the next vorbis comment in the given iterator. If null is returned it means there are no more comments. The
+// returned string is NOT null terminated.
+const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, uint32_t* pCommentLengthOut);
+
+
+
 #ifdef __cplusplus
 }
 #endif
@@ -3384,6 +3401,39 @@ int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleR
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode)
 {
     free(pSampleDataReturnedByOpenAndDecode);
+}
+
+
+
+
+void drflac_init_vorbis_comment_iterator(drflac_vorbis_comment_iterator* pIter, uint32_t commentCount, const char* pComments)
+{
+    if (pIter == NULL) {
+        return;
+    }
+
+    pIter->countRemaining = commentCount;
+    pIter->pRunningData   = pComments;
+}
+
+const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, uint32_t* pCommentLengthOut)
+{
+    // Safety.
+    if (pCommentLengthOut) *pCommentLengthOut = 0;
+
+    if (pIter == NULL || pIter->countRemaining == 0 || pIter->pRunningData == NULL) {
+        return NULL;
+    }
+
+    uint32_t length = *(uint32_t*)pIter->pRunningData;
+    pIter->pRunningData += 4;
+
+    const char* pComment = pIter->pRunningData;
+    pIter->pRunningData += length;
+    pIter->countRemaining -= 1;
+
+    if (pCommentLengthOut) *pCommentLengthOut = length;
+    return pComment;
 }
 #endif  //DR_FLAC_IMPLEMENTATION
 
