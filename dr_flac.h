@@ -2877,7 +2877,7 @@ static drflac_file drflac__open_file_handle(const char* filename)
     return (drflac_file)pFile;
 }
 
-static void drflac__close_file(drflac_file file)
+static void drflac__close_file_handle(drflac_file file)
 {
     fclose((FILE*)file);
 }
@@ -2909,7 +2909,7 @@ static drflac_file drflac__open_file_handle(const char* filename)
     return (drflac_file)hFile;
 }
 
-static void drflac__close_file(drflac_file file)
+static void drflac__close_file_handle(drflac_file file)
 {
     CloseHandle((HANDLE)file);
 }
@@ -3065,7 +3065,7 @@ void drflac_close(drflac* pFlac)
     // If we opened the file with drflac_open_file() we will want to close the file handle. We can know whether or not drflac_open_file()
     // was used by looking at the callbacks.
     if (pFlac->onRead == drflac__on_read_stdio) {
-        drflac__close_file((drflac_file)pFlac->pUserData);
+        drflac__close_file_handle((drflac_file)pFlac->pUserData);
     }
 #endif
 
