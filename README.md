@@ -4,7 +4,7 @@ file in this library are independant of the others, except where noted. Click th
 more detailed information.
 
 All libraries are written in C, but they should be compilable by a C++ compiler. However, I
-I don't regularly work in C++ so there could be compiler errors every now and then. If you
+don't regularly work in C++ so there could be compiler errors every now and then. If you
 come across one, feel free to submit an issue real quick and I'll get it sorted out.
 
 Not every library is versioned. Usually this means it's pretty early in development and I'm
