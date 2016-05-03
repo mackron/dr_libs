@@ -55,7 +55,7 @@ typedef bool (* drobj_seek_to_start_proc)(void* userData);
 typedef struct
 {
     // The name.
-    char name[1];
+    char* name;
 
 } drobj_mtllib;
 
@@ -68,7 +68,7 @@ typedef struct
     uint32_t faceCount;
 
     // The name of the material.
-    char name[1];
+    char* name;
 
 } drobj_material;
 
@@ -137,6 +137,10 @@ typedef struct
     // A pointer to the face data.
     drobj_face* pFaces;
 
+
+    // A pointer variable length strings that contains the names of materials and whatnot. This is an offset of
+    // pData and every string is stored immediately after each other and are null terminated.
+    char* pStrings;
 
     // A pointer to the raw data. This contains the vertex and index data.
     char pData[1];
@@ -382,8 +386,7 @@ typedef struct
     uint32_t normalCount;
     uint32_t faceCount;
 
-    size_t totalMaterialLibsSize;
-    size_t totalMaterialSize;
+    size_t totalStringLength;   // <-- Includes null terminators.
     size_t allocationSize;
     
 } drobj_load_context;
@@ -840,13 +843,13 @@ bool drobj__load_stage1(drobj_load_context* pLoadContext)
         {
             // mtllib.
             pLoadContext->materialLibCount += 1;
-            pLoadContext->totalMaterialLibsSize += (sizeof(drobj_mtllib) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, NULL) + 1;    // +1 for null terminator.
+            pLoadContext->totalStringLength += drobj__parse_mtl_name(lineBeg + 6, lineEnd, NULL) + 1;   // +1 for null terminator.
         }
         else if (lineBeg[0] == 'u' && lineBeg[1] == 's' && lineBeg[2] == 'e' && lineBeg[3] == 'm' && lineBeg[4] == 't' && lineBeg[5] == 'l' && drobj__is_whitespace(lineBeg[6]))
         {
             // usemtl.
-            pLoadContext->materialCount += 1;
-            pLoadContext->totalMaterialSize += (sizeof(drobj_material) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, NULL) + 1;    // +1 for null terminator.
+            pLoadContext->materialCount += 1;   
+            pLoadContext->totalStringLength += drobj__parse_mtl_name(lineBeg + 6, lineEnd, NULL) + 1;   // +1 for null terminator.
         }
         else
         {
@@ -867,12 +870,13 @@ bool drobj__load_stage1(drobj_load_context* pLoadContext)
     }
 
     pLoadContext->allocationSize =
-        pLoadContext->totalMaterialLibsSize +
-        pLoadContext->totalMaterialSize +
-        pLoadContext->positionCount * sizeof(drobj_vec4) + 
-        pLoadContext->texcoordCount * sizeof(drobj_vec3) +
-        pLoadContext->normalCount   * sizeof(drobj_vec3) +
-        pLoadContext->faceCount     * sizeof(drobj_face);
+        pLoadContext->materialLibCount * sizeof(drobj_mtllib) +
+        pLoadContext->materialCount    * sizeof(drobj_material) +
+        pLoadContext->positionCount    * sizeof(drobj_vec4) + 
+        pLoadContext->texcoordCount    * sizeof(drobj_vec3) +
+        pLoadContext->normalCount      * sizeof(drobj_vec3) +
+        pLoadContext->faceCount        * sizeof(drobj_face) +
+        pLoadContext->totalStringLength;
 
     return true;
 }
@@ -881,29 +885,18 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
 {
     assert(pOBJ != NULL);
 
-    pLoadContext->materialLibCount      = 0;
-    pLoadContext->materialCount         = 0;
-    pLoadContext->positionCount         = 0;
-    pLoadContext->texcoordCount         = 0;
-    pLoadContext->normalCount           = 0;
-    pLoadContext->faceCount             = 0;
-    pLoadContext->totalMaterialLibsSize = 0;
-    pLoadContext->totalMaterialSize     = 0;
-
-    drobj_mtllib* pNextMtlLib = pOBJ->pMaterialLibs;
-    drobj_material* pNextMtl = pOBJ->pMaterials;
-    drobj_material* pPrevMtl = NULL;
+    pLoadContext->materialLibCount  = 0;
+    pLoadContext->materialCount     = 0;
+    pLoadContext->positionCount     = 0;
+    pLoadContext->texcoordCount     = 0;
+    pLoadContext->normalCount       = 0;
+    pLoadContext->faceCount         = 0;
+    pLoadContext->totalStringLength = 0;
 
     char* lineBeg;
     char* lineEnd;
     while (drobj__read_next_line(pLoadContext, &lineBeg, &lineEnd))     // <-- This will handle comments and leading whitespace for us.
     {
-#if 0
-        char temp[4096];
-        strncpy_s(temp, sizeof(temp), lineBeg, lineEnd - lineBeg);
-        printf("%s\n", temp);
-#endif
-
         if (lineBeg[0] == 'v' && drobj__is_whitespace(lineBeg[1]))
         {
             // Position.
@@ -955,24 +948,32 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         else if (lineBeg[0] == 'm' && lineBeg[1] == 't' && lineBeg[2] == 'l' && lineBeg[3] == 'l' && lineBeg[4] == 'i' && lineBeg[5] == 'b' && drobj__is_whitespace(lineBeg[6]))
         {
             // mtllib.
+            size_t nameLength = drobj__parse_mtl_name(lineBeg + 6, lineEnd, pOBJ->pStrings + pLoadContext->totalStringLength);
+            pOBJ->pMaterialLibs[pLoadContext->materialLibCount].name = pOBJ->pStrings + pLoadContext->totalStringLength;
+
+            pLoadContext->totalStringLength += nameLength;
+            pOBJ->pStrings[pLoadContext->totalStringLength++] = '\0';
+
             pLoadContext->materialLibCount += 1;
-            pLoadContext->totalMaterialLibsSize += (sizeof(drobj_mtllib) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, pNextMtlLib->name) + 1;    // +1 for null terminator.
-            pNextMtlLib = (drobj_mtllib*)((char*)pOBJ->pMaterialLibs + pLoadContext->totalMaterialLibsSize);
         }
         else if (lineBeg[0] == 'u' && lineBeg[1] == 's' && lineBeg[2] == 'e' && lineBeg[3] == 'm' && lineBeg[4] == 't' && lineBeg[5] == 'l' && drobj__is_whitespace(lineBeg[6]))
         {
             // usemtl.
-            pNextMtl->firstFace = pLoadContext->faceCount;
+            size_t nameLength = drobj__parse_mtl_name(lineBeg + 6, lineEnd, pOBJ->pStrings + pLoadContext->totalStringLength);
+            pOBJ->pMaterials[pLoadContext->materialCount].name = pOBJ->pStrings + pLoadContext->totalStringLength;
+            pOBJ->pMaterials[pLoadContext->materialCount].firstFace = pLoadContext->faceCount;
+            pOBJ->pMaterials[pLoadContext->materialCount].faceCount = 0;
 
-            if (pPrevMtl != NULL) {
-                pPrevMtl->faceCount = pLoadContext->faceCount - pPrevMtl->firstFace;
+            // Previous material needs to have it's face count updated.
+            if (pLoadContext->materialCount > 0) {
+                pOBJ->pMaterials[pLoadContext->materialCount-1].faceCount = pLoadContext->faceCount - pOBJ->pMaterials[pLoadContext->materialCount-1].firstFace;
             }
+            
 
-            pPrevMtl = pNextMtl;
+            pLoadContext->totalStringLength += nameLength;
+            pOBJ->pStrings[pLoadContext->totalStringLength++] = '\0';
 
             pLoadContext->materialCount += 1;
-            pLoadContext->totalMaterialSize += (sizeof(drobj_material) - sizeof(char)) + drobj__parse_mtl_name(lineBeg + 6, lineEnd, pNextMtl->name) + 1;    // +1 for null terminator.
-            pNextMtl = (drobj_material*)((char*)pOBJ->pMaterials + pLoadContext->totalMaterialSize);
         }
         else
         {
@@ -981,8 +982,9 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         }
     }
 
-    if (pPrevMtl != NULL) {
-        pPrevMtl->faceCount = pLoadContext->faceCount - pPrevMtl->firstFace;
+    // Previous material needs to have it's face count updated.
+    if (pLoadContext->materialCount > 0) {
+        pOBJ->pMaterials[pLoadContext->materialCount-1].faceCount = pLoadContext->faceCount - pOBJ->pMaterials[pLoadContext->materialCount-1].firstFace;
     }
 
     // We always want at least one position, texture coordinate and normal. The first pass will have allocated memory for at least one of each.
@@ -1039,15 +1041,16 @@ drobj* drobj_load(drobj_read_proc onRead, drobj_seek_to_start_proc onSeek, void*
     pOBJ->materialLibCount = loadContext.materialLibCount;
     pOBJ->pMaterialLibs    = (drobj_mtllib*)pOBJ->pData;
     pOBJ->materialCount    = loadContext.materialCount;
-    pOBJ->pMaterials       = (drobj_material*)(((char*)pOBJ->pData) + loadContext.totalMaterialLibsSize);
+    pOBJ->pMaterials       = (drobj_material*)(((char*)pOBJ->pData) + (loadContext.materialLibCount * sizeof(*pOBJ->pMaterialLibs)));
     pOBJ->positionCount    = loadContext.positionCount;
-    pOBJ->pPositions       = (drobj_vec4*)(((char*)pOBJ->pMaterials) + loadContext.totalMaterialSize);
+    pOBJ->pPositions       = (drobj_vec4*)(((char*)pOBJ->pMaterials) + (loadContext.materialCount * sizeof(*pOBJ->pMaterials)));
     pOBJ->texCoordCount    = loadContext.texcoordCount;
     pOBJ->pTexCoords       = (drobj_vec3*)(((char*)pOBJ->pPositions) + (loadContext.positionCount * sizeof(*pOBJ->pPositions)));
     pOBJ->normalCount      = loadContext.normalCount;
     pOBJ->pNormals         = (drobj_vec3*)(((char*)pOBJ->pTexCoords) + (loadContext.texcoordCount * sizeof(*pOBJ->pTexCoords)));
     pOBJ->faceCount        = loadContext.faceCount;
     pOBJ->pFaces           = (drobj_face*)(((char*)pOBJ->pNormals) + (loadContext.normalCount * sizeof(*pOBJ->pNormals)));
+    pOBJ->pStrings         = (char*)pOBJ->pFaces + (loadContext.faceCount * sizeof(*pOBJ->pFaces));
 
     result = drobj__load_stage2(pOBJ, &loadContext);
     if (!result) {
