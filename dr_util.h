@@ -1643,7 +1643,7 @@ drutil_cmdline_iterator drutil_cmdline_begin(dr_cmdline* pCmdLine)
         {
             // Win32 style
             size_t length = strlen(pCmdLine->win32);
-            i.win32_payload = malloc(length + 2);         // +2 for a double null terminator.
+            i.win32_payload = (char*)malloc(length + 2);         // +2 for a double null terminator.
             strcpy_s(i.win32_payload, length + 2, pCmdLine->win32);
             i.win32_payload[length + 1] = '\0';
 
@@ -1886,7 +1886,7 @@ bool dr_cmdline_key_exists_callback(const char* key, const char* value, void* pU
 {
     (void)value;
 
-    dr_cmdline_key_exists_data* pData = pUserData;
+    dr_cmdline_key_exists_data* pData = (dr_cmdline_key_exists_data*)pUserData;
     assert(pData != NULL);
 
     if (strcmp(pData->key, key) == 0) {
@@ -1948,7 +1948,7 @@ typedef struct
 
 static DWORD WINAPI drutil_thread_entry_proc_win32(LPVOID pUserData)
 {
-    drutil_thread_win32* pThreadWin32 = pUserData;
+    drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)pUserData;
     assert(pThreadWin32 != NULL);
 
     void* pEntryProcData = pThreadWin32->pData;
@@ -1966,7 +1966,7 @@ dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
         return NULL;
     }
 
-    drutil_thread_win32* pThreadWin32 = malloc(sizeof(*pThreadWin32));
+    drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)malloc(sizeof(*pThreadWin32));
     if (pThreadWin32 != NULL)
     {
         pThreadWin32->entryProc     = entryProc;
@@ -2084,7 +2084,7 @@ bool dr_wait_semaphore(dr_semaphore semaphore)
 
 bool dr_release_semaphore(dr_semaphore semaphore)
 {
-    return ReleaseSemaphore((HANDLE)semaphore, 1, NULL);
+    return ReleaseSemaphore((HANDLE)semaphore, 1, NULL) != 0;
 }
 #else
 #include <unistd.h>
