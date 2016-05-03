@@ -1,14 +1,11 @@
-// Public domain. See "unlicense" statement at the end of this file.
+// FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
+// dr_flac - v0.1 - 03/05/2016
+//
+// David Reid - mackron@gmail.com
 
-// ABOUT
-//
-// dr_flac is a simple library for decoding FLAC files.
-//
-//
-//
 // USAGE
 //
-// This is a single-file library. To use it, do something like the following in one .c file.
+// dr_flac is a single-file library. To use it, do something like the following in one .c file.
 //   #define DR_FLAC_IMPLEMENTATION
 //   #include "dr_flac.h"
 //
@@ -21,12 +18,11 @@
 //     }
 //
 //     int32_t* pSamples = malloc(pFlac->totalSampleCount * sizeof(int32_t));
-//     uint64_t numberOfSamplesActuallyRead = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSamples);
-//
-//     // pSamples now contains the decoded samples as interleaved signed 32-bit PCM.
+//     uint64_t numberOfInterleavedSamplesActuallyRead = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSamples);
 //
 // The drflac object represents the decoder. It is a transparent type so all the information you need, such as the number of
-// channels and the bits per sample, should be directly accessible - just make sure you don't change their values.
+// channels and the bits per sample, should be directly accessible - just make sure you don't change their values. Samples are
+// always output as interleaved signed 32-bit PCM.
 //
 // You do not need to decode the entire stream in one go - you just specify how many samples you'd like at any given time and
 // the decoder will give you as many samples as it can, up to the amount requested. Later on when you need the next batch of
@@ -40,6 +36,30 @@
 // if you were to seek to the sample at index 0 in a stereo stream, you'll be seeking to the first sample of the left channel.
 // The sample at index 1 will be the first sample of the right channel. The sample at index 2 will be the second sample of the
 // left channel, etc.
+//
+//
+// If you just want to quickly decode an entire FLAC file in one go you can do something like this:
+//
+//     unsigned int sampleRate;
+//     unsigned int channels;
+//     uint64_t totalSampleCount;
+//     int32_t* pSampleData = drflac_open_and_decode_file("MySong.flac", &sampleRate, &channels, &totalSampleCount);
+//     if (pSampleData == NULL) {
+//         // Failed to open and decode FLAC file.
+//     }
+//
+//     ...
+//
+//     drflac_free(pSampleData);
+//
+//
+// If you need access to metadata (album art, etc.), use drflac_open_with_metadata(), drflac_open_file_with_metdata() or
+// drflac_open_memory_with_metadata(). The rationale for keeping these APIs separate is that they're slightly slower than the
+// normal versions and also just a little bit harder to use.
+// 
+// dr_flac reports metadata to the application through the use of a callback, and every metadata block is reported before
+// drflac_open_with_metdata() returns. See https://github.com/mackron/dr_libs_tests/blob/master/dr_flac/dr_flac_test_5.c for
+// an example on how to read metadata.
 //
 //
 //
@@ -63,26 +83,23 @@
 //
 //
 // QUICK NOTES
-//
-// - Based on my own tests, the 32-bit build is about about 1.1x-1.25x slower than the reference implementation. The 64-bit
-//   build is at about parity.
-// - This should work fine with valid native FLAC files, but it won't work very well when the STREAMINFO block is unavailable
-//   and when a stream starts in the middle of a frame. This is something I plan on addressing.
-// - Audio data is retrieved as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
+// - Based on my tests, the 32-bit build is about about 1.1x-1.25x slower than the reference implementation. The 64-bit build is
+//   at about parity.
+// - dr_flac should work fine with valid native FLAC files, but for network based streams and whatnot it won't work if the header
+//   and STREAMINFO block is unavailable.
+// - Audio data is output as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
 // - This has not been tested on big-endian architectures.
 // - Rice codes in unencoded binary form (see https://xiph.org/flac/format.html#rice_partition) has not been tested. If anybody
 //   knows where I can find some test files for this, let me know.
 // - Perverse and erroneous files have not been tested. Again, if you know where I can get some test files let me know.
 // - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as you do your own synchronization.
 // - dr_flac does not currently do any CRC checks.
-// - Ogg encapsulation is not supported, but I want to add it at some point.
+// - Ogg encapsulation is not supported, but will be added in the future.
 //
 //
 //
 // TODO
-// - Implement a proper test suite.
-// - Add support for initializing the decoder without a STREAMINFO block. Build a synthethic test to get support working at at least
-//   a basic level.
+// - Add support for initializing the decoder without a header STREAMINFO block.
 // - Test CUESHEET metadata blocks.
 // - Add support for Ogg encapsulation.
 
@@ -400,8 +417,6 @@ typedef struct
     uint8_t pExtraData[1];
 
 } drflac;
-
-
 
 
 // Opens a FLAC decoder.
@@ -3459,6 +3474,11 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
     return pComment;
 }
 #endif  //DR_FLAC_IMPLEMENTATION
+
+
+// REVISION HISTORY
+//
+// v0.1 - 03/05/2016 - Initial versioned release.
 
 
 /*
