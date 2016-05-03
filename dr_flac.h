@@ -2833,7 +2833,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
     size_t allocationSize = sizeof(drflac) - sizeof(char);
     allocationSize += init.maxBlockSize * init.channels * sizeof(int32_t);
-    allocationSize += init.seektableSize;
+    //allocationSize += init.seektableSize;
 
     drflac* pFlac = (drflac*)malloc(allocationSize);
     drflac__init_from_info(pFlac, &init);
