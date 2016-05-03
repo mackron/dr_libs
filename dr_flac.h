@@ -131,6 +131,28 @@ typedef uint32_t drflac_cache_t;
 #define DRFLAC_METADATA_BLOCK_TYPE_PICTURE          6
 #define DRFLAC_METADATA_BLOCK_TYPE_INVALID          127
 
+// The various picture types specified in the PICTURE block.
+#define DRFLAC_PICTURE_TYPE_OTHER                   0
+#define DRFLAC_PICTURE_TYPE_FILE_ICON               1
+#define DRFLAC_PICTURE_TYPE_OTHER_FILE_ICON         2
+#define DRFLAC_PICTURE_TYPE_COVER_FRONT             3
+#define DRFLAC_PICTURE_TYPE_COVER_BACK              4
+#define DRFLAC_PICTURE_TYPE_LEAFLET_PAGE            5
+#define DRFLAC_PICTURE_TYPE_MEDIA                   6
+#define DRFLAC_PICTURE_TYPE_LEAD_ARTIST             7
+#define DRFLAC_PICTURE_TYPE_ARTIST                  8
+#define DRFLAC_PICTURE_TYPE_CONDUCTOR               9
+#define DRFLAC_PICTURE_TYPE_BAND                    10
+#define DRFLAC_PICTURE_TYPE_COMPOSER                11
+#define DRFLAC_PICTURE_TYPE_LYRICIST                12
+#define DRFLAC_PICTURE_TYPE_RECORDING_LOCATION      13
+#define DRFLAC_PICTURE_TYPE_DURING_RECORDING        14
+#define DRFLAC_PICTURE_TYPE_DURING_PERFORMANCE      15
+#define DRFLAC_PICTURE_TYPE_SCREEN_CAPTURE          16
+#define DRFLAC_PICTURE_TYPE_BRIGHT_COLORED_FISH     17
+#define DRFLAC_PICTURE_TYPE_ILLUSTRATION            18
+#define DRFLAC_PICTURE_TYPE_BAND_LOGOTYPE           19
+#define DRFLAC_PICTURE_TYPE_PUBLISHER_LOGOTYPE      20
 
 // Packing is important on this structure because we map this directly to the raw data within the SEEKTABLE metadata block.
 #pragma pack(2)
@@ -192,7 +214,17 @@ typedef struct
 
         struct
         {
-            int notYetImplemented;
+            uint32_t type;
+            uint32_t mimeLength;
+            const char* mime;
+            uint32_t descriptionLength;
+            const char* description;
+            uint32_t width;
+            uint32_t height;
+            uint32_t colorDepth;
+            uint32_t indexColorCount;
+            uint32_t pictureDataSize;
+            const uint8_t* pPictureData;
         } picture;
     } data;
 
@@ -2730,11 +2762,21 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 if (onMeta) {
                     metadata.data.vorbis_comment.notYetImplemented = 0;
 
-                    if (!onSeek(pUserData, blockSize)) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
                         return false;
                     }
 
+                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
                     onMeta(pUserDataMD, &metadata);
+
+                    free(pRawData);
                 }
             } break;
 
@@ -2743,24 +2785,55 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 if (onMeta) {
                     metadata.data.cuesheet.notYetImplemented = 0;
 
-                    if (!onSeek(pUserData, blockSize)) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
                         return false;
                     }
 
+                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
                     onMeta(pUserDataMD, &metadata);
+
+                    free(pRawData);
                 }
             } break;
 
             case DRFLAC_METADATA_BLOCK_TYPE_PICTURE:
             {
                 if (onMeta) {
-                    metadata.data.picture.notYetImplemented = 0;
-
-                    if (!onSeek(pUserData, blockSize)) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
                         return false;
                     }
 
+                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+
+                    const char* pRunningData = (const char*)pRawData;
+                    metadata.data.picture.type              = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.mimeLength        = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.mime              = pRunningData;                                 pRunningData += metadata.data.picture.mimeLength;
+                    metadata.data.picture.descriptionLength = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.description       = pRunningData;
+                    metadata.data.picture.width             = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.height            = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.colorDepth        = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.indexColorCount   = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.pictureDataSize   = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.pPictureData      = (const uint8_t*)pRunningData;
                     onMeta(pUserDataMD, &metadata);
+
+                    free(pRawData);
                 }
             } break;
 
