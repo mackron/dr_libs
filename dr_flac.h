@@ -83,7 +83,7 @@
 // - Implement a proper test suite.
 // - Add support for initializing the decoder without a STREAMINFO block. Build a synthethic test to get support working at at least
 //   a basic level.
-// - Add support for retrieving metadata blocks so applications can retrieve the album art or whatnot.
+// - Add support for CUESHEET metadata blocks.
 // - Add support for Ogg encapsulation.
 
 #ifndef dr_flac_h
