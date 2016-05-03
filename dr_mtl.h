@@ -977,7 +977,7 @@ bool drmtl_init(drmtl_material* pMaterial)
     {
         assert(DRMTL_CHUNK_SIZE >= 256);
 
-        pMaterial->pRawData = malloc(DRMTL_CHUNK_SIZE);
+        pMaterial->pRawData = (drmtl_uint8*)malloc(DRMTL_CHUNK_SIZE);
         if (pMaterial->pRawData != NULL)
         {
             pMaterial->sizeInBytes          = sizeof(drmtl_header);
@@ -1021,7 +1021,7 @@ bool drmtl_initfromexisting(drmtl_material* pMaterial, const void* pRawData, uns
         {
             if (((drmtl_header*)pMaterial->pRawData)->magic == DRMTL_MAGIC_NUMBER)
             {
-                pMaterial->pRawData = malloc(DRMTL_CHUNK_SIZE);
+                pMaterial->pRawData = (drmtl_uint8*)malloc(DRMTL_CHUNK_SIZE);
                 if (pMaterial->pRawData != NULL)
                 {
                     memcpy(pMaterial->pRawData, pRawData, dataSizeInBytes);
@@ -1573,7 +1573,7 @@ bool _drmtl_inflate(drmtl_material* pMaterial)
     assert(pMaterial != NULL);
 
     drmtl_uint8* pOldBuffer = pMaterial->pRawData;
-    drmtl_uint8* pNewBuffer = malloc(pMaterial->bufferSizeInBytes + DRMTL_CHUNK_SIZE);
+    drmtl_uint8* pNewBuffer = (drmtl_uint8*)malloc(pMaterial->bufferSizeInBytes + DRMTL_CHUNK_SIZE);
     if (pNewBuffer != NULL)
     {
         memcpy(pNewBuffer, pOldBuffer, pMaterial->sizeInBytes);
