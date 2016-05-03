@@ -144,6 +144,9 @@ typedef struct
     // information about the metadata. It's possible for this to be null.
     const void* pRawData;
 
+    // The size in bytes of the block and the buffer pointed to by pRawData if it's non-NULL.
+    uint32_t rawDataSize;
+
     union
     {
         struct
@@ -158,7 +161,9 @@ typedef struct
 
         struct
         {
-            int notYetImplemented;
+            uint32_t id;
+            const void* pData;
+            uint32_t dataSize;
         } application;
 
         struct
@@ -2633,24 +2638,38 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
         }
         pInit->runningFilePos += 4;
 
+        drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
+        
         drflac_metadata metadata;
         metadata.type = drflac_metadata_type_invalid;
+        metadata.pRawData = NULL;
+        metadata.rawDataSize = 0;
 
-        drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
         switch (blockType)
         {
             case DRFLAC_BLOCK_TYPE_APPLICATION:
             {
                 metadata.type = drflac_metadata_type_application;
-                metadata.pRawData = NULL;
-                metadata.data.seektable.notYetImplemented = 0;
 
                 if (onMeta) {
-                    if (!onSeek(pUserData, blockSize)) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
                         return false;
                     }
 
+                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+                    metadata.data.application.id       = drflac__be2host_32(*(uint32_t*)pRawData);
+                    metadata.data.application.pData    = (const void*)((char*)pRawData + sizeof(uint32_t));
+                    metadata.data.application.dataSize = blockSize - sizeof(uint32_t);
                     onMeta(pUserDataMD, &metadata);
+
+                    free(pRawData);
                 }
             } break;
 
@@ -2660,7 +2679,6 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 pInit->seektableSize = blockSize;
 
                 metadata.type = drflac_metadata_type_seektable;
-                metadata.pRawData = NULL;
                 metadata.data.seektable.notYetImplemented = 0;
 
                 if (onMeta) {
@@ -2676,7 +2694,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
             {
                 metadata.type = drflac_metadata_type_vorbis_comment;
                 metadata.pRawData = NULL;
-                metadata.data.seektable.notYetImplemented = 0;
+                metadata.data.vorbis_comment.notYetImplemented = 0;
 
                 if (onMeta) {
                     if (!onSeek(pUserData, blockSize)) {
@@ -2691,7 +2709,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
             {
                 metadata.type = drflac_metadata_type_cuesheet;
                 metadata.pRawData = NULL;
-                metadata.data.seektable.notYetImplemented = 0;
+                metadata.data.cuesheet.notYetImplemented = 0;
 
                 if (onMeta) {
                     if (!onSeek(pUserData, blockSize)) {
@@ -2706,7 +2724,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
             {
                 metadata.type = drflac_metadata_type_picture;
                 metadata.pRawData = NULL;
-                metadata.data.seektable.notYetImplemented = 0;
+                metadata.data.picture.notYetImplemented = 0;
 
                 if (onMeta) {
                     if (!onSeek(pUserData, blockSize)) {
