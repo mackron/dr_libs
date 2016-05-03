@@ -252,6 +252,14 @@ typedef bool (* drflac_seek_proc)(void* pUserData, int offset);
 typedef void (* drflac_meta_proc)(void* pUserData, drflac_metadata* pMetadata);
 
 
+// Structure for internal use. Only used for decoders opened with drflac_open_memory.
+typedef struct
+{
+    const unsigned char* data;
+    size_t dataSize;
+    size_t currentReadPos;
+} drflac__memory_stream;
+
 typedef struct
 {
     // The type of the subframe: SUBFRAME_CONSTANT, SUBFRAME_VERBATIM, SUBFRAME_FIXED or SUBFRAME_LPC.
@@ -358,6 +366,9 @@ typedef struct
     uint64_t firstFramePos;
 
 
+    // A hack to avoid a malloc() when opening a decoder with drflac_open_memory().
+    drflac__memory_stream memoryStream;
+
 
     // The current byte position in the client's data stream.
     uint64_t currentBytePos;
@@ -440,7 +451,7 @@ int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleR
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
 
 
-// Structure representing an iterator for iterating over vorbis comments in a VORBIS_COMMENT metadata block.
+// Structure representing an iterator for vorbis comments in a VORBIS_COMMENT metadata block.
 typedef struct
 {
     uint32_t countRemaining;
@@ -593,34 +604,20 @@ drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc on
 #endif
 #endif  //DR_FLAC_NO_STDIO
 
-
-typedef struct
-{
-    /// A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
-    const unsigned char* data;
-
-    /// The size of the data.
-    size_t dataSize;
-
-    /// The position we're currently sitting at.
-    size_t currentReadPos;
-
-} drflac_memory;
-
 static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
-    drflac_memory* memory = (drflac_memory*)pUserData;
-    assert(memory != NULL);
-    assert(memory->dataSize >= memory->currentReadPos);
+    drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
+    assert(memoryStream != NULL);
+    assert(memoryStream->dataSize >= memoryStream->currentReadPos);
 
-    size_t bytesRemaining = memory->dataSize - memory->currentReadPos;
+    size_t bytesRemaining = memoryStream->dataSize - memoryStream->currentReadPos;
     if (bytesToRead > bytesRemaining) {
         bytesToRead = bytesRemaining;
     }
 
     if (bytesToRead > 0) {
-        memcpy(bufferOut, memory->data + memory->currentReadPos, bytesToRead);
-        memory->currentReadPos += bytesToRead;
+        memcpy(bufferOut, memoryStream->data + memoryStream->currentReadPos, bytesToRead);
+        memoryStream->currentReadPos += bytesToRead;
     }
 
     return bytesToRead;
@@ -628,49 +625,54 @@ static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t by
 
 static bool drflac__on_seek_memory(void* pUserData, int offset)
 {
-    drflac_memory* memory = (drflac_memory*)pUserData;
-    assert(memory != NULL);
+    drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
+    assert(memoryStream != NULL);
 
     if (offset > 0) {
-        if (memory->currentReadPos + offset > memory->dataSize) {
-            offset = (int)(memory->dataSize - memory->currentReadPos);     // Trying to seek too far forward.
+        if (memoryStream->currentReadPos + offset > memoryStream->dataSize) {
+            offset = (int)(memoryStream->dataSize - memoryStream->currentReadPos);     // Trying to seek too far forward.
         }
     } else {
-        if (memory->currentReadPos < (size_t)-offset) {
-            offset = -(int)memory->currentReadPos;                  // Trying to seek too far backwards.
+        if (memoryStream->currentReadPos < (size_t)-offset) {
+            offset = -(int)memoryStream->currentReadPos;                  // Trying to seek too far backwards.
         }
     }
 
     // This will never underflow thanks to the clamps above.
-    memory->currentReadPos += offset;
-
-    return 1;
+    memoryStream->currentReadPos += offset;
+    return true;
 }
 
 drflac* drflac_open_memory(const void* data, size_t dataSize)
 {
-    drflac_memory* pUserData = (drflac_memory*)malloc(sizeof(*pUserData));
-    if (pUserData == NULL) {
+    drflac__memory_stream memoryStream;
+    memoryStream.data = (const unsigned char*)data;
+    memoryStream.dataSize = dataSize;
+    memoryStream.currentReadPos = 0;
+    drflac* pFlac = drflac_open(drflac__on_read_memory, drflac__on_seek_memory, &memoryStream);
+    if (pFlac == NULL) {
         return NULL;
     }
 
-    pUserData->data = (const unsigned char*)data;
-    pUserData->dataSize = dataSize;
-    pUserData->currentReadPos = 0;
-    return drflac_open(drflac__on_read_memory, drflac__on_seek_memory, pUserData);
+    pFlac->memoryStream = memoryStream;
+    pFlac->pUserData = &pFlac->memoryStream;
+    return pFlac;
 }
 
 drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drflac_meta_proc onMeta, void* pUserData)
 {
-    drflac_memory* memory = (drflac_memory*)malloc(sizeof(*memory));
-    if (memory == NULL) {
+    drflac__memory_stream memoryStream;
+    memoryStream.data = (const unsigned char*)data;
+    memoryStream.dataSize = dataSize;
+    memoryStream.currentReadPos = 0;
+    drflac* pFlac = drflac_open_with_metadata_private(drflac__on_read_memory, drflac__on_seek_memory, onMeta, &memoryStream, pUserData);
+    if (pFlac == NULL) {
         return NULL;
     }
 
-    memory->data = (const unsigned char*)data;
-    memory->dataSize = dataSize;
-    memory->currentReadPos = 0;
-    return drflac_open_with_metadata_private(drflac__on_read_memory, drflac__on_seek_memory, onMeta, &memory, pUserData);
+    pFlac->memoryStream = memoryStream;
+    pFlac->pUserData = &pFlac->memoryStream;
+    return pFlac;
 }
 
 
@@ -3074,11 +3076,6 @@ void drflac_close(drflac* pFlac)
 #endif
     }
 #endif
-
-    // If we opened the file with drflac_open_memory() we will want to free() the user data.
-    if (pFlac->onRead == drflac__on_read_memory) {
-        free(pFlac->pUserData);
-    }
 
     free(pFlac);
 }
