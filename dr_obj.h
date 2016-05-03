@@ -218,7 +218,10 @@ drobj* drobj_load_file(const char* filename)
     }
 #endif
 
-    return drobj_load(drobj__on_read_stdio, drobj__on_seek_stdio, pFile);
+    drobj* pOBJ = drobj_load(drobj__on_read_stdio, drobj__on_seek_stdio, pFile);
+    
+    fclose(pFile);
+    return pOBJ;
 }
 #endif  // DR_OBJ_NO_STDIO
 
@@ -227,18 +230,13 @@ typedef struct
 {
     // A pointer to the beginning of the data. We use a char as the type here for easy offsetting.
     const unsigned char* data;
-
-    // The size of the data.
     size_t dataSize;
-
-    // The position we're currently sitting at.
     size_t currentReadPos;
-
 } drobj_memory;
 
 static size_t drobj__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
-    drobj_memory* memory = pUserData;
+    drobj_memory* memory = (drobj_memory*)pUserData;
     assert(memory != NULL);
     assert(memory->dataSize >= memory->currentReadPos);
 
@@ -257,7 +255,7 @@ static size_t drobj__on_read_memory(void* pUserData, void* bufferOut, size_t byt
 
 static bool drobj__on_seek_memory(void* pUserData)
 {
-    drobj_memory* memory = pUserData;
+    drobj_memory* memory = (drobj_memory*)pUserData;
     assert(memory != NULL);
 
     memory->currentReadPos = 0;
@@ -266,15 +264,11 @@ static bool drobj__on_seek_memory(void* pUserData)
 
 drobj* drobj_load_memory(const void* data, size_t dataSize)
 {
-    drobj_memory* pUserData = malloc(sizeof(*pUserData));
-    if (pUserData == NULL) {
-        return false;
-    }
-
-    pUserData->data = data;
-    pUserData->dataSize = dataSize;
-    pUserData->currentReadPos = 0;
-    return drobj_load(drobj__on_read_memory, drobj__on_seek_memory, pUserData);
+    drobj_memory memory;
+    memory.data = (const unsigned char*)data;
+    memory.dataSize = dataSize;
+    memory.currentReadPos = 0;
+    return drobj_load(drobj__on_read_memory, drobj__on_seek_memory, &memory);
 }
 
 
@@ -304,14 +298,14 @@ void drobj_interleave_p3t2n3(drobj* pOBJ, uint32_t* pVertexCountOut, float** ppV
 
     // Create output buffers large enough to contain the interleaved data.
     uint32_t indexCount = 0;
-    uint32_t* pIndexData = malloc(sizeof(uint32_t) * pOBJ->faceCount*3);
+    uint32_t* pIndexData = (uint32_t*)malloc(sizeof(uint32_t) * pOBJ->faceCount*3);
 
     uint32_t vertexCount = 0;
-    float* pVertexData = malloc((sizeof(float)*(3+2+3)) * pOBJ->faceCount*3);
+    float* pVertexData = (float*)malloc((sizeof(float)*(3+2+3)) * pOBJ->faceCount*3);
 
 
     uint32_t uniqueVertexCount = 0;
-    drobj_face_vertex* pUniqueVertices = malloc(sizeof(drobj_face_vertex) * pOBJ->faceCount*3);
+    drobj_face_vertex* pUniqueVertices = (drobj_face_vertex*)malloc(sizeof(drobj_face_vertex) * pOBJ->faceCount*3);
 
     for (uint32_t iFace = 0; iFace < pOBJ->faceCount; ++iFace)
     {
@@ -1033,7 +1027,7 @@ drobj* drobj_load(drobj_read_proc onRead, drobj_seek_to_start_proc onSeek, void*
         return NULL;
     }
 
-    drobj* pOBJ = malloc(sizeof(*pOBJ) - sizeof(pOBJ->pData) + loadContext.allocationSize);
+    drobj* pOBJ = (drobj*)malloc(sizeof(*pOBJ) - sizeof(pOBJ->pData) + loadContext.allocationSize);
     if (pOBJ == NULL) {
         return NULL;
     }
