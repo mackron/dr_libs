@@ -121,18 +121,16 @@ typedef uint64_t drflac_cache_t;
 typedef uint32_t drflac_cache_t;
 #endif
 
+// The various metadata block types.
+#define DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO       0
+#define DRFLAC_METADATA_BLOCK_TYPE_PADDING          1
+#define DRFLAC_METADATA_BLOCK_TYPE_APPLICATION      2
+#define DRFLAC_METADATA_BLOCK_TYPE_SEEKTABLE        3
+#define DRFLAC_METADATA_BLOCK_TYPE_VORBIS_COMMENT   4
+#define DRFLAC_METADATA_BLOCK_TYPE_CUESHEET         5
+#define DRFLAC_METADATA_BLOCK_TYPE_PICTURE          6
+#define DRFLAC_METADATA_BLOCK_TYPE_INVALID          127
 
-typedef enum
-{
-    drflac_metadata_type_streaminfo     = 0,
-    drflac_metadata_type_padding        = 1,
-    drflac_metadata_type_application    = 2,
-    drflac_metadata_type_seektable      = 3,
-    drflac_metadata_type_vorbis_comment = 4,
-    drflac_metadata_type_cuesheet       = 5,
-    drflac_metadata_type_picture        = 6,
-    drflac_metadata_type_invalid        = 127
-} drflac_metadata_type;
 
 // Packing is important on this structure because we map this directly to the raw data within the SEEKTABLE metadata block.
 #pragma pack(2)
@@ -147,7 +145,7 @@ typedef struct
 typedef struct
 {
     // The metadata type. Use this to know how to interpret the data below.
-    drflac_metadata_type type;
+    uint32_t type;
 
     // A pointer to the raw data. This points to a temporary buffer so don't hold on to it. It's best to
     // not modify the contents of this buffer. Use the structures below for more meaningful and structured
@@ -430,15 +428,6 @@ void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
 #else
 #define DRFLAC_INLINE inline
 #endif
-
-#define DRFLAC_BLOCK_TYPE_STREAMINFO                    0
-#define DRFLAC_BLOCK_TYPE_PADDING                       1
-#define DRFLAC_BLOCK_TYPE_APPLICATION                   2
-#define DRFLAC_BLOCK_TYPE_SEEKTABLE                     3
-#define DRFLAC_BLOCK_TYPE_VORBIS_COMMENT                4
-#define DRFLAC_BLOCK_TYPE_CUESHEET                      5
-#define DRFLAC_BLOCK_TYPE_PICTURE                       6
-#define DRFLAC_BLOCK_TYPE_INVALID                       127
 
 #define DRFLAC_SUBFRAME_CONSTANT                        0
 #define DRFLAC_SUBFRAME_VERBATIM                        1
@@ -2615,7 +2604,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
     uint8_t  blockType   = (blockHeader & (0x7F << 24)) >> 24;
     uint32_t blockSize   = (blockHeader & 0xFFFFFF);
     drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
-    if (blockType != DRFLAC_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
+    if (blockType != DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
         return false;    // Invalid block type. First block must be the STREAMINFO block.
     }
 
@@ -2651,7 +2640,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
 
     if (onMeta) {
         drflac_metadata metadata;
-        metadata.type = drflac_metadata_type_streaminfo;
+        metadata.type = DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO;
         metadata.data.streaminfo.notYetImplemented = 0;
         onMeta(pUserDataMD, &metadata);
     }
@@ -2671,17 +2660,15 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
         drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
         
         drflac_metadata metadata;
-        metadata.type = drflac_metadata_type_invalid;
+        metadata.type = blockType;
         metadata.pRawData = NULL;
         metadata.rawDataSize = 0;
 
         switch (blockType)
         {
-            case DRFLAC_BLOCK_TYPE_APPLICATION:
+            case DRFLAC_METADATA_BLOCK_TYPE_APPLICATION:
             {
                 if (onMeta) {
-                    metadata.type = drflac_metadata_type_application;
-
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
                         return false;
@@ -2703,14 +2690,12 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 }
             } break;
 
-            case DRFLAC_BLOCK_TYPE_SEEKTABLE:
+            case DRFLAC_METADATA_BLOCK_TYPE_SEEKTABLE:
             {
                 pInit->seektablePos  = pInit->runningFilePos;
                 pInit->seektableSize = blockSize;
 
                 if (onMeta) {
-                    metadata.type = drflac_metadata_type_seektable;
-
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
                         return false;
@@ -2740,10 +2725,9 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 }
             } break;
 
-            case DRFLAC_BLOCK_TYPE_VORBIS_COMMENT:
+            case DRFLAC_METADATA_BLOCK_TYPE_VORBIS_COMMENT:
             {
                 if (onMeta) {
-                    metadata.type = drflac_metadata_type_vorbis_comment;
                     metadata.data.vorbis_comment.notYetImplemented = 0;
 
                     if (!onSeek(pUserData, blockSize)) {
@@ -2754,10 +2738,9 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 }
             } break;
 
-            case DRFLAC_BLOCK_TYPE_CUESHEET:
+            case DRFLAC_METADATA_BLOCK_TYPE_CUESHEET:
             {
                 if (onMeta) {
-                    metadata.type = drflac_metadata_type_cuesheet;
                     metadata.data.cuesheet.notYetImplemented = 0;
 
                     if (!onSeek(pUserData, blockSize)) {
@@ -2768,10 +2751,9 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 }
             } break;
 
-            case DRFLAC_BLOCK_TYPE_PICTURE:
+            case DRFLAC_METADATA_BLOCK_TYPE_PICTURE:
             {
                 if (onMeta) {
-                    metadata.type = drflac_metadata_type_picture;
                     metadata.data.picture.notYetImplemented = 0;
 
                     if (!onSeek(pUserData, blockSize)) {
@@ -2782,10 +2764,9 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 }
             } break;
 
-            case DRFLAC_BLOCK_TYPE_PADDING:
+            case DRFLAC_METADATA_BLOCK_TYPE_PADDING:
             {
                 if (onMeta) {
-                    metadata.type = drflac_metadata_type_padding;
                     metadata.data.padding.unused = 0;
 
                     // Padding doesn't have anything meaningful in it, so just skip over it.
@@ -2797,14 +2778,36 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 }
             } break;
 
-            case DRFLAC_BLOCK_TYPE_INVALID:
-            default:
+            case DRFLAC_METADATA_BLOCK_TYPE_INVALID:
             {
-                // Unknown chunk. Skip over it.
+                // Invalid chunk. Just skip over this one.
                 if (onMeta) {
                     if (!onSeek(pUserData, blockSize)) {
                         return false;
                     }
+                }
+            }
+
+            default:
+            {
+                // It's an unknown chunk, but not necessarily invalid. There's a chance more metadata blocks might be defined later on, so we
+                // can at the very least report the chunk to the application and let it look at the raw data.
+                if (onMeta) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
+                        return false;
+                    }
+
+                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+                    onMeta(pUserDataMD, &metadata);
+
+                    free(pRawData);
                 }
             } break;
         }
