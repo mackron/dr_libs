@@ -181,7 +181,15 @@ typedef struct
     {
         struct
         {
-            int notYetImplemented;
+            uint16_t minBlockSize;
+            uint16_t maxBlockSize;
+            uint32_t minFrameSize;
+            uint32_t maxFrameSize;
+            uint32_t sampleRate;
+            uint8_t  channels;
+            uint8_t  bitsPerSample;
+            uint64_t totalSampleCount;
+            uint8_t  md5[16];
         } streaminfo;
 
         struct
@@ -2592,8 +2600,8 @@ typedef struct
     void* pUserData;
     void* pUserDataMD;
     uint32_t sampleRate;
-    uint32_t channels;
-    uint32_t bitsPerSample;
+    uint8_t  channels;
+    uint8_t  bitsPerSample;
     uint64_t totalSampleCount;
     uint16_t maxBlockSize;
     uint64_t runningFilePos;
@@ -2646,8 +2654,9 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
         return false;
     }
 
-    // min/max frame size. Don't care about this.
-    if (!onSeek(pUserData, 6)) {
+    // min/max frame size.
+    uint64_t frameSizes = 0;
+    if (onRead(pUserData, &frameSizes, 6) != 6) {
         return false;
     }
 
@@ -2658,22 +2667,36 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
     }
 
     // MD5
-    if (!onSeek(pUserData, 16)) {
+    uint8_t md5[16];
+    if (onRead(pUserData, md5, sizeof(md5)) != sizeof(md5)) {
         return false;
     }
 
-
+    blockSizes     = drflac__be2host_32(blockSizes);
+    frameSizes     = drflac__be2host_64(frameSizes);
     importantProps = drflac__be2host_64(importantProps);
+    
     pInit->sampleRate       = (uint32_t)((importantProps & 0xFFFFF00000000000ULL) >> 44ULL);
-    pInit->channels         = (uint32_t)((importantProps & 0x00000E0000000000ULL) >> 41ULL) + 1;
-    pInit->bitsPerSample    = (uint32_t)((importantProps & 0x000001F000000000ULL) >> 36ULL) + 1;
+    pInit->channels         = (uint8_t )((importantProps & 0x00000E0000000000ULL) >> 41ULL) + 1;
+    pInit->bitsPerSample    = (uint8_t )((importantProps & 0x000001F000000000ULL) >> 36ULL) + 1;
     pInit->totalSampleCount = (importantProps & 0x0000000FFFFFFFFFULL) * pInit->channels;
-    pInit->maxBlockSize     = drflac__be2host_32(blockSizes) & 0x0000FFFF;    // Don't care about the min block size - only the max (used for determining the size of the memory allocation).
+    pInit->maxBlockSize     = blockSizes & 0x0000FFFF;    // Don't care about the min block size - only the max (used for determining the size of the memory allocation).
 
     if (onMeta) {
         drflac_metadata metadata;
         metadata.type = DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO;
-        metadata.data.streaminfo.notYetImplemented = 0;
+        metadata.pRawData = NULL;
+        metadata.rawDataSize = 0;
+        
+        metadata.data.streaminfo.minBlockSize     = (blockSizes & 0xFFFF0000) >> 16;
+        metadata.data.streaminfo.maxBlockSize     = pInit->maxBlockSize;
+        metadata.data.streaminfo.minFrameSize     = (uint32_t)((frameSizes & 0xFFFFFF0000000000ULL) >> 40ULL);
+        metadata.data.streaminfo.maxFrameSize     = (uint32_t)((frameSizes & 0x000000FFFFFF0000ULL) >> 16ULL);
+        metadata.data.streaminfo.sampleRate       = pInit->sampleRate;
+        metadata.data.streaminfo.channels         = pInit->channels;
+        metadata.data.streaminfo.bitsPerSample    = pInit->bitsPerSample;
+        metadata.data.streaminfo.totalSampleCount = pInit->totalSampleCount;
+        memcpy(metadata.data.streaminfo.md5, md5, sizeof(md5));
         onMeta(pUserDataMD, &metadata);
     }
 
