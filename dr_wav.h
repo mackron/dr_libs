@@ -49,13 +49,12 @@
 // - Add seamless support for w64. This is very similar to WAVE, but supports files >4GB. There's no real reason this
 //   can't be added to dr_wav and have it work seamlessly.
 // - Add drwav_read_s32() for consistency with dr_flac.
-// - Look at making this not use the heap.
 
 #ifndef dr_wav_h
 #define dr_wav_h
 
-#include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -154,12 +153,19 @@ typedef struct
 } drwav;
 
 
+// Initializes a pre-allocated drwav object.
+bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
+
+// Uninitializes the given drwav object. Use this only for objects initialized with drwav_init().
+void drwav_uninit(drwav* pWav);
+
+
 // Opens a .wav file using the given callbacks.
 //
 // Returns null on error.
 drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
-// Closes the given drwav object.
+// Closes the given drwav object. Use this only for objects created with drwav_open().
 void drwav_close(drwav* pWav);
 
 
@@ -453,30 +459,30 @@ drwav* drwav_open_memory(const void* data, size_t dataSize)
 }
 
 
-drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
+bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
 {
     if (onRead == NULL || onSeek == NULL) {
-        return NULL;
+        return false;
     }
 
 
     // The first 12 bytes should be the RIFF chunk.
     unsigned char riff[12];
     if (onRead(pUserData, riff, sizeof(riff)) != sizeof(riff)) {
-        return NULL;    // Failed to read data.
+        return false;    // Failed to read data.
     }
 
     if (riff[0] != 'R' || riff[1] != 'I' || riff[2] != 'F' || riff[3] != 'F') {
-        return NULL;    // Expecting "RIFF".
+        return false;    // Expecting "RIFF".
     }
 
     unsigned int chunkSize = drwav__read_u32(riff + 4);
     if (chunkSize < 36) {
-        return NULL;    // Chunk size should always be at least 36 bytes.
+        return false;    // Chunk size should always be at least 36 bytes.
     }
 
     if (riff[8] != 'W' || riff[9] != 'A' || riff[10] != 'V' || riff[11] != 'E') {
-        return NULL;    // Expecting "WAVE".
+        return false;    // Expecting "WAVE".
     }
 
 
@@ -484,7 +490,7 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
     // The next 24 bytes should be the "fmt " chunk.
     drwav_fmt fmt;
     if (!drwav__read_fmt(onRead, onSeek, pUserData, &fmt)) {
-        return NULL;    // Failed to read the "fmt " chunk.
+        return false;    // Failed to read the "fmt " chunk.
     }
 
 
@@ -501,7 +507,7 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
     {
         unsigned char chunk[8];
         if (onRead(pUserData, chunk, sizeof(chunk)) != sizeof(chunk)) {
-            return NULL;    // Failed to read data. Probably reached the end.
+            return false;    // Failed to read data. Probably reached the end.
         }
 
         dataSize = drwav__read_u32(chunk + 4);
@@ -520,13 +526,13 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
         while (bytesRemainingToSeek > 0) {
             if (bytesRemainingToSeek > 0x7FFFFFFF) {
                 if (!onSeek(pUserData, 0x7FFFFFFF)) {
-                    return NULL;
+                    return false;
                 }
 
                 bytesRemainingToSeek -= 0x7FFFFFFF;
             } else {
                 if (!onSeek(pUserData, (int)bytesRemainingToSeek)) {
-                    return NULL;
+                    return false;
                 }
 
                 bytesRemainingToSeek = 0;
@@ -535,11 +541,6 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
     }
 
     // At this point we should be sitting on the first byte of the raw audio data.
-
-    drwav* pWav = (drwav*)malloc(sizeof(*pWav));
-    if (pWav == NULL) {
-        return NULL;
-    }
 
     pWav->onRead              = onRead;
     pWav->onSeek              = onSeek;
@@ -552,11 +553,10 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
     pWav->translatedFormatTag = translatedFormatTag;
     pWav->totalSampleCount    = dataSize / pWav->bytesPerSample;
     pWav->bytesRemaining      = dataSize;
-
-    return pWav;
+    return true;
 }
 
-void drwav_close(drwav* pWav)
+void drwav_uninit(drwav* pWav)
 {
     if (pWav == NULL) {
         return;
@@ -574,7 +574,26 @@ void drwav_close(drwav* pWav)
     if (pWav->onRead == drwav__on_read_memory && pWav->onSeek == drwav__on_seek_memory) {
         free(pWav->pUserData);
     }
+}
 
+
+drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
+{
+    drwav* pWav = (drwav*)malloc(sizeof(*pWav));
+    if (pWav == NULL) {
+        return NULL;
+    }
+
+    if (!drwav_init(pWav, onRead, onSeek, pUserData)) {
+        return NULL;
+    }
+
+    return pWav;
+}
+
+void drwav_close(drwav* pWav)
+{
+    drwav_uninit(pWav);
     free(pWav);
 }
 
