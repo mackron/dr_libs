@@ -3219,7 +3219,7 @@ static drfs_result drfs_open_owner_archive_from_absolute_path(drfs_context* pCon
                     // The running path refers to an archive file. We need to try opening the archive here. If this fails, we
                     // need to return NULL.
                     drfs_archive* pArchive;
-                    drfs_result result = drfs_open_owner_archive_recursively_from_verbose_path(pNativeArchive, segment.path + segment.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pArchive);
+                    result = drfs_open_owner_archive_recursively_from_verbose_path(pNativeArchive, segment.path + segment.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pArchive);
                     if (pArchive == NULL) {
                         drfs_close_archive(pNativeArchive);
                         return result;
@@ -3745,7 +3745,7 @@ drfs_result drfs_open_archive(drfs_context* pContext, const char* absoluteOrRela
         {
             drfs_archive* pArchive;
             drfs_result result = drfs_open_archive_from_relative_path(pContext, drfs_get_base_directory_by_index(pContext, iBaseDir), absoluteOrRelativePath, accessMode, &pArchive);
-            if (pArchive != NULL) {
+            if (result == drfs_success && pArchive != NULL) {
                 drfs_recursively_claim_ownership_or_parent_archive(pArchive);
 
                 *ppArchiveOut = pArchive;
@@ -3816,8 +3816,7 @@ drfs_result drfs_open_owner_archive(drfs_context* pContext, const char* absolute
         {
             drfs_archive* pArchive;
             drfs_result result = drfs_open_owner_archive_from_relative_path(pContext, drfs_get_base_directory_by_index(pContext, iBaseDir), absoluteOrRelativePath, accessMode, relativePathOut, relativePathOutSize, &pArchive);
-            if (pArchive != NULL)
-            {
+            if (result == drfs_success && pArchive != NULL) {
                 drfs_recursively_claim_ownership_or_parent_archive(pArchive);
 
                 *ppArchiveOut = pArchive;
