@@ -279,6 +279,23 @@ drwav* drwav_open_memory(const void* data, size_t dataSize);
 
 
 
+#ifndef DR_WAV_NO_CONVERSION_API
+// Opens and reads a wav file in a single operation.
+float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+
+#ifndef DR_WAV_NO_STDIO
+// Opens an decodes a wav file in a single operation.
+float* drwav_open_and_read_file_f32(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+#endif
+
+// Opens an decodes a wav file from a block of memory in a single operation.
+float* drwav_open_and_read_memory_f32(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+#endif
+
+// Frees data that was allocated internally by dr_wav.
+void drwav_free(void* pDataReturnedByOpenAndRead);
+
+
 /////////////////////////////////////////////////////
 //
 // IMPLEMENTATION
@@ -1004,6 +1021,91 @@ void drwav_ulaw_to_f32(size_t totalSampleCount, const unsigned char* ulaw, float
     }
 }
 #endif  //DR_WAV_NO_CONVERSION_API
+
+
+
+#ifndef DR_WAV_NO_CONVERSION_API
+float* drwav__read_and_close_f32(drwav* pWav, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+{
+    assert(pWav != NULL);
+
+    uint64_t sampleDataSize = pWav->totalSampleCount * sizeof(float);
+    if (sampleDataSize > SIZE_MAX) {
+        drwav_uninit(pWav);
+        return NULL;    // File's too big.
+    }
+
+    float* pSampleData = (float*)malloc((size_t)(pWav->totalSampleCount * sizeof(float)));    // <-- Safe cast due to the check above.
+    if (pSampleData == NULL) {
+        drwav_uninit(pWav);
+        return NULL;    // Failed to allocate memory.
+    }
+
+    uint64_t samplesRead = drwav_read_f32(pWav, (size_t)pWav->totalSampleCount, pSampleData);
+    if (samplesRead != pWav->totalSampleCount) {
+        free(pSampleData);
+        drwav_uninit(pWav);
+        return NULL;    // There was an error reading the samples.
+    }
+
+    drwav_uninit(pWav);
+
+    if (sampleRate) *sampleRate = pWav->sampleRate;
+    if (channels) *channels = pWav->channels;
+    if (totalSampleCount) *totalSampleCount = pWav->totalSampleCount;
+    return pSampleData;
+}
+
+float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drwav wav;
+    if (!drwav_init(&wav, onRead, onSeek, pUserData)) {
+        return NULL;
+    }
+
+    return drwav__read_and_close_f32(&wav, sampleRate, channels, totalSampleCount);
+}
+
+#ifndef DR_WAV_NO_STDIO
+float* drwav_open_and_read_file_f32(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drwav wav;
+    if (!drwav_init_file(&wav, filename)) {
+        return NULL;
+    }
+
+    return drwav__read_and_close_f32(&wav, sampleRate, channels, totalSampleCount);
+}
+#endif
+
+float* drwav_open_and_read_memory_f32(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drwav wav;
+    if (!drwav_init_memory(&wav, data, dataSize)) {
+        return NULL;
+    }
+
+    return drwav__read_and_close_f32(&wav, sampleRate, channels, totalSampleCount);
+}
+#endif //DR_WAV_NO_CONVERSION_API
+
+void drwav_free(void* pDataReturnedByOpenAndRead)
+{
+    free(pDataReturnedByOpenAndRead);
+}
+
 
 #endif  //DR_WAV_IMPLEMENTATION
 
