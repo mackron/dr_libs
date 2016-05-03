@@ -245,6 +245,13 @@ void drwav_ulaw_to_f32(size_t totalSampleCount, const unsigned char* ulaw, float
 
 #ifndef DR_WAV_NO_STDIO
 
+// Helper for initializing a wave file using stdio.
+//
+// This holds the internal FILE object until drwav_uninit() is called. Keep this in mind if you're caching drwav
+// objects because the operating system may restrict the number of file handles an application can have open at
+// any given time.
+bool drwav_init_file(drwav* pWav, const char* filename);
+
 // Helper for opening a wave file using stdio.
 //
 // This holds the internal FILE object until drwav_close() is called. Keep this in mind if you're caching drwav
@@ -253,6 +260,14 @@ void drwav_ulaw_to_f32(size_t totalSampleCount, const unsigned char* ulaw, float
 drwav* drwav_open_file(const char* filename);
 
 #endif  //DR_WAV_NO_STDIO
+
+// Helper for initializing a file from a pre-allocated memory buffer.
+//
+// This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
+// the lifetime of the drwav object.
+//
+// The buffer should contain the contents of the entire wave file, not just the sample data.
+bool drwav_init_memory(drwav* pWav, const void* data, size_t dataSize);
 
 // Helper for opening a file from a pre-allocated memory buffer.
 //
@@ -385,6 +400,23 @@ static int drwav__on_seek_stdio(void* pUserData, int offset)
     return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
 }
 
+bool drwav_init_file(drwav* pWav, const char* filename)
+{
+    FILE* pFile;
+#ifdef _MSC_VER
+    if (fopen_s(&pFile, filename, "rb") != 0) {
+        return false;
+    }
+#else
+    pFile = fopen(filename, "rb");
+    if (pFile == NULL) {
+        return false;
+    }
+#endif
+
+    return drwav_init(pWav, drwav__on_read_stdio, drwav__on_seek_stdio, (void*)pFile);
+}
+
 drwav* drwav_open_file(const char* filename)
 {
     FILE* pFile;
@@ -399,7 +431,7 @@ drwav* drwav_open_file(const char* filename)
     }
 #endif
 
-    return drwav_open(drwav__on_read_stdio, drwav__on_seek_stdio, pFile);
+    return drwav_open(drwav__on_read_stdio, drwav__on_seek_stdio, (void*)pFile);
 }
 #endif  //DR_WAV_NO_STDIO
 
@@ -443,6 +475,22 @@ static int drwav__on_seek_memory(void* pUserData, int offset)
     return 1;
 }
 
+bool drwav_init_memory(drwav* pWav, const void* data, size_t dataSize)
+{
+    drwav__memory_stream memoryStream;
+    memoryStream.data = (const unsigned char*)data;
+    memoryStream.dataSize = dataSize;
+    memoryStream.currentReadPos = 0;
+
+    if (!drwav_init(pWav, drwav__on_read_memory, drwav__on_seek_memory, (void*)&memoryStream)) {
+        return false;
+    }
+
+    pWav->memoryStream = memoryStream;
+    pWav->pUserData = &pWav->memoryStream;
+    return true;
+}
+
 drwav* drwav_open_memory(const void* data, size_t dataSize)
 {
     drwav__memory_stream memoryStream;
@@ -450,7 +498,7 @@ drwav* drwav_open_memory(const void* data, size_t dataSize)
     memoryStream.dataSize = dataSize;
     memoryStream.currentReadPos = 0;
 
-    drwav* pWav = drwav_open(drwav__on_read_memory, drwav__on_seek_memory, &memoryStream);
+    drwav* pWav = drwav_open(drwav__on_read_memory, drwav__on_seek_memory, (void*)&memoryStream);
     if (pWav == NULL) {
         return NULL;
     }
@@ -555,6 +603,7 @@ bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, voi
     pWav->translatedFormatTag = translatedFormatTag;
     pWav->totalSampleCount    = dataSize / pWav->bytesPerSample;
     pWav->bytesRemaining      = dataSize;
+
     return true;
 }
 
