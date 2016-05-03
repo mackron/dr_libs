@@ -4427,8 +4427,10 @@ void drgui_draw_image(drgui_element* pElement, drgui_image* pImage, drgui_draw_i
         pArgs->dstY = pArgs->dstBoundsY + (pArgs->dstBoundsHeight - pArgs->dstHeight) / 2;
     }
 
-    bool restoreClip = false;
     drgui_rect prevClip;
+    pElement->pContext->paintingCallbacks.getClip(&prevClip, pPaintData);
+
+    bool restoreClip = false;
     if ((pArgs->options & DRGUI_IMAGE_CLIP_BOUNDS) != 0)
     {
         // We only need to clip if part of the destination rectangle falls outside of the bounds.
@@ -4438,9 +4440,7 @@ void drgui_draw_image(drgui_element* pElement, drgui_image* pImage, drgui_draw_i
             // We can do a more efficient clip by adjusting the offset and size of the image, but it will only work if there is no scaling.
             if (pArgs->dstWidth != pArgs->srcWidth || pArgs->dstHeight != pArgs->srcHeight)
             {
-                pElement->pContext->paintingCallbacks.getClip(&prevClip, pPaintData);
                 restoreClip = true;
-
                 pElement->pContext->paintingCallbacks.setClip(drgui_make_rect(pArgs->dstBoundsX, pArgs->dstBoundsY, pArgs->dstBoundsX + pArgs->dstBoundsWidth, pArgs->dstBoundsY + pArgs->dstBoundsHeight), pPaintData);
             }
             else
