@@ -741,55 +741,6 @@ static int drfs__strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
 #endif
 }
 
-static int drfs__strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
-{
-#ifdef _MSC_VER
-    return strncat_s(dst, dstSizeInBytes, src, count);
-#else
-    if (dst == 0) {
-        return EINVAL;
-    }
-    if (dstSizeInBytes == 0) {
-        return ERANGE;
-    }
-    if (src == 0) {
-        return EINVAL;
-    }
-
-    char* dstorig = dst;
-
-    while (dstSizeInBytes > 0 && dst[0] != '\0') {
-        dst += 1;
-        dstSizeInBytes -= 1;
-    }
-
-    if (dstSizeInBytes == 0) {
-        return EINVAL;  // Unterminated.
-    }
-
-
-    if (count == ((size_t)-1)) {        // _TRUNCATE
-        count = dstSizeInBytes - 1;
-    }
-
-    while (dstSizeInBytes > 0 && src[0] != '\0' && count > 0)
-    {
-        *dst++ = *src++;
-        dstSizeInBytes -= 1;
-        count -= 1;
-    }
-
-    if (dstSizeInBytes > 0) {
-        dst[0] = '\0';
-    } else {
-        dstorig[0] = '\0';
-        return ERANGE;
-    }
-
-    return 0;
-#endif
-}
-
 static int drfs__stricmp(const char* string1, const char* string2)
 {
 #ifdef _MSC_VER
