@@ -475,7 +475,7 @@ drgui_element* drgui_create_tree_view(drgui_context* pContext, drgui_element* pP
         return NULL;
     }
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -544,7 +544,7 @@ drgui_element* drgui_create_tree_view(drgui_context* pContext, drgui_element* pP
 
 void drgui_delete_tree_view(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -559,7 +559,7 @@ void drgui_delete_tree_view(drgui_element* pTVElement)
 
 size_t drgui_tv_get_extra_data_size(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return 0;
     }
@@ -569,7 +569,7 @@ size_t drgui_tv_get_extra_data_size(drgui_element* pTVElement)
 
 void* drgui_tv_get_extra_data(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -579,7 +579,7 @@ void* drgui_tv_get_extra_data(drgui_element* pTVElement)
 
 drgui_tree_view_item* drgui_tv_get_root_item(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -589,7 +589,7 @@ drgui_tree_view_item* drgui_tv_get_root_item(drgui_element* pTVElement)
 
 drgui_element* drgui_tv_get_vertical_scrollbar(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -599,7 +599,7 @@ drgui_element* drgui_tv_get_vertical_scrollbar(drgui_element* pTVElement)
 
 drgui_element* drgui_tv_get_horizontal_scrollbar(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -610,7 +610,7 @@ drgui_element* drgui_tv_get_horizontal_scrollbar(drgui_element* pTVElement)
 
 void drgui_tv_set_default_background_color(drgui_element* pTVElement, drgui_color color)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -620,7 +620,7 @@ void drgui_tv_set_default_background_color(drgui_element* pTVElement, drgui_colo
 
 drgui_color drgui_tv_get_default_background_color(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_rgb(0, 0, 0);
     }
@@ -630,7 +630,7 @@ drgui_color drgui_tv_get_default_background_color(drgui_element* pTVElement)
 
 void drgui_tv_set_hovered_background_color(drgui_element* pTVElement, drgui_color color)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -640,7 +640,7 @@ void drgui_tv_set_hovered_background_color(drgui_element* pTVElement, drgui_colo
 
 drgui_color drgui_tv_get_hovered_background_color(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_rgb(0, 0, 0);
     }
@@ -650,7 +650,7 @@ drgui_color drgui_tv_get_hovered_background_color(drgui_element* pTVElement)
 
 void drgui_tv_set_selected_background_color(drgui_element* pTVElement, drgui_color color)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -660,7 +660,7 @@ void drgui_tv_set_selected_background_color(drgui_element* pTVElement, drgui_col
 
 drgui_color drgui_tv_get_selected_background_color(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_rgb(0, 0, 0);
     }
@@ -670,7 +670,7 @@ drgui_color drgui_tv_get_selected_background_color(drgui_element* pTVElement)
 
 void drgui_tv_set_child_offset_x(drgui_element* pTVElement, float childOffsetX)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -680,7 +680,7 @@ void drgui_tv_set_child_offset_x(drgui_element* pTVElement, float childOffsetX)
 
 float drgui_tv_get_child_offset_x(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return 0;
     }
@@ -691,7 +691,7 @@ float drgui_tv_get_child_offset_x(drgui_element* pTVElement)
 
 bool drgui_tv_measure_item(drgui_element* pTVElement, drgui_tree_view_item* pItem, float* pWidthOut, float* pHeightOut)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return false;
     }
@@ -711,7 +711,7 @@ bool drgui_tv_measure_item(drgui_element* pTVElement, drgui_tree_view_item* pIte
 
 void drgui_tv_deselect_all_items(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -725,7 +725,7 @@ void drgui_tv_deselect_all_items(drgui_element* pTVElement)
 
 void drgui_tv_enable_multi_select(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -735,7 +735,7 @@ void drgui_tv_enable_multi_select(drgui_element* pTVElement)
 
 void drgui_tv_disable_multi_select(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -745,7 +745,7 @@ void drgui_tv_disable_multi_select(drgui_element* pTVElement)
 
 bool drgui_tv_is_multi_select_enabled(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return false;
     }
@@ -755,7 +755,7 @@ bool drgui_tv_is_multi_select_enabled(drgui_element* pTVElement)
 
 drgui_tree_view_item* drgui_tv_get_first_selected_item(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -777,7 +777,7 @@ drgui_tree_view_item* drgui_tv_get_first_selected_item(drgui_element* pTVElement
 
 drgui_tree_view_item* drgui_tv_get_next_selected_item(drgui_element* pTVElement, drgui_tree_view_item* pItem)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -800,7 +800,7 @@ drgui_tree_view_item* drgui_tv_get_next_selected_item(drgui_element* pTVElement,
 
 void drgui_tv_set_on_item_mouse_move(drgui_element* pTVElement, drgui_tvi_on_mouse_move_proc proc)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -810,7 +810,7 @@ void drgui_tv_set_on_item_mouse_move(drgui_element* pTVElement, drgui_tvi_on_mou
 
 void drgui_tv_set_on_item_mouse_leave(drgui_element* pTVElement, drgui_tvi_on_mouse_leave_proc proc)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -820,7 +820,7 @@ void drgui_tv_set_on_item_mouse_leave(drgui_element* pTVElement, drgui_tvi_on_mo
 
 void drgui_tv_set_on_item_paint(drgui_element* pTVElement, drgui_tvi_on_paint_proc proc)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -830,7 +830,7 @@ void drgui_tv_set_on_item_paint(drgui_element* pTVElement, drgui_tvi_on_paint_pr
 
 void drgui_tv_set_on_item_measure(drgui_element* pTVElement, drgui_tvi_measure_proc proc)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -840,7 +840,7 @@ void drgui_tv_set_on_item_measure(drgui_element* pTVElement, drgui_tvi_measure_p
 
 void drgui_tv_set_on_item_picked(drgui_element* pTVElement, drgui_tvi_on_picked_proc proc)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -854,7 +854,7 @@ void drgui_tv_on_size(drgui_element* pTVElement, float newWidth, float newHeight
     (void)newWidth;
     (void)newHeight;
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -868,7 +868,7 @@ void drgui_tv_on_size(drgui_element* pTVElement, float newWidth, float newHeight
 
 void drgui_tv_on_mouse_leave(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -893,7 +893,7 @@ void drgui_tv_on_mouse_move(drgui_element* pTVElement, int relativeMousePosX, in
 {
     (void)stateFlags;
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -955,7 +955,7 @@ void drgui_tv_on_mouse_button_down(drgui_element* pTVElement, int mouseButton, i
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -998,7 +998,7 @@ void drgui_tv_on_mouse_button_up(drgui_element* pTVElement, int mouseButton, int
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1012,7 +1012,7 @@ void drgui_tv_on_mouse_button_dblclick(drgui_element* pTVElement, int mouseButto
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1047,7 +1047,7 @@ void drgui_tv_on_mouse_wheel(drgui_element* pTVElement, int delta, int relativeM
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1057,7 +1057,7 @@ void drgui_tv_on_mouse_wheel(drgui_element* pTVElement, int delta, int relativeM
 
 void drgui_tv_on_paint(drgui_element* pTVElement, drgui_rect relativeClippingRect, void* pPaintData)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1094,7 +1094,7 @@ void drgui_tv_on_paint(drgui_element* pTVElement, drgui_rect relativeClippingRec
 
 static void drgui_tv_refresh_and_redraw(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1109,7 +1109,7 @@ static void drgui_tv_refresh_and_redraw(drgui_element* pTVElement)
 
 static void drgui_tv_refresh_scrollbar_layouts(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1126,7 +1126,7 @@ static void drgui_tv_refresh_scrollbar_layouts(drgui_element* pTVElement)
 
 static void drgui_tv_refresh_scrollbar_ranges(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1179,7 +1179,7 @@ static void drgui_tv_refresh_scrollbar_ranges(drgui_element* pTVElement)
 
 static drgui_rect drgui_tv_get_scrollbar_dead_space_rect(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_make_rect(0, 0, 0, 0);
     }
@@ -1189,7 +1189,7 @@ static drgui_rect drgui_tv_get_scrollbar_dead_space_rect(drgui_element* pTVEleme
 
 static drgui_rect drgui_tv_get_inner_rect(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return drgui_make_rect(0, 0, 0, 0);
     }
@@ -1203,7 +1203,7 @@ static drgui_rect drgui_tv_get_inner_rect(drgui_element* pTVElement)
 
 static void drgui_tv_paint_items(drgui_element* pTVElement, drgui_rect relativeClippingRect, void* pPaintData, float* pItemsBottomOut)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1261,7 +1261,7 @@ static bool drgui_tv_next_visible(drgui_tree_view_iterator* pIterator)
         return false;
     }
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pIterator->pItem->pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pIterator->pItem->pTVElement);
     if (pTV == NULL) {
         return false;
     }
@@ -1293,7 +1293,7 @@ static bool drgui_tv_next_visible(drgui_tree_view_iterator* pIterator)
 
 static void drgui_tv_paint_item(drgui_element* pTVElement, drgui_tree_view_item* pItem, drgui_rect relativeClippingRect, float posX, float posY, float width, float height, void* pPaintData)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1336,7 +1336,7 @@ static drgui_tree_view_item* drgui_tv_find_item_under_point(drgui_element* pTVEl
 {
     (void)relativePosX; // <-- Unused because we treat items as though they are infinitely wide.
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -1379,7 +1379,7 @@ static void drgui_tv_deselect_all_items_recursive(drgui_tree_view_item* pItem)
 
 static void drgui_tv_on_mouse_enter_scrollbar(drgui_element* pSBElement)
 {
-    drgui_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
+    drgui_tree_view_scrollbar_data* pSB = (drgui_tree_view_scrollbar_data*)drgui_sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -1392,12 +1392,12 @@ static void drgui_tv_on_scroll_v(drgui_element* pSBElement, int scrollPos)
 {
     (void)scrollPos;
 
-    drgui_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
+    drgui_tree_view_scrollbar_data* pSB = (drgui_tree_view_scrollbar_data*)drgui_sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pSB->pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pSB->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1415,12 +1415,12 @@ static void drgui_tv_on_scroll_h(drgui_element* pSBElement, int scrollPos)
 {
     (void)scrollPos;
 
-    drgui_tree_view_scrollbar_data* pSB = drgui_sb_get_extra_data(pSBElement);
+    drgui_tree_view_scrollbar_data* pSB = (drgui_tree_view_scrollbar_data*)drgui_sb_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pSB->pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pSB->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1431,7 +1431,7 @@ static void drgui_tv_on_scroll_h(drgui_element* pSBElement, int scrollPos)
 
 static drgui_tree_view_item* drgui_tv_find_first_visible_item_on_page(drgui_element* pTVElement)
 {
-    drgui_tree_view* pTV = drgui_get_extra_data(pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pTVElement);
     if (pTV == NULL) {
         return NULL;
     }
@@ -1478,7 +1478,7 @@ drgui_tree_view_item* drgui_tv_create_item(drgui_element* pTVElement, drgui_tree
     }
 
 
-    drgui_tree_view_item* pItem = malloc(sizeof(*pItem) + extraDataSize - sizeof(pItem->pExtraData));
+    drgui_tree_view_item* pItem = (drgui_tree_view_item*)malloc(sizeof(*pItem) + extraDataSize - sizeof(pItem->pExtraData));
     if (pItem == NULL) {
         return NULL;
     }
@@ -1608,7 +1608,7 @@ void drgui_tvi_append(drgui_tree_view_item* pItem, drgui_tree_view_item* pParent
         return;
     }
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pItem->pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pItem->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1654,7 +1654,7 @@ void drgui_tvi_prepend(drgui_tree_view_item* pItem, drgui_tree_view_item* pParen
         return;
     }
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pItem->pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pItem->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1700,7 +1700,7 @@ void drgui_tvi_append_sibling(drgui_tree_view_item* pItemToAppend, drgui_tree_vi
         return;
     }
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pItemToAppend->pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pItemToAppend->pTVElement);
     if (pTV == NULL) {
         return;
     }
@@ -1746,7 +1746,7 @@ void drgui_tvi_prepend_sibling(drgui_tree_view_item* pItemToPrepend, drgui_tree_
         return;
     }
 
-    drgui_tree_view* pTV = drgui_get_extra_data(pItemToPrepend->pTVElement);
+    drgui_tree_view* pTV = (drgui_tree_view*)drgui_get_extra_data(pItemToPrepend->pTVElement);
     if (pTV == NULL) {
         return;
     }

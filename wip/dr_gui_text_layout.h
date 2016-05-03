@@ -903,7 +903,7 @@ drgui_text_layout* drgui_create_text_layout(drgui_context* pContext, size_t extr
         return NULL;
     }
 
-    drgui_text_layout* pTL = malloc(sizeof(drgui_text_layout) - sizeof(pTL->pExtraData) + extraDataSize);
+    drgui_text_layout* pTL = (drgui_text_layout*)malloc(sizeof(drgui_text_layout) - sizeof(pTL->pExtraData) + extraDataSize);
     if (pTL == NULL) {
         return NULL;
     }
@@ -1001,7 +1001,7 @@ void drgui_text_layout_set_text(drgui_text_layout* pTL, const char* text)
     size_t textLength = strlen(text);
 
     free(pTL->text);
-    pTL->text = malloc(textLength + 1);     // +1 for null terminator.
+    pTL->text = (char*)malloc(textLength + 1);     // +1 for null terminator.
 
     // We now need to copy over the text, however we need to skip past \r characters in order to normalize line endings
     // and keep everything simple.
@@ -2011,7 +2011,7 @@ bool drgui_text_layout_insert_character(drgui_text_layout* pTL, unsigned int cha
 
     // TODO: Add proper support for UTF-8.
     char* pOldText = pTL->text;
-    char* pNewText = malloc(pTL->textLength + 1 + 1);   // +1 for the new character and +1 for the null terminator.
+    char* pNewText = (char*)malloc(pTL->textLength + 1 + 1);   // +1 for the new character and +1 for the null terminator.
 
     if (insertIndex > 0) {
         memcpy(pNewText, pOldText, insertIndex);
@@ -2058,7 +2058,7 @@ bool drgui_text_layout_insert_text(drgui_text_layout* pTL, const char* text, siz
 
     // TODO: Add proper support for UTF-8.
     char* pOldText = pTL->text;
-    char* pNewText = malloc(pTL->textLength + newTextLength + 1);   // +1 for the new character and +1 for the null terminator.
+    char* pNewText = (char*)malloc(pTL->textLength + newTextLength + 1);   // +1 for the new character and +1 for the null terminator.
 
     if (insertIndex > 0) {
         memcpy(pNewText, pOldText, insertIndex);
@@ -2469,7 +2469,7 @@ bool drgui_text_layout_prepare_undo_point(drgui_text_layout* pTL)
         free(pTL->preparedState.text);
     }
 
-    pTL->preparedState.text = malloc(pTL->textLength + 1);
+    pTL->preparedState.text = (char*)malloc(pTL->textLength + 1);
     drgui__strcpy_s(pTL->preparedState.text, pTL->textLength + 1, (pTL->text != NULL) ? pTL->text : "");
 
     pTL->preparedState.cursorPos          = drgui_text_layout__get_marker_absolute_char_index(pTL, &pTL->cursor);
@@ -3462,7 +3462,7 @@ DRGUI_PRIVATE void drgui_text_layout__push_text_run(drgui_text_layout* pTL, drgu
             pTL->runBufferSize = 1;
         }
 
-        pTL->pRuns = realloc(pTL->pRuns, sizeof(drgui_text_run) * pTL->runBufferSize);
+        pTL->pRuns = (drgui_text_run*)realloc(pTL->pRuns, sizeof(drgui_text_run) * pTL->runBufferSize);
         if (pTL->pRuns == NULL) {
             pTL->runCount = 0;
             pTL->runBufferSize = 0;
@@ -4650,11 +4650,11 @@ DRGUI_PRIVATE bool drgui_text_layout__diff_states(drgui_text_layout_state* pPrev
     pUndoStateOut->oldState.text = NULL;
 
     size_t oldTextLen = prevLen - sameChCountStart - sameChCountEnd;
-    pUndoStateOut->oldText = malloc(oldTextLen + 1);
+    pUndoStateOut->oldText = (char*)malloc(oldTextLen + 1);
     drgui__strncpy_s(pUndoStateOut->oldText, oldTextLen + 1, prevText + sameChCountStart, oldTextLen);
 
     size_t newTextLen = currLen - sameChCountStart - sameChCountEnd;
-    pUndoStateOut->newText = malloc(newTextLen + 1);
+    pUndoStateOut->newText = (char*)malloc(newTextLen + 1);
     drgui__strncpy_s(pUndoStateOut->newText, newTextLen + 1, currText + sameChCountStart, newTextLen);
 
     return true;
@@ -4683,7 +4683,7 @@ DRGUI_PRIVATE void drgui_text_layout__push_undo_state(drgui_text_layout* pTL, dr
 
 
     drgui_text_layout_undo_state* pOldStack = pTL->pUndoStack;
-    drgui_text_layout_undo_state* pNewStack = malloc(sizeof(*pNewStack) * (pTL->undoStackCount + 1));
+    drgui_text_layout_undo_state* pNewStack = (drgui_text_layout_undo_state*)malloc(sizeof(*pNewStack) * (pTL->undoStackCount + 1));
 
     if (pTL->undoStackCount > 0) {
         memcpy(pNewStack, pOldStack, sizeof(*pNewStack) * (pTL->undoStackCount));

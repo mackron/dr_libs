@@ -285,7 +285,7 @@ drgui_element* drgui_create_scrollbar(drgui_context* pContext, drgui_element* pP
         return NULL;
     }
 
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
     pSB->orientation       = orientation;
@@ -340,7 +340,7 @@ void drgui_delete_scrollbar(drgui_element* pSBElement)
 
 size_t drgui_sb_get_extra_data_size(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return 0;
     }
@@ -350,7 +350,7 @@ size_t drgui_sb_get_extra_data_size(drgui_element* pSBElement)
 
 void* drgui_sb_get_extra_data(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return NULL;
     }
@@ -361,7 +361,7 @@ void* drgui_sb_get_extra_data(drgui_element* pSBElement)
 
 drgui_sb_orientation drgui_sb_get_orientation(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return drgui_sb_orientation_none;
     }
@@ -372,7 +372,7 @@ drgui_sb_orientation drgui_sb_get_orientation(drgui_element* pSBElement)
 
 void drgui_sb_set_range(drgui_element* pSBElement, int rangeMin, int rangeMax)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -390,7 +390,7 @@ void drgui_sb_set_range(drgui_element* pSBElement, int rangeMin, int rangeMax)
 
 void drgui_sb_get_range(drgui_element* pSBElement, int* pRangeMinOut, int* pRangeMaxOut)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -407,7 +407,7 @@ void drgui_sb_get_range(drgui_element* pSBElement, int* pRangeMinOut, int* pRang
 
 void drgui_sb_set_page_size(drgui_element* pSBElement, int pageSize)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -424,7 +424,7 @@ void drgui_sb_set_page_size(drgui_element* pSBElement, int pageSize)
 
 int drgui_sb_get_page_size(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return 0;
     }
@@ -435,7 +435,7 @@ int drgui_sb_get_page_size(drgui_element* pSBElement)
 
 void drgui_sb_set_range_and_page_size(drgui_element* pSBElement, int rangeMin, int rangeMax, int pageSize)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -455,7 +455,7 @@ void drgui_sb_set_range_and_page_size(drgui_element* pSBElement, int rangeMin, i
 
 void drgui_sb_set_scroll_position(drgui_element* pSBElement, int position)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -472,7 +472,7 @@ void drgui_sb_set_scroll_position(drgui_element* pSBElement, int position)
 
 int drgui_sb_get_scroll_position(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return 0;
     }
@@ -483,7 +483,7 @@ int drgui_sb_get_scroll_position(drgui_element* pSBElement)
 
 void drgui_sb_scroll(drgui_element* pSBElement, int offset)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -493,7 +493,7 @@ void drgui_sb_scroll(drgui_element* pSBElement, int offset)
 
 void drgui_sb_scroll_to(drgui_element* pSBElement, int newScrollPos)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -512,7 +512,7 @@ void drgui_sb_scroll_to(drgui_element* pSBElement, int newScrollPos)
 
 void drgui_sb_enable_thumb_auto_hide(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -528,7 +528,7 @@ void drgui_sb_enable_thumb_auto_hide(drgui_element* pSBElement)
 
 void drgui_sb_disable_thumb_auto_hide(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -544,7 +544,7 @@ void drgui_sb_disable_thumb_auto_hide(drgui_element* pSBElement)
 
 bool drgui_sb_is_thumb_auto_hide_enabled(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return false;
     }
@@ -554,7 +554,7 @@ bool drgui_sb_is_thumb_auto_hide_enabled(drgui_element* pSBElement)
 
 bool drgui_sb_is_thumb_visible(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return false;
     }
@@ -570,7 +570,7 @@ bool drgui_sb_is_thumb_visible(drgui_element* pSBElement)
 
 void drgui_sb_set_mouse_wheel_scele(drgui_element* pSBElement, int scale)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -580,7 +580,7 @@ void drgui_sb_set_mouse_wheel_scele(drgui_element* pSBElement, int scale)
 
 int drgui_sb_get_mouse_wheel_scale(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return 1;
     }
@@ -591,7 +591,7 @@ int drgui_sb_get_mouse_wheel_scale(drgui_element* pSBElement)
 
 void drgui_sb_set_track_color(drgui_element* pSBElement, drgui_color color)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -601,7 +601,7 @@ void drgui_sb_set_track_color(drgui_element* pSBElement, drgui_color color)
 
 void drgui_sb_set_default_thumb_color(drgui_element* pSBElement, drgui_color color)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -611,7 +611,7 @@ void drgui_sb_set_default_thumb_color(drgui_element* pSBElement, drgui_color col
 
 void drgui_sb_set_hovered_thumb_color(drgui_element* pSBElement, drgui_color color)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -621,7 +621,7 @@ void drgui_sb_set_hovered_thumb_color(drgui_element* pSBElement, drgui_color col
 
 void drgui_sb_set_pressed_thumb_color(drgui_element* pSBElement, drgui_color color)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -632,7 +632,7 @@ void drgui_sb_set_pressed_thumb_color(drgui_element* pSBElement, drgui_color col
 
 void drgui_sb_set_on_scroll(drgui_element* pSBElement, drgui_sb_on_scroll_proc onScroll)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -642,7 +642,7 @@ void drgui_sb_set_on_scroll(drgui_element* pSBElement, drgui_sb_on_scroll_proc o
 
 drgui_sb_on_scroll_proc drgui_sb_get_on_scroll(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return NULL;
     }
@@ -653,7 +653,7 @@ drgui_sb_on_scroll_proc drgui_sb_get_on_scroll(drgui_element* pSBElement)
 
 drgui_rect drgui_sb_get_thumb_rect(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return drgui_make_rect(0, 0, 0, 0);
     }
@@ -688,7 +688,7 @@ void drgui_sb_on_size(drgui_element* pSBElement, float newWidth, float newHeight
     (void)newWidth;
     (void)newHeight;
 
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -698,7 +698,7 @@ void drgui_sb_on_size(drgui_element* pSBElement, float newWidth, float newHeight
 
 void drgui_sb_on_mouse_leave(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -725,7 +725,7 @@ void drgui_sb_on_mouse_move(drgui_element* pSBElement, int relativeMousePosX, in
 {
     (void)stateFlags;
 
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -774,7 +774,7 @@ void drgui_sb_on_mouse_button_down(drgui_element* pSBElement, int button, int re
 {
     (void)stateFlags;
 
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -817,7 +817,7 @@ void drgui_sb_on_mouse_button_up(drgui_element* pSBElement, int button, int rela
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -840,7 +840,7 @@ void drgui_sb_on_mouse_wheel(drgui_element* pSBElement, int delta, int relativeM
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -852,7 +852,7 @@ void drgui_sb_on_paint(drgui_element* pSBElement, drgui_rect relativeClippingRec
 {
     (void)relativeClippingRect;
 
-    const drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    const drgui_scrollbar* pSB = (const drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     if (pSB == NULL) {
         return;
     }
@@ -892,7 +892,7 @@ void drgui_sb_on_paint(drgui_element* pSBElement, drgui_rect relativeClippingRec
 
 DRGUI_PRIVATE void drgui_sb_refresh_thumb(drgui_element* pSBElement)
 {
-    drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    drgui_scrollbar* pSB = (drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
     drgui_rect oldThumbRect = drgui_sb_get_thumb_rect(pSBElement);
@@ -909,7 +909,7 @@ DRGUI_PRIVATE void drgui_sb_refresh_thumb(drgui_element* pSBElement)
 
 DRGUI_PRIVATE float drgui_sb_calculate_thumb_size(drgui_element* pSBElement)
 {
-    const drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    const drgui_scrollbar* pSB = (const drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
     float trackSize = drgui_sb_get_track_size(pSBElement);
@@ -927,7 +927,7 @@ DRGUI_PRIVATE float drgui_sb_calculate_thumb_size(drgui_element* pSBElement)
 
 DRGUI_PRIVATE float drgui_sb_calculate_thumb_position(drgui_element* pSBElement)
 {
-    const drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    const drgui_scrollbar* pSB = (const drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
     float trackSize = drgui_sb_get_track_size(pSBElement);
@@ -946,7 +946,7 @@ DRGUI_PRIVATE float drgui_sb_calculate_thumb_position(drgui_element* pSBElement)
 
 DRGUI_PRIVATE float drgui_sb_get_track_size(drgui_element* pSBElement)
 {
-    const drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    const drgui_scrollbar* pSB = (const drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
     if (pSB->orientation == drgui_sb_orientation_vertical) {
@@ -971,7 +971,7 @@ DRGUI_PRIVATE void drgui_sb_make_relative_to_thumb(drgui_element* pSBElement, fl
 
 DRGUI_PRIVATE int drgui_sb_calculate_scroll_pos_from_thumb_pos(drgui_element* pSBElement, float thumbPos)
 {
-    const drgui_scrollbar* pSB = drgui_get_extra_data(pSBElement);
+    const drgui_scrollbar* pSB = (const drgui_scrollbar*)drgui_get_extra_data(pSBElement);
     assert(pSB != NULL);
 
     float trackSize = drgui_sb_get_track_size(pSBElement);

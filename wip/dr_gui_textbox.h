@@ -343,7 +343,7 @@ DRGUI_PRIVATE void drgui_textbox__on_vscroll(drgui_element* pSBElement, int scro
     drgui_element* pTBElement = *(drgui_element**)drgui_sb_get_extra_data(pSBElement);
     assert(pTBElement != NULL);
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     drgui_text_layout_set_inner_offset_y(pTB->pTL, -drgui_text_layout_get_line_pos_y(pTB->pTL, scrollPos));
@@ -357,7 +357,7 @@ DRGUI_PRIVATE void drgui_textbox__on_hscroll(drgui_element* pSBElement, int scro
     drgui_element* pTBElement = *(drgui_element**)drgui_sb_get_extra_data(pSBElement);
     assert(pTBElement != NULL);
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     drgui_text_layout_set_inner_offset_x(pTB->pTL, (float)-scrollPos);
@@ -391,7 +391,7 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     drgui_set_on_capture_mouse(pTBElement, drgui_textbox_on_capture_mouse);
     drgui_set_on_release_mouse(pTBElement, drgui_textbox_on_release_mouse);
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     pTB->pVertScrollbar = drgui_create_scrollbar(pContext, pTBElement, drgui_sb_orientation_vertical, sizeof(&pTBElement), &pTBElement);
@@ -448,7 +448,7 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
 
 void drgui_delete_textbox(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -458,7 +458,7 @@ void drgui_delete_textbox(drgui_element* pTBElement)
 
 size_t drgui_textbox_get_extra_data_size(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return 0;
     }
@@ -468,7 +468,7 @@ size_t drgui_textbox_get_extra_data_size(drgui_element* pTBElement)
 
 void* drgui_textbox_get_extra_data(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return NULL;
     }
@@ -479,7 +479,7 @@ void* drgui_textbox_get_extra_data(drgui_element* pTBElement)
 
 void drgui_textbox_set_font(drgui_element* pTBElement, drgui_font* pFont)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -489,7 +489,7 @@ void drgui_textbox_set_font(drgui_element* pTBElement, drgui_font* pFont)
 
 void drgui_textbox_set_text_color(drgui_element* pTBElement, drgui_color color)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -499,7 +499,7 @@ void drgui_textbox_set_text_color(drgui_element* pTBElement, drgui_color color)
 
 void drgui_textbox_set_background_color(drgui_element* pTBElement, drgui_color color)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -509,7 +509,7 @@ void drgui_textbox_set_background_color(drgui_element* pTBElement, drgui_color c
 
 void drgui_textbox_set_active_line_background_color(drgui_element* pTBElement, drgui_color color)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -519,7 +519,7 @@ void drgui_textbox_set_active_line_background_color(drgui_element* pTBElement, d
 
 void drgui_textbox_set_cursor_color(drgui_element* pTBElement, drgui_color color)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -529,7 +529,7 @@ void drgui_textbox_set_cursor_color(drgui_element* pTBElement, drgui_color color
 
 void drgui_textbox_set_border_color(drgui_element* pTBElement, drgui_color color)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -539,7 +539,7 @@ void drgui_textbox_set_border_color(drgui_element* pTBElement, drgui_color color
 
 void drgui_textbox_set_border_width(drgui_element* pTBElement, float borderWidth)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -549,7 +549,7 @@ void drgui_textbox_set_border_width(drgui_element* pTBElement, float borderWidth
 
 void drgui_textbox_set_padding(drgui_element* pTBElement, float padding)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -559,7 +559,7 @@ void drgui_textbox_set_padding(drgui_element* pTBElement, float padding)
 
 void drgui_textbox_set_vertical_align(drgui_element* pTBElement, drgui_text_layout_alignment align)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -569,7 +569,7 @@ void drgui_textbox_set_vertical_align(drgui_element* pTBElement, drgui_text_layo
 
 void drgui_textbox_set_horizontal_align(drgui_element* pTBElement, drgui_text_layout_alignment align)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -580,7 +580,7 @@ void drgui_textbox_set_horizontal_align(drgui_element* pTBElement, drgui_text_la
 
 void drgui_textbox_set_text(drgui_element* pTBElement, const char* text)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -590,7 +590,7 @@ void drgui_textbox_set_text(drgui_element* pTBElement, const char* text)
 
 size_t drgui_textbox_get_text(drgui_element* pTBElement, char* pTextOut, size_t textOutSize)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return 0;
     }
@@ -600,7 +600,7 @@ size_t drgui_textbox_get_text(drgui_element* pTBElement, char* pTextOut, size_t 
 
 void drgui_textbox_step(drgui_element* pTBElement, unsigned int milliseconds)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -610,7 +610,7 @@ void drgui_textbox_step(drgui_element* pTBElement, unsigned int milliseconds)
 
 void drgui_textbox_set_cursor_blink_rate(drgui_element* pTBElement, unsigned int blinkRateInMilliseconds)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -620,7 +620,7 @@ void drgui_textbox_set_cursor_blink_rate(drgui_element* pTBElement, unsigned int
 
 void drgui_textbox_move_cursor_to_end_of_text(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -630,7 +630,7 @@ void drgui_textbox_move_cursor_to_end_of_text(drgui_element* pTBElement)
 
 void drgui_textbox_move_cursor_to_start_of_line_by_index(drgui_element* pTBElement, size_t iLine)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -641,7 +641,7 @@ void drgui_textbox_move_cursor_to_start_of_line_by_index(drgui_element* pTBEleme
 
 bool drgui_textbox_is_anything_selected(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return false;
     }
@@ -651,7 +651,7 @@ bool drgui_textbox_is_anything_selected(drgui_element* pTBElement)
 
 void drgui_textbox_select_all(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -661,7 +661,7 @@ void drgui_textbox_select_all(drgui_element* pTBElement)
 
 size_t drgui_textbox_get_selected_text(drgui_element* pTBElement, char* textOut, size_t textOutLength)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return 0;
     }
@@ -671,7 +671,7 @@ size_t drgui_textbox_get_selected_text(drgui_element* pTBElement, char* textOut,
 
 bool drgui_textbox_delete_character_to_right_of_cursor(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return false;
     }
@@ -688,7 +688,7 @@ bool drgui_textbox_delete_character_to_right_of_cursor(drgui_element* pTBElement
 
 bool drgui_textbox_delete_selected_text(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return false;
     }
@@ -705,7 +705,7 @@ bool drgui_textbox_delete_selected_text(drgui_element* pTBElement)
 
 bool drgui_textbox_insert_text_at_cursor(drgui_element* pTBElement, const char* text)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return false;;
     }
@@ -722,7 +722,7 @@ bool drgui_textbox_insert_text_at_cursor(drgui_element* pTBElement, const char* 
 
 bool drgui_textbox_undo(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return false;
     }
@@ -732,7 +732,7 @@ bool drgui_textbox_undo(drgui_element* pTBElement)
 
 bool drgui_textbox_redo(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return false;
     }
@@ -742,7 +742,7 @@ bool drgui_textbox_redo(drgui_element* pTBElement)
 
 unsigned int drgui_textbox_get_undo_points_remaining_count(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return false;
     }
@@ -752,7 +752,7 @@ unsigned int drgui_textbox_get_undo_points_remaining_count(drgui_element* pTBEle
 
 unsigned int drgui_textbox_get_redo_points_remaining_count(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return false;
     }
@@ -763,7 +763,7 @@ unsigned int drgui_textbox_get_redo_points_remaining_count(drgui_element* pTBEle
 
 size_t drgui_textbox_get_cursor_line(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return 0;
     }
@@ -773,7 +773,7 @@ size_t drgui_textbox_get_cursor_line(drgui_element* pTBElement)
 
 size_t drgui_textbox_get_cursor_column(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return 0;
     }
@@ -783,7 +783,7 @@ size_t drgui_textbox_get_cursor_column(drgui_element* pTBElement)
 
 size_t drgui_textbox_get_line_count(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return 0;
     }
@@ -794,7 +794,7 @@ size_t drgui_textbox_get_line_count(drgui_element* pTBElement)
 
 bool drgui_textbox_find_and_select_next(drgui_element* pTBElement, const char* text)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return 0;
     }
@@ -814,7 +814,7 @@ bool drgui_textbox_find_and_select_next(drgui_element* pTBElement, const char* t
 
 bool drgui_textbox_find_and_replace_next(drgui_element* pTBElement, const char* text, const char* replacement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return 0;
     }
@@ -840,7 +840,7 @@ bool drgui_textbox_find_and_replace_next(drgui_element* pTBElement, const char* 
 
 bool drgui_textbox_find_and_replace_all(drgui_element* pTBElement, const char* text, const char* replacement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return 0;
     }
@@ -892,7 +892,7 @@ bool drgui_textbox_find_and_replace_all(drgui_element* pTBElement, const char* t
 
 void drgui_textbox_show_line_numbers(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -903,7 +903,7 @@ void drgui_textbox_show_line_numbers(drgui_element* pTBElement)
 
 void drgui_textbox_hide_line_numbers(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -915,7 +915,7 @@ void drgui_textbox_hide_line_numbers(drgui_element* pTBElement)
 
 void drgui_textbox_disable_vertical_scrollbar(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -928,7 +928,7 @@ void drgui_textbox_disable_vertical_scrollbar(drgui_element* pTBElement)
 
 void drgui_textbox_enable_vertical_scrollbar(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -941,7 +941,7 @@ void drgui_textbox_enable_vertical_scrollbar(drgui_element* pTBElement)
 
 void drgui_textbox_disable_horizontal_scrollbar(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -954,7 +954,7 @@ void drgui_textbox_disable_horizontal_scrollbar(drgui_element* pTBElement)
 
 void drgui_textbox_enable_horizontal_scrollbar(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -968,7 +968,7 @@ void drgui_textbox_enable_horizontal_scrollbar(drgui_element* pTBElement)
 
 void drgui_textbox_set_on_cursor_move(drgui_element* pTBElement, drgui_textbox_on_cursor_move_proc proc)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -978,7 +978,7 @@ void drgui_textbox_set_on_cursor_move(drgui_element* pTBElement, drgui_textbox_o
 
 void drgui_textbox_set_on_undo_point_changed(drgui_element* pTBElement, drgui_textbox_on_undo_point_changed_proc proc)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -992,7 +992,7 @@ void drgui_textbox_on_size(drgui_element* pTBElement, float newWidth, float newH
     (void)newWidth;
     (void)newHeight;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1014,7 +1014,7 @@ void drgui_textbox_on_mouse_move(drgui_element* pTBElement, int relativeMousePos
 {
     (void)stateFlags;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1031,7 +1031,7 @@ void drgui_textbox_on_mouse_move(drgui_element* pTBElement, int relativeMousePos
 
 void drgui_textbox_on_mouse_button_down(drgui_element* pTBElement, int mouseButton, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1070,7 +1070,7 @@ void drgui_textbox_on_mouse_button_up(drgui_element* pTBElement, int mouseButton
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1092,7 +1092,7 @@ void drgui_textbox_on_mouse_button_dblclick(drgui_element* pTBElement, int mouse
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1105,7 +1105,7 @@ void drgui_textbox_on_mouse_wheel(drgui_element* pTBElement, int delta, int rela
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1115,7 +1115,7 @@ void drgui_textbox_on_mouse_wheel(drgui_element* pTBElement, int delta, int rela
 
 void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int stateFlags)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1320,7 +1320,7 @@ void drgui_textbox_on_printable_key_down(drgui_element* pTBElement, unsigned int
 {
     (void)stateFlags;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1366,7 +1366,7 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_dirty(drgui_text_layout* pTL, d
         return;
     }
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1386,7 +1386,7 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_cursor_move(drgui_text_layout* 
         return;
     }
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1428,7 +1428,7 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_text_changed(drgui_text_layout*
         return;
     }
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1448,7 +1448,7 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_undo_point_changed(drgui_text_l
         return;
     }
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1461,7 +1461,7 @@ DRGUI_PRIVATE void drgui_textbox__on_text_layout_undo_point_changed(drgui_text_l
 
 void drgui_textbox_on_paint(drgui_element* pTBElement, drgui_rect relativeRect, void* pPaintData)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1488,7 +1488,7 @@ void drgui_textbox_on_capture_keyboard(drgui_element* pTBElement, drgui_element*
 {
     (void)pPrevCapturedElement;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1500,7 +1500,7 @@ void drgui_textbox_on_release_keyboard(drgui_element* pTBElement, drgui_element*
 {
     (void)pNewCapturedElement;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1510,7 +1510,7 @@ void drgui_textbox_on_release_keyboard(drgui_element* pTBElement, drgui_element*
 
 void drgui_textbox_on_capture_mouse(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1519,7 +1519,7 @@ void drgui_textbox_on_capture_mouse(drgui_element* pTBElement)
 
 void drgui_textbox_on_release_mouse(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return;
     }
@@ -1534,7 +1534,7 @@ DRGUI_PRIVATE void drgui_textbox__get_text_offset(drgui_element* pTBElement, flo
     float offsetX = 0;
     float offsetY = 0;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB != NULL)
     {
         float lineNumbersWidth = 0;
@@ -1560,7 +1560,7 @@ DRGUI_PRIVATE void drgui_textbox__calculate_text_layout_container_size(drgui_ele
     float width  = 0;
     float height = 0;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB != NULL)
     {
         float horzScrollbarSize = 0;
@@ -1592,7 +1592,7 @@ DRGUI_PRIVATE void drgui_textbox__calculate_text_layout_container_size(drgui_ele
 
 DRGUI_PRIVATE drgui_rect drgui_textbox__get_text_rect(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
         return drgui_make_rect(0, 0, 0, 0);
     }
@@ -1622,7 +1622,7 @@ DRGUI_PRIVATE void drgui_textbox__refresh_scrollbars(drgui_element* pTBElement)
 
 DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_ranges(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     // The vertical scrollbar is based on the line count.
@@ -1662,7 +1662,7 @@ DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_ranges(drgui_element* pTBEle
 
 DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_layouts(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     float offsetLeft   = pTB->borderWidth;
@@ -1686,7 +1686,7 @@ DRGUI_PRIVATE void drgui_textbox__refresh_scrollbar_layouts(drgui_element* pTBEl
 
 DRGUI_PRIVATE drgui_rect drgui_textbox__get_scrollbar_dead_space_rect(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     float offsetLeft   = pTB->borderWidth;
@@ -1712,7 +1712,7 @@ DRGUI_PRIVATE void drgui_textbox__on_mouse_move_line_numbers(drgui_element* pLin
     drgui_element* pTBElement = *(drgui_element**)drgui_get_extra_data(pLineNumbers);
     assert(pTBElement != NULL);
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     if ((stateFlags & DRGUI_MOUSE_BUTTON_LEFT_DOWN) != 0)
@@ -1779,7 +1779,7 @@ DRGUI_PRIVATE void drgui_textbox__on_mouse_button_down_line_numbers(drgui_elemen
     drgui_element* pTBElement = *(drgui_element**)drgui_get_extra_data(pLineNumbers);
     assert(pTBElement != NULL);
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     if (mouseButton == DRGUI_MOUSE_BUTTON_LEFT)
@@ -1825,7 +1825,7 @@ DRGUI_PRIVATE void drgui_textbox__on_paint_rect_line_numbers(drgui_text_layout* 
 {
     (void)pLayout;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     float offsetX = pTB->padding;
@@ -1838,7 +1838,7 @@ DRGUI_PRIVATE void drgui_textbox__on_paint_text_line_numbers(drgui_text_layout* 
 {
     (void)pLayout;
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     float offsetX = pTB->padding;
@@ -1853,7 +1853,7 @@ DRGUI_PRIVATE void drgui_textbox__on_paint_line_numbers(drgui_element* pLineNumb
     drgui_element* pTBElement = *((drgui_element**)drgui_get_extra_data(pLineNumbers));
     assert(pTBElement != NULL);
 
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     float lineNumbersWidth  = drgui_get_width(pLineNumbers) - (pTB->padding*2) - pTB->lineNumbersPaddingRight;
@@ -1872,7 +1872,7 @@ DRGUI_PRIVATE void drgui_textbox__on_paint_line_numbers(drgui_element* pLineNumb
 
 DRGUI_PRIVATE void drgui_textbox__refresh_line_numbers(drgui_element* pTBElement)
 {
-    drgui_textbox* pTB = drgui_get_extra_data(pTBElement);
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
     float lineNumbersWidth = 0;

@@ -2423,7 +2423,7 @@ DRGUI_PRIVATE drgui_resource drgui_get_internal_font_by_scale(drgui_font* pFont,
     }
 
     drgui_resource* pOldInternalFonts = pFont->pInternalFonts;
-    drgui_resource* pNewInternalFonts = malloc(sizeof(*pNewInternalFonts) * (pFont->internalFontCount + 1));
+    drgui_resource* pNewInternalFonts = (drgui_resource*)malloc(sizeof(*pNewInternalFonts) * (pFont->internalFontCount + 1));
 
     for (size_t i = 0; i < pFont->internalFontCount; ++i) {
         pNewInternalFonts[i] = pOldInternalFonts[i];
@@ -2447,7 +2447,7 @@ DRGUI_PRIVATE drgui_resource drgui_get_internal_font_by_scale(drgui_font* pFont,
 
 drgui_context* drgui_create_context()
 {
-    drgui_context* pContext = malloc(sizeof(drgui_context));
+    drgui_context* pContext = (drgui_context*)malloc(sizeof(drgui_context));
     if (pContext != NULL) {
         pContext->pPaintingContext                           = NULL;
         pContext->paintingCallbacks.drawBegin                = NULL;
@@ -3455,7 +3455,7 @@ bool drgui_find_element_under_point_iterator(drgui_element* pElement, drgui_rect
     assert(pElement             != NULL);
     assert(pRelativeVisibleRect != NULL);
 
-    drgui_find_element_under_point_data* pData = pUserData;
+    drgui_find_element_under_point_data* pData = (drgui_find_element_under_point_data*)pUserData;
     assert(pData != NULL);
 
     float innerScaleX;
@@ -3503,7 +3503,7 @@ bool drgui_is_element_under_mouse(drgui_element* pElement)
         return false;
     }
 
-    return drgui_find_element_under_point(pElement->pContext->pLastMouseMoveTopLevelElement, pElement->pContext->lastMouseMovePosX, pElement->pContext->lastMouseMovePosY);
+    return drgui_find_element_under_point(pElement->pContext->pLastMouseMoveTopLevelElement, pElement->pContext->lastMouseMovePosX, pElement->pContext->lastMouseMovePosY) != NULL;
 }
 
 
@@ -4539,7 +4539,7 @@ drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsig
         return NULL;
     }
 
-    drgui_font* pFont = malloc(sizeof(drgui_font));
+    drgui_font* pFont = (drgui_font*)malloc(sizeof(drgui_font));
     if (pFont == NULL) {
         return NULL;
     }
@@ -4552,7 +4552,7 @@ drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsig
     pFont->rotation          = rotation;
     pFont->flags             = flags;
     pFont->internalFontCount = 1;
-    pFont->pInternalFonts    = malloc(sizeof(drgui_resource) * pFont->internalFontCount);
+    pFont->pInternalFonts    = (drgui_resource*)malloc(sizeof(drgui_resource) * pFont->internalFontCount);
     pFont->pInternalFonts[0] = internalFont;
 
     if (family != NULL) {
@@ -4790,7 +4790,7 @@ drgui_image* drgui_create_image(drgui_context* pContext, unsigned int width, uns
         return NULL;
     }
 
-    drgui_image* pImage = malloc(sizeof(*pImage));
+    drgui_image* pImage = (drgui_image*)malloc(sizeof(*pImage));
     if (pImage == NULL) {
         return NULL;
     }
@@ -5286,7 +5286,7 @@ void drgui_draw_text_dr_2d(drgui_resource font, const char* text, int textSizeIn
     dr2d_surface* pSurface = (dr2d_surface*)pPaintData;
     assert(pSurface != NULL);
 
-    dr2d_draw_text(pSurface, font, text, textSizeInBytes, posX, posY, dr2d_rgba(color.r, color.g, color.b, color.a), dr2d_rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a));
+    dr2d_draw_text(pSurface, (dr2d_font*)font, text, textSizeInBytes, posX, posY, dr2d_rgba(color.r, color.g, color.b, color.a), dr2d_rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a));
 }
 
 void drgui_draw_image_dr_2d(drgui_resource image, drgui_draw_image_args* pArgs, void* pPaintData)
@@ -5306,23 +5306,23 @@ void drgui_draw_image_dr_2d(drgui_resource image, drgui_draw_image_args* pArgs, 
     args.foregroundTint  = dr2d_rgba(pArgs->foregroundTint.r, pArgs->foregroundTint.g, pArgs->foregroundTint.b, pArgs->foregroundTint.a);
     args.backgroundColor = dr2d_rgba(pArgs->backgroundColor.r, pArgs->backgroundColor.g, pArgs->backgroundColor.b, pArgs->backgroundColor.a);
     args.options         = pArgs->options;
-    dr2d_draw_image(pSurface, image, &args);
+    dr2d_draw_image(pSurface, (dr2d_image*)image, &args);
 }
 
 
 drgui_resource drgui_create_font_dr_2d(void* pPaintingContext, const char* family, unsigned int size, drgui_font_weight weight, drgui_font_slant slant, float rotation, unsigned int flags)
 {
-    return dr2d_create_font(pPaintingContext, family, size, (dr2d_font_weight)weight, (dr2d_font_slant)slant, rotation, flags);
+    return dr2d_create_font((dr2d_context*)pPaintingContext, family, size, (dr2d_font_weight)weight, (dr2d_font_slant)slant, rotation, flags);
 }
 
 void drgui_delete_font_dr_2d(drgui_resource font)
 {
-    dr2d_delete_font(font);
+    dr2d_delete_font((dr2d_font*)font);
 }
 
 unsigned int drgui_get_font_size_dr_2d(drgui_resource font)
 {
-    return dr2d_get_font_size(font);
+    return dr2d_get_font_size((dr2d_font*)font);
 }
 
 bool drgui_get_font_metrics_dr_2d(drgui_resource font, drgui_font_metrics* pMetricsOut)
@@ -5330,7 +5330,7 @@ bool drgui_get_font_metrics_dr_2d(drgui_resource font, drgui_font_metrics* pMetr
     assert(pMetricsOut != NULL);
 
     dr2d_font_metrics metrics;
-    if (!dr2d_get_font_metrics(font, &metrics)) {
+    if (!dr2d_get_font_metrics((dr2d_font*)font, &metrics)) {
         return false;
     }
 
@@ -5347,7 +5347,7 @@ bool drgui_get_glyph_metrics_dr_2d(drgui_resource font, unsigned int utf32, drgu
     assert(pMetricsOut != NULL);
 
     dr2d_glyph_metrics metrics;
-    if (!dr2d_get_glyph_metrics(font, utf32, &metrics)) {
+    if (!dr2d_get_glyph_metrics((dr2d_font*)font, utf32, &metrics)) {
         return false;
     }
 
@@ -5363,17 +5363,17 @@ bool drgui_get_glyph_metrics_dr_2d(drgui_resource font, unsigned int utf32, drgu
 
 bool drgui_measure_string_dr_2d(drgui_resource font, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut)
 {
-    return dr2d_measure_string(font, text, textSizeInBytes, pWidthOut, pHeightOut);
+    return dr2d_measure_string((dr2d_font*)font, text, textSizeInBytes, pWidthOut, pHeightOut);
 }
 
 bool drgui_get_text_cursor_position_from_point_dr_2d(drgui_resource font, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut)
 {
-    return dr2d_get_text_cursor_position_from_point(font, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
+    return dr2d_get_text_cursor_position_from_point((dr2d_font*)font, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
 }
 
 bool drgui_get_text_cursor_position_from_char_dr_2d(drgui_resource font, const char* text, size_t characterIndex, float* pTextCursorPosXOut)
 {
-    return dr2d_get_text_cursor_position_from_char(font, text, characterIndex, pTextCursorPosXOut);
+    return dr2d_get_text_cursor_position_from_char((dr2d_font*)font, text, characterIndex, pTextCursorPosXOut);
 }
 
 
@@ -5387,32 +5387,32 @@ drgui_resource drgui_create_image_dr_2d(void* pPaintingContext, unsigned int wid
     default: dr2dFormat = dr2d_image_format_rgba8;
     }
 
-    return dr2d_create_image(pPaintingContext, width, height, dr2dFormat, stride, pImageData); // TODO: Change the image format based on the input parameter.
+    return dr2d_create_image((dr2d_context*)pPaintingContext, width, height, dr2dFormat, stride, pImageData); // TODO: Change the image format based on the input parameter.
 }
 
 void drgui_delete_image_dr_2d(drgui_resource image)
 {
-    dr2d_delete_image(image);
+    dr2d_delete_image((dr2d_image*)image);
 }
 
 void drgui_get_image_size_dr_2d(drgui_resource image, unsigned int* pWidthOut, unsigned int* pHeightOut)
 {
-    dr2d_get_image_size(image, pWidthOut, pHeightOut);
+    dr2d_get_image_size((dr2d_image*)image, pWidthOut, pHeightOut);
 }
 
 drgui_image_format drgui_get_optimal_image_format_dr_2d(void* pPaintingContext)
 {
-    return dr2d_get_optimal_image_format(pPaintingContext);
+    return (drgui_image_format)dr2d_get_optimal_image_format((dr2d_context*)pPaintingContext);
 }
 
 void* drgui_map_image_data_dr_2d(drgui_resource image, unsigned int accessFlags)
 {
-    return dr2d_map_image_data(image, accessFlags);
+    return dr2d_map_image_data((dr2d_image*)image, accessFlags);
 }
 
 void drgui_unmap_image_data_dr_2d(drgui_resource image)
 {
-    dr2d_unmap_image_data(image);
+    dr2d_unmap_image_data((dr2d_image*)image);
 }
 
 #endif  //DRGUI_NO_DR_2D
