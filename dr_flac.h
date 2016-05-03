@@ -136,7 +136,13 @@ typedef enum
 
 typedef struct
 {
+    // The metadata type. Use this to know how to interpret the data below.
     drflac_metadata_type type;
+
+    // A pointer to the raw data. This points to a temporary buffer so don't hold on to it. It's best to
+    // not modify the contents of this buffer. Use the structures below for more meaningful and structured
+    // information about the metadata. It's possible for this to be null.
+    const void* pRawData;
 
     union
     {
@@ -147,7 +153,7 @@ typedef struct
 
         struct
         {
-            int notYetImplemented;
+            int unused;
         } padding;
 
         struct
@@ -2616,7 +2622,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
     }
 
 
-    // The next blocks are optional. We need to skip over them before we can start reading sample data. We want to keep track of the seektable so we can do efficient seeking.
+    // The next blocks are metadata which are all optional. We want to keep track of the seektable so we can do efficient seeking.
     pInit->runningFilePos = 42;
     pInit->seektablePos = 0;
     pInit->seektableSize = 0;
@@ -2636,7 +2642,16 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
             case DRFLAC_BLOCK_TYPE_APPLICATION:
             {
                 metadata.type = drflac_metadata_type_application;
+                metadata.pRawData = NULL;
                 metadata.data.seektable.notYetImplemented = 0;
+
+                if (onMeta) {
+                    if (!onSeek(pUserData, blockSize)) {
+                        return false;
+                    }
+
+                    onMeta(pUserDataMD, &metadata);
+                }
             } break;
 
             case DRFLAC_BLOCK_TYPE_SEEKTABLE:
@@ -2645,45 +2660,99 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
                 pInit->seektableSize = blockSize;
 
                 metadata.type = drflac_metadata_type_seektable;
+                metadata.pRawData = NULL;
                 metadata.data.seektable.notYetImplemented = 0;
+
+                if (onMeta) {
+                    if (!onSeek(pUserData, blockSize)) {
+                        return false;
+                    }
+
+                    onMeta(pUserDataMD, &metadata);
+                }
             } break;
 
             case DRFLAC_BLOCK_TYPE_VORBIS_COMMENT:
             {
                 metadata.type = drflac_metadata_type_vorbis_comment;
+                metadata.pRawData = NULL;
                 metadata.data.seektable.notYetImplemented = 0;
+
+                if (onMeta) {
+                    if (!onSeek(pUserData, blockSize)) {
+                        return false;
+                    }
+
+                    onMeta(pUserDataMD, &metadata);
+                }
             } break;
 
             case DRFLAC_BLOCK_TYPE_CUESHEET:
             {
                 metadata.type = drflac_metadata_type_cuesheet;
+                metadata.pRawData = NULL;
                 metadata.data.seektable.notYetImplemented = 0;
+
+                if (onMeta) {
+                    if (!onSeek(pUserData, blockSize)) {
+                        return false;
+                    }
+
+                    onMeta(pUserDataMD, &metadata);
+                }
             } break;
 
             case DRFLAC_BLOCK_TYPE_PICTURE:
             {
                 metadata.type = drflac_metadata_type_picture;
+                metadata.pRawData = NULL;
                 metadata.data.seektable.notYetImplemented = 0;
+
+                if (onMeta) {
+                    if (!onSeek(pUserData, blockSize)) {
+                        return false;
+                    }
+
+                    onMeta(pUserDataMD, &metadata);
+                }
             } break;
 
             case DRFLAC_BLOCK_TYPE_PADDING:
             {
                 metadata.type = drflac_metadata_type_padding;
-                metadata.data.seektable.notYetImplemented = 0;
+                metadata.pRawData = NULL;
+                metadata.data.padding.unused = 0;
+
+                if (onMeta) {
+                    // Padding doesn't have anything meaningful in it, so just skip over it.
+                    if (!onSeek(pUserData, blockSize)) {
+                        return false;
+                    }
+
+                    onMeta(pUserDataMD, &metadata);
+                }
             } break;
 
             case DRFLAC_BLOCK_TYPE_INVALID:
-            default: break;
+            default:
+            {
+                // Unknown chunk. Skip over it.
+                if (onMeta) {
+                    if (!onSeek(pUserData, blockSize)) {
+                        return false;
+                    }
+                }
+            } break;
         }
 
-        if (!onSeek(pUserData, blockSize)) {
-            return false;
+        // If we're not handling metadata, just skip over the block. If we are, it will have been handled earlier in the switch statement above.
+        if (onMeta == NULL) {
+            if (!onSeek(pUserData, blockSize)) {
+                return false;
+            }
         }
+
         pInit->runningFilePos += blockSize;
-
-        if (onMeta) {
-            onMeta(pUserDataMD, &metadata);
-        }
     }
 
     return true;
