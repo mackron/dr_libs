@@ -91,7 +91,7 @@ typedef struct
 
 typedef struct
 {
-    drobj_face_vertex v[3];
+    drobj_face_vertex v[4];     // <-- The 4th component is only used internally. All faces are converted to triangles.
 } drobj_face;
 
 typedef struct
@@ -702,8 +702,10 @@ int drobj__parse_face_vertex_index(const char* str, const char* strEnd, const ch
 
 
 // Parses a face vertex index string in p/t/n format.
-drobj_face_vertex drobj__parse_face_vertex(const char* str, const char* strEnd, const char** strEndOut)
+bool drobj__parse_face_vertex(const char* str, const char* strEnd, const char** strEndOut, drobj_face_vertex* pVertexOut)
 {
+    assert(pVertexOut != NULL);
+
     drobj_face_vertex result;
     result.positionIndex = 0;
     result.texcoordIndex = 0;
@@ -716,36 +718,55 @@ drobj_face_vertex drobj__parse_face_vertex(const char* str, const char* strEnd, 
     }
 
 
-    // Check that we have a string after moving the whitespace.
+    // Check that we have a string after moving past the whitespace.
     if (str < strEnd)
     {
         result.positionIndex = drobj__parse_face_vertex_index(str, strEnd, &str);
 
-        str += 1;   // Move past the slash.
-        result.texcoordIndex = drobj__parse_face_vertex_index(str, strEnd, &str);
+        if (str[0] == '/') {
+            str += 1;
+            result.texcoordIndex = drobj__parse_face_vertex_index(str, strEnd, &str);
 
-        str += 1;   // Move past the slash.
-        result.normalIndex   = drobj__parse_face_vertex_index(str, strEnd, &str);
+            if (str[0] == '/') {
+                str += 1;
+                result.normalIndex = drobj__parse_face_vertex_index(str, strEnd, &str);
+            }
+        }
+
+        if (strEndOut != NULL) {
+            *strEndOut = str;
+        }
+
+        *pVertexOut = result;
+        return true;
     }
-        
+    else
+    {
+        if (strEndOut != NULL) {
+            *strEndOut = str;
+        }
 
-    if (strEndOut != NULL) {
-        *strEndOut = str;
+        return false;
     }
-
-    return result;
 }
 
-// Parses a face index string. The string is assumed to be in the format p0/t0/n0 p1/t1/n1 p2/t2/n2.
-void drobj__parse_face(const char* str, const char* strEnd, drobj_face* pFaceOut)
+// Parses a face index string.
+uint32_t drobj__parse_face(const char* str, const char* strEnd, drobj_face* pFaceOut)
 {
     assert(str      != NULL);
     assert(strEnd   != NULL);
     assert(pFaceOut != NULL);
 
-    pFaceOut->v[0] = drobj__parse_face_vertex(str, strEnd, &str);
-    pFaceOut->v[1] = drobj__parse_face_vertex(str, strEnd, &str);
-    pFaceOut->v[2] = drobj__parse_face_vertex(str, strEnd, &str);
+    drobj__parse_face_vertex(str, strEnd, &str, pFaceOut->v + 0);
+    drobj__parse_face_vertex(str, strEnd, &str, pFaceOut->v + 1);
+    drobj__parse_face_vertex(str, strEnd, &str, pFaceOut->v + 2);
+
+    uint32_t faceCount = 3;
+    if (drobj__parse_face_vertex(str, strEnd, &str, pFaceOut->v + 3)) {
+        faceCount += 1;
+    }
+
+    return faceCount;
 }
 
 
@@ -765,6 +786,8 @@ void drobj__parse_v(const char* str, const char* strEnd, drobj_vec4* pResultOut)
 
     if (!drobj__atof(str, strEnd, &pResultOut->v[3], &str)) {   // <-- The w component is optional. Defaults to 1.
         pResultOut->v[3] = 1;
+    } else {
+        int a; a = 5;
     }
 }
 
@@ -832,6 +855,17 @@ bool drobj__load_stage1(drobj_load_context* pLoadContext)
         {
             // Face.
             pLoadContext->faceCount += 1;
+
+            // If the face has more than 3 vertices it'll need to be triangulated which means more faces. The face needs to be parsed.
+            drobj_face face;
+            uint32_t vertexCount = drobj__parse_face(lineBeg + 2, lineEnd, &face);
+            if (vertexCount > 3) {
+                if (vertexCount > 4) {
+                    assert(false);  // Not currently supporting more than 4 vertices per face.
+                }
+
+                pLoadContext->faceCount += 1;
+            }
         }
         else if (lineBeg[0] == 'm' && lineBeg[1] == 't' && lineBeg[2] == 'l' && lineBeg[3] == 'l' && lineBeg[4] == 'i' && lineBeg[5] == 'b' && drobj__is_whitespace(lineBeg[6]))
         {
@@ -862,6 +896,12 @@ bool drobj__load_stage1(drobj_load_context* pLoadContext)
     if (pLoadContext->normalCount == 0) {
         pLoadContext->normalCount = 1;
     }
+
+    // Always want at least one material.
+    if (pLoadContext->materialCount == 0) {
+        pLoadContext->materialCount = 1;
+    }
+    
 
     pLoadContext->allocationSize =
         pLoadContext->materialLibCount * sizeof(drobj_mtllib) +
@@ -913,10 +953,10 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         {
             // Face.
             drobj_face face;
-            drobj__parse_face(lineBeg + 2, lineEnd, &face);
+            uint32_t vertexCount = drobj__parse_face(lineBeg + 2, lineEnd, &face);
 
             // Faces can have negative indices which are interpreted as being relative. Positive values are one based so they need to be changed to 0 based, also.
-            for (int i = 0; i < 3; ++i) {
+            for (uint32_t i = 0; i < vertexCount; ++i) {
                 if (face.v[i].positionIndex > 0) {
                     face.v[i].positionIndex -= 1;
                 } else {
@@ -938,6 +978,27 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
 
             pOBJ->pFaces[pLoadContext->faceCount] = face;
             pLoadContext->faceCount += 1;
+
+            // Quads need to be convertex to triangles.
+            if (vertexCount > 3)
+            {
+                // TODO: Add support for polygons with an arbitrary number of triangles.
+                drobj_face face2;
+                face2.v[0].positionIndex = face.v[2].positionIndex;
+                face2.v[0].texcoordIndex = face.v[2].texcoordIndex;
+                face2.v[0].normalIndex   = face.v[2].normalIndex;
+
+                face2.v[1].positionIndex = face.v[3].positionIndex;
+                face2.v[1].texcoordIndex = face.v[3].texcoordIndex;
+                face2.v[1].normalIndex   = face.v[3].normalIndex;
+
+                face2.v[2].positionIndex = face.v[0].positionIndex;
+                face2.v[2].texcoordIndex = face.v[0].texcoordIndex;
+                face2.v[2].normalIndex   = face.v[0].normalIndex;
+
+                pOBJ->pFaces[pLoadContext->faceCount] = face2;
+                pLoadContext->faceCount += 1;
+            }
         }
         else if (lineBeg[0] == 'm' && lineBeg[1] == 't' && lineBeg[2] == 'l' && lineBeg[3] == 'l' && lineBeg[4] == 'i' && lineBeg[5] == 'b' && drobj__is_whitespace(lineBeg[6]))
         {
@@ -997,6 +1058,14 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         pOBJ->pNormals[0].v[0] = 0;
         pOBJ->pNormals[0].v[1] = 0;
         pOBJ->pNormals[0].v[2] = 0;
+    }
+
+    // Always want at least one material.
+    if (pLoadContext->materialCount == 0) {
+        pLoadContext->materialCount = 1;
+        pOBJ->pMaterials[0].firstFace = 0;
+        pOBJ->pMaterials[0].faceCount = pLoadContext->faceCount;
+        pOBJ->pMaterials[0].name = NULL;
     }
 
 
