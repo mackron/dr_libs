@@ -15,7 +15,7 @@ Library                                         | Version | Description
 ----------------------------------------------- | ------- | -----------
 [dr_flac](https://mackron.github.io/dr_flac)    | 0.1     | FLAC audio decoder.
 [dr_wav](https://mackron.github.io/dr_wav)      | 0.1     | WAV audio loader.
-dr_pcx                                          | 0.1     | PCX image loader.
+[dr_pcx](https://mackron.github.io/dr_pcx)      | 0.1     | PCX image loader.
 dr_obj                                          | -       | Wavefront OBJ model loader.
 dr_fs                                           | -       | File system abstraction for loading files from the native file system and archives.
 dr_fsw                                          | -       | Watch for changes to the file system. Windows only.
