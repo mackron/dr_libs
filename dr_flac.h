@@ -56,7 +56,7 @@
 // If you need access to metadata (album art, etc.), use drflac_open_with_metadata(), drflac_open_file_with_metdata() or
 // drflac_open_memory_with_metadata(). The rationale for keeping these APIs separate is that they're slightly slower than the
 // normal versions and also just a little bit harder to use.
-// 
+//
 // dr_flac reports metadata to the application through the use of a callback, and every metadata block is reported before
 // drflac_open_with_metdata() returns. See https://github.com/mackron/dr_libs_tests/blob/master/dr_flac/dr_flac_test_5.c for
 // an example on how to read metadata.
@@ -1086,7 +1086,7 @@ static bool drflac__seek_to_byte(drflac* pFlac, long long offsetFromStart)
 }
 
 
-static bool drflac__read_utf8_coded_number(drflac* pFlac, unsigned long long* pNumberOut)
+static bool drflac__read_utf8_coded_number(drflac* pFlac, uint64_t* pNumberOut)
 {
     assert(pFlac != NULL);
     assert(pNumberOut != NULL);
@@ -2006,16 +2006,19 @@ static bool drflac__read_next_frame_header(drflac* pFlac)
 
     unsigned char isVariableBlockSize = blockingStrategy == 1;
     if (isVariableBlockSize) {
-        pFlac->currentFrame.frameNumber = 0;
-        if (!drflac__read_utf8_coded_number(pFlac, &pFlac->currentFrame.sampleNumber)) {
+        uint64_t sampleNumber;
+        if (!drflac__read_utf8_coded_number(pFlac, &sampleNumber)) {
             return false;
         }
+        pFlac->currentFrame.frameNumber  = 0;
+        pFlac->currentFrame.sampleNumber = sampleNumber;
+
     } else {
-        unsigned long long frameNumber = 0;
+        uint64_t frameNumber = 0;
         if (!drflac__read_utf8_coded_number(pFlac, &frameNumber)) {
             return false;
         }
-        pFlac->currentFrame.frameNumber  = (unsigned int)frameNumber;   // <-- Safe cast.
+        pFlac->currentFrame.frameNumber  = (uint32_t)frameNumber;   // <-- Safe cast.
         pFlac->currentFrame.sampleNumber = 0;
     }
 
@@ -2580,7 +2583,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
     blockSizes     = drflac__be2host_32(blockSizes);
     frameSizes     = drflac__be2host_64(frameSizes);
     importantProps = drflac__be2host_64(importantProps);
-    
+
     pInit->sampleRate       = (uint32_t)((importantProps & 0xFFFFF00000000000ULL) >> 44ULL);
     pInit->channels         = (uint8_t )((importantProps & 0x00000E0000000000ULL) >> 41ULL) + 1;
     pInit->bitsPerSample    = (uint8_t )((importantProps & 0x000001F000000000ULL) >> 36ULL) + 1;
@@ -2592,7 +2595,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
         metadata.type = DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO;
         metadata.pRawData = NULL;
         metadata.rawDataSize = 0;
-        
+
         metadata.data.streaminfo.minBlockSize     = (blockSizes & 0xFFFF0000) >> 16;
         metadata.data.streaminfo.maxBlockSize     = pInit->maxBlockSize;
         metadata.data.streaminfo.minFrameSize     = (uint32_t)((frameSizes & 0xFFFFFF0000000000ULL) >> 40ULL);
@@ -2618,7 +2621,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
         pInit->runningFilePos += 4;
 
         drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
-        
+
         drflac_metadata metadata;
         metadata.type = blockType;
         metadata.pRawData = NULL;
