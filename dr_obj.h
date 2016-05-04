@@ -370,7 +370,7 @@ typedef struct
     void* pUserData;
 
     
-    char buffer[64];
+    char buffer[4096];
     char* pNextBytes;
     size_t bytesRemaining;
 
@@ -811,8 +811,6 @@ void drobj__parse_v(const char* str, const char* strEnd, drobj_vec4* pResultOut)
 
     if (!drobj__atof(str, strEnd, &pResultOut->v[3], &str)) {   // <-- The w component is optional. Defaults to 1.
         pResultOut->v[3] = 1;
-    } else {
-        int a; a = 5;
     }
 }
 
