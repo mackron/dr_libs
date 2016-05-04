@@ -1,24 +1,78 @@
-// Public domain. See "unlicense" statement at the end of this file.
+// WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
+// dr_wav - v0.1 - 04/05/2016
+//
+// David Reid - mackron@gmail.com
 
-// ABOUT
-//
-// This is a simple library for loading .wav files and retrieving it's audio data. It does not explicitly support
-// every possible combination of data formats and configurations, but should work fine for the most common ones.
-//
-//
-//
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
 //   #define DR_WAV_IMPLEMENTATION
 //   #include "dr_wav.h"
 //
-// You can then #include this file in other parts of the program as you would with any other header file.
+// You can then #include this file in other parts of the program as you would with any other header file. Do something
+// like the following to read audio data:
+//
+//     drwav wav;
+//     if (!drwav_init_file(&wav, "my_song.wav")) {
+//         // Error opening WAV file.
+//     }
+//
+//     float* pDecodedInterleavedSamples = malloc(wav.totalSampleCount * sizeof(float));
+//     size_t numberOfSamplesActuallyDecoded = drwav_read_f32(&wav, wav.totalSampleCount, pDecodedInterleavedSamples);
+//
+//     ...
+//
+//     drwav_uninit(&wav);
+//
+// You can also use drwav_open() to allocate and initialize the loader for you:
+//
+//     drwav* pWav = drwav_open_file("my_song.wav");
+//     if (pWav == NULL) {
+//         // Error opening WAV file.
+//     }
+//
+//     ...
+//
+//     drwav_close_file(pWav);
+//
+// If you just want to quickly open and read the audio data in a single operation you can do something like this:
+//
+//     unsigned int sampleRate;
+//     unsigned int channels;
+//     uint64_t totalSampleCount;
+//     float* pSampleData = drwav_open_and_read_file_f32("my_song.wav", &sampleRate, &channels, &totalSampleCount);
+//     if (pSampleData == NULL) {
+//         // Error opening and reading WAV file.
+//     }
+//
+//     ...
+//
+//     drwav_free(pSampleData);
+//
+// The examples above use versions of the API that convert the audio data to a consistent format (32-bit IEEE float, in
+// this case), but you can still output the audio data in it's internal format (see notes below for supported formats):
+//
+//     size_t samplesRead = drwav_read(&wav, wav.totalSampleCount, pDecodedInterleavedSamples);
+//
+// You can also read the raw bytes of audio data, which could be useful if dr_wav does not have native support for
+// a particular data format:
+//
+//     size_t bytesRead = drwav_read_raw(&wav, pRawDataBuffer, bytesToRead);
+//
+//
+//
+// OPTIONS
+// #define these options before including this file.
+//
+// #define DR_WAV_NO_CONVERSION_API
+//   Disables conversion APIs such as drwav_read_f32() and drwav_s16PCM_to_f32().
+//
+// #define DR_WAV_NO_STDIO
+//   Disables drwav_open_file().
 //
 //
 //
 // QUICK NOTES
-//
 // - Samples are always interleaved.
 // - The default read function does not do any data conversion. Use drwav_read_f32() to read and convert audio data
 //   to IEEE 32-bit floating point samples. Tested and supported internal formats include the following:
@@ -31,24 +85,8 @@
 //   - IEEE 64-bit floating point.
 //   - A-law and u-law
 // - Microsoft ADPCM is not currently supported.
-// - This library does not do strict validation - it will try it's hardest to open every wav file.
-//
-//
-//
-// OPTIONS
-//
-// #define DR_WAV_NO_CONVERSION_API
-//   Excludes conversion APIs such as drwav_read_f32() and drwav_s16PCM_to_f32().
-//
-// #define DR_WAV_NO_STDIO
-//   Excludes drwav_open_file().
-//
-//
-//
-// TODO:
-// - Add seamless support for w64. This is very similar to WAVE, but supports files >4GB. There's no real reason this
-//   can't be added to dr_wav and have it work seamlessly.
-// - Add drwav_read_s32() for consistency with dr_flac.
+// - dr_wav will try to read the WAV file as best it can, even if it's not strictly conformant to the WAV format.
+
 
 #ifndef dr_wav_h
 #define dr_wav_h
@@ -166,6 +204,8 @@ typedef struct
 
 
 // Initializes a pre-allocated drwav object.
+//
+// 
 bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
 // Uninitializes the given drwav object. Use this only for objects initialized with drwav_init().
@@ -174,7 +214,7 @@ void drwav_uninit(drwav* pWav);
 
 // Opens a .wav file using the given callbacks.
 //
-// Returns null on error.
+// Returns null on error. Close the loader with drwav_close().
 drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
 // Closes the given drwav object. Use this only for objects created with drwav_open().
@@ -185,6 +225,8 @@ void drwav_close(drwav* pWav);
 //
 // This is the lowest level function for reading audio data. It simply reads the given number of
 // bytes of the raw internal sample data.
+//
+// Returns the number of bytes actually read.
 size_t drwav_read_raw(drwav* pWav, void* pBufferOut, size_t bytesToRead);
 
 // Reads a chunk of audio data in the native internal format.
@@ -294,6 +336,11 @@ float* drwav_open_and_read_memory_f32(const void* data, size_t dataSize, unsigne
 
 // Frees data that was allocated internally by dr_wav.
 void drwav_free(void* pDataReturnedByOpenAndRead);
+
+#ifdef __cplusplus
+}
+#endif
+#endif  // dr_wav_h
 
 
 /////////////////////////////////////////////////////
@@ -1020,11 +1067,9 @@ void drwav_ulaw_to_f32(size_t totalSampleCount, const unsigned char* ulaw, float
         *f32Out++ = t / 32768.0f;
     }
 }
-#endif  //DR_WAV_NO_CONVERSION_API
 
 
 
-#ifndef DR_WAV_NO_CONVERSION_API
 float* drwav__read_and_close_f32(drwav* pWav, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
 {
     assert(pWav != NULL);
@@ -1099,21 +1144,27 @@ float* drwav_open_and_read_memory_f32(const void* data, size_t dataSize, unsigne
 
     return drwav__read_and_close_f32(&wav, sampleRate, channels, totalSampleCount);
 }
-#endif //DR_WAV_NO_CONVERSION_API
+#endif  //DR_WAV_NO_CONVERSION_API
+
 
 void drwav_free(void* pDataReturnedByOpenAndRead)
 {
     free(pDataReturnedByOpenAndRead);
 }
 
-
 #endif  //DR_WAV_IMPLEMENTATION
 
-#ifdef __cplusplus
-}
-#endif
 
-#endif
+// REVISION HISTORY
+//
+// v0.1 - 04/05/2016
+//   - Initial versioned release.
+
+
+// TODO
+// - Add seamless support for w64.
+// - Add drwav_read_s32() for consistency with dr_flac.
+
 
 /*
 This is free and unencumbered software released into the public domain.
