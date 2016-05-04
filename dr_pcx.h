@@ -1,18 +1,30 @@
-// Public domain. See "unlicense" statement at the end of this file.
+// PCX image loader. Public domain. See "unlicense" statement at the end of this file.
+// dr_pcx - v0.1 - 04/05/2016
+//
+// David Reid - mackron@gmail.com
 
-// ABOUT
-//
-// dr_pcx is a simple library for loading PCX image files.
-//
-//
-//
 // USAGE
 //
 // dr_pcx is a single-file library. To use it, do something like the following in one .c file.
 //   #define DR_PCX_IMPLEMENTATION
 //   #include "dr_pcx.h"
 //
-// You can then #include this file in other parts of the program as you would with any other header file.
+// You can then #include this file in other parts of the program as you would with any other header file. Do something like
+// the following to load and decode an image:
+//
+//     int width;
+//     int height;
+//     int components
+//     uint8_t* pImageData = drpcx_load_file("my_image.pcx", false, &width, &height, &components);
+//     if (pImageData == NULL) {
+//         // Failed to load image.
+//     }
+//
+//     ...
+//
+//     drpcx_free(pImageData);
+//
+// The boolean parameter (second argument in the above example) is whether or not the image should be flipped upside down.
 // 
 //
 //
@@ -26,11 +38,6 @@
 //
 // QUICK NOTES
 // - 2-bpp/4-plane and 4-bpp/1-plane formats have not been tested.
-//
-//
-//
-// TODO
-// - Test 2-bpp/4-plane and 4-bpp/1-plane formats.
 
 #ifndef dr_pcx_h
 #define dr_pcx_h
@@ -647,3 +654,42 @@ void drpcx_free(void* pReturnValueFromLoad)
 }
 
 #endif // DR_PCX_IMPLEMENTATION
+
+
+// REVISION HISTORY
+//
+// v0.1 - 04/05/2016
+//   - Initial versioned release.
+
+
+// TODO
+// - Test 2-bpp/4-plane and 4-bpp/1-plane formats.
+
+
+/*
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <http://unlicense.org/>
+*/
+
