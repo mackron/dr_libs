@@ -14,7 +14,7 @@ stable APIs, but they may change every now and then, albeit rarely.
 Library                                         | Version | Description
 ----------------------------------------------- | ------- | -----------
 [dr_flac](https://mackron.github.io/dr_flac)    | 0.1     | FLAC audio decoder.
-[dr_wav](https://mackron.github.io/dr_wav)      | -       | WAV audio loader.
+[dr_wav](https://mackron.github.io/dr_wav)      | 0.1     | WAV audio loader.
 dr_obj                                          | -       | Wavefront OBJ model loader.
 dr_pcx                                          | -       | PCX image loader.
 dr_fs                                           | -       | File system abstraction for loading files from the native file system and archives.
