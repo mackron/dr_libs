@@ -646,18 +646,19 @@ bool drobj__atof(const char* str, const char* strEnd, float* pResultOut, const c
                 str += 1;
             }
 
+
+            // Exponential notation.
             float esign = 1;
             float evalue = 0;
             if (*str == 'e') {
                 str += 1;
                 if (*str == '-') {
                     esign = -1;
-                    str += 1;   // Skip past the '-' or '+'.
+                    str += 1;
                 } else if (*str == '+') {
-                    str += 1;   // Skip past the '-' or '+'.
+                    str += 1;
                 }
                 
-
                 while (str < strEnd && drobj__is_valid_digit(*str)) {
                     evalue = evalue * 10.0f + (*str - '0');
                     str += 1;
