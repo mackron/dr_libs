@@ -190,6 +190,7 @@ void drobj_interleave_p3t2n3(drobj* pOBJ, uint32_t* pVertexCountOut, float** ppV
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>   // Use for powf() - can probably be removed later.
 
 #ifndef DR_OBJ_NO_STDIO
 #include <stdio.h>
@@ -643,6 +644,30 @@ bool drobj__atof(const char* str, const char* strEnd, float* pResultOut, const c
                 pow10 *= 10.0f;
 
                 str += 1;
+            }
+
+            float esign = 1;
+            float evalue = 0;
+            if (*str == 'e') {
+                str += 1;
+                if (*str == '-') {
+                    esign = -1;
+                    str += 1;   // Skip past the '-' or '+'.
+                } else if (*str == '+') {
+                    str += 1;   // Skip past the '-' or '+'.
+                }
+                
+
+                while (str < strEnd && drobj__is_valid_digit(*str)) {
+                    evalue = evalue * 10.0f + (*str - '0');
+                    str += 1;
+                }
+
+                if (esign < 0) {
+                    value /= powf(10.0f, evalue);
+                } else {
+                    value *= powf(10.0f, evalue);
+                }
             }
         }
 
