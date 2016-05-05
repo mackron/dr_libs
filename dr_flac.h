@@ -95,13 +95,6 @@
 // - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as you do your own synchronization.
 // - dr_flac does not currently do any CRC checks.
 // - Ogg encapsulation is not supported, but will be added in the future.
-//
-//
-//
-// TODO
-// - Add support for initializing the decoder without a header STREAMINFO block.
-// - Test CUESHEET metadata blocks.
-// - Add support for Ogg encapsulation.
 
 #ifndef dr_flac_h
 #define dr_flac_h
@@ -3481,7 +3474,14 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 // REVISION HISTORY
 //
-// v0.1 - 03/05/2016 - Initial versioned release.
+// v0.1 - 03/05/2016
+//   - Initial versioned release.
+
+
+// TODO
+// - Add support for initializing the decoder without a header STREAMINFO block.
+// - Test CUESHEET metadata blocks.
+// - Add support for Ogg encapsulation.
 
 
 /*
