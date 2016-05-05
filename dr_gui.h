@@ -914,6 +914,9 @@ void drgui_capture_mouse(drgui_element* pElement);
 /// Releases the mouse capture.
 void drgui_release_mouse(drgui_context* pContext);
 
+/// Releases the mouse capture without posting the global-scoped event. Should only be used in very specific cases, usually in combination with awkward interop with the window system.
+void drgui_release_mouse_no_global_notify(drgui_context* pContext);
+
 /// Retrieves a pointer to the element with the mouse capture.
 drgui_element* drgui_get_element_with_mouse_capture(drgui_context* pContext);
 
@@ -926,6 +929,9 @@ void drgui_capture_keyboard(drgui_element* pElement);
 
 /// Releases the keyboard capture.
 void drgui_release_keyboard(drgui_context* pContext);
+
+/// Releases the keyboard capture without posting the global-scoped event. Should only be used in very specific cases, usually in combination with awkward interop with the window system.
+void drgui_release_keyboard_no_global_notify(drgui_context* pContext);
 
 /// Retrieves a pointer to the element with the keyboard capture.
 drgui_element* drgui_get_element_with_keyboard_capture(drgui_context* pContext);
@@ -3164,6 +3170,18 @@ void drgui_release_mouse(drgui_context* pContext)
     drgui_update_mouse_enter_and_leave_state(pContext, drgui_find_element_under_point(pContext->pLastMouseMoveTopLevelElement, pContext->lastMouseMovePosX, pContext->lastMouseMovePosY));
 }
 
+void drgui_release_mouse_no_global_notify(drgui_context* pContext)
+{
+    if (pContext == NULL) {
+        return;
+    }
+
+    drgui_on_release_mouse_proc prevProc = pContext->onGlobalReleaseMouse;
+    pContext->onGlobalReleaseMouse = NULL;
+    drgui_release_mouse(pContext);
+    pContext->onGlobalReleaseMouse = prevProc;
+}
+
 drgui_element* drgui_get_element_with_mouse_capture(drgui_context* pContext)
 {
     if (pContext == NULL) {
@@ -3241,6 +3259,18 @@ void drgui_release_keyboard(drgui_context* pContext)
     }
 
     drgui_release_keyboard_private(pContext, NULL);
+}
+
+void drgui_release_keyboard_no_global_notify(drgui_context* pContext)
+{
+    if (pContext == NULL) {
+        return;
+    }
+
+    drgui_on_release_keyboard_proc prevProc = pContext->onGlobalReleaseKeyboard;
+    pContext->onGlobalReleaseKeyboard = NULL;
+    drgui_release_keyboard(pContext);
+    pContext->onGlobalReleaseKeyboard = prevProc;
 }
 
 drgui_element* drgui_get_element_with_keyboard_capture(drgui_context* pContext)
