@@ -87,6 +87,9 @@ bool drgui_textbox_is_anything_selected(drgui_element* pTBElement);
 /// Selects all of the text inside the text box.
 void drgui_textbox_select_all(drgui_element* pTBElement);
 
+/// Deselect everything.
+void drgui_textbox_deselect_all(drgui_element* pTBElement);
+
 /// Retrieves a copy of the selected text.
 ///
 /// @remarks
@@ -657,6 +660,16 @@ void drgui_textbox_select_all(drgui_element* pTBElement)
     }
 
     drgui_text_layout_select_all(pTB->pTL);
+}
+
+void drgui_textbox_deselect_all(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_text_layout_deselect_all(pTB->pTL);
 }
 
 size_t drgui_textbox_get_selected_text(drgui_element* pTBElement, char* textOut, size_t textOutLength)
