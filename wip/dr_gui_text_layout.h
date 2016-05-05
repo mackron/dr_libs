@@ -4825,6 +4825,8 @@ DRGUI_PRIVATE void drgui_text_layout__on_cursor_move(drgui_text_layout* pTL)
     if (pTL->onCursorMove) {
         pTL->onCursorMove(pTL);
     }
+
+    drgui_text_layout__on_dirty(pTL, drgui_text_layout_get_cursor_rect(pTL));
 }
 
 DRGUI_PRIVATE void drgui_text_layout__on_dirty(drgui_text_layout* pTL, drgui_rect rect)
