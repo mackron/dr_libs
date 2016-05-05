@@ -360,6 +360,11 @@ bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize);
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be var/log
 bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize);
 
+/// Retrieves the current directory.
+const char* dr_get_current_directory(char* pathOut, size_t pathOutSize);
+
+/// Sets the current directory.
+bool dr_set_current_directory(const char* path);
 
 
 /////////////////////////////////////////////////////////
@@ -1329,6 +1334,21 @@ bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
     return dr_get_config_folder_path(pathOut, pathOutSize);
 }
+
+const char* dr_get_current_directory(char* pathOut, size_t pathOutSize)
+{
+    DWORD result = GetCurrentDirectoryA((DWORD)pathOutSize, pathOut);
+    if (result == 0) {
+        return NULL;
+    }
+
+    return pathOut;
+}
+
+bool dr_set_current_directory(const char* path)
+{
+    return SetCurrentDirectoryA(path) != 0;
+}
 #else
 #include <unistd.h>
 #include <sys/types.h>
@@ -1397,6 +1417,15 @@ bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
     return strcpy_s(pathOut, pathOutSize, "var/log");
 }
 
+const char* dr_get_current_directory(char* pathOut, size_t pathOutSize)
+{
+    return getcwd(pathOut, pathOutSize);
+}
+
+bool dr_set_current_directory(const char* path)
+{
+    return chdir(path) == 0;
+}
 #endif
 
 
