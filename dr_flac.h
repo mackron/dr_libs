@@ -99,7 +99,6 @@
 #ifndef dr_flac_h
 #define dr_flac_h
 
-#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
