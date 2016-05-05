@@ -1063,6 +1063,12 @@ bool drgui_is_ancestor(drgui_element* pAncestorElement, drgui_element* pChildEle
 /// Determines whether or not the given element is a descendant of the other.
 bool drgui_is_descendant(drgui_element* pChildElement, drgui_element* pAncestorElement);
 
+/// Determines whether or not the given element is itself or a descendant.
+bool drgui_is_self_or_ancestor(drgui_element* pAncestorElement, drgui_element* pChildElement);
+
+/// Determines whether or not the given element is itself or a descendant.
+bool drgui_is_self_or_descendant(drgui_element* pChildElement, drgui_element* pAncestorElement);
+
 
 
 //// Layout ////
@@ -3220,6 +3226,7 @@ void drgui_capture_keyboard(drgui_element* pElement)
         assert(pElement->pContext->pElementWithKeyboardCapture == NULL);
 
         pElement->pContext->pElementWithKeyboardCapture = pElement;
+        pElement->pContext->pElementWantingKeyboardCapture = NULL;
 
         // Two events need to be posted - the global on_capture_mouse event and the local on_capture_mouse event.
         drgui_post_outbound_event_capture_keyboard(pElement, pPrevElementWithKeyboardCapture);
@@ -3656,6 +3663,16 @@ bool drgui_is_ancestor(drgui_element* pAncestorElement, drgui_element* pChildEle
 bool drgui_is_descendant(drgui_element* pChildElement, drgui_element* pAncestorElement)
 {
     return drgui_is_ancestor(pAncestorElement, pChildElement);
+}
+
+bool drgui_is_self_or_ancestor(drgui_element* pAncestorElement, drgui_element* pChildElement)
+{
+    return pAncestorElement == pChildElement || drgui_is_ancestor(pAncestorElement, pChildElement);
+}
+
+bool drgui_is_self_or_descendant(drgui_element* pChildElement, drgui_element* pAncestorElement)
+{
+    return pChildElement == pAncestorElement || drgui_is_descendant(pChildElement, pAncestorElement);
 }
 
 
