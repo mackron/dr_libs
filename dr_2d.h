@@ -2523,6 +2523,10 @@ void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw
 void dr2d_set_clip_cairo(dr2d_surface* pSurface, float left, float top, float right, float bottom);
 void dr2d_get_clip_cairo(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut, float* pRightOut, float* pBottomOut);
 
+dr2d_image_format dr2d_get_optimal_image_format_cairo(dr2d_context* pContext);
+void* dr2d_map_image_data_cairo(dr2d_image* pImage, unsigned accessFlags);
+void dr2d_unmap_image_data_cairo(dr2d_image* pImage);
+
 bool dr2d_get_font_metrics_cairo(dr2d_font* pFont, dr2d_font_metrics* pMetricsOut);
 bool dr2d_get_glyph_metrics_cairo(dr2d_font* pFont, unsigned int utf32, dr2d_glyph_metrics* pGlyphMetrics);
 bool dr2d_measure_string_cairo(dr2d_font* pFont, const char* text, size_t textSizeInBytes, float* pWidthOut, float* pHeightOut);
@@ -2990,6 +2994,24 @@ void dr2d_get_clip_cairo(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut
     if (pTopOut)    { *pTopOut    = pCairoData->clipRectTop;    }
     if (pRightOut)  { *pRightOut  = pCairoData->clipRectRight;  }
     if (pBottomOut) { *pBottomOut = pCairoData->clipRectBottom; }
+}
+
+
+dr2d_image_format dr2d_get_optimal_image_format_cairo(dr2d_context* pContext)
+{
+    return dr2d_image_format_argb8;
+}
+
+void* dr2d_map_image_data_cairo(dr2d_image* pImage, unsigned accessFlags)
+{
+    (void)pImage;
+    (void)accessFlags;
+    return NULL;
+}
+
+void dr2d_unmap_image_data_cairo(dr2d_image* pImage)
+{
+    (void)pImage;
 }
 
 
