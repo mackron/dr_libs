@@ -69,6 +69,9 @@
 // #define DR_FLAC_NO_STDIO
 //   Disable drflac_open_file().
 //
+// #define DR_FLAC_NO_OGG
+//   Disables support for Ogg/FLAC streams.
+//
 // #define DR_FLAC_NO_WIN32_IO
 //   Don't use the Win32 API internally for drflac_open_file(). Setting this will force stdio FILE APIs instead. This is
 //   mainly for testing, but it's left here in case somebody might find use for it. dr_flac will use the Win32 API by
@@ -2827,6 +2830,7 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
     return true;
 }
 
+#ifndef DR_FLAC_NO_OGG
 bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
     (void)onRead;
@@ -2841,6 +2845,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
 
     return false;
 }
+#endif
 
 bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
@@ -2861,11 +2866,16 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
     
     if (id[0] == 'f' && id[1] == 'L' && id[2] == 'a' && id[3] == 'C') {
         return drflac__init_private__native(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD);
-    } else if (id[0] == 'O' && id[1] == 'g' && id[2] == 'g' && id[3] == 'S') {
-        return drflac__init_private__ogg(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD);
-    } else {
-        return false;   // Unsupported container.
     }
+    
+#ifndef DR_FLAC_NO_OGG
+    if (id[0] == 'O' && id[1] == 'g' && id[2] == 'g' && id[3] == 'S') {
+        return drflac__init_private__ogg(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD);
+    }
+#endif
+
+    // Unsupported container.
+    return false;
 }
 
 void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
