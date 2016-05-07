@@ -1640,7 +1640,7 @@ void drgui_prepends_sibling_without_detach(drgui_element* pElementToPrepend, drg
 
 
 /// Begins accumulating an invalidation rectangle.
-void drgui_begin_auto_dirty(drgui_element* pElement, drgui_rect relativeRect);
+void drgui_begin_auto_dirty(drgui_element* pElement);
 
 /// Ends accumulating the invalidation rectangle and posts on_dirty is auto-dirty is enabled.
 void drgui_end_auto_dirty(drgui_element* pElement);
@@ -1967,14 +1967,13 @@ void drgui_prepend_sibling_without_detach(drgui_element* pElementToPrepend, drgu
 }
 
 
-void drgui_begin_auto_dirty(drgui_element* pElement, drgui_rect relativeRect)
+void drgui_begin_auto_dirty(drgui_element* pElement)
 {
     assert(pElement           != NULL);
     assert(pElement->pContext != NULL);
 
     if (drgui_is_auto_dirty_enabled(pElement->pContext)) {
         drgui_begin_dirty(pElement);
-        drgui_dirty(pElement, relativeRect);
     }
 }
 
@@ -2022,8 +2021,9 @@ void drgui_apply_offset_to_children_recursive(drgui_element* pParentElement, flo
 
     for (drgui_element* pChild = pParentElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
     {
-        drgui_begin_auto_dirty(pParentElement, drgui_get_local_rect(pParentElement));
+        drgui_begin_auto_dirty(pParentElement);
         {
+            drgui_auto_dirty(pParentElement, drgui_get_local_rect(pParentElement));
             pChild->absolutePosX += offsetX;
             pChild->absolutePosY += offsetY;
 
@@ -3718,8 +3718,10 @@ void drgui_set_absolute_position(drgui_element* pElement, float positionX, float
             float oldRelativePosX = drgui_get_relative_position_x(pElement);
             float oldRelativePosY = drgui_get_relative_position_y(pElement);
 
-            drgui_begin_auto_dirty(pElement, drgui_get_local_rect(pElement));   // <-- Previous rectangle.
+            drgui_begin_auto_dirty(pElement);
             {
+                drgui_auto_dirty(pElement, drgui_get_local_rect(pElement));     // <-- Previous rectangle.
+
                 float offsetX = positionX - pElement->absolutePosX;
                 float offsetY = positionY - pElement->absolutePosY;
 
@@ -3850,8 +3852,10 @@ void drgui_set_size(drgui_element* pElement, float width, float height)
     {
         if (pElement->width != width || pElement->height != height)
         {
-            drgui_begin_auto_dirty(pElement, drgui_get_local_rect(pElement));   // <-- Previous rectangle.
+            drgui_begin_auto_dirty(pElement);
             {
+                drgui_auto_dirty(pElement, drgui_get_local_rect(pElement));     // <-- Previous rectangle.
+
                 pElement->width  = width;
                 pElement->height = height;
                 drgui_auto_dirty(pElement, drgui_get_local_rect(pElement));     // <-- New rectangle.
