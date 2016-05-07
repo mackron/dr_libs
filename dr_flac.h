@@ -184,6 +184,19 @@ typedef struct
 
 typedef struct
 {
+    uint16_t minBlockSize;
+    uint16_t maxBlockSize;
+    uint32_t minFrameSize;
+    uint32_t maxFrameSize;
+    uint32_t sampleRate;
+    uint8_t  channels;
+    uint8_t  bitsPerSample;
+    uint64_t totalSampleCount;
+    uint8_t  md5[16];
+} drflac_streaminfo;
+
+typedef struct
+{
     // The metadata type. Use this to know how to interpret the data below.
     uint32_t type;
 
@@ -197,18 +210,7 @@ typedef struct
 
     union
     {
-        struct
-        {
-            uint16_t minBlockSize;
-            uint16_t maxBlockSize;
-            uint32_t minFrameSize;
-            uint32_t maxFrameSize;
-            uint32_t sampleRate;
-            uint8_t  channels;
-            uint8_t  bitsPerSample;
-            uint64_t totalSampleCount;
-            uint8_t  md5[16];
-        } streaminfo;
+        drflac_streaminfo streaminfo;
 
         struct
         {
@@ -418,6 +420,11 @@ typedef struct
 
     // A pointer to the decoded sample data. This is an offset of pExtraData.
     int32_t* pDecodedSamples;
+
+
+#ifndef DR_FLAC_OGG
+    uint32_t oggSerial; // Only used with Ogg streams.
+#endif
 
     // Variable length extra data. We attach this to the end of the object so we avoid unnecessary mallocs.
     uint8_t pExtraData[1];
@@ -2518,9 +2525,13 @@ typedef struct
     uint64_t runningFilePos;
     uint64_t seektablePos;
     uint32_t seektableSize;
+
+#ifndef DR_FLAC_NO_OGG
+    uint32_t oggSerial; // Only used with Ogg streams.
+#endif
 } drflac_init_info;
 
-void drflac__decode_block_header(uint32_t blockHeader, uint8_t* isLastBlock, uint8_t* blockType, uint32_t* blockSize)
+static DRFLAC_INLINE void drflac__decode_block_header(uint32_t blockHeader, uint8_t* isLastBlock, uint8_t* blockType, uint32_t* blockSize)
 {
     blockHeader = drflac__be2host_32(blockHeader);
     *isLastBlock = (blockHeader & (0x01 << 31)) >> 31;
@@ -2528,26 +2539,19 @@ void drflac__decode_block_header(uint32_t blockHeader, uint8_t* isLastBlock, uin
     *blockSize   = (blockHeader & 0xFFFFFF);
 }
 
-bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+static DRFLAC_INLINE bool drflac__read_and_decode_block_header(drflac_read_proc onRead, void* pUserData, uint8_t* isLastBlock, uint8_t* blockType, uint32_t* blockSize)
 {
-    // Pre: The bit stream should be sitting just past the 4-byte id header.
-
-    pInit->container = drflac_container_native;
-
-    // The first metadata block should be the STREAMINFO block.
     uint32_t blockHeader;
     if (onRead(pUserData, &blockHeader, 4) != 4) {
-        return false;    // Ran out of data.
+        return false;
     }
 
-    uint8_t  isLastBlock = (blockHeader & (0x01 << 31)) >> 31;
-    uint8_t  blockType   = (blockHeader & (0x7F << 24)) >> 24;
-    uint32_t blockSize   = (blockHeader & 0xFFFFFF);
-    drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
-    if (blockType != DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
-        return false;    // Invalid block type. First block must be the STREAMINFO block.
-    }
+    drflac__decode_block_header(blockHeader, isLastBlock, blockType, blockSize);
+    return true;
+}
 
+bool drflac__read_streaminfo(drflac_read_proc onRead, void* pUserData, drflac_streaminfo* pStreamInfo)
+{
     // min/max block size.
     uint32_t blockSizes;
     if (onRead(pUserData, &blockSizes, 4) != 4) {
@@ -2576,27 +2580,55 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
     frameSizes     = drflac__be2host_64(frameSizes);
     importantProps = drflac__be2host_64(importantProps);
 
-    pInit->sampleRate       = (uint32_t)((importantProps & 0xFFFFF00000000000ULL) >> 44ULL);
-    pInit->channels         = (uint8_t )((importantProps & 0x00000E0000000000ULL) >> 41ULL) + 1;
-    pInit->bitsPerSample    = (uint8_t )((importantProps & 0x000001F000000000ULL) >> 36ULL) + 1;
-    pInit->totalSampleCount = (importantProps & 0x0000000FFFFFFFFFULL) * pInit->channels;
-    pInit->maxBlockSize     = blockSizes & 0x0000FFFF;    // Don't care about the min block size - only the max (used for determining the size of the memory allocation).
+    pStreamInfo->minBlockSize     = (blockSizes & 0xFFFF0000) >> 16;
+    pStreamInfo->maxBlockSize     = blockSizes & 0x0000FFFF;
+    pStreamInfo->minFrameSize     = (uint32_t)((frameSizes & 0xFFFFFF0000000000ULL) >> 40ULL);
+    pStreamInfo->maxFrameSize     = (uint32_t)((frameSizes & 0x000000FFFFFF0000ULL) >> 16ULL);
+    pStreamInfo->sampleRate       = (uint32_t)((importantProps & 0xFFFFF00000000000ULL) >> 44ULL);
+    pStreamInfo->channels         = (uint8_t )((importantProps & 0x00000E0000000000ULL) >> 41ULL) + 1;
+    pStreamInfo->bitsPerSample    = (uint8_t )((importantProps & 0x000001F000000000ULL) >> 36ULL) + 1;
+    pStreamInfo->totalSampleCount = (importantProps & 0x0000000FFFFFFFFFULL) * pStreamInfo->channels;
+    memcpy(pStreamInfo->md5, md5, sizeof(md5));
+
+    return true;
+}
+
+bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+{
+    // Pre: The bit stream should be sitting just past the 4-byte id header.
+
+    pInit->container = drflac_container_native;
+
+    // The first metadata block should be the STREAMINFO block.
+    uint8_t isLastBlock;
+    uint8_t blockType;
+    uint32_t blockSize;
+    if (!drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize)) {
+        return false;
+    }
+
+    if (blockType != DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
+        return false;    // Invalid block type. First block must be the STREAMINFO block.
+    }
+
+
+    drflac_streaminfo streaminfo;
+    if (!drflac__read_streaminfo(onRead, pUserData, &streaminfo)) {
+        return false;
+    }
+
+    pInit->sampleRate       = streaminfo.sampleRate;
+    pInit->channels         = streaminfo.channels;
+    pInit->bitsPerSample    = streaminfo.bitsPerSample;
+    pInit->totalSampleCount = streaminfo.totalSampleCount;
+    pInit->maxBlockSize     = streaminfo.maxBlockSize;    // Don't care about the min block size - only the max (used for determining the size of the memory allocation).
 
     if (onMeta) {
         drflac_metadata metadata;
         metadata.type = DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO;
         metadata.pRawData = NULL;
         metadata.rawDataSize = 0;
-
-        metadata.data.streaminfo.minBlockSize     = (blockSizes & 0xFFFF0000) >> 16;
-        metadata.data.streaminfo.maxBlockSize     = pInit->maxBlockSize;
-        metadata.data.streaminfo.minFrameSize     = (uint32_t)((frameSizes & 0xFFFFFF0000000000ULL) >> 40ULL);
-        metadata.data.streaminfo.maxFrameSize     = (uint32_t)((frameSizes & 0x000000FFFFFF0000ULL) >> 16ULL);
-        metadata.data.streaminfo.sampleRate       = pInit->sampleRate;
-        metadata.data.streaminfo.channels         = pInit->channels;
-        metadata.data.streaminfo.bitsPerSample    = pInit->bitsPerSample;
-        metadata.data.streaminfo.totalSampleCount = pInit->totalSampleCount;
-        memcpy(metadata.data.streaminfo.md5, md5, sizeof(md5));
+        metadata.data.streaminfo = streaminfo;
         onMeta(pUserDataMD, &metadata);
     }
 
@@ -2607,12 +2639,11 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
     pInit->seektableSize = 0;
     while (!isLastBlock)
     {
-        if (onRead(pUserData, &blockHeader, 4) != 4) {
+        if (!drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize)) {
             return false;
         }
         pInit->runningFilePos += 4;
 
-        drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
 
         drflac_metadata metadata;
         metadata.type = blockType;
@@ -2831,17 +2862,226 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
 }
 
 #ifndef DR_FLAC_NO_OGG
+typedef struct
+{
+    uint8_t capturePattern[4];  // Should be "OggS"
+    uint8_t structureVersion;   // Always 0.
+    uint8_t headerType;
+    uint64_t granulePosition;
+    uint32_t serialNumber;
+    uint32_t sequenceNumber;
+    uint32_t checksum;
+    uint8_t segmentCount;
+    uint8_t segmentTable[255];
+} drflac_ogg_page_header;
+
+static DRFLAC_INLINE bool drflac_ogg__is_capture_pattern(uint8_t pattern[4])
+{
+    return pattern[0] == 'O' && pattern[1] == 'g' && pattern[2] == 'g' && pattern[3] == 'S';
+}
+
+static DRFLAC_INLINE unsigned int drflac_ogg__get_page_body_size(drflac_ogg_page_header* pHeader)
+{
+    return (pHeader->segmentCount-1)*255 + pHeader->segmentTable[pHeader->segmentCount-1];
+}
+
+bool drflac_ogg__read_page_header_after_capture_pattern(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, size_t* pHeaderSize)
+{
+    if (onRead(pUserData, &pHeader->structureVersion, 1) != 1 || pHeader->structureVersion != 0) {
+        return false;   // Unknown structure version. Possibly corrupt stream.
+    }
+    if (onRead(pUserData, &pHeader->headerType, 1) != 1) {
+        return false;
+    }
+    if (onRead(pUserData, &pHeader->granulePosition, 8) != 8) {
+        return false;
+    }
+    if (onRead(pUserData, &pHeader->serialNumber, 4) != 4) {
+        return false;
+    }
+    if (onRead(pUserData, &pHeader->sequenceNumber, 4) != 4) {
+        return false;
+    }
+    if (onRead(pUserData, &pHeader->checksum, 4) != 4) {
+        return false;
+    }
+    if (onRead(pUserData, &pHeader->segmentCount, 1) != 1 || pHeader->segmentCount == 0) {
+        return false;   // Should not have a segment count of 0.
+    }
+    if (onRead(pUserData, &pHeader->segmentTable, pHeader->segmentCount) != pHeader->segmentCount) {
+        return false;
+    }
+
+    if (pHeaderSize) *pHeaderSize = (27 + pHeader->segmentCount);
+    return true;
+}
+
+bool drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, size_t* pHeaderSize)
+{
+    uint8_t id[4];
+    if (onRead(pUserData, id, 4) != 4) {
+        return false;
+    }
+
+    if (id[0] != 'O' || id[1] != 'g' || id[2] != 'g' || id[3] != 'S') {
+        return false;
+    }
+
+    return drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, pHeader, pHeaderSize);
+}
+
 bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
-    (void)onRead;
     (void)onSeek;
     (void)onMeta;
-    (void)pUserData;
     (void)pUserDataMD;
 
-    // Pre: The bit stream should be sitting just past the 4-byte id header.
+    // Pre: The bit stream should be sitting just past the 4-byte OggS capture pattern.
 
     pInit->container = drflac_container_ogg;
+
+    // Don't like doing backwards seeking, but moving back to the start of the stream to before the OggS capture pattern makes
+    // the loop below a lot simpler.
+    if (!onSeek(pUserData, -4)) {
+        return false;
+    }
+
+    pInit->runningFilePos = 0;
+
+    // We'll get here if the first 4 bytes of the stream were the OggS capture pattern, however it doesn't necessarily mean the
+    // stream includes FLAC encoded audio. To check for this we need to scan the beginning-of-stream page markers and check if
+    // any match the FLAC specification. Important to keep in mind that the stream may be multiplexed.
+    drflac_ogg_page_header header;
+    for (;;)
+    {
+        size_t headerSize;
+        if (!drflac_ogg__read_page_header(onRead, pUserData, &header, &headerSize)) {
+            return false;
+        }
+
+        pInit->runningFilePos += headerSize;
+
+        // Break if we're past the beginning of stream page.
+        if ((header.headerType & 0x02) == 0) {
+            return false;
+        }
+
+
+        // Check if it's a FLAC header.
+        int pageBodySize = drflac_ogg__get_page_body_size(&header);
+        if (pageBodySize == 51)   // 51 = the lacing value of the FLAC header packet.
+        {
+            // It could be a FLAC page...
+            uint32_t bytesRemainingInPage = pageBodySize;
+
+            uint8_t packetType;
+            if (onRead(pUserData, &packetType, 1) != 1) {
+                return false;
+            }
+
+            bytesRemainingInPage -= 1;
+            if (packetType == 0x7F)
+            {
+                // Increasingly more likely to be a FLAC page...
+                uint8_t sig[4];
+                if (onRead(pUserData, sig, 4) != 4) {
+                    return false;
+                }
+
+                bytesRemainingInPage -= 4;
+                if (sig[0] == 'F' && sig[1] == 'L' && sig[2] == 'A' && sig[3] == 'C')
+                {
+                    // Almost certainly a FLAC page...
+                    uint8_t mappingVersion[2];
+                    if (onRead(pUserData, mappingVersion, 2) != 2) {
+                        return false;
+                    }
+
+                    if (mappingVersion[0] != 1) {
+                        return false;   // Only supporting version 1.x of the Ogg mapping.
+                    }
+
+                    // The next 2 bytes are the non-audio packets, not including this one. We don't care about this because we're going to
+                    // be handling it in a generic way based on the serial number and packet types.
+                    if (!onSeek(pUserData, 2)) {
+                        return false;
+                    }
+
+                    // Expecting the native FLAC signature "fLaC".
+                    if (onRead(pUserData, sig, 4) != 4) {
+                        return false;
+                    }
+
+                    if (sig[0] == 'f' && sig[1] == 'L' && sig[2] == 'a' && sig[3] == 'C')
+                    {
+                        // The remaining data in the page should be the STREAMINFO block.
+                        uint8_t isLastBlock;
+                        uint8_t blockType;
+                        uint32_t blockSize;
+                        if (!drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize)) {
+                            return false;
+                        }
+
+                        if (blockType != DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
+                            return false;    // Invalid block type. First block must be the STREAMINFO block.
+                        }
+
+                        drflac_streaminfo streaminfo;
+                        if (drflac__read_streaminfo(onRead, pUserData, &streaminfo))
+                        {
+                            // Success!
+                            pInit->sampleRate       = streaminfo.sampleRate;
+                            pInit->channels         = streaminfo.channels;
+                            pInit->bitsPerSample    = streaminfo.bitsPerSample;
+                            pInit->totalSampleCount = streaminfo.totalSampleCount;
+                            pInit->maxBlockSize     = streaminfo.maxBlockSize;
+
+                            pInit->runningFilePos  += pageBodySize;
+                            pInit->oggSerial        = header.serialNumber;
+                            break;
+                        }
+                        else
+                        {
+                            // Failed to read STREAMINFO block. Aww, so close...
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        // Invalid file.
+                        return false;
+                    }
+                }
+                else
+                {
+                    // Not a FLAC header. Skip it.
+                    if (!onSeek(pUserData, bytesRemainingInPage)) {
+                        return false;
+                    }
+                }
+            }
+            else
+            {
+                // Not a FLAC header. Seek past the entire page and move on to the next.
+                if (!onSeek(pUserData, bytesRemainingInPage)) {
+                    return false;
+                }
+            }
+        }
+        else
+        {
+            if (!onSeek(pUserData, pageBodySize)) {
+                return false;
+            }
+        }
+
+        pInit->runningFilePos += pageBodySize;
+    }
+
+
+
+    // At this point, our "header" object contains the header of the next page which may or may not be part of the logical FLAC bitstream.
+
 
     return false;
 }
@@ -2859,7 +3099,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
     pInit->pUserData   = pUserData;
     pInit->pUserDataMD = pUserDataMD;
 
-    unsigned char id[4];
+    uint8_t id[4];
     if (onRead(pUserData, id, 4) != 4) {
         return false;   
     }
