@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.1 - 04/05/2016
+// dr_wav - v0.1a - 07/05/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -1162,6 +1162,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.1a - 07/05/2016
+//   - Fixed a bug in drwav_open_file() where the file handle would not be closed if the loader failed to initialize.
 //
 // v0.1 - 04/05/2016
 //   - Initial versioned release.
