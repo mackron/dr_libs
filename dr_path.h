@@ -1,18 +1,8 @@
 // Public Domain. See "unlicense" statement at the end of this file.
+// dr_path - v0.1 - 07/05/2016
+//
+// David Reid - mackron@gmail.com
 
-// ABOUT
-//
-// dr_path is a simple path manipulation library. At it's core this is just a string manipulation library - it
-// doesn't do anything with the actual file system such as checking whether or not a path points to an actual file
-// or whatnot.
-//
-// Features:
-// - It's made up of just one file with no dependencies except for the standard library.
-// - Never uses the heap
-// - Public domain
-//
-//
-//
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
@@ -20,6 +10,9 @@
 //   #include "dr_path.h"
 //
 // You can then #include dr_path.h in other parts of the program as you would with any other header file.
+//
+// dr_path is a simple path manipulation library. At it's core it is just a string manipulation library - it doesn't
+// do anything with the actual file system such as checking whether or not a path points to an actual file or whatnot
 
 #ifndef dr_path_h
 #define dr_path_h
@@ -1392,6 +1385,13 @@ bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* base
     return drpath_append_and_clean(absolutePathOut, absolutePathOutSizeInBytes, basePath, relativePathToMakeAbsolute) != 0;
 }
 #endif  //DR_PATH_IMPLEMENTATION
+
+
+// REVISION HISTORY
+//
+// v0.1 - 07/05/2016
+//   - Initial versioned release.
+
 
 /*
 This is free and unencumbered software released into the public domain.

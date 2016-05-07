@@ -19,7 +19,7 @@ Library                                         | Version | Description
 dr_obj                                          | -       | Wavefront OBJ model loader.
 dr_fs                                           | -       | File system abstraction for loading files from the native file system and archives.
 dr_fsw                                          | -       | Watch for changes to the file system. Windows only.
-dr_path                                         | -       | File path manipulation.
+dr_path                                         | 0.1     | Path manipulation.
 dr_gui                                          | -       | Low level GUI system.
 dr_util                                         | -       | Miscellaneous stuff that doesn't belong to any specific category.
 dr_mtl                                          | -       | Loads material files and converts it to shader source (GLSL, etc.)
