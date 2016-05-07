@@ -163,6 +163,12 @@ typedef uint32_t drflac_cache_t;
 #define DRFLAC_PICTURE_TYPE_BAND_LOGOTYPE           19
 #define DRFLAC_PICTURE_TYPE_PUBLISHER_LOGOTYPE      20
 
+typedef enum
+{
+    drflac_container_native,
+    drflac_container_ogg
+} drflac_container;
+
 // Packing is important on this structure because we map this directly to the raw data within the SEEKTABLE metadata block.
 #pragma pack(2)
 typedef struct
@@ -361,8 +367,13 @@ typedef struct
     uint16_t maxBlockSize;
 
     // The total number of samples making up the stream. This includes every channel. For example, if the stream has 2 channels,
-    // with each channel having a total of 4096, this value will be set to 2*4096 = 8192.
+    // with each channel having a total of 4096, this value will be set to 2*4096 = 8192. Can be 0 in which case it's still a
+    // valid stream, but just means the total sample count is unknown. Likely the case with streams like internet radio.
     uint64_t totalSampleCount;
+
+
+    // The container type.
+    drflac_container container;
 
 
     // The position of the seektable in the file.
@@ -2495,6 +2506,7 @@ typedef struct
     drflac_meta_proc onMeta;
     void* pUserData;
     void* pUserDataMD;
+    drflac_container container;
     uint32_t sampleRate;
     uint8_t  channels;
     uint8_t  bitsPerSample;
@@ -2513,22 +2525,11 @@ void drflac__decode_block_header(uint32_t blockHeader, uint8_t* isLastBlock, uin
     *blockSize   = (blockHeader & 0xFFFFFF);
 }
 
-bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
-    if (pInit == NULL || onRead == NULL || onSeek == NULL) {
-        return false;
-    }
+    // Pre: The bit stream should be sitting just past the 4-byte id header.
 
-    pInit->onRead      = onRead;
-    pInit->onSeek      = onSeek;
-    pInit->onMeta      = onMeta;
-    pInit->pUserData   = pUserData;
-    pInit->pUserDataMD = pUserDataMD;
-
-    unsigned char id[4];
-    if (onRead(pUserData, id, 4) != 4 || id[0] != 'f' || id[1] != 'L' || id[2] != 'a' || id[3] != 'C') {
-        return false;    // Not a FLAC stream.
-    }
+    pInit->container = drflac_container_native;
 
     // The first metadata block should be the STREAMINFO block. We don't care about everything in here.
     uint32_t blockHeader;
@@ -2824,6 +2825,47 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
     }
 
     return true;
+}
+
+bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+{
+    (void)onRead;
+    (void)onSeek;
+    (void)onMeta;
+    (void)pUserData;
+    (void)pUserDataMD;
+
+    // Pre: The bit stream should be sitting just past the 4-byte id header.
+
+    pInit->container = drflac_container_ogg;
+
+    return false;
+}
+
+bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+{
+    if (pInit == NULL || onRead == NULL || onSeek == NULL) {
+        return false;
+    }
+
+    pInit->onRead      = onRead;
+    pInit->onSeek      = onSeek;
+    pInit->onMeta      = onMeta;
+    pInit->pUserData   = pUserData;
+    pInit->pUserDataMD = pUserDataMD;
+
+    unsigned char id[4];
+    if (onRead(pUserData, id, 4) != 4) {
+        return false;   
+    }
+    
+    if (id[0] == 'f' && id[1] == 'L' && id[2] == 'a' && id[3] == 'C') {
+        return drflac__init_private__native(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD);
+    } else if (id[0] == 'O' && id[1] == 'g' && id[2] == 'g' && id[3] == 'S') {
+        return drflac__init_private__ogg(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD);
+    } else {
+        return false;   // Unsupported container.
+    }
 }
 
 void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
