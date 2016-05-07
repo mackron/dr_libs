@@ -1083,10 +1083,6 @@ static bool drflac__read_utf8_coded_number(drflac* pFlac, uint64_t* pNumberOut)
     assert(pFlac != NULL);
     assert(pNumberOut != NULL);
 
-    // We should never need to read UTF-8 data while not being aligned to a byte boundary. Therefore we can grab the data
-    // directly from the input stream rather than using drflac__read_uint8().
-    assert((pFlac->consumedBits & 7) == 0);
-
     unsigned char utf8[7] = {0};
     if (!drflac__read_uint8(pFlac, 8, utf8)) {
         *pNumberOut = 0;
