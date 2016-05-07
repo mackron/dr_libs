@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.1b - 07/05/2016
+// dr_flac - v0.2 - Release date TBD.
 //
 // David Reid - mackron@gmail.com
 
@@ -2531,7 +2531,7 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
 
     pInit->container = drflac_container_native;
 
-    // The first metadata block should be the STREAMINFO block. We don't care about everything in here.
+    // The first metadata block should be the STREAMINFO block.
     uint32_t blockHeader;
     if (onRead(pUserData, &blockHeader, 4) != 4) {
         return false;    // Ran out of data.
@@ -2887,6 +2887,7 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
     pFlac->channels         = (uint8_t)pInit->channels;
     pFlac->bitsPerSample    = (uint8_t)pInit->bitsPerSample;
     pFlac->totalSampleCount = pInit->totalSampleCount;
+    pFlac->container        = pInit->container;
     pFlac->seektablePos     = pInit->seektablePos;
     pFlac->seektableSize    = pInit->seektableSize;
     pFlac->firstFramePos    = pInit->runningFilePos;
@@ -3522,6 +3523,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 // REVISION HISTORY
+//
+// v0.2 - Release date TBD
+//   -
 //
 // v0.1b - 07/05/2016
 //   - Properly close the file handle in drflac_open_file() and family when the decoder fails to initialize.
