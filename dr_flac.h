@@ -3409,6 +3409,12 @@ int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRate, 
 {
     assert(pFlac != NULL);
 
+    if (pFlac->totalSampleCount == 0) {
+        // Unknown size. This is not necessarily an invalid stream, however this API cannot work with it.
+        drflac_close(pFlac);
+        return NULL;
+    }
+
     uint64_t dataSize = pFlac->totalSampleCount * sizeof(int32_t);
     if (dataSize > SIZE_MAX) {
         drflac_close(pFlac);
@@ -3525,7 +3531,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 // REVISION HISTORY
 //
 // v0.2 - Release date TBD
-//   -
+//   - Have drflac_open_and_decode() fail gracefully if the stream has an unknown total sample count.
 //
 // v0.1b - 07/05/2016
 //   - Properly close the file handle in drflac_open_file() and family when the decoder fails to initialize.
