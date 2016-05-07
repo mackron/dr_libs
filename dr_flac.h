@@ -2949,7 +2949,13 @@ drflac* drflac_open_file(const char* filename)
         return NULL;
     }
 
-    return drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)file);
+    drflac* pFlac = drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)file);
+    if (pFlac == NULL) {
+        drflac__close_file_handle(file);
+        return NULL;
+    }
+
+    return pFlac;
 }
 
 drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData)
@@ -2959,7 +2965,13 @@ drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc on
         return NULL;
     }
 
-    return drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, (void*)file, pUserData);
+    drflac* pFlac = drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, (void*)file, pUserData);
+    if (pFlac == NULL) {
+        drflac__close_file_handle(file);
+        return pFlac;
+    }
+
+    return pFlac;
 }
 #endif  //DR_FLAC_NO_STDIO
 
