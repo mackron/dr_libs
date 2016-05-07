@@ -495,7 +495,13 @@ drwav* drwav_open_file(const char* filename)
     }
 #endif
 
-    return drwav_open(drwav__on_read_stdio, drwav__on_seek_stdio, (void*)pFile);
+    drwav* pWav = drwav_open(drwav__on_read_stdio, drwav__on_seek_stdio, (void*)pFile);
+    if (pWav == NULL) {
+        fclose(pFile);
+        return NULL;
+    }
+
+    return pWav;
 }
 #endif  //DR_WAV_NO_STDIO
 
