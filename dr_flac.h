@@ -3494,7 +3494,16 @@ void drflac_close(drflac* pFlac)
     }
 #endif
 
-    // TODO: Need to clean up Ogg streams a bit differently due to the way the bit streaming is chained.
+#ifndef DR_FLAC_NO_OGG
+    // Need to clean up Ogg streams a bit differently due to the way the bit streaming is chained.
+    if (pFlac->container == drflac_container_ogg) {
+        assert(pFlac->bs.onRead == drflac__on_read_ogg);
+        drflac_oggbs* oggbs = (drflac_oggbs*)((int32_t*)pFlac->pExtraData + pFlac->maxBlockSize*pFlac->channels);
+        if (oggbs->onRead == drflac__on_read_stdio) {
+            drflac__close_file_handle((drflac_file)oggbs->pUserData);
+        }
+    }
+#endif
 
     free(pFlac);
 }
