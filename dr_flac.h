@@ -2555,6 +2555,7 @@ typedef struct
 
 #ifndef DR_FLAC_NO_OGG
     uint32_t oggSerial; // Only used with Ogg streams.
+    uint64_t oggFirstBytePos;
 #endif
 } drflac_init_info;
 
@@ -2924,9 +2925,20 @@ static DRFLAC_INLINE bool drflac_ogg__is_capture_pattern(uint8_t pattern[4])
     return pattern[0] == 'O' && pattern[1] == 'g' && pattern[2] == 'g' && pattern[3] == 'S';
 }
 
-static DRFLAC_INLINE unsigned int drflac_ogg__get_page_body_size(drflac_ogg_page_header* pHeader)
+static DRFLAC_INLINE uint32_t drflac_ogg__get_page_body_size(drflac_ogg_page_header* pHeader)
 {
-    return (pHeader->segmentCount-1)*255 + pHeader->segmentTable[pHeader->segmentCount-1];
+    // NOTE: The way I've been reading things has been that the number of bytes in each segment should be
+    //       equal to 255, except for the last one. I would have expected the line below to work, but in
+    //       one of my test files the first segment is < 255 bytes even though there's 14 segments in the
+    //       page. Need to look into this one in case I'm misunderstanding something...
+    //return (pHeader->segmentCount-1)*255 + pHeader->segmentTable[pHeader->segmentCount-1];
+
+    uint32_t pageBodySize = 0;
+    for (int i = 0; i < pHeader->segmentCount; ++i) {
+        pageBodySize += pHeader->segmentTable[i];
+    }
+
+    return pageBodySize;
 }
 
 bool drflac_ogg__read_page_header_after_capture_pattern(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, size_t* pHeaderSize)
@@ -2986,18 +2998,73 @@ typedef struct
     drflac_seek_proc onSeek;    // The original onSeek callback from drflac_open() and family.
     void* pUserData;            // The user data passed on onRead and onSeek. This is the user data that was passed on drflac_open() and family.
     uint32_t serialNumber;      // The serial number of the FLAC audio pages. This is determined by the initial header page that was read during initialization.
+    uint64_t firstBytePos;      // The position of the first byte in the physical bitstream. Points to the start of the "fLaC" identifier.
     drflac_ogg_page_header currentPageHeader;
+    size_t bytesRemainingInPage;
 } drflac_oggbs; // oggbs = Ogg Bitstream
+
+static bool drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
+{
+    drflac_ogg_page_header header;
+    for (;;)
+    {
+        size_t headerSize;
+        if (!drflac_ogg__read_page_header(oggbs->onRead, oggbs->pUserData, &header, &headerSize)) {
+            return false;
+        }
+
+        size_t pageBodySize = drflac_ogg__get_page_body_size(&header);
+
+        if (header.serialNumber == oggbs->serialNumber) {
+            oggbs->currentPageHeader = header;
+            oggbs->bytesRemainingInPage = pageBodySize;
+            return true;
+        }
+
+        // If we get here it means the page is not a FLAC page - skip it.
+        if (pageBodySize > 0 && !oggbs->onSeek(oggbs->pUserData, (int)pageBodySize, drflac_seek_origin_current)) {    // <-- Safe cast - maximum size of a page is way below that of an int.
+            return false;
+        }
+    }
+}
 
 static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
     drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
     assert(oggbs != NULL);
 
-    // TODO: Implement Me.
-    (void)bufferOut;
-    (void)bytesToRead;
-    return 0;
+    uint8_t* pRunningBufferOut = (uint8_t*)bufferOut;
+
+    // Reading is done page-by-page. If we've run out of bytes in the page we need to move to the next one.
+    size_t bytesRead = 0;
+    while (bytesRead < bytesToRead)
+    {
+        size_t bytesRemainingToRead = bytesToRead - bytesRead;
+
+        if (oggbs->bytesRemainingInPage >= bytesRemainingToRead) {
+            bytesRead += oggbs->onRead(oggbs->pUserData, pRunningBufferOut, bytesRemainingToRead);
+            oggbs->bytesRemainingInPage -= bytesRemainingToRead;
+            break;
+        }
+
+        // If we get here it means some of the requested data is contained in the next pages.
+        if (oggbs->bytesRemainingInPage > 0) {
+            size_t bytesJustRead = oggbs->onRead(oggbs->pUserData, pRunningBufferOut, oggbs->bytesRemainingInPage);
+            bytesRead += bytesJustRead;
+            pRunningBufferOut += bytesJustRead;
+
+            if (bytesJustRead != oggbs->bytesRemainingInPage) {
+                break;  // Ran out of data.
+            }
+        }
+
+        assert(bytesRemainingToRead > 0);
+        if (!drflac_oggbs__goto_next_page(oggbs)) {
+            break;  // Failed to go to the next chunk. Might have simply hit the end of the stream.
+        }
+    }
+
+    return bytesRead;
 }
 
 static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin origin)
@@ -3005,23 +3072,59 @@ static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin 
     drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
     assert(oggbs != NULL);
     assert(offset > 0);
-    
-    // TODO: Implement Me.
-    (void)offset;
-    (void)origin;
-    return false;
+
+    // Seeking is always forward which makes things a lot simpler.
+    if (origin == drflac_seek_origin_start) {
+        if (!oggbs->onSeek(oggbs->pUserData, (int)oggbs->firstBytePos, drflac_seek_origin_start)) {
+            return false;
+        }
+
+        return drflac__on_seek_ogg(pUserData, offset, drflac_seek_origin_current);
+    }
+
+
+    assert(origin == drflac_seek_origin_current);
+
+    int bytesSeeked = 0;
+    while (bytesSeeked < offset)
+    {
+        int bytesRemainingToSeek = offset - bytesSeeked;
+        assert(bytesRemainingToSeek >= 0);
+
+        if (oggbs->bytesRemainingInPage >= (size_t)bytesRemainingToSeek) {
+            if (!oggbs->onSeek(oggbs->pUserData, bytesRemainingToSeek, drflac_seek_origin_current)) {
+                return false;
+            }
+
+            oggbs->bytesRemainingInPage -= bytesRemainingToSeek;
+            break;
+        }
+
+        // If we get here it means some of the requested data is contained in the next pages.
+        if (oggbs->bytesRemainingInPage > 0) {
+            if (!oggbs->onSeek(oggbs->pUserData, oggbs->bytesRemainingInPage, drflac_seek_origin_current)) {
+                return false;
+            }
+
+            bytesSeeked += (int)oggbs->bytesRemainingInPage;
+        }
+
+        assert(bytesRemainingToSeek > 0);
+        if (!drflac_oggbs__goto_next_page(oggbs)) {
+            break;  // Failed to go to the next chunk. Might have simply hit the end of the stream.
+        }
+    }
+
+    return true;
 }
 
 
 bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
-    (void)onSeek;
-    (void)onMeta;
-    (void)pUserDataMD;
-
     // Pre: The bit stream should be sitting just past the 4-byte OggS capture pattern.
 
     pInit->container = drflac_container_ogg;
+    pInit->oggFirstBytePos = 0;
 
     // We'll get here if the first 4 bytes of the stream were the OggS capture pattern, however it doesn't necessarily mean the
     // stream includes FLAC encoded audio. To check for this we need to scan the beginning-of-stream page markers and check if
@@ -3082,7 +3185,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                         return false;
                     }
 
-                    // Expecting the native FLAC signature "fLaC".
+                    // Expecting the native FLAC signature "fLaC". This is the position of the first byte in the FLAC stream.
                     if (onRead(pUserData, sig, 4) != 4) {
                         return false;
                     }
@@ -3121,6 +3224,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                             }
 
                             pInit->runningFilePos  += pageBodySize;
+                            pInit->oggFirstBytePos  = pInit->runningFilePos - 42;   // Subtracting 42 will place us right on top of the "fLaC" identifier.
                             pInit->oggSerial        = header.serialNumber;
                             break;
                         }
@@ -3174,7 +3278,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
     // packets in the FLAC logical stream contain the metadata. The only thing left to do in the initialiation phase for Ogg is to create the
     // Ogg bistream object.
     pInit->hasMetadataBlocks = true;    // <-- Always have at least VORBIS_COMMENT metadata block.
-    return false;   // TODO: <-- Flick this to "true" when we're ready to test the Ogg bitstreamer!
+    return true;
 }
 #endif
 
@@ -3259,11 +3363,13 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
 #ifndef DR_FLAC_NO_OGG
     if (init.container == drflac_container_ogg) {
-        drflac_oggbs* oggbs = (drflac_oggbs*)((int32_t*)pFlac->pExtraData + init.maxBlockSize*init.channels);
+        drflac_oggbs* oggbs = (drflac_oggbs*)(((int32_t*)pFlac->pExtraData) + init.maxBlockSize*init.channels);
         oggbs->onRead = onRead;
         oggbs->onSeek = onSeek;
         oggbs->pUserData = pUserData;
         oggbs->serialNumber = init.oggSerial;
+        oggbs->firstBytePos = init.oggFirstBytePos;
+        oggbs->bytesRemainingInPage = 0;
 
         // The Ogg bistream needs to be layered on top of the original bitstream.
         pFlac->bs.onRead = drflac__on_read_ogg;
@@ -3448,7 +3554,20 @@ drflac* drflac_open_memory(const void* data, size_t dataSize)
     }
 
     pFlac->memoryStream = memoryStream;
-    pFlac->bs.pUserData = &pFlac->memoryStream;
+
+    // This is an awful hack...
+#ifndef DR_FLAC_NO_OGG
+    if (pFlac->container == drflac_container_ogg)
+    {
+        drflac_oggbs* oggbs = (drflac_oggbs*)(((int32_t*)pFlac->pExtraData) + pFlac->maxBlockSize*pFlac->channels);
+        oggbs->pUserData = &pFlac->memoryStream;
+    }
+    else
+#endif
+    {
+        pFlac->bs.pUserData = &pFlac->memoryStream;
+    }
+
     return pFlac;
 }
 
@@ -3464,7 +3583,20 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
     }
 
     pFlac->memoryStream = memoryStream;
-    pFlac->bs.pUserData = &pFlac->memoryStream;
+
+    // This is an awful hack...
+#ifndef DR_FLAC_NO_OGG
+    if (pFlac->container == drflac_container_ogg)
+    {
+        drflac_oggbs* oggbs = (drflac_oggbs*)(((int32_t*)pFlac->pExtraData) + pFlac->maxBlockSize*pFlac->channels);
+        oggbs->pUserData = &pFlac->memoryStream;
+    }
+    else
+#endif
+    {
+        pFlac->bs.pUserData = &pFlac->memoryStream;
+    }
+    
     return pFlac;
 }
 
@@ -3795,39 +3927,45 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
 
 //// High Level APIs ////
 
-int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRateOut, unsigned int* channelsOut, uint64_t* totalSampleCountOut)
 {
     assert(pFlac != NULL);
 
-    if (pFlac->totalSampleCount == 0) {
-        // Unknown size. This is not necessarily an invalid stream, however this API cannot work with it.
+    int32_t* pSampleData = NULL;
+    uint64_t totalSampleCount = pFlac->totalSampleCount;
+
+    if (totalSampleCount == 0)
+    {
+        // TODO: Just keep looping over chunks and add continuously add it to an expanding buffer until the end of the stream has been reached.
         drflac_close(pFlac);
         return NULL;
     }
+    else
+    {
+        uint64_t dataSize = pFlac->totalSampleCount * sizeof(int32_t);
+        if (dataSize > SIZE_MAX) {
+            drflac_close(pFlac);
+            return NULL;    // The decoded data is too big.
+        }
 
-    uint64_t dataSize = pFlac->totalSampleCount * sizeof(int32_t);
-    if (dataSize > SIZE_MAX) {
-        drflac_close(pFlac);
-        return NULL;    // The decoded data is too big.
+        pSampleData = (int32_t*)malloc((size_t)dataSize);    // <-- Safe cast as per the check above.
+        if (pSampleData == NULL) {
+            drflac_close(pFlac);
+            return NULL;
+        }
+
+        uint64_t samplesDecoded = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSampleData);
+        if (samplesDecoded != pFlac->totalSampleCount) {
+            drflac_close(pFlac);
+            free(pSampleData);
+            return NULL;    // Something went wrong when decoding the FLAC stream.
+        }
     }
 
-    int32_t* pSampleData = (int32_t*)malloc((size_t)dataSize);    // <-- Safe cast as per the check above.
-    if (pSampleData == NULL) {
-        drflac_close(pFlac);
-        return NULL;
-    }
 
-    uint64_t samplesDecoded = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSampleData);
-    if (samplesDecoded != pFlac->totalSampleCount) {
-        drflac_close(pFlac);
-        free(pSampleData);
-        return NULL;    // Something went wrong when decoding the FLAC stream.
-    }
-
-
-    if (sampleRate) *sampleRate = pFlac->sampleRate;
-    if (channels) *channels = pFlac->channels;
-    if (totalSampleCount) *totalSampleCount = pFlac->totalSampleCount;
+    if (sampleRateOut) *sampleRateOut = pFlac->sampleRate;
+    if (channelsOut) *channelsOut = pFlac->channels;
+    if (totalSampleCountOut) *totalSampleCountOut = totalSampleCount;
 
     drflac_close(pFlac);
     return pSampleData;
