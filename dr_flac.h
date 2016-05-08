@@ -3003,27 +3003,19 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
 
     pInit->container = drflac_container_ogg;
 
-    // Don't like doing backwards seeking, but moving back to the start of the stream to before the OggS capture pattern makes
-    // the loop below a lot simpler.
-    if (!onSeek(pUserData, -4, drflac_seek_origin_current)) {   // TODO: Remove this negative seek.
-        return false;
-    }
-
-    pInit->runningFilePos = 0;
-
     // We'll get here if the first 4 bytes of the stream were the OggS capture pattern, however it doesn't necessarily mean the
     // stream includes FLAC encoded audio. To check for this we need to scan the beginning-of-stream page markers and check if
     // any match the FLAC specification. Important to keep in mind that the stream may be multiplexed.
     drflac_ogg_page_header header;
+
+    size_t headerSize;
+    if (!drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, &header, &headerSize)) {
+        return false;
+    }
+    pInit->runningFilePos = headerSize;
+
     for (;;)
     {
-        size_t headerSize;
-        if (!drflac_ogg__read_page_header(onRead, pUserData, &header, &headerSize)) {
-            return false;
-        }
-
-        pInit->runningFilePos += headerSize;
-
         // Break if we're past the beginning of stream page.
         if ((header.headerType & 0x02) == 0) {
             return false;
@@ -3139,10 +3131,17 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
         }
 
         pInit->runningFilePos += pageBodySize;
+
+
+        // Read the header of the next page.
+        if (!drflac_ogg__read_page_header(onRead, pUserData, &header, &headerSize)) {
+            return false;
+        }
+        pInit->runningFilePos += headerSize;
     }
 
 
-    // At this point, our "header" object contains the header of the next page which may or may not be part of the logical FLAC bitstream.
+    
 
 
 
