@@ -2534,6 +2534,20 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
 }
 
 
+#ifndef DR_FLAC_NO_OGG
+typedef struct
+{
+    uint8_t capturePattern[4];  // Should be "OggS"
+    uint8_t structureVersion;   // Always 0.
+    uint8_t headerType;
+    uint64_t granulePosition;
+    uint32_t serialNumber;
+    uint32_t sequenceNumber;
+    uint32_t checksum;
+    uint8_t segmentCount;
+    uint8_t segmentTable[255];
+} drflac_ogg_page_header;
+#endif
 
 typedef struct
 {
@@ -2549,13 +2563,12 @@ typedef struct
     uint64_t totalSampleCount;
     uint16_t maxBlockSize;
     uint64_t runningFilePos;
-    uint64_t seektablePos;
-    uint32_t seektableSize;
     bool hasMetadataBlocks;
 
 #ifndef DR_FLAC_NO_OGG
-    uint32_t oggSerial; // Only used with Ogg streams.
+    uint32_t oggSerial;
     uint64_t oggFirstBytePos;
+    drflac_ogg_page_header oggBosHeader;
 #endif
 } drflac_init_info;
 
@@ -2629,7 +2642,7 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
     // we'll be sitting on byte 42.
     uint64_t runningFilePos = 42;
     uint64_t seektablePos  = 0;
-    uint64_t seektableSize = 0;
+    uint32_t seektableSize = 0;
 
     for (;;)
     {
@@ -2858,6 +2871,10 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
         }
     }
 
+    pFlac->seektablePos = seektablePos;
+    pFlac->seektableSize = seektableSize;
+    pFlac->firstFramePos = runningFilePos;
+
     return true;
 }
 
@@ -2907,19 +2924,6 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
 }
 
 #ifndef DR_FLAC_NO_OGG
-typedef struct
-{
-    uint8_t capturePattern[4];  // Should be "OggS"
-    uint8_t structureVersion;   // Always 0.
-    uint8_t headerType;
-    uint64_t granulePosition;
-    uint32_t serialNumber;
-    uint32_t sequenceNumber;
-    uint32_t checksum;
-    uint8_t segmentCount;
-    uint8_t segmentTable[255];
-} drflac_ogg_page_header;
-
 static DRFLAC_INLINE bool drflac_ogg__is_capture_pattern(uint8_t pattern[4])
 {
     return pattern[0] == 'O' && pattern[1] == 'g' && pattern[2] == 'g' && pattern[3] == 'S';
@@ -2998,7 +3002,8 @@ typedef struct
     drflac_seek_proc onSeek;    // The original onSeek callback from drflac_open() and family.
     void* pUserData;            // The user data passed on onRead and onSeek. This is the user data that was passed on drflac_open() and family.
     uint32_t serialNumber;      // The serial number of the FLAC audio pages. This is determined by the initial header page that was read during initialization.
-    uint64_t firstBytePos;      // The position of the first byte in the physical bitstream. Points to the start of the "fLaC" identifier.
+    uint64_t firstBytePos;      // The position of the first byte in the physical bitstream. Points to the start of the "OggS" identifier of the FLAC bos page.
+    drflac_ogg_page_header bosPageHeader;   // Used for seeking.
     drflac_ogg_page_header currentPageHeader;
     size_t bytesRemainingInPage;
 } drflac_oggbs; // oggbs = Ogg Bitstream
@@ -3071,13 +3076,16 @@ static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin 
 {
     drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
     assert(oggbs != NULL);
-    assert(offset > 0);
+    assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
     // Seeking is always forward which makes things a lot simpler.
     if (origin == drflac_seek_origin_start) {
-        if (!oggbs->onSeek(oggbs->pUserData, (int)oggbs->firstBytePos, drflac_seek_origin_start)) {
+        if (!oggbs->onSeek(oggbs->pUserData, (int)oggbs->firstBytePos + (79-42), drflac_seek_origin_start)) {   // 79 = size of bos page; 42 = size of FLAC header data. Seek up to the first byte of the native FLAC data.
             return false;
         }
+
+        oggbs->currentPageHeader = oggbs->bosPageHeader;
+        oggbs->bytesRemainingInPage = 42;   // 42 = size of the native FLAC header data. That's our start point for seeking.
 
         return drflac__on_seek_ogg(pUserData, offset, drflac_seek_origin_current);
     }
@@ -3185,7 +3193,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                         return false;
                     }
 
-                    // Expecting the native FLAC signature "fLaC". This is the position of the first byte in the FLAC stream.
+                    // Expecting the native FLAC signature "fLaC".
                     if (onRead(pUserData, sig, 4) != 4) {
                         return false;
                     }
@@ -3224,8 +3232,9 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                             }
 
                             pInit->runningFilePos  += pageBodySize;
-                            pInit->oggFirstBytePos  = pInit->runningFilePos - 42;   // Subtracting 42 will place us right on top of the "fLaC" identifier.
+                            pInit->oggFirstBytePos  = pInit->runningFilePos - 79;   // Subtracting 79 will place us right on top of the "OggS" identifier of the FLAC bos page.
                             pInit->oggSerial        = header.serialNumber;
+                            pInit->oggBosHeader     = header;
                             break;
                         }
                         else
@@ -3288,11 +3297,11 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
         return false;
     }
 
-    pInit->onRead      = onRead;
-    pInit->onSeek      = onSeek;
-    pInit->onMeta      = onMeta;
-    pInit->pUserData   = pUserData;
-    pInit->pUserDataMD = pUserDataMD;
+    pInit->onRead        = onRead;
+    pInit->onSeek        = onSeek;
+    pInit->onMeta        = onMeta;
+    pInit->pUserData     = pUserData;
+    pInit->pUserDataMD   = pUserDataMD;
 
     uint8_t id[4];
     if (onRead(pUserData, id, 4) != 4) {
@@ -3333,9 +3342,6 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
     pFlac->bitsPerSample    = (uint8_t)pInit->bitsPerSample;
     pFlac->totalSampleCount = pInit->totalSampleCount;
     pFlac->container        = pInit->container;
-    pFlac->seektablePos     = pInit->seektablePos;
-    pFlac->seektableSize    = pInit->seektableSize;
-    pFlac->firstFramePos    = pInit->runningFilePos;
 }
 
 drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
@@ -3369,6 +3375,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
         oggbs->pUserData = pUserData;
         oggbs->serialNumber = init.oggSerial;
         oggbs->firstBytePos = init.oggFirstBytePos;
+        oggbs->bosPageHeader = init.oggBosHeader;
         oggbs->bytesRemainingInPage = 0;
 
         // The Ogg bistream needs to be layered on top of the original bitstream.
@@ -3404,7 +3411,7 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
 
 static bool drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    assert(offset > 0);
+    assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
     return fseek((FILE*)pUserData, offset, (origin == drflac_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
@@ -3445,7 +3452,7 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
 
 static bool drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    assert(offset > 0);
+    assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
     return SetFilePointer((HANDLE)pUserData, offset, NULL, (origin == drflac_seek_origin_current) ? FILE_CURRENT : FILE_BEGIN) != INVALID_SET_FILE_POINTER;
 }
@@ -3523,7 +3530,7 @@ static bool drflac__on_seek_memory(void* pUserData, int offset, drflac_seek_orig
 {
     drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
     assert(memoryStream != NULL);
-    assert(offset > 0);
+    assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
     if (origin == drflac_seek_origin_current) {
         if (memoryStream->currentReadPos + offset <= memoryStream->dataSize) {
