@@ -172,6 +172,12 @@ typedef enum
     drflac_container_ogg
 } drflac_container;
 
+typedef enum
+{
+    drflac_seek_origin_start,
+    drflac_seek_origin_current
+} drflac_seek_origin;
+
 // Packing is important on this structure because we map this directly to the raw data within the SEEKTABLE metadata block.
 #pragma pack(2)
 typedef struct
@@ -269,8 +275,10 @@ typedef struct
 // Callback for when data is read. Return value is the number of bytes actually read.
 typedef size_t (* drflac_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 
-// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value is false on failure, true success.
-typedef bool (* drflac_seek_proc)(void* pUserData, int offset);
+// Callback for when data needs to be seeked. The offset will never be negative. Whether or not it is relative to the
+// beginning or current position is determined by the "origin" parameter which will be either drflac_seek_origin_start
+// or drflac_seek_origin_current. Return value is false on failure, true success.
+typedef bool (* drflac_seek_proc)(void* pUserData, int offset, drflac_seek_origin origin);
 
 // Callback for when a metadata block is read.
 typedef void (* drflac_meta_proc)(void* pUserData, drflac_metadata* pMetadata);
@@ -306,9 +314,13 @@ typedef struct
     // The number of bits that have been consumed by the cache. This is used to determine how many valid bits are remaining.
     size_t consumedBits;
 
-    // Unused L2 lines. This will always be 0 until the end of the stream is hit. Used for correctly calculating the current byte
-    // position of the read pointer in the stream.
-    size_t unusedL2Lines;
+    // The number of unaligned bytes in the L2 cache. This will always be 0 until the end of the stream is hit. At the end of the
+    // stream there will be a number of bytes that don't cleanly fit in an L1 cache line, so we use this variable to know whether
+    // or not the bistreamer needs to run on a slower path to read those last bytes. This will never be more than sizeof(drflac_cache_t).
+    size_t unalignedByteCount;
+
+    // The content of the unaligned bytes.
+    drflac_cache_t unalignedCache;
 
     // The cached data which was most recently read from the client. When data is read from the client, it is placed within this
     // variable. As data is read, it's bit-shifted such that the next valid bit is sitting on the most significant bit.
@@ -731,7 +743,12 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac_bs* bs)
         return true;
     }
 
-    // If we get here it means we've run out of data in the L2 cache. We'll need to fetch more from the client.
+    // If we get here it means we've run out of data in the L2 cache. We'll need to fetch more from the client, if there's
+    // any left.
+    if (bs->unalignedByteCount > 0) {
+        return false;   // If we have any unaligned bytes it means there's not more aligned bytes left in the client.
+    }
+
     size_t bytesRead = bs->onRead(bs->pUserData, bs->cacheL2, DRFLAC_CACHE_L2_SIZE_BYTES(bs));
     bs->currentBytePos += bytesRead;
 
@@ -747,6 +764,14 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac_bs* bs)
     // and adjust the index of the next line accordingly. Also keep in mind that the L2 cache must be aligned to
     // the size of the L1 so we'll need to seek backwards by any misaligned bytes.
     size_t alignedL1LineCount = bytesRead / DRFLAC_CACHE_L1_SIZE_BYTES(bs);
+
+    // We need to keep track of any unaligned bytes for later use.
+    bs->unalignedByteCount = bytesRead - (alignedL1LineCount * DRFLAC_CACHE_L1_SIZE_BYTES(bs));
+    if (bs->unalignedByteCount > 0) {
+        bs->unalignedCache  = bs->cacheL2[alignedL1LineCount];
+        bs->currentBytePos -= bs->unalignedByteCount;
+    }
+
     if (alignedL1LineCount > 0)
     {
         size_t offset = DRFLAC_CACHE_L2_LINE_COUNT(bs) - alignedL1LineCount;
@@ -755,28 +780,12 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac_bs* bs)
         }
 
         bs->nextL2Line = offset;
-        bs->unusedL2Lines = offset;
-
-        // At this point there may be some leftover unaligned bytes. We need to seek backwards so we don't lose
-        // those bytes.
-        size_t unalignedBytes = bytesRead - (alignedL1LineCount * DRFLAC_CACHE_L1_SIZE_BYTES(bs));
-        if (unalignedBytes > 0) {
-            bs->onSeek(bs->pUserData, -(int)unalignedBytes);
-            bs->currentBytePos -= unalignedBytes;
-        }
-
         bs->cache = bs->cacheL2[bs->nextL2Line++];
         return true;
     }
     else
     {
-        // If we get into this branch it means we weren't able to load any L1-aligned data. We just need to seek
-        // backwards by the leftover bytes and return false.
-        if (bytesRead > 0) {
-            bs->onSeek(bs->pUserData, -(int)bytesRead);
-            bs->currentBytePos -= bytesRead;
-        }
-
+        // If we get into this branch it means we weren't able to load any L1-aligned data.
         bs->nextL2Line = DRFLAC_CACHE_L2_LINE_COUNT(bs);
         return false;
     }
@@ -795,8 +804,8 @@ static bool drflac__reload_cache(drflac_bs* bs)
 
     // If we get here it means we have failed to load the L1 cache from the L2. Likely we've just reached the end of the stream and the last
     // few bytes did not meet the alignment requirements for the L2 cache. In this case we need to fall back to a slower path and read the
-    // data straight from the client into the L1 cache. This should only really happen once per stream so efficiency is not important.
-    size_t bytesRead = bs->onRead(bs->pUserData, &bs->cache, DRFLAC_CACHE_L1_SIZE_BYTES(bs));
+    // data from the unaligned cache.
+    size_t bytesRead = bs->unalignedByteCount;
     if (bytesRead == 0) {
         return false;
     }
@@ -806,7 +815,7 @@ static bool drflac__reload_cache(drflac_bs* bs)
     assert(bytesRead < DRFLAC_CACHE_L1_SIZE_BYTES(bs));
     bs->consumedBits = (DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bytesRead) * 8;
 
-    bs->cache = drflac__be2host__cache_line(bs->cache);
+    bs->cache = drflac__be2host__cache_line(bs->unalignedCache);
     bs->cache &= DRFLAC_CACHE_L1_SELECTION_MASK(DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs->consumedBits);    // <-- Make sure the consumed bits are always set to zero. Other parts of the library depend on this property.
     return true;
 }
@@ -842,7 +851,7 @@ static bool drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
                 bitsToSeek -= DRFLAC_CACHE_L2_LINES_REMAINING(bs) * DRFLAC_CACHE_L1_SIZE_BITS(bs);
                 bs->nextL2Line += DRFLAC_CACHE_L2_LINES_REMAINING(bs);
 
-                bs->onSeek(bs->pUserData, (int)wholeBytesRemaining);
+                bs->onSeek(bs->pUserData, (int)wholeBytesRemaining, drflac_seek_origin_current);
                 bs->currentBytePos += wholeBytesRemaining;
                 bitsToSeek -= wholeBytesRemaining*8;
             }
@@ -1074,45 +1083,58 @@ static inline bool drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned int* p
 
 
 
-static bool drflac__seek_to_byte(drflac_bs* bs, long long offsetFromStart)
+static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
 {
     assert(bs != NULL);
+    assert(offsetFromStart > 0);
 
-    long long bytesToMove = offsetFromStart - bs->currentBytePos;
-    if (bytesToMove == 0) {
-        return 1;
-    }
+    // Seeking from the start is not quite as trivial as it sounds because the onSeek callback takes a signed 32-bit integer (which
+    // is intentional because it simplifies the implementation of the onSeek callbacks), however offsetFromStart is unsigned 64-bit.
+    // To resolve we just need to do an initial seek from the start, and then a series of offset seeks to make up the remainder.
+    if (offsetFromStart > 0x7FFFFFFF)
+    {
+        uint64_t bytesRemaining = offsetFromStart;
+        if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_start)) {
+            return false;
+        }
 
-    if (bytesToMove > 0x7FFFFFFF) {
-        while (bytesToMove > 0x7FFFFFFF) {
-            if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF)) {
-                return 0;
+        bs->currentBytePos = 0x7FFFFFFF;
+        bytesRemaining -= 0x7FFFFFFF;
+
+
+        while (bytesRemaining > 0x7FFFFFFF) {
+            if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_current)) {
+                return false;
             }
 
             bs->currentBytePos += 0x7FFFFFFF;
-            bytesToMove -= 0x7FFFFFFF;
+            bytesRemaining -= 0x7FFFFFFF;
         }
-    } else {
-        while (bytesToMove < (int)0x80000000) {
-            if (!bs->onSeek(bs->pUserData, (int)0x80000000)) {
-                return 0;
+
+
+        if (bytesRemaining > 0) {
+            if (!bs->onSeek(bs->pUserData, (int)bytesRemaining, drflac_seek_origin_current)) {
+                return false;
             }
 
-            bs->currentBytePos += (int)0x80000000;
-            bytesToMove -= (int)0x80000000;
+            bs->currentBytePos += bytesRemaining;
         }
     }
+    else
+    {
+        if (!bs->onSeek(bs->pUserData, (int)offsetFromStart, drflac_seek_origin_start)) {
+            return false;
+        }
 
-    assert(bytesToMove <= 0x7FFFFFFF && bytesToMove >= (int)0x80000000);
+        bs->currentBytePos = offsetFromStart;
+    }
 
-    bool result = bs->onSeek(bs->pUserData, (int)bytesToMove);    // <-- Safe cast as per the assert above.
-    bs->currentBytePos += (int)bytesToMove;
-
+    
     bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);
     bs->cache = 0;
     bs->nextL2Line = DRFLAC_CACHE_L2_LINE_COUNT(bs); // <-- This clears the L2 cache.
 
-    return result;
+    return true;
 }
 
 
@@ -2826,7 +2848,7 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
                     metadata.data.padding.unused = 0;
 
                     // Padding doesn't have anything meaningful in it, so just skip over it.
-                    if (!onSeek(pUserData, blockSize)) {
+                    if (!onSeek(pUserData, blockSize, drflac_seek_origin_current)) {
                         return false;
                     }
 
@@ -2838,7 +2860,7 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
             {
                 // Invalid chunk. Just skip over this one.
                 if (onMeta) {
-                    if (!onSeek(pUserData, blockSize)) {
+                    if (!onSeek(pUserData, blockSize, drflac_seek_origin_current)) {
                         return false;
                     }
                 }
@@ -2870,7 +2892,7 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
 
         // If we're not handling metadata, just skip over the block. If we are, it will have been handled earlier in the switch statement above.
         if (onMeta == NULL) {
-            if (!onSeek(pUserData, blockSize)) {
+            if (!onSeek(pUserData, blockSize, drflac_seek_origin_current)) {
                 return false;
             }
         }
@@ -2950,6 +2972,43 @@ bool drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserData, drfl
     return drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, pHeader, pHeaderSize);
 }
 
+
+// The main part of the Ogg encapsulation is the conversion from the physical Ogg bitstream to the native FLAC bitstream. It works
+// in three general stages: Ogg Physical Bitstream -> Ogg/FLAC Logical Bitstream -> FLAC Native Bitstream. dr_flac is architecured
+// in such a way that the core sections assume everything is delivered in native format. Therefore, for each encapsulation type
+// dr_flac is supporting there needs to be a layer sitting on top of the onRead and onSeek callbacks that ensures the bits read from
+// the physical Ogg bitstream are converted and delivered in native FLAC format.
+typedef struct
+{
+    drflac_read_proc onRead;    // The original onRead callback from drflac_open() and family.
+    drflac_seek_proc onSeek;    // The original onSeek callback from drflac_open() and family.
+    void* pUserData;            // The user data passed on onRead and onSeek. This is the user data that was passed on drflac_open() and family.
+} drflac_oggbs; // oggbs = Ogg Bitstream
+
+static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytesToRead)
+{
+    drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
+    assert(oggbs != NULL);
+
+    // TODO: Implement Me.
+    (void)bufferOut;
+    (void)bytesToRead;
+    return 0;
+}
+
+static bool drflac__on_seek_ogg(void* pUserData, int offset)
+{
+    drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
+    assert(oggbs != NULL);
+
+    assert(offset > 0);     // <-- Need to figure out how to avoid negative seeking.
+    
+    // TODO: Implement Me.
+    (void)offset;
+    return false;
+}
+
+
 bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
     (void)onSeek;
@@ -2962,7 +3021,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
 
     // Don't like doing backwards seeking, but moving back to the start of the stream to before the OggS capture pattern makes
     // the loop below a lot simpler.
-    if (!onSeek(pUserData, -4)) {
+    if (!onSeek(pUserData, -4, drflac_seek_origin_current)) {   // TODO: Remove this negative seek.
         return false;
     }
 
@@ -3023,7 +3082,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
 
                     // The next 2 bytes are the non-audio packets, not including this one. We don't care about this because we're going to
                     // be handling it in a generic way based on the serial number and packet types.
-                    if (!onSeek(pUserData, 2)) {
+                    if (!onSeek(pUserData, 2, drflac_seek_origin_current)) {
                         return false;
                     }
 
@@ -3075,7 +3134,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                 else
                 {
                     // Not a FLAC header. Skip it.
-                    if (!onSeek(pUserData, bytesRemainingInPage)) {
+                    if (!onSeek(pUserData, bytesRemainingInPage, drflac_seek_origin_current)) {
                         return false;
                     }
                 }
@@ -3083,14 +3142,14 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
             else
             {
                 // Not a FLAC header. Seek past the entire page and move on to the next.
-                if (!onSeek(pUserData, bytesRemainingInPage)) {
+                if (!onSeek(pUserData, bytesRemainingInPage, drflac_seek_origin_current)) {
                     return false;
                 }
             }
         }
         else
         {
-            if (!onSeek(pUserData, pageBodySize)) {
+            if (!onSeek(pUserData, pageBodySize, drflac_seek_origin_current)) {
                 return false;
             }
         }
@@ -3100,6 +3159,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
 
 
     // At this point, our "header" object contains the header of the next page which may or may not be part of the logical FLAC bitstream.
+
 
 
     return false;
@@ -3196,9 +3256,11 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
     return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-static bool drflac__on_seek_stdio(void* pUserData, int offset)
+static bool drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
+    assert(offset > 0);
+
+    return fseek((FILE*)pUserData, offset, (origin == drflac_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
 static drflac_file drflac__open_file_handle(const char* filename)
@@ -3235,9 +3297,11 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
     return (size_t)bytesRead;
 }
 
-static bool drflac__on_seek_stdio(void* pUserData, int offset)
+static bool drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    return SetFilePointer((HANDLE)pUserData, offset, NULL, FILE_CURRENT) != INVALID_SET_FILE_POINTER;
+    assert(offset > 0);
+
+    return SetFilePointer((HANDLE)pUserData, offset, NULL, (origin == drflac_seek_origin_current) ? FILE_CURRENT : FILE_BEGIN) != INVALID_SET_FILE_POINTER;
 }
 
 static drflac_file drflac__open_file_handle(const char* filename)
@@ -3309,23 +3373,26 @@ static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t by
     return bytesToRead;
 }
 
-static bool drflac__on_seek_memory(void* pUserData, int offset)
+static bool drflac__on_seek_memory(void* pUserData, int offset, drflac_seek_origin origin)
 {
     drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
     assert(memoryStream != NULL);
+    assert(offset > 0);
 
-    if (offset > 0) {
-        if (memoryStream->currentReadPos + offset > memoryStream->dataSize) {
-            offset = (int)(memoryStream->dataSize - memoryStream->currentReadPos);     // Trying to seek too far forward.
+    if (origin == drflac_seek_origin_current) {
+        if (memoryStream->currentReadPos + offset <= memoryStream->dataSize) {
+            memoryStream->currentReadPos += offset;
+        } else {
+            memoryStream->currentReadPos = memoryStream->dataSize;  // Trying to seek too far forward.
         }
     } else {
-        if (memoryStream->currentReadPos < (size_t)-offset) {
-            offset = -(int)memoryStream->currentReadPos;                  // Trying to seek too far backwards.
+        if ((uint32_t)offset <= memoryStream->dataSize) {
+            memoryStream->currentReadPos = offset;
+        } else {
+            memoryStream->currentReadPos = memoryStream->dataSize;  // Trying to seek too far forward.
         }
     }
 
-    // This will never underflow thanks to the clamps above.
-    memoryStream->currentReadPos += offset;
     return true;
 }
 
@@ -3805,6 +3872,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 // REVISION HISTORY
 //
 // v0.2 - Release date TBD
+//   - API CHANGE. Have the onSeek callback take a third argument which specifies whether or not the seek
+//     should be relative to the start or the current position. Also changes the seeking rules such that
+//     seeking offsets will never be negative.
 //   - Have drflac_open_and_decode() fail gracefully if the stream has an unknown total sample count.
 //
 // v0.1b - 07/05/2016
