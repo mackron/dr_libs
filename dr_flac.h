@@ -305,9 +305,6 @@ typedef struct
     void* pUserData;
 
 
-    // The current byte position in the client's data stream.
-    uint64_t currentBytePos;
-
     // The index of the next valid cache line in the "L2" cache.
     size_t nextL2Line;
 
@@ -750,7 +747,6 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac_bs* bs)
     }
 
     size_t bytesRead = bs->onRead(bs->pUserData, bs->cacheL2, DRFLAC_CACHE_L2_SIZE_BYTES(bs));
-    bs->currentBytePos += bytesRead;
 
     bs->nextL2Line = 0;
     if (bytesRead == DRFLAC_CACHE_L2_SIZE_BYTES(bs)) {
@@ -769,7 +765,6 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac_bs* bs)
     bs->unalignedByteCount = bytesRead - (alignedL1LineCount * DRFLAC_CACHE_L1_SIZE_BYTES(bs));
     if (bs->unalignedByteCount > 0) {
         bs->unalignedCache  = bs->cacheL2[alignedL1LineCount];
-        bs->currentBytePos -= bs->unalignedByteCount;
     }
 
     if (alignedL1LineCount > 0)
@@ -809,8 +804,6 @@ static bool drflac__reload_cache(drflac_bs* bs)
     if (bytesRead == 0) {
         return false;
     }
-
-    bs->currentBytePos += bytesRead;
 
     assert(bytesRead < DRFLAC_CACHE_L1_SIZE_BYTES(bs));
     bs->consumedBits = (DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bytesRead) * 8;
@@ -852,7 +845,6 @@ static bool drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
                 bs->nextL2Line += DRFLAC_CACHE_L2_LINES_REMAINING(bs);
 
                 bs->onSeek(bs->pUserData, (int)wholeBytesRemaining, drflac_seek_origin_current);
-                bs->currentBytePos += wholeBytesRemaining;
                 bitsToSeek -= wholeBytesRemaining*8;
             }
         }
@@ -1097,8 +1089,6 @@ static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
         if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_start)) {
             return false;
         }
-
-        bs->currentBytePos = 0x7FFFFFFF;
         bytesRemaining -= 0x7FFFFFFF;
 
 
@@ -1106,8 +1096,6 @@ static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
             if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_current)) {
                 return false;
             }
-
-            bs->currentBytePos += 0x7FFFFFFF;
             bytesRemaining -= 0x7FFFFFFF;
         }
 
@@ -1116,8 +1104,6 @@ static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
             if (!bs->onSeek(bs->pUserData, (int)bytesRemaining, drflac_seek_origin_current)) {
                 return false;
             }
-
-            bs->currentBytePos += bytesRemaining;
         }
     }
     else
@@ -1125,8 +1111,6 @@ static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
         if (!bs->onSeek(bs->pUserData, (int)offsetFromStart, drflac_seek_origin_start)) {
             return false;
         }
-
-        bs->currentBytePos = offsetFromStart;
     }
 
     
@@ -3203,26 +3187,23 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
     assert(pInit != NULL);
 
     memset(pFlac, 0, sizeof(*pFlac));
-    pFlac->bs.onRead         = pInit->onRead;
-    pFlac->bs.onSeek         = pInit->onSeek;
-    pFlac->bs.pUserData      = pInit->pUserData;
-    pFlac->bs.currentBytePos = pInit->runningFilePos;
-    pFlac->bs.nextL2Line     = sizeof(pFlac->bs.cacheL2) / sizeof(pFlac->bs.cacheL2[0]); // <-- Initialize to this to force a client-side data retrieval right from the start.
-    pFlac->bs.consumedBits   = sizeof(pFlac->bs.cache)*8;
+    pFlac->bs.onRead        = pInit->onRead;
+    pFlac->bs.onSeek        = pInit->onSeek;
+    pFlac->bs.pUserData     = pInit->pUserData;
+    pFlac->bs.nextL2Line    = sizeof(pFlac->bs.cacheL2) / sizeof(pFlac->bs.cacheL2[0]); // <-- Initialize to this to force a client-side data retrieval right from the start.
+    pFlac->bs.consumedBits  = sizeof(pFlac->bs.cache)*8;
 
-    pFlac->onMeta            = pInit->onMeta;
-    pFlac->pUserDataMD       = pInit->pUserDataMD;
-    pFlac->maxBlockSize      = pInit->maxBlockSize;
-    pFlac->sampleRate        = pInit->sampleRate;
-    pFlac->channels          = (uint8_t)pInit->channels;
-    pFlac->bitsPerSample     = (uint8_t)pInit->bitsPerSample;
-    pFlac->totalSampleCount  = pInit->totalSampleCount;
-    pFlac->container         = pInit->container;
-    pFlac->seektablePos      = pInit->seektablePos;
-    pFlac->seektableSize     = pInit->seektableSize;
-    pFlac->firstFramePos     = pInit->runningFilePos;
-
-    
+    pFlac->onMeta           = pInit->onMeta;
+    pFlac->pUserDataMD      = pInit->pUserDataMD;
+    pFlac->maxBlockSize     = pInit->maxBlockSize;
+    pFlac->sampleRate       = pInit->sampleRate;
+    pFlac->channels         = (uint8_t)pInit->channels;
+    pFlac->bitsPerSample    = (uint8_t)pInit->bitsPerSample;
+    pFlac->totalSampleCount = pInit->totalSampleCount;
+    pFlac->container        = pInit->container;
+    pFlac->seektablePos     = pInit->seektablePos;
+    pFlac->seektableSize    = pInit->seektableSize;
+    pFlac->firstFramePos    = pInit->runningFilePos;
 }
 
 drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
