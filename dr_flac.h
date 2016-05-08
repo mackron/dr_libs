@@ -2551,6 +2551,7 @@ typedef struct
     uint64_t runningFilePos;
     uint64_t seektablePos;
     uint32_t seektableSize;
+    bool hasMetadataBlocks;
 
 #ifndef DR_FLAC_NO_OGG
     uint32_t oggSerial; // Only used with Ogg streams.
@@ -2619,8 +2620,250 @@ bool drflac__read_streaminfo(drflac_read_proc onRead, void* pUserData, drflac_st
     return true;
 }
 
+bool drflac__read_and_decode_metadata(drflac* pFlac)
+{
+    assert(pFlac != NULL);
+
+    // We want to keep track of the byte position in the stream of the seektable. At the time of calling this function we know that
+    // we'll be sitting on byte 42.
+    uint64_t runningFilePos = 42;
+    uint64_t seektablePos  = 0;
+    uint64_t seektableSize = 0;
+
+    for (;;)
+    {
+        uint8_t isLastBlock = 0;
+        uint8_t blockType;
+        uint32_t blockSize;
+        if (!drflac__read_and_decode_block_header(pFlac->bs.onRead, pFlac->bs.pUserData, &isLastBlock, &blockType, &blockSize)) {
+            return false;
+        }
+        runningFilePos += 4;
+
+
+        drflac_metadata metadata;
+        metadata.type = blockType;
+        metadata.pRawData = NULL;
+        metadata.rawDataSize = 0;
+
+        switch (blockType)
+        {
+            case DRFLAC_METADATA_BLOCK_TYPE_APPLICATION:
+            {
+                if (pFlac->onMeta) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
+                        return false;
+                    }
+
+                    if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+                    metadata.data.application.id       = drflac__be2host_32(*(uint32_t*)pRawData);
+                    metadata.data.application.pData    = (const void*)((char*)pRawData + sizeof(uint32_t));
+                    metadata.data.application.dataSize = blockSize - sizeof(uint32_t);
+                    pFlac->onMeta(pFlac->pUserDataMD, &metadata);
+
+                    free(pRawData);
+                }
+            } break;
+
+            case DRFLAC_METADATA_BLOCK_TYPE_SEEKTABLE:
+            {
+                seektablePos  = runningFilePos;
+                seektableSize = blockSize;
+
+                if (pFlac->onMeta) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
+                        return false;
+                    }
+
+                    if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+                    metadata.data.seektable.seekpointCount = blockSize/sizeof(drflac_seekpoint);
+                    metadata.data.seektable.pSeekpoints = (const drflac_seekpoint*)pRawData;
+
+                    // Endian swap.
+                    for (uint32_t iSeekpoint = 0; iSeekpoint < metadata.data.seektable.seekpointCount; ++iSeekpoint) {
+                        drflac_seekpoint* pSeekpoint = (drflac_seekpoint*)pRawData + iSeekpoint;
+                        pSeekpoint->firstSample = drflac__be2host_64(pSeekpoint->firstSample);
+                        pSeekpoint->frameOffset = drflac__be2host_64(pSeekpoint->frameOffset);
+                        pSeekpoint->sampleCount = drflac__be2host_16(pSeekpoint->sampleCount);
+                    }
+
+                    pFlac->onMeta(pFlac->pUserDataMD, &metadata);
+
+                    free(pRawData);
+                }
+            } break;
+
+            case DRFLAC_METADATA_BLOCK_TYPE_VORBIS_COMMENT:
+            {
+                if (pFlac->onMeta) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
+                        return false;
+                    }
+
+                    if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+
+                    const char* pRunningData = (const char*)pRawData;
+                    metadata.data.vorbis_comment.vendorLength = drflac__le2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.vorbis_comment.vendor       = pRunningData;                                 pRunningData += metadata.data.vorbis_comment.vendorLength;
+                    metadata.data.vorbis_comment.commentCount = drflac__le2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.vorbis_comment.comments     = pRunningData;
+                    pFlac->onMeta(pFlac->pUserDataMD, &metadata);
+
+                    free(pRawData);
+                }
+            } break;
+
+            case DRFLAC_METADATA_BLOCK_TYPE_CUESHEET:
+            {
+                if (pFlac->onMeta) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
+                        return false;
+                    }
+
+                    if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+
+                    const char* pRunningData = (const char*)pRawData;
+                    memcpy(metadata.data.cuesheet.catalog, pRunningData, 128);                               pRunningData += 128;
+                    metadata.data.cuesheet.leadInSampleCount = drflac__be2host_64(*(uint64_t*)pRunningData); pRunningData += 4;
+                    metadata.data.cuesheet.isCD              = ((pRunningData[0] & 0x80) >> 7) != 0;         pRunningData += 259;
+                    metadata.data.cuesheet.trackCount        = pRunningData[0];                              pRunningData += 1;
+                    metadata.data.cuesheet.pTrackData        = (const uint8_t*)pRunningData;
+                    pFlac->onMeta(pFlac->pUserDataMD, &metadata);
+
+                    free(pRawData);
+                }
+            } break;
+
+            case DRFLAC_METADATA_BLOCK_TYPE_PICTURE:
+            {
+                if (pFlac->onMeta) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
+                        return false;
+                    }
+
+                    if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+
+                    const char* pRunningData = (const char*)pRawData;
+                    metadata.data.picture.type              = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.mimeLength        = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.mime              = pRunningData;                                 pRunningData += metadata.data.picture.mimeLength;
+                    metadata.data.picture.descriptionLength = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.description       = pRunningData;
+                    metadata.data.picture.width             = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.height            = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.colorDepth        = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.indexColorCount   = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.pictureDataSize   = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.pPictureData      = (const uint8_t*)pRunningData;
+                    pFlac->onMeta(pFlac->pUserDataMD, &metadata);
+
+                    free(pRawData);
+                }
+            } break;
+
+            case DRFLAC_METADATA_BLOCK_TYPE_PADDING:
+            {
+                if (pFlac->onMeta) {
+                    metadata.data.padding.unused = 0;
+
+                    // Padding doesn't have anything meaningful in it, so just skip over it.
+                    if (!pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
+                        return false;
+                    }
+
+                    pFlac->onMeta(pFlac->pUserDataMD, &metadata);
+                }
+            } break;
+
+            case DRFLAC_METADATA_BLOCK_TYPE_INVALID:
+            {
+                // Invalid chunk. Just skip over this one.
+                if (pFlac->onMeta) {
+                    if (!pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
+                        return false;
+                    }
+                }
+            }
+
+            default:
+            {
+                // It's an unknown chunk, but not necessarily invalid. There's a chance more metadata blocks might be defined later on, so we
+                // can at the very least report the chunk to the application and let it look at the raw data.
+                if (pFlac->onMeta) {
+                    void* pRawData = malloc(blockSize);
+                    if (pRawData == NULL) {
+                        return false;
+                    }
+
+                    if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
+                        free(pRawData);
+                        return false;
+                    }
+
+                    metadata.pRawData = pRawData;
+                    metadata.rawDataSize = blockSize;
+                    pFlac->onMeta(pFlac->pUserDataMD, &metadata);
+
+                    free(pRawData);
+                }
+            } break;
+        }
+
+        // If we're not handling metadata, just skip over the block. If we are, it will have been handled earlier in the switch statement above.
+        if (pFlac->onMeta == NULL) {
+            if (!pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
+                return false;
+            }
+        }
+
+        runningFilePos += blockSize;
+        if (isLastBlock) {
+            break;
+        }
+    }
+
+    return true;
+}
+
 bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
+    (void)onSeek;
+
     // Pre: The bit stream should be sitting just past the 4-byte id header.
 
     pInit->container = drflac_container_native;
@@ -2658,232 +2901,7 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
         onMeta(pUserDataMD, &metadata);
     }
 
-
-    // The next blocks are metadata which are all optional. We want to keep track of the seektable so we can do efficient seeking.
-    pInit->runningFilePos = 42;
-    pInit->seektablePos = 0;
-    pInit->seektableSize = 0;
-    while (!isLastBlock)
-    {
-        if (!drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize)) {
-            return false;
-        }
-        pInit->runningFilePos += 4;
-
-
-        drflac_metadata metadata;
-        metadata.type = blockType;
-        metadata.pRawData = NULL;
-        metadata.rawDataSize = 0;
-
-        switch (blockType)
-        {
-            case DRFLAC_METADATA_BLOCK_TYPE_APPLICATION:
-            {
-                if (onMeta) {
-                    void* pRawData = malloc(blockSize);
-                    if (pRawData == NULL) {
-                        return false;
-                    }
-
-                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
-                        free(pRawData);
-                        return false;
-                    }
-
-                    metadata.pRawData = pRawData;
-                    metadata.rawDataSize = blockSize;
-                    metadata.data.application.id       = drflac__be2host_32(*(uint32_t*)pRawData);
-                    metadata.data.application.pData    = (const void*)((char*)pRawData + sizeof(uint32_t));
-                    metadata.data.application.dataSize = blockSize - sizeof(uint32_t);
-                    onMeta(pUserDataMD, &metadata);
-
-                    free(pRawData);
-                }
-            } break;
-
-            case DRFLAC_METADATA_BLOCK_TYPE_SEEKTABLE:
-            {
-                pInit->seektablePos  = pInit->runningFilePos;
-                pInit->seektableSize = blockSize;
-
-                if (onMeta) {
-                    void* pRawData = malloc(blockSize);
-                    if (pRawData == NULL) {
-                        return false;
-                    }
-
-                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
-                        free(pRawData);
-                        return false;
-                    }
-
-                    metadata.pRawData = pRawData;
-                    metadata.rawDataSize = blockSize;
-                    metadata.data.seektable.seekpointCount = blockSize/sizeof(drflac_seekpoint);
-                    metadata.data.seektable.pSeekpoints = (const drflac_seekpoint*)pRawData;
-
-                    // Endian swap.
-                    for (uint32_t iSeekpoint = 0; iSeekpoint < metadata.data.seektable.seekpointCount; ++iSeekpoint) {
-                        drflac_seekpoint* pSeekpoint = (drflac_seekpoint*)pRawData + iSeekpoint;
-                        pSeekpoint->firstSample = drflac__be2host_64(pSeekpoint->firstSample);
-                        pSeekpoint->frameOffset = drflac__be2host_64(pSeekpoint->frameOffset);
-                        pSeekpoint->sampleCount = drflac__be2host_16(pSeekpoint->sampleCount);
-                    }
-
-                    onMeta(pUserDataMD, &metadata);
-
-                    free(pRawData);
-                }
-            } break;
-
-            case DRFLAC_METADATA_BLOCK_TYPE_VORBIS_COMMENT:
-            {
-                if (onMeta) {
-                    void* pRawData = malloc(blockSize);
-                    if (pRawData == NULL) {
-                        return false;
-                    }
-
-                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
-                        free(pRawData);
-                        return false;
-                    }
-
-                    metadata.pRawData = pRawData;
-                    metadata.rawDataSize = blockSize;
-
-                    const char* pRunningData = (const char*)pRawData;
-                    metadata.data.vorbis_comment.vendorLength = drflac__le2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.vorbis_comment.vendor       = pRunningData;                                 pRunningData += metadata.data.vorbis_comment.vendorLength;
-                    metadata.data.vorbis_comment.commentCount = drflac__le2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.vorbis_comment.comments     = pRunningData;
-                    onMeta(pUserDataMD, &metadata);
-
-                    free(pRawData);
-                }
-            } break;
-
-            case DRFLAC_METADATA_BLOCK_TYPE_CUESHEET:
-            {
-                if (onMeta) {
-                    void* pRawData = malloc(blockSize);
-                    if (pRawData == NULL) {
-                        return false;
-                    }
-
-                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
-                        free(pRawData);
-                        return false;
-                    }
-
-                    metadata.pRawData = pRawData;
-                    metadata.rawDataSize = blockSize;
-
-                    const char* pRunningData = (const char*)pRawData;
-                    memcpy(metadata.data.cuesheet.catalog, pRunningData, 128);                               pRunningData += 128;
-                    metadata.data.cuesheet.leadInSampleCount = drflac__be2host_64(*(uint64_t*)pRunningData); pRunningData += 4;
-                    metadata.data.cuesheet.isCD              = ((pRunningData[0] & 0x80) >> 7) != 0;         pRunningData += 259;
-                    metadata.data.cuesheet.trackCount        = pRunningData[0];                              pRunningData += 1;
-                    metadata.data.cuesheet.pTrackData        = (const uint8_t*)pRunningData;
-                    onMeta(pUserDataMD, &metadata);
-
-                    free(pRawData);
-                }
-            } break;
-
-            case DRFLAC_METADATA_BLOCK_TYPE_PICTURE:
-            {
-                if (onMeta) {
-                    void* pRawData = malloc(blockSize);
-                    if (pRawData == NULL) {
-                        return false;
-                    }
-
-                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
-                        free(pRawData);
-                        return false;
-                    }
-
-                    metadata.pRawData = pRawData;
-                    metadata.rawDataSize = blockSize;
-
-                    const char* pRunningData = (const char*)pRawData;
-                    metadata.data.picture.type              = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.mimeLength        = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.mime              = pRunningData;                                 pRunningData += metadata.data.picture.mimeLength;
-                    metadata.data.picture.descriptionLength = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.description       = pRunningData;
-                    metadata.data.picture.width             = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.height            = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.colorDepth        = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.indexColorCount   = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.pictureDataSize   = drflac__be2host_32(*(uint32_t*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.pPictureData      = (const uint8_t*)pRunningData;
-                    onMeta(pUserDataMD, &metadata);
-
-                    free(pRawData);
-                }
-            } break;
-
-            case DRFLAC_METADATA_BLOCK_TYPE_PADDING:
-            {
-                if (onMeta) {
-                    metadata.data.padding.unused = 0;
-
-                    // Padding doesn't have anything meaningful in it, so just skip over it.
-                    if (!onSeek(pUserData, blockSize, drflac_seek_origin_current)) {
-                        return false;
-                    }
-
-                    onMeta(pUserDataMD, &metadata);
-                }
-            } break;
-
-            case DRFLAC_METADATA_BLOCK_TYPE_INVALID:
-            {
-                // Invalid chunk. Just skip over this one.
-                if (onMeta) {
-                    if (!onSeek(pUserData, blockSize, drflac_seek_origin_current)) {
-                        return false;
-                    }
-                }
-            }
-
-            default:
-            {
-                // It's an unknown chunk, but not necessarily invalid. There's a chance more metadata blocks might be defined later on, so we
-                // can at the very least report the chunk to the application and let it look at the raw data.
-                if (onMeta) {
-                    void* pRawData = malloc(blockSize);
-                    if (pRawData == NULL) {
-                        return false;
-                    }
-
-                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
-                        free(pRawData);
-                        return false;
-                    }
-
-                    metadata.pRawData = pRawData;
-                    metadata.rawDataSize = blockSize;
-                    onMeta(pUserDataMD, &metadata);
-
-                    free(pRawData);
-                }
-            } break;
-        }
-
-        // If we're not handling metadata, just skip over the block. If we are, it will have been handled earlier in the switch statement above.
-        if (onMeta == NULL) {
-            if (!onSeek(pUserData, blockSize, drflac_seek_origin_current)) {
-                return false;
-            }
-        }
-
-        pInit->runningFilePos += blockSize;
-    }
-
+    pInit->hasMetadataBlocks = !isLastBlock;
     return true;
 }
 
@@ -2967,6 +2985,8 @@ typedef struct
     drflac_read_proc onRead;    // The original onRead callback from drflac_open() and family.
     drflac_seek_proc onSeek;    // The original onSeek callback from drflac_open() and family.
     void* pUserData;            // The user data passed on onRead and onSeek. This is the user data that was passed on drflac_open() and family.
+    uint32_t serialNumber;      // The serial number of the FLAC audio pages. This is determined by the initial header page that was read during initialization.
+    drflac_ogg_page_header currentPageHeader;
 } drflac_oggbs; // oggbs = Ogg Bitstream
 
 static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytesToRead)
@@ -2980,15 +3000,15 @@ static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytes
     return 0;
 }
 
-static bool drflac__on_seek_ogg(void* pUserData, int offset)
+static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin origin)
 {
     drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
     assert(oggbs != NULL);
-
-    assert(offset > 0);     // <-- Need to figure out how to avoid negative seeking.
+    assert(offset > 0);
     
     // TODO: Implement Me.
     (void)offset;
+    (void)origin;
     return false;
 }
 
@@ -3091,6 +3111,15 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                             pInit->totalSampleCount = streaminfo.totalSampleCount;
                             pInit->maxBlockSize     = streaminfo.maxBlockSize;
 
+                            if (onMeta) {
+                                drflac_metadata metadata;
+                                metadata.type = DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO;
+                                metadata.pRawData = NULL;
+                                metadata.rawDataSize = 0;
+                                metadata.data.streaminfo = streaminfo;
+                                onMeta(pUserDataMD, &metadata);
+                            }
+
                             pInit->runningFilePos  += pageBodySize;
                             pInit->oggSerial        = header.serialNumber;
                             break;
@@ -3141,11 +3170,11 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
     }
 
 
-    
-
-
-
-    return false;
+    // If we get here it means we found a FLAC audio stream. We should be sitting on the first byte of the header of the next page. The next
+    // packets in the FLAC logical stream contain the metadata. The only thing left to do in the initialiation phase for Ogg is to create the
+    // Ogg bistream object.
+    pInit->hasMetadataBlocks = true;    // <-- Always have at least VORBIS_COMMENT metadata block.
+    return false;   // TODO: <-- Flick this to "true" when we're ready to test the Ogg bitstreamer!
 }
 #endif
 
@@ -3215,10 +3244,41 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     size_t allocationSize = sizeof(drflac) - sizeof(char);
     allocationSize += init.maxBlockSize * init.channels * sizeof(int32_t);
     //allocationSize += init.seektableSize;
+    
+
+#ifndef DR_FLAC_NO_OGG
+    // There's additional data required for Ogg streams.
+    if (init.container == drflac_container_ogg) {
+        allocationSize += sizeof(drflac_oggbs);
+    }
+#endif
 
     drflac* pFlac = (drflac*)malloc(allocationSize);
     drflac__init_from_info(pFlac, &init);
     pFlac->pDecodedSamples = (int32_t*)pFlac->pExtraData;
+
+#ifndef DR_FLAC_NO_OGG
+    if (init.container == drflac_container_ogg) {
+        drflac_oggbs* oggbs = (drflac_oggbs*)((int32_t*)pFlac->pExtraData + init.maxBlockSize*init.channels);
+        oggbs->onRead = onRead;
+        oggbs->onSeek = onSeek;
+        oggbs->pUserData = pUserData;
+        oggbs->serialNumber = init.oggSerial;
+
+        // The Ogg bistream needs to be layered on top of the original bitstream.
+        pFlac->bs.onRead = drflac__on_read_ogg;
+        pFlac->bs.onSeek = drflac__on_seek_ogg;
+        pFlac->bs.pUserData = (void*)oggbs;
+    }
+#endif
+
+    // Decode metadata before returning.
+    if (init.hasMetadataBlocks) {
+        if (!drflac__read_and_decode_metadata(pFlac)) {
+            free(pFlac);
+            return NULL;
+        }
+    }
 
     return pFlac;
 }
