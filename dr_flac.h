@@ -844,8 +844,10 @@ static bool drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
                 bitsToSeek -= DRFLAC_CACHE_L2_LINES_REMAINING(bs) * DRFLAC_CACHE_L1_SIZE_BITS(bs);
                 bs->nextL2Line += DRFLAC_CACHE_L2_LINES_REMAINING(bs);
 
-                bs->onSeek(bs->pUserData, (int)wholeBytesRemaining, drflac_seek_origin_current);
-                bitsToSeek -= wholeBytesRemaining*8;
+                if (wholeBytesRemaining > 0) {
+                    bs->onSeek(bs->pUserData, (int)wholeBytesRemaining, drflac_seek_origin_current);
+                    bitsToSeek -= wholeBytesRemaining*8;
+                }
             }
         }
 
@@ -2456,6 +2458,7 @@ static bool drflac__seek_to_sample__brute_force(drflac* pFlac, uint64_t sampleIn
     return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;
 }
 
+
 static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleIndex)
 {
     assert(pFlac != NULL);
@@ -2501,7 +2504,10 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
 
     // At this point we should have found the seekpoint closest to our sample. We need to seek to it using basically the same
     // technique as we use with the brute force method.
-    drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos + closestSeekpoint.frameOffset);
+    if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos + closestSeekpoint.frameOffset)) {
+        return false;
+    }
+    
 
     uint64_t firstSampleInFrame = 0;
     uint64_t lastSampleInFrame = 0;
@@ -2929,14 +2935,13 @@ static DRFLAC_INLINE bool drflac_ogg__is_capture_pattern(uint8_t pattern[4])
     return pattern[0] == 'O' && pattern[1] == 'g' && pattern[2] == 'g' && pattern[3] == 'S';
 }
 
+static DRFLAC_INLINE uint32_t drflac_ogg__get_page_header_size(drflac_ogg_page_header* pHeader)
+{
+    return 27 + pHeader->segmentCount;
+}
+
 static DRFLAC_INLINE uint32_t drflac_ogg__get_page_body_size(drflac_ogg_page_header* pHeader)
 {
-    // NOTE: The way I've been reading things has been that the number of bytes in each segment should be
-    //       equal to 255, except for the last one. I would have expected the line below to work, but in
-    //       one of my test files the first segment is < 255 bytes even though there's 14 segments in the
-    //       page. Need to look into this one in case I'm misunderstanding something...
-    //return (pHeader->segmentCount-1)*255 + pHeader->segmentTable[pHeader->segmentCount-1];
-
     uint32_t pageBodySize = 0;
     for (int i = 0; i < pHeader->segmentCount; ++i) {
         pageBodySize += pHeader->segmentTable[i];
@@ -3001,12 +3006,60 @@ typedef struct
     drflac_read_proc onRead;    // The original onRead callback from drflac_open() and family.
     drflac_seek_proc onSeek;    // The original onSeek callback from drflac_open() and family.
     void* pUserData;            // The user data passed on onRead and onSeek. This is the user data that was passed on drflac_open() and family.
-    uint32_t serialNumber;      // The serial number of the FLAC audio pages. This is determined by the initial header page that was read during initialization.
+    uint64_t currentBytePos;    // The position of the byte we are sitting on in the physical byte stream. Used for efficient seeking.
     uint64_t firstBytePos;      // The position of the first byte in the physical bitstream. Points to the start of the "OggS" identifier of the FLAC bos page.
+    uint32_t serialNumber;      // The serial number of the FLAC audio pages. This is determined by the initial header page that was read during initialization.
     drflac_ogg_page_header bosPageHeader;   // Used for seeking.
     drflac_ogg_page_header currentPageHeader;
     size_t bytesRemainingInPage;
 } drflac_oggbs; // oggbs = Ogg Bitstream
+
+static size_t drflac_oggbs__read_physical(drflac_oggbs* oggbs, void* bufferOut, size_t bytesToRead)
+{
+    size_t bytesActuallyRead = oggbs->onRead(oggbs->pUserData, bufferOut, bytesToRead);
+    oggbs->currentBytePos += bytesActuallyRead;
+
+    return bytesActuallyRead;
+}
+
+static bool drflac_oggbs__seek_physical(drflac_oggbs* oggbs, uint64_t offset, drflac_seek_origin origin)
+{
+    if (origin == drflac_seek_origin_start)
+    {
+        if (offset <= 0x7FFFFFFF) {
+            if (!oggbs->onSeek(oggbs->pUserData, (int)offset, drflac_seek_origin_start)) {
+                return false;
+            }
+            oggbs->currentBytePos = offset;
+
+            return true;
+        } else {
+            if (!oggbs->onSeek(oggbs->pUserData, 0x7FFFFFFF, drflac_seek_origin_start)) {
+                return false;
+            }
+            oggbs->currentBytePos = offset;
+
+            return drflac_oggbs__seek_physical(oggbs, offset - 0x7FFFFFFF, drflac_seek_origin_current);
+        }
+    }
+    else
+    {
+        while (offset > 0x7FFFFFFF) {
+            if (!oggbs->onSeek(oggbs->pUserData, 0x7FFFFFFF, drflac_seek_origin_current)) {
+                return false;
+            }
+            oggbs->currentBytePos += 0x7FFFFFFF;
+            offset -= 0x7FFFFFFF;
+        }
+
+        if (!oggbs->onSeek(oggbs->pUserData, (int)offset, drflac_seek_origin_current)) {    // <-- Safe cast thanks to the loop above.
+            return false;
+        }
+        oggbs->currentBytePos += offset;
+
+        return true;
+    }
+}
 
 static bool drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
 {
@@ -3017,6 +3070,8 @@ static bool drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
         if (!drflac_ogg__read_page_header(oggbs->onRead, oggbs->pUserData, &header, &headerSize)) {
             return false;
         }
+        oggbs->currentBytePos += headerSize;
+
 
         size_t pageBodySize = drflac_ogg__get_page_body_size(&header);
 
@@ -3027,11 +3082,90 @@ static bool drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
         }
 
         // If we get here it means the page is not a FLAC page - skip it.
-        if (pageBodySize > 0 && !oggbs->onSeek(oggbs->pUserData, (int)pageBodySize, drflac_seek_origin_current)) {    // <-- Safe cast - maximum size of a page is way below that of an int.
+        if (pageBodySize > 0 && !drflac_oggbs__seek_physical(oggbs, pageBodySize, drflac_seek_origin_current)) {    // <-- Safe cast - maximum size of a page is way below that of an int.
             return false;
         }
     }
 }
+
+static uint8_t drflac_oggbs__get_current_segment_index(drflac_oggbs* oggbs, uint8_t* pBytesRemainingInSeg)
+{
+    uint32_t bytesConsumedInPage = drflac_ogg__get_page_body_size(&oggbs->currentPageHeader) - oggbs->bytesRemainingInPage;
+    uint8_t iSeg = 0;
+    uint32_t iByte = 0;
+    while (iByte < bytesConsumedInPage)
+    {
+        uint8_t segmentSize = oggbs->currentPageHeader.segmentTable[iSeg];
+        if (iByte + segmentSize > bytesConsumedInPage) {
+            break;
+        } else {
+            iSeg += 1;
+            iByte += segmentSize;
+        }
+    }
+
+    *pBytesRemainingInSeg = oggbs->currentPageHeader.segmentTable[iSeg] - (uint8_t)(bytesConsumedInPage - iByte);
+    return iSeg;
+}
+
+static bool drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
+{
+    // The current packet ends when we get to the segment with a lacing value of < 255 which is not at the end of a page.
+    for (;;)    // <-- Loop over pages.
+    {
+        bool atEndOfPage = false;
+
+        uint8_t bytesRemainingInSeg;
+        uint8_t iFirstSeg = drflac_oggbs__get_current_segment_index(oggbs, &bytesRemainingInSeg);
+
+        size_t bytesToEndOfPacketOrPage = bytesRemainingInSeg;
+        for (uint8_t iSeg = iFirstSeg; iSeg < oggbs->currentPageHeader.segmentCount; ++iSeg) {
+            uint8_t segmentSize = oggbs->currentPageHeader.segmentTable[iSeg];
+            if (segmentSize < 255) {
+                if (iSeg == oggbs->currentPageHeader.segmentCount-1) {
+                    atEndOfPage = true;
+                }
+
+                break;
+            }
+
+            bytesToEndOfPacketOrPage += segmentSize;
+        }
+
+        // At this point we will have found either the packet or the end of the page. If were at the end of the page we'll
+        // want to load the next page and keep searching for the end of the frame.
+        drflac_oggbs__seek_physical(oggbs, bytesToEndOfPacketOrPage, drflac_seek_origin_current);
+        oggbs->bytesRemainingInPage -= bytesToEndOfPacketOrPage;
+
+        if (atEndOfPage)
+        {
+            // We're potentially at the next packet, but we need to check the next page first to be sure because the packet may
+            // straddle pages.
+            if (!drflac_oggbs__goto_next_page(oggbs)) {
+                return false;
+            }
+
+            // If it's a fresh packet it most likely means we're at the next packet.
+            if ((oggbs->currentPageHeader.headerType & 0x01) == 0) {
+                return true;
+            }
+        }
+        else
+        {
+            // We're at the next frame.
+            return true;
+        }
+    }
+}
+
+static bool drflac_oggbs__seek_to_next_frame(drflac_oggbs* oggbs)
+{
+    // The bitstream should be sitting on the first byte just after the header of the frame.
+
+    // What we're actually doing here is seeking to the start of the next packet.
+    return drflac_oggbs__seek_to_next_packet(oggbs);
+}
+
 
 static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
@@ -3069,6 +3203,7 @@ static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytes
         }
     }
 
+    oggbs->currentBytePos += bytesRead;
     return bytesRead;
 }
 
@@ -3080,7 +3215,8 @@ static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin 
 
     // Seeking is always forward which makes things a lot simpler.
     if (origin == drflac_seek_origin_start) {
-        if (!oggbs->onSeek(oggbs->pUserData, (int)oggbs->firstBytePos + (79-42), drflac_seek_origin_start)) {   // 79 = size of bos page; 42 = size of FLAC header data. Seek up to the first byte of the native FLAC data.
+        int startBytePos = (int)oggbs->firstBytePos + (79-42);  // 79 = size of bos page; 42 = size of FLAC header data. Seek up to the first byte of the native FLAC data.
+        if (!drflac_oggbs__seek_physical(oggbs, startBytePos, drflac_seek_origin_start)) {
             return false;
         }
 
@@ -3100,17 +3236,18 @@ static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin 
         assert(bytesRemainingToSeek >= 0);
 
         if (oggbs->bytesRemainingInPage >= (size_t)bytesRemainingToSeek) {
-            if (!oggbs->onSeek(oggbs->pUserData, bytesRemainingToSeek, drflac_seek_origin_current)) {
+            if (!drflac_oggbs__seek_physical(oggbs, bytesRemainingToSeek, drflac_seek_origin_current)) {
                 return false;
             }
 
+            bytesSeeked += bytesRemainingToSeek;
             oggbs->bytesRemainingInPage -= bytesRemainingToSeek;
             break;
         }
 
         // If we get here it means some of the requested data is contained in the next pages.
         if (oggbs->bytesRemainingInPage > 0) {
-            if (!oggbs->onSeek(oggbs->pUserData, oggbs->bytesRemainingInPage, drflac_seek_origin_current)) {
+            if (!drflac_oggbs__seek_physical(oggbs, oggbs->bytesRemainingInPage, drflac_seek_origin_current)) {
                 return false;
             }
 
@@ -3124,6 +3261,131 @@ static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin 
     }
 
     return true;
+}
+
+bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
+{
+    drflac_oggbs* oggbs = (drflac_oggbs*)(((int32_t*)pFlac->pExtraData) + pFlac->maxBlockSize*pFlac->channels);
+
+    uint64_t originalBytePos = oggbs->currentBytePos;   // For recovery.
+
+    // First seek to the first frame.
+    if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos)) {
+        return false;
+    }
+    oggbs->bytesRemainingInPage = 0;
+
+    uint32_t debugCounter = 0;
+
+    uint64_t runningGranulePosition = 0;
+    uint64_t runningFrameBytePos = oggbs->currentBytePos;   // <-- Points to the OggS identifier.
+    for (;;)
+    {
+        if (!drflac_oggbs__goto_next_page(oggbs)) {
+            drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
+            return false;   // Never did find that sample...
+        }
+
+        uint64_t nextFrameBytePos = oggbs->currentBytePos - drflac_ogg__get_page_header_size(&oggbs->currentPageHeader);
+        if (oggbs->currentPageHeader.granulePosition*pFlac->channels >= sample) {
+            break; // The sample is somewhere in the previous page.
+        }
+
+
+        // At this point we know the sample is not in the previous page. It could possibly be in this page. For simplicity we
+        // disregard any pages that do not begin a fresh packet.
+        if ((oggbs->currentPageHeader.headerType & 0x01) == 0) {    // <-- Is it a fresh page?
+            if (oggbs->currentPageHeader.segmentTable[0] >= 2) {
+                uint8_t firstBytesInPage[2];
+                if (drflac_oggbs__read_physical(oggbs, firstBytesInPage, 2) != 2) {
+                    drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
+                    return false;
+                }
+                if ((firstBytesInPage[0] == 0xFF) && (firstBytesInPage[1] & 0xFC) == 0xF8) {    // <-- Does the page begin with a frame's sync code?
+                    runningGranulePosition = oggbs->currentPageHeader.granulePosition*pFlac->channels;
+                    runningFrameBytePos = nextFrameBytePos;
+                }
+
+                if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->bytesRemainingInPage-2, drflac_seek_origin_current)) {
+                    drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
+                    return false;
+                }
+
+                continue;
+            }
+        }
+
+        if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->bytesRemainingInPage, drflac_seek_origin_current)) {
+            drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
+            return false;
+        }
+    }
+
+
+    // We found the page that that is closest to the sample, so now we need to find it. The first thing to do is seek to the
+    // start of that page. In the loop above we checked that it was a fresh page which means this page is also the start of
+    // a new frame. This property means that after we've seeked to the page we can immediately start looping over frames until
+    // we find the one containing the target sample.
+    if (!drflac_oggbs__seek_physical(oggbs, runningFrameBytePos, drflac_seek_origin_start)) {
+        return false;
+    }
+    if (!drflac_oggbs__goto_next_page(oggbs)) {
+        return false;
+    }
+
+
+    // At this point we'll be sitting on the first byte of the frame header of the first frame in the page. We just keep
+    // looping over these frames until we find the one containing the sample we're after.
+    uint64_t firstSampleInFrame = runningGranulePosition;
+    for (;;)
+    {
+        // NOTE for later: When using Ogg's page/segment based seeking later on we can't use this function (or any drflac__* 
+        // reading functions) because otherwise it will pull extra data for use in it's own internal caches which will then
+        // break the positioning of the read pointer for the Ogg bitstream.
+        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+            return false;
+        }
+
+        int channels = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
+        uint64_t lastSampleInFrame = firstSampleInFrame + (pFlac->currentFrame.header.blockSize*channels);
+        lastSampleInFrame -= 1; // <-- Zero based.
+
+        if (sample >= firstSampleInFrame && sample <= lastSampleInFrame) {
+            break;  // The sample is in this frame.
+        }
+
+        
+        // If we get here it means the sample is not in this frame so we need to move to the next one. Now the cool thing
+        // with Ogg is that we can efficiently seek past the frame by looking at the lacing values of each segment in
+        // the page.
+        firstSampleInFrame = lastSampleInFrame+1;
+
+#if 1
+        // Slow way. This uses the native FLAC decoder to seek past the frame. This is slow because it needs to do a partial
+        // decode of the frame. Although this is how the native version works, we can use Ogg's framing system to make it
+        // more efficient. Leaving this here for reference and to use as a basis for debugging purposes.
+        if (!drflac__seek_to_next_frame(pFlac)) {
+            return false;
+        }
+#else
+        // TODO: This is not yet complete. See note at the top of this loop body.
+
+        // Fast(er) way. This uses Ogg's framing system to seek past the frame. This should be much more efficient than the
+        // native FLAC seeking.
+        if (!drflac_oggbs__seek_to_next_frame(oggbs)) {
+            return false;
+        }
+#endif
+    }
+
+    assert(firstSampleInFrame <= sample);
+
+    if (!drflac__decode_frame(pFlac)) {
+        return false;
+    }
+
+    size_t samplesToDecode = (size_t)(sample - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
+    return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;
 }
 
 
@@ -3373,8 +3635,9 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
         oggbs->onRead = onRead;
         oggbs->onSeek = onSeek;
         oggbs->pUserData = pUserData;
-        oggbs->serialNumber = init.oggSerial;
+        oggbs->currentBytePos = init.oggFirstBytePos;
         oggbs->firstBytePos = init.oggFirstBytePos;
+        oggbs->serialNumber = init.oggSerial;
         oggbs->bosPageHeader = init.oggBosHeader;
         oggbs->bytesRemainingInPage = 0;
 
@@ -3922,10 +4185,22 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
     }
 
 
-    // First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower.
-    if (!drflac__seek_to_sample__seek_table(pFlac, sampleIndex)) {
-        return drflac__seek_to_sample__brute_force(pFlac, sampleIndex);
+    // Different techniques depending on encapsulation. Using the native FLAC seektable with Ogg encapsulation is a bit awkward so
+    // we'll instead use Ogg's natural seeking facility.
+#ifndef DR_FLAC_NO_OGG
+    if (pFlac->container == drflac_container_ogg)
+    {
+        return drflac_ogg__seek_to_sample(pFlac, sampleIndex);
     }
+    else
+#endif
+    {
+        // First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower.
+        if (!drflac__seek_to_sample__seek_table(pFlac, sampleIndex)) {
+            return drflac__seek_to_sample__brute_force(pFlac, sampleIndex);
+        }
+    }
+    
 
     return true;
 }
