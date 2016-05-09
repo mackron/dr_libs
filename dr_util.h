@@ -1451,7 +1451,7 @@ bool dr_set_current_directory(const char* path)
 
 static void* dr_open_and_read_file_with_extra_data(const char* filePath, size_t* pFileSizeOut, size_t extraBytes)
 {
-    if (*pFileSizeOut) *pFileSizeOut = 0;   // For safety.
+    if (pFileSizeOut) *pFileSizeOut = 0;   // For safety.
 
     if (filePath == NULL) {
         return NULL;
@@ -1495,7 +1495,7 @@ static void* dr_open_and_read_file_with_extra_data(const char* filePath, size_t*
 
     fclose(pFile);
 
-    if (*pFileSizeOut) *pFileSizeOut = (size_t)fileSize;
+    if (pFileSizeOut) *pFileSizeOut = (size_t)fileSize;
     return pFileData;
 }
 
@@ -1506,7 +1506,7 @@ void* dr_open_and_read_file(const char* filePath, size_t* pFileSizeOut)
 
 char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut)
 {
-    if (*pFileSizeOut) *pFileSizeOut = 0;   // For safety.
+    if (pFileSizeOut) *pFileSizeOut = 0;   // For safety.
 
     size_t fileSize;
     char* pFileData = (char*)dr_open_and_read_file_with_extra_data(filePath, &fileSize, 1);     // <-- 1 extra byte for the null terminator.
@@ -1516,7 +1516,7 @@ char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut)
 
     pFileData[fileSize] = '\0';
 
-    if (*pFileSizeOut) *pFileSizeOut = fileSize;
+    if (pFileSizeOut) *pFileSizeOut = fileSize;
     return pFileData;
 }
 
