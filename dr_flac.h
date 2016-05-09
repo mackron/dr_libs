@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.2 - Release date TBD.
+// dr_flac - v0.2 - 09/05/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -4340,7 +4340,8 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 // REVISION HISTORY
 //
-// v0.2 - Release date TBD
+// v0.2 - 09/05/2016
+//   - Added support for Ogg encapsulation.
 //   - API CHANGE. Have the onSeek callback take a third argument which specifies whether or not the seek
 //     should be relative to the start or the current position. Also changes the seeking rules such that
 //     seeking offsets will never be negative.
