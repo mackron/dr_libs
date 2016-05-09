@@ -3275,8 +3275,6 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
     }
     oggbs->bytesRemainingInPage = 0;
 
-    uint32_t debugCounter = 0;
-
     uint64_t runningGranulePosition = 0;
     uint64_t runningFrameBytePos = oggbs->currentBytePos;   // <-- Points to the OggS identifier.
     for (;;)
