@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.2 - 09/05/2016
+// dr_flac - v0.2a - 10/05/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -97,7 +97,6 @@
 // - Perverse and erroneous files have not been tested. Again, if you know where I can get some test files let me know.
 // - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as you do your own synchronization.
 // - dr_flac does not currently do any CRC checks.
-// - Ogg encapsulation is not supported, but will be added in the future.
 
 #ifndef dr_flac_h
 #define dr_flac_h
@@ -518,16 +517,19 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
 
 // Opens a FLAC stream from the given callbacks and fully decodes it in a single operation. The return value is a
 // pointer to the sample data as interleaved signed 32-bit PCM. The returned data must be freed with drflac_free().
+//
+// Sometimes a FLAC file won't keep track of the total sample count. In this situation the function will continuously
+// read samples into a dynamically sized buffer on the heap until no samples are left.
+//
+// Do not call this function on a broadcast type of stream (like internet radio streams and whatnot).
 int32_t* drflac_open_and_decode(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
 
 #ifndef DR_FLAC_NO_STDIO
-// Opens a FLAC file and fully decodes it in a single operation. The return value is a pointer to the sample data
-// as interleaved signed 32-bit PCM. The returned data must be freed with drflac_free().
+// Same as drflac_open_and_decode() except opens the decoder from a file.
 int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
 #endif
 
-// Opens a FLAC file from a block of memory and fully decodes it in a single operation. The return value is a pointer
-// to the sample data as interleaved signed 32-bit PCM. The returned data must be freed with drflac_free().
+// Same as drflac_open_and_decode() except opens the decoder from a block of memory.
 int32_t* drflac_open_and_decode_memory(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
 
 // Frees data returned by drflac_open_and_decode_*().
@@ -4216,29 +4218,52 @@ int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRateOu
 
     if (totalSampleCount == 0)
     {
-        // TODO: Just keep looping over chunks and add continuously add it to an expanding buffer until the end of the stream has been reached.
-        drflac_close(pFlac);
-        return NULL;
+        int32_t buffer[4096];
+
+        size_t sampleDataBufferSize = sizeof(buffer);
+        pSampleData = malloc(sampleDataBufferSize);
+        if (pSampleData == NULL) {
+            goto on_error;
+        }
+        
+        uint64_t samplesRead;
+        while ((samplesRead = (uint64_t)drflac_read_s32(pFlac, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0)
+        {
+            if (((totalSampleCount + samplesRead) * sizeof(int32_t)) > sampleDataBufferSize) {
+                sampleDataBufferSize *= 2;
+                int32_t* pNewSampleData = realloc(pSampleData, sampleDataBufferSize);
+                if (pNewSampleData == NULL) {
+                    free(pSampleData);
+                    goto on_error;
+                }
+
+                pSampleData = pNewSampleData;
+            }
+
+            memcpy(pSampleData + totalSampleCount, buffer, (size_t)(samplesRead*sizeof(int32_t)));
+            totalSampleCount += samplesRead;
+        }
+
+        // At this point everything should be decoded, but we just want to fill the unused part buffer with silence - need to
+        // protect those ears from random noise!
+        memset(pSampleData + totalSampleCount, 0, (size_t)(sampleDataBufferSize - totalSampleCount*sizeof(int32_t)));
     }
     else
     {
-        uint64_t dataSize = pFlac->totalSampleCount * sizeof(int32_t);
+        uint64_t dataSize = totalSampleCount * sizeof(int32_t);
         if (dataSize > SIZE_MAX) {
-            drflac_close(pFlac);
-            return NULL;    // The decoded data is too big.
+            goto on_error;  // The decoded data is too big.
         }
 
         pSampleData = (int32_t*)malloc((size_t)dataSize);    // <-- Safe cast as per the check above.
         if (pSampleData == NULL) {
-            drflac_close(pFlac);
-            return NULL;
+            goto on_error;
         }
 
         uint64_t samplesDecoded = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSampleData);
         if (samplesDecoded != pFlac->totalSampleCount) {
-            drflac_close(pFlac);
             free(pSampleData);
-            return NULL;    // Something went wrong when decoding the FLAC stream.
+            goto on_error;  // Something went wrong when decoding the FLAC stream.
         }
     }
 
@@ -4249,6 +4274,10 @@ int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRateOu
 
     drflac_close(pFlac);
     return pSampleData;
+
+on_error:
+    drflac_close(pFlac);
+    return NULL;
 }
 
 int32_t* drflac_open_and_decode(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
@@ -4338,6 +4367,10 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 // REVISION HISTORY
 //
+// v0.2a - 10/05/2016
+//   - Made drflac_open_and_decode() more robust.
+//   - Removed an unused debugging variable
+//
 // v0.2 - 09/05/2016
 //   - Added support for Ogg encapsulation.
 //   - API CHANGE. Have the onSeek callback take a third argument which specifies whether or not the seek
@@ -4360,7 +4393,6 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 // TODO
 // - Add support for initializing the decoder without a header STREAMINFO block.
 // - Test CUESHEET metadata blocks.
-// - Add support for Ogg encapsulation.
 
 
 /*
