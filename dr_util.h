@@ -67,6 +67,7 @@ extern "C" {
 #include <string.h>
 #include <time.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifndef DRUTIL_NO_MSVC_COMPAT
 #include <errno.h>
@@ -365,6 +366,21 @@ const char* dr_get_current_directory(char* pathOut, size_t pathOutSize);
 
 /// Sets the current directory.
 bool dr_set_current_directory(const char* path);
+
+
+
+/////////////////////////////////////////////////////////
+// Basic File Management
+
+// Retrieves the file data of the given file. Free the returned pointer with dr_free_file_data().
+void* dr_open_and_read_file(const char* filePath, size_t* pFileSizeOut);
+
+// Retrieves the file data of the given file as a null terminated string. Free the returned pointer with dr_free_file_data(). The
+// returned file size is the length of the string not including the null terminator.
+char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut);
+
+// Frees the file data returned by dr_open_and_read_file().
+void dr_free_file_data(void* valueReturnedByOpenAndReadFile);
 
 
 /////////////////////////////////////////////////////////
@@ -1427,6 +1443,88 @@ bool dr_set_current_directory(const char* path)
     return chdir(path) == 0;
 }
 #endif
+
+
+
+/////////////////////////////////////////////////////////
+// Basic File Management
+
+static void* dr_open_and_read_file_with_extra_data(const char* filePath, size_t* pFileSizeOut, size_t extraBytes)
+{
+    if (*pFileSizeOut) *pFileSizeOut = 0;   // For safety.
+
+    if (filePath == NULL) {
+        return NULL;
+    }
+
+    // TODO: Use 64-bit versions of the FILE APIs.
+
+    FILE* pFile;
+#ifdef _MSC_VER
+    if (fopen_s(&pFile, filePath, "rb") != 0) {
+        return NULL;
+    }
+#else
+    pFile = fopen(filePath, "rb");
+    if (pFile == NULL) {
+        return NULL;
+    }
+#endif
+
+    fseek(pFile, 0, SEEK_END);
+    uint64_t fileSize = ftell(pFile);
+    fseek(pFile, 0, SEEK_SET);
+
+    if (fileSize + extraBytes > SIZE_MAX) {
+        fclose(pFile);
+        return NULL;    // File is too big.
+    }
+
+    void* pFileData = malloc((size_t)fileSize + extraBytes);    // <-- Safe cast due to the check above.
+    if (pFileData == NULL) {
+        fclose(pFile);
+        return NULL;    // Failed to allocate memory for the file. Good chance the file is too big.
+    }
+
+    size_t bytesRead = fread(pFileData, 1, (size_t)fileSize, pFile);
+    if (bytesRead != fileSize) {
+        free(pFileData);
+        fclose(pFile);
+        return NULL;    // Failed to read every byte from the file.
+    }
+
+    fclose(pFile);
+
+    if (*pFileSizeOut) *pFileSizeOut = (size_t)fileSize;
+    return pFileData;
+}
+
+void* dr_open_and_read_file(const char* filePath, size_t* pFileSizeOut)
+{
+    return dr_open_and_read_file_with_extra_data(filePath, pFileSizeOut, 0);
+}
+
+char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut)
+{
+    if (*pFileSizeOut) *pFileSizeOut = 0;   // For safety.
+
+    size_t fileSize;
+    char* pFileData = (char*)dr_open_and_read_file_with_extra_data(filePath, &fileSize, 1);     // <-- 1 extra byte for the null terminator.
+    if (pFileData == NULL) {
+        return NULL;
+    }
+
+    pFileData[fileSize] = '\0';
+
+    if (*pFileSizeOut) *pFileSizeOut = fileSize;
+    return pFileData;
+}
+
+void dr_free_file_data(void* valueReturnedByOpenAndReadFile)
+{
+    free(valueReturnedByOpenAndReadFile);
+}
+
 
 
 /////////////////////////////////////////////////////////
