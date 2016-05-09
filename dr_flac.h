@@ -815,6 +815,15 @@ static bool drflac__reload_cache(drflac_bs* bs)
     return true;
 }
 
+static void drflac__reset_cache(drflac_bs* bs)
+{
+    bs->nextL2Line   = DRFLAC_CACHE_L2_LINE_COUNT(bs);  // <-- This clears the L2 cache.
+    bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);   // <-- This clears the L1 cache.
+    bs->cache = 0;
+    bs->unalignedByteCount = 0;                         // <-- This clears the trailing unaligned bytes.
+    bs->unalignedCache = 0;
+}
+
 static bool drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
 {
     if (bitsToSeek <= DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
@@ -1118,10 +1127,8 @@ static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
     }
 
     
-    bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);
-    bs->cache = 0;
-    bs->nextL2Line = DRFLAC_CACHE_L2_LINE_COUNT(bs); // <-- This clears the L2 cache.
-
+    // The cache should be reset to force a reload of fresh data from the client.
+    drflac__reset_cache(bs);
     return true;
 }
 
@@ -2390,8 +2397,6 @@ static bool drflac__seek_to_first_frame(drflac* pFlac)
     assert(pFlac != NULL);
 
     bool result = drflac__seek_to_byte(&pFlac->bs, (long long)pFlac->firstFramePos);
-    pFlac->bs.consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(&pFlac->bs);
-    pFlac->bs.cache = 0;
 
     memset(&pFlac->currentFrame, 0, sizeof(pFlac->currentFrame));
     return result;
