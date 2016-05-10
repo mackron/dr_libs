@@ -1683,11 +1683,13 @@ static bool drflac__decode_samples_with_residual__rice(drflac_bs* bs, unsigned i
 
 
         decodedRice |= bitsLo;
-        if ((decodedRice & 0x01)) {
-            decodedRice = ~(decodedRice >> 1);
-        } else {
-            decodedRice = (decodedRice >> 1);
-        }
+        decodedRice = (decodedRice >> 1) ^ (~(decodedRice & 0x01) + 1);   // <-- Ah, much faster! :)
+        //if ((decodedRice & 0x01)) {
+        //    decodedRice = ~(decodedRice >> 1);
+        //} else {
+        //    decodedRice = (decodedRice >> 1);
+        //}
+        
 
 
         // In order to properly calculate the prediction when the bits per sample is >16 we need to do it using 64-bit arithmetic. We can assume this
