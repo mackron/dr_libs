@@ -1259,123 +1259,123 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(unsigned int order,
     long long prediction;
     if (order == 8)
     {
-        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
-        prediction += (long long)coefficients[4] * (long long)pDecodedSamples[-5];
-        prediction += (long long)coefficients[5] * (long long)pDecodedSamples[-6];
-        prediction += (long long)coefficients[6] * (long long)pDecodedSamples[-7];
-        prediction += (long long)coefficients[7] * (long long)pDecodedSamples[-8];
+        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction += coefficients[4] * (long long)pDecodedSamples[-5];
+        prediction += coefficients[5] * (long long)pDecodedSamples[-6];
+        prediction += coefficients[6] * (long long)pDecodedSamples[-7];
+        prediction += coefficients[7] * (long long)pDecodedSamples[-8];
     }
     else if (order == 7)
     {
-        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
-        prediction += (long long)coefficients[4] * (long long)pDecodedSamples[-5];
-        prediction += (long long)coefficients[5] * (long long)pDecodedSamples[-6];
-        prediction += (long long)coefficients[6] * (long long)pDecodedSamples[-7];
+        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction += coefficients[4] * (long long)pDecodedSamples[-5];
+        prediction += coefficients[5] * (long long)pDecodedSamples[-6];
+        prediction += coefficients[6] * (long long)pDecodedSamples[-7];
     }
     else if (order == 3)
     {
-        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
     }
     else if (order == 6)
     {
-        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
-        prediction += (long long)coefficients[4] * (long long)pDecodedSamples[-5];
-        prediction += (long long)coefficients[5] * (long long)pDecodedSamples[-6];
+        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction += coefficients[4] * (long long)pDecodedSamples[-5];
+        prediction += coefficients[5] * (long long)pDecodedSamples[-6];
     }
     else if (order == 5)
     {
-        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
-        prediction += (long long)coefficients[4] * (long long)pDecodedSamples[-5];
+        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction += coefficients[4] * (long long)pDecodedSamples[-5];
     }
     else if (order == 4)
     {
-        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += (long long)coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
     }
     else if (order == 12)
     {
-        prediction  = (long long)coefficients[0]  * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1]  * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2]  * (long long)pDecodedSamples[-3];
-        prediction += (long long)coefficients[3]  * (long long)pDecodedSamples[-4];
-        prediction += (long long)coefficients[4]  * (long long)pDecodedSamples[-5];
-        prediction += (long long)coefficients[5]  * (long long)pDecodedSamples[-6];
-        prediction += (long long)coefficients[6]  * (long long)pDecodedSamples[-7];
-        prediction += (long long)coefficients[7]  * (long long)pDecodedSamples[-8];
-        prediction += (long long)coefficients[8]  * (long long)pDecodedSamples[-9];
-        prediction += (long long)coefficients[9]  * (long long)pDecodedSamples[-10];
-        prediction += (long long)coefficients[10] * (long long)pDecodedSamples[-11];
-        prediction += (long long)coefficients[11] * (long long)pDecodedSamples[-12];
+        prediction  = coefficients[0]  * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1]  * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2]  * (long long)pDecodedSamples[-3];
+        prediction += coefficients[3]  * (long long)pDecodedSamples[-4];
+        prediction += coefficients[4]  * (long long)pDecodedSamples[-5];
+        prediction += coefficients[5]  * (long long)pDecodedSamples[-6];
+        prediction += coefficients[6]  * (long long)pDecodedSamples[-7];
+        prediction += coefficients[7]  * (long long)pDecodedSamples[-8];
+        prediction += coefficients[8]  * (long long)pDecodedSamples[-9];
+        prediction += coefficients[9]  * (long long)pDecodedSamples[-10];
+        prediction += coefficients[10] * (long long)pDecodedSamples[-11];
+        prediction += coefficients[11] * (long long)pDecodedSamples[-12];
     }
     else if (order == 2)
     {
-        prediction  = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
     }
     else if (order == 1)
     {
-        prediction = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction = coefficients[0] * (long long)pDecodedSamples[-1];
     }
     else if (order == 10)
     {
-        prediction  = (long long)coefficients[0]  * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1]  * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2]  * (long long)pDecodedSamples[-3];
-        prediction += (long long)coefficients[3]  * (long long)pDecodedSamples[-4];
-        prediction += (long long)coefficients[4]  * (long long)pDecodedSamples[-5];
-        prediction += (long long)coefficients[5]  * (long long)pDecodedSamples[-6];
-        prediction += (long long)coefficients[6]  * (long long)pDecodedSamples[-7];
-        prediction += (long long)coefficients[7]  * (long long)pDecodedSamples[-8];
-        prediction += (long long)coefficients[8]  * (long long)pDecodedSamples[-9];
-        prediction += (long long)coefficients[9]  * (long long)pDecodedSamples[-10];
+        prediction  = coefficients[0]  * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1]  * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2]  * (long long)pDecodedSamples[-3];
+        prediction += coefficients[3]  * (long long)pDecodedSamples[-4];
+        prediction += coefficients[4]  * (long long)pDecodedSamples[-5];
+        prediction += coefficients[5]  * (long long)pDecodedSamples[-6];
+        prediction += coefficients[6]  * (long long)pDecodedSamples[-7];
+        prediction += coefficients[7]  * (long long)pDecodedSamples[-8];
+        prediction += coefficients[8]  * (long long)pDecodedSamples[-9];
+        prediction += coefficients[9]  * (long long)pDecodedSamples[-10];
     }
     else if (order == 9)
     {
-        prediction  = (long long)coefficients[0]  * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1]  * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2]  * (long long)pDecodedSamples[-3];
-        prediction += (long long)coefficients[3]  * (long long)pDecodedSamples[-4];
-        prediction += (long long)coefficients[4]  * (long long)pDecodedSamples[-5];
-        prediction += (long long)coefficients[5]  * (long long)pDecodedSamples[-6];
-        prediction += (long long)coefficients[6]  * (long long)pDecodedSamples[-7];
-        prediction += (long long)coefficients[7]  * (long long)pDecodedSamples[-8];
-        prediction += (long long)coefficients[8]  * (long long)pDecodedSamples[-9];
+        prediction  = coefficients[0]  * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1]  * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2]  * (long long)pDecodedSamples[-3];
+        prediction += coefficients[3]  * (long long)pDecodedSamples[-4];
+        prediction += coefficients[4]  * (long long)pDecodedSamples[-5];
+        prediction += coefficients[5]  * (long long)pDecodedSamples[-6];
+        prediction += coefficients[6]  * (long long)pDecodedSamples[-7];
+        prediction += coefficients[7]  * (long long)pDecodedSamples[-8];
+        prediction += coefficients[8]  * (long long)pDecodedSamples[-9];
     }
     else if (order == 11)
     {
-        prediction  = (long long)coefficients[0]  * (long long)pDecodedSamples[-1];
-        prediction += (long long)coefficients[1]  * (long long)pDecodedSamples[-2];
-        prediction += (long long)coefficients[2]  * (long long)pDecodedSamples[-3];
-        prediction += (long long)coefficients[3]  * (long long)pDecodedSamples[-4];
-        prediction += (long long)coefficients[4]  * (long long)pDecodedSamples[-5];
-        prediction += (long long)coefficients[5]  * (long long)pDecodedSamples[-6];
-        prediction += (long long)coefficients[6]  * (long long)pDecodedSamples[-7];
-        prediction += (long long)coefficients[7]  * (long long)pDecodedSamples[-8];
-        prediction += (long long)coefficients[8]  * (long long)pDecodedSamples[-9];
-        prediction += (long long)coefficients[9]  * (long long)pDecodedSamples[-10];
-        prediction += (long long)coefficients[10] * (long long)pDecodedSamples[-11];
+        prediction  = coefficients[0]  * (long long)pDecodedSamples[-1];
+        prediction += coefficients[1]  * (long long)pDecodedSamples[-2];
+        prediction += coefficients[2]  * (long long)pDecodedSamples[-3];
+        prediction += coefficients[3]  * (long long)pDecodedSamples[-4];
+        prediction += coefficients[4]  * (long long)pDecodedSamples[-5];
+        prediction += coefficients[5]  * (long long)pDecodedSamples[-6];
+        prediction += coefficients[6]  * (long long)pDecodedSamples[-7];
+        prediction += coefficients[7]  * (long long)pDecodedSamples[-8];
+        prediction += coefficients[8]  * (long long)pDecodedSamples[-9];
+        prediction += coefficients[9]  * (long long)pDecodedSamples[-10];
+        prediction += coefficients[10] * (long long)pDecodedSamples[-11];
     }
     else
     {
         prediction = 0;
         for (int j = 0; j < (int)order; ++j) {
-            prediction += (long long)coefficients[j] * (long long)pDecodedSamples[-j-1];
+            prediction += coefficients[j] * (long long)pDecodedSamples[-j-1];
         }
     }
 #endif
@@ -1387,38 +1387,38 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(unsigned int order,
 
     switch (order)
     {
-    case 32: prediction += (long long)coefficients[31] * (long long)pDecodedSamples[-32];
-    case 31: prediction += (long long)coefficients[30] * (long long)pDecodedSamples[-31];
-    case 30: prediction += (long long)coefficients[29] * (long long)pDecodedSamples[-30];
-    case 29: prediction += (long long)coefficients[28] * (long long)pDecodedSamples[-29];
-    case 28: prediction += (long long)coefficients[27] * (long long)pDecodedSamples[-28];
-    case 27: prediction += (long long)coefficients[26] * (long long)pDecodedSamples[-27];
-    case 26: prediction += (long long)coefficients[25] * (long long)pDecodedSamples[-26];
-    case 25: prediction += (long long)coefficients[24] * (long long)pDecodedSamples[-25];
-    case 24: prediction += (long long)coefficients[23] * (long long)pDecodedSamples[-24];
-    case 23: prediction += (long long)coefficients[22] * (long long)pDecodedSamples[-23];
-    case 22: prediction += (long long)coefficients[21] * (long long)pDecodedSamples[-22];
-    case 21: prediction += (long long)coefficients[20] * (long long)pDecodedSamples[-21];
-    case 20: prediction += (long long)coefficients[19] * (long long)pDecodedSamples[-20];
-    case 19: prediction += (long long)coefficients[18] * (long long)pDecodedSamples[-19];
-    case 18: prediction += (long long)coefficients[17] * (long long)pDecodedSamples[-18];
-    case 17: prediction += (long long)coefficients[16] * (long long)pDecodedSamples[-17];
-    case 16: prediction += (long long)coefficients[15] * (long long)pDecodedSamples[-16];
-    case 15: prediction += (long long)coefficients[14] * (long long)pDecodedSamples[-15];
-    case 14: prediction += (long long)coefficients[13] * (long long)pDecodedSamples[-14];
-    case 13: prediction += (long long)coefficients[12] * (long long)pDecodedSamples[-13];
-    case 12: prediction += (long long)coefficients[11] * (long long)pDecodedSamples[-12];
-    case 11: prediction += (long long)coefficients[10] * (long long)pDecodedSamples[-11];
-    case 10: prediction += (long long)coefficients[ 9] * (long long)pDecodedSamples[-10];
-    case  9: prediction += (long long)coefficients[ 8] * (long long)pDecodedSamples[- 9];
-    case  8: prediction += (long long)coefficients[ 7] * (long long)pDecodedSamples[- 8];
-    case  7: prediction += (long long)coefficients[ 6] * (long long)pDecodedSamples[- 7];
-    case  6: prediction += (long long)coefficients[ 5] * (long long)pDecodedSamples[- 6];
-    case  5: prediction += (long long)coefficients[ 4] * (long long)pDecodedSamples[- 5];
-    case  4: prediction += (long long)coefficients[ 3] * (long long)pDecodedSamples[- 4];
-    case  3: prediction += (long long)coefficients[ 2] * (long long)pDecodedSamples[- 3];
-    case  2: prediction += (long long)coefficients[ 1] * (long long)pDecodedSamples[- 2];
-    case  1: prediction += (long long)coefficients[ 0] * (long long)pDecodedSamples[- 1];
+    case 32: prediction += coefficients[31] * (long long)pDecodedSamples[-32];
+    case 31: prediction += coefficients[30] * (long long)pDecodedSamples[-31];
+    case 30: prediction += coefficients[29] * (long long)pDecodedSamples[-30];
+    case 29: prediction += coefficients[28] * (long long)pDecodedSamples[-29];
+    case 28: prediction += coefficients[27] * (long long)pDecodedSamples[-28];
+    case 27: prediction += coefficients[26] * (long long)pDecodedSamples[-27];
+    case 26: prediction += coefficients[25] * (long long)pDecodedSamples[-26];
+    case 25: prediction += coefficients[24] * (long long)pDecodedSamples[-25];
+    case 24: prediction += coefficients[23] * (long long)pDecodedSamples[-24];
+    case 23: prediction += coefficients[22] * (long long)pDecodedSamples[-23];
+    case 22: prediction += coefficients[21] * (long long)pDecodedSamples[-22];
+    case 21: prediction += coefficients[20] * (long long)pDecodedSamples[-21];
+    case 20: prediction += coefficients[19] * (long long)pDecodedSamples[-20];
+    case 19: prediction += coefficients[18] * (long long)pDecodedSamples[-19];
+    case 18: prediction += coefficients[17] * (long long)pDecodedSamples[-18];
+    case 17: prediction += coefficients[16] * (long long)pDecodedSamples[-17];
+    case 16: prediction += coefficients[15] * (long long)pDecodedSamples[-16];
+    case 15: prediction += coefficients[14] * (long long)pDecodedSamples[-15];
+    case 14: prediction += coefficients[13] * (long long)pDecodedSamples[-14];
+    case 13: prediction += coefficients[12] * (long long)pDecodedSamples[-13];
+    case 12: prediction += coefficients[11] * (long long)pDecodedSamples[-12];
+    case 11: prediction += coefficients[10] * (long long)pDecodedSamples[-11];
+    case 10: prediction += coefficients[ 9] * (long long)pDecodedSamples[-10];
+    case  9: prediction += coefficients[ 8] * (long long)pDecodedSamples[- 9];
+    case  8: prediction += coefficients[ 7] * (long long)pDecodedSamples[- 8];
+    case  7: prediction += coefficients[ 6] * (long long)pDecodedSamples[- 7];
+    case  6: prediction += coefficients[ 5] * (long long)pDecodedSamples[- 6];
+    case  5: prediction += coefficients[ 4] * (long long)pDecodedSamples[- 5];
+    case  4: prediction += coefficients[ 3] * (long long)pDecodedSamples[- 4];
+    case  3: prediction += coefficients[ 2] * (long long)pDecodedSamples[- 3];
+    case  2: prediction += coefficients[ 1] * (long long)pDecodedSamples[- 2];
+    case  1: prediction += coefficients[ 0] * (long long)pDecodedSamples[- 1];
     }
 #endif
 
