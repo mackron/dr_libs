@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.2a - 10/05/2016
+// dr_flac - v0.2b - 10/05/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -2957,7 +2957,7 @@ static DRFLAC_INLINE uint32_t drflac_ogg__get_page_body_size(drflac_ogg_page_hea
     return pageBodySize;
 }
 
-bool drflac_ogg__read_page_header_after_capture_pattern(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, size_t* pHeaderSize)
+bool drflac_ogg__read_page_header_after_capture_pattern(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, uint32_t* pHeaderSize)
 {
     if (onRead(pUserData, &pHeader->structureVersion, 1) != 1 || pHeader->structureVersion != 0) {
         return false;   // Unknown structure version. Possibly corrupt stream.
@@ -2988,7 +2988,7 @@ bool drflac_ogg__read_page_header_after_capture_pattern(drflac_read_proc onRead,
     return true;
 }
 
-bool drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, size_t* pHeaderSize)
+bool drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, uint32_t* pHeaderSize)
 {
     uint8_t id[4];
     if (onRead(pUserData, id, 4) != 4) {
@@ -3018,7 +3018,7 @@ typedef struct
     uint32_t serialNumber;      // The serial number of the FLAC audio pages. This is determined by the initial header page that was read during initialization.
     drflac_ogg_page_header bosPageHeader;   // Used for seeking.
     drflac_ogg_page_header currentPageHeader;
-    size_t bytesRemainingInPage;
+    uint32_t bytesRemainingInPage;
 } drflac_oggbs; // oggbs = Ogg Bitstream
 
 static size_t drflac_oggbs__read_physical(drflac_oggbs* oggbs, void* bufferOut, size_t bytesToRead)
@@ -3073,14 +3073,14 @@ static bool drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
     drflac_ogg_page_header header;
     for (;;)
     {
-        size_t headerSize;
+        uint32_t headerSize;
         if (!drflac_ogg__read_page_header(oggbs->onRead, oggbs->pUserData, &header, &headerSize)) {
             return false;
         }
         oggbs->currentBytePos += headerSize;
 
 
-        size_t pageBodySize = drflac_ogg__get_page_body_size(&header);
+        uint32_t pageBodySize = drflac_ogg__get_page_body_size(&header);
 
         if (header.serialNumber == oggbs->serialNumber) {
             oggbs->currentPageHeader = header;
@@ -3125,7 +3125,7 @@ static bool drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
         uint8_t bytesRemainingInSeg;
         uint8_t iFirstSeg = drflac_oggbs__get_current_segment_index(oggbs, &bytesRemainingInSeg);
 
-        size_t bytesToEndOfPacketOrPage = bytesRemainingInSeg;
+        uint32_t bytesToEndOfPacketOrPage = bytesRemainingInSeg;
         for (uint8_t iSeg = iFirstSeg; iSeg < oggbs->currentPageHeader.segmentCount; ++iSeg) {
             uint8_t segmentSize = oggbs->currentPageHeader.segmentTable[iSeg];
             if (segmentSize < 255) {
@@ -3189,7 +3189,7 @@ static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytes
 
         if (oggbs->bytesRemainingInPage >= bytesRemainingToRead) {
             bytesRead += oggbs->onRead(oggbs->pUserData, pRunningBufferOut, bytesRemainingToRead);
-            oggbs->bytesRemainingInPage -= bytesRemainingToRead;
+            oggbs->bytesRemainingInPage -= (uint32_t)bytesRemainingToRead;
             break;
         }
 
@@ -3291,7 +3291,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
             return false;   // Never did find that sample...
         }
 
-        uint64_t nextFrameBytePos = oggbs->currentBytePos - drflac_ogg__get_page_header_size(&oggbs->currentPageHeader);
+        runningFrameBytePos = oggbs->currentBytePos - drflac_ogg__get_page_header_size(&oggbs->currentPageHeader);
         if (oggbs->currentPageHeader.granulePosition*pFlac->channels >= sample) {
             break; // The sample is somewhere in the previous page.
         }
@@ -3308,7 +3308,6 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
                 }
                 if ((firstBytesInPage[0] == 0xFF) && (firstBytesInPage[1] & 0xFC) == 0xF8) {    // <-- Does the page begin with a frame's sync code?
                     runningGranulePosition = oggbs->currentPageHeader.granulePosition*pFlac->channels;
-                    runningFrameBytePos = nextFrameBytePos;
                 }
 
                 if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->bytesRemainingInPage-2, drflac_seek_origin_current)) {
@@ -3406,7 +3405,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
     // any match the FLAC specification. Important to keep in mind that the stream may be multiplexed.
     drflac_ogg_page_header header;
 
-    size_t headerSize;
+    uint32_t headerSize;
     if (!drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, &header, &headerSize)) {
         return false;
     }
@@ -4371,6 +4370,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 // REVISION HISTORY
+//
+// v0.2b - 10/05/2016
+//   - Bug fixes.
 //
 // v0.2a - 10/05/2016
 //   - Made drflac_open_and_decode() more robust.
