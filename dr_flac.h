@@ -1408,7 +1408,7 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_32(unsigned int order,
     return (int32_t)(prediction >> shift);
 }
 
-static DRFLAC_INLINE int32_t drflac__calculate_prediction(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
+static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
 {
     assert(order <= 32);
 
@@ -1591,116 +1591,116 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction(unsigned int order, in
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 //
 // This is the most frequently called function in the library. It does both the Rice decoding and the prediction in a single loop
-// iteration.
-static bool drflac__decode_samples_with_residual__rice(drflac_bs* bs, unsigned int bitsPerSample, unsigned int count, unsigned char riceParam, unsigned int order, int shift, const short* coefficients, int32_t* pSamplesOut)
-{
-    assert(bs != NULL);
-    assert(count > 0);
-    assert(pSamplesOut != NULL);
+// iteration. The prediction is done at the end, and there's an annoying branch I'd like to avoid so the main function is defined
+// a #define - sue me!
+#define DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(funcName, predictionFunc)                                                                                  \
+static bool funcName (drflac_bs* bs, unsigned int count, unsigned char riceParam, unsigned int order, int shift, const short* coefficients, int32_t* pSamplesOut)   \
+{                                                                                                                                                                   \
+    assert(bs != NULL);                                                                                                                                             \
+    assert(count > 0);                                                                                                                                              \
+    assert(pSamplesOut != NULL);                                                                                                                                    \
+                                                                                                                                                                    \
+    static unsigned int bitOffsetTable[] = {                                                                                                                        \
+        0,                                                                                                                                                          \
+        4,                                                                                                                                                          \
+        3, 3,                                                                                                                                                       \
+        2, 2, 2, 2,                                                                                                                                                 \
+        1, 1, 1, 1, 1, 1, 1, 1                                                                                                                                      \
+    };                                                                                                                                                              \
+                                                                                                                                                                    \
+    drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);                                                                                       \
+    drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceParam;                                                                                       \
+                                                                                                                                                                    \
+    for (int i = 0; i < (int)count; ++i)                                                                                                                            \
+    {                                                                                                                                                               \
+        unsigned int zeroCounter = 0;                                                                                                                               \
+        while (bs->cache == 0) {                                                                                                                                    \
+            zeroCounter += (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING(bs);                                                                                        \
+            if (!drflac__reload_cache(bs)) {                                                                                                                        \
+                return false;                                                                                                                                       \
+            }                                                                                                                                                       \
+        }                                                                                                                                                           \
+                                                                                                                                                                    \
+        /* At this point the cache should not be zero, in which case we know the first set bit should be somewhere in here. There is                                \
+           no need for us to perform any cache reloading logic here which should make things much faster. */                                                        \
+        assert(bs->cache != 0);                                                                                                                                     \
+        unsigned int decodedRice;                                                                                                                                   \
+                                                                                                                                                                    \
+        unsigned int setBitOffsetPlus1 = bitOffsetTable[DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, 4)];                                                                   \
+        if (setBitOffsetPlus1 > 0) {                                                                                                                                \
+            decodedRice = (zeroCounter + (setBitOffsetPlus1-1)) << riceParam;                                                                                       \
+        } else {                                                                                                                                                    \
+            if (bs->cache == 1) {                                                                                                                                   \
+                setBitOffsetPlus1 = DRFLAC_CACHE_L1_SIZE_BITS(bs);                                                                                                  \
+                decodedRice = (zeroCounter + (DRFLAC_CACHE_L1_SIZE_BITS(bs)-1)) << riceParam;                                                                       \
+            } else {                                                                                                                                                \
+                setBitOffsetPlus1 = 5;                                                                                                                              \
+                for (;;)                                                                                                                                            \
+                {                                                                                                                                                   \
+                    if ((bs->cache & DRFLAC_CACHE_L1_SELECT(bs, setBitOffsetPlus1))) {                                                                              \
+                        decodedRice = (zeroCounter + (setBitOffsetPlus1-1)) << riceParam;                                                                           \
+                        break;                                                                                                                                      \
+                    }                                                                                                                                               \
+                                                                                                                                                                    \
+                    setBitOffsetPlus1 += 1;                                                                                                                         \
+                }                                                                                                                                                   \
+            }                                                                                                                                                       \
+        }                                                                                                                                                           \
+                                                                                                                                                                    \
+                                                                                                                                                                    \
+        unsigned int bitsLo = 0;                                                                                                                                    \
+        unsigned int riceLength = setBitOffsetPlus1 + riceParam;                                                                                                    \
+        if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs))                                                                                                        \
+        {                                                                                                                                                           \
+            bitsLo = (unsigned int)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceLength));                            \
+                                                                                                                                                                    \
+            bs->consumedBits += riceLength;                                                                                                                         \
+            bs->cache <<= riceLength;                                                                                                                               \
+        }                                                                                                                                                           \
+        else                                                                                                                                                        \
+        {                                                                                                                                                           \
+            bs->consumedBits += riceLength;                                                                                                                         \
+            bs->cache <<= setBitOffsetPlus1;                                                                                                                        \
+                                                                                                                                                                    \
+            /* It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them. */                \
+            size_t bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);                                                                                   \
+            drflac_cache_t resultHi = bs->cache & riceParamMask;    /* <-- This mask is OK because all bits after the first bits are always zero. */                \
+                                                                                                                                                                    \
+                                                                                                                                                                    \
+            if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {                                                                                                  \
+                bs->cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);                                                                             \
+            } else {                                                                                                                                                \
+                /* Slow path. We need to fetch more data from the client. */                                                                                        \
+                if (!drflac__reload_cache(bs)) {                                                                                                                    \
+                    return false;                                                                                                                                   \
+                }                                                                                                                                                   \
+            }                                                                                                                                                       \
+                                                                                                                                                                    \
+            bitsLo = (unsigned int)((resultHi >> resultHiShift) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountLo));                                                \
+            bs->consumedBits = bitCountLo;                                                                                                                          \
+            bs->cache <<= bitCountLo;                                                                                                                               \
+        }                                                                                                                                                           \
+                                                                                                                                                                    \
+        decodedRice |= bitsLo;                                                                                                                                      \
+        decodedRice = (decodedRice >> 1) ^ (~(decodedRice & 0x01) + 1);   /* <-- Ah, much faster! :) */                                                             \
+        /*                                                                                                                                                          \
+        if ((decodedRice & 0x01)) {                                                                                                                                 \
+            decodedRice = ~(decodedRice >> 1);                                                                                                                      \
+        } else {                                                                                                                                                    \
+            decodedRice = (decodedRice >> 1);                                                                                                                       \
+        }                                                                                                                                                           \
+        */                                                                                                                                                          \
+                                                                                                                                                                    \
+        /* In order to properly calculate the prediction when the bits per sample is >16 we need to do it using 64-bit arithmetic. We can assume this               \
+           is probably going to be slower on 32-bit systems so we'll do a more optimized 32-bit version when the bits per sample is low enough.*/                   \
+        pSamplesOut[i] = ((int)decodedRice + predictionFunc(order, shift, coefficients, pSamplesOut + i));                                                          \
+    }                                                                                                                                                               \
+                                                                                                                                                                    \
+    return true;                                                                                                                                                    \
+}                                                                                                                                                                   \
 
-    static unsigned int bitOffsetTable[] = {
-        0,
-        4,
-        3, 3,
-        2, 2, 2, 2,
-        1, 1, 1, 1, 1, 1, 1, 1
-    };
-
-    drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
-    drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceParam;
-
-    for (int i = 0; i < (int)count; ++i)
-    {
-        unsigned int zeroCounter = 0;
-        while (bs->cache == 0) {
-            zeroCounter += (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
-            if (!drflac__reload_cache(bs)) {
-                return false;
-            }
-        }
-
-        // At this point the cache should not be zero, in which case we know the first set bit should be somewhere in here. There is
-        // no need for us to perform any cache reloading logic here which should make things much faster.
-        assert(bs->cache != 0);
-        unsigned int decodedRice;
-
-        unsigned int setBitOffsetPlus1 = bitOffsetTable[DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, 4)];
-        if (setBitOffsetPlus1 > 0) {
-            decodedRice = (zeroCounter + (setBitOffsetPlus1-1)) << riceParam;
-        } else {
-            if (bs->cache == 1) {
-                setBitOffsetPlus1 = DRFLAC_CACHE_L1_SIZE_BITS(bs);
-                decodedRice = (zeroCounter + (DRFLAC_CACHE_L1_SIZE_BITS(bs)-1)) << riceParam;
-            } else {
-                setBitOffsetPlus1 = 5;
-                for (;;)
-                {
-                    if ((bs->cache & DRFLAC_CACHE_L1_SELECT(bs, setBitOffsetPlus1))) {
-                        decodedRice = (zeroCounter + (setBitOffsetPlus1-1)) << riceParam;
-                        break;
-                    }
-
-                    setBitOffsetPlus1 += 1;
-                }
-            }
-        }
-
-
-        unsigned int bitsLo = 0;
-        unsigned int riceLength = setBitOffsetPlus1 + riceParam;
-        if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs))
-        {
-            bitsLo = (unsigned int)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceLength));
-
-            bs->consumedBits += riceLength;
-            bs->cache <<= riceLength;
-        }
-        else
-        {
-            bs->consumedBits += riceLength;
-            bs->cache <<= setBitOffsetPlus1;
-
-            // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
-            size_t bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
-            drflac_cache_t resultHi = bs->cache & riceParamMask;    // <-- This mask is OK because all bits after the first bits are always zero.
-
-
-            if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
-                bs->cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
-            } else {
-                // Slow path. We need to fetch more data from the client.
-                if (!drflac__reload_cache(bs)) {
-                    return false;
-                }
-            }
-
-            bitsLo = (unsigned int)((resultHi >> resultHiShift) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountLo));
-            bs->consumedBits = bitCountLo;
-            bs->cache <<= bitCountLo;
-        }
-
-
-        decodedRice |= bitsLo;
-        decodedRice = (decodedRice >> 1) ^ (~(decodedRice & 0x01) + 1);   // <-- Ah, much faster! :)
-        //if ((decodedRice & 0x01)) {
-        //    decodedRice = ~(decodedRice >> 1);
-        //} else {
-        //    decodedRice = (decodedRice >> 1);
-        //}
-        
-
-
-        // In order to properly calculate the prediction when the bits per sample is >16 we need to do it using 64-bit arithmetic. We can assume this
-        // is probably going to be slower on 32-bit systems so we'll do a more optimized 32-bit version when the bits per sample is low enough.
-        if (bitsPerSample > 16) {
-            pSamplesOut[i] = ((int)decodedRice + drflac__calculate_prediction(order, shift, coefficients, pSamplesOut + i));
-        } else {
-            pSamplesOut[i] = ((int)decodedRice + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i));
-        }
-    }
-
-    return true;
-}
+DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(drflac__decode_samples_with_residual__rice_64, drflac__calculate_prediction_64)
+DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(drflac__decode_samples_with_residual__rice_32, drflac__calculate_prediction_32)
 
 
 // Reads and seeks past a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
@@ -1732,7 +1732,7 @@ static bool drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, unsig
         }
 
         if (bitsPerSample > 16) {
-            pSamplesOut[i] += drflac__calculate_prediction(order, shift, coefficients, pSamplesOut + i);
+            pSamplesOut[i] += drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i);
         } else {
             pSamplesOut[i] += drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i);
         }
@@ -1792,8 +1792,14 @@ static bool drflac__decode_samples_with_residual(drflac_bs* bs, unsigned int bit
         }
 
         if (riceParam != 0xFF) {
-            if (!drflac__decode_samples_with_residual__rice(bs, bitsPerSample, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
-                return false;
+            if (bitsPerSample > 16) {
+                if (!drflac__decode_samples_with_residual__rice_64(bs, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
+                    return false;
+                }
+            } else {
+                if (!drflac__decode_samples_with_residual__rice_32(bs, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
+                    return false;
+                }
             }
         } else {
             unsigned char unencodedBitsPerSample = 0;
