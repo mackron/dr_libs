@@ -928,9 +928,8 @@ static bool drflac__read_int32(drflac_bs* bs, unsigned int bitCount, int32_t* pR
         return false;
     }
 
-    if ((result & (1 << (bitCount - 1)))) {  // TODO: See if we can get rid of this branch.
-        result |= (-1 << bitCount);
-    }
+    uint32_t signbit = ((result >> (bitCount-1)) & 0x01);
+    result |= (~signbit + 1) << bitCount;
 
     *pResult = (int32_t)result;
     return true;
@@ -966,9 +965,8 @@ static bool drflac__read_int64(drflac_bs* bs, unsigned int bitCount, int64_t* pR
         return false;
     }
 
-    if ((result & (1ULL << (bitCount - 1)))) {  // TODO: See if we can get rid of this branch.
-        result |= (-1LL << bitCount);
-    }
+    uint64_t signbit = ((result >> (bitCount-1)) & 0x01);
+    result |= (~signbit + 1) << bitCount;
 
     *pResultOut = (int64_t)result;
     return true;
