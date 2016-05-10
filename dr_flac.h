@@ -1200,167 +1200,13 @@ static DRFLAC_INLINE bool drflac__read_and_seek_rice(drflac_bs* bs, unsigned cha
 //
 // When the bits per sample is >16 we need to use 64-bit integer arithmetic because otherwise we'll run out of precision. It's
 // safe to assume this will be slower on 32-bit platforms so we use a more optimal solution when the bits per sample is <=16.
-//
-//
-// Optimization Experiment #1
-//
-// The first optimization experiment I'm trying here is a loop unroll for the most common LPC orders. I've done a little test
-// and the results are as follows, in order of most common:
-// 1)  order = 8  : 93.1M
-// 2)  order = 7  : 36.6M
-// 3)  order = 3  : 33.2M
-// 4)  order = 6  : 20.9M
-// 5)  order = 5  : 18.1M
-// 6)  order = 4  : 15.8M
-// 7)  order = 12 : 10.8M
-// 8)  order = 2  :  9.8M
-// 9)  order = 1  :  1.6M
-// 10) order = 10 :  1.0M
-// 11) order = 9  :  0.8M
-// 12) order = 11 :  0.8M
-//
-// We'll experiment with unrolling the top 8 most common ones. We'll ignore the least common ones since there seems to be a
-// large drop off there.
-//
-// Result: There's a tiny improvement in some cases, but it could just be within margin of error so unsure if it's worthwhile
-// just yet.
 static DRFLAC_INLINE int32_t drflac__calculate_prediction_32(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
 {
     assert(order <= 32);
 
     // 32-bit version.
 
-    // This method is slower on both 32- and 64-bit builds with VC++. Leaving this here for now just in case we need it later
-    // for whatever reason.
-#if 0
-    int prediction;
-    if (order == 8)
-    {
-        prediction  = coefficients[0] * pDecodedSamples[-1];
-        prediction += coefficients[1] * pDecodedSamples[-2];
-        prediction += coefficients[2] * pDecodedSamples[-3];
-        prediction += coefficients[3] * pDecodedSamples[-4];
-        prediction += coefficients[4] * pDecodedSamples[-5];
-        prediction += coefficients[5] * pDecodedSamples[-6];
-        prediction += coefficients[6] * pDecodedSamples[-7];
-        prediction += coefficients[7] * pDecodedSamples[-8];
-    }
-    else if (order == 7)
-    {
-        prediction  = coefficients[0] * pDecodedSamples[-1];
-        prediction += coefficients[1] * pDecodedSamples[-2];
-        prediction += coefficients[2] * pDecodedSamples[-3];
-        prediction += coefficients[3] * pDecodedSamples[-4];
-        prediction += coefficients[4] * pDecodedSamples[-5];
-        prediction += coefficients[5] * pDecodedSamples[-6];
-        prediction += coefficients[6] * pDecodedSamples[-7];
-    }
-    else if (order == 3)
-    {
-        prediction  = coefficients[0] * pDecodedSamples[-1];
-        prediction += coefficients[1] * pDecodedSamples[-2];
-        prediction += coefficients[2] * pDecodedSamples[-3];
-    }
-    else if (order == 6)
-    {
-        prediction  = coefficients[0] * pDecodedSamples[-1];
-        prediction += coefficients[1] * pDecodedSamples[-2];
-        prediction += coefficients[2] * pDecodedSamples[-3];
-        prediction += coefficients[3] * pDecodedSamples[-4];
-        prediction += coefficients[4] * pDecodedSamples[-5];
-        prediction += coefficients[5] * pDecodedSamples[-6];
-    }
-    else if (order == 5)
-    {
-        prediction  = coefficients[0] * pDecodedSamples[-1];
-        prediction += coefficients[1] * pDecodedSamples[-2];
-        prediction += coefficients[2] * pDecodedSamples[-3];
-        prediction += coefficients[3] * pDecodedSamples[-4];
-        prediction += coefficients[4] * pDecodedSamples[-5];
-    }
-    else if (order == 4)
-    {
-        prediction  = coefficients[0] * pDecodedSamples[-1];
-        prediction += coefficients[1] * pDecodedSamples[-2];
-        prediction += coefficients[2] * pDecodedSamples[-3];
-        prediction += coefficients[3] * pDecodedSamples[-4];
-    }
-    else if (order == 12)
-    {
-        prediction  = coefficients[0]  * pDecodedSamples[-1];
-        prediction += coefficients[1]  * pDecodedSamples[-2];
-        prediction += coefficients[2]  * pDecodedSamples[-3];
-        prediction += coefficients[3]  * pDecodedSamples[-4];
-        prediction += coefficients[4]  * pDecodedSamples[-5];
-        prediction += coefficients[5]  * pDecodedSamples[-6];
-        prediction += coefficients[6]  * pDecodedSamples[-7];
-        prediction += coefficients[7]  * pDecodedSamples[-8];
-        prediction += coefficients[8]  * pDecodedSamples[-9];
-        prediction += coefficients[9]  * pDecodedSamples[-10];
-        prediction += coefficients[10] * pDecodedSamples[-11];
-        prediction += coefficients[11] * pDecodedSamples[-12];
-    }
-    else if (order == 2)
-    {
-        prediction  = coefficients[0] * pDecodedSamples[-1];
-        prediction += coefficients[1] * pDecodedSamples[-2];
-    }
-    else if (order == 1)
-    {
-        prediction = (long long)coefficients[0] * (long long)pDecodedSamples[-1];
-    }
-    else if (order == 10)
-    {
-        prediction  = coefficients[0]  * pDecodedSamples[-1];
-        prediction += coefficients[1]  * pDecodedSamples[-2];
-        prediction += coefficients[2]  * pDecodedSamples[-3];
-        prediction += coefficients[3]  * pDecodedSamples[-4];
-        prediction += coefficients[4]  * pDecodedSamples[-5];
-        prediction += coefficients[5]  * pDecodedSamples[-6];
-        prediction += coefficients[6]  * pDecodedSamples[-7];
-        prediction += coefficients[7]  * pDecodedSamples[-8];
-        prediction += coefficients[8]  * pDecodedSamples[-9];
-        prediction += coefficients[9]  * pDecodedSamples[-10];
-    }
-    else if (order == 9)
-    {
-        prediction  = coefficients[0]  * pDecodedSamples[-1];
-        prediction += coefficients[1]  * pDecodedSamples[-2];
-        prediction += coefficients[2]  * pDecodedSamples[-3];
-        prediction += coefficients[3]  * pDecodedSamples[-4];
-        prediction += coefficients[4]  * pDecodedSamples[-5];
-        prediction += coefficients[5]  * pDecodedSamples[-6];
-        prediction += coefficients[6]  * pDecodedSamples[-7];
-        prediction += coefficients[7]  * pDecodedSamples[-8];
-        prediction += coefficients[8]  * pDecodedSamples[-9];
-    }
-    else if (order == 11)
-    {
-        prediction  = coefficients[0]  * pDecodedSamples[-1];
-        prediction += coefficients[1]  * pDecodedSamples[-2];
-        prediction += coefficients[2]  * pDecodedSamples[-3];
-        prediction += coefficients[3]  * pDecodedSamples[-4];
-        prediction += coefficients[4]  * pDecodedSamples[-5];
-        prediction += coefficients[5]  * pDecodedSamples[-6];
-        prediction += coefficients[6]  * pDecodedSamples[-7];
-        prediction += coefficients[7]  * pDecodedSamples[-8];
-        prediction += coefficients[8]  * pDecodedSamples[-9];
-        prediction += coefficients[9]  * pDecodedSamples[-10];
-        prediction += coefficients[10] * pDecodedSamples[-11];
-    }
-    else
-    {
-        prediction = 0;
-        for (int j = 0; j < (int)order; ++j) {
-            prediction += coefficients[j] * pDecodedSamples[-j-1];
-        }
-    }
-#endif
-
-    // Experiment #2. See if we can use a switch and let the compiler optimize it to a jump table.
-    // Result: VC++ definitely optimizes this to a single jmp as expected. I expect other compilers should do the same, but I've
-    // not verified yet.
-#if 1
+    // VC++ optimizes this to a single jmp. I've not yet verified this for other compilers.
     int prediction = 0;
 
     switch (order)
@@ -1398,7 +1244,6 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_32(unsigned int order,
     case  2: prediction += coefficients[ 1] * pDecodedSamples[- 2];
     case  1: prediction += coefficients[ 0] * pDecodedSamples[- 1];
     }
-#endif
 
     return (int32_t)(prediction >> shift);
 }
@@ -1535,10 +1380,8 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(unsigned int order,
     }
 #endif
 
-    // Experiment #2. See if we can use a switch and let the compiler optimize it to a single jmp instruction.
-    // Result: VC++ optimizes this to a single jmp on the 64-bit build, but for some reason the 32-bit version compiles to less efficient
-    // code. Thus, we use this version on the 64-bit build and the uglier version above for the 32-bit build. If anyone has an idea on how
-    // I can get VC++ to generate an efficient jump table for the 32-bit build let me know.
+    // VC++ optimizes this to a single jmp instruction, but only the 64-bit build. The 32-bit build generates less efficient code for some
+    // reason. The ugly version above is faster so we'll just switch between the two depending on the target platform.
 #ifdef DRFLAC_64BIT
     long long prediction = 0;
 
