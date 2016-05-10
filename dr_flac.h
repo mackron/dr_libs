@@ -86,17 +86,17 @@
 //
 //
 // QUICK NOTES
-// - Based on my tests, the 32-bit build is about about 1.1x-1.25x slower than the reference implementation. The 64-bit build is
-//   at about parity.
-// - dr_flac should work fine with valid native FLAC files, but for network based streams and whatnot it won't work if the header
-//   and STREAMINFO block is unavailable.
+// - Based on my tests, the performance of the 32-bit build is at about parity with the than the reference implementation. The
+//   64-bit build is slightly faster.
+// - dr_flac does not currently do any CRC checks.
+// - dr_flac should work fine with valid native FLAC files, but for broadcast streams it won't work if the header and STREAMINFO
+//   block is unavailable.
 // - Audio data is output as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
 // - This has not been tested on big-endian architectures.
 // - Rice codes in unencoded binary form (see https://xiph.org/flac/format.html#rice_partition) has not been tested. If anybody
 //   knows where I can find some test files for this, let me know.
 // - Perverse and erroneous files have not been tested. Again, if you know where I can get some test files let me know.
 // - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as you do your own synchronization.
-// - dr_flac does not currently do any CRC checks.
 
 #ifndef dr_flac_h
 #define dr_flac_h
@@ -445,11 +445,6 @@ typedef struct
 
     // A pointer to the decoded sample data. This is an offset of pExtraData.
     int32_t* pDecodedSamples;
-
-
-#ifndef DR_FLAC_OGG
-    uint32_t oggSerial; // Only used with Ogg streams.
-#endif
 
     // Variable length extra data. We attach this to the end of the object so we avoid unnecessary mallocs.
     uint8_t pExtraData[1];
@@ -4376,6 +4371,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 // REVISION HISTORY
+//
+// v0.3 - 
+//   - Optimizations. Now at about parity with the reference implementation on 32-bit builds.
 //
 // v0.2b - 10/05/2016
 //   - Bug fixes.
