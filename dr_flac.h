@@ -1163,7 +1163,7 @@ static bool drflac__read_utf8_coded_number(drflac_bs* bs, uint64_t* pNumberOut)
     // Read extra bytes.
     assert(byteCount > 1);
 
-    unsigned long long result = ((long long)(utf8[0] & (0xFF >> (byteCount + 1))));
+    uint64_t result = (uint64_t)(utf8[0] & (0xFF >> (byteCount + 1)));
     for (int i = 1; i < byteCount; ++i) {
         if (!drflac__read_uint8(bs, 8, utf8 + i)) {
             *pNumberOut = 0;
@@ -1179,7 +1179,7 @@ static bool drflac__read_utf8_coded_number(drflac_bs* bs, uint64_t* pNumberOut)
 
 
 
-static DRFLAC_INLINE bool drflac__read_and_seek_rice(drflac_bs* bs, unsigned char m)
+static DRFLAC_INLINE bool drflac__read_and_seek_rice(drflac_bs* bs, uint8_t m)
 {
     unsigned int unused;
     if (!drflac__seek_past_next_set_bit(bs, &unused)) {
@@ -1200,14 +1200,14 @@ static DRFLAC_INLINE bool drflac__read_and_seek_rice(drflac_bs* bs, unsigned cha
 //
 // When the bits per sample is >16 we need to use 64-bit integer arithmetic because otherwise we'll run out of precision. It's
 // safe to assume this will be slower on 32-bit platforms so we use a more optimal solution when the bits per sample is <=16.
-static DRFLAC_INLINE int32_t drflac__calculate_prediction_32(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
+static DRFLAC_INLINE int32_t drflac__calculate_prediction_32(uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pDecodedSamples)
 {
     assert(order <= 32);
 
     // 32-bit version.
 
     // VC++ optimizes this to a single jmp. I've not yet verified this for other compilers.
-    int prediction = 0;
+    int32_t prediction = 0;
 
     switch (order)
     {
@@ -1248,7 +1248,7 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_32(unsigned int order,
     return (int32_t)(prediction >> shift);
 }
 
-static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
+static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pDecodedSamples)
 {
     assert(order <= 32);
 
@@ -1256,126 +1256,126 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(unsigned int order,
 
     // This method is faster on the 32-bit build when compiling with VC++. See note below.
 #ifndef DRFLAC_64BIT
-    long long prediction;
+    int64_t prediction;
     if (order == 8)
     {
-        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
-        prediction += coefficients[4] * (long long)pDecodedSamples[-5];
-        prediction += coefficients[5] * (long long)pDecodedSamples[-6];
-        prediction += coefficients[6] * (long long)pDecodedSamples[-7];
-        prediction += coefficients[7] * (long long)pDecodedSamples[-8];
+        prediction  = coefficients[0] * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1] * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2] * (int64_t)pDecodedSamples[-3];
+        prediction += coefficients[3] * (int64_t)pDecodedSamples[-4];
+        prediction += coefficients[4] * (int64_t)pDecodedSamples[-5];
+        prediction += coefficients[5] * (int64_t)pDecodedSamples[-6];
+        prediction += coefficients[6] * (int64_t)pDecodedSamples[-7];
+        prediction += coefficients[7] * (int64_t)pDecodedSamples[-8];
     }
     else if (order == 7)
     {
-        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
-        prediction += coefficients[4] * (long long)pDecodedSamples[-5];
-        prediction += coefficients[5] * (long long)pDecodedSamples[-6];
-        prediction += coefficients[6] * (long long)pDecodedSamples[-7];
+        prediction  = coefficients[0] * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1] * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2] * (int64_t)pDecodedSamples[-3];
+        prediction += coefficients[3] * (int64_t)pDecodedSamples[-4];
+        prediction += coefficients[4] * (int64_t)pDecodedSamples[-5];
+        prediction += coefficients[5] * (int64_t)pDecodedSamples[-6];
+        prediction += coefficients[6] * (int64_t)pDecodedSamples[-7];
     }
     else if (order == 3)
     {
-        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
+        prediction  = coefficients[0] * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1] * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2] * (int64_t)pDecodedSamples[-3];
     }
     else if (order == 6)
     {
-        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
-        prediction += coefficients[4] * (long long)pDecodedSamples[-5];
-        prediction += coefficients[5] * (long long)pDecodedSamples[-6];
+        prediction  = coefficients[0] * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1] * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2] * (int64_t)pDecodedSamples[-3];
+        prediction += coefficients[3] * (int64_t)pDecodedSamples[-4];
+        prediction += coefficients[4] * (int64_t)pDecodedSamples[-5];
+        prediction += coefficients[5] * (int64_t)pDecodedSamples[-6];
     }
     else if (order == 5)
     {
-        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
-        prediction += coefficients[4] * (long long)pDecodedSamples[-5];
+        prediction  = coefficients[0] * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1] * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2] * (int64_t)pDecodedSamples[-3];
+        prediction += coefficients[3] * (int64_t)pDecodedSamples[-4];
+        prediction += coefficients[4] * (int64_t)pDecodedSamples[-5];
     }
     else if (order == 4)
     {
-        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2] * (long long)pDecodedSamples[-3];
-        prediction += coefficients[3] * (long long)pDecodedSamples[-4];
+        prediction  = coefficients[0] * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1] * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2] * (int64_t)pDecodedSamples[-3];
+        prediction += coefficients[3] * (int64_t)pDecodedSamples[-4];
     }
     else if (order == 12)
     {
-        prediction  = coefficients[0]  * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1]  * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2]  * (long long)pDecodedSamples[-3];
-        prediction += coefficients[3]  * (long long)pDecodedSamples[-4];
-        prediction += coefficients[4]  * (long long)pDecodedSamples[-5];
-        prediction += coefficients[5]  * (long long)pDecodedSamples[-6];
-        prediction += coefficients[6]  * (long long)pDecodedSamples[-7];
-        prediction += coefficients[7]  * (long long)pDecodedSamples[-8];
-        prediction += coefficients[8]  * (long long)pDecodedSamples[-9];
-        prediction += coefficients[9]  * (long long)pDecodedSamples[-10];
-        prediction += coefficients[10] * (long long)pDecodedSamples[-11];
-        prediction += coefficients[11] * (long long)pDecodedSamples[-12];
+        prediction  = coefficients[0]  * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1]  * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2]  * (int64_t)pDecodedSamples[-3];
+        prediction += coefficients[3]  * (int64_t)pDecodedSamples[-4];
+        prediction += coefficients[4]  * (int64_t)pDecodedSamples[-5];
+        prediction += coefficients[5]  * (int64_t)pDecodedSamples[-6];
+        prediction += coefficients[6]  * (int64_t)pDecodedSamples[-7];
+        prediction += coefficients[7]  * (int64_t)pDecodedSamples[-8];
+        prediction += coefficients[8]  * (int64_t)pDecodedSamples[-9];
+        prediction += coefficients[9]  * (int64_t)pDecodedSamples[-10];
+        prediction += coefficients[10] * (int64_t)pDecodedSamples[-11];
+        prediction += coefficients[11] * (int64_t)pDecodedSamples[-12];
     }
     else if (order == 2)
     {
-        prediction  = coefficients[0] * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1] * (long long)pDecodedSamples[-2];
+        prediction  = coefficients[0] * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1] * (int64_t)pDecodedSamples[-2];
     }
     else if (order == 1)
     {
-        prediction = coefficients[0] * (long long)pDecodedSamples[-1];
+        prediction = coefficients[0] * (int64_t)pDecodedSamples[-1];
     }
     else if (order == 10)
     {
-        prediction  = coefficients[0]  * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1]  * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2]  * (long long)pDecodedSamples[-3];
-        prediction += coefficients[3]  * (long long)pDecodedSamples[-4];
-        prediction += coefficients[4]  * (long long)pDecodedSamples[-5];
-        prediction += coefficients[5]  * (long long)pDecodedSamples[-6];
-        prediction += coefficients[6]  * (long long)pDecodedSamples[-7];
-        prediction += coefficients[7]  * (long long)pDecodedSamples[-8];
-        prediction += coefficients[8]  * (long long)pDecodedSamples[-9];
-        prediction += coefficients[9]  * (long long)pDecodedSamples[-10];
+        prediction  = coefficients[0]  * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1]  * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2]  * (int64_t)pDecodedSamples[-3];
+        prediction += coefficients[3]  * (int64_t)pDecodedSamples[-4];
+        prediction += coefficients[4]  * (int64_t)pDecodedSamples[-5];
+        prediction += coefficients[5]  * (int64_t)pDecodedSamples[-6];
+        prediction += coefficients[6]  * (int64_t)pDecodedSamples[-7];
+        prediction += coefficients[7]  * (int64_t)pDecodedSamples[-8];
+        prediction += coefficients[8]  * (int64_t)pDecodedSamples[-9];
+        prediction += coefficients[9]  * (int64_t)pDecodedSamples[-10];
     }
     else if (order == 9)
     {
-        prediction  = coefficients[0]  * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1]  * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2]  * (long long)pDecodedSamples[-3];
-        prediction += coefficients[3]  * (long long)pDecodedSamples[-4];
-        prediction += coefficients[4]  * (long long)pDecodedSamples[-5];
-        prediction += coefficients[5]  * (long long)pDecodedSamples[-6];
-        prediction += coefficients[6]  * (long long)pDecodedSamples[-7];
-        prediction += coefficients[7]  * (long long)pDecodedSamples[-8];
-        prediction += coefficients[8]  * (long long)pDecodedSamples[-9];
+        prediction  = coefficients[0]  * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1]  * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2]  * (int64_t)pDecodedSamples[-3];
+        prediction += coefficients[3]  * (int64_t)pDecodedSamples[-4];
+        prediction += coefficients[4]  * (int64_t)pDecodedSamples[-5];
+        prediction += coefficients[5]  * (int64_t)pDecodedSamples[-6];
+        prediction += coefficients[6]  * (int64_t)pDecodedSamples[-7];
+        prediction += coefficients[7]  * (int64_t)pDecodedSamples[-8];
+        prediction += coefficients[8]  * (int64_t)pDecodedSamples[-9];
     }
     else if (order == 11)
     {
-        prediction  = coefficients[0]  * (long long)pDecodedSamples[-1];
-        prediction += coefficients[1]  * (long long)pDecodedSamples[-2];
-        prediction += coefficients[2]  * (long long)pDecodedSamples[-3];
-        prediction += coefficients[3]  * (long long)pDecodedSamples[-4];
-        prediction += coefficients[4]  * (long long)pDecodedSamples[-5];
-        prediction += coefficients[5]  * (long long)pDecodedSamples[-6];
-        prediction += coefficients[6]  * (long long)pDecodedSamples[-7];
-        prediction += coefficients[7]  * (long long)pDecodedSamples[-8];
-        prediction += coefficients[8]  * (long long)pDecodedSamples[-9];
-        prediction += coefficients[9]  * (long long)pDecodedSamples[-10];
-        prediction += coefficients[10] * (long long)pDecodedSamples[-11];
+        prediction  = coefficients[0]  * (int64_t)pDecodedSamples[-1];
+        prediction += coefficients[1]  * (int64_t)pDecodedSamples[-2];
+        prediction += coefficients[2]  * (int64_t)pDecodedSamples[-3];
+        prediction += coefficients[3]  * (int64_t)pDecodedSamples[-4];
+        prediction += coefficients[4]  * (int64_t)pDecodedSamples[-5];
+        prediction += coefficients[5]  * (int64_t)pDecodedSamples[-6];
+        prediction += coefficients[6]  * (int64_t)pDecodedSamples[-7];
+        prediction += coefficients[7]  * (int64_t)pDecodedSamples[-8];
+        prediction += coefficients[8]  * (int64_t)pDecodedSamples[-9];
+        prediction += coefficients[9]  * (int64_t)pDecodedSamples[-10];
+        prediction += coefficients[10] * (int64_t)pDecodedSamples[-11];
     }
     else
     {
         prediction = 0;
         for (int j = 0; j < (int)order; ++j) {
-            prediction += coefficients[j] * (long long)pDecodedSamples[-j-1];
+            prediction += coefficients[j] * (int64_t)pDecodedSamples[-j-1];
         }
     }
 #endif
@@ -1383,42 +1383,42 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(unsigned int order,
     // VC++ optimizes this to a single jmp instruction, but only the 64-bit build. The 32-bit build generates less efficient code for some
     // reason. The ugly version above is faster so we'll just switch between the two depending on the target platform.
 #ifdef DRFLAC_64BIT
-    long long prediction = 0;
+    int64_t prediction = 0;
 
     switch (order)
     {
-    case 32: prediction += coefficients[31] * (long long)pDecodedSamples[-32];
-    case 31: prediction += coefficients[30] * (long long)pDecodedSamples[-31];
-    case 30: prediction += coefficients[29] * (long long)pDecodedSamples[-30];
-    case 29: prediction += coefficients[28] * (long long)pDecodedSamples[-29];
-    case 28: prediction += coefficients[27] * (long long)pDecodedSamples[-28];
-    case 27: prediction += coefficients[26] * (long long)pDecodedSamples[-27];
-    case 26: prediction += coefficients[25] * (long long)pDecodedSamples[-26];
-    case 25: prediction += coefficients[24] * (long long)pDecodedSamples[-25];
-    case 24: prediction += coefficients[23] * (long long)pDecodedSamples[-24];
-    case 23: prediction += coefficients[22] * (long long)pDecodedSamples[-23];
-    case 22: prediction += coefficients[21] * (long long)pDecodedSamples[-22];
-    case 21: prediction += coefficients[20] * (long long)pDecodedSamples[-21];
-    case 20: prediction += coefficients[19] * (long long)pDecodedSamples[-20];
-    case 19: prediction += coefficients[18] * (long long)pDecodedSamples[-19];
-    case 18: prediction += coefficients[17] * (long long)pDecodedSamples[-18];
-    case 17: prediction += coefficients[16] * (long long)pDecodedSamples[-17];
-    case 16: prediction += coefficients[15] * (long long)pDecodedSamples[-16];
-    case 15: prediction += coefficients[14] * (long long)pDecodedSamples[-15];
-    case 14: prediction += coefficients[13] * (long long)pDecodedSamples[-14];
-    case 13: prediction += coefficients[12] * (long long)pDecodedSamples[-13];
-    case 12: prediction += coefficients[11] * (long long)pDecodedSamples[-12];
-    case 11: prediction += coefficients[10] * (long long)pDecodedSamples[-11];
-    case 10: prediction += coefficients[ 9] * (long long)pDecodedSamples[-10];
-    case  9: prediction += coefficients[ 8] * (long long)pDecodedSamples[- 9];
-    case  8: prediction += coefficients[ 7] * (long long)pDecodedSamples[- 8];
-    case  7: prediction += coefficients[ 6] * (long long)pDecodedSamples[- 7];
-    case  6: prediction += coefficients[ 5] * (long long)pDecodedSamples[- 6];
-    case  5: prediction += coefficients[ 4] * (long long)pDecodedSamples[- 5];
-    case  4: prediction += coefficients[ 3] * (long long)pDecodedSamples[- 4];
-    case  3: prediction += coefficients[ 2] * (long long)pDecodedSamples[- 3];
-    case  2: prediction += coefficients[ 1] * (long long)pDecodedSamples[- 2];
-    case  1: prediction += coefficients[ 0] * (long long)pDecodedSamples[- 1];
+    case 32: prediction += coefficients[31] * (int64_t)pDecodedSamples[-32];
+    case 31: prediction += coefficients[30] * (int64_t)pDecodedSamples[-31];
+    case 30: prediction += coefficients[29] * (int64_t)pDecodedSamples[-30];
+    case 29: prediction += coefficients[28] * (int64_t)pDecodedSamples[-29];
+    case 28: prediction += coefficients[27] * (int64_t)pDecodedSamples[-28];
+    case 27: prediction += coefficients[26] * (int64_t)pDecodedSamples[-27];
+    case 26: prediction += coefficients[25] * (int64_t)pDecodedSamples[-26];
+    case 25: prediction += coefficients[24] * (int64_t)pDecodedSamples[-25];
+    case 24: prediction += coefficients[23] * (int64_t)pDecodedSamples[-24];
+    case 23: prediction += coefficients[22] * (int64_t)pDecodedSamples[-23];
+    case 22: prediction += coefficients[21] * (int64_t)pDecodedSamples[-22];
+    case 21: prediction += coefficients[20] * (int64_t)pDecodedSamples[-21];
+    case 20: prediction += coefficients[19] * (int64_t)pDecodedSamples[-20];
+    case 19: prediction += coefficients[18] * (int64_t)pDecodedSamples[-19];
+    case 18: prediction += coefficients[17] * (int64_t)pDecodedSamples[-18];
+    case 17: prediction += coefficients[16] * (int64_t)pDecodedSamples[-17];
+    case 16: prediction += coefficients[15] * (int64_t)pDecodedSamples[-16];
+    case 15: prediction += coefficients[14] * (int64_t)pDecodedSamples[-15];
+    case 14: prediction += coefficients[13] * (int64_t)pDecodedSamples[-14];
+    case 13: prediction += coefficients[12] * (int64_t)pDecodedSamples[-13];
+    case 12: prediction += coefficients[11] * (int64_t)pDecodedSamples[-12];
+    case 11: prediction += coefficients[10] * (int64_t)pDecodedSamples[-11];
+    case 10: prediction += coefficients[ 9] * (int64_t)pDecodedSamples[-10];
+    case  9: prediction += coefficients[ 8] * (int64_t)pDecodedSamples[- 9];
+    case  8: prediction += coefficients[ 7] * (int64_t)pDecodedSamples[- 8];
+    case  7: prediction += coefficients[ 6] * (int64_t)pDecodedSamples[- 7];
+    case  6: prediction += coefficients[ 5] * (int64_t)pDecodedSamples[- 6];
+    case  5: prediction += coefficients[ 4] * (int64_t)pDecodedSamples[- 5];
+    case  4: prediction += coefficients[ 3] * (int64_t)pDecodedSamples[- 4];
+    case  3: prediction += coefficients[ 2] * (int64_t)pDecodedSamples[- 3];
+    case  2: prediction += coefficients[ 1] * (int64_t)pDecodedSamples[- 2];
+    case  1: prediction += coefficients[ 0] * (int64_t)pDecodedSamples[- 1];
     }
 #endif
 
@@ -1432,7 +1432,7 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(unsigned int order,
 // iteration. The prediction is done at the end, and there's an annoying branch I'd like to avoid so the main function is defined
 // a #define - sue me!
 #define DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(funcName, predictionFunc)                                                                                  \
-static bool funcName (drflac_bs* bs, unsigned int count, unsigned char riceParam, unsigned int order, int shift, const short* coefficients, int32_t* pSamplesOut)   \
+static bool funcName (drflac_bs* bs, uint32_t count, uint8_t riceParam, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pSamplesOut)           \
 {                                                                                                                                                                   \
     assert(bs != NULL);                                                                                                                                             \
     assert(count > 0);                                                                                                                                              \
@@ -1542,12 +1542,12 @@ DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(drflac__decode_samples_with_res
 
 
 // Reads and seeks past a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
-static bool drflac__read_and_seek_residual__rice(drflac_bs* bs, unsigned int count, unsigned char riceParam)
+static bool drflac__read_and_seek_residual__rice(drflac_bs* bs, uint32_t count, uint8_t riceParam)
 {
     assert(bs != NULL);
     assert(count > 0);
 
-    for (unsigned int i = 0; i < count; ++i) {
+    for (uint32_t i = 0; i < count; ++i) {
         if (!drflac__read_and_seek_rice(bs, riceParam)) {
             return false;
         }
@@ -1556,7 +1556,7 @@ static bool drflac__read_and_seek_residual__rice(drflac_bs* bs, unsigned int cou
     return true;
 }
 
-static bool drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, unsigned int bitsPerSample, unsigned int count, unsigned char unencodedBitsPerSample, unsigned int order, int shift, const short* coefficients, int32_t* pSamplesOut)
+static bool drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, uint32_t bitsPerSample, uint32_t count, uint8_t unencodedBitsPerSample, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pSamplesOut)
 {
     assert(bs != NULL);
     assert(count > 0);
@@ -1583,13 +1583,13 @@ static bool drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, unsig
 // Reads and decodes the residual for the sub-frame the decoder is currently sitting on. This function should be called
 // when the decoder is sitting at the very start of the RESIDUAL block. The first <order> residuals will be ignored. The
 // <blockSize> and <order> parameters are used to determine how many residual values need to be decoded.
-static bool drflac__decode_samples_with_residual(drflac_bs* bs, unsigned int bitsPerSample, unsigned int blockSize, unsigned int order, int shift, const short* coefficients, int32_t* pDecodedSamples)
+static bool drflac__decode_samples_with_residual(drflac_bs* bs, uint32_t bitsPerSample, uint32_t blockSize, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pDecodedSamples)
 {
     assert(bs != NULL);
     assert(blockSize != 0);
     assert(pDecodedSamples != NULL);       // <-- Should we allow NULL, in which case we just seek past the residual rather than do a full decode?
 
-    unsigned char residualMethod;
+    uint8_t residualMethod;
     if (!drflac__read_uint8(bs, 2, &residualMethod)) {
         return false;
     }
@@ -1602,17 +1602,17 @@ static bool drflac__decode_samples_with_residual(drflac_bs* bs, unsigned int bit
     pDecodedSamples += order;
 
 
-    unsigned char partitionOrder;
+    uint8_t partitionOrder;
     if (!drflac__read_uint8(bs, 4, &partitionOrder)) {
         return false;
     }
 
 
-    unsigned int samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
-    unsigned int partitionsRemaining = (1 << partitionOrder);
+    uint32_t samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
+    uint32_t partitionsRemaining = (1 << partitionOrder);
     for (;;)
     {
-        unsigned char riceParam = 0;
+        uint8_t riceParam = 0;
         if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE) {
             if (!drflac__read_uint8(bs, 4, &riceParam)) {
                 return false;
@@ -1667,12 +1667,12 @@ static bool drflac__decode_samples_with_residual(drflac_bs* bs, unsigned int bit
 // Reads and seeks past the residual for the sub-frame the decoder is currently sitting on. This function should be called
 // when the decoder is sitting at the very start of the RESIDUAL block. The first <order> residuals will be set to 0. The
 // <blockSize> and <order> parameters are used to determine how many residual values need to be decoded.
-static bool drflac__read_and_seek_residual(drflac_bs* bs, unsigned int blockSize, unsigned int order)
+static bool drflac__read_and_seek_residual(drflac_bs* bs, uint32_t blockSize, uint32_t order)
 {
     assert(bs != NULL);
     assert(blockSize != 0);
 
-    unsigned char residualMethod;
+    uint8_t residualMethod;
     if (!drflac__read_uint8(bs, 2, &residualMethod)) {
         return false;
     }
@@ -1681,16 +1681,16 @@ static bool drflac__read_and_seek_residual(drflac_bs* bs, unsigned int blockSize
         return false;    // Unknown or unsupported residual coding method.
     }
 
-    unsigned char partitionOrder;
+    uint8_t partitionOrder;
     if (!drflac__read_uint8(bs, 4, &partitionOrder)) {
         return false;
     }
 
-    unsigned int samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
-    unsigned int partitionsRemaining = (1 << partitionOrder);
+    uint32_t samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
+    uint32_t partitionsRemaining = (1 << partitionOrder);
     for (;;)
     {
-        unsigned char riceParam = 0;
+        uint8_t riceParam = 0;
         if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE) {
             if (!drflac__read_uint8(bs, 4, &riceParam)) {
                 return false;
@@ -1845,10 +1845,10 @@ static bool drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBits
     // At the moment the sync code is as a form of basic validation. The CRC is stored, but is unused at the moment. This
     // should probably be handled better in the future.
 
-    const int sampleRateTable[12]       = {0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000};
+    const uint32_t sampleRateTable[12]  = {0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000};
     const uint8_t bitsPerSampleTable[8] = {0, 8, 12, (uint8_t)-1, 16, 20, 24, (uint8_t)-1};   // -1 = reserved.
 
-    unsigned short syncCode = 0;
+    uint16_t syncCode = 0;
     if (!drflac__read_uint16(bs, 14, &syncCode)) {
         return false;
     }
@@ -1858,34 +1858,34 @@ static bool drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBits
         return false;
     }
 
-    unsigned char reserved;
+    uint8_t reserved;
     if (!drflac__read_uint8(bs, 1, &reserved)) {
         return false;
     }
 
-    unsigned char blockingStrategy = 0;
+    uint8_t blockingStrategy = 0;
     if (!drflac__read_uint8(bs, 1, &blockingStrategy)) {
         return false;
     }
 
 
 
-    unsigned char blockSize = 0;
+    uint8_t blockSize = 0;
     if (!drflac__read_uint8(bs, 4, &blockSize)) {
         return false;
     }
 
-    unsigned char sampleRate = 0;
+    uint8_t sampleRate = 0;
     if (!drflac__read_uint8(bs, 4, &sampleRate)) {
         return false;
     }
 
-    unsigned char channelAssignment = 0;
+    uint8_t channelAssignment = 0;
     if (!drflac__read_uint8(bs, 4, &channelAssignment)) {
         return false;
     }
 
-    unsigned char bitsPerSample = 0;
+    uint8_t bitsPerSample = 0;
     if (!drflac__read_uint8(bs, 3, &bitsPerSample)) {
         return false;
     }
@@ -1895,7 +1895,7 @@ static bool drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBits
     }
 
 
-    unsigned char isVariableBlockSize = blockingStrategy == 1;
+    bool isVariableBlockSize = blockingStrategy == 1;
     if (isVariableBlockSize) {
         uint64_t sampleNumber;
         if (!drflac__read_utf8_coded_number(bs, &sampleNumber)) {
@@ -1969,7 +1969,7 @@ static bool drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBits
 
 static bool drflac__read_subframe_header(drflac_bs* bs, drflac_subframe* pSubframe)
 {
-    unsigned char header;
+    uint8_t header;
     if (!drflac__read_uint8(bs, 8, &header)) {
         return false;
     }
@@ -2153,11 +2153,11 @@ static bool drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int subfra
 }
 
 
-static DRFLAC_INLINE int drflac__get_channel_count_from_channel_assignment(int channelAssignment)
+static DRFLAC_INLINE uint8_t drflac__get_channel_count_from_channel_assignment(int8_t channelAssignment)
 {
     assert(channelAssignment <= 10);
 
-    int lookup[] = {1, 2, 3, 4, 5, 6, 7, 8, 2, 2, 2};
+    uint8_t lookup[] = {1, 2, 3, 4, 5, 6, 7, 8, 2, 2, 2};
     return lookup[channelAssignment];
 }
 
@@ -2240,7 +2240,7 @@ static bool drflac__seek_to_first_frame(drflac* pFlac)
 {
     assert(pFlac != NULL);
 
-    bool result = drflac__seek_to_byte(&pFlac->bs, (long long)pFlac->firstFramePos);
+    bool result = drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos);
 
     memset(&pFlac->currentFrame, 0, sizeof(pFlac->currentFrame));
     return result;
@@ -2323,7 +2323,7 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
     }
 
     // The number of seek points is derived from the size of the SEEKTABLE block.
-    unsigned int seekpointCount = pFlac->seektableSize / 18;   // 18 = the size of each seek point.
+    uint32_t seekpointCount = pFlac->seektableSize / 18;   // 18 = the size of each seek point.
     if (seekpointCount == 0) {
         return false;   // Would this ever happen?
     }
@@ -2331,7 +2331,7 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
 
     drflac_seekpoint closestSeekpoint = {0};
 
-    unsigned int seekpointsRemaining = seekpointCount;
+    uint32_t seekpointsRemaining = seekpointCount;
     while (seekpointsRemaining > 0)
     {
         drflac_seekpoint seekpoint;
@@ -2535,7 +2535,7 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
                     metadata.pRawData = pRawData;
                     metadata.rawDataSize = blockSize;
                     metadata.data.application.id       = drflac__be2host_32(*(uint32_t*)pRawData);
-                    metadata.data.application.pData    = (const void*)((char*)pRawData + sizeof(uint32_t));
+                    metadata.data.application.pData    = (const void*)((uint8_t*)pRawData + sizeof(uint32_t));
                     metadata.data.application.dataSize = blockSize - sizeof(uint32_t);
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
 
@@ -3009,6 +3009,8 @@ static bool drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
     }
 }
 
+// Function below is unused at the moment, but I might be re-adding it later.
+#if 0
 static bool drflac_oggbs__seek_to_next_frame(drflac_oggbs* oggbs)
 {
     // The bitstream should be sitting on the first byte just after the header of the frame.
@@ -3016,7 +3018,7 @@ static bool drflac_oggbs__seek_to_next_frame(drflac_oggbs* oggbs)
     // What we're actually doing here is seeking to the start of the next packet.
     return drflac_oggbs__seek_to_next_packet(oggbs);
 }
-
+#endif
 
 static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
@@ -3774,7 +3776,7 @@ uint64_t drflac__read_s32__misaligned(drflac* pFlac, uint64_t samplesToRead, int
         uint64_t samplesReadFromFrameSoFar = totalSamplesInFrame - pFlac->currentFrame.samplesRemaining;
         unsigned int channelIndex = samplesReadFromFrameSoFar % channelCount;
 
-        unsigned long long nextSampleInFrame = samplesReadFromFrameSoFar / channelCount;
+        uint64_t nextSampleInFrame = samplesReadFromFrameSoFar / channelCount;
 
         int decodedSample = 0;
         switch (pFlac->currentFrame.header.channelAssignment)
@@ -4069,7 +4071,7 @@ int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRateOu
         int32_t buffer[4096];
 
         size_t sampleDataBufferSize = sizeof(buffer);
-        pSampleData = malloc(sampleDataBufferSize);
+        pSampleData = (int32_t*)malloc(sampleDataBufferSize);
         if (pSampleData == NULL) {
             goto on_error;
         }
@@ -4079,7 +4081,7 @@ int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRateOu
         {
             if (((totalSampleCount + samplesRead) * sizeof(int32_t)) > sampleDataBufferSize) {
                 sampleDataBufferSize *= 2;
-                int32_t* pNewSampleData = realloc(pSampleData, sampleDataBufferSize);
+                int32_t* pNewSampleData = (int32_t*)realloc(pSampleData, sampleDataBufferSize);
                 if (pNewSampleData == NULL) {
                     free(pSampleData);
                     goto on_error;
@@ -4217,6 +4219,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 //
 // v0.3 - 
 //   - Optimizations. Now at about parity with the reference implementation on 32-bit builds.
+//   - Lots of clean up.
 //
 // v0.2b - 10/05/2016
 //   - Bug fixes.
