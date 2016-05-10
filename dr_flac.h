@@ -3833,7 +3833,7 @@ uint64_t drflac__read_s32__misaligned(drflac* pFlac, uint64_t samplesToRead, int
         }
 
 
-        decodedSample <<= (32 - pFlac->bitsPerSample) << pFlac->currentFrame.subframes[channelIndex].wastedBitsPerSample;
+        decodedSample <<= ((32 - pFlac->bitsPerSample) + pFlac->currentFrame.subframes[channelIndex].wastedBitsPerSample);
 
         if (bufferOut) {
             *bufferOut++ = decodedSample;
