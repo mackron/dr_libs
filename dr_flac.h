@@ -2939,6 +2939,8 @@ static bool drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
     }
 }
 
+// Function below is unused at the moment, but I might be re-adding it later.
+#if 0
 static uint8_t drflac_oggbs__get_current_segment_index(drflac_oggbs* oggbs, uint8_t* pBytesRemainingInSeg)
 {
     uint32_t bytesConsumedInPage = drflac_ogg__get_page_body_size(&oggbs->currentPageHeader) - oggbs->bytesRemainingInPage;
@@ -3009,8 +3011,6 @@ static bool drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
     }
 }
 
-// Function below is unused at the moment, but I might be re-adding it later.
-#if 0
 static bool drflac_oggbs__seek_to_next_frame(drflac_oggbs* oggbs)
 {
     // The bitstream should be sitting on the first byte just after the header of the frame.
