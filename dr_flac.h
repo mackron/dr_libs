@@ -3460,7 +3460,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 {
     drflac_init_info init;
     if (!drflac__init_private(&init, onRead, onSeek, onMeta, pUserData, pUserDataMD)) {
-        return false;
+        return NULL;
     }
 
     size_t allocationSize = sizeof(drflac) - sizeof(char);
