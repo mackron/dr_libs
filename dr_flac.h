@@ -1430,7 +1430,7 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(uint32_t order, int
 //
 // This is the most frequently called function in the library. It does both the Rice decoding and the prediction in a single loop
 // iteration. The prediction is done at the end, and there's an annoying branch I'd like to avoid so the main function is defined
-// a #define - sue me!
+// as a #define - sue me!
 #define DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(funcName, predictionFunc)                                                                                  \
 static bool funcName (drflac_bs* bs, uint32_t count, uint8_t riceParam, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pSamplesOut)           \
 {                                                                                                                                                                   \
