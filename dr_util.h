@@ -2109,7 +2109,7 @@ dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
         // Wait for the new thread to enter into it's entry point before returning. We need to do this so we can safely
         // support something like dr_delete_thread(dr_create_thread(my_thread_proc, pData)).
         //
-        // On Win32 there are times when this can get stuck in an infinite loop - I expect is something to do with some
+        // On Win32 there are times when this can get stuck in an infinite loop - I expect it's something to do with some
         // bad scheduling by the OS. This can be "fixed" by sleeping for a bit.
         while (!pThreadWin32->isInEntryProc) { dr_sleep(0); }
     }
