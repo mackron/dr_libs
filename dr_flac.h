@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.3 - 11/05/2016
+// dr_flac - v0.3a - 15/05/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -58,7 +58,7 @@
 // normal versions and also just a little bit harder to use.
 //
 // dr_flac reports metadata to the application through the use of a callback, and every metadata block is reported before
-// drflac_open_with_metdata() returns. See https://github.com/mackron/dr_libs_tests/blob/master/dr_flac/dr_flac_test_5.c for
+// drflac_open_with_metdata() returns. See https://github.com/mackron/dr_libs_tests/blob/master/dr_flac/dr_flac_test_2.c for
 // an example on how to read metadata.
 //
 //
@@ -86,8 +86,8 @@
 //
 //
 // QUICK NOTES
-// - Based on my tests, the performance of the 32-bit build is at about parity with the than the reference implementation. The
-//   64-bit build is slightly faster.
+// - Based on my tests, the performance of the 32-bit build is at about parity with the reference implementation. The 64-bit build
+//   is slightly faster.
 // - dr_flac does not currently do any CRC checks.
 // - dr_flac should work fine with valid native FLAC files, but for broadcast streams it won't work if the header and STREAMINFO
 //   block is unavailable.
@@ -4216,6 +4216,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 // REVISION HISTORY
+//
+// v0.3a - 15/05/2016
+//   - Minor fixes to documentation.
 //
 // v0.3 - 11/05/2016
 //   - Optimizations. Now at about parity with the reference implementation on 32-bit builds.
