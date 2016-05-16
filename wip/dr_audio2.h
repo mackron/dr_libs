@@ -1148,6 +1148,8 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
         return NULL;
     }
 
+    snd_pcm_hw_params_t* pHWParams = NULL;
+
     dra_backend_device_alsa* pDeviceALSA = (dra_backend_device_alsa*)calloc(1, sizeof(*pDeviceALSA));
     if (pDeviceALSA == NULL) {
         goto on_error;
@@ -1164,15 +1166,100 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
         goto on_error;
     }
 
-    int error = snd_pcm_open(&pDeviceALSA->deviceALSA, deviceName, SND_PCM_STREAM_PLAYBACK, 0);
-    if (error < 0) {
+    if (snd_pcm_open(&pDeviceALSA->deviceALSA, deviceName, SND_PCM_STREAM_PLAYBACK, 0) < 0) {
         goto on_error;
     }
 
 
+    snd_pcm_format_t formatALSA;
+    if (format == dra_data_format_pcm_u8) {
+        formatALSA = SND_PCM_FORMAT_U8;
+    } else if (format == dra_data_format_pcm_s16) {
+        formatALSA = SND_PCM_FORMAT_S16_LE;
+    } else if (format == dra_data_format_pcm_s24) {
+        formatALSA = SND_PCM_FORMAT_S24_LE;
+    } else if (format == dra_data_format_pcm_s32) {
+        formatALSA = SND_PCM_FORMAT_S32_LE;
+    } else if (format == dra_data_format_float_32) {
+        formatALSA = SND_PCM_FORMAT_FLOAT_LE;
+    } else if (format == dra_data_format_float_64) {
+        formatALSA = SND_PCM_FORMAT_FLOAT64_LE;
+    } else {
+        goto on_error;  // Unknown or unsupported format.
+    }
+
+    
+    if (snd_pcm_hw_params_malloc(&pHWParams) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_hw_params_any(pDeviceALSA->deviceALSA, pHWParams) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_hw_params_set_access(pDeviceALSA->deviceALSA, pHWParams, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_hw_params_set_format(pDeviceALSA->deviceALSA, pHWParams, formatALSA) < 0) {
+        goto on_error;
+    }
+
+
+    if (snd_pcm_hw_params_set_rate_near(pDeviceALSA->deviceALSA, pHWParams, &sampleRate, 0) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_hw_params_set_channels_near(pDeviceALSA->deviceALSA, pHWParams, &channels) < 0) {
+        goto on_error;
+    }
+
+    pDeviceALSA->sampleRate = sampleRate;
+    pDeviceALSA->channels = channels;
+
+
+    
+
+    size_t sampleRateInMilliseconds = pDeviceALSA->sampleRate / 1000;
+    if (sampleRateInMilliseconds == 0) {
+        sampleRateInMilliseconds = 1;
+    }
+
+    size_t fragmentSize = (pDeviceALSA->channels * sampleRateInMilliseconds * latencyInMilliseconds) * dra_get_bytes_per_sample_by_format(format);
+    size_t hardwareBufferSize = fragmentSize * DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
+    size_t hardwareBufferSizeInFrames = hardwareBufferSize / channels / dra_get_bytes_per_sample_by_format(format);
+
+    if (snd_pcm_hw_params_set_buffer_size(pDeviceALSA->deviceALSA, pHWParams, hardwareBufferSizeInFrames) < 0) {
+        printf("Failed to set buffer size.\n");
+        goto on_error;
+    }
+
+
+    unsigned int periods = DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
+    unsigned int dir = 0;
+    if (snd_pcm_hw_params_set_periods_near(pDeviceALSA->deviceALSA, pHWParams, &periods, &dir) < 0) {
+        printf("Failed to set periods.\n");
+        goto on_error;
+    }
+
+    printf("Periods: %d | Direction: %d\n", periods, dir);
+
+
+    if (snd_pcm_hw_params(pDeviceALSA->deviceALSA, pHWParams) < 0) {
+        goto on_error;
+    }
+
+    snd_pcm_hw_params_free(pHWParams);
+
+    
+
     return (dra_backend_device*)pDeviceALSA;
 
 on_error:
+    if (pHWParams) {
+        snd_pcm_hw_params_free(pHWParams);
+    }
+
     if (pDeviceALSA != NULL) {
         if (pDeviceALSA->deviceALSA != NULL) {
             snd_pcm_close(pDeviceALSA->deviceALSA);
@@ -1822,7 +1909,7 @@ unsigned int dra_get_bits_per_sample_by_format(dra_data_format format)
     unsigned int lookup[] = {
         8,      // dra_data_format_pcm_u8
         16,     // dra_data_format_pcm_s16
-        24,     // dra_data_format_pcm_s24
+        24,     // dra_data_format_pcm_s24. Stored as a 32-bits per sample.
         32,     // dra_data_format_pcm_s32
         32,     // dra_data_format_float_32
         64,     // dra_data_format_float_64
@@ -1833,6 +1920,10 @@ unsigned int dra_get_bits_per_sample_by_format(dra_data_format format)
 
 unsigned int dra_get_bytes_per_sample_by_format(dra_data_format format)
 {
+    if (format == dra_data_format_pcm_s24) {
+        return 4;   // 24-bit PCM is always stored in as 32-bits.
+    }
+
     return dra_get_bits_per_sample_by_format(format) / 8;
 }
 
