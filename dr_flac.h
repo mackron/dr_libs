@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.3a - 15/05/2016
+// dr_flac - v0.3b - 16/05/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -22,7 +22,8 @@
 //
 // The drflac object represents the decoder. It is a transparent type so all the information you need, such as the number of
 // channels and the bits per sample, should be directly accessible - just make sure you don't change their values. Samples are
-// always output as interleaved signed 32-bit PCM.
+// always output as interleaved signed 32-bit PCM. In the example above a native FLAC stream was opened, however dr_flac has
+// seamless support for Ogg encapsulated FLAC streams as well.
 //
 // You do not need to decode the entire stream in one go - you just specify how many samples you'd like at any given time and
 // the decoder will give you as many samples as it can, up to the amount requested. Later on when you need the next batch of
@@ -73,9 +74,9 @@
 //   Disables support for Ogg/FLAC streams.
 //
 // #define DR_FLAC_NO_WIN32_IO
-//   Don't use the Win32 API internally for drflac_open_file(). Setting this will force stdio FILE APIs instead. This is
-//   mainly for testing, but it's left here in case somebody might find use for it. dr_flac will use the Win32 API by
-//   default. Ignored when DR_FLAC_NO_STDIO is #defined.
+//   In the Win32 build, dr_flac uses the Win32 IO APIs for drflac_open_file() by default. This setting will make it use the
+//   standard FILE APIs instead. Ignored when DR_FLAC_NO_STDIO is #defined. (The rationale for this configuration is that
+//   there's a bug in one compiler's Win32 implementation of the FILE APIs which is not present in the Win32 IO APIs.)
 //
 // #define DR_FLAC_BUFFER_SIZE <number>
 //   Defines the size of the internal buffer to store data from onRead(). This buffer is used to reduce the number of calls
@@ -272,22 +273,40 @@ typedef struct
 } drflac_metadata;
 
 
-// Callback for when data is read. Return value is the number of bytes actually read.
+// Callback for when data needs to be read from the client.
+//
+// pUserData   [in]  The user data that was passed to drflac_open() and family.
+// pBufferOut  [out] The output buffer.
+// bytesToRead [in]  The number of bytes to read.
+//
+// Returns the number of bytes actually read.
 typedef size_t (* drflac_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 
-// Callback for when data needs to be seeked. The offset will never be negative. Whether or not it is relative to the
-// beginning or current position is determined by the "origin" parameter which will be either drflac_seek_origin_start
-// or drflac_seek_origin_current. Return value is false on failure, true success.
+// Callback for when data needs to be seeked.
+//
+// pUserData [in] The user data that was passed to drflac_open() and family.
+// offset    [in] The number of bytes to move, relative to the origin. Will never be negative.
+// origin    [in] The origin of the seek - the current position or the start of the stream.
+//
+// Returns whether or not the seek was successful.
+//
+// The offset will never be negative. Whether or not it is relative to the beginning or current position is determined
+// by the "origin" parameter which will be either drflac_seek_origin_start or drflac_seek_origin_current.
 typedef bool (* drflac_seek_proc)(void* pUserData, int offset, drflac_seek_origin origin);
 
 // Callback for when a metadata block is read.
+//
+// pUserData [in] The user data that was passed to drflac_open() and family.
+// pMetadata [in] A pointer to a structure containing the data of the metadata block.
+//
+// Use pMetadata->type to determine which metadata block is being handled and how to read the data.
 typedef void (* drflac_meta_proc)(void* pUserData, drflac_metadata* pMetadata);
 
 
 // Structure for internal use. Only used for decoders opened with drflac_open_memory.
 typedef struct
 {
-    const unsigned char* data;
+    const uint8_t* data;
     size_t dataSize;
     size_t currentReadPos;
 } drflac__memory_stream;
@@ -305,12 +324,6 @@ typedef struct
     void* pUserData;
 
 
-    // The index of the next valid cache line in the "L2" cache.
-    size_t nextL2Line;
-
-    // The number of bits that have been consumed by the cache. This is used to determine how many valid bits are remaining.
-    size_t consumedBits;
-
     // The number of unaligned bytes in the L2 cache. This will always be 0 until the end of the stream is hit. At the end of the
     // stream there will be a number of bytes that don't cleanly fit in an L1 cache line, so we use this variable to know whether
     // or not the bistreamer needs to run on a slower path to read those last bytes. This will never be more than sizeof(drflac_cache_t).
@@ -319,10 +332,16 @@ typedef struct
     // The content of the unaligned bytes.
     drflac_cache_t unalignedCache;
 
-    // The cached data which was most recently read from the client. When data is read from the client, it is placed within this
-    // variable. As data is read, it's bit-shifted such that the next valid bit is sitting on the most significant bit.
-    drflac_cache_t cache;
+    // The index of the next valid cache line in the "L2" cache.
+    size_t nextL2Line;
+
+    // The number of bits that have been consumed by the cache. This is used to determine how many valid bits are remaining.
+    size_t consumedBits;
+
+    // The cached data which was most recently read from the client. There are two levels of cache. Data flows as such:
+    // Client -> L2 -> L1. The L2 -> L1 movement is aligned and runs on a fast path in just a few instructions.
     drflac_cache_t cacheL2[DR_FLAC_BUFFER_SIZE/sizeof(drflac_cache_t)];
+    drflac_cache_t cache;
 
 } drflac_bs;
 
@@ -390,15 +409,10 @@ typedef struct
 
 typedef struct
 {
-    // The bit streamer. The raw FLAC data is fed through this object.
-    drflac_bs bs;
-
-
     // The function to call when a metadata block is read.
     drflac_meta_proc onMeta;
 
-    // The user data posted to the metadata callback function. This will often be the same as pUserData, but will be different
-    // for decoders opened with drflac_open_file_with_metadata() and drflac_open_memory_with_metadata().
+    // The user data posted to the metadata callback function.
     void* pUserDataMD;
 
 
@@ -421,7 +435,7 @@ typedef struct
     uint64_t totalSampleCount;
 
 
-    // The container type.
+    // The container type. This is set based on whether or not the decoder was opened from a native or Ogg stream.
     drflac_container container;
 
 
@@ -447,6 +461,10 @@ typedef struct
     // A pointer to the decoded sample data. This is an offset of pExtraData.
     int32_t* pDecodedSamples;
 
+
+    // The bit streamer. The raw FLAC data is fed through this object.
+    drflac_bs bs;
+
     // Variable length extra data. We attach this to the end of the object so we avoid unnecessary mallocs.
     uint8_t pExtraData[1];
 
@@ -455,39 +473,96 @@ typedef struct
 
 // Opens a FLAC decoder.
 //
+// onRead    [in]           The function to call when data needs to be read from the client.
+// onSeek    [in]           The function to call when the read position of the client data needs to move.
+// pUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
+//
+// Returns a pointer to an object representing the decoder.
+//
+// Close the decoder with drflac_close().
+//
+// This function will automatically detect whether or not you are attempting to open a native or Ogg encapsulated
+// FLAC, both of which should work seamlessly without any manual intervention. Ogg encapsulation also works with
+// multiplexed streams which basically means it can play FLAC encoded audio tracks in videos.
+//
 // This is the lowest level function for opening a FLAC stream. You can also use drflac_open_file() and drflac_open_memory()
 // to open the stream from a file or from a block of memory respectively.
 //
-// At the moment the STREAMINFO block must be present for this to succeed.
+// The STREAMINFO block must be present for this to succeed.
 //
-// The onRead and onSeek callbacks are used to read and seek data provided by the client.
+// See also: drflac_open_file(), drflac_open_memory(), drflac_open_with_metadata(), drflac_close()
 drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData);
 
 // Opens a FLAC decoder and notifies the caller of the metadata chunks (album art, etc.).
 //
+// onRead    [in]           The function to call when data needs to be read from the client.
+// onSeek    [in]           The function to call when the read position of the client data needs to move.
+// onMeta    [in]           The function to call for every metadata block.
+// pUserData [in, optional] A pointer to application defined data that will be passed to onRead, onSeek and onMeta.
+//
+// Returns a pointer to an object representing the decoder.
+//
+// Close the decoder with drflac_close().
+//
 // This is slower that drflac_open(), so avoid this one if you don't need metadata. Internally, this will do a malloc()
 // and free() for every metadata block except for STREAMINFO and PADDING blocks.
 //
-// The caller is notified of the metadata via the onMeta callback. The metadata will all be handled before the function
+// The caller is notified of the metadata via the onMeta callback. All metadata blocks withh be handled before the function
 // returns.
+//
+// See also: drflac_open_file_with_metadata(), drflac_open_memory_with_metadata(), drflac_open(), drflac_close()
 drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData);
 
 // Closes the given FLAC decoder.
+//
+// pFlac [in] The decoder to close.
+//
+// This will destroy the decoder object.
 void drflac_close(drflac* pFlac);
 
 
 // Reads sample data from the given FLAC decoder, output as interleaved signed 32-bit PCM.
 //
+// pFlac         [in]            The decoder.
+// samplesToRead [in]            The number of samples to read.
+// pBufferOut    [out, optional] A pointer to the buffer that will receive the decoded samples.
+//
 // Returns the number of samples actually read.
+//
+// pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
+// seeked.
 uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* pBufferOut);
 
 // Seeks to the sample at the given index.
+//
+// pFlac       [in] The decoder.
+// sampleIndex [in] The index of the sample to seek to. See notes below.
+//
+// Returns true if successful; false otherwise.
+//
+// The sample index is based on interleaving. In a stereo stream, for example, the sample at index 0 is the first sample
+// in the left channel; the sample at index 1 is the first sample on the right channel, and so on.
+//
+// When seeking, you will likely want to ensure it's rounded to a multiple of the channel count. You can do this with
+// something like drflac_seek_to_sample(pFlac, (mySampleIndex + (mySampleIndex % pFlac->channels)))
 bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex);
 
 
 
 #ifndef DR_FLAC_NO_STDIO
 // Opens a FLAC decoder from the file at the given path.
+//
+// filename [in] The path of the file to open, either absolute or relative to the current directory.
+//
+// Returns a pointer to an object representing the decoder.
+//
+// Close the decoder with drflac_close().
+//
+// This will hold a handle to the file until the decoder is closed with drflac_close(). Some platforms will restrict the
+// number of files a process can have open at any given time, so keep this mind if you have many decoders open at the
+// same time.
+//
+// See also: drflac_open(), drflac_open_file_with_metadata(), drflac_close()
 drflac* drflac_open_file(const char* filename);
 
 // Opens a FLAC decoder from the file at the given path and notifies the caller of the metadata chunks (album art, etc.)
@@ -4217,6 +4292,10 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 // REVISION HISTORY
+//
+// v0.3b - 16/05/2016
+//   - Fixed Linux/GCC build.
+//   - Updated documentation.
 //
 // v0.3a - 15/05/2016
 //   - Minor fixes to documentation.
