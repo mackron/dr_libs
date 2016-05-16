@@ -102,6 +102,7 @@
 #define dr_flac_h
 
 #include <stdint.h>
+#include <stddef.h>
 #include <stdbool.h>
 
 // As data is read from the client it is placed into an internal buffer for fast access. This controls the
