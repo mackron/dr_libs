@@ -583,6 +583,23 @@ bool dr_release_semaphore(dr_semaphore semaphore);
 
 
 
+/////////////////////////////////////////////////////////
+// Timing
+
+typedef struct
+{
+    int64_t counter;
+} dr_timer;
+
+// Initializes a high-resolution timer.
+void dr_timer_init(dr_timer* pTimer);
+
+// Ticks the timer and returns the number of seconds since the previous tick.
+//
+// The maximum return value is about 140 years or so.
+double dr_timer_tick(dr_timer* pTimer);
+
+
 
 /////////////////////////////////////////////////////////
 // C++ Specific
@@ -2356,6 +2373,61 @@ bool dr_wait_semaphore(dr_semaphore semaphore)
 bool dr_release_semaphore(dr_semaphore semaphore)
 {
     return sem_post(semaphore) != -1;
+}
+#endif
+
+
+
+/////////////////////////////////////////////////////////
+// Timing
+
+#ifdef _WIN32
+static LARGE_INTEGER g_DRTimerFrequency = {0};
+void dr_timer_init(dr_timer* pTimer)
+{
+    if (g_DRTimerFrequency.QuadPart == 0) {
+        QueryPerformanceFrequency(&g_DRTimerFrequency);
+    }
+
+    LARGE_INTEGER counter;
+    QueryPerformanceCounter(&counter);
+    pTimer->counter = (uint64_t)counter.QuadPart;
+}
+
+double dr_timer_tick(dr_timer* pTimer)
+{
+    LARGE_INTEGER counter;
+    if (!QueryPerformanceCounter(&counter)) {
+        return 0;
+    }
+
+    uint64_t newTimeCounter = counter.QuadPart;
+    uint64_t oldTimeCounter = pTimer->counter;
+
+    pTimer->counter = newTimeCounter;
+
+    return (newTimeCounter - oldTimeCounter) / (double)g_DRTimerFrequency.QuadPart;
+}
+#else
+void dr_timer_init(dr_timer* pTimer)
+{
+    struct timespec newTime;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &newTime);
+
+    pTimer->counter = (newTime.tv_sec * 1000000000LL) + newTime.tv_nsec;
+}
+
+double dr_timer_tick(dr_timer* pTimer)
+{
+    struct timespec newTime;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &newTime);
+
+    uint64_t newTimeCounter = (newTime.tv_sec * 1000000000LL) + newTime.tv_nsec;
+    uint64_t oldTimeCounter = pTimer->counter;
+
+    pTimer->counter = newTimeCounter;
+
+    return (newTimeCounter - oldTimeCounter) / 1000000000.0;
 }
 #endif
 
