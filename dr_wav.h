@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.2 - 11/05/2016
+// dr_wav - v0.2a - 16/05/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -92,6 +92,7 @@
 #define dr_wav_h
 
 #include <stdint.h>
+#include <stddef.h>
 #include <stdbool.h>
 
 #ifdef __cplusplus
@@ -1547,6 +1548,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.2a - 16/05/2016
+//   - Fixed Linux/GCC build.
 //
 // v0.2 - 11/05/2016
 //   - Added support for reading data as signed 32-bit PCM for consistency with dr_flac.
