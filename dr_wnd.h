@@ -2,6 +2,30 @@
 
 // !!!! THIS IS INCOMPLETE AND EXPERIMENTAL !!!!
 
+// NOTE: ONLY WIN32 IS CURRENTLY SUPPORTED. X11 COMING SOON.
+
+// USAGE
+//
+// dr_wnd is a single-file library. To use it, do something like the following in one .c file.
+//   #define DR_WND_IMPLEMENTATION
+//   #include "dr_wnd.h"
+//
+// You can then #include dr_wnd.h in other parts of the program as you would with any other header file.
+//
+// dr_wnd is a very simple library to help you create windows for your application in a cross-platform way. It's good
+// if you have simple requirements or for just quickly getting something up and running, but it isn't full-featured
+// enough for very large programs.
+//
+// Before creating any windows you'll need to call dr_init_window_system(). On Win32 builds this will disable automatic
+// DPI scaling and register the window classes. On the X11 backend it will open a global display which will be used for
+// future API calls.
+//
+//
+// OPTIONS
+// #define these before including this file.
+//
+// None so far.
+
 #ifndef dr_wnd_h
 #define dr_wnd_h
 
@@ -10,7 +34,7 @@ extern "C" {
 #endif
 
 #ifdef _WIN32
-#include <windows.h>    // Unfortunate #include, but it makes things so much simpler in the end.
+#include <windows.h>    // Unfortunate #include, but it makes things so much easier.
 #endif
 
 
@@ -77,7 +101,7 @@ bool dr_init_window_system();
 // Uninitializes the window system.
 void dr_uninit_window_system();
 
-// Runs the main application loop. Uses callbacks to notify the application of events.
+// Runs an event driven application loop. Use this for regular desktop applications.
 int dr_window_system_run();
 
 // Runs a real-time application loop. Use this for games.
