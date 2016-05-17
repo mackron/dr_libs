@@ -833,18 +833,183 @@ typedef struct
 
     // OpenGL 1.4
 #if DR_GL_VERSION >= 140
+    PFNGLBLENDFUNCSEPARATEPROC BlendFuncSeparate;
+    PFNGLMULTIDRAWARRAYSPROC MultiDrawArrays;
+    PFNGLMULTIDRAWELEMENTSPROC MultiDrawElements;
+    PFNGLPOINTPARAMETERFPROC PointParameterf;
+    PFNGLPOINTPARAMETERFVPROC PointParameterfv;
+    PFNGLPOINTPARAMETERIPROC PointParameteri;
+    PFNGLPOINTPARAMETERIVPROC PointParameteriv;
+    PFNGLFOGCOORDFPROC FogCoordf;
+    PFNGLFOGCOORDFVPROC FogCoordfv;
+    PFNGLFOGCOORDDPROC FogCoordd;
+    PFNGLFOGCOORDDVPROC FogCoorddv;
+    PFNGLFOGCOORDPOINTERPROC FogCoordPointer;
+    PFNGLSECONDARYCOLOR3BPROC SecondaryColor3b;
+    PFNGLSECONDARYCOLOR3BVPROC SecondaryColor3bv;
+    PFNGLSECONDARYCOLOR3DPROC SecondaryColor3d;
+    PFNGLSECONDARYCOLOR3DVPROC SecondaryColor3dv;
+    PFNGLSECONDARYCOLOR3FPROC SecondaryColor3f;
+    PFNGLSECONDARYCOLOR3FVPROC SecondaryColor3fv;
+    PFNGLSECONDARYCOLOR3IPROC SecondaryColor3i;
+    PFNGLSECONDARYCOLOR3IVPROC SecondaryColor3iv;
+    PFNGLSECONDARYCOLOR3SPROC SecondaryColor3s;
+    PFNGLSECONDARYCOLOR3SVPROC SecondaryColor3sv;
+    PFNGLSECONDARYCOLOR3UBPROC SecondaryColor3ub;
+    PFNGLSECONDARYCOLOR3UBVPROC SecondaryColor3ubv;
+    PFNGLSECONDARYCOLOR3UIPROC SecondaryColor3ui;
+    PFNGLSECONDARYCOLOR3UIVPROC SecondaryColor3uiv;
+    PFNGLSECONDARYCOLOR3USPROC SecondaryColor3us;
+    PFNGLSECONDARYCOLOR3USVPROC SecondaryColor3usv;
+    PFNGLSECONDARYCOLORPOINTERPROC SecondaryColorPointer;
+    PFNGLWINDOWPOS2DPROC WindowPos2d;
+    PFNGLWINDOWPOS2DVPROC WindowPos2dv;
+    PFNGLWINDOWPOS2FPROC WindowPos2f;
+    PFNGLWINDOWPOS2FVPROC WindowPos2fv;
+    PFNGLWINDOWPOS2IPROC WindowPos2i;
+    PFNGLWINDOWPOS2IVPROC WindowPos2iv;
+    PFNGLWINDOWPOS2SPROC WindowPos2s;
+    PFNGLWINDOWPOS2SVPROC WindowPos2sv;
+    PFNGLWINDOWPOS3DPROC WindowPos3d;
+    PFNGLWINDOWPOS3DVPROC WindowPos3dv;
+    PFNGLWINDOWPOS3FPROC WindowPos3f;
+    PFNGLWINDOWPOS3FVPROC WindowPos3fv;
+    PFNGLWINDOWPOS3IPROC WindowPos3i;
+    PFNGLWINDOWPOS3IVPROC WindowPos3iv;
+    PFNGLWINDOWPOS3SPROC WindowPos3s;
+    PFNGLWINDOWPOS3SVPROC WindowPos3sv;
+    PFNGLBLENDCOLORPROC BlendColor;
+    PFNGLBLENDEQUATIONPROC BlendEquation;
 #endif
 
     // OpenGL 1.5
 #if DR_GL_VERSION >= 150
+    PFNGLGENQUERIESPROC GenQueries;
+    PFNGLDELETEQUERIESPROC DeleteQueries;
+    PFNGLISQUERYPROC IsQuery;
+    PFNGLBEGINQUERYPROC BeginQuery;
+    PFNGLENDQUERYPROC EndQuery;
+    PFNGLGETQUERYIVPROC GetQueryiv;
+    PFNGLGETQUERYOBJECTIVPROC GetQueryObjectiv;
+    PFNGLGETQUERYOBJECTUIVPROC GetQueryObjectuiv;
+    PFNGLBINDBUFFERPROC BindBuffer;
+    PFNGLDELETEBUFFERSPROC DeleteBuffers;
+    PFNGLGENBUFFERSPROC GenBuffers;
+    PFNGLISBUFFERPROC IsBuffer;
+    PFNGLBUFFERDATAPROC BufferData;
+    PFNGLBUFFERSUBDATAPROC BufferSubData;
+    PFNGLGETBUFFERSUBDATAPROC GetBufferSubData;
+    PFNGLMAPBUFFERPROC MapBuffer;
+    PFNGLUNMAPBUFFERPROC UnmapBuffer;
+    PFNGLGETBUFFERPARAMETERIVPROC GetBufferParameteriv;
+    PFNGLGETBUFFERPOINTERVPROC GetBufferPointerv;
 #endif
 
     // OpenGL 2.0
 #if DR_GL_VERSION >= 200
+    PFNGLBLENDEQUATIONSEPARATEPROC BlendEquationSeparate;
+    PFNGLDRAWBUFFERSPROC DrawBuffers;
+    PFNGLSTENCILOPSEPARATEPROC StencilOpSeparate;
+    PFNGLSTENCILFUNCSEPARATEPROC StencilFuncSeparate;
+    PFNGLSTENCILMASKSEPARATEPROC StencilMaskSeparate;
+    PFNGLATTACHSHADERPROC AttachShader;
+    PFNGLBINDATTRIBLOCATIONPROC BindAttribLocation;
+    PFNGLCOMPILESHADERPROC CompileShader;
+    PFNGLCREATEPROGRAMPROC CreateProgram;
+    PFNGLCREATESHADERPROC CreateShader;
+    PFNGLDELETEPROGRAMPROC DeleteProgram;
+    PFNGLDELETESHADERPROC DeleteShader;
+    PFNGLDETACHSHADERPROC DetachShader;
+    PFNGLDISABLEVERTEXATTRIBARRAYPROC DisableVertexAttribArray;
+    PFNGLENABLEVERTEXATTRIBARRAYPROC EnableVertexAttribArray;
+    PFNGLGETACTIVEATTRIBPROC GetActiveAttrib;
+    PFNGLGETACTIVEUNIFORMPROC GetActiveUniform;
+    PFNGLGETATTACHEDSHADERSPROC GetAttachedShaders;
+    PFNGLGETATTRIBLOCATIONPROC GetAttribLocation;
+    PFNGLGETPROGRAMIVPROC GetProgramiv;
+    PFNGLGETPROGRAMINFOLOGPROC GetProgramInfoLog;
+    PFNGLGETSHADERIVPROC GetShaderiv;
+    PFNGLGETSHADERINFOLOGPROC GetShaderInfoLog;
+    PFNGLGETSHADERSOURCEPROC GetShaderSource;
+    PFNGLGETUNIFORMLOCATIONPROC GetUniformLocation;
+    PFNGLGETUNIFORMFVPROC GetUniformfv;
+    PFNGLGETUNIFORMIVPROC GetUniformiv;
+    PFNGLGETVERTEXATTRIBDVPROC GetVertexAttribdv;
+    PFNGLGETVERTEXATTRIBFVPROC GetVertexAttribfv;
+    PFNGLGETVERTEXATTRIBIVPROC GetVertexAttribiv;
+    PFNGLGETVERTEXATTRIBPOINTERVPROC GetVertexAttribPointerv;
+    PFNGLISPROGRAMPROC IsProgram;
+    PFNGLISSHADERPROC IsShader;
+    PFNGLLINKPROGRAMPROC LinkProgram;
+    PFNGLSHADERSOURCEPROC ShaderSource;
+    PFNGLUSEPROGRAMPROC UseProgram;
+    PFNGLUNIFORM1FPROC Uniform1f;
+    PFNGLUNIFORM2FPROC Uniform2f;
+    PFNGLUNIFORM3FPROC Uniform3f;
+    PFNGLUNIFORM4FPROC Uniform4f;
+    PFNGLUNIFORM1IPROC Uniform1i;
+    PFNGLUNIFORM2IPROC Uniform2i;
+    PFNGLUNIFORM3IPROC Uniform3i;
+    PFNGLUNIFORM4IPROC Uniform4i;
+    PFNGLUNIFORM1FVPROC Uniform1fv;
+    PFNGLUNIFORM2FVPROC Uniform2fv;
+    PFNGLUNIFORM3FVPROC Uniform3fv;
+    PFNGLUNIFORM4FVPROC Uniform4fv;
+    PFNGLUNIFORM1IVPROC Uniform1iv;
+    PFNGLUNIFORM2IVPROC Uniform2iv;
+    PFNGLUNIFORM3IVPROC Uniform3iv;
+    PFNGLUNIFORM4IVPROC Uniform4iv;
+    PFNGLUNIFORMMATRIX2FVPROC UniformMatrix2fv;
+    PFNGLUNIFORMMATRIX3FVPROC UniformMatrix3fv;
+    PFNGLUNIFORMMATRIX4FVPROC UniformMatrix4fv;
+    PFNGLVALIDATEPROGRAMPROC ValidateProgram;
+    PFNGLVERTEXATTRIB1DPROC VertexAttrib1d;
+    PFNGLVERTEXATTRIB1DVPROC VertexAttrib1dv;
+    PFNGLVERTEXATTRIB1FPROC VertexAttrib1f;
+    PFNGLVERTEXATTRIB1FVPROC VertexAttrib1fv;
+    PFNGLVERTEXATTRIB1SPROC VertexAttrib1s;
+    PFNGLVERTEXATTRIB1SVPROC VertexAttrib1sv;
+    PFNGLVERTEXATTRIB2DPROC VertexAttrib2d;
+    PFNGLVERTEXATTRIB2DVPROC VertexAttrib2dv;
+    PFNGLVERTEXATTRIB2FPROC VertexAttrib2f;
+    PFNGLVERTEXATTRIB2FVPROC VertexAttrib2fv;
+    PFNGLVERTEXATTRIB2SPROC VertexAttrib2s;
+    PFNGLVERTEXATTRIB2SVPROC VertexAttrib2sv;
+    PFNGLVERTEXATTRIB3DPROC VertexAttrib3d;
+    PFNGLVERTEXATTRIB3DVPROC VertexAttrib3dv;
+    PFNGLVERTEXATTRIB3FPROC VertexAttrib3f;
+    PFNGLVERTEXATTRIB3FVPROC VertexAttrib3fv;
+    PFNGLVERTEXATTRIB3SPROC VertexAttrib3s;
+    PFNGLVERTEXATTRIB3SVPROC VertexAttrib3sv;
+    PFNGLVERTEXATTRIB4NBVPROC VertexAttrib4Nbv;
+    PFNGLVERTEXATTRIB4NIVPROC VertexAttrib4Niv;
+    PFNGLVERTEXATTRIB4NSVPROC VertexAttrib4Nsv;
+    PFNGLVERTEXATTRIB4NUBPROC VertexAttrib4Nub;
+    PFNGLVERTEXATTRIB4NUBVPROC VertexAttrib4Nubv;
+    PFNGLVERTEXATTRIB4NUIVPROC VertexAttrib4Nuiv;
+    PFNGLVERTEXATTRIB4NUSVPROC VertexAttrib4Nusv;
+    PFNGLVERTEXATTRIB4BVPROC VertexAttrib4bv;
+    PFNGLVERTEXATTRIB4DPROC VertexAttrib4d;
+    PFNGLVERTEXATTRIB4DVPROC VertexAttrib4dv;
+    PFNGLVERTEXATTRIB4FPROC VertexAttrib4f;
+    PFNGLVERTEXATTRIB4FVPROC VertexAttrib4fv;
+    PFNGLVERTEXATTRIB4IVPROC VertexAttrib4iv;
+    PFNGLVERTEXATTRIB4SPROC VertexAttrib4s;
+    PFNGLVERTEXATTRIB4SVPROC VertexAttrib4sv;
+    PFNGLVERTEXATTRIB4UBVPROC VertexAttrib4ubv;
+    PFNGLVERTEXATTRIB4UIVPROC VertexAttrib4uiv;
+    PFNGLVERTEXATTRIB4USVPROC VertexAttrib4usv;
+    PFNGLVERTEXATTRIBPOINTERPROC VertexAttribPointer;
 #endif
 
     // OpenGL 2.1
 #if DR_GL_VERSION >= 210
+    PFNGLUNIFORMMATRIX2X3FVPROC UniformMatrix2x3fv;
+    PFNGLUNIFORMMATRIX3X2FVPROC UniformMatrix3x2fv;
+    PFNGLUNIFORMMATRIX2X4FVPROC UniformMatrix2x4fv;
+    PFNGLUNIFORMMATRIX4X2FVPROC UniformMatrix4x2fv;
+    PFNGLUNIFORMMATRIX3X4FVPROC UniformMatrix3x4fv;
+    PFNGLUNIFORMMATRIX4X3FVPROC UniformMatrix4x3fv;
 #endif
 
 
@@ -1383,18 +1548,183 @@ bool drgl_init(drgl* pGL)
 
     // OpenGL 1.4
 #if DR_GL_VERSION >= 140
+    pGL->BlendFuncSeparate = (PFNGLBLENDFUNCSEPARATEPROC)drgl__get_proc_address(pGL, "glBlendFuncSeparate");
+    pGL->MultiDrawArrays = (PFNGLMULTIDRAWARRAYSPROC)drgl__get_proc_address(pGL, "glMultiDrawArrays");
+    pGL->MultiDrawElements = (PFNGLMULTIDRAWELEMENTSPROC)drgl__get_proc_address(pGL, "glMultiDrawElements");
+    pGL->PointParameterf = (PFNGLPOINTPARAMETERFPROC)drgl__get_proc_address(pGL, "glPointParameterf");
+    pGL->PointParameterfv = (PFNGLPOINTPARAMETERFVPROC)drgl__get_proc_address(pGL, "glPointParameterfv");
+    pGL->PointParameteri = (PFNGLPOINTPARAMETERIPROC)drgl__get_proc_address(pGL, "glPointParameteri");
+    pGL->PointParameteriv = (PFNGLPOINTPARAMETERIVPROC)drgl__get_proc_address(pGL, "glPointParameteriv");
+    pGL->FogCoordf = (PFNGLFOGCOORDFPROC)drgl__get_proc_address(pGL, "glFogCoordf");
+    pGL->FogCoordfv = (PFNGLFOGCOORDFVPROC)drgl__get_proc_address(pGL, "glFogCoordfv");
+    pGL->FogCoordd = (PFNGLFOGCOORDDPROC)drgl__get_proc_address(pGL, "glFogCoordd");
+    pGL->FogCoorddv = (PFNGLFOGCOORDDVPROC)drgl__get_proc_address(pGL, "glFogCoorddv");
+    pGL->FogCoordPointer = (PFNGLFOGCOORDPOINTERPROC)drgl__get_proc_address(pGL, "glFogCoordPointer");
+    pGL->SecondaryColor3b = (PFNGLSECONDARYCOLOR3BPROC)drgl__get_proc_address(pGL, "glSecondaryColor3b");
+    pGL->SecondaryColor3bv = (PFNGLSECONDARYCOLOR3BVPROC)drgl__get_proc_address(pGL, "glSecondaryColor3bv");
+    pGL->SecondaryColor3d = (PFNGLSECONDARYCOLOR3DPROC)drgl__get_proc_address(pGL, "glSecondaryColor3d");
+    pGL->SecondaryColor3dv = (PFNGLSECONDARYCOLOR3DVPROC)drgl__get_proc_address(pGL, "glSecondaryColor3dv");
+    pGL->SecondaryColor3f = (PFNGLSECONDARYCOLOR3FPROC)drgl__get_proc_address(pGL, "glSecondaryColor3f");
+    pGL->SecondaryColor3fv = (PFNGLSECONDARYCOLOR3FVPROC)drgl__get_proc_address(pGL, "glSecondaryColor3fv");
+    pGL->SecondaryColor3i = (PFNGLSECONDARYCOLOR3IPROC)drgl__get_proc_address(pGL, "glSecondaryColor3i");
+    pGL->SecondaryColor3iv = (PFNGLSECONDARYCOLOR3IVPROC)drgl__get_proc_address(pGL, "glSecondaryColor3iv");
+    pGL->SecondaryColor3s = (PFNGLSECONDARYCOLOR3SPROC)drgl__get_proc_address(pGL, "glSecondaryColor3s");
+    pGL->SecondaryColor3sv = (PFNGLSECONDARYCOLOR3SVPROC)drgl__get_proc_address(pGL, "glSecondaryColor3sv");
+    pGL->SecondaryColor3ub = (PFNGLSECONDARYCOLOR3UBPROC)drgl__get_proc_address(pGL, "glSecondaryColor3ub");
+    pGL->SecondaryColor3ubv = (PFNGLSECONDARYCOLOR3UBVPROC)drgl__get_proc_address(pGL, "glSecondaryColor3ubv");
+    pGL->SecondaryColor3ui = (PFNGLSECONDARYCOLOR3UIPROC)drgl__get_proc_address(pGL, "glSecondaryColor3ui");
+    pGL->SecondaryColor3uiv = (PFNGLSECONDARYCOLOR3UIVPROC)drgl__get_proc_address(pGL, "glSecondaryColor3uiv");
+    pGL->SecondaryColor3us = (PFNGLSECONDARYCOLOR3USPROC)drgl__get_proc_address(pGL, "glSecondaryColor3us");
+    pGL->SecondaryColor3usv = (PFNGLSECONDARYCOLOR3USVPROC)drgl__get_proc_address(pGL, "glSecondaryColor3usv");
+    pGL->SecondaryColorPointer = (PFNGLSECONDARYCOLORPOINTERPROC)drgl__get_proc_address(pGL, "glSecondaryColorPointer");
+    pGL->WindowPos2d = (PFNGLWINDOWPOS2DPROC)drgl__get_proc_address(pGL, "glWindowPos2d");
+    pGL->WindowPos2dv = (PFNGLWINDOWPOS2DVPROC)drgl__get_proc_address(pGL, "glWindowPos2dv");
+    pGL->WindowPos2f = (PFNGLWINDOWPOS2FPROC)drgl__get_proc_address(pGL, "glWindowPos2f");
+    pGL->WindowPos2fv = (PFNGLWINDOWPOS2FVPROC)drgl__get_proc_address(pGL, "glWindowPos2fv");
+    pGL->WindowPos2i = (PFNGLWINDOWPOS2IPROC)drgl__get_proc_address(pGL, "glWindowPos2i");
+    pGL->WindowPos2iv = (PFNGLWINDOWPOS2IVPROC)drgl__get_proc_address(pGL, "glWindowPos2iv");
+    pGL->WindowPos2s = (PFNGLWINDOWPOS2SPROC)drgl__get_proc_address(pGL, "glWindowPos2s");
+    pGL->WindowPos2sv = (PFNGLWINDOWPOS2SVPROC)drgl__get_proc_address(pGL, "glWindowPos2sv");
+    pGL->WindowPos3d = (PFNGLWINDOWPOS3DPROC)drgl__get_proc_address(pGL, "glWindowPos3d");
+    pGL->WindowPos3dv = (PFNGLWINDOWPOS3DVPROC)drgl__get_proc_address(pGL, "glWindowPos3dv");
+    pGL->WindowPos3f = (PFNGLWINDOWPOS3FPROC)drgl__get_proc_address(pGL, "glWindowPos3f");
+    pGL->WindowPos3fv = (PFNGLWINDOWPOS3FVPROC)drgl__get_proc_address(pGL, "glWindowPos3fv");
+    pGL->WindowPos3i = (PFNGLWINDOWPOS3IPROC)drgl__get_proc_address(pGL, "glWindowPos3i");
+    pGL->WindowPos3iv = (PFNGLWINDOWPOS3IVPROC)drgl__get_proc_address(pGL, "glWindowPos3iv");
+    pGL->WindowPos3s = (PFNGLWINDOWPOS3SPROC)drgl__get_proc_address(pGL, "glWindowPos3s");
+    pGL->WindowPos3sv = (PFNGLWINDOWPOS3SVPROC)drgl__get_proc_address(pGL, "glWindowPos3sv");
+    pGL->BlendColor = (PFNGLBLENDCOLORPROC)drgl__get_proc_address(pGL, "glBlendColor");
+    pGL->BlendEquation = (PFNGLBLENDEQUATIONPROC)drgl__get_proc_address(pGL, "glBlendEquation");
 #endif
 
     // OpenGL 1.5
 #if DR_GL_VERSION >= 150
+    pGL->GenQueries = (PFNGLGENQUERIESPROC)drgl__get_proc_address(pGL, "glGenQueries");
+    pGL->DeleteQueries = (PFNGLDELETEQUERIESPROC)drgl__get_proc_address(pGL, "glDeleteQueries");
+    pGL->IsQuery = (PFNGLISQUERYPROC)drgl__get_proc_address(pGL, "glIsQuery");
+    pGL->BeginQuery = (PFNGLBEGINQUERYPROC)drgl__get_proc_address(pGL, "glBeginQuery");
+    pGL->EndQuery = (PFNGLENDQUERYPROC)drgl__get_proc_address(pGL, "glEndQuery");
+    pGL->GetQueryiv = (PFNGLGETQUERYIVPROC)drgl__get_proc_address(pGL, "glGetQueryiv");
+    pGL->GetQueryObjectiv = (PFNGLGETQUERYOBJECTIVPROC)drgl__get_proc_address(pGL, "glGetQueryObjectiv");
+    pGL->GetQueryObjectuiv = (PFNGLGETQUERYOBJECTUIVPROC)drgl__get_proc_address(pGL, "glGetQueryObjectuiv");
+    pGL->BindBuffer = (PFNGLBINDBUFFERPROC)drgl__get_proc_address(pGL, "glBindBuffer");
+    pGL->DeleteBuffers = (PFNGLDELETEBUFFERSPROC)drgl__get_proc_address(pGL, "glDeleteBuffers");
+    pGL->GenBuffers = (PFNGLGENBUFFERSPROC)drgl__get_proc_address(pGL, "glGenBuffers");
+    pGL->IsBuffer = (PFNGLISBUFFERPROC)drgl__get_proc_address(pGL, "glIsBuffer");
+    pGL->BufferData = (PFNGLBUFFERDATAPROC)drgl__get_proc_address(pGL, "glBufferData");
+    pGL->BufferSubData = (PFNGLBUFFERSUBDATAPROC)drgl__get_proc_address(pGL, "glBufferSubData");
+    pGL->GetBufferSubData = (PFNGLGETBUFFERSUBDATAPROC)drgl__get_proc_address(pGL, "glGetBufferSubData");
+    pGL->MapBuffer = (PFNGLMAPBUFFERPROC)drgl__get_proc_address(pGL, "glMapBuffer");
+    pGL->UnmapBuffer = (PFNGLUNMAPBUFFERPROC)drgl__get_proc_address(pGL, "glUnmapBuffer");
+    pGL->GetBufferParameteriv = (PFNGLGETBUFFERPARAMETERIVPROC)drgl__get_proc_address(pGL, "glGetBufferParameteriv");
+    pGL->GetBufferPointerv = (PFNGLGETBUFFERPOINTERVPROC)drgl__get_proc_address(pGL, "glGetBufferPointerv");
 #endif
 
     // OpenGL 2.0
 #if DR_GL_VERSION >= 200
+    pGL->BlendEquationSeparate = (PFNGLBLENDEQUATIONSEPARATEPROC)drgl__get_proc_address(pGL, "glBlendEquationSeparate");
+    pGL->DrawBuffers = (PFNGLDRAWBUFFERSPROC)drgl__get_proc_address(pGL, "glDrawBuffers");
+    pGL->StencilOpSeparate = (PFNGLSTENCILOPSEPARATEPROC)drgl__get_proc_address(pGL, "glStencilOpSeparate");
+    pGL->StencilFuncSeparate = (PFNGLSTENCILFUNCSEPARATEPROC)drgl__get_proc_address(pGL, "glStencilFuncSeparate");
+    pGL->StencilMaskSeparate = (PFNGLSTENCILMASKSEPARATEPROC)drgl__get_proc_address(pGL, "glStencilMaskSeparate");
+    pGL->AttachShader = (PFNGLATTACHSHADERPROC)drgl__get_proc_address(pGL, "glAttachShader");
+    pGL->BindAttribLocation = (PFNGLBINDATTRIBLOCATIONPROC)drgl__get_proc_address(pGL, "glBindAttribLocation");
+    pGL->CompileShader = (PFNGLCOMPILESHADERPROC)drgl__get_proc_address(pGL, "glCompileShader");
+    pGL->CreateProgram = (PFNGLCREATEPROGRAMPROC)drgl__get_proc_address(pGL, "glCreateProgram");
+    pGL->CreateShader = (PFNGLCREATESHADERPROC)drgl__get_proc_address(pGL, "glCreateShader");
+    pGL->DeleteProgram = (PFNGLDELETEPROGRAMPROC)drgl__get_proc_address(pGL, "glDeleteProgram");
+    pGL->DeleteShader = (PFNGLDELETESHADERPROC)drgl__get_proc_address(pGL, "glDeleteShader");
+    pGL->DetachShader = (PFNGLDETACHSHADERPROC)drgl__get_proc_address(pGL, "glDetachShader");
+    pGL->DisableVertexAttribArray = (PFNGLDISABLEVERTEXATTRIBARRAYPROC)drgl__get_proc_address(pGL, "glDisableVertexAttribArray");
+    pGL->EnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC)drgl__get_proc_address(pGL, "glEnableVertexAttribArray");
+    pGL->GetActiveAttrib = (PFNGLGETACTIVEATTRIBPROC)drgl__get_proc_address(pGL, "glGetActiveAttrib");
+    pGL->GetActiveUniform = (PFNGLGETACTIVEUNIFORMPROC)drgl__get_proc_address(pGL, "glGetActiveUniform");
+    pGL->GetAttachedShaders = (PFNGLGETATTACHEDSHADERSPROC)drgl__get_proc_address(pGL, "glGetAttachedShaders");
+    pGL->GetAttribLocation = (PFNGLGETATTRIBLOCATIONPROC)drgl__get_proc_address(pGL, "glGetAttribLocation");
+    pGL->GetProgramiv = (PFNGLGETPROGRAMIVPROC)drgl__get_proc_address(pGL, "glGetProgramiv");
+    pGL->GetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC)drgl__get_proc_address(pGL, "glGetProgramInfoLog");
+    pGL->GetShaderiv = (PFNGLGETSHADERIVPROC)drgl__get_proc_address(pGL, "glGetShaderiv");
+    pGL->GetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC)drgl__get_proc_address(pGL, "glGetShaderInfoLog");
+    pGL->GetShaderSource = (PFNGLGETSHADERSOURCEPROC)drgl__get_proc_address(pGL, "glGetShaderSource");
+    pGL->GetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)drgl__get_proc_address(pGL, "glGetUniformLocation");
+    pGL->GetUniformfv = (PFNGLGETUNIFORMFVPROC)drgl__get_proc_address(pGL, "glGetUniformfv");
+    pGL->GetUniformiv = (PFNGLGETUNIFORMIVPROC)drgl__get_proc_address(pGL, "glGetUniformiv");
+    pGL->GetVertexAttribdv = (PFNGLGETVERTEXATTRIBDVPROC)drgl__get_proc_address(pGL, "glGetVertexAttribdv");
+    pGL->GetVertexAttribfv = (PFNGLGETVERTEXATTRIBFVPROC)drgl__get_proc_address(pGL, "glGetVertexAttribfv");
+    pGL->GetVertexAttribiv = (PFNGLGETVERTEXATTRIBIVPROC)drgl__get_proc_address(pGL, "glGetVertexAttribiv");
+    pGL->GetVertexAttribPointerv = (PFNGLGETVERTEXATTRIBPOINTERVPROC)drgl__get_proc_address(pGL, "glGetVertexAttribPointerv");
+    pGL->IsProgram = (PFNGLISPROGRAMPROC)drgl__get_proc_address(pGL, "glIsProgram");
+    pGL->IsShader = (PFNGLISSHADERPROC)drgl__get_proc_address(pGL, "glIsShader");
+    pGL->LinkProgram = (PFNGLLINKPROGRAMPROC)drgl__get_proc_address(pGL, "glLinkProgram");
+    pGL->ShaderSource = (PFNGLSHADERSOURCEPROC)drgl__get_proc_address(pGL, "glShaderSource");
+    pGL->UseProgram = (PFNGLUSEPROGRAMPROC)drgl__get_proc_address(pGL, "glUseProgram");
+    pGL->Uniform1f = (PFNGLUNIFORM1FPROC)drgl__get_proc_address(pGL, "glUniform1f");
+    pGL->Uniform2f = (PFNGLUNIFORM2FPROC)drgl__get_proc_address(pGL, "glUniform2f");
+    pGL->Uniform3f = (PFNGLUNIFORM3FPROC)drgl__get_proc_address(pGL, "glUniform3f");
+    pGL->Uniform4f = (PFNGLUNIFORM4FPROC)drgl__get_proc_address(pGL, "glUniform4f");
+    pGL->Uniform1i = (PFNGLUNIFORM1IPROC)drgl__get_proc_address(pGL, "glUniform1i");
+    pGL->Uniform2i = (PFNGLUNIFORM2IPROC)drgl__get_proc_address(pGL, "glUniform2i");
+    pGL->Uniform3i = (PFNGLUNIFORM3IPROC)drgl__get_proc_address(pGL, "glUniform3i");
+    pGL->Uniform4i = (PFNGLUNIFORM4IPROC)drgl__get_proc_address(pGL, "glUniform4i");
+    pGL->Uniform1fv = (PFNGLUNIFORM1FVPROC)drgl__get_proc_address(pGL, "glUniform1fv");
+    pGL->Uniform2fv = (PFNGLUNIFORM2FVPROC)drgl__get_proc_address(pGL, "glUniform2fv");
+    pGL->Uniform3fv = (PFNGLUNIFORM3FVPROC)drgl__get_proc_address(pGL, "glUniform3fv");
+    pGL->Uniform4fv = (PFNGLUNIFORM4FVPROC)drgl__get_proc_address(pGL, "glUniform4fv");
+    pGL->Uniform1iv = (PFNGLUNIFORM1IVPROC)drgl__get_proc_address(pGL, "glUniform1iv");
+    pGL->Uniform2iv = (PFNGLUNIFORM2IVPROC)drgl__get_proc_address(pGL, "glUniform2iv");
+    pGL->Uniform3iv = (PFNGLUNIFORM3IVPROC)drgl__get_proc_address(pGL, "glUniform3iv");
+    pGL->Uniform4iv = (PFNGLUNIFORM4IVPROC)drgl__get_proc_address(pGL, "glUniform4iv");
+    pGL->UniformMatrix2fv = (PFNGLUNIFORMMATRIX2FVPROC)drgl__get_proc_address(pGL, "glUniformMatrix2fv");
+    pGL->UniformMatrix3fv = (PFNGLUNIFORMMATRIX3FVPROC)drgl__get_proc_address(pGL, "glUniformMatrix3fv");
+    pGL->UniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)drgl__get_proc_address(pGL, "glUniformMatrix4fv");
+    pGL->ValidateProgram = (PFNGLVALIDATEPROGRAMPROC)drgl__get_proc_address(pGL, "glValidateProgram");
+    pGL->VertexAttrib1d = (PFNGLVERTEXATTRIB1DPROC)drgl__get_proc_address(pGL, "glVertexAttrib1d");
+    pGL->VertexAttrib1dv = (PFNGLVERTEXATTRIB1DVPROC)drgl__get_proc_address(pGL, "glVertexAttrib1dv");
+    pGL->VertexAttrib1f = (PFNGLVERTEXATTRIB1FPROC)drgl__get_proc_address(pGL, "glVertexAttrib1f");
+    pGL->VertexAttrib1fv = (PFNGLVERTEXATTRIB1FVPROC)drgl__get_proc_address(pGL, "glVertexAttrib1fv");
+    pGL->VertexAttrib1s = (PFNGLVERTEXATTRIB1SPROC)drgl__get_proc_address(pGL, "glVertexAttrib1s");
+    pGL->VertexAttrib1sv = (PFNGLVERTEXATTRIB1SVPROC)drgl__get_proc_address(pGL, "glVertexAttrib1sv");
+    pGL->VertexAttrib2d = (PFNGLVERTEXATTRIB2DPROC)drgl__get_proc_address(pGL, "glVertexAttrib2d");
+    pGL->VertexAttrib2dv = (PFNGLVERTEXATTRIB2DVPROC)drgl__get_proc_address(pGL, "glVertexAttrib2dv");
+    pGL->VertexAttrib2f = (PFNGLVERTEXATTRIB2FPROC)drgl__get_proc_address(pGL, "glVertexAttrib2f");
+    pGL->VertexAttrib2fv = (PFNGLVERTEXATTRIB2FVPROC)drgl__get_proc_address(pGL, "glVertexAttrib2fv");
+    pGL->VertexAttrib2s = (PFNGLVERTEXATTRIB2SPROC)drgl__get_proc_address(pGL, "glVertexAttrib2s");
+    pGL->VertexAttrib2sv = (PFNGLVERTEXATTRIB2SVPROC)drgl__get_proc_address(pGL, "glVertexAttrib2sv");
+    pGL->VertexAttrib3d = (PFNGLVERTEXATTRIB3DPROC)drgl__get_proc_address(pGL, "glVertexAttrib3d");
+    pGL->VertexAttrib3dv = (PFNGLVERTEXATTRIB3DVPROC)drgl__get_proc_address(pGL, "glVertexAttrib3dv");
+    pGL->VertexAttrib3f = (PFNGLVERTEXATTRIB3FPROC)drgl__get_proc_address(pGL, "glVertexAttrib3f");
+    pGL->VertexAttrib3fv = (PFNGLVERTEXATTRIB3FVPROC)drgl__get_proc_address(pGL, "glVertexAttrib3fv");
+    pGL->VertexAttrib3s = (PFNGLVERTEXATTRIB3SPROC)drgl__get_proc_address(pGL, "glVertexAttrib3s");
+    pGL->VertexAttrib3sv = (PFNGLVERTEXATTRIB3SVPROC)drgl__get_proc_address(pGL, "glVertexAttrib3sv");
+    pGL->VertexAttrib4Nbv = (PFNGLVERTEXATTRIB4NBVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4Nbv");
+    pGL->VertexAttrib4Niv = (PFNGLVERTEXATTRIB4NIVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4Niv");
+    pGL->VertexAttrib4Nsv = (PFNGLVERTEXATTRIB4NSVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4Nsv");
+    pGL->VertexAttrib4Nub = (PFNGLVERTEXATTRIB4NUBPROC)drgl__get_proc_address(pGL, "glVertexAttrib4Nub");
+    pGL->VertexAttrib4Nubv = (PFNGLVERTEXATTRIB4NUBVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4Nubv");
+    pGL->VertexAttrib4Nuiv = (PFNGLVERTEXATTRIB4NUIVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4Nuiv");
+    pGL->VertexAttrib4Nusv = (PFNGLVERTEXATTRIB4NUSVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4Nusv");
+    pGL->VertexAttrib4bv = (PFNGLVERTEXATTRIB4BVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4bv");
+    pGL->VertexAttrib4d = (PFNGLVERTEXATTRIB4DPROC)drgl__get_proc_address(pGL, "glVertexAttrib4d");
+    pGL->VertexAttrib4dv = (PFNGLVERTEXATTRIB4DVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4dv");
+    pGL->VertexAttrib4f = (PFNGLVERTEXATTRIB4FPROC)drgl__get_proc_address(pGL, "glVertexAttrib4f");
+    pGL->VertexAttrib4fv = (PFNGLVERTEXATTRIB4FVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4fv");
+    pGL->VertexAttrib4iv = (PFNGLVERTEXATTRIB4IVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4iv");
+    pGL->VertexAttrib4s = (PFNGLVERTEXATTRIB4SPROC)drgl__get_proc_address(pGL, "glVertexAttrib4s");
+    pGL->VertexAttrib4sv = (PFNGLVERTEXATTRIB4SVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4sv");
+    pGL->VertexAttrib4ubv = (PFNGLVERTEXATTRIB4UBVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4ubv");
+    pGL->VertexAttrib4uiv = (PFNGLVERTEXATTRIB4UIVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4uiv");
+    pGL->VertexAttrib4usv = (PFNGLVERTEXATTRIB4USVPROC)drgl__get_proc_address(pGL, "glVertexAttrib4usv");
+    pGL->VertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)drgl__get_proc_address(pGL, "glVertexAttribPointer");
 #endif
 
     // OpenGL 2.1
 #if DR_GL_VERSION >= 210
+    pGL->UniformMatrix2x3fv = (PFNGLUNIFORMMATRIX2X3FVPROC)drgl__get_proc_address(pGL, "glUniformMatrix2x3fv");
+    pGL->UniformMatrix3x2fv = (PFNGLUNIFORMMATRIX3X2FVPROC)drgl__get_proc_address(pGL, "glUniformMatrix3x2fv");
+    pGL->UniformMatrix2x4fv = (PFNGLUNIFORMMATRIX2X4FVPROC)drgl__get_proc_address(pGL, "glUniformMatrix2x4fv");
+    pGL->UniformMatrix4x2fv = (PFNGLUNIFORMMATRIX4X2FVPROC)drgl__get_proc_address(pGL, "glUniformMatrix4x2fv");
+    pGL->UniformMatrix3x4fv = (PFNGLUNIFORMMATRIX3X4FVPROC)drgl__get_proc_address(pGL, "glUniformMatrix3x4fv");
+    pGL->UniformMatrix4x3fv = (PFNGLUNIFORMMATRIX4X3FVPROC)drgl__get_proc_address(pGL, "glUniformMatrix4x3fv");
 #endif
 
 
