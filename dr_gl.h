@@ -775,10 +775,60 @@ typedef struct
 
     // OpenGL 1.2
 #if DR_GL_VERSION >= 120
+    PFNGLDRAWRANGEELEMENTSPROC DrawRangeElements;
+    PFNGLTEXIMAGE3DPROC TexImage3D;
+    PFNGLTEXSUBIMAGE3DPROC TexSubImage3D;
+    PFNGLCOPYTEXSUBIMAGE3DPROC CopyTexSubImage3D;
 #endif
 
     // OpenGL 1.3
 #if DR_GL_VERSION >= 130
+    PFNGLACTIVETEXTUREPROC ActiveTexture;
+    PFNGLSAMPLECOVERAGEPROC SampleCoverage;
+    PFNGLCOMPRESSEDTEXIMAGE3DPROC CompressedTexImage3D;
+    PFNGLCOMPRESSEDTEXIMAGE2DPROC CompressedTexImage2D;
+    PFNGLCOMPRESSEDTEXIMAGE1DPROC CompressedTexImage1D;
+    PFNGLCOMPRESSEDTEXSUBIMAGE3DPROC CompressedTexSubImage3D;
+    PFNGLCOMPRESSEDTEXSUBIMAGE2DPROC CompressedTexSubImage2D;
+    PFNGLCOMPRESSEDTEXSUBIMAGE1DPROC CompressedTexSubImage1D;
+    PFNGLGETCOMPRESSEDTEXIMAGEPROC GetCompressedTexImage;
+    PFNGLCLIENTACTIVETEXTUREPROC ClientActiveTexture;
+    PFNGLMULTITEXCOORD1DPROC MultiTexCoord1d;
+    PFNGLMULTITEXCOORD1DVPROC MultiTexCoord1dv;
+    PFNGLMULTITEXCOORD1FPROC MultiTexCoord1f;
+    PFNGLMULTITEXCOORD1FVPROC MultiTexCoord1fv;
+    PFNGLMULTITEXCOORD1IPROC MultiTexCoord1i;
+    PFNGLMULTITEXCOORD1IVPROC MultiTexCoord1iv;
+    PFNGLMULTITEXCOORD1SPROC MultiTexCoord1s;
+    PFNGLMULTITEXCOORD1SVPROC MultiTexCoord1sv;
+    PFNGLMULTITEXCOORD2DPROC MultiTexCoord2d;
+    PFNGLMULTITEXCOORD2DVPROC MultiTexCoord2dv;
+    PFNGLMULTITEXCOORD2FPROC MultiTexCoord2f;
+    PFNGLMULTITEXCOORD2FVPROC MultiTexCoord2fv;
+    PFNGLMULTITEXCOORD2IPROC MultiTexCoord2i;
+    PFNGLMULTITEXCOORD2IVPROC MultiTexCoord2iv;
+    PFNGLMULTITEXCOORD2SPROC MultiTexCoord2s;
+    PFNGLMULTITEXCOORD2SVPROC MultiTexCoord2sv;
+    PFNGLMULTITEXCOORD3DPROC MultiTexCoord3d;
+    PFNGLMULTITEXCOORD3DVPROC MultiTexCoord3dv;
+    PFNGLMULTITEXCOORD3FPROC MultiTexCoord3f;
+    PFNGLMULTITEXCOORD3FVPROC MultiTexCoord3fv;
+    PFNGLMULTITEXCOORD3IPROC MultiTexCoord3i;
+    PFNGLMULTITEXCOORD3IVPROC MultiTexCoord3iv;
+    PFNGLMULTITEXCOORD3SPROC MultiTexCoord3s;
+    PFNGLMULTITEXCOORD3SVPROC MultiTexCoord3sv;
+    PFNGLMULTITEXCOORD4DPROC MultiTexCoord4d;
+    PFNGLMULTITEXCOORD4DVPROC MultiTexCoord4dv;
+    PFNGLMULTITEXCOORD4FPROC MultiTexCoord4f;
+    PFNGLMULTITEXCOORD4FVPROC MultiTexCoord4fv;
+    PFNGLMULTITEXCOORD4IPROC MultiTexCoord4i;
+    PFNGLMULTITEXCOORD4IVPROC MultiTexCoord4iv;
+    PFNGLMULTITEXCOORD4SPROC MultiTexCoord4s;
+    PFNGLMULTITEXCOORD4SVPROC MultiTexCoord4sv;
+    PFNGLLOADTRANSPOSEMATRIXFPROC LoadTransposeMatrixf;
+    PFNGLLOADTRANSPOSEMATRIXDPROC LoadTransposeMatrixd;
+    PFNGLMULTTRANSPOSEMATRIXFPROC MultTransposeMatrixf;
+    PFNGLMULTTRANSPOSEMATRIXDPROC MultTransposeMatrixd;
 #endif
 
     // OpenGL 1.4
@@ -842,12 +892,12 @@ void* drgl__get_proc_address(drgl* pGL, const char* name)
     assert(pGL != NULL);
     assert(pGL->GetProcAddress != NULL);
 
-    void* func = GetProcAddress(pGL->hOpenGL32, name);
+    void* func = pGL->GetProcAddress(name);
     if (func != NULL) {
         return func;
     }
 
-    return pGL->GetProcAddress(name);
+    return GetProcAddress(pGL->hOpenGL32, name);
 }
 #else
 void* drgl__get_gl_proc_address(const char* name)
@@ -1275,10 +1325,60 @@ bool drgl_init(drgl* pGL)
 
     // OpenGL 1.2
 #if DR_GL_VERSION >= 120
+    pGL->DrawRangeElements = (PFNGLDRAWRANGEELEMENTSPROC)drgl__get_proc_address(pGL, "glDrawRangeElements");
+    pGL->TexImage3D = (PFNGLTEXIMAGE3DPROC)drgl__get_proc_address(pGL, "glTexImage3D");
+    pGL->TexSubImage3D = (PFNGLTEXSUBIMAGE3DPROC)drgl__get_proc_address(pGL, "glTexSubImage3D");
+    pGL->CopyTexSubImage3D = (PFNGLCOPYTEXSUBIMAGE3DPROC)drgl__get_proc_address(pGL, "glCopyTexSubImage3D");
 #endif
 
     // OpenGL 1.3
 #if DR_GL_VERSION >= 130
+    pGL->ActiveTexture = (PFNGLACTIVETEXTUREPROC)drgl__get_proc_address(pGL, "glActiveTexture");
+    pGL->SampleCoverage = (PFNGLSAMPLECOVERAGEPROC)drgl__get_proc_address(pGL, "glSampleCoverage");
+    pGL->CompressedTexImage3D = (PFNGLCOMPRESSEDTEXIMAGE3DPROC)drgl__get_proc_address(pGL, "glCompressedTexImage3D");
+    pGL->CompressedTexImage2D = (PFNGLCOMPRESSEDTEXIMAGE2DPROC)drgl__get_proc_address(pGL, "glCompressedTexImage2D");
+    pGL->CompressedTexImage1D = (PFNGLCOMPRESSEDTEXIMAGE1DPROC)drgl__get_proc_address(pGL, "glCompressedTexImage1D");
+    pGL->CompressedTexSubImage3D = (PFNGLCOMPRESSEDTEXSUBIMAGE3DPROC)drgl__get_proc_address(pGL, "glCompressedTexSubImage3D");
+    pGL->CompressedTexSubImage2D = (PFNGLCOMPRESSEDTEXSUBIMAGE2DPROC)drgl__get_proc_address(pGL, "glCompressedTexSubImage2D");
+    pGL->CompressedTexSubImage1D = (PFNGLCOMPRESSEDTEXSUBIMAGE1DPROC)drgl__get_proc_address(pGL, "glCompressedTexSubImage1D");
+    pGL->GetCompressedTexImage = (PFNGLGETCOMPRESSEDTEXIMAGEPROC)drgl__get_proc_address(pGL, "glGetCompressedTexImage");
+    pGL->ClientActiveTexture = (PFNGLCLIENTACTIVETEXTUREPROC)drgl__get_proc_address(pGL, "glClientActiveTexture");
+    pGL->MultiTexCoord1d = (PFNGLMULTITEXCOORD1DPROC)drgl__get_proc_address(pGL, "glMultiTexCoord1d");
+    pGL->MultiTexCoord1dv = (PFNGLMULTITEXCOORD1DVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord1dv");
+    pGL->MultiTexCoord1f = (PFNGLMULTITEXCOORD1FPROC)drgl__get_proc_address(pGL, "glMultiTexCoord1f");
+    pGL->MultiTexCoord1fv = (PFNGLMULTITEXCOORD1FVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord1fv");
+    pGL->MultiTexCoord1i = (PFNGLMULTITEXCOORD1IPROC)drgl__get_proc_address(pGL, "glMultiTexCoord1i");
+    pGL->MultiTexCoord1iv = (PFNGLMULTITEXCOORD1IVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord1iv");
+    pGL->MultiTexCoord1s = (PFNGLMULTITEXCOORD1SPROC)drgl__get_proc_address(pGL, "glMultiTexCoord1s");
+    pGL->MultiTexCoord1sv = (PFNGLMULTITEXCOORD1SVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord1sv");
+    pGL->MultiTexCoord2d = (PFNGLMULTITEXCOORD2DPROC)drgl__get_proc_address(pGL, "glMultiTexCoord2d");
+    pGL->MultiTexCoord2dv = (PFNGLMULTITEXCOORD2DVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord2dv");
+    pGL->MultiTexCoord2f = (PFNGLMULTITEXCOORD2FPROC)drgl__get_proc_address(pGL, "glMultiTexCoord2f");
+    pGL->MultiTexCoord2fv = (PFNGLMULTITEXCOORD2FVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord2fv");
+    pGL->MultiTexCoord2i = (PFNGLMULTITEXCOORD2IPROC)drgl__get_proc_address(pGL, "glMultiTexCoord2i");
+    pGL->MultiTexCoord2iv = (PFNGLMULTITEXCOORD2IVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord2iv");
+    pGL->MultiTexCoord2s = (PFNGLMULTITEXCOORD2SPROC)drgl__get_proc_address(pGL, "glMultiTexCoord2s");
+    pGL->MultiTexCoord2sv = (PFNGLMULTITEXCOORD2SVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord2sv");
+    pGL->MultiTexCoord3d = (PFNGLMULTITEXCOORD3DPROC)drgl__get_proc_address(pGL, "glMultiTexCoord3d");
+    pGL->MultiTexCoord3dv = (PFNGLMULTITEXCOORD3DVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord3dv");
+    pGL->MultiTexCoord3f = (PFNGLMULTITEXCOORD3FPROC)drgl__get_proc_address(pGL, "glMultiTexCoord3f");
+    pGL->MultiTexCoord3fv = (PFNGLMULTITEXCOORD3FVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord3fv");
+    pGL->MultiTexCoord3i = (PFNGLMULTITEXCOORD3IPROC)drgl__get_proc_address(pGL, "glMultiTexCoord3i");
+    pGL->MultiTexCoord3iv = (PFNGLMULTITEXCOORD3IVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord3iv");
+    pGL->MultiTexCoord3s = (PFNGLMULTITEXCOORD3SPROC)drgl__get_proc_address(pGL, "glMultiTexCoord3s");
+    pGL->MultiTexCoord3sv = (PFNGLMULTITEXCOORD3SVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord3sv");
+    pGL->MultiTexCoord4d = (PFNGLMULTITEXCOORD4DPROC)drgl__get_proc_address(pGL, "glMultiTexCoord4d");
+    pGL->MultiTexCoord4dv = (PFNGLMULTITEXCOORD4DVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord4dv");
+    pGL->MultiTexCoord4f = (PFNGLMULTITEXCOORD4FPROC)drgl__get_proc_address(pGL, "glMultiTexCoord4f");
+    pGL->MultiTexCoord4fv = (PFNGLMULTITEXCOORD4FVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord4fv");
+    pGL->MultiTexCoord4i = (PFNGLMULTITEXCOORD4IPROC)drgl__get_proc_address(pGL, "glMultiTexCoord4i");
+    pGL->MultiTexCoord4iv = (PFNGLMULTITEXCOORD4IVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord4iv");
+    pGL->MultiTexCoord4s = (PFNGLMULTITEXCOORD4SPROC)drgl__get_proc_address(pGL, "glMultiTexCoord4s");
+    pGL->MultiTexCoord4sv = (PFNGLMULTITEXCOORD4SVPROC)drgl__get_proc_address(pGL, "glMultiTexCoord4sv");
+    pGL->LoadTransposeMatrixf = (PFNGLLOADTRANSPOSEMATRIXFPROC)drgl__get_proc_address(pGL, "glLoadTransposeMatrixf");
+    pGL->LoadTransposeMatrixd = (PFNGLLOADTRANSPOSEMATRIXDPROC)drgl__get_proc_address(pGL, "glLoadTransposeMatrixd");
+    pGL->MultTransposeMatrixf = (PFNGLMULTTRANSPOSEMATRIXFPROC)drgl__get_proc_address(pGL, "glMultTransposeMatrixf");
+    pGL->MultTransposeMatrixd = (PFNGLMULTTRANSPOSEMATRIXDPROC)drgl__get_proc_address(pGL, "glMultTransposeMatrixd");
 #endif
 
     // OpenGL 1.4
