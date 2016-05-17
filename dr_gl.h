@@ -14,9 +14,10 @@
 // it avoids wasting time loading unneeded APIs and also saves a tiny amount of memory.
 //
 // By default, dr_gl will enable OpenGL 2.1 core APIs but no extensions. All extensions need to be explicitly enabled.
+// Not every extension is supported. See below for a list of supported extensions.
 //
-// When using dr_gl, you will not need to link to OpenGL32.lib or the .so equivalent, but you will need to have gl/gl.h
-// and family in your include paths. This should not be a problem in practice.
+// When using dr_gl, you will not need to link to OpenGL32.lib or libGL.so, but you will need to have gl/gl.h and family
+// in your include paths. This should not be a problem in practice.
 //
 //
 // OPTIONS
@@ -33,7 +34,9 @@
 //   210 - OpenGL 2.1
 //
 // #define DR_GL_ENABLE_EXT_swap_control
-//   Enable the WGL_EXT_swap_control extension.
+// #define DR_GL_ENABLE_EXT_framebuffer_blit
+// #define DR_GL_ENABLE_EXT_framebuffer_multisample
+// #define DR_GL_ENABLE_EXT_framebuffer_object
 
 #ifndef dr_gl_h
 #define dr_gl_h
@@ -391,15 +394,15 @@ typedef void (APIENTRYP PFNGLVERTEXPOINTER) (GLint size, GLenum type, GLsizei st
 typedef void (APIENTRYP PFNGLVIEWPORT) (GLint x, GLint y, GLsizei width, GLsizei height);
 
 #ifdef _WIN32
-typedef BOOL  (WINAPI * DR_PFNWGLCOPYCONTEXT) (HGLRC, HGLRC, UINT);
-typedef HGLRC (WINAPI * DR_PFNWGLCREATECONTEXT) (HDC);
-typedef HGLRC (WINAPI * DR_PFNWGLCREATELAYERCONTEXT) (HDC, int);
-typedef BOOL  (WINAPI * DR_PFNWGLDELETECONTEXT) (HGLRC);
-typedef HGLRC (WINAPI * DR_PFNWGLGETCURRENTCONTEXT) (VOID);
-typedef HDC   (WINAPI * DR_PFNWGLGETCURRENTDC) (VOID);
-typedef PROC  (WINAPI * DR_PFNWGLGETPROCADDRESS) (LPCSTR);
-typedef BOOL  (WINAPI * DR_PFNWGLMAKECURRENT) (HDC, HGLRC);
-typedef BOOL  (WINAPI * DR_PFNWGLSHARELISTS) (HGLRC, HGLRC);
+typedef BOOL  (WINAPI * PFNWGLCOPYCONTEXT) (HGLRC, HGLRC, UINT);
+typedef HGLRC (WINAPI * PFNWGLCREATECONTEXT) (HDC);
+typedef HGLRC (WINAPI * PFNWGLCREATELAYERCONTEXT) (HDC, int);
+typedef BOOL  (WINAPI * PFNWGLDELETECONTEXT) (HGLRC);
+typedef HGLRC (WINAPI * PFNWGLGETCURRENTCONTEXT) (VOID);
+typedef HDC   (WINAPI * PFNWGLGETCURRENTDC) (VOID);
+typedef PROC  (WINAPI * PFNWGLGETPROCADDRESS) (LPCSTR);
+typedef BOOL  (WINAPI * PFNWGLMAKECURRENT) (HDC, HGLRC);
+typedef BOOL  (WINAPI * PFNWGLSHARELISTS) (HGLRC, HGLRC);
 #endif
 
 typedef struct
@@ -425,12 +428,12 @@ typedef struct
     PIXELFORMATDESCRIPTOR pfd;
 
     // Win32-specific APIs for context management.
-    DR_PFNWGLCREATECONTEXT CreateContext;
-    DR_PFNWGLDELETECONTEXT DeleteContext;
-    DR_PFNWGLGETCURRENTCONTEXT GetCurrentContext;
-    DR_PFNWGLGETCURRENTDC GetCurrentDC;
-    DR_PFNWGLGETPROCADDRESS GetProcAddress;
-    DR_PFNWGLMAKECURRENT MakeCurrent;
+    PFNWGLCREATECONTEXT CreateContext;
+    PFNWGLDELETECONTEXT DeleteContext;
+    PFNWGLGETCURRENTCONTEXT GetCurrentContext;
+    PFNWGLGETCURRENTDC GetCurrentDC;
+    PFNWGLGETPROCADDRESS GetProcAddress;
+    PFNWGLMAKECURRENT MakeCurrent;
 #endif
 
     // OpenGL 1.1
@@ -1015,6 +1018,34 @@ typedef struct
 
 
     // Extensions
+#ifdef DR_GL_ENABLE_EXT_framebuffer_blit
+    PFNGLBLITFRAMEBUFFEREXTPROC BlitFramebufferEXT;
+#endif
+
+#ifdef DR_GL_ENABLE_EXT_framebuffer_multisample
+    PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC RenderbufferStorageMultisampleEXT;
+#endif
+
+#ifdef DR_GL_ENABLE_EXT_framebuffer_object
+    PFNGLISRENDERBUFFEREXTPROC IsRenderbufferEXT;
+    PFNGLBINDRENDERBUFFEREXTPROC BindRenderbufferEXT;
+    PFNGLDELETERENDERBUFFERSEXTPROC DeleteRenderbuffersEXT;
+    PFNGLGENRENDERBUFFERSEXTPROC GenRenderbuffersEXT;
+    PFNGLRENDERBUFFERSTORAGEEXTPROC RenderbufferStorageEXT;
+    PFNGLGETRENDERBUFFERPARAMETERIVEXTPROC GetRenderbufferParameterivEXT;
+    PFNGLISFRAMEBUFFEREXTPROC IsFramebufferEXT;
+    PFNGLBINDFRAMEBUFFEREXTPROC BindFramebufferEXT;
+    PFNGLDELETEFRAMEBUFFERSEXTPROC DeleteFramebuffersEXT;
+    PFNGLGENFRAMEBUFFERSEXTPROC GenFramebuffersEXT;
+    PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC CheckFramebufferStatusEXT;
+    PFNGLFRAMEBUFFERTEXTURE1DEXTPROC FramebufferTexture1DEXT;
+    PFNGLFRAMEBUFFERTEXTURE2DEXTPROC FramebufferTexture2DEXT;
+    PFNGLFRAMEBUFFERTEXTURE3DEXTPROC FramebufferTexture3DEXT;
+    PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC FramebufferRenderbufferEXT;
+    PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVEXTPROC GetFramebufferAttachmentParameterivEXT;
+    PFNGLGENERATEMIPMAPEXTPROC GenerateMipmapEXT;
+#endif
+
 #ifdef DR_GL_ENABLE_EXT_swap_control
     PFNWGLSWAPINTERVALEXTPROC SwapIntervalEXT;
     PFNWGLGETSWAPINTERVALEXTPROC GetSwapIntervalEXT;
@@ -1089,12 +1120,12 @@ bool drgl_init(drgl* pGL)
         goto on_error;
     }
 
-    pGL->CreateContext     = (DR_PFNWGLCREATECONTEXT    )GetProcAddress(pGL->hOpenGL32, "wglCreateContext");
-    pGL->DeleteContext     = (DR_PFNWGLDELETECONTEXT    )GetProcAddress(pGL->hOpenGL32, "wglDeleteContext");
-    pGL->GetCurrentContext = (DR_PFNWGLGETCURRENTCONTEXT)GetProcAddress(pGL->hOpenGL32, "wglGetCurrentContext");
-    pGL->GetCurrentDC      = (DR_PFNWGLGETCURRENTDC     )GetProcAddress(pGL->hOpenGL32, "wglGetCurrentDC");
-    pGL->GetProcAddress    = (DR_PFNWGLGETPROCADDRESS   )GetProcAddress(pGL->hOpenGL32, "wglGetProcAddress");
-    pGL->MakeCurrent       = (DR_PFNWGLMAKECURRENT      )GetProcAddress(pGL->hOpenGL32, "wglMakeCurrent");
+    pGL->CreateContext     = (PFNWGLCREATECONTEXT    )GetProcAddress(pGL->hOpenGL32, "wglCreateContext");
+    pGL->DeleteContext     = (PFNWGLDELETECONTEXT    )GetProcAddress(pGL->hOpenGL32, "wglDeleteContext");
+    pGL->GetCurrentContext = (PFNWGLGETCURRENTCONTEXT)GetProcAddress(pGL->hOpenGL32, "wglGetCurrentContext");
+    pGL->GetCurrentDC      = (PFNWGLGETCURRENTDC     )GetProcAddress(pGL->hOpenGL32, "wglGetCurrentDC");
+    pGL->GetProcAddress    = (PFNWGLGETPROCADDRESS   )GetProcAddress(pGL->hOpenGL32, "wglGetProcAddress");
+    pGL->MakeCurrent       = (PFNWGLMAKECURRENT      )GetProcAddress(pGL->hOpenGL32, "wglMakeCurrent");
 
     if (pGL->CreateContext     == NULL ||
         pGL->DeleteContext     == NULL ||
@@ -1728,10 +1759,34 @@ bool drgl_init(drgl* pGL)
 #endif
 
 
-
-
     // Cross-platform extensions
+#ifdef DR_GL_ENABLE_EXT_framebuffer_blit
+    pGL->BlitFramebufferEXT = (PFNGLBLITFRAMEBUFFEREXTPROC)drgl__get_proc_address(pGL, "glBlitFramebufferEXT");
+#endif
 
+#ifdef DR_GL_ENABLE_EXT_framebuffer_multisample
+    pGL->RenderbufferStorageMultisampleEXT = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC)drgl__get_proc_address(pGL, "glRenderbufferStorageMultisampleEXT");
+#endif
+
+#ifdef DR_GL_ENABLE_EXT_framebuffer_object
+    pGL->IsRenderbufferEXT = (PFNGLISRENDERBUFFEREXTPROC)drgl__get_proc_address(pGL, "glIsRenderbufferEXT");
+    pGL->BindRenderbufferEXT = (PFNGLBINDRENDERBUFFEREXTPROC)drgl__get_proc_address(pGL, "glBindRenderbufferEXT");
+    pGL->DeleteRenderbuffersEXT = (PFNGLDELETERENDERBUFFERSEXTPROC)drgl__get_proc_address(pGL, "glDeleteRenderbuffersEXT");
+    pGL->GenRenderbuffersEXT = (PFNGLGENRENDERBUFFERSEXTPROC)drgl__get_proc_address(pGL, "glGenRenderbuffersEXT");
+    pGL->RenderbufferStorageEXT = (PFNGLRENDERBUFFERSTORAGEEXTPROC)drgl__get_proc_address(pGL, "glRenderbufferStorageEXT");
+    pGL->GetRenderbufferParameterivEXT = (PFNGLGETRENDERBUFFERPARAMETERIVEXTPROC)drgl__get_proc_address(pGL, "glGetRenderbufferParameterivEXT");
+    pGL->IsFramebufferEXT = (PFNGLISFRAMEBUFFEREXTPROC)drgl__get_proc_address(pGL, "glIsFramebufferEXT");
+    pGL->BindFramebufferEXT = (PFNGLBINDFRAMEBUFFEREXTPROC)drgl__get_proc_address(pGL, "glBindFramebufferEXT");
+    pGL->DeleteFramebuffersEXT = (PFNGLDELETEFRAMEBUFFERSEXTPROC)drgl__get_proc_address(pGL, "glDeleteFramebuffersEXT");
+    pGL->GenFramebuffersEXT = (PFNGLGENFRAMEBUFFERSEXTPROC)drgl__get_proc_address(pGL, "glGenFramebuffersEXT");
+    pGL->CheckFramebufferStatusEXT = (PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC)drgl__get_proc_address(pGL, "glCheckFramebufferStatusEXT");
+    pGL->FramebufferTexture1DEXT = (PFNGLFRAMEBUFFERTEXTURE1DEXTPROC)drgl__get_proc_address(pGL, "glFramebufferTexture1DEXT");
+    pGL->FramebufferTexture2DEXT = (PFNGLFRAMEBUFFERTEXTURE2DEXTPROC)drgl__get_proc_address(pGL, "glFramebufferTexture2DEXT");
+    pGL->FramebufferTexture3DEXT = (PFNGLFRAMEBUFFERTEXTURE3DEXTPROC)drgl__get_proc_address(pGL, "glFramebufferTexture3DEXT");
+    pGL->FramebufferRenderbufferEXT = (PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC)drgl__get_proc_address(pGL, "glFramebufferRenderbufferEXT");
+    pGL->GetFramebufferAttachmentParameterivEXT = (PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVEXTPROC)drgl__get_proc_address(pGL, "glGetFramebufferAttachmentParameterivEXT");
+    pGL->GenerateMipmapEXT = (PFNGLGENERATEMIPMAPEXTPROC)drgl__get_proc_address(pGL, "glGenerateMipmapEXT");
+#endif
 
 
     // Platform-specific extensions
