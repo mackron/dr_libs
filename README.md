@@ -8,8 +8,9 @@ don't regularly work in C++ so there could be compiler errors every now and then
 come across one, feel free to submit an issue real quick and I'll get it sorted out.
 
 Not every library is versioned. Usually this means it's pretty early in development and I'm
-still experimenting with the API design and whatnot. Versioned libraries should have fairly
-stable APIs, but they may change every now and then, albeit rarely.
+still experimenting with the API design and whatnot. You should avoid using these because
+their APIs are unstable. Versioned libraries have stable APIs, but on rare occasions I may
+need to make some minor changes.
 
 Library                                         | Version | Description
 ----------------------------------------------- | ------- | -----------
@@ -21,6 +22,8 @@ dr_fs                                           | -       | File system abstract
 dr_fsw                                          | -       | Watch for changes to the file system. Windows only.
 dr_path                                         | 0.1     | Path manipulation.
 dr_gui                                          | -       | Low level GUI system.
+dr_gl                                           | -       | OpenGL 2.1 API loader.
+dr_wnd                                          | -       | Basic window management. Windows only at the moment.
 dr_util                                         | -       | Miscellaneous stuff that doesn't belong to any specific category.
 dr_mtl                                          | -       | Loads material files and converts it to shader source (GLSL, etc.)
 dr_math                                         | -       | Vector math library. Very incomplete.
