@@ -747,6 +747,9 @@ dr_window* dr_window_create(void* pUserData, const char* pTitle, unsigned int re
         return NULL;
     }
 
+    pWindow->pUserData = pUserData;
+
+
     DWORD dwExStyle = 0;
     DWORD dwStyle = WS_OVERLAPPEDWINDOW;
     pWindow->hWnd = CreateWindowExA(dwExStyle, g_DRWndClassName, pTitle, dwStyle, CW_USEDEFAULT, CW_USEDEFAULT, resolutionX, resolutionY, NULL, NULL, NULL, NULL);
