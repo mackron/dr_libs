@@ -279,10 +279,12 @@ typedef void   (* dr_key_value_error_proc)(void* pUserData, const char* message,
 ///      - Comments begin with the '#' character and continue until the end of the line.
 ///      - A key cannot contain spaces but are permitted in values.
 ///      - The value will have any leading and trailing whitespace trimmed.
-///      - A value can be wrapped in double-quote characters in which case the last double-quote character acts as the end point.
+///      - A value can be wrapped in double-quote characters in which case the last double-quote character acts as the end point. The quotes
+///        will be trimmed.
 ///     @par
 ///     If an error occurs, that line will be skipped and processing will continue.
 void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
+void dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
 
 
 
@@ -338,6 +340,9 @@ bool dr_set_current_directory(const char* path);
 
 /////////////////////////////////////////////////////////
 // Basic File Management
+
+// Helper for opening a stdio FILE.
+FILE* dr_fopen(const char* fileName, const char* openMode);
 
 // Retrieves the file data of the given file. Free the returned pointer with dr_free_file_data().
 void* dr_open_and_read_file(const char* filePath, size_t* pFileSizeOut);
@@ -566,6 +571,17 @@ void dr_timer_init(dr_timer* pTimer);
 // The maximum return value is about 140 years or so.
 double dr_timer_tick(dr_timer* pTimer);
 
+
+
+
+/////////////////////////////////////////////////////////
+// Random
+
+// Generates a random double between 0 and 1. This is bassed of C standard rand().
+double dr_randd();
+
+// Generates a random float between 0 and 1. This is based off C standard rand().
+float dr_randf();
 
 
 /////////////////////////////////////////////////////////
@@ -1186,6 +1202,56 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
 }
 
 
+typedef struct
+{
+    FILE* pFile;
+    dr_key_value_pair_proc onPair;
+    dr_key_value_error_proc onError;
+    void* pOriginalUserData;
+} dr_parse_key_value_pairs_from_file_data;
+
+size_t dr_parse_key_value_pairs_from_file__on_read(void* pUserData, void* pDataOut, size_t bytesToRead)
+{
+    dr_parse_key_value_pairs_from_file_data* pData = (dr_parse_key_value_pairs_from_file_data*)pUserData;
+    assert(pData != NULL);
+
+    return fread(pDataOut, 1, bytesToRead, pData->pFile);
+}
+
+void dr_parse_key_value_pairs_from_file__on_pair(void* pUserData, const char* key, const char* value)
+{
+    dr_parse_key_value_pairs_from_file_data* pData = (dr_parse_key_value_pairs_from_file_data*)pUserData;
+    assert(pData != NULL);
+
+    pData->onPair(pData->pOriginalUserData, key, value);
+}
+
+void dr_parse_key_value_pairs_from_file__on_error(void* pUserData, const char* message, unsigned int line)
+{
+    dr_parse_key_value_pairs_from_file_data* pData = (dr_parse_key_value_pairs_from_file_data*)pUserData;
+    assert(pData != NULL);
+
+    pData->onError(pData->pOriginalUserData, message, line);
+}
+
+void dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData)
+{
+    dr_parse_key_value_pairs_from_file_data data;
+    data.pFile = dr_fopen(filePath, "rb");
+    if (data.pFile == NULL) {
+        if (onError) onError(pUserData, "Could not open file.", 0);
+        return;
+    }
+
+    data.onPair = onPair;
+    data.onError = onError;
+    data.pOriginalUserData = pUserData;
+    dr_parse_key_value_pairs(dr_parse_key_value_pairs_from_file__on_read, dr_parse_key_value_pairs_from_file__on_pair, dr_parse_key_value_pairs_from_file__on_error, &data);
+
+    fclose(data.pFile);
+}
+
+
 /////////////////////////////////////////////////////////
 // Basic Tokenizer
 
@@ -1433,6 +1499,23 @@ bool dr_set_current_directory(const char* path)
 /////////////////////////////////////////////////////////
 // Basic File Management
 
+FILE* dr_fopen(const char* filePath, const char* openMode)
+{
+    FILE* pFile;
+#ifdef _MSC_VER
+    if (fopen_s(&pFile, filePath, openMode) != 0) {
+        return NULL;
+    }
+#else
+    pFile = fopen(filePath, openMode);
+    if (pFile == NULL) {
+        return NULL;
+    }
+#endif
+
+    return pFile;
+}
+
 static void* dr_open_and_read_file_with_extra_data(const char* filePath, size_t* pFileSizeOut, size_t extraBytes)
 {
     if (pFileSizeOut) *pFileSizeOut = 0;   // For safety.
@@ -1443,17 +1526,10 @@ static void* dr_open_and_read_file_with_extra_data(const char* filePath, size_t*
 
     // TODO: Use 64-bit versions of the FILE APIs.
 
-    FILE* pFile;
-#ifdef _MSC_VER
-    if (fopen_s(&pFile, filePath, "rb") != 0) {
-        return NULL;
-    }
-#else
-    pFile = fopen(filePath, "rb");
+    FILE* pFile = dr_fopen(filePath, "rb");
     if (pFile == NULL) {
         return NULL;
     }
-#endif
 
     fseek(pFile, 0, SEEK_END);
     uint64_t fileSize = ftell(pFile);
@@ -2397,6 +2473,20 @@ double dr_timer_tick(dr_timer* pTimer)
     return (newTimeCounter - oldTimeCounter) / 1000000000.0;
 }
 #endif
+
+
+/////////////////////////////////////////////////////////
+// Random
+
+double dr_randd()
+{
+    return (double)rand() / (double)RAND_MAX;
+}
+
+float dr_randf()
+{
+    return (float)dr_randd();
+}
 
 #endif  //DR_UTIL_IMPLEMENTATION
 
