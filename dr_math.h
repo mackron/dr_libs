@@ -24,6 +24,7 @@
 #endif
 
 #define DR_PI       3.14159265358979323846
+#define DR_PIF      3.14159265358979323846f
 
 #ifdef __cplusplus
 extern "C" {
@@ -131,12 +132,29 @@ DR_MATHCALL vec4 vec4_mul_1f(vec4 a, float x)
 {
     return vec4f(a.x * x, a.y * x, a.z * x, a.w * x);
 }
+DR_MATHCALL vec4 vec4_mul_mat4(vec4 v, mat4 m)
+{
+    const vec4 m0 = m.col0;
+    const vec4 m1 = m.col1;
+    const vec4 m2 = m.col2;
+    const vec4 m3 = m.col3;
+
+    return vec4f(
+        m0.x*v.x + m0.y*v.y + m0.z*v.z + m0.w*v.w,
+        m1.x*v.x + m1.y*v.y + m1.z*v.z + m1.w*v.w,
+        m2.x*v.x + m2.y*v.y + m2.z*v.z + m2.w*v.w,
+        m3.x*v.x + m3.y*v.y + m3.z*v.z + m3.w*v.w
+    );
+}
 
 
 DR_MATHCALL vec4 vec4_div(vec4 a, vec4 b)
 {
     return vec4f(a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w);
 }
+
+
+
 
 
 
@@ -195,6 +213,107 @@ DR_MATHCALL vec3 vec3_div(vec3 a, vec3 b)
     return vec3f(a.x / b.x, a.y / b.y, a.z / b.z);
 }
 
+
+
+///////////////////////////////////////////////
+//
+// VEC2
+//
+///////////////////////////////////////////////
+
+DR_MATHCALL vec2 vec2f(float x, float y)
+{
+    vec2 result;
+    result.x = x;
+    result.y = y;
+
+    return result;
+}
+DR_MATHCALL vec2 vec2v(const float* v)
+{
+    return vec2f(v[0], v[1]);
+}
+DR_MATHCALL vec2 vec2_zero()
+{
+    return vec2f(0, 0);
+}
+DR_MATHCALL vec2 vec2_one()
+{
+    return vec2f(1, 1);
+}
+
+
+DR_MATHCALL vec2 vec2_add(vec2 a, vec2 b)
+{
+    return vec2f(a.x + b.x, a.y + b.y);
+}
+
+DR_MATHCALL vec2 vec2_sub(vec2 a, vec2 b)
+{
+    return vec2f(a.x - b.x, a.y - b.y);
+}
+
+
+DR_MATHCALL vec2 vec2_mul(vec2 a, vec2 b)
+{
+    return vec2f(a.x * b.x, a.y * b.y);
+}
+DR_MATHCALL vec2 vec2_mul_1f(vec2 a, float x)
+{
+    return vec2f(a.x * x, a.y * x);
+}
+
+
+DR_MATHCALL vec2 vec2_div(vec2 a, vec2 b)
+{
+    return vec2f(a.x / b.x, a.y / b.y);
+}
+
+
+DR_MATHCALL float vec2_dot(vec2 a, vec2 b)
+{
+    return a.x*b.x + a.y*b.y;
+}
+
+
+DR_MATHCALL float vec2_length2(vec2 a)
+{
+    return vec2_dot(a, a);
+}
+
+DR_MATHCALL float vec2_length(vec2 a)
+{
+    return sqrtf(vec2_length2(a));
+}
+
+
+DR_MATHCALL vec2 vec2_normalize(vec2 a)
+{
+    float len = vec2_length(a);
+    assert(len > 0);
+
+    return vec2f(
+        a.x / len,
+        a.y / len
+    );
+}
+
+
+DR_MATHCALL float vec2_angle(vec2 a, vec2 b)
+{
+    return atanf(a.y / a.x) - atanf(b.y / b.x);
+}
+
+DR_MATHCALL vec2 vec2_rotate(vec2 a, float angleInRadians)
+{
+    float c = cosf(angleInRadians);
+    float s = sinf(angleInRadians);
+
+    return vec2f(
+        a.x*c - a.y*s,
+        a.x*s + a.y*c
+    );
+}
 
 
 ///////////////////////////////////////////////
@@ -362,6 +481,21 @@ DR_MATHCALL mat4 mat4_mul(mat4 a, mat4 b)
     );
 
     return result;
+}
+
+DR_MATHCALL vec4 mat4_mul_vec4(mat4 m, vec4 v)
+{
+    const vec4 m0 = m.col0;
+    const vec4 m1 = m.col1;
+    const vec4 m2 = m.col2;
+    const vec4 m3 = m.col3;
+
+    return vec4f(
+        m0.x*v.x + m1.x*v.y + m2.x*v.z + m3.x*v.w,
+        m0.y*v.x + m1.y*v.y + m2.y*v.z + m3.y*v.w,
+        m0.z*v.x + m1.z*v.y + m2.z*v.z + m3.z*v.w,
+        m0.w*v.x + m1.w*v.y + m2.w*v.z + m3.w*v.w
+    );
 }
 
 
