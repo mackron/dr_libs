@@ -1501,7 +1501,7 @@ bool drgl_init(drgl* pGL)
     pGL->Vertex2sv = (PFNGLVERTEX2SV)drgl__get_proc_address(pGL, "glVertex2sv");
     pGL->Vertex3d = (PFNGLVERTEX3D)drgl__get_proc_address(pGL, "glVertex3d");
     pGL->Vertex3dv = (PFNGLVERTEX3DV)drgl__get_proc_address(pGL, "glVertex3dv");
-    pGL->Vertex3f = (PFNGLVERTEX3F)drgl__get_proc_address(pGL, "glVertex3dv");
+    pGL->Vertex3f = (PFNGLVERTEX3F)drgl__get_proc_address(pGL, "glVertex3f");
     pGL->Vertex3fv = (PFNGLVERTEX3FV)drgl__get_proc_address(pGL, "glVertex3fv");
     pGL->Vertex3i = (PFNGLVERTEX3I)drgl__get_proc_address(pGL, "glVertex3i");
     pGL->Vertex3iv = (PFNGLVERTEX3IV)drgl__get_proc_address(pGL, "glVertex3iv");
