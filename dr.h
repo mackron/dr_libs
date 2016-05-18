@@ -1,19 +1,12 @@
 // Public Domain. See "unlicense" statement at the end of this file.
 
-// ABOUT
-//
-// This is a simple utility library containing miscellaneous functionality which doesn't really fit within
-// a separate library.
-//
-//
-//
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
 //   #define DR_UTIL_IMPLEMENTATION
-//   #include "dr_util.h"
+//   #include "dr.h"
 //
-// You can then #include dr_util.h in other parts of the program as you would with any other header file.
+// You can then #include dr.h in other parts of the program as you would with any other header file.
 //
 //
 //
@@ -29,37 +22,15 @@
 extern "C" {
 #endif
 
-/////////////////////////////////////////////////////////
-// Options
-
-#ifdef DRUTIL_ONLY_ANNOTATIONS
-    #define DRUTIL_NO_MSVC_COMPAT
-    #define DRUTIL_NO_ALIGNED_MALLOC
-    #define DRUTIL_NO_MINMAXCLAMP
-#endif
-
-#ifdef DRUTIL_ONLY_MSVC_COMPAT
-    #define DRUTIL_NO_ANNOTATIONS
-    #define DRUTIL_NO_ALIGNED_MALLOC
-    #define DRUTIL_NO_MINMAXCLAMP
-#endif
-
-#ifdef DRUTIL_ONLY_ALIGNED_MALLOC
-    #define DRUTIL_NO_ANNOTATIONS
-    #define DRUTIL_NO_MSVC_COMPAT
-    #define DRUTIL_NO_MINMAXCLAMP
-#endif
-
-
 // Disable MSVC compatibility if we're compiling with it.
-#if !defined(DRUTIL_NO_MSVC_COMPAT) && (defined(_MSC_VER))
-    #define DRUTIL_NO_MSVC_COMPAT
+#if defined(_MSC_VER)
+    #define DR_NO_MSVC_COMPAT
 #endif
 
 #if defined(_MSC_VER)
-#define DRUTIL_INLINE static __inline
+#define DR_INLINE static __inline
 #else
-#define DRUTIL_INLINE static inline
+#define DR_INLINE static inline
 #endif
 
 
@@ -69,7 +40,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifndef DRUTIL_NO_MSVC_COMPAT
+#ifndef DR_NO_MSVC_COMPAT
 #include <errno.h>
 #endif
 
@@ -81,36 +52,32 @@ extern "C" {
 /////////////////////////////////////////////////////////
 // Annotations
 
-#ifndef DRUTIL_NO_ANNOTATIONS
-    #ifndef IN
-    #define IN
-    #endif
+#ifndef IN
+#define IN
+#endif
 
-    #ifndef OUT
-    #define OUT
-    #endif
+#ifndef OUT
+#define OUT
+#endif
 
-    #ifndef UNUSED
-    #define UNUSED(x) ((void)x)
-    #endif
+#ifndef UNUSED
+#define UNUSED(x) ((void)x)
 #endif
 
 
 /////////////////////////////////////////////////////////
 // min/max/clamp
 
-#ifndef DRUTIL_NO_MINMAXCLAMP
-    #ifndef dr_min
-    #define dr_min(x, y) (((x) < (y)) ? (x) : (y))
-    #endif
+#ifndef dr_min
+#define dr_min(x, y) (((x) < (y)) ? (x) : (y))
+#endif
 
-    #ifndef dr_max
-    #define dr_max(x, y) (((x) > (y)) ? (x) : (y))
-    #endif
+#ifndef dr_max
+#define dr_max(x, y) (((x) > (y)) ? (x) : (y))
+#endif
 
-    #ifndef dr_clamp
-    #define dr_clamp(x, low, high) (dr_max(low, dr_min(x, high)))
-    #endif
+#ifndef dr_clamp
+#define dr_clamp(x, low, high) (dr_max(low, dr_min(x, high)))
 #endif
 
 
@@ -132,39 +99,39 @@ int dr_strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count
 // A basic implementation of MSVC's _atoi_s()
 int dr_itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix);
 
-#ifndef DRUTIL_NO_MSVC_COMPAT
+#ifndef DR_NO_MSVC_COMPAT
 #ifndef _TRUNCATE
 #define _TRUNCATE ((size_t)-1)
 #endif
 
-DRUTIL_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+DR_INLINE int strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
     return dr_strcpy_s(dst, dstSizeInBytes, src);
 }
 
-DRUTIL_INLINE int strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+DR_INLINE int strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
 {
     return dr_strncpy_s(dst, dstSizeInBytes, src, count);
 }
 
-DRUTIL_INLINE int strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
+DR_INLINE int strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
     return dr_strcat_s(dst, dstSizeInBytes, src);
 }
 
-DRUTIL_INLINE int strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+DR_INLINE int strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
 {
     return dr_strncat_s(dst, dstSizeInBytes, src, count);
 }
 
 #ifndef __MINGW32__
-DRUTIL_INLINE int _stricmp(const char* string1, const char* string2)
+DR_INLINE int _stricmp(const char* string1, const char* string2)
 {
     return strcasecmp(string1, string2);
 }
 #endif
 
-DRUTIL_INLINE int _itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
+DR_INLINE int _itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
 {
     return dr_itoa_s(value, dst, dstSizeInBytes, radix);
 }
@@ -196,7 +163,7 @@ const char* dr_first_whitespace(const char* str);
 /// @remarks
 ///     It is assumed the <utf16> is large enough to hold at least 2 unsigned shorts. <utf16> will be padded with 0 for unused
 ///     components.
-DRUTIL_INLINE int dr_utf32_to_utf16_ch(unsigned int utf32, unsigned short utf16[2])
+DR_INLINE int dr_utf32_to_utf16_ch(unsigned int utf32, unsigned short utf16[2])
 {
     if (utf16 == NULL) {
         return 0;
@@ -227,7 +194,7 @@ DRUTIL_INLINE int dr_utf32_to_utf16_ch(unsigned int utf32, unsigned short utf16[
 }
 
 /// Converts a UTF-16 character to UTF-32.
-DRUTIL_INLINE unsigned int dr_utf16_to_utf32_ch(unsigned short utf16[2])
+DR_INLINE unsigned int dr_utf16_to_utf32_ch(unsigned short utf16[2])
 {
     if (utf16 == NULL) {
         return 0;
@@ -252,7 +219,7 @@ DRUTIL_INLINE unsigned int dr_utf16_to_utf32_ch(unsigned short utf16[2])
 }
 
 /// Converts a UTF-16 surrogate pair to UTF-32.
-DRUTIL_INLINE unsigned int dr_utf16pair_to_utf32_ch(unsigned short utf160, unsigned short utf161)
+DR_INLINE unsigned int dr_utf16pair_to_utf32_ch(unsigned short utf160, unsigned short utf161)
 {
     unsigned short utf16[2];
     utf16[0] = utf160;
@@ -265,7 +232,7 @@ DRUTIL_INLINE unsigned int dr_utf16pair_to_utf32_ch(unsigned short utf160, unsig
 // Aligned Allocations
 
 #ifndef DRUTIL_NO_ALIGNED_MALLOC
-DRUTIL_INLINE void* dr_aligned_malloc(size_t alignment, size_t size)
+DR_INLINE void* dr_aligned_malloc(size_t alignment, size_t size)
 {
 #if defined(_WIN32) || defined(_WIN64)
     return _aligned_malloc(size, alignment);
@@ -279,7 +246,7 @@ DRUTIL_INLINE void* dr_aligned_malloc(size_t alignment, size_t size)
 #endif
 }
 
-DRUTIL_INLINE void dr_aligned_free(void* ptr)
+DR_INLINE void dr_aligned_free(void* ptr)
 {
 #if defined(_WIN32) || defined(_WIN64)
     _aligned_free(ptr);
@@ -616,7 +583,7 @@ double dr_timer_tick(dr_timer* pTimer);
         classname & operator=(const classname &);
 
 
-#ifndef DRUTIL_NO_MSVC_COMPAT
+#ifndef DR_NO_MSVC_COMPAT
 extern "C++"
 {
 
