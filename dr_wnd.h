@@ -717,7 +717,7 @@ int dr_window_system_run_realtime(dr_window_system_on_loop_iteration_proc onLoop
     {
         // Handle window events.
         MSG msg;
-        if (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
+        while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
         {
             if (msg.message == WM_QUIT) {
                 return msg.wParam;  // Received a quit message.
