@@ -218,8 +218,28 @@ struct dra_mixer
     // The device that created and owns this mixer.
     dra_device* pDevice;
 
+
     // The parent mixer.
     dra_mixer* pParentMixer;
+
+    // The first child mixer.
+    dra_mixer* pFirstChildMixer;
+
+    // The last child mixer.
+    dra_mixer* pLastChildMixer;
+
+    // The next sibling mixer.
+    dra_mixer* pNextSiblingMixer;
+
+    // The previous sibling mixer.
+    dra_mixer* pPrevSiblingMixer;
+
+
+    // The first buffer attached to the device.
+    dra_buffer* pFirstBuffer;
+
+    // The last buffer attached to the device.
+    dra_buffer* pLastBuffer;
 };
 
 struct dra_buffer
@@ -248,6 +268,9 @@ struct dra_buffer
     // Whether or not the buffer is currently looping. Whether or not the buffer is looping is determined by the last
     // call to dra_buffer_play().
     bool isLooping;
+
+    // The current read position, in samples.
+    uint64_t currentReadPos;
 
 
     // The size of the buffer in bytes.
@@ -302,6 +325,20 @@ void dra_mixer_detach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer);
 // dra_mixer_detach_all_buffers()
 void dra_mixer_detach_all_buffers(dra_mixer* pMixer);
 
+// Mixes the next number of samples and moves the playback position appropriately.
+//
+// pMixer      [in]      The mixer.
+// sampleCount [in]      The number of samples to mix.
+// pSamples    [in, out] The buffer containing the sample data.
+//
+// Returns the number of samples actually mixed.
+//
+// The return value is used to determine whether or not there's anything left to mix in the future. When there are
+// no samples left to mix, the device can be put into a dormant state to prevent unnecessary processing.
+//
+// Initially, pSamples contains the values of the previous stage's mixing. At first it will be filled with zeros.
+uint64_t dra_mixer_mix(dra_mixer* pMixer, uint64_t sampleCount, void* pSamples);
+
 
 // dra_buffer_create()
 dra_buffer* dra_buffer_create(dra_device* pDevice, dra_data_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData);
@@ -327,6 +364,9 @@ bool dra_buffer_is_playing(dra_buffer* pBuffer);
 
 // dra_buffer_is_looping()
 bool dra_buffer_is_looping(dra_buffer* pBuffer);
+
+// dra_buffer_mix()
+uint64_t dra_buffer_mix(dra_buffer* pBuffer, uint64_t sampleCount, void* pSamples);
 
 
 // Utility APIs
@@ -360,7 +400,7 @@ unsigned int dra_get_bytes_per_sample_by_format(dra_data_format format);
 
 #define DR_AUDIO_DEFAULT_CHANNEL_COUNT  2
 #define DR_AUDIO_DEFAULT_SAMPLE_RATE    48000
-#define DR_AUDIO_DEFAULT_LATENCY        50      // Milliseconds
+#define DR_AUDIO_DEFAULT_LATENCY        2000      // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
 #define DR_AUDIO_DEFAULT_FRAGMENT_COUNT 2       // The hardware buffer is divided up into latency-sized blocks. This controls that number. Must be at least 2.
 
 #define DR_AUDIO_BACKEND_TYPE_NULL      0
@@ -391,6 +431,8 @@ struct dra_backend_device
     dra_data_format format; \
     unsigned int channels; \
     unsigned int sampleRate; \
+    unsigned int fragmentCount; \
+    unsigned int samplesPerFragment; \
 
     DR_AUDIO_BASE_BACKEND_DEVICE_ATTRIBS
 };
@@ -533,6 +575,15 @@ typedef struct
 
     // The event the main playback thread will wait on to determine whether or not the playback loop should terminate.
     HANDLE hStopEvent;
+
+    // The index of the fragment that is currently being played.
+    unsigned int currentFragmentIndex;
+
+    // The address of the mapped fragment. This is set with IDirectSoundBuffer8::Lock() and passed to IDriectSoundBuffer8::Unlock().
+    void* pLockPtr;
+
+    // The size of the locked buffer. This is set with IDirectSoundBuffer8::Lock() and passed to IDriectSoundBuffer8::Unlock().
+    DWORD lockSize;
 
 } dra_backend_device_dsound;
 
@@ -728,6 +779,8 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     pDeviceDS->channels = actualFormat->Format.nChannels;
     pDeviceDS->sampleRate = actualFormat->Format.nSamplesPerSec;
 
+    // DirectSound always has the same number of fragments.
+    pDeviceDS->fragmentCount = DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
 
 
     // The secondary buffer is the buffer where the real audio data will be written to and used by the hardware device. It's
@@ -739,8 +792,10 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
         sampleRateInMilliseconds = 1;
     }
 
-    size_t fragmentSize = (pDeviceDS->channels * sampleRateInMilliseconds * latencyInMilliseconds) * dra_get_bytes_per_sample_by_format(format);
-    size_t hardwareBufferSize = fragmentSize * DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
+    pDeviceDS->samplesPerFragment = (pDeviceDS->channels * sampleRateInMilliseconds * latencyInMilliseconds);
+
+    size_t fragmentSize = pDeviceDS->samplesPerFragment * dra_get_bytes_per_sample_by_format(format);
+    size_t hardwareBufferSize = fragmentSize * pDeviceDS->fragmentCount;
     assert(hardwareBufferSize > 0);     // <-- If you've triggered this is means you've got something set to 0. You haven't been setting that latency to 0 have you?! That's not allowed!
 
     // Meaning of dwFlags (from MSDN):
@@ -940,23 +995,72 @@ bool dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns true 
     DWORD rc = WaitForMultipleObjects(DR_AUDIO_DEFAULT_FRAGMENT_COUNT + 1, eventHandles, FALSE, INFINITE);
     if (rc >= WAIT_OBJECT_0 && rc < eventCount)
     {
-        const unsigned int eventIndex = rc - WAIT_OBJECT_0;
+        unsigned int eventIndex = rc - WAIT_OBJECT_0;
         HANDLE hEvent = eventHandles[eventIndex];
 
         // Has the device been stopped? If so, need to return false.
         if (hEvent == pDeviceDS->hStopEvent) {
-            printf("Stopped!\n");
             return false;
         }
 
-
-        // If we get here it means the event that's been signaled represents a fragment. This is where we fill
-        // the hardware buffer with new audio data.
-        printf("Requesting next fragment: %d\n", eventIndex);
+        // If we get here it means the event that's been signaled represents a fragment.
+        pDeviceDS->currentFragmentIndex = eventIndex;
         return true;
     }
 
     return false;
+}
+
+void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, uint64_t* pSamplesInFragmentOut)
+{
+    assert(pSamplesInFragmentOut != NULL);
+
+    dra_backend_device_dsound* pDeviceDS = (dra_backend_device_dsound*)pDevice;
+    if (pDeviceDS == NULL) {
+        return NULL;
+    }
+
+    if (pDeviceDS->pLockPtr != NULL) {
+        return NULL;    // A fragment is already mapped. Can only have a single fragment mapped at a time.
+    }
+
+
+    // If the device is not currently playing, we just return the first fragment. Otherwise we return the fragment that's sitting just past the
+    // one that's currently playing.
+    DWORD dwOffset = 0;
+    DWORD dwBytes = pDeviceDS->samplesPerFragment * dra_get_bytes_per_sample_by_format(pDeviceDS->format);
+
+    DWORD status;
+    IDirectSoundBuffer_GetStatus(pDeviceDS->pDSSecondaryBuffer, &status);
+    if ((status & DSBSTATUS_PLAYING) != 0) {
+        dwOffset = (((pDeviceDS->currentFragmentIndex + 1) % pDeviceDS->fragmentCount) * pDeviceDS->samplesPerFragment) * dra_get_bytes_per_sample_by_format(pDeviceDS->format);
+    }
+    
+
+    HRESULT hr = IDirectSoundBuffer_Lock(pDeviceDS->pDSSecondaryBuffer, dwOffset, dwBytes, &pDeviceDS->pLockPtr, &pDeviceDS->lockSize, NULL, NULL, 0);
+    if (FAILED(hr)) {
+        return NULL;
+    }
+
+    *pSamplesInFragmentOut = pDeviceDS->samplesPerFragment;
+    return pDeviceDS->pLockPtr;
+}
+
+void dra_backend_device_unmap_next_fragment(dra_backend_device* pDevice)
+{
+    dra_backend_device_dsound* pDeviceDS = (dra_backend_device_dsound*)pDevice;
+    if (pDeviceDS == NULL) {
+        return;
+    }
+
+    if (pDeviceDS->pLockPtr == NULL) {
+        return;     // Nothing is mapped.
+    }
+
+    IDirectSoundBuffer_Unlock(pDeviceDS->pDSSecondaryBuffer, pDeviceDS->pLockPtr, pDeviceDS->lockSize, NULL, 0);
+
+    pDeviceDS->pLockPtr = NULL;
+    pDeviceDS->lockSize = 0;
 }
 #endif  // DR_AUDIO_NO_SOUND
 #endif  // _WIN32
@@ -1504,6 +1608,27 @@ bool dra_device__is_playing_nolock(dra_device* pDevice)
     return pDevice->isPlaying;
 }
 
+bool dra_device__mix_next_fragment(dra_device* pDevice)
+{
+    assert(pDevice != NULL);
+
+    uint64_t samplesInFragment;
+    void* pSampleData = dra_backend_device_map_next_fragment(pDevice->pBackendDevice, &samplesInFragment);
+    if (pSampleData == NULL) {
+        dra_backend_device_stop(pDevice->pBackendDevice);
+        return false;
+    }
+
+    // TODO: When mixing reached the end, stop the device.
+    
+    memset(pSampleData, 0, (size_t)samplesInFragment * dra_get_bytes_per_sample_by_format(pDevice->format));
+    dra_mixer_mix(pDevice->pMasterMixer, samplesInFragment, pSampleData);
+    dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
+    printf("Mixed next fragment into %p\n", pSampleData);
+
+    return true;
+}
+
 void dra_device__play(dra_device* pDevice)
 {
     assert(pDevice != NULL);
@@ -1511,10 +1636,15 @@ void dra_device__play(dra_device* pDevice)
     dra_device__lock(pDevice);
     {
         // Don't do anything if the device is already playing.
-        if (!dra_device__is_playing_nolock(pDevice)) {
-            dra_backend_device_play(pDevice->pBackendDevice);
-            dra_device__post_event(pDevice, dra_event_type_play);
-            pDevice->isPlaying = true;
+        if (!dra_device__is_playing_nolock(pDevice))
+        {
+            // Before playing the backend device we need to ensure the first fragment is filled with valid audio data.
+            if (dra_device__mix_next_fragment(pDevice))
+            {
+                dra_backend_device_play(pDevice->pBackendDevice);
+                dra_device__post_event(pDevice, dra_event_type_play);
+                pDevice->isPlaying = true;
+            }
         }
     }
     dra_device__unlock(pDevice);
@@ -1559,9 +1689,15 @@ void* dra_device__thread_proc(void* pData)
         if (pDevice->nextEventType == dra_event_type_play)
         {
             dra_backend_device_play(pDevice->pBackendDevice);
-            while (dra_backend_device_wait(pDevice->pBackendDevice)) {
+            while (dra_backend_device_wait(pDevice->pBackendDevice))
+            {
                 // If we get here it means there's a fragment that needs mixing and updating.
+                if (!dra_device__mix_next_fragment(pDevice)) {
+                    continue;
+                }
             }
+
+            printf("Stopped!\n");
 
             // Don't fall through.
             continue;   
@@ -1587,12 +1723,16 @@ dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsi
         return NULL;
     }
 
-    pDevice->pContext = pContext;
+    pDevice->pContext   = pContext;
+    pDevice->format     = format;
+    pDevice->channels   = channels;
+    pDevice->sampleRate = sampleRate;
 
     pDevice->pBackendDevice = dra_backend_device_open(pContext->pBackend, type, deviceID, format, channels, sampleRate, latencyInMilliseconds);
     if (pDevice->pBackendDevice == NULL) {
         goto on_error;
     }
+
 
     pDevice->mutex = dra_mutex_create();
     if (pDevice->mutex == NULL) {
@@ -1757,7 +1897,13 @@ void dra_mixer_attach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
         return;
     }
 
-    // TODO: Implement me.
+    if (pMixer->pFirstBuffer == NULL) {
+        pMixer->pFirstBuffer = pBuffer;
+        pMixer->pLastBuffer  = pBuffer;
+        return;
+    }
+
+    // TODO: Attach the buffer to the end.
 }
 
 void dra_mixer_detach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
@@ -1778,6 +1924,24 @@ void dra_mixer_detach_all_buffers(dra_mixer* pMixer)
     // TODO: Implement me.
 }
 
+uint64_t dra_mixer_mix(dra_mixer* pMixer, uint64_t sampleCount, void* pSamples)
+{
+    if (pMixer == NULL) {
+        return 0;
+    }
+
+    if (pMixer->pFirstBuffer == NULL && pMixer->pFirstChildMixer) {
+        return 0;
+    }
+
+    // TODO: Implement me properly.
+
+    // TEMP FOR TESTING: Just memcpy the contents of the first buffer, assuming it's in the same format as the device.
+    return dra_buffer_mix(pMixer->pFirstBuffer, sampleCount, pSamples);
+
+    //return sampleCount;
+}
+
 
 
 dra_buffer* dra_buffer_create(dra_device* pDevice, dra_data_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData)
@@ -1796,6 +1960,9 @@ dra_buffer* dra_buffer_create(dra_device* pDevice, dra_data_format format, unsig
     pBuffer->format = format;
     pBuffer->channels = channels;
     pBuffer->sampleRate = sampleRate;
+    pBuffer->isPlaying = false;
+    pBuffer->isLooping = false;
+    pBuffer->currentReadPos = 0;
     pBuffer->sizeInBytes = sizeInBytes;
 
     if (pInitialData != NULL) {
@@ -1901,6 +2068,57 @@ bool dra_buffer_is_looping(dra_buffer* pBuffer)
     return pBuffer->isLooping;
 }
 
+uint64_t dra_buffer_mix(dra_buffer* pBuffer, uint64_t sampleCount, void* pSamples)
+{
+    if (pBuffer == NULL || sampleCount == 0 || pSamples == NULL) {
+        return 0;
+    }
+
+    // TODO: Implement me properly.
+    // - sampleCount is based on the device's sample rate, not the buffer's. Need to convert the sample count appropriately.
+
+    //uint64_t samplesToMixFromBuffer = sampleCount;  // <-- Adjust this based on sample rate conversion. The number of samples output to pSamples needs to be sample-exact.
+    uint64_t totalSamplesInBuffer   = pBuffer->sizeInBytes / dra_get_bytes_per_sample_by_format(pBuffer->format);
+
+    uint64_t samplesRemainingInBuffer = totalSamplesInBuffer - pBuffer->currentReadPos;
+    uint64_t samplesRemainingToRead = sampleCount;
+    if (samplesRemainingInBuffer < samplesRemainingToRead && !pBuffer->isLooping) {
+        samplesRemainingToRead = samplesRemainingInBuffer;
+    }
+
+    uint64_t totalSamplesRead = 0;
+    
+    uint8_t* pRunningBufferData = pBuffer->pData + (pBuffer->currentReadPos * dra_get_bytes_per_sample_by_format(pBuffer->format));
+    while (samplesRemainingToRead > 0)
+    {
+        uint64_t samplesToReadInThisChunk = samplesRemainingToRead;
+
+        uint64_t samplesToEnd = totalSamplesInBuffer - pBuffer->currentReadPos;
+        if (samplesToEnd <= samplesToReadInThisChunk) {
+            samplesToReadInThisChunk = samplesToEnd;
+        }
+
+        memcpy(pSamples, pRunningBufferData, (size_t)samplesToReadInThisChunk * dra_get_bytes_per_sample_by_format(pBuffer->format));
+
+        samplesRemainingToRead -= samplesToReadInThisChunk;
+        pSamples = (uint8_t*)pSamples + (samplesToReadInThisChunk * dra_get_bytes_per_sample_by_format(pBuffer->format));
+        pRunningBufferData += (samplesToReadInThisChunk * dra_get_bytes_per_sample_by_format(pBuffer->format));
+
+        pBuffer->currentReadPos += samplesToReadInThisChunk;
+        if (pBuffer->isLooping) {
+            assert(pBuffer->currentReadPos <= totalSamplesInBuffer);
+            if (pBuffer->currentReadPos == totalSamplesInBuffer) {
+                pBuffer->currentReadPos = 0;
+                pRunningBufferData = pBuffer->pData;
+            }
+        }
+
+        totalSamplesRead += samplesToReadInThisChunk;
+    }
+
+    return totalSamplesRead;
+}
+
 
 //// Utility APIs ////
 
@@ -1921,7 +2139,7 @@ unsigned int dra_get_bits_per_sample_by_format(dra_data_format format)
 unsigned int dra_get_bytes_per_sample_by_format(dra_data_format format)
 {
     if (format == dra_data_format_pcm_s24) {
-        return 4;   // 24-bit PCM is always stored in as 32-bits.
+        return 4;   // 24-bit PCM is always stored as 32-bits.
     }
 
     return dra_get_bits_per_sample_by_format(format) / 8;
