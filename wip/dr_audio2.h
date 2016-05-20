@@ -93,9 +93,22 @@
 // created, and deleted when the device is deleted.
 //
 // (Note edge cases when thread-safety may be an issue)
+//
+//
+//
+// More Random Thoughts on Mixing
+//
+// - Normalize everything to 32-bit float at mix time to simplify everything.
+//   - Would then make sense to have devices always be in 32-bit float format, which would further simplify
+//     the public API as an added bonus...
+//
+// - Mixers will need a place to store the floating point samples in an internal buffer. Probably most efficient
+//   to place this right next to the buffer that will store the final mix. Can sample rate conversion be done
+//   at this time as well?
 
 // TODO
 //
+// - Stop playback of backend devices where there are no more samples to mix.
 // - Forward declare every backend function and document them.
 
 // USAGE
@@ -138,8 +151,7 @@ typedef enum
     dra_data_format_pcm_s24,
     dra_data_format_pcm_s32,
     dra_data_format_float_32,
-    dra_data_format_float_64,
-    dra_data_format_default = dra_data_format_pcm_s32
+    dra_data_format_default = dra_data_format_float_32
 } dra_data_format;
 
 // dra_event_type is used internally for thread management.
@@ -203,9 +215,6 @@ struct dra_device
     dra_mixer* pMasterMixer;
 
 
-    // The format of the audio data. If incoming audio data does not match it will need to be converted before mixing.
-    dra_data_format format;
-
     // The number of channels being used by the device.
     unsigned int channels;
 
@@ -235,11 +244,24 @@ struct dra_mixer
     dra_mixer* pPrevSiblingMixer;
 
 
-    // The first buffer attached to the device.
+    // The first buffer attached to the mixer.
     dra_buffer* pFirstBuffer;
 
-    // The last buffer attached to the device.
+    // The last buffer attached to the mixer.
     dra_buffer* pLastBuffer;
+
+
+    // Mixers output the results of the final mix into a buffer referred to as the staging buffer. A parent mixer will
+    // use the staging buffer when it mixes the results of it's submixers. This is an offset of pData.
+    float* pStagingBuffer;
+
+    // A pointer to the buffer containing the sample data of the buffer currently being mixed, as floating point values.
+    // This is an offset of pData.
+    float* pNextSamplesToMix;
+
+
+    // The sample data for pStagingBuffer and pNextSamplesToMix.
+    float pData[1];
 };
 
 struct dra_buffer
@@ -250,6 +272,13 @@ struct dra_buffer
     // The mixer the buffer is attached to. Should never be null. The mixer doesn't "own" the buffer - the buffer
     // is simply attached to it.
     dra_mixer* pMixer;
+
+
+    // The next buffer in the linked list of buffers attached to the mixer.
+    dra_buffer* pNextBuffer;
+
+    // The previous buffer in the linked list of buffers attached to the mixer.
+    dra_buffer* pPrevBuffer;
 
 
     // The format of the audio data contained within this buffer.
@@ -276,7 +305,8 @@ struct dra_buffer
     // The size of the buffer in bytes.
     size_t sizeInBytes;
 
-    // The actual buffer containing the raw audio data.
+    // The actual buffer containing the raw audio data in it's native format. At mix time the data will be converted
+    // to floats.
     uint8_t pData[1];
 };
 
@@ -292,7 +322,7 @@ void dra_context_delete(dra_context* pContext);
 // If channels is set to 0, defaults 2 channels (stereo).
 // If sampleRate is set to 0, defaults to 48000.
 // If latency is 0, defaults to 50 milliseconds. See notes about latency above.
-dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, dra_data_format format, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds);
+dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds);
 dra_device* dra_device_open(dra_context* pContext, dra_device_type type);
 void dra_device_close(dra_device* pDevice);
 
@@ -327,17 +357,16 @@ void dra_mixer_detach_all_buffers(dra_mixer* pMixer);
 
 // Mixes the next number of samples and moves the playback position appropriately.
 //
-// pMixer      [in]      The mixer.
-// sampleCount [in]      The number of samples to mix.
-// pSamples    [in, out] The buffer containing the sample data.
+// pMixer      [in] The mixer.
+// sampleCount [in] The number of samples to mix.
 //
 // Returns the number of samples actually mixed.
 //
 // The return value is used to determine whether or not there's anything left to mix in the future. When there are
 // no samples left to mix, the device can be put into a dormant state to prevent unnecessary processing.
 //
-// Initially, pSamples contains the values of the previous stage's mixing. At first it will be filled with zeros.
-uint64_t dra_mixer_mix(dra_mixer* pMixer, uint64_t sampleCount, void* pSamples);
+// Mixed samples will be placed in pMixer->pStagingBuffer.
+uint64_t dra_mixer_mix_next_samples(dra_mixer* pMixer, uint64_t sampleCount);
 
 
 // dra_buffer_create()
@@ -356,17 +385,20 @@ void dra_buffer_play(dra_buffer* pBuffer, bool loop);
 // dra_buffer_stop()
 void dra_buffer_stop(dra_buffer* pBuffer);
 
-// dra_buffer_wait()
-void dra_buffer_wait(dra_buffer* pBuffer);
-
 // dra_buffer_is_playing()
 bool dra_buffer_is_playing(dra_buffer* pBuffer);
 
 // dra_buffer_is_looping()
 bool dra_buffer_is_looping(dra_buffer* pBuffer);
 
-// dra_buffer_mix()
-uint64_t dra_buffer_mix(dra_buffer* pBuffer, uint64_t sampleCount, void* pSamples);
+// Reads and converts the next number of samples from the buffer, based on the sample rate of the device.
+//
+// The number of samples is based on the device's sample rate. That is, the buffer will, conceptually, be
+// converted to the sample rate of the device.
+uint64_t dra_buffer_read_samples(dra_buffer* pBuffer, uint64_t sampleCount, float* pSamplesOut);
+
+// dra_buffer_mix_next_samples()
+//uint64_t dra_buffer_mix_next_samples(dra_buffer* pBuffer, uint64_t sampleCount, void* pSamples);
 
 
 // Utility APIs
@@ -379,6 +411,17 @@ bool dra_is_format_float(dra_data_format format);
 
 // Retrieves the number of bytes per sample based on the given format.
 unsigned int dra_get_bytes_per_sample_by_format(dra_data_format format);
+
+
+//// Low Level APIs ////
+
+// The functions below are used for copying and converting sample data in the given format to f32. Return value
+// is the number of samples copied.
+uint64_t dra_copy_f32_to_f32(float* pSamplesOut, const float*   pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
+uint64_t dra_copy_s32_to_f32(float* pSamplesOut, const int32_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
+uint64_t dra_copy_s24_to_f32(float* pSamplesOut, const uint8_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
+uint64_t dra_copy_s16_to_f32(float* pSamplesOut, const int16_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
+uint64_t dra_copy_u8_to_f32( float* pSamplesOut, const uint8_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
 
 
 #ifdef __cplusplus
@@ -400,7 +443,7 @@ unsigned int dra_get_bytes_per_sample_by_format(dra_data_format format);
 
 #define DR_AUDIO_DEFAULT_CHANNEL_COUNT  2
 #define DR_AUDIO_DEFAULT_SAMPLE_RATE    48000
-#define DR_AUDIO_DEFAULT_LATENCY        2000      // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
+#define DR_AUDIO_DEFAULT_LATENCY        50      // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
 #define DR_AUDIO_DEFAULT_FRAGMENT_COUNT 2       // The hardware buffer is divided up into latency-sized blocks. This controls that number. Must be at least 2.
 
 #define DR_AUDIO_BACKEND_TYPE_NULL      0
@@ -428,7 +471,6 @@ struct dra_backend_device
 #define DR_AUDIO_BASE_BACKEND_DEVICE_ATTRIBS \
     dra_backend* pBackend; \
     dra_device_type type; \
-    dra_data_format format; \
     unsigned int channels; \
     unsigned int sampleRate; \
     unsigned int fragmentCount; \
@@ -514,26 +556,26 @@ bool dra_semaphore_release(dra_semaphore semaphore)
 
 GUID DR_AUDIO_GUID_NULL = {0x00000000, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
 
-static GUID _g_DSListenerGUID                       = {0x279AFA84, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
-static GUID _g_DirectSoundBuffer8GUID               = {0x6825a449, 0x7524, 0x4d82, {0x92, 0x0f, 0x50, 0xe3, 0x6a, 0xb3, 0xab, 0x1e}};
-static GUID _g_DirectSound3DBuffer8GUID             = {0x279AFA86, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+//static GUID _g_DSListenerGUID                       = {0x279AFA84, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
+//static GUID _g_DirectSoundBuffer8GUID               = {0x6825a449, 0x7524, 0x4d82, {0x92, 0x0f, 0x50, 0xe3, 0x6a, 0xb3, 0xab, 0x1e}};
+//static GUID _g_DirectSound3DBuffer8GUID             = {0x279AFA86, 0x4981, 0x11CE, {0xA5, 0x21, 0x00, 0x20, 0xAF, 0x0B, 0xE5, 0x60}};
 static GUID _g_DirectSoundNotifyGUID                = {0xb0210783, 0x89cd, 0x11d0, {0xaf, 0x08, 0x00, 0xa0, 0xc9, 0x25, 0xcd, 0x16}};
-static GUID _g_KSDATAFORMAT_SUBTYPE_PCM_GUID        = {0x00000001, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
+//static GUID _g_KSDATAFORMAT_SUBTYPE_PCM_GUID        = {0x00000001, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
 static GUID _g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID = {0x00000003, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
 
 #ifdef __cplusplus
-static GUID g_DSListenerGUID                        = _g_DSListenerGUID;
-static GUID g_DirectSoundBuffer8GUID                = _g_DirectSoundBuffer8GUID;
-static GUID g_DirectSound3DBuffer8GUID              = _g_DirectSound3DBuffer8GUID;
+//static GUID g_DSListenerGUID                        = _g_DSListenerGUID;
+//static GUID g_DirectSoundBuffer8GUID                = _g_DirectSoundBuffer8GUID;
+//static GUID g_DirectSound3DBuffer8GUID              = _g_DirectSound3DBuffer8GUID;
 static GUID g_DirectSoundNotifyGUID                 = _g_DirectSoundNotifyGUID;
-static GUID g_KSDATAFORMAT_SUBTYPE_PCM_GUID         = _g_KSDATAFORMAT_SUBTYPE_PCM_GUID;
+//static GUID g_KSDATAFORMAT_SUBTYPE_PCM_GUID         = _g_KSDATAFORMAT_SUBTYPE_PCM_GUID;
 static GUID g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID  = _g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
 #else
-static GUID* g_DSListenerGUID                       = &_g_DSListenerGUID;
-static GUID* g_DirectSoundBuffer8GUID               = &_g_DirectSoundBuffer8GUID;
-static GUID* g_DirectSound3DBuffer8GUID             = &_g_DirectSound3DBuffer8GUID;
+//static GUID* g_DSListenerGUID                       = &_g_DSListenerGUID;
+//static GUID* g_DirectSoundBuffer8GUID               = &_g_DirectSoundBuffer8GUID;
+//static GUID* g_DirectSound3DBuffer8GUID             = &_g_DirectSound3DBuffer8GUID;
 static GUID* g_DirectSoundNotifyGUID                = &_g_DirectSoundNotifyGUID;
-static GUID* g_KSDATAFORMAT_SUBTYPE_PCM_GUID        = &_g_KSDATAFORMAT_SUBTYPE_PCM_GUID;
+//static GUID* g_KSDATAFORMAT_SUBTYPE_PCM_GUID        = &_g_KSDATAFORMAT_SUBTYPE_PCM_GUID;
 static GUID* g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID = &_g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
 #endif
 
@@ -689,7 +731,7 @@ void dra_backend_delete_dsound(dra_backend* pBackend)
     free(pBackendDS);
 }
 
-dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBackend, unsigned int deviceID, dra_data_format format, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     dra_backend_dsound* pBackendDS = (dra_backend_dsound*)pBackend;
     if (pBackendDS == NULL) {
@@ -703,7 +745,6 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
 
     pDeviceDS->pBackend = pBackend;
     pDeviceDS->type = dra_device_type_playback;
-    pDeviceDS->format = format;
     pDeviceDS->channels = channels;
     pDeviceDS->sampleRate = sampleRate;
 
@@ -731,7 +772,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     }
 
 
-    // If the channel count is 0 then we need to use the maximum number of channels available. From MSDN:
+    // If the channel count is 0 then we need to use the default. From MSDN:
     //
     // The method succeeds even if the hardware does not support the requested format; DirectSound sets the buffer to the closest
     // supported format. To determine whether this has happened, an application can call the GetFormat method for the primary buffer
@@ -745,15 +786,14 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     wf.Format.wFormatTag           = WAVE_FORMAT_EXTENSIBLE;
     wf.Format.nChannels            = (WORD)channels;
     wf.Format.nSamplesPerSec       = (DWORD)sampleRate;
-    wf.Format.wBitsPerSample       = (WORD)dra_get_bits_per_sample_by_format(format);
+    wf.Format.wBitsPerSample       = sizeof(float)*8;
     wf.Format.nBlockAlign          = (wf.Format.nChannels * wf.Format.wBitsPerSample) / 8;
     wf.Format.nAvgBytesPerSec      = wf.Format.nBlockAlign * wf.Format.nSamplesPerSec;
     wf.Samples.wValidBitsPerSample = wf.Format.wBitsPerSample;
     wf.dwChannelMask               = 0;
-    if (dra_is_format_float(format)) {
-        wf.SubFormat = _g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
-    } else {
-        wf.SubFormat = _g_KSDATAFORMAT_SUBTYPE_PCM_GUID;
+    wf.SubFormat                   = _g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
+    if (channels > 2) {
+        wf.dwChannelMask = ~(((DWORD)-1) << channels);
     }
 
     hr = IDirectSoundBuffer_SetFormat(pDeviceDS->pDSPrimaryBuffer, (WAVEFORMATEX*)&wf);
@@ -794,7 +834,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
 
     pDeviceDS->samplesPerFragment = (pDeviceDS->channels * sampleRateInMilliseconds * latencyInMilliseconds);
 
-    size_t fragmentSize = pDeviceDS->samplesPerFragment * dra_get_bytes_per_sample_by_format(format);
+    size_t fragmentSize = pDeviceDS->samplesPerFragment * sizeof(float);
     size_t hardwareBufferSize = fragmentSize * pDeviceDS->fragmentCount;
     assert(hardwareBufferSize > 0);     // <-- If you've triggered this is means you've got something set to 0. You haven't been setting that latency to 0 have you?! That's not allowed!
 
@@ -891,24 +931,23 @@ on_error:
     return NULL;
 }
 
-dra_backend_device* dra_backend_device_open_recording_dsound(dra_backend* pBackend, unsigned int deviceID, dra_data_format format, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_backend_device* dra_backend_device_open_recording_dsound(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     // Not yet implemented.
     (void)pBackend;
     (void)deviceID;
-    (void)format;
     (void)channels;
     (void)sampleRate;
     (void)latencyInMilliseconds;
     return NULL;
 }
 
-dra_backend_device* dra_backend_device_open_dsound(dra_backend* pBackend, dra_device_type type, unsigned int deviceID, dra_data_format format, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_backend_device* dra_backend_device_open_dsound(dra_backend* pBackend, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     if (type == dra_device_type_playback) {
-        return dra_backend_device_open_playback_dsound(pBackend, deviceID, format, channels, sampleRate, latencyInMilliseconds);
+        return dra_backend_device_open_playback_dsound(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
     } else {
-        return dra_backend_device_open_recording_dsound(pBackend, deviceID, format, channels, sampleRate, latencyInMilliseconds);
+        return dra_backend_device_open_recording_dsound(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
     }
 }
 
@@ -1028,12 +1067,12 @@ void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, uint64_t
     // If the device is not currently playing, we just return the first fragment. Otherwise we return the fragment that's sitting just past the
     // one that's currently playing.
     DWORD dwOffset = 0;
-    DWORD dwBytes = pDeviceDS->samplesPerFragment * dra_get_bytes_per_sample_by_format(pDeviceDS->format);
+    DWORD dwBytes = pDeviceDS->samplesPerFragment * sizeof(float);
 
     DWORD status;
     IDirectSoundBuffer_GetStatus(pDeviceDS->pDSSecondaryBuffer, &status);
     if ((status & DSBSTATUS_PLAYING) != 0) {
-        dwOffset = (((pDeviceDS->currentFragmentIndex + 1) % pDeviceDS->fragmentCount) * pDeviceDS->samplesPerFragment) * dra_get_bytes_per_sample_by_format(pDeviceDS->format);
+        dwOffset = (((pDeviceDS->currentFragmentIndex + 1) % pDeviceDS->fragmentCount) * pDeviceDS->samplesPerFragment) * sizeof(float);
     }
     
 
@@ -1245,7 +1284,7 @@ void dra_backend_delete_alsa(dra_backend* pBackend)
 }
 
 
-dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend, unsigned int deviceID, dra_data_format format, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     dra_backend_alsa* pBackendALSA = (dra_backend_alsa*)pBackend;
     if (pBackendALSA == NULL) {
@@ -1261,7 +1300,6 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
 
     pDeviceALSA->pBackend = pBackend;
     pDeviceALSA->type = dra_device_type_playback;
-    pDeviceALSA->format = format;
     pDeviceALSA->channels = channels;
     pDeviceALSA->sampleRate = sampleRate;
 
@@ -1275,24 +1313,6 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
     }
 
 
-    snd_pcm_format_t formatALSA;
-    if (format == dra_data_format_pcm_u8) {
-        formatALSA = SND_PCM_FORMAT_U8;
-    } else if (format == dra_data_format_pcm_s16) {
-        formatALSA = SND_PCM_FORMAT_S16_LE;
-    } else if (format == dra_data_format_pcm_s24) {
-        formatALSA = SND_PCM_FORMAT_S24_LE;
-    } else if (format == dra_data_format_pcm_s32) {
-        formatALSA = SND_PCM_FORMAT_S32_LE;
-    } else if (format == dra_data_format_float_32) {
-        formatALSA = SND_PCM_FORMAT_FLOAT_LE;
-    } else if (format == dra_data_format_float_64) {
-        formatALSA = SND_PCM_FORMAT_FLOAT64_LE;
-    } else {
-        goto on_error;  // Unknown or unsupported format.
-    }
-
-    
     if (snd_pcm_hw_params_malloc(&pHWParams) < 0) {
         goto on_error;
     }
@@ -1305,7 +1325,7 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
         goto on_error;
     }
 
-    if (snd_pcm_hw_params_set_format(pDeviceALSA->deviceALSA, pHWParams, formatALSA) < 0) {
+    if (snd_pcm_hw_params_set_format(pDeviceALSA->deviceALSA, pHWParams, SND_PCM_FORMAT_FLOAT_LE) < 0) {
         goto on_error;
     }
 
@@ -1375,24 +1395,23 @@ on_error:
     return NULL;
 }
 
-dra_backend_device* dra_backend_device_open_recording_alsa(dra_backend* pBackend, unsigned int deviceID, dra_data_format format, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_backend_device* dra_backend_device_open_recording_alsa(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     // Not yet implemented.
     (void)pBackend;
     (void)deviceID;
-    (void)format;
     (void)channels;
     (void)sampleRate;
     (void)latencyInMilliseconds;
     return NULL;
 }
 
-dra_backend_device* dra_backend_device_open_alsa(dra_backend* pBackend, dra_device_type type, unsigned int deviceID, dra_data_format format, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_backend_device* dra_backend_device_open_alsa(dra_backend* pBackend, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     if (type == dra_device_type_playback) {
-        return dra_backend_device_open_playback_alsa(pBackend, deviceID, format, channels, sampleRate, latencyInMilliseconds);
+        return dra_backend_device_open_playback_alsa(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
     } else {
-        return dra_backend_device_open_recording_alsa(pBackend, deviceID, format, channels, sampleRate, latencyInMilliseconds);
+        return dra_backend_device_open_recording_alsa(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
     }
 }
 
@@ -1498,7 +1517,7 @@ void dra_backend_delete(dra_backend* pBackend)
 }
 
 
-dra_backend_device* dra_backend_device_open(dra_backend* pBackend, dra_device_type type, unsigned int deviceID, dra_data_format format, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_backend_device* dra_backend_device_open(dra_backend* pBackend, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     if (pBackend == NULL) {
         return NULL;
@@ -1506,13 +1525,13 @@ dra_backend_device* dra_backend_device_open(dra_backend* pBackend, dra_device_ty
 
 #ifdef DR_AUDIO_ENABLE_DSOUND
     if (pBackend->type == DR_AUDIO_BACKEND_TYPE_DSOUND) {
-        return dra_backend_device_open_dsound(pBackend, type, deviceID, format, channels, sampleRate, latencyInMilliseconds);
+        return dra_backend_device_open_dsound(pBackend, type, deviceID, channels, sampleRate, latencyInMilliseconds);
     }
 #endif
 
 #ifdef DR_AUDIO_ENABLE_ALSA
     if (pBackend->type == DR_AUDIO_BACKEND_TYPE_ALSA) {
-        return dra_backend_device_open_alsa(pBackend, type, deviceID, format, channels, sampleRate, latencyInMilliseconds);
+        return dra_backend_device_open_alsa(pBackend, type, deviceID, channels, sampleRate, latencyInMilliseconds);
     }
 #endif
 
@@ -1621,11 +1640,14 @@ bool dra_device__mix_next_fragment(dra_device* pDevice)
 
     // TODO: When mixing reached the end, stop the device.
     
-    memset(pSampleData, 0, (size_t)samplesInFragment * dra_get_bytes_per_sample_by_format(pDevice->format));
-    dra_mixer_mix(pDevice->pMasterMixer, samplesInFragment, pSampleData);
-    dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
-    printf("Mixed next fragment into %p\n", pSampleData);
+    //memset(pSampleData, 0, (size_t)samplesInFragment * sizeof(float));
+    dra_mixer_mix_next_samples(pDevice->pMasterMixer, samplesInFragment);
+    
 
+    memcpy(pSampleData, pDevice->pMasterMixer->pStagingBuffer, (size_t)samplesInFragment * sizeof(float));
+    dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
+
+    printf("Mixed next fragment into %p\n", pSampleData);
     return true;
 }
 
@@ -1707,7 +1729,7 @@ void* dra_device__thread_proc(void* pData)
     return 0;
 }
 
-dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, dra_data_format format, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     if (pContext == NULL) {
         return NULL;
@@ -1724,11 +1746,10 @@ dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsi
     }
 
     pDevice->pContext   = pContext;
-    pDevice->format     = format;
     pDevice->channels   = channels;
     pDevice->sampleRate = sampleRate;
 
-    pDevice->pBackendDevice = dra_backend_device_open(pContext->pBackend, type, deviceID, format, channels, sampleRate, latencyInMilliseconds);
+    pDevice->pBackendDevice = dra_backend_device_open(pContext->pBackend, type, deviceID, channels, sampleRate, latencyInMilliseconds);
     if (pDevice->pBackendDevice == NULL) {
         goto on_error;
     }
@@ -1784,7 +1805,7 @@ on_error:
 
 dra_device* dra_device_open(dra_context* pContext, dra_device_type type)
 {
-    return dra_device_open_ex(pContext, type, 0, dra_data_format_default, 0, DR_AUDIO_DEFAULT_SAMPLE_RATE, DR_AUDIO_DEFAULT_LATENCY);
+    return dra_device_open_ex(pContext, type, 0, 0, DR_AUDIO_DEFAULT_SAMPLE_RATE, DR_AUDIO_DEFAULT_LATENCY);
 }
 
 void dra_device_close(dra_device* pDevice)
@@ -1834,11 +1855,18 @@ void dra_device_close(dra_device* pDevice)
 
 dra_mixer* dra_mixer_create(dra_device* pDevice)
 {
-    dra_mixer* pMixer = (dra_mixer*)calloc(1, sizeof(*pMixer));
+    // There needs to be two blocks of memory at the end of the mixer - one for the staging buffer and another for the buffer that
+    // will store the float32 samples of the buffer currently being mixed.
+    size_t extraDataSize = (size_t)pDevice->pBackendDevice->samplesPerFragment * sizeof(float) * 2;
+
+    dra_mixer* pMixer = (dra_mixer*)malloc(sizeof(*pMixer) - sizeof(pMixer->pData) + extraDataSize);
     if (pMixer == NULL) {
         return NULL;
     }
+    memset(pMixer, 0, sizeof(*pMixer));
 
+    pMixer->pStagingBuffer = pMixer->pData;
+    pMixer->pNextSamplesToMix = pMixer->pStagingBuffer + pDevice->pBackendDevice->samplesPerFragment;
 
     // Attach the mixer to the master mixer by default. If the master mixer is null it means we're creating the master mixer itself.
     if (pDevice->pMasterMixer != NULL) {
@@ -1903,7 +1931,12 @@ void dra_mixer_attach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
         return;
     }
 
-    // TODO: Attach the buffer to the end.
+    // Attach the buffer to the end of the list.
+    pBuffer->pPrevBuffer = pMixer->pLastBuffer;
+    pBuffer->pNextBuffer = NULL;
+
+    pMixer->pLastBuffer->pNextBuffer = pBuffer;
+    pMixer->pLastBuffer = pBuffer;
 }
 
 void dra_mixer_detach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
@@ -1912,7 +1945,29 @@ void dra_mixer_detach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
         return;
     }
 
-    // TODO: Implement me.
+
+    // Detach from mixer.
+    if (pMixer->pFirstBuffer == pBuffer) {
+        pMixer->pFirstBuffer = pMixer->pFirstBuffer->pNextBuffer;
+    }
+    if (pMixer->pLastBuffer == pBuffer) {
+        pMixer->pLastBuffer = pMixer->pLastBuffer->pPrevBuffer;
+    }
+
+    pBuffer->pMixer = NULL;
+
+
+    // Remove from list.
+    if (pBuffer->pNextBuffer) {
+        pBuffer->pNextBuffer->pPrevBuffer = pBuffer->pPrevBuffer;
+    }
+    if (pBuffer->pPrevBuffer) {
+        pBuffer->pPrevBuffer->pNextBuffer = pBuffer->pNextBuffer;
+    }
+
+    pBuffer->pNextBuffer = NULL;
+    pBuffer->pPrevBuffer = NULL;
+    
 }
 
 void dra_mixer_detach_all_buffers(dra_mixer* pMixer)
@@ -1921,10 +1976,12 @@ void dra_mixer_detach_all_buffers(dra_mixer* pMixer)
         return;
     }
 
-    // TODO: Implement me.
+    while (pMixer->pFirstBuffer) {
+        dra_mixer_detach_buffer(pMixer, pMixer->pFirstBuffer);
+    }
 }
 
-uint64_t dra_mixer_mix(dra_mixer* pMixer, uint64_t sampleCount, void* pSamples)
+uint64_t dra_mixer_mix_next_samples(dra_mixer* pMixer, uint64_t sampleCount)
 {
     if (pMixer == NULL) {
         return 0;
@@ -1934,12 +1991,53 @@ uint64_t dra_mixer_mix(dra_mixer* pMixer, uint64_t sampleCount, void* pSamples)
         return 0;
     }
 
-    // TODO: Implement me properly.
+    uint64_t samplesMixed = 0;
 
-    // TEMP FOR TESTING: Just memcpy the contents of the first buffer, assuming it's in the same format as the device.
-    return dra_buffer_mix(pMixer->pFirstBuffer, sampleCount, pSamples);
+    // Mixing works by simply adding together the sample data of each buffer and submixer. We just start at 0 and then
+    // just accumulate each one.
+    memset(pMixer->pStagingBuffer, 0, (size_t)sampleCount * sizeof(float));
 
-    //return sampleCount;
+    // Buffers first. Doesn't really matter if we do buffers or submixers first.
+    for (dra_buffer* pBuffer = pMixer->pFirstBuffer; pBuffer != NULL; pBuffer = pBuffer->pNextBuffer)
+    {
+        uint64_t samplesJustRead = dra_buffer_read_samples(pBuffer, sampleCount, pMixer->pNextSamplesToMix);
+        for (uint64_t i = 0; i < samplesJustRead; ++i) {
+            pMixer->pStagingBuffer[i] += pMixer->pNextSamplesToMix[i];
+        }
+
+        if (samplesMixed < samplesJustRead) {
+            samplesMixed = samplesJustRead;
+        }
+    }
+
+    // Submixers.
+    for (dra_mixer* pSubmixer = pMixer->pFirstChildMixer; pSubmixer != NULL; pSubmixer = pSubmixer->pNextSiblingMixer)
+    {
+        uint64_t samplesJustMixed = dra_mixer_mix_next_samples(pSubmixer, sampleCount);
+        for (uint64_t i = 0; i < samplesJustMixed; ++i) {
+            pMixer->pStagingBuffer[i] += pSubmixer->pStagingBuffer[i];
+        }
+
+        if (samplesMixed < samplesJustMixed) {
+            samplesMixed = samplesJustMixed;
+        }
+    }
+
+
+    // Finally we need to ensure every samples is clamped to -1 to 1. There are two easy ways to do this: clamp or normalize. For now I'm just
+    // clamping to keep it simple, but it might be valuable to make this configurable.
+    for (uint64_t i = 0; i < samplesMixed; ++i)
+    {
+        // TODO: Investigate using SSE here (MINPS/MAXPS)
+        // TODO: Investigate if the backends clamp the samples themselves, thus making this redundant.
+        if (pMixer->pStagingBuffer[i] < -1) {
+            pMixer->pStagingBuffer[i] = -1;
+        } else if (pMixer->pStagingBuffer[i] > 1) {
+            pMixer->pStagingBuffer[i] = 1;
+        }
+    }
+
+    return samplesMixed;
 }
 
 
@@ -1964,6 +2062,8 @@ dra_buffer* dra_buffer_create(dra_device* pDevice, dra_data_format format, unsig
     pBuffer->isLooping = false;
     pBuffer->currentReadPos = 0;
     pBuffer->sizeInBytes = sizeInBytes;
+    pBuffer->pNextBuffer = NULL;
+    pBuffer->pPrevBuffer = NULL;
 
     if (pInitialData != NULL) {
         memcpy(pBuffer->pData, pInitialData, sizeInBytes);
@@ -1983,7 +2083,7 @@ dra_buffer* dra_buffer_create_compatible(dra_device* pDevice, size_t sizeInBytes
         return NULL;
     }
 
-    return dra_buffer_create(pDevice, pDevice->format, pDevice->channels, pDevice->sampleRate, sizeInBytes, pInitialData);
+    return dra_buffer_create(pDevice, dra_data_format_float_32, pDevice->channels, pDevice->sampleRate, sizeInBytes, pInitialData);
 }
 
 void dra_buffer_delete(dra_buffer* pBuffer)
@@ -2036,20 +2136,6 @@ void dra_buffer_stop(dra_buffer* pBuffer)
     dra_device__stop(pBuffer->pDevice);
 }
 
-void dra_buffer_wait(dra_buffer* pBuffer)
-{
-    if (pBuffer == NULL) {
-        return;
-    }
-
-    if (!dra_buffer_is_playing(pBuffer)) {
-        return; // The buffer is already stopped.
-    }
-
-
-    // TODO: Implement me.
-}
-
 bool dra_buffer_is_playing(dra_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
@@ -2068,56 +2154,200 @@ bool dra_buffer_is_looping(dra_buffer* pBuffer)
     return pBuffer->isLooping;
 }
 
-uint64_t dra_buffer_mix(dra_buffer* pBuffer, uint64_t sampleCount, void* pSamples)
+uint64_t dra_buffer_read_samples(dra_buffer* pBuffer, uint64_t sampleCount, float* pSamplesOut)
 {
-    if (pBuffer == NULL || sampleCount == 0 || pSamples == NULL) {
+    if (pBuffer == NULL || pSamplesOut == NULL) {
         return 0;
     }
 
-    // TODO: Implement me properly.
-    // - sampleCount is based on the device's sample rate, not the buffer's. Need to convert the sample count appropriately.
+    // TODO: Sample rate conversion.
+    // TODO: Channel conversion.
 
-    //uint64_t samplesToMixFromBuffer = sampleCount;  // <-- Adjust this based on sample rate conversion. The number of samples output to pSamples needs to be sample-exact.
-    uint64_t totalSamplesInBuffer   = pBuffer->sizeInBytes / dra_get_bytes_per_sample_by_format(pBuffer->format);
-
-    uint64_t samplesRemainingInBuffer = totalSamplesInBuffer - pBuffer->currentReadPos;
-    uint64_t samplesRemainingToRead = sampleCount;
-    if (samplesRemainingInBuffer < samplesRemainingToRead && !pBuffer->isLooping) {
-        samplesRemainingToRead = samplesRemainingInBuffer;
-    }
-
-    uint64_t totalSamplesRead = 0;
-    
-    uint8_t* pRunningBufferData = pBuffer->pData + (pBuffer->currentReadPos * dra_get_bytes_per_sample_by_format(pBuffer->format));
-    while (samplesRemainingToRead > 0)
+    if (pBuffer->sampleRate == pBuffer->pDevice->sampleRate)
     {
-        uint64_t samplesToReadInThisChunk = samplesRemainingToRead;
+        if (pBuffer->channels == pBuffer->pDevice->channels)
+        {
+            // Same sample rate and channel count.
+            uint64_t totalSamplesInBuffer = pBuffer->sizeInBytes / dra_get_bytes_per_sample_by_format(pBuffer->format);
+            uint64_t samplesCopied = 0;
+            switch (pBuffer->format)
+            {
+                case dra_data_format_float_32:
+                {
+                    samplesCopied = dra_copy_f32_to_f32(pSamplesOut, (const float*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
 
-        uint64_t samplesToEnd = totalSamplesInBuffer - pBuffer->currentReadPos;
-        if (samplesToEnd <= samplesToReadInThisChunk) {
-            samplesToReadInThisChunk = samplesToEnd;
-        }
+                case dra_data_format_pcm_s32:
+                {
+                    samplesCopied = dra_copy_s32_to_f32(pSamplesOut, (const int32_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
 
-        memcpy(pSamples, pRunningBufferData, (size_t)samplesToReadInThisChunk * dra_get_bytes_per_sample_by_format(pBuffer->format));
+                case dra_data_format_pcm_s24:
+                {
+                    samplesCopied = dra_copy_s24_to_f32(pSamplesOut, (const uint8_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
 
-        samplesRemainingToRead -= samplesToReadInThisChunk;
-        pSamples = (uint8_t*)pSamples + (samplesToReadInThisChunk * dra_get_bytes_per_sample_by_format(pBuffer->format));
-        pRunningBufferData += (samplesToReadInThisChunk * dra_get_bytes_per_sample_by_format(pBuffer->format));
+                case dra_data_format_pcm_s16:
+                {
+                    samplesCopied = dra_copy_s16_to_f32(pSamplesOut, (const int16_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
 
-        pBuffer->currentReadPos += samplesToReadInThisChunk;
-        if (pBuffer->isLooping) {
-            assert(pBuffer->currentReadPos <= totalSamplesInBuffer);
-            if (pBuffer->currentReadPos == totalSamplesInBuffer) {
-                pBuffer->currentReadPos = 0;
-                pRunningBufferData = pBuffer->pData;
+                case dra_data_format_pcm_u8:
+                {
+                    samplesCopied = dra_copy_u8_to_f32(pSamplesOut, (const uint8_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
+
+                default: return 0;
             }
+
+            pBuffer->currentReadPos += samplesCopied;
+            if (pBuffer->isLooping) {
+                pBuffer->currentReadPos = pBuffer->currentReadPos % totalSamplesInBuffer;
+            }
+
+            return samplesCopied;
         }
+        else
+        {
+            // Same sample rate, different channels.
+            uint64_t totalSamplesInBuffer = pBuffer->sizeInBytes / dra_get_bytes_per_sample_by_format(pBuffer->format);
+            uint64_t samplesCopied = 0;
+            /*switch (pBuffer->format)
+            {
+                case dra_data_format_float_32:
+                {
+                    samplesCopied = dra_copy_f32_to_f32(pSamplesOut, (const float*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
 
-        totalSamplesRead += samplesToReadInThisChunk;
+                case dra_data_format_pcm_s32:
+                {
+                    samplesCopied = dra_copy_s32_to_f32(pSamplesOut, (const int32_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
+
+                case dra_data_format_pcm_s24:
+                {
+                    samplesCopied = dra_copy_s24_to_f32(pSamplesOut, (const uint8_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
+
+                case dra_data_format_pcm_s16:
+                {
+                    samplesCopied = dra_copy_s16_to_f32(pSamplesOut, (const int16_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
+
+                case dra_data_format_pcm_u8:
+                {
+                    samplesCopied = dra_copy_u8_to_f32(pSamplesOut, (const uint8_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
+                } break;
+
+                default: return 0;
+            }*/
+
+            pBuffer->currentReadPos += samplesCopied;
+            if (pBuffer->isLooping) {
+                pBuffer->currentReadPos = pBuffer->currentReadPos % totalSamplesInBuffer;
+            }
+
+            return samplesCopied;
+        }
     }
-
-    return totalSamplesRead;
+    else
+    {
+        if (pBuffer->channels == pBuffer->pDevice->channels)
+        {
+            // Different sample rate, same channel count.
+            // TODO: Implement me.
+            return 0;
+        }
+        else
+        {
+            // Different sample rate, different channel count. Super slow path :(
+            // TODO: Implement me.
+            return 0;
+        }
+    }
 }
+
+
+void dra_f32_to_f32(float* pOut, const float* pIn, uint64_t count)
+{
+    memcpy(pOut, pIn, (size_t)count * sizeof(float));
+}
+
+void dra_s32_to_f32(float* pOut, const int32_t* pIn, uint64_t count)
+{
+    // TODO: Try SSE-ifying this.
+    for (uint64_t i = 0; i < count; ++i) {
+        pOut[i] = pIn[i] / 2147483648.0f;
+    }
+}
+
+void dra_s24_to_f32(float* pOut, const uint8_t* pIn, uint64_t count)
+{
+    // TODO: Try SSE-ifying this.
+    for (uint64_t i = 0; i < count; ++i) {
+        uint8_t s0 = pIn[i*3 + 0];
+        uint8_t s1 = pIn[i*3 + 1];
+        uint8_t s2 = pIn[i*3 + 2];
+
+        int32_t sample32 = (int)((s0 << 8) | (s1 << 16) | (s2 << 24));
+        pOut[i] = sample32 / 2147483648.0f;
+    }
+}
+
+void dra_s16_to_f32(float* pOut, const int16_t* pIn, uint64_t count)
+{
+    // TODO: Try SSE-ifying this.
+    for (uint64_t i = 0; i < count; ++i) {
+        pOut[i] = pIn[i] / 32768.0f;
+    }
+}
+
+void dra_u8_to_f32(float* pOut, const uint8_t* pIn, uint64_t count)
+{
+    // TODO: Try SSE-ifying this.
+    for (uint64_t i = 0; i < count; ++i) {
+        pOut[i] = (pIn[i] / 127.5f) - 1;
+    }
+}
+
+
+#define DRA_COPY_WITH_LOOPING(funcName, convertFunc, sampleTypeIn, stepMultiplier) \
+uint64_t funcName(float* pSamplesOut, const sampleTypeIn* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop) \
+{                                                                                                                                                                       \
+    if (pSamplesOut == NULL || pSamplesIn == NULL) {                                                                                                                    \
+        return 0;                                                                                                                                                       \
+    }                                                                                                                                                                   \
+                                                                                                                                                                        \
+    uint64_t totalSamplesCopied = 0;                                                                                                                                    \
+                                                                                                                                                                        \
+    /* Samples are copied in chunks that never go beyond the boundary of pSamplesIn. */                                                                                 \
+    while (sampleCountToCopy > 0)                                                                                                                                       \
+    {                                                                                                                                                                   \
+        uint64_t samplesToReadInThisChunk = sampleCountToCopy;                                                                                                          \
+        uint64_t samplesToEnd = samplesInSizeInSamples - samplesInOffset;                                                                                               \
+        if (samplesToEnd <= samplesToReadInThisChunk) {                                                                                                                 \
+            samplesToReadInThisChunk = samplesToEnd;                                                                                                                    \
+        }                                                                                                                                                               \
+                                                                                                                                                                        \
+        convertFunc(pSamplesOut + totalSamplesCopied, pSamplesIn + samplesInOffset*stepMultiplier, samplesToReadInThisChunk);                                           \
+                                                                                                                                                                        \
+        totalSamplesCopied += samplesToReadInThisChunk;                                                                                                                 \
+        sampleCountToCopy -= samplesToReadInThisChunk;                                                                                                                  \
+                                                                                                                                                                        \
+        if (loop) {                                                                                                                                                     \
+            assert(samplesInOffset <= samplesInSizeInSamples);                                                                                                          \
+            samplesInOffset = 0;                                                                                                                                        \
+        }                                                                                                                                                               \
+    }                                                                                                                                                                   \
+                                                                                                                                                                        \
+    return totalSamplesCopied;                                                                                                                                          \
+}
+
+DRA_COPY_WITH_LOOPING(dra_copy_f32_to_f32, dra_f32_to_f32, float,   1)
+DRA_COPY_WITH_LOOPING(dra_copy_s32_to_f32, dra_s32_to_f32, int32_t, 1)
+DRA_COPY_WITH_LOOPING(dra_copy_s24_to_f32, dra_s24_to_f32, uint8_t, 3)
+DRA_COPY_WITH_LOOPING(dra_copy_s16_to_f32, dra_s16_to_f32, int16_t, 1)
+DRA_COPY_WITH_LOOPING(dra_copy_u8_to_f32,  dra_u8_to_f32,  uint8_t, 1)
 
 
 //// Utility APIs ////
@@ -2127,10 +2357,9 @@ unsigned int dra_get_bits_per_sample_by_format(dra_data_format format)
     unsigned int lookup[] = {
         8,      // dra_data_format_pcm_u8
         16,     // dra_data_format_pcm_s16
-        24,     // dra_data_format_pcm_s24. Stored as a 32-bits per sample.
+        24,     // dra_data_format_pcm_s24.
         32,     // dra_data_format_pcm_s32
-        32,     // dra_data_format_float_32
-        64,     // dra_data_format_float_64
+        32      // dra_data_format_float_32
     };
 
     return lookup[format];
@@ -2138,16 +2367,12 @@ unsigned int dra_get_bits_per_sample_by_format(dra_data_format format)
 
 unsigned int dra_get_bytes_per_sample_by_format(dra_data_format format)
 {
-    if (format == dra_data_format_pcm_s24) {
-        return 4;   // 24-bit PCM is always stored as 32-bits.
-    }
-
     return dra_get_bits_per_sample_by_format(format) / 8;
 }
 
 bool dra_is_format_float(dra_data_format format)
 {
-    return format == dra_data_format_float_32 || format == dra_data_format_float_64;
+    return format == dra_data_format_float_32;
 }
 
 
