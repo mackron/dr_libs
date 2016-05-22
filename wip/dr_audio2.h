@@ -108,9 +108,7 @@
 
 // TODO
 //
-// - Stop playback of backend devices where there are no more samples to mix.
 // - Forward declare every backend function and document them.
-// - Use frames as the standard unit instead of samples? Does make things a lot easier when it comes to mixing...
 
 // USAGE
 //
@@ -222,6 +220,10 @@ struct dra_device
 
     // The master mixer. This is the one and only top-level mixer.
     dra_mixer* pMasterMixer;
+
+    // The number of voices currently being played. This is used to determine whether or not the device should be placed
+    // into a dormant state when nothing is being played.
+    size_t playingVoicesCount;
 
 
     // The number of channels being used by the device.
@@ -1722,6 +1724,8 @@ void dra_device__play(dra_device* pDevice)
         // Don't do anything if the device is already playing.
         if (!dra_device__is_playing_nolock(pDevice))
         {
+            assert(pDevice->playingVoicesCount > 0);
+            
             // Before playing the backend device we need to ensure the first fragment is filled with valid audio data.
             if (dra_device__mix_next_fragment(pDevice))
             {
@@ -1742,10 +1746,33 @@ void dra_device__stop(dra_device* pDevice)
     dra_device__lock(pDevice);
     {
         // Don't do anything if the device is already stopped.
-        if (dra_device__is_playing_nolock(pDevice)) {
+        if (dra_device__is_playing_nolock(pDevice))
+        {
+            assert(pDevice->playingVoicesCount == 0);
+
             dra_backend_device_stop(pDevice->pBackendDevice);
             pDevice->isPlaying = false;
         }
+    }
+    dra_device__unlock(pDevice);
+}
+
+void dra_device__voice_playback_count_inc(dra_device* pDevice)
+{
+    assert(pDevice != NULL);
+
+    dra_device__lock(pDevice);
+    {
+        pDevice->playingVoicesCount += 1;
+    }
+    dra_device__unlock(pDevice);
+}
+
+void dra_device__voice_playback_count_dec(dra_device* pDevice)
+{
+    dra_device__lock(pDevice);
+    {
+        pDevice->playingVoicesCount -= 1;
     }
     dra_device__unlock(pDevice);
 }
@@ -1991,6 +2018,12 @@ void dra_mixer_attach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
         return;
     }
 
+    if (pBuffer->pMixer != NULL) {
+        dra_mixer_detach_buffer(pBuffer->pMixer, pBuffer);   
+    }
+
+    pBuffer->pMixer = pMixer;
+
     if (pMixer->pFirstBuffer == NULL) {
         pMixer->pFirstBuffer = pBuffer;
         pMixer->pLastBuffer  = pBuffer;
@@ -2066,13 +2099,27 @@ size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
     // Buffers first. Doesn't really matter if we do buffers or submixers first.
     for (dra_buffer* pBuffer = pMixer->pFirstBuffer; pBuffer != NULL; pBuffer = pBuffer->pNextBuffer)
     {
-        size_t framesJustRead = dra_buffer_next_frames(pBuffer, frameCount, pMixer->pNextSamplesToMix);
-        for (size_t i = 0; i < framesJustRead * pMixer->pDevice->channels; ++i) {
-            pMixer->pStagingBuffer[i] += pMixer->pNextSamplesToMix[i];
-        }
+        if (pBuffer->isPlaying) {
+            size_t framesJustRead = dra_buffer_next_frames(pBuffer, frameCount, pMixer->pNextSamplesToMix);
+            for (size_t i = 0; i < framesJustRead * pMixer->pDevice->channels; ++i) {
+                pMixer->pStagingBuffer[i] += pMixer->pNextSamplesToMix[i];
+            }
 
-        if (framesMixed < framesJustRead) {
-            framesMixed = framesJustRead;
+            // Has the end of the buffer been reached?
+            if (framesJustRead < frameCount)
+            {
+                // We'll get here if the end of the voice's buffer has been reached. The voice needs to be forcefully stopped to
+                // ensure the device is aware of it and is able to put itself into a dormant state if necessary. Also note that
+                // the playback position is moved back to start. The rationale for this is that it's a little bit more useful than
+                // just leaving the playback position sitting on the end. Also it allows an application to restart playback with
+                // a single call to dra_buffer_play() without having to explicitly set the playback position.
+                pBuffer->currentReadPos = 0;
+                dra_buffer_stop(pBuffer);
+            }
+
+            if (framesMixed < framesJustRead) {
+                framesMixed = framesJustRead;
+            }
         }
     }
 
@@ -2176,6 +2223,8 @@ void dra_buffer_delete(dra_buffer* pBuffer)
         return;
     }
 
+    dra_buffer_stop(pBuffer);
+
     if (pBuffer->pMixer != NULL) {
         dra_mixer_detach_buffer(pBuffer->pMixer, pBuffer);
     }
@@ -2189,10 +2238,13 @@ void dra_buffer_play(dra_buffer* pBuffer, bool loop)
         return;
     }
 
-    if (dra_buffer_is_playing(pBuffer) && dra_buffer_is_looping(pBuffer) == loop) {
-        return;
+    if (!dra_buffer_is_playing(pBuffer)) {
+        dra_device__voice_playback_count_inc(pBuffer->pDevice);
+    } else {
+        if (dra_buffer_is_looping(pBuffer) == loop) {
+            return;     // Nothing has changed - don't need to do anything.
+        }
     }
-
 
     pBuffer->isPlaying = true;
     pBuffer->isLooping = loop;
@@ -2211,13 +2263,10 @@ void dra_buffer_stop(dra_buffer* pBuffer)
         return; // The buffer is already stopped.
     }
 
+    dra_device__voice_playback_count_dec(pBuffer->pDevice);
 
-    pBuffer->isPlaying = true;
+    pBuffer->isPlaying = false;
     pBuffer->isLooping = false;
-
-    // If no other buffer is playing then the backend device should stop playing.
-    // TODO: Only stop the device if there are no other buffer's playing!
-    dra_device__stop(pBuffer->pDevice);
 }
 
 bool dra_buffer_is_playing(dra_buffer* pBuffer)
@@ -2521,11 +2570,6 @@ size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSa
         memcpy(pSamplesOut, pNextFrame, pBuffer->pDevice->channels * sizeof(float));
         pSamplesOut += pBuffer->pDevice->channels;
         framesRead += 1;
-    }
-
-    if (framesRead < frameCount) {
-        pBuffer->currentReadPos = 0;
-        pBuffer->isPlaying = false;
     }
 
     return framesRead;
