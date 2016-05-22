@@ -69,13 +69,13 @@ typedef struct
 
 
 // Radians to degrees.
-DR_MATHCALL float degrees(float radians)
+DR_MATHCALL float dr_degrees(float radians)
 {
     return radians * 57.29577951308232087685f;
 }
 
 // Degrees to radians.
-DR_MATHCALL float radians(float degrees)
+DR_MATHCALL float dr_radians(float degrees)
 {
     return degrees * 0.01745329251994329577f;
 }
