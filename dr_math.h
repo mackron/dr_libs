@@ -53,10 +53,7 @@ typedef struct
 
 typedef struct
 {
-    vec4 col0;
-    vec4 col1;
-    vec4 col2;
-    vec4 col3;
+    vec4 col[4];
 } mat4;
 
 typedef struct
@@ -134,10 +131,10 @@ DR_MATHCALL vec4 vec4_mul_1f(vec4 a, float x)
 }
 DR_MATHCALL vec4 vec4_mul_mat4(vec4 v, mat4 m)
 {
-    const vec4 m0 = m.col0;
-    const vec4 m1 = m.col1;
-    const vec4 m2 = m.col2;
-    const vec4 m3 = m.col3;
+    const vec4 m0 = m.col[0];
+    const vec4 m1 = m.col[1];
+    const vec4 m2 = m.col[2];
+    const vec4 m3 = m.col[3];
 
     return vec4f(
         m0.x*v.x + m0.y*v.y + m0.z*v.z + m0.w*v.w,
@@ -325,10 +322,10 @@ DR_MATHCALL vec2 vec2_rotate(vec2 a, float angleInRadians)
 DR_MATHCALL mat4 mat4f(vec4 col0, vec4 col1, vec4 col2, vec4 col3)
 {
     mat4 result;
-    result.col0 = col0;
-    result.col1 = col1;
-    result.col2 = col2;
-    result.col3 = col3;
+    result.col[0] = col0;
+    result.col[1] = col1;
+    result.col[2] = col2;
+    result.col[3] = col3;
 
     return result;
 }
@@ -336,10 +333,10 @@ DR_MATHCALL mat4 mat4f(vec4 col0, vec4 col1, vec4 col2, vec4 col3)
 DR_MATHCALL mat4 mat4_identity()
 {
     mat4 result;
-    result.col0 = vec4f(1, 0, 0, 0);
-    result.col1 = vec4f(0, 1, 0, 0);
-    result.col2 = vec4f(0, 0, 1, 0);
-    result.col3 = vec4f(0, 0, 0, 1);
+    result.col[0] = vec4f(1, 0, 0, 0);
+    result.col[1] = vec4f(0, 1, 0, 0);
+    result.col[2] = vec4f(0, 0, 1, 0);
+    result.col[3] = vec4f(0, 0, 0, 1);
 
     return result;
 }
@@ -355,10 +352,10 @@ DR_MATHCALL mat4 mat4_ortho(float left, float right, float bottom, float top, fl
     float fpn = zfar + znear;
 
     mat4 result;
-    result.col0 = vec4f(2/rml, 0, 0,  0);
-    result.col1 = vec4f(0, 2/tmb, 0,  0);
-    result.col2 = vec4f(0, 0, -2/fmn, 0);
-    result.col3 = vec4f(-(rpl/rml), -(tpb/tmb), -(fpn/fmn), 1);
+    result.col[0] = vec4f(2/rml, 0, 0,  0);
+    result.col[1] = vec4f(0, 2/tmb, 0,  0);
+    result.col[2] = vec4f(0, 0, -2/fmn, 0);
+    result.col[3] = vec4f(-(rpl/rml), -(tpb/tmb), -(fpn/fmn), 1);
 
     return result;
 }
@@ -368,10 +365,10 @@ DR_MATHCALL mat4 mat4_perspective(float fovy, float aspect, float znear, float z
     float f = (float)tan(DR_PI/2 - fovy/2);
 
     mat4 result;
-    result.col0 = vec4f(f / aspect, 0, 0, 0);
-    result.col1 = vec4f(0, f, 0, 0);
-    result.col2 = vec4f(0, 0,     (zfar + znear) / (znear - zfar), -1);
-    result.col3 = vec4f(0, 0, (2 * zfar * znear) / (znear - zfar),  0);
+    result.col[0] = vec4f(f / aspect, 0, 0, 0);
+    result.col[1] = vec4f(0, f, 0, 0);
+    result.col[2] = vec4f(0, 0,     (zfar + znear) / (znear - zfar), -1);
+    result.col[3] = vec4f(0, 0, (2 * zfar * znear) / (znear - zfar),  0);
 
     return result;
 }
@@ -379,10 +376,10 @@ DR_MATHCALL mat4 mat4_perspective(float fovy, float aspect, float znear, float z
 DR_MATHCALL mat4 mat4_vulkan_clip_correction()
 {
     mat4 result;
-    result.col0 = vec4f(1,  0, 0,    0);
-    result.col1 = vec4f(0, -1, 0,    0);
-    result.col2 = vec4f(0,  0, 0.5f, 0);
-    result.col3 = vec4f(0,  0, 0.5f, 1);
+    result.col[0] = vec4f(1,  0, 0,    0);
+    result.col[1] = vec4f(0, -1, 0,    0);
+    result.col[2] = vec4f(0,  0, 0.5f, 0);
+    result.col[3] = vec4f(0,  0, 0.5f, 1);
 
     return result;
 }
@@ -390,10 +387,10 @@ DR_MATHCALL mat4 mat4_vulkan_clip_correction()
 DR_MATHCALL mat4 mat4_translate(vec3 translation)
 {
     mat4 result;
-    result.col0 = vec4f(1, 0, 0, 0);
-    result.col1 = vec4f(0, 1, 0, 0);
-    result.col2 = vec4f(0, 0, 1, 0);
-    result.col3 = vec4f(translation.x, translation.y, translation.z, 1);
+    result.col[0] = vec4f(1, 0, 0, 0);
+    result.col[1] = vec4f(0, 1, 0, 0);
+    result.col[2] = vec4f(0, 0, 1, 0);
+    result.col[3] = vec4f(translation.x, translation.y, translation.z, 1);
 
     return result;
 }
@@ -419,10 +416,10 @@ DR_MATHCALL mat4 mat4_rotate(float angleInRadians, vec3 axis)
     float zs = z*s;
 
     mat4 result;
-    result.col0 = vec4f(xx * (1 - c) + c,  xy * (1 - c) - zs, xz * (1 - c) + ys, 0);
-    result.col1 = vec4f(xy * (1 - c) + zs, yy * (1 - c) + c,  yz * (1 - c) - xs, 0);
-    result.col2 = vec4f(xz * (1 - c) - ys, yz * (1 - c) + xs, zz * (1 - c) + c,  0);
-    result.col3 = vec4f(0,                 0,                 0,                 1);
+    result.col[0] = vec4f(xx * (1 - c) + c,  xy * (1 - c) - zs, xz * (1 - c) + ys, 0);
+    result.col[1] = vec4f(xy * (1 - c) + zs, yy * (1 - c) + c,  yz * (1 - c) - xs, 0);
+    result.col[2] = vec4f(xz * (1 - c) - ys, yz * (1 - c) + xs, zz * (1 - c) + c,  0);
+    result.col[3] = vec4f(0,                 0,                 0,                 1);
 
     return result;
 }
@@ -430,10 +427,10 @@ DR_MATHCALL mat4 mat4_rotate(float angleInRadians, vec3 axis)
 DR_MATHCALL mat4 mat4_scale(vec3 scale)
 {
     mat4 result;
-    result.col0 = vec4f(scale.x, 0, 0, 0);
-    result.col1 = vec4f(0, scale.y, 0, 0);
-    result.col2 = vec4f(0, 0, scale.z, 0);
-    result.col3 = vec4f(0, 0, 0, 1);
+    result.col[0] = vec4f(scale.x, 0, 0, 0);
+    result.col[1] = vec4f(0, scale.y, 0, 0);
+    result.col[2] = vec4f(0, 0, scale.z, 0);
+    result.col[3] = vec4f(0, 0, 0, 1);
 
     return result;
 }
@@ -441,39 +438,39 @@ DR_MATHCALL mat4 mat4_scale(vec3 scale)
 
 DR_MATHCALL mat4 mat4_mul(mat4 a, mat4 b)
 {
-    const vec4 a0 = a.col0;
-    const vec4 a1 = a.col1;
-    const vec4 a2 = a.col2;
-    const vec4 a3 = a.col3;
+    const vec4 a0 = a.col[0];
+    const vec4 a1 = a.col[1];
+    const vec4 a2 = a.col[2];
+    const vec4 a3 = a.col[3];
 
-    const vec4 b0 = b.col0;
-    const vec4 b1 = b.col1;
-    const vec4 b2 = b.col2;
-    const vec4 b3 = b.col3;
+    const vec4 b0 = b.col[0];
+    const vec4 b1 = b.col[1];
+    const vec4 b2 = b.col[2];
+    const vec4 b3 = b.col[3];
 
     mat4 result;
-    result.col0 = vec4f(
+    result.col[0] = vec4f(
         a0.x*b0.x + a1.x*b0.y + a2.x*b0.z + a3.x*b0.w,
         a0.y*b0.x + a1.y*b0.y + a2.y*b0.z + a3.y*b0.w,
         a0.z*b0.x + a1.z*b0.y + a2.z*b0.z + a3.z*b0.w,
         a0.w*b0.x + a1.w*b0.y + a2.w*b0.z + a3.w*b0.w
     );
 
-    result.col1 = vec4f(
+    result.col[1] = vec4f(
         a0.x*b1.x + a1.x*b1.y + a2.x*b1.z + a3.x*b1.w,
         a0.y*b1.x + a1.y*b1.y + a2.y*b1.z + a3.y*b1.w,
         a0.z*b1.x + a1.z*b1.y + a2.z*b1.z + a3.z*b1.w,
         a0.w*b1.x + a1.w*b1.y + a2.w*b1.z + a3.w*b1.w
     );
 
-    result.col2 = vec4f(
+    result.col[2] = vec4f(
         a0.x*b2.x + a1.x*b2.y + a2.x*b2.z + a3.x*b2.w,
         a0.y*b2.x + a1.y*b2.y + a2.y*b2.z + a3.y*b2.w,
         a0.z*b2.x + a1.z*b2.y + a2.z*b2.z + a3.z*b2.w,
         a0.w*b2.x + a1.w*b2.y + a2.w*b2.z + a3.w*b2.w
     );
 
-    result.col3 = vec4f(
+    result.col[3] = vec4f(
         a0.x*b3.x + a1.x*b3.y + a2.x*b3.z + a3.x*b3.w,
         a0.y*b3.x + a1.y*b3.y + a2.y*b3.z + a3.y*b3.w,
         a0.z*b3.x + a1.z*b3.y + a2.z*b3.z + a3.z*b3.w,
@@ -485,10 +482,10 @@ DR_MATHCALL mat4 mat4_mul(mat4 a, mat4 b)
 
 DR_MATHCALL vec4 mat4_mul_vec4(mat4 m, vec4 v)
 {
-    const vec4 m0 = m.col0;
-    const vec4 m1 = m.col1;
-    const vec4 m2 = m.col2;
-    const vec4 m3 = m.col3;
+    const vec4 m0 = m.col[0];
+    const vec4 m1 = m.col[1];
+    const vec4 m2 = m.col[2];
+    const vec4 m3 = m.col[3];
 
     return vec4f(
         m0.x*v.x + m1.x*v.y + m2.x*v.z + m3.x*v.w,
