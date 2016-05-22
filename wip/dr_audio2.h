@@ -2288,44 +2288,44 @@ bool dra_buffer_is_looping(dra_buffer* pBuffer)
 }
 
 
-void dra_f32_to_f32(float* pOut, const float* pIn, size_t count)
+void dra_f32_to_f32(float* pOut, const float* pIn, size_t sampleCount)
 {
-    memcpy(pOut, pIn, (size_t)count * sizeof(float));
+    memcpy(pOut, pIn, sampleCount * sizeof(float));
 }
 
-void dra_s32_to_f32(float* pOut, const int32_t* pIn, size_t count)
+void dra_s32_to_f32(float* pOut, const int32_t* pIn, size_t sampleCount)
 {
     // TODO: Try SSE-ifying this.
-    for (size_t i = 0; i < count; ++i) {
+    for (size_t i = 0; i < sampleCount; ++i) {
         pOut[i] = pIn[i] / 2147483648.0f;
     }
 }
 
-void dra_s24_to_f32(float* pOut, const uint8_t* pIn, size_t count)
+void dra_s24_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount)
 {
     // TODO: Try SSE-ifying this.
-    for (size_t i = 0; i < count; ++i) {
+    for (size_t i = 0; i < sampleCount; ++i) {
         uint8_t s0 = pIn[i*3 + 0];
         uint8_t s1 = pIn[i*3 + 1];
         uint8_t s2 = pIn[i*3 + 2];
 
-        int32_t sample32 = (int)((s0 << 8) | (s1 << 16) | (s2 << 24));
+        int32_t sample32 = (int32_t)((s0 << 8) | (s1 << 16) | (s2 << 24));
         pOut[i] = sample32 / 2147483648.0f;
     }
 }
 
-void dra_s16_to_f32(float* pOut, const int16_t* pIn, size_t count)
+void dra_s16_to_f32(float* pOut, const int16_t* pIn, size_t sampleCount)
 {
     // TODO: Try SSE-ifying this.
-    for (size_t i = 0; i < count; ++i) {
+    for (size_t i = 0; i < sampleCount; ++i) {
         pOut[i] = pIn[i] / 32768.0f;
     }
 }
 
-void dra_u8_to_f32(float* pOut, const uint8_t* pIn, size_t count)
+void dra_u8_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount)
 {
     // TODO: Try SSE-ifying this.
-    for (size_t i = 0; i < count; ++i) {
+    for (size_t i = 0; i < sampleCount; ++i) {
         pOut[i] = (pIn[i] / 127.5f) - 1;
     }
 }
