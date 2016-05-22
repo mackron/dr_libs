@@ -228,7 +228,7 @@ void drwav_close(drwav* pWav);
 // bytes of the raw internal sample data.
 //
 // Returns the number of bytes actually read.
-size_t drwav_read_raw(drwav* pWav, void* pBufferOut, size_t bytesToRead);
+size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut);
 
 // Reads a chunk of audio data in the native internal format.
 //
@@ -745,7 +745,7 @@ void drwav_close(drwav* pWav)
 }
 
 
-size_t drwav_read_raw(drwav* pWav, void* pBufferOut, size_t bytesToRead)
+size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut)
 {
     if (pWav == NULL || bytesToRead == 0 || pBufferOut == NULL) {
         return 0;
@@ -772,7 +772,7 @@ uint64_t drwav_read(drwav* pWav, uint64_t samplesToRead, void* pBufferOut)
         samplesToRead = SIZE_MAX / pWav->bytesPerSample;
     }
 
-    size_t bytesRead = drwav_read_raw(pWav, pBufferOut, (size_t)(samplesToRead * pWav->bytesPerSample));
+    size_t bytesRead = drwav_read_raw(pWav, (size_t)(samplesToRead * pWav->bytesPerSample), pBufferOut);
     return bytesRead / pWav->bytesPerSample;
 }
 
