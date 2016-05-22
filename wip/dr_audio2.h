@@ -215,6 +215,10 @@ struct dra_device
     // starts playing or the device is closed.
     bool isPlaying;
 
+    // Whether or not the device should stop on the next fragment. This is used for stopping playback of devices that
+    // have no voice's playing.
+    bool stopOnNextFragment;
+
 
     // The master mixer. This is the one and only top-level mixer.
     dra_mixer* pMasterMixer;
@@ -1696,13 +1700,16 @@ bool dra_device__mix_next_fragment(dra_device* pDevice)
     
     //memset(pSampleData, 0, (size_t)samplesInFragment * sizeof(float));
     size_t framesInFragment = samplesInFragment / pDevice->channels;
-    dra_mixer_mix_next_frames(pDevice->pMasterMixer, framesInFragment);
+    size_t framesMixed = dra_mixer_mix_next_frames(pDevice->pMasterMixer, framesInFragment);
     
-
     memcpy(pSampleData, pDevice->pMasterMixer->pStagingBuffer, (size_t)samplesInFragment * sizeof(float));
     dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
 
-    //printf("Mixed next fragment into %p\n", pSampleData);
+    if (framesMixed < framesInFragment) {
+        pDevice->stopOnNextFragment = true;
+    }
+
+    printf("Mixed next fragment into %p\n", pSampleData);
     return true;
 }
 
@@ -1721,6 +1728,7 @@ void dra_device__play(dra_device* pDevice)
                 dra_backend_device_play(pDevice->pBackendDevice);
                 dra_device__post_event(pDevice, dra_event_type_play);
                 pDevice->isPlaying = true;
+                pDevice->stopOnNextFragment = false;
             }
         }
     }
@@ -1768,9 +1776,10 @@ void* dra_device__thread_proc(void* pData)
             dra_backend_device_play(pDevice->pBackendDevice);
             while (dra_backend_device_wait(pDevice->pBackendDevice))
             {
-                // If we get here it means there's a fragment that needs mixing and updating.
-                if (!dra_device__mix_next_fragment(pDevice)) {
-                    continue;
+                if (pDevice->stopOnNextFragment) {
+                    dra_device__stop(pDevice);  // <-- Don't break from the loop here. Instead have dra_backend_device_wait() return naturally from the stop notification.
+                } else {
+                    dra_device__mix_next_fragment(pDevice);
                 }
             }
 
@@ -2409,14 +2418,14 @@ float* dra_buffer_next_frame(dra_buffer* pBuffer)
         return NULL;
     }
 
-    if (!pBuffer->isLooping && pBuffer->currentReadPos == pBuffer->frameCount) {
-        return NULL;    // At the end of a non-looping buffer.
-    }
-
 
     if (pBuffer->format == dra_format_f32 && pBuffer->sampleRate == pBuffer->pDevice->sampleRate && pBuffer->channels == pBuffer->pDevice->channels)
     {
         // Fast path.
+        if (!pBuffer->isLooping && pBuffer->currentReadPos == pBuffer->frameCount) {
+            return NULL;    // At the end of a non-looping buffer.
+        }
+
         float* pOut = (float*)pBuffer->pData + (pBuffer->currentReadPos * pBuffer->channels);
 
         pBuffer->currentReadPos += 1;
@@ -2434,6 +2443,10 @@ float* dra_buffer_next_frame(dra_buffer* pBuffer)
         {
             // Same sample rate. This path isn't ideal, but it's not too bad since there is no need for sample rate conversion. There's an annoying
             // switch, though...
+            if (!pBuffer->isLooping && pBuffer->currentReadPos == pBuffer->frameCount) {
+                return NULL;    // At the end of a non-looping buffer.
+            }
+
             float* pOut = pBuffer->convertedFrame;
 
             unsigned int channelsIn  = pBuffer->channels;
@@ -2467,6 +2480,10 @@ float* dra_buffer_next_frame(dra_buffer* pBuffer)
 
             float factor = (float)sampleRateOut / (float)sampleRateIn;
             float invfactor = 1 / factor;
+
+            if (!pBuffer->isLooping && pBuffer->currentReadPos >= (pBuffer->frameCount * factor)) {
+                return NULL;    // At the end of a non-looping buffer.
+            }
 
             float* pOut = pBuffer->convertedFrame;
 
@@ -2504,6 +2521,11 @@ size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSa
         memcpy(pSamplesOut, pNextFrame, pBuffer->pDevice->channels * sizeof(float));
         pSamplesOut += pBuffer->pDevice->channels;
         framesRead += 1;
+    }
+
+    if (framesRead < frameCount) {
+        pBuffer->currentReadPos = 0;
+        pBuffer->isPlaying = false;
     }
 
     return framesRead;
