@@ -287,7 +287,6 @@ DR_MATHCALL float vec2_length(vec2 a)
 DR_MATHCALL vec2 vec2_normalize(vec2 a)
 {
     float len = vec2_length(a);
-    assert(len > 0);
 
     return vec2f(
         a.x / len,
