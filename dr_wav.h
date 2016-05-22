@@ -57,7 +57,7 @@
 // You can also read the raw bytes of audio data, which could be useful if dr_wav does not have native support for
 // a particular data format:
 //
-//     size_t bytesRead = drwav_read_raw(&wav, pRawDataBuffer, bytesToRead);
+//     size_t bytesRead = drwav_read_raw(&wav, bytesToRead, pRawDataBuffer);
 //
 //
 //
