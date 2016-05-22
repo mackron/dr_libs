@@ -139,6 +139,10 @@ extern "C" {
 #include <stddef.h>
 #include <stdbool.h>
 
+#ifndef DR_AUDIO_MAX_CHANNEL_COUNT
+#define DR_AUDIO_MAX_CHANNEL_COUNT      16
+#endif
+
 typedef enum
 {
     dra_device_type_playback = 0,
@@ -147,13 +151,13 @@ typedef enum
 
 typedef enum
 {
-    dra_data_format_pcm_u8 = 0,
-    dra_data_format_pcm_s16,
-    dra_data_format_pcm_s24,
-    dra_data_format_pcm_s32,
-    dra_data_format_float_32,
-    dra_data_format_default = dra_data_format_float_32
-} dra_data_format;
+    dra_format_u8 = 0,
+    dra_format_s16,
+    dra_format_s24,
+    dra_format_s32,
+    dra_format_f32,
+    dra_format_default = dra_format_f32
+} dra_format;
 
 // dra_event_type is used internally for thread management.
 typedef enum
@@ -283,7 +287,7 @@ struct dra_buffer
 
 
     // The format of the audio data contained within this buffer.
-    dra_data_format format;
+    dra_format format;
 
     // The number of channels.
     unsigned int channels;
@@ -299,8 +303,36 @@ struct dra_buffer
     // call to dra_buffer_play().
     bool isLooping;
 
-    // The current read position, in samples.
-    uint64_t currentReadPos;
+
+    // The total number of frames in the buffer.
+    size_t frameCount;
+
+    // The current read position, in frames. An important detail with this is that it's based on the sample rate of the
+    // device, not the buffer.
+    size_t currentReadPos;
+
+
+    // A buffer for storing converted frames. This is used by dra_buffer_next_frame(). As frames are conversion to
+    // floats, that are placed into this buffer.
+    float convertedFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
+
+
+    // Data for sample rate conversion. Different SRC algorithms will use different data, which will be stored in their
+    // own structure.
+    union
+    {
+        struct
+        {
+            size_t nearFrameIndex;
+            float nearFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
+        } nearest;
+
+        struct
+        {
+            float prevFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
+            float nextFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
+        } linear;
+    } src;
 
 
     // The size of the buffer in bytes.
@@ -319,7 +351,7 @@ void dra_context_delete(dra_context* pContext);
 // dra_device_open_ex()
 //
 // If deviceID is 0 the default device for the given type is used.
-// format can be dra_data_format_default which is dra_data_format_pcm_s32.
+// format can be dra_format_default which is dra_format_s32.
 // If channels is set to 0, defaults 2 channels (stereo).
 // If sampleRate is set to 0, defaults to 48000.
 // If latency is 0, defaults to 50 milliseconds. See notes about latency above.
@@ -356,22 +388,22 @@ void dra_mixer_detach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer);
 // dra_mixer_detach_all_buffers()
 void dra_mixer_detach_all_buffers(dra_mixer* pMixer);
 
-// Mixes the next number of samples and moves the playback position appropriately.
+// Mixes the next number of frameCount and moves the playback position appropriately.
 //
-// pMixer      [in] The mixer.
-// sampleCount [in] The number of samples to mix.
+// pMixer     [in] The mixer.
+// frameCount [in] The number of frames to mix.
 //
-// Returns the number of samples actually mixed.
+// Returns the number of frames actually mixed.
 //
 // The return value is used to determine whether or not there's anything left to mix in the future. When there are
 // no samples left to mix, the device can be put into a dormant state to prevent unnecessary processing.
 //
 // Mixed samples will be placed in pMixer->pStagingBuffer.
-uint64_t dra_mixer_mix_next_samples(dra_mixer* pMixer, uint64_t sampleCount);
+size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount);
 
 
 // dra_buffer_create()
-dra_buffer* dra_buffer_create(dra_device* pDevice, dra_data_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData);
+dra_buffer* dra_buffer_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData);
 dra_buffer* dra_buffer_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData);
 
 // dra_buffer_delete()
@@ -392,44 +424,58 @@ bool dra_buffer_is_playing(dra_buffer* pBuffer);
 // dra_buffer_is_looping()
 bool dra_buffer_is_looping(dra_buffer* pBuffer);
 
-// Reads and converts the next number of samples from the buffer, based on the sample rate of the device.
+// Reads the next frame.
 //
-// The number of samples is based on the device's sample rate. That is, the buffer will, conceptually, be
-// converted to the sample rate of the device.
-uint64_t dra_buffer_read_samples(dra_buffer* pBuffer, uint64_t sampleCount, float* pSamplesOut);
+// Frames are retrieved with respect to the device the buffer is attached to. What this basically means is
+// that the returned frames are based on the format of the device the buffer is attached to. In turn, that
+// means any data conversions will be done within this function.
+//
+// The return value is a pointer to the buffer containing the converted samples, always as floating point.
+//
+// If the buffer is in the same format as the device (floating point, same sample rate and channels), then
+// this function will be on a fast path and will return almost immediately with a pointer that points to
+// the buffer's actual data without any data conversion.
+//
+// If an error occurs, null is returned. Null will be returned if the end of the buffer is reached and it's
+// non-looping. This will not return NULL if the buffer is looping - it will just loop back to the start as
+// one would expect.
+//
+// This function is not thread safe, but can be called from multiple threads if you do your own
+// synchronization. Just keep in mind that the return value may point to the buffer's actual internal data.
+float* dra_buffer_next_frame(dra_buffer* pBuffer);
 
-// dra_buffer_mix_next_samples()
-//uint64_t dra_buffer_mix_next_samples(dra_buffer* pBuffer, uint64_t sampleCount, void* pSamples);
+// dra_buffer_next_frames()
+size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSamplesOut);
 
 
 // Utility APIs
 
 // Retrieves the number of bits per sample based on the given format.
-unsigned int dra_get_bits_per_sample_by_format(dra_data_format format);
+unsigned int dra_get_bits_per_sample_by_format(dra_format format);
 
 // Determines whether or not the given format is floating point.
-bool dra_is_format_float(dra_data_format format);
+bool dra_is_format_float(dra_format format);
 
 // Retrieves the number of bytes per sample based on the given format.
-unsigned int dra_get_bytes_per_sample_by_format(dra_data_format format);
+unsigned int dra_get_bytes_per_sample_by_format(dra_format format);
 
 
 //// Low Level APIs ////
 
 // The functions below are used for copying and converting sample data in the given format to f32. Return value
 // is the number of samples copied.
-uint64_t dra_copy_f32_to_f32(float* pSamplesOut, const float*   pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
-uint64_t dra_copy_s32_to_f32(float* pSamplesOut, const int32_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
-uint64_t dra_copy_s24_to_f32(float* pSamplesOut, const uint8_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
-uint64_t dra_copy_s16_to_f32(float* pSamplesOut, const int16_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
-uint64_t dra_copy_u8_to_f32( float* pSamplesOut, const uint8_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop);
+//size_t dra_copy_f32_to_f32(float* pSamplesOut, const float*   pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
+//size_t dra_copy_s32_to_f32(float* pSamplesOut, const int32_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
+//size_t dra_copy_s24_to_f32(float* pSamplesOut, const uint8_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
+//size_t dra_copy_s16_to_f32(float* pSamplesOut, const int16_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
+//size_t dra_copy_u8_to_f32( float* pSamplesOut, const uint8_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
 
 // Same as copy_*_to_*(), but also converts from one channel assignment to another.
-uint64_t dra_copy_f32_to_f32_with_shuffle(float* pSamplesOut, const float*   pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
-uint64_t dra_copy_s32_to_f32_with_shuffle(float* pSamplesOut, const int32_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
-uint64_t dra_copy_s24_to_f32_with_shuffle(float* pSamplesOut, const uint8_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
-uint64_t dra_copy_s16_to_f32_with_shuffle(float* pSamplesOut, const int16_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
-uint64_t dra_copy_u8_to_f32_with_shuffle( float* pSamplesOut, const uint8_t* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
+//size_t dra_copy_f32_to_f32_with_shuffle(float* pSamplesOut, const float*   pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
+//size_t dra_copy_s32_to_f32_with_shuffle(float* pSamplesOut, const int32_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
+//size_t dra_copy_s24_to_f32_with_shuffle(float* pSamplesOut, const uint8_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
+//size_t dra_copy_s16_to_f32_with_shuffle(float* pSamplesOut, const int16_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
+//size_t dra_copy_u8_to_f32_with_shuffle( float* pSamplesOut, const uint8_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
 
 
 #ifdef __cplusplus
@@ -448,8 +494,6 @@ uint64_t dra_copy_u8_to_f32_with_shuffle( float* pSamplesOut, const uint8_t* pSa
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>  // For good old printf debugging. Delete later.
-
-#define DR_AUDIO_MAX_CHANNEL_COUNT      16
 
 #define DR_AUDIO_DEFAULT_CHANNEL_COUNT  2
 #define DR_AUDIO_DEFAULT_SAMPLE_RATE    48000
@@ -1060,7 +1104,7 @@ bool dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns true 
     return false;
 }
 
-void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, uint64_t* pSamplesInFragmentOut)
+void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, size_t* pSamplesInFragmentOut)
 {
     assert(pSamplesInFragmentOut != NULL);
 
@@ -1641,17 +1685,18 @@ bool dra_device__mix_next_fragment(dra_device* pDevice)
 {
     assert(pDevice != NULL);
 
-    uint64_t samplesInFragment;
+    size_t samplesInFragment;
     void* pSampleData = dra_backend_device_map_next_fragment(pDevice->pBackendDevice, &samplesInFragment);
     if (pSampleData == NULL) {
         dra_backend_device_stop(pDevice->pBackendDevice);
         return false;
     }
 
-    // TODO: When mixing reached the end, stop the device.
+    // TODO: When mixing reaches the end, stop the device.
     
     //memset(pSampleData, 0, (size_t)samplesInFragment * sizeof(float));
-    dra_mixer_mix_next_samples(pDevice->pMasterMixer, samplesInFragment);
+    size_t framesInFragment = samplesInFragment / pDevice->channels;
+    dra_mixer_mix_next_frames(pDevice->pMasterMixer, framesInFragment);
     
 
     memcpy(pSampleData, pDevice->pMasterMixer->pStagingBuffer, (size_t)samplesInFragment * sizeof(float));
@@ -1875,6 +1920,8 @@ dra_mixer* dra_mixer_create(dra_device* pDevice)
     }
     memset(pMixer, 0, sizeof(*pMixer));
 
+    pMixer->pDevice = pDevice;
+
     pMixer->pStagingBuffer = pMixer->pData;
     pMixer->pNextSamplesToMix = pMixer->pStagingBuffer + pDevice->pBackendDevice->samplesPerFragment;
 
@@ -1991,7 +2038,7 @@ void dra_mixer_detach_all_buffers(dra_mixer* pMixer)
     }
 }
 
-uint64_t dra_mixer_mix_next_samples(dra_mixer* pMixer, uint64_t sampleCount)
+size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
 {
     if (pMixer == NULL) {
         return 0;
@@ -2001,42 +2048,42 @@ uint64_t dra_mixer_mix_next_samples(dra_mixer* pMixer, uint64_t sampleCount)
         return 0;
     }
 
-    uint64_t samplesMixed = 0;
+    size_t framesMixed = 0;
 
     // Mixing works by simply adding together the sample data of each buffer and submixer. We just start at 0 and then
     // just accumulate each one.
-    memset(pMixer->pStagingBuffer, 0, (size_t)sampleCount * sizeof(float));
+    memset(pMixer->pStagingBuffer, 0, frameCount * pMixer->pDevice->channels * sizeof(float));
 
     // Buffers first. Doesn't really matter if we do buffers or submixers first.
     for (dra_buffer* pBuffer = pMixer->pFirstBuffer; pBuffer != NULL; pBuffer = pBuffer->pNextBuffer)
     {
-        uint64_t samplesJustRead = dra_buffer_read_samples(pBuffer, sampleCount, pMixer->pNextSamplesToMix);
-        for (uint64_t i = 0; i < samplesJustRead; ++i) {
+        size_t framesJustRead = dra_buffer_next_frames(pBuffer, frameCount, pMixer->pNextSamplesToMix);
+        for (size_t i = 0; i < framesJustRead * pMixer->pDevice->channels; ++i) {
             pMixer->pStagingBuffer[i] += pMixer->pNextSamplesToMix[i];
         }
 
-        if (samplesMixed < samplesJustRead) {
-            samplesMixed = samplesJustRead;
+        if (framesMixed < framesJustRead) {
+            framesMixed = framesJustRead;
         }
     }
 
     // Submixers.
     for (dra_mixer* pSubmixer = pMixer->pFirstChildMixer; pSubmixer != NULL; pSubmixer = pSubmixer->pNextSiblingMixer)
     {
-        uint64_t samplesJustMixed = dra_mixer_mix_next_samples(pSubmixer, sampleCount);
-        for (uint64_t i = 0; i < samplesJustMixed; ++i) {
+        size_t framesJustMixed = dra_mixer_mix_next_frames(pSubmixer, frameCount);
+        for (size_t i = 0; i < framesJustMixed * pMixer->pDevice->channels; ++i) {
             pMixer->pStagingBuffer[i] += pSubmixer->pStagingBuffer[i];
         }
 
-        if (samplesMixed < samplesJustMixed) {
-            samplesMixed = samplesJustMixed;
+        if (framesMixed < framesJustMixed) {
+            framesMixed = framesJustMixed;
         }
     }
 
 
     // Finally we need to ensure every samples is clamped to -1 to 1. There are two easy ways to do this: clamp or normalize. For now I'm just
     // clamping to keep it simple, but it might be valuable to make this configurable.
-    for (uint64_t i = 0; i < samplesMixed; ++i)
+    for (size_t i = 0; i < framesMixed * pMixer->pDevice->channels; ++i)
     {
         // TODO: Investigate using SSE here (MINPS/MAXPS)
         // TODO: Investigate if the backends clamp the samples themselves, thus making this redundant.
@@ -2047,16 +2094,24 @@ uint64_t dra_mixer_mix_next_samples(dra_mixer* pMixer, uint64_t sampleCount)
         }
     }
 
-    return samplesMixed;
+    return framesMixed;
 }
 
 
 
-dra_buffer* dra_buffer_create(dra_device* pDevice, dra_data_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData)
+dra_buffer* dra_buffer_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData)
 {
     if (pDevice == NULL || sizeInBytes == 0) {
         return NULL;
     }
+
+    size_t bytesPerSample = dra_get_bytes_per_sample_by_format(format);
+
+    // The number of bytes must be a multiple of the size of a frame.
+    if ((sizeInBytes % (bytesPerSample * channels)) != 0) {
+        return NULL;
+    }
+
 
     dra_buffer* pBuffer = (dra_buffer*)malloc(sizeof(*pBuffer) - sizeof(pBuffer->pData) + sizeInBytes);
     if (pBuffer == NULL) {
@@ -2070,14 +2125,24 @@ dra_buffer* dra_buffer_create(dra_device* pDevice, dra_data_format format, unsig
     pBuffer->sampleRate = sampleRate;
     pBuffer->isPlaying = false;
     pBuffer->isLooping = false;
+    pBuffer->frameCount = sizeInBytes / (bytesPerSample * channels);
     pBuffer->currentReadPos = 0;
     pBuffer->sizeInBytes = sizeInBytes;
     pBuffer->pNextBuffer = NULL;
     pBuffer->pPrevBuffer = NULL;
+    memset(&pBuffer->src, 0, sizeof(pBuffer->src));
 
     if (pInitialData != NULL) {
         memcpy(pBuffer->pData, pInitialData, sizeInBytes);
     }
+
+
+    // Sample rate conversion.
+
+    // Nearest.
+    pBuffer->src.nearest.nearFrameIndex = (size_t)-1;   // <-- Initializing ensures the first frame is handled correctly.
+
+
 
     // Attach the buffer to the master mixer by default.
     if (pDevice->pMasterMixer != NULL) {
@@ -2093,7 +2158,7 @@ dra_buffer* dra_buffer_create_compatible(dra_device* pDevice, size_t sizeInBytes
         return NULL;
     }
 
-    return dra_buffer_create(pDevice, dra_data_format_float_32, pDevice->channels, pDevice->sampleRate, sizeInBytes, pInitialData);
+    return dra_buffer_create(pDevice, dra_format_f32, pDevice->channels, pDevice->sampleRate, sizeInBytes, pInitialData);
 }
 
 void dra_buffer_delete(dra_buffer* pBuffer)
@@ -2164,137 +2229,24 @@ bool dra_buffer_is_looping(dra_buffer* pBuffer)
     return pBuffer->isLooping;
 }
 
-uint64_t dra_buffer_read_samples(dra_buffer* pBuffer, uint64_t sampleCount, float* pSamplesOut)
-{
-    if (pBuffer == NULL || pSamplesOut == NULL) {
-        return 0;
-    }
 
-    // TODO: Sample rate conversion.
-    // TODO: Channel conversion.
-
-    if (pBuffer->sampleRate == pBuffer->pDevice->sampleRate)
-    {
-        if (pBuffer->channels == pBuffer->pDevice->channels)
-        {
-            // Same sample rate and channel count.
-            uint64_t totalSamplesInBuffer = pBuffer->sizeInBytes / dra_get_bytes_per_sample_by_format(pBuffer->format);
-            uint64_t samplesCopied = 0;
-            switch (pBuffer->format)
-            {
-                case dra_data_format_float_32:
-                {
-                    samplesCopied = dra_copy_f32_to_f32(pSamplesOut, (const float*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
-                } break;
-
-                case dra_data_format_pcm_s32:
-                {
-                    samplesCopied = dra_copy_s32_to_f32(pSamplesOut, (const int32_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
-                } break;
-
-                case dra_data_format_pcm_s24:
-                {
-                    samplesCopied = dra_copy_s24_to_f32(pSamplesOut, (const uint8_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
-                } break;
-
-                case dra_data_format_pcm_s16:
-                {
-                    samplesCopied = dra_copy_s16_to_f32(pSamplesOut, (const int16_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
-                } break;
-
-                case dra_data_format_pcm_u8:
-                {
-                    samplesCopied = dra_copy_u8_to_f32(pSamplesOut, (const uint8_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping);
-                } break;
-
-                default: return 0;
-            }
-
-            pBuffer->currentReadPos += samplesCopied;
-            if (pBuffer->isLooping) {
-                pBuffer->currentReadPos = pBuffer->currentReadPos % totalSamplesInBuffer;
-            }
-
-            return samplesCopied;
-        }
-        else
-        {
-            // Same sample rate, different channels.
-            uint64_t totalSamplesInBuffer = pBuffer->sizeInBytes / dra_get_bytes_per_sample_by_format(pBuffer->format);
-            uint64_t framesCopied = 0;
-            switch (pBuffer->format)
-            {
-                case dra_data_format_float_32:
-                {
-                    framesCopied = dra_copy_f32_to_f32_with_shuffle(pSamplesOut, (const float*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping, pBuffer->pDevice->channels, pBuffer->channels);
-                } break;
-
-                case dra_data_format_pcm_s32:
-                {
-                    framesCopied = dra_copy_s32_to_f32_with_shuffle(pSamplesOut, (const int32_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping, pBuffer->pDevice->channels, pBuffer->channels);
-                } break;
-
-                case dra_data_format_pcm_s24:
-                {
-                    framesCopied = dra_copy_s24_to_f32_with_shuffle(pSamplesOut, (const uint8_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping, pBuffer->pDevice->channels, pBuffer->channels);
-                } break;
-
-                case dra_data_format_pcm_s16:
-                {
-                    framesCopied = dra_copy_s16_to_f32_with_shuffle(pSamplesOut, (const int16_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping, pBuffer->pDevice->channels, pBuffer->channels);
-                } break;
-
-                case dra_data_format_pcm_u8:
-                {
-                    framesCopied = dra_copy_u8_to_f32_with_shuffle(pSamplesOut, (const uint8_t*)pBuffer->pData, totalSamplesInBuffer, pBuffer->currentReadPos, sampleCount, pBuffer->isLooping, pBuffer->pDevice->channels, pBuffer->channels);
-                } break;
-
-                default: return 0;
-            }
-
-            pBuffer->currentReadPos += framesCopied * pBuffer->channels;
-            if (pBuffer->isLooping) {
-                pBuffer->currentReadPos = pBuffer->currentReadPos % totalSamplesInBuffer;
-            }
-
-            return framesCopied * pBuffer->pDevice->channels;
-        }
-    }
-    else
-    {
-        if (pBuffer->channels == pBuffer->pDevice->channels)
-        {
-            // Different sample rate, same channel count.
-            // TODO: Implement me.
-            return 0;
-        }
-        else
-        {
-            // Different sample rate, different channel count. Super slow path :(
-            // TODO: Implement me.
-            return 0;
-        }
-    }
-}
-
-
-void dra_f32_to_f32(float* pOut, const float* pIn, uint64_t count)
+void dra_f32_to_f32(float* pOut, const float* pIn, size_t count)
 {
     memcpy(pOut, pIn, (size_t)count * sizeof(float));
 }
 
-void dra_s32_to_f32(float* pOut, const int32_t* pIn, uint64_t count)
+void dra_s32_to_f32(float* pOut, const int32_t* pIn, size_t count)
 {
     // TODO: Try SSE-ifying this.
-    for (uint64_t i = 0; i < count; ++i) {
+    for (size_t i = 0; i < count; ++i) {
         pOut[i] = pIn[i] / 2147483648.0f;
     }
 }
 
-void dra_s24_to_f32(float* pOut, const uint8_t* pIn, uint64_t count)
+void dra_s24_to_f32(float* pOut, const uint8_t* pIn, size_t count)
 {
     // TODO: Try SSE-ifying this.
-    for (uint64_t i = 0; i < count; ++i) {
+    for (size_t i = 0; i < count; ++i) {
         uint8_t s0 = pIn[i*3 + 0];
         uint8_t s1 = pIn[i*3 + 1];
         uint8_t s2 = pIn[i*3 + 2];
@@ -2304,62 +2256,58 @@ void dra_s24_to_f32(float* pOut, const uint8_t* pIn, uint64_t count)
     }
 }
 
-void dra_s16_to_f32(float* pOut, const int16_t* pIn, uint64_t count)
+void dra_s16_to_f32(float* pOut, const int16_t* pIn, size_t count)
 {
     // TODO: Try SSE-ifying this.
-    for (uint64_t i = 0; i < count; ++i) {
+    for (size_t i = 0; i < count; ++i) {
         pOut[i] = pIn[i] / 32768.0f;
     }
 }
 
-void dra_u8_to_f32(float* pOut, const uint8_t* pIn, uint64_t count)
+void dra_u8_to_f32(float* pOut, const uint8_t* pIn, size_t count)
 {
     // TODO: Try SSE-ifying this.
-    for (uint64_t i = 0; i < count; ++i) {
+    for (size_t i = 0; i < count; ++i) {
         pOut[i] = (pIn[i] / 127.5f) - 1;
     }
 }
 
 
-#define DRA_COPY_WITH_LOOPING(funcName, convertFunc, sampleTypeIn, stepMultiplier) \
-uint64_t funcName(float* pSamplesOut, const sampleTypeIn* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop) \
-{                                                                                                                             \
-    if (pSamplesOut == NULL || pSamplesIn == NULL) {                                                                          \
-        return 0;                                                                                                             \
-    }                                                                                                                         \
-                                                                                                                              \
-    uint64_t totalSamplesCopied = 0;                                                                                          \
-                                                                                                                              \
-    /* Samples are copied in chunks that never go beyond the boundary of pSamplesIn. */                                       \
-    while (sampleCountToCopy > 0)                                                                                             \
-    {                                                                                                                         \
-        uint64_t samplesToReadInThisChunk = sampleCountToCopy;                                                                \
-        uint64_t samplesToEnd = samplesInSizeInSamples - samplesInOffset;                                                     \
-        if (samplesToEnd <= samplesToReadInThisChunk) {                                                                       \
-            samplesToReadInThisChunk = samplesToEnd;                                                                          \
-        }                                                                                                                     \
-                                                                                                                              \
-        convertFunc(pSamplesOut + totalSamplesCopied, pSamplesIn + samplesInOffset*stepMultiplier, samplesToReadInThisChunk); \
-                                                                                                                              \
-        totalSamplesCopied += samplesToReadInThisChunk;                                                                       \
-        sampleCountToCopy -= samplesToReadInThisChunk;                                                                        \
-                                                                                                                              \
-        if (loop) {                                                                                                           \
-            assert(samplesInOffset <= samplesInSizeInSamples);                                                                \
-            samplesInOffset = 0;                                                                                              \
-        } else {                                                                                                              \
-            break;                                                                                                            \
-        }                                                                                                                     \
-    }                                                                                                                         \
-                                                                                                                              \
-    return totalSamplesCopied;                                                                                                \
+// Generic sample format conversion function. To add basic, unoptimized support for a new format, just add it to this function.
+// Format-specific optimizations need to be implemented specifically for each format, at a higher level.
+void dra_to_f32(float* pOut, const void* pIn, size_t sampleCount, dra_format format)
+{
+    switch (format)
+    {
+        case dra_format_f32:
+        {
+            dra_f32_to_f32(pOut, (float*)pIn, sampleCount);
+        } break;
+
+        case dra_format_s32:
+        {
+            dra_s32_to_f32(pOut, (int32_t*)pIn, sampleCount);
+        } break;
+
+        case dra_format_s24:
+        {
+            dra_s24_to_f32(pOut, (uint8_t*)pIn, sampleCount);
+        } break;
+
+        case dra_format_s16:
+        {
+            dra_s16_to_f32(pOut, (int16_t*)pIn, sampleCount);
+        } break;
+
+        case dra_format_u8:
+        {
+            dra_u8_to_f32(pOut, (uint8_t*)pIn, sampleCount);
+        } break;
+
+        default: break; // Unknown or unsupported format.
+    }
 }
 
-DRA_COPY_WITH_LOOPING(dra_copy_f32_to_f32, dra_f32_to_f32, float,   1)
-DRA_COPY_WITH_LOOPING(dra_copy_s32_to_f32, dra_s32_to_f32, int32_t, 1)
-DRA_COPY_WITH_LOOPING(dra_copy_s24_to_f32, dra_s24_to_f32, uint8_t, 3)
-DRA_COPY_WITH_LOOPING(dra_copy_s16_to_f32, dra_s16_to_f32, int16_t, 1)
-DRA_COPY_WITH_LOOPING(dra_copy_u8_to_f32,  dra_u8_to_f32,  uint8_t, 1)
 
 // Notes on channel shuffling.
 //
@@ -2397,61 +2345,217 @@ void dra_shuffle_channels__generic_dec(float* pOut, const float* pIn, unsigned i
 
 void dra_shuffle_channels(float* pOut, const float* pIn, unsigned int channelsOut, unsigned int channelsIn)
 {
-    assert(channelsOut != channelsIn);
     assert(channelsOut != 0);
     assert(channelsIn  != 0);
 
-    switch (channelsIn)
-    {
-        case 1:
+    if (channelsOut == channelsIn) {
+        for (unsigned int i = 0; i < channelsOut; ++i) {
+            pOut[i] = pIn[i];
+        }
+    } else {
+        switch (channelsIn)
         {
-            // Mono input. This is a simple case - just copy the value of the mono channel to every output channel.
-            for (unsigned int i = 0; i < channelsOut; ++i) {
-                pOut[i] = pIn[0];
-            }
-        } break;
-
-        case 2:
-        {
-            // Stereo input.
-            if (channelsOut == 1)
+            case 1:
             {
-                // For mono output, just average.
-                pOut[0] = (pIn[0] + pIn[1]) * 0.5f;
-            }
-            else
-            {
-                // TODO: Do a specialized implementation for all major formats, in particluar 5.1.
-                dra_shuffle_channels__generic_inc(pOut, pIn, channelsOut, channelsIn);
-            }
-        } break;
-
-        default:
-        {
-            if (channelsOut == 1)
-            {
-                // For mono output, just average each sample.
-                float total = 0;
-                for (unsigned int i = 0; i < channelsIn; ++i) {
-                    total += pIn[i];
+                // Mono input. This is a simple case - just copy the value of the mono channel to every output channel.
+                for (unsigned int i = 0; i < channelsOut; ++i) {
+                    pOut[i] = pIn[0];
                 }
+            } break;
 
-                pOut[0] = total / (float)channelsIn;
-            }
-            else
+            case 2:
             {
-                if (channelsOut > channelsIn) {
+                // Stereo input.
+                if (channelsOut == 1)
+                {
+                    // For mono output, just average.
+                    pOut[0] = (pIn[0] + pIn[1]) * 0.5f;
+                }
+                else
+                {
+                    // TODO: Do a specialized implementation for all major formats, in particluar 5.1.
                     dra_shuffle_channels__generic_inc(pOut, pIn, channelsOut, channelsIn);
-                } else {
-                    dra_shuffle_channels__generic_dec(pOut, pIn, channelsOut, channelsIn);
                 }
-            }
-        } break;
+            } break;
+
+            default:
+            {
+                if (channelsOut == 1)
+                {
+                    // For mono output, just average each sample.
+                    float total = 0;
+                    for (unsigned int i = 0; i < channelsIn; ++i) {
+                        total += pIn[i];
+                    }
+
+                    pOut[0] = total / channelsIn;
+                }
+                else
+                {
+                    if (channelsOut > channelsIn) {
+                        dra_shuffle_channels__generic_inc(pOut, pIn, channelsOut, channelsIn);
+                    } else {
+                        dra_shuffle_channels__generic_dec(pOut, pIn, channelsOut, channelsIn);
+                    }
+                }
+            } break;
+        }
     }
 }
 
+float* dra_buffer_next_frame(dra_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return NULL;
+    }
+
+    if (!pBuffer->isLooping && pBuffer->currentReadPos == pBuffer->frameCount) {
+        return NULL;    // At the end of a non-looping buffer.
+    }
+
+
+    if (pBuffer->format == dra_format_f32 && pBuffer->sampleRate == pBuffer->pDevice->sampleRate && pBuffer->channels == pBuffer->pDevice->channels)
+    {
+        // Fast path.
+        float* pOut = (float*)pBuffer->pData + (pBuffer->currentReadPos * pBuffer->channels);
+
+        pBuffer->currentReadPos += 1;
+        if (pBuffer->currentReadPos == pBuffer->frameCount && pBuffer->isLooping) {
+            pBuffer->currentReadPos = 0;
+        }
+
+        return pOut;
+    }
+    else
+    {
+        size_t bytesPerSample = dra_get_bytes_per_sample_by_format(pBuffer->format);
+
+        if (pBuffer->sampleRate == pBuffer->pDevice->sampleRate)
+        {
+            // Same sample rate. This path isn't ideal, but it's not too bad since there is no need for sample rate conversion. There's an annoying
+            // switch, though...
+            float* pOut = pBuffer->convertedFrame;
+
+            unsigned int channelsIn  = pBuffer->channels;
+            unsigned int channelsOut = pBuffer->pDevice->channels;
+            float tempFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
+            size_t sampleOffset = pBuffer->currentReadPos * channelsIn;
+
+            // The conversion is done differently depending on the format of the buffer.
+            if (pBuffer->format == dra_format_f32) {
+                dra_shuffle_channels(pOut, (float*)pBuffer->pData + sampleOffset, channelsOut, channelsIn);
+            } else {
+                sampleOffset = pBuffer->currentReadPos * (channelsIn * bytesPerSample);
+                dra_to_f32(tempFrame, (uint8_t*)pBuffer->pData + sampleOffset, channelsIn, pBuffer->format);
+                dra_shuffle_channels(pOut, tempFrame, channelsOut, channelsIn);
+            }
+
+            pBuffer->currentReadPos += 1;
+            if (pBuffer->currentReadPos == pBuffer->frameCount && pBuffer->isLooping) {
+                pBuffer->currentReadPos = 0;
+            }
+
+            return pOut;
+        }
+        else
+        {
+            // Different sample rate. This is the truly slow path.
+            unsigned int sampleRateIn  = pBuffer->sampleRate;
+            unsigned int sampleRateOut = pBuffer->pDevice->sampleRate;
+            unsigned int channelsIn    = pBuffer->channels;
+            unsigned int channelsOut   = pBuffer->pDevice->channels;
+
+            float factor = (float)sampleRateOut / (float)sampleRateIn;
+            float invfactor = 1 / factor;
+
+            float* pOut = pBuffer->convertedFrame;
+
+#if 1
+            // Nearest filtering. This results in audio that could be considered outright incorrect. This is placeholder.
+            size_t nearFrameIndexIn = (size_t)(pBuffer->currentReadPos * invfactor);
+            if (nearFrameIndexIn != pBuffer->src.nearest.nearFrameIndex) {
+                size_t sampleOffset = nearFrameIndexIn * (channelsIn * bytesPerSample);
+                dra_to_f32(pBuffer->src.nearest.nearFrame, (uint8_t*)pBuffer->pData + sampleOffset, channelsIn, pBuffer->format);
+                pBuffer->src.nearest.nearFrameIndex = nearFrameIndexIn;
+            }
+
+            dra_shuffle_channels(pOut, pBuffer->src.nearest.nearFrame, channelsOut, channelsIn);
+#endif
+
+
+            pBuffer->currentReadPos += 1;
+            if (pBuffer->currentReadPos >= (pBuffer->frameCount * factor) && pBuffer->isLooping) {
+                pBuffer->currentReadPos = 0;
+            }
+
+            return pOut;
+        }
+    }
+}
+
+size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSamplesOut)
+{
+    // TODO: Check for the fast path and do a bulk copy rather than frame-by-frame.
+
+    size_t framesRead = 0;
+
+    float* pNextFrame = NULL;
+    while ((pNextFrame = dra_buffer_next_frame(pBuffer)) != NULL && (framesRead < frameCount)) {
+        memcpy(pSamplesOut, pNextFrame, pBuffer->pDevice->channels * sizeof(float));
+        pSamplesOut += pBuffer->pDevice->channels;
+        framesRead += 1;
+    }
+
+    return framesRead;
+}
+
+
+
+#if 0
+#define DRA_COPY_WITH_LOOPING(funcName, convertFunc, sampleTypeIn, stepMultiplier) \
+size_t funcName(float* pSamplesOut, const sampleTypeIn* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop) \
+{                                                                                                                             \
+    if (pSamplesOut == NULL || pSamplesIn == NULL) {                                                                          \
+        return 0;                                                                                                             \
+    }                                                                                                                         \
+                                                                                                                              \
+    size_t totalSamplesCopied = 0;                                                                                          \
+                                                                                                                              \
+    /* Samples are copied in chunks that never go beyond the boundary of pSamplesIn. */                                       \
+    while (sampleCountToCopy > 0)                                                                                             \
+    {                                                                                                                         \
+        size_t samplesToReadInThisChunk = sampleCountToCopy;                                                                \
+        size_t samplesToEnd = samplesInSizeInSamples - samplesInOffset;                                                     \
+        if (samplesToEnd <= samplesToReadInThisChunk) {                                                                       \
+            samplesToReadInThisChunk = samplesToEnd;                                                                          \
+        }                                                                                                                     \
+                                                                                                                              \
+        convertFunc(pSamplesOut + totalSamplesCopied, pSamplesIn + samplesInOffset*stepMultiplier, samplesToReadInThisChunk); \
+                                                                                                                              \
+        totalSamplesCopied += samplesToReadInThisChunk;                                                                       \
+        sampleCountToCopy -= samplesToReadInThisChunk;                                                                        \
+                                                                                                                              \
+        if (loop) {                                                                                                           \
+            assert(samplesInOffset <= samplesInSizeInSamples);                                                                \
+            samplesInOffset = 0;                                                                                              \
+        } else {                                                                                                              \
+            break;                                                                                                            \
+        }                                                                                                                     \
+    }                                                                                                                         \
+                                                                                                                              \
+    return totalSamplesCopied;                                                                                                \
+}
+
+DRA_COPY_WITH_LOOPING(dra_copy_f32_to_f32, dra_f32_to_f32, float,   1)
+DRA_COPY_WITH_LOOPING(dra_copy_s32_to_f32, dra_s32_to_f32, int32_t, 1)
+DRA_COPY_WITH_LOOPING(dra_copy_s24_to_f32, dra_s24_to_f32, uint8_t, 3)
+DRA_COPY_WITH_LOOPING(dra_copy_s16_to_f32, dra_s16_to_f32, int16_t, 1)
+DRA_COPY_WITH_LOOPING(dra_copy_u8_to_f32,  dra_u8_to_f32,  uint8_t, 1)
+
+
+
 #define DRA_COPY_WITH_LOOPING_AND_SHUFFLE(funcName, convertFunc, sampleTypeIn, stepMultiplier) \
-uint64_t funcName(float* pSamplesOut, const sampleTypeIn* pSamplesIn, uint64_t samplesInSizeInSamples, uint64_t samplesInOffset, uint64_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn) \
+size_t funcName(float* pSamplesOut, const sampleTypeIn* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn) \
 {                                                                                                                           \
     assert((sampleCountToCopy % channelsOut) == 0);     /* <-- Sample count must be frame aligned. */                       \
                                                                                                                             \
@@ -2459,7 +2563,7 @@ uint64_t funcName(float* pSamplesOut, const sampleTypeIn* pSamplesIn, uint64_t s
         return 0;                                                                                                           \
     }                                                                                                                       \
                                                                                                                             \
-    uint64_t framesCopied = 0;                                                                                              \
+    size_t framesCopied = 0;                                                                                              \
                                                                                                                             \
     /* Samples are read frame-by-frame. */                                                                                  \
     float convertedSamplesIn[DR_AUDIO_MAX_CHANNEL_COUNT];                                                                   \
@@ -2499,33 +2603,69 @@ DRA_COPY_WITH_LOOPING_AND_SHUFFLE(dra_copy_s32_to_f32_with_shuffle, dra_s32_to_f
 DRA_COPY_WITH_LOOPING_AND_SHUFFLE(dra_copy_s24_to_f32_with_shuffle, dra_s24_to_f32, uint8_t, 3)
 DRA_COPY_WITH_LOOPING_AND_SHUFFLE(dra_copy_s16_to_f32_with_shuffle, dra_s16_to_f32, int16_t, 1)
 DRA_COPY_WITH_LOOPING_AND_SHUFFLE(dra_copy_u8_to_f32_with_shuffle,  dra_u8_to_f32,  uint8_t, 1)
+#endif
+
 
 
 //// Utility APIs ////
 
-unsigned int dra_get_bits_per_sample_by_format(dra_data_format format)
+unsigned int dra_get_bits_per_sample_by_format(dra_format format)
 {
     unsigned int lookup[] = {
-        8,      // dra_data_format_pcm_u8
-        16,     // dra_data_format_pcm_s16
-        24,     // dra_data_format_pcm_s24
-        32,     // dra_data_format_pcm_s32
-        32      // dra_data_format_float_32
+        8,      // dra_format_u8
+        16,     // dra_format_s16
+        24,     // dra_format_s24
+        32,     // dra_format_s32
+        32      // dra_format_f32
     };
 
     return lookup[format];
 }
 
-unsigned int dra_get_bytes_per_sample_by_format(dra_data_format format)
+unsigned int dra_get_bytes_per_sample_by_format(dra_format format)
 {
     return dra_get_bits_per_sample_by_format(format) / 8;
 }
 
-bool dra_is_format_float(dra_data_format format)
+bool dra_is_format_float(dra_format format)
 {
-    return format == dra_data_format_float_32;
+    return format == dra_format_f32;
 }
 
+
+
+//// Sample Rate Conversion ////
+
+// Random Notes
+// - There are mostly just experiments and are likely very wrong.
+
+// SRC using simple nearest filtering. Do not use this.
+//
+// This is fast but has terrible quality.
+float* dra_src__nearest(const float* pIn, unsigned int sampleRateIn, unsigned int sampleRateOut, unsigned int channels, size_t* pSampleCountIn)
+{
+    float factor = (float)sampleRateOut / (float)sampleRateIn;
+    float invfactor = 1 / factor;
+
+    size_t oldFrameCount = *pSampleCountIn / channels;
+    size_t newFrameCount = (size_t)(oldFrameCount * factor);
+
+    float* pOut = (float*)malloc((size_t)newFrameCount * channels * sizeof(float));
+    for (size_t iFrameOut = 0; iFrameOut < newFrameCount; ++iFrameOut)
+    {
+        size_t iFrameIn = (size_t)(iFrameOut * invfactor);
+
+        const float* pFrameIn  = pIn  + (iFrameIn  * channels);
+              float* pFrameOut = pOut + (iFrameOut * channels);
+
+        for (unsigned int iChannel = 0; iChannel < channels; ++iChannel) {
+            pFrameOut[iChannel] = pFrameIn[iChannel];
+        }
+    }
+
+    *pSampleCountIn = newFrameCount * channels;
+    return pOut;
+}
 
 #endif  //DR_AUDIO_IMPLEMENTATION
 
