@@ -318,6 +318,12 @@ const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int token
 ///     Currently only works on Windows and Linux. Other platforms will be added as they're needed.
 bool dr_get_executable_path(char* pathOut, size_t pathOutSize);
 
+/// Retrieves the path of the directory containing the executable.
+///
+/// @remarks
+///     Currently only works on Windows and Linux. Other platforms will be added as they're needed.
+bool dr_get_executable_directory_path(char* pathOut, size_t pathOutSize);
+
 /// Retrieves the path of the user's config directory.
 ///
 /// @remarks
@@ -393,6 +399,9 @@ time_t dr_now();
 
 /// Formats a data/time string.
 void dr_datetime_short(time_t t, char* strOut, unsigned int strOutSize);
+
+// Returns a date string in YYYYMMDD format.
+void dr_date_YYYYMMDD(time_t t, char* strOut, unsigned int strOutSize);
 
 
 
@@ -1365,6 +1374,15 @@ bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
     return true;
 }
 
+bool dr_get_executable_directory_path(char* pathOut, size_t pathOutSize)
+{
+    if (!dr_get_executable_path(pathOut, pathOutSize)) {
+        return false;
+    }
+
+    return drpath_remove_file_name(pathOut);
+}
+
 bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     // The documentation for SHGetFolderPathA() says that the output path should be the size of MAX_PATH. We'll enforce
@@ -1794,6 +1812,18 @@ void dr_datetime_short(time_t t, char* strOut, unsigned int strOutSize)
 #else
 	struct tm *local = localtime(&t);
 	strftime(strOut, strOutSize, "%x %H:%M:%S", local);
+#endif
+}
+
+void dr_date_YYYYMMDD(time_t t, char* strOut, unsigned int strOutSize)
+{
+#if defined(_MSC_VER)
+	struct tm local;
+	localtime_s(&local, &t);
+    strftime(strOut, strOutSize, "%Y%m%d", &local);
+#else
+	struct tm *local = localtime(&t);
+	strftime(strOut, strOutSize, "%Y%m%d", local);
 #endif
 }
 
