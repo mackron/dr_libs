@@ -553,6 +553,12 @@ unsigned int dra_get_bytes_per_sample_by_format(dra_format format);
 #include <assert.h>
 #include <stdio.h>  // For good old printf debugging. Delete later.
 
+#ifdef _MSC_VER
+#define DR_AUDIO_INLINE static __forceinline
+#else
+#define DR_AUDIO_INLINE static inline
+#endif
+
 #define DR_AUDIO_DEFAULT_CHANNEL_COUNT  2
 #define DR_AUDIO_DEFAULT_SAMPLE_RATE    48000
 #define DR_AUDIO_DEFAULT_LATENCY        50      // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
@@ -561,6 +567,27 @@ unsigned int dra_get_bytes_per_sample_by_format(dra_format format);
 #define DR_AUDIO_BACKEND_TYPE_NULL      0
 #define DR_AUDIO_BACKEND_TYPE_DSOUND    1
 #define DR_AUDIO_BACKEND_TYPE_ALSA      2
+
+
+// Thanks to good old Bit Twiddling Hacks for this one: http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+DR_AUDIO_INLINE unsigned int dra_next_power_of_2(unsigned int x)
+{
+    x--;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    x++;
+
+    return x;
+}
+
+DR_AUDIO_INLINE unsigned int dra_prev_power_of_2(unsigned int x)
+{
+    return dra_next_power_of_2(x) >> 1;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -944,7 +971,15 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
         sampleRateInMilliseconds = 1;
     }
 
-    pDeviceDS->samplesPerFragment = (pDeviceDS->channels * sampleRateInMilliseconds * latencyInMilliseconds);
+    // The size of a fragment is sized such that the number of frames contained within it is a multiple of 2. The reason for
+    // this is to keep it consistent with the ALSA backend.
+    unsigned int proposedFramesPerFragment = sampleRateInMilliseconds * latencyInMilliseconds;
+    unsigned int framesPerFragment = dra_prev_power_of_2(proposedFramesPerFragment);
+    if (framesPerFragment == 0) {
+        framesPerFragment = 2;
+    }
+
+    pDeviceDS->samplesPerFragment = framesPerFragment * pDeviceDS->channels;
 
     size_t fragmentSize = pDeviceDS->samplesPerFragment * sizeof(float);
     size_t hardwareBufferSize = fragmentSize * pDeviceDS->fragmentCount;
@@ -1466,30 +1501,42 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
 
 
 
+    unsigned int periods = DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
+    int dir = 1;
+    if (snd_pcm_hw_params_set_periods_near(pDeviceALSA->deviceALSA, pHWParams, &periods, &dir) < 0) {
+        //printf("Failed to set periods.\n");
+        goto on_error;
+    }
+
+    pDeviceALSA->fragmentCount = periods;
+
+    //printf("Periods: %d | Direction: %d\n", periods, dir);
+
 
     size_t sampleRateInMilliseconds = pDeviceALSA->sampleRate / 1000;
     if (sampleRateInMilliseconds == 0) {
         sampleRateInMilliseconds = 1;
     }
 
-    unsigned int periods = DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
-    int dir = 1;
-    if (snd_pcm_hw_params_set_periods_near(pDeviceALSA->deviceALSA, pHWParams, &periods, &dir) < 0) {
-        printf("Failed to set periods.\n");
-        goto on_error;
+
+    // According to the ALSA documentation, the value passed to snd_pcm_sw_params_set_avail_min() must be a power
+    // of 2 on some hardware. The value passed to this function is the size in frames of a fragment. Thus, to be
+    // as robust as possible the size of the hardware buffer should be sized based on the size of a closest power-
+    // of-two fragment.
+    //
+    // To calculate the size of a fragment, the first step is to determine the initial proposed size. From that
+    // it is dropped to the previous power of two. The reason for this is that, based on testing, ALSA has good
+    // latency characteristics, and less latency is always preferable.
+    unsigned int proposedFramesPerFragment = sampleRateInMilliseconds * latencyInMilliseconds;
+    unsigned int framesPerFragment = dra_prev_power_of_2(proposedFramesPerFragment);
+    if (framesPerFragment == 0) {
+        framesPerFragment = 2;
     }
 
-    printf("Periods: %d | Direction: %d\n", periods, dir);
+    pDeviceALSA->samplesPerFragment = framesPerFragment * pDeviceALSA->channels;
 
-
-    pDeviceALSA->samplesPerFragment = (pDeviceALSA->channels * sampleRateInMilliseconds * latencyInMilliseconds);
-
-    size_t fragmentSize = pDeviceALSA->samplesPerFragment * sizeof(float);
-    size_t hardwareBufferSize = fragmentSize * periods;
-    size_t hardwareBufferSizeInFrames = hardwareBufferSize / channels / sizeof(float);
-
-    if (snd_pcm_hw_params_set_buffer_size(pDeviceALSA->deviceALSA, pHWParams, hardwareBufferSizeInFrames) < 0) {
-        printf("Failed to set buffer size.\n");
+    if (snd_pcm_hw_params_set_buffer_size(pDeviceALSA->deviceALSA, pHWParams, framesPerFragment * pDeviceALSA->fragmentCount) < 0) {
+        //printf("Failed to set buffer size.\n");
         goto on_error;
     }
 
@@ -1504,8 +1551,6 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
 
     // Software params. There needs to be at least fragmentSize bytes in the hardware buffer before playing it, and there needs
     // be fragmentSize bytes available after every wait.
-    size_t fragmentSizeInFrames = fragmentSize / channels / sizeof(float);
-
     snd_pcm_sw_params_t* pSWParams = NULL;
     if (snd_pcm_sw_params_malloc(&pSWParams) < 0) {
         goto on_error;
@@ -1515,10 +1560,10 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
         goto on_error;
     }
 
-    if (snd_pcm_sw_params_set_start_threshold(pDeviceALSA->deviceALSA, pSWParams, fragmentSizeInFrames) != 0) {
+    if (snd_pcm_sw_params_set_start_threshold(pDeviceALSA->deviceALSA, pSWParams, framesPerFragment) != 0) {
         goto on_error;
     }
-    if (snd_pcm_sw_params_set_avail_min(pDeviceALSA->deviceALSA, pSWParams, fragmentSizeInFrames) != 0) {
+    if (snd_pcm_sw_params_set_avail_min(pDeviceALSA->deviceALSA, pSWParams, framesPerFragment) != 0) {
         goto on_error;
     }
 
@@ -1530,7 +1575,7 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
 
     // The intermediary buffer that will be used for mapping/unmapping.
     pDeviceALSA->isBufferMapped = false;
-    pDeviceALSA->pIntermediaryBuffer = (float*)malloc(fragmentSize);
+    pDeviceALSA->pIntermediaryBuffer = (float*)malloc(pDeviceALSA->samplesPerFragment * sizeof(float));
     if (pDeviceALSA->pIntermediaryBuffer == NULL) {
         goto on_error;
     }
@@ -2156,7 +2201,7 @@ void dra_device_close(dra_device* pDevice)
     // Mark the device as closed in order to prevent other threads from doing work after closing.
     dra_device__lock(pDevice);
     {
-        pDevice->isClosed = false;
+        pDevice->isClosed = true;
     }
     dra_device__unlock(pDevice);
 
@@ -2165,6 +2210,7 @@ void dra_device_close(dra_device* pDevice)
 
     // The background thread needs to be terminated at this point.
     dra_device__post_event(pDevice, dra_thread_event_type_terminate);
+    dra_thread_wait_and_delete(pDevice->thread);
 
 
     // At this point the device is marked as closed which should prevent buffer's and mixers from being created and deleted. We now need
