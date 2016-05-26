@@ -518,23 +518,6 @@ bool dra_is_format_float(dra_format format);
 unsigned int dra_get_bytes_per_sample_by_format(dra_format format);
 
 
-//// Low Level APIs ////
-
-// The functions below are used for copying and converting sample data in the given format to f32. Return value
-// is the number of samples copied.
-//size_t dra_copy_f32_to_f32(float* pSamplesOut, const float*   pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
-//size_t dra_copy_s32_to_f32(float* pSamplesOut, const int32_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
-//size_t dra_copy_s24_to_f32(float* pSamplesOut, const uint8_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
-//size_t dra_copy_s16_to_f32(float* pSamplesOut, const int16_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
-//size_t dra_copy_u8_to_f32( float* pSamplesOut, const uint8_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop);
-
-// Same as copy_*_to_*(), but also converts from one channel assignment to another.
-//size_t dra_copy_f32_to_f32_with_shuffle(float* pSamplesOut, const float*   pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
-//size_t dra_copy_s32_to_f32_with_shuffle(float* pSamplesOut, const int32_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
-//size_t dra_copy_s24_to_f32_with_shuffle(float* pSamplesOut, const uint8_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
-//size_t dra_copy_s16_to_f32_with_shuffle(float* pSamplesOut, const int16_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
-//size_t dra_copy_u8_to_f32_with_shuffle( float* pSamplesOut, const uint8_t* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn);
-
 
 #ifdef __cplusplus
 }
@@ -2947,100 +2930,6 @@ void dra_buffer_remove_playback_event(dra_buffer* pBuffer, uint64_t eventID)
     }
 }
 
-
-#if 0
-#define DRA_COPY_WITH_LOOPING(funcName, convertFunc, sampleTypeIn, stepMultiplier) \
-size_t funcName(float* pSamplesOut, const sampleTypeIn* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop) \
-{                                                                                                                             \
-    if (pSamplesOut == NULL || pSamplesIn == NULL) {                                                                          \
-        return 0;                                                                                                             \
-    }                                                                                                                         \
-                                                                                                                              \
-    size_t totalSamplesCopied = 0;                                                                                          \
-                                                                                                                              \
-    /* Samples are copied in chunks that never go beyond the boundary of pSamplesIn. */                                       \
-    while (sampleCountToCopy > 0)                                                                                             \
-    {                                                                                                                         \
-        size_t samplesToReadInThisChunk = sampleCountToCopy;                                                                \
-        size_t samplesToEnd = samplesInSizeInSamples - samplesInOffset;                                                     \
-        if (samplesToEnd <= samplesToReadInThisChunk) {                                                                       \
-            samplesToReadInThisChunk = samplesToEnd;                                                                          \
-        }                                                                                                                     \
-                                                                                                                              \
-        convertFunc(pSamplesOut + totalSamplesCopied, pSamplesIn + samplesInOffset*stepMultiplier, samplesToReadInThisChunk); \
-                                                                                                                              \
-        totalSamplesCopied += samplesToReadInThisChunk;                                                                       \
-        sampleCountToCopy -= samplesToReadInThisChunk;                                                                        \
-                                                                                                                              \
-        if (loop) {                                                                                                           \
-            assert(samplesInOffset <= samplesInSizeInSamples);                                                                \
-            samplesInOffset = 0;                                                                                              \
-        } else {                                                                                                              \
-            break;                                                                                                            \
-        }                                                                                                                     \
-    }                                                                                                                         \
-                                                                                                                              \
-    return totalSamplesCopied;                                                                                                \
-}
-
-DRA_COPY_WITH_LOOPING(dra_copy_f32_to_f32, dra_f32_to_f32, float,   1)
-DRA_COPY_WITH_LOOPING(dra_copy_s32_to_f32, dra_s32_to_f32, int32_t, 1)
-DRA_COPY_WITH_LOOPING(dra_copy_s24_to_f32, dra_s24_to_f32, uint8_t, 3)
-DRA_COPY_WITH_LOOPING(dra_copy_s16_to_f32, dra_s16_to_f32, int16_t, 1)
-DRA_COPY_WITH_LOOPING(dra_copy_u8_to_f32,  dra_u8_to_f32,  uint8_t, 1)
-
-
-
-#define DRA_COPY_WITH_LOOPING_AND_SHUFFLE(funcName, convertFunc, sampleTypeIn, stepMultiplier) \
-size_t funcName(float* pSamplesOut, const sampleTypeIn* pSamplesIn, size_t samplesInSizeInSamples, size_t samplesInOffset, size_t sampleCountToCopy, bool loop, unsigned int channelsOut, unsigned int channelsIn) \
-{                                                                                                                           \
-    assert((sampleCountToCopy % channelsOut) == 0);     /* <-- Sample count must be frame aligned. */                       \
-                                                                                                                            \
-    if (pSamplesOut == NULL || pSamplesIn == NULL) {                                                                        \
-        return 0;                                                                                                           \
-    }                                                                                                                       \
-                                                                                                                            \
-    size_t framesCopied = 0;                                                                                              \
-                                                                                                                            \
-    /* Samples are read frame-by-frame. */                                                                                  \
-    float convertedSamplesIn[DR_AUDIO_MAX_CHANNEL_COUNT];                                                                   \
-    while (sampleCountToCopy > 0)                                                                                           \
-    {                                                                                                                       \
-        /* Convert the next frame. */                                                                                       \
-        if (samplesInSizeInSamples > samplesInOffset)                                                                       \
-        {                                                                                                                   \
-            /* There enough samples in the buffer. */                                                                       \
-            convertFunc(convertedSamplesIn, pSamplesIn + samplesInOffset*stepMultiplier, channelsIn);                       \
-                                                                                                                            \
-            /* Now the samples need to be shuffled. */                                                                      \
-            dra_shuffle_channels(pSamplesOut + (framesCopied*channelsOut), convertedSamplesIn, channelsOut, channelsIn);    \
-                                                                                                                            \
-            framesCopied += 1;                                                                                              \
-            sampleCountToCopy -= channelsOut;                                                                               \
-            samplesInOffset += channelsIn;                                                                                  \
-        }                                                                                                                   \
-        else                                                                                                                \
-        {                                                                                                                   \
-            /* There's not enough samples in the buffer. Assume we're sitting right at the end. Here is where we'll want to loop, if applicable. */ \
-            assert(samplesInSizeInSamples == samplesInOffset);                                                              \
-            if (loop) {                                                                                                     \
-                samplesInOffset = 0;                                                                                        \
-                continue;                                                                                                   \
-            } else {                                                                                                        \
-                break;                                                                                                      \
-            }                                                                                                               \
-        }                                                                                                                   \
-    }                                                                                                                       \
-                                                                                                                            \
-    return framesCopied;                                                                                                    \
-}
-
-DRA_COPY_WITH_LOOPING_AND_SHUFFLE(dra_copy_f32_to_f32_with_shuffle, dra_f32_to_f32, float,   1)
-DRA_COPY_WITH_LOOPING_AND_SHUFFLE(dra_copy_s32_to_f32_with_shuffle, dra_s32_to_f32, int32_t, 1)
-DRA_COPY_WITH_LOOPING_AND_SHUFFLE(dra_copy_s24_to_f32_with_shuffle, dra_s24_to_f32, uint8_t, 3)
-DRA_COPY_WITH_LOOPING_AND_SHUFFLE(dra_copy_s16_to_f32_with_shuffle, dra_s16_to_f32, int16_t, 1)
-DRA_COPY_WITH_LOOPING_AND_SHUFFLE(dra_copy_u8_to_f32_with_shuffle,  dra_u8_to_f32,  uint8_t, 1)
-#endif
 
 
 
