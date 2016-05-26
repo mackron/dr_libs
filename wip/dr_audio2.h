@@ -141,6 +141,13 @@ extern "C" {
 #define DR_AUDIO_MAX_CHANNEL_COUNT      16
 #endif
 
+#ifndef DR_AUDIO_MAX_EVENT_COUNT
+#define DR_AUDIO_MAX_EVENT_COUNT        16
+#endif
+
+#define DR_AUDIO_EVENT_ID_STOP  0xFFFFFFFFFFFFFFFFULL
+#define DR_AUDIO_EVENT_ID_PLAY  0xFFFFFFFFFFFFFFFEULL
+
 typedef enum
 {
     dra_device_type_playback = 0,
@@ -157,13 +164,13 @@ typedef enum
     dra_format_default = dra_format_f32
 } dra_format;
 
-// dra_event_type is used internally for thread management.
+// dra_thread_event_type is used internally for thread management.
 typedef enum
 {
-    dra_event_type_none,
-    dra_event_type_terminate,
-    dra_event_type_play
-} dra_event_type;
+    dra_thread_event_type_none,
+    dra_thread_event_type_terminate,
+    dra_thread_event_type_play
+} dra_thread_event_type;
 
 typedef struct dra_backend dra_backend;
 typedef struct dra_backend_device dra_backend_device;
@@ -176,6 +183,26 @@ typedef struct dra_buffer dra_buffer;
 typedef void* dra_thread;
 typedef void* dra_mutex;
 typedef void* dra_semaphore;
+
+typedef void (* dra_buffer_event_proc) (dra_buffer* pBuffer, uint64_t eventID, void* pUserData);
+
+typedef struct
+{
+    uint64_t id;
+    void* pUserData;
+    uint64_t sampleIndex;
+    dra_buffer_event_proc proc;
+    dra_buffer* pBuffer;
+} dra__event;
+
+typedef struct
+{
+    size_t firstEvent;
+    size_t eventCount;
+    size_t eventBufferSize;
+    dra__event* pEvents;
+    dra_mutex lock;
+} dra__event_queue;
 
 struct dra_context
 {
@@ -198,13 +225,13 @@ struct dra_device
     dra_thread thread;
 
     // The semaphore used by the main thread to determine whether or not an event is waiting to be processed.
-    dra_semaphore eventSem;
+    dra_semaphore threadEventSem;
 
     // The event type of the most recent event.
-    dra_event_type nextEventType;
+    dra_thread_event_type nextThreadEventType;
 
     // Whether or not the device is being closed. This is used by the thread to determine if it needs to terminate. When
-    // dra_device_close() is called, this flag will be set and eventSem released. The thread will then see this as it's
+    // dra_device_close() is called, this flag will be set and threadEventSem released. The thread will then see this as it's
     // signal to terminate.
     bool isClosed;
 
@@ -224,6 +251,12 @@ struct dra_device
     // The number of voices currently being played. This is used to determine whether or not the device should be placed
     // into a dormant state when nothing is being played.
     size_t playingVoicesCount;
+
+
+    // When a playback event is scheduled it is added to this queue. Events are not posted straight away, but are instead
+    // placed in a queue for processing later at specific times to ensure the event is posted AFTER the device has actually
+    // played the sample the event is set for.
+    dra__event_queue eventQueue;
 
 
     // The number of channels being used by the device.
@@ -341,6 +374,19 @@ struct dra_buffer
     } src;
 
 
+    // The number of playback notification events. This does not include the stop and play events.
+    size_t playbackEventCount;
+
+    // A pointer to the list of playback events.
+    dra__event playbackEvents[DR_AUDIO_MAX_EVENT_COUNT];
+
+    // The event to call when the buffer has stopped playing, either naturally or explicitly with dra_buffer_stop().
+    dra__event stopEvent;
+
+    // The event to call when the buffer starts playing.
+    dra__event playEvent;
+
+
     // The size of the buffer in bytes.
     size_t sizeInBytes;
 
@@ -452,6 +498,12 @@ float* dra_buffer_next_frame(dra_buffer* pBuffer);
 
 // dra_buffer_next_frames()
 size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSamplesOut);
+
+
+void dra_buffer_set_on_stop(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData);
+void dra_buffer_set_on_play(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData);
+bool dra_buffer_add_playback_event(dra_buffer* pBuffer, uint64_t sampleIndex, uint64_t eventID, dra_buffer_event_proc proc, void* pUserData);
+void dra_buffer_remove_playback_event(dra_buffer* pBuffer, uint64_t eventID);
 
 
 // Utility APIs
@@ -1661,12 +1713,102 @@ void dra_context_delete(dra_context* pContext)
 }
 
 
-void dra_device__post_event(dra_device* pDevice, dra_event_type type)
+void dra_event_queue__schedule_event(dra__event_queue* pQueue, dra__event* pEvent)
+{
+    if (pQueue == NULL || pEvent == NULL) {
+        return;
+    }
+
+    dra_mutex_lock(pQueue->lock);
+    {
+        if (pQueue->eventCount == pQueue->eventBufferSize)
+        {
+            // Ran out of room. Resize.
+            size_t newEventBufferSize = (pQueue->eventBufferSize == 0) ? 16 : pQueue->eventBufferSize*2;
+            dra__event* pNewEvents = (dra__event*)malloc(newEventBufferSize * sizeof(*pNewEvents));
+            if (pNewEvents == NULL) {
+                return;
+            }
+
+            for (size_t i = 0; i < pQueue->eventCount; ++i) {
+                pQueue->pEvents[i] = pQueue->pEvents[(pQueue->firstEvent + i) % pQueue->eventBufferSize];
+            }
+
+            pQueue->firstEvent = 0;
+            pQueue->eventBufferSize = newEventBufferSize;
+            pQueue->pEvents = pNewEvents;
+        }
+
+        assert(pQueue->eventCount < pQueue->eventBufferSize);
+
+        pQueue->pEvents[(pQueue->firstEvent + pQueue->eventCount) % pQueue->eventBufferSize] = *pEvent;
+        pQueue->eventCount += 1;
+    }
+    dra_mutex_unlock(pQueue->lock);
+}
+
+void dra_event_queue__cancel_events_of_buffer(dra__event_queue* pQueue, dra_buffer* pBuffer)
+{
+    if (pQueue == NULL || pBuffer == NULL) {
+        return;
+    }
+
+    dra_mutex_lock(pQueue->lock);
+    {
+        // We don't actually remove anything from the queue, but instead zero out the event's data.
+        for (size_t i = 0; i < pQueue->eventCount; ++i) {
+            dra__event* pEvent = &pQueue->pEvents[(pQueue->firstEvent + i) % pQueue->eventBufferSize];
+            if (pEvent->pBuffer == pBuffer) {
+                pEvent->pBuffer = NULL;
+                pEvent->proc = NULL;
+            }
+        }
+    }
+    dra_mutex_unlock(pQueue->lock);
+}
+
+bool dra_event_queue__next_event(dra__event_queue* pQueue, dra__event* pEventOut)
+{
+    if (pQueue == NULL || pEventOut == NULL) {
+        return false;
+    }
+
+    bool result = false;
+    dra_mutex_lock(pQueue->lock);
+    {
+        if (pQueue->eventCount > 0) {
+            *pEventOut = pQueue->pEvents[pQueue->firstEvent];
+            pQueue->firstEvent = (pQueue->firstEvent + 1) % pQueue->eventBufferSize;
+            pQueue->eventCount -= 1;
+            result = true;
+        }
+    }
+    dra_mutex_unlock(pQueue->lock);
+
+    return result;
+}
+
+void dra_event_queue__post_events(dra__event_queue* pQueue)
+{
+    if (pQueue == NULL) {
+        return;
+    }
+
+    dra__event nextEvent;
+    while (dra_event_queue__next_event(pQueue, &nextEvent)) {
+        if (nextEvent.proc) {
+            nextEvent.proc(nextEvent.pBuffer, nextEvent.id, nextEvent.pUserData);
+        }
+    }
+}
+
+
+void dra_device__post_event(dra_device* pDevice, dra_thread_event_type type)
 {
     assert(pDevice != NULL);
 
-    pDevice->nextEventType = type;
-    dra_semaphore_release(pDevice->eventSem);
+    pDevice->nextThreadEventType = type;
+    dra_semaphore_release(pDevice->threadEventSem);
 }
 
 void dra_device__lock(dra_device* pDevice)
@@ -1697,10 +1839,7 @@ bool dra_device__mix_next_fragment(dra_device* pDevice)
         dra_backend_device_stop(pDevice->pBackendDevice);
         return false;
     }
-
-    // TODO: When mixing reaches the end, stop the device.
     
-    //memset(pSampleData, 0, (size_t)samplesInFragment * sizeof(float));
     size_t framesInFragment = samplesInFragment / pDevice->channels;
     size_t framesMixed = dra_mixer_mix_next_frames(pDevice->pMasterMixer, framesInFragment);
     
@@ -1730,7 +1869,7 @@ void dra_device__play(dra_device* pDevice)
             if (dra_device__mix_next_fragment(pDevice))
             {
                 dra_backend_device_play(pDevice->pBackendDevice);
-                dra_device__post_event(pDevice, dra_event_type_play);
+                dra_device__post_event(pDevice, dra_thread_event_type_play);
                 pDevice->isPlaying = true;
                 pDevice->stopOnNextFragment = false;
             }
@@ -1791,18 +1930,23 @@ void* dra_device__thread_proc(void* pData)
     for (;;)
     {
         // Wait for an event...
-        dra_semaphore_wait(pDevice->eventSem);
+        dra_semaphore_wait(pDevice->threadEventSem);
 
-        if (pDevice->nextEventType == dra_event_type_terminate) {
+        if (pDevice->nextThreadEventType == dra_thread_event_type_terminate) {
             printf("Terminated!\n");
             break;
         }
 
-        if (pDevice->nextEventType == dra_event_type_play)
+        if (pDevice->nextThreadEventType == dra_thread_event_type_play)
         {
-            dra_backend_device_play(pDevice->pBackendDevice);
+            // There could be "play" events needing to be posted.
+            dra_event_queue__post_events(&pDevice->eventQueue);
+
+            // Wait for the device to request more data...
             while (dra_backend_device_wait(pDevice->pBackendDevice))
             {
+                dra_event_queue__post_events(&pDevice->eventQueue);
+
                 if (pDevice->stopOnNextFragment) {
                     dra_device__stop(pDevice);  // <-- Don't break from the loop here. Instead have dra_backend_device_wait() return naturally from the stop notification.
                 } else {
@@ -1810,6 +1954,8 @@ void* dra_device__thread_proc(void* pData)
                 }
             }
 
+            // There could be some events needing to be posted.
+            dra_event_queue__post_events(&pDevice->eventQueue);
             printf("Stopped!\n");
 
             // Don't fall through.
@@ -1851,8 +1997,8 @@ dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsi
         goto on_error;
     }
 
-    pDevice->eventSem = dra_semaphore_create(0);
-    if (pDevice->eventSem == NULL) {
+    pDevice->threadEventSem = dra_semaphore_create(0);
+    if (pDevice->threadEventSem == NULL) {
         goto on_error;
     }
 
@@ -1880,8 +2026,8 @@ on_error:
             dra_backend_device_close(pDevice->pBackendDevice);
         }
 
-        if (pDevice->eventSem != NULL) {
-            dra_semaphore_delete(pDevice->eventSem);
+        if (pDevice->threadEventSem != NULL) {
+            dra_semaphore_delete(pDevice->threadEventSem);
         }
 
         if (pDevice->mutex != NULL) {
@@ -1916,7 +2062,7 @@ void dra_device_close(dra_device* pDevice)
     dra_device__stop(pDevice);
 
     // The background thread needs to be terminated at this point.
-    dra_device__post_event(pDevice, dra_event_type_terminate);
+    dra_device__post_event(pDevice, dra_thread_event_type_terminate);
 
 
     // At this point the device is marked as closed which should prevent buffer's and mixers from being created and deleted. We now need
@@ -1930,8 +2076,8 @@ void dra_device_close(dra_device* pDevice)
         dra_backend_device_close(pDevice->pBackendDevice);
     }
 
-    if (pDevice->eventSem != NULL) {
-        dra_semaphore_delete(pDevice->eventSem);
+    if (pDevice->threadEventSem != NULL) {
+        dra_semaphore_delete(pDevice->threadEventSem);
     }
 
     if (pDevice->mutex != NULL) {
@@ -2169,7 +2315,7 @@ dra_buffer* dra_buffer_create(dra_device* pDevice, dra_format format, unsigned i
     }
 
 
-    dra_buffer* pBuffer = (dra_buffer*)malloc(sizeof(*pBuffer) - sizeof(pBuffer->pData) + sizeInBytes);
+    dra_buffer* pBuffer = (dra_buffer*)calloc(1, sizeof(*pBuffer) - sizeof(pBuffer->pData) + sizeInBytes);
     if (pBuffer == NULL) {
         return NULL;
     }
@@ -2186,7 +2332,6 @@ dra_buffer* dra_buffer_create(dra_device* pDevice, dra_format format, unsigned i
     pBuffer->sizeInBytes = sizeInBytes;
     pBuffer->pNextBuffer = NULL;
     pBuffer->pPrevBuffer = NULL;
-    memset(&pBuffer->src, 0, sizeof(pBuffer->src));
 
     if (pInitialData != NULL) {
         memcpy(pBuffer->pData, pInitialData, sizeInBytes);
@@ -2194,10 +2339,10 @@ dra_buffer* dra_buffer_create(dra_device* pDevice, dra_format format, unsigned i
 
 
     // Sample rate conversion.
-
-    // Nearest.
-    pBuffer->src.nearest.nearFrameIndex = (size_t)-1;   // <-- Initializing ensures the first frame is handled correctly.
-
+    {
+        // Nearest.
+        pBuffer->src.nearest.nearFrameIndex = (size_t)-1;   // <-- Initializing ensures the first frame is handled correctly.
+    }
 
 
     // Attach the buffer to the master mixer by default.
@@ -2249,6 +2394,8 @@ void dra_buffer_play(dra_buffer* pBuffer, bool loop)
     pBuffer->isPlaying = true;
     pBuffer->isLooping = loop;
 
+    dra_event_queue__schedule_event(&pBuffer->pDevice->eventQueue, &pBuffer->playEvent);
+
     // When playing a buffer we need to ensure the backend device is playing.
     dra_device__play(pBuffer->pDevice);
 }
@@ -2267,6 +2414,8 @@ void dra_buffer_stop(dra_buffer* pBuffer)
 
     pBuffer->isPlaying = false;
     pBuffer->isLooping = false;
+
+    dra_event_queue__schedule_event(&pBuffer->pDevice->eventQueue, &pBuffer->stopEvent);
 }
 
 bool dra_buffer_is_playing(dra_buffer* pBuffer)
@@ -2565,6 +2714,8 @@ size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSa
 
     size_t framesRead = 0;
 
+    uint64_t prevReadPosLocal = (uint64_t)(pBuffer->currentReadPos * ((float)pBuffer->sampleRate / pBuffer->pDevice->sampleRate));
+
     float* pNextFrame = NULL;
     while ((pNextFrame = dra_buffer_next_frame(pBuffer)) != NULL && (framesRead < frameCount)) {
         memcpy(pSamplesOut, pNextFrame, pBuffer->pDevice->channels * sizeof(float));
@@ -2572,9 +2723,81 @@ size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSa
         framesRead += 1;
     }
 
+
+    // Now we need to check if we've got past any notification events and post events for them if so.
+    uint64_t currentReadPosLocal = (uint64_t)(pBuffer->currentReadPos * ((float)pBuffer->sampleRate / pBuffer->pDevice->sampleRate));
+    for (size_t i = 0; i < pBuffer->playbackEventCount; ++i) {
+        dra__event* pEvent = &pBuffer->playbackEvents[i];
+        if (pEvent->sampleIndex > prevReadPosLocal && pEvent->sampleIndex <= currentReadPosLocal) {
+            dra_event_queue__schedule_event(&pBuffer->pDevice->eventQueue, pEvent);
+        }
+    }
+
     return framesRead;
 }
 
+
+void dra_buffer_set_on_stop(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData)
+{
+    if (pBuffer == NULL) {
+        return;
+    }
+
+    pBuffer->stopEvent.id = DR_AUDIO_EVENT_ID_STOP;
+    pBuffer->stopEvent.pUserData = pUserData;
+    pBuffer->stopEvent.sampleIndex = 0;
+    pBuffer->stopEvent.proc = proc;
+    pBuffer->stopEvent.pBuffer = pBuffer;
+}
+
+void dra_buffer_set_on_play(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData)
+{
+    if (pBuffer == NULL) {
+        return;
+    }
+
+    pBuffer->playEvent.id = DR_AUDIO_EVENT_ID_STOP;
+    pBuffer->playEvent.pUserData = pUserData;
+    pBuffer->playEvent.sampleIndex = 0;
+    pBuffer->playEvent.proc = proc;
+    pBuffer->playEvent.pBuffer = pBuffer;
+}
+
+bool dra_buffer_add_playback_event(dra_buffer* pBuffer, uint64_t sampleIndex, uint64_t eventID, dra_buffer_event_proc proc, void* pUserData)
+{
+    if (pBuffer == NULL) {
+        return false;
+    }
+
+    if (pBuffer->playbackEventCount >= DR_AUDIO_MAX_EVENT_COUNT) {
+        return false;
+    }
+
+    pBuffer->playbackEvents[pBuffer->playbackEventCount].id = eventID;
+    pBuffer->playbackEvents[pBuffer->playbackEventCount].pUserData = pUserData;
+    pBuffer->playbackEvents[pBuffer->playbackEventCount].sampleIndex = sampleIndex;
+    pBuffer->playbackEvents[pBuffer->playbackEventCount].proc = proc;
+    pBuffer->playbackEvents[pBuffer->playbackEventCount].pBuffer = pBuffer;
+
+    pBuffer->playbackEventCount += 1;
+    return true;
+}
+
+void dra_buffer_remove_playback_event(dra_buffer* pBuffer, uint64_t eventID)
+{
+    if (pBuffer == NULL) {
+        return;
+    }
+
+    for (size_t i = 0; i < pBuffer->playbackEventCount; /* DO NOTHING */) {
+        if (pBuffer->playbackEvents[i].id == eventID) {
+            memmove(&pBuffer->playbackEvents[i], &pBuffer->playbackEvents[i + 1], (pBuffer->playbackEventCount - (i+1)) * sizeof(dra__event));
+            pBuffer->playbackEventCount -= 1;
+        } else {
+            i += 1;
+        }
+    }
+}
 
 
 #if 0
