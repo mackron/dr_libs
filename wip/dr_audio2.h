@@ -18,7 +18,7 @@
 //
 // Platform specific
 // dra_backend (dra_backend_alsa, dra_backend_dsound) <-- This is the ONLY place with platform-specific code.
-// dra_backend_device 
+// dra_backend_device
 //
 // Cross platform
 // dra_context                                        <-- Has an instantiation of a dra_backend object. Cross-platform.
@@ -45,7 +45,7 @@
 // way point it notifies the application that it needs more data to continue playing. Once one half starts
 // playing the data within it is committed and cannot be changed. The size of each half determines the latency
 // of the device.
-// 
+//
 // It sounds tempting to set this to something small like 1ms, but making it too small will
 // increase the chance that the CPU won't be able to keep filling it with fresh data. In addition it will
 // incrase overall CPU usage because operating system's scheduler will need to wake up the thread more often.
@@ -755,7 +755,7 @@ static BOOL CALLBACK dra_dsound__get_device_guid_by_id__callback(LPGUID lpGuid, 
 
     dra_dsound__device_enum_data* pData = (dra_dsound__device_enum_data*)lpContext;
     assert(pData != NULL);
-    
+
     if (pData->counter == pData->deviceID) {
         pData->pGuid = lpGuid;
         return false;
@@ -892,7 +892,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     if (channels == 0) {
         channels = DR_AUDIO_DEFAULT_CHANNEL_COUNT;
     }
-    
+
     WAVEFORMATEXTENSIBLE wf = {0};
     wf.Format.cbSize               = sizeof(wf);
     wf.Format.wFormatTag           = WAVE_FORMAT_EXTENSIBLE;
@@ -959,7 +959,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     //   With this flag set, an application using DirectSound can continue to play its buffers if the user switches focus to
     //   another application, even if the new application uses DirectSound.
     //
-    // DSBCAPS_GETCURRENTPOSITION2 
+    // DSBCAPS_GETCURRENTPOSITION2
     //   In the first version of DirectSound, the play cursor was significantly ahead of the actual playing sound on emulated
     //   sound cards; it was directly behind the write cursor. Now, if the DSBCAPS_GETCURRENTPOSITION2 flag is specified, the
     //   application can get a more accurate play cursor.
@@ -1098,7 +1098,7 @@ void dra_backend_device_close_dsound(dra_backend_device* pDevice)
     free(pDeviceDS);
 }
 
-void dra_backend_device_play(dra_backend_device* pDevice)   // <-- This is a blocking call.
+void dra_backend_device_play(dra_backend_device* pDevice)
 {
     dra_backend_device_dsound* pDeviceDS = (dra_backend_device_dsound*)pDevice;
     if (pDeviceDS == NULL) {
@@ -1186,7 +1186,7 @@ void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, size_t* 
     if ((status & DSBSTATUS_PLAYING) != 0) {
         dwOffset = (((pDeviceDS->currentFragmentIndex + 1) % pDeviceDS->fragmentCount) * pDeviceDS->samplesPerFragment) * sizeof(float);
     }
-    
+
 
     HRESULT hr = IDirectSoundBuffer_Lock(pDeviceDS->pDSSecondaryBuffer, dwOffset, dwBytes, &pDeviceDS->pLockPtr, &pDeviceDS->lockSize, NULL, NULL, 0);
     if (FAILED(hr)) {
@@ -1251,7 +1251,7 @@ void dra_thread_wait(dra_thread thread)
 dra_mutex dra_mutex_create()
 {
     // The pthread_mutex_t object is not a void* castable handle type. Just create it on the heap and be done with it.
-    pthread_mutex_t* mutex = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_t* mutex = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
     if (pthread_mutex_init(mutex, NULL) != 0) {
         free(mutex);
         mutex = NULL;
@@ -1278,7 +1278,7 @@ void dra_mutex_unlock(dra_mutex mutex)
 
 dra_semaphore dra_semaphore_create(int initialValue)
 {
-    sem_t* semaphore = malloc(sizeof(sem_t));
+    sem_t* semaphore = (sem_t*)malloc(sizeof(sem_t));
     if (sem_init(semaphore, 0, (unsigned int)initialValue) == -1) {
         free(semaphore);
         semaphore = NULL;
@@ -1322,6 +1322,15 @@ typedef struct
 
     // The ALSA device handle.
     snd_pcm_t* deviceALSA;
+
+    // Whether or not the device is currently playing.
+    bool isPlaying;
+
+    // Whether or not the intermediary buffer is mapped.
+    bool isBufferMapped;
+
+    // The intermediary buffer where audio data is written before being submitted to the device.
+    float* pIntermediaryBuffer;
 } dra_backend_device_alsa;
 
 
@@ -1377,12 +1386,14 @@ dra_backend* dra_backend_create_alsa()
 
     return (dra_backend*)pBackendALSA;
 
+#if 0
 on_error:
     if (pBackendALSA != NULL) {
         free(pBackendALSA);
     }
 
     return NULL;
+#endif
 }
 
 void dra_backend_delete_alsa(dra_backend* pBackend)
@@ -1454,25 +1465,15 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
     pDeviceALSA->channels = channels;
 
 
-    
+
 
     size_t sampleRateInMilliseconds = pDeviceALSA->sampleRate / 1000;
     if (sampleRateInMilliseconds == 0) {
         sampleRateInMilliseconds = 1;
     }
 
-    size_t fragmentSize = (pDeviceALSA->channels * sampleRateInMilliseconds * latencyInMilliseconds) * dra_get_bytes_per_sample_by_format(format);
-    size_t hardwareBufferSize = fragmentSize * DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
-    size_t hardwareBufferSizeInFrames = hardwareBufferSize / channels / dra_get_bytes_per_sample_by_format(format);
-
-    if (snd_pcm_hw_params_set_buffer_size(pDeviceALSA->deviceALSA, pHWParams, hardwareBufferSizeInFrames) < 0) {
-        printf("Failed to set buffer size.\n");
-        goto on_error;
-    }
-
-
     unsigned int periods = DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
-    unsigned int dir = 0;
+    int dir = 1;
     if (snd_pcm_hw_params_set_periods_near(pDeviceALSA->deviceALSA, pHWParams, &periods, &dir) < 0) {
         printf("Failed to set periods.\n");
         goto on_error;
@@ -1481,13 +1482,58 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
     printf("Periods: %d | Direction: %d\n", periods, dir);
 
 
+    pDeviceALSA->samplesPerFragment = (pDeviceALSA->channels * sampleRateInMilliseconds * latencyInMilliseconds);
+
+    size_t fragmentSize = pDeviceALSA->samplesPerFragment * sizeof(float);
+    size_t hardwareBufferSize = fragmentSize * periods;
+    size_t hardwareBufferSizeInFrames = hardwareBufferSize / channels / sizeof(float);
+
+    if (snd_pcm_hw_params_set_buffer_size(pDeviceALSA->deviceALSA, pHWParams, hardwareBufferSizeInFrames) < 0) {
+        printf("Failed to set buffer size.\n");
+        goto on_error;
+    }
+
+
     if (snd_pcm_hw_params(pDeviceALSA->deviceALSA, pHWParams) < 0) {
         goto on_error;
     }
 
     snd_pcm_hw_params_free(pHWParams);
 
-    
+
+
+    // Software params. There needs to be at least fragmentSize bytes in the hardware buffer before playing it, and there needs
+    // be fragmentSize bytes available after every wait.
+    size_t fragmentSizeInFrames = fragmentSize / channels / sizeof(float);
+
+    snd_pcm_sw_params_t* pSWParams = NULL;
+    if (snd_pcm_sw_params_malloc(&pSWParams) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_sw_params_current(pDeviceALSA->deviceALSA, pSWParams) != 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_sw_params_set_start_threshold(pDeviceALSA->deviceALSA, pSWParams, fragmentSizeInFrames) != 0) {
+        goto on_error;
+    }
+    if (snd_pcm_sw_params_set_avail_min(pDeviceALSA->deviceALSA, pSWParams, fragmentSizeInFrames) != 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_sw_params(pDeviceALSA->deviceALSA, pSWParams) != 0) {
+        goto on_error;
+    }
+    snd_pcm_sw_params_free(pSWParams);
+
+
+    // The intermediary buffer that will be used for mapping/unmapping.
+    pDeviceALSA->isBufferMapped = false;
+    pDeviceALSA->pIntermediaryBuffer = (float*)malloc(fragmentSize);
+    if (pDeviceALSA->pIntermediaryBuffer == NULL) {
+        goto on_error;
+    }
 
     return (dra_backend_device*)pDeviceALSA;
 
@@ -1501,6 +1547,7 @@ on_error:
             snd_pcm_close(pDeviceALSA->deviceALSA);
         }
 
+        free(pDeviceALSA->pIntermediaryBuffer);
         free(pDeviceALSA);
     }
 
@@ -1538,17 +1585,19 @@ void dra_backend_device_close_alsa(dra_backend_device* pDevice)
         snd_pcm_close(pDeviceALSA->deviceALSA);
     }
 
+    free(pDeviceALSA->pIntermediaryBuffer);
     free(pDeviceALSA);
 }
 
-void dra_backend_device_play(dra_backend_device* pDevice)   // <-- This is a blocking call.
+void dra_backend_device_play(dra_backend_device* pDevice)
 {
     dra_backend_device_alsa* pDeviceALSA = (dra_backend_device_alsa*)pDevice;
     if (pDeviceALSA == NULL) {
         return;
     }
 
-    // TODO: Implement Me.
+    snd_pcm_prepare(pDeviceALSA->deviceALSA);
+    pDeviceALSA->isPlaying = true;
 }
 
 void dra_backend_device_stop(dra_backend_device* pDevice)
@@ -1559,6 +1608,7 @@ void dra_backend_device_stop(dra_backend_device* pDevice)
     }
 
     snd_pcm_drop(pDeviceALSA->deviceALSA);
+    pDeviceALSA->isPlaying = false;
 }
 
 bool dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns true if the function has returned because it needs more data; false if the device has been stopped or an error has occured.
@@ -1568,8 +1618,54 @@ bool dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns true 
         return false;
     }
 
-    // TODO: Implement Me.
+    if (!pDeviceALSA->isPlaying) {
+        return false;
+    }
+
+    int result = snd_pcm_wait(pDeviceALSA->deviceALSA, -1);
+    if (result > 0) {
+        return true;
+    }
+
+    if (result == -EPIPE) {
+        // xrun. Prepare the device again and just return true.
+        snd_pcm_prepare(pDeviceALSA->deviceALSA);
+        return true;
+    }
+
     return false;
+}
+
+void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, size_t* pSamplesInFragmentOut)
+{
+    assert(pSamplesInFragmentOut != NULL);
+
+    dra_backend_device_alsa* pDeviceALSA = (dra_backend_device_alsa*)pDevice;
+    if (pDeviceALSA == NULL) {
+        return NULL;
+    }
+
+    if (pDeviceALSA->isBufferMapped) {
+        return NULL;    // A fragment is already mapped. Can only have a single fragment mapped at a time.
+    }
+
+    *pSamplesInFragmentOut = pDeviceALSA->samplesPerFragment;
+    return pDeviceALSA->pIntermediaryBuffer;
+}
+
+void dra_backend_device_unmap_next_fragment(dra_backend_device* pDevice)
+{
+    dra_backend_device_alsa* pDeviceALSA = (dra_backend_device_alsa*)pDevice;
+    if (pDeviceALSA == NULL) {
+        return;
+    }
+
+    if (pDeviceALSA->isBufferMapped) {
+        return;    // Nothing is mapped.
+    }
+
+    // Unammping is when the data is written to the device.
+    snd_pcm_writei(pDeviceALSA->deviceALSA, pDeviceALSA->pIntermediaryBuffer, pDeviceALSA->samplesPerFragment / pDeviceALSA->channels);
 }
 #endif  // DR_AUDIO_NO_ALSA
 #endif  // __linux__
@@ -1624,7 +1720,7 @@ void dra_backend_delete(dra_backend* pBackend)
     }
 #endif
 
-    // Should never get here. If this assert is triggered it means you haven't plugged in the API in the list above. 
+    // Should never get here. If this assert is triggered it means you haven't plugged in the API in the list above.
     assert(false);
 }
 
@@ -1648,7 +1744,7 @@ dra_backend_device* dra_backend_device_open(dra_backend* pBackend, dra_device_ty
 #endif
 
 
-    // Should never get here. If this assert is triggered it means you haven't plugged in the API in the list above. 
+    // Should never get here. If this assert is triggered it means you haven't plugged in the API in the list above.
     assert(false);
     return NULL;
 }
@@ -1839,10 +1935,10 @@ bool dra_device__mix_next_fragment(dra_device* pDevice)
         dra_backend_device_stop(pDevice->pBackendDevice);
         return false;
     }
-    
+
     size_t framesInFragment = samplesInFragment / pDevice->channels;
     size_t framesMixed = dra_mixer_mix_next_frames(pDevice->pMasterMixer, framesInFragment);
-    
+
     memcpy(pSampleData, pDevice->pMasterMixer->pStagingBuffer, (size_t)samplesInFragment * sizeof(float));
     dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
 
@@ -1864,7 +1960,7 @@ void dra_device__play(dra_device* pDevice)
         if (!dra_device__is_playing_nolock(pDevice))
         {
             assert(pDevice->playingVoicesCount > 0);
-            
+
             // Before playing the backend device we need to ensure the first fragment is filled with valid audio data.
             if (dra_device__mix_next_fragment(pDevice))
             {
@@ -1959,7 +2055,7 @@ void* dra_device__thread_proc(void* pData)
             printf("Stopped!\n");
 
             // Don't fall through.
-            continue;   
+            continue;
         }
     }
 
@@ -2004,6 +2100,12 @@ dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsi
 
     pDevice->pMasterMixer = dra_mixer_create(pDevice);
     if (pDevice->pMasterMixer == NULL) {
+        goto on_error;
+    }
+
+
+    pDevice->eventQueue.lock = dra_mutex_create();
+    if (pDevice->eventQueue.lock == NULL) {
         goto on_error;
     }
 
@@ -2057,7 +2159,7 @@ void dra_device_close(dra_device* pDevice)
         pDevice->isClosed = false;
     }
     dra_device__unlock(pDevice);
-    
+
     // Stop playback before doing anything else.
     dra_device__stop(pDevice);
 
@@ -2111,7 +2213,7 @@ dra_mixer* dra_mixer_create(dra_device* pDevice)
     if (pDevice->pMasterMixer != NULL) {
         dra_mixer_attach_submixer(pDevice->pMasterMixer, pMixer);
     }
-    
+
     return pMixer;
 }
 
@@ -2165,7 +2267,7 @@ void dra_mixer_attach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
     }
 
     if (pBuffer->pMixer != NULL) {
-        dra_mixer_detach_buffer(pBuffer->pMixer, pBuffer);   
+        dra_mixer_detach_buffer(pBuffer->pMixer, pBuffer);
     }
 
     pBuffer->pMixer = pMixer;
@@ -2212,7 +2314,7 @@ void dra_mixer_detach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
 
     pBuffer->pNextBuffer = NULL;
     pBuffer->pPrevBuffer = NULL;
-    
+
 }
 
 void dra_mixer_detach_all_buffers(dra_mixer* pMixer)
@@ -2714,7 +2816,7 @@ size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSa
 
     size_t framesRead = 0;
 
-    uint64_t prevReadPosLocal = (uint64_t)(pBuffer->currentReadPos * ((float)pBuffer->sampleRate / pBuffer->pDevice->sampleRate));
+    uint64_t prevReadPosLocal = (uint64_t)(pBuffer->currentReadPos * ((float)pBuffer->sampleRate / pBuffer->pDevice->sampleRate)) * pBuffer->channels;
 
     float* pNextFrame = NULL;
     while ((pNextFrame = dra_buffer_next_frame(pBuffer)) != NULL && (framesRead < frameCount)) {
@@ -2725,7 +2827,7 @@ size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSa
 
 
     // Now we need to check if we've got past any notification events and post events for them if so.
-    uint64_t currentReadPosLocal = (uint64_t)(pBuffer->currentReadPos * ((float)pBuffer->sampleRate / pBuffer->pDevice->sampleRate));
+    uint64_t currentReadPosLocal = prevReadPosLocal + (framesRead * pBuffer->channels);
     for (size_t i = 0; i < pBuffer->playbackEventCount; ++i) {
         dra__event* pEvent = &pBuffer->playbackEvents[i];
         if (pEvent->sampleIndex > prevReadPosLocal && pEvent->sampleIndex <= currentReadPosLocal) {
