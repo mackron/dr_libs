@@ -2004,7 +2004,7 @@ static drfs_result drfs_get_native_file_info(const char* absolutePath, drfs_file
 
     // <fi> is allowed to be null, in which case the call is equivalent to simply checking if the file exists.
     if (fi == NULL) {
-        if (GetFileAttributesA(absolutePath) == INVALID_FILE_ATTRIBUTES) {
+        if (GetFileAttributesA(absolutePath) != INVALID_FILE_ATTRIBUTES) {
             return drfs_success;
         }
 
