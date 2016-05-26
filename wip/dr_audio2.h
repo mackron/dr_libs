@@ -295,6 +295,11 @@ struct dra_mixer
     dra_buffer* pLastBuffer;
 
 
+    // The volume of the buffer as a linear scale. A value of 0.5 means the sound is at half volume. There is no hard
+    // limit on the volume, however going beyond 1 may introduce clipping.
+    float linearVolume;
+
+
     // Mixers output the results of the final mix into a buffer referred to as the staging buffer. A parent mixer will
     // use the staging buffer when it mixes the results of it's submixers. This is an offset of pData.
     float* pStagingBuffer;
@@ -333,6 +338,12 @@ struct dra_buffer
 
     // The sample rate in seconds.
     unsigned int sampleRate;
+
+
+    // The volume of the buffer as a linear scale. A value of 0.5 means the sound is at half volume. There is no hard
+    // limit on the volume, however going beyond 1 may introduce clipping.
+    float linearVolume;
+
 
 
     // Whether or not the buffer is currently playing.
@@ -440,6 +451,12 @@ void dra_mixer_detach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer);
 // dra_mixer_detach_all_buffers()
 void dra_mixer_detach_all_buffers(dra_mixer* pMixer);
 
+// dra_buffer_set_volum()
+void dra_mixer_set_volume(dra_mixer* pMixer, float linearVolume);
+
+// dra_buffer_get_volume()
+float dra_mixer_get_volume(dra_mixer* pMixer);
+
 // Mixes the next number of frameCount and moves the playback position appropriately.
 //
 // pMixer     [in] The mixer.
@@ -475,6 +492,13 @@ bool dra_buffer_is_playing(dra_buffer* pBuffer);
 
 // dra_buffer_is_looping()
 bool dra_buffer_is_looping(dra_buffer* pBuffer);
+
+
+// dra_buffer_set_volum()
+void dra_buffer_set_volume(dra_buffer* pBuffer, float linearVolume);
+
+// dra_buffer_get_volume()
+float dra_buffer_get_volume(dra_buffer* pBuffer);
 
 
 void dra_buffer_set_on_stop(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData);
@@ -2235,6 +2259,7 @@ dra_mixer* dra_mixer_create(dra_device* pDevice)
     memset(pMixer, 0, sizeof(*pMixer));
 
     pMixer->pDevice = pDevice;
+    pMixer->linearVolume = 1;
 
     pMixer->pStagingBuffer = pMixer->pData;
     pMixer->pNextSamplesToMix = pMixer->pStagingBuffer + pDevice->pBackendDevice->samplesPerFragment;
@@ -2358,6 +2383,24 @@ void dra_mixer_detach_all_buffers(dra_mixer* pMixer)
     }
 }
 
+void dra_mixer_set_volume(dra_mixer* pMixer, float linearVolume)
+{
+    if (pMixer == NULL) {
+        return;
+    }
+
+    pMixer->linearVolume = linearVolume;
+}
+
+float dra_mixer_get_volume(dra_mixer* pMixer)
+{
+    if (pMixer == NULL) {
+        return 0;
+    }
+
+    return pMixer->linearVolume;
+}
+
 size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
 {
     if (pMixer == NULL) {
@@ -2380,7 +2423,7 @@ size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
         if (pBuffer->isPlaying) {
             size_t framesJustRead = dra_buffer__next_frames(pBuffer, frameCount, pMixer->pNextSamplesToMix);
             for (size_t i = 0; i < framesJustRead * pMixer->pDevice->channels; ++i) {
-                pMixer->pStagingBuffer[i] += pMixer->pNextSamplesToMix[i];
+                pMixer->pStagingBuffer[i] += (pMixer->pNextSamplesToMix[i] * pBuffer->linearVolume);
             }
 
             // Has the end of the buffer been reached?
@@ -2412,6 +2455,13 @@ size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
         if (framesMixed < framesJustMixed) {
             framesMixed = framesJustMixed;
         }
+    }
+
+
+    // At this point the mixer's effects and volume need to be applied to each sample.
+    size_t samplesMixed = framesMixed * pMixer->pDevice->channels;
+    for (size_t i = 0; i < samplesMixed; ++i) {
+        pMixer->pStagingBuffer[i] *= pMixer->linearVolume;
     }
 
 
@@ -2457,6 +2507,7 @@ dra_buffer* dra_buffer_create(dra_device* pDevice, dra_format format, unsigned i
     pBuffer->format = format;
     pBuffer->channels = channels;
     pBuffer->sampleRate = sampleRate;
+    pBuffer->linearVolume = 1;
     pBuffer->isPlaying = false;
     pBuffer->isLooping = false;
     pBuffer->frameCount = sizeInBytes / (bytesPerSample * channels);
@@ -2566,6 +2617,25 @@ bool dra_buffer_is_looping(dra_buffer* pBuffer)
     }
 
     return pBuffer->isLooping;
+}
+
+
+void dra_buffer_set_volume(dra_buffer* pBuffer, float linearVolume)
+{
+    if (pBuffer == NULL) {
+        return;
+    }
+
+    pBuffer->linearVolume = linearVolume;
+}
+
+float dra_buffer_get_volume(dra_buffer* pBuffer)
+{
+    if (pBuffer == NULL) {
+        return 0;
+    }
+
+    return pBuffer->linearVolume;
 }
 
 
