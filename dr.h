@@ -1380,7 +1380,17 @@ bool dr_get_executable_directory_path(char* pathOut, size_t pathOutSize)
         return false;
     }
 
-    return drpath_remove_file_name(pathOut);
+    // A null terminator needs to be placed at the last slash.
+    char* lastSlash = pathOut;
+    while (pathOut[0] != '\0') {
+        if (pathOut[0] == '/' || pathOut[0] == '\\') {
+            lastSlash = pathOut;
+        }
+        pathOut += 1;
+    }
+
+    lastSlash[0] = '\0';
+    return true;
 }
 
 bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
