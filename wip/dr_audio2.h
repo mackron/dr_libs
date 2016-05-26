@@ -351,7 +351,7 @@ struct dra_buffer
     size_t currentReadPos;
 
 
-    // A buffer for storing converted frames. This is used by dra_buffer_next_frame(). As frames are conversion to
+    // A buffer for storing converted frames. This is used by dra_buffer__next_frame(). As frames are conversion to
     // floats, that are placed into this buffer.
     float convertedFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
 
@@ -475,29 +475,6 @@ bool dra_buffer_is_playing(dra_buffer* pBuffer);
 
 // dra_buffer_is_looping()
 bool dra_buffer_is_looping(dra_buffer* pBuffer);
-
-// Reads the next frame.
-//
-// Frames are retrieved with respect to the device the buffer is attached to. What this basically means is
-// that the returned frames are based on the format of the device the buffer is attached to. In turn, that
-// means any data conversions will be done within this function.
-//
-// The return value is a pointer to the buffer containing the converted samples, always as floating point.
-//
-// If the buffer is in the same format as the device (floating point, same sample rate and channels), then
-// this function will be on a fast path and will return almost immediately with a pointer that points to
-// the buffer's actual data without any data conversion.
-//
-// If an error occurs, null is returned. Null will be returned if the end of the buffer is reached and it's
-// non-looping. This will not return NULL if the buffer is looping - it will just loop back to the start as
-// one would expect.
-//
-// This function is not thread safe, but can be called from multiple threads if you do your own
-// synchronization. Just keep in mind that the return value may point to the buffer's actual internal data.
-float* dra_buffer_next_frame(dra_buffer* pBuffer);
-
-// dra_buffer_next_frames()
-size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSamplesOut);
 
 
 void dra_buffer_set_on_stop(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData);
@@ -1808,6 +1785,30 @@ void dra_backend_device_close(dra_backend_device* pDevice)
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+// Reads the next frame.
+//
+// Frames are retrieved with respect to the device the buffer is attached to. What this basically means is
+// that the returned frames are based on the format of the device the buffer is attached to. In turn, that
+// means any data conversions will be done within this function.
+//
+// The return value is a pointer to the buffer containing the converted samples, always as floating point.
+//
+// If the buffer is in the same format as the device (floating point, same sample rate and channels), then
+// this function will be on a fast path and will return almost immediately with a pointer that points to
+// the buffer's actual data without any data conversion.
+//
+// If an error occurs, null is returned. Null will be returned if the end of the buffer is reached and it's
+// non-looping. This will not return NULL if the buffer is looping - it will just loop back to the start as
+// one would expect.
+//
+// This function is not thread safe, but can be called from multiple threads if you do your own
+// synchronization. Just keep in mind that the return value may point to the buffer's actual internal data.
+float* dra_buffer__next_frame(dra_buffer* pBuffer);
+
+// dra_buffer__next_frames()
+size_t dra_buffer__next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSamplesOut);
+
+
 dra_context* dra_context_create()
 {
     // We need a backend first.
@@ -2377,7 +2378,7 @@ size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
     for (dra_buffer* pBuffer = pMixer->pFirstBuffer; pBuffer != NULL; pBuffer = pBuffer->pNextBuffer)
     {
         if (pBuffer->isPlaying) {
-            size_t framesJustRead = dra_buffer_next_frames(pBuffer, frameCount, pMixer->pNextSamplesToMix);
+            size_t framesJustRead = dra_buffer__next_frames(pBuffer, frameCount, pMixer->pNextSamplesToMix);
             for (size_t i = 0; i < framesJustRead * pMixer->pDevice->channels; ++i) {
                 pMixer->pStagingBuffer[i] += pMixer->pNextSamplesToMix[i];
             }
@@ -2741,7 +2742,7 @@ void dra_shuffle_channels(float* pOut, const float* pIn, unsigned int channelsOu
     }
 }
 
-float* dra_buffer_next_frame(dra_buffer* pBuffer)
+float* dra_buffer__next_frame(dra_buffer* pBuffer)
 {
     if (pBuffer == NULL) {
         return NULL;
@@ -2839,7 +2840,7 @@ float* dra_buffer_next_frame(dra_buffer* pBuffer)
     }
 }
 
-size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSamplesOut)
+size_t dra_buffer__next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSamplesOut)
 {
     // TODO: Check for the fast path and do a bulk copy rather than frame-by-frame.
 
@@ -2848,7 +2849,7 @@ size_t dra_buffer_next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSa
     uint64_t prevReadPosLocal = (uint64_t)(pBuffer->currentReadPos * ((float)pBuffer->sampleRate / pBuffer->pDevice->sampleRate)) * pBuffer->channels;
 
     float* pNextFrame = NULL;
-    while ((pNextFrame = dra_buffer_next_frame(pBuffer)) != NULL && (framesRead < frameCount)) {
+    while ((pNextFrame = dra_buffer__next_frame(pBuffer)) != NULL && (framesRead < frameCount)) {
         memcpy(pSamplesOut, pNextFrame, pBuffer->pDevice->channels * sizeof(float));
         pSamplesOut += pBuffer->pDevice->channels;
         framesRead += 1;
