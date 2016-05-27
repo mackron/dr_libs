@@ -23,7 +23,7 @@
 // Cross platform
 // dra_context                                        <-- Has an instantiation of a dra_backend object. Cross-platform.
 // dra_device                                         <-- Created and owned by a dra_context object and be an input (recording) or an output (playback) device.
-// dra_buffer                                         <-- Created and owned by a dra_device object and used by an application to deliver audio data to the backend.
+// dra_voice                                          <-- Created and owned by a dra_device object and used by an application to deliver audio data to the backend.
 //
 //
 // In order to make the API easier to use, have simple no-hassle APIs which use appropriate defaults, and then
@@ -178,21 +178,21 @@ typedef struct dra_backend_device dra_backend_device;
 typedef struct dra_context dra_context;
 typedef struct dra_device dra_device;
 typedef struct dra_mixer dra_mixer;
-typedef struct dra_buffer dra_buffer;
+typedef struct dra_voice dra_voice;
 
 typedef void* dra_thread;
 typedef void* dra_mutex;
 typedef void* dra_semaphore;
 
-typedef void (* dra_buffer_event_proc) (dra_buffer* pBuffer, uint64_t eventID, void* pUserData);
+typedef void (* dra_voice_event_proc) (dra_voice* pVoice, uint64_t eventID, void* pUserData);
 
 typedef struct
 {
     uint64_t id;
     void* pUserData;
     uint64_t sampleIndex;
-    dra_buffer_event_proc proc;
-    dra_buffer* pBuffer;
+    dra_voice_event_proc proc;
+    dra_voice* pVoice;
 } dra__event;
 
 typedef struct
@@ -235,8 +235,8 @@ struct dra_device
     // signal to terminate.
     bool isClosed;
 
-    // Whether or not the device is currently playing. When at least one buffer is playing, this will be true. When there
-    // are no buffers playing, this will be set to false and the background thread will sit dormant until another buffer
+    // Whether or not the device is currently playing. When at least one voice is playing, this will be true. When there
+    // are no voices playing, this will be set to false and the background thread will sit dormant until another voice
     // starts playing or the device is closed.
     bool isPlaying;
 
@@ -288,11 +288,11 @@ struct dra_mixer
     dra_mixer* pPrevSiblingMixer;
 
 
-    // The first buffer attached to the mixer.
-    dra_buffer* pFirstBuffer;
+    // The first voice attached to the mixer.
+    dra_voice* pFirstVoice;
 
-    // The last buffer attached to the mixer.
-    dra_buffer* pLastBuffer;
+    // The last voice attached to the mixer.
+    dra_voice* pLastVoice;
 
 
     // The volume of the buffer as a linear scale. A value of 0.5 means the sound is at half volume. There is no hard
@@ -313,24 +313,24 @@ struct dra_mixer
     float pData[1];
 };
 
-struct dra_buffer
+struct dra_voice
 {
-    // The device that created and owns this buffer.
+    // The device that created and owns this voice.
     dra_device* pDevice;
 
-    // The mixer the buffer is attached to. Should never be null. The mixer doesn't "own" the buffer - the buffer
+    // The mixer the voice is attached to. Should never be null. The mixer doesn't "own" the voice - the voice
     // is simply attached to it.
     dra_mixer* pMixer;
 
 
-    // The next buffer in the linked list of buffers attached to the mixer.
-    dra_buffer* pNextBuffer;
+    // The next voice in the linked list of voices attached to the mixer.
+    dra_voice* pNextVoice;
 
-    // The previous buffer in the linked list of buffers attached to the mixer.
-    dra_buffer* pPrevBuffer;
+    // The previous voice in the linked list of voices attached to the mixer.
+    dra_voice* pPrevVoice;
 
 
-    // The format of the audio data contained within this buffer.
+    // The format of the audio data contained within this voice.
     dra_format format;
 
     // The number of channels.
@@ -340,30 +340,30 @@ struct dra_buffer
     unsigned int sampleRate;
 
 
-    // The volume of the buffer as a linear scale. A value of 0.5 means the sound is at half volume. There is no hard
+    // The volume of the voice as a linear scale. A value of 0.5 means the sound is at half volume. There is no hard
     // limit on the volume, however going beyond 1 may introduce clipping.
     float linearVolume;
 
 
 
-    // Whether or not the buffer is currently playing.
+    // Whether or not the voice is currently playing.
     bool isPlaying;
 
-    // Whether or not the buffer is currently looping. Whether or not the buffer is looping is determined by the last
-    // call to dra_buffer_play().
+    // Whether or not the voice is currently looping. Whether or not the voice is looping is determined by the last
+    // call to dra_voice_play().
     bool isLooping;
 
 
-    // The total number of frames in the buffer.
+    // The total number of frames in the voice.
     size_t frameCount;
 
     // The current read position, in frames. An important detail with this is that it's based on the sample rate of the
-    // device, not the buffer.
+    // device, not the voice.
     size_t currentReadPos;
 
 
-    // A buffer for storing converted frames. This is used by dra_buffer__next_frame(). As frames are conversion to
-    // floats, that are placed into this buffer.
+    // A voice for storing converted frames. This is used by dra_voice__next_frame(). As frames are conversion to
+    // floats, that are placed into this voice.
     float convertedFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
 
 
@@ -392,10 +392,10 @@ struct dra_buffer
     // A pointer to the list of playback events.
     dra__event playbackEvents[DR_AUDIO_MAX_EVENT_COUNT];
 
-    // The event to call when the buffer has stopped playing, either naturally or explicitly with dra_buffer_stop().
+    // The event to call when the voice has stopped playing, either naturally or explicitly with dra_voice_stop().
     dra__event stopEvent;
 
-    // The event to call when the buffer starts playing.
+    // The event to call when the voice starts playing.
     dra__event playEvent;
 
 
@@ -429,9 +429,9 @@ dra_mixer* dra_mixer_create(dra_device* pDevice);
 
 // dra_mixer_delete()
 //
-// Deleting a mixer will detach any attached buffers and sub-mixers and attach them to the master mixer. It is
-// up to the application to manage the allocation of sub-mixers and buffers. Typically you'll want to delete
-// child mixers and buffers before deleting a mixer.
+// Deleting a mixer will detach any attached voices and sub-mixers and attach them to the master mixer. It is
+// up to the application to manage the allocation of sub-mixers and voices. Typically you'll want to delete
+// child mixers and voices before deleting a mixer.
 void dra_mixer_delete(dra_mixer* pMixer);
 
 // dra_mixer_attach_submixer()
@@ -443,19 +443,19 @@ void dra_mixer_detach_submixer(dra_mixer* pMixer, dra_mixer* pSubmixer);
 // dra_mixer_detach_all_submixers()
 void dra_mixer_detach_all_submixers(dra_mixer* pMixer);
 
-// dra_mixer_attach_buffer()
-void dra_mixer_attach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer);
+// dra_mixer_attach_voice()
+void dra_mixer_attach_voice(dra_mixer* pMixer, dra_voice* pVoice);
 
-// dra_mixer_detach_buffer()
-void dra_mixer_detach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer);
+// dra_mixer_detach_voice()
+void dra_mixer_detach_voice(dra_mixer* pMixer, dra_voice* pVoice);
 
-// dra_mixer_detach_all_buffers()
-void dra_mixer_detach_all_buffers(dra_mixer* pMixer);
+// dra_mixer_detach_all_voices()
+void dra_mixer_detach_all_voices(dra_mixer* pMixer);
 
-// dra_buffer_set_volum()
+// dra_voice_set_volume()
 void dra_mixer_set_volume(dra_mixer* pMixer, float linearVolume);
 
-// dra_buffer_get_volume()
+// dra_voice_get_volume()
 float dra_mixer_get_volume(dra_mixer* pMixer);
 
 // Mixes the next number of frameCount and moves the playback position appropriately.
@@ -472,40 +472,40 @@ float dra_mixer_get_volume(dra_mixer* pMixer);
 size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount);
 
 
-// dra_buffer_create()
-dra_buffer* dra_buffer_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData);
-dra_buffer* dra_buffer_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData);
+// dra_voice_create()
+dra_voice* dra_voice_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData);
+dra_voice* dra_voice_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData);
 
-// dra_buffer_delete()
-void dra_buffer_delete(dra_buffer* pBuffer);
+// dra_voice_delete()
+void dra_voice_delete(dra_voice* pVoice);
 
-// dra_buffer_play()
+// dra_voice_play()
 //
-// If the mixer the buffer is attached to is not playing, the buffer will be marked as playing, but won't actually play anything until
+// If the mixer the voice is attached to is not playing, the voice will be marked as playing, but won't actually play anything until
 // the mixer is started again.
-void dra_buffer_play(dra_buffer* pBuffer, bool loop);
+void dra_voice_play(dra_voice* pVoice, bool loop);
 
-// dra_buffer_stop()
-void dra_buffer_stop(dra_buffer* pBuffer);
+// dra_voice_stop()
+void dra_voice_stop(dra_voice* pVoice);
 
-// dra_buffer_is_playing()
-bool dra_buffer_is_playing(dra_buffer* pBuffer);
+// dra_voice_is_playing()
+bool dra_voice_is_playing(dra_voice* pVoice);
 
-// dra_buffer_is_looping()
-bool dra_buffer_is_looping(dra_buffer* pBuffer);
-
-
-// dra_buffer_set_volum()
-void dra_buffer_set_volume(dra_buffer* pBuffer, float linearVolume);
-
-// dra_buffer_get_volume()
-float dra_buffer_get_volume(dra_buffer* pBuffer);
+// dra_voice_is_looping()
+bool dra_voice_is_looping(dra_voice* pVoice);
 
 
-void dra_buffer_set_on_stop(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData);
-void dra_buffer_set_on_play(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData);
-bool dra_buffer_add_playback_event(dra_buffer* pBuffer, uint64_t sampleIndex, uint64_t eventID, dra_buffer_event_proc proc, void* pUserData);
-void dra_buffer_remove_playback_event(dra_buffer* pBuffer, uint64_t eventID);
+// dra_voice_set_volum()
+void dra_voice_set_volume(dra_voice* pVoice, float linearVolume);
+
+// dra_voice_get_volume()
+float dra_voice_get_volume(dra_voice* pVoice);
+
+
+void dra_voice_set_on_stop(dra_voice* pVoice, dra_voice_event_proc proc, void* pUserData);
+void dra_voice_set_on_play(dra_voice* pVoice, dra_voice_event_proc proc, void* pUserData);
+bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_voice_event_proc proc, void* pUserData);
+void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID);
 
 
 // Utility APIs
@@ -1819,26 +1819,25 @@ void dra_backend_device_close(dra_backend_device* pDevice)
 
 // Reads the next frame.
 //
-// Frames are retrieved with respect to the device the buffer is attached to. What this basically means is
-// that the returned frames are based on the format of the device the buffer is attached to. In turn, that
-// means any data conversions will be done within this function.
+// Frames are retrieved with respect to the device the voice is attached to. What this basically means is
+// that any data conversions will be done within this function.
 //
-// The return value is a pointer to the buffer containing the converted samples, always as floating point.
+// The return value is a pointer to the voice containing the converted samples, always as floating point.
 //
-// If the buffer is in the same format as the device (floating point, same sample rate and channels), then
+// If the voice is in the same format as the device (floating point, same sample rate and channels), then
 // this function will be on a fast path and will return almost immediately with a pointer that points to
-// the buffer's actual data without any data conversion.
+// the voice's actual data without any data conversion.
 //
-// If an error occurs, null is returned. Null will be returned if the end of the buffer is reached and it's
-// non-looping. This will not return NULL if the buffer is looping - it will just loop back to the start as
-// one would expect.
+// If an error occurs, null is returned. Null will be returned if the end of the voice's buffer is reached
+// and it's non-looping. This will not return NULL if the voice is looping - it will just loop back to the
+// start as one would expect.
 //
 // This function is not thread safe, but can be called from multiple threads if you do your own
-// synchronization. Just keep in mind that the return value may point to the buffer's actual internal data.
-float* dra_buffer__next_frame(dra_buffer* pBuffer);
+// synchronization. Just keep in mind that the return value may point to the voice's actual internal data.
+float* dra_voice__next_frame(dra_voice* pVoice);
 
-// dra_buffer__next_frames()
-size_t dra_buffer__next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSamplesOut);
+// dra_voice__next_frames()
+size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamplesOut);
 
 
 dra_context* dra_context_create()
@@ -1904,9 +1903,9 @@ void dra_event_queue__schedule_event(dra__event_queue* pQueue, dra__event* pEven
     dra_mutex_unlock(pQueue->lock);
 }
 
-void dra_event_queue__cancel_events_of_buffer(dra__event_queue* pQueue, dra_buffer* pBuffer)
+void dra_event_queue__cancel_events_of_buffer(dra__event_queue* pQueue, dra_voice* pVoice)
 {
-    if (pQueue == NULL || pBuffer == NULL) {
+    if (pQueue == NULL || pVoice == NULL) {
         return;
     }
 
@@ -1915,8 +1914,8 @@ void dra_event_queue__cancel_events_of_buffer(dra__event_queue* pQueue, dra_buff
         // We don't actually remove anything from the queue, but instead zero out the event's data.
         for (size_t i = 0; i < pQueue->eventCount; ++i) {
             dra__event* pEvent = &pQueue->pEvents[(pQueue->firstEvent + i) % pQueue->eventBufferSize];
-            if (pEvent->pBuffer == pBuffer) {
-                pEvent->pBuffer = NULL;
+            if (pEvent->pVoice == pVoice) {
+                pEvent->pVoice = NULL;
                 pEvent->proc = NULL;
             }
         }
@@ -1954,7 +1953,7 @@ void dra_event_queue__post_events(dra__event_queue* pQueue)
     dra__event nextEvent;
     while (dra_event_queue__next_event(pQueue, &nextEvent)) {
         if (nextEvent.proc) {
-            nextEvent.proc(nextEvent.pBuffer, nextEvent.id, nextEvent.pUserData);
+            nextEvent.proc(nextEvent.pVoice, nextEvent.id, nextEvent.pUserData);
         }
     }
 }
@@ -2229,8 +2228,8 @@ void dra_device_close(dra_device* pDevice)
     dra_thread_wait_and_delete(pDevice->thread);
 
 
-    // At this point the device is marked as closed which should prevent buffer's and mixers from being created and deleted. We now need
-    // to delete the master mixer which in turn will delete all of the attached buffers and submixers.
+    // At this point the device is marked as closed which should prevent voice's and mixers from being created and deleted. We now need
+    // to delete the master mixer which in turn will delete all of the attached voices and submixers.
     if (pDevice->pMasterMixer != NULL) {
         dra_mixer_delete(pDevice->pMasterMixer);
     }
@@ -2257,7 +2256,7 @@ void dra_device_close(dra_device* pDevice)
 dra_mixer* dra_mixer_create(dra_device* pDevice)
 {
     // There needs to be two blocks of memory at the end of the mixer - one for the staging buffer and another for the buffer that
-    // will store the float32 samples of the buffer currently being mixed.
+    // will store the float32 samples of the voice currently being mixed.
     size_t extraDataSize = (size_t)pDevice->pBackendDevice->samplesPerFragment * sizeof(float) * 2;
 
     dra_mixer* pMixer = (dra_mixer*)malloc(sizeof(*pMixer) - sizeof(pMixer->pData) + extraDataSize);
@@ -2287,7 +2286,7 @@ void dra_mixer_delete(dra_mixer* pMixer)
     }
 
     dra_mixer_detach_all_submixers(pMixer);
-    dra_mixer_detach_all_buffers(pMixer);
+    dra_mixer_detach_all_voices(pMixer);
 
     if (pMixer->pParentMixer != NULL) {
         dra_mixer_detach_submixer(pMixer->pParentMixer, pMixer);
@@ -2323,71 +2322,71 @@ void dra_mixer_detach_all_submixers(dra_mixer* pMixer)
     // TODO: Implement me.
 }
 
-void dra_mixer_attach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
+void dra_mixer_attach_voice(dra_mixer* pMixer, dra_voice* pVoice)
 {
-    if (pMixer == NULL || pBuffer == NULL) {
+    if (pMixer == NULL || pVoice == NULL) {
         return;
     }
 
-    if (pBuffer->pMixer != NULL) {
-        dra_mixer_detach_buffer(pBuffer->pMixer, pBuffer);
+    if (pVoice->pMixer != NULL) {
+        dra_mixer_detach_voice(pVoice->pMixer, pVoice);
     }
 
-    pBuffer->pMixer = pMixer;
+    pVoice->pMixer = pMixer;
 
-    if (pMixer->pFirstBuffer == NULL) {
-        pMixer->pFirstBuffer = pBuffer;
-        pMixer->pLastBuffer  = pBuffer;
+    if (pMixer->pFirstVoice == NULL) {
+        pMixer->pFirstVoice = pVoice;
+        pMixer->pLastVoice  = pVoice;
         return;
     }
 
-    // Attach the buffer to the end of the list.
-    pBuffer->pPrevBuffer = pMixer->pLastBuffer;
-    pBuffer->pNextBuffer = NULL;
+    // Attach the voice to the end of the list.
+    pVoice->pPrevVoice = pMixer->pLastVoice;
+    pVoice->pNextVoice = NULL;
 
-    pMixer->pLastBuffer->pNextBuffer = pBuffer;
-    pMixer->pLastBuffer = pBuffer;
+    pMixer->pLastVoice->pNextVoice = pVoice;
+    pMixer->pLastVoice = pVoice;
 }
 
-void dra_mixer_detach_buffer(dra_mixer* pMixer, dra_buffer* pBuffer)
+void dra_mixer_detach_voice(dra_mixer* pMixer, dra_voice* pVoice)
 {
-    if (pMixer == NULL || pBuffer == NULL) {
+    if (pMixer == NULL || pVoice == NULL) {
         return;
     }
 
 
     // Detach from mixer.
-    if (pMixer->pFirstBuffer == pBuffer) {
-        pMixer->pFirstBuffer = pMixer->pFirstBuffer->pNextBuffer;
+    if (pMixer->pFirstVoice == pVoice) {
+        pMixer->pFirstVoice = pMixer->pFirstVoice->pNextVoice;
     }
-    if (pMixer->pLastBuffer == pBuffer) {
-        pMixer->pLastBuffer = pMixer->pLastBuffer->pPrevBuffer;
+    if (pMixer->pLastVoice == pVoice) {
+        pMixer->pLastVoice = pMixer->pLastVoice->pPrevVoice;
     }
 
-    pBuffer->pMixer = NULL;
+    pVoice->pMixer = NULL;
 
 
     // Remove from list.
-    if (pBuffer->pNextBuffer) {
-        pBuffer->pNextBuffer->pPrevBuffer = pBuffer->pPrevBuffer;
+    if (pVoice->pNextVoice) {
+        pVoice->pNextVoice->pPrevVoice = pVoice->pPrevVoice;
     }
-    if (pBuffer->pPrevBuffer) {
-        pBuffer->pPrevBuffer->pNextBuffer = pBuffer->pNextBuffer;
+    if (pVoice->pPrevVoice) {
+        pVoice->pPrevVoice->pNextVoice = pVoice->pNextVoice;
     }
 
-    pBuffer->pNextBuffer = NULL;
-    pBuffer->pPrevBuffer = NULL;
+    pVoice->pNextVoice = NULL;
+    pVoice->pPrevVoice = NULL;
 
 }
 
-void dra_mixer_detach_all_buffers(dra_mixer* pMixer)
+void dra_mixer_detach_all_voices(dra_mixer* pMixer)
 {
     if (pMixer == NULL) {
         return;
     }
 
-    while (pMixer->pFirstBuffer) {
-        dra_mixer_detach_buffer(pMixer, pMixer->pFirstBuffer);
+    while (pMixer->pFirstVoice) {
+        dra_mixer_detach_voice(pMixer, pMixer->pFirstVoice);
     }
 }
 
@@ -2415,35 +2414,35 @@ size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
         return 0;
     }
 
-    if (pMixer->pFirstBuffer == NULL && pMixer->pFirstChildMixer) {
+    if (pMixer->pFirstVoice == NULL && pMixer->pFirstChildMixer) {
         return 0;
     }
 
     size_t framesMixed = 0;
 
-    // Mixing works by simply adding together the sample data of each buffer and submixer. We just start at 0 and then
+    // Mixing works by simply adding together the sample data of each voice and submixer. We just start at 0 and then
     // just accumulate each one.
     memset(pMixer->pStagingBuffer, 0, frameCount * pMixer->pDevice->channels * sizeof(float));
 
-    // Buffers first. Doesn't really matter if we do buffers or submixers first.
-    for (dra_buffer* pBuffer = pMixer->pFirstBuffer; pBuffer != NULL; pBuffer = pBuffer->pNextBuffer)
+    // Voices first. Doesn't really matter if we do voices or submixers first.
+    for (dra_voice* pVoice = pMixer->pFirstVoice; pVoice != NULL; pVoice = pVoice->pNextVoice)
     {
-        if (pBuffer->isPlaying) {
-            size_t framesJustRead = dra_buffer__next_frames(pBuffer, frameCount, pMixer->pNextSamplesToMix);
+        if (pVoice->isPlaying) {
+            size_t framesJustRead = dra_voice__next_frames(pVoice, frameCount, pMixer->pNextSamplesToMix);
             for (size_t i = 0; i < framesJustRead * pMixer->pDevice->channels; ++i) {
-                pMixer->pStagingBuffer[i] += (pMixer->pNextSamplesToMix[i] * pBuffer->linearVolume);
+                pMixer->pStagingBuffer[i] += (pMixer->pNextSamplesToMix[i] * pVoice->linearVolume);
             }
 
-            // Has the end of the buffer been reached?
+            // Has the end of the voice's buffer been reached?
             if (framesJustRead < frameCount)
             {
                 // We'll get here if the end of the voice's buffer has been reached. The voice needs to be forcefully stopped to
                 // ensure the device is aware of it and is able to put itself into a dormant state if necessary. Also note that
                 // the playback position is moved back to start. The rationale for this is that it's a little bit more useful than
                 // just leaving the playback position sitting on the end. Also it allows an application to restart playback with
-                // a single call to dra_buffer_play() without having to explicitly set the playback position.
-                pBuffer->currentReadPos = 0;
-                dra_buffer_stop(pBuffer);
+                // a single call to dra_voice_play() without having to explicitly set the playback position.
+                pVoice->currentReadPos = 0;
+                dra_voice_stop(pVoice);
             }
 
             if (framesMixed < framesJustRead) {
@@ -2491,7 +2490,7 @@ size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
 
 
 
-dra_buffer* dra_buffer_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData)
+dra_voice* dra_voice_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData)
 {
     if (pDevice == NULL || sizeInBytes == 0) {
         return NULL;
@@ -2505,145 +2504,145 @@ dra_buffer* dra_buffer_create(dra_device* pDevice, dra_format format, unsigned i
     }
 
 
-    dra_buffer* pBuffer = (dra_buffer*)calloc(1, sizeof(*pBuffer) - sizeof(pBuffer->pData) + sizeInBytes);
-    if (pBuffer == NULL) {
+    dra_voice* pVoice = (dra_voice*)calloc(1, sizeof(*pVoice) - sizeof(pVoice->pData) + sizeInBytes);
+    if (pVoice == NULL) {
         return NULL;
     }
 
-    pBuffer->pDevice = pDevice;
-    pBuffer->pMixer = NULL;
-    pBuffer->format = format;
-    pBuffer->channels = channels;
-    pBuffer->sampleRate = sampleRate;
-    pBuffer->linearVolume = 1;
-    pBuffer->isPlaying = false;
-    pBuffer->isLooping = false;
-    pBuffer->frameCount = sizeInBytes / (bytesPerSample * channels);
-    pBuffer->currentReadPos = 0;
-    pBuffer->sizeInBytes = sizeInBytes;
-    pBuffer->pNextBuffer = NULL;
-    pBuffer->pPrevBuffer = NULL;
+    pVoice->pDevice = pDevice;
+    pVoice->pMixer = NULL;
+    pVoice->format = format;
+    pVoice->channels = channels;
+    pVoice->sampleRate = sampleRate;
+    pVoice->linearVolume = 1;
+    pVoice->isPlaying = false;
+    pVoice->isLooping = false;
+    pVoice->frameCount = sizeInBytes / (bytesPerSample * channels);
+    pVoice->currentReadPos = 0;
+    pVoice->sizeInBytes = sizeInBytes;
+    pVoice->pNextVoice = NULL;
+    pVoice->pPrevVoice = NULL;
 
     if (pInitialData != NULL) {
-        memcpy(pBuffer->pData, pInitialData, sizeInBytes);
+        memcpy(pVoice->pData, pInitialData, sizeInBytes);
     }
 
 
     // Sample rate conversion.
     {
         // Nearest.
-        pBuffer->src.nearest.nearFrameIndex = (size_t)-1;   // <-- Initializing ensures the first frame is handled correctly.
+        pVoice->src.nearest.nearFrameIndex = (size_t)-1;   // <-- Initializing ensures the first frame is handled correctly.
     }
 
 
-    // Attach the buffer to the master mixer by default.
+    // Attach the voice to the master mixer by default.
     if (pDevice->pMasterMixer != NULL) {
-        dra_mixer_attach_buffer(pDevice->pMasterMixer, pBuffer);
+        dra_mixer_attach_voice(pDevice->pMasterMixer, pVoice);
     }
 
-    return pBuffer;
+    return pVoice;
 }
 
-dra_buffer* dra_buffer_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData)
+dra_voice* dra_voice_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData)
 {
     if (pDevice == NULL) {
         return NULL;
     }
 
-    return dra_buffer_create(pDevice, dra_format_f32, pDevice->channels, pDevice->sampleRate, sizeInBytes, pInitialData);
+    return dra_voice_create(pDevice, dra_format_f32, pDevice->channels, pDevice->sampleRate, sizeInBytes, pInitialData);
 }
 
-void dra_buffer_delete(dra_buffer* pBuffer)
+void dra_voice_delete(dra_voice* pVoice)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return;
     }
 
-    dra_buffer_stop(pBuffer);
+    dra_voice_stop(pVoice);
 
-    if (pBuffer->pMixer != NULL) {
-        dra_mixer_detach_buffer(pBuffer->pMixer, pBuffer);
+    if (pVoice->pMixer != NULL) {
+        dra_mixer_detach_voice(pVoice->pMixer, pVoice);
     }
 
-    free(pBuffer);
+    free(pVoice);
 }
 
-void dra_buffer_play(dra_buffer* pBuffer, bool loop)
+void dra_voice_play(dra_voice* pVoice, bool loop)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return;
     }
 
-    if (!dra_buffer_is_playing(pBuffer)) {
-        dra_device__voice_playback_count_inc(pBuffer->pDevice);
+    if (!dra_voice_is_playing(pVoice)) {
+        dra_device__voice_playback_count_inc(pVoice->pDevice);
     } else {
-        if (dra_buffer_is_looping(pBuffer) == loop) {
+        if (dra_voice_is_looping(pVoice) == loop) {
             return;     // Nothing has changed - don't need to do anything.
         }
     }
 
-    pBuffer->isPlaying = true;
-    pBuffer->isLooping = loop;
+    pVoice->isPlaying = true;
+    pVoice->isLooping = loop;
 
-    dra_event_queue__schedule_event(&pBuffer->pDevice->eventQueue, &pBuffer->playEvent);
+    dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, &pVoice->playEvent);
 
-    // When playing a buffer we need to ensure the backend device is playing.
-    dra_device__play(pBuffer->pDevice);
+    // When playing a voice we need to ensure the backend device is playing.
+    dra_device__play(pVoice->pDevice);
 }
 
-void dra_buffer_stop(dra_buffer* pBuffer)
+void dra_voice_stop(dra_voice* pVoice)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return;
     }
 
-    if (!dra_buffer_is_playing(pBuffer)) {
-        return; // The buffer is already stopped.
+    if (!dra_voice_is_playing(pVoice)) {
+        return; // The voice is already stopped.
     }
 
-    dra_device__voice_playback_count_dec(pBuffer->pDevice);
+    dra_device__voice_playback_count_dec(pVoice->pDevice);
 
-    pBuffer->isPlaying = false;
-    pBuffer->isLooping = false;
+    pVoice->isPlaying = false;
+    pVoice->isLooping = false;
 
-    dra_event_queue__schedule_event(&pBuffer->pDevice->eventQueue, &pBuffer->stopEvent);
+    dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, &pVoice->stopEvent);
 }
 
-bool dra_buffer_is_playing(dra_buffer* pBuffer)
+bool dra_voice_is_playing(dra_voice* pVoice)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return false;
     }
 
-    return pBuffer->isPlaying;
+    return pVoice->isPlaying;
 }
 
-bool dra_buffer_is_looping(dra_buffer* pBuffer)
+bool dra_voice_is_looping(dra_voice* pVoice)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return false;
     }
 
-    return pBuffer->isLooping;
+    return pVoice->isLooping;
 }
 
 
-void dra_buffer_set_volume(dra_buffer* pBuffer, float linearVolume)
+void dra_voice_set_volume(dra_voice* pVoice, float linearVolume)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return;
     }
 
-    pBuffer->linearVolume = linearVolume;
+    pVoice->linearVolume = linearVolume;
 }
 
-float dra_buffer_get_volume(dra_buffer* pBuffer)
+float dra_voice_get_volume(dra_voice* pVoice)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return 0;
     }
 
-    return pBuffer->linearVolume;
+    return pVoice->linearVolume;
 }
 
 
@@ -2820,60 +2819,60 @@ void dra_shuffle_channels(float* pOut, const float* pIn, unsigned int channelsOu
     }
 }
 
-float* dra_buffer__next_frame(dra_buffer* pBuffer)
+float* dra_voice__next_frame(dra_voice* pVoice)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return NULL;
     }
 
 
-    if (pBuffer->format == dra_format_f32 && pBuffer->sampleRate == pBuffer->pDevice->sampleRate && pBuffer->channels == pBuffer->pDevice->channels)
+    if (pVoice->format == dra_format_f32 && pVoice->sampleRate == pVoice->pDevice->sampleRate && pVoice->channels == pVoice->pDevice->channels)
     {
         // Fast path.
-        if (!pBuffer->isLooping && pBuffer->currentReadPos == pBuffer->frameCount) {
-            return NULL;    // At the end of a non-looping buffer.
+        if (!pVoice->isLooping && pVoice->currentReadPos == pVoice->frameCount) {
+            return NULL;    // At the end of a non-looping voice.
         }
 
-        float* pOut = (float*)pBuffer->pData + (pBuffer->currentReadPos * pBuffer->channels);
+        float* pOut = (float*)pVoice->pData + (pVoice->currentReadPos * pVoice->channels);
 
-        pBuffer->currentReadPos += 1;
-        if (pBuffer->currentReadPos == pBuffer->frameCount && pBuffer->isLooping) {
-            pBuffer->currentReadPos = 0;
+        pVoice->currentReadPos += 1;
+        if (pVoice->currentReadPos == pVoice->frameCount && pVoice->isLooping) {
+            pVoice->currentReadPos = 0;
         }
 
         return pOut;
     }
     else
     {
-        size_t bytesPerSample = dra_get_bytes_per_sample_by_format(pBuffer->format);
+        size_t bytesPerSample = dra_get_bytes_per_sample_by_format(pVoice->format);
 
-        if (pBuffer->sampleRate == pBuffer->pDevice->sampleRate)
+        if (pVoice->sampleRate == pVoice->pDevice->sampleRate)
         {
             // Same sample rate. This path isn't ideal, but it's not too bad since there is no need for sample rate conversion. There's an annoying
             // switch, though...
-            if (!pBuffer->isLooping && pBuffer->currentReadPos == pBuffer->frameCount) {
-                return NULL;    // At the end of a non-looping buffer.
+            if (!pVoice->isLooping && pVoice->currentReadPos == pVoice->frameCount) {
+                return NULL;    // At the end of a non-looping voice.
             }
 
-            float* pOut = pBuffer->convertedFrame;
+            float* pOut = pVoice->convertedFrame;
 
-            unsigned int channelsIn  = pBuffer->channels;
-            unsigned int channelsOut = pBuffer->pDevice->channels;
+            unsigned int channelsIn  = pVoice->channels;
+            unsigned int channelsOut = pVoice->pDevice->channels;
             float tempFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
-            size_t sampleOffset = pBuffer->currentReadPos * channelsIn;
+            size_t sampleOffset = pVoice->currentReadPos * channelsIn;
 
-            // The conversion is done differently depending on the format of the buffer.
-            if (pBuffer->format == dra_format_f32) {
-                dra_shuffle_channels(pOut, (float*)pBuffer->pData + sampleOffset, channelsOut, channelsIn);
+            // The conversion is done differently depending on the format of the voice.
+            if (pVoice->format == dra_format_f32) {
+                dra_shuffle_channels(pOut, (float*)pVoice->pData + sampleOffset, channelsOut, channelsIn);
             } else {
-                sampleOffset = pBuffer->currentReadPos * (channelsIn * bytesPerSample);
-                dra_to_f32(tempFrame, (uint8_t*)pBuffer->pData + sampleOffset, channelsIn, pBuffer->format);
+                sampleOffset = pVoice->currentReadPos * (channelsIn * bytesPerSample);
+                dra_to_f32(tempFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
                 dra_shuffle_channels(pOut, tempFrame, channelsOut, channelsIn);
             }
 
-            pBuffer->currentReadPos += 1;
-            if (pBuffer->currentReadPos == pBuffer->frameCount && pBuffer->isLooping) {
-                pBuffer->currentReadPos = 0;
+            pVoice->currentReadPos += 1;
+            if (pVoice->currentReadPos == pVoice->frameCount && pVoice->isLooping) {
+                pVoice->currentReadPos = 0;
             }
 
             return pOut;
@@ -2881,63 +2880,63 @@ float* dra_buffer__next_frame(dra_buffer* pBuffer)
         else
         {
             // Different sample rate. This is the truly slow path.
-            unsigned int sampleRateIn  = pBuffer->sampleRate;
-            unsigned int sampleRateOut = pBuffer->pDevice->sampleRate;
-            unsigned int channelsIn    = pBuffer->channels;
-            unsigned int channelsOut   = pBuffer->pDevice->channels;
+            unsigned int sampleRateIn  = pVoice->sampleRate;
+            unsigned int sampleRateOut = pVoice->pDevice->sampleRate;
+            unsigned int channelsIn    = pVoice->channels;
+            unsigned int channelsOut   = pVoice->pDevice->channels;
 
             float factor = (float)sampleRateOut / (float)sampleRateIn;
             float invfactor = 1 / factor;
 
-            if (!pBuffer->isLooping && pBuffer->currentReadPos >= (pBuffer->frameCount * factor)) {
-                return NULL;    // At the end of a non-looping buffer.
+            if (!pVoice->isLooping && pVoice->currentReadPos >= (pVoice->frameCount * factor)) {
+                return NULL;    // At the end of a non-looping voice.
             }
 
-            float* pOut = pBuffer->convertedFrame;
+            float* pOut = pVoice->convertedFrame;
 
 #if 0
             // Nearest filtering. This results in audio that could be considered outright incorrect. This is placeholder.
-            size_t nearFrameIndexIn = (size_t)(pBuffer->currentReadPos * invfactor);
-            if (nearFrameIndexIn != pBuffer->src.nearest.nearFrameIndex) {
+            size_t nearFrameIndexIn = (size_t)(pVoice->currentReadPos * invfactor);
+            if (nearFrameIndexIn != pVoice->src.nearest.nearFrameIndex) {
                 size_t sampleOffset = nearFrameIndexIn * (channelsIn * bytesPerSample);
-                dra_to_f32(pBuffer->src.nearest.nearFrame, (uint8_t*)pBuffer->pData + sampleOffset, channelsIn, pBuffer->format);
-                pBuffer->src.nearest.nearFrameIndex = nearFrameIndexIn;
+                dra_to_f32(pVoice->src.nearest.nearFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
+                pVoice->src.nearest.nearFrameIndex = nearFrameIndexIn;
             }
 
-            dra_shuffle_channels(pOut, pBuffer->src.nearest.nearFrame, channelsOut, channelsIn);
+            dra_shuffle_channels(pOut, pVoice->src.nearest.nearFrame, channelsOut, channelsIn);
 #else
             // Linear filtering.
-            float timeIn = pBuffer->currentReadPos * invfactor;
+            float timeIn = pVoice->currentReadPos * invfactor;
             size_t prevFrameIndexIn = (size_t)(timeIn);
             size_t nextFrameIndexIn = prevFrameIndexIn + 1;
-            if (nextFrameIndexIn >= pBuffer->frameCount) {
-                nextFrameIndexIn  = pBuffer->frameCount-1;
+            if (nextFrameIndexIn >= pVoice->frameCount) {
+                nextFrameIndexIn  = pVoice->frameCount-1;
             }
 
-            if (prevFrameIndexIn != pBuffer->src.linear.prevFrameIndex)
+            if (prevFrameIndexIn != pVoice->src.linear.prevFrameIndex)
             {
                 size_t sampleOffset = prevFrameIndexIn * (channelsIn * bytesPerSample);
-                dra_to_f32(pBuffer->src.linear.prevFrame, (uint8_t*)pBuffer->pData + sampleOffset, channelsIn, pBuffer->format);
+                dra_to_f32(pVoice->src.linear.prevFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
 
                 sampleOffset = nextFrameIndexIn * (channelsIn * bytesPerSample);
-                dra_to_f32(pBuffer->src.linear.nextFrame, (uint8_t*)pBuffer->pData + sampleOffset, channelsIn, pBuffer->format);
+                dra_to_f32(pVoice->src.linear.nextFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
 
-                pBuffer->src.linear.prevFrameIndex = prevFrameIndexIn;
+                pVoice->src.linear.prevFrameIndex = prevFrameIndexIn;
             }
 
             float alpha = timeIn - prevFrameIndexIn;
             float frame[DR_AUDIO_MAX_CHANNEL_COUNT];
-            for (unsigned int i = 0; i < pBuffer->channels; ++i) {
-                frame[i] = dra_mixf(pBuffer->src.linear.prevFrame[i], pBuffer->src.linear.nextFrame[i], alpha);
+            for (unsigned int i = 0; i < pVoice->channels; ++i) {
+                frame[i] = dra_mixf(pVoice->src.linear.prevFrame[i], pVoice->src.linear.nextFrame[i], alpha);
             }
 
             dra_shuffle_channels(pOut, frame, channelsOut, channelsIn);
 #endif
 
 
-            pBuffer->currentReadPos += 1;
-            if (pBuffer->currentReadPos >= (pBuffer->frameCount * factor) && pBuffer->isLooping) {
-                pBuffer->currentReadPos = 0;
+            pVoice->currentReadPos += 1;
+            if (pVoice->currentReadPos >= (pVoice->frameCount * factor) && pVoice->isLooping) {
+                pVoice->currentReadPos = 0;
             }
 
             return pOut;
@@ -2945,30 +2944,30 @@ float* dra_buffer__next_frame(dra_buffer* pBuffer)
     }
 }
 
-size_t dra_buffer__next_frames(dra_buffer* pBuffer, size_t frameCount, float* pSamplesOut)
+size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamplesOut)
 {
     // TODO: Check for the fast path and do a bulk copy rather than frame-by-frame.
 
     size_t framesRead = 0;
     
-    uint64_t prevReadPosLocal = pBuffer->currentReadPos * pBuffer->channels;
+    uint64_t prevReadPosLocal = pVoice->currentReadPos * pVoice->channels;
 
     float* pNextFrame = NULL;
-    while ((pNextFrame = dra_buffer__next_frame(pBuffer)) != NULL && (framesRead < frameCount)) {
-        memcpy(pSamplesOut, pNextFrame, pBuffer->pDevice->channels * sizeof(float));
-        pSamplesOut += pBuffer->pDevice->channels;
+    while ((pNextFrame = dra_voice__next_frame(pVoice)) != NULL && (framesRead < frameCount)) {
+        memcpy(pSamplesOut, pNextFrame, pVoice->pDevice->channels * sizeof(float));
+        pSamplesOut += pVoice->pDevice->channels;
         framesRead += 1;
     }
 
 
-    float sampleRateFactor = (pBuffer->pDevice->sampleRate / (float)pBuffer->sampleRate);
+    float sampleRateFactor = (pVoice->pDevice->sampleRate / (float)pVoice->sampleRate);
 
     // Now we need to check if we've got past any notification events and post events for them if so.
-    uint64_t currentReadPosLocal = prevReadPosLocal + (framesRead * pBuffer->channels);
-    for (size_t i = 0; i < pBuffer->playbackEventCount; ++i) {
-        dra__event* pEvent = &pBuffer->playbackEvents[i];
+    uint64_t currentReadPosLocal = prevReadPosLocal + (framesRead * pVoice->channels);
+    for (size_t i = 0; i < pVoice->playbackEventCount; ++i) {
+        dra__event* pEvent = &pVoice->playbackEvents[i];
         if (pEvent->sampleIndex*sampleRateFactor > prevReadPosLocal && pEvent->sampleIndex*sampleRateFactor <= currentReadPosLocal) {
-            dra_event_queue__schedule_event(&pBuffer->pDevice->eventQueue, pEvent);
+            dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, pEvent);
         }
     }
 
@@ -2976,62 +2975,62 @@ size_t dra_buffer__next_frames(dra_buffer* pBuffer, size_t frameCount, float* pS
 }
 
 
-void dra_buffer_set_on_stop(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData)
+void dra_voice_set_on_stop(dra_voice* pVoice, dra_voice_event_proc proc, void* pUserData)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return;
     }
 
-    pBuffer->stopEvent.id = DR_AUDIO_EVENT_ID_STOP;
-    pBuffer->stopEvent.pUserData = pUserData;
-    pBuffer->stopEvent.sampleIndex = 0;
-    pBuffer->stopEvent.proc = proc;
-    pBuffer->stopEvent.pBuffer = pBuffer;
+    pVoice->stopEvent.id = DR_AUDIO_EVENT_ID_STOP;
+    pVoice->stopEvent.pUserData = pUserData;
+    pVoice->stopEvent.sampleIndex = 0;
+    pVoice->stopEvent.proc = proc;
+    pVoice->stopEvent.pVoice = pVoice;
 }
 
-void dra_buffer_set_on_play(dra_buffer* pBuffer, dra_buffer_event_proc proc, void* pUserData)
+void dra_voice_set_on_play(dra_voice* pVoice, dra_voice_event_proc proc, void* pUserData)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return;
     }
 
-    pBuffer->playEvent.id = DR_AUDIO_EVENT_ID_STOP;
-    pBuffer->playEvent.pUserData = pUserData;
-    pBuffer->playEvent.sampleIndex = 0;
-    pBuffer->playEvent.proc = proc;
-    pBuffer->playEvent.pBuffer = pBuffer;
+    pVoice->playEvent.id = DR_AUDIO_EVENT_ID_STOP;
+    pVoice->playEvent.pUserData = pUserData;
+    pVoice->playEvent.sampleIndex = 0;
+    pVoice->playEvent.proc = proc;
+    pVoice->playEvent.pVoice = pVoice;
 }
 
-bool dra_buffer_add_playback_event(dra_buffer* pBuffer, uint64_t sampleIndex, uint64_t eventID, dra_buffer_event_proc proc, void* pUserData)
+bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_voice_event_proc proc, void* pUserData)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return false;
     }
 
-    if (pBuffer->playbackEventCount >= DR_AUDIO_MAX_EVENT_COUNT) {
+    if (pVoice->playbackEventCount >= DR_AUDIO_MAX_EVENT_COUNT) {
         return false;
     }
 
-    pBuffer->playbackEvents[pBuffer->playbackEventCount].id = eventID;
-    pBuffer->playbackEvents[pBuffer->playbackEventCount].pUserData = pUserData;
-    pBuffer->playbackEvents[pBuffer->playbackEventCount].sampleIndex = sampleIndex;
-    pBuffer->playbackEvents[pBuffer->playbackEventCount].proc = proc;
-    pBuffer->playbackEvents[pBuffer->playbackEventCount].pBuffer = pBuffer;
+    pVoice->playbackEvents[pVoice->playbackEventCount].id = eventID;
+    pVoice->playbackEvents[pVoice->playbackEventCount].pUserData = pUserData;
+    pVoice->playbackEvents[pVoice->playbackEventCount].sampleIndex = sampleIndex;
+    pVoice->playbackEvents[pVoice->playbackEventCount].proc = proc;
+    pVoice->playbackEvents[pVoice->playbackEventCount].pVoice = pVoice;
 
-    pBuffer->playbackEventCount += 1;
+    pVoice->playbackEventCount += 1;
     return true;
 }
 
-void dra_buffer_remove_playback_event(dra_buffer* pBuffer, uint64_t eventID)
+void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID)
 {
-    if (pBuffer == NULL) {
+    if (pVoice == NULL) {
         return;
     }
 
-    for (size_t i = 0; i < pBuffer->playbackEventCount; /* DO NOTHING */) {
-        if (pBuffer->playbackEvents[i].id == eventID) {
-            memmove(&pBuffer->playbackEvents[i], &pBuffer->playbackEvents[i + 1], (pBuffer->playbackEventCount - (i+1)) * sizeof(dra__event));
-            pBuffer->playbackEventCount -= 1;
+    for (size_t i = 0; i < pVoice->playbackEventCount; /* DO NOTHING */) {
+        if (pVoice->playbackEvents[i].id == eventID) {
+            memmove(&pVoice->playbackEvents[i], &pVoice->playbackEvents[i + 1], (pVoice->playbackEventCount - (i+1)) * sizeof(dra__event));
+            pVoice->playbackEventCount -= 1;
         } else {
             i += 1;
         }
