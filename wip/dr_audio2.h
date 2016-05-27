@@ -379,6 +379,7 @@ struct dra_buffer
 
         struct
         {
+            size_t prevFrameIndex;
             float prevFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
             float nextFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
         } linear;
@@ -534,6 +535,7 @@ unsigned int dra_get_bytes_per_sample_by_format(dra_format format);
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef DR_AUDIO_IMPLEMENTATION
 #include <stdlib.h>
+#include <math.h>
 #include <assert.h>
 #include <stdio.h>  // For good old printf debugging. Delete later.
 
@@ -545,7 +547,7 @@ unsigned int dra_get_bytes_per_sample_by_format(dra_format format);
 
 #define DR_AUDIO_DEFAULT_CHANNEL_COUNT  2
 #define DR_AUDIO_DEFAULT_SAMPLE_RATE    48000
-#define DR_AUDIO_DEFAULT_LATENCY        50      // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
+#define DR_AUDIO_DEFAULT_LATENCY        100     // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
 #define DR_AUDIO_DEFAULT_FRAGMENT_COUNT 2       // The hardware buffer is divided up into latency-sized blocks. This controls that number. Must be at least 2.
 
 #define DR_AUDIO_BACKEND_TYPE_NULL      0
@@ -570,6 +572,12 @@ DR_AUDIO_INLINE unsigned int dra_next_power_of_2(unsigned int x)
 DR_AUDIO_INLINE unsigned int dra_prev_power_of_2(unsigned int x)
 {
     return dra_next_power_of_2(x) >> 1;
+}
+
+
+DR_AUDIO_INLINE float dra_mixf(float x, float y, float a)
+{
+    return x*(1-a) + y*a;
 }
 
 
@@ -2887,7 +2895,7 @@ float* dra_buffer__next_frame(dra_buffer* pBuffer)
 
             float* pOut = pBuffer->convertedFrame;
 
-#if 1
+#if 0
             // Nearest filtering. This results in audio that could be considered outright incorrect. This is placeholder.
             size_t nearFrameIndexIn = (size_t)(pBuffer->currentReadPos * invfactor);
             if (nearFrameIndexIn != pBuffer->src.nearest.nearFrameIndex) {
@@ -2897,6 +2905,33 @@ float* dra_buffer__next_frame(dra_buffer* pBuffer)
             }
 
             dra_shuffle_channels(pOut, pBuffer->src.nearest.nearFrame, channelsOut, channelsIn);
+#else
+            // Linear filtering.
+            float timeIn = pBuffer->currentReadPos * invfactor;
+            size_t prevFrameIndexIn = (size_t)(timeIn);
+            size_t nextFrameIndexIn = prevFrameIndexIn + 1;
+            if (nextFrameIndexIn >= pBuffer->frameCount) {
+                nextFrameIndexIn  = pBuffer->frameCount-1;
+            }
+
+            if (prevFrameIndexIn != pBuffer->src.linear.prevFrameIndex)
+            {
+                size_t sampleOffset = prevFrameIndexIn * (channelsIn * bytesPerSample);
+                dra_to_f32(pBuffer->src.linear.prevFrame, (uint8_t*)pBuffer->pData + sampleOffset, channelsIn, pBuffer->format);
+
+                sampleOffset = nextFrameIndexIn * (channelsIn * bytesPerSample);
+                dra_to_f32(pBuffer->src.linear.nextFrame, (uint8_t*)pBuffer->pData + sampleOffset, channelsIn, pBuffer->format);
+
+                pBuffer->src.linear.prevFrameIndex = prevFrameIndexIn;
+            }
+
+            float alpha = timeIn - prevFrameIndexIn;
+            float frame[DR_AUDIO_MAX_CHANNEL_COUNT];
+            for (unsigned int i = 0; i < pBuffer->channels; ++i) {
+                frame[i] = dra_mixf(pBuffer->src.linear.prevFrame[i], pBuffer->src.linear.nextFrame[i], alpha);
+            }
+
+            dra_shuffle_channels(pOut, frame, channelsOut, channelsIn);
 #endif
 
 
@@ -2915,8 +2950,8 @@ size_t dra_buffer__next_frames(dra_buffer* pBuffer, size_t frameCount, float* pS
     // TODO: Check for the fast path and do a bulk copy rather than frame-by-frame.
 
     size_t framesRead = 0;
-
-    uint64_t prevReadPosLocal = (uint64_t)(pBuffer->currentReadPos * ((float)pBuffer->sampleRate / pBuffer->pDevice->sampleRate)) * pBuffer->channels;
+    
+    uint64_t prevReadPosLocal = pBuffer->currentReadPos * pBuffer->channels;
 
     float* pNextFrame = NULL;
     while ((pNextFrame = dra_buffer__next_frame(pBuffer)) != NULL && (framesRead < frameCount)) {
@@ -2926,11 +2961,13 @@ size_t dra_buffer__next_frames(dra_buffer* pBuffer, size_t frameCount, float* pS
     }
 
 
+    float sampleRateFactor = (pBuffer->pDevice->sampleRate / (float)pBuffer->sampleRate);
+
     // Now we need to check if we've got past any notification events and post events for them if so.
     uint64_t currentReadPosLocal = prevReadPosLocal + (framesRead * pBuffer->channels);
     for (size_t i = 0; i < pBuffer->playbackEventCount; ++i) {
         dra__event* pEvent = &pBuffer->playbackEvents[i];
-        if (pEvent->sampleIndex > prevReadPosLocal && pEvent->sampleIndex <= currentReadPosLocal) {
+        if (pEvent->sampleIndex*sampleRateFactor > prevReadPosLocal && pEvent->sampleIndex*sampleRateFactor <= currentReadPosLocal) {
             dra_event_queue__schedule_event(&pBuffer->pDevice->eventQueue, pEvent);
         }
     }
