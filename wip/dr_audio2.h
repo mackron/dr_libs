@@ -106,14 +106,13 @@
 //   to place this right next to the buffer that will store the final mix. Can sample rate conversion be done
 //   at this time as well?
 
-// TODO
-//
-// - Forward declare every backend function and document them.
-
 // USAGE
 //
-// (write me)
+// dr_audio is a single-file library. To use it, do something like the following in one .c file.
+//   #define DR_AUDIO_IMPLEMENTATION
+//   #include "dr_audio.h"
 //
+// You can then #include this file in other parts of the program as you would with any other header file.
 //
 //
 // OPTIONS
@@ -3108,44 +3107,12 @@ bool dra_is_format_float(dra_format format)
     return format == dra_format_f32;
 }
 
-
-
-//// Sample Rate Conversion ////
-
-// Random Notes
-// - There are mostly just experiments and are likely very wrong.
-
-// SRC using simple nearest filtering. Do not use this.
-//
-// This is fast but has terrible quality.
-float* dra_src__nearest(const float* pIn, unsigned int sampleRateIn, unsigned int sampleRateOut, unsigned int channels, size_t* pSampleCountIn)
-{
-    float factor = (float)sampleRateOut / (float)sampleRateIn;
-    float invfactor = 1 / factor;
-
-    size_t oldFrameCount = *pSampleCountIn / channels;
-    size_t newFrameCount = (size_t)(oldFrameCount * factor);
-
-    float* pOut = (float*)malloc((size_t)newFrameCount * channels * sizeof(float));
-    for (size_t iFrameOut = 0; iFrameOut < newFrameCount; ++iFrameOut)
-    {
-        size_t iFrameIn = (size_t)(iFrameOut * invfactor);
-
-        const float* pFrameIn  = pIn  + (iFrameIn  * channels);
-              float* pFrameOut = pOut + (iFrameOut * channels);
-
-        for (unsigned int iChannel = 0; iChannel < channels; ++iChannel) {
-            pFrameOut[iChannel] = pFrameIn[iChannel];
-        }
-    }
-
-    *pSampleCountIn = newFrameCount * channels;
-    return pOut;
-}
-
 #endif  //DR_AUDIO_IMPLEMENTATION
 
 
+// TODO
+//
+// - Forward declare every backend function and document them.
 
 
 /*
