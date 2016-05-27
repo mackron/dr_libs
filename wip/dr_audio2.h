@@ -2301,7 +2301,23 @@ void dra_mixer_attach_submixer(dra_mixer* pMixer, dra_mixer* pSubmixer)
         return;
     }
 
-    // TODO: Implement me.
+    if (pSubmixer->pParentMixer != NULL) {
+        dra_mixer_detach_submixer(pSubmixer->pParentMixer, pSubmixer);
+    }
+
+
+    pSubmixer->pParentMixer = pMixer;
+
+    if (pMixer->pFirstChildMixer == NULL) {
+        pMixer->pFirstChildMixer = pSubmixer;
+        pMixer->pLastChildMixer  = pSubmixer;
+        return;
+    }
+
+    assert(pMixer->pLastChildMixer != NULL);
+    pMixer->pLastChildMixer->pNextSiblingMixer = pSubmixer;
+    pSubmixer->pNextSiblingMixer = pMixer->pLastChildMixer;
+    pMixer->pLastChildMixer = pSubmixer;
 }
 
 void dra_mixer_detach_submixer(dra_mixer* pMixer, dra_mixer* pSubmixer)
@@ -2310,7 +2326,32 @@ void dra_mixer_detach_submixer(dra_mixer* pMixer, dra_mixer* pSubmixer)
         return;
     }
 
-    // TODO: Implement me.
+    if (pSubmixer->pParentMixer == pMixer) {
+        return; // Doesn't have the same parent.
+    }
+
+
+    // Detach from parent.
+    if (pSubmixer->pParentMixer->pFirstChildMixer == pSubmixer) {
+        pSubmixer->pParentMixer->pFirstChildMixer = pSubmixer->pNextSiblingMixer;
+    }
+    if (pSubmixer->pParentMixer->pLastChildMixer == pSubmixer) {
+        pSubmixer->pParentMixer->pLastChildMixer = pSubmixer->pPrevSiblingMixer;
+    }
+
+    pSubmixer->pParentMixer = NULL;
+
+
+    // Detach from siblings.
+    if (pSubmixer->pPrevSiblingMixer) {
+        pSubmixer->pPrevSiblingMixer->pNextSiblingMixer = pSubmixer->pNextSiblingMixer;
+    }
+    if (pSubmixer->pNextSiblingMixer) {
+        pSubmixer->pNextSiblingMixer->pPrevSiblingMixer = pSubmixer->pPrevSiblingMixer;
+    }
+
+    pSubmixer->pNextSiblingMixer = NULL;
+    pSubmixer->pPrevSiblingMixer = NULL;
 }
 
 void dra_mixer_detach_all_submixers(dra_mixer* pMixer)
@@ -2319,7 +2360,9 @@ void dra_mixer_detach_all_submixers(dra_mixer* pMixer)
         return;
     }
 
-    // TODO: Implement me.
+    while (pMixer->pFirstChildMixer != NULL) {
+        dra_mixer_detach_submixer(pMixer, pMixer->pFirstChildMixer);
+    }
 }
 
 void dra_mixer_attach_voice(dra_mixer* pMixer, dra_voice* pVoice)
