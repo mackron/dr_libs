@@ -229,6 +229,10 @@ struct dra_device
     // The event type of the most recent event.
     dra_thread_event_type nextThreadEventType;
 
+    // Whether or not the device owns the context. This basically just means whether or not the device was created with a null
+    // context and needs to delete the context itself when the device is deleted.
+    bool ownsContext;
+
     // Whether or not the device is being closed. This is used by the thread to determine if it needs to terminate. When
     // dra_device_close() is called, this flag will be set and threadEventSem released. The thread will then see this as it's
     // signal to terminate.
@@ -2123,9 +2127,16 @@ void* dra_device__thread_proc(void* pData)
 
 dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
+    bool ownsContext = false;
     if (pContext == NULL) {
-        return NULL;
+        pContext = dra_context_create();
+        if (pContext == NULL) {
+            return NULL;
+        }
+
+        ownsContext = true;
     }
+
 
     if (sampleRate == 0) {
         sampleRate = DR_AUDIO_DEFAULT_SAMPLE_RATE;
@@ -2137,9 +2148,10 @@ dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsi
         return NULL;
     }
 
-    pDevice->pContext   = pContext;
-    pDevice->channels   = channels;
-    pDevice->sampleRate = sampleRate;
+    pDevice->pContext    = pContext;
+    pDevice->channels    = channels;
+    pDevice->sampleRate  = sampleRate;
+    pDevice->ownsContext = ownsContext;
 
     pDevice->pBackendDevice = dra_backend_device_open(pContext->pBackend, type, deviceID, channels, sampleRate, latencyInMilliseconds);
     if (pDevice->pBackendDevice == NULL) {
@@ -2195,6 +2207,10 @@ on_error:
             dra_mutex_delete(pDevice->mutex);
         }
 
+        if (pDevice->ownsContext) {
+            dra_context_delete(pDevice->pContext);
+        }
+
         free(pDevice);
     }
 
@@ -2244,6 +2260,10 @@ void dra_device_close(dra_device* pDevice)
 
     if (pDevice->mutex != NULL) {
         dra_mutex_delete(pDevice->mutex);
+    }
+
+    if (pDevice->ownsContext) {
+        dra_context_delete(pDevice->pContext);
     }
 
     free(pDevice);
