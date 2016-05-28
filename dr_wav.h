@@ -732,6 +732,7 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
     }
 
     if (!drwav_init(pWav, onRead, onSeek, pUserData)) {
+        free(pWav);
         return NULL;
     }
 
@@ -1563,6 +1564,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //
 // v0.3a - 28/05/2016
 //   - API CHANGE. Return bool instead of int in onSeek callback.
+//   - Fixed a memory leak.
 //
 // v0.3 - 22/05/2016
 //   - Lots of API changes for consistency.
