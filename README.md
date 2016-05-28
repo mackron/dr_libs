@@ -14,7 +14,7 @@ need to make some minor changes.
 
 Library                                         | Version | Description
 ----------------------------------------------- | ------- | -----------
-[dr_flac](https://mackron.github.io/dr_flac)    | 0.3b    | FLAC audio decoder.
+[dr_flac](https://mackron.github.io/dr_flac)    | 0.3c    | FLAC audio decoder.
 [dr_wav](https://mackron.github.io/dr_wav)      | 0.3a    | WAV audio loader.
 [dr_pcx](https://mackron.github.io/dr_pcx)      | 0.1     | PCX image loader.
 dr_path                                         | 0.1     | Path manipulation.

@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.3b - 16/05/2016
+// dr_flac - v0.3c - 28/05/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -3820,7 +3820,6 @@ void drflac_close(drflac* pFlac)
     if (pFlac->bs.onRead == drflac__on_read_stdio) {
         drflac__close_file_handle((drflac_file)pFlac->bs.pUserData);
     }
-#endif
 
 #ifndef DR_FLAC_NO_OGG
     // Need to clean up Ogg streams a bit differently due to the way the bit streaming is chained.
@@ -3831,6 +3830,7 @@ void drflac_close(drflac* pFlac)
             drflac__close_file_handle((drflac_file)oggbs->pUserData);
         }
     }
+#endif
 #endif
 
     free(pFlac);
@@ -4292,6 +4292,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 // REVISION HISTORY
+//
+// v0.3c - 28/05/2016
+//   - Fixed compilation error.
 //
 // v0.3b - 16/05/2016
 //   - Fixed Linux/GCC build.
