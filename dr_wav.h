@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.3 - 22/05/2016
+// dr_wav - v0.3a - 28/05/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -111,8 +111,8 @@ extern "C" {
 typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 
 // Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
-// is 0 on failure, non-zero success.
-typedef int (* drwav_seek_proc)(void* pUserData, int offset);
+// is true on success; fale on failure.
+typedef bool (* drwav_seek_proc)(void* pUserData, int offset);
 
 // Structure for internal use. Only used for loaders opened with drwav_open_memory.
 typedef struct
@@ -490,7 +490,7 @@ static size_t drwav__on_read_stdio(void* pUserData, void* pBufferOut, size_t byt
     return fread(pBufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-static int drwav__on_seek_stdio(void* pUserData, int offset)
+static bool drwav__on_seek_stdio(void* pUserData, int offset)
 {
     return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
 }
@@ -556,7 +556,7 @@ static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t by
     return bytesToRead;
 }
 
-static int drwav__on_seek_memory(void* pUserData, int offset)
+static bool drwav__on_seek_memory(void* pUserData, int offset)
 {
     drwav__memory_stream* memory = (drwav__memory_stream*)pUserData;
     assert(memory != NULL);
@@ -573,7 +573,7 @@ static int drwav__on_seek_memory(void* pUserData, int offset)
 
     // This will never underflow thanks to the clamps above.
     memory->currentReadPos += offset;
-    return 1;
+    return true;
 }
 
 bool drwav_init_memory(drwav* pWav, const void* data, size_t dataSize)
@@ -1560,6 +1560,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.3a - 28/05/2016
+//   - API CHANGE. Return bool instead of int in onSeek callback.
 //
 // v0.3 - 22/05/2016
 //   - Lots of API changes for consistency.
