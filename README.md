@@ -1,23 +1,16 @@
 # About
-This repository is a container for single-file, public domain libraries written in C. Each
-file in this library are independant of the others, except where noted. Click the links for
-more detailed information.
+This repository is a container for single-file, public domain libraries. All libraries are
+written in C, but they should be compilable by a C++ compiler.
 
-All libraries are written in C, but they should be compilable by a C++ compiler. However, I
-don't regularly work in C++ so there could be compiler errors every now and then. If you
-come across one, feel free to submit an issue real quick and I'll get it sorted out.
-
-Not every library is versioned. Usually this means it's pretty early in development and I'm
-still experimenting with the API design and whatnot. You should avoid using these because
-their APIs are unstable. Versioned libraries have stable APIs, but on rare occasions I may
-need to make some minor changes.
+Not every library is versioned which usually means it's APIs are unstable. Versioned libraries
+have stable APIs, but on rare occasions I may need to make some minor changes.
 
 Library                                         | Version | Description
 ----------------------------------------------- | ------- | -----------
-[dr_flac](https://mackron.github.io/dr_flac)    | 0.3c    | FLAC audio decoder.
-[dr_wav](https://mackron.github.io/dr_wav)      | 0.3a    | WAV audio loader.
-[dr_pcx](https://mackron.github.io/dr_pcx)      | 0.1     | PCX image loader.
-dr_path                                         | 0.1     | Path manipulation.
+[dr_flac](dr_flac.h)                            | 0.3c    | FLAC audio decoder.
+[dr_wav](dr_wav.h)                              | 0.3a    | WAV audio loader.
+[dr_pcx](dr_pcx.h)                              | 0.1     | PCX image loader.
+[dr_path](dr_path.h)                            | 0.1     | Path manipulation.
 dr_obj                                          | -       | Wavefront OBJ model loader.
 dr_fs                                           | -       | File system abstraction for loading files from the native file system and archives.
 dr_fsw                                          | -       | Watch for changes to the file system. Windows only.
