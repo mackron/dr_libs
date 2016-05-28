@@ -3347,11 +3347,6 @@ static FILE* dra__fopen(const char* filePath)
 
     return (FILE*)pFile;
 }
-
-static void dra__fclose(FILE* file)
-{
-    fclose(file);
-}
 #endif  //DR_AUDIO_NO_STDIO
 
 
@@ -3376,7 +3371,7 @@ void dra_sound__on_delete_wav(dra_sound* pSound)
 
 #ifdef DR_AUDIO_USE_CUSTOM_WAV_STDIO
     if (pWav->onRead == dra__on_read_stdio__wav) {
-        dra__fclose((FILE*)pWav->pUserData);
+        fclose((FILE*)pWav->pUserData);
     }
 #endif
 
@@ -3417,7 +3412,7 @@ bool dra_sound__load_from_file__wav(const char* filePath, dra_sound_desc* pDescO
 
     pWav = drwav_open(dra__on_read_stdio__wav, dra__on_seek_stdio__wav, pFile);
     if (pWav == NULL) {
-        dra__fclose(pFile);
+        fclose(pFile);
         return false;
     }
 #endif
@@ -3457,7 +3452,7 @@ void dra_sound__on_delete_flac(dra_sound* pSound)
 
 #ifdef DR_AUDIO_USE_CUSTOM_FLAC_STDIO
     if (pFlac->bs.onRead == dra__on_read_stdio__flac) {
-        dra__fclose((FILE*)pFlac->bs.pUserData);
+        fclose((FILE*)pFlac->bs.pUserData);
     }
 #endif
 
@@ -3499,7 +3494,7 @@ bool dra_sound__load_from_file__flac(const char* filePath, dra_sound_desc* pDesc
 
     pFlac = drflac_open(dra__on_read_stdio__flac, dra__on_seek_stdio__flac, pFile);
     if (pFlac == NULL) {
-        dra__fclose(pFile);
+        fclose(pFile);
         return false;
     }
 #endif
@@ -3521,12 +3516,28 @@ bool dra_sound__load_from_file__flac(const char* filePath, dra_sound_desc* pDesc
 
 //// VORBIS ////
 #ifdef DR_AUDIO_HAS_VORBIS
+#ifdef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
+typedef struct
+{
+    stb_vorbis* pVorbis;
+    void* pEncodedData;
+} dra_vorbis_user_data;
+#endif
+
 void dra_sound__on_delete_vorbis(dra_sound* pSound)
 {
-    stb_vorbis* pVorbis = pSound->desc.pUserData;
-    assert(pVorbis != NULL);
+    stb_vorbis* pVorbis = NULL;
 
 #ifdef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
+    dra_vorbis_user_data* pUserData = (dra_vorbis_user_data*)pSound->desc.pUserData;
+    assert(pUserData != NULL);
+
+    pVorbis = pUserData->pVorbis;
+    free(pUserData->pEncodedData);
+    free(pUserData);
+#else
+    pVorbis = (stb_vorbis*)pSound->desc.pUserData;
+    assert(pVorbis != NULL);
 #endif
 
     stb_vorbis_close(pVorbis);
@@ -3534,34 +3545,88 @@ void dra_sound__on_delete_vorbis(dra_sound* pSound)
 
 uint64_t dra_sound__on_read_vorbis(dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut)
 {
-    stb_vorbis* pVorbis = pSound->desc.pUserData;
+    stb_vorbis* pVorbis = NULL;
+#ifdef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
+    dra_vorbis_user_data* pUserData = (dra_vorbis_user_data*)pSound->desc.pUserData;
+    assert(pUserData != NULL);
+    pVorbis = pUserData->pVorbis;
+#else
+    pVorbis = (stb_vorbis*)pSound->desc.pUserData;
     assert(pVorbis != NULL);
+#endif
 
     return (uint64_t)stb_vorbis_get_samples_float_interleaved(pVorbis, pSound->desc.channels, (float*)pSamplesOut, (int)samplesToRead) * pSound->desc.channels;
 }
 
 bool dra_sound__on_seek_vorbis(dra_sound* pSound, uint64_t sample)
 {
-    stb_vorbis* pVorbis = pSound->desc.pUserData;
+    stb_vorbis* pVorbis = NULL;
+#ifdef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
+    dra_vorbis_user_data* pUserData = (dra_vorbis_user_data*)pSound->desc.pUserData;
+    assert(pUserData != NULL);
+    pVorbis = pUserData->pVorbis;
+#else
+    pVorbis = (stb_vorbis*)pSound->desc.pUserData;
     assert(pVorbis != NULL);
+#endif
 
     return stb_vorbis_seek(pVorbis, (unsigned int)sample);
 }
 
 bool dra_sound__load_from_file__vorbis(const char* filePath, dra_sound_desc* pDescOut)
 {
-    stb_vorbis* pVorbis = NULL;
+    stb_vorbis_info info;
 #ifndef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
-    pVorbis = stb_vorbis_open_filename(filePath, NULL, NULL);
+    stb_vorbis* pVorbis = stb_vorbis_open_filename(filePath, NULL, NULL);
     if (pVorbis == NULL) {
         return false;
     }
-#else
-    // Not currently supporting custom stdio stb_vorbis decoding. Need to investigate the push API.
-    return false;
-#endif
 
-    stb_vorbis_info info = stb_vorbis_get_info(pVorbis);
+    info = stb_vorbis_get_info(pVorbis);
+    pDestOut->pUserData = pVorbis;
+#else
+    // Investigate the push API to check if it's faster and avoid reading the entire file.
+    FILE* pFile = dra__fopen(filePath);
+    if (pFile == NULL) {
+        return false;
+    }
+
+    fseek(pFile, 0, SEEK_END);
+    int sizeInBytes = ftell(pFile);
+    fseek(pFile, 0, SEEK_SET);
+
+    void* pEncodedData = malloc(sizeInBytes);
+    if (pEncodedData == NULL) {
+        fclose(pFile);
+        return false;
+    }
+
+    int bytesRead = fread(pEncodedData, 1, sizeInBytes, pFile);
+    if (bytesRead != sizeInBytes) {
+        fclose(pFile);
+        free(pEncodedData);
+        return false;
+    }
+
+    fclose(pFile);
+
+    dra_vorbis_user_data* pUserData = (dra_vorbis_user_data*)malloc(sizeof(*pUserData));
+    if (pUserData == NULL) {
+        free(pEncodedData);
+        return false;
+    }
+
+    pUserData->pVorbis = stb_vorbis_open_memory(pEncodedData, sizeInBytes, NULL, NULL);
+    if (pUserData->pVorbis == NULL) {
+        free(pEncodedData);
+        return false;
+    }
+
+    pUserData->pEncodedData = pEncodedData;
+
+    info = stb_vorbis_get_info(pUserData->pVorbis);
+    pDescOut->pUserData = pUserData;
+#endif
 
     pDescOut->format = dra_format_f32;
     pDescOut->channels = info.channels;
@@ -3571,7 +3636,6 @@ bool dra_sound__load_from_file__vorbis(const char* filePath, dra_sound_desc* pDe
     pDescOut->onDelete = dra_sound__on_delete_vorbis;
     pDescOut->onRead = dra_sound__on_read_vorbis;
     pDescOut->onSeek = dra_sound__on_seek_vorbis;
-    pDescOut->pUserData = pVorbis;
 
     return true;
 }
