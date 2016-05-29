@@ -522,17 +522,62 @@ void* dra_voice_get_buffer_ptr_by_sample(dra_voice* pVoice, uint64_t sample);
 void dra_voice_write_silence(dra_voice* pVoice, uint64_t sampleOffset, uint64_t sampleCount);
 
 
-// Utility APIs
+//// Utility APIs ////
 
 // Retrieves the number of bits per sample based on the given format.
 unsigned int dra_get_bits_per_sample_by_format(dra_format format);
 
-// Determines whether or not the given format is floating point.
-bool dra_is_format_float(dra_format format);
-
 // Retrieves the number of bytes per sample based on the given format.
 unsigned int dra_get_bytes_per_sample_by_format(dra_format format);
 
+
+//// Decoder APIs ////
+
+typedef enum
+{
+    dra_seek_origin_start,
+    dra_seek_origin_current
+} dra_seek_origin;
+
+typedef size_t   (* dra_decoder_on_read_proc) (void* pUserData, void* pDataOut, size_t bytesToRead);
+typedef bool     (* dra_decoder_on_seek_proc) (void* pUserData, int offset, dra_seek_origin origin);
+
+typedef void     (* dra_decoder_on_delete_proc)       (void* pBackendDecoder);
+typedef uint64_t (* dra_decoder_on_read_samples_proc) (void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut);
+typedef bool     (* dra_decoder_on_seek_samples_proc) (void* pBackendDecoder, uint64_t sample);
+
+typedef struct
+{
+    unsigned int channels;
+    unsigned int sampleRate;
+    uint64_t totalSampleCount;  // <-- Can be 0.
+
+    dra_decoder_on_read_proc onRead;
+    dra_decoder_on_seek_proc onSeek;
+    void* pUserData;
+
+    void* pBackendDecoder;
+    dra_decoder_on_delete_proc onDelete;
+    dra_decoder_on_read_samples_proc onReadSamples;
+    dra_decoder_on_seek_samples_proc onSeekSamples;
+} dra_decoder;
+
+// dra_decoder_open()
+bool dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData);
+
+#ifndef DR_AUDIO_NO_STDIO
+// dra_decoder_open_file()
+bool dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath);
+#endif
+
+// dra_decoder_close()
+void dra_decoder_close(dra_decoder* pDecoder);
+
+// dra_decoder_read_f32()
+uint64_t dra_decoder_read_f32(dra_decoder* pDecoder, uint64_t samplesToRead, float* pSamplesOut);
+
+// dra_decoder_seek_to_sample()
+bool dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample);
 
 
 //// High Level World API ////
@@ -3330,12 +3375,6 @@ unsigned int dra_get_bytes_per_sample_by_format(dra_format format)
     return dra_get_bits_per_sample_by_format(format) / 8;
 }
 
-bool dra_is_format_float(dra_format format)
-{
-    return format == dra_format_f32;
-}
-
-
 
 //// STDIO ////
 
@@ -3359,296 +3398,361 @@ static FILE* dra__fopen(const char* filePath)
 #endif  //DR_AUDIO_NO_STDIO
 
 
+//// Decoder APIs ////
 
-//// WAV ////
 #ifdef DR_AUDIO_HAS_WAV
-#ifdef DR_AUDIO_USE_CUSTOM_WAV_STDIO
-size_t dra__on_read_stdio__wav(void* pUserData, void* bufferOut, size_t bytesToRead)
+size_t dra_decoder_on_read__wav(void* pUserData, void* pDataOut, size_t bytesToRead)
 {
-    return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
-}
-bool dra__on_seek_stdio__wav(void* pUserData, int offset)
-{
-    return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
-}
-#endif
+    dra_decoder* pDecoder = (dra_decoder*)pUserData;
+    assert(pDecoder != NULL);
+    assert(pDecoder->onRead != NULL);
 
-void dra_sound__on_delete_wav(dra_sound* pSound)
+    return pDecoder->onRead(pDecoder->pUserData, pDataOut, bytesToRead);
+}
+bool dra_decoder_on_seek__wav(void* pUserData, int offset)
 {
-    drwav* pWav = pSound->desc.pUserData;
+    dra_decoder* pDecoder = (dra_decoder*)pUserData;
+    assert(pDecoder != NULL);
+    assert(pDecoder->onSeek != NULL);
+
+    return pDecoder->onSeek(pDecoder->pUserData, offset, dra_seek_origin_current);
+}
+
+void dra_decoder_on_delete__wav(void* pBackendDecoder)
+{
+    drwav* pWav = (drwav*)pBackendDecoder;
     assert(pWav != NULL);
-
-#ifdef DR_AUDIO_USE_CUSTOM_WAV_STDIO
-    if (pWav->onRead == dra__on_read_stdio__wav) {
-        fclose((FILE*)pWav->pUserData);
-    }
-#endif
 
     drwav_close(pWav);
 }
 
-uint64_t dra_sound__on_read_wav(dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut)
+uint64_t dra_decoder_on_read_samples__wav(void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut)
 {
-    drwav* pWav = pSound->desc.pUserData;
+    drwav* pWav = (drwav*)pBackendDecoder;
     assert(pWav != NULL);
 
-    return drwav_read_f32(pWav, samplesToRead, (float*)pSamplesOut);
+    return drwav_read_f32(pWav, samplesToRead, pSamplesOut);
 }
 
-bool dra_sound__on_seek_wav(dra_sound* pSound, uint64_t sample)
+bool dra_decoder_on_seek_samples__wav(void* pBackendDecoder, uint64_t sample)
 {
-    drwav* pWav = pSound->desc.pUserData;
+    drwav* pWav = (drwav*)pBackendDecoder;
     assert(pWav != NULL);
 
     return drwav_seek(pWav, sample);
 }
 
-bool dra_sound__load_from_file__wav(const char* filePath, dra_sound_desc* pDescOut)
+
+bool dra_decoder_open__wav(dra_decoder* pDecoder)
 {
-    assert(filePath != NULL);
+    drwav* pWav = drwav_open(dra_decoder_on_read__wav, dra_decoder_on_seek__wav, pDecoder);
+    if (pWav == NULL) {
+        return false;
+    }
 
-    drwav* pWav = NULL;
+    pDecoder->channels = pWav->channels;
+    pDecoder->sampleRate = pWav->sampleRate;
+    pDecoder->totalSampleCount = pWav->totalSampleCount;
+
+    pDecoder->pBackendDecoder = pWav;
+    pDecoder->onDelete = dra_decoder_on_delete__wav;
+    pDecoder->onReadSamples = dra_decoder_on_read_samples__wav;
+    pDecoder->onSeekSamples = dra_decoder_on_seek_samples__wav;
+
+    return true;
+}
+
 #ifndef DR_AUDIO_USE_CUSTOM_WAV_STDIO
-    pWav = drwav_open_file(filePath);
+bool dra_decoder_open_file__wav(dra_decoder* pDecoder, const char* filePath)
+{
+    drwav* pWav = drwav_open_file(filePath);
     if (pWav == NULL) {
         return false;
     }
-#else
-    FILE* pFile = dra__fopen(filePath);
-    if (pFile == NULL) {
-        return false;
-    }
 
-    pWav = drwav_open(dra__on_read_stdio__wav, dra__on_seek_stdio__wav, pFile);
-    if (pWav == NULL) {
-        fclose(pFile);
-        return false;
-    }
-#endif
+    pDecoder->channels = pWav->channels;
+    pDecoder->sampleRate = pWav->sampleRate;
+    pDecoder->totalSampleCount = pWav->totalSampleCount;
 
-    pDescOut->format = dra_format_f32;
-    pDescOut->channels = pWav->channels;
-    pDescOut->sampleRate = pWav->sampleRate;
-    pDescOut->dataSize = 0;
-    pDescOut->pData = NULL;
-    pDescOut->onDelete = dra_sound__on_delete_wav;
-    pDescOut->onRead = dra_sound__on_read_wav;
-    pDescOut->onSeek = dra_sound__on_seek_wav;
-    pDescOut->pUserData = pWav;
-    
+    pDecoder->pBackendDecoder = pWav;
+    pDecoder->onDelete = dra_decoder_on_delete__wav;
+    pDecoder->onReadSamples = dra_decoder_on_read_samples__wav;
+    pDecoder->onSeekSamples = dra_decoder_on_seek_samples__wav;
+
     return true;
 }
 #endif
+#endif  //WAV
 
-
-//// FLAC ////
 #ifdef DR_AUDIO_HAS_FLAC
-#ifdef DR_AUDIO_USE_CUSTOM_FLAC_STDIO
-size_t dra__on_read_stdio__flac(void* pUserData, void* bufferOut, size_t bytesToRead)
+size_t dra_decoder_on_read__flac(void* pUserData, void* pDataOut, size_t bytesToRead)
 {
-    return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
-}
-bool dra__on_seek_stdio__flac(void* pUserData, int offset, drflac_seek_origin origin)
-{
-    return fseek((FILE*)pUserData, offset, (origin == drflac_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
-}
-#endif
+    dra_decoder* pDecoder = (dra_decoder*)pUserData;
+    assert(pDecoder != NULL);
+    assert(pDecoder->onRead != NULL);
 
-void dra_sound__on_delete_flac(dra_sound* pSound)
+    return pDecoder->onRead(pDecoder->pUserData, pDataOut, bytesToRead);
+}
+bool dra_decoder_on_seek__flac(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    drflac* pFlac = pSound->desc.pUserData;
+    dra_decoder* pDecoder = (dra_decoder*)pUserData;
+    assert(pDecoder != NULL);
+    assert(pDecoder->onSeek != NULL);
+
+    return pDecoder->onSeek(pDecoder->pUserData, offset, (origin == drflac_seek_origin_start) ? dra_seek_origin_start : dra_seek_origin_current);
+}
+
+void dra_decoder_on_delete__flac(void* pBackendDecoder)
+{
+    drflac* pFlac = (drflac*)pBackendDecoder;
     assert(pFlac != NULL);
-
-#ifdef DR_AUDIO_USE_CUSTOM_FLAC_STDIO
-    if (pFlac->bs.onRead == dra__on_read_stdio__flac) {
-        fclose((FILE*)pFlac->bs.pUserData);
-    }
-#endif
 
     drflac_close(pFlac);
 }
 
-uint64_t dra_sound__on_read_flac(dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut)
+uint64_t dra_decoder_on_read_samples__flac(void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut)
 {
-    drflac* pFlac = pSound->desc.pUserData;
+    drflac* pFlac = (drflac*)pBackendDecoder;
     assert(pFlac != NULL);
 
-    return drflac_read_s32(pFlac, samplesToRead, (int32_t*)pSamplesOut);
+    uint64_t samplesRead = drflac_read_s32(pFlac, samplesToRead, (int32_t*)pSamplesOut);
+    
+    dra_s32_to_f32(pSamplesOut, (int32_t*)pSamplesOut, (size_t)samplesRead);
+    return samplesRead;
 }
 
-bool dra_sound__on_seek_flac(dra_sound* pSound, uint64_t sample)
+bool dra_decoder_on_seek_samples__flac(void* pBackendDecoder, uint64_t sample)
 {
-    drflac* pFlac = pSound->desc.pUserData;
+    drflac* pFlac = (drflac*)pBackendDecoder;
     assert(pFlac != NULL);
 
     return drflac_seek_to_sample(pFlac, sample);
 }
 
 
-bool dra_sound__load_from_file__flac(const char* filePath, dra_sound_desc* pDescOut)
+bool dra_decoder_open__flac(dra_decoder* pDecoder)
 {
-    assert(filePath != NULL);
+    drflac* pFlac = drflac_open(dra_decoder_on_read__flac, dra_decoder_on_seek__flac, pDecoder);
+    if (pFlac == NULL) {
+        return false;
+    }
 
-    drflac* pFlac = NULL;
+    pDecoder->channels = pFlac->channels;
+    pDecoder->sampleRate = pFlac->sampleRate;
+    pDecoder->totalSampleCount = pFlac->totalSampleCount;
+
+    pDecoder->pBackendDecoder = pFlac;
+    pDecoder->onDelete = dra_decoder_on_delete__flac;
+    pDecoder->onReadSamples = dra_decoder_on_read_samples__flac;
+    pDecoder->onSeekSamples = dra_decoder_on_seek_samples__flac;
+
+    return true;
+}
+
 #ifndef DR_AUDIO_USE_CUSTOM_FLAC_STDIO
-    pFlac = drflac_open_file(filePath);
+bool dra_decoder_open_file__flac(dra_decoder* pDecoder, const char* filePath)
+{
+    drflac* pFlac = drflac_open_file(filePath);
     if (pFlac == NULL) {
         return false;
     }
-#else
-    FILE* pFile = dra__fopen(filePath);
-    if (pFile == NULL) {
-        return false;
-    }
 
-    pFlac = drflac_open(dra__on_read_stdio__flac, dra__on_seek_stdio__flac, pFile);
-    if (pFlac == NULL) {
-        fclose(pFile);
-        return false;
-    }
-#endif
+    pDecoder->channels = pFlac->channels;
+    pDecoder->sampleRate = pFlac->sampleRate;
+    pDecoder->totalSampleCount = pFlac->totalSampleCount;
 
-    pDescOut->format = dra_format_s32;
-    pDescOut->channels = pFlac->channels;
-    pDescOut->sampleRate = pFlac->sampleRate;
-    pDescOut->dataSize = 0;
-    pDescOut->pData = NULL;
-    pDescOut->onDelete = dra_sound__on_delete_flac;
-    pDescOut->onRead = dra_sound__on_read_flac;
-    pDescOut->onSeek = dra_sound__on_seek_flac;
-    pDescOut->pUserData = pFlac;
-    
+    pDecoder->pBackendDecoder = pFlac;
+    pDecoder->onDelete = dra_decoder_on_delete__flac;
+    pDecoder->onReadSamples = dra_decoder_on_read_samples__flac;
+    pDecoder->onSeekSamples = dra_decoder_on_seek_samples__flac;
+
     return true;
 }
 #endif
+#endif  //FLAC
 
-
-//// VORBIS ////
 #ifdef DR_AUDIO_HAS_VORBIS
-#ifdef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
-typedef struct
+void dra_decoder_on_delete__vorbis(void* pBackendDecoder)
 {
-    stb_vorbis* pVorbis;
-    void* pEncodedData;
-} dra_vorbis_user_data;
-#endif
-
-void dra_sound__on_delete_vorbis(dra_sound* pSound)
-{
-    stb_vorbis* pVorbis = NULL;
-
-#ifdef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
-    dra_vorbis_user_data* pUserData = (dra_vorbis_user_data*)pSound->desc.pUserData;
-    assert(pUserData != NULL);
-
-    pVorbis = pUserData->pVorbis;
-    free(pUserData->pEncodedData);
-    free(pUserData);
-#else
-    pVorbis = (stb_vorbis*)pSound->desc.pUserData;
+    stb_vorbis* pVorbis = (stb_vorbis*)pBackendDecoder;
     assert(pVorbis != NULL);
-#endif
 
     stb_vorbis_close(pVorbis);
 }
 
-uint64_t dra_sound__on_read_vorbis(dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut)
+uint64_t dra_decoder_on_read_samples__vorbis(void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut)
 {
-    stb_vorbis* pVorbis = NULL;
-#ifdef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
-    dra_vorbis_user_data* pUserData = (dra_vorbis_user_data*)pSound->desc.pUserData;
-    assert(pUserData != NULL);
-    pVorbis = pUserData->pVorbis;
-#else
-    pVorbis = (stb_vorbis*)pSound->desc.pUserData;
+    stb_vorbis* pVorbis = (stb_vorbis*)pBackendDecoder;
     assert(pVorbis != NULL);
-#endif
 
-    return (uint64_t)stb_vorbis_get_samples_float_interleaved(pVorbis, pSound->desc.channels, (float*)pSamplesOut, (int)samplesToRead) * pSound->desc.channels;
+    stb_vorbis_info info = stb_vorbis_get_info(pVorbis);
+    return (uint64_t)stb_vorbis_get_samples_float_interleaved(pVorbis, info.channels, pSamplesOut, (int)samplesToRead) * info.channels;
 }
 
-bool dra_sound__on_seek_vorbis(dra_sound* pSound, uint64_t sample)
+bool dra_decoder_on_seek_samples__vorbis(void* pBackendDecoder, uint64_t sample)
 {
-    stb_vorbis* pVorbis = NULL;
-#ifdef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
-    dra_vorbis_user_data* pUserData = (dra_vorbis_user_data*)pSound->desc.pUserData;
-    assert(pUserData != NULL);
-    pVorbis = pUserData->pVorbis;
-#else
-    pVorbis = (stb_vorbis*)pSound->desc.pUserData;
+    stb_vorbis* pVorbis = (stb_vorbis*)pBackendDecoder;
     assert(pVorbis != NULL);
-#endif
 
     return stb_vorbis_seek(pVorbis, (unsigned int)sample);
 }
 
-bool dra_sound__load_from_file__vorbis(const char* filePath, dra_sound_desc* pDescOut)
+
+bool dra_decoder_open__vorbis(dra_decoder* pDecoder)
 {
-    stb_vorbis_info info;
+    // TODO: Add support for the push API.
+
+    // Not currently supporting callback based decoding.
+    (void)pDecoder;
+    return false;
+}
+
 #ifndef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
+bool dra_decoder_open_file__vorbis(dra_decoder* pDecoder, const char* filePath)
+{
     stb_vorbis* pVorbis = stb_vorbis_open_filename(filePath, NULL, NULL);
     if (pVorbis == NULL) {
         return false;
     }
 
-    info = stb_vorbis_get_info(pVorbis);
-    pDestOut->pUserData = pVorbis;
-#else
-    // Investigate the push API to check if it's faster and avoid reading the entire file.
+    stb_vorbis_info info = stb_vorbis_get_info(pVorbis);
+
+    pDecoder->channels = info.channels;
+    pDecoder->sampleRate = info.sample_rate;
+    pDecoder->totalSampleCount = stb_vorbis_stream_length_in_samples(pVorbis);
+
+    pDecoder->pBackendDecoder = pVorbis;
+    pDecoder->onDelete = dra_decoder_on_delete__vorbis;
+    pDecoder->onReadSamples = dra_decoder_on_read_samples__vorbis;
+    pDecoder->onSeekSamples = dra_decoder_on_seek_samples__vorbis;
+
+    return true;
+}
+#endif
+#endif  //Vorbis
+
+bool dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData)
+{
+    if (pDecoder == NULL || onRead == NULL || onSeek == NULL) {
+        return false;
+    }
+
+    memset(pDecoder, 0, sizeof(*pDecoder));
+
+    pDecoder->onRead = onRead;
+    pDecoder->onSeek = onSeek;
+    pDecoder->pUserData = pUserData;
+
+#ifdef DR_AUDIO_HAS_WAV
+    if (dra_decoder_open__wav(pDecoder)) {
+        return true;
+    }
+    onSeek(pUserData, 0, dra_seek_origin_start);
+#endif
+#ifdef DR_AUDIO_HAS_FLAC
+    if (dra_decoder_open__flac(pDecoder)) {
+        return true;
+    }
+    onSeek(pUserData, 0, dra_seek_origin_start);
+#endif
+#ifdef DR_AUDIO_HAS_VORBIS
+    if (dra_decoder_open__vorbis(pDecoder)) {
+        return true;
+    }
+    onSeek(pUserData, 0, dra_seek_origin_start);
+#endif
+
+    // If we get here it means we were unable to open a decoder.
+    return false;
+}
+
+#ifndef DR_AUDIO_NO_STDIO
+size_t dra_decoder__on_read_stdio(void* pUserData, void* pDataOut, size_t bytesToRead)
+{
+    return fread(pDataOut, 1, bytesToRead, (FILE*)pUserData);
+}
+bool dra_decoder__on_seek_stdio(void* pUserData, int offset, dra_seek_origin origin)
+{
+    return fseek((FILE*)pUserData, offset, (origin == dra_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
+}
+
+bool dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath)
+{
+    if (pDecoder == NULL || filePath == NULL) {
+        return false;
+    }
+
+    memset(pDecoder, 0, sizeof(*pDecoder));
+
+    // When opening a decoder from a file it's preferrable to use the backend's native file IO APIs if it has them.
+#if defined(DR_AUDIO_HAS_WAV) && !defined(DR_AUDIO_USE_CUSTOM_WAV_STDIO)
+    if (dra_decoder_open_file__wav(pDecoder, filePath)) {
+        return true;
+    }
+#endif
+#if defined(DR_AUDIO_HAS_FLAC) && !defined(DR_AUDIO_USE_CUSTOM_FLAC_STDIO)
+    if (dra_decoder_open_file__flac(pDecoder, filePath)) {
+        return true;
+    }
+#endif
+#if defined(DR_AUDIO_HAS_VORBIS) && !defined(DR_AUDIO_USE_CUSTOM_VORBIS_STDIO)
+    if (dra_decoder_open_file__vorbis(pDecoder, filePath)) {
+        return true;
+    }
+#endif
+
+
+
+    // If we get here it means we were unable to open using it's built-in file IO APIs. In this case we fall back
+    // to a generic method.
     FILE* pFile = dra__fopen(filePath);
     if (pFile == NULL) {
         return false;
     }
 
-    fseek(pFile, 0, SEEK_END);
-    int sizeInBytes = ftell(pFile);
-    fseek(pFile, 0, SEEK_SET);
-
-    void* pEncodedData = malloc(sizeInBytes);
-    if (pEncodedData == NULL) {
+    if (!dra_decoder_open(pDecoder, dra_decoder__on_read_stdio, dra_decoder__on_seek_stdio, pFile)) {
         fclose(pFile);
         return false;
     }
-
-    int bytesRead = fread(pEncodedData, 1, sizeInBytes, pFile);
-    if (bytesRead != sizeInBytes) {
-        fclose(pFile);
-        free(pEncodedData);
-        return false;
-    }
-
-    fclose(pFile);
-
-    dra_vorbis_user_data* pUserData = (dra_vorbis_user_data*)malloc(sizeof(*pUserData));
-    if (pUserData == NULL) {
-        free(pEncodedData);
-        return false;
-    }
-
-    pUserData->pVorbis = stb_vorbis_open_memory(pEncodedData, sizeInBytes, NULL, NULL);
-    if (pUserData->pVorbis == NULL) {
-        free(pEncodedData);
-        return false;
-    }
-
-    pUserData->pEncodedData = pEncodedData;
-
-    info = stb_vorbis_get_info(pUserData->pVorbis);
-    pDescOut->pUserData = pUserData;
-#endif
-
-    pDescOut->format = dra_format_f32;
-    pDescOut->channels = info.channels;
-    pDescOut->sampleRate = info.sample_rate;
-    pDescOut->dataSize = 0;
-    pDescOut->pData = NULL;
-    pDescOut->onDelete = dra_sound__on_delete_vorbis;
-    pDescOut->onRead = dra_sound__on_read_vorbis;
-    pDescOut->onSeek = dra_sound__on_seek_vorbis;
 
     return true;
 }
 #endif
+
+void dra_decoder_close(dra_decoder* pDecoder)
+{
+    if (pDecoder == NULL) {
+        return;
+    }
+
+    if (pDecoder->onDelete) {
+        pDecoder->onDelete(pDecoder->pBackendDecoder);
+    }
+
+#ifndef DR_AUDIO_NO_STDIO
+    if (pDecoder->onRead == dra_decoder__on_read_stdio) {
+        fclose((FILE*)pDecoder->pUserData);
+    }
+#endif
+}
+
+uint64_t dra_decoder_read_f32(dra_decoder* pDecoder, uint64_t samplesToRead, float* pSamplesOut)
+{
+    if (pDecoder == NULL || pSamplesOut == NULL) {
+        return 0;
+    }
+
+    return pDecoder->onReadSamples(pDecoder->pBackendDecoder, samplesToRead, pSamplesOut);
+}
+
+bool dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample)
+{
+    if (pDecoder == NULL) {
+        return false;
+    }
+
+    return pDecoder->onSeekSamples(pDecoder->pBackendDecoder, sample);
+}
 
 
 //// High Level World APIs ////
@@ -3800,6 +3904,7 @@ void dra_sound__on_read_next_chunk(dra_voice* pVoice, uint64_t eventID, void* pU
     }
 }
 
+
 dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
 {
     if (pWorld == NULL) {
@@ -3846,7 +3951,30 @@ on_error:
 
 
 
+void dra_sound__on_delete_decoder(dra_sound* pSound)
+{
+    dra_decoder* pDecoder = pSound->desc.pUserData;
+    assert(pDecoder != NULL);
 
+    dra_decoder_close(pDecoder);
+    free(pDecoder);
+}
+
+uint64_t dra_sound__on_read_decoder(dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut)
+{
+    dra_decoder* pDecoder = pSound->desc.pUserData;
+    assert(pDecoder != NULL);
+
+    return dra_decoder_read_f32(pDecoder, samplesToRead, (float*)pSamplesOut);
+}
+
+bool dra_sound__on_seek_decoder(dra_sound* pSound, uint64_t sample)
+{
+    dra_decoder* pDecoder = pSound->desc.pUserData;
+    assert(pDecoder != NULL);
+
+    return dra_decoder_seek_to_sample(pDecoder, sample);
+}
 
 #ifndef DR_AUDIO_NO_STDIO
 dra_sound* dra_sound_create_from_file(dra_sound_world* pWorld, const char* filePath)
@@ -3855,30 +3983,27 @@ dra_sound* dra_sound_create_from_file(dra_sound_world* pWorld, const char* fileP
         return NULL;
     }
 
-#ifdef DR_AUDIO_HAS_EXTERNAL_DECODER
+    dra_decoder* pDecoder = malloc(sizeof(*pDecoder));
+    if (pDecoder == NULL) {
+        return false;
+    }
+
+    if (!dra_decoder_open_file(pDecoder, filePath)) {
+        free(pDecoder);
+        return false;
+    }
+
     dra_sound_desc desc;
-#ifdef DR_AUDIO_HAS_WAV
-    if (dra_sound__load_from_file__wav(filePath, &desc)) {
-        goto create_sound_from_desc;
-    }
-#endif
+    desc.format = dra_format_f32;
+    desc.channels = pDecoder->channels;
+    desc.sampleRate = pDecoder->sampleRate;
+    desc.dataSize = 0;
+    desc.pData = NULL;
+    desc.onDelete = dra_sound__on_delete_decoder;
+    desc.onRead = dra_sound__on_read_decoder;
+    desc.onSeek = dra_sound__on_seek_decoder;
+    desc.pUserData = pDecoder;
 
-#ifdef DR_AUDIO_HAS_FLAC
-    if (dra_sound__load_from_file__flac(filePath, &desc)) {
-        goto create_sound_from_desc;
-    }
-#endif
-
-#ifdef DR_AUDIO_HAS_VORBIS
-    if (dra_sound__load_from_file__vorbis(filePath, &desc)) {
-        goto create_sound_from_desc;
-    }
-#endif
-
-    // Could not load the file from any supported decoder.
-    return NULL;
-
-create_sound_from_desc:;
     dra_sound* pSound = dra_sound_create(pWorld, &desc);
     
     // After creating the sound, the audio data of a non-streaming voice can be deleted.
@@ -3887,10 +4012,6 @@ create_sound_from_desc:;
     }
 
     return pSound;
-#else
-    // No external decoders.
-    return NULL;
-#endif
 }
 #endif
 
@@ -3943,6 +4064,7 @@ void dra_sound_stop(dra_sound* pSound)
 // TODO
 //
 // - Forward declare every backend function and document them.
+// - Add support for the push API in stb_vorbis.
 
 
 /*
