@@ -584,6 +584,14 @@ uint64_t dra_decoder_read_f32(dra_decoder* pDecoder, uint64_t samplesToRead, flo
 bool dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample);
 
 
+//// High Level Helper APIs ////
+
+#ifndef DR_AUDIO_NO_STDIO
+// Creates a voice from a file.
+dra_voice* dra_voice_create_from_file(dra_device* pDevice, const char* filePath);
+#endif
+
+
 //// High Level World API ////
 //
 // This section is for the sound world APIs. These are high-level APIs that sit directly on top of the main API.
@@ -3763,6 +3771,47 @@ bool dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample)
 
     return pDecoder->onSeekSamples(pDecoder->pBackendDecoder, sample);
 }
+
+
+
+//// High Level Helper APIs ////
+
+#ifndef DR_AUDIO_NO_STDIO
+dra_voice* dra_voice_create_from_file(dra_device* pDevice, const char* filePath)
+{
+    if (pDevice == NULL || filePath == NULL) {
+        return NULL;
+    }
+
+    dra_decoder decoder;
+    if (!dra_decoder_open_file(&decoder, filePath)) {
+        return NULL;
+    }
+
+    // TODO: Make this more robust. Base it off drflac_open_and_read(). Create dra_decoder_open_and_read(), dra_decoder_open_file_and_read(), etc.
+
+    size_t samplesSizeInBytes = (size_t)decoder.totalSampleCount * sizeof(float);
+    float* pSampleData = (float*)malloc(samplesSizeInBytes);
+    if (pSampleData == NULL) {
+        dra_decoder_close(&decoder);
+        return NULL;
+    }
+
+    uint64_t sampleCount = dra_decoder_read_f32(&decoder, decoder.totalSampleCount, pSampleData);
+    dra_decoder_close(&decoder);
+
+    if (sampleCount == 0) {
+        return NULL;
+    }
+
+    dra_voice* pVoice = dra_voice_create(pDevice, dra_format_f32, decoder.channels, decoder.sampleRate, samplesSizeInBytes, pSampleData);
+    if (pVoice == NULL) {
+        return NULL;
+    }
+
+    return pVoice;
+}
+#endif
 
 
 //// High Level World APIs ////
