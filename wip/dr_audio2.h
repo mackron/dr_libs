@@ -675,7 +675,7 @@ void dra_sound_stop(dra_sound* pSound);
 
 #define DR_AUDIO_DEFAULT_CHANNEL_COUNT  2
 #define DR_AUDIO_DEFAULT_SAMPLE_RATE    48000
-#define DR_AUDIO_DEFAULT_LATENCY        100     // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
+#define DR_AUDIO_DEFAULT_LATENCY        1000     // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
 #define DR_AUDIO_DEFAULT_FRAGMENT_COUNT 2       // The hardware buffer is divided up into latency-sized blocks. This controls that number. Must be at least 2.
 
 #define DR_AUDIO_BACKEND_TYPE_NULL      0
@@ -2174,14 +2174,9 @@ void dra_device__play(dra_device* pDevice)
         {
             assert(pDevice->playingVoicesCount > 0);
 
-            // Before playing the backend device we need to ensure the first fragment is filled with valid audio data.
-            if (dra_device__mix_next_fragment(pDevice))
-            {
-                dra_backend_device_play(pDevice->pBackendDevice);
-                dra_device__post_event(pDevice, dra_thread_event_type_play);
-                pDevice->isPlaying = true;
-                pDevice->stopOnNextFragment = false;
-            }
+            dra_device__post_event(pDevice, dra_thread_event_type_play);
+            pDevice->isPlaying = true;
+            pDevice->stopOnNextFragment = false;
         }
     }
     dra_device__unlock(pDevice);
@@ -2249,8 +2244,16 @@ void* dra_device__thread_proc(void* pData)
 
         if (pDevice->nextThreadEventType == dra_thread_event_type_play)
         {
+            // The backend device needs to start playing, but we first need to ensure it has an initial chunk of data available.
+            dra_device__mix_next_fragment(pDevice);
+
+            // Start playing the backend device only after the initial fragment has been mixed.
+            dra_backend_device_play(pDevice->pBackendDevice);
+
+
             // There could be "play" events needing to be posted.
             dra_event_queue__post_events(&pDevice->eventQueue);
+
 
             // Wait for the device to request more data...
             while (dra_backend_device_wait(pDevice->pBackendDevice))
@@ -2263,6 +2266,7 @@ void* dra_device__thread_proc(void* pData)
                     dra_device__mix_next_fragment(pDevice);
                 }
             }
+
 
             // There could be some events needing to be posted.
             dra_event_queue__post_events(&pDevice->eventQueue);
