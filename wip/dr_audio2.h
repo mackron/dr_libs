@@ -502,7 +502,7 @@ bool dra_voice_is_playing(dra_voice* pVoice);
 bool dra_voice_is_looping(dra_voice* pVoice);
 
 
-// dra_voice_set_volum()
+// dra_voice_set_volume()
 void dra_voice_set_volume(dra_voice* pVoice, float linearVolume);
 
 // dra_voice_get_volume()
@@ -603,6 +603,9 @@ struct dra_sound
 
     // Whether or not the sound is looping.
     bool isLooping;
+
+    // Whether or not the sound should be stopped at the end of the chunk that's currently playing.
+    bool stopOnNextChunk;
 };
 
 // dra_sound_world_create()
@@ -615,12 +618,14 @@ dra_sound_world* dra_sound_world_create(dra_device* pPlaybackDevice);
 // This will delete every sound this world owns.
 void dra_sound_world_delete(dra_sound_world* pWorld);
 
+// dra_sound_world_play_inline()
+void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc);
 
 
 // dra_sound_create()
 //
 // The datails in "desc" can be accessed from the returned object directly.
-dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc desc);
+dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc);
 
 #ifndef DR_AUDIO_NO_STDIO
 // dra_sound_create_from_file()
@@ -2207,6 +2212,7 @@ void dra_device__voice_playback_count_inc(dra_device* pDevice)
     dra_device__lock(pDevice);
     {
         pDevice->playingVoicesCount += 1;
+        pDevice->stopOnNextFragment  = false;
     }
     dra_device__unlock(pDevice);
 }
@@ -3651,7 +3657,8 @@ dra_sound_world* dra_sound_world_create(dra_device* pPlaybackDevice)
         goto on_error;
     }
 
-    if (pPlaybackDevice == NULL) {
+    pWorld->pPlaybackDevice = pPlaybackDevice;
+    if (pWorld->pPlaybackDevice == NULL) {
         pWorld->pPlaybackDevice = dra_device_open(NULL, dra_device_type_playback);
         if (pWorld->pPlaybackDevice == NULL) {
             return NULL;
@@ -3685,6 +3692,35 @@ void dra_sound_world_delete(dra_sound_world* pWorld)
 }
 
 
+void dra_sound_world__on_inline_sound_stop(dra_voice* pVoice, uint64_t eventID, void* pUserData)
+{
+    (void)pVoice;
+    (void)eventID;
+
+    dra_sound* pSound = (dra_sound*)pUserData;
+    assert(pSound != NULL);
+
+    dra_sound_delete(pSound);
+}
+
+void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc)
+{
+    if (pWorld == NULL || pDesc == NULL) {
+        return;
+    }
+
+    // An inline sound is just like any other, except it never loops and it's deleted automatically when it stops playing. Therefore what
+    // we need to do is attach an event handler to the voice's stop callback which is where the sound will be deleted.
+    dra_sound* pSound = dra_sound_create(pWorld, pDesc);
+    if (pSound == NULL) {
+        return;
+    }
+
+    dra_voice_set_on_stop(pSound->pVoice, dra_sound_world__on_inline_sound_stop, pSound);
+    dra_sound_play(pSound, false);
+}
+
+
 bool dra_sound__is_streaming(dra_sound* pSound)
 {
     assert(pSound != NULL);
@@ -3703,6 +3739,7 @@ bool dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOffset)
 
     uint64_t samplesRead = pSound->desc.onRead(pSound, chunkSizeInSamples, dra_voice_get_buffer_ptr_by_sample(pSound->pVoice, outputSampleOffset));
     if (samplesRead == 0 && !pSound->isLooping) {
+        dra_voice_write_silence(pSound->pVoice, outputSampleOffset, chunkSizeInSamples);
         return false;   // Ran out of samples in a non-looping buffer.
     }
     
@@ -3744,12 +3781,23 @@ void dra_sound__on_read_next_chunk(dra_voice* pVoice, uint64_t eventID, void* pU
     assert(pVoice != NULL);
     (void)pVoice;
 
+    dra_sound* pSound = (dra_sound*)pUserData;
+    assert(pSound != NULL);
+
+    if (pSound->stopOnNextChunk) {
+        pSound->stopOnNextChunk = false;
+        dra_sound_stop(pSound);
+        return;
+    }
+
     // The event ID is the index of the sample to write to.
     uint64_t sampleOffset = eventID;
-    dra_sound__read_next_chunk((dra_sound*)pUserData, sampleOffset);
+    if (!dra_sound__read_next_chunk(pSound, sampleOffset)) {
+        pSound->stopOnNextChunk = true;
+    }
 }
 
-dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc desc)
+dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
 {
     if (pWorld == NULL) {
         return NULL;
@@ -3761,14 +3809,14 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc desc)
     }
 
     pSound->pWorld = pWorld;
-    pSound->desc   = desc;
+    pSound->desc   = *pDesc;
 
     bool isStreaming = dra_sound__is_streaming(pSound);
     if (!isStreaming) {
-        pSound->pVoice = dra_voice_create(pWorld->pPlaybackDevice, desc.format, desc.channels, desc.sampleRate, desc.dataSize, desc.pData);
+        pSound->pVoice = dra_voice_create(pWorld->pPlaybackDevice, pDesc->format, pDesc->channels, pDesc->sampleRate, pDesc->dataSize, pDesc->pData);
     } else {
-        size_t streamingBufferSize = (desc.sampleRate * desc.channels) * 2;   // 2 seconds total, 1 second chunks. Keep total an even number and a multiple of the channel count.
-        pSound->pVoice = dra_voice_create(pWorld->pPlaybackDevice, desc.format, desc.channels, desc.sampleRate, streamingBufferSize * dra_get_bytes_per_sample_by_format(desc.format), NULL);
+        size_t streamingBufferSize = (pDesc->sampleRate * pDesc->channels) * 2;   // 2 seconds total, 1 second chunks. Keep total an even number and a multiple of the channel count.
+        pSound->pVoice = dra_voice_create(pWorld->pPlaybackDevice, pDesc->format, pDesc->channels, pDesc->sampleRate, streamingBufferSize * dra_get_bytes_per_sample_by_format(pDesc->format), NULL);
 
         // Streaming buffers require 2 playback events. As one is being played, the other is filled. The event ID is set to the sample
         // index of the next chunk that needs updating and is used in determining where to place new data.
@@ -3781,7 +3829,9 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc desc)
     // Streaming buffers need to have an initial chunk of data loaded before returning. This ensures the internal buffer contains valid audio data in
     // preparation for being played for the first time.
     if (isStreaming) {
-        dra_sound__read_next_chunk(pSound, 0);
+        if (!dra_sound__read_next_chunk(pSound, 0)) {
+            goto on_error;
+        }
     }
 
     return pSound;
@@ -3826,7 +3876,7 @@ dra_sound* dra_sound_create_from_file(dra_sound_world* pWorld, const char* fileP
     return NULL;
 
 create_sound_from_desc:;
-    dra_sound* pSound = dra_sound_create(pWorld, desc);
+    dra_sound* pSound = dra_sound_create(pWorld, &desc);
     
     // After creating the sound, the audio data of a non-streaming voice can be deleted.
     if (desc.pData != NULL) {
