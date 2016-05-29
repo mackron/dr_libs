@@ -675,7 +675,7 @@ void dra_sound_stop(dra_sound* pSound);
 
 #define DR_AUDIO_DEFAULT_CHANNEL_COUNT  2
 #define DR_AUDIO_DEFAULT_SAMPLE_RATE    48000
-#define DR_AUDIO_DEFAULT_LATENCY        1000     // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
+#define DR_AUDIO_DEFAULT_LATENCY        100     // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
 #define DR_AUDIO_DEFAULT_FRAGMENT_COUNT 2       // The hardware buffer is divided up into latency-sized blocks. This controls that number. Must be at least 2.
 
 #define DR_AUDIO_BACKEND_TYPE_NULL      0
@@ -2155,7 +2155,7 @@ bool dra_device__mix_next_fragment(dra_device* pDevice)
     memcpy(pSampleData, pDevice->pMasterMixer->pStagingBuffer, (size_t)samplesInFragment * sizeof(float));
     dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
 
-    if (framesMixed < framesInFragment) {
+    if (framesMixed == 0) {
         pDevice->stopOnNextFragment = true;
     }
 
@@ -2266,7 +2266,6 @@ void* dra_device__thread_proc(void* pData)
                     dra_device__mix_next_fragment(pDevice);
                 }
             }
-
 
             // There could be some events needing to be posted.
             dra_event_queue__post_events(&pDevice->eventQueue);
