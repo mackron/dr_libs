@@ -729,20 +729,20 @@ void dra_sound_stop(dra_sound* pSound);
 
 #ifdef dr_wav_h
 #define DR_AUDIO_HAS_WAV
-    #if !defined(DR_AUDIO_NO_STDIO) && defined(DR_WAV_NO_STDIO)
-    #define DR_AUDIO_USE_CUSTOM_WAV_STDIO
+    #ifndef DR_WAV_NO_STDIO
+    #define DR_AUDIO_HAS_WAV_STDIO
     #endif
 #endif
 #ifdef dr_flac_h
 #define DR_AUDIO_HAS_FLAC
-    #if !defined(DR_AUDIO_NO_STDIO) && defined(DR_FLAC_NO_STDIO)
-    #define DR_AUDIO_USE_CUSTOM_FLAC_STDIO
+    #ifndef DR_FLAC_NO_STDIO
+    #define DR_AUDIO_HAS_FLAC_STDIO
     #endif
 #endif
 #ifdef STB_VORBIS_INCLUDE_STB_VORBIS_H
 #define DR_AUDIO_HAS_VORBIS
-    #if !defined(DR_AUDIO_NO_STDIO) && defined(STB_VORBIS_NO_STDIO)
-    #define DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
+    #ifndef STB_VORBIS_NO_STDIO
+    #define DR_AUDIO_HAS_VORBIS_STDIO
     #endif
 #endif
 
@@ -3462,7 +3462,7 @@ bool dra_decoder_open__wav(dra_decoder* pDecoder)
     return true;
 }
 
-#ifndef DR_AUDIO_USE_CUSTOM_WAV_STDIO
+#ifdef DR_AUDIO_HAS_WAV_STDIO
 bool dra_decoder_open_file__wav(dra_decoder* pDecoder, const char* filePath)
 {
     drwav* pWav = drwav_open_file(filePath);
@@ -3549,7 +3549,7 @@ bool dra_decoder_open__flac(dra_decoder* pDecoder)
     return true;
 }
 
-#ifndef DR_AUDIO_USE_CUSTOM_FLAC_STDIO
+#ifdef DR_AUDIO_HAS_FLAC_STDIO
 bool dra_decoder_open_file__flac(dra_decoder* pDecoder, const char* filePath)
 {
     drflac* pFlac = drflac_open_file(filePath);
@@ -3607,7 +3607,7 @@ bool dra_decoder_open__vorbis(dra_decoder* pDecoder)
     return false;
 }
 
-#ifndef DR_AUDIO_USE_CUSTOM_VORBIS_STDIO
+#ifdef DR_AUDIO_HAS_VORBIS_STDIO
 bool dra_decoder_open_file__vorbis(dra_decoder* pDecoder, const char* filePath)
 {
     stb_vorbis* pVorbis = stb_vorbis_open_filename(filePath, NULL, NULL);
@@ -3643,19 +3643,19 @@ bool dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dr
     pDecoder->onSeek = onSeek;
     pDecoder->pUserData = pUserData;
 
-#ifdef DR_AUDIO_HAS_WAV
+#ifdef DR_AUDIO_HAS_WAV_STDIO
     if (dra_decoder_open__wav(pDecoder)) {
         return true;
     }
     onSeek(pUserData, 0, dra_seek_origin_start);
 #endif
-#ifdef DR_AUDIO_HAS_FLAC
+#ifdef DR_AUDIO_HAS_FLAC_STDIO
     if (dra_decoder_open__flac(pDecoder)) {
         return true;
     }
     onSeek(pUserData, 0, dra_seek_origin_start);
 #endif
-#ifdef DR_AUDIO_HAS_VORBIS
+#ifdef DR_AUDIO_HAS_VORBIS_STDIO
     if (dra_decoder_open__vorbis(pDecoder)) {
         return true;
     }
@@ -3685,17 +3685,17 @@ bool dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath)
     memset(pDecoder, 0, sizeof(*pDecoder));
 
     // When opening a decoder from a file it's preferrable to use the backend's native file IO APIs if it has them.
-#if defined(DR_AUDIO_HAS_WAV) && !defined(DR_AUDIO_USE_CUSTOM_WAV_STDIO)
+#if defined(DR_AUDIO_HAS_WAV) && defined(DR_AUDIO_HAS_WAV_STDIO)
     if (dra_decoder_open_file__wav(pDecoder, filePath)) {
         return true;
     }
 #endif
-#if defined(DR_AUDIO_HAS_FLAC) && !defined(DR_AUDIO_USE_CUSTOM_FLAC_STDIO)
+#if defined(DR_AUDIO_HAS_FLAC) && defined(DR_AUDIO_HAS_FLAC_STDIO)
     if (dra_decoder_open_file__flac(pDecoder, filePath)) {
         return true;
     }
 #endif
-#if defined(DR_AUDIO_HAS_VORBIS) && !defined(DR_AUDIO_USE_CUSTOM_VORBIS_STDIO)
+#if defined(DR_AUDIO_HAS_VORBIS) && defined(DR_AUDIO_HAS_VORBIS_STDIO)
     if (dra_decoder_open_file__vorbis(pDecoder, filePath)) {
         return true;
     }
