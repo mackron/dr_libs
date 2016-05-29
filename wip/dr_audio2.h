@@ -664,7 +664,9 @@ dra_sound_world* dra_sound_world_create(dra_device* pPlaybackDevice);
 void dra_sound_world_delete(dra_sound_world* pWorld);
 
 // dra_sound_world_play_inline()
-void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc);
+//
+// pMixer [in, optional] The mixer to attach the sound to. Can null, in which case it's attached to the master mixer.
+void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc, dra_mixer* pMixer);
 
 
 // dra_sound_create()
@@ -690,6 +692,11 @@ void dra_sound_play(dra_sound* pSound, bool loop);
 void dra_sound_stop(dra_sound* pSound);
 
 
+// Attaches the given sound to the given mixer.
+//
+// Setting pMixer to null will detach the sound from the mixer it is currently attached to and attach it
+// to the master mixer.
+void dra_sound_attach_to_mixer(dra_sound* pSound, dra_mixer* pMixer);
 
 
 
@@ -3798,7 +3805,7 @@ void dra_sound_world__on_inline_sound_stop(dra_voice* pVoice, uint64_t eventID, 
     dra_sound_delete(pSound);
 }
 
-void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc)
+void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc, dra_mixer* pMixer)
 {
     if (pWorld == NULL || pDesc == NULL) {
         return;
@@ -3809,6 +3816,10 @@ void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc)
     dra_sound* pSound = dra_sound_create(pWorld, pDesc);
     if (pSound == NULL) {
         return;
+    }
+
+    if (pMixer != NULL) {
+        dra_sound_attach_to_mixer(pSound, pMixer);
     }
 
     dra_voice_set_on_stop(pSound->pVoice, dra_sound_world__on_inline_sound_stop, pSound);
@@ -4044,6 +4055,20 @@ void dra_sound_stop(dra_sound* pSound)
     }
 
     dra_voice_stop(pSound->pVoice);
+}
+
+
+void dra_sound_attach_to_mixer(dra_sound* pSound, dra_mixer* pMixer)
+{
+    if (pSound == NULL) {
+        return;
+    }
+
+    if (pMixer == NULL) {
+        pMixer = pSound->pWorld->pPlaybackDevice->pMasterMixer;
+    }
+
+    dra_mixer_attach_voice(pMixer, pSound->pVoice);
 }
 
 #endif  //DR_AUDIO_IMPLEMENTATION
