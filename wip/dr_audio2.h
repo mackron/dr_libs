@@ -186,14 +186,14 @@ typedef void* dra_thread;
 typedef void* dra_mutex;
 typedef void* dra_semaphore;
 
-typedef void (* dra_voice_event_proc) (dra_voice* pVoice, uint64_t eventID, void* pUserData);
+typedef void (* dra_event_proc) (uint64_t eventID, void* pUserData);
 
 typedef struct
 {
     uint64_t id;
     void* pUserData;
     uint64_t sampleIndex;
-    dra_voice_event_proc proc;
+    dra_event_proc proc;
     dra_voice* pVoice;
     bool hasBeenSignaled;
 } dra__event;
@@ -406,6 +406,10 @@ struct dra_voice
     dra__event playEvent;
 
 
+    // Application defined user data.
+    void* pUserData;
+
+
     // The size of the buffer in bytes.
     size_t sizeInBytes;
 
@@ -509,9 +513,9 @@ void dra_voice_set_volume(dra_voice* pVoice, float linearVolume);
 float dra_voice_get_volume(dra_voice* pVoice);
 
 
-void dra_voice_set_on_stop(dra_voice* pVoice, dra_voice_event_proc proc, void* pUserData);
-void dra_voice_set_on_play(dra_voice* pVoice, dra_voice_event_proc proc, void* pUserData);
-bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_voice_event_proc proc, void* pUserData);
+void dra_voice_set_on_stop(dra_voice* pVoice, dra_event_proc proc, void* pUserData);
+void dra_voice_set_on_play(dra_voice* pVoice, dra_event_proc proc, void* pUserData);
+bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_event_proc proc, void* pUserData);
 void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID);
 
 
@@ -651,6 +655,9 @@ struct dra_sound
 
     // Whether or not the sound should be stopped at the end of the chunk that's currently playing.
     bool stopOnNextChunk;
+
+    // Application defined user data.
+    void* pUserData;
 };
 
 // dra_sound_world_create()
@@ -672,6 +679,9 @@ void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc,
 // dra_sound_create()
 //
 // The datails in "desc" can be accessed from the returned object directly.
+//
+// This uses the pUserData member of the internal voice. Do not overwrite this. Instead, use the pUserData member of
+// the returned dra_sound object.
 dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc);
 
 #ifndef DR_AUDIO_NO_STDIO
@@ -699,6 +709,11 @@ void dra_sound_stop(dra_sound* pSound);
 void dra_sound_attach_to_mixer(dra_sound* pSound, dra_mixer* pMixer);
 
 
+// dra_sound_set_on_stop()
+void dra_sound_set_on_stop(dra_sound* pSound, dra_event_proc proc, void* pUserData);
+
+// dra_sound_set_on_play()
+void dra_sound_set_on_play(dra_sound* pSound, dra_event_proc proc, void* pUserData);
 
 
 #ifdef __cplusplus
@@ -2146,7 +2161,7 @@ void dra_event_queue__post_events(dra__event_queue* pQueue)
     dra__event nextEvent;
     while (dra_event_queue__next_event(pQueue, &nextEvent)) {
         if (nextEvent.proc) {
-            nextEvent.proc(nextEvent.pVoice, nextEvent.id, nextEvent.pUserData);
+            nextEvent.proc(nextEvent.id, nextEvent.pUserData);
         }
     }
 }
@@ -3254,7 +3269,7 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
 }
 
 
-void dra_voice_set_on_stop(dra_voice* pVoice, dra_voice_event_proc proc, void* pUserData)
+void dra_voice_set_on_stop(dra_voice* pVoice, dra_event_proc proc, void* pUserData)
 {
     if (pVoice == NULL) {
         return;
@@ -3267,7 +3282,7 @@ void dra_voice_set_on_stop(dra_voice* pVoice, dra_voice_event_proc proc, void* p
     pVoice->stopEvent.pVoice = pVoice;
 }
 
-void dra_voice_set_on_play(dra_voice* pVoice, dra_voice_event_proc proc, void* pUserData)
+void dra_voice_set_on_play(dra_voice* pVoice, dra_event_proc proc, void* pUserData)
 {
     if (pVoice == NULL) {
         return;
@@ -3280,7 +3295,7 @@ void dra_voice_set_on_play(dra_voice* pVoice, dra_voice_event_proc proc, void* p
     pVoice->playEvent.pVoice = pVoice;
 }
 
-bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_voice_event_proc proc, void* pUserData)
+bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_event_proc proc, void* pUserData)
 {
     if (pVoice == NULL) {
         return false;
@@ -3794,9 +3809,8 @@ void dra_sound_world_delete(dra_sound_world* pWorld)
 }
 
 
-void dra_sound_world__on_inline_sound_stop(dra_voice* pVoice, uint64_t eventID, void* pUserData)
+void dra_sound_world__on_inline_sound_stop(uint64_t eventID, void* pUserData)
 {
-    (void)pVoice;
     (void)eventID;
 
     dra_sound* pSound = (dra_sound*)pUserData;
@@ -3882,11 +3896,8 @@ bool dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOffset)
     return true;
 }
 
-void dra_sound__on_read_next_chunk(dra_voice* pVoice, uint64_t eventID, void* pUserData)
+void dra_sound__on_read_next_chunk(uint64_t eventID, void* pUserData)
 {
-    assert(pVoice != NULL);
-    (void)pVoice;
-
     dra_sound* pSound = (dra_sound*)pUserData;
     assert(pSound != NULL);
 
@@ -3931,6 +3942,11 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
         dra_voice_add_playback_event(pSound->pVoice, streamingBufferSize/2, 0, dra_sound__on_read_next_chunk, pSound);
     }
     
+    if (pSound->pVoice == NULL) {
+        goto on_error;
+    }
+
+    pSound->pVoice->pUserData = pSound;
 
 
     // Streaming buffers need to have an initial chunk of data loaded before returning. This ensures the internal buffer contains valid audio data in
@@ -4069,6 +4085,17 @@ void dra_sound_attach_to_mixer(dra_sound* pSound, dra_mixer* pMixer)
     }
 
     dra_mixer_attach_voice(pMixer, pSound->pVoice);
+}
+
+
+void dra_sound_set_on_stop(dra_sound* pSound, dra_event_proc proc, void* pUserData)
+{
+    dra_voice_set_on_stop(pSound->pVoice, proc, pUserData);
+}
+
+void dra_sound_set_on_play(dra_sound* pSound, dra_event_proc proc, void* pUserData)
+{
+    dra_voice_set_on_play(pSound->pVoice, proc, pUserData);
 }
 
 #endif  //DR_AUDIO_IMPLEMENTATION
