@@ -3637,7 +3637,7 @@ bool dra_decoder_open_file__vorbis(dra_decoder* pDecoder, const char* filePath)
 
     pDecoder->channels = info.channels;
     pDecoder->sampleRate = info.sample_rate;
-    pDecoder->totalSampleCount = stb_vorbis_stream_length_in_samples(pVorbis);
+    pDecoder->totalSampleCount = stb_vorbis_stream_length_in_samples(pVorbis) * info.channels;
 
     pDecoder->pBackendDecoder = pVorbis;
     pDecoder->onDelete = dra_decoder_on_delete__vorbis;
