@@ -39,6 +39,7 @@ extern "C" {
 #include <time.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #ifndef DR_NO_MSVC_COMPAT
 #include <errno.h>
