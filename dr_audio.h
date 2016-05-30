@@ -568,10 +568,12 @@ typedef struct
 
 // dra_decoder_open()
 bool dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData);
+float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
 #ifndef DR_AUDIO_NO_STDIO
 // dra_decoder_open_file()
 bool dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath);
+float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 #endif
 
 // dra_decoder_close()
@@ -3773,6 +3775,110 @@ bool dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample)
 }
 
 
+float* dra_decoder__full_decode_and_close(dra_decoder* pDecoder, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalSampleCountOut)
+{
+    assert(pDecoder != NULL);
+
+    float* pSampleData = NULL;
+    uint64_t totalSampleCount = pDecoder->totalSampleCount;
+
+    if (totalSampleCount == 0)
+    {
+        float buffer[4096];
+
+        size_t sampleDataBufferSize = sizeof(buffer);
+        pSampleData = (float*)malloc(sampleDataBufferSize);
+        if (pSampleData == NULL) {
+            goto on_error;
+        }
+        
+        uint64_t samplesRead;
+        while ((samplesRead = (uint64_t)dra_decoder_read_f32(pDecoder, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0)
+        {
+            if (((totalSampleCount + samplesRead) * sizeof(float)) > sampleDataBufferSize) {
+                sampleDataBufferSize *= 2;
+                float* pNewSampleData = (float*)realloc(pSampleData, sampleDataBufferSize);
+                if (pNewSampleData == NULL) {
+                    free(pSampleData);
+                    goto on_error;
+                }
+
+                pSampleData = pNewSampleData;
+            }
+
+            memcpy(pSampleData + totalSampleCount, buffer, (size_t)(samplesRead*sizeof(float)));
+            totalSampleCount += samplesRead;
+        }
+
+        // At this point everything should be decoded, but we just want to fill the unused part buffer with silence - need to
+        // protect those ears from random noise!
+        memset(pSampleData + totalSampleCount, 0, (size_t)(sampleDataBufferSize - totalSampleCount*sizeof(float)));
+    }
+    else
+    {
+        uint64_t dataSize = totalSampleCount * sizeof(float);
+        if (dataSize > SIZE_MAX) {
+            goto on_error;  // The decoded data is too big.
+        }
+
+        pSampleData = (float*)malloc((size_t)dataSize);    // <-- Safe cast as per the check above.
+        if (pSampleData == NULL) {
+            goto on_error;
+        }
+
+        uint64_t samplesDecoded = dra_decoder_read_f32(pDecoder, pDecoder->totalSampleCount, pSampleData);
+        if (samplesDecoded != pDecoder->totalSampleCount) {
+            free(pSampleData);
+            goto on_error;  // Something went wrong when decoding the FLAC stream.
+        }
+    }
+
+
+    if (channelsOut) *channelsOut = pDecoder->channels;
+    if (sampleRateOut) *sampleRateOut = pDecoder->sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalSampleCount;
+
+    dra_decoder_close(pDecoder);
+    return pSampleData;
+
+on_error:
+    dra_decoder_close(pDecoder);
+    return NULL;
+}
+
+float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
+{
+    // Safety.
+    if (channels) *channels = 0;
+    if (sampleRate) *sampleRate = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    dra_decoder decoder;
+    if (!dra_decoder_open(&decoder, onRead, onSeek, pUserData)) {
+        return NULL;
+    }
+
+    return dra_decoder__full_decode_and_close(&decoder, channels, sampleRate, totalSampleCount);
+}
+
+#ifndef DR_AUDIO_NO_STDIO
+float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
+{
+    // Safety.
+    if (channels) *channels = 0;
+    if (sampleRate) *sampleRate = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    dra_decoder decoder;
+    if (!dra_decoder_open_file(&decoder, filePath)) {
+        return NULL;
+    }
+
+    return dra_decoder__full_decode_and_close(&decoder, channels, sampleRate, totalSampleCount);
+}
+#endif
+
+
 
 //// High Level Helper APIs ////
 
@@ -3783,32 +3889,17 @@ dra_voice* dra_voice_create_from_file(dra_device* pDevice, const char* filePath)
         return NULL;
     }
 
-    dra_decoder decoder;
-    if (!dra_decoder_open_file(&decoder, filePath)) {
-        return NULL;
-    }
-
-    // TODO: Make this more robust. Base it off drflac_open_and_read(). Create dra_decoder_open_and_read(), dra_decoder_open_file_and_read(), etc.
-
-    size_t samplesSizeInBytes = (size_t)decoder.totalSampleCount * sizeof(float);
-    float* pSampleData = (float*)malloc(samplesSizeInBytes);
+    unsigned int channels;
+    unsigned int sampleRate;
+    uint64_t totalSampleCount;
+    float* pSampleData = dra_decoder_open_and_decode_file_f32(filePath, &sampleRate, &channels, &totalSampleCount);
     if (pSampleData == NULL) {
-        dra_decoder_close(&decoder);
         return NULL;
     }
 
-    uint64_t sampleCount = dra_decoder_read_f32(&decoder, decoder.totalSampleCount, pSampleData);
-    dra_decoder_close(&decoder);
+    dra_voice* pVoice = dra_voice_create(pDevice, dra_format_f32, channels, sampleRate, (size_t)totalSampleCount * sizeof(float), pSampleData);
 
-    if (sampleCount == 0) {
-        return NULL;
-    }
-
-    dra_voice* pVoice = dra_voice_create(pDevice, dra_format_f32, decoder.channels, decoder.sampleRate, samplesSizeInBytes, pSampleData);
-    if (pVoice == NULL) {
-        return NULL;
-    }
-
+    free(pSampleData);
     return pVoice;
 }
 #endif
