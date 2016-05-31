@@ -285,7 +285,9 @@ typedef void   (* dr_key_value_error_proc)(void* pUserData, const char* message,
 ///     @par
 ///     If an error occurs, that line will be skipped and processing will continue.
 void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
-void dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
+
+// This will only return false if the file fails to open. It will still return true even if there are syntax error or whatnot.
+bool dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
 
 
 
@@ -1244,13 +1246,13 @@ void dr_parse_key_value_pairs_from_file__on_error(void* pUserData, const char* m
     pData->onError(pData->pOriginalUserData, message, line);
 }
 
-void dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData)
+bool dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData)
 {
     dr_parse_key_value_pairs_from_file_data data;
     data.pFile = dr_fopen(filePath, "rb");
     if (data.pFile == NULL) {
         if (onError) onError(pUserData, "Could not open file.", 0);
-        return;
+        return false;
     }
 
     data.onPair = onPair;
@@ -1259,6 +1261,7 @@ void dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_
     dr_parse_key_value_pairs(dr_parse_key_value_pairs_from_file__on_read, dr_parse_key_value_pairs_from_file__on_pair, dr_parse_key_value_pairs_from_file__on_error, &data);
 
     fclose(data.pFile);
+    return true;
 }
 
 
