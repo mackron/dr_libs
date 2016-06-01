@@ -151,6 +151,12 @@ const char* dr_first_non_whitespace(const char* str);
 /// Finds the first occurance of a whitespace character in the given string.
 const char* dr_first_whitespace(const char* str);
 
+/// Finds the beginning of the next line.
+const char* dr_next_line(const char* str);
+
+/// Makes a copy of the first line of the given string.
+size_t dr_copy_line(const char* str, char* lineOut, size_t lineOutSize);
+
 
 /////////////////////////////////////////////////////////
 // Unicode Utilities
@@ -925,6 +931,51 @@ const char* dr_first_whitespace(const char* str)
     return str;
 }
 
+const char* dr_next_line(const char* str)
+{
+    if (str == NULL) {
+        return NULL;
+    }
+
+    while (str[0] != '\0' && (str[0] != '\n' && (str[0] != '\r' || str[1] == '\n'))) {
+        str += 1;
+    }
+
+    if (str[0] == '\0') {
+        return NULL;
+    }
+
+    if (str[0] == '\r') {
+        return str + 2;
+    }
+
+    return str + 1;
+}
+
+size_t dr_copy_line(const char* str, char* lineOut, size_t lineOutSize)
+{
+    if (str == NULL) {
+        return 0;
+    }
+
+    if (str == NULL) {
+        return 0;
+    }
+
+    size_t length = 0;
+    while (lineOutSize > 0 && str[0] != '\0' && (str[0] != '\n' && (str[0] != '\r' || str[1] == '\n'))) {
+        *lineOut++ = *str++;
+        lineOutSize -= 1;
+        length += 1;
+    }
+
+    if (lineOutSize == 0) {
+        return 0;
+    }
+
+    *lineOut = '\0';
+    return length;
+}
 
 
 /////////////////////////////////////////////////////////
