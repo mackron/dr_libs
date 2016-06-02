@@ -12445,7 +12445,8 @@ DRGUI_PRIVATE drgui_tab* drgui_tabbar_find_tab_under_point(drgui_element* pTBEle
         {
             if (pIsOverCloseButtonOut)
             {
-                if (relativePosX >= runningPosX + tabWidth  - (pTB->tabPadding + pTB->closeButtonWidth)  && relativePosX < runningPosX + tabWidth  - pTB->tabPadding &&
+                if (pTB->isShowingCloseButton &&
+                    relativePosX >= runningPosX + tabWidth  - (pTB->tabPadding + pTB->closeButtonWidth)  && relativePosX < runningPosX + tabWidth  - pTB->tabPadding &&
                     relativePosY >= runningPosY + tabHeight - (pTB->tabPadding + pTB->closeButtonHeight) && relativePosY < runningPosY + tabHeight - pTB->tabPadding)
                 {
                     *pIsOverCloseButtonOut = true;
