@@ -13021,6 +13021,9 @@ void drgui_textbox_on_mouse_wheel(drgui_element* pTBElement, int delta, int rela
 /// on_key_down.
 void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int stateFlags);
 
+/// on_key_up.
+void drgui_textbox_on_key_up(drgui_element* pTBElement, drgui_key key, int stateFlags);
+
 /// on_printable_key_down.
 void drgui_textbox_on_printable_key_down(drgui_element* pTBElement, unsigned int utf32, int stateFlags);
 
@@ -14152,6 +14155,13 @@ void drgui_textbox_on_key_down(drgui_element* pTBElement, drgui_key key, int sta
 
         default: break;
     }
+}
+
+void drgui_textbox_on_key_up(drgui_element* pTBElement, drgui_key key, int stateFlags)
+{
+    (void)pTBElement;
+    (void)key;
+    (void)stateFlags;
 }
 
 void drgui_textbox_on_printable_key_down(drgui_element* pTBElement, unsigned int utf32, int stateFlags)
