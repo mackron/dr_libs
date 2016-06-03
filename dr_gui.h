@@ -11457,6 +11457,19 @@ void drgui_tabbar_disable_auto_size(drgui_element* pTBElement);
 bool drgui_tabbar_is_auto_size_enabled(drgui_element* pTBElement);
 
 
+// Retrieves a pointer to the first tab in the given tab bar.
+drgui_tab* drgui_tabbar_get_first_tab(drgui_element* pTBElement);
+
+// Retrieves a pointer to the last tab in the given tab bar.
+drgui_tab* drgui_tabbar_get_last_tab(drgui_element* pTBElement);
+
+// Retrieves a pointer to the next tab in the given tab bar.
+drgui_tab* drgui_tabbar_get_next_tab(drgui_element* pTBElement, drgui_tab* pTab);
+
+// Retrieves a pointer to the previous tab in the given tab bar.
+drgui_tab* drgui_tabbar_get_prev_tab(drgui_element* pTBElement, drgui_tab* pTab);
+
+
 /// Activates the given tab.
 void drgui_tabbar_activate_tab(drgui_element* pTBElement, drgui_tab* pTab);
 
@@ -11517,7 +11530,7 @@ drgui_tab* drgui_tabbar_create_and_prepend_tab(drgui_element* pTBElement, const 
 /// Recursively deletes a tree view item.
 void drgui_tab_delete(drgui_tab* pTab);
 
-/// Retrieves the tree-view GUI element that owns the given item.
+/// Retrieves the tab bar GUI element that owns the given item.
 drgui_element* drgui_tab_get_tab_bar_element(drgui_tab* pTab);
 
 /// Retrieves the size of the extra data associated with the given tree-view item.
@@ -11998,6 +12011,39 @@ bool drgui_tabbar_is_auto_size_enabled(drgui_element* pTBElement)
     }
 
     return pTB->isAutoSizeEnabled;
+}
+
+
+drgui_tab* drgui_tabbar_get_first_tab(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return NULL;
+    }
+
+    return pTB->pFirstTab;
+}
+
+drgui_tab* drgui_tabbar_get_last_tab(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return NULL;
+    }
+    
+    return pTB->pLastTab;
+}
+
+drgui_tab* drgui_tabbar_get_next_tab(drgui_element* pTBElement, drgui_tab* pTab)
+{
+    (void)pTBElement;
+    return drgui_tab_get_next_tab(pTab);
+}
+
+drgui_tab* drgui_tabbar_get_prev_tab(drgui_element* pTBElement, drgui_tab* pTab)
+{
+    (void)pTBElement;
+    return drgui_tab_get_prev_tab(pTab);
 }
 
 
