@@ -12330,7 +12330,7 @@ void drgui_tabbar_on_paint(drgui_element* pTBElement, drgui_rect relativeClippin
         drgui_tabbar_measure_tab(pTBElement, pTab, &tabWidth, &tabHeight);
 
         // If a part of the tab is out of bounds, stop drawing.
-        if (runningPosX + tabWidth > tabbarWidth || runningPosY + tabHeight > tabbarHeight) {
+        if (runningPosX > tabbarWidth || runningPosY > tabbarHeight) {
             break;
         }
 
