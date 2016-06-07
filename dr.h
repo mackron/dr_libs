@@ -3,7 +3,7 @@
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
-//   #define DR_UTIL_IMPLEMENTATION
+//   #define DR_IMPLEMENTATION
 //   #include "dr.h"
 //
 // You can then #include dr.h in other parts of the program as you would with any other header file.
@@ -666,7 +666,7 @@ int strncat_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifdef DR_UTIL_IMPLEMENTATION
+#ifdef DR_IMPLEMENTATION
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -2583,7 +2583,7 @@ float dr_randf()
     return (float)dr_randd();
 }
 
-#endif  //DR_UTIL_IMPLEMENTATION
+#endif  //DR_IMPLEMENTATION
 
 
 /*
