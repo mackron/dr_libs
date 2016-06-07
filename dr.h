@@ -602,6 +602,14 @@ double dr_randd();
 float dr_randf();
 
 
+
+/////////////////////////////////////////////////////////
+// Miscellaneous Stuff.
+
+// Helper for clearing the given object to 0.
+#define dr_zero_object(pObject) memset(pObject, 0, sizeof(*pObject));
+
+
 /////////////////////////////////////////////////////////
 // C++ Specific
 
