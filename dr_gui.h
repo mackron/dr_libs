@@ -1030,6 +1030,9 @@ bool drgui_is_element_under_mouse(drgui_element* pTopLevelElement);
 
 //// Hierarchy ////
 
+// Retrieves the parent of the given element.
+drgui_element* drgui_get_parent(drgui_element* pChildElement);
+
 /// Detaches the given element from it's parent.
 void drgui_detach(drgui_element* pChildElement);
 
@@ -3546,6 +3549,15 @@ bool drgui_is_element_under_mouse(drgui_element* pElement)
 
 
 //// Hierarchy ////
+
+drgui_element* drgui_get_parent(drgui_element* pChildElement)
+{
+    if (pChildElement == NULL) {
+        return NULL;
+    }
+
+    return pChildElement->pParent;
+}
 
 void drgui_detach(drgui_element* pChildElement)
 {
