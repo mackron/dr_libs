@@ -211,6 +211,52 @@ DR_MATHCALL vec3 vec3_div(vec3 a, vec3 b)
 }
 
 
+DR_MATHCALL float vec3_dot(vec3 a, vec3 b)
+{
+    return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+
+DR_MATHCALL float vec3_length2(vec3 a)
+{
+    return vec3_dot(a, a);
+}
+
+DR_MATHCALL float vec3_length(vec3 a)
+{
+    return sqrtf(vec3_length2(a));
+}
+
+
+DR_MATHCALL vec3 vec3_normalize(vec3 a)
+{
+    float len = vec3_length(a);
+
+    return vec3f(
+        a.x / len,
+        a.y / len,
+        a.z / len
+    );
+}
+
+DR_MATHCALL vec3 vec3_cross(vec3 a, vec3 b)
+{
+    return vec3f(
+        a.y*b.z - a.z*b.y,
+        a.z*b.x - a.x*b.z,
+        a.x*b.y - a.y*b.x
+    );
+}
+
+
+DR_MATHCALL vec3 vec3_triangle_normal(vec3 p1, vec3 p2, vec3 p3)
+{
+    vec3 u = vec3_sub(p2, p1);
+    vec3 v = vec3_sub(p3, p1);
+    return vec3_normalize(vec3_cross(u, v));
+}
+
+
 
 ///////////////////////////////////////////////
 //
