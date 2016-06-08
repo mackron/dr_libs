@@ -758,7 +758,7 @@ dr_window* dr_window_create(void* pUserData, const char* pTitle, unsigned int re
     }
 
     // We should have a window, but before showing it we need to make a few small adjustments to the position and size. First, we need to
-    // honour the TA_WINDOW_CENTERED option. Second, we need to make a small change to the size of the window such that the client size
+    // honour the DR_WINDOW_CENTERED option. Second, we need to make a small change to the size of the window such that the client size
     // is equal to resolutionX and resolutionY. When we created the window, we specified resolutionX and resolutionY as the dimensions,
     // however this includes the size of the outer border. The outer border should not be included, so we need to stretch the window just
     // a little bit such that the area inside the borders are exactly equal to resolutionX and resolutionY.
