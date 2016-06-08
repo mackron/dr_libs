@@ -1056,11 +1056,11 @@ typedef struct
 } drgl;
 
 
-// drgl_init()
-bool drgl_init(drgl* pGL);
+// drglInit()
+bool drglInit(drgl* pGL);
 
-// drgl_uninit()
-void drgl_uninit(drgl* pGL);
+// drglUninit()
+void drglUninit(drgl* pGL);
 
 
 
@@ -1106,7 +1106,7 @@ void* drgl__get_gl_proc_address(const char* name)
 
 
 
-bool drgl_init(drgl* pGL)
+bool drglInit(drgl* pGL)
 {
     if (pGL == NULL) {
         return false;
@@ -1804,11 +1804,11 @@ bool drgl_init(drgl* pGL)
 
 
 on_error:
-    drgl_uninit(pGL);
+    drglUninit(pGL);
     return false;
 }
 
-void drgl_uninit(drgl* pGL)
+void drglUninit(drgl* pGL)
 {
     if (pGL == NULL) {
         return;
