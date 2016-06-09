@@ -483,6 +483,21 @@ float dra_mixer_get_volume(dra_mixer* pMixer);
 size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount);
 
 
+// Non-recursively counts the number of voices that are attached to the given mixer.
+size_t dra_mixer_count_attached_voices(dra_mixer* pMixer);
+
+// Recursively counts the number of voices that are attached to the given mixer.
+size_t dra_mixer_count_attached_voices_recursive(dra_mixer* pMixer);
+
+// Non-recursively gathers all of the voices that are currently attached to the given mixer.
+size_t dra_mixer_gather_attached_voices(dra_mixer* pMixer, dra_voice** ppVoicesOut);
+
+// Recursively gathers all of the voices that are currently attached to the given mixer.
+size_t dra_mixer_gather_attached_voices_recursive(dra_mixer* pMixer, dra_voice** ppVoicesOut);
+
+
+
+
 // dra_voice_create()
 dra_voice* dra_voice_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData);
 dra_voice* dra_voice_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData);
@@ -526,7 +541,10 @@ void* dra_voice_get_buffer_ptr_by_sample(dra_voice* pVoice, uint64_t sample);
 void dra_voice_write_silence(dra_voice* pVoice, uint64_t sampleOffset, uint64_t sampleCount);
 
 
-//// Utility APIs ////
+//// Other APIs ////
+
+// Frees memory that was allocated internally by dr_audio.
+void dra_free(void* p);
 
 // Retrieves the number of bits per sample based on the given format.
 unsigned int dra_get_bits_per_sample_by_format(dra_format format);
@@ -702,6 +720,11 @@ void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc,
 //
 // This is a placeholder function. 3D position is not yet implemented.
 void dra_sound_world_play_inline_3f(dra_sound_world* pWorld, dra_sound_desc* pDesc, dra_mixer* pMixer, float xPos, float yPos, float zPos);
+
+// Stops playing every sound.
+//
+// This will stop all voices that are attached to the world's playback deviecs, including those that are not attached to a dra_sound object.
+void dra_sound_world_stop_all_sounds(dra_sound_world* pWorld);
 
 
 // dra_sound_create()
@@ -2794,6 +2817,75 @@ size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
     return framesMixed;
 }
 
+size_t dra_mixer_count_attached_voices(dra_mixer* pMixer)
+{
+    if (pMixer == NULL) {
+        return 0;
+    }
+
+    size_t count = 0;
+    for (dra_voice* pVoice = pMixer->pFirstVoice; pVoice != NULL; pVoice = pVoice->pNextVoice) {
+        count += 1;
+    }
+
+    return count;
+}
+
+size_t dra_mixer_count_attached_voices_recursive(dra_mixer* pMixer)
+{
+    if (pMixer == NULL) {
+        return 0;
+    }
+
+    size_t count = dra_mixer_count_attached_voices(pMixer);
+    
+    // Children.
+    for (dra_mixer* pChildMixer = pMixer->pFirstChildMixer; pChildMixer != NULL; pChildMixer = pChildMixer->pNextSiblingMixer) {
+        count += dra_mixer_count_attached_voices_recursive(pChildMixer);
+    }
+
+    return count;
+}
+
+size_t dra_mixer_gather_attached_voices(dra_mixer* pMixer, dra_voice** ppVoicesOut)
+{
+    if (pMixer == NULL) {
+        return 0;
+    }
+
+    if (ppVoicesOut == NULL) {
+        return dra_mixer_count_attached_voices(pMixer);
+    }
+
+    size_t count = 0;
+    for (dra_voice* pVoice = pMixer->pFirstVoice; pVoice != NULL; pVoice = pVoice->pNextVoice) {
+        ppVoicesOut[count] = pVoice;
+        count += 1;
+    }
+
+    return count;
+}
+
+size_t dra_mixer_gather_attached_voices_recursive(dra_mixer* pMixer, dra_voice** ppVoicesOut)
+{
+    if (pMixer == NULL) {
+        return 0;
+    }
+
+    if (ppVoicesOut == NULL) {
+        return dra_mixer_count_attached_voices_recursive(pMixer);
+    }
+
+    size_t count = dra_mixer_gather_attached_voices(pMixer, ppVoicesOut);
+
+    // Children.
+    for (dra_mixer* pChildMixer = pMixer->pFirstChildMixer; pChildMixer != NULL; pChildMixer = pChildMixer->pNextSiblingMixer) {
+        count += dra_mixer_gather_attached_voices_recursive(pChildMixer, ppVoicesOut + count);
+    }
+
+    return count;
+}
+
 
 
 dra_voice* dra_voice_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData)
@@ -3393,7 +3485,12 @@ void dra_voice_write_silence(dra_voice* pVoice, uint64_t sampleOffset, uint64_t 
 
 
 
-//// Utility APIs ////
+//// Other APIs ////
+
+void dra_free(void* p)
+{
+    free(p);
+}
 
 unsigned int dra_get_bits_per_sample_by_format(dra_format format)
 {
@@ -3794,17 +3891,17 @@ bool dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t da
 
     // Prefer the backend's native APIs.
 #if defined(DR_AUDIO_HAS_WAV)
-    if (dra_decoder_open_memory__wav(pDecoder, filePath)) {
+    if (dra_decoder_open_memory__wav(pDecoder, pData, dataSize)) {
         return true;
     }
 #endif
 #if defined(DR_AUDIO_HAS_FLAC)
-    if (dra_decoder_open_memory__flac(pDecoder, filePath)) {
+    if (dra_decoder_open_memory__flac(pDecoder, pData, dataSize)) {
         return true;
     }
 #endif
 #if defined(DR_AUDIO_HAS_VORBIS)
-    if (dra_decoder_open_memory__vorbis(pDecoder, filePath)) {
+    if (dra_decoder_open_memory__vorbis(pDecoder, pData, dataSize)) {
         return true;
     }
 #endif
@@ -4145,6 +4242,34 @@ void dra_sound_world_play_inline_3f(dra_sound_world* pWorld, dra_sound_desc* pDe
     (void)yPos;
     (void)zPos;
     dra_sound_world_play_inline(pWorld, pDesc, pMixer);
+}
+
+void dra_sound_world_stop_all_sounds(dra_sound_world* pWorld)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    // When sounds are stopped the on_stop event handler will be fired. It is possible for the implementation of this event handler to
+    // delete the sound, so we'll first need to gather the sounds into a separate list.
+    size_t voiceCount = dra_mixer_count_attached_voices_recursive(pWorld->pPlaybackDevice->pMasterMixer);
+    if (voiceCount == 0) {
+        return;
+    }
+
+    dra_voice** ppVoices = (dra_voice**)malloc(voiceCount * sizeof(*ppVoices));
+    if (ppVoices == NULL) {
+        return;
+    }
+
+    voiceCount = dra_mixer_gather_attached_voices_recursive(pWorld->pPlaybackDevice->pMasterMixer, ppVoices);
+    assert(voiceCount != 0);
+
+    for (size_t iVoice = 0; iVoice < voiceCount; ++iVoice) {
+        dra_voice_stop(ppVoices[iVoice]);
+    }
+
+    free(ppVoices);
 }
 
 
