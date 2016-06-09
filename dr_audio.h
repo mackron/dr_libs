@@ -727,6 +727,19 @@ void dra_sound_world_play_inline_3f(dra_sound_world* pWorld, dra_sound_desc* pDe
 void dra_sound_world_stop_all_sounds(dra_sound_world* pWorld);
 
 
+// Sets the position of the listener for 3D effects.
+//
+// This is placeholder.
+void dra_sound_world_set_listener_position(dra_sound_world* pWorld, float xPos, float yPos, float zPos);
+
+// Sets the orientation of the listener for 3D effects.
+//
+// This is placeholder.
+void dra_sound_world_set_listener_orientation(dra_sound_world* pWorld, float xForward, float yForward, float zForward, float xUp, float yUp, float zUp);
+
+
+
+
 // dra_sound_create()
 //
 // The datails in "desc" can be accessed from the returned object directly.
@@ -4270,6 +4283,33 @@ void dra_sound_world_stop_all_sounds(dra_sound_world* pWorld)
     }
 
     free(ppVoices);
+}
+
+void dra_sound_world_set_listener_position(dra_sound_world* pWorld, float xPos, float yPos, float zPos)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    // TODO: Implement me.
+    (void)xPos;
+    (void)yPos;
+    (void)zPos;
+}
+
+void dra_sound_world_set_listener_orientation(dra_sound_world* pWorld, float xForward, float yForward, float zForward, float xUp, float yUp, float zUp)
+{
+    if (pWorld == NULL) {
+        return;
+    }
+
+    // TODO: Implement me.
+    (void)xForward;
+    (void)yForward;
+    (void)zForward;
+    (void)xUp;
+    (void)yUp;
+    (void)zUp;
 }
 
 
