@@ -552,6 +552,13 @@ typedef bool     (* dra_decoder_on_seek_samples_proc) (void* pBackendDecoder, ui
 
 typedef struct
 {
+    const uint8_t* data;
+    size_t dataSize;
+    size_t currentReadPos;
+} dra__memory_stream;
+
+typedef struct
+{
     unsigned int channels;
     unsigned int sampleRate;
     uint64_t totalSampleCount;  // <-- Can be 0.
@@ -564,11 +571,17 @@ typedef struct
     dra_decoder_on_delete_proc onDelete;
     dra_decoder_on_read_samples_proc onReadSamples;
     dra_decoder_on_seek_samples_proc onSeekSamples;
+
+    // A hack to enable decoding from memory without mallocing the user data.
+    dra__memory_stream memoryStream;
 } dra_decoder;
 
 // dra_decoder_open()
 bool dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData);
 float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+
+bool dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize);
+float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
 #ifndef DR_AUDIO_NO_STDIO
 // dra_decoder_open_file()
@@ -3463,12 +3476,10 @@ bool dra_decoder_on_seek_samples__wav(void* pBackendDecoder, uint64_t sample)
 }
 
 
-bool dra_decoder_open__wav(dra_decoder* pDecoder)
+void dra_decoder_init__wav(dra_decoder* pDecoder, drwav* pWav)
 {
-    drwav* pWav = drwav_open(dra_decoder_on_read__wav, dra_decoder_on_seek__wav, pDecoder);
-    if (pWav == NULL) {
-        return false;
-    }
+    assert(pDecoder != NULL);
+    assert(pWav != NULL);
 
     pDecoder->channels = pWav->channels;
     pDecoder->sampleRate = pWav->sampleRate;
@@ -3478,7 +3489,27 @@ bool dra_decoder_open__wav(dra_decoder* pDecoder)
     pDecoder->onDelete = dra_decoder_on_delete__wav;
     pDecoder->onReadSamples = dra_decoder_on_read_samples__wav;
     pDecoder->onSeekSamples = dra_decoder_on_seek_samples__wav;
+}
 
+bool dra_decoder_open__wav(dra_decoder* pDecoder)
+{
+    drwav* pWav = drwav_open(dra_decoder_on_read__wav, dra_decoder_on_seek__wav, pDecoder);
+    if (pWav == NULL) {
+        return false;
+    }
+
+    dra_decoder_init__wav(pDecoder, pWav);
+    return true;
+}
+
+bool dra_decoder_open_memory__wav(dra_decoder* pDecoder, const void* pData, size_t dataSize)
+{
+    drwav* pWav = drwav_open_memory(pData, dataSize);
+    if (pWav == NULL) {
+        return false;
+    }
+
+    dra_decoder_init__wav(pDecoder, pWav);
     return true;
 }
 
@@ -3490,15 +3521,7 @@ bool dra_decoder_open_file__wav(dra_decoder* pDecoder, const char* filePath)
         return false;
     }
 
-    pDecoder->channels = pWav->channels;
-    pDecoder->sampleRate = pWav->sampleRate;
-    pDecoder->totalSampleCount = pWav->totalSampleCount;
-
-    pDecoder->pBackendDecoder = pWav;
-    pDecoder->onDelete = dra_decoder_on_delete__wav;
-    pDecoder->onReadSamples = dra_decoder_on_read_samples__wav;
-    pDecoder->onSeekSamples = dra_decoder_on_seek_samples__wav;
-
+    dra_decoder_init__wav(pDecoder, pWav);
     return true;
 }
 #endif
@@ -3550,12 +3573,10 @@ bool dra_decoder_on_seek_samples__flac(void* pBackendDecoder, uint64_t sample)
 }
 
 
-bool dra_decoder_open__flac(dra_decoder* pDecoder)
+void dra_decoder_init__flac(dra_decoder* pDecoder, drflac* pFlac)
 {
-    drflac* pFlac = drflac_open(dra_decoder_on_read__flac, dra_decoder_on_seek__flac, pDecoder);
-    if (pFlac == NULL) {
-        return false;
-    }
+    assert(pDecoder != NULL);
+    assert(pFlac != NULL);
 
     pDecoder->channels = pFlac->channels;
     pDecoder->sampleRate = pFlac->sampleRate;
@@ -3565,7 +3586,27 @@ bool dra_decoder_open__flac(dra_decoder* pDecoder)
     pDecoder->onDelete = dra_decoder_on_delete__flac;
     pDecoder->onReadSamples = dra_decoder_on_read_samples__flac;
     pDecoder->onSeekSamples = dra_decoder_on_seek_samples__flac;
+}
 
+bool dra_decoder_open__flac(dra_decoder* pDecoder)
+{
+    drflac* pFlac = drflac_open(dra_decoder_on_read__flac, dra_decoder_on_seek__flac, pDecoder);
+    if (pFlac == NULL) {
+        return false;
+    }
+
+    dra_decoder_init__flac(pDecoder, pFlac);
+    return true;
+}
+
+bool dra_decoder_open_memory__flac(dra_decoder* pDecoder, const void* pData, size_t dataSize)
+{
+    drflac* pFlac = drflac_open_memory(pData, dataSize);
+    if (pFlac == NULL) {
+        return false;
+    }
+
+    dra_decoder_init__flac(pDecoder, pFlac);
     return true;
 }
 
@@ -3577,15 +3618,7 @@ bool dra_decoder_open_file__flac(dra_decoder* pDecoder, const char* filePath)
         return false;
     }
 
-    pDecoder->channels = pFlac->channels;
-    pDecoder->sampleRate = pFlac->sampleRate;
-    pDecoder->totalSampleCount = pFlac->totalSampleCount;
-
-    pDecoder->pBackendDecoder = pFlac;
-    pDecoder->onDelete = dra_decoder_on_delete__flac;
-    pDecoder->onReadSamples = dra_decoder_on_read_samples__flac;
-    pDecoder->onSeekSamples = dra_decoder_on_seek_samples__flac;
-
+    dra_decoder_init__flac(pDecoder, pFlac);
     return true;
 }
 #endif
@@ -3618,22 +3651,10 @@ bool dra_decoder_on_seek_samples__vorbis(void* pBackendDecoder, uint64_t sample)
 }
 
 
-bool dra_decoder_open__vorbis(dra_decoder* pDecoder)
+void dra_decoder_init__vorbis(dra_decoder* pDecoder, stb_vorbis* pVorbis)
 {
-    // TODO: Add support for the push API.
-
-    // Not currently supporting callback based decoding.
-    (void)pDecoder;
-    return false;
-}
-
-#ifdef DR_AUDIO_HAS_VORBIS_STDIO
-bool dra_decoder_open_file__vorbis(dra_decoder* pDecoder, const char* filePath)
-{
-    stb_vorbis* pVorbis = stb_vorbis_open_filename(filePath, NULL, NULL);
-    if (pVorbis == NULL) {
-        return false;
-    }
+    assert(pDecoder != NULL);
+    assert(pVorbis != NULL);
 
     stb_vorbis_info info = stb_vorbis_get_info(pVorbis);
 
@@ -3645,7 +3666,37 @@ bool dra_decoder_open_file__vorbis(dra_decoder* pDecoder, const char* filePath)
     pDecoder->onDelete = dra_decoder_on_delete__vorbis;
     pDecoder->onReadSamples = dra_decoder_on_read_samples__vorbis;
     pDecoder->onSeekSamples = dra_decoder_on_seek_samples__vorbis;
+}
 
+bool dra_decoder_open__vorbis(dra_decoder* pDecoder)
+{
+    // TODO: Add support for the push API.
+
+    // Not currently supporting callback based decoding.
+    (void)pDecoder;
+    return false;
+}
+
+bool dra_decoder_open_memory__vorbis(dra_decoder* pDecoder, const void* pData, size_t dataSize)
+{
+    stb_vorbis* pVorbis = stb_vorbis_open_memory(pData, (int)dataSize, NULL, NULL);
+    if (pVorbis == NULL) {
+        return false;
+    }
+
+    dra_decoder_init__vorbis(pDecoder, pVorbis);
+    return true;
+}
+
+#ifdef DR_AUDIO_HAS_VORBIS_STDIO
+bool dra_decoder_open_file__vorbis(dra_decoder* pDecoder, const char* filePath)
+{
+    stb_vorbis* pVorbis = stb_vorbis_open_filename(filePath, NULL, NULL);
+    if (pVorbis == NULL) {
+        return false;
+    }
+
+    dra_decoder_init__vorbis(pDecoder, pVorbis);
     return true;
 }
 #endif
@@ -3685,6 +3736,89 @@ bool dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dr
     // If we get here it means we were unable to open a decoder.
     return false;
 }
+
+
+size_t dra_decoder__on_read_memory(void* pUserData, void* pDataOut, size_t bytesToRead)
+{
+    dra__memory_stream* memoryStream = (dra__memory_stream*)pUserData;
+    assert(memoryStream != NULL);
+    assert(memoryStream->dataSize >= memoryStream->currentReadPos);
+
+    size_t bytesRemaining = memoryStream->dataSize - memoryStream->currentReadPos;
+    if (bytesToRead > bytesRemaining) {
+        bytesToRead = bytesRemaining;
+    }
+
+    if (bytesToRead > 0) {
+        memcpy(pDataOut, memoryStream->data + memoryStream->currentReadPos, bytesToRead);
+        memoryStream->currentReadPos += bytesToRead;
+    }
+
+    return bytesToRead;
+}
+bool dra_decoder__on_seek_memory(void* pUserData, int offset, dra_seek_origin origin)
+{
+    dra__memory_stream* memoryStream = (dra__memory_stream*)pUserData;
+    assert(memoryStream != NULL);
+    assert(offset > 0 || (offset == 0 && origin == dra_seek_origin_start));
+
+    if (origin == dra_seek_origin_current) {
+        if (memoryStream->currentReadPos + offset <= memoryStream->dataSize) {
+            memoryStream->currentReadPos += offset;
+        } else {
+            memoryStream->currentReadPos = memoryStream->dataSize;  // Trying to seek too far forward.
+        }
+    } else {
+        if ((uint32_t)offset <= memoryStream->dataSize) {
+            memoryStream->currentReadPos = offset;
+        } else {
+            memoryStream->currentReadPos = memoryStream->dataSize;  // Trying to seek too far forward.
+        }
+    }
+
+    return true;
+}
+
+bool dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize)
+{
+    if (pDecoder == NULL || pData == NULL || dataSize == 0) {
+        return false;
+    }
+
+    memset(pDecoder, 0, sizeof(*pDecoder));
+
+    // Prefer the backend's native APIs.
+#if defined(DR_AUDIO_HAS_WAV)
+    if (dra_decoder_open_memory__wav(pDecoder, filePath)) {
+        return true;
+    }
+#endif
+#if defined(DR_AUDIO_HAS_FLAC)
+    if (dra_decoder_open_memory__flac(pDecoder, filePath)) {
+        return true;
+    }
+#endif
+#if defined(DR_AUDIO_HAS_VORBIS)
+    if (dra_decoder_open_memory__vorbis(pDecoder, filePath)) {
+        return true;
+    }
+#endif
+
+    // If we get here it means the backend does not have a native memory loader so we'll need to it ourselves.
+    dra__memory_stream memoryStream;
+    memoryStream.data = (const unsigned char*)pData;
+    memoryStream.dataSize = dataSize;
+    memoryStream.currentReadPos = 0;
+    if (!dra_decoder_open(pDecoder, dra_decoder__on_read_memory, dra_decoder__on_seek_memory, &memoryStream)) {
+        return false;
+    }
+
+    pDecoder->memoryStream = memoryStream;
+    pDecoder->pUserData = &pDecoder->memoryStream;
+    
+    return true;
+}
+
 
 #ifndef DR_AUDIO_NO_STDIO
 size_t dra_decoder__on_read_stdio(void* pUserData, void* pDataOut, size_t bytesToRead)
@@ -3855,6 +3989,21 @@ float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_deco
 
     dra_decoder decoder;
     if (!dra_decoder_open(&decoder, onRead, onSeek, pUserData)) {
+        return NULL;
+    }
+
+    return dra_decoder__full_decode_and_close(&decoder, channels, sampleRate, totalSampleCount);
+}
+
+float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
+{
+    // Safety.
+    if (channels) *channels = 0;
+    if (sampleRate) *sampleRate = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    dra_decoder decoder;
+    if (!dra_decoder_open_memory(&decoder, pData, dataSize)) {
         return NULL;
     }
 
