@@ -698,6 +698,11 @@ void dra_sound_world_delete(dra_sound_world* pWorld);
 // pMixer [in, optional] The mixer to attach the sound to. Can null, in which case it's attached to the master mixer.
 void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc, dra_mixer* pMixer);
 
+// Plays an inlined sound in 3D space.
+//
+// This is a placeholder function. 3D position is not yet implemented.
+void dra_sound_world_play_inline_3f(dra_sound_world* pWorld, dra_sound_desc* pDesc, dra_mixer* pMixer, float xPos, float yPos, float zPos);
+
 
 // dra_sound_create()
 //
@@ -4127,6 +4132,19 @@ void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc,
 
     dra_voice_set_on_stop(pSound->pVoice, dra_sound_world__on_inline_sound_stop, pSound);
     dra_sound_play(pSound, false);
+}
+
+void dra_sound_world_play_inline_3f(dra_sound_world* pWorld, dra_sound_desc* pDesc, dra_mixer* pMixer, float xPos, float yPos, float zPos)
+{
+    if (pWorld == NULL || pDesc == NULL) {
+        return;
+    }
+
+    // TODO: Implement 3D positioning once the effects framework is in.
+    (void)xPos;
+    (void)yPos;
+    (void)zPos;
+    dra_sound_world_play_inline(pWorld, pDesc, pMixer);
 }
 
 
