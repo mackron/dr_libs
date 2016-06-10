@@ -1120,7 +1120,7 @@ drobj* drobj_load(drobj_read_proc onRead, drobj_seek_to_start_proc onSeek, void*
         return NULL;
     }
 
-    drobj* pOBJ = (drobj*)malloc(sizeof(*pOBJ) - sizeof(pOBJ->pData) + loadContext.allocationSize);
+    drobj* pOBJ = (drobj*)malloc(sizeof(*pOBJ) + loadContext.allocationSize);
     if (pOBJ == NULL) {
         return NULL;
     }
