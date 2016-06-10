@@ -2558,7 +2558,7 @@ dra_mixer* dra_mixer_create(dra_device* pDevice)
     // will store the float32 samples of the voice currently being mixed.
     size_t extraDataSize = (size_t)pDevice->pBackendDevice->samplesPerFragment * sizeof(float) * 2;
 
-    dra_mixer* pMixer = (dra_mixer*)malloc(sizeof(*pMixer) - sizeof(pMixer->pData) + extraDataSize);
+    dra_mixer* pMixer = (dra_mixer*)malloc(sizeof(*pMixer) + extraDataSize);
     if (pMixer == NULL) {
         return NULL;
     }
@@ -2915,7 +2915,7 @@ dra_voice* dra_voice_create(dra_device* pDevice, dra_format format, unsigned int
     }
 
 
-    dra_voice* pVoice = (dra_voice*)calloc(1, sizeof(*pVoice) - sizeof(pVoice->pData) + sizeInBytes);
+    dra_voice* pVoice = (dra_voice*)calloc(1, sizeof(*pVoice) + sizeInBytes);
     if (pVoice == NULL) {
         return NULL;
     }
