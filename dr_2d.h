@@ -617,7 +617,7 @@ static int dr2d_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 
 dr2d_context* dr2d_create_context(dr2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes)
 {
-    dr2d_context* pContext = (dr2d_context*)malloc(sizeof(dr2d_context) - sizeof(pContext->pExtraData) + contextExtraBytes);
+    dr2d_context* pContext = (dr2d_context*)malloc(sizeof(dr2d_context) + contextExtraBytes);
     if (pContext != NULL)
     {
         pContext->drawingCallbacks  = drawingCallbacks;
@@ -665,7 +665,7 @@ dr2d_surface* dr2d_create_surface(dr2d_context* pContext, float width, float hei
 {
     if (pContext != NULL)
     {
-        dr2d_surface* pSurface = (dr2d_surface*)malloc(sizeof(dr2d_surface) - sizeof(pContext->pExtraData) + pContext->surfaceExtraBytes);
+        dr2d_surface* pSurface = (dr2d_surface*)malloc(sizeof(dr2d_surface) + pContext->surfaceExtraBytes);
         if (pSurface != NULL)
         {
             pSurface->pContext = pContext;
@@ -897,7 +897,7 @@ dr2d_font* dr2d_create_font(dr2d_context* pContext, const char* family, unsigned
         return NULL;
     }
 
-    dr2d_font* pFont = (dr2d_font*)malloc(sizeof(dr2d_font) - sizeof(pFont->pExtraData) + pContext->fontExtraBytes);
+    dr2d_font* pFont = (dr2d_font*)malloc(sizeof(dr2d_font) + pContext->fontExtraBytes);
     if (pFont == NULL) {
         return NULL;
     }
@@ -1039,7 +1039,7 @@ dr2d_image* dr2d_create_image(dr2d_context* pContext, unsigned int width, unsign
         return NULL;
     }
 
-    dr2d_image* pImage = (dr2d_image*)malloc(sizeof(dr2d_image) - sizeof(pImage->pExtraData) + pContext->imageExtraBytes);
+    dr2d_image* pImage = (dr2d_image*)malloc(sizeof(dr2d_image) + pContext->imageExtraBytes);
     if (pImage == NULL) {
         return NULL;
     }
