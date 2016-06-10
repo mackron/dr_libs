@@ -2939,11 +2939,6 @@ void drgui_delete_element(drgui_element* pElement)
 
 
 
-
-    // Orphan the element first.
-    drgui_detach_without_redraw(pElement);
-
-
     // If this was element is marked as the one that was last under the mouse it needs to be unset.
     bool needsMouseUpdate = false;
     if (pContext->pElementUnderMouse == pElement)
@@ -2993,9 +2988,11 @@ void drgui_delete_element(drgui_element* pElement)
 
 
 
+    // Orphan the element first.
+    drgui_detach_without_redraw(pElement);
+
     // Children need to be deleted before deleting the element itself.
-    while (pElement->pLastChild != NULL)
-    {
+    while (pElement->pLastChild != NULL) {
         drgui_delete_element(pElement->pLastChild);
     }
 
@@ -3003,12 +3000,9 @@ void drgui_delete_element(drgui_element* pElement)
 
     // Finally, we either need to mark the element as dead or delete it for real. We only mark it for deletion if we are in the middle
     // of processing an inbound event because there is a chance that an external event handler may try referencing the element.
-    if (drgui_is_handling_inbound_event(pContext))
-    {
+    if (drgui_is_handling_inbound_event(pContext)) {
         drgui_mark_element_as_dead(pElement);
-    }
-    else
-    {
+    } else {
         drgui_delete_element_for_real(pElement);
     }
 }
@@ -3053,7 +3047,7 @@ const char* drgui_get_type(drgui_element* pElement)
 
 bool drgui_is_of_type(drgui_element* pElement, const char* type)
 {
-    if (pElement == NULL) {
+    if (pElement == NULL || type == NULL) {
         return false;
     }
 
