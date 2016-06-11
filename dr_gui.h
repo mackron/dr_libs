@@ -7033,6 +7033,10 @@ void drgui_text_engine_show_cursor(drgui_text_engine* pTL)
 
 void drgui_text_engine_hide_cursor(drgui_text_engine* pTL)
 {
+    if (pTL == NULL) {
+        return;
+    }
+
     if (pTL->isShowingCursor)
     {
         pTL->isShowingCursor = false;
@@ -13383,8 +13387,25 @@ void drgui_delete_textbox(drgui_element* pTBElement)
         return;
     }
 
-    drgui_delete_text_engine(pTB->pTL);
-    pTB->pTL = NULL;
+    if (pTB->pTL) {
+        drgui_delete_text_engine(pTB->pTL);
+        pTB->pTL = NULL;
+    }
+
+    if (pTB->pLineNumbers) {
+        drgui_delete_element(pTB->pLineNumbers);
+        pTB->pLineNumbers = NULL;
+    }
+
+    if (pTB->pHorzScrollbar) {
+        drgui_delete_element(pTB->pHorzScrollbar);
+        pTB->pHorzScrollbar = NULL;
+    }
+
+    if (pTB->pVertScrollbar) {
+        drgui_delete_element(pTB->pVertScrollbar);
+        pTB->pVertScrollbar = NULL;
+    }
 
     drgui_delete_element(pTBElement);
 }
