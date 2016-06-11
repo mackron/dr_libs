@@ -12964,6 +12964,9 @@ void* drgui_textbox_get_extra_data(drgui_element* pTBElement);
 /// Sets the font to use with the given text box.
 void drgui_textbox_set_font(drgui_element* pTBElement, drgui_font* pFont);
 
+/// Retrieves the font being used with the given text box.
+drgui_font* drgui_textbox_get_font(drgui_element* pTBElement);
+
 /// Sets the color of the text in teh given text box.
 void drgui_textbox_set_text_color(drgui_element* pTBElement, drgui_color color);
 
@@ -12984,6 +12987,12 @@ void drgui_textbox_set_border_width(drgui_element* pTBElement, float borderWidth
 
 /// Sets the amount of padding to apply to given text box.
 void drgui_textbox_set_padding(drgui_element* pTBElement, float padding);
+
+/// Retrieves the amound of vertical padding to apply to the given text box.
+float drgui_textbox_get_padding_vert(drgui_element* pTBElement);
+
+/// Retrieves the amound of horizontal padding to apply to the given text box.
+float drgui_textbox_get_padding_horz(drgui_element* pTBElement);
 
 /// Sets the vertical alignment of the given text box.
 void drgui_textbox_set_vertical_align(drgui_element* pTBElement, drgui_text_engine_alignment align);
@@ -13441,6 +13450,16 @@ void drgui_textbox_set_font(drgui_element* pTBElement, drgui_font* pFont)
     drgui_text_engine_set_default_font(pTB->pTL, pFont);
 }
 
+drgui_font* drgui_textbox_get_font(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return NULL;
+    }
+
+    return drgui_text_engine_get_default_font(pTB->pTL);
+}
+
 void drgui_textbox_set_text_color(drgui_element* pTBElement, drgui_color color)
 {
     drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
@@ -13509,6 +13528,26 @@ void drgui_textbox_set_padding(drgui_element* pTBElement, float padding)
     }
 
     pTB->padding = padding;
+}
+
+float drgui_textbox_get_padding_vert(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return pTB->padding;
+}
+
+float drgui_textbox_get_padding_horz(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return pTB->padding;
 }
 
 void drgui_textbox_set_vertical_align(drgui_element* pTBElement, drgui_text_engine_alignment align)
