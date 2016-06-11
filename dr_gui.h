@@ -920,6 +920,9 @@ void drgui_release_mouse_no_global_notify(drgui_context* pContext);
 /// Retrieves a pointer to the element with the mouse capture.
 drgui_element* drgui_get_element_with_mouse_capture(drgui_context* pContext);
 
+/// Determines whether or not the given element has the mouse capture.
+bool drgui_has_mouse_capture(drgui_element* pElement);
+
 
 /// Sets the element that should receive all future keyboard related events.
 ///
@@ -935,6 +938,9 @@ void drgui_release_keyboard_no_global_notify(drgui_context* pContext);
 
 /// Retrieves a pointer to the element with the keyboard capture.
 drgui_element* drgui_get_element_with_keyboard_capture(drgui_context* pContext);
+
+/// Determines whether or not the given element has the keyboard capture.
+bool drgui_has_keyboard_capture(drgui_element* pElement);
 
 
 /// Sets the cursor to use when the mouse enters the given GUI element.
@@ -1837,11 +1843,33 @@ void drgui_delete_context_for_real(drgui_context* pContext)
     free(pContext);
 }
 
-void drgui_delete_element_for_real(drgui_element* pElement)
+void drgui_delete_element_for_real(drgui_element* pElementToDelete)
 {
-    assert(pElement != NULL);
+    assert(pElementToDelete != NULL);
 
-    free(pElement);
+    drgui_context* pContext = pElementToDelete->pContext;
+
+    // If the element is marked as dead
+    if (drgui_is_element_marked_as_dead(pElementToDelete)) {
+        if (pContext->pFirstDeadElement == pElementToDelete) {
+            pContext->pFirstDeadElement = pContext->pFirstDeadElement->pNextDeadElement;
+        } else {
+            drgui_element* pPrevDeadElement = pContext->pFirstDeadElement;
+            while (pPrevDeadElement != NULL) {
+                if (pPrevDeadElement->pNextDeadElement == pElementToDelete) {
+                    break;
+                }
+
+                pPrevDeadElement = pPrevDeadElement->pNextDeadElement;
+            }
+
+            if (pPrevDeadElement != NULL) {
+                pElementToDelete->pNextDeadElement = pElementToDelete->pNextDeadElement;
+            }
+        }
+    }
+
+    free(pElementToDelete);
 }
 
 
@@ -2860,7 +2888,7 @@ drgui_element* drgui_create_element(drgui_context* pContext, drgui_element* pPar
 {
     if (pContext != NULL)
     {
-        drgui_element* pElement = (drgui_element*)malloc(sizeof(drgui_element) - sizeof(pElement->pExtraData) + extraDataSize);
+        drgui_element* pElement = (drgui_element*)malloc(sizeof(drgui_element) + extraDataSize);
         if (pElement != NULL)
         {
             pElement->pContext              = pContext;
@@ -2937,6 +2965,7 @@ void drgui_delete_element(drgui_element* pElement)
         return;
     }
 
+    drgui_mark_element_as_dead(pElement);
 
 
     // If this was element is marked as the one that was last under the mouse it needs to be unset.
@@ -2998,11 +3027,9 @@ void drgui_delete_element(drgui_element* pElement)
 
 
 
-    // Finally, we either need to mark the element as dead or delete it for real. We only mark it for deletion if we are in the middle
-    // of processing an inbound event because there is a chance that an external event handler may try referencing the element.
-    if (drgui_is_handling_inbound_event(pContext)) {
-        drgui_mark_element_as_dead(pElement);
-    } else {
+    // Finally, we to decided whether or not the element should be deleted for real straight away or not. If the element is being
+    // deleted within an event handler it should be delayed because the event handlers may try referencing it afterwards.
+    if (!drgui_is_handling_inbound_event(pContext)) {
         drgui_delete_element_for_real(pElement);
     }
 }
@@ -3156,8 +3183,10 @@ void drgui_release_mouse(drgui_context* pContext)
 
 
     // Events need to be posted before setting the internal pointer.
-    drgui_post_outbound_event_release_mouse(pContext->pElementWithMouseCapture);
-    drgui_post_outbound_event_release_mouse_global(pContext->pElementWithMouseCapture);
+    if (!drgui_is_element_marked_as_dead(pContext->pElementWithMouseCapture)) {   // <-- There's a chace the element is releaseing the keyboard due to being deleted. Don't want to post an event in this case.
+        drgui_post_outbound_event_release_mouse(pContext->pElementWithMouseCapture);
+        drgui_post_outbound_event_release_mouse_global(pContext->pElementWithMouseCapture);
+    }
 
     // We want to set the internal pointer to NULL after posting the events since that is when it has truly released the mouse.
     pContext->pElementWithMouseCapture = NULL;
@@ -3188,6 +3217,15 @@ drgui_element* drgui_get_element_with_mouse_capture(drgui_context* pContext)
     return pContext->pElementWithMouseCapture;
 }
 
+bool drgui_has_mouse_capture(drgui_element* pElement)
+{
+    if (pElement == NULL) {
+        return false;
+    }
+
+    return drgui_get_element_with_mouse_capture(pElement->pContext) == pElement;
+}
+
 
 DRGUI_PRIVATE void drgui_release_keyboard_private(drgui_context* pContext, drgui_element* pNewCapturedElement)
 {
@@ -3203,8 +3241,10 @@ DRGUI_PRIVATE void drgui_release_keyboard_private(drgui_context* pContext, drgui
         drgui_element* pPrevCapturedElement = pContext->pElementWithKeyboardCapture;
         pContext->pElementWithKeyboardCapture = NULL;
 
-        drgui_post_outbound_event_release_keyboard(pPrevCapturedElement, pNewCapturedElement);
-        drgui_post_outbound_event_release_keyboard_global(pPrevCapturedElement, pNewCapturedElement);
+        if (!drgui_is_element_marked_as_dead(pPrevCapturedElement)) {   // <-- There's a chace the element is releaseing the keyboard due to being deleted. Don't want to post an event in this case.
+            drgui_post_outbound_event_release_keyboard(pPrevCapturedElement, pNewCapturedElement);
+            drgui_post_outbound_event_release_keyboard_global(pPrevCapturedElement, pNewCapturedElement);
+        }
     }
     pContext->flags &= ~IS_RELEASING_KEYBOARD;
 
@@ -3277,6 +3317,15 @@ drgui_element* drgui_get_element_with_keyboard_capture(drgui_context* pContext)
     }
 
     return pContext->pElementWithKeyboardCapture;
+}
+
+bool drgui_has_keyboard_capture(drgui_element* pElement)
+{
+    if (pElement == NULL) {
+        return false;
+    }
+
+    return drgui_get_element_with_keyboard_capture(pElement->pContext) == pElement;
 }
 
 
@@ -3787,12 +3836,9 @@ float drgui_get_absolute_position_y(const drgui_element* pElement)
 void drgui_set_relative_position(drgui_element* pElement, float relativePosX, float relativePosY)
 {
     if (pElement != NULL) {
-        if (pElement->pParent != NULL)
-        {
+        if (pElement->pParent != NULL) {
             drgui_set_absolute_position(pElement, pElement->pParent->absolutePosX + relativePosX, pElement->pParent->absolutePosY + relativePosY);
-        }
-        else
-        {
+        } else {
             drgui_set_absolute_position(pElement, relativePosX, relativePosY);
         }
     }
@@ -6382,7 +6428,7 @@ drgui_text_engine* drgui_create_text_engine(drgui_context* pContext, size_t extr
         return NULL;
     }
 
-    drgui_text_engine* pTL = (drgui_text_engine*)malloc(sizeof(drgui_text_engine) - sizeof(pTL->pExtraData) + extraDataSize);
+    drgui_text_engine* pTL = (drgui_text_engine*)malloc(sizeof(drgui_text_engine) + extraDataSize);
     if (pTL == NULL) {
         return NULL;
     }
@@ -10637,7 +10683,7 @@ drgui_element* drgui_create_scrollbar(drgui_context* pContext, drgui_element* pP
         return NULL;
     }
 
-    drgui_element* pSBElement = drgui_create_element(pContext, pParent, sizeof(drgui_scrollbar) - sizeof(char) + extraDataSize, NULL);
+    drgui_element* pSBElement = drgui_create_element(pContext, pParent, sizeof(drgui_scrollbar) + extraDataSize, NULL);
     if (pSBElement == NULL) {
         return NULL;
     }
@@ -11728,7 +11774,7 @@ drgui_element* drgui_create_tab_bar(drgui_context* pContext, drgui_element* pPar
         return NULL;
     }
 
-    drgui_element* pTBElement = drgui_create_element(pContext, pParent, sizeof(drgui_tab_bar) - sizeof(char) + extraDataSize, NULL);
+    drgui_element* pTBElement = drgui_create_element(pContext, pParent, sizeof(drgui_tab_bar) + extraDataSize, NULL);
     if (pTBElement == NULL) {
         return NULL;
     }
@@ -12555,7 +12601,7 @@ DRGUI_PRIVATE drgui_tab* tb_create_tab(drgui_element* pTBElement, const char* te
         return NULL;
     }
 
-    drgui_tab* pTab = (drgui_tab*)malloc(sizeof(*pTab) + extraDataSize - sizeof(pTab->pExtraData));
+    drgui_tab* pTab = (drgui_tab*)malloc(sizeof(*pTab) + extraDataSize);
     if (pTab == NULL) {
         return NULL;
     }
@@ -13255,7 +13301,7 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
         return NULL;
     }
 
-    drgui_element* pTBElement = drgui_create_element(pContext, pParent, sizeof(drgui_textbox) - sizeof(char) + extraDataSize, NULL);
+    drgui_element* pTBElement = drgui_create_element(pContext, pParent, sizeof(drgui_textbox) + extraDataSize, NULL);
     if (pTBElement == NULL) {
         return NULL;
     }
@@ -13278,21 +13324,21 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
     assert(pTB != NULL);
 
-    pTB->pVertScrollbar = drgui_create_scrollbar(pContext, pTBElement, drgui_sb_orientation_vertical, sizeof(&pTBElement), &pTBElement);
+    pTB->pVertScrollbar = drgui_create_scrollbar(pContext, pTBElement, drgui_sb_orientation_vertical, sizeof(pTBElement), &pTBElement);
     drgui_sb_set_on_scroll(pTB->pVertScrollbar, drgui_textbox__on_vscroll);
     drgui_sb_set_mouse_wheel_scele(pTB->pVertScrollbar, 3);
 
-    pTB->pHorzScrollbar = drgui_create_scrollbar(pContext, pTBElement, drgui_sb_orientation_horizontal, sizeof(&pTBElement), &pTBElement);
+    pTB->pHorzScrollbar = drgui_create_scrollbar(pContext, pTBElement, drgui_sb_orientation_horizontal, sizeof(pTBElement), &pTBElement);
     drgui_sb_set_on_scroll(pTB->pHorzScrollbar, drgui_textbox__on_hscroll);
 
-    pTB->pLineNumbers = drgui_create_element(pContext, pTBElement, sizeof(&pTBElement), &pTBElement);
+    pTB->pLineNumbers = drgui_create_element(pContext, pTBElement, sizeof(pTBElement), &pTBElement);
     drgui_hide(pTB->pLineNumbers);
     drgui_set_on_mouse_move(pTB->pLineNumbers, drgui_textbox__on_mouse_move_line_numbers);
     drgui_set_on_mouse_button_down(pTB->pLineNumbers, drgui_textbox__on_mouse_button_down_line_numbers);
     drgui_set_on_mouse_button_up(pTB->pLineNumbers, drgui_textbox__on_mouse_button_up_line_numbers);
     drgui_set_on_paint(pTB->pLineNumbers, drgui_textbox__on_paint_line_numbers);
 
-    pTB->pTL = drgui_create_text_engine(pContext, sizeof(&pTBElement), &pTBElement);
+    pTB->pTL = drgui_create_text_engine(pContext, sizeof(pTBElement), &pTBElement);
     if (pTB->pTL == NULL) {
         drgui_delete_element(pTBElement);
         return NULL;
@@ -13336,6 +13382,9 @@ void drgui_delete_textbox(drgui_element* pTBElement)
     if (pTB == NULL) {
         return;
     }
+
+    drgui_delete_text_engine(pTB->pTL);
+    pTB->pTL = NULL;
 
     drgui_delete_element(pTBElement);
 }
@@ -15274,7 +15323,7 @@ static drgui_tree_view_item* drgui_tv_find_first_visible_item_on_page(drgui_elem
 
 drgui_element* drgui_create_tree_view(drgui_context* pContext, drgui_element* pParent, size_t extraDataSize, const void* pExtraData)
 {
-    drgui_element* pTVElement = drgui_create_element(pContext, pParent, sizeof(drgui_tree_view) - sizeof(char) + extraDataSize, NULL);
+    drgui_element* pTVElement = drgui_create_element(pContext, pParent, sizeof(drgui_tree_view) + extraDataSize, NULL);
     if (pTVElement == NULL) {
         return NULL;
     }
@@ -16282,7 +16331,7 @@ drgui_tree_view_item* drgui_tv_create_item(drgui_element* pTVElement, drgui_tree
     }
 
 
-    drgui_tree_view_item* pItem = (drgui_tree_view_item*)malloc(sizeof(*pItem) + extraDataSize - sizeof(pItem->pExtraData));
+    drgui_tree_view_item* pItem = (drgui_tree_view_item*)malloc(sizeof(*pItem) + extraDataSize);
     if (pItem == NULL) {
         return NULL;
     }
