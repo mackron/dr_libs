@@ -1645,7 +1645,7 @@ void drgui_append_sibling_without_detach(drgui_element* pElementToAppend, drgui_
 void drgui_prepend_sibling_without_detach_or_redraw(drgui_element* pElementToPrepend, drgui_element* pElementToPrependTo);
 
 /// Prepends an element to another as it's sibling, but does not detach it from the previous parent.
-void drgui_prepends_sibling_without_detach(drgui_element* pElementToPrepend, drgui_element* pElementToPrependTo);
+void drgui_prepend_sibling_without_detach(drgui_element* pElementToPrepend, drgui_element* pElementToPrependTo);
 
 
 /// Begins accumulating an invalidation rectangle.
@@ -1797,7 +1797,9 @@ void drgui_mark_element_as_dead(drgui_element* pElement)
 
 bool drgui_is_element_marked_as_dead(const drgui_element* pElement)
 {
-    assert(pElement != NULL);
+    if (pElement == NULL) {
+        return false;
+    }
 
     return (pElement->flags & IS_ELEMENT_DEAD) != 0;
 }
