@@ -369,6 +369,16 @@ char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut);
 // Frees the file data returned by dr_open_and_read_file().
 void dr_free_file_data(void* valueReturnedByOpenAndReadFile);
 
+// Determines whether or not the given file path is to a file.
+//
+// This will return false if the path points to a directory.
+bool dr_file_exists(const char* filePath);
+
+// Determines whether or not the given file path points to a directory.
+//
+// This will return false if the path points to a file.
+bool dr_directory_exists(const char* directoryPath);
+
 
 /////////////////////////////////////////////////////////
 // DPI Awareness
@@ -1674,6 +1684,44 @@ char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut)
 void dr_free_file_data(void* valueReturnedByOpenAndReadFile)
 {
     free(valueReturnedByOpenAndReadFile);
+}
+
+bool dr_file_exists(const char* filePath)
+{
+    if (filePath == NULL) {
+        return false;
+    }
+
+#if _WIN32
+    DWORD attributes = GetFileAttributesA(filePath);
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+#else
+    struct stat info;
+    if (stat(filePath, &info) != 0) {
+        return false;   // Likely the folder doesn't exist.
+    }
+
+    return (info.st_mode & S_IFDIR) == 0;
+#endif
+}
+
+bool dr_directory_exists(const char* directoryPath)
+{
+    if (directoryPath == NULL) {
+        return false;
+    }
+
+#if _WIN32
+    DWORD attributes = GetFileAttributesA(directoryPath);
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+#else
+    struct stat info;
+    if (stat(directoryPath, &info) != 0) {
+        return false;   // Likely the folder doesn't exist.
+    }
+
+    return (info.st_mode & S_IFDIR) != 0;
+#endif
 }
 
 
