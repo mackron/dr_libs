@@ -619,6 +619,9 @@ float dr_randf();
 // Helper for clearing the given object to 0.
 #define dr_zero_object(pObject) memset(pObject, 0, sizeof(*pObject));
 
+// Converts an ASCII hex character to it's integral equivalent. Returns false if it's not a valid hex character.
+bool dr_hex_char_to_uint(char ascii, unsigned int* out);
+
 
 /////////////////////////////////////////////////////////
 // C++ Specific
@@ -2637,6 +2640,32 @@ double dr_randd()
 float dr_randf()
 {
     return (float)dr_randd();
+}
+
+
+
+/////////////////////////////////////////////////////////
+// Miscellaneous Stuff.
+
+bool dr_hex_char_to_uint(char ascii, unsigned int* out)
+{
+    if (ascii >= '0' && ascii <= '9') {
+        if (out) *out = ascii - '0';
+        return true;
+    }
+
+    if (ascii >= 'A' && ascii <= 'F') {
+        if (out) *out = 10 + (ascii - 'A');
+        return true;
+    }
+
+    if (ascii >= 'a' && ascii <= 'f') {
+        if (out) *out = 10 + (ascii - 'a');
+        return true;
+    }
+
+    if (out) *out = 0;
+    return false;
 }
 
 #endif  //DR_IMPLEMENTATION
