@@ -1286,7 +1286,9 @@ bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* tex
 ///     @par
 ///     If pData is NULL, the default image data is undefined.
 ///     @par
-///     Use dr2d_map_image_data() and dr2d_unmap_image_data() to update or retrieve image data.
+///     If stride is set to 0, it is assumed to be tightly packed.
+///     @par
+///     Use drgui_map_image_data() and drgui_unmap_image_data() to update or retrieve image data.
 drgui_image* drgui_create_image(drgui_context* pContext, unsigned int width, unsigned int height, drgui_image_format format, unsigned int stride, const void* pData);
 
 /// Deletes the given image.
@@ -4891,6 +4893,12 @@ drgui_image* drgui_create_image(drgui_context* pContext, unsigned int width, uns
     }
 
 
+    // If the stride is 0, assume tightly packed.
+    if (stride == 0) {
+        stride = width * 4;
+    }
+
+
     drgui_resource internalImage = pContext->paintingCallbacks.createImage(pContext->pPaintingContext, width, height, format, stride, pData);
     if (internalImage == NULL) {
         return NULL;
@@ -5493,7 +5501,7 @@ drgui_resource drgui_create_image_dr_2d(void* pPaintingContext, unsigned int wid
     default: dr2dFormat = dr2d_image_format_rgba8;
     }
 
-    return dr2d_create_image((dr2d_context*)pPaintingContext, width, height, dr2dFormat, stride, pImageData); // TODO: Change the image format based on the input parameter.
+    return dr2d_create_image((dr2d_context*)pPaintingContext, width, height, dr2dFormat, stride, pImageData);
 }
 
 void drgui_delete_image_dr_2d(drgui_resource image)
