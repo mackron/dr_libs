@@ -14842,12 +14842,10 @@ DRGUI_PRIVATE void drgui_textbox__on_mouse_button_up_line_numbers(drgui_element*
     (void)relativeMousePosY;
     (void)stateFlags;
 
-    drgui_element* pTBElement = *(drgui_element**)drgui_get_extra_data(pLineNumbers);
-    assert(pTBElement != NULL);
-
-    if (mouseButton == DRGUI_MOUSE_BUTTON_LEFT)
-    {
-        drgui_release_mouse(pLineNumbers->pContext);
+    if (mouseButton == DRGUI_MOUSE_BUTTON_LEFT) {
+        if (drgui_has_mouse_capture(pLineNumbers)) {
+            drgui_release_mouse(pLineNumbers->pContext);
+        }
     }
 }
 
