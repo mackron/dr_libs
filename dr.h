@@ -381,11 +381,16 @@ bool dr_directory_exists(const char* directoryPath);
 
 // Moves a file.
 //
-// This uses rename() on POSIX platforms and MoveFileEx(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH).
+// This uses rename() on POSIX platforms and MoveFileEx(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH) on windows platforms.
 bool dr_move_file(const char* oldPath, const char* newPath);
 
 // Determines if the given file is read only.
 bool dr_is_file_read_only(const char* filePath);
+
+// Deletes the file at the given path.
+//
+// This uses remove() on POSIX platforms and DeleteFile() on Windows platforms.
+bool dr_delete_file(const char* filePath);
 
 
 /////////////////////////////////////////////////////////
@@ -1764,6 +1769,19 @@ bool dr_is_file_read_only(const char* filePath)
     }
 
     return (info.st_mode & S_IRWXU) == S_IRUSR;
+#endif
+}
+
+bool dr_delete_file(const char* filePath)
+{
+    if (filePath == NULL) {
+        return false;
+    }
+
+#if _WIN32
+    return DeleteFileA(filePath);
+#else
+    return remove(filePath) == 0;
 #endif
 }
 
