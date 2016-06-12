@@ -13067,6 +13067,9 @@ unsigned int drgui_textbox_get_undo_points_remaining_count(drgui_element* pTBEle
 /// Retrieves the number of redo points remaining.
 unsigned int drgui_textbox_get_redo_points_remaining_count(drgui_element* pTBElement);
 
+/// Clears the undo/redo stack.
+void drgui_textbox_clear_undo_stack(drgui_element* pTBElement);
+
 /// Retrieves the index of the line the cursor is current sitting on.
 size_t drgui_textbox_get_cursor_line(drgui_element* pTBElement);
 
@@ -13581,7 +13584,11 @@ void drgui_textbox_set_text(drgui_element* pTBElement, const char* text)
         return;
     }
 
-    drgui_text_engine_set_text(pTB->pTL, text);
+    drgui_text_engine_prepare_undo_point(pTB->pTL);
+    {
+        drgui_text_engine_set_text(pTB->pTL, text);
+    }
+    drgui_text_engine_commit_undo_point(pTB->pTL);
 }
 
 size_t drgui_textbox_get_text(drgui_element* pTBElement, char* pTextOut, size_t textOutSize)
@@ -13764,6 +13771,16 @@ unsigned int drgui_textbox_get_redo_points_remaining_count(drgui_element* pTBEle
     }
 
     return drgui_text_engine_get_redo_points_remaining_count(pTB->pTL);
+}
+
+void drgui_textbox_clear_undo_stack(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_text_engine_clear_undo_stack(pTB->pTL);
 }
 
 
