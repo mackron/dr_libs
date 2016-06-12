@@ -379,6 +379,11 @@ bool dr_file_exists(const char* filePath);
 // This will return false if the path points to a file.
 bool dr_directory_exists(const char* directoryPath);
 
+// Moves a file.
+//
+// This uses rename() on POSIX platforms and MoveFileEx(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH).
+bool dr_move_file(const char* oldPath, const char* newPath);
+
 
 /////////////////////////////////////////////////////////
 // DPI Awareness
@@ -1724,6 +1729,19 @@ bool dr_directory_exists(const char* directoryPath)
     }
 
     return (info.st_mode & S_IFDIR) != 0;
+#endif
+}
+
+bool dr_move_file(const char* oldPath, const char* newPath)
+{
+    if (oldPath == NULL || newPath == NULL) {
+        return false;
+    }
+
+#if _WIN32
+    return MoveFileExA(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
+#else
+    return rename(oldPath, newPath) == 0;
 #endif
 }
 
