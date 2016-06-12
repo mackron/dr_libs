@@ -2900,6 +2900,7 @@ drgui_element* drgui_create_element(drgui_context* pContext, drgui_element* pPar
             pElement->pNextSibling          = NULL;
             pElement->pPrevSibling          = NULL;
             pElement->pNextDeadElement      = NULL;
+            pElement->type[0]               = '\0';
             pElement->absolutePosX          = 0;
             pElement->absolutePosY          = 0;
             pElement->width                 = 0;
