@@ -359,6 +359,9 @@ bool dr_set_current_directory(const char* path);
 // Helper for opening a stdio FILE.
 FILE* dr_fopen(const char* fileName, const char* openMode);
 
+// Helper for creating an empty file.
+bool dr_create_empty_file(const char* fileName, bool failIfExists);
+
 // Retrieves the file data of the given file. Free the returned pointer with dr_free_file_data().
 void* dr_open_and_read_file(const char* filePath, size_t* pFileSizeOut);
 
@@ -1631,6 +1634,43 @@ FILE* dr_fopen(const char* filePath, const char* openMode)
 #endif
 
     return pFile;
+}
+
+bool dr_create_empty_file(const char* fileName, bool failIfExists)
+{
+    if (fileName == NULL) {
+        return false;
+    }
+#ifdef _WIN32
+    DWORD dwCreationDisposition;
+    if (failIfExists) {
+        dwCreationDisposition = CREATE_NEW;
+    } else {
+        dwCreationDisposition = CREATE_ALWAYS;
+    }
+
+    HANDLE hFile = CreateFileA(fileName, FILE_GENERIC_WRITE, 0, NULL, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    CloseHandle(hFile);
+    return true;
+#else
+    int flags = O_WRONLY | O_CREAT;
+    if (failIfExists) {
+        flags |= O_EXCL;
+    } else {
+        flags |= O_TRUNC;
+    }
+    int fd = open(fileName, flags, 0666);
+    if (fd == -1) {
+        return false;
+    }
+
+    close(fd);
+    return true;
+#endif
 }
 
 static void* dr_open_and_read_file_with_extra_data(const char* filePath, size_t* pFileSizeOut, size_t extraBytes)
