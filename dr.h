@@ -384,6 +384,9 @@ bool dr_directory_exists(const char* directoryPath);
 // This uses rename() on POSIX platforms and MoveFileEx(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH).
 bool dr_move_file(const char* oldPath, const char* newPath);
 
+// Determines if the given file is read only.
+bool dr_is_file_read_only(const char* filePath);
+
 
 /////////////////////////////////////////////////////////
 // DPI Awareness
@@ -1742,6 +1745,25 @@ bool dr_move_file(const char* oldPath, const char* newPath)
     return MoveFileExA(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
 #else
     return rename(oldPath, newPath) == 0;
+#endif
+}
+
+bool dr_is_file_read_only(const char* filePath)
+{
+    if (filePath == NULL || filePath[0] == '\0') {
+        return false;
+    }
+
+#if _WIN32
+    DWORD attributes = GetFileAttributesA(filePath);
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_READONLY) != 0;
+#else
+    struct stat info;
+    if (stat(filePath, &info) != 0) {
+        return false;
+    }
+
+    return (info.st_mode & S_IRWXU) == S_IRUSR;
 #endif
 }
 
