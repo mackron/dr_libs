@@ -371,6 +371,7 @@ typedef void (* drgui_on_release_mouse_proc)        (drgui_element* pElement);
 typedef void (* drgui_on_capture_keyboard_proc)     (drgui_element* pElement, drgui_element* pPrevCapturedElement);
 typedef void (* drgui_on_release_keyboard_proc)     (drgui_element* pElement, drgui_element* pNewCapturedElement);
 typedef void (* drgui_on_change_cursor_proc)        (drgui_element* pElement, drgui_cursor_type cursor);
+typedef void (* drgui_on_delete_element_proc)       (drgui_element* pElement);
 typedef void (* drgui_on_log)                       (drgui_context* pContext, const char* message);
 
 typedef void (* drgui_draw_begin_proc)                   (void* pPaintData);
@@ -707,6 +708,9 @@ struct drgui_context
     /// The global event handler to call when the system cursor needs to change.
     drgui_on_change_cursor_proc onChangeCursor;
 
+    /// The function to call when an element is deleted.
+    drgui_on_delete_element_proc onDeleteElement;
+
 
     /// The function to call when a log message is posted.
     drgui_on_log onLog;
@@ -840,6 +844,9 @@ void drgui_set_global_on_release_keyboard(drgui_context* pContext, drgui_on_capt
 /// @remarks
 ///     This is called whenever the operating system needs to change the cursor.
 void drgui_set_global_on_change_cursor(drgui_context* pContext, drgui_on_change_cursor_proc onChangeCursor);
+
+/// Sets the function to call when an element is deleted.
+void drgui_set_on_delete_element(drgui_context* pContext, drgui_on_delete_element_proc onDeleteElement);
 
 
 /// Registers the callback to call when a log message is posted.
@@ -2876,6 +2883,13 @@ void drgui_set_global_on_change_cursor(drgui_context* pContext, drgui_on_change_
     }
 }
 
+void drgui_set_on_delete_element(drgui_context* pContext, drgui_on_delete_element_proc onDeleteElement)
+{
+    if (pContext != NULL) {
+        pContext->onDeleteElement = onDeleteElement;
+    }
+}
+
 void drgui_set_on_log(drgui_context* pContext, drgui_on_log onLog)
 {
     if (pContext != NULL) {
@@ -2973,6 +2987,13 @@ void drgui_delete_element(drgui_element* pElement)
     drgui_mark_element_as_dead(pElement);
 
 
+    // Notify the application that the element is being deleted. Do this at the top so the event handler can access things like the hierarchy and
+    // whatnot in case it needs it.
+    if (pContext->onDeleteElement) {
+        pContext->onDeleteElement(pElement);
+    }
+
+
     // If this was element is marked as the one that was last under the mouse it needs to be unset.
     bool needsMouseUpdate = false;
     if (pContext->pElementUnderMouse == pElement)
@@ -3019,7 +3040,6 @@ void drgui_delete_element(drgui_element* pElement)
         pElement->onHitTest = drgui_pass_through_hit_test;        // <-- This ensures we don't include this element when searching for the new element under the mouse.
         drgui_update_mouse_enter_and_leave_state(pContext, drgui_find_element_under_point(pContext->pLastMouseMoveTopLevelElement, pContext->lastMouseMovePosX, pContext->lastMouseMovePosY));
     }
-
 
 
     // Orphan the element first.
