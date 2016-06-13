@@ -3176,7 +3176,10 @@ void drgui_capture_mouse(drgui_element* pElement)
 
         // Two events need to be posted - the global on_capture_mouse event and the local on_capture_mouse event.
         drgui_post_outbound_event_capture_mouse(pElement);
-        drgui_post_outbound_event_capture_mouse_global(pElement);
+
+        if (pElement == pElement->pContext->pElementWithMouseCapture) {  // <-- Only post the global event handler if the element still has the capture.
+            drgui_post_outbound_event_capture_mouse_global(pElement);
+        }
     }
 }
 
@@ -3288,9 +3291,15 @@ void drgui_capture_keyboard(drgui_element* pElement)
         pElement->pContext->pElementWithKeyboardCapture = pElement;
         pElement->pContext->pElementWantingKeyboardCapture = NULL;
 
-        // Two events need to be posted - the global on_capture_mouse event and the local on_capture_mouse event.
+        // Two events need to be posted - the global on_capture event and the local on_capture event. The problem, however, is that the
+        // local event handler may change the keyboard capture internally, such as if it wants to pass it's focus onto an internal child
+        // element or whatnot. In this case we don't want to fire the global event handler because it will result in superfluous event
+        // posting, and could also be posted with an incorrect element.
         drgui_post_outbound_event_capture_keyboard(pElement, pPrevElementWithKeyboardCapture);
-        drgui_post_outbound_event_capture_keyboard_global(pElement, pPrevElementWithKeyboardCapture);
+
+        if (pElement == pElement->pContext->pElementWithKeyboardCapture) {  // <-- Only post the global event handler if the element still has the capture.
+            drgui_post_outbound_event_capture_keyboard_global(pElement, pPrevElementWithKeyboardCapture);
+        }
     }
 }
 
