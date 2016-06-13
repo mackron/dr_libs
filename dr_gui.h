@@ -7766,7 +7766,7 @@ bool drgui_text_engine_insert_text_at_cursor(drgui_text_engine* pTL, const char*
 bool drgui_text_engine_delete_character_to_left_of_cursor(drgui_text_engine* pTL)
 {
     if (pTL == NULL) {
-        return false;;
+        return false;
     }
 
     // We just move the cursor to the left, and then delete the character to the right.
@@ -7798,6 +7798,7 @@ bool drgui_text_engine_delete_character_to_right_of_cursor(drgui_text_engine* pT
 
         // The layout will have changed.
         drgui_text_engine__refresh(pTL);
+        drgui_text_engine__move_marker_to_character(pTL, &pTL->cursor, iAbsoluteMarkerChar);
 
         if (pTL->onTextChanged) {
             pTL->onTextChanged(pTL);
