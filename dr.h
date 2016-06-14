@@ -1619,6 +1619,12 @@ bool dr_set_current_directory(const char* path)
 /////////////////////////////////////////////////////////
 // Basic File Management
 
+#ifndef _WIN32
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#endif
+
 FILE* dr_fopen(const char* filePath, const char* openMode)
 {
     FILE* pFile;
