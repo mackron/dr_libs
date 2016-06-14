@@ -3170,7 +3170,7 @@ bool dr2d_get_text_cursor_position_from_point_cairo(dr2d_font* pFont, const char
         float glyphRight = glyphLeft + glyphMetrics.x_advance;
 
         // Are we sitting on top of inputPosX?
-        if (inputPosX >= glyphLeft && inputPosX < glyphRight)
+        if (inputPosX >= glyphLeft && inputPosX <= glyphRight)
         {
             float glyphHalf = glyphLeft + ceilf(((glyphRight - glyphLeft) / 2.0f));
             if (inputPosX <= glyphHalf) {
