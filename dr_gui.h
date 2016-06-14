@@ -407,25 +407,6 @@ typedef void               (* drgui_unmap_image_data_proc)        (drgui_resourc
 typedef bool (* drgui_visible_iteration_proc)(drgui_element* pElement, drgui_rect *pRelativeRect, void* pUserData);
 
 
-// Common mouse buttons.
-#define DRGUI_MOUSE_BUTTON_LEFT       1
-#define DRGUI_MOUSE_BUTTON_RIGHT      2
-#define DRGUI_MOUSE_BUTTON_MIDDLE     3
-
-// Common key codes.
-#define DRGUI_BACKSPACE               0xff08
-#define DRGUI_SHIFT                   0xff10
-#define DRGUI_ESCAPE                  0xff1b
-#define DRGUI_PAGE_UP                 0xff55
-#define DRGUI_PAGE_DOWN               0xff56
-#define DRGUI_END                     0xff57
-#define DRGUI_HOME                    0xff50
-#define DRGUI_ARROW_LEFT              0x8fb
-#define DRGUI_ARROW_UP                0x8fc
-#define DRGUI_ARROW_RIGHT             0x8fd
-#define DRGUI_ARROW_DOWN              0x8fe
-#define DRGUI_DELETE                  0xffff
-
 // Key state flags.
 #define DRGUI_MOUSE_BUTTON_LEFT_DOWN   (1 << 0)
 #define DRGUI_MOUSE_BUTTON_RIGHT_DOWN  (1 << 1)
@@ -437,7 +418,95 @@ typedef bool (* drgui_visible_iteration_proc)(drgui_element* pElement, drgui_rec
 #define DRGUI_KEY_STATE_ALT_DOWN       (1 << 7)        // Whether or not an alt key is down at the time the input event is handled.
 #define DRGUI_KEY_STATE_AUTO_REPEATED  (1 << 31)       // Whether or not the key press is generated due to auto-repeating. Only used with key down events.
 
+// Common mouse buttons.
+#define DRGUI_MOUSE_BUTTON_LEFT      1
+#define DRGUI_MOUSE_BUTTON_RIGHT     2
+#define DRGUI_MOUSE_BUTTON_MIDDLE    3
 
+// Common key codes.
+#define DRGUI_BACKSPACE              0xff08
+#define DRGUI_SHIFT                  0xff10
+#define DRGUI_ESCAPE                 0xff1b
+#define DRGUI_PAGE_UP                0xff55
+#define DRGUI_PAGE_DOWN              0xff56
+#define DRGUI_END                    0xff57
+#define DRGUI_HOME                   0xff50
+#define DRGUI_ARROW_LEFT             0x8fb
+#define DRGUI_ARROW_UP               0x8fc
+#define DRGUI_ARROW_RIGHT            0x8fd
+#define DRGUI_ARROW_DOWN             0x8fe
+#define DRGUI_DELETE                 0xffff
+#define DRGUI_F1                     0xffbe
+#define DRGUI_F2                     0xffbf
+#define DRGUI_F3                     0xffc0
+#define DRGUI_F4                     0xffc1
+#define DRGUI_F5                     0xffc2
+#define DRGUI_F6                     0xffc3
+#define DRGUI_F7                     0xffc4
+#define DRGUI_F8                     0xffc5
+#define DRGUI_F9                     0xffc6
+#define DRGUI_F10                    0xffc7
+#define DRGUI_F11                    0xffc8
+#define DRGUI_F12                    0xffc9
+
+static size_t drgui_strcpy(char* dst, size_t dstSize, const char* src)
+{
+    if (strcpy_s(dst, dstSize, src) == 0) {
+        return strlen(dst);
+    }
+
+    return 0;
+}
+
+static inline size_t drgui_key_to_string(drgui_key key, char* strOut, size_t strOutSize)
+{
+    if (strOut == NULL || strOutSize == 0) {
+        return 0;
+    }
+
+    if (strOutSize == 1) {
+        strOut[0] = '\0';
+        return 0;
+    }
+
+
+    switch (key)
+    {
+    case DRGUI_BACKSPACE:   return drgui_strcpy(strOut, strOutSize, "Backspace");
+    case DRGUI_SHIFT:       return drgui_strcpy(strOut, strOutSize, "Shift");
+    case DRGUI_ESCAPE:      return drgui_strcpy(strOut, strOutSize, "Escape");
+    case DRGUI_PAGE_UP:     return drgui_strcpy(strOut, strOutSize, "Page Up");
+    case DRGUI_PAGE_DOWN:   return drgui_strcpy(strOut, strOutSize, "Page Down");
+    case DRGUI_END:         return drgui_strcpy(strOut, strOutSize, "End");
+    case DRGUI_HOME:        return drgui_strcpy(strOut, strOutSize, "Home");
+    case DRGUI_ARROW_LEFT:  return drgui_strcpy(strOut, strOutSize, "Arrow Left");
+    case DRGUI_ARROW_UP:    return drgui_strcpy(strOut, strOutSize, "Arrow Up");
+    case DRGUI_ARROW_RIGHT: return drgui_strcpy(strOut, strOutSize, "Arrow Right");
+    case DRGUI_ARROW_DOWN:  return drgui_strcpy(strOut, strOutSize, "Arrow Down");
+    case DRGUI_DELETE:      return drgui_strcpy(strOut, strOutSize, "Delete");
+    case DRGUI_F1:          return drgui_strcpy(strOut, strOutSize, "F1");
+    case DRGUI_F2:          return drgui_strcpy(strOut, strOutSize, "F2");
+    case DRGUI_F3:          return drgui_strcpy(strOut, strOutSize, "F3");
+    case DRGUI_F4:          return drgui_strcpy(strOut, strOutSize, "F4");
+    case DRGUI_F5:          return drgui_strcpy(strOut, strOutSize, "F5");
+    case DRGUI_F6:          return drgui_strcpy(strOut, strOutSize, "F6");
+    case DRGUI_F7:          return drgui_strcpy(strOut, strOutSize, "F7");
+    case DRGUI_F8:          return drgui_strcpy(strOut, strOutSize, "F8");
+    case DRGUI_F9:          return drgui_strcpy(strOut, strOutSize, "F9");
+    case DRGUI_F10:         return drgui_strcpy(strOut, strOutSize, "F10");
+    case DRGUI_F11:         return drgui_strcpy(strOut, strOutSize, "F11");
+    case DRGUI_F12:         return drgui_strcpy(strOut, strOutSize, "F12");
+    }
+
+    if (key >= 32 && key <= 126) {
+        strOut[0] = (char)key;
+        strOut[1] = '\0';
+        return 1;
+    }
+
+    // TODO: Non-ascii characters.
+    return 0;
+}
 
 
 /// Structure containing callbacks for painting routines.
