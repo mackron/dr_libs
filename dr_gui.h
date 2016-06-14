@@ -413,18 +413,18 @@ typedef bool (* drgui_visible_iteration_proc)(drgui_element* pElement, drgui_rec
 #define DRGUI_MOUSE_BUTTON_MIDDLE     3
 
 // Common key codes.
-#define DRGUI_BACKSPACE               0x08
-#define DRGUI_SHIFT                   0x10
-#define DRGUI_ESCAPE                  0x1B
-#define DRGUI_PAGE_UP                 0x21
-#define DRGUI_PAGE_DOWN               0x22
-#define DRGUI_END                     0x23
-#define DRGUI_HOME                    0x24
-#define DRGUI_ARROW_LEFT              0x25
-#define DRGUI_ARROW_UP                0x26
-#define DRGUI_ARROW_DOWN              0x27
-#define DRGUI_ARROW_RIGHT             0x28
-#define DRGUI_DELETE                  0x2E
+#define DRGUI_BACKSPACE               0xff08
+#define DRGUI_SHIFT                   0xff10
+#define DRGUI_ESCAPE                  0xff1b
+#define DRGUI_PAGE_UP                 0xff55
+#define DRGUI_PAGE_DOWN               0xff56
+#define DRGUI_END                     0xff57
+#define DRGUI_HOME                    0xff50
+#define DRGUI_ARROW_LEFT              0x8fb
+#define DRGUI_ARROW_UP                0x8fc
+#define DRGUI_ARROW_RIGHT             0x8fd
+#define DRGUI_ARROW_DOWN              0x8fe
+#define DRGUI_DELETE                  0xffff
 
 // Key state flags.
 #define DRGUI_MOUSE_BUTTON_LEFT_DOWN   (1 << 0)
@@ -2049,7 +2049,7 @@ void drgui__change_cursor(drgui_element* pElement, drgui_cursor_type cursor)
     }
 
     pElement->pContext->currentCursor = cursor;
-    
+
     if (pElement->pContext->onChangeCursor) {
         pElement->pContext->onChangeCursor(pElement, cursor);
     }
@@ -2129,7 +2129,7 @@ void drgui_update_mouse_enter_and_leave_state(drgui_context* pContext, drgui_ele
                 newCursor = pNewElementUnderMouse->cursor;
             }
 
-            
+
             // It's intuitive to check that the new cursor is different to the old one before trying to change it, but that is not actually
             // what we want to do. We'll let the event handler manage it themselves because it's possible the window manager might do some
             // window-specific cursor management and the old and new elements are on different windows.
@@ -7734,7 +7734,7 @@ bool drgui_text_engine_insert_character_at_cursor(drgui_text_engine* pTL, unsign
     // The cursor's sticky position needs to be updated whenever the text is edited.
     drgui_text_engine__update_marker_sticky_position(pTL, &pTL->cursor);
 
-    
+
     drgui_text_engine__on_cursor_move(pTL);
 
     return true;
@@ -9107,7 +9107,7 @@ DRGUI_PRIVATE bool drgui_text_engine__find_closest_line_to_point(drgui_text_engi
                 if (iLastRunOnLinePlus1 == pTL->runCount) {
                     break;
                 }
-                
+
                 iFirstRunOnLine = iLastRunOnLinePlus1;
                 runningLineTop  = lineBottom;
             }
@@ -12127,7 +12127,7 @@ drgui_tab* drgui_tabbar_get_last_tab(drgui_element* pTBElement)
     if (pTB == NULL) {
         return NULL;
     }
-    
+
     return pTB->pLastTab;
 }
 
