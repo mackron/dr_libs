@@ -2999,6 +2999,7 @@ void dr2d_get_clip_cairo(dr2d_surface* pSurface, float* pLeftOut, float* pTopOut
 
 dr2d_image_format dr2d_get_optimal_image_format_cairo(dr2d_context* pContext)
 {
+    (void)pContext;
     return dr2d_image_format_argb8;
 }
 
