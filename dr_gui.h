@@ -3949,13 +3949,11 @@ void drgui_set_size(drgui_element* pElement, float width, float height)
 void drgui_get_size(const drgui_element* pElement, float* widthOut, float* heightOut)
 {
     if (pElement != NULL) {
-        if (widthOut != NULL) {
-            *widthOut = pElement->width;
-        }
-
-        if (heightOut != NULL) {
-            *heightOut = pElement->height;
-        }
+        if (widthOut) *widthOut = pElement->width;
+        if (heightOut) *heightOut = pElement->height;
+    } else {
+        if (widthOut) *widthOut = 0;
+        if (heightOut) *heightOut = 0;
     }
 }
 
