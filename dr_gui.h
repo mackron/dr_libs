@@ -2501,55 +2501,10 @@ DRGUI_PRIVATE drgui_resource drgui_get_internal_font_by_scale(drgui_font* pFont,
 
 drgui_context* drgui_create_context()
 {
-    drgui_context* pContext = (drgui_context*)malloc(sizeof(drgui_context));
+    drgui_context* pContext = (drgui_context*)calloc(1, sizeof(drgui_context));
     if (pContext != NULL) {
-        pContext->pPaintingContext                           = NULL;
-        pContext->paintingCallbacks.drawBegin                = NULL;
-        pContext->paintingCallbacks.drawEnd                  = NULL;
-        pContext->paintingCallbacks.setClip                  = NULL;
-        pContext->paintingCallbacks.getClip                  = NULL;
-        pContext->paintingCallbacks.drawLine                 = NULL;
-        pContext->paintingCallbacks.drawRect                 = NULL;
-        pContext->paintingCallbacks.drawRectOutline          = NULL;
-        pContext->paintingCallbacks.drawRectWithOutline      = NULL;
-        pContext->paintingCallbacks.drawRoundRect            = NULL;
-        pContext->paintingCallbacks.drawRoundRectOutline     = NULL;
-        pContext->paintingCallbacks.drawRoundRectWithOutline = NULL;
-        pContext->paintingCallbacks.drawText                 = NULL;
-        pContext->paintingCallbacks.drawImage                = NULL;
-        pContext->paintingCallbacks.createFont               = NULL;
-        pContext->paintingCallbacks.deleteFont               = NULL;
-        pContext->paintingCallbacks.getFontSize              = NULL;
-        pContext->paintingCallbacks.getFontMetrics           = NULL;
-        pContext->paintingCallbacks.getGlyphMetrics          = NULL;
-        pContext->paintingCallbacks.measureString            = NULL;
-        pContext->paintingCallbacks.createImage              = NULL;
-        pContext->paintingCallbacks.deleteImage              = NULL;
-        pContext->paintingCallbacks.getImageSize             = NULL;
-        pContext->paintingCallbacks.mapImageData             = NULL;
-        pContext->paintingCallbacks.unmapImageData           = NULL;
-        pContext->inboundEventCounter                        = 0;
-        pContext->outboundEventLockCounter                   = 0;
-        pContext->pFirstDeadElement                          = NULL;
-        pContext->pElementUnderMouse                         = NULL;
-        pContext->pElementWithMouseCapture                   = NULL;
-        pContext->pElementWithKeyboardCapture                = NULL;
-        pContext->pElementWantingKeyboardCapture             = NULL;
-        pContext->currentCursor                              = drgui_cursor_default;
-        pContext->flags                                      = 0;
-        pContext->onGlobalDirty                              = NULL;
-        pContext->onGlobalCaptureMouse                       = NULL;
-        pContext->onGlobalReleaseMouse                       = NULL;
-        pContext->onGlobalCaptureKeyboard                    = NULL;
-        pContext->onGlobalReleaseKeyboard                    = NULL;
-        pContext->onChangeCursor                             = NULL;
-        pContext->onLog                                      = NULL;
-        pContext->pLastMouseMoveTopLevelElement              = NULL;
-        pContext->lastMouseMovePosX                          = 0;
-        pContext->lastMouseMovePosY                          = 0;
-        pContext->pDirtyTopLevelElement                      = NULL;
-        pContext->dirtyRect                                  = drgui_make_inside_out_rect();
-        pContext->dirtyCounter                               = 0;
+        pContext->currentCursor = drgui_cursor_default;
+        pContext->dirtyRect = drgui_make_inside_out_rect();
     }
 
     return pContext;
@@ -2906,44 +2861,13 @@ drgui_element* drgui_create_element(drgui_context* pContext, drgui_element* pPar
 {
     if (pContext != NULL)
     {
-        drgui_element* pElement = (drgui_element*)malloc(sizeof(drgui_element) + extraDataSize);
-        if (pElement != NULL)
-        {
-            pElement->pContext              = pContext;
-            pElement->pParent               = pParent;
-            pElement->pFirstChild           = NULL;
-            pElement->pLastChild            = NULL;
-            pElement->pNextSibling          = NULL;
-            pElement->pPrevSibling          = NULL;
-            pElement->pNextDeadElement      = NULL;
-            pElement->type[0]               = '\0';
-            pElement->absolutePosX          = 0;
-            pElement->absolutePosY          = 0;
-            pElement->width                 = 0;
-            pElement->height                = 0;
-            pElement->innerScaleX           = 1;
-            pElement->innerScaleY           = 1;
-            pElement->cursor                = drgui_cursor_default;
-            pElement->flags                 = 0;
-            pElement->onMove                = NULL;
-            pElement->onSize                = NULL;
-            pElement->onMouseEnter          = NULL;
-            pElement->onMouseLeave          = NULL;
-            pElement->onMouseMove           = NULL;
-            pElement->onMouseButtonDown     = NULL;
-            pElement->onMouseButtonUp       = NULL;
-            pElement->onMouseButtonDblClick = NULL;
-            pElement->onMouseWheel          = NULL;
-            pElement->onKeyDown             = NULL;
-            pElement->onKeyUp               = NULL;
-            pElement->onPrintableKeyDown    = NULL;
-            pElement->onPaint               = NULL;
-            pElement->onDirty               = NULL;
-            pElement->onHitTest             = NULL;
-            pElement->onCaptureMouse        = NULL;
-            pElement->onReleaseMouse        = NULL;
-            pElement->onCaptureKeyboard     = NULL;
-            pElement->onReleaseKeyboard     = NULL;
+        drgui_element* pElement = (drgui_element*)calloc(1, sizeof(drgui_element) + extraDataSize);
+        if (pElement != NULL) {
+            pElement->pContext = pContext;
+            pElement->pParent = pParent;
+            pElement->innerScaleX = 1;
+            pElement->innerScaleY = 1;
+            pElement->cursor = drgui_cursor_default;
 
             pElement->extraDataSize = extraDataSize;
             if (pExtraData != NULL) {
