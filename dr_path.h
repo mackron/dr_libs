@@ -1244,13 +1244,17 @@ bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const ch
 
 bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, size_t relativePathOutSizeInBytes)
 {
-    // We do this in to phases. The first phase just iterates past each segment of both the path to convert and the
+    // We do this in two phases. The first phase just iterates past each segment of both the path to convert and the
     // base path until we find two that are not equal. The second phase just adds the appropriate ".." segments.
 
     if (relativePathOut == 0) {
         return false;
     }
     if (relativePathOutSizeInBytes == 0) {
+        return false;
+    }
+
+    if (!drpath_is_absolute(absolutePathToMakeRelative) || !drpath_is_absolute(absolutePathToMakeRelativeTo)) {
         return false;
     }
 
