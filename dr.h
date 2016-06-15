@@ -1809,12 +1809,7 @@ bool dr_is_file_read_only(const char* filePath)
     DWORD attributes = GetFileAttributesA(filePath);
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_READONLY) != 0;
 #else
-    struct stat info;
-    if (stat(filePath, &info) != 0) {
-        return false;
-    }
-
-    return (info.st_mode & S_IRWXU) == S_IRUSR;
+    return access(filePath, W_OK) == -1;
 #endif
 }
 
