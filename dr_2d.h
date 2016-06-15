@@ -2935,7 +2935,7 @@ void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw
 
     cairo_save(cr);
     cairo_translate(cr, pArgs->dstX, pArgs->dstY);
-    cairo_scale(cr, pArgs->dstWidth / pArgs->srcWidth, pArgs->dstWidth / pArgs->srcWidth);
+    cairo_scale(cr, pArgs->dstWidth / pArgs->srcWidth, pArgs->dstHeight / pArgs->srcHeight);
 
     // Background.
     if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) != 0)
