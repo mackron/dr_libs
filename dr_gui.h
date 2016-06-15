@@ -212,10 +212,13 @@ typedef enum
     drgui_font_weight_thin,
     drgui_font_weight_extra_light,
     drgui_font_weight_light,
+    drgui_font_weight_semi_light,
+    drgui_font_weight_book,
     drgui_font_weight_semi_bold,
     drgui_font_weight_bold,
     drgui_font_weight_extra_bold,
     drgui_font_weight_heavy,
+    drgui_font_weight_extra_heavy,
 
     drgui_font_weight_normal  = drgui_font_weight_medium,
     drgui_font_weight_default = drgui_font_weight_medium
