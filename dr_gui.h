@@ -8681,7 +8681,7 @@ void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumb
 
 bool drgui_text_engine_find_next(drgui_text_engine* pTL, const char* text, size_t* pSelectionStartOut, size_t* pSelectionEndOut)
 {
-    if (pTL == NULL || text == NULL || text[0] == '\0') {
+    if (pTL == NULL || pTL->text == NULL || text == NULL || text[0] == '\0') {
         return false;
     }
 
@@ -8707,7 +8707,7 @@ bool drgui_text_engine_find_next(drgui_text_engine* pTL, const char* text, size_
 
 bool drgui_text_engine_find_next_no_loop(drgui_text_engine* pTL, const char* text, size_t* pSelectionStartOut, size_t* pSelectionEndOut)
 {
-    if (pTL == NULL || text == NULL || text[0] == '\0') {
+    if (pTL == NULL || pTL->text == NULL || text == NULL || text[0] == '\0') {
         return false;
     }
 
