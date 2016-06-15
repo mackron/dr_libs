@@ -12548,14 +12548,16 @@ DRGUI_PRIVATE drgui_tab* drgui_tabbar_find_tab_under_point(drgui_element* pTBEle
         {
             if (pIsOverCloseButtonOut)
             {
-                if (pTB->isShowingCloseButton &&
-                    relativePosX >= runningPosX + tabWidth  - (pTB->tabPadding + pTB->closeButtonWidth)  && relativePosX < runningPosX + tabWidth  - pTB->tabPadding &&
-                    relativePosY >= runningPosY + tabHeight - (pTB->tabPadding + pTB->closeButtonHeight) && relativePosY < runningPosY + tabHeight - pTB->tabPadding)
-                {
+                // The close button is in the center, vertically.
+                drgui_rect closeButtonRect;
+                closeButtonRect.left   = runningPosX + tabWidth - (pTB->tabPadding + pTB->closeButtonWidth);
+                closeButtonRect.right  = closeButtonRect.left + pTB->closeButtonWidth;
+                closeButtonRect.top    = runningPosY + (tabHeight - (pTB->tabPadding + pTB->closeButtonHeight))/2;
+                closeButtonRect.bottom = closeButtonRect.top + pTB->closeButtonHeight;
+
+                if (pTB->isShowingCloseButton && drgui_rect_contains_point(closeButtonRect, relativePosX, relativePosY)) {
                     *pIsOverCloseButtonOut = true;
-                }
-                else
-                {
+                } else {
                     *pIsOverCloseButtonOut = false;
                 }
             }
