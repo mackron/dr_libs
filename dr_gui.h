@@ -1490,6 +1490,9 @@ bool drgui_rect_contains_point(drgui_rect rect, float posX, float posY);
 /// Determines whether or not two rectangles are equal.
 bool drgui_rect_equal(drgui_rect rect0, drgui_rect rect1);
 
+/// Determines whether or not the given rectangle has any volume (width and height > 0).
+bool drgui_rect_has_volume(drgui_rect rect);
+
 
 
 /////////////////////////////////////////////////////////////////
@@ -5245,6 +5248,11 @@ bool drgui_rect_equal(drgui_rect rect0, drgui_rect rect1)
         rect0.top    == rect1.top   &&
         rect0.right  == rect1.right &&
         rect0.bottom == rect1.bottom;
+}
+
+bool drgui_rect_has_volume(drgui_rect rect)
+{
+    return rect.right > rect.left && rect.bottom > rect.top;
 }
 
 
