@@ -4568,47 +4568,8 @@ void drgui_draw_image(drgui_element* pElement, drgui_image* pImage, drgui_draw_i
         if (pArgs->dstX < pArgs->dstBoundsX || pArgs->dstX + pArgs->dstWidth  > pArgs->dstBoundsX + pArgs->dstBoundsWidth ||
             pArgs->dstY < pArgs->dstBoundsY || pArgs->dstY + pArgs->dstHeight > pArgs->dstBoundsY + pArgs->dstBoundsHeight)
         {
-            // We can do a more efficient clip by adjusting the offset and size of the image, but it will only work if there is no scaling.
-            if (pArgs->dstWidth != pArgs->srcWidth || pArgs->dstHeight != pArgs->srcHeight)
-            {
-                restoreClip = true;
-                pElement->pContext->paintingCallbacks.setClip(drgui_make_rect(pArgs->dstBoundsX, pArgs->dstBoundsY, pArgs->dstBoundsX + pArgs->dstBoundsWidth, pArgs->dstBoundsY + pArgs->dstBoundsHeight), pPaintData);
-            }
-            else
-            {
-                // There's no scaling so we can do a more efficient clip by simply adjusting the source and destination rectangles.
-                if (pArgs->dstX < pArgs->dstBoundsX)
-                {
-                    pArgs->srcWidth -= (pArgs->dstBoundsX - pArgs->dstX);
-                    pArgs->srcX     += (pArgs->dstBoundsX - pArgs->dstX);
-                    pArgs->dstWidth -= (pArgs->dstBoundsX - pArgs->dstX);
-                    pArgs->dstX      =  pArgs->dstBoundsX;
-                }
-
-                if (pArgs->dstY < pArgs->dstBoundsY)
-                {
-                    pArgs->srcHeight -= (pArgs->dstBoundsY - pArgs->dstY);
-                    pArgs->srcY      += (pArgs->dstBoundsY - pArgs->dstY);
-                    pArgs->dstHeight -= (pArgs->dstBoundsY - pArgs->dstY);
-                    pArgs->dstY       =  pArgs->dstBoundsY;
-                }
-
-                if (pArgs->dstX + pArgs->dstWidth > pArgs->dstBoundsX + pArgs->dstBoundsWidth)
-                {
-                    pArgs->srcWidth -= (pArgs->dstX + pArgs->dstWidth) - (pArgs->dstBoundsX + pArgs->dstBoundsWidth);
-                    pArgs->dstWidth -= (pArgs->dstX + pArgs->dstWidth) - (pArgs->dstBoundsX + pArgs->dstBoundsWidth);
-                }
-
-                if (pArgs->dstY + pArgs->dstHeight > pArgs->dstBoundsY + pArgs->dstBoundsHeight)
-                {
-                    pArgs->srcHeight -= (pArgs->dstY + pArgs->dstHeight) - (pArgs->dstBoundsY + pArgs->dstBoundsHeight);
-                    pArgs->dstHeight -= (pArgs->dstY + pArgs->dstHeight) - (pArgs->dstBoundsY + pArgs->dstBoundsHeight);
-                }
-
-                if (pArgs->dstWidth <= 0 || pArgs->dstHeight <= 0) {
-                    return;
-                }
-            }
+            restoreClip = true;
+            pElement->pContext->paintingCallbacks.setClip(drgui_make_rect(pArgs->dstBoundsX, pArgs->dstBoundsY, pArgs->dstBoundsX + pArgs->dstBoundsWidth, pArgs->dstBoundsY + pArgs->dstBoundsHeight), pPaintData);
         }
     }
 
