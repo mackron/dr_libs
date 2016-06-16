@@ -5834,6 +5834,9 @@ void drgui_text_engine_swap_selection_markers(drgui_text_engine* pTL);
 /// Sets the function to call when the cursor in the given text engine is mvoed.
 void drgui_text_engine_set_on_cursor_move(drgui_text_engine* pTL, drgui_text_engine_on_cursor_move_proc proc);
 
+/// Refreshes the cursor and selection marker positions.
+void drgui_text_engine_refresh_markers(drgui_text_engine* pTL);
+
 
 /// Inserts a character into the given text engine.
 ///
@@ -7531,6 +7534,19 @@ void drgui_text_engine_set_on_cursor_move(drgui_text_engine* pTL, drgui_text_eng
     pTL->onCursorMove = proc;
 }
 
+void drgui_text_engine_refresh_markers(drgui_text_engine* pTL)
+{
+    if (pTL == NULL || pTL->pRuns == NULL) {
+        return;
+    }
+
+    // Cursor.
+    drgui_text_run* pRun = pTL->pRuns + pTL->cursor.iRun;
+    drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pRun->iChar, pTL->cursor.iChar, 1, 1, OUT &pTL->cursor.relativePosX);
+
+    pRun = pTL->pRuns + pTL->selectionAnchor.iRun;
+    drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pRun->iChar, pTL->selectionAnchor.iChar, 1, 1, OUT &pTL->selectionAnchor.relativePosX);
+}
 
 bool drgui_text_engine_insert_character(drgui_text_engine* pTL, unsigned int character, size_t insertIndex)
 {
@@ -13556,7 +13572,8 @@ void drgui_textbox_set_font(drgui_element* pTBElement, drgui_font* pFont)
         drgui_textbox__refresh_scrollbars(pTBElement);
         
         // The caret position needs to be refreshes. We'll cheat here a little bit and just do a full refresh of the text engine.
-        drgui_text_engine__refresh(pTB->pTL);
+        //drgui_text_engine__refresh(pTB->pTL);
+        drgui_text_engine_refresh_markers(pTB->pTL);
     }
     drgui_end_dirty(pTBElement);
 }
