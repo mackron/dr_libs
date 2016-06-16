@@ -286,8 +286,6 @@ typedef void   (* dr_key_value_error_proc)(void* pUserData, const char* message,
 ///      - Comments begin with the '#' character and continue until the end of the line.
 ///      - A key cannot contain spaces but are permitted in values.
 ///      - The value will have any leading and trailing whitespace trimmed.
-///      - A value can be wrapped in double-quote characters in which case the last double-quote character acts as the end point. The quotes
-///        will be trimmed.
 ///     @par
 ///     If an error occurs, that line will be skipped and processing will continue.
 void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
@@ -1266,15 +1264,6 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
                 }
             }
 
-
-            // Remove double-quotes from the value.
-            if (pV[0] == '\"') {
-                pV += 1;
-
-                if (pVEnd[0] == '\"') {
-                    pVEnd -= 1;
-                }
-            }
 
             // Before null-terminating the value we first need to determine how we'll proceed after posting onPair.
             bool wasOnNL = pVEnd[1] == '\n';
