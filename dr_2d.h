@@ -2951,8 +2951,9 @@ void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw
         cairo_fill(cr);
     }
 
-
+    
     cairo_set_source_surface(cr, pCairoImage->pCairoSurface, pArgs->srcX, pArgs->srcY);
+    cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
     cairo_paint(cr);
 
 
