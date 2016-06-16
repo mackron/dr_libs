@@ -13045,6 +13045,12 @@ void drgui_textbox_set_background_color(drgui_element* pTBElement, drgui_color c
 /// Sets the background color for the line the caret is currently sitting on.
 void drgui_textbox_set_active_line_background_color(drgui_element* pTBElement, drgui_color color);
 
+/// Sets the width of the text cursor.
+void drgui_textbox_set_cursor_width(drgui_element* pTBElement, float cursorWidth);
+
+/// Retrieves the width of the text cursor.
+float drgui_textbox_get_cursor_width(drgui_element* pTBElement);
+
 /// Sets the color of the cursor of the given text box.
 void drgui_textbox_set_cursor_color(drgui_element* pTBElement, drgui_color color);
 
@@ -13560,6 +13566,26 @@ void drgui_textbox_set_active_line_background_color(drgui_element* pTBElement, d
     }
 
     drgui_text_engine_set_active_line_bg_color(pTB->pTL, color);
+}
+
+void drgui_textbox_set_cursor_width(drgui_element* pTBElement, float cursorWidth)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_text_engine_set_cursor_width(pTB->pTL, cursorWidth);
+}
+
+float drgui_textbox_get_cursor_width(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return drgui_text_engine_get_cursor_width(pTB->pTL);
 }
 
 void drgui_textbox_set_cursor_color(drgui_element* pTBElement, drgui_color color)
