@@ -581,14 +581,8 @@ struct drgui_font
     ///   DRGUI_FONT_NO_CLEARTYPE
     unsigned int flags;
 
-    /// The number of internal fonts in <pInternalFonts>
-    size_t internalFontCount;
-
-    /// A GUI font is actually a collection of font objects with the same family and style, but varying sizes. The variance
-    /// in sizes is used to implement scaling. There is an internal font resource for each font size which are stored in a
-    /// simple dynamically sized array. The first element in the array is the internal font representing the properties that
-    /// were passed in to drgui_create_font().
-    drgui_resource* pInternalFonts;
+    /// The internal font. This is created by the rendering backend.
+    drgui_resource internalFont;
 };
 
 
@@ -637,13 +631,6 @@ struct drgui_element
 
     /// The height of the element.
     float height;
-
-
-    /// The scale to apply to child elements on the x axis.
-    float innerScaleX;
-
-    /// The scale to apply to child elements on the y axis.
-    float innerScaleY;
 
 
     /// The cursor. Defaults to drge_cursor_default.
@@ -1194,23 +1181,6 @@ float drgui_get_width(const drgui_element* pElement);
 float drgui_get_height(const drgui_element* pElement);
 
 
-/// Sets the inner scale of the given element.
-///
-/// @remarks
-///     This does not scale the element itself - only it's children.
-void drgui_set_inner_scale(drgui_element* pElement, float innerScaleX, float innerScaleY);
-
-/// Retrieves the inner scale of the given element.
-///
-/// @remarks
-///     This is a direct accessor and not recursive. Use drgui_get_absolute_inner_scale() for the actual
-///     inner scale.
-void drgui_get_inner_scale(drgui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut);
-
-/// Recursively retrieves the absolute scale fo the given element.
-void drgui_get_absolute_inner_scale(drgui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut);
-
-
 
 /// Retrieves the absolute rectangle for the given element.
 drgui_rect drgui_get_absolute_rect(const drgui_element* pElement);
@@ -1328,33 +1298,22 @@ drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsig
 void drgui_delete_font(drgui_font* pFont);
 
 /// Retrieves the metrics of the given font.
-bool drgui_get_font_metrics(drgui_font* pFont, float scaleX, float scaleY, drgui_font_metrics* pMetricsOut);
-
-/// Retrieves the metrics of the given font based on the inner scale of the given element.
-bool drgui_get_font_metrics_by_element(drgui_font* pFont, drgui_element* pElement, drgui_font_metrics* pMetricsOut);
+bool drgui_get_font_metrics(drgui_font* pFont, drgui_font_metrics* pMetricsOut);
 
 /// Retrieves the metrics of the glyph for the given character when rendered with the given font.
-bool drgui_get_glyph_metrics(drgui_font* pFont, unsigned int utf32, float scaleX, float scaleY, drgui_glyph_metrics* pMetricsOut);
+bool drgui_get_glyph_metrics(drgui_font* pFont, unsigned int utf32, drgui_glyph_metrics* pMetricsOut);
 
-/// Retrieves the metrics of the glyph for the given character when rendered with the given font at the scale of the given element's inner scale.
-bool drgui_get_glyph_metrics_by_element(drgui_font* pFont, unsigned int utf32, drgui_element* pElement, drgui_glyph_metrics* pMetricsOut);
-
-/// Retrieves the dimensions of the given string when drawn with the given font at the given scale.
+/// Retrieves the dimensions of the given string when drawn with the given font.
 ///
 /// @remarks
 ///     When the length of the text is 0, the width will be set to 0 and the height will be set to the line height.
-///     @par
-///     <scaleX> and <scaleY> should be set to the scale at which the font will be drawn.
-bool drgui_measure_string(drgui_font* pFont, const char* text, size_t textLengthInBytes, float scaleX, float scaleY, float* pWidthOut, float* pHeightOut);
-
-/// Retrieves the dimensions fo the given string when drawing with the given font at the scale of the given element.
-bool drgui_measure_string_by_element(drgui_font* pFont, const char* text, size_t textLengthInBytes, drgui_element* pElement, float* pWidthOut, float* pHeightOut);
+bool drgui_measure_string(drgui_font* pFont, const char* text, size_t textLengthInBytes, float* pWidthOut, float* pHeightOut);
 
 /// Retrieves the position to place a text cursor based on the given point for the given string when drawn with the given font.
-bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float scaleX, float scaleY, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
+bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut);
 
 /// Retrieves the position to palce a text cursor based on the character at the given index for the given string when drawn with the given font.
-bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* text, size_t characterIndex, float scaleX, float scaleY, float* pTextCursorPosXOut);
+bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut);
 
 
 
@@ -1782,12 +1741,6 @@ void drgui_post_outbound_event_release_keyboard_global(drgui_element* pElement, 
 
 /// Posts a log message.
 void drgui_log(drgui_context* pContext, const char* message);
-
-/// Retrieves the internal font that would be used when scaled by the given amount.
-///
-/// @remarks
-///     If an internal font of the appropriate size has not yet been created, this function will create it.
-DRGUI_PRIVATE drgui_resource drgui_get_internal_font_by_scale(drgui_font* pFont, float scaleY);
 
 
 void drgui_begin_inbound_event(drgui_context* pContext)
@@ -2275,14 +2228,9 @@ void drgui_post_outbound_event_mouse_leave(drgui_element* pElement)
 void drgui_post_outbound_event_mouse_move(drgui_element* pElement, int relativeMousePosX, int relativeMousePosY, int stateFlags)
 {
     if (drgui_begin_outbound_event(pElement))
-    {
-        if (pElement->onMouseMove)
-        {
-            float scaleX;
-            float scaleY;
-            drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-            pElement->onMouseMove(pElement, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
+{
+        if (pElement->onMouseMove) {
+            pElement->onMouseMove(pElement, relativeMousePosX, relativeMousePosY, stateFlags);
         }
 
         drgui_end_outbound_event(pElement);
@@ -2293,13 +2241,8 @@ void drgui_post_outbound_event_mouse_button_down(drgui_element* pElement, int mo
 {
     if (drgui_begin_outbound_event(pElement))
     {
-        if (pElement->onMouseButtonDown)
-        {
-            float scaleX;
-            float scaleY;
-            drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-            pElement->onMouseButtonDown(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
+        if (pElement->onMouseButtonDown) {
+            pElement->onMouseButtonDown(pElement, mouseButton, relativeMousePosX, relativeMousePosY, stateFlags);
         }
 
         drgui_end_outbound_event(pElement);
@@ -2310,13 +2253,8 @@ void drgui_post_outbound_event_mouse_button_up(drgui_element* pElement, int mous
 {
     if (drgui_begin_outbound_event(pElement))
     {
-        if (pElement->onMouseButtonUp)
-        {
-            float scaleX;
-            float scaleY;
-            drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-            pElement->onMouseButtonUp(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
+        if (pElement->onMouseButtonUp) {
+            pElement->onMouseButtonUp(pElement, mouseButton, relativeMousePosX, relativeMousePosY, stateFlags);
         }
 
         drgui_end_outbound_event(pElement);
@@ -2327,13 +2265,8 @@ void drgui_post_outbound_event_mouse_button_dblclick(drgui_element* pElement, in
 {
     if (drgui_begin_outbound_event(pElement))
     {
-        if (pElement->onMouseButtonDblClick)
-        {
-            float scaleX;
-            float scaleY;
-            drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-            pElement->onMouseButtonDblClick(pElement, mouseButton, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
+        if (pElement->onMouseButtonDblClick) {
+            pElement->onMouseButtonDblClick(pElement, mouseButton, relativeMousePosX, relativeMousePosY, stateFlags);
         }
 
         drgui_end_outbound_event(pElement);
@@ -2344,13 +2277,8 @@ void drgui_post_outbound_event_mouse_wheel(drgui_element* pElement, int delta, i
 {
     if (drgui_begin_outbound_event(pElement))
     {
-        if (pElement->onMouseWheel)
-        {
-            float scaleX;
-            float scaleY;
-            drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-            pElement->onMouseWheel(pElement, delta, (int)(relativeMousePosX / scaleX), (int)(relativeMousePosY / scaleY), stateFlags);
+        if (pElement->onMouseWheel) {
+            pElement->onMouseWheel(pElement, delta, relativeMousePosX, relativeMousePosY, stateFlags);
         }
 
         drgui_end_outbound_event(pElement);
@@ -2408,13 +2336,8 @@ void drgui_post_outbound_event_dirty_global(drgui_element* pElement, drgui_rect 
 {
     if (pElement != NULL && pElement->pContext != NULL)
     {
-        if (pElement->pContext->onGlobalDirty)
-        {
-            float scaleX;
-            float scaleY;
-            drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-            pElement->pContext->onGlobalDirty(pElement, drgui_scale_rect(relativeRect, scaleX, scaleY));
+        if (pElement->pContext->onGlobalDirty) {
+            pElement->pContext->onGlobalDirty(pElement, relativeRect);
         }
     }
 }
@@ -2509,62 +2432,6 @@ void drgui_log(drgui_context* pContext, const char* message)
             pContext->onLog(pContext, message);
         }
     }
-}
-
-
-DRGUI_PRIVATE drgui_resource drgui_get_internal_font_by_scale(drgui_font* pFont, float scaleY)
-{
-    assert(pFont != NULL);
-    assert(pFont->pContext != NULL);
-
-    if (pFont->pContext->paintingCallbacks.getFontSize == NULL)
-    {
-        if (pFont->internalFontCount == 0) {
-            return NULL;
-        }
-
-        return pFont->pInternalFonts[0];
-    }
-
-
-    // First check to see if a font of the appropriate size has already been created.
-    unsigned int targetSize = (unsigned int)(pFont->size * scaleY);
-    if (targetSize == 0) {
-        targetSize = 1;
-    }
-
-    for (unsigned int i = 0; i < pFont->internalFontCount; ++i)
-    {
-        if (pFont->pContext->paintingCallbacks.getFontSize(pFont->pInternalFonts[i]) == targetSize) {
-            return pFont->pInternalFonts[i];
-        }
-    }
-
-
-    // At this point we know that a font of the appropriate size has not yet been loaded, so we need to try and load it now.
-    if (pFont->pContext->paintingCallbacks.createFont == NULL) {
-        return NULL;
-    }
-
-    drgui_resource internalFont = pFont->pContext->paintingCallbacks.createFont(pFont->pContext->pPaintingContext, pFont->family, targetSize, pFont->weight, pFont->slant, pFont->rotation, pFont->flags);
-    if (internalFont == NULL) {
-        return NULL;
-    }
-
-    drgui_resource* pOldInternalFonts = pFont->pInternalFonts;
-    drgui_resource* pNewInternalFonts = (drgui_resource*)malloc(sizeof(*pNewInternalFonts) * (pFont->internalFontCount + 1));
-
-    for (size_t i = 0; i < pFont->internalFontCount; ++i) {
-        pNewInternalFonts[i] = pOldInternalFonts[i];
-    }
-    pNewInternalFonts[pFont->internalFontCount] = internalFont;
-
-    pFont->pInternalFonts     = pNewInternalFonts;
-    pFont->internalFontCount += 1;
-
-
-    free(pOldInternalFonts);
-    return internalFont;
 }
 
 
@@ -2940,8 +2807,6 @@ drgui_element* drgui_create_element(drgui_context* pContext, drgui_element* pPar
         if (pElement != NULL) {
             pElement->pContext = pContext;
             pElement->pParent = pParent;
-            pElement->innerScaleX = 1;
-            pElement->innerScaleY = 1;
             pElement->cursor = drgui_cursor_default;
 
             pElement->extraDataSize = extraDataSize;
@@ -3574,12 +3439,8 @@ bool drgui_find_element_under_point_iterator(drgui_element* pElement, drgui_rect
     drgui_find_element_under_point_data* pData = (drgui_find_element_under_point_data*)pUserData;
     assert(pData != NULL);
 
-    float innerScaleX;
-    float innerScaleY;
-    drgui_get_absolute_inner_scale(pElement->pParent, &innerScaleX, &innerScaleY);
-
-    float relativePosX = pData->absolutePosX / innerScaleX;
-    float relativePosY = pData->absolutePosY / innerScaleY;
+    float relativePosX = pData->absolutePosX;
+    float relativePosY = pData->absolutePosY;
     drgui_make_point_relative(pElement, &relativePosX, &relativePosY);
 
     if (drgui_rect_contains_point(*pRelativeVisibleRect, relativePosX, relativePosY))
@@ -3982,68 +3843,6 @@ float drgui_get_height(const drgui_element * pElement)
 }
 
 
-void drgui_set_inner_scale(drgui_element* pElement, float innerScaleX, float innerScaleY)
-{
-    if (pElement == NULL){
-        return;
-    }
-
-    pElement->innerScaleX = innerScaleX;
-    pElement->innerScaleY = innerScaleY;
-
-    drgui_auto_dirty(pElement, drgui_get_local_rect(pElement));
-}
-
-void drgui_get_inner_scale(drgui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut)
-{
-    float innerScaleX = 1;
-    float innerScaleY = 1;
-
-    if (pElement != NULL)
-    {
-        innerScaleX = pElement->innerScaleX;
-        innerScaleY = pElement->innerScaleY;
-    }
-
-
-    if (pInnerScaleXOut) {
-        *pInnerScaleXOut = innerScaleX;
-    }
-    if (pInnerScaleYOut) {
-        *pInnerScaleYOut = innerScaleY;
-    }
-}
-
-void drgui_get_absolute_inner_scale(drgui_element* pElement, float* pInnerScaleXOut, float* pInnerScaleYOut)
-{
-    float innerScaleX = 1;
-    float innerScaleY = 1;
-
-    if (pElement != NULL)
-    {
-        innerScaleX = pElement->innerScaleX;
-        innerScaleY = pElement->innerScaleY;
-
-        if (pElement->pParent != NULL)
-        {
-            float parentInnerScaleX;
-            float parentInnerScaleY;
-            drgui_get_absolute_inner_scale(pElement->pParent, &parentInnerScaleX, &parentInnerScaleY);
-
-            innerScaleX *= parentInnerScaleX;
-            innerScaleY *= parentInnerScaleY;
-        }
-    }
-
-    if (pInnerScaleXOut) {
-        *pInnerScaleXOut = innerScaleX;
-    }
-    if (pInnerScaleYOut) {
-        *pInnerScaleYOut = innerScaleY;
-    }
-}
-
-
 drgui_rect drgui_get_absolute_rect(const drgui_element* pElement)
 {
     drgui_rect rect;
@@ -4310,18 +4109,6 @@ void drgui_get_clip(drgui_element* pElement, drgui_rect* pRelativeRect, void* pP
 
     pElement->pContext->paintingCallbacks.getClip(pRelativeRect, pPaintData);
 
-    if (pRelativeRect)
-    {
-        float scaleX;
-        float scaleY;
-        drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-        pRelativeRect->left   /= scaleX;
-        pRelativeRect->top    /= scaleY;
-        pRelativeRect->right  /= scaleX;
-        pRelativeRect->bottom /= scaleY;
-    }
-
     // The clip returned by the drawing callback will be absolute so we'll need to convert that to relative.
     drgui_make_rect_relative(pElement, pRelativeRect);
 }
@@ -4342,13 +4129,8 @@ void drgui_set_clip(drgui_element* pElement, drgui_rect relativeRect, void* pPai
         relativeRect.bottom = relativeRect.top;
     }
 
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
     drgui_rect absoluteRect = relativeRect;
     drgui_make_rect_absolute(pElement, &absoluteRect);
-    absoluteRect = drgui_scale_rect(absoluteRect, scaleX, scaleY);
 
     pElement->pContext->paintingCallbacks.setClip(absoluteRect, pPaintData);
 }
@@ -4361,13 +4143,8 @@ void drgui_draw_rect(drgui_element* pElement, drgui_rect relativeRect, drgui_col
 
     assert(pElement->pContext != NULL);
 
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
     drgui_rect absoluteRect = relativeRect;
     drgui_make_rect_absolute(pElement, &absoluteRect);
-    absoluteRect = drgui_scale_rect(absoluteRect, scaleX, scaleY);
 
     pElement->pContext->paintingCallbacks.drawRect(absoluteRect, color, pPaintData);
 }
@@ -4380,23 +4157,10 @@ void drgui_draw_rect_outline(drgui_element* pElement, drgui_rect relativeRect, d
 
     assert(pElement->pContext != NULL);
 
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
     drgui_rect absoluteRect = relativeRect;
     drgui_make_rect_absolute(pElement, &absoluteRect);
-    absoluteRect = drgui_scale_rect(absoluteRect, scaleX, scaleY);
 
-    if (scaleX == scaleY)
-    {
-        pElement->pContext->paintingCallbacks.drawRectOutline(absoluteRect, color, (outlineWidth * scaleX), pPaintData);
-    }
-    else
-    {
-        // TODO: This is incorrect. The left and right borders need to be scaled by scaleX and the top and bottom borders need to be scaled by scaleY.
-        pElement->pContext->paintingCallbacks.drawRectOutline(absoluteRect, color, (outlineWidth * scaleX), pPaintData);
-    }
+    pElement->pContext->paintingCallbacks.drawRectOutline(absoluteRect, color, outlineWidth, pPaintData);
 }
 
 void drgui_draw_rect_with_outline(drgui_element * pElement, drgui_rect relativeRect, drgui_color color, float outlineWidth, drgui_color outlineColor, void * pPaintData)
@@ -4407,23 +4171,10 @@ void drgui_draw_rect_with_outline(drgui_element * pElement, drgui_rect relativeR
 
     assert(pElement->pContext != NULL);
 
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
     drgui_rect absoluteRect = relativeRect;
     drgui_make_rect_absolute(pElement, &absoluteRect);
-    absoluteRect = drgui_scale_rect(absoluteRect, scaleX, scaleY);
 
-    if (scaleX == scaleY)
-    {
-        pElement->pContext->paintingCallbacks.drawRectWithOutline(absoluteRect, color, (outlineWidth * scaleX), outlineColor, pPaintData);
-    }
-    else
-    {
-        // TODO: This is incorrect. The left and right borders need to be scaled by scaleX and the top and bottom borders need to be scaled by scaleY.
-        pElement->pContext->paintingCallbacks.drawRectWithOutline(absoluteRect, color, (outlineWidth * scaleX), outlineColor, pPaintData);
-    }
+    pElement->pContext->paintingCallbacks.drawRectWithOutline(absoluteRect, color, outlineWidth, outlineColor, pPaintData);
 }
 
 void drgui_draw_round_rect(drgui_element* pElement, drgui_rect relativeRect, drgui_color color, float radius, void* pPaintData)
@@ -4434,23 +4185,10 @@ void drgui_draw_round_rect(drgui_element* pElement, drgui_rect relativeRect, drg
 
     assert(pElement->pContext != NULL);
 
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
     drgui_rect absoluteRect = relativeRect;
     drgui_make_rect_absolute(pElement, &absoluteRect);
-    absoluteRect = drgui_scale_rect(absoluteRect, scaleX, scaleY);
 
-    if (scaleX == scaleY)
-    {
-        pElement->pContext->paintingCallbacks.drawRoundRect(absoluteRect, color, (radius * scaleX), pPaintData);
-    }
-    else
-    {
-        // TODO: The corners need to be rounded based on an ellipse rather than a circle.
-        pElement->pContext->paintingCallbacks.drawRoundRect(absoluteRect, color, (radius * scaleX), pPaintData);
-    }
+    pElement->pContext->paintingCallbacks.drawRoundRect(absoluteRect, color, radius, pPaintData);
 }
 
 void drgui_draw_round_rect_outline(drgui_element* pElement, drgui_rect relativeRect, drgui_color color, float radius, float outlineWidth, void* pPaintData)
@@ -4461,23 +4199,10 @@ void drgui_draw_round_rect_outline(drgui_element* pElement, drgui_rect relativeR
 
     assert(pElement->pContext != NULL);
 
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
     drgui_rect absoluteRect = relativeRect;
     drgui_make_rect_absolute(pElement, &absoluteRect);
-    absoluteRect = drgui_scale_rect(absoluteRect, scaleX, scaleY);
-
-    if (scaleX == scaleY)
-    {
-        pElement->pContext->paintingCallbacks.drawRoundRectOutline(absoluteRect, color, (radius * scaleX), floorf(outlineWidth * scaleX), pPaintData);
-    }
-    else
-    {
-        // TODO: This is incorrect. The left and right borders need to be scaled by scaleX and the top and bottom borders need to be scaled by scaleY. The corners need to be rounded based on an ellipse rather than a circle.
-        pElement->pContext->paintingCallbacks.drawRoundRectOutline(absoluteRect, color, (radius * scaleX), (outlineWidth * scaleX), pPaintData);
-    }
+    
+    pElement->pContext->paintingCallbacks.drawRoundRectOutline(absoluteRect, color, radius, outlineWidth, pPaintData);
 }
 
 void drgui_draw_round_rect_with_outline(drgui_element* pElement, drgui_rect relativeRect, drgui_color color, float radius, float outlineWidth, drgui_color outlineColor, void* pPaintData)
@@ -4488,23 +4213,10 @@ void drgui_draw_round_rect_with_outline(drgui_element* pElement, drgui_rect rela
 
     assert(pElement->pContext != NULL);
 
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
     drgui_rect absoluteRect = relativeRect;
     drgui_make_rect_absolute(pElement, &absoluteRect);
-    absoluteRect = drgui_scale_rect(absoluteRect, scaleX, scaleY);
 
-    if (scaleX == scaleY)
-    {
-        pElement->pContext->paintingCallbacks.drawRoundRectWithOutline(absoluteRect, color, (radius * scaleX), (outlineWidth * scaleX), outlineColor, pPaintData);
-    }
-    else
-    {
-        // TODO: This is incorrect. The left and right borders need to be scaled by scaleX and the top and bottom borders need to be scaled by scaleY. The corners need to be rounded based on an ellipse rather than a circle.
-        pElement->pContext->paintingCallbacks.drawRoundRectWithOutline(absoluteRect, color, (radius * scaleX), (outlineWidth * scaleX), outlineColor, pPaintData);
-    }
+    pElement->pContext->paintingCallbacks.drawRoundRectWithOutline(absoluteRect, color, radius, outlineWidth, outlineColor, pPaintData);
 }
 
 void drgui_draw_text(drgui_element* pElement, drgui_font* pFont, const char* text, int textLengthInBytes, float posX, float posY, drgui_color color, drgui_color backgroundColor, void* pPaintData)
@@ -4515,20 +4227,11 @@ void drgui_draw_text(drgui_element* pElement, drgui_font* pFont, const char* tex
 
     assert(pElement->pContext != NULL);
 
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-    float absolutePosX = posX * scaleX;
-    float absolutePosY = posY * scaleX;
+    float absolutePosX = posX;
+    float absolutePosY = posY;
     drgui_make_point_absolute(pElement, &absolutePosX, &absolutePosY);
 
-    drgui_resource font = drgui_get_internal_font_by_scale(pFont, scaleY);
-    if (font == NULL) {
-        return;
-    }
-
-    pElement->pContext->paintingCallbacks.drawText(font, text, textLengthInBytes, absolutePosX, absolutePosY, color, backgroundColor, pPaintData);
+    pElement->pContext->paintingCallbacks.drawText(pFont->internalFont, text, textLengthInBytes, absolutePosX, absolutePosY, color, backgroundColor, pPaintData);
 }
 
 void drgui_draw_image(drgui_element* pElement, drgui_image* pImage, drgui_draw_image_args* pArgs, void* pPaintData)
@@ -4539,21 +4242,8 @@ void drgui_draw_image(drgui_element* pElement, drgui_image* pImage, drgui_draw_i
 
     assert(pElement->pContext != NULL);
 
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
     drgui_make_point_absolute(pElement, &pArgs->dstX, &pArgs->dstY);
     drgui_make_point_absolute(pElement, &pArgs->dstBoundsX, &pArgs->dstBoundsY);
-
-    pArgs->dstX            *= scaleX;
-    pArgs->dstY            *= scaleY;
-    pArgs->dstWidth        *= scaleX;
-    pArgs->dstHeight       *= scaleY;
-    pArgs->dstBoundsX      *= scaleX;
-    pArgs->dstBoundsY      *= scaleY;
-    pArgs->dstBoundsWidth  *= scaleX;
-    pArgs->dstBoundsHeight *= scaleY;
 
     if ((pArgs->options & DRGUI_IMAGE_ALIGN_CENTER) != 0)
     {
@@ -4639,16 +4329,14 @@ drgui_font* drgui_create_font(drgui_context* pContext, const char* family, unsig
         return NULL;
     }
 
-    pFont->pContext          = pContext;
-    pFont->family[0]         = '\0';
-    pFont->size              = size;
-    pFont->weight            = weight;
-    pFont->slant             = slant;
-    pFont->rotation          = rotation;
-    pFont->flags             = flags;
-    pFont->internalFontCount = 1;
-    pFont->pInternalFonts    = (drgui_resource*)malloc(sizeof(drgui_resource) * pFont->internalFontCount);
-    pFont->pInternalFonts[0] = internalFont;
+    pFont->pContext     = pContext;
+    pFont->family[0]    = '\0';
+    pFont->size         = size;
+    pFont->weight       = weight;
+    pFont->slant        = slant;
+    pFont->rotation     = rotation;
+    pFont->flags        = flags;
+    pFont->internalFont = internalFont;
 
     if (family != NULL) {
         drgui__strcpy_s(pFont->family, sizeof(pFont->family), family);
@@ -4667,19 +4355,14 @@ void drgui_delete_font(drgui_font* pFont)
 
     // Delete the internal font objects first.
     if (pFont->pContext->paintingCallbacks.deleteFont) {
-        for (size_t i = 0; i < pFont->internalFontCount; ++i) {
-            pFont->pContext->paintingCallbacks.deleteFont(pFont->pInternalFonts[i]);
-        }
+        pFont->pContext->paintingCallbacks.deleteFont(pFont->internalFont);
     }
 
-    free(pFont->pInternalFonts);
     free(pFont);
 }
 
-bool drgui_get_font_metrics(drgui_font* pFont, float scaleX, float scaleY, drgui_font_metrics* pMetricsOut)
+bool drgui_get_font_metrics(drgui_font* pFont, drgui_font_metrics* pMetricsOut)
 {
-    (void)scaleX;
-
     if (pFont == NULL || pMetricsOut == NULL) {
         return false;
     }
@@ -4690,39 +4373,11 @@ bool drgui_get_font_metrics(drgui_font* pFont, float scaleX, float scaleY, drgui
         return false;
     }
 
-    drgui_resource font = drgui_get_internal_font_by_scale(pFont, scaleY);
-    if (font == NULL) {
-        return false;
-    }
-
-    bool result = pFont->pContext->paintingCallbacks.getFontMetrics(font, pMetricsOut);
-    if (result)
-    {
-        if (pMetricsOut != NULL)
-        {
-            pMetricsOut->ascent     = (unsigned int)(pMetricsOut->ascent     / scaleY);
-            pMetricsOut->descent    = (unsigned int)(pMetricsOut->descent    / scaleY);
-            pMetricsOut->lineHeight = (unsigned int)(pMetricsOut->lineHeight / scaleY);
-            pMetricsOut->spaceWidth = (unsigned int)(pMetricsOut->spaceWidth / scaleX);
-        }
-    }
-
-    return result;
+    return pFont->pContext->paintingCallbacks.getFontMetrics(pFont->internalFont, pMetricsOut);
 }
 
-bool drgui_get_font_metrics_by_element(drgui_font* pFont, drgui_element* pElement, drgui_font_metrics* pMetricsOut)
+bool drgui_get_glyph_metrics(drgui_font* pFont, unsigned int utf32, drgui_glyph_metrics* pMetricsOut)
 {
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-    return drgui_get_font_metrics(pFont, scaleX, scaleY, pMetricsOut);
-}
-
-bool drgui_get_glyph_metrics(drgui_font* pFont, unsigned int utf32, float scaleX, float scaleY, drgui_glyph_metrics* pMetricsOut)
-{
-    (void)scaleY;
-
     if (pFont == NULL || pMetricsOut == NULL) {
         return false;
     }
@@ -4733,38 +4388,10 @@ bool drgui_get_glyph_metrics(drgui_font* pFont, unsigned int utf32, float scaleX
         return false;
     }
 
-    drgui_resource font = drgui_get_internal_font_by_scale(pFont, scaleY);
-    if (font == NULL) {
-        return false;
-    }
-
-    bool result = pFont->pContext->paintingCallbacks.getGlyphMetrics(font, utf32, pMetricsOut);
-    if (result)
-    {
-        if (pMetricsOut != NULL)
-        {
-            pMetricsOut->width    = (unsigned int)(pMetricsOut->width    / scaleX);
-            pMetricsOut->height   = (unsigned int)(pMetricsOut->height   / scaleY);
-            pMetricsOut->originX  = (unsigned int)(pMetricsOut->originX  / scaleX);
-            pMetricsOut->originY  = (unsigned int)(pMetricsOut->originY  / scaleY);
-            pMetricsOut->advanceX = (unsigned int)(pMetricsOut->advanceX / scaleX);
-            pMetricsOut->advanceY = (unsigned int)(pMetricsOut->advanceY / scaleY);
-        }
-    }
-
-    return result;
+    return pFont->pContext->paintingCallbacks.getGlyphMetrics(pFont->internalFont, utf32, pMetricsOut);
 }
 
-bool drgui_get_glyph_metrics_by_element(drgui_font* pFont, unsigned int utf32, drgui_element* pElement, drgui_glyph_metrics* pMetricsOut)
-{
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-    return drgui_get_glyph_metrics(pFont, utf32, scaleX, scaleY, pMetricsOut);
-}
-
-bool drgui_measure_string(drgui_font* pFont, const char* text, size_t textLengthInBytes, float scaleX, float scaleY, float* pWidthOut, float* pHeightOut)
+bool drgui_measure_string(drgui_font* pFont, const char* text, size_t textLengthInBytes, float* pWidthOut, float* pHeightOut)
 {
     if (pFont == NULL) {
         return false;
@@ -4773,7 +4400,7 @@ bool drgui_measure_string(drgui_font* pFont, const char* text, size_t textLength
     if (text == NULL || textLengthInBytes == 0)
     {
         drgui_font_metrics metrics;
-        if (!drgui_get_font_metrics(pFont, scaleX, scaleY, &metrics)) {
+        if (!drgui_get_font_metrics(pFont, &metrics)) {
             return false;
         }
 
@@ -4795,73 +4422,34 @@ bool drgui_measure_string(drgui_font* pFont, const char* text, size_t textLength
         return false;
     }
 
-    drgui_resource font = drgui_get_internal_font_by_scale(pFont, scaleY);
-    if (font == NULL) {
-        return false;
-    }
-
-    bool result = pFont->pContext->paintingCallbacks.measureString(font, text, textLengthInBytes, pWidthOut, pHeightOut);
-    if (result)
-    {
-        if (pWidthOut) {
-            *pWidthOut = (*pWidthOut / scaleX);
-        }
-        if (pHeightOut) {
-            *pHeightOut = (*pHeightOut / scaleY);
-        }
-    }
-
-    return result;
+    return pFont->pContext->paintingCallbacks.measureString(pFont->internalFont, text, textLengthInBytes, pWidthOut, pHeightOut);
 }
 
-bool drgui_measure_string_by_element(drgui_font* pFont, const char* text, size_t textLengthInBytes, drgui_element* pElement, float* pWidthOut, float* pHeightOut)
+bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float* pTextCursorPosXOut, size_t* pCharacterIndexOut)
 {
-    float scaleX;
-    float scaleY;
-    drgui_get_absolute_inner_scale(pElement, &scaleX, &scaleY);
-
-    return drgui_measure_string(pFont, text, textLengthInBytes, scaleX, scaleY, pWidthOut, pHeightOut);
-}
-
-bool drgui_get_text_cursor_position_from_point(drgui_font* pFont, const char* text, size_t textSizeInBytes, float maxWidth, float inputPosX, float scaleX, float scaleY, float* pTextCursorPosXOut, size_t* pCharacterIndexOut)
-{
-    (void)scaleX;
-
     if (pFont == NULL) {
         return false;
     }
 
     assert(pFont->pContext != NULL);
 
-    drgui_resource font = drgui_get_internal_font_by_scale(pFont, scaleY);
-    if (font == NULL) {
-        return false;
-    }
-
     if (pFont->pContext->paintingCallbacks.getTextCursorPositionFromPoint) {
-        return pFont->pContext->paintingCallbacks.getTextCursorPositionFromPoint(font, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
+        return pFont->pContext->paintingCallbacks.getTextCursorPositionFromPoint(pFont->internalFont, text, textSizeInBytes, maxWidth, inputPosX, pTextCursorPosXOut, pCharacterIndexOut);
     }
 
     return false;
 }
 
-bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* text, size_t characterIndex, float scaleX, float scaleY, float* pTextCursorPosXOut)
+bool drgui_get_text_cursor_position_from_char(drgui_font* pFont, const char* text, size_t characterIndex, float* pTextCursorPosXOut)
 {
-    (void)scaleX;
-
     if (pFont == NULL) {
         return false;
     }
 
     assert(pFont->pContext != NULL);
 
-    drgui_resource font = drgui_get_internal_font_by_scale(pFont, scaleY);
-    if (font == NULL) {
-        return false;
-    }
-
     if (pFont->pContext->paintingCallbacks.getTextCursorPositionFromChar) {
-        return pFont->pContext->paintingCallbacks.getTextCursorPositionFromChar(font, text, characterIndex, pTextCursorPosXOut);
+        return pFont->pContext->paintingCallbacks.getTextCursorPositionFromChar(pFont->internalFont, text, characterIndex, pTextCursorPosXOut);
     }
 
     return false;
@@ -4985,13 +4573,8 @@ void drgui_unmap_image_data(drgui_image* pImage)
 
 void drgui_on_size_fit_children_to_parent(drgui_element* pElement, float newWidth, float newHeight)
 {
-    float scaleX;
-    float scaleY;
-    drgui_get_inner_scale(pElement, &scaleX, &scaleY);
-
-    for (drgui_element* pChild = pElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling)
-    {
-        drgui_set_size(pChild, newWidth / scaleX, newHeight / scaleY);
+    for (drgui_element* pChild = pElement->pFirstChild; pChild != NULL; pChild = pChild->pNextSibling) {
+        drgui_set_size(pChild, newWidth, newHeight);
     }
 }
 
@@ -7086,11 +6669,8 @@ drgui_rect drgui_text_engine_get_cursor_rect(drgui_text_engine* pTL)
     }
     else if (pTL->pDefaultFont != NULL)
     {
-        const float scaleX = 1;
-        const float scaleY = 1;
-
         drgui_font_metrics defaultFontMetrics;
-        drgui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics);
+        drgui_get_font_metrics(pTL->pDefaultFont, &defaultFontMetrics);
 
         lineRect.bottom = (float)defaultFontMetrics.lineHeight;
     }
@@ -7119,15 +6699,12 @@ size_t drgui_text_engine_get_cursor_column(drgui_text_engine* pTL)
         return 0;
     }
 
-    float scaleX = 1;
-    float scaleY = 1;
-
     float posX;
     float posY;
     drgui_text_engine_get_cursor_position(pTL, &posX, &posY);
 
     drgui_font_metrics fontMetrics;
-    drgui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &fontMetrics);
+    drgui_get_font_metrics(pTL->pDefaultFont, &fontMetrics);
 
     return (unsigned int)((int)posX / fontMetrics.spaceWidth);
 }
@@ -7542,10 +7119,10 @@ void drgui_text_engine_refresh_markers(drgui_text_engine* pTL)
 
     // Cursor.
     drgui_text_run* pRun = pTL->pRuns + pTL->cursor.iRun;
-    drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pRun->iChar, pTL->cursor.iChar, 1, 1, OUT &pTL->cursor.relativePosX);
+    drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pRun->iChar, pTL->cursor.iChar, OUT &pTL->cursor.relativePosX);
 
     pRun = pTL->pRuns + pTL->selectionAnchor.iRun;
-    drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pRun->iChar, pTL->selectionAnchor.iChar, 1, 1, OUT &pTL->selectionAnchor.relativePosX);
+    drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pRun->iChar, pTL->selectionAnchor.iChar, OUT &pTL->selectionAnchor.relativePosX);
 }
 
 bool drgui_text_engine_insert_character(drgui_text_engine* pTL, unsigned int character, size_t insertIndex)
@@ -8177,9 +7754,6 @@ size_t drgui_text_engine_get_visible_line_count_starting_at(drgui_text_engine* p
         return 0;
     }
 
-    const float scaleX = 1;
-    const float scaleY = 1;
-
     unsigned int count = 0;
     float lastLineBottom = 0;
 
@@ -8217,8 +7791,7 @@ size_t drgui_text_engine_get_visible_line_count_starting_at(drgui_text_engine* p
     if (lastLineBottom + pTL->innerOffsetY < pTL->containerHeight)
     {
         drgui_font_metrics defaultFontMetrics;
-        if (drgui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics))
-        {
+        if (drgui_get_font_metrics(pTL->pDefaultFont, &defaultFontMetrics)) {
             count += (unsigned int)((pTL->containerHeight - (lastLineBottom + pTL->innerOffsetY)) / defaultFontMetrics.lineHeight);
         }
     }
@@ -8365,10 +7938,6 @@ void drgui_text_engine_paint(drgui_text_engine* pTL, drgui_rect rect, drgui_elem
     }
 
 
-    const float scaleX = 1;
-    const float scaleY = 1;
-
-
     // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
     drgui_rect textRect = drgui_text_engine_get_text_rect_relative_to_bounds(pTL);
 
@@ -8426,7 +7995,7 @@ void drgui_text_engine_paint(drgui_text_engine* pTL, drgui_rect rect, drgui_elem
                         if (line.index >= iSelectionLine0 && line.index < iSelectionLine1)
                         {
                             drgui_font_metrics defaultFontMetrics;
-                            drgui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics);
+                            drgui_get_font_metrics(pTL->pDefaultFont, &defaultFontMetrics);
 
                             if (pTL->horzAlign == drgui_text_engine_alignment_right)
                             {
@@ -8580,9 +8149,6 @@ void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumb
         return;
     }
 
-    float scaleX = 1;
-    float scaleY = 1;
-
 
     // The position of each run will be relative to the text bounds. We want to make it relative to the container bounds.
     drgui_rect textRect = drgui_text_engine_get_text_rect_relative_to_bounds(pTL);
@@ -8611,7 +8177,7 @@ void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumb
         // We failed to retrieve the first line which is probably due to the text engine being empty. We just fake the first line to
         // ensure we get the number 1 to be drawn.
         drgui_font_metrics fontMetrics;
-        drgui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &fontMetrics);
+        drgui_get_font_metrics(pTL->pDefaultFont, &fontMetrics);
 
         line.height = (float)fontMetrics.lineHeight;
         line.posY = 0;
@@ -8637,7 +8203,7 @@ void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumb
 
                 float textWidth;
                 float textHeight;
-                drgui_measure_string(pFont, iLineStr, strlen(iLineStr), scaleX, scaleY, &textWidth, &textHeight);
+                drgui_measure_string(pFont, iLineStr, strlen(iLineStr), &textWidth, &textHeight);
 
                 drgui_text_run run = {0};
                 run.pFont           = pFont;
@@ -8776,11 +8342,8 @@ DRGUI_PRIVATE void drgui_text_engine__refresh(drgui_text_engine* pTL)
     pTL->textBoundsWidth  = 0;
     pTL->textBoundsHeight = 0;
 
-    const float scaleX = 1;
-    const float scaleY = 1;
-
     drgui_font_metrics defaultFontMetrics;
-    drgui_get_font_metrics(pTL->pDefaultFont, scaleX, scaleY, &defaultFontMetrics);
+    drgui_get_font_metrics(pTL->pDefaultFont, &defaultFontMetrics);
 
     pTL->textBoundsHeight = (float)defaultFontMetrics.lineHeight;
 
@@ -8849,7 +8412,7 @@ DRGUI_PRIVATE void drgui_text_engine__refresh(drgui_text_engine* pTL)
         else
         {
             // Normal run.
-            drgui_measure_string(pTL->pDefaultFont, nextRunStart, run.textLength, 1, 1, &run.width, &run.height);
+            drgui_measure_string(pTL->pDefaultFont, nextRunStart, run.textLength, &run.width, &run.height);
         }
 
 
@@ -9052,7 +8615,7 @@ DRGUI_PRIVATE bool drgui_text_engine__is_text_run_whitespace(drgui_text_engine* 
 DRGUI_PRIVATE float drgui_text_engine__get_tab_width(drgui_text_engine* pTL)
 {
     drgui_font_metrics defaultFontMetrics;
-    drgui_get_font_metrics(pTL->pDefaultFont, 1, 1, &defaultFontMetrics);
+    drgui_get_font_metrics(pTL->pDefaultFont, &defaultFontMetrics);
 
     return (float)(defaultFontMetrics.spaceWidth * pTL->tabSizeInSpaces);
 }
@@ -9389,9 +8952,6 @@ DRGUI_PRIVATE bool drgui_text_engine__move_marker_to_point(drgui_text_engine* pT
         return false;
     }
 
-    const float scaleX = 1;
-    const float scaleY = 1;
-
     size_t iClosestRunToPoint;
     if (drgui_text_engine__find_closest_run_to_point(pTL, inputPosXRelativeToText, inputPosYRelativeToText, OUT &iClosestRunToPoint))
     {
@@ -9469,7 +9029,7 @@ DRGUI_PRIVATE bool drgui_text_engine__move_marker_to_point(drgui_text_engine* pT
             {
                 // It's a standard run.
                 float inputPosXRelativeToRun = inputPosXRelativeToText - pRun->posX;
-                if (drgui_get_text_cursor_position_from_point(pRun->pFont, pTL->text + pRun->iChar, pRun->textLength, pRun->width, inputPosXRelativeToRun, scaleX, scaleY, OUT &pMarker->relativePosX, OUT &pMarker->iChar))
+                if (drgui_get_text_cursor_position_from_point(pRun->pFont, pTL->text + pRun->iChar, pRun->textLength, pRun->width, inputPosXRelativeToRun, OUT &pMarker->relativePosX, OUT &pMarker->iChar))
                 {
                     // If the marker is past the last character of the run it needs to be moved to the start of the next one.
                     if (pMarker->iChar == pRun->textLength) {
@@ -9499,9 +9059,6 @@ DRGUI_PRIVATE bool drgui_text_engine__move_marker_left(drgui_text_engine* pTL, d
         return false;
     }
 
-    const float scaleX = 1;
-    const float scaleY = 1;
-
     if (pTL->runCount > 0)
     {
         if (pMarker->iChar > 0)
@@ -9526,8 +9083,7 @@ DRGUI_PRIVATE bool drgui_text_engine__move_marker_left(drgui_text_engine* pTL, d
             }
             else
             {
-                if (!drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pTL->pRuns[pMarker->iRun].iChar, pMarker->iChar, scaleX, scaleY, OUT &pMarker->relativePosX))
-                {
+                if (!drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pTL->pRuns[pMarker->iRun].iChar, pMarker->iChar, OUT &pMarker->relativePosX)) {
                     return false;
                 }
             }
@@ -9535,8 +9091,7 @@ DRGUI_PRIVATE bool drgui_text_engine__move_marker_left(drgui_text_engine* pTL, d
         else
         {
             // We're at the beginning of the run which means we need to transfer the cursor to the end of the previous run.
-            if (!drgui_text_engine__move_marker_to_last_character_of_prev_run(pTL, pMarker))
-            {
+            if (!drgui_text_engine__move_marker_to_last_character_of_prev_run(pTL, pMarker)) {
                 return false;
             }
         }
@@ -9554,9 +9109,6 @@ DRGUI_PRIVATE bool drgui_text_engine__move_marker_right(drgui_text_engine* pTL, 
         return false;
     }
 
-    const float scaleX = 1;
-    const float scaleY = 1;
-
     if (pTL->runCount > 0)
     {
         if (pMarker->iChar + 1 < pTL->pRuns[pMarker->iRun].textLength)
@@ -9573,8 +9125,7 @@ DRGUI_PRIVATE bool drgui_text_engine__move_marker_right(drgui_text_engine* pTL, 
             }
             else
             {
-                if (!drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pTL->pRuns[pMarker->iRun].iChar, pMarker->iChar, scaleX, scaleY, OUT &pMarker->relativePosX))
-                {
+                if (!drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pTL->pRuns[pMarker->iRun].iChar, pMarker->iChar, OUT &pMarker->relativePosX)) {
                     return false;
                 }
             }
@@ -9582,8 +9133,7 @@ DRGUI_PRIVATE bool drgui_text_engine__move_marker_right(drgui_text_engine* pTL, 
         else
         {
             // We're at the end of the run which means we need to transfer the cursor to the beginning of the next run.
-            if (!drgui_text_engine__move_marker_to_first_character_of_next_run(pTL, pMarker))
-            {
+            if (!drgui_text_engine__move_marker_to_first_character_of_next_run(pTL, pMarker)) {
                 return false;
             }
         }
@@ -9833,9 +9383,6 @@ DRGUI_PRIVATE bool drgui_text_engine__update_marker_relative_position(drgui_text
         return false;
     }
 
-    float scaleX = 1;
-    float scaleY = 1;
-
     const drgui_text_run* pRun = pTL->pRuns + pMarker->iRun;
     if (pTL->text[pRun->iChar] == '\t')
     {
@@ -9856,7 +9403,7 @@ DRGUI_PRIVATE bool drgui_text_engine__update_marker_relative_position(drgui_text
     }
     else
     {
-        return drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pTL->pRuns[pMarker->iRun].iChar, pMarker->iChar, scaleX, scaleY, OUT &pMarker->relativePosX);
+        return drgui_get_text_cursor_position_from_char(pRun->pFont, pTL->text + pTL->pRuns[pMarker->iRun].iChar, pMarker->iChar, OUT &pMarker->relativePosX);
     }
 }
 
@@ -12503,7 +12050,7 @@ DRGUI_PRIVATE void drgui_tabbar_on_measure_tab_default(drgui_element* pTBElement
     float textHeight = 0;
 
     if (pTab != NULL) {
-        drgui_measure_string_by_element(pTB->pFont, pTab->text, strlen(pTab->text), pTBElement, &textWidth, &textHeight);
+        drgui_measure_string(pTB->pFont, pTab->text, strlen(pTab->text), &textWidth, &textHeight);
     }
 
 
@@ -12560,8 +12107,7 @@ DRGUI_PRIVATE void drgui_tabbar_on_paint_tab_default(drgui_element* pTBElement, 
     // Text.
     float textPosX = offsetX + pTB->tabPadding;
     float textPosY = offsetY + pTB->tabPadding;
-    if (pTab != NULL)
-    {
+    if (pTab != NULL) {
         drgui_draw_text(pTBElement, pTB->pFont, pTab->text, (int)strlen(pTab->text), textPosX, textPosY, pTB->tabTextColor, bgcolor, pPaintData);
     }
 
@@ -12572,7 +12118,7 @@ DRGUI_PRIVATE void drgui_tabbar_on_paint_tab_default(drgui_element* pTBElement, 
         float textWidth  = 0;
         float textHeight = 0;
         if (pTab != NULL) {
-            drgui_measure_string_by_element(pTB->pFont, pTab->text, strlen(pTab->text), pTBElement, &textWidth, &textHeight);
+            drgui_measure_string(pTB->pFont, pTab->text, strlen(pTab->text), &textWidth, &textHeight);
         }
 
         float closeButtonPosX = textPosX + textWidth + pTB->closeButtonPaddingLeft;
