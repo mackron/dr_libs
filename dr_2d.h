@@ -1998,17 +1998,18 @@ void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_i
         return;
     }
 
-
+    bool drawFlipped = false;
     HBITMAP hSrcBitmap = NULL;
 
-    if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) == 0 && pArgs->foregroundTint.r == 255 && pArgs->foregroundTint.g == 255 && pArgs->foregroundTint.b == 255)
+    if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) == 0 && (pArgs->options & DR2D_IMAGE_HINT_NO_ALPHA) != 0 && pArgs->foregroundTint.r == 255 && pArgs->foregroundTint.g == 255 && pArgs->foregroundTint.b == 255)
     {
-        // Fast path. No tint, no background.
+        // Fast path. No tint, no background, no alpha.
         hSrcBitmap = pGDIImageData->hSrcBitmap;
+        drawFlipped = true;
     }
     else
     {
-        // Slow path. We need to manually change the color values of the intermediate bitmap and use that as the source when drawing it.
+        // Slow path. We need to manually change the color values of the intermediate bitmap and use that as the source when drawing it. This is also flipped.
         unsigned int* pSrcBitmapData = pGDIImageData->pSrcBitmapData;
         unsigned int* pDstBitmapData = pGDIImageData->pIntermediateBitmapData;
         for (unsigned int iRow = 0; iRow < pImage->height; ++iRow)
@@ -2016,7 +2017,7 @@ void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_i
             for (unsigned int iCol = 0; iCol < pImage->width; ++iCol)
             {
                 unsigned int  srcTexel = *(pSrcBitmapData + (iRow * pImage->width) + iCol);
-                unsigned int* dstTexel =  (pDstBitmapData + (iRow * pImage->width) + iCol);
+                unsigned int* dstTexel =  (pDstBitmapData + ((pImage->height - iRow - 1) * pImage->width) + iCol);
 
                 unsigned int srcTexelA = (srcTexel & 0xFF000000) >> 24;
                 unsigned int srcTexelR = (unsigned int)(((srcTexel & 0x00FF0000) >> 16) * (pArgs->foregroundTint.r / 255.0f));
@@ -2053,12 +2054,17 @@ void dr2d_draw_image_gdi(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw_i
     HGDIOBJ hPrevBitmap = SelectObject(pGDISurfaceData->hIntermediateDC, hSrcBitmap);
     if ((pArgs->options & DR2D_IMAGE_HINT_NO_ALPHA) != 0)
     {
-        StretchBlt(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY + (int)pArgs->dstHeight - 1, (int)pArgs->dstWidth, -(int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, SRCCOPY);
+        if (drawFlipped) {
+            StretchBlt(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY + (int)pArgs->dstHeight - 1, (int)pArgs->dstWidth, -(int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, SRCCOPY);
+        } else {
+            StretchBlt(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, SRCCOPY);
+        }
     }
     else
     {
+        assert(drawFlipped == false);   // <-- Error if this is hit.
         BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
-        AlphaBlend(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY + (int)pArgs->dstHeight - 1, (int)pArgs->dstWidth, -(int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, blend);
+        AlphaBlend(pGDISurfaceData->hDC, (int)pArgs->dstX, (int)pArgs->dstY, (int)pArgs->dstWidth, (int)pArgs->dstHeight, pGDISurfaceData->hIntermediateDC, (int)pArgs->srcX, (int)pArgs->srcY, (int)pArgs->srcWidth, (int)pArgs->srcHeight, blend);
     }
     SelectObject(pGDISurfaceData->hIntermediateDC, hPrevBitmap);
 }
