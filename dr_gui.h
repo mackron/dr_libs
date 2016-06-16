@@ -13075,6 +13075,12 @@ void drgui_textbox_set_vertical_align(drgui_element* pTBElement, drgui_text_engi
 /// Sets the horizontal alignment of the given text box.
 void drgui_textbox_set_horizontal_align(drgui_element* pTBElement, drgui_text_engine_alignment align);
 
+// Sets the width of the line numbers.
+void drgui_textbox_set_line_numbers_width(drgui_element* pTBElement, float lineNumbersWidth);
+
+// Retrieves the width of the line numbers.
+float drgui_textbox_get_line_numbers_width(drgui_element* pTBElement);
+
 
 /// Sets the text of the given text box.
 void drgui_textbox_set_text(drgui_element* pTBElement, const char* text);
@@ -13274,6 +13280,9 @@ typedef struct
     /// The amount of padding to apply the left and right of the text.
     float padding;
 
+    // The width of the line numbers.
+    float lineNumbersWidth;
+
     /// The padding to the right of the line numbers.
     float lineNumbersPaddingRight;
 
@@ -13459,6 +13468,7 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     pTB->borderColor = drgui_rgb(0, 0, 0);
     pTB->borderWidth = 1;
     pTB->padding     = 2;
+    pTB->lineNumbersWidth = 64;
     pTB->lineNumbersPaddingRight = 16;
     pTB->vertScrollbarSize = 16;
     pTB->horzScrollbarSize = 16;
@@ -13534,7 +13544,21 @@ void drgui_textbox_set_font(drgui_element* pTBElement, drgui_font* pFont)
         return;
     }
 
-    drgui_text_engine_set_default_font(pTB->pTL, pFont);
+    drgui_begin_dirty(pTBElement);
+    {
+        drgui_text_engine_set_default_font(pTB->pTL, pFont);
+
+        // The font used for line numbers are tied to the main font at the moment.
+        drgui_textbox__refresh_line_numbers(pTBElement);
+
+        // Emulate a scroll to ensure the scroll position is pinned to a line.
+        drgui_textbox__on_vscroll(pTB->pVertScrollbar, drgui_sb_get_scroll_position(pTB->pVertScrollbar));
+        drgui_textbox__refresh_scrollbars(pTBElement);
+        
+        // The caret position needs to be refreshes. We'll cheat here a little bit and just do a full refresh of the text engine.
+        drgui_text_engine__refresh(pTB->pTL);
+    }
+    drgui_end_dirty(pTBElement);
 }
 
 drgui_font* drgui_textbox_get_font(drgui_element* pTBElement)
@@ -13675,6 +13699,26 @@ void drgui_textbox_set_horizontal_align(drgui_element* pTBElement, drgui_text_en
     }
 
     drgui_text_engine_set_horizontal_align(pTB->pTL, align);
+}
+
+void drgui_textbox_set_line_numbers_width(drgui_element* pTBElement, float lineNumbersWidth)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->lineNumbersWidth = lineNumbersWidth;
+}
+
+float drgui_textbox_get_line_numbers_width(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return pTB->lineNumbersWidth;
 }
 
 
@@ -15039,7 +15083,7 @@ DRGUI_PRIVATE void drgui_textbox__refresh_line_numbers(drgui_element* pTBElement
 
     float lineNumbersWidth = 0;
     if (drgui_is_visible(pTB->pLineNumbers)) {
-        lineNumbersWidth = 64;
+        lineNumbersWidth = pTB->lineNumbersWidth;
     }
 
     float scrollbarHeight = drgui_is_visible(pTB->pHorzScrollbar) ? drgui_get_height(pTB->pHorzScrollbar) : 0;
