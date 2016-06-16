@@ -4533,7 +4533,7 @@ void drgui_draw_text(drgui_element* pElement, drgui_font* pFont, const char* tex
 
 void drgui_draw_image(drgui_element* pElement, drgui_image* pImage, drgui_draw_image_args* pArgs, void* pPaintData)
 {
-    if (pElement == NULL || pImage == NULL) {
+    if (pElement == NULL || pImage == NULL || pArgs == NULL) {
         return;
     }
 
