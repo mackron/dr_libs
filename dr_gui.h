@@ -13800,14 +13800,15 @@ void drgui_textbox_on_mouse_button_down(drgui_element* pTBElement, int mouseButt
         return;
     }
 
+    // Focus the text editor.
+    drgui_capture_keyboard(pTBElement);
+
     if (mouseButton == DRGUI_MOUSE_BUTTON_LEFT)
     {
-        // Focus the text editor.
-        drgui_capture_keyboard(pTBElement);
-
         // If we are not in selection mode, make sure everything is deselected.
         if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) == 0) {
             drgui_text_engine_deselect_all(pTB->pTL);
+            drgui_text_engine_leave_selection_mode(pTB->pTL);
         } else {
             drgui_text_engine_enter_selection_mode(pTB->pTL);
         }
@@ -13815,16 +13816,20 @@ void drgui_textbox_on_mouse_button_down(drgui_element* pTBElement, int mouseButt
         float offsetX;
         float offsetY;
         drgui_textbox__get_text_offset(pTBElement, &offsetX, &offsetY);
-
         drgui_text_engine_move_cursor_to_point(pTB->pTL, (float)relativeMousePosX - offsetX, (float)relativeMousePosY - offsetY);
 
         // In order to support selection with the mouse we need to capture the mouse and enter selection mode.
         drgui_capture_mouse(pTBElement);
 
-        // If we didn't previous enter selection mode we'll need to do that now so we can drag select.
+        // If we didn't previously enter selection mode we'll need to do that now so we can drag select.
         if ((stateFlags & DRGUI_KEY_STATE_SHIFT_DOWN) == 0) {
             drgui_text_engine_enter_selection_mode(pTB->pTL);
         }
+    }
+
+    if (mouseButton == DRGUI_MOUSE_BUTTON_RIGHT)
+    {
+        drgui_text_engine_leave_selection_mode(pTB->pTL);
     }
 }
 
@@ -13860,7 +13865,6 @@ void drgui_textbox_on_mouse_button_dblclick(drgui_element* pTBElement, int mouse
     if (pTB == NULL) {
         return;
     }
-
 }
 
 void drgui_textbox_on_mouse_wheel(drgui_element* pTBElement, int delta, int relativeMousePosX, int relativeMousePosY, int stateFlags)
