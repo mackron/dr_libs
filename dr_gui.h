@@ -13181,6 +13181,15 @@ void drgui_textbox_disable_horizontal_scrollbar(drgui_element* pTBElement);
 /// Enables the horizontal scrollbar.
 void drgui_textbox_enable_horizontal_scrollbar(drgui_element* pTBElement);
 
+// Retrieves the vertical scrollbar.
+drgui_element* drgui_textbox_get_vertical_scrollbar(drgui_element* pTBElement);
+
+// Retrieves the horizontal scrollbar.
+drgui_element* drgui_textbox_get_horizontal_scrollbar(drgui_element* pTBElement);
+
+// Sets the size of both the vertical and horizontal scrollbars.
+void drgui_textbox_set_scrollbar_size(drgui_element* pTBElement, float size);
+
 
 /// Sets the function to call when the cursor moves.
 void drgui_textbox_set_on_cursor_move(drgui_element* pTBElement, drgui_textbox_on_cursor_move_proc proc);
@@ -14078,6 +14087,39 @@ void drgui_textbox_enable_horizontal_scrollbar(drgui_element* pTBElement)
         pTB->isHorzScrollbarEnabled = true;
         drgui_textbox__refresh_scrollbars(pTBElement);
     }
+}
+
+drgui_element* drgui_textbox_get_vertical_scrollbar(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return NULL;
+    }
+
+    return pTB->pVertScrollbar;
+}
+
+drgui_element* drgui_textbox_get_horizontal_scrollbar(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return NULL;
+    }
+
+    return pTB->pHorzScrollbar;
+}
+
+void drgui_textbox_set_scrollbar_size(drgui_element* pTBElement, float size)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->horzScrollbarSize = size;
+    pTB->vertScrollbarSize = size;
+
+    drgui_textbox__refresh_scrollbars(pTBElement);
 }
 
 
