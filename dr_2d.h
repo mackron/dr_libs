@@ -2910,7 +2910,7 @@ void dr2d_draw_text_cairo(dr2d_surface* pSurface, dr2d_font* pFont, const char* 
     cairo_text_extents_t textMetrics;
     cairo_text_extents(cr, textNT, &textMetrics);
     cairo_set_source_rgba(cr, backgroundColor.r / 255.0, backgroundColor.g / 255.0, backgroundColor.b / 255.0, backgroundColor.a / 255.0);
-    cairo_rectangle(cr, posX, posY, textMetrics.x_advance, pCairoFont->metrics.ascent + pCairoFont->metrics.descent);
+    cairo_rectangle(cr, posX, posY, textMetrics.x_advance, pCairoFont->metrics.lineHeight);
     cairo_fill(cr);
 
 
