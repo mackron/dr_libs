@@ -4922,6 +4922,9 @@ void drgui_delete_image(drgui_image* pImage)
 
 void drgui_get_image_size(drgui_image* pImage, unsigned int* pWidthOut, unsigned int* pHeightOut)
 {
+    if (pWidthOut) *pWidthOut = 0;
+    if (pHeightOut) *pHeightOut = 0;
+
     if (pImage == NULL) {
         return;
     }
@@ -11468,6 +11471,18 @@ void drgui_tabbar_set_close_button_image(drgui_element* pTBElement, drgui_image*
 /// Retrieves the image being used for the close buttons.
 drgui_image* drgui_tabbar_get_close_button_image(drgui_element* pTBElement);
 
+// Sets the padding to apply the the text of each tab.
+void drgui_tabbar_set_tab_padding(drgui_element* pTBElement, float padding);
+
+// Retrieves the padding to apply to the text of each tab.
+float drgui_tabbar_get_tab_padding(drgui_element* pTBElement);
+
+// Sets the padding to apply the the left of the close button.
+void drgui_tabbar_set_close_button_left_padding(drgui_element* pTBElement, float padding);
+
+// Retrieves the padding to apply to the left of the close button.
+float drgui_tabbar_get_close_button_left_padding(drgui_element* pTBElement);
+
 
 /// Sets the function to call when a tab needs to be measured.
 void drgui_tabbar_set_on_measure_tab(drgui_element* pTBElement, drgui_tabbar_on_measure_tab_proc proc);
@@ -11679,12 +11694,6 @@ struct drgui_tab_bar
     /// The image to use for the close button.
     drgui_image* pCloseButtonImage;
 
-    /// The width of the close button when drawn on the tab. This is independant of the actual image's width.
-    float closeButtonWidth;
-
-    /// The height of the close button when drawn on the tab. This is independant of the actual image's height.
-    float closeButtonHeight;
-
     /// The padding to the left of the close button.
     float closeButtonPaddingLeft;
 
@@ -11804,8 +11813,6 @@ drgui_element* drgui_create_tab_bar(drgui_context* pContext, drgui_element* pPar
     pTB->tabBackbroundColorActivated = drgui_rgb(32, 128, 192); //drgui_rgb(80, 80, 80);
     pTB->tabPadding                  = 4;
     pTB->pCloseButtonImage           = NULL;
-    pTB->closeButtonWidth            = 16;
-    pTB->closeButtonHeight           = 16;
     pTB->closeButtonPaddingLeft      = 6;
     pTB->closeButtonColorDefault     = pTB->tabBackgroundColor;
     pTB->closeButtonColorTabHovered  = drgui_rgb(192, 192, 192);
@@ -11933,6 +11940,55 @@ drgui_image* drgui_tabbar_get_close_button_image(drgui_element* pTBElement)
     }
 
     return pTB->pCloseButtonImage;
+}
+
+
+void drgui_tabbar_set_tab_padding(drgui_element* pTBElement, float padding)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->tabPadding = padding;
+
+    if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+    }
+}
+
+float drgui_tabbar_get_tab_padding(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return pTB->tabPadding;
+}
+
+void drgui_tabbar_set_close_button_left_padding(drgui_element* pTBElement, float padding)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->closeButtonPaddingLeft = padding;
+
+    if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+    }
+}
+
+float drgui_tabbar_get_close_button_left_padding(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return pTB->closeButtonPaddingLeft;
 }
 
 
@@ -12437,7 +12493,10 @@ DRGUI_PRIVATE void drgui_tabbar_on_measure_tab_default(drgui_element* pTBElement
 
     float closeButtonWidth  = 0;
     if (pTB->isShowingCloseButton && pTB->pCloseButtonImage != NULL) {
-        closeButtonWidth  = pTB->closeButtonWidth + pTB->closeButtonPaddingLeft;
+        unsigned int closeImageWidth;
+        drgui_get_image_size(pTB->pCloseButtonImage, &closeImageWidth, NULL);
+
+        closeButtonWidth  = closeImageWidth + pTB->closeButtonPaddingLeft;
     }
 
 
@@ -12510,15 +12569,15 @@ DRGUI_PRIVATE void drgui_tabbar_on_paint_tab_default(drgui_element* pTBElement, 
         drgui_draw_image_args args;
         args.dstX            = closeButtonPosX;
         args.dstY            = closeButtonPosY;
-        args.dstWidth        = pTB->closeButtonWidth;
-        args.dstHeight       = pTB->closeButtonHeight;
+        args.dstWidth        = (float)iconWidth;
+        args.dstHeight       = (float)iconHeight;
         args.srcX            = 0;
         args.srcY            = 0;
         args.srcWidth        = (float)iconWidth;
         args.srcHeight       = (float)iconHeight;
         args.dstBoundsX      = args.dstX;
         args.dstBoundsY      = args.dstY;
-        args.dstBoundsWidth  = pTB->closeButtonWidth;
+        args.dstBoundsWidth  = (float)iconWidth;
         args.dstBoundsHeight = height - (pTB->tabPadding*2);
         args.foregroundTint  = closeButtonColor;
         args.backgroundColor = bgcolor;
@@ -12539,6 +12598,10 @@ DRGUI_PRIVATE drgui_tab* drgui_tabbar_find_tab_under_point(drgui_element* pTBEle
         return NULL;
     }
 
+    unsigned int closeButtonWidth;
+    unsigned int closeButtonHeight;
+    drgui_get_image_size(pTB->pCloseButtonImage, &closeButtonWidth, &closeButtonHeight);
+
     float runningPosX = 0;
     float runningPosY = 0;
     for (drgui_tab* pTab = pTB->pFirstTab; pTab != NULL; pTab = pTab->pNextTab)
@@ -12553,10 +12616,10 @@ DRGUI_PRIVATE drgui_tab* drgui_tabbar_find_tab_under_point(drgui_element* pTBEle
             {
                 // The close button is in the center, vertically.
                 drgui_rect closeButtonRect;
-                closeButtonRect.left   = runningPosX + tabWidth - (pTB->tabPadding + pTB->closeButtonWidth);
-                closeButtonRect.right  = closeButtonRect.left + pTB->closeButtonWidth;
-                closeButtonRect.top    = runningPosY + (tabHeight - (pTB->tabPadding + pTB->closeButtonHeight))/2;
-                closeButtonRect.bottom = closeButtonRect.top + pTB->closeButtonHeight;
+                closeButtonRect.left   = runningPosX + tabWidth - (pTB->tabPadding + closeButtonWidth);
+                closeButtonRect.right  = closeButtonRect.left + closeButtonWidth;
+                closeButtonRect.top    = runningPosY + (tabHeight - (pTB->tabPadding + closeButtonHeight))/2;
+                closeButtonRect.bottom = closeButtonRect.top + closeButtonHeight;
 
                 if (pTB->isShowingCloseButton && drgui_rect_contains_point(closeButtonRect, relativePosX, relativePosY)) {
                     *pIsOverCloseButtonOut = true;
