@@ -10992,11 +10992,12 @@ typedef enum
 
 typedef struct drgui_tab drgui_tab;
 
-typedef void (* drgui_tabbar_on_measure_tab_proc)    (drgui_element* pTBElement, drgui_tab* pTab, float* pWidthOut, float* pHeightOut);
-typedef void (* drgui_tabbar_on_paint_tab_proc)      (drgui_element* pTBElement, drgui_tab* pTab, drgui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
-typedef void (* drgui_tabbar_on_tab_activated_proc)  (drgui_element* pTBElement, drgui_tab* pTab);
-typedef void (* drgui_tabbar_on_tab_deactivated_proc)(drgui_element* pTBElement, drgui_tab* pTab);
-typedef void (* drgui_tabbar_on_tab_close_proc)      (drgui_element* pTBElement, drgui_tab* pTab);
+typedef void (* drgui_tabbar_on_measure_tab_proc)        (drgui_element* pTBElement, drgui_tab* pTab, float* pWidthOut, float* pHeightOut);
+typedef void (* drgui_tabbar_on_paint_tab_proc)          (drgui_element* pTBElement, drgui_tab* pTab, drgui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
+typedef void (* drgui_tabbar_on_tab_activated_proc)      (drgui_element* pTBElement, drgui_tab* pTab);
+typedef void (* drgui_tabbar_on_tab_deactivated_proc)    (drgui_element* pTBElement, drgui_tab* pTab);
+typedef void (* drgui_tabbar_on_tab_close_proc)          (drgui_element* pTBElement, drgui_tab* pTab);
+typedef void (* drgui_tabbar_on_tab_mouse_button_up_proc)(drgui_element* pTBElement, drgui_tab* pTab, int mouseButton, int mouseRelativePosX, int mouseRelativePosY, int stateFlags);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -11061,6 +11062,9 @@ void drgui_tabbar_set_on_tab_deactivated(drgui_element* pTBElement, drgui_tabbar
 
 /// Sets the function to call when a tab is closed with the close button.
 void drgui_tabbar_set_on_tab_closed(drgui_element* pTBElement, drgui_tabbar_on_tab_close_proc proc);
+
+// Sets the function to call when a tab has a mouse button released on it.
+void drgui_tabbar_set_on_tab_mouse_button_up(drgui_element* pTBElement, drgui_tabbar_on_tab_mouse_button_up_proc proc);
 
 
 /// Measures the given tab.
@@ -11300,6 +11304,9 @@ struct drgui_tab_bar
 
     /// The function to call when a tab is closed via the close button.
     drgui_tabbar_on_tab_close_proc onTabClose;
+
+    // The function to call when a mouse button is released while over a tab.
+    drgui_tabbar_on_tab_mouse_button_up_proc onTabMouseButtonUp;
 
 
     /// The size of the extra data.
@@ -11603,6 +11610,16 @@ void drgui_tabbar_set_on_tab_closed(drgui_element* pTBElement, drgui_tabbar_on_t
     }
 
     pTB->onTabClose = proc;
+}
+
+void drgui_tabbar_set_on_tab_mouse_button_up(drgui_element* pTBElement, drgui_tabbar_on_tab_mouse_button_up_proc proc)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->onTabMouseButtonUp = proc;
 }
 
 
@@ -11917,7 +11934,7 @@ void drgui_tabbar_on_mouse_button_down(drgui_element* pTBElement, int mouseButto
         return;
     }
 
-    if (mouseButton == DRGUI_MOUSE_BUTTON_LEFT)
+    if (mouseButton == DRGUI_MOUSE_BUTTON_LEFT || mouseButton == DRGUI_MOUSE_BUTTON_RIGHT)
     {
         bool isOverCloseButton = false;
 
@@ -11928,8 +11945,7 @@ void drgui_tabbar_on_mouse_button_down(drgui_element* pTBElement, int mouseButto
             drgui_tabbar_activate_tab(pTBElement, pNewActiveTab);
         }
 
-        if (isOverCloseButton)
-        {
+        if (isOverCloseButton && mouseButton == DRGUI_MOUSE_BUTTON_LEFT) {
             pTB->pTabWithCloseButtonPressed = pNewActiveTab;
 
             if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
@@ -11942,8 +11958,7 @@ void drgui_tabbar_on_mouse_button_down(drgui_element* pTBElement, int mouseButto
         if (pTB->isCloseOnMiddleClickEnabled)
         {
             drgui_tab* pHoveredTab = drgui_tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY, NULL);
-            if (pHoveredTab != NULL)
-            {
+            if (pHoveredTab != NULL) {
                 if (pTB->onTabClose) {
                     pTB->onTabClose(pTBElement, pHoveredTab);
                 }
@@ -11961,27 +11976,31 @@ void drgui_tabbar_on_mouse_button_up(drgui_element* pTBElement, int mouseButton,
         return;
     }
 
-    if (mouseButton == DRGUI_MOUSE_BUTTON_LEFT)
+
+    bool releasedOverCloseButton = false;
+    drgui_tab* pTabUnderMouse = drgui_tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY, &releasedOverCloseButton);
+
+    if (pTB->pTabWithCloseButtonPressed != NULL && mouseButton == DRGUI_MOUSE_BUTTON_LEFT)
     {
-        if (pTB->pTabWithCloseButtonPressed)
-        {
-            // We need to check if the button was released while over the close button, and if so post the event.
-            bool releasedOverCloseButton = false;
-            drgui_tab* pTabUnderMouse = drgui_tabbar_find_tab_under_point(pTBElement, (float)relativeMousePosX, (float)relativeMousePosY, &releasedOverCloseButton);
-
-            if (releasedOverCloseButton && pTabUnderMouse == pTB->pTabWithCloseButtonPressed)
-            {
-                if (pTB->onTabClose) {
-                    pTB->onTabClose(pTBElement, pTB->pTabWithCloseButtonPressed);
-                }
+        if (releasedOverCloseButton && pTabUnderMouse == pTB->pTabWithCloseButtonPressed) {
+            if (pTB->onTabClose) {
+                pTB->onTabClose(pTBElement, pTB->pTabWithCloseButtonPressed);
             }
+        }
 
 
-            pTB->pTabWithCloseButtonPressed = NULL;
+        pTB->pTabWithCloseButtonPressed = NULL;
 
-            if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
-                drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
-            }
+        if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+            drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+        }
+    }
+    else
+    {
+        if (!releasedOverCloseButton && pTB->onTabMouseButtonUp) {
+            // TODO: Improve this by passing the mouse position relative to the tab. Currently it is relative to the tab BAR. Can have 
+            // the drgui_tabbar_find_tab_under_point() function return the position relative to the tab.
+            pTB->onTabMouseButtonUp(pTBElement, pTabUnderMouse, mouseButton, relativeMousePosX, relativeMousePosY, stateFlags);
         }
     }
 }
