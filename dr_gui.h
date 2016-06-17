@@ -11044,8 +11044,8 @@ typedef struct drgui_tab drgui_tab;
 
 typedef void (* drgui_tabbar_on_measure_tab_proc)        (drgui_element* pTBElement, drgui_tab* pTab, float* pWidthOut, float* pHeightOut);
 typedef void (* drgui_tabbar_on_paint_tab_proc)          (drgui_element* pTBElement, drgui_tab* pTab, drgui_rect relativeClippingRect, float offsetX, float offsetY, float width, float height, void* pPaintData);
-typedef void (* drgui_tabbar_on_tab_activated_proc)      (drgui_element* pTBElement, drgui_tab* pTab);
-typedef void (* drgui_tabbar_on_tab_deactivated_proc)    (drgui_element* pTBElement, drgui_tab* pTab);
+typedef void (* drgui_tabbar_on_tab_activated_proc)      (drgui_element* pTBElement, drgui_tab* pTab, drgui_tab* pOldActiveTab);
+typedef void (* drgui_tabbar_on_tab_deactivated_proc)    (drgui_element* pTBElement, drgui_tab* pTab, drgui_tab* pNewActiveTab);
 typedef void (* drgui_tabbar_on_tab_close_proc)          (drgui_element* pTBElement, drgui_tab* pTab);
 typedef void (* drgui_tabbar_on_tab_mouse_button_up_proc)(drgui_element* pTBElement, drgui_tab* pTab, int mouseButton, int mouseRelativePosX, int mouseRelativePosY, int stateFlags);
 
@@ -11811,11 +11811,11 @@ void drgui_tabbar_activate_tab(drgui_element* pTBElement, drgui_tab* pTab)
     pTB->pActiveTab = pNewActiveTab;
 
     if (pTB->onTabDeactivated && pOldActiveTab != NULL) {
-        pTB->onTabDeactivated(pTBElement, pOldActiveTab);
+        pTB->onTabDeactivated(pTBElement, pOldActiveTab, pNewActiveTab);
     }
 
     if (pTB->onTabActivated && pNewActiveTab != NULL) {
-        pTB->onTabActivated(pTBElement, pNewActiveTab);
+        pTB->onTabActivated(pTBElement, pNewActiveTab, pOldActiveTab);
     }
 
 
