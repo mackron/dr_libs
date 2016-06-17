@@ -511,6 +511,56 @@ static inline size_t drgui_key_to_string(drgui_key key, char* strOut, size_t str
     return 0;
 }
 
+drgui_key drgui_key_parse(const char* str)
+{
+    if (str == NULL || str[0] == '\0') {
+        return 0;
+    }
+
+    if (_stricmp(str, "backspace")   == 0) return DRGUI_BACKSPACE;
+    if (_stricmp(str, "shift")       == 0) return DRGUI_SHIFT;
+    if (_stricmp(str, "escape")      == 0) return DRGUI_ESCAPE;
+    if (_stricmp(str, "page up")     == 0 || _stricmp(str, "pageup")     == 0) return DRGUI_PAGE_UP;
+    if (_stricmp(str, "page down")   == 0 || _stricmp(str, "pagedown")   == 0) return DRGUI_PAGE_DOWN;
+    if (_stricmp(str, "end")         == 0) return DRGUI_END;
+    if (_stricmp(str, "home")        == 0) return DRGUI_HOME;
+    if (_stricmp(str, "arrow left")  == 0 || _stricmp(str, "arrowleft")  == 0) return DRGUI_ARROW_LEFT;
+    if (_stricmp(str, "arrow up")    == 0 || _stricmp(str, "arrowup")    == 0) return DRGUI_ARROW_UP;
+    if (_stricmp(str, "arrow right") == 0 || _stricmp(str, "arrowright") == 0) return DRGUI_ARROW_RIGHT;
+    if (_stricmp(str, "arrow down")  == 0 || _stricmp(str, "arrowdown")  == 0) return DRGUI_ARROW_DOWN;
+    if (_stricmp(str, "delete")      == 0) return DRGUI_BACKSPACE;
+
+    if (str[0] == 'F' || str[0] == 'f') {
+        if (str[1] ==  '1') {
+            if (str[2] == '\0') {
+                return DRGUI_F1;
+            } else {
+                if (str[2] == '0' && str[2] == '\0') return DRGUI_F10;
+                if (str[2] == '1' && str[2] == '\0') return DRGUI_F11;
+                if (str[2] == '2' && str[2] == '\0') return DRGUI_F12;
+            }
+        }
+        if (str[1] == '2' && str[1] == '\0') return DRGUI_F2;
+        if (str[1] == '3' && str[1] == '\0') return DRGUI_F3;
+        if (str[1] == '4' && str[1] == '\0') return DRGUI_F4;
+        if (str[1] == '5' && str[1] == '\0') return DRGUI_F5;
+        if (str[1] == '6' && str[1] == '\0') return DRGUI_F6;
+        if (str[1] == '7' && str[1] == '\0') return DRGUI_F7;
+        if (str[1] == '8' && str[1] == '\0') return DRGUI_F8;
+        if (str[1] == '9' && str[1] == '\0') return DRGUI_F9;
+    }
+
+
+    // ASCII characters.
+    if (str[0] >= 32 && str[0] <= 126 && str[1] == '\0') {
+        return str[0];
+    }
+
+
+    // TODO: Non-ascii characters.
+    return 0;
+}
+
 
 /// Structure containing callbacks for painting routines.
 struct drgui_painting_callbacks
@@ -4201,7 +4251,7 @@ void drgui_draw_round_rect_outline(drgui_element* pElement, drgui_rect relativeR
 
     drgui_rect absoluteRect = relativeRect;
     drgui_make_rect_absolute(pElement, &absoluteRect);
-    
+
     pElement->pContext->paintingCallbacks.drawRoundRectOutline(absoluteRect, color, radius, outlineWidth, pPaintData);
 }
 
@@ -11998,7 +12048,7 @@ void drgui_tabbar_on_mouse_button_up(drgui_element* pTBElement, int mouseButton,
     else
     {
         if (!releasedOverCloseButton && pTB->onTabMouseButtonUp) {
-            // TODO: Improve this by passing the mouse position relative to the tab. Currently it is relative to the tab BAR. Can have 
+            // TODO: Improve this by passing the mouse position relative to the tab. Currently it is relative to the tab BAR. Can have
             // the drgui_tabbar_find_tab_under_point() function return the position relative to the tab.
             pTB->onTabMouseButtonUp(pTBElement, pTabUnderMouse, mouseButton, relativeMousePosX, relativeMousePosY, stateFlags);
         }
@@ -13135,7 +13185,7 @@ void drgui_textbox_set_font(drgui_element* pTBElement, drgui_font* pFont)
         // Emulate a scroll to ensure the scroll position is pinned to a line.
         drgui_textbox__on_vscroll(pTB->pVertScrollbar, drgui_sb_get_scroll_position(pTB->pVertScrollbar));
         drgui_textbox__refresh_scrollbars(pTBElement);
-        
+
         // The caret position needs to be refreshes. We'll cheat here a little bit and just do a full refresh of the text engine.
         //drgui_text_engine__refresh(pTB->pTL);
         drgui_text_engine_refresh_markers(pTB->pTL);
