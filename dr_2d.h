@@ -2941,7 +2941,7 @@ void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw
 
     cairo_save(cr);
     cairo_translate(cr, pArgs->dstX, pArgs->dstY);
-    cairo_scale(cr, pArgs->dstWidth / pArgs->srcWidth, pArgs->dstHeight / pArgs->srcHeight);
+
 
     // Background.
     if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) != 0)
@@ -2951,7 +2951,7 @@ void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw
         cairo_fill(cr);
     }
 
-    
+    cairo_scale(cr, pArgs->dstWidth / pArgs->srcWidth, pArgs->dstHeight / pArgs->srcHeight);
     cairo_set_source_surface(cr, pCairoImage->pCairoSurface, pArgs->srcX, pArgs->srcY);
     cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
     cairo_paint(cr);
