@@ -157,6 +157,9 @@ const char* dr_next_line(const char* str);
 /// Makes a copy of the first line of the given string.
 size_t dr_copy_line(const char* str, char* lineOut, size_t lineOutSize);
 
+// A slow string replace function. Free the returned string with free().
+char* dr_string_replace(const char* src, const char* query, const char* replacement);
+
 
 /////////////////////////////////////////////////////////
 // Unicode Utilities
@@ -972,7 +975,7 @@ const char* dr_next_line(const char* str)
         return NULL;
     }
 
-    while (str[0] != '\0' && (str[0] != '\n' && (str[0] != '\r' || str[1] == '\n'))) {
+    while (str[0] != '\0' && (str[0] != '\n' && !(str[0] == '\r' && str[1] == '\n'))) {
         str += 1;
     }
 
@@ -998,7 +1001,7 @@ size_t dr_copy_line(const char* str, char* lineOut, size_t lineOutSize)
     }
 
     size_t length = 0;
-    while (lineOutSize > 0 && str[0] != '\0' && (str[0] != '\n' && (str[0] != '\r' || str[1] == '\n'))) {
+    while (lineOutSize > 0 && str[0] != '\0' && (str[0] != '\n' && !(str[0] == '\r' && str[1] == '\n'))) {
         *lineOut++ = *str++;
         lineOutSize -= 1;
         length += 1;
@@ -1010,6 +1013,61 @@ size_t dr_copy_line(const char* str, char* lineOut, size_t lineOutSize)
 
     *lineOut = '\0';
     return length;
+}
+
+char* dr_string_replace(const char* src, const char* query, const char* replacement)
+{
+    // This function could be improved, but it's good enough for now.
+
+    if (src == NULL || query == NULL) {
+        return NULL;
+    }
+
+    if (replacement == NULL) {
+        replacement = "";
+    }
+
+    int queryLen = (int)strlen(query);
+    int replacementLen = (int)strlen(replacement);
+
+    size_t replacementCount = 0;
+
+    const char* temp = src;
+    for (;;) {
+        temp = strstr(temp, query);
+        if (temp == NULL) {
+            break;
+        }
+
+        temp += queryLen;
+        replacementCount += 1;
+    }
+
+
+    char* result = (char*)malloc(strlen(src) + (replacementLen - queryLen)*replacementCount + 1);   // +1 for null terminator.
+    if (result == NULL) {
+        return NULL;
+    }
+
+    char* runningResult = result;
+    for (size_t i = 0; i < replacementCount; ++i) {
+        size_t len = strstr(src, query) - src;
+        for (size_t j = 0; j < len; ++j) {
+            runningResult[j] = src[j];
+        }
+        
+        runningResult += len;
+        for (int j = 0; j < replacementLen; ++j) {
+            runningResult[j] = replacement[j];
+        }
+
+        runningResult += replacementLen;
+        src += len + queryLen;
+    }
+
+    // The trailing part.
+    strcpy_s(runningResult, strlen(src)+1, src);
+    return result;
 }
 
 
