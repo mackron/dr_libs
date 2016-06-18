@@ -12712,6 +12712,12 @@ void drgui_textbox_set_line_numbers_width(drgui_element* pTBElement, float lineN
 // Retrieves the width of the line numbers.
 float drgui_textbox_get_line_numbers_width(drgui_element* pTBElement);
 
+// Sets the padding to apply between the line numbers and the text.
+void drgui_textbox_set_line_numbers_padding(drgui_element* pTBElement, float lineNumbersPadding);
+
+// Retrieves the padding to apply between the line numbers and the text.
+float drgui_textbox_get_line_numbers_padding(drgui_element* pTBElement);
+
 
 /// Sets the text of the given text box.
 void drgui_textbox_set_text(drgui_element* pTBElement, const char* text);
@@ -13351,6 +13357,26 @@ float drgui_textbox_get_line_numbers_width(drgui_element* pTBElement)
     }
 
     return pTB->lineNumbersWidth;
+}
+
+void drgui_textbox_set_line_numbers_padding(drgui_element* pTBElement, float lineNumbersPadding)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->lineNumbersPaddingRight = lineNumbersPadding;
+}
+
+float drgui_textbox_get_line_numbers_padding(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return 0;
+    }
+
+    return pTB->lineNumbersPaddingRight;
 }
 
 
