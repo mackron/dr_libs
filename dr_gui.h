@@ -5646,7 +5646,7 @@ void drgui_text_engine_step(drgui_text_engine* pTL, unsigned int milliseconds);
 
 
 /// Calls the given painting callbacks for the line numbers of the given text engine.
-void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumbersWidth, float lineNumbersHeight, drgui_color textColor, drgui_text_engine_on_paint_text_proc onPaintText, drgui_text_engine_on_paint_rect_proc onPaintRect, drgui_element* pElement, void* pPaintData);
+void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumbersWidth, float lineNumbersHeight, drgui_color textColor, drgui_color backgroundColor, drgui_text_engine_on_paint_text_proc onPaintText, drgui_text_engine_on_paint_rect_proc onPaintRect, drgui_element* pElement, void* pPaintData);
 
 
 /// Finds the given string starting from the cursor and then looping back.
@@ -8193,7 +8193,7 @@ void drgui_text_engine_step(drgui_text_engine* pTL, unsigned int milliseconds)
 
 
 
-void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumbersWidth, float lineNumbersHeight, drgui_color textColor, drgui_text_engine_on_paint_text_proc onPaintText, drgui_text_engine_on_paint_rect_proc onPaintRect, drgui_element* pElement, void* pPaintData)
+void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumbersWidth, float lineNumbersHeight, drgui_color textColor, drgui_color backgroundColor, drgui_text_engine_on_paint_text_proc onPaintText, drgui_text_engine_on_paint_rect_proc onPaintRect, drgui_element* pElement, void* pPaintData)
 {
     if (pTL == NULL || onPaintText == NULL || onPaintRect == NULL) {
         return;
@@ -8210,11 +8210,11 @@ void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumb
     if (pTL->onPaintRect)
     {
         if (rectTop.bottom > 0) {
-            onPaintRect(pTL, rectTop, pTL->defaultBackgroundColor, pElement, pPaintData);
+            onPaintRect(pTL, rectTop, backgroundColor, pElement, pPaintData);
         }
 
         if (rectBottom.top < lineNumbersHeight) {
-            onPaintRect(pTL, rectBottom, pTL->defaultBackgroundColor, pElement, pPaintData);
+            onPaintRect(pTL, rectBottom, backgroundColor, pElement, pPaintData);
         }
     }
 
@@ -8258,7 +8258,7 @@ void drgui_text_engine_paint_line_numbers(drgui_text_engine* pTL, float lineNumb
                 drgui_text_run run = {0};
                 run.pFont           = pFont;
                 run.textColor       = textColor;
-                run.backgroundColor = pTL->defaultBackgroundColor;
+                run.backgroundColor = backgroundColor;
                 run.text            = iLineStr;
                 run.textLength      = strlen(iLineStr);
                 run.posX            = lineNumbersWidth - textWidth;
@@ -8859,7 +8859,7 @@ DRGUI_PRIVATE bool drgui_text_engine__find_line_info_by_index(drgui_text_engine*
 
 DRGUI_PRIVATE bool drgui_text_engine__find_last_run_on_line_starting_from_run(drgui_text_engine* pTL, size_t iRun, size_t* pLastRunIndexOnLineOut)
 {
-    if (pTL == NULL) {
+    if (pTL == NULL || pTL->pRuns == NULL) {
         return false;
     }
 
@@ -12840,6 +12840,18 @@ void drgui_textbox_set_line_numbers_padding(drgui_element* pTBElement, float lin
 // Retrieves the padding to apply between the line numbers and the text.
 float drgui_textbox_get_line_numbers_padding(drgui_element* pTBElement);
 
+// Sets the color of the text of the line numbers.
+void drgui_textbox_set_line_numbers_color(drgui_element* pTBElement, drgui_color color);
+
+// Retrieves the color of the text of the line numbers.
+drgui_color drgui_textbox_get_line_numbers_color(drgui_element* pTBElement);
+
+// Sets the color of the background of the line numbers.
+void drgui_textbox_set_line_numbers_background_color(drgui_element* pTBElement, drgui_color color);
+
+// Retrieves the color of the background of the line numbers.
+drgui_color drgui_textbox_get_line_numbers_background_color(drgui_element* pTBElement);
+
 
 /// Sets the text of the given text box.
 void drgui_textbox_set_text(drgui_element* pTBElement, const char* text);
@@ -13045,6 +13057,12 @@ typedef struct
     /// The padding to the right of the line numbers.
     float lineNumbersPaddingRight;
 
+    // The color of the text of the line numbers.
+    drgui_color lineNumbersColor;
+
+    // The color of the background of the line numbers.
+    drgui_color lineNumbersBackgroundColor;
+
 
     /// The desired width of the vertical scrollbar.
     float vertScrollbarSize;
@@ -13229,6 +13247,8 @@ drgui_element* drgui_create_textbox(drgui_context* pContext, drgui_element* pPar
     pTB->padding     = 2;
     pTB->lineNumbersWidth = 64;
     pTB->lineNumbersPaddingRight = 16;
+    pTB->lineNumbersColor = drgui_rgb(80, 160, 192);
+    pTB->lineNumbersBackgroundColor = drgui_text_engine_get_default_bg_color(pTB->pTL);
     pTB->vertScrollbarSize = 16;
     pTB->horzScrollbarSize = 16;
     pTB->isVertScrollbarEnabled = true;
@@ -13500,6 +13520,49 @@ float drgui_textbox_get_line_numbers_padding(drgui_element* pTBElement)
 
     return pTB->lineNumbersPaddingRight;
 }
+
+void drgui_textbox_set_line_numbers_color(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->lineNumbersColor = color;
+    drgui_textbox__refresh_line_numbers(pTBElement);
+}
+
+drgui_color drgui_textbox_get_line_numbers_color(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return drgui_rgb(0, 0, 0);
+    }
+
+    return pTB->lineNumbersColor;
+}
+
+void drgui_textbox_set_line_numbers_background_color(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+    
+    pTB->lineNumbersBackgroundColor = color;
+    drgui_textbox__refresh_line_numbers(pTBElement);
+}
+
+drgui_color drgui_textbox_get_line_numbers_background_color(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return drgui_rgb(0, 0, 0);
+    }
+
+    return pTB->lineNumbersBackgroundColor;
+}
+
 
 
 void drgui_textbox_set_text(drgui_element* pTBElement, const char* text)
@@ -14849,15 +14912,15 @@ DRGUI_PRIVATE void drgui_textbox__on_paint_line_numbers(drgui_element* pLineNumb
     float lineNumbersWidth  = drgui_get_width(pLineNumbers) - (pTB->padding*2) - pTB->lineNumbersPaddingRight;
     float lineNumbersHeight = drgui_get_height(pLineNumbers) - (pTB->padding*2);
 
-    drgui_text_engine_paint_line_numbers(pTB->pTL, lineNumbersWidth, lineNumbersHeight, drgui_rgb(80, 160, 192), drgui_textbox__on_paint_text_line_numbers, drgui_textbox__on_paint_rect_line_numbers, pTBElement, pPaintData);
+    drgui_text_engine_paint_line_numbers(pTB->pTL, lineNumbersWidth, lineNumbersHeight, pTB->lineNumbersColor, pTB->lineNumbersBackgroundColor, drgui_textbox__on_paint_text_line_numbers, drgui_textbox__on_paint_rect_line_numbers, pTBElement, pPaintData);
 
-    drgui_draw_rect_outline(pLineNumbers, drgui_get_local_rect(pLineNumbers), drgui_text_engine_get_default_bg_color(pTB->pTL), pTB->padding, pPaintData);
+    drgui_draw_rect_outline(pLineNumbers, drgui_get_local_rect(pLineNumbers), pTB->lineNumbersBackgroundColor, pTB->padding, pPaintData);
 
     // Right padding.
     drgui_rect rightPaddingRect = drgui_get_local_rect(pLineNumbers);
     rightPaddingRect.right -= pTB->padding;
     rightPaddingRect.left   = rightPaddingRect.right - pTB->lineNumbersPaddingRight;
-    drgui_draw_rect(pLineNumbers, rightPaddingRect, drgui_text_engine_get_default_bg_color(pTB->pTL), pPaintData);
+    drgui_draw_rect(pLineNumbers, rightPaddingRect, pTB->lineNumbersBackgroundColor, pPaintData);
 }
 
 DRGUI_PRIVATE void drgui_textbox__refresh_line_numbers(drgui_element* pTBElement)
