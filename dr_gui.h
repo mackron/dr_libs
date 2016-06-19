@@ -11220,6 +11220,12 @@ drgui_tab* drgui_tabbar_get_prev_tab(drgui_element* pTBElement, drgui_tab* pTab)
 /// Activates the given tab.
 void drgui_tabbar_activate_tab(drgui_element* pTBElement, drgui_tab* pTab);
 
+// Activates the tab to the right of the currently active tab, looping back to the start if necessary.
+void drgui_tabbar_activate_next_tab(drgui_element* pTBElement);
+
+// Activates the tab to the left of the currently active tab, looping back to the end if necessary.
+void drgui_tabbar_activate_prev_tab(drgui_element* pTBElement);
+
 /// Retrieves a pointer to the currently active tab.
 drgui_tab* drgui_tabbar_get_active_tab(drgui_element* pTBElement);
 
@@ -11975,6 +11981,48 @@ void drgui_tabbar_activate_tab(drgui_element* pTBElement, drgui_tab* pTab)
     if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
         drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
     }
+}
+
+void drgui_tabbar_activate_next_tab(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (pTB->pActiveTab == NULL) {
+        drgui_tabbar_activate_tab(pTBElement, pTB->pFirstTab);
+        return;
+    }
+
+
+    drgui_tab* pNextTab = pTB->pActiveTab->pNextTab;
+    if (pNextTab == NULL) {
+        pNextTab = pTB->pFirstTab;
+    }
+
+    drgui_tabbar_activate_tab(pTBElement, pNextTab);
+}
+
+void drgui_tabbar_activate_prev_tab(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    if (pTB->pActiveTab == NULL) {
+        drgui_tabbar_activate_tab(pTBElement, pTB->pLastTab);
+        return;
+    }
+
+
+    drgui_tab* pPrevTab = pTB->pActiveTab->pPrevTab;
+    if (pPrevTab == NULL) {
+        pPrevTab = pTB->pLastTab;
+    }
+
+    drgui_tabbar_activate_tab(pTBElement, pPrevTab);
 }
 
 drgui_tab* drgui_tabbar_get_active_tab(drgui_element* pTBElement)
