@@ -5337,6 +5337,12 @@ void drgui_text_engine_set_default_bg_color(drgui_text_engine* pTL, drgui_color 
 /// Retrieves the default background color of the given text engine.
 drgui_color drgui_text_engine_get_default_bg_color(drgui_text_engine* pTL);
 
+/// Sets the background color of selected text.
+void drgui_text_engine_set_selection_bg_color(drgui_text_engine* pTL, drgui_color color);
+
+/// Retrieves the background color of selected text.
+drgui_color drgui_text_engine_get_selection_bg_color(drgui_text_engine* pTL);
+
 /// Sets the background color of the line the cursor is sitting on.
 void drgui_text_engine_set_active_line_bg_color(drgui_text_engine* pTL, drgui_color color);
 
@@ -6432,6 +6438,28 @@ drgui_color drgui_text_engine_get_default_bg_color(drgui_text_engine* pTL)
     }
 
     return pTL->defaultBackgroundColor;
+}
+
+void drgui_text_engine_set_selection_bg_color(drgui_text_engine* pTL, drgui_color color)
+{
+    if (pTL == NULL) {
+        return;
+    }
+
+    pTL->selectionBackgroundColor = color;
+
+    if (drgui_text_engine_is_anything_selected(pTL)) {
+        drgui_text_engine__on_dirty(pTL, drgui_text_engine__local_rect(pTL));
+    }
+}
+
+drgui_color drgui_text_engine_get_selection_bg_color(drgui_text_engine* pTL)
+{
+    if (pTL == NULL) {
+        return drgui_rgb(0, 0, 0);
+    }
+
+    return pTL->selectionBackgroundColor;
 }
 
 void drgui_text_engine_set_active_line_bg_color(drgui_text_engine* pTL, drgui_color color)
@@ -12798,6 +12826,12 @@ void drgui_textbox_set_text_color(drgui_element* pTBElement, drgui_color color);
 /// Sets the background color of the given text box.
 void drgui_textbox_set_background_color(drgui_element* pTBElement, drgui_color color);
 
+/// Sets the background color of selected text.
+void drgui_textbox_set_selection_background_color(drgui_element* pTBElement, drgui_color color);
+
+/// Retrieves the background color of selected text.
+drgui_color drgui_textbox_get_selection_background_color(drgui_element* pTBElement);
+
 /// Sets the background color for the line the caret is currently sitting on.
 void drgui_textbox_set_active_line_background_color(drgui_element* pTBElement, drgui_color color);
 
@@ -13372,6 +13406,26 @@ void drgui_textbox_set_background_color(drgui_element* pTBElement, drgui_color c
     }
 
     drgui_text_engine_set_default_bg_color(pTB->pTL, color);
+}
+
+void drgui_textbox_set_selection_background_color(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    drgui_text_engine_set_selection_bg_color(pTB->pTL, color);
+}
+
+drgui_color drgui_textbox_get_selection_background_color(drgui_element* pTBElement)
+{
+    drgui_textbox* pTB = (drgui_textbox*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return drgui_rgb(0, 0, 0);
+    }
+
+    return drgui_text_engine_get_selection_bg_color(pTB->pTL);
 }
 
 void drgui_textbox_set_active_line_background_color(drgui_element* pTBElement, drgui_color color)
