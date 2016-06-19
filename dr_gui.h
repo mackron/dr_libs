@@ -11079,6 +11079,12 @@ void drgui_tabbar_set_font(drgui_element* pTBElement, drgui_font* pFont);
 /// Retrieves the default font to use for tabs.
 drgui_font* drgui_tabbar_get_font(drgui_element* pTBElement);
 
+// Sets the color of the text to use on tabs.
+void drgui_tabbar_set_text_color(drgui_element* pTBElement, drgui_color color);
+
+// Retrieves the color of the text to use on tabs.
+drgui_color drgui_tabbar_get_text_color(drgui_element* pTBElement);
+
 /// Sets the image to use for close buttons.
 void drgui_tabbar_set_close_button_image(drgui_element* pTBElement, drgui_image* pImage);
 
@@ -11553,6 +11559,31 @@ drgui_font* drgui_tabbar_get_font(drgui_element* pTBElement)
     }
 
     return pTB->pFont;
+}
+
+
+void drgui_tabbar_set_text_color(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->tabTextColor = color;
+
+    if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+    }
+}
+
+drgui_color drgui_tabbar_get_text_color(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return drgui_rgb(0, 0, 0);
+    }
+
+    return pTB->tabTextColor;
 }
 
 
