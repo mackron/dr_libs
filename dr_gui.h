@@ -11097,6 +11097,24 @@ void drgui_tabbar_set_close_button_left_padding(drgui_element* pTBElement, float
 // Retrieves the padding to apply to the left of the close button.
 float drgui_tabbar_get_close_button_left_padding(drgui_element* pTBElement);
 
+// Sets the default background color of tabs. This is the color of inactive tabs.
+void drgui_tabbar_set_tab_background_color(drgui_element* pTBElement, drgui_color color);
+
+// Retrieves the default background color of tabs while inactive.
+drgui_color drgui_tabbar_get_tab_background_color(drgui_element* pTBElement);
+
+// Sets the background color of tabs while hovered.
+void drgui_tabbar_set_tab_background_color_hovered(drgui_element* pTBElement, drgui_color color);
+
+// Retrieves the background color of tabs while hovered.
+drgui_color drgui_tabbar_get_tab_background_color_hovered(drgui_element* pTBElement);
+
+// Sets the background color of tabs while activated.
+void drgui_tabbar_set_tab_background_color_actived(drgui_element* pTBElement, drgui_color color);
+
+// Retrieves the background color of tabs while activated.
+drgui_color drgui_tabbar_get_tab_background_color_actived(drgui_element* pTBElement);
+
 
 /// Sets the function to call when a tab needs to be measured.
 void drgui_tabbar_set_on_measure_tab(drgui_element* pTBElement, drgui_tabbar_on_measure_tab_proc proc);
@@ -11609,6 +11627,79 @@ float drgui_tabbar_get_close_button_left_padding(drgui_element* pTBElement)
     }
 
     return pTB->closeButtonPaddingLeft;
+}
+
+
+void drgui_tabbar_set_tab_background_color(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->tabBackgroundColor = color;
+
+    if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+    }
+}
+
+drgui_color drgui_tabbar_get_tab_background_color(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return drgui_rgb(0, 0, 0);
+    }
+
+    return pTB->tabBackgroundColor;
+}
+
+void drgui_tabbar_set_tab_background_color_hovered(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->tabBackgroundColorHovered = color;
+
+    if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+    }
+}
+
+drgui_color drgui_tabbar_get_tab_background_color_hovered(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return drgui_rgb(0, 0, 0);
+    }
+
+    return pTB->tabBackgroundColorHovered;
+}
+
+void drgui_tabbar_set_tab_background_color_actived(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->tabBackbroundColorActivated = color;
+
+    if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+    }
+}
+
+drgui_color drgui_tabbar_get_tab_background_color_actived(drgui_element* pTBElement)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return drgui_rgb(0, 0, 0);
+    }
+
+    return pTB->tabBackbroundColorActivated;
 }
 
 
