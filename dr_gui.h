@@ -6605,6 +6605,9 @@ void drgui_text_engine_set_cursor_width(drgui_text_engine* pTL, float cursorWidt
 
     drgui_rect oldCursorRect = drgui_text_engine_get_cursor_rect(pTL);
     pTL->cursorWidth = cursorWidth;
+    if (pTL->cursorWidth > 0 && pTL->cursorWidth < 1) {
+        pTL->cursorWidth = 1;
+    }
 
     drgui_text_engine__on_dirty(pTL, drgui_rect_union(oldCursorRect, drgui_text_engine_get_cursor_rect(pTL)));
 }
