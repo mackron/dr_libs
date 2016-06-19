@@ -1,5 +1,5 @@
 // Public Domain. See "unlicense" statement at the end of this file.
-// dr_path - v0.1 - 07/05/2016
+// dr_path - v0.1a - 20/06/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -751,12 +751,12 @@ const char* drpath_extension(const char* path)
     // Just find the last '.' and return.
     while (extension[0] != '\0')
     {
-        extension += 1;
-
         if (extension[0] == '.') {
             extension    += 1;
             lastoccurance = extension;
         }
+
+        extension += 1;
     }
 
     return (lastoccurance != 0) ? lastoccurance : extension;
@@ -1392,6 +1392,9 @@ bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* base
 
 
 // REVISION HISTORY
+//
+// v0.1a - 20/06/2016
+//   - Fix a bug in drpath_extension().
 //
 // v0.1 - 07/05/2016
 //   - Initial versioned release.
