@@ -540,20 +540,24 @@ drgui_key drgui_key_parse(const char* str)
                 if (str[2] == '2' && str[2] == '\0') return DRGUI_F12;
             }
         }
-        if (str[1] == '2' && str[1] == '\0') return DRGUI_F2;
-        if (str[1] == '3' && str[1] == '\0') return DRGUI_F3;
-        if (str[1] == '4' && str[1] == '\0') return DRGUI_F4;
-        if (str[1] == '5' && str[1] == '\0') return DRGUI_F5;
-        if (str[1] == '6' && str[1] == '\0') return DRGUI_F6;
-        if (str[1] == '7' && str[1] == '\0') return DRGUI_F7;
-        if (str[1] == '8' && str[1] == '\0') return DRGUI_F8;
-        if (str[1] == '9' && str[1] == '\0') return DRGUI_F9;
+        if (str[1] == '2' && str[2] == '\0') return DRGUI_F2;
+        if (str[1] == '3' && str[2] == '\0') return DRGUI_F3;
+        if (str[1] == '4' && str[2] == '\0') return DRGUI_F4;
+        if (str[1] == '5' && str[2] == '\0') return DRGUI_F5;
+        if (str[1] == '6' && str[2] == '\0') return DRGUI_F6;
+        if (str[1] == '7' && str[2] == '\0') return DRGUI_F7;
+        if (str[1] == '8' && str[2] == '\0') return DRGUI_F8;
+        if (str[1] == '9' && str[2] == '\0') return DRGUI_F9;
     }
 
 
     // ASCII characters.
     if (str[0] >= 32 && str[0] <= 126 && str[1] == '\0') {
         return str[0];
+    }
+
+    if (_stricmp(str, "tab") == 0) {
+        return '\t';
     }
 
 
