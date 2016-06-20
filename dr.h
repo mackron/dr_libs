@@ -142,6 +142,9 @@ DR_INLINE int _itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
 /////////////////////////////////////////////////////////
 // String Helpers
 
+// Determines if the given character is whitespace.
+bool dr_is_whitespace(uint32_t utf32);
+
 /// Removes every occurance of the given character from the given string.
 void dr_strrmchar(char* str, char c);
 
@@ -923,6 +926,11 @@ int dr_itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
 
 /////////////////////////////////////////////////////////
 // String Helpers
+
+bool dr_is_whitespace(uint32_t utf32)
+{
+    return utf32 == ' ' || utf32 == '\t' || utf32 == '\n' || utf32 == '\v' || utf32 == '\f' || utf32 == '\r';
+}
 
 void dr_strrmchar(char* str, char c)
 {
