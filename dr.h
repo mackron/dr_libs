@@ -150,6 +150,7 @@ void dr_strrmchar(char* str, char c);
 
 /// Finds the first non-whitespace character in the given string.
 const char* dr_first_non_whitespace(const char* str);
+static const char* dr_ltrim(const char* str) { return dr_first_non_whitespace(str); }
 
 /// Finds the first occurance of a whitespace character in the given string.
 const char* dr_first_whitespace(const char* str);
