@@ -11587,6 +11587,11 @@ void drgui_tabbar_set_font(drgui_element* pTBElement, drgui_font* pFont)
 
     pTB->pFont = pFont;
 
+    // A change in font may have changed the size of the tabbar.
+    if (pTB->isAutoSizeEnabled) {
+        drgui_tabbar_resize_by_tabs(pTBElement);
+    }
+
     if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
         drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
     }
