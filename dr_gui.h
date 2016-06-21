@@ -11120,11 +11120,20 @@ void drgui_tabbar_set_text_color(drgui_element* pTBElement, drgui_color color);
 // Retrieves the color of the text to use on tabs.
 drgui_color drgui_tabbar_get_text_color(drgui_element* pTBElement);
 
+// Sets the color of the text to use on active tabs.
+void drgui_tabbar_set_text_color_active(drgui_element* pTBElement, drgui_color color);
+
+// Sets the color of the text to use on hovered tabs.
+void drgui_tabbar_set_text_color_hovered(drgui_element* pTBElement, drgui_color color);
+
 /// Sets the image to use for close buttons.
 void drgui_tabbar_set_close_button_image(drgui_element* pTBElement, drgui_image* pImage);
 
 /// Retrieves the image being used for the close buttons.
 drgui_image* drgui_tabbar_get_close_button_image(drgui_element* pTBElement);
+
+// Sets the default color of the close button.
+void drgui_tabbar_set_close_button_color(drgui_element* pTBElement, drgui_color color);
 
 // Sets the padding to apply the the text of each tab.
 void drgui_tabbar_set_tab_padding(drgui_element* pTBElement, float padding);
@@ -11151,7 +11160,7 @@ void drgui_tabbar_set_tab_background_color_hovered(drgui_element* pTBElement, dr
 drgui_color drgui_tabbar_get_tab_background_color_hovered(drgui_element* pTBElement);
 
 // Sets the background color of tabs while activated.
-void drgui_tabbar_set_tab_background_color_actived(drgui_element* pTBElement, drgui_color color);
+void drgui_tabbar_set_tab_background_color_active(drgui_element* pTBElement, drgui_color color);
 
 // Retrieves the background color of tabs while activated.
 drgui_color drgui_tabbar_get_tab_background_color_actived(drgui_element* pTBElement);
@@ -11361,6 +11370,12 @@ struct drgui_tab_bar
     /// The default color to use for tab bar item text.
     drgui_color tabTextColor;
 
+    /// The default color to use for tab bar item text while active.
+    drgui_color tabTextColorActivated;
+
+    /// The default color to use for tab bar item text while hovered.
+    drgui_color tabTextColorHovered;
+
     /// The default background color of tab bar items.
     drgui_color tabBackgroundColor;
 
@@ -11493,6 +11508,8 @@ drgui_element* drgui_create_tab_bar(drgui_context* pContext, drgui_element* pPar
 
     pTB->pFont                       = NULL;
     pTB->tabTextColor                = drgui_rgb(224, 224, 224);
+    pTB->tabTextColorActivated       = drgui_rgb(224, 224, 224);
+    pTB->tabTextColorHovered         = drgui_rgb(224, 224, 224);
     pTB->tabBackgroundColor          = drgui_rgb(58, 58, 58);
     pTB->tabBackgroundColorHovered   = drgui_rgb(16, 92, 160);
     pTB->tabBackbroundColorActivated = drgui_rgb(32, 128, 192); //drgui_rgb(80, 80, 80);
@@ -11632,6 +11649,34 @@ drgui_color drgui_tabbar_get_text_color(drgui_element* pTBElement)
     return pTB->tabTextColor;
 }
 
+void drgui_tabbar_set_text_color_active(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->tabTextColorActivated = color;
+
+    if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+    }
+}
+
+void drgui_tabbar_set_text_color_hovered(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->tabTextColorHovered = color;
+
+    if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+    }
+}
+
 
 void drgui_tabbar_set_close_button_image(drgui_element* pTBElement, drgui_image* pImage)
 {
@@ -11655,6 +11700,20 @@ drgui_image* drgui_tabbar_get_close_button_image(drgui_element* pTBElement)
     }
 
     return pTB->pCloseButtonImage;
+}
+
+void drgui_tabbar_set_close_button_color(drgui_element* pTBElement, drgui_color color)
+{
+    drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
+    if (pTB == NULL) {
+        return;
+    }
+
+    pTB->closeButtonColorDefault = color;
+
+    if (drgui_is_auto_dirty_enabled(pTBElement->pContext)) {
+        drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
+    }
 }
 
 
@@ -11755,7 +11814,7 @@ drgui_color drgui_tabbar_get_tab_background_color_hovered(drgui_element* pTBElem
     return pTB->tabBackgroundColorHovered;
 }
 
-void drgui_tabbar_set_tab_background_color_actived(drgui_element* pTBElement, drgui_color color)
+void drgui_tabbar_set_tab_background_color_active(drgui_element* pTBElement, drgui_color color)
 {
     drgui_tab_bar* pTB = (drgui_tab_bar*)drgui_get_extra_data(pTBElement);
     if (pTB == NULL) {
@@ -12362,14 +12421,17 @@ DRGUI_PRIVATE void drgui_tabbar_on_paint_tab_default(drgui_element* pTBElement, 
     // Background.
     drgui_color bgcolor = pTB->tabBackgroundColor;
     drgui_color closeButtonColor = pTB->closeButtonColorDefault;
+    drgui_color textColor = pTB->tabTextColor;
 
     if (pTB->pHoveredTab == pTab) {
         bgcolor = pTB->tabBackgroundColorHovered;
         closeButtonColor = pTB->closeButtonColorTabHovered;
+        textColor = pTB->tabTextColorHovered;
     }
     if (pTB->pActiveTab == pTab) {
         bgcolor = pTB->tabBackbroundColorActivated;
         closeButtonColor = pTB->closeButtonColorTabHovered;
+        textColor = pTB->tabTextColorActivated;
     }
 
     if (pTB->pHoveredTab == pTab && pTB->isCloseButtonHovered) {
@@ -12387,7 +12449,7 @@ DRGUI_PRIVATE void drgui_tabbar_on_paint_tab_default(drgui_element* pTBElement, 
     float textPosX = offsetX + pTB->tabPadding;
     float textPosY = offsetY + pTB->tabPadding;
     if (pTab != NULL) {
-        drgui_draw_text(pTBElement, pTB->pFont, pTab->text, (int)strlen(pTab->text), textPosX, textPosY, pTB->tabTextColor, bgcolor, pPaintData);
+        drgui_draw_text(pTBElement, pTB->pFont, pTab->text, (int)strlen(pTab->text), textPosX, textPosY, textColor, bgcolor, pPaintData);
     }
 
 
