@@ -3534,7 +3534,7 @@ bool drgui_is_element_under_mouse(drgui_element* pElement)
         return false;
     }
 
-    return drgui_find_element_under_point(pElement->pContext->pLastMouseMoveTopLevelElement, pElement->pContext->lastMouseMovePosX, pElement->pContext->lastMouseMovePosY) != NULL;
+    return drgui_find_element_under_point(pElement->pContext->pLastMouseMoveTopLevelElement, pElement->pContext->lastMouseMovePosX, pElement->pContext->lastMouseMovePosY) == pElement;
 }
 
 
