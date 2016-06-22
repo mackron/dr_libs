@@ -406,6 +406,12 @@ bool dr_is_file_read_only(const char* filePath);
 // This uses remove() on POSIX platforms and DeleteFile() on Windows platforms.
 bool dr_delete_file(const char* filePath);
 
+// Cross-platform wrapper for creating a directory.
+bool dr_mkdir(const char* directoryPath);
+
+// Recursively creates a directory.
+bool dr_mkdir_recursive(const char* directoryPath);
+
 
 /////////////////////////////////////////////////////////
 // DPI Awareness
@@ -1916,6 +1922,61 @@ bool dr_delete_file(const char* filePath)
 #else
     return remove(filePath) == 0;
 #endif
+}
+
+bool dr_mkdir(const char* directoryPath)
+{
+    if (directoryPath == NULL) {
+        return false;
+    }
+
+#if _WIN32
+    return CreateDirectoryA(directoryPath, NULL);
+#else
+    return mkdir(directoryPath, 0777) == 0;
+#endif
+}
+
+bool dr_mkdir_recursive(const char* directoryPath)
+{
+    if (directoryPath == NULL || directoryPath[0] == '\0') {
+        return false;
+    }
+
+    // All we need to do is iterate over every segment in the path and try creating the directory.
+    char runningPath[4096];
+    memset(runningPath, 0, sizeof(runningPath));
+
+    size_t i = 0;
+    for (;;) {
+        if (i >= sizeof(runningPath)-1) {
+            return false;   // Path is too long.
+        }
+
+        if (directoryPath[0] == '\0' || directoryPath[0] == '/' || directoryPath[0] == '\\') {
+            if (runningPath[0] != '\0' && !(runningPath[1] == ':' && runningPath[2] == '\0')) {   // <-- If the running path is empty, it means we're trying to create the root directory.
+                if (!dr_directory_exists(runningPath)) {
+                    if (!dr_mkdir(runningPath)) {
+                        return false;
+                    }
+                }
+            }
+
+            //printf("%s\n", runningPath);
+            runningPath[i++] = '/';
+            runningPath[i]   = '\0';
+
+            if (directoryPath[0] == '\0') {
+                break;
+            }
+        } else {
+            runningPath[i++] = directoryPath[0];
+        }
+
+        directoryPath += 1;
+    }
+    
+    return true;
 }
 
 
