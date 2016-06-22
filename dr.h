@@ -374,6 +374,12 @@ void* dr_open_and_read_file(const char* filePath, size_t* pFileSizeOut);
 // returned file size is the length of the string not including the null terminator.
 char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut);
 
+// Creates a new file with the given data.
+bool dr_open_and_write_file(const char* filePath, const void* pData, size_t dataSize);
+
+// Creates a new file with the given string.
+bool dr_open_and_write_text_file(const char* filePath, const char* text);
+
 // Frees the file data returned by dr_open_and_read_file().
 void dr_free_file_data(void* valueReturnedByOpenAndReadFile);
 
@@ -1797,6 +1803,36 @@ char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut)
 
     if (pFileSizeOut) *pFileSizeOut = fileSize;
     return pFileData;
+}
+
+bool dr_open_and_write_file(const char* filePath, const void* pData, size_t dataSize)
+{
+    if (filePath == NULL) {
+        return false;
+    }
+
+    // TODO: Use 64-bit versions of the FILE APIs.
+
+    FILE* pFile = dr_fopen(filePath, "wb");
+    if (pFile == NULL) {
+        return false;
+    }
+
+    if (pData != NULL && dataSize > 0) {
+        fwrite(pData, 1, dataSize, pFile);
+    }
+
+    fclose(pFile);
+    return true;
+}
+
+bool dr_open_and_write_text_file(const char* filePath, const char* text)
+{
+    if (text == NULL) {
+        text = "";
+    }
+
+    return dr_open_and_write_file(filePath, text, strlen(text));
 }
 
 void dr_free_file_data(void* valueReturnedByOpenAndReadFile)
