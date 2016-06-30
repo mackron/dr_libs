@@ -13,6 +13,127 @@
 //
 // You can then #include this file in other parts of the program as you would with any other header file.
 //
+// dr_audio supports loading and decoding of WAV, FLAC and Vorbis streams via dr_wav, dr_flac and stb_vorbis respectively. To enable these
+// all you need to do is #include "dr_audio.h" _after_ #include "dr_wav.h", #include "dr_flac.h" and #include "stb_vorbis.c" in the implementation
+// file, like so:
+//
+//   #define DR_WAV_IMPLEMENTATION
+//   #include "dr_wav.h"
+//
+//   #define DR_FLAC_IMPLEMENTATION
+//   #include "dr_flac.h"
+//
+//   #define STB_VORBIS_IMPLEMENTATION
+//   #include "stb_vorbis.c"
+//
+//   #define DR_AUDIO_IMPLEMENTATION
+//   #include "dr_audio.h"
+//
+// dr_wav, dr_flac and stb_vorbis are entirely optional, and dr_audio will automatically detect the ones that are available without any additional
+// intervention on your part.
+//
+//
+// dr_audio has a layered API with different levels of flexibility vs simplicity. An example of the high level API follows:
+//
+//   dra_device* pDevice = dra_device_open(NULL, dra_device_playback);
+//   if (pDevice == NULL) {
+//       return -1;
+//   }
+//   
+//   dra_voice* pVoice = dra_voice_create_from_file(pDevice, "my_song.flac");
+//   if (pVoice == NULL) {
+//       return -1;
+//   }
+//   
+//   dra_voice_play(pVoice, false);
+//
+//   ...
+//
+//   dra_voice_delete(pVoice);
+//   dra_device_close(pDevice);
+//
+//
+// An example of the low level API:
+//
+//   dra_context* pContext = dra_context_create();  // Initializes the backend (DirectSound/ALSA)
+//   if (pContext == NULL) {
+//       return -1;
+//   }
+//
+//   unsigned int deviceID = 0;                 // Default device
+//   unsigned int channels = 2;                 // Stereo
+//   unsigned int sampleRate = 48000;
+//   unsigned int latencyInMilliseconds = 0;    // 0 will default to DR_AUDIO_DEFAULT_LATENCY.
+//   dra_device* pDevice = dra_device_open_ex(pContext, dra_device_type_playback, deviceID, channels, sampleRate, latencyInMilliseconds);
+//   if (pDevice == NULL) {
+//       return -1;
+//   }
+//
+//   dra_voice* pVoice = dra_voice_create(pDevice, dra_format_f32, channels, sampleRate, voiceBufferSizeInBytes, pVoiceSampleData);
+//   if (pVoice == NULL) {
+//       return -1;
+//   }
+//
+//   ...
+//
+//   // Sometime later, maybe you'll need to update the data inside the voice's internal buffer... It's your job to handle synchronization - have fun!
+//   float* pVoiceData = (float*)dra_voice_get_buffer_ptr_by_sample(pVoice, sampleOffset);
+//   if (pVoiceData == NULL) {
+//       return -1;
+//   }
+//
+//   memcpy(pVoiceData, pNewVoiceData, sizeof(float) * samplesToCopy);
+//
+//   ...
+//
+//   dra_voice_delete(pVoice);
+//   dra_device_close(pDevice);
+//   dra_context_delete(pContext);
+//
+// In the above example the voice and device are configured to use the sample number of channels and sample rate, however they are allowed to
+// differ, in which case dr_audio will automatically convert the data. Note that sample rate conversion is currently very low quality.
+//
+// To handle streaming buffers, you can attach a callback that's fired when a voice's playback position reaches a certain point. Usually you
+// would set this to the middle and end of the buffer, filling the previously half with new data. Use the dra_voice_add_playback_event() for
+// this.
+//
+//
+// dr_audio has support for submixing which basically allows you to control volume (and in the future, effects) for groups of sounds which would
+// typically be organized into categories. An abvious example would be in games where you may want to have separate volume controls for music,
+// voices, special effects, etc. To do submixing, all you need to do is create a mixer. There is a master mixer associated with every device, and
+// all newly created mixers are a child of the master mixer, by default:
+//
+//   dra_mixer* pMusicMixer = dra_mixer_create(pDevice);
+//   if (pMusicMixer == NULL) {
+//      return -1;
+//   }
+//
+//   // At this point pMusicMixer is a child of the device's master mixer. To change the hierarchy, just do something like this:
+//   dra_mixer_attach_submixer(pSomeOtherMixer, pMusicMixer);
+//
+//   // A voice is attached to the master mixer by default, but you can attach it to a different mixer like this:
+//   dra_mixer_attach_voice(pMusicMixer, pMyMusicVoice);
+//
+//   // Control the volume of the mixer...
+//   dra_mixer_set_volume(pMusicMixer, 0.5f);   // <-- The volume is linear, so this is half volume.
+//
+//
+//
+// dr_audio includes an abstraction for audio decoding. Built-in support is included for WAV, FLAC and Vorbis streams:
+//
+//   dra_decoder decoder;
+//   if (!dra_decoder_open_file(&decoder, filePath)) {  // <-- filePath can be a valid .wav, .flac or .ogg file, so long as the dependencies are included as documented above.
+//       return -1;
+//   }
+//
+//   uint64_t samplesRead = dra_decoder_read_f32(&decoder, samplesToRead, pSamples);
+//   update_my_voice_data(pVoice, pSamples, samplesRead);
+//
+//   dra_decoder_close(&decoder);
+//
+// Decoders can be opened/initialized from files, a block of memory, or application-defined callbacks.
+//
+//
 //
 // OPTIONS
 // #define these options before including this file.
@@ -2312,6 +2433,10 @@ dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsi
 
     if (sampleRate == 0) {
         sampleRate = DR_AUDIO_DEFAULT_SAMPLE_RATE;
+    }
+
+    if (latencyInMilliseconds == 0) {
+        latencyInMilliseconds = DR_AUDIO_DEFAULT_LATENCY;
     }
 
 
