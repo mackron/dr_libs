@@ -2177,7 +2177,7 @@ bool dra_device__mix_next_fragment(dra_device* pDevice)
         pDevice->stopOnNextFragment = true;
     }
 
-    printf("Mixed next fragment into %p\n", pSampleData);
+    //printf("Mixed next fragment into %p\n", pSampleData);
     return true;
 }
 
@@ -2256,7 +2256,7 @@ void* dra_device__thread_proc(void* pData)
         dra_semaphore_wait(pDevice->threadEventSem);
 
         if (pDevice->nextThreadEventType == dra_thread_event_type_terminate) {
-            printf("Terminated!\n");
+            //printf("Terminated!\n");
             break;
         }
 
@@ -2287,7 +2287,7 @@ void* dra_device__thread_proc(void* pData)
 
             // There could be some events needing to be posted.
             dra_event_queue__post_events(&pDevice->eventQueue);
-            printf("Stopped!\n");
+            //printf("Stopped!\n");
 
             // Don't fall through.
             continue;
