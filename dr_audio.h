@@ -13,9 +13,9 @@
 //
 // You can then #include this file in other parts of the program as you would with any other header file.
 //
-// dr_audio supports loading and decoding of WAV, FLAC and Vorbis streams via dr_wav, dr_flac and stb_vorbis respectively. To enable these
-// all you need to do is #include "dr_audio.h" _after_ #include "dr_wav.h", #include "dr_flac.h" and #include "stb_vorbis.c" in the implementation
-// file, like so:
+// dr_audio supports loading and decoding of WAV, FLAC and Vorbis streams via dr_wav, dr_flac and stb_vorbis respectively. To enable
+// these all you need to do is #include "dr_audio.h" _after_ #include "dr_wav.h", #include "dr_flac.h" and #include "stb_vorbis.c" in
+// the implementation file, like so:
 //
 //   #define DR_WAV_IMPLEMENTATION
 //   #include "dr_wav.h"
@@ -29,8 +29,8 @@
 //   #define DR_AUDIO_IMPLEMENTATION
 //   #include "dr_audio.h"
 //
-// dr_wav, dr_flac and stb_vorbis are entirely optional, and dr_audio will automatically detect the ones that are available without any additional
-// intervention on your part.
+// dr_wav, dr_flac and stb_vorbis are entirely optional, and dr_audio will automatically detect the ones that are available without
+// any additional intervention on your part.
 //
 //
 // dr_audio has a layered API with different levels of flexibility vs simplicity. An example of the high level API follows:
@@ -76,7 +76,8 @@
 //
 //   ...
 //
-//   // Sometime later, maybe you'll need to update the data inside the voice's internal buffer... It's your job to handle synchronization - have fun!
+//   // Sometime later you may need to update the data inside the voice's internal buffer... It's your job to handle
+//   // synchronization - have fun!
 //   float* pVoiceData = (float*)dra_voice_get_buffer_ptr_by_sample(pVoice, sampleOffset);
 //   if (pVoiceData == NULL) {
 //       return -1;
@@ -90,18 +91,19 @@
 //   dra_device_close(pDevice);
 //   dra_context_delete(pContext);
 //
-// In the above example the voice and device are configured to use the sample number of channels and sample rate, however they are allowed to
-// differ, in which case dr_audio will automatically convert the data. Note that sample rate conversion is currently very low quality.
+// In the above example the voice and device are configured to use the same number of channels and sample rate, however they are
+// allowed to differ, in which case dr_audio will automatically convert the data. Note that sample rate conversion is currently
+// very low quality.
 //
-// To handle streaming buffers, you can attach a callback that's fired when a voice's playback position reaches a certain point. Usually you
-// would set this to the middle and end of the buffer, filling the previous half with new data. Use the dra_voice_add_playback_event() for
-// this.
+// To handle streaming buffers, you can attach a callback that's fired when a voice's playback position reaches a certain point.
+// Usually you would set this to the middle and end of the buffer, filling the previous half with new data. Use the
+// dra_voice_add_playback_event() API for this.
 //
 //
-// dr_audio has support for submixing which basically allows you to control volume (and in the future, effects) for groups of sounds which would
-// typically be organized into categories. An abvious example would be in games where you may want to have separate volume controls for music,
-// voices, special effects, etc. To do submixing, all you need to do is create a mixer. There is a master mixer associated with every device, and
-// all newly created mixers are a child of the master mixer, by default:
+// dr_audio has support for submixing which basically allows you to control volume (and in the future, effects) for groups of sounds
+// which would typically be organized into categories. An abvious example would be in games where you may want to have separate volume
+// controls for music, voices, special effects, etc. To do submixing, all you need to do is create a mixer. There is a master mixer
+// associated with every device, and all newly created mixers are a child of the master mixer, by default:
 //
 //   dra_mixer* pMusicMixer = dra_mixer_create(pDevice);
 //   if (pMusicMixer == NULL) {
@@ -122,7 +124,7 @@
 // dr_audio includes an abstraction for audio decoding. Built-in support is included for WAV, FLAC and Vorbis streams:
 //
 //   dra_decoder decoder;
-//   if (!dra_decoder_open_file(&decoder, filePath)) {  // <-- filePath can be a valid .wav, .flac or .ogg file, so long as the dependencies are included as documented above.
+//   if (!dra_decoder_open_file(&decoder, filePath)) {
 //       return -1;
 //   }
 //
