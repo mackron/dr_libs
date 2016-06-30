@@ -35,7 +35,7 @@
 //
 // dr_audio has a layered API with different levels of flexibility vs simplicity. An example of the high level API follows:
 //
-//   dra_device* pDevice = dra_device_open(NULL, dra_device_playback);
+//   dra_device* pDevice = dra_device_open(NULL, dra_device_type_playback);
 //   if (pDevice == NULL) {
 //       return -1;
 //   }
@@ -94,7 +94,7 @@
 // differ, in which case dr_audio will automatically convert the data. Note that sample rate conversion is currently very low quality.
 //
 // To handle streaming buffers, you can attach a callback that's fired when a voice's playback position reaches a certain point. Usually you
-// would set this to the middle and end of the buffer, filling the previously half with new data. Use the dra_voice_add_playback_event() for
+// would set this to the middle and end of the buffer, filling the previous half with new data. Use the dra_voice_add_playback_event() for
 // this.
 //
 //
