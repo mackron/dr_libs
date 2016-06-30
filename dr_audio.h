@@ -5,107 +5,6 @@
 
 // !!!!! THIS IS WORK IN PROGRESS !!!!!
 
-// This is attempt #2 at creating an easy to use library for audio playback and recording. The first attempt
-// had too much reliance on the backend API which made adding new ones too complex and error prone. It was
-// also badly designed with respect to how the API was layered.
-
-// DEVELOPMENT NOTES AND BRAINSTORMING
-//
-// This is just random brainstorming and is likely very out of date and often just outright incorrect.
-//
-//
-// API Hierarchy (from lowest level to highest).
-//
-// Platform specific
-// dra_backend (dra_backend_alsa, dra_backend_dsound) <-- This is the ONLY place with platform-specific code.
-// dra_backend_device
-//
-// Cross platform
-// dra_context                                        <-- Has an instantiation of a dra_backend object. Cross-platform.
-// dra_device                                         <-- Created and owned by a dra_context object and be an input (recording) or an output (playback) device.
-// dra_voice                                          <-- Created and owned by a dra_device object and used by an application to deliver audio data to the backend.
-//
-//
-// In order to make the API easier to use, have simple no-hassle APIs which use appropriate defaults, and then
-// have an _ex version for the complex stuff. Example:
-//
-//   dra_device_open_ex(pContext, deviceType, deviceID, format, sampleRate, channels, latencyInMilliseconds);
-//   dra_device_open(pContext, deviceType) ==> dra_device_open_ex(pContext, deviceType, defaultDeviceID, dra_format_pcm_32, 48000, deviceChannelCount, DR_AUDIO_DEFAULT_LATENCY);
-//
-//
-// Buffers are optimal if they're created in the same format as the device. If they're in a different format
-// they must go through a conversion process.
-//
-//
-// Latency
-//
-// When a device is created it'll create a "hardware buffer" which is basically the buffer that the hardware
-// device will read from when it needs to play audio. The hardware buffer is divided into two halves. As the
-// buffer plays, it moves the playback pointer forward through the buffer and loops. When it hits the half
-// way point it notifies the application that it needs more data to continue playing. Once one half starts
-// playing the data within it is committed and cannot be changed. The size of each half determines the latency
-// of the device.
-//
-// It sounds tempting to set this to something small like 1ms, but making it too small will
-// increase the chance that the CPU won't be able to keep filling it with fresh data. In addition it will
-// incrase overall CPU usage because operating system's scheduler will need to wake up the thread more often.
-// Increasing the latency will increase memory usage and make playback of new sound sources take longer to
-// begin playing. For example, if the latency was set to something like 1 second, a sound effect in a game
-// may take up to a whole second to start playing. A balance needs to be made when setting the latency, and
-// it can be configured when the device is created.
-//
-// (mention the fragments system to help avoiding the CPU running out of time to fill new audio data)
-//
-//
-// Mixing
-//
-// Mixing is done via dra_mixer objects. Buffers can be attached to a mixer, but not more than one at a time.
-// By default buffers are attached to a master mixer. Effects like volume can be applied on a per-buffer and
-// per-mixer basis.
-//
-// Mixers can be chained together in a hierarchial manner. Child mixers will be mixed first with the result
-// then passed on to higher level mixing. The master mixer is always the top level mixer.
-//
-// An obvious use case for mixers in games is to have separate volume controls for different categories of
-// sounds, such as music, voices and sounds effects. Another example may be in music production where you may
-// want to have separate mixers for vocal tracks, percussion tracks, etc.
-//
-// A mixer can be thought of as a complex buffer - it can be played/stopped/paused and have effects such as
-// volume apllied to it. All of this affects all attached buffers and sub-mixers. You can, for example, pause
-// every buffer attached to the mixer by simply pausing the mixer. This is an efficient and easy way to pause
-// a group of audio buffers at the same time, such as when the user hits the pause button in a game.
-//
-// Every device includes a master mixer which is the one that buffers are automatically attached to. This one
-// is intentionally hidden from the public facing API in order to keep it simpler. For basic audio playback
-// using the master mixer will work just fine, however for more complex sound interactions you'll want to use
-// your own mixers. Mixers, like buffers, are attached to the master mixer by default
-//
-//
-// Thread Safety
-//
-// Everything in dr_audio should be thread-safe.
-//
-// Backends are implemented as if they are always run from a single thread. It's up to the cross-platform
-// section to ensure thread-safety. This is an important property because if each backend is responsible for
-// their own thread safety it increases the likelyhood of subtle backend-specific bugs.
-//
-// Every device has their own thread for asynchronous playback. This thread is created when the device is
-// created, and deleted when the device is deleted.
-//
-// (Note edge cases when thread-safety may be an issue)
-//
-//
-//
-// More Random Thoughts on Mixing
-//
-// - Normalize everything to 32-bit float at mix time to simplify everything.
-//   - Would then make sense to have devices always be in 32-bit float format, which would further simplify
-//     the public API as an added bonus...
-//
-// - Mixers will need a place to store the floating point samples in an internal buffer. Probably most efficient
-//   to place this right next to the buffer that will store the final mix. Can sample rate conversion be done
-//   at this time as well?
-
 // USAGE
 //
 // dr_audio is a single-file library. To use it, do something like the following in one .c file.
@@ -4577,6 +4476,107 @@ void dra_sound_set_on_play(dra_sound* pSound, dra_event_proc proc, void* pUserDa
 //
 // - Forward declare every backend function and document them.
 // - Add support for the push API in stb_vorbis.
+
+// This is attempt #2 at creating an easy to use library for audio playback and recording. The first attempt
+// had too much reliance on the backend API which made adding new ones too complex and error prone. It was
+// also badly designed with respect to how the API was layered.
+
+// DEVELOPMENT NOTES AND BRAINSTORMING
+//
+// This is just random brainstorming and is likely very out of date and often just outright incorrect.
+//
+//
+// API Hierarchy (from lowest level to highest).
+//
+// Platform specific
+// dra_backend (dra_backend_alsa, dra_backend_dsound) <-- This is the ONLY place with platform-specific code.
+// dra_backend_device
+//
+// Cross platform
+// dra_context                                        <-- Has an instantiation of a dra_backend object. Cross-platform.
+// dra_device                                         <-- Created and owned by a dra_context object and be an input (recording) or an output (playback) device.
+// dra_voice                                          <-- Created and owned by a dra_device object and used by an application to deliver audio data to the backend.
+//
+//
+// In order to make the API easier to use, have simple no-hassle APIs which use appropriate defaults, and then
+// have an _ex version for the complex stuff. Example:
+//
+//   dra_device_open_ex(pContext, deviceType, deviceID, format, sampleRate, channels, latencyInMilliseconds);
+//   dra_device_open(pContext, deviceType) ==> dra_device_open_ex(pContext, deviceType, defaultDeviceID, dra_format_pcm_32, 48000, deviceChannelCount, DR_AUDIO_DEFAULT_LATENCY);
+//
+//
+// Buffers are optimal if they're created in the same format as the device. If they're in a different format
+// they must go through a conversion process.
+//
+//
+// Latency
+//
+// When a device is created it'll create a "hardware buffer" which is basically the buffer that the hardware
+// device will read from when it needs to play audio. The hardware buffer is divided into two halves. As the
+// buffer plays, it moves the playback pointer forward through the buffer and loops. When it hits the half
+// way point it notifies the application that it needs more data to continue playing. Once one half starts
+// playing the data within it is committed and cannot be changed. The size of each half determines the latency
+// of the device.
+//
+// It sounds tempting to set this to something small like 1ms, but making it too small will
+// increase the chance that the CPU won't be able to keep filling it with fresh data. In addition it will
+// incrase overall CPU usage because operating system's scheduler will need to wake up the thread more often.
+// Increasing the latency will increase memory usage and make playback of new sound sources take longer to
+// begin playing. For example, if the latency was set to something like 1 second, a sound effect in a game
+// may take up to a whole second to start playing. A balance needs to be made when setting the latency, and
+// it can be configured when the device is created.
+//
+// (mention the fragments system to help avoiding the CPU running out of time to fill new audio data)
+//
+//
+// Mixing
+//
+// Mixing is done via dra_mixer objects. Buffers can be attached to a mixer, but not more than one at a time.
+// By default buffers are attached to a master mixer. Effects like volume can be applied on a per-buffer and
+// per-mixer basis.
+//
+// Mixers can be chained together in a hierarchial manner. Child mixers will be mixed first with the result
+// then passed on to higher level mixing. The master mixer is always the top level mixer.
+//
+// An obvious use case for mixers in games is to have separate volume controls for different categories of
+// sounds, such as music, voices and sounds effects. Another example may be in music production where you may
+// want to have separate mixers for vocal tracks, percussion tracks, etc.
+//
+// A mixer can be thought of as a complex buffer - it can be played/stopped/paused and have effects such as
+// volume apllied to it. All of this affects all attached buffers and sub-mixers. You can, for example, pause
+// every buffer attached to the mixer by simply pausing the mixer. This is an efficient and easy way to pause
+// a group of audio buffers at the same time, such as when the user hits the pause button in a game.
+//
+// Every device includes a master mixer which is the one that buffers are automatically attached to. This one
+// is intentionally hidden from the public facing API in order to keep it simpler. For basic audio playback
+// using the master mixer will work just fine, however for more complex sound interactions you'll want to use
+// your own mixers. Mixers, like buffers, are attached to the master mixer by default
+//
+//
+// Thread Safety
+//
+// Everything in dr_audio should be thread-safe.
+//
+// Backends are implemented as if they are always run from a single thread. It's up to the cross-platform
+// section to ensure thread-safety. This is an important property because if each backend is responsible for
+// their own thread safety it increases the likelyhood of subtle backend-specific bugs.
+//
+// Every device has their own thread for asynchronous playback. This thread is created when the device is
+// created, and deleted when the device is deleted.
+//
+// (Note edge cases when thread-safety may be an issue)
+//
+//
+//
+// More Random Thoughts on Mixing
+//
+// - Normalize everything to 32-bit float at mix time to simplify everything.
+//   - Would then make sense to have devices always be in 32-bit float format, which would further simplify
+//     the public API as an added bonus...
+//
+// - Mixers will need a place to store the floating point samples in an internal buffer. Probably most efficient
+//   to place this right next to the buffer that will store the final mix. Can sample rate conversion be done
+//   at this time as well?
 
 
 /*
