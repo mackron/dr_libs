@@ -4055,7 +4055,7 @@ dra_voice* dra_voice_create_from_file(dra_device* pDevice, const char* filePath)
     unsigned int channels;
     unsigned int sampleRate;
     uint64_t totalSampleCount;
-    float* pSampleData = dra_decoder_open_and_decode_file_f32(filePath, &sampleRate, &channels, &totalSampleCount);
+    float* pSampleData = dra_decoder_open_and_decode_file_f32(filePath, &channels, &sampleRate, &totalSampleCount);
     if (pSampleData == NULL) {
         return NULL;
     }
