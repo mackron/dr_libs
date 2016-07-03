@@ -188,6 +188,12 @@ typedef enum
     dra_format_default = dra_format_f32
 } dra_format;
 
+typedef enum
+{
+    dra_src_algorithm_none,
+    dra_src_algorithm_linear,
+} dra_src_algorithm;
+
 // dra_thread_event_type is used internally for thread management.
 typedef enum
 {
@@ -384,34 +390,34 @@ struct dra_voice
 
 
     // The total number of frames in the voice.
-    size_t frameCount;
+    uint64_t frameCount;
 
     // The current read position, in frames. An important detail with this is that it's based on the sample rate of the
     // device, not the voice.
-    size_t currentReadPos;
+    uint64_t currentReadPos;
 
 
-    // A voice for storing converted frames. This is used by dra_voice__next_frame(). As frames are conversion to
-    // floats, that are placed into this voice.
+    // A buffer for storing converted frames. This is used by dra_voice__next_frame(). As frames are converted to
+    // floats, that are placed into this buffer.
     float convertedFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
 
 
     // Data for sample rate conversion. Different SRC algorithms will use different data, which will be stored in their
     // own structure.
-    union
+    struct
     {
-        struct
-        {
-            size_t nearFrameIndex;
-            float nearFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
-        } nearest;
+        // The sample rate conversion algorithm to use.
+        dra_src_algorithm algorithm;
 
-        struct
+        union
         {
-            size_t prevFrameIndex;
-            float prevFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
-            float nextFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
-        } linear;
+            struct
+            {
+                uint64_t prevFrameIndex;
+                float prevFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
+                float nextFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
+            } linear;
+        } data;
     } src;
 
 
@@ -554,6 +560,12 @@ void dra_voice_set_on_stop(dra_voice* pVoice, dra_event_proc proc, void* pUserDa
 void dra_voice_set_on_play(dra_voice* pVoice, dra_event_proc proc, void* pUserData);
 bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_event_proc proc, void* pUserData);
 void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID);
+
+// dra_voice_get_playback_position()
+uint64_t dra_voice_get_playback_position(dra_voice* pVoice);
+
+// dra_voice_set_playback_position()
+void dra_voice_set_playback_position(dra_voice* pVoice, uint64_t sampleIndex);
 
 
 // dra_voice_get_buffer_ptr_by_sample()
@@ -1252,7 +1264,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     // size is based on the latency, sample rate and channels.
     //
     // The format of the secondary buffer should exactly match the primary buffer as to avoid unnecessary data conversions.
-    size_t sampleRateInMilliseconds = pDeviceDS->sampleRate / 1000;
+    unsigned int sampleRateInMilliseconds = pDeviceDS->sampleRate / 1000;
     if (sampleRateInMilliseconds == 0) {
         sampleRateInMilliseconds = 1;
     }
@@ -1311,7 +1323,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
             goto on_error;
         }
 
-        notifyPoints[i].dwOffset = i * fragmentSize;    // <-- This is in bytes.
+        notifyPoints[i].dwOffset = (DWORD)(i * fragmentSize);    // <-- This is in bytes.
         notifyPoints[i].hEventNotify = pDeviceDS->pNotifyEvents[i];
     }
 
@@ -2968,9 +2980,10 @@ dra_voice* dra_voice_create(dra_device* pDevice, dra_format format, unsigned int
 
 
     // Sample rate conversion.
-    {
-        // Nearest.
-        pVoice->src.nearest.nearFrameIndex = (size_t)-1;   // <-- Initializing ensures the first frame is handled correctly.
+    if (sampleRate == pDevice->sampleRate) {
+        pVoice->src.algorithm = dra_src_algorithm_none;
+    } else {
+        pVoice->src.algorithm = dra_src_algorithm_linear;
     }
 
 
@@ -3258,6 +3271,15 @@ void dra_shuffle_channels(float* pOut, const float* pIn, unsigned int channelsOu
     }
 }
 
+float dra_voice__get_sample_rate_factor(dra_voice* pVoice)
+{
+    if (pVoice == NULL) {
+        return 1;
+    }
+
+    return pVoice->pDevice->sampleRate / (float)pVoice->sampleRate;
+}
+
 void dra_voice__unsignal_playback_events(dra_voice* pVoice)
 {
     // This function will be called when the voice has looped back to the start. In this case the playback notification events need
@@ -3297,8 +3319,7 @@ float* dra_voice__next_frame(dra_voice* pVoice)
 
         if (pVoice->sampleRate == pVoice->pDevice->sampleRate)
         {
-            // Same sample rate. This path isn't ideal, but it's not too bad since there is no need for sample rate conversion. There's an annoying
-            // switch, though...
+            // Same sample rate. This path isn't ideal, but it's not too bad since there is no need for sample rate conversion.
             if (!pVoice->isLooping && pVoice->currentReadPos == pVoice->frameCount) {
                 return NULL;    // At the end of a non-looping voice.
             }
@@ -3308,7 +3329,7 @@ float* dra_voice__next_frame(dra_voice* pVoice)
             unsigned int channelsIn  = pVoice->channels;
             unsigned int channelsOut = pVoice->pDevice->channels;
             float tempFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
-            size_t sampleOffset = pVoice->currentReadPos * channelsIn;
+            uint64_t sampleOffset = pVoice->currentReadPos * channelsIn;
 
             // The conversion is done differently depending on the format of the voice.
             if (pVoice->format == dra_format_f32) {
@@ -3344,44 +3365,34 @@ float* dra_voice__next_frame(dra_voice* pVoice)
 
             float* pOut = pVoice->convertedFrame;
 
-#if 0
-            // Nearest filtering. This results in audio that could be considered outright incorrect. This is placeholder.
-            size_t nearFrameIndexIn = (size_t)(pVoice->currentReadPos * invfactor);
-            if (nearFrameIndexIn != pVoice->src.nearest.nearFrameIndex) {
-                size_t sampleOffset = nearFrameIndexIn * (channelsIn * bytesPerSample);
-                dra_to_f32(pVoice->src.nearest.nearFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
-                pVoice->src.nearest.nearFrameIndex = nearFrameIndexIn;
+            if (pVoice->src.algorithm == dra_src_algorithm_linear) {
+                // Linear filtering.
+                float timeIn = pVoice->currentReadPos * invfactor;
+                uint64_t prevFrameIndexIn = (uint64_t)(timeIn);
+                uint64_t nextFrameIndexIn = prevFrameIndexIn + 1;
+                if (nextFrameIndexIn >= pVoice->frameCount) {
+                    nextFrameIndexIn  = pVoice->frameCount-1;
+                }
+
+                if (prevFrameIndexIn != pVoice->src.data.linear.prevFrameIndex)
+                {
+                    uint64_t sampleOffset = prevFrameIndexIn * (channelsIn * bytesPerSample);
+                    dra_to_f32(pVoice->src.data.linear.prevFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
+
+                    sampleOffset = nextFrameIndexIn * (channelsIn * bytesPerSample);
+                    dra_to_f32(pVoice->src.data.linear.nextFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
+
+                    pVoice->src.data.linear.prevFrameIndex = prevFrameIndexIn;
+                }
+
+                float alpha = timeIn - prevFrameIndexIn;
+                float frame[DR_AUDIO_MAX_CHANNEL_COUNT];
+                for (unsigned int i = 0; i < pVoice->channels; ++i) {
+                    frame[i] = dra_mixf(pVoice->src.data.linear.prevFrame[i], pVoice->src.data.linear.nextFrame[i], alpha);
+                }
+
+                dra_shuffle_channels(pOut, frame, channelsOut, channelsIn);
             }
-
-            dra_shuffle_channels(pOut, pVoice->src.nearest.nearFrame, channelsOut, channelsIn);
-#else
-            // Linear filtering.
-            float timeIn = pVoice->currentReadPos * invfactor;
-            size_t prevFrameIndexIn = (size_t)(timeIn);
-            size_t nextFrameIndexIn = prevFrameIndexIn + 1;
-            if (nextFrameIndexIn >= pVoice->frameCount) {
-                nextFrameIndexIn  = pVoice->frameCount-1;
-            }
-
-            if (prevFrameIndexIn != pVoice->src.linear.prevFrameIndex)
-            {
-                size_t sampleOffset = prevFrameIndexIn * (channelsIn * bytesPerSample);
-                dra_to_f32(pVoice->src.linear.prevFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
-
-                sampleOffset = nextFrameIndexIn * (channelsIn * bytesPerSample);
-                dra_to_f32(pVoice->src.linear.nextFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
-
-                pVoice->src.linear.prevFrameIndex = prevFrameIndexIn;
-            }
-
-            float alpha = timeIn - prevFrameIndexIn;
-            float frame[DR_AUDIO_MAX_CHANNEL_COUNT];
-            for (unsigned int i = 0; i < pVoice->channels; ++i) {
-                frame[i] = dra_mixf(pVoice->src.linear.prevFrame[i], pVoice->src.linear.nextFrame[i], alpha);
-            }
-
-            dra_shuffle_channels(pOut, frame, channelsOut, channelsIn);
-#endif
 
 
             pVoice->currentReadPos += 1;
@@ -3411,7 +3422,7 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
     }
 
 
-    float sampleRateFactor = (pVoice->pDevice->sampleRate / (float)pVoice->sampleRate);
+    float sampleRateFactor = dra_voice__get_sample_rate_factor(pVoice);
     uint64_t totalSampleCount = (uint64_t)((pVoice->frameCount * pVoice->channels) * sampleRateFactor);
     
     // Now we need to check if we've got past any notification events and post events for them if so.
@@ -3489,6 +3500,39 @@ void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID)
         }
     }
 }
+
+
+uint64_t dra_voice_get_playback_position(dra_voice* pVoice)
+{
+    if (pVoice == NULL) {
+        return 0;
+    }
+
+    return (uint64_t)((pVoice->currentReadPos * pVoice->channels) / dra_voice__get_sample_rate_factor(pVoice));
+}
+
+void dra_voice_set_playback_position(dra_voice* pVoice, uint64_t sampleIndex)
+{
+    if (pVoice == NULL) {
+        return;
+    }
+
+    // When setting the playback position it's important to consider sample-rate conversion. Sample rate conversion will often depend on
+    // previous and next frames in order to calculate the next frame. Therefore, depending on the type of SRC we're using, we'll need to
+    // seek a few frames earlier and then re-fill the delay-line buffer used for a particular SRC algorithm.
+    uint64_t localFramePos = sampleIndex / pVoice->channels;
+    pVoice->currentReadPos = (uint64_t)(localFramePos * dra_voice__get_sample_rate_factor(pVoice));
+
+    if (pVoice->sampleRate != pVoice->pDevice->sampleRate) {
+        if (pVoice->src.algorithm == dra_src_algorithm_linear) {
+            // Linear filtering just requires the previous frame. However, this is handled at mixing time for linear SRC so all we need to
+            // do is ensure the mixing function is aware that the previous frame need to be re-read. This is done by simply resetting the
+            // variable the mixer uses to determine whether or not the previous frame needs to be re-read.
+            pVoice->src.data.linear.prevFrameIndex = 0;
+        }
+    }
+}
+
 
 void* dra_voice_get_buffer_ptr_by_sample(dra_voice* pVoice, uint64_t sample)
 {
