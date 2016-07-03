@@ -77,7 +77,8 @@
 //   ...
 //
 //   // Sometime later you may need to update the data inside the voice's internal buffer... It's your job to handle
-//   // synchronization - have fun!
+//   // synchronization - have fun! Hint: use playback events at fixed locations to know when a region of the buffer
+//   // is available for updating.
 //   float* pVoiceData = (float*)dra_voice_get_buffer_ptr_by_sample(pVoice, sampleOffset);
 //   if (pVoiceData == NULL) {
 //       return -1;
@@ -98,6 +99,10 @@
 // To handle streaming buffers, you can attach a callback that's fired when a voice's playback position reaches a certain point.
 // Usually you would set this to the middle and end of the buffer, filling the previous half with new data. Use the
 // dra_voice_add_playback_event() API for this.
+//
+// The playback position of a voice can be retrieved and set with dra_voice_get_playback_position() and dra_voice_set_playback_position()
+// respctively. The playback is specified in samples. dra_voice_get_playback_position() will always return a value which is a multiple
+// of the channel count. dra_voice_set_playback_position() will round the specified sample index to a multiple of the channel count.
 //
 //
 // dr_audio has support for submixing which basically allows you to control volume (and in the future, effects) for groups of sounds
@@ -4736,18 +4741,6 @@ void dra_sound_set_on_play(dra_sound* pSound, dra_event_proc proc, void* pUserDa
 // created, and deleted when the device is deleted.
 //
 // (Note edge cases when thread-safety may be an issue)
-//
-//
-//
-// More Random Thoughts on Mixing
-//
-// - Normalize everything to 32-bit float at mix time to simplify everything.
-//   - Would then make sense to have devices always be in 32-bit float format, which would further simplify
-//     the public API as an added bonus...
-//
-// - Mixers will need a place to store the floating point samples in an internal buffer. Probably most efficient
-//   to place this right next to the buffer that will store the final mix. Can sample rate conversion be done
-//   at this time as well?
 
 
 /*
