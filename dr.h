@@ -81,6 +81,10 @@ extern "C" {
 #define dr_clamp(x, low, high) (dr_max(low, dr_min(x, high)))
 #endif
 
+#ifndef dr_round_up
+#define dr_round_up(x, multiple) ((((x) + (((x) >= 0)*((multiple) - 1))) / (multiple)) * (multiple))
+#endif
+
 
 /////////////////////////////////////////////////////////
 // MSVC Compatibility
