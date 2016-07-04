@@ -2214,7 +2214,7 @@ void dra_event_queue__schedule_event(dra__event_queue* pQueue, dra__event* pEven
     dra_mutex_unlock(pQueue->lock);
 }
 
-void dra_event_queue__cancel_events_of_buffer(dra__event_queue* pQueue, dra_voice* pVoice)
+void dra_event_queue__cancel_events_of_queue(dra__event_queue* pQueue, dra_voice* pVoice)
 {
     if (pQueue == NULL || pVoice == NULL) {
         return;
@@ -3413,7 +3413,7 @@ float* dra_voice__next_frame(dra_voice* pVoice)
 
 size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamplesOut)
 {
-    // TODO: Check for the fast path and do a bulk copy rather than frame-by-frame.
+    // TODO: Check for the fast path and do a bulk copy rather than frame-by-frame. Don't forget playback event handling.
 
     size_t framesRead = 0;
     
@@ -3435,7 +3435,7 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
     for (size_t i = 0; i < pVoice->playbackEventCount; ++i) {
         dra__event* pEvent = &pVoice->playbackEvents[i];
         if (!pEvent->hasBeenSignaled && pEvent->sampleIndex*sampleRateFactor <= currentReadPosLocal) {
-            dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, pEvent);
+            dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, pEvent);  // <-- TODO: Check that this really needs to be scheduled. Can probably call it directly and avoid a mutex lock/unlock.
             pEvent->hasBeenSignaled = true;
         }
     }
@@ -3536,6 +3536,8 @@ void dra_voice_set_playback_position(dra_voice* pVoice, uint64_t sampleIndex)
             pVoice->src.data.linear.prevFrameIndex = 0;
         }
     }
+
+    // TODO: Normalize the hasBeenSignaled properties of events.
 }
 
 
