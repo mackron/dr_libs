@@ -101,6 +101,8 @@
 // #define DRGUI_NO_DR_2D
 //   Disable dr_2d integration. Disabling dr_2d will require you to implement your own drawing callbacks.
 //
+// #define DRGUI_NO_TEXT_EDITING
+//   Disables the text box control and text engine.
 
 
 //
@@ -5174,7 +5176,7 @@ void drgui_unmap_image_data_dr_2d(drgui_resource image)
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-
+#ifndef DRGUI_NO_TEXT_EDITING
 // QUICK NOTES
 //
 // - Text engines are used to make it easier to manage the layout of a block of text.
@@ -10050,7 +10052,7 @@ DRGUI_PRIVATE void drgui_text_engine__end_dirty(drgui_text_engine* pTL)
     }
 }
 #endif  //DR_GUI_IMPLEMENTATION
-
+#endif
 
 
 
@@ -12902,7 +12904,7 @@ DRGUI_PRIVATE void tab_detach(drgui_tab* pTab)
 //
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-
+#ifndef DRGUI_NO_TEXT_EDITING
 // QUICK NOTES
 //
 // - By default the cursor/caret does not blink automatically. Instead, the application must "step" the text box by
@@ -15124,7 +15126,7 @@ DRGUI_PRIVATE void drgui_textbox__refresh_line_numbers(drgui_element* pTBElement
     drgui_dirty(pTBElement, drgui_get_local_rect(pTBElement));
 }
 #endif  //DR_GUI_IMPLEMENTATION
-
+#endif  //DRGUI_NO_TEXT_EDITING
 
 
 ///////////////////////////////////////////////////////////////////////////////
