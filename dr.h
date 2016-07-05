@@ -82,7 +82,11 @@ extern "C" {
 #endif
 
 #ifndef dr_round_up
-#define dr_round_up(x, multiple) ((((x) + (((x) >= 0)*((multiple) - 1))) / (multiple)) * (multiple))
+#define dr_round_up(x, multiple) ((((x) + ((multiple) - 1)) / (multiple)) * (multiple))
+#endif
+
+#ifndef dr_round_up_signed
+#define dr_round_up_signed(x, multiple) ((((x) + (((x) >= 0)*((multiple) - 1))) / (multiple)) * (multiple))
 #endif
 
 
@@ -404,6 +408,9 @@ bool dr_move_file(const char* oldPath, const char* newPath);
 
 // Determines if the given file is read only.
 bool dr_is_file_read_only(const char* filePath);
+
+// Retrieves the last modified time of the file at the given path.
+uint64_t dr_get_file_modified_time(const char* filePath);
 
 // Deletes the file at the given path.
 //
@@ -921,7 +928,7 @@ int dr_itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
 
     if (dstSizeInBytes == 0) {
         dst[0] = '\0';
-        return EINVAL;  // Ran out of room in the output buffer.   
+        return EINVAL;  // Ran out of room in the output buffer.
     }
 
     *dstEnd = '\0';
@@ -1080,7 +1087,7 @@ char* dr_string_replace(const char* src, const char* query, const char* replacem
         for (size_t j = 0; j < len; ++j) {
             runningResult[j] = src[j];
         }
-        
+
         runningResult += len;
         for (int j = 0; j < replacementLen; ++j) {
             runningResult[j] = replacement[j];
@@ -1915,6 +1922,40 @@ bool dr_is_file_read_only(const char* filePath)
 #endif
 }
 
+uint64_t dr_get_file_modified_time(const char* filePath)
+{
+    if (filePath == NULL || filePath[0] == '\0') {
+        return 0;
+    }
+
+#if _WIN32
+    HANDLE hFile = CreateFileA(filePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+
+    FILETIME fileTime;
+    BOOL wasSuccessful = GetFileTime(hFile, NULL, NULL, &fileTime);
+    CloseHandle(hFile);
+
+    if (!wasSuccessful) {
+        return 0;
+    }
+
+    ULARGE_INTEGER result;
+    result.HighPart = fileTime.dwHighDateTime;
+    result.LowPart = fileTime.dwLowDateTime;
+    return result.QuadPart;
+#else
+    struct stat info;
+    if (stat(filePath, &info) != 0) {
+        return 0;
+    }
+
+    return info.st_mtime;
+#endif
+}
+
 bool dr_delete_file(const char* filePath)
 {
     if (filePath == NULL) {
@@ -1979,7 +2020,7 @@ bool dr_mkdir_recursive(const char* directoryPath)
 
         directoryPath += 1;
     }
-    
+
     return true;
 }
 
