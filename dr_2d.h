@@ -2951,17 +2951,22 @@ void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw
         cairo_fill(cr);
     }
 
-    cairo_scale(cr, pArgs->dstWidth / pArgs->srcWidth, pArgs->dstHeight / pArgs->srcHeight);
-    cairo_set_source_surface(cr, pCairoImage->pCairoSurface, pArgs->srcX, pArgs->srcY);
-    cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
+
+    cairo_push_group(cr);
+    {
+        cairo_scale(cr, pArgs->dstWidth / pArgs->srcWidth, pArgs->dstHeight / pArgs->srcHeight);
+        cairo_set_source_surface(cr, pCairoImage->pCairoSurface, pArgs->srcX, pArgs->srcY);
+        cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
+        cairo_paint(cr);
+
+        // Tint.
+        cairo_set_operator(cr, CAIRO_OPERATOR_ATOP);
+        cairo_set_source_rgb(cr, pArgs->foregroundTint.r / 255.0, pArgs->foregroundTint.g / 255.0, pArgs->foregroundTint.b / 255.0);
+        cairo_rectangle(cr, 0, 0, pArgs->dstWidth, pArgs->dstHeight);
+        cairo_fill(cr);
+    }
+    cairo_pop_group_to_source(cr);
     cairo_paint(cr);
-
-
-    // Tint.
-    //cairo_set_operator(cr, CAIRO_OPERATOR_MULTIPLY);
-    //cairo_set_source_rgb(cr, pArgs->foregroundTint.r / 255.0, pArgs->foregroundTint.g / 255.0, pArgs->foregroundTint.b / 255.0);
-    //cairo_rectangle(cr, 0, 0, pArgs->dstWidth, pArgs->dstHeight);
-    //cairo_fill(cr);
 
 
     cairo_restore(cr);
