@@ -1,6 +1,5 @@
 // Public Domain. See "unlicense" statement at the end of this file.
 
-//
 // QUICK NOTES
 //
 // General
