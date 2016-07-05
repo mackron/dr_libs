@@ -2942,7 +2942,6 @@ void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw
     cairo_save(cr);
     cairo_translate(cr, pArgs->dstX, pArgs->dstY);
 
-
     // Background.
     if ((pArgs->options & DR2D_IMAGE_DRAW_BACKGROUND) != 0)
     {
@@ -2951,23 +2950,46 @@ void dr2d_draw_image_cairo(dr2d_surface* pSurface, dr2d_image* pImage, dr2d_draw
         cairo_fill(cr);
     }
 
-
-    cairo_push_group(cr);
-    {
+    if (pArgs->foregroundTint.r == 255 && pArgs->foregroundTint.g == 255 && pArgs->foregroundTint.b == 255 && pArgs->foregroundTint.a == 255) {
         cairo_scale(cr, pArgs->dstWidth / pArgs->srcWidth, pArgs->dstHeight / pArgs->srcHeight);
         cairo_set_source_surface(cr, pCairoImage->pCairoSurface, pArgs->srcX, pArgs->srcY);
         cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
         cairo_paint(cr);
+    } else {
+        // Slower path. The image needs to be tinted. We create a temporary image for this.
+        // NOTE: This is incorrect. It's just a temporary solution until I figure out a better way.
+        cairo_surface_t* pTempImageSurface = cairo_surface_create_similar_image(pCairoImage->pCairoSurface, CAIRO_FORMAT_ARGB32,
+            cairo_image_surface_get_width(pCairoImage->pCairoSurface), cairo_image_surface_get_height(pCairoImage->pCairoSurface));
+        if (pTempImageSurface != NULL) {
+            cairo_t* cr2 = cairo_create(pTempImageSurface);
 
-        // Tint.
-        cairo_set_operator(cr, CAIRO_OPERATOR_ATOP);
-        cairo_set_source_rgb(cr, pArgs->foregroundTint.r / 255.0, pArgs->foregroundTint.g / 255.0, pArgs->foregroundTint.b / 255.0);
-        cairo_rectangle(cr, 0, 0, pArgs->dstWidth, pArgs->dstHeight);
-        cairo_fill(cr);
+            cairo_set_operator(cr2, CAIRO_OPERATOR_SOURCE);
+            cairo_set_source_surface(cr2, pCairoImage->pCairoSurface, 0, 0);
+            cairo_pattern_set_filter(cairo_get_source(cr2), CAIRO_FILTER_NEAREST);
+            cairo_paint(cr2);
+
+            // Tint.
+            cairo_set_operator(cr2, CAIRO_OPERATOR_ATOP);
+            cairo_set_source_rgba(cr2, pArgs->foregroundTint.r / 255.0, pArgs->foregroundTint.g / 255.0, pArgs->foregroundTint.b / 255.0, 1);
+            cairo_rectangle(cr2, 0, 0, pArgs->dstWidth, pArgs->dstHeight);
+            cairo_fill(cr2);
+
+            /*cairo_set_operator(cr2, CAIRO_OPERATOR_MULTIPLY);
+            cairo_set_source_surface(cr2, pCairoImage->pCairoSurface, 0, 0);
+            cairo_pattern_set_filter(cairo_get_source(cr2), CAIRO_FILTER_NEAREST);
+            cairo_paint(cr2);*/
+
+            // Draw the temporary surface onto the main surface.
+            cairo_scale(cr, pArgs->dstWidth / pArgs->srcWidth, pArgs->dstHeight / pArgs->srcHeight);
+            cairo_set_source_surface(cr, pTempImageSurface, pArgs->srcX, pArgs->srcY);
+            cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
+            //cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+            cairo_paint(cr);
+
+            cairo_destroy(cr2);
+            cairo_surface_destroy(pTempImageSurface);
+        }
     }
-    cairo_pop_group_to_source(cr);
-    cairo_paint(cr);
-
 
     cairo_restore(cr);
 }
