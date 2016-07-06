@@ -10228,7 +10228,7 @@ void drgui_sb_on_paint(drgui_element* pSBElement, drgui_rect relativeClippingRec
 
 #ifdef DR_GUI_IMPLEMENTATION
 
-#define DRGUI_MIN_SCROLLBAR_THUMB_SIZE    8
+#define DRGUI_MIN_SCROLLBAR_THUMB_SIZE    16
 
 typedef struct
 {
