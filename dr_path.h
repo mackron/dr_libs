@@ -1,5 +1,5 @@
 // Public Domain. See "unlicense" statement at the end of this file.
-// dr_path - v0.1a - 20/06/2016
+// dr_path - v0.1b - 07/07/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -1092,11 +1092,16 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
         return 0;
     }
 
-    drpath_iterator last[2];
+    drpath_iterator last[2] = {
+        {NULL, {0, 0}},
+        {NULL, {0, 0}}
+    };
+
     bool isPathEmpty0 = !drpath_last(base,  last + 0);
     bool isPathEmpty1 = !drpath_last(other, last + 1);
 
-    if (isPathEmpty0 && isPathEmpty1) {
+    int iteratorCount = !isPathEmpty0 + !isPathEmpty1;
+    if (iteratorCount == 0) {
         return 0;   // Both input strings are empty.
     }
 
@@ -1392,6 +1397,9 @@ bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* base
 
 
 // REVISION HISTORY
+//
+// v0.1b - 07/07/2016
+//   - Fix a crash in drpath_append_and_clean().
 //
 // v0.1a - 20/06/2016
 //   - Fix a bug in drpath_extension().
