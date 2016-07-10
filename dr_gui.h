@@ -691,9 +691,11 @@ struct drgui_element
     /// The cursor. Defaults to drge_cursor_default.
     drgui_cursor_type cursor;
 
-
     /// Boolean flags.
     unsigned int flags;
+
+    // The region of the element that's dirty.
+    drgui_rect dirtyRect;
 
 
     /// The function to call when the element's relative position moves.
@@ -839,12 +841,14 @@ struct drgui_context
     float lastMouseMovePosY;
 
 
-    /// A pointer to the top-level element that is currently in the process of being marked as dirty. This is set in drgui_begin_auto_dirty()
-    /// and cleared in drgui_end_auto_dirty().
-    drgui_element* pDirtyTopLevelElement;
+    // A pointer to the list of dirty elements.
+    drgui_element** ppDirtyElements;
 
-    /// The current dirty rectangle, relative to pDirtyTopLevelElement.
-    drgui_rect dirtyRect;
+    // The size of the buffer containing the dirty elements.
+    size_t dirtyElementBufferSize;
+
+    // The number of dirty top-level elements.
+    size_t dirtyElementCount;
 
     /// The counter to use when determining whether or not an on_dirty event needs to be posted. This is incremented with
     /// drgui_begin_auto_dirty() and decremented with drgui_end_auto_dirty(). When the counter is decremented and hits
@@ -1286,7 +1290,9 @@ bool drgui_is_auto_dirty_enabled(drgui_context* pContext);
 
 
 /// Begins accumulating a dirty rectangle.
-void drgui_begin_dirty(drgui_element* pElement);
+///
+/// Returns a pointer to the top level element that was made dirty.
+drgui_element* drgui_begin_dirty(drgui_element* pElement);
 
 /// Ends accumulating a dirty rectangle, and requests a redraw from the backend if the counter reaches zero.
 void drgui_end_dirty(drgui_element* pElement);
@@ -2501,7 +2507,6 @@ drgui_context* drgui_create_context()
     drgui_context* pContext = (drgui_context*)calloc(1, sizeof(drgui_context));
     if (pContext != NULL) {
         pContext->currentCursor = drgui_cursor_default;
-        pContext->dirtyRect = drgui_make_inside_out_rect();
     }
 
     return pContext;
@@ -2863,6 +2868,7 @@ drgui_element* drgui_create_element(drgui_context* pContext, drgui_element* pPar
             pElement->pContext = pContext;
             pElement->pParent = pParent;
             pElement->cursor = drgui_cursor_default;
+            pElement->dirtyRect = drgui_make_inside_out_rect();
 
             pElement->extraDataSize = extraDataSize;
             if (pExtraData != NULL) {
@@ -2945,11 +2951,25 @@ void drgui_delete_element(drgui_element* pElement)
     }
 
     // Is this element in the middle of being marked as dirty?
+    for (size_t iDirtyElement = 0; iDirtyElement < pContext->dirtyElementCount; ++iDirtyElement) {
+        if (pContext->ppDirtyElements[iDirtyElement] == pElement) {
+            drgui_log(pContext, "WARNING: Deleting an element while it is being marked as dirty.");
+            for (size_t iDirtyElement2 = iDirtyElement; iDirtyElement2+1 < pContext->dirtyElementCount; ++iDirtyElement2) {
+                pContext->ppDirtyElements[iDirtyElement2] = pContext->ppDirtyElements[iDirtyElement2+1];
+            }
+
+            pContext->dirtyElementCount -= 1;
+            break;
+        }
+    }
+
+#if 0
     if (pContext->pDirtyTopLevelElement == pElement)
     {
         drgui_log(pContext, "WARNING: Deleting an element while it is being marked as dirty.");
         pContext->pDirtyTopLevelElement = NULL;
     }
+#endif
 
 
 
@@ -4058,22 +4078,46 @@ bool drgui_is_auto_dirty_enabled(drgui_context* pContext)
 }
 
 
-void drgui_begin_dirty(drgui_element* pElement)
+drgui_element* drgui_begin_dirty(drgui_element* pElement)
 {
     if (pElement == NULL) {
-        return;
+        return NULL;
     }
 
     drgui_context* pContext = pElement->pContext;
     assert(pContext != NULL);
 
-    if (pContext->pDirtyTopLevelElement == NULL) {
-        pContext->pDirtyTopLevelElement = drgui_find_top_level_element(pElement);
+    drgui_element* pTopLevelElement = drgui_find_top_level_element(pElement);
+    assert(pTopLevelElement != NULL);
+
+    // The element needs to be added to the list of dirty elements if it doesn't exist already.
+    bool isAlreadyDirty = false;
+    for (size_t iDirtyElementCount = 0; iDirtyElementCount < pContext->dirtyElementCount; ++iDirtyElementCount) {
+        if (pContext->ppDirtyElements[iDirtyElementCount] == pTopLevelElement) {
+            isAlreadyDirty = true;
+            break;
+        }
     }
 
-    assert(pContext->pDirtyTopLevelElement == drgui_find_top_level_element(pElement));
+    if (!isAlreadyDirty) {
+        if (pContext->dirtyElementCount == pContext->dirtyElementBufferSize) {
+            size_t newBufferSize = pContext->dirtyElementBufferSize == 0 ? 1 : pContext->dirtyElementBufferSize*2;
+            drgui_element** ppNewDirtyElements = (drgui_element**)realloc(pContext->ppDirtyElements, newBufferSize * sizeof(*ppNewDirtyElements));
+            if (ppNewDirtyElements == NULL) {
+                return NULL;
+            }
+
+            pContext->ppDirtyElements = ppNewDirtyElements;
+            pContext->dirtyElementBufferSize = newBufferSize;
+        }
+
+        pContext->ppDirtyElements[pContext->dirtyCounter] = pTopLevelElement;
+        pContext->dirtyElementCount += 1;
+    }
+
 
     pContext->dirtyCounter += 1;
+    return pTopLevelElement;
 }
 
 void drgui_end_dirty(drgui_element* pElement)
@@ -4085,16 +4129,18 @@ void drgui_end_dirty(drgui_element* pElement)
     drgui_context* pContext = pElement->pContext;
     assert(pContext != NULL);
 
-    assert(pContext->pDirtyTopLevelElement != NULL);
+    assert(pContext->dirtyElementCount > 0);
     assert(pContext->dirtyCounter > 0);
 
     pContext->dirtyCounter -= 1;
     if (pContext->dirtyCounter == 0)
     {
-        drgui_post_outbound_event_dirty_global(pContext->pDirtyTopLevelElement, pContext->dirtyRect);
+        for (size_t i = 0; i < pContext->dirtyElementCount; ++i) {
+            drgui_post_outbound_event_dirty_global(pContext->ppDirtyElements[i], pContext->ppDirtyElements[i]->dirtyRect);
+            pContext->ppDirtyElements[i]->dirtyRect = drgui_make_inside_out_rect();
+        }
 
-        pContext->pDirtyTopLevelElement = NULL;
-        pContext->dirtyRect             = drgui_make_inside_out_rect();
+        pContext->dirtyElementCount = 0;
     }
 }
 
@@ -4107,10 +4153,12 @@ void drgui_dirty(drgui_element* pElement, drgui_rect relativeRect)
     drgui_context* pContext = pElement->pContext;
     assert(pContext != NULL);
 
-    drgui_begin_dirty(pElement);
-    {
-        pContext->dirtyRect = drgui_rect_union(pContext->dirtyRect, drgui_make_rect_absolute(pElement, &relativeRect));
+    drgui_element* pTopLevelElement = drgui_begin_dirty(pElement);
+    if (pTopLevelElement == NULL) {
+        return;
     }
+    
+    pTopLevelElement->dirtyRect = drgui_rect_union(pTopLevelElement->dirtyRect, drgui_make_rect_absolute(pElement, &relativeRect));
     drgui_end_dirty(pElement);
 }
 
