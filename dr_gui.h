@@ -4150,8 +4150,8 @@ void drgui_dirty(drgui_element* pElement, drgui_rect relativeRect)
         return;
     }
 
-    drgui_context* pContext = pElement->pContext;
-    assert(pContext != NULL);
+    //drgui_context* pContext = pElement->pContext;
+    //assert(pContext != NULL);
 
     drgui_element* pTopLevelElement = drgui_begin_dirty(pElement);
     if (pTopLevelElement == NULL) {
