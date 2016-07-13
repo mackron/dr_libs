@@ -4561,12 +4561,12 @@ dra_sound* dra_sound_create_from_file(dra_sound_world* pWorld, const char* fileP
 
     dra_decoder* pDecoder = (dra_decoder*)malloc(sizeof(*pDecoder));
     if (pDecoder == NULL) {
-        return false;
+        return NULL;
     }
 
     if (!dra_decoder_open_file(pDecoder, filePath)) {
         free(pDecoder);
-        return false;
+        return NULL;
     }
 
     dra_sound_desc desc;
