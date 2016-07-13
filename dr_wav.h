@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.3a - 28/05/2016
+// dr_wav - v0.4 - TBD
 //
 // David Reid - mackron@gmail.com
 
@@ -107,12 +107,18 @@ extern "C" {
 #define DR_WAVE_FORMAT_MULAW        0x7
 #define DR_WAVE_FORMAT_EXTENSIBLE   0xFFFE
 
+typedef enum
+{
+    drwav_seek_origin_start,
+    drwav_seek_origin_current
+} drwav_seek_origin;
+
 // Callback for when data is read. Return value is the number of bytes actually read.
 typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 
 // Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
 // is true on success; fale on failure.
-typedef bool (* drwav_seek_proc)(void* pUserData, int offset);
+typedef bool (* drwav_seek_proc)(void* pUserData, int offset, drwav_seek_origin origin);
 
 // Structure for internal use. Only used for loaders opened with drwav_open_memory.
 typedef struct
@@ -450,7 +456,7 @@ static int drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void*
 
     if (chunkSize > 16) {
         if (chunkSize == 18) {
-            return onSeek(pUserData, 2);
+            return onSeek(pUserData, 2, drwav_seek_origin_current);
         } else {
             assert(chunkSize == 40);
 
@@ -490,9 +496,9 @@ static size_t drwav__on_read_stdio(void* pUserData, void* pBufferOut, size_t byt
     return fread(pBufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-static bool drwav__on_seek_stdio(void* pUserData, int offset)
+static bool drwav__on_seek_stdio(void* pUserData, int offset, drwav_seek_origin origin)
 {
-    return fseek((FILE*)pUserData, offset, SEEK_CUR) == 0;
+    return fseek((FILE*)pUserData, offset, (origin == drwav_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
 bool drwav_init_file(drwav* pWav, const char* filename)
@@ -556,18 +562,26 @@ static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t by
     return bytesToRead;
 }
 
-static bool drwav__on_seek_memory(void* pUserData, int offset)
+static bool drwav__on_seek_memory(void* pUserData, int offset, drwav_seek_origin origin)
 {
     drwav__memory_stream* memory = (drwav__memory_stream*)pUserData;
     assert(memory != NULL);
 
-    if (offset > 0) {
-        if (memory->currentReadPos + offset > memory->dataSize) {
-            offset = (int)(memory->dataSize - memory->currentReadPos);      // Trying to seek too far forward.
+    if (origin == drwav_seek_origin_current) {
+        if (offset > 0) {
+            if (memory->currentReadPos + offset > memory->dataSize) {
+                offset = (int)(memory->dataSize - memory->currentReadPos);  // Trying to seek too far forward.
+            }
+        } else {
+            if (memory->currentReadPos < (size_t)-offset) {
+                offset = -(int)memory->currentReadPos;  // Trying to seek too far backwards.
+            }
         }
     } else {
-        if (memory->currentReadPos < (size_t)-offset) {
-            offset = -(int)memory->currentReadPos;                          // Trying to seek too far backwards.
+        if ((uint32_t)offset <= memory->dataSize) {
+            memory->currentReadPos = offset;
+        } else {
+            memory->currentReadPos = memory->dataSize;  // Trying to seek too far forward.
         }
     }
 
@@ -676,13 +690,13 @@ bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, voi
         uint64_t bytesRemainingToSeek = dataSize;
         while (bytesRemainingToSeek > 0) {
             if (bytesRemainingToSeek > 0x7FFFFFFF) {
-                if (!onSeek(pUserData, 0x7FFFFFFF)) {
+                if (!onSeek(pUserData, 0x7FFFFFFF, drwav_seek_origin_current)) {
                     return false;
                 }
 
                 bytesRemainingToSeek -= 0x7FFFFFFF;
             } else {
-                if (!onSeek(pUserData, (int)bytesRemainingToSeek)) {
+                if (!onSeek(pUserData, (int)bytesRemainingToSeek, drwav_seek_origin_current)) {
                     return false;
                 }
 
@@ -817,7 +831,7 @@ int drwav_seek(drwav* pWav, uint64_t sample)
     while (offset > 0)
     {
         int offset32 = ((offset > INT_MAX) ? INT_MAX : (int)offset);
-        pWav->onSeek(pWav->pUserData, offset32 * direction);
+        pWav->onSeek(pWav->pUserData, offset32 * direction, drwav_seek_origin_current);
 
         pWav->bytesRemaining -= (offset32 * direction);
         offset -= offset32;
@@ -1561,6 +1575,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.4 - TBD
+//   - API CHANGE. Make onSeek consistent with dr_flac.
 //
 // v0.3a - 28/05/2016
 //   - API CHANGE. Return bool instead of int in onSeek callback.
