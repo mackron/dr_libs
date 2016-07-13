@@ -1223,7 +1223,8 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     // The method succeeds even if the hardware does not support the requested format; DirectSound sets the buffer to the closest
     // supported format. To determine whether this has happened, an application can call the GetFormat method for the primary buffer
     // and compare the result with the format that was requested with the SetFormat method.
-    WAVEFORMATEXTENSIBLE wf = {0};
+    WAVEFORMATEXTENSIBLE wf;
+    memset(&wf, 0, sizeof(wf));
     wf.Format.cbSize               = sizeof(wf);
     wf.Format.wFormatTag           = WAVE_FORMAT_EXTENSIBLE;
     wf.Format.nChannels            = (WORD)channels;
@@ -4517,7 +4518,7 @@ on_error:
 
 void dra_sound__on_delete_decoder(dra_sound* pSound)
 {
-    dra_decoder* pDecoder = pSound->desc.pUserData;
+    dra_decoder* pDecoder = (dra_decoder*)pSound->desc.pUserData;
     assert(pDecoder != NULL);
 
     dra_decoder_close(pDecoder);
@@ -4526,7 +4527,7 @@ void dra_sound__on_delete_decoder(dra_sound* pSound)
 
 uint64_t dra_sound__on_read_decoder(dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut)
 {
-    dra_decoder* pDecoder = pSound->desc.pUserData;
+    dra_decoder* pDecoder = (dra_decoder*)pSound->desc.pUserData;
     assert(pDecoder != NULL);
 
     return dra_decoder_read_f32(pDecoder, samplesToRead, (float*)pSamplesOut);
@@ -4534,7 +4535,7 @@ uint64_t dra_sound__on_read_decoder(dra_sound* pSound, uint64_t samplesToRead, v
 
 bool dra_sound__on_seek_decoder(dra_sound* pSound, uint64_t sample)
 {
-    dra_decoder* pDecoder = pSound->desc.pUserData;
+    dra_decoder* pDecoder = (dra_decoder*)pSound->desc.pUserData;
     assert(pDecoder != NULL);
 
     return dra_decoder_seek_to_sample(pDecoder, sample);
@@ -4547,7 +4548,7 @@ dra_sound* dra_sound_create_from_file(dra_sound_world* pWorld, const char* fileP
         return NULL;
     }
 
-    dra_decoder* pDecoder = malloc(sizeof(*pDecoder));
+    dra_decoder* pDecoder = (dra_decoder*)malloc(sizeof(*pDecoder));
     if (pDecoder == NULL) {
         return false;
     }
