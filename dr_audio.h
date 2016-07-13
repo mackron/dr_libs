@@ -1175,6 +1175,15 @@ void dra_backend_delete_dsound(dra_backend* pBackend)
 
 dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
+    // These are declared at the top to stop compilations errors on GCC about goto statements skipping over variable initialization.
+    HRESULT hr;
+    WAVEFORMATEXTENSIBLE* actualFormat;
+    unsigned int sampleRateInMilliseconds;
+    unsigned int proposedFramesPerFragment;
+    unsigned int framesPerFragment;
+    size_t fragmentSize;
+    size_t hardwareBufferSize;
+
     dra_backend_dsound* pBackendDS = (dra_backend_dsound*)pBackend;
     if (pBackendDS == NULL) {
         return NULL;
@@ -1194,7 +1203,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     pDeviceDS->channels = channels;
     pDeviceDS->sampleRate = sampleRate;
 
-    HRESULT hr = pBackendDS->pDirectSoundCreate8(dra_dsound__get_device_guid_by_id(pBackend, deviceID), &pDeviceDS->pDS, NULL);
+    hr = pBackendDS->pDirectSoundCreate8(dra_dsound__get_device_guid_by_id(pBackend, deviceID), &pDeviceDS->pDS, NULL);
     if (FAILED(hr)) {
         goto on_error;
     }
@@ -1253,7 +1262,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     }
 
     char rawdata[1024];
-    WAVEFORMATEXTENSIBLE* actualFormat = (WAVEFORMATEXTENSIBLE*)rawdata;
+    actualFormat = (WAVEFORMATEXTENSIBLE*)rawdata;
     hr = IDirectSoundBuffer_GetFormat(pDeviceDS->pDSPrimaryBuffer, (WAVEFORMATEX*)actualFormat, requiredSize, NULL);
     if (FAILED(hr)) {
         goto on_error;
@@ -1270,23 +1279,23 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     // size is based on the latency, sample rate and channels.
     //
     // The format of the secondary buffer should exactly match the primary buffer as to avoid unnecessary data conversions.
-    unsigned int sampleRateInMilliseconds = pDeviceDS->sampleRate / 1000;
+    sampleRateInMilliseconds = pDeviceDS->sampleRate / 1000;
     if (sampleRateInMilliseconds == 0) {
         sampleRateInMilliseconds = 1;
     }
 
     // The size of a fragment is sized such that the number of frames contained within it is a multiple of 2. The reason for
     // this is to keep it consistent with the ALSA backend.
-    unsigned int proposedFramesPerFragment = sampleRateInMilliseconds * latencyInMilliseconds;
-    unsigned int framesPerFragment = dra_prev_power_of_2(proposedFramesPerFragment);
+    proposedFramesPerFragment = sampleRateInMilliseconds * latencyInMilliseconds;
+    framesPerFragment = dra_prev_power_of_2(proposedFramesPerFragment);
     if (framesPerFragment == 0) {
         framesPerFragment = 2;
     }
 
     pDeviceDS->samplesPerFragment = framesPerFragment * pDeviceDS->channels;
 
-    size_t fragmentSize = pDeviceDS->samplesPerFragment * sizeof(float);
-    size_t hardwareBufferSize = fragmentSize * pDeviceDS->fragmentCount;
+    fragmentSize = pDeviceDS->samplesPerFragment * sizeof(float);
+    hardwareBufferSize = fragmentSize * pDeviceDS->fragmentCount;
     assert(hardwareBufferSize > 0);     // <-- If you've triggered this is means you've got something set to 0. You haven't been setting that latency to 0 have you?! That's not allowed!
 
     // Meaning of dwFlags (from MSDN):
@@ -4471,6 +4480,8 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
         return NULL;
     }
 
+    bool isStreaming = false;
+
     dra_sound* pSound = (dra_sound*)calloc(1, sizeof(*pSound));
     if (pSound == NULL) {
         goto on_error;
@@ -4479,7 +4490,7 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
     pSound->pWorld = pWorld;
     pSound->desc   = *pDesc;
 
-    bool isStreaming = dra_sound__is_streaming(pSound);
+    isStreaming = dra_sound__is_streaming(pSound);
     if (!isStreaming) {
         pSound->pVoice = dra_voice_create(pWorld->pPlaybackDevice, pDesc->format, pDesc->channels, pDesc->sampleRate, pDesc->dataSize, pDesc->pData);
     } else {
