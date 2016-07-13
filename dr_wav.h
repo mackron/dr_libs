@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.4 - TBD
+// dr_wav - v0.4 - 13/07/2016
 //
 // David Reid - mackron@gmail.com
 
@@ -60,6 +60,10 @@
 //     size_t bytesRead = drwav_read_raw(&wav, bytesToRead, pRawDataBuffer);
 //
 //
+// dr_wav has seamless support the Sony Wave64 format. The decoder will automatically detect it and it should Just Work
+// without any manual intervention.
+//
+//
 //
 // OPTIONS
 // #define these options before including this file.
@@ -75,7 +79,8 @@
 // QUICK NOTES
 // - Samples are always interleaved.
 // - The default read function does not do any data conversion. Use drwav_read_f32() to read and convert audio data
-//   to IEEE 32-bit floating point samples. Tested and supported internal formats include the following:
+//   to IEEE 32-bit floating point samples. Likewise, use drwav_read_s32() to read and convert auto data to signed
+//   32-bit PCM. Tested and supported internal formats include the following:
 //   - Unsigned 8-bit PCM
 //   - Signed 12-bit PCM
 //   - Signed 16-bit PCM
@@ -538,8 +543,7 @@ static bool drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void
 
     // Validation.
     if (container == drwav_container_riff) {
-        const unsigned char* fourcc = header.id.fourcc;
-        if (fourcc[0] != 'f' || fourcc[1] != 'm' || fourcc[2] != 't' || fourcc[3] != ' ') {
+        if (!drwav__fourcc_equal(header.id.fourcc, "fmt ")) {
             return false;
         }
     } else {
@@ -757,9 +761,9 @@ bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, voi
 
     // The first 4 bytes can be used to identify the container. For RIFF files it will start with "RIFF" and for
     // w64 it will start with "riff".
-    if (riff[0] == 'R' && riff[1] == 'I' && riff[2] == 'F' && riff[3] == 'F') {
+    if (drwav__fourcc_equal(riff, "RIFF")) {
         pWav->container = drwav_container_riff;
-    } else if (riff[0] == 'r' && riff[1] == 'i' && riff[2] == 'f' && riff[3] == 'f') {
+    } else if (drwav__fourcc_equal(riff, "riff")) {
         pWav->container = drwav_container_w64;
 
         // Check the rest of the GUID for validity.
@@ -790,12 +794,12 @@ bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, voi
             return false;    // Chunk size should always be at least 36 bytes.
         }
 
-        char wave[4];
+        unsigned char wave[4];
         if (onRead(pUserData, wave, sizeof(wave)) != sizeof(wave)) {
             return false;
         }
 
-        if (wave[0] != 'W' || wave[1] != 'A' || wave[2] != 'V' || wave[3] != 'E') {
+        if (!drwav__fourcc_equal(wave, "WAVE")) {
             return false;    // Expecting "WAVE".
         }
     } else {
@@ -818,12 +822,6 @@ bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, voi
             return false;
         }
     }
-
-
-    // Temporary while refactoring.
-    //if (pWav->container == drwav_container_w64) {
-    //    return false;
-    //}
 
 
     // The next 24 bytes should be the "fmt " chunk.
@@ -871,13 +869,11 @@ bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, voi
                 if (!onSeek(pUserData, 0x7FFFFFFF, drwav_seek_origin_current)) {
                     return false;
                 }
-
                 bytesRemainingToSeek -= 0x7FFFFFFF;
             } else {
                 if (!onSeek(pUserData, (int)bytesRemainingToSeek, drwav_seek_origin_current)) {
                     return false;
                 }
-
                 bytesRemainingToSeek = 0;
             }
         }
@@ -1754,9 +1750,10 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 // REVISION HISTORY
 //
-// v0.4 - TBD
+// v0.4 - 13/07/2016
 //   - API CHANGE. Make onSeek consistent with dr_flac.
 //   - API CHANGE. Rename drwav_seek() to drwav_seek_to_sample() for clarity and consistency with dr_flac.
+//   - Added support for Sony Wave64.
 //
 // v0.3a - 28/05/2016
 //   - API CHANGE. Return bool instead of int in onSeek callback.
@@ -1776,10 +1773,6 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //
 // v0.1 - 04/05/2016
 //   - Initial versioned release.
-
-
-// TODO
-// - Add seamless support for w64.
 
 
 /*
