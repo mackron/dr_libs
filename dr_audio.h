@@ -3634,13 +3634,13 @@ size_t dra_decoder_on_read__wav(void* pUserData, void* pDataOut, size_t bytesToR
 
     return pDecoder->onRead(pDecoder->pUserData, pDataOut, bytesToRead);
 }
-bool dra_decoder_on_seek__wav(void* pUserData, int offset)
+bool dra_decoder_on_seek__wav(void* pUserData, int offset, drwav_seek_origin origin)
 {
     dra_decoder* pDecoder = (dra_decoder*)pUserData;
     assert(pDecoder != NULL);
     assert(pDecoder->onSeek != NULL);
 
-    return pDecoder->onSeek(pDecoder->pUserData, offset, dra_seek_origin_current);
+    return pDecoder->onSeek(pDecoder->pUserData, offset, (origin == drwav_seek_origin_start) ? dra_seek_origin_start : dra_seek_origin_current);
 }
 
 void dra_decoder_on_delete__wav(void* pBackendDecoder)
@@ -3664,7 +3664,7 @@ bool dra_decoder_on_seek_samples__wav(void* pBackendDecoder, uint64_t sample)
     drwav* pWav = (drwav*)pBackendDecoder;
     assert(pWav != NULL);
 
-    return drwav_seek(pWav, sample);
+    return drwav_seek_to_sample(pWav, sample);
 }
 
 
