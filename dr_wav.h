@@ -250,8 +250,8 @@ uint64_t drwav_read(drwav* pWav, uint64_t samplesToRead, void* pBufferOut);
 
 // Seeks to the given sample.
 //
-// The return value is zero if an error occurs, non-zero if successful.
-int drwav_seek(drwav* pWav, uint64_t sample);
+// The return value is false if an error occurs, true if successful.
+bool drwav_seek_to_sample(drwav* pWav, uint64_t sample);
 
 
 
@@ -791,7 +791,7 @@ uint64_t drwav_read(drwav* pWav, uint64_t samplesToRead, void* pBufferOut)
     return bytesRead / pWav->bytesPerSample;
 }
 
-int drwav_seek(drwav* pWav, uint64_t sample)
+bool drwav_seek_to_sample(drwav* pWav, uint64_t sample)
 {
     // Seeking should be compatible with wave files > 2GB.
 
@@ -1578,6 +1578,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //
 // v0.4 - TBD
 //   - API CHANGE. Make onSeek consistent with dr_flac.
+//   - API CHANGE. Rename drwav_seek() to drwav_seek_to_sample() for clarity and consistency with dr_flac.
 //
 // v0.3a - 28/05/2016
 //   - API CHANGE. Return bool instead of int in onSeek callback.
