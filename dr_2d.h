@@ -194,7 +194,7 @@ typedef struct
 } dr2d_draw_image_args;
 
 
-typedef bool              (* dr2d_on_create_context_proc)                  (dr2d_context* pContext);
+typedef bool              (* dr2d_on_create_context_proc)                  (dr2d_context* pContext, const void* pUserData);
 typedef void              (* dr2d_on_delete_context_proc)                  (dr2d_context* pContext);
 typedef bool              (* dr2d_on_create_surface_proc)                  (dr2d_surface* pSurface, float width, float height);
 typedef void              (* dr2d_on_delete_surface_proc)                  (dr2d_surface* pSurface);
@@ -349,7 +349,7 @@ struct dr2d_context
 
 
 /// Creats a context.
-dr2d_context* dr2d_create_context(dr2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes);
+dr2d_context* dr2d_create_context(dr2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes, const void* pUserData);
 
 /// Deletes the given context.
 void dr2d_delete_context(dr2d_context* pContext);
@@ -509,14 +509,17 @@ dr2d_color dr2d_rgb(dr2d_byte r, dr2d_byte g, dr2d_byte b);
 /////////////////////////////////////////////////////////////////
 #ifndef DR2D_NO_GDI
 
-/// Creates a 2D context with GDI as the backend.
-dr2d_context* dr2d_create_context_gdi();
+/// Creates a 2D context with GDI as the backend and, optionally, a custom HDC.
+///
+/// hDC [in, optional] The main device context. Can be null.
+dr2d_context* dr2d_create_context_gdi(HDC hDC);
 
 /// Creates a surface that draws directly to the given window.
 ///
 /// @remarks
 ///     When using this kind of surface, the internal HBITMAP is not used.
 dr2d_surface* dr2d_create_surface_gdi_HWND(dr2d_context* pContext, HWND hWnd);
+dr2d_surface* dr2d_create_surface_gdi_HDC(dr2d_context* pContext, HDC hDC);
 
 /// Retrieves the internal HDC that we have been rendering to for the given surface.
 ///
@@ -547,6 +550,9 @@ HFONT dr2d_get_HFONT(dr2d_font* pFont);
 
 /// Creates a 2D context with Cairo as the backend.
 dr2d_context* dr2d_create_context_cairo();
+
+/// Creates a surface that draws directly to the given cairo context.
+dr2d_surface* dr2d_create_surface_cairo(dr2d_context* pContext, cairo_t* cr);
 
 /// Retrieves the internal cairo_surface_t object from the given surface.
 ///
@@ -615,7 +621,7 @@ static int dr2d_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 }
 
 
-dr2d_context* dr2d_create_context(dr2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes)
+dr2d_context* dr2d_create_context(dr2d_drawing_callbacks drawingCallbacks, size_t contextExtraBytes, size_t surfaceExtraBytes, size_t fontExtraBytes, size_t imageExtraBytes, const void* pUserData)
 {
     dr2d_context* pContext = (dr2d_context*)malloc(sizeof(dr2d_context) + contextExtraBytes);
     if (pContext != NULL)
@@ -632,7 +638,7 @@ dr2d_context* dr2d_create_context(dr2d_drawing_callbacks drawingCallbacks, size_
         // was an error and we need to return null.
         if (pContext->drawingCallbacks.on_create_context != NULL)
         {
-            if (!pContext->drawingCallbacks.on_create_context(pContext))
+            if (!pContext->drawingCallbacks.on_create_context(pContext, pUserData))
             {
                 // An error was thrown from the callback.
                 free(pContext);
@@ -1223,6 +1229,9 @@ typedef struct
     /// The size of wcharBuffer (including the null terminator).
     unsigned int wcharBufferLength;
 
+    /// Whether or not the context owns the device context.
+    bool ownsDC;
+
 } gdi_context_data;
 
 typedef struct
@@ -1317,7 +1326,7 @@ typedef struct
 } gdi_image_data;
 
 
-bool dr2d_on_create_context_gdi(dr2d_context* pContext);
+bool dr2d_on_create_context_gdi(dr2d_context* pContext, const void* pUserData);
 void dr2d_on_delete_context_gdi(dr2d_context* pContext);
 bool dr2d_on_create_surface_gdi(dr2d_surface* pSurface, float width, float height);
 void dr2d_on_delete_surface_gdi(dr2d_surface* pSurface);
@@ -1384,7 +1393,7 @@ static int dr2d_utf32_to_utf16(unsigned int utf32, unsigned short utf16[2])
     }
 }
 
-dr2d_context* dr2d_create_context_gdi()
+dr2d_context* dr2d_create_context_gdi(HDC hDC)
 {
     dr2d_drawing_callbacks callbacks;
     callbacks.on_create_context                   = dr2d_on_create_context_gdi;
@@ -1420,7 +1429,7 @@ dr2d_context* dr2d_create_context_gdi()
     callbacks.get_text_cursor_position_from_point = dr2d_get_text_cursor_position_from_point_gdi;
     callbacks.get_text_cursor_position_from_char  = dr2d_get_text_cursor_position_from_char_gdi;
 
-    return dr2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data), sizeof(gdi_font_data), sizeof(gdi_image_data));
+    return dr2d_create_context(callbacks, sizeof(gdi_context_data), sizeof(gdi_surface_data), sizeof(gdi_font_data), sizeof(gdi_image_data), &hDC);
 }
 
 dr2d_surface* dr2d_create_surface_gdi_HWND(dr2d_context* pContext, HWND hWnd)
@@ -1430,6 +1439,19 @@ dr2d_surface* dr2d_create_surface_gdi_HWND(dr2d_context* pContext, HWND hWnd)
         gdi_surface_data* pGDIData = (gdi_surface_data*)dr2d_get_surface_extra_data(pSurface);
         if (pGDIData != NULL) {
             pGDIData->hWnd = hWnd;
+        }
+    }
+
+    return pSurface;
+}
+
+dr2d_surface* dr2d_create_surface_gdi_HDC(dr2d_context* pContext, HDC hDC)
+{
+    dr2d_surface* pSurface = dr2d_create_surface(pContext, 0, 0);
+    if (pSurface != NULL) {
+        gdi_surface_data* pGDIData = (gdi_surface_data*)dr2d_get_surface_extra_data(pSurface);
+        if (pGDIData != NULL) {
+            pGDIData->hDC = hDC;
         }
     }
 
@@ -1471,9 +1493,21 @@ HFONT dr2d_get_HFONT(dr2d_font* pFont)
 }
 
 
-bool dr2d_on_create_context_gdi(dr2d_context* pContext)
+bool dr2d_on_create_context_gdi(dr2d_context* pContext, const void* pUserData)
 {
     assert(pContext != NULL);
+
+    HDC hDC = NULL;
+    if (pUserData != NULL) {
+        hDC = *(HDC*)pUserData;
+    }
+
+    bool ownsDC = false;
+    if (hDC == NULL) {
+        hDC = CreateCompatibleDC(GetDC(GetDesktopWindow()));
+        ownsDC = true;
+    }
+
 
     // We need to create the DC that all of our rendering commands will be drawn to.
     gdi_context_data* pGDIData = (gdi_context_data*)dr2d_get_context_extra_data(pContext);
@@ -1481,10 +1515,12 @@ bool dr2d_on_create_context_gdi(dr2d_context* pContext)
         return false;
     }
 
-    pGDIData->hDC = CreateCompatibleDC(GetDC(GetDesktopWindow()));
+    pGDIData->hDC = hDC;
     if (pGDIData->hDC == NULL) {
         return false;
     }
+
+    pGDIData->ownsDC = ownsDC;
 
 
     // We want to use the advanced graphics mode so that GetTextExtentPoint32() performs the conversions for font rotation for us.
@@ -1509,7 +1545,10 @@ void dr2d_on_delete_context_gdi(dr2d_context* pContext)
         pGDIData->wcharBuffer       = 0;
         pGDIData->wcharBufferLength = 0;
 
-        DeleteDC(pGDIData->hDC);
+        if (pGDIData->ownsDC) {
+            DeleteDC(pGDIData->hDC);
+        }
+
         pGDIData->hDC = NULL;
     }
 }
@@ -2506,7 +2545,7 @@ typedef struct
 
 } cairo_image_data;
 
-bool dr2d_on_create_context_cairo(dr2d_context* pContext);
+bool dr2d_on_create_context_cairo(dr2d_context* pContext, const void* pUserData);
 void dr2d_on_delete_context_cairo(dr2d_context* pContext);
 bool dr2d_on_create_surface_cairo(dr2d_surface* pSurface, float width, float height);
 void dr2d_on_delete_surface_cairo(dr2d_surface* pSurface);
@@ -2576,7 +2615,25 @@ dr2d_context* dr2d_create_context_cairo()
     callbacks.get_text_cursor_position_from_char  = dr2d_get_text_cursor_position_from_char_cairo;
 
 
-    return dr2d_create_context(callbacks, 0, sizeof(cairo_surface_data), sizeof(cairo_font_data), sizeof(cairo_image_data));
+    return dr2d_create_context(callbacks, 0, sizeof(cairo_surface_data), sizeof(cairo_font_data), sizeof(cairo_image_data), NULL);
+}
+
+dr2d_surface* dr2d_create_surface_cairo(dr2d_context* pContext, cairo_t* cr)
+{
+    if (cr == NULL) {
+        return NULL;
+    }
+
+    dr2d_surface* pSurface = dr2d_create_surface(pContext, 0, 0);
+    if (pSurface != NULL) {
+        cairo_surface_data* pCairoData = (cairo_surface_data*)dr2d_get_surface_extra_data(pSurface);
+        if (pCairoData != NULL) {
+            pCairoData->pCairoContext = cairo_reference(cr);
+            pCairoData->pCairoSurface = cairo_surface_reference(cairo_get_target(cr));
+        }
+    }
+
+    return pSurface;
 }
 
 cairo_surface_t* dr2d_get_cairo_surface_t(dr2d_surface* pSurface)
@@ -2600,10 +2657,11 @@ cairo_t* dr2d_get_cairo_t(dr2d_surface* pSurface)
 }
 
 
-bool dr2d_on_create_context_cairo(dr2d_context* pContext)
+bool dr2d_on_create_context_cairo(dr2d_context* pContext, const void* pUserData)
 {
     assert(pContext != NULL);
     (void)pContext;
+    (void)pUserData;
 
     return true;
 }
@@ -2623,15 +2681,20 @@ bool dr2d_on_create_surface_cairo(dr2d_surface* pSurface, float width, float hei
         return false;
     }
 
-    pCairoData->pCairoSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, (int)width, (int)height);
-    if (pCairoData->pCairoSurface == NULL) {
-        return false;
-    }
+    if (width != 0 && height != 0) {
+        pCairoData->pCairoSurface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, (int)width, (int)height);
+        if (pCairoData->pCairoSurface == NULL) {
+            return false;
+        }
 
-    pCairoData->pCairoContext = cairo_create(pCairoData->pCairoSurface);
-    if (pCairoData->pCairoContext == NULL) {
-        cairo_surface_destroy(pCairoData->pCairoSurface);
-        return false;
+        pCairoData->pCairoContext = cairo_create(pCairoData->pCairoSurface);
+        if (pCairoData->pCairoContext == NULL) {
+            cairo_surface_destroy(pCairoData->pCairoSurface);
+            return false;
+        }
+    } else {
+        pCairoData->pCairoSurface = NULL;
+        pCairoData->pCairoContext = NULL;
     }
 
 
