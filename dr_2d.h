@@ -2373,12 +2373,11 @@ bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* 
         {
             if (GetCharacterPlacementW(pGDIContextData->hDC, textW, results.nGlyphs, (int)maxWidth, &results, GCP_MAXEXTENT | GCP_USEKERNING) != 0)
             {
-                unsigned int characterIndex = 0;
                 float textCursorPosX = 0;
-
-                for (unsigned int iChar = 0; iChar < results.nGlyphs; ++iChar)
+                unsigned int iChar;
+                for (iChar = 0; iChar < results.nGlyphs; ++iChar)
                 {
-                    float charBoundsLeft  = (float)results.lpCaretPos[iChar];
+                    float charBoundsLeft  = charBoundsLeft = (float)results.lpCaretPos[iChar];
                     float charBoundsRight = 0;
                     if (iChar < results.nGlyphs - 1) {
                         charBoundsRight = (float)results.lpCaretPos[iChar + 1];
@@ -2392,20 +2391,22 @@ bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* 
                         // value to the character at iChar. Otherwise it should be set to the character at iChar + 1.
                         float charBoundsRightHalf = charBoundsLeft + ceilf(((charBoundsRight - charBoundsLeft) / 2.0f));
                         if (inputPosX <= charBoundsRightHalf) {
-                            textCursorPosX = charBoundsLeft;
-                            characterIndex = iChar;
+                            break;
                         } else {
                             textCursorPosX = charBoundsRight;
-                            characterIndex = iChar + 1;
+                            iChar += 1;
+                            break;
                         }
                     }
+
+                    textCursorPosX = charBoundsRight;
                 }
 
                 if (pTextCursorPosXOut) {
                     *pTextCursorPosXOut = textCursorPosX;
                 }
                 if (pCharacterIndexOut) {
-                    *pCharacterIndexOut = characterIndex;
+                    *pCharacterIndexOut = iChar;
                 }
 
                 successful = true;
