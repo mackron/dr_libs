@@ -1229,6 +1229,10 @@ typedef struct
     /// The size of wcharBuffer (including the null terminator).
     unsigned int wcharBufferLength;
 
+    /// The cache of glyph character positions.
+    int* pGlyphCache;
+    size_t glyphCacheSize;
+
     /// Whether or not the context owns the device context.
     bool ownsDC;
 
@@ -1530,6 +1534,8 @@ bool dr2d_on_create_context_gdi(dr2d_context* pContext, const void* pUserData)
     pGDIData->wcharBuffer       = NULL;
     pGDIData->wcharBufferLength = 0;
 
+    pGDIData->pGlyphCache = NULL;
+    pGDIData->glyphCacheSize = 0;
 
     return true;
 }
@@ -1541,6 +1547,9 @@ void dr2d_on_delete_context_gdi(dr2d_context* pContext)
     gdi_context_data* pGDIData = (gdi_context_data*)dr2d_get_context_extra_data(pContext);
     if (pGDIData != NULL)
     {
+        free(pGDIData->pGlyphCache);
+        pGDIData->glyphCacheSize = 0;
+
         free(pGDIData->wcharBuffer);
         pGDIData->wcharBuffer       = 0;
         pGDIData->wcharBufferLength = 0;
@@ -2368,7 +2377,13 @@ bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* 
     wchar_t* textW = dr2d_to_wchar_gdi(pFont->pContext, text, textSizeInBytes, &textWLength);
     if (textW != NULL)
     {
-        results.lpCaretPos = (int*)malloc(sizeof(int) * results.nGlyphs);
+        if (results.nGlyphs > pGDIContextData->glyphCacheSize) {
+            free(pGDIContextData->pGlyphCache);
+            pGDIContextData->pGlyphCache = (int*)malloc(sizeof(int) * results.nGlyphs);
+            pGDIContextData->glyphCacheSize = results.nGlyphs;
+        }
+
+        results.lpCaretPos = pGDIContextData->pGlyphCache;
         if (results.lpCaretPos != NULL)
         {
             if (GetCharacterPlacementW(pGDIContextData->hDC, textW, results.nGlyphs, (int)maxWidth, &results, GCP_MAXEXTENT | GCP_USEKERNING) != 0)
@@ -2411,8 +2426,6 @@ bool dr2d_get_text_cursor_position_from_point_gdi(dr2d_font* pFont, const char* 
 
                 successful = true;
             }
-
-            free(results.lpCaretPos);
         }
     }
 
