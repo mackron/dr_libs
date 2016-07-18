@@ -119,10 +119,13 @@ typedef enum
     dr2d_font_weight_thin,
     dr2d_font_weight_extra_light,
     dr2d_font_weight_light,
+    dr2d_font_weight_semi_light,
+    dr2d_font_weight_book,
     dr2d_font_weight_semi_bold,
     dr2d_font_weight_bold,
     dr2d_font_weight_extra_bold,
     dr2d_font_weight_heavy,
+    dr2d_font_weight_extra_heavy,
 
     dr2d_font_weight_normal  = dr2d_font_weight_medium,
     dr2d_font_weight_default = dr2d_font_weight_medium
