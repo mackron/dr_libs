@@ -2461,7 +2461,13 @@ bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* t
     wchar_t* textW = dr2d_to_wchar_gdi(pFont->pContext, text, (int)results.nGlyphs, &textWLength);
     if (textW != NULL)
     {
-        results.lpCaretPos = (int*)malloc(sizeof(int) * results.nGlyphs);
+        if (results.nGlyphs > pGDIContextData->glyphCacheSize) {
+            free(pGDIContextData->pGlyphCache);
+            pGDIContextData->pGlyphCache = (int*)malloc(sizeof(int) * results.nGlyphs);
+            pGDIContextData->glyphCacheSize = results.nGlyphs;
+        }
+
+        results.lpCaretPos = pGDIContextData->pGlyphCache;
         if (results.lpCaretPos != NULL)
         {
             if (GetCharacterPlacementW(pGDIContextData->hDC, textW, results.nGlyphs, 0, &results, GCP_USEKERNING) != 0)
@@ -2472,8 +2478,6 @@ bool dr2d_get_text_cursor_position_from_char_gdi(dr2d_font* pFont, const char* t
 
                 successful = true;
             }
-
-            free(results.lpCaretPos);
         }
     }
 
