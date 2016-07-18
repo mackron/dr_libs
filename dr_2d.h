@@ -2492,8 +2492,25 @@ wchar_t* dr2d_to_wchar_gdi(dr2d_context* pContext, const char* text, size_t text
         return NULL;
     }
 
+    int wcharCount = 0;
 
-    int wcharCount = MultiByteToWideChar(CP_UTF8, 0, text, (int)textSizeInBytes, NULL, 0);
+
+    // We first try to copy the string into the already-allocated buffer. If it fails we fall back to the slow path which requires
+    // two conversions.
+    if (pGDIData->wcharBuffer == NULL) {
+        goto fallback;
+    }
+
+    wcharCount = MultiByteToWideChar(CP_UTF8, 0, text, (int)textSizeInBytes, pGDIData->wcharBuffer, pGDIData->wcharBufferLength);
+    if (wcharCount != 0) {
+        if (characterCountOut) *characterCountOut = wcharCount;
+        return pGDIData->wcharBuffer;
+    }
+
+    
+
+fallback:;
+    wcharCount = MultiByteToWideChar(CP_UTF8, 0, text, (int)textSizeInBytes, NULL, 0);
     if (wcharCount == 0) {
         return NULL;
     }
