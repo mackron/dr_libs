@@ -2981,6 +2981,15 @@ void drgui_delete_element(drgui_element* pElement)
     }
 
 
+    // Here is where we need to detach the element from the hierarchy. When doing this we want to ensure the element is not redrawn when
+    // it's children are detached. To do this we simply detach the event handler.
+    pElement->onPaint = NULL;
+
+    // The parent needs to be redraw after detaching.
+    drgui_element* pParent = pElement->pParent;
+    drgui_rect relativeRect = drgui_get_relative_rect(pElement);
+
+
     // Orphan the element first.
     drgui_detach_without_redraw(pElement);
 
@@ -2989,6 +2998,11 @@ void drgui_delete_element(drgui_element* pElement)
         drgui_delete_element(pElement->pLastChild);
     }
 
+
+    // The parent needs to be redrawn.
+    if (pParent) {
+        drgui_dirty(pParent, relativeRect);
+    }
 
 
     // Finally, we to decided whether or not the element should be deleted for real straight away or not. If the element is being
@@ -11987,15 +12001,28 @@ void drgui_tabbar_resize_by_tabs(drgui_element* pTBElement)
 
     float maxWidth  = 0;
     float maxHeight = 0;
-    for (drgui_tab* pTab = pTB->pFirstTab; pTab != NULL; pTab = pTab->pNextTab)
-    {
-        float tabWidth  = 0;
-        float tabHeight = 0;
-        drgui_tabbar_measure_tab(pTBElement, pTab, &tabWidth, &tabHeight);
+    if (pTB->pFirstTab == NULL) {
+        // There are no tabs. Set initial size based on the line height of the font.
+        drgui_font_metrics fontMetrics;
+        if (drgui_get_font_metrics(pTB->pFont, &fontMetrics)) {
+            if (pTB->orientation == drgui_tabbar_orientation_top || pTB->orientation == drgui_tabbar_orientation_bottom) {
+                maxHeight = fontMetrics.lineHeight + (pTB->tabPadding*2);
+            } else {
+                maxWidth = fontMetrics.lineHeight + (pTB->tabPadding*2);
+            }
+        }
+    } else {
+        for (drgui_tab* pTab = pTB->pFirstTab; pTab != NULL; pTab = pTab->pNextTab) {
+            float tabWidth  = 0;
+            float tabHeight = 0;
+            drgui_tabbar_measure_tab(pTBElement, pTab, &tabWidth, &tabHeight);
 
-        maxWidth  = (tabWidth  > maxWidth)  ? tabWidth  : maxWidth;
-        maxHeight = (tabHeight > maxHeight) ? tabHeight : maxHeight;
+            maxWidth  = (tabWidth  > maxWidth)  ? tabWidth  : maxWidth;
+            maxHeight = (tabHeight > maxHeight) ? tabHeight : maxHeight;
+        }
     }
+
+    
 
 
     if (pTB->orientation == drgui_tabbar_orientation_top || pTB->orientation == drgui_tabbar_orientation_bottom) {
