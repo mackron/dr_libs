@@ -158,7 +158,9 @@ void dr_strrmchar(char* str, char c);
 
 /// Finds the first non-whitespace character in the given string.
 const char* dr_first_non_whitespace(const char* str);
+
 static const char* dr_ltrim(const char* str) { return dr_first_non_whitespace(str); }
+static const char* dr_rtrim(const char* str);
 
 /// Trims both the leading and trailing whitespace from the given string.
 void dr_trim(char* str);
@@ -330,7 +332,7 @@ bool dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_
 ///     This will handle double-quoted strings, so a string such as "My \"Complex String\"" contains two tokens: "My" and "\"Complex String\"".
 ///     @par
 ///     This function has no dependencies.
-const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize);
+const char* dr_next_token(const char* tokens, char* tokenOut, size_t tokenOutSize);
 
 
 
@@ -1015,10 +1017,34 @@ const char* dr_first_whitespace(const char* str)
     return str;
 }
 
+const char* dr_rtrim(const char* str)
+{
+    if (str == NULL) {
+        return NULL;
+    }
+
+    const char* rstr = str;
+    while (str[0] != '\0') {
+        if (dr_is_whitespace(str[0])) {
+            str += 1;
+            continue;
+        }
+
+        str += 1;
+        rstr = str;
+    }
+
+    return str;
+}
+
 void dr_trim(char* str)
 {
-    char* lstr = (char*)dr_first_non_whitespace(str);
-    char* rstr = (char*)dr_first_whitespace(lstr);
+    if (str == NULL) {
+        return;
+    }
+
+    const char* lstr = dr_ltrim(str);
+    const char* rstr = dr_rtrim(lstr);
 
     if (lstr > str) {
         memmove(str, lstr, rstr-lstr);
@@ -1461,7 +1487,7 @@ bool dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_
 /////////////////////////////////////////////////////////
 // Basic Tokenizer
 
-const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize)
+const char* dr_next_token(const char* tokens, char* tokenOut, size_t tokenOutSize)
 {
     if (tokenOut) tokenOut[0] = '\0';
 
