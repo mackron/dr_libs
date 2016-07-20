@@ -1463,6 +1463,8 @@ bool dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_
 
 const char* dr_next_token(const char* tokens, char* tokenOut, unsigned int tokenOutSize)
 {
+    if (tokenOut) tokenOut[0] = '\0';
+
     if (tokens == NULL) {
         return NULL;
     }
