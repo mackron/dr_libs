@@ -369,6 +369,10 @@ bool dr_set_current_directory(const char* path);
 /////////////////////////////////////////////////////////
 // Basic File Management
 
+// Callback function for file iteration.
+typedef bool (* dr_iterate_files_proc)(const char* filePath, void* pUserData);
+
+
 // Helper for opening a stdio FILE.
 FILE* dr_fopen(const char* fileName, const char* openMode);
 
@@ -400,11 +404,15 @@ bool dr_file_exists(const char* filePath);
 //
 // This will return false if the path points to a file.
 bool dr_directory_exists(const char* directoryPath);
+bool dr_is_directory(const char* directoryPath) { return dr_directory_exists(directoryPath); }
 
 // Moves a file.
 //
 // This uses rename() on POSIX platforms and MoveFileEx(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH) on windows platforms.
 bool dr_move_file(const char* oldPath, const char* newPath);
+
+// Copies a file.
+bool dr_copy_file(const char* srcPath, const char* dstPath, bool failIfExists);
 
 // Determines if the given file is read only.
 bool dr_is_file_read_only(const char* filePath);
@@ -422,6 +430,9 @@ bool dr_mkdir(const char* directoryPath);
 
 // Recursively creates a directory.
 bool dr_mkdir_recursive(const char* directoryPath);
+
+// Iterates over every file and folder of the given directory.
+bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_proc proc, void* pUserData);
 
 
 /////////////////////////////////////////////////////////
@@ -1908,6 +1919,51 @@ bool dr_move_file(const char* oldPath, const char* newPath)
 #endif
 }
 
+bool dr_copy_file(const char* srcPath, const char* dstPath, bool failIfExists)
+{
+    if (dstPath == NULL || dstPath == NULL) {
+        return false;
+    }
+
+#if _WIN32
+    return CopyFileA(srcPath, dstPath, failIfExists);
+#else
+    int fdSrc = open(srcPath, O_RDONLY, 0666);
+    if (fdSrc == -1) {
+        return false;
+    }
+
+    int fdDst = open(absolutePathDst, O_WRONLY | O_TRUNC | O_CREAT | ((failIfExists) ? O_EXCL : 0), 0666);
+    if (fdDst == -1) {
+        close(fdSrc);
+        return false;
+    }
+
+    bool result = true;
+    struct stat info;
+    if (fstat(fdSrc, &info) == 0) {
+        char buffer[BUFSIZ];
+        int bytesRead;
+        while ((bytesRead = read(fdSrc, buffer, sizeof(buffer))) > 0) {
+            if (write(fdDst, buffer, bytesRead) != bytesRead) {
+                result = false;
+                break;
+            }
+        }
+    } else {
+        result = false;
+    }
+
+    close(fdDst);
+    close(fdSrc);
+
+    // Permissions.
+    chmod(dstPath, info.st_mode & 07777);
+
+    return result;
+#endif
+}
+
 bool dr_is_file_read_only(const char* filePath)
 {
     if (filePath == NULL || filePath[0] == '\0') {
@@ -2020,6 +2076,97 @@ bool dr_mkdir_recursive(const char* directoryPath)
 
         directoryPath += 1;
     }
+
+    return true;
+}
+
+bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_proc proc, void* pUserData)
+{
+#ifdef _WIN32
+    char searchQuery[MAX_PATH];
+    strcpy_s(searchQuery, sizeof(searchQuery), directory);
+
+    unsigned int searchQueryLength = (unsigned int)strlen(searchQuery);
+    if (searchQueryLength >= MAX_PATH - 3) {
+        return false;    // Path is too long.
+    }
+
+    searchQuery[searchQueryLength + 0] = '\\';
+    searchQuery[searchQueryLength + 1] = '*';
+    searchQuery[searchQueryLength + 2] = '\0';
+
+    WIN32_FIND_DATAA ffd;
+    HANDLE hFind = FindFirstFileA(searchQuery, &ffd);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        return false; // Failed to begin search.
+    }
+
+    do
+    {
+        // Skip past "." and ".." directories.
+        if (strcmp(ffd.cFileName, ".") == 0 || strcmp(ffd.cFileName, "..") == 0) {
+            continue;
+        }
+
+        char filePath[MAX_PATH];
+        strcpy_s(filePath, sizeof(filePath), directory);
+        strcat_s(filePath, sizeof(filePath), "/");
+        strcat_s(filePath, sizeof(filePath), ffd.cFileName);
+
+        if (!proc(filePath, pUserData)) {
+            return false;
+        }
+
+        if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            if (recursive) {
+                if (!dr_iterate_files(filePath, recursive, proc, pUserData)) {
+                    return false;
+                }
+            }
+        }
+
+    } while (FindNextFileA(hFind, &ffd));
+
+    FindClose(hFind);
+#else
+    DIR* dir = opendir(directory);
+    if (dir == NULL) {
+        return false;
+    }
+
+    struct dirent* info = NULL;
+    while ((info = readdir(dir)) != NULL)
+    {
+        // Skip past "." and ".." directories.
+        if (strcmp(info->d_name, ".") == 0 || strcmp(info->d_name, "..") == 0) {
+            continue;
+        }
+
+        char filePath[MAX_PATH];
+        strcpy_s(filePath, sizeof(filePath), directory);
+        strcat_s(filePath, sizeof(filePath), "/");
+        strcat_s(filePath, sizeof(filePath), ffd.cFileName);
+
+        struct stat fileinfo;
+        if (stat(filePath, &fileinfo) != 0) {
+            continue;
+        }
+
+        if (!proc(filePath, pUserData)) {
+            return false;
+        }
+
+        if (fileinfo.st_mode & S_IFDIR) {
+            if (recursive) {
+                if (!dr_iterate_files(filePath, recursive, proc, pUserData)) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    closedir(dir);
+#endif
 
     return true;
 }
