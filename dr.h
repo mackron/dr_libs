@@ -160,6 +160,9 @@ void dr_strrmchar(char* str, char c);
 const char* dr_first_non_whitespace(const char* str);
 static const char* dr_ltrim(const char* str) { return dr_first_non_whitespace(str); }
 
+/// Trims both the leading and trailing whitespace from the given string.
+void dr_trim(char* str);
+
 /// Finds the first occurance of a whitespace character in the given string.
 const char* dr_first_whitespace(const char* str);
 
@@ -1010,6 +1013,18 @@ const char* dr_first_whitespace(const char* str)
     }
 
     return str;
+}
+
+void dr_trim(char* str)
+{
+    char* lstr = (char*)dr_first_non_whitespace(str);
+    char* rstr = (char*)dr_first_whitespace(lstr);
+
+    if (lstr > str) {
+        memmove(str, lstr, rstr-lstr);
+    }
+
+    str[rstr-lstr] = '\0';
 }
 
 const char* dr_next_line(const char* str)
