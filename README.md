@@ -15,9 +15,7 @@ dr_obj                                          | -       | Wavefront OBJ model 
 dr_fs                                           | -       | File system abstraction for loading files from the native file system and archives.
 dr_fsw                                          | -       | Watch for changes to the file system. Windows only.
 dr_gui                                          | -       | Low level GUI system.
-dr_gl                                           | -       | OpenGL 2.1 API loader.
 dr_wnd                                          | -       | Basic window management. Windows only at the moment.
-dr_mtl                                          | -       | Loads material files and converts it to shader source (GLSL, etc.)
 dr_math                                         | -       | Vector math library. Very incomplete, and only updated as I need it.
 dr_2d (WIP)                                     | -       | 2D graphics rendering. Work in progress.
 dr                                              | -       | Miscellaneous stuff that doesn't belong to any specific category.
