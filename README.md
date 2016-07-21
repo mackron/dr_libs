@@ -11,8 +11,8 @@ Library                                         | Version | Description
 [dr_wav](dr_wav.h)                              | 0.4     | WAV audio loader.
 [dr_audio](dr_audio.h)                          | -       | Audio playback.
 [dr_pcx](dr_pcx.h)                              | 0.1     | PCX image loader.
-dr_obj                                          | -       | Wavefront OBJ model loader.
-dr_fs                                           | -       | File system abstraction for loading files from the native file system and archives.
-dr_fsw                                          | -       | Watch for changes to the file system. Windows only.
-dr_math                                         | -       | Vector math library. Very incomplete, and only updated as I need it.
-dr                                              | -       | Miscellaneous stuff that doesn't belong to any specific category.
+[dr_obj](dr_obj.h)                              | -       | Wavefront OBJ model loader.
+[dr_fs](dr_fs.h)                                | -       | File system abstraction for loading files from the native file system and archives.
+[dr_fsw](dr_fsw.h)                              | -       | Watch for changes to the file system. Windows only.
+[dr_math](dr_math.h)                            | -       | Vector math library. Very incomplete, and only updated as I need it.
+[dr](dr.h)                                      | -       | Miscellaneous stuff that doesn't belong to any specific category.
