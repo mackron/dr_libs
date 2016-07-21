@@ -11,7 +11,6 @@ Library                                         | Version | Description
 [dr_wav](dr_wav.h)                              | 0.4     | WAV audio loader.
 [dr_audio](dr_audio.h)                          | -       | Audio playback.
 [dr_pcx](dr_pcx.h)                              | 0.1     | PCX image loader.
-[dr_path](dr_path.h)                            | 0.1b    | Path manipulation.
 dr_obj                                          | -       | Wavefront OBJ model loader.
 dr_fs                                           | -       | File system abstraction for loading files from the native file system and archives.
 dr_fsw                                          | -       | Watch for changes to the file system. Windows only.
