@@ -1034,7 +1034,7 @@ const char* dr_rtrim(const char* str)
         rstr = str;
     }
 
-    return str;
+    return rstr;
 }
 
 void dr_trim(char* str)
@@ -1976,7 +1976,7 @@ bool dr_copy_file(const char* srcPath, const char* dstPath, bool failIfExists)
         return false;
     }
 
-    int fdDst = open(absolutePathDst, O_WRONLY | O_TRUNC | O_CREAT | ((failIfExists) ? O_EXCL : 0), 0666);
+    int fdDst = open(dstPath, O_WRONLY | O_TRUNC | O_CREAT | ((failIfExists) ? O_EXCL : 0), 0666);
     if (fdDst == -1) {
         close(fdSrc);
         return false;
@@ -2185,10 +2185,10 @@ bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_pr
             continue;
         }
 
-        char filePath[MAX_PATH];
+        char filePath[4096];
         strcpy_s(filePath, sizeof(filePath), directory);
         strcat_s(filePath, sizeof(filePath), "/");
-        strcat_s(filePath, sizeof(filePath), ffd.cFileName);
+        strcat_s(filePath, sizeof(filePath), info->d_name);
 
         struct stat fileinfo;
         if (stat(filePath, &fileinfo) != 0) {
