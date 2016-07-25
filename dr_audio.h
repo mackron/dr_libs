@@ -3849,7 +3849,7 @@ bool dra_decoder_on_seek_samples__vorbis(void* pBackendDecoder, uint64_t sample)
     stb_vorbis* pVorbis = (stb_vorbis*)pBackendDecoder;
     assert(pVorbis != NULL);
 
-    return stb_vorbis_seek(pVorbis, (unsigned int)sample);
+    return stb_vorbis_seek(pVorbis, (unsigned int)sample) != 0;
 }
 
 
@@ -3881,7 +3881,7 @@ bool dra_decoder_open__vorbis(dra_decoder* pDecoder)
 
 bool dra_decoder_open_memory__vorbis(dra_decoder* pDecoder, const void* pData, size_t dataSize)
 {
-    stb_vorbis* pVorbis = stb_vorbis_open_memory(pData, (int)dataSize, NULL, NULL);
+    stb_vorbis* pVorbis = stb_vorbis_open_memory((const unsigned char*)pData, (int)dataSize, NULL, NULL);
     if (pVorbis == NULL) {
         return false;
     }
