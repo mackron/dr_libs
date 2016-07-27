@@ -39,12 +39,12 @@
 //   if (pDevice == NULL) {
 //       return -1;
 //   }
-//   
+//
 //   dra_voice* pVoice = dra_voice_create_from_file(pDevice, "my_song.flac");
 //   if (pVoice == NULL) {
 //       return -1;
 //   }
-//   
+//
 //   dra_voice_play(pVoice, false);
 //
 //   ...
@@ -1642,12 +1642,12 @@ void dra_semaphore_delete(dra_semaphore semaphore)
 
 bool dra_semaphore_wait(dra_semaphore semaphore)
 {
-    return sem_wait(semaphore) != -1;
+    return sem_wait((sem_t*)semaphore) != -1;
 }
 
 bool dra_semaphore_release(dra_semaphore semaphore)
 {
-    return sem_post(semaphore) != -1;
+    return sem_post((sem_t*)semaphore) != -1;
 }
 
 
@@ -2904,7 +2904,7 @@ size_t dra_mixer_count_attached_voices_recursive(dra_mixer* pMixer)
     }
 
     size_t count = dra_mixer_count_attached_voices(pMixer);
-    
+
     // Children.
     for (dra_mixer* pChildMixer = pMixer->pFirstChildMixer; pChildMixer != NULL; pChildMixer = pChildMixer->pNextSiblingMixer) {
         count += dra_mixer_count_attached_voices_recursive(pChildMixer);
@@ -3426,7 +3426,7 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
     // TODO: Check for the fast path and do a bulk copy rather than frame-by-frame. Don't forget playback event handling.
 
     size_t framesRead = 0;
-    
+
     uint64_t prevReadPosLocal = pVoice->currentReadPos * pVoice->channels;
 
     float* pNextFrame = NULL;
@@ -3439,7 +3439,7 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
 
     float sampleRateFactor = dra_voice__get_sample_rate_factor(pVoice);
     uint64_t totalSampleCount = (uint64_t)((pVoice->frameCount * pVoice->channels) * sampleRateFactor);
-    
+
     // Now we need to check if we've got past any notification events and post events for them if so.
     uint64_t currentReadPosLocal = (prevReadPosLocal + (framesRead * pVoice->channels)) % totalSampleCount;
     for (size_t i = 0; i < pVoice->playbackEventCount; ++i) {
@@ -3571,7 +3571,7 @@ void dra_voice_write_silence(dra_voice* pVoice, uint64_t sampleOffset, uint64_t 
     if (pData == NULL) {
         return;
     }
-    
+
     uint64_t totalSamplesRemaining = (pVoice->frameCount * pVoice->channels) - sampleOffset;
     if (sampleCount > totalSamplesRemaining) {
         sampleCount = totalSamplesRemaining;
@@ -3761,7 +3761,7 @@ uint64_t dra_decoder_on_read_samples__flac(void* pBackendDecoder, uint64_t sampl
     assert(pFlac != NULL);
 
     uint64_t samplesRead = drflac_read_s32(pFlac, samplesToRead, (int32_t*)pSamplesOut);
-    
+
     dra_s32_to_f32(pSamplesOut, (int32_t*)pSamplesOut, (size_t)samplesRead);
     return samplesRead;
 }
@@ -4017,7 +4017,7 @@ bool dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t da
 
     pDecoder->memoryStream = memoryStream;
     pDecoder->pUserData = &pDecoder->memoryStream;
-    
+
     return true;
 }
 
@@ -4127,7 +4127,7 @@ float* dra_decoder__full_decode_and_close(dra_decoder* pDecoder, unsigned int* c
         if (pSampleData == NULL) {
             goto on_error;
         }
-        
+
         uint64_t samplesRead;
         while ((samplesRead = (uint64_t)dra_decoder_read_f32(pDecoder, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0)
         {
@@ -4421,7 +4421,7 @@ bool dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOffset)
         dra_voice_write_silence(pSound->pVoice, outputSampleOffset, chunkSizeInSamples);
         return false;   // Ran out of samples in a non-looping buffer.
     }
-    
+
     if (samplesRead == chunkSizeInSamples) {
         return true;
     }
@@ -4502,7 +4502,7 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
         dra_voice_add_playback_event(pSound->pVoice, 0, streamingBufferSize/2, dra_sound__on_read_next_chunk, pSound);
         dra_voice_add_playback_event(pSound->pVoice, streamingBufferSize/2, 0, dra_sound__on_read_next_chunk, pSound);
     }
-    
+
     if (pSound->pVoice == NULL) {
         goto on_error;
     }
@@ -4581,7 +4581,7 @@ dra_sound* dra_sound_create_from_file(dra_sound_world* pWorld, const char* fileP
     desc.pUserData = pDecoder;
 
     dra_sound* pSound = dra_sound_create(pWorld, &desc);
-    
+
     // After creating the sound, the audio data of a non-streaming voice can be deleted.
     if (desc.pData != NULL) {
         free(desc.pData);
