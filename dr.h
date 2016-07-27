@@ -2454,11 +2454,11 @@ typedef struct
     // argv style data.
     int iarg;   // <-- This starts at -1 so that the first call to next() increments it to 0.
 
-} drutil_cmdline_iterator;
+} dr_cmdline_iterator;
 
-drutil_cmdline_iterator drutil_cmdline_begin(dr_cmdline* pCmdLine)
+dr_cmdline_iterator dr_cmdline_begin(dr_cmdline* pCmdLine)
 {
-    drutil_cmdline_iterator i;
+    dr_cmdline_iterator i;
     i.pCmdLine      = pCmdLine;
     i.value         = NULL;
     i.win32_payload = NULL;
@@ -2486,7 +2486,7 @@ drutil_cmdline_iterator drutil_cmdline_begin(dr_cmdline* pCmdLine)
     return i;
 }
 
-bool drutil_cmdline_next(drutil_cmdline_iterator* i)
+bool dr_cmdline_next(dr_cmdline_iterator* i)
 {
     if (i != NULL && i->pCmdLine != NULL)
     {
@@ -2615,15 +2615,15 @@ void dr_parse_cmdline(dr_cmdline* pCmdLine, dr_cmdline_parse_proc callback, void
     char* pKey = NULL;
     char* pVal = NULL;
 
-    drutil_cmdline_iterator arg = drutil_cmdline_begin(pCmdLine);
-    if (drutil_cmdline_next(&arg))
+    dr_cmdline_iterator arg = dr_cmdline_begin(pCmdLine);
+    if (dr_cmdline_next(&arg))
     {
         if (!callback("[path]", arg.value, pUserData)) {
             return;
         }
     }
 
-    while (drutil_cmdline_next(&arg))
+    while (dr_cmdline_next(&arg))
     {
         if (arg.value[0] == '-')
         {
@@ -2716,7 +2716,7 @@ bool dr_cmdline_key_exists_callback(const char* key, const char* value, void* pU
     dr_cmdline_key_exists_data* pData = (dr_cmdline_key_exists_data*)pUserData;
     assert(pData != NULL);
 
-    if (strcmp(pData->key, key) == 0) {
+    if (key != NULL && strcmp(pData->key, key) == 0) {
         pData->exists = true;
         return false;
     }
@@ -2771,11 +2771,11 @@ typedef struct
     /// Set to true by the entry function. We use this to wait for the entry function to start.
     bool isInEntryProc;
 
-} drutil_thread_win32;
+} dr_thread_win32;
 
-static DWORD WINAPI drutil_thread_entry_proc_win32(LPVOID pUserData)
+static DWORD WINAPI dr_thread_entry_proc_win32(LPVOID pUserData)
 {
-    drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)pUserData;
+    dr_thread_win32* pThreadWin32 = (dr_thread_win32*)pUserData;
     assert(pThreadWin32 != NULL);
 
     void* pEntryProcData = pThreadWin32->pData;
@@ -2793,14 +2793,14 @@ dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
         return NULL;
     }
 
-    drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)malloc(sizeof(*pThreadWin32));
+    dr_thread_win32* pThreadWin32 = (dr_thread_win32*)malloc(sizeof(*pThreadWin32));
     if (pThreadWin32 != NULL)
     {
         pThreadWin32->entryProc     = entryProc;
         pThreadWin32->pData         = pData;
         pThreadWin32->isInEntryProc = false;
 
-        pThreadWin32->hThread = CreateThread(NULL, 0, drutil_thread_entry_proc_win32, pThreadWin32, 0, NULL);
+        pThreadWin32->hThread = CreateThread(NULL, 0, dr_thread_entry_proc_win32, pThreadWin32, 0, NULL);
         if (pThreadWin32 == NULL) {
             free(pThreadWin32);
             return NULL;
@@ -2819,7 +2819,7 @@ dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
 
 void dr_delete_thread(dr_thread thread)
 {
-    drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)thread;
+    dr_thread_win32* pThreadWin32 = (dr_thread_win32*)thread;
     if (pThreadWin32 != NULL)
     {
         CloseHandle(pThreadWin32->hThread);
@@ -2830,7 +2830,7 @@ void dr_delete_thread(dr_thread thread)
 
 void dr_wait_thread(dr_thread thread)
 {
-    drutil_thread_win32* pThreadWin32 = (drutil_thread_win32*)thread;
+    dr_thread_win32* pThreadWin32 = (dr_thread_win32*)thread;
     if (pThreadWin32 != NULL)
     {
         WaitForSingleObject(pThreadWin32->hThread, INFINITE);
@@ -2946,11 +2946,11 @@ typedef struct
     /// Set to true by the entry function. We use this to wait for the entry function to start.
     bool isInEntryProc;
 
-} drutil_thread_posix;
+} dr_thread_posix;
 
-static void* drutil_thread_entry_proc_posix(void* pDataIn)
+static void* dr_thread_entry_proc_posix(void* pDataIn)
 {
-    drutil_thread_posix* pThreadPosix = pDataIn;
+    dr_thread_posix* pThreadPosix = pDataIn;
     assert(pThreadPosix != NULL);
 
     void* pEntryProcData = pThreadPosix->pData;
@@ -2968,14 +2968,14 @@ dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
         return NULL;
     }
 
-    drutil_thread_posix* pThreadPosix = malloc(sizeof(*pThreadPosix));
+    dr_thread_posix* pThreadPosix = malloc(sizeof(*pThreadPosix));
     if (pThreadPosix != NULL)
     {
         pThreadPosix->entryProc     = entryProc;
         pThreadPosix->pData         = pData;
         pThreadPosix->isInEntryProc = false;
 
-        if (pthread_create(&pThreadPosix->pthread, NULL, drutil_thread_entry_proc_posix, pThreadPosix) != 0) {
+        if (pthread_create(&pThreadPosix->pthread, NULL, dr_thread_entry_proc_posix, pThreadPosix) != 0) {
             free(pThreadPosix);
             return NULL;
         }
@@ -2995,7 +2995,7 @@ void dr_delete_thread(dr_thread thread)
 
 void dr_wait_thread(dr_thread thread)
 {
-    drutil_thread_posix* pThreadPosix = (drutil_thread_posix*)thread;
+    dr_thread_posix* pThreadPosix = (dr_thread_posix*)thread;
     if (pThreadPosix != NULL)
     {
         pthread_join(pThreadPosix->pthread, NULL);
