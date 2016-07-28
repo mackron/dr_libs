@@ -679,6 +679,9 @@ float dr_randf();
 // Retrieves the user name of the user running the application.
 size_t dr_get_username(char* usernameOut, size_t usernameOutSize);
 
+// Retrieves the ID of the current process.
+unsigned int dr_get_process_id();
+
 
 
 
@@ -3165,6 +3168,15 @@ size_t dr_get_username(char* usernameOut, size_t usernameOutSize)
     }
 
     return strlen(pw->pw_name);
+#endif
+}
+
+unsigned int dr_get_process_id()
+{
+#ifdef _WIN32
+    return GetProcessId(GetCurrentProcess());
+#else
+    return (unsigned int)getpid();
 #endif
 }
 
