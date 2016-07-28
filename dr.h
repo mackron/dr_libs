@@ -674,6 +674,15 @@ float dr_randf();
 
 
 /////////////////////////////////////////////////////////
+// User Accounts and Process Management
+
+// Retrieves the user name of the user running the application.
+size_t dr_get_username(char* usernameOut, size_t usernameOutSize);
+
+
+
+
+/////////////////////////////////////////////////////////
 // Miscellaneous Stuff.
 
 // Helper for clearing the given object to 0.
@@ -3126,6 +3135,37 @@ double dr_randd()
 float dr_randf()
 {
     return (float)dr_randd();
+}
+
+
+/////////////////////////////////////////////////////////
+// User Accounts and Process Management
+
+size_t dr_get_username(char* usernameOut, size_t usernameOutSize)
+{
+    if (usernameOut != NULL && usernameOutSize > 0) {
+        usernameOut[0] = '\0';
+    }
+
+#ifdef _WIN32
+    DWORD dwSize = (DWORD)usernameOutSize;
+    if (!GetUserNameA(usernameOut, &dwSize)) {
+        return 0;
+    }
+
+    return dwSize;
+#else
+    struct passwd *pw = getpwuid(geteuid());
+    if (pw == NULL) {
+        return 0;
+    }
+
+    if (usernameOut != NULL) {
+        strcpy_s(usernameOut, usernameOutSize, pw->pw_name);
+    }
+
+    return strlen(pw->pw_name);
+#endif
 }
 
 
