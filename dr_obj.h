@@ -210,12 +210,12 @@ drobj* drobj_load_file(const char* filename)
     FILE* pFile;
 #ifdef _MSC_VER
     if (fopen_s(&pFile, filename, "rb") != 0) {
-        return false;
+        return NULL;
     }
 #else
     pFile = fopen(filename, "rb");
     if (pFile == NULL) {
-        return false;
+        return NULL;
     }
 #endif
 
