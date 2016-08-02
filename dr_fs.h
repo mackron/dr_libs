@@ -2383,7 +2383,7 @@ static drfs_result drfs_read_native_file(drfs_handle file, void* pDataOut, size_
 {
     // The documentation for read() states that if the number of bytes being read (bytesToRead) is larger than SSIZE_MAX,
     // the result is unspecified. We'll make things a bit more robust by explicitly checking for this and handling it.
-    char* pDataOut8 = pDataOut;
+    char* pDataOut8 = (char*)pDataOut;
     drfs_result result = drfs_success;
 
     size_t totalBytesRead = 0;
@@ -2413,7 +2413,7 @@ static drfs_result drfs_read_native_file(drfs_handle file, void* pDataOut, size_
 static drfs_result drfs_write_native_file(drfs_handle file, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut)
 {
     // We want to handle writes in the same way as we do reads due to the return valid being signed.
-    const char* pDataIn8 = pData;
+    const char* pDataIn8 = (const char*)pData;
     drfs_result result = drfs_success;
 
     size_t totalBytesWritten = 0;
@@ -2519,7 +2519,7 @@ static drfs_handle drfs_begin_native_iteration(const char* absolutePath)
         return NULL;
     }
 
-    drfs_iterator_posix* pIterator = malloc(sizeof(drfs_iterator_posix) + strlen(absolutePath));
+    drfs_iterator_posix* pIterator = (drfs_iterator_posix*)malloc(sizeof(drfs_iterator_posix) + strlen(absolutePath));
     if (pIterator == NULL) {
         return NULL;
     }
@@ -2532,7 +2532,7 @@ static drfs_handle drfs_begin_native_iteration(const char* absolutePath)
 
 static void drfs_end_native_iteration(drfs_handle iterator)
 {
-    drfs_iterator_posix* pIterator = iterator;
+    drfs_iterator_posix* pIterator = (drfs_iterator_posix*)iterator;
     if (pIterator == NULL) {
         return;
     }
@@ -2543,7 +2543,7 @@ static void drfs_end_native_iteration(drfs_handle iterator)
 
 static bool drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi)
 {
-    drfs_iterator_posix* pIterator = iterator;
+    drfs_iterator_posix* pIterator = (drfs_iterator_posix*)iterator;
     if (pIterator == NULL || pIterator->dir == NULL) {
         return false;
     }
@@ -3076,13 +3076,13 @@ static drfs_result drfs_open_owner_archive_recursively_from_verbose_path(drfs_ar
                         if (drfs_find_backend_by_extension(pParentArchive->pContext, drfs_drpath_extension(runningPath), &backendCallbacks))
                         {
                             drfs_file* pNextArchiveFile;
-                            drfs_result result = drfs_open_file_from_archive(pParentArchive, runningPath, accessMode, &pNextArchiveFile);
+                            drfs_open_file_from_archive(pParentArchive, runningPath, accessMode, &pNextArchiveFile);
                             if (pNextArchiveFile == NULL) {
                                 break;    // Failed to open the archive file.
                             }
 
                             drfs_archive* pNextArchive;
-                            result = drfs_open_non_native_archive(pParentArchive, pNextArchiveFile, &backendCallbacks, runningPath, accessMode, &pNextArchive);
+                            drfs_open_non_native_archive(pParentArchive, pNextArchiveFile, &backendCallbacks, runningPath, accessMode, &pNextArchive);
                             if (pNextArchive == NULL) {
                                 drfs_close(pNextArchiveFile);
                                 break;
@@ -3093,7 +3093,7 @@ static drfs_result drfs_open_owner_archive_recursively_from_verbose_path(drfs_ar
                             if (drfs_drpath_next(&nextsegment))
                             {
                                 drfs_archive* pOwnerArchive;
-                                result = drfs_open_owner_archive_recursively_from_verbose_path(pNextArchive, nextsegment.path + nextsegment.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pOwnerArchive);
+                                drfs_open_owner_archive_recursively_from_verbose_path(pNextArchive, nextsegment.path + nextsegment.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pOwnerArchive);
                                 if (pOwnerArchive == NULL) {
                                     drfs_close_archive(pNextArchive);
                                     break;
@@ -3254,7 +3254,7 @@ static drfs_result drfs_open_owner_archive_recursively_from_relative_path(drfs_a
                 }
 
                 drfs_archive* pNextArchive;
-                drfs_result result = drfs_open_non_native_archive_from_path(pParentArchive, runningPath, accessMode, &pNextArchive);
+                drfs_open_non_native_archive_from_path(pParentArchive, runningPath, accessMode, &pNextArchive);
                 if (pNextArchive != NULL)
                 {
                     // It's an archive segment. We need to check this archive recursively, starting from the next segment.
@@ -3266,7 +3266,7 @@ static drfs_result drfs_open_owner_archive_recursively_from_relative_path(drfs_a
                     }
 
                     drfs_archive* pOwnerArchive;
-                    result = drfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", nextseg.path + nextseg.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pOwnerArchive);
+                    drfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", nextseg.path + nextseg.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pOwnerArchive);
                     if (pOwnerArchive == NULL) {
                         drfs_close_archive(pNextArchive);
                         return drfs_does_not_exist;
@@ -3297,7 +3297,7 @@ static drfs_result drfs_open_owner_archive_recursively_from_relative_path(drfs_a
                             {
                                 // It's an archive, so check it.
                                 drfs_archive* pOwnerArchive;
-                                result = drfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", pathseg.path + pathseg.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pOwnerArchive);
+                                drfs_open_owner_archive_recursively_from_relative_path(pNextArchive, "", pathseg.path + pathseg.segment.offset, accessMode, relativePathOut, relativePathOutSize, &pOwnerArchive);
                                 if (pOwnerArchive != NULL) {
                                     pParentArchive->callbacks.end_iteration(pParentArchive->internalArchiveHandle, iterator);
                                     *ppArchiveOut = pOwnerArchive;
@@ -4703,10 +4703,11 @@ bool drfs_eof(drfs_file* pFile)
 ///////////////////////////////////////////////////////////////////////////////
 #ifndef DR_FS_NO_ZIP
 
-#if defined(__clang__)
+#if defined(__GNUC__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wunused-macros"
     #pragma GCC diagnostic ignored "-Wcast-align"
+    #pragma GCC diagnostic ignored "-Wmisleading-indentation"
 #endif
 
 #ifndef DRFS_MINIZ_HEADER_INCLUDED
