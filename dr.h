@@ -2754,6 +2754,7 @@ bool dr_cmdline_key_exists(dr_cmdline* pCmdLine, const char* key)
 int dr_cmdline_to_argv(dr_cmdline* pCmdLine, char*** argvOut)
 {
     if (argvOut == NULL) return 0;
+    *argvOut = NULL;    // Safety.
 
     int argc = 0;
     char** argv = NULL;
