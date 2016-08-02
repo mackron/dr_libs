@@ -4707,7 +4707,11 @@ bool drfs_eof(drfs_file* pFile)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wunused-macros"
     #pragma GCC diagnostic ignored "-Wcast-align"
+
+    // Clang emits a warning when trying to disable unknown warnings. *sigh*
+#ifndef __clang__
     #pragma GCC diagnostic ignored "-Wmisleading-indentation"
+#endif
 #endif
 
 #ifndef DRFS_MINIZ_HEADER_INCLUDED
