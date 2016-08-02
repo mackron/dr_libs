@@ -1757,6 +1757,13 @@ void dra_backend_delete_alsa(dra_backend* pBackend)
 
 dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
+    unsigned int periods;
+    int dir;
+    size_t sampleRateInMilliseconds;
+    unsigned int proposedFramesPerFragment;
+    unsigned int framesPerFragment;
+    snd_pcm_sw_params_t* pSWParams;
+
     dra_backend_alsa* pBackendALSA = (dra_backend_alsa*)pBackend;
     if (pBackendALSA == NULL) {
         return NULL;
@@ -1812,10 +1819,8 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
     pDeviceALSA->sampleRate = sampleRate;
     pDeviceALSA->channels = channels;
 
-
-
-    unsigned int periods = DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
-    int dir = 1;
+    periods = DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
+    dir = 1;
     if (snd_pcm_hw_params_set_periods_near(pDeviceALSA->deviceALSA, pHWParams, &periods, &dir) < 0) {
         //printf("Failed to set periods.\n");
         goto on_error;
@@ -1826,7 +1831,7 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
     //printf("Periods: %d | Direction: %d\n", periods, dir);
 
 
-    size_t sampleRateInMilliseconds = pDeviceALSA->sampleRate / 1000;
+    sampleRateInMilliseconds = pDeviceALSA->sampleRate / 1000;
     if (sampleRateInMilliseconds == 0) {
         sampleRateInMilliseconds = 1;
     }
@@ -1840,8 +1845,8 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
     // To calculate the size of a fragment, the first step is to determine the initial proposed size. From that
     // it is dropped to the previous power of two. The reason for this is that, based on testing, ALSA has good
     // latency characteristics, and less latency is always preferable.
-    unsigned int proposedFramesPerFragment = sampleRateInMilliseconds * latencyInMilliseconds;
-    unsigned int framesPerFragment = dra_prev_power_of_2(proposedFramesPerFragment);
+    proposedFramesPerFragment = sampleRateInMilliseconds * latencyInMilliseconds;
+    framesPerFragment = dra_prev_power_of_2(proposedFramesPerFragment);
     if (framesPerFragment == 0) {
         framesPerFragment = 2;
     }
@@ -1864,7 +1869,7 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
 
     // Software params. There needs to be at least fragmentSize bytes in the hardware buffer before playing it, and there needs
     // be fragmentSize bytes available after every wait.
-    snd_pcm_sw_params_t* pSWParams = NULL;
+    pSWParams = NULL;
     if (snd_pcm_sw_params_malloc(&pSWParams) < 0) {
         goto on_error;
     }
