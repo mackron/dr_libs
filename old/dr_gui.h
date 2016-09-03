@@ -512,7 +512,7 @@ static inline size_t drgui_key_to_string(drgui_key key, char* strOut, size_t str
     return 0;
 }
 
-drgui_key drgui_key_parse(const char* str)
+static inline drgui_key drgui_key_parse(const char* str)
 {
     if (str == NULL || str[0] == '\0') {
         return 0;

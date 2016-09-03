@@ -409,7 +409,7 @@ bool dr_file_exists(const char* filePath);
 //
 // This will return false if the path points to a file.
 bool dr_directory_exists(const char* directoryPath);
-bool dr_is_directory(const char* directoryPath) { return dr_directory_exists(directoryPath); }
+static inline bool dr_is_directory(const char* directoryPath) { return dr_directory_exists(directoryPath); }
 
 // Moves a file.
 //
