@@ -452,7 +452,7 @@ DRFSW_PRIVATE void drfsw_event_queue_uninit(drfsw_event_queue* pQueue)
 
 DRFSW_PRIVATE drfsw_event_queue* drfsw_event_queue_create()
 {
-    drfsw_event_queue* pQueue = drfsw_malloc(sizeof(drfsw_event_queue));
+    drfsw_event_queue* pQueue = (drfsw_event_queue*)drfsw_malloc(sizeof(drfsw_event_queue));
     if (pQueue != NULL)
     {
         if (!drfsw_event_queue_init(pQueue))
@@ -495,7 +495,7 @@ DRFSW_PRIVATE void drfsw_event_queue_inflate(drfsw_event_queue* pQueue)
         }
 
         drfsw_event* pOldBuffer = pQueue->pBuffer;
-        drfsw_event* pNewBuffer = drfsw_malloc(newBufferSize * sizeof(drfsw_event));
+        drfsw_event* pNewBuffer = (drfsw_event*)drfsw_malloc(newBufferSize * sizeof(drfsw_event));
 
         for (unsigned int iDst = 0; iDst < pQueue->count; ++iDst)
         {
@@ -677,7 +677,7 @@ DRFSW_PRIVATE void drfsw_list_inflate(drfsw_list* pList)
         }
 
         void** pOldBuffer = pList->buffer;
-        void** pNewBuffer = drfsw_malloc(newBufferSize*sizeof(void*));
+        void** pNewBuffer = (void**)drfsw_malloc(newBufferSize*sizeof(void*));
 
         // Move everything over to the new buffer.
         for (unsigned int i = 0; i < pList->count; ++i)
@@ -956,8 +956,8 @@ DRFSW_PRIVATE int drfsw_directory_win32_init(drfsw_directory_win32* pDirectory, 
                     pDirectory->overlapped.hEvent = pDirectory;
 
                     pDirectory->fniBufferSizeInBytes = WIN32_RDC_FNI_COUNT * sizeof(FILE_NOTIFY_INFORMATION);
-                    pDirectory->pFNIBuffer1 = drfsw_malloc(pDirectory->fniBufferSizeInBytes);
-                    pDirectory->pFNIBuffer2 = drfsw_malloc(pDirectory->fniBufferSizeInBytes);
+                    pDirectory->pFNIBuffer1 = (FILE_NOTIFY_INFORMATION*)drfsw_malloc(pDirectory->fniBufferSizeInBytes);
+                    pDirectory->pFNIBuffer2 = (FILE_NOTIFY_INFORMATION*)drfsw_malloc(pDirectory->fniBufferSizeInBytes);
                     if (pDirectory->pFNIBuffer1 != NULL && pDirectory->pFNIBuffer2 != NULL)
                     {
                         // At this point the directory is initialized, however it is not yet being watched. The watch needs to be triggered from
@@ -1257,7 +1257,7 @@ DRFSW_PRIVATE DWORD WINAPI _WatcherThreadProc_RDC(drfsw_context_win32 *pContextR
 
 DRFSW_PRIVATE drfsw_context* drfsw_create_context_win32()
 {
-    drfsw_context_win32* pContext = drfsw_malloc(sizeof(drfsw_context_win32));
+    drfsw_context_win32* pContext = (drfsw_context_win32*)drfsw_malloc(sizeof(drfsw_context_win32));
     if (pContext != NULL)
     {
         if (drfsw_directory_list_win32_init(&pContext->watchedDirectories))
@@ -1338,7 +1338,7 @@ DRFSW_PRIVATE drfsw_directory_win32* drfsw_find_directory_win32(drfsw_context_wi
 
     for (unsigned int iDirectory = 0; iDirectory < pContext->watchedDirectories.list.count; ++iDirectory)
     {
-        drfsw_directory_win32* pDirectory = pContext->watchedDirectories.list.buffer[iDirectory];
+        drfsw_directory_win32* pDirectory = (drfsw_directory_win32*)pContext->watchedDirectories.list.buffer[iDirectory];
         if (pDirectory != NULL)
         {
             if (strcmp(absolutePath, pDirectory->absolutePath) == 0)
@@ -1360,7 +1360,7 @@ DRFSW_PRIVATE int drfsw_add_directory_win32(drfsw_context_win32* pContext, const
 {
     if (pContext != NULL)
     {
-        drfsw_directory_win32* pDirectory = drfsw_malloc(sizeof(drfsw_directory_win32));
+        drfsw_directory_win32* pDirectory = (drfsw_directory_win32*)drfsw_malloc(sizeof(drfsw_directory_win32));
         if (pDirectory != NULL)
         {
             if (!drfsw_is_watching_directory_win32(pContext, absolutePath))
