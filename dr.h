@@ -1981,7 +1981,7 @@ bool dr_move_file(const char* oldPath, const char* newPath)
     }
 
 #if _WIN32
-    return MoveFileExA(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
+    return MoveFileExA(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH) != 0;
 #else
     return rename(oldPath, newPath) == 0;
 #endif
@@ -1994,7 +1994,7 @@ bool dr_copy_file(const char* srcPath, const char* dstPath, bool failIfExists)
     }
 
 #if _WIN32
-    return CopyFileA(srcPath, dstPath, failIfExists);
+    return CopyFileA(srcPath, dstPath, failIfExists) != 0;
 #else
     int fdSrc = open(srcPath, O_RDONLY, 0666);
     if (fdSrc == -1) {
@@ -2087,7 +2087,7 @@ bool dr_delete_file(const char* filePath)
     }
 
 #if _WIN32
-    return DeleteFileA(filePath);
+    return DeleteFileA(filePath) != 0;
 #else
     return remove(filePath) == 0;
 #endif
@@ -2100,7 +2100,7 @@ bool dr_mkdir(const char* directoryPath)
     }
 
 #if _WIN32
-    return CreateDirectoryA(directoryPath, NULL);
+    return CreateDirectoryA(directoryPath, NULL) != 0;
 #else
     return mkdir(directoryPath, 0777) == 0;
 #endif
