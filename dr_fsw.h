@@ -450,30 +450,6 @@ DRFSW_PRIVATE void drfsw_event_queue_uninit(drfsw_event_queue* pQueue)
     }
 }
 
-DRFSW_PRIVATE drfsw_event_queue* drfsw_event_queue_create()
-{
-    drfsw_event_queue* pQueue = (drfsw_event_queue*)drfsw_malloc(sizeof(drfsw_event_queue));
-    if (pQueue != NULL)
-    {
-        if (!drfsw_event_queue_init(pQueue))
-        {
-            drfsw_free(pQueue);
-            pQueue = NULL;
-        }
-    }
-
-    return pQueue;
-}
-
-DRFSW_PRIVATE void drfsw_event_queue_delete(drfsw_event_queue* pQueue)
-{
-    if (pQueue != NULL)
-    {
-        drfsw_event_queue_uninit(pQueue);
-        drfsw_free(pQueue);
-    }
-}
-
 DRFSW_PRIVATE unsigned int drfsw_event_queue_getcount(drfsw_event_queue* pQueue)
 {
     if (pQueue != NULL)
@@ -723,15 +699,6 @@ DRFSW_PRIVATE void drfsw_list_removebyindex(drfsw_list* pList, unsigned int inde
     }
 }
 
-DRFSW_PRIVATE void drfsw_list_popback(drfsw_list* pList)
-{
-    if (pList != NULL)
-    {
-        assert(pList->count > 0);
-
-        drfsw_list_removebyindex(pList, pList->count - 1);
-    }
-}
 
 
 #if defined(_WIN32)
@@ -1326,6 +1293,8 @@ DRFSW_PRIVATE void drfsw_delete_context_win32(drfsw_context_win32* pContext)
         CloseHandle(pContext->hDeleteDirSemaphore);
         pContext->hDeleteDirSemaphore = NULL;
 
+
+        drfsw_directory_list_win32_uninit(&pContext->watchedDirectories);
 
         // Free the memory.
         drfsw_free(pContext);
