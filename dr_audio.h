@@ -1035,6 +1035,8 @@ typedef struct
 
     pDirectSoundCreate8Proc pDirectSoundCreate8;
     pDirectSoundEnumerateAProc pDirectSoundEnumerateA;
+    pDirectSoundCaptureCreate8Proc pDirectSoundCaptureCreate8;
+    pDirectSoundCaptureEnumerateAProc pDirectSoundCaptureEnumerateA;
 } dra_backend_dsound;
 
 typedef struct
@@ -1048,7 +1050,7 @@ typedef struct
     LPDIRECTSOUNDBUFFER pDSPrimaryBuffer;
 
     // The DirectSound "secondary buffer". This is where the actual audio data will be written to by dr_audio when it's time
-    // for play back some audio through the speakers. This represents the hardware buffer.
+    // to play back some audio through the speakers. This represents the hardware buffer.
     LPDIRECTSOUNDBUFFER pDSSecondaryBuffer;
 
     // The notification object used by DirectSound to notify dr_audio that it's ready for the next fragment of audio data.
@@ -1068,6 +1070,13 @@ typedef struct
 
     // The size of the locked buffer. This is set with IDirectSoundBuffer8::Lock() and passed to IDriectSoundBuffer8::Unlock().
     DWORD lockSize;
+
+
+    // The main capture device object for use with DirectSound. This is only used by recording devices and is created by DirectSoundCaptureCreate8().
+    LPDIRECTSOUNDCAPTURE8 pDSCapture;
+
+    // The capture buffer. This is where captured audio data will be placed. This is only used by recording devices.
+    LPDIRECTSOUNDCAPTUREBUFFER pDSCaptureBuffer;
 
 } dra_backend_device_dsound;
 
@@ -1095,7 +1104,7 @@ static BOOL CALLBACK dra_dsound__get_device_guid_by_id__callback(LPGUID lpGuid, 
     return true;
 }
 
-const GUID* dra_dsound__get_device_guid_by_id(dra_backend* pBackend, unsigned int deviceID)
+const GUID* dra_dsound__get_playback_device_guid_by_id(dra_backend* pBackend, unsigned int deviceID)
 {
     // From MSDN:
     //
@@ -1116,6 +1125,31 @@ const GUID* dra_dsound__get_device_guid_by_id(dra_backend* pBackend, unsigned in
     dra_dsound__device_enum_data data = {0};
     data.deviceID = deviceID;
     pBackendDS->pDirectSoundEnumerateA(dra_dsound__get_device_guid_by_id__callback, &data);
+
+    return data.pGuid;
+}
+
+const GUID* dra_dsound__get_recording_device_guid_by_id(dra_backend* pBackend, unsigned int deviceID)
+{
+    // From MSDN:
+    //
+    // The first device enumerated is always called the Primary Sound Driver, and the lpGUID parameter of the callback is
+    // NULL. This device represents the preferred output device set by the user in Control Panel.
+    if (deviceID == 0) {
+        return NULL;
+    }
+
+    dra_backend_dsound* pBackendDS = (dra_backend_dsound*)pBackend;
+    if (pBackendDS == NULL) {
+        return NULL;
+    }
+
+    // The device ID is treated as the device index. The actual ID for use by DirectSound is a GUID. We use DirectSoundEnumerateA()
+    // iterate over each device. This function is usually only going to be used during initialization time so it won't be a performance
+    // issue to not cache these.
+    dra_dsound__device_enum_data data = {0};
+    data.deviceID = deviceID;
+    pBackendDS->pDirectSoundCaptureEnumerateA(dra_dsound__get_device_guid_by_id__callback, &data);
 
     return data.pGuid;
 }
@@ -1141,6 +1175,16 @@ dra_backend* dra_backend_create_dsound()
 
     pBackendDS->pDirectSoundEnumerateA = (pDirectSoundEnumerateAProc)GetProcAddress(pBackendDS->hDSoundDLL, "DirectSoundEnumerateA");
     if (pBackendDS->pDirectSoundEnumerateA == NULL){
+        goto on_error;
+    }
+
+    pBackendDS->pDirectSoundCaptureCreate8 = (pDirectSoundCaptureCreate8Proc)GetProcAddress(pBackendDS->hDSoundDLL, "DirectSoundCaptureCreate8");
+    if (pBackendDS->pDirectSoundCaptureCreate8 == NULL){
+        goto on_error;
+    }
+
+    pBackendDS->pDirectSoundCaptureEnumerateA = (pDirectSoundCaptureEnumerateAProc)GetProcAddress(pBackendDS->hDSoundDLL, "DirectSoundCaptureEnumerateA");
+    if (pBackendDS->pDirectSoundCaptureEnumerateA == NULL){
         goto on_error;
     }
 
@@ -1203,7 +1247,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     pDeviceDS->channels = channels;
     pDeviceDS->sampleRate = sampleRate;
 
-    hr = pBackendDS->pDirectSoundCreate8(dra_dsound__get_device_guid_by_id(pBackend, deviceID), &pDeviceDS->pDS, NULL);
+    hr = pBackendDS->pDirectSoundCreate8(dra_dsound__get_playback_device_guid_by_id(pBackend, deviceID), &pDeviceDS->pDS, NULL);
     if (FAILED(hr)) {
         goto on_error;
     }
