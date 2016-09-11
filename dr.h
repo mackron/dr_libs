@@ -3637,13 +3637,14 @@ bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* base
 
 bool drpath_first(const char* path, drpath_iterator* i)
 {
-    if (path == 0 || path[0] == '\0' || i == 0) {
-        return false;
-    }
-
+    if (i == 0) return false;
     i->path = path;
     i->segment.offset = 0;
     i->segment.length = 0;
+
+    if (path == 0 || path[0] == '\0') {
+        return false;
+    }
 
     while (i->path[i->segment.length] != '\0' && (i->path[i->segment.length] != '/' && i->path[i->segment.length] != '\\')) {
         i->segment.length += 1;
@@ -3654,7 +3655,12 @@ bool drpath_first(const char* path, drpath_iterator* i)
 
 bool drpath_last(const char* path, drpath_iterator* i)
 {
-    if (path == 0 || path[0] == '\0' || i == 0) {
+    if (i == 0) return false;
+    i->path = path;
+    i->segment.offset = 0;
+    i->segment.length = 0;
+
+    if (path == 0 || path[0] == '\0') {
         return false;
     }
 

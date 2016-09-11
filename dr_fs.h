@@ -537,6 +537,8 @@ bool drfs_is_archive_path(drfs_context* pContext, const char* path);
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+// TODO: Change the boolean return codes to drfs_result.
+
 // Free's memory that was allocated internally by dr_fs. This is used when dr_fs allocates memory via a high-level helper API
 // and the application is done with that memory.
 void drfs_free(void* p);
@@ -1113,13 +1115,14 @@ static bool drfs_drpath_prev(drfs_drpath_iterator* i)
 
 static bool drfs_drpath_first(const char* path, drfs_drpath_iterator* i)
 {
-    if (path == 0 || path[0] == '\0' || i == 0) {
-        return false;
-    }
-
+    if (i == 0) return false;
     i->path = path;
     i->segment.offset = 0;
     i->segment.length = 0;
+
+    if (path == 0 || path[0] == '\0') {
+        return false;
+    }
 
     while (i->path[i->segment.length] != '\0' && (i->path[i->segment.length] != '/' && i->path[i->segment.length] != '\\')) {
         i->segment.length += 1;
@@ -1130,7 +1133,12 @@ static bool drfs_drpath_first(const char* path, drfs_drpath_iterator* i)
 
 static bool drfs_drpath_last(const char* path, drfs_drpath_iterator* i)
 {
-    if (path == 0 || path[0] == '\0' || i == 0) {
+    if (i == 0) return false;
+    i->path = path;
+    i->segment.offset = 0;
+    i->segment.length = 0;
+
+    if (path == 0 || path[0] == '\0') {
         return false;
     }
 
@@ -1621,7 +1629,14 @@ static bool drfs_validate_write_path(drfs_context* pContext, const char* absolut
         }
     }
 
+    // If you trigger this assert it means you're trying to open a file for writing with a relative path but haven't yet
+    // set the write directory. Either set the write directory with drfs_set_base_write_directory(), or use an absolute
+    // path to open the file.
     assert(drfs_drpath_is_absolute(absoluteOrRelativePath));
+    if (!drfs_drpath_is_absolute(absoluteOrRelativePath)) {
+        return false;
+    }
+
 
     if (drfs_is_write_directory_guard_enabled(pContext)) {
         if (drfs_drpath_is_descendant(absoluteOrRelativePath, pContext->writeBaseDirectory)) {
