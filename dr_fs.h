@@ -4718,6 +4718,10 @@ bool drfs_eof(drfs_file* pFile)
 ///////////////////////////////////////////////////////////////////////////////
 #ifndef DR_FS_NO_ZIP
 
+#if defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable:4334)
+#endif
 #if defined(__GNUC__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wunused-macros"
@@ -6204,8 +6208,11 @@ drfs_mz_bool drfs_mz_zip_reader_end(drfs_mz_zip_archive *pZip)
 
 #endif // DRFS_MINIZ_HEADER_FILE_ONLY
 
-#if defined(__clang__)
+#if defined(__GNUC__)
     #pragma GCC diagnostic pop
+#endif
+#if defined(_MSC_VER)
+    #pragma warning(pop)
 #endif
 
 
