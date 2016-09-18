@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.4a - 2016-09-18
+// dr_wav - v0.4b - 2016-09-18
 //
 // David Reid - mackron@gmail.com
 
@@ -33,7 +33,7 @@
 //
 //     ...
 //
-//     drwav_close_file(pWav);
+//     drwav_close(pWav);
 //
 // If you just want to quickly open and read the audio data in a single operation you can do something like this:
 //
@@ -1749,6 +1749,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.4b - 2016-09-18
+//   - Fixed a typo in documentation.
 //
 // v0.4a - 2016-09-18
 //   - Fixed a typo.
