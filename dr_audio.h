@@ -551,8 +551,8 @@ size_t dra_mixer_gather_attached_voices_recursive(dra_mixer* pMixer, dra_voice**
 
 
 // dra_voice_create()
-dra_voice* dra_voice_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData);
-dra_voice* dra_voice_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData);
+dra_result dra_voice_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData, dra_voice** ppVoice);
+dra_result dra_voice_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData, dra_voice** ppVoice);
 
 // dra_voice_delete()
 void dra_voice_delete(dra_voice* pVoice);
@@ -679,7 +679,7 @@ bool dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample);
 
 #ifndef DR_AUDIO_NO_STDIO
 // Creates a voice from a file.
-dra_voice* dra_voice_create_from_file(dra_device* pDevice, const char* filePath);
+dra_result dra_voice_create_from_file(dra_device* pDevice, const char* filePath, dra_voice** ppVoice);
 #endif
 
 
@@ -3067,23 +3067,24 @@ size_t dra_mixer_gather_attached_voices_recursive(dra_mixer* pMixer, dra_voice**
 
 
 
-dra_voice* dra_voice_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData)
+dra_result dra_voice_create(dra_device* pDevice, dra_format format, unsigned int channels, unsigned int sampleRate, size_t sizeInBytes, const void* pInitialData, dra_voice** ppVoice)
 {
-    if (pDevice == NULL || sizeInBytes == 0) {
-        return NULL;
-    }
+    if (ppVoice == NULL) return DRA_RESULT_INVALID_ARGS;
+    *ppVoice = NULL;
 
-    size_t bytesPerSample = dra_get_bytes_per_sample_by_format(format);
+    if (pDevice == NULL || sizeInBytes == 0) return DRA_RESULT_INVALID_ARGS;
+
 
     // The number of bytes must be a multiple of the size of a frame.
+    size_t bytesPerSample = dra_get_bytes_per_sample_by_format(format);
     if ((sizeInBytes % (bytesPerSample * channels)) != 0) {
-        return NULL;
+        return DRA_RESULT_INVALID_ARGS;
     }
 
 
     dra_voice* pVoice = (dra_voice*)calloc(1, sizeof(*pVoice) + sizeInBytes);
     if (pVoice == NULL) {
-        return NULL;
+        return DRA_RESULT_OUT_OF_MEMORY;
     }
 
     pVoice->pDevice = pDevice;
@@ -3120,23 +3121,18 @@ dra_voice* dra_voice_create(dra_device* pDevice, dra_format format, unsigned int
         dra_mixer_attach_voice(pDevice->pMasterMixer, pVoice);
     }
 
-    return pVoice;
+    *ppVoice = pVoice;
+    return DRA_RESULT_SUCCESS;
 }
 
-dra_voice* dra_voice_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData)
+dra_result dra_voice_create_compatible(dra_device* pDevice, size_t sizeInBytes, const void* pInitialData, dra_voice** ppVoice)
 {
-    if (pDevice == NULL) {
-        return NULL;
-    }
-
-    return dra_voice_create(pDevice, dra_format_f32, pDevice->channels, pDevice->sampleRate, sizeInBytes, pInitialData);
+    return dra_voice_create(pDevice, dra_format_f32, pDevice->channels, pDevice->sampleRate, sizeInBytes, pInitialData, ppVoice);
 }
 
 void dra_voice_delete(dra_voice* pVoice)
 {
-    if (pVoice == NULL) {
-        return;
-    }
+    if (pVoice == NULL) return;
 
     dra_voice_stop(pVoice);
 
@@ -4347,11 +4343,9 @@ float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* 
 //// High Level Helper APIs ////
 
 #ifndef DR_AUDIO_NO_STDIO
-dra_voice* dra_voice_create_from_file(dra_device* pDevice, const char* filePath)
+dra_result dra_voice_create_from_file(dra_device* pDevice, const char* filePath, dra_voice** ppVoice)
 {
-    if (pDevice == NULL || filePath == NULL) {
-        return NULL;
-    }
+    if (pDevice == NULL || filePath == NULL) return DRA_RESULT_INVALID_ARGS;
 
     unsigned int channels;
     unsigned int sampleRate;
@@ -4361,10 +4355,10 @@ dra_voice* dra_voice_create_from_file(dra_device* pDevice, const char* filePath)
         return NULL;
     }
 
-    dra_voice* pVoice = dra_voice_create(pDevice, dra_format_f32, channels, sampleRate, (size_t)totalSampleCount * sizeof(float), pSampleData);
+    dra_result result = dra_voice_create(pDevice, dra_format_f32, channels, sampleRate, (size_t)totalSampleCount * sizeof(float), pSampleData, ppVoice);
 
     free(pSampleData);
-    return pVoice;
+    return result;
 }
 #endif
 
@@ -4602,13 +4596,15 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
 
     pSound->pWorld = pWorld;
     pSound->desc   = *pDesc;
+    
+    dra_result result = DRA_RESULT_SUCCESS;
 
     isStreaming = dra_sound__is_streaming(pSound);
     if (!isStreaming) {
-        pSound->pVoice = dra_voice_create(pWorld->pPlaybackDevice, pDesc->format, pDesc->channels, pDesc->sampleRate, pDesc->dataSize, pDesc->pData);
+        result = dra_voice_create(pWorld->pPlaybackDevice, pDesc->format, pDesc->channels, pDesc->sampleRate, pDesc->dataSize, pDesc->pData, &pSound->pVoice);
     } else {
         size_t streamingBufferSize = (pDesc->sampleRate * pDesc->channels) * 2;   // 2 seconds total, 1 second chunks. Keep total an even number and a multiple of the channel count.
-        pSound->pVoice = dra_voice_create(pWorld->pPlaybackDevice, pDesc->format, pDesc->channels, pDesc->sampleRate, streamingBufferSize * dra_get_bytes_per_sample_by_format(pDesc->format), NULL);
+        result = dra_voice_create(pWorld->pPlaybackDevice, pDesc->format, pDesc->channels, pDesc->sampleRate, streamingBufferSize * dra_get_bytes_per_sample_by_format(pDesc->format), NULL, &pSound->pVoice);
 
         // Streaming buffers require 2 playback events. As one is being played, the other is filled. The event ID is set to the sample
         // index of the next chunk that needs updating and is used in determining where to place new data.
@@ -4616,7 +4612,7 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
         dra_voice_add_playback_event(pSound->pVoice, streamingBufferSize/2, 0, dra_sound__on_read_next_chunk, pSound);
     }
 
-    if (pSound->pVoice == NULL) {
+    if (result != DRA_RESULT_SUCCESS) {
         goto on_error;
     }
 
