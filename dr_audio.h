@@ -178,11 +178,12 @@ extern "C" {
 #define DR_AUDIO_EVENT_ID_PLAY  0xFFFFFFFFFFFFFFFEULL
 
 typedef int dra_result;
-#define DRA_RESULT_SUCCESS          0
-#define DRA_RESULT_UNKNOWN_ERROR    -1
-#define DRA_RESULT_INVALID_ARGS     -2
-#define DRA_RESULT_OUT_OF_MEMORY    -3
-#define DRA_RESULT_NO_BACKEND       -1024
+#define DRA_RESULT_SUCCESS              0
+#define DRA_RESULT_UNKNOWN_ERROR        -1
+#define DRA_RESULT_INVALID_ARGS         -2
+#define DRA_RESULT_OUT_OF_MEMORY        -3
+#define DRA_RESULT_NO_BACKEND           -1024
+#define DRA_RESULT_NO_BACKEND_DEVICE    -1025
 
 typedef enum
 {
@@ -469,16 +470,21 @@ dra_result dra_context_create(dra_context** ppContext);
 void dra_context_delete(dra_context* pContext);
 
 
-// dra_device_open_ex()
+// dra_device_init_ex()
 //
 // If deviceID is 0 the default device for the given type is used.
 // format can be dra_format_default which is dra_format_s32.
 // If channels is set to 0, defaults 2 channels (stereo).
 // If sampleRate is set to 0, defaults to 48000.
 // If latency is 0, defaults to 50 milliseconds. See notes about latency above.
-dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds);
-dra_device* dra_device_open(dra_context* pContext, dra_device_type type);
-void dra_device_close(dra_device* pDevice);
+dra_result dra_device_init_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds, dra_device* pDevice);
+dra_result dra_device_init(dra_context* pContext, dra_device_type type, dra_device* pDevice);
+void dra_device_uninit(dra_device* pDevice);
+
+// Helper for allocating and initializing a device object.
+dra_result dra_device_create_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds, dra_device** ppDevice);
+dra_result dra_device_create(dra_context* pContext, dra_device_type type, dra_device** ppDevice);
+void dra_device_delete(dra_device* pDevice);
 
 
 // dra_mixer_create()
@@ -2529,43 +2535,38 @@ void* dra_device__thread_proc(void* pData)
     return 0;
 }
 
-dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_result dra_device_init_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds, dra_device* pDevice)
 {
+    if (pDevice == NULL) return DRA_RESULT_INVALID_ARGS;
+
     bool ownsContext = false;
     if (pContext == NULL) {
         pContext = (dra_context*)malloc(sizeof(*pContext));
         if (pContext == NULL) {
-            return NULL;
+            return DRA_RESULT_OUT_OF_MEMORY;
         }
 
         dra_result result = dra_context_init(pContext);
         if (result != DRA_RESULT_SUCCESS) {
-            return NULL;
+            return result;
         }
 
         ownsContext = true;
     }
 
-
-    if (sampleRate == 0) {
-        sampleRate = DR_AUDIO_DEFAULT_SAMPLE_RATE;
-    }
-
-    if (latencyInMilliseconds == 0) {
-        latencyInMilliseconds = DR_AUDIO_DEFAULT_LATENCY;
-    }
+    if (sampleRate == 0) sampleRate = DR_AUDIO_DEFAULT_SAMPLE_RATE;
+    if (latencyInMilliseconds == 0) latencyInMilliseconds = DR_AUDIO_DEFAULT_LATENCY;
 
 
-    dra_device* pDevice = (dra_device*)calloc(1, sizeof(*pDevice));
-    if (pDevice == NULL) {
-        return NULL;
-    }
+    dra_result result = DRA_RESULT_SUCCESS;
 
+    memset(pDevice, 0, sizeof(*pDevice));
     pDevice->pContext = pContext;
     pDevice->ownsContext = ownsContext;
 
     pDevice->pBackendDevice = dra_backend_device_open(pContext->pBackend, type, deviceID, channels, sampleRate, latencyInMilliseconds);
     if (pDevice->pBackendDevice == NULL) {
+        result = DRA_RESULT_NO_BACKEND_DEVICE;
         goto on_error;
     }
 
@@ -2575,22 +2576,26 @@ dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsi
 
     pDevice->mutex = dra_mutex_create();
     if (pDevice->mutex == NULL) {
+        result = DRA_RESULT_UNKNOWN_ERROR;  // TODO: Change this to the return value of dra_mutex_create().
         goto on_error;
     }
 
     pDevice->threadEventSem = dra_semaphore_create(0);
     if (pDevice->threadEventSem == NULL) {
+        result = DRA_RESULT_UNKNOWN_ERROR;  // TODO: Change this to the return value of dra_semaphore_create().
         goto on_error;
     }
 
     pDevice->pMasterMixer = dra_mixer_create(pDevice);
     if (pDevice->pMasterMixer == NULL) {
+        result = DRA_RESULT_UNKNOWN_ERROR;  // TODO: Change this to the return value of dra_mixer_create().
         goto on_error;
     }
 
 
     pDevice->eventQueue.lock = dra_mutex_create();
     if (pDevice->eventQueue.lock == NULL) {
+        result = DRA_RESULT_UNKNOWN_ERROR;  // TODO: Change this to the return value of dra_mutex_create().
         goto on_error;
     }
 
@@ -2598,50 +2603,36 @@ dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsi
     // Create the thread last to ensure the device is in a valid state as soon as the entry procedure is run.
     pDevice->thread = dra_thread_create(dra_device__thread_proc, pDevice);
     if (pDevice->thread == NULL) {
+        result = DRA_RESULT_UNKNOWN_ERROR;  // TODO: Change this to the return value of dra_thread_create().
         goto on_error;
     }
 
-    return pDevice;
+    return result;
 
 on_error:
     if (pDevice != NULL) {
-        if (pDevice->pMasterMixer != NULL) {
-            dra_mixer_delete(pDevice->pMasterMixer);
-        }
-
-        if (pDevice->pBackendDevice != NULL) {
-            dra_backend_device_close(pDevice->pBackendDevice);
-        }
-
-        if (pDevice->threadEventSem != NULL) {
-            dra_semaphore_delete(pDevice->threadEventSem);
-        }
-
-        if (pDevice->mutex != NULL) {
-            dra_mutex_delete(pDevice->mutex);
-        }
+        if (pDevice->pMasterMixer != NULL) dra_mixer_delete(pDevice->pMasterMixer);
+        if (pDevice->pBackendDevice != NULL) dra_backend_device_close(pDevice->pBackendDevice);
+        if (pDevice->threadEventSem != NULL) dra_semaphore_delete(pDevice->threadEventSem);
+        if (pDevice->mutex != NULL) dra_mutex_delete(pDevice->mutex);
 
         if (pDevice->ownsContext) {
             dra_context_uninit(pDevice->pContext);
             free(pDevice->pContext);
         }
-
-        free(pDevice);
     }
 
-    return NULL;
+    return result;
 }
 
-dra_device* dra_device_open(dra_context* pContext, dra_device_type type)
+dra_result dra_device_init(dra_context* pContext, dra_device_type type, dra_device* pDevice)
 {
-    return dra_device_open_ex(pContext, type, 0, 0, DR_AUDIO_DEFAULT_SAMPLE_RATE, DR_AUDIO_DEFAULT_LATENCY);
+    return dra_device_init_ex(pContext, type, 0, 0, DR_AUDIO_DEFAULT_SAMPLE_RATE, DR_AUDIO_DEFAULT_LATENCY, pDevice);
 }
 
-void dra_device_close(dra_device* pDevice)
+void dra_device_uninit(dra_device* pDevice)
 {
-    if (pDevice == NULL) {
-        return;
-    }
+    if (pDevice == NULL) return;
 
     // Mark the device as closed in order to prevent other threads from doing work after closing.
     dra_device__lock(pDevice);
@@ -2687,10 +2678,41 @@ void dra_device_close(dra_device* pDevice)
         dra_context_uninit(pDevice->pContext);
         free(pDevice->pContext);
     }
-
-    free(pDevice);
 }
 
+
+dra_result dra_device_create_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds, dra_device** ppDevice)
+{
+    if (ppDevice == NULL) return DRA_RESULT_INVALID_ARGS;
+    *ppDevice = NULL;
+
+    dra_device* pDevice = (dra_device*)malloc(sizeof(*pDevice));
+    if (pDevice == NULL) {
+        return DRA_RESULT_OUT_OF_MEMORY;
+    }
+
+    dra_result result = dra_device_init_ex(pContext, type, deviceID, channels, sampleRate, latencyInMilliseconds, pDevice);
+    if (result != DRA_RESULT_SUCCESS) {
+        free(pDevice);
+        return result;
+    }
+
+    *ppDevice = pDevice;
+    return DRA_RESULT_SUCCESS;
+}
+
+dra_result dra_device_create(dra_context* pContext, dra_device_type type, dra_device** ppDevice)
+{
+    return dra_device_create_ex(pContext, type, 0, 0, DR_AUDIO_DEFAULT_SAMPLE_RATE, DR_AUDIO_DEFAULT_LATENCY, ppDevice);
+}
+
+void dra_device_delete(dra_device* pDevice)
+{
+    if (pDevice == NULL) return;
+
+    dra_device_uninit(pDevice);
+    free(pDevice);
+}
 
 
 
@@ -4356,8 +4378,8 @@ dra_sound_world* dra_sound_world_create(dra_device* pPlaybackDevice)
 
     pWorld->pPlaybackDevice = pPlaybackDevice;
     if (pWorld->pPlaybackDevice == NULL) {
-        pWorld->pPlaybackDevice = dra_device_open(NULL, dra_device_type_playback);
-        if (pWorld->pPlaybackDevice == NULL) {
+        dra_result result = dra_device_create(NULL, dra_device_type_playback, &pWorld->pPlaybackDevice);
+        if (result != DRA_RESULT_SUCCESS) {
             return NULL;
         }
 
@@ -4382,7 +4404,7 @@ void dra_sound_world_delete(dra_sound_world* pWorld)
     }
 
     if (pWorld->ownsPlaybackDevice) {
-        dra_device_close(pWorld->pPlaybackDevice);
+        dra_device_delete(pWorld->pPlaybackDevice);
     }
 
     free(pWorld);
