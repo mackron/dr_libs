@@ -488,7 +488,7 @@ void dra_device_delete(dra_device* pDevice);
 
 
 // dra_mixer_create()
-dra_mixer* dra_mixer_create(dra_device* pDevice);
+dra_result dra_mixer_create(dra_device* pDevice, dra_mixer** ppMixer);
 
 // dra_mixer_delete()
 //
@@ -2586,9 +2586,8 @@ dra_result dra_device_init_ex(dra_context* pContext, dra_device_type type, unsig
         goto on_error;
     }
 
-    pDevice->pMasterMixer = dra_mixer_create(pDevice);
-    if (pDevice->pMasterMixer == NULL) {
-        result = DRA_RESULT_UNKNOWN_ERROR;  // TODO: Change this to the return value of dra_mixer_create().
+    result = dra_mixer_create(pDevice, &pDevice->pMasterMixer);
+    if (result != DRA_RESULT_SUCCESS) {
         goto on_error;
     }
 
@@ -2716,17 +2715,21 @@ void dra_device_delete(dra_device* pDevice)
 
 
 
-dra_mixer* dra_mixer_create(dra_device* pDevice)
+dra_result dra_mixer_create(dra_device* pDevice, dra_mixer** ppMixer)
 {
+    if (ppMixer == NULL) return DRA_RESULT_INVALID_ARGS;
+    *ppMixer = NULL;
+
+    if (pDevice == NULL) return DRA_RESULT_INVALID_ARGS;
+
+
     // There needs to be two blocks of memory at the end of the mixer - one for the staging buffer and another for the buffer that
     // will store the float32 samples of the voice currently being mixed.
     size_t extraDataSize = (size_t)pDevice->pBackendDevice->samplesPerFragment * sizeof(float) * 2;
-
-    dra_mixer* pMixer = (dra_mixer*)malloc(sizeof(*pMixer) + extraDataSize);
+    dra_mixer* pMixer = (dra_mixer*)calloc(1, sizeof(*pMixer) + extraDataSize);
     if (pMixer == NULL) {
-        return NULL;
+        return DRA_RESULT_OUT_OF_MEMORY;
     }
-    memset(pMixer, 0, sizeof(*pMixer));
 
     pMixer->pDevice = pDevice;
     pMixer->linearVolume = 1;
@@ -2739,14 +2742,13 @@ dra_mixer* dra_mixer_create(dra_device* pDevice)
         dra_mixer_attach_submixer(pDevice->pMasterMixer, pMixer);
     }
 
-    return pMixer;
+    *ppMixer = pMixer;
+    return DRA_RESULT_SUCCESS;
 }
 
 void dra_mixer_delete(dra_mixer* pMixer)
 {
-    if (pMixer == NULL) {
-        return;
-    }
+    if (pMixer == NULL) return;
 
     dra_mixer_detach_all_submixers(pMixer);
     dra_mixer_detach_all_voices(pMixer);
