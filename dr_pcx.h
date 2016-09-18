@@ -1,5 +1,5 @@
 // PCX image loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_pcx - v0.1 - 04/05/2016
+// dr_pcx - v0.1a - 2016-09-18
 //
 // David Reid - mackron@gmail.com
 
@@ -658,7 +658,10 @@ void drpcx_free(void* pReturnValueFromLoad)
 
 // REVISION HISTORY
 //
-// v0.1 - 04/05/2016
+// v0.1a - 2016-09-18
+//   - Change date format to ISO 8601 (YYYY-MM-DD)
+//
+// v0.1 - 2016-05-04
 //   - Initial versioned release.
 
 
