@@ -90,7 +90,7 @@
 //
 //   dra_voice_delete(pVoice);
 //   dra_device_close(pDevice);
-//   dra_context_delete(pContext);
+//   dra_context_uninit(pContext);
 //
 // In the above example the voice and device are configured to use the same number of channels and sample rate, however they are
 // allowed to differ, in which case dr_audio will automatically convert the data. Note that sample rate conversion is currently
@@ -176,6 +176,13 @@ extern "C" {
 
 #define DR_AUDIO_EVENT_ID_STOP  0xFFFFFFFFFFFFFFFFULL
 #define DR_AUDIO_EVENT_ID_PLAY  0xFFFFFFFFFFFFFFFEULL
+
+typedef int dra_result;
+#define DRA_RESULT_SUCCESS          0
+#define DRA_RESULT_UNKNOWN_ERROR    -1
+#define DRA_RESULT_INVALID_ARGS     -2
+#define DRA_RESULT_OUT_OF_MEMORY    -3
+#define DRA_RESULT_NO_BACKEND       -1024
 
 typedef enum
 {
@@ -453,8 +460,8 @@ struct dra_voice
 
 
 // dra_context_create()
-dra_context* dra_context_create();
-void dra_context_delete(dra_context* pContext);
+dra_result dra_context_init(dra_context* pContext);
+void dra_context_uninit(dra_context* pContext);
 
 // dra_device_open_ex()
 //
@@ -2210,32 +2217,24 @@ float* dra_voice__next_frame(dra_voice* pVoice);
 size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamplesOut);
 
 
-dra_context* dra_context_create()
+dra_result dra_context_init(dra_context* pContext)
 {
+    if (pContext == NULL) return DRA_RESULT_INVALID_ARGS;
+    memset(pContext, 0, sizeof(*pContext));
+
     // We need a backend first.
-    dra_backend* pBackend = dra_backend_create();
-    if (pBackend == NULL) {
-        return NULL;    // Failed to create a backend.
+    pContext->pBackend = dra_backend_create();
+    if (pContext->pBackend == NULL) {
+        return DRA_RESULT_NO_BACKEND;    // Failed to create a backend.
     }
 
-    dra_context* pContext = (dra_context*)malloc(sizeof(*pContext));
-    if (pContext == NULL) {
-        return NULL;
-    }
-
-    pContext->pBackend = pBackend;
-
-    return pContext;
+    return DRA_RESULT_SUCCESS;
 }
 
-void dra_context_delete(dra_context* pContext)
+void dra_context_uninit(dra_context* pContext)
 {
-    if (pContext == NULL) {
-        return;
-    }
-
+    if (pContext == NULL) return;
     dra_backend_delete(pContext->pBackend);
-    free(pContext);
 }
 
 
@@ -2500,8 +2499,13 @@ dra_device* dra_device_open_ex(dra_context* pContext, dra_device_type type, unsi
 {
     bool ownsContext = false;
     if (pContext == NULL) {
-        pContext = dra_context_create();
+        pContext = (dra_context*)malloc(sizeof(*pContext));
         if (pContext == NULL) {
+            return NULL;
+        }
+
+        dra_result result = dra_context_init(pContext);
+        if (result != DRA_RESULT_SUCCESS) {
             return NULL;
         }
 
@@ -2584,7 +2588,8 @@ on_error:
         }
 
         if (pDevice->ownsContext) {
-            dra_context_delete(pDevice->pContext);
+            dra_context_uninit(pDevice->pContext);
+            free(pDevice->pContext);
         }
 
         free(pDevice);
@@ -2645,7 +2650,8 @@ void dra_device_close(dra_device* pDevice)
 
 
     if (pDevice->ownsContext) {
-        dra_context_delete(pDevice->pContext);
+        dra_context_uninit(pDevice->pContext);
+        free(pDevice->pContext);
     }
 
     free(pDevice);
