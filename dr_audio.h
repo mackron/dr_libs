@@ -459,9 +459,15 @@ struct dra_voice
 };
 
 
-// dra_context_create()
+// dra_context_init()
 dra_result dra_context_init(dra_context* pContext);
 void dra_context_uninit(dra_context* pContext);
+
+// Helper for allocating and initializing a context. If you want to do your own memory management or just want to put the context
+// object on the stack, just use dra_context_init() instead.
+dra_result dra_context_create(dra_context** ppContext);
+void dra_context_delete(dra_context* pContext);
+
 
 // dra_device_open_ex()
 //
@@ -2235,6 +2241,34 @@ void dra_context_uninit(dra_context* pContext)
 {
     if (pContext == NULL) return;
     dra_backend_delete(pContext->pBackend);
+}
+
+dra_result dra_context_create(dra_context** ppContext)
+{
+    if (ppContext == NULL) return DRA_RESULT_INVALID_ARGS;
+    *ppContext = NULL;
+
+    dra_context* pContext = (dra_context*)malloc(sizeof(*pContext));
+    if (pContext == NULL) {
+        return DRA_RESULT_OUT_OF_MEMORY;
+    }
+
+     dra_result result = dra_context_init(pContext);
+     if (result != DRA_RESULT_SUCCESS) {
+         free(pContext);
+         return result;
+     }
+
+     *ppContext = pContext;
+     return DRA_RESULT_SUCCESS;
+}
+
+void dra_context_delete(dra_context* pContext)
+{
+    if (pContext == NULL) return;
+
+    dra_context_uninit(pContext);
+    free(pContext);
 }
 
 
