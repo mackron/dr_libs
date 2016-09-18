@@ -219,7 +219,7 @@ typedef struct
     uint64_t bytesRemaining;
 
 
-    // A hack to avoid a malloc() when opening a decoder with drflac_open_memory().
+    // A hack to avoid a malloc() when opening a decoder with drwav_open_memory().
     drwav__memory_stream memoryStream;
 
 } drwav;
