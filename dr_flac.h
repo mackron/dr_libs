@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.3d - 11/06/2016
+// dr_flac - v0.3e - 2016-09-18
 //
 // David Reid - mackron@gmail.com
 
@@ -504,10 +504,10 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUse
 //
 // Close the decoder with drflac_close().
 //
-// This is slower that drflac_open(), so avoid this one if you don't need metadata. Internally, this will do a malloc()
+// This is slower than drflac_open(), so avoid this one if you don't need metadata. Internally, this will do a malloc()
 // and free() for every metadata block except for STREAMINFO and PADDING blocks.
 //
-// The caller is notified of the metadata via the onMeta callback. All metadata blocks withh be handled before the function
+// The caller is notified of the metadata via the onMeta callback. All metadata blocks with be handled before the function
 // returns.
 //
 // See also: drflac_open_file_with_metadata(), drflac_open_memory_with_metadata(), drflac_open(), drflac_close()
@@ -4293,46 +4293,51 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 // REVISION HISTORY
 //
-// v0.3d - 11/06/2016
+// v0.3e - 2016-09-18
+//   - Fixed a bug where GCC 4.3+ was not getting properly identified.
+//   - Fixed a few typos.
+//   - Changed date formats to ISO 8601 (YYYY-MM-DD).
+//
+// v0.3d - 2016-06-11
 //   - Minor clean up.
 //
-// v0.3c - 28/05/2016
+// v0.3c - 2016-05-28
 //   - Fixed compilation error.
 //
-// v0.3b - 16/05/2016
+// v0.3b - 2016-05-16
 //   - Fixed Linux/GCC build.
 //   - Updated documentation.
 //
-// v0.3a - 15/05/2016
+// v0.3a - 2016-05-15
 //   - Minor fixes to documentation.
 //
-// v0.3 - 11/05/2016
+// v0.3 - 2016-05-11
 //   - Optimizations. Now at about parity with the reference implementation on 32-bit builds.
 //   - Lots of clean up.
 //
-// v0.2b - 10/05/2016
+// v0.2b - 2016-05-10
 //   - Bug fixes.
 //
-// v0.2a - 10/05/2016
+// v0.2a - 2016-05-10
 //   - Made drflac_open_and_decode() more robust.
 //   - Removed an unused debugging variable
 //
-// v0.2 - 09/05/2016
+// v0.2 - 2016-05-09
 //   - Added support for Ogg encapsulation.
 //   - API CHANGE. Have the onSeek callback take a third argument which specifies whether or not the seek
 //     should be relative to the start or the current position. Also changes the seeking rules such that
 //     seeking offsets will never be negative.
 //   - Have drflac_open_and_decode() fail gracefully if the stream has an unknown total sample count.
 //
-// v0.1b - 07/05/2016
+// v0.1b - 2016-05-07
 //   - Properly close the file handle in drflac_open_file() and family when the decoder fails to initialize.
 //   - Removed a stale comment.
 //
-// v0.1a - 05/05/2016
+// v0.1a - 2016-05-05
 //   - Minor formatting changes.
 //   - Fixed a warning on the GCC build.
 //
-// v0.1 - 03/05/2016
+// v0.1 - 2016-05-03
 //   - Initial versioned release.
 
 
