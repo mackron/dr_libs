@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.4 - 13/07/2016
+// dr_wav - v0.4a - 2016-09-18
 //
 // David Reid - mackron@gmail.com
 
@@ -1750,28 +1750,32 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 // REVISION HISTORY
 //
-// v0.4 - 13/07/2016
+// v0.4a - 2016-09-18
+//   - Fixed a typo.
+//   - Change date format to ISO 8601 (YYYY-MM-DD)
+//
+// v0.4 - 2016-07-13
 //   - API CHANGE. Make onSeek consistent with dr_flac.
 //   - API CHANGE. Rename drwav_seek() to drwav_seek_to_sample() for clarity and consistency with dr_flac.
 //   - Added support for Sony Wave64.
 //
-// v0.3a - 28/05/2016
+// v0.3a - 2016-05-28
 //   - API CHANGE. Return bool instead of int in onSeek callback.
 //   - Fixed a memory leak.
 //
-// v0.3 - 22/05/2016
+// v0.3 - 2016-05-22
 //   - Lots of API changes for consistency.
 //
-// v0.2a - 16/05/2016
+// v0.2a - 2016-05-16
 //   - Fixed Linux/GCC build.
 //
-// v0.2 - 11/05/2016
+// v0.2 - 2016-05-11
 //   - Added support for reading data as signed 32-bit PCM for consistency with dr_flac.
 //
-// v0.1a - 07/05/2016
+// v0.1a - 2016-05-07
 //   - Fixed a bug in drwav_open_file() where the file handle would not be closed if the loader failed to initialize.
 //
-// v0.1 - 04/05/2016
+// v0.1 - 2016-05-04
 //   - Initial versioned release.
 
 
