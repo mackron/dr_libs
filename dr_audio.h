@@ -35,13 +35,15 @@
 //
 // dr_audio has a layered API with different levels of flexibility vs simplicity. An example of the high level API follows:
 //
-//   dra_device* pDevice = dra_device_open(NULL, dra_device_type_playback);
-//   if (pDevice == NULL) {
+//   dra_device* pDevice;
+//   dra_result result = dra_device_create(NULL, dra_device_type_playback, &pDevice);
+//   if (result != DRA_RESULT_SUCCESS) {
 //       return -1;
 //   }
 //
-//   dra_voice* pVoice = dra_voice_create_from_file(pDevice, "my_song.flac");
-//   if (pVoice == NULL) {
+//   dra_voice* pVoice;
+//   result = dra_voice_create_from_file(pDevice, "my_song.flac", &pVoice);
+//   if (result != DRA_RESULT_SUCCESS) {
 //       return -1;
 //   }
 //
@@ -50,13 +52,14 @@
 //   ...
 //
 //   dra_voice_delete(pVoice);
-//   dra_device_close(pDevice);
+//   dra_device_delete(pDevice);
 //
 //
 // An example of the low level API:
 //
-//   dra_context* pContext = dra_context_create();  // Initializes the backend (DirectSound/ALSA)
-//   if (pContext == NULL) {
+//   dra_context context;
+//   dra_result result = dra_context_init(&context);  // Initializes the backend (DirectSound/ALSA)
+//   if (result != DRA_RESULT_SUCCESS) {
 //       return -1;
 //   }
 //
@@ -64,13 +67,15 @@
 //   unsigned int channels = 2;                 // Stereo
 //   unsigned int sampleRate = 48000;
 //   unsigned int latencyInMilliseconds = 0;    // 0 will default to DR_AUDIO_DEFAULT_LATENCY.
-//   dra_device* pDevice = dra_device_open_ex(pContext, dra_device_type_playback, deviceID, channels, sampleRate, latencyInMilliseconds);
-//   if (pDevice == NULL) {
+//   dra_device device;
+//   result = dra_device_init_ex(&context, dra_device_type_playback, deviceID, channels, sampleRate, latencyInMilliseconds, &device);
+//   if (result != DRA_RESULT_SUCCESS) {
 //       return -1;
 //   }
 //
-//   dra_voice* pVoice = dra_voice_create(pDevice, dra_format_f32, channels, sampleRate, voiceBufferSizeInBytes, pVoiceSampleData);
-//   if (pVoice == NULL) {
+//   dra_voice* pVoice;
+//   dra_result result = dra_voice_create(pDevice, dra_format_f32, channels, sampleRate, voiceBufferSizeInBytes, pVoiceSampleData, &pVoice);
+//   if (result != DRA_RESULT_SUCCESS) {
 //       return -1;
 //   }
 //
@@ -89,7 +94,7 @@
 //   ...
 //
 //   dra_voice_delete(pVoice);
-//   dra_device_close(pDevice);
+//   dra_device_uninit(pDevice);
 //   dra_context_uninit(pContext);
 //
 // In the above example the voice and device are configured to use the same number of channels and sample rate, however they are
@@ -110,8 +115,9 @@
 // controls for music, voices, special effects, etc. To do submixing, all you need to do is create a mixer. There is a master mixer
 // associated with every device, and all newly created mixers are a child of the master mixer, by default:
 //
-//   dra_mixer* pMusicMixer = dra_mixer_create(pDevice);
-//   if (pMusicMixer == NULL) {
+//   dra_mixer* pMusicMixer;
+//   dra_result result = dra_mixer_create(pDevice, &pMusicMixer);
+//   if (result != DRA_RESULT_SUCCESS) {
 //      return -1;
 //   }
 //
