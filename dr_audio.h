@@ -4782,36 +4782,9 @@ void dra_sound_set_on_play(dra_sound* pSound, dra_event_proc proc, void* pUserDa
 // - Forward declare every backend function and document them.
 // - Add support for the push API in stb_vorbis.
 
-// This is attempt #2 at creating an easy to use library for audio playback and recording. The first attempt
-// had too much reliance on the backend API which made adding new ones too complex and error prone. It was
-// also badly designed with respect to how the API was layered.
-
 // DEVELOPMENT NOTES AND BRAINSTORMING
 //
 // This is just random brainstorming and is likely very out of date and often just outright incorrect.
-//
-//
-// API Hierarchy (from lowest level to highest).
-//
-// Platform specific
-// dra_backend (dra_backend_alsa, dra_backend_dsound) <-- This is the ONLY place with platform-specific code.
-// dra_backend_device
-//
-// Cross platform
-// dra_context                                        <-- Has an instantiation of a dra_backend object. Cross-platform.
-// dra_device                                         <-- Created and owned by a dra_context object and be an input (recording) or an output (playback) device.
-// dra_voice                                          <-- Created and owned by a dra_device object and used by an application to deliver audio data to the backend.
-//
-//
-// In order to make the API easier to use, have simple no-hassle APIs which use appropriate defaults, and then
-// have an _ex version for the complex stuff. Example:
-//
-//   dra_device_open_ex(pContext, deviceType, deviceID, format, sampleRate, channels, latencyInMilliseconds);
-//   dra_device_open(pContext, deviceType) ==> dra_device_open_ex(pContext, deviceType, defaultDeviceID, dra_format_pcm_32, 48000, deviceChannelCount, DR_AUDIO_DEFAULT_LATENCY);
-//
-//
-// Buffers are optimal if they're created in the same format as the device. If they're in a different format
-// they must go through a conversion process.
 //
 //
 // Latency
