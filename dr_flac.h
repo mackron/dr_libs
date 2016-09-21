@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.3e - 2016-09-18
+// dr_flac - v0.3f - 2016-09-21
 //
 // David Reid - mackron@gmail.com
 
@@ -1195,7 +1195,7 @@ static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
         }
     }
 
-    
+
     // The cache should be reset to force a reload of fresh data from the client.
     drflac__reset_cache(bs);
     return true;
@@ -2405,7 +2405,7 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
     }
 
 
-    drflac_seekpoint closestSeekpoint = {0};
+    drflac_seekpoint closestSeekpoint = {0, 0, 0};
 
     uint32_t seekpointsRemaining = seekpointCount;
     while (seekpointsRemaining > 0)
@@ -2434,7 +2434,7 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
     if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos + closestSeekpoint.frameOffset)) {
         return false;
     }
-    
+
 
     uint64_t firstSampleInFrame = 0;
     uint64_t lastSampleInFrame = 0;
@@ -3265,7 +3265,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
     uint64_t firstSampleInFrame = runningGranulePosition;
     for (;;)
     {
-        // NOTE for later: When using Ogg's page/segment based seeking later on we can't use this function (or any drflac__* 
+        // NOTE for later: When using Ogg's page/segment based seeking later on we can't use this function (or any drflac__*
         // reading functions) because otherwise it will pull extra data for use in it's own internal caches which will then
         // break the positioning of the read pointer for the Ogg bitstream.
         if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
@@ -3280,7 +3280,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
             break;  // The sample is in this frame.
         }
 
-        
+
         // If we get here it means the sample is not in this frame so we need to move to the next one. Now the cool thing
         // with Ogg is that we can efficiently seek past the frame by looking at the lacing values of each segment in
         // the page.
@@ -3493,13 +3493,13 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
 
     uint8_t id[4];
     if (onRead(pUserData, id, 4) != 4) {
-        return false;   
+        return false;
     }
-    
+
     if (id[0] == 'f' && id[1] == 'L' && id[2] == 'a' && id[3] == 'C') {
         return drflac__init_private__native(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD);
     }
-    
+
 #ifndef DR_FLAC_NO_OGG
     if (id[0] == 'O' && id[1] == 'g' && id[2] == 'g' && id[3] == 'S') {
         return drflac__init_private__ogg(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD);
@@ -3542,7 +3542,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     size_t allocationSize = sizeof(drflac);
     allocationSize += init.maxBlockSize * init.channels * sizeof(int32_t);
     //allocationSize += init.seektableSize;
-    
+
 
 #ifndef DR_FLAC_NO_OGG
     // There's additional data required for Ogg streams.
@@ -3792,7 +3792,7 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
     {
         pFlac->bs.pUserData = &pFlac->memoryStream;
     }
-    
+
     return pFlac;
 }
 
@@ -4126,7 +4126,7 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
             return drflac__seek_to_sample__brute_force(pFlac, sampleIndex);
         }
     }
-    
+
 
     return true;
 }
@@ -4151,7 +4151,7 @@ int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRateOu
         if (pSampleData == NULL) {
             goto on_error;
         }
-        
+
         uint64_t samplesRead;
         while ((samplesRead = (uint64_t)drflac_read_s32(pFlac, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0)
         {
@@ -4292,6 +4292,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 // REVISION HISTORY
+//
+// v0.3f - 2016-09-21
+//   - Fix a warning with GCC.
 //
 // v0.3e - 2016-09-18
 //   - Fixed a bug where GCC 4.3+ was not getting properly identified.
