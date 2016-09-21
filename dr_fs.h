@@ -2230,7 +2230,7 @@ static drfs_result drfs_open_native_file(const char* absolutePath, unsigned int 
 {
     assert(absolutePath != NULL);
     assert(pHandleOut != NULL);
-    
+
     *pHandleOut = NULL;
 
     int flags = 0;
@@ -4726,6 +4726,7 @@ bool drfs_eof(drfs_file* pFile)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wunused-macros"
     #pragma GCC diagnostic ignored "-Wcast-align"
+    #pragma GCC diagnostic ignored "-Wextra"
 
     // Clang emits a warning when trying to disable unknown warnings. *sigh*
 #ifndef __clang__
