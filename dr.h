@@ -779,6 +779,18 @@ int strncat_s(char (&dst)[dstSizeInBytes], const char* src, size_t count)
 #include <string.h>     // For memmove()
 #include <errno.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <pthread.h>
+#include <fcntl.h>
+#include <semaphore.h>
+#include <dirent.h>
+#endif
+
 int dr_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
 {
     if (dst == 0) {
@@ -2836,8 +2848,6 @@ void dr_free_argv(char** argv)
 // Threading
 
 #if defined(_WIN32)
-#include <windows.h>
-
 void dr_sleep(unsigned int milliseconds)
 {
     Sleep((DWORD)milliseconds);
@@ -3009,13 +3019,6 @@ bool dr_release_semaphore(dr_semaphore semaphore)
     return ReleaseSemaphore((HANDLE)semaphore, 1, NULL) != 0;
 }
 #else
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <pthread.h>
-#include <fcntl.h>
-#include <semaphore.h>
-
 void dr_sleep(unsigned int milliseconds)
 {
     usleep(milliseconds * 1000);    // <-- usleep is in microseconds.
@@ -3045,7 +3048,7 @@ typedef struct
 
 static void* dr_thread_entry_proc_posix(void* pDataIn)
 {
-    dr_thread_posix* pThreadPosix = pDataIn;
+    dr_thread_posix* pThreadPosix = (dr_thread_posix*)pDataIn;
     assert(pThreadPosix != NULL);
 
     void* pEntryProcData = pThreadPosix->pData;
@@ -3063,7 +3066,7 @@ dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
         return NULL;
     }
 
-    dr_thread_posix* pThreadPosix = malloc(sizeof(*pThreadPosix));
+    dr_thread_posix* pThreadPosix = (dr_thread_posix*)malloc(sizeof(*pThreadPosix));
     if (pThreadPosix != NULL)
     {
         pThreadPosix->entryProc     = entryProc;
@@ -3101,7 +3104,7 @@ void dr_wait_thread(dr_thread thread)
 
 dr_mutex dr_create_mutex()
 {
-    pthread_mutex_t* mutex = malloc(sizeof(pthread_mutex_t));
+    pthread_mutex_t* mutex = (pthread_mutex_t*)malloc(sizeof(*mutex));
     if (pthread_mutex_init(mutex, NULL) != 0) {
         free(mutex);
         mutex = NULL;
@@ -3112,24 +3115,24 @@ dr_mutex dr_create_mutex()
 
 void dr_delete_mutex(dr_mutex mutex)
 {
-    pthread_mutex_destroy(mutex);
+    pthread_mutex_destroy((pthread_mutex_t*)mutex);
 }
 
 void dr_lock_mutex(dr_mutex mutex)
 {
-    pthread_mutex_lock(mutex);
+    pthread_mutex_lock((pthread_mutex_t*)mutex);
 }
 
 void dr_unlock_mutex(dr_mutex mutex)
 {
-    pthread_mutex_unlock(mutex);
+    pthread_mutex_unlock((pthread_mutex_t*)mutex);
 }
 
 
 
 dr_semaphore dr_create_semaphore(int initialValue)
 {
-    sem_t* semaphore = malloc(sizeof(sem_t));
+    sem_t* semaphore = (sem_t*)malloc(sizeof(*semaphore));
     if (sem_init(semaphore, 0, (unsigned int)initialValue) == -1) {
         free(semaphore);
         semaphore = NULL;
@@ -3140,17 +3143,17 @@ dr_semaphore dr_create_semaphore(int initialValue)
 
 void dr_delete_semaphore(dr_semaphore semaphore)
 {
-    sem_close(semaphore);
+    sem_close((sem_t*)semaphore);
 }
 
 bool dr_wait_semaphore(dr_semaphore semaphore)
 {
-    return sem_wait(semaphore) != -1;
+    return sem_wait((sem_t*)semaphore) != -1;
 }
 
 bool dr_release_semaphore(dr_semaphore semaphore)
 {
-    return sem_post(semaphore) != -1;
+    return sem_post((sem_t*)semaphore) != -1;
 }
 #endif
 

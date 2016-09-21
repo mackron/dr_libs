@@ -4358,7 +4358,7 @@ dra_result dra_voice_create_from_file(dra_device* pDevice, const char* filePath,
     uint64_t totalSampleCount;
     float* pSampleData = dra_decoder_open_and_decode_file_f32(filePath, &channels, &sampleRate, &totalSampleCount);
     if (pSampleData == NULL) {
-        return NULL;
+        return OC_RESULT_UNKNOWN_ERROR;
     }
 
     dra_result result = dra_voice_create(pDevice, dra_format_f32, channels, sampleRate, (size_t)totalSampleCount * sizeof(float), pSampleData, ppVoice);
@@ -4594,17 +4594,17 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
     }
 
     bool isStreaming = false;
+    dra_result result = DRA_RESULT_SUCCESS;
 
     dra_sound* pSound = (dra_sound*)calloc(1, sizeof(*pSound));
     if (pSound == NULL) {
+        result = DRA_RESULT_OUT_OF_MEMORY;
         goto on_error;
     }
 
     pSound->pWorld = pWorld;
     pSound->desc   = *pDesc;
     
-    dra_result result = DRA_RESULT_SUCCESS;
-
     isStreaming = dra_sound__is_streaming(pSound);
     if (!isStreaming) {
         result = dra_voice_create(pWorld->pPlaybackDevice, pDesc->format, pDesc->channels, pDesc->sampleRate, pDesc->dataSize, pDesc->pData, &pSound->pVoice);
