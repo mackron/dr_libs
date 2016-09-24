@@ -4120,13 +4120,10 @@ drfs_result drfs_get_file_info(drfs_context* pContext, const char* absoluteOrRel
 
 bool drfs_begin(drfs_context* pContext, const char* absoluteOrRelativePath, drfs_iterator* pIteratorOut)
 {
-    if (pIteratorOut == NULL) {
-        return false;
-    }
-
+    if (pIteratorOut == NULL) return false;
     memset(pIteratorOut, 0, sizeof(*pIteratorOut));
 
-    if (pContext == NULL || absoluteOrRelativePath == NULL || pIteratorOut == NULL) {
+    if (pContext == NULL || absoluteOrRelativePath == NULL) {
         return false;
     }
 
