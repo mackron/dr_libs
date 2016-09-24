@@ -214,7 +214,7 @@ DR_INLINE int dr_utf32_to_utf16_ch(unsigned int utf32, unsigned short utf16[2])
         {
             // Invalid.
             utf16[0] = 0;
-            utf16[0] = 0;
+            utf16[1] = 0;
             return 0;
         }
     }
