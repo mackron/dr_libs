@@ -2531,7 +2531,7 @@ bool dr_cmdline_next(dr_cmdline_iterator* i)
 
 
             // Move to the start of the next argument.
-            while (i->value[0] != '\0' && i->value[0] == ' ') {
+            while (i->value[0] == ' ') {
                 i->value += 1;
             }
 
