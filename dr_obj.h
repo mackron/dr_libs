@@ -648,9 +648,10 @@ bool drobj__atof(const char* str, const char* strEnd, float* pResultOut, const c
 
 
             // Exponential notation.
-            float esign = 1;
-            float evalue = 0;
             if (*str == 'e') {
+                float esign = 1;
+                float evalue = 0;
+
                 str += 1;
                 if (*str == '-') {
                     esign = -1;
