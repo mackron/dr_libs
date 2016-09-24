@@ -2001,7 +2001,7 @@ bool dr_move_file(const char* oldPath, const char* newPath)
 
 bool dr_copy_file(const char* srcPath, const char* dstPath, bool failIfExists)
 {
-    if (dstPath == NULL || dstPath == NULL) {
+    if (srcPath == NULL || dstPath == NULL) {
         return false;
     }
 
