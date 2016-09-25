@@ -4437,7 +4437,10 @@ void drfs_free(void* p)
 
 bool drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize)
 {
-    if (pContext == NULL || relativePath == NULL || absolutePathOut == NULL || absolutePathOutSize == 0) {
+    if (absolutePathOut == NULL) return false;
+    if (absolutePathOutSize > 0) absolutePathOut[0] = '\0';
+
+    if (pContext == NULL || relativePath == NULL || absolutePathOutSize == 0) {
         return false;
     }
 
@@ -4451,7 +4454,10 @@ bool drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, c
 
 bool drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize)
 {
-    if (pContext == NULL || relativePath == NULL || highestPriorityBasePath == NULL || absolutePathOut == NULL || absolutePathOutSize == 0) {
+    if (absolutePathOut == NULL) return false;
+    if (absolutePathOutSize > 0) absolutePathOut[0] = '\0';
+
+    if (pContext == NULL || relativePath == NULL || highestPriorityBasePath == NULL || absolutePathOutSize == 0) {
         return false;
     }
 
