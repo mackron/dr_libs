@@ -1770,7 +1770,7 @@ bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
 
 bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
-    return strcpy_s(pathOut, pathOutSize, "var/log");
+    return strcpy_s(pathOut, pathOutSize, "var/log") == 0;
 }
 
 const char* dr_get_current_directory(char* pathOut, size_t pathOutSize)
