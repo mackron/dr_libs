@@ -1605,7 +1605,15 @@ const char* dr_next_token(const char* tokens, char* tokenOut, size_t tokenOutSiz
 // Known Folders
 
 #if defined(_WIN32)
+#if defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable:4091)   // 'typedef ': ignored on left of 'tagGPFIDL_FLAGS' when no variable is declared
+#endif
 #include <shlobj.h>
+#if defined(_MSC_VER)
+    #pragma warning(pop)
+#endif
+
 
 bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
 {
