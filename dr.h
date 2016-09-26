@@ -3171,7 +3171,7 @@ bool dr_release_semaphore(dr_semaphore semaphore)
 // Timing
 
 #ifdef _WIN32
-static LARGE_INTEGER g_DRTimerFrequency = {.QuadPart = 0};
+static LARGE_INTEGER g_DRTimerFrequency = {{0}};
 void dr_timer_init(dr_timer* pTimer)
 {
     if (g_DRTimerFrequency.QuadPart == 0) {
