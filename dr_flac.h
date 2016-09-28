@@ -606,15 +606,15 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
 // read samples into a dynamically sized buffer on the heap until no samples are left.
 //
 // Do not call this function on a broadcast type of stream (like internet radio streams and whatnot).
-int32_t* drflac_open_and_decode(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+int32_t* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
 
 #ifndef DR_FLAC_NO_STDIO
-// Same as drflac_open_and_decode() except opens the decoder from a file.
-int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+// Same as drflac_open_and_decode_s32() except opens the decoder from a file.
+int32_t* drflac_open_and_decode_file_s32(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
 #endif
 
-// Same as drflac_open_and_decode() except opens the decoder from a block of memory.
-int32_t* drflac_open_and_decode_memory(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+// Same as drflac_open_and_decode_s32() except opens the decoder from a block of memory.
+int32_t* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
 
 // Frees data returned by drflac_open_and_decode_*().
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
@@ -640,7 +640,6 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 #ifdef __cplusplus
 }
 #endif
-
 #endif  //dr_flac_h
 
 
@@ -4219,7 +4218,7 @@ on_error:
     return NULL;
 }
 
-int32_t* drflac_open_and_decode(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+int32_t* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
 {
     // Safety.
     if (sampleRate) *sampleRate = 0;
@@ -4235,7 +4234,7 @@ int32_t* drflac_open_and_decode(drflac_read_proc onRead, drflac_seek_proc onSeek
 }
 
 #ifndef DR_FLAC_NO_STDIO
-int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+int32_t* drflac_open_and_decode_file_s32(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
 {
     if (sampleRate) *sampleRate = 0;
     if (channels) *channels = 0;
@@ -4250,7 +4249,7 @@ int32_t* drflac_open_and_decode_file(const char* filename, unsigned int* sampleR
 }
 #endif
 
-int32_t* drflac_open_and_decode_memory(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+int32_t* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
 {
     if (sampleRate) *sampleRate = 0;
     if (channels) *channels = 0;
