@@ -104,7 +104,20 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
+
+#ifndef DR_BOOL_DEFINED
+#define DR_BOOL_DEFINED
+#ifdef _WIN32
+typedef char drBool8;
+typedef int  drBool32;
+#else
+#include <stdint.h>
+typedef int8_t  drBool8;
+typedef int32_t drBool32;
+#endif
+#define DR_TRUE     1
+#define DR_FALSE    0
+#endif
 
 // As data is read from the client it is placed into an internal buffer for fast access. This controls the
 // size of that buffer. Larger values means more speed, but also more memory. In my testing there is diminishing
@@ -249,7 +262,7 @@ typedef struct
         {
             char catalog[128];
             uint64_t leadInSampleCount;
-            bool isCD;
+            drBool32 isCD;
             uint8_t trackCount;
             const uint8_t* pTrackData;
         } cuesheet;
@@ -292,7 +305,7 @@ typedef size_t (* drflac_read_proc)(void* pUserData, void* pBufferOut, size_t by
 //
 // The offset will never be negative. Whether or not it is relative to the beginning or current position is determined
 // by the "origin" parameter which will be either drflac_seek_origin_start or drflac_seek_origin_current.
-typedef bool (* drflac_seek_proc)(void* pUserData, int offset, drflac_seek_origin origin);
+typedef drBool32 (* drflac_seek_proc)(void* pUserData, int offset, drflac_seek_origin origin);
 
 // Callback for when a metadata block is read.
 //
@@ -538,14 +551,14 @@ uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* pBuffer
 // pFlac       [in] The decoder.
 // sampleIndex [in] The index of the sample to seek to. See notes below.
 //
-// Returns true if successful; false otherwise.
+// Returns DR_TRUE if successful; DR_FALSE otherwise.
 //
 // The sample index is based on interleaving. In a stereo stream, for example, the sample at index 0 is the first sample
 // in the left channel; the sample at index 1 is the first sample on the right channel, and so on.
 //
 // When seeking, you will likely want to ensure it's rounded to a multiple of the channel count. You can do this with
 // something like drflac_seek_to_sample(pFlac, (mySampleIndex + (mySampleIndex % pFlac->channels)))
-bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex);
+drBool32 drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex);
 
 
 
@@ -672,7 +685,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 //// Endian Management ////
-static DRFLAC_INLINE bool drflac__is_little_endian()
+static DRFLAC_INLINE drBool32 drflac__is_little_endian()
 {
     int n = 1;
     return (*(char*)&n) == 1;
@@ -805,18 +818,18 @@ static DRFLAC_INLINE uint32_t drflac__le2host_32(uint32_t n)
 #define DRFLAC_CACHE_L2_LINE_COUNT(bs)                  (DRFLAC_CACHE_L2_SIZE_BYTES(bs) / sizeof((bs)->cacheL2[0]))
 #define DRFLAC_CACHE_L2_LINES_REMAINING(bs)             (DRFLAC_CACHE_L2_LINE_COUNT(bs) - (bs)->nextL2Line)
 
-static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac_bs* bs)
+static DRFLAC_INLINE drBool32 drflac__reload_l1_cache_from_l2(drflac_bs* bs)
 {
     // Fast path. Try loading straight from L2.
     if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
         bs->cache = bs->cacheL2[bs->nextL2Line++];
-        return true;
+        return DR_TRUE;
     }
 
     // If we get here it means we've run out of data in the L2 cache. We'll need to fetch more from the client, if there's
     // any left.
     if (bs->unalignedByteCount > 0) {
-        return false;   // If we have any unaligned bytes it means there's not more aligned bytes left in the client.
+        return DR_FALSE;   // If we have any unaligned bytes it means there's not more aligned bytes left in the client.
     }
 
     size_t bytesRead = bs->onRead(bs->pUserData, bs->cacheL2, DRFLAC_CACHE_L2_SIZE_BYTES(bs));
@@ -824,7 +837,7 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac_bs* bs)
     bs->nextL2Line = 0;
     if (bytesRead == DRFLAC_CACHE_L2_SIZE_BYTES(bs)) {
         bs->cache = bs->cacheL2[bs->nextL2Line++];
-        return true;
+        return DR_TRUE;
     }
 
 
@@ -849,23 +862,23 @@ static DRFLAC_INLINE bool drflac__reload_l1_cache_from_l2(drflac_bs* bs)
 
         bs->nextL2Line = offset;
         bs->cache = bs->cacheL2[bs->nextL2Line++];
-        return true;
+        return DR_TRUE;
     }
     else
     {
         // If we get into this branch it means we weren't able to load any L1-aligned data.
         bs->nextL2Line = DRFLAC_CACHE_L2_LINE_COUNT(bs);
-        return false;
+        return DR_FALSE;
     }
 }
 
-static bool drflac__reload_cache(drflac_bs* bs)
+static drBool32 drflac__reload_cache(drflac_bs* bs)
 {
     // Fast path. Try just moving the next value in the L2 cache to the L1 cache.
     if (drflac__reload_l1_cache_from_l2(bs)) {
         bs->cache = drflac__be2host__cache_line(bs->cache);
         bs->consumedBits = 0;
-        return true;
+        return DR_TRUE;
     }
 
     // Slow path.
@@ -875,7 +888,7 @@ static bool drflac__reload_cache(drflac_bs* bs)
     // data from the unaligned cache.
     size_t bytesRead = bs->unalignedByteCount;
     if (bytesRead == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     assert(bytesRead < DRFLAC_CACHE_L1_SIZE_BYTES(bs));
@@ -883,7 +896,7 @@ static bool drflac__reload_cache(drflac_bs* bs)
 
     bs->cache = drflac__be2host__cache_line(bs->unalignedCache);
     bs->cache &= DRFLAC_CACHE_L1_SELECTION_MASK(DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs->consumedBits);    // <-- Make sure the consumed bits are always set to zero. Other parts of the library depend on this property.
-    return true;
+    return DR_TRUE;
 }
 
 static void drflac__reset_cache(drflac_bs* bs)
@@ -895,12 +908,12 @@ static void drflac__reset_cache(drflac_bs* bs)
     bs->unalignedCache = 0;
 }
 
-static bool drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
+static drBool32 drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
 {
     if (bitsToSeek <= DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
         bs->consumedBits += bitsToSeek;
         bs->cache <<= bitsToSeek;
-        return true;
+        return DR_TRUE;
     } else {
         // It straddles the cached data. This function isn't called too frequently so I'm favouring simplicity here.
         bitsToSeek -= DRFLAC_CACHE_L1_BITS_REMAINING(bs);
@@ -936,17 +949,17 @@ static bool drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
 
         if (bitsToSeek > 0) {
             if (!drflac__reload_cache(bs)) {
-                return false;
+                return DR_FALSE;
             }
 
             return drflac__seek_bits(bs, bitsToSeek);
         }
 
-        return true;
+        return DR_TRUE;
     }
 }
 
-static bool drflac__read_uint32(drflac_bs* bs, unsigned int bitCount, uint32_t* pResultOut)
+static drBool32 drflac__read_uint32(drflac_bs* bs, unsigned int bitCount, uint32_t* pResultOut)
 {
     assert(bs != NULL);
     assert(pResultOut != NULL);
@@ -955,7 +968,7 @@ static bool drflac__read_uint32(drflac_bs* bs, unsigned int bitCount, uint32_t* 
 
     if (bs->consumedBits == DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
         if (!drflac__reload_cache(bs)) {
-            return false;
+            return DR_FALSE;
         }
     }
 
@@ -969,7 +982,7 @@ static bool drflac__read_uint32(drflac_bs* bs, unsigned int bitCount, uint32_t* 
             bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);
             bs->cache = 0;
         }
-        return true;
+        return DR_TRUE;
     } else {
         // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
         size_t bitCountHi = DRFLAC_CACHE_L1_BITS_REMAINING(bs);
@@ -977,17 +990,17 @@ static bool drflac__read_uint32(drflac_bs* bs, unsigned int bitCount, uint32_t* 
         uint32_t resultHi = DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountHi);
 
         if (!drflac__reload_cache(bs)) {
-            return false;
+            return DR_FALSE;
         }
 
         *pResultOut = (resultHi << bitCountLo) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountLo);
         bs->consumedBits += bitCountLo;
         bs->cache <<= bitCountLo;
-        return true;
+        return DR_TRUE;
     }
 }
 
-static bool drflac__read_int32(drflac_bs* bs, unsigned int bitCount, int32_t* pResult)
+static drBool32 drflac__read_int32(drflac_bs* bs, unsigned int bitCount, int32_t* pResult)
 {
     assert(bs != NULL);
     assert(pResult != NULL);
@@ -996,55 +1009,55 @@ static bool drflac__read_int32(drflac_bs* bs, unsigned int bitCount, int32_t* pR
 
     uint32_t result;
     if (!drflac__read_uint32(bs, bitCount, &result)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint32_t signbit = ((result >> (bitCount-1)) & 0x01);
     result |= (~signbit + 1) << bitCount;
 
     *pResult = (int32_t)result;
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__read_uint64(drflac_bs* bs, unsigned int bitCount, uint64_t* pResultOut)
+static drBool32 drflac__read_uint64(drflac_bs* bs, unsigned int bitCount, uint64_t* pResultOut)
 {
     assert(bitCount <= 64);
     assert(bitCount >  32);
 
     uint32_t resultHi;
     if (!drflac__read_uint32(bs, bitCount - 32, &resultHi)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint32_t resultLo;
     if (!drflac__read_uint32(bs, 32, &resultLo)) {
-        return false;
+        return DR_FALSE;
     }
 
     *pResultOut = (((uint64_t)resultHi) << 32) | ((uint64_t)resultLo);
-    return true;
+    return DR_TRUE;
 }
 
 // Function below is unused, but leaving it here in case I need to quickly add it again.
 #if 0
-static bool drflac__read_int64(drflac_bs* bs, unsigned int bitCount, int64_t* pResultOut)
+static drBool32 drflac__read_int64(drflac_bs* bs, unsigned int bitCount, int64_t* pResultOut)
 {
     assert(bitCount <= 64);
 
     uint64_t result;
     if (!drflac__read_uint64(bs, bitCount, &result)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint64_t signbit = ((result >> (bitCount-1)) & 0x01);
     result |= (~signbit + 1) << bitCount;
 
     *pResultOut = (int64_t)result;
-    return true;
+    return DR_TRUE;
 }
 #endif
 
-static bool drflac__read_uint16(drflac_bs* bs, unsigned int bitCount, uint16_t* pResult)
+static drBool32 drflac__read_uint16(drflac_bs* bs, unsigned int bitCount, uint16_t* pResult)
 {
     assert(bs != NULL);
     assert(pResult != NULL);
@@ -1053,14 +1066,14 @@ static bool drflac__read_uint16(drflac_bs* bs, unsigned int bitCount, uint16_t* 
 
     uint32_t result;
     if (!drflac__read_uint32(bs, bitCount, &result)) {
-        return false;
+        return DR_FALSE;
     }
 
     *pResult = (uint16_t)result;
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__read_int16(drflac_bs* bs, unsigned int bitCount, int16_t* pResult)
+static drBool32 drflac__read_int16(drflac_bs* bs, unsigned int bitCount, int16_t* pResult)
 {
     assert(bs != NULL);
     assert(pResult != NULL);
@@ -1069,14 +1082,14 @@ static bool drflac__read_int16(drflac_bs* bs, unsigned int bitCount, int16_t* pR
 
     int32_t result;
     if (!drflac__read_int32(bs, bitCount, &result)) {
-        return false;
+        return DR_FALSE;
     }
 
     *pResult = (int16_t)result;
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__read_uint8(drflac_bs* bs, unsigned int bitCount, uint8_t* pResult)
+static drBool32 drflac__read_uint8(drflac_bs* bs, unsigned int bitCount, uint8_t* pResult)
 {
     assert(bs != NULL);
     assert(pResult != NULL);
@@ -1085,14 +1098,14 @@ static bool drflac__read_uint8(drflac_bs* bs, unsigned int bitCount, uint8_t* pR
 
     uint32_t result;
     if (!drflac__read_uint32(bs, bitCount, &result)) {
-        return false;
+        return DR_FALSE;
     }
 
     *pResult = (uint8_t)result;
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__read_int8(drflac_bs* bs, unsigned int bitCount, int8_t* pResult)
+static drBool32 drflac__read_int8(drflac_bs* bs, unsigned int bitCount, int8_t* pResult)
 {
     assert(bs != NULL);
     assert(pResult != NULL);
@@ -1101,21 +1114,21 @@ static bool drflac__read_int8(drflac_bs* bs, unsigned int bitCount, int8_t* pRes
 
     int32_t result;
     if (!drflac__read_int32(bs, bitCount, &result)) {
-        return false;
+        return DR_FALSE;
     }
 
     *pResult = (int8_t)result;
-    return true;
+    return DR_TRUE;
 }
 
 
-static inline bool drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned int* pOffsetOut)
+static inline drBool32 drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned int* pOffsetOut)
 {
     unsigned int zeroCounter = 0;
     while (bs->cache == 0) {
         zeroCounter += (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
         if (!drflac__reload_cache(bs)) {
-            return false;
+            return DR_FALSE;
         }
     }
 
@@ -1152,12 +1165,12 @@ static inline bool drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned int* p
     bs->cache <<= setBitOffsetPlus1;
 
     *pOffsetOut = zeroCounter + setBitOffsetPlus1 - 1;
-    return true;
+    return DR_TRUE;
 }
 
 
 
-static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
+static drBool32 drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
 {
     assert(bs != NULL);
     assert(offsetFromStart > 0);
@@ -1169,14 +1182,14 @@ static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
     {
         uint64_t bytesRemaining = offsetFromStart;
         if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_start)) {
-            return false;
+            return DR_FALSE;
         }
         bytesRemaining -= 0x7FFFFFFF;
 
 
         while (bytesRemaining > 0x7FFFFFFF) {
             if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_current)) {
-                return false;
+                return DR_FALSE;
             }
             bytesRemaining -= 0x7FFFFFFF;
         }
@@ -1184,25 +1197,25 @@ static bool drflac__seek_to_byte(drflac_bs* bs, uint64_t offsetFromStart)
 
         if (bytesRemaining > 0) {
             if (!bs->onSeek(bs->pUserData, (int)bytesRemaining, drflac_seek_origin_current)) {
-                return false;
+                return DR_FALSE;
             }
         }
     }
     else
     {
         if (!bs->onSeek(bs->pUserData, (int)offsetFromStart, drflac_seek_origin_start)) {
-            return false;
+            return DR_FALSE;
         }
     }
 
 
     // The cache should be reset to force a reload of fresh data from the client.
     drflac__reset_cache(bs);
-    return true;
+    return DR_TRUE;
 }
 
 
-static bool drflac__read_utf8_coded_number(drflac_bs* bs, uint64_t* pNumberOut)
+static drBool32 drflac__read_utf8_coded_number(drflac_bs* bs, uint64_t* pNumberOut)
 {
     assert(bs != NULL);
     assert(pNumberOut != NULL);
@@ -1210,12 +1223,12 @@ static bool drflac__read_utf8_coded_number(drflac_bs* bs, uint64_t* pNumberOut)
     unsigned char utf8[7] = {0};
     if (!drflac__read_uint8(bs, 8, utf8)) {
         *pNumberOut = 0;
-        return false;
+        return DR_FALSE;
     }
 
     if ((utf8[0] & 0x80) == 0) {
         *pNumberOut = utf8[0];
-        return true;
+        return DR_TRUE;
     }
 
     int byteCount = 1;
@@ -1233,7 +1246,7 @@ static bool drflac__read_utf8_coded_number(drflac_bs* bs, uint64_t* pNumberOut)
         byteCount = 7;
     } else {
         *pNumberOut = 0;
-        return false;     // Bad UTF-8 encoding.
+        return DR_FALSE;     // Bad UTF-8 encoding.
     }
 
     // Read extra bytes.
@@ -1243,32 +1256,32 @@ static bool drflac__read_utf8_coded_number(drflac_bs* bs, uint64_t* pNumberOut)
     for (int i = 1; i < byteCount; ++i) {
         if (!drflac__read_uint8(bs, 8, utf8 + i)) {
             *pNumberOut = 0;
-            return false;
+            return DR_FALSE;
         }
 
         result = (result << 6) | (utf8[i] & 0x3F);
     }
 
     *pNumberOut = result;
-    return true;
+    return DR_TRUE;
 }
 
 
 
-static DRFLAC_INLINE bool drflac__read_and_seek_rice(drflac_bs* bs, uint8_t m)
+static DRFLAC_INLINE drBool32 drflac__read_and_seek_rice(drflac_bs* bs, uint8_t m)
 {
     unsigned int unused;
     if (!drflac__seek_past_next_set_bit(bs, &unused)) {
-        return false;
+        return DR_FALSE;
     }
 
     if (m > 0) {
         if (!drflac__seek_bits(bs, m)) {
-            return false;
+            return DR_FALSE;
         }
     }
 
-    return true;
+    return DR_TRUE;
 }
 
 
@@ -1508,7 +1521,7 @@ static DRFLAC_INLINE int32_t drflac__calculate_prediction_64(uint32_t order, int
 // iteration. The prediction is done at the end, and there's an annoying branch I'd like to avoid so the main function is defined
 // as a #define - sue me!
 #define DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(funcName, predictionFunc)                                                                                  \
-static bool funcName (drflac_bs* bs, uint32_t count, uint8_t riceParam, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pSamplesOut)           \
+static drBool32 funcName (drflac_bs* bs, uint32_t count, uint8_t riceParam, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pSamplesOut)           \
 {                                                                                                                                                                   \
     assert(bs != NULL);                                                                                                                                             \
     assert(count > 0);                                                                                                                                              \
@@ -1531,7 +1544,7 @@ static bool funcName (drflac_bs* bs, uint32_t count, uint8_t riceParam, uint32_t
         while (bs->cache == 0) {                                                                                                                                    \
             zeroCounter += (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING(bs);                                                                                        \
             if (!drflac__reload_cache(bs)) {                                                                                                                        \
-                return false;                                                                                                                                       \
+                return DR_FALSE;                                                                                                                                       \
             }                                                                                                                                                       \
         }                                                                                                                                                           \
                                                                                                                                                                     \
@@ -1586,7 +1599,7 @@ static bool funcName (drflac_bs* bs, uint32_t count, uint8_t riceParam, uint32_t
             } else {                                                                                                                                                \
                 /* Slow path. We need to fetch more data from the client. */                                                                                        \
                 if (!drflac__reload_cache(bs)) {                                                                                                                    \
-                    return false;                                                                                                                                   \
+                    return DR_FALSE;                                                                                                                                   \
                 }                                                                                                                                                   \
             }                                                                                                                                                       \
                                                                                                                                                                     \
@@ -1610,7 +1623,7 @@ static bool funcName (drflac_bs* bs, uint32_t count, uint8_t riceParam, uint32_t
         pSamplesOut[i] = ((int)decodedRice + predictionFunc(order, shift, coefficients, pSamplesOut + i));                                                          \
     }                                                                                                                                                               \
                                                                                                                                                                     \
-    return true;                                                                                                                                                    \
+    return DR_TRUE;                                                                                                                                                    \
 }                                                                                                                                                                   \
 
 DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(drflac__decode_samples_with_residual__rice_64, drflac__calculate_prediction_64)
@@ -1618,21 +1631,21 @@ DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(drflac__decode_samples_with_res
 
 
 // Reads and seeks past a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
-static bool drflac__read_and_seek_residual__rice(drflac_bs* bs, uint32_t count, uint8_t riceParam)
+static drBool32 drflac__read_and_seek_residual__rice(drflac_bs* bs, uint32_t count, uint8_t riceParam)
 {
     assert(bs != NULL);
     assert(count > 0);
 
     for (uint32_t i = 0; i < count; ++i) {
         if (!drflac__read_and_seek_rice(bs, riceParam)) {
-            return false;
+            return DR_FALSE;
         }
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, uint32_t bitsPerSample, uint32_t count, uint8_t unencodedBitsPerSample, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pSamplesOut)
+static drBool32 drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, uint32_t bitsPerSample, uint32_t count, uint8_t unencodedBitsPerSample, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pSamplesOut)
 {
     assert(bs != NULL);
     assert(count > 0);
@@ -1642,7 +1655,7 @@ static bool drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, uint3
     for (unsigned int i = 0; i < count; ++i)
     {
         if (!drflac__read_int32(bs, unencodedBitsPerSample, pSamplesOut + i)) {
-            return false;
+            return DR_FALSE;
         }
 
         if (bitsPerSample > 16) {
@@ -1652,14 +1665,14 @@ static bool drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, uint3
         }
     }
 
-    return true;
+    return DR_TRUE;
 }
 
 
 // Reads and decodes the residual for the sub-frame the decoder is currently sitting on. This function should be called
 // when the decoder is sitting at the very start of the RESIDUAL block. The first <order> residuals will be ignored. The
 // <blockSize> and <order> parameters are used to determine how many residual values need to be decoded.
-static bool drflac__decode_samples_with_residual(drflac_bs* bs, uint32_t bitsPerSample, uint32_t blockSize, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pDecodedSamples)
+static drBool32 drflac__decode_samples_with_residual(drflac_bs* bs, uint32_t bitsPerSample, uint32_t blockSize, uint32_t order, int32_t shift, const int16_t* coefficients, int32_t* pDecodedSamples)
 {
     assert(bs != NULL);
     assert(blockSize != 0);
@@ -1667,11 +1680,11 @@ static bool drflac__decode_samples_with_residual(drflac_bs* bs, uint32_t bitsPer
 
     uint8_t residualMethod;
     if (!drflac__read_uint8(bs, 2, &residualMethod)) {
-        return false;
+        return DR_FALSE;
     }
 
     if (residualMethod != DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE && residualMethod != DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
-        return false;    // Unknown or unsupported residual coding method.
+        return DR_FALSE;    // Unknown or unsupported residual coding method.
     }
 
     // Ignore the first <order> values.
@@ -1680,7 +1693,7 @@ static bool drflac__decode_samples_with_residual(drflac_bs* bs, uint32_t bitsPer
 
     uint8_t partitionOrder;
     if (!drflac__read_uint8(bs, 4, &partitionOrder)) {
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -1691,14 +1704,14 @@ static bool drflac__decode_samples_with_residual(drflac_bs* bs, uint32_t bitsPer
         uint8_t riceParam = 0;
         if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE) {
             if (!drflac__read_uint8(bs, 4, &riceParam)) {
-                return false;
+                return DR_FALSE;
             }
             if (riceParam == 16) {
                 riceParam = 0xFF;
             }
         } else if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
             if (!drflac__read_uint8(bs, 5, &riceParam)) {
-                return false;
+                return DR_FALSE;
             }
             if (riceParam == 32) {
                 riceParam = 0xFF;
@@ -1708,21 +1721,21 @@ static bool drflac__decode_samples_with_residual(drflac_bs* bs, uint32_t bitsPer
         if (riceParam != 0xFF) {
             if (bitsPerSample > 16) {
                 if (!drflac__decode_samples_with_residual__rice_64(bs, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
-                    return false;
+                    return DR_FALSE;
                 }
             } else {
                 if (!drflac__decode_samples_with_residual__rice_32(bs, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
-                    return false;
+                    return DR_FALSE;
                 }
             }
         } else {
             unsigned char unencodedBitsPerSample = 0;
             if (!drflac__read_uint8(bs, 5, &unencodedBitsPerSample)) {
-                return false;
+                return DR_FALSE;
             }
 
             if (!drflac__decode_samples_with_residual__unencoded(bs, bitsPerSample, samplesInPartition, unencodedBitsPerSample, order, shift, coefficients, pDecodedSamples)) {
-                return false;
+                return DR_FALSE;
             }
         }
 
@@ -1737,29 +1750,29 @@ static bool drflac__decode_samples_with_residual(drflac_bs* bs, uint32_t bitsPer
         samplesInPartition = blockSize / (1 << partitionOrder);
     }
 
-    return true;
+    return DR_TRUE;
 }
 
 // Reads and seeks past the residual for the sub-frame the decoder is currently sitting on. This function should be called
 // when the decoder is sitting at the very start of the RESIDUAL block. The first <order> residuals will be set to 0. The
 // <blockSize> and <order> parameters are used to determine how many residual values need to be decoded.
-static bool drflac__read_and_seek_residual(drflac_bs* bs, uint32_t blockSize, uint32_t order)
+static drBool32 drflac__read_and_seek_residual(drflac_bs* bs, uint32_t blockSize, uint32_t order)
 {
     assert(bs != NULL);
     assert(blockSize != 0);
 
     uint8_t residualMethod;
     if (!drflac__read_uint8(bs, 2, &residualMethod)) {
-        return false;
+        return DR_FALSE;
     }
 
     if (residualMethod != DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE && residualMethod != DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
-        return false;    // Unknown or unsupported residual coding method.
+        return DR_FALSE;    // Unknown or unsupported residual coding method.
     }
 
     uint8_t partitionOrder;
     if (!drflac__read_uint8(bs, 4, &partitionOrder)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint32_t samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
@@ -1769,14 +1782,14 @@ static bool drflac__read_and_seek_residual(drflac_bs* bs, uint32_t blockSize, ui
         uint8_t riceParam = 0;
         if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE) {
             if (!drflac__read_uint8(bs, 4, &riceParam)) {
-                return false;
+                return DR_FALSE;
             }
             if (riceParam == 16) {
                 riceParam = 0xFF;
             }
         } else if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
             if (!drflac__read_uint8(bs, 5, &riceParam)) {
-                return false;
+                return DR_FALSE;
             }
             if (riceParam == 32) {
                 riceParam = 0xFF;
@@ -1785,16 +1798,16 @@ static bool drflac__read_and_seek_residual(drflac_bs* bs, uint32_t blockSize, ui
 
         if (riceParam != 0xFF) {
             if (!drflac__read_and_seek_residual__rice(bs, samplesInPartition, riceParam)) {
-                return false;
+                return DR_FALSE;
             }
         } else {
             unsigned char unencodedBitsPerSample = 0;
             if (!drflac__read_uint8(bs, 5, &unencodedBitsPerSample)) {
-                return false;
+                return DR_FALSE;
             }
 
             if (!drflac__seek_bits(bs, unencodedBitsPerSample * samplesInPartition)) {
-                return false;
+                return DR_FALSE;
             }
         }
 
@@ -1807,16 +1820,16 @@ static bool drflac__read_and_seek_residual(drflac_bs* bs, uint32_t blockSize, ui
         samplesInPartition = blockSize / (1 << partitionOrder);
     }
 
-    return true;
+    return DR_TRUE;
 }
 
 
-static bool drflac__decode_samples__constant(drflac_bs* bs, uint32_t blockSize, uint32_t bitsPerSample, int32_t* pDecodedSamples)
+static drBool32 drflac__decode_samples__constant(drflac_bs* bs, uint32_t blockSize, uint32_t bitsPerSample, int32_t* pDecodedSamples)
 {
     // Only a single sample needs to be decoded here.
     int32_t sample;
     if (!drflac__read_int32(bs, bitsPerSample, &sample)) {
-        return false;
+        return DR_FALSE;
     }
 
     // We don't really need to expand this, but it does simplify the process of reading samples. If this becomes a performance issue (unlikely)
@@ -1825,24 +1838,24 @@ static bool drflac__decode_samples__constant(drflac_bs* bs, uint32_t blockSize, 
         pDecodedSamples[i] = sample;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__decode_samples__verbatim(drflac_bs* bs, uint32_t blockSize, uint32_t bitsPerSample, int32_t* pDecodedSamples)
+static drBool32 drflac__decode_samples__verbatim(drflac_bs* bs, uint32_t blockSize, uint32_t bitsPerSample, int32_t* pDecodedSamples)
 {
     for (uint32_t i = 0; i < blockSize; ++i) {
         int32_t sample;
         if (!drflac__read_int32(bs, bitsPerSample, &sample)) {
-            return false;
+            return DR_FALSE;
         }
 
         pDecodedSamples[i] = sample;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__decode_samples__fixed(drflac_bs* bs, uint32_t blockSize, uint32_t bitsPerSample, uint8_t lpcOrder, int32_t* pDecodedSamples)
+static drBool32 drflac__decode_samples__fixed(drflac_bs* bs, uint32_t blockSize, uint32_t bitsPerSample, uint8_t lpcOrder, int32_t* pDecodedSamples)
 {
     short lpcCoefficientsTable[5][4] = {
         {0,  0, 0,  0},
@@ -1856,7 +1869,7 @@ static bool drflac__decode_samples__fixed(drflac_bs* bs, uint32_t blockSize, uin
     for (uint32_t i = 0; i < lpcOrder; ++i) {
         int32_t sample;
         if (!drflac__read_int32(bs, bitsPerSample, &sample)) {
-            return false;
+            return DR_FALSE;
         }
 
         pDecodedSamples[i] = sample;
@@ -1864,19 +1877,19 @@ static bool drflac__decode_samples__fixed(drflac_bs* bs, uint32_t blockSize, uin
 
 
     if (!drflac__decode_samples_with_residual(bs, bitsPerSample, blockSize, lpcOrder, 0, lpcCoefficientsTable[lpcOrder], pDecodedSamples)) {
-        return false;
+        return DR_FALSE;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__decode_samples__lpc(drflac_bs* bs, uint32_t blockSize, uint32_t bitsPerSample, uint8_t lpcOrder, int32_t* pDecodedSamples)
+static drBool32 drflac__decode_samples__lpc(drflac_bs* bs, uint32_t blockSize, uint32_t bitsPerSample, uint8_t lpcOrder, int32_t* pDecodedSamples)
 {
     // Warm up samples.
     for (uint8_t i = 0; i < lpcOrder; ++i) {
         int32_t sample;
         if (!drflac__read_int32(bs, bitsPerSample, &sample)) {
-            return false;
+            return DR_FALSE;
         }
 
         pDecodedSamples[i] = sample;
@@ -1884,36 +1897,36 @@ static bool drflac__decode_samples__lpc(drflac_bs* bs, uint32_t blockSize, uint3
 
     uint8_t lpcPrecision;
     if (!drflac__read_uint8(bs, 4, &lpcPrecision)) {
-        return false;
+        return DR_FALSE;
     }
     if (lpcPrecision == 15) {
-        return false;    // Invalid.
+        return DR_FALSE;    // Invalid.
     }
     lpcPrecision += 1;
 
 
     int8_t lpcShift;
     if (!drflac__read_int8(bs, 5, &lpcShift)) {
-        return false;
+        return DR_FALSE;
     }
 
 
     int16_t coefficients[32];
     for (uint8_t i = 0; i < lpcOrder; ++i) {
         if (!drflac__read_int16(bs, lpcPrecision, coefficients + i)) {
-            return false;
+            return DR_FALSE;
         }
     }
 
     if (!drflac__decode_samples_with_residual(bs, bitsPerSample, blockSize, lpcOrder, lpcShift, coefficients, pDecodedSamples)) {
-        return false;
+        return DR_FALSE;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
 
-static bool drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBitsPerSample, drflac_frame_header* header)
+static drBool32 drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBitsPerSample, drflac_frame_header* header)
 {
     assert(bs != NULL);
     assert(header != NULL);
@@ -1926,63 +1939,63 @@ static bool drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBits
 
     uint16_t syncCode = 0;
     if (!drflac__read_uint16(bs, 14, &syncCode)) {
-        return false;
+        return DR_FALSE;
     }
 
     if (syncCode != 0x3FFE) {
         // TODO: Try and recover by attempting to seek to and read the next frame?
-        return false;
+        return DR_FALSE;
     }
 
     uint8_t reserved;
     if (!drflac__read_uint8(bs, 1, &reserved)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint8_t blockingStrategy = 0;
     if (!drflac__read_uint8(bs, 1, &blockingStrategy)) {
-        return false;
+        return DR_FALSE;
     }
 
 
 
     uint8_t blockSize = 0;
     if (!drflac__read_uint8(bs, 4, &blockSize)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint8_t sampleRate = 0;
     if (!drflac__read_uint8(bs, 4, &sampleRate)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint8_t channelAssignment = 0;
     if (!drflac__read_uint8(bs, 4, &channelAssignment)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint8_t bitsPerSample = 0;
     if (!drflac__read_uint8(bs, 3, &bitsPerSample)) {
-        return false;
+        return DR_FALSE;
     }
 
     if (!drflac__read_uint8(bs, 1, &reserved)) {
-        return false;
+        return DR_FALSE;
     }
 
 
-    bool isVariableBlockSize = blockingStrategy == 1;
+    drBool32 isVariableBlockSize = blockingStrategy == 1;
     if (isVariableBlockSize) {
         uint64_t sampleNumber;
         if (!drflac__read_utf8_coded_number(bs, &sampleNumber)) {
-            return false;
+            return DR_FALSE;
         }
         header->frameNumber  = 0;
         header->sampleNumber = sampleNumber;
     } else {
         uint64_t frameNumber = 0;
         if (!drflac__read_utf8_coded_number(bs, &frameNumber)) {
-            return false;
+            return DR_FALSE;
         }
         header->frameNumber  = (uint32_t)frameNumber;   // <-- Safe cast.
         header->sampleNumber = 0;
@@ -1995,12 +2008,12 @@ static bool drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBits
         header->blockSize = 576 * (1 << (blockSize - 2));
     } else if (blockSize == 6) {
         if (!drflac__read_uint16(bs, 8, &header->blockSize)) {
-            return false;
+            return DR_FALSE;
         }
         header->blockSize += 1;
     } else if (blockSize == 7) {
         if (!drflac__read_uint16(bs, 16, &header->blockSize)) {
-            return false;
+            return DR_FALSE;
         }
         header->blockSize += 1;
     } else {
@@ -2012,20 +2025,20 @@ static bool drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBits
         header->sampleRate = sampleRateTable[sampleRate];
     } else if (sampleRate == 12) {
         if (!drflac__read_uint32(bs, 8, &header->sampleRate)) {
-            return false;
+            return DR_FALSE;
         }
         header->sampleRate *= 1000;
     } else if (sampleRate == 13) {
         if (!drflac__read_uint32(bs, 16, &header->sampleRate)) {
-            return false;
+            return DR_FALSE;
         }
     } else if (sampleRate == 14) {
         if (!drflac__read_uint32(bs, 16, &header->sampleRate)) {
-            return false;
+            return DR_FALSE;
         }
         header->sampleRate *= 10;
     } else {
-        return false;  // Invalid.
+        return DR_FALSE;  // Invalid.
     }
 
 
@@ -2037,22 +2050,22 @@ static bool drflac__read_next_frame_header(drflac_bs* bs, uint8_t streaminfoBits
     }
 
     if (drflac__read_uint8(bs, 8, &header->crc8) != 1) {
-        return false;
+        return DR_FALSE;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__read_subframe_header(drflac_bs* bs, drflac_subframe* pSubframe)
+static drBool32 drflac__read_subframe_header(drflac_bs* bs, drflac_subframe* pSubframe)
 {
     uint8_t header;
     if (!drflac__read_uint8(bs, 8, &header)) {
-        return false;
+        return DR_FALSE;
     }
 
     // First bit should always be 0.
     if ((header & 0x80) != 0) {
-        return false;
+        return DR_FALSE;
     }
 
     int type = (header & 0x7E) >> 1;
@@ -2077,7 +2090,7 @@ static bool drflac__read_subframe_header(drflac_bs* bs, drflac_subframe* pSubfra
     }
 
     if (pSubframe->subframeType == DRFLAC_SUBFRAME_RESERVED) {
-        return false;
+        return DR_FALSE;
     }
 
     // Wasted bits per sample.
@@ -2085,22 +2098,22 @@ static bool drflac__read_subframe_header(drflac_bs* bs, drflac_subframe* pSubfra
     if ((header & 0x01) == 1) {
         unsigned int wastedBitsPerSample;
         if (!drflac__seek_past_next_set_bit(bs, &wastedBitsPerSample)) {
-            return false;
+            return DR_FALSE;
         }
         pSubframe->wastedBitsPerSample = (unsigned char)wastedBitsPerSample + 1;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame, int subframeIndex, int32_t* pDecodedSamplesOut)
+static drBool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame, int subframeIndex, int32_t* pDecodedSamplesOut)
 {
     assert(bs != NULL);
     assert(frame != NULL);
 
     drflac_subframe* pSubframe = frame->subframes + subframeIndex;
     if (!drflac__read_subframe_header(bs, pSubframe)) {
-        return false;
+        return DR_FALSE;
     }
 
     // Side channels require an extra bit per sample. Took a while to figure that one out...
@@ -2137,20 +2150,20 @@ static bool drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame, int subf
             drflac__decode_samples__lpc(bs, frame->header.blockSize, pSubframe->bitsPerSample, pSubframe->lpcOrder, pSubframe->pDecodedSamples);
         } break;
 
-        default: return false;
+        default: return DR_FALSE;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int subframeIndex)
+static drBool32 drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int subframeIndex)
 {
     assert(bs != NULL);
     assert(frame != NULL);
 
     drflac_subframe* pSubframe = frame->subframes + subframeIndex;
     if (!drflac__read_subframe_header(bs, pSubframe)) {
-        return false;
+        return DR_FALSE;
     }
 
     // Side channels require an extra bit per sample. Took a while to figure that one out...
@@ -2171,7 +2184,7 @@ static bool drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int subfra
         case DRFLAC_SUBFRAME_CONSTANT:
         {
             if (!drflac__seek_bits(bs, pSubframe->bitsPerSample)) {
-                return false;
+                return DR_FALSE;
             }
         } break;
 
@@ -2179,7 +2192,7 @@ static bool drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int subfra
         {
             unsigned int bitsToSeek = frame->header.blockSize * pSubframe->bitsPerSample;
             if (!drflac__seek_bits(bs, bitsToSeek)) {
-                return false;
+                return DR_FALSE;
             }
         } break;
 
@@ -2187,11 +2200,11 @@ static bool drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int subfra
         {
             unsigned int bitsToSeek = pSubframe->lpcOrder * pSubframe->bitsPerSample;
             if (!drflac__seek_bits(bs, bitsToSeek)) {
-                return false;
+                return DR_FALSE;
             }
 
             if (!drflac__read_and_seek_residual(bs, frame->header.blockSize, pSubframe->lpcOrder)) {
-                return false;
+                return DR_FALSE;
             }
         } break;
 
@@ -2199,33 +2212,33 @@ static bool drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int subfra
         {
             unsigned int bitsToSeek = pSubframe->lpcOrder * pSubframe->bitsPerSample;
             if (!drflac__seek_bits(bs, bitsToSeek)) {
-                return false;
+                return DR_FALSE;
             }
 
             unsigned char lpcPrecision;
             if (!drflac__read_uint8(bs, 4, &lpcPrecision)) {
-                return false;
+                return DR_FALSE;
             }
             if (lpcPrecision == 15) {
-                return false;    // Invalid.
+                return DR_FALSE;    // Invalid.
             }
             lpcPrecision += 1;
 
 
             bitsToSeek = (pSubframe->lpcOrder * lpcPrecision) + 5;    // +5 for shift.
             if (!drflac__seek_bits(bs, bitsToSeek)) {
-                return false;
+                return DR_FALSE;
             }
 
             if (!drflac__read_and_seek_residual(bs, frame->header.blockSize, pSubframe->lpcOrder)) {
-                return false;
+                return DR_FALSE;
             }
         } break;
 
-        default: return false;
+        default: return DR_FALSE;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
 
@@ -2237,7 +2250,7 @@ static DRFLAC_INLINE uint8_t drflac__get_channel_count_from_channel_assignment(i
     return lookup[channelAssignment];
 }
 
-static bool drflac__decode_frame(drflac* pFlac)
+static drBool32 drflac__decode_frame(drflac* pFlac)
 {
     // This function should be called while the stream is sitting on the first byte after the frame header.
     memset(pFlac->currentFrame.subframes, 0, sizeof(pFlac->currentFrame.subframes));
@@ -2246,28 +2259,28 @@ static bool drflac__decode_frame(drflac* pFlac)
     for (int i = 0; i < channelCount; ++i)
     {
         if (!drflac__decode_subframe(&pFlac->bs, &pFlac->currentFrame, i, pFlac->pDecodedSamples + (pFlac->currentFrame.header.blockSize * i))) {
-            return false;
+            return DR_FALSE;
         }
     }
 
     // At the end of the frame sits the padding and CRC. We don't use these so we can just seek past.
     if (!drflac__seek_bits(&pFlac->bs, (DRFLAC_CACHE_L1_BITS_REMAINING(&pFlac->bs) & 7) + 16)) {
-        return false;
+        return DR_FALSE;
     }
 
 
     pFlac->currentFrame.samplesRemaining = pFlac->currentFrame.header.blockSize * channelCount;
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__seek_frame(drflac* pFlac)
+static drBool32 drflac__seek_frame(drflac* pFlac)
 {
     int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
     for (int i = 0; i < channelCount; ++i)
     {
         if (!drflac__seek_subframe(&pFlac->bs, &pFlac->currentFrame, i)) {
-            return false;
+            return DR_FALSE;
         }
     }
 
@@ -2275,12 +2288,12 @@ static bool drflac__seek_frame(drflac* pFlac)
     return drflac__seek_bits(&pFlac->bs, (DRFLAC_CACHE_L1_BITS_REMAINING(&pFlac->bs) & 7) + 16);
 }
 
-static bool drflac__read_and_decode_next_frame(drflac* pFlac)
+static drBool32 drflac__read_and_decode_next_frame(drflac* pFlac)
 {
     assert(pFlac != NULL);
 
     if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
-        return false;
+        return DR_FALSE;
     }
 
     return drflac__decode_frame(pFlac);
@@ -2312,29 +2325,29 @@ static void drflac__get_current_frame_sample_range(drflac* pFlac, uint64_t* pFir
     }
 }
 
-static bool drflac__seek_to_first_frame(drflac* pFlac)
+static drBool32 drflac__seek_to_first_frame(drflac* pFlac)
 {
     assert(pFlac != NULL);
 
-    bool result = drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos);
+    drBool32 result = drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos);
 
     memset(&pFlac->currentFrame, 0, sizeof(pFlac->currentFrame));
     return result;
 }
 
-static DRFLAC_INLINE bool drflac__seek_to_next_frame(drflac* pFlac)
+static DRFLAC_INLINE drBool32 drflac__seek_to_next_frame(drflac* pFlac)
 {
     // This function should only ever be called while the decoder is sitting on the first byte past the FRAME_HEADER section.
     assert(pFlac != NULL);
     return drflac__seek_frame(pFlac);
 }
 
-static bool drflac__seek_to_frame_containing_sample(drflac* pFlac, uint64_t sampleIndex)
+static drBool32 drflac__seek_to_frame_containing_sample(drflac* pFlac, uint64_t sampleIndex)
 {
     assert(pFlac != NULL);
 
     if (!drflac__seek_to_first_frame(pFlac)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint64_t firstSampleInFrame = 0;
@@ -2343,7 +2356,7 @@ static bool drflac__seek_to_frame_containing_sample(drflac* pFlac, uint64_t samp
     {
         // We need to read the frame's header in order to determine the range of samples it contains.
         if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
-            return false;
+            return DR_FALSE;
         }
 
         drflac__get_current_frame_sample_range(pFlac, &firstSampleInFrame, &lastSampleInFrame);
@@ -2352,18 +2365,18 @@ static bool drflac__seek_to_frame_containing_sample(drflac* pFlac, uint64_t samp
         }
 
         if (!drflac__seek_to_next_frame(pFlac)) {
-            return false;
+            return DR_FALSE;
         }
     }
 
     // If we get here we should be right at the start of the frame containing the sample.
-    return true;
+    return DR_TRUE;
 }
 
-static bool drflac__seek_to_sample__brute_force(drflac* pFlac, uint64_t sampleIndex)
+static drBool32 drflac__seek_to_sample__brute_force(drflac* pFlac, uint64_t sampleIndex)
 {
     if (!drflac__seek_to_frame_containing_sample(pFlac, sampleIndex)) {
-        return false;
+        return DR_FALSE;
     }
 
     // At this point we should be sitting on the first byte of the frame containing the sample. We need to decode every sample up to (but
@@ -2374,34 +2387,34 @@ static bool drflac__seek_to_sample__brute_force(drflac* pFlac, uint64_t sampleIn
     assert(firstSampleInFrame <= sampleIndex);
     size_t samplesToDecode = (size_t)(sampleIndex - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
     if (samplesToDecode == 0) {
-        return true;
+        return DR_TRUE;
     }
 
     // At this point we are just sitting on the byte after the frame header. We need to decode the frame before reading anything from it.
     if (!drflac__decode_frame(pFlac)) {
-        return false;
+        return DR_FALSE;
     }
 
     return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;
 }
 
 
-static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleIndex)
+static drBool32 drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleIndex)
 {
     assert(pFlac != NULL);
 
     if (pFlac->seektablePos == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     if (!drflac__seek_to_byte(&pFlac->bs, pFlac->seektablePos)) {
-        return false;
+        return DR_FALSE;
     }
 
     // The number of seek points is derived from the size of the SEEKTABLE block.
     uint32_t seekpointCount = pFlac->seektableSize / 18;   // 18 = the size of each seek point.
     if (seekpointCount == 0) {
-        return false;   // Would this ever happen?
+        return DR_FALSE;   // Would this ever happen?
     }
 
 
@@ -2432,7 +2445,7 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
     // At this point we should have found the seekpoint closest to our sample. We need to seek to it using basically the same
     // technique as we use with the brute force method.
     if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos + closestSeekpoint.frameOffset)) {
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -2442,7 +2455,7 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
     {
         // We need to read the frame's header in order to determine the range of samples it contains.
         if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
-            return false;
+            return DR_FALSE;
         }
 
         drflac__get_current_frame_sample_range(pFlac, &firstSampleInFrame, &lastSampleInFrame);
@@ -2451,7 +2464,7 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
         }
 
         if (!drflac__seek_to_next_frame(pFlac)) {
-            return false;
+            return DR_FALSE;
         }
     }
 
@@ -2459,7 +2472,7 @@ static bool drflac__seek_to_sample__seek_table(drflac* pFlac, uint64_t sampleInd
 
     // At this point we are just sitting on the byte after the frame header. We need to decode the frame before reading anything from it.
     if (!drflac__decode_frame(pFlac)) {
-        return false;
+        return DR_FALSE;
     }
 
     size_t samplesToDecode = (size_t)(sampleIndex - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
@@ -2496,7 +2509,7 @@ typedef struct
     uint64_t totalSampleCount;
     uint16_t maxBlockSize;
     uint64_t runningFilePos;
-    bool hasMetadataBlocks;
+    drBool32 hasMetadataBlocks;
 
 #ifndef DR_FLAC_NO_OGG
     uint32_t oggSerial;
@@ -2513,41 +2526,41 @@ static DRFLAC_INLINE void drflac__decode_block_header(uint32_t blockHeader, uint
     *blockSize   = (blockHeader & 0xFFFFFF);
 }
 
-static DRFLAC_INLINE bool drflac__read_and_decode_block_header(drflac_read_proc onRead, void* pUserData, uint8_t* isLastBlock, uint8_t* blockType, uint32_t* blockSize)
+static DRFLAC_INLINE drBool32 drflac__read_and_decode_block_header(drflac_read_proc onRead, void* pUserData, uint8_t* isLastBlock, uint8_t* blockType, uint32_t* blockSize)
 {
     uint32_t blockHeader;
     if (onRead(pUserData, &blockHeader, 4) != 4) {
-        return false;
+        return DR_FALSE;
     }
 
     drflac__decode_block_header(blockHeader, isLastBlock, blockType, blockSize);
-    return true;
+    return DR_TRUE;
 }
 
-bool drflac__read_streaminfo(drflac_read_proc onRead, void* pUserData, drflac_streaminfo* pStreamInfo)
+drBool32 drflac__read_streaminfo(drflac_read_proc onRead, void* pUserData, drflac_streaminfo* pStreamInfo)
 {
     // min/max block size.
     uint32_t blockSizes;
     if (onRead(pUserData, &blockSizes, 4) != 4) {
-        return false;
+        return DR_FALSE;
     }
 
     // min/max frame size.
     uint64_t frameSizes = 0;
     if (onRead(pUserData, &frameSizes, 6) != 6) {
-        return false;
+        return DR_FALSE;
     }
 
     // Sample rate, channels, bits per sample and total sample count.
     uint64_t importantProps;
     if (onRead(pUserData, &importantProps, 8) != 8) {
-        return false;
+        return DR_FALSE;
     }
 
     // MD5
     uint8_t md5[16];
     if (onRead(pUserData, md5, sizeof(md5)) != sizeof(md5)) {
-        return false;
+        return DR_FALSE;
     }
 
     blockSizes     = drflac__be2host_32(blockSizes);
@@ -2564,10 +2577,10 @@ bool drflac__read_streaminfo(drflac_read_proc onRead, void* pUserData, drflac_st
     pStreamInfo->totalSampleCount = (importantProps & 0x0000000FFFFFFFFFULL) * pStreamInfo->channels;
     memcpy(pStreamInfo->md5, md5, sizeof(md5));
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drflac__read_and_decode_metadata(drflac* pFlac)
+drBool32 drflac__read_and_decode_metadata(drflac* pFlac)
 {
     assert(pFlac != NULL);
 
@@ -2583,7 +2596,7 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
         uint8_t blockType;
         uint32_t blockSize;
         if (!drflac__read_and_decode_block_header(pFlac->bs.onRead, pFlac->bs.pUserData, &isLastBlock, &blockType, &blockSize)) {
-            return false;
+            return DR_FALSE;
         }
         runningFilePos += 4;
 
@@ -2600,12 +2613,12 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
                 if (pFlac->onMeta) {
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
                         free(pRawData);
-                        return false;
+                        return DR_FALSE;
                     }
 
                     metadata.pRawData = pRawData;
@@ -2627,12 +2640,12 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
                 if (pFlac->onMeta) {
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
                         free(pRawData);
-                        return false;
+                        return DR_FALSE;
                     }
 
                     metadata.pRawData = pRawData;
@@ -2659,12 +2672,12 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
                 if (pFlac->onMeta) {
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
                         free(pRawData);
-                        return false;
+                        return DR_FALSE;
                     }
 
                     metadata.pRawData = pRawData;
@@ -2686,12 +2699,12 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
                 if (pFlac->onMeta) {
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
                         free(pRawData);
-                        return false;
+                        return DR_FALSE;
                     }
 
                     metadata.pRawData = pRawData;
@@ -2714,12 +2727,12 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
                 if (pFlac->onMeta) {
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
                         free(pRawData);
-                        return false;
+                        return DR_FALSE;
                     }
 
                     metadata.pRawData = pRawData;
@@ -2750,7 +2763,7 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
 
                     // Padding doesn't have anything meaningful in it, so just skip over it.
                     if (!pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
@@ -2762,7 +2775,7 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
                 // Invalid chunk. Just skip over this one.
                 if (pFlac->onMeta) {
                     if (!pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
-                        return false;
+                        return DR_FALSE;
                     }
                 }
             }
@@ -2774,12 +2787,12 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
                 if (pFlac->onMeta) {
                     void* pRawData = malloc(blockSize);
                     if (pRawData == NULL) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
                         free(pRawData);
-                        return false;
+                        return DR_FALSE;
                     }
 
                     metadata.pRawData = pRawData;
@@ -2794,7 +2807,7 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
         // If we're not handling metadata, just skip over the block. If we are, it will have been handled earlier in the switch statement above.
         if (pFlac->onMeta == NULL) {
             if (!pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
-                return false;
+                return DR_FALSE;
             }
         }
 
@@ -2808,10 +2821,10 @@ bool drflac__read_and_decode_metadata(drflac* pFlac)
     pFlac->seektableSize = seektableSize;
     pFlac->firstFramePos = runningFilePos;
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+drBool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
     (void)onSeek;
 
@@ -2824,17 +2837,17 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
     uint8_t blockType;
     uint32_t blockSize;
     if (!drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize)) {
-        return false;
+        return DR_FALSE;
     }
 
     if (blockType != DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
-        return false;    // Invalid block type. First block must be the STREAMINFO block.
+        return DR_FALSE;    // Invalid block type. First block must be the STREAMINFO block.
     }
 
 
     drflac_streaminfo streaminfo;
     if (!drflac__read_streaminfo(onRead, pUserData, &streaminfo)) {
-        return false;
+        return DR_FALSE;
     }
 
     pInit->sampleRate       = streaminfo.sampleRate;
@@ -2853,11 +2866,11 @@ bool drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRe
     }
 
     pInit->hasMetadataBlocks = !isLastBlock;
-    return true;
+    return DR_TRUE;
 }
 
 #ifndef DR_FLAC_NO_OGG
-static DRFLAC_INLINE bool drflac_ogg__is_capture_pattern(uint8_t pattern[4])
+static DRFLAC_INLINE drBool32 drflac_ogg__is_capture_pattern(uint8_t pattern[4])
 {
     return pattern[0] == 'O' && pattern[1] == 'g' && pattern[2] == 'g' && pattern[3] == 'S';
 }
@@ -2877,46 +2890,46 @@ static DRFLAC_INLINE uint32_t drflac_ogg__get_page_body_size(drflac_ogg_page_hea
     return pageBodySize;
 }
 
-bool drflac_ogg__read_page_header_after_capture_pattern(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, uint32_t* pHeaderSize)
+drBool32 drflac_ogg__read_page_header_after_capture_pattern(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, uint32_t* pHeaderSize)
 {
     if (onRead(pUserData, &pHeader->structureVersion, 1) != 1 || pHeader->structureVersion != 0) {
-        return false;   // Unknown structure version. Possibly corrupt stream.
+        return DR_FALSE;   // Unknown structure version. Possibly corrupt stream.
     }
     if (onRead(pUserData, &pHeader->headerType, 1) != 1) {
-        return false;
+        return DR_FALSE;
     }
     if (onRead(pUserData, &pHeader->granulePosition, 8) != 8) {
-        return false;
+        return DR_FALSE;
     }
     if (onRead(pUserData, &pHeader->serialNumber, 4) != 4) {
-        return false;
+        return DR_FALSE;
     }
     if (onRead(pUserData, &pHeader->sequenceNumber, 4) != 4) {
-        return false;
+        return DR_FALSE;
     }
     if (onRead(pUserData, &pHeader->checksum, 4) != 4) {
-        return false;
+        return DR_FALSE;
     }
     if (onRead(pUserData, &pHeader->segmentCount, 1) != 1 || pHeader->segmentCount == 0) {
-        return false;   // Should not have a segment count of 0.
+        return DR_FALSE;   // Should not have a segment count of 0.
     }
     if (onRead(pUserData, &pHeader->segmentTable, pHeader->segmentCount) != pHeader->segmentCount) {
-        return false;
+        return DR_FALSE;
     }
 
     if (pHeaderSize) *pHeaderSize = (27 + pHeader->segmentCount);
-    return true;
+    return DR_TRUE;
 }
 
-bool drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, uint32_t* pHeaderSize)
+drBool32 drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, uint32_t* pHeaderSize)
 {
     uint8_t id[4];
     if (onRead(pUserData, id, 4) != 4) {
-        return false;
+        return DR_FALSE;
     }
 
     if (id[0] != 'O' || id[1] != 'g' || id[2] != 'g' || id[3] != 'S') {
-        return false;
+        return DR_FALSE;
     }
 
     return drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, pHeader, pHeaderSize);
@@ -2949,20 +2962,20 @@ static size_t drflac_oggbs__read_physical(drflac_oggbs* oggbs, void* bufferOut, 
     return bytesActuallyRead;
 }
 
-static bool drflac_oggbs__seek_physical(drflac_oggbs* oggbs, uint64_t offset, drflac_seek_origin origin)
+static drBool32 drflac_oggbs__seek_physical(drflac_oggbs* oggbs, uint64_t offset, drflac_seek_origin origin)
 {
     if (origin == drflac_seek_origin_start)
     {
         if (offset <= 0x7FFFFFFF) {
             if (!oggbs->onSeek(oggbs->pUserData, (int)offset, drflac_seek_origin_start)) {
-                return false;
+                return DR_FALSE;
             }
             oggbs->currentBytePos = offset;
 
-            return true;
+            return DR_TRUE;
         } else {
             if (!oggbs->onSeek(oggbs->pUserData, 0x7FFFFFFF, drflac_seek_origin_start)) {
-                return false;
+                return DR_FALSE;
             }
             oggbs->currentBytePos = offset;
 
@@ -2973,29 +2986,29 @@ static bool drflac_oggbs__seek_physical(drflac_oggbs* oggbs, uint64_t offset, dr
     {
         while (offset > 0x7FFFFFFF) {
             if (!oggbs->onSeek(oggbs->pUserData, 0x7FFFFFFF, drflac_seek_origin_current)) {
-                return false;
+                return DR_FALSE;
             }
             oggbs->currentBytePos += 0x7FFFFFFF;
             offset -= 0x7FFFFFFF;
         }
 
         if (!oggbs->onSeek(oggbs->pUserData, (int)offset, drflac_seek_origin_current)) {    // <-- Safe cast thanks to the loop above.
-            return false;
+            return DR_FALSE;
         }
         oggbs->currentBytePos += offset;
 
-        return true;
+        return DR_TRUE;
     }
 }
 
-static bool drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
+static drBool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
 {
     drflac_ogg_page_header header;
     for (;;)
     {
         uint32_t headerSize;
         if (!drflac_ogg__read_page_header(oggbs->onRead, oggbs->pUserData, &header, &headerSize)) {
-            return false;
+            return DR_FALSE;
         }
         oggbs->currentBytePos += headerSize;
 
@@ -3005,12 +3018,12 @@ static bool drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
         if (header.serialNumber == oggbs->serialNumber) {
             oggbs->currentPageHeader = header;
             oggbs->bytesRemainingInPage = pageBodySize;
-            return true;
+            return DR_TRUE;
         }
 
         // If we get here it means the page is not a FLAC page - skip it.
         if (pageBodySize > 0 && !drflac_oggbs__seek_physical(oggbs, pageBodySize, drflac_seek_origin_current)) {    // <-- Safe cast - maximum size of a page is way below that of an int.
-            return false;
+            return DR_FALSE;
         }
     }
 }
@@ -3037,12 +3050,12 @@ static uint8_t drflac_oggbs__get_current_segment_index(drflac_oggbs* oggbs, uint
     return iSeg;
 }
 
-static bool drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
+static drBool32 drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
 {
     // The current packet ends when we get to the segment with a lacing value of < 255 which is not at the end of a page.
     for (;;)    // <-- Loop over pages.
     {
-        bool atEndOfPage = false;
+        drBool32 atEndOfPage = DR_FALSE;
 
         uint8_t bytesRemainingInSeg;
         uint8_t iFirstSeg = drflac_oggbs__get_current_segment_index(oggbs, &bytesRemainingInSeg);
@@ -3052,7 +3065,7 @@ static bool drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
             uint8_t segmentSize = oggbs->currentPageHeader.segmentTable[iSeg];
             if (segmentSize < 255) {
                 if (iSeg == oggbs->currentPageHeader.segmentCount-1) {
-                    atEndOfPage = true;
+                    atEndOfPage = DR_TRUE;
                 }
 
                 break;
@@ -3071,23 +3084,23 @@ static bool drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
             // We're potentially at the next packet, but we need to check the next page first to be sure because the packet may
             // straddle pages.
             if (!drflac_oggbs__goto_next_page(oggbs)) {
-                return false;
+                return DR_FALSE;
             }
 
             // If it's a fresh packet it most likely means we're at the next packet.
             if ((oggbs->currentPageHeader.headerType & 0x01) == 0) {
-                return true;
+                return DR_TRUE;
             }
         }
         else
         {
             // We're at the next frame.
-            return true;
+            return DR_TRUE;
         }
     }
 }
 
-static bool drflac_oggbs__seek_to_next_frame(drflac_oggbs* oggbs)
+static drBool32 drflac_oggbs__seek_to_next_frame(drflac_oggbs* oggbs)
 {
     // The bitstream should be sitting on the first byte just after the header of the frame.
 
@@ -3136,7 +3149,7 @@ static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytes
     return bytesRead;
 }
 
-static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin origin)
+static drBool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin origin)
 {
     drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
     assert(oggbs != NULL);
@@ -3146,7 +3159,7 @@ static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin 
     if (origin == drflac_seek_origin_start) {
         int startBytePos = (int)oggbs->firstBytePos + (79-42);  // 79 = size of bos page; 42 = size of FLAC header data. Seek up to the first byte of the native FLAC data.
         if (!drflac_oggbs__seek_physical(oggbs, startBytePos, drflac_seek_origin_start)) {
-            return false;
+            return DR_FALSE;
         }
 
         oggbs->currentPageHeader = oggbs->bosPageHeader;
@@ -3166,7 +3179,7 @@ static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin 
 
         if (oggbs->bytesRemainingInPage >= (size_t)bytesRemainingToSeek) {
             if (!drflac_oggbs__seek_physical(oggbs, bytesRemainingToSeek, drflac_seek_origin_current)) {
-                return false;
+                return DR_FALSE;
             }
 
             bytesSeeked += bytesRemainingToSeek;
@@ -3177,7 +3190,7 @@ static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin 
         // If we get here it means some of the requested data is contained in the next pages.
         if (oggbs->bytesRemainingInPage > 0) {
             if (!drflac_oggbs__seek_physical(oggbs, oggbs->bytesRemainingInPage, drflac_seek_origin_current)) {
-                return false;
+                return DR_FALSE;
             }
 
             bytesSeeked += (int)oggbs->bytesRemainingInPage;
@@ -3189,10 +3202,10 @@ static bool drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin 
         }
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
+drBool32 drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
 {
     drflac_oggbs* oggbs = (drflac_oggbs*)(((int32_t*)pFlac->pExtraData) + pFlac->maxBlockSize*pFlac->channels);
 
@@ -3200,7 +3213,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
 
     // First seek to the first frame.
     if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos)) {
-        return false;
+        return DR_FALSE;
     }
     oggbs->bytesRemainingInPage = 0;
 
@@ -3210,7 +3223,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
     {
         if (!drflac_oggbs__goto_next_page(oggbs)) {
             drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
-            return false;   // Never did find that sample...
+            return DR_FALSE;   // Never did find that sample...
         }
 
         runningFrameBytePos = oggbs->currentBytePos - drflac_ogg__get_page_header_size(&oggbs->currentPageHeader);
@@ -3226,7 +3239,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
                 uint8_t firstBytesInPage[2];
                 if (drflac_oggbs__read_physical(oggbs, firstBytesInPage, 2) != 2) {
                     drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
-                    return false;
+                    return DR_FALSE;
                 }
                 if ((firstBytesInPage[0] == 0xFF) && (firstBytesInPage[1] & 0xFC) == 0xF8) {    // <-- Does the page begin with a frame's sync code?
                     runningGranulePosition = oggbs->currentPageHeader.granulePosition*pFlac->channels;
@@ -3234,7 +3247,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
 
                 if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->bytesRemainingInPage-2, drflac_seek_origin_current)) {
                     drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
-                    return false;
+                    return DR_FALSE;
                 }
 
                 continue;
@@ -3243,7 +3256,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
 
         if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->bytesRemainingInPage, drflac_seek_origin_current)) {
             drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
-            return false;
+            return DR_FALSE;
         }
     }
 
@@ -3253,10 +3266,10 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
     // a new frame. This property means that after we've seeked to the page we can immediately start looping over frames until
     // we find the one containing the target sample.
     if (!drflac_oggbs__seek_physical(oggbs, runningFrameBytePos, drflac_seek_origin_start)) {
-        return false;
+        return DR_FALSE;
     }
     if (!drflac_oggbs__goto_next_page(oggbs)) {
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -3269,7 +3282,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
         // reading functions) because otherwise it will pull extra data for use in it's own internal caches which will then
         // break the positioning of the read pointer for the Ogg bitstream.
         if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
-            return false;
+            return DR_FALSE;
         }
 
         int channels = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
@@ -3291,7 +3304,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
         // decode of the frame. Although this is how the native version works, we can use Ogg's framing system to make it
         // more efficient. Leaving this here for reference and to use as a basis for debugging purposes.
         if (!drflac__seek_to_next_frame(pFlac)) {
-            return false;
+            return DR_FALSE;
         }
 #else
         // TODO: This is not yet complete. See note at the top of this loop body.
@@ -3299,7 +3312,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
         // Fast(er) way. This uses Ogg's framing system to seek past the frame. This should be much more efficient than the
         // native FLAC seeking.
         if (!drflac_oggbs__seek_to_next_frame(oggbs)) {
-            return false;
+            return DR_FALSE;
         }
 #endif
     }
@@ -3307,7 +3320,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
     assert(firstSampleInFrame <= sample);
 
     if (!drflac__decode_frame(pFlac)) {
-        return false;
+        return DR_FALSE;
     }
 
     size_t samplesToDecode = (size_t)(sample - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
@@ -3315,7 +3328,7 @@ bool drflac_ogg__seek_to_sample(drflac* pFlac, uint64_t sample)
 }
 
 
-bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+drBool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
     // Pre: The bit stream should be sitting just past the 4-byte OggS capture pattern.
 
@@ -3329,7 +3342,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
 
     uint32_t headerSize;
     if (!drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, &header, &headerSize)) {
-        return false;
+        return DR_FALSE;
     }
     pInit->runningFilePos = headerSize;
 
@@ -3337,7 +3350,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
     {
         // Break if we're past the beginning of stream page.
         if ((header.headerType & 0x02) == 0) {
-            return false;
+            return DR_FALSE;
         }
 
 
@@ -3350,7 +3363,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
 
             uint8_t packetType;
             if (onRead(pUserData, &packetType, 1) != 1) {
-                return false;
+                return DR_FALSE;
             }
 
             bytesRemainingInPage -= 1;
@@ -3359,7 +3372,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                 // Increasingly more likely to be a FLAC page...
                 uint8_t sig[4];
                 if (onRead(pUserData, sig, 4) != 4) {
-                    return false;
+                    return DR_FALSE;
                 }
 
                 bytesRemainingInPage -= 4;
@@ -3368,22 +3381,22 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                     // Almost certainly a FLAC page...
                     uint8_t mappingVersion[2];
                     if (onRead(pUserData, mappingVersion, 2) != 2) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     if (mappingVersion[0] != 1) {
-                        return false;   // Only supporting version 1.x of the Ogg mapping.
+                        return DR_FALSE;   // Only supporting version 1.x of the Ogg mapping.
                     }
 
                     // The next 2 bytes are the non-audio packets, not including this one. We don't care about this because we're going to
                     // be handling it in a generic way based on the serial number and packet types.
                     if (!onSeek(pUserData, 2, drflac_seek_origin_current)) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     // Expecting the native FLAC signature "fLaC".
                     if (onRead(pUserData, sig, 4) != 4) {
-                        return false;
+                        return DR_FALSE;
                     }
 
                     if (sig[0] == 'f' && sig[1] == 'L' && sig[2] == 'a' && sig[3] == 'C')
@@ -3393,11 +3406,11 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                         uint8_t blockType;
                         uint32_t blockSize;
                         if (!drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize)) {
-                            return false;
+                            return DR_FALSE;
                         }
 
                         if (blockType != DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
-                            return false;    // Invalid block type. First block must be the STREAMINFO block.
+                            return DR_FALSE;    // Invalid block type. First block must be the STREAMINFO block.
                         }
 
                         drflac_streaminfo streaminfo;
@@ -3428,20 +3441,20 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
                         else
                         {
                             // Failed to read STREAMINFO block. Aww, so close...
-                            return false;
+                            return DR_FALSE;
                         }
                     }
                     else
                     {
                         // Invalid file.
-                        return false;
+                        return DR_FALSE;
                     }
                 }
                 else
                 {
                     // Not a FLAC header. Skip it.
                     if (!onSeek(pUserData, bytesRemainingInPage, drflac_seek_origin_current)) {
-                        return false;
+                        return DR_FALSE;
                     }
                 }
             }
@@ -3449,14 +3462,14 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
             {
                 // Not a FLAC header. Seek past the entire page and move on to the next.
                 if (!onSeek(pUserData, bytesRemainingInPage, drflac_seek_origin_current)) {
-                    return false;
+                    return DR_FALSE;
                 }
             }
         }
         else
         {
             if (!onSeek(pUserData, pageBodySize, drflac_seek_origin_current)) {
-                return false;
+                return DR_FALSE;
             }
         }
 
@@ -3465,7 +3478,7 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
 
         // Read the header of the next page.
         if (!drflac_ogg__read_page_header(onRead, pUserData, &header, &headerSize)) {
-            return false;
+            return DR_FALSE;
         }
         pInit->runningFilePos += headerSize;
     }
@@ -3474,15 +3487,15 @@ bool drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead,
     // If we get here it means we found a FLAC audio stream. We should be sitting on the first byte of the header of the next page. The next
     // packets in the FLAC logical stream contain the metadata. The only thing left to do in the initialiation phase for Ogg is to create the
     // Ogg bistream object.
-    pInit->hasMetadataBlocks = true;    // <-- Always have at least VORBIS_COMMENT metadata block.
-    return true;
+    pInit->hasMetadataBlocks = DR_TRUE;    // <-- Always have at least VORBIS_COMMENT metadata block.
+    return DR_TRUE;
 }
 #endif
 
-bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+drBool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
 {
     if (pInit == NULL || onRead == NULL || onSeek == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     pInit->onRead        = onRead;
@@ -3493,7 +3506,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
 
     uint8_t id[4];
     if (onRead(pUserData, id, 4) != 4) {
-        return false;
+        return DR_FALSE;
     }
 
     if (id[0] == 'f' && id[1] == 'L' && id[2] == 'a' && id[3] == 'C') {
@@ -3507,7 +3520,7 @@ bool drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drfl
 #endif
 
     // Unsupported container.
-    return false;
+    return DR_FALSE;
 }
 
 void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
@@ -3598,7 +3611,7 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
     return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-static bool drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
+static drBool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
     assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
@@ -3639,7 +3652,7 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
     return (size_t)bytesRead;
 }
 
-static bool drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
+static drBool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
     assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
@@ -3715,7 +3728,7 @@ static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t by
     return bytesToRead;
 }
 
-static bool drflac__on_seek_memory(void* pUserData, int offset, drflac_seek_origin origin)
+static drBool32 drflac__on_seek_memory(void* pUserData, int offset, drflac_seek_origin origin)
 {
     drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
     assert(memoryStream != NULL);
@@ -3735,7 +3748,7 @@ static bool drflac__on_seek_memory(void* pUserData, int offset, drflac_seek_orig
         }
     }
 
-    return true;
+    return DR_TRUE;
 }
 
 drflac* drflac_open_memory(const void* data, size_t dataSize)
@@ -4095,10 +4108,10 @@ uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferO
     return samplesRead;
 }
 
-bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
+drBool32 drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
 {
     if (pFlac == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (sampleIndex == 0) {
@@ -4128,7 +4141,7 @@ bool drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
     }
 
 
-    return true;
+    return DR_TRUE;
 }
 
 

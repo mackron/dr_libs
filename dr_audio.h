@@ -47,7 +47,7 @@
 //       return -1;
 //   }
 //
-//   dra_voice_play(pVoice, false);
+//   dra_voice_play(pVoice, DR_FALSE);
 //
 //   ...
 //
@@ -170,7 +170,20 @@ extern "C" {
 
 #include <stdint.h>
 #include <stddef.h>
-#include <stdbool.h>
+
+#ifndef DR_BOOL_DEFINED
+#define DR_BOOL_DEFINED
+#ifdef _WIN32
+typedef char drBool8;
+typedef int  drBool32;
+#else
+#include <stdint.h>
+typedef int8_t  drBool8;
+typedef int32_t drBool32;
+#endif
+#define DR_TRUE     1
+#define DR_FALSE    0
+#endif
 
 #ifndef DR_AUDIO_MAX_CHANNEL_COUNT
 #define DR_AUDIO_MAX_CHANNEL_COUNT      16
@@ -242,7 +255,7 @@ typedef struct
     uint64_t sampleIndex;
     dra_event_proc proc;
     dra_voice* pVoice;
-    bool hasBeenSignaled;
+    drBool32 hasBeenSignaled;
 } dra__event;
 
 typedef struct
@@ -282,21 +295,21 @@ struct dra_device
 
     // Whether or not the device owns the context. This basically just means whether or not the device was created with a null
     // context and needs to delete the context itself when the device is deleted.
-    bool ownsContext;
+    drBool32 ownsContext;
 
     // Whether or not the device is being closed. This is used by the thread to determine if it needs to terminate. When
     // dra_device_close() is called, this flag will be set and threadEventSem released. The thread will then see this as it's
     // signal to terminate.
-    bool isClosed;
+    drBool32 isClosed;
 
-    // Whether or not the device is currently playing. When at least one voice is playing, this will be true. When there
-    // are no voices playing, this will be set to false and the background thread will sit dormant until another voice
+    // Whether or not the device is currently playing. When at least one voice is playing, this will be DR_TRUE. When there
+    // are no voices playing, this will be set to DR_FALSE and the background thread will sit dormant until another voice
     // starts playing or the device is closed.
-    bool isPlaying;
+    drBool32 isPlaying;
 
     // Whether or not the device should stop on the next fragment. This is used for stopping playback of devices that
     // have no voice's playing.
-    bool stopOnNextFragment;
+    drBool32 stopOnNextFragment;
 
 
     // The master mixer. This is the one and only top-level mixer.
@@ -401,11 +414,11 @@ struct dra_voice
 
 
     // Whether or not the voice is currently playing.
-    bool isPlaying;
+    drBool32 isPlaying;
 
     // Whether or not the voice is currently looping. Whether or not the voice is looping is determined by the last
     // call to dra_voice_play().
-    bool isLooping;
+    drBool32 isLooping;
 
 
     // The total number of frames in the voice.
@@ -567,16 +580,16 @@ void dra_voice_delete(dra_voice* pVoice);
 //
 // If the mixer the voice is attached to is not playing, the voice will be marked as playing, but won't actually play anything until
 // the mixer is started again.
-void dra_voice_play(dra_voice* pVoice, bool loop);
+void dra_voice_play(dra_voice* pVoice, drBool32 loop);
 
 // dra_voice_stop()
 void dra_voice_stop(dra_voice* pVoice);
 
 // dra_voice_is_playing()
-bool dra_voice_is_playing(dra_voice* pVoice);
+drBool32 dra_voice_is_playing(dra_voice* pVoice);
 
 // dra_voice_is_looping()
-bool dra_voice_is_looping(dra_voice* pVoice);
+drBool32 dra_voice_is_looping(dra_voice* pVoice);
 
 
 // dra_voice_set_volume()
@@ -588,7 +601,7 @@ float dra_voice_get_volume(dra_voice* pVoice);
 
 void dra_voice_set_on_stop(dra_voice* pVoice, dra_event_proc proc, void* pUserData);
 void dra_voice_set_on_play(dra_voice* pVoice, dra_event_proc proc, void* pUserData);
-bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_event_proc proc, void* pUserData);
+drBool32 dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_event_proc proc, void* pUserData);
 void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID);
 
 // dra_voice_get_playback_position()
@@ -626,11 +639,11 @@ typedef enum
 } dra_seek_origin;
 
 typedef size_t   (* dra_decoder_on_read_proc) (void* pUserData, void* pDataOut, size_t bytesToRead);
-typedef bool     (* dra_decoder_on_seek_proc) (void* pUserData, int offset, dra_seek_origin origin);
+typedef drBool32     (* dra_decoder_on_seek_proc) (void* pUserData, int offset, dra_seek_origin origin);
 
 typedef void     (* dra_decoder_on_delete_proc)       (void* pBackendDecoder);
 typedef uint64_t (* dra_decoder_on_read_samples_proc) (void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut);
-typedef bool     (* dra_decoder_on_seek_samples_proc) (void* pBackendDecoder, uint64_t sample);
+typedef drBool32     (* dra_decoder_on_seek_samples_proc) (void* pBackendDecoder, uint64_t sample);
 
 typedef struct
 {
@@ -659,15 +672,15 @@ typedef struct
 } dra_decoder;
 
 // dra_decoder_open()
-bool dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData);
+drBool32 dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData);
 float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
-bool dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize);
+drBool32 dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize);
 float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
 #ifndef DR_AUDIO_NO_STDIO
 // dra_decoder_open_file()
-bool dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath);
+drBool32 dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath);
 float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 #endif
 
@@ -678,7 +691,7 @@ void dra_decoder_close(dra_decoder* pDecoder);
 uint64_t dra_decoder_read_f32(dra_decoder* pDecoder, uint64_t samplesToRead, float* pSamplesOut);
 
 // dra_decoder_seek_to_sample()
-bool dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample);
+drBool32 dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample);
 
 
 //// High Level Helper APIs ////
@@ -698,7 +711,7 @@ typedef struct dra_sound_desc dra_sound_desc;
 
 typedef void     (* dra_sound_on_delete_proc) (dra_sound* pSound);
 typedef uint64_t (* dra_sound_on_read_proc)   (dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut);
-typedef bool     (* dra_sound_on_seek_proc)   (dra_sound* pSound, uint64_t sample);
+typedef drBool32     (* dra_sound_on_seek_proc)   (dra_sound* pSound, uint64_t sample);
 
 struct dra_sound_desc
 {
@@ -740,8 +753,8 @@ struct dra_sound_world
     // The playback device.
     dra_device* pPlaybackDevice;
 
-    // Whether or not the world owns the playback device. When this is set to true, it will be deleted when the world is deleted.
-    bool ownsPlaybackDevice;
+    // Whether or not the world owns the playback device. When this is set to DR_TRUE, it will be deleted when the world is deleted.
+    drBool32 ownsPlaybackDevice;
 };
 
 struct dra_sound
@@ -756,10 +769,10 @@ struct dra_sound
     dra_sound_desc desc;
 
     // Whether or not the sound is looping.
-    bool isLooping;
+    drBool32 isLooping;
 
     // Whether or not the sound should be stopped at the end of the chunk that's currently playing.
-    bool stopOnNextChunk;
+    drBool32 stopOnNextChunk;
 
     // Application defined user data.
     void* pUserData;
@@ -824,7 +837,7 @@ void dra_sound_delete(dra_sound* pSound);
 
 
 // dra_sound_play()
-void dra_sound_play(dra_sound* pSound, bool loop);
+void dra_sound_play(dra_sound* pSound, drBool32 loop);
 
 // dra_sound_stop()
 void dra_sound_stop(dra_sound* pSound);
@@ -1015,12 +1028,12 @@ void dra_semaphore_delete(dra_semaphore semaphore)
     CloseHandle((HANDLE)semaphore);
 }
 
-bool dra_semaphore_wait(dra_semaphore semaphore)
+drBool32 dra_semaphore_wait(dra_semaphore semaphore)
 {
     return WaitForSingleObject((HANDLE)semaphore, INFINITE) == WAIT_OBJECT_0;
 }
 
-bool dra_semaphore_release(dra_semaphore semaphore)
+drBool32 dra_semaphore_release(dra_semaphore semaphore)
 {
     return ReleaseSemaphore((HANDLE)semaphore, 1, NULL) != 0;
 }
@@ -1122,11 +1135,11 @@ static BOOL CALLBACK dra_dsound__get_device_guid_by_id__callback(LPGUID lpGuid, 
 
     if (pData->counter == pData->deviceID) {
         pData->pGuid = lpGuid;
-        return false;
+        return DR_FALSE;
     }
 
     pData->counter += 1;
-    return true;
+    return DR_TRUE;
 }
 
 const GUID* dra_dsound__get_playback_device_guid_by_id(dra_backend* pBackend, unsigned int deviceID)
@@ -1548,11 +1561,11 @@ void dra_backend_device_stop(dra_backend_device* pDevice)
     SetEvent(pDeviceDS->hStopEvent);
 }
 
-bool dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns true if the function has returned because it needs more data; false if the device has been stopped or an error has occured.
+drBool32 dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns DR_TRUE if the function has returned because it needs more data; DR_FALSE if the device has been stopped or an error has occured.
 {
     dra_backend_device_dsound* pDeviceDS = (dra_backend_device_dsound*)pDevice;
     if (pDeviceDS == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     unsigned int eventCount = DR_AUDIO_DEFAULT_FRAGMENT_COUNT + 1;
@@ -1566,17 +1579,17 @@ bool dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns true 
         unsigned int eventIndex = rc - WAIT_OBJECT_0;
         HANDLE hEvent = eventHandles[eventIndex];
 
-        // Has the device been stopped? If so, need to return false.
+        // Has the device been stopped? If so, need to return DR_FALSE.
         if (hEvent == pDeviceDS->hStopEvent) {
-            return false;
+            return DR_FALSE;
         }
 
         // If we get here it means the event that's been signaled represents a fragment.
         pDeviceDS->currentFragmentIndex = eventIndex;
-        return true;
+        return DR_TRUE;
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, size_t* pSamplesInFragmentOut)
@@ -1709,12 +1722,12 @@ void dra_semaphore_delete(dra_semaphore semaphore)
     sem_close((sem_t*)semaphore);
 }
 
-bool dra_semaphore_wait(dra_semaphore semaphore)
+drBool32 dra_semaphore_wait(dra_semaphore semaphore)
 {
     return sem_wait((sem_t*)semaphore) != -1;
 }
 
-bool dra_semaphore_release(dra_semaphore semaphore)
+drBool32 dra_semaphore_release(dra_semaphore semaphore)
 {
     return sem_post((sem_t*)semaphore) != -1;
 }
@@ -1741,17 +1754,17 @@ typedef struct
     snd_pcm_t* deviceALSA;
 
     // Whether or not the device is currently playing.
-    bool isPlaying;
+    drBool32 isPlaying;
 
     // Whether or not the intermediary buffer is mapped.
-    bool isBufferMapped;
+    drBool32 isBufferMapped;
 
     // The intermediary buffer where audio data is written before being submitted to the device.
     float* pIntermediaryBuffer;
 } dra_backend_device_alsa;
 
 
-static bool dra_alsa__get_device_name_by_id(dra_backend* pBackend, unsigned int deviceID, char* deviceNameOut)
+static drBool32 dra_alsa__get_device_name_by_id(dra_backend* pBackend, unsigned int deviceID, char* deviceNameOut)
 {
     assert(pBackend != NULL);
     assert(deviceNameOut != NULL);
@@ -1760,7 +1773,7 @@ static bool dra_alsa__get_device_name_by_id(dra_backend* pBackend, unsigned int 
 
     if (deviceID == 0) {
         strcpy(deviceNameOut, "default");
-        return true;
+        return DR_TRUE;
     }
 
 
@@ -1778,10 +1791,10 @@ static bool dra_alsa__get_device_name_by_id(dra_backend* pBackend, unsigned int 
         iDevice += 1;
     }
 
-    bool result = false;
+    drBool32 result = DR_FALSE;
     if (iDevice == deviceID) {
         strcpy(deviceNameOut, snd_device_name_get_hint(*nextDeviceHint, "NAME"));
-        result = true;
+        result = DR_TRUE;
     }
 
     snd_device_name_free_hint((void**)deviceHints);
@@ -1961,7 +1974,7 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
 
 
     // The intermediary buffer that will be used for mapping/unmapping.
-    pDeviceALSA->isBufferMapped = false;
+    pDeviceALSA->isBufferMapped = DR_FALSE;
     pDeviceALSA->pIntermediaryBuffer = (float*)malloc(pDeviceALSA->samplesPerFragment * sizeof(float));
     if (pDeviceALSA->pIntermediaryBuffer == NULL) {
         goto on_error;
@@ -2029,7 +2042,7 @@ void dra_backend_device_play(dra_backend_device* pDevice)
     }
 
     snd_pcm_prepare(pDeviceALSA->deviceALSA);
-    pDeviceALSA->isPlaying = true;
+    pDeviceALSA->isPlaying = DR_TRUE;
 }
 
 void dra_backend_device_stop(dra_backend_device* pDevice)
@@ -2040,32 +2053,32 @@ void dra_backend_device_stop(dra_backend_device* pDevice)
     }
 
     snd_pcm_drop(pDeviceALSA->deviceALSA);
-    pDeviceALSA->isPlaying = false;
+    pDeviceALSA->isPlaying = DR_FALSE;
 }
 
-bool dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns true if the function has returned because it needs more data; false if the device has been stopped or an error has occured.
+drBool32 dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns DR_TRUE if the function has returned because it needs more data; DR_FALSE if the device has been stopped or an error has occured.
 {
     dra_backend_device_alsa* pDeviceALSA = (dra_backend_device_alsa*)pDevice;
     if (pDeviceALSA == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (!pDeviceALSA->isPlaying) {
-        return false;
+        return DR_FALSE;
     }
 
     int result = snd_pcm_wait(pDeviceALSA->deviceALSA, -1);
     if (result > 0) {
-        return true;
+        return DR_TRUE;
     }
 
     if (result == -EPIPE) {
-        // xrun. Prepare the device again and just return true.
+        // xrun. Prepare the device again and just return DR_TRUE.
         snd_pcm_prepare(pDeviceALSA->deviceALSA);
-        return true;
+        return DR_TRUE;
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, size_t* pSamplesInFragmentOut)
@@ -2153,7 +2166,7 @@ void dra_backend_delete(dra_backend* pBackend)
 #endif
 
     // Should never get here. If this assert is triggered it means you haven't plugged in the API in the list above.
-    assert(false);
+    assert(DR_FALSE);
 }
 
 
@@ -2177,7 +2190,7 @@ dra_backend_device* dra_backend_device_open(dra_backend* pBackend, dra_device_ty
 
 
     // Should never get here. If this assert is triggered it means you haven't plugged in the API in the list above.
-    assert(false);
+    assert(DR_FALSE);
     return NULL;
 }
 
@@ -2338,20 +2351,20 @@ void dra_event_queue__cancel_events_of_queue(dra__event_queue* pQueue, dra_voice
     dra_mutex_unlock(pQueue->lock);
 }
 
-bool dra_event_queue__next_event(dra__event_queue* pQueue, dra__event* pEventOut)
+drBool32 dra_event_queue__next_event(dra__event_queue* pQueue, dra__event* pEventOut)
 {
     if (pQueue == NULL || pEventOut == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
-    bool result = false;
+    drBool32 result = DR_FALSE;
     dra_mutex_lock(pQueue->lock);
     {
         if (pQueue->eventCount > 0) {
             *pEventOut = pQueue->pEvents[pQueue->firstEvent];
             pQueue->firstEvent = (pQueue->firstEvent + 1) % pQueue->eventBufferSize;
             pQueue->eventCount -= 1;
-            result = true;
+            result = DR_TRUE;
         }
     }
     dra_mutex_unlock(pQueue->lock);
@@ -2394,13 +2407,13 @@ void dra_device__unlock(dra_device* pDevice)
     dra_mutex_unlock(pDevice->mutex);
 }
 
-bool dra_device__is_playing_nolock(dra_device* pDevice)
+drBool32 dra_device__is_playing_nolock(dra_device* pDevice)
 {
     assert(pDevice != NULL);
     return pDevice->isPlaying;
 }
 
-bool dra_device__mix_next_fragment(dra_device* pDevice)
+drBool32 dra_device__mix_next_fragment(dra_device* pDevice)
 {
     assert(pDevice != NULL);
 
@@ -2408,7 +2421,7 @@ bool dra_device__mix_next_fragment(dra_device* pDevice)
     void* pSampleData = dra_backend_device_map_next_fragment(pDevice->pBackendDevice, &samplesInFragment);
     if (pSampleData == NULL) {
         dra_backend_device_stop(pDevice->pBackendDevice);
-        return false;
+        return DR_FALSE;
     }
 
     size_t framesInFragment = samplesInFragment / pDevice->channels;
@@ -2418,11 +2431,11 @@ bool dra_device__mix_next_fragment(dra_device* pDevice)
     dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
 
     if (framesMixed == 0) {
-        pDevice->stopOnNextFragment = true;
+        pDevice->stopOnNextFragment = DR_TRUE;
     }
 
     //printf("Mixed next fragment into %p\n", pSampleData);
-    return true;
+    return DR_TRUE;
 }
 
 void dra_device__play(dra_device* pDevice)
@@ -2437,8 +2450,8 @@ void dra_device__play(dra_device* pDevice)
             assert(pDevice->playingVoicesCount > 0);
 
             dra_device__post_event(pDevice, dra_thread_event_type_play);
-            pDevice->isPlaying = true;
-            pDevice->stopOnNextFragment = false;
+            pDevice->isPlaying = DR_TRUE;
+            pDevice->stopOnNextFragment = DR_FALSE;
         }
     }
     dra_device__unlock(pDevice);
@@ -2456,7 +2469,7 @@ void dra_device__stop(dra_device* pDevice)
             assert(pDevice->playingVoicesCount == 0);
 
             dra_backend_device_stop(pDevice->pBackendDevice);
-            pDevice->isPlaying = false;
+            pDevice->isPlaying = DR_FALSE;
         }
     }
     dra_device__unlock(pDevice);
@@ -2469,7 +2482,7 @@ void dra_device__voice_playback_count_inc(dra_device* pDevice)
     dra_device__lock(pDevice);
     {
         pDevice->playingVoicesCount += 1;
-        pDevice->stopOnNextFragment  = false;
+        pDevice->stopOnNextFragment  = DR_FALSE;
     }
     dra_device__unlock(pDevice);
 }
@@ -2545,7 +2558,7 @@ dra_result dra_device_init_ex(dra_context* pContext, dra_device_type type, unsig
 {
     if (pDevice == NULL) return DRA_RESULT_INVALID_ARGS;
 
-    bool ownsContext = false;
+    drBool32 ownsContext = DR_FALSE;
     if (pContext == NULL) {
         pContext = (dra_context*)malloc(sizeof(*pContext));
         if (pContext == NULL) {
@@ -2557,7 +2570,7 @@ dra_result dra_device_init_ex(dra_context* pContext, dra_device_type type, unsig
             return result;
         }
 
-        ownsContext = true;
+        ownsContext = DR_TRUE;
     }
 
     if (sampleRate == 0) sampleRate = DR_AUDIO_DEFAULT_SAMPLE_RATE;
@@ -2642,7 +2655,7 @@ void dra_device_uninit(dra_device* pDevice)
     // Mark the device as closed in order to prevent other threads from doing work after closing.
     dra_device__lock(pDevice);
     {
-        pDevice->isClosed = true;
+        pDevice->isClosed = DR_TRUE;
     }
     dra_device__unlock(pDevice);
 
@@ -3099,8 +3112,8 @@ dra_result dra_voice_create(dra_device* pDevice, dra_format format, unsigned int
     pVoice->channels = channels;
     pVoice->sampleRate = sampleRate;
     pVoice->linearVolume = 1;
-    pVoice->isPlaying = false;
-    pVoice->isLooping = false;
+    pVoice->isPlaying = DR_FALSE;
+    pVoice->isLooping = DR_FALSE;
     pVoice->frameCount = sizeInBytes / (bytesPerSample * channels);
     pVoice->currentReadPos = 0;
     pVoice->sizeInBytes = sizeInBytes;
@@ -3149,7 +3162,7 @@ void dra_voice_delete(dra_voice* pVoice)
     free(pVoice);
 }
 
-void dra_voice_play(dra_voice* pVoice, bool loop)
+void dra_voice_play(dra_voice* pVoice, drBool32 loop)
 {
     if (pVoice == NULL) {
         return;
@@ -3163,7 +3176,7 @@ void dra_voice_play(dra_voice* pVoice, bool loop)
         }
     }
 
-    pVoice->isPlaying = true;
+    pVoice->isPlaying = DR_TRUE;
     pVoice->isLooping = loop;
 
     dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, &pVoice->playEvent);
@@ -3184,25 +3197,25 @@ void dra_voice_stop(dra_voice* pVoice)
 
     dra_device__voice_playback_count_dec(pVoice->pDevice);
 
-    pVoice->isPlaying = false;
-    pVoice->isLooping = false;
+    pVoice->isPlaying = DR_FALSE;
+    pVoice->isLooping = DR_FALSE;
 
     dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, &pVoice->stopEvent);
 }
 
-bool dra_voice_is_playing(dra_voice* pVoice)
+drBool32 dra_voice_is_playing(dra_voice* pVoice)
 {
     if (pVoice == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     return pVoice->isPlaying;
 }
 
-bool dra_voice_is_looping(dra_voice* pVoice)
+drBool32 dra_voice_is_looping(dra_voice* pVoice)
 {
     if (pVoice == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     return pVoice->isLooping;
@@ -3415,7 +3428,7 @@ void dra_voice__unsignal_playback_events(dra_voice* pVoice)
     // This function will be called when the voice has looped back to the start. In this case the playback notification events need
     // to be marked as unsignaled so that they're able to be fired again.
     for (size_t i = 0; i < pVoice->playbackEventCount; ++i) {
-        pVoice->playbackEvents[i].hasBeenSignaled = false;
+        pVoice->playbackEvents[i].hasBeenSignaled = DR_FALSE;
     }
 }
 
@@ -3561,7 +3574,7 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
         dra__event* pEvent = &pVoice->playbackEvents[i];
         if (!pEvent->hasBeenSignaled && pEvent->sampleIndex*sampleRateFactor <= currentReadPosLocal) {
             dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, pEvent);  // <-- TODO: Check that this really needs to be scheduled. Can probably call it directly and avoid a mutex lock/unlock.
-            pEvent->hasBeenSignaled = true;
+            pEvent->hasBeenSignaled = DR_TRUE;
         }
     }
 
@@ -3595,14 +3608,14 @@ void dra_voice_set_on_play(dra_voice* pVoice, dra_event_proc proc, void* pUserDa
     pVoice->playEvent.pVoice = pVoice;
 }
 
-bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_event_proc proc, void* pUserData)
+drBool32 dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_event_proc proc, void* pUserData)
 {
     if (pVoice == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (pVoice->playbackEventCount >= DR_AUDIO_MAX_EVENT_COUNT) {
-        return false;
+        return DR_FALSE;
     }
 
     pVoice->playbackEvents[pVoice->playbackEventCount].id = eventID;
@@ -3612,7 +3625,7 @@ bool dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint6
     pVoice->playbackEvents[pVoice->playbackEventCount].pVoice = pVoice;
 
     pVoice->playbackEventCount += 1;
-    return true;
+    return DR_TRUE;
 }
 
 void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID)
@@ -3759,7 +3772,7 @@ size_t dra_decoder_on_read__wav(void* pUserData, void* pDataOut, size_t bytesToR
 
     return pDecoder->onRead(pDecoder->pUserData, pDataOut, bytesToRead);
 }
-bool dra_decoder_on_seek__wav(void* pUserData, int offset, drwav_seek_origin origin)
+drBool32 dra_decoder_on_seek__wav(void* pUserData, int offset, drwav_seek_origin origin)
 {
     dra_decoder* pDecoder = (dra_decoder*)pUserData;
     assert(pDecoder != NULL);
@@ -3784,7 +3797,7 @@ uint64_t dra_decoder_on_read_samples__wav(void* pBackendDecoder, uint64_t sample
     return drwav_read_f32(pWav, samplesToRead, pSamplesOut);
 }
 
-bool dra_decoder_on_seek_samples__wav(void* pBackendDecoder, uint64_t sample)
+drBool32 dra_decoder_on_seek_samples__wav(void* pBackendDecoder, uint64_t sample)
 {
     drwav* pWav = (drwav*)pBackendDecoder;
     assert(pWav != NULL);
@@ -3808,38 +3821,38 @@ void dra_decoder_init__wav(dra_decoder* pDecoder, drwav* pWav)
     pDecoder->onSeekSamples = dra_decoder_on_seek_samples__wav;
 }
 
-bool dra_decoder_open__wav(dra_decoder* pDecoder)
+drBool32 dra_decoder_open__wav(dra_decoder* pDecoder)
 {
     drwav* pWav = drwav_open(dra_decoder_on_read__wav, dra_decoder_on_seek__wav, pDecoder);
     if (pWav == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     dra_decoder_init__wav(pDecoder, pWav);
-    return true;
+    return DR_TRUE;
 }
 
-bool dra_decoder_open_memory__wav(dra_decoder* pDecoder, const void* pData, size_t dataSize)
+drBool32 dra_decoder_open_memory__wav(dra_decoder* pDecoder, const void* pData, size_t dataSize)
 {
     drwav* pWav = drwav_open_memory(pData, dataSize);
     if (pWav == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     dra_decoder_init__wav(pDecoder, pWav);
-    return true;
+    return DR_TRUE;
 }
 
 #ifdef DR_AUDIO_HAS_WAV_STDIO
-bool dra_decoder_open_file__wav(dra_decoder* pDecoder, const char* filePath)
+drBool32 dra_decoder_open_file__wav(dra_decoder* pDecoder, const char* filePath)
 {
     drwav* pWav = drwav_open_file(filePath);
     if (pWav == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     dra_decoder_init__wav(pDecoder, pWav);
-    return true;
+    return DR_TRUE;
 }
 #endif
 #endif  //WAV
@@ -3853,7 +3866,7 @@ size_t dra_decoder_on_read__flac(void* pUserData, void* pDataOut, size_t bytesTo
 
     return pDecoder->onRead(pDecoder->pUserData, pDataOut, bytesToRead);
 }
-bool dra_decoder_on_seek__flac(void* pUserData, int offset, drflac_seek_origin origin)
+drBool32 dra_decoder_on_seek__flac(void* pUserData, int offset, drflac_seek_origin origin)
 {
     dra_decoder* pDecoder = (dra_decoder*)pUserData;
     assert(pDecoder != NULL);
@@ -3881,7 +3894,7 @@ uint64_t dra_decoder_on_read_samples__flac(void* pBackendDecoder, uint64_t sampl
     return samplesRead;
 }
 
-bool dra_decoder_on_seek_samples__flac(void* pBackendDecoder, uint64_t sample)
+drBool32 dra_decoder_on_seek_samples__flac(void* pBackendDecoder, uint64_t sample)
 {
     drflac* pFlac = (drflac*)pBackendDecoder;
     assert(pFlac != NULL);
@@ -3905,38 +3918,38 @@ void dra_decoder_init__flac(dra_decoder* pDecoder, drflac* pFlac)
     pDecoder->onSeekSamples = dra_decoder_on_seek_samples__flac;
 }
 
-bool dra_decoder_open__flac(dra_decoder* pDecoder)
+drBool32 dra_decoder_open__flac(dra_decoder* pDecoder)
 {
     drflac* pFlac = drflac_open(dra_decoder_on_read__flac, dra_decoder_on_seek__flac, pDecoder);
     if (pFlac == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     dra_decoder_init__flac(pDecoder, pFlac);
-    return true;
+    return DR_TRUE;
 }
 
-bool dra_decoder_open_memory__flac(dra_decoder* pDecoder, const void* pData, size_t dataSize)
+drBool32 dra_decoder_open_memory__flac(dra_decoder* pDecoder, const void* pData, size_t dataSize)
 {
     drflac* pFlac = drflac_open_memory(pData, dataSize);
     if (pFlac == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     dra_decoder_init__flac(pDecoder, pFlac);
-    return true;
+    return DR_TRUE;
 }
 
 #ifdef DR_AUDIO_HAS_FLAC_STDIO
-bool dra_decoder_open_file__flac(dra_decoder* pDecoder, const char* filePath)
+drBool32 dra_decoder_open_file__flac(dra_decoder* pDecoder, const char* filePath)
 {
     drflac* pFlac = drflac_open_file(filePath);
     if (pFlac == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     dra_decoder_init__flac(pDecoder, pFlac);
-    return true;
+    return DR_TRUE;
 }
 #endif
 #endif  //FLAC
@@ -3959,7 +3972,7 @@ uint64_t dra_decoder_on_read_samples__vorbis(void* pBackendDecoder, uint64_t sam
     return (uint64_t)stb_vorbis_get_samples_float_interleaved(pVorbis, info.channels, pSamplesOut, (int)samplesToRead) * info.channels;
 }
 
-bool dra_decoder_on_seek_samples__vorbis(void* pBackendDecoder, uint64_t sample)
+drBool32 dra_decoder_on_seek_samples__vorbis(void* pBackendDecoder, uint64_t sample)
 {
     stb_vorbis* pVorbis = (stb_vorbis*)pBackendDecoder;
     assert(pVorbis != NULL);
@@ -3985,44 +3998,44 @@ void dra_decoder_init__vorbis(dra_decoder* pDecoder, stb_vorbis* pVorbis)
     pDecoder->onSeekSamples = dra_decoder_on_seek_samples__vorbis;
 }
 
-bool dra_decoder_open__vorbis(dra_decoder* pDecoder)
+drBool32 dra_decoder_open__vorbis(dra_decoder* pDecoder)
 {
     // TODO: Add support for the push API.
 
     // Not currently supporting callback based decoding.
     (void)pDecoder;
-    return false;
+    return DR_FALSE;
 }
 
-bool dra_decoder_open_memory__vorbis(dra_decoder* pDecoder, const void* pData, size_t dataSize)
+drBool32 dra_decoder_open_memory__vorbis(dra_decoder* pDecoder, const void* pData, size_t dataSize)
 {
     stb_vorbis* pVorbis = stb_vorbis_open_memory((const unsigned char*)pData, (int)dataSize, NULL, NULL);
     if (pVorbis == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     dra_decoder_init__vorbis(pDecoder, pVorbis);
-    return true;
+    return DR_TRUE;
 }
 
 #ifdef DR_AUDIO_HAS_VORBIS_STDIO
-bool dra_decoder_open_file__vorbis(dra_decoder* pDecoder, const char* filePath)
+drBool32 dra_decoder_open_file__vorbis(dra_decoder* pDecoder, const char* filePath)
 {
     stb_vorbis* pVorbis = stb_vorbis_open_filename(filePath, NULL, NULL);
     if (pVorbis == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     dra_decoder_init__vorbis(pDecoder, pVorbis);
-    return true;
+    return DR_TRUE;
 }
 #endif
 #endif  //Vorbis
 
-bool dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData)
+drBool32 dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData)
 {
     if (pDecoder == NULL || onRead == NULL || onSeek == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     memset(pDecoder, 0, sizeof(*pDecoder));
@@ -4033,25 +4046,25 @@ bool dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dr
 
 #ifdef DR_AUDIO_HAS_WAV_STDIO
     if (dra_decoder_open__wav(pDecoder)) {
-        return true;
+        return DR_TRUE;
     }
     onSeek(pUserData, 0, dra_seek_origin_start);
 #endif
 #ifdef DR_AUDIO_HAS_FLAC_STDIO
     if (dra_decoder_open__flac(pDecoder)) {
-        return true;
+        return DR_TRUE;
     }
     onSeek(pUserData, 0, dra_seek_origin_start);
 #endif
 #ifdef DR_AUDIO_HAS_VORBIS_STDIO
     if (dra_decoder_open__vorbis(pDecoder)) {
-        return true;
+        return DR_TRUE;
     }
     onSeek(pUserData, 0, dra_seek_origin_start);
 #endif
 
     // If we get here it means we were unable to open a decoder.
-    return false;
+    return DR_FALSE;
 }
 
 
@@ -4073,7 +4086,7 @@ size_t dra_decoder__on_read_memory(void* pUserData, void* pDataOut, size_t bytes
 
     return bytesToRead;
 }
-bool dra_decoder__on_seek_memory(void* pUserData, int offset, dra_seek_origin origin)
+drBool32 dra_decoder__on_seek_memory(void* pUserData, int offset, dra_seek_origin origin)
 {
     dra__memory_stream* memoryStream = (dra__memory_stream*)pUserData;
     assert(memoryStream != NULL);
@@ -4093,13 +4106,13 @@ bool dra_decoder__on_seek_memory(void* pUserData, int offset, dra_seek_origin or
         }
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize)
+drBool32 dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize)
 {
     if (pDecoder == NULL || pData == NULL || dataSize == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     memset(pDecoder, 0, sizeof(*pDecoder));
@@ -4107,17 +4120,17 @@ bool dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t da
     // Prefer the backend's native APIs.
 #if defined(DR_AUDIO_HAS_WAV)
     if (dra_decoder_open_memory__wav(pDecoder, pData, dataSize)) {
-        return true;
+        return DR_TRUE;
     }
 #endif
 #if defined(DR_AUDIO_HAS_FLAC)
     if (dra_decoder_open_memory__flac(pDecoder, pData, dataSize)) {
-        return true;
+        return DR_TRUE;
     }
 #endif
 #if defined(DR_AUDIO_HAS_VORBIS)
     if (dra_decoder_open_memory__vorbis(pDecoder, pData, dataSize)) {
-        return true;
+        return DR_TRUE;
     }
 #endif
 
@@ -4127,13 +4140,13 @@ bool dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t da
     memoryStream.dataSize = dataSize;
     memoryStream.currentReadPos = 0;
     if (!dra_decoder_open(pDecoder, dra_decoder__on_read_memory, dra_decoder__on_seek_memory, &memoryStream)) {
-        return false;
+        return DR_FALSE;
     }
 
     pDecoder->memoryStream = memoryStream;
     pDecoder->pUserData = &pDecoder->memoryStream;
 
-    return true;
+    return DR_TRUE;
 }
 
 
@@ -4142,15 +4155,15 @@ size_t dra_decoder__on_read_stdio(void* pUserData, void* pDataOut, size_t bytesT
 {
     return fread(pDataOut, 1, bytesToRead, (FILE*)pUserData);
 }
-bool dra_decoder__on_seek_stdio(void* pUserData, int offset, dra_seek_origin origin)
+drBool32 dra_decoder__on_seek_stdio(void* pUserData, int offset, dra_seek_origin origin)
 {
     return fseek((FILE*)pUserData, offset, (origin == dra_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-bool dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath)
+drBool32 dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath)
 {
     if (pDecoder == NULL || filePath == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     memset(pDecoder, 0, sizeof(*pDecoder));
@@ -4158,17 +4171,17 @@ bool dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath)
     // When opening a decoder from a file it's preferrable to use the backend's native file IO APIs if it has them.
 #if defined(DR_AUDIO_HAS_WAV) && defined(DR_AUDIO_HAS_WAV_STDIO)
     if (dra_decoder_open_file__wav(pDecoder, filePath)) {
-        return true;
+        return DR_TRUE;
     }
 #endif
 #if defined(DR_AUDIO_HAS_FLAC) && defined(DR_AUDIO_HAS_FLAC_STDIO)
     if (dra_decoder_open_file__flac(pDecoder, filePath)) {
-        return true;
+        return DR_TRUE;
     }
 #endif
 #if defined(DR_AUDIO_HAS_VORBIS) && defined(DR_AUDIO_HAS_VORBIS_STDIO)
     if (dra_decoder_open_file__vorbis(pDecoder, filePath)) {
-        return true;
+        return DR_TRUE;
     }
 #endif
 
@@ -4178,15 +4191,15 @@ bool dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath)
     // to a generic method.
     FILE* pFile = dra__fopen(filePath);
     if (pFile == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (!dra_decoder_open(pDecoder, dra_decoder__on_read_stdio, dra_decoder__on_seek_stdio, pFile)) {
         fclose(pFile);
-        return false;
+        return DR_FALSE;
     }
 
-    return true;
+    return DR_TRUE;
 }
 #endif
 
@@ -4216,10 +4229,10 @@ uint64_t dra_decoder_read_f32(dra_decoder* pDecoder, uint64_t samplesToRead, flo
     return pDecoder->onReadSamples(pDecoder->pBackendDecoder, samplesToRead, pSamplesOut);
 }
 
-bool dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample)
+drBool32 dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample)
 {
     if (pDecoder == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     return pDecoder->onSeekSamples(pDecoder->pBackendDecoder, sample);
@@ -4385,7 +4398,7 @@ dra_sound_world* dra_sound_world_create(dra_device* pPlaybackDevice)
             return NULL;
         }
 
-        pWorld->ownsPlaybackDevice = true;
+        pWorld->ownsPlaybackDevice = DR_TRUE;
     }
 
 
@@ -4441,7 +4454,7 @@ void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc,
     }
 
     dra_voice_set_on_stop(pSound->pVoice, dra_sound_world__on_inline_sound_stop, pSound);
-    dra_sound_play(pSound, false);
+    dra_sound_play(pSound, DR_FALSE);
 }
 
 void dra_sound_world_play_inline_3f(dra_sound_world* pWorld, dra_sound_desc* pDesc, dra_mixer* pMixer, float xPos, float yPos, float zPos)
@@ -4513,17 +4526,17 @@ void dra_sound_world_set_listener_orientation(dra_sound_world* pWorld, float xFo
 }
 
 
-bool dra_sound__is_streaming(dra_sound* pSound)
+drBool32 dra_sound__is_streaming(dra_sound* pSound)
 {
     assert(pSound != NULL);
     return pSound->desc.dataSize == 0 || pSound->desc.pData == NULL;
 }
 
-bool dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOffset)
+drBool32 dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOffset)
 {
     assert(pSound != NULL);
     if (pSound->desc.onRead == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     uint64_t chunkSizeInSamples = (pSound->pVoice->frameCount * pSound->pVoice->channels) / 2;
@@ -4532,11 +4545,11 @@ bool dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOffset)
     uint64_t samplesRead = pSound->desc.onRead(pSound, chunkSizeInSamples, dra_voice_get_buffer_ptr_by_sample(pSound->pVoice, outputSampleOffset));
     if (samplesRead == 0 && !pSound->isLooping) {
         dra_voice_write_silence(pSound->pVoice, outputSampleOffset, chunkSizeInSamples);
-        return false;   // Ran out of samples in a non-looping buffer.
+        return DR_FALSE;   // Ran out of samples in a non-looping buffer.
     }
 
     if (samplesRead == chunkSizeInSamples) {
-        return true;
+        return DR_TRUE;
     }
 
     assert(samplesRead > 0);
@@ -4546,26 +4559,26 @@ bool dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOffset)
     // to be zeroed out to create silence.
     if (!pSound->isLooping) {
         dra_voice_write_silence(pSound->pVoice, outputSampleOffset + samplesRead, chunkSizeInSamples - samplesRead);
-        return true;
+        return DR_TRUE;
     }
 
     // At this point the sound will not be looping. We want to continuously loop back to the start and keep reading samples until the
     // chunk is filled.
     while (samplesRead < chunkSizeInSamples) {
         if (!pSound->desc.onSeek(pSound, 0)) {
-            return false;
+            return DR_FALSE;
         }
 
         uint64_t samplesRemaining = chunkSizeInSamples - samplesRead;
         uint64_t samplesJustRead = pSound->desc.onRead(pSound, samplesRemaining, dra_voice_get_buffer_ptr_by_sample(pSound->pVoice, outputSampleOffset + samplesRead));
         if (samplesJustRead == 0) {
-            return false;
+            return DR_FALSE;
         }
 
         samplesRead += samplesJustRead;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
 void dra_sound__on_read_next_chunk(uint64_t eventID, void* pUserData)
@@ -4574,7 +4587,7 @@ void dra_sound__on_read_next_chunk(uint64_t eventID, void* pUserData)
     assert(pSound != NULL);
 
     if (pSound->stopOnNextChunk) {
-        pSound->stopOnNextChunk = false;
+        pSound->stopOnNextChunk = DR_FALSE;
         dra_sound_stop(pSound);
         return;
     }
@@ -4582,7 +4595,7 @@ void dra_sound__on_read_next_chunk(uint64_t eventID, void* pUserData)
     // The event ID is the index of the sample to write to.
     uint64_t sampleOffset = eventID;
     if (!dra_sound__read_next_chunk(pSound, sampleOffset)) {
-        pSound->stopOnNextChunk = true;
+        pSound->stopOnNextChunk = DR_TRUE;
     }
 }
 
@@ -4593,7 +4606,7 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
         return NULL;
     }
 
-    bool isStreaming = false;
+    drBool32 isStreaming = DR_FALSE;
     dra_result result = DRA_RESULT_SUCCESS;
 
     dra_sound* pSound = (dra_sound*)calloc(1, sizeof(*pSound));
@@ -4659,7 +4672,7 @@ uint64_t dra_sound__on_read_decoder(dra_sound* pSound, uint64_t samplesToRead, v
     return dra_decoder_read_f32(pDecoder, samplesToRead, (float*)pSamplesOut);
 }
 
-bool dra_sound__on_seek_decoder(dra_sound* pSound, uint64_t sample)
+drBool32 dra_sound__on_seek_decoder(dra_sound* pSound, uint64_t sample)
 {
     dra_decoder* pDecoder = (dra_decoder*)pSound->desc.pUserData;
     assert(pDecoder != NULL);
@@ -4724,7 +4737,7 @@ void dra_sound_delete(dra_sound* pSound)
 }
 
 
-void dra_sound_play(dra_sound* pSound, bool loop)
+void dra_sound_play(dra_sound* pSound, drBool32 loop)
 {
     if (pSound == NULL) {
         return;
@@ -4732,7 +4745,7 @@ void dra_sound_play(dra_sound* pSound, bool loop)
 
     // The voice is always set to loop for streaming sounds.
     if (dra_sound__is_streaming(pSound)) {
-        dra_voice_play(pSound->pVoice, true);
+        dra_voice_play(pSound->pVoice, DR_TRUE);
     } else {
         dra_voice_play(pSound->pVoice, loop);
     }

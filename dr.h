@@ -22,6 +22,7 @@
 extern "C" {
 #endif
 
+
 // Disable MSVC compatibility if we're compiling with it.
 #if defined(_MSC_VER)
     #define DR_NO_MSVC_COMPAT
@@ -37,12 +38,24 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 
 #ifndef DR_NO_MSVC_COMPAT
 #include <errno.h>
+#endif
+
+
+#ifndef DR_BOOL_DEFINED
+#define DR_BOOL_DEFINED
+#ifdef _WIN32
+typedef int drBool32;
+#else
+#include <stdint.h>
+typedef int32_t drBool32;
+#endif
+#define DR_TRUE     1
+#define DR_FALSE    0
 #endif
 
 
@@ -151,7 +164,7 @@ DR_INLINE int _itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
 // String Helpers
 
 // Determines if the given character is whitespace.
-bool dr_is_whitespace(uint32_t utf32);
+drBool32 dr_is_whitespace(uint32_t utf32);
 
 /// Removes every occurance of the given character from the given string.
 void dr_strrmchar(char* str, char c);
@@ -310,8 +323,8 @@ typedef void   (* dr_key_value_error_proc)(void* pUserData, const char* message,
 ///     If an error occurs, that line will be skipped and processing will continue.
 void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
 
-// This will only return false if the file fails to open. It will still return true even if there are syntax error or whatnot.
-bool dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
+// This will only return DR_FALSE if the file fails to open. It will still return DR_TRUE even if there are syntax error or whatnot.
+drBool32 dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData);
 
 
 
@@ -343,31 +356,31 @@ const char* dr_next_token(const char* tokens, char* tokenOut, size_t tokenOutSiz
 ///
 /// @remarks
 ///     Currently only works on Windows and Linux. Other platforms will be added as they're needed.
-bool dr_get_executable_path(char* pathOut, size_t pathOutSize);
+drBool32 dr_get_executable_path(char* pathOut, size_t pathOutSize);
 
 /// Retrieves the path of the directory containing the executable.
 ///
 /// @remarks
 ///     Currently only works on Windows and Linux. Other platforms will be added as they're needed.
-bool dr_get_executable_directory_path(char* pathOut, size_t pathOutSize);
+drBool32 dr_get_executable_directory_path(char* pathOut, size_t pathOutSize);
 
 /// Retrieves the path of the user's config directory.
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be ~/.config
-bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize);
+drBool32 dr_get_config_folder_path(char* pathOut, size_t pathOutSize);
 
 /// Retrieves the path of the user's log directory.
 ///
 /// @remarks
 ///     On Windows this will typically be %APPDATA% and on Linux it will usually be var/log
-bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize);
+drBool32 dr_get_log_folder_path(char* pathOut, size_t pathOutSize);
 
 /// Retrieves the current directory.
 const char* dr_get_current_directory(char* pathOut, size_t pathOutSize);
 
 /// Sets the current directory.
-bool dr_set_current_directory(const char* path);
+drBool32 dr_set_current_directory(const char* path);
 
 
 
@@ -375,14 +388,14 @@ bool dr_set_current_directory(const char* path);
 // Basic File Management
 
 // Callback function for file iteration.
-typedef bool (* dr_iterate_files_proc)(const char* filePath, void* pUserData);
+typedef drBool32 (* dr_iterate_files_proc)(const char* filePath, void* pUserData);
 
 
 // Helper for opening a stdio FILE.
 FILE* dr_fopen(const char* fileName, const char* openMode);
 
 // Helper for creating an empty file.
-bool dr_create_empty_file(const char* fileName, bool failIfExists);
+drBool32 dr_create_empty_file(const char* fileName, drBool32 failIfExists);
 
 // Retrieves the file data of the given file. Free the returned pointer with dr_free_file_data().
 void* dr_open_and_read_file(const char* filePath, size_t* pFileSizeOut);
@@ -392,35 +405,35 @@ void* dr_open_and_read_file(const char* filePath, size_t* pFileSizeOut);
 char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut);
 
 // Creates a new file with the given data.
-bool dr_open_and_write_file(const char* filePath, const void* pData, size_t dataSize);
+drBool32 dr_open_and_write_file(const char* filePath, const void* pData, size_t dataSize);
 
 // Creates a new file with the given string.
-bool dr_open_and_write_text_file(const char* filePath, const char* text);
+drBool32 dr_open_and_write_text_file(const char* filePath, const char* text);
 
 // Frees the file data returned by dr_open_and_read_file().
 void dr_free_file_data(void* valueReturnedByOpenAndReadFile);
 
 // Determines whether or not the given file path is to a file.
 //
-// This will return false if the path points to a directory.
-bool dr_file_exists(const char* filePath);
+// This will return DR_FALSE if the path points to a directory.
+drBool32 dr_file_exists(const char* filePath);
 
 // Determines whether or not the given file path points to a directory.
 //
-// This will return false if the path points to a file.
-bool dr_directory_exists(const char* directoryPath);
-static inline bool dr_is_directory(const char* directoryPath) { return dr_directory_exists(directoryPath); }
+// This will return DR_FALSE if the path points to a file.
+drBool32 dr_directory_exists(const char* directoryPath);
+static inline drBool32 dr_is_directory(const char* directoryPath) { return dr_directory_exists(directoryPath); }
 
 // Moves a file.
 //
 // This uses rename() on POSIX platforms and MoveFileEx(oldPath, newPath, MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH) on windows platforms.
-bool dr_move_file(const char* oldPath, const char* newPath);
+drBool32 dr_move_file(const char* oldPath, const char* newPath);
 
 // Copies a file.
-bool dr_copy_file(const char* srcPath, const char* dstPath, bool failIfExists);
+drBool32 dr_copy_file(const char* srcPath, const char* dstPath, drBool32 failIfExists);
 
 // Determines if the given file is read only.
-bool dr_is_file_read_only(const char* filePath);
+drBool32 dr_is_file_read_only(const char* filePath);
 
 // Retrieves the last modified time of the file at the given path.
 uint64_t dr_get_file_modified_time(const char* filePath);
@@ -428,16 +441,16 @@ uint64_t dr_get_file_modified_time(const char* filePath);
 // Deletes the file at the given path.
 //
 // This uses remove() on POSIX platforms and DeleteFile() on Windows platforms.
-bool dr_delete_file(const char* filePath);
+drBool32 dr_delete_file(const char* filePath);
 
 // Cross-platform wrapper for creating a directory.
-bool dr_mkdir(const char* directoryPath);
+drBool32 dr_mkdir(const char* directoryPath);
 
 // Recursively creates a directory.
-bool dr_mkdir_recursive(const char* directoryPath);
+drBool32 dr_mkdir_recursive(const char* directoryPath);
 
 // Iterates over every file and folder of the given directory.
-bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_proc proc, void* pUserData);
+drBool32 dr_iterate_files(const char* directory, drBool32 recursive, dr_iterate_files_proc proc, void* pUserData);
 
 
 /////////////////////////////////////////////////////////
@@ -538,20 +551,20 @@ struct dr_cmdline
     const char* win32;
 };
 
-typedef bool dr_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
+typedef drBool32 dr_cmdline_parse_proc(const char* key, const char* value, void* pUserData);
 
 
 /// Initializes a command line object.
-bool dr_init_cmdline(dr_cmdline* pCmdLine, int argc, char** argv);
+drBool32 dr_init_cmdline(dr_cmdline* pCmdLine, int argc, char** argv);
 
 /// Initializes a command line object using a Win32 style command line.
-bool dr_init_cmdline_win32(dr_cmdline* pCmdLine, const char* args);
+drBool32 dr_init_cmdline_win32(dr_cmdline* pCmdLine, const char* args);
 
 /// Parses the given command line.
 void dr_parse_cmdline(dr_cmdline* pCmdLine, dr_cmdline_parse_proc callback, void* pUserData);
 
 /// Helper for determining whether or not the given key exists.
-bool dr_cmdline_key_exists(dr_cmdline* pCmdLine, const char* key);
+drBool32 dr_cmdline_key_exists(dr_cmdline* pCmdLine, const char* key);
 
 // Convers the given command line object to argc/argv style.
 //
@@ -649,10 +662,10 @@ dr_semaphore dr_create_semaphore(int initialValue);
 void dr_delete_semaphore(dr_semaphore semaphore);
 
 /// Waits on the given semaphore object and decrements it's counter by one upon returning.
-bool dr_wait_semaphore(dr_semaphore semaphore);
+drBool32 dr_wait_semaphore(dr_semaphore semaphore);
 
 /// Releases the given semaphore and increments it's counter by one upon returning.
-bool dr_release_semaphore(dr_semaphore semaphore);
+drBool32 dr_release_semaphore(dr_semaphore semaphore);
 
 
 
@@ -704,8 +717,8 @@ unsigned int dr_get_process_id();
 // Helper for clearing the given object to 0.
 #define dr_zero_object(pObject) memset(pObject, 0, sizeof(*pObject));
 
-// Converts an ASCII hex character to it's integral equivalent. Returns false if it's not a valid hex character.
-bool dr_hex_char_to_uint(char ascii, unsigned int* out);
+// Converts an ASCII hex character to it's integral equivalent. Returns DR_FALSE if it's not a valid hex character.
+drBool32 dr_hex_char_to_uint(char ascii, unsigned int* out);
 
 
 /////////////////////////////////////////////////////////
@@ -1004,7 +1017,7 @@ int dr_itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
 /////////////////////////////////////////////////////////
 // String Helpers
 
-bool dr_is_whitespace(uint32_t utf32)
+drBool32 dr_is_whitespace(uint32_t utf32)
 {
     return utf32 == ' ' || utf32 == '\t' || utf32 == '\n' || utf32 == '\v' || utf32 == '\f' || utf32 == '\r';
 }
@@ -1206,8 +1219,8 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
 
     unsigned int currentLine = 1;
 
-    bool moveToNextLineBeforeProcessing = false;
-    bool skipWhitespaceBeforeProcessing = false;
+    drBool32 moveToNextLineBeforeProcessing = DR_FALSE;
+    drBool32 skipWhitespaceBeforeProcessing = DR_FALSE;
 
     // Just keep looping. We'll break from this loop when we have run out of data.
     for (;;)
@@ -1231,13 +1244,13 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
 
             if (pC == pChunkEnd) {
                 // Ran out of data. Load the next chunk and keep going.
-                moveToNextLineBeforeProcessing = true;
+                moveToNextLineBeforeProcessing = DR_TRUE;
                 continue;
             }
 
             pC += 1;     // pC[0] == '\n' - skip past the new line character.
             currentLine += 1;
-            moveToNextLineBeforeProcessing = false;
+            moveToNextLineBeforeProcessing = DR_FALSE;
         }
 
         if (skipWhitespaceBeforeProcessing)
@@ -1248,11 +1261,11 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
 
             if (pC == pChunkEnd) {
                 // Ran out of data.
-                skipWhitespaceBeforeProcessing = true;
+                skipWhitespaceBeforeProcessing = DR_TRUE;
                 continue;
             }
 
-            skipWhitespaceBeforeProcessing = false;
+            skipWhitespaceBeforeProcessing = DR_FALSE;
         }
 
 
@@ -1268,7 +1281,7 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
 
             if (pC == pChunkEnd) {
                 // Ran out of data.
-                skipWhitespaceBeforeProcessing = true;
+                skipWhitespaceBeforeProcessing = DR_TRUE;
                 continue;
             }
 
@@ -1445,7 +1458,7 @@ void dr_parse_key_value_pairs(dr_key_value_read_proc onRead, dr_key_value_pair_p
 
 
             // Before null-terminating the value we first need to determine how we'll proceed after posting onPair.
-            bool wasOnNL = pVEnd[1] == '\n';
+            drBool32 wasOnNL = pVEnd[1] == '\n';
 
             pKEnd[0] = '\0';
             pVEnd[1] = '\0';
@@ -1502,13 +1515,13 @@ void dr_parse_key_value_pairs_from_file__on_error(void* pUserData, const char* m
     pData->onError(pData->pOriginalUserData, message, line);
 }
 
-bool dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData)
+drBool32 dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_proc onPair, dr_key_value_error_proc onError, void* pUserData)
 {
     dr_parse_key_value_pairs_from_file_data data;
     data.pFile = dr_fopen(filePath, "rb");
     if (data.pFile == NULL) {
         if (onError) onError(pUserData, "Could not open file.", 0);
-        return false;
+        return DR_FALSE;
     }
 
     data.onPair = onPair;
@@ -1517,7 +1530,7 @@ bool dr_parse_key_value_pairs_from_file(const char* filePath, dr_key_value_pair_
     dr_parse_key_value_pairs(dr_parse_key_value_pairs_from_file__on_read, dr_parse_key_value_pairs_from_file__on_pair, dr_parse_key_value_pairs_from_file__on_error, &data);
 
     fclose(data.pFile);
-    return true;
+    return DR_TRUE;
 }
 
 
@@ -1615,7 +1628,7 @@ const char* dr_next_token(const char* tokens, char* tokenOut, size_t tokenOutSiz
 #endif
 
 
-bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
+drBool32 dr_get_executable_path(char* pathOut, size_t pathOutSize)
 {
     if (pathOut == NULL || pathOutSize == 0) {
         return 0;
@@ -1624,7 +1637,7 @@ bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
     DWORD length = GetModuleFileNameA(NULL, pathOut, (DWORD)pathOutSize);
     if (length == 0) {
         pathOut[0] = '\0';
-        return false;
+        return DR_FALSE;
     }
 
     // Force null termination.
@@ -1641,13 +1654,13 @@ bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
         pathOut += 1;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool dr_get_executable_directory_path(char* pathOut, size_t pathOutSize)
+drBool32 dr_get_executable_directory_path(char* pathOut, size_t pathOutSize)
 {
     if (!dr_get_executable_path(pathOut, pathOutSize)) {
-        return false;
+        return DR_FALSE;
     }
 
     // A null terminator needs to be placed at the last slash.
@@ -1660,10 +1673,10 @@ bool dr_get_executable_directory_path(char* pathOut, size_t pathOutSize)
     }
 
     lastSlash[0] = '\0';
-    return true;
+    return DR_TRUE;
 }
 
-bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
+drBool32 dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     // The documentation for SHGetFolderPathA() says that the output path should be the size of MAX_PATH. We'll enforce
     // that just to be safe.
@@ -1694,7 +1707,7 @@ bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
     return 1;
 }
 
-bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
+drBool32 dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
     return dr_get_config_folder_path(pathOut, pathOutSize);
 }
@@ -1709,7 +1722,7 @@ const char* dr_get_current_directory(char* pathOut, size_t pathOutSize)
     return pathOut;
 }
 
-bool dr_set_current_directory(const char* path)
+drBool32 dr_set_current_directory(const char* path)
 {
     return SetCurrentDirectoryA(path) != 0;
 }
@@ -1718,7 +1731,7 @@ bool dr_set_current_directory(const char* path)
 #include <sys/types.h>
 #include <pwd.h>
 
-bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
+drBool32 dr_get_executable_path(char* pathOut, size_t pathOutSize)
 {
     if (pathOut == NULL || pathOutSize == 0) {
         return 0;
@@ -1727,7 +1740,7 @@ bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
     ssize_t length = readlink("/proc/self/exe", pathOut, pathOutSize);
     if (length == -1) {
         pathOut[0] = '\0';
-        return false;
+        return DR_FALSE;
     }
 
     if ((size_t)length == pathOutSize) {
@@ -1736,10 +1749,10 @@ bool dr_get_executable_path(char* pathOut, size_t pathOutSize)
         pathOut[length] = '\0';
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
+drBool32 dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     const char* configdir = getenv("XDG_CONFIG_HOME");
     if (configdir != NULL)
@@ -1776,7 +1789,7 @@ bool dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
     return 0;
 }
 
-bool dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
+drBool32 dr_get_log_folder_path(char* pathOut, size_t pathOutSize)
 {
     return strcpy_s(pathOut, pathOutSize, "var/log") == 0;
 }
@@ -1786,7 +1799,7 @@ const char* dr_get_current_directory(char* pathOut, size_t pathOutSize)
     return getcwd(pathOut, pathOutSize);
 }
 
-bool dr_set_current_directory(const char* path)
+drBool32 dr_set_current_directory(const char* path)
 {
     return chdir(path) == 0;
 }
@@ -1820,10 +1833,10 @@ FILE* dr_fopen(const char* filePath, const char* openMode)
     return pFile;
 }
 
-bool dr_create_empty_file(const char* fileName, bool failIfExists)
+drBool32 dr_create_empty_file(const char* fileName, drBool32 failIfExists)
 {
     if (fileName == NULL) {
-        return false;
+        return DR_FALSE;
     }
 #ifdef _WIN32
     DWORD dwCreationDisposition;
@@ -1835,11 +1848,11 @@ bool dr_create_empty_file(const char* fileName, bool failIfExists)
 
     HANDLE hFile = CreateFileA(fileName, FILE_GENERIC_WRITE, 0, NULL, dwCreationDisposition, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
-        return false;
+        return DR_FALSE;
     }
 
     CloseHandle(hFile);
-    return true;
+    return DR_TRUE;
 #else
     int flags = O_WRONLY | O_CREAT;
     if (failIfExists) {
@@ -1849,11 +1862,11 @@ bool dr_create_empty_file(const char* fileName, bool failIfExists)
     }
     int fd = open(fileName, flags, 0666);
     if (fd == -1) {
-        return false;
+        return DR_FALSE;
     }
 
     close(fd);
-    return true;
+    return DR_TRUE;
 #endif
 }
 
@@ -1921,17 +1934,17 @@ char* dr_open_and_read_text_file(const char* filePath, size_t* pFileSizeOut)
     return pFileData;
 }
 
-bool dr_open_and_write_file(const char* filePath, const void* pData, size_t dataSize)
+drBool32 dr_open_and_write_file(const char* filePath, const void* pData, size_t dataSize)
 {
     if (filePath == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     // TODO: Use 64-bit versions of the FILE APIs.
 
     FILE* pFile = dr_fopen(filePath, "wb");
     if (pFile == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (pData != NULL && dataSize > 0) {
@@ -1939,10 +1952,10 @@ bool dr_open_and_write_file(const char* filePath, const void* pData, size_t data
     }
 
     fclose(pFile);
-    return true;
+    return DR_TRUE;
 }
 
-bool dr_open_and_write_text_file(const char* filePath, const char* text)
+drBool32 dr_open_and_write_text_file(const char* filePath, const char* text)
 {
     if (text == NULL) {
         text = "";
@@ -1956,10 +1969,10 @@ void dr_free_file_data(void* valueReturnedByOpenAndReadFile)
     free(valueReturnedByOpenAndReadFile);
 }
 
-bool dr_file_exists(const char* filePath)
+drBool32 dr_file_exists(const char* filePath)
 {
     if (filePath == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
 #if _WIN32
@@ -1968,17 +1981,17 @@ bool dr_file_exists(const char* filePath)
 #else
     struct stat info;
     if (stat(filePath, &info) != 0) {
-        return false;   // Likely the folder doesn't exist.
+        return DR_FALSE;   // Likely the folder doesn't exist.
     }
 
     return (info.st_mode & S_IFDIR) == 0;
 #endif
 }
 
-bool dr_directory_exists(const char* directoryPath)
+drBool32 dr_directory_exists(const char* directoryPath)
 {
     if (directoryPath == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
 #if _WIN32
@@ -1987,17 +2000,17 @@ bool dr_directory_exists(const char* directoryPath)
 #else
     struct stat info;
     if (stat(directoryPath, &info) != 0) {
-        return false;   // Likely the folder doesn't exist.
+        return DR_FALSE;   // Likely the folder doesn't exist.
     }
 
     return (info.st_mode & S_IFDIR) != 0;
 #endif
 }
 
-bool dr_move_file(const char* oldPath, const char* newPath)
+drBool32 dr_move_file(const char* oldPath, const char* newPath)
 {
     if (oldPath == NULL || newPath == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
 #if _WIN32
@@ -2007,10 +2020,10 @@ bool dr_move_file(const char* oldPath, const char* newPath)
 #endif
 }
 
-bool dr_copy_file(const char* srcPath, const char* dstPath, bool failIfExists)
+drBool32 dr_copy_file(const char* srcPath, const char* dstPath, drBool32 failIfExists)
 {
     if (srcPath == NULL || dstPath == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
 #if _WIN32
@@ -2018,28 +2031,28 @@ bool dr_copy_file(const char* srcPath, const char* dstPath, bool failIfExists)
 #else
     int fdSrc = open(srcPath, O_RDONLY, 0666);
     if (fdSrc == -1) {
-        return false;
+        return DR_FALSE;
     }
 
     int fdDst = open(dstPath, O_WRONLY | O_TRUNC | O_CREAT | ((failIfExists) ? O_EXCL : 0), 0666);
     if (fdDst == -1) {
         close(fdSrc);
-        return false;
+        return DR_FALSE;
     }
 
-    bool result = true;
+    drBool32 result = DR_TRUE;
     struct stat info;
     if (fstat(fdSrc, &info) == 0) {
         char buffer[BUFSIZ];
         int bytesRead;
         while ((bytesRead = read(fdSrc, buffer, sizeof(buffer))) > 0) {
             if (write(fdDst, buffer, bytesRead) != bytesRead) {
-                result = false;
+                result = DR_FALSE;
                 break;
             }
         }
     } else {
-        result = false;
+        result = DR_FALSE;
     }
 
     close(fdDst);
@@ -2052,10 +2065,10 @@ bool dr_copy_file(const char* srcPath, const char* dstPath, bool failIfExists)
 #endif
 }
 
-bool dr_is_file_read_only(const char* filePath)
+drBool32 dr_is_file_read_only(const char* filePath)
 {
     if (filePath == NULL || filePath[0] == '\0') {
-        return false;
+        return DR_FALSE;
     }
 
 #if _WIN32
@@ -2100,10 +2113,10 @@ uint64_t dr_get_file_modified_time(const char* filePath)
 #endif
 }
 
-bool dr_delete_file(const char* filePath)
+drBool32 dr_delete_file(const char* filePath)
 {
     if (filePath == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
 #if _WIN32
@@ -2113,10 +2126,10 @@ bool dr_delete_file(const char* filePath)
 #endif
 }
 
-bool dr_mkdir(const char* directoryPath)
+drBool32 dr_mkdir(const char* directoryPath)
 {
     if (directoryPath == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
 #if _WIN32
@@ -2126,10 +2139,10 @@ bool dr_mkdir(const char* directoryPath)
 #endif
 }
 
-bool dr_mkdir_recursive(const char* directoryPath)
+drBool32 dr_mkdir_recursive(const char* directoryPath)
 {
     if (directoryPath == NULL || directoryPath[0] == '\0') {
-        return false;
+        return DR_FALSE;
     }
 
     // All we need to do is iterate over every segment in the path and try creating the directory.
@@ -2139,14 +2152,14 @@ bool dr_mkdir_recursive(const char* directoryPath)
     size_t i = 0;
     for (;;) {
         if (i >= sizeof(runningPath)-1) {
-            return false;   // Path is too long.
+            return DR_FALSE;   // Path is too long.
         }
 
         if (directoryPath[0] == '\0' || directoryPath[0] == '/' || directoryPath[0] == '\\') {
             if (runningPath[0] != '\0' && !(runningPath[1] == ':' && runningPath[2] == '\0')) {   // <-- If the running path is empty, it means we're trying to create the root directory.
                 if (!dr_directory_exists(runningPath)) {
                     if (!dr_mkdir(runningPath)) {
-                        return false;
+                        return DR_FALSE;
                     }
                 }
             }
@@ -2165,10 +2178,10 @@ bool dr_mkdir_recursive(const char* directoryPath)
         directoryPath += 1;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_proc proc, void* pUserData)
+drBool32 dr_iterate_files(const char* directory, drBool32 recursive, dr_iterate_files_proc proc, void* pUserData)
 {
 #ifdef _WIN32
     char searchQuery[MAX_PATH];
@@ -2176,7 +2189,7 @@ bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_pr
 
     unsigned int searchQueryLength = (unsigned int)strlen(searchQuery);
     if (searchQueryLength >= MAX_PATH - 3) {
-        return false;    // Path is too long.
+        return DR_FALSE;    // Path is too long.
     }
 
     searchQuery[searchQueryLength + 0] = '\\';
@@ -2186,7 +2199,7 @@ bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_pr
     WIN32_FIND_DATAA ffd;
     HANDLE hFind = FindFirstFileA(searchQuery, &ffd);
     if (hFind == INVALID_HANDLE_VALUE) {
-        return false; // Failed to begin search.
+        return DR_FALSE; // Failed to begin search.
     }
 
     do
@@ -2202,13 +2215,13 @@ bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_pr
         strcat_s(filePath, sizeof(filePath), ffd.cFileName);
 
         if (!proc(filePath, pUserData)) {
-            return false;
+            return DR_FALSE;
         }
 
         if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
             if (recursive) {
                 if (!dr_iterate_files(filePath, recursive, proc, pUserData)) {
-                    return false;
+                    return DR_FALSE;
                 }
             }
         }
@@ -2219,7 +2232,7 @@ bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_pr
 #else
     DIR* dir = opendir(directory);
     if (dir == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     struct dirent* info = NULL;
@@ -2241,13 +2254,13 @@ bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_pr
         }
 
         if (!proc(filePath, pUserData)) {
-            return false;
+            return DR_FALSE;
         }
 
         if (fileinfo.st_mode & S_IFDIR) {
             if (recursive) {
                 if (!dr_iterate_files(filePath, recursive, proc, pUserData)) {
-                    return false;
+                    return DR_FALSE;
                 }
             }
         }
@@ -2256,7 +2269,7 @@ bool dr_iterate_files(const char* directory, bool recursive, dr_iterate_files_pr
     closedir(dir);
 #endif
 
-    return true;
+    return DR_TRUE;
 }
 
 
@@ -2285,7 +2298,7 @@ typedef HRESULT (__stdcall * PFN_GetDpiForMonitor)       (HMONITOR hmonitor, MON
 
 void dr_win32_make_dpi_aware()
 {
-    bool fallBackToDiscouragedAPI = false;
+    drBool32 fallBackToDiscouragedAPI = DR_FALSE;
 
     // We can't call SetProcessDpiAwareness() directly because otherwise on versions of Windows < 8.1 we'll get an error at load time about
     // a missing DLL.
@@ -2297,19 +2310,19 @@ void dr_win32_make_dpi_aware()
         {
             if (_SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE) != S_OK)
             {
-                fallBackToDiscouragedAPI = false;
+                fallBackToDiscouragedAPI = DR_FALSE;
             }
         }
         else
         {
-            fallBackToDiscouragedAPI = false;
+            fallBackToDiscouragedAPI = DR_FALSE;
         }
 
         FreeLibrary(hSHCoreDLL);
     }
     else
     {
-        fallBackToDiscouragedAPI = false;
+        fallBackToDiscouragedAPI = DR_FALSE;
     }
 
 
@@ -2381,7 +2394,7 @@ static BOOL CALLBACK win32_get_monitor_dpi_callback(HMONITOR hMonitor, HDC hdcMo
             dr_win32_get_system_dpi(&pData->dpiX, &pData->dpiY);
         }
 
-        return FALSE;   // Return false to terminate the enumerator.
+        return FALSE;   // Return DR_FALSE to terminate the enumerator.
     }
 
     pData->i += 1;
@@ -2523,7 +2536,7 @@ dr_cmdline_iterator dr_cmdline_begin(dr_cmdline* pCmdLine)
     return i;
 }
 
-bool dr_cmdline_next(dr_cmdline_iterator* i)
+drBool32 dr_cmdline_next(dr_cmdline_iterator* i)
 {
     if (i != NULL && i->pCmdLine != NULL)
     {
@@ -2553,7 +2566,7 @@ bool dr_cmdline_next(dr_cmdline_iterator* i)
                 i->value         = NULL;
                 i->valueEnd      = NULL;
 
-                return false;
+                return DR_FALSE;
             }
 
 
@@ -2591,7 +2604,7 @@ bool dr_cmdline_next(dr_cmdline_iterator* i)
                 i->valueEnd[0] = '\0';
             }
 
-            return true;
+            return DR_TRUE;
         }
         else
         {
@@ -2600,44 +2613,44 @@ bool dr_cmdline_next(dr_cmdline_iterator* i)
             if (i->iarg < i->pCmdLine->argc)
             {
                 i->value = i->pCmdLine->argv[i->iarg];
-                return true;
+                return DR_TRUE;
             }
             else
             {
                 i->value = NULL;
-                return false;
+                return DR_FALSE;
             }
         }
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 
-bool dr_init_cmdline(dr_cmdline* pCmdLine, int argc, char** argv)
+drBool32 dr_init_cmdline(dr_cmdline* pCmdLine, int argc, char** argv)
 {
     if (pCmdLine == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     pCmdLine->argc  = argc;
     pCmdLine->argv  = argv;
     pCmdLine->win32 = NULL;
 
-    return true;
+    return DR_TRUE;
 }
 
-bool dr_init_cmdline_win32(dr_cmdline* pCmdLine, const char* args)
+drBool32 dr_init_cmdline_win32(dr_cmdline* pCmdLine, const char* args)
 {
     if (pCmdLine == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     pCmdLine->argc  = 0;
     pCmdLine->argv  = NULL;
     pCmdLine->win32 = args;
 
-    return true;
+    return DR_TRUE;
 }
 
 void dr_parse_cmdline(dr_cmdline* pCmdLine, dr_cmdline_parse_proc callback, void* pUserData)
@@ -2742,11 +2755,11 @@ void dr_parse_cmdline(dr_cmdline* pCmdLine, dr_cmdline_parse_proc callback, void
 
 typedef struct
 {
-    bool exists;
+    drBool32 exists;
     const char* key;
 } dr_cmdline_key_exists_data;
 
-bool dr_cmdline_key_exists_callback(const char* key, const char* value, void* pUserData)
+drBool32 dr_cmdline_key_exists_callback(const char* key, const char* value, void* pUserData)
 {
     (void)value;
 
@@ -2754,17 +2767,17 @@ bool dr_cmdline_key_exists_callback(const char* key, const char* value, void* pU
     assert(pData != NULL);
 
     if (key != NULL && strcmp(pData->key, key) == 0) {
-        pData->exists = true;
-        return false;
+        pData->exists = DR_TRUE;
+        return DR_FALSE;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool dr_cmdline_key_exists(dr_cmdline* pCmdLine, const char* key)
+drBool32 dr_cmdline_key_exists(dr_cmdline* pCmdLine, const char* key)
 {
     dr_cmdline_key_exists_data data;
-    data.exists = false;
+    data.exists = DR_FALSE;
     data.key = key;
     dr_parse_cmdline(pCmdLine, dr_cmdline_key_exists_callback, &data);
 
@@ -2881,8 +2894,8 @@ typedef struct
     /// The user data to pass to the thread's entry point.
     void* pData;
 
-    /// Set to true by the entry function. We use this to wait for the entry function to start.
-    bool isInEntryProc;
+    /// Set to DR_TRUE by the entry function. We use this to wait for the entry function to start.
+    drBool32 isInEntryProc;
 
 } dr_thread_win32;
 
@@ -2895,7 +2908,7 @@ static DWORD WINAPI dr_thread_entry_proc_win32(LPVOID pUserData)
     dr_thread_entry_proc entryProc = pThreadWin32->entryProc;
     assert(entryProc != NULL);
 
-    pThreadWin32->isInEntryProc = true;
+    pThreadWin32->isInEntryProc = DR_TRUE;
 
     return (DWORD)entryProc(pEntryProcData);
 }
@@ -2911,7 +2924,7 @@ dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
     {
         pThreadWin32->entryProc     = entryProc;
         pThreadWin32->pData         = pData;
-        pThreadWin32->isInEntryProc = false;
+        pThreadWin32->isInEntryProc = DR_FALSE;
 
         pThreadWin32->hThread = CreateThread(NULL, 0, dr_thread_entry_proc_win32, pThreadWin32, 0, NULL);
         if (pThreadWin32 == NULL) {
@@ -3017,12 +3030,12 @@ void dr_delete_semaphore(dr_semaphore semaphore)
     CloseHandle(semaphore);
 }
 
-bool dr_wait_semaphore(dr_semaphore semaphore)
+drBool32 dr_wait_semaphore(dr_semaphore semaphore)
 {
     return WaitForSingleObject((HANDLE)semaphore, INFINITE) == WAIT_OBJECT_0;
 }
 
-bool dr_release_semaphore(dr_semaphore semaphore)
+drBool32 dr_release_semaphore(dr_semaphore semaphore)
 {
     return ReleaseSemaphore((HANDLE)semaphore, 1, NULL) != 0;
 }
@@ -3049,8 +3062,8 @@ typedef struct
     /// The user data to pass to the thread's entry point.
     void* pData;
 
-    /// Set to true by the entry function. We use this to wait for the entry function to start.
-    bool isInEntryProc;
+    /// Set to DR_TRUE by the entry function. We use this to wait for the entry function to start.
+    drBool32 isInEntryProc;
 
 } dr_thread_posix;
 
@@ -3063,7 +3076,7 @@ static void* dr_thread_entry_proc_posix(void* pDataIn)
     dr_thread_entry_proc entryProc = pThreadPosix->entryProc;
     assert(entryProc != NULL);
 
-    pThreadPosix->isInEntryProc = true;
+    pThreadPosix->isInEntryProc = DR_TRUE;
 
     return (void*)(size_t)entryProc(pEntryProcData);
 }
@@ -3079,7 +3092,7 @@ dr_thread dr_create_thread(dr_thread_entry_proc entryProc, void* pData)
     {
         pThreadPosix->entryProc     = entryProc;
         pThreadPosix->pData         = pData;
-        pThreadPosix->isInEntryProc = false;
+        pThreadPosix->isInEntryProc = DR_FALSE;
 
         if (pthread_create(&pThreadPosix->pthread, NULL, dr_thread_entry_proc_posix, pThreadPosix) != 0) {
             free(pThreadPosix);
@@ -3154,12 +3167,12 @@ void dr_delete_semaphore(dr_semaphore semaphore)
     sem_close((sem_t*)semaphore);
 }
 
-bool dr_wait_semaphore(dr_semaphore semaphore)
+drBool32 dr_wait_semaphore(dr_semaphore semaphore)
 {
     return sem_wait((sem_t*)semaphore) != -1;
 }
 
-bool dr_release_semaphore(dr_semaphore semaphore)
+drBool32 dr_release_semaphore(dr_semaphore semaphore)
 {
     return sem_post((sem_t*)semaphore) != -1;
 }
@@ -3279,25 +3292,25 @@ unsigned int dr_get_process_id()
 /////////////////////////////////////////////////////////
 // Miscellaneous Stuff.
 
-bool dr_hex_char_to_uint(char ascii, unsigned int* out)
+drBool32 dr_hex_char_to_uint(char ascii, unsigned int* out)
 {
     if (ascii >= '0' && ascii <= '9') {
         if (out) *out = ascii - '0';
-        return true;
+        return DR_TRUE;
     }
 
     if (ascii >= 'A' && ascii <= 'F') {
         if (out) *out = 10 + (ascii - 'A');
-        return true;
+        return DR_TRUE;
     }
 
     if (ascii >= 'a' && ascii <= 'f') {
         if (out) *out = 10 + (ascii - 'a');
-        return true;
+        return DR_TRUE;
     }
 
     if (out) *out = 0;
-    return false;
+    return DR_FALSE;
 }
 
 #endif  //DR_IMPLEMENTATION
@@ -3316,7 +3329,6 @@ bool dr_hex_char_to_uint(char ascii, unsigned int* out)
 #ifndef dr_path_h
 #define dr_path_h
 
-#include <stdbool.h>
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -3349,61 +3361,61 @@ typedef struct drpath_iterator
 /// @param s1Path [in] The second path.
 /// @param s1     [in] The segment of the second path to compare.
 ///
-/// @return true if the strings are equal; false otherwise.
-bool drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1);
+/// @return DR_TRUE if the strings are equal; DR_FALSE otherwise.
+drBool32 drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1);
 
 
 /// Creates an iterator for iterating over each segment in a path.
 ///
 /// @param path [in] The path whose segments are being iterated.
 ///
-/// @return True if at least one segment is found; false if it's an empty path.
-bool drpath_first(const char* path, drpath_iterator* i);
+/// @return True if at least one segment is found; DR_FALSE if it's an empty path.
+drBool32 drpath_first(const char* path, drpath_iterator* i);
 
 /// Creates an iterator beginning at the last segment.
-bool drpath_last(const char* path, drpath_iterator* i);
+drBool32 drpath_last(const char* path, drpath_iterator* i);
 
 /// Goes to the next segment in the path as per the given iterator.
 ///
 /// @param i [in] A pointer to the iterator to increment.
 ///
 /// @return True if the iterator contains a valid value. Use this to determine when to terminate iteration.
-bool drpath_next(drpath_iterator* i);
+drBool32 drpath_next(drpath_iterator* i);
 
 /// Goes to the previous segment in the path.
 ///
 /// @param i [in] A pointer to the iterator to decrement.
 ///
-/// @return true if the iterator contains a valid value. Use this to determine when to terminate iteration.
-bool drpath_prev(drpath_iterator* i);
+/// @return DR_TRUE if the iterator contains a valid value. Use this to determine when to terminate iteration.
+drBool32 drpath_prev(drpath_iterator* i);
 
 /// Determines if the given iterator is at the end.
 ///
 /// @param i [in] The iterator to check.
-bool drpath_at_end(drpath_iterator i);
+drBool32 drpath_at_end(drpath_iterator i);
 
 /// Determines if the given iterator is at the start.
 ///
 /// @param i [in] The iterator to check.
-bool drpath_at_start(drpath_iterator i);
+drBool32 drpath_at_start(drpath_iterator i);
 
 /// Compares the string values of two iterators for equality.
 ///
 /// @param i0 [in] The first iterator to compare.
 /// @param i1 [in] The second iterator to compare.
 ///
-/// @return true if the strings are equal; false otherwise.
-bool drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1);
+/// @return DR_TRUE if the strings are equal; DR_FALSE otherwise.
+drBool32 drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1);
 
 
 /// Determines whether or not the given iterator refers to the root segment of a path.
-bool drpath_is_root_segment(const drpath_iterator i);
+drBool32 drpath_is_root_segment(const drpath_iterator i);
 
 /// Determines whether or not the given iterator refers to a Linux style root directory ("/")
-bool drpath_is_linux_style_root_segment(const drpath_iterator i);
+drBool32 drpath_is_linux_style_root_segment(const drpath_iterator i);
 
 /// Determines whether or not the given iterator refers to a Windows style root directory.
-bool drpath_is_win32_style_root_segment(const drpath_iterator i);
+drBool32 drpath_is_win32_style_root_segment(const drpath_iterator i);
 
 
 /// Converts the slashes in the given path to forward slashes.
@@ -3426,7 +3438,7 @@ void drpath_to_backslashes(char* path);
 ///     As an example, "C:/My/Folder" is a descendant of "C:/".
 ///     @par
 ///     If either path contains "." or "..", clean it with drpath_clean() before calling this.
-bool drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
+drBool32 drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath);
 
 /// Determines whether or not the given path is a direct child of another.
 ///
@@ -3437,7 +3449,7 @@ bool drpath_is_descendant(const char* descendantAbsolutePath, const char* parent
 ///     As an example, "C:/My/Folder" is NOT a child of "C:/" - it is a descendant. Alternatively, "C:/My" IS a child of "C:/".
 ///     @par
 ///     If either path contains "." or "..", clean it with drpath_clean() before calling this.
-bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath);
+drBool32 drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath);
 
 
 /// Modifies the given path by transforming it into it's base path.
@@ -3492,31 +3504,31 @@ const char* drpath_extension(const char* path);
 /// @param path1 [in] The first path.
 /// @param path2 [in] The second path.
 ///
-/// @return true if the paths are equal, false otherwise.
+/// @return DR_TRUE if the paths are equal, DR_FALSE otherwise.
 ///
 /// @remarks
 ///     This is case-sensitive.
 ///     @par
 ///     This is more than just a string comparison. Rather, this splits the path and compares each segment. The path "C:/My/Folder" is considered
 ///     equal to to "C:\\My\\Folder".
-bool drpath_equal(const char* path1, const char* path2);
+drBool32 drpath_equal(const char* path1, const char* path2);
 
 /// Checks if the extension of the given path is equal to the given extension.
 ///
 /// @remarks
 ///     By default this is NOT case-sensitive, however if the standard library is disable, it is case-sensitive.
-bool drpath_extension_equal(const char* path, const char* extension);
+drBool32 drpath_extension_equal(const char* path, const char* extension);
 
 
 /// Determines whether or not the given path is relative.
 ///
 /// @param path [in] The path to check.
-bool drpath_is_relative(const char* path);
+drBool32 drpath_is_relative(const char* path);
 
 /// Determines whether or not the given path is absolute.
 ///
 /// @param path [in] The path to check.
-bool drpath_is_absolute(const char* path);
+drBool32 drpath_is_absolute(const char* path);
 
 
 /// Appends two paths together, ensuring there is not double up on the last slash.
@@ -3527,13 +3539,13 @@ bool drpath_is_absolute(const char* path);
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "other" is a relative path.
-bool drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other);
+drBool32 drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other);
 
 /// Appends an iterator object to the given base path.
-bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i);
+drBool32 drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i);
 
 /// Appends an extension to the given path.
-bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension);
+drBool32 drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension);
 
 /// Appends two paths together, and copyies them to a separate buffer.
 ///
@@ -3542,11 +3554,11 @@ bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const cha
 /// @param base           [in]  The base directory.
 /// @param other          [in]  The relative path to append to "base".
 ///
-/// @return true if the paths were appended successfully; false otherwise.
+/// @return DR_TRUE if the paths were appended successfully; DR_FALSE otherwise.
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "other" is a relative path.
-bool drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other);
+drBool32 drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other);
 
 /// Appends a base path and an iterator together, and copyies them to a separate buffer.
 ///
@@ -3555,11 +3567,11 @@ bool drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, 
 /// @param base           [in]  The base directory.
 /// @param i              [in]  The iterator to append.
 ///
-/// @return true if the paths were appended successfully; false otherwise.
+/// @return DR_TRUE if the paths were appended successfully; DR_FALSE otherwise.
 ///
 /// @remarks
 ///     This assumes both paths are well formed and "i" is a valid iterator.
-bool drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i);
+drBool32 drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i);
 
 /// Appends an extension to the given base path and copies them to a separate buffer.
 /// @param dst            [out] The destination buffer.
@@ -3567,8 +3579,8 @@ bool drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const cha
 /// @param base           [in]  The base directory.
 /// @param extension      [in]  The relative path to append to "base".
 ///
-/// @return true if the paths were appended successfully; false otherwise.
-bool drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension);
+/// @return DR_TRUE if the paths were appended successfully; DR_FALSE otherwise.
+drBool32 drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension);
 
 
 /// Cleans the path and resolves the ".." and "." segments.
@@ -3599,34 +3611,34 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
 ///
 /// @remarks
 ///     If the given path does not have an extension, 1 will be returned, but the string will be left unmodified.
-bool drpath_remove_extension(char* path);
+drBool32 drpath_remove_extension(char* path);
 
 /// Creates a copy of the given string and removes the extension.
-bool drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path);
+drBool32 drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path);
 
 
 /// Removes the last segment from the given path.
-bool drpath_remove_file_name(char* path);
+drBool32 drpath_remove_file_name(char* path);
 
 /// Creates a copy of the given string and removes the extension.
-bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const char* path);
+drBool32 drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const char* path);
 
 
 /// Converts an absolute path to a relative path.
 ///
-/// @return true if the conversion was successful; false if there was an error.
+/// @return DR_TRUE if the conversion was successful; DR_FALSE if there was an error.
 ///
 /// @remarks
 ///     This will normalize every slash to forward slashes.
-bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, size_t relativePathOutSizeInBytes);
+drBool32 drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, size_t relativePathOutSizeInBytes);
 
 /// Converts a relative path to an absolute path based on a base path.
 ///
-/// @return true if the conversion was successful; false if there was an error.
+/// @return DR_TRUE if the conversion was successful; DR_FALSE if there was an error.
 ///
 /// @remarks
 ///     This is equivalent to an append followed by a clean. Slashes will be normalized to forward slashes.
-bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes);
+drBool32 drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes);
 
 
 #ifdef __cplusplus
@@ -3646,33 +3658,33 @@ bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* base
 #include <ctype.h>
 #include <errno.h>
 
-bool drpath_first(const char* path, drpath_iterator* i)
+drBool32 drpath_first(const char* path, drpath_iterator* i)
 {
-    if (i == 0) return false;
+    if (i == 0) return DR_FALSE;
     i->path = path;
     i->segment.offset = 0;
     i->segment.length = 0;
 
     if (path == 0 || path[0] == '\0') {
-        return false;
+        return DR_FALSE;
     }
 
     while (i->path[i->segment.length] != '\0' && (i->path[i->segment.length] != '/' && i->path[i->segment.length] != '\\')) {
         i->segment.length += 1;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_last(const char* path, drpath_iterator* i)
+drBool32 drpath_last(const char* path, drpath_iterator* i)
 {
-    if (i == 0) return false;
+    if (i == 0) return DR_FALSE;
     i->path = path;
     i->segment.offset = 0;
     i->segment.length = 0;
 
     if (path == 0 || path[0] == '\0') {
-        return false;
+        return DR_FALSE;
     }
 
     i->path = path;
@@ -3682,10 +3694,10 @@ bool drpath_last(const char* path, drpath_iterator* i)
     return drpath_prev(i);
 }
 
-bool drpath_next(drpath_iterator* i)
+drBool32 drpath_next(drpath_iterator* i)
 {
     if (i == NULL || i->path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     i->segment.offset = i->segment.offset + i->segment.length;
@@ -3696,7 +3708,7 @@ bool drpath_next(drpath_iterator* i)
     }
 
     if (i->path[i->segment.offset] == '\0') {
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -3704,13 +3716,13 @@ bool drpath_next(drpath_iterator* i)
         i->segment.length += 1;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_prev(drpath_iterator* i)
+drBool32 drpath_prev(drpath_iterator* i)
 {
     if (i == NULL || i->path == NULL || i->segment.offset == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     i->segment.length = 0;
@@ -3723,10 +3735,10 @@ bool drpath_prev(drpath_iterator* i)
     if (i->segment.offset == 0) {
         if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
             i->segment.length = 0;
-            return true;
+            return DR_TRUE;
         }
 
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -3742,69 +3754,69 @@ bool drpath_prev(drpath_iterator* i)
 
     i->segment.length = offsetEnd - i->segment.offset;
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_at_end(drpath_iterator i)
+drBool32 drpath_at_end(drpath_iterator i)
 {
     return i.path == 0 || i.path[i.segment.offset] == '\0';
 }
 
-bool drpath_at_start(drpath_iterator i)
+drBool32 drpath_at_start(drpath_iterator i)
 {
     return i.path != 0 && i.segment.offset == 0;
 }
 
-bool drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1)
+drBool32 drpath_iterators_equal(const drpath_iterator i0, const drpath_iterator i1)
 {
     return drpath_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
 }
 
-bool drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1)
+drBool32 drpath_segments_equal(const char* s0Path, const drpath_segment s0, const char* s1Path, const drpath_segment s1)
 {
     if (s0Path == NULL || s1Path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (s0.length != s1.length) {
-        return false;
+        return DR_FALSE;
     }
 
     return strncmp(s0Path + s0.offset, s1Path + s1.offset, s0.length) == 0;
 }
 
 
-bool drpath_is_root_segment(const drpath_iterator i)
+drBool32 drpath_is_root_segment(const drpath_iterator i)
 {
     return drpath_is_linux_style_root_segment(i) || drpath_is_win32_style_root_segment(i);
 }
 
-bool drpath_is_linux_style_root_segment(const drpath_iterator i)
+drBool32 drpath_is_linux_style_root_segment(const drpath_iterator i)
 {
     if (i.path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (i.segment.offset == 0 && i.segment.length == 0) {
-        return true;    // "/" style root.
+        return DR_TRUE;    // "/" style root.
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-bool drpath_is_win32_style_root_segment(const drpath_iterator i)
+drBool32 drpath_is_win32_style_root_segment(const drpath_iterator i)
 {
     if (i.path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (i.segment.offset == 0 && i.segment.length == 2) {
         if (((i.path[0] >= 'a' && i.path[0] <= 'z') || (i.path[0] >= 'A' && i.path[0] <= 'Z')) && i.path[1] == ':') {
-            return true;
+            return DR_TRUE;
         }
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 
@@ -3839,11 +3851,11 @@ void drpath_to_backslashes(char* path)
 }
 
 
-bool drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
+drBool32 drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
 {
     drpath_iterator iChild;
     if (!drpath_first(descendantAbsolutePath, &iChild)) {
-        return false;   // The descendant is an empty string which makes it impossible for it to be a descendant.
+        return DR_FALSE;   // The descendant is an empty string which makes it impossible for it to be a descendant.
     }
 
     drpath_iterator iParent;
@@ -3853,24 +3865,24 @@ bool drpath_is_descendant(const char* descendantAbsolutePath, const char* parent
         {
             // If the segment is different, the paths are different and thus it is not a descendant.
             if (!drpath_iterators_equal(iParent, iChild)) {
-                return false;
+                return DR_FALSE;
             }
 
             if (!drpath_next(&iChild)) {
-                return false;   // The descendant is shorter which means it's impossible for it to be a descendant.
+                return DR_FALSE;   // The descendant is shorter which means it's impossible for it to be a descendant.
             }
 
         } while (drpath_next(&iParent));
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
+drBool32 drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
 {
     drpath_iterator iChild;
     if (!drpath_first(childAbsolutePath, &iChild)) {
-        return false;   // The descendant is an empty string which makes it impossible for it to be a descendant.
+        return DR_FALSE;   // The descendant is an empty string which makes it impossible for it to be a descendant.
     }
 
     drpath_iterator iParent;
@@ -3880,11 +3892,11 @@ bool drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePa
         {
             // If the segment is different, the paths are different and thus it is not a descendant.
             if (!drpath_iterators_equal(iParent, iChild)) {
-                return false;
+                return DR_FALSE;
             }
 
             if (!drpath_next(&iChild)) {
-                return false;   // The descendant is shorter which means it's impossible for it to be a descendant.
+                return DR_FALSE;   // The descendant is shorter which means it's impossible for it to be a descendant.
             }
 
         } while (drpath_next(&iParent));
@@ -3999,27 +4011,27 @@ const char* drpath_extension(const char* path)
 }
 
 
-bool drpath_equal(const char* path1, const char* path2)
+drBool32 drpath_equal(const char* path1, const char* path2)
 {
     if (path1 == NULL || path2 == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (path1 == path2 || (path1[0] == '\0' && path2[0] == '\0')) {
-        return true;    // Two empty paths are treated as the same.
+        return DR_TRUE;    // Two empty paths are treated as the same.
     }
 
     drpath_iterator iPath1;
     drpath_iterator iPath2;
     if (drpath_first(path1, &iPath1) && drpath_first(path2, &iPath2))
     {
-        bool isPath1Valid;
-        bool isPath2Valid;
+        drBool32 isPath1Valid;
+        drBool32 isPath2Valid;
 
         do
         {
             if (!drpath_iterators_equal(iPath1, iPath2)) {
-                return false;
+                return DR_FALSE;
             }
 
             isPath1Valid = drpath_next(&iPath1);
@@ -4031,13 +4043,13 @@ bool drpath_equal(const char* path1, const char* path2)
         return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-bool drpath_extension_equal(const char* path, const char* extension)
+drBool32 drpath_extension_equal(const char* path, const char* extension)
 {
     if (path == NULL || extension == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     const char* ext1 = extension;
@@ -4052,10 +4064,10 @@ bool drpath_extension_equal(const char* path, const char* extension)
 
 
 
-bool drpath_is_relative(const char* path)
+drBool32 drpath_is_relative(const char* path)
 {
     if (path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     drpath_iterator seg;
@@ -4064,26 +4076,26 @@ bool drpath_is_relative(const char* path)
     }
 
     // We'll get here if the path is empty. We consider this to be a relative path.
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_is_absolute(const char* path)
+drBool32 drpath_is_absolute(const char* path)
 {
     return !drpath_is_relative(path);
 }
 
 
-bool drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
+drBool32 drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
 {
     if (base == NULL || other == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     size_t path1Length = strlen(base);
     size_t path2Length = strlen(other);
 
     if (path1Length >= baseBufferSizeInBytes) {
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -4100,27 +4112,27 @@ bool drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
 
     strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i)
+drBool32 drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_iterator i)
 {
     if (base == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     size_t path1Length = strlen(base);
     size_t path2Length = i.segment.length;
 
     if (path1Length >= baseBufferSizeInBytes) {
-        return false;
+        return DR_FALSE;
     }
 
     if (drpath_is_linux_style_root_segment(i)) {
         if (baseBufferSizeInBytes > 1) {
             base[0] = '/';
             base[1] = '\0';
-            return true;
+            return DR_TRUE;
         }
     }
 
@@ -4137,20 +4149,20 @@ bool drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drpath_ite
 
     strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension)
+drBool32 drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const char* extension)
 {
     if (base == NULL || extension == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     size_t baseLength = strlen(base);
     size_t extLength  = strlen(extension);
 
     if (baseLength >= baseBufferSizeInBytes) {
-        return false;
+        return DR_FALSE;
     }
 
     base[baseLength] = '.';
@@ -4162,33 +4174,33 @@ bool drpath_append_extension(char* base, size_t baseBufferSizeInBytes, const cha
 
     strncpy_s(base + baseLength, baseBufferSizeInBytes - baseLength, extension, extLength);
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
+drBool32 drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
 {
     if (dst == NULL || dstSizeInBytes == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     strcpy_s(dst, dstSizeInBytes, base);
     return drpath_append(dst, dstSizeInBytes, other);
 }
 
-bool drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i)
+drBool32 drpath_copy_and_append_iterator(char* dst, size_t dstSizeInBytes, const char* base, drpath_iterator i)
 {
     if (dst == NULL || dstSizeInBytes == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     strcpy_s(dst, dstSizeInBytes, base);
     return drpath_append_iterator(dst, dstSizeInBytes, i);
 }
 
-bool drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension)
+drBool32 drpath_copy_and_append_extension(char* dst, size_t dstSizeInBytes, const char* base, const char* extension)
 {
     if (dst == NULL || dstSizeInBytes == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     strcpy_s(dst, dstSizeInBytes, base);
@@ -4333,8 +4345,8 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
         {NULL, {0, 0}}
     };
 
-    bool isPathEmpty0 = !drpath_last(base,  last + 0);
-    bool isPathEmpty1 = !drpath_last(other, last + 1);
+    drBool32 isPathEmpty0 = !drpath_last(base,  last + 0);
+    drBool32 isPathEmpty1 = !drpath_last(other, last + 1);
 
     int iteratorCount = !isPathEmpty0 + !isPathEmpty1;
     if (iteratorCount == 0) {
@@ -4358,10 +4370,10 @@ size_t drpath_append_and_clean(char* dst, size_t dstSizeInBytes, const char* bas
 }
 
 
-bool drpath_remove_extension(char* path)
+drBool32 drpath_remove_extension(char* path)
 {
     if (path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     const char* extension = drpath_extension(path);
@@ -4370,13 +4382,13 @@ bool drpath_remove_extension(char* path)
         path[(extension - path)] = '\0';
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path)
+drBool32 drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const char* path)
 {
     if (dst == NULL || dstSizeInBytes == 0 || path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     const char* extension = drpath_extension(path);
@@ -4385,14 +4397,14 @@ bool drpath_copy_and_remove_extension(char* dst, size_t dstSizeInBytes, const ch
     }
 
     strncpy_s(dst, dstSizeInBytes, path, (size_t)(extension - path));
-    return true;
+    return DR_TRUE;
 }
 
 
-bool drpath_remove_file_name(char* path)
+drBool32 drpath_remove_file_name(char* path)
 {
     if (path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -4400,11 +4412,11 @@ bool drpath_remove_file_name(char* path)
     // that segment. That will ensure the resulting path is not left with a slash.
     drpath_iterator iLast;
     if (!drpath_last(path, &iLast)) {
-        return false;   // The path is empty.
+        return DR_FALSE;   // The path is empty.
     }
 
     if (drpath_is_root_segment(iLast)) {
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -4424,20 +4436,20 @@ bool drpath_remove_file_name(char* path)
         path[0] = '\0';
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const char* path)
+drBool32 drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const char* path)
 {
     if (dst == NULL) {
-        return false;
+        return DR_FALSE;
     }
     if (dstSizeInBytes == 0) {
-        return false;
+        return DR_FALSE;
     }
     if (path == NULL) {
         dst[0] = '\0';
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -4446,16 +4458,16 @@ bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const ch
     drpath_iterator iLast;
     if (!drpath_last(path, &iLast)) {
         dst[0] = '\0';
-        return false;   // The path is empty.
+        return DR_FALSE;   // The path is empty.
     }
 
     if (drpath_is_linux_style_root_segment(iLast)) {
         if (dstSizeInBytes > 1) {
             dst[0] = '/'; dst[1] = '\0';
-            return false;
+            return DR_FALSE;
         } else {
             dst[0] = '\0';
-            return false;
+            return DR_FALSE;
         }
     }
 
@@ -4478,38 +4490,38 @@ bool drpath_copy_and_remove_file_name(char* dst, size_t dstSizeInBytes, const ch
     {
         // This is already the last segment, so just place a null terminator at the beginning of the string.
         dst[0] = '\0';
-        return true;
+        return DR_TRUE;
     }
 }
 
 
-bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, size_t relativePathOutSizeInBytes)
+drBool32 drpath_to_relative(const char* absolutePathToMakeRelative, const char* absolutePathToMakeRelativeTo, char* relativePathOut, size_t relativePathOutSizeInBytes)
 {
     // We do this in two phases. The first phase just iterates past each segment of both the path to convert and the
     // base path until we find two that are not equal. The second phase just adds the appropriate ".." segments.
 
     if (relativePathOut == 0) {
-        return false;
+        return DR_FALSE;
     }
     if (relativePathOutSizeInBytes == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     if (!drpath_is_absolute(absolutePathToMakeRelative) || !drpath_is_absolute(absolutePathToMakeRelativeTo)) {
-        return false;
+        return DR_FALSE;
     }
 
 
     drpath_iterator iPath;
     drpath_iterator iBase;
-    bool isPathEmpty = !drpath_first(absolutePathToMakeRelative, &iPath);
-    bool isBaseEmpty = !drpath_first(absolutePathToMakeRelativeTo, &iBase);
+    drBool32 isPathEmpty = !drpath_first(absolutePathToMakeRelative, &iPath);
+    drBool32 isBaseEmpty = !drpath_first(absolutePathToMakeRelativeTo, &iBase);
 
     if (isPathEmpty && isBaseEmpty)
     {
         // Looks like both paths are empty.
         relativePathOut[0] = '\0';
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -4526,7 +4538,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
     {
         // The path is not relative to the base path.
         relativePathOut[0] = '\0';
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -4544,7 +4556,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
                 {
                     // Ran out of room.
                     relativePathOut[0] = '\0';
-                    return false;
+                    return DR_FALSE;
                 }
 
                 pDst[0] = '/';
@@ -4561,7 +4573,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
                 {
                     // Ran out of room.
                     relativePathOut[0] = '\0';
-                    return false;
+                    return DR_FALSE;
                 }
 
                 pDst[0] = '.';
@@ -4586,7 +4598,7 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
                 {
                     // Ran out of room.
                     relativePathOut[0] = '\0';
-                    return false;
+                    return DR_FALSE;
                 }
 
                 pDst[0] = '/';
@@ -4600,14 +4612,14 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
             {
                 // Ran out of room.
                 relativePathOut[0] = '\0';
-                return false;
+                return DR_FALSE;
             }
 
             if (strncpy_s(pDst, bytesAvailable, iPath.path + iPath.segment.offset, iPath.segment.length) != 0)
             {
                 // Error copying the string. Probably ran out of room in the output buffer.
                 relativePathOut[0] = '\0';
-                return false;
+                return DR_FALSE;
             }
 
             pDst += iPath.segment.length;
@@ -4622,10 +4634,10 @@ bool drpath_to_relative(const char* absolutePathToMakeRelative, const char* abso
     //assert(bytesAvailable > 0);
     pDst[0] = '\0';
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes)
+drBool32 drpath_to_absolute(const char* relativePathToMakeAbsolute, const char* basePath, char* absolutePathOut, size_t absolutePathOutSizeInBytes)
 {
     return drpath_append_and_clean(absolutePathOut, absolutePathOutSizeInBytes, basePath, relativePathToMakeAbsolute) != 0;
 }

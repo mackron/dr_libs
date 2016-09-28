@@ -179,9 +179,22 @@
 #endif
 #endif
 
-#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+
+#ifndef DR_BOOL_DEFINED
+#define DR_BOOL_DEFINED
+#ifdef _WIN32
+typedef char drBool8;
+typedef int  drBool32;
+#else
+#include <stdint.h>
+typedef int8_t  drBool8;
+typedef int32_t drBool32;
+#endif
+#define DR_TRUE     1
+#define DR_FALSE    0
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -246,17 +259,17 @@ typedef struct drfs_file      drfs_file;
 typedef struct drfs_file_info drfs_file_info;
 typedef struct drfs_iterator  drfs_iterator;
 
-typedef bool        (* drfs_is_valid_extension_proc)(const char* extension);
+typedef drBool32        (* drfs_is_valid_extension_proc)(const char* extension);
 typedef drfs_result (* drfs_open_archive_proc)      (drfs_file* pArchiveFile, unsigned int accessMode, drfs_handle* pHandleOut);
 typedef void        (* drfs_close_archive_proc)     (drfs_handle archive);
 typedef drfs_result (* drfs_get_file_info_proc)     (drfs_handle archive, const char* relativePath, drfs_file_info* fi);
 typedef drfs_handle (* drfs_begin_iteration_proc)   (drfs_handle archive, const char* relativePath);
 typedef void        (* drfs_end_iteration_proc)     (drfs_handle archive, drfs_handle iterator);
-typedef bool        (* drfs_next_iteration_proc)    (drfs_handle archive, drfs_handle iterator, drfs_file_info* fi);
+typedef drBool32        (* drfs_next_iteration_proc)    (drfs_handle archive, drfs_handle iterator, drfs_file_info* fi);
 typedef drfs_result (* drfs_delete_file_proc)       (drfs_handle archive, const char* relativePath);
 typedef drfs_result (* drfs_create_directory_proc)  (drfs_handle archive, const char* relativePath);
 typedef drfs_result (* drfs_move_file_proc)         (drfs_handle archive, const char* relativePathOld, const char* relativePathNew);
-typedef drfs_result (* drfs_copy_file_proc)         (drfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists);
+typedef drfs_result (* drfs_copy_file_proc)         (drfs_handle archive, const char* relativePathSrc, const char* relativePathDst, drBool32 failIfExists);
 typedef drfs_result (* drfs_open_file_proc)         (drfs_handle archive, const char* relativePath, unsigned int accessMode, drfs_handle* pHandleOut);
 typedef void        (* drfs_close_file_proc)        (drfs_handle archive, drfs_handle file);
 typedef drfs_result (* drfs_read_file_proc)         (drfs_handle archive, drfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
@@ -376,7 +389,7 @@ const char* drfs_get_base_directory_by_index(drfs_context* pContext, unsigned in
 void drfs_set_base_write_directory(drfs_context* pContext, const char* absolutePath);
 
 // Retrieves the base write directory.
-bool drfs_get_base_write_directory(drfs_context* pContext, char* absolutePathOut, unsigned int absolutePathOutSize);
+drBool32 drfs_get_base_write_directory(drfs_context* pContext, char* absolutePathOut, unsigned int absolutePathOutSize);
 
 // Enables the write directory guard.
 void drfs_enable_write_directory_guard(drfs_context* pContext);
@@ -385,7 +398,7 @@ void drfs_enable_write_directory_guard(drfs_context* pContext);
 void drfs_disable_write_directory_guard(drfs_context* pContext);
 
 // Determines whether or not the base directory guard is enabled.
-bool drfs_is_write_directory_guard_enabled(drfs_context* pContext);
+drBool32 drfs_is_write_directory_guard_enabled(drfs_context* pContext);
 
 
 // Opens an archive at the given path.
@@ -430,7 +443,7 @@ void drfs_close(drfs_file* pFile);
 
 // Reads data from the given file.
 //
-// Returns true if successful; false otherwise. If the value output to <pBytesReadOut> is less than <bytesToRead> it means the file is at the end.
+// Returns DR_TRUE if successful; DR_FALSE otherwise. If the value output to <pBytesReadOut> is less than <bytesToRead> it means the file is at the end.
 //
 // Do not use the return value to check if the end of the file has been reached. Instead, compare <bytesRead> to the value returned to <pBytesReadOut>.
 drfs_result drfs_read(drfs_file* pFile, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
@@ -453,8 +466,8 @@ void drfs_flush(drfs_file* pFile);
 
 // Locks the given file for simple mutal exclusion.
 //
-// If false is returned it means there was an error and the operation should be aborted.
-bool drfs_lock(drfs_file* pFile);
+// If DR_FALSE is returned it means there was an error and the operation should be aborted.
+drBool32 drfs_lock(drfs_file* pFile);
 
 // Unlocks the given file for simple mutal exclusion.
 void drfs_unlock(drfs_file* pFile);
@@ -482,14 +495,14 @@ drfs_result drfs_get_file_info(drfs_context* pContext, const char* absoluteOrRel
 
 
 // Creates an iterator for iterating over the files and folders in the given directory.
-bool drfs_begin(drfs_context* pContext, const char* absoluteOrRelativePath, drfs_iterator* pIteratorOut);
+drBool32 drfs_begin(drfs_context* pContext, const char* absoluteOrRelativePath, drfs_iterator* pIteratorOut);
 
 // Goes to the next file or folder based on the given iterator.
-bool drfs_next(drfs_context* pContext, drfs_iterator* pIterator);
+drBool32 drfs_next(drfs_context* pContext, drfs_iterator* pIterator);
 
 // Closes the given iterator.
 //
-// This is not needed if drfs_next_iteration() returns false naturally. If iteration is terminated early, however, this
+// This is not needed if drfs_next_iteration() returns DR_FALSE naturally. If iteration is terminated early, however, this
 // needs to be called on the iterator to ensure internal resources are freed.
 void drfs_end(drfs_context* pContext, drfs_iterator* pIterator);
 
@@ -518,16 +531,16 @@ drfs_result drfs_move_file(drfs_context* pContext, const char* pathOld, const ch
 // Copies a file.
 //
 // The destination path must be a absolute, or relative to the write directory.
-drfs_result drfs_copy_file(drfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists);
+drfs_result drfs_copy_file(drfs_context* pContext, const char* srcPath, const char* dstPath, drBool32 failIfExists);
 
 
 // Determines whether or not the given path refers to an archive file.
 //
-// This does not validate that the archive file exists or is valid. This will also return false if the path refers
+// This does not validate that the archive file exists or is valid. This will also return DR_FALSE if the path refers
 // to a folder on the normal file system.
 //
 // Use drfs_open_archive() to check that the archive file actually exists.
-bool drfs_is_archive_path(drfs_context* pContext, const char* path);
+drBool32 drfs_is_archive_path(drfs_context* pContext, const char* path);
 
 
 
@@ -544,21 +557,21 @@ bool drfs_is_archive_path(drfs_context* pContext, const char* path);
 void drfs_free(void* p);
 
 // Finds the absolute, verbose path of the given path.
-bool drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize);
+drBool32 drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize);
 
 // Finds the absolute, verbose path of the given path, using the given path as the higest priority base path.
-bool drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize);
+drBool32 drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize);
 
 // Helper function for determining whether or not the given path refers to a base directory.
-bool drfs_is_base_directory(drfs_context* pContext, const char* baseDir);
+drBool32 drfs_is_base_directory(drfs_context* pContext, const char* baseDir);
 
 // Helper function for writing a string.
-bool drfs_write_string(drfs_file* pFile, const char* str);
+drBool32 drfs_write_string(drfs_file* pFile, const char* str);
 
 // Helper function for writing a string, and then inserting a new line right after it.
 //
 // The new line character is "\n" and NOT "\r\n".
-bool drfs_write_line(drfs_file* pFile, const char* str);
+drBool32 drfs_write_line(drfs_file* pFile, const char* str);
 
 
 // Helper function for opening a binary file and retrieving it's data in one go.
@@ -574,22 +587,22 @@ void* drfs_open_and_read_binary_file(drfs_context* pContext, const char* absolut
 char* drfs_open_and_read_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut);
 
 // Helper function for opening a file, writing the given data, and then closing it. This deletes the contents of the existing file, if any.
-bool drfs_open_and_write_binary_file(drfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize);
+drBool32 drfs_open_and_write_binary_file(drfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize);
 
 // Helper function for opening a file, writing the given textual data, and then closing it. This deletes the contents of the existing file, if any.
-bool drfs_open_and_write_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData);
+drBool32 drfs_open_and_write_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData);
 
 
 // Helper function for determining whether or not the given path refers to an existing file or directory.
-bool drfs_exists(drfs_context* pContext, const char* absoluteOrRelativePath);
+drBool32 drfs_exists(drfs_context* pContext, const char* absoluteOrRelativePath);
 
 // Determines if the given path refers to an existing file (not a directory).
 //
-// This will return false for directories. Use drfs_exists() to check for either a file or directory.
-bool drfs_is_existing_file(drfs_context* pContext, const char* absoluteOrRelativePath);
+// This will return DR_FALSE for directories. Use drfs_exists() to check for either a file or directory.
+drBool32 drfs_is_existing_file(drfs_context* pContext, const char* absoluteOrRelativePath);
 
 // Determines if the given path refers to an existing directory.
-bool drfs_is_existing_directory(drfs_context* pContext, const char* absoluteOrRelativePath);
+drBool32 drfs_is_existing_directory(drfs_context* pContext, const char* absoluteOrRelativePath);
 
 // Same as drfs_create_directory(), except creates the entire directory structure recursively.
 drfs_result drfs_create_directory_recursive(drfs_context* pContext, const char* path);
@@ -597,7 +610,7 @@ drfs_result drfs_create_directory_recursive(drfs_context* pContext, const char* 
 // Determines whether or not the given file is at the end.
 //
 // This is just a high-level helper function equivalent to drfs_tell(pFile) == drfs_size(pFile).
-bool drfs_eof(drfs_file* pFile);
+drBool32 drfs_eof(drfs_file* pFile);
 
 
 
@@ -772,17 +785,17 @@ typedef struct
 
 } drfs_basedirs;
 
-static bool drfs_basedirs_init(drfs_basedirs* pBasePaths)
+static drBool32 drfs_basedirs_init(drfs_basedirs* pBasePaths)
 {
     if (pBasePaths == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     pBasePaths->pBuffer    = 0;
     pBasePaths->bufferSize = 0;
     pBasePaths->count      = 0;
 
-    return true;
+    return DR_TRUE;
 }
 
 static void drfs_basedirs_uninit(drfs_basedirs* pBasePaths)
@@ -794,10 +807,10 @@ static void drfs_basedirs_uninit(drfs_basedirs* pBasePaths)
     free(pBasePaths->pBuffer);
 }
 
-static bool drfs_basedirs_inflateandinsert(drfs_basedirs* pBasePaths, const char* absolutePath, unsigned int index)
+static drBool32 drfs_basedirs_inflateandinsert(drfs_basedirs* pBasePaths, const char* absolutePath, unsigned int index)
 {
     if (pBasePaths == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     unsigned int newBufferSize = (pBasePaths->bufferSize == 0) ? 2 : pBasePaths->bufferSize*2;
@@ -805,7 +818,7 @@ static bool drfs_basedirs_inflateandinsert(drfs_basedirs* pBasePaths, const char
     drfs_basepath* pOldBuffer = pBasePaths->pBuffer;
     drfs_basepath* pNewBuffer = (drfs_basepath*)malloc(newBufferSize * sizeof(drfs_basepath));
     if (pNewBuffer == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     for (unsigned int iDst = 0; iDst < index; ++iDst) {
@@ -824,46 +837,46 @@ static bool drfs_basedirs_inflateandinsert(drfs_basedirs* pBasePaths, const char
     pBasePaths->count     += 1;
 
     free(pOldBuffer);
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_basedirs_movedown1slot(drfs_basedirs* pBasePaths, unsigned int index)
+static drBool32 drfs_basedirs_movedown1slot(drfs_basedirs* pBasePaths, unsigned int index)
 {
     if (pBasePaths == NULL || pBasePaths->count >= pBasePaths->bufferSize) {
-        return false;
+        return DR_FALSE;
     }
 
     for (unsigned int iDst = pBasePaths->count; iDst > index; --iDst) {
         memcpy(pBasePaths->pBuffer + iDst, pBasePaths->pBuffer + iDst - 1, sizeof(drfs_basepath));
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_basedirs_insert(drfs_basedirs* pBasePaths, const char* absolutePath, unsigned int index)
+static drBool32 drfs_basedirs_insert(drfs_basedirs* pBasePaths, const char* absolutePath, unsigned int index)
 {
     if (pBasePaths == NULL || index > pBasePaths->count) {
-        return false;
+        return DR_FALSE;
     }
 
     if (pBasePaths->count == pBasePaths->bufferSize) {
         return drfs_basedirs_inflateandinsert(pBasePaths, absolutePath, index);
     } else {
         if (!drfs_basedirs_movedown1slot(pBasePaths, index)) {
-            return false;
+            return DR_FALSE;
         }
 
         drfs__strcpy_s((pBasePaths->pBuffer + index)->absolutePath, DRFS_MAX_PATH, absolutePath);
         pBasePaths->count += 1;
 
-        return true;
+        return DR_TRUE;
     }
 }
 
-static bool drfs_basedirs_remove(drfs_basedirs* pBasePaths, unsigned int index)
+static drBool32 drfs_basedirs_remove(drfs_basedirs* pBasePaths, unsigned int index)
 {
     if (pBasePaths == NULL || index >= pBasePaths->count) {
-        return false;
+        return DR_FALSE;
     }
 
     assert(pBasePaths->count > 0);
@@ -874,7 +887,7 @@ static bool drfs_basedirs_remove(drfs_basedirs* pBasePaths, unsigned int index)
 
     pBasePaths->count -= 1;
 
-    return true;
+    return DR_TRUE;
 }
 
 static void drfs_basedirs_clear(drfs_basedirs* pBasePaths)
@@ -900,16 +913,16 @@ typedef struct
 
 } drfs_callbacklist;
 
-static bool drfs_callbacklist_init(drfs_callbacklist* pList)
+static drBool32 drfs_callbacklist_init(drfs_callbacklist* pList)
 {
     if (pList == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     pList->pBuffer = 0;
     pList->count   = 0;
 
-    return true;
+    return DR_TRUE;
 }
 
 static void drfs_callbacklist_uninit(drfs_callbacklist* pList)
@@ -921,16 +934,16 @@ static void drfs_callbacklist_uninit(drfs_callbacklist* pList)
     free(pList->pBuffer);
 }
 
-static bool drfs_callbacklist_inflate(drfs_callbacklist* pList)
+static drBool32 drfs_callbacklist_inflate(drfs_callbacklist* pList)
 {
     if (pList == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     drfs_archive_callbacks* pOldBuffer = pList->pBuffer;
     drfs_archive_callbacks* pNewBuffer = (drfs_archive_callbacks*)malloc((pList->count + 1) * sizeof(drfs_archive_callbacks));
     if (pNewBuffer == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     for (unsigned int iDst = 0; iDst < pList->count; ++iDst) {
@@ -940,23 +953,23 @@ static bool drfs_callbacklist_inflate(drfs_callbacklist* pList)
     pList->pBuffer = pNewBuffer;
 
     free(pOldBuffer);
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_callbacklist_pushback(drfs_callbacklist* pList, drfs_archive_callbacks callbacks)
+static drBool32 drfs_callbacklist_pushback(drfs_callbacklist* pList, drfs_archive_callbacks callbacks)
 {
     if (pList == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (!drfs_callbacklist_inflate(pList)) {
-        return false;
+        return DR_FALSE;
     }
 
     pList->pBuffer[pList->count] = callbacks;
     pList->count  += 1;
 
-    return true;
+    return DR_TRUE;
 }
 
 
@@ -972,7 +985,7 @@ struct drfs_context
     char writeBaseDirectory[DRFS_MAX_PATH];
 
     // Keeps track of whether or not write directory guard is enabled.
-    bool isWriteGuardEnabled;
+    drBool32 isWriteGuardEnabled;
 };
 
 struct drfs_archive
@@ -1050,10 +1063,10 @@ typedef struct drfs_drpath_iterator
 
 } drfs_drpath_iterator;
 
-static bool drfs_drpath_next(drfs_drpath_iterator* i)
+static drBool32 drfs_drpath_next(drfs_drpath_iterator* i)
 {
     if (i == NULL || i->path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     i->segment.offset = i->segment.offset + i->segment.length;
@@ -1064,7 +1077,7 @@ static bool drfs_drpath_next(drfs_drpath_iterator* i)
     }
 
     if (i->path[i->segment.offset] == '\0') {
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -1072,13 +1085,13 @@ static bool drfs_drpath_next(drfs_drpath_iterator* i)
         i->segment.length += 1;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_drpath_prev(drfs_drpath_iterator* i)
+static drBool32 drfs_drpath_prev(drfs_drpath_iterator* i)
 {
     if (i == NULL || i->path == NULL || i->segment.offset == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     i->segment.length = 0;
@@ -1091,10 +1104,10 @@ static bool drfs_drpath_prev(drfs_drpath_iterator* i)
     if (i->segment.offset == 0) {
         if (i->path[i->segment.offset] == '/' || i->path[i->segment.offset] == '\\') {
             i->segment.length = 0;
-            return true;
+            return DR_TRUE;
         }
 
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -1110,36 +1123,36 @@ static bool drfs_drpath_prev(drfs_drpath_iterator* i)
 
     i->segment.length = offsetEnd - i->segment.offset;
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_drpath_first(const char* path, drfs_drpath_iterator* i)
+static drBool32 drfs_drpath_first(const char* path, drfs_drpath_iterator* i)
 {
-    if (i == 0) return false;
+    if (i == 0) return DR_FALSE;
     i->path = path;
     i->segment.offset = 0;
     i->segment.length = 0;
 
     if (path == 0 || path[0] == '\0') {
-        return false;
+        return DR_FALSE;
     }
 
     while (i->path[i->segment.length] != '\0' && (i->path[i->segment.length] != '/' && i->path[i->segment.length] != '\\')) {
         i->segment.length += 1;
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_drpath_last(const char* path, drfs_drpath_iterator* i)
+static drBool32 drfs_drpath_last(const char* path, drfs_drpath_iterator* i)
 {
-    if (i == 0) return false;
+    if (i == 0) return DR_FALSE;
     i->path = path;
     i->segment.offset = 0;
     i->segment.length = 0;
 
     if (path == 0 || path[0] == '\0') {
-        return false;
+        return DR_FALSE;
     }
 
     i->path = path;
@@ -1149,75 +1162,75 @@ static bool drfs_drpath_last(const char* path, drfs_drpath_iterator* i)
     return drfs_drpath_prev(i);
 }
 
-static bool drfs_drpath_segments_equal(const char* s0Path, const drfs_drpath_segment s0, const char* s1Path, const drfs_drpath_segment s1)
+static drBool32 drfs_drpath_segments_equal(const char* s0Path, const drfs_drpath_segment s0, const char* s1Path, const drfs_drpath_segment s1)
 {
     if (s0Path == NULL || s1Path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (s0.length != s1.length) {
-        return false;
+        return DR_FALSE;
     }
 
     return strncmp(s0Path + s0.offset, s1Path + s1.offset, s0.length) == 0;
 }
 
-static bool drfs_drpath_iterators_equal(const drfs_drpath_iterator i0, const drfs_drpath_iterator i1)
+static drBool32 drfs_drpath_iterators_equal(const drfs_drpath_iterator i0, const drfs_drpath_iterator i1)
 {
     return drfs_drpath_segments_equal(i0.path, i0.segment, i1.path, i1.segment);
 }
 
-static bool drfs_drpath_is_linux_style_root_segment(const drfs_drpath_iterator i)
+static drBool32 drfs_drpath_is_linux_style_root_segment(const drfs_drpath_iterator i)
 {
     if (i.path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (i.segment.offset == 0 && i.segment.length == 0) {
-        return true;    // "/" style root.
+        return DR_TRUE;    // "/" style root.
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-static bool drfs_drpath_is_win32_style_root_segment(const drfs_drpath_iterator i)
+static drBool32 drfs_drpath_is_win32_style_root_segment(const drfs_drpath_iterator i)
 {
     if (i.path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (i.segment.offset == 0 && i.segment.length == 2) {
         if (((i.path[0] >= 'a' && i.path[0] <= 'z') || (i.path[0] >= 'A' && i.path[0] <= 'Z')) && i.path[1] == ':') {
-            return true;
+            return DR_TRUE;
         }
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-static bool drfs_drpath_is_root_segment(const drfs_drpath_iterator i)
+static drBool32 drfs_drpath_is_root_segment(const drfs_drpath_iterator i)
 {
     return drfs_drpath_is_linux_style_root_segment(i) || drfs_drpath_is_win32_style_root_segment(i);
 }
 
-static bool drfs_drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drfs_drpath_iterator i)
+static drBool32 drfs_drpath_append_iterator(char* base, size_t baseBufferSizeInBytes, drfs_drpath_iterator i)
 {
     if (base == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     size_t path1Length = strlen(base);
     size_t path2Length = i.segment.length;
 
     if (path1Length >= baseBufferSizeInBytes) {
-        return false;
+        return DR_FALSE;
     }
 
     if (drfs_drpath_is_linux_style_root_segment(i)) {
         if (baseBufferSizeInBytes > 1) {
             base[0] = '/';
             base[1] = '\0';
-            return true;
+            return DR_TRUE;
         }
     }
 
@@ -1235,14 +1248,14 @@ static bool drfs_drpath_append_iterator(char* base, size_t baseBufferSizeInBytes
 
     drfs__strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, i.path + i.segment.offset, path2Length);
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
+static drBool32 drfs_drpath_is_descendant(const char* descendantAbsolutePath, const char* parentAbsolutePath)
 {
     drfs_drpath_iterator iChild;
     if (!drfs_drpath_first(descendantAbsolutePath, &iChild)) {
-        return false;   // The descendant is an empty string which makes it impossible for it to be a descendant.
+        return DR_FALSE;   // The descendant is an empty string which makes it impossible for it to be a descendant.
     }
 
     drfs_drpath_iterator iParent;
@@ -1252,24 +1265,24 @@ static bool drfs_drpath_is_descendant(const char* descendantAbsolutePath, const 
         {
             // If the segment is different, the paths are different and thus it is not a descendant.
             if (!drfs_drpath_iterators_equal(iParent, iChild)) {
-                return false;
+                return DR_FALSE;
             }
 
             if (!drfs_drpath_next(&iChild)) {
-                return false;   // The descendant is shorter which means it's impossible for it to be a descendant.
+                return DR_FALSE;   // The descendant is shorter which means it's impossible for it to be a descendant.
             }
 
         } while (drfs_drpath_next(&iParent));
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
+static drBool32 drfs_drpath_is_child(const char* childAbsolutePath, const char* parentAbsolutePath)
 {
     drfs_drpath_iterator iChild;
     if (!drfs_drpath_first(childAbsolutePath, &iChild)) {
-        return false;   // The descendant is an empty string which makes it impossible for it to be a descendant.
+        return DR_FALSE;   // The descendant is an empty string which makes it impossible for it to be a descendant.
     }
 
     drfs_drpath_iterator iParent;
@@ -1279,11 +1292,11 @@ static bool drfs_drpath_is_child(const char* childAbsolutePath, const char* pare
         {
             // If the segment is different, the paths are different and thus it is not a descendant.
             if (!drfs_drpath_iterators_equal(iParent, iChild)) {
-                return false;
+                return DR_FALSE;
             }
 
             if (!drfs_drpath_next(&iChild)) {
-                return false;   // The descendant is shorter which means it's impossible for it to be a descendant.
+                return DR_FALSE;   // The descendant is shorter which means it's impossible for it to be a descendant.
             }
 
         } while (drfs_drpath_next(&iParent));
@@ -1384,27 +1397,27 @@ static const char* drfs_drpath_extension(const char* path)
     return (lastoccurance != 0) ? lastoccurance : extension;
 }
 
-static bool drfs_drpath_equal(const char* path1, const char* path2)
+static drBool32 drfs_drpath_equal(const char* path1, const char* path2)
 {
     if (path1 == NULL || path2 == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     if (path1 == path2 || (path1[0] == '\0' && path2[0] == '\0')) {
-        return true;    // Two empty paths are treated as the same.
+        return DR_TRUE;    // Two empty paths are treated as the same.
     }
 
     drfs_drpath_iterator iPath1;
     drfs_drpath_iterator iPath2;
     if (drfs_drpath_first(path1, &iPath1) && drfs_drpath_first(path2, &iPath2))
     {
-        bool isPath1Valid;
-        bool isPath2Valid;
+        drBool32 isPath1Valid;
+        drBool32 isPath2Valid;
 
         do
         {
             if (!drfs_drpath_iterators_equal(iPath1, iPath2)) {
-                return false;
+                return DR_FALSE;
             }
 
             isPath1Valid = drfs_drpath_next(&iPath1);
@@ -1416,13 +1429,13 @@ static bool drfs_drpath_equal(const char* path1, const char* path2)
         return isPath1Valid == isPath2Valid && iPath1.path[iPath1.segment.offset] == '\0' && iPath2.path[iPath2.segment.offset] == '\0';
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-static bool drfs_drpath_is_relative(const char* path)
+static drBool32 drfs_drpath_is_relative(const char* path)
 {
     if (path == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     drfs_drpath_iterator seg;
@@ -1431,25 +1444,25 @@ static bool drfs_drpath_is_relative(const char* path)
     }
 
     // We'll get here if the path is empty. We consider this to be a relative path.
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_drpath_is_absolute(const char* path)
+static drBool32 drfs_drpath_is_absolute(const char* path)
 {
     return !drfs_drpath_is_relative(path);
 }
 
-static bool drfs_drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
+static drBool32 drfs_drpath_append(char* base, size_t baseBufferSizeInBytes, const char* other)
 {
     if (base == NULL || other == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     size_t path1Length = strlen(base);
     size_t path2Length = strlen(other);
 
     if (path1Length >= baseBufferSizeInBytes) {
-        return false;
+        return DR_FALSE;
     }
 
 
@@ -1466,13 +1479,13 @@ static bool drfs_drpath_append(char* base, size_t baseBufferSizeInBytes, const c
 
     drfs__strncpy_s(base + path1Length, baseBufferSizeInBytes - path1Length, other, path2Length);
 
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
+static drBool32 drfs_drpath_copy_and_append(char* dst, size_t dstSizeInBytes, const char* base, const char* other)
 {
     if (dst == NULL || dstSizeInBytes == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     drfs__strcpy_s(dst, dstSizeInBytes, base);
@@ -1583,8 +1596,8 @@ static size_t drfs_drpath_append_and_clean(char* dst, size_t dstSizeInBytes, con
     }
 
     drfs_drpath_iterator last[2];
-    bool isPathEmpty0 = !drfs_drpath_last(base,  last + 0);
-    bool isPathEmpty1 = !drfs_drpath_last(other, last + 1);
+    drBool32 isPathEmpty0 = !drfs_drpath_last(base,  last + 0);
+    drBool32 isPathEmpty1 = !drfs_drpath_last(other, last + 1);
 
     if (isPathEmpty0 && isPathEmpty1) {
         return 0;   // Both input strings are empty.
@@ -1610,22 +1623,22 @@ static size_t drfs_drpath_append_and_clean(char* dst, size_t dstSizeInBytes, con
 //// Private Utiltities ////
 
 // Recursively creates the given directory structure on the native file system.
-static bool drfs_mkdir_recursive_native(const char* absolutePath);
+static drBool32 drfs_mkdir_recursive_native(const char* absolutePath);
 
 // Determines whether or not the given path is valid for writing based on the base write path and whether or not
 // the write guard is enabled.
-static bool drfs_validate_write_path(drfs_context* pContext, const char* absoluteOrRelativePath, char* absolutePathOut, unsigned int absolutePathOutSize)
+static drBool32 drfs_validate_write_path(drfs_context* pContext, const char* absoluteOrRelativePath, char* absolutePathOut, unsigned int absolutePathOutSize)
 {
     // If the path is relative, we need to convert to absolute. Then, if the write directory guard is enabled, we need to check that it's a descendant of the base path.
     if (drfs_drpath_is_relative(absoluteOrRelativePath)) {
         if (drfs_drpath_append_and_clean(absolutePathOut, absolutePathOutSize, pContext->writeBaseDirectory, absoluteOrRelativePath)) {
             absoluteOrRelativePath = absolutePathOut;
         } else {
-            return false;
+            return DR_FALSE;
         }
     } else {
         if (drfs__strcpy_s(absolutePathOut, absolutePathOutSize, absoluteOrRelativePath) != 0) {
-            return false;
+            return DR_FALSE;
         }
     }
 
@@ -1634,18 +1647,18 @@ static bool drfs_validate_write_path(drfs_context* pContext, const char* absolut
     // path to open the file.
     assert(drfs_drpath_is_absolute(absoluteOrRelativePath));
     if (!drfs_drpath_is_absolute(absoluteOrRelativePath)) {
-        return false;
+        return DR_FALSE;
     }
 
 
     if (drfs_is_write_directory_guard_enabled(pContext)) {
         if (drfs_drpath_is_descendant(absoluteOrRelativePath, pContext->writeBaseDirectory)) {
-            return true;
+            return DR_TRUE;
         } else {
-            return false;
+            return DR_FALSE;
         }
     } else {
-        return true;
+        return DR_TRUE;
     }
 }
 
@@ -1681,10 +1694,10 @@ static drfs_result drfs_open_native_file(const char* absolutePath, unsigned int 
 static void drfs_close_native_file(drfs_handle file);
 
 // Determines whether or not the given path refers to a directory on the native file system.
-static bool drfs_is_native_directory(const char* absolutePath);
+static drBool32 drfs_is_native_directory(const char* absolutePath);
 
-// Determines whether or not the given path refers to a file on the native file system. This will return false for directories.
-static bool drfs_is_native_file(const char* absolutePath);
+// Determines whether or not the given path refers to a file on the native file system. This will return DR_FALSE for directories.
+static drBool32 drfs_is_native_file(const char* absolutePath);
 
 // Deletes a native file.
 static drfs_result drfs_delete_native_file(const char* absolutePath);
@@ -1696,7 +1709,7 @@ static drfs_result drfs_mkdir_native(const char* absolutePath);
 static drfs_result drfs_move_native_file(const char* absolutePathOld, const char* absolutePathNew);
 
 // Creates a copy of a native file.
-static drfs_result drfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists);
+static drfs_result drfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, drBool32 failIfExists);
 
 // Reads data from the given native file.
 static drfs_result drfs_read_native_file(drfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
@@ -1730,7 +1743,7 @@ static drfs_handle drfs_begin_native_iteration(const char* absolutePath);
 static void drfs_end_native_iteration(drfs_handle iterator);
 
 // Retrieves information about the next native file based on the given iterator.
-static bool drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi);
+static drBool32 drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi);
 
 
 
@@ -1814,13 +1827,13 @@ static void drfs_close_native_file(drfs_handle file)
     CloseHandle((HANDLE)file);
 }
 
-static bool drfs_is_native_directory(const char* absolutePath)
+static drBool32 drfs_is_native_directory(const char* absolutePath)
 {
     DWORD attributes = GetFileAttributesA(absolutePath);
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
-static bool drfs_is_native_file(const char* absolutePath)
+static drBool32 drfs_is_native_file(const char* absolutePath)
 {
     DWORD attributes = GetFileAttributesA(absolutePath);
     return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
@@ -1864,7 +1877,7 @@ static drfs_result drfs_move_native_file(const char* absolutePathOld, const char
     return drfs__GetLastError_to_result();
 }
 
-static drfs_result drfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists)
+static drfs_result drfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, drBool32 failIfExists)
 {
     BOOL wasSuccessful = CopyFileA(absolutePathSrc, absolutePathDst, failIfExists);
     if (wasSuccessful) {
@@ -2109,7 +2122,7 @@ static void drfs_end_native_iteration(drfs_handle iterator)
     free(pIterator);
 }
 
-static bool drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi)
+static drBool32 drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi)
 {
     drfs_iterator_win32* pIterator = (drfs_iterator_win32*)iterator;
     assert(pIterator != NULL);
@@ -2119,7 +2132,7 @@ static bool drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi)
         // Skip past "." and ".." directories.
         while (strcmp(pIterator->ffd.cFileName, ".") == 0 || strcmp(pIterator->ffd.cFileName, "..") == 0) {
             if (FindNextFileA(pIterator->hFind, &pIterator->ffd) == 0) {
-                return false;
+                return DR_FALSE;
             }
         }
 
@@ -2153,10 +2166,10 @@ static bool drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi)
             pIterator->hFind = NULL;
         }
 
-        return true;
+        return DR_TRUE;
     }
 
-    return false;
+    return DR_FALSE;
 }
 #endif //DR_FS_USE_WIN32
 
@@ -2285,24 +2298,24 @@ static void drfs_close_native_file(drfs_handle file)
     close(DRFS_HANDLE_TO_FD(file));
 }
 
-static bool drfs_is_native_directory(const char* absolutePath)
+static drBool32 drfs_is_native_directory(const char* absolutePath)
 {
     struct stat64 info;
     if (drfs__stat64(absolutePath, &info) != 0) {
-        return false;   // Likely the folder doesn't exist.
+        return DR_FALSE;   // Likely the folder doesn't exist.
     }
 
-    return drfs__mode_is_dir(info.st_mode);   // Only return true if it's a directory. Return false if it's a file.
+    return drfs__mode_is_dir(info.st_mode);   // Only return DR_TRUE if it's a directory. Return DR_FALSE if it's a file.
 }
 
-static bool drfs_is_native_file(const char* absolutePath)
+static drBool32 drfs_is_native_file(const char* absolutePath)
 {
     struct stat64 info;
     if (drfs__stat64(absolutePath, &info) != 0) {
-        return false;   // Likely the folder doesn't exist.
+        return DR_FALSE;   // Likely the folder doesn't exist.
     }
 
-    return !drfs__mode_is_dir(info.st_mode);  // Only return true if it's a file. Return false if it's a directory.
+    return !drfs__mode_is_dir(info.st_mode);  // Only return DR_TRUE if it's a file. Return DR_FALSE if it's a directory.
 }
 
 static drfs_result drfs_delete_native_file(const char* absolutePath)
@@ -2332,7 +2345,7 @@ static drfs_result drfs_mkdir_native(const char* absolutePath)
     return drfs__errno_to_result();
 }
 
-static drfs_result drfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, bool failIfExists)
+static drfs_result drfs_copy_native_file(const char* absolutePathSrc, const char* absolutePathDst, drBool32 failIfExists)
 {
     if (drfs_drpath_equal(absolutePathSrc, absolutePathDst)) {
         if (!failIfExists) {
@@ -2513,7 +2526,7 @@ static drfs_result drfs_get_native_file_info(const char* absolutePath, drfs_file
         if (drfs__mode_is_dir(info.st_mode)) {
             fi->attributes |= DRFS_FILE_ATTRIBUTE_DIRECTORY;
         }
-        if (drfs__mode_has_write_permission(info.st_mode) == false) {
+        if (drfs__mode_has_write_permission(info.st_mode) == DR_FALSE) {
             fi->attributes |= DRFS_FILE_ATTRIBUTE_READONLY;
         }
     }
@@ -2556,23 +2569,23 @@ static void drfs_end_native_iteration(drfs_handle iterator)
     free(pIterator);
 }
 
-static bool drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi)
+static drBool32 drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi)
 {
     drfs_iterator_posix* pIterator = (drfs_iterator_posix*)iterator;
     if (pIterator == NULL || pIterator->dir == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     struct dirent* info = readdir(pIterator->dir);
     if (info == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     // Skip over "." and ".." folders.
     while (strcmp(info->d_name, ".") == 0 || strcmp(info->d_name, "..") == 0) {
         info = readdir(pIterator->dir);
         if (info == NULL) {
-            return false;
+            return DR_FALSE;
         }
     }
 
@@ -2583,19 +2596,19 @@ static bool drfs_next_native_iteration(drfs_handle iterator, drfs_file_info* fi)
         drfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), info->d_name);
     }
 
-    return true;
+    return DR_TRUE;
 }
 #endif //DR_FS_USE_STDIO
 
 
-static bool drfs_mkdir_recursive_native(const char* absolutePath)
+static drBool32 drfs_mkdir_recursive_native(const char* absolutePath)
 {
     char runningPath[DRFS_MAX_PATH];
     runningPath[0] = '\0';
 
     drfs_drpath_iterator iPathSeg;
     if (!drfs_drpath_first(absolutePath, &iPathSeg)) {
-        return false;
+        return DR_FALSE;
     }
 
     // Never check the first segment because we can assume it always exists - it will always be the drive root.
@@ -2605,12 +2618,12 @@ static bool drfs_mkdir_recursive_native(const char* absolutePath)
         while (drfs_drpath_next(&iPathSeg))
         {
             if (!drfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
-                return false;
+                return DR_FALSE;
             }
 
             if (!drfs_is_native_directory(runningPath)) {
                 if (drfs_mkdir_native(runningPath) != drfs_success) {
-                    return false;
+                    return DR_FALSE;
                 }
 
                 break;
@@ -2623,20 +2636,20 @@ static bool drfs_mkdir_recursive_native(const char* absolutePath)
         while (drfs_drpath_next(&iPathSeg))
         {
             if (!drfs_drpath_append_iterator(runningPath, sizeof(runningPath), iPathSeg)) {
-                return false;
+                return DR_FALSE;
             }
 
             assert(!drfs_is_native_directory(runningPath));
 
             if (drfs_mkdir_native(runningPath) != drfs_success) {
-                return false;
+                return DR_FALSE;
             }
         }
 
-        return true;
+        return DR_TRUE;
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 
@@ -2661,7 +2674,7 @@ static drfs_result drfs_open_archive__native(drfs_file* pArchiveFile, unsigned i
     // This function should never be called for native archives. Native archives are a special case because they are just directories
     // on the file system rather than actual files, and as such they are handled just slightly differently. This function is only
     // included here for this assert so we can ensure we don't incorrectly call this function.
-    assert(false);
+    assert(DR_FALSE);
 
     *pHandleOut = NULL;
     return drfs_unknown_error;
@@ -2733,7 +2746,7 @@ static void drfs_end_iteration__native(drfs_handle archive, drfs_handle iterator
     drfs_end_native_iteration(iterator);
 }
 
-static bool drfs_next_iteration__native(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
+static drBool32 drfs_next_iteration__native(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
 {
     (void)archive;
     assert(archive != NULL);
@@ -2793,7 +2806,7 @@ static drfs_result drfs_create_directory__native(drfs_handle archive, const char
     return drfs_mkdir_native(absolutePath);
 }
 
-static drfs_result drfs_copy_file__native(drfs_handle archive, const char* relativePathSrc, const char* relativePathDst, bool failIfExists)
+static drfs_result drfs_copy_file__native(drfs_handle archive, const char* relativePathSrc, const char* relativePathDst, drBool32 failIfExists)
 {
     assert(relativePathSrc != NULL);
     assert(relativePathDst != NULL);
@@ -2895,10 +2908,10 @@ static void drfs_flush__native(drfs_handle archive, drfs_handle file)
 
 
 // Finds the back-end callbacks by the given extension.
-static bool drfs_find_backend_by_extension(drfs_context* pContext, const char* extension, drfs_archive_callbacks* pCallbacksOut)
+static drBool32 drfs_find_backend_by_extension(drfs_context* pContext, const char* extension, drfs_archive_callbacks* pCallbacksOut)
 {
     if (pContext == NULL || extension == NULL || extension[0] == '\0') {
-        return false;
+        return DR_FALSE;
     }
 
     for (unsigned int i = 0; i < pContext->archiveCallbacks.count; ++i)
@@ -2908,12 +2921,12 @@ static bool drfs_find_backend_by_extension(drfs_context* pContext, const char* e
                 if (pCallbacksOut) {
                     *pCallbacksOut = pContext->archiveCallbacks.pBuffer[i];
                 }
-                return true;
+                return DR_TRUE;
             }
         }
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 // Recursively claims ownership of parent archives so that when the child archive is deleted, so are it's parents.
@@ -3240,8 +3253,8 @@ static drfs_result drfs_open_owner_archive_recursively_from_relative_path(drfs_a
         // Part of rootSearchPath and relativePath will be overlapping. We want to begin searching at the non-overlapping section.
         drfs_drpath_iterator pathSeg0;
         drfs_drpath_iterator pathSeg1;
-        bool isSeg0Valid = drfs_drpath_first(rootSearchPath, &pathSeg0);
-        bool isSeg1Valid = drfs_drpath_first(relativePath,   &pathSeg1);
+        drBool32 isSeg0Valid = drfs_drpath_first(rootSearchPath, &pathSeg0);
+        drBool32 isSeg1Valid = drfs_drpath_first(relativePath,   &pathSeg1);
         while (isSeg0Valid && isSeg1Valid) {
             isSeg0Valid = drfs_drpath_next(&pathSeg0);
             isSeg1Valid = drfs_drpath_next(&pathSeg1);
@@ -3622,10 +3635,10 @@ void drfs_set_base_write_directory(drfs_context* pContext, const char* absoluteP
     }
 }
 
-bool drfs_get_base_write_directory(drfs_context* pContext, char* absolutePathOut, unsigned int absolutePathOutSize)
+drBool32 drfs_get_base_write_directory(drfs_context* pContext, char* absolutePathOut, unsigned int absolutePathOutSize)
 {
     if (pContext == NULL || absolutePathOut == NULL || absolutePathOutSize == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     return drfs__strcpy_s(absolutePathOut, absolutePathOutSize, pContext->writeBaseDirectory) == 0;
@@ -3637,7 +3650,7 @@ void drfs_enable_write_directory_guard(drfs_context* pContext)
         return;
     }
 
-    pContext->isWriteGuardEnabled = true;
+    pContext->isWriteGuardEnabled = DR_TRUE;
 }
 
 void drfs_disable_write_directory_guard(drfs_context* pContext)
@@ -3646,13 +3659,13 @@ void drfs_disable_write_directory_guard(drfs_context* pContext)
         return;
     }
 
-    pContext->isWriteGuardEnabled = false;
+    pContext->isWriteGuardEnabled = DR_FALSE;
 }
 
-bool drfs_is_write_directory_guard_enabled(drfs_context* pContext)
+drBool32 drfs_is_write_directory_guard_enabled(drfs_context* pContext)
 {
     if (pContext == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     return pContext->isWriteGuardEnabled;
@@ -4005,7 +4018,7 @@ drfs_result drfs_seek(drfs_file* pFile, int64_t bytesToSeek, drfs_seek_origin or
 uint64_t drfs_tell_nolock(drfs_file* pFile)
 {
     if (pFile == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.tell_file == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     return pFile->pArchive->callbacks.tell_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle);
@@ -4035,7 +4048,7 @@ uint64_t drfs_size_nolock(drfs_file* pFile)
 uint64_t drfs_size(drfs_file* pFile)
 {
     if (!drfs_lock(pFile)) {
-        return false;
+        return DR_FALSE;
     }
 
     uint64_t result = drfs_size_nolock(pFile);
@@ -4054,10 +4067,10 @@ void drfs_flush(drfs_file* pFile)
 }
 
 
-bool drfs_lock(drfs_file* pFile)
+drBool32 drfs_lock(drfs_file* pFile)
 {
     if (pFile == NULL || pFile->internalFileHandle == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
 #ifdef _WIN32
@@ -4070,7 +4083,7 @@ bool drfs_lock(drfs_file* pFile)
     pthread_mutex_lock(&pFile->lock);
 #endif
 
-    return true;
+    return DR_TRUE;
 }
 
 void drfs_unlock(drfs_file* pFile)
@@ -4118,19 +4131,19 @@ drfs_result drfs_get_file_info(drfs_context* pContext, const char* absoluteOrRel
 }
 
 
-bool drfs_begin(drfs_context* pContext, const char* absoluteOrRelativePath, drfs_iterator* pIteratorOut)
+drBool32 drfs_begin(drfs_context* pContext, const char* absoluteOrRelativePath, drfs_iterator* pIteratorOut)
 {
-    if (pIteratorOut == NULL) return false;
+    if (pIteratorOut == NULL) return DR_FALSE;
     memset(pIteratorOut, 0, sizeof(*pIteratorOut));
 
     if (pContext == NULL || absoluteOrRelativePath == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     // We need to open the archive that the given folder is in. The path could, however, point to an actual archive which is allowed
     // in which case we just iterate over the root directory within that archive. What we do is first try using the path as an actual
     // archive. If it fails we assume the path is to a folder within an archive (such as a zip file) in which case we just try opening
-    // the owner archive. If both fail, we return false.
+    // the owner archive. If both fail, we return DR_FALSE.
 
     char relativePath[DRFS_MAX_PATH];
     drfs_result result = drfs_open_archive(pContext, absoluteOrRelativePath, DRFS_READ, &pIteratorOut->pArchive);
@@ -4139,7 +4152,7 @@ bool drfs_begin(drfs_context* pContext, const char* absoluteOrRelativePath, drfs
     } else {
         result = drfs_open_owner_archive(pContext, absoluteOrRelativePath, DRFS_READ, relativePath, sizeof(relativePath), &pIteratorOut->pArchive);
         if (result != drfs_success) {
-            return false;
+            return DR_FALSE;
         }
     }
 
@@ -4153,11 +4166,11 @@ bool drfs_begin(drfs_context* pContext, const char* absoluteOrRelativePath, drfs
     if (pIteratorOut->internalIteratorHandle == NULL) {
         drfs_close_archive(pIteratorOut->pArchive);
         pIteratorOut->pArchive = NULL;
-        return false;
+        return DR_FALSE;
     }
 
 
-    bool foundFirst = drfs_next(pContext, pIteratorOut);
+    drBool32 foundFirst = drfs_next(pContext, pIteratorOut);
     if (!foundFirst) {
         drfs_end(pContext, pIteratorOut);
     }
@@ -4165,19 +4178,19 @@ bool drfs_begin(drfs_context* pContext, const char* absoluteOrRelativePath, drfs
     return foundFirst;
 }
 
-bool drfs_next(drfs_context* pContext, drfs_iterator* pIterator)
+drBool32 drfs_next(drfs_context* pContext, drfs_iterator* pIterator)
 {
     if (pIterator == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     memset(&pIterator->info, 0, sizeof(pIterator->info));
 
     if (pContext == NULL || pIterator->pArchive == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
-    bool result = false;
+    drBool32 result = DR_FALSE;
     if (pIterator->pArchive->callbacks.next_iteration) {
         result = pIterator->pArchive->callbacks.next_iteration(pIterator->pArchive->internalArchiveHandle, pIterator->internalIteratorHandle, &pIterator->info);
     }
@@ -4298,7 +4311,7 @@ drfs_result drfs_move_file(drfs_context* pContext, const char* pathOld, const ch
         result = drfs_open_owner_archive(pContext, pathNew, drfs_archive_access_mode(DRFS_READ | DRFS_WRITE), relativePathNew, sizeof(relativePathNew), &pArchiveNew);
         if (pArchiveNew != NULL)
         {
-            bool areBothArchivesNative = (pArchiveOld->callbacks.move_file == pArchiveNew->callbacks.move_file && pArchiveNew->callbacks.move_file == drfs_move_file__native);
+            drBool32 areBothArchivesNative = (pArchiveOld->callbacks.move_file == pArchiveNew->callbacks.move_file && pArchiveNew->callbacks.move_file == drfs_move_file__native);
             if (areBothArchivesNative)
             {
                 result = drfs_move_native_file(absolutePathOld, absolutePathNew);
@@ -4322,7 +4335,7 @@ drfs_result drfs_move_file(drfs_context* pContext, const char* pathOld, const ch
     return result;
 }
 
-drfs_result drfs_copy_file(drfs_context* pContext, const char* srcPath, const char* dstPath, bool failIfExists)
+drfs_result drfs_copy_file(drfs_context* pContext, const char* srcPath, const char* dstPath, drBool32 failIfExists)
 {
     if (pContext == NULL || srcPath == NULL || dstPath == NULL) {
         return drfs_invalid_args;
@@ -4360,7 +4373,7 @@ drfs_result drfs_copy_file(drfs_context* pContext, const char* srcPath, const ch
     }
     else
     {
-        bool areBothArchivesNative = (pSrcArchive->callbacks.copy_file == pDstArchive->callbacks.copy_file && pDstArchive->callbacks.copy_file == drfs_copy_file__native);
+        drBool32 areBothArchivesNative = (pSrcArchive->callbacks.copy_file == pDstArchive->callbacks.copy_file && pDstArchive->callbacks.copy_file == drfs_copy_file__native);
         if (areBothArchivesNative)
         {
             char srcPathAbsolute[DRFS_MAX_PATH];
@@ -4417,7 +4430,7 @@ drfs_result drfs_copy_file(drfs_context* pContext, const char* srcPath, const ch
 }
 
 
-bool drfs_is_archive_path(drfs_context* pContext, const char* path)
+drBool32 drfs_is_archive_path(drfs_context* pContext, const char* path)
 {
     return drfs_find_backend_by_extension(pContext, drfs_drpath_extension(path), NULL);
 }
@@ -4435,13 +4448,13 @@ void drfs_free(void* p)
     free(p);
 }
 
-bool drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize)
+drBool32 drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize)
 {
-    if (absolutePathOut == NULL) return false;
+    if (absolutePathOut == NULL) return DR_FALSE;
     if (absolutePathOutSize > 0) absolutePathOut[0] = '\0';
 
     if (pContext == NULL || relativePath == NULL || absolutePathOutSize == 0) {
-        return false;
+        return DR_FALSE;
     }
 
     drfs_file_info fi;
@@ -4449,19 +4462,19 @@ bool drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, c
         return drfs__strcpy_s(absolutePathOut, absolutePathOutSize, fi.absolutePath) == 0;
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-bool drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize)
+drBool32 drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize)
 {
-    if (absolutePathOut == NULL) return false;
+    if (absolutePathOut == NULL) return DR_FALSE;
     if (absolutePathOutSize > 0) absolutePathOut[0] = '\0';
 
     if (pContext == NULL || relativePath == NULL || highestPriorityBasePath == NULL || absolutePathOutSize == 0) {
-        return false;
+        return DR_FALSE;
     }
 
-    bool result = 0;
+    drBool32 result = 0;
     drfs_insert_base_directory(pContext, highestPriorityBasePath, 0);
     {
         result = drfs_find_absolute_path(pContext, relativePath, absolutePathOut, absolutePathOutSize);
@@ -4471,27 +4484,27 @@ bool drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* r
     return result;
 }
 
-bool drfs_is_base_directory(drfs_context* pContext, const char* baseDir)
+drBool32 drfs_is_base_directory(drfs_context* pContext, const char* baseDir)
 {
     if (pContext == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     for (unsigned int i = 0; i < drfs_get_base_directory_count(pContext); ++i) {
         if (drfs_drpath_equal(drfs_get_base_directory_by_index(pContext, i), baseDir)) {
-            return true;
+            return DR_TRUE;
         }
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-bool drfs_write_string(drfs_file* pFile, const char* str)
+drBool32 drfs_write_string(drfs_file* pFile, const char* str)
 {
     return drfs_write(pFile, str, (unsigned int)strlen(str), NULL) == drfs_success;
 }
 
-bool drfs_write_line(drfs_file* pFile, const char* str)
+drBool32 drfs_write_line(drfs_file* pFile, const char* str)
 {
     return drfs_write_string(pFile, str) && drfs_write_string(pFile, "\n");
 }
@@ -4590,11 +4603,11 @@ char* drfs_open_and_read_text_file(drfs_context* pContext, const char* absoluteO
     return (char*)pData;
 }
 
-bool drfs_open_and_write_binary_file(drfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize)
+drBool32 drfs_open_and_write_binary_file(drfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize)
 {
     drfs_file* pFile;
     if (drfs_open(pContext, absoluteOrRelativePath, DRFS_WRITE | DRFS_TRUNCATE, &pFile) != drfs_success) {
-        return false;
+        return DR_FALSE;
     }
 
     drfs_result result = drfs_write(pFile, pData, dataSize, NULL);
@@ -4603,19 +4616,19 @@ bool drfs_open_and_write_binary_file(drfs_context* pContext, const char* absolut
     return result == drfs_success;
 }
 
-bool drfs_open_and_write_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData)
+drBool32 drfs_open_and_write_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData)
 {
     return drfs_open_and_write_binary_file(pContext, absoluteOrRelativePath, pTextData, strlen(pTextData));
 }
 
 
-bool drfs_exists(drfs_context* pContext, const char* absoluteOrRelativePath)
+drBool32 drfs_exists(drfs_context* pContext, const char* absoluteOrRelativePath)
 {
     drfs_file_info fi;
     return drfs_get_file_info(pContext, absoluteOrRelativePath, &fi) == drfs_success;
 }
 
-bool drfs_is_existing_file(drfs_context* pContext, const char* absoluteOrRelativePath)
+drBool32 drfs_is_existing_file(drfs_context* pContext, const char* absoluteOrRelativePath)
 {
     drfs_file_info fi;
     if (drfs_get_file_info(pContext, absoluteOrRelativePath, &fi) == drfs_success)
@@ -4623,10 +4636,10 @@ bool drfs_is_existing_file(drfs_context* pContext, const char* absoluteOrRelativ
         return (fi.attributes & DRFS_FILE_ATTRIBUTE_DIRECTORY) == 0;
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-bool drfs_is_existing_directory(drfs_context* pContext, const char* absoluteOrRelativePath)
+drBool32 drfs_is_existing_directory(drfs_context* pContext, const char* absoluteOrRelativePath)
 {
     drfs_file_info fi;
     if (drfs_get_file_info(pContext, absoluteOrRelativePath, &fi) == drfs_success)
@@ -4634,7 +4647,7 @@ bool drfs_is_existing_directory(drfs_context* pContext, const char* absoluteOrRe
         return (fi.attributes & DRFS_FILE_ATTRIBUTE_DIRECTORY) != 0;
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 drfs_result drfs_create_directory_recursive(drfs_context* pContext, const char* path)
@@ -4706,7 +4719,7 @@ drfs_result drfs_create_directory_recursive(drfs_context* pContext, const char* 
     }
 }
 
-bool drfs_eof(drfs_file* pFile)
+drBool32 drfs_eof(drfs_file* pFile)
 {
     return drfs_tell(pFile) == drfs_size(pFile);
 }
@@ -6274,7 +6287,7 @@ static size_t drfs_drfs_mz_file_read_func(void *pOpaque, drfs_mz_uint64 file_ofs
 }
 
 
-static bool drfs_is_valid_extension__zip(const char* extension)
+static drBool32 drfs_is_valid_extension__zip(const char* extension)
 {
     return drfs__stricmp(extension, "zip") == 0;
 }
@@ -6453,7 +6466,7 @@ static void drfs_end_iteration__zip(drfs_handle archive, drfs_handle iterator)
     free(iterator);
 }
 
-static bool drfs_next_iteration__zip(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
+static drBool32 drfs_next_iteration__zip(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
 {
     (void)archive;
     assert(archive != NULL);
@@ -6461,7 +6474,7 @@ static bool drfs_next_iteration__zip(drfs_handle archive, drfs_handle iterator, 
 
     drfs_iterator_zip* pZipIterator = (drfs_iterator_zip*)iterator;
     if (pZipIterator == NULL) {
-        return false;
+        return DR_FALSE;
     }
 
     drfs_mz_zip_archive* pZip = (drfs_mz_zip_archive*)archive;
@@ -6497,12 +6510,12 @@ static bool drfs_next_iteration__zip(drfs_handle archive, drfs_handle iterator, 
                     }
                 }
 
-                return true;
+                return DR_TRUE;
             }
         }
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 static drfs_result drfs_open_file__zip(drfs_handle archive, const char* relativePath, unsigned int accessMode, drfs_handle* pHandleOut)
@@ -6797,7 +6810,7 @@ typedef struct
 
 }drfs_iterator_pak;
 
-static bool drfs_iterator_pak_append_processed_dir(drfs_iterator_pak* pIterator, const char* path)
+static drBool32 drfs_iterator_pak_append_processed_dir(drfs_iterator_pak* pIterator, const char* path)
 {
     if (pIterator != NULL && path != NULL)
     {
@@ -6826,7 +6839,7 @@ static bool drfs_iterator_pak_append_processed_dir(drfs_iterator_pak* pIterator,
     return 0;
 }
 
-static bool drfs_iterator_pak_has_dir_been_processed(drfs_iterator_pak* pIterator, const char* path)
+static drBool32 drfs_iterator_pak_has_dir_been_processed(drfs_iterator_pak* pIterator, const char* path)
 {
     for (unsigned int i = 0; i < pIterator->processedDirCount; ++i)
     {
@@ -6879,7 +6892,7 @@ static void drfs_pak_delete(drfs_archive_pak* pArchive)
 
 
 
-static bool drfs_is_valid_extension__pak(const char* extension)
+static drBool32 drfs_is_valid_extension__pak(const char* extension)
 {
     return drfs__stricmp(extension, "pak") == 0;
 }
@@ -7072,7 +7085,7 @@ static void drfs_end_iteration__pak(drfs_handle archive, drfs_handle iterator)
     free(pIterator);
 }
 
-static bool drfs_next_iteration__pak(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
+static drBool32 drfs_next_iteration__pak(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
 {
     drfs_iterator_pak* pIterator = (drfs_iterator_pak*)iterator;
     assert(pIterator != NULL);
@@ -7094,7 +7107,7 @@ static bool drfs_next_iteration__pak(drfs_handle archive, drfs_handle iterator, 
             fi->lastModifiedTime = 0;
             fi->attributes       = DRFS_FILE_ATTRIBUTE_READONLY;
 
-            return true;
+            return DR_TRUE;
         }
         else if (drfs_drpath_is_descendant(pFile->name, pIterator->directoryPath))
         {
@@ -7119,12 +7132,12 @@ static bool drfs_next_iteration__pak(drfs_handle archive, drfs_handle iterator, 
 
                 drfs_iterator_pak_append_processed_dir(pIterator, childDir);
 
-                return true;
+                return DR_TRUE;
             }
         }
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 static drfs_result drfs_open_file__pak(drfs_handle archive, const char* relativePath, unsigned int accessMode, drfs_handle* pHandleOut)
@@ -7439,7 +7452,7 @@ typedef struct
 
 }drfs_openarchive_mtl_state;
 
-static bool drfs_mtl_loadnextchunk(drfs_openarchive_mtl_state* pState)
+static drBool32 drfs_mtl_loadnextchunk(drfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -7454,7 +7467,7 @@ static bool drfs_mtl_loadnextchunk(drfs_openarchive_mtl_state* pState)
             pState->chunkPointer = pState->chunk;
             pState->chunkEnd     = pState->chunk + pState->chunkSize;
 
-            return true;
+            return DR_TRUE;
         }
         else
         {
@@ -7466,10 +7479,10 @@ static bool drfs_mtl_loadnextchunk(drfs_openarchive_mtl_state* pState)
         }
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-static bool drfs_mtl_loadnewmtl(drfs_openarchive_mtl_state* pState)
+static drBool32 drfs_mtl_loadnewmtl(drfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -7481,24 +7494,24 @@ static bool drfs_mtl_loadnewmtl(drfs_openarchive_mtl_state* pState)
         {
             if (!drfs_mtl_loadnextchunk(pState))
             {
-                return false;
+                return DR_FALSE;
             }
         }
 
 
         if (pState->chunkPointer[0] != newmtl[i])
         {
-            return false;
+            return DR_FALSE;
         }
 
         pState->chunkPointer += 1;
     }
 
     // At this point the first 6 characters equal "newmtl".
-    return true;
+    return DR_TRUE;
 }
 
-static bool drfs_mtl_skipline(drfs_openarchive_mtl_state* pState)
+static drBool32 drfs_mtl_skipline(drfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -7514,7 +7527,7 @@ static bool drfs_mtl_skipline(drfs_openarchive_mtl_state* pState)
                 return drfs_mtl_loadnextchunk(pState);
             }
 
-            return true;
+            return DR_TRUE;
         }
 
         pState->chunkPointer += 1;
@@ -7526,10 +7539,10 @@ static bool drfs_mtl_skipline(drfs_openarchive_mtl_state* pState)
         return drfs_mtl_skipline(pState);
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-static bool drfs_mtl_skipwhitespace(drfs_openarchive_mtl_state* pState)
+static drBool32 drfs_mtl_skipwhitespace(drfs_openarchive_mtl_state* pState)
 {
     assert(pState != NULL);
 
@@ -7538,7 +7551,7 @@ static bool drfs_mtl_skipwhitespace(drfs_openarchive_mtl_state* pState)
         const char c = pState->chunkPointer[0];
         if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
         {
-            return true;
+            return DR_TRUE;
         }
 
         pState->chunkPointer += 1;
@@ -7549,10 +7562,10 @@ static bool drfs_mtl_skipwhitespace(drfs_openarchive_mtl_state* pState)
         return drfs_mtl_skipwhitespace(pState);
     }
 
-    return false;
+    return DR_FALSE;
 }
 
-static bool drfs_mtl_loadmtlname(drfs_openarchive_mtl_state* pState, void* dst, unsigned int dstSizeInBytes)
+static drBool32 drfs_mtl_loadmtlname(drfs_openarchive_mtl_state* pState, void* dst, unsigned int dstSizeInBytes)
 {
     assert(pState != NULL);
 
@@ -7565,7 +7578,7 @@ static bool drfs_mtl_loadmtlname(drfs_openarchive_mtl_state* pState, void* dst, 
         {
             // We've found the end of the name. Null terminate and return.
             *dst8 = '\0';
-            return true;
+            return DR_TRUE;
         }
         else
         {
@@ -7588,18 +7601,18 @@ static bool drfs_mtl_loadmtlname(drfs_openarchive_mtl_state* pState, void* dst, 
         else
         {
             // We reached the end of the file, but the name may be valid.
-            return true;
+            return DR_TRUE;
         }
     }
     else
     {
         // We ran out of room in the buffer.
-        return false;
+        return DR_FALSE;
     }
 }
 
 
-static bool drfs_is_valid_extension__mtl(const char* extension)
+static drBool32 drfs_is_valid_extension__mtl(const char* extension)
 {
     return drfs__stricmp(extension, "mtl") == 0;
 }
@@ -7755,7 +7768,7 @@ static void drfs_end_iteration__mtl(drfs_handle archive, drfs_handle iterator)
     free(pIterator);
 }
 
-static bool drfs_next_iteration__mtl(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
+static drBool32 drfs_next_iteration__mtl(drfs_handle archive, drfs_handle iterator, drfs_file_info* fi)
 {
     drfs_archive_mtl* mtl = (drfs_archive_mtl*)archive;
     assert(mtl != NULL);
@@ -7774,10 +7787,10 @@ static bool drfs_next_iteration__mtl(drfs_handle archive, drfs_handle iterator, 
         }
 
         pIterator->index += 1;
-        return true;
+        return DR_TRUE;
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 static drfs_result drfs_open_file__mtl(drfs_handle archive, const char* relativePath, unsigned int accessMode, drfs_handle* pHandleOut)

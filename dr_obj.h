@@ -40,7 +40,20 @@
 #define dr_obj_h
 
 #include <stdint.h>
-#include <stdbool.h>
+
+#ifndef DR_BOOL_DEFINED
+#define DR_BOOL_DEFINED
+#ifdef _WIN32
+typedef char drBool8;
+typedef int  drBool32;
+#else
+#include <stdint.h>
+typedef int8_t  drBool8;
+typedef int32_t drBool32;
+#endif
+#define DR_TRUE     1
+#define DR_FALSE    0
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,7 +63,7 @@ extern "C" {
 typedef size_t (* drobj_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
 
 // Callback for when the loader needs to be seeked back to the start of the file.
-typedef bool (* drobj_seek_to_start_proc)(void* userData);
+typedef drBool32 (* drobj_seek_to_start_proc)(void* userData);
 
 typedef struct
 {
@@ -200,7 +213,7 @@ static size_t drobj__on_read_stdio(void* pUserData, void* bufferOut, size_t byte
     return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-static bool drobj__on_seek_stdio(void* pUserData)
+static drBool32 drobj__on_seek_stdio(void* pUserData)
 {
     return fseek((FILE*)pUserData, 0, SEEK_SET) == 0;
 }
@@ -254,7 +267,7 @@ static size_t drobj__on_read_memory(void* pUserData, void* bufferOut, size_t byt
     return bytesToRead;
 }
 
-static bool drobj__on_seek_memory(void* pUserData)
+static drBool32 drobj__on_seek_memory(void* pUserData)
 {
     drobj_memory* memory = (drobj_memory*)pUserData;
     assert(memory != NULL);
@@ -279,16 +292,16 @@ void drobj_free(void* pData)
 }
 
 
-bool drobj__find_face_vertex(uint32_t vertexCount, drobj_face_vertex* pVertices, drobj_face_vertex vertex, uint32_t* pIndexOut)
+drBool32 drobj__find_face_vertex(uint32_t vertexCount, drobj_face_vertex* pVertices, drobj_face_vertex vertex, uint32_t* pIndexOut)
 {
     for (uint32_t i = 0; i < vertexCount; ++i) {
         if (pVertices[i].positionIndex == vertex.positionIndex && pVertices[i].texcoordIndex == vertex.texcoordIndex && pVertices[i].normalIndex == vertex.normalIndex) {
             *pIndexOut = i;
-            return true;
+            return DR_TRUE;
         }
     }
 
-    return false;
+    return DR_FALSE;
 }
 
 void drobj_interleave_p3t2n3(drobj* pOBJ, uint32_t* pVertexCountOut, float** ppVertexDataOut, uint32_t* pIndexCountOut, uint32_t** ppIndexDataOut)
@@ -386,32 +399,32 @@ typedef struct
     
 } drobj_load_context;
 
-static inline bool drobj__is_whitespace(char c)
+static inline drBool32 drobj__is_whitespace(char c)
 {
     return c == '\0' || c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
 }
 
-static inline bool drobj__is_valid_digit(char c)
+static inline drBool32 drobj__is_valid_digit(char c)
 {
     return c >= '0' && c <= '9';
 }
 
-bool drobj__load_next_chunk(drobj_load_context* pLoadContext)
+drBool32 drobj__load_next_chunk(drobj_load_context* pLoadContext)
 {
     assert(pLoadContext != NULL);
 
     pLoadContext->bytesRemaining = pLoadContext->onRead(pLoadContext->pUserData, pLoadContext->buffer, sizeof(pLoadContext->buffer));
     if (pLoadContext->bytesRemaining == 0) {
         pLoadContext->pNextBytes = NULL;
-        return false;
+        return DR_FALSE;
     }
 
 
     pLoadContext->pNextBytes = pLoadContext->buffer;
-    return true;
+    return DR_TRUE;
 }
 
-bool drobj__seek_past_whitespace(drobj_load_context* pLoadContext)
+drBool32 drobj__seek_past_whitespace(drobj_load_context* pLoadContext)
 {
     assert(pLoadContext != NULL);
 
@@ -420,7 +433,7 @@ bool drobj__seek_past_whitespace(drobj_load_context* pLoadContext)
         while (pLoadContext->bytesRemaining > 0)
         {
             if (!drobj__is_whitespace(pLoadContext->pNextBytes[0])) {
-                return true;
+                return DR_TRUE;
             }
 
             pLoadContext->pNextBytes     += 1;
@@ -428,7 +441,7 @@ bool drobj__seek_past_whitespace(drobj_load_context* pLoadContext)
         }
 
         if (!drobj__load_next_chunk(pLoadContext)) {
-            return false;
+            return DR_FALSE;
         }
     }
 }
@@ -437,7 +450,7 @@ char* drobj__find_end_of_line(const drobj_load_context* pLoadContext)
 {
     assert(pLoadContext != NULL);
 
-    // This function does not load a new chunk. If it runs out of data in the chunk it will return false.
+    // This function does not load a new chunk. If it runs out of data in the chunk it will return DR_FALSE.
     char* pLineEnd = pLoadContext->pNextBytes;
     size_t bytesRemaining = pLoadContext->bytesRemaining;
     while (bytesRemaining > 0)
@@ -451,11 +464,11 @@ char* drobj__find_end_of_line(const drobj_load_context* pLoadContext)
     }
 
     // If we get here it means we've run out of data in the buffer. We don't want to read the next chunk in this function so
-    // we return false in this case.
+    // we return DR_FALSE in this case.
     return NULL;
 }
 
-bool drobj__seek_to_next_line(drobj_load_context* pLoadContext)
+drBool32 drobj__seek_to_next_line(drobj_load_context* pLoadContext)
 {
     assert(pLoadContext != NULL);
 
@@ -468,14 +481,14 @@ bool drobj__seek_to_next_line(drobj_load_context* pLoadContext)
                 pLoadContext->pNextBytes     += 1;
                 pLoadContext->bytesRemaining -= 1;
 
-                return true;
+                return DR_TRUE;
             }
             else if (pLoadContext->pNextBytes[0] == '\r' && pLoadContext->bytesRemaining > 1 && pLoadContext->pNextBytes[1] == '\n')     // Win32 line endings.
             {
                 pLoadContext->pNextBytes     += 2;
                 pLoadContext->bytesRemaining -= 2;
 
-                return true;
+                return DR_TRUE;
             }
             else
             {
@@ -485,19 +498,19 @@ bool drobj__seek_to_next_line(drobj_load_context* pLoadContext)
         }
 
         if (!drobj__load_next_chunk(pLoadContext)) {
-            return false;
+            return DR_FALSE;
         }
     }
 }
 
-bool drobj__read_next_line(drobj_load_context* pLoadContext, char** pLineBeg, char** pLineEnd)
+drBool32 drobj__read_next_line(drobj_load_context* pLoadContext, char** pLineBeg, char** pLineEnd)
 {
     assert(pLineBeg != NULL);
     assert(pLineEnd != NULL);
 
     // We don't want to include whitespace in the result.
     if (!drobj__seek_past_whitespace(pLoadContext)) {
-        return false;
+        return DR_FALSE;
     }
 
     // The entire line must be contained within pLoadContext->buffer.
@@ -529,7 +542,7 @@ bool drobj__read_next_line(drobj_load_context* pLoadContext, char** pLineBeg, ch
 
             *pLineBeg = lineBeg;
             *pLineEnd = lineBeg + lineLengthSoFar;
-            return true;
+            return DR_TRUE;
         }
     }
 
@@ -539,7 +552,7 @@ bool drobj__read_next_line(drobj_load_context* pLoadContext, char** pLineBeg, ch
     if (lineEnd == lineBeg)
     {
         if (!drobj__seek_to_next_line(pLoadContext)) {
-            return false;
+            return DR_FALSE;
         }
 
         return drobj__read_next_line(pLoadContext, pLineBeg, pLineEnd);
@@ -558,7 +571,7 @@ bool drobj__read_next_line(drobj_load_context* pLoadContext, char** pLineBeg, ch
 
         *pLineBeg = lineBeg;
         *pLineEnd = lineEnd;
-        return true;
+        return DR_TRUE;
     }
 }
 
@@ -597,7 +610,7 @@ size_t drobj__parse_mtl_name(const char* pMtlName, const char* pLineEnd, char* p
 
 
 // Special implementation of atof() for converting a string to a float.
-bool drobj__atof(const char* str, const char* strEnd, float* pResultOut, const char** strEndOut)
+drBool32 drobj__atof(const char* str, const char* strEnd, float* pResultOut, const char** strEndOut)
 {
     // Skip leading whitespace.
     while (str < strEnd && drobj__is_whitespace(*str)) {
@@ -679,13 +692,13 @@ bool drobj__atof(const char* str, const char* strEnd, float* pResultOut, const c
         }
 
         *pResultOut = sign * value;
-        return true;
+        return DR_TRUE;
     }
     else
     {
         // Empty string.
         *pResultOut = 0;
-        return false;
+        return DR_FALSE;
     }
 }
 
@@ -729,7 +742,7 @@ int drobj__parse_face_vertex_index(const char* str, const char* strEnd, const ch
 
 
 // Parses a face vertex index string in p/t/n format.
-bool drobj__parse_face_vertex(const char* str, const char* strEnd, const char** strEndOut, drobj_face_vertex* pVertexOut)
+drBool32 drobj__parse_face_vertex(const char* str, const char* strEnd, const char** strEndOut, drobj_face_vertex* pVertexOut)
 {
     assert(pVertexOut != NULL);
 
@@ -765,7 +778,7 @@ bool drobj__parse_face_vertex(const char* str, const char* strEnd, const char** 
         }
 
         *pVertexOut = result;
-        return true;
+        return DR_TRUE;
     }
     else
     {
@@ -773,7 +786,7 @@ bool drobj__parse_face_vertex(const char* str, const char* strEnd, const char** 
             *strEndOut = str;
         }
 
-        return false;
+        return DR_FALSE;
     }
 }
 
@@ -852,7 +865,7 @@ void drobj__parse_vt(const char* str, const char* strEnd, drobj_vec3* pResultOut
     }
 }
 
-bool drobj__load_stage1(drobj_load_context* pLoadContext)
+drBool32 drobj__load_stage1(drobj_load_context* pLoadContext)
 {
     assert(pLoadContext != NULL);
     assert(pLoadContext->onRead != NULL);
@@ -886,7 +899,7 @@ bool drobj__load_stage1(drobj_load_context* pLoadContext)
             uint32_t vertexCount = drobj__parse_face(lineBeg + 2, lineEnd, &face);
             if (vertexCount > 3) {
                 if (vertexCount > 4) {
-                    assert(false);  // Not currently supporting more than 4 vertices per face.
+                    assert(DR_FALSE);  // Not currently supporting more than 4 vertices per face.
                 }
 
                 pLoadContext->faceCount += 1;
@@ -937,10 +950,10 @@ bool drobj__load_stage1(drobj_load_context* pLoadContext)
         pLoadContext->faceCount        * sizeof(drobj_face) +
         pLoadContext->totalStringLength;
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
+drBool32 drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
 {
     assert(pOBJ != NULL);
 
@@ -1094,7 +1107,7 @@ bool drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
     }
 
 
-    return true;
+    return DR_TRUE;
 }
 
 drobj* drobj_load(drobj_read_proc onRead, drobj_seek_to_start_proc onSeek, void* pUserData)
@@ -1111,7 +1124,7 @@ drobj* drobj_load(drobj_read_proc onRead, drobj_seek_to_start_proc onSeek, void*
     loadContext.onSeek    = onSeek;
     loadContext.pUserData = pUserData;
 
-    bool result = drobj__load_stage1(&loadContext);
+    drBool32 result = drobj__load_stage1(&loadContext);
     if (!result) {
         return NULL;
     }

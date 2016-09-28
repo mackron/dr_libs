@@ -15,7 +15,7 @@
 //     int width;
 //     int height;
 //     int components
-//     uint8_t* pImageData = drpcx_load_file("my_image.pcx", false, &width, &height, &components);
+//     uint8_t* pImageData = drpcx_load_file("my_image.pcx", DR_FALSE, &width, &height, &components);
 //     if (pImageData == NULL) {
 //         // Failed to load image.
 //     }
@@ -43,7 +43,20 @@
 #define dr_pcx_h
 
 #include <stdint.h>
-#include <stdbool.h>
+
+#ifndef DR_BOOL_DEFINED
+#define DR_BOOL_DEFINED
+#ifdef _WIN32
+typedef char drBool8;
+typedef int  drBool32;
+#else
+#include <stdint.h>
+typedef int8_t  drBool8;
+typedef int32_t drBool32;
+#endif
+#define DR_TRUE     1
+#define DR_FALSE    0
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,7 +67,7 @@ typedef size_t (* drpcx_read_proc)(void* userData, void* bufferOut, size_t bytes
 
 
 // Loads a PCX file using the given callbacks.
-uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, bool flipped, int* x, int* y, int* comp);
+uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, drBool32 flipped, int* x, int* y, int* comp);
 
 // Frees memory returned by drpcx_load() and family.
 void drpcx_free(void* pReturnValueFromLoad);
@@ -62,11 +75,11 @@ void drpcx_free(void* pReturnValueFromLoad);
 
 #ifndef DR_PCX_NO_STDIO
 // Loads an PCX file from an actual file.
-uint8_t* drpcx_load_file(const char* filename, bool flipped, int* x, int* y, int* comp);
+uint8_t* drpcx_load_file(const char* filename, drBool32 flipped, int* x, int* y, int* comp);
 #endif
 
 // Helper for loading an PCX file from a block of memory.
-uint8_t* drpcx_load_memory(const void* data, size_t dataSize, bool flipped, int* x, int* y, int* comp);
+uint8_t* drpcx_load_memory(const void* data, size_t dataSize, drBool32 flipped, int* x, int* y, int* comp);
 
 
 #ifdef __cplusplus
@@ -94,17 +107,17 @@ static size_t drpcx__on_read_stdio(void* pUserData, void* bufferOut, size_t byte
     return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-uint8_t* drpcx_load_file(const char* filename, bool flipped, int* x, int* y, int* comp)
+uint8_t* drpcx_load_file(const char* filename, drBool32 flipped, int* x, int* y, int* comp)
 {
     FILE* pFile;
 #ifdef _MSC_VER
     if (fopen_s(&pFile, filename, "rb") != 0) {
-        return false;
+        return DR_FALSE;
     }
 #else
     pFile = fopen(filename, "rb");
     if (pFile == NULL) {
-        return false;
+        return DR_FALSE;
     }
 #endif
 
@@ -143,7 +156,7 @@ static size_t drpcx__on_read_memory(void* pUserData, void* bufferOut, size_t byt
     return bytesToRead;
 }
 
-uint8_t* drpcx_load_memory(const void* data, size_t dataSize, bool flipped, int* x, int* y, int* comp)
+uint8_t* drpcx_load_memory(const void* data, size_t dataSize, drBool32 flipped, int* x, int* y, int* comp)
 {
     drpcx_memory memory;
     memory.data = (const unsigned char*)data;
@@ -179,7 +192,7 @@ typedef struct
 {
     drpcx_read_proc onRead;
     void* pUserData;
-    bool flipped;
+    drBool32 flipped;
     drpcx_header header;
 
     uint32_t width;
@@ -230,7 +243,7 @@ static uint8_t drpcx__rle(drpcx* pPCX, uint8_t* pRLEValueOut)
 }
 
 
-bool drpcx__decode_1bit(drpcx* pPCX)
+drBool32 drpcx__decode_1bit(drpcx* pPCX)
 {
     uint8_t rleCount = 0;
     uint8_t rleValue = 0;
@@ -262,7 +275,7 @@ bool drpcx__decode_1bit(drpcx* pPCX)
                 }
             }
 
-            return true;
+            return DR_TRUE;
 
         } break;
 
@@ -306,14 +319,14 @@ bool drpcx__decode_1bit(drpcx* pPCX)
                 }
             }
 
-            return true;
+            return DR_TRUE;
         }
 
-        default: return false;
+        default: return DR_FALSE;
     }
 }
 
-bool drpcx__decode_2bit(drpcx* pPCX)
+drBool32 drpcx__decode_2bit(drpcx* pPCX)
 {
     uint8_t rleCount = 0;
     uint8_t rleValue = 0;
@@ -388,7 +401,7 @@ bool drpcx__decode_2bit(drpcx* pPCX)
                 }
             }
             
-            return true;
+            return DR_TRUE;
         };
 
         case 4:
@@ -432,20 +445,20 @@ bool drpcx__decode_2bit(drpcx* pPCX)
                 }
             }
 
-            return true;
+            return DR_TRUE;
         };
 
-        default: return false;
+        default: return DR_FALSE;
     }
 }
 
-bool drpcx__decode_4bit(drpcx* pPCX)
+drBool32 drpcx__decode_4bit(drpcx* pPCX)
 {
     // NOTE: This is completely untested. If anybody knows where I can get a test file please let me know or send it through to me!
     // TODO: Test Me.
 
     if (pPCX->header.bitPlanes > 1) {
-        return false;
+        return DR_FALSE;
     }
 
     uint8_t rleCount = 0;
@@ -487,10 +500,10 @@ bool drpcx__decode_4bit(drpcx* pPCX)
         }
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-bool drpcx__decode_8bit(drpcx* pPCX)
+drBool32 drpcx__decode_8bit(drpcx* pPCX)
 {
     uint8_t rleCount = 0;
     uint8_t rleValue = 0;
@@ -527,7 +540,7 @@ bool drpcx__decode_8bit(drpcx* pPCX)
                 // A palette is present - we need to do a second pass.
                 uint8_t palette256[768];
                 if (pPCX->onRead(pPCX->pUserData, palette256, sizeof(palette256)) != sizeof(palette256)) {
-                    return false;
+                    return DR_FALSE;
                 }
 
                 for (uint32_t y = 0; y < pPCX->height; ++y)
@@ -544,7 +557,7 @@ bool drpcx__decode_8bit(drpcx* pPCX)
                 }
             }
 
-            return true;
+            return DR_TRUE;
         }
 
         case 3:
@@ -570,14 +583,14 @@ bool drpcx__decode_8bit(drpcx* pPCX)
                 }
             }
 
-            return true;
+            return DR_TRUE;
         }
     }
 
-    return true;
+    return DR_TRUE;
 }
 
-uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, bool flipped, int* x, int* y, int* comp)
+uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, drBool32 flipped, int* x, int* y, int* comp)
 {
     if (onRead == NULL) {
         return NULL;
@@ -613,7 +626,7 @@ uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, bool flipped, int* 
         return NULL;    // Failed to allocate memory.
     }
 
-    bool result = false;
+    drBool32 result = DR_FALSE;
     switch (pcx.header.bpp)
     {
         case 1:
