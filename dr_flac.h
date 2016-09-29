@@ -41,10 +41,10 @@
 //
 // If you just want to quickly decode an entire FLAC file in one go you can do something like this:
 //
-//     unsigned int sampleRate;
 //     unsigned int channels;
+//     unsigned int sampleRate;
 //     uint64_t totalSampleCount;
-//     int32_t* pSampleData = drflac_open_and_decode_file("MySong.flac", &sampleRate, &channels, &totalSampleCount);
+//     int32_t* pSampleData = drflac_open_and_decode_file("MySong.flac", &channels, &sampleRate, &totalSampleCount);
 //     if (pSampleData == NULL) {
 //         // Failed to open and decode FLAC file.
 //     }
