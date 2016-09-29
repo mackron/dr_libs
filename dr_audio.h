@@ -4371,7 +4371,7 @@ dra_result dra_voice_create_from_file(dra_device* pDevice, const char* filePath,
     uint64_t totalSampleCount;
     float* pSampleData = dra_decoder_open_and_decode_file_f32(filePath, &channels, &sampleRate, &totalSampleCount);
     if (pSampleData == NULL) {
-        return OC_RESULT_UNKNOWN_ERROR;
+        return DRA_RESULT_UNKNOWN_ERROR;
     }
 
     dra_result result = dra_voice_create(pDevice, dra_format_f32, channels, sampleRate, (size_t)totalSampleCount * sizeof(float), pSampleData, ppVoice);
