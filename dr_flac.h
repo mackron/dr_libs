@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.3f - 2016-09-21
+// dr_flac - v0.4 - 2016-09-29
 //
 // David Reid - mackron@gmail.com
 
@@ -606,15 +606,15 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
 // read samples into a dynamically sized buffer on the heap until no samples are left.
 //
 // Do not call this function on a broadcast type of stream (like internet radio streams and whatnot).
-int32_t* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+int32_t* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
 #ifndef DR_FLAC_NO_STDIO
 // Same as drflac_open_and_decode_s32() except opens the decoder from a file.
-int32_t* drflac_open_and_decode_file_s32(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+int32_t* drflac_open_and_decode_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 #endif
 
 // Same as drflac_open_and_decode_s32() except opens the decoder from a block of memory.
-int32_t* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount);
+int32_t* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
 // Frees data returned by drflac_open_and_decode_*().
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
@@ -4147,7 +4147,7 @@ drBool32 drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
 
 //// High Level APIs ////
 
-int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* sampleRateOut, unsigned int* channelsOut, uint64_t* totalSampleCountOut)
+int32_t* drflac__full_decode_and_close(drflac* pFlac, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalSampleCountOut)
 {
     assert(pFlac != NULL);
 
@@ -4218,7 +4218,7 @@ on_error:
     return NULL;
 }
 
-int32_t* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+int32_t* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
 {
     // Safety.
     if (sampleRate) *sampleRate = 0;
@@ -4230,11 +4230,11 @@ int32_t* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc on
         return NULL;
     }
 
-    return drflac__full_decode_and_close(pFlac, sampleRate, channels, totalSampleCount);
+    return drflac__full_decode_and_close(pFlac, channels, sampleRate, totalSampleCount);
 }
 
 #ifndef DR_FLAC_NO_STDIO
-int32_t* drflac_open_and_decode_file_s32(const char* filename, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+int32_t* drflac_open_and_decode_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
 {
     if (sampleRate) *sampleRate = 0;
     if (channels) *channels = 0;
@@ -4245,11 +4245,11 @@ int32_t* drflac_open_and_decode_file_s32(const char* filename, unsigned int* sam
         return NULL;
     }
 
-    return drflac__full_decode_and_close(pFlac, sampleRate, channels, totalSampleCount);
+    return drflac__full_decode_and_close(pFlac, channels, sampleRate, totalSampleCount);
 }
 #endif
 
-int32_t* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* sampleRate, unsigned int* channels, uint64_t* totalSampleCount)
+int32_t* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
 {
     if (sampleRate) *sampleRate = 0;
     if (channels) *channels = 0;
@@ -4260,7 +4260,7 @@ int32_t* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, un
         return NULL;
     }
 
-    return drflac__full_decode_and_close(pFlac, sampleRate, channels, totalSampleCount);
+    return drflac__full_decode_and_close(pFlac, channels, sampleRate, totalSampleCount);
 }
 
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode)
@@ -4304,6 +4304,12 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 // REVISION HISTORY
+//
+// v0.4 - 2016-09-29
+//   - API/ABI CHANGE: Use fixed size 32-bit booleans instead of the built-in bool type.
+//   - API CHANGE: Rename drflac_open_and_decode*() to drflac_open_and_decode*_s32()
+//   - API CHANGE: Swap the order of "channels" and "sampleRate" parameters in drflac_open_and_decode*(). Rationale for this is to
+//     keep it consistent with dr_audio.
 //
 // v0.3f - 2016-09-21
 //   - Fix a warning with GCC.
