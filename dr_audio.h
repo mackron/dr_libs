@@ -2434,7 +2434,7 @@ drBool32 dra_device__mix_next_fragment(dra_device* pDevice)
         pDevice->stopOnNextFragment = DR_TRUE;
     }
 
-    //printf("Mixed next fragment into %p\n", pSampleData);
+    printf("Mixed next fragment into %p\n", pSampleData);
     return DR_TRUE;
 }
 
@@ -3558,12 +3558,11 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
     uint64_t prevReadPosLocal = pVoice->currentReadPos * pVoice->channels;
 
     float* pNextFrame = NULL;
-    while ((pNextFrame = dra_voice__next_frame(pVoice)) != NULL && (framesRead < frameCount)) {
+    while ((framesRead < frameCount) && (pNextFrame = dra_voice__next_frame(pVoice)) != NULL) {
         memcpy(pSamplesOut, pNextFrame, pVoice->pDevice->channels * sizeof(float));
         pSamplesOut += pVoice->pDevice->channels;
         framesRead += 1;
     }
-
 
     float sampleRateFactor = dra_voice__get_sample_rate_factor(pVoice);
     uint64_t totalSampleCount = (uint64_t)((pVoice->frameCount * pVoice->channels) * sampleRateFactor);
