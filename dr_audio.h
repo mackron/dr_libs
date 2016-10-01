@@ -135,7 +135,7 @@
 // dr_audio includes an abstraction for audio decoding. Built-in support is included for WAV, FLAC and Vorbis streams:
 //
 //   dra_decoder decoder;
-//   if (!dra_decoder_open_file(&decoder, filePath)) {
+//   if (dra_decoder_open_file(&decoder, filePath) != DRA_RESULT_SUCCESS) {
 //       return -1;
 //   }
 //
@@ -201,8 +201,10 @@ typedef int dra_result;
 #define DRA_RESULT_UNKNOWN_ERROR        -1
 #define DRA_RESULT_INVALID_ARGS         -2
 #define DRA_RESULT_OUT_OF_MEMORY        -3
+#define DRA_RESULT_FAILED_TO_OPEN_FILE  -4
 #define DRA_RESULT_NO_BACKEND           -1024
 #define DRA_RESULT_NO_BACKEND_DEVICE    -1025
+#define DRA_RESULT_NO_DECODER           -1026
 
 typedef enum
 {
@@ -639,11 +641,11 @@ typedef enum
 } dra_seek_origin;
 
 typedef size_t   (* dra_decoder_on_read_proc) (void* pUserData, void* pDataOut, size_t bytesToRead);
-typedef drBool32     (* dra_decoder_on_seek_proc) (void* pUserData, int offset, dra_seek_origin origin);
+typedef drBool32 (* dra_decoder_on_seek_proc) (void* pUserData, int offset, dra_seek_origin origin);
 
 typedef void     (* dra_decoder_on_delete_proc)       (void* pBackendDecoder);
 typedef uint64_t (* dra_decoder_on_read_samples_proc) (void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut);
-typedef drBool32     (* dra_decoder_on_seek_samples_proc) (void* pBackendDecoder, uint64_t sample);
+typedef drBool32 (* dra_decoder_on_seek_samples_proc) (void* pBackendDecoder, uint64_t sample);
 
 typedef struct
 {
@@ -672,15 +674,14 @@ typedef struct
 } dra_decoder;
 
 // dra_decoder_open()
-drBool32 dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData);
+dra_result dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData);
 float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
-drBool32 dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize);
+dra_result dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize);
 float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
 #ifndef DR_AUDIO_NO_STDIO
-// dra_decoder_open_file()
-drBool32 dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath);
+dra_result dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath);
 float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 #endif
 
@@ -711,7 +712,7 @@ typedef struct dra_sound_desc dra_sound_desc;
 
 typedef void     (* dra_sound_on_delete_proc) (dra_sound* pSound);
 typedef uint64_t (* dra_sound_on_read_proc)   (dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut);
-typedef drBool32     (* dra_sound_on_seek_proc)   (dra_sound* pSound, uint64_t sample);
+typedef drBool32 (* dra_sound_on_seek_proc)   (dra_sound* pSound, uint64_t sample);
 
 struct dra_sound_desc
 {
@@ -1781,7 +1782,7 @@ static drBool32 dra_alsa__get_device_name_by_id(dra_backend* pBackend, unsigned 
 
     char** deviceHints;
     if (snd_device_name_hint(-1, "pcm", (void***)&deviceHints) < 0) {
-        printf("Failed to iterate devices.");
+        //printf("Failed to iterate devices.");
         return -1;
     }
 
@@ -1925,8 +1926,8 @@ dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend,
     // of-two fragment.
     //
     // To calculate the size of a fragment, the first step is to determine the initial proposed size. From that
-    // it is dropped to the previous power of two. The reason for this is that, based on testing, ALSA has good
-    // latency characteristics, and less latency is always preferable.
+    // it is dropped to the previous power of two. The reason for this is that, based on admittedly very basic
+    // testing, ALSA seems to have good latency characteristics, and less latency is always preferable.
     proposedFramesPerFragment = sampleRateInMilliseconds * latencyInMilliseconds;
     framesPerFragment = dra_prev_power_of_2(proposedFramesPerFragment);
     if (framesPerFragment == 0) {
@@ -2434,7 +2435,7 @@ drBool32 dra_device__mix_next_fragment(dra_device* pDevice)
         pDevice->stopOnNextFragment = DR_TRUE;
     }
 
-    printf("Mixed next fragment into %p\n", pSampleData);
+    //printf("Mixed next fragment into %p\n", pSampleData);
     return DR_TRUE;
 }
 
@@ -4031,13 +4032,12 @@ drBool32 dra_decoder_open_file__vorbis(dra_decoder* pDecoder, const char* filePa
 #endif
 #endif  //Vorbis
 
-drBool32 dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData)
+dra_result dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData)
 {
-    if (pDecoder == NULL || onRead == NULL || onSeek == NULL) {
-        return DR_FALSE;
-    }
-
+    if (pDecoder == NULL) return DRA_RESULT_INVALID_ARGS;
     memset(pDecoder, 0, sizeof(*pDecoder));
+
+    if (onRead == NULL || onSeek == NULL) return DRA_RESULT_INVALID_ARGS;
 
     pDecoder->onRead = onRead;
     pDecoder->onSeek = onSeek;
@@ -4045,25 +4045,25 @@ drBool32 dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead
 
 #ifdef DR_AUDIO_HAS_WAV_STDIO
     if (dra_decoder_open__wav(pDecoder)) {
-        return DR_TRUE;
+        return DRA_RESULT_SUCCESS;
     }
     onSeek(pUserData, 0, dra_seek_origin_start);
 #endif
 #ifdef DR_AUDIO_HAS_FLAC_STDIO
     if (dra_decoder_open__flac(pDecoder)) {
-        return DR_TRUE;
+        return DRA_RESULT_SUCCESS;
     }
     onSeek(pUserData, 0, dra_seek_origin_start);
 #endif
 #ifdef DR_AUDIO_HAS_VORBIS_STDIO
     if (dra_decoder_open__vorbis(pDecoder)) {
-        return DR_TRUE;
+        return DRA_RESULT_SUCCESS;
     }
     onSeek(pUserData, 0, dra_seek_origin_start);
 #endif
 
     // If we get here it means we were unable to open a decoder.
-    return DR_FALSE;
+    return DRA_RESULT_NO_DECODER;
 }
 
 
@@ -4108,28 +4108,27 @@ drBool32 dra_decoder__on_seek_memory(void* pUserData, int offset, dra_seek_origi
     return DR_TRUE;
 }
 
-drBool32 dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize)
+dra_result dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize)
 {
-    if (pDecoder == NULL || pData == NULL || dataSize == 0) {
-        return DR_FALSE;
-    }
-
+    if (pDecoder == NULL) return DRA_RESULT_INVALID_ARGS;
     memset(pDecoder, 0, sizeof(*pDecoder));
+
+    if (pData == NULL || dataSize == 0) return DRA_RESULT_INVALID_ARGS;
 
     // Prefer the backend's native APIs.
 #if defined(DR_AUDIO_HAS_WAV)
     if (dra_decoder_open_memory__wav(pDecoder, pData, dataSize)) {
-        return DR_TRUE;
+        return DRA_RESULT_SUCCESS;
     }
 #endif
 #if defined(DR_AUDIO_HAS_FLAC)
     if (dra_decoder_open_memory__flac(pDecoder, pData, dataSize)) {
-        return DR_TRUE;
+        return DRA_RESULT_SUCCESS;
     }
 #endif
 #if defined(DR_AUDIO_HAS_VORBIS)
     if (dra_decoder_open_memory__vorbis(pDecoder, pData, dataSize)) {
-        return DR_TRUE;
+        return DRA_RESULT_SUCCESS;
     }
 #endif
 
@@ -4138,14 +4137,15 @@ drBool32 dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_
     memoryStream.data = (const unsigned char*)pData;
     memoryStream.dataSize = dataSize;
     memoryStream.currentReadPos = 0;
-    if (!dra_decoder_open(pDecoder, dra_decoder__on_read_memory, dra_decoder__on_seek_memory, &memoryStream)) {
-        return DR_FALSE;
+    dra_result result = dra_decoder_open(pDecoder, dra_decoder__on_read_memory, dra_decoder__on_seek_memory, &memoryStream);
+    if (result != DRA_RESULT_SUCCESS) {
+        return result;
     }
 
     pDecoder->memoryStream = memoryStream;
     pDecoder->pUserData = &pDecoder->memoryStream;
 
-    return DR_TRUE;
+    return DRA_RESULT_SUCCESS;
 }
 
 
@@ -4159,46 +4159,44 @@ drBool32 dra_decoder__on_seek_stdio(void* pUserData, int offset, dra_seek_origin
     return fseek((FILE*)pUserData, offset, (origin == dra_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-drBool32 dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath)
+dra_result dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath)
 {
-    if (pDecoder == NULL || filePath == NULL) {
-        return DR_FALSE;
-    }
-
+    if (pDecoder == NULL) return DRA_RESULT_INVALID_ARGS;
     memset(pDecoder, 0, sizeof(*pDecoder));
+
+    if (filePath == NULL) return DR_FALSE;
 
     // When opening a decoder from a file it's preferrable to use the backend's native file IO APIs if it has them.
 #if defined(DR_AUDIO_HAS_WAV) && defined(DR_AUDIO_HAS_WAV_STDIO)
     if (dra_decoder_open_file__wav(pDecoder, filePath)) {
-        return DR_TRUE;
+        return DRA_RESULT_SUCCESS;
     }
 #endif
 #if defined(DR_AUDIO_HAS_FLAC) && defined(DR_AUDIO_HAS_FLAC_STDIO)
     if (dra_decoder_open_file__flac(pDecoder, filePath)) {
-        return DR_TRUE;
+        return DRA_RESULT_SUCCESS;
     }
 #endif
 #if defined(DR_AUDIO_HAS_VORBIS) && defined(DR_AUDIO_HAS_VORBIS_STDIO)
     if (dra_decoder_open_file__vorbis(pDecoder, filePath)) {
-        return DR_TRUE;
+        return DRA_RESULT_SUCCESS;
     }
 #endif
 
-
-
-    // If we get here it means we were unable to open using it's built-in file IO APIs. In this case we fall back
-    // to a generic method.
+    // If we get here it means we were unable to open the decoder using any of the backends' native file IO
+    // APIs. In this case we fall back to a generic method.
     FILE* pFile = dra__fopen(filePath);
     if (pFile == NULL) {
-        return DR_FALSE;
+        return DRA_RESULT_FAILED_TO_OPEN_FILE;
     }
 
-    if (!dra_decoder_open(pDecoder, dra_decoder__on_read_stdio, dra_decoder__on_seek_stdio, pFile)) {
+    dra_result result = dra_decoder_open(pDecoder, dra_decoder__on_read_stdio, dra_decoder__on_seek_stdio, pFile);
+    if (result != DRA_RESULT_SUCCESS) {
         fclose(pFile);
-        return DR_FALSE;
+        return result;
     }
 
-    return DR_TRUE;
+    return DRA_RESULT_SUCCESS;
 }
 #endif
 
@@ -4317,7 +4315,8 @@ float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_deco
     if (totalSampleCount) *totalSampleCount = 0;
 
     dra_decoder decoder;
-    if (!dra_decoder_open(&decoder, onRead, onSeek, pUserData)) {
+    dra_result result = dra_decoder_open(&decoder, onRead, onSeek, pUserData);
+    if (result != DRA_RESULT_SUCCESS) {
         return NULL;
     }
 
@@ -4332,7 +4331,8 @@ float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize
     if (totalSampleCount) *totalSampleCount = 0;
 
     dra_decoder decoder;
-    if (!dra_decoder_open_memory(&decoder, pData, dataSize)) {
+    dra_result result = dra_decoder_open_memory(&decoder, pData, dataSize);
+    if (result != DRA_RESULT_SUCCESS) {
         return NULL;
     }
 
@@ -4348,7 +4348,8 @@ float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* 
     if (totalSampleCount) *totalSampleCount = 0;
 
     dra_decoder decoder;
-    if (!dra_decoder_open_file(&decoder, filePath)) {
+    dra_result result = dra_decoder_open_file(&decoder, filePath);
+    if (result != DRA_RESULT_SUCCESS) {
         return NULL;
     }
 
@@ -4691,7 +4692,8 @@ dra_sound* dra_sound_create_from_file(dra_sound_world* pWorld, const char* fileP
         return NULL;
     }
 
-    if (!dra_decoder_open_file(pDecoder, filePath)) {
+    dra_result result = dra_decoder_open_file(pDecoder, filePath);
+    if (result != DRA_RESULT_SUCCESS) {
         free(pDecoder);
         return NULL;
     }
