@@ -209,7 +209,7 @@ typedef int dra_result;
 typedef enum
 {
     dra_device_type_playback = 0,
-    dra_device_type_recording
+    dra_device_type_capture
 } dra_device_type;
 
 typedef enum
@@ -527,7 +527,7 @@ dra_result dra_device_stop(dra_device* pDevice);
 
 // Sets the function to call when a segment of samples have been processed by the device (either captured
 // or played back). Use this to keep track of the audio data that's passed to a playback device or from a
-// recording device.
+// capture device.
 void dra_device_set_samples_processed_callback(dra_device* pDevice, dra_samples_processed_proc proc, void* pUserData);
 
 
@@ -1122,10 +1122,10 @@ typedef struct
     LPDIRECTSOUNDBUFFER pDSSecondaryBuffer;
 
 
-    // The main capture device object for use with DirectSound. This is only used by recording devices and is created by DirectSoundCaptureCreate8().
+    // The main capture device object for use with DirectSound. This is only used by capture devices and is created by DirectSoundCaptureCreate8().
     LPDIRECTSOUNDCAPTURE8 pDSCapture;
 
-    // The capture buffer. This is where captured audio data will be placed. This is only used by recording devices.
+    // The capture buffer. This is where captured audio data will be placed. This is only used by capture devices.
     LPDIRECTSOUNDCAPTUREBUFFER8 pDSCaptureBuffer;
 
 
@@ -1198,7 +1198,7 @@ const GUID* dra_dsound__get_playback_device_guid_by_id(dra_backend* pBackend, un
     return data.pGuid;
 }
 
-const GUID* dra_dsound__get_recording_device_guid_by_id(dra_backend* pBackend, unsigned int deviceID)
+const GUID* dra_dsound__get_capture_device_guid_by_id(dra_backend* pBackend, unsigned int deviceID)
 {
     // From MSDN:
     //
@@ -1506,7 +1506,7 @@ on_error:
     return NULL;
 }
 
-dra_backend_device* dra_backend_device_open_recording_dsound(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_backend_device* dra_backend_device_open_capture_dsound(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     (void)latencyInMilliseconds;
 
@@ -1532,11 +1532,11 @@ dra_backend_device* dra_backend_device_open_recording_dsound(dra_backend* pBacke
     }
 
     pDeviceDS->pBackend = pBackend;
-    pDeviceDS->type = dra_device_type_recording;
+    pDeviceDS->type = dra_device_type_capture;
     pDeviceDS->channels = channels;
     pDeviceDS->sampleRate = sampleRate;
 
-    hr = pBackendDS->pDirectSoundCaptureCreate8(dra_dsound__get_recording_device_guid_by_id(pBackend, deviceID), &pDeviceDS->pDSCapture, NULL);
+    hr = pBackendDS->pDirectSoundCaptureCreate8(dra_dsound__get_capture_device_guid_by_id(pBackend, deviceID), &pDeviceDS->pDSCapture, NULL);
     if (FAILED(hr)) {
         goto on_error;
     }
@@ -1628,7 +1628,7 @@ dra_backend_device* dra_backend_device_open_recording_dsound(dra_backend* pBacke
     }
 
 
-    // The termination event is used to determine when the recording thread should be terminated. This thread
+    // The termination event is used to determine when the capture thread should be terminated. This thread
     // will wait on this event in addition to the notification events in it's main loop.
     pDeviceDS->hStopEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
     if (pDeviceDS->hStopEvent == NULL) {
@@ -1647,7 +1647,7 @@ dra_backend_device* dra_backend_device_open_dsound(dra_backend* pBackend, dra_de
     if (type == dra_device_type_playback) {
         return dra_backend_device_open_playback_dsound(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
     } else {
-        return dra_backend_device_open_recording_dsound(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
+        return dra_backend_device_open_capture_dsound(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
     }
 }
 
@@ -2151,7 +2151,7 @@ on_error:
     return NULL;
 }
 
-dra_backend_device* dra_backend_device_open_recording_alsa(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
+dra_backend_device* dra_backend_device_open_capture_alsa(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     // Not yet implemented.
     (void)pBackend;
@@ -2167,7 +2167,7 @@ dra_backend_device* dra_backend_device_open_alsa(dra_backend* pBackend, dra_devi
     if (type == dra_device_type_playback) {
         return dra_backend_device_open_playback_alsa(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
     } else {
-        return dra_backend_device_open_recording_alsa(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
+        return dra_backend_device_open_capture_alsa(pBackend, deviceID, channels, sampleRate, latencyInMilliseconds);
     }
 }
 
@@ -2604,7 +2604,7 @@ void dra_device__play(dra_device* pDevice)
         // Don't do anything if the device is already playing.
         if (!dra_device__is_playing_nolock(pDevice))
         {
-            assert(pDevice->pBackendDevice->type == dra_device_type_recording || pDevice->playingVoicesCount > 0);
+            assert(pDevice->pBackendDevice->type == dra_device_type_capture || pDevice->playingVoicesCount > 0);
 
             dra_device__post_event(pDevice, dra_thread_event_type_play);
             pDevice->isPlaying = DR_TRUE;
