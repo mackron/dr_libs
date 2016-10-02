@@ -506,6 +506,14 @@ void dra_context_delete(dra_context* pContext);
 // If channels is set to 0, defaults 2 channels (stereo).
 // If sampleRate is set to 0, defaults to 48000.
 // If latency is 0, defaults to 50 milliseconds. See notes about latency above.
+//
+// Concerning the DirectSound backend (From MSDN):
+//   Note that if your application is playing sounds as well as capturing them, capture buffer creation can fail when
+//   the format of the capture buffer is not the same as that of the primary buffer. The reason is that some cards have
+//   only a single clock and cannot support capture and playback at two different frequencies.
+//
+// This means you will need to keep the channels and sample rate consistent across playback and capture devices when
+// using the DirectSound backend.
 dra_result dra_device_init_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds, dra_device* pDevice);
 dra_result dra_device_init(dra_context* pContext, dra_device_type type, dra_device* pDevice);
 void dra_device_uninit(dra_device* pDevice);
@@ -1989,6 +1997,21 @@ void dra_backend_delete_alsa(dra_backend* pBackend)
 }
 
 
+void dra_backend_device_close_alsa(dra_backend_device* pDevice)
+{
+    dra_backend_device_alsa* pDeviceALSA = (dra_backend_device_alsa*)pDevice;
+    if (pDeviceALSA == NULL) {
+        return;
+    }
+
+    if (pDeviceALSA->deviceALSA != NULL) {
+        snd_pcm_close(pDeviceALSA->deviceALSA);
+    }
+
+    free(pDeviceALSA->pIntermediaryBuffer);
+    free(pDeviceALSA);
+}
+
 dra_backend_device* dra_backend_device_open_playback_alsa(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     unsigned int periods;
@@ -2153,12 +2176,150 @@ on_error:
 
 dra_backend_device* dra_backend_device_open_capture_alsa(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
-    // Not yet implemented.
-    (void)pBackend;
-    (void)deviceID;
-    (void)channels;
-    (void)sampleRate;
-    (void)latencyInMilliseconds;
+    unsigned int periods;
+    int dir;
+    size_t sampleRateInMilliseconds;
+    unsigned int proposedFramesPerFragment;
+    unsigned int framesPerFragment;
+    snd_pcm_sw_params_t* pSWParams;
+
+    dra_backend_alsa* pBackendALSA = (dra_backend_alsa*)pBackend;
+    if (pBackendALSA == NULL) {
+        return NULL;
+    }
+
+    snd_pcm_hw_params_t* pHWParams = NULL;
+
+    dra_backend_device_alsa* pDeviceALSA = (dra_backend_device_alsa*)calloc(1, sizeof(*pDeviceALSA));
+    if (pDeviceALSA == NULL) {
+        goto on_error;
+    }
+
+    pDeviceALSA->pBackend = pBackend;
+    pDeviceALSA->type = dra_device_type_capture;
+    pDeviceALSA->channels = channels;
+    pDeviceALSA->sampleRate = sampleRate;
+
+    char deviceName[1024];
+    if (!dra_alsa__get_device_name_by_id(pBackend, deviceID, deviceName)) {     // <-- This will return "default" if deviceID is 0.
+        goto on_error;
+    }
+
+    if (snd_pcm_open(&pDeviceALSA->deviceALSA, deviceName, SND_PCM_STREAM_CAPTURE, 0) < 0) {
+        goto on_error;
+    }
+
+
+    if (snd_pcm_hw_params_malloc(&pHWParams) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_hw_params_any(pDeviceALSA->deviceALSA, pHWParams) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_hw_params_set_access(pDeviceALSA->deviceALSA, pHWParams, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_hw_params_set_format(pDeviceALSA->deviceALSA, pHWParams, SND_PCM_FORMAT_FLOAT_LE) < 0) {
+        goto on_error;
+    }
+
+
+    if (snd_pcm_hw_params_set_rate_near(pDeviceALSA->deviceALSA, pHWParams, &sampleRate, 0) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_hw_params_set_channels_near(pDeviceALSA->deviceALSA, pHWParams, &channels) < 0) {
+        goto on_error;
+    }
+
+    pDeviceALSA->sampleRate = sampleRate;
+    pDeviceALSA->channels = channels;
+
+    periods = DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
+    dir = 1;
+    if (snd_pcm_hw_params_set_periods_near(pDeviceALSA->deviceALSA, pHWParams, &periods, &dir) < 0) {
+        //printf("Failed to set periods.\n");
+        goto on_error;
+    }
+
+    pDeviceALSA->fragmentCount = periods;
+
+    //printf("Periods: %d | Direction: %d\n", periods, dir);
+
+
+    sampleRateInMilliseconds = pDeviceALSA->sampleRate / 1000;
+    if (sampleRateInMilliseconds == 0) {
+        sampleRateInMilliseconds = 1;
+    }
+
+
+    // According to the ALSA documentation, the value passed to snd_pcm_sw_params_set_avail_min() must be a power
+    // of 2 on some hardware. The value passed to this function is the size in frames of a fragment. Thus, to be
+    // as robust as possible the size of the hardware buffer should be sized based on the size of a closest power-
+    // of-two fragment.
+    //
+    // To calculate the size of a fragment, the first step is to determine the initial proposed size. From that
+    // it is dropped to the previous power of two. The reason for this is that, based on admittedly very basic
+    // testing, ALSA seems to have good latency characteristics, and less latency is always preferable.
+    proposedFramesPerFragment = sampleRateInMilliseconds * latencyInMilliseconds;
+    framesPerFragment = dra_prev_power_of_2(proposedFramesPerFragment);
+    if (framesPerFragment == 0) {
+        framesPerFragment = 2;
+    }
+
+    pDeviceALSA->samplesPerFragment = framesPerFragment * pDeviceALSA->channels;
+
+    if (snd_pcm_hw_params_set_buffer_size(pDeviceALSA->deviceALSA, pHWParams, framesPerFragment * pDeviceALSA->fragmentCount) < 0) {
+        //printf("Failed to set buffer size.\n");
+        goto on_error;
+    }
+
+
+    if (snd_pcm_hw_params(pDeviceALSA->deviceALSA, pHWParams) < 0) {
+        goto on_error;
+    }
+
+    snd_pcm_hw_params_free(pHWParams);
+
+
+
+    // Software params. There needs to be at least fragmentSize bytes in the hardware buffer before playing it, and there needs
+    // be fragmentSize bytes available after every wait.
+    pSWParams = NULL;
+    if (snd_pcm_sw_params_malloc(&pSWParams) < 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_sw_params_current(pDeviceALSA->deviceALSA, pSWParams) != 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_sw_params_set_start_threshold(pDeviceALSA->deviceALSA, pSWParams, framesPerFragment) != 0) {
+        goto on_error;
+    }
+    if (snd_pcm_sw_params_set_avail_min(pDeviceALSA->deviceALSA, pSWParams, framesPerFragment) != 0) {
+        goto on_error;
+    }
+
+    if (snd_pcm_sw_params(pDeviceALSA->deviceALSA, pSWParams) != 0) {
+        goto on_error;
+    }
+    snd_pcm_sw_params_free(pSWParams);
+
+    // The intermediary buffer that will be used for mapping/unmapping.
+    pDeviceALSA->isBufferMapped = DR_FALSE;
+    pDeviceALSA->pIntermediaryBuffer = (float*)malloc(pDeviceALSA->samplesPerFragment * sizeof(float));
+    if (pDeviceALSA->pIntermediaryBuffer == NULL) {
+        goto on_error;
+    }
+
+    return (dra_backend_device*)pDeviceALSA;
+
+on_error:
+    dra_backend_device_close_alsa((dra_backend_device*)pDeviceALSA);
     return NULL;
 }
 
@@ -2171,20 +2332,6 @@ dra_backend_device* dra_backend_device_open_alsa(dra_backend* pBackend, dra_devi
     }
 }
 
-void dra_backend_device_close_alsa(dra_backend_device* pDevice)
-{
-    dra_backend_device_alsa* pDeviceALSA = (dra_backend_device_alsa*)pDevice;
-    if (pDeviceALSA == NULL) {
-        return;
-    }
-
-    if (pDeviceALSA->deviceALSA != NULL) {
-        snd_pcm_close(pDeviceALSA->deviceALSA);
-    }
-
-    free(pDeviceALSA->pIntermediaryBuffer);
-    free(pDeviceALSA);
-}
 
 void dra_backend_device_play(dra_backend_device* pDevice)
 {
@@ -2208,7 +2355,7 @@ void dra_backend_device_stop(dra_backend_device* pDevice)
     pDeviceALSA->isPlaying = DR_FALSE;
 }
 
-drBool32 dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns DR_TRUE if the function has returned because it needs more data; DR_FALSE if the device has been stopped or an error has occured.
+drBool32 dra_backend_device_wait(dra_backend_device* pDevice)
 {
     dra_backend_device_alsa* pDeviceALSA = (dra_backend_device_alsa*)pDevice;
     if (pDeviceALSA == NULL) {
@@ -2219,15 +2366,29 @@ drBool32 dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns D
         return DR_FALSE;
     }
 
-    int result = snd_pcm_wait(pDeviceALSA->deviceALSA, -1);
-    if (result > 0) {
-        return DR_TRUE;
-    }
+    if (pDevice->type == dra_device_type_playback) {
+        int result = snd_pcm_wait(pDeviceALSA->deviceALSA, -1);
+        if (result > 0) {
+            return DR_TRUE;
+        }
 
-    if (result == -EPIPE) {
-        // xrun. Prepare the device again and just return DR_TRUE.
-        snd_pcm_prepare(pDeviceALSA->deviceALSA);
-        return DR_TRUE;
+        if (result == -EPIPE) {
+            // xrun. Prepare the device again and just return DR_TRUE.
+            snd_pcm_prepare(pDeviceALSA->deviceALSA);
+            return DR_TRUE;
+        }
+    } else {
+        snd_pcm_uframes_t frameCount = pDeviceALSA->samplesPerFragment / pDeviceALSA->channels;
+        snd_pcm_sframes_t framesRead = snd_pcm_readi(pDeviceALSA->deviceALSA, pDeviceALSA->pIntermediaryBuffer, frameCount);
+        if (framesRead > 0) {
+            return DR_TRUE;
+        }
+
+        if (framesRead == -EPIPE) {
+            // xrun. Prepare the device again and just return DR_TRUE.
+            snd_pcm_prepare(pDeviceALSA->deviceALSA);
+            return DR_TRUE;
+        }
     }
 
     return DR_FALSE;
@@ -2246,6 +2407,10 @@ void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, size_t* 
         return NULL;    // A fragment is already mapped. Can only have a single fragment mapped at a time.
     }
 
+    //if (pDeviceALSA->type == dra_device_type_capture) {
+    //    snd_pcm_readi(pDeviceALSA->deviceALSA, pDeviceALSA->pIntermediaryBuffer, pDeviceALSA->samplesPerFragment / pDeviceALSA->channels);
+    //}
+
     *pSamplesInFragmentOut = pDeviceALSA->samplesPerFragment;
     return pDeviceALSA->pIntermediaryBuffer;
 }
@@ -2262,7 +2427,9 @@ void dra_backend_device_unmap_next_fragment(dra_backend_device* pDevice)
     }
 
     // Unammping is when the data is written to the device.
-    snd_pcm_writei(pDeviceALSA->deviceALSA, pDeviceALSA->pIntermediaryBuffer, pDeviceALSA->samplesPerFragment / pDeviceALSA->channels);
+    if (pDeviceALSA->type == dra_device_type_playback) {
+        snd_pcm_writei(pDeviceALSA->deviceALSA, pDeviceALSA->pIntermediaryBuffer, pDeviceALSA->samplesPerFragment / pDeviceALSA->channels);
+    }
 }
 #endif  // DR_AUDIO_NO_ALSA
 #endif  // __linux__
@@ -2679,10 +2846,10 @@ void* dra_device__thread_proc(void* pData)
             if (pDevice->pBackendDevice->type == dra_device_type_playback) {
                 // The backend device needs to start playing, but we first need to ensure it has an initial chunk of data available.
                 dra_device__mix_next_fragment(pDevice);
-
-                // Start playing the backend device only after the initial fragment has been mixed, and only if it's a playback device.
-                dra_backend_device_play(pDevice->pBackendDevice);
             }
+
+            // Start playing the backend device only after the initial fragment has been mixed, and only if it's a playback device.
+            dra_backend_device_play(pDevice->pBackendDevice);
 
             // There could be "play" events needing to be posted.
             dra_event_queue__post_events(&pDevice->eventQueue);
@@ -4807,7 +4974,7 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
 
     pSound->pWorld = pWorld;
     pSound->desc   = *pDesc;
-    
+
     isStreaming = dra_sound__is_streaming(pSound);
     if (!isStreaming) {
         result = dra_voice_create(pWorld->pPlaybackDevice, pDesc->format, pDesc->channels, pDesc->sampleRate, pDesc->dataSize, pDesc->pData, &pSound->pVoice);
