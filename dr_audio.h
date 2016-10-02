@@ -248,7 +248,8 @@ typedef void* dra_thread;
 typedef void* dra_mutex;
 typedef void* dra_semaphore;
 
-typedef void (* dra_event_proc) (uint64_t eventID, void* pUserData);
+typedef void (* dra_event_proc)            (uint64_t eventID, void* pUserData);
+typedef void (* dra_samples_processed_proc)(dra_device* pDevice, const size_t sampleCount, const float* pSamples, void* pUserData);
 
 typedef struct
 {
@@ -326,6 +327,13 @@ struct dra_device
     // placed in a queue for processing later at specific times to ensure the event is posted AFTER the device has actually
     // played the sample the event is set for.
     dra__event_queue eventQueue;
+
+    // The function to call when a segment of samples has been processed. This is only really needed for capture devices,
+    // but can also be used to keep track of all of the audio data that's passed through a playback device. This is called
+    // as the read pointer moves passed each segment and again for the leftover partial segment that'll occur when the
+    // device is stopped.
+    dra_samples_processed_proc onSamplesProcessed;
+    void* pUserDataForOnSamplesProcessed;
 
 
     // The number of channels being used by the device.
@@ -506,6 +514,23 @@ void dra_device_uninit(dra_device* pDevice);
 dra_result dra_device_create_ex(dra_context* pContext, dra_device_type type, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds, dra_device** ppDevice);
 dra_result dra_device_create(dra_context* pContext, dra_device_type type, dra_device** ppDevice);
 void dra_device_delete(dra_device* pDevice);
+
+// Starts a capture device.
+//
+// Do not call this on a playback device - this is managed by dr_audio. This will fail for playback devices.
+dra_result dra_device_start(dra_device* pDevice);
+
+// Stops a capture device.
+//
+// Do not call this on a playback device - this is managed by dr_audio. This will fail for playback devices.
+dra_result dra_device_stop(dra_device* pDevice);
+
+// Sets the function to call when a segment of samples have been processed by the device (either captured
+// or played back). Use this to keep track of the audio data that's passed to a playback device or from a
+// recording device.
+void dra_device_set_samples_processed_callback(dra_device* pDevice, dra_samples_processed_proc proc, void* pUserData);
+
+
 
 
 // dra_mixer_create()
@@ -885,7 +910,7 @@ void dra_sound_set_on_play(dra_sound* pSound, dra_event_proc proc, void* pUserDa
 #define DR_AUDIO_DEFAULT_CHANNEL_COUNT  2
 #define DR_AUDIO_DEFAULT_SAMPLE_RATE    48000
 #define DR_AUDIO_DEFAULT_LATENCY        100     // Milliseconds. TODO: Test this with very low values. DirectSound appears to not signal the fragment events when it's too small. With values of about 20 it sounds crackly.
-#define DR_AUDIO_DEFAULT_FRAGMENT_COUNT 2       // The hardware buffer is divided up into latency-sized blocks. This controls that number. Must be at least 2.
+#define DR_AUDIO_DEFAULT_FRAGMENT_COUNT 3       // The hardware buffer is divided up into latency-sized blocks. This controls that number. Must be at least 2.
 
 #define DR_AUDIO_BACKEND_TYPE_NULL      0
 #define DR_AUDIO_BACKEND_TYPE_DSOUND    1
@@ -1049,15 +1074,18 @@ drBool32 dra_semaphore_release(dra_semaphore semaphore)
 
 GUID DR_AUDIO_GUID_NULL = {0x00000000, 0x0000, 0x0000, {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
 
-static GUID _g_DirectSoundNotifyGUID                = {0xb0210783, 0x89cd, 0x11d0, {0xaf, 0x08, 0x00, 0xa0, 0xc9, 0x25, 0xcd, 0x16}};
-static GUID _g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID = {0x00000003, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
+static GUID _g_draGUID_IID_DirectSoundNotify           = {0xb0210783, 0x89cd, 0x11d0, {0xaf, 0x08, 0x00, 0xa0, 0xc9, 0x25, 0xcd, 0x16}};
+static GUID _g_draGUID_IID_IDirectSoundCaptureBuffer8  = {0x00990df4, 0x0dbb, 0x4872, {0x83, 0x3e, 0x6d, 0x30, 0x3e, 0x80, 0xae, 0xb6}};
+static GUID _g_draGUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT = {0x00000003, 0x0000, 0x0010, {0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}};
 
 #ifdef __cplusplus
-static GUID g_DirectSoundNotifyGUID                 = _g_DirectSoundNotifyGUID;
-//static GUID g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID  = _g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
+static GUID g_draGUID_IID_DirectSoundNotify            = _g_draGUID_IID_DirectSoundNotify;
+static GUID g_draGUID_IID_IDirectSoundCaptureBuffer8   = _g_draGUID_IID_IDirectSoundCaptureBuffer8;
+//static GUID g_draGUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT  = _g_draGUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
 #else
-static GUID* g_DirectSoundNotifyGUID                = &_g_DirectSoundNotifyGUID;
-//static GUID* g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID = &_g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
+static GUID* g_draGUID_IID_DirectSoundNotify           = &_g_draGUID_IID_DirectSoundNotify;
+static GUID* g_draGUID_IID_IDirectSoundCaptureBuffer8  = &_g_draGUID_IID_IDirectSoundCaptureBuffer8;
+//static GUID* g_draGUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT = &_g_draGUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
 #endif
 
 typedef HRESULT (WINAPI * pDirectSoundCreate8Proc)(LPCGUID pcGuidDevice, LPDIRECTSOUND8 *ppDS8, LPUNKNOWN pUnkOuter);
@@ -1082,6 +1110,7 @@ typedef struct
 {
     DR_AUDIO_BASE_BACKEND_DEVICE_ATTRIBS
 
+
     // The main device object for use with DirectSound.
     LPDIRECTSOUND8 pDS;
 
@@ -1091,6 +1120,14 @@ typedef struct
     // The DirectSound "secondary buffer". This is where the actual audio data will be written to by dr_audio when it's time
     // to play back some audio through the speakers. This represents the hardware buffer.
     LPDIRECTSOUNDBUFFER pDSSecondaryBuffer;
+
+
+    // The main capture device object for use with DirectSound. This is only used by recording devices and is created by DirectSoundCaptureCreate8().
+    LPDIRECTSOUNDCAPTURE8 pDSCapture;
+
+    // The capture buffer. This is where captured audio data will be placed. This is only used by recording devices.
+    LPDIRECTSOUNDCAPTUREBUFFER8 pDSCaptureBuffer;
+
 
     // The notification object used by DirectSound to notify dr_audio that it's ready for the next fragment of audio data.
     LPDIRECTSOUNDNOTIFY pDSNotify;
@@ -1109,13 +1146,6 @@ typedef struct
 
     // The size of the locked buffer. This is set with IDirectSoundBuffer8::Lock() and passed to IDriectSoundBuffer8::Unlock().
     DWORD lockSize;
-
-
-    // The main capture device object for use with DirectSound. This is only used by recording devices and is created by DirectSoundCaptureCreate8().
-    LPDIRECTSOUNDCAPTURE8 pDSCapture;
-
-    // The capture buffer. This is where captured audio data will be placed. This is only used by recording devices.
-    LPDIRECTSOUNDCAPTUREBUFFER pDSCaptureBuffer;
 
 } dra_backend_device_dsound;
 
@@ -1256,6 +1286,36 @@ void dra_backend_delete_dsound(dra_backend* pBackend)
     free(pBackendDS);
 }
 
+void dra_backend_device_close_dsound(dra_backend_device* pDevice)
+{
+    dra_backend_device_dsound* pDeviceDS = (dra_backend_device_dsound*)pDevice;
+    if (pDeviceDS == NULL) {
+        return;
+    }
+
+    if (pDeviceDS->pDSNotify) IDirectSoundNotify_Release(pDeviceDS->pDSNotify);
+
+    if (pDevice->type == dra_device_type_playback) {
+        if (pDeviceDS->pDSSecondaryBuffer) IDirectSoundBuffer_Release(pDeviceDS->pDSSecondaryBuffer);
+        if (pDeviceDS->pDSPrimaryBuffer) IDirectSoundBuffer_Release(pDeviceDS->pDSPrimaryBuffer);
+        if (pDeviceDS->pDS) IDirectSound_Release(pDeviceDS->pDS);
+    } else {
+        if (pDeviceDS->pDSCaptureBuffer) IDirectSoundCaptureBuffer_Release(pDeviceDS->pDSCaptureBuffer);
+        if (pDeviceDS->pDSCapture) IDirectSoundCapture_Release(pDeviceDS->pDSCapture);
+    }
+
+
+    for (int i = 0; i < DR_AUDIO_DEFAULT_FRAGMENT_COUNT; ++i) {
+        CloseHandle(pDeviceDS->pNotifyEvents[i]);
+    }
+
+    if (pDeviceDS->hStopEvent != NULL) {
+        CloseHandle(pDeviceDS->hStopEvent);
+    }
+
+    free(pDeviceDS);
+}
+
 dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
     // These are declared at the top to stop compilations errors on GCC about goto statements skipping over variable initialization.
@@ -1326,7 +1386,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     wf.Format.nAvgBytesPerSec      = wf.Format.nBlockAlign * wf.Format.nSamplesPerSec;
     wf.Samples.wValidBitsPerSample = wf.Format.wBitsPerSample;
     wf.dwChannelMask               = 0;
-    wf.SubFormat                   = _g_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT_GUID;
+    wf.SubFormat                   = _g_draGUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
     if (channels > 2) {
         wf.dwChannelMask = ~(((DWORD)-1) << channels);
     }
@@ -1408,7 +1468,7 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
 
     // As DirectSound is playing back the hardware buffer it needs to notify dr_audio when it's ready for new data. This is done
     // through a notification object which we retrieve from the secondary buffer.
-    hr = IDirectSoundBuffer8_QueryInterface(pDeviceDS->pDSSecondaryBuffer, g_DirectSoundNotifyGUID, (void**)&pDeviceDS->pDSNotify);
+    hr = IDirectSoundBuffer8_QueryInterface(pDeviceDS->pDSSecondaryBuffer, g_draGUID_IID_DirectSoundNotify, (void**)&pDeviceDS->pDSNotify);
     if (FAILED(hr)) {
         goto on_error;
     }
@@ -1442,46 +1502,143 @@ dra_backend_device* dra_backend_device_open_playback_dsound(dra_backend* pBacken
     return (dra_backend_device*)pDeviceDS;
 
 on_error:
-    if (pDeviceDS != NULL) {
-        if (pDeviceDS->pDSNotify != NULL) {
-            IDirectSoundNotify_Release(pDeviceDS->pDSNotify);
-        }
-
-        if (pDeviceDS->pDSSecondaryBuffer != NULL) {
-            IDirectSoundBuffer_Release(pDeviceDS->pDSSecondaryBuffer);
-        }
-
-        if (pDeviceDS->pDSPrimaryBuffer != NULL) {
-            IDirectSoundBuffer_Release(pDeviceDS->pDSPrimaryBuffer);
-        }
-
-        if (pDeviceDS->pDS != NULL) {
-            IDirectSound_Release(pDeviceDS->pDS);
-        }
-
-
-        for (int i = 0; i < DR_AUDIO_DEFAULT_FRAGMENT_COUNT; ++i) {
-            CloseHandle(pDeviceDS->pNotifyEvents[i]);
-        }
-
-        if (pDeviceDS->hStopEvent != NULL) {
-            CloseHandle(pDeviceDS->hStopEvent);
-        }
-
-        free(pDeviceDS);
-    }
-
+    dra_backend_device_close_dsound((dra_backend_device*)pDeviceDS);
     return NULL;
 }
 
 dra_backend_device* dra_backend_device_open_recording_dsound(dra_backend* pBackend, unsigned int deviceID, unsigned int channels, unsigned int sampleRate, unsigned int latencyInMilliseconds)
 {
-    // Not yet implemented.
-    (void)pBackend;
-    (void)deviceID;
-    (void)channels;
-    (void)sampleRate;
     (void)latencyInMilliseconds;
+
+    HRESULT hr;
+    unsigned int sampleRateInMilliseconds;
+    unsigned int proposedFramesPerFragment;
+    unsigned int framesPerFragment;
+    size_t fragmentSize;
+    size_t hardwareBufferSize;
+
+    dra_backend_dsound* pBackendDS = (dra_backend_dsound*)pBackend;
+    if (pBackendDS == NULL) {
+        return NULL;
+    }
+
+    dra_backend_device_dsound* pDeviceDS = (dra_backend_device_dsound*)calloc(1, sizeof(*pDeviceDS));
+    if (pDeviceDS == NULL) {
+        goto on_error;
+    }
+
+    if (channels == 0) {
+        channels = DR_AUDIO_DEFAULT_CHANNEL_COUNT;
+    }
+
+    pDeviceDS->pBackend = pBackend;
+    pDeviceDS->type = dra_device_type_recording;
+    pDeviceDS->channels = channels;
+    pDeviceDS->sampleRate = sampleRate;
+
+    hr = pBackendDS->pDirectSoundCaptureCreate8(dra_dsound__get_recording_device_guid_by_id(pBackend, deviceID), &pDeviceDS->pDSCapture, NULL);
+    if (FAILED(hr)) {
+        goto on_error;
+    }
+
+    pDeviceDS->fragmentCount = DR_AUDIO_DEFAULT_FRAGMENT_COUNT;
+
+    // The secondary buffer is the buffer where the real audio data will be written to and used by the hardware device. It's
+    // size is based on the latency, sample rate and channels.
+    //
+    // The format of the secondary buffer should exactly match the primary buffer as to avoid unnecessary data conversions.
+    sampleRateInMilliseconds = pDeviceDS->sampleRate / 1000;
+    if (sampleRateInMilliseconds == 0) {
+        sampleRateInMilliseconds = 1;
+    }
+
+    // The size of a fragment is sized such that the number of frames contained within it is a multiple of 2. The reason for
+    // this is to keep it consistent with the ALSA backend.
+    proposedFramesPerFragment = sampleRateInMilliseconds * latencyInMilliseconds;
+    framesPerFragment = dra_prev_power_of_2(proposedFramesPerFragment);
+    if (framesPerFragment == 0) {
+        framesPerFragment = 2;
+    }
+
+    pDeviceDS->samplesPerFragment = framesPerFragment * pDeviceDS->channels;
+
+    fragmentSize = pDeviceDS->samplesPerFragment * sizeof(float);
+    hardwareBufferSize = fragmentSize * pDeviceDS->fragmentCount;
+    assert(hardwareBufferSize > 0);     // <-- If you've triggered this is means you've got something set to 0. You haven't been setting that latency to 0 have you?! That's not allowed!
+
+
+    WAVEFORMATEXTENSIBLE wf;
+    memset(&wf, 0, sizeof(wf));
+    wf.Format.cbSize               = sizeof(wf);
+    wf.Format.wFormatTag           = WAVE_FORMAT_EXTENSIBLE;
+    wf.Format.nChannels            = (WORD)channels;
+    wf.Format.nSamplesPerSec       = (DWORD)sampleRate;
+    wf.Format.wBitsPerSample       = sizeof(float)*8;
+    wf.Format.nBlockAlign          = (wf.Format.nChannels * wf.Format.wBitsPerSample) / 8;
+    wf.Format.nAvgBytesPerSec      = wf.Format.nBlockAlign * wf.Format.nSamplesPerSec;
+    wf.Samples.wValidBitsPerSample = wf.Format.wBitsPerSample;
+    wf.dwChannelMask               = 0;
+    wf.SubFormat                   = _g_draGUID_KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
+    if (channels > 2) {
+        wf.dwChannelMask = ~(((DWORD)-1) << channels);
+    }
+
+    DSCBUFFERDESC descDS;
+    memset(&descDS, 0, sizeof(descDS));
+    descDS.dwSize = sizeof(descDS);
+    descDS.dwFlags = 0;
+    descDS.dwBufferBytes = (DWORD)hardwareBufferSize;
+    descDS.lpwfxFormat = (WAVEFORMATEX*)&wf;
+
+    LPDIRECTSOUNDCAPTUREBUFFER pDSCB_Temp;
+    hr = IDirectSoundCapture_CreateCaptureBuffer(pDeviceDS->pDSCapture, &descDS, &pDSCB_Temp, NULL);
+    if (FAILED(hr)) {
+        goto on_error;
+    }
+
+    hr = IDirectSoundCapture_QueryInterface(pDSCB_Temp, g_draGUID_IID_IDirectSoundCaptureBuffer8, (LPVOID*)&pDeviceDS->pDSCaptureBuffer);
+    IDirectSoundCaptureBuffer_Release(pDSCB_Temp);
+    if (FAILED(hr)) {
+        goto on_error;  // Failed to retrieve the DirectSoundCaptureBuffer8 interface.
+    }
+
+
+    // As DirectSound is playing back the hardware buffer it needs to notify dr_audio when it's ready for new data. This is done
+    // through a notification object which we retrieve from the secondary buffer.
+    hr = IDirectSoundCaptureBuffer8_QueryInterface(pDeviceDS->pDSCaptureBuffer, g_draGUID_IID_DirectSoundNotify, (void**)&pDeviceDS->pDSNotify);
+    if (FAILED(hr)) {
+        goto on_error;
+    }
+
+    DSBPOSITIONNOTIFY notifyPoints[DR_AUDIO_DEFAULT_FRAGMENT_COUNT];  // One notification event for each fragment.
+    for (int i = 0; i < DR_AUDIO_DEFAULT_FRAGMENT_COUNT; ++i)
+    {
+        pDeviceDS->pNotifyEvents[i] = CreateEventA(NULL, FALSE, FALSE, NULL);
+        if (pDeviceDS->pNotifyEvents[i] == NULL) {
+            goto on_error;
+        }
+
+        notifyPoints[i].dwOffset = (DWORD)(((i+1) * fragmentSize) % hardwareBufferSize);    // <-- This is in bytes.
+        notifyPoints[i].hEventNotify = pDeviceDS->pNotifyEvents[i];
+    }
+
+    hr = IDirectSoundNotify_SetNotificationPositions(pDeviceDS->pDSNotify, DR_AUDIO_DEFAULT_FRAGMENT_COUNT, notifyPoints);
+    if (FAILED(hr)) {
+        goto on_error;
+    }
+
+
+    // The termination event is used to determine when the recording thread should be terminated. This thread
+    // will wait on this event in addition to the notification events in it's main loop.
+    pDeviceDS->hStopEvent = CreateEventA(NULL, FALSE, FALSE, NULL);
+    if (pDeviceDS->hStopEvent == NULL) {
+        goto on_error;
+    }
+
+    return (dra_backend_device*)pDeviceDS;
+
+on_error:
+    dra_backend_device_close_dsound((dra_backend_device*)pDeviceDS);
     return NULL;
 }
 
@@ -1494,41 +1651,6 @@ dra_backend_device* dra_backend_device_open_dsound(dra_backend* pBackend, dra_de
     }
 }
 
-void dra_backend_device_close_dsound(dra_backend_device* pDevice)
-{
-    dra_backend_device_dsound* pDeviceDS = (dra_backend_device_dsound*)pDevice;
-    if (pDeviceDS == NULL) {
-        return;
-    }
-
-    if (pDeviceDS->pDSNotify != NULL) {
-        IDirectSoundNotify_Release(pDeviceDS->pDSNotify);
-    }
-
-    if (pDeviceDS->pDSSecondaryBuffer != NULL) {
-        IDirectSoundBuffer_Release(pDeviceDS->pDSSecondaryBuffer);
-    }
-
-    if (pDeviceDS->pDSPrimaryBuffer != NULL) {
-        IDirectSoundBuffer_Release(pDeviceDS->pDSPrimaryBuffer);
-    }
-
-    if (pDeviceDS->pDS != NULL) {
-        IDirectSound_Release(pDeviceDS->pDS);
-    }
-
-
-    for (int i = 0; i < DR_AUDIO_DEFAULT_FRAGMENT_COUNT; ++i) {
-        CloseHandle(pDeviceDS->pNotifyEvents[i]);
-    }
-
-    if (pDeviceDS->hStopEvent != NULL) {
-        CloseHandle(pDeviceDS->hStopEvent);
-    }
-
-    free(pDeviceDS);
-}
-
 void dra_backend_device_play(dra_backend_device* pDevice)
 {
     dra_backend_device_dsound* pDeviceDS = (dra_backend_device_dsound*)pDevice;
@@ -1536,7 +1658,11 @@ void dra_backend_device_play(dra_backend_device* pDevice)
         return;
     }
 
-    IDirectSoundBuffer_Play(pDeviceDS->pDSSecondaryBuffer, 0, 0, DSBPLAY_LOOPING);
+    if (pDevice->type == dra_device_type_playback) {
+        IDirectSoundBuffer_Play(pDeviceDS->pDSSecondaryBuffer, 0, 0, DSBPLAY_LOOPING);
+    } else {
+        IDirectSoundCaptureBuffer8_Start(pDeviceDS->pDSCaptureBuffer, DSCBSTART_LOOPING);
+    }
 }
 
 void dra_backend_device_stop(dra_backend_device* pDevice)
@@ -1546,16 +1672,29 @@ void dra_backend_device_stop(dra_backend_device* pDevice)
         return;
     }
 
-    // Don't do anything if the buffer is not already playing.
-    DWORD status;
-    IDirectSoundBuffer_GetStatus(pDeviceDS->pDSSecondaryBuffer, &status);
-    if ((status & DSBSTATUS_PLAYING) == 0) {
-        return; // The buffer is already stopped.
-    }
+    if (pDevice->type == dra_device_type_playback) {
+        // Don't do anything if the buffer is not already playing.
+        DWORD status;
+        IDirectSoundBuffer_GetStatus(pDeviceDS->pDSSecondaryBuffer, &status);
+        if ((status & DSBSTATUS_PLAYING) == 0) {
+            return; // The buffer is already stopped.
+        }
 
-    // Stop the playback straight away to ensure output to the hardware device is stopped as soon as possible.
-    IDirectSoundBuffer_Stop(pDeviceDS->pDSSecondaryBuffer);
-    IDirectSoundBuffer_SetCurrentPosition(pDeviceDS->pDSSecondaryBuffer, 0);
+        // Stop the playback straight away to ensure output to the hardware device is stopped as soon as possible.
+        IDirectSoundBuffer_Stop(pDeviceDS->pDSSecondaryBuffer);
+        IDirectSoundBuffer_SetCurrentPosition(pDeviceDS->pDSSecondaryBuffer, 0);
+    } else {
+        // Don't do anything if the buffer is not already playing.
+        DWORD status;
+        IDirectSoundCaptureBuffer8_GetStatus(pDeviceDS->pDSCaptureBuffer, &status);
+        if ((status & DSBSTATUS_PLAYING) == 0) {
+            return; // The buffer is already stopped.
+        }
+
+        // Stop capture straight away to ensure output to the hardware device is stopped as soon as possible.
+        //IDirectSoundCaptureBuffer8_Stop(pDeviceDS->pDSCaptureBuffer); // <-- There's actually a typo in my version of dsound.h which trigger's a compilation error here. The call below is safe, albeit slightly less intuitive.
+        IDirectSoundCaptureBuffer_Stop(pDeviceDS->pDSCaptureBuffer);
+    }
 
     // Now we just need to make dra_backend_device_play() return which in the case of DirectSound we do by
     // simply signaling the stop event.
@@ -1606,22 +1745,30 @@ void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, size_t* 
         return NULL;    // A fragment is already mapped. Can only have a single fragment mapped at a time.
     }
 
+    if (pDevice->type == dra_device_type_playback) {
+        // If the device is not currently playing, we just return the first fragment. Otherwise we return the fragment that's sitting just past the
+        // one that's currently playing.
+        DWORD dwOffset = 0;
+        DWORD dwBytes = pDeviceDS->samplesPerFragment * sizeof(float);
 
-    // If the device is not currently playing, we just return the first fragment. Otherwise we return the fragment that's sitting just past the
-    // one that's currently playing.
-    DWORD dwOffset = 0;
-    DWORD dwBytes = pDeviceDS->samplesPerFragment * sizeof(float);
+        DWORD status;
+        IDirectSoundBuffer_GetStatus(pDeviceDS->pDSSecondaryBuffer, &status);
+        if ((status & DSBSTATUS_PLAYING) != 0) {
+            dwOffset = (((pDeviceDS->currentFragmentIndex + 1) % pDeviceDS->fragmentCount) * pDeviceDS->samplesPerFragment) * sizeof(float);
+        }
 
-    DWORD status;
-    IDirectSoundBuffer_GetStatus(pDeviceDS->pDSSecondaryBuffer, &status);
-    if ((status & DSBSTATUS_PLAYING) != 0) {
-        dwOffset = (((pDeviceDS->currentFragmentIndex + 1) % pDeviceDS->fragmentCount) * pDeviceDS->samplesPerFragment) * sizeof(float);
-    }
+        HRESULT hr = IDirectSoundBuffer_Lock(pDeviceDS->pDSSecondaryBuffer, dwOffset, dwBytes, &pDeviceDS->pLockPtr, &pDeviceDS->lockSize, NULL, NULL, 0);
+        if (FAILED(hr)) {
+            return NULL;
+        }
+    } else {
+        DWORD dwOffset = (pDeviceDS->currentFragmentIndex * pDeviceDS->samplesPerFragment) * sizeof(float);
+        DWORD dwBytes = pDeviceDS->samplesPerFragment * sizeof(float);
 
-
-    HRESULT hr = IDirectSoundBuffer_Lock(pDeviceDS->pDSSecondaryBuffer, dwOffset, dwBytes, &pDeviceDS->pLockPtr, &pDeviceDS->lockSize, NULL, NULL, 0);
-    if (FAILED(hr)) {
-        return NULL;
+        HRESULT hr = IDirectSoundCaptureBuffer8_Lock(pDeviceDS->pDSCaptureBuffer, dwOffset, dwBytes, &pDeviceDS->pLockPtr, &pDeviceDS->lockSize, NULL, NULL, 0);
+        if (FAILED(hr)) {
+            return NULL;
+        }
     }
 
     *pSamplesInFragmentOut = pDeviceDS->samplesPerFragment;
@@ -1639,7 +1786,11 @@ void dra_backend_device_unmap_next_fragment(dra_backend_device* pDevice)
         return;     // Nothing is mapped.
     }
 
-    IDirectSoundBuffer_Unlock(pDeviceDS->pDSSecondaryBuffer, pDeviceDS->pLockPtr, pDeviceDS->lockSize, NULL, 0);
+    if (pDevice->type == dra_device_type_playback) {
+        IDirectSoundBuffer_Unlock(pDeviceDS->pDSSecondaryBuffer, pDeviceDS->pLockPtr, pDeviceDS->lockSize, NULL, 0);
+    } else {
+        IDirectSoundCaptureBuffer8_Unlock(pDeviceDS->pDSCaptureBuffer, pDeviceDS->pLockPtr, pDeviceDS->lockSize, NULL, 0);
+    }
 
     pDeviceDS->pLockPtr = NULL;
     pDeviceDS->lockSize = 0;
@@ -2429,6 +2580,11 @@ drBool32 dra_device__mix_next_fragment(dra_device* pDevice)
     size_t framesMixed = dra_mixer_mix_next_frames(pDevice->pMasterMixer, framesInFragment);
 
     memcpy(pSampleData, pDevice->pMasterMixer->pStagingBuffer, (size_t)samplesInFragment * sizeof(float));
+
+    if (pDevice->onSamplesProcessed) {
+        pDevice->onSamplesProcessed(pDevice, framesMixed * pDevice->channels, (const float*)pSampleData, pDevice->pUserDataForOnSamplesProcessed);
+    }
+
     dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
 
     if (framesMixed == 0) {
@@ -2448,7 +2604,7 @@ void dra_device__play(dra_device* pDevice)
         // Don't do anything if the device is already playing.
         if (!dra_device__is_playing_nolock(pDevice))
         {
-            assert(pDevice->playingVoicesCount > 0);
+            assert(pDevice->pBackendDevice->type == dra_device_type_recording || pDevice->playingVoicesCount > 0);
 
             dra_device__post_event(pDevice, dra_thread_event_type_play);
             pDevice->isPlaying = DR_TRUE;
@@ -2520,26 +2676,38 @@ void* dra_device__thread_proc(void* pData)
 
         if (pDevice->nextThreadEventType == dra_thread_event_type_play)
         {
-            // The backend device needs to start playing, but we first need to ensure it has an initial chunk of data available.
-            dra_device__mix_next_fragment(pDevice);
+            if (pDevice->pBackendDevice->type == dra_device_type_playback) {
+                // The backend device needs to start playing, but we first need to ensure it has an initial chunk of data available.
+                dra_device__mix_next_fragment(pDevice);
 
-            // Start playing the backend device only after the initial fragment has been mixed.
-            dra_backend_device_play(pDevice->pBackendDevice);
-
+                // Start playing the backend device only after the initial fragment has been mixed, and only if it's a playback device.
+                dra_backend_device_play(pDevice->pBackendDevice);
+            }
 
             // There could be "play" events needing to be posted.
             dra_event_queue__post_events(&pDevice->eventQueue);
 
 
             // Wait for the device to request more data...
-            while (dra_backend_device_wait(pDevice->pBackendDevice))
-            {
+            while (dra_backend_device_wait(pDevice->pBackendDevice)) {
                 dra_event_queue__post_events(&pDevice->eventQueue);
 
                 if (pDevice->stopOnNextFragment) {
                     dra_device__stop(pDevice);  // <-- Don't break from the loop here. Instead have dra_backend_device_wait() return naturally from the stop notification.
                 } else {
-                    dra_device__mix_next_fragment(pDevice);
+                    if (pDevice->pBackendDevice->type == dra_device_type_playback) {
+                        dra_device__mix_next_fragment(pDevice);
+                    } else {
+                        size_t sampleCount;
+                        void* pSampleData = dra_backend_device_map_next_fragment(pDevice->pBackendDevice, &sampleCount);
+                        if (pSampleData != NULL) {
+                            if (pDevice->onSamplesProcessed) {
+                                pDevice->onSamplesProcessed(pDevice, sampleCount, (const float*)pSampleData, pDevice->pUserDataForOnSamplesProcessed);
+                            }
+
+                            dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
+                        }
+                    }
                 }
             }
 
@@ -2733,6 +2901,28 @@ void dra_device_delete(dra_device* pDevice)
     free(pDevice);
 }
 
+dra_result dra_device_start(dra_device* pDevice)
+{
+    if (pDevice == NULL || pDevice->pBackendDevice->type == dra_device_type_playback) return DRA_RESULT_INVALID_ARGS;
+
+    dra_device__play(pDevice);
+    return DRA_RESULT_SUCCESS;
+}
+
+dra_result dra_device_stop(dra_device* pDevice)
+{
+    if (pDevice == NULL || pDevice->pBackendDevice->type == dra_device_type_playback) return DRA_RESULT_INVALID_ARGS;
+
+    dra_device__stop(pDevice);
+    return DRA_RESULT_SUCCESS;
+}
+
+void dra_device_set_samples_processed_callback(dra_device* pDevice, dra_samples_processed_proc proc, void* pUserData)
+{
+    if (pDevice == NULL) return;
+    pDevice->onSamplesProcessed = proc;
+    pDevice->pUserDataForOnSamplesProcessed = pUserData;
+}
 
 
 dra_result dra_mixer_create(dra_device* pDevice, dra_mixer** ppMixer)
