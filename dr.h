@@ -1657,25 +1657,6 @@ drBool32 dr_get_executable_path(char* pathOut, size_t pathOutSize)
     return DR_TRUE;
 }
 
-drBool32 dr_get_executable_directory_path(char* pathOut, size_t pathOutSize)
-{
-    if (!dr_get_executable_path(pathOut, pathOutSize)) {
-        return DR_FALSE;
-    }
-
-    // A null terminator needs to be placed at the last slash.
-    char* lastSlash = pathOut;
-    while (pathOut[0] != '\0') {
-        if (pathOut[0] == '/' || pathOut[0] == '\\') {
-            lastSlash = pathOut;
-        }
-        pathOut += 1;
-    }
-
-    lastSlash[0] = '\0';
-    return DR_TRUE;
-}
-
 drBool32 dr_get_config_folder_path(char* pathOut, size_t pathOutSize)
 {
     // The documentation for SHGetFolderPathA() says that the output path should be the size of MAX_PATH. We'll enforce
@@ -1804,6 +1785,25 @@ drBool32 dr_set_current_directory(const char* path)
     return chdir(path) == 0;
 }
 #endif
+
+drBool32 dr_get_executable_directory_path(char* pathOut, size_t pathOutSize)
+{
+    if (!dr_get_executable_path(pathOut, pathOutSize)) {
+        return DR_FALSE;
+    }
+
+    // A null terminator needs to be placed at the last slash.
+    char* lastSlash = pathOut;
+    while (pathOut[0] != '\0') {
+        if (pathOut[0] == '/' || pathOut[0] == '\\') {
+            lastSlash = pathOut;
+        }
+        pathOut += 1;
+    }
+
+    lastSlash[0] = '\0';
+    return DR_TRUE;
+}
 
 
 
