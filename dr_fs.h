@@ -4744,8 +4744,7 @@ drBool32 drfs_eof(drfs_file* pFile)
     #pragma GCC diagnostic ignored "-Wcast-align"
     #pragma GCC diagnostic ignored "-Wextra"
 
-    // Clang emits a warning when trying to disable unknown warnings. *sigh*
-#ifndef __clang__
+#if __GNUC__ >= 6 && !defined __clang__
     #pragma GCC diagnostic ignored "-Wmisleading-indentation"
 #endif
 #endif
