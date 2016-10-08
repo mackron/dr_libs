@@ -2600,7 +2600,7 @@ dra_result dra_context_init(dra_context* pContext)
 
 void dra_context_uninit(dra_context* pContext)
 {
-    if (pContext == NULL) return;
+    if (pContext == NULL || pContext->pBackend == NULL) return;
     dra_backend_delete(pContext->pBackend);
 }
 
@@ -3003,7 +3003,7 @@ dra_result dra_device_init(dra_context* pContext, dra_device_type type, dra_devi
 
 void dra_device_uninit(dra_device* pDevice)
 {
-    if (pDevice == NULL) return;
+    if (pDevice == NULL || pDevice->pContext == NULL) return;
 
     // Mark the device as closed in order to prevent other threads from doing work after closing.
     dra_device__lock(pDevice);
