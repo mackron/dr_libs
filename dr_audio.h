@@ -205,6 +205,8 @@ typedef int dra_result;
 #define DRA_RESULT_NO_BACKEND           -1024
 #define DRA_RESULT_NO_BACKEND_DEVICE    -1025
 #define DRA_RESULT_NO_DECODER           -1026
+#define DRA_FAILED(result)              ((result) != 0)
+#define DRA_SUCCEEDED(result)           ((result) == 0)
 
 typedef enum
 {
