@@ -208,6 +208,8 @@ typedef int dra_result;
 #define DRA_FAILED(result)              ((result) != 0)
 #define DRA_SUCCEEDED(result)           ((result) == 0)
 
+#define DRA_MIXER_FLAG_PAUSED           (1 << 0)
+
 typedef enum
 {
     dra_device_type_playback = 0,
@@ -298,6 +300,8 @@ struct dra_device
     // The event type of the most recent event.
     dra_thread_event_type nextThreadEventType;
 
+    // TODO: Make these booleans flags.
+
     // Whether or not the device owns the context. This basically just means whether or not the device was created with a null
     // context and needs to delete the context itself when the device is deleted.
     drBool32 ownsContext;
@@ -349,6 +353,9 @@ struct dra_mixer
 {
     // The device that created and owns this mixer.
     dra_device* pDevice;
+
+    // Whether or not the mixer is paused.
+    uint32_t flags;
 
 
     // The parent mixer.
@@ -604,6 +611,14 @@ size_t dra_mixer_gather_attached_voices(dra_mixer* pMixer, dra_voice** ppVoicesO
 size_t dra_mixer_gather_attached_voices_recursive(dra_mixer* pMixer, dra_voice** ppVoicesOut);
 
 
+// Marks the given mixer as paused.
+void dra_mixer_pause(dra_mixer* pMixer);
+
+// Unmarks the given mixer as paused.
+void dra_mixer_resume(dra_mixer* pMixer);
+
+// Determines whether or not the given mixer is paused.
+drBool32 dra_mixer_is_paused(dra_mixer* pMixer);
 
 
 // dra_voice_create()
@@ -3301,9 +3316,14 @@ size_t dra_mixer_mix_next_frames(dra_mixer* pMixer, size_t frameCount)
         return 0;
     }
 
-    if (pMixer->pFirstVoice == NULL && pMixer->pFirstChildMixer) {
+    if (pMixer->pFirstVoice == NULL && pMixer->pFirstChildMixer == NULL) {
         return 0;
     }
+
+    if (dra_mixer_is_paused(pMixer)) {
+        return 0;
+    }
+
 
     size_t framesMixed = 0;
 
@@ -3442,6 +3462,25 @@ size_t dra_mixer_gather_attached_voices_recursive(dra_mixer* pMixer, dra_voice**
     }
 
     return count;
+}
+
+
+void dra_mixer_pause(dra_mixer* pMixer)
+{
+    if (pMixer == NULL) return;
+    pMixer->flags |= DRA_MIXER_FLAG_PAUSED;
+}
+
+void dra_mixer_resume(dra_mixer* pMixer)
+{
+    if (pMixer == NULL) return;
+    pMixer->flags &= ~DRA_MIXER_FLAG_PAUSED;
+}
+
+drBool32 dra_mixer_is_paused(dra_mixer* pMixer)
+{
+    if (pMixer == NULL) return DR_FALSE;
+    return (pMixer->flags & DRA_MIXER_FLAG_PAUSED) != 0;
 }
 
 
