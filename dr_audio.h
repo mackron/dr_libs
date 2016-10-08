@@ -2667,7 +2667,7 @@ void dra_event_queue__schedule_event(dra__event_queue* pQueue, dra__event* pEven
     dra_mutex_unlock(pQueue->lock);
 }
 
-void dra_event_queue__cancel_events_of_queue(dra__event_queue* pQueue, dra_voice* pVoice)
+void dra_event_queue__cancel_events_of_voice(dra__event_queue* pQueue, dra_voice* pVoice)
 {
     if (pQueue == NULL || pVoice == NULL) {
         return;
@@ -3175,7 +3175,8 @@ void dra_mixer_attach_submixer(dra_mixer* pMixer, dra_mixer* pSubmixer)
 
     assert(pMixer->pLastChildMixer != NULL);
     pMixer->pLastChildMixer->pNextSiblingMixer = pSubmixer;
-    pSubmixer->pNextSiblingMixer = pMixer->pLastChildMixer;
+    pSubmixer->pPrevSiblingMixer = pMixer->pLastChildMixer;
+    pSubmixer->pNextSiblingMixer = NULL;
     pMixer->pLastChildMixer = pSubmixer;
 }
 
@@ -3185,7 +3186,7 @@ void dra_mixer_detach_submixer(dra_mixer* pMixer, dra_mixer* pSubmixer)
         return;
     }
 
-    if (pSubmixer->pParentMixer == pMixer) {
+    if (pSubmixer->pParentMixer != pMixer) {
         return; // Doesn't have the same parent.
     }
 
@@ -3552,7 +3553,11 @@ void dra_voice_delete(dra_voice* pVoice)
 {
     if (pVoice == NULL) return;
 
+    // The voice needs to be stopped...
     dra_voice_stop(pVoice);
+
+    // ... and all pending events need to be cancelled to ensure the application isn't notified of an event of a deleted voice.
+    dra_event_queue__cancel_events_of_voice(&pVoice->pDevice->eventQueue, pVoice);
 
     if (pVoice->pMixer != NULL) {
         dra_mixer_detach_voice(pVoice->pMixer, pVoice);
