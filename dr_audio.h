@@ -2807,7 +2807,7 @@ void dra_device__stop(dra_device* pDevice)
         // Don't do anything if the device is already stopped.
         if (dra_device__is_playing_nolock(pDevice))
         {
-            assert(pDevice->playingVoicesCount == 0);
+            //assert(pDevice->playingVoicesCount == 0);
 
             dra_backend_device_stop(pDevice->pBackendDevice);
             pDevice->isPlaying = DR_FALSE;
@@ -3476,6 +3476,10 @@ void dra_mixer_resume(dra_mixer* pMixer)
 {
     if (pMixer == NULL) return;
     pMixer->flags &= ~DRA_MIXER_FLAG_PAUSED;
+
+    // When the mixer was paused it may have resulted in no audio being played which means dr_audio will have stopped the device
+    // to save CPU usage. We need to make sure we wake up the device.
+    dra_device__play(pMixer->pDevice);
 }
 
 drBool32 dra_mixer_is_paused(dra_mixer* pMixer)
