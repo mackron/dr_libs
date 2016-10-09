@@ -4008,7 +4008,7 @@ void dra_voice_set_on_play(dra_voice* pVoice, dra_event_proc proc, void* pUserDa
         return;
     }
 
-    pVoice->playEvent.id = DR_AUDIO_EVENT_ID_STOP;
+    pVoice->playEvent.id = DR_AUDIO_EVENT_ID_PLAY;
     pVoice->playEvent.pUserData = pUserData;
     pVoice->playEvent.sampleIndex = 0;
     pVoice->playEvent.proc = proc;
