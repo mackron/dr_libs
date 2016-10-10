@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.5 - 2016-09-29
+// dr_wav - v0.5a - 2016-10-11
 //
 // David Reid - mackron@gmail.com
 
@@ -1676,7 +1676,7 @@ float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, v
         return NULL;
     }
 
-    return drwav__read_and_close_f32(&wav, sampleRate, channels, totalSampleCount);
+    return drwav__read_and_close_f32(&wav, channels, sampleRate, totalSampleCount);
 }
 
 int32_t* drwav_open_and_read_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
@@ -1690,7 +1690,7 @@ int32_t* drwav_open_and_read_s32(drwav_read_proc onRead, drwav_seek_proc onSeek,
         return NULL;
     }
 
-    return drwav__read_and_close_s32(&wav, sampleRate, channels, totalSampleCount);
+    return drwav__read_and_close_s32(&wav, channels, sampleRate, totalSampleCount);
 }
 
 #ifndef DR_WAV_NO_STDIO
@@ -1705,7 +1705,7 @@ float* drwav_open_and_read_file_f32(const char* filename, unsigned int* channels
         return NULL;
     }
 
-    return drwav__read_and_close_f32(&wav, sampleRate, channels, totalSampleCount);
+    return drwav__read_and_close_f32(&wav, channels, sampleRate, totalSampleCount);
 }
 
 int32_t* drwav_open_and_read_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
@@ -1719,7 +1719,7 @@ int32_t* drwav_open_and_read_file_s32(const char* filename, unsigned int* channe
         return NULL;
     }
 
-    return drwav__read_and_close_s32(&wav, sampleRate, channels, totalSampleCount);
+    return drwav__read_and_close_s32(&wav, channels, sampleRate, totalSampleCount);
 }
 #endif
 
@@ -1734,7 +1734,7 @@ float* drwav_open_and_read_memory_f32(const void* data, size_t dataSize, unsigne
         return NULL;
     }
 
-    return drwav__read_and_close_f32(&wav, sampleRate, channels, totalSampleCount);
+    return drwav__read_and_close_f32(&wav, channels, sampleRate, totalSampleCount);
 }
 
 int32_t* drwav_open_and_read_memory_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
@@ -1748,7 +1748,7 @@ int32_t* drwav_open_and_read_memory_s32(const void* data, size_t dataSize, unsig
         return NULL;
     }
 
-    return drwav__read_and_close_s32(&wav, sampleRate, channels, totalSampleCount);
+    return drwav__read_and_close_s32(&wav, channels, sampleRate, totalSampleCount);
 }
 #endif  //DR_WAV_NO_CONVERSION_API
 
@@ -1762,6 +1762,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.5a - 2016-10-11
+//   - Fixed a bug with drwav_open_and_read() and family due to incorrect argument ordering.
 //
 // v0.5 - 2016-09-29
 //   - API CHANGE. Swap the order of "channels" and "sampleRate" parameters in drwav_open_and_read*(). Rationale for this is to
