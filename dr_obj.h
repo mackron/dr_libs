@@ -41,18 +41,32 @@
 
 #include <stdint.h>
 
-#ifndef DR_BOOL_DEFINED
-#define DR_BOOL_DEFINED
-#ifdef _WIN32
-typedef char drBool8;
-typedef int  drBool32;
+#ifndef DR_SIZED_TYPES_DEFINED
+#define DR_SIZED_TYPES_DEFINED
+#if defined(_MSC_VER) && _MSC_VER < 1600
+typedef   signed char    dr_int8;
+typedef unsigned char    dr_uint8;
+typedef   signed short   dr_int16;
+typedef unsigned short   dr_uint16;
+typedef   signed int     dr_int32;
+typedef unsigned int     dr_uint32;
+typedef   signed __int64 dr_int64;
+typedef unsigned __int64 dr_uint64;
 #else
 #include <stdint.h>
-typedef int8_t  drBool8;
-typedef int32_t drBool32;
+typedef int8_t           dr_int8;
+typedef uint8_t          dr_uint8;
+typedef int16_t          dr_int16;
+typedef uint16_t         dr_uint16;
+typedef int32_t          dr_int32;
+typedef uint32_t         dr_uint32;
+typedef int64_t          dr_int64;
+typedef uint64_t         dr_uint64;
 #endif
-#define DR_TRUE     1
-#define DR_FALSE    0
+typedef int8_t           dr_bool8;
+typedef int32_t          dr_bool32;
+#define DR_TRUE          1
+#define DR_FALSE         0
 #endif
 
 #ifdef __cplusplus
@@ -63,7 +77,7 @@ extern "C" {
 typedef size_t (* drobj_read_proc)(void* userData, void* bufferOut, size_t bytesToRead);
 
 // Callback for when the loader needs to be seeked back to the start of the file.
-typedef drBool32 (* drobj_seek_to_start_proc)(void* userData);
+typedef dr_bool32 (* drobj_seek_to_start_proc)(void* userData);
 
 typedef struct
 {
@@ -213,7 +227,7 @@ static size_t drobj__on_read_stdio(void* pUserData, void* bufferOut, size_t byte
     return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-static drBool32 drobj__on_seek_stdio(void* pUserData)
+static dr_bool32 drobj__on_seek_stdio(void* pUserData)
 {
     return fseek((FILE*)pUserData, 0, SEEK_SET) == 0;
 }
@@ -267,7 +281,7 @@ static size_t drobj__on_read_memory(void* pUserData, void* bufferOut, size_t byt
     return bytesToRead;
 }
 
-static drBool32 drobj__on_seek_memory(void* pUserData)
+static dr_bool32 drobj__on_seek_memory(void* pUserData)
 {
     drobj_memory* memory = (drobj_memory*)pUserData;
     assert(memory != NULL);
@@ -292,7 +306,7 @@ void drobj_free(void* pData)
 }
 
 
-drBool32 drobj__find_face_vertex(uint32_t vertexCount, drobj_face_vertex* pVertices, drobj_face_vertex vertex, uint32_t* pIndexOut)
+dr_bool32 drobj__find_face_vertex(uint32_t vertexCount, drobj_face_vertex* pVertices, drobj_face_vertex vertex, uint32_t* pIndexOut)
 {
     for (uint32_t i = 0; i < vertexCount; ++i) {
         if (pVertices[i].positionIndex == vertex.positionIndex && pVertices[i].texcoordIndex == vertex.texcoordIndex && pVertices[i].normalIndex == vertex.normalIndex) {
@@ -399,17 +413,17 @@ typedef struct
     
 } drobj_load_context;
 
-static inline drBool32 drobj__is_whitespace(char c)
+static inline dr_bool32 drobj__is_whitespace(char c)
 {
     return c == '\0' || c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
 }
 
-static inline drBool32 drobj__is_valid_digit(char c)
+static inline dr_bool32 drobj__is_valid_digit(char c)
 {
     return c >= '0' && c <= '9';
 }
 
-drBool32 drobj__load_next_chunk(drobj_load_context* pLoadContext)
+dr_bool32 drobj__load_next_chunk(drobj_load_context* pLoadContext)
 {
     assert(pLoadContext != NULL);
 
@@ -424,7 +438,7 @@ drBool32 drobj__load_next_chunk(drobj_load_context* pLoadContext)
     return DR_TRUE;
 }
 
-drBool32 drobj__seek_past_whitespace(drobj_load_context* pLoadContext)
+dr_bool32 drobj__seek_past_whitespace(drobj_load_context* pLoadContext)
 {
     assert(pLoadContext != NULL);
 
@@ -468,7 +482,7 @@ char* drobj__find_end_of_line(const drobj_load_context* pLoadContext)
     return NULL;
 }
 
-drBool32 drobj__seek_to_next_line(drobj_load_context* pLoadContext)
+dr_bool32 drobj__seek_to_next_line(drobj_load_context* pLoadContext)
 {
     assert(pLoadContext != NULL);
 
@@ -503,7 +517,7 @@ drBool32 drobj__seek_to_next_line(drobj_load_context* pLoadContext)
     }
 }
 
-drBool32 drobj__read_next_line(drobj_load_context* pLoadContext, char** pLineBeg, char** pLineEnd)
+dr_bool32 drobj__read_next_line(drobj_load_context* pLoadContext, char** pLineBeg, char** pLineEnd)
 {
     assert(pLineBeg != NULL);
     assert(pLineEnd != NULL);
@@ -610,7 +624,7 @@ size_t drobj__parse_mtl_name(const char* pMtlName, const char* pLineEnd, char* p
 
 
 // Special implementation of atof() for converting a string to a float.
-drBool32 drobj__atof(const char* str, const char* strEnd, float* pResultOut, const char** strEndOut)
+dr_bool32 drobj__atof(const char* str, const char* strEnd, float* pResultOut, const char** strEndOut)
 {
     // Skip leading whitespace.
     while (str < strEnd && drobj__is_whitespace(*str)) {
@@ -742,7 +756,7 @@ int drobj__parse_face_vertex_index(const char* str, const char* strEnd, const ch
 
 
 // Parses a face vertex index string in p/t/n format.
-drBool32 drobj__parse_face_vertex(const char* str, const char* strEnd, const char** strEndOut, drobj_face_vertex* pVertexOut)
+dr_bool32 drobj__parse_face_vertex(const char* str, const char* strEnd, const char** strEndOut, drobj_face_vertex* pVertexOut)
 {
     assert(pVertexOut != NULL);
 
@@ -865,7 +879,7 @@ void drobj__parse_vt(const char* str, const char* strEnd, drobj_vec3* pResultOut
     }
 }
 
-drBool32 drobj__load_stage1(drobj_load_context* pLoadContext)
+dr_bool32 drobj__load_stage1(drobj_load_context* pLoadContext)
 {
     assert(pLoadContext != NULL);
     assert(pLoadContext->onRead != NULL);
@@ -953,7 +967,7 @@ drBool32 drobj__load_stage1(drobj_load_context* pLoadContext)
     return DR_TRUE;
 }
 
-drBool32 drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
+dr_bool32 drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
 {
     assert(pOBJ != NULL);
 
@@ -1124,7 +1138,7 @@ drobj* drobj_load(drobj_read_proc onRead, drobj_seek_to_start_proc onSeek, void*
     loadContext.onSeek    = onSeek;
     loadContext.pUserData = pUserData;
 
-    drBool32 result = drobj__load_stage1(&loadContext);
+    dr_bool32 result = drobj__load_stage1(&loadContext);
     if (!result) {
         return NULL;
     }

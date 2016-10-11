@@ -1,5 +1,5 @@
 // PCX image loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_pcx - v0.1a - 2016-09-18
+// dr_pcx - v0.1b - 2016-10-11
 //
 // David Reid - mackron@gmail.com
 
@@ -44,18 +44,32 @@
 
 #include <stdint.h>
 
-#ifndef DR_BOOL_DEFINED
-#define DR_BOOL_DEFINED
-#ifdef _WIN32
-typedef char drBool8;
-typedef int  drBool32;
+#ifndef DR_SIZED_TYPES_DEFINED
+#define DR_SIZED_TYPES_DEFINED
+#if defined(_MSC_VER) && _MSC_VER < 1600
+typedef   signed char    dr_int8;
+typedef unsigned char    dr_uint8;
+typedef   signed short   dr_int16;
+typedef unsigned short   dr_uint16;
+typedef   signed int     dr_int32;
+typedef unsigned int     dr_uint32;
+typedef   signed __int64 dr_int64;
+typedef unsigned __int64 dr_uint64;
 #else
 #include <stdint.h>
-typedef int8_t  drBool8;
-typedef int32_t drBool32;
+typedef int8_t           dr_int8;
+typedef uint8_t          dr_uint8;
+typedef int16_t          dr_int16;
+typedef uint16_t         dr_uint16;
+typedef int32_t          dr_int32;
+typedef uint32_t         dr_uint32;
+typedef int64_t          dr_int64;
+typedef uint64_t         dr_uint64;
 #endif
-#define DR_TRUE     1
-#define DR_FALSE    0
+typedef int8_t           dr_bool8;
+typedef int32_t          dr_bool32;
+#define DR_TRUE          1
+#define DR_FALSE         0
 #endif
 
 #ifdef __cplusplus
@@ -67,7 +81,7 @@ typedef size_t (* drpcx_read_proc)(void* userData, void* bufferOut, size_t bytes
 
 
 // Loads a PCX file using the given callbacks.
-uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, drBool32 flipped, int* x, int* y, int* comp);
+uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped, int* x, int* y, int* comp);
 
 // Frees memory returned by drpcx_load() and family.
 void drpcx_free(void* pReturnValueFromLoad);
@@ -75,11 +89,11 @@ void drpcx_free(void* pReturnValueFromLoad);
 
 #ifndef DR_PCX_NO_STDIO
 // Loads an PCX file from an actual file.
-uint8_t* drpcx_load_file(const char* filename, drBool32 flipped, int* x, int* y, int* comp);
+uint8_t* drpcx_load_file(const char* filename, dr_bool32 flipped, int* x, int* y, int* comp);
 #endif
 
 // Helper for loading an PCX file from a block of memory.
-uint8_t* drpcx_load_memory(const void* data, size_t dataSize, drBool32 flipped, int* x, int* y, int* comp);
+uint8_t* drpcx_load_memory(const void* data, size_t dataSize, dr_bool32 flipped, int* x, int* y, int* comp);
 
 
 #ifdef __cplusplus
@@ -107,7 +121,7 @@ static size_t drpcx__on_read_stdio(void* pUserData, void* bufferOut, size_t byte
     return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-uint8_t* drpcx_load_file(const char* filename, drBool32 flipped, int* x, int* y, int* comp)
+uint8_t* drpcx_load_file(const char* filename, dr_bool32 flipped, int* x, int* y, int* comp)
 {
     FILE* pFile;
 #ifdef _MSC_VER
@@ -156,7 +170,7 @@ static size_t drpcx__on_read_memory(void* pUserData, void* bufferOut, size_t byt
     return bytesToRead;
 }
 
-uint8_t* drpcx_load_memory(const void* data, size_t dataSize, drBool32 flipped, int* x, int* y, int* comp)
+uint8_t* drpcx_load_memory(const void* data, size_t dataSize, dr_bool32 flipped, int* x, int* y, int* comp)
 {
     drpcx_memory memory;
     memory.data = (const unsigned char*)data;
@@ -192,7 +206,7 @@ typedef struct
 {
     drpcx_read_proc onRead;
     void* pUserData;
-    drBool32 flipped;
+    dr_bool32 flipped;
     drpcx_header header;
 
     uint32_t width;
@@ -243,7 +257,7 @@ static uint8_t drpcx__rle(drpcx* pPCX, uint8_t* pRLEValueOut)
 }
 
 
-drBool32 drpcx__decode_1bit(drpcx* pPCX)
+dr_bool32 drpcx__decode_1bit(drpcx* pPCX)
 {
     uint8_t rleCount = 0;
     uint8_t rleValue = 0;
@@ -326,7 +340,7 @@ drBool32 drpcx__decode_1bit(drpcx* pPCX)
     }
 }
 
-drBool32 drpcx__decode_2bit(drpcx* pPCX)
+dr_bool32 drpcx__decode_2bit(drpcx* pPCX)
 {
     uint8_t rleCount = 0;
     uint8_t rleValue = 0;
@@ -452,7 +466,7 @@ drBool32 drpcx__decode_2bit(drpcx* pPCX)
     }
 }
 
-drBool32 drpcx__decode_4bit(drpcx* pPCX)
+dr_bool32 drpcx__decode_4bit(drpcx* pPCX)
 {
     // NOTE: This is completely untested. If anybody knows where I can get a test file please let me know or send it through to me!
     // TODO: Test Me.
@@ -503,7 +517,7 @@ drBool32 drpcx__decode_4bit(drpcx* pPCX)
     return DR_TRUE;
 }
 
-drBool32 drpcx__decode_8bit(drpcx* pPCX)
+dr_bool32 drpcx__decode_8bit(drpcx* pPCX)
 {
     uint8_t rleCount = 0;
     uint8_t rleValue = 0;
@@ -590,7 +604,7 @@ drBool32 drpcx__decode_8bit(drpcx* pPCX)
     return DR_TRUE;
 }
 
-uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, drBool32 flipped, int* x, int* y, int* comp)
+uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped, int* x, int* y, int* comp)
 {
     if (onRead == NULL) {
         return NULL;
@@ -626,7 +640,7 @@ uint8_t* drpcx_load(drpcx_read_proc onRead, void* pUserData, drBool32 flipped, i
         return NULL;    // Failed to allocate memory.
     }
 
-    drBool32 result = DR_FALSE;
+    dr_bool32 result = DR_FALSE;
     switch (pcx.header.bpp)
     {
         case 1:
@@ -670,6 +684,10 @@ void drpcx_free(void* pReturnValueFromLoad)
 
 
 // REVISION HISTORY
+//
+// v0.1b - 2016-10-11
+//   - Use dr_bool32 instead of the built-in "bool" type. The reason for this change is that it helps maintain API/ABI consistency
+//     between C and C++ builds.
 //
 // v0.1a - 2016-09-18
 //   - Change date format to ISO 8601 (YYYY-MM-DD)

@@ -99,18 +99,32 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#ifndef DR_BOOL_DEFINED
-#define DR_BOOL_DEFINED
-#ifdef _WIN32
-typedef char drBool8;
-typedef int  drBool32;
+#ifndef DR_SIZED_TYPES_DEFINED
+#define DR_SIZED_TYPES_DEFINED
+#if defined(_MSC_VER) && _MSC_VER < 1600
+typedef   signed char    dr_int8;
+typedef unsigned char    dr_uint8;
+typedef   signed short   dr_int16;
+typedef unsigned short   dr_uint16;
+typedef   signed int     dr_int32;
+typedef unsigned int     dr_uint32;
+typedef   signed __int64 dr_int64;
+typedef unsigned __int64 dr_uint64;
 #else
 #include <stdint.h>
-typedef int8_t  drBool8;
-typedef int32_t drBool32;
+typedef int8_t           dr_int8;
+typedef uint8_t          dr_uint8;
+typedef int16_t          dr_int16;
+typedef uint16_t         dr_uint16;
+typedef int32_t          dr_int32;
+typedef uint32_t         dr_uint32;
+typedef int64_t          dr_int64;
+typedef uint64_t         dr_uint64;
 #endif
-#define DR_TRUE     1
-#define DR_FALSE    0
+typedef int8_t           dr_bool8;
+typedef int32_t          dr_bool32;
+#define DR_TRUE          1
+#define DR_FALSE         0
 #endif
 
 #ifdef __cplusplus
@@ -142,7 +156,7 @@ typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t byt
 
 // Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
 // is DR_TRUE on success; fale on failure.
-typedef drBool32 (* drwav_seek_proc)(void* pUserData, int offset, drwav_seek_origin origin);
+typedef dr_bool32 (* drwav_seek_proc)(void* pUserData, int offset, drwav_seek_origin origin);
 
 // Structure for internal use. Only used for loaders opened with drwav_open_memory.
 typedef struct
@@ -241,7 +255,7 @@ typedef struct
 // Initializes a pre-allocated drwav object.
 //
 // 
-drBool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
+dr_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
 // Uninitializes the given drwav object. Use this only for objects initialized with drwav_init().
 void drwav_uninit(drwav* pWav);
@@ -279,7 +293,7 @@ uint64_t drwav_read(drwav* pWav, uint64_t samplesToRead, void* pBufferOut);
 // Seeks to the given sample.
 //
 // The return value is DR_FALSE if an error occurs, DR_TRUE if successful.
-drBool32 drwav_seek_to_sample(drwav* pWav, uint64_t sample);
+dr_bool32 drwav_seek_to_sample(drwav* pWav, uint64_t sample);
 
 
 
@@ -355,7 +369,7 @@ void drwav_ulaw_to_s32(int32_t* pOut, const uint8_t* pIn, size_t sampleCount);
 // This holds the internal FILE object until drwav_uninit() is called. Keep this in mind if you're caching drwav
 // objects because the operating system may restrict the number of file handles an application can have open at
 // any given time.
-drBool32 drwav_init_file(drwav* pWav, const char* filename);
+dr_bool32 drwav_init_file(drwav* pWav, const char* filename);
 
 // Helper for opening a wave file using stdio.
 //
@@ -372,7 +386,7 @@ drwav* drwav_open_file(const char* filename);
 // the lifetime of the drwav object.
 //
 // The buffer should contain the contents of the entire wave file, not just the sample data.
-drBool32 drwav_init_memory(drwav* pWav, const void* data, size_t dataSize);
+dr_bool32 drwav_init_memory(drwav* pWav, const void* data, size_t dataSize);
 
 // Helper for opening a file from a pre-allocated memory buffer.
 //
@@ -429,7 +443,7 @@ static const uint8_t drwavGUID_W64_WAVE[16] = {0x77,0x61,0x76,0x65, 0xF3,0xAC, 0
 static const uint8_t drwavGUID_W64_FMT [16] = {0x66,0x6D,0x74,0x20, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 20746D66-ACF3-11D3-8CD1-00C04F8EDB8A
 static const uint8_t drwavGUID_W64_DATA[16] = {0x64,0x61,0x74,0x61, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 61746164-ACF3-11D3-8CD1-00C04F8EDB8A
 
-static drBool32 drwav__guid_equal(const uint8_t a[16], const uint8_t b[16])
+static dr_bool32 drwav__guid_equal(const uint8_t a[16], const uint8_t b[16])
 {
     const uint32_t* a32 = (const uint32_t*)a;
     const uint32_t* b32 = (const uint32_t*)b;
@@ -441,7 +455,7 @@ static drBool32 drwav__guid_equal(const uint8_t a[16], const uint8_t b[16])
         a32[3] == b32[3];
 }
 
-static drBool32 drwav__fourcc_equal(const unsigned char* a, const char* b)
+static dr_bool32 drwav__fourcc_equal(const unsigned char* a, const char* b)
 {
     return
         a[0] == b[0] &&
@@ -515,7 +529,7 @@ typedef struct
 
 } drwav__chunk_header;
 
-static drBool32 drwav__read_chunk_header(drwav_read_proc onRead, void* pUserData, drwav_container container, drwav__chunk_header* pHeaderOut)
+static dr_bool32 drwav__read_chunk_header(drwav_read_proc onRead, void* pUserData, drwav_container container, drwav__chunk_header* pHeaderOut)
 {
     if (container == drwav_container_riff) {
         if (onRead(pUserData, pHeaderOut->id.fourcc, 4) != 4) {
@@ -547,7 +561,7 @@ static drBool32 drwav__read_chunk_header(drwav_read_proc onRead, void* pUserData
 }
 
 
-static drBool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, drwav_container container, drwav_fmt* fmtOut)
+static dr_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, drwav_container container, drwav_fmt* fmtOut)
 {
     drwav__chunk_header header;
     if (!drwav__read_chunk_header(onRead, pUserData, container, &header)) {
@@ -631,12 +645,12 @@ static size_t drwav__on_read_stdio(void* pUserData, void* pBufferOut, size_t byt
     return fread(pBufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-static drBool32 drwav__on_seek_stdio(void* pUserData, int offset, drwav_seek_origin origin)
+static dr_bool32 drwav__on_seek_stdio(void* pUserData, int offset, drwav_seek_origin origin)
 {
     return fseek((FILE*)pUserData, offset, (origin == drwav_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-drBool32 drwav_init_file(drwav* pWav, const char* filename)
+dr_bool32 drwav_init_file(drwav* pWav, const char* filename)
 {
     FILE* pFile;
 #ifdef _MSC_VER
@@ -697,7 +711,7 @@ static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t by
     return bytesToRead;
 }
 
-static drBool32 drwav__on_seek_memory(void* pUserData, int offset, drwav_seek_origin origin)
+static dr_bool32 drwav__on_seek_memory(void* pUserData, int offset, drwav_seek_origin origin)
 {
     drwav__memory_stream* memory = (drwav__memory_stream*)pUserData;
     assert(memory != NULL);
@@ -725,7 +739,7 @@ static drBool32 drwav__on_seek_memory(void* pUserData, int offset, drwav_seek_or
     return DR_TRUE;
 }
 
-drBool32 drwav_init_memory(drwav* pWav, const void* data, size_t dataSize)
+dr_bool32 drwav_init_memory(drwav* pWav, const void* data, size_t dataSize)
 {
     drwav__memory_stream memoryStream;
     memoryStream.data = (const unsigned char*)data;
@@ -759,7 +773,7 @@ drwav* drwav_open_memory(const void* data, size_t dataSize)
 }
 
 
-drBool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
+dr_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
 {
     if (onRead == NULL || onSeek == NULL) {
         return DR_FALSE;
@@ -978,7 +992,7 @@ uint64_t drwav_read(drwav* pWav, uint64_t samplesToRead, void* pBufferOut)
     return bytesRead / pWav->bytesPerSample;
 }
 
-drBool32 drwav_seek_to_sample(drwav* pWav, uint64_t sample)
+dr_bool32 drwav_seek_to_sample(drwav* pWav, uint64_t sample)
 {
     // Seeking should be compatible with wave files > 2GB.
 
@@ -1754,7 +1768,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //   - Added support for Sony Wave64.
 //
 // v0.3a - 2016-05-28
-//   - API CHANGE. Return drBool32 instead of int in onSeek callback.
+//   - API CHANGE. Return dr_bool32 instead of int in onSeek callback.
 //   - Fixed a memory leak.
 //
 // v0.3 - 2016-05-22
