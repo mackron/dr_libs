@@ -3229,7 +3229,7 @@ double dr_timer_tick(dr_timer* pTimer)
 void dr_timer_init(dr_timer* pTimer)
 {
     struct timespec newTime;
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &newTime);
+    clock_gettime(CLOCK_MONOTONIC, &newTime);
 
     pTimer->counter = (newTime.tv_sec * 1000000000LL) + newTime.tv_nsec;
 }
@@ -3237,7 +3237,7 @@ void dr_timer_init(dr_timer* pTimer)
 double dr_timer_tick(dr_timer* pTimer)
 {
     struct timespec newTime;
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &newTime);
+    clock_gettime(CLOCK_MONOTONIC, &newTime);
 
     uint64_t newTimeCounter = (newTime.tv_sec * 1000000000LL) + newTime.tv_nsec;
     uint64_t oldTimeCounter = pTimer->counter;
