@@ -10,7 +10,7 @@ Library                                         | Version | Description
 [dr_flac](dr_flac.h)                            | 0.4b    | FLAC audio decoder.
 [dr_wav](dr_wav.h)                              | 0.5b    | WAV audio loader.
 [dr_audio](dr_audio.h)                          | -       | Audio playback.
-[dr_pcx](dr_pcx.h)                              | 0.1b    | PCX image loader.
+[dr_pcx](dr_pcx.h)                              | 0.1c    | PCX image loader.
 [dr_obj](dr_obj.h)                              | -       | Wavefront OBJ model loader.
 [dr_fs](dr_fs.h)                                | -       | File system abstraction for loading files from the native file system and archives.
 [dr_fsw](dr_fsw.h)                              | -       | Watch for changes to the file system. Windows only.

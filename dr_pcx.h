@@ -1,5 +1,5 @@
 // PCX image loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_pcx - v0.1b - 2016-10-11
+// dr_pcx - v0.1c - 2016-10-23
 //
 // David Reid - mackron@gmail.com
 
@@ -42,8 +42,6 @@
 #ifndef dr_pcx_h
 #define dr_pcx_h
 
-#include <stdint.h>
-
 #ifndef DR_SIZED_TYPES_DEFINED
 #define DR_SIZED_TYPES_DEFINED
 #if defined(_MSC_VER) && _MSC_VER < 1600
@@ -66,8 +64,8 @@ typedef uint32_t         dr_uint32;
 typedef int64_t          dr_int64;
 typedef uint64_t         dr_uint64;
 #endif
-typedef int8_t           dr_bool8;
-typedef int32_t          dr_bool32;
+typedef dr_int8          dr_bool8;
+typedef dr_int32         dr_bool32;
 #define DR_TRUE          1
 #define DR_FALSE         0
 #endif
@@ -685,6 +683,9 @@ void drpcx_free(void* pReturnValueFromLoad)
 
 // REVISION HISTORY
 //
+// v0.4b - 2016-10-23
+//   - A minor change to dr_bool8 and dr_bool32 types.
+//
 // v0.1b - 2016-10-11
 //   - Use dr_bool32 instead of the built-in "bool" type. The reason for this change is that it helps maintain API/ABI consistency
 //     between C and C++ builds.
@@ -698,6 +699,7 @@ void drpcx_free(void* pReturnValueFromLoad)
 
 // TODO
 // - Test 2-bpp/4-plane and 4-bpp/1-plane formats.
+// - Fix the build for older versions of MSVC.
 
 
 /*
