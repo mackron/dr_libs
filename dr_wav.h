@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.5a - 2016-10-11
+// dr_wav - v0.5b - 2016-10-23
 //
 // David Reid - mackron@gmail.com
 
@@ -121,8 +121,8 @@ typedef uint32_t         dr_uint32;
 typedef int64_t          dr_int64;
 typedef uint64_t         dr_uint64;
 #endif
-typedef int8_t           dr_bool8;
-typedef int32_t          dr_bool32;
+typedef dr_int8          dr_bool8;
+typedef dr_int32         dr_bool32;
 #define DR_TRUE          1
 #define DR_FALSE         0
 #endif
@@ -1746,6 +1746,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.5b - 2016-10-23
+//   - A minor change to dr_bool8 and dr_bool32 types.
 //
 // v0.5a - 2016-10-11
 //   - Fixed a bug with drwav_open_and_read() and family due to incorrect argument ordering.
