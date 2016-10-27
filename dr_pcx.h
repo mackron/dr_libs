@@ -15,7 +15,7 @@
 //     int width;
 //     int height;
 //     int components
-//     dr_uint8* pImageData = drpcx_load_file("my_image.pcx", DR_FALSE, &width, &height, &components);
+//     dr_uint8* pImageData = drpcx_load_file("my_image.pcx", DR_FALSE, &width, &height, &components, 0);
 //     if (pImageData == NULL) {
 //         // Failed to load image.
 //     }
