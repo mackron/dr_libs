@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.5b - 2016-10-23
+// dr_wav - v0.5c - 2016-11-11
 //
 // David Reid - mackron@gmail.com
 
@@ -440,6 +440,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead);
 
 static const uint8_t drwavGUID_W64_RIFF[16] = {0x72,0x69,0x66,0x66, 0x2E,0x91, 0xCF,0x11, 0xA5,0xD6, 0x28,0xDB,0x04,0xC1,0x00,0x00};    // 66666972-912E-11CF-A5D6-28DB04C10000
 static const uint8_t drwavGUID_W64_WAVE[16] = {0x77,0x61,0x76,0x65, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 65766177-ACF3-11D3-8CD1-00C04F8EDB8A
+static const uint8_t drwavGUID_W64_JUNK[16] = {0x6A,0x75,0x6E,0x6B, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 6B6E756A-ACF3-11D3-8CD1-00C04F8EDB8A
 static const uint8_t drwavGUID_W64_FMT [16] = {0x66,0x6D,0x74,0x20, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 20746D66-ACF3-11D3-8CD1-00C04F8EDB8A
 static const uint8_t drwavGUID_W64_DATA[16] = {0x64,0x61,0x74,0x61, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 61746164-ACF3-11D3-8CD1-00C04F8EDB8A
 
@@ -560,6 +561,26 @@ static dr_bool32 drwav__read_chunk_header(drwav_read_proc onRead, void* pUserDat
     return DR_TRUE;
 }
 
+static dr_bool32 drwav__seek_forward(drwav_seek_proc onSeek, dr_uint64 offset, void* pUserData)
+{
+    uint64_t bytesRemainingToSeek = offset;
+    while (bytesRemainingToSeek > 0) {
+        if (bytesRemainingToSeek > 0x7FFFFFFF) {
+            if (!onSeek(pUserData, 0x7FFFFFFF, drwav_seek_origin_current)) {
+                return DR_FALSE;
+            }
+            bytesRemainingToSeek -= 0x7FFFFFFF;
+        } else {
+            if (!onSeek(pUserData, (int)bytesRemainingToSeek, drwav_seek_origin_current)) {
+                return DR_FALSE;
+            }
+            bytesRemainingToSeek = 0;
+        }
+    }
+
+    return DR_TRUE;
+}
+
 
 static dr_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, drwav_container container, drwav_fmt* fmtOut)
 {
@@ -568,19 +589,16 @@ static dr_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek,
         return DR_FALSE;
     }
 
-    if (drwav__fourcc_equal(header.id.fourcc, "JUNK")) {
-        if (header.sizeInBytes > 0) {
-            if (!onSeek(pUserData, header.sizeInBytes, drwav_seek_origin_current)) {
-                return DR_FALSE;
-            }
+
+    // Skip junk chunks.
+    if ((container == drwav_container_riff && drwav__fourcc_equal(header.id.fourcc, "JUNK")) || (container == drwav_container_w64 && drwav__guid_equal(header.id.guid, drwavGUID_W64_JUNK))) {
+        if (!drwav__seek_forward(onSeek, header.sizeInBytes + header.paddingSize, pUserData)) {
+            return DR_FALSE;
         }
-        if (header.paddingSize > 0) {
-            if (!onSeek(pUserData, header.paddingSize, drwav_seek_origin_current)) {
-                return DR_FALSE;
-            }
-        }
-        return drwav__read_fmt(onRead, onSeek, pUserData, container, drwav_fmt* fmtOut);
+
+        return drwav__read_fmt(onRead, onSeek, pUserData, container, fmtOut);
     }
+
 
     // Validation.
     if (container == drwav_container_riff) {
@@ -903,21 +921,7 @@ dr_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek
 
         // Make sure we seek past the padding.
         dataSize += header.paddingSize;
-
-        uint64_t bytesRemainingToSeek = dataSize;
-        while (bytesRemainingToSeek > 0) {
-            if (bytesRemainingToSeek > 0x7FFFFFFF) {
-                if (!onSeek(pUserData, 0x7FFFFFFF, drwav_seek_origin_current)) {
-                    return DR_FALSE;
-                }
-                bytesRemainingToSeek -= 0x7FFFFFFF;
-            } else {
-                if (!onSeek(pUserData, (int)bytesRemainingToSeek, drwav_seek_origin_current)) {
-                    return DR_FALSE;
-                }
-                bytesRemainingToSeek = 0;
-            }
-        }
+        drwav__seek_forward(onSeek, dataSize, pUserData);
     }
 
     // At this point we should be sitting on the first byte of the raw audio data.
@@ -1760,6 +1764,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.5c - 2016-11-11
+//   - Properly handle JUNK chunks that come before the FMT chunk.
 //
 // v0.5b - 2016-10-23
 //   - A minor change to dr_bool8 and dr_bool32 types.
