@@ -568,6 +568,20 @@ static dr_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek,
         return DR_FALSE;
     }
 
+    if (drwav__fourcc_equal(header.id.fourcc, "JUNK")) {
+        if (header.sizeInBytes > 0) {
+            if (!onSeek(pUserData, header.sizeInBytes, drwav_seek_origin_current)) {
+                return DR_FALSE;
+            }
+        }
+        if (header.paddingSize > 0) {
+            if (!onSeek(pUserData, header.paddingSize, drwav_seek_origin_current)) {
+                return DR_FALSE;
+            }
+        }
+        return drwav__read_fmt(onRead, onSeek, pUserData, container, drwav_fmt* fmtOut);
+    }
+
     // Validation.
     if (container == drwav_container_riff) {
         if (!drwav__fourcc_equal(header.id.fourcc, "fmt ")) {
