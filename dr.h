@@ -205,6 +205,9 @@ size_t dr_copy_line(const char* str, char* lineOut, size_t lineOutSize);
 // A slow string replace function. Free the returned string with free().
 char* dr_string_replace(const char* src, const char* query, const char* replacement);
 
+// Replaces an ASCII character with another in the given string.
+void dr_string_replace_ascii(char* src, char c, char replacement);
+
 
 /////////////////////////////////////////////////////////
 // Unicode Utilities
@@ -1217,6 +1220,21 @@ char* dr_string_replace(const char* src, const char* query, const char* replacem
     // The trailing part.
     strcpy_s(runningResult, strlen(src)+1, src);
     return result;
+}
+
+void dr_string_replace_ascii(char* src, char c, char replacement)
+{
+    for (;;) {
+        if (*src == '\0') {
+            break;
+        }
+
+        if (*src == c) {
+            *src = replacement;
+        }
+
+        src += 1;
+    }
 }
 
 
