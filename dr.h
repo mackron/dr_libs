@@ -3216,8 +3216,13 @@ dr_bool32 dr_release_semaphore(dr_semaphore semaphore)
 /////////////////////////////////////////////////////////
 // Timing
 
-// macOS does not have clock_gettime so define it separately
+// macOS does not have clock_gettime on OS X < 10.12
 #ifdef __MACH__
+#include <AvailabilityMacros.h>
+#ifndef MAC_OS_X_VERSION_10_12
+#define MAC_OS_X_VERSION_10_12 101200
+#endif
+#if MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_12
 #include <mach/mach_time.h>
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 0
@@ -3233,6 +3238,7 @@ int clock_gettime(int clk_id, struct timespec* t)
     t->tv_nsec = nseconds;
     return 0;
 }
+#endif
 #endif
 
 #ifdef _WIN32
