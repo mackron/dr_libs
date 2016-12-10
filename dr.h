@@ -117,6 +117,20 @@ typedef dr_int32         dr_bool32;
 #define dr_round_up_signed(x, multiple) ((((x) + (((x) >= 0)*((multiple) - 1))) / (multiple)) * (multiple))
 #endif
 
+DR_INLINE dr_uint32 dr_next_power_of_2(dr_uint32 value)
+{
+    --value;
+    value = (value >> 1)  | value;
+    value = (value >> 2)  | value;
+    value = (value >> 4)  | value;
+    value = (value >> 8)  | value;
+    value = (value >> 16) | value;
+    return value + 1;
+}
+
+
+#define dr_abs(x) (((x) < 0) ? (-(x)) : (x))
+
 
 /////////////////////////////////////////////////////////
 // MSVC Compatibility
