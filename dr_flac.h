@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.4c - 2016-12-26
+// dr_flac - v0.4d - 2016-12-*
 //
 // David Reid - mackron@gmail.com
 
@@ -44,7 +44,7 @@
 //     unsigned int channels;
 //     unsigned int sampleRate;
 //     uint64_t totalSampleCount;
-//     int32_t* pSampleData = drflac_open_and_decode_file("MySong.flac", &channels, &sampleRate, &totalSampleCount);
+//     int32_t* pSampleData = drflac_open_and_decode_file_s32("MySong.flac", &channels, &sampleRate, &totalSampleCount);
 //     if (pSampleData == NULL) {
 //         // Failed to open and decode FLAC file.
 //     }
@@ -52,6 +52,10 @@
 //     ...
 //
 //     drflac_free(pSampleData);
+//
+//
+// You can read samples as signed 16-bit integer and 32-bit floating-point PCM with the *_s16() and *_f32() family of APIs
+// respectively, but note that this is lossy.
 //
 //
 // If you need access to metadata (album art, etc.), use drflac_open_with_metadata(), drflac_open_file_with_metdata() or
@@ -560,9 +564,33 @@ void drflac_close(drflac* pFlac);
 // seeked.
 uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* pBufferOut);
 
-// Same as drflac_read_s32(), except outputs samples as 16-bit integer PCM rather than 32-bit. Note
-// that this is lossey.
+// Same as drflac_read_s32(), except outputs samples as 16-bit integer PCM rather than 32-bit.
+//
+// pFlac         [in]            The decoder.
+// samplesToRead [in]            The number of samples to read.
+// pBufferOut    [out, optional] A pointer to the buffer that will receive the decoded samples.
+//
+// Returns the number of samples actually read.
+//
+// pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
+// seeked.
+//
+// Note that this is lossey.
 uint64_t drflac_read_s16(drflac* pFlac, uint64_t samplesToRead, int16_t* pBufferOut);
+
+// Same as drflac_read_s32(), except outputs samples as 32-bit floating-point PCM.
+//
+// pFlac         [in]            The decoder.
+// samplesToRead [in]            The number of samples to read.
+// pBufferOut    [out, optional] A pointer to the buffer that will receive the decoded samples.
+//
+// Returns the number of samples actually read.
+//
+// pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
+// seeked.
+//
+// Note that this is lossey.
+uint64_t drflac_read_f32(drflac* pFlac, uint64_t samplesToRead, float* pBufferOut);
 
 // Seeks to the sample at the given index.
 //
@@ -625,17 +653,32 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
 //
 // Do not call this function on a broadcast type of stream (like internet radio streams and whatnot).
 int32_t* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+
+// Same as drflac_open_and_decode_s32(), except returns signed 16-bit integer samples.
 int16_t* drflac_open_and_decode_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+
+// Same as drflac_open_and_decode_s32(), except returns 32-bit floating-point samples.
+float* drflac_open_and_decode_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
 #ifndef DR_FLAC_NO_STDIO
 // Same as drflac_open_and_decode_s32() except opens the decoder from a file.
 int32_t* drflac_open_and_decode_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+
+// Same as drflac_open_and_decode_file_s32(), except returns signed 16-bit integer samples.
 int16_t* drflac_open_and_decode_file_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+
+// Same as drflac_open_and_decode_file_f32(), except returns 32-bit floating-point samples.
+float* drflac_open_and_decode_file_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 #endif
 
 // Same as drflac_open_and_decode_s32() except opens the decoder from a block of memory.
 int32_t* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+
+// Same as drflac_open_and_decode_memory_s32(), except returns signed 16-bit integer samples.
 int16_t* drflac_open_and_decode_memory_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+
+// Same as drflac_open_and_decode_memory_s32(), except returns 32-bit floating-point samples.
+float* drflac_open_and_decode_memory_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
 
 // Frees data returned by drflac_open_and_decode_*().
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode);
@@ -4131,11 +4174,11 @@ uint64_t drflac_read_s32(drflac* pFlac, uint64_t samplesToRead, int32_t* bufferO
 uint64_t drflac_read_s16(drflac* pFlac, uint64_t samplesToRead, int16_t* pBufferOut)
 {
     // This reads samples in 2 passes and can probably be optimized.
-    uint64_t samplesRead = 0;
+    uint64_t totalSamplesRead = 0;
 
     while (samplesToRead > 0) {
         int32_t samples32[4096];
-        uint64_t samplesJustRead = drflac_read_s32(pFlac, samplesToRead > 4096 ? 4096 : samplesToRead, samples32);
+        uint64_t samplesJustRead = drflac_read_s32(pFlac, (samplesToRead > 4096) ? 4096 : samplesToRead, samples32);
         if (samplesJustRead == 0) {
             break;  // Reached the end.
         }
@@ -4145,12 +4188,37 @@ uint64_t drflac_read_s16(drflac* pFlac, uint64_t samplesToRead, int16_t* pBuffer
             pBufferOut[i] = (int16_t)(samples32[i] >> 16);
         }
 
-        samplesRead += samplesJustRead;
+        totalSamplesRead += samplesJustRead;
         samplesToRead -= samplesJustRead;
         pBufferOut += samplesJustRead;
     }
 
-    return samplesRead;
+    return totalSamplesRead;
+}
+
+uint64_t drflac_read_f32(drflac* pFlac, uint64_t samplesToRead, float* pBufferOut)
+{
+    // This reads samples in 2 passes and can probably be optimized.
+    uint64_t totalSamplesRead = 0;
+
+    while (samplesToRead > 0) {
+        int32_t samples32[4096];
+        uint64_t samplesJustRead = drflac_read_s32(pFlac, (samplesToRead > 4096) ? 4096 : samplesToRead, samples32);
+        if (samplesJustRead == 0) {
+            break;  // Reached the end.
+        }
+
+        // s32 -> f32
+        for (uint64_t i = 0; i < samplesJustRead; ++i) {
+            pBufferOut[i] = (float)(samples32[i] / 2147483648.0);
+        }
+
+        totalSamplesRead += samplesJustRead;
+        samplesToRead -= samplesJustRead;
+        pBufferOut += samplesJustRead;
+    }
+
+    return totalSamplesRead;
 }
 
 dr_bool32 drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
@@ -4193,147 +4261,80 @@ dr_bool32 drflac_seek_to_sample(drflac* pFlac, uint64_t sampleIndex)
 
 //// High Level APIs ////
 
-int32_t* drflac__full_decode_and_close_s32(drflac* pFlac, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalSampleCountOut)
-{
-    assert(pFlac != NULL);
-
-    int32_t* pSampleData = NULL;
-    uint64_t totalSampleCount = pFlac->totalSampleCount;
-
-    if (totalSampleCount == 0)
-    {
-        int32_t buffer[4096];
-
-        size_t sampleDataBufferSize = sizeof(buffer);
-        pSampleData = (int32_t*)malloc(sampleDataBufferSize);
-        if (pSampleData == NULL) {
-            goto on_error;
-        }
-
-        uint64_t samplesRead;
-        while ((samplesRead = (uint64_t)drflac_read_s32(pFlac, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0)
-        {
-            if (((totalSampleCount + samplesRead) * sizeof(int32_t)) > sampleDataBufferSize) {
-                sampleDataBufferSize *= 2;
-                int32_t* pNewSampleData = (int32_t*)realloc(pSampleData, sampleDataBufferSize);
-                if (pNewSampleData == NULL) {
-                    free(pSampleData);
-                    goto on_error;
-                }
-
-                pSampleData = pNewSampleData;
-            }
-
-            memcpy(pSampleData + totalSampleCount, buffer, (size_t)(samplesRead*sizeof(int32_t)));
-            totalSampleCount += samplesRead;
-        }
-
-        // At this point everything should be decoded, but we just want to fill the unused part buffer with silence - need to
-        // protect those ears from random noise!
-        memset(pSampleData + totalSampleCount, 0, (size_t)(sampleDataBufferSize - totalSampleCount*sizeof(int32_t)));
-    }
-    else
-    {
-        uint64_t dataSize = totalSampleCount * sizeof(int32_t);
-        if (dataSize > SIZE_MAX) {
-            goto on_error;  // The decoded data is too big.
-        }
-
-        pSampleData = (int32_t*)malloc((size_t)dataSize);    // <-- Safe cast as per the check above.
-        if (pSampleData == NULL) {
-            goto on_error;
-        }
-
-        uint64_t samplesDecoded = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSampleData);
-        if (samplesDecoded != pFlac->totalSampleCount) {
-            free(pSampleData);
-            goto on_error;  // Something went wrong when decoding the FLAC stream.
-        }
-    }
-
-
-    if (sampleRateOut) *sampleRateOut = pFlac->sampleRate;
-    if (channelsOut) *channelsOut = pFlac->channels;
-    if (totalSampleCountOut) *totalSampleCountOut = totalSampleCount;
-
-    drflac_close(pFlac);
-    return pSampleData;
-
-on_error:
-    drflac_close(pFlac);
-    return NULL;
+// Using a macro as the definition of the drflac__full_decode_and_close_*() API family. Sue me.
+#define DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(extension, type) \
+static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalSampleCountOut)     \
+{                                                                                                                                                                   \
+    assert(pFlac != NULL);                                                                                                                                          \
+                                                                                                                                                                    \
+    type* pSampleData = NULL;                                                                                                                                       \
+    uint64_t totalSampleCount = pFlac->totalSampleCount;                                                                                                            \
+                                                                                                                                                                    \
+    if (totalSampleCount == 0)                                                                                                                                      \
+    {                                                                                                                                                               \
+        type buffer[4096];                                                                                                                                          \
+                                                                                                                                                                    \
+        size_t sampleDataBufferSize = sizeof(buffer);                                                                                                               \
+        pSampleData = (type*)malloc(sampleDataBufferSize);                                                                                                          \
+        if (pSampleData == NULL) {                                                                                                                                  \
+            goto on_error;                                                                                                                                          \
+        }                                                                                                                                                           \
+                                                                                                                                                                    \
+        uint64_t samplesRead;                                                                                                                                       \
+        while ((samplesRead = (uint64_t)drflac_read_##extension(pFlac, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0) {                                            \
+            if (((totalSampleCount + samplesRead) * sizeof(type)) > sampleDataBufferSize) {                                                                         \
+                sampleDataBufferSize *= 2;                                                                                                                          \
+                type* pNewSampleData = (type*)realloc(pSampleData, sampleDataBufferSize);                                                                           \
+                if (pNewSampleData == NULL) {                                                                                                                       \
+                    free(pSampleData);                                                                                                                              \
+                    goto on_error;                                                                                                                                  \
+                }                                                                                                                                                   \
+                                                                                                                                                                    \
+                pSampleData = pNewSampleData;                                                                                                                       \
+            }                                                                                                                                                       \
+                                                                                                                                                                    \
+            memcpy(pSampleData + totalSampleCount, buffer, (size_t)(samplesRead*sizeof(type)));                                                                     \
+            totalSampleCount += samplesRead;                                                                                                                        \
+        }                                                                                                                                                           \
+                                                                                                                                                                    \
+        /* At this point everything should be decoded, but we just want to fill the unused part buffer with silence - need to                                       \
+           protect those ears from random noise! */                                                                                                                 \
+        memset(pSampleData + totalSampleCount, 0, (size_t)(sampleDataBufferSize - totalSampleCount*sizeof(type)));                                                  \
+    }                                                                                                                                                               \
+    else                                                                                                                                                            \
+    {                                                                                                                                                               \
+        uint64_t dataSize = totalSampleCount * sizeof(type);                                                                                                        \
+        if (dataSize > SIZE_MAX) {                                                                                                                                  \
+            goto on_error;  /* The decoded data is too big. */                                                                                                      \
+        }                                                                                                                                                           \
+                                                                                                                                                                    \
+        pSampleData = (type*)malloc((size_t)dataSize);    /* <-- Safe cast as per the check above. */                                                               \
+        if (pSampleData == NULL) {                                                                                                                                  \
+            goto on_error;                                                                                                                                          \
+        }                                                                                                                                                           \
+                                                                                                                                                                    \
+        uint64_t samplesDecoded = drflac_read_##extension(pFlac, pFlac->totalSampleCount, pSampleData);                                                             \
+        if (samplesDecoded != pFlac->totalSampleCount) {                                                                                                            \
+            free(pSampleData);                                                                                                                                      \
+            goto on_error;  /* Something went wrong when decoding the FLAC stream. */                                                                               \
+        }                                                                                                                                                           \
+    }                                                                                                                                                               \
+                                                                                                                                                                    \
+    if (sampleRateOut) *sampleRateOut = pFlac->sampleRate;                                                                                                          \
+    if (channelsOut) *channelsOut = pFlac->channels;                                                                                                                \
+    if (totalSampleCountOut) *totalSampleCountOut = totalSampleCount;                                                                                               \
+                                                                                                                                                                    \
+    drflac_close(pFlac);                                                                                                                                            \
+    return pSampleData;                                                                                                                                             \
+                                                                                                                                                                    \
+on_error:                                                                                                                                                           \
+    drflac_close(pFlac);                                                                                                                                            \
+    return NULL;                                                                                                                                                    \
 }
 
-int16_t* drflac__full_decode_and_close_s16(drflac* pFlac, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalSampleCountOut)
-{
-    assert(pFlac != NULL);
-
-    int16_t* pSampleData = NULL;
-    uint64_t totalSampleCount = pFlac->totalSampleCount;
-
-    if (totalSampleCount == 0)
-    {
-        int16_t buffer[4096];
-
-        size_t sampleDataBufferSize = sizeof(buffer);
-        pSampleData = (int16_t*)malloc(sampleDataBufferSize);
-        if (pSampleData == NULL) {
-            goto on_error;
-        }
-
-        uint64_t samplesRead;
-        while ((samplesRead = (uint64_t)drflac_read_s16(pFlac, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0)
-        {
-            if (((totalSampleCount + samplesRead) * sizeof(int16_t)) > sampleDataBufferSize) {
-                sampleDataBufferSize *= 2;
-                int16_t* pNewSampleData = (int16_t*)realloc(pSampleData, sampleDataBufferSize);
-                if (pNewSampleData == NULL) {
-                    free(pSampleData);
-                    goto on_error;
-                }
-
-                pSampleData = pNewSampleData;
-            }
-
-            memcpy(pSampleData + totalSampleCount, buffer, (size_t)(samplesRead*sizeof(int16_t)));
-            totalSampleCount += samplesRead;
-        }
-
-        // At this point everything should be decoded, but we just want to fill the unused part buffer with silence - need to
-        // protect those ears from random noise!
-        memset(pSampleData + totalSampleCount, 0, (size_t)(sampleDataBufferSize - totalSampleCount*sizeof(int16_t)));
-    }
-    else
-    {
-        uint64_t dataSize = totalSampleCount * sizeof(int16_t);
-        if (dataSize > SIZE_MAX) {
-            goto on_error;  // The decoded data is too big.
-        }
-
-        pSampleData = (int16_t*)malloc((size_t)dataSize);    // <-- Safe cast as per the check above.
-        if (pSampleData == NULL) {
-            goto on_error;
-        }
-
-        uint64_t samplesDecoded = drflac_read_s16(pFlac, pFlac->totalSampleCount, pSampleData);
-        if (samplesDecoded != pFlac->totalSampleCount) {
-            free(pSampleData);
-            goto on_error;  // Something went wrong when decoding the FLAC stream.
-        }
-    }
-
-
-    if (sampleRateOut) *sampleRateOut = pFlac->sampleRate;
-    if (channelsOut) *channelsOut = pFlac->channels;
-    if (totalSampleCountOut) *totalSampleCountOut = totalSampleCount;
-
-    drflac_close(pFlac);
-    return pSampleData;
-
-on_error:
-    drflac_close(pFlac);
-    return NULL;
-}
+DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(s32, int32_t)
+DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(s16, int16_t)
+DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(f32, float)
 
 int32_t* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
 {
@@ -4365,6 +4366,21 @@ int16_t* drflac_open_and_decode_s16(drflac_read_proc onRead, drflac_seek_proc on
     return drflac__full_decode_and_close_s16(pFlac, channels, sampleRate, totalSampleCount);
 }
 
+float* drflac_open_and_decode_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
+{
+    // Safety.
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drflac* pFlac = drflac_open(onRead, onSeek, pUserData);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    return drflac__full_decode_and_close_f32(pFlac, channels, sampleRate, totalSampleCount);
+}
+
 #ifndef DR_FLAC_NO_STDIO
 int32_t* drflac_open_and_decode_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
 {
@@ -4392,6 +4408,20 @@ int16_t* drflac_open_and_decode_file_s16(const char* filename, unsigned int* cha
     }
 
     return drflac__full_decode_and_close_s16(pFlac, channels, sampleRate, totalSampleCount);
+}
+
+float* drflac_open_and_decode_file_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drflac* pFlac = drflac_open_file(filename);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    return drflac__full_decode_and_close_f32(pFlac, channels, sampleRate, totalSampleCount);
 }
 #endif
 
@@ -4421,6 +4451,20 @@ int16_t* drflac_open_and_decode_memory_s16(const void* data, size_t dataSize, un
     }
 
     return drflac__full_decode_and_close_s16(pFlac, channels, sampleRate, totalSampleCount);
+}
+
+float* drflac_open_and_decode_memory_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drflac* pFlac = drflac_open_memory(data, dataSize);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    return drflac__full_decode_and_close_f32(pFlac, channels, sampleRate, totalSampleCount);
 }
 
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode)
@@ -4464,6 +4508,10 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, ui
 
 
 // REVISION HISTORY
+//
+// v0.4d - 2016-12-*
+//   - Add support for 32-bit floating-point PCM decoding.
+//   - Minor improvements to documentation.
 //
 // v0.4c - 2016-12-26
 //   - Add support for signed 16-bit integer PCM decoding.
