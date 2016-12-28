@@ -173,13 +173,11 @@
 #ifndef _LARGEFILE64_SOURCE
 #define _LARGEFILE64_SOURCE
 #endif
-
 #ifndef _FILE_OFFSET_BITS
 #define _FILE_OFFSET_BITS 64
 #endif
 #endif
 
-#include <stdint.h>
 #include <stddef.h>
 
 #ifndef DR_SIZED_TYPES_DEFINED
@@ -288,9 +286,9 @@ typedef drfs_result (* drfs_open_file_proc)         (drfs_handle archive, const 
 typedef void        (* drfs_close_file_proc)        (drfs_handle archive, drfs_handle file);
 typedef drfs_result (* drfs_read_file_proc)         (drfs_handle archive, drfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
 typedef drfs_result (* drfs_write_file_proc)        (drfs_handle archive, drfs_handle file, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
-typedef drfs_result (* drfs_seek_file_proc)         (drfs_handle archive, drfs_handle file, int64_t bytesToSeek, drfs_seek_origin origin);
-typedef uint64_t    (* drfs_tell_file_proc)         (drfs_handle archive, drfs_handle file);
-typedef uint64_t    (* drfs_file_size_proc)         (drfs_handle archive, drfs_handle file);
+typedef drfs_result (* drfs_seek_file_proc)         (drfs_handle archive, drfs_handle file, dr_int64 bytesToSeek, drfs_seek_origin origin);
+typedef dr_uint64    (* drfs_tell_file_proc)         (drfs_handle archive, drfs_handle file);
+typedef dr_uint64    (* drfs_file_size_proc)         (drfs_handle archive, drfs_handle file);
 typedef void        (* drfs_flush_file_proc)        (drfs_handle archive, drfs_handle file);
 
 typedef struct
@@ -324,10 +322,10 @@ struct drfs_file_info
     char absolutePath[DRFS_MAX_PATH];
 
     // The size of the file, in bytes.
-    uint64_t sizeInBytes;
+    dr_uint64 sizeInBytes;
 
     // The time the file was last modified.
-    uint64_t lastModifiedTime;
+    dr_uint64 lastModifiedTime;
 
     // File attributes.
     unsigned int attributes;
@@ -466,13 +464,13 @@ drfs_result drfs_read(drfs_file* pFile, void* pDataOut, size_t bytesToRead, size
 drfs_result drfs_write(drfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
 
 // Seeks the file pointer by the given number of bytes, relative to the specified origin.
-drfs_result drfs_seek(drfs_file* pFile, int64_t bytesToSeek, drfs_seek_origin origin);
+drfs_result drfs_seek(drfs_file* pFile, dr_int64 bytesToSeek, drfs_seek_origin origin);
 
 // Retrieves the current position of the file pointer.
-uint64_t drfs_tell(drfs_file* pFile);
+dr_uint64 drfs_tell(drfs_file* pFile);
 
 // Retrieves the size of the given file.
-uint64_t drfs_size(drfs_file* pFile);
+dr_uint64 drfs_size(drfs_file* pFile);
 
 // Flushes the given file.
 void drfs_flush(drfs_file* pFile);
@@ -493,13 +491,13 @@ drfs_result drfs_read_nolock(drfs_file* pFile, void* pDataOut, size_t bytesToRea
 drfs_result drfs_write_nolock(drfs_file* pFile, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
 
 // Unlocked drfs_seek() - should only be called inside a drfs_lock()/drfs_unlock() pair.
-drfs_result drfs_seek_nolock(drfs_file* pFile, int64_t bytesToSeek, drfs_seek_origin origin);
+drfs_result drfs_seek_nolock(drfs_file* pFile, dr_int64 bytesToSeek, drfs_seek_origin origin);
 
 // Unlocked drfs_tell() - should only be called inside a drfs_lock()/drfs_unlock() pair.
-uint64_t drfs_tell_nolock(drfs_file* pFile);
+dr_uint64 drfs_tell_nolock(drfs_file* pFile);
 
 // Unlocked drfs_size() - should only be called inside a drfs_lock()/drfs_unlock() pair.
-uint64_t drfs_size_nolock(drfs_file* pFile);
+dr_uint64 drfs_size_nolock(drfs_file* pFile);
 
 
 // Retrieves information about the file at the given path.
@@ -1732,13 +1730,13 @@ static drfs_result drfs_read_native_file(drfs_handle file, void* pDataOut, size_
 static drfs_result drfs_write_native_file(drfs_handle file, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
 
 // Seeks the given native file.
-static drfs_result drfs_seek_native_file(drfs_handle file, int64_t bytesToSeek, drfs_seek_origin origin);
+static drfs_result drfs_seek_native_file(drfs_handle file, dr_int64 bytesToSeek, drfs_seek_origin origin);
 
 // Retrieves the read/write pointer of the given native file.
-static uint64_t drfs_tell_native_file(drfs_handle file);
+static dr_uint64 drfs_tell_native_file(drfs_handle file);
 
 // Retrieves the size of the given native file.
-static uint64_t drfs_get_native_file_size(drfs_handle file);
+static dr_uint64 drfs_get_native_file_size(drfs_handle file);
 
 // Flushes the given native file.
 static void drfs_flush_native_file(drfs_handle file);
@@ -1909,7 +1907,7 @@ static drfs_result drfs_read_native_file(drfs_handle file, void* pDataOut, size_
     size_t totalBytesRead = 0;
 
     char* pDst = (char*)pDataOut;
-    uint64_t bytesRemaining = bytesToRead;
+    dr_uint64 bytesRemaining = bytesToRead;
     while (bytesRemaining > 0)
     {
         DWORD bytesToProcess;
@@ -1991,7 +1989,7 @@ static drfs_result drfs_write_native_file(drfs_handle file, const void* pData, s
     return drfs_success;;
 }
 
-static drfs_result drfs_seek_native_file(drfs_handle file, int64_t bytesToSeek, drfs_seek_origin origin)
+static drfs_result drfs_seek_native_file(drfs_handle file, dr_int64 bytesToSeek, drfs_seek_origin origin)
 {
     LARGE_INTEGER lNewFilePointer;
     LARGE_INTEGER lDistanceToMove;
@@ -2012,24 +2010,24 @@ static drfs_result drfs_seek_native_file(drfs_handle file, int64_t bytesToSeek, 
     return drfs_success;
 }
 
-static uint64_t drfs_tell_native_file(drfs_handle file)
+static dr_uint64 drfs_tell_native_file(drfs_handle file)
 {
     LARGE_INTEGER lNewFilePointer;
     LARGE_INTEGER lDistanceToMove;
     lDistanceToMove.QuadPart = 0;
 
     if (SetFilePointerEx((HANDLE)file, lDistanceToMove, &lNewFilePointer, FILE_CURRENT)) {
-        return (uint64_t)lNewFilePointer.QuadPart;
+        return (dr_uint64)lNewFilePointer.QuadPart;
     }
 
     return 0;
 }
 
-static uint64_t drfs_get_native_file_size(drfs_handle file)
+static dr_uint64 drfs_get_native_file_size(drfs_handle file)
 {
     LARGE_INTEGER fileSize;
     if (GetFileSizeEx((HANDLE)file, &fileSize)) {
-        return (uint64_t)fileSize.QuadPart;
+        return (dr_uint64)fileSize.QuadPart;
     }
 
     return 0;
@@ -2483,7 +2481,7 @@ static drfs_result drfs_write_native_file(drfs_handle file, const void* pData, s
     return result;
 }
 
-static drfs_result drfs_seek_native_file(drfs_handle file, int64_t bytesToSeek, drfs_seek_origin origin)
+static drfs_result drfs_seek_native_file(drfs_handle file, dr_int64 bytesToSeek, drfs_seek_origin origin)
 {
     int stdioOrigin = SEEK_CUR;
     if (origin == drfs_origin_start) {
@@ -2499,12 +2497,12 @@ static drfs_result drfs_seek_native_file(drfs_handle file, int64_t bytesToSeek, 
     return drfs_success;
 }
 
-static uint64_t drfs_tell_native_file(drfs_handle file)
+static dr_uint64 drfs_tell_native_file(drfs_handle file)
 {
     return lseek64(DRFS_HANDLE_TO_FD(file), 0, SEEK_CUR);
 }
 
-static uint64_t drfs_get_native_file_size(drfs_handle file)
+static dr_uint64 drfs_get_native_file_size(drfs_handle file)
 {
     struct stat64 info;
     if (drfs__fstat64(DRFS_HANDLE_TO_FD(file), &info) != 0) {
@@ -2884,7 +2882,7 @@ static drfs_result drfs_write_file__native(drfs_handle archive, drfs_handle file
     return drfs_write_native_file(file, pData, bytesToWrite, pBytesWrittenOut);
 }
 
-static drfs_result drfs_seek_file__native(drfs_handle archive, drfs_handle file, int64_t bytesToSeek, drfs_seek_origin origin)
+static drfs_result drfs_seek_file__native(drfs_handle archive, drfs_handle file, dr_int64 bytesToSeek, drfs_seek_origin origin)
 {
     (void)archive;
     assert(archive != NULL);
@@ -2893,7 +2891,7 @@ static drfs_result drfs_seek_file__native(drfs_handle archive, drfs_handle file,
     return drfs_seek_native_file(file, bytesToSeek, origin);
 }
 
-static uint64_t drfs_tell_file__native(drfs_handle archive, drfs_handle file)
+static dr_uint64 drfs_tell_file__native(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
     assert(archive != NULL);
@@ -2902,7 +2900,7 @@ static uint64_t drfs_tell_file__native(drfs_handle archive, drfs_handle file)
     return drfs_tell_native_file(file);
 }
 
-static uint64_t drfs_file_size__native(drfs_handle archive, drfs_handle file)
+static dr_uint64 drfs_file_size__native(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
     assert(archive != NULL);
@@ -4008,7 +4006,7 @@ drfs_result drfs_write(drfs_file* pFile, const void* pData, size_t bytesToWrite,
     return result;
 }
 
-drfs_result drfs_seek_nolock(drfs_file* pFile, int64_t bytesToSeek, drfs_seek_origin origin)
+drfs_result drfs_seek_nolock(drfs_file* pFile, dr_int64 bytesToSeek, drfs_seek_origin origin)
 {
     if (pFile == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.seek_file == NULL) {
         return drfs_invalid_args;
@@ -4017,7 +4015,7 @@ drfs_result drfs_seek_nolock(drfs_file* pFile, int64_t bytesToSeek, drfs_seek_or
     return pFile->pArchive->callbacks.seek_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle, bytesToSeek, origin);
 }
 
-drfs_result drfs_seek(drfs_file* pFile, int64_t bytesToSeek, drfs_seek_origin origin)
+drfs_result drfs_seek(drfs_file* pFile, dr_int64 bytesToSeek, drfs_seek_origin origin)
 {
     if (!drfs_lock(pFile)) {
         return drfs_unknown_error;
@@ -4029,7 +4027,7 @@ drfs_result drfs_seek(drfs_file* pFile, int64_t bytesToSeek, drfs_seek_origin or
     return result;
 }
 
-uint64_t drfs_tell_nolock(drfs_file* pFile)
+dr_uint64 drfs_tell_nolock(drfs_file* pFile)
 {
     if (pFile == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.tell_file == NULL) {
         return DR_FALSE;
@@ -4038,19 +4036,19 @@ uint64_t drfs_tell_nolock(drfs_file* pFile)
     return pFile->pArchive->callbacks.tell_file(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle);
 }
 
-uint64_t drfs_tell(drfs_file* pFile)
+dr_uint64 drfs_tell(drfs_file* pFile)
 {
     if (!drfs_lock(pFile)) {
         return 0;
     }
 
-    uint64_t result = drfs_tell_nolock(pFile);
+    dr_uint64 result = drfs_tell_nolock(pFile);
 
     drfs_unlock(pFile);
     return result;
 }
 
-uint64_t drfs_size_nolock(drfs_file* pFile)
+dr_uint64 drfs_size_nolock(drfs_file* pFile)
 {
     if (pFile == NULL || pFile->pArchive == NULL || pFile->pArchive->callbacks.file_size == NULL) {
         return 0;
@@ -4059,13 +4057,13 @@ uint64_t drfs_size_nolock(drfs_file* pFile)
     return pFile->pArchive->callbacks.file_size(pFile->pArchive->internalArchiveHandle, pFile->internalFileHandle);
 }
 
-uint64_t drfs_size(drfs_file* pFile)
+dr_uint64 drfs_size(drfs_file* pFile)
 {
     if (!drfs_lock(pFile)) {
         return DR_FALSE;
     }
 
-    uint64_t result = drfs_size_nolock(pFile);
+    dr_uint64 result = drfs_size_nolock(pFile);
 
     drfs_unlock(pFile);
     return result;
@@ -4531,7 +4529,7 @@ void* drfs_open_and_read_binary_file(drfs_context* pContext, const char* absolut
         return NULL;
     }
 
-    uint64_t fileSize = drfs_size(pFile);
+    dr_uint64 fileSize = drfs_size(pFile);
     if (fileSize > SIZE_MAX)
     {
         // File's too big.
@@ -4576,7 +4574,7 @@ char* drfs_open_and_read_text_file(drfs_context* pContext, const char* absoluteO
         return NULL;
     }
 
-    uint64_t fileSize = drfs_size(pFile);
+    dr_uint64 fileSize = drfs_size(pFile);
     if (fileSize > SIZE_MAX)
     {
         // File's too big.
@@ -6286,7 +6284,7 @@ static size_t drfs_drfs_mz_file_read_func(void *pOpaque, drfs_mz_uint64 file_ofs
         return 0;
     }
 
-    drfs_seek_nolock(pZipFile, (int64_t)file_ofs, drfs_origin_start);
+    drfs_seek_nolock(pZipFile, (dr_int64)file_ofs, drfs_origin_start);
 
     size_t bytesRead;
     drfs_result result = drfs_read_nolock(pZipFile, pBuf, (unsigned int)n, &bytesRead);
@@ -6399,7 +6397,7 @@ static drfs_result drfs_get_file_info__zip(drfs_handle archive, const char* rela
         {
             drfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
             fi->sizeInBytes      = zipStat.m_uncomp_size;
-            fi->lastModifiedTime = (uint64_t)zipStat.m_time;
+            fi->lastModifiedTime = (dr_uint64)zipStat.m_time;
             fi->attributes       = DRFS_FILE_ATTRIBUTE_READONLY;
             if (drfs_mz_zip_reader_is_file_a_directory(pZip, (drfs_mz_uint)fileIndex)) {
                 fi->attributes |= DRFS_FILE_ATTRIBUTE_DIRECTORY;
@@ -6507,7 +6505,7 @@ static dr_bool32 drfs_next_iteration__zip(drfs_handle archive, drfs_handle itera
                     {
                         drfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), filePath);
                         fi->sizeInBytes      = zipStat.m_uncomp_size;
-                        fi->lastModifiedTime = (uint64_t)zipStat.m_time;
+                        fi->lastModifiedTime = (dr_uint64)zipStat.m_time;
                         fi->attributes       = DRFS_FILE_ATTRIBUTE_READONLY;
                         if (drfs_mz_zip_reader_is_file_a_directory(pZip, iFile)) {
                             fi->attributes |= DRFS_FILE_ATTRIBUTE_DIRECTORY;
@@ -6634,7 +6632,7 @@ static drfs_result drfs_write_file__zip(drfs_handle archive, drfs_handle file, c
     return drfs_permission_denied;
 }
 
-static drfs_result drfs_seek_file__zip(drfs_handle archive, drfs_handle file, int64_t bytesToSeek, drfs_seek_origin origin)
+static drfs_result drfs_seek_file__zip(drfs_handle archive, drfs_handle file, dr_int64 bytesToSeek, drfs_seek_origin origin)
 {
     (void)archive;
 
@@ -6646,12 +6644,12 @@ static drfs_result drfs_seek_file__zip(drfs_handle archive, drfs_handle file, in
         return drfs_invalid_args;
     }
 
-    uint64_t newPos = pOpenedFile->readPointer;
+    dr_uint64 newPos = pOpenedFile->readPointer;
     if (origin == drfs_origin_current)
     {
-        if ((int64_t)newPos + bytesToSeek >= 0)
+        if ((dr_int64)newPos + bytesToSeek >= 0)
         {
-            newPos = (uint64_t)((int64_t)newPos + bytesToSeek);
+            newPos = (dr_uint64)((dr_int64)newPos + bytesToSeek);
         }
         else
         {
@@ -6662,14 +6660,14 @@ static drfs_result drfs_seek_file__zip(drfs_handle archive, drfs_handle file, in
     else if (origin == drfs_origin_start)
     {
         assert(bytesToSeek >= 0);
-        newPos = (uint64_t)bytesToSeek;
+        newPos = (dr_uint64)bytesToSeek;
     }
     else if (origin == drfs_origin_end)
     {
         assert(bytesToSeek >= 0);
-        if ((uint64_t)bytesToSeek <= pOpenedFile->sizeInBytes)
+        if ((dr_uint64)bytesToSeek <= pOpenedFile->sizeInBytes)
         {
-            newPos = pOpenedFile->sizeInBytes - (uint64_t)bytesToSeek;
+            newPos = pOpenedFile->sizeInBytes - (dr_uint64)bytesToSeek;
         }
         else
         {
@@ -6692,7 +6690,7 @@ static drfs_result drfs_seek_file__zip(drfs_handle archive, drfs_handle file, in
     return drfs_success;
 }
 
-static uint64_t drfs_tell_file__zip(drfs_handle archive, drfs_handle file)
+static dr_uint64 drfs_tell_file__zip(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
@@ -6702,7 +6700,7 @@ static uint64_t drfs_tell_file__zip(drfs_handle archive, drfs_handle file)
     return pOpenedFile->readPointer;
 }
 
-static uint64_t drfs_file_size__zip(drfs_handle archive, drfs_handle file)
+static dr_uint64 drfs_file_size__zip(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
@@ -7050,7 +7048,7 @@ static drfs_result drfs_get_file_info__pak(drfs_handle archive, const char* rela
         {
             // It's a file.
             drfs__strcpy_s(fi->absolutePath, sizeof(fi->absolutePath), relativePath);
-            fi->sizeInBytes      = (uint64_t)pFile->sizeInBytes;
+            fi->sizeInBytes      = (dr_uint64)pFile->sizeInBytes;
             fi->lastModifiedTime = 0;
             fi->attributes       = DRFS_FILE_ATTRIBUTE_READONLY;
 
@@ -7116,7 +7114,7 @@ static dr_bool32 drfs_next_iteration__pak(drfs_handle archive, drfs_handle itera
         {
             // It's a file.
             drfs__strcpy_s(fi->absolutePath, DRFS_MAX_PATH, pFile->name);
-            fi->sizeInBytes      = (uint64_t)pFile->sizeInBytes;
+            fi->sizeInBytes      = (dr_uint64)pFile->sizeInBytes;
             fi->lastModifiedTime = 0;
             fi->attributes       = DRFS_FILE_ATTRIBUTE_READONLY;
 
@@ -7223,7 +7221,7 @@ static drfs_result drfs_read_file__pak(drfs_handle archive, drfs_handle file, vo
         return drfs_unknown_error;
     }
 
-    drfs_seek_nolock(pak->pArchiveFile, (int64_t)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), drfs_origin_start);
+    drfs_seek_nolock(pak->pArchiveFile, (dr_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), drfs_origin_start);
     drfs_result result = drfs_read_nolock(pak->pArchiveFile, pDataOut, bytesToRead, pBytesReadOut);
     if (result == drfs_success) {
         pOpenedFile->readPointer += bytesToRead;
@@ -7253,27 +7251,27 @@ static drfs_result drfs_write_file__pak(drfs_handle archive, drfs_handle file, c
     return drfs_permission_denied;
 }
 
-static drfs_result drfs_seek_file__pak(drfs_handle archive, drfs_handle file, int64_t bytesToSeek, drfs_seek_origin origin)
+static drfs_result drfs_seek_file__pak(drfs_handle archive, drfs_handle file, dr_int64 bytesToSeek, drfs_seek_origin origin)
 {
     (void)archive;
 
     drfs_openedfile_pak* pOpenedFile = (drfs_openedfile_pak*)file;
     assert(pOpenedFile != NULL);
 
-    uint64_t newPos = pOpenedFile->readPointer;
+    dr_uint64 newPos = pOpenedFile->readPointer;
     if (origin == drfs_origin_current) {
-        if ((int64_t)newPos + bytesToSeek >= 0) {
-            newPos = (uint64_t)((int64_t)newPos + bytesToSeek);
+        if ((dr_int64)newPos + bytesToSeek >= 0) {
+            newPos = (dr_uint64)((dr_int64)newPos + bytesToSeek);
         } else {
             return drfs_invalid_args;   // Trying to seek to before the beginning of the file.
         }
     } else if (origin == drfs_origin_start) {
         assert(bytesToSeek >= 0);
-        newPos = (uint64_t)bytesToSeek;
+        newPos = (dr_uint64)bytesToSeek;
     } else if (origin == drfs_origin_end) {
         assert(bytesToSeek >= 0);
-        if ((uint64_t)bytesToSeek <= pOpenedFile->sizeInBytes) {
-            newPos = pOpenedFile->sizeInBytes - (uint64_t)bytesToSeek;
+        if ((dr_uint64)bytesToSeek <= pOpenedFile->sizeInBytes) {
+            newPos = pOpenedFile->sizeInBytes - (dr_uint64)bytesToSeek;
         } else {
             return drfs_invalid_args;   // Trying to seek to before the beginning of the file.
         }
@@ -7290,7 +7288,7 @@ static drfs_result drfs_seek_file__pak(drfs_handle archive, drfs_handle file, in
     return drfs_success;
 }
 
-static uint64_t drfs_tell_file__pak(drfs_handle archive, drfs_handle file)
+static dr_uint64 drfs_tell_file__pak(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
@@ -7300,7 +7298,7 @@ static uint64_t drfs_tell_file__pak(drfs_handle archive, drfs_handle file)
     return pOpenedFile->readPointer;
 }
 
-static uint64_t drfs_file_size__pak(drfs_handle archive, drfs_handle file)
+static dr_uint64 drfs_file_size__pak(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
@@ -7362,10 +7360,10 @@ static void drfs_register_pak_backend(drfs_context* pContext)
 typedef struct
 {
     // The byte offset within the archive
-    uint64_t offset;
+    dr_uint64 offset;
 
     // The size of the file, in bytes.
-    uint64_t sizeInBytes;
+    dr_uint64 sizeInBytes;
 
     // The name of the material. The specification says this can be any length, but we're going to clamp it to 255 + null terminator which should be fine.
     char name[256];
@@ -7398,13 +7396,13 @@ typedef struct
 typedef struct
 {
     // The offset within the archive file the first byte of the file is located.
-    uint64_t offsetInArchive;
+    dr_uint64 offsetInArchive;
 
     // The size of the file in bytes so we can guard against overflowing reads.
-    uint64_t sizeInBytes;
+    dr_uint64 sizeInBytes;
 
     // The current position of the file's read pointer.
-    uint64_t readPointer;
+    dr_uint64 readPointer;
 
 }drfs_openedfile_mtl;
 
@@ -7455,8 +7453,8 @@ static void drfs_mtl_addfile(drfs_archive_mtl* pArchive, drfs_file_mtl* pFile)
 
 typedef struct
 {
-    uint64_t archiveSizeInBytes;
-    uint64_t bytesRemaining;
+    dr_uint64 archiveSizeInBytes;
+    dr_uint64 bytesRemaining;
     drfs_file*  pFile;
     char*          chunkPointer;
     char*          chunkEnd;
@@ -7664,7 +7662,7 @@ static drfs_result drfs_open_archive__mtl(drfs_file* pArchiveFile, unsigned int 
             ptrdiff_t bytesRemainingInChunk = state.chunkEnd - state.chunkPointer;
             assert(bytesRemainingInChunk > 0);
 
-            uint64_t newmtlOffset = state.archiveSizeInBytes - state.bytesRemaining - ((uint64_t)bytesRemainingInChunk);
+            dr_uint64 newmtlOffset = state.archiveSizeInBytes - state.bytesRemaining - ((dr_uint64)bytesRemainingInChunk);
 
             if (drfs_mtl_loadnewmtl(&state))
             {
@@ -7866,7 +7864,7 @@ static drfs_result drfs_read_file__mtl(drfs_handle archive, drfs_handle file, vo
     // The read pointer should never go past the file size.
     assert(pOpenedFile->sizeInBytes >= pOpenedFile->readPointer);
 
-    uint64_t bytesAvailable = pOpenedFile->sizeInBytes - pOpenedFile->readPointer;
+    dr_uint64 bytesAvailable = pOpenedFile->sizeInBytes - pOpenedFile->readPointer;
     if (bytesAvailable < bytesToRead) {
         bytesToRead = (size_t)bytesAvailable;     // Safe cast, as per the check above.
     }
@@ -7875,7 +7873,7 @@ static drfs_result drfs_read_file__mtl(drfs_handle archive, drfs_handle file, vo
         return drfs_unknown_error;
     }
 
-    drfs_seek_nolock(mtl->pArchiveFile, (int64_t)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), drfs_origin_start);
+    drfs_seek_nolock(mtl->pArchiveFile, (dr_int64)(pOpenedFile->offsetInArchive + pOpenedFile->readPointer), drfs_origin_start);
     drfs_result result = drfs_read_nolock(mtl->pArchiveFile, pDataOut, bytesToRead, pBytesReadOut);
     if (result == drfs_success) {
         pOpenedFile->readPointer += bytesToRead;
@@ -7904,27 +7902,27 @@ static drfs_result drfs_write_file__mtl(drfs_handle archive, drfs_handle file, c
     return drfs_success;
 }
 
-static drfs_result drfs_seek_file__mtl(drfs_handle archive, drfs_handle file, int64_t bytesToSeek, drfs_seek_origin origin)
+static drfs_result drfs_seek_file__mtl(drfs_handle archive, drfs_handle file, dr_int64 bytesToSeek, drfs_seek_origin origin)
 {
     (void)archive;
 
     drfs_openedfile_mtl* pOpenedFile = (drfs_openedfile_mtl*)file;
     assert(pOpenedFile != NULL);
 
-    uint64_t newPos = pOpenedFile->readPointer;
+    dr_uint64 newPos = pOpenedFile->readPointer;
     if (origin == drfs_origin_current) {
-        if ((int64_t)newPos + bytesToSeek >= 0) {
-            newPos = (uint64_t)((int64_t)newPos + bytesToSeek);
+        if ((dr_int64)newPos + bytesToSeek >= 0) {
+            newPos = (dr_uint64)((dr_int64)newPos + bytesToSeek);
         } else {
             return drfs_invalid_args;   // Trying to seek to before the beginning of the file.
         }
     } else if (origin == drfs_origin_start) {
         assert(bytesToSeek >= 0);
-        newPos = (uint64_t)bytesToSeek;
+        newPos = (dr_uint64)bytesToSeek;
     } else if (origin == drfs_origin_end) {
         assert(bytesToSeek >= 0);
-        if ((uint64_t)bytesToSeek <= pOpenedFile->sizeInBytes) {
-            newPos = pOpenedFile->sizeInBytes - (uint64_t)bytesToSeek;
+        if ((dr_uint64)bytesToSeek <= pOpenedFile->sizeInBytes) {
+            newPos = pOpenedFile->sizeInBytes - (dr_uint64)bytesToSeek;
         } else {
             return drfs_invalid_args;   // Trying to seek to before the beginning of the file.
         }
@@ -7941,7 +7939,7 @@ static drfs_result drfs_seek_file__mtl(drfs_handle archive, drfs_handle file, in
     return drfs_success;
 }
 
-static uint64_t drfs_tell_file__mtl(drfs_handle archive, drfs_handle file)
+static dr_uint64 drfs_tell_file__mtl(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 
@@ -7951,7 +7949,7 @@ static uint64_t drfs_tell_file__mtl(drfs_handle archive, drfs_handle file)
     return pOpenedFile->readPointer;
 }
 
-static uint64_t drfs_file_size__mtl(drfs_handle archive, drfs_handle file)
+static dr_uint64 drfs_file_size__mtl(drfs_handle archive, drfs_handle file)
 {
     (void)archive;
 

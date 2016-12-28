@@ -139,7 +139,7 @@
 //       return -1;
 //   }
 //
-//   uint64_t samplesRead = dra_decoder_read_f32(&decoder, samplesToRead, pSamples);
+//   dr_uint64 samplesRead = dra_decoder_read_f32(&decoder, samplesToRead, pSamples);
 //   update_my_voice_data(pVoice, pSamples, samplesRead);
 //
 //   dra_decoder_close(&decoder);
@@ -168,7 +168,6 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include <stddef.h>
 
 #ifndef DR_SIZED_TYPES_DEFINED
@@ -266,14 +265,14 @@ typedef void* dra_thread;
 typedef void* dra_mutex;
 typedef void* dra_semaphore;
 
-typedef void (* dra_event_proc)            (uint64_t eventID, void* pUserData);
+typedef void (* dra_event_proc)            (dr_uint64 eventID, void* pUserData);
 typedef void (* dra_samples_processed_proc)(dra_device* pDevice, const size_t sampleCount, const float* pSamples, void* pUserData);
 
 typedef struct
 {
-    uint64_t id;
+    dr_uint64 id;
     void* pUserData;
-    uint64_t sampleIndex;
+    dr_uint64 sampleIndex;
     dra_event_proc proc;
     dra_voice* pVoice;
     dr_bool32 hasBeenSignaled;
@@ -369,7 +368,7 @@ struct dra_mixer
     dra_device* pDevice;
 
     // Whether or not the mixer is paused.
-    uint32_t flags;
+    dr_uint32 flags;
 
 
     // The parent mixer.
@@ -455,11 +454,11 @@ struct dra_voice
 
 
     // The total number of frames in the voice.
-    uint64_t frameCount;
+    dr_uint64 frameCount;
 
     // The current read position, in frames. An important detail with this is that it's based on the sample rate of the
     // device, not the voice.
-    uint64_t currentReadPos;
+    dr_uint64 currentReadPos;
 
 
     // A buffer for storing converted frames. This is used by dra_voice__next_frame(). As frames are converted to
@@ -478,7 +477,7 @@ struct dra_voice
         {
             struct
             {
-                uint64_t prevFrameIndex;
+                dr_uint64 prevFrameIndex;
                 float prevFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
                 float nextFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
             } linear;
@@ -508,7 +507,7 @@ struct dra_voice
 
     // The actual buffer containing the raw audio data in it's native format. At mix time the data will be converted
     // to floats.
-    uint8_t pData[1];
+    dr_uint8 pData[1];
 };
 
 
@@ -667,21 +666,21 @@ float dra_voice_get_volume(dra_voice* pVoice);
 
 void dra_voice_set_on_stop(dra_voice* pVoice, dra_event_proc proc, void* pUserData);
 void dra_voice_set_on_play(dra_voice* pVoice, dra_event_proc proc, void* pUserData);
-dr_bool32 dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_event_proc proc, void* pUserData);
-void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID);
+dr_bool32 dra_voice_add_playback_event(dra_voice* pVoice, dr_uint64 sampleIndex, dr_uint64 eventID, dra_event_proc proc, void* pUserData);
+void dra_voice_remove_playback_event(dra_voice* pVoice, dr_uint64 eventID);
 
 // dra_voice_get_playback_position()
-uint64_t dra_voice_get_playback_position(dra_voice* pVoice);
+dr_uint64 dra_voice_get_playback_position(dra_voice* pVoice);
 
 // dra_voice_set_playback_position()
-void dra_voice_set_playback_position(dra_voice* pVoice, uint64_t sampleIndex);
+void dra_voice_set_playback_position(dra_voice* pVoice, dr_uint64 sampleIndex);
 
 
 // dra_voice_get_buffer_ptr_by_sample()
-void* dra_voice_get_buffer_ptr_by_sample(dra_voice* pVoice, uint64_t sample);
+void* dra_voice_get_buffer_ptr_by_sample(dra_voice* pVoice, dr_uint64 sample);
 
 // dra_voice_write_silence()
-void dra_voice_write_silence(dra_voice* pVoice, uint64_t sampleOffset, uint64_t sampleCount);
+void dra_voice_write_silence(dra_voice* pVoice, dr_uint64 sampleOffset, dr_uint64 sampleCount);
 
 
 //// Other APIs ////
@@ -708,12 +707,12 @@ typedef size_t   (* dra_decoder_on_read_proc) (void* pUserData, void* pDataOut, 
 typedef dr_bool32 (* dra_decoder_on_seek_proc) (void* pUserData, int offset, dra_seek_origin origin);
 
 typedef void     (* dra_decoder_on_delete_proc)       (void* pBackendDecoder);
-typedef uint64_t (* dra_decoder_on_read_samples_proc) (void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut);
-typedef dr_bool32 (* dra_decoder_on_seek_samples_proc) (void* pBackendDecoder, uint64_t sample);
+typedef dr_uint64 (* dra_decoder_on_read_samples_proc) (void* pBackendDecoder, dr_uint64 samplesToRead, float* pSamplesOut);
+typedef dr_bool32 (* dra_decoder_on_seek_samples_proc) (void* pBackendDecoder, dr_uint64 sample);
 
 typedef struct
 {
-    const uint8_t* data;
+    const dr_uint8* data;
     size_t dataSize;
     size_t currentReadPos;
 } dra__memory_stream;
@@ -722,7 +721,7 @@ typedef struct
 {
     unsigned int channels;
     unsigned int sampleRate;
-    uint64_t totalSampleCount;  // <-- Can be 0.
+    dr_uint64 totalSampleCount;  // <-- Can be 0.
 
     dra_decoder_on_read_proc onRead;
     dra_decoder_on_seek_proc onSeek;
@@ -739,24 +738,24 @@ typedef struct
 
 // dra_decoder_open()
 dra_result dra_decoder_open(dra_decoder* pDecoder, dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData);
-float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 
 dra_result dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize);
-float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 
 #ifndef DR_AUDIO_NO_STDIO
 dra_result dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath);
-float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount);
+float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 #endif
 
 // dra_decoder_close()
 void dra_decoder_close(dra_decoder* pDecoder);
 
 // dra_decoder_read_f32()
-uint64_t dra_decoder_read_f32(dra_decoder* pDecoder, uint64_t samplesToRead, float* pSamplesOut);
+dr_uint64 dra_decoder_read_f32(dra_decoder* pDecoder, dr_uint64 samplesToRead, float* pSamplesOut);
 
 // dra_decoder_seek_to_sample()
-dr_bool32 dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample);
+dr_bool32 dra_decoder_seek_to_sample(dra_decoder* pDecoder, dr_uint64 sample);
 
 
 //// High Level Helper APIs ////
@@ -775,8 +774,8 @@ typedef struct dra_sound dra_sound;
 typedef struct dra_sound_desc dra_sound_desc;
 
 typedef void     (* dra_sound_on_delete_proc) (dra_sound* pSound);
-typedef uint64_t (* dra_sound_on_read_proc)   (dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut);
-typedef dr_bool32 (* dra_sound_on_seek_proc)   (dra_sound* pSound, uint64_t sample);
+typedef dr_uint64 (* dra_sound_on_read_proc)   (dra_sound* pSound, dr_uint64 samplesToRead, void* pSamplesOut);
+typedef dr_bool32 (* dra_sound_on_seek_proc)   (dra_sound* pSound, dr_uint64 sample);
 
 struct dra_sound_desc
 {
@@ -3668,7 +3667,7 @@ void dra_f32_to_f32(float* pOut, const float* pIn, size_t sampleCount)
     memcpy(pOut, pIn, sampleCount * sizeof(float));
 }
 
-void dra_s32_to_f32(float* pOut, const int32_t* pIn, size_t sampleCount)
+void dra_s32_to_f32(float* pOut, const dr_int32* pIn, size_t sampleCount)
 {
     // TODO: Try SSE-ifying this.
     for (size_t i = 0; i < sampleCount; ++i) {
@@ -3676,20 +3675,20 @@ void dra_s32_to_f32(float* pOut, const int32_t* pIn, size_t sampleCount)
     }
 }
 
-void dra_s24_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount)
+void dra_s24_to_f32(float* pOut, const dr_uint8* pIn, size_t sampleCount)
 {
     // TODO: Try SSE-ifying this.
     for (size_t i = 0; i < sampleCount; ++i) {
-        uint8_t s0 = pIn[i*3 + 0];
-        uint8_t s1 = pIn[i*3 + 1];
-        uint8_t s2 = pIn[i*3 + 2];
+        dr_uint8 s0 = pIn[i*3 + 0];
+        dr_uint8 s1 = pIn[i*3 + 1];
+        dr_uint8 s2 = pIn[i*3 + 2];
 
-        int32_t sample32 = (int32_t)((s0 << 8) | (s1 << 16) | (s2 << 24));
+        dr_int32 sample32 = (dr_int32)((s0 << 8) | (s1 << 16) | (s2 << 24));
         pOut[i] = sample32 / 2147483648.0f;
     }
 }
 
-void dra_s16_to_f32(float* pOut, const int16_t* pIn, size_t sampleCount)
+void dra_s16_to_f32(float* pOut, const dr_int16* pIn, size_t sampleCount)
 {
     // TODO: Try SSE-ifying this.
     for (size_t i = 0; i < sampleCount; ++i) {
@@ -3697,7 +3696,7 @@ void dra_s16_to_f32(float* pOut, const int16_t* pIn, size_t sampleCount)
     }
 }
 
-void dra_u8_to_f32(float* pOut, const uint8_t* pIn, size_t sampleCount)
+void dra_u8_to_f32(float* pOut, const dr_uint8* pIn, size_t sampleCount)
 {
     // TODO: Try SSE-ifying this.
     for (size_t i = 0; i < sampleCount; ++i) {
@@ -3719,22 +3718,22 @@ void dra_to_f32(float* pOut, const void* pIn, size_t sampleCount, dra_format for
 
         case dra_format_s32:
         {
-            dra_s32_to_f32(pOut, (int32_t*)pIn, sampleCount);
+            dra_s32_to_f32(pOut, (dr_int32*)pIn, sampleCount);
         } break;
 
         case dra_format_s24:
         {
-            dra_s24_to_f32(pOut, (uint8_t*)pIn, sampleCount);
+            dra_s24_to_f32(pOut, (dr_uint8*)pIn, sampleCount);
         } break;
 
         case dra_format_s16:
         {
-            dra_s16_to_f32(pOut, (int16_t*)pIn, sampleCount);
+            dra_s16_to_f32(pOut, (dr_int16*)pIn, sampleCount);
         } break;
 
         case dra_format_u8:
         {
-            dra_u8_to_f32(pOut, (uint8_t*)pIn, sampleCount);
+            dra_u8_to_f32(pOut, (dr_uint8*)pIn, sampleCount);
         } break;
 
         default: break; // Unknown or unsupported format.
@@ -3894,14 +3893,14 @@ float* dra_voice__next_frame(dra_voice* pVoice)
             unsigned int channelsIn  = pVoice->channels;
             unsigned int channelsOut = pVoice->pDevice->channels;
             float tempFrame[DR_AUDIO_MAX_CHANNEL_COUNT];
-            uint64_t sampleOffset = pVoice->currentReadPos * channelsIn;
+            dr_uint64 sampleOffset = pVoice->currentReadPos * channelsIn;
 
             // The conversion is done differently depending on the format of the voice.
             if (pVoice->format == dra_format_f32) {
                 dra_shuffle_channels(pOut, (float*)pVoice->pData + sampleOffset, channelsOut, channelsIn);
             } else {
                 sampleOffset = pVoice->currentReadPos * (channelsIn * bytesPerSample);
-                dra_to_f32(tempFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
+                dra_to_f32(tempFrame, (dr_uint8*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
                 dra_shuffle_channels(pOut, tempFrame, channelsOut, channelsIn);
             }
 
@@ -3933,19 +3932,19 @@ float* dra_voice__next_frame(dra_voice* pVoice)
             if (pVoice->src.algorithm == dra_src_algorithm_linear) {
                 // Linear filtering.
                 float timeIn = pVoice->currentReadPos * invfactor;
-                uint64_t prevFrameIndexIn = (uint64_t)(timeIn);
-                uint64_t nextFrameIndexIn = prevFrameIndexIn + 1;
+                dr_uint64 prevFrameIndexIn = (dr_uint64)(timeIn);
+                dr_uint64 nextFrameIndexIn = prevFrameIndexIn + 1;
                 if (nextFrameIndexIn >= pVoice->frameCount) {
                     nextFrameIndexIn  = pVoice->frameCount-1;
                 }
 
                 if (prevFrameIndexIn != pVoice->src.data.linear.prevFrameIndex)
                 {
-                    uint64_t sampleOffset = prevFrameIndexIn * (channelsIn * bytesPerSample);
-                    dra_to_f32(pVoice->src.data.linear.prevFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
+                    dr_uint64 sampleOffset = prevFrameIndexIn * (channelsIn * bytesPerSample);
+                    dra_to_f32(pVoice->src.data.linear.prevFrame, (dr_uint8*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
 
                     sampleOffset = nextFrameIndexIn * (channelsIn * bytesPerSample);
-                    dra_to_f32(pVoice->src.data.linear.nextFrame, (uint8_t*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
+                    dra_to_f32(pVoice->src.data.linear.nextFrame, (dr_uint8*)pVoice->pData + sampleOffset, channelsIn, pVoice->format);
 
                     pVoice->src.data.linear.prevFrameIndex = prevFrameIndexIn;
                 }
@@ -3977,7 +3976,7 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
 
     size_t framesRead = 0;
 
-    uint64_t prevReadPosLocal = pVoice->currentReadPos * pVoice->channels;
+    dr_uint64 prevReadPosLocal = pVoice->currentReadPos * pVoice->channels;
 
     float* pNextFrame = NULL;
     while ((framesRead < frameCount) && (pNextFrame = dra_voice__next_frame(pVoice)) != NULL) {
@@ -3987,10 +3986,10 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
     }
 
     float sampleRateFactor = dra_voice__get_sample_rate_factor(pVoice);
-    uint64_t totalSampleCount = (uint64_t)((pVoice->frameCount * pVoice->channels) * sampleRateFactor);
+    dr_uint64 totalSampleCount = (dr_uint64)((pVoice->frameCount * pVoice->channels) * sampleRateFactor);
 
     // Now we need to check if we've got past any notification events and post events for them if so.
-    uint64_t currentReadPosLocal = (prevReadPosLocal + (framesRead * pVoice->channels)) % totalSampleCount;
+    dr_uint64 currentReadPosLocal = (prevReadPosLocal + (framesRead * pVoice->channels)) % totalSampleCount;
     for (size_t i = 0; i < pVoice->playbackEventCount; ++i) {
         dra__event* pEvent = &pVoice->playbackEvents[i];
         if (!pEvent->hasBeenSignaled && pEvent->sampleIndex*sampleRateFactor <= currentReadPosLocal) {
@@ -4029,7 +4028,7 @@ void dra_voice_set_on_play(dra_voice* pVoice, dra_event_proc proc, void* pUserDa
     pVoice->playEvent.pVoice = pVoice;
 }
 
-dr_bool32 dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, uint64_t eventID, dra_event_proc proc, void* pUserData)
+dr_bool32 dra_voice_add_playback_event(dra_voice* pVoice, dr_uint64 sampleIndex, dr_uint64 eventID, dra_event_proc proc, void* pUserData)
 {
     if (pVoice == NULL) {
         return DR_FALSE;
@@ -4049,7 +4048,7 @@ dr_bool32 dra_voice_add_playback_event(dra_voice* pVoice, uint64_t sampleIndex, 
     return DR_TRUE;
 }
 
-void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID)
+void dra_voice_remove_playback_event(dra_voice* pVoice, dr_uint64 eventID)
 {
     if (pVoice == NULL) {
         return;
@@ -4066,16 +4065,16 @@ void dra_voice_remove_playback_event(dra_voice* pVoice, uint64_t eventID)
 }
 
 
-uint64_t dra_voice_get_playback_position(dra_voice* pVoice)
+dr_uint64 dra_voice_get_playback_position(dra_voice* pVoice)
 {
     if (pVoice == NULL) {
         return 0;
     }
 
-    return (uint64_t)((pVoice->currentReadPos * pVoice->channels) / dra_voice__get_sample_rate_factor(pVoice));
+    return (dr_uint64)((pVoice->currentReadPos * pVoice->channels) / dra_voice__get_sample_rate_factor(pVoice));
 }
 
-void dra_voice_set_playback_position(dra_voice* pVoice, uint64_t sampleIndex)
+void dra_voice_set_playback_position(dra_voice* pVoice, dr_uint64 sampleIndex)
 {
     if (pVoice == NULL) {
         return;
@@ -4084,8 +4083,8 @@ void dra_voice_set_playback_position(dra_voice* pVoice, uint64_t sampleIndex)
     // When setting the playback position it's important to consider sample-rate conversion. Sample rate conversion will often depend on
     // previous and next frames in order to calculate the next frame. Therefore, depending on the type of SRC we're using, we'll need to
     // seek a few frames earlier and then re-fill the delay-line buffer used for a particular SRC algorithm.
-    uint64_t localFramePos = sampleIndex / pVoice->channels;
-    pVoice->currentReadPos = (uint64_t)(localFramePos * dra_voice__get_sample_rate_factor(pVoice));
+    dr_uint64 localFramePos = sampleIndex / pVoice->channels;
+    pVoice->currentReadPos = (dr_uint64)(localFramePos * dra_voice__get_sample_rate_factor(pVoice));
 
     if (pVoice->sampleRate != pVoice->pDevice->sampleRate) {
         if (pVoice->src.algorithm == dra_src_algorithm_linear) {
@@ -4100,13 +4099,13 @@ void dra_voice_set_playback_position(dra_voice* pVoice, uint64_t sampleIndex)
 }
 
 
-void* dra_voice_get_buffer_ptr_by_sample(dra_voice* pVoice, uint64_t sample)
+void* dra_voice_get_buffer_ptr_by_sample(dra_voice* pVoice, dr_uint64 sample)
 {
     if (pVoice == NULL) {
         return NULL;
     }
 
-    uint64_t totalSampleCount = pVoice->frameCount * pVoice->channels;
+    dr_uint64 totalSampleCount = pVoice->frameCount * pVoice->channels;
     if (sample > totalSampleCount) {
         return NULL;
     }
@@ -4114,14 +4113,14 @@ void* dra_voice_get_buffer_ptr_by_sample(dra_voice* pVoice, uint64_t sample)
     return pVoice->pData + (sample * dra_get_bytes_per_sample_by_format(pVoice->format));
 }
 
-void dra_voice_write_silence(dra_voice* pVoice, uint64_t sampleOffset, uint64_t sampleCount)
+void dra_voice_write_silence(dra_voice* pVoice, dr_uint64 sampleOffset, dr_uint64 sampleCount)
 {
     void* pData = dra_voice_get_buffer_ptr_by_sample(pVoice, sampleOffset);
     if (pData == NULL) {
         return;
     }
 
-    uint64_t totalSamplesRemaining = (pVoice->frameCount * pVoice->channels) - sampleOffset;
+    dr_uint64 totalSamplesRemaining = (pVoice->frameCount * pVoice->channels) - sampleOffset;
     if (sampleCount > totalSamplesRemaining) {
         sampleCount = totalSamplesRemaining;
     }
@@ -4210,7 +4209,7 @@ void dra_decoder_on_delete__wav(void* pBackendDecoder)
     drwav_close(pWav);
 }
 
-uint64_t dra_decoder_on_read_samples__wav(void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut)
+dr_uint64 dra_decoder_on_read_samples__wav(void* pBackendDecoder, dr_uint64 samplesToRead, float* pSamplesOut)
 {
     drwav* pWav = (drwav*)pBackendDecoder;
     assert(pWav != NULL);
@@ -4218,7 +4217,7 @@ uint64_t dra_decoder_on_read_samples__wav(void* pBackendDecoder, uint64_t sample
     return drwav_read_f32(pWav, samplesToRead, pSamplesOut);
 }
 
-dr_bool32 dra_decoder_on_seek_samples__wav(void* pBackendDecoder, uint64_t sample)
+dr_bool32 dra_decoder_on_seek_samples__wav(void* pBackendDecoder, dr_uint64 sample)
 {
     drwav* pWav = (drwav*)pBackendDecoder;
     assert(pWav != NULL);
@@ -4304,18 +4303,18 @@ void dra_decoder_on_delete__flac(void* pBackendDecoder)
     drflac_close(pFlac);
 }
 
-uint64_t dra_decoder_on_read_samples__flac(void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut)
+dr_uint64 dra_decoder_on_read_samples__flac(void* pBackendDecoder, dr_uint64 samplesToRead, float* pSamplesOut)
 {
     drflac* pFlac = (drflac*)pBackendDecoder;
     assert(pFlac != NULL);
 
-    uint64_t samplesRead = drflac_read_s32(pFlac, samplesToRead, (int32_t*)pSamplesOut);
+    dr_uint64 samplesRead = drflac_read_s32(pFlac, samplesToRead, (dr_int32*)pSamplesOut);
 
-    dra_s32_to_f32(pSamplesOut, (int32_t*)pSamplesOut, (size_t)samplesRead);
+    dra_s32_to_f32(pSamplesOut, (dr_int32*)pSamplesOut, (size_t)samplesRead);
     return samplesRead;
 }
 
-dr_bool32 dra_decoder_on_seek_samples__flac(void* pBackendDecoder, uint64_t sample)
+dr_bool32 dra_decoder_on_seek_samples__flac(void* pBackendDecoder, dr_uint64 sample)
 {
     drflac* pFlac = (drflac*)pBackendDecoder;
     assert(pFlac != NULL);
@@ -4384,16 +4383,16 @@ void dra_decoder_on_delete__vorbis(void* pBackendDecoder)
     stb_vorbis_close(pVorbis);
 }
 
-uint64_t dra_decoder_on_read_samples__vorbis(void* pBackendDecoder, uint64_t samplesToRead, float* pSamplesOut)
+dr_uint64 dra_decoder_on_read_samples__vorbis(void* pBackendDecoder, dr_uint64 samplesToRead, float* pSamplesOut)
 {
     stb_vorbis* pVorbis = (stb_vorbis*)pBackendDecoder;
     assert(pVorbis != NULL);
 
     stb_vorbis_info info = stb_vorbis_get_info(pVorbis);
-    return (uint64_t)stb_vorbis_get_samples_float_interleaved(pVorbis, info.channels, pSamplesOut, (int)samplesToRead) * info.channels;
+    return (dr_uint64)stb_vorbis_get_samples_float_interleaved(pVorbis, info.channels, pSamplesOut, (int)samplesToRead) * info.channels;
 }
 
-dr_bool32 dra_decoder_on_seek_samples__vorbis(void* pBackendDecoder, uint64_t sample)
+dr_bool32 dra_decoder_on_seek_samples__vorbis(void* pBackendDecoder, dr_uint64 sample)
 {
     stb_vorbis* pVorbis = (stb_vorbis*)pBackendDecoder;
     assert(pVorbis != NULL);
@@ -4519,7 +4518,7 @@ dr_bool32 dra_decoder__on_seek_memory(void* pUserData, int offset, dra_seek_orig
             memoryStream->currentReadPos = memoryStream->dataSize;  // Trying to seek too far forward.
         }
     } else {
-        if ((uint32_t)offset <= memoryStream->dataSize) {
+        if ((dr_uint32)offset <= memoryStream->dataSize) {
             memoryStream->currentReadPos = offset;
         } else {
             memoryStream->currentReadPos = memoryStream->dataSize;  // Trying to seek too far forward.
@@ -4638,7 +4637,7 @@ void dra_decoder_close(dra_decoder* pDecoder)
 #endif
 }
 
-uint64_t dra_decoder_read_f32(dra_decoder* pDecoder, uint64_t samplesToRead, float* pSamplesOut)
+dr_uint64 dra_decoder_read_f32(dra_decoder* pDecoder, dr_uint64 samplesToRead, float* pSamplesOut)
 {
     if (pDecoder == NULL || pSamplesOut == NULL) {
         return 0;
@@ -4647,7 +4646,7 @@ uint64_t dra_decoder_read_f32(dra_decoder* pDecoder, uint64_t samplesToRead, flo
     return pDecoder->onReadSamples(pDecoder->pBackendDecoder, samplesToRead, pSamplesOut);
 }
 
-dr_bool32 dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample)
+dr_bool32 dra_decoder_seek_to_sample(dra_decoder* pDecoder, dr_uint64 sample)
 {
     if (pDecoder == NULL) {
         return DR_FALSE;
@@ -4657,12 +4656,12 @@ dr_bool32 dra_decoder_seek_to_sample(dra_decoder* pDecoder, uint64_t sample)
 }
 
 
-float* dra_decoder__full_decode_and_close(dra_decoder* pDecoder, unsigned int* channelsOut, unsigned int* sampleRateOut, uint64_t* totalSampleCountOut)
+float* dra_decoder__full_decode_and_close(dra_decoder* pDecoder, unsigned int* channelsOut, unsigned int* sampleRateOut, dr_uint64* totalSampleCountOut)
 {
     assert(pDecoder != NULL);
 
     float* pSampleData = NULL;
-    uint64_t totalSampleCount = pDecoder->totalSampleCount;
+    dr_uint64 totalSampleCount = pDecoder->totalSampleCount;
 
     if (totalSampleCount == 0)
     {
@@ -4674,8 +4673,8 @@ float* dra_decoder__full_decode_and_close(dra_decoder* pDecoder, unsigned int* c
             goto on_error;
         }
 
-        uint64_t samplesRead;
-        while ((samplesRead = (uint64_t)dra_decoder_read_f32(pDecoder, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0)
+        dr_uint64 samplesRead;
+        while ((samplesRead = (dr_uint64)dra_decoder_read_f32(pDecoder, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0)
         {
             if (((totalSampleCount + samplesRead) * sizeof(float)) > sampleDataBufferSize) {
                 sampleDataBufferSize *= 2;
@@ -4698,7 +4697,7 @@ float* dra_decoder__full_decode_and_close(dra_decoder* pDecoder, unsigned int* c
     }
     else
     {
-        uint64_t dataSize = totalSampleCount * sizeof(float);
+        dr_uint64 dataSize = totalSampleCount * sizeof(float);
         if (dataSize > SIZE_MAX) {
             goto on_error;  // The decoded data is too big.
         }
@@ -4708,7 +4707,7 @@ float* dra_decoder__full_decode_and_close(dra_decoder* pDecoder, unsigned int* c
             goto on_error;
         }
 
-        uint64_t samplesDecoded = dra_decoder_read_f32(pDecoder, pDecoder->totalSampleCount, pSampleData);
+        dr_uint64 samplesDecoded = dra_decoder_read_f32(pDecoder, pDecoder->totalSampleCount, pSampleData);
         if (samplesDecoded != pDecoder->totalSampleCount) {
             free(pSampleData);
             goto on_error;  // Something went wrong when decoding the FLAC stream.
@@ -4728,7 +4727,7 @@ on_error:
     return NULL;
 }
 
-float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
+float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_decoder_on_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
 {
     // Safety.
     if (channels) *channels = 0;
@@ -4744,7 +4743,7 @@ float* dra_decoder_open_and_decode_f32(dra_decoder_on_read_proc onRead, dra_deco
     return dra_decoder__full_decode_and_close(&decoder, channels, sampleRate, totalSampleCount);
 }
 
-float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
+float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
 {
     // Safety.
     if (channels) *channels = 0;
@@ -4761,7 +4760,7 @@ float* dra_decoder_open_and_decode_memory_f32(const void* pData, size_t dataSize
 }
 
 #ifndef DR_AUDIO_NO_STDIO
-float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* channels, unsigned int* sampleRate, uint64_t* totalSampleCount)
+float* dra_decoder_open_and_decode_file_f32(const char* filePath, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
 {
     // Safety.
     if (channels) *channels = 0;
@@ -4789,7 +4788,7 @@ dra_result dra_voice_create_from_file(dra_device* pDevice, const char* filePath,
 
     unsigned int channels;
     unsigned int sampleRate;
-    uint64_t totalSampleCount;
+    dr_uint64 totalSampleCount;
     float* pSampleData = dra_decoder_open_and_decode_file_f32(filePath, &channels, &sampleRate, &totalSampleCount);
     if (pSampleData == NULL) {
         return DRA_RESULT_UNKNOWN_ERROR;
@@ -4847,7 +4846,7 @@ void dra_sound_world_delete(dra_sound_world* pWorld)
 }
 
 
-void dra_sound_world__on_inline_sound_stop(uint64_t eventID, void* pUserData)
+void dra_sound_world__on_inline_sound_stop(dr_uint64 eventID, void* pUserData)
 {
     (void)eventID;
 
@@ -4953,17 +4952,17 @@ dr_bool32 dra_sound__is_streaming(dra_sound* pSound)
     return pSound->desc.dataSize == 0 || pSound->desc.pData == NULL;
 }
 
-dr_bool32 dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOffset)
+dr_bool32 dra_sound__read_next_chunk(dra_sound* pSound, dr_uint64 outputSampleOffset)
 {
     assert(pSound != NULL);
     if (pSound->desc.onRead == NULL) {
         return DR_FALSE;
     }
 
-    uint64_t chunkSizeInSamples = (pSound->pVoice->frameCount * pSound->pVoice->channels) / 2;
+    dr_uint64 chunkSizeInSamples = (pSound->pVoice->frameCount * pSound->pVoice->channels) / 2;
     assert(chunkSizeInSamples > 0);
 
-    uint64_t samplesRead = pSound->desc.onRead(pSound, chunkSizeInSamples, dra_voice_get_buffer_ptr_by_sample(pSound->pVoice, outputSampleOffset));
+    dr_uint64 samplesRead = pSound->desc.onRead(pSound, chunkSizeInSamples, dra_voice_get_buffer_ptr_by_sample(pSound->pVoice, outputSampleOffset));
     if (samplesRead == 0 && !pSound->isLooping) {
         dra_voice_write_silence(pSound->pVoice, outputSampleOffset, chunkSizeInSamples);
         return DR_FALSE;   // Ran out of samples in a non-looping buffer.
@@ -4990,8 +4989,8 @@ dr_bool32 dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOff
             return DR_FALSE;
         }
 
-        uint64_t samplesRemaining = chunkSizeInSamples - samplesRead;
-        uint64_t samplesJustRead = pSound->desc.onRead(pSound, samplesRemaining, dra_voice_get_buffer_ptr_by_sample(pSound->pVoice, outputSampleOffset + samplesRead));
+        dr_uint64 samplesRemaining = chunkSizeInSamples - samplesRead;
+        dr_uint64 samplesJustRead = pSound->desc.onRead(pSound, samplesRemaining, dra_voice_get_buffer_ptr_by_sample(pSound->pVoice, outputSampleOffset + samplesRead));
         if (samplesJustRead == 0) {
             return DR_FALSE;
         }
@@ -5002,7 +5001,7 @@ dr_bool32 dra_sound__read_next_chunk(dra_sound* pSound, uint64_t outputSampleOff
     return DR_TRUE;
 }
 
-void dra_sound__on_read_next_chunk(uint64_t eventID, void* pUserData)
+void dra_sound__on_read_next_chunk(dr_uint64 eventID, void* pUserData)
 {
     dra_sound* pSound = (dra_sound*)pUserData;
     assert(pSound != NULL);
@@ -5014,7 +5013,7 @@ void dra_sound__on_read_next_chunk(uint64_t eventID, void* pUserData)
     }
 
     // The event ID is the index of the sample to write to.
-    uint64_t sampleOffset = eventID;
+    dr_uint64 sampleOffset = eventID;
     if (!dra_sound__read_next_chunk(pSound, sampleOffset)) {
         pSound->stopOnNextChunk = DR_TRUE;
     }
@@ -5085,7 +5084,7 @@ void dra_sound__on_delete_decoder(dra_sound* pSound)
     free(pDecoder);
 }
 
-uint64_t dra_sound__on_read_decoder(dra_sound* pSound, uint64_t samplesToRead, void* pSamplesOut)
+dr_uint64 dra_sound__on_read_decoder(dra_sound* pSound, dr_uint64 samplesToRead, void* pSamplesOut)
 {
     dra_decoder* pDecoder = (dra_decoder*)pSound->desc.pUserData;
     assert(pDecoder != NULL);
@@ -5093,7 +5092,7 @@ uint64_t dra_sound__on_read_decoder(dra_sound* pSound, uint64_t samplesToRead, v
     return dra_decoder_read_f32(pDecoder, samplesToRead, (float*)pSamplesOut);
 }
 
-dr_bool32 dra_sound__on_seek_decoder(dra_sound* pSound, uint64_t sample)
+dr_bool32 dra_sound__on_seek_decoder(dra_sound* pSound, dr_uint64 sample)
 {
     dra_decoder* pDecoder = (dra_decoder*)pSound->desc.pUserData;
     assert(pDecoder != NULL);

@@ -38,7 +38,6 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <stdint.h>
 #include <stdio.h>
 
 #ifndef DR_NO_MSVC_COMPAT
@@ -193,7 +192,7 @@ DR_INLINE int _itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
 // String Helpers
 
 // Determines if the given character is whitespace.
-dr_bool32 dr_is_whitespace(uint32_t utf32);
+dr_bool32 dr_is_whitespace(dr_uint32 utf32);
 
 /// Removes every occurance of the given character from the given string.
 void dr_strrmchar(char* str, char c);
@@ -468,7 +467,7 @@ dr_bool32 dr_copy_file(const char* srcPath, const char* dstPath, dr_bool32 failI
 dr_bool32 dr_is_file_read_only(const char* filePath);
 
 // Retrieves the last modified time of the file at the given path.
-uint64_t dr_get_file_modified_time(const char* filePath);
+dr_uint64 dr_get_file_modified_time(const char* filePath);
 
 // Deletes the file at the given path.
 //
@@ -706,7 +705,7 @@ dr_bool32 dr_release_semaphore(dr_semaphore semaphore);
 
 typedef struct
 {
-    int64_t counter;
+    dr_int64 counter;
 } dr_timer;
 
 // Initializes a high-resolution timer.
@@ -1049,7 +1048,7 @@ int dr_itoa_s(int value, char* dst, size_t dstSizeInBytes, int radix)
 /////////////////////////////////////////////////////////
 // String Helpers
 
-dr_bool32 dr_is_whitespace(uint32_t utf32)
+dr_bool32 dr_is_whitespace(dr_uint32 utf32)
 {
     return utf32 == ' ' || utf32 == '\t' || utf32 == '\n' || utf32 == '\v' || utf32 == '\f' || utf32 == '\r';
 }
@@ -1933,7 +1932,7 @@ static void* dr_open_and_read_file_with_extra_data(const char* filePath, size_t*
     }
 
     fseek(pFile, 0, SEEK_END);
-    uint64_t fileSize = ftell(pFile);
+    dr_uint64 fileSize = ftell(pFile);
     fseek(pFile, 0, SEEK_SET);
 
     if (fileSize + extraBytes > SIZE_MAX) {
@@ -2126,7 +2125,7 @@ dr_bool32 dr_is_file_read_only(const char* filePath)
 #endif
 }
 
-uint64_t dr_get_file_modified_time(const char* filePath)
+dr_uint64 dr_get_file_modified_time(const char* filePath)
 {
     if (filePath == NULL || filePath[0] == '\0') {
         return 0;
@@ -3244,7 +3243,7 @@ int clock_gettime(int clk_id, struct timespec* t)
 {
     mach_timebase_info_data_t timebase;
     mach_timebase_info(&timebase);
-    uint64_t time;
+    dr_uint64 time;
     time = mach_absolute_time();
     double nseconds = ((double)time * (double)timebase.numer) / ((double)timebase.denom);
     double seconds = ((double)time * (double)timebase.numer) / ((double)timebase.denom * 1e9);
@@ -3265,7 +3264,7 @@ void dr_timer_init(dr_timer* pTimer)
 
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
-    pTimer->counter = (uint64_t)counter.QuadPart;
+    pTimer->counter = (dr_uint64)counter.QuadPart;
 }
 
 double dr_timer_tick(dr_timer* pTimer)
@@ -3275,8 +3274,8 @@ double dr_timer_tick(dr_timer* pTimer)
         return 0;
     }
 
-    uint64_t newTimeCounter = counter.QuadPart;
-    uint64_t oldTimeCounter = pTimer->counter;
+    dr_uint64 newTimeCounter = counter.QuadPart;
+    dr_uint64 oldTimeCounter = pTimer->counter;
 
     pTimer->counter = newTimeCounter;
 
@@ -3296,8 +3295,8 @@ double dr_timer_tick(dr_timer* pTimer)
     struct timespec newTime;
     clock_gettime(CLOCK_MONOTONIC, &newTime);
 
-    uint64_t newTimeCounter = (newTime.tv_sec * 1000000000LL) + newTime.tv_nsec;
-    uint64_t oldTimeCounter = pTimer->counter;
+    dr_uint64 newTimeCounter = (newTime.tv_sec * 1000000000LL) + newTime.tv_nsec;
+    dr_uint64 oldTimeCounter = pTimer->counter;
 
     pTimer->counter = newTimeCounter;
 

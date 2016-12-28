@@ -39,8 +39,6 @@
 #ifndef dr_obj_h
 #define dr_obj_h
 
-#include <stdint.h>
-
 #ifndef DR_SIZED_TYPES_DEFINED
 #define DR_SIZED_TYPES_DEFINED
 #if defined(_MSC_VER) && _MSC_VER < 1600
@@ -89,10 +87,10 @@ typedef struct
 typedef struct
 {
     // The index of the first face that uses this material.
-    uint32_t firstFace;
+    dr_uint32 firstFace;
 
     // The number of faces that use this material (starting from <firstFace>).
-    uint32_t faceCount;
+    dr_uint32 faceCount;
 
     // The name of the material.
     char* name;
@@ -124,42 +122,42 @@ typedef struct
 typedef struct
 {
     // The material library count.
-    uint32_t materialLibCount;
+    dr_uint32 materialLibCount;
 
     // A pointer to the list of material libraries.
     drobj_mtllib* pMaterialLibs;
 
 
     // The number of materials used by the mesh.
-    uint32_t materialCount;
+    dr_uint32 materialCount;
 
     // A pointer to the list of materials used by the mesh.
     drobj_material* pMaterials;
 
 
     // The number of positions.
-    uint32_t positionCount;
+    dr_uint32 positionCount;
     
     // The buffer containing the vertex positions.
     drobj_vec4* pPositions;
 
 
     // The number of texture coordinates.
-    uint32_t texCoordCount;
+    dr_uint32 texCoordCount;
 
     // The buffer containing the text coordinates.
     drobj_vec3* pTexCoords;
 
 
     // The number of normals.
-    uint32_t normalCount;
+    dr_uint32 normalCount;
 
     // The buffer containing the normal positions.
     drobj_vec3* pNormals;
 
 
     // The face count.
-    uint32_t faceCount;
+    dr_uint32 faceCount;
 
     // A pointer to the face data.
     drobj_face* pFaces;
@@ -198,7 +196,7 @@ void drobj_free(void* pData);
 // Helper for interleaving the vertex data of the given OBJ object.
 //
 // Free the returned pointers with drobj_free().
-void drobj_interleave_p3t2n3(drobj* pOBJ, uint32_t* pVertexCountOut, float** ppVertexDataOut, uint32_t* pIndexCountOut, uint32_t** ppIndexDataOut);
+void drobj_interleave_p3t2n3(drobj* pOBJ, dr_uint32* pVertexCountOut, float** ppVertexDataOut, dr_uint32* pIndexCountOut, dr_uint32** ppIndexDataOut);
 
 
 #ifdef __cplusplus
@@ -306,9 +304,9 @@ void drobj_free(void* pData)
 }
 
 
-dr_bool32 drobj__find_face_vertex(uint32_t vertexCount, drobj_face_vertex* pVertices, drobj_face_vertex vertex, uint32_t* pIndexOut)
+dr_bool32 drobj__find_face_vertex(dr_uint32 vertexCount, drobj_face_vertex* pVertices, drobj_face_vertex vertex, dr_uint32* pIndexOut)
 {
-    for (uint32_t i = 0; i < vertexCount; ++i) {
+    for (dr_uint32 i = 0; i < vertexCount; ++i) {
         if (pVertices[i].positionIndex == vertex.positionIndex && pVertices[i].texcoordIndex == vertex.texcoordIndex && pVertices[i].normalIndex == vertex.normalIndex) {
             *pIndexOut = i;
             return DR_TRUE;
@@ -318,28 +316,28 @@ dr_bool32 drobj__find_face_vertex(uint32_t vertexCount, drobj_face_vertex* pVert
     return DR_FALSE;
 }
 
-void drobj_interleave_p3t2n3(drobj* pOBJ, uint32_t* pVertexCountOut, float** ppVertexDataOut, uint32_t* pIndexCountOut, uint32_t** ppIndexDataOut)
+void drobj_interleave_p3t2n3(drobj* pOBJ, dr_uint32* pVertexCountOut, float** ppVertexDataOut, dr_uint32* pIndexCountOut, dr_uint32** ppIndexDataOut)
 {
     // When interleaving we want to ensure we don't copy over duplicate vertices. For example, a quad will be made up of two triangles, with two
     // vertices being shared by both faces (along the common edge dividing the two triangles). We don't want to duplicate that data, so when creating
     // an index for a face, we first want to check that it hasn't already been added.
 
     // Create output buffers large enough to contain the interleaved data.
-    uint32_t indexCount = 0;
-    uint32_t* pIndexData = (uint32_t*)malloc(sizeof(uint32_t) * pOBJ->faceCount*3);
+    dr_uint32 indexCount = 0;
+    dr_uint32* pIndexData = (dr_uint32*)malloc(sizeof(dr_uint32) * pOBJ->faceCount*3);
 
-    uint32_t vertexCount = 0;
+    dr_uint32 vertexCount = 0;
     float* pVertexData = (float*)malloc((sizeof(float)*(3+2+3)) * pOBJ->faceCount*3);
 
 
-    uint32_t uniqueVertexCount = 0;
+    dr_uint32 uniqueVertexCount = 0;
     drobj_face_vertex* pUniqueVertices = (drobj_face_vertex*)malloc(sizeof(drobj_face_vertex) * pOBJ->faceCount*3);
 
-    for (uint32_t iFace = 0; iFace < pOBJ->faceCount; ++iFace)
+    for (dr_uint32 iFace = 0; iFace < pOBJ->faceCount; ++iFace)
     {
-        for (uint32_t iFaceVertex = 0; iFaceVertex < 3; ++iFaceVertex)
+        for (dr_uint32 iFaceVertex = 0; iFaceVertex < 3; ++iFaceVertex)
         {
-            uint32_t index;
+            dr_uint32 index;
             if (!drobj__find_face_vertex(uniqueVertexCount, pUniqueVertices, pOBJ->pFaces[iFace].v[iFaceVertex], &index))
             {
                 pUniqueVertices[uniqueVertexCount] = pOBJ->pFaces[iFace].v[iFaceVertex];
@@ -401,12 +399,12 @@ typedef struct
     char* pNextBytes;
     size_t bytesRemaining;
 
-    uint32_t materialLibCount;
-    uint32_t materialCount;
-    uint32_t positionCount;
-    uint32_t texcoordCount;
-    uint32_t normalCount;
-    uint32_t faceCount;
+    dr_uint32 materialLibCount;
+    dr_uint32 materialCount;
+    dr_uint32 positionCount;
+    dr_uint32 texcoordCount;
+    dr_uint32 normalCount;
+    dr_uint32 faceCount;
 
     size_t totalStringLength;   // <-- Includes null terminators.
     size_t allocationSize;
@@ -805,7 +803,7 @@ dr_bool32 drobj__parse_face_vertex(const char* str, const char* strEnd, const ch
 }
 
 // Parses a face index string.
-uint32_t drobj__parse_face(const char* str, const char* strEnd, drobj_face* pFaceOut)
+dr_uint32 drobj__parse_face(const char* str, const char* strEnd, drobj_face* pFaceOut)
 {
     assert(str      != NULL);
     assert(strEnd   != NULL);
@@ -815,7 +813,7 @@ uint32_t drobj__parse_face(const char* str, const char* strEnd, drobj_face* pFac
     drobj__parse_face_vertex(str, strEnd, &str, pFaceOut->v + 1);
     drobj__parse_face_vertex(str, strEnd, &str, pFaceOut->v + 2);
 
-    uint32_t faceCount = 3;
+    dr_uint32 faceCount = 3;
     if (drobj__parse_face_vertex(str, strEnd, &str, pFaceOut->v + 3)) {
         faceCount += 1;
     }
@@ -910,7 +908,7 @@ dr_bool32 drobj__load_stage1(drobj_load_context* pLoadContext)
 
             // If the face has more than 3 vertices it'll need to be triangulated which means more faces. The face needs to be parsed.
             drobj_face face;
-            uint32_t vertexCount = drobj__parse_face(lineBeg + 2, lineEnd, &face);
+            dr_uint32 vertexCount = drobj__parse_face(lineBeg + 2, lineEnd, &face);
             if (vertexCount > 3) {
                 if (vertexCount > 4) {
                     assert(DR_FALSE);  // Not currently supporting more than 4 vertices per face.
@@ -1005,10 +1003,10 @@ dr_bool32 drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         {
             // Face.
             drobj_face face;
-            uint32_t vertexCount = drobj__parse_face(lineBeg + 2, lineEnd, &face);
+            dr_uint32 vertexCount = drobj__parse_face(lineBeg + 2, lineEnd, &face);
 
             // Faces can have negative indices which are interpreted as being relative. Positive values are one based so they need to be changed to 0 based, also.
-            for (uint32_t i = 0; i < vertexCount; ++i) {
+            for (dr_uint32 i = 0; i < vertexCount; ++i) {
                 if (face.v[i].positionIndex > 0) {
                     face.v[i].positionIndex -= 1;
                 } else {
