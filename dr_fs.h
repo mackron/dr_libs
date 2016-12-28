@@ -562,28 +562,26 @@ dr_bool32 drfs_is_archive_path(drfs_context* pContext, const char* path);
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-// TODO: Change the boolean return codes to drfs_result.
-
 // Free's memory that was allocated internally by dr_fs. This is used when dr_fs allocates memory via a high-level helper API
 // and the application is done with that memory.
 void drfs_free(void* p);
 
 // Finds the absolute, verbose path of the given path.
-dr_bool32 drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize);
+drfs_result drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize);
 
 // Finds the absolute, verbose path of the given path, using the given path as the higest priority base path.
-dr_bool32 drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize);
+drfs_result drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize);
 
 // Helper function for determining whether or not the given path refers to a base directory.
 dr_bool32 drfs_is_base_directory(drfs_context* pContext, const char* baseDir);
 
 // Helper function for writing a string.
-dr_bool32 drfs_write_string(drfs_file* pFile, const char* str);
+drfs_result drfs_write_string(drfs_file* pFile, const char* str);
 
 // Helper function for writing a string, and then inserting a new line right after it.
 //
 // The new line character is "\n" and NOT "\r\n".
-dr_bool32 drfs_write_line(drfs_file* pFile, const char* str);
+drfs_result drfs_write_line(drfs_file* pFile, const char* str);
 
 
 // Helper function for opening a binary file and retrieving it's data in one go.
@@ -599,10 +597,10 @@ void* drfs_open_and_read_binary_file(drfs_context* pContext, const char* absolut
 char* drfs_open_and_read_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, size_t* pSizeInBytesOut);
 
 // Helper function for opening a file, writing the given data, and then closing it. This deletes the contents of the existing file, if any.
-dr_bool32 drfs_open_and_write_binary_file(drfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize);
+drfs_result drfs_open_and_write_binary_file(drfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize);
 
 // Helper function for opening a file, writing the given textual data, and then closing it. This deletes the contents of the existing file, if any.
-dr_bool32 drfs_open_and_write_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData);
+drfs_result drfs_open_and_write_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData);
 
 
 // Helper function for determining whether or not the given path refers to an existing file or directory.
@@ -4454,39 +4452,40 @@ dr_bool32 drfs_is_archive_path(drfs_context* pContext, const char* path)
 // High Level API
 //
 ///////////////////////////////////////////////////////////////////////////////
-#include <stdint.h>
 void drfs_free(void* p)
 {
     free(p);
 }
 
-dr_bool32 drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize)
+drfs_result drfs_find_absolute_path(drfs_context* pContext, const char* relativePath, char* absolutePathOut, size_t absolutePathOutSize)
 {
-    if (absolutePathOut == NULL) return DR_FALSE;
+    if (absolutePathOut == NULL) return drfs_invalid_args;
     if (absolutePathOutSize > 0) absolutePathOut[0] = '\0';
 
     if (pContext == NULL || relativePath == NULL || absolutePathOutSize == 0) {
-        return DR_FALSE;
+        return drfs_invalid_args;
     }
 
     drfs_file_info fi;
     if (drfs_get_file_info(pContext, relativePath, &fi) == drfs_success) {
-        return drfs__strcpy_s(absolutePathOut, absolutePathOutSize, fi.absolutePath) == 0;
+        if (drfs__strcpy_s(absolutePathOut, absolutePathOutSize, fi.absolutePath) == 0) {
+            return drfs_success;
+        }
     }
 
-    return DR_FALSE;
+    return drfs_does_not_exist;
 }
 
-dr_bool32 drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize)
+drfs_result drfs_find_absolute_path_explicit_base(drfs_context* pContext, const char* relativePath, const char* highestPriorityBasePath, char* absolutePathOut, size_t absolutePathOutSize)
 {
-    if (absolutePathOut == NULL) return DR_FALSE;
+    if (absolutePathOut == NULL) return drfs_invalid_args;
     if (absolutePathOutSize > 0) absolutePathOut[0] = '\0';
 
     if (pContext == NULL || relativePath == NULL || highestPriorityBasePath == NULL || absolutePathOutSize == 0) {
-        return DR_FALSE;
+        return drfs_invalid_args;
     }
 
-    dr_bool32 result = 0;
+    drfs_result result = drfs_unknown_error;
     drfs_insert_base_directory(pContext, highestPriorityBasePath, 0);
     {
         result = drfs_find_absolute_path(pContext, relativePath, absolutePathOut, absolutePathOutSize);
@@ -4511,14 +4510,19 @@ dr_bool32 drfs_is_base_directory(drfs_context* pContext, const char* baseDir)
     return DR_FALSE;
 }
 
-dr_bool32 drfs_write_string(drfs_file* pFile, const char* str)
+drfs_result drfs_write_string(drfs_file* pFile, const char* str)
 {
-    return drfs_write(pFile, str, (unsigned int)strlen(str), NULL) == drfs_success;
+    return drfs_write(pFile, str, (unsigned int)strlen(str), NULL);
 }
 
-dr_bool32 drfs_write_line(drfs_file* pFile, const char* str)
+drfs_result drfs_write_line(drfs_file* pFile, const char* str)
 {
-    return drfs_write_string(pFile, str) && drfs_write_string(pFile, "\n");
+    drfs_result result = drfs_write_string(pFile, str);
+    if (result != drfs_success) {
+        return result;
+    }
+
+    return drfs_write_string(pFile, "\n");
 }
 
 
@@ -4615,20 +4619,23 @@ char* drfs_open_and_read_text_file(drfs_context* pContext, const char* absoluteO
     return (char*)pData;
 }
 
-dr_bool32 drfs_open_and_write_binary_file(drfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize)
+drfs_result drfs_open_and_write_binary_file(drfs_context* pContext, const char* absoluteOrRelativePath, const void* pData, size_t dataSize)
 {
+    drfs_result result = drfs_unknown_error;
+
     drfs_file* pFile;
-    if (drfs_open(pContext, absoluteOrRelativePath, DRFS_WRITE | DRFS_TRUNCATE, &pFile) != drfs_success) {
-        return DR_FALSE;
+    result = drfs_open(pContext, absoluteOrRelativePath, DRFS_WRITE | DRFS_TRUNCATE, &pFile);
+    if (result != drfs_success) {
+        return result;
     }
 
-    drfs_result result = drfs_write(pFile, pData, dataSize, NULL);
+    result = drfs_write(pFile, pData, dataSize, NULL);
 
     drfs_close(pFile);
-    return result == drfs_success;
+    return result;
 }
 
-dr_bool32 drfs_open_and_write_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData)
+drfs_result drfs_open_and_write_text_file(drfs_context* pContext, const char* absoluteOrRelativePath, const char* pTextData)
 {
     return drfs_open_and_write_binary_file(pContext, absoluteOrRelativePath, pTextData, strlen(pTextData));
 }
