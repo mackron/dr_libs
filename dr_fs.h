@@ -344,29 +344,19 @@ struct drfs_iterator
 
 typedef struct
 {
-    // A pointer to the buffer containing the list of base paths.
     drfs_archive_callbacks* pBuffer;
-
-    // The number of items in the list and buffer. This is a tightly packed list so the size of the buffer is always the
-    // same as the count.
     unsigned int count;
 } drfs_callbacklist;
 
 typedef struct
 {
-    // The absolute path of the base path.
     char absolutePath[DRFS_MAX_PATH];
 } drfs_basepath;
 
 typedef struct
 {
-    // A pointer to the buffer containing the list of base paths.
     drfs_basepath* pBuffer;
-
-    // The size of the buffer, in drfs_basepath's.
-    unsigned int bufferSize;
-
-    // The number of items in the list.
+    unsigned int capacity;
     unsigned int count;
 } drfs_basedirs;
 
@@ -830,9 +820,9 @@ static dr_bool32 drfs_basedirs_init(drfs_basedirs* pBasePaths)
         return DR_FALSE;
     }
 
-    pBasePaths->pBuffer    = 0;
-    pBasePaths->bufferSize = 0;
-    pBasePaths->count      = 0;
+    pBasePaths->pBuffer  = 0;
+    pBasePaths->capacity = 0;
+    pBasePaths->count    = 0;
 
     return DR_TRUE;
 }
@@ -852,7 +842,7 @@ static dr_bool32 drfs_basedirs_inflateandinsert(drfs_basedirs* pBasePaths, const
         return DR_FALSE;
     }
 
-    unsigned int newBufferSize = (pBasePaths->bufferSize == 0) ? 2 : pBasePaths->bufferSize*2;
+    unsigned int newBufferSize = (pBasePaths->capacity == 0) ? 2 : pBasePaths->capacity*2;
 
     drfs_basepath* pOldBuffer = pBasePaths->pBuffer;
     drfs_basepath* pNewBuffer = (drfs_basepath*)malloc(newBufferSize * sizeof(drfs_basepath));
@@ -871,9 +861,9 @@ static dr_bool32 drfs_basedirs_inflateandinsert(drfs_basedirs* pBasePaths, const
     }
 
 
-    pBasePaths->pBuffer    = pNewBuffer;
-    pBasePaths->bufferSize = newBufferSize;
-    pBasePaths->count     += 1;
+    pBasePaths->pBuffer  = pNewBuffer;
+    pBasePaths->capacity = newBufferSize;
+    pBasePaths->count   += 1;
 
     free(pOldBuffer);
     return DR_TRUE;
@@ -881,7 +871,7 @@ static dr_bool32 drfs_basedirs_inflateandinsert(drfs_basedirs* pBasePaths, const
 
 static dr_bool32 drfs_basedirs_movedown1slot(drfs_basedirs* pBasePaths, unsigned int index)
 {
-    if (pBasePaths == NULL || pBasePaths->count >= pBasePaths->bufferSize) {
+    if (pBasePaths == NULL || pBasePaths->count >= pBasePaths->capacity) {
         return DR_FALSE;
     }
 
@@ -898,7 +888,7 @@ static dr_bool32 drfs_basedirs_insert(drfs_basedirs* pBasePaths, const char* abs
         return DR_FALSE;
     }
 
-    if (pBasePaths->count == pBasePaths->bufferSize) {
+    if (pBasePaths->count == pBasePaths->capacity) {
         return drfs_basedirs_inflateandinsert(pBasePaths, absolutePath, index);
     } else {
         if (!drfs_basedirs_movedown1slot(pBasePaths, index)) {
@@ -1065,7 +1055,6 @@ typedef struct
 {
     size_t offset;
     size_t length;
-
 } drfs_drpath_segment;
 
 // Structure used for iterating over a path while at the same time providing useful and easy-to-use information about the iteration.
@@ -1073,7 +1062,6 @@ typedef struct drfs_drpath_iterator
 {
     const char* path;
     drfs_drpath_segment segment;
-
 } drfs_drpath_iterator;
 
 static dr_bool32 drfs_drpath_next(drfs_drpath_iterator* i)
