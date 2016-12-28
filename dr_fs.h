@@ -271,13 +271,13 @@ typedef struct drfs_file      drfs_file;
 typedef struct drfs_file_info drfs_file_info;
 typedef struct drfs_iterator  drfs_iterator;
 
-typedef dr_bool32        (* drfs_is_valid_extension_proc)(const char* extension);
+typedef dr_bool32   (* drfs_is_valid_extension_proc)(const char* extension);
 typedef drfs_result (* drfs_open_archive_proc)      (drfs_file* pArchiveFile, unsigned int accessMode, drfs_handle* pHandleOut);
 typedef void        (* drfs_close_archive_proc)     (drfs_handle archive);
 typedef drfs_result (* drfs_get_file_info_proc)     (drfs_handle archive, const char* relativePath, drfs_file_info* fi);
 typedef drfs_handle (* drfs_begin_iteration_proc)   (drfs_handle archive, const char* relativePath);
 typedef void        (* drfs_end_iteration_proc)     (drfs_handle archive, drfs_handle iterator);
-typedef dr_bool32        (* drfs_next_iteration_proc)    (drfs_handle archive, drfs_handle iterator, drfs_file_info* fi);
+typedef dr_bool32   (* drfs_next_iteration_proc)    (drfs_handle archive, drfs_handle iterator, drfs_file_info* fi);
 typedef drfs_result (* drfs_delete_file_proc)       (drfs_handle archive, const char* relativePath);
 typedef drfs_result (* drfs_create_directory_proc)  (drfs_handle archive, const char* relativePath);
 typedef drfs_result (* drfs_move_file_proc)         (drfs_handle archive, const char* relativePathOld, const char* relativePathNew);
@@ -287,8 +287,8 @@ typedef void        (* drfs_close_file_proc)        (drfs_handle archive, drfs_h
 typedef drfs_result (* drfs_read_file_proc)         (drfs_handle archive, drfs_handle file, void* pDataOut, size_t bytesToRead, size_t* pBytesReadOut);
 typedef drfs_result (* drfs_write_file_proc)        (drfs_handle archive, drfs_handle file, const void* pData, size_t bytesToWrite, size_t* pBytesWrittenOut);
 typedef drfs_result (* drfs_seek_file_proc)         (drfs_handle archive, drfs_handle file, dr_int64 bytesToSeek, drfs_seek_origin origin);
-typedef dr_uint64    (* drfs_tell_file_proc)         (drfs_handle archive, drfs_handle file);
-typedef dr_uint64    (* drfs_file_size_proc)         (drfs_handle archive, drfs_handle file);
+typedef dr_uint64   (* drfs_tell_file_proc)         (drfs_handle archive, drfs_handle file);
+typedef dr_uint64   (* drfs_file_size_proc)         (drfs_handle archive, drfs_handle file);
 typedef void        (* drfs_flush_file_proc)        (drfs_handle archive, drfs_handle file);
 
 typedef struct
@@ -312,9 +312,7 @@ typedef struct
     drfs_tell_file_proc          tell_file;
     drfs_file_size_proc          file_size;
     drfs_flush_file_proc         flush_file;
-
 } drfs_archive_callbacks;
-
 
 struct drfs_file_info
 {
@@ -343,6 +341,56 @@ struct drfs_iterator
     drfs_file_info info;
 };
 
+
+typedef struct
+{
+    // A pointer to the buffer containing the list of base paths.
+    drfs_archive_callbacks* pBuffer;
+
+    // The number of items in the list and buffer. This is a tightly packed list so the size of the buffer is always the
+    // same as the count.
+    unsigned int count;
+} drfs_callbacklist;
+
+typedef struct
+{
+    // The absolute path of the base path.
+    char absolutePath[DRFS_MAX_PATH];
+} drfs_basepath;
+
+typedef struct
+{
+    // A pointer to the buffer containing the list of base paths.
+    drfs_basepath* pBuffer;
+
+    // The size of the buffer, in drfs_basepath's.
+    unsigned int bufferSize;
+
+    // The number of items in the list.
+    unsigned int count;
+} drfs_basedirs;
+
+struct drfs_context
+{
+    // The list of archive callbacks which are used for loading non-native archives. This does not include the native callbacks.
+    drfs_callbacklist archiveCallbacks;
+
+    // The list of base directories.
+    drfs_basedirs baseDirectories;
+
+    // The write base directory.
+    char writeBaseDirectory[DRFS_MAX_PATH];
+
+    // Keeps track of whether or not write directory guard is enabled.
+    dr_bool32 isWriteGuardEnabled;
+};
+
+
+// Initializes a pre-allocated context.
+drfs_result drfs_init(drfs_context* pContext);
+
+// Uninitializes a context.
+drfs_result drfs_uninit(drfs_context* pContext);
 
 
 // Creates an empty context.
@@ -776,25 +824,6 @@ static int drfs__stricmp(const char* string1, const char* string2)
 }
 
 
-typedef struct
-{
-    // The absolute path of the base path.
-    char absolutePath[DRFS_MAX_PATH];
-} drfs_basepath;
-
-typedef struct
-{
-    // A pointer to the buffer containing the list of base paths.
-    drfs_basepath* pBuffer;
-
-    // The size of the buffer, in drfs_basepath's.
-    unsigned int bufferSize;
-
-    // The number of items in the list.
-    unsigned int count;
-
-} drfs_basedirs;
-
 static dr_bool32 drfs_basedirs_init(drfs_basedirs* pBasePaths)
 {
     if (pBasePaths == NULL) {
@@ -912,17 +941,6 @@ static void drfs_basedirs_clear(drfs_basedirs* pBasePaths)
 
 
 
-typedef struct
-{
-    // A pointer to the buffer containing the list of base paths.
-    drfs_archive_callbacks* pBuffer;
-
-    // The number of items in the list and buffer. This is a tightly packed list so the size of the buffer is always the
-    // same as the count.
-    unsigned int count;
-
-} drfs_callbacklist;
-
 static dr_bool32 drfs_callbacklist_init(drfs_callbacklist* pList)
 {
     if (pList == NULL) {
@@ -982,21 +1000,6 @@ static dr_bool32 drfs_callbacklist_pushback(drfs_callbacklist* pList, drfs_archi
     return DR_TRUE;
 }
 
-
-struct drfs_context
-{
-    // The list of archive callbacks which are used for loading non-native archives. This does not include the native callbacks.
-    drfs_callbacklist archiveCallbacks;
-
-    // The list of base directories.
-    drfs_basedirs baseDirectories;
-
-    // The write base directory.
-    char writeBaseDirectory[DRFS_MAX_PATH];
-
-    // Keeps track of whether or not write directory guard is enabled.
-    dr_bool32 isWriteGuardEnabled;
-};
 
 struct drfs_archive
 {
@@ -3510,19 +3513,15 @@ static void drfs_register_mtl_backend(drfs_context* pContext);
 
 //// Public API Implementation ////
 
-drfs_context* drfs_create_context()
+drfs_result drfs_init(drfs_context* pContext)
 {
-    drfs_context* pContext = (drfs_context*)malloc(sizeof(*pContext));
-    if (pContext == NULL) {
-        return NULL;
-    }
+    if (pContext == NULL) return drfs_invalid_args;
+    memset(pContext, 0, sizeof(*pContext));
 
     if (!drfs_callbacklist_init(&pContext->archiveCallbacks) || !drfs_basedirs_init(&pContext->baseDirectories)) {
-        free(pContext);
-        return NULL;
+        return drfs_unknown_error;
     }
 
-    memset(pContext->writeBaseDirectory, 0, DRFS_MAX_PATH);
     pContext->isWriteGuardEnabled = 0;
 
 #ifndef DR_FS_NO_ZIP
@@ -3537,6 +3536,31 @@ drfs_context* drfs_create_context()
     drfs_register_mtl_backend(pContext);
 #endif
 
+    return drfs_success;
+}
+
+drfs_result drfs_uninit(drfs_context* pContext)
+{
+    if (pContext == NULL) return drfs_invalid_args;
+
+    drfs_basedirs_uninit(&pContext->baseDirectories);
+    drfs_callbacklist_uninit(&pContext->archiveCallbacks);
+    return drfs_success;
+}
+
+
+drfs_context* drfs_create_context()
+{
+    drfs_context* pContext = (drfs_context*)malloc(sizeof(*pContext));
+    if (pContext == NULL) {
+        return NULL;
+    }
+
+    if (drfs_init(pContext) != drfs_success) {
+        free(pContext);
+        return NULL;
+    }
+
     return pContext;
 }
 
@@ -3546,8 +3570,7 @@ void drfs_delete_context(drfs_context* pContext)
         return;
     }
 
-    drfs_basedirs_uninit(&pContext->baseDirectories);
-    drfs_callbacklist_uninit(&pContext->archiveCallbacks);
+    drfs_uninit(pContext);
     free(pContext);
 }
 
