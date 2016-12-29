@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.5d - 2016-12-28
+// dr_wav - v0.5e - 2016-12-29
 //
 // David Reid - mackron@gmail.com
 
@@ -153,8 +153,7 @@ typedef enum
 // Callback for when data is read. Return value is the number of bytes actually read.
 typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 
-// Callback for when data needs to be seeked. Offset is always relative to the current position. Return value
-// is DR_TRUE on success; fale on failure.
+// Callback for when data needs to be seeked. Return value is true on success; false on failure.
 typedef dr_bool32 (* drwav_seek_proc)(void* pUserData, int offset, drwav_seek_origin origin);
 
 // Structure for internal use. Only used for loaders opened with drwav_open_memory.
@@ -199,7 +198,6 @@ typedef struct
 
     // The sub-format, exactly as specified by the wave file.
     unsigned char subFormat[16];
-
 } drwav_fmt;
 
 typedef struct
@@ -247,25 +245,27 @@ typedef struct
 
     // A hack to avoid a malloc() when opening a decoder with drwav_open_memory().
     drwav__memory_stream memoryStream;
-
 } drwav;
 
 
 // Initializes a pre-allocated drwav object.
 //
-// 
+// Returns true if successful; false otherwise.
 dr_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
 // Uninitializes the given drwav object. Use this only for objects initialized with drwav_init().
 void drwav_uninit(drwav* pWav);
 
 
-// Opens a .wav file using the given callbacks.
+// Opens a wav file using the given callbacks.
 //
 // Returns null on error. Close the loader with drwav_close().
+//
+// This is different from drwav_init() in that it will allocate the drwav object for you via malloc() before
+// initializing it.
 drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
-// Closes the given drwav object. Use this only for objects created with drwav_open().
+// Uninitializes and deletes the the given drwav object. Use this only for objects created with drwav_open().
 void drwav_close(drwav* pWav);
 
 
@@ -298,6 +298,14 @@ dr_bool32 drwav_seek_to_sample(drwav* pWav, dr_uint64 sample);
 
 //// Convertion Utilities ////
 #ifndef DR_WAV_NO_CONVERSION_API
+
+// Reads a chunk of audio data and converts it to signed 16-bit PCM samples.
+//
+// Returns the number of samples actually read.
+//
+// If the return value is less than <samplesToRead> it means the end of the file has been reached.
+dr_uint64 drwav_read_s16(drwav* pWav, dr_uint64 samplesToRead, dr_int16* pBufferOut);
+
 
 // Reads a chunk of audio data and converts it to IEEE 32-bit floating point samples.
 //
@@ -399,15 +407,18 @@ drwav* drwav_open_memory(const void* data, size_t dataSize);
 
 #ifndef DR_WAV_NO_CONVERSION_API
 // Opens and reads a wav file in a single operation.
+dr_int16* drwav_open_and_read_s16(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 dr_int32* drwav_open_and_read_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 #ifndef DR_WAV_NO_STDIO
 // Opens an decodes a wav file in a single operation.
+dr_int16* drwav_open_and_read_file_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 float* drwav_open_and_read_file_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 dr_int32* drwav_open_and_read_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 #endif
 
 // Opens an decodes a wav file from a block of memory in a single operation.
+dr_int16* drwav_open_and_read_memory_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 float* drwav_open_and_read_memory_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 dr_int32* drwav_open_and_read_memory_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount);
 #endif
@@ -1100,6 +1111,33 @@ static unsigned short g_drwavMulawTable[256] = {
     0x0078, 0x0070, 0x0068, 0x0060, 0x0058, 0x0050, 0x0048, 0x0040, 0x0038, 0x0030, 0x0028, 0x0020, 0x0018, 0x0010, 0x0008, 0x0000
 };
 
+
+dr_uint64 drwav_read_s16(drwav* pWav, dr_uint64 samplesToRead, dr_int16* pBufferOut)
+{
+    // TODO: Optimize me. This is a temporary implementation for the moment.
+    dr_uint64 totalSamplesRead = 0;
+
+    while (samplesToRead > 0) {
+        dr_int32 samples32[4096];
+        dr_uint64 samplesJustRead = drwav_read_s32(pWav, (samplesToRead > 4096) ? 4096 : samplesToRead, samples32);
+        if (samplesJustRead == 0) {
+            break;  // Reached the end.
+        }
+
+        // s32 -> s16
+        for (dr_uint64 i = 0; i < samplesJustRead; ++i) {
+            pBufferOut[i] = (dr_int16)(samples32[i] >> 16);
+        }
+
+        totalSamplesRead += samplesJustRead;
+        samplesToRead -= samplesJustRead;
+        pBufferOut += samplesJustRead;
+    }
+
+    return totalSamplesRead;
+}
+
+
 static int drwav__pcm_to_f32(float* pOut, const unsigned char* pIn, size_t sampleCount, unsigned short bytesPerSample)
 {
     if (pOut == NULL || pIn == NULL) {
@@ -1601,6 +1639,36 @@ void drwav_ulaw_to_s32(dr_int32* pOut, const dr_uint8* pIn, size_t sampleCount)
 
 
 
+dr_int16* drwav__read_and_close_s16(drwav* pWav, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
+{
+    assert(pWav != NULL);
+
+    dr_uint64 sampleDataSize = pWav->totalSampleCount * sizeof(float);
+    if (sampleDataSize > SIZE_MAX) {
+        drwav_uninit(pWav);
+        return NULL;    // File's too big.
+    }
+
+    dr_int16* pSampleData = (dr_int16*)malloc((size_t)(pWav->totalSampleCount * sizeof(dr_int16)));    // <-- Safe cast due to the check above.
+    if (pSampleData == NULL) {
+        drwav_uninit(pWav);
+        return NULL;    // Failed to allocate memory.
+    }
+
+    dr_uint64 samplesRead = drwav_read_s16(pWav, (size_t)pWav->totalSampleCount, pSampleData);
+    if (samplesRead != pWav->totalSampleCount) {
+        free(pSampleData);
+        drwav_uninit(pWav);
+        return NULL;    // There was an error reading the samples.
+    }
+
+    drwav_uninit(pWav);
+
+    if (sampleRate) *sampleRate = pWav->sampleRate;
+    if (channels) *channels = pWav->channels;
+    if (totalSampleCount) *totalSampleCount = pWav->totalSampleCount;
+    return pSampleData;
+}
 
 float* drwav__read_and_close_f32(drwav* pWav, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
 {
@@ -1665,6 +1733,19 @@ dr_int32* drwav__read_and_close_s32(drwav* pWav, unsigned int* channels, unsigne
 }
 
 
+dr_int16* drwav_open_and_read_s16(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drwav wav;
+    if (!drwav_init(&wav, onRead, onSeek, pUserData)) {
+        return NULL;
+    }
+
+    return drwav__read_and_close_s16(&wav, channels, sampleRate, totalSampleCount);
+}
 
 float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
 {
@@ -1695,6 +1776,20 @@ dr_int32* drwav_open_and_read_s32(drwav_read_proc onRead, drwav_seek_proc onSeek
 }
 
 #ifndef DR_WAV_NO_STDIO
+dr_int16* drwav_open_and_read_file_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drwav wav;
+    if (!drwav_init_file(&wav, filename)) {
+        return NULL;
+    }
+
+    return drwav__read_and_close_s16(&wav, channels, sampleRate, totalSampleCount);
+}
+
 float* drwav_open_and_read_file_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
 {
     if (sampleRate) *sampleRate = 0;
@@ -1723,6 +1818,20 @@ dr_int32* drwav_open_and_read_file_s32(const char* filename, unsigned int* chann
     return drwav__read_and_close_s32(&wav, channels, sampleRate, totalSampleCount);
 }
 #endif
+
+dr_int16* drwav_open_and_read_memory_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalSampleCount) *totalSampleCount = 0;
+
+    drwav wav;
+    if (!drwav_init_memory(&wav, data, dataSize)) {
+        return NULL;
+    }
+
+    return drwav__read_and_close_s16(&wav, channels, sampleRate, totalSampleCount);
+}
 
 float* drwav_open_and_read_memory_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, dr_uint64* totalSampleCount)
 {
@@ -1763,6 +1872,10 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.5e - 2016-12-29
+//   - Added support for reading samples as signed 16-bit integers. Use the _s16() family of APIs for this.
+//   - Minor fixes to documentation.
 //
 // v0.5d - 2016-12-28
 //   - Use dr_int*/dr_uint* sized types to improve compiler support.
