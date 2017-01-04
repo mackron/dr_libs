@@ -621,6 +621,7 @@ void dr_free_argv(char** argv);
 /// @remarks
 ///     This is not 100% accurate and should be considered an approximation.
 void dr_sleep(unsigned int milliseconds);
+void dr_yield();
 
 /// Retrieves the number of logical cores on system.
 unsigned int dr_get_logical_processor_count();
@@ -2920,6 +2921,11 @@ void dr_sleep(unsigned int milliseconds)
     Sleep((DWORD)milliseconds);
 }
 
+void dr_yield()
+{
+    SwitchToThread();
+}
+
 unsigned int dr_get_logical_processor_count()
 {
     SYSTEM_INFO sysinfo;
@@ -3089,6 +3095,11 @@ dr_bool32 dr_release_semaphore(dr_semaphore semaphore)
 void dr_sleep(unsigned int milliseconds)
 {
     usleep(milliseconds * 1000);    // <-- usleep is in microseconds.
+}
+
+void dr_yield()
+{
+    sched_yield();
 }
 
 unsigned int dr_get_logical_processor_count()
