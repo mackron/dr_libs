@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.4d - 2016-12-26
+// dr_flac - v0.4e - 2017-02-17
 //
 // David Reid - mackron@gmail.com
 
@@ -4507,6 +4507,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.4e - 2017-02-17
+//   - Fix some warnings.
 //
 // v0.4d - 2016-12-26
 //   - Add support for 32-bit floating-point PCM decoding.

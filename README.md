@@ -7,7 +7,7 @@ have stable APIs, but on rare occasions I may need to make some minor changes.
 
 Library                                         | Version | Description
 ----------------------------------------------- | ------- | -----------
-[dr_flac](dr_flac.h)                            | 0.4d    | FLAC audio decoder.
+[dr_flac](dr_flac.h)                            | 0.4e    | FLAC audio decoder.
 [dr_wav](dr_wav.h)                              | 0.5e    | WAV audio loader.
 [dr_audio](dr_audio.h)                          | -       | Audio playback.
 [dr_pcx](dr_pcx.h)                              | 0.2     | PCX image loader.
