@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.4e - 2017-02-17
+// dr_flac - v0.4f - 2017-03-10
 //
 // David Reid - mackron@gmail.com
 
@@ -891,7 +891,7 @@ static DRFLAC_INLINE dr_bool32 drflac__reload_l1_cache_from_l2(drflac_bs* bs)
     // If we get here it means we've run out of data in the L2 cache. We'll need to fetch more from the client, if there's
     // any left.
     if (bs->unalignedByteCount > 0) {
-        return DR_FALSE;   // If we have any unaligned bytes it means there's not more aligned bytes left in the client.
+        return DR_FALSE;   // If we have any unaligned bytes it means there's no more aligned bytes left in the client.
     }
 
     size_t bytesRead = bs->onRead(bs->pUserData, bs->cacheL2, DRFLAC_CACHE_L2_SIZE_BYTES(bs));
@@ -912,11 +912,10 @@ static DRFLAC_INLINE dr_bool32 drflac__reload_l1_cache_from_l2(drflac_bs* bs)
     // We need to keep track of any unaligned bytes for later use.
     bs->unalignedByteCount = bytesRead - (alignedL1LineCount * DRFLAC_CACHE_L1_SIZE_BYTES(bs));
     if (bs->unalignedByteCount > 0) {
-        bs->unalignedCache  = bs->cacheL2[alignedL1LineCount];
+        bs->unalignedCache = bs->cacheL2[alignedL1LineCount];
     }
 
-    if (alignedL1LineCount > 0)
-    {
+    if (alignedL1LineCount > 0) {
         size_t offset = DRFLAC_CACHE_L2_LINE_COUNT(bs) - alignedL1LineCount;
         for (size_t i = alignedL1LineCount; i > 0; --i) {
             bs->cacheL2[i-1 + offset] = bs->cacheL2[i-1];
@@ -925,9 +924,7 @@ static DRFLAC_INLINE dr_bool32 drflac__reload_l1_cache_from_l2(drflac_bs* bs)
         bs->nextL2Line = offset;
         bs->cache = bs->cacheL2[bs->nextL2Line++];
         return DR_TRUE;
-    }
-    else
-    {
+    } else {
         // If we get into this branch it means we weren't able to load any L1-aligned data.
         bs->nextL2Line = DRFLAC_CACHE_L2_LINE_COUNT(bs);
         return DR_FALSE;
@@ -958,6 +955,8 @@ static dr_bool32 drflac__reload_cache(drflac_bs* bs)
 
     bs->cache = drflac__be2host__cache_line(bs->unalignedCache);
     bs->cache &= DRFLAC_CACHE_L1_SELECTION_MASK(DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs->consumedBits);    // <-- Make sure the consumed bits are always set to zero. Other parts of the library depend on this property.
+    bs->unalignedByteCount = 0;     // <-- At this point the unaligned bytes have been moved into the cache and we thus have no more unaligned bytes.
+
     return DR_TRUE;
 }
 
@@ -978,36 +977,33 @@ static dr_bool32 drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
         return DR_TRUE;
     } else {
         // It straddles the cached data. This function isn't called too frequently so I'm favouring simplicity here.
-        bitsToSeek -= DRFLAC_CACHE_L1_BITS_REMAINING(bs);
+        bitsToSeek       -= DRFLAC_CACHE_L1_BITS_REMAINING(bs);
         bs->consumedBits += DRFLAC_CACHE_L1_BITS_REMAINING(bs);
-        bs->cache = 0;
+        bs->cache         = 0;
 
-        size_t wholeBytesRemaining = bitsToSeek/8;
-        if (wholeBytesRemaining > 0)
-        {
+        size_t wholeBytesRemainingToSeek = bitsToSeek/8;
+        if (wholeBytesRemainingToSeek > 0) {
             // The next bytes to seek will be located in the L2 cache. The problem is that the L2 cache is not byte aligned,
             // but rather DRFLAC_CACHE_L1_SIZE_BYTES aligned (usually 4 or 8). If, for example, the number of bytes to seek is
             // 3, we'll need to handle it in a special way.
-            size_t wholeCacheLinesRemaining = wholeBytesRemaining / DRFLAC_CACHE_L1_SIZE_BYTES(bs);
-            if (wholeCacheLinesRemaining < DRFLAC_CACHE_L2_LINES_REMAINING(bs))
-            {
-                wholeBytesRemaining -= wholeCacheLinesRemaining * DRFLAC_CACHE_L1_SIZE_BYTES(bs);
-                bitsToSeek -= wholeCacheLinesRemaining * DRFLAC_CACHE_L1_SIZE_BITS(bs);
-                bs->nextL2Line += wholeCacheLinesRemaining;
-            }
-            else
-            {
-                wholeBytesRemaining -= DRFLAC_CACHE_L2_LINES_REMAINING(bs) * DRFLAC_CACHE_L1_SIZE_BYTES(bs);
-                bitsToSeek -= DRFLAC_CACHE_L2_LINES_REMAINING(bs) * DRFLAC_CACHE_L1_SIZE_BITS(bs);
-                bs->nextL2Line += DRFLAC_CACHE_L2_LINES_REMAINING(bs);
+            size_t wholeCacheLinesRemainingToSeek = wholeBytesRemainingToSeek / DRFLAC_CACHE_L1_SIZE_BYTES(bs);
+            if (wholeCacheLinesRemainingToSeek < DRFLAC_CACHE_L2_LINES_REMAINING(bs)) {
+                wholeBytesRemainingToSeek -= wholeCacheLinesRemainingToSeek * DRFLAC_CACHE_L1_SIZE_BYTES(bs);
+                bitsToSeek                -= wholeCacheLinesRemainingToSeek * DRFLAC_CACHE_L1_SIZE_BITS(bs);
+                bs->nextL2Line            += wholeCacheLinesRemainingToSeek;
+            } else {
+                wholeBytesRemainingToSeek -= DRFLAC_CACHE_L2_LINES_REMAINING(bs) * DRFLAC_CACHE_L1_SIZE_BYTES(bs);
+                bitsToSeek                -= DRFLAC_CACHE_L2_LINES_REMAINING(bs) * DRFLAC_CACHE_L1_SIZE_BITS(bs);
+                bs->nextL2Line            += DRFLAC_CACHE_L2_LINES_REMAINING(bs);
 
-                if (wholeBytesRemaining > 0) {
-                    bs->onSeek(bs->pUserData, (int)wholeBytesRemaining, drflac_seek_origin_current);
-                    bitsToSeek -= wholeBytesRemaining*8;
+                // Note that we only seek on the client side if it's got any data left to seek. We can know this by checking
+                // if we have any unaligned data which can be determined with bs->unalignedByteCount.
+                if (wholeBytesRemainingToSeek > 0 && bs->unalignedByteCount == 0) {
+                    bs->onSeek(bs->pUserData, (int)wholeBytesRemainingToSeek, drflac_seek_origin_current);
+                    bitsToSeek -= wholeBytesRemainingToSeek*8;
                 }
             }
         }
-
 
         if (bitsToSeek > 0) {
             if (!drflac__reload_cache(bs)) {
@@ -4507,6 +4503,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.4f - 2017-03-10
+//   - Fix a couple of bugs with the bitstreaming code.
 //
 // v0.4e - 2017-02-17
 //   - Fix some warnings.
