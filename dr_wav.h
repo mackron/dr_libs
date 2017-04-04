@@ -1,5 +1,5 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.5e - 2016-12-29
+// dr_wav - v0.5f - 2017-04-04
 //
 // David Reid - mackron@gmail.com
 
@@ -1643,13 +1643,13 @@ dr_int16* drwav__read_and_close_s16(drwav* pWav, unsigned int* channels, unsigne
 {
     assert(pWav != NULL);
 
-    dr_uint64 sampleDataSize = pWav->totalSampleCount * sizeof(float);
+    dr_uint64 sampleDataSize = pWav->totalSampleCount * sizeof(dr_int16);
     if (sampleDataSize > SIZE_MAX) {
         drwav_uninit(pWav);
         return NULL;    // File's too big.
     }
 
-    dr_int16* pSampleData = (dr_int16*)malloc((size_t)(pWav->totalSampleCount * sizeof(dr_int16)));    // <-- Safe cast due to the check above.
+    dr_int16* pSampleData = (dr_int16*)malloc((size_t)sampleDataSize);    // <-- Safe cast due to the check above.
     if (pSampleData == NULL) {
         drwav_uninit(pWav);
         return NULL;    // Failed to allocate memory.
@@ -1680,7 +1680,7 @@ float* drwav__read_and_close_f32(drwav* pWav, unsigned int* channels, unsigned i
         return NULL;    // File's too big.
     }
 
-    float* pSampleData = (float*)malloc((size_t)(pWav->totalSampleCount * sizeof(float)));    // <-- Safe cast due to the check above.
+    float* pSampleData = (float*)malloc((size_t)sampleDataSize);    // <-- Safe cast due to the check above.
     if (pSampleData == NULL) {
         drwav_uninit(pWav);
         return NULL;    // Failed to allocate memory.
@@ -1711,7 +1711,7 @@ dr_int32* drwav__read_and_close_s32(drwav* pWav, unsigned int* channels, unsigne
         return NULL;    // File's too big.
     }
 
-    dr_int32* pSampleData = (dr_int32*)malloc((size_t)(pWav->totalSampleCount * sizeof(dr_int32)));    // <-- Safe cast due to the check above.
+    dr_int32* pSampleData = (dr_int32*)malloc((size_t)sampleDataSize);    // <-- Safe cast due to the check above.
     if (pSampleData == NULL) {
         drwav_uninit(pWav);
         return NULL;    // Failed to allocate memory.
@@ -1872,6 +1872,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.5f - 2017-04-04
+//   - Fix a minor bug with drwav_open_and_read_s16() and family.
 //
 // v0.5e - 2016-12-29
 //   - Added support for reading samples as signed 16-bit integers. Use the _s16() family of APIs for this.
