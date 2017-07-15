@@ -418,7 +418,7 @@ typedef struct
     // The number of bits per sample within this frame.
     dr_uint8 bitsPerSample;
 
-    // The frame's CRC. This is set, but unused at the moment.
+    // The frame's CRC.
     dr_uint8 crc8;
 
 } drflac_frame_header;
@@ -797,6 +797,7 @@ static DRFLAC_INLINE dr_uint64 drflac__swap_endian_uint64(dr_uint64 n)
 #endif
 }
 
+
 static DRFLAC_INLINE dr_uint16 drflac__be2host_16(dr_uint16 n)
 {
 #ifdef __linux__
@@ -851,12 +852,66 @@ static DRFLAC_INLINE dr_uint32 drflac__le2host_32(dr_uint32 n)
 }
 
 
+static DRFLAC_INLINE dr_uint8 drflac_crc8(dr_uint8 r, dr_uint32 bits, dr_uint32 count)
+{
+    // TODO: Optimize me.
+
+    dr_uint8 polyTable[2] = {
+        0x00,
+        0x07
+    };
+
+    // Naive.
+    for (int i = count-1; i >= 0; --i) {
+        dr_uint8 bit = (bits & (1 << i)) >> i;
+    #if 0
+        // For reference.
+        if (r & 0x80) {
+            r = ((r << 1) | bit) ^ 0x07;
+        } else {
+            r = ((r << 1) | bit);
+        }
+    #else
+        r = ((r << 1) | bit) ^ polyTable[(r & 0x80) >> 7];
+    #endif
+    }
+
+    return r;
+}
+
+static DRFLAC_INLINE dr_uint16 drflac_crc16(dr_uint16 r, dr_uint32 bits, dr_uint32 count)
+{
+    // TODO: Optimize me.
+
+    dr_uint16 polyTable[2] = {
+        0x0000,
+        0x8005
+    };
+
+    // Naive.
+    for (int i = count-1; i >= 0; --i) {
+        dr_uint16 bit = (bits & (1 << i)) >> i;
+    #if 0
+        // For reference.
+        if (r & 0x80) {
+            r = ((r << 1) | bit) ^ p;
+        } else {
+            r = ((r << 1) | bit);
+        }
+    #else
+        r = ((r << 1) | bit) ^ polyTable[(r & 0x8000) >> 15];
+    #endif
+    }
+
+    return r;
+}
+
+
 #ifdef DRFLAC_64BIT
 #define drflac__be2host__cache_line drflac__be2host_64
 #else
 #define drflac__be2host__cache_line drflac__be2host_32
 #endif
-
 
 // BIT READING ATTEMPT #2
 //
@@ -1273,19 +1328,23 @@ static dr_bool32 drflac__seek_to_byte(drflac_bs* bs, dr_uint64 offsetFromStart)
 }
 
 
-static dr_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, dr_uint64* pNumberOut)
+static dr_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, dr_uint64* pNumberOut, dr_uint8* pCRCOut)
 {
     assert(bs != NULL);
     assert(pNumberOut != NULL);
+
+    dr_uint8 crc = *pCRCOut;
 
     unsigned char utf8[7] = {0};
     if (!drflac__read_uint8(bs, 8, utf8)) {
         *pNumberOut = 0;
         return DR_FALSE;
     }
+    crc = drflac_crc8(crc, utf8[0], 8);
 
     if ((utf8[0] & 0x80) == 0) {
         *pNumberOut = utf8[0];
+        *pCRCOut = crc;
         return DR_TRUE;
     }
 
@@ -1316,11 +1375,13 @@ static dr_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, dr_uint64* pNumbe
             *pNumberOut = 0;
             return DR_FALSE;
         }
+        crc = drflac_crc8(crc, utf8[i], 8);
 
         result = (result << 6) | (utf8[i] & 0x3F);
     }
 
     *pNumberOut = result;
+    *pCRCOut = crc;
     return DR_TRUE;
 }
 
@@ -1989,70 +2050,82 @@ static dr_bool32 drflac__read_next_frame_header(drflac_bs* bs, dr_uint8 streamin
     assert(bs != NULL);
     assert(header != NULL);
 
-    // At the moment the sync code is as a form of basic validation. The CRC is stored, but is unused at the moment. This
-    // should probably be handled better in the future.
-
     const dr_uint32 sampleRateTable[12]  = {0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000};
     const dr_uint8 bitsPerSampleTable[8] = {0, 8, 12, (dr_uint8)-1, 16, 20, 24, (dr_uint8)-1};   // -1 = reserved.
+
+    dr_uint8 crc = 0;
 
     dr_uint16 syncCode = 0;
     if (!drflac__read_uint16(bs, 14, &syncCode)) {
         return DR_FALSE;
     }
-
+    crc = drflac_crc8(crc, syncCode, 14);
+    
     if (syncCode != 0x3FFE) {
         // TODO: Try and recover by attempting to seek to and read the next frame?
         return DR_FALSE;
     }
 
-    dr_uint8 reserved;
+
+    dr_uint8 reserved = 0;
     if (!drflac__read_uint8(bs, 1, &reserved)) {
         return DR_FALSE;
     }
+    crc = drflac_crc8(crc, reserved, 1);
+
 
     dr_uint8 blockingStrategy = 0;
     if (!drflac__read_uint8(bs, 1, &blockingStrategy)) {
         return DR_FALSE;
     }
-
+    crc = drflac_crc8(crc, blockingStrategy, 1);
 
 
     dr_uint8 blockSize = 0;
     if (!drflac__read_uint8(bs, 4, &blockSize)) {
         return DR_FALSE;
     }
+    crc = drflac_crc8(crc, blockSize, 4);
+
 
     dr_uint8 sampleRate = 0;
     if (!drflac__read_uint8(bs, 4, &sampleRate)) {
         return DR_FALSE;
     }
+    crc = drflac_crc8(crc, sampleRate, 4);
+
 
     dr_uint8 channelAssignment = 0;
     if (!drflac__read_uint8(bs, 4, &channelAssignment)) {
         return DR_FALSE;
     }
+    crc = drflac_crc8(crc, channelAssignment, 4);
+
 
     dr_uint8 bitsPerSample = 0;
     if (!drflac__read_uint8(bs, 3, &bitsPerSample)) {
         return DR_FALSE;
     }
+    crc = drflac_crc8(crc, bitsPerSample, 3);
+
 
     if (!drflac__read_uint8(bs, 1, &reserved)) {
         return DR_FALSE;
     }
+    crc = drflac_crc8(crc, reserved, 1);
 
 
     dr_bool32 isVariableBlockSize = blockingStrategy == 1;
     if (isVariableBlockSize) {
         dr_uint64 sampleNumber;
-        if (!drflac__read_utf8_coded_number(bs, &sampleNumber)) {
+        if (!drflac__read_utf8_coded_number(bs, &sampleNumber, &crc)) {
             return DR_FALSE;
         }
         header->frameNumber  = 0;
         header->sampleNumber = sampleNumber;
     } else {
         dr_uint64 frameNumber = 0;
-        if (!drflac__read_utf8_coded_number(bs, &frameNumber)) {
+        if (!drflac__read_utf8_coded_number(bs, &frameNumber, &crc)) {
             return DR_FALSE;
         }
         header->frameNumber  = (dr_uint32)frameNumber;   // <-- Safe cast.
@@ -2068,11 +2141,13 @@ static dr_bool32 drflac__read_next_frame_header(drflac_bs* bs, dr_uint8 streamin
         if (!drflac__read_uint16(bs, 8, &header->blockSize)) {
             return DR_FALSE;
         }
+        crc = drflac_crc8(crc, header->blockSize, 8);
         header->blockSize += 1;
     } else if (blockSize == 7) {
         if (!drflac__read_uint16(bs, 16, &header->blockSize)) {
             return DR_FALSE;
         }
+        crc = drflac_crc8(crc, header->blockSize, 16);
         header->blockSize += 1;
     } else {
         header->blockSize = 256 * (1 << (blockSize - 8));
@@ -2085,15 +2160,18 @@ static dr_bool32 drflac__read_next_frame_header(drflac_bs* bs, dr_uint8 streamin
         if (!drflac__read_uint32(bs, 8, &header->sampleRate)) {
             return DR_FALSE;
         }
+        crc = drflac_crc8(crc, header->sampleRate, 8);
         header->sampleRate *= 1000;
     } else if (sampleRate == 13) {
         if (!drflac__read_uint32(bs, 16, &header->sampleRate)) {
             return DR_FALSE;
         }
+        crc = drflac_crc8(crc, header->sampleRate, 16);
     } else if (sampleRate == 14) {
         if (!drflac__read_uint32(bs, 16, &header->sampleRate)) {
             return DR_FALSE;
         }
+        crc = drflac_crc8(crc, header->sampleRate, 16);
         header->sampleRate *= 10;
     } else {
         return DR_FALSE;  // Invalid.
@@ -2107,8 +2185,13 @@ static dr_bool32 drflac__read_next_frame_header(drflac_bs* bs, dr_uint8 streamin
         header->bitsPerSample = streaminfoBitsPerSample;
     }
 
-    if (drflac__read_uint8(bs, 8, &header->crc8) != 1) {
+    if (!drflac__read_uint8(bs, 8, &header->crc8)) {
         return DR_FALSE;
+    }
+ 
+    crc = drflac_crc8(crc, 0, 8);   // <-- Flush the register.
+    if (header->crc8 != crc) {
+        return DR_FALSE;    // CRC mismatch.
     }
 
     return DR_TRUE;
