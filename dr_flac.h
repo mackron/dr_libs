@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.4f - 2017-03-10
+// dr_flac - v0.5 - 2017-07-XX
 //
 // David Reid - mackron@gmail.com
 
@@ -130,8 +130,8 @@ typedef uint32_t         dr_uint32;
 typedef int64_t          dr_int64;
 typedef uint64_t         dr_uint64;
 #endif
-typedef dr_int8          dr_bool8;
-typedef dr_int32         dr_bool32;
+typedef dr_uint8         dr_bool8;
+typedef dr_uint32        dr_bool32;
 #define DR_TRUE          1
 #define DR_FALSE         0
 #endif
@@ -4503,6 +4503,10 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.5 - 2017-07-XX
+//   - Fix a typo.
+//   - Change dr_bool* types to unsigned.
 //
 // v0.4f - 2017-03-10
 //   - Fix a couple of bugs with the bitstreaming code.
