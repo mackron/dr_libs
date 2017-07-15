@@ -537,7 +537,7 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUse
 // This is slower than drflac_open(), so avoid this one if you don't need metadata. Internally, this will do a malloc()
 // and free() for every metadata block except for STREAMINFO and PADDING blocks.
 //
-// The caller is notified of the metadata via the onMeta callback. All metadata blocks with be handled before the function
+// The caller is notified of the metadata via the onMeta callback. All metadata blocks will be handled before the function
 // returns.
 //
 // See also: drflac_open_file_with_metadata(), drflac_open_memory_with_metadata(), drflac_open(), drflac_close()
