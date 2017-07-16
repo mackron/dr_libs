@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.5 - 2017-07-XX
+// dr_flac - v0.5 - 2017-07-16
 //
 // David Reid - mackron@gmail.com
 
@@ -87,6 +87,9 @@
 //   returns after about 4KB (which is the default). Consider reducing this if you have a very efficient implementation of
 //   onRead(), or increase it if it's very inefficient. Must be a multiple of 8.
 //
+// #define DR_FLAC_NO_CRC
+//   Disables CRC checks. This will offer a performance boost when CRC is unnecessary.
+//
 //
 //
 // QUICK NOTES
@@ -137,17 +140,6 @@ typedef dr_uint32        dr_bool32;
 // returns after about 4KB, but you can fiddle with this to suit your own needs. Must be a multiple of 8.
 #ifndef DR_FLAC_BUFFER_SIZE
 #define DR_FLAC_BUFFER_SIZE   4096
-#endif
-
-// This is a secret setting (shhh!). dr_flac supports CRC checking, but it's not optimized. I've therefore
-// decided to disable it by default in order to avoid surprise performance regressions. To enable it, go
-// ahead and #define DR_FLAC_ENABLE_CRC before the implementation. Keep in mind however, that performance
-// will go way down. Also, in the future when CRC is optimized, it will be enabled by default and this
-// setting will be replaced with DR_FLAC_NO_CRC.
-#ifndef DR_FLAC_ENABLE_CRC
-#ifndef DR_FLAC_NO_CRC
-#define DR_FLAC_NO_CRC
-#endif
 #endif
 
 #ifdef __cplusplus
@@ -4751,10 +4743,10 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 // REVISION HISTORY
 //
-// v0.5 - 2017-07-XX
+// v0.5 - 2017-07-16
 //   - Fix typos.
 //   - Change dr_bool* types to unsigned.
-//   - Added CRC checking. Disabled by default with this version pending optimizations.
+//   - Added CRC checking. This makes dr_flac slower, but can be disabled with #define DR_FLAC_NO_CRC.
 //
 // v0.4f - 2017-03-10
 //   - Fix a couple of bugs with the bitstreaming code.
