@@ -1,13 +1,13 @@
 // WAV audio loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.5f - 2017-04-04
+// dr_wav - v0.5g - 2017-06-16
 //
 // David Reid - mackron@gmail.com
 
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
-//   #define DR_WAV_IMPLEMENTATION
-//   #include "dr_wav.h"
+//     #define DR_WAV_IMPLEMENTATION
+//     #include "dr_wav.h"
 //
 // You can then #include this file in other parts of the program as you would with any other header file. Do something
 // like the following to read audio data:
@@ -120,8 +120,8 @@ typedef uint32_t         dr_uint32;
 typedef int64_t          dr_int64;
 typedef uint64_t         dr_uint64;
 #endif
-typedef dr_int8          dr_bool8;
-typedef dr_int32         dr_bool32;
+typedef dr_uint8         dr_bool8;
+typedef dr_uint32        dr_bool32;
 #define DR_TRUE          1
 #define DR_FALSE         0
 #endif
@@ -1872,6 +1872,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.5g - 2017-07-16
+//   - Change underlying type for booleans to unsigned.
 //
 // v0.5f - 2017-04-04
 //   - Fix a minor bug with drwav_open_and_read_s16() and family.

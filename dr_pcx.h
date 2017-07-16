@@ -1,13 +1,13 @@
 // PCX image loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_pcx - v0.2 - 2016-10-28
+// dr_pcx - v0.2a - 2017-07-16
 //
 // David Reid - mackron@gmail.com
 
 // USAGE
 //
 // dr_pcx is a single-file library. To use it, do something like the following in one .c file.
-//   #define DR_PCX_IMPLEMENTATION
-//   #include "dr_pcx.h"
+//     #define DR_PCX_IMPLEMENTATION
+//     #include "dr_pcx.h"
 //
 // You can then #include this file in other parts of the program as you would with any other header file. Do something like
 // the following to load and decode an image:
@@ -64,8 +64,8 @@ typedef uint32_t         dr_uint32;
 typedef int64_t          dr_int64;
 typedef uint64_t         dr_uint64;
 #endif
-typedef dr_int8          dr_bool8;
-typedef dr_int32         dr_bool32;
+typedef dr_uint8         dr_bool8;
+typedef dr_uint32        dr_bool32;
 #define DR_TRUE          1
 #define DR_FALSE         0
 #endif
@@ -744,6 +744,9 @@ void drpcx_free(void* pReturnValueFromLoad)
 
 
 // REVISION HISTORY
+//
+// v0.2a - 2017-07-16
+//   - Change underlying type for booleans to unsigned.
 //
 // v0.2 - 2016-10-28
 //   - API CHANGE: Add a parameter to drpcx_load() and family to control the number of output components.
