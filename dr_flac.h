@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.5 - 2017-07-16
+// dr_flac - v0.6 - 2017-07-22
 //
 // David Reid - mackron@gmail.com
 
@@ -99,7 +99,6 @@
 // - This has not been tested on big-endian architectures.
 // - Rice codes in unencoded binary form (see https://xiph.org/flac/format.html#rice_partition) has not been tested. If anybody
 //   knows where I can find some test files for this, let me know.
-// - Perverse and erroneous files have not been tested. Again, if you know where I can get some test files let me know.
 // - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as you do your own synchronization.
 
 #ifndef dr_flac_h
@@ -4786,10 +4785,14 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 // REVISION HISTORY
 //
+// v0.6 - 2017-07-22
+//   - Add support for recovering from invalid frames. With this change, dr_flac will simply skip over invalid frames as if they
+//     never existed. Frames are checked against their sync code, the CRC-8 of the frame header and the CRC-16 of the whole frame.
+//
 // v0.5 - 2017-07-16
 //   - Fix typos.
 //   - Change dr_bool* types to unsigned.
-//   - Added CRC checking. This makes dr_flac slower, but can be disabled with #define DR_FLAC_NO_CRC.
+//   - Add CRC checking. This makes dr_flac slower, but can be disabled with #define DR_FLAC_NO_CRC.
 //
 // v0.4f - 2017-03-10
 //   - Fix a couple of bugs with the bitstreaming code.
@@ -4813,7 +4816,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 //
 // v0.4 - 2016-09-29
 //   - API/ABI CHANGE: Use fixed size 32-bit booleans instead of the built-in bool type.
-//   - API CHANGE: Rename drflac_open_and_decode*() to drflac_open_and_decode*_s32()
+//   - API CHANGE: Rename drflac_open_and_decode*() to drflac_open_and_decode*_s32().
 //   - API CHANGE: Swap the order of "channels" and "sampleRate" parameters in drflac_open_and_decode*(). Rationale for this is to
 //     keep it consistent with dr_audio.
 //
@@ -4866,11 +4869,6 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 //
 // v0.1 - 2016-05-03
 //   - Initial versioned release.
-
-
-// TODO
-// - Add support for initializing the decoder without a header STREAMINFO block.
-// - Test CUESHEET metadata blocks.
 
 
 /*
