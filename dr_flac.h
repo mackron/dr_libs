@@ -727,6 +727,13 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #define DRFLAC_INLINE inline
 #endif
 
+typedef dr_int32 drflac_result;
+#define DRFLAC_SUCCESS                                  0
+#define DRFLAC_ERROR                                    -1  // A generic error.
+#define DRFLAC_INVALID_ARGS                             -2
+#define DRFLAC_END_OF_STREAM                            -128
+#define DRFLAC_CRC_MISMATCH                             -129
+
 #define DRFLAC_SUBFRAME_CONSTANT                        0
 #define DRFLAC_SUBFRAME_VERBATIM                        1
 #define DRFLAC_SUBFRAME_FIXED                           8
@@ -1384,6 +1391,46 @@ static dr_bool32 drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
 }
 
 
+// This function moves the bit streamer to the first bit after the sync code (bit 15 of the of the frame header). It will also update the CRC-16.
+static dr_bool32 drflac__find_and_seek_to_next_sync_code(drflac_bs* bs)
+{
+    assert(bs != NULL);
+
+    // The sync code is always aligned to 8 bits. This is convenient for us because it means we can do byte-aligned movements. The first
+    // thing to do is align to the next byte.
+    if (!drflac__seek_bits(bs, DRFLAC_CACHE_L1_BITS_REMAINING(bs) & 7)) {
+        return DR_FALSE;
+    }
+
+    for (;;) {
+        bs->crc16 = 0;
+
+        dr_uint8 hi;
+        if (!drflac__read_uint8(bs, 8, &hi)) {
+            return DR_FALSE;
+        }
+
+        if (hi == 0xFF) {
+            dr_uint8 lo;
+            if (!drflac__read_uint8(bs, 6, &lo)) {
+                return DR_FALSE;
+            }
+
+            if (lo == 0x3E) {
+                return DR_TRUE;
+            } else {
+                if (!drflac__seek_bits(bs, DRFLAC_CACHE_L1_BITS_REMAINING(bs) & 7)) {
+                    return DR_FALSE;
+                }
+            }
+        }
+    }
+
+    // Should never get here.
+    //return DR_FALSE;
+}
+
+
 static inline dr_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned int* pOffsetOut)
 {
     unsigned int zeroCounter = 0;
@@ -1440,14 +1487,12 @@ static dr_bool32 drflac__seek_to_byte(drflac_bs* bs, dr_uint64 offsetFromStart)
     // Seeking from the start is not quite as trivial as it sounds because the onSeek callback takes a signed 32-bit integer (which
     // is intentional because it simplifies the implementation of the onSeek callbacks), however offsetFromStart is unsigned 64-bit.
     // To resolve we just need to do an initial seek from the start, and then a series of offset seeks to make up the remainder.
-    if (offsetFromStart > 0x7FFFFFFF)
-    {
+    if (offsetFromStart > 0x7FFFFFFF) {
         dr_uint64 bytesRemaining = offsetFromStart;
         if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_start)) {
             return DR_FALSE;
         }
         bytesRemaining -= 0x7FFFFFFF;
-
 
         while (bytesRemaining > 0x7FFFFFFF) {
             if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_current)) {
@@ -1456,20 +1501,16 @@ static dr_bool32 drflac__seek_to_byte(drflac_bs* bs, dr_uint64 offsetFromStart)
             bytesRemaining -= 0x7FFFFFFF;
         }
 
-
         if (bytesRemaining > 0) {
             if (!bs->onSeek(bs->pUserData, (int)bytesRemaining, drflac_seek_origin_current)) {
                 return DR_FALSE;
             }
         }
-    }
-    else
-    {
+    } else {
         if (!bs->onSeek(bs->pUserData, (int)offsetFromStart, drflac_seek_origin_start)) {
             return DR_FALSE;
         }
     }
-
 
     // The cache should be reset to force a reload of fresh data from the client.
     drflac__reset_cache(bs);
@@ -1805,8 +1846,7 @@ static dr_bool32 funcName (drflac_bs* bs, dr_uint32 count, dr_uint8 riceParam, d
     drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);                                                                                       \
     drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceParam;                                                                                       \
                                                                                                                                                                     \
-    for (int i = 0; i < (int)count; ++i)                                                                                                                            \
-    {                                                                                                                                                               \
+    for (int i = 0; i < (int)count; ++i) {                                                                                                                          \
         unsigned int zeroCounter = 0;                                                                                                                               \
         while (bs->cache == 0) {                                                                                                                                    \
             zeroCounter += (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING(bs);                                                                                        \
@@ -1967,8 +2007,7 @@ static dr_bool32 drflac__decode_samples_with_residual(drflac_bs* bs, dr_uint32 b
 
     dr_uint32 samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
     dr_uint32 partitionsRemaining = (1 << partitionOrder);
-    for (;;)
-    {
+    for (;;) {
         dr_uint8 riceParam = 0;
         if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE) {
             if (!drflac__read_uint8(bs, 4, &riceParam)) {
@@ -2202,150 +2241,144 @@ static dr_bool32 drflac__read_next_frame_header(drflac_bs* bs, dr_uint8 streamin
     const dr_uint32 sampleRateTable[12]  = {0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000};
     const dr_uint8 bitsPerSampleTable[8] = {0, 8, 12, (dr_uint8)-1, 16, 20, 24, (dr_uint8)-1};   // -1 = reserved.
 
-    dr_uint8 crc = 0;
-    bs->crc16 = 0;  // The CRC-16 check is done on a per-frame basis, so make sure it's reset to 0 just before reading the first bits of a frame.
-
-    dr_uint16 syncCode = 0;
-    if (!drflac__read_uint16(bs, 14, &syncCode)) {
-        return DR_FALSE;
-    }
-    crc = drflac_crc8(crc, syncCode, 14);
-    
-    if (syncCode != 0x3FFE) {
-        // TODO: Try and recover by attempting to seek to and read the next frame?
-        return DR_FALSE;
-    }
-
-
-    dr_uint8 reserved = 0;
-    if (!drflac__read_uint8(bs, 1, &reserved)) {
-        return DR_FALSE;
-    }
-    crc = drflac_crc8(crc, reserved, 1);
-
-
-    dr_uint8 blockingStrategy = 0;
-    if (!drflac__read_uint8(bs, 1, &blockingStrategy)) {
-        return DR_FALSE;
-    }
-    crc = drflac_crc8(crc, blockingStrategy, 1);
-
-
-    dr_uint8 blockSize = 0;
-    if (!drflac__read_uint8(bs, 4, &blockSize)) {
-        return DR_FALSE;
-    }
-    crc = drflac_crc8(crc, blockSize, 4);
-
-
-    dr_uint8 sampleRate = 0;
-    if (!drflac__read_uint8(bs, 4, &sampleRate)) {
-        return DR_FALSE;
-    }
-    crc = drflac_crc8(crc, sampleRate, 4);
-
-
-    dr_uint8 channelAssignment = 0;
-    if (!drflac__read_uint8(bs, 4, &channelAssignment)) {
-        return DR_FALSE;
-    }
-    crc = drflac_crc8(crc, channelAssignment, 4);
-
-
-    dr_uint8 bitsPerSample = 0;
-    if (!drflac__read_uint8(bs, 3, &bitsPerSample)) {
-        return DR_FALSE;
-    }
-    crc = drflac_crc8(crc, bitsPerSample, 3);
-
-
-    if (!drflac__read_uint8(bs, 1, &reserved)) {
-        return DR_FALSE;
-    }
-    crc = drflac_crc8(crc, reserved, 1);
-
-
-    dr_bool32 isVariableBlockSize = blockingStrategy == 1;
-    if (isVariableBlockSize) {
-        dr_uint64 sampleNumber;
-        if (!drflac__read_utf8_coded_number(bs, &sampleNumber, &crc)) {
+    // Keep looping until we find a valid sync code.
+    for (;;) {
+        if (!drflac__find_and_seek_to_next_sync_code(bs)) {
             return DR_FALSE;
         }
-        header->frameNumber  = 0;
-        header->sampleNumber = sampleNumber;
-    } else {
-        dr_uint64 frameNumber = 0;
-        if (!drflac__read_utf8_coded_number(bs, &frameNumber, &crc)) {
+
+        dr_uint8 crc8 = 0xCE; // 0xCE = drflac_crc8(0, 0x3FFE, 14);
+
+        dr_uint8 reserved = 0;
+        if (!drflac__read_uint8(bs, 1, &reserved)) {
             return DR_FALSE;
         }
-        header->frameNumber  = (dr_uint32)frameNumber;   // <-- Safe cast.
-        header->sampleNumber = 0;
-    }
+        crc8 = drflac_crc8(crc8, reserved, 1);
 
 
-    if (blockSize == 1) {
-        header->blockSize = 192;
-    } else if (blockSize >= 2 && blockSize <= 5) {
-        header->blockSize = 576 * (1 << (blockSize - 2));
-    } else if (blockSize == 6) {
-        if (!drflac__read_uint16(bs, 8, &header->blockSize)) {
+        dr_uint8 blockingStrategy = 0;
+        if (!drflac__read_uint8(bs, 1, &blockingStrategy)) {
             return DR_FALSE;
         }
-        crc = drflac_crc8(crc, header->blockSize, 8);
-        header->blockSize += 1;
-    } else if (blockSize == 7) {
-        if (!drflac__read_uint16(bs, 16, &header->blockSize)) {
+        crc8 = drflac_crc8(crc8, blockingStrategy, 1);
+
+
+        dr_uint8 blockSize = 0;
+        if (!drflac__read_uint8(bs, 4, &blockSize)) {
             return DR_FALSE;
         }
-        crc = drflac_crc8(crc, header->blockSize, 16);
-        header->blockSize += 1;
-    } else {
-        header->blockSize = 256 * (1 << (blockSize - 8));
-    }
+        crc8 = drflac_crc8(crc8, blockSize, 4);
 
 
-    if (sampleRate <= 11) {
-        header->sampleRate = sampleRateTable[sampleRate];
-    } else if (sampleRate == 12) {
-        if (!drflac__read_uint32(bs, 8, &header->sampleRate)) {
+        dr_uint8 sampleRate = 0;
+        if (!drflac__read_uint8(bs, 4, &sampleRate)) {
             return DR_FALSE;
         }
-        crc = drflac_crc8(crc, header->sampleRate, 8);
-        header->sampleRate *= 1000;
-    } else if (sampleRate == 13) {
-        if (!drflac__read_uint32(bs, 16, &header->sampleRate)) {
+        crc8 = drflac_crc8(crc8, sampleRate, 4);
+
+
+        dr_uint8 channelAssignment = 0;
+        if (!drflac__read_uint8(bs, 4, &channelAssignment)) {
             return DR_FALSE;
         }
-        crc = drflac_crc8(crc, header->sampleRate, 16);
-    } else if (sampleRate == 14) {
-        if (!drflac__read_uint32(bs, 16, &header->sampleRate)) {
+        crc8 = drflac_crc8(crc8, channelAssignment, 4);
+
+
+        dr_uint8 bitsPerSample = 0;
+        if (!drflac__read_uint8(bs, 3, &bitsPerSample)) {
             return DR_FALSE;
         }
-        crc = drflac_crc8(crc, header->sampleRate, 16);
-        header->sampleRate *= 10;
-    } else {
-        return DR_FALSE;  // Invalid.
-    }
+        crc8 = drflac_crc8(crc8, bitsPerSample, 3);
 
 
-    header->channelAssignment = channelAssignment;
+        if (!drflac__read_uint8(bs, 1, &reserved)) {
+            return DR_FALSE;
+        }
+        crc8 = drflac_crc8(crc8, reserved, 1);
 
-    header->bitsPerSample = bitsPerSampleTable[bitsPerSample];
-    if (header->bitsPerSample == 0) {
-        header->bitsPerSample = streaminfoBitsPerSample;
-    }
 
-    if (!drflac__read_uint8(bs, 8, &header->crc8)) {
-        return DR_FALSE;
-    }
+        dr_bool32 isVariableBlockSize = blockingStrategy == 1;
+        if (isVariableBlockSize) {
+            dr_uint64 sampleNumber;
+            if (!drflac__read_utf8_coded_number(bs, &sampleNumber, &crc8)) {
+                return DR_FALSE;
+            }
+            header->frameNumber  = 0;
+            header->sampleNumber = sampleNumber;
+        } else {
+            dr_uint64 frameNumber = 0;
+            if (!drflac__read_utf8_coded_number(bs, &frameNumber, &crc8)) {
+                return DR_FALSE;
+            }
+            header->frameNumber  = (dr_uint32)frameNumber;   // <-- Safe cast.
+            header->sampleNumber = 0;
+        }
+
+
+        if (blockSize == 1) {
+            header->blockSize = 192;
+        } else if (blockSize >= 2 && blockSize <= 5) {
+            header->blockSize = 576 * (1 << (blockSize - 2));
+        } else if (blockSize == 6) {
+            if (!drflac__read_uint16(bs, 8, &header->blockSize)) {
+                return DR_FALSE;
+            }
+            crc8 = drflac_crc8(crc8, header->blockSize, 8);
+            header->blockSize += 1;
+        } else if (blockSize == 7) {
+            if (!drflac__read_uint16(bs, 16, &header->blockSize)) {
+                return DR_FALSE;
+            }
+            crc8 = drflac_crc8(crc8, header->blockSize, 16);
+            header->blockSize += 1;
+        } else {
+            header->blockSize = 256 * (1 << (blockSize - 8));
+        }
+
+
+        if (sampleRate <= 11) {
+            header->sampleRate = sampleRateTable[sampleRate];
+        } else if (sampleRate == 12) {
+            if (!drflac__read_uint32(bs, 8, &header->sampleRate)) {
+                return DR_FALSE;
+            }
+            crc8 = drflac_crc8(crc8, header->sampleRate, 8);
+            header->sampleRate *= 1000;
+        } else if (sampleRate == 13) {
+            if (!drflac__read_uint32(bs, 16, &header->sampleRate)) {
+                return DR_FALSE;
+            }
+            crc8 = drflac_crc8(crc8, header->sampleRate, 16);
+        } else if (sampleRate == 14) {
+            if (!drflac__read_uint32(bs, 16, &header->sampleRate)) {
+                return DR_FALSE;
+            }
+            crc8 = drflac_crc8(crc8, header->sampleRate, 16);
+            header->sampleRate *= 10;
+        } else {
+            return DR_FALSE;  // Invalid.
+        }
+
+
+        header->channelAssignment = channelAssignment;
+
+        header->bitsPerSample = bitsPerSampleTable[bitsPerSample];
+        if (header->bitsPerSample == 0) {
+            header->bitsPerSample = streaminfoBitsPerSample;
+        }
+
+        if (!drflac__read_uint8(bs, 8, &header->crc8)) {
+            return DR_FALSE;
+        }
  
-#ifndef DR_FLAC_NO_CRC
-    if (header->crc8 != crc) {
-        return DR_FALSE;    // CRC mismatch.
+    #ifndef DR_FLAC_NO_CRC
+        if (header->crc8 != crc8) {
+            continue;    // CRC mismatch. Loop back to the top and find the next sync code.
+        } else {
+            return DR_TRUE;
+        }
+    #endif
     }
-#endif
-
-    return DR_TRUE;
 }
 
 static dr_bool32 drflac__read_subframe_header(drflac_bs* bs, drflac_subframe* pSubframe)
@@ -2541,7 +2574,7 @@ static DRFLAC_INLINE dr_uint8 drflac__get_channel_count_from_channel_assignment(
     return lookup[channelAssignment];
 }
 
-static dr_bool32 drflac__decode_frame(drflac* pFlac)
+static drflac_result drflac__decode_frame(drflac* pFlac)
 {
     // This function should be called while the stream is sitting on the first byte after the frame header.
     memset(pFlac->currentFrame.subframes, 0, sizeof(pFlac->currentFrame.subframes));
@@ -2549,7 +2582,7 @@ static dr_bool32 drflac__decode_frame(drflac* pFlac)
     int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
     for (int i = 0; i < channelCount; ++i) {
         if (!drflac__decode_subframe(&pFlac->bs, &pFlac->currentFrame, i, pFlac->pDecodedSamples + (pFlac->currentFrame.header.blockSize * i))) {
-            return DR_FALSE;
+            return DRFLAC_ERROR;
         }
     }
 
@@ -2557,19 +2590,19 @@ static dr_bool32 drflac__decode_frame(drflac* pFlac)
     if (paddingSizeInBits > 0) {
         dr_uint8 padding = 0;
         if (!drflac__read_uint8(&pFlac->bs, paddingSizeInBits, &padding)) {
-            return DR_FALSE;
+            return DRFLAC_END_OF_STREAM;
         }
     }
     
     dr_uint16 actualCRC16 = pFlac->bs.crc16;
     dr_uint16 desiredCRC16;
     if (!drflac__read_uint16(&pFlac->bs, 16, &desiredCRC16)) {
-        return DR_FALSE;
+        return DRFLAC_END_OF_STREAM;
     }
 
 #ifndef DR_FLAC_NO_CRC
     if (actualCRC16 != desiredCRC16) {
-        return DR_FALSE;    // CRC mismatch.
+        return DRFLAC_CRC_MISMATCH;    // CRC mismatch.
     }
 #else
     (void)actualCRC16;
@@ -2577,31 +2610,61 @@ static dr_bool32 drflac__decode_frame(drflac* pFlac)
 
     pFlac->currentFrame.samplesRemaining = pFlac->currentFrame.header.blockSize * channelCount;
 
-    return DR_TRUE;
+    return DRFLAC_SUCCESS;
 }
 
-static dr_bool32 drflac__seek_frame(drflac* pFlac)
+static drflac_result drflac__seek_frame(drflac* pFlac)
 {
     int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
     for (int i = 0; i < channelCount; ++i) {
         if (!drflac__seek_subframe(&pFlac->bs, &pFlac->currentFrame, i)) {
-            return DR_FALSE;
+            return DRFLAC_ERROR;
         }
     }
 
-    // Padding and CRC.
-    return drflac__seek_bits(&pFlac->bs, (DRFLAC_CACHE_L1_BITS_REMAINING(&pFlac->bs) & 7) + 16);
+    // Padding.
+    if (!drflac__seek_bits(&pFlac->bs, DRFLAC_CACHE_L1_BITS_REMAINING(&pFlac->bs) & 7)) {
+        return DRFLAC_ERROR;
+    }
+
+    // CRC.
+    dr_uint16 actualCRC16 = pFlac->bs.crc16;
+    dr_uint16 desiredCRC16;
+    if (!drflac__read_uint16(&pFlac->bs, 16, &desiredCRC16)) {
+        return DRFLAC_END_OF_STREAM;
+    }
+
+#ifndef DR_FLAC_NO_CRC
+    if (actualCRC16 != desiredCRC16) {
+        return DRFLAC_CRC_MISMATCH;    // CRC mismatch.
+    }
+#else
+    (void)actualCRC16;
+#endif
+
+    return DRFLAC_SUCCESS;
 }
 
 static dr_bool32 drflac__read_and_decode_next_frame(drflac* pFlac)
 {
     assert(pFlac != NULL);
 
-    if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
-        return DR_FALSE;
-    }
+    for (;;) {
+        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+            return DR_FALSE;
+        }
 
-    return drflac__decode_frame(pFlac);
+        drflac_result result = drflac__decode_frame(pFlac);
+        if (result != DRFLAC_SUCCESS) {
+            if (result == DRFLAC_CRC_MISMATCH) {
+                continue;   // CRC mismatch. Skip to the next frame.
+            } else {
+                return DR_FALSE;
+            }
+        }
+
+        return DR_TRUE;
+    }
 }
 
 
@@ -2621,13 +2684,8 @@ static void drflac__get_current_frame_sample_range(drflac* pFlac, dr_uint64* pFi
         lastSampleInFrame -= 1; // Needs to be zero based.
     }
 
-
-    if (pFirstSampleInFrameOut) {
-        *pFirstSampleInFrameOut = firstSampleInFrame;
-    }
-    if (pLastSampleInFrameOut) {
-        *pLastSampleInFrameOut = lastSampleInFrame;
-    }
+    if (pFirstSampleInFrameOut) *pFirstSampleInFrameOut = firstSampleInFrame;
+    if (pLastSampleInFrameOut) *pLastSampleInFrameOut = lastSampleInFrame;
 }
 
 static dr_bool32 drflac__seek_to_first_frame(drflac* pFlac)
@@ -2640,67 +2698,65 @@ static dr_bool32 drflac__seek_to_first_frame(drflac* pFlac)
     return result;
 }
 
-static DRFLAC_INLINE dr_bool32 drflac__seek_to_next_frame(drflac* pFlac)
+static DRFLAC_INLINE drflac_result drflac__seek_to_next_frame(drflac* pFlac)
 {
     // This function should only ever be called while the decoder is sitting on the first byte past the FRAME_HEADER section.
     assert(pFlac != NULL);
     return drflac__seek_frame(pFlac);
 }
 
-static dr_bool32 drflac__seek_to_frame_containing_sample(drflac* pFlac, dr_uint64 sampleIndex)
+static dr_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, dr_uint64 sampleIndex)
 {
-    assert(pFlac != NULL);
-
+    // We need to find the frame that contains the sample. To do this, we iterate over each frame and inspect it's header. If based on the
+    // header we can determine that the frame contains the sample, we do a full decode of that frame.
     if (!drflac__seek_to_first_frame(pFlac)) {
         return DR_FALSE;
     }
 
-    dr_uint64 firstSampleInFrame = 0;
-    dr_uint64 lastSampleInFrame = 0;
-    for (;;)
-    {
-        // We need to read the frame's header in order to determine the range of samples it contains.
+    dr_uint64 runningSampleCount = 0;
+    for (;;) {
         if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
             return DR_FALSE;
         }
 
+        dr_uint64 firstSampleInFrame = 0;
+        dr_uint64 lastSampleInFrame = 0;
         drflac__get_current_frame_sample_range(pFlac, &firstSampleInFrame, &lastSampleInFrame);
-        if (sampleIndex >= firstSampleInFrame && sampleIndex <= lastSampleInFrame) {
-            break;  // The sample is in this frame.
+
+        dr_uint64 sampleCountInThisFrame = (lastSampleInFrame - firstSampleInFrame) + 1;
+        if (sampleIndex < (runningSampleCount + sampleCountInThisFrame)) {
+            // The sample should be in this frame. We need to fully decode it, however if it's an invalid frame (a CRC mismatch), we need to pretend
+            // it never existed and keep iterating.
+            drflac_result result = drflac__decode_frame(pFlac);
+            if (result == DRFLAC_SUCCESS) {
+                // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
+                dr_uint64 samplesToDecode = (size_t)(sampleIndex - runningSampleCount);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
+                if (samplesToDecode == 0) {
+                    return DR_TRUE;
+                }
+                return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;  // <-- If this fails, something bad has happened (it should never fail).
+            } else {
+                if (result == DRFLAC_CRC_MISMATCH) {
+                    continue;   // CRC mismatch. Pretend this frame never existed.
+                } else {
+                    return DR_FALSE;
+                }
+            }
+        } else {
+            // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
+            // frame never existed and leave the running sample count untouched.
+            drflac_result result = drflac__seek_to_next_frame(pFlac);
+            if (result == DRFLAC_SUCCESS) {
+                runningSampleCount += sampleCountInThisFrame;
+            } else {
+                if (result == DRFLAC_CRC_MISMATCH) {
+                    continue;   // CRC mismatch. Pretend this frame never existed.
+                } else {
+                    return DR_FALSE;
+                }
+            }
         }
-
-        if (!drflac__seek_to_next_frame(pFlac)) {
-            return DR_FALSE;
-        }
     }
-
-    // If we get here we should be right at the start of the frame containing the sample.
-    return DR_TRUE;
-}
-
-static dr_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, dr_uint64 sampleIndex)
-{
-    if (!drflac__seek_to_frame_containing_sample(pFlac, sampleIndex)) {
-        return DR_FALSE;
-    }
-
-    // At this point we should be sitting on the first byte of the frame containing the sample. We need to decode every sample up to (but
-    // not including) the sample we're seeking to.
-    dr_uint64 firstSampleInFrame = 0;
-    drflac__get_current_frame_sample_range(pFlac, &firstSampleInFrame, NULL);
-
-    assert(firstSampleInFrame <= sampleIndex);
-    size_t samplesToDecode = (size_t)(sampleIndex - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
-    if (samplesToDecode == 0) {
-        return DR_TRUE;
-    }
-
-    // At this point we are just sitting on the byte after the frame header. We need to decode the frame before reading anything from it.
-    if (!drflac__decode_frame(pFlac)) {
-        return DR_FALSE;
-    }
-
-    return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;
 }
 
 
@@ -2726,8 +2782,7 @@ static dr_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, dr_uint64 sam
     drflac_seekpoint closestSeekpoint = {0, 0, 0};
 
     dr_uint32 seekpointsRemaining = seekpointCount;
-    while (seekpointsRemaining > 0)
-    {
+    while (seekpointsRemaining > 0) {
         drflac_seekpoint seekpoint;
         if (!drflac__read_uint64(&pFlac->bs, 64, &seekpoint.firstSample)) {
             break;
@@ -2739,7 +2794,9 @@ static dr_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, dr_uint64 sam
             break;
         }
 
-        if (seekpoint.firstSample * pFlac->channels > sampleIndex) {
+        // Note that the seekpoint sample is based on a single channel. The input sample (sampleIndex) is based on interleaving, thus
+        // we need to multiple the seekpoint's sample by the channel count.
+        if (seekpoint.firstSample*pFlac->channels > sampleIndex) {
             break;
         }
 
@@ -2753,35 +2810,50 @@ static dr_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, dr_uint64 sam
         return DR_FALSE;
     }
 
-
-    dr_uint64 firstSampleInFrame = 0;
-    dr_uint64 lastSampleInFrame = 0;
-    for (;;)
-    {
-        // We need to read the frame's header in order to determine the range of samples it contains.
+    dr_uint64 runningSampleCount = closestSeekpoint.firstSample*pFlac->channels;
+    for (;;) {
         if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
             return DR_FALSE;
         }
 
+        dr_uint64 firstSampleInFrame = 0;
+        dr_uint64 lastSampleInFrame = 0;
         drflac__get_current_frame_sample_range(pFlac, &firstSampleInFrame, &lastSampleInFrame);
-        if (sampleIndex >= firstSampleInFrame && sampleIndex <= lastSampleInFrame) {
-            break;  // The sample is in this frame.
-        }
 
-        if (!drflac__seek_to_next_frame(pFlac)) {
-            return DR_FALSE;
+        dr_uint64 sampleCountInThisFrame = (lastSampleInFrame - firstSampleInFrame) + 1;
+        if (sampleIndex < (runningSampleCount + sampleCountInThisFrame)) {
+            // The sample should be in this frame. We need to fully decode it, however if it's an invalid frame (a CRC mismatch), we need to pretend
+            // it never existed and keep iterating.
+            drflac_result result = drflac__decode_frame(pFlac);
+            if (result == DRFLAC_SUCCESS) {
+                // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
+                dr_uint64 samplesToDecode = (size_t)(sampleIndex - runningSampleCount);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
+                if (samplesToDecode == 0) {
+                    return DR_TRUE;
+                }
+                return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;  // <-- If this fails, something bad has happened (it should never fail).
+            } else {
+                if (result == DRFLAC_CRC_MISMATCH) {
+                    continue;   // CRC mismatch. Pretend this frame never existed.
+                } else {
+                    return DR_FALSE;
+                }
+            }
+        } else {
+            // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
+            // frame never existed and leave the running sample count untouched.
+            drflac_result result = drflac__seek_to_next_frame(pFlac);
+            if (result == DRFLAC_SUCCESS) {
+                runningSampleCount += sampleCountInThisFrame;
+            } else {
+                if (result == DRFLAC_CRC_MISMATCH) {
+                    continue;   // CRC mismatch. Pretend this frame never existed.
+                } else {
+                    return DR_FALSE;
+                }
+            }
         }
     }
-
-    assert(firstSampleInFrame <= sampleIndex);
-
-    // At this point we are just sitting on the byte after the frame header. We need to decode the frame before reading anything from it.
-    if (!drflac__decode_frame(pFlac)) {
-        return DR_FALSE;
-    }
-
-    size_t samplesToDecode = (size_t)(sampleIndex - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
-    return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;
 }
 
 
@@ -2892,11 +2964,10 @@ dr_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
     // We want to keep track of the byte position in the stream of the seektable. At the time of calling this function we know that
     // we'll be sitting on byte 42.
     dr_uint64 runningFilePos = 42;
-    dr_uint64 seektablePos  = 0;
-    dr_uint32 seektableSize = 0;
+    dr_uint64 seektablePos   = 0;
+    dr_uint32 seektableSize  = 0;
 
-    for (;;)
-    {
+    for (;;) {
         dr_uint8 isLastBlock = 0;
         dr_uint8 blockType;
         dr_uint32 blockSize;
@@ -2990,7 +3061,7 @@ dr_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
 
                     const char* pRunningData = (const char*)pRawData;
                     metadata.data.vorbis_comment.vendorLength = drflac__le2host_32(*(dr_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.vorbis_comment.vendor       = pRunningData;                                 pRunningData += metadata.data.vorbis_comment.vendorLength;
+                    metadata.data.vorbis_comment.vendor       = pRunningData;                                  pRunningData += metadata.data.vorbis_comment.vendorLength;
                     metadata.data.vorbis_comment.commentCount = drflac__le2host_32(*(dr_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.vorbis_comment.comments     = pRunningData;
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
@@ -3016,10 +3087,10 @@ dr_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                     metadata.rawDataSize = blockSize;
 
                     const char* pRunningData = (const char*)pRawData;
-                    memcpy(metadata.data.cuesheet.catalog, pRunningData, 128);                               pRunningData += 128;
+                    memcpy(metadata.data.cuesheet.catalog, pRunningData, 128);                                pRunningData += 128;
                     metadata.data.cuesheet.leadInSampleCount = drflac__be2host_64(*(dr_uint64*)pRunningData); pRunningData += 4;
-                    metadata.data.cuesheet.isCD              = ((pRunningData[0] & 0x80) >> 7) != 0;         pRunningData += 259;
-                    metadata.data.cuesheet.trackCount        = pRunningData[0];                              pRunningData += 1;
+                    metadata.data.cuesheet.isCD              = ((pRunningData[0] & 0x80) >> 7) != 0;          pRunningData += 259;
+                    metadata.data.cuesheet.trackCount        = pRunningData[0];                               pRunningData += 1;
                     metadata.data.cuesheet.pTrackData        = (const dr_uint8*)pRunningData;
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
 
@@ -3046,7 +3117,7 @@ dr_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                     const char* pRunningData = (const char*)pRawData;
                     metadata.data.picture.type              = drflac__be2host_32(*(dr_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.mimeLength        = drflac__be2host_32(*(dr_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.mime              = pRunningData;                                 pRunningData += metadata.data.picture.mimeLength;
+                    metadata.data.picture.mime              = pRunningData;                                  pRunningData += metadata.data.picture.mimeLength;
                     metadata.data.picture.descriptionLength = drflac__be2host_32(*(dr_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.description       = pRunningData;
                     metadata.data.picture.width             = drflac__be2host_32(*(dr_uint32*)pRunningData); pRunningData += 4;
@@ -3251,9 +3322,9 @@ typedef struct
     drflac_read_proc onRead;    // The original onRead callback from drflac_open() and family.
     drflac_seek_proc onSeek;    // The original onSeek callback from drflac_open() and family.
     void* pUserData;            // The user data passed on onRead and onSeek. This is the user data that was passed on drflac_open() and family.
-    dr_uint64 currentBytePos;    // The position of the byte we are sitting on in the physical byte stream. Used for efficient seeking.
-    dr_uint64 firstBytePos;      // The position of the first byte in the physical bitstream. Points to the start of the "OggS" identifier of the FLAC bos page.
-    dr_uint32 serialNumber;      // The serial number of the FLAC audio pages. This is determined by the initial header page that was read during initialization.
+    dr_uint64 currentBytePos;   // The position of the byte we are sitting on in the physical byte stream. Used for efficient seeking.
+    dr_uint64 firstBytePos;     // The position of the first byte in the physical bitstream. Points to the start of the "OggS" identifier of the FLAC bos page.
+    dr_uint32 serialNumber;     // The serial number of the FLAC audio pages. This is determined by the initial header page that was read during initialization.
     drflac_ogg_page_header bosPageHeader;   // Used for seeking.
     drflac_ogg_page_header currentPageHeader;
     dr_uint32 bytesRemainingInPage;
@@ -3269,8 +3340,7 @@ static size_t drflac_oggbs__read_physical(drflac_oggbs* oggbs, void* bufferOut, 
 
 static dr_bool32 drflac_oggbs__seek_physical(drflac_oggbs* oggbs, dr_uint64 offset, drflac_seek_origin origin)
 {
-    if (origin == drflac_seek_origin_start)
-    {
+    if (origin == drflac_seek_origin_start) {
         if (offset <= 0x7FFFFFFF) {
             if (!oggbs->onSeek(oggbs->pUserData, (int)offset, drflac_seek_origin_start)) {
                 return DR_FALSE;
@@ -3286,9 +3356,7 @@ static dr_bool32 drflac_oggbs__seek_physical(drflac_oggbs* oggbs, dr_uint64 offs
 
             return drflac_oggbs__seek_physical(oggbs, offset - 0x7FFFFFFF, drflac_seek_origin_current);
         }
-    }
-    else
-    {
+    } else {
         while (offset > 0x7FFFFFFF) {
             if (!oggbs->onSeek(oggbs->pUserData, 0x7FFFFFFF, drflac_seek_origin_current)) {
                 return DR_FALSE;
@@ -3309,8 +3377,7 @@ static dr_bool32 drflac_oggbs__seek_physical(drflac_oggbs* oggbs, dr_uint64 offs
 static dr_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
 {
     drflac_ogg_page_header header;
-    for (;;)
-    {
+    for (;;) {
         dr_uint32 headerSize;
         if (!drflac_ogg__read_page_header(oggbs->onRead, oggbs->pUserData, &header, &headerSize)) {
             return DR_FALSE;
@@ -3327,7 +3394,7 @@ static dr_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
         }
 
         // If we get here it means the page is not a FLAC page - skip it.
-        if (pageBodySize > 0 && !drflac_oggbs__seek_physical(oggbs, pageBodySize, drflac_seek_origin_current)) {    // <-- Safe cast - maximum size of a page is way below that of an int.
+        if (pageBodySize > 0 && !drflac_oggbs__seek_physical(oggbs, pageBodySize, drflac_seek_origin_current)) {
             return DR_FALSE;
         }
     }
@@ -3340,8 +3407,7 @@ static dr_uint8 drflac_oggbs__get_current_segment_index(drflac_oggbs* oggbs, dr_
     dr_uint32 bytesConsumedInPage = drflac_ogg__get_page_body_size(&oggbs->currentPageHeader) - oggbs->bytesRemainingInPage;
     dr_uint8 iSeg = 0;
     dr_uint32 iByte = 0;
-    while (iByte < bytesConsumedInPage)
-    {
+    while (iByte < bytesConsumedInPage) {
         dr_uint8 segmentSize = oggbs->currentPageHeader.segmentTable[iSeg];
         if (iByte + segmentSize > bytesConsumedInPage) {
             break;
@@ -3358,8 +3424,7 @@ static dr_uint8 drflac_oggbs__get_current_segment_index(drflac_oggbs* oggbs, dr_
 static dr_bool32 drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
 {
     // The current packet ends when we get to the segment with a lacing value of < 255 which is not at the end of a page.
-    for (;;)    // <-- Loop over pages.
-    {
+    for (;;) {
         dr_bool32 atEndOfPage = DR_FALSE;
 
         dr_uint8 bytesRemainingInSeg;
@@ -3380,12 +3445,11 @@ static dr_bool32 drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
         }
 
         // At this point we will have found either the packet or the end of the page. If were at the end of the page we'll
-        // want to load the next page and keep searching for the end of the frame.
+        // want to load the next page and keep searching for the end of the packet.
         drflac_oggbs__seek_physical(oggbs, bytesToEndOfPacketOrPage, drflac_seek_origin_current);
         oggbs->bytesRemainingInPage -= bytesToEndOfPacketOrPage;
 
-        if (atEndOfPage)
-        {
+        if (atEndOfPage) {
             // We're potentially at the next packet, but we need to check the next page first to be sure because the packet may
             // straddle pages.
             if (!drflac_oggbs__goto_next_page(oggbs)) {
@@ -3396,10 +3460,8 @@ static dr_bool32 drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
             if ((oggbs->currentPageHeader.headerType & 0x01) == 0) {
                 return DR_TRUE;
             }
-        }
-        else
-        {
-            // We're at the next frame.
+        } else {
+            // We're at the next packet.
             return DR_TRUE;
         }
     }
@@ -3423,8 +3485,7 @@ static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytes
 
     // Reading is done page-by-page. If we've run out of bytes in the page we need to move to the next one.
     size_t bytesRead = 0;
-    while (bytesRead < bytesToRead)
-    {
+    while (bytesRead < bytesToRead) {
         size_t bytesRemainingToRead = bytesToRead - bytesRead;
 
         if (oggbs->bytesRemainingInPage >= bytesRemainingToRead) {
@@ -3477,8 +3538,7 @@ static dr_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_or
     assert(origin == drflac_seek_origin_current);
 
     int bytesSeeked = 0;
-    while (bytesSeeked < offset)
-    {
+    while (bytesSeeked < offset) {
         int bytesRemainingToSeek = offset - bytesSeeked;
         assert(bytesRemainingToSeek >= 0);
 
@@ -3510,7 +3570,7 @@ static dr_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_or
     return DR_TRUE;
 }
 
-dr_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, dr_uint64 sample)
+dr_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, dr_uint64 sampleIndex)
 {
     drflac_oggbs* oggbs = (drflac_oggbs*)(((dr_int32*)pFlac->pExtraData) + pFlac->maxBlockSize*pFlac->channels);
 
@@ -3524,15 +3584,14 @@ dr_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, dr_uint64 sample)
 
     dr_uint64 runningGranulePosition = 0;
     dr_uint64 runningFrameBytePos = oggbs->currentBytePos;   // <-- Points to the OggS identifier.
-    for (;;)
-    {
+    for (;;) {
         if (!drflac_oggbs__goto_next_page(oggbs)) {
             drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
             return DR_FALSE;   // Never did find that sample...
         }
 
         runningFrameBytePos = oggbs->currentBytePos - drflac_ogg__get_page_header_size(&oggbs->currentPageHeader);
-        if (oggbs->currentPageHeader.granulePosition*pFlac->channels >= sample) {
+        if (oggbs->currentPageHeader.granulePosition*pFlac->channels >= sampleIndex) {
             break; // The sample is somewhere in the previous page.
         }
 
@@ -3580,56 +3639,69 @@ dr_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, dr_uint64 sample)
 
     // At this point we'll be sitting on the first byte of the frame header of the first frame in the page. We just keep
     // looping over these frames until we find the one containing the sample we're after.
-    dr_uint64 firstSampleInFrame = runningGranulePosition;
-    for (;;)
-    {
-        // NOTE for later: When using Ogg's page/segment based seeking later on we can't use this function (or any drflac__*
-        // reading functions) because otherwise it will pull extra data for use in it's own internal caches which will then
-        // break the positioning of the read pointer for the Ogg bitstream.
+    dr_uint64 runningSampleCount = runningGranulePosition;
+    for (;;) {
+        // There are two ways to find the sample and seek past irrelevant frames:
+        //   1) Use the native FLAC decoder.
+        //   2) Use Ogg's framing system.
+        //
+        // Both of these options have their own pros and cons. Using the native FLAC decoder is slower because it needs to
+        // do a full decode of the frame. Using Ogg's framing system is faster, but more complicated and involves some code
+        // duplication for the decoding of frame headers.
+        //
+        // Another thing to consider is that using the Ogg framing system will perform direct seeking of the physical Ogg
+        // bitstream. This is important to consider because it means we cannot read data from the drflac_bs object using the
+        // standard drflac__*() APIs because that will read in extra data for it's own internal caching which in turn breaks
+        // the positioning of the read pointer of the physical Ogg bitstream. Therefore, anything that would normally be read
+        // using the native FLAC decoding APIs, such as drflac__read_next_frame_header(), need to be re-implemented so as to
+        // avoid the use of the drflac_bs object.
+        //
+        // Considering these issues, I have decided to use the slower native FLAC decoding method for the following reasons:
+        //   1) Seeking is already partially accellerated using Ogg's paging system in the code block above.
+        //   2) Seeking in an Ogg encapsulated FLAC stream is probably quite uncommon.
+        //   3) Simplicity.
         if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
             return DR_FALSE;
         }
 
-        int channels = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
-        dr_uint64 lastSampleInFrame = firstSampleInFrame + (pFlac->currentFrame.header.blockSize*channels);
-        lastSampleInFrame -= 1; // <-- Zero based.
+        dr_uint64 firstSampleInFrame = 0;
+        dr_uint64 lastSampleInFrame = 0;
+        drflac__get_current_frame_sample_range(pFlac, &firstSampleInFrame, &lastSampleInFrame);
 
-        if (sample >= firstSampleInFrame && sample <= lastSampleInFrame) {
-            break;  // The sample is in this frame.
+        dr_uint64 sampleCountInThisFrame = (lastSampleInFrame - firstSampleInFrame) + 1;
+        if (sampleIndex < (runningSampleCount + sampleCountInThisFrame)) {
+            // The sample should be in this frame. We need to fully decode it, however if it's an invalid frame (a CRC mismatch), we need to pretend
+            // it never existed and keep iterating.
+            drflac_result result = drflac__decode_frame(pFlac);
+            if (result == DRFLAC_SUCCESS) {
+                // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
+                dr_uint64 samplesToDecode = (size_t)(sampleIndex - runningSampleCount);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
+                if (samplesToDecode == 0) {
+                    return DR_TRUE;
+                }
+                return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;  // <-- If this fails, something bad has happened (it should never fail).
+            } else {
+                if (result == DRFLAC_CRC_MISMATCH) {
+                    continue;   // CRC mismatch. Pretend this frame never existed.
+                } else {
+                    return DR_FALSE;
+                }
+            }
+        } else {
+            // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
+            // frame never existed and leave the running sample count untouched.
+            drflac_result result = drflac__seek_to_next_frame(pFlac);
+            if (result == DRFLAC_SUCCESS) {
+                runningSampleCount += sampleCountInThisFrame;
+            } else {
+                if (result == DRFLAC_CRC_MISMATCH) {
+                    continue;   // CRC mismatch. Pretend this frame never existed.
+                } else {
+                    return DR_FALSE;
+                }
+            }
         }
-
-
-        // If we get here it means the sample is not in this frame so we need to move to the next one. Now the cool thing
-        // with Ogg is that we can efficiently seek past the frame by looking at the lacing values of each segment in
-        // the page.
-        firstSampleInFrame = lastSampleInFrame+1;
-
-#if 1
-        // Slow way. This uses the native FLAC decoder to seek past the frame. This is slow because it needs to do a partial
-        // decode of the frame. Although this is how the native version works, we can use Ogg's framing system to make it
-        // more efficient. Leaving this here for reference and to use as a basis for debugging purposes.
-        if (!drflac__seek_to_next_frame(pFlac)) {
-            return DR_FALSE;
-        }
-#else
-        // TODO: This is not yet complete. See note at the top of this loop body.
-
-        // Fast(er) way. This uses Ogg's framing system to seek past the frame. This should be much more efficient than the
-        // native FLAC seeking.
-        if (!drflac_oggbs__seek_to_next_frame(oggbs)) {
-            return DR_FALSE;
-        }
-#endif
     }
-
-    assert(firstSampleInFrame <= sample);
-
-    if (!drflac__decode_frame(pFlac)) {
-        return DR_FALSE;
-    }
-
-    size_t samplesToDecode = (size_t)(sample - firstSampleInFrame);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
-    return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;
 }
 
 
@@ -3651,8 +3723,7 @@ dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc on
     }
     pInit->runningFilePos = headerSize;
 
-    for (;;)
-    {
+    for (;;) {
         // Break if we're past the beginning of stream page.
         if ((header.headerType & 0x02) == 0) {
             return DR_FALSE;
@@ -3661,8 +3732,7 @@ dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc on
 
         // Check if it's a FLAC header.
         int pageBodySize = drflac_ogg__get_page_body_size(&header);
-        if (pageBodySize == 51)   // 51 = the lacing value of the FLAC header packet.
-        {
+        if (pageBodySize == 51) {   // 51 = the lacing value of the FLAC header packet.
             // It could be a FLAC page...
             dr_uint32 bytesRemainingInPage = pageBodySize;
 
@@ -3672,8 +3742,7 @@ dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc on
             }
 
             bytesRemainingInPage -= 1;
-            if (packetType == 0x7F)
-            {
+            if (packetType == 0x7F) {
                 // Increasingly more likely to be a FLAC page...
                 dr_uint8 sig[4];
                 if (onRead(pUserData, sig, 4) != 4) {
@@ -3681,8 +3750,7 @@ dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc on
                 }
 
                 bytesRemainingInPage -= 4;
-                if (sig[0] == 'F' && sig[1] == 'L' && sig[2] == 'A' && sig[3] == 'C')
-                {
+                if (sig[0] == 'F' && sig[1] == 'L' && sig[2] == 'A' && sig[3] == 'C') {
                     // Almost certainly a FLAC page...
                     dr_uint8 mappingVersion[2];
                     if (onRead(pUserData, mappingVersion, 2) != 2) {
@@ -3704,8 +3772,7 @@ dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc on
                         return DR_FALSE;
                     }
 
-                    if (sig[0] == 'f' && sig[1] == 'L' && sig[2] == 'a' && sig[3] == 'C')
-                    {
+                    if (sig[0] == 'f' && sig[1] == 'L' && sig[2] == 'a' && sig[3] == 'C') {
                         // The remaining data in the page should be the STREAMINFO block.
                         dr_uint8 isLastBlock;
                         dr_uint8 blockType;
@@ -3719,8 +3786,7 @@ dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc on
                         }
 
                         drflac_streaminfo streaminfo;
-                        if (drflac__read_streaminfo(onRead, pUserData, &streaminfo))
-                        {
+                        if (drflac__read_streaminfo(onRead, pUserData, &streaminfo)) {
                             // Success!
                             pInit->sampleRate       = streaminfo.sampleRate;
                             pInit->channels         = streaminfo.channels;
@@ -3742,37 +3808,27 @@ dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc on
                             pInit->oggSerial        = header.serialNumber;
                             pInit->oggBosHeader     = header;
                             break;
-                        }
-                        else
-                        {
+                        } else {
                             // Failed to read STREAMINFO block. Aww, so close...
                             return DR_FALSE;
                         }
-                    }
-                    else
-                    {
+                    } else {
                         // Invalid file.
                         return DR_FALSE;
                     }
-                }
-                else
-                {
+                } else {
                     // Not a FLAC header. Skip it.
                     if (!onSeek(pUserData, bytesRemainingInPage, drflac_seek_origin_current)) {
                         return DR_FALSE;
                     }
                 }
-            }
-            else
-            {
+            } else {
                 // Not a FLAC header. Seek past the entire page and move on to the next.
                 if (!onSeek(pUserData, bytesRemainingInPage, drflac_seek_origin_current)) {
                     return DR_FALSE;
                 }
             }
-        }
-        else
-        {
+        } else {
             if (!onSeek(pUserData, pageBodySize, drflac_seek_origin_current)) {
                 return DR_FALSE;
             }
@@ -3803,11 +3859,11 @@ dr_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead,
         return DR_FALSE;
     }
 
-    pInit->onRead        = onRead;
-    pInit->onSeek        = onSeek;
-    pInit->onMeta        = onMeta;
-    pInit->pUserData     = pUserData;
-    pInit->pUserDataMD   = pUserDataMD;
+    pInit->onRead      = onRead;
+    pInit->onSeek      = onSeek;
+    pInit->onMeta      = onMeta;
+    pInit->pUserData   = pUserData;
+    pInit->pUserDataMD = pUserDataMD;
 
     dr_uint8 id[4];
     if (onRead(pUserData, id, 4) != 4) {
@@ -3859,7 +3915,6 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
     size_t allocationSize = sizeof(drflac);
     allocationSize += init.maxBlockSize * init.channels * sizeof(dr_int32);
-    //allocationSize += init.seektableSize;
 
 
 #ifndef DR_FLAC_NO_OGG
@@ -4164,8 +4219,7 @@ dr_uint64 drflac__read_s32__misaligned(drflac* pFlac, dr_uint64 samplesToRead, d
 
 
     dr_uint64 samplesRead = 0;
-    while (samplesToRead > 0)
-    {
+    while (samplesToRead > 0) {
         dr_uint64 totalSamplesInFrame = pFlac->currentFrame.header.blockSize * channelCount;
         dr_uint64 samplesReadFromFrameSoFar = totalSamplesInFrame - pFlac->currentFrame.samplesRemaining;
         unsigned int channelIndex = samplesReadFromFrameSoFar % channelCount;
@@ -4184,7 +4238,6 @@ dr_uint64 drflac__read_s32__misaligned(drflac* pFlac, dr_uint64 samplesToRead, d
                     int left = pFlac->currentFrame.subframes[channelIndex - 1].pDecodedSamples[nextSampleInFrame];
                     decodedSample = left - side;
                 }
-
             } break;
 
             case DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE:
@@ -4196,7 +4249,6 @@ dr_uint64 drflac__read_s32__misaligned(drflac* pFlac, dr_uint64 samplesToRead, d
                 } else {
                     decodedSample = pFlac->currentFrame.subframes[channelIndex].pDecodedSamples[nextSampleInFrame];
                 }
-
             } break;
 
             case DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE:
@@ -4216,7 +4268,6 @@ dr_uint64 drflac__read_s32__misaligned(drflac* pFlac, dr_uint64 samplesToRead, d
                     mid = (((unsigned int)mid) << 1) | (side & 0x01);
                     decodedSample = (mid - side) >> 1;
                 }
-
             } break;
 
             case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT:
@@ -4385,8 +4436,7 @@ dr_uint64 drflac_read_s32(drflac* pFlac, dr_uint64 samplesToRead, dr_int32* buff
 
 
             // At this point we may still have some excess samples left to read.
-            if (samplesToRead > 0 && pFlac->currentFrame.samplesRemaining > 0)
-            {
+            if (samplesToRead > 0 && pFlac->currentFrame.samplesRemaining > 0) {
                 dr_uint64 excessSamplesRead = 0;
                 if (samplesToRead < pFlac->currentFrame.samplesRemaining) {
                     excessSamplesRead = drflac__read_s32__misaligned(pFlac, samplesToRead, bufferOut);
@@ -4504,8 +4554,7 @@ static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigne
     type* pSampleData = NULL;                                                                                                                                       \
     dr_uint64 totalSampleCount = pFlac->totalSampleCount;                                                                                                           \
                                                                                                                                                                     \
-    if (totalSampleCount == 0)                                                                                                                                      \
-    {                                                                                                                                                               \
+    if (totalSampleCount == 0) {                                                                                                                                    \
         type buffer[4096];                                                                                                                                          \
                                                                                                                                                                     \
         size_t sampleDataBufferSize = sizeof(buffer);                                                                                                               \
@@ -4534,9 +4583,7 @@ static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigne
         /* At this point everything should be decoded, but we just want to fill the unused part buffer with silence - need to                                       \
            protect those ears from random noise! */                                                                                                                 \
         memset(pSampleData + totalSampleCount, 0, (size_t)(sampleDataBufferSize - totalSampleCount*sizeof(type)));                                                  \
-    }                                                                                                                                                               \
-    else                                                                                                                                                            \
-    {                                                                                                                                                               \
+    } else {                                                                                                                                                        \
         dr_uint64 dataSize = totalSampleCount * sizeof(type);                                                                                                       \
         if (dataSize > SIZE_MAX) {                                                                                                                                  \
             goto on_error;  /* The decoded data is too big. */                                                                                                      \
@@ -4547,11 +4594,7 @@ static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigne
             goto on_error;                                                                                                                                          \
         }                                                                                                                                                           \
                                                                                                                                                                     \
-        dr_uint64 samplesDecoded = drflac_read_##extension(pFlac, pFlac->totalSampleCount, pSampleData);                                                            \
-        if (samplesDecoded != pFlac->totalSampleCount) {                                                                                                            \
-            free(pSampleData);                                                                                                                                      \
-            goto on_error;  /* Something went wrong when decoding the FLAC stream. */                                                                               \
-        }                                                                                                                                                           \
+        totalSampleCount = drflac_read_##extension(pFlac, pFlac->totalSampleCount, pSampleData);                                                                    \
     }                                                                                                                                                               \
                                                                                                                                                                     \
     if (sampleRateOut) *sampleRateOut = pFlac->sampleRate;                                                                                                          \
