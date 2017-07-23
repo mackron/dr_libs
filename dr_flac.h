@@ -2152,74 +2152,31 @@ static dr_bool32 drflac__decode_samples_with_residual__rice__optimization1(drfla
     assert(count > 0);
     assert(pSamplesOut != NULL);
 
-    dr_uint32 zeroCounters[8];
-    dr_uint32 decodedRices[8];
+    dr_uint32 zeroCountPart;
+    dr_uint32 riceParamPart;
     drflac__crc16_stream crcStream = drflac__crc16_stream_init(bs->crc16);
 
     dr_uint32 i = 0;
     while (i < count) {
-        dr_uint32 samplesRemaining = (count-i);
-        if (samplesRemaining >= 8) {
-            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[0], &decodedRices[0])) { return DR_FALSE; }
-            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[1], &decodedRices[1])) { return DR_FALSE; }
-            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[2], &decodedRices[2])) { return DR_FALSE; }
-            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[3], &decodedRices[3])) { return DR_FALSE; }
-            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[4], &decodedRices[4])) { return DR_FALSE; }
-            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[5], &decodedRices[5])) { return DR_FALSE; }
-            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[6], &decodedRices[6])) { return DR_FALSE; }
-            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[7], &decodedRices[7])) { return DR_FALSE; }
-
-            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[0], decodedRices[0], riceParam);
-            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[1], decodedRices[1], riceParam);
-            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[2], decodedRices[2], riceParam);
-            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[3], decodedRices[3], riceParam);
-            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[4], decodedRices[4], riceParam);
-            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[5], decodedRices[5], riceParam);
-            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[6], decodedRices[6], riceParam);
-            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[7], decodedRices[7], riceParam);
-
-            decodedRices[0] |= (zeroCounters[0] << riceParam); decodedRices[0] = (decodedRices[0] >> 1) ^ (~(decodedRices[0] & 0x01) + 1);
-            decodedRices[1] |= (zeroCounters[1] << riceParam); decodedRices[1] = (decodedRices[1] >> 1) ^ (~(decodedRices[1] & 0x01) + 1);
-            decodedRices[2] |= (zeroCounters[2] << riceParam); decodedRices[2] = (decodedRices[2] >> 1) ^ (~(decodedRices[2] & 0x01) + 1);
-            decodedRices[3] |= (zeroCounters[3] << riceParam); decodedRices[3] = (decodedRices[3] >> 1) ^ (~(decodedRices[3] & 0x01) + 1);
-            decodedRices[4] |= (zeroCounters[4] << riceParam); decodedRices[4] = (decodedRices[4] >> 1) ^ (~(decodedRices[4] & 0x01) + 1);
-            decodedRices[5] |= (zeroCounters[5] << riceParam); decodedRices[5] = (decodedRices[5] >> 1) ^ (~(decodedRices[5] & 0x01) + 1);
-            decodedRices[6] |= (zeroCounters[6] << riceParam); decodedRices[6] = (decodedRices[6] >> 1) ^ (~(decodedRices[6] & 0x01) + 1);
-            decodedRices[7] |= (zeroCounters[7] << riceParam); decodedRices[7] = (decodedRices[7] >> 1) ^ (~(decodedRices[7] & 0x01) + 1);
-
-            if (bitsPerSample > 16) {
-                pSamplesOut[i+0] = decodedRices[0] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+0);
-                pSamplesOut[i+1] = decodedRices[1] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+1);
-                pSamplesOut[i+2] = decodedRices[2] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+2);
-                pSamplesOut[i+3] = decodedRices[3] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+3);
-                pSamplesOut[i+4] = decodedRices[4] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+4);
-                pSamplesOut[i+5] = decodedRices[5] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+5);
-                pSamplesOut[i+6] = decodedRices[6] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+6);
-                pSamplesOut[i+7] = decodedRices[7] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+7);
-            } else {
-                pSamplesOut[i+0] = decodedRices[0] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+0);
-                pSamplesOut[i+1] = decodedRices[1] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+1);
-                pSamplesOut[i+2] = decodedRices[2] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+2);
-                pSamplesOut[i+3] = decodedRices[3] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+3);
-                pSamplesOut[i+4] = decodedRices[4] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+4);
-                pSamplesOut[i+5] = decodedRices[5] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+5);
-                pSamplesOut[i+6] = decodedRices[6] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+6);
-                pSamplesOut[i+7] = decodedRices[7] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+7);
-            }
-
-            i += 8;
-        } else {
-            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[0], &decodedRices[0])) { return DR_FALSE; }
-            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[0], decodedRices[0], riceParam);
-            decodedRices[0] |= (zeroCounters[0] << riceParam); decodedRices[0] = (decodedRices[0] >> 1) ^ (~(decodedRices[0] & 0x01) + 1);
-            if (bitsPerSample > 16) {
-                pSamplesOut[i] = decodedRices[0] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i);
-            } else {
-                pSamplesOut[i] = decodedRices[0] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i);
-            }
-
-            i += 1;
+        // Rice extraction.
+        if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCountPart, &riceParamPart)) {
+            return DR_FALSE;
         }
+
+        // CRC.
+        drflac__crc16_stream_write_rice(&crcStream, zeroCountPart, riceParamPart, riceParam);
+
+        // Rice reconstruction.
+        riceParamPart |= (zeroCountPart << riceParam); riceParamPart = (riceParamPart >> 1) ^ (~(riceParamPart & 0x01) + 1);
+
+        // Sample reconstruction.
+        if (bitsPerSample > 16) {
+            pSamplesOut[i] = riceParamPart + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i);
+        } else {
+            pSamplesOut[i] = riceParamPart + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i);
+        }
+
+        i += 1;
     }
 
     bs->crc16 = drflac__crc16_stream_flush(&crcStream);
