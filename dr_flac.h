@@ -1852,6 +1852,52 @@ static DRFLAC_INLINE dr_int32 drflac__calculate_prediction_64(dr_uint32 order, d
     return (dr_int32)(prediction >> shift);
 }
 
+// Reference implementation for reading and decoding samples with residual. This is intentionally left unoptimized for the
+// sake of readability and should only be used as a reference.
+static dr_bool32 drflac__decode_samples_with_residual__rice__reference(drflac_bs* bs, dr_uint32 bitsPerSample, dr_uint32 count, dr_uint8 riceParam, dr_uint32 order, dr_int32 shift, const dr_int16* coefficients, dr_int32* pSamplesOut)
+{
+    assert(bs != NULL);
+    assert(count > 0);
+    assert(pSamplesOut != NULL);
+
+    for (dr_uint32 i = 0; i < count; ++i) {
+        dr_uint32 zeroCounter = 0;
+        for (;;) {
+            dr_uint8 bit;
+            if (!drflac__read_uint8(bs, 1, &bit)) {
+                return DR_FALSE;
+            }
+
+            if (bit == 0) {
+                zeroCounter += 1;
+            } else {
+                break;
+            }
+        }
+
+        dr_uint32 decodedRice;
+        if (!drflac__read_uint32(bs, riceParam, &decodedRice)) {
+            return DR_FALSE;
+        }
+
+        decodedRice |= (zeroCounter << riceParam);
+        if ((decodedRice & 0x01)) {
+            decodedRice = ~(decodedRice >> 1);
+        } else {
+            decodedRice =  (decodedRice >> 1);
+        }
+
+
+        if (bitsPerSample > 16) {
+            pSamplesOut[i] = decodedRice + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i);
+        } else {
+            pSamplesOut[i] = decodedRice + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i);
+        }
+    }
+
+    return DR_TRUE;
+}
+
 // Reads and decodes a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 //
 // This is the most frequently called function in the library. It does both the Rice decoding and the prediction in a single loop
@@ -1967,6 +2013,18 @@ static dr_bool32 funcName (drflac_bs* bs, dr_uint32 count, dr_uint8 riceParam, d
 DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(drflac__decode_samples_with_residual__rice_64, drflac__calculate_prediction_64)
 DRFLAC__DECODE_SAMPLES_WITH_RESIDULE__RICE__PROC(drflac__decode_samples_with_residual__rice_32, drflac__calculate_prediction_32)
 
+static dr_bool32 drflac__decode_samples_with_residual__rice(drflac_bs* bs, dr_uint32 bitsPerSample, dr_uint32 count, dr_uint8 riceParam, dr_uint32 order, dr_int32 shift, const dr_int16* coefficients, dr_int32* pSamplesOut)
+{
+#if 0
+    return drflac__decode_samples_with_residual__rice__reference(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+#else
+    if (bitsPerSample > 16) {
+        return drflac__decode_samples_with_residual__rice_64(bs, count, riceParam, order, shift, coefficients, pSamplesOut);
+    } else {
+        return drflac__decode_samples_with_residual__rice_32(bs, count, riceParam, order, shift, coefficients, pSamplesOut);
+    }
+#endif
+}
 
 // Reads and seeks past a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 static dr_bool32 drflac__read_and_seek_residual__rice(drflac_bs* bs, dr_uint32 count, dr_uint8 riceParam)
@@ -2055,14 +2113,8 @@ static dr_bool32 drflac__decode_samples_with_residual(drflac_bs* bs, dr_uint32 b
         }
 
         if (riceParam != 0xFF) {
-            if (bitsPerSample > 16) {
-                if (!drflac__decode_samples_with_residual__rice_64(bs, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
-                    return DR_FALSE;
-                }
-            } else {
-                if (!drflac__decode_samples_with_residual__rice_32(bs, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
-                    return DR_FALSE;
-                }
+            if (!drflac__decode_samples_with_residual__rice(bs, bitsPerSample, samplesInPartition, riceParam, order, shift, coefficients, pDecodedSamples)) {
+                return DR_FALSE;
             }
         } else {
             unsigned char unencodedBitsPerSample = 0;
