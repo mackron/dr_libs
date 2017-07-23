@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.6 - 2017-07-22
+// dr_flac - v0.7 - 2017-07-23
 //
 // David Reid - mackron@gmail.com
 
@@ -66,6 +66,15 @@
 // drflac_open_with_metdata() returns.
 //
 //
+// The main opening APIs (drflac_open(), etc.) will fail if the header is not present. The presents a problem in certain
+// scenarios such as broadcast style streams like internet radio where the header may not be present because the user has
+// started playback mid-stream. To handle this, use the relaxed APIs: drflac_open_relaxed() and drflac_open_with_metadata_relaxed().
+// 
+// It is not recommended to use these APIs for file based streams because a missing header would usually indicate a
+// corrupted or perverse file. In addition, these APIs can take a long time to initialize because they may need to spend
+// a lot of time finding the first frame.
+//
+//
 //
 // OPTIONS
 // #define these options before including this file.
@@ -93,8 +102,6 @@
 //
 //
 // QUICK NOTES
-// - dr_flac should work fine with valid native FLAC files, but for broadcast streams it won't work if the header and STREAMINFO
-//   block is unavailable.
 // - Audio data is output as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
 // - This has not been tested on big-endian architectures.
 // - Rice codes in unencoded binary form (see https://xiph.org/flac/format.html#rice_partition) has not been tested. If anybody
@@ -198,7 +205,8 @@ typedef dr_uint32 drflac_cache_t;
 typedef enum
 {
     drflac_container_native,
-    drflac_container_ogg
+    drflac_container_ogg,
+    drflac_container_unknown
 } drflac_container;
 
 typedef enum
@@ -307,6 +315,9 @@ typedef struct
 // bytesToRead [in]  The number of bytes to read.
 //
 // Returns the number of bytes actually read.
+//
+// A return value of less than bytesToRead indicates the end of the stream. Do _not_ return from this callback until
+// either the entire bytesToRead is filled or you have reached the end of the stream.
 typedef size_t (* drflac_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 
 // Callback for when data needs to be seeked.
@@ -513,10 +524,21 @@ typedef struct
 // This is the lowest level function for opening a FLAC stream. You can also use drflac_open_file() and drflac_open_memory()
 // to open the stream from a file or from a block of memory respectively.
 //
-// The STREAMINFO block must be present for this to succeed.
+// The STREAMINFO block must be present for this to succeed. Use drflac_open_relaxed() to open a FLAC stream where
+// the header may not be present.
 //
 // See also: drflac_open_file(), drflac_open_memory(), drflac_open_with_metadata(), drflac_close()
 drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData);
+
+// The same as drflac_open(), except attempts to open the stream even when a header block is not present.
+//
+// Because the header is not necessarily available, the caller must explicitly define the container (Native or Ogg). Do
+// not set this to drflac_container_unknown - that is for internal use only.
+//
+// Opening in relaxed mode will continue reading data from onRead until it finds a valid frame. If a frame is never
+// found it will continue forever. To abort, force your onRead callback to return 0, which dr_flac will use as an
+// indicator that the end of the stream was found.
+drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_container container, void* pUserData);
 
 // Opens a FLAC decoder and notifies the caller of the metadata chunks (album art, etc.).
 //
@@ -535,8 +557,16 @@ drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUse
 // The caller is notified of the metadata via the onMeta callback. All metadata blocks will be handled before the function
 // returns.
 //
+// The STREAMINFO block must be present for this to succeed. Use drflac_open_with_metadata_relaxed() to open a FLAC
+// stream where the header may not be present.
+//
 // See also: drflac_open_file_with_metadata(), drflac_open_memory_with_metadata(), drflac_open(), drflac_close()
 drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData);
+
+// The same as drflac_open_with_metadata(), except attemps to open the stream even when a header block is not present.
+//
+// See also: drflac_open_relaxed()
+drflac* drflac_open_with_metadata_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData);
 
 // Closes the given FLAC decoder.
 //
@@ -2876,16 +2906,19 @@ typedef struct
     drflac_read_proc onRead;
     drflac_seek_proc onSeek;
     drflac_meta_proc onMeta;
+    drflac_container container;
     void* pUserData;
     void* pUserDataMD;
-    drflac_container container;
     dr_uint32 sampleRate;
     dr_uint8  channels;
     dr_uint8  bitsPerSample;
     dr_uint64 totalSampleCount;
     dr_uint16 maxBlockSize;
     dr_uint64 runningFilePos;
+    dr_bool32 hasStreamInfoBlock;
     dr_bool32 hasMetadataBlocks;
+    drflac_bs bs;                           // <-- A bit streamer is required for loading data during initialization.
+    drflac_frame_header firstFrameHeader;   // <-- The header of the first frame that was read during relaxed initalization. Only set if there is no STREAMINFO block.
 
 #ifndef DR_FLAC_NO_OGG
     dr_uint32 oggSerial;
@@ -3199,7 +3232,7 @@ dr_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
     return DR_TRUE;
 }
 
-dr_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+dr_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD, dr_bool32 relaxed)
 {
     (void)onSeek;
 
@@ -3216,32 +3249,54 @@ dr_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc
     }
 
     if (blockType != DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
-        return DR_FALSE;    // Invalid block type. First block must be the STREAMINFO block.
+        if (!relaxed) {
+            // We're opening in strict mode and the first block is not the STREAMINFO block. Error.
+            return DR_FALSE;
+        } else {
+            // Relaxed mode. To open from here we need to just find the first frame and set the sample rate, etc. to whatever is defined
+            // for that frame.
+            pInit->hasStreamInfoBlock = DR_FALSE;
+            pInit->hasMetadataBlocks  = DR_FALSE;
+
+            if (!drflac__read_next_frame_header(&pInit->bs, 0, &pInit->firstFrameHeader)) {
+                return DR_FALSE;    // Couldn't find a frame.
+            }
+
+            if (pInit->firstFrameHeader.bitsPerSample == 0) {
+                return DR_FALSE;    // Failed to initialize because the first frame depends on the STREAMINFO block, which does not exist.
+            }
+
+            pInit->sampleRate    = pInit->firstFrameHeader.sampleRate;
+            pInit->channels      = drflac__get_channel_count_from_channel_assignment(pInit->firstFrameHeader.channelAssignment);
+            pInit->bitsPerSample = pInit->firstFrameHeader.bitsPerSample;
+            pInit->maxBlockSize  = 65535;   // <-- See notes here: https://xiph.org/flac/format.html#metadata_block_streaminfo
+            return DR_TRUE;
+        }
+    } else {
+        drflac_streaminfo streaminfo;
+        if (!drflac__read_streaminfo(onRead, pUserData, &streaminfo)) {
+            return DR_FALSE;
+        }
+
+        pInit->hasStreamInfoBlock = DR_TRUE;
+        pInit->sampleRate         = streaminfo.sampleRate;
+        pInit->channels           = streaminfo.channels;
+        pInit->bitsPerSample      = streaminfo.bitsPerSample;
+        pInit->totalSampleCount   = streaminfo.totalSampleCount;
+        pInit->maxBlockSize       = streaminfo.maxBlockSize;    // Don't care about the min block size - only the max (used for determining the size of the memory allocation).
+        pInit->hasMetadataBlocks = !isLastBlock;
+
+        if (onMeta) {
+            drflac_metadata metadata;
+            metadata.type = DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO;
+            metadata.pRawData = NULL;
+            metadata.rawDataSize = 0;
+            metadata.data.streaminfo = streaminfo;
+            onMeta(pUserDataMD, &metadata);
+        }
+
+        return DR_TRUE;
     }
-
-
-    drflac_streaminfo streaminfo;
-    if (!drflac__read_streaminfo(onRead, pUserData, &streaminfo)) {
-        return DR_FALSE;
-    }
-
-    pInit->sampleRate       = streaminfo.sampleRate;
-    pInit->channels         = streaminfo.channels;
-    pInit->bitsPerSample    = streaminfo.bitsPerSample;
-    pInit->totalSampleCount = streaminfo.totalSampleCount;
-    pInit->maxBlockSize     = streaminfo.maxBlockSize;    // Don't care about the min block size - only the max (used for determining the size of the memory allocation).
-
-    if (onMeta) {
-        drflac_metadata metadata;
-        metadata.type = DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO;
-        metadata.pRawData = NULL;
-        metadata.rawDataSize = 0;
-        metadata.data.streaminfo = streaminfo;
-        onMeta(pUserDataMD, &metadata);
-    }
-
-    pInit->hasMetadataBlocks = !isLastBlock;
-    return DR_TRUE;
 }
 
 #ifndef DR_FLAC_NO_OGG
@@ -3704,9 +3759,10 @@ dr_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, dr_uint64 sampleIndex)
 }
 
 
-dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD, dr_bool32 relaxed)
 {
     // Pre: The bit stream should be sitting just past the 4-byte OggS capture pattern.
+    (void)relaxed;
 
     pInit->container = drflac_container_ogg;
     pInit->oggFirstBytePos = 0;
@@ -3787,11 +3843,13 @@ dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc on
                         drflac_streaminfo streaminfo;
                         if (drflac__read_streaminfo(onRead, pUserData, &streaminfo)) {
                             // Success!
-                            pInit->sampleRate       = streaminfo.sampleRate;
-                            pInit->channels         = streaminfo.channels;
-                            pInit->bitsPerSample    = streaminfo.bitsPerSample;
-                            pInit->totalSampleCount = streaminfo.totalSampleCount;
-                            pInit->maxBlockSize     = streaminfo.maxBlockSize;
+                            pInit->hasStreamInfoBlock = DR_TRUE;
+                            pInit->sampleRate         = streaminfo.sampleRate;
+                            pInit->channels           = streaminfo.channels;
+                            pInit->bitsPerSample      = streaminfo.bitsPerSample;
+                            pInit->totalSampleCount   = streaminfo.totalSampleCount;
+                            pInit->maxBlockSize       = streaminfo.maxBlockSize;
+                            pInit->hasMetadataBlocks  = !isLastBlock;
 
                             if (onMeta) {
                                 drflac_metadata metadata;
@@ -3852,17 +3910,28 @@ dr_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_proc on
 }
 #endif
 
-dr_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+dr_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD)
 {
     if (pInit == NULL || onRead == NULL || onSeek == NULL) {
         return DR_FALSE;
     }
 
-    pInit->onRead      = onRead;
-    pInit->onSeek      = onSeek;
-    pInit->onMeta      = onMeta;
-    pInit->pUserData   = pUserData;
-    pInit->pUserDataMD = pUserDataMD;
+    memset(pInit, 0, sizeof(*pInit));
+    pInit->onRead       = onRead;
+    pInit->onSeek       = onSeek;
+    pInit->onMeta       = onMeta;
+    pInit->container    = container;
+    pInit->pUserData    = pUserData;
+    pInit->pUserDataMD  = pUserDataMD;
+
+    pInit->bs.onRead    = onRead;
+    pInit->bs.onSeek    = onSeek;
+    pInit->bs.pUserData = pUserData;
+    drflac__reset_cache(&pInit->bs);
+    
+
+    // If the container is explicitly defined then we can try opening in relaxed mode.
+    dr_bool32 relaxed = container != drflac_container_unknown;
 
     dr_uint8 id[4];
     if (onRead(pUserData, id, 4) != 4) {
@@ -3870,14 +3939,25 @@ dr_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead,
     }
 
     if (id[0] == 'f' && id[1] == 'L' && id[2] == 'a' && id[3] == 'C') {
-        return drflac__init_private__native(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD);
+        return drflac__init_private__native(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD, relaxed);
     }
-
 #ifndef DR_FLAC_NO_OGG
     if (id[0] == 'O' && id[1] == 'g' && id[2] == 'g' && id[3] == 'S') {
-        return drflac__init_private__ogg(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD);
+        return drflac__init_private__ogg(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD, relaxed);
     }
 #endif
+
+    // If we get here it means we likely don't have a header. Try opening in relaxed mode, if applicable.
+    if (relaxed) {
+        if (container == drflac_container_native) {
+            return drflac__init_private__native(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD, relaxed);
+        }
+#ifndef DR_FLAC_NO_OGG
+        if (container == drflac_container_ogg) {
+            return drflac__init_private__ogg(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD, relaxed);
+        }
+#endif
+    }
 
     // Unsupported container.
     return DR_FALSE;
@@ -3889,12 +3969,7 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
     assert(pInit != NULL);
 
     memset(pFlac, 0, sizeof(*pFlac));
-    pFlac->bs.onRead        = pInit->onRead;
-    pFlac->bs.onSeek        = pInit->onSeek;
-    pFlac->bs.pUserData     = pInit->pUserData;
-    pFlac->bs.nextL2Line    = sizeof(pFlac->bs.cacheL2) / sizeof(pFlac->bs.cacheL2[0]); // <-- Initialize to this to force a client-side data retrieval right from the start.
-    pFlac->bs.consumedBits  = sizeof(pFlac->bs.cache)*8;
-
+    pFlac->bs               = pInit->bs;
     pFlac->onMeta           = pInit->onMeta;
     pFlac->pUserDataMD      = pInit->pUserDataMD;
     pFlac->maxBlockSize     = pInit->maxBlockSize;
@@ -3905,10 +3980,10 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
     pFlac->container        = pInit->container;
 }
 
-drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD)
+drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD)
 {
     drflac_init_info init;
-    if (!drflac__init_private(&init, onRead, onSeek, onMeta, pUserData, pUserDataMD)) {
+    if (!drflac__init_private(&init, onRead, onSeek, onMeta, container, pUserData, pUserDataMD)) {
         return NULL;
     }
 
@@ -3952,6 +4027,30 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
             free(pFlac);
             return NULL;
         }
+    }
+
+    // If we get here, but don't have a STREAMINFO block, it means we've opened the stream in relaxed mode and need to decode
+    // the first frame.
+    if (!init.hasStreamInfoBlock) {
+        pFlac->currentFrame.header = init.firstFrameHeader;
+        do
+        {
+            drflac_result result = drflac__decode_frame(pFlac);
+            if (result == DRFLAC_SUCCESS) {
+                break;
+            } else {
+                if (result == DRFLAC_CRC_MISMATCH) {
+                    if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+                        free(pFlac);
+                        return NULL;
+                    }
+                    continue;
+                } else {
+                    free(pFlac);
+                    return NULL;
+                }
+            }
+        } while (1);
     }
 
     return pFlac;
@@ -4058,7 +4157,7 @@ drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc on
         return NULL;
     }
 
-    drflac* pFlac = drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, (void*)file, pUserData);
+    drflac* pFlac = drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, drflac_container_unknown, (void*)file, pUserData);
     if (pFlac == NULL) {
         drflac__close_file_handle(file);
         return pFlac;
@@ -4145,7 +4244,7 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
     memoryStream.data = (const unsigned char*)data;
     memoryStream.dataSize = dataSize;
     memoryStream.currentReadPos = 0;
-    drflac* pFlac = drflac_open_with_metadata_private(drflac__on_read_memory, drflac__on_seek_memory, onMeta, &memoryStream, pUserData);
+    drflac* pFlac = drflac_open_with_metadata_private(drflac__on_read_memory, drflac__on_seek_memory, onMeta, drflac_container_unknown, &memoryStream, pUserData);
     if (pFlac == NULL) {
         return NULL;
     }
@@ -4172,12 +4271,20 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
 
 drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData)
 {
-    return drflac_open_with_metadata_private(onRead, onSeek, NULL, pUserData, pUserData);
+    return drflac_open_with_metadata_private(onRead, onSeek, NULL, drflac_container_unknown, pUserData, pUserData);
+}
+drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_container container, void* pUserData)
+{
+    return drflac_open_with_metadata_private(onRead, onSeek, NULL, container, pUserData, pUserData);
 }
 
 drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData)
 {
-    return drflac_open_with_metadata_private(onRead, onSeek, onMeta, pUserData, pUserData);
+    return drflac_open_with_metadata_private(onRead, onSeek, onMeta, drflac_container_unknown, pUserData, pUserData);
+}
+drflac* drflac_open_with_metadata_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData)
+{
+    return drflac_open_with_metadata_private(onRead, onSeek, onMeta, container, pUserData, pUserData);
 }
 
 void drflac_close(drflac* pFlac)
@@ -4784,6 +4891,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.7 - 2017-07-23
+//   - Add support for opening a stream without a header block. To do this, use drflac_open_relaxed() / drflac_open_with_metadata_relaxed().
 //
 // v0.6 - 2017-07-22
 //   - Add support for recovering from invalid frames. With this change, dr_flac will simply skip over invalid frames as if they
