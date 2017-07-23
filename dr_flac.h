@@ -1982,8 +1982,9 @@ static dr_bool32 drflac__read_rice_parts(drflac_bs* bs, dr_uint8 riceParam, dr_u
     return DR_TRUE;
 }
 
-static dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr_uint8 riceParam, dr_uint32* pZeroCounterOut, dr_uint32* pRiceParamPartOut)
+static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr_uint8 riceParam, dr_uint32* pZeroCounterOut, dr_uint32* pRiceParamPartOut)
 {
+#if 0
     dr_uint32 zeroCounter = 0;
     for (;;) {
         dr_uint32 bit;
@@ -1998,17 +1999,90 @@ static dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr_uint8 ricePar
         }
     }
 
-    dr_uint32 decodedRice;
+    dr_uint32 riceParamPart;
     if (riceParam > 0) {
-        if (!drflac__read_uint32__no_crc(bs, riceParam, &decodedRice)) {
+        if (!drflac__read_uint32__no_crc(bs, riceParam, &riceParamPart)) {
             return DR_FALSE;
         }
     } else {
-        decodedRice = 0;
+        riceParamPart = 0;
+    }
+#else
+    static unsigned int bitOffsetTable[] = {
+        0,
+        4,
+        3, 3,
+        2, 2, 2, 2,
+        1, 1, 1, 1, 1, 1, 1, 1
+    };
+
+    drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
+    drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceParam;
+
+
+    dr_uint32 zeroCounter = 0;
+    while (bs->cache == 0) {
+        zeroCounter += (dr_uint32)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
+        if (!drflac__reload_cache(bs)) {
+            return DR_FALSE;
+        }
     }
 
+    dr_uint32 setBitOffsetPlus1 = bitOffsetTable[DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, 4)];
+    if (setBitOffsetPlus1 == 0) {
+        if (bs->cache == 1) {
+            setBitOffsetPlus1 = DRFLAC_CACHE_L1_SIZE_BITS(bs);
+        } else {
+            setBitOffsetPlus1 = 5;
+            for (;;) {
+                if ((bs->cache & DRFLAC_CACHE_L1_SELECT(bs, setBitOffsetPlus1))) {
+                    break;
+                }
+                setBitOffsetPlus1 += 1;
+            }
+        }
+    }
+
+    zeroCounter += (setBitOffsetPlus1 - 1);
+
+
+    dr_uint32 riceParamPart = 0;
+    dr_uint32 riceLength = setBitOffsetPlus1 + riceParam;
+    if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
+        riceParamPart = (dr_uint32)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceLength));
+
+        bs->consumedBits += riceLength;
+        bs->cache <<= riceLength;
+    } else {
+        bs->consumedBits += riceLength;
+        if (setBitOffsetPlus1 == DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
+            bs->cache = 0;
+        } else {
+            bs->cache <<= setBitOffsetPlus1;
+        }
+
+        /* It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them. */
+        size_t bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
+        drflac_cache_t resultHi = bs->cache & riceParamMask;    /* <-- This mask is OK because all bits after the first bits are always zero. */
+
+        if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
+            bs->cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
+        } else {
+            /* Slow path. We need to fetch more data from the client. */
+            if (!drflac__reload_cache(bs)) {
+                return DR_FALSE;
+            }
+        }
+
+        riceParamPart = (dr_uint32)((resultHi >> resultHiShift) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountLo));
+
+        bs->consumedBits = bitCountLo;
+        bs->cache <<= bitCountLo;
+    }
+#endif
+
     *pZeroCounterOut = zeroCounter;
-    *pRiceParamPartOut = decodedRice;
+    *pRiceParamPartOut = riceParamPart;
     return DR_TRUE;
 }
 
@@ -2080,84 +2154,75 @@ static dr_bool32 drflac__decode_samples_with_residual__rice__optimization1(drfla
 
     dr_uint32 zeroCounters[8];
     dr_uint32 decodedRices[8];
+    drflac__crc16_stream crcStream = drflac__crc16_stream_init(bs->crc16);
 
     dr_uint32 i = 0;
     while (i < count) {
-        dr_uint32 samplesToProcess = ((count-i) > 8) ? 8 : (count-i);
-        dr_uint32 j;
+        dr_uint32 samplesRemaining = (count-i);
+        if (samplesRemaining >= 8) {
+            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[0], &decodedRices[0])) { return DR_FALSE; }
+            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[1], &decodedRices[1])) { return DR_FALSE; }
+            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[2], &decodedRices[2])) { return DR_FALSE; }
+            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[3], &decodedRices[3])) { return DR_FALSE; }
+            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[4], &decodedRices[4])) { return DR_FALSE; }
+            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[5], &decodedRices[5])) { return DR_FALSE; }
+            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[6], &decodedRices[6])) { return DR_FALSE; }
+            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[7], &decodedRices[7])) { return DR_FALSE; }
 
-        j = 0;
-        switch (samplesToProcess) {
-            case 8: if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[j], &decodedRices[j])) { return DR_FALSE; } j += 1;
-            case 7: if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[j], &decodedRices[j])) { return DR_FALSE; } j += 1;
-            case 6: if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[j], &decodedRices[j])) { return DR_FALSE; } j += 1;
-            case 5: if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[j], &decodedRices[j])) { return DR_FALSE; } j += 1;
-            case 4: if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[j], &decodedRices[j])) { return DR_FALSE; } j += 1;
-            case 3: if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[j], &decodedRices[j])) { return DR_FALSE; } j += 1;
-            case 2: if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[j], &decodedRices[j])) { return DR_FALSE; } j += 1;
-            case 1: if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[j], &decodedRices[j])) { return DR_FALSE; }
-            case 0: default: break;
-        }
+            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[0], decodedRices[0], riceParam);
+            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[1], decodedRices[1], riceParam);
+            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[2], decodedRices[2], riceParam);
+            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[3], decodedRices[3], riceParam);
+            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[4], decodedRices[4], riceParam);
+            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[5], decodedRices[5], riceParam);
+            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[6], decodedRices[6], riceParam);
+            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[7], decodedRices[7], riceParam);
 
-        
-        j = 0;
-        drflac__crc16_stream crcStream = drflac__crc16_stream_init(bs->crc16);
-        switch (samplesToProcess) {
-            case 8: drflac__crc16_stream_write_rice(&crcStream, zeroCounters[j], decodedRices[j], riceParam); j += 1;
-            case 7: drflac__crc16_stream_write_rice(&crcStream, zeroCounters[j], decodedRices[j], riceParam); j += 1;
-            case 6: drflac__crc16_stream_write_rice(&crcStream, zeroCounters[j], decodedRices[j], riceParam); j += 1;
-            case 5: drflac__crc16_stream_write_rice(&crcStream, zeroCounters[j], decodedRices[j], riceParam); j += 1;
-            case 4: drflac__crc16_stream_write_rice(&crcStream, zeroCounters[j], decodedRices[j], riceParam); j += 1;
-            case 3: drflac__crc16_stream_write_rice(&crcStream, zeroCounters[j], decodedRices[j], riceParam); j += 1;
-            case 2: drflac__crc16_stream_write_rice(&crcStream, zeroCounters[j], decodedRices[j], riceParam); j += 1;
-            case 1: drflac__crc16_stream_write_rice(&crcStream, zeroCounters[j], decodedRices[j], riceParam);
-            case 0: default: break;
-        }
-        bs->crc16 = drflac__crc16_stream_flush(&crcStream);
+            decodedRices[0] |= (zeroCounters[0] << riceParam); decodedRices[0] = (decodedRices[0] >> 1) ^ (~(decodedRices[0] & 0x01) + 1);
+            decodedRices[1] |= (zeroCounters[1] << riceParam); decodedRices[1] = (decodedRices[1] >> 1) ^ (~(decodedRices[1] & 0x01) + 1);
+            decodedRices[2] |= (zeroCounters[2] << riceParam); decodedRices[2] = (decodedRices[2] >> 1) ^ (~(decodedRices[2] & 0x01) + 1);
+            decodedRices[3] |= (zeroCounters[3] << riceParam); decodedRices[3] = (decodedRices[3] >> 1) ^ (~(decodedRices[3] & 0x01) + 1);
+            decodedRices[4] |= (zeroCounters[4] << riceParam); decodedRices[4] = (decodedRices[4] >> 1) ^ (~(decodedRices[4] & 0x01) + 1);
+            decodedRices[5] |= (zeroCounters[5] << riceParam); decodedRices[5] = (decodedRices[5] >> 1) ^ (~(decodedRices[5] & 0x01) + 1);
+            decodedRices[6] |= (zeroCounters[6] << riceParam); decodedRices[6] = (decodedRices[6] >> 1) ^ (~(decodedRices[6] & 0x01) + 1);
+            decodedRices[7] |= (zeroCounters[7] << riceParam); decodedRices[7] = (decodedRices[7] >> 1) ^ (~(decodedRices[7] & 0x01) + 1);
 
-        j = 0;
-        switch (samplesToProcess) {
-            case 8: decodedRices[7] |= (zeroCounters[7] << riceParam); decodedRices[7] = (decodedRices[7] >> 1) ^ (~(decodedRices[7] & 0x01) + 1);
-            case 7: decodedRices[6] |= (zeroCounters[6] << riceParam); decodedRices[6] = (decodedRices[6] >> 1) ^ (~(decodedRices[6] & 0x01) + 1);
-            case 6: decodedRices[5] |= (zeroCounters[5] << riceParam); decodedRices[5] = (decodedRices[5] >> 1) ^ (~(decodedRices[5] & 0x01) + 1);
-            case 5: decodedRices[4] |= (zeroCounters[4] << riceParam); decodedRices[4] = (decodedRices[4] >> 1) ^ (~(decodedRices[4] & 0x01) + 1);
-            case 4: decodedRices[3] |= (zeroCounters[3] << riceParam); decodedRices[3] = (decodedRices[3] >> 1) ^ (~(decodedRices[3] & 0x01) + 1);
-            case 3: decodedRices[2] |= (zeroCounters[2] << riceParam); decodedRices[2] = (decodedRices[2] >> 1) ^ (~(decodedRices[2] & 0x01) + 1);
-            case 2: decodedRices[1] |= (zeroCounters[1] << riceParam); decodedRices[1] = (decodedRices[1] >> 1) ^ (~(decodedRices[1] & 0x01) + 1);
-            case 1: decodedRices[0] |= (zeroCounters[0] << riceParam); decodedRices[0] = (decodedRices[0] >> 1) ^ (~(decodedRices[0] & 0x01) + 1);
-            case 0: default: break;
-        }
-
-        j = 0;
-        if (bitsPerSample > 16) {
-            switch (samplesToProcess) {
-                case 8: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 7: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 6: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 5: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 4: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 3: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 2: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 1: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+j);
-                case 0: default: break;
+            if (bitsPerSample > 16) {
+                pSamplesOut[i+0] = decodedRices[0] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+0);
+                pSamplesOut[i+1] = decodedRices[1] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+1);
+                pSamplesOut[i+2] = decodedRices[2] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+2);
+                pSamplesOut[i+3] = decodedRices[3] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+3);
+                pSamplesOut[i+4] = decodedRices[4] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+4);
+                pSamplesOut[i+5] = decodedRices[5] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+5);
+                pSamplesOut[i+6] = decodedRices[6] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+6);
+                pSamplesOut[i+7] = decodedRices[7] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i+7);
+            } else {
+                pSamplesOut[i+0] = decodedRices[0] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+0);
+                pSamplesOut[i+1] = decodedRices[1] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+1);
+                pSamplesOut[i+2] = decodedRices[2] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+2);
+                pSamplesOut[i+3] = decodedRices[3] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+3);
+                pSamplesOut[i+4] = decodedRices[4] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+4);
+                pSamplesOut[i+5] = decodedRices[5] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+5);
+                pSamplesOut[i+6] = decodedRices[6] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+6);
+                pSamplesOut[i+7] = decodedRices[7] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+7);
             }
+
+            i += 8;
         } else {
-            switch (samplesToProcess) {
-                case 8: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 7: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 6: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 5: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 4: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 3: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 2: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+j); j += 1;
-                case 1: pSamplesOut[i+j] = decodedRices[j] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i+j);
-                case 0: default: break;
+            if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCounters[0], &decodedRices[0])) { return DR_FALSE; }
+            drflac__crc16_stream_write_rice(&crcStream, zeroCounters[0], decodedRices[0], riceParam);
+            decodedRices[0] |= (zeroCounters[0] << riceParam); decodedRices[0] = (decodedRices[0] >> 1) ^ (~(decodedRices[0] & 0x01) + 1);
+            if (bitsPerSample > 16) {
+                pSamplesOut[i] = decodedRices[0] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i);
+            } else {
+                pSamplesOut[i] = decodedRices[0] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i);
             }
-        }
 
-        i += samplesToProcess;
+            i += 1;
+        }
     }
 
+    bs->crc16 = drflac__crc16_stream_flush(&crcStream);
     return DR_TRUE;
 }
 
