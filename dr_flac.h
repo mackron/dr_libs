@@ -2163,11 +2163,14 @@ static dr_bool32 drflac__decode_samples_with_residual__rice__optimization1(drfla
             return DR_FALSE;
         }
 
+#ifndef DR_FLAC_NO_CRC
         // CRC.
         drflac__crc16_stream_write_rice(&crcStream, zeroCountPart, riceParamPart, riceParam);
+#endif
 
         // Rice reconstruction.
-        riceParamPart |= (zeroCountPart << riceParam); riceParamPart = (riceParamPart >> 1) ^ (~(riceParamPart & 0x01) + 1);
+        riceParamPart |= (zeroCountPart << riceParam);
+        riceParamPart  = (riceParamPart >> 1) ^ (~(riceParamPart & 0x01) + 1);
 
         // Sample reconstruction.
         if (bitsPerSample > 16) {
@@ -2744,10 +2747,9 @@ static dr_bool32 drflac__read_next_frame_header(drflac_bs* bs, dr_uint8 streamin
     #ifndef DR_FLAC_NO_CRC
         if (header->crc8 != crc8) {
             continue;    // CRC mismatch. Loop back to the top and find the next sync code.
-        } else {
-            return DR_TRUE;
         }
     #endif
+        return DR_TRUE;
     }
 }
 
