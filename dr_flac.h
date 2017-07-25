@@ -1984,9 +1984,54 @@ static dr_bool32 drflac__read_rice_parts__reference(drflac_bs* bs, dr_uint8 rice
 }
 #endif
 
-static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr_uint8 riceParam, dr_uint32* pZeroCounterOut, dr_uint32* pRiceParamPartOut)
+#ifdef DRFLAC_SSE42
+#define DRFLAC_IMPLEMENT_CLZ_LZCNT
+#endif
+#if  defined(_MSC_VER) && _MSC_VER >= 1400
+#define DRFLAC_IMPLEMENT_CLZ_MSVC
+#endif
+#if !defined(DRFLAC_IMPLEMENT_CLZ_MSVC)
+#define DRFLAC_IMPLEMENT_CLZ_SOFTWARE
+#endif
+
+#ifdef DRFLAC_IMPLEMENT_CLZ_LZCNT
+static DRFLAC_INLINE dr_bool32 drflac__is_lzcnt_supported()
 {
-    static dr_uint32 bitOffsetTable[] = {
+    // TODO: Implement me.
+    return DR_FALSE;
+}
+
+static DRFLAC_INLINE dr_uint32 drflac__clz_lzcnt(drflac_cache_t x)
+{
+#ifdef _MSC_VER
+#ifdef DRFLAC_64BIT
+    return __lzcnt64(bs->cache);
+#else
+    return __lzcnt(bs->cache);
+#endif
+#else
+    // TODO: Implement me for other compilers.
+    return sizeof(x)*8;
+#endif
+}
+#endif
+
+#ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
+static DRFLAC_INLINE dr_uint32 drflac__clz_msvc(drflac_cache_t x)
+{
+    dr_uint32 n;
+#ifdef DRFLAC_64BIT
+    _BitScanReverse64((unsigned long*)&n, x);
+#else
+    _BitScanReverse((unsigned long*)&n, x);
+#endif
+    return sizeof(x)*8 - n - 1;
+}
+#endif
+
+static DRFLAC_INLINE dr_uint32 drflac__clz_software(drflac_cache_t x)
+{
+    static dr_uint32 clz_table_4[] = {
         0,
         4,
         3, 3,
@@ -1994,6 +2039,48 @@ static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr
         1, 1, 1, 1, 1, 1, 1, 1
     };
 
+    dr_uint32 n = clz_table_4[x >> (sizeof(x)*8 - 4)];
+    if (n == 0) {
+#ifdef DRFLAC_64BIT
+        if ((x & 0xFFFFFFFF00000000ULL) == 0) { n  = 32; x <<= 32; }
+        if ((x & 0xFFFF000000000000ULL) == 0) { n += 16; x <<= 16; }
+        if ((x & 0xFF00000000000000ULL) == 0) { n += 8;  x <<= 8;  }
+        if ((x & 0xF000000000000000ULL) == 0) { n += 4;  x <<= 4;  }
+#else
+        if ((x & 0xFFFF0000) == 0) { n  = 16; x <<= 16; }
+        if ((x & 0xFF000000) == 0) { n += 8;  x <<= 8;  }
+        if ((x & 0xF0000000) == 0) { n += 4;  x <<= 4;  }
+#endif
+        n += clz_table_4[x >> (sizeof(x)*8 - 4)];
+    }
+
+    return n - 1;
+}
+
+static DRFLAC_INLINE dr_uint32 drflac__clz(drflac_cache_t x)
+{
+    // This function assumes at least one bit is set. Checking for 0 needs to be done at a higher level, outside this function.
+    //
+    // There's many different ways to count leading zeros, and unfortunately it's very compiler, platform and CPU dependant. What you
+    // see below are the different implementations, roughly in order of efficiency. Each one has it's own tag, and the section at the
+    // top simply jumps to the appropriate implementation depending on some compile- and run-time configurations.
+#ifdef DRFLAC_IMPLEMENT_CLZ_LZCNT
+    if (drflac__is_lzcnt_supported()) {
+        return drflac__clz_lzcnt(x);
+    } else
+#else
+    {
+    #ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
+        return drflac__clz_msvc(x);
+    #else
+        return drflac__clz_software(x);
+    #endif
+    }
+#endif
+}
+
+static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr_uint8 riceParam, dr_uint32* pZeroCounterOut, dr_uint32* pRiceParamPartOut)
+{
     drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
     drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceParam;
 
@@ -2006,25 +2093,12 @@ static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr
         }
     }
 
-    dr_uint32 setBitOffsetPlus1 = bitOffsetTable[DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, 4)];
-    if (setBitOffsetPlus1 == 0) {
-        if (bs->cache == 1) {
-            setBitOffsetPlus1 = DRFLAC_CACHE_L1_SIZE_BITS(bs);
-        } else {
-            setBitOffsetPlus1 = 5;
-            for (;;) {
-                if ((bs->cache & DRFLAC_CACHE_L1_SELECT(bs, setBitOffsetPlus1))) {
-                    break;
-                }
-                setBitOffsetPlus1 += 1;
-            }
-        }
-    }
+    dr_uint32 setBitOffsetPlus1 = drflac__clz(bs->cache);
+    zeroCounter += setBitOffsetPlus1;
+    setBitOffsetPlus1 += 1;
 
-    zeroCounter += (setBitOffsetPlus1 - 1);
-
-
-    dr_uint32 riceParamPart = 0;
+    
+    dr_uint32 riceParamPart;
     dr_uint32 riceLength = setBitOffsetPlus1 + riceParam;
     if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
         riceParamPart = (dr_uint32)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceLength));
@@ -2035,8 +2109,6 @@ static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr
         bs->consumedBits += riceLength;
         if (setBitOffsetPlus1 < DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
             bs->cache <<= setBitOffsetPlus1;
-        } else {
-            bs->cache = 0;
         }
 
         // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
