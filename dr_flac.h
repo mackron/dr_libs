@@ -99,6 +99,10 @@
 // #define DR_FLAC_NO_CRC
 //   Disables CRC checks. This will offer a performance boost when CRC is unnecessary.
 //
+// #define DR_FLAC_NO_SIMD
+//   Disables SIMD optimizations (SSE on x86/x64 architectures). Use this if you are having compatibility issues with your
+//   compiler.
+//
 //
 //
 // QUICK NOTES
@@ -741,9 +745,42 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #include <string.h>
 #include <assert.h>
 
-#ifdef _MSC_VER
-#include <intrin.h>     // For _byteswap_ulong and _byteswap_uint64
+// CPU architecture.
+#if defined(__x86_64__) || defined(_M_X64)
+#define DRFLAC_X64
+#elif defined(__i386) || defined(_M_IX86)
+#define DRFLAC_X86
 #endif
+
+// Compile-time CPU feature support.
+#if !defined(DR_FLAC_NO_SIMD) && (defined(DRFLAC_X86) || defined(DRFLAC_X64))
+    #define DRFLAC_SSE2
+    #include <emmintrin.h>
+
+    #ifdef _MSC_VER
+        #if _MSC_VER >= 1400
+            #include <intrin.h>
+            static void drflac__cpuid(int info[4], int fid)
+            {
+                __cpuid(info, fid);
+            }
+        #else
+            static void drflac__cpuid(int info[4], int fid)
+            {
+                // TODO: TEST ME. NOT YET COMPILED.
+                __asm {
+                    mov eax, fid
+                    cpuid
+                    mov info[0], eax
+                    mov info[1], ebx
+                    mov info[2], ecx
+                    mov info[3], edx
+                }
+            }
+        #endif
+    #endif
+#endif
+
 
 #ifdef __linux__
 #define _BSD_SOURCE
@@ -778,11 +815,32 @@ typedef dr_int32 drflac_result;
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
 
+// CPU caps.
+static dr_bool32 drflac__gIsLZCNTSupported = DR_FALSE;
+static dr_bool32 drflac__gIsSSE2Supported  = DR_FALSE;
+static DRFLAC_INLINE void drflac__init_cpu_caps()
+{
+    int info[4] = {0};
+
+    // LZCNT
+    drflac__cpuid(info, 0x80000001);
+    drflac__gIsLZCNTSupported = (info[2] & (1 << 5)) != 0;
+
+    // SSE2
+    drflac__cpuid(info, 1);
+    drflac__gIsSSE2Supported = (info[3] & (1 << 26)) != 0;
+}
+
+
 //// Endian Management ////
 static DRFLAC_INLINE dr_bool32 drflac__is_little_endian()
 {
+#if defined(DRFLAC_X86) || defined(DRFLAC_X64)
+    return DR_TRUE;
+#else
     int n = 1;
     return (*(char*)&n) == 1;
+#endif
 }
 
 static DRFLAC_INLINE dr_uint16 drflac__swap_endian_uint16(dr_uint16 n)
@@ -1984,7 +2042,7 @@ static dr_bool32 drflac__read_rice_parts__reference(drflac_bs* bs, dr_uint8 rice
 }
 #endif
 
-#ifdef DRFLAC_SSE42
+#if !defined(DR_FLAC_NO_SIMD)
 #define DRFLAC_IMPLEMENT_CLZ_LZCNT
 #endif
 #if  defined(_MSC_VER) && _MSC_VER >= 1400
@@ -1997,21 +2055,30 @@ static dr_bool32 drflac__read_rice_parts__reference(drflac_bs* bs, dr_uint8 rice
 #ifdef DRFLAC_IMPLEMENT_CLZ_LZCNT
 static DRFLAC_INLINE dr_bool32 drflac__is_lzcnt_supported()
 {
-    // TODO: Implement me.
-    return DR_FALSE;
+    return drflac__gIsLZCNTSupported;
 }
 
 static DRFLAC_INLINE dr_uint32 drflac__clz_lzcnt(drflac_cache_t x)
 {
 #ifdef _MSC_VER
-#ifdef DRFLAC_64BIT
-    return __lzcnt64(bs->cache);
+    #ifdef DRFLAC_64BIT
+        return (dr_uint32)__lzcnt64(x);
+    #else
+        return (dr_uint32)__lzcnt(x);
+    #endif
 #else
-    return __lzcnt(bs->cache);
-#endif
-#else
-    // TODO: Implement me for other compilers.
-    return sizeof(x)*8;
+    #if (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7))) || (defined(__clang__) && (__clang__ >= 5))
+        // TODO: TEST ME!!!
+        #ifdef DRFLAC_64BIT
+            return (dr_uint32)__builtin_clzll((unsigned long long)x);
+        #else
+            return (dr_uint32)__builtin_clzl((unsigned long)x);
+        #endif
+    #else
+        // Unsupported compiler.
+        assert(DR_FALSE);
+        return sizeof(x)*8;
+    #endif
 #endif
 }
 #endif
@@ -2060,15 +2127,11 @@ static DRFLAC_INLINE dr_uint32 drflac__clz_software(drflac_cache_t x)
 static DRFLAC_INLINE dr_uint32 drflac__clz(drflac_cache_t x)
 {
     // This function assumes at least one bit is set. Checking for 0 needs to be done at a higher level, outside this function.
-    //
-    // There's many different ways to count leading zeros, and unfortunately it's very compiler, platform and CPU dependant. What you
-    // see below are the different implementations, roughly in order of efficiency. Each one has it's own tag, and the section at the
-    // top simply jumps to the appropriate implementation depending on some compile- and run-time configurations.
 #ifdef DRFLAC_IMPLEMENT_CLZ_LZCNT
     if (drflac__is_lzcnt_supported()) {
         return drflac__clz_lzcnt(x);
     } else
-#else
+#endif
     {
     #ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
         return drflac__clz_msvc(x);
@@ -2076,7 +2139,6 @@ static DRFLAC_INLINE dr_uint32 drflac__clz(drflac_cache_t x)
         return drflac__clz_software(x);
     #endif
     }
-#endif
 }
 
 static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr_uint8 riceParam, dr_uint32* pZeroCounterOut, dr_uint32* pRiceParamPartOut)
@@ -4251,6 +4313,10 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
 
 drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD)
 {
+    // CPU support first.
+    drflac__init_cpu_caps();
+
+
     drflac_init_info init;
     if (!drflac__init_private(&init, onRead, onSeek, onMeta, container, pUserData, pUserDataMD)) {
         return NULL;
