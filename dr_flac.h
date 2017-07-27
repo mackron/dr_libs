@@ -767,7 +767,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
         #else
             static void drflac__cpuid(int info[4], int fid)
             {
-                // TODO: TEST ME. NOT YET COMPILED.
+                // TODO: TEST ME. NOT YET COMPILED. THIS IS FOR VC6 COMPATIBILITY, BUT MAY NOT BE WORTH IT.
                 __asm {
                     mov eax, fid
                     cpuid
@@ -778,6 +778,24 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
                 }
             }
         #endif
+    #else
+        static void drflac__cpuid(int info[4], int fid)
+        {
+            asm (
+                "movl %[fid], %%eax\n\t"
+                "cpuid\n\t"
+                "movl %%eax, %[info0]\n\t"
+                "movl %%ebx, %[info1]\n\t"
+                "movl %%ecx, %[info2]\n\t"
+                "movl %%edx, %[info3]\n\t"
+                : [info0] "=rm"(info[0]),
+                  [info1] "=rm"(info[1]),
+                  [info2] "=rm"(info[2]),
+                  [info3] "=rm"(info[3])
+                : [fid] "rm"(fid)
+                : "eax", "ebx", "ecx", "edx"
+            );
+        }
     #endif
 #endif
 
@@ -1297,7 +1315,7 @@ static dr_bool32 drflac__read_uint32__no_crc(drflac_bs* bs, unsigned int bitCoun
     }
 }
 
-DRFLAC_INLINE dr_bool32 drflac__read_uint32(drflac_bs* bs, unsigned int bitCount, dr_uint32* pResultOut)
+static DRFLAC_INLINE dr_bool32 drflac__read_uint32(drflac_bs* bs, unsigned int bitCount, dr_uint32* pResultOut)
 {
     if (!drflac__read_uint32__no_crc(bs, bitCount, pResultOut)) {
         return DR_FALSE;
@@ -2068,7 +2086,6 @@ static DRFLAC_INLINE dr_uint32 drflac__clz_lzcnt(drflac_cache_t x)
     #endif
 #else
     #if (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7))) || (defined(__clang__) && (__clang__ >= 5))
-        // TODO: TEST ME!!!
         #ifdef DRFLAC_64BIT
             return (dr_uint32)__builtin_clzll((unsigned long long)x);
         #else
