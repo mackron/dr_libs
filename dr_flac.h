@@ -405,8 +405,8 @@ typedef struct
     // an extra bit is required for side channels when interchannel decorrelation is being used.
     dr_uint32 bitsPerSample;
 
-    // A pointer to the buffer containing the decoded samples in the subframe. This pointer is an offset from drflac::pExtraData, or
-    // NULL if the heap is not being used. Note that it's a signed 32-bit integer for each value.
+    // A pointer to the buffer containing the decoded samples in the subframe. This pointer is an offset from drflac::pExtraData. Note that
+    // it's a signed 32-bit integer for each value.
     dr_int32* pDecodedSamples;
 } drflac_subframe;
 
@@ -501,12 +501,14 @@ typedef struct
 
     // A pointer to the decoded sample data. This is an offset of pExtraData.
     dr_int32* pDecodedSamples;
-
+    
+    // Internal use only. Only used with Ogg containers. Points to a drflac_oggbs object. This is an offset of pExtraData.
+    void* _oggbs;
 
     // The bit streamer. The raw FLAC data is fed through this object.
     drflac_bs bs;
 
-    // Variable length extra data. We attach this to the end of the object so we avoid unnecessary mallocs.
+    // Variable length extra data. We attach this to the end of the object so we can avoid unnecessary mallocs.
     dr_uint8 pExtraData[1];
 } drflac;
 
@@ -805,6 +807,8 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #include <endian.h>
 #endif
 
+#define DRFLAC_MAX_SIMD_VECTOR_SIZE                     64  // 64 for AVX-512 in the future.
+
 #ifdef _MSC_VER
 #define DRFLAC_INLINE __forceinline
 #else
@@ -831,6 +835,9 @@ typedef dr_int32 drflac_result;
 #define DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE             8
 #define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
+
+
+#define drflac_align(x, a)           ((((x) + (a) - 1) / (a)) * (a))
 
 
 // CPU caps.
@@ -3974,7 +3981,7 @@ static dr_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_or
 
 dr_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, dr_uint64 sampleIndex)
 {
-    drflac_oggbs* oggbs = (drflac_oggbs*)(((dr_int32*)pFlac->pExtraData) + pFlac->maxBlockSize*pFlac->channels);
+    drflac_oggbs* oggbs = (drflac_oggbs*)pFlac->_oggbs;
 
     dr_uint64 originalBytePos = oggbs->currentBytePos;   // For recovery.
 
@@ -4339,9 +4346,28 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
         return NULL;
     }
 
-    size_t allocationSize = sizeof(drflac);
-    allocationSize += init.maxBlockSize * init.channels * sizeof(dr_int32);
+    // The size of the allocation for the drflac object needs to be large enough to fit the following:
+    //   1) The main members of the drflac structure
+    //   2) A block of memory large enough to store the decoded samples of the largest frame in the stream
+    //   3) If the container is Ogg, a drflac_oggbs object
+    //
+    // The complicated part of the allocation is making sure there's enough room the decoded samples, taking into consideration
+    // the different SIMD instruction sets.
+    dr_uint32 allocationSize = sizeof(drflac);
 
+    // The allocation size for decoded frames depends on the number of 32-bit integers that fit inside the largest SIMD vector
+    // we are supporting.
+    dr_uint32 wholeSIMDVectorCountPerChannel;
+    if ((init.maxBlockSize % (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(dr_int32))) == 0) {
+        wholeSIMDVectorCountPerChannel = (init.maxBlockSize / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(dr_int32)));
+    } else {
+        wholeSIMDVectorCountPerChannel = (init.maxBlockSize / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(dr_int32))) + 1;
+    }
+
+    dr_uint32 decodedSamplesAllocationSize = wholeSIMDVectorCountPerChannel * DRFLAC_MAX_SIMD_VECTOR_SIZE * init.channels;
+
+    allocationSize += decodedSamplesAllocationSize;
+    allocationSize += DRFLAC_MAX_SIMD_VECTOR_SIZE;  // Allocate extra bytes to ensure we have enough for alignment.
 
 #ifndef DR_FLAC_NO_OGG
     // There's additional data required for Ogg streams.
@@ -4352,11 +4378,11 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
     drflac* pFlac = (drflac*)malloc(allocationSize);
     drflac__init_from_info(pFlac, &init);
-    pFlac->pDecodedSamples = (dr_int32*)pFlac->pExtraData;
+    pFlac->pDecodedSamples = (dr_int32*)drflac_align((size_t)pFlac->pExtraData, DRFLAC_MAX_SIMD_VECTOR_SIZE);
 
 #ifndef DR_FLAC_NO_OGG
     if (init.container == drflac_container_ogg) {
-        drflac_oggbs* oggbs = (drflac_oggbs*)(((dr_int32*)pFlac->pExtraData) + init.maxBlockSize*init.channels);
+        drflac_oggbs* oggbs = (drflac_oggbs*)((dr_uint8*)pFlac->pDecodedSamples + decodedSamplesAllocationSize);
         oggbs->onRead = onRead;
         oggbs->onSeek = onSeek;
         oggbs->pUserData = pUserData;
@@ -4370,6 +4396,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
         pFlac->bs.onRead = drflac__on_read_ogg;
         pFlac->bs.onSeek = drflac__on_seek_ogg;
         pFlac->bs.pUserData = (void*)oggbs;
+        pFlac->_oggbs = (void*)oggbs;
     }
 #endif
 
@@ -4578,7 +4605,7 @@ drflac* drflac_open_memory(const void* data, size_t dataSize)
 #ifndef DR_FLAC_NO_OGG
     if (pFlac->container == drflac_container_ogg)
     {
-        drflac_oggbs* oggbs = (drflac_oggbs*)(((dr_int32*)pFlac->pExtraData) + pFlac->maxBlockSize*pFlac->channels);
+        drflac_oggbs* oggbs = (drflac_oggbs*)pFlac->_oggbs;
         oggbs->pUserData = &pFlac->memoryStream;
     }
     else
@@ -4607,7 +4634,7 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
 #ifndef DR_FLAC_NO_OGG
     if (pFlac->container == drflac_container_ogg)
     {
-        drflac_oggbs* oggbs = (drflac_oggbs*)(((dr_int32*)pFlac->pExtraData) + pFlac->maxBlockSize*pFlac->channels);
+        drflac_oggbs* oggbs = (drflac_oggbs*)pFlac->_oggbs;
         oggbs->pUserData = &pFlac->memoryStream;
     }
     else
@@ -4656,7 +4683,7 @@ void drflac_close(drflac* pFlac)
     // Need to clean up Ogg streams a bit differently due to the way the bit streaming is chained.
     if (pFlac->container == drflac_container_ogg) {
         assert(pFlac->bs.onRead == drflac__on_read_ogg);
-        drflac_oggbs* oggbs = (drflac_oggbs*)((dr_int32*)pFlac->pExtraData + pFlac->maxBlockSize*pFlac->channels);
+        drflac_oggbs* oggbs = (drflac_oggbs*)pFlac->_oggbs;
         if (oggbs->onRead == drflac__on_read_stdio) {
             drflac__close_file_handle((drflac_file)oggbs->pUserData);
         }
