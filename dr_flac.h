@@ -756,9 +756,6 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 // Compile-time CPU feature support.
 #if !defined(DR_FLAC_NO_SIMD) && (defined(DRFLAC_X86) || defined(DRFLAC_X64))
-    #define DRFLAC_SSE2
-    #include <emmintrin.h>
-
     #ifdef _MSC_VER
         #if _MSC_VER >= 1400
             #include <intrin.h>
@@ -767,37 +764,30 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
                 __cpuid(info, fid);
             }
         #else
-            static void drflac__cpuid(int info[4], int fid)
-            {
-                // TODO: TEST ME. NOT YET COMPILED. THIS IS FOR VC6 COMPATIBILITY, BUT MAY NOT BE WORTH IT.
-                __asm {
-                    mov eax, fid
-                    cpuid
-                    mov info[0], eax
-                    mov info[1], ebx
-                    mov info[2], ecx
-                    mov info[3], edx
-                }
-            }
+        #define DRFLAC_NO_CPUID
         #endif
     #else
-        static void drflac__cpuid(int info[4], int fid)
-        {
-            asm (
-                "movl %[fid], %%eax\n\t"
-                "cpuid\n\t"
-                "movl %%eax, %[info0]\n\t"
-                "movl %%ebx, %[info1]\n\t"
-                "movl %%ecx, %[info2]\n\t"
-                "movl %%edx, %[info3]\n\t"
-                : [info0] "=rm"(info[0]),
-                  [info1] "=rm"(info[1]),
-                  [info2] "=rm"(info[2]),
-                  [info3] "=rm"(info[3])
-                : [fid] "rm"(fid)
-                : "eax", "ebx", "ecx", "edx"
-            );
-        }
+        #if defined(__GNUC__) || defined(__clang__)
+            static void drflac__cpuid(int info[4], int fid)
+            {
+                asm (
+                    "movl %[fid], %%eax\n\t"
+                    "cpuid\n\t"
+                    "movl %%eax, %[info0]\n\t"
+                    "movl %%ebx, %[info1]\n\t"
+                    "movl %%ecx, %[info2]\n\t"
+                    "movl %%edx, %[info3]\n\t"
+                    : [info0] "=rm"(info[0]),
+                      [info1] "=rm"(info[1]),
+                      [info2] "=rm"(info[2]),
+                      [info3] "=rm"(info[3])
+                    : [fid] "rm"(fid)
+                    : "eax", "ebx", "ecx", "edx"
+                );
+            }
+        #else
+        #define DRFLAC_NO_CPUID
+        #endif
     #endif
 #endif
 
@@ -879,18 +869,20 @@ typedef dr_int32 drflac_result;
 
 // CPU caps.
 static dr_bool32 drflac__gIsLZCNTSupported = DR_FALSE;
-static dr_bool32 drflac__gIsSSE2Supported  = DR_FALSE;
+static dr_bool32 drflac__gIsSSE42Supported = DR_FALSE;
 static void drflac__init_cpu_caps()
 {
+#ifndef DRFLAC_NO_CPUID
     int info[4] = {0};
 
     // LZCNT
     drflac__cpuid(info, 0x80000001);
-    drflac__gIsLZCNTSupported = (info[2] & (1 << 5)) != 0;
+    drflac__gIsLZCNTSupported = (info[2] & (1 <<  5)) != 0;
 
-    // SSE2
+    // SSE4.2
     drflac__cpuid(info, 1);
-    drflac__gIsSSE2Supported = (info[3] & (1 << 26)) != 0;
+    drflac__gIsSSE42Supported = (info[2] & (1 << 19)) != 0;
+#endif
 }
 
 
@@ -1367,48 +1359,6 @@ static DRFLAC_INLINE dr_bool32 drflac__read_uint32(drflac_bs* bs, unsigned int b
 
     bs->crc16 = drflac_crc16(bs->crc16, *pResultOut, bitCount);
     return DR_TRUE;
-
-#if 0
-    assert(bs != NULL);
-    assert(pResultOut != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 32);
-
-    if (bs->consumedBits == DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
-        if (!drflac__reload_cache(bs)) {
-            return DR_FALSE;
-        }
-    }
-
-    if (bitCount <= DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
-        if (bitCount < DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
-            *pResultOut = DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCount);
-            bs->consumedBits += bitCount;
-            bs->cache <<= bitCount;
-        } else {
-            *pResultOut = (dr_uint32)bs->cache;
-            bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);
-            bs->cache = 0;
-        }
-        bs->crc16 = drflac_crc16(bs->crc16, *pResultOut, bitCount);
-        return DR_TRUE;
-    } else {
-        // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
-        size_t bitCountHi = DRFLAC_CACHE_L1_BITS_REMAINING(bs);
-        size_t bitCountLo = bitCount - bitCountHi;
-        dr_uint32 resultHi = DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountHi);
-
-        if (!drflac__reload_cache(bs)) {
-            return DR_FALSE;
-        }
-
-        *pResultOut = (resultHi << bitCountLo) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountLo);
-        bs->consumedBits += bitCountLo;
-        bs->cache <<= bitCountLo;
-        bs->crc16 = drflac_crc16(bs->crc16, *pResultOut, bitCount);
-        return DR_TRUE;
-    }
-#endif
 }
 
 static dr_bool32 drflac__read_int32(drflac_bs* bs, unsigned int bitCount, dr_int32* pResult)
@@ -1841,210 +1791,6 @@ static DRFLAC_INLINE dr_int32 drflac__calculate_prediction_32(dr_uint32 order, d
     case  2: prediction += coefficients[ 1] * pDecodedSamples[- 2];
     case  1: prediction += coefficients[ 0] * pDecodedSamples[- 1];
     }
-
-    return (dr_int32)(prediction >> shift);
-}
-
-static DRFLAC_INLINE dr_int32 drflac__calculate_prediction_32__sse2(dr_uint32 order, dr_int32 shift, const __m128i* coefficients128, const dr_uint32 riceParamParts[4], dr_int32* pDecodedSamples)
-{
-    assert(order <= 32);
-    assert((order & 0x03) == 0);    // For SSE, the order should always be a multiple of 4.
-
-    dr_int32 prediction = 0;
-
-#if 1
-#if 0
-    switch (order >> 2)
-    {
-    case 8: // order = 32
-        prediction += coefficients[31] * pDecodedSamples[-31];
-        prediction += coefficients[30] * pDecodedSamples[-30];
-        prediction += coefficients[29] * pDecodedSamples[-29];
-        prediction += coefficients[28] * pDecodedSamples[-28];
-    case 7: // order = 28
-        prediction += coefficients[27] * pDecodedSamples[-27];
-        prediction += coefficients[26] * pDecodedSamples[-26];
-        prediction += coefficients[25] * pDecodedSamples[-25];
-        prediction += coefficients[24] * pDecodedSamples[-24];
-    case 6: // order = 24
-        prediction += coefficients[23] * pDecodedSamples[-23];
-        prediction += coefficients[22] * pDecodedSamples[-22];
-        prediction += coefficients[21] * pDecodedSamples[-21];
-        prediction += coefficients[20] * pDecodedSamples[-20];
-    case 5: // order = 20
-        prediction += coefficients[19] * pDecodedSamples[-19];
-        prediction += coefficients[18] * pDecodedSamples[-18];
-        prediction += coefficients[17] * pDecodedSamples[-17];
-        prediction += coefficients[16] * pDecodedSamples[-16];
-    case 4: // order = 16
-        prediction += coefficients[15] * pDecodedSamples[-15];
-        prediction += coefficients[14] * pDecodedSamples[-14];
-        prediction += coefficients[13] * pDecodedSamples[-13];
-        prediction += coefficients[12] * pDecodedSamples[-12];
-    case 3: // order = 12
-        prediction += coefficients[11] * pDecodedSamples[-11];
-        prediction += coefficients[10] * pDecodedSamples[-10];
-        prediction += coefficients[ 9] * pDecodedSamples[- 9];
-        prediction += coefficients[ 8] * pDecodedSamples[- 8];
-    case 2: // order = 8
-        prediction += coefficients[ 7] * pDecodedSamples[- 7];
-        prediction += coefficients[ 6] * pDecodedSamples[- 6];
-        prediction += coefficients[ 5] * pDecodedSamples[- 5];
-        prediction += coefficients[ 4] * pDecodedSamples[- 4];
-    case 1: // order = 4
-        prediction += coefficients[ 3] * pDecodedSamples[- 3];
-        prediction += coefficients[ 2] * pDecodedSamples[- 2];
-        prediction += coefficients[ 1] * pDecodedSamples[- 1];
-        prediction += coefficients[ 0] * pDecodedSamples[- 0];
-    }
-#else
-    const __m128i zero128 = {0};
-
-    __m128i predictions128[4];
-    predictions128[0] = zero128;
-    predictions128[1] = zero128;
-    predictions128[2] = zero128;
-    predictions128[3] = zero128;
-
-    __m128i samples128;
-
-#if 0
-    switch (order >> 2)
-    {
-    case 8: // order = 32
-        samples128 = _mm_set_epi32(
-            pDecodedSamples[-35],
-            pDecodedSamples[-34],
-            pDecodedSamples[-33],
-            pDecodedSamples[-32]);
-        predictions128[0] = _mm_add_epi32(predictions128[0], _mm_mullo_epi32(coefficients128[0][7], samples128));
-        predictions128[1] = _mm_add_epi32(predictions128[1], _mm_mullo_epi32(coefficients128[1][7], samples128));
-        predictions128[2] = _mm_add_epi32(predictions128[2], _mm_mullo_epi32(coefficients128[2][7], samples128));
-        predictions128[3] = _mm_add_epi32(predictions128[3], _mm_mullo_epi32(coefficients128[3][7], samples128));
-
-    case 1: // order = 4
-        samples128 = _mm_set_epi32(
-            pDecodedSamples[- 7],
-            pDecodedSamples[- 6],
-            pDecodedSamples[- 5],
-            pDecodedSamples[- 4]);
-        predictions128[0] = _mm_add_epi32(predictions128[0], _mm_mullo_epi32(coefficients128[0][0], samples128));
-        predictions128[1] = _mm_add_epi32(predictions128[1], _mm_mullo_epi32(coefficients128[1][0], samples128));
-        predictions128[2] = _mm_add_epi32(predictions128[2], _mm_mullo_epi32(coefficients128[2][0], samples128));
-        predictions128[3] = _mm_add_epi32(predictions128[3], _mm_mullo_epi32(coefficients128[3][0], samples128));
-    }
-#endif
-
-    for (int i = 0; i < 4; ++i) {
-        switch (order >> 2)
-        {
-        case 8: // order = 32
-            samples128 = _mm_set_epi32(
-                pDecodedSamples[-32 + i],
-                pDecodedSamples[-31 + i],
-                pDecodedSamples[-30 + i],
-                pDecodedSamples[-29 + i]);
-            predictions128[i] = _mm_add_epi32(predictions128[i], _mm_mullo_epi32(coefficients128[7], samples128));
-        case 7: // order = 28
-            samples128 = _mm_set_epi32(
-                pDecodedSamples[-28 + i],
-                pDecodedSamples[-27 + i],
-                pDecodedSamples[-26 + i],
-                pDecodedSamples[-25 + i]);
-            predictions128[i] = _mm_add_epi32(predictions128[i], _mm_mullo_epi32(coefficients128[6], samples128));
-        case 6: // order = 24
-            samples128 = _mm_set_epi32(
-                pDecodedSamples[-24 + i],
-                pDecodedSamples[-23 + i],
-                pDecodedSamples[-22 + i],
-                pDecodedSamples[-21 + i]);
-            predictions128[i] = _mm_add_epi32(predictions128[i], _mm_mullo_epi32(coefficients128[5], samples128));
-        case 5: // order = 20
-            samples128 = _mm_set_epi32(
-                pDecodedSamples[-20 + i],
-                pDecodedSamples[-19 + i],
-                pDecodedSamples[-18 + i],
-                pDecodedSamples[-17 + i]);
-            predictions128[i] = _mm_add_epi32(predictions128[i], _mm_mullo_epi32(coefficients128[4], samples128));
-        case 4: // order = 16
-            samples128 = _mm_set_epi32(
-                pDecodedSamples[-16 + i],
-                pDecodedSamples[-15 + i],
-                pDecodedSamples[-14 + i],
-                pDecodedSamples[-13 + i]);
-            predictions128[i] = _mm_add_epi32(predictions128[i], _mm_mullo_epi32(coefficients128[3], samples128));
-        case 3: // order = 12
-            samples128 = _mm_set_epi32(
-                pDecodedSamples[-12 + i],
-                pDecodedSamples[-11 + i],
-                pDecodedSamples[-10 + i],
-                pDecodedSamples[- 9 + i]);
-            predictions128[i] = _mm_add_epi32(predictions128[i], _mm_mullo_epi32(coefficients128[2], samples128));
-        case 2: // order = 8
-            samples128 = _mm_set_epi32(
-                pDecodedSamples[- 8 + i],
-                pDecodedSamples[- 7 + i],
-                pDecodedSamples[- 6 + i],
-                pDecodedSamples[- 5 + i]);
-            predictions128[i] = _mm_add_epi32(predictions128[i], _mm_mullo_epi32(coefficients128[1], samples128));
-        case 1: // order = 4
-            samples128 = _mm_set_epi32(
-                pDecodedSamples[- 4 + i],
-                pDecodedSamples[- 3 + i],
-                pDecodedSamples[- 2 + i],
-                pDecodedSamples[- 1 + i]);
-            predictions128[i] = _mm_add_epi32(predictions128[i], _mm_mullo_epi32(coefficients128[0], samples128));
-        }
-
-        dr_int32 predictions4[4];
-        predictions4[0] = _mm_extract_epi32(predictions128[i], 3);
-        predictions4[1] = _mm_extract_epi32(predictions128[i], 2);
-        predictions4[2] = _mm_extract_epi32(predictions128[i], 1);
-        predictions4[3] = _mm_extract_epi32(predictions128[i], 0);
-
-        prediction = predictions4[0] + predictions4[1] + predictions4[2] + predictions4[3];
-        prediction >>= shift;
-
-        pDecodedSamples[i] = (dr_int32)riceParamParts[i] + prediction;
-    }
-#endif
-#else
-    switch (order)
-    {
-    case 32: prediction += coefficients[31] * pDecodedSamples[-31];
-    case 31: prediction += coefficients[30] * pDecodedSamples[-30];
-    case 30: prediction += coefficients[29] * pDecodedSamples[-29];
-    case 29: prediction += coefficients[28] * pDecodedSamples[-28];
-    case 28: prediction += coefficients[27] * pDecodedSamples[-27];
-    case 27: prediction += coefficients[26] * pDecodedSamples[-26];
-    case 26: prediction += coefficients[25] * pDecodedSamples[-25];
-    case 25: prediction += coefficients[24] * pDecodedSamples[-24];
-    case 24: prediction += coefficients[23] * pDecodedSamples[-23];
-    case 23: prediction += coefficients[22] * pDecodedSamples[-22];
-    case 22: prediction += coefficients[21] * pDecodedSamples[-21];
-    case 21: prediction += coefficients[20] * pDecodedSamples[-20];
-    case 20: prediction += coefficients[19] * pDecodedSamples[-19];
-    case 19: prediction += coefficients[18] * pDecodedSamples[-18];
-    case 18: prediction += coefficients[17] * pDecodedSamples[-17];
-    case 17: prediction += coefficients[16] * pDecodedSamples[-16];
-    case 16: prediction += coefficients[15] * pDecodedSamples[-15];
-    case 15: prediction += coefficients[14] * pDecodedSamples[-14];
-    case 14: prediction += coefficients[13] * pDecodedSamples[-13];
-    case 13: prediction += coefficients[12] * pDecodedSamples[-12];
-    case 12: prediction += coefficients[11] * pDecodedSamples[-11];
-    case 11: prediction += coefficients[10] * pDecodedSamples[-10];
-    case 10: prediction += coefficients[ 9] * pDecodedSamples[- 9];
-    case  9: prediction += coefficients[ 8] * pDecodedSamples[- 8];
-    case  8: prediction += coefficients[ 7] * pDecodedSamples[- 7];
-    case  7: prediction += coefficients[ 6] * pDecodedSamples[- 6];
-    case  6: prediction += coefficients[ 5] * pDecodedSamples[- 5];
-    case  5: prediction += coefficients[ 4] * pDecodedSamples[- 4];
-    case  4: prediction += coefficients[ 3] * pDecodedSamples[- 3];
-    case  3: prediction += coefficients[ 2] * pDecodedSamples[- 2];
-    case  2: prediction += coefficients[ 1] * pDecodedSamples[- 1];
-    case  1: prediction += coefficients[ 0] * pDecodedSamples[- 0];
-    }
-#endif
 
     return (dr_int32)(prediction >> shift);
 }
@@ -2507,8 +2253,6 @@ static DRFLAC_INLINE void drflac__crc16_stream_write(drflac__crc16_stream* pStre
             pStream->bitsRemainingInCache = sizeof(drflac_cache_t)*8 - bitCount;
         }
     }
-    
-    //pStream->crc = drflac_crc16(pStream->crc, data, bitCount);
 }
 
 static DRFLAC_INLINE void drflac__crc16_stream_write_rice(drflac__crc16_stream* pStream, dr_uint32 zeroCountPart, dr_uint32 riceParamPart, dr_uint32 riceParam)
@@ -2563,120 +2307,12 @@ static dr_bool32 drflac__decode_samples_with_residual__rice__simple(drflac_bs* b
     return DR_TRUE;
 }
 
-#ifdef DRFLAC_SSE2
-static DRFLAC_INLINE void drflac__load_coefficients_sse(dr_uint32 order, const dr_int32* pIn, __m128i* pOut)
-{
-    drflac_zero_memory(pOut, sizeof(__m128i)*8);
-    while (order > 0) {
-        dr_uint32 x[4] = {0};
-        for (dr_uint32 i = 0; i < 4 && i < order; ++i) {
-            x[i] = pIn[i];
-        }
-
-        pOut[0] = _mm_set_epi32(x[3], x[2], x[1], x[0]);
-
-        if (order > 4) {
-            order -= 4;
-        } else {
-            order = 0;
-        }
-        
-        pIn += 4;
-        pOut += 1;
-    }
-}
-
-static dr_bool32 drflac__decode_samples_with_residual__rice__sse2(drflac_bs* bs, dr_uint32 bitsPerSample, dr_uint32 count, dr_uint8 riceParam, dr_uint32 order, dr_int32 shift, const dr_int32* coefficients, dr_int32* pSamplesOut)
-{
-    assert(bs != NULL);
-    assert(count > 0);
-    assert(pSamplesOut != NULL);
-
-    // This is work-in-progress and is not yet optimal.
-
-    // With SSE2 we do 4 samples at a time. To support this, we need to make some slight modificiations to the order and coefficients. The order needs to
-    // be rounded to a multiple of 4 and any excess coefficients need to be filled with zero.
-    dr_int32 coefficientsSSE[32] = {0};
-    drflac_copy_memory(coefficientsSSE, coefficients, order * sizeof(dr_int32));
-
-    __m128i coefficients128[8];
-    drflac__load_coefficients_sse(order, coefficients, coefficients128);
-
-    dr_int32 orderSSE = drflac_align(order, 4);
-
-    dr_uint32 zeroCountPart[4];
-    dr_uint32 riceParamPart[4];
-    drflac__crc16_stream crcStream = drflac__crc16_stream_init(bs->crc16);
-
-    dr_uint32 i = 0;
-    while (i < (count >> 2)) {
-        // Rice extraction.
-        if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCountPart[0], &riceParamPart[0])) { return DR_FALSE; }
-        if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCountPart[1], &riceParamPart[1])) { return DR_FALSE; }
-        if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCountPart[2], &riceParamPart[2])) { return DR_FALSE; }
-        if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCountPart[3], &riceParamPart[3])) { return DR_FALSE; }
-
-#ifndef DR_FLAC_NO_CRC
-        // CRC.
-        drflac__crc16_stream_write_rice(&crcStream, zeroCountPart[0], riceParamPart[0], riceParam);
-        drflac__crc16_stream_write_rice(&crcStream, zeroCountPart[1], riceParamPart[1], riceParam);
-        drflac__crc16_stream_write_rice(&crcStream, zeroCountPart[2], riceParamPart[2], riceParam);
-        drflac__crc16_stream_write_rice(&crcStream, zeroCountPart[3], riceParamPart[3], riceParam);
-#endif
-
-        // Rice reconstruction.
-        riceParamPart[0] |= (zeroCountPart[0] << riceParam); riceParamPart[0] = (riceParamPart[0] >> 1) ^ (~(riceParamPart[0] & 0x01) + 1);
-        riceParamPart[1] |= (zeroCountPart[1] << riceParam); riceParamPart[1] = (riceParamPart[1] >> 1) ^ (~(riceParamPart[1] & 0x01) + 1);
-        riceParamPart[2] |= (zeroCountPart[2] << riceParam); riceParamPart[2] = (riceParamPart[2] >> 1) ^ (~(riceParamPart[2] & 0x01) + 1);
-        riceParamPart[3] |= (zeroCountPart[3] << riceParam); riceParamPart[3] = (riceParamPart[3] >> 1) ^ (~(riceParamPart[3] & 0x01) + 1);
-
-        // Sample reconstruction.
-        if (bitsPerSample > 16) {
-            pSamplesOut[i*4+0] = riceParamPart[0] + drflac__calculate_prediction_64(orderSSE, shift, coefficientsSSE, pSamplesOut + i*4+0);
-            pSamplesOut[i*4+1] = riceParamPart[1] + drflac__calculate_prediction_64(orderSSE, shift, coefficientsSSE, pSamplesOut + i*4+1);
-            pSamplesOut[i*4+2] = riceParamPart[2] + drflac__calculate_prediction_64(orderSSE, shift, coefficientsSSE, pSamplesOut + i*4+2);
-            pSamplesOut[i*4+3] = riceParamPart[3] + drflac__calculate_prediction_64(orderSSE, shift, coefficientsSSE, pSamplesOut + i*4+3);
-        } else {
-#if 0
-            pSamplesOut[i*4+0] = riceParamPart[0] + drflac__calculate_prediction_32(orderSSE, shift, coefficientsSSE, pSamplesOut + i*4+0);
-            pSamplesOut[i*4+1] = riceParamPart[1] + drflac__calculate_prediction_32(orderSSE, shift, coefficientsSSE, pSamplesOut + i*4+1);
-            pSamplesOut[i*4+2] = riceParamPart[2] + drflac__calculate_prediction_32(orderSSE, shift, coefficientsSSE, pSamplesOut + i*4+2);
-            pSamplesOut[i*4+3] = riceParamPart[3] + drflac__calculate_prediction_32(orderSSE, shift, coefficientsSSE, pSamplesOut + i*4+3);
-#else
-#if 0
-            pSamplesOut[i*4+0] = riceParamPart[0] + drflac__calculate_prediction_32__sse2(orderSSE, shift, coefficientsSSE, riceParamPart, pSamplesOut + i*4+0 - 1);
-            pSamplesOut[i*4+1] = riceParamPart[1] + drflac__calculate_prediction_32__sse2(orderSSE, shift, coefficientsSSE, riceParamPart, pSamplesOut + i*4+1 - 1);
-            pSamplesOut[i*4+2] = riceParamPart[2] + drflac__calculate_prediction_32__sse2(orderSSE, shift, coefficientsSSE, riceParamPart, pSamplesOut + i*4+2 - 1);
-            pSamplesOut[i*4+3] = riceParamPart[3] + drflac__calculate_prediction_32__sse2(orderSSE, shift, coefficientsSSE, riceParamPart, pSamplesOut + i*4+3 - 1);
-#endif
-            drflac__calculate_prediction_32__sse2(orderSSE, shift, coefficients128, riceParamPart, pSamplesOut + i*4);
-#endif
-        }
-
-        i += 1;
-    }
-    bs->crc16 = drflac__crc16_stream_flush(&crcStream);
-
-    // Leftover.
-    dr_uint32 leftoverSamplesCount = count - i*4;
-    if (leftoverSamplesCount > 0) {
-        return drflac__decode_samples_with_residual__rice__simple(bs, bitsPerSample, leftoverSamplesCount, riceParam, order, shift, coefficients, pSamplesOut + i*4);
-    }
-
-    return DR_TRUE;
-}
-#endif
-
 static dr_bool32 drflac__decode_samples_with_residual__rice(drflac_bs* bs, dr_uint32 bitsPerSample, dr_uint32 count, dr_uint8 riceParam, dr_uint32 order, dr_int32 shift, const dr_int32* coefficients, dr_int32* pSamplesOut)
 {
 #if 0
     return drflac__decode_samples_with_residual__rice__reference(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
 #else
-#if 0
     return drflac__decode_samples_with_residual__rice__simple(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
-#else
-    return drflac__decode_samples_with_residual__rice__sse2(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
-#endif
 #endif
 }
 
