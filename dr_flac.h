@@ -1138,6 +1138,7 @@ static DRFLAC_INLINE dr_uint16 drflac_crc16__32bit(dr_uint16 crc, dr_uint32 data
     dr_uint64 leftoverDataMask = leftoverDataMaskTable[leftoverBits];
 
     switch (wholeBytes) {
+        default:
         case 4: crc = drflac_crc16_byte(crc, (dr_uint8)((data & (0xFF000000UL << leftoverBits)) >> (24 + leftoverBits)));
         case 3: crc = drflac_crc16_byte(crc, (dr_uint8)((data & (0x00FF0000UL << leftoverBits)) >> (16 + leftoverBits)));
         case 2: crc = drflac_crc16_byte(crc, (dr_uint8)((data & (0x0000FF00UL << leftoverBits)) >> ( 8 + leftoverBits)));
@@ -1168,6 +1169,7 @@ static DRFLAC_INLINE dr_uint16 drflac_crc16__64bit(dr_uint16 crc, dr_uint64 data
     dr_uint64 leftoverDataMask = leftoverDataMaskTable[leftoverBits];
 
     switch (wholeBytes) {
+        default:
         case 8: crc = drflac_crc16_byte(crc, (dr_uint8)((data & (0xFF00000000000000ULL << leftoverBits)) >> (56 + leftoverBits)));
         case 7: crc = drflac_crc16_byte(crc, (dr_uint8)((data & (0x00FF000000000000ULL << leftoverBits)) >> (48 + leftoverBits)));
         case 6: crc = drflac_crc16_byte(crc, (dr_uint8)((data & (0x0000FF0000000000ULL << leftoverBits)) >> (40 + leftoverBits)));
@@ -2219,13 +2221,23 @@ static DRFLAC_INLINE void drflac__crc16_stream_write(drflac__crc16_stream* pStre
 
 static DRFLAC_INLINE void drflac__crc16_stream_write_rice(drflac__crc16_stream* pStream, dr_uint32 zeroCountPart, dr_uint32 riceParamPart, dr_uint32 riceParam)
 {
-    zeroCountPart += 1;
-    while (zeroCountPart > sizeof(drflac_cache_t)*8) {
+#ifdef DRFLAC_64BIT
+    dr_uint32 wholeCount = zeroCountPart >> 6;
+#else
+    dr_uint32 wholeCount = zeroCountPart >> 5;
+#endif
+    while (wholeCount > 0) {
         drflac__crc16_stream_write(pStream, 0, sizeof(drflac_cache_t)*8);
         zeroCountPart -= sizeof(drflac_cache_t)*8;
+        wholeCount -= 1;
     }
-    drflac__crc16_stream_write(pStream, 1, zeroCountPart);
-    drflac__crc16_stream_write(pStream, riceParamPart, riceParam);
+    
+    if (zeroCountPart + riceParam < sizeof(drflac_cache_t)*8) {
+        drflac__crc16_stream_write(pStream, (1 << riceParam) | riceParamPart, 1 + zeroCountPart + riceParam);
+    } else {
+        drflac__crc16_stream_write(pStream, 1, zeroCountPart + 1);
+        drflac__crc16_stream_write(pStream, riceParamPart, riceParam);
+    }
 }
 
 
