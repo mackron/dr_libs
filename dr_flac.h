@@ -1182,6 +1182,7 @@ static DRFLAC_INLINE dr_uint16 drflac_crc16__64bit(dr_uint16 crc, dr_uint64 data
 #endif
 }
 
+
 static DRFLAC_INLINE dr_uint16 drflac_crc16(dr_uint16 crc, drflac_cache_t data, dr_uint32 count)
 {
 #ifdef DRFLAC_64BIT
@@ -1580,22 +1581,16 @@ static dr_bool32 drflac__find_and_seek_to_next_sync_code(drflac_bs* bs)
 }
 
 
-static inline dr_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned int* pOffsetOut)
+#if !defined(DR_FLAC_NO_SIMD) && defined(DRFLAC_HAS_LZCNT_INTRINSIC)
+#define DRFLAC_IMPLEMENT_CLZ_LZCNT
+#endif
+#if  defined(_MSC_VER) && _MSC_VER >= 1400
+#define DRFLAC_IMPLEMENT_CLZ_MSVC
+#endif
+
+static DRFLAC_INLINE dr_uint32 drflac__clz_software(drflac_cache_t x)
 {
-    unsigned int zeroCounter = 0;
-    while (bs->cache == 0) {
-        zeroCounter += (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
-        bs->crc16 = drflac_crc16(bs->crc16, 0, (unsigned int)DRFLAC_CACHE_L1_BITS_REMAINING(bs));
-        if (!drflac__reload_cache(bs)) {
-            return DR_FALSE;
-        }
-    }
-
-    // At this point the cache should not be zero, in which case we know the first set bit should be somewhere in here. There is
-    // no need for us to perform any cache reloading logic here which should make things much faster.
-    assert(bs->cache != 0);
-
-    unsigned int bitOffsetTable[] = {
+    static dr_uint32 clz_table_4[] = {
         0,
         4,
         3, 3,
@@ -1603,20 +1598,102 @@ static inline dr_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned i
         1, 1, 1, 1, 1, 1, 1, 1
     };
 
-    unsigned int setBitOffsetPlus1 = bitOffsetTable[DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, 4)];
-    if (setBitOffsetPlus1 == 0) {
-        if (bs->cache == 1) {
-            setBitOffsetPlus1 = DRFLAC_CACHE_L1_SIZE_BITS(bs);
-        } else {
-            setBitOffsetPlus1 = 5;
-            for (;;) {
-                if ((bs->cache & DRFLAC_CACHE_L1_SELECT(bs, setBitOffsetPlus1))) {
-                    break;
-                }
-                setBitOffsetPlus1 += 1;
-            }
+    dr_uint32 n = clz_table_4[x >> (sizeof(x)*8 - 4)];
+    if (n == 0) {
+#ifdef DRFLAC_64BIT
+        if ((x & 0xFFFFFFFF00000000ULL) == 0) { n  = 32; x <<= 32; }
+        if ((x & 0xFFFF000000000000ULL) == 0) { n += 16; x <<= 16; }
+        if ((x & 0xFF00000000000000ULL) == 0) { n += 8;  x <<= 8;  }
+        if ((x & 0xF000000000000000ULL) == 0) { n += 4;  x <<= 4;  }
+#else
+        if ((x & 0xFFFF0000) == 0) { n  = 16; x <<= 16; }
+        if ((x & 0xFF000000) == 0) { n += 8;  x <<= 8;  }
+        if ((x & 0xF0000000) == 0) { n += 4;  x <<= 4;  }
+#endif
+        n += clz_table_4[x >> (sizeof(x)*8 - 4)];
+    }
+
+    return n - 1;
+}
+
+#ifdef DRFLAC_IMPLEMENT_CLZ_LZCNT
+static DRFLAC_INLINE dr_bool32 drflac__is_lzcnt_supported()
+{
+    // If the compiler itself does not support the intrinsic then we'll need to return false.
+#ifdef DRFLAC_HAS_LZCNT_INTRINSIC
+    return drflac__gIsLZCNTSupported;
+#else
+    return DR_FALSE;
+#endif
+}
+
+static DRFLAC_INLINE dr_uint32 drflac__clz_lzcnt(drflac_cache_t x)
+{
+#ifdef _MSC_VER
+    #ifdef DRFLAC_64BIT
+        return (dr_uint32)__lzcnt64(x);
+    #else
+        return (dr_uint32)__lzcnt(x);
+    #endif
+#else
+    #if defined(__GNUC__) || defined(__clang__)
+        #ifdef DRFLAC_64BIT
+            return (dr_uint32)__builtin_clzll((unsigned long long)x);
+        #else
+            return (dr_uint32)__builtin_clzl((unsigned long)x);
+        #endif
+    #else
+        // Unsupported compiler.
+        #error "This compiler does not support the lzcnt intrinsic."
+    #endif
+#endif
+}
+#endif
+
+#ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
+static DRFLAC_INLINE dr_uint32 drflac__clz_msvc(drflac_cache_t x)
+{
+    dr_uint32 n;
+#ifdef DRFLAC_64BIT
+    _BitScanReverse64((unsigned long*)&n, x);
+#else
+    _BitScanReverse((unsigned long*)&n, x);
+#endif
+    return sizeof(x)*8 - n - 1;
+}
+#endif
+
+static DRFLAC_INLINE dr_uint32 drflac__clz(drflac_cache_t x)
+{
+    // This function assumes at least one bit is set. Checking for 0 needs to be done at a higher level, outside this function.
+#ifdef DRFLAC_IMPLEMENT_CLZ_LZCNT
+    if (drflac__is_lzcnt_supported()) {
+        return drflac__clz_lzcnt(x);
+    } else
+#endif
+    {
+    #ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
+        return drflac__clz_msvc(x);
+    #else
+        return drflac__clz_software(x);
+    #endif
+    }
+}
+
+
+static inline dr_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned int* pOffsetOut)
+{
+    dr_uint32 zeroCounter = 0;
+    while (bs->cache == 0) {
+        zeroCounter += (dr_uint32)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
+        if (!drflac__reload_cache(bs)) {
+            return DR_FALSE;
         }
     }
+
+    dr_uint32 setBitOffsetPlus1 = drflac__clz(bs->cache);
+    zeroCounter += setBitOffsetPlus1;
+    setBitOffsetPlus1 += 1;
 
     bs->crc16 = drflac_crc16(bs->crc16, DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, setBitOffsetPlus1), setBitOffsetPlus1);
     bs->consumedBits += setBitOffsetPlus1;
@@ -1725,22 +1802,6 @@ static dr_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, dr_uint64* pNumbe
 }
 
 
-
-static DRFLAC_INLINE dr_bool32 drflac__read_and_seek_rice(drflac_bs* bs, dr_uint8 m)
-{
-    unsigned int unused;
-    if (!drflac__seek_past_next_set_bit(bs, &unused)) {
-        return DR_FALSE;
-    }
-
-    if (m > 0) {
-        if (!drflac__seek_bits(bs, m)) {
-            return DR_FALSE;
-        }
-    }
-
-    return DR_TRUE;
-}
 
 
 // The next two functions are responsible for calculating the prediction.
@@ -2054,105 +2115,6 @@ static dr_bool32 drflac__read_rice_parts__reference(drflac_bs* bs, dr_uint8 rice
 }
 #endif
 
-#if !defined(DR_FLAC_NO_SIMD) && defined(DRFLAC_HAS_LZCNT_INTRINSIC)
-#define DRFLAC_IMPLEMENT_CLZ_LZCNT
-#endif
-#if  defined(_MSC_VER) && _MSC_VER >= 1400
-#define DRFLAC_IMPLEMENT_CLZ_MSVC
-#endif
-
-static DRFLAC_INLINE dr_uint32 drflac__clz_software(drflac_cache_t x)
-{
-    static dr_uint32 clz_table_4[] = {
-        0,
-        4,
-        3, 3,
-        2, 2, 2, 2,
-        1, 1, 1, 1, 1, 1, 1, 1
-    };
-
-    dr_uint32 n = clz_table_4[x >> (sizeof(x)*8 - 4)];
-    if (n == 0) {
-#ifdef DRFLAC_64BIT
-        if ((x & 0xFFFFFFFF00000000ULL) == 0) { n  = 32; x <<= 32; }
-        if ((x & 0xFFFF000000000000ULL) == 0) { n += 16; x <<= 16; }
-        if ((x & 0xFF00000000000000ULL) == 0) { n += 8;  x <<= 8;  }
-        if ((x & 0xF000000000000000ULL) == 0) { n += 4;  x <<= 4;  }
-#else
-        if ((x & 0xFFFF0000) == 0) { n  = 16; x <<= 16; }
-        if ((x & 0xFF000000) == 0) { n += 8;  x <<= 8;  }
-        if ((x & 0xF0000000) == 0) { n += 4;  x <<= 4;  }
-#endif
-        n += clz_table_4[x >> (sizeof(x)*8 - 4)];
-    }
-
-    return n - 1;
-}
-
-#ifdef DRFLAC_IMPLEMENT_CLZ_LZCNT
-static DRFLAC_INLINE dr_bool32 drflac__is_lzcnt_supported()
-{
-    // If the compiler itself does not support the intrinsic then we'll need to return false.
-#ifdef DRFLAC_HAS_LZCNT_INTRINSIC
-    return drflac__gIsLZCNTSupported;
-#else
-    return DR_FALSE;
-#endif
-}
-
-static DRFLAC_INLINE dr_uint32 drflac__clz_lzcnt(drflac_cache_t x)
-{
-#ifdef _MSC_VER
-    #ifdef DRFLAC_64BIT
-        return (dr_uint32)__lzcnt64(x);
-    #else
-        return (dr_uint32)__lzcnt(x);
-    #endif
-#else
-    #if defined(__GNUC__) || defined(__clang__)
-        #ifdef DRFLAC_64BIT
-            return (dr_uint32)__builtin_clzll((unsigned long long)x);
-        #else
-            return (dr_uint32)__builtin_clzl((unsigned long)x);
-        #endif
-    #else
-        // Unsupported compiler.
-        #error "This compiler does not support the lzcnt intrinsic."
-    #endif
-#endif
-}
-#endif
-
-#ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
-static DRFLAC_INLINE dr_uint32 drflac__clz_msvc(drflac_cache_t x)
-{
-    dr_uint32 n;
-#ifdef DRFLAC_64BIT
-    _BitScanReverse64((unsigned long*)&n, x);
-#else
-    _BitScanReverse((unsigned long*)&n, x);
-#endif
-    return sizeof(x)*8 - n - 1;
-}
-#endif
-
-static DRFLAC_INLINE dr_uint32 drflac__clz(drflac_cache_t x)
-{
-    // This function assumes at least one bit is set. Checking for 0 needs to be done at a higher level, outside this function.
-#ifdef DRFLAC_IMPLEMENT_CLZ_LZCNT
-    if (drflac__is_lzcnt_supported()) {
-        return drflac__clz_lzcnt(x);
-    } else
-#endif
-    {
-    #ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
-        return drflac__clz_msvc(x);
-    #else
-        return drflac__clz_software(x);
-    #endif
-    }
-}
-
 static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr_uint8 riceParam, dr_uint32* pZeroCounterOut, dr_uint32* pRiceParamPartOut)
 {
     drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
@@ -2322,12 +2284,19 @@ static dr_bool32 drflac__read_and_seek_residual__rice(drflac_bs* bs, dr_uint32 c
     assert(bs != NULL);
     assert(count > 0);
 
+    drflac__crc16_stream crc = drflac__crc16_stream_init(bs->crc16);
+
     for (dr_uint32 i = 0; i < count; ++i) {
-        if (!drflac__read_and_seek_rice(bs, riceParam)) {
+        dr_uint32 zeroCountPart;
+        dr_uint32 riceParamPart;
+        if (!drflac__read_rice_parts__no_crc(bs, riceParam, &zeroCountPart, &riceParamPart)) {
             return DR_FALSE;
         }
+
+        drflac__crc16_stream_write_rice(&crc, zeroCountPart, riceParamPart, riceParam);
     }
 
+    bs->crc16 = drflac__crc16_stream_flush(&crc);
     return DR_TRUE;
 }
 
