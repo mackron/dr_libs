@@ -812,7 +812,11 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #ifdef _MSC_VER
 #define DRFLAC_INLINE __forceinline
 #else
+#ifdef __GNUC__
+#define DRFLAC_INLINE inline __attribute__((always_inline))
+#else
 #define DRFLAC_INLINE inline
+#endif
 #endif
 
 typedef dr_int32 drflac_result;
