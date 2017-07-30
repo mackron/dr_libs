@@ -2206,15 +2206,16 @@ static DRFLAC_INLINE void drflac__crc16_stream_write(drflac__crc16_stream* pStre
         pStream->bitsRemainingInCache -= bitCount;
     } else {
         // Slow path. The data doesn't all fit in the cache. We need to write what we can, then flush.
+        assert(pStream->bitsRemainingInCache < sizeof(drflac_cache_t)*8);
+
         if (bitCount < sizeof(drflac_cache_t)*8) {
-            pStream->cache = (pStream->cache << pStream->bitsRemainingInCache) | (data >> (bitCount - pStream->bitsRemainingInCache));
-            pStream->crc = drflac_crc16(pStream->crc, pStream->cache, sizeof(drflac_cache_t)*8);
+            pStream->crc = drflac_crc16(pStream->crc, (pStream->cache << pStream->bitsRemainingInCache) | (data >> (bitCount - pStream->bitsRemainingInCache)), sizeof(drflac_cache_t)*8);
             pStream->cache = data;
             pStream->bitsRemainingInCache = sizeof(drflac_cache_t)*8 - (bitCount - pStream->bitsRemainingInCache);
         } else {
             pStream->crc = drflac_crc16(pStream->crc, pStream->cache, (sizeof(drflac_cache_t)*8) - pStream->bitsRemainingInCache);
             pStream->cache = data;
-            pStream->bitsRemainingInCache = sizeof(drflac_cache_t)*8 - bitCount;
+            pStream->bitsRemainingInCache = 0;
         }
     }
 }
@@ -2232,7 +2233,7 @@ static DRFLAC_INLINE void drflac__crc16_stream_write_rice(drflac__crc16_stream* 
         wholeCount -= 1;
     }
     
-    if (zeroCountPart + riceParam < sizeof(drflac_cache_t)*8) {
+    if (zeroCountPart < sizeof(drflac_cache_t)*8 - riceParam) {
         drflac__crc16_stream_write(pStream, (1 << riceParam) | riceParamPart, 1 + zeroCountPart + riceParam);
     } else {
         drflac__crc16_stream_write(pStream, 1, zeroCountPart + 1);
@@ -2264,8 +2265,11 @@ static dr_bool32 drflac__decode_samples_with_residual__rice__simple(drflac_bs* b
 #endif
 
         // Rice reconstruction.
+        static dr_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
+
         riceParamPart |= (zeroCountPart << riceParam);
-        riceParamPart  = (riceParamPart >> 1) ^ (~(riceParamPart & 0x01) + 1);
+        riceParamPart  = (riceParamPart >> 1) ^ t[riceParamPart & 0x01];
+        //riceParamPart  = (riceParamPart >> 1) ^ (~(riceParamPart & 0x01) + 1);
 
         // Sample reconstruction.
         if (bitsPerSample > 16) {
