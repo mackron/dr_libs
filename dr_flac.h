@@ -1105,6 +1105,21 @@ static DRFLAC_INLINE dr_uint16 drflac_crc16_byte(dr_uint16 crc, dr_uint8 data)
     return (crc << 8) ^ drflac__crc16_table[(dr_uint8)(crc >> 8) ^ data];
 }
 
+static DRFLAC_INLINE dr_uint16 drflac_crc16_cache_t(dr_uint16 crc, drflac_cache_t data)
+{
+#ifdef DRFLAC_64BIT
+    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 56));
+    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 48));
+    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 40));
+    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 32));
+#endif
+    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 24));
+    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 16));
+    crc = drflac_crc16_byte(crc, (dr_uint8)(data >>  8));
+    crc = drflac_crc16_byte(crc, (dr_uint8)(data >>  0));
+    return crc;
+}
+
 static DRFLAC_INLINE dr_uint16 drflac_crc16__32bit(dr_uint16 crc, dr_uint32 data, dr_uint32 count)
 {
     assert(count <= 64);
@@ -2209,11 +2224,11 @@ static DRFLAC_INLINE void drflac__crc16_stream_write(drflac__crc16_stream* pStre
         assert(pStream->bitsRemainingInCache < sizeof(drflac_cache_t)*8);
 
         if (bitCount < sizeof(drflac_cache_t)*8) {
-            pStream->crc = drflac_crc16(pStream->crc, (pStream->cache << pStream->bitsRemainingInCache) | (data >> (bitCount - pStream->bitsRemainingInCache)), sizeof(drflac_cache_t)*8);
+            pStream->crc = drflac_crc16_cache_t(pStream->crc, (pStream->cache << pStream->bitsRemainingInCache) | (data >> (bitCount - pStream->bitsRemainingInCache)));
             pStream->cache = data;
             pStream->bitsRemainingInCache = sizeof(drflac_cache_t)*8 - (bitCount - pStream->bitsRemainingInCache);
         } else {
-            pStream->crc = drflac_crc16(pStream->crc, pStream->cache, (sizeof(drflac_cache_t)*8) - pStream->bitsRemainingInCache);
+            pStream->crc = drflac_crc16(pStream->crc, pStream->cache, sizeof(drflac_cache_t)*8 - pStream->bitsRemainingInCache);
             pStream->cache = data;
             pStream->bitsRemainingInCache = 0;
         }
