@@ -375,10 +375,10 @@ typedef struct
     drflac_cache_t unalignedCache;
 
     // The index of the next valid cache line in the "L2" cache.
-    size_t nextL2Line;
+    dr_uint32 nextL2Line;
 
     // The number of bits that have been consumed by the cache. This is used to determine how many valid bits are remaining.
-    size_t consumedBits;
+    dr_uint32 consumedBits;
 
     // The cached data which was most recently read from the client. There are two levels of cache. Data flows as such:
     // Client -> L2 -> L1. The L2 -> L1 movement is aligned and runs on a fast path in just a few instructions.
@@ -388,6 +388,10 @@ typedef struct
     // CRC-16. This is updated whenever bits are read from the bit stream. Manually set this to 0 to reset the CRC. For FLAC, this
     // is reset to 0 at the beginning of each frame.
     dr_uint16 crc16;
+
+    dr_uint16 crc16_TEST;
+    drflac_cache_t crc16Cache;          // A cache for optimizing CRC calculations. This is filled when when the L1 cache is reloaded.
+    dr_uint32 crc16CacheIgnoredBytes;   // The number of bytes to ignore when updating the CRC-16 from the CRC-16 cache.
 } drflac_bs;
 
 typedef struct
@@ -1238,6 +1242,45 @@ static DRFLAC_INLINE dr_uint16 drflac_crc16(dr_uint16 crc, drflac_cache_t data, 
 #define DRFLAC_CACHE_L2_LINE_COUNT(bs)                  (DRFLAC_CACHE_L2_SIZE_BYTES(bs) / sizeof((bs)->cacheL2[0]))
 #define DRFLAC_CACHE_L2_LINES_REMAINING(bs)             (DRFLAC_CACHE_L2_LINE_COUNT(bs) - (bs)->nextL2Line)
 
+
+#ifndef DR_FLAC_NO_CRC
+static DRFLAC_INLINE void drflac__reset_crc16(drflac_bs* bs)
+{
+    bs->crc16_TEST = 0;
+    bs->crc16CacheIgnoredBytes = bs->consumedBits >> 3;
+}
+
+static DRFLAC_INLINE void drflac__update_crc16(drflac_bs* bs)
+{
+    // This should never be called in a situation where there are any bits remaining.
+    assert(DRFLAC_CACHE_L1_BITS_REMAINING(bs) == 0);
+
+    bs->crc16_TEST = drflac_crc16(bs->crc16_TEST, bs->crc16Cache, DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs->crc16CacheIgnoredBytes*8);   // <-- TODO: drflac_crc16_bytes().
+    bs->crc16CacheIgnoredBytes = 0;
+}
+
+static DRFLAC_INLINE dr_uint16 drflac__flush_crc16(drflac_bs* bs)
+{
+    // We should never be flushing in a situation where we are not aligned on a byte boundary.
+    assert((DRFLAC_CACHE_L1_BITS_REMAINING(bs) & 7) == 0);
+
+    // The bits that were read from the L1 cache need to be accumulated. The number of bytes needing to be accumulated is determined
+    // by the number of bits that have been consumed.
+    if (DRFLAC_CACHE_L1_BITS_REMAINING(bs) == 0) {
+        drflac__update_crc16(bs);
+    } else {
+        // We only accumulate the consumed bits.
+        bs->crc16_TEST = drflac_crc16(bs->crc16_TEST, bs->crc16Cache >> DRFLAC_CACHE_L1_BITS_REMAINING(bs), bs->consumedBits - bs->crc16CacheIgnoredBytes*8);  // TODO: drflac_crc16_bytes().
+
+        // The bits that we just accumulated should never be accumulated again. We need to keep track of how many bytes were accumulated
+        // so we can handle that later.
+        bs->crc16CacheIgnoredBytes = bs->consumedBits >> 3;
+    }
+    
+    return bs->crc16_TEST;
+}
+#endif
+
 static DRFLAC_INLINE dr_bool32 drflac__reload_l1_cache_from_l2(drflac_bs* bs)
 {
     // Fast path. Try loading straight from L2.
@@ -1279,7 +1322,7 @@ static DRFLAC_INLINE dr_bool32 drflac__reload_l1_cache_from_l2(drflac_bs* bs)
             bs->cacheL2[i-1 + offset] = bs->cacheL2[i-1];
         }
 
-        bs->nextL2Line = offset;
+        bs->nextL2Line = (dr_uint32)offset;
         bs->cache = bs->cacheL2[bs->nextL2Line++];
         return DR_TRUE;
     } else {
@@ -1291,10 +1334,17 @@ static DRFLAC_INLINE dr_bool32 drflac__reload_l1_cache_from_l2(drflac_bs* bs)
 
 static dr_bool32 drflac__reload_cache(drflac_bs* bs)
 {
+#ifndef DR_FLAC_NO_CRC
+    drflac__update_crc16(bs);
+#endif
+
     // Fast path. Try just moving the next value in the L2 cache to the L1 cache.
     if (drflac__reload_l1_cache_from_l2(bs)) {
         bs->cache = drflac__be2host__cache_line(bs->cache);
         bs->consumedBits = 0;
+#ifndef DR_FLAC_NO_CRC
+        bs->crc16Cache = bs->cache;
+#endif
         return DR_TRUE;
     }
 
@@ -1309,12 +1359,16 @@ static dr_bool32 drflac__reload_cache(drflac_bs* bs)
     }
 
     assert(bytesRead < DRFLAC_CACHE_L1_SIZE_BYTES(bs));
-    bs->consumedBits = (DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bytesRead) * 8;
+    bs->consumedBits = (dr_uint32)(DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bytesRead) * 8;
 
     bs->cache = drflac__be2host__cache_line(bs->unalignedCache);
     bs->cache &= DRFLAC_CACHE_L1_SELECTION_MASK(DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs->consumedBits);    // <-- Make sure the consumed bits are always set to zero. Other parts of the library depend on this property.
     bs->unalignedByteCount = 0;     // <-- At this point the unaligned bytes have been moved into the cache and we thus have no more unaligned bytes.
 
+#ifndef DR_FLAC_NO_CRC
+    bs->crc16Cache = bs->cache >> bs->consumedBits;
+    bs->crc16CacheIgnoredBytes = bs->consumedBits >> 3;
+#endif
     return DR_TRUE;
 }
 
@@ -1325,7 +1379,13 @@ static void drflac__reset_cache(drflac_bs* bs)
     bs->cache = 0;
     bs->unalignedByteCount = 0;                         // <-- This clears the trailing unaligned bytes.
     bs->unalignedCache = 0;
+
+#ifndef DR_FLAC_NO_CRC
+    bs->crc16Cache = 0;
+    bs->crc16CacheIgnoredBytes = 0;
+#endif
 }
+
 
 
 static dr_bool32 drflac__read_uint32__no_crc(drflac_bs* bs, unsigned int bitCount, dr_uint32* pResultOut)
@@ -1354,10 +1414,11 @@ static dr_bool32 drflac__read_uint32__no_crc(drflac_bs* bs, unsigned int bitCoun
         return DR_TRUE;
     } else {
         // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
-        size_t bitCountHi = DRFLAC_CACHE_L1_BITS_REMAINING(bs);
-        size_t bitCountLo = bitCount - bitCountHi;
+        dr_uint32 bitCountHi = DRFLAC_CACHE_L1_BITS_REMAINING(bs);
+        dr_uint32 bitCountLo = bitCount - bitCountHi;
         dr_uint32 resultHi = DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountHi);
 
+        bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);
         if (!drflac__reload_cache(bs)) {
             return DR_FALSE;
         }
@@ -1371,6 +1432,11 @@ static dr_bool32 drflac__read_uint32__no_crc(drflac_bs* bs, unsigned int bitCoun
 
 static DRFLAC_INLINE dr_bool32 drflac__read_uint32(drflac_bs* bs, unsigned int bitCount, dr_uint32* pResultOut)
 {
+    assert(bs != NULL);
+    assert(pResultOut != NULL);
+    assert(bitCount > 0);
+    assert(bitCount <= 32);
+
     if (!drflac__read_uint32__no_crc(bs, bitCount, pResultOut)) {
         return DR_FALSE;
     }
@@ -1505,7 +1571,7 @@ static dr_bool32 drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
 {
     if (bitsToSeek <= DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
         bs->crc16 = drflac_crc16(bs->crc16, DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitsToSeek), (dr_uint32)bitsToSeek);
-        bs->consumedBits += bitsToSeek;
+        bs->consumedBits += (dr_uint32)bitsToSeek;
         bs->cache <<= bitsToSeek;
         return DR_TRUE;
     } else {
@@ -1571,6 +1637,7 @@ static dr_bool32 drflac__find_and_seek_to_next_sync_code(drflac_bs* bs)
 
     for (;;) {
         bs->crc16 = 0;
+        drflac__reset_crc16(bs);
 
         dr_uint8 hi;
         if (!drflac__read_uint8(bs, 8, &hi)) {
@@ -1703,6 +1770,7 @@ static inline dr_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned i
     dr_uint32 zeroCounter = 0;
     while (bs->cache == 0) {
         zeroCounter += (dr_uint32)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
+        bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);
         if (!drflac__reload_cache(bs)) {
             return DR_FALSE;
         }
@@ -2141,6 +2209,7 @@ static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr
     dr_uint32 zeroCounter = 0;
     while (bs->cache == 0) {
         zeroCounter += (dr_uint32)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
+        bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);
         if (!drflac__reload_cache(bs)) {
             return DR_FALSE;
         }
@@ -2165,11 +2234,19 @@ static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr
         }
 
         // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
-        size_t bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
+        dr_uint32 bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
         drflac_cache_t resultHi = bs->cache & riceParamMask;    // <-- This mask is OK because all bits after the first bits are always zero.
 
+        bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);
         if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
+        #ifndef DR_FLAC_NO_CRC
+            drflac__update_crc16(bs);
+        #endif
             bs->cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
+            bs->consumedBits = 0;
+        #ifndef DR_FLAC_NO_CRC
+            bs->crc16Cache = bs->cache;
+        #endif
         } else {
             // Slow path. We need to fetch more data from the client.
             if (!drflac__reload_cache(bs)) {
@@ -2179,7 +2256,7 @@ static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts__no_crc(drflac_bs* bs, dr
 
         riceParamPart = (dr_uint32)((resultHi >> resultHiShift) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountLo));
 
-        bs->consumedBits = bitCountLo;
+        bs->consumedBits += bitCountLo;
         bs->cache <<= bitCountLo;
     }
 
@@ -2964,7 +3041,8 @@ static drflac_result drflac__decode_frame(drflac* pFlac)
         }
     }
     
-    dr_uint16 actualCRC16 = pFlac->bs.crc16;
+    //dr_uint16 actualCRC16 = pFlac->bs.crc16;
+    dr_uint16 actualCRC16 = drflac__flush_crc16(&pFlac->bs);
     dr_uint16 desiredCRC16;
     if (!drflac__read_uint16(&pFlac->bs, 16, &desiredCRC16)) {
         return DRFLAC_END_OF_STREAM;
@@ -2998,7 +3076,8 @@ static drflac_result drflac__seek_frame(drflac* pFlac)
     }
 
     // CRC.
-    dr_uint16 actualCRC16 = pFlac->bs.crc16;
+    //dr_uint16 actualCRC16 = pFlac->bs.crc16;
+    dr_uint16 actualCRC16 = drflac__flush_crc16(&pFlac->bs);
     dr_uint16 desiredCRC16;
     if (!drflac__read_uint16(&pFlac->bs, 16, &desiredCRC16)) {
         return DRFLAC_END_OF_STREAM;
