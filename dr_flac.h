@@ -3615,6 +3615,31 @@ drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_
 }
 
 #ifndef DR_FLAC_NO_OGG
+#define DRFLAC_OGG_MAX_PAGE_SIZE    65307
+
+static DRFLAC_INLINE drflac_uint32 drflac_crc32_byte(drflac_uint32 crc32, drflac_uint8 data)
+{
+    // TODO: Implement me.
+    (void)data;
+    return crc32;
+}
+
+static DRFLAC_INLINE drflac_uint32 drflac_crc32_uint32(drflac_uint32 crc32, drflac_uint32 data)
+{
+    crc32 = drflac_crc32_byte(crc32, (drflac_uint8)((data >> 24) & 0xFF));
+    crc32 = drflac_crc32_byte(crc32, (drflac_uint8)((data >> 16) & 0xFF));
+    crc32 = drflac_crc32_byte(crc32, (drflac_uint8)((data >>  8) & 0xFF));
+    crc32 = drflac_crc32_byte(crc32, (drflac_uint8)((data >>  0) & 0xFF));
+    return crc32;
+}
+
+static DRFLAC_INLINE drflac_uint32 drflac_crc32_uint64(drflac_uint32 crc32, drflac_uint64 data)
+{
+    crc32 = drflac_crc32_uint32(crc32, (drflac_uint32)((data >> 32) & 0xFFFFFFFF));
+    crc32 = drflac_crc32_uint32(crc32, (drflac_uint32)((data >>  0) & 0xFFFFFFFF));
+    return crc32;
+}
+
 static DRFLAC_INLINE drflac_bool32 drflac_ogg__is_capture_pattern(drflac_uint8 pattern[4])
 {
     return pattern[0] == 'O' && pattern[1] == 'g' && pattern[2] == 'g' && pattern[3] == 'S';
@@ -3635,49 +3660,96 @@ static DRFLAC_INLINE drflac_uint32 drflac_ogg__get_page_body_size(drflac_ogg_pag
     return pageBodySize;
 }
 
-drflac_bool32 drflac_ogg__read_page_header_after_capture_pattern(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, drflac_uint32* pHeaderSize)
+drflac_result drflac_ogg__read_page_header_after_capture_pattern(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, drflac_uint32* pHeaderSize, drflac_uint32* pCRC32)
 {
-    if (onRead(pUserData, &pHeader->structureVersion, 1) != 1 || pHeader->structureVersion != 0) {
-        return DRFLAC_FALSE;   // Unknown structure version. Possibly corrupt stream.
+    drflac_assert(*pCRC32 == 0);    // TODO: Change "0" to the pre-computed CRC-32 for "OggS".
+
+    if (onRead(pUserData, &pHeader->structureVersion, 1) != 1) {
+        return DRFLAC_END_OF_STREAM;
     }
+    if (pHeader->structureVersion != 0) {
+        return DRFLAC_CRC_MISMATCH; // Unknown structure version. Possibly corrupt stream. Just treat as a CRC mimatch.
+    }
+    *pCRC32 = drflac_crc32_byte(*pCRC32, pHeader->structureVersion);
+
     if (onRead(pUserData, &pHeader->headerType, 1) != 1) {
-        return DRFLAC_FALSE;
+        return DRFLAC_END_OF_STREAM;
     }
+    *pCRC32 = drflac_crc32_byte(*pCRC32, pHeader->headerType);
+
     if (onRead(pUserData, &pHeader->granulePosition, 8) != 8) {
-        return DRFLAC_FALSE;
+        return DRFLAC_END_OF_STREAM;
     }
+    *pCRC32 = drflac_crc32_uint64(*pCRC32, pHeader->granulePosition);
+
     if (onRead(pUserData, &pHeader->serialNumber, 4) != 4) {
-        return DRFLAC_FALSE;
+        return DRFLAC_END_OF_STREAM;
     }
+    *pCRC32 = drflac_crc32_uint32(*pCRC32, pHeader->serialNumber);
+
     if (onRead(pUserData, &pHeader->sequenceNumber, 4) != 4) {
-        return DRFLAC_FALSE;
+        return DRFLAC_END_OF_STREAM;
     }
+    *pCRC32 = drflac_crc32_uint32(*pCRC32, pHeader->sequenceNumber);
+
     if (onRead(pUserData, &pHeader->checksum, 4) != 4) {
-        return DRFLAC_FALSE;
+        return DRFLAC_END_OF_STREAM;
     }
-    if (onRead(pUserData, &pHeader->segmentCount, 1) != 1 || pHeader->segmentCount == 0) {
-        return DRFLAC_FALSE;   // Should not have a segment count of 0.
+    *pCRC32 = drflac_crc32_uint32(*pCRC32, 0);  // Use "0" for the CRC-32 accumulation for the "checksum" field.
+
+    if (onRead(pUserData, &pHeader->segmentCount, 1) != 1) {
+        return DRFLAC_END_OF_STREAM;
     }
+    if (pHeader->segmentCount == 0) {
+        return DRFLAC_CRC_MISMATCH; // Should not have a segment count of 0. Treat this as a CRC mismatch.
+    }
+    *pCRC32 = drflac_crc32_byte(*pCRC32, pHeader->segmentCount);
+
+
     if (onRead(pUserData, &pHeader->segmentTable, pHeader->segmentCount) != pHeader->segmentCount) {
-        return DRFLAC_FALSE;
+        return DRFLAC_END_OF_STREAM;
     }
+    for (drflac_uint32 i = 0; i < pHeader->segmentCount; ++i) {
+        *pCRC32 = drflac_crc32_byte(*pCRC32, pHeader->segmentTable[i]);
+    }
+
 
     if (pHeaderSize) *pHeaderSize = (27 + pHeader->segmentCount);
-    return DRFLAC_TRUE;
+    return DRFLAC_SUCCESS;
 }
 
-drflac_bool32 drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, drflac_uint32* pHeaderSize)
+drflac_result drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserData, drflac_ogg_page_header* pHeader, drflac_uint32* pHeaderSize, drflac_uint32* pCRC32)
 {
     drflac_uint8 id[4];
     if (onRead(pUserData, id, 4) != 4) {
-        return DRFLAC_FALSE;
+        return DRFLAC_END_OF_STREAM;
     }
 
-    if (id[0] != 'O' || id[1] != 'g' || id[2] != 'g' || id[3] != 'S') {
-        return DRFLAC_FALSE;
-    }
+    // We need to read byte-by-byte until we find the OggS capture pattern.
+    for (;;) {
+        if (drflac_ogg__is_capture_pattern(id)) {
+            *pCRC32 = 0;    // TODO: Change "0" to a pre-computed CRC-32 for "OggS".
 
-    return drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, pHeader, pHeaderSize);
+            drflac_result result = drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, pHeader, pHeaderSize, pCRC32);
+            if (result == DRFLAC_SUCCESS) {
+                return DRFLAC_SUCCESS;
+            } else {
+                if (result == DRFLAC_CRC_MISMATCH) {
+                    continue;
+                } else {
+                    return result;
+                }
+            }
+        }
+
+        // The first 4 bytes did not equal the capture pattern. Read the next byte and try again.
+        id[0] = id[1];
+        id[1] = id[2];
+        id[2] = id[3];
+        if (onRead(pUserData, &id[3], 1) != 1) {
+            return DRFLAC_END_OF_STREAM;
+        }
+    }
 }
 
 
@@ -3697,6 +3769,8 @@ typedef struct
     drflac_ogg_page_header bosPageHeader;   // Used for seeking.
     drflac_ogg_page_header currentPageHeader;
     drflac_uint32 bytesRemainingInPage;
+    drflac_uint32 pageDataSize;
+    drflac_uint8 pageData[DRFLAC_OGG_MAX_PAGE_SIZE];
 } drflac_oggbs; // oggbs = Ogg Bitstream
 
 static size_t drflac_oggbs__read_physical(drflac_oggbs* oggbs, void* bufferOut, size_t bytesToRead)
@@ -3743,29 +3817,54 @@ static drflac_bool32 drflac_oggbs__seek_physical(drflac_oggbs* oggbs, drflac_uin
     }
 }
 
+static drflac_uint32 drflac_oggbs__calculate_page_crc32(const drflac_uint8* pPageData, drflac_uint32 pageDataSize, drflac_uint32 headerCRC32)
+{
+    drflac_uint32 crc32 = headerCRC32;
+    for (drflac_uint32 i = 0; i < pageDataSize; ++i) {
+        crc32 = drflac_crc32_byte(crc32, pPageData[i]);
+    }
+
+    return crc32;
+}
+
 static drflac_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
 {
     drflac_ogg_page_header header;
     for (;;) {
+        drflac_uint32 crc32 = 0;
         drflac_uint32 headerSize;
-        if (!drflac_ogg__read_page_header(oggbs->onRead, oggbs->pUserData, &header, &headerSize)) {
+        if (drflac_ogg__read_page_header(oggbs->onRead, oggbs->pUserData, &header, &headerSize, &crc32) != DRFLAC_SUCCESS) {
             return DRFLAC_FALSE;
         }
         oggbs->currentBytePos += headerSize;
 
 
         drflac_uint32 pageBodySize = drflac_ogg__get_page_body_size(&header);
-
-        if (header.serialNumber == oggbs->serialNumber) {
-            oggbs->currentPageHeader = header;
-            oggbs->bytesRemainingInPage = pageBodySize;
-            return DRFLAC_TRUE;
+        if (pageBodySize > DRFLAC_OGG_MAX_PAGE_SIZE) {
+            continue;   // Invalid page size. Assume it's corrupted and just move to the next page.
         }
 
-        // If we get here it means the page is not a FLAC page - skip it.
-        if (pageBodySize > 0 && !drflac_oggbs__seek_physical(oggbs, pageBodySize, drflac_seek_origin_current)) {
+        if (header.serialNumber != oggbs->serialNumber) {
+            // It's not a FLAC page. Skip it.
+            if (pageBodySize > 0 && !drflac_oggbs__seek_physical(oggbs, pageBodySize, drflac_seek_origin_current)) {
+                return DRFLAC_FALSE;
+            }
+            continue;
+        }
+
+
+        // We need to read the entire page and then do a CRC check on it. If there's a CRC mismatch we need to skip this page.
+        if (!drflac_oggbs__read_physical(oggbs, oggbs->pageData, pageBodySize)) {
             return DRFLAC_FALSE;
         }
+        oggbs->pageDataSize = pageBodySize;
+
+        // TODO: CRC check.
+
+
+        oggbs->currentPageHeader = header;
+        oggbs->bytesRemainingInPage = pageBodySize;
+        return DRFLAC_TRUE;
     }
 }
 
@@ -3858,29 +3957,26 @@ static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytes
         size_t bytesRemainingToRead = bytesToRead - bytesRead;
 
         if (oggbs->bytesRemainingInPage >= bytesRemainingToRead) {
-            bytesRead += oggbs->onRead(oggbs->pUserData, pRunningBufferOut, bytesRemainingToRead);
+            drflac_copy_memory(pRunningBufferOut, oggbs->pageData + (oggbs->pageDataSize - oggbs->bytesRemainingInPage), bytesRemainingToRead);
+            bytesRead += bytesRemainingToRead;
             oggbs->bytesRemainingInPage -= (drflac_uint32)bytesRemainingToRead;
             break;
         }
 
         // If we get here it means some of the requested data is contained in the next pages.
         if (oggbs->bytesRemainingInPage > 0) {
-            size_t bytesJustRead = oggbs->onRead(oggbs->pUserData, pRunningBufferOut, oggbs->bytesRemainingInPage);
-            bytesRead += bytesJustRead;
-            pRunningBufferOut += bytesJustRead;
-
-            if (bytesJustRead != oggbs->bytesRemainingInPage) {
-                break;  // Ran out of data.
-            }
+            drflac_copy_memory(pRunningBufferOut, oggbs->pageData + (oggbs->pageDataSize - oggbs->bytesRemainingInPage), oggbs->bytesRemainingInPage);
+            bytesRead += oggbs->bytesRemainingInPage;
+            pRunningBufferOut += oggbs->bytesRemainingInPage;
+            oggbs->bytesRemainingInPage = 0;
         }
 
         drflac_assert(bytesRemainingToRead > 0);
         if (!drflac_oggbs__goto_next_page(oggbs)) {
-            break;  // Failed to go to the next chunk. Might have simply hit the end of the stream.
+            break;  // Failed to go to the next page. Might have simply hit the end of the stream.
         }
     }
 
-    oggbs->currentBytePos += bytesRead;
     return bytesRead;
 }
 
@@ -3892,13 +3988,13 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
 
     // Seeking is always forward which makes things a lot simpler.
     if (origin == drflac_seek_origin_start) {
-        int startBytePos = (int)oggbs->firstBytePos + (79-42);  // 79 = size of bos page; 42 = size of FLAC header data. Seek up to the first byte of the native FLAC data.
-        if (!drflac_oggbs__seek_physical(oggbs, startBytePos, drflac_seek_origin_start)) {
+        if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->firstBytePos, drflac_seek_origin_start)) {
             return DRFLAC_FALSE;
         }
 
-        oggbs->currentPageHeader = oggbs->bosPageHeader;
-        oggbs->bytesRemainingInPage = 42;   // 42 = size of the native FLAC header data. That's our start point for seeking.
+        if (!drflac_oggbs__goto_next_page(oggbs)) {
+            return DRFLAC_FALSE;
+        }
 
         return drflac__on_seek_ogg(pUserData, offset, drflac_seek_origin_current);
     }
@@ -3912,10 +4008,6 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
         drflac_assert(bytesRemainingToSeek >= 0);
 
         if (oggbs->bytesRemainingInPage >= (size_t)bytesRemainingToSeek) {
-            if (!drflac_oggbs__seek_physical(oggbs, bytesRemainingToSeek, drflac_seek_origin_current)) {
-                return DRFLAC_FALSE;
-            }
-
             bytesSeeked += bytesRemainingToSeek;
             oggbs->bytesRemainingInPage -= bytesRemainingToSeek;
             break;
@@ -3923,16 +4015,13 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
 
         // If we get here it means some of the requested data is contained in the next pages.
         if (oggbs->bytesRemainingInPage > 0) {
-            if (!drflac_oggbs__seek_physical(oggbs, oggbs->bytesRemainingInPage, drflac_seek_origin_current)) {
-                return DRFLAC_FALSE;
-            }
-
             bytesSeeked += (int)oggbs->bytesRemainingInPage;
+            oggbs->bytesRemainingInPage = 0;
         }
 
         drflac_assert(bytesRemainingToSeek > 0);
         if (!drflac_oggbs__goto_next_page(oggbs)) {
-            break;  // Failed to go to the next chunk. Might have simply hit the end of the stream.
+            break;  // Failed to go to the next page. Might have simply hit the end of the stream.
         }
     }
 
@@ -3959,7 +4048,7 @@ drflac_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, drflac_uint64 sampleInde
             return DRFLAC_FALSE;   // Never did find that sample...
         }
 
-        runningFrameBytePos = oggbs->currentBytePos - drflac_ogg__get_page_header_size(&oggbs->currentPageHeader);
+        runningFrameBytePos = oggbs->currentBytePos - drflac_ogg__get_page_header_size(&oggbs->currentPageHeader) - oggbs->pageDataSize;
         if (oggbs->currentPageHeader.granulePosition*pFlac->channels >= sampleIndex) {
             break; // The sample is somewhere in the previous page.
         }
@@ -3970,26 +4059,15 @@ drflac_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, drflac_uint64 sampleInde
         if ((oggbs->currentPageHeader.headerType & 0x01) == 0) {    // <-- Is it a fresh page?
             if (oggbs->currentPageHeader.segmentTable[0] >= 2) {
                 drflac_uint8 firstBytesInPage[2];
-                if (drflac_oggbs__read_physical(oggbs, firstBytesInPage, 2) != 2) {
-                    drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
-                    return DRFLAC_FALSE;
-                }
+                firstBytesInPage[0] = oggbs->pageData[0];
+                firstBytesInPage[1] = oggbs->pageData[1];
+
                 if ((firstBytesInPage[0] == 0xFF) && (firstBytesInPage[1] & 0xFC) == 0xF8) {    // <-- Does the page begin with a frame's sync code?
                     runningGranulePosition = oggbs->currentPageHeader.granulePosition*pFlac->channels;
                 }
 
-                if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->bytesRemainingInPage-2, drflac_seek_origin_current)) {
-                    drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
-                    return DRFLAC_FALSE;
-                }
-
                 continue;
             }
-        }
-
-        if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->bytesRemainingInPage, drflac_seek_origin_current)) {
-            drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
-            return DRFLAC_FALSE;
         }
     }
 
@@ -4087,8 +4165,9 @@ drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_pro
     // any match the FLAC specification. Important to keep in mind that the stream may be multiplexed.
     drflac_ogg_page_header header;
 
+    drflac_uint32 crc32 = 0;    // TODO: Change "0" to the pre-computed CRC-32 for "OggS".
     drflac_uint32 headerSize;
-    if (!drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, &header, &headerSize)) {
+    if (drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, &header, &headerSize, &crc32) != DRFLAC_SUCCESS) {
         return DRFLAC_FALSE;
     }
     pInit->runningFilePos = headerSize;
@@ -4210,7 +4289,7 @@ drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_pro
 
 
         // Read the header of the next page.
-        if (!drflac_ogg__read_page_header(onRead, pUserData, &header, &headerSize)) {
+        if (drflac_ogg__read_page_header(onRead, pUserData, &header, &headerSize, &crc32) != DRFLAC_SUCCESS) {
             return DRFLAC_FALSE;
         }
         pInit->runningFilePos += headerSize;
