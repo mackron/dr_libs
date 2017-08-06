@@ -747,7 +747,6 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #ifdef DR_FLAC_IMPLEMENTATION
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 // CPU architecture.
 #if defined(__x86_64__) || defined(_M_X64)
@@ -809,6 +808,10 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // Standard library stuff.
+#ifndef DRFLAC_ASSERT
+#include <assert.h>
+#define DRFLAC_ASSERT(expression)           assert(expression)
+#endif
 #ifndef DRFLAC_MALLOC
 #define DRFLAC_MALLOC(sz)                   malloc((sz));
 #endif
@@ -861,6 +864,7 @@ typedef dr_int32 drflac_result;
 
 #define drflac_align(x, a)           ((((x) + (a) - 1) / (a)) * (a))
 
+#define drflac_assert       DRFLAC_ASSERT
 #define drflac_malloc       DRFLAC_MALLOC
 #define drflac_realloc      DRFLAC_REALLOC
 //#define drflac_free         DRFLAC_FREE    // drflac_free() is implemented as a public function.
@@ -1061,7 +1065,7 @@ static DRFLAC_INLINE dr_uint8 drflac_crc8_byte(dr_uint8 crc, dr_uint8 data)
 
 static DRFLAC_INLINE dr_uint8 drflac_crc8(dr_uint8 crc, dr_uint32 data, dr_uint32 count)
 {
-    assert(count <= 32);
+    drflac_assert(count <= 32);
 
 #ifdef DR_FLAC_NO_CRC
     (void)crc;
@@ -1128,7 +1132,7 @@ static DRFLAC_INLINE dr_uint16 drflac_crc16_bytes(dr_uint16 crc, drflac_cache_t 
 
 static DRFLAC_INLINE dr_uint16 drflac_crc16__32bit(dr_uint16 crc, dr_uint32 data, dr_uint32 count)
 {
-    assert(count <= 64);
+    drflac_assert(count <= 64);
 
 #ifdef DR_FLAC_NO_CRC
     (void)crc;
@@ -1173,7 +1177,7 @@ static DRFLAC_INLINE dr_uint16 drflac_crc16__32bit(dr_uint16 crc, dr_uint32 data
 
 static DRFLAC_INLINE dr_uint16 drflac_crc16__64bit(dr_uint16 crc, dr_uint64 data, dr_uint32 count)
 {
-    assert(count <= 64);
+    drflac_assert(count <= 64);
 
 #ifdef DR_FLAC_NO_CRC
     (void)crc;
@@ -1261,7 +1265,7 @@ static DRFLAC_INLINE void drflac__update_crc16(drflac_bs* bs)
 static DRFLAC_INLINE dr_uint16 drflac__flush_crc16(drflac_bs* bs)
 {
     // We should never be flushing in a situation where we are not aligned on a byte boundary.
-    assert((DRFLAC_CACHE_L1_BITS_REMAINING(bs) & 7) == 0);
+    drflac_assert((DRFLAC_CACHE_L1_BITS_REMAINING(bs) & 7) == 0);
 
     // The bits that were read from the L1 cache need to be accumulated. The number of bytes needing to be accumulated is determined
     // by the number of bits that have been consumed.
@@ -1357,7 +1361,7 @@ static dr_bool32 drflac__reload_cache(drflac_bs* bs)
         return DR_FALSE;
     }
 
-    assert(bytesRead < DRFLAC_CACHE_L1_SIZE_BYTES(bs));
+    drflac_assert(bytesRead < DRFLAC_CACHE_L1_SIZE_BYTES(bs));
     bs->consumedBits = (dr_uint32)(DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bytesRead) * 8;
 
     bs->cache = drflac__be2host__cache_line(bs->unalignedCache);
@@ -1388,10 +1392,10 @@ static void drflac__reset_cache(drflac_bs* bs)
 
 static DRFLAC_INLINE dr_bool32 drflac__read_uint32(drflac_bs* bs, unsigned int bitCount, dr_uint32* pResultOut)
 {
-    assert(bs != NULL);
-    assert(pResultOut != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 32);
+    drflac_assert(bs != NULL);
+    drflac_assert(pResultOut != NULL);
+    drflac_assert(bitCount > 0);
+    drflac_assert(bitCount <= 32);
 
     if (bs->consumedBits == DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
         if (!drflac__reload_cache(bs)) {
@@ -1429,10 +1433,10 @@ static DRFLAC_INLINE dr_bool32 drflac__read_uint32(drflac_bs* bs, unsigned int b
 
 static dr_bool32 drflac__read_int32(drflac_bs* bs, unsigned int bitCount, dr_int32* pResult)
 {
-    assert(bs != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 32);
+    drflac_assert(bs != NULL);
+    drflac_assert(pResult != NULL);
+    drflac_assert(bitCount > 0);
+    drflac_assert(bitCount <= 32);
 
     dr_uint32 result;
     if (!drflac__read_uint32(bs, bitCount, &result)) {
@@ -1448,8 +1452,8 @@ static dr_bool32 drflac__read_int32(drflac_bs* bs, unsigned int bitCount, dr_int
 
 static dr_bool32 drflac__read_uint64(drflac_bs* bs, unsigned int bitCount, dr_uint64* pResultOut)
 {
-    assert(bitCount <= 64);
-    assert(bitCount >  32);
+    drflac_assert(bitCount <= 64);
+    drflac_assert(bitCount >  32);
 
     dr_uint32 resultHi;
     if (!drflac__read_uint32(bs, bitCount - 32, &resultHi)) {
@@ -1469,7 +1473,7 @@ static dr_bool32 drflac__read_uint64(drflac_bs* bs, unsigned int bitCount, dr_ui
 #if 0
 static dr_bool32 drflac__read_int64(drflac_bs* bs, unsigned int bitCount, dr_int64* pResultOut)
 {
-    assert(bitCount <= 64);
+    drflac_assert(bitCount <= 64);
 
     dr_uint64 result;
     if (!drflac__read_uint64(bs, bitCount, &result)) {
@@ -1486,10 +1490,10 @@ static dr_bool32 drflac__read_int64(drflac_bs* bs, unsigned int bitCount, dr_int
 
 static dr_bool32 drflac__read_uint16(drflac_bs* bs, unsigned int bitCount, dr_uint16* pResult)
 {
-    assert(bs != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 16);
+    drflac_assert(bs != NULL);
+    drflac_assert(pResult != NULL);
+    drflac_assert(bitCount > 0);
+    drflac_assert(bitCount <= 16);
 
     dr_uint32 result;
     if (!drflac__read_uint32(bs, bitCount, &result)) {
@@ -1502,10 +1506,10 @@ static dr_bool32 drflac__read_uint16(drflac_bs* bs, unsigned int bitCount, dr_ui
 
 static dr_bool32 drflac__read_int16(drflac_bs* bs, unsigned int bitCount, dr_int16* pResult)
 {
-    assert(bs != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 16);
+    drflac_assert(bs != NULL);
+    drflac_assert(pResult != NULL);
+    drflac_assert(bitCount > 0);
+    drflac_assert(bitCount <= 16);
 
     dr_int32 result;
     if (!drflac__read_int32(bs, bitCount, &result)) {
@@ -1518,10 +1522,10 @@ static dr_bool32 drflac__read_int16(drflac_bs* bs, unsigned int bitCount, dr_int
 
 static dr_bool32 drflac__read_uint8(drflac_bs* bs, unsigned int bitCount, dr_uint8* pResult)
 {
-    assert(bs != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 8);
+    drflac_assert(bs != NULL);
+    drflac_assert(pResult != NULL);
+    drflac_assert(bitCount > 0);
+    drflac_assert(bitCount <= 8);
 
     dr_uint32 result;
     if (!drflac__read_uint32(bs, bitCount, &result)) {
@@ -1534,10 +1538,10 @@ static dr_bool32 drflac__read_uint8(drflac_bs* bs, unsigned int bitCount, dr_uin
 
 static dr_bool32 drflac__read_int8(drflac_bs* bs, unsigned int bitCount, dr_int8* pResult)
 {
-    assert(bs != NULL);
-    assert(pResult != NULL);
-    assert(bitCount > 0);
-    assert(bitCount <= 8);
+    drflac_assert(bs != NULL);
+    drflac_assert(pResult != NULL);
+    drflac_assert(bitCount > 0);
+    drflac_assert(bitCount <= 8);
 
     dr_int32 result;
     if (!drflac__read_int32(bs, bitCount, &result)) {
@@ -1598,7 +1602,7 @@ static dr_bool32 drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
             bitsToSeek = 0; // <-- Necessary for the assert below.
         }
 
-        assert(bitsToSeek == 0);
+        drflac_assert(bitsToSeek == 0);
         return DR_TRUE;
     }
 }
@@ -1607,7 +1611,7 @@ static dr_bool32 drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
 // This function moves the bit streamer to the first bit after the sync code (bit 15 of the of the frame header). It will also update the CRC-16.
 static dr_bool32 drflac__find_and_seek_to_next_sync_code(drflac_bs* bs)
 {
-    assert(bs != NULL);
+    drflac_assert(bs != NULL);
 
     // The sync code is always aligned to 8 bits. This is convenient for us because it means we can do byte-aligned movements. The first
     // thing to do is align to the next byte.
@@ -1771,8 +1775,8 @@ static inline dr_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs, unsigned i
 
 static dr_bool32 drflac__seek_to_byte(drflac_bs* bs, dr_uint64 offsetFromStart)
 {
-    assert(bs != NULL);
-    assert(offsetFromStart > 0);
+    drflac_assert(bs != NULL);
+    drflac_assert(offsetFromStart > 0);
 
     // Seeking from the start is not quite as trivial as it sounds because the onSeek callback takes a signed 32-bit integer (which
     // is intentional because it simplifies the implementation of the onSeek callbacks), however offsetFromStart is unsigned 64-bit.
@@ -1810,8 +1814,8 @@ static dr_bool32 drflac__seek_to_byte(drflac_bs* bs, dr_uint64 offsetFromStart)
 
 static dr_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, dr_uint64* pNumberOut, dr_uint8* pCRCOut)
 {
-    assert(bs != NULL);
-    assert(pNumberOut != NULL);
+    drflac_assert(bs != NULL);
+    drflac_assert(pNumberOut != NULL);
 
     dr_uint8 crc = *pCRCOut;
 
@@ -1847,7 +1851,7 @@ static dr_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, dr_uint64* pNumbe
     }
 
     // Read extra bytes.
-    assert(byteCount > 1);
+    drflac_assert(byteCount > 1);
 
     dr_uint64 result = (dr_uint64)(utf8[0] & (0xFF >> (byteCount + 1)));
     for (int i = 1; i < byteCount; ++i) {
@@ -1874,7 +1878,7 @@ static dr_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, dr_uint64* pNumbe
 // safe to assume this will be slower on 32-bit platforms so we use a more optimal solution when the bits per sample is <=16.
 static DRFLAC_INLINE dr_int32 drflac__calculate_prediction_32(dr_uint32 order, dr_int32 shift, const dr_int32* coefficients, dr_int32* pDecodedSamples)
 {
-    assert(order <= 32);
+    drflac_assert(order <= 32);
 
     // 32-bit version.
 
@@ -1922,7 +1926,7 @@ static DRFLAC_INLINE dr_int32 drflac__calculate_prediction_32(dr_uint32 order, d
 
 static DRFLAC_INLINE dr_int32 drflac__calculate_prediction_64(dr_uint32 order, dr_int32 shift, const dr_int32* coefficients, dr_int32* pDecodedSamples)
 {
-    assert(order <= 32);
+    drflac_assert(order <= 32);
 
     // 64-bit version.
 
@@ -2101,9 +2105,9 @@ static DRFLAC_INLINE dr_int32 drflac__calculate_prediction_64(dr_uint32 order, d
 // sake of readability and should only be used as a reference.
 static dr_bool32 drflac__decode_samples_with_residual__rice__reference(drflac_bs* bs, dr_uint32 bitsPerSample, dr_uint32 count, dr_uint8 riceParam, dr_uint32 order, dr_int32 shift, const dr_int32* coefficients, dr_int32* pSamplesOut)
 {
-    assert(bs != NULL);
-    assert(count > 0);
-    assert(pSamplesOut != NULL);
+    drflac_assert(bs != NULL);
+    drflac_assert(count > 0);
+    drflac_assert(pSamplesOut != NULL);
 
     for (dr_uint32 i = 0; i < count; ++i) {
         dr_uint32 zeroCounter = 0;
@@ -2245,9 +2249,9 @@ static DRFLAC_INLINE dr_bool32 drflac__read_rice_parts(drflac_bs* bs, dr_uint8 r
 
 static dr_bool32 drflac__decode_samples_with_residual__rice__simple(drflac_bs* bs, dr_uint32 bitsPerSample, dr_uint32 count, dr_uint8 riceParam, dr_uint32 order, dr_int32 shift, const dr_int32* coefficients, dr_int32* pSamplesOut)
 {
-    assert(bs != NULL);
-    assert(count > 0);
-    assert(pSamplesOut != NULL);
+    drflac_assert(bs != NULL);
+    drflac_assert(count > 0);
+    drflac_assert(pSamplesOut != NULL);
 
     dr_uint32 zeroCountPart;
     dr_uint32 riceParamPart;
@@ -2291,8 +2295,8 @@ static dr_bool32 drflac__decode_samples_with_residual__rice(drflac_bs* bs, dr_ui
 // Reads and seeks past a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
 static dr_bool32 drflac__read_and_seek_residual__rice(drflac_bs* bs, dr_uint32 count, dr_uint8 riceParam)
 {
-    assert(bs != NULL);
-    assert(count > 0);
+    drflac_assert(bs != NULL);
+    drflac_assert(count > 0);
 
     for (dr_uint32 i = 0; i < count; ++i) {
         dr_uint32 zeroCountPart;
@@ -2307,10 +2311,10 @@ static dr_bool32 drflac__read_and_seek_residual__rice(drflac_bs* bs, dr_uint32 c
 
 static dr_bool32 drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, dr_uint32 bitsPerSample, dr_uint32 count, dr_uint8 unencodedBitsPerSample, dr_uint32 order, dr_int32 shift, const dr_int32* coefficients, dr_int32* pSamplesOut)
 {
-    assert(bs != NULL);
-    assert(count > 0);
-    assert(unencodedBitsPerSample > 0 && unencodedBitsPerSample <= 32);
-    assert(pSamplesOut != NULL);
+    drflac_assert(bs != NULL);
+    drflac_assert(count > 0);
+    drflac_assert(unencodedBitsPerSample > 0 && unencodedBitsPerSample <= 32);
+    drflac_assert(pSamplesOut != NULL);
 
     for (unsigned int i = 0; i < count; ++i) {
         if (!drflac__read_int32(bs, unencodedBitsPerSample, pSamplesOut + i)) {
@@ -2333,9 +2337,9 @@ static dr_bool32 drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, 
 // <blockSize> and <order> parameters are used to determine how many residual values need to be decoded.
 static dr_bool32 drflac__decode_samples_with_residual(drflac_bs* bs, dr_uint32 bitsPerSample, dr_uint32 blockSize, dr_uint32 order, dr_int32 shift, const dr_int32* coefficients, dr_int32* pDecodedSamples)
 {
-    assert(bs != NULL);
-    assert(blockSize != 0);
-    assert(pDecodedSamples != NULL);       // <-- Should we allow NULL, in which case we just seek past the residual rather than do a full decode?
+    drflac_assert(bs != NULL);
+    drflac_assert(blockSize != 0);
+    drflac_assert(pDecodedSamples != NULL);       // <-- Should we allow NULL, in which case we just seek past the residual rather than do a full decode?
 
     dr_uint8 residualMethod;
     if (!drflac__read_uint8(bs, 2, &residualMethod)) {
@@ -2410,8 +2414,8 @@ static dr_bool32 drflac__decode_samples_with_residual(drflac_bs* bs, dr_uint32 b
 // <blockSize> and <order> parameters are used to determine how many residual values need to be decoded.
 static dr_bool32 drflac__read_and_seek_residual(drflac_bs* bs, dr_uint32 blockSize, dr_uint32 order)
 {
-    assert(bs != NULL);
-    assert(blockSize != 0);
+    drflac_assert(bs != NULL);
+    drflac_assert(blockSize != 0);
 
     dr_uint8 residualMethod;
     if (!drflac__read_uint8(bs, 2, &residualMethod)) {
@@ -2580,8 +2584,8 @@ static dr_bool32 drflac__decode_samples__lpc(drflac_bs* bs, dr_uint32 blockSize,
 
 static dr_bool32 drflac__read_next_frame_header(drflac_bs* bs, dr_uint8 streaminfoBitsPerSample, drflac_frame_header* header)
 {
-    assert(bs != NULL);
-    assert(header != NULL);
+    drflac_assert(bs != NULL);
+    drflac_assert(header != NULL);
 
     const dr_uint32 sampleRateTable[12]  = {0, 88200, 176400, 192000, 8000, 16000, 22050, 24000, 32000, 44100, 48000, 96000};
     const dr_uint8 bitsPerSampleTable[8] = {0, 8, 12, (dr_uint8)-1, 16, 20, 24, (dr_uint8)-1};   // -1 = reserved.
@@ -2777,8 +2781,8 @@ static dr_bool32 drflac__read_subframe_header(drflac_bs* bs, drflac_subframe* pS
 
 static dr_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame, int subframeIndex, dr_int32* pDecodedSamplesOut)
 {
-    assert(bs != NULL);
-    assert(frame != NULL);
+    drflac_assert(bs != NULL);
+    drflac_assert(frame != NULL);
 
     drflac_subframe* pSubframe = frame->subframes + subframeIndex;
     if (!drflac__read_subframe_header(bs, pSubframe)) {
@@ -2827,8 +2831,8 @@ static dr_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame, int
 
 static dr_bool32 drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int subframeIndex)
 {
-    assert(bs != NULL);
-    assert(frame != NULL);
+    drflac_assert(bs != NULL);
+    drflac_assert(frame != NULL);
 
     drflac_subframe* pSubframe = frame->subframes + subframeIndex;
     if (!drflac__read_subframe_header(bs, pSubframe)) {
@@ -2912,7 +2916,7 @@ static dr_bool32 drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int s
 
 static DRFLAC_INLINE dr_uint8 drflac__get_channel_count_from_channel_assignment(dr_int8 channelAssignment)
 {
-    assert(channelAssignment <= 10);
+    drflac_assert(channelAssignment <= 10);
 
     dr_uint8 lookup[] = {1, 2, 3, 4, 5, 6, 7, 8, 2, 2, 2};
     return lookup[channelAssignment];
@@ -2991,7 +2995,7 @@ static drflac_result drflac__seek_frame(drflac* pFlac)
 
 static dr_bool32 drflac__read_and_decode_next_frame(drflac* pFlac)
 {
-    assert(pFlac != NULL);
+    drflac_assert(pFlac != NULL);
 
     for (;;) {
         if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
@@ -3014,7 +3018,7 @@ static dr_bool32 drflac__read_and_decode_next_frame(drflac* pFlac)
 
 static void drflac__get_current_frame_sample_range(drflac* pFlac, dr_uint64* pFirstSampleInFrameOut, dr_uint64* pLastSampleInFrameOut)
 {
-    assert(pFlac != NULL);
+    drflac_assert(pFlac != NULL);
 
     unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
 
@@ -3034,7 +3038,7 @@ static void drflac__get_current_frame_sample_range(drflac* pFlac, dr_uint64* pFi
 
 static dr_bool32 drflac__seek_to_first_frame(drflac* pFlac)
 {
-    assert(pFlac != NULL);
+    drflac_assert(pFlac != NULL);
 
     dr_bool32 result = drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos);
 
@@ -3045,7 +3049,7 @@ static dr_bool32 drflac__seek_to_first_frame(drflac* pFlac)
 static DRFLAC_INLINE drflac_result drflac__seek_to_next_frame(drflac* pFlac)
 {
     // This function should only ever be called while the decoder is sitting on the first byte past the FRAME_HEADER section.
-    assert(pFlac != NULL);
+    drflac_assert(pFlac != NULL);
     return drflac__seek_frame(pFlac);
 }
 
@@ -3106,7 +3110,7 @@ static dr_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, dr_uint64 sa
 
 static dr_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, dr_uint64 sampleIndex)
 {
-    assert(pFlac != NULL);
+    drflac_assert(pFlac != NULL);
 
     if (pFlac->seektablePos == 0) {
         return DR_FALSE;
@@ -3306,7 +3310,7 @@ dr_bool32 drflac__read_streaminfo(drflac_read_proc onRead, void* pUserData, drfl
 
 dr_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
 {
-    assert(pFlac != NULL);
+    drflac_assert(pFlac != NULL);
 
     // We want to keep track of the byte position in the stream of the seektable. At the time of calling this function we know that
     // we'll be sitting on byte 42.
@@ -3848,7 +3852,7 @@ static dr_bool32 drflac_oggbs__seek_to_next_frame(drflac_oggbs* oggbs)
 static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
     drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
-    assert(oggbs != NULL);
+    drflac_assert(oggbs != NULL);
 
     dr_uint8* pRunningBufferOut = (dr_uint8*)bufferOut;
 
@@ -3874,7 +3878,7 @@ static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytes
             }
         }
 
-        assert(bytesRemainingToRead > 0);
+        drflac_assert(bytesRemainingToRead > 0);
         if (!drflac_oggbs__goto_next_page(oggbs)) {
             break;  // Failed to go to the next chunk. Might have simply hit the end of the stream.
         }
@@ -3887,8 +3891,8 @@ static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytes
 static dr_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_origin origin)
 {
     drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
-    assert(oggbs != NULL);
-    assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
+    drflac_assert(oggbs != NULL);
+    drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
     // Seeking is always forward which makes things a lot simpler.
     if (origin == drflac_seek_origin_start) {
@@ -3904,12 +3908,12 @@ static dr_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_or
     }
 
 
-    assert(origin == drflac_seek_origin_current);
+    drflac_assert(origin == drflac_seek_origin_current);
 
     int bytesSeeked = 0;
     while (bytesSeeked < offset) {
         int bytesRemainingToSeek = offset - bytesSeeked;
-        assert(bytesRemainingToSeek >= 0);
+        drflac_assert(bytesRemainingToSeek >= 0);
 
         if (oggbs->bytesRemainingInPage >= (size_t)bytesRemainingToSeek) {
             if (!drflac_oggbs__seek_physical(oggbs, bytesRemainingToSeek, drflac_seek_origin_current)) {
@@ -3930,7 +3934,7 @@ static dr_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_seek_or
             bytesSeeked += (int)oggbs->bytesRemainingInPage;
         }
 
-        assert(bytesRemainingToSeek > 0);
+        drflac_assert(bytesRemainingToSeek > 0);
         if (!drflac_oggbs__goto_next_page(oggbs)) {
             break;  // Failed to go to the next chunk. Might have simply hit the end of the stream.
         }
@@ -4280,8 +4284,8 @@ dr_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead,
 
 void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
 {
-    assert(pFlac != NULL);
-    assert(pInit != NULL);
+    drflac_assert(pFlac != NULL);
+    drflac_assert(pInit != NULL);
 
     drflac_zero_memory(pFlac, sizeof(*pFlac));
     pFlac->bs               = pInit->bs;
@@ -4410,7 +4414,7 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
 
 static dr_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
+    drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
     return fseek((FILE*)pUserData, offset, (origin == drflac_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
@@ -4441,7 +4445,7 @@ static void drflac__close_file_handle(drflac_file file)
 
 static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
-    assert(bytesToRead < 0xFFFFFFFF);   // dr_flac will never request huge amounts of data at a time. This is a safe assertion.
+    drflac_assert(bytesToRead < 0xFFFFFFFF);   // dr_flac will never request huge amounts of data at a time. This is a safe assertion.
 
     DWORD bytesRead;
     ReadFile((HANDLE)pUserData, bufferOut, (DWORD)bytesToRead, &bytesRead, NULL);
@@ -4451,7 +4455,7 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
 
 static dr_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
+    drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
     return SetFilePointer((HANDLE)pUserData, offset, NULL, (origin == drflac_seek_origin_current) ? FILE_CURRENT : FILE_BEGIN) != INVALID_SET_FILE_POINTER;
 }
@@ -4509,8 +4513,8 @@ drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc on
 static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
     drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
-    assert(memoryStream != NULL);
-    assert(memoryStream->dataSize >= memoryStream->currentReadPos);
+    drflac_assert(memoryStream != NULL);
+    drflac_assert(memoryStream->dataSize >= memoryStream->currentReadPos);
 
     size_t bytesRemaining = memoryStream->dataSize - memoryStream->currentReadPos;
     if (bytesToRead > bytesRemaining) {
@@ -4528,8 +4532,8 @@ static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t by
 static dr_bool32 drflac__on_seek_memory(void* pUserData, int offset, drflac_seek_origin origin)
 {
     drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
-    assert(memoryStream != NULL);
-    assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
+    drflac_assert(memoryStream != NULL);
+    drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
 
     if (origin == drflac_seek_origin_current) {
         if (memoryStream->currentReadPos + offset <= memoryStream->dataSize) {
@@ -4642,7 +4646,7 @@ void drflac_close(drflac* pFlac)
 #ifndef DR_FLAC_NO_OGG
     // Need to clean up Ogg streams a bit differently due to the way the bit streaming is chained.
     if (pFlac->container == drflac_container_ogg) {
-        assert(pFlac->bs.onRead == drflac__on_read_ogg);
+        drflac_assert(pFlac->bs.onRead == drflac__on_read_ogg);
         drflac_oggbs* oggbs = (drflac_oggbs*)pFlac->_oggbs;
         if (oggbs->onRead == drflac__on_read_stdio) {
             drflac__close_file_handle((drflac_file)oggbs->pUserData);
@@ -4659,8 +4663,8 @@ dr_uint64 drflac__read_s32__misaligned(drflac* pFlac, dr_uint64 samplesToRead, d
     unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
 
     // We should never be calling this when the number of samples to read is >= the sample count.
-    assert(samplesToRead < channelCount);
-    assert(pFlac->currentFrame.samplesRemaining > 0 && samplesToRead <= pFlac->currentFrame.samplesRemaining);
+    drflac_assert(samplesToRead < channelCount);
+    drflac_assert(pFlac->currentFrame.samplesRemaining > 0 && samplesToRead <= pFlac->currentFrame.samplesRemaining);
 
 
     dr_uint64 samplesRead = 0;
@@ -4994,7 +4998,7 @@ dr_bool32 drflac_seek_to_sample(drflac* pFlac, dr_uint64 sampleIndex)
 #define DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(extension, type) \
 static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigned int* channelsOut, unsigned int* sampleRateOut, dr_uint64* totalSampleCountOut)    \
 {                                                                                                                                                                   \
-    assert(pFlac != NULL);                                                                                                                                          \
+    drflac_assert(pFlac != NULL);                                                                                                                                          \
                                                                                                                                                                     \
     type* pSampleData = NULL;                                                                                                                                       \
     dr_uint64 totalSampleCount = pFlac->totalSampleCount;                                                                                                           \
