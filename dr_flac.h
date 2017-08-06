@@ -4960,6 +4960,12 @@ dr_bool32 drflac_seek_to_sample(drflac* pFlac, dr_uint64 sampleIndex)
         return DR_FALSE;
     }
 
+    // If we don't know where the first frame begins then we can't seek. This will happen when the STREAMINFO block was not present
+    // when the decoder was opened.
+    if (pFlac->firstFramePos == 0) {
+        return DR_FALSE;
+    }
+
     if (sampleIndex == 0) {
         return drflac__seek_to_first_frame(pFlac);
     }
