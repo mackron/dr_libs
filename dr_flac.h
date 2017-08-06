@@ -1504,6 +1504,7 @@ static dr_bool32 drflac__read_uint16(drflac_bs* bs, unsigned int bitCount, dr_ui
     return DR_TRUE;
 }
 
+#if 0
 static dr_bool32 drflac__read_int16(drflac_bs* bs, unsigned int bitCount, dr_int16* pResult)
 {
     drflac_assert(bs != NULL);
@@ -1519,6 +1520,7 @@ static dr_bool32 drflac__read_int16(drflac_bs* bs, unsigned int bitCount, dr_int
     *pResult = (dr_int16)result;
     return DR_TRUE;
 }
+#endif
 
 static dr_bool32 drflac__read_uint8(drflac_bs* bs, unsigned int bitCount, dr_uint8* pResult)
 {
@@ -2101,6 +2103,7 @@ static DRFLAC_INLINE dr_int32 drflac__calculate_prediction_64(dr_uint32 order, d
     return (dr_int32)(prediction >> shift);
 }
 
+#if 0
 // Reference implementation for reading and decoding samples with residual. This is intentionally left unoptimized for the
 // sake of readability and should only be used as a reference.
 static dr_bool32 drflac__decode_samples_with_residual__rice__reference(drflac_bs* bs, dr_uint32 bitsPerSample, dr_uint32 count, dr_uint8 riceParam, dr_uint32 order, dr_int32 shift, const dr_int32* coefficients, dr_int32* pSamplesOut)
@@ -2150,6 +2153,7 @@ static dr_bool32 drflac__decode_samples_with_residual__rice__reference(drflac_bs
 
     return DR_TRUE;
 }
+#endif
 
 #if 0
 static dr_bool32 drflac__read_rice_parts__reference(drflac_bs* bs, dr_uint8 riceParam, dr_uint32* pZeroCounterOut, dr_uint32* pRiceParamPartOut)
