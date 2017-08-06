@@ -1107,18 +1107,22 @@ static DRFLAC_INLINE dr_uint16 drflac_crc16_byte(dr_uint16 crc, dr_uint8 data)
     return (crc << 8) ^ drflac__crc16_table[(dr_uint8)(crc >> 8) ^ data];
 }
 
-static DRFLAC_INLINE dr_uint16 drflac_crc16_cache_t(dr_uint16 crc, drflac_cache_t data)
+static DRFLAC_INLINE dr_uint16 drflac_crc16_bytes(dr_uint16 crc, drflac_cache_t data, dr_uint32 byteCount)
 {
+    switch (byteCount)
+    {
 #ifdef DRFLAC_64BIT
-    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 56));
-    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 48));
-    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 40));
-    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 32));
+    case 8: crc = drflac_crc16_byte(crc, (dr_uint8)((data >> 56) & 0xFF));
+    case 7: crc = drflac_crc16_byte(crc, (dr_uint8)((data >> 48) & 0xFF));
+    case 6: crc = drflac_crc16_byte(crc, (dr_uint8)((data >> 40) & 0xFF));
+    case 5: crc = drflac_crc16_byte(crc, (dr_uint8)((data >> 32) & 0xFF));
 #endif
-    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 24));
-    crc = drflac_crc16_byte(crc, (dr_uint8)(data >> 16));
-    crc = drflac_crc16_byte(crc, (dr_uint8)(data >>  8));
-    crc = drflac_crc16_byte(crc, (dr_uint8)(data >>  0));
+    case 4: crc = drflac_crc16_byte(crc, (dr_uint8)((data >> 24) & 0xFF));
+    case 3: crc = drflac_crc16_byte(crc, (dr_uint8)((data >> 16) & 0xFF));
+    case 2: crc = drflac_crc16_byte(crc, (dr_uint8)((data >>  8) & 0xFF));
+    case 1: crc = drflac_crc16_byte(crc, (dr_uint8)((data >>  0) & 0xFF));
+    }
+
     return crc;
 }
 
@@ -1250,7 +1254,7 @@ static DRFLAC_INLINE void drflac__reset_crc16(drflac_bs* bs)
 
 static DRFLAC_INLINE void drflac__update_crc16(drflac_bs* bs)
 {
-    bs->crc16 = drflac_crc16(bs->crc16, bs->crc16Cache, DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs->crc16CacheIgnoredBytes*8);   // <-- TODO: drflac_crc16_bytes().
+    bs->crc16 = drflac_crc16_bytes(bs->crc16, bs->crc16Cache, DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bs->crc16CacheIgnoredBytes);
     bs->crc16CacheIgnoredBytes = 0;
 }
 
@@ -1265,7 +1269,7 @@ static DRFLAC_INLINE dr_uint16 drflac__flush_crc16(drflac_bs* bs)
         drflac__update_crc16(bs);
     } else {
         // We only accumulate the consumed bits.
-        bs->crc16 = drflac_crc16(bs->crc16, bs->crc16Cache >> DRFLAC_CACHE_L1_BITS_REMAINING(bs), bs->consumedBits - bs->crc16CacheIgnoredBytes*8);  // TODO: drflac_crc16_bytes().
+        bs->crc16 = drflac_crc16_bytes(bs->crc16, bs->crc16Cache >> DRFLAC_CACHE_L1_BITS_REMAINING(bs), (bs->consumedBits >> 3) - bs->crc16CacheIgnoredBytes);
 
         // The bits that we just accumulated should never be accumulated again. We need to keep track of how many bytes were accumulated
         // so we can handle that later.
