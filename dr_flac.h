@@ -556,8 +556,8 @@ drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, dr
 //
 // Close the decoder with drflac_close().
 //
-// This is slower than drflac_open(), so avoid this one if you don't need metadata. Internally, this will do a drflac_malloc()
-// and drflac_free() for every metadata block except for STREAMINFO and PADDING blocks.
+// This is slower than drflac_open(), so avoid this one if you don't need metadata. Internally, this will do a DRFLAC_MALLOC()
+// and DRFLAC_FREE() for every metadata block except for STREAMINFO and PADDING blocks.
 //
 // The caller is notified of the metadata via the onMeta callback. All metadata blocks will be handled before the function
 // returns.
@@ -675,7 +675,7 @@ drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drfl
 //// High Level APIs ////
 
 // Opens a FLAC stream from the given callbacks and fully decodes it in a single operation. The return value is a
-// pointer to the sample data as interleaved signed 32-bit PCM. The returned data must be freed with drflac_free().
+// pointer to the sample data as interleaved signed 32-bit PCM. The returned data must be freed with DRFLAC_FREE().
 //
 // Sometimes a FLAC file won't keep track of the total sample count. In this situation the function will continuously
 // read samples into a dynamically sized buffer on the heap until no samples are left.
@@ -859,15 +859,10 @@ typedef drflac_int32 drflac_result;
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
 
-#define drflac_align(x, a)           ((((x) + (a) - 1) / (a)) * (a))
-
-#define drflac_assert       DRFLAC_ASSERT
-#define drflac_malloc       DRFLAC_MALLOC
-#define drflac_realloc      DRFLAC_REALLOC
-//#define drflac_free         DRFLAC_FREE    // drflac_free() is implemented as a public function.
-#define drflac_copy_memory  DRFLAC_COPY_MEMORY
-#define drflac_zero_memory  DRFLAC_ZERO_MEMORY
-
+#define drflac_align(x, a)                              ((((x) + (a) - 1) / (a)) * (a))
+#define drflac_assert                                   DRFLAC_ASSERT
+#define drflac_copy_memory                              DRFLAC_COPY_MEMORY
+#define drflac_zero_memory                              DRFLAC_ZERO_MEMORY
 
 
 // CPU caps.
@@ -3339,13 +3334,13 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
             case DRFLAC_METADATA_BLOCK_TYPE_APPLICATION:
             {
                 if (pFlac->onMeta) {
-                    void* pRawData = drflac_malloc(blockSize);
+                    void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
                         return DRFLAC_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
-                        drflac_free(pRawData);
+                        DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
 
@@ -3356,7 +3351,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                     metadata.data.application.dataSize = blockSize - sizeof(drflac_uint32);
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
 
-                    drflac_free(pRawData);
+                    DRFLAC_FREE(pRawData);
                 }
             } break;
 
@@ -3366,13 +3361,13 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                 seektableSize = blockSize;
 
                 if (pFlac->onMeta) {
-                    void* pRawData = drflac_malloc(blockSize);
+                    void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
                         return DRFLAC_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
-                        drflac_free(pRawData);
+                        DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
 
@@ -3391,20 +3386,20 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
 
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
 
-                    drflac_free(pRawData);
+                    DRFLAC_FREE(pRawData);
                 }
             } break;
 
             case DRFLAC_METADATA_BLOCK_TYPE_VORBIS_COMMENT:
             {
                 if (pFlac->onMeta) {
-                    void* pRawData = drflac_malloc(blockSize);
+                    void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
                         return DRFLAC_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
-                        drflac_free(pRawData);
+                        DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
 
@@ -3418,20 +3413,20 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                     metadata.data.vorbis_comment.comments     = pRunningData;
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
 
-                    drflac_free(pRawData);
+                    DRFLAC_FREE(pRawData);
                 }
             } break;
 
             case DRFLAC_METADATA_BLOCK_TYPE_CUESHEET:
             {
                 if (pFlac->onMeta) {
-                    void* pRawData = drflac_malloc(blockSize);
+                    void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
                         return DRFLAC_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
-                        drflac_free(pRawData);
+                        DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
 
@@ -3446,20 +3441,20 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                     metadata.data.cuesheet.pTrackData        = (const drflac_uint8*)pRunningData;
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
 
-                    drflac_free(pRawData);
+                    DRFLAC_FREE(pRawData);
                 }
             } break;
 
             case DRFLAC_METADATA_BLOCK_TYPE_PICTURE:
             {
                 if (pFlac->onMeta) {
-                    void* pRawData = drflac_malloc(blockSize);
+                    void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
                         return DRFLAC_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
-                        drflac_free(pRawData);
+                        DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
 
@@ -3480,7 +3475,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                     metadata.data.picture.pPictureData      = (const drflac_uint8*)pRunningData;
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
 
-                    drflac_free(pRawData);
+                    DRFLAC_FREE(pRawData);
                 }
             } break;
 
@@ -3513,13 +3508,13 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                 // It's an unknown chunk, but not necessarily invalid. There's a chance more metadata blocks might be defined later on, so we
                 // can at the very least report the chunk to the application and let it look at the raw data.
                 if (pFlac->onMeta) {
-                    void* pRawData = drflac_malloc(blockSize);
+                    void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
                         return DRFLAC_FALSE;
                     }
 
                     if (pFlac->bs.onRead(pFlac->bs.pUserData, pRawData, blockSize) != blockSize) {
-                        drflac_free(pRawData);
+                        DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
 
@@ -3527,7 +3522,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                     metadata.rawDataSize = blockSize;
                     pFlac->onMeta(pFlac->pUserDataMD, &metadata);
 
-                    drflac_free(pRawData);
+                    DRFLAC_FREE(pRawData);
                 }
             } break;
         }
@@ -4341,7 +4336,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     }
 #endif
 
-    drflac* pFlac = (drflac*)drflac_malloc(allocationSize);
+    drflac* pFlac = (drflac*)DRFLAC_MALLOC(allocationSize);
     drflac__init_from_info(pFlac, &init);
     pFlac->pDecodedSamples = (drflac_int32*)drflac_align((size_t)pFlac->pExtraData, DRFLAC_MAX_SIMD_VECTOR_SIZE);
 
@@ -4368,7 +4363,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     // Decode metadata before returning.
     if (init.hasMetadataBlocks) {
         if (!drflac__read_and_decode_metadata(pFlac)) {
-            drflac_free(pFlac);
+            DRFLAC_FREE(pFlac);
             return NULL;
         }
     }
@@ -4385,12 +4380,12 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
             } else {
                 if (result == DRFLAC_CRC_MISMATCH) {
                     if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
-                        drflac_free(pFlac);
+                        DRFLAC_FREE(pFlac);
                         return NULL;
                     }
                     continue;
                 } else {
-                    drflac_free(pFlac);
+                    DRFLAC_FREE(pFlac);
                     return NULL;
                 }
             }
@@ -4656,7 +4651,7 @@ void drflac_close(drflac* pFlac)
 #endif
 #endif
 
-    drflac_free(pFlac);
+    DRFLAC_FREE(pFlac);
 }
 
 drflac_uint64 drflac__read_s32__misaligned(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* bufferOut)
@@ -5014,7 +5009,7 @@ static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigne
         type buffer[4096];                                                                                                                                          \
                                                                                                                                                                     \
         size_t sampleDataBufferSize = sizeof(buffer);                                                                                                               \
-        pSampleData = (type*)drflac_malloc(sampleDataBufferSize);                                                                                                   \
+        pSampleData = (type*)DRFLAC_MALLOC(sampleDataBufferSize);                                                                                                   \
         if (pSampleData == NULL) {                                                                                                                                  \
             goto on_error;                                                                                                                                          \
         }                                                                                                                                                           \
@@ -5023,9 +5018,9 @@ static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigne
         while ((samplesRead = (drflac_uint64)drflac_read_##extension(pFlac, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0) {                                       \
             if (((totalSampleCount + samplesRead) * sizeof(type)) > sampleDataBufferSize) {                                                                         \
                 sampleDataBufferSize *= 2;                                                                                                                          \
-                type* pNewSampleData = (type*)drflac_realloc(pSampleData, sampleDataBufferSize);                                                                    \
+                type* pNewSampleData = (type*)DRFLAC_REALLOC(pSampleData, sampleDataBufferSize);                                                                    \
                 if (pNewSampleData == NULL) {                                                                                                                       \
-                    drflac_free(pSampleData);                                                                                                                       \
+                    DRFLAC_FREE(pSampleData);                                                                                                                       \
                     goto on_error;                                                                                                                                  \
                 }                                                                                                                                                   \
                                                                                                                                                                     \
@@ -5045,7 +5040,7 @@ static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigne
             goto on_error;  /* The decoded data is too big. */                                                                                                      \
         }                                                                                                                                                           \
                                                                                                                                                                     \
-        pSampleData = (type*)drflac_malloc((size_t)dataSize);    /* <-- Safe cast as per the check above. */                                                        \
+        pSampleData = (type*)DRFLAC_MALLOC((size_t)dataSize);    /* <-- Safe cast as per the check above. */                                                        \
         if (pSampleData == NULL) {                                                                                                                                  \
             goto on_error;                                                                                                                                          \
         }                                                                                                                                                           \
