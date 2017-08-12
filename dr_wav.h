@@ -240,7 +240,7 @@ typedef struct
     drwav_uint64 bytesRemaining;
 
 
-    // A hack to avoid a malloc() when opening a decoder with drwav_open_memory().
+    // A hack to avoid a DRWAV_MALLOC() when opening a decoder with drwav_open_memory().
     drwav__memory_stream memoryStream;
 } drwav;
 
@@ -258,7 +258,7 @@ void drwav_uninit(drwav* pWav);
 //
 // Returns null on error. Close the loader with drwav_close().
 //
-// This is different from drwav_init() in that it will allocate the drwav object for you via malloc() before
+// This is different from drwav_init() in that it will allocate the drwav object for you via DRWAV_MALLOC() before
 // initializing it.
 drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
@@ -439,10 +439,47 @@ void drwav_free(void* pDataReturnedByOpenAndRead);
 #include <stdlib.h>
 #include <string.h> // For memcpy()
 #include <limits.h>
-#include <assert.h>
 
 #ifndef DR_WAV_NO_STDIO
 #include <stdio.h>
+#endif
+
+// Standard library stuff.
+#ifndef DRWAV_ASSERT
+#include <assert.h>
+#define DRWAV_ASSERT(expression)           assert(expression)
+#endif
+#ifndef DRWAV_MALLOC
+#define DRWAV_MALLOC(sz)                   malloc((sz))
+#endif
+#ifndef DRWAV_REALLOC
+#define DRWAV_REALLOC(p, sz)               realloc((p), (sz))
+#endif
+#ifndef DRWAV_FREE
+#define DRWAV_FREE(p)                      free((p))
+#endif
+#ifndef DRWAV_COPY_MEMORY
+#define DRWAV_COPY_MEMORY(dst, src, sz)    memcpy((dst), (src), (sz))
+#endif
+#ifndef DRWAV_ZERO_MEMORY
+#define DRWAV_ZERO_MEMORY(p, sz)           memset((p), 0, (sz))
+#endif
+
+#define drwav_align(x, a)                  ((((x) + (a) - 1) / (a)) * (a))
+#define drwav_assert                       DRFLAC_ASSERT
+#define drwav_copy_memory                  DRFLAC_COPY_MEMORY
+#define drwav_zero_memory                  DRFLAC_ZERO_MEMORY
+
+#define DRWAV_MAX_SIMD_VECTOR_SIZE         64  // 64 for AVX-512 in the future.
+
+#ifdef _MSC_VER
+#define DRWAV_INLINE __forceinline
+#else
+#ifdef __GNUC__
+#define DRWAV_INLINE inline __attribute__((always_inline))
+#else
+#define DRWAV_INLINE inline
+#endif
 #endif
 
 static const drwav_uint8 drwavGUID_W64_RIFF[16] = {0x72,0x69,0x66,0x66, 0x2E,0x91, 0xCF,0x11, 0xA5,0xD6, 0x28,0xDB,0x04,0xC1,0x00,0x00};    // 66666972-912E-11CF-A5D6-28DB04C10000
@@ -743,7 +780,7 @@ static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t by
     }
 
     if (bytesToRead > 0) {
-        memcpy(pBufferOut, memory->data + memory->currentReadPos, bytesToRead);
+        DRWAV_COPY_MEMORY(pBufferOut, memory->data + memory->currentReadPos, bytesToRead);
         memory->currentReadPos += bytesToRead;
     }
 
@@ -966,13 +1003,13 @@ void drwav_uninit(drwav* pWav)
 
 drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
 {
-    drwav* pWav = (drwav*)malloc(sizeof(*pWav));
+    drwav* pWav = (drwav*)DRWAV_MALLOC(sizeof(*pWav));
     if (pWav == NULL) {
         return NULL;
     }
 
     if (!drwav_init(pWav, onRead, onSeek, pUserData)) {
-        free(pWav);
+        DRWAV_FREE(pWav);
         return NULL;
     }
 
@@ -982,7 +1019,7 @@ drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserDat
 void drwav_close(drwav* pWav)
 {
     drwav_uninit(pWav);
-    free(pWav);
+    DRWAV_FREE(pWav);
 }
 
 
@@ -1646,7 +1683,7 @@ drwav_int16* drwav__read_and_close_s16(drwav* pWav, unsigned int* channels, unsi
         return NULL;    // File's too big.
     }
 
-    drwav_int16* pSampleData = (drwav_int16*)malloc((size_t)sampleDataSize);    // <-- Safe cast due to the check above.
+    drwav_int16* pSampleData = (drwav_int16*)DRWAV_MALLOC((size_t)sampleDataSize);    // <-- Safe cast due to the check above.
     if (pSampleData == NULL) {
         drwav_uninit(pWav);
         return NULL;    // Failed to allocate memory.
@@ -1654,7 +1691,7 @@ drwav_int16* drwav__read_and_close_s16(drwav* pWav, unsigned int* channels, unsi
 
     drwav_uint64 samplesRead = drwav_read_s16(pWav, (size_t)pWav->totalSampleCount, pSampleData);
     if (samplesRead != pWav->totalSampleCount) {
-        free(pSampleData);
+        DRWAV_FREE(pSampleData);
         drwav_uninit(pWav);
         return NULL;    // There was an error reading the samples.
     }
@@ -1677,7 +1714,7 @@ float* drwav__read_and_close_f32(drwav* pWav, unsigned int* channels, unsigned i
         return NULL;    // File's too big.
     }
 
-    float* pSampleData = (float*)malloc((size_t)sampleDataSize);    // <-- Safe cast due to the check above.
+    float* pSampleData = (float*)DRWAV_MALLOC((size_t)sampleDataSize);    // <-- Safe cast due to the check above.
     if (pSampleData == NULL) {
         drwav_uninit(pWav);
         return NULL;    // Failed to allocate memory.
@@ -1685,7 +1722,7 @@ float* drwav__read_and_close_f32(drwav* pWav, unsigned int* channels, unsigned i
 
     drwav_uint64 samplesRead = drwav_read_f32(pWav, (size_t)pWav->totalSampleCount, pSampleData);
     if (samplesRead != pWav->totalSampleCount) {
-        free(pSampleData);
+        DRWAV_FREE(pSampleData);
         drwav_uninit(pWav);
         return NULL;    // There was an error reading the samples.
     }
@@ -1708,7 +1745,7 @@ drwav_int32* drwav__read_and_close_s32(drwav* pWav, unsigned int* channels, unsi
         return NULL;    // File's too big.
     }
 
-    drwav_int32* pSampleData = (drwav_int32*)malloc((size_t)sampleDataSize);    // <-- Safe cast due to the check above.
+    drwav_int32* pSampleData = (drwav_int32*)DRWAV_MALLOC((size_t)sampleDataSize);    // <-- Safe cast due to the check above.
     if (pSampleData == NULL) {
         drwav_uninit(pWav);
         return NULL;    // Failed to allocate memory.
@@ -1716,7 +1753,7 @@ drwav_int32* drwav__read_and_close_s32(drwav* pWav, unsigned int* channels, unsi
 
     drwav_uint64 samplesRead = drwav_read_s32(pWav, (size_t)pWav->totalSampleCount, pSampleData);
     if (samplesRead != pWav->totalSampleCount) {
-        free(pSampleData);
+        DRWAV_FREE(pSampleData);
         drwav_uninit(pWav);
         return NULL;    // There was an error reading the samples.
     }
@@ -1862,7 +1899,7 @@ drwav_int32* drwav_open_and_read_memory_s32(const void* data, size_t dataSize, u
 
 void drwav_free(void* pDataReturnedByOpenAndRead)
 {
-    free(pDataReturnedByOpenAndRead);
+    DRWAV_FREE(pDataReturnedByOpenAndRead);
 }
 
 #endif  //DR_WAV_IMPLEMENTATION
@@ -1872,6 +1909,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //
 // v0.6 - 2017-TBD
 //   - API CHANGE: Rename drwav_* types to drwav_*.
+//   - Add support for custom implementations of malloc(), realloc(), etc.
 //
 // v0.5g - 2017-07-16
 //   - Change underlying type for booleans to unsigned.
