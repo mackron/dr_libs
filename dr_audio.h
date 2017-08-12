@@ -47,7 +47,7 @@
 //       return -1;
 //   }
 //
-//   dra_voice_play(pVoice, DR_FALSE);
+//   dra_voice_play(pVoice, DRWAV_FALSE);
 //
 //   ...
 //
@@ -194,8 +194,8 @@ typedef uint64_t         dr_uint64;
 #endif
 typedef dr_int8          dr_bool8;
 typedef dr_int32         dr_bool32;
-#define DR_TRUE          1
-#define DR_FALSE         0
+#define DRWAV_TRUE          1
+#define DRWAV_FALSE         0
 #endif
 
 #ifndef DR_AUDIO_MAX_CHANNEL_COUNT
@@ -324,8 +324,8 @@ struct dra_device
     // signal to terminate.
     dr_bool32 isClosed;
 
-    // Whether or not the device is currently playing. When at least one voice is playing, this will be DR_TRUE. When there
-    // are no voices playing, this will be set to DR_FALSE and the background thread will sit dormant until another voice
+    // Whether or not the device is currently playing. When at least one voice is playing, this will be DRWAV_TRUE. When there
+    // are no voices playing, this will be set to DRWAV_FALSE and the background thread will sit dormant until another voice
     // starts playing or the device is closed.
     dr_bool32 isPlaying;
 
@@ -817,7 +817,7 @@ struct dra_sound_world
     // The playback device.
     dra_device* pPlaybackDevice;
 
-    // Whether or not the world owns the playback device. When this is set to DR_TRUE, it will be deleted when the world is deleted.
+    // Whether or not the world owns the playback device. When this is set to DRWAV_TRUE, it will be deleted when the world is deleted.
     dr_bool32 ownsPlaybackDevice;
 };
 
@@ -1204,11 +1204,11 @@ static BOOL CALLBACK dra_dsound__get_device_guid_by_id__callback(LPGUID lpGuid, 
 
     if (pData->counter == pData->deviceID) {
         pData->pGuid = lpGuid;
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     pData->counter += 1;
-    return DR_TRUE;
+    return DRWAV_TRUE;
 }
 
 const GUID* dra_dsound__get_playback_device_guid_by_id(dra_backend* pBackend, unsigned int deviceID)
@@ -1739,11 +1739,11 @@ void dra_backend_device_stop(dra_backend_device* pDevice)
     SetEvent(pDeviceDS->hStopEvent);
 }
 
-dr_bool32 dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns DR_TRUE if the function has returned because it needs more data; DR_FALSE if the device has been stopped or an error has occured.
+dr_bool32 dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns DRWAV_TRUE if the function has returned because it needs more data; DRWAV_FALSE if the device has been stopped or an error has occured.
 {
     dra_backend_device_dsound* pDeviceDS = (dra_backend_device_dsound*)pDevice;
     if (pDeviceDS == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     unsigned int eventCount = DR_AUDIO_DEFAULT_FRAGMENT_COUNT + 1;
@@ -1757,17 +1757,17 @@ dr_bool32 dra_backend_device_wait(dra_backend_device* pDevice)   // <-- Returns 
         unsigned int eventIndex = rc - WAIT_OBJECT_0;
         HANDLE hEvent = eventHandles[eventIndex];
 
-        // Has the device been stopped? If so, need to return DR_FALSE.
+        // Has the device been stopped? If so, need to return DRWAV_FALSE.
         if (hEvent == pDeviceDS->hStopEvent) {
-            return DR_FALSE;
+            return DRWAV_FALSE;
         }
 
         // If we get here it means the event that's been signaled represents a fragment.
         pDeviceDS->currentFragmentIndex = eventIndex;
-        return DR_TRUE;
+        return DRWAV_TRUE;
     }
 
-    return DR_FALSE;
+    return DRWAV_FALSE;
 }
 
 void* dra_backend_device_map_next_fragment(dra_backend_device* pDevice, size_t* pSamplesInFragmentOut)
@@ -2403,7 +2403,7 @@ dr_bool32 dra_backend_device_wait(dra_backend_device* pDevice)
         }
 
         if (result == -EPIPE) {
-            // xrun. Prepare the device again and just return DR_TRUE.
+            // xrun. Prepare the device again and just return DRWAV_TRUE.
             snd_pcm_prepare(pDeviceALSA->deviceALSA);
             return DR_TRUE;
         }
@@ -2415,7 +2415,7 @@ dr_bool32 dra_backend_device_wait(dra_backend_device* pDevice)
         }
 
         if (framesRead == -EPIPE) {
-            // xrun. Prepare the device again and just return DR_TRUE.
+            // xrun. Prepare the device again and just return DRWAV_TRUE.
             snd_pcm_prepare(pDeviceALSA->deviceALSA);
             return DR_TRUE;
         }
@@ -2515,7 +2515,7 @@ void dra_backend_delete(dra_backend* pBackend)
 #endif
 
     // Should never get here. If this assert is triggered it means you haven't plugged in the API in the list above.
-    assert(DR_FALSE);
+    assert(DRWAV_FALSE);
 }
 
 
@@ -2539,7 +2539,7 @@ dra_backend_device* dra_backend_device_open(dra_backend* pBackend, dra_device_ty
 
 
     // Should never get here. If this assert is triggered it means you haven't plugged in the API in the list above.
-    assert(DR_FALSE);
+    assert(DRWAV_FALSE);
     return NULL;
 }
 
@@ -2703,17 +2703,17 @@ void dra_event_queue__cancel_events_of_voice(dra__event_queue* pQueue, dra_voice
 dr_bool32 dra_event_queue__next_event(dra__event_queue* pQueue, dra__event* pEventOut)
 {
     if (pQueue == NULL || pEventOut == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
-    dr_bool32 result = DR_FALSE;
+    dr_bool32 result = DRWAV_FALSE;
     dra_mutex_lock(pQueue->lock);
     {
         if (pQueue->eventCount > 0) {
             *pEventOut = pQueue->pEvents[pQueue->firstEvent];
             pQueue->firstEvent = (pQueue->firstEvent + 1) % pQueue->eventBufferSize;
             pQueue->eventCount -= 1;
-            result = DR_TRUE;
+            result = DRWAV_TRUE;
         }
     }
     dra_mutex_unlock(pQueue->lock);
@@ -2770,7 +2770,7 @@ dr_bool32 dra_device__mix_next_fragment(dra_device* pDevice)
     void* pSampleData = dra_backend_device_map_next_fragment(pDevice->pBackendDevice, &samplesInFragment);
     if (pSampleData == NULL) {
         dra_backend_device_stop(pDevice->pBackendDevice);
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     size_t framesInFragment = samplesInFragment / pDevice->channels;
@@ -2785,11 +2785,11 @@ dr_bool32 dra_device__mix_next_fragment(dra_device* pDevice)
     dra_backend_device_unmap_next_fragment(pDevice->pBackendDevice);
 
     if (framesMixed == 0) {
-        pDevice->stopOnNextFragment = DR_TRUE;
+        pDevice->stopOnNextFragment = DRWAV_TRUE;
     }
 
     //printf("Mixed next fragment into %p\n", pSampleData);
-    return DR_TRUE;
+    return DRWAV_TRUE;
 }
 
 void dra_device__play(dra_device* pDevice)
@@ -2804,8 +2804,8 @@ void dra_device__play(dra_device* pDevice)
             assert(pDevice->pBackendDevice->type == dra_device_type_capture || pDevice->playingVoicesCount > 0);
 
             dra_device__post_event(pDevice, dra_thread_event_type_play);
-            pDevice->isPlaying = DR_TRUE;
-            pDevice->stopOnNextFragment = DR_FALSE;
+            pDevice->isPlaying = DRWAV_TRUE;
+            pDevice->stopOnNextFragment = DRWAV_FALSE;
         }
     }
     dra_device__unlock(pDevice);
@@ -2823,7 +2823,7 @@ void dra_device__stop(dra_device* pDevice)
             //assert(pDevice->playingVoicesCount == 0);
 
             dra_backend_device_stop(pDevice->pBackendDevice);
-            pDevice->isPlaying = DR_FALSE;
+            pDevice->isPlaying = DRWAV_FALSE;
         }
     }
     dra_device__unlock(pDevice);
@@ -2836,7 +2836,7 @@ void dra_device__voice_playback_count_inc(dra_device* pDevice)
     dra_device__lock(pDevice);
     {
         pDevice->playingVoicesCount += 1;
-        pDevice->stopOnNextFragment  = DR_FALSE;
+        pDevice->stopOnNextFragment  = DRWAV_FALSE;
     }
     dra_device__unlock(pDevice);
 }
@@ -2924,7 +2924,7 @@ dra_result dra_device_init_ex(dra_context* pContext, dra_device_type type, unsig
 {
     if (pDevice == NULL) return DRA_RESULT_INVALID_ARGS;
 
-    dr_bool32 ownsContext = DR_FALSE;
+    dr_bool32 ownsContext = DRWAV_FALSE;
     if (pContext == NULL) {
         pContext = (dra_context*)malloc(sizeof(*pContext));
         if (pContext == NULL) {
@@ -2936,7 +2936,7 @@ dra_result dra_device_init_ex(dra_context* pContext, dra_device_type type, unsig
             return result;
         }
 
-        ownsContext = DR_TRUE;
+        ownsContext = DRWAV_TRUE;
     }
 
     if (sampleRate == 0) sampleRate = DR_AUDIO_DEFAULT_SAMPLE_RATE;
@@ -3021,7 +3021,7 @@ void dra_device_uninit(dra_device* pDevice)
     // Mark the device as closed in order to prevent other threads from doing work after closing.
     dra_device__lock(pDevice);
     {
-        pDevice->isClosed = DR_TRUE;
+        pDevice->isClosed = DRWAV_TRUE;
     }
     dra_device__unlock(pDevice);
 
@@ -3497,7 +3497,7 @@ void dra_mixer_resume(dra_mixer* pMixer)
 
 dr_bool32 dra_mixer_is_paused(dra_mixer* pMixer)
 {
-    if (pMixer == NULL) return DR_FALSE;
+    if (pMixer == NULL) return DRWAV_FALSE;
     return (pMixer->flags & DRA_MIXER_FLAG_PAUSED) != 0;
 }
 
@@ -3529,8 +3529,8 @@ dra_result dra_voice_create(dra_device* pDevice, dra_format format, unsigned int
     pVoice->channels = channels;
     pVoice->sampleRate = sampleRate;
     pVoice->linearVolume = 1;
-    pVoice->isPlaying = DR_FALSE;
-    pVoice->isLooping = DR_FALSE;
+    pVoice->isPlaying = DRWAV_FALSE;
+    pVoice->isLooping = DRWAV_FALSE;
     pVoice->frameCount = sizeInBytes / (bytesPerSample * channels);
     pVoice->currentReadPos = 0;
     pVoice->sizeInBytes = sizeInBytes;
@@ -3597,7 +3597,7 @@ void dra_voice_play(dra_voice* pVoice, dr_bool32 loop)
         }
     }
 
-    pVoice->isPlaying = DR_TRUE;
+    pVoice->isPlaying = DRWAV_TRUE;
     pVoice->isLooping = loop;
 
     dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, &pVoice->playEvent);
@@ -3618,8 +3618,8 @@ void dra_voice_stop(dra_voice* pVoice)
 
     dra_device__voice_playback_count_dec(pVoice->pDevice);
 
-    pVoice->isPlaying = DR_FALSE;
-    pVoice->isLooping = DR_FALSE;
+    pVoice->isPlaying = DRWAV_FALSE;
+    pVoice->isLooping = DRWAV_FALSE;
 
     dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, &pVoice->stopEvent);
 }
@@ -3627,7 +3627,7 @@ void dra_voice_stop(dra_voice* pVoice)
 dr_bool32 dra_voice_is_playing(dra_voice* pVoice)
 {
     if (pVoice == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     return pVoice->isPlaying;
@@ -3636,7 +3636,7 @@ dr_bool32 dra_voice_is_playing(dra_voice* pVoice)
 dr_bool32 dra_voice_is_looping(dra_voice* pVoice)
 {
     if (pVoice == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     return pVoice->isLooping;
@@ -3849,7 +3849,7 @@ void dra_voice__unsignal_playback_events(dra_voice* pVoice)
     // This function will be called when the voice has looped back to the start. In this case the playback notification events need
     // to be marked as unsignaled so that they're able to be fired again.
     for (size_t i = 0; i < pVoice->playbackEventCount; ++i) {
-        pVoice->playbackEvents[i].hasBeenSignaled = DR_FALSE;
+        pVoice->playbackEvents[i].hasBeenSignaled = DRWAV_FALSE;
     }
 }
 
@@ -3994,7 +3994,7 @@ size_t dra_voice__next_frames(dra_voice* pVoice, size_t frameCount, float* pSamp
         dra__event* pEvent = &pVoice->playbackEvents[i];
         if (!pEvent->hasBeenSignaled && pEvent->sampleIndex*sampleRateFactor <= currentReadPosLocal) {
             dra_event_queue__schedule_event(&pVoice->pDevice->eventQueue, pEvent);  // <-- TODO: Check that this really needs to be scheduled. Can probably call it directly and avoid a mutex lock/unlock.
-            pEvent->hasBeenSignaled = DR_TRUE;
+            pEvent->hasBeenSignaled = DRWAV_TRUE;
         }
     }
 
@@ -4031,11 +4031,11 @@ void dra_voice_set_on_play(dra_voice* pVoice, dra_event_proc proc, void* pUserDa
 dr_bool32 dra_voice_add_playback_event(dra_voice* pVoice, dr_uint64 sampleIndex, dr_uint64 eventID, dra_event_proc proc, void* pUserData)
 {
     if (pVoice == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     if (pVoice->playbackEventCount >= DR_AUDIO_MAX_EVENT_COUNT) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     pVoice->playbackEvents[pVoice->playbackEventCount].id = eventID;
@@ -4045,7 +4045,7 @@ dr_bool32 dra_voice_add_playback_event(dra_voice* pVoice, dr_uint64 sampleIndex,
     pVoice->playbackEvents[pVoice->playbackEventCount].pVoice = pVoice;
 
     pVoice->playbackEventCount += 1;
-    return DR_TRUE;
+    return DRWAV_TRUE;
 }
 
 void dra_voice_remove_playback_event(dra_voice* pVoice, dr_uint64 eventID)
@@ -4192,7 +4192,7 @@ size_t dra_decoder_on_read__wav(void* pUserData, void* pDataOut, size_t bytesToR
 
     return pDecoder->onRead(pDecoder->pUserData, pDataOut, bytesToRead);
 }
-dr_bool32 dra_decoder_on_seek__wav(void* pUserData, int offset, drwav_seek_origin origin)
+drwav_bool32 dra_decoder_on_seek__wav(void* pUserData, int offset, drwav_seek_origin origin)
 {
     dra_decoder* pDecoder = (dra_decoder*)pUserData;
     assert(pDecoder != NULL);
@@ -4245,22 +4245,22 @@ dr_bool32 dra_decoder_open__wav(dra_decoder* pDecoder)
 {
     drwav* pWav = drwav_open(dra_decoder_on_read__wav, dra_decoder_on_seek__wav, pDecoder);
     if (pWav == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     dra_decoder_init__wav(pDecoder, pWav);
-    return DR_TRUE;
+    return DRWAV_TRUE;
 }
 
 dr_bool32 dra_decoder_open_memory__wav(dra_decoder* pDecoder, const void* pData, size_t dataSize)
 {
     drwav* pWav = drwav_open_memory(pData, dataSize);
     if (pWav == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     dra_decoder_init__wav(pDecoder, pWav);
-    return DR_TRUE;
+    return DRWAV_TRUE;
 }
 
 #ifdef DR_AUDIO_HAS_WAV_STDIO
@@ -4268,11 +4268,11 @@ dr_bool32 dra_decoder_open_file__wav(dra_decoder* pDecoder, const char* filePath
 {
     drwav* pWav = drwav_open_file(filePath);
     if (pWav == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     dra_decoder_init__wav(pDecoder, pWav);
-    return DR_TRUE;
+    return DRWAV_TRUE;
 }
 #endif
 #endif  //WAV
@@ -4525,7 +4525,7 @@ dr_bool32 dra_decoder__on_seek_memory(void* pUserData, int offset, dra_seek_orig
         }
     }
 
-    return DR_TRUE;
+    return DRWAV_TRUE;
 }
 
 dra_result dra_decoder_open_memory(dra_decoder* pDecoder, const void* pData, size_t dataSize)
@@ -4584,7 +4584,7 @@ dra_result dra_decoder_open_file(dra_decoder* pDecoder, const char* filePath)
     if (pDecoder == NULL) return DRA_RESULT_INVALID_ARGS;
     memset(pDecoder, 0, sizeof(*pDecoder));
 
-    if (filePath == NULL) return DR_FALSE;
+    if (filePath == NULL) return DRWAV_FALSE;
 
     // When opening a decoder from a file it's preferrable to use the backend's native file IO APIs if it has them.
 #if defined(DR_AUDIO_HAS_WAV) && defined(DR_AUDIO_HAS_WAV_STDIO)
@@ -4649,7 +4649,7 @@ dr_uint64 dra_decoder_read_f32(dra_decoder* pDecoder, dr_uint64 samplesToRead, f
 dr_bool32 dra_decoder_seek_to_sample(dra_decoder* pDecoder, dr_uint64 sample)
 {
     if (pDecoder == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     return pDecoder->onSeekSamples(pDecoder->pBackendDecoder, sample);
@@ -4818,7 +4818,7 @@ dra_sound_world* dra_sound_world_create(dra_device* pPlaybackDevice)
             return NULL;
         }
 
-        pWorld->ownsPlaybackDevice = DR_TRUE;
+        pWorld->ownsPlaybackDevice = DRWAV_TRUE;
     }
 
 
@@ -4874,7 +4874,7 @@ void dra_sound_world_play_inline(dra_sound_world* pWorld, dra_sound_desc* pDesc,
     }
 
     dra_voice_set_on_stop(pSound->pVoice, dra_sound_world__on_inline_sound_stop, pSound);
-    dra_sound_play(pSound, DR_FALSE);
+    dra_sound_play(pSound, DRWAV_FALSE);
 }
 
 void dra_sound_world_play_inline_3f(dra_sound_world* pWorld, dra_sound_desc* pDesc, dra_mixer* pMixer, float xPos, float yPos, float zPos)
@@ -4956,7 +4956,7 @@ dr_bool32 dra_sound__read_next_chunk(dra_sound* pSound, dr_uint64 outputSampleOf
 {
     assert(pSound != NULL);
     if (pSound->desc.onRead == NULL) {
-        return DR_FALSE;
+        return DRWAV_FALSE;
     }
 
     dr_uint64 chunkSizeInSamples = (pSound->pVoice->frameCount * pSound->pVoice->channels) / 2;
@@ -4965,11 +4965,11 @@ dr_bool32 dra_sound__read_next_chunk(dra_sound* pSound, dr_uint64 outputSampleOf
     dr_uint64 samplesRead = pSound->desc.onRead(pSound, chunkSizeInSamples, dra_voice_get_buffer_ptr_by_sample(pSound->pVoice, outputSampleOffset));
     if (samplesRead == 0 && !pSound->isLooping) {
         dra_voice_write_silence(pSound->pVoice, outputSampleOffset, chunkSizeInSamples);
-        return DR_FALSE;   // Ran out of samples in a non-looping buffer.
+        return DRWAV_FALSE;   // Ran out of samples in a non-looping buffer.
     }
 
     if (samplesRead == chunkSizeInSamples) {
-        return DR_TRUE;
+        return DRWAV_TRUE;
     }
 
     assert(samplesRead > 0);
@@ -4979,26 +4979,26 @@ dr_bool32 dra_sound__read_next_chunk(dra_sound* pSound, dr_uint64 outputSampleOf
     // to be zeroed out to create silence.
     if (!pSound->isLooping) {
         dra_voice_write_silence(pSound->pVoice, outputSampleOffset + samplesRead, chunkSizeInSamples - samplesRead);
-        return DR_TRUE;
+        return DRWAV_TRUE;
     }
 
     // At this point the sound will not be looping. We want to continuously loop back to the start and keep reading samples until the
     // chunk is filled.
     while (samplesRead < chunkSizeInSamples) {
         if (!pSound->desc.onSeek(pSound, 0)) {
-            return DR_FALSE;
+            return DRWAV_FALSE;
         }
 
         dr_uint64 samplesRemaining = chunkSizeInSamples - samplesRead;
         dr_uint64 samplesJustRead = pSound->desc.onRead(pSound, samplesRemaining, dra_voice_get_buffer_ptr_by_sample(pSound->pVoice, outputSampleOffset + samplesRead));
         if (samplesJustRead == 0) {
-            return DR_FALSE;
+            return DRWAV_FALSE;
         }
 
         samplesRead += samplesJustRead;
     }
 
-    return DR_TRUE;
+    return DRWAV_TRUE;
 }
 
 void dra_sound__on_read_next_chunk(dr_uint64 eventID, void* pUserData)
@@ -5007,7 +5007,7 @@ void dra_sound__on_read_next_chunk(dr_uint64 eventID, void* pUserData)
     assert(pSound != NULL);
 
     if (pSound->stopOnNextChunk) {
-        pSound->stopOnNextChunk = DR_FALSE;
+        pSound->stopOnNextChunk = DRWAV_FALSE;
         dra_sound_stop(pSound);
         return;
     }
@@ -5015,7 +5015,7 @@ void dra_sound__on_read_next_chunk(dr_uint64 eventID, void* pUserData)
     // The event ID is the index of the sample to write to.
     dr_uint64 sampleOffset = eventID;
     if (!dra_sound__read_next_chunk(pSound, sampleOffset)) {
-        pSound->stopOnNextChunk = DR_TRUE;
+        pSound->stopOnNextChunk = DRWAV_TRUE;
     }
 }
 
@@ -5026,7 +5026,7 @@ dra_sound* dra_sound_create(dra_sound_world* pWorld, dra_sound_desc* pDesc)
         return NULL;
     }
 
-    dr_bool32 isStreaming = DR_FALSE;
+    dr_bool32 isStreaming = DRWAV_FALSE;
     dra_result result = DRA_RESULT_SUCCESS;
 
     dra_sound* pSound = (dra_sound*)calloc(1, sizeof(*pSound));
@@ -5166,7 +5166,7 @@ void dra_sound_play(dra_sound* pSound, dr_bool32 loop)
 
     // The voice is always set to loop for streaming sounds.
     if (dra_sound__is_streaming(pSound)) {
-        dra_voice_play(pSound->pVoice, DR_TRUE);
+        dra_voice_play(pSound->pVoice, DRWAV_TRUE);
     } else {
         dra_voice_play(pSound->pVoice, loop);
     }
