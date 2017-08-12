@@ -1806,7 +1806,7 @@ static drflac_bool32 drflac__seek_to_byte(drflac_bs* bs, drflac_uint64 offsetFro
 }
 
 
-static drflac_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, drflac_uint64* pNumberOut, drflac_uint8* pCRCOut)
+static drflac_result drflac__read_utf8_coded_number(drflac_bs* bs, drflac_uint64* pNumberOut, drflac_uint8* pCRCOut)
 {
     drflac_assert(bs != NULL);
     drflac_assert(pNumberOut != NULL);
@@ -1816,14 +1816,14 @@ static drflac_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, drflac_uint64
     unsigned char utf8[7] = {0};
     if (!drflac__read_uint8(bs, 8, utf8)) {
         *pNumberOut = 0;
-        return DRFLAC_FALSE;
+        return DRFLAC_END_OF_STREAM;
     }
     crc = drflac_crc8(crc, utf8[0], 8);
 
     if ((utf8[0] & 0x80) == 0) {
         *pNumberOut = utf8[0];
         *pCRCOut = crc;
-        return DRFLAC_TRUE;
+        return DRFLAC_SUCCESS;
     }
 
     int byteCount = 1;
@@ -1841,7 +1841,7 @@ static drflac_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, drflac_uint64
         byteCount = 7;
     } else {
         *pNumberOut = 0;
-        return DRFLAC_FALSE;     // Bad UTF-8 encoding.
+        return DRFLAC_CRC_MISMATCH;     // Bad UTF-8 encoding.
     }
 
     // Read extra bytes.
@@ -1851,7 +1851,7 @@ static drflac_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, drflac_uint64
     for (int i = 1; i < byteCount; ++i) {
         if (!drflac__read_uint8(bs, 8, utf8 + i)) {
             *pNumberOut = 0;
-            return DRFLAC_FALSE;
+            return DRFLAC_END_OF_STREAM;
         }
         crc = drflac_crc8(crc, utf8[i], 8);
 
@@ -1860,7 +1860,7 @@ static drflac_bool32 drflac__read_utf8_coded_number(drflac_bs* bs, drflac_uint64
 
     *pNumberOut = result;
     *pCRCOut = crc;
-    return DRFLAC_TRUE;
+    return DRFLAC_SUCCESS;
 }
 
 
@@ -2645,15 +2645,25 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
         drflac_bool32 isVariableBlockSize = blockingStrategy == 1;
         if (isVariableBlockSize) {
             drflac_uint64 sampleNumber;
-            if (!drflac__read_utf8_coded_number(bs, &sampleNumber, &crc8)) {
-                return DRFLAC_FALSE;
+            drflac_result result = drflac__read_utf8_coded_number(bs, &sampleNumber, &crc8);
+            if (result != DRFLAC_SUCCESS) {
+                if (result == DRFLAC_END_OF_STREAM) {
+                    return DRFLAC_FALSE;
+                } else {
+                    continue;
+                }
             }
             header->frameNumber  = 0;
             header->sampleNumber = sampleNumber;
         } else {
             drflac_uint64 frameNumber = 0;
-            if (!drflac__read_utf8_coded_number(bs, &frameNumber, &crc8)) {
-                return DRFLAC_FALSE;
+            drflac_result result = drflac__read_utf8_coded_number(bs, &frameNumber, &crc8);
+            if (result != DRFLAC_SUCCESS) {
+                if (result == DRFLAC_END_OF_STREAM) {
+                    return DRFLAC_FALSE;
+                } else {
+                    continue;
+                }
             }
             header->frameNumber  = (drflac_uint32)frameNumber;   // <-- Safe cast.
             header->sampleNumber = 0;
@@ -2701,7 +2711,7 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
             crc8 = drflac_crc8(crc8, header->sampleRate, 16);
             header->sampleRate *= 10;
         } else {
-            return DRFLAC_FALSE;  // Invalid.
+            continue;  // Invalid. Assume an invalid block.
         }
 
 
@@ -3484,12 +3494,12 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                 if (pFlac->onMeta) {
                     metadata.data.padding.unused = 0;
 
-                    // Padding doesn't have anything meaningful in it, so just skip over it.
+                    // Padding doesn't have anything meaningful in it, so just skip over it, but make sure the caller is aware of it by firing the callback.
                     if (!pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
-                        return DRFLAC_FALSE;
+                        isLastBlock = DRFLAC_TRUE;  // An error occured while seeking. Attempt to recover by treating this as the last block which will in turn terminate the loop.
+                    } else {
+                        pFlac->onMeta(pFlac->pUserDataMD, &metadata);
                     }
-
-                    pFlac->onMeta(pFlac->pUserDataMD, &metadata);
                 }
             } break;
 
@@ -3498,7 +3508,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
                 // Invalid chunk. Just skip over this one.
                 if (pFlac->onMeta) {
                     if (!pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
-                        return DRFLAC_FALSE;
+                        isLastBlock = DRFLAC_TRUE;  // An error occured while seeking. Attempt to recover by treating this as the last block which will in turn terminate the loop.
                     }
                 }
             }
@@ -3528,9 +3538,9 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac* pFlac)
         }
 
         // If we're not handling metadata, just skip over the block. If we are, it will have been handled earlier in the switch statement above.
-        if (pFlac->onMeta == NULL) {
-            if (blockSize > 0 && !pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
-                return DRFLAC_FALSE;
+        if (pFlac->onMeta == NULL && blockSize > 0) {
+            if (!pFlac->bs.onSeek(pFlac->bs.pUserData, blockSize, drflac_seek_origin_current)) {
+                isLastBlock = DRFLAC_TRUE;
             }
         }
 
@@ -3617,6 +3627,13 @@ drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_
 #ifndef DR_FLAC_NO_OGG
 #define DRFLAC_OGG_MAX_PAGE_SIZE            65307
 #define DRFLAC_OGG_CAPTURE_PATTERN_CRC32    1605413199  // CRC-32 of "OggS".
+
+typedef enum
+{
+    drflac_ogg_recover_on_crc_mismatch,
+    drflac_ogg_fail_on_crc_mismatch
+} drflac_ogg_crc_mismatch_recovery;
+
 
 static drflac_uint32 drflac__crc32_table[] = {
     0x00000000L, 0x04C11DB7L, 0x09823B6EL, 0x0D4326D9L,
@@ -3887,7 +3904,7 @@ static drflac_bool32 drflac_oggbs__seek_physical(drflac_oggbs* oggbs, drflac_uin
     }
 }
 
-static drflac_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
+static drflac_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs, drflac_ogg_crc_mismatch_recovery recoveryMethod)
 {
     drflac_ogg_page_header header;
     for (;;) {
@@ -3897,7 +3914,6 @@ static drflac_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
             return DRFLAC_FALSE;
         }
         oggbs->currentBytePos += bytesRead;
-
 
         drflac_uint32 pageBodySize = drflac_ogg__get_page_body_size(&header);
         if (pageBodySize > DRFLAC_OGG_MAX_PAGE_SIZE) {
@@ -3914,7 +3930,7 @@ static drflac_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
 
 
         // We need to read the entire page and then do a CRC check on it. If there's a CRC mismatch we need to skip this page.
-        if (!drflac_oggbs__read_physical(oggbs, oggbs->pageData, pageBodySize)) {
+        if (drflac_oggbs__read_physical(oggbs, oggbs->pageData, pageBodySize) != pageBodySize) {
             return DRFLAC_FALSE;
         }
         oggbs->pageDataSize = pageBodySize;
@@ -3922,7 +3938,15 @@ static drflac_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs)
 #ifndef DR_FLAC_NO_CRC
         drflac_uint32 actualCRC32 = drflac_crc32_buffer(crc32, oggbs->pageData, oggbs->pageDataSize);
         if (actualCRC32 != header.checksum) {
-            continue;   // CRC mismatch. Skip this page.
+            if (recoveryMethod == drflac_ogg_recover_on_crc_mismatch) {
+                continue;   // CRC mismatch. Skip this page.
+            } else {
+                // Even though we are failing on a CRC mismatch, we still want our stream to be in a good state. Therefore we
+                // go to the next valid page to ensure we're in a good state, but return false to let the caller know that the
+                // seek did not fully complete.
+                drflac_oggbs__goto_next_page(oggbs, drflac_ogg_recover_on_crc_mismatch);
+                return DRFLAC_FALSE;
+            }
         }
 #endif
 
@@ -4036,7 +4060,7 @@ static size_t drflac__on_read_ogg(void* pUserData, void* bufferOut, size_t bytes
         }
 
         drflac_assert(bytesRemainingToRead > 0);
-        if (!drflac_oggbs__goto_next_page(oggbs)) {
+        if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_recover_on_crc_mismatch)) {
             break;  // Failed to go to the next page. Might have simply hit the end of the stream.
         }
     }
@@ -4056,7 +4080,7 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
             return DRFLAC_FALSE;
         }
 
-        if (!drflac_oggbs__goto_next_page(oggbs)) {
+        if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_fail_on_crc_mismatch)) {
             return DRFLAC_FALSE;
         }
 
@@ -4084,8 +4108,9 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
         }
 
         drflac_assert(bytesRemainingToSeek > 0);
-        if (!drflac_oggbs__goto_next_page(oggbs)) {
-            break;  // Failed to go to the next page. Might have simply hit the end of the stream.
+        if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_fail_on_crc_mismatch)) {
+            // Failed to go to the next page. We either hit the end of the stream or had a CRC mismatch.
+            return DRFLAC_FALSE;
         }
     }
 
@@ -4107,7 +4132,7 @@ drflac_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, drflac_uint64 sampleInde
     drflac_uint64 runningGranulePosition = 0;
     drflac_uint64 runningFrameBytePos = oggbs->currentBytePos;   // <-- Points to the OggS identifier.
     for (;;) {
-        if (!drflac_oggbs__goto_next_page(oggbs)) {
+        if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_recover_on_crc_mismatch)) {
             drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
             return DRFLAC_FALSE;   // Never did find that sample...
         }
@@ -4143,7 +4168,7 @@ drflac_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, drflac_uint64 sampleInde
     if (!drflac_oggbs__seek_physical(oggbs, runningFrameBytePos, drflac_seek_origin_start)) {
         return DRFLAC_FALSE;
     }
-    if (!drflac_oggbs__goto_next_page(oggbs)) {
+    if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_recover_on_crc_mismatch)) {
         return DRFLAC_FALSE;
     }
 
