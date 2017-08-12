@@ -4286,7 +4286,7 @@ size_t dra_decoder_on_read__flac(void* pUserData, void* pDataOut, size_t bytesTo
 
     return pDecoder->onRead(pDecoder->pUserData, pDataOut, bytesToRead);
 }
-dr_bool32 dra_decoder_on_seek__flac(void* pUserData, int offset, drflac_seek_origin origin)
+drflac_bool32 dra_decoder_on_seek__flac(void* pUserData, int offset, drflac_seek_origin origin)
 {
     dra_decoder* pDecoder = (dra_decoder*)pUserData;
     assert(pDecoder != NULL);
