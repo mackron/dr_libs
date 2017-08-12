@@ -111,6 +111,8 @@
 // - Rice codes in unencoded binary form (see https://xiph.org/flac/format.html#rice_partition) has not been tested. If anybody
 //   knows where I can find some test files for this, let me know.
 // - dr_flac is not thread-safe, but it's APIs can be called from any thread so long as you do your own synchronization.
+// - When using Ogg encapsulation, a corrupted metadata block will result in drflac_open_with_metadata() and drflac_open()
+//   returning inconsistent samples.
 
 #ifndef dr_flac_h
 #define dr_flac_h
@@ -565,12 +567,18 @@ drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, dr
 // The STREAMINFO block must be present for this to succeed. Use drflac_open_with_metadata_relaxed() to open a FLAC
 // stream where the header may not be present.
 //
+// Note that this will behave inconsistently with drflac_open() if the stream is an Ogg encapsulated stream and a metadata
+// block is corrupted. This is due to the way the Ogg stream recovers from corrupted pages. When drflac_open_with_metadata()
+// is being used, the open routine will try to read the contents of the metadata block, whereas drflac_open() will simply
+// seek past it (for the sake of efficiency). This inconsistency can result in different samples being returned depending on
+// whether or not the stream is being opened with metadata.
+//
 // See also: drflac_open_file_with_metadata(), drflac_open_memory_with_metadata(), drflac_open(), drflac_close()
 drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData);
 
 // The same as drflac_open_with_metadata(), except attemps to open the stream even when a header block is not present.
 //
-// See also: drflac_open_relaxed()
+// See also: drflac_open_with_metadata(), drflac_open_relaxed()
 drflac* drflac_open_with_metadata_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData);
 
 // Closes the given FLAC decoder.
@@ -604,7 +612,7 @@ drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac
 // pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
 // seeked.
 //
-// Note that this is lossey.
+// Note that this is lossey for streams where the bits per sample is larger than 16.
 drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);
 
 // Same as drflac_read_s32(), except outputs samples as 32-bit floating-point PCM.
@@ -618,7 +626,8 @@ drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac
 // pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
 // seeked.
 //
-// Note that this is lossey.
+// Note that this should be considered lossey due to the nature of floating point numbers not being able to exactly
+// represent every possible number.
 drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut);
 
 // Seeks to the sample at the given index.
