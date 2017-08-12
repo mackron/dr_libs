@@ -808,8 +808,10 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #define DRFLAC_HAS_LZCNT_INTRINSIC
 #elif (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))
 #define DRFLAC_HAS_LZCNT_INTRINSIC
-#elif (defined(__clang__) && (__has_builtin(__builtin_clzll) || __has_builtin(__builtin_clzl)))
-#define DRFLAC_HAS_LZCNT_INTRINSIC
+#elif defined(__clang__)
+    #if __has_builtin(__builtin_clzll) || __has_builtin(__builtin_clzl)
+    #define DRFLAC_HAS_LZCNT_INTRINSIC
+    #endif
 #endif
 
 
@@ -819,7 +821,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #define DRFLAC_ASSERT(expression)           assert(expression)
 #endif
 #ifndef DRFLAC_MALLOC
-#define DRFLAC_MALLOC(sz)                   malloc((sz));
+#define DRFLAC_MALLOC(sz)                   malloc((sz))
 #endif
 #ifndef DRFLAC_REALLOC
 #define DRFLAC_REALLOC(p, sz)               realloc((p), (sz))
@@ -906,7 +908,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__is_little_endian()
 
 static DRFLAC_INLINE drflac_uint16 drflac__swap_endian_uint16(drflac_uint16 n)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && _MSC_VER >= 1300
     return _byteswap_ushort(n);
 #elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
     return __builtin_bswap16(n);
@@ -918,7 +920,7 @@ static DRFLAC_INLINE drflac_uint16 drflac__swap_endian_uint16(drflac_uint16 n)
 
 static DRFLAC_INLINE drflac_uint32 drflac__swap_endian_uint32(drflac_uint32 n)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && _MSC_VER >= 1300
     return _byteswap_ulong(n);
 #elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
     return __builtin_bswap32(n);
@@ -932,19 +934,19 @@ static DRFLAC_INLINE drflac_uint32 drflac__swap_endian_uint32(drflac_uint32 n)
 
 static DRFLAC_INLINE drflac_uint64 drflac__swap_endian_uint64(drflac_uint64 n)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && _MSC_VER >= 1300
     return _byteswap_uint64(n);
 #elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
     return __builtin_bswap64(n);
 #else
-    return ((n & 0xFF00000000000000ULL) >> 56) |
-           ((n & 0x00FF000000000000ULL) >> 40) |
-           ((n & 0x0000FF0000000000ULL) >> 24) |
-           ((n & 0x000000FF00000000ULL) >>  8) |
-           ((n & 0x00000000FF000000ULL) <<  8) |
-           ((n & 0x0000000000FF0000ULL) << 24) |
-           ((n & 0x000000000000FF00ULL) << 40) |
-           ((n & 0x00000000000000FFULL) << 56);
+    return ((n & (drflac_uint64)0xFF00000000000000) >> 56) |
+           ((n & (drflac_uint64)0x00FF000000000000) >> 40) |
+           ((n & (drflac_uint64)0x0000FF0000000000) >> 24) |
+           ((n & (drflac_uint64)0x000000FF00000000) >>  8) |
+           ((n & (drflac_uint64)0x00000000FF000000) <<  8) |
+           ((n & (drflac_uint64)0x0000000000FF0000) << 24) |
+           ((n & (drflac_uint64)0x000000000000FF00) << 40) |
+           ((n & (drflac_uint64)0x00000000000000FF) << 56);
 #endif
 }
 
@@ -1196,14 +1198,14 @@ static DRFLAC_INLINE drflac_uint16 drflac_crc16__64bit(drflac_uint16 crc, drflac
 
     switch (wholeBytes) {
         default:
-        case 8: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & (0xFF00000000000000ULL << leftoverBits)) >> (56 + leftoverBits)));
-        case 7: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & (0x00FF000000000000ULL << leftoverBits)) >> (48 + leftoverBits)));
-        case 6: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & (0x0000FF0000000000ULL << leftoverBits)) >> (40 + leftoverBits)));
-        case 5: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & (0x000000FF00000000ULL << leftoverBits)) >> (32 + leftoverBits)));
-        case 4: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & (0x00000000FF000000ULL << leftoverBits)) >> (24 + leftoverBits)));
-        case 3: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & (0x0000000000FF0000ULL << leftoverBits)) >> (16 + leftoverBits)));
-        case 2: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & (0x000000000000FF00ULL << leftoverBits)) >> ( 8 + leftoverBits)));
-        case 1: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & (0x00000000000000FFULL << leftoverBits)) >> ( 0 + leftoverBits)));
+        case 8: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & ((drflac_uint64)0xFF00000000000000 << leftoverBits)) >> (56 + leftoverBits)));
+        case 7: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & ((drflac_uint64)0x00FF000000000000 << leftoverBits)) >> (48 + leftoverBits)));
+        case 6: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & ((drflac_uint64)0x0000FF0000000000 << leftoverBits)) >> (40 + leftoverBits)));
+        case 5: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & ((drflac_uint64)0x000000FF00000000 << leftoverBits)) >> (32 + leftoverBits)));
+        case 4: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & ((drflac_uint64)0x00000000FF000000 << leftoverBits)) >> (24 + leftoverBits)));
+        case 3: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & ((drflac_uint64)0x0000000000FF0000 << leftoverBits)) >> (16 + leftoverBits)));
+        case 2: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & ((drflac_uint64)0x000000000000FF00 << leftoverBits)) >> ( 8 + leftoverBits)));
+        case 1: crc = drflac_crc16_byte(crc, (drflac_uint8)((data & ((drflac_uint64)0x00000000000000FF << leftoverBits)) >> ( 0 + leftoverBits)));
         case 0: if (leftoverBits > 0) crc = (crc << leftoverBits) ^ drflac__crc16_table[(crc >> (16 - leftoverBits)) ^ (data & leftoverDataMask)];
     }
     return crc;
@@ -2546,8 +2548,10 @@ static drflac_bool32 drflac__decode_samples__fixed(drflac_bs* bs, drflac_uint32 
 
 static drflac_bool32 drflac__decode_samples__lpc(drflac_bs* bs, drflac_uint32 blockSize, drflac_uint32 bitsPerSample, drflac_uint8 lpcOrder, drflac_int32* pDecodedSamples)
 {
+    drflac_uint8 i;
+
     // Warm up samples.
-    for (drflac_uint8 i = 0; i < lpcOrder; ++i) {
+    for (i = 0; i < lpcOrder; ++i) {
         drflac_int32 sample;
         if (!drflac__read_int32(bs, bitsPerSample, &sample)) {
             return DRFLAC_FALSE;
@@ -2573,7 +2577,7 @@ static drflac_bool32 drflac__decode_samples__lpc(drflac_bs* bs, drflac_uint32 bl
 
 
     drflac_int32 coefficients[32];
-    for (drflac_uint8 i = 0; i < lpcOrder; ++i) {
+    for (i = 0; i < lpcOrder; ++i) {
         if (!drflac__read_int32(bs, lpcPrecision, coefficients + i)) {
             return DRFLAC_FALSE;
         }
@@ -3312,12 +3316,12 @@ drflac_bool32 drflac__read_streaminfo(drflac_read_proc onRead, void* pUserData, 
 
     pStreamInfo->minBlockSize     = (blockSizes & 0xFFFF0000) >> 16;
     pStreamInfo->maxBlockSize     = blockSizes & 0x0000FFFF;
-    pStreamInfo->minFrameSize     = (drflac_uint32)((frameSizes & 0xFFFFFF0000000000ULL) >> 40ULL);
-    pStreamInfo->maxFrameSize     = (drflac_uint32)((frameSizes & 0x000000FFFFFF0000ULL) >> 16ULL);
-    pStreamInfo->sampleRate       = (drflac_uint32)((importantProps & 0xFFFFF00000000000ULL) >> 44ULL);
-    pStreamInfo->channels         = (drflac_uint8 )((importantProps & 0x00000E0000000000ULL) >> 41ULL) + 1;
-    pStreamInfo->bitsPerSample    = (drflac_uint8 )((importantProps & 0x000001F000000000ULL) >> 36ULL) + 1;
-    pStreamInfo->totalSampleCount = (importantProps & 0x0000000FFFFFFFFFULL) * pStreamInfo->channels;
+    pStreamInfo->minFrameSize     = (drflac_uint32)((frameSizes     & (drflac_uint64)0xFFFFFF0000000000) >> 40);
+    pStreamInfo->maxFrameSize     = (drflac_uint32)((frameSizes     & (drflac_uint64)0x000000FFFFFF0000) >> 16);
+    pStreamInfo->sampleRate       = (drflac_uint32)((importantProps & (drflac_uint64)0xFFFFF00000000000) >> 44);
+    pStreamInfo->channels         = (drflac_uint8 )((importantProps & (drflac_uint64)0x00000E0000000000) >> 41) + 1;
+    pStreamInfo->bitsPerSample    = (drflac_uint8 )((importantProps & (drflac_uint64)0x000001F000000000) >> 36) + 1;
+    pStreamInfo->totalSampleCount = (importantProps & (drflac_uint64)0x0000000FFFFFFFFF) * pStreamInfo->channels;
     drflac_copy_memory(pStreamInfo->md5, md5, sizeof(md5));
 
     return DRFLAC_TRUE;
@@ -3793,7 +3797,8 @@ drflac_result drflac_ogg__read_page_header_after_capture_pattern(drflac_read_pro
     data[20] = 0;
     data[21] = 0;
 
-    for (drflac_uint32 i = 0; i < 23; ++i) {
+    drflac_uint32 i;
+    for (i = 0; i < 23; ++i) {
         *pCRC32 = drflac_crc32_byte(*pCRC32, data[i]);
     }
 
@@ -3803,7 +3808,7 @@ drflac_result drflac_ogg__read_page_header_after_capture_pattern(drflac_read_pro
     }
     *pBytesRead += pHeader->segmentCount;
 
-    for (drflac_uint32 i = 0; i < pHeader->segmentCount; ++i) {
+    for (i = 0; i < pHeader->segmentCount; ++i) {
         *pCRC32 = drflac_crc32_byte(*pCRC32, pHeader->segmentTable[i]);
     }
 
@@ -4616,6 +4621,11 @@ static void drflac__close_file_handle(drflac_file file)
 #else
 #include <windows.h>
 
+// This doesn't seem to be defined for VC6.
+#ifndef INVALID_SET_FILE_POINTER
+#define INVALID_SET_FILE_POINTER ((DWORD)-1)
+#endif
+
 static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
     drflac_assert(bytesToRead < 0xFFFFFFFF);   // dr_flac will never request huge amounts of data at a time. This is a safe assertion.
@@ -4844,7 +4854,7 @@ drflac_uint64 drflac__read_s32__misaligned(drflac* pFlac, drflac_uint64 samplesT
     while (samplesToRead > 0) {
         drflac_uint64 totalSamplesInFrame = pFlac->currentFrame.header.blockSize * channelCount;
         drflac_uint64 samplesReadFromFrameSoFar = totalSamplesInFrame - pFlac->currentFrame.samplesRemaining;
-        unsigned int channelIndex = samplesReadFromFrameSoFar % channelCount;
+        drflac_uint64 channelIndex = samplesReadFromFrameSoFar % channelCount;
 
         drflac_uint64 nextSampleInFrame = samplesReadFromFrameSoFar / channelCount;
 
@@ -4958,7 +4968,7 @@ drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac
             drflac_uint64 totalSamplesInFrame = pFlac->currentFrame.header.blockSize * channelCount;
             drflac_uint64 samplesReadFromFrameSoFar = totalSamplesInFrame - pFlac->currentFrame.samplesRemaining;
 
-            int misalignedSampleCount = samplesReadFromFrameSoFar % channelCount;
+            drflac_uint64 misalignedSampleCount = samplesReadFromFrameSoFar % channelCount;
             if (misalignedSampleCount > 0) {
                 drflac_uint64 misalignedSamplesRead = drflac__read_s32__misaligned(pFlac, misalignedSampleCount, bufferOut);
                 samplesRead   += misalignedSamplesRead;
@@ -5172,6 +5182,15 @@ drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex)
 
 
 //// High Level APIs ////
+
+// I couldn't figure out where SIZE_MAX was defined for VC6. If anybody knows, let me know.
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+#ifdef DRFLAC_64BIT
+#define SIZE_MAX    ((drflac_uint64)0xFFFFFFFFFFFFFFFF)
+#else
+#define SIZE_MAX    0xFFFFFFFF
+#endif
+#endif
 
 // Using a macro as the definition of the drflac__full_decode_and_close_*() API family. Sue me.
 #define DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(extension, type) \
