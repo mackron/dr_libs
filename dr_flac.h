@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.7 - 2017-07-23
+// dr_flac - v0.8 - 2017-08-12
 //
 // David Reid - mackron@gmail.com
 
@@ -55,7 +55,7 @@
 //
 //
 // You can read samples as signed 16-bit integer and 32-bit floating-point PCM with the *_s16() and *_f32() family of APIs
-// respectively, but note that this is lossy.
+// respectively, but note that these should be considered lossy.
 //
 //
 // If you need access to metadata (album art, etc.), use drflac_open_with_metadata(), drflac_open_file_with_metdata() or
@@ -612,7 +612,7 @@ drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac
 // pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
 // seeked.
 //
-// Note that this is lossey for streams where the bits per sample is larger than 16.
+// Note that this is lossy for streams where the bits per sample is larger than 16.
 drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);
 
 // Same as drflac_read_s32(), except outputs samples as 32-bit floating-point PCM.
@@ -626,7 +626,7 @@ drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac
 // pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
 // seeked.
 //
-// Note that this should be considered lossey due to the nature of floating point numbers not being able to exactly
+// Note that this should be considered lossy due to the nature of floating point numbers not being able to exactly
 // represent every possible number.
 drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut);
 
@@ -5433,10 +5433,13 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 // REVISION HISTORY
 //
-// v0.8 - 2017-08-XX
+// v0.8 - 2017-08-12
 //   - API CHANGE: Rename dr_* types to drflac_*.
 //   - Optimizations. This brings dr_flac back to about the same class of efficiency as the reference implementation.
 //   - Add support for custom implementations of malloc(), realloc(), etc.
+//   - Add CRC checking to Ogg encapsulated streams.
+//   - Fix VC++ 6 build. This is only for the C++ compiler. The C compiler is not currently supported.
+//   - Bug fixes.
 //
 // v0.7 - 2017-07-23
 //   - Add support for opening a stream without a header block. To do this, use drflac_open_relaxed() / drflac_open_with_metadata_relaxed().
