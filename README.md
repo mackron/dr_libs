@@ -25,5 +25,5 @@ own repositories just for ease of maintenance.
 ## [mini_al](https://github.com/dr-soft/mini_al)
 A public domain, single file library for audio playback and recording. This is replacing dr_audio.
 
-## [mintaro](https://github.com/dr-soft/mintaro)
+## [Mintaro](https://github.com/dr-soft/mintaro)
 A small framework for making simple games. Public domain, single file.
