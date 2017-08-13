@@ -1160,7 +1160,7 @@ drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample)
 
 
 #ifndef DR_WAV_NO_CONVERSION_API
-static unsigned short g_drwavAlawTable[256] = {
+static short g_drwavAlawTable[256] = {
     0xEA80, 0xEB80, 0xE880, 0xE980, 0xEE80, 0xEF80, 0xEC80, 0xED80, 0xE280, 0xE380, 0xE080, 0xE180, 0xE680, 0xE780, 0xE480, 0xE580, 
     0xF540, 0xF5C0, 0xF440, 0xF4C0, 0xF740, 0xF7C0, 0xF640, 0xF6C0, 0xF140, 0xF1C0, 0xF040, 0xF0C0, 0xF340, 0xF3C0, 0xF240, 0xF2C0, 
     0xAA00, 0xAE00, 0xA200, 0xA600, 0xBA00, 0xBE00, 0xB200, 0xB600, 0x8A00, 0x8E00, 0x8200, 0x8600, 0x9A00, 0x9E00, 0x9200, 0x9600, 
@@ -1179,7 +1179,7 @@ static unsigned short g_drwavAlawTable[256] = {
     0x02B0, 0x0290, 0x02F0, 0x02D0, 0x0230, 0x0210, 0x0270, 0x0250, 0x03B0, 0x0390, 0x03F0, 0x03D0, 0x0330, 0x0310, 0x0370, 0x0350
 };
 
-static unsigned short g_drwavMulawTable[256] = {
+static short g_drwavMulawTable[256] = {
     0x8284, 0x8684, 0x8A84, 0x8E84, 0x9284, 0x9684, 0x9A84, 0x9E84, 0xA284, 0xA684, 0xAA84, 0xAE84, 0xB284, 0xB684, 0xBA84, 0xBE84, 
     0xC184, 0xC384, 0xC584, 0xC784, 0xC984, 0xCB84, 0xCD84, 0xCF84, 0xD184, 0xD384, 0xD584, 0xD784, 0xD984, 0xDB84, 0xDD84, 0xDF84, 
     0xE104, 0xE204, 0xE304, 0xE404, 0xE504, 0xE604, 0xE704, 0xE804, 0xE904, 0xEA04, 0xEB04, 0xEC04, 0xED04, 0xEE04, 0xEF04, 0xF004, 
@@ -1205,6 +1205,7 @@ static void drwav__pcm_to_s16(drwav_int16* pOut, const unsigned char* pIn, size_
     // Special case for 8-bit sample data because it's treated as unsigned.
     if (bytesPerSample == 1) {
         drwav_u8_to_s16(pOut, pIn, totalSampleCount);
+        return;
     }
 
 
@@ -1213,12 +1214,15 @@ static void drwav__pcm_to_s16(drwav_int16* pOut, const unsigned char* pIn, size_
         for (unsigned int i = 0; i < totalSampleCount; ++i) {
            *pOut++ = ((drwav_int16*)pIn)[i];
         }
+        return;
     }
     if (bytesPerSample == 3) {
         drwav_s24_to_s16(pOut, pIn, totalSampleCount);
+        return;
     }
     if (bytesPerSample == 4) {
         drwav_s32_to_s16(pOut, (const drwav_int32*)pIn, totalSampleCount);
+        return;
     }
 
 
@@ -1240,8 +1244,10 @@ static void drwav__ieee_to_s16(drwav_int16* pOut, const unsigned char* pIn, size
 {
     if (bytesPerSample == 4) {
         drwav_f32_to_s16(pOut, (float*)pIn, totalSampleCount);
+        return;
     } else {
         drwav_f64_to_s16(pOut, (double*)pIn, totalSampleCount);
+        return;
     }
 }
 
@@ -1630,17 +1636,21 @@ static void drwav__pcm_to_f32(float* pOut, const unsigned char* pIn, size_t samp
     // Special case for 8-bit sample data because it's treated as unsigned.
     if (bytesPerSample == 1) {
         drwav_u8_to_f32(pOut, pIn, sampleCount);
+        return;
     }
 
     // Slightly more optimal implementation for common formats.
     if (bytesPerSample == 2) {
         drwav_s16_to_f32(pOut, (const drwav_int16*)pIn, sampleCount);
+        return;
     }
     if (bytesPerSample == 3) {
         drwav_s24_to_f32(pOut, pIn, sampleCount);
+        return;
     }
     if (bytesPerSample == 4) {
         drwav_s32_to_f32(pOut, (const drwav_int32*)pIn, sampleCount);
+        return;
     }
 
     // Generic, slow converter.
@@ -1663,8 +1673,10 @@ static void drwav__ieee_to_f32(float* pOut, const unsigned char* pIn, size_t sam
         for (unsigned int i = 0; i < sampleCount; ++i) {
             *pOut++ = ((float*)pIn)[i];
         }
+        return;
     } else {
         drwav_f64_to_f32(pOut, (double*)pIn, sampleCount);
+        return;
     }
 }
 
@@ -1899,19 +1911,23 @@ static void drwav__pcm_to_s32(drwav_int32* pOut, const unsigned char* pIn, size_
     // Special case for 8-bit sample data because it's treated as unsigned.
     if (bytesPerSample == 1) {
         drwav_u8_to_s32(pOut, pIn, totalSampleCount);
+        return;
     }
 
     // Slightly more optimal implementation for common formats.
     if (bytesPerSample == 2) {
         drwav_s16_to_s32(pOut, (const drwav_int16*)pIn, totalSampleCount);
+        return;
     }
     if (bytesPerSample == 3) {
         drwav_s24_to_s32(pOut, pIn, totalSampleCount);
+        return;
     }
     if (bytesPerSample == 4) {
         for (unsigned int i = 0; i < totalSampleCount; ++i) {
            *pOut++ = ((drwav_int32*)pIn)[i];
         }
+        return;
     }
 
     // Generic, slow converter.
@@ -1932,8 +1948,10 @@ static void drwav__ieee_to_s32(drwav_int32* pOut, const unsigned char* pIn, size
 {
     if (bytesPerSample == 4) {
         drwav_f32_to_s32(pOut, (float*)pIn, totalSampleCount);
+        return;
     } else {
         drwav_f64_to_s32(pOut, (double*)pIn, totalSampleCount);
+        return;
     }
 }
 
@@ -2403,6 +2421,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //   - Add support for custom implementations of malloc(), realloc(), etc.
 //   - Add support for MS-ADPCM.
 //   - Optimizations to drwav_read_s16().
+//   - Bug fixes.
 //
 // v0.5g - 2017-07-16
 //   - Change underlying type for booleans to unsigned.
