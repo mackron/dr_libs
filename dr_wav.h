@@ -833,8 +833,8 @@ drwav* drwav_open_file(const char* filename)
 static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t bytesToRead)
 {
     drwav__memory_stream* memory = (drwav__memory_stream*)pUserData;
-    assert(memory != NULL);
-    assert(memory->dataSize >= memory->currentReadPos);
+    drwav_assert(memory != NULL);
+    drwav_assert(memory->dataSize >= memory->currentReadPos);
 
     size_t bytesRemaining = memory->dataSize - memory->currentReadPos;
     if (bytesToRead > bytesRemaining) {
@@ -852,7 +852,7 @@ static size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, size_t by
 static drwav_bool32 drwav__on_seek_memory(void* pUserData, int offset, drwav_seek_origin origin)
 {
     drwav__memory_stream* memory = (drwav__memory_stream*)pUserData;
-    assert(memory != NULL);
+    drwav_assert(memory != NULL);
 
     if (origin == drwav_seek_origin_current) {
         if (offset > 0) {
@@ -2312,7 +2312,7 @@ void drwav_ulaw_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sampleC
 
 drwav_int16* drwav__read_and_close_s16(drwav* pWav, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
 {
-    assert(pWav != NULL);
+    drwav_assert(pWav != NULL);
 
     drwav_uint64 sampleDataSize = pWav->totalSampleCount * sizeof(drwav_int16);
     if (sampleDataSize > SIZE_MAX) {
@@ -2343,7 +2343,7 @@ drwav_int16* drwav__read_and_close_s16(drwav* pWav, unsigned int* channels, unsi
 
 float* drwav__read_and_close_f32(drwav* pWav, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
 {
-    assert(pWav != NULL);
+    drwav_assert(pWav != NULL);
 
     drwav_uint64 sampleDataSize = pWav->totalSampleCount * sizeof(float);
     if (sampleDataSize > SIZE_MAX) {
@@ -2374,7 +2374,7 @@ float* drwav__read_and_close_f32(drwav* pWav, unsigned int* channels, unsigned i
 
 drwav_int32* drwav__read_and_close_s32(drwav* pWav, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
 {
-    assert(pWav != NULL);
+    drwav_assert(pWav != NULL);
 
     drwav_uint64 sampleDataSize = pWav->totalSampleCount * sizeof(drwav_int32);
     if (sampleDataSize > SIZE_MAX) {
@@ -2545,7 +2545,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 // REVISION HISTORY
 //
 // v0.6 - 2017-TBD
-//   - API CHANGE: Rename drwav_* types to drwav_*.
+//   - API CHANGE: Rename dr_* types to drwav_*.
 //   - Add support for custom implementations of malloc(), realloc(), etc.
 //   - Add support for MS-ADPCM.
 //   - Optimizations to drwav_read_s16().
