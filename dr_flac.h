@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.8 - 2017-08-12
+// dr_flac - v0.8a - 2017-08-13
 //
 // David Reid - mackron@gmail.com
 
@@ -814,6 +814,16 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
     #endif
 #endif
 
+#if defined(_MSC_VER) && _MSC_VER >= 1300
+#define DRFLAC_HAS_BYTESWAP_INTRINSIC
+#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+#define DRFLAC_HAS_BYTESWAP_INTRINSIC
+#elif defined(__clang__)
+    #if __has_builtin(__builtin_bswap16) && __has_builtin(__builtin_bswap32) && __has_builtin(__builtin_bswap64)
+    #define DRFLAC_HAS_BYTESWAP_INTRINSIC
+    #endif
+#endif
+
 
 // Standard library stuff.
 #ifndef DRFLAC_ASSERT
@@ -908,10 +918,14 @@ static DRFLAC_INLINE drflac_bool32 drflac__is_little_endian()
 
 static DRFLAC_INLINE drflac_uint16 drflac__swap_endian_uint16(drflac_uint16 n)
 {
-#if defined(_MSC_VER) && _MSC_VER >= 1300
-    return _byteswap_ushort(n);
-#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
-    return __builtin_bswap16(n);
+#ifdef DRFLAC_HAS_BYTESWAP_INTRINSIC
+    #if defined(_MSC_VER)
+        return _byteswap_ushort(n);
+    #elif defined(__GNUC__) || defined(__clang__)
+        return __builtin_bswap16(n);
+    #else
+        #error "This compiler does not support the byte swap intrinsic."
+    #endif
 #else
     return ((n & 0xFF00) >> 8) |
            ((n & 0x00FF) << 8);
@@ -920,10 +934,14 @@ static DRFLAC_INLINE drflac_uint16 drflac__swap_endian_uint16(drflac_uint16 n)
 
 static DRFLAC_INLINE drflac_uint32 drflac__swap_endian_uint32(drflac_uint32 n)
 {
-#if defined(_MSC_VER) && _MSC_VER >= 1300
-    return _byteswap_ulong(n);
-#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
-    return __builtin_bswap32(n);
+#ifdef DRFLAC_HAS_BYTESWAP_INTRINSIC
+    #if defined(_MSC_VER)
+        return _byteswap_ulong(n);
+    #elif defined(__GNUC__) || defined(__clang__)
+        return __builtin_bswap32(n);
+    #else
+        #error "This compiler does not support the byte swap intrinsic."
+    #endif
 #else
     return ((n & 0xFF000000) >> 24) |
            ((n & 0x00FF0000) >>  8) |
@@ -934,10 +952,14 @@ static DRFLAC_INLINE drflac_uint32 drflac__swap_endian_uint32(drflac_uint32 n)
 
 static DRFLAC_INLINE drflac_uint64 drflac__swap_endian_uint64(drflac_uint64 n)
 {
-#if defined(_MSC_VER) && _MSC_VER >= 1300
-    return _byteswap_uint64(n);
-#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
-    return __builtin_bswap64(n);
+#ifdef DRFLAC_HAS_BYTESWAP_INTRINSIC
+    #if defined(_MSC_VER)
+        return _byteswap_uint64(n);
+    #elif defined(__GNUC__) || defined(__clang__)
+        return __builtin_bswap64(n);
+    #else
+        #error "This compiler does not support the byte swap intrinsic."
+    #endif
 #else
     return ((n & (drflac_uint64)0xFF00000000000000) >> 56) |
            ((n & (drflac_uint64)0x00FF000000000000) >> 40) |
@@ -5432,6 +5454,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.8a - 2017-08-13
+//   - A small optimization for the Clang build.
 //
 // v0.8 - 2017-08-12
 //   - API CHANGE: Rename dr_* types to drflac_*.
