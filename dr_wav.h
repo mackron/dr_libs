@@ -79,8 +79,8 @@
 // QUICK NOTES
 // - Samples are always interleaved.
 // - The default read function does not do any data conversion. Use drwav_read_f32() to read and convert audio data
-//   to IEEE 32-bit floating point samples. Likewise, use drwav_read_s32() to read and convert auto data to signed
-//   32-bit PCM. Tested and supported internal formats include the following:
+//   to IEEE 32-bit floating point samples, drwav_read_s32() to read samples as signed 32-bit PCM and drwav_read_s16()
+//   to read samples as signed 16-bit PCM. Tested and supported internal formats include the following:
 //   - Unsigned 8-bit PCM
 //   - Signed 12-bit PCM
 //   - Signed 16-bit PCM
