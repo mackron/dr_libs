@@ -1090,6 +1090,19 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
         pWav->bytesPerSample = 0;
     }
 
+#ifdef DR_WAV_LIBSNDFILE_COMPAT
+    // I use libsndfile as a benchmark for testing, however in the version I'm using (from the Windows installer on the libsndfile website),
+    // it appears the total sample count libsndfile uses for MS-ADPCM is incorrect. It would seem they are computing the total sample count
+    // from the number of blocks, however this results in the inclusion of the extra silent samples at the end of the last block. The correct
+    // way to know the total sample count is to inspect the "fact" chunk which should always be present for compressed formats, and should
+    // always include the sample count. This little block of code below is only used to emulate the libsndfile logic so I can properly run my
+    // correctness tests against libsndfile and is disabled by default.
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
+        drwav_uint64 blockCount = dataSize / fmt.blockAlign;
+        pWav->totalSampleCount = (blockCount * (fmt.blockAlign - (6*pWav->channels))) * 2;  // x2 because two samples per byte.
+    }
+#endif
+
     return DRWAV_TRUE;
 }
 
@@ -1522,22 +1535,22 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
             if (pWav->channels == 1) {
                 // Mono.
                 drwav_int32 newSample0;
-                newSample0  = ((pWav->msadpcm.cachedSamples[0] * coeff1Table[pWav->msadpcm.predictor0]) + (pWav->msadpcm.cachedSamples[1] * coeff2Table[pWav->msadpcm.predictor0])) / 256;
+                newSample0  = ((pWav->msadpcm.cachedSamples[0] * coeff1Table[pWav->msadpcm.predictor0]) + (pWav->msadpcm.cachedSamples[1] * coeff2Table[pWav->msadpcm.predictor0])) >> 8;
                 newSample0 += nibble0 * pWav->msadpcm.delta0;
                 newSample0  = drwav_clamp(newSample0, -32768, 32767);
 
-                pWav->msadpcm.delta0 = (adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta0) / 256;
+                pWav->msadpcm.delta0 = (adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta0) >> 8;
                 if (pWav->msadpcm.delta0 < 16) {
                     pWav->msadpcm.delta0 = 16;
                 }
 
 
                 drwav_int32 newSample1;
-                newSample1  = ((newSample0 * coeff1Table[pWav->msadpcm.predictor0]) + (pWav->msadpcm.cachedSamples[0] * coeff2Table[pWav->msadpcm.predictor0])) / 256;
+                newSample1  = ((newSample0 * coeff1Table[pWav->msadpcm.predictor0]) + (pWav->msadpcm.cachedSamples[0] * coeff2Table[pWav->msadpcm.predictor0])) >> 8;
                 newSample1 += nibble1 * pWav->msadpcm.delta0;
                 newSample1  = drwav_clamp(newSample1, -32768, 32767);
 
-                pWav->msadpcm.delta0 = (adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta0) / 256;
+                pWav->msadpcm.delta0 = (adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta0) >> 8;
                 if (pWav->msadpcm.delta0 < 16) {
                     pWav->msadpcm.delta0 = 16;
                 }
@@ -1549,22 +1562,22 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
 
                 // Left.
                 drwav_int32 newSample0;
-                newSample0  = ((pWav->msadpcm.cachedSamples[0] * coeff1Table[pWav->msadpcm.predictor0]) + (pWav->msadpcm.cachedSamples[2] * coeff2Table[pWav->msadpcm.predictor0])) / 256;
+                newSample0  = ((pWav->msadpcm.cachedSamples[0] * coeff1Table[pWav->msadpcm.predictor0]) + (pWav->msadpcm.cachedSamples[2] * coeff2Table[pWav->msadpcm.predictor0])) >> 8;
                 newSample0 += nibble0 * pWav->msadpcm.delta0;
                 newSample0  = drwav_clamp(newSample0, -32768, 32767);
 
-                pWav->msadpcm.delta0 = (adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta0) / 256;
+                pWav->msadpcm.delta0 = (adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta0) >> 8;
                 if (pWav->msadpcm.delta0 < 16) {
                     pWav->msadpcm.delta0 = 16;
                 }
 
                 // Right.
                 drwav_int32 newSample1;
-                newSample1  = ((pWav->msadpcm.cachedSamples[1] * coeff1Table[pWav->msadpcm.predictor1]) + (pWav->msadpcm.cachedSamples[3] * coeff2Table[pWav->msadpcm.predictor1])) / 256;
+                newSample1  = ((pWav->msadpcm.cachedSamples[1] * coeff1Table[pWav->msadpcm.predictor1]) + (pWav->msadpcm.cachedSamples[3] * coeff2Table[pWav->msadpcm.predictor1])) >> 8;
                 newSample1 += nibble1 * pWav->msadpcm.delta1;
                 newSample1  = drwav_clamp(newSample1, -32768, 32767);
 
-                pWav->msadpcm.delta1 = (adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta1) / 256;
+                pWav->msadpcm.delta1 = (adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta1) >> 8;
                 if (pWav->msadpcm.delta1 < 16) {
                     pWav->msadpcm.delta1 = 16;
                 }
@@ -1956,9 +1969,19 @@ void drwav_u8_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount)
         return;
     }
 
+#ifdef DR_WAV_LIBSNDFILE_COMPAT
+    // It appears libsndfile uses slightly different logic for the u8 -> f32 conversion to dr_wav, which in my opinion is incorrect. It appears
+    // libsndfile performs the conversion something like "f32 = (u8 / 256) * 2 - 1", however I think it should be "f32 = (u8 / 255) * 2 - 1" (note
+    // the divisor of 256 vs 255). I use libsndfile as a benchmark for testing, so I'm therefore leaving this block here just for my automated
+    // correctness testing. This is disabled by default.
+    for (size_t i = 0; i < sampleCount; ++i) {
+        *pOut++ = (pIn[i] / 256.0f) * 2 - 1;
+    }
+#else
     for (size_t i = 0; i < sampleCount; ++i) {
         *pOut++ = (pIn[i] / 255.0f) * 2 - 1;
     }
+#endif
 }
 
 void drwav_s16_to_f32(float* pOut, const drwav_int16* pIn, size_t sampleCount)
