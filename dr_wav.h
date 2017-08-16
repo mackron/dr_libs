@@ -564,7 +564,7 @@ static const drwav_uint8 drwavGUID_W64_FMT [16] = {0x66,0x6D,0x74,0x20, 0xF3,0xA
 static const drwav_uint8 drwavGUID_W64_FACT[16] = {0x66,0x61,0x63,0x74, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 74636166-ACF3-11D3-8CD1-00C04F8EDB8A
 static const drwav_uint8 drwavGUID_W64_DATA[16] = {0x64,0x61,0x74,0x61, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 61746164-ACF3-11D3-8CD1-00C04F8EDB8A
 
-static drwav_bool32 drwav__guid_equal(const drwav_uint8 a[16], const drwav_uint8 b[16])
+static DRWAV_INLINE drwav_bool32 drwav__guid_equal(const drwav_uint8 a[16], const drwav_uint8 b[16])
 {
     const drwav_uint32* a32 = (const drwav_uint32*)a;
     const drwav_uint32* b32 = (const drwav_uint32*)b;
@@ -576,7 +576,7 @@ static drwav_bool32 drwav__guid_equal(const drwav_uint8 a[16], const drwav_uint8
         a32[3] == b32[3];
 }
 
-static drwav_bool32 drwav__fourcc_equal(const unsigned char* a, const char* b)
+static DRWAV_INLINE drwav_bool32 drwav__fourcc_equal(const unsigned char* a, const char* b)
 {
     return
         a[0] == b[0] &&
@@ -587,13 +587,13 @@ static drwav_bool32 drwav__fourcc_equal(const unsigned char* a, const char* b)
 
 
 
-static int drwav__is_little_endian()
+static DRWAV_INLINE int drwav__is_little_endian()
 {
     int n = 1;
     return (*(char*)&n) == 1;
 }
 
-static unsigned short drwav__bytes_to_u16(const unsigned char* data)
+static DRWAV_INLINE unsigned short drwav__bytes_to_u16(const unsigned char* data)
 {
     if (drwav__is_little_endian()) {
         return (data[0] << 0) | (data[1] << 8);
@@ -602,12 +602,12 @@ static unsigned short drwav__bytes_to_u16(const unsigned char* data)
     }
 }
 
-static short drwav__bytes_to_s16(const unsigned char* data)
+static DRWAV_INLINE short drwav__bytes_to_s16(const unsigned char* data)
 {
     return (short)drwav__bytes_to_u16(data);
 }
 
-static unsigned int drwav__bytes_to_u32(const unsigned char* data)
+static DRWAV_INLINE unsigned int drwav__bytes_to_u32(const unsigned char* data)
 {
     if (drwav__is_little_endian()) {
         return (data[0] << 0) | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
@@ -616,7 +616,7 @@ static unsigned int drwav__bytes_to_u32(const unsigned char* data)
     }
 }
 
-static drwav_uint64 drwav__bytes_to_u64(const unsigned char* data)
+static DRWAV_INLINE drwav_uint64 drwav__bytes_to_u64(const unsigned char* data)
 {
     if (drwav__is_little_endian()) {
         return
@@ -629,7 +629,7 @@ static drwav_uint64 drwav__bytes_to_u64(const unsigned char* data)
     }
 }
 
-static void drwav__bytes_to_guid(const unsigned char* data, drwav_uint8* guid)
+static DRWAV_INLINE void drwav__bytes_to_guid(const unsigned char* data, drwav_uint8* guid)
 {
     for (int i = 0; i < 16; ++i) {
         guid[i] = data[i];
