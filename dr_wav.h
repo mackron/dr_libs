@@ -777,7 +777,6 @@ static drwav_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSe
         fmtOut->extendedSize = drwav__bytes_to_u16(fmt_cbSize);
         if (fmtOut->extendedSize > 0) {
             // Simple validation.
-            // TODO: Check if the sizes are the same for W64.
             if (fmtOut->formatTag == DR_WAVE_FORMAT_EXTENSIBLE) {
                 if (fmtOut->extendedSize != 22) {
                     return DRWAV_FALSE;
@@ -785,7 +784,7 @@ static drwav_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSe
             }
 
             if (fmtOut->formatTag == DR_WAVE_FORMAT_EXTENSIBLE) {
-                unsigned char fmtext[32];
+                unsigned char fmtext[22];
                 if (onRead(pUserData, fmtext, fmtOut->extendedSize) != fmtOut->extendedSize) {
                     return DRWAV_FALSE;    // Expecting more data.
                 }
@@ -2828,8 +2827,8 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 // v0.6 - 2017-TBD
 //   - API CHANGE: Rename dr_* types to drwav_*.
 //   - Add support for custom implementations of malloc(), realloc(), etc.
-//   - Add support for MS-ADPCM.
-//   - Add support for IMA-ADPCM (DVI, format code 0x11).
+//   - Add support for Microsoft ADPCM.
+//   - Add support for IMA ADPCM (DVI, format code 0x11).
 //   - Optimizations to drwav_read_s16().
 //   - Bug fixes.
 //
