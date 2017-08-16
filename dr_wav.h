@@ -150,15 +150,33 @@ typedef enum
 } drwav_container;
 
 // Callback for when data is read. Return value is the number of bytes actually read.
+//
+// pUserData   [in]  The user data that was passed to drwav_init(), drwav_open() and family.
+// pBufferOut  [out] The output buffer.
+// bytesToRead [in]  The number of bytes to read.
+//
+// Returns the number of bytes actually read.
+//
+// A return value of less than bytesToRead indicates the end of the stream. Do _not_ return from this callback until
+// either the entire bytesToRead is filled or you have reached the end of the stream.
 typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 
-// Callback for when data needs to be seeked. Return value is true on success; false on failure.
+// Callback for when data needs to be seeked.
+//
+// pUserData [in] The user data that was passed to drwav_init(), drwav_open() and family.
+// offset    [in] The number of bytes to move, relative to the origin. Will never be negative.
+// origin    [in] The origin of the seek - the current position or the start of the stream.
+//
+// Returns whether or not the seek was successful.
+//
+// Whether or not it is relative to the beginning or current position is determined by the "origin" parameter which
+// will be either drwav_seek_origin_start or drwav_seek_origin_current.
 typedef drwav_bool32 (* drwav_seek_proc)(void* pUserData, int offset, drwav_seek_origin origin);
 
 // Structure for internal use. Only used for loaders opened with drwav_open_memory.
 typedef struct
 {
-    const unsigned char* data;
+    const drwav_uint8* data;
     size_t dataSize;
     size_t currentReadPos;
 } drwav__memory_stream;
@@ -167,36 +185,36 @@ typedef struct
 {
     // The format tag exactly as specified in the wave file's "fmt" chunk. This can be used by applications
     // that require support for data formats not natively supported by dr_wav.
-    unsigned short formatTag;
+    drwav_uint16 formatTag;
 
     // The number of channels making up the audio data. When this is set to 1 it is mono, 2 is stereo, etc.
-    unsigned short channels;
+    drwav_uint16 channels;
 
     // The sample rate. Usually set to something like 44100.
-    unsigned int sampleRate;
+    drwav_uint32 sampleRate;
 
     // Average bytes per second. You probably don't need this, but it's left here for informational purposes.
-    unsigned int avgBytesPerSec;
+    drwav_uint32 avgBytesPerSec;
 
     // Block align. This is equal to the number of channels * bytes per sample.
-    unsigned short blockAlign;
+    drwav_uint16 blockAlign;
 
     // Bit's per sample.
-    unsigned short bitsPerSample;
+    drwav_uint16 bitsPerSample;
 
     // The size of the extended data. Only used internally for validation, but left here for informational purposes.
-    unsigned short extendedSize;
+    drwav_uint16 extendedSize;
 
     // The number of valid bits per sample. When <formatTag> is equal to WAVE_FORMAT_EXTENSIBLE, <bitsPerSample>
     // is always rounded up to the nearest multiple of 8. This variable contains information about exactly how
     // many bits a valid per sample. Mainly used for informational purposes.
-    unsigned short validBitsPerSample;
+    drwav_uint16 validBitsPerSample;
 
     // The channel mask. Not used at the moment.
-    unsigned int channelMask;
+    drwav_uint32 channelMask;
 
     // The sub-format, exactly as specified by the wave file.
-    unsigned char subFormat[16];
+    drwav_uint8 subFormat[16];
 } drwav_fmt;
 
 typedef struct
@@ -219,19 +237,19 @@ typedef struct
     drwav_fmt fmt;
 
     // The sample rate. Will be set to something like 44100.
-    unsigned int sampleRate;
+    drwav_uint32 sampleRate;
 
     // The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc.
-    unsigned short channels;
+    drwav_uint16 channels;
 
     // The bits per sample. Will be set to somthing like 16, 24, etc.
-    unsigned short bitsPerSample;
+    drwav_uint16 bitsPerSample;
 
     // The number of bytes per sample.
-    unsigned short bytesPerSample;
+    drwav_uint16 bytesPerSample;
 
     // Equal to fmt.formatTag, or the value specified by fmt.subFormat if fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE).
-    unsigned short translatedFormatTag;
+    drwav_uint16 translatedFormatTag;
 
     // The total number of samples making up the audio data. Use <totalSampleCount> * <bytesPerSample> to calculate
     // the required size of a buffer to hold the entire audio data.
@@ -272,7 +290,7 @@ typedef struct
         drwav_bool32 hasPendingSample;
     } msadpcm;
 
-    // IMA-ADPCM specific data.
+    // IMA ADPCM specific data.
     struct
     {
         drwav_uint32 bytesRemainingInBlock;
@@ -286,22 +304,51 @@ typedef struct
 
 // Initializes a pre-allocated drwav object.
 //
+// onRead    [in]           The function to call when data needs to be read from the client.
+// onSeek    [in]           The function to call when the read position of the client data needs to move.
+// pUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
+//
 // Returns true if successful; false otherwise.
+//
+// Close the loader with drwav_uninit().
+//
+// This is the lowest level function for initializing a WAV file. You can also use drwav_init_file() and drwav_init_memory()
+// to open the stream from a file or from a block of memory respectively.
+//
+// If you want dr_wav to manage the memory allocation for you, consider using drwav_open() instead. This will allocate
+// a drwav object on the heap and return a pointer to it.
+//
+// See also: drwav_init_file(), drwav_init_memory(), drwav_uninit()
 drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
-// Uninitializes the given drwav object. Use this only for objects initialized with drwav_init().
+// Uninitializes the given drwav object.
+//
+// Use this only for objects initialized with drwav_init().
 void drwav_uninit(drwav* pWav);
 
 
 // Opens a wav file using the given callbacks.
 //
-// Returns null on error. Close the loader with drwav_close().
+// onRead    [in]           The function to call when data needs to be read from the client.
+// onSeek    [in]           The function to call when the read position of the client data needs to move.
+// pUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
+//
+// Returns null on error.
+//
+// Close the loader with drwav_close().
+//
+// This is the lowest level function for opening a WAV file. You can also use drwav_open_file() and drwav_open_memory()
+// to open the stream from a file or from a block of memory respectively.
 //
 // This is different from drwav_init() in that it will allocate the drwav object for you via DRWAV_MALLOC() before
 // initializing it.
+//
+// See also: drwav_open_file(), drwav_open_memory(), drwav_close()
 drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 
-// Uninitializes and deletes the the given drwav object. Use this only for objects created with drwav_open().
+// Uninitializes and deletes the the given drwav object.
+//
+// Use this only for objects created with drwav_open().
 void drwav_close(drwav* pWav);
 
 
@@ -309,6 +356,9 @@ void drwav_close(drwav* pWav);
 //
 // This is the lowest level function for reading audio data. It simply reads the given number of
 // bytes of the raw internal sample data.
+//
+// Consider using drwav_read_s16(), drwav_read_s32() or drwav_read_f32() for reading sample data in
+// a consistent format.
 //
 // Returns the number of bytes actually read.
 size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut);
@@ -327,7 +377,7 @@ drwav_uint64 drwav_read(drwav* pWav, drwav_uint64 samplesToRead, void* pBufferOu
 
 // Seeks to the given sample.
 //
-// The return value is DRWAV_FALSE if an error occurs, DRWAV_TRUE if successful.
+// Returns true if successful; false otherwise.
 drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample);
 
 
@@ -551,7 +601,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead);
 // I couldn't figure out where SIZE_MAX was defined for VC6. If anybody knows, let me know.
 #if defined(_MSC_VER) && _MSC_VER <= 1200
     #if defined(_WIN64)
-        #define SIZE_MAX    ((drflac_uint64)0xFFFFFFFFFFFFFFFF)
+        #define SIZE_MAX    ((drwav_uint64)0xFFFFFFFFFFFFFFFF)
     #else
         #define SIZE_MAX    0xFFFFFFFF
     #endif
@@ -2857,7 +2907,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //
 // v0.5 - 2016-09-29
 //   - API CHANGE. Swap the order of "channels" and "sampleRate" parameters in drwav_open_and_read*(). Rationale for this is to
-//     keep it consistent with drwav_audio and drwav_flac.
+//     keep it consistent with dr_audio and drwav_flac.
 //
 // v0.4b - 2016-09-18
 //   - Fixed a typo in documentation.
