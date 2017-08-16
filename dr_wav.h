@@ -957,6 +957,9 @@ static drwav_bool32 drwav__on_seek_memory(void* pUserData, int offset, drwav_see
                 offset = -(int)memory->currentReadPos;  // Trying to seek too far backwards.
             }
         }
+
+        // This will never underflow thanks to the clamps above.
+        memory->currentReadPos += offset;
     } else {
         if ((drwav_uint32)offset <= memory->dataSize) {
             memory->currentReadPos = offset;
@@ -965,8 +968,7 @@ static drwav_bool32 drwav__on_seek_memory(void* pUserData, int offset, drwav_see
         }
     }
 
-    // This will never underflow thanks to the clamps above.
-    memory->currentReadPos += offset;
+    
     return DRWAV_TRUE;
 }
 
@@ -1134,7 +1136,13 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
                 pWav->dataChunkDataPos += 4;
                 dataSize -= 4;
 
-                sampleCountFromFactChunk = sampleCount;
+                // The sample count in the "fact" chunk is either unreliable, or I'm not understanding it properly. For now I am only enabling this
+                // for Microsoft ADPCM formats.
+                if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
+                    sampleCountFromFactChunk = sampleCount;
+                } else {
+                    sampleCountFromFactChunk = 0;
+                }
             }
         } else {
             if (drwav__guid_equal(header.id.guid, drwavGUID_W64_FACT)) {
@@ -1170,13 +1178,6 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
 
     if (sampleCountFromFactChunk != 0) {
         pWav->totalSampleCount = sampleCountFromFactChunk * fmt.channels;
-
-        // I think I've found a bug with the Audacity exporter. For some reason the sample count from the fact chunk in my stereo
-        // test files is half of what it should be for IMA ADPCM. To fix I'm going to just compute the sample count here.
-        if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-            drwav_uint64 blockCount = dataSize / fmt.blockAlign;
-            pWav->totalSampleCount = ((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels);
-        }
     } else {
         pWav->totalSampleCount = dataSize / pWav->bytesPerSample;
 
