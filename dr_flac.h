@@ -69,7 +69,7 @@
 // The main opening APIs (drflac_open(), etc.) will fail if the header is not present. The presents a problem in certain
 // scenarios such as broadcast style streams like internet radio where the header may not be present because the user has
 // started playback mid-stream. To handle this, use the relaxed APIs: drflac_open_relaxed() and drflac_open_with_metadata_relaxed().
-// 
+//
 // It is not recommended to use these APIs for file based streams because a missing header would usually indicate a
 // corrupted or perverse file. In addition, these APIs can take a long time to initialize because they may need to spend
 // a lot of time finding the first frame.
@@ -502,7 +502,7 @@ typedef struct
 
     // A pointer to the decoded sample data. This is an offset of pExtraData.
     drflac_int32* pDecodedSamples;
-    
+
     // Internal use only. Only used with Ogg containers. Points to a drflac_oggbs object. This is an offset of pExtraData.
     void* _oggbs;
 
@@ -796,6 +796,8 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
         #define DRFLAC_NO_CPUID
         #endif
     #endif
+#else
+#define DRFLAC_NO_CPUID
 #endif
 
 
@@ -1304,7 +1306,7 @@ static DRFLAC_INLINE drflac_uint16 drflac__flush_crc16(drflac_bs* bs)
         // so we can handle that later.
         bs->crc16CacheIgnoredBytes = bs->consumedBits >> 3;
     }
-    
+
     return bs->crc16;
 }
 #endif
@@ -1610,7 +1612,7 @@ static drflac_bool32 drflac__seek_bits(drflac_bs* bs, size_t bitsToSeek)
             bitsToSeek -= DRFLAC_CACHE_L1_SIZE_BITS(bs);
         }
 #endif
-        
+
         // Whole leftover bytes.
         while (bitsToSeek >= 8) {
             drflac_uint8 bin;
@@ -2230,7 +2232,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
     zeroCounter += setBitOffsetPlus1;
     setBitOffsetPlus1 += 1;
 
-    
+
     drflac_uint32 riceParamPart;
     drflac_uint32 riceLength = setBitOffsetPlus1 + riceParam;
     if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
@@ -2760,7 +2762,7 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
         if (!drflac__read_uint8(bs, 8, &header->crc8)) {
             return DRFLAC_FALSE;
         }
- 
+
     #ifndef DR_FLAC_NO_CRC
         if (header->crc8 != crc8) {
             continue;    // CRC mismatch. Loop back to the top and find the next sync code.
@@ -2982,7 +2984,7 @@ static drflac_result drflac__decode_frame(drflac* pFlac)
             return DRFLAC_END_OF_STREAM;
         }
     }
-    
+
 #ifndef DR_FLAC_NO_CRC
     drflac_uint16 actualCRC16 = drflac__flush_crc16(&pFlac->bs);
 #endif
@@ -4447,7 +4449,7 @@ drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onR
     pInit->bs.onSeek    = onSeek;
     pInit->bs.pUserData = pUserData;
     drflac__reset_cache(&pInit->bs);
-    
+
 
     // If the container is explicitly defined then we can try opening in relaxed mode.
     drflac_bool32 relaxed = container != drflac_container_unknown;
