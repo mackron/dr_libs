@@ -890,10 +890,10 @@ typedef drflac_int32 drflac_result;
 
 // CPU caps.
 static drflac_bool32 drflac__gIsLZCNTSupported = DRFLAC_FALSE;
+#ifndef DRFLAC_NO_CPUID
 static drflac_bool32 drflac__gIsSSE42Supported = DRFLAC_FALSE;
 static void drflac__init_cpu_caps()
 {
-#ifndef DRFLAC_NO_CPUID
     int info[4] = {0};
 
     // LZCNT
@@ -903,8 +903,8 @@ static void drflac__init_cpu_caps()
     // SSE4.2
     drflac__cpuid(info, 1);
     drflac__gIsSSE42Supported = (info[2] & (1 << 19)) != 0;
-#endif
 }
+#endif
 
 
 //// Endian Management ////
@@ -4503,9 +4503,10 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
 
 drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD)
 {
+#ifndef DRFLAC_NO_CPUID
     // CPU support first.
     drflac__init_cpu_caps();
-
+#endif
 
     drflac_init_info init;
     if (!drflac__init_private(&init, onRead, onSeek, onMeta, container, pUserData, pUserDataMD)) {
