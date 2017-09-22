@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.8c - 2017-09-07
+// dr_flac - v0.8d - 2017-09-22
 //
 // David Reid - mackron@gmail.com
 
@@ -1026,6 +1026,18 @@ static DRFLAC_INLINE drflac_uint32 drflac__le2host_32(drflac_uint32 n)
 
     return n;
 #endif
+}
+
+
+static DRFLAC_INLINE drflac_uint32 drflac__unsynchsafe_32(drflac_uint32 n)
+{
+    drflac_uint32 result = 0;
+    result |= (n & 0x7F000000) >> 3;
+    result |= (n & 0x007F0000) >> 2;
+    result |= (n & 0x00007F00) >> 1;
+    result |= (n & 0x0000007F) >> 0;
+
+    return result;
 }
 
 
@@ -4293,11 +4305,11 @@ drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_pro
     drflac_ogg_page_header header;
 
     drflac_uint32 crc32 = DRFLAC_OGG_CAPTURE_PATTERN_CRC32;
-    drflac_uint32 bytesRead = 4;    // <-- Initialize this to 4 because we have read the "OggS" bytes earlier.
+    drflac_uint32 bytesRead = 0;
     if (drflac_ogg__read_page_header_after_capture_pattern(onRead, pUserData, &header, &bytesRead, &crc32) != DRFLAC_SUCCESS) {
         return DRFLAC_FALSE;
     }
-    pInit->runningFilePos = bytesRead;
+    pInit->runningFilePos += bytesRead;
 
     for (;;) {
         // Break if we're past the beginning of stream page.
@@ -4455,8 +4467,36 @@ drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onR
     drflac_bool32 relaxed = container != drflac_container_unknown;
 
     drflac_uint8 id[4];
-    if (onRead(pUserData, id, 4) != 4) {
-        return DRFLAC_FALSE;
+
+    // Skip over any ID3 tags.
+    for (;;) {
+        if (onRead(pUserData, id, 4) != 4) {
+            return DRFLAC_FALSE;    // Ran out of data.
+        }
+        pInit->runningFilePos += 4;
+
+        if (id[0] == 'I' && id[1] == 'D' && id[2] == '3') {
+            drflac_uint8 header[6];
+            if (onRead(pUserData, header, 6) != 6) {
+                return DRFLAC_FALSE;    // Ran out of data.
+            }
+            pInit->runningFilePos += 6;
+
+            drflac_uint8 flags = header[1];
+            drflac_uint32 headerSize;
+            drflac_copy_memory(&headerSize, header+2, 4);
+            headerSize = drflac__unsynchsafe_32(drflac__be2host_32(headerSize));
+            if (flags & 0x10) {
+                headerSize += 10;
+            }
+
+            if (!onSeek(pUserData, headerSize, drflac_seek_origin_current)) {
+                return DRFLAC_FALSE;    // Failed to seek past the tag.
+            }
+            pInit->runningFilePos += headerSize;
+        } else {
+            break;
+        }
     }
 
     if (id[0] == 'f' && id[1] == 'L' && id[2] == 'a' && id[3] == 'C') {
@@ -5457,6 +5497,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.8d - 2017-09-22
+//   - Add support for decoding streams with ID3 tags. ID3 tags are just skipped.
 //
 // v0.8c - 2017-09-07
 //   - Fix warning on non-x86/x64 architectures.
