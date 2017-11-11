@@ -9,7 +9,6 @@ Library                                         | Version | Description
 ----------------------------------------------- | ------- | -----------
 [dr_flac](dr_flac.h)                            | 0.8d    | FLAC audio decoder.
 [dr_wav](dr_wav.h)                              | 0.7     | WAV audio loader and writer.
-[dr_audio](dr_audio.h)                          | -       | Audio playback.
 [dr_pcx](dr_pcx.h)                              | 0.2a    | PCX image loader.
 [dr_obj](dr_obj.h)                              | -       | Wavefront OBJ model loader.
 [dr_fs](dr_fs.h)                                | -       | File system abstraction for loading files from the native file system and archives.
@@ -23,7 +22,7 @@ Below are some of my other libraries you may be interested in. These are all loc
 own repositories just for ease of maintenance.
 
 ## [mini_al](https://github.com/dr-soft/mini_al)
-A public domain, single file library for audio playback and recording. This is replacing dr_audio.
+A public domain, single file library for audio playback and recording.
 
 ## [Mintaro](https://github.com/dr-soft/mintaro)
 A small framework for making simple games. Public domain, single file.
