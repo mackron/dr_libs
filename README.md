@@ -8,7 +8,7 @@ have stable APIs, but on rare occasions I may need to make some minor changes.
 Library                                         | Version | Description
 ----------------------------------------------- | ------- | -----------
 [dr_flac](dr_flac.h)                            | 0.8d    | FLAC audio decoder.
-[dr_wav](dr_wav.h)                              | 0.7a    | WAV audio loader and writer.
+[dr_wav](dr_wav.h)                              | 0.7b    | WAV audio loader and writer.
 [dr_pcx](dr_pcx.h)                              | 0.2a    | PCX image loader.
 [dr_obj](dr_obj.h)                              | -       | Wavefront OBJ model loader.
 [dr_fs](dr_fs.h)                                | -       | File system abstraction for loading files from the native file system and archives.
