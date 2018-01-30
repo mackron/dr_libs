@@ -1,5 +1,5 @@
 // WAV audio loader and writer. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - x
+// dr_wav - v0.x - xxxx-xx-xx
 //
 // David Reid - mackron@gmail.com
 
@@ -1492,8 +1492,8 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
             pWav->totalSampleCount = ((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels);
         }
     }
-    
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
+
+    if (drwav__is_compressed_format_tag(pWav->translatedFormatTag)) {
         pWav->bytesPerSample = 0;
     }
 
@@ -3347,6 +3347,8 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+// v0.x - xxxx-xx-xx
+//   - Set drwav.bytesPerSample to 0 for all compressed formats.
 //
 // v0.7b - 2018-01-22
 //   - Fix errors with seeking of compressed formats.
