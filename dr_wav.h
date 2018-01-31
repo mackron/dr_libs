@@ -2297,8 +2297,12 @@ static void drwav__ieee_to_s16(drwav_int16* pOut, const unsigned char* pIn, size
     if (bytesPerSample == 4) {
         drwav_f32_to_s16(pOut, (float*)pIn, totalSampleCount);
         return;
-    } else {
+    } else if (bytesPerSample == 8) {
         drwav_f64_to_s16(pOut, (double*)pIn, totalSampleCount);
+        return;
+    } else {
+        // Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float.
+        drwav_zero_memory(pOut, totalSampleCount * bytesPerSample);
         return;
     }
 }
@@ -2544,8 +2548,12 @@ static void drwav__ieee_to_f32(float* pOut, const unsigned char* pIn, size_t sam
             *pOut++ = ((float*)pIn)[i];
         }
         return;
-    } else {
+    } else if (bytesPerSample == 8) {
         drwav_f64_to_f32(pOut, (double*)pIn, sampleCount);
+        return;
+    } else {
+        // Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float.
+        drwav_zero_memory(pOut, sampleCount * bytesPerSample);
         return;
     }
 }
@@ -2855,8 +2863,12 @@ static void drwav__ieee_to_s32(drwav_int32* pOut, const unsigned char* pIn, size
     if (bytesPerSample == 4) {
         drwav_f32_to_s32(pOut, (float*)pIn, totalSampleCount);
         return;
-    } else {
+    } else if (bytesPerSample == 8) {
         drwav_f64_to_s32(pOut, (double*)pIn, totalSampleCount);
+        return;
+    } else {
+        // Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float.
+        drwav_zero_memory(pOut, totalSampleCount * bytesPerSample);
         return;
     }
 }
@@ -3349,6 +3361,8 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 // REVISION HISTORY
 // v0.x - xxxx-xx-xx
 //   - Set drwav.bytesPerSample to 0 for all compressed formats.
+//   - Fix a crash when reading 16-bit floating point WAV files. In this case dr_wav will output silence for
+//     all format conversion reading APIs (*_s16, *_s32, *_f32 APIs).
 //
 // v0.7b - 2018-01-22
 //   - Fix errors with seeking of compressed formats.
