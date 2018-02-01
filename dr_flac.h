@@ -2402,6 +2402,16 @@ static drflac_bool32 drflac__decode_samples_with_residual(drflac_bs* bs, drflac_
         return DRFLAC_FALSE;
     }
 
+    // From the FLAC spec:
+    //   The Rice partition order in a Rice-coded residual section must be less than or equal to 8.
+    if (partitionOrder > 8) {
+        return DRFLAC_FALSE;
+    }
+
+    // Validation check.
+    if ((blockSize / (1 << partitionOrder)) <= order) {
+        return DRFLAC_FALSE;
+    }
 
     drflac_uint32 samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
     drflac_uint32 partitionsRemaining = (1 << partitionOrder);
@@ -2446,7 +2456,10 @@ static drflac_bool32 drflac__decode_samples_with_residual(drflac_bs* bs, drflac_
         }
 
         partitionsRemaining -= 1;
-        samplesInPartition = blockSize / (1 << partitionOrder);
+
+        if (partitionOrder != 0) {
+            samplesInPartition = blockSize / (1 << partitionOrder);
+        }
     }
 
     return DRFLAC_TRUE;
@@ -5505,6 +5518,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 //
 // v0.8e - 2018-02-01
 //   - Fix a crash when the block size of a frame is larger than the maximum block size defined by the FLAC stream.
+//   - Fix a crash the the Rice partition order is invalid.
 //
 // v0.8d - 2017-09-22
 //   - Add support for decoding streams with ID3 tags. ID3 tags are just skipped.
