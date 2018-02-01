@@ -643,13 +643,13 @@ drwav_int16* drwav_open_and_read_s16(drwav_read_proc onRead, drwav_seek_proc onS
 float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 drwav_int32* drwav_open_and_read_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 #ifndef DR_WAV_NO_STDIO
-// Opens an decodes a wav file in a single operation.
+// Opens and decodes a wav file in a single operation.
 drwav_int16* drwav_open_and_read_file_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 float* drwav_open_and_read_file_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 drwav_int32* drwav_open_and_read_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 #endif
 
-// Opens an decodes a wav file from a block of memory in a single operation.
+// Opens and decodes a wav file from a block of memory in a single operation.
 drwav_int16* drwav_open_and_read_memory_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 float* drwav_open_and_read_memory_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 drwav_int32* drwav_open_and_read_memory_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
