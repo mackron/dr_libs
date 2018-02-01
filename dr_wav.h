@@ -1,5 +1,5 @@
 // WAV audio loader and writer. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.x - xxxx-xx-xx
+// dr_wav - v0.7c - 2018-02-01
 //
 // David Reid - mackron@gmail.com
 
@@ -103,8 +103,8 @@
 //   - Signed 16-bit PCM
 //   - Signed 24-bit PCM
 //   - Signed 32-bit PCM
-//   - IEEE 32-bit floating point.
-//   - IEEE 64-bit floating point.
+//   - IEEE 32-bit floating point
+//   - IEEE 64-bit floating point
 //   - A-law and u-law
 //   - Microsoft ADPCM
 //   - IMA ADPCM (DVI, format code 0x11)
@@ -3431,7 +3431,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
-// v0.x - xxxx-xx-xx
+// v0.7c - 2018-02-01
 //   - Set drwav.bytesPerSample to 0 for all compressed formats.
 //   - Fix a crash when reading 16-bit floating point WAV files. In this case dr_wav will output silence for
 //     all format conversion reading APIs (*_s16, *_s32, *_f32 APIs).
