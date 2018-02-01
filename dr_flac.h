@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.8d - 2017-09-22
+// dr_flac - v0.8e - 2018-02-01
 //
 // David Reid - mackron@gmail.com
 
@@ -2982,6 +2982,11 @@ static drflac_result drflac__decode_frame(drflac* pFlac)
     // This function should be called while the stream is sitting on the first byte after the frame header.
     drflac_zero_memory(pFlac->currentFrame.subframes, sizeof(pFlac->currentFrame.subframes));
 
+    // The frame block size must never be larger than the maximum block size defined by the FLAC stream.
+    if (pFlac->currentFrame.header.blockSize > pFlac->maxBlockSize) {
+        return DRFLAC_ERROR;    // The current frame's block size is larger than the maximum block size defined by the FLAC stream.
+    }
+
     int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
     for (int i = 0; i < channelCount; ++i) {
         if (!drflac__decode_subframe(&pFlac->bs, &pFlac->currentFrame, i, pFlac->pDecodedSamples + (pFlac->currentFrame.header.blockSize * i))) {
@@ -5497,6 +5502,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.8e - 2018-02-01
+//   - Fix a crash when the block size of a frame is larger than the maximum block size defined by the FLAC stream.
 //
 // v0.8d - 2017-09-22
 //   - Add support for decoding streams with ID3 tags. ID3 tags are just skipped.
