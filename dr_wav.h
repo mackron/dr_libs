@@ -1,5 +1,5 @@
 // WAV audio loader and writer. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.7c - 2018-02-01
+// dr_wav - v0.7d - 2018-02-01
 //
 // David Reid - mackron@gmail.com
 
@@ -2322,7 +2322,7 @@ static void drwav__ieee_to_s16(drwav_int16* pOut, const unsigned char* pIn, size
         return;
     } else {
         // Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float.
-        drwav_zero_memory(pOut, totalSampleCount * bytesPerSample);
+        drwav_zero_memory(pOut, totalSampleCount * sizeof(*pOut));
         return;
     }
 }
@@ -2583,7 +2583,7 @@ static void drwav__ieee_to_f32(float* pOut, const unsigned char* pIn, size_t sam
         return;
     } else {
         // Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float.
-        drwav_zero_memory(pOut, sampleCount * bytesPerSample);
+        drwav_zero_memory(pOut, sampleCount * sizeof(*pOut));
         return;
     }
 }
@@ -2924,7 +2924,7 @@ static void drwav__ieee_to_s32(drwav_int32* pOut, const unsigned char* pIn, size
         return;
     } else {
         // Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float.
-        drwav_zero_memory(pOut, totalSampleCount * bytesPerSample);
+        drwav_zero_memory(pOut, totalSampleCount * sizeof(*pOut));
         return;
     }
 }
@@ -3431,6 +3431,10 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.7d - 2018-02-01
+//   - Fix a crash.
+//
 // v0.7c - 2018-02-01
 //   - Set drwav.bytesPerSample to 0 for all compressed formats.
 //   - Fix a crash when reading 16-bit floating point WAV files. In this case dr_wav will output silence for
