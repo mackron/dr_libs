@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.8e - 2018-02-01
+// dr_flac - v0.8f - 2018-02-02
 //
 // David Reid - mackron@gmail.com
 
@@ -106,6 +106,7 @@
 //
 //
 // QUICK NOTES
+// - dr_flac does not currently support changing the sample rate nor channel count mid stream.
 // - Audio data is output as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
 // - This has not been tested on big-endian architectures.
 // - Rice codes in unencoded binary form (see https://xiph.org/flac/format.html#rice_partition) has not been tested. If anybody
@@ -2997,10 +2998,15 @@ static drflac_result drflac__decode_frame(drflac* pFlac)
 
     // The frame block size must never be larger than the maximum block size defined by the FLAC stream.
     if (pFlac->currentFrame.header.blockSize > pFlac->maxBlockSize) {
-        return DRFLAC_ERROR;    // The current frame's block size is larger than the maximum block size defined by the FLAC stream.
+        return DRFLAC_ERROR;
     }
 
+    // The number of channels in the frame must match the channel count from the STREAMINFO block.
     int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
+    if (channelCount != (int)pFlac->channels) {
+        return DRFLAC_ERROR;
+    }
+
     for (int i = 0; i < channelCount; ++i) {
         if (!drflac__decode_subframe(&pFlac->bs, &pFlac->currentFrame, i, pFlac->pDecodedSamples + (pFlac->currentFrame.header.blockSize * i))) {
             return DRFLAC_ERROR;
@@ -5515,6 +5521,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.8f - 2018-02-02
+//   - Stop pretending to support changing rate/channels mid stream.
 //
 // v0.8e - 2018-02-01
 //   - Fix a crash when the block size of a frame is larger than the maximum block size defined by the FLAC stream.
