@@ -1,5 +1,5 @@
 // WAV audio loader and writer. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.7d - 2018-02-01
+// dr_wav - v0.7e - 2018-02-02
 //
 // David Reid - mackron@gmail.com
 
@@ -2291,7 +2291,7 @@ static void drwav__pcm_to_s16(drwav_int16* pOut, const unsigned char* pIn, size_
 
     // Anything more than 64 bits per sample is not supported.
     if (bytesPerSample > 8) {
-        drwav_zero_memory(pOut, totalSampleCount * bytesPerSample);
+        drwav_zero_memory(pOut, totalSampleCount * sizeof(*pOut));
         return;
     }
 
@@ -2550,7 +2550,7 @@ static void drwav__pcm_to_f32(float* pOut, const unsigned char* pIn, size_t samp
 
     // Anything more than 64 bits per sample is not supported.
     if (bytesPerSample > 8) {
-        drwav_zero_memory(pOut, sampleCount * bytesPerSample);
+        drwav_zero_memory(pOut, sampleCount * sizeof(*pOut));
         return;
     }
 
@@ -2893,7 +2893,7 @@ static void drwav__pcm_to_s32(drwav_int32* pOut, const unsigned char* pIn, size_
 
     // Anything more than 64 bits per sample is not supported.
     if (bytesPerSample > 8) {
-        drwav_zero_memory(pOut, totalSampleCount * bytesPerSample);
+        drwav_zero_memory(pOut, totalSampleCount * sizeof(*pOut));
         return;
     }
 
@@ -3431,6 +3431,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.7e - 2018-02-02
+//   - Fix a crash.
 //
 // v0.7d - 2018-02-01
 //   - Fix a crash.
