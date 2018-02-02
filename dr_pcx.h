@@ -1,5 +1,5 @@
 // PCX image loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_pcx - v0.2a - 2017-07-16
+// dr_pcx - v0.2b - 2018-02-02
 //
 // David Reid - mackron@gmail.com
 
@@ -41,6 +41,8 @@
 
 #ifndef dr_pcx_h
 #define dr_pcx_h
+
+#include <stddef.h>
 
 #ifndef DR_SIZED_TYPES_DEFINED
 #define DR_SIZED_TYPES_DEFINED
@@ -744,6 +746,9 @@ void drpcx_free(void* pReturnValueFromLoad)
 
 
 // REVISION HISTORY
+//
+// v0.2b - 2018-02-02
+//   - Fix compilation error.
 //
 // v0.2a - 2017-07-16
 //   - Change underlying type for booleans to unsigned.
