@@ -869,7 +869,7 @@ int dr_strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count
         return EINVAL;
     }
     if (dstSizeInBytes == 0) {
-        return EINVAL;
+        return ERANGE;
     }
     if (src == 0) {
         dst[0] = '\0';
