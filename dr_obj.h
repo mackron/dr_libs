@@ -39,6 +39,8 @@
 #ifndef dr_obj_h
 #define dr_obj_h
 
+#include <stddef.h>
+
 #ifndef DR_SIZED_TYPES_DEFINED
 #define DR_SIZED_TYPES_DEFINED
 #if defined(_MSC_VER) && _MSC_VER < 1600
@@ -197,6 +199,7 @@ void drobj_free(void* pData);
 //
 // Free the returned pointers with drobj_free().
 void drobj_interleave_p3t2n3(drobj* pOBJ, dr_uint32* pVertexCountOut, float** ppVertexDataOut, dr_uint32* pIndexCountOut, dr_uint32** ppIndexDataOut);
+void drobj_interleave_p3t2n3_material(drobj* pOBJ, dr_uint32 materialIndex, dr_uint32* pVertexCountOut, float** ppVertexDataOut, dr_uint32* pIndexCountOut, dr_uint32** ppIndexDataOut);
 
 
 #ifdef __cplusplus
@@ -353,6 +356,77 @@ void drobj_interleave_p3t2n3(drobj* pOBJ, dr_uint32* pVertexCountOut, float** pp
                 pVertexData[(index*8) + 5] = pOBJ->pNormals[pOBJ->pFaces[iFace].v[iFaceVertex].normalIndex].v[0];
                 pVertexData[(index*8) + 6] = pOBJ->pNormals[pOBJ->pFaces[iFace].v[iFaceVertex].normalIndex].v[1];
                 pVertexData[(index*8) + 7] = pOBJ->pNormals[pOBJ->pFaces[iFace].v[iFaceVertex].normalIndex].v[2];
+
+                vertexCount += 1;
+            }
+
+            pIndexData[indexCount++] = index;
+        }
+    }
+
+
+    free(pUniqueVertices);
+
+    if (pIndexCountOut) {
+        *pIndexCountOut = indexCount;
+    }
+
+    if (pVertexCountOut) {
+        *pVertexCountOut = vertexCount;
+    }
+
+    
+    if (ppIndexDataOut != NULL) {
+        *ppIndexDataOut = pIndexData;
+    } else {
+        free(pIndexData);
+    }
+
+    if (ppVertexDataOut != NULL) {
+        *ppVertexDataOut = pVertexData;
+    } else {
+        free(pIndexData);
+    }
+}
+
+void drobj_interleave_p3t2n3_material(drobj* pOBJ, dr_uint32 materialIndex, dr_uint32* pVertexCountOut, float** ppVertexDataOut, dr_uint32* pIndexCountOut, dr_uint32** ppIndexDataOut)
+{
+    // When interleaving we want to ensure we don't copy over duplicate vertices. For example, a quad will be made up of two triangles, with two
+    // vertices being shared by both faces (along the common edge dividing the two triangles). We don't want to duplicate that data, so when creating
+    // an index for a face, we first want to check that it hasn't already been added.
+    drobj_material* pMaterial = &pOBJ->pMaterials[materialIndex];
+
+    // Create output buffers large enough to contain the interleaved data.
+    dr_uint32 indexCount = 0;
+    dr_uint32* pIndexData = (dr_uint32*)malloc(sizeof(dr_uint32) * pMaterial->faceCount*3);
+
+    dr_uint32 vertexCount = 0;
+    float* pVertexData = (float*)malloc((sizeof(float)*(3+2+3)) * pMaterial->faceCount*3);
+
+
+    dr_uint32 uniqueVertexCount = 0;
+    drobj_face_vertex* pUniqueVertices = (drobj_face_vertex*)malloc(sizeof(drobj_face_vertex) * pMaterial->faceCount*3);
+
+    for (dr_uint32 iFace = 0; iFace < pMaterial->faceCount; ++iFace)
+    {
+        for (dr_uint32 iFaceVertex = 0; iFaceVertex < 3; ++iFaceVertex)
+        {
+            dr_uint32 index;
+            if (!drobj__find_face_vertex(uniqueVertexCount, pUniqueVertices, pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex], &index))
+            {
+                pUniqueVertices[uniqueVertexCount] = pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex];
+                index = uniqueVertexCount++;
+
+                pVertexData[(index*8) + 0] = pOBJ->pPositions[pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex].positionIndex].v[0];
+                pVertexData[(index*8) + 1] = pOBJ->pPositions[pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex].positionIndex].v[1];
+                pVertexData[(index*8) + 2] = pOBJ->pPositions[pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex].positionIndex].v[2];
+
+                pVertexData[(index*8) + 3] = pOBJ->pTexCoords[pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex].texcoordIndex].v[0];
+                pVertexData[(index*8) + 4] = pOBJ->pTexCoords[pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex].texcoordIndex].v[1];
+
+                pVertexData[(index*8) + 5] = pOBJ->pNormals[pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex].normalIndex].v[0];
+                pVertexData[(index*8) + 6] = pOBJ->pNormals[pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex].normalIndex].v[1];
+                pVertexData[(index*8) + 7] = pOBJ->pNormals[pOBJ->pFaces[pMaterial->firstFace + iFace].v[iFaceVertex].normalIndex].v[2];
 
                 vertexCount += 1;
             }
@@ -1029,7 +1103,7 @@ dr_bool32 drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
             pOBJ->pFaces[pLoadContext->faceCount] = face;
             pLoadContext->faceCount += 1;
 
-            // Quads need to be convertex to triangles.
+            // Quads need to be converted to triangles.
             if (vertexCount > 3)
             {
                 // TODO: Add support for polygons with an arbitrary number of triangles.
