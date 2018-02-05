@@ -1,5 +1,5 @@
 // WAV audio loader and writer. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.7e - 2018-02-02
+// dr_wav - v0.7f - 2018-02-05
 //
 // David Reid - mackron@gmail.com
 
@@ -1503,9 +1503,16 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
         }
     }
 
-    // The way we calculate the bytes per sample does not make sense for compressed formats. We set this to 0 for compressed WAVs.
+    // The way we calculate the bytes per sample does not make sense for compressed formats so we just set it to 0.
     if (drwav__is_compressed_format_tag(pWav->translatedFormatTag)) {
         pWav->bytesPerSample = 0;
+    }
+
+    // Some formats only support a certain number of channels.
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM || pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
+        if (pWav->channels > 2) {
+            return DRWAV_FALSE;
+        }
     }
 
 #ifdef DR_WAV_LIBSNDFILE_COMPAT
@@ -3432,6 +3439,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 // REVISION HISTORY
 //
+// v0.7f - 2018-02-05
+//   - Restrict ADPCM formats to a maximum of 2 channels.
+//
 // v0.7e - 2018-02-02
 //   - Fix a crash.
 //
@@ -3487,7 +3497,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //
 // v0.5 - 2016-09-29
 //   - API CHANGE. Swap the order of "channels" and "sampleRate" parameters in drwav_open_and_read*(). Rationale for this is to
-//     keep it consistent with dr_audio and drwav_flac.
+//     keep it consistent with dr_audio and dr_flac.
 //
 // v0.4b - 2016-09-18
 //   - Fixed a typo in documentation.
@@ -3497,8 +3507,8 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //   - Change date format to ISO 8601 (YYYY-MM-DD)
 //
 // v0.4 - 2016-07-13
-//   - API CHANGE. Make onSeek consistent with drwav_flac.
-//   - API CHANGE. Rename drwav_seek() to drwav_seek_to_sample() for clarity and consistency with drwav_flac.
+//   - API CHANGE. Make onSeek consistent with dr_flac.
+//   - API CHANGE. Rename drwav_seek() to drwav_seek_to_sample() for clarity and consistency with dr_flac.
 //   - Added support for Sony Wave64.
 //
 // v0.3a - 2016-05-28
@@ -3512,7 +3522,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //   - Fixed Linux/GCC build.
 //
 // v0.2 - 2016-05-11
-//   - Added support for reading data as signed 32-bit PCM for consistency with drwav_flac.
+//   - Added support for reading data as signed 32-bit PCM for consistency with dr_flac.
 //
 // v0.1a - 2016-05-07
 //   - Fixed a bug in drwav_open_file() where the file handle would not be closed if the loader failed to initialize.
