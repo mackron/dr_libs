@@ -1,5 +1,5 @@
 // PCX image loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_pcx - v0.2b - 2018-02-02
+// dr_pcx - v0.2c - 2018-02-07
 //
 // David Reid - mackron@gmail.com
 
@@ -126,12 +126,12 @@ dr_uint8* drpcx_load_file(const char* filename, dr_bool32 flipped, int* x, int* 
     FILE* pFile;
 #ifdef _MSC_VER
     if (fopen_s(&pFile, filename, "rb") != 0) {
-        return DR_FALSE;
+        return NULL;
     }
 #else
     pFile = fopen(filename, "rb");
     if (pFile == NULL) {
-        return DR_FALSE;
+        return NULL;
     }
 #endif
 
@@ -630,6 +630,17 @@ dr_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped,
     }
 
 
+    if (pcx.header.left > pcx.header.right) {
+        dr_uint16 temp = pcx.header.left;
+        pcx.header.left = pcx.header.right;
+        pcx.header.right = temp;
+    }
+    if (pcx.header.top > pcx.header.bottom) {
+        dr_uint16 temp = pcx.header.top;
+        pcx.header.top = pcx.header.bottom;
+        pcx.header.bottom = temp;
+    }
+
     pcx.width = pcx.header.right - pcx.header.left + 1;
     pcx.height = pcx.header.bottom - pcx.header.top + 1;
     pcx.components = (pcx.header.bpp == 8 && pcx.header.bitPlanes == 4) ? 4 : 3;
@@ -746,6 +757,9 @@ void drpcx_free(void* pReturnValueFromLoad)
 
 
 // REVISION HISTORY
+//
+// v0.2c - 2018-02-07
+//   - Fix a crash.
 //
 // v0.2b - 2018-02-02
 //   - Fix compilation error.
