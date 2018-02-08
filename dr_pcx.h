@@ -1,5 +1,5 @@
 // PCX image loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_pcx - v0.2c - 2018-02-07
+// dr_pcx - v0.3 - 2018-02-08
 //
 // David Reid - mackron@gmail.com
 
@@ -15,7 +15,7 @@
 //     int width;
 //     int height;
 //     int components
-//     dr_uint8* pImageData = drpcx_load_file("my_image.pcx", DR_FALSE, &width, &height, &components, 0);
+//     drpcx_uint8* pImageData = drpcx_load_file("my_image.pcx", DRPCX_FALSE, &width, &height, &components, 0);
 //     if (pImageData == NULL) {
 //         // Failed to load image.
 //     }
@@ -44,33 +44,30 @@
 
 #include <stddef.h>
 
-#ifndef DR_SIZED_TYPES_DEFINED
-#define DR_SIZED_TYPES_DEFINED
 #if defined(_MSC_VER) && _MSC_VER < 1600
-typedef   signed char    dr_int8;
-typedef unsigned char    dr_uint8;
-typedef   signed short   dr_int16;
-typedef unsigned short   dr_uint16;
-typedef   signed int     dr_int32;
-typedef unsigned int     dr_uint32;
-typedef   signed __int64 dr_int64;
-typedef unsigned __int64 dr_uint64;
+typedef   signed char    drpcx_int8;
+typedef unsigned char    drpcx_uint8;
+typedef   signed short   drpcx_int16;
+typedef unsigned short   drpcx_uint16;
+typedef   signed int     drpcx_int32;
+typedef unsigned int     drpcx_uint32;
+typedef   signed __int64 drpcx_int64;
+typedef unsigned __int64 drpcx_uint64;
 #else
 #include <stdint.h>
-typedef int8_t           dr_int8;
-typedef uint8_t          dr_uint8;
-typedef int16_t          dr_int16;
-typedef uint16_t         dr_uint16;
-typedef int32_t          dr_int32;
-typedef uint32_t         dr_uint32;
-typedef int64_t          dr_int64;
-typedef uint64_t         dr_uint64;
+typedef int8_t           drpcx_int8;
+typedef uint8_t          drpcx_uint8;
+typedef int16_t          drpcx_int16;
+typedef uint16_t         drpcx_uint16;
+typedef int32_t          drpcx_int32;
+typedef uint32_t         drpcx_uint32;
+typedef int64_t          drpcx_int64;
+typedef uint64_t         drpcx_uint64;
 #endif
-typedef dr_uint8         dr_bool8;
-typedef dr_uint32        dr_bool32;
-#define DR_TRUE          1
-#define DR_FALSE         0
-#endif
+typedef drpcx_uint8      drpcx_bool8;
+typedef drpcx_uint32     drpcx_bool32;
+#define DRPCX_TRUE       1
+#define DRPCX_FALSE      0
 
 #ifdef __cplusplus
 extern "C" {
@@ -81,7 +78,7 @@ typedef size_t (* drpcx_read_proc)(void* userData, void* bufferOut, size_t bytes
 
 
 // Loads a PCX file using the given callbacks.
-dr_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents);
+drpcx_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, drpcx_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents);
 
 // Frees memory returned by drpcx_load() and family.
 void drpcx_free(void* pReturnValueFromLoad);
@@ -89,11 +86,11 @@ void drpcx_free(void* pReturnValueFromLoad);
 
 #ifndef DR_PCX_NO_STDIO
 // Loads an PCX file from an actual file.
-dr_uint8* drpcx_load_file(const char* filename, dr_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents);
+drpcx_uint8* drpcx_load_file(const char* filename, drpcx_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents);
 #endif
 
 // Helper for loading an PCX file from a block of memory.
-dr_uint8* drpcx_load_memory(const void* data, size_t dataSize, dr_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents);
+drpcx_uint8* drpcx_load_memory(const void* data, size_t dataSize, drpcx_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents);
 
 
 #ifdef __cplusplus
@@ -121,7 +118,7 @@ static size_t drpcx__on_read_stdio(void* pUserData, void* bufferOut, size_t byte
     return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-dr_uint8* drpcx_load_file(const char* filename, dr_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents)
+drpcx_uint8* drpcx_load_file(const char* filename, drpcx_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents)
 {
     FILE* pFile;
 #ifdef _MSC_VER
@@ -135,7 +132,7 @@ dr_uint8* drpcx_load_file(const char* filename, dr_bool32 flipped, int* x, int* 
     }
 #endif
 
-    dr_uint8* pImageData = drpcx_load(drpcx__on_read_stdio, pFile, flipped, x, y, internalComponents, desiredComponents);
+    drpcx_uint8* pImageData = drpcx_load(drpcx__on_read_stdio, pFile, flipped, x, y, internalComponents, desiredComponents);
 
     fclose(pFile);
     return pImageData;
@@ -170,7 +167,7 @@ static size_t drpcx__on_read_memory(void* pUserData, void* bufferOut, size_t byt
     return bytesToRead;
 }
 
-dr_uint8* drpcx_load_memory(const void* data, size_t dataSize, dr_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents)
+drpcx_uint8* drpcx_load_memory(const void* data, size_t dataSize, drpcx_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents)
 {
     drpcx_memory memory;
     memory.data = (const unsigned char*)data;
@@ -182,53 +179,53 @@ dr_uint8* drpcx_load_memory(const void* data, size_t dataSize, dr_bool32 flipped
 
 typedef struct
 {
-    dr_uint8 header;
-    dr_uint8 version;
-    dr_uint8 encoding;
-    dr_uint8 bpp;
-    dr_uint16 left;
-    dr_uint16 top;
-    dr_uint16 right;
-    dr_uint16 bottom;
-    dr_uint16 hres;
-    dr_uint16 vres;
-    dr_uint8 palette16[48];
-    dr_uint8 reserved1;
-    dr_uint8 bitPlanes;
-    dr_uint16 bytesPerLine;
-    dr_uint16 paletteType;
-    dr_uint16 screenSizeH;
-    dr_uint16 screenSizeV;
-    dr_uint8 reserved2[54];
+    drpcx_uint8 header;
+    drpcx_uint8 version;
+    drpcx_uint8 encoding;
+    drpcx_uint8 bpp;
+    drpcx_uint16 left;
+    drpcx_uint16 top;
+    drpcx_uint16 right;
+    drpcx_uint16 bottom;
+    drpcx_uint16 hres;
+    drpcx_uint16 vres;
+    drpcx_uint8 palette16[48];
+    drpcx_uint8 reserved1;
+    drpcx_uint8 bitPlanes;
+    drpcx_uint16 bytesPerLine;
+    drpcx_uint16 paletteType;
+    drpcx_uint16 screenSizeH;
+    drpcx_uint16 screenSizeV;
+    drpcx_uint8 reserved2[54];
 } drpcx_header;
 
 typedef struct
 {
     drpcx_read_proc onRead;
     void* pUserData;
-    dr_bool32 flipped;
+    drpcx_bool32 flipped;
     drpcx_header header;
 
-    dr_uint32 width;
-    dr_uint32 height;
-    dr_uint32 components;    // 3 = RGB; 4 = RGBA. Only 3 and 4 are supported.
-    dr_uint8* pImageData;
+    drpcx_uint32 width;
+    drpcx_uint32 height;
+    drpcx_uint32 components;    // 3 = RGB; 4 = RGBA. Only 3 and 4 are supported.
+    drpcx_uint8* pImageData;
 } drpcx;
 
 
-static dr_uint8 drpcx__read_byte(drpcx* pPCX)
+static drpcx_uint8 drpcx__read_byte(drpcx* pPCX)
 {
-    dr_uint8 byte = 0;
+    drpcx_uint8 byte = 0;
     pPCX->onRead(pPCX->pUserData, &byte, 1);
 
     return byte;
 }
 
-static dr_uint8* drpcx__row_ptr(drpcx* pPCX, dr_uint32 row)
+static drpcx_uint8* drpcx__row_ptr(drpcx* pPCX, drpcx_uint32 row)
 {
-    dr_uint32 stride = pPCX->width * pPCX->components;
+    drpcx_uint32 stride = pPCX->width * pPCX->components;
 
-    dr_uint8* pRow = pPCX->pImageData;
+    drpcx_uint8* pRow = pPCX->pImageData;
     if (pPCX->flipped) {
         pRow += (pPCX->height - row - 1) * stride;
     } else {
@@ -238,10 +235,10 @@ static dr_uint8* drpcx__row_ptr(drpcx* pPCX, dr_uint32 row)
     return pRow;
 }
 
-static dr_uint8 drpcx__rle(drpcx* pPCX, dr_uint8* pRLEValueOut)
+static drpcx_uint8 drpcx__rle(drpcx* pPCX, drpcx_uint8* pRLEValueOut)
 {
-    dr_uint8 rleCount;
-    dr_uint8 rleValue;
+    drpcx_uint8 rleCount;
+    drpcx_uint8 rleValue;
 
     rleValue = drpcx__read_byte(pPCX);
     if ((rleValue & 0xC0) == 0xC0) {
@@ -257,19 +254,19 @@ static dr_uint8 drpcx__rle(drpcx* pPCX, dr_uint8* pRLEValueOut)
 }
 
 
-dr_bool32 drpcx__decode_1bit(drpcx* pPCX)
+drpcx_bool32 drpcx__decode_1bit(drpcx* pPCX)
 {
-    dr_uint8 rleCount = 0;
-    dr_uint8 rleValue = 0;
+    drpcx_uint8 rleCount = 0;
+    drpcx_uint8 rleValue = 0;
 
     switch (pPCX->header.bitPlanes)
     {
         case 1:
         {
-            for (dr_uint32 y = 0; y < pPCX->height; ++y)
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
             {
-                dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (dr_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
+                drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+                for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
                 {
                     if (rleCount == 0) {
                         rleCount = drpcx__rle(pPCX, &rleValue);
@@ -278,8 +275,8 @@ dr_bool32 drpcx__decode_1bit(drpcx* pPCX)
 
                     for (int bit = 0; (bit < 8) && ((x*8 + bit) < pPCX->width); ++bit)
                     {
-                        dr_uint8 mask = (1 << (7 - bit));
-                        dr_uint8 paletteIndex = (rleValue & mask) >> (7 - bit);
+                        drpcx_uint8 mask = (1 << (7 - bit));
+                        drpcx_uint8 paletteIndex = (rleValue & mask) >> (7 - bit);
 
                         pRow[0] = paletteIndex * 255;
                         pRow[1] = paletteIndex * 255;
@@ -289,7 +286,7 @@ dr_bool32 drpcx__decode_1bit(drpcx* pPCX)
                 }
             }
 
-            return DR_TRUE;
+            return DRPCX_TRUE;
 
         } break;
 
@@ -297,12 +294,12 @@ dr_bool32 drpcx__decode_1bit(drpcx* pPCX)
         case 3:
         case 4:
         {
-            for (dr_uint32 y = 0; y < pPCX->height; ++y)
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
             {
-                for (dr_uint32 c = 0; c < pPCX->header.bitPlanes; ++c)
+                for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c)
                 {
-                    dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                    for (dr_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
+                    drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+                    for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
                     {
                         if (rleCount == 0) {
                             rleCount = drpcx__rle(pPCX, &rleValue);
@@ -311,8 +308,8 @@ dr_bool32 drpcx__decode_1bit(drpcx* pPCX)
 
                         for (int bit = 0; (bit < 8) && ((x*8 + bit) < pPCX->width); ++bit)
                         {
-                            dr_uint8 mask = (1 << (7 - bit));
-                            dr_uint8 paletteIndex = (rleValue & mask) >> (7 - bit);
+                            drpcx_uint8 mask = (1 << (7 - bit));
+                            drpcx_uint8 paletteIndex = (rleValue & mask) >> (7 - bit);
 
                             pRow[0] |= ((paletteIndex & 0x01) << c);
                             pRow += pPCX->components;
@@ -321,11 +318,11 @@ dr_bool32 drpcx__decode_1bit(drpcx* pPCX)
                 }
 
 
-                dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (dr_uint32 x = 0; x < pPCX->width; ++x)
+                drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+                for (drpcx_uint32 x = 0; x < pPCX->width; ++x)
                 {
-                    dr_uint8 paletteIndex = pRow[0];
-                    for (dr_uint32 c = 0; c < pPCX->components; ++c) {
+                    drpcx_uint8 paletteIndex = pRow[0];
+                    for (drpcx_uint32 c = 0; c < pPCX->components; ++c) {
                         pRow[c] = pPCX->header.palette16[paletteIndex*3 + c];
                     }
                     
@@ -333,23 +330,23 @@ dr_bool32 drpcx__decode_1bit(drpcx* pPCX)
                 }
             }
 
-            return DR_TRUE;
+            return DRPCX_TRUE;
         }
 
-        default: return DR_FALSE;
+        default: return DRPCX_FALSE;
     }
 }
 
-dr_bool32 drpcx__decode_2bit(drpcx* pPCX)
+drpcx_bool32 drpcx__decode_2bit(drpcx* pPCX)
 {
-    dr_uint8 rleCount = 0;
-    dr_uint8 rleValue = 0;
+    drpcx_uint8 rleCount = 0;
+    drpcx_uint8 rleValue = 0;
 
     switch (pPCX->header.bitPlanes)
     {
         case 1:
         {
-            dr_uint8 paletteCGA[48];
+            drpcx_uint8 paletteCGA[48];
             paletteCGA[ 0] = 0x00; paletteCGA[ 1] = 0x00; paletteCGA[ 2] = 0x00;    // #000000
             paletteCGA[ 3] = 0x00; paletteCGA[ 4] = 0x00; paletteCGA[ 5] = 0xAA;    // #0000AA
             paletteCGA[ 6] = 0x00; paletteCGA[ 7] = 0xAA; paletteCGA[ 8] = 0x00;    // #00AA00
@@ -367,15 +364,15 @@ dr_bool32 drpcx__decode_2bit(drpcx* pPCX)
             paletteCGA[42] = 0xFF; paletteCGA[43] = 0xFF; paletteCGA[44] = 0x55;    // #FFFF55
             paletteCGA[45] = 0xFF; paletteCGA[46] = 0xFF; paletteCGA[47] = 0xFF;    // #FFFFFF
 
-            dr_uint8 cgaBGColor   = pPCX->header.palette16[0] >> 4;
-            dr_uint8 i = (pPCX->header.palette16[3] & 0x20) >> 5;
-            dr_uint8 p = (pPCX->header.palette16[3] & 0x40) >> 6;
-            //dr_uint8 c = (pPCX->header.palette16[3] & 0x80) >> 7;    // Color or monochrome. How is monochrome handled?
+            drpcx_uint8 cgaBGColor   = pPCX->header.palette16[0] >> 4;
+            drpcx_uint8 i = (pPCX->header.palette16[3] & 0x20) >> 5;
+            drpcx_uint8 p = (pPCX->header.palette16[3] & 0x40) >> 6;
+            //drpcx_uint8 c = (pPCX->header.palette16[3] & 0x80) >> 7;    // Color or monochrome. How is monochrome handled?
 
-            for (dr_uint32 y = 0; y < pPCX->height; ++y)
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
             {
-                dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (dr_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
+                drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+                for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
                 {
                     if (rleCount == 0) {
                         rleCount = drpcx__rle(pPCX, &rleValue);
@@ -386,10 +383,10 @@ dr_bool32 drpcx__decode_2bit(drpcx* pPCX)
                     {
                         if (x*4 + bit < pPCX->width)
                         {
-                            dr_uint8 mask = (3 << ((3 - bit) * 2));
-                            dr_uint8 paletteIndex = (rleValue & mask) >> ((3 - bit) * 2);
+                            drpcx_uint8 mask = (3 << ((3 - bit) * 2));
+                            drpcx_uint8 paletteIndex = (rleValue & mask) >> ((3 - bit) * 2);
 
-                            dr_uint8 cgaIndex;
+                            drpcx_uint8 cgaIndex;
                             if (paletteIndex == 0) {    // Background.
                                 cgaIndex = cgaBGColor;
                             } else {                    // Foreground
@@ -409,13 +406,13 @@ dr_bool32 drpcx__decode_2bit(drpcx* pPCX)
             //       instead of the standard CGA palette if the version is equal to 5. With my test files the palette
             //       at the end of the file does not exist. Research this one.
             if (pPCX->header.version == 5) {
-                dr_uint8 paletteMarker = drpcx__read_byte(pPCX);
+                drpcx_uint8 paletteMarker = drpcx__read_byte(pPCX);
                 if (paletteMarker == 0x0C) {
                     // TODO: Implement Me.
                 }
             }
             
-            return DR_TRUE;
+            return DRPCX_TRUE;
         };
 
         case 4:
@@ -423,12 +420,12 @@ dr_bool32 drpcx__decode_2bit(drpcx* pPCX)
             // NOTE: This is completely untested. If anybody knows where I can get a test file please let me know or send it through to me!
             // TODO: Test Me.
 
-            for (dr_uint32 y = 0; y < pPCX->height; ++y)
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
             {
-                for (dr_uint32 c = 0; c < pPCX->header.bitPlanes; ++c)
+                for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c)
                 {
-                    dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                    for (dr_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
+                    drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+                    for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
                     {
                         if (rleCount == 0) {
                             rleCount = drpcx__rle(pPCX, &rleValue);
@@ -437,8 +434,8 @@ dr_bool32 drpcx__decode_2bit(drpcx* pPCX)
 
                         for (int bitpair = 0; (bitpair < 4) && ((x*4 + bitpair) < pPCX->width); ++bitpair)
                         {
-                            dr_uint8 mask = (4 << (3 - bitpair));
-                            dr_uint8 paletteIndex = (rleValue & mask) >> (3 - bitpair);
+                            drpcx_uint8 mask = (4 << (3 - bitpair));
+                            drpcx_uint8 paletteIndex = (rleValue & mask) >> (3 - bitpair);
 
                             pRow[0] |= ((paletteIndex & 0x03) << (c*2));
                             pRow += pPCX->components;
@@ -447,11 +444,11 @@ dr_bool32 drpcx__decode_2bit(drpcx* pPCX)
                 }
 
 
-                dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (dr_uint32 x = 0; x < pPCX->width; ++x)
+                drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+                for (drpcx_uint32 x = 0; x < pPCX->width; ++x)
                 {
-                    dr_uint8 paletteIndex = pRow[0];
-                    for (dr_uint32 c = 0; c < pPCX->header.bitPlanes; ++c) {
+                    drpcx_uint8 paletteIndex = pRow[0];
+                    for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c) {
                         pRow[c] = pPCX->header.palette16[paletteIndex*3 + c];
                     }
                     
@@ -459,31 +456,31 @@ dr_bool32 drpcx__decode_2bit(drpcx* pPCX)
                 }
             }
 
-            return DR_TRUE;
+            return DRPCX_TRUE;
         };
 
-        default: return DR_FALSE;
+        default: return DRPCX_FALSE;
     }
 }
 
-dr_bool32 drpcx__decode_4bit(drpcx* pPCX)
+drpcx_bool32 drpcx__decode_4bit(drpcx* pPCX)
 {
     // NOTE: This is completely untested. If anybody knows where I can get a test file please let me know or send it through to me!
     // TODO: Test Me.
 
     if (pPCX->header.bitPlanes > 1) {
-        return DR_FALSE;
+        return DRPCX_FALSE;
     }
 
-    dr_uint8 rleCount = 0;
-    dr_uint8 rleValue = 0;
+    drpcx_uint8 rleCount = 0;
+    drpcx_uint8 rleValue = 0;
 
-    for (dr_uint32 y = 0; y < pPCX->height; ++y)
+    for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
     {
-        for (dr_uint32 c = 0; c < pPCX->header.bitPlanes; ++c)
+        for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c)
         {
-            dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-            for (dr_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
+            drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+            for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
             {
                 if (rleCount == 0) {
                     rleCount = drpcx__rle(pPCX, &rleValue);
@@ -492,8 +489,8 @@ dr_bool32 drpcx__decode_4bit(drpcx* pPCX)
 
                 for (int nibble = 0; (nibble < 2) && ((x*2 + nibble) < pPCX->width); ++nibble)
                 {
-                    dr_uint8 mask = (4 << (1 - nibble));
-                    dr_uint8 paletteIndex = (rleValue & mask) >> (1 - nibble);
+                    drpcx_uint8 mask = (4 << (1 - nibble));
+                    drpcx_uint8 paletteIndex = (rleValue & mask) >> (1 - nibble);
 
                     pRow[0] |= ((paletteIndex & 0x0F) << (c*4)); 
                     pRow += pPCX->components;
@@ -502,11 +499,11 @@ dr_bool32 drpcx__decode_4bit(drpcx* pPCX)
         }
 
 
-        dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-        for (dr_uint32 x = 0; x < pPCX->width; ++x)
+        drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+        for (drpcx_uint32 x = 0; x < pPCX->width; ++x)
         {
-            dr_uint8 paletteIndex = pRow[0];
-            for (dr_uint32 c = 0; c < pPCX->components; ++c) {
+            drpcx_uint8 paletteIndex = pRow[0];
+            for (drpcx_uint32 c = 0; c < pPCX->components; ++c) {
                 pRow[c] = pPCX->header.palette16[paletteIndex*3 + c];
             }
                     
@@ -514,23 +511,23 @@ dr_bool32 drpcx__decode_4bit(drpcx* pPCX)
         }
     }
 
-    return DR_TRUE;
+    return DRPCX_TRUE;
 }
 
-dr_bool32 drpcx__decode_8bit(drpcx* pPCX)
+drpcx_bool32 drpcx__decode_8bit(drpcx* pPCX)
 {
-    dr_uint8 rleCount = 0;
-    dr_uint8 rleValue = 0;
-    dr_uint32 stride = pPCX->width * pPCX->components;
+    drpcx_uint8 rleCount = 0;
+    drpcx_uint8 rleValue = 0;
+    drpcx_uint32 stride = pPCX->width * pPCX->components;
 
     switch (pPCX->header.bitPlanes)
     {
         case 1:
         {
-            for (dr_uint32 y = 0; y < pPCX->height; ++y)
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
             {
-                dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (dr_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
+                drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+                for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
                 {
                     if (rleCount == 0) {
                         rleCount = drpcx__rle(pPCX, &rleValue);
@@ -548,21 +545,21 @@ dr_bool32 drpcx__decode_8bit(drpcx* pPCX)
 
             // At this point we can know if we are dealing with a palette or a grayscale image by checking the next byte. If ti's equal to 0x0C, we
             // need to do a simple palette lookup.
-            dr_uint8 paletteMarker = drpcx__read_byte(pPCX);
+            drpcx_uint8 paletteMarker = drpcx__read_byte(pPCX);
             if (paletteMarker == 0x0C)
             {
                 // A palette is present - we need to do a second pass.
-                dr_uint8 palette256[768];
+                drpcx_uint8 palette256[768];
                 if (pPCX->onRead(pPCX->pUserData, palette256, sizeof(palette256)) != sizeof(palette256)) {
-                    return DR_FALSE;
+                    return DRPCX_FALSE;
                 }
 
-                for (dr_uint32 y = 0; y < pPCX->height; ++y)
+                for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
                 {
-                    dr_uint8* pRow = pPCX->pImageData + (y * stride);
-                    for (dr_uint32 x = 0; x < pPCX->width; ++x)
+                    drpcx_uint8* pRow = pPCX->pImageData + (y * stride);
+                    for (drpcx_uint32 x = 0; x < pPCX->width; ++x)
                     {
-                        dr_uint8 index = pRow[0];
+                        drpcx_uint8 index = pRow[0];
                         pRow[0] = palette256[index*3 + 0];
                         pRow[1] = palette256[index*3 + 1];
                         pRow[2] = palette256[index*3 + 2];
@@ -571,18 +568,18 @@ dr_bool32 drpcx__decode_8bit(drpcx* pPCX)
                 }
             }
 
-            return DR_TRUE;
+            return DRPCX_TRUE;
         }
 
         case 3:
         case 4:
         {
-            for (dr_uint32 y = 0; y < pPCX->height; ++y)
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
             {
-                for (dr_uint32 c = 0; c < pPCX->components; ++c)
+                for (drpcx_uint32 c = 0; c < pPCX->components; ++c)
                 {
-                    dr_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                    for (dr_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
+                    drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
+                    for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
                     {
                         if (rleCount == 0) {
                             rleCount = drpcx__rle(pPCX, &rleValue);
@@ -597,14 +594,14 @@ dr_bool32 drpcx__decode_8bit(drpcx* pPCX)
                 }
             }
 
-            return DR_TRUE;
+            return DRPCX_TRUE;
         }
     }
 
-    return DR_TRUE;
+    return DRPCX_TRUE;
 }
 
-dr_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents)
+drpcx_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, drpcx_bool32 flipped, int* x, int* y, int* internalComponents, int desiredComponents)
 {
     if (onRead == NULL) return NULL;
     if (desiredComponents > 4) return NULL;
@@ -631,12 +628,12 @@ dr_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped,
 
 
     if (pcx.header.left > pcx.header.right) {
-        dr_uint16 temp = pcx.header.left;
+        drpcx_uint16 temp = pcx.header.left;
         pcx.header.left = pcx.header.right;
         pcx.header.right = temp;
     }
     if (pcx.header.top > pcx.header.bottom) {
-        dr_uint16 temp = pcx.header.top;
+        drpcx_uint16 temp = pcx.header.top;
         pcx.header.top = pcx.header.bottom;
         pcx.header.bottom = temp;
     }
@@ -646,12 +643,12 @@ dr_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped,
     pcx.components = (pcx.header.bpp == 8 && pcx.header.bitPlanes == 4) ? 4 : 3;
 
     size_t dataSize = pcx.width * pcx.height * pcx.components;
-    pcx.pImageData = (dr_uint8*)calloc(1, dataSize);   // <-- Clearing to zero is important! Required for proper decoding.
+    pcx.pImageData = (drpcx_uint8*)calloc(1, dataSize);   // <-- Clearing to zero is important! Required for proper decoding.
     if (pcx.pImageData == NULL) {
         return NULL;    // Failed to allocate memory.
     }
 
-    dr_bool32 result = DR_FALSE;
+    drpcx_bool32 result = DRPCX_FALSE;
     switch (pcx.header.bpp)
     {
         case 1:
@@ -684,17 +681,17 @@ dr_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped,
     // a second pass.
     if (desiredComponents == 0) desiredComponents = pcx.components;
     if (desiredComponents != (int)pcx.components) {
-        dr_uint8* pNewImageData = (dr_uint8*)malloc(pcx.width * pcx.height * desiredComponents);
+        drpcx_uint8* pNewImageData = (drpcx_uint8*)malloc(pcx.width * pcx.height * desiredComponents);
         if (pNewImageData == NULL) {
             free(pcx.pImageData);
             return NULL;
         }
 
-        dr_uint8* pSrcData = pcx.pImageData;
-        dr_uint8* pDstData = pNewImageData;
+        drpcx_uint8* pSrcData = pcx.pImageData;
+        drpcx_uint8* pDstData = pNewImageData;
         if (desiredComponents < (int)pcx.components) {
             // We're reducing the number of components. Just drop the excess.
-            for (dr_uint32 i = 0; i < pcx.width*pcx.height; ++i) {
+            for (drpcx_uint32 i = 0; i < pcx.width*pcx.height; ++i) {
                 for (int c = 0; c < desiredComponents; ++c) {
                     pDstData[c] = pSrcData[c];
                 } 
@@ -705,7 +702,7 @@ dr_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped,
         } else {
             // We're increasing the number of components. Always ensure the alpha channel is set to 0xFF.
             if (pcx.components == 1) {
-                for (dr_uint32 i = 0; i < pcx.width*pcx.height; ++i) {
+                for (drpcx_uint32 i = 0; i < pcx.width*pcx.height; ++i) {
                     for (int c = 0; c < desiredComponents; ++c) {
                         pDstData[c] = pSrcData[0];
                     }
@@ -714,7 +711,7 @@ dr_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped,
                     pDstData += desiredComponents;
                 }
             } else if (pcx.components == 2) {
-                for (dr_uint32 i = 0; i < pcx.width*pcx.height; ++i) {
+                for (drpcx_uint32 i = 0; i < pcx.width*pcx.height; ++i) {
                     pDstData[0] = pSrcData[0];
                     pDstData[1] = pSrcData[1];
                     pDstData[2] = 0x00;
@@ -726,7 +723,7 @@ dr_uint8* drpcx_load(drpcx_read_proc onRead, void* pUserData, dr_bool32 flipped,
             } else {
                 assert(pcx.components == 3);
                 assert(desiredComponents == 4);
-                for (dr_uint32 i = 0; i < pcx.width*pcx.height; ++i) {
+                for (drpcx_uint32 i = 0; i < pcx.width*pcx.height; ++i) {
                     pDstData[0] = pSrcData[0];
                     pDstData[1] = pSrcData[1];
                     pDstData[2] = pSrcData[2];
@@ -758,6 +755,9 @@ void drpcx_free(void* pReturnValueFromLoad)
 
 // REVISION HISTORY
 //
+// v0.3 - 2018-02-08
+//   - API CHANGE: Rename dr_* types to drpcx_*.
+//
 // v0.2c - 2018-02-07
 //   - Fix a crash.
 //
@@ -772,10 +772,10 @@ void drpcx_free(void* pReturnValueFromLoad)
 //   - Use custom sized types rather than built-in ones to improve support for older MSVC compilers.
 //
 // v0.1c - 2016-10-23
-//   - A minor change to dr_bool8 and dr_bool32 types.
+//   - A minor change to drpcx_bool8 and drpcx_bool32 types.
 //
 // v0.1b - 2016-10-11
-//   - Use dr_bool32 instead of the built-in "bool" type. The reason for this change is that it helps maintain API/ABI consistency
+//   - Use drpcx_bool32 instead of the built-in "bool" type. The reason for this change is that it helps maintain API/ABI consistency
 //     between C and C++ builds.
 //
 // v0.1a - 2016-09-18
