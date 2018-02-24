@@ -28,8 +28,8 @@
 //     drmp3_uint32 channels = mp3.channels;
 //     drmp3_uint32 sampleRate = mp3.sampleRate;
 //
-// The third parameter of drmp3_init_file() allows you to control the output channel count and sample rate. It is a pointer to a
-// drmp3_config object. Setting any of the variables of this object to 0 will cause dr_mp3 to use defaults.
+// The third parameter of drmp3_init_file() in the example above allows you to control the output channel count and sample rate. It
+// is a pointer to a drmp3_config object. Setting any of the variables of this object to 0 will cause dr_mp3 to use defaults.
 //
 // You do need to do any annoying memory management when reading PCM frames - this is all managed internally. You can request
 // any number of PCM frames in each call to drmp3_read_f32() and it will return as many PCM frames as it can, up to the requested
@@ -352,16 +352,16 @@ void drmp3_free(void* p);
 #   include <immintrin.h>
 #   define DRMP3_HAVE_SSE 1
 #   define DRMP3_HAVE_SIMD 1
-#   define VSTORE _mm_storeu_ps
-#   define VLD _mm_loadu_ps
-#   define VSET _mm_set1_ps
-#   define VADD _mm_add_ps
-#   define VSUB _mm_sub_ps
-#   define VMUL _mm_mul_ps
-#   define VMAC(a, x, y) _mm_add_ps(a, _mm_mul_ps(x, y))
-#   define VMSB(a, x, y) _mm_sub_ps(a, _mm_mul_ps(x, y))
-#   define VMUL_S(x, s)  _mm_mul_ps(x, _mm_set1_ps(s))
-#   define VREV(x) _mm_shuffle_ps(x, x, _MM_SHUFFLE(0, 1, 2, 3))
+#   define DRMP3_VSTORE _mm_storeu_ps
+#   define DRMP3_VLD _mm_loadu_ps
+#   define DRMP3_VSET _mm_set1_ps
+#   define DRMP3_VADD _mm_add_ps
+#   define DRMP3_VSUB _mm_sub_ps
+#   define DRMP3_VMUL _mm_mul_ps
+#   define DRMP3_VMAC(a, x, y) _mm_add_ps(a, _mm_mul_ps(x, y))
+#   define DRMP3_VMSB(a, x, y) _mm_sub_ps(a, _mm_mul_ps(x, y))
+#   define DRMP3_VMUL_S(x, s)  _mm_mul_ps(x, _mm_set1_ps(s))
+#   define DRMP3_VREV(x) _mm_shuffle_ps(x, x, _MM_SHUFFLE(0, 1, 2, 3))
 typedef __m128 f4;
 #if defined(_MSC_VER) || defined(DR_MP3_ONLY_SIMD)
 #define minimp3_cpuid __cpuid
@@ -421,17 +421,17 @@ test_nosimd:
 #elif defined(__ARM_NEON) || defined(__aarch64__)
 #   include <arm_neon.h>
 #   define DRMP3_HAVE_SIMD 1
-#   define VSTORE vst1q_f32
-#   define VLD vld1q_f32
-#   define VSET vmovq_n_f32
-#   define VADD vaddq_f32
-#   define VSUB vsubq_f32
-#   define VMUL vmulq_f32
-#   define VMAC(a, x, y) vmlaq_f32(a, x, y)
-#   define VMSB(a, x, y) vmlsq_f32(a, x, y)
-#   define VMUL_S(x, s)  vmulq_f32(x, vmovq_n_f32(s))
-/*#   define VREV(x) vcombine_f32(vrev64_f32(vget_high_f32(x)), vrev64_f32(vget_low_f32(x)))*/
-#   define VREV(x) vcombine_f32(vget_high_f32(vrev64q_f32(x)), vget_low_f32(vrev64q_f32(x)))
+#   define DRMP3_VSTORE vst1q_f32
+#   define DRMP3_VLD vld1q_f32
+#   define DRMP3_VSET vmovq_n_f32
+#   define DRMP3_VADD vaddq_f32
+#   define DRMP3_VSUB vsubq_f32
+#   define DRMP3_VMUL vmulq_f32
+#   define DRMP3_VMAC(a, x, y) vmlaq_f32(a, x, y)
+#   define DRMP3_VMSB(a, x, y) vmlsq_f32(a, x, y)
+#   define DRMP3_VMUL_S(x, s)  vmulq_f32(x, vmovq_n_f32(s))
+/*#   define DRMP3_VREV(x) vcombine_f32(vrev64_f32(vget_high_f32(x)), vrev64_f32(vget_low_f32(x)))*/
+#   define DRMP3_VREV(x) vcombine_f32(vget_high_f32(vrev64q_f32(x)), vget_low_f32(vrev64q_f32(x)))
 typedef float32x4_t f4;
 static int have_simd()
 {   /* TODO: detect neon for !DR_MP3_ONLY_SIMD */
@@ -1123,10 +1123,10 @@ static void L3_midside_stereo(float *left, int n)
 #if DRMP3_HAVE_SIMD
     if (have_simd()) for (; i < n - 3; i += 4)
     {
-        f4 vl = VLD(left + i);
-        f4 vr = VLD(right + i);
-        VSTORE(left + i, VADD(vl, vr));
-        VSTORE(right + i, VSUB(vl, vr));
+        f4 vl = DRMP3_VLD(left + i);
+        f4 vr = DRMP3_VLD(right + i);
+        DRMP3_VSTORE(left + i, DRMP3_VADD(vl, vr));
+        DRMP3_VSTORE(right + i, DRMP3_VSUB(vl, vr));
     }
 #endif
     for (; i < n; i++)
@@ -1252,14 +1252,14 @@ static void L3_antialias(float *grbuf, int nbands)
 #if DRMP3_HAVE_SIMD
         if (have_simd()) for (; i < 8; i += 4)
         {
-            f4 vu = VLD(grbuf + 18 + i);
-            f4 vd = VLD(grbuf + 14 - i);
-            f4 vc0 = VLD(g_aa[0] + i);
-            f4 vc1 = VLD(g_aa[1] + i);
-            vd = VREV(vd);
-            VSTORE(grbuf + 18 + i, VSUB(VMUL(vu, vc0), VMUL(vd, vc1)));
-            vd = VADD(VMUL(vu, vc1), VMUL(vd, vc0));
-            VSTORE(grbuf + 14 - i, VREV(vd));
+            f4 vu = DRMP3_VLD(grbuf + 18 + i);
+            f4 vd = DRMP3_VLD(grbuf + 14 - i);
+            f4 vc0 = DRMP3_VLD(g_aa[0] + i);
+            f4 vc1 = DRMP3_VLD(g_aa[1] + i);
+            vd = DRMP3_VREV(vd);
+            DRMP3_VSTORE(grbuf + 18 + i, DRMP3_VSUB(DRMP3_VMUL(vu, vc0), DRMP3_VMUL(vd, vc1)));
+            vd = DRMP3_VADD(DRMP3_VMUL(vu, vc1), DRMP3_VMUL(vd, vc0));
+            DRMP3_VSTORE(grbuf + 14 - i, DRMP3_VREV(vd));
         }
 #endif
 #ifndef DR_MP3_ONLY_SIMD
@@ -1346,18 +1346,18 @@ static void L3_imdct36(float *grbuf, float *overlap, const float *window, int nb
 #if DRMP3_HAVE_SIMD
         if (have_simd()) for (; i < 8; i += 4)
         {
-            f4 vovl = VLD(overlap + i);
-            f4 vc = VLD(co + i);
-            f4 vs = VLD(si + i);
-            f4 vr0 = VLD(g_twid9 + i);
-            f4 vr1 = VLD(g_twid9 + 9 + i);
-            f4 vw0 = VLD(window + i);
-            f4 vw1 = VLD(window + 9 + i);
-            f4 vsum = VADD(VMUL(vc, vr1), VMUL(vs, vr0));
-            VSTORE(overlap + i, VSUB(VMUL(vc, vr0), VMUL(vs, vr1)));
-            VSTORE(grbuf + i, VSUB(VMUL(vovl, vw0), VMUL(vsum, vw1)));
-            vsum = VADD(VMUL(vovl, vw1), VMUL(vsum, vw0));
-            VSTORE(grbuf + 14 - i, VREV(vsum));
+            f4 vovl = DRMP3_VLD(overlap + i);
+            f4 vc = DRMP3_VLD(co + i);
+            f4 vs = DRMP3_VLD(si + i);
+            f4 vr0 = DRMP3_VLD(g_twid9 + i);
+            f4 vr1 = DRMP3_VLD(g_twid9 + 9 + i);
+            f4 vw0 = DRMP3_VLD(window + i);
+            f4 vw1 = DRMP3_VLD(window + 9 + i);
+            f4 vsum = DRMP3_VADD(DRMP3_VMUL(vc, vr1), DRMP3_VMUL(vs, vr0));
+            DRMP3_VSTORE(overlap + i, DRMP3_VSUB(DRMP3_VMUL(vc, vr0), DRMP3_VMUL(vs, vr1)));
+            DRMP3_VSTORE(grbuf + i, DRMP3_VSUB(DRMP3_VMUL(vovl, vw0), DRMP3_VMUL(vsum, vw1)));
+            vsum = DRMP3_VADD(DRMP3_VMUL(vovl, vw1), DRMP3_VMUL(vsum, vw0));
+            DRMP3_VSTORE(grbuf + 14 - i, DRMP3_VREV(vsum));
         }
 #endif
         for (; i < 9; i++)
@@ -1515,44 +1515,44 @@ static void mp3d_DCT_II(float *grbuf, int n)
 
         for (x = t[0], i = 0; i < 8; i++, x++)
         {
-            f4 x0 = VLD(&y[i*18]);
-            f4 x1 = VLD(&y[(15 - i)*18]);
-            f4 x2 = VLD(&y[(16 + i)*18]);
-            f4 x3 = VLD(&y[(31 - i)*18]);
-            f4 t0 = VADD(x0, x3);
-            f4 t1 = VADD(x1, x2);
-            f4 t2 = VMUL_S(VSUB(x1, x2), g_sec[3*i + 0]);
-            f4 t3 = VMUL_S(VSUB(x0, x3), g_sec[3*i + 1]);
-            x[0] = VADD(t0, t1);
-            x[8] = VMUL_S(VSUB(t0, t1), g_sec[3*i + 2]);
-            x[16] = VADD(t3, t2);
-            x[24] = VMUL_S(VSUB(t3, t2), g_sec[3*i + 2]);
+            f4 x0 = DRMP3_VLD(&y[i*18]);
+            f4 x1 = DRMP3_VLD(&y[(15 - i)*18]);
+            f4 x2 = DRMP3_VLD(&y[(16 + i)*18]);
+            f4 x3 = DRMP3_VLD(&y[(31 - i)*18]);
+            f4 t0 = DRMP3_VADD(x0, x3);
+            f4 t1 = DRMP3_VADD(x1, x2);
+            f4 t2 = DRMP3_VMUL_S(DRMP3_VSUB(x1, x2), g_sec[3*i + 0]);
+            f4 t3 = DRMP3_VMUL_S(DRMP3_VSUB(x0, x3), g_sec[3*i + 1]);
+            x[0] = DRMP3_VADD(t0, t1);
+            x[8] = DRMP3_VMUL_S(DRMP3_VSUB(t0, t1), g_sec[3*i + 2]);
+            x[16] = DRMP3_VADD(t3, t2);
+            x[24] = DRMP3_VMUL_S(DRMP3_VSUB(t3, t2), g_sec[3*i + 2]);
         }
         for (x = t[0], i = 0; i < 4; i++, x += 8)
         {
             f4 x0 = x[0], x1 = x[1], x2 = x[2], x3 = x[3], x4 = x[4], x5 = x[5], x6 = x[6], x7 = x[7], xt;
-            xt = VSUB(x0, x7); x0 = VADD(x0, x7);
-            x7 = VSUB(x1, x6); x1 = VADD(x1, x6);
-            x6 = VSUB(x2, x5); x2 = VADD(x2, x5);
-            x5 = VSUB(x3, x4); x3 = VADD(x3, x4);
-            x4 = VSUB(x0, x3); x0 = VADD(x0, x3);
-            x3 = VSUB(x1, x2); x1 = VADD(x1, x2);
-            x[0] = VADD(x0, x1);
-            x[4] = VMUL_S(VSUB(x0, x1), 0.70710677f);
-            x5 = VADD(x5, x6);
-            x6 = VMUL_S(VADD(x6, x7), 0.70710677f);
-            x7 = VADD(x7, xt);
-            x3 = VMUL_S(VADD(x3, x4), 0.70710677f);
-            x5 = VSUB(x5, VMUL_S(x7, 0.198912367f)); /* rotate by PI/8 */
-            x7 = VADD(x7, VMUL_S(x5, 0.382683432f));
-            x5 = VSUB(x5, VMUL_S(x7, 0.198912367f));
-            x0 = VSUB(xt, x6); xt = VADD(xt, x6);
-            x[1] = VMUL_S(VADD(xt, x7), 0.50979561f);
-            x[2] = VMUL_S(VADD(x4, x3), 0.54119611f);
-            x[3] = VMUL_S(VSUB(x0, x5), 0.60134488f);
-            x[5] = VMUL_S(VADD(x0, x5), 0.89997619f);
-            x[6] = VMUL_S(VSUB(x4, x3), 1.30656302f);
-            x[7] = VMUL_S(VSUB(xt, x7), 2.56291556f);
+            xt = DRMP3_VSUB(x0, x7); x0 = DRMP3_VADD(x0, x7);
+            x7 = DRMP3_VSUB(x1, x6); x1 = DRMP3_VADD(x1, x6);
+            x6 = DRMP3_VSUB(x2, x5); x2 = DRMP3_VADD(x2, x5);
+            x5 = DRMP3_VSUB(x3, x4); x3 = DRMP3_VADD(x3, x4);
+            x4 = DRMP3_VSUB(x0, x3); x0 = DRMP3_VADD(x0, x3);
+            x3 = DRMP3_VSUB(x1, x2); x1 = DRMP3_VADD(x1, x2);
+            x[0] = DRMP3_VADD(x0, x1);
+            x[4] = DRMP3_VMUL_S(DRMP3_VSUB(x0, x1), 0.70710677f);
+            x5 = DRMP3_VADD(x5, x6);
+            x6 = DRMP3_VMUL_S(DRMP3_VADD(x6, x7), 0.70710677f);
+            x7 = DRMP3_VADD(x7, xt);
+            x3 = DRMP3_VMUL_S(DRMP3_VADD(x3, x4), 0.70710677f);
+            x5 = DRMP3_VSUB(x5, DRMP3_VMUL_S(x7, 0.198912367f)); /* rotate by PI/8 */
+            x7 = DRMP3_VADD(x7, DRMP3_VMUL_S(x5, 0.382683432f));
+            x5 = DRMP3_VSUB(x5, DRMP3_VMUL_S(x7, 0.198912367f));
+            x0 = DRMP3_VSUB(xt, x6); xt = DRMP3_VADD(xt, x6);
+            x[1] = DRMP3_VMUL_S(DRMP3_VADD(xt, x7), 0.50979561f);
+            x[2] = DRMP3_VMUL_S(DRMP3_VADD(x4, x3), 0.54119611f);
+            x[3] = DRMP3_VMUL_S(DRMP3_VSUB(x0, x5), 0.60134488f);
+            x[5] = DRMP3_VMUL_S(DRMP3_VADD(x0, x5), 0.89997619f);
+            x[6] = DRMP3_VMUL_S(DRMP3_VSUB(x4, x3), 1.30656302f);
+            x[7] = DRMP3_VMUL_S(DRMP3_VSUB(xt, x7), 2.56291556f);
         }
 
         if (k > n - 3)
@@ -1564,29 +1564,29 @@ static void mp3d_DCT_II(float *grbuf, int n)
 #endif
             for (i = 0; i < 7; i++, y += 4*18)
             {
-                f4 s = VADD(t[3][i], t[3][i + 1]);
+                f4 s = DRMP3_VADD(t[3][i], t[3][i + 1]);
                 VSAVE2(0, t[0][i]);
-                VSAVE2(1, VADD(t[2][i], s));
-                VSAVE2(2, VADD(t[1][i], t[1][i + 1]));
-                VSAVE2(3, VADD(t[2][1 + i], s));
+                VSAVE2(1, DRMP3_VADD(t[2][i], s));
+                VSAVE2(2, DRMP3_VADD(t[1][i], t[1][i + 1]));
+                VSAVE2(3, DRMP3_VADD(t[2][1 + i], s));
             }
             VSAVE2(0, t[0][7]);
-            VSAVE2(1, VADD(t[2][7], t[3][7]));
+            VSAVE2(1, DRMP3_VADD(t[2][7], t[3][7]));
             VSAVE2(2, t[1][7]);
             VSAVE2(3, t[3][7]);
         } else
         {
-#define VSAVE4(i, v) VSTORE(&y[i*18], v)
+#define VSAVE4(i, v) DRMP3_VSTORE(&y[i*18], v)
             for (i = 0; i < 7; i++, y += 4*18)
             {
-                f4 s = VADD(t[3][i], t[3][i + 1]);
+                f4 s = DRMP3_VADD(t[3][i], t[3][i + 1]);
                 VSAVE4(0, t[0][i]);
-                VSAVE4(1, VADD(t[2][i], s));
-                VSAVE4(2, VADD(t[1][i], t[1][i + 1]));
-                VSAVE4(3, VADD(t[2][1 + i], s));
+                VSAVE4(1, DRMP3_VADD(t[2][i], s));
+                VSAVE4(2, DRMP3_VADD(t[1][i], t[1][i + 1]));
+                VSAVE4(3, DRMP3_VADD(t[2][1 + i], s));
             }
             VSAVE4(0, t[0][7]);
-            VSAVE4(1, VADD(t[2][7], t[3][7]));
+            VSAVE4(1, DRMP3_VADD(t[2][7], t[3][7]));
             VSAVE4(2, t[1][7]);
             VSAVE4(3, t[3][7]);
         }
@@ -1736,10 +1736,10 @@ static void mp3d_synth(float *xl, short *dstl, int nch, float *lins)
 #if DRMP3_HAVE_SIMD
     if (have_simd()) for (i = 14; i >= 0; i--)
     {
-#define VLOAD(k) f4 w0 = VSET(*w++); f4 w1 = VSET(*w++); f4 vz = VLD(&zlin[4*i - 64*k]); f4 vy = VLD(&zlin[4*i - 64*(15 - k)]);
-#define V0(k) {VLOAD(k) b =         VADD(VMUL(vz, w1), VMUL(vy, w0)) ; a =         VSUB(VMUL(vz, w0),VMUL(vy, w1));  }
-#define V1(k) {VLOAD(k) b = VADD(b, VADD(VMUL(vz, w1), VMUL(vy, w0))); a = VADD(a, VSUB(VMUL(vz, w0),VMUL(vy, w1))); }
-#define V2(k) {VLOAD(k) b = VADD(b, VADD(VMUL(vz, w1), VMUL(vy, w0))); a = VADD(a, VSUB(VMUL(vy, w1),VMUL(vz, w0))); }
+#define VLOAD(k) f4 w0 = DRMP3_VSET(*w++); f4 w1 = DRMP3_VSET(*w++); f4 vz = DRMP3_VLD(&zlin[4*i - 64*k]); f4 vy = DRMP3_VLD(&zlin[4*i - 64*(15 - k)]);
+#define V0(k) {VLOAD(k) b =         DRMP3_VADD(DRMP3_VMUL(vz, w1), DRMP3_VMUL(vy, w0)) ; a =         DRMP3_VSUB(DRMP3_VMUL(vz, w0),DRMP3_VMUL(vy, w1));  }
+#define V1(k) {VLOAD(k) b = DRMP3_VADD(b, DRMP3_VADD(DRMP3_VMUL(vz, w1), DRMP3_VMUL(vy, w0))); a = DRMP3_VADD(a, DRMP3_VSUB(DRMP3_VMUL(vz, w0),DRMP3_VMUL(vy, w1))); }
+#define V2(k) {VLOAD(k) b = DRMP3_VADD(b, DRMP3_VADD(DRMP3_VMUL(vz, w1), DRMP3_VMUL(vy, w0))); a = DRMP3_VADD(a, DRMP3_VSUB(DRMP3_VMUL(vy, w1),DRMP3_VMUL(vz, w0))); }
         f4 a,b;
         zlin[4*i]     = xl[18*(31 - i)];
         zlin[4*i + 1] = xr[18*(31 - i)];
@@ -1768,10 +1768,10 @@ static void mp3d_synth(float *xl, short *dstl, int nch, float *lins)
             dstl[(49 + i)*nch] = (short)_mm_extract_epi16(pcm8, 6);
 #else
             int16x4_t pcma, pcmb;
-            a = VADD(a, VSET(0.5f));
-            b = VADD(b, VSET(0.5f));
-            pcma = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(a), vreinterpretq_s32_u32(vcltq_f32(a, VSET(0)))));
-            pcmb = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(b), vreinterpretq_s32_u32(vcltq_f32(b, VSET(0)))));
+            a = DRMP3_VADD(a, DRMP3_VSET(0.5f));
+            b = DRMP3_VADD(b, DRMP3_VSET(0.5f));
+            pcma = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(a), vreinterpretq_s32_u32(vcltq_f32(a, DRMP3_VSET(0)))));
+            pcmb = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(b), vreinterpretq_s32_u32(vcltq_f32(b, DRMP3_VSET(0)))));
             vst1_lane_s16(dstr + (15 - i)*nch, pcma, 1);
             vst1_lane_s16(dstr + (17 + i)*nch, pcmb, 1);
             vst1_lane_s16(dstl + (15 - i)*nch, pcma, 0);
