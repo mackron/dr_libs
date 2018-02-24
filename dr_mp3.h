@@ -1902,7 +1902,7 @@ void drmp3dec_init(drmp3dec *dec)
     dec->header[0] = 0;
 }
 
-int drmp3dec_decode_frame(drmp3dec *dec, const uint8_t *mp3, int mp3_bytes, short *pcm, drmp3dec_frame_info *info)
+int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, short *pcm, drmp3dec_frame_info *info)
 {
     int i = 0, igr, frame_size = 0, success = 1;
     const uint8_t *hdr;
