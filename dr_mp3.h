@@ -43,6 +43,9 @@
 //
 // #define DR_MP3_NO_STDIO
 //   Disable drmp3_init_file(), etc.
+//
+// #define DR_MP3_NO_SIMD
+//   Disable SIMD optimizations.
 
 #ifndef dr_mp3_h
 #define dr_mp3_h
@@ -338,17 +341,17 @@ void drmp3_free(void* p);
 #define MINIMP3_MIN(a, b)           ((a) > (b) ? (b) : (a))
 #define MINIMP3_MAX(a, b)           ((a) < (b) ? (b) : (a))
 
-#if !defined(MINIMP3_NO_SIMD)
+#if !defined(DR_MP3_NO_SIMD)
 
-#if !defined(MINIMP3_ONLY_SIMD) && (defined(_M_X64) || defined(_M_ARM64) || defined(__x86_64__) || defined(__aarch64__))
+#if !defined(DR_MP3_ONLY_SIMD) && (defined(_M_X64) || defined(_M_ARM64) || defined(__x86_64__) || defined(__aarch64__))
 /* x64 always have SSE2, arm64 always have neon, no need for generic code */
-#define MINIMP3_ONLY_SIMD
+#define DR_MP3_ONLY_SIMD
 #endif
 
 #if defined(_MSC_VER) || ((defined(__i386__) || defined(__x86_64__)) && defined(__SSE2__))
 #   include <immintrin.h>
-#   define HAVE_SSE 1
-#   define HAVE_SIMD 1
+#   define DRMP3_HAVE_SSE 1
+#   define DRMP3_HAVE_SIMD 1
 #   define VSTORE _mm_storeu_ps
 #   define VLD _mm_loadu_ps
 #   define VSET _mm_set1_ps
@@ -360,7 +363,7 @@ void drmp3_free(void* p);
 #   define VMUL_S(x, s)  _mm_mul_ps(x, _mm_set1_ps(s))
 #   define VREV(x) _mm_shuffle_ps(x, x, _MM_SHUFFLE(0, 1, 2, 3))
 typedef __m128 f4;
-#if defined(_MSC_VER) || defined(MINIMP3_ONLY_SIMD)
+#if defined(_MSC_VER) || defined(DR_MP3_ONLY_SIMD)
 #define minimp3_cpuid __cpuid
 #else
 static __inline__ __attribute__((always_inline)) void minimp3_cpuid(int CPUInfo[], const int InfoType)
@@ -389,7 +392,7 @@ static __inline__ __attribute__((always_inline)) void minimp3_cpuid(int CPUInfo[
 #endif
 static int have_simd()
 {
-#ifdef MINIMP3_ONLY_SIMD
+#ifdef DR_MP3_ONLY_SIMD
     return 1;
 #else
     static int g_have_simd;
@@ -417,7 +420,7 @@ test_nosimd:
 }
 #elif defined(__ARM_NEON) || defined(__aarch64__)
 #   include <arm_neon.h>
-#   define HAVE_SIMD 1
+#   define DRMP3_HAVE_SIMD 1
 #   define VSTORE vst1q_f32
 #   define VLD vld1q_f32
 #   define VSET vmovq_n_f32
@@ -431,19 +434,19 @@ test_nosimd:
 #   define VREV(x) vcombine_f32(vget_high_f32(vrev64q_f32(x)), vget_low_f32(vrev64q_f32(x)))
 typedef float32x4_t f4;
 static int have_simd()
-{   /* TODO: detect neon for !MINIMP3_ONLY_SIMD */
+{   /* TODO: detect neon for !DR_MP3_ONLY_SIMD */
     return 1;
 }
 #else
-#   define HAVE_SIMD 0
-#ifdef MINIMP3_ONLY_SIMD
-#error MINIMP3_ONLY_SIMD used, but SSE/NEON not enabled
+#   define DRMP3_HAVE_SIMD 0
+#ifdef DR_MP3_ONLY_SIMD
+#error DR_MP3_ONLY_SIMD used, but SSE/NEON not enabled
 #endif
 #endif
 
 #else
 
-#define HAVE_SIMD 0
+#define DRMP3_HAVE_SIMD 0
 
 #endif
 
@@ -1117,7 +1120,7 @@ static void L3_midside_stereo(float *left, int n)
 {
     int i = 0;
     float *right = left + 576;
-#if HAVE_SIMD
+#if DRMP3_HAVE_SIMD
     if (have_simd()) for (; i < n - 3; i += 4)
     {
         f4 vl = VLD(left + i);
@@ -1246,7 +1249,7 @@ static void L3_antialias(float *grbuf, int nbands)
     for (; nbands > 0; nbands--, grbuf += 18)
     {
         int i = 0;
-#if HAVE_SIMD
+#if DRMP3_HAVE_SIMD
         if (have_simd()) for (; i < 8; i += 4)
         {
             f4 vu = VLD(grbuf + 18 + i);
@@ -1259,7 +1262,7 @@ static void L3_antialias(float *grbuf, int nbands)
             VSTORE(grbuf + 14 - i, VREV(vd));
         }
 #endif
-#ifndef MINIMP3_ONLY_SIMD
+#ifndef DR_MP3_ONLY_SIMD
         for(; i < 8; i++)
         {
             float u = grbuf[18 + i];
@@ -1340,7 +1343,7 @@ static void L3_imdct36(float *grbuf, float *overlap, const float *window, int nb
 
         i = 0;
 
-#if HAVE_SIMD
+#if DRMP3_HAVE_SIMD
         if (have_simd()) for (; i < 8; i += 4)
         {
             f4 vovl = VLD(overlap + i);
@@ -1504,7 +1507,7 @@ static void mp3d_DCT_II(float *grbuf, int n)
         10.19000816f,0.50060302f,0.50241929f,3.40760851f,0.50547093f,0.52249861f,2.05778098f,0.51544732f,0.56694406f,1.48416460f,0.53104258f,0.64682180f,1.16943991f,0.55310392f,0.78815460f,0.97256821f,0.58293498f,1.06067765f,0.83934963f,0.62250412f,1.72244716f,0.74453628f,0.67480832f,5.10114861f
     };
     int i, k = 0;
-#if HAVE_SIMD
+#if DRMP3_HAVE_SIMD
     if (have_simd()) for (; k < n; k += 4)
     {
         f4 t[4][8], *x;
@@ -1554,7 +1557,7 @@ static void mp3d_DCT_II(float *grbuf, int n)
 
         if (k > n - 3)
         {
-#if HAVE_SSE
+#if DRMP3_HAVE_SSE
 #define VSAVE2(i, v) _mm_storel_pi((__m64 *)(void*)&y[i*18], v)
 #else
 #define VSAVE2(i, v) vst1_f32((float32_t *)&y[i*18],  vget_low_f32(v))
@@ -1589,7 +1592,7 @@ static void mp3d_DCT_II(float *grbuf, int n)
         }
     } else
 #endif
-#ifdef MINIMP3_ONLY_SIMD
+#ifdef DR_MP3_ONLY_SIMD
     {}
 #else
     for (; k < n; k++)
@@ -1730,7 +1733,7 @@ static void mp3d_synth(float *xl, short *dstl, int nch, float *lins)
     mp3d_synth_pair(dstl, nch, lins + 4*15);
     mp3d_synth_pair(dstl + 32*nch, nch, lins + 4*15 + 64);
 
-#if HAVE_SIMD
+#if DRMP3_HAVE_SIMD
     if (have_simd()) for (i = 14; i >= 0; i--)
     {
 #define VLOAD(k) f4 w0 = VSET(*w++); f4 w1 = VSET(*w++); f4 vz = VLD(&zlin[4*i - 64*k]); f4 vy = VLD(&zlin[4*i - 64*(15 - k)]);
@@ -1750,7 +1753,7 @@ static void mp3d_synth(float *xl, short *dstl, int nch, float *lins)
         V0(0) V2(1) V1(2) V2(3) V1(4) V2(5) V1(6) V2(7)
 
         {
-#if HAVE_SSE
+#if DRMP3_HAVE_SSE
             static const f4 g_max = { 32767.0f, 32767.0f, 32767.0f, 32767.0f };
             static const f4 g_min = { -32768.0f, -32768.0f, -32768.0f, -32768.0f };
             __m128i pcm8 = _mm_packs_epi32(_mm_cvtps_epi32(_mm_max_ps(_mm_min_ps(a, g_max), g_min)),
@@ -1781,7 +1784,7 @@ static void mp3d_synth(float *xl, short *dstl, int nch, float *lins)
         }
     } else
 #endif
-#ifdef MINIMP3_ONLY_SIMD
+#ifdef DR_MP3_ONLY_SIMD
     {}
 #else
     for (i = 14; i >= 0; i--)
