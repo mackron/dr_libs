@@ -2563,6 +2563,13 @@ drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* filePath, const drmp3_conf
 void drmp3_uninit(drmp3* pMP3)
 {
     if (pMP3 == NULL) return;
+    
+#ifndef DR_MP3_NO_STDIO
+    if (pMP3->onRead == drmp3__on_read_stdio) {
+        fclose((FILE*)pMP3->pUserData);
+    }
+#endif
+
     drmp3_free(pMP3->pData);
 }
 
