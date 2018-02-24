@@ -579,7 +579,7 @@ static int hdr_padding(const uint8_t *h)
     return DRMP3_HDR_TEST_PADDING(h) ? (DRMP3_HDR_IS_LAYER_1(h) ? 4 : 1) : 0;
 }
 
-#ifndef MINIMP3_ONLY_MP3
+#ifndef DR_MP3_ONLY_MP3
 static const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L12_scale_info *sci)
 {
     const L12_subband_alloc_t *alloc;
@@ -628,8 +628,8 @@ static const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L1
 static void L12_read_scalefactors(drmp3_bs_t *bs, uint8_t *pba, uint8_t *scfcod, int bands, float *scf)
 {
     static const float g_deq_L12[18*3] = {
-#define DQ(x) 9.53674316e-07f/x, 7.56931807e-07f/x, 6.00777173e-07f/x
-        DQ(3),DQ(7),DQ(15),DQ(31),DQ(63),DQ(127),DQ(255),DQ(511),DQ(1023),DQ(2047),DQ(4095),DQ(8191),DQ(16383),DQ(32767),DQ(65535),DQ(3),DQ(5),DQ(9)
+#define DRMP3_DQ(x) 9.53674316e-07f/x, 7.56931807e-07f/x, 6.00777173e-07f/x
+        DRMP3_DQ(3),DRMP3_DQ(7),DRMP3_DQ(15),DRMP3_DQ(31),DRMP3_DQ(63),DRMP3_DQ(127),DRMP3_DQ(255),DRMP3_DQ(511),DRMP3_DQ(1023),DRMP3_DQ(2047),DRMP3_DQ(4095),DRMP3_DQ(8191),DRMP3_DQ(16383),DRMP3_DQ(32767),DRMP3_DQ(65535),DRMP3_DQ(3),DRMP3_DQ(5),DRMP3_DQ(9)
     };
     int i, m;
     for (i = 0; i < bands; i++)
@@ -1030,10 +1030,10 @@ static void L3_huffman(float *dst, drmp3_bs_t *bs, const L3_gr_info_t *gr_info, 
     static const int16_t * const tabindex[2*16] = { tab0,tab1,tab2,tab3,tab0,tab5,tab6,tab7,tab8,tab9,tab10,tab11,tab12,tab13,tab0,tab15,tab16,tab16,tab16,tab16,tab16,tab16,tab16,tab16,tab24,tab24,tab24,tab24,tab24,tab24,tab24,tab24 };
     static const uint8_t g_linbits[] =  { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,6,8,10,13,4,5,6,7,8,9,11,13 };
 
-#define PEEK_BITS(n)    (bs_cache >> (32 - n))
-#define FLUSH_BITS(n)   {bs_cache <<= (n); bs_sh += (n);}
-#define CHECK_BITS      while (bs_sh >= 0) { bs_cache |= (uint32_t)*bs_next_ptr++ << bs_sh; bs_sh -= 8; }
-#define BSPOS           ((bs_next_ptr - bs->buf)*8 - 24 + bs_sh)
+#define DRMP3_PEEK_BITS(n)    (bs_cache >> (32 - n))
+#define DRMP3_FLUSH_BITS(n)   {bs_cache <<= (n); bs_sh += (n);}
+#define DRMP3_CHECK_BITS      while (bs_sh >= 0) { bs_cache |= (uint32_t)*bs_next_ptr++ << bs_sh; bs_sh -= 8; }
+#define DRMP3_BSPOS           ((bs_next_ptr - bs->buf)*8 - 24 + bs_sh)
 
     float one = 0.0f;
     int ireg = 0, big_val_cnt = gr_info->big_values;
@@ -1057,14 +1057,14 @@ static void L3_huffman(float *dst, drmp3_bs_t *bs, const L3_gr_info_t *gr_info, 
             do
             {
                 int j, w = 5;
-                int leaf = codebook[PEEK_BITS(w)];
+                int leaf = codebook[DRMP3_PEEK_BITS(w)];
                 while (leaf < 0)
                 {
-                    FLUSH_BITS(w);
+                    DRMP3_FLUSH_BITS(w);
                     w = leaf & 7;
-                    leaf = codebook[PEEK_BITS(w) - (leaf >> 3)];
+                    leaf = codebook[DRMP3_PEEK_BITS(w) - (leaf >> 3)];
                 }
-                FLUSH_BITS(leaf >> 8);
+                DRMP3_FLUSH_BITS(leaf >> 8);
 
                 for (j = 0; j < 2; j++, dst++, leaf >>= 4)
                 {
@@ -1073,18 +1073,18 @@ static void L3_huffman(float *dst, drmp3_bs_t *bs, const L3_gr_info_t *gr_info, 
                     {
                         if (lsb == 15 && linbits)
                         {
-                            lsb += PEEK_BITS(linbits);
-                            FLUSH_BITS(linbits);
-                            CHECK_BITS;
+                            lsb += DRMP3_PEEK_BITS(linbits);
+                            DRMP3_FLUSH_BITS(linbits);
+                            DRMP3_CHECK_BITS;
                             *dst = one*L3_pow_43(lsb)*((int32_t)bs_cache < 0 ? -1: 1);
                         } else
                         {
                             *dst = g_pow43_signed[lsb*2 + (bs_cache >> 31)]*one;
                         }
-                        FLUSH_BITS(1);
+                        DRMP3_FLUSH_BITS(1);
                     }
                 }
-                CHECK_BITS;
+                DRMP3_CHECK_BITS;
             } while (--pairs_to_decode);
         } while ((big_val_cnt -= np) > 0 && --sfb_cnt >= 0 );
     }
@@ -1092,25 +1092,25 @@ static void L3_huffman(float *dst, drmp3_bs_t *bs, const L3_gr_info_t *gr_info, 
     for (np = 1 - big_val_cnt;; dst += 4)
     {
         const uint8_t *codebook_count1 = (gr_info->count1_table) ? tab33 : tab32;
-        int leaf = codebook_count1[PEEK_BITS(4)];
+        int leaf = codebook_count1[DRMP3_PEEK_BITS(4)];
         if (!(leaf & 8))
         {
             leaf = codebook_count1[(leaf >> 3) + (bs_cache << 4 >> (32 - (leaf & 3)))];
         }
-        FLUSH_BITS(leaf & 7);
-        if (BSPOS > layer3gr_limit)
+        DRMP3_FLUSH_BITS(leaf & 7);
+        if (DRMP3_BSPOS > layer3gr_limit)
         {
             break;
         }
-#define RELOAD_SCALEFACTOR  if (!--np) {np = *sfb++/2; if (!np) break; one = *scf++;}
-#define DEQ_COUNT1(s) if (leaf & (128 >> s)) {dst[s] = ((int32_t)bs_cache < 0) ? -one : one; FLUSH_BITS(1)}
-        RELOAD_SCALEFACTOR;
-        DEQ_COUNT1(0);
-        DEQ_COUNT1(1);
-        RELOAD_SCALEFACTOR;
-        DEQ_COUNT1(2);
-        DEQ_COUNT1(3);
-        CHECK_BITS;
+#define DRMP3_RELOAD_SCALEFACTOR  if (!--np) {np = *sfb++/2; if (!np) break; one = *scf++;}
+#define DRMP3_DEQ_COUNT1(s) if (leaf & (128 >> s)) {dst[s] = ((int32_t)bs_cache < 0) ? -one : one; DRMP3_FLUSH_BITS(1)}
+        DRMP3_RELOAD_SCALEFACTOR;
+        DRMP3_DEQ_COUNT1(0);
+        DRMP3_DEQ_COUNT1(1);
+        DRMP3_RELOAD_SCALEFACTOR;
+        DRMP3_DEQ_COUNT1(2);
+        DRMP3_DEQ_COUNT1(3);
+        DRMP3_CHECK_BITS;
     }
 
     bs->pos = layer3gr_limit;
@@ -1558,37 +1558,37 @@ static void mp3d_DCT_II(float *grbuf, int n)
         if (k > n - 3)
         {
 #if DRMP3_HAVE_SSE
-#define VSAVE2(i, v) _mm_storel_pi((__m64 *)(void*)&y[i*18], v)
+#define DRMP3_VSAVE2(i, v) _mm_storel_pi((__m64 *)(void*)&y[i*18], v)
 #else
-#define VSAVE2(i, v) vst1_f32((float32_t *)&y[i*18],  vget_low_f32(v))
+#define DRMP3_VSAVE2(i, v) vst1_f32((float32_t *)&y[i*18],  vget_low_f32(v))
 #endif
             for (i = 0; i < 7; i++, y += 4*18)
             {
                 drmp3_f4 s = DRMP3_VADD(t[3][i], t[3][i + 1]);
-                VSAVE2(0, t[0][i]);
-                VSAVE2(1, DRMP3_VADD(t[2][i], s));
-                VSAVE2(2, DRMP3_VADD(t[1][i], t[1][i + 1]));
-                VSAVE2(3, DRMP3_VADD(t[2][1 + i], s));
+                DRMP3_VSAVE2(0, t[0][i]);
+                DRMP3_VSAVE2(1, DRMP3_VADD(t[2][i], s));
+                DRMP3_VSAVE2(2, DRMP3_VADD(t[1][i], t[1][i + 1]));
+                DRMP3_VSAVE2(3, DRMP3_VADD(t[2][1 + i], s));
             }
-            VSAVE2(0, t[0][7]);
-            VSAVE2(1, DRMP3_VADD(t[2][7], t[3][7]));
-            VSAVE2(2, t[1][7]);
-            VSAVE2(3, t[3][7]);
+            DRMP3_VSAVE2(0, t[0][7]);
+            DRMP3_VSAVE2(1, DRMP3_VADD(t[2][7], t[3][7]));
+            DRMP3_VSAVE2(2, t[1][7]);
+            DRMP3_VSAVE2(3, t[3][7]);
         } else
         {
-#define VSAVE4(i, v) DRMP3_VSTORE(&y[i*18], v)
+#define DRMP3_VSAVE4(i, v) DRMP3_VSTORE(&y[i*18], v)
             for (i = 0; i < 7; i++, y += 4*18)
             {
                 drmp3_f4 s = DRMP3_VADD(t[3][i], t[3][i + 1]);
-                VSAVE4(0, t[0][i]);
-                VSAVE4(1, DRMP3_VADD(t[2][i], s));
-                VSAVE4(2, DRMP3_VADD(t[1][i], t[1][i + 1]));
-                VSAVE4(3, DRMP3_VADD(t[2][1 + i], s));
+                DRMP3_VSAVE4(0, t[0][i]);
+                DRMP3_VSAVE4(1, DRMP3_VADD(t[2][i], s));
+                DRMP3_VSAVE4(2, DRMP3_VADD(t[1][i], t[1][i + 1]));
+                DRMP3_VSAVE4(3, DRMP3_VADD(t[2][1 + i], s));
             }
-            VSAVE4(0, t[0][7]);
-            VSAVE4(1, DRMP3_VADD(t[2][7], t[3][7]));
-            VSAVE4(2, t[1][7]);
-            VSAVE4(3, t[3][7]);
+            DRMP3_VSAVE4(0, t[0][7]);
+            DRMP3_VSAVE4(1, DRMP3_VADD(t[2][7], t[3][7]));
+            DRMP3_VSAVE4(2, t[1][7]);
+            DRMP3_VSAVE4(3, t[3][7]);
         }
     } else
 #endif
@@ -1736,10 +1736,10 @@ static void mp3d_synth(float *xl, short *dstl, int nch, float *lins)
 #if DRMP3_HAVE_SIMD
     if (drmp3_have_simd()) for (i = 14; i >= 0; i--)
     {
-#define VLOAD(k) drmp3_f4 w0 = DRMP3_VSET(*w++); drmp3_f4 w1 = DRMP3_VSET(*w++); drmp3_f4 vz = DRMP3_VLD(&zlin[4*i - 64*k]); drmp3_f4 vy = DRMP3_VLD(&zlin[4*i - 64*(15 - k)]);
-#define V0(k) {VLOAD(k) b =         DRMP3_VADD(DRMP3_VMUL(vz, w1), DRMP3_VMUL(vy, w0)) ; a =         DRMP3_VSUB(DRMP3_VMUL(vz, w0),DRMP3_VMUL(vy, w1));  }
-#define V1(k) {VLOAD(k) b = DRMP3_VADD(b, DRMP3_VADD(DRMP3_VMUL(vz, w1), DRMP3_VMUL(vy, w0))); a = DRMP3_VADD(a, DRMP3_VSUB(DRMP3_VMUL(vz, w0),DRMP3_VMUL(vy, w1))); }
-#define V2(k) {VLOAD(k) b = DRMP3_VADD(b, DRMP3_VADD(DRMP3_VMUL(vz, w1), DRMP3_VMUL(vy, w0))); a = DRMP3_VADD(a, DRMP3_VSUB(DRMP3_VMUL(vy, w1),DRMP3_VMUL(vz, w0))); }
+#define DRMP3_VLOAD(k) drmp3_f4 w0 = DRMP3_VSET(*w++); drmp3_f4 w1 = DRMP3_VSET(*w++); drmp3_f4 vz = DRMP3_VLD(&zlin[4*i - 64*k]); drmp3_f4 vy = DRMP3_VLD(&zlin[4*i - 64*(15 - k)]);
+#define DRMP3_V0(k) {DRMP3_VLOAD(k) b =               DRMP3_VADD(DRMP3_VMUL(vz, w1), DRMP3_VMUL(vy, w0)) ; a =               DRMP3_VSUB(DRMP3_VMUL(vz, w0),DRMP3_VMUL(vy, w1));  }
+#define DRMP3_V1(k) {DRMP3_VLOAD(k) b = DRMP3_VADD(b, DRMP3_VADD(DRMP3_VMUL(vz, w1), DRMP3_VMUL(vy, w0))); a = DRMP3_VADD(a, DRMP3_VSUB(DRMP3_VMUL(vz, w0),DRMP3_VMUL(vy, w1))); }
+#define DRMP3_V2(k) {DRMP3_VLOAD(k) b = DRMP3_VADD(b, DRMP3_VADD(DRMP3_VMUL(vz, w1), DRMP3_VMUL(vy, w0))); a = DRMP3_VADD(a, DRMP3_VSUB(DRMP3_VMUL(vy, w1),DRMP3_VMUL(vz, w0))); }
         drmp3_f4 a,b;
         zlin[4*i]     = xl[18*(31 - i)];
         zlin[4*i + 1] = xr[18*(31 - i)];
@@ -1750,7 +1750,7 @@ static void mp3d_synth(float *xl, short *dstl, int nch, float *lins)
         zlin[4*i - 64 + 2] = xl[18*(1 + i)];
         zlin[4*i - 64 + 3] = xr[18*(1 + i)];
 
-        V0(0) V2(1) V1(2) V2(3) V1(4) V2(5) V1(6) V2(7)
+        DRMP3_V0(0) DRMP3_V2(1) DRMP3_V1(2) DRMP3_V2(3) DRMP3_V1(4) DRMP3_V2(5) DRMP3_V1(6) DRMP3_V2(7)
 
         {
 #if DRMP3_HAVE_SSE
@@ -1789,10 +1789,10 @@ static void mp3d_synth(float *xl, short *dstl, int nch, float *lins)
 #else
     for (i = 14; i >= 0; i--)
     {
-#define LOAD(k) float w0 = *w++; float w1 = *w++; float * vz = &zlin[4*i - k*64]; float * vy = &zlin[4*i - (15 - k)*64];
-#define S0(k) {int j; LOAD(k); for (j = 0; j < 4; j++) b[j]  = vz[j] * w1 + vy[j] * w0, a[j]  = vz[j] * w0 - vy[j] * w1;}
-#define S1(k) {int j; LOAD(k); for (j = 0; j < 4; j++) b[j] += vz[j] * w1 + vy[j] * w0, a[j] += vz[j] * w0 - vy[j] * w1;}
-#define S2(k) {int j; LOAD(k); for (j = 0; j < 4; j++) b[j] += vz[j] * w1 + vy[j] * w0, a[j] += vy[j] * w1 - vz[j] * w0;}
+#define DRMP3_LOAD(k) float w0 = *w++; float w1 = *w++; float * vz = &zlin[4*i - k*64]; float * vy = &zlin[4*i - (15 - k)*64];
+#define DRMP3_S0(k) {int j; DRMP3_LOAD(k); for (j = 0; j < 4; j++) b[j]  = vz[j] * w1 + vy[j] * w0, a[j]  = vz[j] * w0 - vy[j] * w1;}
+#define DRMP3_S1(k) {int j; DRMP3_LOAD(k); for (j = 0; j < 4; j++) b[j] += vz[j] * w1 + vy[j] * w0, a[j] += vz[j] * w0 - vy[j] * w1;}
+#define DRMP3_S2(k) {int j; DRMP3_LOAD(k); for (j = 0; j < 4; j++) b[j] += vz[j] * w1 + vy[j] * w0, a[j] += vy[j] * w1 - vz[j] * w0;}
         float a[4], b[4];
 
         zlin[4*i]     = xl[18*(31 - i)];
@@ -1804,7 +1804,7 @@ static void mp3d_synth(float *xl, short *dstl, int nch, float *lins)
         zlin[4*(i - 16) + 2] = xl[18*(1 + i)];
         zlin[4*(i - 16) + 3] = xr[18*(1 + i)];
 
-        S0(0) S2(1) S1(2) S2(3) S1(4) S2(5) S1(6) S2(7)
+        DRMP3_S0(0) DRMP3_S2(1) DRMP3_S1(2) DRMP3_S2(3) DRMP3_S1(4) DRMP3_S2(5) DRMP3_S1(6) DRMP3_S2(7)
 
         dstr[(15 - i)*nch] = mp3d_scale_pcm(a[1]);
         dstr[(17 + i)*nch] = mp3d_scale_pcm(b[1]);
@@ -1963,7 +1963,7 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
         L3_save_reservoir(dec, &scratch);
     } else
     {
-#ifdef MINIMP3_ONLY_MP3
+#ifdef DR_MP3_ONLY_MP3
         return 0;
 #else
         L12_scale_info sci[1];
