@@ -14,7 +14,6 @@ Library                                         | Description
 [dr_fs](dr_fs.h)                                | File system abstraction for loading files from the native file system and archives.
 [dr_fsw](dr_fsw.h)                              | Watch for changes to the file system. Windows only.
 [dr_math](dr_math.h)                            | Vector math library. Very incomplete, and only updated as I need it.
-[dr](dr.h)                                      | Miscellaneous stuff that doesn't belong to any specific category.
 
 
 # Other Libraries
