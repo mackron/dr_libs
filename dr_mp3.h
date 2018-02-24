@@ -2307,8 +2307,12 @@ static drmp3_bool32 drmp3_decode_next_frame(drmp3* pMP3)
             pMP3->dataSize += bytesRead;
         }
 
+        if (pMP3->dataSize > INT_MAX) {
+            return DRMP3_FALSE; // File too big.
+        }
+
         drmp3dec_frame_info info;
-        drmp3_uint32 samplesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->pData, pMP3->dataSize, pMP3->frames, &info);
+        drmp3_uint32 samplesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->pData, (int)pMP3->dataSize, pMP3->frames, &info);    // <-- Safe size_t -> int conversion thanks to the check above.
         if (samplesRead != 0) {
             size_t leftoverDataSize = (pMP3->dataSize - (size_t)info.frame_bytes);
             for (size_t i = 0; i < leftoverDataSize; ++i) {
