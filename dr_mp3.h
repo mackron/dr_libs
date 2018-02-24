@@ -305,38 +305,38 @@ void drmp3_free(void* p);
 #include <string.h>
 #include <stdint.h>
 
-#define MAX_FREE_FORMAT_FRAME_SIZE  2304    /* more than ISO spec's */
-#define MAX_FRAME_SYNC_MATCHES      10
+#define DRMP3_MAX_FREE_FORMAT_FRAME_SIZE  2304    /* more than ISO spec's */
+#define DRMP3_MAX_FRAME_SYNC_MATCHES      10
 
-#define MAX_L3_FRAME_PAYLOAD_BYTES  MAX_FREE_FORMAT_FRAME_SIZE /* MUST be >= 320000/8/32000*1152 = 1440 */
+#define DRMP3_MAX_L3_FRAME_PAYLOAD_BYTES  DRMP3_MAX_FREE_FORMAT_FRAME_SIZE /* MUST be >= 320000/8/32000*1152 = 1440 */
 
-#define MAX_BITRESERVOIR_BYTES      511
-#define SHORT_BLOCK_TYPE            2
-#define STOP_BLOCK_TYPE             3
-#define MODE_MONO                   3
-#define MODE_JOINT_STEREO           1
-#define HDR_SIZE                    4
-#define HDR_IS_MONO(h)              (((h[3]) & 0xC0) == 0xC0)
-#define HDR_IS_MS_STEREO(h)         (((h[3]) & 0xE0) == 0x60)
-#define HDR_IS_FREE_FORMAT(h)       (((h[2]) & 0xF0) == 0)
-#define HDR_IS_CRC(h)               (!((h[1]) & 1))
-#define HDR_TEST_PADDING(h)         ((h[2]) & 0x2)
-#define HDR_TEST_MPEG1(h)           ((h[1]) & 0x8)
-#define HDR_TEST_NOT_MPEG25(h)      ((h[1]) & 0x10)
-#define HDR_TEST_I_STEREO(h)        ((h[3]) & 0x10)
-#define HDR_TEST_MS_STEREO(h)       ((h[3]) & 0x20)
-#define HDR_GET_STEREO_MODE(h)      (((h[3]) >> 6) & 3)
-#define HDR_GET_STEREO_MODE_EXT(h)  (((h[3]) >> 4) & 3)
-#define HDR_GET_LAYER(h)            (((h[1]) >> 1) & 3)
-#define HDR_GET_BITRATE(h)          ((h[2]) >> 4)
-#define HDR_GET_SAMPLE_RATE(h)      (((h[2]) >> 2) & 3)
-#define HDR_GET_MY_SAMPLE_RATE(h)   (HDR_GET_SAMPLE_RATE(h) + (((h[1] >> 3) & 1) +  ((h[1] >> 4) & 1)) * 3)
-#define HDR_IS_FRAME_576(h)         ((h[1] & 14) == 2)
-#define HDR_IS_LAYER_1(h)           ((h[1] & 6) == 6)
+#define DRMP3_MAX_BITRESERVOIR_BYTES      511
+#define DRMP3_SHORT_BLOCK_TYPE            2
+#define DRMP3_STOP_BLOCK_TYPE             3
+#define DRMP3_MODE_MONO                   3
+#define DRMP3_MODE_JOINT_STEREO           1
+#define DRMP3_HDR_SIZE                    4
+#define DRMP3_HDR_IS_MONO(h)              (((h[3]) & 0xC0) == 0xC0)
+#define DRMP3_HDR_IS_MS_STEREO(h)         (((h[3]) & 0xE0) == 0x60)
+#define DRMP3_HDR_IS_FREE_FORMAT(h)       (((h[2]) & 0xF0) == 0)
+#define DRMP3_HDR_IS_CRC(h)               (!((h[1]) & 1))
+#define DRMP3_HDR_TEST_PADDING(h)         ((h[2]) & 0x2)
+#define DRMP3_HDR_TEST_MPEG1(h)           ((h[1]) & 0x8)
+#define DRMP3_HDR_TEST_NOT_MPEG25(h)      ((h[1]) & 0x10)
+#define DRMP3_HDR_TEST_I_STEREO(h)        ((h[3]) & 0x10)
+#define DRMP3_HDR_TEST_MS_STEREO(h)       ((h[3]) & 0x20)
+#define DRMP3_HDR_GET_STEREO_MODE(h)      (((h[3]) >> 6) & 3)
+#define DRMP3_HDR_GET_STEREO_MODE_EXT(h)  (((h[3]) >> 4) & 3)
+#define DRMP3_HDR_GET_LAYER(h)            (((h[1]) >> 1) & 3)
+#define DRMP3_HDR_GET_BITRATE(h)          ((h[2]) >> 4)
+#define DRMP3_HDR_GET_SAMPLE_RATE(h)      (((h[2]) >> 2) & 3)
+#define DRMP3_HDR_GET_MY_SAMPLE_RATE(h)   (DRMP3_HDR_GET_SAMPLE_RATE(h) + (((h[1] >> 3) & 1) +  ((h[1] >> 4) & 1)) * 3)
+#define DRMP3_HDR_IS_FRAME_576(h)         ((h[1] & 14) == 2)
+#define DRMP3_HDR_IS_LAYER_1(h)           ((h[1] & 6) == 6)
 
-#define BITS_DEQUANTIZER_OUT        -1
-#define MAX_SCF                     (255 + BITS_DEQUANTIZER_OUT * 4 - 210)
-#define MAX_SCFI                    ((MAX_SCF + 3) & ~3)
+#define DRMP3_BITS_DEQUANTIZER_OUT        -1
+#define DRMP3_MAX_SCF                     (255 + DRMP3_BITS_DEQUANTIZER_OUT * 4 - 210)
+#define DRMP3_MAX_SCFI                    ((DRMP3_MAX_SCF + 3) & ~3)
 
 #define MINIMP3_MIN(a, b)           ((a) > (b) ? (b) : (a))
 #define MINIMP3_MAX(a, b)           ((a) < (b) ? (b) : (a))
@@ -496,7 +496,7 @@ typedef struct
 typedef struct
 {
     drmp3_bs_t bs;
-    uint8_t maindata[MAX_BITRESERVOIR_BYTES + MAX_L3_FRAME_PAYLOAD_BYTES];
+    uint8_t maindata[DRMP3_MAX_BITRESERVOIR_BYTES + DRMP3_MAX_L3_FRAME_PAYLOAD_BYTES];
     L3_gr_info_t gr_info[4];
     float grbuf[2][576];
     float scf[40];
@@ -531,9 +531,9 @@ static int hdr_valid(const uint8_t *h)
 {
     return h[0] == 0xff &&
         ((h[1] & 0xF0) == 0xf0 || (h[1] & 0xFE) == 0xe2) &&
-        (HDR_GET_LAYER(h) != 0) &&
-        (HDR_GET_BITRATE(h) != 15) &&
-        (HDR_GET_SAMPLE_RATE(h) != 3);
+        (DRMP3_HDR_GET_LAYER(h) != 0) &&
+        (DRMP3_HDR_GET_BITRATE(h) != 15) &&
+        (DRMP3_HDR_GET_SAMPLE_RATE(h) != 3);
 }
 
 static int hdr_compare(const uint8_t *h1, const uint8_t *h2)
@@ -541,7 +541,7 @@ static int hdr_compare(const uint8_t *h1, const uint8_t *h2)
     return hdr_valid(h2) &&
         ((h1[1] ^ h2[1]) & 0xFE) == 0 &&
         ((h1[2] ^ h2[2]) & 0x0C) == 0 &&
-        !(HDR_IS_FREE_FORMAT(h1) ^ HDR_IS_FREE_FORMAT(h2));
+        !(DRMP3_HDR_IS_FREE_FORMAT(h1) ^ DRMP3_HDR_IS_FREE_FORMAT(h2));
 }
 
 static unsigned hdr_bitrate_kbps(const uint8_t *h)
@@ -550,24 +550,24 @@ static unsigned hdr_bitrate_kbps(const uint8_t *h)
         { { 0,4,8,12,16,20,24,28,32,40,48,56,64,72,80 }, { 0,4,8,12,16,20,24,28,32,40,48,56,64,72,80 }, { 0,16,24,28,32,40,48,56,64,72,80,88,96,112,128 } },
         { { 0,16,20,24,28,32,40,48,56,64,80,96,112,128,160 }, { 0,16,24,28,32,40,48,56,64,80,96,112,128,160,192 }, { 0,16,32,48,64,80,96,112,128,144,160,176,192,208,224 } },
     };
-    return 2*halfrate[!!HDR_TEST_MPEG1(h)][HDR_GET_LAYER(h) - 1][HDR_GET_BITRATE(h)];
+    return 2*halfrate[!!DRMP3_HDR_TEST_MPEG1(h)][DRMP3_HDR_GET_LAYER(h) - 1][DRMP3_HDR_GET_BITRATE(h)];
 }
 
 static unsigned hdr_sample_rate_hz(const uint8_t *h)
 {
     static const unsigned g_hz[3] = { 44100, 48000, 32000 };
-    return g_hz[HDR_GET_SAMPLE_RATE(h)] >> !HDR_TEST_MPEG1(h) >> !HDR_TEST_NOT_MPEG25(h);
+    return g_hz[DRMP3_HDR_GET_SAMPLE_RATE(h)] >> !DRMP3_HDR_TEST_MPEG1(h) >> !DRMP3_HDR_TEST_NOT_MPEG25(h);
 }
 
 static unsigned hdr_frame_samples(const uint8_t *h)
 {
-    return HDR_IS_LAYER_1(h) ? 384 : (1152 >> HDR_IS_FRAME_576(h));
+    return DRMP3_HDR_IS_LAYER_1(h) ? 384 : (1152 >> DRMP3_HDR_IS_FRAME_576(h));
 }
 
 static int hdr_frame_bytes(const uint8_t *h, int free_format_size)
 {
     int frame_bytes = hdr_frame_samples(h) * hdr_bitrate_kbps(h) * 125 / hdr_sample_rate_hz(h);
-    if (HDR_IS_LAYER_1(h))
+    if (DRMP3_HDR_IS_LAYER_1(h))
     {
         frame_bytes &= ~3; /* slot align */
     }
@@ -576,22 +576,22 @@ static int hdr_frame_bytes(const uint8_t *h, int free_format_size)
 
 static int hdr_padding(const uint8_t *h)
 {
-    return HDR_TEST_PADDING(h) ? (HDR_IS_LAYER_1(h) ? 4 : 1) : 0;
+    return DRMP3_HDR_TEST_PADDING(h) ? (DRMP3_HDR_IS_LAYER_1(h) ? 4 : 1) : 0;
 }
 
 #ifndef MINIMP3_ONLY_MP3
 static const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L12_scale_info *sci)
 {
     const L12_subband_alloc_t *alloc;
-    int mode = HDR_GET_STEREO_MODE(hdr);
-    int nbands, stereo_bands = (mode == MODE_MONO) ? 0 : (mode == MODE_JOINT_STEREO) ? (HDR_GET_STEREO_MODE_EXT(hdr) << 2) + 4 : 32;
+    int mode = DRMP3_HDR_GET_STEREO_MODE(hdr);
+    int nbands, stereo_bands = (mode == DRMP3_MODE_MONO) ? 0 : (mode == DRMP3_MODE_JOINT_STEREO) ? (DRMP3_HDR_GET_STEREO_MODE_EXT(hdr) << 2) + 4 : 32;
 
-    if (HDR_IS_LAYER_1(hdr))
+    if (DRMP3_HDR_IS_LAYER_1(hdr))
     {
         static const L12_subband_alloc_t g_alloc_L1[] = { { 76, 4, 32 } };
         alloc = g_alloc_L1;
         nbands = 32;
-    } else if (!HDR_TEST_MPEG1(hdr))
+    } else if (!DRMP3_HDR_TEST_MPEG1(hdr))
     {
         static const L12_subband_alloc_t g_alloc_L2M2[] = { { 60, 4, 4 }, { 44, 3, 7 }, { 44, 2, 19 } };
         alloc = g_alloc_L2M2;
@@ -599,8 +599,8 @@ static const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L1
     } else
     {
         static const L12_subband_alloc_t g_alloc_L2M1[] = { { 0, 4, 3 }, { 16, 4, 8 }, { 32, 3, 12 }, { 40, 2, 7 } };
-        int sample_rate_idx = HDR_GET_SAMPLE_RATE(hdr);
-        unsigned kbps = hdr_bitrate_kbps(hdr) >> (mode != MODE_MONO);
+        int sample_rate_idx = DRMP3_HDR_GET_SAMPLE_RATE(hdr);
+        unsigned kbps = hdr_bitrate_kbps(hdr) >> (mode != DRMP3_MODE_MONO);
         if (!kbps) /* free-format */
         {
             kbps = 192;
@@ -686,7 +686,7 @@ static void L12_read_scale_info(const uint8_t *hdr, drmp3_bs_t *bs, L12_scale_in
 
     for (i = 0; i < 2 * sci->total_bands; i++)
     {
-        sci->scfcod[i] = (uint8_t)(sci->bitalloc[i] ? HDR_IS_LAYER_1(hdr) ? 2 : drmp3_bs_get_bits(bs, 2) : 6);
+        sci->scfcod[i] = (uint8_t)(sci->bitalloc[i] ? DRMP3_HDR_IS_LAYER_1(hdr) ? 2 : drmp3_bs_get_bits(bs, 2) : 6);
     }
 
     L12_read_scalefactors(bs, sci->bitalloc, sci->scfcod, sci->total_bands * 2, sci->scf);
@@ -785,10 +785,10 @@ static int L3_read_side_info(drmp3_bs_t *bs, L3_gr_info_t *gr, const uint8_t *hd
 
     unsigned tables, scfsi = 0;
     int main_data_begin, part_23_sum = 0;
-    int sr_idx = HDR_GET_MY_SAMPLE_RATE(hdr);
-    int gr_count = HDR_IS_MONO(hdr) ? 1 : 2;
+    int sr_idx = DRMP3_HDR_GET_MY_SAMPLE_RATE(hdr);
+    int gr_count = DRMP3_HDR_IS_MONO(hdr) ? 1 : 2;
 
-    if (HDR_TEST_MPEG1(hdr))
+    if (DRMP3_HDR_TEST_MPEG1(hdr))
     {
         gr_count *= 2;
         main_data_begin = drmp3_bs_get_bits(bs, 9);
@@ -800,7 +800,7 @@ static int L3_read_side_info(drmp3_bs_t *bs, L3_gr_info_t *gr, const uint8_t *hd
 
     do
     {
-        if (HDR_IS_MONO(hdr))
+        if (DRMP3_HDR_IS_MONO(hdr))
         {
             scfsi <<= 4;
         }
@@ -812,7 +812,7 @@ static int L3_read_side_info(drmp3_bs_t *bs, L3_gr_info_t *gr, const uint8_t *hd
             return -1;
         }
         gr->global_gain = (uint8_t)drmp3_bs_get_bits(bs, 8);
-        gr->scalefac_compress = (uint16_t)drmp3_bs_get_bits(bs, HDR_TEST_MPEG1(hdr) ? 4 : 9);
+        gr->scalefac_compress = (uint16_t)drmp3_bs_get_bits(bs, DRMP3_HDR_TEST_MPEG1(hdr) ? 4 : 9);
         gr->sfbtab = g_scf_long[sr_idx];
         gr->n_long_sfb  = 22;
         gr->n_short_sfb = 0;
@@ -826,7 +826,7 @@ static int L3_read_side_info(drmp3_bs_t *bs, L3_gr_info_t *gr, const uint8_t *hd
             gr->mixed_block_flag = (uint8_t)drmp3_bs_get_bits(bs, 1);
             gr->region_count[0] = 7;
             gr->region_count[1] = 255;
-            if (gr->block_type == SHORT_BLOCK_TYPE)
+            if (gr->block_type == DRMP3_SHORT_BLOCK_TYPE)
             {
                 scfsi &= 0x0F0F;
                 if (!gr->mixed_block_flag)
@@ -838,7 +838,7 @@ static int L3_read_side_info(drmp3_bs_t *bs, L3_gr_info_t *gr, const uint8_t *hd
                 } else
                 {
                     gr->sfbtab = g_scf_mixed[sr_idx];
-                    gr->n_long_sfb = HDR_TEST_MPEG1(hdr) ? 8 : 6;
+                    gr->n_long_sfb = DRMP3_HDR_TEST_MPEG1(hdr) ? 8 : 6;
                     gr->n_short_sfb = 30;
                 }
             }
@@ -859,7 +859,7 @@ static int L3_read_side_info(drmp3_bs_t *bs, L3_gr_info_t *gr, const uint8_t *hd
         gr->table_select[0] = (uint8_t)(tables >> 10);
         gr->table_select[1] = (uint8_t)((tables >> 5) & 31);
         gr->table_select[2] = (uint8_t)((tables) & 31);
-        gr->preflag = (uint8_t)(HDR_TEST_MPEG1(hdr) ? drmp3_bs_get_bits(bs, 1) : (gr->scalefac_compress >= 500));
+        gr->preflag = (uint8_t)(DRMP3_HDR_TEST_MPEG1(hdr) ? drmp3_bs_get_bits(bs, 1) : (gr->scalefac_compress >= 500));
         gr->scalefac_scale = (uint8_t)drmp3_bs_get_bits(bs, 1);
         gr->count1_table = (uint8_t)drmp3_bs_get_bits(bs, 1);
         gr->scfsi = (uint8_t)((scfsi >> 12) & 15);
@@ -932,7 +932,7 @@ static void L3_decode_scalefactors(const uint8_t *hdr, uint8_t *ist_pos, drmp3_b
     int i, scf_shift = gr->scalefac_scale + 1, gain_exp, scfsi = gr->scfsi;
     float gain;
 
-    if (HDR_TEST_MPEG1(hdr))
+    if (DRMP3_HDR_TEST_MPEG1(hdr))
     {
         static const uint8_t g_scfc_decode[16] = { 0,1,2,3, 12,5,6,7, 9,10,11,13, 14,15,18,19 };
         int part = g_scfc_decode[gr->scalefac_compress];
@@ -941,7 +941,7 @@ static void L3_decode_scalefactors(const uint8_t *hdr, uint8_t *ist_pos, drmp3_b
     } else
     {
         static const uint8_t g_mod[6*4] = { 5,5,4,4,5,5,4,1,4,3,1,1,5,6,6,1,4,4,4,1,4,3,1,1 };
-        int k, modprod, sfc, ist = HDR_TEST_I_STEREO(hdr) && ch;
+        int k, modprod, sfc, ist = DRMP3_HDR_TEST_I_STEREO(hdr) && ch;
         sfc = gr->scalefac_compress >> ist;
         for (k = ist*3*4; sfc >= 0; sfc -= modprod, k += 4)
         {
@@ -974,8 +974,8 @@ static void L3_decode_scalefactors(const uint8_t *hdr, uint8_t *ist_pos, drmp3_b
         }
     }
 
-    gain_exp = gr->global_gain + BITS_DEQUANTIZER_OUT*4 - 210 - (HDR_IS_MS_STEREO(hdr) ? 2 : 0);
-    gain = L3_ldexp_q2(1 << (MAX_SCFI/4),  MAX_SCFI - gain_exp);
+    gain_exp = gr->global_gain + DRMP3_BITS_DEQUANTIZER_OUT*4 - 210 - (DRMP3_HDR_IS_MS_STEREO(hdr) ? 2 : 0);
+    gain = L3_ldexp_q2(1 << (DRMP3_MAX_SCFI/4),  DRMP3_MAX_SCFI - gain_exp);
     for (i = 0; i < (int)(gr->n_long_sfb + gr->n_short_sfb); i++)
     {
         scf[i] = L3_ldexp_q2(gain, iscf[i] << scf_shift);
@@ -1171,15 +1171,15 @@ static void L3_stereo_top_band(const float *right, const uint8_t *sfb, int nband
 static void L3_stereo_process(float *left, const uint8_t *ist_pos, const uint8_t *sfb, const uint8_t *hdr, int max_band[3], int mpeg2_sh)
 {
     static const float g_pan[7*2] = { 0,1,0.21132487f,0.78867513f,0.36602540f,0.63397460f,0.5f,0.5f,0.63397460f,0.36602540f,0.78867513f,0.21132487f,1,0 };
-    unsigned i, max_pos = HDR_TEST_MPEG1(hdr) ? 7 : 64;
+    unsigned i, max_pos = DRMP3_HDR_TEST_MPEG1(hdr) ? 7 : 64;
 
     for (i = 0; sfb[i]; i++)
     {
         unsigned ipos = ist_pos[i];
         if ((int)i > max_band[i % 3] && ipos < max_pos)
         {
-            float kl, kr, s = HDR_TEST_MS_STEREO(hdr) ? 1.41421356f : 1;
-            if (HDR_TEST_MPEG1(hdr))
+            float kl, kr, s = DRMP3_HDR_TEST_MS_STEREO(hdr) ? 1.41421356f : 1;
+            if (DRMP3_HDR_TEST_MPEG1(hdr))
             {
                 kl = g_pan[2*ipos];
                 kr = g_pan[2*ipos + 1];
@@ -1194,7 +1194,7 @@ static void L3_stereo_process(float *left, const uint8_t *ist_pos, const uint8_t
                 }
             }
             L3_intensity_stereo_band(left, sfb[i], kl*s, kr*s);
-        } else if (HDR_TEST_MS_STEREO(hdr))
+        } else if (DRMP3_HDR_TEST_MS_STEREO(hdr))
         {
             L3_midside_stereo(left, sfb[i]);
         }
@@ -1214,7 +1214,7 @@ static void L3_intensity_stereo(float *left, uint8_t *ist_pos, const L3_gr_info_
     }
     for (i = 0; i < max_blocks; i++)
     {
-        int default_pos = HDR_TEST_MPEG1(hdr) ? 3 : 0;
+        int default_pos = DRMP3_HDR_TEST_MPEG1(hdr) ? 3 : 0;
         int itop = n_sfb - max_blocks + i;
         int prev = itop - max_blocks;
         ist_pos[itop] = (uint8_t)(max_band[i] >= prev ? default_pos : ist_pos[prev]);
@@ -1433,20 +1433,20 @@ static void L3_imdct_gr(float *grbuf, float *overlap, unsigned block_type, unsig
         grbuf += 18*n_long_bands;
         overlap += 9*n_long_bands;
     }
-    if (block_type == SHORT_BLOCK_TYPE)
+    if (block_type == DRMP3_SHORT_BLOCK_TYPE)
         L3_imdct_short(grbuf, overlap, 32 - n_long_bands);
     else
-        L3_imdct36(grbuf, overlap, g_mdct_window[block_type == STOP_BLOCK_TYPE], 32 - n_long_bands);
+        L3_imdct36(grbuf, overlap, g_mdct_window[block_type == DRMP3_STOP_BLOCK_TYPE], 32 - n_long_bands);
 }
 
 static void L3_save_reservoir(drmp3dec *h, mp3dec_scratch_t *s)
 {
     int pos = (s->bs.pos + 7)/8u;
     int remains = s->bs.limit/8u - pos;
-    if (remains > MAX_BITRESERVOIR_BYTES)
+    if (remains > DRMP3_MAX_BITRESERVOIR_BYTES)
     {
-        pos += remains - MAX_BITRESERVOIR_BYTES;
-        remains = MAX_BITRESERVOIR_BYTES;
+        pos += remains - DRMP3_MAX_BITRESERVOIR_BYTES;
+        remains = DRMP3_MAX_BITRESERVOIR_BYTES;
     }
     if (remains > 0)
     {
@@ -1476,10 +1476,10 @@ static void L3_decode(drmp3dec *h, mp3dec_scratch_t *s, L3_gr_info_t *gr_info, i
         L3_huffman(s->grbuf[ch], &s->bs, gr_info + ch, s->scf, layer3gr_limit);
     }
 
-    if (HDR_TEST_I_STEREO(h->header))
+    if (DRMP3_HDR_TEST_I_STEREO(h->header))
     {
         L3_intensity_stereo(s->grbuf[0], s->ist_pos[1], gr_info, h->header);
-    } else if (HDR_IS_MS_STEREO(h->header))
+    } else if (DRMP3_HDR_IS_MS_STEREO(h->header))
     {
         L3_midside_stereo(s->grbuf[0], 576);
     }
@@ -1487,7 +1487,7 @@ static void L3_decode(drmp3dec *h, mp3dec_scratch_t *s, L3_gr_info_t *gr_info, i
     for (ch = 0; ch < nch; ch++, gr_info++)
     {
         int aa_bands = 31;
-        int n_long_bands = (gr_info->mixed_block_flag ? 2 : 0) << (HDR_GET_MY_SAMPLE_RATE(h->header) == 2);
+        int n_long_bands = (gr_info->mixed_block_flag ? 2 : 0) << (DRMP3_HDR_GET_MY_SAMPLE_RATE(h->header) == 2);
 
         if (gr_info->n_short_sfb)
         {
@@ -1849,10 +1849,10 @@ static void mp3d_synth_granule(float *qmf_state, float *grbuf, int nbands, int n
 static int mp3d_match_frame(const uint8_t *hdr, int mp3_bytes, int frame_bytes)
 {
     int i, nmatch;
-    for (i = 0, nmatch = 0; nmatch < MAX_FRAME_SYNC_MATCHES; nmatch++)
+    for (i = 0, nmatch = 0; nmatch < DRMP3_MAX_FRAME_SYNC_MATCHES; nmatch++)
     {
         i += hdr_frame_bytes(hdr + i, frame_bytes) + hdr_padding(hdr + i);
-        if (i + HDR_SIZE > mp3_bytes)
+        if (i + DRMP3_HDR_SIZE > mp3_bytes)
             return nmatch > 0;
         if (!hdr_compare(hdr, hdr + i))
             return 0;
@@ -1863,20 +1863,20 @@ static int mp3d_match_frame(const uint8_t *hdr, int mp3_bytes, int frame_bytes)
 static int mp3d_find_frame(const uint8_t *mp3, int mp3_bytes, int *free_format_bytes, int *ptr_frame_bytes)
 {
     int i, k;
-    for (i = 0; i < mp3_bytes - HDR_SIZE; i++, mp3++)
+    for (i = 0; i < mp3_bytes - DRMP3_HDR_SIZE; i++, mp3++)
     {
         if (hdr_valid(mp3))
         {
             int frame_bytes = hdr_frame_bytes(mp3, *free_format_bytes);
             int frame_and_padding = frame_bytes + hdr_padding(mp3);
 
-            for (k = HDR_SIZE; !frame_bytes && k < MAX_FREE_FORMAT_FRAME_SIZE && i + 2*k < mp3_bytes - HDR_SIZE; k++)
+            for (k = DRMP3_HDR_SIZE; !frame_bytes && k < DRMP3_MAX_FREE_FORMAT_FRAME_SIZE && i + 2*k < mp3_bytes - DRMP3_HDR_SIZE; k++)
             {
                 if (hdr_compare(mp3, mp3 + k))
                 {
                     int fb = k - hdr_padding(mp3);
                     int nextfb = fb + hdr_padding(mp3 + k);
-                    if (i + k + nextfb + HDR_SIZE > mp3_bytes || !hdr_compare(mp3, mp3 + k + nextfb))
+                    if (i + k + nextfb + DRMP3_HDR_SIZE > mp3_bytes || !hdr_compare(mp3, mp3 + k + nextfb))
                         continue;
                     frame_and_padding = k;
                     frame_bytes = fb;
@@ -1912,7 +1912,7 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
     if (mp3_bytes > 4 && dec->header[0] == 0xff && hdr_compare(dec->header, mp3))
     {
         frame_size = hdr_frame_bytes(mp3, dec->free_format_bytes) + hdr_padding(mp3);
-        if (frame_size != mp3_bytes && (frame_size + HDR_SIZE > mp3_bytes || !hdr_compare(mp3, mp3 + frame_size)))
+        if (frame_size != mp3_bytes && (frame_size + DRMP3_HDR_SIZE > mp3_bytes || !hdr_compare(mp3, mp3 + frame_size)))
         {
             frame_size = 0;
         }
@@ -1929,15 +1929,15 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
     }
 
     hdr = mp3 + i;
-    memcpy(dec->header, hdr, HDR_SIZE);
+    memcpy(dec->header, hdr, DRMP3_HDR_SIZE);
     info->frame_bytes = i + frame_size;
-    info->channels = HDR_IS_MONO(hdr) ? 1 : 2;
+    info->channels = DRMP3_HDR_IS_MONO(hdr) ? 1 : 2;
     info->hz = hdr_sample_rate_hz(hdr);
-    info->layer = 4 - HDR_GET_LAYER(hdr);
+    info->layer = 4 - DRMP3_HDR_GET_LAYER(hdr);
     info->bitrate_kbps = hdr_bitrate_kbps(hdr);
 
-    bs_init(bs_frame, hdr + HDR_SIZE, frame_size - HDR_SIZE);
-    if (HDR_IS_CRC(hdr))
+    bs_init(bs_frame, hdr + DRMP3_HDR_SIZE, frame_size - DRMP3_HDR_SIZE);
+    if (DRMP3_HDR_IS_CRC(hdr))
     {
         drmp3_bs_get_bits(bs_frame, 16);
     }
@@ -1953,7 +1953,7 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
         success = L3_restore_reservoir(dec, bs_frame, &scratch, main_data_begin);
         if (success)
         {
-            for (igr = 0; igr < (HDR_TEST_MPEG1(hdr) ? 2 : 1); igr++, pcm += 576*info->channels)
+            for (igr = 0; igr < (DRMP3_HDR_TEST_MPEG1(hdr) ? 2 : 1); igr++, pcm += 576*info->channels)
             {
                 memset(scratch.grbuf[0], 0, 576*2*sizeof(float));
                 L3_decode(dec, &scratch, scratch.gr_info + igr*info->channels, info->channels);
