@@ -8,6 +8,15 @@
 #ifndef dr_mp3_h
 #define dr_mp3_h
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if defined(_MSC_VER)
+    #pragma warning(push)
+    #pragma warning(disable:4201)   // nonstandard extension used: nameless struct/union
+#endif
+
 #include <stddef.h>
 
 #if defined(_MSC_VER) && _MSC_VER < 1600
@@ -34,10 +43,6 @@ typedef drmp3_uint8      drmp3_bool8;
 typedef drmp3_uint32     drmp3_bool32;
 #define DRMP3_TRUE       1
 #define DRMP3_FALSE      0
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #define DRMP3_MAX_SAMPLES_PER_FRAME (1152*2)
 
@@ -201,6 +206,10 @@ drmp3_uint64 drmp3_read_f32(drmp3* pMP3, drmp3_uint64 framesToRead, float* pBuff
 // Note that this is _not_ an MP3 frame, but rather a PCM frame.
 drmp3_bool32 drmp3_seek_to_frame(drmp3* pMP3, drmp3_uint64 frameIndex);
 
+
+#if defined(_MSC_VER)
+    #pragma warning(pop)
+#endif
 
 #ifdef __cplusplus
 }
@@ -2412,6 +2421,7 @@ drmp3_uint64 drmp3_read_f32(drmp3* pMP3, drmp3_uint64 framesToRead, float* pBuff
             }
 
             framesToRead -= framesJustRead;
+            totalFramesRead += framesJustRead;
         }
     } else {
         totalFramesRead = drmp3_src_read_frames_ex(&pMP3->src, framesToRead, pBufferOut, DRMP3_TRUE);
@@ -2437,7 +2447,8 @@ drmp3_bool32 drmp3_seek_to_frame(drmp3* pMP3, drmp3_uint64 frameIndex)
     // TODO: Optimize.
     //
     // This is inefficient. We simply read frames from the start of the stream.
-    if (drmp3_read_f32(pMP3, frameIndex, NULL) != frameIndex) {
+    drmp3_uint64 framesRead = drmp3_read_f32(pMP3, frameIndex, NULL);
+    if (framesRead != frameIndex) {
         return DRMP3_FALSE;
     }
 
