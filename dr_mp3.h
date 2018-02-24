@@ -340,8 +340,8 @@ void drmp3_free(void* p);
 #define DRMP3_MAX_SCF                     (255 + DRMP3_BITS_DEQUANTIZER_OUT * 4 - 210)
 #define DRMP3_MAX_SCFI                    ((DRMP3_MAX_SCF + 3) & ~3)
 
-#define MINIMP3_MIN(a, b)           ((a) > (b) ? (b) : (a))
-#define MINIMP3_MAX(a, b)           ((a) < (b) ? (b) : (a))
+#define DRMP3_MIN(a, b)           ((a) > (b) ? (b) : (a))
+#define DRMP3_MAX(a, b)           ((a) < (b) ? (b) : (a))
 
 #if !defined(DR_MP3_NO_SIMD)
 
@@ -366,9 +366,9 @@ void drmp3_free(void* p);
 #   define DRMP3_VREV(x) _mm_shuffle_ps(x, x, _MM_SHUFFLE(0, 1, 2, 3))
 typedef __m128 drmp3_f4;
 #if defined(_MSC_VER) || defined(DR_MP3_ONLY_SIMD)
-#define minimp3_cpuid __cpuid
+#define drmp3_cpuid __cpuid
 #else
-static __inline__ __attribute__((always_inline)) void minimp3_cpuid(int CPUInfo[], const int InfoType)
+static __inline__ __attribute__((always_inline)) void drmp3_cpuid(int CPUInfo[], const int InfoType)
 {
 #if defined(__PIC__)
     __asm__ __volatile__(
@@ -406,10 +406,10 @@ static int drmp3_have_simd()
 #endif
     if (g_have_simd)
         return g_have_simd - 1;
-    minimp3_cpuid(CPUInfo, 0);
+    drmp3_cpuid(CPUInfo, 0);
     if (CPUInfo[0] > 0)
     {
-        minimp3_cpuid(CPUInfo, 1);
+        drmp3_cpuid(CPUInfo, 1);
         g_have_simd = (CPUInfo[3] & (1 << 26)) + 1; /* SSE2 */
         return g_have_simd - 1;
     }
@@ -622,7 +622,7 @@ static const drmp3_L12_subband_alloc *drmp3_L12_subband_alloc_table(const drmp3_
     }
 
     sci->total_bands = (drmp3_uint8)nbands;
-    sci->stereo_bands = (drmp3_uint8)MINIMP3_MIN(stereo_bands, nbands);
+    sci->stereo_bands = (drmp3_uint8)DRMP3_MIN(stereo_bands, nbands);
 
     return alloc;
 }
@@ -916,7 +916,7 @@ static float drmp3_L3_ldexp_q2(float y, int exp_q2)
     int e;
     do
     {
-        e = MINIMP3_MIN(30*4, exp_q2);
+        e = DRMP3_MIN(30*4, exp_q2);
         y *= g_expfrac[e & 3]*(1 << 30 >> (e >> 2));
     } while ((exp_q2 -= e) > 0);
     return y;
@@ -1054,7 +1054,7 @@ static void drmp3_L3_huffman(float *dst, drmp3_bs *bs, const drmp3_L3_gr_info *g
         do
         {
             np = *sfb++ / 2;
-            pairs_to_decode = MINIMP3_MIN(big_val_cnt, np);
+            pairs_to_decode = DRMP3_MIN(big_val_cnt, np);
             one = *scf++;
             do
             {
@@ -1212,7 +1212,7 @@ static void drmp3_L3_intensity_stereo(float *left, drmp3_uint8 *ist_pos, const d
     drmp3_L3_stereo_top_band(left + 576, gr->sfbtab, n_sfb, max_band);
     if (gr->n_long_sfb)
     {
-        max_band[0] = max_band[1] = max_band[2] = MINIMP3_MAX(MINIMP3_MAX(max_band[0], max_band[1]), max_band[2]);
+        max_band[0] = max_band[1] = max_band[2] = DRMP3_MAX(DRMP3_MAX(max_band[0], max_band[1]), max_band[2]);
     }
     for (i = 0; i < max_blocks; i++)
     {
@@ -1460,8 +1460,8 @@ static void drmp3_L3_save_reservoir(drmp3dec *h, drmp3dec_scratch *s)
 static int drmp3_L3_restore_reservoir(drmp3dec *h, drmp3_bs *bs, drmp3dec_scratch *s, int main_data_begin)
 {
     int frame_bytes = (bs->limit - bs->pos)/8;
-    int bytes_have = MINIMP3_MIN(h->reserv, main_data_begin);
-    memcpy(s->maindata, h->reserv_buf + MINIMP3_MAX(0, h->reserv - main_data_begin), MINIMP3_MIN(h->reserv, main_data_begin));
+    int bytes_have = DRMP3_MIN(h->reserv, main_data_begin);
+    memcpy(s->maindata, h->reserv_buf + DRMP3_MAX(0, h->reserv - main_data_begin), DRMP3_MIN(h->reserv, main_data_begin));
     memcpy(s->maindata + bytes_have, bs->buf + bs->pos/8, frame_bytes);
     drmp3_bs_init(&s->bs, s->maindata, bytes_have + frame_bytes);
     return h->reserv >= main_data_begin;
