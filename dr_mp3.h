@@ -455,7 +455,7 @@ typedef struct
     const uint8_t *buf;
     int pos;
     int limit;
-} drmp3_bs_t;
+} drmp3_bs;
 
 typedef struct
 {
@@ -464,14 +464,14 @@ typedef struct
     uint8_t bitalloc[64];
     uint8_t scfcod[64];
     float scf[3*64];
-} L12_scale_info;
+} drmp3_L12_scale_info;
 
 typedef struct
 {
     uint8_t tab_offset;
     uint8_t code_tab_width;
     uint8_t band_count;
-} L12_subband_alloc_t;
+} drmp3_L12_subband_alloc;
 
 typedef struct
 {
@@ -491,27 +491,27 @@ typedef struct
     uint8_t scalefac_scale;
     uint8_t count1_table;
     uint8_t scfsi;
-} L3_gr_info_t;
+} drmp3_L3_gr_info;
 
 typedef struct
 {
-    drmp3_bs_t bs;
+    drmp3_bs bs;
     uint8_t maindata[DRMP3_MAX_BITRESERVOIR_BYTES + DRMP3_MAX_L3_FRAME_PAYLOAD_BYTES];
-    L3_gr_info_t gr_info[4];
+    drmp3_L3_gr_info gr_info[4];
     float grbuf[2][576];
     float scf[40];
     uint8_t ist_pos[2][39];
     float syn[18 + 15][2*32];
-} mp3dec_scratch_t;
+} drmp3dec_scratch;
 
-static void bs_init(drmp3_bs_t *bs, const uint8_t *data, int bytes)
+static void bs_init(drmp3_bs *bs, const uint8_t *data, int bytes)
 {
     bs->buf   = data;
     bs->pos   = 0;
     bs->limit = bytes*8;
 }
 
-static uint32_t drmp3_bs_get_bits(drmp3_bs_t *bs, int n)
+static uint32_t drmp3_bs_get_bits(drmp3_bs *bs, int n)
 {
     uint32_t next, cache = 0, s = bs->pos & 7;
     int shl = n + s;
@@ -580,25 +580,25 @@ static int hdr_padding(const uint8_t *h)
 }
 
 #ifndef DR_MP3_ONLY_MP3
-static const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L12_scale_info *sci)
+static const drmp3_L12_subband_alloc *L12_subband_alloc_table(const uint8_t *hdr, drmp3_L12_scale_info *sci)
 {
-    const L12_subband_alloc_t *alloc;
+    const drmp3_L12_subband_alloc *alloc;
     int mode = DRMP3_HDR_GET_STEREO_MODE(hdr);
     int nbands, stereo_bands = (mode == DRMP3_MODE_MONO) ? 0 : (mode == DRMP3_MODE_JOINT_STEREO) ? (DRMP3_HDR_GET_STEREO_MODE_EXT(hdr) << 2) + 4 : 32;
 
     if (DRMP3_HDR_IS_LAYER_1(hdr))
     {
-        static const L12_subband_alloc_t g_alloc_L1[] = { { 76, 4, 32 } };
+        static const drmp3_L12_subband_alloc g_alloc_L1[] = { { 76, 4, 32 } };
         alloc = g_alloc_L1;
         nbands = 32;
     } else if (!DRMP3_HDR_TEST_MPEG1(hdr))
     {
-        static const L12_subband_alloc_t g_alloc_L2M2[] = { { 60, 4, 4 }, { 44, 3, 7 }, { 44, 2, 19 } };
+        static const drmp3_L12_subband_alloc g_alloc_L2M2[] = { { 60, 4, 4 }, { 44, 3, 7 }, { 44, 2, 19 } };
         alloc = g_alloc_L2M2;
         nbands = 30;
     } else
     {
-        static const L12_subband_alloc_t g_alloc_L2M1[] = { { 0, 4, 3 }, { 16, 4, 8 }, { 32, 3, 12 }, { 40, 2, 7 } };
+        static const drmp3_L12_subband_alloc g_alloc_L2M1[] = { { 0, 4, 3 }, { 16, 4, 8 }, { 32, 3, 12 }, { 40, 2, 7 } };
         int sample_rate_idx = DRMP3_HDR_GET_SAMPLE_RATE(hdr);
         unsigned kbps = hdr_bitrate_kbps(hdr) >> (mode != DRMP3_MODE_MONO);
         if (!kbps) /* free-format */
@@ -610,7 +610,7 @@ static const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L1
         nbands = 27;
         if (kbps < 56)
         {
-            static const L12_subband_alloc_t g_alloc_L2M1_lowrate[] = { { 44, 4, 2 }, { 44, 3, 10 } };
+            static const drmp3_L12_subband_alloc g_alloc_L2M1_lowrate[] = { { 44, 4, 2 }, { 44, 3, 10 } };
             alloc = g_alloc_L2M1_lowrate;
             nbands = sample_rate_idx == 2 ? 12 : 8;
         } else if (kbps >= 96 && sample_rate_idx != 1)
@@ -625,7 +625,7 @@ static const L12_subband_alloc_t *L12_subband_alloc_table(const uint8_t *hdr, L1
     return alloc;
 }
 
-static void L12_read_scalefactors(drmp3_bs_t *bs, uint8_t *pba, uint8_t *scfcod, int bands, float *scf)
+static void L12_read_scalefactors(drmp3_bs *bs, uint8_t *pba, uint8_t *scfcod, int bands, float *scf)
 {
     static const float g_deq_L12[18*3] = {
 #define DRMP3_DQ(x) 9.53674316e-07f/x, 7.56931807e-07f/x, 6.00777173e-07f/x
@@ -649,7 +649,7 @@ static void L12_read_scalefactors(drmp3_bs_t *bs, uint8_t *pba, uint8_t *scfcod,
     }
 }
 
-static void L12_read_scale_info(const uint8_t *hdr, drmp3_bs_t *bs, L12_scale_info *sci)
+static void L12_read_scale_info(const uint8_t *hdr, drmp3_bs *bs, drmp3_L12_scale_info *sci)
 {
     static const uint8_t g_bitalloc_code_tab[] = {
         0,17, 3, 4, 5,6,7, 8,9,10,11,12,13,14,15,16,
@@ -660,7 +660,7 @@ static void L12_read_scale_info(const uint8_t *hdr, drmp3_bs_t *bs, L12_scale_in
         0,17,18, 3,19,4,5, 6,7, 8, 9,10,11,12,13,14,
         0, 2, 3, 4, 5,6,7, 8,9,10,11,12,13,14,15,16
     };
-    const L12_subband_alloc_t * subband_alloc = L12_subband_alloc_table(hdr, sci);
+    const drmp3_L12_subband_alloc * subband_alloc = L12_subband_alloc_table(hdr, sci);
 
     int i, k = 0, ba_bits = 0;
     const uint8_t *ba_code_tab = g_bitalloc_code_tab;
@@ -697,7 +697,7 @@ static void L12_read_scale_info(const uint8_t *hdr, drmp3_bs_t *bs, L12_scale_in
     }
 }
 
-static int L12_dequantize_granule(float *grbuf, drmp3_bs_t *bs, L12_scale_info *sci, int group_size)
+static int L12_dequantize_granule(float *grbuf, drmp3_bs *bs, drmp3_L12_scale_info *sci, int group_size)
 {
     int i, j, k, choff = 576;
     for (j = 0; j < 4; j++)
@@ -732,7 +732,7 @@ static int L12_dequantize_granule(float *grbuf, drmp3_bs_t *bs, L12_scale_info *
     return group_size*4;
 }
 
-static void L12_apply_scf_384(L12_scale_info *sci, const float *scf, float *dst)
+static void L12_apply_scf_384(drmp3_L12_scale_info *sci, const float *scf, float *dst)
 {
     int i, k;
     memcpy(dst + 576 + sci->stereo_bands*18, dst + sci->stereo_bands*18, (sci->total_bands - sci->stereo_bands)*18*sizeof(float));
@@ -747,7 +747,7 @@ static void L12_apply_scf_384(L12_scale_info *sci, const float *scf, float *dst)
 }
 #endif
 
-static int L3_read_side_info(drmp3_bs_t *bs, L3_gr_info_t *gr, const uint8_t *hdr)
+static int L3_read_side_info(drmp3_bs *bs, drmp3_L3_gr_info *gr, const uint8_t *hdr)
 {
     static const uint8_t g_scf_long[9][23] = {
         { 6,6,6,6,6,6,8,10,12,14,16,20,24,28,32,38,46,52,60,68,58,54,0 },
@@ -875,7 +875,7 @@ static int L3_read_side_info(drmp3_bs_t *bs, L3_gr_info_t *gr, const uint8_t *hd
     return main_data_begin;
 }
 
-static void L3_read_scalefactors(uint8_t *scf, uint8_t *ist_pos, const uint8_t *scf_size, const uint8_t *scf_count, drmp3_bs_t *bitbuf, int scfsi)
+static void L3_read_scalefactors(uint8_t *scf, uint8_t *ist_pos, const uint8_t *scf_size, const uint8_t *scf_count, drmp3_bs *bitbuf, int scfsi)
 {
     int i, k;
     for (i = 0; i < 4 && scf_count[i]; i++, scfsi *= 2)
@@ -920,7 +920,7 @@ static float L3_ldexp_q2(float y, int exp_q2)
     return y;
 }
 
-static void L3_decode_scalefactors(const uint8_t *hdr, uint8_t *ist_pos, drmp3_bs_t *bs, const L3_gr_info_t *gr, float *scf, int ch)
+static void L3_decode_scalefactors(const uint8_t *hdr, uint8_t *ist_pos, drmp3_bs *bs, const drmp3_L3_gr_info *gr, float *scf, int ch)
 {
     static const uint8_t g_scf_partitions[3][28] = {
         { 6,5,5, 5,6,5,5,5,6,5, 7,3,11,10,0,0, 7, 7, 7,0, 6, 6,6,3, 8, 8,5,0 },
@@ -1006,7 +1006,7 @@ static float L3_pow_43(int x)
     return g_pow43[(x + sign) >> 6] * (1.f + frac * ((4.f/3) + frac * (2.f/9))) * mult;
 }
 
-static void L3_huffman(float *dst, drmp3_bs_t *bs, const L3_gr_info_t *gr_info, const float *scf, int layer3gr_limit)
+static void L3_huffman(float *dst, drmp3_bs *bs, const drmp3_L3_gr_info *gr_info, const float *scf, int layer3gr_limit)
 {
     static const float g_pow43_signed[32] = { 0,0,1,-1,2.519842f,-2.519842f,4.326749f,-4.326749f,6.349604f,-6.349604f,8.549880f,-8.549880f,10.902724f,-10.902724f,13.390518f,-13.390518f,16.000000f,-16.000000f,18.720754f,-18.720754f,21.544347f,-21.544347f,24.463781f,-24.463781f,27.473142f,-27.473142f,30.567351f,-30.567351f,33.741992f,-33.741992f,36.993181f,-36.993181f };
     static const int16_t tab0[32] = { 0, };
@@ -1202,7 +1202,7 @@ static void L3_stereo_process(float *left, const uint8_t *ist_pos, const uint8_t
     }
 }
 
-static void L3_intensity_stereo(float *left, uint8_t *ist_pos, const L3_gr_info_t *gr, const uint8_t *hdr)
+static void L3_intensity_stereo(float *left, uint8_t *ist_pos, const drmp3_L3_gr_info *gr, const uint8_t *hdr)
 {
     int max_band[3], n_sfb = gr->n_long_sfb + gr->n_short_sfb;
     int i, max_blocks = gr->n_short_sfb ? 3 : 1;
@@ -1439,7 +1439,7 @@ static void L3_imdct_gr(float *grbuf, float *overlap, unsigned block_type, unsig
         L3_imdct36(grbuf, overlap, g_mdct_window[block_type == DRMP3_STOP_BLOCK_TYPE], 32 - n_long_bands);
 }
 
-static void L3_save_reservoir(drmp3dec *h, mp3dec_scratch_t *s)
+static void L3_save_reservoir(drmp3dec *h, drmp3dec_scratch *s)
 {
     int pos = (s->bs.pos + 7)/8u;
     int remains = s->bs.limit/8u - pos;
@@ -1455,7 +1455,7 @@ static void L3_save_reservoir(drmp3dec *h, mp3dec_scratch_t *s)
     h->reserv = remains;
 }
 
-static int L3_restore_reservoir(drmp3dec *h, drmp3_bs_t *bs, mp3dec_scratch_t *s, int main_data_begin)
+static int L3_restore_reservoir(drmp3dec *h, drmp3_bs *bs, drmp3dec_scratch *s, int main_data_begin)
 {
     int frame_bytes = (bs->limit - bs->pos)/8;
     int bytes_have = MINIMP3_MIN(h->reserv, main_data_begin);
@@ -1465,7 +1465,7 @@ static int L3_restore_reservoir(drmp3dec *h, drmp3_bs_t *bs, mp3dec_scratch_t *s
     return h->reserv >= main_data_begin;
 }
 
-static void L3_decode(drmp3dec *h, mp3dec_scratch_t *s, L3_gr_info_t *gr_info, int nch)
+static void L3_decode(drmp3dec *h, drmp3dec_scratch *s, drmp3_L3_gr_info *gr_info, int nch)
 {
     int ch;
 
@@ -1906,8 +1906,8 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
 {
     int i = 0, igr, frame_size = 0, success = 1;
     const uint8_t *hdr;
-    drmp3_bs_t bs_frame[1];
-    mp3dec_scratch_t scratch;
+    drmp3_bs bs_frame[1];
+    drmp3dec_scratch scratch;
 
     if (mp3_bytes > 4 && dec->header[0] == 0xff && hdr_compare(dec->header, mp3))
     {
@@ -1966,7 +1966,7 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
 #ifdef DR_MP3_ONLY_MP3
         return 0;
 #else
-        L12_scale_info sci[1];
+        drmp3_L12_scale_info sci[1];
         L12_read_scale_info(hdr, bs_frame, sci);
 
         memset(scratch.grbuf[0], 0, 576*2*sizeof(float));
