@@ -1,12 +1,13 @@
 // MP3 audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_mp3 - v0.xx - 2018-xx-xx
+// dr_mp3 - v0.1 - 2018-02-25
 //
 // David Reid - mackron@gmail.com
 //
-// Based off minimp3 (https://github.com/lieff/minimp3).
+// Based off minimp3 (https://github.com/lieff/minimp3) which is where the real work was done. See the bottom of this file for
+// differences between minimp3 and dr_mp3.
 
 // USAGE
-//
+// =====
 // dr_mp3 is a single-file library. To use it, do something like the following in one .c file.
 //     #define DR_MP3_IMPLEMENTATION
 //     #include "dr_mp3.h"
@@ -31,14 +32,19 @@
 // The third parameter of drmp3_init_file() in the example above allows you to control the output channel count and sample rate. It
 // is a pointer to a drmp3_config object. Setting any of the variables of this object to 0 will cause dr_mp3 to use defaults.
 //
+// The example above initializes a decoder from a file, but you can also initialize it from a block of memory and read and seek
+// callbacks with drmp3_init_memory() and drmp3_init() respectively.
+//
 // You do need to do any annoying memory management when reading PCM frames - this is all managed internally. You can request
 // any number of PCM frames in each call to drmp3_read_f32() and it will return as many PCM frames as it can, up to the requested
 // amount.
 //
-// You can also decode an entire file in one go with drmp3_open_and_decode*_f32().
+// You can also decode an entire file in one go with drmp3_open_and_decode_f32(), drmp3_open_and_decode_memory_f32() and
+// drmp3_open_and_decode_file_f32().
 //
 //
 // OPTIONS
+// =======
 // #define these options before including this file.
 //
 // #define DR_MP3_NO_STDIO
@@ -46,6 +52,11 @@
 //
 // #define DR_MP3_NO_SIMD
 //   Disable SIMD optimizations.
+//
+//
+// LIMITATIONS
+// ===========
+// - Seeking is extremely inefficient.
 
 #ifndef dr_mp3_h
 #define dr_mp3_h
@@ -2704,7 +2715,25 @@ void drmp3_free(void* p)
 #endif /*DR_MP3_IMPLEMENTATION*/
 
 
+// DIFFERENCES BETWEEN minimp3 AND dr_mp3
+// ======================================
+// - First, keep in mind that minimp3 (https://github.com/lieff/minimp3) is where all the real work was done. All of the
+//   code relating to the actual decoding remains mostly unmodified, apart from some namespacing changes.
+// - dr_mp3 adds a pulling style API which allows you to deliver raw data via callbacks. So, rather than pushing data
+//   to the decoder, the decoder _pulls_ data from your callbacks.
+// - In addition to callbacks, a decoder can be initialized from a block of memory and a file.
+// - The dr_mp3 pull API reads PCM frames rather than whole MP3 frames.
+// - dr_mp3 adds convenience APIs for opening and decoding entire files in one go.
+// - dr_mp3 is fully namespaced, including the implementation section, which is more suitable when compiling projects
+//   as a single translation unit (aka unity builds). At the time of writing this, a unity build is not possible when
+//   using minimp3 in conjunction with stb_vorbis. dr_mp3 addresses this.
+// - dr_mp3 does not use `#pragma once`, but instead uses `#ifndef/#define/#endif` include guards. This allows projects
+//   to keep the header and implementation sections of dr_mp3 separate, while still allowing the project to be compiled
+//   as a single translation unit.
+
+
 // REVISION HISTORY
+// ===============
 //
 // v0.1 - 2018-02-xx
 //   - Initial versioned release.
