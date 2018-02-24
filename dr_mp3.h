@@ -54,11 +54,6 @@
 extern "C" {
 #endif
 
-#if defined(_MSC_VER)
-    #pragma warning(push)
-    #pragma warning(disable:4201)   // nonstandard extension used: nameless struct/union
-#endif
-
 #include <stddef.h>
 
 #if defined(_MSC_VER) && _MSC_VER < 1600
@@ -162,7 +157,7 @@ struct drmp3_src
             drmp3_bool32 isPrevFramesLoaded : 1;
             drmp3_bool32 isNextFramesLoaded : 1;
         } linear;
-    };
+    } algo;
 };
 
 typedef enum
@@ -284,10 +279,6 @@ float* drmp3_open_and_decode_file_f32(const char* filePath, drmp3_config* pConfi
 
 // Frees any memory that was allocated by a public drmp3 API.
 void drmp3_free(void* p);
-
-#if defined(_MSC_VER)
-    #pragma warning(pop)
-#endif
 
 #ifdef __cplusplus
 }
@@ -2213,19 +2204,19 @@ drmp3_uint64 drmp3_src_read_frames_linear(drmp3_src* pSRC, drmp3_uint64 frameCou
     // For linear SRC, the bin is only 2 frames: 1 prior, 1 future.
 
     // Load the bin if necessary.
-    if (!pSRC->linear.isPrevFramesLoaded) {
+    if (!pSRC->algo.linear.isPrevFramesLoaded) {
         drmp3_uint64 framesRead = drmp3_src_cache_read_frames(&pSRC->cache, 1, pSRC->bin);
         if (framesRead == 0) {
             return 0;
         }
-        pSRC->linear.isPrevFramesLoaded = DRMP3_TRUE;
+        pSRC->algo.linear.isPrevFramesLoaded = DRMP3_TRUE;
     }
-    if (!pSRC->linear.isNextFramesLoaded) {
+    if (!pSRC->algo.linear.isNextFramesLoaded) {
         drmp3_uint64 framesRead = drmp3_src_cache_read_frames(&pSRC->cache, 1, pSRC->bin + pSRC->config.channels);
         if (framesRead == 0) {
             return 0;
         }
-        pSRC->linear.isNextFramesLoaded = DRMP3_TRUE;
+        pSRC->algo.linear.isNextFramesLoaded = DRMP3_TRUE;
     }
 
     float factor = (float)pSRC->config.sampleRateIn / pSRC->config.sampleRateOut;
@@ -2236,13 +2227,13 @@ drmp3_uint64 drmp3_src_read_frames_linear(drmp3_src* pSRC, drmp3_uint64 frameCou
         float* pPrevFrame = pSRC->bin;
         float* pNextFrame = pSRC->bin + pSRC->config.channels;
 
-        drmp3_blend_f32(pFramesOut, pPrevFrame, pNextFrame, pSRC->linear.alpha, pSRC->config.channels);
+        drmp3_blend_f32(pFramesOut, pPrevFrame, pNextFrame, pSRC->algo.linear.alpha, pSRC->config.channels);
 
-        pSRC->linear.alpha += factor;
+        pSRC->algo.linear.alpha += factor;
 
         // The new alpha value is how we determine whether or not we need to read fresh frames.
-        drmp3_uint32 framesToReadFromClient = (drmp3_uint32)pSRC->linear.alpha;
-        pSRC->linear.alpha = pSRC->linear.alpha - framesToReadFromClient;
+        drmp3_uint32 framesToReadFromClient = (drmp3_uint32)pSRC->algo.linear.alpha;
+        pSRC->algo.linear.alpha = pSRC->algo.linear.alpha - framesToReadFromClient;
 
         for (drmp3_uint32 i = 0; i < framesToReadFromClient; ++i) {
             for (drmp3_uint32 j = 0; j < pSRC->config.channels; ++j) {
@@ -2255,11 +2246,11 @@ drmp3_uint64 drmp3_src_read_frames_linear(drmp3_src* pSRC, drmp3_uint64 frameCou
                     pNextFrame[j] = 0;
                 }
 
-                if (pSRC->linear.isNextFramesLoaded) {
-                    pSRC->linear.isNextFramesLoaded = DRMP3_FALSE;
+                if (pSRC->algo.linear.isNextFramesLoaded) {
+                    pSRC->algo.linear.isNextFramesLoaded = DRMP3_FALSE;
                 } else {
                     if (flush) {
-                        pSRC->linear.isPrevFramesLoaded = DRMP3_FALSE;
+                        pSRC->algo.linear.isPrevFramesLoaded = DRMP3_FALSE;
                     }
                 }
 
@@ -2272,7 +2263,7 @@ drmp3_uint64 drmp3_src_read_frames_linear(drmp3_src* pSRC, drmp3_uint64 frameCou
         totalFramesRead += 1;
 
         // If there's no frames available we need to get out of this loop.
-        if (!pSRC->linear.isNextFramesLoaded && (!flush || !pSRC->linear.isPrevFramesLoaded)) {
+        if (!pSRC->algo.linear.isNextFramesLoaded && (!flush || !pSRC->algo.linear.isPrevFramesLoaded)) {
             break;
         }
     }
