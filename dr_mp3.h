@@ -1074,20 +1074,17 @@ static void drmp3_L3_huffman(float *dst, drmp3_bs *bs, const drmp3_L3_gr_info *g
                 for (j = 0; j < 2; j++, dst++, leaf >>= 4)
                 {
                     int lsb = leaf & 0x0F;
-                    if (lsb)
+                    if (lsb == 15 && linbits)
                     {
-                        if (lsb == 15 && linbits)
-                        {
-                            lsb += DRMP3_PEEK_BITS(linbits);
-                            DRMP3_FLUSH_BITS(linbits);
-                            DRMP3_CHECK_BITS;
-                            *dst = one*drmp3_L3_pow_43(lsb)*((drmp3_int32)bs_cache < 0 ? -1: 1);
-                        } else
-                        {
-                            *dst = g_pow43_signed[lsb*2 + (bs_cache >> 31)]*one;
-                        }
-                        DRMP3_FLUSH_BITS(1);
+                        lsb += DRMP3_PEEK_BITS(linbits);
+                        DRMP3_FLUSH_BITS(linbits);
+                        DRMP3_CHECK_BITS;
+                        *dst = one*drmp3_L3_pow_43(lsb)*((int32_t)bs_cache < 0 ? -1: 1);
+                    } else
+                    {
+                        *dst = g_pow43_signed[lsb*2 + (bs_cache >> 31)]*one;
                     }
+                    DRMP3_FLUSH_BITS(lsb ? 1 : 0);
                 }
                 DRMP3_CHECK_BITS;
             } while (--pairs_to_decode);
