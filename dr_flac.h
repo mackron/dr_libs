@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.8f - 2018-02-02
+// dr_flac - v0.8g - 2018-04-19
 //
 // David Reid - mackron@gmail.com
 
@@ -760,6 +760,8 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #define DRFLAC_X64
 #elif defined(__i386) || defined(_M_IX86)
 #define DRFLAC_X86
+#elif defined(__arm__) || defined(_M_ARM)
+#define DRFLAC_ARM
 #endif
 
 // Compile-time CPU feature support.
@@ -807,7 +809,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #include <endian.h>
 #endif
 
-#if defined(_MSC_VER) && _MSC_VER >= 1500
+#if defined(_MSC_VER) && _MSC_VER >= 1500 && (defined(DRFLAC_X86) || defined(DRFLAC_X64))
 #define DRFLAC_HAS_LZCNT_INTRINSIC
 #elif (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))
 #define DRFLAC_HAS_LZCNT_INTRINSIC
@@ -1695,7 +1697,7 @@ static drflac_bool32 drflac__find_and_seek_to_next_sync_code(drflac_bs* bs)
 #if !defined(DR_FLAC_NO_SIMD) && defined(DRFLAC_HAS_LZCNT_INTRINSIC)
 #define DRFLAC_IMPLEMENT_CLZ_LZCNT
 #endif
-#if  defined(_MSC_VER) && _MSC_VER >= 1400
+#if  defined(_MSC_VER) && _MSC_VER >= 1400 && (defined(DRFLAC_X64) || defined(DRFLAC_X86))
 #define DRFLAC_IMPLEMENT_CLZ_MSVC
 #endif
 
@@ -5521,6 +5523,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.8g - 2018-04-19
+//   - Fix build on non-x86/x64 architectures.
 //
 // v0.8f - 2018-02-02
 //   - Stop pretending to support changing rate/channels mid stream.
