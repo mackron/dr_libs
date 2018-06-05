@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.9.3 - 2018-05-22
+// dr_flac - v0.9.4 - 2018-06-xx
 //
 // David Reid - mackron@gmail.com
 
@@ -3147,7 +3147,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
             drflac_result result = drflac__decode_frame(pFlac);
             if (result == DRFLAC_SUCCESS) {
                 // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
-                drflac_uint64 samplesToDecode = (size_t)(sampleIndex - runningSampleCount);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
+                drflac_uint64 samplesToDecode = sampleIndex - runningSampleCount;
                 if (samplesToDecode == 0) {
                     return DRFLAC_TRUE;
                 }
@@ -5511,6 +5511,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
+//
+// v0.9.4 - 2018-06-xx
+//   - Clean up.
 //
 // v0.9.3 - 2018-05-22
 //   - Bug fix.
