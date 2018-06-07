@@ -493,6 +493,10 @@ typedef struct
     // Information about the frame the decoder is currently sitting on.
     drflac_frame currentFrame;
 
+
+    // The index of the sample the decoder is currently sitting on. This is only used for seeking.
+    drflac_uint64 currentSample;
+
     // The position of the first frame in the stream. This is only ever used for seeking.
     drflac_uint64 firstFramePos;
 
@@ -3112,6 +3116,8 @@ static drflac_bool32 drflac__seek_to_first_frame(drflac* pFlac)
     drflac_bool32 result = drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos);
 
     drflac_zero_memory(&pFlac->currentFrame, sizeof(pFlac->currentFrame));
+    pFlac->currentSample = 0;
+
     return result;
 }
 
@@ -5005,6 +5011,8 @@ drflac_uint64 drflac__read_s32__misaligned(drflac* pFlac, drflac_uint64 samplesT
 
 drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 samplesToRead)
 {
+    // TODO: This can be optimized.
+
     drflac_uint64 samplesRead = 0;
     while (samplesToRead > 0) {
         if (pFlac->currentFrame.samplesRemaining == 0) {
@@ -5018,12 +5026,13 @@ drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 sampl
         }
     }
 
+    pFlac->currentSample += samplesRead;
     return samplesRead;
 }
 
 drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* bufferOut)
 {
-    // Note that <bufferOut> is allowed to be null, in which case this will be treated as something like a seek.
+    // Note that <bufferOut> is allowed to be null, in which case this will act like a seek.
     if (pFlac == NULL || samplesToRead == 0) {
         return 0;
     }
@@ -5050,10 +5059,11 @@ drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac
             drflac_uint64 misalignedSampleCount = samplesReadFromFrameSoFar % channelCount;
             if (misalignedSampleCount > 0) {
                 drflac_uint64 misalignedSamplesRead = drflac__read_s32__misaligned(pFlac, misalignedSampleCount, bufferOut);
-                samplesRead   += misalignedSamplesRead;
+                samplesRead               += misalignedSamplesRead;
                 samplesReadFromFrameSoFar += misalignedSamplesRead;
-                bufferOut     += misalignedSamplesRead;
-                samplesToRead -= misalignedSamplesRead;
+                bufferOut                 += misalignedSamplesRead;
+                samplesToRead             -= misalignedSamplesRead;
+                pFlac->currentSample      += misalignedSamplesRead;
             }
 
 
@@ -5138,12 +5148,12 @@ drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac
             }
 
             drflac_uint64 alignedSamplesRead = alignedSampleCountPerChannel * channelCount;
-            samplesRead   += alignedSamplesRead;
+            samplesRead               += alignedSamplesRead;
             samplesReadFromFrameSoFar += alignedSamplesRead;
-            bufferOut     += alignedSamplesRead;
-            samplesToRead -= alignedSamplesRead;
+            bufferOut                 += alignedSamplesRead;
+            samplesToRead             -= alignedSamplesRead;
+            pFlac->currentSample      += alignedSamplesRead;
             pFlac->currentFrame.samplesRemaining -= (unsigned int)alignedSamplesRead;
-
 
 
             // At this point we may still have some excess samples left to read.
@@ -5155,10 +5165,11 @@ drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac
                     excessSamplesRead = drflac__read_s32__misaligned(pFlac, pFlac->currentFrame.samplesRemaining, bufferOut);
                 }
 
-                samplesRead   += excessSamplesRead;
+                samplesRead               += excessSamplesRead;
                 samplesReadFromFrameSoFar += excessSamplesRead;
-                bufferOut     += excessSamplesRead;
-                samplesToRead -= excessSamplesRead;
+                bufferOut                 += excessSamplesRead;
+                samplesToRead             -= excessSamplesRead;
+                pFlac->currentSample      += alignedSamplesRead;
             }
         }
     }
@@ -5184,8 +5195,8 @@ drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac
         }
 
         totalSamplesRead += samplesJustRead;
-        samplesToRead -= samplesJustRead;
-        pBufferOut += samplesJustRead;
+        samplesToRead    -= samplesJustRead;
+        pBufferOut       += samplesJustRead;
     }
 
     return totalSamplesRead;
@@ -5209,8 +5220,8 @@ drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float*
         }
 
         totalSamplesRead += samplesJustRead;
-        samplesToRead -= samplesJustRead;
-        pBufferOut += samplesJustRead;
+        samplesToRead    -= samplesJustRead;
+        pBufferOut       += samplesJustRead;
     }
 
     return totalSamplesRead;
@@ -5229,33 +5240,57 @@ drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex)
     }
 
     if (sampleIndex == 0) {
+        pFlac->currentSample = 0;
         return drflac__seek_to_first_frame(pFlac);
-    }
+    } else {
+        drflac_bool32 wasSuccessful = DRFLAC_FALSE;
 
-    // Clamp the sample to the end.
-    if (sampleIndex >= pFlac->totalSampleCount) {
-        sampleIndex  = pFlac->totalSampleCount - 1;
-    }
-
-
-    // Different techniques depending on encapsulation. Using the native FLAC seektable with Ogg encapsulation is a bit awkward so
-    // we'll instead use Ogg's natural seeking facility.
-#ifndef DR_FLAC_NO_OGG
-    if (pFlac->container == drflac_container_ogg)
-    {
-        return drflac_ogg__seek_to_sample(pFlac, sampleIndex);
-    }
-    else
-#endif
-    {
-        // First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower.
-        if (!drflac__seek_to_sample__seek_table(pFlac, sampleIndex)) {
-            return drflac__seek_to_sample__brute_force(pFlac, sampleIndex);
+        // Clamp the sample to the end.
+        if (sampleIndex >= pFlac->totalSampleCount) {
+            sampleIndex  = pFlac->totalSampleCount - 1;
         }
+
+        // If the target sample and the current sample are in the same frame we just move the position forward.
+        if (sampleIndex > pFlac->currentSample) {
+            // Forward.
+            drflac_uint32 offset = (drflac_uint32)(sampleIndex - pFlac->currentSample);
+            if (pFlac->currentFrame.samplesRemaining >  offset) {
+                pFlac->currentFrame.samplesRemaining -= offset;
+                pFlac->currentSample = sampleIndex;
+                return DRFLAC_TRUE;
+            }
+        } else {
+            // Backward.
+            drflac_uint32 offsetAbs = (drflac_uint32)(pFlac->currentSample - sampleIndex);
+            drflac_uint32 currentFrameSampleCount = pFlac->currentFrame.header.blockSize * drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
+            drflac_uint32 currentFrameSamplesConsumed = (drflac_uint32)(currentFrameSampleCount - pFlac->currentFrame.samplesRemaining);
+            if (currentFrameSamplesConsumed > offsetAbs) {
+                pFlac->currentFrame.samplesRemaining += offsetAbs;
+                pFlac->currentSample = sampleIndex;
+                return DRFLAC_TRUE;
+            }
+        }
+
+        // Different techniques depending on encapsulation. Using the native FLAC seektable with Ogg encapsulation is a bit awkward so
+        // we'll instead use Ogg's natural seeking facility.
+    #ifndef DR_FLAC_NO_OGG
+        if (pFlac->container == drflac_container_ogg)
+        {
+            wasSuccessful = drflac_ogg__seek_to_sample(pFlac, sampleIndex);
+        }
+        else
+    #endif
+        {
+            // First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower.
+            wasSuccessful = drflac__seek_to_sample__seek_table(pFlac, sampleIndex);
+            if (!wasSuccessful) {
+                wasSuccessful = drflac__seek_to_sample__brute_force(pFlac, sampleIndex);
+            }
+        }
+
+        pFlac->currentSample = sampleIndex;
+        return wasSuccessful;
     }
-
-
-    return DRFLAC_TRUE;
 }
 
 
@@ -5513,6 +5548,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 // REVISION HISTORY
 //
 // v0.9.4 - 2018-06-xx
+//   - Optimizations to seeking.
 //   - Clean up.
 //
 // v0.9.3 - 2018-05-22
