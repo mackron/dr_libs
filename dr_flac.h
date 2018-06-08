@@ -3227,18 +3227,27 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
         seekpointsRemaining -= 1;
     }
 
-    // At this point we should have found the seekpoint closest to our sample. We need to seek to it using basically the same
-    // technique as we use with the brute force method.
-    if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos + closestSeekpoint.frameOffset)) {
-        return DRFLAC_FALSE;
-    }
+    // At this point we should have found the seekpoint closest to our sample. If we are seeking forward and the closest seekpoint is _before_ the current sample, we
+    // just seek forward from where we are. Otherwise we start seeking from the seekpoint's first sample.
+    drflac_uint64 runningSampleCount;
+    if (sampleIndex > pFlac->currentSample && closestSeekpoint.firstSample*pFlac->channels > pFlac->currentSample) {
+        // Optimized case. Just seek forward from where we are.
+        runningSampleCount = pFlac->currentSample;
+    } else {
+        // Slower case. Seek to the start of the seekpoint and then seek forward from there.
+        runningSampleCount = closestSeekpoint.firstSample*pFlac->channels;
 
-    drflac_uint64 runningSampleCount = closestSeekpoint.firstSample*pFlac->channels;
-    for (;;) {
-        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+        if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos + closestSeekpoint.frameOffset)) {
             return DRFLAC_FALSE;
         }
 
+        // Grab the frame the seekpoint is sitting on in preparation for the sample-exact seeking below.
+        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+            return DRFLAC_FALSE;
+        }
+    }
+
+    for (;;) {
         drflac_uint64 firstSampleInFrame = 0;
         drflac_uint64 lastSampleInFrame = 0;
         drflac__get_current_frame_sample_range(pFlac, &firstSampleInFrame, &lastSampleInFrame);
@@ -3275,6 +3284,11 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
                     return DRFLAC_FALSE;
                 }
             }
+        }
+
+        // Grab the next frame in preparation for the next iteration.
+        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+            return DRFLAC_FALSE;
         }
     }
 }
