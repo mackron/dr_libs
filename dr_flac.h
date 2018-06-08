@@ -4684,7 +4684,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     // This part is a bit awkward. We need to load the seektable so that it can be referenced in-memory, but I want the drflac object to
     // consist of only a single heap allocation. To this, the size of the seek table needs to be known, which we determine when reading
     // and decoding the metadata.
-    drflac_uint64 firstFramePos = 42;   // <-- We know we are byte 42 at this point.
+    drflac_uint64 firstFramePos = 42;   // <-- We know we are at byte 42 at this point.
     drflac_uint64 seektablePos  = 0;
     drflac_uint32 seektableSize = 0;
     if (init.hasMetadataBlocks) {
