@@ -4666,6 +4666,19 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
         oggbsAllocationSize = sizeof(drflac_oggbs);
         allocationSize += oggbsAllocationSize;
     }
+
+    drflac_oggbs oggbs;
+    if (init.container == drflac_container_ogg) {
+        drflac_zero_memory(&oggbs, sizeof(oggbs));
+        oggbs.onRead = onRead;
+        oggbs.onSeek = onSeek;
+        oggbs.pUserData = pUserData;
+        oggbs.currentBytePos = init.oggFirstBytePos;
+        oggbs.firstBytePos = init.oggFirstBytePos;
+        oggbs.serialNumber = init.oggSerial;
+        oggbs.bosPageHeader = init.oggBosHeader;
+        oggbs.bytesRemainingInPage = 0;
+    }
 #endif
 
     // This part is a bit awkward. We need to load the seektable so that it can be referenced in-memory, but I want the drflac object to
@@ -4680,18 +4693,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
         void* pUserDataOverride = pUserData;
 
 #ifndef DR_FLAC_NO_OGG
-        drflac_oggbs oggbs;
         if (init.container == drflac_container_ogg) {
-            drflac_zero_memory(&oggbs, sizeof(oggbs));
-            oggbs.onRead = onRead;
-            oggbs.onSeek = onSeek;
-            oggbs.pUserData = pUserData;
-            oggbs.currentBytePos = init.oggFirstBytePos;
-            oggbs.firstBytePos = init.oggFirstBytePos;
-            oggbs.serialNumber = init.oggSerial;
-            oggbs.bosPageHeader = init.oggBosHeader;
-            oggbs.bytesRemainingInPage = 0;
-
             onReadOverride = drflac__on_read_ogg;
             onSeekOverride = drflac__on_seek_ogg;
             pUserDataOverride = (void*)&oggbs;
@@ -4712,60 +4714,66 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
 #ifndef DR_FLAC_NO_OGG
     if (init.container == drflac_container_ogg) {
-        drflac_oggbs* oggbs = (drflac_oggbs*)((drflac_uint8*)pFlac->pDecodedSamples + decodedSamplesAllocationSize + seektableSize);
-        oggbs->onRead = onRead;
-        oggbs->onSeek = onSeek;
-        oggbs->pUserData = pUserData;
-        oggbs->currentBytePos = init.oggFirstBytePos;
-        oggbs->firstBytePos = init.oggFirstBytePos;
-        oggbs->serialNumber = init.oggSerial;
-        oggbs->bosPageHeader = init.oggBosHeader;
-        oggbs->bytesRemainingInPage = 0;
+        drflac_oggbs* pInternalOggbs = (drflac_oggbs*)((drflac_uint8*)pFlac->pDecodedSamples + decodedSamplesAllocationSize + seektableSize);
+        *pInternalOggbs = oggbs;
 
         // The Ogg bistream needs to be layered on top of the original bitstream.
         pFlac->bs.onRead = drflac__on_read_ogg;
         pFlac->bs.onSeek = drflac__on_seek_ogg;
-        pFlac->bs.pUserData = (void*)oggbs;
-        pFlac->_oggbs = (void*)oggbs;
+        pFlac->bs.pUserData = (void*)pInternalOggbs;
+        pFlac->_oggbs = (void*)pInternalOggbs;
     }
 #endif
 
     pFlac->firstFramePos = firstFramePos;
 
-    // If we have a seektable we need to load it now, making sure we move back to where we were previously.
-    if (seektablePos != 0) {
-        pFlac->seektablePos = seektablePos;
-        pFlac->seektableSize = seektableSize;
-        pFlac->seekpointCount = seektableSize / sizeof(*pFlac->pSeekpoints);
-        pFlac->pSeekpoints = (drflac_seekpoint*)((drflac_uint8*)pFlac->pDecodedSamples + decodedSamplesAllocationSize);
+    // NOTE: Seektables are not currently compatible with Ogg encapsulation (Ogg has it's own accelerated seeking system). I may change this later, so I'm leaving this here for now.
+#ifndef DR_FLAC_NO_OGG
+    if (init.container == drflac_container_ogg)
+    {
+        pFlac->pSeekpoints = NULL;
+        pFlac->seekpointCount = 0;
+        pFlac->seektableSize = 0;
+        pFlac->seektablePos = 0;
+    }
+    else
+#endif
+    {
+        // If we have a seektable we need to load it now, making sure we move back to where we were previously.
+        if (seektablePos != 0) {
+            pFlac->seektablePos = seektablePos;
+            pFlac->seektableSize = seektableSize;
+            pFlac->seekpointCount = seektableSize / sizeof(*pFlac->pSeekpoints);
+            pFlac->pSeekpoints = (drflac_seekpoint*)((drflac_uint8*)pFlac->pDecodedSamples + decodedSamplesAllocationSize);
 
-        // Seek to the seektable, then just read directly into our seektable buffer.
-        if (pFlac->bs.onSeek(pFlac->bs.pUserData, (int)seektablePos, drflac_seek_origin_start)) {
-            if (pFlac->bs.onRead(pFlac->bs.pUserData, pFlac->pSeekpoints, seektableSize) == seektableSize) {
-                // Endian swap.
-                for (drflac_uint32 iSeekpoint = 0; iSeekpoint < pFlac->seekpointCount; ++iSeekpoint) {
-                    pFlac->pSeekpoints[iSeekpoint].firstSample = drflac__be2host_64(pFlac->pSeekpoints[iSeekpoint].firstSample);
-                    pFlac->pSeekpoints[iSeekpoint].frameOffset = drflac__be2host_64(pFlac->pSeekpoints[iSeekpoint].frameOffset);
-                    pFlac->pSeekpoints[iSeekpoint].sampleCount = drflac__be2host_16(pFlac->pSeekpoints[iSeekpoint].sampleCount);
+            // Seek to the seektable, then just read directly into our seektable buffer.
+            if (pFlac->bs.onSeek(pFlac->bs.pUserData, (int)seektablePos, drflac_seek_origin_start)) {
+                if (pFlac->bs.onRead(pFlac->bs.pUserData, pFlac->pSeekpoints, seektableSize) == seektableSize) {
+                    // Endian swap.
+                    for (drflac_uint32 iSeekpoint = 0; iSeekpoint < pFlac->seekpointCount; ++iSeekpoint) {
+                        pFlac->pSeekpoints[iSeekpoint].firstSample = drflac__be2host_64(pFlac->pSeekpoints[iSeekpoint].firstSample);
+                        pFlac->pSeekpoints[iSeekpoint].frameOffset = drflac__be2host_64(pFlac->pSeekpoints[iSeekpoint].frameOffset);
+                        pFlac->pSeekpoints[iSeekpoint].sampleCount = drflac__be2host_16(pFlac->pSeekpoints[iSeekpoint].sampleCount);
+                    }
+                } else {
+                    // Failed to read the seektable. Pretend we don't have one.
+                    pFlac->pSeekpoints = NULL;
+                    pFlac->seekpointCount = 0;
+                    pFlac->seektableSize = 0;
+                    pFlac->seektablePos = 0;
+                }
+
+                // We need to seek back to where we were. If this fails it's a critical error.
+                if (!pFlac->bs.onSeek(pFlac->bs.pUserData, (int)pFlac->firstFramePos, drflac_seek_origin_start)) {
+                    return NULL;
                 }
             } else {
-                // Failed to read the seektable. Pretend we don't have one.
+                // Failed to seek to the seektable. Ominous sign, but for now we can just pretend we don't have one.
                 pFlac->pSeekpoints = NULL;
                 pFlac->seekpointCount = 0;
                 pFlac->seektableSize = 0;
                 pFlac->seektablePos = 0;
             }
-
-            // We need to seek back to where we were. If this fails it's a critical error.
-            if (!pFlac->bs.onSeek(pFlac->bs.pUserData, (int)pFlac->firstFramePos, drflac_seek_origin_start)) {
-                return NULL;
-            }
-        } else {
-            // Failed to seek to the seektable. Ominous sign, but for now we can just pretend we don't have one.
-            pFlac->pSeekpoints = NULL;
-            pFlac->seekpointCount = 0;
-            pFlac->seektableSize = 0;
-            pFlac->seektablePos = 0;
         }
     }
 
