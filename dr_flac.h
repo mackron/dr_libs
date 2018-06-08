@@ -3181,15 +3181,12 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
             // The sample should be in this frame. We need to fully decode it, however if it's an invalid frame (a CRC mismatch), we need to pretend
             // it never existed and keep iterating.
             drflac_uint64 samplesToDecode = sampleIndex - runningSampleCount;
-            if (samplesToDecode == 0) {
-                return DRFLAC_TRUE;
-            }
 
             if (!isMidFrame) {
                 drflac_result result = drflac__decode_frame(pFlac);
                 if (result == DRFLAC_SUCCESS) {
                     // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
-                    return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;  // <-- If this fails, something bad has happened (it should never fail).
+                    return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;  // <-- If this fails, something bad has happened (it should never fail).
                 } else {
                     if (result == DRFLAC_CRC_MISMATCH) {
                         goto next_iteration;   // CRC mismatch. Pretend this frame never existed.
@@ -3199,7 +3196,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
                 }
             } else {
                 // We started seeking mid-frame which means we need to skip the frame decoding part.
-                return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;
+                return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;
             }
         } else {
             // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
@@ -3293,15 +3290,12 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
             // The sample should be in this frame. We need to fully decode it, but if it's an invalid frame (a CRC mismatch) we need to pretend
             // it never existed and keep iterating.
             drflac_uint64 samplesToDecode = sampleIndex - runningSampleCount;
-            if (samplesToDecode == 0) {
-                return DRFLAC_TRUE;
-            }
 
             if (!isMidFrame) {
                 drflac_result result = drflac__decode_frame(pFlac);
                 if (result == DRFLAC_SUCCESS) {
                     // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
-                    return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;  // <-- If this fails, something bad has happened (it should never fail).
+                    return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;  // <-- If this fails, something bad has happened (it should never fail).
                 } else {
                     if (result == DRFLAC_CRC_MISMATCH) {
                         goto next_iteration;   // CRC mismatch. Pretend this frame never existed.
@@ -3311,7 +3305,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
                 }
             } else {
                 // We started seeking mid-frame which means we need to skip the frame decoding part.
-                return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;
+                return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;
             }
         } else {
             // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
@@ -5155,8 +5149,6 @@ drflac_uint64 drflac__read_s32__misaligned(drflac* pFlac, drflac_uint64 samplesT
 
 drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 samplesToRead)
 {
-    // TODO: This can be optimized.
-
     drflac_uint64 samplesRead = 0;
     while (samplesToRead > 0) {
         if (pFlac->currentFrame.samplesRemaining == 0) {
@@ -5164,9 +5156,15 @@ drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 sampl
                 break;  // Couldn't read the next frame, so just break from the loop and return.
             }
         } else {
-            samplesRead += 1;
-            pFlac->currentFrame.samplesRemaining -= 1;
-            samplesToRead -= 1;
+            if (pFlac->currentFrame.samplesRemaining > samplesToRead) {
+                samplesRead   += samplesToRead;
+                pFlac->currentFrame.samplesRemaining -= (drflac_uint32)samplesToRead;   // <-- Safe cast. Will always be < currentFrame.samplesRemaining < 65536.
+                samplesToRead  = 0;
+            } else {
+                samplesRead   += pFlac->currentFrame.samplesRemaining;
+                samplesToRead -= pFlac->currentFrame.samplesRemaining;
+                pFlac->currentFrame.samplesRemaining = 0;
+            }
         }
     }
 
