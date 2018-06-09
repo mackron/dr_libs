@@ -3230,23 +3230,23 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
         return DRFLAC_FALSE;
     }
 
-    drflac_uint32 iSeekpoint;
-    for (iSeekpoint = 0; iSeekpoint < pFlac->seekpointCount; ++iSeekpoint) {
-        if (pFlac->pSeekpoints[iSeekpoint].firstSample*pFlac->channels >= sampleIndex) {
-            if (iSeekpoint > 0) {
-                iSeekpoint -= 1;
-            }
 
+    drflac_uint32 iClosestSeekpoint = 0;
+    for (drflac_uint32 iSeekpoint = 0; iSeekpoint < pFlac->seekpointCount; ++iSeekpoint) {
+        if (pFlac->pSeekpoints[iSeekpoint].firstSample*pFlac->channels >= sampleIndex) {
             break;
         }
+
+        iClosestSeekpoint = iSeekpoint;
     }
+
 
     drflac_bool32 isMidFrame = DRFLAC_FALSE;
 
     // At this point we should have found the seekpoint closest to our sample. If we are seeking forward and the closest seekpoint is _before_ the current sample, we
     // just seek forward from where we are. Otherwise we start seeking from the seekpoint's first sample.
     drflac_uint64 runningSampleCount;
-    if ((sampleIndex >= pFlac->currentSample) && (pFlac->pSeekpoints[iSeekpoint].firstSample*pFlac->channels <= pFlac->currentSample)) {
+    if ((sampleIndex >= pFlac->currentSample) && (pFlac->pSeekpoints[iClosestSeekpoint].firstSample*pFlac->channels <= pFlac->currentSample)) {
         // Optimized case. Just seek forward from where we are.
         runningSampleCount = pFlac->currentSample;
 
@@ -3260,9 +3260,9 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
         }
     } else {
         // Slower case. Seek to the start of the seekpoint and then seek forward from there.
-        runningSampleCount = pFlac->pSeekpoints[iSeekpoint].firstSample*pFlac->channels;
+        runningSampleCount = pFlac->pSeekpoints[iClosestSeekpoint].firstSample*pFlac->channels;
 
-        if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos + pFlac->pSeekpoints[iSeekpoint].frameOffset)) {
+        if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos + pFlac->pSeekpoints[iClosestSeekpoint].frameOffset)) {
             return DRFLAC_FALSE;
         }
 
@@ -4924,6 +4924,7 @@ static drflac_bool32 drflac__on_seek_memory(void* pUserData, int offset, drflac_
     drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
     drflac_assert(memoryStream != NULL);
     drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
+    drflac_assert(offset <= memoryStream->dataSize);
 
     if (origin == drflac_seek_origin_current) {
         if (memoryStream->currentReadPos + offset <= memoryStream->dataSize) {
