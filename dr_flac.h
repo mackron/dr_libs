@@ -3134,7 +3134,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
 
     // If we are seeking foward we start from the current position. Otherwise we need to start all the way from the start of the file.
     drflac_uint64 runningSampleCount;
-    if (sampleIndex > pFlac->currentSample) {
+    if (sampleIndex >= pFlac->currentSample) {
         // Seeking foward. Need to seek from the current position.
         runningSampleCount = pFlac->currentSample;
 
@@ -3234,7 +3234,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
     for (iSeekpoint = 0; iSeekpoint < pFlac->seekpointCount; ++iSeekpoint) {
         if (pFlac->pSeekpoints[iSeekpoint].firstSample*pFlac->channels >= sampleIndex) {
             if (iSeekpoint > 0) {
-                iSeekpoint = 0;
+                iSeekpoint -= 1;
             }
 
             break;
@@ -3246,7 +3246,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
     // At this point we should have found the seekpoint closest to our sample. If we are seeking forward and the closest seekpoint is _before_ the current sample, we
     // just seek forward from where we are. Otherwise we start seeking from the seekpoint's first sample.
     drflac_uint64 runningSampleCount;
-    if ((sampleIndex > pFlac->currentSample) && (pFlac->pSeekpoints[iSeekpoint].firstSample*pFlac->channels > pFlac->currentSample)) {
+    if ((sampleIndex >= pFlac->currentSample) && (pFlac->pSeekpoints[iSeekpoint].firstSample*pFlac->channels <= pFlac->currentSample)) {
         // Optimized case. Just seek forward from where we are.
         runningSampleCount = pFlac->currentSample;
 
