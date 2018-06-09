@@ -482,20 +482,12 @@ typedef struct
     // The container type. This is set based on whether or not the decoder was opened from a native or Ogg stream.
     drflac_container container;
 
-
-    // The position of the seektable in the file.
-    drflac_uint64 seektablePos;
-
-    // The size of the seektable.
-    drflac_uint32 seektableSize;
-
     // The number of seekpoints in the seektable.
     drflac_uint32 seekpointCount;
 
 
     // Information about the frame the decoder is currently sitting on.
     drflac_frame currentFrame;
-
 
     // The index of the sample the decoder is currently sitting on. This is only used for seeking.
     drflac_uint64 currentSample;
@@ -4727,16 +4719,12 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     {
         pFlac->pSeekpoints = NULL;
         pFlac->seekpointCount = 0;
-        pFlac->seektableSize = 0;
-        pFlac->seektablePos = 0;
     }
     else
 #endif
     {
         // If we have a seektable we need to load it now, making sure we move back to where we were previously.
         if (seektablePos != 0) {
-            pFlac->seektablePos = seektablePos;
-            pFlac->seektableSize = seektableSize;
             pFlac->seekpointCount = seektableSize / sizeof(*pFlac->pSeekpoints);
             pFlac->pSeekpoints = (drflac_seekpoint*)((drflac_uint8*)pFlac->pDecodedSamples + decodedSamplesAllocationSize);
 
@@ -4753,8 +4741,6 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
                     // Failed to read the seektable. Pretend we don't have one.
                     pFlac->pSeekpoints = NULL;
                     pFlac->seekpointCount = 0;
-                    pFlac->seektableSize = 0;
-                    pFlac->seektablePos = 0;
                 }
 
                 // We need to seek back to where we were. If this fails it's a critical error.
@@ -4765,8 +4751,6 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
                 // Failed to seek to the seektable. Ominous sign, but for now we can just pretend we don't have one.
                 pFlac->pSeekpoints = NULL;
                 pFlac->seekpointCount = 0;
-                pFlac->seektableSize = 0;
-                pFlac->seektablePos = 0;
             }
         }
     }
