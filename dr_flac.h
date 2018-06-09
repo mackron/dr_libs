@@ -4110,6 +4110,8 @@ static drflac_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs, drflac_og
                 return DRFLAC_FALSE;
             }
         }
+#else
+        (void)recoveryMethod;   // <-- Silence a warning.
 #endif
 
         oggbs->currentPageHeader = header;
