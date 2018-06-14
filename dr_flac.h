@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.9.4 - 2018-06-xx
+// dr_flac - v0.9.4 - 2018-06-14
 //
 // David Reid - mackron@gmail.com
 
@@ -4969,7 +4969,7 @@ static drflac_bool32 drflac__on_seek_memory(void* pUserData, int offset, drflac_
     drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
     drflac_assert(memoryStream != NULL);
     drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
-    drflac_assert(offset <= memoryStream->dataSize);
+    drflac_assert(offset <= (drflac_int64)memoryStream->dataSize);
 
     if (origin == drflac_seek_origin_current) {
         if (memoryStream->currentReadPos + offset <= memoryStream->dataSize) {
@@ -5719,7 +5719,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 // REVISION HISTORY
 //
-// v0.9.4 - 2018-06-xx
+// v0.9.4 - 2018-06-14
 //   - Optimizations to seeking.
 //   - Clean up.
 //
