@@ -412,10 +412,10 @@ static int drmp3_have_simd()
 #ifdef MINIMP3_TEST
     static int g_counter;
     if (g_counter++ > 100)
-        goto test_nosimd;
+        return 0;
 #endif
     if (g_have_simd)
-        return g_have_simd - 1;
+        goto end;
     drmp3_cpuid(CPUInfo, 0);
     if (CPUInfo[0] > 0)
     {
@@ -423,11 +423,9 @@ static int drmp3_have_simd()
         g_have_simd = (CPUInfo[3] & (1 << 26)) + 1; /* SSE2 */
         return g_have_simd - 1;
     }
-#ifdef MINIMP3_TEST
-test_nosimd:
-#endif
-    g_have_simd = 1;
-    return 0;
+
+end:
+    return g_have_simd - 1;
 #endif
 }
 #elif defined(__ARM_NEON) || defined(__aarch64__)
