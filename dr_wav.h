@@ -50,7 +50,7 @@
 //     drwav_free(pSampleData);
 //
 // The examples above use versions of the API that convert the audio data to a consistent format (32-bit signed PCM, in
-// this case), but you can still output the audio data in it's internal format (see notes below for supported formats):
+// this case), but you can still output the audio data in its internal format (see notes below for supported formats):
 //
 //     size_t samplesRead = drwav_read(&wav, wav.totalSampleCount, pDecodedInterleavedSamples);
 //
@@ -246,7 +246,7 @@ typedef struct
     // Block align. This is equal to the number of channels * bytes per sample.
     drwav_uint16 blockAlign;
 
-    // Bit's per sample.
+    // Bits per sample.
     drwav_uint16 bitsPerSample;
 
     // The size of the extended data. Only used internally for validation, but left here for informational purposes.
@@ -292,7 +292,7 @@ typedef struct
     // The number of channels. This will be set to 1 for monaural streams, 2 for stereo, etc.
     drwav_uint16 channels;
 
-    // The bits per sample. Will be set to somthing like 16, 24, etc.
+    // The bits per sample. Will be set to something like 16, 24, etc.
     drwav_uint16 bitsPerSample;
 
     // The number of bytes per sample.
@@ -491,7 +491,7 @@ drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* p
 
 
 
-//// Convertion Utilities ////
+//// Conversion Utilities ////
 #ifndef DR_WAV_NO_CONVERSION_API
 
 // Reads a chunk of audio data and converts it to signed 16-bit PCM samples.
@@ -1582,8 +1582,8 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
 #ifdef DR_WAV_LIBSNDFILE_COMPAT
     // I use libsndfile as a benchmark for testing, however in the version I'm using (from the Windows installer on the libsndfile website),
     // it appears the total sample count libsndfile uses for MS-ADPCM is incorrect. It would seem they are computing the total sample count
-    // from the number of blocks, however this results in the inclusion of the extra silent samples at the end of the last block. The correct
-    // way to know the total sample count is to inspect the "fact" chunk which should always be present for compressed formats, and should
+    // from the number of blocks, however this results in the inclusion of extra silent samples at the end of the last block. The correct
+    // way to know the total sample count is to inspect the "fact" chunk, which should always be present for compressed formats, and should
     // always include the sample count. This little block of code below is only used to emulate the libsndfile logic so I can properly run my
     // correctness tests against libsndfile, and is disabled by default.
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
@@ -1669,8 +1669,8 @@ drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_format* pF
 
     size_t runningPos = 0;
 
-    // The initial values for the "RIFF" and "data" chunks dependson whether or not we are initializing in sequential mode or not. In
-    // sequential mode we set this to it's final values straight away since they can be calculated from the total sample count. In non-
+    // The initial values for the "RIFF" and "data" chunks depends on whether or not we are initializing in sequential mode or not. In
+    // sequential mode we set this to its final values straight away since they can be calculated from the total sample count. In non-
     // sequential mode we initialize it all to zero and fill it out in drwav_uninit() using a backwards seek.
     drwav_uint64 initialDataChunkSize = 0;
     if (isSequential) {
@@ -1775,7 +1775,7 @@ void drwav_uninit(drwav* pWav)
         return;
     }
 
-    // If the drwav object was opened in write mode we'll need to finialize a few things:
+    // If the drwav object was opened in write mode we'll need to finalize a few things:
     //   - Make sure the "data" chunk is aligned to 16-bits for RIFF containers, or 64 bits for W64 containers.
     //   - Set the size of the "data" chunk.
     if (pWav->onWrite != NULL) {

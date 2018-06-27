@@ -1143,7 +1143,7 @@ dr_bool32 drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
             pOBJ->pMaterials[pLoadContext->materialCount].firstFace = pLoadContext->faceCount;
             pOBJ->pMaterials[pLoadContext->materialCount].faceCount = 0;
 
-            // Previous material needs to have it's face count updated.
+            // Previous material needs to have its face count updated.
             if (pLoadContext->materialCount > 0) {
                 pOBJ->pMaterials[pLoadContext->materialCount-1].faceCount = pLoadContext->faceCount - pOBJ->pMaterials[pLoadContext->materialCount-1].firstFace;
             }
@@ -1161,7 +1161,7 @@ dr_bool32 drobj__load_stage2(drobj* pOBJ, drobj_load_context* pLoadContext)
         }
     }
 
-    // Previous material needs to have it's face count updated.
+    // Previous material needs to have its face count updated.
     if (pLoadContext->materialCount > 0) {
         pOBJ->pMaterials[pLoadContext->materialCount-1].faceCount = pLoadContext->faceCount - pOBJ->pMaterials[pLoadContext->materialCount-1].firstFace;
     }

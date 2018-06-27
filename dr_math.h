@@ -1,10 +1,10 @@
 // Public Domain. See "unlicense" statement at the end of this file.
 
 // NOTE: This is still very much work in progress and is only being updated as I need it. You don't want to be using this library
-//       in it's current state.
+//       in its current state.
 
 // QUICK NOTES
-// - This library does not use SSE for it's basic types (vec4, etc.). Rationale: 1) It keeps things simple; 2) SSE is not always
+// - This library does not use SSE for its basic types (vec4, etc.). Rationale: 1) It keeps things simple; 2) SSE is not always
 //   faster than the FPU(s) on modern CPUs; 3) The library can always implement functions that work on __m128 variables directly
 //   in the future if the need arises; 4) It doesn't work well with the pass-by-value API this library uses.
 // - Use DISABLE_SSE to disable SSE optimized functions.
