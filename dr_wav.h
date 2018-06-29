@@ -999,6 +999,23 @@ static drwav_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSe
 
 
 #ifndef DR_WAV_NO_STDIO
+FILE* drwav_fopen(const char* filePath, const char* openMode)
+{
+    FILE* pFile;
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+    if (fopen_s(&pFile, filePath, openMode) != 0) {
+        return DRWAV_FALSE;
+    }
+#else
+    pFile = fopen(filePath, openMode);
+    if (pFile == NULL) {
+        return DRWAV_FALSE;
+    }
+#endif
+
+    return pFile;
+}
+
 static size_t drwav__on_read_stdio(void* pUserData, void* pBufferOut, size_t bytesToRead)
 {
     return fread(pBufferOut, 1, bytesToRead, (FILE*)pUserData);
@@ -1016,51 +1033,30 @@ static drwav_bool32 drwav__on_seek_stdio(void* pUserData, int offset, drwav_seek
 
 drwav_bool32 drwav_init_file(drwav* pWav, const char* filename)
 {
-    FILE* pFile;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-    if (fopen_s(&pFile, filename, "rb") != 0) {
-        return DRWAV_FALSE;
-    }
-#else
-    pFile = fopen(filename, "rb");
+    FILE* pFile = drwav_fopen(filename, "rb");
     if (pFile == NULL) {
         return DRWAV_FALSE;
     }
-#endif
 
     return drwav_init(pWav, drwav__on_read_stdio, drwav__on_seek_stdio, (void*)pFile);
 }
 
 drwav_bool32 drwav_init_file_write(drwav* pWav, const char* filename, const drwav_data_format* pFormat)
 {
-    FILE* pFile;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-    if (fopen_s(&pFile, filename, "wb") != 0) {
-        return DRWAV_FALSE;
-    }
-#else
-    pFile = fopen(filename, "wb");
+    FILE* pFile = drwav_fopen(filename, "wb");
     if (pFile == NULL) {
         return DRWAV_FALSE;
     }
-#endif
 
     return drwav_init_write(pWav, pFormat, drwav__on_write_stdio, drwav__on_seek_stdio, (void*)pFile);
 }
 
 drwav* drwav_open_file(const char* filename)
 {
-    FILE* pFile;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-    if (fopen_s(&pFile, filename, "rb") != 0) {
-        return NULL;
-    }
-#else
-    pFile = fopen(filename, "rb");
+    FILE* pFile = drwav_fopen(filename, "rb");
     if (pFile == NULL) {
-        return NULL;
+        return DRWAV_FALSE;
     }
-#endif
 
     drwav* pWav = drwav_open(drwav__on_read_stdio, drwav__on_seek_stdio, (void*)pFile);
     if (pWav == NULL) {
@@ -1073,17 +1069,10 @@ drwav* drwav_open_file(const char* filename)
 
 drwav* drwav_open_file_write(const char* filename, const drwav_data_format* pFormat)
 {
-    FILE* pFile;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-    if (fopen_s(&pFile, filename, "wb") != 0) {
-        return NULL;
-    }
-#else
-    pFile = fopen(filename, "wb");
+    FILE* pFile = drwav_fopen(filename, "wb");
     if (pFile == NULL) {
-        return NULL;
+        return DRWAV_FALSE;
     }
-#endif
 
     drwav* pWav = drwav_open_write(pFormat, drwav__on_write_stdio, drwav__on_seek_stdio, (void*)pFile);
     if (pWav == NULL) {
