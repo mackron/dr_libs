@@ -1649,8 +1649,8 @@ drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_format* pF
     pWav->fmt.formatTag = (drwav_uint16)pFormat->format;
     pWav->fmt.channels = (drwav_uint16)pFormat->channels;
     pWav->fmt.sampleRate = pFormat->sampleRate;
-    pWav->fmt.avgBytesPerSec = (drwav_uint32)((pFormat->bitsPerSample * pFormat->sampleRate * pFormat->channels) >> 3);
-    pWav->fmt.blockAlign = (drwav_uint16)((pFormat->channels * pFormat->bitsPerSample) >> 3);
+    pWav->fmt.avgBytesPerSec = (drwav_uint32)((pFormat->bitsPerSample * pFormat->sampleRate * pFormat->channels) / 8);
+    pWav->fmt.blockAlign = (drwav_uint16)((pFormat->channels * pFormat->bitsPerSample) / 8);
     pWav->fmt.bitsPerSample = (drwav_uint16)pFormat->bitsPerSample;
     pWav->fmt.extendedSize = 0;
     pWav->isSequentialWrite = isSequential;
@@ -1663,7 +1663,7 @@ drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_format* pF
     // sequential mode we initialize it all to zero and fill it out in drwav_uninit() using a backwards seek.
     drwav_uint64 initialDataChunkSize = 0;
     if (isSequential) {
-        initialDataChunkSize = totalSampleCount * pWav->fmt.blockAlign;
+        initialDataChunkSize = (totalSampleCount * pWav->fmt.bitsPerSample) / 8;
 
         // The RIFF container has a limit on the number of samples. drwav is not allowing this. There's no practical limits for Wave64
         // so for the sake of simplicity I'm not doing any validation for that.
