@@ -1773,6 +1773,10 @@ drwav_uint64 drwav_read(drwav* pWav, drwav_uint64 samplesToRead, void* pBufferOu
 
 drwav_bool32 drwav_seek_to_first_sample(drwav* pWav)
 {
+    if (pWav->onWrite != NULL) {
+        return DRWAV_FALSE; // No seeking in write mode.
+    }
+
     if (!pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos, drwav_seek_origin_start)) {
         return DRWAV_FALSE;
     }
@@ -1788,6 +1792,10 @@ drwav_bool32 drwav_seek_to_first_sample(drwav* pWav)
 drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample)
 {
     // Seeking should be compatible with wave files > 2GB.
+
+    if (pWav->onWrite != NULL) {
+        return DRWAV_FALSE; // No seeking in write mode.
+    }
 
     if (pWav == NULL || pWav->onSeek == NULL) {
         return DRWAV_FALSE;
