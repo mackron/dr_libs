@@ -1908,8 +1908,25 @@ drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* p
         return 0;
     }
 
-    size_t bytesWritten = drwav_write_raw(pWav, (size_t)bytesToWrite, pData);
-    return ((drwav_uint64)bytesWritten * 8) / pWav->bitsPerSample;
+    drwav_uint64 bytesWritten = 0;
+    const drwav_uint8* pRunningData = (const drwav_uint8*)pData;
+    while (bytesToWrite > 0) {
+        drwav_uint64 bytesToWriteThisIteration = bytesToWrite;
+        if (bytesToWriteThisIteration > SIZE_MAX) {
+            bytesToWriteThisIteration = SIZE_MAX;
+        }
+
+        size_t bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, pRunningData);
+        if (bytesJustWritten == 0) {
+            break;
+        }
+
+        bytesToWrite -= bytesJustWritten;
+        bytesWritten += bytesJustWritten;
+        pRunningData += bytesJustWritten;
+    }
+
+    return (bytesWritten * 8) / pWav->bitsPerSample;
 }
 
 
