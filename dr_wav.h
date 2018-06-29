@@ -886,7 +886,7 @@ static drwav_bool32 drwav__read_chunk_header(drwav_read_proc onRead, void* pUser
 
         pHeaderOut->sizeInBytes = drwav__bytes_to_u64(sizeInBytes) - 24;    // <-- Subtract 24 because w64 includes the size of the header.
         pHeaderOut->paddingSize = (unsigned int)(pHeaderOut->sizeInBytes % 8);
-        pRunningBytesReadOut += 24;
+        *pRunningBytesReadOut += 24;
     }
 
     return DRWAV_TRUE;
@@ -1445,7 +1445,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
     }
 
 
-    // The next 24 bytes should be the "fmt " chunk.
+    // The next bytes should be the "fmt " chunk.
     drwav_fmt fmt;
     if (!drwav__read_fmt(onRead, onSeek, pUserData, pWav->container, &pWav->dataChunkDataPos, &fmt)) {
         return DRWAV_FALSE;    // Failed to read the "fmt " chunk.
@@ -1509,7 +1509,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
                 if (onRead(pUserData, &sampleCountFromFactChunk, 8) != 8) {
                     return DRWAV_FALSE;
                 }
-                pWav->dataChunkDataPos += 4;
+                pWav->dataChunkDataPos += 8;
                 dataSize -= 8;
             }
         }
