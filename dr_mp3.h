@@ -460,8 +460,8 @@ typedef struct
 
 typedef struct
 {
-    drmp3_uint8 total_bands, stereo_bands, bitalloc[64], scfcod[64];
     float scf[3*64];
+    drmp3_uint8 total_bands, stereo_bands, bitalloc[64], scfcod[64];
 } drmp3_L12_scale_info;
 
 typedef struct
