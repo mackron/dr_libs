@@ -99,21 +99,14 @@ typedef drmp3_uint32     drmp3_bool32;
 // ==================
 typedef struct
 {
-    int frame_bytes;
-    int channels;
-    int hz;
-    int layer;
-    int bitrate_kbps;
+    int frame_bytes, channels, hz, layer, bitrate_kbps;
 } drmp3dec_frame_info;
 
 typedef struct
 {
-    float mdct_overlap[2][9*32];
-    float qmf_state[15*2*32];
-    int reserv;
-    int free_format_bytes;
-    unsigned char header[4];
-    unsigned char reserv_buf[511];
+    float mdct_overlap[2][9*32], qmf_state[15*2*32];
+    int reserv, free_format_bytes;
+    unsigned char header[4], reserv_buf[511];
 } drmp3dec;
 
 // Initializes a low level decoder.
@@ -462,44 +455,27 @@ static int drmp3_have_simd()
 typedef struct
 {
     const drmp3_uint8 *buf;
-    int pos;
-    int limit;
+    int pos, limit;
 } drmp3_bs;
 
 typedef struct
 {
-    drmp3_uint8 total_bands;
-    drmp3_uint8 stereo_bands;
-    drmp3_uint8 bitalloc[64];
-    drmp3_uint8 scfcod[64];
+    drmp3_uint8 total_bands, stereo_bands, bitalloc[64], scfcod[64];
     float scf[3*64];
 } drmp3_L12_scale_info;
 
 typedef struct
 {
-    drmp3_uint8 tab_offset;
-    drmp3_uint8 code_tab_width;
-    drmp3_uint8 band_count;
+    drmp3_uint8 tab_offset, code_tab_width, band_count;
 } drmp3_L12_subband_alloc;
 
 typedef struct
 {
     const drmp3_uint8 *sfbtab;
-    drmp3_uint16 part_23_length;
-    drmp3_uint16 big_values;
-    drmp3_uint16 scalefac_compress;
-    drmp3_uint8 global_gain;
-    drmp3_uint8 block_type;
-    drmp3_uint8 mixed_block_flag;
-    drmp3_uint8 n_long_sfb;
-    drmp3_uint8 n_short_sfb;
-    drmp3_uint8 table_select[3];
-    drmp3_uint8 region_count[3];
-    drmp3_uint8 subblock_gain[3];
-    drmp3_uint8 preflag;
-    drmp3_uint8 scalefac_scale;
-    drmp3_uint8 count1_table;
-    drmp3_uint8 scfsi;
+    drmp3_uint16 part_23_length, big_values, scalefac_compress;
+    drmp3_uint8 global_gain, block_type, mixed_block_flag, n_long_sfb, n_short_sfb;
+    drmp3_uint8 table_select[3], region_count[3], subblock_gain[3];
+    drmp3_uint8 preflag, scalefac_scale, count1_table, scfsi;
 } drmp3_L3_gr_info;
 
 typedef struct
@@ -507,10 +483,8 @@ typedef struct
     drmp3_bs bs;
     drmp3_uint8 maindata[DRMP3_MAX_BITRESERVOIR_BYTES + DRMP3_MAX_L3_FRAME_PAYLOAD_BYTES];
     drmp3_L3_gr_info gr_info[4];
-    float grbuf[2][576];
-    float scf[40];
+    float grbuf[2][576], scf[40], syn[18 + 15][2*32];
     drmp3_uint8 ist_pos[2][39];
-    float syn[18 + 15][2*32];
 } drmp3dec_scratch;
 
 static void drmp3_bs_init(drmp3_bs *bs, const drmp3_uint8 *data, int bytes)
