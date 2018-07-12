@@ -1,5 +1,5 @@
 // MP3 audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_mp3 - v0.2.5 - 2018-06-22
+// dr_mp3 - v0.2.6 - 2018-07-12
 //
 // David Reid - mackron@gmail.com
 //
@@ -2744,6 +2744,9 @@ void drmp3_free(void* p)
 
 // REVISION HISTORY
 // ===============
+//
+// v0.2.6 - 2018-07-12
+//   - Bring up to date with minimp3.
 //
 // v0.2.5 - 2018-06-22
 //   - Bring up to date with minimp3.
