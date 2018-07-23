@@ -825,14 +825,6 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
     #define DRFLAC_HAS_BYTESWAP16_INTRINSIC
     #define DRFLAC_HAS_BYTESWAP32_INTRINSIC
     #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
-#elif defined(__GNUC__)
-    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
-        #define DRFLAC_HAS_BYTESWAP32_INTRINSIC
-        #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
-    #endif
-    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
-        #define DRFLAC_HAS_BYTESWAP16_INTRINSIC
-    #endif
 #elif defined(__clang__)
     #if __has_builtin(__builtin_bswap16)
         #define DRFLAC_HAS_BYTESWAP16_INTRINSIC
@@ -842,6 +834,14 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
     #endif
     #if __has_builtin(__builtin_bswap64)
         #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
+    #endif
+#elif defined(__GNUC__)
+    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+        #define DRFLAC_HAS_BYTESWAP32_INTRINSIC
+        #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
+    #endif
+    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
+        #define DRFLAC_HAS_BYTESWAP16_INTRINSIC
     #endif
 #endif
 
