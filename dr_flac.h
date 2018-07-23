@@ -805,10 +805,10 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 #ifdef __linux__
-//#ifndef _BSD_SOURCE
-//#define _BSD_SOURCE 1
-//#endif
-//#include <endian.h>
+#ifndef _BSD_SOURCE
+#define _BSD_SOURCE
+#endif
+#include <endian.h>
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1500 && (defined(DRFLAC_X86) || defined(DRFLAC_X64))
