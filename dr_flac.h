@@ -776,18 +776,27 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
                 __cpuid(info, fid);
             }
         #else
-        #define DRFLAC_NO_CPUID
+            #define DRFLAC_NO_CPUID
         #endif
     #else
         #if defined(__GNUC__) || defined(__clang__)
             static void drflac__cpuid(int info[4], int fid)
             {
-                __asm__ __volatile__ (
-                    "cpuid" : "=a"(info[0]), "=b"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(fid), "c"(0)
-                );
+                // It looks like the -fPIC option uses the ebx register which GCC complains about. We can work around this by just using a different register. I'm
+                // using edi for this which is "D" in clobber list. We basically use the edi register as a temporary variable for manually saving and restoring the
+                // value of the ebx register.
+                #if defined(DRFLAC_X86) && defined(__PIC__)
+                    __asm__ __volatile__ (
+                        "mov %%ebx, %%edi; cpuid; xchgl %%ebx, %%edi;" : "=a"(info[0]), "=D"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(fid), "c"(0)
+                    );
+                #else
+                    __asm__ __volatile__ (
+                        "cpuid" : "=a"(info[0]), "=b"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(fid), "c"(0)
+                    );
+                #endif
             }
         #else
-        #define DRFLAC_NO_CPUID
+            #define DRFLAC_NO_CPUID
         #endif
     #endif
 #else
