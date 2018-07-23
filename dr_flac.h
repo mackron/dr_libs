@@ -796,27 +796,43 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 #ifdef __linux__
-#define _BSD_SOURCE
-#include <endian.h>
+//#ifndef _BSD_SOURCE
+//#define _BSD_SOURCE 1
+//#endif
+//#include <endian.h>
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1500 && (defined(DRFLAC_X86) || defined(DRFLAC_X64))
-#define DRFLAC_HAS_LZCNT_INTRINSIC
+    #define DRFLAC_HAS_LZCNT_INTRINSIC
 #elif (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))
-#define DRFLAC_HAS_LZCNT_INTRINSIC
+    #define DRFLAC_HAS_LZCNT_INTRINSIC
 #elif defined(__clang__)
     #if __has_builtin(__builtin_clzll) || __has_builtin(__builtin_clzl)
-    #define DRFLAC_HAS_LZCNT_INTRINSIC
+        #define DRFLAC_HAS_LZCNT_INTRINSIC
     #endif
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1300
-#define DRFLAC_HAS_BYTESWAP_INTRINSIC
-#elif defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
-#define DRFLAC_HAS_BYTESWAP_INTRINSIC
+    #define DRFLAC_HAS_BYTESWAP16_INTRINSIC
+    #define DRFLAC_HAS_BYTESWAP32_INTRINSIC
+    #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
+#elif defined(__GNUC__)
+    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+        #define DRFLAC_HAS_BYTESWAP32_INTRINSIC
+        #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
+    #endif
+    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
+        #define DRFLAC_HAS_BYTESWAP16_INTRINSIC
+    #endif
 #elif defined(__clang__)
-    #if __has_builtin(__builtin_bswap16) && __has_builtin(__builtin_bswap32) && __has_builtin(__builtin_bswap64)
-    #define DRFLAC_HAS_BYTESWAP_INTRINSIC
+    #if __has_builtin(__builtin_bswap16)
+        #define DRFLAC_HAS_BYTESWAP16_INTRINSIC
+    #endif
+    #if __has_builtin(__builtin_bswap32)
+        #define DRFLAC_HAS_BYTESWAP32_INTRINSIC
+    #endif
+    #if __has_builtin(__builtin_bswap64)
+        #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
     #endif
 #endif
 
@@ -914,7 +930,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__is_little_endian()
 
 static DRFLAC_INLINE drflac_uint16 drflac__swap_endian_uint16(drflac_uint16 n)
 {
-#ifdef DRFLAC_HAS_BYTESWAP_INTRINSIC
+#ifdef DRFLAC_HAS_BYTESWAP16_INTRINSIC
     #if defined(_MSC_VER)
         return _byteswap_ushort(n);
     #elif defined(__GNUC__) || defined(__clang__)
@@ -930,7 +946,7 @@ static DRFLAC_INLINE drflac_uint16 drflac__swap_endian_uint16(drflac_uint16 n)
 
 static DRFLAC_INLINE drflac_uint32 drflac__swap_endian_uint32(drflac_uint32 n)
 {
-#ifdef DRFLAC_HAS_BYTESWAP_INTRINSIC
+#ifdef DRFLAC_HAS_BYTESWAP32_INTRINSIC
     #if defined(_MSC_VER)
         return _byteswap_ulong(n);
     #elif defined(__GNUC__) || defined(__clang__)
@@ -948,7 +964,7 @@ static DRFLAC_INLINE drflac_uint32 drflac__swap_endian_uint32(drflac_uint32 n)
 
 static DRFLAC_INLINE drflac_uint64 drflac__swap_endian_uint64(drflac_uint64 n)
 {
-#ifdef DRFLAC_HAS_BYTESWAP_INTRINSIC
+#ifdef DRFLAC_HAS_BYTESWAP64_INTRINSIC
     #if defined(_MSC_VER)
         return _byteswap_uint64(n);
     #elif defined(__GNUC__) || defined(__clang__)
