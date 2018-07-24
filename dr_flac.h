@@ -799,9 +799,9 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
                 // What's basically happening is that we're saving and restoring the ebx register manually.
                 #if defined(DRFLAC_X86) && defined(__PIC__)
                     __asm__ __volatile__ (
-                        "xchg{l} {%%}ebx, %k0;"
+                        "xchg{l} {%%}ebx, %k1;"
                         "cpuid;"
-                        "xchg{l} {%%}ebx, %k0;"
+                        "xchg{l} {%%}ebx, %k1;"
                         : "=a"(info[0]), "=&r"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(fid), "c"(0)
                     );
                 #else
