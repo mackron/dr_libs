@@ -754,6 +754,16 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 //
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef DR_FLAC_IMPLEMENTATION
+#ifdef __linux__
+    #ifndef _BSD_SOURCE
+    #define _BSD_SOURCE
+    #endif
+    #ifndef __USE_BSD
+    #define __USE_BSD
+    #endif
+    #include <endian.h>
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -803,13 +813,6 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #define DRFLAC_NO_CPUID
 #endif
 
-
-#ifdef __linux__
-#ifndef _BSD_SOURCE
-#define _BSD_SOURCE
-#endif
-#include <endian.h>
-#endif
 
 #if defined(_MSC_VER) && _MSC_VER >= 1500 && (defined(DRFLAC_X86) || defined(DRFLAC_X64))
     #define DRFLAC_HAS_LZCNT_INTRINSIC
