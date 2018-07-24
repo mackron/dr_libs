@@ -792,12 +792,17 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
         #if defined(__GNUC__) || defined(__clang__)
             static void drflac__cpuid(int info[4], int fid)
             {
-                // It looks like the -fPIC option uses the ebx register which GCC complains about. We can work around this by just using a different register. I'm
-                // using edi for this which is "D" in clobber list. We basically use the edi register as a temporary variable for manually saving and restoring the
-                // value of the ebx register.
+                // It looks like the -fPIC option uses the ebx register which GCC complains about. We can work around this by just using a different register, the
+                // specific register of which I'm letting the compiler decide on. The "k" prefix is used to specify a 32-bit register. The {...} syntax is for
+                // supporting different assembly dialects.
+                //
+                // What's basically happening is that we're saving and restoring the ebx register manually.
                 #if defined(DRFLAC_X86) && defined(__PIC__)
                     __asm__ __volatile__ (
-                        "mov %%ebx, %%edi; cpuid; xchgl %%ebx, %%edi;" : "=a"(info[0]), "=D"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(fid), "c"(0)
+                        "xchg{l} {%%}ebx, %k0;"
+                        "cpuid;"
+                        "xchg{l} {%%}ebx, %k0;"
+                        : "=a"(info[0]), "=&r"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(fid), "c"(0)
                     );
                 #else
                     __asm__ __volatile__ (
