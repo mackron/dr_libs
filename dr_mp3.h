@@ -354,7 +354,7 @@ void drmp3_free(void* p);
 #if defined(_MSC_VER)
 #include <intrin.h>
 #endif
-#include <immintrin.h>
+#include <emmintrin.h>
 #define DRMP3_HAVE_SSE 1
 #define DRMP3_HAVE_SIMD 1
 #define DRMP3_VSTORE _mm_storeu_ps
