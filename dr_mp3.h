@@ -2762,7 +2762,8 @@ void drmp3_free(void* p)
 // ===============
 //
 // v0.2.9 - 2018-08-05
-//   - Fix C++ build on older versions of GCC. 
+//   - Fix C++ build on older versions of GCC.
+//   - Bring up to date with minimp3.
 //
 // v0.2.8 - 2018-08-02
 //   - Fix compilation errors with older versions of GCC.
