@@ -743,7 +743,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead);
 #if defined(SIZE_MAX)
     #define DRWAV_SIZE_MAX  SIZE_MAX
 #else
-    #if defined(_WIN64) || defined(__x86_64__) || defined(_M_X64) || defined(_M_ARM64)
+    #if defined(_WIN64) || defined(__ppc64__) || defined(__x86_64__) || defined(_M_X64) || defined(_M_ARM64) || defined(__aarch64__)
         #define DRWAV_SIZE_MAX  ((drwav_uint64)0xFFFFFFFFFFFFFFFF)
     #else
         #define DRWAV_SIZE_MAX  0xFFFFFFFF
