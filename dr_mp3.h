@@ -1,5 +1,5 @@
 // MP3 audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_mp3 - v0.2.9 - 2018-08-05
+// dr_mp3 - v0.2.10 - 2018-08-07
 //
 // David Reid - mackron@gmail.com
 //
@@ -2760,6 +2760,9 @@ void drmp3_free(void* p)
 
 // REVISION HISTORY
 // ===============
+//
+// v0.2.10 - 2018-08-07
+//   - Improve 64-bit detection.
 //
 // v0.2.9 - 2018-08-05
 //   - Fix C++ build on older versions of GCC.
