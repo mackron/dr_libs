@@ -1,5 +1,5 @@
 // WAV audio loader and writer. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.8.3 - 2018-08-05
+// dr_wav - v0.8.4 - 2018-08-07
 //
 // David Reid - mackron@gmail.com
 
@@ -3580,6 +3580,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 
 // REVISION HISTORY
+//
+// v0.8.4 - 2018-08-07
+//   - Improve 64-bit detection.
 //
 // v0.8.3 - 2018-08-05
 //   - Fix C++ build on older versions of GCC.
