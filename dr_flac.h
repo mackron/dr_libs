@@ -157,14 +157,8 @@ extern "C" {
 #endif
 
 // Check if we can enable 64-bit optimizations.
-#if defined(_WIN64)
+#if defined(_WIN64) || defined(_LP64) || defined(__LP64__)
 #define DRFLAC_64BIT
-#endif
-
-#if defined(__GNUC__)
-#if defined(__x86_64__) || defined(__ppc64__) || defined(__aarch64__)
-#define DRFLAC_64BIT
-#endif
 #endif
 
 #ifdef DRFLAC_64BIT
