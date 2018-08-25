@@ -113,7 +113,14 @@ typedef struct
 void drmp3dec_init(drmp3dec *dec);
 
 // Reads a frame from a low level decoder.
+#ifndef DR_MP3_FLOAT_OUTPUT
 int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, short *pcm, drmp3dec_frame_info *info);
+#else
+int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, float *pcm, drmp3dec_frame_info *info);
+void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples);
+#endif
+
+
 
 
 // Main API (Pull API)
@@ -213,7 +220,7 @@ typedef struct
     drmp3_uint32 frameSampleRate;   // The sample rate of the currently loaded MP3 frame. Internal use only.
     drmp3_uint32 framesConsumed;
     drmp3_uint32 framesRemaining;
-    drmp3_int16 frames[DRMP3_MAX_SAMPLES_PER_FRAME];
+    drmp3_uint8 frames[sizeof(float)*DRMP3_MAX_SAMPLES_PER_FRAME];  // <-- Multipled by sizeof(float) to ensure there's enough room for DR_MP3_FLOAT_OUTPUT.
     drmp3_src src;
     size_t dataSize;
     size_t dataCapacity;
@@ -1634,18 +1641,27 @@ static void drmp3d_DCT_II(float *grbuf, int n)
 #endif
 }
 
+#ifndef DR_MP3_FLOAT_OUTPUT
+typedef short drmp3d_sample_t;
+
 static short drmp3d_scale_pcm(float sample)
 {
-    if (sample >  32767.0) return (short) 32767;
-    if (sample < -32768.0) return (short)-32768;
-    int s = (int)(sample + .5f);
+    if (sample >=  32766.5) return (short) 32767;
+    if (sample <= -32767.5) return (short)-32768;
+    short s = (short)(sample + .5f);
     s -= (s < 0);   /* away from zero, to be compliant */
-    if (s >  32767) return (short) 32767;
-    if (s < -32768) return (short)-32768;
     return (short)s;
 }
+#else
+typedef float drmp3d_sample_t;
 
-static void drmp3d_synth_pair(short *pcm, int nch, const float *z)
+static float drmp3d_scale_pcm(float sample)
+{
+    return sample / 32768.0f;
+}
+#endif
+
+static void drmp3d_synth_pair(drmp3d_sample_t *pcm, int nch, const float *z)
 {
     float a;
     a  = (z[14*64] - z[    0]) * 29;
@@ -1670,11 +1686,11 @@ static void drmp3d_synth_pair(short *pcm, int nch, const float *z)
     pcm[16*nch] = drmp3d_scale_pcm(a);
 }
 
-static void drmp3d_synth(float *xl, short *dstl, int nch, float *lins)
+static void drmp3d_synth(float *xl, drmp3d_sample_t *dstl, int nch, float *lins)
 {
     int i;
     float *xr = xl + 576*(nch - 1);
-    short *dstr = dstl + (nch - 1);
+    drmp3d_sample_t *dstr = dstl + (nch - 1);
 
     static const float g_win[] = {
         -1,26,-31,208,218,401,-519,2063,2000,4788,-5517,7134,5959,35640,-39336,74992,
@@ -1731,6 +1747,7 @@ static void drmp3d_synth(float *xl, short *dstl, int nch, float *lins)
         DRMP3_V0(0) DRMP3_V2(1) DRMP3_V1(2) DRMP3_V2(3) DRMP3_V1(4) DRMP3_V2(5) DRMP3_V1(6) DRMP3_V2(7)
 
         {
+#ifndef DR_MP3_FLOAT_OUTPUT
 #if DRMP3_HAVE_SSE
             static const drmp3_f4 g_max = { 32767.0f, 32767.0f, 32767.0f, 32767.0f };
             static const drmp3_f4 g_min = { -32768.0f, -32768.0f, -32768.0f, -32768.0f };
@@ -1759,6 +1776,30 @@ static void drmp3d_synth(float *xl, short *dstl, int nch, float *lins)
             vst1_lane_s16(dstl + (47 - i)*nch, pcma, 2);
             vst1_lane_s16(dstl + (49 + i)*nch, pcmb, 2);
 #endif
+#else
+            static const drmp3_f4 g_scale = { 1.0f/32768.0f, 1.0f/32768.0f, 1.0f/32768.0f, 1.0f/32768.0f };
+            a = DRMP3_VMUL(a, g_scale);
+            b = DRMP3_VMUL(b, g_scale);
+#if DRMP3_HAVE_SSE
+            _mm_store_ss(dstr + (15 - i)*nch, _mm_shuffle_ps(a, a, _MM_SHUFFLE(1, 1, 1, 1)));
+            _mm_store_ss(dstr + (17 + i)*nch, _mm_shuffle_ps(b, b, _MM_SHUFFLE(1, 1, 1, 1)));
+            _mm_store_ss(dstl + (15 - i)*nch, _mm_shuffle_ps(a, a, _MM_SHUFFLE(0, 0, 0, 0)));
+            _mm_store_ss(dstl + (17 + i)*nch, _mm_shuffle_ps(b, b, _MM_SHUFFLE(0, 0, 0, 0)));
+            _mm_store_ss(dstr + (47 - i)*nch, _mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 3, 3, 3)));
+            _mm_store_ss(dstr + (49 + i)*nch, _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 3, 3, 3)));
+            _mm_store_ss(dstl + (47 - i)*nch, _mm_shuffle_ps(a, a, _MM_SHUFFLE(2, 2, 2, 2)));
+            _mm_store_ss(dstl + (49 + i)*nch, _mm_shuffle_ps(b, b, _MM_SHUFFLE(2, 2, 2, 2)));
+#else
+            vst1q_lane_f32(dstr + (15 - i)*nch, a, 1);
+            vst1q_lane_f32(dstr + (17 + i)*nch, b, 1);
+            vst1q_lane_f32(dstl + (15 - i)*nch, a, 0);
+            vst1q_lane_f32(dstl + (17 + i)*nch, b, 0);
+            vst1q_lane_f32(dstr + (47 - i)*nch, a, 3);
+            vst1q_lane_f32(dstr + (49 + i)*nch, b, 3);
+            vst1q_lane_f32(dstl + (47 - i)*nch, a, 2);
+            vst1q_lane_f32(dstl + (49 + i)*nch, b, 2);
+#endif
+#endif /* DR_MP3_FLOAT_OUTPUT */
         }
     } else
 #endif
@@ -1796,7 +1837,7 @@ static void drmp3d_synth(float *xl, short *dstl, int nch, float *lins)
 #endif
 }
 
-static void drmp3d_synth_granule(float *qmf_state, float *grbuf, int nbands, int nch, short *pcm, float *lins)
+static void drmp3d_synth_granule(float *qmf_state, float *grbuf, int nbands, int nch, drmp3d_sample_t *pcm, float *lins)
 {
     int i;
     for (i = 0; i < nch; i++)
@@ -1881,7 +1922,7 @@ void drmp3dec_init(drmp3dec *dec)
     dec->header[0] = 0;
 }
 
-int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, short *pcm, drmp3dec_frame_info *info)
+int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, drmp3d_sample_t *pcm, drmp3dec_frame_info *info)
 {
     int i = 0, igr, frame_size = 0, success = 1;
     const drmp3_uint8 *hdr;
@@ -1970,6 +2011,66 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
     return success*drmp3_hdr_frame_samples(dec->header);
 }
 
+#ifdef MINIMP3_FLOAT_OUTPUT
+void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples)
+{
+    if(num_samples > 0)
+    {
+        int i = 0;
+#if DR_MP3_HAVE_SIMD
+        int aligned_count = num_samples & ~7;
+         for(;i < aligned_count;i+=8)
+        {
+            static const f4 g_scale = { 32768.0f, 32768.0f, 32768.0f, 32768.0f };
+            f4 a = VMUL(VLD(&in[i  ]), g_scale);
+            f4 b = VMUL(VLD(&in[i+4]), g_scale);
+#if DR_MP3_HAVE_SSE
+            static const f4 g_max = { 32767.0f, 32767.0f, 32767.0f, 32767.0f };
+            static const f4 g_min = { -32768.0f, -32768.0f, -32768.0f, -32768.0f };
+            __m128i pcm8 = _mm_packs_epi32(_mm_cvtps_epi32(_mm_max_ps(_mm_min_ps(a, g_max), g_min)),
+                                           _mm_cvtps_epi32(_mm_max_ps(_mm_min_ps(b, g_max), g_min)));
+            out[i  ] = _mm_extract_epi16(pcm8, 0);
+            out[i+1] = _mm_extract_epi16(pcm8, 1);
+            out[i+2] = _mm_extract_epi16(pcm8, 2);
+            out[i+3] = _mm_extract_epi16(pcm8, 3);
+            out[i+4] = _mm_extract_epi16(pcm8, 4);
+            out[i+5] = _mm_extract_epi16(pcm8, 5);
+            out[i+6] = _mm_extract_epi16(pcm8, 6);
+            out[i+7] = _mm_extract_epi16(pcm8, 7);
+#else
+            int16x4_t pcma, pcmb;
+            a = VADD(a, VSET(0.5f));
+            b = VADD(b, VSET(0.5f));
+            pcma = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(a), vreinterpretq_s32_u32(vcltq_f32(a, VSET(0)))));
+            pcmb = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(b), vreinterpretq_s32_u32(vcltq_f32(b, VSET(0)))));
+            vst1_lane_s16(out+i  , pcma, 0);
+            vst1_lane_s16(out+i+1, pcma, 1);
+            vst1_lane_s16(out+i+2, pcma, 2);
+            vst1_lane_s16(out+i+3, pcma, 3);
+            vst1_lane_s16(out+i+4, pcmb, 0);
+            vst1_lane_s16(out+i+5, pcmb, 1);
+            vst1_lane_s16(out+i+6, pcmb, 2);
+            vst1_lane_s16(out+i+7, pcmb, 3);
+#endif
+        }
+#endif
+        for(;i < num_samples;i++)
+        {
+            float sample = in[i] * 32768.0f;
+            if(sample >=  32766.5)
+                out[i] = (short) 32767;
+            else if (sample <= -32767.5)
+                out[i] = (short)-32768;
+            else
+            {
+                short s = (short)(sample + .5f);
+                s -= (s < 0);   /* away from zero, to be compliant */
+                out[i] = s;
+            }
+        }
+    }
+}
+#endif
 
 
 
@@ -2299,7 +2400,7 @@ static drmp3_bool32 drmp3_decode_next_frame(drmp3* pMP3)
         }
 
         drmp3dec_frame_info info;
-        drmp3_uint32 samplesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->pData, (int)pMP3->dataSize, pMP3->frames, &info);    // <-- Safe size_t -> int conversion thanks to the check above.
+        drmp3_uint32 samplesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->pData, (int)pMP3->dataSize, (drmp3d_sample_t*)pMP3->frames, &info);    // <-- Safe size_t -> int conversion thanks to the check above.
         if (samplesRead != 0) {
             size_t leftoverDataSize = (pMP3->dataSize - (size_t)info.frame_bytes);
             for (size_t i = 0; i < leftoverDataSize; ++i) {
@@ -2352,28 +2453,54 @@ static drmp3_uint64 drmp3_read_src(drmp3_src* pSRC, drmp3_uint64 frameCount, voi
     while (frameCount > 0) {
         // Read from the in-memory buffer first.
         while (pMP3->framesRemaining > 0 && frameCount > 0) {
+            drmp3d_sample_t* frames = (drmp3d_sample_t*)pMP3->frames;
+#ifndef DR_MP3_FLOAT_OUTPUT
             if (pMP3->frameChannels == 1) {
                 if (pMP3->channels == 1) {
                     // Mono -> Mono.
-                    pFramesOutF[0] = pMP3->frames[pMP3->framesConsumed] / 32768.0f;
+                    pFramesOutF[0] = frames[pMP3->framesConsumed] / 32768.0f;
                 } else {
                     // Mono -> Stereo.
-                    pFramesOutF[0] = pMP3->frames[pMP3->framesConsumed] / 32768.0f;
-                    pFramesOutF[1] = pMP3->frames[pMP3->framesConsumed] / 32768.0f;
+                    pFramesOutF[0] = frames[pMP3->framesConsumed] / 32768.0f;
+                    pFramesOutF[1] = frames[pMP3->framesConsumed] / 32768.0f;
                 }
             } else {
                 if (pMP3->channels == 1) {
                     // Stereo -> Mono
                     float sample = 0;
-                    sample += pMP3->frames[(pMP3->framesConsumed*pMP3->frameChannels)+0] / 32768.0f;
-                    sample += pMP3->frames[(pMP3->framesConsumed*pMP3->frameChannels)+1] / 32768.0f;
+                    sample += frames[(pMP3->framesConsumed*pMP3->frameChannels)+0] / 32768.0f;
+                    sample += frames[(pMP3->framesConsumed*pMP3->frameChannels)+1] / 32768.0f;
                     pFramesOutF[0] = sample * 0.5f;
                 } else {
                     // Stereo -> Stereo
-                    pFramesOutF[0] = pMP3->frames[(pMP3->framesConsumed*pMP3->frameChannels)+0] / 32768.0f;
-                    pFramesOutF[1] = pMP3->frames[(pMP3->framesConsumed*pMP3->frameChannels)+1] / 32768.0f;
+                    pFramesOutF[0] = frames[(pMP3->framesConsumed*pMP3->frameChannels)+0] / 32768.0f;
+                    pFramesOutF[1] = frames[(pMP3->framesConsumed*pMP3->frameChannels)+1] / 32768.0f;
                 }
             }
+#else
+            if (pMP3->frameChannels == 1) {
+                if (pMP3->channels == 1) {
+                    // Mono -> Mono.
+                    pFramesOutF[0] = frames[pMP3->framesConsumed];
+                } else {
+                    // Mono -> Stereo.
+                    pFramesOutF[0] = frames[pMP3->framesConsumed];
+                    pFramesOutF[1] = frames[pMP3->framesConsumed];
+                }
+            } else {
+                if (pMP3->channels == 1) {
+                    // Stereo -> Mono
+                    float sample = 0;
+                    sample += frames[(pMP3->framesConsumed*pMP3->frameChannels)+0];
+                    sample += frames[(pMP3->framesConsumed*pMP3->frameChannels)+1];
+                    pFramesOutF[0] = sample * 0.5f;
+                } else {
+                    // Stereo -> Stereo
+                    pFramesOutF[0] = frames[(pMP3->framesConsumed*pMP3->frameChannels)+0];
+                    pFramesOutF[1] = frames[(pMP3->framesConsumed*pMP3->frameChannels)+1];
+                }
+            }
+#endif
 
             pMP3->framesConsumed += 1;
             pMP3->framesRemaining -= 1;
