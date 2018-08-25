@@ -2021,32 +2021,32 @@ void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples)
     if(num_samples > 0)
     {
         int i = 0;
-#if DR_MP3_HAVE_SIMD
+#if DRMP3_HAVE_SIMD
         int aligned_count = num_samples & ~7;
          for(;i < aligned_count;i+=8)
         {
-            static const f4 g_scale = { 32768.0f, 32768.0f, 32768.0f, 32768.0f };
-            f4 a = VMUL(VLD(&in[i  ]), g_scale);
-            f4 b = VMUL(VLD(&in[i+4]), g_scale);
-#if DR_MP3_HAVE_SSE
-            static const f4 g_max = { 32767.0f, 32767.0f, 32767.0f, 32767.0f };
-            static const f4 g_min = { -32768.0f, -32768.0f, -32768.0f, -32768.0f };
+            static const drmp3_f4 g_scale = { 32768.0f, 32768.0f, 32768.0f, 32768.0f };
+            drmp3_f4 a = DRMP3_VMUL(DRMP3_VLD(&in[i  ]), g_scale);
+            drmp3_f4 b = DRMP3_VMUL(DRMP3_VLD(&in[i+4]), g_scale);
+#if DRMP3_HAVE_SSE
+            static const drmp3_f4 g_max = { 32767.0f, 32767.0f, 32767.0f, 32767.0f };
+            static const drmp3_f4 g_min = { -32768.0f, -32768.0f, -32768.0f, -32768.0f };
             __m128i pcm8 = _mm_packs_epi32(_mm_cvtps_epi32(_mm_max_ps(_mm_min_ps(a, g_max), g_min)),
                                            _mm_cvtps_epi32(_mm_max_ps(_mm_min_ps(b, g_max), g_min)));
-            out[i  ] = _mm_extract_epi16(pcm8, 0);
-            out[i+1] = _mm_extract_epi16(pcm8, 1);
-            out[i+2] = _mm_extract_epi16(pcm8, 2);
-            out[i+3] = _mm_extract_epi16(pcm8, 3);
-            out[i+4] = _mm_extract_epi16(pcm8, 4);
-            out[i+5] = _mm_extract_epi16(pcm8, 5);
-            out[i+6] = _mm_extract_epi16(pcm8, 6);
-            out[i+7] = _mm_extract_epi16(pcm8, 7);
+            out[i  ] = (drmp3_int16)_mm_extract_epi16(pcm8, 0);
+            out[i+1] = (drmp3_int16)_mm_extract_epi16(pcm8, 1);
+            out[i+2] = (drmp3_int16)_mm_extract_epi16(pcm8, 2);
+            out[i+3] = (drmp3_int16)_mm_extract_epi16(pcm8, 3);
+            out[i+4] = (drmp3_int16)_mm_extract_epi16(pcm8, 4);
+            out[i+5] = (drmp3_int16)_mm_extract_epi16(pcm8, 5);
+            out[i+6] = (drmp3_int16)_mm_extract_epi16(pcm8, 6);
+            out[i+7] = (drmp3_int16)_mm_extract_epi16(pcm8, 7);
 #else
             int16x4_t pcma, pcmb;
-            a = VADD(a, VSET(0.5f));
-            b = VADD(b, VSET(0.5f));
-            pcma = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(a), vreinterpretq_s32_u32(vcltq_f32(a, VSET(0)))));
-            pcmb = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(b), vreinterpretq_s32_u32(vcltq_f32(b, VSET(0)))));
+            a = DRMP3_VADD(a, DRMP3_VSET(0.5f));
+            b = DRMP3_VADD(b, DRMP3_VSET(0.5f));
+            pcma = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(a), vreinterpretq_s32_u32(vcltq_f32(a, DRMP3_VSET(0)))));
+            pcmb = vqmovn_s32(vqaddq_s32(vcvtq_s32_f32(b), vreinterpretq_s32_u32(vcltq_f32(b, DRMP3_VSET(0)))));
             vst1_lane_s16(out+i  , pcma, 0);
             vst1_lane_s16(out+i+1, pcma, 1);
             vst1_lane_s16(out+i+2, pcma, 2);
