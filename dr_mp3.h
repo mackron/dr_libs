@@ -1657,7 +1657,7 @@ typedef float drmp3d_sample_t;
 
 static float drmp3d_scale_pcm(float sample)
 {
-    return sample / 32768.0f;
+    return sample*(1.f/32768.f);
 }
 #endif
 
