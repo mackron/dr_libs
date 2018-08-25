@@ -113,12 +113,10 @@ typedef struct
 void drmp3dec_init(drmp3dec *dec);
 
 // Reads a frame from a low level decoder.
-#ifndef DR_MP3_FLOAT_OUTPUT
-int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, short *pcm, drmp3dec_frame_info *info);
-#else
-int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, float *pcm, drmp3dec_frame_info *info);
+int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, void *pcm, drmp3dec_frame_info *info);
+
+// Helper for converting between f32 and s16.
 void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples);
-#endif
 
 
 
@@ -313,6 +311,8 @@ void drmp3_free(void* p);
 #if defined(__TINYC__)
 #define DR_MP3_NO_SIMD
 #endif
+
+#define DRMP3_OFFSET_PTR(p, offset) ((void*)((drmp3_uint8*)(p) + (offset)))
 
 #define DRMP3_MAX_FREE_FORMAT_FRAME_SIZE  2304    /* more than ISO spec's */
 #define DRMP3_MAX_FRAME_SYNC_MATCHES      10
@@ -1922,7 +1922,7 @@ void drmp3dec_init(drmp3dec *dec)
     dec->header[0] = 0;
 }
 
-int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, drmp3d_sample_t *pcm, drmp3dec_frame_info *info)
+int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, void *pcm, drmp3dec_frame_info *info)
 {
     int i = 0, igr, frame_size = 0, success = 1;
     const drmp3_uint8 *hdr;
@@ -1973,7 +1973,7 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
         success = drmp3_L3_restore_reservoir(dec, bs_frame, &scratch, main_data_begin);
         if (success)
         {
-            for (igr = 0; igr < (DRMP3_HDR_TEST_MPEG1(hdr) ? 2 : 1); igr++, pcm += 576*info->channels)
+            for (igr = 0; igr < (DRMP3_HDR_TEST_MPEG1(hdr) ? 2 : 1); igr++, pcm = DRMP3_OFFSET_PTR(pcm, sizeof(drmp3d_sample_t)*576*info->channels))
             {
                 memset(scratch.grbuf[0], 0, 576*2*sizeof(float));
                 drmp3_L3_decode(dec, &scratch, scratch.gr_info + igr*info->channels, info->channels);
@@ -1998,7 +1998,7 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
                 drmp3_L12_apply_scf_384(sci, sci->scf + igr, scratch.grbuf[0]);
                 drmp3d_synth_granule(dec->qmf_state, scratch.grbuf[0], 12, info->channels, pcm, scratch.syn[0]);
                 memset(scratch.grbuf[0], 0, 576*2*sizeof(float));
-                pcm += 384*info->channels;
+                pcm = DRMP3_OFFSET_PTR(pcm, sizeof(drmp3d_sample_t)*384*info->channels);
             }
             if (bs_frame->pos > bs_frame->limit)
             {
@@ -2011,7 +2011,6 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
     return success*drmp3_hdr_frame_samples(dec->header);
 }
 
-#ifdef MINIMP3_FLOAT_OUTPUT
 void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples)
 {
     if(num_samples > 0)
@@ -2070,7 +2069,6 @@ void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples)
         }
     }
 }
-#endif
 
 
 
