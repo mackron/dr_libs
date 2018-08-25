@@ -1,5 +1,5 @@
 // MP3 audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_mp3 - v0.2.11 - 2018-08-08
+// dr_mp3 - v0.3.0 - 2018-08-25
 //
 // David Reid - mackron@gmail.com
 //
@@ -2887,6 +2887,11 @@ void drmp3_free(void* p)
 
 // REVISION HISTORY
 // ===============
+//
+// v0.3.0 - 2018-08-25
+//   - Bring up to date with minimp3. This has a minor API change: the "pcm" parameter of drmp3dec_decode_frame() has
+//     been changed from short* to void* because it can now output both s16 and f32 samples, depending on whether or
+//     not the DR_MP3_FLOAT_OUTPUT option is set.
 //
 // v0.2.11 - 2018-08-08
 //   - Fix a bug where the last part of a file is not read.
