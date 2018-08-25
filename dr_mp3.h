@@ -1,5 +1,5 @@
 // MP3 audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_mp3 - v0.2.8 - 2018-08-02
+// dr_mp3 - v0.2.11 - 2018-08-08
 //
 // David Reid - mackron@gmail.com
 //
@@ -1956,6 +1956,11 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
     info->layer = 4 - DRMP3_HDR_GET_LAYER(hdr);
     info->bitrate_kbps = drmp3_hdr_bitrate_kbps(hdr);
 
+    if (!pcm)
+    {
+        return drmp3_hdr_frame_samples(hdr);
+    }
+
     drmp3_bs_init(bs_frame, hdr + DRMP3_HDR_SIZE, frame_size - DRMP3_HDR_SIZE);
     if (DRMP3_HDR_IS_CRC(hdr))
     {
@@ -2077,6 +2082,16 @@ void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples)
 // Main Public API
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+#if defined(SIZE_MAX)
+    #define DRMP3_SIZE_MAX  SIZE_MAX
+#else
+    #if defined(_WIN64) || defined(_LP64) || defined(__LP64__)
+        #define DRMP3_SIZE_MAX  ((drmp3_uint64)0xFFFFFFFFFFFFFFFF)
+    #else
+        #define DRMP3_SIZE_MAX  0xFFFFFFFF
+    #endif
+#endif
 
 // Options.
 #ifndef DR_MP3_DEFAULT_CHANNELS
@@ -2385,8 +2400,10 @@ static drmp3_bool32 drmp3_decode_next_frame(drmp3* pMP3)
 
             size_t bytesRead = pMP3->onRead(pMP3->pUserData, pMP3->pData + pMP3->dataSize, (pMP3->dataCapacity - pMP3->dataSize));
             if (bytesRead == 0) {
-                pMP3->atEnd = DRMP3_TRUE;
-                return DRMP3_FALSE; // No data.
+                if (pMP3->dataSize == 0) {
+                    pMP3->atEnd = DRMP3_TRUE;
+                    return DRMP3_FALSE; // No data.
+                }
             }
 
             pMP3->dataSize += bytesRead;
@@ -2781,7 +2798,7 @@ float* drmp3__full_decode_and_close_f32(drmp3* pMP3, drmp3_config* pConfig, drmp
             }
 
             drmp3_uint64 newFramesBufferSize = framesCapacity*pMP3->channels*sizeof(float);
-            if (newFramesBufferSize > SIZE_MAX) {
+            if (newFramesBufferSize > DRMP3_SIZE_MAX) {
                 break;
             }
 
@@ -2870,6 +2887,16 @@ void drmp3_free(void* p)
 
 // REVISION HISTORY
 // ===============
+//
+// v0.2.11 - 2018-08-08
+//   - Fix a bug where the last part of a file is not read.
+//
+// v0.2.10 - 2018-08-07
+//   - Improve 64-bit detection.
+//
+// v0.2.9 - 2018-08-05
+//   - Fix C++ build on older versions of GCC.
+//   - Bring up to date with minimp3.
 //
 // v0.2.8 - 2018-08-02
 //   - Fix compilation errors with older versions of GCC.
