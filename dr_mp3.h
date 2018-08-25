@@ -116,7 +116,7 @@ void drmp3dec_init(drmp3dec *dec);
 int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, void *pcm, drmp3dec_frame_info *info);
 
 // Helper for converting between f32 and s16.
-void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples);
+void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_samples);
 
 
 
@@ -1035,7 +1035,7 @@ static void drmp3_L3_huffman(float *dst, drmp3_bs *bs, const drmp3_L3_gr_info *g
     {
         int tab_num = gr_info->table_select[ireg];
         int sfb_cnt = gr_info->region_count[ireg++];
-        const short *codebook = tabs + tabindex[tab_num];
+        const drmp3_int16 *codebook = tabs + tabindex[tab_num];
         int linbits = g_linbits[tab_num];
         do
         {
@@ -1642,15 +1642,15 @@ static void drmp3d_DCT_II(float *grbuf, int n)
 }
 
 #ifndef DR_MP3_FLOAT_OUTPUT
-typedef short drmp3d_sample_t;
+typedef drmp3_int16 drmp3d_sample_t;
 
-static short drmp3d_scale_pcm(float sample)
+static drmp3_int16 drmp3d_scale_pcm(float sample)
 {
-    if (sample >=  32766.5) return (short) 32767;
-    if (sample <= -32767.5) return (short)-32768;
-    short s = (short)(sample + .5f);
+    if (sample >=  32766.5) return (drmp3_int16) 32767;
+    if (sample <= -32767.5) return (drmp3_int16)-32768;
+    drmp3_int16 s = (drmp3_int16)(sample + .5f);
     s -= (s < 0);   /* away from zero, to be compliant */
-    return (short)s;
+    return (drmp3_int16)s;
 }
 #else
 typedef float drmp3d_sample_t;
@@ -1753,14 +1753,14 @@ static void drmp3d_synth(float *xl, drmp3d_sample_t *dstl, int nch, float *lins)
             static const drmp3_f4 g_min = { -32768.0f, -32768.0f, -32768.0f, -32768.0f };
             __m128i pcm8 = _mm_packs_epi32(_mm_cvtps_epi32(_mm_max_ps(_mm_min_ps(a, g_max), g_min)),
                                            _mm_cvtps_epi32(_mm_max_ps(_mm_min_ps(b, g_max), g_min)));
-            dstr[(15 - i)*nch] = (short)_mm_extract_epi16(pcm8, 1);
-            dstr[(17 + i)*nch] = (short)_mm_extract_epi16(pcm8, 5);
-            dstl[(15 - i)*nch] = (short)_mm_extract_epi16(pcm8, 0);
-            dstl[(17 + i)*nch] = (short)_mm_extract_epi16(pcm8, 4);
-            dstr[(47 - i)*nch] = (short)_mm_extract_epi16(pcm8, 3);
-            dstr[(49 + i)*nch] = (short)_mm_extract_epi16(pcm8, 7);
-            dstl[(47 - i)*nch] = (short)_mm_extract_epi16(pcm8, 2);
-            dstl[(49 + i)*nch] = (short)_mm_extract_epi16(pcm8, 6);
+            dstr[(15 - i)*nch] = (drmp3_int16)_mm_extract_epi16(pcm8, 1);
+            dstr[(17 + i)*nch] = (drmp3_int16)_mm_extract_epi16(pcm8, 5);
+            dstl[(15 - i)*nch] = (drmp3_int16)_mm_extract_epi16(pcm8, 0);
+            dstl[(17 + i)*nch] = (drmp3_int16)_mm_extract_epi16(pcm8, 4);
+            dstr[(47 - i)*nch] = (drmp3_int16)_mm_extract_epi16(pcm8, 3);
+            dstr[(49 + i)*nch] = (drmp3_int16)_mm_extract_epi16(pcm8, 7);
+            dstl[(47 - i)*nch] = (drmp3_int16)_mm_extract_epi16(pcm8, 2);
+            dstl[(49 + i)*nch] = (drmp3_int16)_mm_extract_epi16(pcm8, 6);
 #else
             int16x4_t pcma, pcmb;
             a = DRMP3_VADD(a, DRMP3_VSET(0.5f));
@@ -2016,14 +2016,14 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
     return success*drmp3_hdr_frame_samples(dec->header);
 }
 
-void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples)
+void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_samples)
 {
     if(num_samples > 0)
     {
         int i = 0;
 #if DRMP3_HAVE_SIMD
         int aligned_count = num_samples & ~7;
-         for(;i < aligned_count;i+=8)
+        for(; i < aligned_count; i+=8)
         {
             static const drmp3_f4 g_scale = { 32768.0f, 32768.0f, 32768.0f, 32768.0f };
             drmp3_f4 a = DRMP3_VMUL(DRMP3_VLD(&in[i  ]), g_scale);
@@ -2058,16 +2058,16 @@ void drmp3dec_f32_to_s16(const float *in, short *out, int num_samples)
 #endif
         }
 #endif
-        for(;i < num_samples;i++)
+        for(; i < num_samples; i++)
         {
             float sample = in[i] * 32768.0f;
-            if(sample >=  32766.5)
-                out[i] = (short) 32767;
+            if (sample >=  32766.5)
+                out[i] = (drmp3_int16) 32767;
             else if (sample <= -32767.5)
-                out[i] = (short)-32768;
+                out[i] = (drmp3_int16)-32768;
             else
             {
-                short s = (short)(sample + .5f);
+                short s = (drmp3_int16)(sample + .5f);
                 s -= (s < 0);   /* away from zero, to be compliant */
                 out[i] = s;
             }
