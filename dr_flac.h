@@ -5751,9 +5751,11 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 
 // REVISION HISTORY
-//// v0.9.11 - 2018-08-29
+//
+// v0.9.11 - 2018-08-29
 //   - Fix a bug with sample reconstruction.
-//// v0.9.10 - 2018-08-07
+//
+// v0.9.10 - 2018-08-07
 //   - Improve 64-bit detection.
 //
 // v0.9.9 - 2018-08-05
