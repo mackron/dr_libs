@@ -5760,7 +5760,8 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 //
 // v0.9.9 - 2018-08-05
 //   - Fix C++ build on older versions of GCC.
-//// v0.9.8 - 2018-07-24
+//
+// v0.9.8 - 2018-07-24
 //   - Fix compilation errors.
 //
 // v0.9.7 - 2018-07-05
