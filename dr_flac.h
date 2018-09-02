@@ -2725,6 +2725,9 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
         if (!drflac__read_uint8(bs, 1, &reserved)) {
             return DRFLAC_FALSE;
         }
+        if (reserved == 1) {
+            continue;
+        }
         crc8 = drflac_crc8(crc8, reserved, 1);
 
 
@@ -2753,6 +2756,9 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
         if (!drflac__read_uint8(bs, 4, &channelAssignment)) {
             return DRFLAC_FALSE;
         }
+        if (channelAssignment > 10) {
+            continue;
+        }
         crc8 = drflac_crc8(crc8, channelAssignment, 4);
 
 
@@ -2765,6 +2771,9 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
 
         if (!drflac__read_uint8(bs, 1, &reserved)) {
             return DRFLAC_FALSE;
+        }
+        if (reserved == 1) {
+            continue;
         }
         crc8 = drflac_crc8(crc8, reserved, 1);
 
