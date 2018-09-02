@@ -3607,9 +3607,9 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.rawDataSize = blockSize;
 
                     const char* pRunningData = (const char*)pRawData;
-                    metadata.data.vorbis_comment.vendorLength = drflac__le2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.vorbis_comment.vendor       = pRunningData;                                      pRunningData += metadata.data.vorbis_comment.vendorLength;
-                    metadata.data.vorbis_comment.commentCount = drflac__le2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.vorbis_comment.vendorLength = drflac__le2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.vorbis_comment.vendor       = pRunningData;                                            pRunningData += metadata.data.vorbis_comment.vendorLength;
+                    metadata.data.vorbis_comment.commentCount = drflac__le2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.vorbis_comment.comments     = pRunningData;
                     onMeta(pUserDataMD, &metadata);
 
@@ -3634,10 +3634,10 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.rawDataSize = blockSize;
 
                     const char* pRunningData = (const char*)pRawData;
-                    drflac_copy_memory(metadata.data.cuesheet.catalog, pRunningData, 128);                        pRunningData += 128;
-                    metadata.data.cuesheet.leadInSampleCount = drflac__be2host_64(*(drflac_uint64*)pRunningData); pRunningData += 4;
-                    metadata.data.cuesheet.isCD              = ((pRunningData[0] & 0x80) >> 7) != 0;              pRunningData += 259;
-                    metadata.data.cuesheet.trackCount        = pRunningData[0];                                   pRunningData += 1;
+                    drflac_copy_memory(metadata.data.cuesheet.catalog, pRunningData, 128);                              pRunningData += 128;
+                    metadata.data.cuesheet.leadInSampleCount = drflac__be2host_64(*(const drflac_uint64*)pRunningData); pRunningData += 4;
+                    metadata.data.cuesheet.isCD              = ((pRunningData[0] & 0x80) >> 7) != 0;                    pRunningData += 259;
+                    metadata.data.cuesheet.trackCount        = pRunningData[0];                                         pRunningData += 1;
                     metadata.data.cuesheet.pTrackData        = (const drflac_uint8*)pRunningData;
                     onMeta(pUserDataMD, &metadata);
 
@@ -3662,16 +3662,16 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.rawDataSize = blockSize;
 
                     const char* pRunningData = (const char*)pRawData;
-                    metadata.data.picture.type              = drflac__be2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.mimeLength        = drflac__be2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.mime              = pRunningData;                                      pRunningData += metadata.data.picture.mimeLength;
-                    metadata.data.picture.descriptionLength = drflac__be2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.type              = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.mimeLength        = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.mime              = pRunningData;                                            pRunningData += metadata.data.picture.mimeLength;
+                    metadata.data.picture.descriptionLength = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.description       = pRunningData;
-                    metadata.data.picture.width             = drflac__be2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.height            = drflac__be2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.colorDepth        = drflac__be2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.indexColorCount   = drflac__be2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.pictureDataSize   = drflac__be2host_32(*(drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.width             = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.height            = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.colorDepth        = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.indexColorCount   = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.pictureDataSize   = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.pPictureData      = (const drflac_uint8*)pRunningData;
                     onMeta(pUserDataMD, &metadata);
 
@@ -5737,7 +5737,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
         return NULL;
     }
 
-    drflac_uint32 length = drflac__le2host_32(*(drflac_uint32*)pIter->pRunningData);
+    drflac_uint32 length = drflac__le2host_32(*(const drflac_uint32*)pIter->pRunningData);
     pIter->pRunningData += 4;
 
     const char* pComment = pIter->pRunningData;
