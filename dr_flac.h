@@ -1295,15 +1295,11 @@ static DRFLAC_INLINE drflac_uint16 drflac_crc16(drflac_uint16 crc, drflac_cache_
 // from onRead() is read into.
 #define DRFLAC_CACHE_L1_SIZE_BYTES(bs)                  (sizeof((bs)->cache))
 #define DRFLAC_CACHE_L1_SIZE_BITS(bs)                   (sizeof((bs)->cache)*8)
-#define DRFLAC_CACHE_L1_BITS_REMAINING(bs)              (DRFLAC_CACHE_L1_SIZE_BITS(bs) - ((bs)->consumedBits))
-#ifdef DRFLAC_64BIT
-#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)       (~(((drflac_uint64)-1LL) >> (_bitCount)))
-#else
-#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)       (~(((drflac_uint32)-1) >> (_bitCount)))
-#endif
-#define DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, _bitCount)  (DRFLAC_CACHE_L1_SIZE_BITS(bs) - (_bitCount))
+#define DRFLAC_CACHE_L1_BITS_REMAINING(bs)              (DRFLAC_CACHE_L1_SIZE_BITS(bs) - (bs)->consumedBits)
+#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)       (~((~(drflac_cache_t)0) >> (_bitCount)))
+#define DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, _bitCount)  (((_bitCount) != 0) ? DRFLAC_CACHE_L1_SIZE_BITS(bs) - (_bitCount) : 0)
 #define DRFLAC_CACHE_L1_SELECT(bs, _bitCount)           (((bs)->cache) & DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount))
-#define DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, _bitCount) (DRFLAC_CACHE_L1_SELECT((bs), _bitCount) >> DRFLAC_CACHE_L1_SELECTION_SHIFT((bs), _bitCount))
+#define DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, _bitCount) (DRFLAC_CACHE_L1_SELECT((bs), (_bitCount)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT((bs), (_bitCount)))
 #define DRFLAC_CACHE_L2_SIZE_BYTES(bs)                  (sizeof((bs)->cacheL2))
 #define DRFLAC_CACHE_L2_LINE_COUNT(bs)                  (DRFLAC_CACHE_L2_SIZE_BYTES(bs) / sizeof((bs)->cacheL2[0]))
 #define DRFLAC_CACHE_L2_LINES_REMAINING(bs)             (DRFLAC_CACHE_L2_LINE_COUNT(bs) - (bs)->nextL2Line)
@@ -1425,7 +1421,7 @@ static drflac_bool32 drflac__reload_cache(drflac_bs* bs)
     bs->consumedBits = (drflac_uint32)(DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bytesRead) * 8;
 
     bs->cache = drflac__be2host__cache_line(bs->unalignedCache);
-    bs->cache &= DRFLAC_CACHE_L1_SELECTION_MASK(DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs->consumedBits);    // <-- Make sure the consumed bits are always set to zero. Other parts of the library depend on this property.
+    bs->cache &= DRFLAC_CACHE_L1_SELECTION_MASK(DRFLAC_CACHE_L1_BITS_REMAINING(bs));    // <-- Make sure the consumed bits are always set to zero. Other parts of the library depend on this property.
     bs->unalignedByteCount = 0;     // <-- At this point the unaligned bytes have been moved into the cache and we thus have no more unaligned bytes.
 
 #ifndef DR_FLAC_NO_CRC
@@ -1481,6 +1477,11 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_uint32(drflac_bs* bs, unsigned i
         drflac_uint32 resultHi = (drflac_uint32)DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountHi);
 
         if (!drflac__reload_cache(bs)) {
+            return DRFLAC_FALSE;
+        }
+
+        // Check that we have enough bits remaining to read the rest of the uint32
+        if (DRFLAC_CACHE_L1_BITS_REMAINING(bs) < bitCountLo) {
             return DRFLAC_FALSE;
         }
 
@@ -1824,8 +1825,18 @@ static inline drflac_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs, unsign
         }
     }
 
+    // Check that we have enough bits remaining to read the offset...
+    if (DRFLAC_CACHE_L1_BITS_REMAINING(bs) < 1) {
+        return DRFLAC_FALSE;
+    }
+
     drflac_uint32 setBitOffsetPlus1 = drflac__clz(bs->cache);
     setBitOffsetPlus1 += 1;
+
+    // ...and check that we have enough to read the rest
+    if (DRFLAC_CACHE_L1_BITS_REMAINING(bs) < setBitOffsetPlus1) {
+        return DRFLAC_FALSE;
+    }
 
     bs->consumedBits += setBitOffsetPlus1;
     bs->cache <<= setBitOffsetPlus1;
@@ -2251,7 +2262,7 @@ static drflac_bool32 drflac__read_rice_parts__reference(drflac_bs* bs, drflac_ui
 static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac_uint8 riceParam, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
 {
     drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
-    drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceParam;
+    drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParam);
 
 
     drflac_uint32 zeroCounter = 0;
@@ -2270,19 +2281,19 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
     drflac_uint32 riceParamPart;
     drflac_uint32 riceLength = setBitOffsetPlus1 + riceParam;
     if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
-        riceParamPart = (drflac_uint32)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceLength));
+        riceParamPart = (drflac_uint32)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceLength));
 
         bs->consumedBits += riceLength;
         bs->cache <<= riceLength;
     } else {
-        bs->consumedBits += riceLength;
         if (setBitOffsetPlus1 < DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
             bs->cache <<= setBitOffsetPlus1;
         }
 
         // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
-        drflac_uint32 bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
+        drflac_uint32 bitCountLo = riceLength + bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
         drflac_cache_t resultHi = bs->cache & riceParamMask;    // <-- This mask is OK because all bits after the first bits are always zero.
+        bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);       // <-- Don't let consumedBits go above the cache line size
 
         if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
 #ifndef DR_FLAC_NO_CRC
@@ -2296,6 +2307,10 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
         } else {
             // Slow path. We need to fetch more data from the client.
             if (!drflac__reload_cache(bs)) {
+                return DRFLAC_FALSE;
+            }
+
+            if (DRFLAC_CACHE_L1_BITS_REMAINING(bs) < bitCountLo) {
                 return DRFLAC_FALSE;
             }
         }
