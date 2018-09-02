@@ -2933,6 +2933,9 @@ static drflac_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame,
     }
 
     // Need to handle wasted bits per sample.
+    if (pSubframe->wastedBitsPerSample >= pSubframe->bitsPerSample) {
+        return DRFLAC_FALSE;
+    }
     pSubframe->bitsPerSample -= pSubframe->wastedBitsPerSample;
     pSubframe->pDecodedSamples = pDecodedSamplesOut;
 
@@ -2983,6 +2986,9 @@ static drflac_bool32 drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, i
     }
 
     // Need to handle wasted bits per sample.
+    if (pSubframe->wastedBitsPerSample >= pSubframe->bitsPerSample) {
+        return DRFLAC_FALSE;
+    }
     pSubframe->bitsPerSample -= pSubframe->wastedBitsPerSample;
     pSubframe->pDecodedSamples = NULL;
 
