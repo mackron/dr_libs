@@ -4821,6 +4821,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
                 // We need to seek back to where we were. If this fails it's a critical error.
                 if (!pFlac->bs.onSeek(pFlac->bs.pUserData, (int)pFlac->firstFramePos, drflac_seek_origin_start)) {
+                    DRFLAC_FREE(pFlac);
                     return NULL;
                 }
             } else {
