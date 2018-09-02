@@ -2583,11 +2583,13 @@ drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek
     srcConfig.channels = pMP3->channels;
     srcConfig.algorithm = drmp3_src_algorithm_linear;
     if (!drmp3_src_init(&srcConfig, drmp3_read_src, pMP3, &pMP3->src)) {
+        drmp3_uninit(pMP3);
         return DRMP3_FALSE;
     }
     
     // Decode the first frame to confirm that it is indeed a valid MP3 stream.
     if (!drmp3_decode_next_frame(pMP3)) {
+        drmp3_uninit(pMP3);
         return DRMP3_FALSE; // Not a valid MP3 stream.
     }
 
