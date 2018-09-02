@@ -2797,7 +2797,9 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
         }
 
 
-        if (blockSize == 1) {
+        if (blockSize == 0) {
+            continue;  // Reserved
+        } else if (blockSize == 1) {
             header->blockSize = 192;
         } else if (blockSize >= 2 && blockSize <= 5) {
             header->blockSize = 576 * (1 << (blockSize - 2));
