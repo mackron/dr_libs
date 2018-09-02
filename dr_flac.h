@@ -750,10 +750,10 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 #ifdef DR_FLAC_IMPLEMENTATION
 #ifdef __linux__
     #ifndef _BSD_SOURCE
-    #define _BSD_SOURCE
+        #define _BSD_SOURCE
     #endif
     #ifndef __USE_BSD
-    #define __USE_BSD
+        #define __USE_BSD
     #endif
     #include <endian.h>
 #endif
@@ -763,11 +763,11 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
 // CPU architecture.
 #if defined(__x86_64__) || defined(_M_X64)
-#define DRFLAC_X64
+    #define DRFLAC_X64
 #elif defined(__i386) || defined(_M_IX86)
-#define DRFLAC_X86
+    #define DRFLAC_X86
 #elif defined(__arm__) || defined(_M_ARM)
-#define DRFLAC_ARM
+    #define DRFLAC_ARM
 #endif
 
 // Compile-time CPU feature support.
@@ -809,7 +809,7 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
         #endif
     #endif
 #else
-#define DRFLAC_NO_CPUID
+    #define DRFLAC_NO_CPUID
 #endif
 
 
@@ -1805,11 +1805,11 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz(drflac_cache_t x)
     } else
 #endif
     {
-    #ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
+#ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
         return drflac__clz_msvc(x);
-    #else
+#else
         return drflac__clz_software(x);
-    #endif
+#endif
     }
 }
 
@@ -2285,14 +2285,14 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
         drflac_cache_t resultHi = bs->cache & riceParamMask;    // <-- This mask is OK because all bits after the first bits are always zero.
 
         if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
-        #ifndef DR_FLAC_NO_CRC
+#ifndef DR_FLAC_NO_CRC
             drflac__update_crc16(bs);
-        #endif
+#endif
             bs->cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
             bs->consumedBits = 0;
-        #ifndef DR_FLAC_NO_CRC
+#ifndef DR_FLAC_NO_CRC
             bs->crc16Cache = bs->cache;
-        #endif
+#endif
         } else {
             // Slow path. We need to fetch more data from the client.
             if (!drflac__reload_cache(bs)) {
@@ -2855,11 +2855,11 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
             return DRFLAC_FALSE;
         }
 
-    #ifndef DR_FLAC_NO_CRC
+#ifndef DR_FLAC_NO_CRC
         if (header->crc8 != crc8) {
             continue;    // CRC mismatch. Loop back to the top and find the next sync code.
         }
-    #endif
+#endif
         return DRFLAC_TRUE;
     }
 }
@@ -5478,13 +5478,13 @@ drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex)
 
         // Different techniques depending on encapsulation. Using the native FLAC seektable with Ogg encapsulation is a bit awkward so
         // we'll instead use Ogg's natural seeking facility.
-    #ifndef DR_FLAC_NO_OGG
+#ifndef DR_FLAC_NO_OGG
         if (pFlac->container == drflac_container_ogg)
         {
             wasSuccessful = drflac_ogg__seek_to_sample(pFlac, sampleIndex);
         }
         else
-    #endif
+#endif
         {
             // First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower.
             wasSuccessful = drflac__seek_to_sample__seek_table(pFlac, sampleIndex);
