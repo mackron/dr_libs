@@ -1421,7 +1421,7 @@ static drflac_bool32 drflac__reload_cache(drflac_bs* bs)
     bs->consumedBits = (drflac_uint32)(DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bytesRead) * 8;
 
     bs->cache = drflac__be2host__cache_line(bs->unalignedCache);
-    bs->cache &= DRFLAC_CACHE_L1_SELECTION_MASK(DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs->consumedBits);    // <-- Make sure the consumed bits are always set to zero. Other parts of the library depend on this property.
+    bs->cache &= DRFLAC_CACHE_L1_SELECTION_MASK(DRFLAC_CACHE_L1_BITS_REMAINING(bs));    // <-- Make sure the consumed bits are always set to zero. Other parts of the library depend on this property.
     bs->unalignedByteCount = 0;     // <-- At this point the unaligned bytes have been moved into the cache and we thus have no more unaligned bytes.
 
 #ifndef DR_FLAC_NO_CRC
@@ -2247,7 +2247,7 @@ static drflac_bool32 drflac__read_rice_parts__reference(drflac_bs* bs, drflac_ui
 static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac_uint8 riceParam, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
 {
     drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
-    drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceParam;
+    drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParam);
 
 
     drflac_uint32 zeroCounter = 0;
@@ -2266,7 +2266,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
     drflac_uint32 riceParamPart;
     drflac_uint32 riceLength = setBitOffsetPlus1 + riceParam;
     if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
-        riceParamPart = (drflac_uint32)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> (DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceLength));
+        riceParamPart = (drflac_uint32)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceLength));
 
         bs->consumedBits += riceLength;
         bs->cache <<= riceLength;
