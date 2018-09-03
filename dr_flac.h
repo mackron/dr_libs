@@ -1295,15 +1295,11 @@ static DRFLAC_INLINE drflac_uint16 drflac_crc16(drflac_uint16 crc, drflac_cache_
 // from onRead() is read into.
 #define DRFLAC_CACHE_L1_SIZE_BYTES(bs)                  (sizeof((bs)->cache))
 #define DRFLAC_CACHE_L1_SIZE_BITS(bs)                   (sizeof((bs)->cache)*8)
-#define DRFLAC_CACHE_L1_BITS_REMAINING(bs)              (DRFLAC_CACHE_L1_SIZE_BITS(bs) - ((bs)->consumedBits))
-#ifdef DRFLAC_64BIT
-#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)       (~(((drflac_uint64)-1LL) >> (_bitCount)))
-#else
-#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)       (~(((drflac_uint32)-1) >> (_bitCount)))
-#endif
+#define DRFLAC_CACHE_L1_BITS_REMAINING(bs)              (DRFLAC_CACHE_L1_SIZE_BITS(bs) - (bs)->consumedBits)
+#define DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount)       (~((~(drflac_cache_t)0) >> (_bitCount)))
 #define DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, _bitCount)  (DRFLAC_CACHE_L1_SIZE_BITS(bs) - (_bitCount))
 #define DRFLAC_CACHE_L1_SELECT(bs, _bitCount)           (((bs)->cache) & DRFLAC_CACHE_L1_SELECTION_MASK(_bitCount))
-#define DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, _bitCount) (DRFLAC_CACHE_L1_SELECT((bs), _bitCount) >> DRFLAC_CACHE_L1_SELECTION_SHIFT((bs), _bitCount))
+#define DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, _bitCount) (DRFLAC_CACHE_L1_SELECT((bs), (_bitCount)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT((bs), (_bitCount)))
 #define DRFLAC_CACHE_L2_SIZE_BYTES(bs)                  (sizeof((bs)->cacheL2))
 #define DRFLAC_CACHE_L2_LINE_COUNT(bs)                  (DRFLAC_CACHE_L2_SIZE_BYTES(bs) / sizeof((bs)->cacheL2[0]))
 #define DRFLAC_CACHE_L2_LINES_REMAINING(bs)             (DRFLAC_CACHE_L2_LINE_COUNT(bs) - (bs)->nextL2Line)
