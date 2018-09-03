@@ -2742,6 +2742,9 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
         if (!drflac__read_uint8(bs, 4, &blockSize)) {
             return DRFLAC_FALSE;
         }
+        if (blockSize == 0) {
+            continue;
+        }
         crc8 = drflac_crc8(crc8, blockSize, 4);
 
 
@@ -2765,6 +2768,9 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
         drflac_uint8 bitsPerSample = 0;
         if (!drflac__read_uint8(bs, 3, &bitsPerSample)) {
             return DRFLAC_FALSE;
+        }
+        if (bitsPerSample == 3 || bitsPerSample == 7) {
+            continue;
         }
         crc8 = drflac_crc8(crc8, bitsPerSample, 3);
 
@@ -2806,9 +2812,7 @@ static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 
         }
 
 
-        if (blockSize == 0) {
-            continue;  // Reserved
-        } else if (blockSize == 1) {
+        if (blockSize == 1) {
             header->blockSize = 192;
         } else if (blockSize >= 2 && blockSize <= 5) {
             header->blockSize = 576 * (1 << (blockSize - 2));
