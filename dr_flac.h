@@ -1414,6 +1414,7 @@ static drflac_bool32 drflac__reload_cache(drflac_bs* bs)
     // data from the unaligned cache.
     size_t bytesRead = bs->unalignedByteCount;
     if (bytesRead == 0) {
+        bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);   // <-- The stream has been exhausted, so marked the bits as consumed.
         return DRFLAC_FALSE;
     }
 
