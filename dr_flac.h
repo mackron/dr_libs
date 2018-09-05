@@ -2247,8 +2247,6 @@ static drflac_bool32 drflac__read_rice_parts__reference(drflac_bs* bs, drflac_ui
 
 static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac_uint8 riceParam, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
 {
-    drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
-
     drflac_uint32 zeroCounter = 0;
     while (bs->cache == 0) {
         zeroCounter += (drflac_uint32)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
@@ -2265,13 +2263,12 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
     drflac_uint32 riceParamPart;
     drflac_uint32 riceLength = setBitOffsetPlus1 + riceParam;
     if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
-        riceParamPart = (drflac_uint32)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceLength));
+        const drflac_cache_t riceParamMask = ~((~(drflac_cache_t)0) << riceParam);
+        riceParamPart = (drflac_uint32)((bs->cache >> (DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceLength)) & riceParamMask);
 
         bs->consumedBits += riceLength;
         bs->cache <<= riceLength;
     } else {
-        drflac_cache_t resultHiShift = DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParam);
-
         bs->consumedBits += riceLength;
         if (setBitOffsetPlus1 < DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
             bs->cache <<= setBitOffsetPlus1;
@@ -2279,7 +2276,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
 
         // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
         drflac_uint32 bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
-        drflac_cache_t resultHi = bs->cache & riceParamMask;    // <-- This mask is OK because all bits after the first bits are always zero.
+        drflac_cache_t resultHi = DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, riceParam);
 
         if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
 #ifndef DR_FLAC_NO_CRC
@@ -2297,7 +2294,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
             }
         }
 
-        riceParamPart = (drflac_uint32)((resultHi >> resultHiShift) | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountLo));
+        riceParamPart = (drflac_uint32)(resultHi | DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountLo));
 
         bs->consumedBits += bitCountLo;
         bs->cache <<= bitCountLo;
@@ -2310,8 +2307,6 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
 
 static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts__param_equals_zero(drflac_bs* bs, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
 {
-    drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(0);
-
     drflac_uint32 zeroCounter = 0;
     while (bs->cache == 0) {
         zeroCounter += (drflac_uint32)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
@@ -2328,7 +2323,8 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts__param_equals_zero(dr
     drflac_uint32 riceParamPart;
     drflac_uint32 riceLength = setBitOffsetPlus1;
     if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
-        riceParamPart = (drflac_uint32)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceLength));
+        const drflac_cache_t riceParamMask = ~((~(drflac_cache_t)0) << 0);
+        riceParamPart = (drflac_uint32)((bs->cache >> (DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceLength)) & riceParamMask);
 
         bs->consumedBits += riceLength;
         bs->cache <<= riceLength;
