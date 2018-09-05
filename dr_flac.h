@@ -4425,7 +4425,7 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
 {
     drflac_oggbs* oggbs = (drflac_oggbs*)pUserData;
     drflac_assert(oggbs != NULL);
-    drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
+    drflac_assert(offset >= 0);  // <-- Never seek backwards.
 
     // Seeking is always forward which makes things a lot simpler.
     if (origin == drflac_seek_origin_start) {
@@ -5034,7 +5034,7 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
 
 static drflac_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
+    drflac_assert(offset >= 0);  // <-- Never seek backwards.
 
     return fseek((FILE*)pUserData, offset, (origin == drflac_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
@@ -5080,7 +5080,7 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
 
 static drflac_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
+    drflac_assert(offset >= 0); // <-- Never seek backwards.
 
     return SetFilePointer((HANDLE)pUserData, offset, NULL, (origin == drflac_seek_origin_current) ? FILE_CURRENT : FILE_BEGIN) != INVALID_SET_FILE_POINTER;
 }
@@ -5158,7 +5158,7 @@ static drflac_bool32 drflac__on_seek_memory(void* pUserData, int offset, drflac_
 {
     drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
     drflac_assert(memoryStream != NULL);
-    drflac_assert(offset > 0 || (offset == 0 && origin == drflac_seek_origin_start));
+    drflac_assert(offset >= 0); // <-- Never seek backwards.
 
     if (offset > (drflac_int64)memoryStream->dataSize) {
         return DRFLAC_FALSE;
