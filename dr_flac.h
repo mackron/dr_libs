@@ -2539,11 +2539,20 @@ static drflac_bool32 drflac__read_and_seek_residual__rice(drflac_bs* bs, drflac_
     drflac_assert(bs != NULL);
     drflac_assert(count > 0);
 
-    for (drflac_uint32 i = 0; i < count; ++i) {
-        drflac_uint32 zeroCountPart;
-        drflac_uint32 riceParamPart;
-        if (!drflac__read_rice_parts(bs, riceParam, &zeroCountPart, &riceParamPart)) {
-            return DRFLAC_FALSE;
+    drflac_uint32 zeroCountPart;
+    drflac_uint32 riceParamPart;
+
+    if (riceParam != 0) {
+        for (drflac_uint32 i = 0; i < count; ++i) {
+            if (!drflac__read_rice_parts(bs, riceParam, &zeroCountPart, &riceParamPart)) {
+                return DRFLAC_FALSE;
+            }
+        }
+    } else {
+        for (drflac_uint32 i = 0; i < count; ++i) {
+            if (!drflac__read_rice_parts__param_equals_zero(bs, &zeroCountPart, &riceParamPart)) {
+                return DRFLAC_FALSE;
+            }
         }
     }
 
