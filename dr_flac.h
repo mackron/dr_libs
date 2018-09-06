@@ -3820,7 +3820,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.data.picture.mimeLength        = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.mime              = pRunningData;                                            pRunningData += metadata.data.picture.mimeLength;
                     metadata.data.picture.descriptionLength = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.description       = pRunningData;
+                    metadata.data.picture.description       = pRunningData;                                            pRunningData += metadata.data.picture.descriptionLength;
                     metadata.data.picture.width             = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.height            = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.colorDepth        = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
