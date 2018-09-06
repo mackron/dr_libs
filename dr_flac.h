@@ -2274,9 +2274,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
         bs->cache <<= riceLength;
     } else {
         bs->consumedBits += riceLength;
-        if (setBitOffsetPlus1 < DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
-            bs->cache <<= setBitOffsetPlus1;
-        }
+        bs->cache <<= setBitOffsetPlus1 & (DRFLAC_CACHE_L1_SIZE_BITS(bs)-1);    // <-- Equivalent to "if (setBitOffsetPlus1 < DRFLAC_CACHE_L1_SIZE_BITS(bs)) { bs->cache <<= setBitOffsetPlus1; }"
 
         // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
         drflac_uint32 bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
@@ -2335,9 +2333,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts__param_equals_zero(dr
         bs->cache <<= riceLength;
     } else {
         bs->consumedBits += riceLength;
-        if (setBitOffsetPlus1 < DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
-            bs->cache <<= setBitOffsetPlus1;
-        }
+        bs->cache <<= setBitOffsetPlus1 & (DRFLAC_CACHE_L1_SIZE_BITS(bs)-1);
 
         // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
         drflac_uint32 bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
