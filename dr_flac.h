@@ -3696,6 +3696,10 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
         {
             case DRFLAC_METADATA_BLOCK_TYPE_APPLICATION:
             {
+                if (blockSize < 4) {
+                    return DRFLAC_FALSE;
+                }
+
                 if (onMeta) {
                     void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
@@ -3755,6 +3759,10 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
 
             case DRFLAC_METADATA_BLOCK_TYPE_VORBIS_COMMENT:
             {
+                if (blockSize < 8) {
+                    return DRFLAC_FALSE;
+                }
+
                 if (onMeta) {
                     void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
@@ -3782,6 +3790,10 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
 
             case DRFLAC_METADATA_BLOCK_TYPE_CUESHEET:
             {
+                if (blockSize < 392) {
+                    return DRFLAC_FALSE;
+                }
+
                 if (onMeta) {
                     void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
@@ -3810,6 +3822,10 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
 
             case DRFLAC_METADATA_BLOCK_TYPE_PICTURE:
             {
+                if (blockSize < 32) {
+                    return DRFLAC_FALSE;
+                }
+
                 if (onMeta) {
                     void* pRawData = DRFLAC_MALLOC(blockSize);
                     if (pRawData == NULL) {
