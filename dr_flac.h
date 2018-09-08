@@ -3819,7 +3819,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.data.vorbis_comment.vendorLength = drflac__le2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
 
                     // Need space for the rest of the block
-                    if ((pRunningDataEnd - pRunningData) - 4 < metadata.data.vorbis_comment.vendorLength) { // <-- Note the order of operations to avoid overflow to a valid value
+                    if ((pRunningDataEnd - pRunningData) - 4 < (drflac_int64)metadata.data.vorbis_comment.vendorLength) { // <-- Note the order of operations to avoid overflow to a valid value
                         DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
@@ -3840,7 +3840,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                             return DRFLAC_FALSE;
                         }
                         const drflac_uint32 commentLength     = drflac__le2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
-                        if (pRunningDataEnd - pRunningData < commentLength) { // <-- Note the order of operations to avoid overflow to a valid value
+                        if (pRunningDataEnd - pRunningData < (drflac_int64)commentLength) { // <-- Note the order of operations to avoid overflow to a valid value
                             DRFLAC_FREE(pRawData);
                             return DRFLAC_FALSE;
                         }
@@ -3893,7 +3893,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                         pRunningData += 35;
                         const drflac_uint8 indexCount        = pRunningData[0];                                         pRunningData += 1;
                         const drflac_uint32 indexPointSize = indexCount * sizeof(drflac_cuesheet_track_index);
-                        if (pRunningDataEnd - pRunningData < indexPointSize) {
+                        if (pRunningDataEnd - pRunningData < (drflac_int64)indexPointSize) {
                             DRFLAC_FREE(pRawData);
                             return DRFLAC_FALSE;
                         }
@@ -3939,7 +3939,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.data.picture.mimeLength        = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
 
                     // Need space for the rest of the block
-                    if ((pRunningDataEnd - pRunningData) - 24 < metadata.data.picture.mimeLength) { // <-- Note the order of operations to avoid overflow to a valid value
+                    if ((pRunningDataEnd - pRunningData) - 24 < (drflac_int64)metadata.data.picture.mimeLength) { // <-- Note the order of operations to avoid overflow to a valid value
                         DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
@@ -3947,7 +3947,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.data.picture.descriptionLength = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
 
                     // Need space for the rest of the block
-                    if ((pRunningDataEnd - pRunningData) - 20 < metadata.data.picture.descriptionLength) { // <-- Note the order of operations to avoid overflow to a valid value
+                    if ((pRunningDataEnd - pRunningData) - 20 < (drflac_int64)metadata.data.picture.descriptionLength) { // <-- Note the order of operations to avoid overflow to a valid value
                         DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
@@ -3960,7 +3960,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.data.picture.pPictureData      = (const drflac_uint8*)pRunningData;
 
                     // Need space for the picture after the block
-                    if (pRunningDataEnd - pRunningData < metadata.data.picture.pictureDataSize) { // <-- Note the order of operations to avoid overflow to a valid value
+                    if (pRunningDataEnd - pRunningData < (drflac_int64)metadata.data.picture.pictureDataSize) { // <-- Note the order of operations to avoid overflow to a valid value
                         DRFLAC_FREE(pRawData);
                         return DRFLAC_FALSE;
                     }
