@@ -3814,10 +3814,39 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.rawDataSize = blockSize;
 
                     const char* pRunningData = (const char*)pRawData;
+                    const char* const pRunningDataEnd = (const char*)pRawData + blockSize;
+
                     metadata.data.vorbis_comment.vendorLength = drflac__le2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+
+                    // Need space for the rest of the block
+                    if ((pRunningDataEnd - pRunningData) - 4 < metadata.data.vorbis_comment.vendorLength) { // <-- Note the order of operations to avoid overflow to a valid value
+                        DRFLAC_FREE(pRawData);
+                        return DRFLAC_FALSE;
+                    }
                     metadata.data.vorbis_comment.vendor       = pRunningData;                                            pRunningData += metadata.data.vorbis_comment.vendorLength;
                     metadata.data.vorbis_comment.commentCount = drflac__le2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+
+                    // Need space for 'commentCount' comments after the block, which at minimum is a drflac_uint32 per comment
+                    if ((pRunningDataEnd - pRunningData) / sizeof(drflac_uint32) < metadata.data.vorbis_comment.commentCount) { // <-- Note the order of operations to avoid overflow to a valid value
+                        DRFLAC_FREE(pRawData);
+                        return DRFLAC_FALSE;
+                    }
                     metadata.data.vorbis_comment.pComments    = pRunningData;
+
+                    // Check that the comments section is valid before passing it to the callback
+                    for (drflac_uint32 i = 0; i < metadata.data.vorbis_comment.commentCount; ++i) {
+                        if (pRunningDataEnd - pRunningData < 4) {
+                            DRFLAC_FREE(pRawData);
+                            return DRFLAC_FALSE;
+                        }
+                        const drflac_uint32 commentLength     = drflac__le2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                        if (pRunningDataEnd - pRunningData < commentLength) { // <-- Note the order of operations to avoid overflow to a valid value
+                            DRFLAC_FREE(pRawData);
+                            return DRFLAC_FALSE;
+                        }
+                        pRunningData += commentLength;
+                    }
+
                     onMeta(pUserDataMD, &metadata);
 
                     DRFLAC_FREE(pRawData);
@@ -3845,11 +3874,32 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.rawDataSize = blockSize;
 
                     const char* pRunningData = (const char*)pRawData;
+                    const char* const pRunningDataEnd = (const char*)pRawData + blockSize;
+
                     drflac_copy_memory(metadata.data.cuesheet.catalog, pRunningData, 128);                              pRunningData += 128;
                     metadata.data.cuesheet.leadInSampleCount = drflac__be2host_64(*(const drflac_uint64*)pRunningData); pRunningData += 8;
                     metadata.data.cuesheet.isCD              = (pRunningData[0] & 0x80) != 0;                           pRunningData += 259;
                     metadata.data.cuesheet.trackCount        = pRunningData[0];                                         pRunningData += 1;
                     metadata.data.cuesheet.pTrackData        = pRunningData;
+
+                    // Check that the cuesheet tracks are valid before passing it to the callback
+                    for (drflac_uint8 i = 0; i < metadata.data.cuesheet.trackCount; ++i) {
+                        if (pRunningDataEnd - pRunningData < 36) {
+                            DRFLAC_FREE(pRawData);
+                            return DRFLAC_FALSE;
+                        }
+
+                        // Skip to the index point count
+                        pRunningData += 35;
+                        const drflac_uint8 indexCount        = pRunningData[0];                                         pRunningData += 1;
+                        const drflac_uint32 indexPointSize = indexCount * sizeof(drflac_cuesheet_track_index);
+                        if (pRunningDataEnd - pRunningData < indexPointSize) {
+                            DRFLAC_FREE(pRawData);
+                            return DRFLAC_FALSE;
+                        }
+                        pRunningData += indexPointSize;
+                    }
+
                     onMeta(pUserDataMD, &metadata);
 
                     DRFLAC_FREE(pRawData);
@@ -3877,10 +3927,24 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.rawDataSize = blockSize;
 
                     const char* pRunningData = (const char*)pRawData;
+                    const char* const pRunningDataEnd = (const char*)pRawData + blockSize;
+
                     metadata.data.picture.type              = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.mimeLength        = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+
+                    // Need space for the rest of the block
+                    if ((pRunningDataEnd - pRunningData) - 24 < metadata.data.picture.mimeLength) { // <-- Note the order of operations to avoid overflow to a valid value
+                        DRFLAC_FREE(pRawData);
+                        return DRFLAC_FALSE;
+                    }
                     metadata.data.picture.mime              = pRunningData;                                            pRunningData += metadata.data.picture.mimeLength;
                     metadata.data.picture.descriptionLength = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+
+                    // Need space for the rest of the block
+                    if ((pRunningDataEnd - pRunningData) - 20 < metadata.data.picture.descriptionLength) { // <-- Note the order of operations to avoid overflow to a valid value
+                        DRFLAC_FREE(pRawData);
+                        return DRFLAC_FALSE;
+                    }
                     metadata.data.picture.description       = pRunningData;                                            pRunningData += metadata.data.picture.descriptionLength;
                     metadata.data.picture.width             = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.height            = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
@@ -3888,6 +3952,13 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.data.picture.indexColorCount   = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.pictureDataSize   = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.picture.pPictureData      = (const drflac_uint8*)pRunningData;
+
+                    // Need space for the picture after the block
+                    if (pRunningDataEnd - pRunningData < metadata.data.picture.pictureDataSize) { // <-- Note the order of operations to avoid overflow to a valid value
+                        DRFLAC_FREE(pRawData);
+                        return DRFLAC_FALSE;
+                    }
+
                     onMeta(pUserDataMD, &metadata);
 
                     DRFLAC_FREE(pRawData);
