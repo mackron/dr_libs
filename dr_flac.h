@@ -285,7 +285,7 @@ typedef struct
             drflac_uint64 leadInSampleCount;
             drflac_bool32 isCD;
             drflac_uint8 trackCount;
-            const drflac_uint8* pTrackData;
+            const void* pTrackData;
         } cuesheet;
 
         struct
@@ -733,6 +733,42 @@ void drflac_init_vorbis_comment_iterator(drflac_vorbis_comment_iterator* pIter, 
 // Goes to the next vorbis comment in the given iterator. If null is returned it means there are no more comments. The
 // returned string is NOT null terminated.
 const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, drflac_uint32* pCommentLengthOut);
+
+
+// Structure representing an iterator for cuesheet tracks in a CUESHEET metadata block.
+typedef struct
+{
+    drflac_uint32 countRemaining;
+    const char* pRunningData;
+} drflac_cuesheet_track_iterator;
+
+// Packing is important on this structure because we map this directly to the raw data within the CUESHEET metadata block.
+#pragma pack(4)
+typedef struct
+{
+    drflac_uint64 offset;
+    drflac_uint8 index;
+    drflac_uint8 reserved[3];
+} drflac_cuesheet_track_index;
+#pragma pack()
+
+typedef struct
+{
+    drflac_uint64 offset;
+    drflac_uint8 trackNumber;
+    char ISRC[12];
+    drflac_bool8 isAudio;
+    drflac_bool8 preEmphasis;
+    drflac_uint8 indexCount;
+    const drflac_cuesheet_track_index* pIndexPoints;
+} drflac_cuesheet_track;
+
+// Initializes a cuesheet track iterator. This can be used for iterating over the cuesheet tracks in a CUESHEET metadata
+// block.
+void drflac_init_cuesheet_track_iterator(drflac_cuesheet_track_iterator* pIter, drflac_uint32 trackCount, const void* pTrackData);
+
+// Goes to the next cuesheet track in the given iterator. If DRFLAC_FALSE is returned it means there are no more comments.
+drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, drflac_cuesheet_track* pCuesheetTrack);
 
 
 
@@ -3813,7 +3849,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.data.cuesheet.leadInSampleCount = drflac__be2host_64(*(const drflac_uint64*)pRunningData); pRunningData += 8;
                     metadata.data.cuesheet.isCD              = (pRunningData[0] & 0x80) != 0;                           pRunningData += 259;
                     metadata.data.cuesheet.trackCount        = pRunningData[0];                                         pRunningData += 1;
-                    metadata.data.cuesheet.pTrackData        = (const drflac_uint8*)pRunningData;
+                    metadata.data.cuesheet.pTrackData        = pRunningData;
                     onMeta(pUserDataMD, &metadata);
 
                     DRFLAC_FREE(pRawData);
@@ -5929,6 +5965,46 @@ const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, dr
 
     if (pCommentLengthOut) *pCommentLengthOut = length;
     return pComment;
+}
+
+
+
+
+void drflac_init_cuesheet_track_iterator(drflac_cuesheet_track_iterator* pIter, drflac_uint32 trackCount, const void* pTrackData)
+{
+    if (pIter == NULL) {
+        return;
+    }
+
+    pIter->countRemaining = trackCount;
+    pIter->pRunningData   = (const char*)pTrackData;
+}
+
+drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, drflac_cuesheet_track* pCuesheetTrack)
+{
+    if (pIter == NULL || pIter->countRemaining == 0 || pIter->pRunningData == NULL) {
+        return DRFLAC_FALSE;
+    }
+
+    drflac_cuesheet_track cuesheetTrack;
+
+    const char* pRunningData = pIter->pRunningData;
+
+    drflac_uint64 offsetHi     = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+    drflac_uint64 offsetLo     = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+    cuesheetTrack.offset       = offsetLo | (offsetHi << 32);
+    cuesheetTrack.trackNumber  = pRunningData[0];                                         pRunningData += 1;
+    drflac_copy_memory(cuesheetTrack.ISRC, pRunningData, sizeof(cuesheetTrack.ISRC));     pRunningData += 12;
+    cuesheetTrack.isAudio      = (pRunningData[0] & 0x80) != 0;
+    cuesheetTrack.preEmphasis  = (pRunningData[0] & 0x40) != 0;                           pRunningData += 14;
+    cuesheetTrack.indexCount   = pRunningData[0];                                         pRunningData += 1;
+    cuesheetTrack.pIndexPoints = (const drflac_cuesheet_track_index*)pRunningData;        pRunningData += cuesheetTrack.indexCount * sizeof(drflac_cuesheet_track_index);
+
+    pIter->pRunningData = pRunningData;
+    pIter->countRemaining -= 1;
+
+    if (pCuesheetTrack) *pCuesheetTrack = cuesheetTrack;
+    return DRFLAC_TRUE;
 }
 #endif  //DR_FLAC_IMPLEMENTATION
 
