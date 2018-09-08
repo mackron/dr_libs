@@ -276,7 +276,7 @@ typedef struct
             drflac_uint32 vendorLength;
             const char* vendor;
             drflac_uint32 commentCount;
-            const char* comments;
+            const void* pComments;
         } vorbis_comment;
 
         struct
@@ -728,7 +728,7 @@ typedef struct
 
 // Initializes a vorbis comment iterator. This can be used for iterating over the vorbis comments in a VORBIS_COMMENT
 // metadata block.
-void drflac_init_vorbis_comment_iterator(drflac_vorbis_comment_iterator* pIter, drflac_uint32 commentCount, const char* pComments);
+void drflac_init_vorbis_comment_iterator(drflac_vorbis_comment_iterator* pIter, drflac_uint32 commentCount, const void* pComments);
 
 // Goes to the next vorbis comment in the given iterator. If null is returned it means there are no more comments. The
 // returned string is NOT null terminated.
@@ -3781,7 +3781,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.data.vorbis_comment.vendorLength = drflac__le2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
                     metadata.data.vorbis_comment.vendor       = pRunningData;                                            pRunningData += metadata.data.vorbis_comment.vendorLength;
                     metadata.data.vorbis_comment.commentCount = drflac__le2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.vorbis_comment.comments     = pRunningData;
+                    metadata.data.vorbis_comment.pComments    = pRunningData;
                     onMeta(pUserDataMD, &metadata);
 
                     DRFLAC_FREE(pRawData);
@@ -5901,14 +5901,14 @@ void drflac_free(void* pSampleDataReturnedByOpenAndDecode)
 
 
 
-void drflac_init_vorbis_comment_iterator(drflac_vorbis_comment_iterator* pIter, drflac_uint32 commentCount, const char* pComments)
+void drflac_init_vorbis_comment_iterator(drflac_vorbis_comment_iterator* pIter, drflac_uint32 commentCount, const void* pComments)
 {
     if (pIter == NULL) {
         return;
     }
 
     pIter->countRemaining = commentCount;
-    pIter->pRunningData   = pComments;
+    pIter->pRunningData   = (const char*)pComments;
 }
 
 const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator* pIter, drflac_uint32* pCommentLengthOut)
