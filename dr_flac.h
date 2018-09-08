@@ -3873,7 +3873,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                     metadata.pRawData = pRawData;
                     metadata.rawDataSize = blockSize;
 
-                    const char* pRunningData = (const char*)pRawData;
+                    char* pRunningData = (char*)pRawData;
                     const char* const pRunningDataEnd = (const char*)pRawData + blockSize;
 
                     drflac_copy_memory(metadata.data.cuesheet.catalog, pRunningData, 128);                              pRunningData += 128;
@@ -3897,7 +3897,13 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
                             DRFLAC_FREE(pRawData);
                             return DRFLAC_FALSE;
                         }
-                        pRunningData += indexPointSize;
+
+                        // Endian swap.
+                        for (drflac_uint8 index = 0; index < indexCount; ++index) {
+                            drflac_cuesheet_track_index* pTrack = (drflac_cuesheet_track_index*)pRunningData;
+                            pRunningData += sizeof(drflac_cuesheet_track_index);
+                            pTrack->offset = drflac__be2host_64(pTrack->offset);
+                        }
                     }
 
                     onMeta(pUserDataMD, &metadata);
