@@ -3790,7 +3790,7 @@ drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_s
 
             case DRFLAC_METADATA_BLOCK_TYPE_CUESHEET:
             {
-                if (blockSize < 392) {
+                if (blockSize < 396) {
                     return DRFLAC_FALSE;
                 }
 
