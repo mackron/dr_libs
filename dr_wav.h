@@ -1143,11 +1143,11 @@ static drwav_bool32 drwav__on_seek_memory(void* pUserData, int offset, drwav_see
     if (origin == drwav_seek_origin_current) {
         if (offset > 0) {
             if (memory->currentReadPos + offset > memory->dataSize) {
-                offset = (int)(memory->dataSize - memory->currentReadPos);  // Trying to seek too far forward.
+                return DRWAV_FALSE; // Trying to seek too far forward.
             }
         } else {
             if (memory->currentReadPos < (size_t)-offset) {
-                offset = -(int)memory->currentReadPos;  // Trying to seek too far backwards.
+                return DRWAV_FALSE; // Trying to seek too far backwards.
             }
         }
 
@@ -1157,7 +1157,7 @@ static drwav_bool32 drwav__on_seek_memory(void* pUserData, int offset, drwav_see
         if ((drwav_uint32)offset <= memory->dataSize) {
             memory->currentReadPos = offset;
         } else {
-            memory->currentReadPos = memory->dataSize;  // Trying to seek too far forward.
+            return DRWAV_FALSE; // Trying to seek too far forward.
         }
     }
     
