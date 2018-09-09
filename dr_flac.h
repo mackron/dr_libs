@@ -1498,7 +1498,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_uint32(drflac_bs* bs, unsigned i
     }
 
     if (bitCount <= DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
-        if (bitCount < DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
+        if (bitCount < DRFLAC_CACHE_L1_SIZE_BITS(bs) || DRFLAC_CACHE_L1_SIZE_BITS(bs) > 32) {
             *pResultOut = (drflac_uint32)DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCount);
             bs->consumedBits += bitCount;
             bs->cache <<= bitCount;
