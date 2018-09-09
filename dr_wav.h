@@ -2424,7 +2424,7 @@ static void drwav__pcm_to_s16(drwav_int16* pOut, const unsigned char* pIn, size_
     // Slightly more optimal implementation for common formats.
     if (bytesPerSample == 2) {
         for (unsigned int i = 0; i < totalSampleCount; ++i) {
-           *pOut++ = ((drwav_int16*)pIn)[i];
+           *pOut++ = ((const drwav_int16*)pIn)[i];
         }
         return;
     }
@@ -2464,10 +2464,10 @@ static void drwav__pcm_to_s16(drwav_int16* pOut, const unsigned char* pIn, size_
 static void drwav__ieee_to_s16(drwav_int16* pOut, const unsigned char* pIn, size_t totalSampleCount, unsigned short bytesPerSample)
 {
     if (bytesPerSample == 4) {
-        drwav_f32_to_s16(pOut, (float*)pIn, totalSampleCount);
+        drwav_f32_to_s16(pOut, (const float*)pIn, totalSampleCount);
         return;
     } else if (bytesPerSample == 8) {
-        drwav_f64_to_s16(pOut, (double*)pIn, totalSampleCount);
+        drwav_f64_to_s16(pOut, (const double*)pIn, totalSampleCount);
         return;
     } else {
         // Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float.
@@ -2614,7 +2614,7 @@ void drwav_s24_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCo
 {
     int r;
     for (size_t i = 0; i < sampleCount; ++i) {
-        int x = ((int)(((unsigned int)(((unsigned char*)pIn)[i*3+0]) << 8) | ((unsigned int)(((unsigned char*)pIn)[i*3+1]) << 16) | ((unsigned int)(((unsigned char*)pIn)[i*3+2])) << 24)) >> 8;
+        int x = ((int)(((unsigned int)(((const unsigned char*)pIn)[i*3+0]) << 8) | ((unsigned int)(((const unsigned char*)pIn)[i*3+1]) << 16) | ((unsigned int)(((const unsigned char*)pIn)[i*3+2])) << 24)) >> 8;
         r = x >> 8;
         pOut[i] = (short)r;
     }
@@ -2724,11 +2724,11 @@ static void drwav__ieee_to_f32(float* pOut, const unsigned char* pIn, size_t sam
 {
     if (bytesPerSample == 4) {
         for (unsigned int i = 0; i < sampleCount; ++i) {
-            *pOut++ = ((float*)pIn)[i];
+            *pOut++ = ((const float*)pIn)[i];
         }
         return;
     } else if (bytesPerSample == 8) {
-        drwav_f64_to_f32(pOut, (double*)pIn, sampleCount);
+        drwav_f64_to_f32(pOut, (const double*)pIn, sampleCount);
         return;
     } else {
         // Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float.
@@ -3034,7 +3034,7 @@ static void drwav__pcm_to_s32(drwav_int32* pOut, const unsigned char* pIn, size_
     }
     if (bytesPerSample == 4) {
         for (unsigned int i = 0; i < totalSampleCount; ++i) {
-           *pOut++ = ((drwav_int32*)pIn)[i];
+           *pOut++ = ((const drwav_int32*)pIn)[i];
         }
         return;
     }
@@ -3066,10 +3066,10 @@ static void drwav__pcm_to_s32(drwav_int32* pOut, const unsigned char* pIn, size_
 static void drwav__ieee_to_s32(drwav_int32* pOut, const unsigned char* pIn, size_t totalSampleCount, unsigned short bytesPerSample)
 {
     if (bytesPerSample == 4) {
-        drwav_f32_to_s32(pOut, (float*)pIn, totalSampleCount);
+        drwav_f32_to_s32(pOut, (const float*)pIn, totalSampleCount);
         return;
     } else if (bytesPerSample == 8) {
-        drwav_f64_to_s32(pOut, (double*)pIn, totalSampleCount);
+        drwav_f64_to_s32(pOut, (const double*)pIn, totalSampleCount);
         return;
     } else {
         // Only supporting 32- and 64-bit float. Output silence in all other cases. Contributions welcome for 16-bit float.
