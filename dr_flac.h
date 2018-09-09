@@ -2664,14 +2664,14 @@ static drflac_bool32 drflac__decode_samples_with_residual(drflac_bs* bs, drflac_
             if (!drflac__read_uint8(bs, 4, &riceParam)) {
                 return DRFLAC_FALSE;
             }
-            if (riceParam == 16) {
+            if (riceParam == 15) {
                 riceParam = 0xFF;
             }
         } else if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
             if (!drflac__read_uint8(bs, 5, &riceParam)) {
                 return DRFLAC_FALSE;
             }
-            if (riceParam == 32) {
+            if (riceParam == 31) {
                 riceParam = 0xFF;
             }
         }
@@ -2739,14 +2739,14 @@ static drflac_bool32 drflac__read_and_seek_residual(drflac_bs* bs, drflac_uint32
             if (!drflac__read_uint8(bs, 4, &riceParam)) {
                 return DRFLAC_FALSE;
             }
-            if (riceParam == 16) {
+            if (riceParam == 15) {
                 riceParam = 0xFF;
             }
         } else if (residualMethod == DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2) {
             if (!drflac__read_uint8(bs, 5, &riceParam)) {
                 return DRFLAC_FALSE;
             }
-            if (riceParam == 32) {
+            if (riceParam == 31) {
                 riceParam = 0xFF;
             }
         }
