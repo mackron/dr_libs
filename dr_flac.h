@@ -2745,6 +2745,17 @@ static drflac_bool32 drflac__read_and_seek_residual(drflac_bs* bs, drflac_uint32
         return DRFLAC_FALSE;
     }
 
+    // From the FLAC spec:
+    //   The Rice partition order in a Rice-coded residual section must be less than or equal to 8.
+    if (partitionOrder > 8) {
+        return DRFLAC_FALSE;
+    }
+
+    // Validation check.
+    if ((blockSize / (1 << partitionOrder)) <= order) {
+        return DRFLAC_FALSE;
+    }
+
     drflac_uint32 samplesInPartition = (blockSize / (1 << partitionOrder)) - order;
     drflac_uint32 partitionsRemaining = (1 << partitionOrder);
     for (;;)
