@@ -2599,12 +2599,16 @@ static drflac_bool32 drflac__decode_samples_with_residual__unencoded(drflac_bs* 
 {
     drflac_assert(bs != NULL);
     drflac_assert(count > 0);
-    drflac_assert(unencodedBitsPerSample > 0 && unencodedBitsPerSample <= 32);
+    drflac_assert(unencodedBitsPerSample <= 31);    // <-- unencodedBitsPerSample is a 5 bit number, so cannot exceed 31.
     drflac_assert(pSamplesOut != NULL);
 
     for (unsigned int i = 0; i < count; ++i) {
-        if (!drflac__read_int32(bs, unencodedBitsPerSample, pSamplesOut + i)) {
-            return DRFLAC_FALSE;
+        if (unencodedBitsPerSample > 0) {
+            if (!drflac__read_int32(bs, unencodedBitsPerSample, pSamplesOut + i)) {
+                return DRFLAC_FALSE;
+            }
+        } else {
+            pSamplesOut[i] = 0;
         }
 
         if (bitsPerSample > 16) {
