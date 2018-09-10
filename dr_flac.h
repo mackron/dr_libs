@@ -1498,15 +1498,26 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_uint32(drflac_bs* bs, unsigned i
     }
 
     if (bitCount <= DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
-        if (bitCount < DRFLAC_CACHE_L1_SIZE_BITS(bs) || DRFLAC_CACHE_L1_SIZE_BITS(bs) > 32) {
+        // If we want to load all 32-bits from a 32-bit cache we need to do it slightly differently because we can't do
+        // a 32-bit shift on a 32-bit integer. This will never be the case on 64-bit caches, so we can have a slightly
+        // more optimal solution for this.
+#ifdef DRFLAC_64BIT
+        *pResultOut = (drflac_uint32)DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCount);
+        bs->consumedBits += bitCount;
+        bs->cache <<= bitCount;
+#else
+        if (bitCount < DRFLAC_CACHE_L1_SIZE_BITS(bs)) {
             *pResultOut = (drflac_uint32)DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCount);
             bs->consumedBits += bitCount;
             bs->cache <<= bitCount;
         } else {
+            // Cannot shift by 32-bits, so need to do it differently.
             *pResultOut = (drflac_uint32)bs->cache;
             bs->consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs);
             bs->cache = 0;
         }
+#endif
+
         return DRFLAC_TRUE;
     } else {
         // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
