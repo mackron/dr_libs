@@ -1824,6 +1824,8 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_lzcnt(drflac_cache_t x)
 #endif
 
 #ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
+#include <intrin.h> // For BitScanReverse().
+
 static DRFLAC_INLINE drflac_uint32 drflac__clz_msvc(drflac_cache_t x)
 {
     drflac_uint32 n;
