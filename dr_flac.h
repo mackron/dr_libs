@@ -5176,7 +5176,6 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
 #ifndef DR_FLAC_NO_STDIO
 #include <stdio.h>
-typedef void* drflac_file;
 
 static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
@@ -5190,7 +5189,7 @@ static drflac_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_s
     return fseek((FILE*)pUserData, offset, (origin == drflac_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-static drflac_file drflac__open_file_handle(const char* filename)
+static FILE* drflac__fopen(const char* filename)
 {
     FILE* pFile;
 #ifdef _MSC_VER
@@ -5204,25 +5203,20 @@ static drflac_file drflac__open_file_handle(const char* filename)
     }
 #endif
 
-    return (drflac_file)pFile;
-}
-
-static void drflac__close_file_handle(drflac_file file)
-{
-    fclose((FILE*)file);
+    return pFile;
 }
 
 
 drflac* drflac_open_file(const char* filename)
 {
-    drflac_file file = drflac__open_file_handle(filename);
+    FILE* file = drflac__fopen(filename);
     if (file == NULL) {
         return NULL;
     }
 
     drflac* pFlac = drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)file);
     if (pFlac == NULL) {
-        drflac__close_file_handle(file);
+        fclose(file);
         return NULL;
     }
 
@@ -5231,14 +5225,14 @@ drflac* drflac_open_file(const char* filename)
 
 drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData)
 {
-    drflac_file file = drflac__open_file_handle(filename);
+    FILE* file = drflac__fopen(filename);
     if (file == NULL) {
         return NULL;
     }
 
     drflac* pFlac = drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, drflac_container_unknown, (void*)file, pUserData);
     if (pFlac == NULL) {
-        drflac__close_file_handle(file);
+        fclose(file);
         return pFlac;
     }
 
@@ -5380,7 +5374,7 @@ void drflac_close(drflac* pFlac)
     // If we opened the file with drflac_open_file() we will want to close the file handle. We can know whether or not drflac_open_file()
     // was used by looking at the callbacks.
     if (pFlac->bs.onRead == drflac__on_read_stdio) {
-        drflac__close_file_handle((drflac_file)pFlac->bs.pUserData);
+        fclose((FILE*)pFlac->bs.pUserData);
     }
 
 #ifndef DR_FLAC_NO_OGG
@@ -5389,7 +5383,7 @@ void drflac_close(drflac* pFlac)
         drflac_assert(pFlac->bs.onRead == drflac__on_read_ogg);
         drflac_oggbs* oggbs = (drflac_oggbs*)pFlac->_oggbs;
         if (oggbs->onRead == drflac__on_read_stdio) {
-            drflac__close_file_handle((drflac_file)oggbs->pUserData);
+            fclose((FILE*)oggbs->pUserData);
         }
     }
 #endif
