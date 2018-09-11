@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.9.11 - 2018-08-29
+// dr_flac - v0.10.0 - 2018-09-11
 //
 // David Reid - mackron@gmail.com
 
@@ -80,7 +80,7 @@
 // #define these options before including this file.
 //
 // #define DR_FLAC_NO_STDIO
-//   Disable drflac_open_file().
+//   Disable drflac_open_file() and family.
 //
 // #define DR_FLAC_NO_OGG
 //   Disables support for Ogg/FLAC streams.
@@ -104,8 +104,6 @@
 // - dr_flac does not currently support changing the sample rate nor channel count mid stream.
 // - Audio data is output as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
 // - This has not been tested on big-endian architectures.
-// - Rice codes in unencoded binary form (see https://xiph.org/flac/format.html#rice_partition) has not been tested. If anybody
-//   knows where I can find some test files for this, let me know.
 // - dr_flac is not thread-safe, but its APIs can be called from any thread so long as you do your own synchronization.
 // - When using Ogg encapsulation, a corrupted metadata block will result in drflac_open_with_metadata() and drflac_open()
 //   returning inconsistent samples.
@@ -6062,6 +6060,17 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 
 // REVISION HISTORY
+//
+// v0.10.0 - 2018-09-11
+//   - Remove the DR_FLAC_NO_WIN32_IO option and the Win32 file IO functionality. If you need to use Win32 file IO you
+//     need to do it yourself via the callback API.
+//   - Fix the clang build.
+//   - Fix undefined behavior.
+//   - Fix errors with CUESHEET metdata blocks.
+//   - Add an API for iterating over each cuesheet track in the CUESHEET metadata block. This works the same way as the
+//     Vorbis comment API.
+//   - Other miscellaneous bug fixes, mostly relating to invalid FLAC streams.
+//   - Minor optimizations.
 //
 // v0.9.11 - 2018-08-29
 //   - Fix a bug with sample reconstruction.
