@@ -85,11 +85,6 @@
 // #define DR_FLAC_NO_OGG
 //   Disables support for Ogg/FLAC streams.
 //
-// #define DR_FLAC_NO_WIN32_IO
-//   In the Win32 build, dr_flac uses the Win32 IO APIs for drflac_open_file() by default. This setting will make it use the
-//   standard FILE APIs instead. Ignored when DR_FLAC_NO_STDIO is #defined. (The rationale for this configuration is that
-//   there's a bug in one compiler's Win32 implementation of the FILE APIs which is not present in the Win32 IO APIs.)
-//
 // #define DR_FLAC_BUFFER_SIZE <number>
 //   Defines the size of the internal buffer to store data from onRead(). This buffer is used to reduce the number of calls
 //   back to the client for more data. Larger values means more memory, but better performance. My tests show diminishing
@@ -5180,10 +5175,8 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
 
 #ifndef DR_FLAC_NO_STDIO
-typedef void* drflac_file;
-
-#if defined(DR_FLAC_NO_WIN32_IO) || !defined(_WIN32)
 #include <stdio.h>
+typedef void* drflac_file;
 
 static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
@@ -5218,46 +5211,6 @@ static void drflac__close_file_handle(drflac_file file)
 {
     fclose((FILE*)file);
 }
-#else
-#include <windows.h>
-
-// This doesn't seem to be defined for VC6.
-#ifndef INVALID_SET_FILE_POINTER
-#define INVALID_SET_FILE_POINTER ((DWORD)-1)
-#endif
-
-static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
-{
-    drflac_assert(bytesToRead < 0xFFFFFFFF);   // dr_flac will never request huge amounts of data at a time. This is a safe assertion.
-
-    DWORD bytesRead;
-    ReadFile((HANDLE)pUserData, bufferOut, (DWORD)bytesToRead, &bytesRead, NULL);
-
-    return (size_t)bytesRead;
-}
-
-static drflac_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
-{
-    drflac_assert(offset >= 0); // <-- Never seek backwards.
-
-    return SetFilePointer((HANDLE)pUserData, offset, NULL, (origin == drflac_seek_origin_current) ? FILE_CURRENT : FILE_BEGIN) != INVALID_SET_FILE_POINTER;
-}
-
-static drflac_file drflac__open_file_handle(const char* filename)
-{
-    HANDLE hFile = CreateFileA(filename, FILE_GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE) {
-        return NULL;
-    }
-
-    return (drflac_file)hFile;
-}
-
-static void drflac__close_file_handle(drflac_file file)
-{
-    CloseHandle((HANDLE)file);
-}
-#endif
 
 
 drflac* drflac_open_file(const char* filename)
