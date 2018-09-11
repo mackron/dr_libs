@@ -520,7 +520,7 @@ drpcx_bool32 drpcx__decode_8bit(drpcx* pPCX)
                 }
             }
 
-            // At this point we can know if we are dealing with a palette or a grayscale image by checking the next byte. If ti's equal to 0x0C, we
+            // At this point we can know if we are dealing with a palette or a grayscale image by checking the next byte. If it's equal to 0x0C, we
             // need to do a simple palette lookup.
             drpcx_uint8 paletteMarker = drpcx__read_byte(pPCX);
             if (paletteMarker == 0x0C) {
@@ -728,6 +728,7 @@ void drpcx_free(void* pReturnValueFromLoad)
 //
 // v0.3.1 - 2018-09-11
 //   - Styling fixes.
+//   - Fix a typo.
 //
 // v0.3 - 2018-02-08
 //   - API CHANGE: Rename dr_* types to drpcx_*.
