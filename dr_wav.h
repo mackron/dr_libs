@@ -266,6 +266,29 @@ typedef struct
 
 typedef struct
 {
+    drwav_uint32 cuePointId;
+    drwav_uint32 type;
+    drwav_uint32 start;
+    drwav_uint32 end;
+    drwav_uint32 fraction;
+    drwav_uint32 playCount;
+} drwav_smpl_loop;
+
+typedef struct
+{
+    drwav_uint32 manufacturer;
+    drwav_uint32 product;
+    drwav_uint32 samplePeriod;
+    drwav_uint32 midiUnityNotes;
+    drwav_uint32 midiPitchFraction;
+    drwav_uint32 smpteFormat;
+    drwav_uint32 smpteOffset;
+    drwav_uint32 numSampleLoops;
+    drwav_uint32 samplerData;
+} drwav_smpl;
+
+typedef struct
+{
     // A pointer to the function to call when more data is needed.
     drwav_read_proc onRead;
 
@@ -282,6 +305,12 @@ typedef struct
     // Whether or not the WAV file is formatted as a standard RIFF file or W64.
     drwav_container container;
 
+    // The header of a 'smpl' chunk found in the WAV file
+    // You can determine the presence of a smpl chunk by testing for a nonzero field, most likely numSampleLoops...
+    drwav_smpl smpl;
+
+    // The first smpl_loop found in a 'smpl', which is usually all that's needed
+    drwav_smpl_loop smpl_loop;
 
     // Structure containing format information exactly as specified by the wav file.
     drwav_fmt fmt;
@@ -1518,6 +1547,45 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
                 }
                 dataSize -= 8;
                 cursor += 8;
+            }
+        }
+
+        // Optional. Look for a SMPL chunk
+        if (pWav->container == drwav_container_riff) {
+            if (drwav__fourcc_equal(header.id.fourcc, "smpl")) {
+                unsigned char smpl_bytes[sizeof(drwav_smpl)];
+                if (onRead(pUserData, smpl_bytes, sizeof(drwav_smpl)) != sizeof(drwav_smpl)) {
+                    return DRWAV_FALSE;
+                }
+                dataSize -= sizeof(drwav_smpl);
+                cursor += sizeof(drwav_smpl);
+
+                pWav->smpl.manufacturer = drwav__bytes_to_u32(smpl_bytes+0);
+                pWav->smpl.product = drwav__bytes_to_u32(smpl_bytes+4);
+                pWav->smpl.samplePeriod = drwav__bytes_to_u32(smpl_bytes+8);
+                pWav->smpl.midiUnityNotes = drwav__bytes_to_u32(smpl_bytes+12);
+                pWav->smpl.midiPitchFraction = drwav__bytes_to_u32(smpl_bytes+16);
+                pWav->smpl.smpteFormat = drwav__bytes_to_u32(smpl_bytes+20);
+                pWav->smpl.smpteOffset = drwav__bytes_to_u32(smpl_bytes+24);
+                pWav->smpl.numSampleLoops = drwav__bytes_to_u32(smpl_bytes+28);
+                pWav->smpl.samplerData = drwav__bytes_to_u32(smpl_bytes+32);
+
+                //read only the first smpl chunk. it's mostly all that's useful.
+                if(pWav->smpl.numSampleLoops != 0) {
+                    unsigned char smpl_loop_bytes[sizeof(drwav_smpl_loop)];
+                    if (onRead(pUserData, smpl_loop_bytes, sizeof(drwav_smpl_loop)) != sizeof(drwav_smpl_loop)) {
+                        return DRWAV_FALSE;
+                    }
+                    dataSize -= sizeof(drwav_smpl_loop);
+                    cursor += sizeof(drwav_smpl_loop);
+
+                    pWav->smpl_loop.cuePointId = drwav__bytes_to_u32(smpl_loop_bytes+0);
+                    pWav->smpl_loop.type = drwav__bytes_to_u32(smpl_loop_bytes+4);
+                    pWav->smpl_loop.start = drwav__bytes_to_u32(smpl_loop_bytes+8);
+                    pWav->smpl_loop.end = drwav__bytes_to_u32(smpl_loop_bytes+12);
+                    pWav->smpl_loop.fraction = drwav__bytes_to_u32(smpl_loop_bytes+16);
+                    pWav->smpl_loop.playCount = drwav__bytes_to_u32(smpl_loop_bytes+20);
+                }
             }
         }
 
