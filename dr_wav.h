@@ -785,6 +785,7 @@ static const drwav_uint8 drwavGUID_W64_JUNK[16] = {0x6A,0x75,0x6E,0x6B, 0xF3,0xA
 static const drwav_uint8 drwavGUID_W64_FMT [16] = {0x66,0x6D,0x74,0x20, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 20746D66-ACF3-11D3-8CD1-00C04F8EDB8A
 static const drwav_uint8 drwavGUID_W64_FACT[16] = {0x66,0x61,0x63,0x74, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 74636166-ACF3-11D3-8CD1-00C04F8EDB8A
 static const drwav_uint8 drwavGUID_W64_DATA[16] = {0x64,0x61,0x74,0x61, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 61746164-ACF3-11D3-8CD1-00C04F8EDB8A
+static const drwav_uint8 drwavGUID_W64_SMPL[16] = {0x73,0x6D,0x70,0x6C, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 6C706D73-ACF3-11D3-8CD1-00C04F8EDB8A
 
 static DRWAV_INLINE drwav_bool32 drwav__guid_equal(const drwav_uint8 a[16], const drwav_uint8 b[16])
 {
@@ -1551,41 +1552,41 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
         }
 
         // Optional. Look for a SMPL chunk
-        if (pWav->container == drwav_container_riff) {
-            if (drwav__fourcc_equal(header.id.fourcc, "smpl")) {
-                unsigned char smpl_bytes[sizeof(drwav_smpl)];
-                if (onRead(pUserData, smpl_bytes, sizeof(drwav_smpl)) != sizeof(drwav_smpl)) {
+        drwav_bool32 isSmplFourcc = pWav->container == drwav_container_riff && drwav__fourcc_equal(header.id.fourcc, "smpl");
+        drwav_bool32 isSmplGuid = pWav->container == drwav_container_w64 && drwav__guid_equal(header.id.guid, drwavGUID_W64_SMPL);
+        if (isSmplFourcc || isSmplGuid) {
+            unsigned char smpl_bytes[sizeof(drwav_smpl)];
+            if (onRead(pUserData, smpl_bytes, sizeof(drwav_smpl)) != sizeof(drwav_smpl)) {
+                return DRWAV_FALSE;
+            }
+            dataSize -= sizeof(drwav_smpl);
+            cursor += sizeof(drwav_smpl);
+
+            pWav->smpl.manufacturer = drwav__bytes_to_u32(smpl_bytes+0);
+            pWav->smpl.product = drwav__bytes_to_u32(smpl_bytes+4);
+            pWav->smpl.samplePeriod = drwav__bytes_to_u32(smpl_bytes+8);
+            pWav->smpl.midiUnityNotes = drwav__bytes_to_u32(smpl_bytes+12);
+            pWav->smpl.midiPitchFraction = drwav__bytes_to_u32(smpl_bytes+16);
+            pWav->smpl.smpteFormat = drwav__bytes_to_u32(smpl_bytes+20);
+            pWav->smpl.smpteOffset = drwav__bytes_to_u32(smpl_bytes+24);
+            pWav->smpl.numSampleLoops = drwav__bytes_to_u32(smpl_bytes+28);
+            pWav->smpl.samplerData = drwav__bytes_to_u32(smpl_bytes+32);
+
+            //read only the first smpl chunk. it's mostly all that's useful.
+            if(pWav->smpl.numSampleLoops != 0) {
+                unsigned char smplLoop_bytes[sizeof(drwav_smpl_loop)];
+                if (onRead(pUserData, smplLoop_bytes, sizeof(drwav_smpl_loop)) != sizeof(drwav_smpl_loop)) {
                     return DRWAV_FALSE;
                 }
-                dataSize -= sizeof(drwav_smpl);
-                cursor += sizeof(drwav_smpl);
+                dataSize -= sizeof(drwav_smpl_loop);
+                cursor += sizeof(drwav_smpl_loop);
 
-                pWav->smpl.manufacturer = drwav__bytes_to_u32(smpl_bytes+0);
-                pWav->smpl.product = drwav__bytes_to_u32(smpl_bytes+4);
-                pWav->smpl.samplePeriod = drwav__bytes_to_u32(smpl_bytes+8);
-                pWav->smpl.midiUnityNotes = drwav__bytes_to_u32(smpl_bytes+12);
-                pWav->smpl.midiPitchFraction = drwav__bytes_to_u32(smpl_bytes+16);
-                pWav->smpl.smpteFormat = drwav__bytes_to_u32(smpl_bytes+20);
-                pWav->smpl.smpteOffset = drwav__bytes_to_u32(smpl_bytes+24);
-                pWav->smpl.numSampleLoops = drwav__bytes_to_u32(smpl_bytes+28);
-                pWav->smpl.samplerData = drwav__bytes_to_u32(smpl_bytes+32);
-
-                //read only the first smpl chunk. it's mostly all that's useful.
-                if(pWav->smpl.numSampleLoops != 0) {
-                    unsigned char smplLoop_bytes[sizeof(drwav_smpl_loop)];
-                    if (onRead(pUserData, smplLoop_bytes, sizeof(drwav_smpl_loop)) != sizeof(drwav_smpl_loop)) {
-                        return DRWAV_FALSE;
-                    }
-                    dataSize -= sizeof(drwav_smpl_loop);
-                    cursor += sizeof(drwav_smpl_loop);
-
-                    pWav->smplLoop.cuePointId = drwav__bytes_to_u32(smplLoop_bytes+0);
-                    pWav->smplLoop.type = drwav__bytes_to_u32(smplLoop_bytes+4);
-                    pWav->smplLoop.start = drwav__bytes_to_u32(smplLoop_bytes+8);
-                    pWav->smplLoop.end = drwav__bytes_to_u32(smplLoop_bytes+12);
-                    pWav->smplLoop.fraction = drwav__bytes_to_u32(smplLoop_bytes+16);
-                    pWav->smplLoop.playCount = drwav__bytes_to_u32(smplLoop_bytes+20);
-                }
+                pWav->smplLoop.cuePointId = drwav__bytes_to_u32(smplLoop_bytes+0);
+                pWav->smplLoop.type = drwav__bytes_to_u32(smplLoop_bytes+4);
+                pWav->smplLoop.start = drwav__bytes_to_u32(smplLoop_bytes+8);
+                pWav->smplLoop.end = drwav__bytes_to_u32(smplLoop_bytes+12);
+                pWav->smplLoop.fraction = drwav__bytes_to_u32(smplLoop_bytes+16);
+                pWav->smplLoop.playCount = drwav__bytes_to_u32(smplLoop_bytes+20);
             }
         }
 
