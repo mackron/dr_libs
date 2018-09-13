@@ -310,7 +310,7 @@ typedef struct
     drwav_smpl smpl;
 
     // The first smpl_loop found in a 'smpl', which is usually all that's needed
-    drwav_smpl_loop smpl_loop;
+    drwav_smpl_loop smplLoop;
 
     // Structure containing format information exactly as specified by the wav file.
     drwav_fmt fmt;
@@ -1572,19 +1572,19 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
 
                 //read only the first smpl chunk. it's mostly all that's useful.
                 if(pWav->smpl.numSampleLoops != 0) {
-                    unsigned char smpl_loop_bytes[sizeof(drwav_smpl_loop)];
-                    if (onRead(pUserData, smpl_loop_bytes, sizeof(drwav_smpl_loop)) != sizeof(drwav_smpl_loop)) {
+                    unsigned char smplLoop_bytes[sizeof(drwav_smpl_loop)];
+                    if (onRead(pUserData, smplLoop_bytes, sizeof(drwav_smpl_loop)) != sizeof(drwav_smpl_loop)) {
                         return DRWAV_FALSE;
                     }
                     dataSize -= sizeof(drwav_smpl_loop);
                     cursor += sizeof(drwav_smpl_loop);
 
-                    pWav->smpl_loop.cuePointId = drwav__bytes_to_u32(smpl_loop_bytes+0);
-                    pWav->smpl_loop.type = drwav__bytes_to_u32(smpl_loop_bytes+4);
-                    pWav->smpl_loop.start = drwav__bytes_to_u32(smpl_loop_bytes+8);
-                    pWav->smpl_loop.end = drwav__bytes_to_u32(smpl_loop_bytes+12);
-                    pWav->smpl_loop.fraction = drwav__bytes_to_u32(smpl_loop_bytes+16);
-                    pWav->smpl_loop.playCount = drwav__bytes_to_u32(smpl_loop_bytes+20);
+                    pWav->smplLoop.cuePointId = drwav__bytes_to_u32(smplLoop_bytes+0);
+                    pWav->smplLoop.type = drwav__bytes_to_u32(smplLoop_bytes+4);
+                    pWav->smplLoop.start = drwav__bytes_to_u32(smplLoop_bytes+8);
+                    pWav->smplLoop.end = drwav__bytes_to_u32(smplLoop_bytes+12);
+                    pWav->smplLoop.fraction = drwav__bytes_to_u32(smplLoop_bytes+16);
+                    pWav->smplLoop.playCount = drwav__bytes_to_u32(smplLoop_bytes+20);
                 }
             }
         }
