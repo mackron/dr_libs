@@ -1613,15 +1613,14 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
     }
 
     // At this point we should be sitting on the first byte of the raw audio data.
-    // Maintain that invariant
-    // TODO: onSeek only takes an integer? That's really weird, and not safe here.
-    if(pWav->dataChunkDataPos > 0x7FFFFFFFULL) {
-        return DRWAV_FALSE;
-    }
+    // Maintain that invariant.
     // And don't bother seeking if we're already in the right place
     // (It's a very real possibility, since data chunks are often the final chunk)
+    // Unfortunately in the event we have to do anything here, it's to go backwards
+    // So we have to go to the beginning and then skip ahead again.
     if(cursor != pWav->dataChunkDataPos) {
-        onSeek(pUserData, pWav->dataChunkDataPos, drwav_seek_origin_start);
+      onSeek(pUserData, 0, drwav_seek_origin_start);
+      drwav__seek_forward(onSeek, pWav->dataChunkDataPos, pUserData);
     }
 
     pWav->onRead              = onRead;
