@@ -1388,7 +1388,8 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
         return DRWAV_FALSE;   // Unknown or unsupported container.
     }
 
-
+    drwav_uint64 fileSize;
+    drwav_uint64 cursor = 0;
     if (pWav->container == drwav_container_riff) {
         // RIFF/WAVE
         unsigned char chunkSizeBytes[4];
@@ -1396,7 +1397,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
             return DRWAV_FALSE;
         }
 
-        unsigned int chunkSize = drwav__bytes_to_u32(chunkSizeBytes);
+        drwav_uint32 chunkSize = drwav__bytes_to_u32(chunkSizeBytes);
         if (chunkSize < 36) {
             return DRWAV_FALSE;    // Chunk size should always be at least 36 bytes.
         }
@@ -1410,15 +1411,20 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
             return DRWAV_FALSE;    // Expecting "WAVE".
         }
 
-        pWav->dataChunkDataPos = 4 + sizeof(chunkSizeBytes) + sizeof(wave);
+        // cursor = RIFF + what we just read
+        cursor = 4 + sizeof(chunkSizeBytes) + sizeof(wave);
+        // filesize = RIFF HEADER + chunkSize
+        fileSize = 4 + sizeof(chunkSizeBytes) + chunkSize;
+
     } else {
         // W64
-        unsigned char chunkSize[8];
-        if (onRead(pUserData, chunkSize, sizeof(chunkSize)) != sizeof(chunkSize)) {
+        unsigned char chunkSizeBytes[8];
+        if (onRead(pUserData, chunkSizeBytes, sizeof(chunkSizeBytes)) != sizeof(chunkSizeBytes)) {
             return DRWAV_FALSE;
         }
 
-        if (drwav__bytes_to_u64(chunkSize) < 80) {
+        drwav_uint64 chunkSize = drwav__bytes_to_u64(chunkSizeBytes);
+        if (chunkSize < 80) {
             return DRWAV_FALSE;
         }
 
@@ -1431,13 +1437,16 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
             return DRWAV_FALSE;
         }
 
-        pWav->dataChunkDataPos = 16 + sizeof(chunkSize) + sizeof(wave);
+        // cursor = RIFF + what we just read
+        cursor = 4 + sizeof(chunkSizeBytes) + sizeof(wave);
+        // filesize = RIFF HEADER + chunkSize
+        fileSize = 4 + sizeof(chunkSizeBytes) + chunkSize;
     }
 
 
     // The next bytes should be the "fmt " chunk.
     drwav_fmt fmt;
-    if (!drwav__read_fmt(onRead, onSeek, pUserData, pWav->container, &pWav->dataChunkDataPos, &fmt)) {
+    if (!drwav__read_fmt(onRead, onSeek, pUserData, pWav->container, &cursor, &fmt)) {
         return DRWAV_FALSE;    // Failed to read the "fmt " chunk.
     }
 
@@ -1453,26 +1462,34 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
         translatedFormatTag = drwav__bytes_to_u16(fmt.subFormat + 0);
     }
 
+    // Make sure we aren't at the end of the file already, before any chunks
+    if(cursor == fileSize) {
+        return DRWAV_FALSE;
+    }
 
     drwav_uint64 sampleCountFromFactChunk = 0;
 
-    // The next chunk we care about is the "data" chunk. This is not necessarily the next chunk so we'll need to loop.
+    // Scan for all recognized chunks
     drwav_uint64 dataSize;
+    drwav_bool32 haveData = DRWAV_FALSE;
     for (;;)
     {
         drwav__chunk_header header;
-        if (!drwav__read_chunk_header(onRead, pUserData, pWav->container, &pWav->dataChunkDataPos, &header)) {
+        if (!drwav__read_chunk_header(onRead, pUserData, pWav->container, &cursor, &header)) {
             return DRWAV_FALSE;
         }
 
         dataSize = header.sizeInBytes;
+        
+        // Identify data chunks
+        drwav_bool32 isData = DRWAV_FALSE, isW64Data = DRWAV_FALSE;
         if (pWav->container == drwav_container_riff) {
             if (drwav__fourcc_equal(header.id.fourcc, "data")) {
-                break;
+                isData = DRWAV_TRUE;
             }
         } else {
             if (drwav__guid_equal(header.id.guid, drwavGUID_W64_DATA)) {
-                break;
+                isW64Data = DRWAV_TRUE;
             }
         }
 
@@ -1483,7 +1500,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
                 if (onRead(pUserData, &sampleCount, 4) != 4) {
                     return DRWAV_FALSE;
                 }
-                pWav->dataChunkDataPos += 4;
+                cursor += 4;
                 dataSize -= 4;
 
                 // The sample count in the "fact" chunk is either unreliable, or I'm not understanding it properly. For now I am only enabling this
@@ -1499,20 +1516,45 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
                 if (onRead(pUserData, &sampleCountFromFactChunk, 8) != 8) {
                     return DRWAV_FALSE;
                 }
-                pWav->dataChunkDataPos += 8;
                 dataSize -= 8;
+                cursor += 8;
             }
         }
 
-        // If we get here it means we didn't find the "data" chunk. Seek past it.
+        // Acknowledge receipt of data chunk. We can only handle one right now.
+        if(isData || isW64Data) {
+            if(haveData) {
+                return DRWAV_FALSE;
+            }
+            haveData = DRWAV_TRUE;
+            //at this point, save the location of the data chunk beginning
+            pWav->dataChunkDataPos = cursor;
+        }
 
         // Make sure we seek past the padding.
         dataSize += header.paddingSize;
+
+        // see if we're done before we bother seeking to the end
+        // (saves a seek in case we just got a data chunk)
+        if(cursor+dataSize == fileSize) {
+            break;
+        }
+
         drwav__seek_forward(onSeek, dataSize, pUserData);
-        pWav->dataChunkDataPos += dataSize;
+        cursor += dataSize;
     }
 
     // At this point we should be sitting on the first byte of the raw audio data.
+    // Maintain that invariant
+    // TODO: onSeek only takes an integer? That's really weird, and not safe here.
+    if(pWav->dataChunkDataPos > 0x7FFFFFFFULL) {
+        return DRWAV_FALSE;
+    }
+    // And don't bother seeking if we're already in the right place
+    // (It's a very real possibility, since data chunks are often the final chunk)
+    if(cursor != pWav->dataChunkDataPos) {
+        onSeek(pUserData, pWav->dataChunkDataPos, drwav_seek_origin_start);
+    }
 
     pWav->onRead              = onRead;
     pWav->onSeek              = onSeek;
