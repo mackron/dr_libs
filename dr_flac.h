@@ -791,6 +791,16 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#define DRFLAC_INLINE __forceinline
+#else
+#ifdef __GNUC__
+#define DRFLAC_INLINE inline __attribute__((always_inline))
+#else
+#define DRFLAC_INLINE inline
+#endif
+#endif
+
 // CPU architecture.
 #if defined(__x86_64__) || defined(_M_X64)
     #define DRFLAC_X64
@@ -798,6 +808,51 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
     #define DRFLAC_X86
 #elif defined(__arm__) || defined(_M_ARM)
     #define DRFLAC_ARM
+#endif
+
+// Intrinsics Support
+#if !defined(DR_FLAC_NO_SIMD)
+    #if defined(DRFLAC_X64) || defined(DRFLAC_X86)
+        #if defined(_MSC_VER) && !defined(__clang__)
+            // MSVC.
+            #if !defined(DRFLAC_NO_SSE2)   // Assume all MSVC compilers support SSE2 intrinsics.
+                #define DRFLAC_SUPPORT_SSE2
+            #endif
+        #else
+            // Assume GNUC-style.
+            #if defined(__SSE2__) && !defined(DRFLAC_NO_SSE2)
+                #define DRFLAC_SUPPORT_SSE2
+            #endif
+        #endif
+
+        // If at this point we still haven't determined compiler support for the intrinsics just fall back to __has_include.
+        #if !defined(__GNUC__) && !defined(__clang__) && defined(__has_include)
+            #if !defined(DRFLAC_SUPPORT_SSE2) && !defined(DRFLAC_NO_SSE2) && __has_include(<emmintrin.h>)
+                #define DRFLAC_SUPPORT_SSE2
+            #endif
+        #endif
+
+        #if defined(DRFLAC_SUPPORT_SSE2)
+            #include <emmintrin.h>
+        #endif
+    #endif
+
+    #if defined(DRFLAC_ARM)
+        #if !defined(DRFLAC_NO_NEON) && (defined(__ARM_NEON) || defined(__aarch64__) || defined(_M_ARM64))
+            #define DRFLAC_SUPPORT_NEON
+        #endif
+
+        // Fall back to looking for the #include file.
+        #if !defined(__GNUC__) && !defined(__clang__) && defined(__has_include)
+            #if !defined(DRFLAC_SUPPORT_NEON) && !defined(DRFLAC_NO_NEON) && __has_include(<arm_neon.h>)
+                #define DRFLAC_SUPPORT_NEON
+            #endif
+        #endif
+
+        #if defined(DRFLAC_SUPPORT_NEON)
+            #include <arm_neon.h>
+        #endif
+    #endif
 #endif
 
 // Compile-time CPU feature support.
@@ -841,6 +896,31 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 #else
     #define DRFLAC_NO_CPUID
 #endif
+
+static DRFLAC_INLINE drflac_bool32 drflac_has_sse2()
+{
+#if defined(DRFLAC_SUPPORT_SSE2)
+    #if (defined(DRFLAC_X64) || defined(DRFLAC_X86)) && !defined(DRFLAC_NO_SSE2)
+        #if defined(DRFLAC_X64)
+            return DRFLAC_TRUE;    // 64-bit targets always support SSE2.
+        #elif (defined(_M_IX86_FP) && _M_IX86_FP == 2) || defined(__SSE2__)
+            return DRFLAC_TRUE;    // If the compiler is allowed to freely generate SSE2 code we can assume support.
+        #else
+            #if defined(DRFLAC_NO_CPUID)
+                return DRFLAC_FALSE;
+            #else
+                int info[4];
+                drflac_cpuid(info, 1);
+                return (info[3] & (1 << 26)) != 0;
+            #endif
+        #endif
+    #else
+        return DRFLAC_FALSE;       // SSE2 is only supported on x86 and x64 architectures.
+    #endif
+#else
+    return DRFLAC_FALSE;           // No compiler support.
+#endif
+}
 
 
 #if defined(_MSC_VER) && _MSC_VER >= 1500 && (defined(DRFLAC_X86) || defined(DRFLAC_X64))
@@ -901,16 +981,6 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 #define DRFLAC_MAX_SIMD_VECTOR_SIZE                     64  // 64 for AVX-512 in the future.
 
-#ifdef _MSC_VER
-#define DRFLAC_INLINE __forceinline
-#else
-#ifdef __GNUC__
-#define DRFLAC_INLINE inline __attribute__((always_inline))
-#else
-#define DRFLAC_INLINE inline
-#endif
-#endif
-
 typedef drflac_int32 drflac_result;
 #define DRFLAC_SUCCESS                                  0
 #define DRFLAC_ERROR                                    -1  // A generic error.
@@ -942,7 +1012,7 @@ typedef drflac_int32 drflac_result;
 // CPU caps.
 static drflac_bool32 drflac__gIsLZCNTSupported = DRFLAC_FALSE;
 #ifndef DRFLAC_NO_CPUID
-static drflac_bool32 drflac__gIsSSE42Supported = DRFLAC_FALSE;
+static drflac_bool32 drflac__gIsSSE2Supported  = DRFLAC_FALSE;
 static void drflac__init_cpu_caps()
 {
     int info[4] = {0};
@@ -951,9 +1021,8 @@ static void drflac__init_cpu_caps()
     drflac__cpuid(info, 0x80000001);
     drflac__gIsLZCNTSupported = (info[2] & (1 <<  5)) != 0;
 
-    // SSE4.2
-    drflac__cpuid(info, 1);
-    drflac__gIsSSE42Supported = (info[2] & (1 << 19)) != 0;
+    // SSE2
+    drflac__gIsSSE2Supported = drflac_has_sse2();
 }
 #endif
 
@@ -5700,6 +5769,500 @@ drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float*
     return totalSamplesRead;
 }
 
+#if 0
+DRFLAC_INLINE void drflac_read_frames_f32__decode_left_side__reference(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    for (drflac_uint64 i = 0; i < frameCount; ++i) {
+        int left  = pInputSamples0[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample);
+        int side  = pInputSamples1[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample);
+        int right = left - side;
+
+        pOutputSamples[i*2+0] = (float)(left / 2147483648.0);
+        pOutputSamples[i*2+1] = (float)(right / 2147483648.0);
+    }
+}
+#endif
+
+DRFLAC_INLINE void drflac_read_frames_f32__decode_left_side__scalar(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    drflac_uint64 frameCount4 = frameCount >> 2;
+
+    drflac_int32 shift0 = unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+    drflac_int32 shift1 = unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+    for (drflac_uint64 i = 0; i < frameCount4; ++i) {
+        drflac_int32 left4[4];
+        left4[0] = pInputSamples0[i*4+0] << shift0;
+        left4[1] = pInputSamples0[i*4+1] << shift0;
+        left4[2] = pInputSamples0[i*4+2] << shift0;
+        left4[3] = pInputSamples0[i*4+3] << shift0;
+
+        drflac_int32 side4[4];
+        side4[0] = pInputSamples1[i*4+0] << shift1;
+        side4[1] = pInputSamples1[i*4+1] << shift1;
+        side4[2] = pInputSamples1[i*4+2] << shift1;
+        side4[3] = pInputSamples1[i*4+3] << shift1;
+
+        drflac_int32 right4[4];
+        right4[0] = left4[0] - side4[0];
+        right4[1] = left4[1] - side4[1];
+        right4[2] = left4[2] - side4[2];
+        right4[3] = left4[3] - side4[3];
+
+        float left4f[4];
+        left4f[0] = left4[0] / 2147483648.0f;
+        left4f[1] = left4[1] / 2147483648.0f;
+        left4f[2] = left4[2] / 2147483648.0f;
+        left4f[3] = left4[3] / 2147483648.0f;
+
+        float right4f[4];
+        right4f[0] = right4[0] / 2147483648.0f;
+        right4f[1] = right4[1] / 2147483648.0f;
+        right4f[2] = right4[2] / 2147483648.0f;
+        right4f[3] = right4[3] / 2147483648.0f;
+
+        pOutputSamples[i*4*2+0] = left4f[0];
+        pOutputSamples[i*4*2+1] = right4f[0];
+        pOutputSamples[i*4*2+2] = left4f[1];
+        pOutputSamples[i*4*2+3] = right4f[1];
+        pOutputSamples[i*4*2+4] = left4f[2];
+        pOutputSamples[i*4*2+5] = right4f[2];
+        pOutputSamples[i*4*2+6] = left4f[3];
+        pOutputSamples[i*4*2+7] = right4f[3];
+    }
+
+    for (drflac_uint64 i = (frameCount4 << 2); i < frameCount; ++i) {
+        int left  = pInputSamples0[i] << shift0;
+        int side  = pInputSamples1[i] << shift1;
+        int right = left - side;
+
+        pOutputSamples[i*2+0] = (float)(left / 2147483648.0);
+        pOutputSamples[i*2+1] = (float)(right / 2147483648.0);
+    }
+}
+
+#if defined(DRFLAC_SUPPORT_SSE2)
+DRFLAC_INLINE void drflac_read_frames_f32__decode_left_side__sse2(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    drflac_assert(pFlac->bitsPerSample <= 24);
+
+    drflac_uint64 frameCount4 = frameCount >> 2;
+
+    __m128 divisor = _mm_set1_ps(8388608.0f);
+    int shift0 = (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample) - 8;
+    int shift1 = (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample) - 8;
+
+    for (drflac_uint64 i = 0; i < frameCount4; ++i) {
+        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
+        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+
+        __m128i left  = _mm_slli_epi32(inputSample0, shift0);
+        __m128i side  = _mm_slli_epi32(inputSample1, shift1);
+        __m128i right = _mm_sub_epi32(left, side);
+        __m128 leftf  = _mm_div_ps(_mm_cvtepi32_ps(left),  divisor);
+        __m128 rightf = _mm_div_ps(_mm_cvtepi32_ps(right), divisor);
+
+        pOutputSamples[i*4*2+0] = ((float*)&leftf)[0];
+        pOutputSamples[i*4*2+1] = ((float*)&rightf)[0];
+        pOutputSamples[i*4*2+2] = ((float*)&leftf)[1];
+        pOutputSamples[i*4*2+3] = ((float*)&rightf)[1];
+        pOutputSamples[i*4*2+4] = ((float*)&leftf)[2];
+        pOutputSamples[i*4*2+5] = ((float*)&rightf)[2];
+        pOutputSamples[i*4*2+6] = ((float*)&leftf)[3];
+        pOutputSamples[i*4*2+7] = ((float*)&rightf)[3];
+    }
+
+    for (drflac_uint64 i = (frameCount4 << 2); i < frameCount; ++i) {
+        int left  = pInputSamples0[i] << shift0;
+        int side  = pInputSamples1[i] << shift1;
+        int right = left - side;
+
+        pOutputSamples[i*2+0] = (float)(left / 8388608.0f);
+        pOutputSamples[i*2+1] = (float)(right / 8388608.0f);
+    }
+}
+#endif
+
+DRFLAC_INLINE void drflac_read_frames_f32__decode_left_side(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+#if defined(DRFLAC_SUPPORT_SSE2)
+    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+        drflac_read_frames_f32__decode_left_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+    } else
+#endif
+    {
+        // Scalar fallback.
+#if 0
+        drflac_read_frames_f32__decode_left_side__reference(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+#else
+        drflac_read_frames_f32__decode_left_side__scalar(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+#endif
+    }
+}
+
+
+#if 0
+DRFLAC_INLINE void drflac_read_frames_f32__decode_right_side__reference(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    for (drflac_uint64 i = 0; i < frameCount; ++i) {
+        int side  = pInputSamples0[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample);
+        int right = pInputSamples1[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample);
+        int left  = right + side;
+
+        pOutputSamples[i*2+0] = (float)(left / 2147483648.0);
+        pOutputSamples[i*2+1] = (float)(right / 2147483648.0);
+    }
+}
+#endif
+
+DRFLAC_INLINE void drflac_read_frames_f32__decode_right_side__scalar(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    drflac_uint64 frameCount4 = frameCount >> 2;
+
+    drflac_int32 shift0 = unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+    drflac_int32 shift1 = unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+    for (drflac_uint64 i = 0; i < frameCount4; ++i) {
+        drflac_int32 side4[4];
+        side4[0]  = pInputSamples0[i*4+0] << shift1;
+        side4[1]  = pInputSamples0[i*4+1] << shift1;
+        side4[2]  = pInputSamples0[i*4+2] << shift1;
+        side4[3]  = pInputSamples0[i*4+3] << shift1;
+
+        drflac_int32 right4[4];
+        right4[0] = pInputSamples1[i*4+0] << shift0;
+        right4[1] = pInputSamples1[i*4+1] << shift0;
+        right4[2] = pInputSamples1[i*4+2] << shift0;
+        right4[3] = pInputSamples1[i*4+3] << shift0;
+
+        drflac_int32 left4[4];
+        left4[0] = right4[0] + side4[0];
+        left4[1] = right4[1] + side4[1];
+        left4[2] = right4[2] + side4[2];
+        left4[3] = right4[3] + side4[3];
+
+        float left4f[4];
+        left4f[0] = left4[0] / 2147483648.0f;
+        left4f[1] = left4[1] / 2147483648.0f;
+        left4f[2] = left4[2] / 2147483648.0f;
+        left4f[3] = left4[3] / 2147483648.0f;
+
+        float right4f[4];
+        right4f[0] = right4[0] / 2147483648.0f;
+        right4f[1] = right4[1] / 2147483648.0f;
+        right4f[2] = right4[2] / 2147483648.0f;
+        right4f[3] = right4[3] / 2147483648.0f;
+
+        pOutputSamples[i*4*2+0] = left4f[0];
+        pOutputSamples[i*4*2+1] = right4f[0];
+        pOutputSamples[i*4*2+2] = left4f[1];
+        pOutputSamples[i*4*2+3] = right4f[1];
+        pOutputSamples[i*4*2+4] = left4f[2];
+        pOutputSamples[i*4*2+5] = right4f[2];
+        pOutputSamples[i*4*2+6] = left4f[3];
+        pOutputSamples[i*4*2+7] = right4f[3];
+    }
+
+    for (drflac_uint64 i = (frameCount4 << 2); i < frameCount; ++i) {
+        int side  = pInputSamples0[i] << shift0;
+        int right = pInputSamples1[i] << shift1;
+        int left  = right + side;
+
+        pOutputSamples[i*2+0] = (float)(left / 2147483648.0);
+        pOutputSamples[i*2+1] = (float)(right / 2147483648.0);
+    }
+}
+
+#if defined(DRFLAC_SUPPORT_SSE2)
+DRFLAC_INLINE void drflac_read_frames_f32__decode_right_side__sse2(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    drflac_assert(pFlac->bitsPerSample <= 24);
+
+    drflac_uint64 frameCount4 = frameCount >> 2;
+
+    __m128 divisor = _mm_set1_ps(8388608.0f);
+    int shift0 = (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample) - 8;
+    int shift1 = (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample) - 8;
+
+    for (drflac_uint64 i = 0; i < frameCount4; ++i) {
+        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
+        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+
+        __m128i side  = _mm_slli_epi32(inputSample0, shift0);
+        __m128i right = _mm_slli_epi32(inputSample1, shift1);
+        __m128i left  = _mm_add_epi32(right, side);
+        __m128 leftf  = _mm_div_ps(_mm_cvtepi32_ps(left),  divisor);
+        __m128 rightf = _mm_div_ps(_mm_cvtepi32_ps(right), divisor);
+
+        pOutputSamples[i*4*2+0] = ((float*)&leftf)[0];
+        pOutputSamples[i*4*2+1] = ((float*)&rightf)[0];
+        pOutputSamples[i*4*2+2] = ((float*)&leftf)[1];
+        pOutputSamples[i*4*2+3] = ((float*)&rightf)[1];
+        pOutputSamples[i*4*2+4] = ((float*)&leftf)[2];
+        pOutputSamples[i*4*2+5] = ((float*)&rightf)[2];
+        pOutputSamples[i*4*2+6] = ((float*)&leftf)[3];
+        pOutputSamples[i*4*2+7] = ((float*)&rightf)[3];
+    }
+
+    for (drflac_uint64 i = (frameCount4 << 2); i < frameCount; ++i) {
+        int side  = pInputSamples0[i] << shift0;
+        int right = pInputSamples1[i] << shift1;
+        int left  = right + side;
+
+        pOutputSamples[i*2+0] = (float)(left / 8388608.0f);
+        pOutputSamples[i*2+1] = (float)(right / 8388608.0f);
+    }
+}
+#endif
+
+DRFLAC_INLINE void drflac_read_frames_f32__decode_right_side(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+#if defined(DRFLAC_SUPPORT_SSE2)
+    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+        drflac_read_frames_f32__decode_right_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+    } else
+#endif
+    {
+        // Scalar fallback.
+#if 0
+        drflac_read_frames_f32__decode_right_side__reference(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+#else
+        drflac_read_frames_f32__decode_right_side__scalar(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+#endif
+    }
+}
+
+
+#if 0
+DRFLAC_INLINE void drflac_read_frames_f32__decode_mid_side__reference(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    for (drflac_uint64 i = 0; i < frameCount; ++i) {
+        int mid  = pInputSamples0[i] << pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+        int side = pInputSamples1[i] << pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+                        
+        mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
+
+        pOutputSamples[i*2+0] = (float)((((mid + side) >> 1) << (unusedBitsPerSample)) / 2147483648.0);
+        pOutputSamples[i*2+1] = (float)((((mid - side) >> 1) << (unusedBitsPerSample)) / 2147483648.0);
+    }
+}
+#endif
+
+DRFLAC_INLINE void drflac_read_frames_f32__decode_mid_side__scalar(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    drflac_uint64 frameCount4 = frameCount >> 2;
+
+    int shift = unusedBitsPerSample - 8;
+
+    for (drflac_uint64 i = 0; i < frameCount4; ++i) {
+        int mid0  = pInputSamples0[i*4+0] << pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+        int mid1  = pInputSamples0[i*4+1] << pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+        int mid2  = pInputSamples0[i*4+2] << pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+        int mid3  = pInputSamples0[i*4+3] << pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+
+        int side0 = pInputSamples1[i*4+0] << pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+        int side1 = pInputSamples1[i*4+1] << pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+        int side2 = pInputSamples1[i*4+2] << pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+        int side3 = pInputSamples1[i*4+3] << pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+
+        mid0 = (((drflac_uint32)mid0) << 1) | (side0 & 0x01);
+        mid1 = (((drflac_uint32)mid1) << 1) | (side1 & 0x01);
+        mid2 = (((drflac_uint32)mid2) << 1) | (side2 & 0x01);
+        mid3 = (((drflac_uint32)mid3) << 1) | (side3 & 0x01);
+
+        int temp0L = (((mid0 + side0) >> 1) << shift);
+        int temp1L = (((mid1 + side1) >> 1) << shift);
+        int temp2L = (((mid2 + side2) >> 1) << shift);
+        int temp3L = (((mid3 + side3) >> 1) << shift);
+
+        int temp0R = (((mid0 - side0) >> 1) << shift);
+        int temp1R = (((mid1 - side1) >> 1) << shift);
+        int temp2R = (((mid2 - side2) >> 1) << shift);
+        int temp3R = (((mid3 - side3) >> 1) << shift);
+
+        pOutputSamples[i*4*2+0] = (float)(temp0L / 8388608.0f);
+        pOutputSamples[i*4*2+1] = (float)(temp0R / 8388608.0f);
+        pOutputSamples[i*4*2+2] = (float)(temp1L / 8388608.0f);
+        pOutputSamples[i*4*2+3] = (float)(temp1R / 8388608.0f);
+        pOutputSamples[i*4*2+4] = (float)(temp2L / 8388608.0f);
+        pOutputSamples[i*4*2+5] = (float)(temp2R / 8388608.0f);
+        pOutputSamples[i*4*2+6] = (float)(temp3L / 8388608.0f);
+        pOutputSamples[i*4*2+7] = (float)(temp3R / 8388608.0f);
+    }
+
+    for (drflac_uint64 i = (frameCount4 << 2); i < frameCount; ++i) {
+        int mid  = pInputSamples0[i] << pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+        int side = pInputSamples1[i] << pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+                        
+        mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
+
+        pOutputSamples[i*2+0] = (float)((((mid + side) >> 1) << shift) / 8388608.0f);
+        pOutputSamples[i*2+1] = (float)((((mid - side) >> 1) << shift) / 8388608.0f);
+    }
+}
+
+#if defined(DRFLAC_SUPPORT_SSE2)
+DRFLAC_INLINE void drflac_read_frames_f32__decode_mid_side__sse2(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    drflac_assert(pFlac->bitsPerSample <= 24);
+
+    drflac_uint64 frameCount4 = frameCount >> 2;
+
+    __m128 divisor = _mm_set1_ps(8388608.0f);
+    int shift = unusedBitsPerSample - 8;
+
+    for (drflac_uint64 i = 0; i < frameCount4; ++i) {
+        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
+        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+
+        __m128i mid  = _mm_slli_epi32(inputSample0, pFlac->currentFrame.subframes[0].wastedBitsPerSample);
+        __m128i side = _mm_slli_epi32(inputSample1, pFlac->currentFrame.subframes[1].wastedBitsPerSample);
+
+        mid = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
+
+        __m128i tempL = _mm_slli_epi32(_mm_srli_epi32(_mm_add_epi32(mid, side), 1), shift);
+        __m128i tempR = _mm_slli_epi32(_mm_srli_epi32(_mm_sub_epi32(mid, side), 1), shift);
+
+        __m128 leftf  = _mm_div_ps(_mm_cvtepi32_ps(tempL), divisor);
+        __m128 rightf = _mm_div_ps(_mm_cvtepi32_ps(tempR), divisor);
+
+        pOutputSamples[i*4*2+0] = ((float*)&leftf)[0];
+        pOutputSamples[i*4*2+1] = ((float*)&rightf)[0];
+        pOutputSamples[i*4*2+2] = ((float*)&leftf)[1];
+        pOutputSamples[i*4*2+3] = ((float*)&rightf)[1];
+        pOutputSamples[i*4*2+4] = ((float*)&leftf)[2];
+        pOutputSamples[i*4*2+5] = ((float*)&rightf)[2];
+        pOutputSamples[i*4*2+6] = ((float*)&leftf)[3];
+        pOutputSamples[i*4*2+7] = ((float*)&rightf)[3];
+    }
+
+    for (drflac_uint64 i = (frameCount4 << 2); i < frameCount; ++i) {
+        int mid  = pInputSamples0[i] << pFlac->currentFrame.subframes[0].wastedBitsPerSample;
+        int side = pInputSamples1[i] << pFlac->currentFrame.subframes[1].wastedBitsPerSample;
+                        
+        mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
+
+        pOutputSamples[i*2+0] = (float)((((mid + side) >> 1) << shift) / 8388608.0f);
+        pOutputSamples[i*2+1] = (float)((((mid - side) >> 1) << shift) / 8388608.0f);
+    }
+}
+#endif
+
+
+DRFLAC_INLINE void drflac_read_frames_f32__decode_mid_side(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+#if defined(DRFLAC_SUPPORT_SSE2)
+    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+        drflac_read_frames_f32__decode_mid_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+    } else
+#endif
+    {
+        // Scalar fallback.
+#if 0
+        drflac_read_frames_f32__decode_mid_side__reference(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+#else
+        drflac_read_frames_f32__decode_mid_side__scalar(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+#endif
+    }
+}
+
+#if 0
+DRFLAC_INLINE void drflac_read_frames_f32__decode_independent_stereo__reference(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    for (drflac_uint64 i = 0; i < frameCount; ++i) {
+        pOutputSamples[i*2+0] = (float)((pInputSamples0[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample)) / 2147483648.0);
+        pOutputSamples[i*2+1] = (float)((pInputSamples1[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample)) / 2147483648.0);
+    }
+}
+#endif
+
+DRFLAC_INLINE void drflac_read_frames_f32__decode_independent_stereo__scalar(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    drflac_uint64 frameCount4 = frameCount >> 2;
+
+    int shift0 = (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample);
+    int shift1 = (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample);
+
+    for (drflac_uint64 i = 0; i < frameCount4; ++i) {
+        int tempL0 = pInputSamples0[i*4+0] << shift0;
+        int tempL1 = pInputSamples0[i*4+1] << shift0;
+        int tempL2 = pInputSamples0[i*4+2] << shift0;
+        int tempL3 = pInputSamples0[i*4+3] << shift0;
+
+        int tempR0 = pInputSamples1[i*4+0] << shift1;
+        int tempR1 = pInputSamples1[i*4+1] << shift1;
+        int tempR2 = pInputSamples1[i*4+2] << shift1;
+        int tempR3 = pInputSamples1[i*4+3] << shift1;
+
+        pOutputSamples[i*4*2+0] = (float)(tempL0 / 2147483648.0);
+        pOutputSamples[i*4*2+1] = (float)(tempR0 / 2147483648.0);
+        pOutputSamples[i*4*2+2] = (float)(tempL1 / 2147483648.0);
+        pOutputSamples[i*4*2+3] = (float)(tempR1 / 2147483648.0);
+        pOutputSamples[i*4*2+4] = (float)(tempL2 / 2147483648.0);
+        pOutputSamples[i*4*2+5] = (float)(tempR2 / 2147483648.0);
+        pOutputSamples[i*4*2+6] = (float)(tempL3 / 2147483648.0);
+        pOutputSamples[i*4*2+7] = (float)(tempR3 / 2147483648.0);
+    }
+
+    for (drflac_uint64 i = (frameCount4 << 2); i < frameCount; ++i) {
+        pOutputSamples[i*2+0] = (float)((pInputSamples0[i] << shift0) / 2147483648.0);
+        pOutputSamples[i*2+1] = (float)((pInputSamples1[i] << shift1) / 2147483648.0);
+    }
+}
+
+#if defined(DRFLAC_SUPPORT_SSE2)
+DRFLAC_INLINE void drflac_read_frames_f32__decode_independent_stereo__sse2(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+    drflac_uint64 frameCount4 = frameCount >> 2;
+
+    __m128 divisor = _mm_set1_ps(8388608.0f);
+    int shift0 = (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample) - 8;
+    int shift1 = (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample) - 8;
+
+    for (drflac_uint64 i = 0; i < frameCount4; ++i) {
+        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
+        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+
+        __m128i i32L = _mm_slli_epi32(inputSample0, shift0);
+        __m128i i32R = _mm_slli_epi32(inputSample1, shift1);
+
+        __m128 f32L = _mm_div_ps(_mm_cvtepi32_ps(i32L), divisor);
+        __m128 f32R = _mm_div_ps(_mm_cvtepi32_ps(i32R), divisor);
+
+        pOutputSamples[i*4*2+0] = ((float*)&f32L)[0];
+        pOutputSamples[i*4*2+1] = ((float*)&f32R)[0];
+        pOutputSamples[i*4*2+2] = ((float*)&f32L)[1];
+        pOutputSamples[i*4*2+3] = ((float*)&f32R)[1];
+        pOutputSamples[i*4*2+4] = ((float*)&f32L)[2];
+        pOutputSamples[i*4*2+5] = ((float*)&f32R)[2];
+        pOutputSamples[i*4*2+6] = ((float*)&f32L)[3];
+        pOutputSamples[i*4*2+7] = ((float*)&f32R)[3];
+    }
+
+    for (drflac_uint64 i = (frameCount4 << 2); i < frameCount; ++i) {
+        pOutputSamples[i*2+0] = (float)((pInputSamples0[i] << shift0) / 8388608.0f);
+        pOutputSamples[i*2+1] = (float)((pInputSamples1[i] << shift1) / 8388608.0f);
+    }
+}
+#endif
+
+DRFLAC_INLINE void drflac_read_frames_f32__decode_independent_stereo(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
+{
+#if defined(DRFLAC_SUPPORT_SSE2)
+    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+        drflac_read_frames_f32__decode_independent_stereo__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+    } else
+#endif
+    {
+        // Scalar fallback.
+#if 0
+        drflac_read_frames_f32__decode_independent_stereo__reference(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+#else
+        drflac_read_frames_f32__decode_independent_stereo__scalar(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+#endif
+    }
+}
+
+
+
 drflac_uint64 drflac_read_frames_f32(drflac* pFlac, drflac_uint64 framesToRead, float* pBufferOut)
 {
 #if 0
@@ -5721,140 +6284,51 @@ drflac_uint64 drflac_read_frames_f32(drflac* pFlac, drflac_uint64 framesToRead, 
                 break;  // Couldn't read the next frame, so just break from the loop and return.
             }
         } else {
-            // Here is where we grab the samples and interleave them.
-
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
             drflac_uint64 totalFramesInPacket = pFlac->currentFrame.header.blockSize;
             drflac_uint64 framesReadFromPacketSoFar = totalFramesInPacket - (pFlac->currentFrame.samplesRemaining/channelCount);
-
-            drflac_uint64 firstAlignedSampleInFrame = framesReadFromPacketSoFar * channelCount;
-
+            drflac_uint64 iFirstSample = framesReadFromPacketSoFar * channelCount;
             drflac_int32 unusedBitsPerSample = 32 - pFlac->bitsPerSample;
-            drflac_int32 unusedBitsPerSample4[4];
-            unusedBitsPerSample4[0] = unusedBitsPerSample;
-            unusedBitsPerSample4[1] = unusedBitsPerSample;
-            unusedBitsPerSample4[2] = unusedBitsPerSample;
-            unusedBitsPerSample4[3] = unusedBitsPerSample;
 
             drflac_uint64 frameCountThisIteration = framesToRead;
             if (frameCountThisIteration > pFlac->currentFrame.samplesRemaining / channelCount) {
                 frameCountThisIteration = pFlac->currentFrame.samplesRemaining / channelCount;
             }
 
-            drflac_uint64 frameCountThisIteration4 = frameCountThisIteration >> 2;
+            if (channelCount == 2) {
+                const drflac_int32* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + iFirstSample;
+                const drflac_int32* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + iFirstSample;
 
-            switch (pFlac->currentFrame.header.channelAssignment)
-            {
-                case DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE:
+                switch (pFlac->currentFrame.header.channelAssignment)
                 {
-                    const drflac_int32* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
-                    const drflac_int32* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
+                    case DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE:
+                    {
+                        drflac_read_frames_f32__decode_left_side(pFlac, frameCountThisIteration, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pBufferOut);
+                    } break;
 
-                    drflac_int32 shift0 = unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample;
-                    drflac_int32 shift1 = unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample;
-                    for (drflac_uint64 i = 0; i < frameCountThisIteration4; ++i) {
-                        drflac_int32 left4[4];
-                        left4[0] = pDecodedSamples0[i*4+0] << shift0;
-                        left4[1] = pDecodedSamples0[i*4+1] << shift0;
-                        left4[2] = pDecodedSamples0[i*4+2] << shift0;
-                        left4[3] = pDecodedSamples0[i*4+3] << shift0;
-
-                        drflac_int32 side4[4];
-                        side4[0] = pDecodedSamples1[i*4+0] << shift1;
-                        side4[1] = pDecodedSamples1[i*4+1] << shift1;
-                        side4[2] = pDecodedSamples1[i*4+2] << shift1;
-                        side4[3] = pDecodedSamples1[i*4+3] << shift1;
-
-                        drflac_int32 right4[4];
-                        right4[0] = left4[0] - side4[0];
-                        right4[1] = left4[1] - side4[1];
-                        right4[2] = left4[2] - side4[2];
-                        right4[3] = left4[3] - side4[3];
-
-                        float left4f[4];
-                        left4f[0] = left4[0] / 2147483648.0f;
-                        left4f[1] = left4[1] / 2147483648.0f;
-                        left4f[2] = left4[2] / 2147483648.0f;
-                        left4f[3] = left4[3] / 2147483648.0f;
-
-                        float right4f[4];
-                        right4f[0] = right4[0] / 2147483648.0f;
-                        right4f[1] = right4[1] / 2147483648.0f;
-                        right4f[2] = right4[2] / 2147483648.0f;
-                        right4f[3] = right4[3] / 2147483648.0f;
-
-                        pBufferOut[i*4*2+0] = left4f[0];
-                        pBufferOut[i*4*2+1] = right4f[0];
-                        pBufferOut[i*4*2+2] = left4f[1];
-                        pBufferOut[i*4*2+3] = right4f[1];
-                        pBufferOut[i*4*2+4] = left4f[2];
-                        pBufferOut[i*4*2+5] = right4f[2];
-                        pBufferOut[i*4*2+6] = left4f[3];
-                        pBufferOut[i*4*2+7] = right4f[3];
-                    }
-
-                    for (drflac_uint64 i = frameCountThisIteration4*4; i < frameCountThisIteration; ++i) {
-                        int left  = pDecodedSamples0[i] << shift0;
-                        int side  = pDecodedSamples1[i] << shift1;
-                        int right = left - side;
-
-                        pBufferOut[i*2+0] = (float)(left / 2147483648.0);
-                        pBufferOut[i*2+1] = (float)(right / 2147483648.0);
-                    }
-                } break;
-
-                case DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE:
-                {
-                    const drflac_int32* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
-                    const drflac_int32* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
-
-                    for (drflac_uint64 i = 0; i < frameCountThisIteration; ++i) {
-                        int side  = pDecodedSamples0[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample);
-                        int right = pDecodedSamples1[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample);
-                        int left  = right + side;
-
-                        pBufferOut[i*2+0] = (float)(left / 2147483648.0);
-                        pBufferOut[i*2+1] = (float)(right / 2147483648.0);
-                    }
-                } break;
+                    case DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE:
+                    {
+                        drflac_read_frames_f32__decode_right_side(pFlac, frameCountThisIteration, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pBufferOut);
+                    } break;
                 
-                case DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE:
-                {
-                    const drflac_int32* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
-                    const drflac_int32* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
+                    case DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE:
+                    {
+                        drflac_read_frames_f32__decode_mid_side(pFlac, frameCountThisIteration, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pBufferOut);
+                    } break;
 
-                    for (drflac_uint64 i = 0; i < frameCountThisIteration; ++i) {
-                        int mid  = pDecodedSamples0[i] << pFlac->currentFrame.subframes[0].wastedBitsPerSample;
-                        int side = pDecodedSamples1[i] << pFlac->currentFrame.subframes[1].wastedBitsPerSample;
-                        
-                        mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
-
-                        pBufferOut[i*2+0] = (float)((((mid + side) >> 1) << (unusedBitsPerSample)) / 2147483648.0);
-                        pBufferOut[i*2+1] = (float)((((mid - side) >> 1) << (unusedBitsPerSample)) / 2147483648.0);
+                    case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT:
+                    default:
+                    {
+                        drflac_read_frames_f32__decode_independent_stereo(pFlac, frameCountThisIteration, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pBufferOut);
+                    } break;
+                }
+            } else {
+                // Generic interleaving.
+                for (drflac_uint64 i = 0; i < frameCountThisIteration; ++i) {
+                    for (unsigned int j = 0; j < channelCount; ++j) {
+                        pBufferOut[(i*channelCount)+j] = (float)(((pFlac->currentFrame.subframes[j].pDecodedSamples[iFirstSample + i]) << (unusedBitsPerSample + pFlac->currentFrame.subframes[j].wastedBitsPerSample)) / 2147483648.0);
                     }
-                } break;
-
-                case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT:
-                default:
-                {
-                    if (pFlac->currentFrame.header.channelAssignment == 1) {    // 1 = Stereo
-                        // Stereo optimized inner loop unroll.
-                        const drflac_int32* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + firstAlignedSampleInFrame;
-                        const drflac_int32* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + firstAlignedSampleInFrame;
-
-                        for (drflac_uint64 i = 0; i < frameCountThisIteration; ++i) {
-                            pBufferOut[i*2+0] = (float)((pDecodedSamples0[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample)) / 2147483648.0);
-                            pBufferOut[i*2+1] = (float)((pDecodedSamples1[i] << (unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample)) / 2147483648.0);
-                        }
-                    } else {
-                        // Generic interleaving.
-                        for (drflac_uint64 i = 0; i < frameCountThisIteration; ++i) {
-                            for (unsigned int j = 0; j < channelCount; ++j) {
-                                pBufferOut[(i*channelCount)+j] = (float)(((pFlac->currentFrame.subframes[j].pDecodedSamples[firstAlignedSampleInFrame + i]) << (unusedBitsPerSample + pFlac->currentFrame.subframes[j].wastedBitsPerSample)) / 2147483648.0);
-                            }
-                        }
-                    }
-                } break;
+                }
             }
 
             drflac_uint64 samplesReadThisIteration = frameCountThisIteration * channelCount;
