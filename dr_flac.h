@@ -2921,6 +2921,54 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts__param_equals_zero(dr
 }
 
 
+static DRFLAC_INLINE drflac_bool32 drflac__seek_rice_parts(drflac_bs* bs, drflac_uint8 riceParam)
+{
+    drflac_assert(riceParam > 0);   // <-- riceParam should never be 0. drflac__read_rice_parts__param_equals_zero() should be used instead for this case.
+
+    while (bs->cache == 0) {
+        if (!drflac__reload_cache(bs)) {
+            return DRFLAC_FALSE;
+        }
+    }
+
+    drflac_uint32 setBitOffsetPlus1 = drflac__clz(bs->cache);
+    setBitOffsetPlus1 += 1;
+
+    drflac_uint32 riceLength = setBitOffsetPlus1 + riceParam;
+    if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
+        bs->consumedBits += riceLength;
+        bs->cache <<= riceLength;
+    } else {
+        bs->consumedBits += riceLength;
+        bs->cache <<= setBitOffsetPlus1 & (DRFLAC_CACHE_L1_SIZE_BITS(bs)-1);    // <-- Equivalent to "if (setBitOffsetPlus1 < DRFLAC_CACHE_L1_SIZE_BITS(bs)) { bs->cache <<= setBitOffsetPlus1; }"
+
+        // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
+        drflac_uint32 bitCountLo = bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
+
+        if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
+#ifndef DR_FLAC_NO_CRC
+            drflac__update_crc16(bs);
+#endif
+            bs->cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
+            bs->consumedBits = 0;
+#ifndef DR_FLAC_NO_CRC
+            bs->crc16Cache = bs->cache;
+#endif
+        } else {
+            // Slow path. We need to fetch more data from the client.
+            if (!drflac__reload_cache(bs)) {
+                return DRFLAC_FALSE;
+            }
+        }
+
+        bs->consumedBits += bitCountLo;
+        bs->cache <<= bitCountLo;
+    }
+
+    return DRFLAC_TRUE;
+}
+
+
 static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_zero__scalar(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
     drflac_assert(bs != NULL);
@@ -3023,53 +3071,64 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
 
     drflac_uint32 i4 = 0;
     drflac_uint32 count4 = count >> 2;
-    while (i4 < count4) {
-        // Rice extraction.
-        if (!drflac__read_rice_parts(bs, riceParam, &zeroCountParts[0], &riceParamParts[0]) ||
-            !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[1], &riceParamParts[1]) ||
-            !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[2], &riceParamParts[2]) ||
-            !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[3], &riceParamParts[3])) {
-            return DRFLAC_FALSE;
-        }
 
-        __m128i zeroCountPart128_0 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
-        __m128i riceParamPart128_0 = _mm_set_epi32(riceParamParts[3], riceParamParts[2], riceParamParts[1], riceParamParts[0]);
+    if (bitsPerSample > 16) {
+        while (i4 < count4) {
+            // Rice extraction.
+            if (!drflac__read_rice_parts(bs, riceParam, &zeroCountParts[0], &riceParamParts[0]) ||
+                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[1], &riceParamParts[1]) ||
+                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[2], &riceParamParts[2]) ||
+                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[3], &riceParamParts[3])) {
+                return DRFLAC_FALSE;
+            }
 
-        riceParamPart128_0 = _mm_or_si128(riceParamPart128_0, _mm_slli_epi32(zeroCountPart128_0, riceParam));
-        riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128_0, one), _mm_set1_epi32(0xFFFFFFFF))); // <-- Only supported from SSE4.1
-        //riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_add_epi32(drflac__mm_not_si128(_mm_and_si128(riceParamPart128_0, one)), one));  // <-- SSE2 compatible
+            __m128i zeroCountPart128_0 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
+            __m128i riceParamPart128_0 = _mm_set_epi32(riceParamParts[3], riceParamParts[2], riceParamParts[1], riceParamParts[0]);
 
-        _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128_0);
+            riceParamPart128_0 = _mm_or_si128(riceParamPart128_0, _mm_slli_epi32(zeroCountPart128_0, riceParam));
+            riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128_0, one), _mm_set1_epi32(0xFFFFFFFF))); // <-- Only supported from SSE4.1
+            //riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_add_epi32(drflac__mm_not_si128(_mm_and_si128(riceParamPart128_0, one)), one));  // <-- SSE2 compatible
+            _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128_0);
 
-        if (bitsPerSample > 16) {
-#if 0
-        #if defined(DRFLAC_64BIT)
-            drflac__calculate_prediction_64_x2(order, shift, coefficients, riceParamParts + 0, pSamplesOut + 0);
-            drflac__calculate_prediction_64_x2(order, shift, coefficients, riceParamParts + 2, pSamplesOut + 2);
-        #else
-            drflac__calculate_prediction_64_x2__sse41(order, shift, coefficients, riceParamParts + 0, pSamplesOut + 0);
-            drflac__calculate_prediction_64_x2__sse41(order, shift, coefficients, riceParamParts + 2, pSamplesOut + 2);
-        #endif
-#else
         #if defined(DRFLAC_64BIT)
             // The scalar implementation seems to be faster on 64-bit in my testing.
             drflac__calculate_prediction_64_x4(order, shift, coefficients, riceParamParts, pSamplesOut);
-            //drflac__calculate_prediction_64_x2(order, shift, coefficients, riceParamParts + 0, pSamplesOut + 0);
-            //drflac__calculate_prediction_64_x2(order, shift, coefficients, riceParamParts + 2, pSamplesOut + 2);
         #else
             pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_64__sse41(order, shift, coefficients, pSamplesOut + 0);
             pSamplesOut[1] = riceParamParts[1] + drflac__calculate_prediction_64__sse41(order, shift, coefficients, pSamplesOut + 1);
             pSamplesOut[2] = riceParamParts[2] + drflac__calculate_prediction_64__sse41(order, shift, coefficients, pSamplesOut + 2);
             pSamplesOut[3] = riceParamParts[3] + drflac__calculate_prediction_64__sse41(order, shift, coefficients, pSamplesOut + 3);
         #endif
-#endif
-        } else {
-            drflac__calculate_prediction_32_x4__sse41(order, shift, coefficients, riceParamParts, pSamplesOut);
-        }
 
-        i4 += 1;
-        pSamplesOut += 4;
+            i4 += 1;
+            pSamplesOut += 4;
+        }
+    } else {
+        while (i4 < count4) {
+            // Rice extraction.
+            if (!drflac__read_rice_parts(bs, riceParam, &zeroCountParts[0], &riceParamParts[0]) ||
+                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[1], &riceParamParts[1]) ||
+                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[2], &riceParamParts[2]) ||
+                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[3], &riceParamParts[3])) {
+                return DRFLAC_FALSE;
+            }
+
+            __m128i zeroCountPart128_0 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
+            __m128i riceParamPart128_0 = _mm_set_epi32(riceParamParts[3], riceParamParts[2], riceParamParts[1], riceParamParts[0]);
+
+            riceParamPart128_0 = _mm_or_si128(riceParamPart128_0, _mm_slli_epi32(zeroCountPart128_0, riceParam));
+            riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128_0, one), _mm_set1_epi32(0xFFFFFFFF)));
+            _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128_0);
+
+            drflac__calculate_prediction_32_x4__sse41(order, shift, coefficients, riceParamParts, pSamplesOut);
+
+            i4 += 1;
+            pSamplesOut += 4;
+        }
     }
+
+    
+    
 
     drflac_uint32 i = i4 << 2;
     while (i < count) {
@@ -3298,16 +3357,15 @@ static drflac_bool32 drflac__read_and_seek_residual__rice(drflac_bs* bs, drflac_
     drflac_assert(bs != NULL);
     drflac_assert(count > 0);
 
-    drflac_uint32 zeroCountPart;
-    drflac_uint32 riceParamPart;
-
     if (riceParam != 0) {
         for (drflac_uint32 i = 0; i < count; ++i) {
-            if (!drflac__read_rice_parts(bs, riceParam, &zeroCountPart, &riceParamPart)) {
+            if (!drflac__seek_rice_parts(bs, riceParam)) {
                 return DRFLAC_FALSE;
             }
         }
     } else {
+        drflac_uint32 zeroCountPart;
+        drflac_uint32 riceParamPart;
         for (drflac_uint32 i = 0; i < count; ++i) {
             if (!drflac__read_rice_parts__param_equals_zero(bs, &zeroCountPart, &riceParamPart)) {
                 return DRFLAC_FALSE;
