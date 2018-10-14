@@ -3023,7 +3023,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
     }
 }
 
-static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_zero(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_zero__scalar(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
     drflac_assert(bs != NULL);
     drflac_assert(count > 0);
@@ -3100,6 +3100,94 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_ze
 
     return DRFLAC_TRUE;
 }
+
+static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_zero__sse41(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+{
+    drflac_assert(bs != NULL);
+    drflac_assert(count > 0);
+    drflac_assert(pSamplesOut != NULL);
+
+    static drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
+
+    drflac_uint32 zeroCountParts[4];
+    drflac_uint32 riceParamParts[4];
+
+    __m128i one = _mm_set1_epi32(0x01);
+
+    drflac_uint32 i4 = 0;
+    drflac_uint32 count4 = count >> 2;
+    while (i4 < count4) {
+        // Rice extraction.
+        if (!drflac__read_rice_parts__param_equals_zero(bs, &zeroCountParts[0], &riceParamParts[0]) ||
+            !drflac__read_rice_parts__param_equals_zero(bs, &zeroCountParts[1], &riceParamParts[1]) ||
+            !drflac__read_rice_parts__param_equals_zero(bs, &zeroCountParts[2], &riceParamParts[2]) ||
+            !drflac__read_rice_parts__param_equals_zero(bs, &zeroCountParts[3], &riceParamParts[3])) {
+            return DRFLAC_FALSE;
+        }
+
+        __m128i zeroCountPart128_0 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
+        __m128i riceParamPart128_0 = _mm_set_epi32(riceParamParts[3], riceParamParts[2], riceParamParts[1], riceParamParts[0]);
+
+        riceParamPart128_0 = _mm_or_si128(riceParamPart128_0, zeroCountPart128_0);
+        riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128_0, one), _mm_set1_epi32(0xFFFFFFFF)));
+
+        _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128_0);
+
+        if (bitsPerSample > 16) {
+        #if defined(DRFLAC_64BIT)
+            drflac__calculate_prediction_64_x4(order, shift, coefficients, riceParamParts, pSamplesOut);
+        #else
+            pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_64__sse41(order, shift, coefficients, pSamplesOut + 0);
+            pSamplesOut[1] = riceParamParts[1] + drflac__calculate_prediction_64__sse41(order, shift, coefficients, pSamplesOut + 1);
+            pSamplesOut[2] = riceParamParts[2] + drflac__calculate_prediction_64__sse41(order, shift, coefficients, pSamplesOut + 2);
+            pSamplesOut[3] = riceParamParts[3] + drflac__calculate_prediction_64__sse41(order, shift, coefficients, pSamplesOut + 3);
+        #endif
+        } else {
+            drflac__calculate_prediction_32_x4__sse41(order, shift, coefficients, riceParamParts, pSamplesOut);
+        }
+
+        i4 += 1;
+        pSamplesOut += 4;
+    }
+
+    drflac_uint32 i = i4 << 2;
+    while (i < count) {
+        // Rice extraction.
+        if (!drflac__read_rice_parts__param_equals_zero(bs, &zeroCountParts[0], &riceParamParts[0])) {
+            return DRFLAC_FALSE;
+        }
+
+        // Rice reconstruction.
+        riceParamParts[0] |= zeroCountParts[0];
+        riceParamParts[0]  = (riceParamParts[0] >> 1) ^ t[riceParamParts[0] & 0x01];
+
+        // Sample reconstruction.
+        if (bitsPerSample > 16) {
+            pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
+        } else {
+            pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
+        }
+
+        i += 1;
+        pSamplesOut += 1;
+    }
+
+    return DRFLAC_TRUE;
+}
+
+static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_zero(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+{
+#if defined(DRFLAC_SUPPORT_SSE2)
+    if (drflac__gIsSSE41Supported) {
+        return drflac__decode_samples_with_residual__rice__param_equals_zero__sse41(bs, bitsPerSample, count, order, shift, coefficients, pSamplesOut);
+    } else
+#endif
+    {
+        // Scalar fallback.
+        return drflac__decode_samples_with_residual__rice__param_equals_zero__scalar(bs, bitsPerSample, count, order, shift, coefficients, pSamplesOut);
+    }
+}
+
 
 static drflac_bool32 drflac__decode_samples_with_residual__rice(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
