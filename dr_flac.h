@@ -3100,7 +3100,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
 
 static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_zero(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
-#if defined(DRFLAC_SUPPORT_SSE2)
+#if defined(DRFLAC_SUPPORT_SSE41)
     if (drflac__gIsSSE41Supported) {
         return drflac__decode_samples_with_residual__rice__param_larger_zero__sse41(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
     } else
@@ -3189,6 +3189,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_ze
     return DRFLAC_TRUE;
 }
 
+#if defined(DRFLAC_SUPPORT_SSE41)
 static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_zero__sse41(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
     drflac_assert(bs != NULL);
@@ -3262,10 +3263,11 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_ze
 
     return DRFLAC_TRUE;
 }
+#endif
 
 static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_zero(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
-#if defined(DRFLAC_SUPPORT_SSE2)
+#if defined(DRFLAC_SUPPORT_SSE41)
     if (drflac__gIsSSE41Supported) {
         return drflac__decode_samples_with_residual__rice__param_equals_zero__sse41(bs, bitsPerSample, count, order, shift, coefficients, pSamplesOut);
     } else
