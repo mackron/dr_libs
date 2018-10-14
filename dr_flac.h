@@ -2322,202 +2322,205 @@ static DRFLAC_INLINE void drflac__calculate_prediction_64_x4(drflac_uint32 order
 {
     drflac_assert(order <= 32);
 
-    drflac_int64 predictions[4] = {0, 0, 0, 0};
+    drflac_int64 prediction0 = 0;
+    drflac_int64 prediction1 = 0;
+    drflac_int64 prediction2 = 0;
+    drflac_int64 prediction3 = 0;
 
     switch (order)
     {
     case 32:
-        predictions[0] += coefficients[31] * (drflac_int64)pDecodedSamples[-32];
-        predictions[1] += coefficients[31] * (drflac_int64)pDecodedSamples[-31];
-        predictions[2] += coefficients[31] * (drflac_int64)pDecodedSamples[-30];
-        predictions[3] += coefficients[31] * (drflac_int64)pDecodedSamples[-29];
+        prediction0 += coefficients[31] * (drflac_int64)pDecodedSamples[-32];
+        prediction1 += coefficients[31] * (drflac_int64)pDecodedSamples[-31];
+        prediction2 += coefficients[31] * (drflac_int64)pDecodedSamples[-30];
+        prediction3 += coefficients[31] * (drflac_int64)pDecodedSamples[-29];
     case 31:
-        predictions[0] += coefficients[30] * (drflac_int64)pDecodedSamples[-31];
-        predictions[1] += coefficients[30] * (drflac_int64)pDecodedSamples[-30];
-        predictions[2] += coefficients[30] * (drflac_int64)pDecodedSamples[-29];
-        predictions[3] += coefficients[30] * (drflac_int64)pDecodedSamples[-28];
+        prediction0 += coefficients[30] * (drflac_int64)pDecodedSamples[-31];
+        prediction1 += coefficients[30] * (drflac_int64)pDecodedSamples[-30];
+        prediction2 += coefficients[30] * (drflac_int64)pDecodedSamples[-29];
+        prediction3 += coefficients[30] * (drflac_int64)pDecodedSamples[-28];
     case 30:
-        predictions[0] += coefficients[29] * (drflac_int64)pDecodedSamples[-30];
-        predictions[1] += coefficients[29] * (drflac_int64)pDecodedSamples[-29];
-        predictions[2] += coefficients[29] * (drflac_int64)pDecodedSamples[-28];
-        predictions[3] += coefficients[29] * (drflac_int64)pDecodedSamples[-27];
+        prediction0 += coefficients[29] * (drflac_int64)pDecodedSamples[-30];
+        prediction1 += coefficients[29] * (drflac_int64)pDecodedSamples[-29];
+        prediction2 += coefficients[29] * (drflac_int64)pDecodedSamples[-28];
+        prediction3 += coefficients[29] * (drflac_int64)pDecodedSamples[-27];
     case 29:
-        predictions[0] += coefficients[28] * (drflac_int64)pDecodedSamples[-29];
-        predictions[1] += coefficients[28] * (drflac_int64)pDecodedSamples[-28];
-        predictions[2] += coefficients[28] * (drflac_int64)pDecodedSamples[-27];
-        predictions[3] += coefficients[28] * (drflac_int64)pDecodedSamples[-26];
+        prediction0 += coefficients[28] * (drflac_int64)pDecodedSamples[-29];
+        prediction1 += coefficients[28] * (drflac_int64)pDecodedSamples[-28];
+        prediction2 += coefficients[28] * (drflac_int64)pDecodedSamples[-27];
+        prediction3 += coefficients[28] * (drflac_int64)pDecodedSamples[-26];
     case 28:
-        predictions[0] += coefficients[27] * (drflac_int64)pDecodedSamples[-28];
-        predictions[1] += coefficients[27] * (drflac_int64)pDecodedSamples[-27];
-        predictions[2] += coefficients[27] * (drflac_int64)pDecodedSamples[-26];
-        predictions[3] += coefficients[27] * (drflac_int64)pDecodedSamples[-25];
+        prediction0 += coefficients[27] * (drflac_int64)pDecodedSamples[-28];
+        prediction1 += coefficients[27] * (drflac_int64)pDecodedSamples[-27];
+        prediction2 += coefficients[27] * (drflac_int64)pDecodedSamples[-26];
+        prediction3 += coefficients[27] * (drflac_int64)pDecodedSamples[-25];
     case 27:
-        predictions[0] += coefficients[26] * (drflac_int64)pDecodedSamples[-27];
-        predictions[1] += coefficients[26] * (drflac_int64)pDecodedSamples[-26];
-        predictions[2] += coefficients[26] * (drflac_int64)pDecodedSamples[-25];
-        predictions[3] += coefficients[26] * (drflac_int64)pDecodedSamples[-24];
+        prediction0 += coefficients[26] * (drflac_int64)pDecodedSamples[-27];
+        prediction1 += coefficients[26] * (drflac_int64)pDecodedSamples[-26];
+        prediction2 += coefficients[26] * (drflac_int64)pDecodedSamples[-25];
+        prediction3 += coefficients[26] * (drflac_int64)pDecodedSamples[-24];
     case 26:
-        predictions[0] += coefficients[25] * (drflac_int64)pDecodedSamples[-26];
-        predictions[1] += coefficients[25] * (drflac_int64)pDecodedSamples[-25];
-        predictions[2] += coefficients[25] * (drflac_int64)pDecodedSamples[-24];
-        predictions[3] += coefficients[25] * (drflac_int64)pDecodedSamples[-23];
+        prediction0 += coefficients[25] * (drflac_int64)pDecodedSamples[-26];
+        prediction1 += coefficients[25] * (drflac_int64)pDecodedSamples[-25];
+        prediction2 += coefficients[25] * (drflac_int64)pDecodedSamples[-24];
+        prediction3 += coefficients[25] * (drflac_int64)pDecodedSamples[-23];
     case 25:
-        predictions[0] += coefficients[24] * (drflac_int64)pDecodedSamples[-25];
-        predictions[1] += coefficients[24] * (drflac_int64)pDecodedSamples[-24];
-        predictions[2] += coefficients[24] * (drflac_int64)pDecodedSamples[-23];
-        predictions[3] += coefficients[24] * (drflac_int64)pDecodedSamples[-22];
+        prediction0 += coefficients[24] * (drflac_int64)pDecodedSamples[-25];
+        prediction1 += coefficients[24] * (drflac_int64)pDecodedSamples[-24];
+        prediction2 += coefficients[24] * (drflac_int64)pDecodedSamples[-23];
+        prediction3 += coefficients[24] * (drflac_int64)pDecodedSamples[-22];
     case 24:
-        predictions[0] += coefficients[23] * (drflac_int64)pDecodedSamples[-24];
-        predictions[1] += coefficients[23] * (drflac_int64)pDecodedSamples[-23];
-        predictions[2] += coefficients[23] * (drflac_int64)pDecodedSamples[-22];
-        predictions[3] += coefficients[23] * (drflac_int64)pDecodedSamples[-21];
+        prediction0 += coefficients[23] * (drflac_int64)pDecodedSamples[-24];
+        prediction1 += coefficients[23] * (drflac_int64)pDecodedSamples[-23];
+        prediction2 += coefficients[23] * (drflac_int64)pDecodedSamples[-22];
+        prediction3 += coefficients[23] * (drflac_int64)pDecodedSamples[-21];
     case 23:
-        predictions[0] += coefficients[22] * (drflac_int64)pDecodedSamples[-23];
-        predictions[1] += coefficients[22] * (drflac_int64)pDecodedSamples[-22];
-        predictions[2] += coefficients[22] * (drflac_int64)pDecodedSamples[-21];
-        predictions[3] += coefficients[22] * (drflac_int64)pDecodedSamples[-20];
+        prediction0 += coefficients[22] * (drflac_int64)pDecodedSamples[-23];
+        prediction1 += coefficients[22] * (drflac_int64)pDecodedSamples[-22];
+        prediction2 += coefficients[22] * (drflac_int64)pDecodedSamples[-21];
+        prediction3 += coefficients[22] * (drflac_int64)pDecodedSamples[-20];
     case 22:
-        predictions[0] += coefficients[21] * (drflac_int64)pDecodedSamples[-22];
-        predictions[1] += coefficients[21] * (drflac_int64)pDecodedSamples[-21];
-        predictions[2] += coefficients[21] * (drflac_int64)pDecodedSamples[-20];
-        predictions[3] += coefficients[21] * (drflac_int64)pDecodedSamples[-19];
+        prediction0 += coefficients[21] * (drflac_int64)pDecodedSamples[-22];
+        prediction1 += coefficients[21] * (drflac_int64)pDecodedSamples[-21];
+        prediction2 += coefficients[21] * (drflac_int64)pDecodedSamples[-20];
+        prediction3 += coefficients[21] * (drflac_int64)pDecodedSamples[-19];
     case 21:
-        predictions[0] += coefficients[20] * (drflac_int64)pDecodedSamples[-21];
-        predictions[1] += coefficients[20] * (drflac_int64)pDecodedSamples[-20];
-        predictions[2] += coefficients[20] * (drflac_int64)pDecodedSamples[-19];
-        predictions[3] += coefficients[20] * (drflac_int64)pDecodedSamples[-18];
+        prediction0 += coefficients[20] * (drflac_int64)pDecodedSamples[-21];
+        prediction1 += coefficients[20] * (drflac_int64)pDecodedSamples[-20];
+        prediction2 += coefficients[20] * (drflac_int64)pDecodedSamples[-19];
+        prediction3 += coefficients[20] * (drflac_int64)pDecodedSamples[-18];
     case 20:
-        predictions[0] += coefficients[19] * (drflac_int64)pDecodedSamples[-20];
-        predictions[1] += coefficients[19] * (drflac_int64)pDecodedSamples[-19];
-        predictions[2] += coefficients[19] * (drflac_int64)pDecodedSamples[-18];
-        predictions[3] += coefficients[19] * (drflac_int64)pDecodedSamples[-17];
+        prediction0 += coefficients[19] * (drflac_int64)pDecodedSamples[-20];
+        prediction1 += coefficients[19] * (drflac_int64)pDecodedSamples[-19];
+        prediction2 += coefficients[19] * (drflac_int64)pDecodedSamples[-18];
+        prediction3 += coefficients[19] * (drflac_int64)pDecodedSamples[-17];
     case 19:
-        predictions[0] += coefficients[18] * (drflac_int64)pDecodedSamples[-19];
-        predictions[1] += coefficients[18] * (drflac_int64)pDecodedSamples[-18];
-        predictions[2] += coefficients[18] * (drflac_int64)pDecodedSamples[-17];
-        predictions[3] += coefficients[18] * (drflac_int64)pDecodedSamples[-16];
+        prediction0 += coefficients[18] * (drflac_int64)pDecodedSamples[-19];
+        prediction1 += coefficients[18] * (drflac_int64)pDecodedSamples[-18];
+        prediction2 += coefficients[18] * (drflac_int64)pDecodedSamples[-17];
+        prediction3 += coefficients[18] * (drflac_int64)pDecodedSamples[-16];
     case 18:
-        predictions[0] += coefficients[17] * (drflac_int64)pDecodedSamples[-18];
-        predictions[1] += coefficients[17] * (drflac_int64)pDecodedSamples[-17];
-        predictions[2] += coefficients[17] * (drflac_int64)pDecodedSamples[-16];
-        predictions[3] += coefficients[17] * (drflac_int64)pDecodedSamples[-15];
+        prediction0 += coefficients[17] * (drflac_int64)pDecodedSamples[-18];
+        prediction1 += coefficients[17] * (drflac_int64)pDecodedSamples[-17];
+        prediction2 += coefficients[17] * (drflac_int64)pDecodedSamples[-16];
+        prediction3 += coefficients[17] * (drflac_int64)pDecodedSamples[-15];
     case 17:
-        predictions[0] += coefficients[16] * (drflac_int64)pDecodedSamples[-17];
-        predictions[1] += coefficients[16] * (drflac_int64)pDecodedSamples[-16];
-        predictions[2] += coefficients[16] * (drflac_int64)pDecodedSamples[-15];
-        predictions[3] += coefficients[16] * (drflac_int64)pDecodedSamples[-14];
+        prediction0 += coefficients[16] * (drflac_int64)pDecodedSamples[-17];
+        prediction1 += coefficients[16] * (drflac_int64)pDecodedSamples[-16];
+        prediction2 += coefficients[16] * (drflac_int64)pDecodedSamples[-15];
+        prediction3 += coefficients[16] * (drflac_int64)pDecodedSamples[-14];
 
     case 16:
-        predictions[0] += coefficients[15] * (drflac_int64)pDecodedSamples[-16];
-        predictions[1] += coefficients[15] * (drflac_int64)pDecodedSamples[-15];
-        predictions[2] += coefficients[15] * (drflac_int64)pDecodedSamples[-14];
-        predictions[3] += coefficients[15] * (drflac_int64)pDecodedSamples[-13];
+        prediction0 += coefficients[15] * (drflac_int64)pDecodedSamples[-16];
+        prediction1 += coefficients[15] * (drflac_int64)pDecodedSamples[-15];
+        prediction2 += coefficients[15] * (drflac_int64)pDecodedSamples[-14];
+        prediction3 += coefficients[15] * (drflac_int64)pDecodedSamples[-13];
     case 15:
-        predictions[0] += coefficients[14] * (drflac_int64)pDecodedSamples[-15];
-        predictions[1] += coefficients[14] * (drflac_int64)pDecodedSamples[-14];
-        predictions[2] += coefficients[14] * (drflac_int64)pDecodedSamples[-13];
-        predictions[3] += coefficients[14] * (drflac_int64)pDecodedSamples[-12];
+        prediction0 += coefficients[14] * (drflac_int64)pDecodedSamples[-15];
+        prediction1 += coefficients[14] * (drflac_int64)pDecodedSamples[-14];
+        prediction2 += coefficients[14] * (drflac_int64)pDecodedSamples[-13];
+        prediction3 += coefficients[14] * (drflac_int64)pDecodedSamples[-12];
     case 14:
-        predictions[0] += coefficients[13] * (drflac_int64)pDecodedSamples[-14];
-        predictions[1] += coefficients[13] * (drflac_int64)pDecodedSamples[-13];
-        predictions[2] += coefficients[13] * (drflac_int64)pDecodedSamples[-12];
-        predictions[3] += coefficients[13] * (drflac_int64)pDecodedSamples[-11];
+        prediction0 += coefficients[13] * (drflac_int64)pDecodedSamples[-14];
+        prediction1 += coefficients[13] * (drflac_int64)pDecodedSamples[-13];
+        prediction2 += coefficients[13] * (drflac_int64)pDecodedSamples[-12];
+        prediction3 += coefficients[13] * (drflac_int64)pDecodedSamples[-11];
     case 13:
-        predictions[0] += coefficients[12] * (drflac_int64)pDecodedSamples[-13];
-        predictions[1] += coefficients[12] * (drflac_int64)pDecodedSamples[-12];
-        predictions[2] += coefficients[12] * (drflac_int64)pDecodedSamples[-11];
-        predictions[3] += coefficients[12] * (drflac_int64)pDecodedSamples[-10];
+        prediction0 += coefficients[12] * (drflac_int64)pDecodedSamples[-13];
+        prediction1 += coefficients[12] * (drflac_int64)pDecodedSamples[-12];
+        prediction2 += coefficients[12] * (drflac_int64)pDecodedSamples[-11];
+        prediction3 += coefficients[12] * (drflac_int64)pDecodedSamples[-10];
     case 12:
-        predictions[0] += coefficients[11] * (drflac_int64)pDecodedSamples[-12];
-        predictions[1] += coefficients[11] * (drflac_int64)pDecodedSamples[-11];
-        predictions[2] += coefficients[11] * (drflac_int64)pDecodedSamples[-10];
-        predictions[3] += coefficients[11] * (drflac_int64)pDecodedSamples[- 9];
+        prediction0 += coefficients[11] * (drflac_int64)pDecodedSamples[-12];
+        prediction1 += coefficients[11] * (drflac_int64)pDecodedSamples[-11];
+        prediction2 += coefficients[11] * (drflac_int64)pDecodedSamples[-10];
+        prediction3 += coefficients[11] * (drflac_int64)pDecodedSamples[- 9];
     case 11:
-        predictions[0] += coefficients[10] * (drflac_int64)pDecodedSamples[-11];
-        predictions[1] += coefficients[10] * (drflac_int64)pDecodedSamples[-10];
-        predictions[2] += coefficients[10] * (drflac_int64)pDecodedSamples[- 9];
-        predictions[3] += coefficients[10] * (drflac_int64)pDecodedSamples[- 8];
+        prediction0 += coefficients[10] * (drflac_int64)pDecodedSamples[-11];
+        prediction1 += coefficients[10] * (drflac_int64)pDecodedSamples[-10];
+        prediction2 += coefficients[10] * (drflac_int64)pDecodedSamples[- 9];
+        prediction3 += coefficients[10] * (drflac_int64)pDecodedSamples[- 8];
     case 10:
-        predictions[0] += coefficients[ 9] * (drflac_int64)pDecodedSamples[-10];
-        predictions[1] += coefficients[ 9] * (drflac_int64)pDecodedSamples[- 9];
-        predictions[2] += coefficients[ 9] * (drflac_int64)pDecodedSamples[- 8];
-        predictions[3] += coefficients[ 9] * (drflac_int64)pDecodedSamples[- 7];
+        prediction0 += coefficients[9] * (drflac_int64)pDecodedSamples[-10];
+        prediction1 += coefficients[9] * (drflac_int64)pDecodedSamples[- 9];
+        prediction2 += coefficients[9] * (drflac_int64)pDecodedSamples[- 8];
+        prediction3 += coefficients[9] * (drflac_int64)pDecodedSamples[- 7];
     case  9:
-        predictions[0] += coefficients[ 8] * (drflac_int64)pDecodedSamples[- 9];
-        predictions[1] += coefficients[ 8] * (drflac_int64)pDecodedSamples[- 8];
-        predictions[2] += coefficients[ 8] * (drflac_int64)pDecodedSamples[- 7];
-        predictions[3] += coefficients[ 8] * (drflac_int64)pDecodedSamples[- 6];
+        prediction0 += coefficients[8] * (drflac_int64)pDecodedSamples[- 9];
+        prediction1 += coefficients[8] * (drflac_int64)pDecodedSamples[- 8];
+        prediction2 += coefficients[8] * (drflac_int64)pDecodedSamples[- 7];
+        prediction3 += coefficients[8] * (drflac_int64)pDecodedSamples[- 6];
     case  8:
-        predictions[0] += coefficients[ 7] * (drflac_int64)pDecodedSamples[- 8];
-        predictions[1] += coefficients[ 7] * (drflac_int64)pDecodedSamples[- 7];
-        predictions[2] += coefficients[ 7] * (drflac_int64)pDecodedSamples[- 6];
-        predictions[3] += coefficients[ 7] * (drflac_int64)pDecodedSamples[- 5];
+        prediction0 += coefficients[7] * (drflac_int64)pDecodedSamples[- 8];
+        prediction1 += coefficients[7] * (drflac_int64)pDecodedSamples[- 7];
+        prediction2 += coefficients[7] * (drflac_int64)pDecodedSamples[- 6];
+        prediction3 += coefficients[7] * (drflac_int64)pDecodedSamples[- 5];
     case  7:
-        predictions[0] += coefficients[ 6] * (drflac_int64)pDecodedSamples[- 7];
-        predictions[1] += coefficients[ 6] * (drflac_int64)pDecodedSamples[- 6];
-        predictions[2] += coefficients[ 6] * (drflac_int64)pDecodedSamples[- 5];
-        predictions[3] += coefficients[ 6] * (drflac_int64)pDecodedSamples[- 4];
+        prediction0 += coefficients[6] * (drflac_int64)pDecodedSamples[- 7];
+        prediction1 += coefficients[6] * (drflac_int64)pDecodedSamples[- 6];
+        prediction2 += coefficients[6] * (drflac_int64)pDecodedSamples[- 5];
+        prediction3 += coefficients[6] * (drflac_int64)pDecodedSamples[- 4];
     case  6:
-        predictions[0] += coefficients[ 5] * (drflac_int64)pDecodedSamples[- 6];
-        predictions[1] += coefficients[ 5] * (drflac_int64)pDecodedSamples[- 5];
-        predictions[2] += coefficients[ 5] * (drflac_int64)pDecodedSamples[- 4];
-        predictions[3] += coefficients[ 5] * (drflac_int64)pDecodedSamples[- 3];
+        prediction0 += coefficients[5] * (drflac_int64)pDecodedSamples[- 6];
+        prediction1 += coefficients[5] * (drflac_int64)pDecodedSamples[- 5];
+        prediction2 += coefficients[5] * (drflac_int64)pDecodedSamples[- 4];
+        prediction3 += coefficients[5] * (drflac_int64)pDecodedSamples[- 3];
     case  5:
-        predictions[0] += coefficients[ 4] * (drflac_int64)pDecodedSamples[- 5];
-        predictions[1] += coefficients[ 4] * (drflac_int64)pDecodedSamples[- 4];
-        predictions[2] += coefficients[ 4] * (drflac_int64)pDecodedSamples[- 3];
-        predictions[3] += coefficients[ 4] * (drflac_int64)pDecodedSamples[- 2];
+        prediction0 += coefficients[4] * (drflac_int64)pDecodedSamples[- 5];
+        prediction1 += coefficients[4] * (drflac_int64)pDecodedSamples[- 4];
+        prediction2 += coefficients[4] * (drflac_int64)pDecodedSamples[- 3];
+        prediction3 += coefficients[4] * (drflac_int64)pDecodedSamples[- 2];
     case  4:
-        predictions[0] += coefficients[ 3] * (drflac_int64)pDecodedSamples[- 4];
-        predictions[1] += coefficients[ 3] * (drflac_int64)pDecodedSamples[- 3];
-        predictions[2] += coefficients[ 3] * (drflac_int64)pDecodedSamples[- 2];
-        predictions[3] += coefficients[ 3] * (drflac_int64)pDecodedSamples[- 1];
+        prediction0 += coefficients[3] * (drflac_int64)pDecodedSamples[- 4];
+        prediction1 += coefficients[3] * (drflac_int64)pDecodedSamples[- 3];
+        prediction2 += coefficients[3] * (drflac_int64)pDecodedSamples[- 2];
+        prediction3 += coefficients[3] * (drflac_int64)pDecodedSamples[- 1];
         order = 3;
     }
 
     switch (order)
     {
     case 3:
-        predictions[0] += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 3];
+        prediction0 += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 3];
     case 2:
-        predictions[0] += coefficients[ 1] * (drflac_int64)pDecodedSamples[- 2];
+        prediction0 += coefficients[ 1] * (drflac_int64)pDecodedSamples[- 2];
     case 1:
-        predictions[0] += coefficients[ 0] * (drflac_int64)pDecodedSamples[- 1];
+        prediction0 += coefficients[ 0] * (drflac_int64)pDecodedSamples[- 1];
     }
-    pDecodedSamples[0] = riceParamParts[0] + (drflac_int32)(predictions[0] >> shift);
+    pDecodedSamples[0] = riceParamParts[0] + (drflac_int32)(prediction0 >> shift);
 
     switch (order)
     {
     case 3:
-        predictions[1] += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 2];
+        prediction1 += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 2];
     case 2:
-        predictions[1] += coefficients[ 1] * (drflac_int64)pDecodedSamples[- 1];
+        prediction1 += coefficients[ 1] * (drflac_int64)pDecodedSamples[- 1];
     case 1:
-        predictions[1] += coefficients[ 0] * (drflac_int64)pDecodedSamples[  0];
+        prediction1 += coefficients[ 0] * (drflac_int64)pDecodedSamples[  0];
     }
-    pDecodedSamples[1] = riceParamParts[1] + (drflac_int32)(predictions[1] >> shift);
+    pDecodedSamples[1] = riceParamParts[1] + (drflac_int32)(prediction1 >> shift);
 
     switch (order)
     {
     case 3:
-        predictions[2] += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 1];
+        prediction2 += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 1];
     case 2:
-        predictions[2] += coefficients[ 1] * (drflac_int64)pDecodedSamples[  0];
+        prediction2 += coefficients[ 1] * (drflac_int64)pDecodedSamples[  0];
     case 1:
-        predictions[2] += coefficients[ 0] * (drflac_int64)pDecodedSamples[  1];
+        prediction2 += coefficients[ 0] * (drflac_int64)pDecodedSamples[  1];
     }
-    pDecodedSamples[2] = riceParamParts[2] + (drflac_int32)(predictions[2] >> shift);
+    pDecodedSamples[2] = riceParamParts[2] + (drflac_int32)(prediction2 >> shift);
 
     switch (order)
     {
     case 3:
-        predictions[3] += coefficients[ 2] * (drflac_int64)pDecodedSamples[  0];
+        prediction3 += coefficients[ 2] * (drflac_int64)pDecodedSamples[  0];
     case 2:
-        predictions[3] += coefficients[ 1] * (drflac_int64)pDecodedSamples[  1];
+        prediction3 += coefficients[ 1] * (drflac_int64)pDecodedSamples[  1];
     case 1:
-        predictions[3] += coefficients[ 0] * (drflac_int64)pDecodedSamples[  2];
+        prediction3 += coefficients[ 0] * (drflac_int64)pDecodedSamples[  2];
     }
-    pDecodedSamples[3] = riceParamParts[3] + (drflac_int32)(predictions[3] >> shift);
+    pDecodedSamples[3] = riceParamParts[3] + (drflac_int32)(prediction3 >> shift);
 }
 
 #if defined(DRFLAC_SUPPORT_SSE41)
