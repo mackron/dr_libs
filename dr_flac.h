@@ -2632,24 +2632,54 @@ static DRFLAC_INLINE void drflac__calculate_prediction_64_x2__sse41(drflac_uint3
 }
 
 
+static DRFLAC_INLINE __m128i drflac__mm_not_si128(__m128i a)
+{
+    return _mm_xor_si128(a, _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
+}
 
+#if 0
 static DRFLAC_INLINE __m128 drflac__mm_slide1_ps(__m128 a, __m128 b)
 {
     // a3a2a1a0/b3b2b1b0 -> a2a1a0b3
 
     // Result = a2a1a0b3
+    __m128 b3b3a0a1 = _mm_shuffle_ps(a, b, _MM_SHUFFLE(3, 3, 0, 1));
     __m128 a2a1a0a0 = _mm_shuffle_ps(a, a, _MM_SHUFFLE(2, 1, 0, 0));
-    __m128 b3b3a0a0 = _mm_shuffle_ps(a, b, _MM_SHUFFLE(3, 3, 0, 0));
-    __m128 a2a1a0b3 = _mm_shuffle_ps(b3b3a0a0, a2a1a0a0, _MM_SHUFFLE(3, 2, 1, 2));
+    __m128 a2a1a0b3 = _mm_shuffle_ps(b3b3a0a1, a2a1a0a0, _MM_SHUFFLE(3, 2, 1, 2));
+    return a2a1a0b3;
+}
+#endif
+
+static DRFLAC_INLINE __m128i drflac__mm_slide1_epi32(__m128i a, __m128i b)
+{
+    // a3a2a1a0/b3b2b1b0 -> a2a1a0b3
+
+    // Result = a2a1a0b3
+    __m128i b3a3b2a2 = _mm_unpackhi_epi32(a, b);
+    __m128i a2b3a2b3 = _mm_shuffle_epi32(b3a3b2a2, _MM_SHUFFLE(0, 3, 0, 3));
+    __m128i a1a2a0b3 = _mm_unpacklo_epi32(a2b3a2b3, a);
+    __m128i a2a1a0b3 = _mm_shuffle_epi32(a1a2a0b3, _MM_SHUFFLE(2, 3, 1, 0));
     return a2a1a0b3;
 }
 
+#if 0
 static DRFLAC_INLINE __m128 drflac__mm_slide2_ps(__m128 a, __m128 b)
 {
     // Result = a1a0b3b2
     return _mm_shuffle_ps(b, a, _MM_SHUFFLE(1, 0, 3, 2));
 }
+#endif
 
+static DRFLAC_INLINE __m128i drflac__mm_slide2_epi32(__m128i a, __m128i b)
+{
+    // Result = a1a0b3b2
+    __m128i b1b0b3b2 = _mm_shuffle_epi32(b, _MM_SHUFFLE(1, 0, 3, 2));
+    __m128i a1b3a0b2 = _mm_unpacklo_epi32(b1b0b3b2, a);
+    __m128i a1a0b3b2 = _mm_shuffle_epi32(a1b3a0b2, _MM_SHUFFLE(3, 1, 2, 0));
+    return a1a0b3b2;
+}
+
+#if 0
 static DRFLAC_INLINE __m128 drflac__mm_slide3_ps(__m128 a, __m128 b)
 {
     // Result = a0b3b2b1
@@ -2658,16 +2688,27 @@ static DRFLAC_INLINE __m128 drflac__mm_slide3_ps(__m128 a, __m128 b)
     __m128 a0b3b2b1 = _mm_shuffle_ps(b3b3b2b1, b3b3a0a0, _MM_SHUFFLE(1, 2, 1, 0));
     return a0b3b2b1;
 }
+#endif
 
+static DRFLAC_INLINE __m128i drflac__mm_slide3_epi32(__m128i a, __m128i b)
+{
+    // Result = a0b3b2b1
+    __m128i b1a1b0a0 = _mm_unpacklo_epi32(a, b);
+    __m128i a0b1a0b1 = _mm_shuffle_epi32(b1a1b0a0, _MM_SHUFFLE(0, 3, 0, 3));
+    __m128i b3a0b2b1 = _mm_unpackhi_epi32(a0b1a0b1, b);
+    __m128i a0b3b2b1 = _mm_shuffle_epi32(b3a0b2b1, _MM_SHUFFLE(2, 3, 1, 0));
+    return a0b3b2b1;
+}
 
 static DRFLAC_INLINE void drflac__calculate_prediction_32_x4__sse41(drflac_uint32 order, drflac_int32 shift, /*const drflac_int32* coefficients,*/ const __m128i* coefficients128, const drflac_uint32 riceParamParts[4], drflac_int32* pDecodedSamples)
 {
     drflac_assert(order <= 32);
 
-    __m128i prediction = _mm_setzero_si128();
-    drflac_int32 predictions[4] = {0, 0, 0, 0};
+    
 
 #if 0
+    drflac_int32 predictions[4] = {0, 0, 0, 0};
+
     switch (order)
     {
     case 32: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[31]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 32))));
@@ -2751,97 +2792,311 @@ static DRFLAC_INLINE void drflac__calculate_prediction_32_x4__sse41(drflac_uint3
     }
     pDecodedSamples[3] = riceParamParts[3] + (predictions[3] >> shift);
 #else
+    
+    //if (order > 0) {
+        if (order > 0) {
+            __m128i s_13_14_15_16 = _mm_loadu_si128((const __m128i*)(pDecodedSamples - 16));
+            __m128i s_09_10_11_12 = _mm_loadu_si128((const __m128i*)(pDecodedSamples - 12));
+            __m128i s_05_06_07_08 = _mm_loadu_si128((const __m128i*)(pDecodedSamples -  8));
+            __m128i s_01_02_03_04 = _mm_loadu_si128((const __m128i*)(pDecodedSamples -  4));
+            //__m128i riceParamParts128 = _mm_loadu_si128((const __m128i*)riceParamParts);
 
-    __m128 s_13_14_15_16 = _mm_castsi128_ps(_mm_loadu_si128((const __m128i*)(pDecodedSamples - 16)));
-    __m128 s_09_10_11_12 = _mm_castsi128_ps(_mm_loadu_si128((const __m128i*)(pDecodedSamples - 12)));
-    __m128 s_05_06_07_08 = _mm_castsi128_ps(_mm_loadu_si128((const __m128i*)(pDecodedSamples -  8)));
-    __m128 s_01_02_03_04 = _mm_castsi128_ps(_mm_loadu_si128((const __m128i*)(pDecodedSamples -  4)));
+            //const __m128i mask000000FF = _mm_set_epi32(0, 0, 0, 0xFFFFFFFF);
+            //const __m128i mask0000FF00 = _mm_slli_si128(mask000000FF,  4);
+            //const __m128i mask00FF0000 = _mm_slli_si128(mask000000FF,  8);
+            //const __m128i maskFF000000 = _mm_slli_si128(mask000000FF, 12);
+            register __m128i prediction = _mm_setzero_si128();
 
-    if (order > 3) {
-        switch (order)
-        {
-        case 32: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[31], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 32))));
-        case 31: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[30], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 31))));
-        case 30: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[29], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 30))));
-        case 29: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[28], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 29))));
-        case 28: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[27], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 28))));
-        case 27: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[26], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 27))));
-        case 26: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[25], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 26))));
-        case 25: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[24], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 25))));
-        case 24: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[23], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 24))));
-        case 23: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[22], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 23))));
-        case 22: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[21], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 22))));
-        case 21: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[20], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 21))));
-        case 20: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[19], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 20))));
-        case 19: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[18], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 19))));
-        case 18: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[17], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 18))));
-        case 17: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[16], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 17))));
+            switch (order)
+            {
+            case 32: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[31], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 32))));
+            case 31: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[30], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 31))));
+            case 30: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[29], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 30))));
+            case 29: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[28], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 29))));
+            case 28: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[27], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 28))));
+            case 27: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[26], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 27))));
+            case 26: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[25], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 26))));
+            case 25: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[24], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 25))));
+            case 24: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[23], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 24))));
+            case 23: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[22], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 23))));
+            case 22: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[21], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 22))));
+            case 21: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[20], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 21))));
+            case 20: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[19], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 20))));
+            case 19: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[18], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 19))));
+            case 18: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[17], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 18))));
+            case 17: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[16], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 17))));
 
-        case 16: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[15], _mm_castps_si128(s_13_14_15_16)));
-        case 15: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[14], _mm_castps_si128(drflac__mm_slide3_ps(s_09_10_11_12, s_13_14_15_16))));
-        case 14: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[13], _mm_castps_si128(drflac__mm_slide2_ps(s_09_10_11_12, s_13_14_15_16))));
-        case 13: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[12], _mm_castps_si128(drflac__mm_slide1_ps(s_09_10_11_12, s_13_14_15_16))));
-        case 12: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[11], _mm_castps_si128(s_09_10_11_12)));
-        case 11: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[10], _mm_castps_si128(drflac__mm_slide3_ps(s_05_06_07_08, s_09_10_11_12))));
-        case 10: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 9], _mm_castps_si128(drflac__mm_slide2_ps(s_05_06_07_08, s_09_10_11_12))));
-        case  9: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 8], _mm_castps_si128(drflac__mm_slide1_ps(s_05_06_07_08, s_09_10_11_12))));
-        case  8: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 7], _mm_castps_si128(s_05_06_07_08)));
-        case  7: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 6], _mm_castps_si128(drflac__mm_slide3_ps(s_01_02_03_04, s_05_06_07_08))));
-        case  6: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 5], _mm_castps_si128(drflac__mm_slide2_ps(s_01_02_03_04, s_05_06_07_08))));
-        case  5: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 4], _mm_castps_si128(drflac__mm_slide1_ps(s_01_02_03_04, s_05_06_07_08))));
-        case  4: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 3], _mm_castps_si128(s_01_02_03_04)));
-            order = 3;
+            case 16: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[15], s_13_14_15_16));
+            case 15: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[14], drflac__mm_slide3_epi32(s_09_10_11_12, s_13_14_15_16)));
+            case 14: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[13], drflac__mm_slide2_epi32(s_09_10_11_12, s_13_14_15_16)));
+            case 13: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[12], drflac__mm_slide1_epi32(s_09_10_11_12, s_13_14_15_16)));
+            case 12: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[11], s_09_10_11_12));
+            case 11: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[10], drflac__mm_slide3_epi32(s_05_06_07_08, s_09_10_11_12)));
+            case 10: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 9], drflac__mm_slide2_epi32(s_05_06_07_08, s_09_10_11_12)));
+            case  9: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 8], drflac__mm_slide1_epi32(s_05_06_07_08, s_09_10_11_12)));
+            case  8: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 7], s_05_06_07_08));
+            case  7: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 6], drflac__mm_slide3_epi32(s_01_02_03_04, s_05_06_07_08)));
+            case  6: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 5], drflac__mm_slide2_epi32(s_01_02_03_04, s_05_06_07_08)));
+            case  5: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 4], drflac__mm_slide1_epi32(s_01_02_03_04, s_05_06_07_08)));
+            case  4: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 3], s_01_02_03_04));
+                order = 3;
+            case  3: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 2], drflac__mm_slide3_epi32(_mm_setzero_si128(), s_01_02_03_04)));
+            case  2: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 1], drflac__mm_slide2_epi32(_mm_setzero_si128(), s_01_02_03_04)));
+            case  1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 0], drflac__mm_slide1_epi32(_mm_setzero_si128(), s_01_02_03_04)));
+            }
 
-        // From here on it's easier to use a scalar implementation.
+
+            drflac_int32 predictions[4] = {0};
+            _mm_storeu_si128((__m128i*)predictions, prediction);
+
+            predictions[0] = riceParamParts[0] + (predictions[0] >> shift);
+
+            switch (order)
+            {
+            case 3: predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * predictions[  0];
+            case 2: predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  0];
+            case 1: predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  0];
+            }
+            predictions[1] = riceParamParts[1] + (predictions[1] >> shift);
+
+            switch (order)
+            {
+            case 3:
+            case 2: predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  1];
+            case 1: predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  1];
+            }
+            predictions[2] = riceParamParts[2] + (predictions[2] >> shift);
+
+            switch (order)
+            {
+            case 3:
+            case 2:
+            case 1: predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  2];
+            }
+            predictions[3] = riceParamParts[3] + (predictions[3] >> shift);
+
+            pDecodedSamples[0] = predictions[0];
+            pDecodedSamples[1] = predictions[1];
+            pDecodedSamples[2] = predictions[2];
+            pDecodedSamples[3] = predictions[3];
+
+#if 0
+            switch (order)
+            {
+            case 3: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 2], drflac__mm_slide3_epi32(_mm_setzero_si128(), s_01_02_03_04)));
+            case 2: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 1], drflac__mm_slide2_epi32(_mm_setzero_si128(), s_01_02_03_04)));
+            case 1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 0], drflac__mm_slide1_epi32(_mm_setzero_si128(), s_01_02_03_04)));
+            }
+            prediction = _mm_add_epi32(_mm_add_epi32(_mm_and_si128(prediction, drflac__mm_not_si128(mask000000FF)), _mm_and_si128(_mm_srai_epi32(prediction, shift), mask000000FF)), _mm_and_si128(riceParamParts128, mask000000FF));
+
+            __m128i prediction0 = _mm_shuffle_epi32(prediction, _MM_SHUFFLE(0, 0, 0, 0));
+            switch (order)
+            {
+            case 3:
+                //prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_shuffle_ps(_mm_shuffle_ps(), _mm_shuffle_ps(), _MM_SHUFFLE(0, 1, 2, 3)), prediction0));
+
+                prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[2], maskFF000000), prediction0));
+                prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[1], mask00FF0000), prediction0));
+                prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[0], mask0000FF00), prediction0));
+                break;
+            case 2: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[1], mask00FF0000), prediction0));
+            case 1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[0], mask0000FF00), prediction0));
+            }
+            prediction = _mm_add_epi32(_mm_add_epi32(_mm_and_si128(prediction, drflac__mm_not_si128(mask0000FF00)), _mm_and_si128(_mm_srai_epi32(prediction, shift), mask0000FF00)), _mm_and_si128(riceParamParts128, mask0000FF00));
+
+            __m128i prediction1 = _mm_shuffle_epi32(prediction, _MM_SHUFFLE(1, 1, 1, 1));
+            switch (order)
+            {
+            case 3:
+            case 2: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[1], maskFF000000), prediction1));
+            case 1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[0], mask00FF0000), prediction1));
+            }
+            prediction = _mm_add_epi32(_mm_add_epi32(_mm_and_si128(prediction, drflac__mm_not_si128(mask00FF0000)), _mm_and_si128(_mm_srai_epi32(prediction, shift), mask00FF0000)), _mm_and_si128(riceParamParts128, mask00FF0000));
+
+            __m128i prediction2 = _mm_shuffle_epi32(prediction, _MM_SHUFFLE(2, 2, 2, 2));
+            switch (order)
+            {
+            case 3:
+            case 2:
+            case 1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[0], maskFF000000), prediction2));
+            }
+            prediction = _mm_add_epi32(_mm_add_epi32(_mm_and_si128(prediction, drflac__mm_not_si128(maskFF000000)), _mm_and_si128(_mm_srai_epi32(prediction, shift), maskFF000000)), _mm_and_si128(riceParamParts128, maskFF000000));
+
+            _mm_storeu_si128((__m128i*)pDecodedSamples, prediction);
+#endif
+        } else {
+            drflac_int32 predictions[4] = {0};
+
+            switch (order)
+            {
+            case 3: predictions[0] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 3];
+            case 2: predictions[0] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 2];
+            case 1: predictions[0] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[- 1];
+            }
+            pDecodedSamples[0] = riceParamParts[0] + (predictions[0] >> shift);
+
+            switch (order)
+            {
+            case 3: predictions[1] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 2];
+            case 2: predictions[1] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 1];
+            case 1: predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  0];
+            }
+            pDecodedSamples[1] = riceParamParts[1] + (predictions[1] >> shift);
+
+            switch (order)
+            {
+            case 3: predictions[2] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 1];
+            case 2: predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  0];
+            case 1: predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  1];
+            }
+            pDecodedSamples[2] = riceParamParts[2] + (predictions[2] >> shift);
+
+            switch (order)
+            {
+            case 3: predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[  0];
+            case 2: predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  1];
+            case 1: predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  2];
+            }
+            pDecodedSamples[3] = riceParamParts[3] + (predictions[3] >> shift);
         }
 
         // We finish off with a scalar implementation.
-        _mm_storeu_si128((__m128i*)predictions, prediction);
-    }
+        //_mm_storeu_si128((__m128i*)pDecodedSamples, _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(prediction), _mm_castsi128_ps(prediction), _MM_SHUFFLE(0, 1, 2, 3))));
+        //drflac_int32 predictions[4];
+        //_mm_storeu_si128((__m128i*)predictions/*pDecodedSamples*/, prediction);
 
-    switch (order)
-    {
-    case 3:
-        predictions[0] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 3];
-    case 2:
-        predictions[0] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 2];
-    case 1:
-        predictions[0] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[- 1];
-    }
-    pDecodedSamples[0] = riceParamParts[0] + (predictions[0] >> shift);
+#if 0
+        switch (order)
+        {
+        case 3: predictions[0] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 3];
+        case 2: predictions[0] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 2];
+        case 1: predictions[0] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[- 1];
+        }
+        pDecodedSamples[0] = riceParamParts[0] + (predictions[0] >> shift);
 
-    switch (order)
-    {
-    case 3:
-        predictions[1] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 2];
-    case 2:
-        predictions[1] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 1];
-    case 1:
-        predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  0];
-    }
-    pDecodedSamples[1] = riceParamParts[1] + (predictions[1] >> shift);
+        switch (order)
+        {
+        case 3: predictions[1] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 2];
+        case 2: predictions[1] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 1];
+        case 1: predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  0];
+        }
+        pDecodedSamples[1] = riceParamParts[1] + (predictions[1] >> shift);
 
-    switch (order)
-    {
-    case 3:
-        predictions[2] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 1];
-    case 2:
-        predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  0];
-    case 1:
-        predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  1];
-    }
-    pDecodedSamples[2] = riceParamParts[2] + (predictions[2] >> shift);
+        switch (order)
+        {
+        case 3: predictions[2] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 1];
+        case 2: predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  0];
+        case 1: predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  1];
+        }
+        pDecodedSamples[2] = riceParamParts[2] + (predictions[2] >> shift);
 
-    switch (order)
-    {
-    case 3:
-        predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[  0];
-    case 2:
-        predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  1];
-    case 1:
-        predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  2];
-    }
-    pDecodedSamples[3] = riceParamParts[3] + (predictions[3] >> shift);
+        switch (order)
+        {
+        case 3: predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[  0];
+        case 2: predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  1];
+        case 1: predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  2];
+        }
+        pDecodedSamples[3] = riceParamParts[3] + (predictions[3] >> shift);
+#else
+
+    #if 0
+        switch (order)
+        {
+        case 3:
+            predictions[0] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 3];
+            predictions[1] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 2];
+            predictions[2] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 1];
+            predictions[3] += 0 * 0;
+        case 2:
+            predictions[0] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 2];
+            predictions[1] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 1];
+            predictions[2] += 0 * 0;
+            predictions[3] += 0 * 0;
+        case 1:
+            predictions[0] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[- 1];
+            predictions[1] += 0 * 0;
+            predictions[2] += 0 * 0;
+            predictions[3] += 0 * 0;
+        }
+
+        predictions[0] = riceParamParts[0] + (predictions[0] >> shift);
+        predictions[1] = 0                 + (predictions[1] >> 0);
+        predictions[2] = 0                 + (predictions[2] >> 0);
+        predictions[3] = 0                 + (predictions[3] >> 0);
+
+        switch (order)
+        {
+        case 3:
+            predictions[0] += 0 * 0;
+            predictions[1] += 0 * 0;
+            predictions[2] += 0 * 0;
+            predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * predictions[  0];
+        case 2:
+            predictions[0] += 0 * 0;
+            predictions[1] += 0 * 0;
+            predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  0];
+            predictions[3] += 0 * 0;
+        case 1:
+            predictions[0] += 0 * 0;
+            predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  0];
+            predictions[2] += 0 * 0;
+            predictions[3] += 0 * 0;
+        }
+        predictions[0] = 0                 + (predictions[0] >> 0);
+        predictions[1] = riceParamParts[1] + (predictions[1] >> shift);
+        predictions[2] = 0                 + (predictions[2] >> 0);
+        predictions[3] = 0                 + (predictions[3] >> 0);
+
+        switch (order)
+        {
+        case 3:
+        case 2:
+            predictions[0] += 0 * 0;
+            predictions[1] += 0 * 0;
+            predictions[2] += 0 * 0;
+            predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  1];
+        case 1:
+            predictions[0] += 0 * 0;
+            predictions[1] += 0 * 0;
+            predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  1];
+            predictions[3] += 0 * 0;
+        }
+        predictions[0] = 0                 + (predictions[0] >> 0);
+        predictions[1] = 0                 + (predictions[1] >> 0);
+        predictions[2] = riceParamParts[2] + (predictions[2] >> shift);
+        predictions[3] = 0                 + (predictions[3] >> 0);
+
+        switch (order)
+        {
+        case 3:
+        case 2:
+        case 1:
+            predictions[0] += 0 * 0;
+            predictions[1] += 0 * 0;
+            predictions[2] += 0 * 0;
+            predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  2];
+        }
+        predictions[0] = 0                 + (predictions[0] >> 0);
+        predictions[1] = 0                 + (predictions[1] >> 0);
+        predictions[2] = 0                 + (predictions[2] >> 0);
+        predictions[3] = riceParamParts[3] + (predictions[3] >> shift);
+    #else
+        
+
+        
+    #endif
+
+        //pDecodedSamples[0] = predictions[0];
+        //pDecodedSamples[1] = predictions[1];
+        //pDecodedSamples[2] = predictions[2];
+        //pDecodedSamples[3] = predictions[3];
+#endif
+    /*} else {
+        pDecodedSamples[0] = riceParamParts[0];
+        pDecodedSamples[1] = riceParamParts[1];
+        pDecodedSamples[2] = riceParamParts[2];
+        pDecodedSamples[3] = riceParamParts[3];
+    }*/
 #endif
 
     
@@ -3178,11 +3433,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
 }
 
 #if defined(DRFLAC_SUPPORT_SSE41)
-DRFLAC_INLINE __m128i drflac__mm_not_si128(__m128i a)
-{
-    return _mm_xor_si128(a, _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
-}
-
 static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_zero__sse41(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
     drflac_assert(bs != NULL);
