@@ -40,7 +40,7 @@
 //     unsigned int channels;
 //     unsigned int sampleRate;
 //     drwav_uint64 totalSampleCount;
-//     float* pSampleData = drwav_open_and_read_file_s32("my_song.wav", &channels, &sampleRate, &totalSampleCount);
+//     float* pSampleData = drwav_open_and_read_file_f32("my_song.wav", &channels, &sampleRate, &totalSampleCount);
 //     if (pSampleData == NULL) {
 //         // Error opening and reading WAV file.
 //     }
