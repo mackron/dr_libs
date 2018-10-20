@@ -1,5 +1,5 @@
 // PCX image loader. Public domain. See "unlicense" statement at the end of this file.
-// dr_pcx - v0.3 - 2018-02-08
+// dr_pcx - v0.3.1 - 2018-09-11
 //
 // David Reid - mackron@gmail.com
 
@@ -263,18 +263,15 @@ drpcx_bool32 drpcx__decode_1bit(drpcx* pPCX)
     {
         case 1:
         {
-            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
-            {
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y) {
                 drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
-                {
+                for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x) {
                     if (rleCount == 0) {
                         rleCount = drpcx__rle(pPCX, &rleValue);
                     }
                     rleCount -= 1;
 
-                    for (int bit = 0; (bit < 8) && ((x*8 + bit) < pPCX->width); ++bit)
-                    {
+                    for (int bit = 0; (bit < 8) && ((x*8 + bit) < pPCX->width); ++bit) {
                         drpcx_uint8 mask = (1 << (7 - bit));
                         drpcx_uint8 paletteIndex = (rleValue & mask) >> (7 - bit);
 
@@ -294,20 +291,16 @@ drpcx_bool32 drpcx__decode_1bit(drpcx* pPCX)
         case 3:
         case 4:
         {
-            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
-            {
-                for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c)
-                {
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y) {
+                for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c) {
                     drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                    for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
-                    {
+                    for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x) {
                         if (rleCount == 0) {
                             rleCount = drpcx__rle(pPCX, &rleValue);
                         }
                         rleCount -= 1;
 
-                        for (int bit = 0; (bit < 8) && ((x*8 + bit) < pPCX->width); ++bit)
-                        {
+                        for (int bit = 0; (bit < 8) && ((x*8 + bit) < pPCX->width); ++bit) {
                             drpcx_uint8 mask = (1 << (7 - bit));
                             drpcx_uint8 paletteIndex = (rleValue & mask) >> (7 - bit);
 
@@ -319,8 +312,7 @@ drpcx_bool32 drpcx__decode_1bit(drpcx* pPCX)
 
 
                 drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (drpcx_uint32 x = 0; x < pPCX->width; ++x)
-                {
+                for (drpcx_uint32 x = 0; x < pPCX->width; ++x) {
                     drpcx_uint8 paletteIndex = pRow[0];
                     for (drpcx_uint32 c = 0; c < pPCX->components; ++c) {
                         pRow[c] = pPCX->header.palette16[paletteIndex*3 + c];
@@ -369,20 +361,16 @@ drpcx_bool32 drpcx__decode_2bit(drpcx* pPCX)
             drpcx_uint8 p = (pPCX->header.palette16[3] & 0x40) >> 6;
             //drpcx_uint8 c = (pPCX->header.palette16[3] & 0x80) >> 7;    // Color or monochrome. How is monochrome handled?
 
-            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
-            {
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y) {
                 drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
-                {
+                for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x) {
                     if (rleCount == 0) {
                         rleCount = drpcx__rle(pPCX, &rleValue);
                     }
                     rleCount -= 1;
 
-                    for (int bit = 0; bit < 4; ++bit)
-                    {
-                        if (x*4 + bit < pPCX->width)
-                        {
+                    for (int bit = 0; bit < 4; ++bit) {
+                        if (x*4 + bit < pPCX->width) {
                             drpcx_uint8 mask = (3 << ((3 - bit) * 2));
                             drpcx_uint8 paletteIndex = (rleValue & mask) >> ((3 - bit) * 2);
 
@@ -420,20 +408,16 @@ drpcx_bool32 drpcx__decode_2bit(drpcx* pPCX)
             // NOTE: This is completely untested. If anybody knows where I can get a test file please let me know or send it through to me!
             // TODO: Test Me.
 
-            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
-            {
-                for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c)
-                {
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y) {
+                for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c) {
                     drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                    for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
-                    {
+                    for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x) {
                         if (rleCount == 0) {
                             rleCount = drpcx__rle(pPCX, &rleValue);
                         }
                         rleCount -= 1;
 
-                        for (int bitpair = 0; (bitpair < 4) && ((x*4 + bitpair) < pPCX->width); ++bitpair)
-                        {
+                        for (int bitpair = 0; (bitpair < 4) && ((x*4 + bitpair) < pPCX->width); ++bitpair) {
                             drpcx_uint8 mask = (4 << (3 - bitpair));
                             drpcx_uint8 paletteIndex = (rleValue & mask) >> (3 - bitpair);
 
@@ -445,8 +429,7 @@ drpcx_bool32 drpcx__decode_2bit(drpcx* pPCX)
 
 
                 drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (drpcx_uint32 x = 0; x < pPCX->width; ++x)
-                {
+                for (drpcx_uint32 x = 0; x < pPCX->width; ++x) {
                     drpcx_uint8 paletteIndex = pRow[0];
                     for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c) {
                         pRow[c] = pPCX->header.palette16[paletteIndex*3 + c];
@@ -475,13 +458,10 @@ drpcx_bool32 drpcx__decode_4bit(drpcx* pPCX)
     drpcx_uint8 rleCount = 0;
     drpcx_uint8 rleValue = 0;
 
-    for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
-    {
-        for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c)
-        {
+    for (drpcx_uint32 y = 0; y < pPCX->height; ++y) {
+        for (drpcx_uint32 c = 0; c < pPCX->header.bitPlanes; ++c) {
             drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-            for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
-            {
+            for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x) {
                 if (rleCount == 0) {
                     rleCount = drpcx__rle(pPCX, &rleValue);
                 }
@@ -500,8 +480,7 @@ drpcx_bool32 drpcx__decode_4bit(drpcx* pPCX)
 
 
         drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-        for (drpcx_uint32 x = 0; x < pPCX->width; ++x)
-        {
+        for (drpcx_uint32 x = 0; x < pPCX->width; ++x) {
             drpcx_uint8 paletteIndex = pRow[0];
             for (drpcx_uint32 c = 0; c < pPCX->components; ++c) {
                 pRow[c] = pPCX->header.palette16[paletteIndex*3 + c];
@@ -524,11 +503,9 @@ drpcx_bool32 drpcx__decode_8bit(drpcx* pPCX)
     {
         case 1:
         {
-            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
-            {
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y) {
                 drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
-                {
+                for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x) {
                     if (rleCount == 0) {
                         rleCount = drpcx__rle(pPCX, &rleValue);
                     }
@@ -543,22 +520,19 @@ drpcx_bool32 drpcx__decode_8bit(drpcx* pPCX)
                 }
             }
 
-            // At this point we can know if we are dealing with a palette or a grayscale image by checking the next byte. If ti's equal to 0x0C, we
+            // At this point we can know if we are dealing with a palette or a grayscale image by checking the next byte. If it's equal to 0x0C, we
             // need to do a simple palette lookup.
             drpcx_uint8 paletteMarker = drpcx__read_byte(pPCX);
-            if (paletteMarker == 0x0C)
-            {
+            if (paletteMarker == 0x0C) {
                 // A palette is present - we need to do a second pass.
                 drpcx_uint8 palette256[768];
                 if (pPCX->onRead(pPCX->pUserData, palette256, sizeof(palette256)) != sizeof(palette256)) {
                     return DRPCX_FALSE;
                 }
 
-                for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
-                {
+                for (drpcx_uint32 y = 0; y < pPCX->height; ++y) {
                     drpcx_uint8* pRow = pPCX->pImageData + (y * stride);
-                    for (drpcx_uint32 x = 0; x < pPCX->width; ++x)
-                    {
+                    for (drpcx_uint32 x = 0; x < pPCX->width; ++x) {
                         drpcx_uint8 index = pRow[0];
                         pRow[0] = palette256[index*3 + 0];
                         pRow[1] = palette256[index*3 + 1];
@@ -574,13 +548,10 @@ drpcx_bool32 drpcx__decode_8bit(drpcx* pPCX)
         case 3:
         case 4:
         {
-            for (drpcx_uint32 y = 0; y < pPCX->height; ++y)
-            {
-                for (drpcx_uint32 c = 0; c < pPCX->components; ++c)
-                {
+            for (drpcx_uint32 y = 0; y < pPCX->height; ++y) {
+                for (drpcx_uint32 c = 0; c < pPCX->components; ++c) {
                     drpcx_uint8* pRow = drpcx__row_ptr(pPCX, y);
-                    for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x)
-                    {
+                    for (drpcx_uint32 x = 0; x < pPCX->header.bytesPerLine; ++x) {
                         if (rleCount == 0) {
                             rleCount = drpcx__rle(pPCX, &rleValue);
                         }
@@ -754,6 +725,10 @@ void drpcx_free(void* pReturnValueFromLoad)
 
 
 // REVISION HISTORY
+//
+// v0.3.1 - 2018-09-11
+//   - Styling fixes.
+//   - Fix a typo.
 //
 // v0.3 - 2018-02-08
 //   - API CHANGE: Rename dr_* types to drpcx_*.
