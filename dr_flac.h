@@ -3450,7 +3450,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
     drflac_uint32 i4 = 0;
     drflac_uint32 count4 = count >> 2;
 
-    if (bitsPerSample > 16) {
+    if (bitsPerSample >= 24) {
         while (i4 < count4) {
             // Rice extraction.
             if (!drflac__read_rice_parts(bs, riceParam, &zeroCountParts[0], &riceParamParts[0]) ||
@@ -3531,7 +3531,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
         //riceParamParts[0]  = (riceParamParts[0] >> 1) ^ (~(riceParamParts[0] & 0x01) + 1);
 
         // Sample reconstruction.
-        if (bitsPerSample > 16) {
+        if (bitsPerSample >= 24) {
             pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
         } else {
             pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
@@ -3595,7 +3595,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_ze
         riceParamPart2  = (riceParamPart2 >> 1) ^ t[riceParamPart2 & 0x01];
         riceParamPart3  = (riceParamPart3 >> 1) ^ t[riceParamPart3 & 0x01];
 
-        if (bitsPerSample > 16) {
+        if (bitsPerSample >= 24) {
             pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
             pSamplesOut[1] = riceParamPart1 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 1);
             pSamplesOut[2] = riceParamPart2 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 2);
@@ -3623,7 +3623,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_ze
         riceParamPart0  = (riceParamPart0 >> 1) ^ t[riceParamPart0 & 0x01];
 
         // Sample reconstruction.
-        if (bitsPerSample > 16) {
+        if (bitsPerSample >= 24) {
             pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
         } else {
             pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
@@ -3669,7 +3669,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_ze
 
         _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128_0);
 
-        if (bitsPerSample > 16) {
+        if (bitsPerSample >= 24) {
         #if defined(DRFLAC_64BIT)
             drflac__calculate_prediction_64_x4(order, shift, coefficients, riceParamParts, pSamplesOut);
         #else
@@ -3702,7 +3702,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_ze
         riceParamParts[0]  = (riceParamParts[0] >> 1) ^ t[riceParamParts[0] & 0x01];
 
         // Sample reconstruction.
-        if (bitsPerSample > 16) {
+        if (bitsPerSample >= 24) {
             pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
         } else {
             pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
