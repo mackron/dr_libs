@@ -3691,8 +3691,8 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
     drflac_uint32 i4 = 0;
     drflac_uint32 count4 = count >> 2;
 
-    drflac_uint32 mask = ~((~0UL) << riceParam);
-    __m128i mask128 = _mm_set1_epi32(mask);
+    drflac_uint32 riceParamMask = ~((~0UL) << riceParam);
+    __m128i riceParamMask128 = _mm_set1_epi32(riceParamMask);
 
     if (bitsPerSample >= 24) {
         while (i4 < count4) {
@@ -3713,7 +3713,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
             __m128i zeroCountPart128_0 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
             __m128i riceParamPart128_0 = _mm_set_epi32(riceParamParts[3], riceParamParts[2], riceParamParts[1], riceParamParts[0]);
 
-            riceParamPart128_0 = _mm_and_si128(riceParamPart128_0, mask128);
+            riceParamPart128_0 = _mm_and_si128(riceParamPart128_0, riceParamMask128);
             riceParamPart128_0 = _mm_or_si128(riceParamPart128_0, _mm_slli_epi32(zeroCountPart128_0, riceParam));
             riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128_0, one), _mm_set1_epi32(0xFFFFFFFF))); // <-- Only supported from SSE4.1
             //riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_add_epi32(drflac__mm_not_si128(_mm_and_si128(riceParamPart128_0, one)), one));  // <-- SSE2 compatible
@@ -3761,7 +3761,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
             __m128i riceParamPart128_0 = _mm_set_epi32(riceParamParts[3], riceParamParts[2], riceParamParts[1], riceParamParts[0]);
 
 
-            riceParamPart128_0 = _mm_and_si128(riceParamPart128_0, mask128);
+            riceParamPart128_0 = _mm_and_si128(riceParamPart128_0, riceParamMask128);
             riceParamPart128_0 = _mm_or_si128(riceParamPart128_0, _mm_slli_epi32(zeroCountPart128_0, riceParam));
             riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128_0, one), _mm_set1_epi32(0xFFFFFFFF)));
             _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128_0);
