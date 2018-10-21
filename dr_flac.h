@@ -3401,9 +3401,9 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x4(drflac_bs* bs, drf
             bs_cache       <<= lzcount;
             bs_consumedBits += lzcount;
 
-            if (bs_consumedBits < riceParamPlus1MaxConsumedBits) {
+            if (bs_consumedBits <= riceParamPlus1MaxConsumedBits) {
                 // Getting here means the rice parameter part is wholly contained within the current cache line.
-                pRiceParamPartOut[i] = (drflac_uint32)((bs_cache & riceParamPlus1Mask) >> riceParamPlus1Shift);
+                pRiceParamPartOut[i] = (drflac_uint32)((bs_cache/*& riceParamPlus1Mask*/) >> riceParamPlus1Shift);
                 bs_cache       <<= riceParamPlus1;
                 bs_consumedBits += riceParamPlus1;
             } else {
@@ -3437,7 +3437,8 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x4(drflac_bs* bs, drf
                 }
 
                 // We should now have enough information to construct the rice parameter part.
-                drflac_uint32 riceParamPartLo = (drflac_uint32)((bs_cache & DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPartLoBitCount)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPartLoBitCount));
+                //drflac_uint32 riceParamPartLo = (drflac_uint32)((bs_cache & DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPartLoBitCount)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPartLoBitCount));
+                drflac_uint32 riceParamPartLo = (drflac_uint32)(bs_cache >> (DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPartLoBitCount)));
                 pRiceParamPartOut[i] = riceParamPartHi | riceParamPartLo;
 
                 bs_cache       <<= riceParamPartLoBitCount;
@@ -3600,8 +3601,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
 
     static drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
 
-    //drflac_uint32 riceParamMask = ~((~0UL) << riceParam);
-
     drflac_uint32 zeroCountPart0;
     drflac_uint32 zeroCountPart1;
     drflac_uint32 zeroCountPart2;
@@ -3621,11 +3620,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
             return DRFLAC_FALSE;
         }
 
-        //riceParamPart0 &= riceParamMask;
-        //riceParamPart1 &= riceParamMask;
-        //riceParamPart2 &= riceParamMask;
-        //riceParamPart3 &= riceParamMask;
-
         riceParamPart0 |= (zeroCountPart0 << riceParam);
         riceParamPart1 |= (zeroCountPart1 << riceParam);
         riceParamPart2 |= (zeroCountPart2 << riceParam);
@@ -3636,7 +3630,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
         riceParamPart2  = (riceParamPart2 >> 1) ^ t[riceParamPart2 & 0x01];
         riceParamPart3  = (riceParamPart3 >> 1) ^ t[riceParamPart3 & 0x01];
 
-        if (bitsPerSample > 16) {
+        if (bitsPerSample >= 24) {
             pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
             pSamplesOut[1] = riceParamPart1 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 1);
             pSamplesOut[2] = riceParamPart2 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 2);
@@ -3666,7 +3660,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
         //riceParamPart0  = (riceParamPart0 >> 1) ^ (~(riceParamPart0 & 0x01) + 1);
 
         // Sample reconstruction.
-        if (bitsPerSample > 16) {
+        if (bitsPerSample >= 24) {
             pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
         } else {
             pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
@@ -3703,7 +3697,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
     if (bitsPerSample >= 24) {
         while (i4 < count4) {
             // Rice extraction.
-        #if 1
+        #if 0
             if (!drflac__read_rice_parts(bs, riceParam, &zeroCountParts[0], &riceParamParts[0]) ||
                 !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[1], &riceParamParts[1]) ||
                 !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[2], &riceParamParts[2]) ||
@@ -3714,13 +3708,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
             if (!drflac__read_rice_parts_x4(bs, riceParam, zeroCountParts, riceParamParts)) {
                 return DRFLAC_FALSE;
             }
-
-            drflac_uint32 mask = ~((~0UL) << riceParam);
-
-            riceParamParts[0] &= mask;
-            riceParamParts[1] &= mask;
-            riceParamParts[2] &= mask;
-            riceParamParts[3] &= mask;
         #endif
 
             __m128i zeroCountPart128_0 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
@@ -3755,8 +3742,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
             coefficients128[i*4+3] = coefficients[i];
         }
 
-        
-
         while (i4 < count4) {
             // Rice extraction.
         #if 0
@@ -3770,11 +3755,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
             if (!drflac__read_rice_parts_x4(bs, riceParam, zeroCountParts, riceParamParts)) {
                 return DRFLAC_FALSE;
             }
-
-            //riceParamParts[0] &= mask;
-            //riceParamParts[1] &= mask;
-            //riceParamParts[2] &= mask;
-            //riceParamParts[3] &= mask;
         #endif
 
             __m128i zeroCountPart128_0 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
@@ -3803,7 +3783,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
         }
 
         // Rice reconstruction.
-        riceParamParts[0] &= mask;
         riceParamParts[0] |= (zeroCountParts[0] << riceParam);
         riceParamParts[0]  = (riceParamParts[0] >> 1) ^ t[riceParamParts[0] & 0x01];
         //riceParamParts[0]  = (riceParamParts[0] >> 1) ^ (~(riceParamParts[0] & 0x01) + 1);
