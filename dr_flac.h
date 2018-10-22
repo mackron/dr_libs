@@ -2487,45 +2487,33 @@ static DRFLAC_INLINE void drflac__calculate_prediction_64_x4(drflac_uint32 order
 
     switch (order)
     {
-    case 3:
-        prediction0 += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 3];
-    case 2:
-        prediction0 += coefficients[ 1] * (drflac_int64)pDecodedSamples[- 2];
-    case 1:
-        prediction0 += coefficients[ 0] * (drflac_int64)pDecodedSamples[- 1];
+    case 3: prediction0 += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 3];
+    case 2: prediction0 += coefficients[ 1] * (drflac_int64)pDecodedSamples[- 2];
+    case 1: prediction0 += coefficients[ 0] * (drflac_int64)pDecodedSamples[- 1];
     }
     pDecodedSamples[0] = riceParamParts[0] + (drflac_int32)(prediction0 >> shift);
 
     switch (order)
     {
-    case 3:
-        prediction1 += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 2];
-    case 2:
-        prediction1 += coefficients[ 1] * (drflac_int64)pDecodedSamples[- 1];
-    case 1:
-        prediction1 += coefficients[ 0] * (drflac_int64)pDecodedSamples[  0];
+    case 3: prediction1 += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 2];
+    case 2: prediction1 += coefficients[ 1] * (drflac_int64)pDecodedSamples[- 1];
+    case 1: prediction1 += coefficients[ 0] * (drflac_int64)pDecodedSamples[  0];
     }
     pDecodedSamples[1] = riceParamParts[1] + (drflac_int32)(prediction1 >> shift);
 
     switch (order)
     {
-    case 3:
-        prediction2 += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 1];
-    case 2:
-        prediction2 += coefficients[ 1] * (drflac_int64)pDecodedSamples[  0];
-    case 1:
-        prediction2 += coefficients[ 0] * (drflac_int64)pDecodedSamples[  1];
+    case 3: prediction2 += coefficients[ 2] * (drflac_int64)pDecodedSamples[- 1];
+    case 2: prediction2 += coefficients[ 1] * (drflac_int64)pDecodedSamples[  0];
+    case 1: prediction2 += coefficients[ 0] * (drflac_int64)pDecodedSamples[  1];
     }
     pDecodedSamples[2] = riceParamParts[2] + (drflac_int32)(prediction2 >> shift);
 
     switch (order)
     {
-    case 3:
-        prediction3 += coefficients[ 2] * (drflac_int64)pDecodedSamples[  0];
-    case 2:
-        prediction3 += coefficients[ 1] * (drflac_int64)pDecodedSamples[  1];
-    case 1:
-        prediction3 += coefficients[ 0] * (drflac_int64)pDecodedSamples[  2];
+    case 3: prediction3 += coefficients[ 2] * (drflac_int64)pDecodedSamples[  0];
+    case 2: prediction3 += coefficients[ 1] * (drflac_int64)pDecodedSamples[  1];
+    case 1: prediction3 += coefficients[ 0] * (drflac_int64)pDecodedSamples[  2];
     }
     pDecodedSamples[3] = riceParamParts[3] + (drflac_int32)(prediction3 >> shift);
 }
@@ -2625,15 +2613,13 @@ static DRFLAC_INLINE void drflac__calculate_prediction_64_x2__sse41(drflac_uint3
 
     switch (order)
     {
-    case 1:
-        predictions[0] += coefficients[ 0] * (drflac_int64)pDecodedSamples[- 1];
+    case 1: predictions[0] += coefficients[ 0] * (drflac_int64)pDecodedSamples[- 1];
     }
     pDecodedSamples[0] = riceParamParts[0] + (drflac_int32)(predictions[0] >> shift);
 
     switch (order)
     {
-    case 1:
-        predictions[1] += coefficients[ 0] * (drflac_int64)pDecodedSamples[  0];
+    case 1: predictions[1] += coefficients[ 0] * (drflac_int64)pDecodedSamples[  0];
     }
     pDecodedSamples[1] = riceParamParts[1] + (drflac_int32)(predictions[1] >> shift);
 }
@@ -2643,19 +2629,6 @@ static DRFLAC_INLINE __m128i drflac__mm_not_si128(__m128i a)
 {
     return _mm_xor_si128(a, _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
 }
-
-#if 0
-static DRFLAC_INLINE __m128 drflac__mm_slide1_ps(__m128 a, __m128 b)
-{
-    // a3a2a1a0/b3b2b1b0 -> a2a1a0b3
-
-    // Result = a2a1a0b3
-    __m128 b3b3a0a1 = _mm_shuffle_ps(a, b, _MM_SHUFFLE(3, 3, 0, 1));
-    __m128 a2a1a0a0 = _mm_shuffle_ps(a, a, _MM_SHUFFLE(2, 1, 0, 0));
-    __m128 a2a1a0b3 = _mm_shuffle_ps(b3b3a0a1, a2a1a0a0, _MM_SHUFFLE(3, 2, 1, 2));
-    return a2a1a0b3;
-}
-#endif
 
 static DRFLAC_INLINE __m128i drflac__mm_slide1_epi32(__m128i a, __m128i b)
 {
@@ -2669,14 +2642,6 @@ static DRFLAC_INLINE __m128i drflac__mm_slide1_epi32(__m128i a, __m128i b)
     return a2a1a0b3;
 }
 
-#if 0
-static DRFLAC_INLINE __m128 drflac__mm_slide2_ps(__m128 a, __m128 b)
-{
-    // Result = a1a0b3b2
-    return _mm_shuffle_ps(b, a, _MM_SHUFFLE(1, 0, 3, 2));
-}
-#endif
-
 static DRFLAC_INLINE __m128i drflac__mm_slide2_epi32(__m128i a, __m128i b)
 {
     // Result = a1a0b3b2
@@ -2685,17 +2650,6 @@ static DRFLAC_INLINE __m128i drflac__mm_slide2_epi32(__m128i a, __m128i b)
     __m128i a1a0b3b2 = _mm_shuffle_epi32(a1b3a0b2, _MM_SHUFFLE(3, 1, 2, 0));
     return a1a0b3b2;
 }
-
-#if 0
-static DRFLAC_INLINE __m128 drflac__mm_slide3_ps(__m128 a, __m128 b)
-{
-    // Result = a0b3b2b1
-    __m128 b3b3b2b1 = _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 3, 2, 1));
-    __m128 b3b3a0a0 = _mm_shuffle_ps(a, b, _MM_SHUFFLE(3, 3, 0, 0));
-    __m128 a0b3b2b1 = _mm_shuffle_ps(b3b3b2b1, b3b3a0a0, _MM_SHUFFLE(1, 2, 1, 0));
-    return a0b3b2b1;
-}
-#endif
 
 static DRFLAC_INLINE __m128i drflac__mm_slide3_epi32(__m128i a, __m128i b)
 {
@@ -2707,406 +2661,96 @@ static DRFLAC_INLINE __m128i drflac__mm_slide3_epi32(__m128i a, __m128i b)
     return a0b3b2b1;
 }
 
-static DRFLAC_INLINE void drflac__calculate_prediction_32_x4__sse41(drflac_uint32 order, drflac_int32 shift, /*const drflac_int32* coefficients,*/ const __m128i* coefficients128, const drflac_uint32 riceParamParts[4], drflac_int32* pDecodedSamples)
+static DRFLAC_INLINE void drflac__calculate_prediction_32_x4__sse41(drflac_uint32 order, drflac_int32 shift, const __m128i* coefficients128, const __m128i riceParamParts128, drflac_int32* pDecodedSamples)
 {
     drflac_assert(order <= 32);
 
-    
+    // I don't think this is as efficient as it could be. More work needs to be done on this.
+    if (order > 0) {
+        __m128i s_09_10_11_12 = _mm_loadu_si128((const __m128i*)(pDecodedSamples - 12));
+        __m128i s_05_06_07_08 = _mm_loadu_si128((const __m128i*)(pDecodedSamples -  8));
+        __m128i s_01_02_03_04 = _mm_loadu_si128((const __m128i*)(pDecodedSamples -  4));
 
-#if 0
-    drflac_int32 predictions[4] = {0, 0, 0, 0};
+        __m128i prediction = _mm_setzero_si128();
 
-    switch (order)
-    {
-    case 32: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[31]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 32))));
-    case 31: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[30]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 31))));
-    case 30: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[29]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 30))));
-    case 29: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[28]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 29))));
-    case 28: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[27]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 28))));
-    case 27: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[26]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 27))));
-    case 26: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[25]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 26))));
-    case 25: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[24]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 25))));
-    case 24: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[23]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 24))));
-    case 23: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[22]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 23))));
-    case 22: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[21]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 22))));
-    case 21: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[20]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 21))));
-    case 20: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[19]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 20))));
-    case 19: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[18]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 19))));
-    case 18: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[17]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 18))));
-    case 17: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[16]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 17))));
-    case 16: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[15]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 16))));
-    case 15: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[14]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 15))));
-    case 14: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[13]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 14))));
-    case 13: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[12]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 13))));
-    case 12: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[11]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 12))));
-    case 11: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[10]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 11))));
-    case 10: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[ 9]), _mm_loadu_si128((const __m128i*)(pDecodedSamples - 10))));
-    case  9: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[ 8]), _mm_loadu_si128((const __m128i*)(pDecodedSamples -  9))));
-    case  8: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[ 7]), _mm_loadu_si128((const __m128i*)(pDecodedSamples -  8))));
-    case  7: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[ 6]), _mm_loadu_si128((const __m128i*)(pDecodedSamples -  7))));
-    case  6: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[ 5]), _mm_loadu_si128((const __m128i*)(pDecodedSamples -  6))));
-    case  5: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[ 4]), _mm_loadu_si128((const __m128i*)(pDecodedSamples -  5))));
-    case  4: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_set1_epi32(coefficients[ 3]), _mm_loadu_si128((const __m128i*)(pDecodedSamples -  4))));
-        order = 3;
-
-    // From here on it's easier to use a scalar implementation.
-    }
-
-    // We finish off with a scalar implementation.
-    _mm_storeu_si128((__m128i*)predictions, prediction);
-
-    switch (order)
-    {
-    case 3:
-        predictions[0] += coefficients[ 2] * pDecodedSamples[- 3];
-    case 2:
-        predictions[0] += coefficients[ 1] * pDecodedSamples[- 2];
-    case 1:
-        predictions[0] += coefficients[ 0] * pDecodedSamples[- 1];
-    }
-    pDecodedSamples[0] = riceParamParts[0] + (predictions[0] >> shift);
-
-    switch (order)
-    {
-    case 3:
-        predictions[1] += coefficients[ 2] * pDecodedSamples[- 2];
-    case 2:
-        predictions[1] += coefficients[ 1] * pDecodedSamples[- 1];
-    case 1:
-        predictions[1] += coefficients[ 0] * pDecodedSamples[  0];
-    }
-    pDecodedSamples[1] = riceParamParts[1] + (predictions[1] >> shift);
-
-    switch (order)
-    {
-    case 3:
-        predictions[2] += coefficients[ 2] * pDecodedSamples[- 1];
-    case 2:
-        predictions[2] += coefficients[ 1] * pDecodedSamples[  0];
-    case 1:
-        predictions[2] += coefficients[ 0] * pDecodedSamples[  1];
-    }
-    pDecodedSamples[2] = riceParamParts[2] + (predictions[2] >> shift);
-
-    switch (order)
-    {
-    case 3:
-        predictions[3] += coefficients[ 2] * pDecodedSamples[  0];
-    case 2:
-        predictions[3] += coefficients[ 1] * pDecodedSamples[  1];
-    case 1:
-        predictions[3] += coefficients[ 0] * pDecodedSamples[  2];
-    }
-    pDecodedSamples[3] = riceParamParts[3] + (predictions[3] >> shift);
-#else
-    
-    //if (order > 0) {
-        if (order > 0) {
-            __m128i s_13_14_15_16 = _mm_loadu_si128((const __m128i*)(pDecodedSamples - 16));
-            __m128i s_09_10_11_12 = _mm_loadu_si128((const __m128i*)(pDecodedSamples - 12));
-            __m128i s_05_06_07_08 = _mm_loadu_si128((const __m128i*)(pDecodedSamples -  8));
-            __m128i s_01_02_03_04 = _mm_loadu_si128((const __m128i*)(pDecodedSamples -  4));
-            //__m128i riceParamParts128 = _mm_loadu_si128((const __m128i*)riceParamParts);
-
-            //const __m128i mask000000FF = _mm_set_epi32(0, 0, 0, 0xFFFFFFFF);
-            //const __m128i mask0000FF00 = _mm_slli_si128(mask000000FF,  4);
-            //const __m128i mask00FF0000 = _mm_slli_si128(mask000000FF,  8);
-            //const __m128i maskFF000000 = _mm_slli_si128(mask000000FF, 12);
-            register __m128i prediction = _mm_setzero_si128();
-
-            switch (order)
-            {
-            case 32: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[31], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 32))));
-            case 31: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[30], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 31))));
-            case 30: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[29], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 30))));
-            case 29: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[28], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 29))));
-            case 28: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[27], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 28))));
-            case 27: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[26], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 27))));
-            case 26: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[25], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 26))));
-            case 25: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[24], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 25))));
-            case 24: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[23], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 24))));
-            case 23: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[22], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 23))));
-            case 22: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[21], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 22))));
-            case 21: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[20], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 21))));
-            case 20: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[19], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 20))));
-            case 19: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[18], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 19))));
-            case 18: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[17], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 18))));
-            case 17: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[16], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 17))));
-
-            case 16: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[15], s_13_14_15_16));
-            case 15: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[14], drflac__mm_slide3_epi32(s_09_10_11_12, s_13_14_15_16)));
-            case 14: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[13], drflac__mm_slide2_epi32(s_09_10_11_12, s_13_14_15_16)));
-            case 13: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[12], drflac__mm_slide1_epi32(s_09_10_11_12, s_13_14_15_16)));
-            case 12: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[11], s_09_10_11_12));
-            case 11: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[10], drflac__mm_slide3_epi32(s_05_06_07_08, s_09_10_11_12)));
-            case 10: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 9], drflac__mm_slide2_epi32(s_05_06_07_08, s_09_10_11_12)));
-            case  9: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 8], drflac__mm_slide1_epi32(s_05_06_07_08, s_09_10_11_12)));
-            case  8: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 7], s_05_06_07_08));
-            case  7: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 6], drflac__mm_slide3_epi32(s_01_02_03_04, s_05_06_07_08)));
-            case  6: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 5], drflac__mm_slide2_epi32(s_01_02_03_04, s_05_06_07_08)));
-            case  5: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 4], drflac__mm_slide1_epi32(s_01_02_03_04, s_05_06_07_08)));
-            case  4: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 3], s_01_02_03_04));
-                order = 3;
-            case  3: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 2], drflac__mm_slide3_epi32(_mm_setzero_si128(), s_01_02_03_04)));
-            case  2: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 1], drflac__mm_slide2_epi32(_mm_setzero_si128(), s_01_02_03_04)));
-            case  1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 0], drflac__mm_slide1_epi32(_mm_setzero_si128(), s_01_02_03_04)));
-            }
-
-
-            drflac_int32 predictions[4] = {0};
-            _mm_storeu_si128((__m128i*)predictions, prediction);
-
-            predictions[0] = riceParamParts[0] + (predictions[0] >> shift);
-
-            switch (order)
-            {
-            case 3: predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * predictions[  0];
-            case 2: predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  0];
-            case 1: predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  0];
-            }
-            predictions[1] = riceParamParts[1] + (predictions[1] >> shift);
-
-            switch (order)
-            {
-            case 3:
-            case 2: predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  1];
-            case 1: predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  1];
-            }
-            predictions[2] = riceParamParts[2] + (predictions[2] >> shift);
-
-            switch (order)
-            {
-            case 3:
-            case 2:
-            case 1: predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  2];
-            }
-            predictions[3] = riceParamParts[3] + (predictions[3] >> shift);
-
-            pDecodedSamples[0] = predictions[0];
-            pDecodedSamples[1] = predictions[1];
-            pDecodedSamples[2] = predictions[2];
-            pDecodedSamples[3] = predictions[3];
-
-#if 0
-            switch (order)
-            {
-            case 3: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 2], drflac__mm_slide3_epi32(_mm_setzero_si128(), s_01_02_03_04)));
-            case 2: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 1], drflac__mm_slide2_epi32(_mm_setzero_si128(), s_01_02_03_04)));
-            case 1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 0], drflac__mm_slide1_epi32(_mm_setzero_si128(), s_01_02_03_04)));
-            }
-            prediction = _mm_add_epi32(_mm_add_epi32(_mm_and_si128(prediction, drflac__mm_not_si128(mask000000FF)), _mm_and_si128(_mm_srai_epi32(prediction, shift), mask000000FF)), _mm_and_si128(riceParamParts128, mask000000FF));
-
-            __m128i prediction0 = _mm_shuffle_epi32(prediction, _MM_SHUFFLE(0, 0, 0, 0));
-            switch (order)
-            {
-            case 3:
-                //prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_shuffle_ps(_mm_shuffle_ps(), _mm_shuffle_ps(), _MM_SHUFFLE(0, 1, 2, 3)), prediction0));
-
-                prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[2], maskFF000000), prediction0));
-                prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[1], mask00FF0000), prediction0));
-                prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[0], mask0000FF00), prediction0));
-                break;
-            case 2: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[1], mask00FF0000), prediction0));
-            case 1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[0], mask0000FF00), prediction0));
-            }
-            prediction = _mm_add_epi32(_mm_add_epi32(_mm_and_si128(prediction, drflac__mm_not_si128(mask0000FF00)), _mm_and_si128(_mm_srai_epi32(prediction, shift), mask0000FF00)), _mm_and_si128(riceParamParts128, mask0000FF00));
-
-            __m128i prediction1 = _mm_shuffle_epi32(prediction, _MM_SHUFFLE(1, 1, 1, 1));
-            switch (order)
-            {
-            case 3:
-            case 2: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[1], maskFF000000), prediction1));
-            case 1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[0], mask00FF0000), prediction1));
-            }
-            prediction = _mm_add_epi32(_mm_add_epi32(_mm_and_si128(prediction, drflac__mm_not_si128(mask00FF0000)), _mm_and_si128(_mm_srai_epi32(prediction, shift), mask00FF0000)), _mm_and_si128(riceParamParts128, mask00FF0000));
-
-            __m128i prediction2 = _mm_shuffle_epi32(prediction, _MM_SHUFFLE(2, 2, 2, 2));
-            switch (order)
-            {
-            case 3:
-            case 2:
-            case 1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(_mm_and_si128(coefficients128[0], maskFF000000), prediction2));
-            }
-            prediction = _mm_add_epi32(_mm_add_epi32(_mm_and_si128(prediction, drflac__mm_not_si128(maskFF000000)), _mm_and_si128(_mm_srai_epi32(prediction, shift), maskFF000000)), _mm_and_si128(riceParamParts128, maskFF000000));
-
-            _mm_storeu_si128((__m128i*)pDecodedSamples, prediction);
-#endif
-        } else {
-            drflac_int32 predictions[4] = {0};
-
-            switch (order)
-            {
-            case 3: predictions[0] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 3];
-            case 2: predictions[0] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 2];
-            case 1: predictions[0] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[- 1];
-            }
-            pDecodedSamples[0] = riceParamParts[0] + (predictions[0] >> shift);
-
-            switch (order)
-            {
-            case 3: predictions[1] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 2];
-            case 2: predictions[1] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 1];
-            case 1: predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  0];
-            }
-            pDecodedSamples[1] = riceParamParts[1] + (predictions[1] >> shift);
-
-            switch (order)
-            {
-            case 3: predictions[2] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 1];
-            case 2: predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  0];
-            case 1: predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  1];
-            }
-            pDecodedSamples[2] = riceParamParts[2] + (predictions[2] >> shift);
-
-            switch (order)
-            {
-            case 3: predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[  0];
-            case 2: predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  1];
-            case 1: predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  2];
-            }
-            pDecodedSamples[3] = riceParamParts[3] + (predictions[3] >> shift);
-        }
-
-        // We finish off with a scalar implementation.
-        //_mm_storeu_si128((__m128i*)pDecodedSamples, _mm_castps_si128(_mm_shuffle_ps(_mm_castsi128_ps(prediction), _mm_castsi128_ps(prediction), _MM_SHUFFLE(0, 1, 2, 3))));
-        //drflac_int32 predictions[4];
-        //_mm_storeu_si128((__m128i*)predictions/*pDecodedSamples*/, prediction);
-
-#if 0
+        // The idea with this switch is to do do a single jump based on the value of "order". In my test library, "order" is never larger than 12, so
+        // I have decided to do a less optimal solution in the order > 12 case.
         switch (order)
         {
-        case 3: predictions[0] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 3];
-        case 2: predictions[0] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 2];
-        case 1: predictions[0] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[- 1];
-        }
-        pDecodedSamples[0] = riceParamParts[0] + (predictions[0] >> shift);
+        case 32: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[31], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 32))));
+        case 31: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[30], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 31))));
+        case 30: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[29], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 30))));
+        case 29: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[28], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 29))));
+        case 28: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[27], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 28))));
+        case 27: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[26], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 27))));
+        case 26: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[25], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 26))));
+        case 25: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[24], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 25))));
+        case 24: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[23], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 24))));
+        case 23: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[22], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 23))));
+        case 22: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[21], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 22))));
+        case 21: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[20], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 21))));
+        case 20: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[19], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 20))));
+        case 19: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[18], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 19))));
+        case 18: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[17], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 18))));
+        case 17: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[16], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 17))));
+        case 16: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[15], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 16))));
+        case 15: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[14], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 15))));
+        case 14: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[13], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 14))));
+        case 13: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[12], _mm_loadu_si128((const __m128i*)(pDecodedSamples - 13))));
 
-        switch (order)
-        {
-        case 3: predictions[1] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 2];
-        case 2: predictions[1] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 1];
-        case 1: predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  0];
+        case 12: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[11], s_09_10_11_12));
+        case 11: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[10], drflac__mm_slide3_epi32(s_05_06_07_08, s_09_10_11_12)));
+        case 10: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 9], drflac__mm_slide2_epi32(s_05_06_07_08, s_09_10_11_12)));
+        case  9: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 8], drflac__mm_slide1_epi32(s_05_06_07_08, s_09_10_11_12)));
+        case  8: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 7], s_05_06_07_08));
+        case  7: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 6], drflac__mm_slide3_epi32(s_01_02_03_04, s_05_06_07_08)));
+        case  6: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 5], drflac__mm_slide2_epi32(s_01_02_03_04, s_05_06_07_08)));
+        case  5: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 4], drflac__mm_slide1_epi32(s_01_02_03_04, s_05_06_07_08)));
+        case  4: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 3], s_01_02_03_04)); order = 3;    // <-- Don't forget to set order to 3 here!
+        case  3: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 2], drflac__mm_slide3_epi32(_mm_setzero_si128(), s_01_02_03_04)));
+        case  2: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 1], drflac__mm_slide2_epi32(_mm_setzero_si128(), s_01_02_03_04)));
+        case  1: prediction = _mm_add_epi32(prediction, _mm_mullo_epi32(coefficients128[ 0], drflac__mm_slide1_epi32(_mm_setzero_si128(), s_01_02_03_04)));
         }
-        pDecodedSamples[1] = riceParamParts[1] + (predictions[1] >> shift);
 
-        switch (order)
-        {
-        case 3: predictions[2] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 1];
-        case 2: predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  0];
-        case 1: predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  1];
-        }
-        pDecodedSamples[2] = riceParamParts[2] + (predictions[2] >> shift);
+        drflac_int32 predictions[4];
+        _mm_storeu_si128((__m128i*)predictions, prediction);
 
-        switch (order)
-        {
-        case 3: predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[  0];
-        case 2: predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[  1];
-        case 1: predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[  2];
-        }
-        pDecodedSamples[3] = riceParamParts[3] + (predictions[3] >> shift);
-#else
-
-    #if 0
-        switch (order)
-        {
-        case 3:
-            predictions[0] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 3];
-            predictions[1] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 2];
-            predictions[2] += ((const drflac_int32*)&coefficients128[ 2])[0] * pDecodedSamples[- 1];
-            predictions[3] += 0 * 0;
-        case 2:
-            predictions[0] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 2];
-            predictions[1] += ((const drflac_int32*)&coefficients128[ 1])[0] * pDecodedSamples[- 1];
-            predictions[2] += 0 * 0;
-            predictions[3] += 0 * 0;
-        case 1:
-            predictions[0] += ((const drflac_int32*)&coefficients128[ 0])[0] * pDecodedSamples[- 1];
-            predictions[1] += 0 * 0;
-            predictions[2] += 0 * 0;
-            predictions[3] += 0 * 0;
-        }
+        drflac_uint32 riceParamParts[4];
+        _mm_storeu_si128((__m128i*)riceParamParts, riceParamParts128);
 
         predictions[0] = riceParamParts[0] + (predictions[0] >> shift);
-        predictions[1] = 0                 + (predictions[1] >> 0);
-        predictions[2] = 0                 + (predictions[2] >> 0);
-        predictions[3] = 0                 + (predictions[3] >> 0);
 
         switch (order)
         {
-        case 3:
-            predictions[0] += 0 * 0;
-            predictions[1] += 0 * 0;
-            predictions[2] += 0 * 0;
-            predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * predictions[  0];
-        case 2:
-            predictions[0] += 0 * 0;
-            predictions[1] += 0 * 0;
-            predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  0];
-            predictions[3] += 0 * 0;
-        case 1:
-            predictions[0] += 0 * 0;
-            predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  0];
-            predictions[2] += 0 * 0;
-            predictions[3] += 0 * 0;
+        case 3: predictions[3] += ((const drflac_int32*)&coefficients128[ 2])[0] * predictions[  0];
+        case 2: predictions[2] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  0];
+        case 1: predictions[1] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  0];
         }
-        predictions[0] = 0                 + (predictions[0] >> 0);
         predictions[1] = riceParamParts[1] + (predictions[1] >> shift);
-        predictions[2] = 0                 + (predictions[2] >> 0);
-        predictions[3] = 0                 + (predictions[3] >> 0);
 
         switch (order)
         {
         case 3:
-        case 2:
-            predictions[0] += 0 * 0;
-            predictions[1] += 0 * 0;
-            predictions[2] += 0 * 0;
-            predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  1];
-        case 1:
-            predictions[0] += 0 * 0;
-            predictions[1] += 0 * 0;
-            predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  1];
-            predictions[3] += 0 * 0;
+        case 2: predictions[3] += ((const drflac_int32*)&coefficients128[ 1])[0] * predictions[  1];
+        case 1: predictions[2] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  1];
         }
-        predictions[0] = 0                 + (predictions[0] >> 0);
-        predictions[1] = 0                 + (predictions[1] >> 0);
         predictions[2] = riceParamParts[2] + (predictions[2] >> shift);
-        predictions[3] = 0                 + (predictions[3] >> 0);
 
         switch (order)
         {
         case 3:
         case 2:
-        case 1:
-            predictions[0] += 0 * 0;
-            predictions[1] += 0 * 0;
-            predictions[2] += 0 * 0;
-            predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  2];
+        case 1: predictions[3] += ((const drflac_int32*)&coefficients128[ 0])[0] * predictions[  2];
         }
-        predictions[0] = 0                 + (predictions[0] >> 0);
-        predictions[1] = 0                 + (predictions[1] >> 0);
-        predictions[2] = 0                 + (predictions[2] >> 0);
         predictions[3] = riceParamParts[3] + (predictions[3] >> shift);
-    #else
-        
 
-        
-    #endif
-
-        //pDecodedSamples[0] = predictions[0];
-        //pDecodedSamples[1] = predictions[1];
-        //pDecodedSamples[2] = predictions[2];
-        //pDecodedSamples[3] = predictions[3];
-#endif
-    /*} else {
-        pDecodedSamples[0] = riceParamParts[0];
-        pDecodedSamples[1] = riceParamParts[1];
-        pDecodedSamples[2] = riceParamParts[2];
-        pDecodedSamples[3] = riceParamParts[3];
-    }*/
-#endif
-
-    
+        pDecodedSamples[0] = predictions[0];
+        pDecodedSamples[1] = predictions[1];
+        pDecodedSamples[2] = predictions[2];
+        pDecodedSamples[3] = predictions[3];
+    } else {
+        _mm_storeu_si128((__m128i*)pDecodedSamples, riceParamParts128);
+    }
 }
 #endif
 
@@ -3194,124 +2838,11 @@ static drflac_bool32 drflac__read_rice_parts__reference(drflac_bs* bs, drflac_ui
 }
 #endif
 
+#if 0
 static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac_uint8 riceParam, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
 {
     drflac_assert(riceParam > 0);   // <-- riceParam should never be 0. drflac__read_rice_parts__param_equals_zero() should be used instead for this case.
 
-#if 0
-    drflac_uint32  lzcount;
-    drflac_uint32  riceParamPlus1 = riceParam + 1;
-    drflac_cache_t riceParamPlus1Mask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPlus1);
-
-    // The idea here is to use local variables for the cache in an attempt to encourage the compiler to store them in registers. I have
-    // no idea how this will work in practice...
-    register drflac_cache_t bs_cache = bs->cache;
-    register drflac_uint32  bs_consumedBits = bs->consumedBits;
-
-    // THIS IS EXPERIMENTAL
-    //
-    // What this is doing is trying to efficiently extract 4 rice parts at a time, the idea being that we can exploit certain properties
-    // to our advantage to make things more efficient.
-
-    // The first thing to do is find the first unset bit. Most likely a bit will be set in the current cache line.
-    lzcount = drflac__clz(bs_cache);
-    if (lzcount < sizeof(bs_cache)*8) {
-        pZeroCounterOut[0] = lzcount;
-
-        // It is most likely that the riceParam part (which comes after the zero counter) is also on this cache line. When extracting
-        // this, we include the set bit from the unary coded part because it simplifies cache management. This bit will be handled
-        // outside of this function at a higher level.
-    extract_rice_param_part:
-        bs_cache       <<= lzcount;
-        bs_consumedBits += lzcount;
-
-        if (riceParamPlus1 < (DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs_consumedBits)) {
-            // Getting here means the rice parameter part is wholly contained within the current cache line.
-            pRiceParamPartOut[0] = (drflac_uint32)((bs_cache & riceParamPlus1Mask) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPlus1));
-            bs_cache       <<= riceParamPlus1;
-            bs_consumedBits += riceParamPlus1;
-        } else {
-            // Getting here means the rice parameter part straddles the cache line. We need to read from the tail of the current cache
-            // line, reload the cache, and then combine it with the head of the next cache line.
-
-            // Grab the high part of the rice parameter part.
-            drflac_uint32 riceParamPartHi = (drflac_uint32)(bs_cache >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPlus1));
-
-            // Before reloading the cache we need to grab the size in bits of the low part.
-            drflac_uint32 riceParamPartLoBitCount = riceParamPlus1 - (DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs_consumedBits);
-                
-            // Now reload the cache.
-            if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
-            #ifndef DR_FLAC_NO_CRC
-                drflac__update_crc16(bs);
-            #endif
-                bs_cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
-                bs_consumedBits = 0;
-            #ifndef DR_FLAC_NO_CRC
-                bs->crc16Cache = bs_cache;
-            #endif
-            } else {
-                // Slow path. We need to fetch more data from the client.
-                if (!drflac__reload_cache(bs)) {
-                    bs->cache = bs_cache;
-                    bs->consumedBits = bs_consumedBits;
-                    return DRFLAC_FALSE;
-                }
-
-                bs_cache = bs->cache;
-                bs_consumedBits = bs->consumedBits;
-            }
-
-            // We should now have enough information to construct the rice parameter part.
-            //drflac_uint32 riceParamPartLo = (drflac_uint32)DRFLAC_CACHE_L1_SELECT_AND_SHIFT_SAFE(bs, riceParamPartLoBitCount);
-            drflac_uint32 riceParamPartLo = (drflac_uint32)((bs_cache & DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPartLoBitCount)) >> (DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPartLoBitCount) & (DRFLAC_CACHE_L1_SIZE_BITS(bs)-1)));
-            pRiceParamPartOut[0] = riceParamPartHi | riceParamPartLo;
-
-            bs_cache       <<= riceParamPartLoBitCount;
-            bs_consumedBits += riceParamPartLoBitCount;
-        }
-    } else {
-        // Getting here means there are no bits set on the cache line. This is a less optimal case because we just wasted a call
-        // to drflac__clz() and we need to reload the cache.
-        drflac_uint32 zeroCounter = (drflac_uint32)(DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs_consumedBits);
-        for (;;) {
-            if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
-            #ifndef DR_FLAC_NO_CRC
-                drflac__update_crc16(bs);
-            #endif
-                bs_cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
-                bs_consumedBits = 0;
-            #ifndef DR_FLAC_NO_CRC
-                bs->crc16Cache = bs_cache;
-            #endif
-            } else {
-                // Slow path. We need to fetch more data from the client.
-                if (!drflac__reload_cache(bs)) {
-                    bs->cache = bs_cache;
-                    bs->consumedBits = bs_consumedBits;
-                    return DRFLAC_FALSE;
-                }
-
-                bs_cache = bs->cache;
-                bs_consumedBits = bs->consumedBits;
-            }
-
-            lzcount = drflac__clz(bs_cache);
-            zeroCounter += lzcount;
-
-            if (lzcount < sizeof(bs_cache)*8) {
-                break;
-            }
-        }
-
-        pZeroCounterOut[0] = zeroCounter;
-        goto extract_rice_param_part;
-    }
-
-    // Make sure the cache is restored at the end of it all.
-    bs->cache = bs_cache;
-    bs->consumedBits = bs_consumedBits;
-#else
     drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(riceParam);
 
     drflac_uint32 zeroCounter = 0;
@@ -3366,18 +2897,129 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
 
     pZeroCounterOut[0] = zeroCounter;
     pRiceParamPartOut[0] = riceParamPart;
-#endif
 
     return DRFLAC_TRUE;
 }
+#endif
 
+
+static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x1(drflac_bs* bs, drflac_uint8 riceParam, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
+{
+    drflac_assert(riceParam > 0);   // <-- riceParam should never be 0. drflac__read_rice_parts__param_equals_zero() should be used instead for this case.
+
+    drflac_uint32  riceParamPlus1 = riceParam + 1;
+    //drflac_cache_t riceParamPlus1Mask  = DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPlus1);
+    drflac_uint32  riceParamPlus1Shift = DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPlus1);
+    drflac_uint32  riceParamPlus1MaxConsumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceParamPlus1;
+
+    // The idea here is to use local variables for the cache in an attempt to encourage the compiler to store them in registers. I have
+    // no idea how this will work in practice...
+    drflac_cache_t bs_cache = bs->cache;
+    drflac_uint32  bs_consumedBits = bs->consumedBits;
+
+    // The first thing to do is find the first unset bit. Most likely a bit will be set in the current cache line.
+    drflac_uint32  lzcount = drflac__clz(bs_cache);
+    if (lzcount < sizeof(bs_cache)*8) {
+        pZeroCounterOut[0] = lzcount;
+
+        // It is most likely that the riceParam part (which comes after the zero counter) is also on this cache line. When extracting
+        // this, we include the set bit from the unary coded part because it simplifies cache management. This bit will be handled
+        // outside of this function at a higher level.
+    extract_rice_param_part:
+        bs_cache       <<= lzcount;
+        bs_consumedBits += lzcount;
+
+        if (bs_consumedBits <= riceParamPlus1MaxConsumedBits) {
+            // Getting here means the rice parameter part is wholly contained within the current cache line.
+            pRiceParamPartOut[0] = (drflac_uint32)(bs_cache >> riceParamPlus1Shift);
+            bs_cache       <<= riceParamPlus1;
+            bs_consumedBits += riceParamPlus1;
+        } else {
+            // Getting here means the rice parameter part straddles the cache line. We need to read from the tail of the current cache
+            // line, reload the cache, and then combine it with the head of the next cache line.
+
+            // Grab the high part of the rice parameter part.
+            drflac_uint32 riceParamPartHi = (drflac_uint32)(bs_cache >> riceParamPlus1Shift);
+
+            // Before reloading the cache we need to grab the size in bits of the low part.
+            drflac_uint32 riceParamPartLoBitCount = bs_consumedBits - riceParamPlus1MaxConsumedBits;
+                
+            // Now reload the cache.
+            if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
+            #ifndef DR_FLAC_NO_CRC
+                drflac__update_crc16(bs);
+            #endif
+                bs_cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
+                bs_consumedBits = 0;
+            #ifndef DR_FLAC_NO_CRC
+                bs->crc16Cache = bs_cache;
+            #endif
+            } else {
+                // Slow path. We need to fetch more data from the client.
+                if (!drflac__reload_cache(bs)) {
+                    return DRFLAC_FALSE;
+                }
+
+                bs_cache = bs->cache;
+                bs_consumedBits = bs->consumedBits;
+            }
+
+            // We should now have enough information to construct the rice parameter part.
+            drflac_uint32 riceParamPartLo = (drflac_uint32)(bs_cache >> (DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPartLoBitCount)));
+            pRiceParamPartOut[0] = riceParamPartHi | riceParamPartLo;
+
+            bs_cache       <<= riceParamPartLoBitCount;
+            bs_consumedBits += riceParamPartLoBitCount;
+        }
+    } else {
+        // Getting here means there are no bits set on the cache line. This is a less optimal case because we just wasted a call
+        // to drflac__clz() and we need to reload the cache.
+        drflac_uint32 zeroCounter = (drflac_uint32)(DRFLAC_CACHE_L1_SIZE_BITS(bs) - bs_consumedBits);
+        for (;;) {
+            if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
+            #ifndef DR_FLAC_NO_CRC
+                drflac__update_crc16(bs);
+            #endif
+                bs_cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
+                bs_consumedBits = 0;
+            #ifndef DR_FLAC_NO_CRC
+                bs->crc16Cache = bs_cache;
+            #endif
+            } else {
+                // Slow path. We need to fetch more data from the client.
+                if (!drflac__reload_cache(bs)) {
+                    return DRFLAC_FALSE;
+                }
+
+                bs_cache = bs->cache;
+                bs_consumedBits = bs->consumedBits;
+            }
+
+            lzcount = drflac__clz(bs_cache);
+            zeroCounter += lzcount;
+
+            if (lzcount < sizeof(bs_cache)*8) {
+                break;
+            }
+        }
+
+        pZeroCounterOut[0] = zeroCounter;
+        goto extract_rice_param_part;
+    }
+
+    // Make sure the cache is restored at the end of it all.
+    bs->cache = bs_cache;
+    bs->consumedBits = bs_consumedBits;
+
+    return DRFLAC_TRUE;
+}
 
 static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x4(drflac_bs* bs, drflac_uint8 riceParam, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
 {
     drflac_assert(riceParam > 0);   // <-- riceParam should never be 0. drflac__read_rice_parts__param_equals_zero() should be used instead for this case.
 
     drflac_uint32  riceParamPlus1 = riceParam + 1;
-    drflac_cache_t riceParamPlus1Mask  = DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPlus1);
+    //drflac_cache_t riceParamPlus1Mask  = DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPlus1);
     drflac_uint32  riceParamPlus1Shift = DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPlus1);
     drflac_uint32  riceParamPlus1MaxConsumedBits = DRFLAC_CACHE_L1_SIZE_BITS(bs) - riceParamPlus1;
 
@@ -3403,7 +3045,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x4(drflac_bs* bs, drf
 
             if (bs_consumedBits <= riceParamPlus1MaxConsumedBits) {
                 // Getting here means the rice parameter part is wholly contained within the current cache line.
-                pRiceParamPartOut[i] = (drflac_uint32)((bs_cache/*& riceParamPlus1Mask*/) >> riceParamPlus1Shift);
+                pRiceParamPartOut[i] = (drflac_uint32)(bs_cache >> riceParamPlus1Shift);
                 bs_cache       <<= riceParamPlus1;
                 bs_consumedBits += riceParamPlus1;
             } else {
@@ -3437,7 +3079,6 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x4(drflac_bs* bs, drf
                 }
 
                 // We should now have enough information to construct the rice parameter part.
-                //drflac_uint32 riceParamPartLo = (drflac_uint32)((bs_cache & DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPartLoBitCount)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPartLoBitCount));
                 drflac_uint32 riceParamPartLo = (drflac_uint32)(bs_cache >> (DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPartLoBitCount)));
                 pRiceParamPartOut[i] = riceParamPartHi | riceParamPartLo;
 
@@ -3599,7 +3240,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
     drflac_assert(pSamplesOut != NULL);
     drflac_assert(riceParam > 0);
 
-    static drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
+    drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
 
     drflac_uint32 zeroCountPart0;
     drflac_uint32 zeroCountPart1;
@@ -3609,16 +3250,23 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
     drflac_uint32 riceParamPart1;
     drflac_uint32 riceParamPart2;
     drflac_uint32 riceParamPart3;
+    drflac_uint32 riceParamMask = ~((~0UL) << riceParam);
     drflac_uint32 i4 = 0;
     drflac_uint32 count4 = count >> 2;
     while (i4 < count4) {
-        // Rice extraction.
-        if (!drflac__read_rice_parts(bs, riceParam, &zeroCountPart0, &riceParamPart0) ||
-            !drflac__read_rice_parts(bs, riceParam, &zeroCountPart1, &riceParamPart1) ||
-            !drflac__read_rice_parts(bs, riceParam, &zeroCountPart2, &riceParamPart2) ||
-            !drflac__read_rice_parts(bs, riceParam, &zeroCountPart3, &riceParamPart3)) {
+        // Rice extraction. It's faster to do this one at a time against local variables than it is to use the x4 version
+        // against an array. Not sure why, but perhaps it's making more efficient use of registers?
+        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart0, &riceParamPart0) ||
+            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart1, &riceParamPart1) ||
+            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart2, &riceParamPart2) ||
+            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart3, &riceParamPart3)) {
             return DRFLAC_FALSE;
         }
+
+        riceParamPart0 &= riceParamMask;
+        riceParamPart1 &= riceParamMask;
+        riceParamPart2 &= riceParamMask;
+        riceParamPart3 &= riceParamMask;
 
         riceParamPart0 |= (zeroCountPart0 << riceParam);
         riceParamPart1 |= (zeroCountPart1 << riceParam);
@@ -3649,12 +3297,12 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
     drflac_uint32 i = i4 << 2;
     while (i < count) {
         // Rice extraction.
-        if (!drflac__read_rice_parts(bs, riceParam, &zeroCountPart0, &riceParamPart0)) {
+        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart0, &riceParamPart0)) {
             return DRFLAC_FALSE;
         }
 
         // Rice reconstruction.
-        //riceParamPart0 &= riceParamMask;
+        riceParamPart0 &= riceParamMask;
         riceParamPart0 |= (zeroCountPart0 << riceParam);
         riceParamPart0  = (riceParamPart0 >> 1) ^ t[riceParamPart0 & 0x01];
         //riceParamPart0  = (riceParamPart0 >> 1) ^ (~(riceParamPart0 & 0x01) + 1);
@@ -3669,7 +3317,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
         i += 1;
         pSamplesOut += 1;
     }
-
+    
     return DRFLAC_TRUE;
 }
 
@@ -3683,41 +3331,44 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
 
     static drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
 
-    drflac_uint32 zeroCountParts[4];
-    drflac_uint32 riceParamParts[4];
+    //drflac_uint32 zeroCountParts[4];
+    //drflac_uint32 riceParamParts[4];
 
-    __m128i one = _mm_set1_epi32(0x01);
-
-    drflac_uint32 i4 = 0;
-    drflac_uint32 count4 = count >> 2;
+    drflac_uint32 zeroCountParts0;
+    drflac_uint32 zeroCountParts1;
+    drflac_uint32 zeroCountParts2;
+    drflac_uint32 zeroCountParts3;
+    drflac_uint32 riceParamParts0;
+    drflac_uint32 riceParamParts1;
+    drflac_uint32 riceParamParts2;
+    drflac_uint32 riceParamParts3;
 
     drflac_uint32 riceParamMask = ~((~0UL) << riceParam);
     __m128i riceParamMask128 = _mm_set1_epi32(riceParamMask);
+    __m128i one = _mm_set1_epi32(0x01);
+
+    const drflac_int32* pSamplesOutEnd = pSamplesOut + ((count >> 2) << 2);
 
     if (bitsPerSample >= 24) {
-        while (i4 < count4) {
+        while (pSamplesOut < pSamplesOutEnd) {
             // Rice extraction.
-        #if 0
-            if (!drflac__read_rice_parts(bs, riceParam, &zeroCountParts[0], &riceParamParts[0]) ||
-                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[1], &riceParamParts[1]) ||
-                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[2], &riceParamParts[2]) ||
-                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[3], &riceParamParts[3])) {
+            if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts0, &riceParamParts0) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts1, &riceParamParts1) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts2, &riceParamParts2) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts3, &riceParamParts3)) {
                 return DRFLAC_FALSE;
             }
-        #else
-            if (!drflac__read_rice_parts_x4(bs, riceParam, zeroCountParts, riceParamParts)) {
-                return DRFLAC_FALSE;
-            }
-        #endif
 
-            __m128i zeroCountPart128_0 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
-            __m128i riceParamPart128_0 = _mm_set_epi32(riceParamParts[3], riceParamParts[2], riceParamParts[1], riceParamParts[0]);
+            __m128i zeroCountPart128 = _mm_set_epi32(zeroCountParts3, zeroCountParts2, zeroCountParts1, zeroCountParts0);
+            __m128i riceParamPart128 = _mm_set_epi32(riceParamParts3, riceParamParts2, riceParamParts1, riceParamParts0);
 
-            riceParamPart128_0 = _mm_and_si128(riceParamPart128_0, riceParamMask128);
-            riceParamPart128_0 = _mm_or_si128(riceParamPart128_0, _mm_slli_epi32(zeroCountPart128_0, riceParam));
-            riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128_0, one), _mm_set1_epi32(0xFFFFFFFF))); // <-- Only supported from SSE4.1
-            //riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_add_epi32(drflac__mm_not_si128(_mm_and_si128(riceParamPart128_0, one)), one));  // <-- SSE2 compatible
-            _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128_0);
+            riceParamPart128 = _mm_and_si128(riceParamPart128, riceParamMask128);
+            riceParamPart128 = _mm_or_si128(riceParamPart128, _mm_slli_epi32(zeroCountPart128, riceParam));
+            riceParamPart128 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128, one), _mm_set1_epi32(0xFFFFFFFF))); // <-- Only supported from SSE4.1
+            //riceParamPart128 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128, 1), _mm_add_epi32(drflac__mm_not_si128(_mm_and_si128(riceParamPart128, one)), one));  // <-- SSE2 compatible
+
+            drflac_uint32 riceParamParts[4];
+            _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128);
 
         #if defined(DRFLAC_64BIT)
             // The scalar implementation seems to be faster on 64-bit in my testing.
@@ -3729,7 +3380,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
             pSamplesOut[3] = riceParamParts[3] + drflac__calculate_prediction_64__sse41(order, shift, coefficients, pSamplesOut + 3);
         #endif
 
-            i4 += 1;
             pSamplesOut += 4;
         }
     } else {
@@ -3742,56 +3392,66 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
             coefficients128[i*4+3] = coefficients[i];
         }
 
-        while (i4 < count4) {
+        while (pSamplesOut < pSamplesOutEnd) {
             // Rice extraction.
-        #if 0
-            if (!drflac__read_rice_parts(bs, riceParam, &zeroCountParts[0], &riceParamParts[0]) ||
-                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[1], &riceParamParts[1]) ||
-                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[2], &riceParamParts[2]) ||
-                !drflac__read_rice_parts(bs, riceParam, &zeroCountParts[3], &riceParamParts[3])) {
+#if 1
+            if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts0, &riceParamParts0) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts1, &riceParamParts1) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts2, &riceParamParts2) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts3, &riceParamParts3)) {
                 return DRFLAC_FALSE;
             }
-        #else
+
+            __m128i zeroCountPart128 = _mm_set_epi32(zeroCountParts3, zeroCountParts2, zeroCountParts1, zeroCountParts0);
+            __m128i riceParamPart128 = _mm_set_epi32(riceParamParts3, riceParamParts2, riceParamParts1, riceParamParts0);
+#else
             if (!drflac__read_rice_parts_x4(bs, riceParam, zeroCountParts, riceParamParts)) {
                 return DRFLAC_FALSE;
             }
-        #endif
 
-            __m128i zeroCountPart128_0 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
-            __m128i riceParamPart128_0 = _mm_set_epi32(riceParamParts[3], riceParamParts[2], riceParamParts[1], riceParamParts[0]);
+            __m128i zeroCountPart128 = _mm_set_epi32(zeroCountParts[3], zeroCountParts[2], zeroCountParts[1], zeroCountParts[0]);
+            __m128i riceParamPart128 = _mm_set_epi32(riceParamParts[3], riceParamParts[2], riceParamParts[1], riceParamParts[0]);
+#endif
 
+            riceParamPart128 = _mm_and_si128(riceParamPart128, riceParamMask128);
+            riceParamPart128 = _mm_or_si128(riceParamPart128, _mm_slli_epi32(zeroCountPart128, riceParam));
+            riceParamPart128 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128, one), _mm_set1_epi32(0xFFFFFFFF)));
 
-            riceParamPart128_0 = _mm_and_si128(riceParamPart128_0, riceParamMask128);
-            riceParamPart128_0 = _mm_or_si128(riceParamPart128_0, _mm_slli_epi32(zeroCountPart128_0, riceParam));
-            riceParamPart128_0 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128_0, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128_0, one), _mm_set1_epi32(0xFFFFFFFF)));
-            _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128_0);
+#if 1
+            drflac__calculate_prediction_32_x4__sse41(order, shift, (const __m128i*)coefficients128, riceParamPart128, pSamplesOut);
+#else
+            drflac_int32 riceParamParts[4];
+            _mm_storeu_si128((__m128i*)riceParamParts, riceParamPart128);
 
-            //drflac__calculate_prediction_32_x4__sse41(order, shift, coefficients, riceParamParts, pSamplesOut);
-            drflac__calculate_prediction_32_x4__sse41(order, shift, (const __m128i*)coefficients128, riceParamParts, pSamplesOut);
+            pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
+            pSamplesOut[1] = riceParamParts[1] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 1);
+            pSamplesOut[2] = riceParamParts[2] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 2);
+            pSamplesOut[3] = riceParamParts[3] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 3);
+#endif
 
-            i4 += 1;
             pSamplesOut += 4;
         }
     }
 
 
-    drflac_uint32 i = i4 << 2;
+    drflac_uint32 i = ((count >> 2) << 2);
     while (i < count) {
         // Rice extraction.
-        if (!drflac__read_rice_parts(bs, riceParam, &zeroCountParts[0], &riceParamParts[0])) {
+        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts0, &riceParamParts0)) {
             return DRFLAC_FALSE;
         }
 
         // Rice reconstruction.
-        riceParamParts[0] |= (zeroCountParts[0] << riceParam);
-        riceParamParts[0]  = (riceParamParts[0] >> 1) ^ t[riceParamParts[0] & 0x01];
-        //riceParamParts[0]  = (riceParamParts[0] >> 1) ^ (~(riceParamParts[0] & 0x01) + 1);
+        riceParamParts0 &= riceParamMask;
+        riceParamParts0 |= (zeroCountParts0 << riceParam);
+        riceParamParts0  = (riceParamParts0 >> 1) ^ t[riceParamParts0 & 0x01];
+        //riceParamParts0  = (riceParamParts0 >> 1) ^ (~(riceParamParts0 & 0x01) + 1);
 
         // Sample reconstruction.
         if (bitsPerSample >= 24) {
-            pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
+            pSamplesOut[0] = riceParamParts0 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
         } else {
-            pSamplesOut[0] = riceParamParts[0] + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
+            pSamplesOut[0] = riceParamParts0 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
         }
 
         i += 1;
