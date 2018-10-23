@@ -2905,8 +2905,6 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
 
 static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x1(drflac_bs* bs, drflac_uint8 riceParam, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
 {
-    drflac_assert(riceParam > 0);   // <-- riceParam should never be 0. drflac__read_rice_parts__param_equals_zero() should be used instead for this case.
-
     drflac_uint32  riceParamPlus1 = riceParam + 1;
     //drflac_cache_t riceParamPlus1Mask  = DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPlus1);
     drflac_uint32  riceParamPlus1Shift = DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPlus1);
@@ -2943,6 +2941,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x1(drflac_bs* bs, drf
 
             // Before reloading the cache we need to grab the size in bits of the low part.
             drflac_uint32 riceParamPartLoBitCount = bs_consumedBits - riceParamPlus1MaxConsumedBits;
+            drflac_assert(riceParamPartLoBitCount > 0 && riceParamPartLoBitCount < 32);
                 
             // Now reload the cache.
             if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
@@ -3016,8 +3015,6 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x1(drflac_bs* bs, drf
 
 static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x4(drflac_bs* bs, drflac_uint8 riceParam, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
 {
-    drflac_assert(riceParam > 0);   // <-- riceParam should never be 0. drflac__read_rice_parts__param_equals_zero() should be used instead for this case.
-
     drflac_uint32  riceParamPlus1 = riceParam + 1;
     //drflac_cache_t riceParamPlus1Mask  = DRFLAC_CACHE_L1_SELECTION_MASK(riceParamPlus1);
     drflac_uint32  riceParamPlus1Shift = DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPlus1);
@@ -3129,62 +3126,6 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x4(drflac_bs* bs, drf
     return DRFLAC_TRUE;
 }
 
-static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts__param_equals_zero(drflac_bs* bs, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
-{
-    drflac_cache_t riceParamMask = DRFLAC_CACHE_L1_SELECTION_MASK(0);
-
-    drflac_uint32 zeroCounter = 0;
-    while (bs->cache == 0) {
-        zeroCounter += (drflac_uint32)DRFLAC_CACHE_L1_BITS_REMAINING(bs);
-        if (!drflac__reload_cache(bs)) {
-            return DRFLAC_FALSE;
-        }
-    }
-
-    drflac_uint32 setBitOffsetPlus1 = drflac__clz(bs->cache);
-    zeroCounter += setBitOffsetPlus1;
-    setBitOffsetPlus1 += 1;
-
-
-    drflac_uint32 riceParamPart;
-    drflac_uint32 riceLength = setBitOffsetPlus1;
-    if (riceLength < DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
-        riceParamPart = (drflac_uint32)((bs->cache & (riceParamMask >> setBitOffsetPlus1)) >> DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceLength));
-
-        bs->consumedBits += riceLength;
-        bs->cache <<= riceLength;
-    } else {
-        // It straddles the cached data. It will never cover more than the next chunk. We just read the number in two parts and combine them.
-        drflac_uint32 bitCountLo = riceLength + bs->consumedBits - DRFLAC_CACHE_L1_SIZE_BITS(bs);
-
-        if (bs->nextL2Line < DRFLAC_CACHE_L2_LINE_COUNT(bs)) {
-#ifndef DR_FLAC_NO_CRC
-            drflac__update_crc16(bs);
-#endif
-            bs->cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
-            bs->consumedBits = 0;
-#ifndef DR_FLAC_NO_CRC
-            bs->crc16Cache = bs->cache;
-#endif
-        } else {
-            // Slow path. We need to fetch more data from the client.
-            if (!drflac__reload_cache(bs)) {
-                return DRFLAC_FALSE;
-            }
-        }
-
-        riceParamPart = (drflac_uint32)(DRFLAC_CACHE_L1_SELECT_AND_SHIFT_SAFE(bs, bitCountLo));
-
-        bs->consumedBits += bitCountLo;
-        bs->cache <<= bitCountLo;
-    }
-
-    pZeroCounterOut[0] = zeroCounter;
-    pRiceParamPartOut[0] = riceParamPart;
-    return DRFLAC_TRUE;
-}
-
-
 static DRFLAC_INLINE drflac_bool32 drflac__seek_rice_parts(drflac_bs* bs, drflac_uint8 riceParam)
 {
     drflac_assert(riceParam > 0);   // <-- riceParam should never be 0. drflac__read_rice_parts__param_equals_zero() should be used instead for this case.
@@ -3233,7 +3174,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__seek_rice_parts(drflac_bs* bs, drflac
 }
 
 
-static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_zero__scalar(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+static drflac_bool32 drflac__decode_samples_with_residual__rice__scalar(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
     drflac_assert(bs != NULL);
     drflac_assert(count > 0);
@@ -3322,12 +3263,11 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
 }
 
 #if defined(DRFLAC_SUPPORT_SSE41)
-static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_zero__sse41(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
     drflac_assert(bs != NULL);
     drflac_assert(count > 0);
     drflac_assert(pSamplesOut != NULL);
-    drflac_assert(riceParam > 0);
 
     static drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
 
@@ -3462,114 +3402,21 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_ze
 }
 #endif
 
-static drflac_bool32 drflac__decode_samples_with_residual__rice__param_larger_zero(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+static drflac_bool32 drflac__decode_samples_with_residual__rice(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
 #if defined(DRFLAC_SUPPORT_SSE41)
     if (drflac__gIsSSE41Supported) {
-        return drflac__decode_samples_with_residual__rice__param_larger_zero__sse41(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+        return drflac__decode_samples_with_residual__rice__sse41(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
     } else
 #endif
     {
         // Scalar fallback.
-        return drflac__decode_samples_with_residual__rice__param_larger_zero__scalar(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+    #if 0
+        return drflac__decode_samples_with_residual__rice__reference(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+    #else
+        return drflac__decode_samples_with_residual__rice__scalar(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+    #endif
     }
-}
-
-static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_zero__scalar(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
-{
-    drflac_assert(bs != NULL);
-    drflac_assert(count > 0);
-    drflac_assert(pSamplesOut != NULL);
-
-    static drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
-
-    drflac_uint32 zeroCountPart0;
-    drflac_uint32 zeroCountPart1;
-    drflac_uint32 zeroCountPart2;
-    drflac_uint32 zeroCountPart3;
-    drflac_uint32 riceParamPart0;
-    drflac_uint32 riceParamPart1;
-    drflac_uint32 riceParamPart2;
-    drflac_uint32 riceParamPart3;
-    drflac_uint32 i4 = 0;
-    drflac_uint32 count4 = count >> 2;
-    while (i4 < count4) {
-        // Rice extraction.
-        if (!drflac__read_rice_parts__param_equals_zero(bs, &zeroCountPart0, &riceParamPart0) ||
-            !drflac__read_rice_parts__param_equals_zero(bs, &zeroCountPart1, &riceParamPart1) ||
-            !drflac__read_rice_parts__param_equals_zero(bs, &zeroCountPart2, &riceParamPart2) ||
-            !drflac__read_rice_parts__param_equals_zero(bs, &zeroCountPart3, &riceParamPart3)) {
-            return DRFLAC_FALSE;
-        }
-
-        riceParamPart0 |= zeroCountPart0;
-        riceParamPart1 |= zeroCountPart1;
-        riceParamPart2 |= zeroCountPart2;
-        riceParamPart3 |= zeroCountPart3;
-
-        riceParamPart0  = (riceParamPart0 >> 1) ^ t[riceParamPart0 & 0x01];
-        riceParamPart1  = (riceParamPart1 >> 1) ^ t[riceParamPart1 & 0x01];
-        riceParamPart2  = (riceParamPart2 >> 1) ^ t[riceParamPart2 & 0x01];
-        riceParamPart3  = (riceParamPart3 >> 1) ^ t[riceParamPart3 & 0x01];
-
-        if (bitsPerSample >= 24) {
-            pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
-            pSamplesOut[1] = riceParamPart1 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 1);
-            pSamplesOut[2] = riceParamPart2 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 2);
-            pSamplesOut[3] = riceParamPart3 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 3);
-        } else {
-            pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
-            pSamplesOut[1] = riceParamPart1 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 1);
-            pSamplesOut[2] = riceParamPart2 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 2);
-            pSamplesOut[3] = riceParamPart3 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 3);
-        }
-
-        i4 += 1;
-        pSamplesOut += 4;
-    }
-
-    drflac_uint32 i = i4 << 2;
-    while (i < count) {
-        // Rice extraction.
-        if (!drflac__read_rice_parts__param_equals_zero(bs, &zeroCountPart0, &riceParamPart0)) {
-            return DRFLAC_FALSE;
-        }
-
-        // Rice reconstruction.
-        riceParamPart0 |= zeroCountPart0;
-        riceParamPart0  = (riceParamPart0 >> 1) ^ t[riceParamPart0 & 0x01];
-
-        // Sample reconstruction.
-        if (bitsPerSample >= 24) {
-            pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
-        } else {
-            pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
-        }
-
-        i += 1;
-        pSamplesOut += 1;
-    }
-
-    return DRFLAC_TRUE;
-}
-
-static drflac_bool32 drflac__decode_samples_with_residual__rice__param_equals_zero(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
-{
-    return drflac__decode_samples_with_residual__rice__param_equals_zero__scalar(bs, bitsPerSample, count, order, shift, coefficients, pSamplesOut);
-}
-
-
-static drflac_bool32 drflac__decode_samples_with_residual__rice(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
-{
-#if 0
-    return drflac__decode_samples_with_residual__rice__reference(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
-#else
-    if (riceParam != 0) {
-        return drflac__decode_samples_with_residual__rice__param_larger_zero(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
-    } else {
-        return drflac__decode_samples_with_residual__rice__param_equals_zero(bs, bitsPerSample, count, order, shift, coefficients, pSamplesOut);
-    }
-#endif
 }
 
 // Reads and seeks past a string of residual values as Rice codes. The decoder should be sitting on the first bit of the Rice codes.
@@ -3578,19 +3425,9 @@ static drflac_bool32 drflac__read_and_seek_residual__rice(drflac_bs* bs, drflac_
     drflac_assert(bs != NULL);
     drflac_assert(count > 0);
 
-    if (riceParam != 0) {
-        for (drflac_uint32 i = 0; i < count; ++i) {
-            if (!drflac__seek_rice_parts(bs, riceParam)) {
-                return DRFLAC_FALSE;
-            }
-        }
-    } else {
-        drflac_uint32 zeroCountPart;
-        drflac_uint32 riceParamPart;
-        for (drflac_uint32 i = 0; i < count; ++i) {
-            if (!drflac__read_rice_parts__param_equals_zero(bs, &zeroCountPart, &riceParamPart)) {
-                return DRFLAC_FALSE;
-            }
+    for (drflac_uint32 i = 0; i < count; ++i) {
+        if (!drflac__seek_rice_parts(bs, riceParam)) {
+            return DRFLAC_FALSE;
         }
     }
 
