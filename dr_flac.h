@@ -3220,7 +3220,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__scalar(drflac_b
     drflac_assert(bs != NULL);
     drflac_assert(count > 0);
     drflac_assert(pSamplesOut != NULL);
-    drflac_assert(riceParam > 0);
 
     drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
 
@@ -3233,50 +3232,77 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__scalar(drflac_b
     drflac_uint32 riceParamPart2;
     drflac_uint32 riceParamPart3;
     drflac_uint32 riceParamMask = ~((~0UL) << riceParam);
-    drflac_uint32 i4 = 0;
-    drflac_uint32 count4 = count >> 2;
-    while (i4 < count4) {
-        // Rice extraction. It's faster to do this one at a time against local variables than it is to use the x4 version
-        // against an array. Not sure why, but perhaps it's making more efficient use of registers?
-        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart0, &riceParamPart0) ||
-            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart1, &riceParamPart1) ||
-            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart2, &riceParamPart2) ||
-            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart3, &riceParamPart3)) {
-            return DRFLAC_FALSE;
-        }
+    const drflac_int32* pSamplesOutEnd = pSamplesOut + ((count >> 2) << 2);
 
-        riceParamPart0 &= riceParamMask;
-        riceParamPart1 &= riceParamMask;
-        riceParamPart2 &= riceParamMask;
-        riceParamPart3 &= riceParamMask;
+    if (bitsPerSample >= 24) {
+        while (pSamplesOut < pSamplesOutEnd) {
+            // Rice extraction. It's faster to do this one at a time against local variables than it is to use the x4 version
+            // against an array. Not sure why, but perhaps it's making more efficient use of registers?
+            if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart0, &riceParamPart0) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart1, &riceParamPart1) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart2, &riceParamPart2) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart3, &riceParamPart3)) {
+                return DRFLAC_FALSE;
+            }
 
-        riceParamPart0 |= (zeroCountPart0 << riceParam);
-        riceParamPart1 |= (zeroCountPart1 << riceParam);
-        riceParamPart2 |= (zeroCountPart2 << riceParam);
-        riceParamPart3 |= (zeroCountPart3 << riceParam);
+            riceParamPart0 &= riceParamMask;
+            riceParamPart1 &= riceParamMask;
+            riceParamPart2 &= riceParamMask;
+            riceParamPart3 &= riceParamMask;
 
-        riceParamPart0  = (riceParamPart0 >> 1) ^ t[riceParamPart0 & 0x01];
-        riceParamPart1  = (riceParamPart1 >> 1) ^ t[riceParamPart1 & 0x01];
-        riceParamPart2  = (riceParamPart2 >> 1) ^ t[riceParamPart2 & 0x01];
-        riceParamPart3  = (riceParamPart3 >> 1) ^ t[riceParamPart3 & 0x01];
+            riceParamPart0 |= (zeroCountPart0 << riceParam);
+            riceParamPart1 |= (zeroCountPart1 << riceParam);
+            riceParamPart2 |= (zeroCountPart2 << riceParam);
+            riceParamPart3 |= (zeroCountPart3 << riceParam);
 
-        if (bitsPerSample >= 24) {
+            riceParamPart0  = (riceParamPart0 >> 1) ^ t[riceParamPart0 & 0x01];
+            riceParamPart1  = (riceParamPart1 >> 1) ^ t[riceParamPart1 & 0x01];
+            riceParamPart2  = (riceParamPart2 >> 1) ^ t[riceParamPart2 & 0x01];
+            riceParamPart3  = (riceParamPart3 >> 1) ^ t[riceParamPart3 & 0x01];
+
             pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 0);
             pSamplesOut[1] = riceParamPart1 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 1);
             pSamplesOut[2] = riceParamPart2 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 2);
             pSamplesOut[3] = riceParamPart3 + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + 3);
-        } else {
+
+            pSamplesOut += 4;
+        }
+    } else {
+        while (pSamplesOut < pSamplesOutEnd) {
+            if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart0, &riceParamPart0) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart1, &riceParamPart1) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart2, &riceParamPart2) ||
+                !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart3, &riceParamPart3)) {
+                return DRFLAC_FALSE;
+            }
+
+            riceParamPart0 &= riceParamMask;
+            riceParamPart1 &= riceParamMask;
+            riceParamPart2 &= riceParamMask;
+            riceParamPart3 &= riceParamMask;
+
+            riceParamPart0 |= (zeroCountPart0 << riceParam);
+            riceParamPart1 |= (zeroCountPart1 << riceParam);
+            riceParamPart2 |= (zeroCountPart2 << riceParam);
+            riceParamPart3 |= (zeroCountPart3 << riceParam);
+
+            riceParamPart0  = (riceParamPart0 >> 1) ^ t[riceParamPart0 & 0x01];
+            riceParamPart1  = (riceParamPart1 >> 1) ^ t[riceParamPart1 & 0x01];
+            riceParamPart2  = (riceParamPart2 >> 1) ^ t[riceParamPart2 & 0x01];
+            riceParamPart3  = (riceParamPart3 >> 1) ^ t[riceParamPart3 & 0x01];
+
             pSamplesOut[0] = riceParamPart0 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 0);
             pSamplesOut[1] = riceParamPart1 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 1);
             pSamplesOut[2] = riceParamPart2 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 2);
             pSamplesOut[3] = riceParamPart3 + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + 3);
-        }
 
-        i4 += 1;
-        pSamplesOut += 4;
+            pSamplesOut += 4;
+        }
     }
 
-    drflac_uint32 i = i4 << 2;
+    
+
+    drflac_uint32 i = ((count >> 2) << 2);
     while (i < count) {
         // Rice extraction.
         if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart0, &riceParamPart0)) {
