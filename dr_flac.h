@@ -2949,6 +2949,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x1(drflac_bs* bs, drf
                 drflac__update_crc16(bs);
             #endif
                 bs_cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
+                bs_consumedBits = riceParamPartLoBitCount;
             #ifndef DR_FLAC_NO_CRC
                 bs->crc16Cache = bs_cache;
             #endif
@@ -2959,14 +2960,14 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x1(drflac_bs* bs, drf
                 }
 
                 bs_cache = bs->cache;
+                bs_consumedBits = bs->consumedBits + riceParamPartLoBitCount;
             }
 
             // We should now have enough information to construct the rice parameter part.
             drflac_uint32 riceParamPartLo = (drflac_uint32)(bs_cache >> (DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPartLoBitCount)));
             pRiceParamPartOut[0] = riceParamPartHi | riceParamPartLo;
 
-            bs_cache       <<= riceParamPartLoBitCount;
-            bs_consumedBits  = riceParamPartLoBitCount; // <-- NOTE: We are setting the consumed bits instead of adding to it.
+            bs_cache <<= riceParamPartLoBitCount;
         }
     } else {
         // Getting here means there are no bits set on the cache line. This is a less optimal case because we just wasted a call
@@ -3059,6 +3060,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x4(drflac_bs* bs, drf
                     drflac__update_crc16(bs);
                 #endif
                     bs_cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
+                    bs_consumedBits = riceParamPartLoBitCount;
                 #ifndef DR_FLAC_NO_CRC
                     bs->crc16Cache = bs_cache;
                 #endif
@@ -3069,14 +3071,14 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x4(drflac_bs* bs, drf
                     }
 
                     bs_cache = bs->cache;
+                    bs_consumedBits = bs->consumedBits + riceParamPartLoBitCount;
                 }
 
                 // We should now have enough information to construct the rice parameter part.
                 drflac_uint32 riceParamPartLo = (drflac_uint32)(bs_cache >> (DRFLAC_CACHE_L1_SELECTION_SHIFT(bs, riceParamPartLoBitCount)));
                 pRiceParamPartOut[i] = riceParamPartHi | riceParamPartLo;
 
-                bs_cache       <<= riceParamPartLoBitCount;
-                bs_consumedBits  = riceParamPartLoBitCount; // <-- NOTE: We are setting the consumed bits instead of adding to it.
+                bs_cache <<= riceParamPartLoBitCount;
             }
         } else {
             // Getting here means there are no bits set on the cache line. This is a less optimal case because we just wasted a call
@@ -3160,6 +3162,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__seek_rice_parts(drflac_bs* bs, drflac
                 drflac__update_crc16(bs);
             #endif
                 bs_cache = drflac__be2host__cache_line(bs->cacheL2[bs->nextL2Line++]);
+                bs_consumedBits = riceParamPartLoBitCount;
             #ifndef DR_FLAC_NO_CRC
                 bs->crc16Cache = bs_cache;
             #endif
@@ -3170,10 +3173,10 @@ static DRFLAC_INLINE drflac_bool32 drflac__seek_rice_parts(drflac_bs* bs, drflac
                 }
 
                 bs_cache = bs->cache;
+                bs_consumedBits = bs->consumedBits + riceParamPartLoBitCount;
             }
 
-            bs_cache       <<= riceParamPartLoBitCount;
-            bs_consumedBits  = riceParamPartLoBitCount; // <-- NOTE: We are setting the consumed bits instead of adding to it.
+            bs_cache <<= riceParamPartLoBitCount;
         }
     } else {
         // Getting here means there are no bits set on the cache line. This is a less optimal case because we just wasted a call
