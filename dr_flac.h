@@ -1926,6 +1926,9 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_lzcnt(drflac_cache_t x)
     #endif
 #else
     #if defined(__GNUC__) || defined(__clang__)
+        if (x == 0) {
+            return sizeof(x)*8;
+        }
         #ifdef DRFLAC_64BIT
             return (drflac_uint32)__builtin_clzll((unsigned long long)x);
         #else
@@ -2901,7 +2904,6 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
     return DRFLAC_TRUE;
 }
 #endif
-
 
 static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x1(drflac_bs* bs, drflac_uint8 riceParam, drflac_uint32* pZeroCounterOut, drflac_uint32* pRiceParamPartOut)
 {
