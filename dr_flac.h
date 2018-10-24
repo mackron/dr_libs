@@ -18,7 +18,7 @@
 //     }
 //
 //     drflac_int32* pSamples = malloc(pFlac->totalSampleCount * sizeof(drflac_int32));
-//     drflac_uint64 numberOfInterleavedSamplesActuallyRead = drflac_read_s32(pFlac, pFlac->totalSampleCount, pSamples);
+//     drflac_uint64 numberOfInterleavedSamplesActuallyRead = drflac_read_pcm_frames_s32(pFlac, pFlac->totalSampleCount, pSamples);
 //
 // The drflac object represents the decoder. It is a transparent type so all the information you need, such as the number of
 // channels and the bits per sample, should be directly accessible - just make sure you don't change their values. Samples are
@@ -29,7 +29,7 @@
 // the decoder will give you as many samples as it can, up to the amount requested. Later on when you need the next batch of
 // samples, just call it again. Example:
 //
-//     while (drflac_read_s32(pFlac, chunkSize, pChunkSamples) > 0) {
+//     while (drflac_read_pcm_frames_s32(pFlac, chunkSize, pChunkSamples) > 0) {
 //         do_something();
 //     }
 //
@@ -137,6 +137,14 @@ typedef drflac_uint8     drflac_bool8;
 typedef drflac_uint32    drflac_bool32;
 #define DRFLAC_TRUE      1
 #define DRFLAC_FALSE     0
+
+#if defined(_MSC_VER) && _MSC_VER >= 1700 // Visual Studio 2012
+#define DRFLAC_DEPRECATED   __declspec(deprecated)
+#elif (defined(__GNUC__) && __GNUC__ >= 4) || (defined(__clang__) && __has_feature(attribute_deprecated))
+#define DRFLAC_DEPRECATED   __attribute__((deprecated))
+#else
+#define DRFLAC_DEPRECATED
+#endif
 
 // As data is read from the client it is placed into an internal buffer for fast access. This controls the
 // size of that buffer. Larger values means more speed, but also more memory. In my testing there is diminishing
@@ -464,6 +472,7 @@ typedef struct
     // with each channel having a total of 4096, this value will be set to 2*4096 = 8192. Can be 0 in which case it's still a
     // valid stream, but just means the total sample count is unknown. Likely the case with streams like internet radio.
     drflac_uint64 totalSampleCount;
+    drflac_uint64 totalPCMFrameCount;   // <-- Equal to totalSampleCount / channels.
 
 
     // The container type. This is set based on whether or not the decoder was opened from a native or Ogg stream.
@@ -581,59 +590,34 @@ void drflac_close(drflac* pFlac);
 
 // Reads sample data from the given FLAC decoder, output as interleaved signed 32-bit PCM.
 //
-// pFlac         [in]            The decoder.
-// samplesToRead [in]            The number of samples to read.
-// pBufferOut    [out, optional] A pointer to the buffer that will receive the decoded samples.
+// pFlac        [in]            The decoder.
+// framesToRead [in]            The number of PCM frames to read.
+// pBufferOut   [out, optional] A pointer to the buffer that will receive the decoded samples.
 //
-// Returns the number of samples actually read.
+// Returns the number of PCM frames actually read.
 //
-// pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
+// pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of frames
 // seeked.
-drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* pBufferOut);
+drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRead, drflac_int32* pBufferOut);
 
-// Same as drflac_read_s32(), except outputs samples as 16-bit integer PCM rather than 32-bit.
-//
-// pFlac         [in]            The decoder.
-// samplesToRead [in]            The number of samples to read.
-// pBufferOut    [out, optional] A pointer to the buffer that will receive the decoded samples.
-//
-// Returns the number of samples actually read.
-//
-// pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
-// seeked.
+// Same as drflac_read_pcm_frames_s32(), except outputs samples as 16-bit integer PCM rather than 32-bit.
 //
 // Note that this is lossy for streams where the bits per sample is larger than 16.
-drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);
+drflac_uint64 drflac_read_pcm_frames_s16(drflac* pFlac, drflac_uint64 framesToRead, drflac_int16* pBufferOut);
 
-// Same as drflac_read_s32(), except outputs samples as 32-bit floating-point PCM.
-//
-// pFlac         [in]            The decoder.
-// samplesToRead [in]            The number of samples to read.
-// pBufferOut    [out, optional] A pointer to the buffer that will receive the decoded samples.
-//
-// Returns the number of samples actually read.
-//
-// pBufferOut can be null, in which case the call will act as a seek, and the return value will be the number of samples
-// seeked.
+// Same as drflac_read_pcm_frames_s32(), except outputs samples as 32-bit floating-point PCM.
 //
 // Note that this should be considered lossy due to the nature of floating point numbers not being able to exactly
 // represent every possible number.
-drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut);
 drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRead, float* pBufferOut);
 
-// Seeks to the sample at the given index.
+// Seeks to the PCM frame at the given index.
 //
-// pFlac       [in] The decoder.
-// sampleIndex [in] The index of the sample to seek to. See notes below.
+// pFlac         [in] The decoder.
+// pcmFrameIndex [in] The index of the PCM frame to seek to. See notes below.
 //
 // Returns DRFLAC_TRUE if successful; DRFLAC_FALSE otherwise.
-//
-// The sample index is based on interleaving. In a stereo stream, for example, the sample at index 0 is the first sample
-// in the left channel; the sample at index 1 is the first sample on the right channel, and so on.
-//
-// When seeking, you will likely want to ensure it's rounded to a multiple of the channel count. You can do this with
-// something like drflac_seek_to_sample(pFlac, (mySampleIndex + (mySampleIndex % pFlac->channels)))
-drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex);
+drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameIndex);
 
 
 
@@ -670,6 +654,20 @@ drflac* drflac_open_memory(const void* data, size_t dataSize);
 // Look at the documentation for drflac_open_with_metadata() for more information on how metadata is handled.
 drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drflac_meta_proc onMeta, void* pUserData);
 
+
+//// Deprecated APIs //// 
+
+// Deprecated. Use drflac_read_pcm_frames_s32() instead.
+drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* pBufferOut);
+
+// Deprecated. Use drflac_read_pcm_frames_s16() instead.
+drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);
+
+// Deprecated. Use drflac_read_pcm_frames_f32() instead.
+drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut);
+
+// Deprecated. Use drflac_seek_to_pcm_frame() instead.
+drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex);
 
 
 //// High Level APIs ////
@@ -5017,7 +5015,7 @@ drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_
         pInit->bitsPerSample      = streaminfo.bitsPerSample;
         pInit->totalSampleCount   = streaminfo.totalSampleCount;
         pInit->maxBlockSize       = streaminfo.maxBlockSize;    // Don't care about the min block size - only the max (used for determining the size of the memory allocation).
-        pInit->hasMetadataBlocks = !isLastBlock;
+        pInit->hasMetadataBlocks  = !isLastBlock;
 
         if (onMeta) {
             drflac_metadata metadata;
@@ -5891,15 +5889,16 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
     drflac_assert(pInit != NULL);
 
     drflac_zero_memory(pFlac, sizeof(*pFlac));
-    pFlac->bs               = pInit->bs;
-    pFlac->onMeta           = pInit->onMeta;
-    pFlac->pUserDataMD      = pInit->pUserDataMD;
-    pFlac->maxBlockSize     = pInit->maxBlockSize;
-    pFlac->sampleRate       = pInit->sampleRate;
-    pFlac->channels         = (drflac_uint8)pInit->channels;
-    pFlac->bitsPerSample    = (drflac_uint8)pInit->bitsPerSample;
-    pFlac->totalSampleCount = pInit->totalSampleCount;
-    pFlac->container        = pInit->container;
+    pFlac->bs                 = pInit->bs;
+    pFlac->onMeta             = pInit->onMeta;
+    pFlac->pUserDataMD        = pInit->pUserDataMD;
+    pFlac->maxBlockSize       = pInit->maxBlockSize;
+    pFlac->sampleRate         = pInit->sampleRate;
+    pFlac->channels           = (drflac_uint8)pInit->channels;
+    pFlac->bitsPerSample      = (drflac_uint8)pInit->bitsPerSample;
+    pFlac->totalSampleCount   = pInit->totalSampleCount;
+    pFlac->totalPCMFrameCount = pInit->totalSampleCount / pFlac->channels;
+    pFlac->container          = pInit->container;
 }
 
 drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD)
@@ -6405,6 +6404,11 @@ drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 sampl
     return samplesRead;
 }
 
+drflac_uint64 drflac__seek_forward_by_pcm_frames(drflac* pFlac, drflac_uint64 pcmFramesToSeek)
+{
+    return drflac__seek_forward_by_samples(pFlac, pcmFramesToSeek);
+}
+
 drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* bufferOut)
 {
     // Note that <bufferOut> is allowed to be null, in which case this will act like a seek.
@@ -6554,6 +6558,12 @@ drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac
     return samplesRead;
 }
 
+drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRead, drflac_int32* pBufferOut)
+{
+    return drflac_read_s32(pFlac, framesToRead*pFlac->channels, pBufferOut) * pFlac->channels;
+}
+
+
 drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut)
 {
     // This reads samples in 2 passes and can probably be optimized.
@@ -6578,6 +6588,13 @@ drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac
 
     return totalSamplesRead;
 }
+
+drflac_uint64 drflac_read_pcm_frames_s16(drflac* pFlac, drflac_uint64 framesToRead, drflac_int16* pBufferOut)
+{
+    return drflac_read_s16(pFlac, framesToRead*pFlac->channels, pBufferOut) * pFlac->channels;
+}
+
+
 
 drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut)
 {
@@ -7140,19 +7157,14 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_independent_stereo(
     }
 }
 
-
-
 drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRead, float* pBufferOut)
 {
-#if 0
-    return drflac_read_f32(pFlac, framesToRead*pFlac->channels, pBufferOut) / pFlac->channels;
-#else
     if (pFlac == NULL || framesToRead == 0) {
         return 0;
     }
 
     if (pBufferOut == NULL) {
-        return drflac__seek_forward_by_samples(pFlac, framesToRead * pFlac->channels);
+        return drflac__seek_forward_by_pcm_frames(pFlac, framesToRead);
     }
 
     drflac_uint64 framesRead = 0;
@@ -7221,7 +7233,6 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
     }
 
     return framesRead;
-#endif
 }
 
 drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex)
@@ -7288,6 +7299,11 @@ drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex)
         pFlac->currentSample = sampleIndex;
         return wasSuccessful;
     }
+}
+
+drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameIndex)
+{
+    return drflac_seek_to_sample(pFlac, pcmFrameIndex*pFlac->channels);
 }
 
 
