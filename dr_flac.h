@@ -753,7 +753,7 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* pBufferOut);    // Use drflac_read_pcm_frames_s32() instead.
 drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);    // Use drflac_read_pcm_frames_s16() instead.
 drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut);           // Use drflac_read_pcm_frames_f32() instead.
-drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex);                          // Use drflac_seek_to_pcm_frame() instead.
+DRFLAC_DEPRECATED drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex);                          // Use drflac_seek_to_pcm_frame() instead.
 DRFLAC_DEPRECATED drflac_int32* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount); // Use drflac_open_and_read_pcm_frames_s32().
 DRFLAC_DEPRECATED drflac_int16* drflac_open_and_decode_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount); // Use drflac_open_and_read_pcm_frames_s16().
 DRFLAC_DEPRECATED float* drflac_open_and_decode_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);        // Use drflac_open_and_read_pcm_frames_f32().
@@ -7303,7 +7303,68 @@ drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex)
 
 drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameIndex)
 {
-    return drflac_seek_to_sample(pFlac, pcmFrameIndex*pFlac->channels);
+    if (pFlac == NULL) {
+        return DRFLAC_FALSE;
+    }
+
+    // If we don't know where the first frame begins then we can't seek. This will happen when the STREAMINFO block was not present
+    // when the decoder was opened.
+    if (pFlac->firstFramePos == 0) {
+        return DRFLAC_FALSE;
+    }
+
+    if (pcmFrameIndex == 0) {
+        pFlac->currentSample = 0;
+        return drflac__seek_to_first_frame(pFlac);
+    } else {
+        drflac_bool32 wasSuccessful = DRFLAC_FALSE;
+
+        // Clamp the sample to the end.
+        if (pcmFrameIndex >= pFlac->totalPCMFrameCount) {
+            pcmFrameIndex  = pFlac->totalPCMFrameCount - 1;
+        }
+
+        // If the target sample and the current sample are in the same frame we just move the position forward.
+        if (pcmFrameIndex*pFlac->channels > pFlac->currentSample) {
+            // Forward.
+            drflac_uint32 offset = (drflac_uint32)(pcmFrameIndex*pFlac->channels - pFlac->currentSample);
+            if (pFlac->currentFrame.samplesRemaining >  offset) {
+                pFlac->currentFrame.samplesRemaining -= offset;
+                pFlac->currentSample = pcmFrameIndex*pFlac->channels;
+                return DRFLAC_TRUE;
+            }
+        } else {
+            // Backward.
+            drflac_uint32 offsetAbs = (drflac_uint32)(pFlac->currentSample - pcmFrameIndex*pFlac->channels);
+            drflac_uint32 currentFrameSampleCount = pFlac->currentFrame.header.blockSize * drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
+            drflac_uint32 currentFrameSamplesConsumed = (drflac_uint32)(currentFrameSampleCount - pFlac->currentFrame.samplesRemaining);
+            if (currentFrameSamplesConsumed > offsetAbs) {
+                pFlac->currentFrame.samplesRemaining += offsetAbs;
+                pFlac->currentSample = pcmFrameIndex*pFlac->channels;
+                return DRFLAC_TRUE;
+            }
+        }
+
+        // Different techniques depending on encapsulation. Using the native FLAC seektable with Ogg encapsulation is a bit awkward so
+        // we'll instead use Ogg's natural seeking facility.
+#ifndef DR_FLAC_NO_OGG
+        if (pFlac->container == drflac_container_ogg)
+        {
+            wasSuccessful = drflac_ogg__seek_to_sample(pFlac, pcmFrameIndex*pFlac->channels);
+        }
+        else
+#endif
+        {
+            // First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower.
+            wasSuccessful = drflac__seek_to_sample__seek_table(pFlac, pcmFrameIndex*pFlac->channels);
+            if (!wasSuccessful) {
+                wasSuccessful = drflac__seek_to_sample__brute_force(pFlac, pcmFrameIndex*pFlac->channels);
+            }
+        }
+
+        pFlac->currentSample = pcmFrameIndex*pFlac->channels;
+        return wasSuccessful;
+    }
 }
 
 
