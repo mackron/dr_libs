@@ -751,7 +751,7 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 //// Deprecated APIs //// 
 drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* pBufferOut);    // Use drflac_read_pcm_frames_s32() instead.
-drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);    // Use drflac_read_pcm_frames_s16() instead.
+DRFLAC_DEPRECATED drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);    // Use drflac_read_pcm_frames_s16() instead.
 DRFLAC_DEPRECATED drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut);           // Use drflac_read_pcm_frames_f32() instead.
 DRFLAC_DEPRECATED drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex);                          // Use drflac_seek_to_pcm_frame() instead.
 DRFLAC_DEPRECATED drflac_int32* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount); // Use drflac_open_and_read_pcm_frames_s32().
@@ -6591,9 +6591,31 @@ drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac
 
 drflac_uint64 drflac_read_pcm_frames_s16(drflac* pFlac, drflac_uint64 framesToRead, drflac_int16* pBufferOut)
 {
-    return drflac_read_s16(pFlac, framesToRead*pFlac->channels, pBufferOut) / pFlac->channels;
-}
+    // This reads samples in 2 passes and can probably be optimized.
+    drflac_uint64 totalPCMFramesRead = 0;
 
+    while (framesToRead > 0) {
+        drflac_int32 samples32[4096];
+        drflac_uint64 framesJustRead = drflac_read_pcm_frames_s32(pFlac, (framesToRead > 4096/pFlac->channels) ? 4096/pFlac->channels : framesToRead, samples32);
+        if (framesJustRead == 0) {
+            break;  // Reached the end.
+        }
+
+        // s32 -> s16
+        for (drflac_uint64 iFrame = 0; iFrame < framesJustRead; ++iFrame) {
+            for (drflac_uint32 iChannel = 0; iChannel < pFlac->channels; ++iChannel) {
+                drflac_uint64 iSample = iFrame*pFlac->channels + iChannel;
+                pBufferOut[iSample] = (drflac_int16)(samples32[iSample] >> 16);
+            }
+        }
+
+        totalPCMFramesRead += framesJustRead;
+        framesToRead       -= framesJustRead;
+        pBufferOut         += framesJustRead * pFlac->channels;
+    }
+
+    return totalPCMFramesRead;
+}
 
 
 drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut)
