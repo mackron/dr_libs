@@ -655,20 +655,6 @@ drflac* drflac_open_memory(const void* data, size_t dataSize);
 drflac* drflac_open_memory_with_metadata(const void* data, size_t dataSize, drflac_meta_proc onMeta, void* pUserData);
 
 
-//// Deprecated APIs //// 
-
-// Deprecated. Use drflac_read_pcm_frames_s32() instead.
-drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* pBufferOut);
-
-// Deprecated. Use drflac_read_pcm_frames_s16() instead.
-drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);
-
-// Deprecated. Use drflac_read_pcm_frames_f32() instead.
-drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut);
-
-// Deprecated. Use drflac_seek_to_pcm_frame() instead.
-drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex);
-
 
 //// High Level APIs ////
 
@@ -679,33 +665,33 @@ drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex);
 // read samples into a dynamically sized buffer on the heap until no samples are left.
 //
 // Do not call this function on a broadcast type of stream (like internet radio streams and whatnot).
-drflac_int32* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);
+drflac_int32* drflac_open_and_read_pcm_frames_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount);
 
-// Same as drflac_open_and_decode_s32(), except returns signed 16-bit integer samples.
-drflac_int16* drflac_open_and_decode_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);
+// Same as drflac_open_and_read_pcm_frames_s32(), except returns signed 16-bit integer samples.
+drflac_int16* drflac_open_and_read_pcm_frames_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount);
 
-// Same as drflac_open_and_decode_s32(), except returns 32-bit floating-point samples.
-float* drflac_open_and_decode_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);
+// Same as drflac_open_and_read_pcm_frames_s32(), except returns 32-bit floating-point samples.
+float* drflac_open_and_read_pcm_frames_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount);
 
 #ifndef DR_FLAC_NO_STDIO
-// Same as drflac_open_and_decode_s32() except opens the decoder from a file.
-drflac_int32* drflac_open_and_decode_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);
+// Same as drflac_open_and_read_pcm_frames_s32() except opens the decoder from a file.
+drflac_int32* drflac_open_file_and_read_pcm_frames_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount);
 
-// Same as drflac_open_and_decode_file_s32(), except returns signed 16-bit integer samples.
-drflac_int16* drflac_open_and_decode_file_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);
+// Same as drflac_open_file_and_read_pcm_frames_s32(), except returns signed 16-bit integer samples.
+drflac_int16* drflac_open_file_and_read_pcm_frames_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount);
 
-// Same as drflac_open_and_decode_file_f32(), except returns 32-bit floating-point samples.
-float* drflac_open_and_decode_file_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);
+// Same as drflac_open_file_and_read_pcm_frames_s32(), except returns 32-bit floating-point samples.
+float* drflac_open_file_and_read_pcm_frames_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount);
 #endif
 
-// Same as drflac_open_and_decode_s32() except opens the decoder from a block of memory.
-drflac_int32* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);
+// Same as drflac_open_and_read_pcm_frames_s32() except opens the decoder from a block of memory.
+drflac_int32* drflac_open_memory_and_read_pcm_frames_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount);
 
-// Same as drflac_open_and_decode_memory_s32(), except returns signed 16-bit integer samples.
-drflac_int16* drflac_open_and_decode_memory_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);
+// Same as drflac_open_memory_and_read_pcm_frames_s32(), except returns signed 16-bit integer samples.
+drflac_int16* drflac_open_memory_and_read_pcm_frames_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount);
 
-// Same as drflac_open_and_decode_memory_s32(), except returns 32-bit floating-point samples.
-float* drflac_open_and_decode_memory_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);
+// Same as drflac_open_memory_and_read_pcm_frames_s32(), except returns 32-bit floating-point samples.
+float* drflac_open_memory_and_read_pcm_frames_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount);
 
 // Frees memory that was allocated internally by dr_flac.
 void drflac_free(void* p);
@@ -763,6 +749,20 @@ void drflac_init_cuesheet_track_iterator(drflac_cuesheet_track_iterator* pIter, 
 drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, drflac_cuesheet_track* pCuesheetTrack);
 
 
+//// Deprecated APIs //// 
+drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* pBufferOut);    // Use drflac_read_pcm_frames_s32() instead.
+drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);    // Use drflac_read_pcm_frames_s16() instead.
+drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut);           // Use drflac_read_pcm_frames_f32() instead.
+drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex);                          // Use drflac_seek_to_pcm_frame() instead.
+DRFLAC_DEPRECATED drflac_int32* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount); // Use drflac_open_and_read_pcm_frames_s32().
+DRFLAC_DEPRECATED drflac_int16* drflac_open_and_decode_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount); // Use drflac_open_and_read_pcm_frames_s16().
+DRFLAC_DEPRECATED float* drflac_open_and_decode_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);        // Use drflac_open_and_read_pcm_frames_f32().
+DRFLAC_DEPRECATED drflac_int32* drflac_open_and_decode_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);                                         // Use drflac_open_file_and_read_pcm_frames_s32().
+DRFLAC_DEPRECATED drflac_int16* drflac_open_and_decode_file_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);                                         // Use drflac_open_file_and_read_pcm_frames_s16().
+DRFLAC_DEPRECATED float* drflac_open_and_decode_file_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);                                                // Use drflac_open_file_and_read_pcm_frames_f32().
+DRFLAC_DEPRECATED drflac_int32* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);                          // Use drflac_open_memory_and_read_pcm_frames_s32().
+DRFLAC_DEPRECATED drflac_int16* drflac_open_and_decode_memory_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);                          // Use drflac_open_memory_and_read_pcm_frames_s16().
+DRFLAC_DEPRECATED float* drflac_open_and_decode_memory_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount);                                 // Use drflac_open_memory_and_read_pcm_frames_f32().
 
 #ifdef __cplusplus
 }
@@ -7322,15 +7322,15 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
 
 
 // Using a macro as the definition of the drflac__full_decode_and_close_*() API family. Sue me.
-#define DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(extension, type) \
-static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)\
+#define DRFLAC_DEFINE_FULL_READ_AND_CLOSE(extension, type) \
+static type* drflac__full_read_and_close_ ## extension (drflac* pFlac, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut)\
 {                                                                                                                                                                   \
     drflac_assert(pFlac != NULL);                                                                                                                                   \
                                                                                                                                                                     \
     type* pSampleData = NULL;                                                                                                                                       \
-    drflac_uint64 totalSampleCount = pFlac->totalSampleCount;                                                                                                       \
+    drflac_uint64 totalPCMFrameCount = pFlac->totalPCMFrameCount;                                                                                                   \
                                                                                                                                                                     \
-    if (totalSampleCount == 0) {                                                                                                                                    \
+    if (totalPCMFrameCount == 0) {                                                                                                                                  \
         type buffer[4096];                                                                                                                                          \
                                                                                                                                                                     \
         size_t sampleDataBufferSize = sizeof(buffer);                                                                                                               \
@@ -7339,9 +7339,9 @@ static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigne
             goto on_error;                                                                                                                                          \
         }                                                                                                                                                           \
                                                                                                                                                                     \
-        drflac_uint64 samplesRead;                                                                                                                                  \
-        while ((samplesRead = (drflac_uint64)drflac_read_##extension(pFlac, sizeof(buffer)/sizeof(buffer[0]), buffer)) > 0) {                                       \
-            if (((totalSampleCount + samplesRead) * sizeof(type)) > sampleDataBufferSize) {                                                                         \
+        drflac_uint64 pcmFramesRead;                                                                                                                                \
+        while ((pcmFramesRead = (drflac_uint64)drflac_read_pcm_frames_##extension(pFlac, sizeof(buffer)/sizeof(buffer[0])/pFlac->channels, buffer)) > 0) {          \
+            if (((totalPCMFrameCount + pcmFramesRead) * pFlac->channels * sizeof(type)) > sampleDataBufferSize) {                                                   \
                 sampleDataBufferSize *= 2;                                                                                                                          \
                 type* pNewSampleData = (type*)DRFLAC_REALLOC(pSampleData, sampleDataBufferSize);                                                                    \
                 if (pNewSampleData == NULL) {                                                                                                                       \
@@ -7352,15 +7352,15 @@ static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigne
                 pSampleData = pNewSampleData;                                                                                                                       \
             }                                                                                                                                                       \
                                                                                                                                                                     \
-            drflac_copy_memory(pSampleData + totalSampleCount, buffer, (size_t)(samplesRead*sizeof(type)));                                                         \
-            totalSampleCount += samplesRead;                                                                                                                        \
+            drflac_copy_memory(pSampleData + (totalPCMFrameCount*pFlac->channels), buffer, (size_t)(pcmFramesRead*pFlac->channels*sizeof(type)));                   \
+            totalPCMFrameCount += pcmFramesRead;                                                                                                                    \
         }                                                                                                                                                           \
                                                                                                                                                                     \
         /* At this point everything should be decoded, but we just want to fill the unused part buffer with silence - need to                                       \
            protect those ears from random noise! */                                                                                                                 \
-        drflac_zero_memory(pSampleData + totalSampleCount, (size_t)(sampleDataBufferSize - totalSampleCount*sizeof(type)));                                         \
+        drflac_zero_memory(pSampleData + (totalPCMFrameCount*pFlac->channels), (size_t)(sampleDataBufferSize - totalPCMFrameCount*pFlac->channels*sizeof(type)));   \
     } else {                                                                                                                                                        \
-        drflac_uint64 dataSize = totalSampleCount * sizeof(type);                                                                                                   \
+        drflac_uint64 dataSize = totalPCMFrameCount*pFlac->channels*sizeof(type);                                                                                   \
         if (dataSize > DRFLAC_SIZE_MAX) {                                                                                                                           \
             goto on_error;  /* The decoded data is too big. */                                                                                                      \
         }                                                                                                                                                           \
@@ -7370,12 +7370,12 @@ static type* drflac__full_decode_and_close_ ## extension (drflac* pFlac, unsigne
             goto on_error;                                                                                                                                          \
         }                                                                                                                                                           \
                                                                                                                                                                     \
-        totalSampleCount = drflac_read_##extension(pFlac, pFlac->totalSampleCount, pSampleData);                                                                    \
+        totalPCMFrameCount = drflac_read_pcm_frames_##extension(pFlac, pFlac->totalPCMFrameCount, pSampleData);                                                     \
     }                                                                                                                                                               \
                                                                                                                                                                     \
     if (sampleRateOut) *sampleRateOut = pFlac->sampleRate;                                                                                                          \
     if (channelsOut) *channelsOut = pFlac->channels;                                                                                                                \
-    if (totalSampleCountOut) *totalSampleCountOut = totalSampleCount;                                                                                               \
+    if (totalPCMFrameCountOut) *totalPCMFrameCountOut = totalPCMFrameCount;                                                                                         \
                                                                                                                                                                     \
     drflac_close(pFlac);                                                                                                                                            \
     return pSampleData;                                                                                                                                             \
@@ -7385,140 +7385,355 @@ on_error:                                                                       
     return NULL;                                                                                                                                                    \
 }
 
-DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(s32, drflac_int32)
-DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(s16, drflac_int16)
-DRFLAC_DEFINE_FULL_DECODE_AND_CLOSE(f32, float)
+DRFLAC_DEFINE_FULL_READ_AND_CLOSE(s32, drflac_int32)
+DRFLAC_DEFINE_FULL_READ_AND_CLOSE(s16, drflac_int16)
+DRFLAC_DEFINE_FULL_READ_AND_CLOSE(f32, float)
 
-drflac_int32* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount)
+drflac_int32* drflac_open_and_read_pcm_frames_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut)
 {
     // Safety.
-    if (sampleRate) *sampleRate = 0;
-    if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalPCMFrameCountOut) *totalPCMFrameCountOut = 0;
 
     drflac* pFlac = drflac_open(onRead, onSeek, pUserData);
     if (pFlac == NULL) {
         return NULL;
     }
 
-    return drflac__full_decode_and_close_s32(pFlac, channels, sampleRate, totalSampleCount);
+    return drflac__full_read_and_close_s32(pFlac, channelsOut, sampleRateOut, totalPCMFrameCountOut);
 }
 
-drflac_int16* drflac_open_and_decode_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount)
+drflac_int32* drflac_open_and_decode_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)
 {
     // Safety.
-    if (sampleRate) *sampleRate = 0;
-    if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalSampleCountOut) *totalSampleCountOut = 0;
 
-    drflac* pFlac = drflac_open(onRead, onSeek, pUserData);
-    if (pFlac == NULL) {
+    unsigned int channels;
+    unsigned int sampleRate;
+    drflac_uint64 totalPCMFrameCount;
+
+    drflac_int32* pResult = drflac_open_and_read_pcm_frames_s32(onRead, onSeek, pUserData, &channels, &sampleRate, &totalPCMFrameCount);
+    if (pResult == NULL) {
         return NULL;
     }
 
-    return drflac__full_decode_and_close_s16(pFlac, channels, sampleRate, totalSampleCount);
+    if (channelsOut) *channelsOut = channels;
+    if (sampleRateOut) *sampleRateOut = sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalPCMFrameCount * channels;
+
+    return pResult;
 }
 
-float* drflac_open_and_decode_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount)
+
+
+drflac_int16* drflac_open_and_read_pcm_frames_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut)
 {
     // Safety.
-    if (sampleRate) *sampleRate = 0;
-    if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalPCMFrameCountOut) *totalPCMFrameCountOut = 0;
 
     drflac* pFlac = drflac_open(onRead, onSeek, pUserData);
     if (pFlac == NULL) {
         return NULL;
     }
 
-    return drflac__full_decode_and_close_f32(pFlac, channels, sampleRate, totalSampleCount);
+    return drflac__full_read_and_close_s16(pFlac, channelsOut, sampleRateOut, totalPCMFrameCountOut);
+}
+
+drflac_int16* drflac_open_and_decode_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)
+{
+    // Safety.
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalSampleCountOut) *totalSampleCountOut = 0;
+
+    unsigned int channels;
+    unsigned int sampleRate;
+    drflac_uint64 totalPCMFrameCount;
+
+    drflac_int16* pResult = drflac_open_and_read_pcm_frames_s16(onRead, onSeek, pUserData, &channels, &sampleRate, &totalPCMFrameCount);
+    if (pResult == NULL) {
+        return NULL;
+    }
+
+    if (channelsOut) *channelsOut = channels;
+    if (sampleRateOut) *sampleRateOut = sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalPCMFrameCount * channels;
+
+    return pResult;
+}
+
+
+float* drflac_open_and_read_pcm_frames_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut)
+{
+    // Safety.
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalPCMFrameCountOut) *totalPCMFrameCountOut = 0;
+
+    drflac* pFlac = drflac_open(onRead, onSeek, pUserData);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    return drflac__full_read_and_close_f32(pFlac, channelsOut, sampleRateOut, totalPCMFrameCountOut);
+}
+
+float* drflac_open_and_decode_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)
+{
+    // Safety.
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalSampleCountOut) *totalSampleCountOut = 0;
+
+    unsigned int channels;
+    unsigned int sampleRate;
+    drflac_uint64 totalPCMFrameCount;
+
+    float* pResult = drflac_open_and_read_pcm_frames_f32(onRead, onSeek, pUserData, &channels, &sampleRate, &totalPCMFrameCount);
+    if (pResult == NULL) {
+        return NULL;
+    }
+
+    if (channelsOut) *channelsOut = channels;
+    if (sampleRateOut) *sampleRateOut = sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalPCMFrameCount * channels;
+
+    return pResult;
 }
 
 #ifndef DR_FLAC_NO_STDIO
-drflac_int32* drflac_open_and_decode_file_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount)
+drflac_int32* drflac_open_file_and_read_pcm_frames_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount)
 {
     if (sampleRate) *sampleRate = 0;
     if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
+    if (totalPCMFrameCount) *totalPCMFrameCount = 0;
 
     drflac* pFlac = drflac_open_file(filename);
     if (pFlac == NULL) {
         return NULL;
     }
 
-    return drflac__full_decode_and_close_s32(pFlac, channels, sampleRate, totalSampleCount);
+    return drflac__full_read_and_close_s32(pFlac, channels, sampleRate, totalPCMFrameCount);
 }
 
-drflac_int16* drflac_open_and_decode_file_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount)
+drflac_int32* drflac_open_and_decode_file_s32(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)
 {
-    if (sampleRate) *sampleRate = 0;
-    if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
+    // Safety.
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalSampleCountOut) *totalSampleCountOut = 0;
 
-    drflac* pFlac = drflac_open_file(filename);
-    if (pFlac == NULL) {
+    unsigned int channels;
+    unsigned int sampleRate;
+    drflac_uint64 totalPCMFrameCount;
+
+    drflac_int32* pResult = drflac_open_file_and_read_pcm_frames_s32(filename, &channels, &sampleRate, &totalPCMFrameCount);
+    if (pResult == NULL) {
         return NULL;
     }
 
-    return drflac__full_decode_and_close_s16(pFlac, channels, sampleRate, totalSampleCount);
+    if (channelsOut) *channelsOut = channels;
+    if (sampleRateOut) *sampleRateOut = sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalPCMFrameCount * channels;
+
+    return pResult;
 }
 
-float* drflac_open_and_decode_file_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount)
+
+drflac_int16* drflac_open_file_and_read_pcm_frames_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount)
 {
     if (sampleRate) *sampleRate = 0;
     if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
+    if (totalPCMFrameCount) *totalPCMFrameCount = 0;
 
     drflac* pFlac = drflac_open_file(filename);
     if (pFlac == NULL) {
         return NULL;
     }
 
-    return drflac__full_decode_and_close_f32(pFlac, channels, sampleRate, totalSampleCount);
+    return drflac__full_read_and_close_s16(pFlac, channels, sampleRate, totalPCMFrameCount);
+}
+
+drflac_int16* drflac_open_and_decode_file_s16(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)
+{
+    // Safety.
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalSampleCountOut) *totalSampleCountOut = 0;
+
+    unsigned int channels;
+    unsigned int sampleRate;
+    drflac_uint64 totalPCMFrameCount;
+
+    drflac_int16* pResult = drflac_open_file_and_read_pcm_frames_s16(filename, &channels, &sampleRate, &totalPCMFrameCount);
+    if (pResult == NULL) {
+        return NULL;
+    }
+
+    if (channelsOut) *channelsOut = channels;
+    if (sampleRateOut) *sampleRateOut = sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalPCMFrameCount * channels;
+
+    return pResult;
+}
+
+
+float* drflac_open_file_and_read_pcm_frames_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount)
+{
+    if (sampleRate) *sampleRate = 0;
+    if (channels) *channels = 0;
+    if (totalPCMFrameCount) *totalPCMFrameCount = 0;
+
+    drflac* pFlac = drflac_open_file(filename);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
+    return drflac__full_read_and_close_f32(pFlac, channels, sampleRate, totalPCMFrameCount);
+}
+
+float* drflac_open_and_decode_file_f32(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)
+{
+    // Safety.
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalSampleCountOut) *totalSampleCountOut = 0;
+
+    unsigned int channels;
+    unsigned int sampleRate;
+    drflac_uint64 totalPCMFrameCount;
+
+    float* pResult = drflac_open_file_and_read_pcm_frames_f32(filename, &channels, &sampleRate, &totalPCMFrameCount);
+    if (pResult == NULL) {
+        return NULL;
+    }
+
+    if (channelsOut) *channelsOut = channels;
+    if (sampleRateOut) *sampleRateOut = sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalPCMFrameCount * channels;
+
+    return pResult;
 }
 #endif
 
-drflac_int32* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount)
+drflac_int32* drflac_open_memory_and_read_pcm_frames_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount)
 {
     if (sampleRate) *sampleRate = 0;
     if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
+    if (totalPCMFrameCount) *totalPCMFrameCount = 0;
 
     drflac* pFlac = drflac_open_memory(data, dataSize);
     if (pFlac == NULL) {
         return NULL;
     }
 
-    return drflac__full_decode_and_close_s32(pFlac, channels, sampleRate, totalSampleCount);
+    return drflac__full_read_and_close_s32(pFlac, channels, sampleRate, totalPCMFrameCount);
 }
 
-drflac_int16* drflac_open_and_decode_memory_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount)
+drflac_int32* drflac_open_and_decode_memory_s32(const void* data, size_t dataSize, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)
+{
+    // Safety.
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalSampleCountOut) *totalSampleCountOut = 0;
+
+    unsigned int channels;
+    unsigned int sampleRate;
+    drflac_uint64 totalPCMFrameCount;
+
+    drflac_int32* pResult = drflac_open_memory_and_read_pcm_frames_s32(data, dataSize, &channels, &sampleRate, &totalPCMFrameCount);
+    if (pResult == NULL) {
+        return NULL;
+    }
+
+    if (channelsOut) *channelsOut = channels;
+    if (sampleRateOut) *sampleRateOut = sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalPCMFrameCount * channels;
+
+    return pResult;
+}
+
+
+drflac_int16* drflac_open_memory_and_read_pcm_frames_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount)
 {
     if (sampleRate) *sampleRate = 0;
     if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
+    if (totalPCMFrameCount) *totalPCMFrameCount = 0;
 
     drflac* pFlac = drflac_open_memory(data, dataSize);
     if (pFlac == NULL) {
         return NULL;
     }
 
-    return drflac__full_decode_and_close_s16(pFlac, channels, sampleRate, totalSampleCount);
+    return drflac__full_read_and_close_s16(pFlac, channels, sampleRate, totalPCMFrameCount);
 }
 
-float* drflac_open_and_decode_memory_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalSampleCount)
+drflac_int16* drflac_open_and_decode_memory_s16(const void* data, size_t dataSize, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)
+{
+    // Safety.
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalSampleCountOut) *totalSampleCountOut = 0;
+
+    unsigned int channels;
+    unsigned int sampleRate;
+    drflac_uint64 totalPCMFrameCount;
+
+    drflac_int16* pResult = drflac_open_memory_and_read_pcm_frames_s16(data, dataSize, &channels, &sampleRate, &totalPCMFrameCount);
+    if (pResult == NULL) {
+        return NULL;
+    }
+
+    if (channelsOut) *channelsOut = channels;
+    if (sampleRateOut) *sampleRateOut = sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalPCMFrameCount * channels;
+
+    return pResult;
+}
+
+
+float* drflac_open_memory_and_read_pcm_frames_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount)
 {
     if (sampleRate) *sampleRate = 0;
     if (channels) *channels = 0;
-    if (totalSampleCount) *totalSampleCount = 0;
+    if (totalPCMFrameCount) *totalPCMFrameCount = 0;
 
     drflac* pFlac = drflac_open_memory(data, dataSize);
     if (pFlac == NULL) {
         return NULL;
     }
 
-    return drflac__full_decode_and_close_f32(pFlac, channels, sampleRate, totalSampleCount);
+    return drflac__full_read_and_close_f32(pFlac, channels, sampleRate, totalPCMFrameCount);
 }
+
+float* drflac_open_and_decode_memory_f32(const void* data, size_t dataSize, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalSampleCountOut)
+{
+    // Safety.
+    if (channelsOut) *channelsOut = 0;
+    if (sampleRateOut) *sampleRateOut = 0;
+    if (totalSampleCountOut) *totalSampleCountOut = 0;
+
+    unsigned int channels;
+    unsigned int sampleRate;
+    drflac_uint64 totalPCMFrameCount;
+
+    float* pResult = drflac_open_memory_and_read_pcm_frames_f32(data, dataSize, &channels, &sampleRate, &totalPCMFrameCount);
+    if (pResult == NULL) {
+        return NULL;
+    }
+
+    if (channelsOut) *channelsOut = channels;
+    if (sampleRateOut) *sampleRateOut = sampleRate;
+    if (totalSampleCountOut) *totalSampleCountOut = totalPCMFrameCount * channels;
+
+    return pResult;
+}
+
 
 void drflac_free(void* pSampleDataReturnedByOpenAndDecode)
 {
