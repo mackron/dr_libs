@@ -140,7 +140,9 @@ typedef drflac_uint32    drflac_bool32;
 
 #if defined(_MSC_VER) && _MSC_VER >= 1700 // Visual Studio 2012
 #define DRFLAC_DEPRECATED   __declspec(deprecated)
-#elif (defined(__GNUC__) && __GNUC__ >= 4) || (defined(__clang__) && __has_feature(attribute_deprecated))
+#elif (defined(__GNUC__) && __GNUC__ >= 4)
+#define DRFLAC_DEPRECATED   __attribute__((deprecated))
+#elif (defined(__clang__) && __has_feature(attribute_deprecated))
 #define DRFLAC_DEPRECATED   __attribute__((deprecated))
 #else
 #define DRFLAC_DEPRECATED
@@ -750,7 +752,7 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 
 //// Deprecated APIs //// 
-drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* pBufferOut);    // Use drflac_read_pcm_frames_s32() instead.
+DRFLAC_DEPRECATED drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* pBufferOut);    // Use drflac_read_pcm_frames_s32() instead.
 DRFLAC_DEPRECATED drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int16* pBufferOut);    // Use drflac_read_pcm_frames_s16() instead.
 DRFLAC_DEPRECATED drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float* pBufferOut);           // Use drflac_read_pcm_frames_f32() instead.
 DRFLAC_DEPRECATED drflac_bool32 drflac_seek_to_sample(drflac* pFlac, drflac_uint64 sampleIndex);                          // Use drflac_seek_to_pcm_frame() instead.
@@ -4321,6 +4323,36 @@ static DRFLAC_INLINE drflac_result drflac__seek_to_next_frame(drflac* pFlac)
     return drflac__seek_frame(pFlac);
 }
 
+drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 samplesToRead)
+{
+    drflac_uint64 samplesRead = 0;
+    while (samplesToRead > 0) {
+        if (pFlac->currentFrame.samplesRemaining == 0) {
+            if (!drflac__read_and_decode_next_frame(pFlac)) {
+                break;  // Couldn't read the next frame, so just break from the loop and return.
+            }
+        } else {
+            if (pFlac->currentFrame.samplesRemaining > samplesToRead) {
+                samplesRead   += samplesToRead;
+                pFlac->currentFrame.samplesRemaining -= (drflac_uint32)samplesToRead;   // <-- Safe cast. Will always be < currentFrame.samplesRemaining < 65536.
+                samplesToRead  = 0;
+            } else {
+                samplesRead   += pFlac->currentFrame.samplesRemaining;
+                samplesToRead -= pFlac->currentFrame.samplesRemaining;
+                pFlac->currentFrame.samplesRemaining = 0;
+            }
+        }
+    }
+
+    pFlac->currentSample += samplesRead;
+    return samplesRead;
+}
+
+drflac_uint64 drflac__seek_forward_by_pcm_frames(drflac* pFlac, drflac_uint64 pcmFramesToSeek)
+{
+    return drflac__seek_forward_by_samples(pFlac, pcmFramesToSeek);
+}
+
 static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_uint64 sampleIndex)
 {
     drflac_assert(pFlac != NULL);
@@ -4373,7 +4405,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
                 drflac_result result = drflac__decode_frame(pFlac);
                 if (result == DRFLAC_SUCCESS) {
                     // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
-                    return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;  // <-- If this fails, something bad has happened (it should never fail).
+                    return drflac__seek_forward_by_samples(pFlac, samplesToDecode) == samplesToDecode;  // <-- If this fails, something bad has happened (it should never fail).
                 } else {
                     if (result == DRFLAC_CRC_MISMATCH) {
                         goto next_iteration;   // CRC mismatch. Pretend this frame never existed.
@@ -4383,7 +4415,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
                 }
             } else {
                 // We started seeking mid-frame which means we need to skip the frame decoding part.
-                return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;
+                return drflac__seek_forward_by_samples(pFlac, samplesToDecode) == samplesToDecode;
             }
         } else {
             // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
@@ -4482,7 +4514,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
                 drflac_result result = drflac__decode_frame(pFlac);
                 if (result == DRFLAC_SUCCESS) {
                     // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
-                    return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;  // <-- If this fails, something bad has happened (it should never fail).
+                    return drflac__seek_forward_by_samples(pFlac, samplesToDecode) == samplesToDecode;  // <-- If this fails, something bad has happened (it should never fail).
                 } else {
                     if (result == DRFLAC_CRC_MISMATCH) {
                         goto next_iteration;   // CRC mismatch. Pretend this frame never existed.
@@ -4492,7 +4524,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
                 }
             } else {
                 // We started seeking mid-frame which means we need to skip the frame decoding part.
-                return drflac_read_s32(pFlac, samplesToDecode, NULL) == samplesToDecode;
+                return drflac__seek_forward_by_samples(pFlac, samplesToDecode) == samplesToDecode;
             }
         } else {
             // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
@@ -5624,7 +5656,7 @@ drflac_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, drflac_uint64 sampleInde
                 if (samplesToDecode == 0) {
                     return DRFLAC_TRUE;
                 }
-                return drflac_read_s32(pFlac, samplesToDecode, NULL) != 0;  // <-- If this fails, something bad has happened (it should never fail).
+                return drflac__seek_forward_by_samples(pFlac, samplesToDecode) == samplesToDecode;  // <-- If this fails, something bad has happened (it should never fail).
             } else {
                 if (result == DRFLAC_CRC_MISMATCH) {
                     continue;   // CRC mismatch. Pretend this frame never existed.
@@ -6379,36 +6411,6 @@ drflac_uint64 drflac__read_s32__misaligned(drflac* pFlac, drflac_uint64 samplesT
     return samplesRead;
 }
 
-drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 samplesToRead)
-{
-    drflac_uint64 samplesRead = 0;
-    while (samplesToRead > 0) {
-        if (pFlac->currentFrame.samplesRemaining == 0) {
-            if (!drflac__read_and_decode_next_frame(pFlac)) {
-                break;  // Couldn't read the next frame, so just break from the loop and return.
-            }
-        } else {
-            if (pFlac->currentFrame.samplesRemaining > samplesToRead) {
-                samplesRead   += samplesToRead;
-                pFlac->currentFrame.samplesRemaining -= (drflac_uint32)samplesToRead;   // <-- Safe cast. Will always be < currentFrame.samplesRemaining < 65536.
-                samplesToRead  = 0;
-            } else {
-                samplesRead   += pFlac->currentFrame.samplesRemaining;
-                samplesToRead -= pFlac->currentFrame.samplesRemaining;
-                pFlac->currentFrame.samplesRemaining = 0;
-            }
-        }
-    }
-
-    pFlac->currentSample += samplesRead;
-    return samplesRead;
-}
-
-drflac_uint64 drflac__seek_forward_by_pcm_frames(drflac* pFlac, drflac_uint64 pcmFramesToSeek)
-{
-    return drflac__seek_forward_by_samples(pFlac, pcmFramesToSeek);
-}
-
 drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac_int32* bufferOut)
 {
     // Note that <bufferOut> is allowed to be null, in which case this will act like a seek.
@@ -6560,7 +6562,19 @@ drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac
 
 drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRead, drflac_int32* pBufferOut)
 {
+#if defined(_MSC_VER) && !defined(__clang__)
+    #pragma warning(push)
+    #pragma warning(disable:4996)   // was declared deprecated
+#elif defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
     return drflac_read_s32(pFlac, framesToRead*pFlac->channels, pBufferOut) / pFlac->channels;
+#if defined(_MSC_VER) && !defined(__clang__)
+    #pragma warning(pop)
+#elif defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
 }
 
 
@@ -6568,6 +6582,14 @@ drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac
 {
     // This reads samples in 2 passes and can probably be optimized.
     drflac_uint64 totalSamplesRead = 0;
+
+#if defined(_MSC_VER) && !defined(__clang__)
+    #pragma warning(push)
+    #pragma warning(disable:4996)   // was declared deprecated
+#elif defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
     while (samplesToRead > 0) {
         drflac_int32 samples32[4096];
@@ -6585,6 +6607,12 @@ drflac_uint64 drflac_read_s16(drflac* pFlac, drflac_uint64 samplesToRead, drflac
         samplesToRead    -= samplesJustRead;
         pBufferOut       += samplesJustRead;
     }
+
+#if defined(_MSC_VER) && !defined(__clang__)
+    #pragma warning(pop)
+#elif defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
 
     return totalSamplesRead;
 }
@@ -6623,6 +6651,14 @@ drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float*
     // This reads samples in 2 passes and can probably be optimized.
     drflac_uint64 totalSamplesRead = 0;
 
+#if defined(_MSC_VER) && !defined(__clang__)
+    #pragma warning(push)
+    #pragma warning(disable:4996)   // was declared deprecated
+#elif defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
     while (samplesToRead > 0) {
         drflac_int32 samples32[4096];
         drflac_uint64 samplesJustRead = drflac_read_s32(pFlac, (samplesToRead > 4096) ? 4096 : samplesToRead, samples32);
@@ -6639,6 +6675,12 @@ drflac_uint64 drflac_read_f32(drflac* pFlac, drflac_uint64 samplesToRead, float*
         samplesToRead    -= samplesJustRead;
         pBufferOut       += samplesJustRead;
     }
+
+#if defined(_MSC_VER) && !defined(__clang__)
+    #pragma warning(pop)
+#elif defined(__GNUC__) || defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
 
     return totalSamplesRead;
 }
