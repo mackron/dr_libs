@@ -3809,7 +3809,7 @@ static drflac_bool32 drflac__decode_samples__lpc(drflac_bs* bs, drflac_uint32 bl
 }
 
 
-static drflac_bool32 drflac__read_next_frame_header(drflac_bs* bs, drflac_uint8 streaminfoBitsPerSample, drflac_frame_header* header)
+static drflac_bool32 drflac__read_next_flac_frame_header(drflac_bs* bs, drflac_uint8 streaminfoBitsPerSample, drflac_frame_header* header)
 {
     drflac_assert(bs != NULL);
     drflac_assert(header != NULL);
@@ -4180,7 +4180,7 @@ static DRFLAC_INLINE drflac_uint8 drflac__get_channel_count_from_channel_assignm
     return lookup[channelAssignment];
 }
 
-static drflac_result drflac__decode_frame(drflac* pFlac)
+static drflac_result drflac__decode_flac_frame(drflac* pFlac)
 {
     // This function should be called while the stream is sitting on the first byte after the frame header.
     drflac_zero_memory(pFlac->currentFrame.subframes, sizeof(pFlac->currentFrame.subframes));
@@ -4229,7 +4229,7 @@ static drflac_result drflac__decode_frame(drflac* pFlac)
     return DRFLAC_SUCCESS;
 }
 
-static drflac_result drflac__seek_frame(drflac* pFlac)
+static drflac_result drflac__seek_flac_frame(drflac* pFlac)
 {
     int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
     for (int i = 0; i < channelCount; ++i) {
@@ -4261,16 +4261,16 @@ static drflac_result drflac__seek_frame(drflac* pFlac)
     return DRFLAC_SUCCESS;
 }
 
-static drflac_bool32 drflac__read_and_decode_next_frame(drflac* pFlac)
+static drflac_bool32 drflac__read_and_decode_next_flac_frame(drflac* pFlac)
 {
     drflac_assert(pFlac != NULL);
 
     for (;;) {
-        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+        if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
             return DRFLAC_FALSE;
         }
 
-        drflac_result result = drflac__decode_frame(pFlac);
+        drflac_result result = drflac__decode_flac_frame(pFlac);
         if (result != DRFLAC_SUCCESS) {
             if (result == DRFLAC_CRC_MISMATCH) {
                 continue;   // CRC mismatch. Skip to the next frame.
@@ -4316,11 +4316,11 @@ static drflac_bool32 drflac__seek_to_first_frame(drflac* pFlac)
     return result;
 }
 
-static DRFLAC_INLINE drflac_result drflac__seek_to_next_frame(drflac* pFlac)
+static DRFLAC_INLINE drflac_result drflac__seek_to_next_flac_frame(drflac* pFlac)
 {
     // This function should only ever be called while the decoder is sitting on the first byte past the FRAME_HEADER section.
     drflac_assert(pFlac != NULL);
-    return drflac__seek_frame(pFlac);
+    return drflac__seek_flac_frame(pFlac);
 }
 
 drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 samplesToRead)
@@ -4328,7 +4328,7 @@ drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 sampl
     drflac_uint64 samplesRead = 0;
     while (samplesToRead > 0) {
         if (pFlac->currentFrame.samplesRemaining == 0) {
-            if (!drflac__read_and_decode_next_frame(pFlac)) {
+            if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
                 break;  // Couldn't read the next frame, so just break from the loop and return.
             }
         } else {
@@ -4367,7 +4367,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
 
         // The frame header for the first frame may not yet have been read. We need to do that if necessary.
         if (pFlac->currentSample == 0 && pFlac->currentFrame.samplesRemaining == 0) {
-            if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+            if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
                 return DRFLAC_FALSE;
             }
         } else {
@@ -4383,7 +4383,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
         }
 
         // Decode the first frame in preparation for sample-exact seeking below.
-        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+        if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
             return DRFLAC_FALSE;
         }
     }
@@ -4402,7 +4402,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
             drflac_uint64 samplesToDecode = sampleIndex - runningSampleCount;
 
             if (!isMidFrame) {
-                drflac_result result = drflac__decode_frame(pFlac);
+                drflac_result result = drflac__decode_flac_frame(pFlac);
                 if (result == DRFLAC_SUCCESS) {
                     // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
                     return drflac__seek_forward_by_samples(pFlac, samplesToDecode) == samplesToDecode;  // <-- If this fails, something bad has happened (it should never fail).
@@ -4421,7 +4421,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
             // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
             // frame never existed and leave the running sample count untouched.
             if (!isMidFrame) {
-                drflac_result result = drflac__seek_to_next_frame(pFlac);
+                drflac_result result = drflac__seek_to_next_flac_frame(pFlac);
                 if (result == DRFLAC_SUCCESS) {
                     runningSampleCount += sampleCountInThisFrame;
                 } else {
@@ -4433,7 +4433,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
                 }
             } else {
                 // We started seeking mid-frame which means we need to seek by reading to the end of the frame instead of with
-                // drflac__seek_to_next_frame() which only works if the decoder is sitting on the byte just after the frame header.
+                // drflac__seek_to_next_flac_frame() which only works if the decoder is sitting on the byte just after the frame header.
                 runningSampleCount += pFlac->currentFrame.samplesRemaining;
                 pFlac->currentFrame.samplesRemaining = 0;
                 isMidFrame = DRFLAC_FALSE;
@@ -4442,7 +4442,7 @@ static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_u
 
     next_iteration:
         // Grab the next frame in preparation for the next iteration.
-        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+        if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
             return DRFLAC_FALSE;
         }
     }
@@ -4479,7 +4479,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
 
         // The frame header for the first frame may not yet have been read. We need to do that if necessary.
         if (pFlac->currentSample == 0 && pFlac->currentFrame.samplesRemaining == 0) {
-            if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+            if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
                 return DRFLAC_FALSE;
             }
         } else {
@@ -4494,7 +4494,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
         }
 
         // Grab the frame the seekpoint is sitting on in preparation for the sample-exact seeking below.
-        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+        if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
             return DRFLAC_FALSE;
         }
     }
@@ -4511,7 +4511,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
             drflac_uint64 samplesToDecode = sampleIndex - runningSampleCount;
 
             if (!isMidFrame) {
-                drflac_result result = drflac__decode_frame(pFlac);
+                drflac_result result = drflac__decode_flac_frame(pFlac);
                 if (result == DRFLAC_SUCCESS) {
                     // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
                     return drflac__seek_forward_by_samples(pFlac, samplesToDecode) == samplesToDecode;  // <-- If this fails, something bad has happened (it should never fail).
@@ -4530,7 +4530,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
             // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
             // frame never existed and leave the running sample count untouched.
             if (!isMidFrame) {
-                drflac_result result = drflac__seek_to_next_frame(pFlac);
+                drflac_result result = drflac__seek_to_next_flac_frame(pFlac);
                 if (result == DRFLAC_SUCCESS) {
                     runningSampleCount += sampleCountInThisFrame;
                 } else {
@@ -4542,7 +4542,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
                 }
             } else {
                 // We started seeking mid-frame which means we need to seek by reading to the end of the frame instead of with
-                // drflac__seek_to_next_frame() which only works if the decoder is sitting on the byte just after the frame header.
+                // drflac__seek_to_next_flac_frame() which only works if the decoder is sitting on the byte just after the frame header.
                 runningSampleCount += pFlac->currentFrame.samplesRemaining;
                 pFlac->currentFrame.samplesRemaining = 0;
                 isMidFrame = DRFLAC_FALSE;
@@ -4551,7 +4551,7 @@ static drflac_bool32 drflac__seek_to_sample__seek_table(drflac* pFlac, drflac_ui
 
     next_iteration:
         // Grab the next frame in preparation for the next iteration.
-        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+        if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
             return DRFLAC_FALSE;
         }
     }
@@ -5021,7 +5021,7 @@ drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_
             pInit->hasStreamInfoBlock = DRFLAC_FALSE;
             pInit->hasMetadataBlocks  = DRFLAC_FALSE;
 
-            if (!drflac__read_next_frame_header(&pInit->bs, 0, &pInit->firstFrameHeader)) {
+            if (!drflac__read_next_flac_frame_header(&pInit->bs, 0, &pInit->firstFrameHeader)) {
                 return DRFLAC_FALSE;    // Couldn't find a frame.
             }
 
@@ -5630,14 +5630,14 @@ drflac_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, drflac_uint64 sampleInde
         // bitstream. This is important to consider because it means we cannot read data from the drflac_bs object using the
         // standard drflac__*() APIs because that will read in extra data for its own internal caching which in turn breaks
         // the positioning of the read pointer of the physical Ogg bitstream. Therefore, anything that would normally be read
-        // using the native FLAC decoding APIs, such as drflac__read_next_frame_header(), need to be re-implemented so as to
+        // using the native FLAC decoding APIs, such as drflac__read_next_flac_frame_header(), need to be re-implemented so as to
         // avoid the use of the drflac_bs object.
         //
         // Considering these issues, I have decided to use the slower native FLAC decoding method for the following reasons:
         //   1) Seeking is already partially accelerated using Ogg's paging system in the code block above.
         //   2) Seeking in an Ogg encapsulated FLAC stream is probably quite uncommon.
         //   3) Simplicity.
-        if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+        if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
             return DRFLAC_FALSE;
         }
 
@@ -5649,7 +5649,7 @@ drflac_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, drflac_uint64 sampleInde
         if (sampleIndex < (runningSampleCount + sampleCountInThisFrame)) {
             // The sample should be in this frame. We need to fully decode it, however if it's an invalid frame (a CRC mismatch), we need to pretend
             // it never existed and keep iterating.
-            drflac_result result = drflac__decode_frame(pFlac);
+            drflac_result result = drflac__decode_flac_frame(pFlac);
             if (result == DRFLAC_SUCCESS) {
                 // The frame is valid. We just need to skip over some samples to ensure it's sample-exact.
                 drflac_uint64 samplesToDecode = (size_t)(sampleIndex - runningSampleCount);    // <-- Safe cast because the maximum number of samples in a frame is 65535.
@@ -5667,7 +5667,7 @@ drflac_bool32 drflac_ogg__seek_to_sample(drflac* pFlac, drflac_uint64 sampleInde
         } else {
             // It's not in this frame. We need to seek past the frame, but check if there was a CRC mismatch. If so, we pretend this
             // frame never existed and leave the running sample count untouched.
-            drflac_result result = drflac__seek_to_next_frame(pFlac);
+            drflac_result result = drflac__seek_to_next_flac_frame(pFlac);
             if (result == DRFLAC_SUCCESS) {
                 runningSampleCount += sampleCountInThisFrame;
             } else {
@@ -6087,12 +6087,12 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
         pFlac->currentFrame.header = init.firstFrameHeader;
         do
         {
-            drflac_result result = drflac__decode_frame(pFlac);
+            drflac_result result = drflac__decode_flac_frame(pFlac);
             if (result == DRFLAC_SUCCESS) {
                 break;
             } else {
                 if (result == DRFLAC_CRC_MISMATCH) {
-                    if (!drflac__read_next_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
+                    if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFrame.header)) {
                         DRFLAC_FREE(pFlac);
                         return NULL;
                     }
@@ -6427,7 +6427,7 @@ drflac_uint64 drflac_read_s32(drflac* pFlac, drflac_uint64 samplesToRead, drflac
     while (samplesToRead > 0) {
         // If we've run out of samples in this frame, go to the next.
         if (pFlac->currentFrame.samplesRemaining == 0) {
-            if (!drflac__read_and_decode_next_frame(pFlac)) {
+            if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
                 break;  // Couldn't read the next frame, so just break from the loop and return.
             }
         } else {
@@ -7235,7 +7235,7 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
     while (framesToRead > 0) {
         // If we've run out of samples in this frame, go to the next.
         if (pFlac->currentFrame.samplesRemaining == 0) {
-            if (!drflac__read_and_decode_next_frame(pFlac)) {
+            if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
                 break;  // Couldn't read the next frame, so just break from the loop and return.
             }
         } else {
