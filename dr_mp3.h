@@ -280,6 +280,10 @@ drmp3_bool32 drmp3_seek_to_pcm_frame(drmp3* pMP3, drmp3_uint64 frameIndex);
 // radio. Runs in linear time. Returns 0 on error.
 drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3);
 
+// Calculates the total number of MP3 frames in the MP3 stream. Cannot be used for infinite streams such as internet
+// radio. Runs in linear time. Returns 0 on error.
+drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3);
+
 
 
 // Opens an decodes an entire MP3 stream as a single operation.
@@ -2867,6 +2871,44 @@ drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3)
     return totalPCMFrameCount;
 }
 
+drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3)
+{
+    if (pMP3 == NULL) {
+        return 0;
+    }
+
+    // This works the same way as drmp3_get_pcm_frame_count() - move to the start, count MP3 frames, move back to the previous position.
+
+    // The stream must support seeking for this to work.
+    if (pMP3->onSeek == NULL) {
+        return 0;
+    }
+
+    // We'll need to seek back to where we were, so grab the PCM frame we're currently sitting on so we can restore later.
+    drmp3_uint64 currentPCMFrame = pMP3->currentPCMFrame;
+    
+    if (!drmp3_seek_to_start_of_stream(pMP3)) {
+        return 0;
+    }
+
+    drmp3_uint64 totalMP3FrameCount = 0;
+    for (;;) {
+        drmp3_uint32 pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL);
+        if (pcmFramesInCurrentMP3FrameIn == 0) {
+            break;
+        }
+
+        totalMP3FrameCount += 1;
+    }
+
+    // Finally, we need to seek back to where we were.
+    if (!drmp3_seek_to_pcm_frame(pMP3, currentPCMFrame)) {
+        return 0;
+    }
+
+    return totalMP3FrameCount;
+}
+
 
 float* drmp3__full_read_and_close_f32(drmp3* pMP3, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount)
 {
@@ -2990,6 +3032,7 @@ void drmp3_free(void* p)
 //     - drmp3_open_and_decode_memory_f32 -> drmp3_open_memory_and_read_f32
 //     - drmp3_open_and_decode_file_f32 -> drmp3_open_file_and_read_f32
 //   - Add drmp3_get_pcm_frame_count().
+//   - Add drmp3_get_mp3_frame_count().
 //
 // v0.3.2 - 2018-09-11
 //   - Fix a couple of memory leaks.
