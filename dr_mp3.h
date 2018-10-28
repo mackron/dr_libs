@@ -2800,15 +2800,29 @@ drmp3_bool32 drmp3_seek_to_pcm_frame__brute_force(drmp3* pMP3, drmp3_uint64 fram
 {
     drmp3_assert(pMP3 != NULL);
 
-    if (!drmp3_seek_to_start_of_stream(pMP3)) {
-        return DRMP3_FALSE;
+    if (frameIndex == pMP3->currentPCMFrame) {
+        return DRMP3_TRUE;
+    }
+
+    // If we're moving foward we just read from where we're at. Otherwise we need to move back to the start of
+    // the stream and read from the beginning.
+    drmp3_uint64 framesToRead;
+    if (frameIndex >= pMP3->currentPCMFrame) {
+        // Moving foward.
+        framesToRead = frameIndex - pMP3->currentPCMFrame;
+    } else {
+        // Moving backward. Move to the start of the stream and then move forward.
+        framesToRead = frameIndex;
+        if (!drmp3_seek_to_start_of_stream(pMP3)) {
+            return DRMP3_FALSE;
+        }
     }
 
     // TODO: Optimize.
     //
     // This is inefficient. We simply read frames from the start of the stream.
-    drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(pMP3, frameIndex, NULL);
-    if (framesRead != frameIndex) {
+    drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(pMP3, framesToRead, NULL);
+    if (framesRead != framesToRead) {
         return DRMP3_FALSE;
     }
 
@@ -2864,6 +2878,10 @@ drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3)
     }
 
     // Finally, we need to seek back to where we were.
+    if (!drmp3_seek_to_start_of_stream(pMP3)) {
+        return 0;
+    }
+
     if (!drmp3_seek_to_pcm_frame(pMP3, currentPCMFrame)) {
         return 0;
     }
@@ -2902,6 +2920,10 @@ drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3)
     }
 
     // Finally, we need to seek back to where we were.
+    if (!drmp3_seek_to_start_of_stream(pMP3)) {
+        return 0;
+    }
+
     if (!drmp3_seek_to_pcm_frame(pMP3, currentPCMFrame)) {
         return 0;
     }
