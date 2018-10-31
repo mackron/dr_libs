@@ -52,11 +52,6 @@
 //
 // #define DR_MP3_NO_SIMD
 //   Disable SIMD optimizations.
-//
-//
-// LIMITATIONS
-// ===========
-// - Seeking is extremely inefficient.
 
 #ifndef dr_mp3_h
 #define dr_mp3_h
@@ -92,7 +87,8 @@ typedef drmp3_uint32     drmp3_bool32;
 #define DRMP3_TRUE       1
 #define DRMP3_FALSE      0
 
-#define DRMP3_MAX_SAMPLES_PER_FRAME (1152*2)
+#define DRMP3_MAX_PCM_FRAMES_PER_MP3_FRAME  1152
+#define DRMP3_MAX_SAMPLES_PER_FRAME         (DRMP3_MAX_PCM_FRAMES_PER_MP3_FRAME*2)
 
 
 // Low Level Push API
@@ -219,7 +215,7 @@ typedef struct
     drmp3_uint32 pcmFramesConsumedInMP3Frame;
     drmp3_uint32 pcmFramesRemainingInMP3Frame;
     drmp3_uint8 pcmFrames[sizeof(float)*DRMP3_MAX_SAMPLES_PER_FRAME];  // <-- Multipled by sizeof(float) to ensure there's enough room for DR_MP3_FLOAT_OUTPUT.
-    drmp3_uint64 currentPCMFrame;       // The current PCM frame, globally, based on the output sample rate. Mainly used for seeking. 
+    drmp3_uint64 currentPCMFrame;       // The current PCM frame, globally, based on the output sample rate. Mainly used for seeking.
     drmp3_src src;
     size_t dataSize;
     size_t dataCapacity;
@@ -2386,6 +2382,18 @@ drmp3_uint64 drmp3_src_read_frames_linear(drmp3_src* pSRC, drmp3_uint64 frameCou
 }
 
 
+static size_t drmp3__on_read(drmp3* pMP3, void* pBufferOut, size_t bytesToRead)
+{
+    return pMP3->onRead(pMP3->pUserData, pBufferOut, bytesToRead);
+}
+
+static drmp3_bool32 drmp3__on_seek(drmp3* pMP3, int offset, drmp3_seek_origin origin)
+{
+    drmp3_assert(offset >= 0);
+    return pMP3->onSeek(pMP3->pUserData, offset, origin);
+}
+
+
 static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPCMFrames)
 {
     drmp3_assert(pMP3 != NULL);
@@ -2409,7 +2417,7 @@ static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPC
                 pMP3->pData = pNewData;
             }
 
-            size_t bytesRead = pMP3->onRead(pMP3->pUserData, pMP3->pData + pMP3->dataSize, (pMP3->dataCapacity - pMP3->dataSize));
+            size_t bytesRead = drmp3__on_read(pMP3, pMP3->pData + pMP3->dataSize, (pMP3->dataCapacity - pMP3->dataSize));
             if (bytesRead == 0) {
                 if (pMP3->dataSize == 0) {
                     pMP3->atEnd = DRMP3_TRUE;
@@ -2454,7 +2462,7 @@ static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPC
             }
 
             // Fill in a chunk.
-            size_t bytesRead = pMP3->onRead(pMP3->pUserData, pMP3->pData + pMP3->dataSize, (pMP3->dataCapacity - pMP3->dataSize));
+            size_t bytesRead = drmp3__on_read(pMP3, pMP3->pData + pMP3->dataSize, (pMP3->dataCapacity - pMP3->dataSize));
             if (bytesRead == 0) {
                 pMP3->atEnd = DRMP3_TRUE;
                 return 0; // Error reading more data.
@@ -2467,16 +2475,27 @@ static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPC
     return pcmFramesRead;
 }
 
-static drmp3_bool32 drmp3_decode_next_frame(drmp3* pMP3)
+static drmp3_uint32 drmp3_decode_next_frame(drmp3* pMP3)
+{
+    drmp3_assert(pMP3 != NULL);
+    return drmp3_decode_next_frame_ex(pMP3, (drmp3d_sample_t*)pMP3->pcmFrames);
+}
+
+static drmp3_uint32 drmp3_seek_next_frame(drmp3* pMP3)
 {
     drmp3_assert(pMP3 != NULL);
 
-    drmp3_uint32 pcmFrameCount = drmp3_decode_next_frame_ex(pMP3, (drmp3d_sample_t*)pMP3->pcmFrames);
+    drmp3_uint32 pcmFrameCount = drmp3_decode_next_frame_ex(pMP3, NULL);
     if (pcmFrameCount == 0) {
-        return DRMP3_FALSE;
+        return 0;
     }
 
-    return DRMP3_TRUE;
+    // We have essentially just skipped past the frame, so just set the remaining samples to 0.
+    pMP3->currentPCMFrame             += pcmFrameCount;
+    pMP3->pcmFramesConsumedInMP3Frame  = pcmFrameCount;
+    pMP3->pcmFramesRemainingInMP3Frame = 0;
+
+    return pcmFrameCount;
 }
 
 static drmp3_uint64 drmp3_read_src(drmp3_src* pSRC, drmp3_uint64 frameCount, void* pFramesOut, void* pUserData)
@@ -2555,7 +2574,7 @@ static drmp3_uint64 drmp3_read_src(drmp3_src* pSRC, drmp3_uint64 frameCount, voi
 
         // At this point we have exhausted our in-memory buffer so we need to re-fill. Note that the sample rate may have changed
         // at this point which means we'll also need to update our sample rate conversion pipeline.
-        if (!drmp3_decode_next_frame(pMP3)) {
+        if (drmp3_decode_next_frame(pMP3) == 0) {
             break;
         }
     }
@@ -2782,7 +2801,7 @@ drmp3_bool32 drmp3_seek_to_start_of_stream(drmp3* pMP3)
     drmp3_assert(pMP3->onSeek != NULL);
 
     // Seek to the start of the stream to begin with.
-    if (!pMP3->onSeek(pMP3->pUserData, 0, drmp3_seek_origin_start)) {
+    if (!drmp3__on_seek(pMP3, 0, drmp3_seek_origin_start)) {
         return DRMP3_FALSE;
     }
 
@@ -2806,23 +2825,45 @@ drmp3_bool32 drmp3_seek_to_pcm_frame__brute_force(drmp3* pMP3, drmp3_uint64 fram
 
     // If we're moving foward we just read from where we're at. Otherwise we need to move back to the start of
     // the stream and read from the beginning.
-    drmp3_uint64 framesToRead;
+    drmp3_uint64 framesToReadAndDiscard;
     if (frameIndex >= pMP3->currentPCMFrame) {
         // Moving foward.
-        framesToRead = frameIndex - pMP3->currentPCMFrame;
+        framesToReadAndDiscard = frameIndex - pMP3->currentPCMFrame;
     } else {
         // Moving backward. Move to the start of the stream and then move forward.
-        framesToRead = frameIndex;
+        framesToReadAndDiscard = frameIndex;
         if (!drmp3_seek_to_start_of_stream(pMP3)) {
             return DRMP3_FALSE;
         }
     }
 
-    // TODO: Optimize.
-    //
-    // This is inefficient. We simply read frames from the start of the stream.
-    drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(pMP3, framesToRead, NULL);
-    if (framesRead != framesToRead) {
+    // MP3 is a bit annoying when it comes to seeking because of the bit reservoir. It basically means that an MP3 frame can possibly
+    // depend on some of the data of prior frames. This means it's not as simple as seeking to the first byte of the MP3 frame that
+    // contains the sample because that MP3 frame will need the data from the previous MP3 frame (which we just seeked past!). To
+    // resolve this we seek past a number of MP3 frames up to a point, and then read-and-discard the remainder.
+    drmp3_uint64 maxFramesToReadAndDiscard = DRMP3_MAX_PCM_FRAMES_PER_MP3_FRAME * 3;
+
+    // First get rid of anything that's still sitting in the buffer.
+    if (framesToReadAndDiscard > maxFramesToReadAndDiscard && framesToReadAndDiscard > pMP3->pcmFramesRemainingInMP3Frame) {
+        framesToReadAndDiscard            -= pMP3->pcmFramesRemainingInMP3Frame;
+        pMP3->currentPCMFrame             += pMP3->pcmFramesRemainingInMP3Frame;
+        pMP3->pcmFramesConsumedInMP3Frame += pMP3->pcmFramesRemainingInMP3Frame;
+        pMP3->pcmFramesRemainingInMP3Frame = 0;
+    }
+
+    // Now get rid of leading whole frames.
+    while (framesToReadAndDiscard > maxFramesToReadAndDiscard) {
+        drmp3_uint32 pcmFramesSeeked = drmp3_seek_next_frame(pMP3);
+        if (pcmFramesSeeked == 0) {
+            break;
+        }
+
+        framesToReadAndDiscard -= pcmFramesSeeked;
+    }
+
+    // The last step is to read-and-discard any remaining PCM frames to make it sample-exact.
+    drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(pMP3, framesToReadAndDiscard, NULL);
+    if (framesRead != framesToReadAndDiscard) {
         return DRMP3_FALSE;
     }
 
@@ -3055,6 +3096,7 @@ void drmp3_free(void* p)
 //     - drmp3_open_and_decode_file_f32 -> drmp3_open_file_and_read_f32
 //   - Add drmp3_get_pcm_frame_count().
 //   - Add drmp3_get_mp3_frame_count().
+//   - Improve seeking performance.
 //
 // v0.3.2 - 2018-09-11
 //   - Fix a couple of memory leaks.
