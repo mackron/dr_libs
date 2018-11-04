@@ -556,10 +556,17 @@ size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut);
 // using a compressed format consider using drwav_read_raw() or drwav_read_s16/s32/f32/etc().
 drwav_uint64 drwav_read(drwav* pWav, drwav_uint64 samplesToRead, void* pBufferOut);
 
+// Same as drwav_read(), except works on PCM frames instead of samples. Returns the number of PCM
+// freames read.
+drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut);
+
 // Seeks to the given sample.
 //
 // Returns true if successful; false otherwise.
 drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample);
+
+// Same as drwav_seek_to_sample() except workd on PCM frames.
+drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex);
 
 
 // Writes raw audio data.
@@ -572,6 +579,8 @@ size_t drwav_write_raw(drwav* pWav, size_t bytesToWrite, const void* pData);
 // Returns the number of samples written.
 drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* pData);
 
+// Same as drwav_write(), but works on PCM frames instead of samples. Returns the number of PCM frames written.
+drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData);
 
 
 //// Conversion Utilities ////
@@ -583,6 +592,9 @@ drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* p
 //
 // If the return value is less than <samplesToRead> it means the end of the file has been reached.
 drwav_uint64 drwav_read_s16(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
+
+// Same as drwav_read_s16(), except works on PCM frames instead of samples.
+drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut);
 
 // Low-level function for converting unsigned 8-bit PCM samples to signed 16-bit PCM samples.
 void drwav_u8_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCount);
@@ -613,6 +625,9 @@ void drwav_mulaw_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sample
 // If the return value is less than <samplesToRead> it means the end of the file has been reached.
 drwav_uint64 drwav_read_f32(drwav* pWav, drwav_uint64 samplesToRead, float* pBufferOut);
 
+// Same as drwav_read_f32(), except works on PCM frames instead of samples.
+drwav_uint64 drwav_read_pcm_frames_f32(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut);
+
 // Low-level function for converting unsigned 8-bit PCM samples to IEEE 32-bit floating point samples.
 void drwav_u8_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount);
 
@@ -641,6 +656,9 @@ void drwav_mulaw_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount)
 //
 // If the return value is less than <samplesToRead> it means the end of the file has been reached.
 drwav_uint64 drwav_read_s32(drwav* pWav, drwav_uint64 samplesToRead, drwav_int32* pBufferOut);
+
+// Same as drwav_read_s32(), except works on PCM frames instead of samples.
+drwav_uint64 drwav_read_pcm_frames_s32(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut);
 
 // Low-level function for converting unsigned 8-bit PCM samples to signed 32-bit PCM samples.
 void drwav_u8_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sampleCount);
@@ -2175,6 +2193,11 @@ drwav_uint64 drwav_read(drwav* pWav, drwav_uint64 samplesToRead, void* pBufferOu
     return bytesRead / pWav->bytesPerSample;
 }
 
+drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut)
+{
+    return drwav_read(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
+}
+
 drwav_bool32 drwav_seek_to_first_sample(drwav* pWav)
 {
     if (pWav->onWrite != NULL) {
@@ -2288,6 +2311,11 @@ drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample)
     return DRWAV_TRUE;
 }
 
+drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
+{
+    return drwav_seek_to_sample(pWav, targetFrameIndex * pWav->channels);
+}
+
 
 size_t drwav_write_raw(drwav* pWav, size_t bytesToWrite, const void* pData)
 {
@@ -2331,6 +2359,11 @@ drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* p
     }
 
     return (bytesWritten * 8) / pWav->bitsPerSample;
+}
+
+drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData)
+{
+    return drwav_write(pWav, framesToWrite * pWav->channels, pData) / pWav->channels;
 }
 
 
@@ -2875,6 +2908,11 @@ drwav_uint64 drwav_read_s16(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16
     return 0;
 }
 
+drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut)
+{
+    return drwav_read_s16(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
+}
+
 void drwav_u8_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCount)
 {
     int r;
@@ -3195,6 +3233,11 @@ drwav_uint64 drwav_read_f32(drwav* pWav, drwav_uint64 samplesToRead, float* pBuf
     }
 
     return 0;
+}
+
+drwav_uint64 drwav_read_pcm_frames_f32(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut)
+{
+    return drwav_read_f32(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
 }
 
 void drwav_u8_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount)
@@ -3539,6 +3582,11 @@ drwav_uint64 drwav_read_s32(drwav* pWav, drwav_uint64 samplesToRead, drwav_int32
     return 0;
 }
 
+drwav_uint64 drwav_read_pcm_frames_s32(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut)
+{
+    return drwav_read_s32(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
+}
+
 void drwav_u8_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sampleCount)
 {
     if (pOut == NULL || pIn == NULL) {
@@ -3861,6 +3909,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 //   - Add built-in support for smpl chunks.
 //   - Add support for firing a callback for each chunk in the file at initialization time.
 //     - This is enabled through the drwav_init_ex(), etc. family of APIs.
+//   - Add new reading APIs for reading by PCM frames instead of samples.
 //
 // v0.8.5 - 2018-09-11
 //   - Const correctness.
