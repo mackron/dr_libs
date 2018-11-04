@@ -171,6 +171,22 @@ typedef enum
     drwav_container_w64
 } drwav_container;
 
+typedef struct
+{
+    union
+    {
+        drwav_uint8 fourcc[4];
+        drwav_uint8 guid[16];
+    } id;
+
+    // The size in bytes of the chunk.
+    drwav_uint64 sizeInBytes;
+
+    // RIFF = 2 byte alignment.
+    // W64  = 8 byte alignment.
+    unsigned int paddingSize;
+} drwav_chunk_header;
+
 // Callback for when data is read. Return value is the number of bytes actually read.
 //
 // pUserData   [in]  The user data that was passed to drwav_init(), drwav_open() and family.
@@ -205,6 +221,22 @@ typedef size_t (* drwav_write_proc)(void* pUserData, const void* pData, size_t b
 // Whether or not it is relative to the beginning or current position is determined by the "origin" parameter which
 // will be either drwav_seek_origin_start or drwav_seek_origin_current.
 typedef drwav_bool32 (* drwav_seek_proc)(void* pUserData, int offset, drwav_seek_origin origin);
+
+// Callback for when drwav_init_ex/drwav_open_ex finds a chunk.
+//
+// pChunkUserData    [in] The user data that was passed to the pChunkUserData parameter of drwav_init_ex(), drwav_open_ex() and family.
+// onRead            [in] A pointer to the function to call when reading.
+// onSeek            [in] A pointer to the function to call when seeking.
+// pReadSeekUserData [in] The user data that was passed to the pReadSeekUserData parameter of drwav_init_ex(), drwav_open_ex() and family.
+// pChunkHeader      [in] A pointer to an object containing basic header information about the chunk. Use this to identify the chunk.
+//
+// Returns the number of bytes read + seeked.
+//
+// To read data from the chunk, call onRead(), passing in pReadSeekUserData as the first parameter. Do the same
+// for seeking with onSeek(). The return value must be the total number of bytes you have read _plus_ seeked.
+//
+// You must not attempt to read beyond the boundary of the chunk.
+typedef drwav_uint64 (* drwav_chunk_proc)(void* pChunkUserData, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pReadSeekUserData, const drwav_chunk_header* pChunkHeader);
 
 // Structure for internal use. Only used for loaders opened with drwav_open_memory().
 typedef struct
@@ -392,9 +424,12 @@ typedef struct
 
 // Initializes a pre-allocated drwav object.
 //
-// onRead    [in]           The function to call when data needs to be read from the client.
-// onSeek    [in]           The function to call when the read position of the client data needs to move.
-// pUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
+// pWav                         [out]          A pointer to the drwav object being initialized.
+// onRead                       [in]           The function to call when data needs to be read from the client.
+// onSeek                       [in]           The function to call when the read position of the client data needs to move.
+// onChunk                      [in, optional] The function to call when a chunk is enumerated at initialized time.
+// pUserData, pReadSeekUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
+// pChunkUserData               [in, optional] A pointer to application defined data that will be passed to onChunk.
 //
 // Returns true if successful; false otherwise.
 //
@@ -408,6 +443,7 @@ typedef struct
 //
 // See also: drwav_init_file(), drwav_init_memory(), drwav_uninit()
 drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
+drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData);
 
 // Initializes a pre-allocated drwav object for writing.
 //
@@ -870,24 +906,7 @@ drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_
 drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
 drwav* drwav_open_write__internal(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
 
-typedef struct
-{
-    union
-    {
-        drwav_uint8 fourcc[4];
-        drwav_uint8 guid[16];
-    } id;
-
-    // The size in bytes of the chunk.
-    drwav_uint64 sizeInBytes;
-
-    // RIFF = 2 byte alignment.
-    // W64  = 8 byte alignment.
-    unsigned int paddingSize;
-
-} drwav__chunk_header;
-
-static drwav_result drwav__read_chunk_header(drwav_read_proc onRead, void* pUserData, drwav_container container, drwav_uint64* pRunningBytesReadOut, drwav__chunk_header* pHeaderOut)
+static drwav_result drwav__read_chunk_header(drwav_read_proc onRead, void* pUserData, drwav_container container, drwav_uint64* pRunningBytesReadOut, drwav_chunk_header* pHeaderOut)
 {
     if (container == drwav_container_riff) {
         if (onRead(pUserData, pHeaderOut->id.fourcc, 4) != 4) {
@@ -970,7 +989,7 @@ static drwav_bool32 drwav__seek_from_start(drwav_seek_proc onSeek, drwav_uint64 
 
 static drwav_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, drwav_container container, drwav_uint64* pRunningBytesReadOut, drwav_fmt* fmtOut)
 {
-    drwav__chunk_header header;
+    drwav_chunk_header header;
     if (drwav__read_chunk_header(onRead, pUserData, container, pRunningBytesReadOut, &header) != DRWAV_SUCCESS) {
         return DRWAV_FALSE;
     }
@@ -1421,16 +1440,26 @@ drwav* drwav_open_memory_write_sequential(void** ppData, size_t* pDataSize, cons
 
 drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
 {
+    return drwav_init_ex(pWav, onRead, onSeek, NULL, pUserData, NULL);
+}
+
+drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData)
+{
+    (void)onChunk;
+    (void)pChunkUserData;
+
     if (onRead == NULL || onSeek == NULL) {
         return DRWAV_FALSE;
     }
 
     drwav_zero_memory(pWav, sizeof(*pWav));
-
+    pWav->onRead    = onRead;
+    pWav->onSeek    = onSeek;
+    pWav->pUserData = pReadSeekUserData;
 
     // The first 4 bytes should be the RIFF identifier.
     unsigned char riff[4];
-    if (onRead(pUserData, riff, sizeof(riff)) != sizeof(riff)) {
+    if (onRead(pReadSeekUserData, riff, sizeof(riff)) != sizeof(riff)) {
         return DRWAV_FALSE;    // Failed to read data.
     }
 
@@ -1443,7 +1472,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
 
         // Check the rest of the GUID for validity.
         drwav_uint8 riff2[12];
-        if (onRead(pUserData, riff2, sizeof(riff2)) != sizeof(riff2)) {
+        if (onRead(pReadSeekUserData, riff2, sizeof(riff2)) != sizeof(riff2)) {
             return DRWAV_FALSE;
         }
 
@@ -1460,7 +1489,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
     if (pWav->container == drwav_container_riff) {
         // RIFF/WAVE
         unsigned char chunkSizeBytes[4];
-        if (onRead(pUserData, chunkSizeBytes, sizeof(chunkSizeBytes)) != sizeof(chunkSizeBytes)) {
+        if (onRead(pReadSeekUserData, chunkSizeBytes, sizeof(chunkSizeBytes)) != sizeof(chunkSizeBytes)) {
             return DRWAV_FALSE;
         }
 
@@ -1470,7 +1499,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
         }
 
         unsigned char wave[4];
-        if (onRead(pUserData, wave, sizeof(wave)) != sizeof(wave)) {
+        if (onRead(pReadSeekUserData, wave, sizeof(wave)) != sizeof(wave)) {
             return DRWAV_FALSE;
         }
 
@@ -1482,7 +1511,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
     } else {
         // W64
         unsigned char chunkSize[8];
-        if (onRead(pUserData, chunkSize, sizeof(chunkSize)) != sizeof(chunkSize)) {
+        if (onRead(pReadSeekUserData, chunkSize, sizeof(chunkSize)) != sizeof(chunkSize)) {
             return DRWAV_FALSE;
         }
 
@@ -1491,7 +1520,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
         }
 
         drwav_uint8 wave[16];
-        if (onRead(pUserData, wave, sizeof(wave)) != sizeof(wave)) {
+        if (onRead(pReadSeekUserData, wave, sizeof(wave)) != sizeof(wave)) {
             return DRWAV_FALSE;
         }
 
@@ -1505,7 +1534,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
 
     // The next bytes should be the "fmt " chunk.
     drwav_fmt fmt;
-    if (!drwav__read_fmt(onRead, onSeek, pUserData, pWav->container, &pWav->dataChunkDataPos, &fmt)) {
+    if (!drwav__read_fmt(onRead, onSeek, pReadSeekUserData, pWav->container, &pWav->dataChunkDataPos, &fmt)) {
         return DRWAV_FALSE;    // Failed to read the "fmt " chunk.
     }
 
@@ -1538,8 +1567,8 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
     {
         drwav_uint64 bytesReadFromHeader = 0;   // <-- Important that this is initialized to 0.
 
-        drwav__chunk_header header;
-        drwav_result result = drwav__read_chunk_header(onRead, pUserData, pWav->container, &bytesReadFromHeader, &header);
+        drwav_chunk_header header;
+        drwav_result result = drwav__read_chunk_header(onRead, pReadSeekUserData, pWav->container, &bytesReadFromHeader, &header);
         if (result != DRWAV_SUCCESS) {
             if (!foundDataChunk) {
                 return DRWAV_FALSE;
@@ -1569,7 +1598,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
         if (pWav->container == drwav_container_riff) {
             if (drwav__fourcc_equal(header.id.fourcc, "fact")) {
                 drwav_uint32 sampleCount;
-                if (onRead(pUserData, &sampleCount, 4) != 4) {
+                if (onRead(pReadSeekUserData, &sampleCount, 4) != 4) {
                     return DRWAV_FALSE;
                 }
                 chunkSize -= 4;
@@ -1588,7 +1617,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
             }
         } else {
             if (drwav__guid_equal(header.id.guid, drwavGUID_W64_FACT)) {
-                if (onRead(pUserData, &sampleCountFromFactChunk, 8) != 8) {
+                if (onRead(pReadSeekUserData, &sampleCountFromFactChunk, 8) != 8) {
                     return DRWAV_FALSE;
                 }
                 chunkSize -= 8;
@@ -1604,7 +1633,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
             if (drwav__fourcc_equal(header.id.fourcc, "smpl")) {
                 unsigned char smplHeaderData[36];    // 36 = size of the smpl header section, not including the loop data.
                 if (chunkSize >= sizeof(smplHeaderData)) {
-                    drwav_uint64 bytesJustRead = onRead(pUserData, smplHeaderData, sizeof(smplHeaderData));
+                    drwav_uint64 bytesJustRead = onRead(pReadSeekUserData, smplHeaderData, sizeof(smplHeaderData));
                     chunkSize -= bytesJustRead;
 
                     if (bytesJustRead == sizeof(smplHeaderData)) {
@@ -1620,7 +1649,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
 
                         for (drwav_uint32 iLoop = 0; iLoop < pWav->smpl.numSampleLoops && iLoop < drwav_countof(pWav->smpl.loops); ++iLoop) {
                             unsigned char smplLoopData[24];  // 24 = size of a loop section in the smpl chunk.
-                            bytesJustRead = onRead(pUserData, smplLoopData, sizeof(smplLoopData));
+                            bytesJustRead = onRead(pReadSeekUserData, smplLoopData, sizeof(smplLoopData));
                             chunkSize -= bytesJustRead;
 
                             if (bytesJustRead == sizeof(smplLoopData)) {
@@ -1648,7 +1677,7 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
 
         // Make sure we seek past the padding.
         chunkSize += header.paddingSize;
-        drwav__seek_forward(onSeek, chunkSize, pUserData);
+        drwav__seek_forward(onSeek, chunkSize, pReadSeekUserData);
 
         if (!foundDataChunk) {
             pWav->dataChunkDataPos += chunkSize;
@@ -1661,15 +1690,12 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
     }
 
     // We may have moved passed the data chunk. If so we need to move back.
-    if (!drwav__seek_from_start(onSeek, pWav->dataChunkDataPos, pUserData)) {
+    if (!drwav__seek_from_start(onSeek, pWav->dataChunkDataPos, pReadSeekUserData)) {
         return DRWAV_FALSE;
     }
 
     // At this point we should be sitting on the first byte of the raw audio data.
 
-    pWav->onRead              = onRead;
-    pWav->onSeek              = onSeek;
-    pWav->pUserData           = pUserData;
     pWav->fmt                 = fmt;
     pWav->sampleRate          = fmt.sampleRate;
     pWav->channels            = fmt.channels;
