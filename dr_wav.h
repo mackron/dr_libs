@@ -451,6 +451,9 @@ typedef struct
 //
 // drwav_init() is equivalent to "drwav_init_ex(pWav, onRead, onSeek, NULL, pUserData, NULL, 0);".
 //
+// The onChunk is callback is not called for the WAVE or FMT chunks. The contents of the FMT chunk can be read from pWav->fmt
+// after the function returns.
+//
 // See also: drwav_init_file(), drwav_init_memory(), drwav_uninit()
 drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
 drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags);
@@ -500,8 +503,9 @@ void drwav_uninit(drwav* pWav);
 // This is different from drwav_init() in that it will allocate the drwav object for you via DRWAV_MALLOC() before
 // initializing it.
 //
-// See also: drwav_open_file(), drwav_open_memory(), drwav_close()
+// See also: drwav_init(), drwav_open_file(), drwav_open_memory(), drwav_close()
 drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
+drwav* drwav_open_ex(drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags);
 
 // Opens a wav file for writing using the given callbacks.
 //
@@ -672,6 +676,7 @@ void drwav_mulaw_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sample
 // objects because the operating system may restrict the number of file handles an application can have open at
 // any given time.
 drwav_bool32 drwav_init_file(drwav* pWav, const char* filename);
+drwav_bool32 drwav_init_file_ex(drwav* pWav, const char* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
 
 // Helper for initializing a wave file for writing using stdio.
 //
@@ -687,6 +692,7 @@ drwav_bool32 drwav_init_file_write_sequential(drwav* pWav, const char* filename,
 // objects because the operating system may restrict the number of file handles an application can have open at
 // any given time.
 drwav* drwav_open_file(const char* filename);
+drwav* drwav_open_file_ex(const char* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
 
 // Helper for opening a wave file for writing using stdio.
 //
@@ -705,6 +711,7 @@ drwav* drwav_open_file_write_sequential(const char* filename, const drwav_data_f
 //
 // The buffer should contain the contents of the entire wave file, not just the sample data.
 drwav_bool32 drwav_init_memory(drwav* pWav, const void* data, size_t dataSize);
+drwav_bool32 drwav_init_memory_ex(drwav* pWav, const void* data, size_t dataSize, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
 
 // Helper for initializing a writer which outputs data to a memory buffer.
 //
@@ -722,6 +729,7 @@ drwav_bool32 drwav_init_memory_write_sequential(drwav* pWav, void** ppData, size
 //
 // The buffer should contain the contents of the entire wave file, not just the sample data.
 drwav* drwav_open_memory(const void* data, size_t dataSize);
+drwav* drwav_open_memory_ex(const void* data, size_t dataSize, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
 
 // Helper for opening a writer which outputs data to a memory buffer.
 //
@@ -1139,12 +1147,17 @@ static drwav_bool32 drwav__on_seek_stdio(void* pUserData, int offset, drwav_seek
 
 drwav_bool32 drwav_init_file(drwav* pWav, const char* filename)
 {
+    return drwav_init_file_ex(pWav, filename, NULL, NULL, 0);
+}
+
+drwav_bool32 drwav_init_file_ex(drwav* pWav, const char* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags)
+{
     FILE* pFile = drwav_fopen(filename, "rb");
     if (pFile == NULL) {
         return DRWAV_FALSE;
     }
 
-    return drwav_init(pWav, drwav__on_read_stdio, drwav__on_seek_stdio, (void*)pFile);
+    return drwav_init_ex(pWav, drwav__on_read_stdio, drwav__on_seek_stdio, onChunk, (void*)pFile, pChunkUserData, flags);
 }
 
 
@@ -1170,12 +1183,17 @@ drwav_bool32 drwav_init_file_write_sequential(drwav* pWav, const char* filename,
 
 drwav* drwav_open_file(const char* filename)
 {
+    return drwav_open_file_ex(filename, NULL, NULL, 0);
+}
+
+drwav* drwav_open_file_ex(const char* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags)
+{
     FILE* pFile = drwav_fopen(filename, "rb");
     if (pFile == NULL) {
         return DRWAV_FALSE;
     }
 
-    drwav* pWav = drwav_open(drwav__on_read_stdio, drwav__on_seek_stdio, (void*)pFile);
+    drwav* pWav = drwav_open_ex(drwav__on_read_stdio, drwav__on_seek_stdio, onChunk, (void*)pFile, pChunkUserData, flags);
     if (pWav == NULL) {
         fclose(pFile);
         return NULL;
@@ -1330,6 +1348,11 @@ static drwav_bool32 drwav__on_seek_memory_write(void* pUserData, int offset, drw
 
 drwav_bool32 drwav_init_memory(drwav* pWav, const void* data, size_t dataSize)
 {
+    return drwav_init_memory_ex(pWav, data, dataSize, NULL, NULL, 0);
+}
+
+drwav_bool32 drwav_init_memory_ex(drwav* pWav, const void* data, size_t dataSize, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags)
+{
     if (data == NULL || dataSize == 0) {
         return DRWAV_FALSE;
     }
@@ -1340,7 +1363,7 @@ drwav_bool32 drwav_init_memory(drwav* pWav, const void* data, size_t dataSize)
     memoryStream.dataSize = dataSize;
     memoryStream.currentReadPos = 0;
 
-    if (!drwav_init(pWav, drwav__on_read_memory, drwav__on_seek_memory, (void*)&memoryStream)) {
+    if (!drwav_init_ex(pWav, drwav__on_read_memory, drwav__on_seek_memory, onChunk, (void*)&memoryStream, pChunkUserData, flags)) {
         return DRWAV_FALSE;
     }
 
@@ -1389,6 +1412,11 @@ drwav_bool32 drwav_init_memory_write_sequential(drwav* pWav, void** ppData, size
 
 drwav* drwav_open_memory(const void* data, size_t dataSize)
 {
+    return drwav_open_memory_ex(data, dataSize, NULL, NULL, 0);
+}
+
+drwav* drwav_open_memory_ex(const void* data, size_t dataSize, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags)
+{
     if (data == NULL || dataSize == 0) {
         return NULL;
     }
@@ -1399,7 +1427,7 @@ drwav* drwav_open_memory(const void* data, size_t dataSize)
     memoryStream.dataSize = dataSize;
     memoryStream.currentReadPos = 0;
 
-    drwav* pWav = drwav_open(drwav__on_read_memory, drwav__on_seek_memory, (void*)&memoryStream);
+    drwav* pWav = drwav_open_ex(drwav__on_read_memory, drwav__on_seek_memory, onChunk, (void*)&memoryStream, pChunkUserData, flags);
     if (pWav == NULL) {
         return NULL;
     }
@@ -1484,9 +1512,6 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
 
 drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags)
 {
-    (void)onChunk;
-    (void)pChunkUserData;
-
     if (onRead == NULL || onSeek == NULL) {
         return DRWAV_FALSE;
     }
@@ -1614,6 +1639,20 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
             }
         }
 
+        // Tell the client about this chunk.
+        if (!sequential && onChunk != NULL) {
+            drwav_uint64 callbackBytesRead = onChunk(pChunkUserData, onRead, onSeek, pReadSeekUserData, &header);
+
+            // dr_wav may need to read the contents of the chunk, so we now need to seek back to the position before
+            // we called the callback.
+            if (callbackBytesRead > 0) {
+                if (!drwav__seek_from_start(onSeek, cursor, pReadSeekUserData)) {
+                    return DRWAV_FALSE;
+                }
+            }
+        }
+        
+
         if (!foundDataChunk) {
             pWav->dataChunkDataPos = cursor;
         }
@@ -1720,7 +1759,9 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
 
         // Make sure we seek past the padding.
         chunkSize += header.paddingSize;
-        drwav__seek_forward(onSeek, chunkSize, pReadSeekUserData);
+        if (!drwav__seek_forward(onSeek, chunkSize, pReadSeekUserData)) {
+            break;
+        }
         cursor += chunkSize;
 
         if (!foundDataChunk) {
@@ -2047,12 +2088,17 @@ void drwav_uninit(drwav* pWav)
 
 drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
 {
+    return drwav_open_ex(onRead, onSeek, NULL, pUserData, NULL, 0);
+}
+
+drwav* drwav_open_ex(drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags)
+{
     drwav* pWav = (drwav*)DRWAV_MALLOC(sizeof(*pWav));
     if (pWav == NULL) {
         return NULL;
     }
 
-    if (!drwav_init(pWav, onRead, onSeek, pUserData)) {
+    if (!drwav_init_ex(pWav, onRead, onSeek, onChunk, pReadSeekUserData, pChunkUserData, flags)) {
         DRWAV_FREE(pWav);
         return NULL;
     }
