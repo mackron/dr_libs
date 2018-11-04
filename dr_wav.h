@@ -159,6 +159,9 @@ extern "C" {
 #define DRWAV_MAX_SMPL_LOOPS        1
 #endif
 
+// Flags to pass into drwav_init_ex(), etc.
+#define DRWAV_SEQUENTIAL            0x00000001
+
 typedef enum
 {
     drwav_seek_origin_start,
@@ -430,6 +433,7 @@ typedef struct
 // onChunk                      [in, optional] The function to call when a chunk is enumerated at initialized time.
 // pUserData, pReadSeekUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
 // pChunkUserData               [in, optional] A pointer to application defined data that will be passed to onChunk.
+// flags                        [in, optional] A set of flags for controlling how things are loaded.
 //
 // Returns true if successful; false otherwise.
 //
@@ -441,9 +445,15 @@ typedef struct
 // If you want dr_wav to manage the memory allocation for you, consider using drwav_open() instead. This will allocate
 // a drwav object on the heap and return a pointer to it.
 //
+// Possible values for flags:
+//   DRWAV_SEQUENTIAL: Never perform a backwards seek while loading. This disables the chunk callback and will cause this function
+//                     to return as soon as the data chunk is found. Any chunks after the data chunk will be ignored.
+//
+// drwav_init() is equivalent to "drwav_init_ex(pWav, onRead, onSeek, NULL, pUserData, NULL, 0);".
+//
 // See also: drwav_init_file(), drwav_init_memory(), drwav_uninit()
 drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
-drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData);
+drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags);
 
 // Initializes a pre-allocated drwav object for writing.
 //
@@ -1438,12 +1448,41 @@ drwav* drwav_open_memory_write_sequential(void** ppData, size_t* pDataSize, cons
 }
 
 
-drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
+size_t drwav__on_read(drwav_read_proc onRead, void* pUserData, void* pBufferOut, size_t bytesToRead, drwav_uint64* pCursor)
 {
-    return drwav_init_ex(pWav, onRead, onSeek, NULL, pUserData, NULL);
+    drwav_assert(onRead != NULL);
+    drwav_assert(pCursor != NULL);
+
+    size_t bytesRead = onRead(pUserData, pBufferOut, bytesToRead);
+    *pCursor += bytesRead;
+    return bytesRead;
 }
 
-drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData)
+drwav_bool32 drwav__on_seek(drwav_seek_proc onSeek, void* pUserData, int offset, drwav_seek_origin origin, drwav_uint64* pCursor)
+{
+    drwav_assert(onSeek != NULL);
+    drwav_assert(pCursor != NULL);
+
+    if (!onSeek(pUserData, offset, origin)) {
+        return DRWAV_FALSE;
+    }
+
+    if (origin == drwav_seek_origin_start) {
+        *pCursor = offset;
+    } else {
+        *pCursor += offset;
+    }
+
+    return DRWAV_TRUE;
+}
+
+
+drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
+{
+    return drwav_init_ex(pWav, onRead, onSeek, NULL, pUserData, NULL, 0);
+}
+
+drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags)
 {
     (void)onChunk;
     (void)pChunkUserData;
@@ -1452,6 +1491,9 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
         return DRWAV_FALSE;
     }
 
+    drwav_uint64 cursor = 0;    // <-- Keeps track of the byte position so we can seek to specific locations.
+    drwav_bool32 sequential = (flags & DRWAV_SEQUENTIAL) != 0;
+
     drwav_zero_memory(pWav, sizeof(*pWav));
     pWav->onRead    = onRead;
     pWav->onSeek    = onSeek;
@@ -1459,8 +1501,8 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
 
     // The first 4 bytes should be the RIFF identifier.
     unsigned char riff[4];
-    if (onRead(pReadSeekUserData, riff, sizeof(riff)) != sizeof(riff)) {
-        return DRWAV_FALSE;    // Failed to read data.
+    if (drwav__on_read(onRead, pReadSeekUserData, riff, sizeof(riff), &cursor) != sizeof(riff)) {
+        return DRWAV_FALSE;
     }
 
     // The first 4 bytes can be used to identify the container. For RIFF files it will start with "RIFF" and for
@@ -1472,7 +1514,7 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
 
         // Check the rest of the GUID for validity.
         drwav_uint8 riff2[12];
-        if (onRead(pReadSeekUserData, riff2, sizeof(riff2)) != sizeof(riff2)) {
+        if (drwav__on_read(onRead, pReadSeekUserData, riff2, sizeof(riff2), &cursor) != sizeof(riff2)) {
             return DRWAV_FALSE;
         }
 
@@ -1489,7 +1531,7 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
     if (pWav->container == drwav_container_riff) {
         // RIFF/WAVE
         unsigned char chunkSizeBytes[4];
-        if (onRead(pReadSeekUserData, chunkSizeBytes, sizeof(chunkSizeBytes)) != sizeof(chunkSizeBytes)) {
+        if (drwav__on_read(onRead, pReadSeekUserData, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor) != sizeof(chunkSizeBytes)) {
             return DRWAV_FALSE;
         }
 
@@ -1499,19 +1541,17 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
         }
 
         unsigned char wave[4];
-        if (onRead(pReadSeekUserData, wave, sizeof(wave)) != sizeof(wave)) {
+        if (drwav__on_read(onRead, pReadSeekUserData, wave, sizeof(wave), &cursor) != sizeof(wave)) {
             return DRWAV_FALSE;
         }
 
         if (!drwav__fourcc_equal(wave, "WAVE")) {
             return DRWAV_FALSE;    // Expecting "WAVE".
         }
-
-        pWav->dataChunkDataPos = 4 + sizeof(chunkSizeBytes) + sizeof(wave);
     } else {
         // W64
         unsigned char chunkSize[8];
-        if (onRead(pReadSeekUserData, chunkSize, sizeof(chunkSize)) != sizeof(chunkSize)) {
+        if (drwav__on_read(onRead, pReadSeekUserData, chunkSize, sizeof(chunkSize), &cursor) != sizeof(chunkSize)) {
             return DRWAV_FALSE;
         }
 
@@ -1520,21 +1560,19 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
         }
 
         drwav_uint8 wave[16];
-        if (onRead(pReadSeekUserData, wave, sizeof(wave)) != sizeof(wave)) {
+        if (drwav__on_read(onRead, pReadSeekUserData, wave, sizeof(wave), &cursor) != sizeof(wave)) {
             return DRWAV_FALSE;
         }
 
         if (!drwav__guid_equal(wave, drwavGUID_W64_WAVE)) {
             return DRWAV_FALSE;
         }
-
-        pWav->dataChunkDataPos = 16 + sizeof(chunkSize) + sizeof(wave);
     }
 
 
     // The next bytes should be the "fmt " chunk.
     drwav_fmt fmt;
-    if (!drwav__read_fmt(onRead, onSeek, pReadSeekUserData, pWav->container, &pWav->dataChunkDataPos, &fmt)) {
+    if (!drwav__read_fmt(onRead, onSeek, pReadSeekUserData, pWav->container, &cursor, &fmt)) {
         return DRWAV_FALSE;    // Failed to read the "fmt " chunk.
     }
 
@@ -1551,6 +1589,7 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
     }
 
 
+
     drwav_uint64 sampleCountFromFactChunk = 0;
 
     // We need to enumerate over each chunk for two reasons:
@@ -1565,10 +1604,8 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
     drwav_uint64 chunkSize = 0;
     for (;;)
     {
-        drwav_uint64 bytesReadFromHeader = 0;   // <-- Important that this is initialized to 0.
-
         drwav_chunk_header header;
-        drwav_result result = drwav__read_chunk_header(onRead, pReadSeekUserData, pWav->container, &bytesReadFromHeader, &header);
+        drwav_result result = drwav__read_chunk_header(onRead, pReadSeekUserData, pWav->container, &cursor, &header);
         if (result != DRWAV_SUCCESS) {
             if (!foundDataChunk) {
                 return DRWAV_FALSE;
@@ -1578,7 +1615,7 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
         }
 
         if (!foundDataChunk) {
-            pWav->dataChunkDataPos += bytesReadFromHeader;
+            pWav->dataChunkDataPos = cursor;
         }
 
         chunkSize = header.sizeInBytes;
@@ -1594,17 +1631,23 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
             }
         }
 
+        // If at this point we have found the data chunk and we're running in sequential mode, we need to break out of this loop. The reason for
+        // this is that we would otherwise require a backwards seek which sequential mode forbids.
+        if (foundDataChunk && sequential) {
+            break;
+        }
+
         // Optional. Get the total sample count from the FACT chunk. This is useful for compressed formats.
         if (pWav->container == drwav_container_riff) {
             if (drwav__fourcc_equal(header.id.fourcc, "fact")) {
                 drwav_uint32 sampleCount;
-                if (onRead(pReadSeekUserData, &sampleCount, 4) != 4) {
+                if (drwav__on_read(onRead, pReadSeekUserData, &sampleCount, 4, &cursor) != 4) {
                     return DRWAV_FALSE;
                 }
                 chunkSize -= 4;
 
                 if (!foundDataChunk) {
-                    pWav->dataChunkDataPos += 4;
+                    pWav->dataChunkDataPos = cursor;
                 }
 
                 // The sample count in the "fact" chunk is either unreliable, or I'm not understanding it properly. For now I am only enabling this
@@ -1617,13 +1660,13 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
             }
         } else {
             if (drwav__guid_equal(header.id.guid, drwavGUID_W64_FACT)) {
-                if (onRead(pReadSeekUserData, &sampleCountFromFactChunk, 8) != 8) {
+                if (drwav__on_read(onRead, pReadSeekUserData, &sampleCountFromFactChunk, 8, &cursor) != 8) {
                     return DRWAV_FALSE;
                 }
                 chunkSize -= 8;
 
                 if (!foundDataChunk) {
-                    pWav->dataChunkDataPos += 8;
+                    pWav->dataChunkDataPos = cursor;
                 }
             }
         }
@@ -1633,7 +1676,7 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
             if (drwav__fourcc_equal(header.id.fourcc, "smpl")) {
                 unsigned char smplHeaderData[36];    // 36 = size of the smpl header section, not including the loop data.
                 if (chunkSize >= sizeof(smplHeaderData)) {
-                    drwav_uint64 bytesJustRead = onRead(pReadSeekUserData, smplHeaderData, sizeof(smplHeaderData));
+                    drwav_uint64 bytesJustRead = drwav__on_read(onRead, pReadSeekUserData, smplHeaderData, sizeof(smplHeaderData), &cursor);
                     chunkSize -= bytesJustRead;
 
                     if (bytesJustRead == sizeof(smplHeaderData)) {
@@ -1649,7 +1692,7 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
 
                         for (drwav_uint32 iLoop = 0; iLoop < pWav->smpl.numSampleLoops && iLoop < drwav_countof(pWav->smpl.loops); ++iLoop) {
                             unsigned char smplLoopData[24];  // 24 = size of a loop section in the smpl chunk.
-                            bytesJustRead = onRead(pReadSeekUserData, smplLoopData, sizeof(smplLoopData));
+                            bytesJustRead = drwav__on_read(onRead, pReadSeekUserData, smplLoopData, sizeof(smplLoopData), &cursor);
                             chunkSize -= bytesJustRead;
 
                             if (bytesJustRead == sizeof(smplLoopData)) {
@@ -1678,9 +1721,10 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
         // Make sure we seek past the padding.
         chunkSize += header.paddingSize;
         drwav__seek_forward(onSeek, chunkSize, pReadSeekUserData);
+        cursor += chunkSize;
 
         if (!foundDataChunk) {
-            pWav->dataChunkDataPos += chunkSize;
+            pWav->dataChunkDataPos = cursor;
         }
     }
 
@@ -1689,10 +1733,14 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
         return DRWAV_FALSE;
     }
 
-    // We may have moved passed the data chunk. If so we need to move back.
-    if (!drwav__seek_from_start(onSeek, pWav->dataChunkDataPos, pReadSeekUserData)) {
-        return DRWAV_FALSE;
+    // We may have moved passed the data chunk. If so we need to move back. If running in sequential mode we can assume we are already sitting on the data chunk.
+    if (!sequential) {
+        if (!drwav__seek_from_start(onSeek, pWav->dataChunkDataPos, pReadSeekUserData)) {
+            return DRWAV_FALSE;
+        }
+        cursor = pWav->dataChunkDataPos;
     }
+    
 
     // At this point we should be sitting on the first byte of the raw audio data.
 
