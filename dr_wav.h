@@ -3857,6 +3857,11 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 // REVISION HISTORY
 //
+// v0.8.6 - 2018-xx-xx
+//   - Add built-in support for smpl chunks.
+//   - Add support for firing a callback for each chunk in the file at initialization time.
+//     - This is enabled through the drwav_init_ex(), etc. family of APIs.
+//
 // v0.8.5 - 2018-09-11
 //   - Const correctness.
 //   - Fix a potential stack overflow.
