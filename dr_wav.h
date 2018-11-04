@@ -727,6 +727,13 @@ void drwav_free(void* pDataReturnedByOpenAndRead);
 #define drwav_copy_memory                  DRWAV_COPY_MEMORY
 #define drwav_zero_memory                  DRWAV_ZERO_MEMORY
 
+typedef drwav_int32 drwav_result;
+#define DRWAV_SUCCESS            0
+#define DRWAV_ERROR             -1
+#define DRWAV_INVALID_ARGS      -2
+#define DRWAV_INVALID_OPERATION -3
+#define DRWAV_INVALID_FILE      -100
+#define DRWAV_EOF               -101
 
 #define DRWAV_MAX_SIMD_VECTOR_SIZE         64  // 64 for AVX-512 in the future.
 
@@ -756,6 +763,7 @@ static const drwav_uint8 drwavGUID_W64_JUNK[16] = {0x6A,0x75,0x6E,0x6B, 0xF3,0xA
 static const drwav_uint8 drwavGUID_W64_FMT [16] = {0x66,0x6D,0x74,0x20, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 20746D66-ACF3-11D3-8CD1-00C04F8EDB8A
 static const drwav_uint8 drwavGUID_W64_FACT[16] = {0x66,0x61,0x63,0x74, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 74636166-ACF3-11D3-8CD1-00C04F8EDB8A
 static const drwav_uint8 drwavGUID_W64_DATA[16] = {0x64,0x61,0x74,0x61, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 61746164-ACF3-11D3-8CD1-00C04F8EDB8A
+static const drwav_uint8 drwavGUID_W64_SMPL[16] = {0x73,0x6D,0x70,0x6C, 0xF3,0xAC, 0xD3,0x11, 0x8C,0xD1, 0x00,0xC0,0x4F,0x8E,0xDB,0x8A};    // 6C706D73-ACF3-11D3-8CD1-00C04F8EDB8A
 
 static DRWAV_INLINE drwav_bool32 drwav__guid_equal(const drwav_uint8 a[16], const drwav_uint8 b[16])
 {
@@ -846,16 +854,16 @@ typedef struct
 
 } drwav__chunk_header;
 
-static drwav_bool32 drwav__read_chunk_header(drwav_read_proc onRead, void* pUserData, drwav_container container, drwav_uint64* pRunningBytesReadOut, drwav__chunk_header* pHeaderOut)
+static drwav_result drwav__read_chunk_header(drwav_read_proc onRead, void* pUserData, drwav_container container, drwav_uint64* pRunningBytesReadOut, drwav__chunk_header* pHeaderOut)
 {
     if (container == drwav_container_riff) {
         if (onRead(pUserData, pHeaderOut->id.fourcc, 4) != 4) {
-            return DRWAV_FALSE;
+            return DRWAV_EOF;
         }
 
         unsigned char sizeInBytes[4];
         if (onRead(pUserData, sizeInBytes, 4) != 4) {
-            return DRWAV_FALSE;
+            return DRWAV_INVALID_FILE;
         }
 
         pHeaderOut->sizeInBytes = drwav__bytes_to_u32(sizeInBytes);
@@ -863,12 +871,12 @@ static drwav_bool32 drwav__read_chunk_header(drwav_read_proc onRead, void* pUser
         *pRunningBytesReadOut += 8;
     } else {
         if (onRead(pUserData, pHeaderOut->id.guid, 16) != 16) {
-            return DRWAV_FALSE;
+            return DRWAV_EOF;
         }
 
         unsigned char sizeInBytes[8];
         if (onRead(pUserData, sizeInBytes, 8) != 8) {
-            return DRWAV_FALSE;
+            return DRWAV_INVALID_FILE;
         }
 
         pHeaderOut->sizeInBytes = drwav__bytes_to_u64(sizeInBytes) - 24;    // <-- Subtract 24 because w64 includes the size of the header.
@@ -876,7 +884,7 @@ static drwav_bool32 drwav__read_chunk_header(drwav_read_proc onRead, void* pUser
         *pRunningBytesReadOut += 24;
     }
 
-    return DRWAV_TRUE;
+    return DRWAV_SUCCESS;
 }
 
 static drwav_bool32 drwav__seek_forward(drwav_seek_proc onSeek, drwav_uint64 offset, void* pUserData)
@@ -899,11 +907,38 @@ static drwav_bool32 drwav__seek_forward(drwav_seek_proc onSeek, drwav_uint64 off
     return DRWAV_TRUE;
 }
 
+static drwav_bool32 drwav__seek_from_start(drwav_seek_proc onSeek, drwav_uint64 offset, void* pUserData)
+{
+    if (offset <= 0x7FFFFFFF) {
+        return onSeek(pUserData, (int)offset, drwav_seek_origin_start);
+    }
+
+    // Larger than 32-bit seek.
+    if (!onSeek(pUserData, 0x7FFFFFFF, drwav_seek_origin_start)) {
+        return DRWAV_FALSE;
+    }
+    offset -= 0x7FFFFFFF;
+
+    for (;;) {
+        if (offset <= 0x7FFFFFFF) {
+            return onSeek(pUserData, (int)offset, drwav_seek_origin_current);
+        }
+
+        if (!onSeek(pUserData, 0x7FFFFFFF, drwav_seek_origin_current)) {
+            return DRWAV_FALSE;
+        }
+        offset -= 0x7FFFFFFF;
+    }
+
+    // Should never get here.
+    //return DRWAV_TRUE;
+}
+
 
 static drwav_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, drwav_container container, drwav_uint64* pRunningBytesReadOut, drwav_fmt* fmtOut)
 {
     drwav__chunk_header header;
-    if (!drwav__read_chunk_header(onRead, pUserData, container, pRunningBytesReadOut, &header)) {
+    if (drwav__read_chunk_header(onRead, pUserData, container, pRunningBytesReadOut, &header) != DRWAV_SUCCESS) {
         return DRWAV_FALSE;
     }
 
@@ -916,7 +951,7 @@ static drwav_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSe
         *pRunningBytesReadOut += header.sizeInBytes + header.paddingSize;
 
         // Try the next header.
-        if (!drwav__read_chunk_header(onRead, pUserData, container, pRunningBytesReadOut, &header)) {
+        if (drwav__read_chunk_header(onRead, pUserData, container, pRunningBytesReadOut, &header) != DRWAV_SUCCESS) {
             return DRWAV_FALSE;
         }
     }
@@ -1456,23 +1491,44 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
 
     drwav_uint64 sampleCountFromFactChunk = 0;
 
+    // We need to enumerate over each chunk for two reasons:
+    //   1) The "data" chunk may not be the next one
+    //   2) We may want to report each chunk back to the client
+    //
+    // In order to correctly report each chunk back to the client we will need to keep looping until the end of the file.
+    drwav_bool32 foundDataChunk = DRWAV_FALSE;
+    drwav_uint64 dataChunkSize = 0;
+
     // The next chunk we care about is the "data" chunk. This is not necessarily the next chunk so we'll need to loop.
-    drwav_uint64 dataSize;
+    drwav_uint64 chunkSize = 0;
     for (;;)
     {
+        drwav_uint64 bytesReadFromHeader = 0;   // <-- Important that this is initialized to 0.
+
         drwav__chunk_header header;
-        if (!drwav__read_chunk_header(onRead, pUserData, pWav->container, &pWav->dataChunkDataPos, &header)) {
-            return DRWAV_FALSE;
+        drwav_result result = drwav__read_chunk_header(onRead, pUserData, pWav->container, &bytesReadFromHeader, &header);
+        if (result != DRWAV_SUCCESS) {
+            if (!foundDataChunk) {
+                return DRWAV_FALSE;
+            } else {
+                break;  // Probably at the end of the file. Get out of the loop.
+            }
         }
 
-        dataSize = header.sizeInBytes;
+        if (!foundDataChunk) {
+            pWav->dataChunkDataPos += bytesReadFromHeader;
+        }
+
+        chunkSize = header.sizeInBytes;
         if (pWav->container == drwav_container_riff) {
             if (drwav__fourcc_equal(header.id.fourcc, "data")) {
-                break;
+                foundDataChunk = DRWAV_TRUE;
+                dataChunkSize = chunkSize;
             }
         } else {
             if (drwav__guid_equal(header.id.guid, drwavGUID_W64_DATA)) {
-                break;
+                foundDataChunk = DRWAV_TRUE;
+                dataChunkSize = chunkSize;
             }
         }
 
@@ -1483,8 +1539,11 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
                 if (onRead(pUserData, &sampleCount, 4) != 4) {
                     return DRWAV_FALSE;
                 }
-                pWav->dataChunkDataPos += 4;
-                dataSize -= 4;
+                chunkSize -= 4;
+
+                if (!foundDataChunk) {
+                    pWav->dataChunkDataPos += 4;
+                }
 
                 // The sample count in the "fact" chunk is either unreliable, or I'm not understanding it properly. For now I am only enabling this
                 // for Microsoft ADPCM formats.
@@ -1499,17 +1558,43 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
                 if (onRead(pUserData, &sampleCountFromFactChunk, 8) != 8) {
                     return DRWAV_FALSE;
                 }
-                pWav->dataChunkDataPos += 8;
-                dataSize -= 8;
+                chunkSize -= 8;
+
+                if (!foundDataChunk) {
+                    pWav->dataChunkDataPos += 8;
+                }
             }
         }
 
-        // If we get here it means we didn't find the "data" chunk. Seek past it.
+        // "smpl" chunk.
+        if (pWav->container == drwav_container_riff) {
+            if (drwav__fourcc_equal(header.id.fourcc, "smpl")) {
+                // TODO: Add built-in support for smpl chunks.
+            }
+        } else {
+            if (drwav__guid_equal(header.id.guid, drwavGUID_W64_SMPL)) {
+                // This path will be hit when a W64 WAV file contains a smpl chunk. I don't have a sample file to test this path, so a contribution
+                // is welcome to add support for this.
+            }
+        }
 
         // Make sure we seek past the padding.
-        dataSize += header.paddingSize;
-        drwav__seek_forward(onSeek, dataSize, pUserData);
-        pWav->dataChunkDataPos += dataSize;
+        chunkSize += header.paddingSize;
+        drwav__seek_forward(onSeek, chunkSize, pUserData);
+
+        if (!foundDataChunk) {
+            pWav->dataChunkDataPos += chunkSize;
+        }
+    }
+
+    // If we haven't found a data chunk, return an error.
+    if (!foundDataChunk) {
+        return DRWAV_FALSE;
+    }
+
+    // We may have moved passed the data chunk. If so we need to move back.
+    if (!drwav__seek_from_start(onSeek, pWav->dataChunkDataPos, pUserData)) {
+        return DRWAV_FALSE;
     }
 
     // At this point we should be sitting on the first byte of the raw audio data.
@@ -1522,9 +1607,9 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
     pWav->channels            = fmt.channels;
     pWav->bitsPerSample       = fmt.bitsPerSample;
     pWav->bytesPerSample      = fmt.blockAlign / fmt.channels;
-    pWav->bytesRemaining      = dataSize;
+    pWav->bytesRemaining      = dataChunkSize;
     pWav->translatedFormatTag = translatedFormatTag;
-    pWav->dataChunkDataSize   = dataSize;
+    pWav->dataChunkDataSize   = dataChunkSize;
 
     // The bytes per sample should never be 0 at this point. This would indicate an invalid WAV file.
     if (pWav->bytesPerSample == 0) {
@@ -1534,14 +1619,14 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
     if (sampleCountFromFactChunk != 0) {
         pWav->totalSampleCount = sampleCountFromFactChunk * fmt.channels;
     } else {
-        pWav->totalSampleCount = dataSize / pWav->bytesPerSample;
+        pWav->totalSampleCount = dataChunkSize / pWav->bytesPerSample;
 
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-            drwav_uint64 blockCount = dataSize / fmt.blockAlign;
+            drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
             pWav->totalSampleCount = (blockCount * (fmt.blockAlign - (6*pWav->channels))) * 2;  // x2 because two samples per byte.
         }
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-            drwav_uint64 blockCount = dataSize / fmt.blockAlign;
+            drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
             pWav->totalSampleCount = ((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels);
         }
     }
@@ -1566,11 +1651,11 @@ drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onS
     // always include the sample count. This little block of code below is only used to emulate the libsndfile logic so I can properly run my
     // correctness tests against libsndfile, and is disabled by default.
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-        drwav_uint64 blockCount = dataSize / fmt.blockAlign;
+        drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
         pWav->totalSampleCount = (blockCount * (fmt.blockAlign - (6*pWav->channels))) * 2;  // x2 because two samples per byte.
     }
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        drwav_uint64 blockCount = dataSize / fmt.blockAlign;
+        drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
         pWav->totalSampleCount = ((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels);
     }
 #endif
