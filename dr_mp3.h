@@ -35,7 +35,7 @@
 // The example above initializes a decoder from a file, but you can also initialize it from a block of memory and read and seek
 // callbacks with drmp3_init_memory() and drmp3_init() respectively.
 //
-// You do need to do any annoying memory management when reading PCM frames - this is all managed internally. You can request
+// You do not need to do any annoying memory management when reading PCM frames - this is all managed internally. You can request
 // any number of PCM frames in each call to drmp3_read_f32() and it will return as many PCM frames as it can, up to the requested
 // amount.
 //
