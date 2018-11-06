@@ -4350,7 +4350,7 @@ drflac_uint64 drflac__seek_forward_by_samples(drflac* pFlac, drflac_uint64 sampl
 
 drflac_uint64 drflac__seek_forward_by_pcm_frames(drflac* pFlac, drflac_uint64 pcmFramesToSeek)
 {
-    return drflac__seek_forward_by_samples(pFlac, pcmFramesToSeek);
+    return drflac__seek_forward_by_samples(pFlac, pcmFramesToSeek*pFlac->channels);
 }
 
 static drflac_bool32 drflac__seek_to_sample__brute_force(drflac* pFlac, drflac_uint64 sampleIndex)
