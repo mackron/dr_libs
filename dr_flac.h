@@ -7242,7 +7242,7 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
             drflac_uint64 totalFramesInPacket = pFlac->currentFrame.header.blockSize;
             drflac_uint64 framesReadFromPacketSoFar = totalFramesInPacket - (pFlac->currentFrame.samplesRemaining/channelCount);
-            drflac_uint64 iFirstSample = framesReadFromPacketSoFar * channelCount;
+            drflac_uint64 iFirstPCMFrame = framesReadFromPacketSoFar;
             drflac_int32 unusedBitsPerSample = 32 - pFlac->bitsPerSample;
 
             drflac_uint64 frameCountThisIteration = framesToRead;
@@ -7251,8 +7251,8 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
             }
 
             if (channelCount == 2) {
-                const drflac_int32* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + iFirstSample;
-                const drflac_int32* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + iFirstSample;
+                const drflac_int32* pDecodedSamples0 = pFlac->currentFrame.subframes[0].pDecodedSamples + iFirstPCMFrame;
+                const drflac_int32* pDecodedSamples1 = pFlac->currentFrame.subframes[1].pDecodedSamples + iFirstPCMFrame;
 
                 switch (pFlac->currentFrame.header.channelAssignment)
                 {
@@ -7281,7 +7281,7 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
                 // Generic interleaving.
                 for (drflac_uint64 i = 0; i < frameCountThisIteration; ++i) {
                     for (unsigned int j = 0; j < channelCount; ++j) {
-                        pBufferOut[(i*channelCount)+j] = (float)(((pFlac->currentFrame.subframes[j].pDecodedSamples[iFirstSample + i]) << (unusedBitsPerSample + pFlac->currentFrame.subframes[j].wastedBitsPerSample)) / 2147483648.0);
+                        pBufferOut[(i*channelCount)+j] = (float)(((pFlac->currentFrame.subframes[j].pDecodedSamples[iFirstPCMFrame + i]) << (unusedBitsPerSample + pFlac->currentFrame.subframes[j].wastedBitsPerSample)) / 2147483648.0);
                     }
                 }
             }
