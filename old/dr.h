@@ -24,7 +24,7 @@ extern "C" {
 
 
 // Disable MSVC compatibility if we're compiling with it.
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
     #define DR_NO_MSVC_COMPAT
 #endif
 
