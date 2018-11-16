@@ -6826,15 +6826,15 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_right_side__scalar(
     drflac_int32 shift0 = unusedBitsPerSample + pFlac->currentFrame.subframes[0].wastedBitsPerSample;
     drflac_int32 shift1 = unusedBitsPerSample + pFlac->currentFrame.subframes[1].wastedBitsPerSample;
     for (drflac_uint64 i = 0; i < frameCount4; ++i) {
-        drflac_int32 side0 = pInputSamples0[i*4+0] << shift1;
-        drflac_int32 side1 = pInputSamples0[i*4+1] << shift1;
-        drflac_int32 side2 = pInputSamples0[i*4+2] << shift1;
-        drflac_int32 side3 = pInputSamples0[i*4+3] << shift1;
+        drflac_int32 side0  = pInputSamples0[i*4+0] << shift0;
+        drflac_int32 side1  = pInputSamples0[i*4+1] << shift0;
+        drflac_int32 side2  = pInputSamples0[i*4+2] << shift0;
+        drflac_int32 side3  = pInputSamples0[i*4+3] << shift0;
 
-        drflac_int32 right0 = pInputSamples1[i*4+0] << shift0;
-        drflac_int32 right1 = pInputSamples1[i*4+1] << shift0;
-        drflac_int32 right2 = pInputSamples1[i*4+2] << shift0;
-        drflac_int32 right3 = pInputSamples1[i*4+3] << shift0;
+        drflac_int32 right0 = pInputSamples1[i*4+0] << shift1;
+        drflac_int32 right1 = pInputSamples1[i*4+1] << shift1;
+        drflac_int32 right2 = pInputSamples1[i*4+2] << shift1;
+        drflac_int32 right3 = pInputSamples1[i*4+3] << shift1;
 
         drflac_int32 left0 = right0 + side0;
         drflac_int32 left1 = right1 + side1;
