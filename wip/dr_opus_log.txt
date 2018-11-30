@@ -1,0 +1,78 @@
+This is a log of my development of dr_opus - a single file public domain Opus decoder in C. The purpose of this log is
+to track the development of the project and log how I solved various problems.
+
+References:
+    RFC 6716 - https://tools.ietf.org/html/rfc6716
+    
+The main reference for development is RFC 6716. An important detail with this specification is in Section 1
+
+   The primary normative part of this specification is provided by the
+   source code in Appendix A.  Only the decoder portion of this software
+   is normative, though a significant amount of code is shared by both
+   the encoder and decoder.  Section 6 provides a decoder conformance
+   test.  The decoder contains a great deal of integer and fixed-point
+   arithmetic that needs to be performed exactly, including all rounding
+   considerations, so any useful specification requires domain-specific
+   symbolic language to adequately define these operations.
+   Additionally, any conflict between the symbolic representation and
+   the included reference implementation must be resolved.  For the
+   practical reasons of compatibility and testability, it would be
+   advantageous to give the reference implementation priority in any
+   disagreement.  The C language is also one of the most widely
+   understood, human-readable symbolic representations for machine
+   behavior.  For these reasons, this RFC uses the reference
+   implementation as the sole symbolic representation of the codec.
+
+What this is basically saying is that the source code should be consider the main point of reference for the format of
+the Opus bit stream. We cannot, however, just willy nilly take code from the reference implementation because that would
+cause licensing problems. However, I'm going to make a prediction before I even begin: I think RFC 6716 with a bit
+intuition, problem solving and help from others it can be figured out. Indeed, I think RFC 6716 may even be enough, and
+that perhaps the authors of said specification refer to the source code as a self-defence mechanism to guard themselves
+from possible subtle errors in the specification. If I'm wrong, the log below will track it.
+
+Lets begin...
+
+
+2018/11/30 6:55PM
+=================
+- Inserted skeleton code with licensing information. Dual licensed as Public Domain _or_ MIT, whichever you prefer. API
+  is undecided as of yet.
+- Decided on supporting C89. Not yet decided on how the standard library will be used.
+- Deciding for now to use the init() style of API from dr_wav and dr_mp3 which takes a pre-allocated decoder object. May
+  need to change this to dr_flac style open() (or perhaps new()/delete()) if the size of the structure is too big.
+- dr_wav, etc. use booleans for results status so I'm copying that for consistency.
+- Added boilerplate for standard sized types (copied from mini_al).
+- Added a comment at the top of the file to show that this isn't complete (even though it's in the "wip" folder!).
+- Added boilerplate for read and seek callbacks (copied from dr_flac).
+- Added shell APIs:
+  - dropus_init()
+    - Not requiring onSeek for the moment because I'm hoping that we can make that optional somehow, with restriction.
+  - dropus_uninit()
+    - Does nothing at the moment, but in future will need to close a file when the decoder is opened against a file.
+- Added some common overrideable macros (taken from dr_flac):
+  - DROPUS_ASSERT
+  - DROPUS_COPY_MEMORY
+  - DROPUS_ZERO_MEMORY
+  - DROPUS_ZERO_OBJECT
+- Decided to use the C standard library for now. This simplifies things like memset() and assert(). Currently using the
+  following headers:
+  - stddef.h
+  - stdint.h
+  - stdlib.h
+  - string.h
+  - assert.h
+- Added some infrastructure for future APIs: dropus_init_file() and dropus_init_memory()
+  - In dr_flac, dr_wav and dr_mp3, a mistake was made with how the internal file handle is managed by the decoder. In
+    these libraries the pUserData member of the decoder structure is recycled to hold the FILE pointer. dr_opus is
+    changing this to be it's own memory the main decoder structure.
+  - The internal members for use with dropus_init_memory() use the same system as dr_mp3. See drmp3.memory.
+- Added dropus_init_file()
+  - All init() APIs call dropus_init_internal() which is where the main initialization work is done.
+  - This is using the stdio FILE API.
+  - dropus_uninit() has been updated to close the file.
+  - Added dropus_fopen() for compiler compatibility. Taken from dr_flac, but added the "mode" parameter for consistency
+    with fopen().
+  - Added dropus_fclose() for namespace consistency with dropus_fopen().
+- Added dropus_init_memory()
+  - onRead and onSeek callbacks taken from dr_mp3.
+- INITIAL COMMIT
