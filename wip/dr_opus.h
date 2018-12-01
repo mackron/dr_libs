@@ -105,6 +105,64 @@ typedef dropus_uint16 wchar_t;
 #endif
 #endif
 
+typedef int dropus_result;
+#define DROPUS_SUCCESS           0
+#define DROPUS_ERROR            -1  /* Generic or unknown error. */
+#define DROPUS_INVALID_ARGS     -2
+#define DROPUS_BAD_DATA         -100
+
+/***********************************************************************************************************************************************************
+
+Low-Level Opus Stream API
+
+This API is where the low-level decoding takes place. In order to use this, you must know the packet structure of the Opus stream. This is usually the job of
+encapsulations such as Ogg and Matroska.
+
+************************************************************************************************************************************************************/
+#define DROPUS_MAX_OPUS_FRAMES_PER_PACKET   48      /* RFC 6716 - Section 3.2.5 */
+#define DROPUS_MAX_PCM_FRAMES_PER_PACKET    6144    /* RFC 6716 - Section 3.2.5. Maximum of 120ms. Maximum rate is 48kHz. 6144 = 120*48. */
+
+typedef enum
+{
+    dropus_mode_silk,
+    dropus_mode_celt,
+    dropus_mode_hybrid
+} dropus_mode;
+
+typedef struct
+{
+    dropus_uint16 sizeInBytes;
+} dropus_stream_frame;
+
+typedef struct
+{
+    dropus_uint8 toc;   /* TOC byte. RFC 6716 - Section 3.1 */
+    dropus_stream_frame frames[DROPUS_MAX_OPUS_FRAMES_PER_PACKET];
+} dropus_stream_packet;
+
+typedef struct
+{
+    dropus_stream_packet packet;   /* The current packet. */
+} dropus_stream;
+
+/*
+Initializes a new low-level Opus stream object.
+*/
+dropus_result dropus_stream_init(dropus_stream* pOpusStream);
+
+/*
+Decodes a packet from the given compressed data.
+*/
+dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize);
+
+
+
+/***********************************************************************************************************************************************************
+
+High-Level Opus Decoding API
+
+************************************************************************************************************************************************************/
+
 typedef enum
 {
     dropus_seek_origin_start,
@@ -157,13 +215,13 @@ void dropus_uninit(dropus* pOpus);
 
 #endif  /* dr_opus_h */
 
-/******************************************************************************
- ******************************************************************************
+/************************************************************************************************************************************************************
+ ************************************************************************************************************************************************************
 
  IMPLEMENTATION
 
- ******************************************************************************
- ******************************************************************************/
+ ************************************************************************************************************************************************************
+ ************************************************************************************************************************************************************/
 #ifdef DR_OPUS_IMPLEMENTATION
 #include <stdlib.h>
 #include <string.h>
@@ -184,6 +242,149 @@ void dropus_uninit(dropus* pOpus);
 #ifndef DROPUS_ZERO_OBJECT
 #define DROPUS_ZERO_OBJECT(p)               DROPUS_ZERO_MEMORY((p), sizeof(*(p)))
 #endif
+
+
+
+/***********************************************************************************************************************************************************
+
+Low-Level Opus Stream API
+
+************************************************************************************************************************************************************/
+
+/*********************************** 
+RFC 6716 - Section 3.1 The TOC Byte
+************************************/
+DROPUS_INLINE dropus_uint8 dropus_toc_config(dropus_uint8 toc)
+{
+    return (toc & 0xF8) >> 3;
+}
+
+DROPUS_INLINE dropus_uint8 dropus_toc_s(dropus_uint8 toc)
+{
+    return (toc & 0x04) >> 2;
+}
+
+DROPUS_INLINE dropus_uint8 dropus_toc_c(dropus_uint8 toc)
+{
+    return (toc & 0x03);
+}
+
+DROPUS_INLINE dropus_mode dropus_toc_config_mode(dropus_uint8 config)
+{
+    /* Table 2 in RFC 6716 */
+    static dropus_mode modes[32] = {
+        dropus_mode_silk,   dropus_mode_silk,   dropus_mode_silk, dropus_mode_silk, /*  0...3  */
+        dropus_mode_silk,   dropus_mode_silk,   dropus_mode_silk, dropus_mode_silk, /*  4...7  */
+        dropus_mode_silk,   dropus_mode_silk,   dropus_mode_silk, dropus_mode_silk, /*  8...11 */
+        dropus_mode_hybrid, dropus_mode_hybrid,                                     /* 12...13 */
+        dropus_mode_hybrid, dropus_mode_hybrid,                                     /* 14...15 */
+        dropus_mode_celt,   dropus_mode_celt,   dropus_mode_celt, dropus_mode_celt, /* 16...19 */
+        dropus_mode_celt,   dropus_mode_celt,   dropus_mode_celt, dropus_mode_celt, /* 20...23 */
+        dropus_mode_celt,   dropus_mode_celt,   dropus_mode_celt, dropus_mode_celt, /* 24...27 */
+        dropus_mode_celt,   dropus_mode_celt,   dropus_mode_celt, dropus_mode_celt  /* 28...31 */
+    };
+
+    DROPUS_ASSERT(config < 32);
+    return modes[config];
+}
+
+DROPUS_INLINE dropus_mode dropus_toc_mode(dropus_uint8 toc)
+{
+    return dropus_toc_config_mode(dropus_toc_config(toc));
+}
+
+DROPUS_INLINE dropus_uint32 dropus_toc_config_sample_rate(dropus_uint8 config)
+{
+    /* Table 2 with Table 1 in RFC 6716 */
+    static dropus_uint32 rates[32] = {
+        8000,  8000,  8000,  8000,  /*  0...3  */
+        12000, 12000, 12000, 12000, /*  4...7  */
+        16000, 16000, 16000, 16000, /*  8...11 */
+        24000, 24000,               /* 12...13 */
+        48000, 48000,               /* 14...15 */
+        8000,  8000,  8000,  8000,  /* 16...19 */
+        16000, 16000, 16000, 16000, /* 20...23 */
+        24000, 24000, 24000, 24000, /* 24...27 */
+        48000, 48000, 48000, 48000  /* 28...31 */
+    };
+
+    DROPUS_ASSERT(config < 32);
+    return rates[config];
+}
+
+DROPUS_INLINE dropus_uint32 dropus_toc_sample_rate(dropus_uint8 toc)
+{
+    return dropus_toc_config_sample_rate(dropus_toc_config(toc));
+}
+
+DROPUS_INLINE dropus_uint32 dropus_toc_config_frame_size_in_pcm_frames(dropus_uint8 config)
+{
+    /* Table 2 with Table 1 in RFC 6716 */
+    static dropus_uint32 sizes[32] = {
+        80,  160, 320, 480, /*  0...3  */
+        120, 240, 480, 720, /*  4...7  */
+        160, 320, 640, 960, /*  8...11 */
+        240, 480,           /* 12...13 */
+        480, 960,           /* 14...15 */
+        20,  40,  80,  160, /* 16...19 */
+        40,  80,  160, 320, /* 20...23 */
+        60,  120, 240, 480, /* 24...27 */
+        120, 240, 480, 960  /* 28...31 */
+    };
+
+    DROPUS_ASSERT(config < 32);
+    return sizes[config];
+}
+
+DROPUS_INLINE dropus_uint32 dropus_toc_frame_size_in_pcm_frames(dropus_uint8 toc)
+{
+    return dropus_toc_config_frame_size_in_pcm_frames(dropus_toc_config(toc));
+}
+
+
+dropus_result dropus_stream_init(dropus_stream* pOpusStream)
+{
+    if (pOpusStream == NULL) {
+        return DROPUS_INVALID_ARGS;
+    }
+
+    DROPUS_ZERO_OBJECT(pOpusStream);
+
+    return DROPUS_SUCCESS;
+}
+
+dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize)
+{
+    if (pOpusStream == NULL || pData == NULL) {
+        return DROPUS_INVALID_ARGS;
+    }
+
+    /* RFC 6716 - Section 3.4 [R1] Packets are at least one byte. */
+    if (dataSize < 1) {
+        return DROPUS_BAD_DATA;
+    }
+
+    const dropus_uint8* pRunningData8 = (const dropus_uint8*)pData;
+
+    /* The table of contents byte specifies the structure of the packet. */
+    dropus_uint8 toc = pRunningData8[0];
+    pRunningData8 += 1;
+    
+
+
+
+
+    /* TODO: Implement me. */
+    return DROPUS_SUCCESS;
+}
+
+
+
+/***********************************************************************************************************************************************************
+
+High-Level Opus Decoding API
+
+************************************************************************************************************************************************************/
 
 dropus_bool32 dropus_init_internal(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData)
 {

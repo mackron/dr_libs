@@ -2,7 +2,9 @@ This is a log of my development of dr_opus - a single file public domain Opus de
 to track the development of the project and log how I solved various problems.
 
 References:
-    RFC 6716 - https://tools.ietf.org/html/rfc6716
+    RFC 6716 - https://tools.ietf.org/html/rfc6716 - Definition of the Opus Audio Codec
+    RFC 7845 - https://tools.ietf.org/html/rfc7845 - Ogg Encapsulation for the Opus Audio Codec
+    
     
 The main reference for development is RFC 6716. An important detail with this specification is in Section 1
 
@@ -23,7 +25,7 @@ The main reference for development is RFC 6716. An important detail with this sp
    behavior.  For these reasons, this RFC uses the reference
    implementation as the sole symbolic representation of the codec.
 
-What this is basically saying is that the source code should be consider the main point of reference for the format of
+What this is basically saying is that the source code should be considered the main point of reference for the format of
 the Opus bit stream. We cannot, however, just willy nilly take code from the reference implementation because that would
 cause licensing problems. However, I'm going to make a prediction before I even begin: I think RFC 6716 with a bit
 intuition, problem solving and help from others it can be figured out. Indeed, I think RFC 6716 may even be enough, and
@@ -33,7 +35,7 @@ from possible subtle errors in the specification. If I'm wrong, the log below wi
 Lets begin...
 
 
-2018/11/30 6:55PM
+2018/11/30 6:55 PM
 =================
 - Inserted skeleton code with licensing information. Dual licensed as Public Domain _or_ MIT, whichever you prefer. API
   is undecided as of yet.
@@ -76,3 +78,55 @@ Lets begin...
 - Added dropus_init_memory()
   - onRead and onSeek callbacks taken from dr_mp3.
 - INITIAL COMMIT
+
+2018/12/01 12:46 PM
+==================
+- Downloading all official test vectors in preparation for future testing.
+
+2018/12/01 03:58 PM
+===================
+- Decided to figure out the different encapsulations for Opus so I can figure out a design for data flow.
+  - Ogg: https://tools.ietf.org/html/rfc7845
+  - Matroska: https://wiki.xiph.org/MatroskaOpus
+  - WebM: https://www.webmproject.org/docs/container/
+  - MPEG-TS: https://wiki.xiph.org/OpusTS
+  - Mysterious encapsulation used by the official test vectors. Looking at this it's hard to tell what they are using for
+    this, but I'm assuming it's not documented. Will need to figure that one out for myself later.
+- Since WebM is a subset of Matroska, can we combine those together to avoid code duplication?
+- Upon reading into Ogg and MPEG-TS encapsulation (not looked into Matroska in detail yet) it looks like handling large
+  channel counts is going to be a pain. It can support up to 255 channels, which are made up of multiple streams. My
+  instict is telling me that we won't be able to use a fixed sized data structure and instead might require dynamic
+  allocations. Darn...
+- Leaning towards a two-tier architecture - a low-level decoder for raw Opus streams, and a high-level API for encapsulated
+  streams. Opus packets support only 1 or 2 channels which means the size of the structure _can_ be fixed.
+  - Currently I'm thinking something like the following:
+    - struct dropus_stream - low-level Opus stream decoding
+    - struct dropus        - high-level encapsulated Opus stream decoding
+      - struct dropus_ogg (Ogg Opus)
+      - struct dropus_mk (Matroska)
+      - struct dropus_ts (MPEG-TS)
+      - struct dropus_tv (That annoying non-standard and undocumented encapsulation used by the test vectors)
+- The maximum number of samples per frame (per-channel) is 960 because:
+  - The maximum frame size for wideband (16kHz) is 60: 16*60 = 960
+  - The maximum frame size for fullband (48kHz) is 20: 48*20 = 960
+  - To account for stereo frames we would need to multiply 960 by 2: 960*2 = 1920
+  - This is small enough that it can be stored statically inside the dropus_stream structure.
+- It looks like low level Opus streams won't be able to do efficient seeking without an encapsulation.
+- An Opus stream is made up of packets. Each packet has 1 or more frames. Each frame can be made up of 1 or 2 channels.
+- The size of the packet in bytes is unknown at the Opus stream level - it depends on the encapsulation to know the
+  size of the packet. This could be a bit of a problem because we may need to know the size of a frame in order to know
+  how much data we need from the client. I'm wondering if the low-level API should look something like the following:
+  - dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pCompressedData, size_t compressedDataSize);
+    - This will require the caller to have information on the size of the packet.
+- Added struct dropus_stream_packet, dropus_stream_frame.
+- Each packet contains a byte that defines the structure of the packet. It's called the TOC byte
+  (Section 3.1.  The TOC Byte) in the RFC 6716.
+- Added skeleton implementations for dropus_stream_init() and dropus_stream_decode_packet().
+- Added helpers for decoding the different parts of TOC byte.
+  - dropus_toc_config(), dropus_toc_s() and dropus_toc_c()
+- Added enum for the three different modes as outlined in Section 3.1 of RFC 6716. Also added an API to extract this
+  mode from the config component of the TOC: dropus_toc_config_mode() and dropus_toc_mode().
+- Added API to extract sample rate from the TOC: dropus_toc_config_sample_rate() and dropus_toc_sample_rate()
+- Added API to extract the size of an Opus frame in PCM frames from the TOC: 
+  - dropus_toc_config_frame_size_in_pcm_frames() and dropus_toc_frame_size_in_pcm_frames().
+- COMMIT
