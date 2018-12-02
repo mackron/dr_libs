@@ -217,6 +217,95 @@ void dropus_uninit(dropus* pOpus);
 #include <stdio.h>
 #endif
 
+/* CPU Architecture. */
+#if defined(__x86_64__) || defined(_M_X64)
+    #define DROPUS_X64
+#elif defined(__i386) || defined(_M_IX86)
+    #define DROPUS_X86
+#elif defined(__arm__) || defined(_M_ARM)
+    #define DROPUS_ARM
+#endif
+
+/* Compile-time CPU feature support. */
+#if !defined(DR_OPUS_NO_SIMD) && (defined(DROPUS_X86) || defined(DROPUS_X64))
+    #if defined(_MSC_VER) && !defined(__clang__)
+        #if _MSC_VER >= 1400
+            #include <intrin.h>
+            static DROPUS_INLINE void dropus__cpuid(int info[4], int fid)
+            {
+                __cpuid(info, fid);
+            }
+        #else
+            #define DROPUS_NO_CPUID
+        #endif
+    #else
+        #if defined(__GNUC__) || defined(__clang__)
+            static DROPUS_INLINE void dropus__cpuid(int info[4], int fid)
+            {
+                /*
+                It looks like the -fPIC option uses the ebx register which GCC complains about. We can work around this by just using a different register, the
+                specific register of which I'm letting the compiler decide on. The "k" prefix is used to specify a 32-bit register. The {...} syntax is for
+                supporting different assembly dialects.
+                
+                What's basically happening is that we're saving and restoring the ebx register manually.
+                */
+                #if defined(DROPUS_X86) && defined(__PIC__)
+                    __asm__ __volatile__ (
+                        "xchg{l} {%%}ebx, %k1;"
+                        "cpuid;"
+                        "xchg{l} {%%}ebx, %k1;"
+                        : "=a"(info[0]), "=&r"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(fid), "c"(0)
+                    );
+                #else
+                    __asm__ __volatile__ (
+                        "cpuid" : "=a"(info[0]), "=b"(info[1]), "=c"(info[2]), "=d"(info[3]) : "a"(fid), "c"(0)
+                    );
+                #endif
+            }
+        #else
+            #define DROPUS_NO_CPUID
+        #endif
+    #endif
+#else
+    #define DROPUS_NO_CPUID
+#endif
+
+
+#if defined(_MSC_VER) && _MSC_VER >= 1500 && (defined(DROPUS_X86) || defined(DROPUS_X64))
+    #define DROPUS_HAS_LZCNT_INTRINSIC
+#elif (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))
+    #define DROPUS_HAS_LZCNT_INTRINSIC
+#elif defined(__clang__)
+    #if __has_builtin(__builtin_clzll) || __has_builtin(__builtin_clzl)
+        #define DROPUS_HAS_LZCNT_INTRINSIC
+    #endif
+#endif
+
+#if defined(_MSC_VER) && _MSC_VER >= 1300
+    #define DROPUS_HAS_BYTESWAP16_INTRINSIC
+    #define DROPUS_HAS_BYTESWAP32_INTRINSIC
+    #define DROPUS_HAS_BYTESWAP64_INTRINSIC
+#elif defined(__clang__)
+    #if __has_builtin(__builtin_bswap16)
+        #define DROPUS_HAS_BYTESWAP16_INTRINSIC
+    #endif
+    #if __has_builtin(__builtin_bswap32)
+        #define DROPUS_HAS_BYTESWAP32_INTRINSIC
+    #endif
+    #if __has_builtin(__builtin_bswap64)
+        #define DROPUS_HAS_BYTESWAP64_INTRINSIC
+    #endif
+#elif defined(__GNUC__)
+    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+        #define DROPUS_HAS_BYTESWAP32_INTRINSIC
+        #define DROPUS_HAS_BYTESWAP64_INTRINSIC
+    #endif
+    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
+        #define DROPUS_HAS_BYTESWAP16_INTRINSIC
+    #endif
+#endif
+
+
 #ifndef DROPUS_ASSERT
 #include <assert.h>
 #define DROPUS_ASSERT(expression)           assert(expression)
@@ -231,6 +320,129 @@ void dropus_uninit(dropus* pOpus);
 #define DROPUS_ZERO_OBJECT(p)               DROPUS_ZERO_MEMORY((p), sizeof(*(p)))
 #endif
 
+
+/*********************************** 
+Endian Management
+************************************/
+static DROPUS_INLINE dropus_bool32 dropus__is_little_endian()
+{
+#if defined(DROPUS_X86) || defined(DROPUS_X64)
+    return DROPUS_TRUE;
+#else
+    int n = 1;
+    return (*(char*)&n) == 1;
+#endif
+}
+
+static DROPUS_INLINE dropus_uint16 dropus__swap_endian_uint16(dropus_uint16 n)
+{
+#ifdef DROPUS_HAS_BYTESWAP16_INTRINSIC
+    #if defined(_MSC_VER)
+        return _byteswap_ushort(n);
+    #elif defined(__GNUC__) || defined(__clang__)
+        return __builtin_bswap16(n);
+    #else
+        #error "This compiler does not support the byte swap intrinsic."
+    #endif
+#else
+    return ((n & 0xFF00) >> 8) |
+           ((n & 0x00FF) << 8);
+#endif
+}
+
+static DROPUS_INLINE dropus_uint32 dropus__swap_endian_uint32(dropus_uint32 n)
+{
+#ifdef DROPUS_HAS_BYTESWAP32_INTRINSIC
+    #if defined(_MSC_VER)
+        return _byteswap_ulong(n);
+    #elif defined(__GNUC__) || defined(__clang__)
+        return __builtin_bswap32(n);
+    #else
+        #error "This compiler does not support the byte swap intrinsic."
+    #endif
+#else
+    return ((n & 0xFF000000) >> 24) |
+           ((n & 0x00FF0000) >>  8) |
+           ((n & 0x0000FF00) <<  8) |
+           ((n & 0x000000FF) << 24);
+#endif
+}
+
+static DROPUS_INLINE dropus_uint64 dropus__swap_endian_uint64(dropus_uint64 n)
+{
+#ifdef DROPUS_HAS_BYTESWAP64_INTRINSIC
+    #if defined(_MSC_VER)
+        return _byteswap_uint64(n);
+    #elif defined(__GNUC__) || defined(__clang__)
+        return __builtin_bswap64(n);
+    #else
+        #error "This compiler does not support the byte swap intrinsic."
+    #endif
+#else
+    return ((n & (dropus_uint64)0xFF00000000000000) >> 56) |
+           ((n & (dropus_uint64)0x00FF000000000000) >> 40) |
+           ((n & (dropus_uint64)0x0000FF0000000000) >> 24) |
+           ((n & (dropus_uint64)0x000000FF00000000) >>  8) |
+           ((n & (dropus_uint64)0x00000000FF000000) <<  8) |
+           ((n & (dropus_uint64)0x0000000000FF0000) << 24) |
+           ((n & (dropus_uint64)0x000000000000FF00) << 40) |
+           ((n & (dropus_uint64)0x00000000000000FF) << 56);
+#endif
+}
+
+
+static DROPUS_INLINE dropus_uint16 dropus__be2host_16(dropus_uint16 n)
+{
+#ifdef __linux__
+    return be16toh(n);
+#else
+    if (dropus__is_little_endian()) {
+        return dropus__swap_endian_uint16(n);
+    }
+
+    return n;
+#endif
+}
+
+static DROPUS_INLINE dropus_uint32 dropus__be2host_32(dropus_uint32 n)
+{
+#ifdef __linux__
+    return be32toh(n);
+#else
+    if (dropus__is_little_endian()) {
+        return dropus__swap_endian_uint32(n);
+    }
+
+    return n;
+#endif
+}
+
+static DROPUS_INLINE dropus_uint64 dropus__be2host_64(dropus_uint64 n)
+{
+#ifdef __linux__
+    return be64toh(n);
+#else
+    if (dropus__is_little_endian()) {
+        return dropus__swap_endian_uint64(n);
+    }
+
+    return n;
+#endif
+}
+
+
+static DROPUS_INLINE dropus_uint32 dropus__le2host_32(dropus_uint32 n)
+{
+#ifdef __linux__
+    return le32toh(n);
+#else
+    if (!dropus__is_little_endian()) {
+        return dropus__swap_endian_uint32(n);
+    }
+
+    return n;
+#endif
+}
 
 
 /***********************************************************************************************************************************************************
@@ -344,7 +556,7 @@ dropus_result dropus_stream_init(dropus_stream* pOpusStream)
 dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize)
 {
     const dropus_uint8* pRunningData8 = (const dropus_uint8*)pData;
-    dropus_uint8 toc;
+    dropus_uint8 toc; /* Table of Contents byte. */
 
     if (pOpusStream == NULL || pData == NULL) {
         return DROPUS_INVALID_ARGS;
@@ -355,7 +567,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
         return DROPUS_BAD_DATA;
     }
 
-    /* The table of contents byte specifies the structure of the packet. */
+    /* The TOC byte specifies the structure of the packet. */
     toc = pRunningData8[0];
     pRunningData8 += 1;
     

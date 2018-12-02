@@ -144,4 +144,48 @@ Lets begin...
 - Have cleaned up the sized types stuff for Clang to avoid the dependency on stdint, however errors are still happening
   due to the use of stdlib.h. Leaving the Clang C++ issue for now. It's technically a Clang issue rather than dr_opus.
 - COMMIT
-- 
+- Have decided to version control test programs, but not test vectors. Instead I'm putting a note in a readme about
+  where to download and place the test vectors.
+- In my experience I have found that having a testing infrastructure set up earlier saves a lot of time in the long run
+  so the next thing I have decided to work on is a test program. It makes sense to test against the official test vectors,
+  so the first thing is to figure out this undocumented encapsulation format...
+  
+Test Vector Encapsulation Format
+--------------------------------
+- All test vectors seem to start with two bytes of 0x00.
+  - This does not feel like a magic number or identifier.
+- Noticed that first 4 bytes add up to a relatively small number. A counter of some kind in little endian format?
+- A pattern can be seen in testvector02.bit:
+  - The bytes 00 00 00 XX can been seen repeating. This indicates some kind of blocking.
+  - From the first 4 bytes you see the hex value of 0x0000001E which equals 30 in decimal
+  - Counting forward 30 bytes brings us 4 bytes before the next set of 00 00 00 XX bytes. Definitely starting to feel like
+    the first 4 bytes are a byte counter.
+  - Skipping past those four bytes and looking at the next 00 00 00 XX bytes we get 0x0000001D which is 29 in decimal.
+  - Again, counting forward by that number of bytes brings us to 4 bytes prior to the next 00 00 00 XX block. First 4
+    bytes are definitely a byte counter.
+- It makes sense that each of these blocks are an Opus packet.
+- Still don't know what the second set of 4 bytes could represent... Does it matter for our purposes? All we care about
+  is the raw Opus bit stream.
+  - A Google search for "opus test vector format" brings up the following result (a PDF document):
+    - https://www.ietf.org/proceedings/82/slides/codec-4.pdf
+    - From the "Force Multipliers" page:
+      - "The range coder has 32 bits of state which must match between the encoder and decoder"
+      - "Provides a checksum of all encoding and decoding decisions"
+      - "opus_demo bitstreams include the range value with every packet and test for mismatches"
+    - Willing to bet that the extra 4 bytes are that "32 bits of state". This is actually good for dr_opus.
+- I think the format is just a list of Opus packets with 8 bytes of header data for each one:
+    4 bytes: Opus packet size in bytes
+    4 bytes: 32 bit of range coder state
+    [Opus Packet]
+--------------------------------
+
+- The test program can either hard code a list of vector files or we can enumerate over files in known directories. I'm
+  preferring the latter to make it easier to add new vectors. It's also consistent with the way dr_flac does it which has
+  been pretty good in the past.
+- Started work on a "common" lib for test programs. First thing is the new file iterator.
+  - File iterator now done, but only supporting Windows currently.
+- Have implemented the logic for loading test vectors and the byte counter (and I'm assuming the range state) is actually
+  in big-endian, not little-endian. I'm an idiot!
+- Copying endian management APIs from dr_flac over to dr_opus.
+- Basic infrastructure for testing against the standard test vectors is now done.
+- COMMIT
