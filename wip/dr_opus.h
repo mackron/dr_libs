@@ -12,77 +12,65 @@ David Reid - mackron@gmail.com
 
 #include <stddef.h> /* For size_t. */
 
-#ifndef DROPUS_HAS_STDINT
-    #if defined(_MSC_VER)
-        #if _MSC_VER >= 1600
-            #define DROPUS_HAS_STDINT
-        #endif
-    #else
-        #if defined(__has_include)
-            #if __has_include(<stdint.h>)
-                #define DROPUS_HAS_STDINT
-            #endif
-        #endif
+/* Sized types. Prefer built-in types. Fall back to stdint. */
+#ifdef _MSC_VER
+    #if defined(__clang__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wlanguage-extension-token"
+        #pragma GCC diagnostic ignored "-Wc++11-long-long"
     #endif
-#endif
-
-#if !defined(DROPUS_HAS_STDINT) && (defined(__GNUC__) || defined(__clang__))   /* Assume support for stdint.h on GCC and Clang. */
+    typedef   signed __int8  dropus_int8;
+    typedef unsigned __int8  dropus_uint8;
+    typedef   signed __int16 dropus_int16;
+    typedef unsigned __int16 dropus_uint16;
+    typedef   signed __int32 dropus_int32;
+    typedef unsigned __int32 dropus_uint32;
+    typedef   signed __int64 dropus_int64;
+    typedef unsigned __int64 dropus_uint64;
+    #if defined(__clang__)
+        #pragma GCC diagnostic pop
+    #endif
+#else
     #define DROPUS_HAS_STDINT
+    #include <stdint.h>
+    typedef int8_t   dropus_int8;
+    typedef uint8_t  dropus_uint8;
+    typedef int16_t  dropus_int16;
+    typedef uint16_t dropus_uint16;
+    typedef int32_t  dropus_int32;
+    typedef uint32_t dropus_uint32;
+    typedef int64_t  dropus_int64;
+    typedef uint64_t dropus_uint64;
 #endif
 
-#ifndef DROPUS_HAS_STDINT
-typedef   signed char               dropus_int8;
-typedef unsigned char               dropus_uint8;
-typedef   signed short              dropus_int16;
-typedef unsigned short              dropus_uint16;
-typedef   signed int                dropus_int32;
-typedef unsigned int                dropus_uint32;
-    #if defined(_MSC_VER)
-    typedef   signed __int64        dropus_int64;
-    typedef unsigned __int64        dropus_uint64;
-    #else
-    typedef   signed long long int  dropus_int64;
-    typedef unsigned long long int  dropus_uint64;
-    #endif
+#ifdef DROPUS_HAS_STDINT
+    typedef uintptr_t dropus_uintptr;
+#else
     #if defined(_WIN32)
         #if defined(_WIN64)
-        typedef dropus_uint64       dropus_uintptr;
+            typedef dropus_uint64 dropus_uintptr;
         #else
-        typedef dropus_uint32       dropus_uintptr;
+            typedef dropus_uint32 dropus_uintptr;
         #endif
     #elif defined(__GNUC__)
         #if defined(__LP64__)
-        typedef dropus_uint64       dropus_uintptr;
+            typedef dropus_uint64 dropus_uintptr;
         #else
-        typedef dropus_uint32       dropus_uintptr;
+            typedef dropus_uint32 dropus_uintptr;
         #endif
     #else
-        typedef dropus_uint64       dropus_uintptr;    /* Fallback. */
+        typedef dropus_uint64 dropus_uintptr;   /* Fallback. */
     #endif
-#else
-#include <stdint.h>
-typedef int8_t                      dropus_int8;
-typedef uint8_t                     dropus_uint8;
-typedef int16_t                     dropus_int16;
-typedef uint16_t                    dropus_uint16;
-typedef int32_t                     dropus_int32;
-typedef uint32_t                    dropus_uint32;
-typedef int64_t                     dropus_int64;
-typedef uint64_t                    dropus_uint64;
-typedef uintptr_t                   dropus_uintptr;
 #endif
-typedef dropus_uint8                dropus_bool8;
-typedef dropus_uint32               dropus_bool32;
-#define DROPUS_TRUE                 1
-#define DROPUS_FALSE                0
+
+typedef dropus_uint8  dropus_bool8;
+typedef dropus_uint32 dropus_bool32;
+#define DROPUS_TRUE   1
+#define DROPUS_FALSE  0
 
 typedef void* dropus_handle;
 typedef void* dropus_ptr;
 typedef void (* dropus_proc)(void);
-
-#if defined(_MSC_VER) && !defined(_WCHAR_T_DEFINED)
-typedef dropus_uint16 wchar_t;
-#endif
 
 #ifndef NULL
 #define NULL 0
@@ -99,7 +87,7 @@ typedef dropus_uint16 wchar_t;
 #define DROPUS_INLINE __forceinline
 #else
 #ifdef __GNUC__
-#define DROPUS_INLINE inline __attribute__((always_inline))
+#define DROPUS_INLINE __inline__ __attribute__((always_inline))
 #else
 #define DROPUS_INLINE inline
 #endif
@@ -355,6 +343,9 @@ dropus_result dropus_stream_init(dropus_stream* pOpusStream)
 
 dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize)
 {
+    const dropus_uint8* pRunningData8 = (const dropus_uint8*)pData;
+    dropus_uint8 toc;
+
     if (pOpusStream == NULL || pData == NULL) {
         return DROPUS_INVALID_ARGS;
     }
@@ -364,14 +355,10 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
         return DROPUS_BAD_DATA;
     }
 
-    const dropus_uint8* pRunningData8 = (const dropus_uint8*)pData;
-
     /* The table of contents byte specifies the structure of the packet. */
-    dropus_uint8 toc = pRunningData8[0];
+    toc = pRunningData8[0];
     pRunningData8 += 1;
     
-
-
 
 
     /* TODO: Implement me. */
@@ -452,6 +439,9 @@ dropus_bool32 dropus_on_seek_stdio(void* pUserData, int offset, dropus_seek_orig
 
 dropus_bool32 dropus_init_file(dropus* pOpus, const char* pFilePath)
 {
+    FILE* pFile;
+    dropus_bool32 successful;
+
     if (pOpus == NULL) {
         return DROPUS_FALSE;    /* Invalid args. */
     }
@@ -462,13 +452,14 @@ dropus_bool32 dropus_init_file(dropus* pOpus, const char* pFilePath)
         return DROPUS_FALSE;    /* Invalid args. */
     }
 
-    FILE* pFile = dropus_fopen(pFilePath, "rb");
+    pFile = dropus_fopen(pFilePath, "rb");
     if (pFile == NULL) {
         return DROPUS_FALSE;    /* Failed to open file. */
     }
 
     pOpus->pFile = (void*)pFile;
-    dropus_bool32 successful = dropus_init_internal(pOpus, dropus_on_read_stdio, dropus_on_seek_stdio, NULL);
+
+    successful = dropus_init_internal(pOpus, dropus_on_read_stdio, dropus_on_seek_stdio, NULL);
     if (!successful) {
         dropus_fclose(pFile);
         return DROPUS_FALSE;
@@ -480,11 +471,13 @@ dropus_bool32 dropus_init_file(dropus* pOpus, const char* pFilePath)
 
 static size_t dropus_on_read_memory(void* pUserData, void* pBufferOut, size_t bytesToRead)
 {
+    size_t bytesRemaining;
     dropus* pOpus = (dropus*)pUserData;
+
     DROPUS_ASSERT(pOpus != NULL);
     DROPUS_ASSERT(pOpus->memory.dataSize >= pOpus->memory.currentReadPos);
 
-    size_t bytesRemaining = pOpus->memory.dataSize - pOpus->memory.currentReadPos;
+    bytesRemaining = pOpus->memory.dataSize - pOpus->memory.currentReadPos;
     if (bytesToRead > bytesRemaining) {
         bytesToRead = bytesRemaining;
     }
@@ -538,9 +531,10 @@ dropus_bool32 dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSi
         return DROPUS_FALSE;    /* Invalid args. */
     }
 
-    pOpus->memory.pData = pData;
+    pOpus->memory.pData = (const dropus_uint8*)pData;
     pOpus->memory.dataSize = dataSize;
     pOpus->memory.currentReadPos = 0;
+
     return dropus_init_internal(pOpus, dropus_on_read_memory, dropus_on_seek_memory, NULL);
 }
 

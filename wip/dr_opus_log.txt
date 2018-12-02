@@ -130,3 +130,18 @@ Lets begin...
 - Added API to extract the size of an Opus frame in PCM frames from the TOC: 
   - dropus_toc_config_frame_size_in_pcm_frames() and dropus_toc_frame_size_in_pcm_frames().
 - COMMIT
+
+2018/12/02 09:45 AM
+===================
+- Compiling for the first time. Targetting C89 so need to get it all working property right from the start.
+- "test" folder added to my local repository. Not version controlled yet as I'm not sure I want to include all of
+  the test stuff in the repository. Will definitely not be version controlling the test vectors. Perhaps use a submodule?
+- Have decided to not support the mysterious encapsulation format used by the test vectors in dr_opus itself. Instead
+  I'm just doing it manually in the test program.
+- After attempting to build the C++ version, it appears Clang will attempt to #include stdint.h from Visual Studio's
+  standard library which fails. May need to come up with a way to avoid the dependency on stdint.h. Same thing also
+  happens with stdlib.h.
+- Have cleaned up the sized types stuff for Clang to avoid the dependency on stdint, however errors are still happening
+  due to the use of stdlib.h. Leaving the Clang C++ issue for now. It's technically a Clang issue rather than dr_opus.
+- COMMIT
+- 
