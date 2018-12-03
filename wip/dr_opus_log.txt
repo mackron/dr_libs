@@ -189,3 +189,14 @@ Test Vector Encapsulation Format
 - Copying endian management APIs from dr_flac over to dr_opus.
 - Basic infrastructure for testing against the standard test vectors is now done.
 - COMMIT
+
+2018/11/30 6:15 PM
+=================
+- The packet enumeration in the test program seems to work so far, but I'm still not 100% sure that my assumptions are
+  correct. Adding more validation to dropus_stream_decode_packet() to increase my certainty. The next stage is to
+  implement all of the main packet validation.
+- Question for later. How are "Discontinuous Transmission (DTX) or lost packet" handled? Should
+  dropus_stream_decode_packet() return an error in this case?
+- Code for validating packet codes 0, 1 and 2 are now in, however untested so far. Code 3 is a bit more complicated and
+  right now I need to eat dinner...
+- COMMIT

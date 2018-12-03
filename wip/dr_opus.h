@@ -450,6 +450,9 @@ static DROPUS_INLINE dropus_uint32 dropus__le2host_32(dropus_uint32 n)
 Low-Level Opus Stream API
 
 ************************************************************************************************************************************************************/
+#define DROPUS_MAX_FRAME_SIZE_IN_BYTES  1275
+#define DROPUS_MAX_PACKET_SIZE_IN_BYTES 1275*DROPUS_MAX_OPUS_FRAMES_PER_PACKET
+
 
 /*********************************** 
 RFC 6716 - Section 3.1 The TOC Byte
@@ -557,9 +560,17 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
 {
     const dropus_uint8* pRunningData8 = (const dropus_uint8*)pData;
     dropus_uint8 toc; /* Table of Contents byte. */
+    dropus_uint16 frameCount;
+    dropus_uint16 frameSizes[DROPUS_MAX_OPUS_FRAMES_PER_PACKET];
+    dropus_uint32 code;
 
     if (pOpusStream == NULL || pData == NULL) {
         return DROPUS_INVALID_ARGS;
+    }
+
+    DROPUS_ASSERT(DROPUS_MAX_PACKET_SIZE_IN_BYTES < 65536);
+    if (dataSize > DROPUS_MAX_PACKET_SIZE_IN_BYTES) {
+        return DROPUS_BAD_DATA;
     }
 
     /* RFC 6716 - Section 3.4 [R1] Packets are at least one byte. */
@@ -571,8 +582,122 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
     toc = pRunningData8[0];
     pRunningData8 += 1;
     
+    /*
+    We need to look at the code to know the frames making up the packet are structured. We will do a pre-processing step to
+    extract basic information about each frame in the packet.
+    */
+    code = dropus_toc_c(toc);
+    switch (code) {
+        case 0: /* RFC 6716 - Section 3.2.2. Code 0: One Frame in the Packet */
+        {
+            dropus_uint16 frameSize = dataSize-1;
 
+            /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
+            if (frameSize > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                return DROPUS_BAD_DATA;
+            }
 
+            frameCount = 1;
+            frameSizes[0] = frameSize;
+        } break;
+
+        case 1: /* RFC 6716 - Section 3.2.3. Code 1: Two Frames in the Packet, Each with Equal Compressed Size */
+        {
+            dropus_uint16 frameSize;
+
+            /* RFC 6716 - Section 3.4 [R3] Code 1 packets have an odd total length, N, so that (N-1)/2 is an integer. */
+            if ((dataSize & 1) != 0) {
+                return DROPUS_BAD_DATA;
+            }
+
+            frameSize = (dataSize-1)/2;
+
+            /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
+            if (frameSize > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                return DROPUS_BAD_DATA;
+            }
+
+            frameCount = 2;
+            frameSizes[0] = frameSize;
+            frameSizes[1] = frameSize;
+        } break;
+
+        case 2: /* RFC 6716 - Section 3.2.4. Code 2: Two Frames in the Packet, with Different Compressed Sizes */
+        {
+            dropus_uint8 byte0;
+            dropus_uint8 byte1;
+            dropus_uint16 frameSize0;
+            dropus_uint16 frameSize1;
+            dropus_uint16 headerByteCount;
+
+            /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
+            if (dataSize < 2) {
+                return DROPUS_BAD_DATA;
+            }
+
+            /* RFC 6716 - Section 3.2.1. Frame Length Coding */
+            byte0 = pRunningData8[0]; pRunningData8 += 1;
+            if (byte0 == 0) {
+                /*
+                Section 3.2.1 of RFC 6716 says the following:
+
+                    "Any Opus frame in any mode MAY have a length of 0.
+                
+                This implies to me that this is a valid case. dr_opus is going to handle this by setting the PCM frame count to 0 for this packet.
+                */
+                frameSize0 = 0;
+                frameSize1 = 0;
+            } else {
+                if (byte0 >= 1 && byte0 <= 251) {
+                    frameSize0 = byte0;
+                }
+                if (byte0 >= 252 && byte0 <= 255) {
+                    /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
+                    if (dataSize < 3) {
+                        return DROPUS_BAD_DATA;
+                    }
+
+                    byte1 = pRunningData8[0]; pRunningData8 += 1;
+                    frameSize0 = (byte1*4) + byte0;
+                }
+
+                headerByteCount = (dropus_uint16)(pRunningData8 - pData);   /* This is a safe case because the maximum difference will be 3. */
+
+                /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
+                if (frameSize0 > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                    return DROPUS_BAD_DATA;
+                }
+
+                /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
+                if (((dataSize-headerByteCount)+frameSize0) > dataSize) {
+                    return DROPUS_BAD_DATA;
+                }
+
+                frameSize1 = (dropus_uint16)(dataSize-headerByteCount-frameSize0);    /* Safe cast because dataSize is guaranteed to be < 65536 at this point since it was checked at the top of this function. */
+
+                /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
+                if (frameSize1 > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                    return DROPUS_BAD_DATA;
+                }
+
+                /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
+                if (((dataSize-headerByteCount)+frameSize0+frameSize1) > dataSize) {
+                    return DROPUS_BAD_DATA;
+                }
+            }
+            
+            frameCount = 2;
+            frameSizes[0] = frameSize0;
+            frameSizes[1] = frameSize1;
+        } break;
+
+        case 3: /* RFC 6716 - Section 3.2.5. Code 3: A Signaled Number of Frames in the Packet */
+        {
+
+        } break;
+    }
+
+    
     /* TODO: Implement me. */
     return DROPUS_SUCCESS;
 }
