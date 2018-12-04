@@ -698,15 +698,14 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
 
         case 3: /* RFC 6716 - Section 3.2.5. Code 3: A Signaled Number of Frames in the Packet */
         {
-            dropus_uint8   frameCountByte;
-            dropus_uint8   v;                   /* Is VBR? */
-            dropus_uint8   p;                   /* Has padding? */
-            dropus_uint8   M;                   /* Frame count. */
-            dropus_uint16  P;                   /* The size of the padding. Must never be more than dataSize-2. */
-            dropus_uint16  R;                   /* The number of bytes remaining in the packet after subtracting the TOC, frame count byte and padding. */
-            dropus_uint32  ms;                  /* Total length in milliseconds. */
-            dropus_uint32  paddingByteCount;    /* The number of bytes making up the size of the padding. Only used for validation. */
-            dropus_uintptr headerSizeInBytes;   /* For validation. */
+            dropus_uint8  frameCountByte;
+            dropus_uint8  v;                /* Is VBR? */
+            dropus_uint8  p;                /* Has padding? */
+            dropus_uint8  M;                /* Frame count. */
+            dropus_uint16 P;                /* The size of the padding. Must never be more than dataSize-2. */
+            dropus_uint16 R;                /* The number of bytes remaining in the packet after subtracting the TOC, frame count byte and padding. */
+            dropus_uint32 ms;               /* Total length in milliseconds. */
+            dropus_uint32 paddingByteCount; /* The number of bytes making up the size of the padding. Only used for validation. */
             
             /*
             RFC 6716 - Section 3.2.5:
@@ -787,7 +786,8 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                 }
             } else {
                 /* VBR */
-                dropus_uint16 totalFrameSizeExceptLast = 0;   /* Used later for checking [R7]. */
+                dropus_uint16 totalFrameSizeExceptLast = 0; /* Used later for checking [R7]. */
+                dropus_uintptr headerSizeInBytes;           /* For validation and deriving the size of the last frame. */
 
                 frameCount = M;
                 for (dropus_uint16 iFrame = 0; iFrame < frameCount-1; ++iFrame) {
