@@ -794,7 +794,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                     dropus_uint8 byte0;
                     dropus_uint8 byte1;
 
-                    if ((size_t)(pRunningData8 - (const dropus_uint8*)pData) < dataSize) {
+                    if ((dropus_uintptr)(pRunningData8 - (const dropus_uint8*)pData) < dataSize) {
                         return DROPUS_BAD_DATA; /* Ran out of data in the packet. Implicitly handles part of [R7]. */
                     }
 
@@ -806,7 +806,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                             frameSizes[iFrame] = byte0;
                         }
                         if (byte0 >= 252 && byte0 <= 255) {
-                            if ((size_t)(pRunningData8 - (const dropus_uint8*)pData) < dataSize) {
+                            if ((dropus_uintptr)(pRunningData8 - (const dropus_uint8*)pData) < dataSize) {
                                 return DROPUS_BAD_DATA; /* Ran out of data in the packet. Implicitly handles part of [R7]. */
                             }
 
