@@ -451,7 +451,7 @@ Low-Level Opus Stream API
 
 ************************************************************************************************************************************************************/
 #define DROPUS_MAX_FRAME_SIZE_IN_BYTES  1275
-#define DROPUS_MAX_PACKET_SIZE_IN_BYTES 1275*DROPUS_MAX_OPUS_FRAMES_PER_PACKET
+#define DROPUS_MAX_PACKET_SIZE_IN_BYTES DROPUS_MAX_FRAME_SIZE_IN_BYTES*DROPUS_MAX_OPUS_FRAMES_PER_PACKET
 
 
 /*********************************** 
@@ -518,6 +518,11 @@ DROPUS_INLINE dropus_uint32 dropus_toc_config_sample_rate(dropus_uint8 config)
 DROPUS_INLINE dropus_uint32 dropus_toc_sample_rate(dropus_uint8 toc)
 {
     return dropus_toc_config_sample_rate(dropus_toc_config(toc));
+}
+
+DROPUS_INLINE dropus_uint32 dropus_toc_sample_rate_ms(dropus_uint8 toc)
+{
+    return dropus_toc_sample_rate(toc) / 1000;
 }
 
 DROPUS_INLINE dropus_uint32 dropus_toc_config_frame_size_in_pcm_frames(dropus_uint8 config)
@@ -590,7 +595,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
     switch (code) {
         case 0: /* RFC 6716 - Section 3.2.2. Code 0: One Frame in the Packet */
         {
-            dropus_uint16 frameSize = dataSize-1;
+            dropus_uint16 frameSize = (dropus_uint16)(dataSize-1);
 
             /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
             if (frameSize > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
@@ -610,7 +615,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                 return DROPUS_BAD_DATA;
             }
 
-            frameSize = (dataSize-1)/2;
+            frameSize = (dropus_uint16)(dataSize-1)/2;
 
             /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
             if (frameSize > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
@@ -626,8 +631,8 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
         {
             dropus_uint8 byte0;
             dropus_uint8 byte1;
-            dropus_uint16 frameSize0;
-            dropus_uint16 frameSize1;
+            dropus_uint16 frameSize0 = 0;
+            dropus_uint16 frameSize1 = 0;
             dropus_uint16 headerByteCount;
 
             /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
@@ -661,7 +666,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                     frameSize0 = (byte1*4) + byte0;
                 }
 
-                headerByteCount = (dropus_uint16)(pRunningData8 - pData);   /* This is a safe case because the maximum difference will be 3. */
+                headerByteCount = (dropus_uint16)(pRunningData8 - (const dropus_uint8*)pData);   /* This is a safe case because the maximum difference will be 3. */
 
                 /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
                 if (frameSize0 > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
@@ -693,12 +698,162 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
 
         case 3: /* RFC 6716 - Section 3.2.5. Code 3: A Signaled Number of Frames in the Packet */
         {
+            dropus_uint8   frameCountByte;
+            dropus_uint8   v;                   /* Is VBR? */
+            dropus_uint8   p;                   /* Has padding? */
+            dropus_uint8   M;                   /* Frame count. */
+            dropus_uint16  P;                   /* The size of the padding. Must never be more than dataSize-2. */
+            dropus_uint16  R;                   /* The number of bytes remaining in the packet after subtracting the TOC, frame count byte and padding. */
+            dropus_uint32  ms;                  /* Total length in milliseconds. */
+            dropus_uint32  paddingByteCount;    /* The number of bytes making up the size of the padding. Only used for validation. */
+            dropus_uintptr headerSizeInBytes;   /* For validation. */
+            
+            /*
+            RFC 6716 - Section 3.2.5:
+                "Code 3 packets MUST have at least 2 bytes [R6,R7]."
+            */
+            if (dataSize < 2) {
+                return DROPUS_BAD_DATA;
+            }
 
+            frameCountByte = pRunningData8[0]; pRunningData8 += 1;
+            v = (frameCountByte & 0x80) >> 7;
+            p = (frameCountByte & 0x40) >> 6;
+            M = (frameCountByte & 0x3F);
+
+            /* RFC 6716 - Section 3.4 [R5] Code 3 packets contain at least one frame, but no more than 120 ms of audio total. */
+            ms = (M * dropus_toc_frame_size_in_pcm_frames(toc)) / dropus_toc_sample_rate_ms(toc);
+            if (M < 1 || ms > 120) {
+                return DROPUS_BAD_DATA;
+            }
+
+            /* Sanity check to ensure the frame count is never greather than the maximum allowed. */
+            if (M > DROPUS_MAX_OPUS_FRAMES_PER_PACKET)  {
+                return DROPUS_BAD_DATA;
+            }
+
+            /* Padding bytes. Need to run this in a loop. */
+            P = 0;
+            paddingByteCount = 0;
+            if (p != 0) {
+                for (size_t iPaddingByte = 0; iPaddingByte < dataSize-2; ++iPaddingByte) {
+                    dropus_uint8 paddingByte = pRunningData8[0]; pRunningData8 += 1;
+                    P += paddingByte;
+                    paddingByteCount += 1;
+
+                    /* A padding byte not equal to 255 signals the last padding byte. */
+                    if (paddingByte == 255) {
+                        /* There must be an additional byte available in this case. */
+                        if (iPaddingByte+1 >= dataSize-2) {
+                            return DROPUS_BAD_DATA;
+                        }
+                    } else {
+                        break;  /* Reached the end of the padding bytes. */
+                    }
+                }
+            }
+
+            /* Safety check. */
+            if (P > dataSize-2) {
+                return DROPUS_BAD_DATA;
+            }
+
+            /* R = bytes remaining. */
+            R = (dropus_uint16)(dataSize-2-P);
+
+            if (v == 0) {
+                /* CBR */
+                dropus_uint16 frameSize = R/M;
+
+                /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
+                if (frameSize > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                    return DROPUS_BAD_DATA;
+                }
+
+                /* RFC 6716 - Section 3.4 [R6] ... */
+                if (dataSize < 2) {                     /* ... The length of a CBR code 3 packet, N, is at least two bytes ... */
+                    return DROPUS_BAD_DATA;
+                }
+                if (paddingByteCount+P > dataSize-2) {  /* ... the number of bytes added to indicate the padding size plus the trailing padding bytes themselves, P, is no more than N-2 ... */
+                    return DROPUS_BAD_DATA;
+                }
+                if (frameSize*M != (dataSize-2-P)) {    /* ... the frame count, M, satisfies the constraint that (N-2-P) is a non-negative integer multiple of M ... */
+                    return DROPUS_BAD_DATA;
+                }
+
+                frameCount = M;
+                for (dropus_uint16 iFrame = 0; iFrame < frameCount; ++iFrame) {
+                    frameSizes[frameSize];
+                }
+            } else {
+                /* VBR */
+                dropus_uint16 totalFrameSizeExceptLast = 0;   /* Used later for checking [R7]. */
+
+                frameCount = M;
+                for (dropus_uint16 iFrame = 0; iFrame < frameCount-1; ++iFrame) {
+                    dropus_uint8 byte0;
+                    dropus_uint8 byte1;
+
+                    if ((size_t)(pRunningData8 - (const dropus_uint8*)pData) < dataSize) {
+                        return DROPUS_BAD_DATA; /* Ran out of data in the packet. Implicitly handles part of [R7]. */
+                    }
+
+                    byte0 = pRunningData8[0]; pRunningData8 += 1;
+                    if (byte0 == 0) {
+                        frameSizes[iFrame] = 0;
+                    } else {
+                        if (byte0 >= 1 && byte0 <= 251) {
+                            frameSizes[iFrame] = byte0;
+                        }
+                        if (byte0 >= 252 && byte0 <= 255) {
+                            if ((size_t)(pRunningData8 - (const dropus_uint8*)pData) < dataSize) {
+                                return DROPUS_BAD_DATA; /* Ran out of data in the packet. Implicitly handles part of [R7]. */
+                            }
+
+                            byte1 = pRunningData8[0]; pRunningData8 += 1;
+                            frameSizes[iFrame] = (byte1*4) + byte0;
+
+                            /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
+                            if (frameSizes[iFrame] > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                                return DROPUS_BAD_DATA;
+                            }
+                        }
+                    }
+
+                    totalFrameSizeExceptLast += frameSizes[iFrame];
+                }
+
+                headerSizeInBytes = (dropus_uintptr)(pRunningData8 - (const dropus_uint8*)pData);
+
+                /*
+                RFC 6716 - Section 3.4 [R6]
+                    VBR code 3 packets are large enough to contain all the header
+                    bytes (TOC byte, frame count byte, any padding length bytes,
+                    and any frame length bytes), plus the length of the first M-1
+                    frames, plus any trailing padding bytes.
+                */
+                if ((headerSizeInBytes + totalFrameSizeExceptLast + P) > dataSize) {
+                    return DROPUS_BAD_DATA;
+                }
+
+                /* The size of the last frame is derived. */
+                frameSizes[frameCount-1] = (dropus_uint16)(dataSize - headerSizeInBytes - totalFrameSizeExceptLast - P); /* Safe cast thanks to the myriad of validation done beforehand. */
+
+                /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
+                if (frameSizes[frameCount-1] > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                    return DROPUS_BAD_DATA;
+                }
+            }
         } break;
+
+        /* Will never hit this, but need the default to keep some compilers quiet. */
+        default: return DROPUS_BAD_DATA;
     }
 
-    
-    /* TODO: Implement me. */
+    /* At this point, pRunningData8 should be sitting on the first byte of the first frame in the packet. */
+
+    /* TODO: Decoding. */
+
     return DROPUS_SUCCESS;
 }
 

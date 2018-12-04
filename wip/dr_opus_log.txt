@@ -36,7 +36,7 @@ Lets begin...
 
 
 2018/11/30 6:55 PM
-=================
+==================
 - Inserted skeleton code with licensing information. Dual licensed as Public Domain _or_ MIT, whichever you prefer. API
   is undecided as of yet.
 - Decided on supporting C89. Not yet decided on how the standard library will be used.
@@ -80,7 +80,7 @@ Lets begin...
 - INITIAL COMMIT
 
 2018/12/01 12:46 PM
-==================
+===================
 - Downloading all official test vectors in preparation for future testing.
 
 2018/12/01 03:58 PM
@@ -191,7 +191,7 @@ Test Vector Encapsulation Format
 - COMMIT
 
 2018/12/03 6:15 PM
-=================
+==================
 - The packet enumeration in the test program seems to work so far, but I'm still not 100% sure that my assumptions are
   correct. Adding more validation to dropus_stream_decode_packet() to increase my certainty. The next stage is to
   implement all of the main packet validation.
@@ -199,4 +199,12 @@ Test Vector Encapsulation Format
   dropus_stream_decode_packet() return an error in this case?
 - Code for validating packet codes 0, 1 and 2 are now in, however untested so far. Code 3 is a bit more complicated and
   right now I need to eat dinner...
+- COMMIT
+
+2018/12/03 6:40 PM
+==================
+- Code 3 CBR is done (no VBR yet). Still untested.
+- Code 3 VBR is done. Still untested.
+- Testing and debugging against the standard test vectors coming next.
+- Fixed a few compiler warnings.
 - COMMIT
