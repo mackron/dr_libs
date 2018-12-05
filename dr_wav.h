@@ -1820,9 +1820,9 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
     pWav->dataChunkDataSize   = dataChunkSize;
 
     // The number of bytes per sample is based on the bits per sample or the block align. We prioritize floor(bitsPerSample/8), but if
-    // this is zero we need to fall back to the block align.
+    // this is zero of the bits per sample is not a multiple of 8 we need to fall back to the block align.
     pWav->bytesPerSample = pWav->bitsPerSample/8;
-    if (pWav->bytesPerSample == 0 || pWav->bytesPerSample < fmt.blockAlign/fmt.channels) {
+    if (pWav->bytesPerSample == 0 || (pWav->bitsPerSample & 0x7) != 0 /*|| pWav->bytesPerSample < fmt.blockAlign/fmt.channels*/) {
         pWav->bytesPerSample = fmt.blockAlign/fmt.channels;
     }
 
