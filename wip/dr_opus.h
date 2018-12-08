@@ -1,5 +1,5 @@
 /*
-Opus audio decoder. Choice of public domain or MIT. See license statements at the end of this file.
+Opus audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
 dr_opus - v0.0.0 (Unreleased) - xxxx-xx-xx
 
 David Reid - mackron@gmail.com
@@ -1086,10 +1086,7 @@ this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
 of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+so.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
