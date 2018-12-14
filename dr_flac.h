@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.10.0 - 2018-09-11
+// dr_flac - v0.11.0 - 2018-12-xx
 //
 // David Reid - mackron@gmail.com
 
@@ -7957,6 +7957,17 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 
 // REVISION HISTORY
+//
+// v0.11.0 - 2018-12-xx
+//   - API CHANGE: Deprecated drflac_read_s32(), drflac_read_s16() and drflac_read_f32() and replaced them with 
+//     drflac_read_pcm_frames_s32(), drflac_read_pcm_frames_s16() and drflac_read_pcm_frames_f32(). The new APIs take
+//     and return PCM frame counts instead of sample counts. To upgrade you will need to change the input count by
+//     dividing it by the channel count, and then do the same with the return value.
+//   - API_CHANGE: Deprecated drflac_seek_to_sample() and replaced with drflac_seek_to_pcm_frame(). Same rules as
+//     the changes to drflac_read_*() apply.
+//   - API CHANGE: Deprecated drflac_open_and_decode_*() and replaced with drflac_open_*_and_read_*(). Same rules as
+//     the changes to drflac_read_*() apply.
+//   - Optimizations.
 //
 // v0.10.0 - 2018-09-11
 //   - Remove the DR_FLAC_NO_WIN32_IO option and the Win32 file IO functionality. If you need to use Win32 file IO you
