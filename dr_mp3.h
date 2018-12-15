@@ -3012,7 +3012,7 @@ drmp3_bool32 drmp3_find_closest_seek_point(drmp3* pMP3, drmp3_uint64 frameIndex,
     }
 
     // Linear search for simplicity to begin with while I'm getting this thing working. Once it's all working change this to a binary search.
-    for (size_t iSeekPoint = 0; iSeekPoint < pMP3->seekPointCount; ++iSeekPoint) {
+    for (drmp3_uint32 iSeekPoint = 0; iSeekPoint < pMP3->seekPointCount; ++iSeekPoint) {
         if (pMP3->pSeekPoints[iSeekPoint].pcmFrameIndex > frameIndex) {
             break;  // Found it.
         }
