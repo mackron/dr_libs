@@ -296,6 +296,8 @@ drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3);
 // pSeekpoint count is a pointer to a uint32 containing the seekpoint count. On input it contains the desired count.
 // On output it contains the actual count. The reason for this design is that the client may request too many
 // seekpoints, in which case dr_mp3 will return a corrected count.
+//
+// Note that seektable seeking is not quite sample exact when the MP3 stream contains inconsistent sample rates.
 drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pSeekPointCount, drmp3_seek_point* pSeekPoints);
 
 // Binds a seek table to the decoder.
@@ -303,7 +305,7 @@ drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pSeekPointCo
 // This does _not_ make a copy of pSeekPoints - it only references it. It is up to the application to ensure this
 // remains valid while it is bound to the decoder.
 //
-// Use 
+// Use drmp3_calculate_seek_points() to calculate the seek points.
 drmp3_bool32 drmp3_bind_seek_table(drmp3* pMP3, drmp3_uint32 seekPointCount, drmp3_seek_point* pSeekPoints);
 
 
@@ -2969,7 +2971,7 @@ drmp3_bool32 drmp3_seek_forward_by_pcm_frames__brute_force(drmp3* pMP3, drmp3_ui
         return DRMP3_FALSE;
     }
 #else
-    // Just using a dumb read-and-discard for now pending updates to 
+    // Just using a dumb read-and-discard for now pending updates to the resampler.
     drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(pMP3, frameOffset, NULL);
     if (framesRead != frameOffset) {
         return DRMP3_FALSE;
