@@ -1,5 +1,5 @@
 // WAV audio loader and writer. Public domain. See "unlicense" statement at the end of this file.
-// dr_wav - v0.9.0-dev - 2018-xx-xx
+// dr_wav - v0.9.0 - 2018-12-16
 //
 // David Reid - mackron@gmail.com
 
@@ -17,8 +17,8 @@
 //         // Error opening WAV file.
 //     }
 //
-//     drwav_int32* pDecodedInterleavedSamples = malloc(wav.totalSampleCount * sizeof(drwav_int32));
-//     size_t numberOfSamplesActuallyDecoded = drwav_read_s32(&wav, wav.totalSampleCount, pDecodedInterleavedSamples);
+//     drwav_int32* pDecodedInterleavedSamples = malloc(wav.totalPCMFrameCount * wav.channels * sizeof(drwav_int32));
+//     size_t numberOfSamplesActuallyDecoded = drwav_read_pcm_frames_s32(&wav, wav.totalPCMFrameCount, pDecodedInterleavedSamples);
 //
 //     ...
 //
@@ -39,8 +39,8 @@
 //
 //     unsigned int channels;
 //     unsigned int sampleRate;
-//     drwav_uint64 totalSampleCount;
-//     float* pSampleData = drwav_open_file_and_read_f32("my_song.wav", &channels, &sampleRate, &totalSampleCount);
+//     drwav_uint64 totalPCMFrameCount;
+//     float* pSampleData = drwav_open_file_and_read_pcm_frames_f32("my_song.wav", &channels, &sampleRate, &totalPCMFrameCount);
 //     if (pSampleData == NULL) {
 //         // Error opening and reading WAV file.
 //     }
@@ -52,7 +52,7 @@
 // The examples above use versions of the API that convert the audio data to a consistent format (32-bit signed PCM, in
 // this case), but you can still output the audio data in its internal format (see notes below for supported formats):
 //
-//     size_t samplesRead = drwav_read(&wav, wav.totalSampleCount, pDecodedInterleavedSamples);
+//     size_t samplesRead = drwav_read_pcm_frames(&wav, wav.totalSampleCount, pDecodedInterleavedSamples);
 //
 // You can also read the raw bytes of audio data, which could be useful if dr_wav does not have native support for
 // a particular data format:
@@ -60,13 +60,9 @@
 //     size_t bytesRead = drwav_read_raw(&wav, bytesToRead, pRawDataBuffer);
 //
 //
-// dr_wav has seamless support the Sony Wave64 format. The decoder will automatically detect it and it should Just Work
-// without any manual intervention.
-//
-//
 // dr_wav can also be used to output WAV files. This does not currently support compressed formats. To use this, look at
-// drwav_open_write(), drwav_open_file_write(), etc. Use drwav_write() to write samples, or drwav_write_raw() to write
-// raw data in the "data" chunk.
+// drwav_open_write(), drwav_open_file_write(), etc. Use drwav_write_pcm_frames() to write samples, or drwav_write_raw()
+// to write raw data in the "data" chunk.
 //
 //     drwav_data_format format;
 //     format.container = drwav_container_riff;     // <-- drwav_container_riff = normal WAV files, drwav_container_w64 = Sony Wave64.
@@ -78,8 +74,11 @@
 //
 //     ...
 //
-//     drwav_uint64 samplesWritten = drwav_write(pWav, sampleCount, pSamples);
+//     drwav_uint64 samplesWritten = drwav_write_pcm_frames(pWav, frameCount, pSamples);
 //
+//
+// dr_wav has seamless support the Sony Wave64 format. The decoder will automatically detect it and it should Just Work
+// without any manual intervention.
 //
 //
 // OPTIONS
@@ -368,6 +367,7 @@ typedef struct
     // The total number of samples making up the audio data. Use <totalSampleCount> * <bytesPerSample> to calculate
     // the required size of a buffer to hold the entire audio data.
     drwav_uint64 totalSampleCount;
+    drwav_uint64 totalPCMFrameCount;    // <-- Equal to totalSampleCount / channels.
 
 
     // The size in bytes of the data chunk.
@@ -1869,6 +1869,8 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
         pWav->totalSampleCount = ((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels);
     }
 #endif
+
+    pWav->totalPCMFrameCount = pWav->totalSampleCount / pWav->channels;
 
     return DRWAV_TRUE;
 }
@@ -4119,7 +4121,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 // REVISION HISTORY
 //
-// v0.9.0 - 2018-xx-xx
+// v0.9.0 - 2018-12-16
 //   - API CHANGE: Rename drwav_open_and_read_file_*() to drwav_open_file_and_read_*().
 //   - API CHANGE: Rename drwav_open_and_read_memory_*() to drwav_open_memory_and_read_*().
 //   - Add built-in support for smpl chunks.
