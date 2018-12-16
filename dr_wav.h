@@ -52,7 +52,7 @@
 // The examples above use versions of the API that convert the audio data to a consistent format (32-bit signed PCM, in
 // this case), but you can still output the audio data in its internal format (see notes below for supported formats):
 //
-//     size_t samplesRead = drwav_read_pcm_frames(&wav, wav.totalSampleCount, pDecodedInterleavedSamples);
+//     size_t samplesRead = drwav_read_pcm_frames(&wav, wav.totalPCMFrameCount, pDecodedInterleavedSamples);
 //
 // You can also read the raw bytes of audio data, which could be useful if dr_wav does not have native support for
 // a particular data format:
@@ -364,10 +364,8 @@ typedef struct
     // Equal to fmt.formatTag, or the value specified by fmt.subFormat if fmt.formatTag is equal to 65534 (WAVE_FORMAT_EXTENSIBLE).
     drwav_uint16 translatedFormatTag;
 
-    // The total number of samples making up the audio data. Use <totalSampleCount> * <bytesPerSample> to calculate
-    // the required size of a buffer to hold the entire audio data.
-    drwav_uint64 totalSampleCount;
-    drwav_uint64 totalPCMFrameCount;    // <-- Equal to totalSampleCount / channels.
+    // The total number of PCM frames making up the audio data.
+    drwav_uint64 totalPCMFrameCount;
 
 
     // The size in bytes of the data chunk.
@@ -422,6 +420,9 @@ typedef struct
         drwav_int32  cachedSamples[16]; // Samples are stored in this cache during decoding.
         drwav_uint32 cachedSampleCount;
     } ima;
+
+
+    drwav_uint64 totalSampleCount;  // <-- DEPRECATED. Will be removed in a future version.
 } drwav;
 
 
@@ -1822,7 +1823,7 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
     // The number of bytes per sample is based on the bits per sample or the block align. We prioritize floor(bitsPerSample/8), but if
     // this is zero of the bits per sample is not a multiple of 8 we need to fall back to the block align.
     pWav->bytesPerSample = pWav->bitsPerSample/8;
-    if (pWav->bytesPerSample == 0 || (pWav->bitsPerSample & 0x7) != 0 /*|| pWav->bytesPerSample < fmt.blockAlign/fmt.channels*/) {
+    if (pWav->bytesPerSample == 0 || (pWav->bitsPerSample & 0x7) != 0) {
         pWav->bytesPerSample = fmt.blockAlign/fmt.channels;
     }
 
@@ -4124,6 +4125,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 // v0.9.0 - 2018-12-16
 //   - API CHANGE: Rename drwav_open_and_read_file_*() to drwav_open_file_and_read_*().
 //   - API CHANGE: Rename drwav_open_and_read_memory_*() to drwav_open_memory_and_read_*().
+//   - API CHANGE: Deprecate totalSampleCount. Replaced with totalPCMFrameCount.
 //   - Add built-in support for smpl chunks.
 //   - Add support for firing a callback for each chunk in the file at initialization time.
 //     - This is enabled through the drwav_init_ex(), etc. family of APIs.
