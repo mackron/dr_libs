@@ -1879,17 +1879,17 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
     pWav->dataChunkDataSize   = dataChunkSize;
 
     if (sampleCountFromFactChunk != 0) {
-        pWav->totalSampleCount = sampleCountFromFactChunk * fmt.channels;
+        pWav->totalPCMFrameCount = sampleCountFromFactChunk;
     } else {
-        pWav->totalSampleCount = dataChunkSize / drwav_get_bytes_per_sample(pWav);
+        pWav->totalPCMFrameCount = dataChunkSize / drwav_get_bytes_per_pcm_frame(pWav);
 
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
             drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
-            pWav->totalSampleCount = ((blockCount * (fmt.blockAlign - (6*pWav->channels))) * 2);  // x2 because two samples per byte.
+            pWav->totalPCMFrameCount = (((blockCount * (fmt.blockAlign - (6*pWav->channels))) * 2)) / fmt.channels;  // x2 because two samples per byte.
         }
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
             drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
-            pWav->totalSampleCount = ((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels);
+            pWav->totalPCMFrameCount = (((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels)) / fmt.channels;
         }
     }
 
@@ -1909,15 +1909,15 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
     // correctness tests against libsndfile, and is disabled by default.
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
         drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
-        pWav->totalSampleCount = ((blockCount * (fmt.blockAlign - (6*pWav->channels))) * 2);  // x2 because two samples per byte.
+        pWav->totalPCMFrameCount = (((blockCount * (fmt.blockAlign - (6*pWav->channels))) * 2)) / fmt.channels;  // x2 because two samples per byte.
     }
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
         drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
-        pWav->totalSampleCount = ((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels);
+        pWav->totalPCMFrameCount = (((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels)) / fmt.channels;
     }
 #endif
 
-    pWav->totalPCMFrameCount = pWav->totalSampleCount / pWav->channels;
+    pWav->totalSampleCount = pWav->totalPCMFrameCount * pWav->channels;
 
     return DRWAV_TRUE;
 }
