@@ -3,6 +3,41 @@
 //
 // David Reid - mackron@gmail.com
 
+/*
+DEPRECATED APIS
+===============
+Version 0.9.0 deprecated the old per-sample reading and seeking APIs and replaced them with versions that work on the
+resolution of a PCM frame instead. For example, given a stereo WAV file, previously you would pass 2 to drwav_read_f32() to
+read one PCM frame, whereas now you would pass in 1 to drwav_read_pcm_frames_f32(). The old APIs would return the number of
+samples read, whereas now it will return the number of PCM frames. Below is a list of APIs that have been deprecated and
+their replacements.
+
+    drwav_read()                     -> drwav_read_pcm_frames()
+    drwav_read_s16()                 -> drwav_read_pcm_frames_s16()
+    drwav_read_f32()                 -> drwav_read_pcm_frames_f32()
+    drwav_read_s32()                 -> drwav_read_pcm_frames_s32()
+    drwav_seek_to_sample()           -> drwav_seek_to_pcm_frame()
+    drwav_write()                    -> drwav_write_pcm_frames()
+    drwav_open_and_read_s16()        -> drwav_open_and_read_pcm_frames_s16()
+    drwav_open_and_read_f32()        -> drwav_open_and_read_pcm_frames_f32()
+    drwav_open_and_read_s32()        -> drwav_open_and_read_pcm_frames_s32()
+    drwav_open_file_and_read_s16()   -> drwav_open_file_and_read_pcm_frames_s16()
+    drwav_open_file_and_read_f32()   -> drwav_open_file_and_read_pcm_frames_f32()
+    drwav_open_file_and_read_s32()   -> drwav_open_file_and_read_pcm_frames_s32()
+    drwav_open_memory_and_read_s16() -> drwav_open_memory_and_read_pcm_frames_s16()
+    drwav_open_memory_and_read_f32() -> drwav_open_memory_and_read_pcm_frames_f32()
+    drwav_open_memory_and_read_s32() -> drwav_open_memory_and_read_pcm_frames_s32()
+    drwav::totalSampleCount          -> drwav::totalPCMFrameCount
+
+Rationale:
+    1) Most programs will want to read in multiples of the channel count which demands a per-frame reading API. Per-sample
+       reading just adds complexity and maintenance costs for no practical benefit.
+    2) This is consistent with my other decoders - dr_flac and dr_mp3.
+
+These APIs will be removed completely in version 0.10.0. You can continue to use drwav_read_raw() if you need per-sample
+reading.
+*/
+
 // USAGE
 //
 // This is a single-file library. To use it, do something like the following in one .c file.
