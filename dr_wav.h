@@ -582,23 +582,16 @@ size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut);
 // This is typically the most efficient way to retrieve audio data, but it does not do any format
 // conversions which means you'll need to convert the data manually if required.
 //
-// If the return value is less than <samplesToRead> it means the end of the file has been reached or
+// If the return value is less than <framesToRead> it means the end of the file has been reached or
 // you have requested more samples than can possibly fit in the output buffer.
 //
 // This function will only work when sample data is of a fixed size and uncompressed. If you are
-// using a compressed format consider using drwav_read_raw() or drwav_read_s16/s32/f32/etc().
-drwav_uint64 drwav_read(drwav* pWav, drwav_uint64 samplesToRead, void* pBufferOut);
-
-// Same as drwav_read(), except works on PCM frames instead of samples. Returns the number of PCM
-// freames read.
+// using a compressed format consider using drwav_read_raw() or drwav_read_pcm_frames_s16/s32/f32/etc().
 drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut);
 
-// Seeks to the given sample.
+// Seeks to the given PCM frame.
 //
 // Returns true if successful; false otherwise.
-drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample);
-
-// Same as drwav_seek_to_sample() except workd on PCM frames.
 drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex);
 
 
@@ -607,12 +600,9 @@ drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
 // Returns the number of bytes actually written. If this differs from bytesToWrite, it indicates an error.
 size_t drwav_write_raw(drwav* pWav, size_t bytesToWrite, const void* pData);
 
-// Writes audio data based on sample counts.
+// Writes PCM frames.
 //
-// Returns the number of samples written.
-drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* pData);
-
-// Same as drwav_write(), but works on PCM frames instead of samples. Returns the number of PCM frames written.
+// Returns the number of PCM frames written.
 drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData);
 
 
@@ -621,12 +611,9 @@ drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, con
 
 // Reads a chunk of audio data and converts it to signed 16-bit PCM samples.
 //
-// Returns the number of samples actually read.
+// Returns the number of PCM frames actually read.
 //
-// If the return value is less than <samplesToRead> it means the end of the file has been reached.
-drwav_uint64 drwav_read_s16(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
-
-// Same as drwav_read_s16(), except works on PCM frames instead of samples.
+// If the return value is less than <framesToRead> it means the end of the file has been reached.
 drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut);
 
 // Low-level function for converting unsigned 8-bit PCM samples to signed 16-bit PCM samples.
@@ -651,14 +638,12 @@ void drwav_alaw_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleC
 void drwav_mulaw_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCount);
 
 
+
 // Reads a chunk of audio data and converts it to IEEE 32-bit floating point samples.
 //
-// Returns the number of samples actually read.
+// Returns the number of PCM frames actually read.
 //
-// If the return value is less than <samplesToRead> it means the end of the file has been reached.
-drwav_uint64 drwav_read_f32(drwav* pWav, drwav_uint64 samplesToRead, float* pBufferOut);
-
-// Same as drwav_read_f32(), except works on PCM frames instead of samples.
+// If the return value is less than <framesToRead> it means the end of the file has been reached.
 drwav_uint64 drwav_read_pcm_frames_f32(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut);
 
 // Low-level function for converting unsigned 8-bit PCM samples to IEEE 32-bit floating point samples.
@@ -683,14 +668,12 @@ void drwav_alaw_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount);
 void drwav_mulaw_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount);
 
 
+
 // Reads a chunk of audio data and converts it to signed 32-bit PCM samples.
 //
-// Returns the number of samples actually read.
+// Returns the number of PCM frames actually read.
 //
-// If the return value is less than <samplesToRead> it means the end of the file has been reached.
-drwav_uint64 drwav_read_s32(drwav* pWav, drwav_uint64 samplesToRead, drwav_int32* pBufferOut);
-
-// Same as drwav_read_s32(), except works on PCM frames instead of samples.
+// If the return value is less than <framesToRead> it means the end of the file has been reached.
 drwav_uint64 drwav_read_pcm_frames_s32(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut);
 
 // Low-level function for converting unsigned 8-bit PCM samples to signed 32-bit PCM samples.
@@ -794,33 +777,48 @@ drwav* drwav_open_memory_write_sequential(void** ppData, size_t* pDataSize, cons
 
 #ifndef DR_WAV_NO_CONVERSION_API
 // Opens and reads a wav file in a single operation.
-drwav_int16* drwav_open_and_read_s16(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 drwav_int16* drwav_open_and_read_pcm_frames_s16(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
-float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 float* drwav_open_and_read_pcm_frames_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
-drwav_int32* drwav_open_and_read_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 drwav_int32* drwav_open_and_read_pcm_frames_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
 #ifndef DR_WAV_NO_STDIO
 // Opens and decodes a wav file in a single operation.
-drwav_int16* drwav_open_file_and_read_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 drwav_int16* drwav_open_file_and_read_pcm_frames_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
-float* drwav_open_file_and_read_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 float* drwav_open_file_and_read_pcm_frames_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
-drwav_int32* drwav_open_file_and_read_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 drwav_int32* drwav_open_file_and_read_pcm_frames_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
 #endif
 
 // Opens and decodes a wav file from a block of memory in a single operation.
-drwav_int16* drwav_open_memory_and_read_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 drwav_int16* drwav_open_memory_and_read_pcm_frames_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
-float* drwav_open_memory_and_read_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 float* drwav_open_memory_and_read_pcm_frames_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
-drwav_int32* drwav_open_memory_and_read_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
 drwav_int32* drwav_open_memory_and_read_pcm_frames_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
 #endif
 
 // Frees data that was allocated internally by dr_wav.
 void drwav_free(void* pDataReturnedByOpenAndRead);
+
+
+// DEPRECATED APIS
+// ===============
+drwav_uint64 drwav_read(drwav* pWav, drwav_uint64 samplesToRead, void* pBufferOut);
+drwav_uint64 drwav_read_s16(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
+drwav_uint64 drwav_read_f32(drwav* pWav, drwav_uint64 samplesToRead, float* pBufferOut);
+drwav_uint64 drwav_read_s32(drwav* pWav, drwav_uint64 samplesToRead, drwav_int32* pBufferOut);
+drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample);
+drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* pData);
+#ifndef DR_WAV_NO_CONVERSION_API
+drwav_int16* drwav_open_and_read_s16(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
+float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
+drwav_int32* drwav_open_and_read_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
+#ifndef DR_WAV_NO_STDIO
+drwav_int16* drwav_open_memory_and_read_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
+float* drwav_open_file_and_read_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
+drwav_int32* drwav_open_file_and_read_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
+#endif
+drwav_int16* drwav_open_memory_and_read_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
+float* drwav_open_memory_and_read_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
+drwav_int32* drwav_open_memory_and_read_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
+#endif
+
 
 #ifdef __cplusplus
 }
@@ -4211,13 +4209,29 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 // REVISION HISTORY
 //
 // v0.9.0 - 2018-12-16
+//   - API CHANGE: Add new reading APIs for reading by PCM frames instead of samples. Old APIs have been deprecated and
+//     will be removed in v0.10.0. Deprecated APIs and their replacements:
+//       drwav_read()                     -> drwav_read_pcm_frames()
+//       drwav_read_s16()                 -> drwav_read_pcm_frames_s16()
+//       drwav_read_f32()                 -> drwav_read_pcm_frames_f32()
+//       drwav_read_s32()                 -> drwav_read_pcm_frames_s32()
+//       drwav_seek_to_sample()           -> drwav_seek_to_pcm_frame()
+//       drwav_write()                    -> drwav_write_pcm_frames()
+//       drwav_open_and_read_s16()        -> drwav_open_and_read_pcm_frames_s16()
+//       drwav_open_and_read_f32()        -> drwav_open_and_read_pcm_frames_f32()
+//       drwav_open_and_read_s32()        -> drwav_open_and_read_pcm_frames_s32()
+//       drwav_open_file_and_read_s16()   -> drwav_open_file_and_read_pcm_frames_s16()
+//       drwav_open_file_and_read_f32()   -> drwav_open_file_and_read_pcm_frames_f32()
+//       drwav_open_file_and_read_s32()   -> drwav_open_file_and_read_pcm_frames_s32()
+//       drwav_open_memory_and_read_s16() -> drwav_open_memory_and_read_pcm_frames_s16()
+//       drwav_open_memory_and_read_f32() -> drwav_open_memory_and_read_pcm_frames_f32()
+//       drwav_open_memory_and_read_s32() -> drwav_open_memory_and_read_pcm_frames_s32()
+//       drwav::totalSampleCount          -> drwav::totalPCMFrameCount
 //   - API CHANGE: Rename drwav_open_and_read_file_*() to drwav_open_file_and_read_*().
 //   - API CHANGE: Rename drwav_open_and_read_memory_*() to drwav_open_memory_and_read_*().
-//   - API CHANGE: Deprecate totalSampleCount. Replaced with totalPCMFrameCount.
 //   - Add built-in support for smpl chunks.
 //   - Add support for firing a callback for each chunk in the file at initialization time.
 //     - This is enabled through the drwav_init_ex(), etc. family of APIs.
-//   - Add new reading APIs for reading by PCM frames instead of samples.
 //   - Handle invalid FMT chunks more robustly.
 //
 // v0.8.5 - 2018-09-11
