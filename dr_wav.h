@@ -6,11 +6,11 @@
 /*
 DEPRECATED APIS
 ===============
-Version 0.9.0 deprecated the old per-sample reading and seeking APIs and replaced them with versions that work on the
-resolution of a PCM frame instead. For example, given a stereo WAV file, previously you would pass 2 to drwav_read_f32() to
-read one PCM frame, whereas now you would pass in 1 to drwav_read_pcm_frames_f32(). The old APIs would return the number of
-samples read, whereas now it will return the number of PCM frames. Below is a list of APIs that have been deprecated and
-their replacements.
+Version 0.9.0 deprecated the per-sample reading and seeking APIs and replaced them with versions that work on the resolution
+of a PCM frame instead. For example, given a stereo WAV file, previously you would pass 2 to drwav_read_f32() to read one
+PCM frame, whereas now you would pass in 1 to drwav_read_pcm_frames_f32(). The old APIs would return the number of samples
+read, whereas now it will return the number of PCM frames. Below is a list of APIs that have been deprecated and their
+replacements.
 
     drwav_read()                     -> drwav_read_pcm_frames()
     drwav_read_s16()                 -> drwav_read_pcm_frames_s16()
@@ -120,7 +120,7 @@ reading.
 // #define these options before including this file.
 //
 // #define DR_WAV_NO_CONVERSION_API
-//   Disables conversion APIs such as drwav_read_f32() and drwav_s16_to_f32().
+//   Disables conversion APIs such as drwav_read_pcm_frames_f32() and drwav_s16_to_f32().
 //
 // #define DR_WAV_NO_STDIO
 //   Disables drwav_open_file(), drwav_open_file_write(), etc.
@@ -129,9 +129,9 @@ reading.
 //
 // QUICK NOTES
 // - Samples are always interleaved.
-// - The default read function does not do any data conversion. Use drwav_read_f32() to read and convert audio data
-//   to IEEE 32-bit floating point samples, drwav_read_s32() to read samples as signed 32-bit PCM and drwav_read_s16()
-//   to read samples as signed 16-bit PCM. Tested and supported internal formats include the following:
+// - The default read function does not do any data conversion. Use drwav_read_pcm_frames_f32(), drwav_read_pcm_frames_s32()
+//   and drwav_read_pcm_frames_s16() to read and convert audio data to 32-bit floating point, signed 32-bit integer and
+//   signed 16-bit integer samples respectively. Tested and supported internal formats include the following:
 //   - Unsigned 8-bit PCM
 //   - Signed 12-bit PCM
 //   - Signed 16-bit PCM
@@ -484,7 +484,7 @@ typedef struct
 //
 // drwav_init() is equivalent to "drwav_init_ex(pWav, onRead, onSeek, NULL, pUserData, NULL, 0);".
 //
-// The onChunk is callback is not called for the WAVE or FMT chunks. The contents of the FMT chunk can be read from pWav->fmt
+// The onChunk callback is not called for the WAVE or FMT chunks. The contents of the FMT chunk can be read from pWav->fmt
 // after the function returns.
 //
 // See also: drwav_init_file(), drwav_init_memory(), drwav_uninit()
@@ -571,8 +571,8 @@ void drwav_close(drwav* pWav);
 // This is the lowest level function for reading audio data. It simply reads the given number of
 // bytes of the raw internal sample data.
 //
-// Consider using drwav_read_s16(), drwav_read_s32() or drwav_read_f32() for reading sample data in
-// a consistent format.
+// Consider using drwav_read_pcm_frames_s16(), drwav_read_pcm_frames_s32() or drwav_read_pcm_frames_f32() for
+// reading sample data in a consistent format.
 //
 // Returns the number of bytes actually read.
 size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut);
