@@ -66,7 +66,7 @@ Lets begin...
 - Added some infrastructure for future APIs: dropus_init_file() and dropus_init_memory()
   - In dr_flac, dr_wav and dr_mp3, a mistake was made with how the internal file handle is managed by the decoder. In
     these libraries the pUserData member of the decoder structure is recycled to hold the FILE pointer. dr_opus is
-    changing this to be it's own memory the main decoder structure.
+    changing this to be it's own member of the main decoder structure.
   - The internal members for use with dropus_init_memory() use the same system as dr_mp3. See drmp3.memory.
 - Added dropus_init_file()
   - All init() APIs call dropus_init_internal() which is where the main initialization work is done.
