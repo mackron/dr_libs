@@ -1077,7 +1077,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 
 ===============================================================================
-ALTERNATIVE 2 - MIT
+ALTERNATIVE 2 - MIT No Attribution
 ===============================================================================
 Copyright 2018 David Reid
 
