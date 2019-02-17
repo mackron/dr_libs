@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.11.0 - 2018-12-16
+// dr_flac - v0.11.1 - 2018-02-17
 //
 // David Reid - mackron@gmail.com
 
@@ -4290,7 +4290,7 @@ static void drflac__get_current_frame_sample_range(drflac* pFlac, drflac_uint64*
 
     unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFrame.header.channelAssignment);
 
-    drflac_uint64 firstSampleInFrame = pFlac->currentFrame.header.sampleNumber;
+    drflac_uint64 firstSampleInFrame = pFlac->currentFrame.header.sampleNumber*channelCount;
     if (firstSampleInFrame == 0) {
         firstSampleInFrame = pFlac->currentFrame.header.frameNumber * pFlac->maxBlockSize*channelCount;
     }
@@ -7957,6 +7957,9 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 
 // REVISION HISTORY
+//
+// v0.11.1 - 2018-02-17
+//   - Fix a potential bug with seeking.
 //
 // v0.11.0 - 2018-12-16
 //   - API CHANGE: Deprecated drflac_read_s32(), drflac_read_s16() and drflac_read_f32() and replaced them with 
