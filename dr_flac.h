@@ -4304,6 +4304,28 @@ static void drflac__get_current_frame_sample_range(drflac* pFlac, drflac_uint64*
     if (pLastSampleInFrameOut) *pLastSampleInFrameOut = lastSampleInFrame;
 }
 
+static void drflac__get_pcm_frame_range_of_current_flac_frame(drflac* pFlac, drflac_uint64* pFirstPCMFrame, drflac_uint64* pLastPCMFrame)
+{
+    drflac_assert(pFlac != NULL);
+
+    drflac_uint64 firstPCMFrame = pFlac->currentFrame.header.sampleNumber;
+    if (firstPCMFrame == 0) {
+        firstPCMFrame = pFlac->currentFrame.header.frameNumber * pFlac->maxBlockSize;
+    }
+
+    drflac_uint64 lastPCMFrame = firstPCMFrame + (pFlac->currentFrame.header.blockSize);
+    if (lastPCMFrame > 0) {
+        lastPCMFrame -= 1; // Needs to be zero based.
+    }
+
+    if (pFirstPCMFrame) {
+        *pFirstPCMFrame = firstPCMFrame;
+    }
+    if (pLastPCMFrame) {
+        *pLastPCMFrame = lastPCMFrame;
+    }
+}
+
 static drflac_bool32 drflac__seek_to_first_frame(drflac* pFlac)
 {
     drflac_assert(pFlac != NULL);
