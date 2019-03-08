@@ -15,7 +15,6 @@ Library                                         | Description
 Below are some of my other libraries you may be interested in. These are all located in their
 own repositories just for ease of maintenance.
 
-Library                                         | Description
------------------------------------------------ | -----------
-[mini_al](https://github.com/dr-soft/mini_al)   | A public domain, single file library for audio playback and recording.
-[Mintaro](https://github.com/dr-soft/mintaro)   | A small framework for making simple games. Public domain, single file.
+Library                                           | Description
+------------------------------------------------- | -----------
+[miniaudio](https://github.com/dr-soft/miniaudio) | A public domain, single file library for audio playback and recording.
