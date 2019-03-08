@@ -4,6 +4,19 @@
 #include "../../wip/dr_opus.h"
 #include "../common/dr_common.c"
 
+const char* dropus_mode_to_string(dropus_mode mode) /* Move this into dr_opus.h? */
+{
+    switch (mode)
+    {
+        case dropus_mode_silk:   return "SILK";
+        case dropus_mode_celt:   return "CELT";
+        case dropus_mode_hybrid: return "Hybrid";
+        default: break;
+    }
+
+    return "Unknown";
+}
+
 #include <stdio.h>
 
 /* Forward declare our debugging entry point if necessary. */
@@ -65,10 +78,12 @@ dropus_result test_standard_vector(const char* pFilePath)
         }
 
         decodeResult = dropus_stream_decode_packet(&stream, pRunningData8, packetSize);
-        if (result != DROPUS_SUCCESS) {
+        if (decodeResult != DROPUS_SUCCESS) {
             result = DROPUS_ERROR;
             printf("Failed to decode packet %d\n", iPacket);
         }
+
+        printf("Opus Packet %d: Mode=%s\n", iPacket, dropus_mode_to_string(dropus_toc_mode(stream.packet.toc)));
 
         pRunningData8 += packetSize;
         runningPos    += packetSize;

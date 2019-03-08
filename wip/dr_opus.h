@@ -450,7 +450,7 @@ static DROPUS_INLINE dropus_uint32 dropus__le2host_32(dropus_uint32 n)
 Low-Level Opus Stream API
 
 ************************************************************************************************************************************************************/
-#define DROPUS_MAX_FRAME_SIZE_IN_BYTES  1275
+#define DROPUS_MAX_FRAME_SIZE_IN_BYTES  1275    /* RFC 6716 - Section 3.4 [R2] */
 #define DROPUS_MAX_PACKET_SIZE_IN_BYTES DROPUS_MAX_FRAME_SIZE_IN_BYTES*DROPUS_MAX_OPUS_FRAMES_PER_PACKET
 
 
@@ -550,6 +550,32 @@ DROPUS_INLINE dropus_uint32 dropus_toc_frame_size_in_pcm_frames(dropus_uint8 toc
 }
 
 
+typedef struct
+{
+    const dropus_uint8* pData;
+    dropus_uint16 dataSize;
+    dropus_uint8  b0;
+    dropus_uint32 rng;      /* RFC 6716 - Section 4.1 - Both val and rng are 32-bit unsigned integer values. */
+    dropus_uint32 val;      /* ^^^ */
+} dropus_range_decoder;
+
+DROPUS_INLINE void dropus_range_decoder_init(const dropus_uint8* pData, dropus_uint16 dataSize, dropus_range_decoder* pRangeDecoder)
+{
+    DROPUS_ASSERT(pRangeDecoder != NULL);
+
+    pRangeDecoder->pData    = pData;
+    pRangeDecoder->dataSize = dataSize;
+
+    pRangeDecoder->b0 = 0;                                  /* RFC 6716 - Section 4.1.1 - Let b0 be an 8-bit unsigned integer containing first input byte (or containing zero if there are no bytes in this Opus frame). */
+    if (dataSize > 0) {
+        pRangeDecoder->b0 = pData[0];
+    }
+
+    pRangeDecoder->rng = 128;                               /* RFC 6716 - Section 4.1.1 - The decoder initializes rng to 128 ... */
+    pRangeDecoder->val = 127 - (pRangeDecoder->b0 >> 1);    /*                            ... and initializes val to (127 - (b0>>1)) ...*/
+}
+
+
 dropus_result dropus_stream_init(dropus_stream* pOpusStream)
 {
     if (pOpusStream == NULL) {
@@ -557,6 +583,24 @@ dropus_result dropus_stream_init(dropus_stream* pOpusStream)
     }
 
     DROPUS_ZERO_OBJECT(pOpusStream);
+
+    return DROPUS_SUCCESS;
+}
+
+dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stream_frame* pOpusFrame, const dropus_uint8* pData, size_t dataSize)
+{
+    dropus_range_decoder rd;
+
+    DROPUS_ASSERT(pOpusStream != NULL);
+    DROPUS_ASSERT(pOpusFrame  != NULL);
+    DROPUS_ASSERT(dataSize    <= DROPUS_MAX_FRAME_SIZE_IN_BYTES);
+
+    pOpusFrame->sizeInBytes = (dropus_uint16)dataSize;  /* Safe cast because dataSize <= DROPUS_MAX_FRAME_SIZE_IN_BYTES <= 1275. */
+
+    /* Everything is fed through the range decoder. */
+    dropus_range_decoder_init(pData, pOpusFrame->sizeInBytes, &rd);
+
+
 
     return DROPUS_SUCCESS;
 }
@@ -611,7 +655,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
             dropus_uint16 frameSize;
 
             /* RFC 6716 - Section 3.4 [R3] Code 1 packets have an odd total length, N, so that (N-1)/2 is an integer. */
-            if ((dataSize & 1) != 0) {
+            if ((dataSize & 1) == 0) {
                 return DROPUS_BAD_DATA;
             }
 
@@ -674,7 +718,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                 }
 
                 /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
-                if (((dataSize-headerByteCount)+frameSize0) > dataSize) {
+                if ((dataSize-headerByteCount) > dataSize) {
                     return DROPUS_BAD_DATA;
                 }
 
@@ -686,7 +730,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                 }
 
                 /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
-                if (((dataSize-headerByteCount)+frameSize0+frameSize1) > dataSize) {
+                if ((size_t)(headerByteCount+frameSize0+frameSize1) > dataSize) {
                     return DROPUS_BAD_DATA;
                 }
             }
@@ -770,19 +814,19 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                 }
 
                 /* RFC 6716 - Section 3.4 [R6] ... */
-                if (dataSize < 2) {                     /* ... The length of a CBR code 3 packet, N, is at least two bytes ... */
+                if (dataSize < 2) {                                     /* ... The length of a CBR code 3 packet, N, is at least two bytes ... */
                     return DROPUS_BAD_DATA;
                 }
-                if (paddingByteCount+P > dataSize-2) {  /* ... the number of bytes added to indicate the padding size plus the trailing padding bytes themselves, P, is no more than N-2 ... */
+                if (paddingByteCount+P > dataSize-2) {                  /* ... the number of bytes added to indicate the padding size plus the trailing padding bytes themselves, P, is no more than N-2 ... */
                     return DROPUS_BAD_DATA;
                 }
-                if (frameSize*M != (dataSize-2-P)) {    /* ... the frame count, M, satisfies the constraint that (N-2-P) is a non-negative integer multiple of M ... */
+                if (frameSize*M != (dropus_uint16)(dataSize-2-P)) {     /* ... the frame count, M, satisfies the constraint that (N-2-P) is a non-negative integer multiple of M ... */
                     return DROPUS_BAD_DATA;
                 }
 
                 frameCount = M;
                 for (dropus_uint16 iFrame = 0; iFrame < frameCount; ++iFrame) {
-                    frameSizes[frameSize];
+                    frameSizes[iFrame] = frameSize;
                 }
             } else {
                 /* VBR */
@@ -794,7 +838,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                     dropus_uint8 byte0;
                     dropus_uint8 byte1;
 
-                    if ((dropus_uintptr)(pRunningData8 - (const dropus_uint8*)pData) < dataSize) {
+                    if (pRunningData8 >= ((const dropus_uint8*)pData) + dataSize) {
                         return DROPUS_BAD_DATA; /* Ran out of data in the packet. Implicitly handles part of [R7]. */
                     }
 
@@ -806,7 +850,7 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
                             frameSizes[iFrame] = byte0;
                         }
                         if (byte0 >= 252 && byte0 <= 255) {
-                            if ((dropus_uintptr)(pRunningData8 - (const dropus_uint8*)pData) < dataSize) {
+                            if (pRunningData8 >= ((const dropus_uint8*)pData) + dataSize) {
                                 return DROPUS_BAD_DATA; /* Ran out of data in the packet. Implicitly handles part of [R7]. */
                             }
 
@@ -850,9 +894,24 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
         default: return DROPUS_BAD_DATA;
     }
 
+    pOpusStream->packet.toc = toc;
+
     /* At this point, pRunningData8 should be sitting on the first byte of the first frame in the packet. */
 
-    /* TODO: Decoding. */
+    /* Decoding. */
+    {
+        dropus_result result;
+        dropus_uint16 iFrame;
+
+        for (iFrame = 0; iFrame < frameCount; ++iFrame) {
+            result = dropus_stream_decode_frame(pOpusStream, &pOpusStream->packet.frames[iFrame], pRunningData8, frameSizes[iFrame]);
+            if (result != DROPUS_SUCCESS) {
+                return result;  /* Probably a corrupt frame. */
+            }
+
+            pRunningData8 += frameSizes[iFrame];
+        }
+    }
 
     return DROPUS_SUCCESS;
 }
@@ -1079,7 +1138,7 @@ For more information, please refer to <http://unlicense.org/>
 ===============================================================================
 ALTERNATIVE 2 - MIT No Attribution
 ===============================================================================
-Copyright 2018 David Reid
+Copyright 2019 David Reid
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in

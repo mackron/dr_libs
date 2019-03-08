@@ -208,3 +208,35 @@ Test Vector Encapsulation Format
 - Testing and debugging against the standard test vectors coming next.
 - Fixed a few compiler warnings.
 - COMMIT
+
+2019/03/08 6:28 PM
+==================
+- Starting on range decoding. From figure 4 in RFC 6716 the diagram shows that both the SILK and CELT decoders draw
+  their data from the Range Decoder. Therefore the Range Decoder needs to be figured out before SILK and CELT decoding.
+  I have no prior knowledge on range coding, so hopefully RFC 6716 has enough information for a complete enough
+  implementation for purpose of Opus decoding.
+- Section 4.1.1 of RGC 6716 is how to initialize the decoder. It references a variable called "rng", but doesn't
+  specificy it's possible ranges. Setting to a 32-bit unsigned integer for now.
+  - In this section, it says "or containing zero if there are no bytes in this Opus frame". I'm assuming we do this
+    by looping over each frame in order...
+  - Just noticed that the end of section 4.1.1 says "rng > 2**23". So "rng" needs to be 32-bits.
+- And now I've just noticed that section 4.1 explicitly says the following: "Both val and rng are 32-bit unsigned integer
+  values." Problem solved.
+- Having read over the range coding stuff in RFC 6716 I had some difficulty figuring out where symbols frequencies are
+  being stored. They're not stored, but rather specified in the specification in a per-context basis. In the spec there
+  are references to "PDFs" which is like this "{f[0], f[1]}/ft". Example: "{1, 1}/2". Simple, now that I've finally
+  figured it out...
+- I can therefore not do the range decoder independant of some higher level context. I will start with the SILK decoder
+  since that's the next section...
+  
+2019/03/09 6:52 PM
+==================
+- I think I'm getting a feel for the requirements for the range decoding API. I've decided for now to use a structure
+  for this called dropus_range_decoder.
+- dropus_range_decoder_init() implemented based on section 4.1.1.
+- Added stub for dropus_stream_decode_frame(). I think the idea is that we iterate over each frame in the packet and
+  decode them in order? Not fully sure yet how frame transitions will work, so may need to rethink this.
+- I'm still not sure if the range decoder is supposed to be initialized once per frame or once per packet...
+- After more testing it turns out my test program wasn't reporting errors properly. *Sigh*. These bugs were originating
+  from the packet decoding section.
+- COMMIT
