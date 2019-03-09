@@ -160,6 +160,11 @@ int main(int argc, char** argv)
 #ifdef DR_OPUS_DEBUGGING
     main_debugging(argc, argv);
 #endif
+
+    result = test_standard_vector("testvectors/opus/opus_testvectors/testvector02.bit");
+    if (result != DROPUS_SUCCESS) {
+        /*return (int)result;*/
+    }
     
     /* Test standard vectors first. */
     result = test_standard_vectors();

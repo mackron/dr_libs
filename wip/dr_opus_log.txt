@@ -229,7 +229,7 @@ Test Vector Encapsulation Format
 - I can therefore not do the range decoder independant of some higher level context. I will start with the SILK decoder
   since that's the next section...
   
-2019/03/09 6:52 PM
+2019/03/09 6:52 AM
 ==================
 - I think I'm getting a feel for the requirements for the range decoding API. I've decided for now to use a structure
   for this called dropus_range_decoder.
@@ -248,4 +248,18 @@ Test Vector Encapsulation Format
 - I think at this point we have the foundations done for the range decoder. Still more to do for CELT, but I think I
   now have enough to hack away a bit more at the SILK-specific data.
 - COMMIT
+- I'm still not 100% sure how range decoding works - I know it depends on the context of the specific thing being
+  decoded, but not sure how the index "k" is handled. The first part of the SILK frame is the VAD flags PDF={1,1}/2.
+  Do I use the value of k (which I think is 0 or 1) to know whether or not the bit is set? I am going to assume this
+  for now.
 
+2019/03/10 7:40 AM
+==================
+- At the moment I am using what feels like a very cumbersome way of decoding "k" from the range decoder. I'm calling
+  dropus_range_decoder_fs(), followed by a function called dropus_range_decoder_k() to retrieve "k", and then
+  dropus_range_decoder_update() at the end of it. I can simplify this into a single function, I think, which I'm
+  calling dropus_range_decode() which will perform the "fs" decode, perform the update, then return "k".
+- As I'm writing dropus_range_decoder_decode() I've realized that I can simplify my dropus_range_decoder_update()
+  function to do both the "k" lookup and the the update from section 4.1.2. It just needs to be changed to take
+  the "context" probabilities and "fs" and to return "k".
+- This _seems_ to work. Or at least, the results are consistent with my first attempt. Committing.
