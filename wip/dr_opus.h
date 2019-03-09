@@ -124,13 +124,18 @@ typedef struct
 
 typedef struct
 {
-    dropus_uint8 toc;   /* TOC byte. RFC 6716 - Section 3.1 */
+    dropus_uint8 toc;               /* TOC byte. RFC 6716 - Section 3.1 */
     dropus_stream_frame frames[DROPUS_MAX_OPUS_FRAMES_PER_PACKET];
 } dropus_stream_packet;
 
 typedef struct
 {
-    dropus_stream_packet packet;   /* The current packet. */
+    dropus_stream_packet packet;    /* The current packet. */
+    struct
+    {
+        dropus_int32 w0_Q13_prev;   /* Previous stereo weights. */
+        dropus_int32 w1_Q13_prev;
+    } silk;
 } dropus_stream;
 
 /*
@@ -561,7 +566,7 @@ DROPUS_INLINE dropus_uint32 dropus_toc_frame_size_in_pcm_frames(dropus_uint8 toc
 
 DROPUS_INLINE dropus_uint8 dropus_toc_config_silk_frame_count(dropus_uint8 config)
 {
-    /* Table 2 with Table 1 in RFC 6716 */
+    /* Table 2 in RFC 6716 */
     static dropus_uint8 counts[32] = {
         1, 1, 2, 3, /*  0...3  */
         1, 1, 2, 3, /*  4...7  */
@@ -581,6 +586,20 @@ DROPUS_INLINE dropus_uint8 dropus_toc_config_silk_frame_count(dropus_uint8 confi
 DROPUS_INLINE dropus_uint8 dropus_toc_silk_frame_count(dropus_uint8 toc)
 {
     return dropus_toc_config_silk_frame_count(dropus_toc_config(toc));
+}
+
+DROPUS_INLINE dropus_int32 dropus_Q13(dropus_uint16 index)
+{
+    /* Table 7 in RFC 6716 */
+    static dropus_int32 Q13[16] = {
+        -13732, -10050, -8266, -7526,
+        -6500,  -5000,  -2950, -820,
+         820,    2950,   5000,  6500,
+         7526,   8266,   10050, 13732
+    };
+
+    DROPUS_ASSERT(index < DROPUS_COUNTOF(Q13));
+    return Q13[index];
 }
 
 
@@ -759,6 +778,8 @@ dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stre
         dropus_uint16 k;
         dropus_uint8  flagsVAD[2]  = {0, 0};
         dropus_uint8  flagsLBRR[2] = {0, 0};
+        dropus_uint32 w0_Q13[3] = {0, 0, 0};    /* One for each SILK frame (max 3). */
+        dropus_uint32 w1_Q13[3] = {0, 0, 0};    /* One for each SILK frame (max 3). */
         
         frameCountSILK = dropus_toc_silk_frame_count(pOpusStream->packet.toc);    /* SILK frame count. Between 1 and 3. Either 1 10ms SILK frame, or between 1 and 3 20ms frames (20ms, 40ms, 6ms0). */
         if (frameCountSILK == 0) {
@@ -802,19 +823,51 @@ dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stre
             }
         }
 
-        /* LBRR frames. */
+        /* LBRR frames. Only do this if the relevant flag is set. */
         for (dropus_uint8 iFrameSILK = 0; iFrameSILK < frameCountSILK; ++iFrameSILK) {
             for (dropus_uint8 iChannel = 0; iChannel < channels; ++iChannel) {
+                /*
+                RFC 6716 - Section 4.2.7.1
 
+                ... these weights are coded if and only if
+                    -  This is a stereo Opus frame (Section 3.1), and
+                    -  The current SILK frame corresponds to the mid channel.
+                */
+                if (channels == 2 && iChannel == 0) {
+                    dropus_uint16 f_Stage1[] = {7, 2, 1, 1, 1, 10, 24, 8, 1, 1, 3, 23, 92, 23, 3, 1, 1, 8, 24, 10, 1, 1, 1, 2, 7}, ft_Stage1 = 256;
+                    dropus_uint16 f_Stage2[] = {85, 86, 85},                                                                       ft_Stage2 = 256;
+                    dropus_uint16 f_Stage3[] = {51, 51, 52, 51, 51},                                                               ft_Stage3 = 256;
+                    dropus_uint16 n;
+                    dropus_uint16 i0, i1, i2, i3;
+                    dropus_uint16 wi0, wi1;
+
+                    n  = dropus_range_decoder_decode(&rd, f_Stage1, DROPUS_COUNTOF(f_Stage1), ft_Stage1);
+                    i0 = dropus_range_decoder_decode(&rd, f_Stage2, DROPUS_COUNTOF(f_Stage2), ft_Stage2);
+                    i1 = dropus_range_decoder_decode(&rd, f_Stage3, DROPUS_COUNTOF(f_Stage3), ft_Stage3);
+                    i2 = dropus_range_decoder_decode(&rd, f_Stage2, DROPUS_COUNTOF(f_Stage2), ft_Stage2);
+                    i3 = dropus_range_decoder_decode(&rd, f_Stage3, DROPUS_COUNTOF(f_Stage3), ft_Stage3);
+
+                    wi0 = i0 + 3 * (n / 5);
+                    wi1 = i2 + 3 * (n % 5);
+
+                    /* Note that w0_Q13 depends on w1_Q13 so must be calculated afterwards. */
+                    w1_Q13[iFrameSILK] = dropus_Q13(wi1) + (((dropus_Q13(wi1 + 1) - dropus_Q13(wi1)) * 6554) >> 16) * ((2 * i3) + 1);
+                    w0_Q13[iFrameSILK] = dropus_Q13(wi0) + (((dropus_Q13(wi0 + 1) - dropus_Q13(wi0)) * 6554) >> 16) * ((2 * i1) + 1) - w1_Q13[iFrameSILK];
+                }
             }
         }
 
-
+        /* TODO: Don't forget to set the previous stereo weights. Don't just blindly set it without first checking the rules in RFC 6716 - Section 4.2.7.1. */
+        /* RFC 6716 - Section 4.2.7.1 - These prediction weights are never included in a mono Opus frame, and the previous weights are reset to zeros on any transition from mono to stereo. */
+        if (channels == 1) {
+            pOpusStream->silk.w0_Q13_prev = 0;
+            pOpusStream->silk.w1_Q13_prev = 0;
+        }
     }
 
     
 
-
+    
 
     return DROPUS_SUCCESS;
 }

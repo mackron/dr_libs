@@ -263,3 +263,9 @@ Test Vector Encapsulation Format
   function to do both the "k" lookup and the the update from section 4.1.2. It just needs to be changed to take
   the "context" probabilities and "fs" and to return "k".
 - This _seems_ to work. Or at least, the results are consistent with my first attempt. Committing.
+- Added dropus_Q13() for doing the stereo weight lookup (RFC 7616 - Table 7).
+- Section 4.2.7.1 mentions that theweights are linearly interpolated with the weights from the previous frame. What
+  factor do I use for the interpolation?
+- Finished initial work on RFC 7616 - Section 4.2.7.1. Still don't know how the interpolation part works. I'm hoping
+  this is explained later in the spec.
+- COMMIT
