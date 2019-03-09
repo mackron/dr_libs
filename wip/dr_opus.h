@@ -210,7 +210,7 @@ void dropus_uninit(dropus* pOpus);
 
  ************************************************************************************************************************************************************
  ************************************************************************************************************************************************************/
-#ifdef DR_OPUS_IMPLEMENTATION
+#if defined(DR_OPUS_IMPLEMENTATION) || defined(DROPUS_IMPLEMENTATION)
 #include <stdlib.h>
 #include <string.h>
 #ifndef DR_OPUS_NO_STDIO
@@ -318,6 +318,13 @@ void dropus_uninit(dropus* pOpus);
 #endif
 #ifndef DROPUS_ZERO_OBJECT
 #define DROPUS_ZERO_OBJECT(p)               DROPUS_ZERO_MEMORY((p), sizeof(*(p)))
+#endif
+
+#ifndef DROPUS_MIN
+#define DROPUS_MIN(x, y)                    (((x) < (y)) ? (x) : (y))
+#endif
+#ifndef DROPUS_MAX
+#define DROPUS_MAX(x, y)                    (((x) > (y)) ? (x) : (y))
 #endif
 
 
@@ -554,25 +561,94 @@ typedef struct
 {
     const dropus_uint8* pData;
     dropus_uint16 dataSize;
+    dropus_uint16 readPointer;
     dropus_uint8  b0;
     dropus_uint32 rng;      /* RFC 6716 - Section 4.1 - Both val and rng are 32-bit unsigned integer values. */
     dropus_uint32 val;      /* ^^^ */
 } dropus_range_decoder;
 
+DROPUS_INLINE void dropus_range_decoder_normalize(dropus_range_decoder* pRangeDecoder)
+{
+    dropus_uint8 sym;
+    dropus_uint8 b1;
+
+    DROPUS_ASSERT(pRangeDecoder != NULL);
+
+    while (pRangeDecoder->rng <= 0x800000) {
+        pRangeDecoder->rng = (pRangeDecoder->rng << 8);   /* RFC 6716 - Section 4.1.2.1 - First, it sets rng to (rng<<8). */
+
+        /*  RFC 6716 - Section 4.1.2.1 - If no more input bytes remain, it uses zero bits instead. */
+        if (pRangeDecoder->dataSize > pRangeDecoder->readPointer) {
+            b1 = pRangeDecoder->pData[pRangeDecoder->readPointer++];
+        } else {
+            b1 = 0;
+        }
+        
+        /* RFC 6716 - Section 4.1.2.1 - ... using the leftover bit buffered from the previous byte as the high bit and the top 7 bits of the byte just read as the other 7 bits of sym. */
+        sym = ((pRangeDecoder->b0 & 0x01) << 7) | (b1 >> 7);
+
+        /* RFC 6716 - Section 4.1.2.1 - The remaining bit in the byte just read is buffered for use in the next iteration. */
+        pRangeDecoder->b0 = b1;
+
+        /* val */
+        pRangeDecoder->val = ((pRangeDecoder->val << 8) + (255 - sym)) & 0x7FFFFFFF;
+    }
+}
+
 DROPUS_INLINE void dropus_range_decoder_init(const dropus_uint8* pData, dropus_uint16 dataSize, dropus_range_decoder* pRangeDecoder)
 {
     DROPUS_ASSERT(pRangeDecoder != NULL);
 
-    pRangeDecoder->pData    = pData;
-    pRangeDecoder->dataSize = dataSize;
+    pRangeDecoder->pData       = pData;
+    pRangeDecoder->dataSize    = dataSize;
+    pRangeDecoder->readPointer = 0;
 
     pRangeDecoder->b0 = 0;                                  /* RFC 6716 - Section 4.1.1 - Let b0 be an 8-bit unsigned integer containing first input byte (or containing zero if there are no bytes in this Opus frame). */
     if (dataSize > 0) {
-        pRangeDecoder->b0 = pData[0];
+        pRangeDecoder->b0 = pData[pRangeDecoder->readPointer++];
     }
 
     pRangeDecoder->rng = 128;                               /* RFC 6716 - Section 4.1.1 - The decoder initializes rng to 128 ... */
     pRangeDecoder->val = 127 - (pRangeDecoder->b0 >> 1);    /*                            ... and initializes val to (127 - (b0>>1)) ...*/
+
+    /*
+    It saves the remaining bit, (b0&1), for use in the renormalization
+    procedure described in Section 4.1.2.1, which the decoder invokes
+    immediately after initialization to read additional bits and
+    establish the invariant that rng > 2**23.
+    */
+    dropus_range_decoder_normalize(pRangeDecoder);
+}
+
+DROPUS_INLINE dropus_uint16 dropus_range_decoder_fs(dropus_range_decoder* pRangeDecoder, dropus_uint32 ft)
+{
+    /* Implements RFC 6716 - Section 4.1.2 (first step) */
+
+    DROPUS_ASSERT(pRangeDecoder != NULL);
+    DROPUS_ASSERT(ft <= 65535); /* RFC 6716 - Section 4.1 */
+
+    return (dropus_uint16)(ft - DROPUS_MIN((pRangeDecoder->val / (pRangeDecoder->rng/ft)) + 1, ft));
+}
+
+DROPUS_INLINE void dropus_range_decoder_update(dropus_range_decoder* pRangeDecoder, dropus_uint32 fl, dropus_uint32 fh, dropus_uint32 ft)
+{
+    /* Implements RFC 6716 - Section 4.1.2 (second step) */
+
+    DROPUS_ASSERT(pRangeDecoder != NULL);
+    DROPUS_ASSERT(0  <= fl);    /* RFC 6716 - Section 4.1 */
+    DROPUS_ASSERT(fl <  fh);    /* RFC 6716 - Section 4.1 */
+    DROPUS_ASSERT(fh <= ft);    /* RFC 6716 - Section 4.1 */
+    DROPUS_ASSERT(ft <= 65535); /* RFC 6716 - Section 4.1 */
+
+    /* val */
+    pRangeDecoder->val = pRangeDecoder->val - (pRangeDecoder->rng/ft) * (ft - fh);
+
+    /* rng */
+    if (fh > 0) {   /* RFC 6716 - Section 4.1.2 - If fl[k] is greater than zero, then the decoder updates rng using... */
+        pRangeDecoder->rng = (pRangeDecoder->rng/ft) * (fh - fl);
+    } else {        /* RFC 6716 - Section 4.1.2 - Otherwise, it updates rng using... */
+        pRangeDecoder->rng = pRangeDecoder->rng - (pRangeDecoder->rng/ft) * (ft - fh);
+    }
 }
 
 
@@ -599,6 +675,8 @@ dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stre
 
     /* Everything is fed through the range decoder. */
     dropus_range_decoder_init(pData, pOpusFrame->sizeInBytes, &rd);
+
+    /* Assuming SILK at the moment. */
 
 
 
@@ -903,13 +981,18 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
         dropus_result result;
         dropus_uint16 iFrame;
 
-        for (iFrame = 0; iFrame < frameCount; ++iFrame) {
-            result = dropus_stream_decode_frame(pOpusStream, &pOpusStream->packet.frames[iFrame], pRunningData8, frameSizes[iFrame]);
-            if (result != DROPUS_SUCCESS) {
-                return result;  /* Probably a corrupt frame. */
-            }
+        /* CELT and Hybrid are not yet implemented. */
+        if (dropus_toc_mode(pOpusStream->packet.toc) == dropus_mode_silk) {
+            for (iFrame = 0; iFrame < frameCount; ++iFrame) {
+                result = dropus_stream_decode_frame(pOpusStream, &pOpusStream->packet.frames[iFrame], pRunningData8, frameSizes[iFrame]);
+                if (result != DROPUS_SUCCESS) {
+                    return result;  /* Probably a corrupt frame. */
+                }
 
-            pRunningData8 += frameSizes[iFrame];
+                pRunningData8 += frameSizes[iFrame];
+            }
+        } else {
+            return DROPUS_ERROR;    /* Not yet implemented. */
         }
     }
 

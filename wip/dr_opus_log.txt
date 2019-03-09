@@ -240,3 +240,12 @@ Test Vector Encapsulation Format
 - After more testing it turns out my test program wasn't reporting errors properly. *Sigh*. These bugs were originating
   from the packet decoding section.
 - COMMIT
+- Section 4.1.2 mentions that there's two steps to decoding a symbol. The first step seems easy enough. Implemented in
+  dropus_range_decoder_fs().
+- The second step requires updating "val" and "rng" of the range decoder based on (fl[k], fh[k] and ft). Implemented in
+  dropus_range_decoder_update(pRangeDecoder, fl, fh, ft).
+- Normalization of the range decoder is easy (RFC 6716 - 4.1.2.1). Implemented in dropus_range_decoder_normalize().
+- I think at this point we have the foundations done for the range decoder. Still more to do for CELT, but I think I
+  now have enough to hack away a bit more at the SILK-specific data.
+- COMMIT
+
