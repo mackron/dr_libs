@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.11.1 - 2018-02-17
+// dr_flac - v0.11.2 - 2018-03-10
 //
 // David Reid - mackron@gmail.com
 
@@ -4304,6 +4304,8 @@ static void drflac__get_current_frame_sample_range(drflac* pFlac, drflac_uint64*
     if (pLastSampleInFrameOut) *pLastSampleInFrameOut = lastSampleInFrame;
 }
 
+/* This function will be replacing drflac__get_current_frame_sample_range(), but it's not currently used so I have commented it out to silence a compiler warning. */
+#if 0
 static void drflac__get_pcm_frame_range_of_current_flac_frame(drflac* pFlac, drflac_uint64* pFirstPCMFrame, drflac_uint64* pLastPCMFrame)
 {
     drflac_assert(pFlac != NULL);
@@ -4325,6 +4327,7 @@ static void drflac__get_pcm_frame_range_of_current_flac_frame(drflac* pFlac, drf
         *pLastPCMFrame = lastPCMFrame;
     }
 }
+#endif
 
 static drflac_bool32 drflac__seek_to_first_frame(drflac* pFlac)
 {
@@ -7979,6 +7982,9 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 
 // REVISION HISTORY
+//
+// v0.11.2 - 2018-03-10
+//   - Fix a warning.
 //
 // v0.11.1 - 2018-02-17
 //   - Fix a potential bug with seeking.
