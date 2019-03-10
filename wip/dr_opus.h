@@ -778,8 +778,9 @@ dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stre
         dropus_uint16 k;
         dropus_uint8  flagsVAD[2]  = {0, 0};
         dropus_uint8  flagsLBRR[2] = {0, 0};
-        dropus_uint32 w0_Q13[3] = {0, 0, 0};    /* One for each SILK frame (max 3). */
-        dropus_uint32 w1_Q13[3] = {0, 0, 0};    /* One for each SILK frame (max 3). */
+        dropus_uint32 w0_Q13[3] = {0, 0, 0};        /* One for each SILK frame (max 3). */
+        dropus_uint32 w1_Q13[3] = {0, 0, 0};        /* One for each SILK frame (max 3). */
+        dropus_uint8  midOnlyFlag[3] = {0, 0, 0};   /* One for each SILK frame (max 3). */
         
         frameCountSILK = dropus_toc_silk_frame_count(pOpusStream->packet.toc);    /* SILK frame count. Between 1 and 3. Either 1 10ms SILK frame, or between 1 and 3 20ms frames (20ms, 40ms, 6ms0). */
         if (frameCountSILK == 0) {
@@ -853,6 +854,12 @@ dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stre
                     /* Note that w0_Q13 depends on w1_Q13 so must be calculated afterwards. */
                     w1_Q13[iFrameSILK] = dropus_Q13(wi1) + (((dropus_Q13(wi1 + 1) - dropus_Q13(wi1)) * 6554) >> 16) * ((2 * i3) + 1);
                     w0_Q13[iFrameSILK] = dropus_Q13(wi0) + (((dropus_Q13(wi0 + 1) - dropus_Q13(wi0)) * 6554) >> 16) * ((2 * i1) + 1) - w1_Q13[iFrameSILK];
+
+                    /* RFC 6716 - Section 4.2.7.2 - Mid-Only Flag */
+                    if ((flagsLBRR[iChannel] & (1 << iFrameSILK)) != 0) {
+                        dropus_uint16 f_MOF[] = {192, 64}, ft_MOF = 256;
+                        midOnlyFlag[iFrameSILK] = dropus_range_decoder_decode(&rd, f_MOF, DROPUS_COUNTOF(f_MOF), ft_MOF);
+                    }
                 }
             }
         }

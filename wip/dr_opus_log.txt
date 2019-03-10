@@ -269,3 +269,4 @@ Test Vector Encapsulation Format
 - Finished initial work on RFC 7616 - Section 4.2.7.1. Still don't know how the interpolation part works. I'm hoping
   this is explained later in the spec.
 - COMMIT
+- Completed initial implementation of RFC 7616 - Section 4.2.7.2.
