@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.11.2 - 2018-03-10
+// dr_flac - v0.11.3 - 2018-04-07
 //
 // David Reid - mackron@gmail.com
 
@@ -778,6 +778,15 @@ DRFLAC_DEPRECATED float* drflac_open_and_decode_memory_f32(const void* data, siz
 //
 ///////////////////////////////////////////////////////////////////////////////
 #ifdef DR_FLAC_IMPLEMENTATION
+
+/* Disable some annoying warnings. */
+#if defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #if __GNUC__ >= 7
+    #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+    #endif
+#endif
+
 #ifdef __linux__
     #ifndef _BSD_SOURCE
         #define _BSD_SOURCE
@@ -7978,10 +7987,17 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
     if (pCuesheetTrack) *pCuesheetTrack = cuesheetTrack;
     return DRFLAC_TRUE;
 }
+
+#if defined(__GNUC__)
+    #pragma GCC diagnostic pop
+#endif
 #endif  //DR_FLAC_IMPLEMENTATION
 
 
 // REVISION HISTORY
+//
+// v0.11.3 - 2018-04-07
+//   - Silence warnings with GCC.
 //
 // v0.11.2 - 2018-03-10
 //   - Fix a warning.
