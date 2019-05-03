@@ -1,5 +1,5 @@
 // MP3 audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_mp3 - v0.4.2 - 2018-xx-xx
+// dr_mp3 - v0.4.3 - 2019-05-xx
 //
 // David Reid - mackron@gmail.com
 //
@@ -290,6 +290,12 @@ drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3);
 // Calculates the total number of MP3 frames in the MP3 stream. Cannot be used for infinite streams such as internet
 // radio. Runs in linear time. Returns 0 on error.
 drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3);
+
+// Calculates the total number of MP3 and PCM frames in the MP3 stream. Cannot be used for infinite streams such as internet
+// radio. Runs in linear time. Returns 0 on error.
+//
+// This is equivalent to calling drmp3_get_mp3_frame_count() and drmp3_get_pcm_frame_count() except that it's more efficient.
+drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint64* pMP3FrameCount, drmp3_uint64* pPCMFrameCount);
 
 // Calculates the seekpoints based on PCM frames. This is slow.
 //
@@ -3452,7 +3458,10 @@ void drmp3_free(void* p)
 // REVISION HISTORY
 // ================
 //
-// v0.4.2 - 2018-xx-xx
+// v0.4.3 - 2019-05-xx
+//   - Add drmp3_get_mp3_and_pcm_frame_count() to the public header section.
+//
+// v0.4.2 - 2019-02-21
 //   - Fix a warning.
 //
 // v0.4.1 - 2018-12-30
