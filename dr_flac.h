@@ -1,5 +1,5 @@
 // FLAC audio decoder. Public domain. See "unlicense" statement at the end of this file.
-// dr_flac - v0.11.5 - 2018-04-19
+// dr_flac - v0.11.5 - 2019-04-19
 //
 // David Reid - mackron@gmail.com
 
@@ -7987,19 +7987,19 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 // REVISION HISTORY
 //
-// v0.11.5 - 2018-04-19
+// v0.11.5 - 2019-04-19
 //   - Fix a compiler error with GCC. 
 //
-// v0.11.4 - 2018-04-17
+// v0.11.4 - 2019-04-17
 //   - Fix some warnings with GCC when compiling with -std=c99.
 //
-// v0.11.3 - 2018-04-07
+// v0.11.3 - 2019-04-07
 //   - Silence warnings with GCC.
 //
-// v0.11.2 - 2018-03-10
+// v0.11.2 - 2019-03-10
 //   - Fix a warning.
 //
-// v0.11.1 - 2018-02-17
+// v0.11.1 - 2019-02-17
 //   - Fix a potential bug with seeking.
 //
 // v0.11.0 - 2018-12-16
