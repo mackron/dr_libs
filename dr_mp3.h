@@ -3791,6 +3791,7 @@ v0.4.3 - 2019-05-xx
     - drmp3_open_and_read_s16
     - drmp3_open_file_and_read_s16
   - Add drmp3_get_mp3_and_pcm_frame_count() to the public header section.
+  - Add support for C89.
 
 v0.4.2 - 2019-02-21
   - Fix a warning.
