@@ -5096,7 +5096,7 @@ typedef enum
     drflac_ogg_fail_on_crc_mismatch
 } drflac_ogg_crc_mismatch_recovery;
 
-
+#ifndef DR_FLAC_NO_CRC
 static drflac_uint32 drflac__crc32_table[] = {
     0x00000000L, 0x04C11DB7L, 0x09823B6EL, 0x0D4326D9L,
     0x130476DCL, 0x17C56B6BL, 0x1A864DB2L, 0x1E475005L,
@@ -5163,6 +5163,7 @@ static drflac_uint32 drflac__crc32_table[] = {
     0xAFB010B1L, 0xAB710D06L, 0xA6322BDFL, 0xA2F33668L,
     0xBCB4666DL, 0xB8757BDAL, 0xB5365D03L, 0xB1F740B4L
 };
+#endif
 
 static DRFLAC_INLINE drflac_uint32 drflac_crc32_byte(drflac_uint32 crc32, drflac_uint8 data)
 {
