@@ -74,12 +74,15 @@ const char* dr_extension(const char* path)
 
 dr_bool32 dr_extension_equal(const char* path, const char* extension)
 {
+    const char* ext1;
+    const char* ext2;
+
     if (path == NULL || extension == NULL) {
         return 0;
     }
 
-    const char* ext1 = extension;
-    const char* ext2 = dr_extension(path);
+    ext1 = extension;
+    ext2 = dr_extension(path);
 
 #ifdef _MSC_VER
     return _stricmp(ext1, ext2) == 0;
