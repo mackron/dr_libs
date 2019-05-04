@@ -8642,7 +8642,7 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 /*
 REVISION HISTORY
-
+================
 v0.11.6 - 2019-05-xx
   - Add support for C89.
   - Fix a compiler warning when CRC is disabled.
