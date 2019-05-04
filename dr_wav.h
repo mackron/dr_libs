@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.9.1 - 2019-05-04
+dr_wav - v0.9.1 - 2019-05-05
 
 David Reid - mackron@gmail.com
 */
@@ -4675,7 +4675,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 /*
 REVISION HISTORY
 ================
-v0.9.1 - 2019-05-04
+v0.9.1 - 2019-05-05
   - Add support for C89.
   - Change license to choice of public domain or MIT-0.
 
