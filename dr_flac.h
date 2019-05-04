@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.11.6 - 2019-05-xx
+dr_flac - v0.11.6 - 2019-05-05
 
 David Reid - mackron@gmail.com
 */
@@ -8643,7 +8643,7 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 /*
 REVISION HISTORY
 ================
-v0.11.6 - 2019-05-xx
+v0.11.6 - 2019-05-05
   - Add support for C89.
   - Fix a compiler warning when CRC is disabled.
   - Change license to choice of public domain or MIT-0.
