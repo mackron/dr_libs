@@ -8646,6 +8646,7 @@ REVISION HISTORY
 v0.11.6 - 2019-05-xx
   - Add support for C89.
   - Fix a compiler warning when CRC is disabled.
+  - Change license to choice of public domain or MIT-0.
 
 v0.11.5 - 2019-04-19
   - Fix a compiler error with GCC. 
