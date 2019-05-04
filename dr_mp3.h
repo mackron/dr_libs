@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.4.3 - 2019-05-xx
+dr_mp3 - v0.4.3 - 2019-05-05
 
 David Reid - mackron@gmail.com
 
@@ -3780,7 +3780,7 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
-v0.4.3 - 2019-05-xx
+v0.4.3 - 2019-05-05
   - Use the channel count and/or sample rate of the first MP3 frame instead of DR_MP3_DEFAULT_CHANNELS and
     DR_MP3_DEFAULT_SAMPLE_RATE when they are set to 0. To use the old behaviour, just set the relevant property to
     DR_MP3_DEFAULT_CHANNELS or DR_MP3_DEFAULT_SAMPLE_RATE.
