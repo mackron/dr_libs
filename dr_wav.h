@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.9.1 - 2019-05-05
+dr_wav - v0.9.2 - 2019-xx-xx
 
 David Reid - mackron@gmail.com
 */
@@ -3195,8 +3195,8 @@ void drwav_u8_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCou
     size_t i;
     for (i = 0; i < sampleCount; ++i) {
         int x = pIn[i];
-        r = x - 128;
-        r = r << 8;
+        r = x << 8;
+        r = r - 32768;
         pOut[i] = (short)r;
     }
 }
@@ -4675,6 +4675,9 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 /*
 REVISION HISTORY
 ================
+v0.9.2 - 2019-xx-xx
+  - Fix warnings.
+
 v0.9.1 - 2019-05-05
   - Add support for C89.
   - Change license to choice of public domain or MIT-0.
