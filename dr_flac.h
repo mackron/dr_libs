@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.11.7 - 2019-05-06
+dr_flac - v0.11.8 - 2019-xx-xx
 
 David Reid - mackron@gmail.com
 */
@@ -4897,9 +4897,9 @@ typedef struct
 static DRFLAC_INLINE void drflac__decode_block_header(drflac_uint32 blockHeader, drflac_uint8* isLastBlock, drflac_uint8* blockType, drflac_uint32* blockSize)
 {
     blockHeader = drflac__be2host_32(blockHeader);
-    *isLastBlock = (blockHeader & (0x01 << 31)) >> 31;
-    *blockType   = (blockHeader & (0x7F << 24)) >> 24;
-    *blockSize   = (blockHeader & 0xFFFFFF);
+    *isLastBlock = (blockHeader & 0x80000000UL) >> 31;
+    *blockType   = (blockHeader & 0x7F000000UL) >> 24;
+    *blockSize   = (blockHeader & 0x00FFFFFFUL);
 }
 
 static DRFLAC_INLINE drflac_bool32 drflac__read_and_decode_block_header(drflac_read_proc onRead, void* pUserData, drflac_uint8* isLastBlock, drflac_uint8* blockType, drflac_uint32* blockSize)
@@ -8649,6 +8649,9 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 /*
 REVISION HISTORY
 ================
+v0.11.8 - 2019-xx-xx
+  - Fix warnings.
+
 v0.11.7 - 2019-05-06
   - C89 fixes.
 
