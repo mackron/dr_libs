@@ -2040,7 +2040,7 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
 
 drwav_uint32 drwav_riff_chunk_size_riff(drwav_uint64 dataChunkSize)
 {
-    if (dataChunkSize <= (0xFFFFFFFF - 36)) {
+    if (dataChunkSize <= (0xFFFFFFFFUL - 36)) {
         return 36 + (drwav_uint32)dataChunkSize;
     } else {
         return 0xFFFFFFFF;
@@ -2049,10 +2049,10 @@ drwav_uint32 drwav_riff_chunk_size_riff(drwav_uint64 dataChunkSize)
 
 drwav_uint32 drwav_data_chunk_size_riff(drwav_uint64 dataChunkSize)
 {
-    if (dataChunkSize <= 0xFFFFFFFF) {
+    if (dataChunkSize <= 0xFFFFFFFFUL) {
         return (drwav_uint32)dataChunkSize;
     } else {
-        return 0xFFFFFFFF;
+        return 0xFFFFFFFFUL;
     }
 }
 
@@ -2121,7 +2121,7 @@ drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_format* pF
         so for the sake of simplicity I'm not doing any validation for that.
         */
         if (pFormat->container == drwav_container_riff) {
-            if (initialDataChunkSize > (0xFFFFFFFF - 36)) {
+            if (initialDataChunkSize > (0xFFFFFFFFUL - 36)) {
                 return DRWAV_FALSE; /* Not enough room to store every sample. */
             }
         }
