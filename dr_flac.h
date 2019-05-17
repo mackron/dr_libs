@@ -1145,17 +1145,24 @@ static drflac_bool32 drflac__gIsSSE2Supported  = DRFLAC_FALSE;
 static drflac_bool32 drflac__gIsSSE41Supported = DRFLAC_FALSE;
 static void drflac__init_cpu_caps()
 {
-    int info[4] = {0};
+    static drflac_bool32 isCPUCapsInitialized = DRFLAC_FALSE;
 
-    /* LZCNT */
-    drflac__cpuid(info, 0x80000001);
-    drflac__gIsLZCNTSupported = (info[2] & (1 << 5)) != 0;
+    if (!isCPUCapsInitialized) {
+        int info[4] = {0};
 
-    /* SSE2 */
-    drflac__gIsSSE2Supported = drflac_has_sse2();
+        /* LZCNT */
+        drflac__cpuid(info, 0x80000001);
+        drflac__gIsLZCNTSupported = (info[2] & (1 << 5)) != 0;
 
-    /* SSE4.1 */
-    drflac__gIsSSE41Supported = drflac_has_sse41();
+        /* SSE2 */
+        drflac__gIsSSE2Supported = drflac_has_sse2();
+
+        /* SSE4.1 */
+        drflac__gIsSSE41Supported = drflac_has_sse41();
+
+        /* Initialized. */
+        isCPUCapsInitialized = DRFLAC_TRUE;
+    }
 }
 #endif
 
