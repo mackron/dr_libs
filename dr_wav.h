@@ -525,7 +525,7 @@ Returns true if successful; false otherwise.
 
 Close the writer with drwav_uninit().
 
-This is the lowest level function for initializing a WAV file. You can also use drwav_init_file() and drwav_init_memory()
+This is the lowest level function for initializing a WAV file. You can also use drwav_init_file_write() and drwav_init_memory_write()
 to open the stream from a file or from a block of memory respectively.
 
 If the total sample count is known, you can use drwav_init_write_sequential(). This avoids the need for dr_wav to perform
