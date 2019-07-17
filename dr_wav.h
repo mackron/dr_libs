@@ -555,7 +555,7 @@ drwav_uint64 drwav_target_write_size_bytes(drwav_data_format const *format, drwa
 /*
 Uninitializes the given drwav object.
 
-Use this only for objects initialized with drwav_init().
+Use this only for objects initialized with drwav_init*() functions (drwav_init(), drwav_init_ex(), drwav_init_write(), drwav_init_write_sequential()).
 */
 void drwav_uninit(drwav* pWav);
 
@@ -607,7 +607,7 @@ drwav* drwav_open_write_sequential(const drwav_data_format* pFormat, drwav_uint6
 /*
 Uninitializes and deletes the the given drwav object.
 
-Use this only for objects created with drwav_open().
+Use this only for objects created with drwav_open*() functions (drwav_open(), drwav_open_ex(), drwav_open_write(), drwav_open_write_sequential()).
 */
 void drwav_close(drwav* pWav);
 
