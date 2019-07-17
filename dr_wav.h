@@ -1068,7 +1068,7 @@ static drwav_result drwav__read_chunk_header(drwav_read_proc onRead, void* pUser
         }
 
         pHeaderOut->sizeInBytes = drwav__bytes_to_u32(sizeInBytes);
-        pHeaderOut->paddingSize = (unsigned int)(pHeaderOut->sizeInBytes % 2);
+        pHeaderOut->paddingSize = drwav__chunk_padding_size_riff(pHeaderOut->sizeInBytes);
         *pRunningBytesReadOut += 8;
     } else {
         unsigned char sizeInBytes[8];
@@ -1082,7 +1082,7 @@ static drwav_result drwav__read_chunk_header(drwav_read_proc onRead, void* pUser
         }
 
         pHeaderOut->sizeInBytes = drwav__bytes_to_u64(sizeInBytes) - 24;    /* <-- Subtract 24 because w64 includes the size of the header. */
-        pHeaderOut->paddingSize = (unsigned int)(pHeaderOut->sizeInBytes % 8);
+        pHeaderOut->paddingSize = drwav__chunk_padding_size_w64(pHeaderOut->sizeInBytes);
         *pRunningBytesReadOut += 24;
     }
 
@@ -2244,9 +2244,9 @@ void drwav_uninit(drwav* pWav)
 
         /* Padding. Do not adjust pWav->dataChunkDataSize - this should not include the padding. */
         if (pWav->container == drwav_container_riff) {
-            paddingSize = (drwav_uint32)(pWav->dataChunkDataSize % 2);
+            paddingSize = drwav__chunk_padding_size_riff(pWav->dataChunkDataSize);
         } else {
-            paddingSize = (drwav_uint32)(pWav->dataChunkDataSize % 8);
+            paddingSize = drwav__chunk_padding_size_w64(pWav->dataChunkDataSize);
         }
         
         if (paddingSize > 0) {
