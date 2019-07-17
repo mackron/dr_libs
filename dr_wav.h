@@ -2038,7 +2038,7 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
 }
 
 
-drwav_uint32 drwav_riff_chunk_size_riff(drwav_uint64 dataChunkSize)
+static drwav_uint32 drwav__riff_chunk_size_riff(drwav_uint64 dataChunkSize)
 {
     if (dataChunkSize <= (0xFFFFFFFFUL - 36)) {
         return 36 + (drwav_uint32)dataChunkSize;
@@ -2047,7 +2047,7 @@ drwav_uint32 drwav_riff_chunk_size_riff(drwav_uint64 dataChunkSize)
     }
 }
 
-drwav_uint32 drwav_data_chunk_size_riff(drwav_uint64 dataChunkSize)
+static drwav_uint32 drwav__data_chunk_size_riff(drwav_uint64 dataChunkSize)
 {
     if (dataChunkSize <= 0xFFFFFFFFUL) {
         return (drwav_uint32)dataChunkSize;
@@ -2056,12 +2056,12 @@ drwav_uint32 drwav_data_chunk_size_riff(drwav_uint64 dataChunkSize)
     }
 }
 
-drwav_uint64 drwav_riff_chunk_size_w64(drwav_uint64 dataChunkSize)
+static drwav_uint64 drwav__riff_chunk_size_w64(drwav_uint64 dataChunkSize)
 {
     return 80 + 24 + dataChunkSize;   /* +24 because W64 includes the size of the GUID and size fields. */
 }
 
-drwav_uint64 drwav_data_chunk_size_w64(drwav_uint64 dataChunkSize)
+static drwav_uint64 drwav__data_chunk_size_w64(drwav_uint64 dataChunkSize)
 {
     return 24 + dataChunkSize;        /* +24 because W64 includes the size of the GUID and size fields. */
 }
@@ -2248,25 +2248,25 @@ void drwav_uninit(drwav* pWav)
             if (pWav->container == drwav_container_riff) {
                 /* The "RIFF" chunk size. */
                 if (pWav->onSeek(pWav->pUserData, 4, drwav_seek_origin_start)) {
-                    drwav_uint32 riffChunkSize = drwav_riff_chunk_size_riff(pWav->dataChunkDataSize);
+                    drwav_uint32 riffChunkSize = drwav__riff_chunk_size_riff(pWav->dataChunkDataSize);
                     pWav->onWrite(pWav->pUserData, &riffChunkSize, 4);
                 }
 
                 /* the "data" chunk size. */
                 if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos + 4, drwav_seek_origin_start)) {
-                    drwav_uint32 dataChunkSize = drwav_data_chunk_size_riff(pWav->dataChunkDataSize);
+                    drwav_uint32 dataChunkSize = drwav__data_chunk_size_riff(pWav->dataChunkDataSize);
                     pWav->onWrite(pWav->pUserData, &dataChunkSize, 4);
                 }
             } else {
                 /* The "RIFF" chunk size. */
                 if (pWav->onSeek(pWav->pUserData, 16, drwav_seek_origin_start)) {
-                    drwav_uint64 riffChunkSize = drwav_riff_chunk_size_w64(pWav->dataChunkDataSize);
+                    drwav_uint64 riffChunkSize = drwav__riff_chunk_size_w64(pWav->dataChunkDataSize);
                     pWav->onWrite(pWav->pUserData, &riffChunkSize, 8);
                 }
 
                 /* The "data" chunk size. */
                 if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos + 16, drwav_seek_origin_start)) {
-                    drwav_uint64 dataChunkSize = drwav_data_chunk_size_w64(pWav->dataChunkDataSize);
+                    drwav_uint64 dataChunkSize = drwav__data_chunk_size_w64(pWav->dataChunkDataSize);
                     pWav->onWrite(pWav->pUserData, &dataChunkSize, 8);
                 }
             }
