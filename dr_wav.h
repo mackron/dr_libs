@@ -480,7 +480,7 @@ typedef struct
 
 
 /*
-Initializes a pre-allocated drwav object.
+Initializes a pre-allocated drwav object for reading.
 
 pWav                         [out]          A pointer to the drwav object being initialized.
 onRead                       [in]           The function to call when data needs to be read from the client.
@@ -561,7 +561,7 @@ void drwav_uninit(drwav* pWav);
 
 
 /*
-Opens a wav file using the given callbacks.
+Opens a wav file for reading using the given callbacks.
 
 onRead    [in]           The function to call when data needs to be read from the client.
 onSeek    [in]           The function to call when the read position of the client data needs to move.
@@ -764,7 +764,7 @@ void drwav_mulaw_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sample
 
 #ifndef DR_WAV_NO_STDIO
 /*
-Helper for initializing a wave file using stdio.
+Helper for initializing a wave file for reading using stdio.
 
 This holds the internal FILE object until drwav_uninit() is called. Keep this in mind if you're caching drwav
 objects because the operating system may restrict the number of file handles an application can have open at
@@ -784,7 +784,7 @@ drwav_bool32 drwav_init_file_write(drwav* pWav, const char* filename, const drwa
 drwav_bool32 drwav_init_file_write_sequential(drwav* pWav, const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
 
 /*
-Helper for opening a wave file using stdio.
+Helper for opening a wave file for reading using stdio.
 
 This holds the internal FILE object until drwav_close() is called. Keep this in mind if you're caching drwav
 objects because the operating system may restrict the number of file handles an application can have open at
