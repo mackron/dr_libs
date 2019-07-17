@@ -1039,6 +1039,16 @@ static DRWAV_INLINE drwav_bool32 drwav__is_compressed_format_tag(drwav_uint16 fo
         formatTag == DR_WAVE_FORMAT_DVI_ADPCM;
 }
 
+static unsigned int drwav__chunk_padding_size_riff(drwav_uint32 chunkSize)
+{
+    return (unsigned int)(chunkSize % 2);
+}
+
+static unsigned int drwav__chunk_padding_size_w64(drwav_uint64 chunkSize)
+{
+    return (unsigned int)(chunkSize % 8);
+}
+
 drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
 drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
 drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
@@ -2040,8 +2050,10 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
 
 static drwav_uint32 drwav__riff_chunk_size_riff(drwav_uint64 dataChunkSize)
 {
-    if (dataChunkSize <= (0xFFFFFFFFUL - 36)) {
-        return 36 + (drwav_uint32)dataChunkSize;
+    drwav_uint32 dataSubchunkPaddingSize = drwav__chunk_padding_size_riff(dataChunkSize);
+
+    if (dataChunkSize <= (0xFFFFFFFFUL - 36 - dataSubchunkPaddingSize)) {
+        return 36 + (drwav_uint32)(dataChunkSize + dataSubchunkPaddingSize);
     } else {
         return 0xFFFFFFFF;
     }
@@ -2058,7 +2070,9 @@ static drwav_uint32 drwav__data_chunk_size_riff(drwav_uint64 dataChunkSize)
 
 static drwav_uint64 drwav__riff_chunk_size_w64(drwav_uint64 dataChunkSize)
 {
-    return 80 + 24 + dataChunkSize;   /* +24 because W64 includes the size of the GUID and size fields. */
+    drwav_uint64 dataSubchunkPaddingSize = drwav__chunk_padding_size_w64(dataChunkSize);
+
+    return 80 + 24 + dataChunkSize + dataSubchunkPaddingSize;   /* +24 because W64 includes the size of the GUID and size fields. */
 }
 
 static drwav_uint64 drwav__data_chunk_size_w64(drwav_uint64 dataChunkSize)
