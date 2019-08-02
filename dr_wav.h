@@ -880,9 +880,6 @@ void drwav_free(void* pDataReturnedByOpenAndRead);
 
 /* DEPRECATED APIS */
 drwav_uint64 drwav_read(drwav* pWav, drwav_uint64 samplesToRead, void* pBufferOut);
-drwav_uint64 drwav_read_s16(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
-drwav_uint64 drwav_read_f32(drwav* pWav, drwav_uint64 samplesToRead, float* pBufferOut);
-drwav_uint64 drwav_read_s32(drwav* pWav, drwav_uint64 samplesToRead, drwav_int32* pBufferOut);
 
 #ifdef __cplusplus
 }
@@ -3268,47 +3265,42 @@ drwav_uint64 drwav_read_s16__mulaw(drwav* pWav, drwav_uint64 samplesToRead, drwa
     return totalSamplesRead;
 }
 
-drwav_uint64 drwav_read_s16(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut)
+drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut)
 {
-    if (pWav == NULL || samplesToRead == 0 || pBufferOut == NULL) {
+    if (pWav == NULL || framesToRead == 0 || pBufferOut == NULL) {
         return 0;
     }
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
-    if (samplesToRead * sizeof(drwav_int16) > DRWAV_SIZE_MAX) {
-        samplesToRead = DRWAV_SIZE_MAX / sizeof(drwav_int16);
+    if (framesToRead * pWav->channels * sizeof(drwav_int16) > DRWAV_SIZE_MAX) {
+        framesToRead = DRWAV_SIZE_MAX / sizeof(drwav_int16) * pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM) {
-        return drwav_read_s16__pcm(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s16__pcm(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-        return drwav_read_s16__msadpcm(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s16__msadpcm(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT) {
-        return drwav_read_s16__ieee(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s16__ieee(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ALAW) {
-        return drwav_read_s16__alaw(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s16__alaw(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_MULAW) {
-        return drwav_read_s16__mulaw(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s16__mulaw(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        return drwav_read_s16__ima(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s16__ima(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     return 0;
-}
-
-drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut)
-{
-    return drwav_read_s16(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
 }
 
 void drwav_u8_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCount)
@@ -3625,47 +3617,42 @@ drwav_uint64 drwav_read_f32__mulaw(drwav* pWav, drwav_uint64 samplesToRead, floa
     return totalSamplesRead;
 }
 
-drwav_uint64 drwav_read_f32(drwav* pWav, drwav_uint64 samplesToRead, float* pBufferOut)
+drwav_uint64 drwav_read_pcm_frames_f32(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut)
 {
-    if (pWav == NULL || samplesToRead == 0 || pBufferOut == NULL) {
+    if (pWav == NULL || framesToRead == 0 || pBufferOut == NULL) {
         return 0;
     }
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
-    if (samplesToRead * sizeof(float) > DRWAV_SIZE_MAX) {
-        samplesToRead = DRWAV_SIZE_MAX / sizeof(float);
+    if (framesToRead * pWav->channels * sizeof(float) > DRWAV_SIZE_MAX) {
+        framesToRead = DRWAV_SIZE_MAX / sizeof(float) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM) {
-        return drwav_read_f32__pcm(pWav, samplesToRead, pBufferOut);
+        return drwav_read_f32__pcm(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-        return drwav_read_f32__msadpcm(pWav, samplesToRead, pBufferOut);
+        return drwav_read_f32__msadpcm(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT) {
-        return drwav_read_f32__ieee(pWav, samplesToRead, pBufferOut);
+        return drwav_read_f32__ieee(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ALAW) {
-        return drwav_read_f32__alaw(pWav, samplesToRead, pBufferOut);
+        return drwav_read_f32__alaw(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_MULAW) {
-        return drwav_read_f32__mulaw(pWav, samplesToRead, pBufferOut);
+        return drwav_read_f32__mulaw(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        return drwav_read_f32__ima(pWav, samplesToRead, pBufferOut);
+        return drwav_read_f32__ima(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     return 0;
-}
-
-drwav_uint64 drwav_read_pcm_frames_f32(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut)
-{
-    return drwav_read_f32(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
 }
 
 void drwav_u8_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount)
@@ -4009,48 +3996,43 @@ drwav_uint64 drwav_read_s32__mulaw(drwav* pWav, drwav_uint64 samplesToRead, drwa
     return totalSamplesRead;
 }
 
-drwav_uint64 drwav_read_s32(drwav* pWav, drwav_uint64 samplesToRead, drwav_int32* pBufferOut)
+drwav_uint64 drwav_read_pcm_frames_s32(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut)
 {
-    if (pWav == NULL || samplesToRead == 0 || pBufferOut == NULL) {
+    if (pWav == NULL || framesToRead == 0 || pBufferOut == NULL) {
         return 0;
     }
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
-    if (samplesToRead * sizeof(drwav_int32) > DRWAV_SIZE_MAX) {
-        samplesToRead = DRWAV_SIZE_MAX / sizeof(drwav_int32);
+    if (framesToRead * pWav->channels * sizeof(drwav_int32) > DRWAV_SIZE_MAX) {
+        framesToRead = DRWAV_SIZE_MAX / sizeof(drwav_int32) / pWav->channels;
     }
 
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM) {
-        return drwav_read_s32__pcm(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s32__pcm(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-        return drwav_read_s32__msadpcm(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s32__msadpcm(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_IEEE_FLOAT) {
-        return drwav_read_s32__ieee(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s32__ieee(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ALAW) {
-        return drwav_read_s32__alaw(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s32__alaw(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_MULAW) {
-        return drwav_read_s32__mulaw(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s32__mulaw(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        return drwav_read_s32__ima(pWav, samplesToRead, pBufferOut);
+        return drwav_read_s32__ima(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
     }
 
     return 0;
-}
-
-drwav_uint64 drwav_read_pcm_frames_s32(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut)
-{
-    return drwav_read_s32(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
 }
 
 void drwav_u8_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sampleCount)
