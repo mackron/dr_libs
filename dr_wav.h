@@ -868,7 +868,6 @@ drwav_int16* drwav_open_file_and_read_pcm_frames_s16_w(const wchar_t* filename, 
 float* drwav_open_file_and_read_pcm_frames_f32_w(const wchar_t* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
 drwav_int32* drwav_open_file_and_read_pcm_frames_s32_w(const wchar_t* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
 #endif
-
 /* Opens and decodes a wav file from a block of memory in a single operation. */
 drwav_int16* drwav_open_memory_and_read_pcm_frames_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
 float* drwav_open_memory_and_read_pcm_frames_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount);
@@ -884,7 +883,6 @@ drwav_uint64 drwav_read(drwav* pWav, drwav_uint64 samplesToRead, void* pBufferOu
 drwav_uint64 drwav_read_s16(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
 drwav_uint64 drwav_read_f32(drwav* pWav, drwav_uint64 samplesToRead, float* pBufferOut);
 drwav_uint64 drwav_read_s32(drwav* pWav, drwav_uint64 samplesToRead, drwav_int32* pBufferOut);
-drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample);
 
 #ifdef __cplusplus
 }
@@ -2564,7 +2562,7 @@ drwav_bool32 drwav_seek_to_first_pcm_frame(drwav* pWav)
     return DRWAV_TRUE;
 }
 
-drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample)
+drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
 {
     /* Seeking should be compatible with wave files > 2GB. */
 
@@ -2582,8 +2580,8 @@ drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample)
     }
 
     /* Make sure the sample is clamped. */
-    if (sample >= pWav->totalSampleCount) {
-        sample  = pWav->totalSampleCount - 1;
+    if (targetFrameIndex >= pWav->totalPCMFrameCount) {
+        targetFrameIndex  = pWav->totalPCMFrameCount - 1;
     }
 
     /*
@@ -2597,14 +2595,14 @@ drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample)
         If we're seeking forward it's simple - just keep reading samples until we hit the sample we're requesting. If we're seeking backwards,
         we first need to seek back to the start and then just do the same thing as a forward seek.
         */
-        if (sample < pWav->compressed.iCurrentSample) {
+        if ((targetFrameIndex * pWav->channels) < pWav->compressed.iCurrentSample) {
             if (!drwav_seek_to_first_pcm_frame(pWav)) {
                 return DRWAV_FALSE;
             }
         }
 
-        if (sample > pWav->compressed.iCurrentSample) {
-            drwav_uint64 offset = sample - pWav->compressed.iCurrentSample;
+        if ((targetFrameIndex * pWav->channels) > pWav->compressed.iCurrentSample) {
+            drwav_uint64 offset = (targetFrameIndex * pWav->channels) - pWav->compressed.iCurrentSample;
 
             drwav_int16 devnull[2048];
             while (offset > 0) {
@@ -2639,7 +2637,7 @@ drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample)
         drwav_assert(totalSizeInBytes >= pWav->bytesRemaining);
 
         currentBytePos = totalSizeInBytes - pWav->bytesRemaining;
-        targetBytePos  = sample * drwav_get_bytes_per_sample(pWav);
+        targetBytePos  = targetFrameIndex * drwav_get_bytes_per_pcm_frame(pWav);
 
         if (currentBytePos < targetBytePos) {
             /* Offset forwards. */
@@ -2664,11 +2662,6 @@ drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample)
     }
 
     return DRWAV_TRUE;
-}
-
-drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
-{
-    return drwav_seek_to_sample(pWav, targetFrameIndex * pWav->channels);
 }
 
 
