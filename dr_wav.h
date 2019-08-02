@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.9.2 - 2019-05-21
+dr_wav - v0.10.0 - 2019-07-xx
 
 David Reid - mackron@gmail.com
 */
@@ -885,8 +885,6 @@ drwav_uint64 drwav_read_s16(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16
 drwav_uint64 drwav_read_f32(drwav* pWav, drwav_uint64 samplesToRead, float* pBufferOut);
 drwav_uint64 drwav_read_s32(drwav* pWav, drwav_uint64 samplesToRead, drwav_int32* pBufferOut);
 drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample);
-drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* pData);
-
 
 #ifdef __cplusplus
 }
@@ -2688,17 +2686,17 @@ size_t drwav_write_raw(drwav* pWav, size_t bytesToWrite, const void* pData)
     return bytesWritten;
 }
 
-drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* pData)
+drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData)
 {
     drwav_uint64 bytesToWrite;
     drwav_uint64 bytesWritten;
     const drwav_uint8* pRunningData;
 
-    if (pWav == NULL || samplesToWrite == 0 || pData == NULL) {
+    if (pWav == NULL || framesToWrite == 0 || pData == NULL) {
         return 0;
     }
 
-    bytesToWrite = ((samplesToWrite * pWav->bitsPerSample) / 8);
+    bytesToWrite = ((framesToWrite * pWav->channels * pWav->bitsPerSample) / 8);
     if (bytesToWrite > DRWAV_SIZE_MAX) {
         return 0;
     }
@@ -2722,12 +2720,7 @@ drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* p
         pRunningData += bytesJustWritten;
     }
 
-    return (bytesWritten * 8) / pWav->bitsPerSample;
-}
-
-drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData)
-{
-    return drwav_write(pWav, framesToWrite * pWav->channels, pData) / pWav->channels;
+    return (bytesWritten * 8) / pWav->bitsPerSample / pWav->channels;
 }
 
 
@@ -4561,6 +4554,10 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 /*
 REVISION HISTORY
 ================
+v0.10.0 - 2019-07-xx
+  - Remove deprecated APIs.
+  - Add drwav_target_write_size_bytes() which calculates the total size in bytes of a WAV file given a format and sample count.
+
 v0.9.2 - 2019-05-21
   - Fix warnings.
 
