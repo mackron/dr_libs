@@ -1047,7 +1047,7 @@ static DRWAV_INLINE drwav_bool32 drwav__is_compressed_format_tag(drwav_uint16 fo
         formatTag == DR_WAVE_FORMAT_DVI_ADPCM;
 }
 
-static unsigned int drwav__chunk_padding_size_riff(drwav_uint32 chunkSize)
+static unsigned int drwav__chunk_padding_size_riff(drwav_uint64 chunkSize)
 {
     return (unsigned int)(chunkSize % 2);
 }
