@@ -886,19 +886,6 @@ drwav_uint64 drwav_read_f32(drwav* pWav, drwav_uint64 samplesToRead, float* pBuf
 drwav_uint64 drwav_read_s32(drwav* pWav, drwav_uint64 samplesToRead, drwav_int32* pBufferOut);
 drwav_bool32 drwav_seek_to_sample(drwav* pWav, drwav_uint64 sample);
 drwav_uint64 drwav_write(drwav* pWav, drwav_uint64 samplesToWrite, const void* pData);
-#ifndef DR_WAV_NO_CONVERSION_API
-drwav_int16* drwav_open_and_read_s16(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
-float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
-drwav_int32* drwav_open_and_read_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
-#ifndef DR_WAV_NO_STDIO
-drwav_int16* drwav_open_memory_and_read_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
-float* drwav_open_file_and_read_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
-drwav_int32* drwav_open_file_and_read_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
-#endif
-drwav_int16* drwav_open_memory_and_read_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
-float* drwav_open_memory_and_read_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
-drwav_int32* drwav_open_memory_and_read_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount);
-#endif
 
 
 #ifdef __cplusplus
@@ -4178,133 +4165,6 @@ void drwav_mulaw_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sample
 
 
 
-drwav_int16* drwav__read_and_close_s16(drwav* pWav, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav_uint64 sampleDataSize;
-    drwav_int16* pSampleData;
-    drwav_uint64 samplesRead;
-
-    drwav_assert(pWav != NULL);
-
-    sampleDataSize = pWav->totalSampleCount * sizeof(drwav_int16);
-    if (sampleDataSize > DRWAV_SIZE_MAX) {
-        drwav_uninit(pWav);
-        return NULL;    /* File's too big. */
-    }
-
-    pSampleData = (drwav_int16*)DRWAV_MALLOC((size_t)sampleDataSize);    /* <-- Safe cast due to the check above. */
-    if (pSampleData == NULL) {
-        drwav_uninit(pWav);
-        return NULL;    /* Failed to allocate memory. */
-    }
-
-    samplesRead = drwav_read_s16(pWav, (size_t)pWav->totalSampleCount, pSampleData);
-    if (samplesRead != pWav->totalSampleCount) {
-        DRWAV_FREE(pSampleData);
-        drwav_uninit(pWav);
-        return NULL;    /* There was an error reading the samples. */
-    }
-
-    drwav_uninit(pWav);
-
-    if (sampleRate) {
-        *sampleRate = pWav->sampleRate;
-    }
-    if (channels) {
-        *channels = pWav->channels;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = pWav->totalSampleCount;
-    }
-
-    return pSampleData;
-}
-
-float* drwav__read_and_close_f32(drwav* pWav, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav_uint64 sampleDataSize;
-    float* pSampleData;
-    drwav_uint64 samplesRead;
-
-    drwav_assert(pWav != NULL);
-
-    sampleDataSize = pWav->totalSampleCount * sizeof(float);
-    if (sampleDataSize > DRWAV_SIZE_MAX) {
-        drwav_uninit(pWav);
-        return NULL;    /* File's too big. */
-    }
-
-    pSampleData = (float*)DRWAV_MALLOC((size_t)sampleDataSize);    /* <-- Safe cast due to the check above. */
-    if (pSampleData == NULL) {
-        drwav_uninit(pWav);
-        return NULL;    /* Failed to allocate memory. */
-    }
-
-    samplesRead = drwav_read_f32(pWav, (size_t)pWav->totalSampleCount, pSampleData);
-    if (samplesRead != pWav->totalSampleCount) {
-        DRWAV_FREE(pSampleData);
-        drwav_uninit(pWav);
-        return NULL;    /* There was an error reading the samples. */
-    }
-
-    drwav_uninit(pWav);
-
-    if (sampleRate) {
-        *sampleRate = pWav->sampleRate;
-    }
-    if (channels) {
-        *channels = pWav->channels;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = pWav->totalSampleCount;
-    }
-
-    return pSampleData;
-}
-
-drwav_int32* drwav__read_and_close_s32(drwav* pWav, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav_uint64 sampleDataSize;
-    drwav_int32* pSampleData;
-    drwav_uint64 samplesRead;
-
-    drwav_assert(pWav != NULL);
-
-    sampleDataSize = pWav->totalSampleCount * sizeof(drwav_int32);
-    if (sampleDataSize > DRWAV_SIZE_MAX) {
-        drwav_uninit(pWav);
-        return NULL;    /* File's too big. */
-    }
-
-    pSampleData = (drwav_int32*)DRWAV_MALLOC((size_t)sampleDataSize);    /* <-- Safe cast due to the check above. */
-    if (pSampleData == NULL) {
-        drwav_uninit(pWav);
-        return NULL;    /* Failed to allocate memory. */
-    }
-
-    samplesRead = drwav_read_s32(pWav, (size_t)pWav->totalSampleCount, pSampleData);
-    if (samplesRead != pWav->totalSampleCount) {
-        DRWAV_FREE(pSampleData);
-        drwav_uninit(pWav);
-        return NULL;    /* There was an error reading the samples. */
-    }
-
-    drwav_uninit(pWav);
-
-    if (sampleRate) {
-        *sampleRate = pWav->sampleRate;
-    }
-    if (channels) {
-        *channels = pWav->channels;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = pWav->totalSampleCount;
-    }
-
-    return pSampleData;
-}
-
-
 drwav_int16* drwav__read_pcm_frames_and_close_s16(drwav* pWav, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalFrameCount)
 {
     drwav_uint64 sampleDataSize;
@@ -4432,33 +4292,10 @@ drwav_int32* drwav__read_pcm_frames_and_close_s32(drwav* pWav, unsigned int* cha
 }
 
 
-drwav_int16* drwav_open_and_read_s16(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav wav;
-
-    if (channels) {
-        *channels = 0;
-    }
-    if (sampleRate) {
-        *sampleRate = 0;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = 0;
-    }
-
-    if (!drwav_init(&wav, onRead, onSeek, pUserData)) {
-        return NULL;
-    }
-
-    return drwav__read_and_close_s16(&wav, channels, sampleRate, totalSampleCount);
-}
 
 drwav_int16* drwav_open_and_read_pcm_frames_s16(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut)
 {
-    unsigned int channels;
-    unsigned int sampleRate;
-    drwav_uint64 totalSampleCount;
-    drwav_int16* result;
+    drwav wav;
 
     if (channelsOut) {
         *channelsOut = 0;
@@ -4470,51 +4307,16 @@ drwav_int16* drwav_open_and_read_pcm_frames_s16(drwav_read_proc onRead, drwav_se
         *totalFrameCountOut = 0;
     }
 
-    result = drwav_open_and_read_s16(onRead, onSeek, pUserData, &channels, &sampleRate, &totalSampleCount);
-    if (result == NULL) {
-        return NULL;
-    }
-
-    if (channelsOut) {
-        *channelsOut = channels;
-    }
-    if (sampleRateOut) {
-        *sampleRateOut = sampleRate;
-    }
-    if (totalFrameCountOut) {
-        *totalFrameCountOut = totalSampleCount / channels;
-    }
-
-    return result;
-}
-
-float* drwav_open_and_read_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav wav;
-
-    if (sampleRate) {
-        *sampleRate = 0;
-    }
-    if (channels) {
-        *channels = 0;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = 0;
-    }
-
     if (!drwav_init(&wav, onRead, onSeek, pUserData)) {
         return NULL;
     }
 
-    return drwav__read_and_close_f32(&wav, channels, sampleRate, totalSampleCount);
+    return drwav__read_pcm_frames_and_close_s16(&wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 float* drwav_open_and_read_pcm_frames_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut)
 {
-    unsigned int channels;
-    unsigned int sampleRate;
-    drwav_uint64 totalSampleCount;
-    float* result;
+    drwav wav;
 
     if (channelsOut) {
         *channelsOut = 0;
@@ -4524,53 +4326,18 @@ float* drwav_open_and_read_pcm_frames_f32(drwav_read_proc onRead, drwav_seek_pro
     }
     if (totalFrameCountOut) {
         *totalFrameCountOut = 0;
-    }
-
-    result = drwav_open_and_read_f32(onRead, onSeek, pUserData, &channels, &sampleRate, &totalSampleCount);
-    if (result == NULL) {
-        return NULL;
-    }
-
-    if (channelsOut) {
-        *channelsOut = channels;
-    }
-    if (sampleRateOut) {
-        *sampleRateOut = sampleRate;
-    }
-    if (totalFrameCountOut) {
-        *totalFrameCountOut = totalSampleCount / channels;
-    }
-
-    return result;
-}
-
-drwav_int32* drwav_open_and_read_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav wav;
-
-    if (sampleRate) {
-        *sampleRate = 0;
-    }
-    if (channels) {
-        *channels = 0;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = 0;
     }
 
     if (!drwav_init(&wav, onRead, onSeek, pUserData)) {
         return NULL;
     }
 
-    return drwav__read_and_close_s32(&wav, channels, sampleRate, totalSampleCount);
+    return drwav__read_pcm_frames_and_close_f32(&wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 drwav_int32* drwav_open_and_read_pcm_frames_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut)
 {
-    unsigned int channels;
-    unsigned int sampleRate;
-    drwav_uint64 totalSampleCount;
-    drwav_int32* result;
+    drwav wav;
 
     if (channelsOut) {
         *channelsOut = 0;
@@ -4582,55 +4349,23 @@ drwav_int32* drwav_open_and_read_pcm_frames_s32(drwav_read_proc onRead, drwav_se
         *totalFrameCountOut = 0;
     }
 
-    result = drwav_open_and_read_s32(onRead, onSeek, pUserData, &channels, &sampleRate, &totalSampleCount);
-    if (result == NULL) {
+    if (!drwav_init(&wav, onRead, onSeek, pUserData)) {
         return NULL;
     }
 
-    if (channelsOut) {
-        *channelsOut = channels;
-    }
-    if (sampleRateOut) {
-        *sampleRateOut = sampleRate;
-    }
-    if (totalFrameCountOut) {
-        *totalFrameCountOut = totalSampleCount / channels;
-    }
-
-    return result;
+    return drwav__read_pcm_frames_and_close_s32(&wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 #ifndef DR_WAV_NO_STDIO
-drwav_int16* drwav_open_file_and_read_s16(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav wav;
-
-    if (sampleRate) {
-        *sampleRate = 0;
-    }
-    if (channels) {
-        *channels = 0;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = 0;
-    }
-
-    if (!drwav_init_file(&wav, filename)) {
-        return NULL;
-    }
-
-    return drwav__read_and_close_s16(&wav, channels, sampleRate, totalSampleCount);
-}
-
 drwav_int16* drwav_open_file_and_read_pcm_frames_s16(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut)
 {
     drwav wav;
 
-    if (sampleRateOut) {
-        *sampleRateOut = 0;
-    }
     if (channelsOut) {
         *channelsOut = 0;
+    }
+    if (sampleRateOut) {
+        *sampleRateOut = 0;
     }
     if (totalFrameCountOut) {
         *totalFrameCountOut = 0;
@@ -4643,36 +4378,15 @@ drwav_int16* drwav_open_file_and_read_pcm_frames_s16(const char* filename, unsig
     return drwav__read_pcm_frames_and_close_s16(&wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
-float* drwav_open_file_and_read_f32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav wav;
-
-    if (sampleRate) {
-        *sampleRate = 0;
-    }
-    if (channels) {
-        *channels = 0;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = 0;
-    }
-
-    if (!drwav_init_file(&wav, filename)) {
-        return NULL;
-    }
-
-    return drwav__read_and_close_f32(&wav, channels, sampleRate, totalSampleCount);
-}
-
 float* drwav_open_file_and_read_pcm_frames_f32(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut)
 {
     drwav wav;
 
-    if (sampleRateOut) {
-        *sampleRateOut = 0;
-    }
     if (channelsOut) {
         *channelsOut = 0;
+    }
+    if (sampleRateOut) {
+        *sampleRateOut = 0;
     }
     if (totalFrameCountOut) {
         *totalFrameCountOut = 0;
@@ -4685,36 +4399,15 @@ float* drwav_open_file_and_read_pcm_frames_f32(const char* filename, unsigned in
     return drwav__read_pcm_frames_and_close_f32(&wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
-drwav_int32* drwav_open_file_and_read_s32(const char* filename, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav wav;
-
-    if (sampleRate) {
-        *sampleRate = 0;
-    }
-    if (channels) {
-        *channels = 0;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = 0;
-    }
-
-    if (!drwav_init_file(&wav, filename)) {
-        return NULL;
-    }
-
-    return drwav__read_and_close_s32(&wav, channels, sampleRate, totalSampleCount);
-}
-
 drwav_int32* drwav_open_file_and_read_pcm_frames_s32(const char* filename, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut)
 {
     drwav wav;
 
-    if (sampleRateOut) {
-        *sampleRateOut = 0;
-    }
     if (channelsOut) {
         *channelsOut = 0;
+    }
+    if (sampleRateOut) {
+        *sampleRateOut = 0;
     }
     if (totalFrameCountOut) {
         *totalFrameCountOut = 0;
@@ -4792,33 +4485,9 @@ drwav_int32* drwav_open_file_and_read_pcm_frames_s32_w(const wchar_t* filename, 
 }
 #endif
 
-drwav_int16* drwav_open_memory_and_read_s16(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav wav;
-
-    if (sampleRate) {
-        *sampleRate = 0;
-    }
-    if (channels) {
-        *channels = 0;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = 0;
-    }
-
-    if (!drwav_init_memory(&wav, data, dataSize)) {
-        return NULL;
-    }
-
-    return drwav__read_and_close_s16(&wav, channels, sampleRate, totalSampleCount);
-}
-
 drwav_int16* drwav_open_memory_and_read_pcm_frames_s16(const void* data, size_t dataSize, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut)
 {
-    unsigned int channels;
-    unsigned int sampleRate;
-    drwav_uint64 totalSampleCount;
-    drwav_int16* result;
+    drwav wav;
 
     if (channelsOut) {
         *channelsOut = 0;
@@ -4830,51 +4499,16 @@ drwav_int16* drwav_open_memory_and_read_pcm_frames_s16(const void* data, size_t 
         *totalFrameCountOut = 0;
     }
 
-    result = drwav_open_memory_and_read_s16(data, dataSize, &channels, &sampleRate, &totalSampleCount);
-    if (result == NULL) {
-        return NULL;
-    }
-
-    if (channelsOut) {
-        *channelsOut = channels;
-    }
-    if (sampleRateOut) {
-        *sampleRateOut = sampleRate;
-    }
-    if (totalFrameCountOut) {
-        *totalFrameCountOut = totalSampleCount / channels;
-    }
-
-    return result;
-}
-
-float* drwav_open_memory_and_read_f32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav wav;
-
-    if (sampleRate) {
-        *sampleRate = 0;
-    }
-    if (channels) {
-        *channels = 0;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = 0;
-    }
-
     if (!drwav_init_memory(&wav, data, dataSize)) {
         return NULL;
     }
 
-    return drwav__read_and_close_f32(&wav, channels, sampleRate, totalSampleCount);
+    return drwav__read_pcm_frames_and_close_s16(&wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 float* drwav_open_memory_and_read_pcm_frames_f32(const void* data, size_t dataSize, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut)
 {
-    unsigned int channels;
-    unsigned int sampleRate;
-    drwav_uint64 totalSampleCount;
-    float* result;
+    drwav wav;
 
     if (channelsOut) {
         *channelsOut = 0;
@@ -4884,53 +4518,18 @@ float* drwav_open_memory_and_read_pcm_frames_f32(const void* data, size_t dataSi
     }
     if (totalFrameCountOut) {
         *totalFrameCountOut = 0;
-    }
-
-    result = drwav_open_memory_and_read_f32(data, dataSize, &channels, &sampleRate, &totalSampleCount);
-    if (result == NULL) {
-        return NULL;
-    }
-
-    if (channelsOut) {
-        *channelsOut = channels;
-    }
-    if (sampleRateOut) {
-        *sampleRateOut = sampleRate;
-    }
-    if (totalFrameCountOut) {
-        *totalFrameCountOut = totalSampleCount / channels;
-    }
-
-    return result;
-}
-
-drwav_int32* drwav_open_memory_and_read_s32(const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate, drwav_uint64* totalSampleCount)
-{
-    drwav wav;
-
-    if (sampleRate) {
-        *sampleRate = 0;
-    }
-    if (channels) {
-        *channels = 0;
-    }
-    if (totalSampleCount) {
-        *totalSampleCount = 0;
     }
 
     if (!drwav_init_memory(&wav, data, dataSize)) {
         return NULL;
     }
 
-    return drwav__read_and_close_s32(&wav, channels, sampleRate, totalSampleCount);
+    return drwav__read_pcm_frames_and_close_f32(&wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 
 drwav_int32* drwav_open_memory_and_read_pcm_frames_s32(const void* data, size_t dataSize, unsigned int* channelsOut, unsigned int* sampleRateOut, drwav_uint64* totalFrameCountOut)
 {
-    unsigned int channels;
-    unsigned int sampleRate;
-    drwav_uint64 totalSampleCount;
-    drwav_int32* result;
+    drwav wav;
 
     if (channelsOut) {
         *channelsOut = 0;
@@ -4942,22 +4541,11 @@ drwav_int32* drwav_open_memory_and_read_pcm_frames_s32(const void* data, size_t 
         *totalFrameCountOut = 0;
     }
 
-    result = drwav_open_memory_and_read_s32(data, dataSize, &channels, &sampleRate, &totalSampleCount);
-    if (result == NULL) {
+    if (!drwav_init_memory(&wav, data, dataSize)) {
         return NULL;
     }
 
-    if (channelsOut) {
-        *channelsOut = channels;
-    }
-    if (sampleRateOut) {
-        *sampleRateOut = sampleRate;
-    }
-    if (totalFrameCountOut) {
-        *totalFrameCountOut = totalSampleCount / channels;
-    }
-
-    return result;
+    return drwav__read_pcm_frames_and_close_s32(&wav, channelsOut, sampleRateOut, totalFrameCountOut);
 }
 #endif  /* DR_WAV_NO_CONVERSION_API */
 
