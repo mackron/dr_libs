@@ -1753,19 +1753,6 @@ drwav_bool32 drwav__on_seek(drwav_seek_proc onSeek, void* pUserData, int offset,
 }
 
 
-static drwav_uint32 drwav_get_bytes_per_sample(drwav* pWav)
-{
-    /*
-    The number of bytes per sample is based on the bits per sample or the block align. We prioritize floor(bitsPerSample/8), but if
-    this is zero or the bits per sample is not a multiple of 8 we need to fall back to the block align.
-    */
-    drwav_uint32 bytesPerSample = pWav->bitsPerSample >> 3;
-    if (bytesPerSample == 0 || (pWav->bitsPerSample & 0x7) != 0) {
-        bytesPerSample = pWav->fmt.blockAlign/pWav->fmt.channels;
-    }
-
-    return bytesPerSample;
-}
 
 static drwav_uint32 drwav_get_bytes_per_pcm_frame(drwav* pWav)
 {
