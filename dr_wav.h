@@ -2285,17 +2285,14 @@ drwav_bool32 drwav_init_write_sequential_pcm_frames(drwav* pWav, const drwav_dat
 
 drwav_uint64 drwav_target_write_size_bytes(drwav_data_format const *format, drwav_uint64 totalSampleCount)
 {
-    drwav_uint64 targetDataSizeBytes = (totalSampleCount * format->bitsPerSample / 8 * format->channels);
+    drwav_uint64 targetDataSizeBytes = (totalSampleCount * format->channels * format->bitsPerSample/8);
     drwav_uint64 riffChunkSizeBytes;
     drwav_uint64 fileSizeBytes;
 
-    if (format->container == drwav_container_riff)
-    {
+    if (format->container == drwav_container_riff) {
         riffChunkSizeBytes = drwav__riff_chunk_size_riff(targetDataSizeBytes);
         fileSizeBytes = (8 + riffChunkSizeBytes); /* +8 because WAV doesn't include the size of the ChunkID and ChunkSize fields. */
-    }
-    else
-    {
+    } else {
         riffChunkSizeBytes = drwav__riff_chunk_size_w64(targetDataSizeBytes);
         fileSizeBytes = riffChunkSizeBytes;
     }
