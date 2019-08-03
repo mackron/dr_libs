@@ -502,9 +502,6 @@ typedef struct
         drwav_int32  cachedFrames[16]; /* Samples are stored in this cache during decoding. */
         drwav_uint32 cachedFrameCount;
     } ima;
-
-
-    drwav_uint64 totalSampleCount;  /* <-- DEPRECATED. Will be removed in a future version. */
 } drwav;
 
 
@@ -2093,8 +2090,6 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
         pWav->totalPCMFrameCount = (((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels)) / fmt.channels;
     }
 #endif
-
-    pWav->totalSampleCount = pWav->totalPCMFrameCount * pWav->channels;
 
     return DRWAV_TRUE;
 }
