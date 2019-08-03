@@ -499,8 +499,8 @@ typedef struct
         drwav_uint32 bytesRemainingInBlock;
         drwav_int32  predictor[2];
         drwav_int32  stepIndex[2];
-        drwav_int32  cachedSamples[16]; /* Samples are stored in this cache during decoding. */
-        drwav_uint32 cachedSampleCount;
+        drwav_int32  cachedFrames[16]; /* Samples are stored in this cache during decoding. */
+        drwav_uint32 cachedFrameCount;
     } ima;
 
 
@@ -995,7 +995,7 @@ static unsigned int drwav__chunk_padding_size_w64(drwav_uint64 chunkSize)
 }
 
 drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
-drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
 drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
 drwav* drwav_open_write__internal(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
 
@@ -2553,7 +2553,7 @@ drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
                 if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
                     samplesRead = drwav_read_pcm_frames_s16__msadpcm(pWav, samplesToRead/pWav->channels, devnull) * pWav->channels;
                 } else if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-                    samplesRead = drwav_read_s16__ima(pWav, samplesToRead, devnull);
+                    samplesRead = drwav_read_pcm_frames_s16__ima(pWav, samplesToRead/pWav->channels, devnull) * pWav->channels;
                 } else {
                     assert(DRWAV_FALSE);    /* If this assertion is triggered it means I've implemented a new compressed format but forgot to add a branch for it here. */
                 }
@@ -2832,36 +2832,37 @@ drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav_uint64 frames
     return totalFramesRead;
 }
 
-drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut)
+
+drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut)
 {
-    drwav_uint64 totalSamplesRead = 0;
+    drwav_uint64 totalFramesRead = 0;
 
     drwav_assert(pWav != NULL);
-    drwav_assert(samplesToRead > 0);
+    drwav_assert(framesToRead > 0);
     drwav_assert(pBufferOut != NULL);
 
     /* TODO: Lots of room for optimization here. */
 
-    while (samplesToRead > 0 && pWav->compressed.iCurrentSample < pWav->totalSampleCount) {
+    while (framesToRead > 0 && pWav->compressed.iCurrentPCMFrame < pWav->totalPCMFrameCount) {
         /* If there are no cached samples we need to load a new block. */
-        if (pWav->ima.cachedSampleCount == 0 && pWav->ima.bytesRemainingInBlock == 0) {
+        if (pWav->ima.cachedFrameCount == 0 && pWav->ima.bytesRemainingInBlock == 0) {
             if (pWav->channels == 1) {
                 /* Mono. */
                 drwav_uint8 header[4];
                 if (pWav->onRead(pWav->pUserData, header, sizeof(header)) != sizeof(header)) {
-                    return totalSamplesRead;
+                    return totalFramesRead;
                 }
                 pWav->ima.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
 
                 pWav->ima.predictor[0] = drwav__bytes_to_s16(header + 0);
                 pWav->ima.stepIndex[0] = header[2];
-                pWav->ima.cachedSamples[drwav_countof(pWav->ima.cachedSamples) - 1] = pWav->ima.predictor[0];
-                pWav->ima.cachedSampleCount = 1;
+                pWav->ima.cachedFrames[drwav_countof(pWav->ima.cachedFrames) - 1] = pWav->ima.predictor[0];
+                pWav->ima.cachedFrameCount = 1;
             } else {
                 /* Stereo. */
                 drwav_uint8 header[8];
                 if (pWav->onRead(pWav->pUserData, header, sizeof(header)) != sizeof(header)) {
-                    return totalSamplesRead;
+                    return totalFramesRead;
                 }
                 pWav->ima.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
 
@@ -2870,32 +2871,35 @@ drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_
                 pWav->ima.predictor[1] = drwav__bytes_to_s16(header + 4);
                 pWav->ima.stepIndex[1] = header[6];
 
-                pWav->ima.cachedSamples[drwav_countof(pWav->ima.cachedSamples) - 2] = pWav->ima.predictor[0];
-                pWav->ima.cachedSamples[drwav_countof(pWav->ima.cachedSamples) - 1] = pWav->ima.predictor[1];
-                pWav->ima.cachedSampleCount = 2;
+                pWav->ima.cachedFrames[drwav_countof(pWav->ima.cachedFrames) - 2] = pWav->ima.predictor[0];
+                pWav->ima.cachedFrames[drwav_countof(pWav->ima.cachedFrames) - 1] = pWav->ima.predictor[1];
+                pWav->ima.cachedFrameCount = 1;
             }
         }
 
         /* Output anything that's cached. */
-        while (samplesToRead > 0 && pWav->ima.cachedSampleCount > 0 && pWav->compressed.iCurrentSample < pWav->totalSampleCount) {
-            pBufferOut[0] = (drwav_int16)pWav->ima.cachedSamples[drwav_countof(pWav->ima.cachedSamples) - pWav->ima.cachedSampleCount];
-            pWav->ima.cachedSampleCount -= 1;
+        while (framesToRead > 0 && pWav->ima.cachedFrameCount > 0 && pWav->compressed.iCurrentPCMFrame < pWav->totalPCMFrameCount) {
+            drwav_uint32 iSample;
+            for (iSample = 0; iSample < pWav->channels; iSample += 1) {
+                pBufferOut[iSample] = (drwav_int16)pWav->ima.cachedFrames[(drwav_countof(pWav->ima.cachedFrames) - (pWav->ima.cachedFrameCount*pWav->channels)) + iSample];
+            }
 
-            pBufferOut += 1;
-            samplesToRead -= 1;
-            totalSamplesRead += 1;
-            pWav->compressed.iCurrentSample += 1;
+            pBufferOut      += pWav->channels;
+            framesToRead    -= 1;
+            totalFramesRead += 1;
+            pWav->compressed.iCurrentPCMFrame += 1;
+            pWav->ima.cachedFrameCount -= 1;
         }
 
-        if (samplesToRead == 0) {
-            return totalSamplesRead;
+        if (framesToRead == 0) {
+            return totalFramesRead;
         }
 
         /*
         If there's nothing left in the cache, just go ahead and load more. If there's nothing left to load in the current block we just continue to the next
         loop iteration which will trigger the loading of a new block.
         */
-        if (pWav->ima.cachedSampleCount == 0) {
+        if (pWav->ima.cachedFrameCount == 0) {
             if (pWav->ima.bytesRemainingInBlock == 0) {
                 continue;
             } else {
@@ -2922,12 +2926,12 @@ drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_
                 From what I can tell with stereo streams, it looks like every 4 bytes (8 samples) is for one channel. So it goes 4 bytes for the
                 left channel, 4 bytes for the right channel.
                 */
-                pWav->ima.cachedSampleCount = 8 * pWav->channels;
+                pWav->ima.cachedFrameCount = 8;
                 for (iChannel = 0; iChannel < pWav->channels; ++iChannel) {
                     drwav_uint32 iByte;
                     drwav_uint8 nibbles[4];
                     if (pWav->onRead(pWav->pUserData, &nibbles, 4) != 4) {
-                        return totalSamplesRead;
+                        return totalFramesRead;
                     }
                     pWav->ima.bytesRemainingInBlock -= 4;
 
@@ -2947,7 +2951,7 @@ drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_
                         predictor = drwav_clamp(predictor + diff, -32768, 32767);
                         pWav->ima.predictor[iChannel] = predictor;
                         pWav->ima.stepIndex[iChannel] = drwav_clamp(pWav->ima.stepIndex[iChannel] + indexTable[nibble0], 0, (drwav_int32)drwav_countof(stepTable)-1);
-                        pWav->ima.cachedSamples[(drwav_countof(pWav->ima.cachedSamples) - pWav->ima.cachedSampleCount) + (iByte*2+0)*pWav->channels + iChannel] = predictor;
+                        pWav->ima.cachedFrames[(drwav_countof(pWav->ima.cachedFrames) - (pWav->ima.cachedFrameCount*pWav->channels)) + (iByte*2+0)*pWav->channels + iChannel] = predictor;
 
 
                         step      = stepTable[pWav->ima.stepIndex[iChannel]];
@@ -2962,14 +2966,14 @@ drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_
                         predictor = drwav_clamp(predictor + diff, -32768, 32767);
                         pWav->ima.predictor[iChannel] = predictor;
                         pWav->ima.stepIndex[iChannel] = drwav_clamp(pWav->ima.stepIndex[iChannel] + indexTable[nibble1], 0, (drwav_int32)drwav_countof(stepTable)-1);
-                        pWav->ima.cachedSamples[(drwav_countof(pWav->ima.cachedSamples) - pWav->ima.cachedSampleCount) + (iByte*2+1)*pWav->channels + iChannel] = predictor;
+                        pWav->ima.cachedFrames[(drwav_countof(pWav->ima.cachedFrames) - (pWav->ima.cachedFrameCount*pWav->channels)) + (iByte*2+1)*pWav->channels + iChannel] = predictor;
                     }
                 }
             }
         }
     }
 
-    return totalSamplesRead;
+    return totalFramesRead;
 }
 
 
@@ -3240,7 +3244,7 @@ drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, d
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        return drwav_read_s16__ima(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
+        return drwav_read_pcm_frames_s16__ima(pWav, framesToRead, pBufferOut);
     }
 
     return 0;
