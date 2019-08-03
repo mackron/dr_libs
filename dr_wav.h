@@ -566,6 +566,7 @@ See also: drwav_init_file_write(), drwav_init_memory_write(), drwav_uninit()
 */
 drwav_bool32 drwav_init_write(drwav* pWav, const drwav_data_format* pFormat, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
 drwav_bool32 drwav_init_write_sequential(drwav* pWav, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_write_proc onWrite, void* pUserData);
+drwav_bool32 drwav_init_write_sequential_pcm_frames(drwav* pWav, const drwav_data_format* pFormat, drwav_uint64 totalPCMFrameCount, drwav_write_proc onWrite, void* pUserData);
 
 /*
 Utility function to determine the target size of the entire data to be written (including all headers and chunks).
@@ -760,8 +761,10 @@ any given time.
 */
 drwav_bool32 drwav_init_file_write(drwav* pWav, const char* filename, const drwav_data_format* pFormat);
 drwav_bool32 drwav_init_file_write_sequential(drwav* pWav, const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
+drwav_bool32 drwav_init_file_write_sequential_pcm_frames(drwav* pWav, const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalPCMFrameCount);
 drwav_bool32 drwav_init_file_write_w(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat);
 drwav_bool32 drwav_init_file_write_sequential_w(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
+drwav_bool32 drwav_init_file_write_sequential_pcm_frames_w(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat, drwav_uint64 totalPCMFrameCount);
 #endif  /* DR_WAV_NO_STDIO */
 
 /*
@@ -785,6 +788,7 @@ considered valid until after drwav_uninit() has been called anyway.
 */
 drwav_bool32 drwav_init_memory_write(drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat);
 drwav_bool32 drwav_init_memory_write_sequential(drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
+drwav_bool32 drwav_init_memory_write_sequential_pcm_frames(drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalPCMFrameCount);
 
 
 #ifndef DR_WAV_NO_CONVERSION_API
@@ -1339,6 +1343,15 @@ drwav_bool32 drwav_init_file_write_sequential(drwav* pWav, const char* filename,
     return drwav_init_file_write__internal(pWav, filename, pFormat, totalSampleCount, DRWAV_TRUE);
 }
 
+drwav_bool32 drwav_init_file_write_sequential_pcm_frames(drwav* pWav, const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalPCMFrameCount)
+{
+    if (pFormat == NULL) {
+        return DRWAV_FALSE;
+    }
+
+    return drwav_init_file_write_sequential(pWav, filename, pFormat, totalPCMFrameCount*pFormat->channels);
+}
+
 drwav_bool32 drwav_init_file_write_w(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat)
 {
     return drwav_init_file_write_w__internal(pWav, filename, pFormat, 0, DRWAV_FALSE);
@@ -1347,6 +1360,15 @@ drwav_bool32 drwav_init_file_write_w(drwav* pWav, const wchar_t* filename, const
 drwav_bool32 drwav_init_file_write_sequential_w(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount)
 {
     return drwav_init_file_write_w__internal(pWav, filename, pFormat, totalSampleCount, DRWAV_TRUE);
+}
+
+drwav_bool32 drwav_init_file_write_sequential_pcm_frames_w(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat, drwav_uint64 totalPCMFrameCount)
+{
+    if (pFormat == NULL) {
+        return DRWAV_FALSE;
+    }
+
+    return drwav_init_file_write_sequential_w(pWav, filename, pFormat, totalPCMFrameCount*pFormat->channels);
 }
 
 
@@ -1588,6 +1610,15 @@ drwav_bool32 drwav_init_memory_write(drwav* pWav, void** ppData, size_t* pDataSi
 drwav_bool32 drwav_init_memory_write_sequential(drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount)
 {
     return drwav_init_memory_write__internal(pWav, ppData, pDataSize, pFormat, totalSampleCount, DRWAV_TRUE);
+}
+
+drwav_bool32 drwav_init_memory_write_sequential_pcm_frames(drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalPCMFrameCount)
+{
+    if (pFormat == NULL) {
+        return DRWAV_FALSE;
+    }
+
+    return drwav_init_memory_write_sequential(pWav, ppData, pDataSize, pFormat, totalPCMFrameCount*pFormat->channels);
 }
 
 
@@ -2241,6 +2272,15 @@ drwav_bool32 drwav_init_write(drwav* pWav, const drwav_data_format* pFormat, drw
 drwav_bool32 drwav_init_write_sequential(drwav* pWav, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_write_proc onWrite, void* pUserData)
 {
     return drwav_init_write__internal(pWav, pFormat, totalSampleCount, DRWAV_TRUE, onWrite, NULL, pUserData);   /* DRWAV_TRUE = Sequential */
+}
+
+drwav_bool32 drwav_init_write_sequential_pcm_frames(drwav* pWav, const drwav_data_format* pFormat, drwav_uint64 totalPCMFrameCount, drwav_write_proc onWrite, void* pUserData)
+{
+    if (pFormat == NULL) {
+        return DRWAV_FALSE;
+    }
+
+    return drwav_init_write_sequential(pWav, pFormat, totalPCMFrameCount*pFormat->channels, onWrite, pUserData);
 }
 
 drwav_uint64 drwav_target_write_size_bytes(drwav_data_format const *format, drwav_uint64 totalSampleCount)
