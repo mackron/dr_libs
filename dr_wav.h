@@ -75,23 +75,12 @@ like the following to read audio data:
         // Error opening WAV file.
     }
 
-    drwav_int32* pDecodedInterleavedSamples = malloc(wav.totalPCMFrameCount * wav.channels * sizeof(drwav_int32));
-    size_t numberOfSamplesActuallyDecoded = drwav_read_pcm_frames_s32(&wav, wav.totalPCMFrameCount, pDecodedInterleavedSamples);
+    drwav_int32* pDecodedInterleavedPCMFrames = malloc(wav.totalPCMFrameCount * wav.channels * sizeof(drwav_int32));
+    size_t numberOfSamplesActuallyDecoded = drwav_read_pcm_frames_s32(&wav, wav.totalPCMFrameCount, pDecodedInterleavedPCMFrames);
 
     ...
 
     drwav_uninit(&wav);
-
-You can also use drwav_open() to allocate and initialize the loader for you:
-
-    drwav* pWav = drwav_open_file("my_song.wav");
-    if (pWav == NULL) {
-        // Error opening WAV file.
-    }
-
-    ...
-
-    drwav_close(pWav);
 
 If you just want to quickly open and read the audio data in a single operation you can do something like this:
 
@@ -110,7 +99,7 @@ If you just want to quickly open and read the audio data in a single operation y
 The examples above use versions of the API that convert the audio data to a consistent format (32-bit signed PCM, in
 this case), but you can still output the audio data in its internal format (see notes below for supported formats):
 
-    size_t samplesRead = drwav_read_pcm_frames(&wav, wav.totalPCMFrameCount, pDecodedInterleavedSamples);
+    size_t framesRead = drwav_read_pcm_frames(&wav, wav.totalPCMFrameCount, pDecodedInterleavedPCMFrames);
 
 You can also read the raw bytes of audio data, which could be useful if dr_wav does not have native support for
 a particular data format:
@@ -119,7 +108,7 @@ a particular data format:
 
 
 dr_wav can also be used to output WAV files. This does not currently support compressed formats. To use this, look at
-drwav_open_write(), drwav_open_file_write(), etc. Use drwav_write_pcm_frames() to write samples, or drwav_write_raw()
+drwav_init_write(), drwav_init_file_write(), etc. Use drwav_write_pcm_frames() to write samples, or drwav_write_raw()
 to write raw data in the "data" chunk.
 
     drwav_data_format format;
@@ -128,11 +117,11 @@ to write raw data in the "data" chunk.
     format.channels = 2;
     format.sampleRate = 44100;
     format.bitsPerSample = 16;
-    drwav* pWav = drwav_open_file_write("data/recording.wav", &format);
+    drwav_init_file_write(&wav, "data/recording.wav", &format);
 
     ...
 
-    drwav_uint64 samplesWritten = drwav_write_pcm_frames(pWav, frameCount, pSamples);
+    drwav_uint64 framesWritten = drwav_write_pcm_frames(pWav, frameCount, pSamples);
 
 
 dr_wav has seamless support the Sony Wave64 format. The decoder will automatically detect it and it should Just Work
@@ -147,7 +136,7 @@ OPTIONS
   Disables conversion APIs such as drwav_read_pcm_frames_f32() and drwav_s16_to_f32().
 
 #define DR_WAV_NO_STDIO
-  Disables drwav_open_file(), drwav_open_file_write(), etc.
+  Disables APIs that initialize a decoder from a file such as drwav_init_file(), drwav_init_file_write(), etc.
 
 
 
@@ -262,7 +251,7 @@ typedef struct
 /*
 Callback for when data is read. Return value is the number of bytes actually read.
 
-pUserData   [in]  The user data that was passed to drwav_init(), drwav_open() and family.
+pUserData   [in]  The user data that was passed to drwav_init() and family.
 pBufferOut  [out] The output buffer.
 bytesToRead [in]  The number of bytes to read.
 
@@ -276,7 +265,7 @@ typedef size_t (* drwav_read_proc)(void* pUserData, void* pBufferOut, size_t byt
 /*
 Callback for when data is written. Returns value is the number of bytes actually written.
 
-pUserData    [in]  The user data that was passed to drwav_init_write(), drwav_open_write() and family.
+pUserData    [in]  The user data that was passed to drwav_init_write() and family.
 pData        [out] A pointer to the data to write.
 bytesToWrite [in]  The number of bytes to write.
 
@@ -289,7 +278,7 @@ typedef size_t (* drwav_write_proc)(void* pUserData, const void* pData, size_t b
 /*
 Callback for when data needs to be seeked.
 
-pUserData [in] The user data that was passed to drwav_init(), drwav_open() and family.
+pUserData [in] The user data that was passed to drwav_init() and family.
 offset    [in] The number of bytes to move, relative to the origin. Will never be negative.
 origin    [in] The origin of the seek - the current position or the start of the stream.
 
@@ -301,12 +290,12 @@ will be either drwav_seek_origin_start or drwav_seek_origin_current.
 typedef drwav_bool32 (* drwav_seek_proc)(void* pUserData, int offset, drwav_seek_origin origin);
 
 /*
-Callback for when drwav_init_ex/drwav_open_ex finds a chunk.
+Callback for when drwav_init_ex() finds a chunk.
 
-pChunkUserData    [in] The user data that was passed to the pChunkUserData parameter of drwav_init_ex(), drwav_open_ex() and family.
+pChunkUserData    [in] The user data that was passed to the pChunkUserData parameter of drwav_init_ex() and family.
 onRead            [in] A pointer to the function to call when reading.
 onSeek            [in] A pointer to the function to call when seeking.
-pReadSeekUserData [in] The user data that was passed to the pReadSeekUserData parameter of drwav_init_ex(), drwav_open_ex() and family.
+pReadSeekUserData [in] The user data that was passed to the pReadSeekUserData parameter of drwav_init_ex() and family.
 pChunkHeader      [in] A pointer to an object containing basic header information about the chunk. Use this to identify the chunk.
 
 Returns the number of bytes read + seeked.
@@ -318,7 +307,7 @@ You must not attempt to read beyond the boundary of the chunk.
 */
 typedef drwav_uint64 (* drwav_chunk_proc)(void* pChunkUserData, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pReadSeekUserData, const drwav_chunk_header* pChunkHeader);
 
-/* Structure for internal use. Only used for loaders opened with drwav_open_memory(). */
+/* Structure for internal use. Only used for loaders opened with drwav_init_memory(). */
 typedef struct
 {
     const drwav_uint8* data;
@@ -326,7 +315,7 @@ typedef struct
     size_t currentReadPos;
 } drwav__memory_stream;
 
-/* Structure for internal use. Only used for writers opened with drwav_open_memory_write(). */
+/* Structure for internal use. Only used for writers opened with drwav_init_memory_write(). */
 typedef struct
 {
     void** ppData;
@@ -471,7 +460,7 @@ typedef struct
     drwav_smpl smpl;
 
 
-    /* A hack to avoid a DRWAV_MALLOC() when opening a decoder with drwav_open_memory(). */
+    /* A hack to avoid a DRWAV_MALLOC() when opening a decoder with drwav_init_memory(). */
     drwav__memory_stream memoryStream;
     drwav__memory_stream_write memoryStreamWrite;
 
@@ -522,9 +511,6 @@ Close the loader with drwav_uninit().
 This is the lowest level function for initializing a WAV file. You can also use drwav_init_file() and drwav_init_memory()
 to open the stream from a file or from a block of memory respectively.
 
-If you want dr_wav to manage the memory allocation for you, consider using drwav_open() instead. This will allocate
-a drwav object on the heap and return a pointer to it.
-
 Possible values for flags:
   DRWAV_SEQUENTIAL: Never perform a backwards seek while loading. This disables the chunk callback and will cause this function
                     to return as soon as the data chunk is found. Any chunks after the data chunk will be ignored.
@@ -556,9 +542,6 @@ to open the stream from a file or from a block of memory respectively.
 If the total sample count is known, you can use drwav_init_write_sequential(). This avoids the need for dr_wav to perform
 a post-processing step for storing the total sample count and the size of the data chunk which requires a backwards seek.
 
-If you want dr_wav to manage the memory allocation for you, consider using drwav_open() instead. This will allocate
-a drwav object on the heap and return a pointer to it.
-
 See also: drwav_init_file_write(), drwav_init_memory_write(), drwav_uninit()
 */
 drwav_bool32 drwav_init_write(drwav* pWav, const drwav_data_format* pFormat, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
@@ -574,7 +557,7 @@ Useful if the application needs to know the size to allocate.
 
 Only writing to the RIFF chunk and one data chunk is currently supported.
 
-See also: drwav_init_write(), drwav_open_write(), drwav_init_file_write(), drwav_open_file_write(), drwav_init_memory_write(), drwav_open_memory_write()
+See also: drwav_init_write(), drwav_init_file_write(), drwav_init_memory_write()
 */
 drwav_uint64 drwav_target_write_size_bytes(drwav_data_format const *format, drwav_uint64 totalSampleCount);
 
@@ -609,7 +592,7 @@ If the return value is less than <framesToRead> it means the end of the file has
 you have requested more samples than can possibly fit in the output buffer.
 
 This function will only work when sample data is of a fixed size and uncompressed. If you are
-using a compressed format consider using drwav_read_raw() or drwav_read_pcm_frames_s16/s32/f32/etc().
+using a compressed format consider using drwav_read_raw() or drwav_read_pcm_frames_s16/s32/f32().
 */
 drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut);
 
