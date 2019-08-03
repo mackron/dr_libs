@@ -184,6 +184,14 @@ typedef drwav_uint32     drwav_bool32;
 extern "C" {
 #endif
 
+typedef drwav_int32 drwav_result;
+#define DRWAV_SUCCESS                0
+#define DRWAV_ERROR                 -1
+#define DRWAV_INVALID_ARGS          -2
+#define DRWAV_INVALID_OPERATION     -3
+#define DRWAV_INVALID_FILE          -100
+#define DRWAV_EOF                   -101
+
 /* Common data formats. */
 #define DR_WAVE_FORMAT_PCM          0x1
 #define DR_WAVE_FORMAT_ADPCM        0x2
@@ -557,7 +565,7 @@ Uninitializes the given drwav object.
 
 Use this only for objects initialized with drwav_init*() functions (drwav_init(), drwav_init_ex(), drwav_init_write(), drwav_init_write_sequential()).
 */
-void drwav_uninit(drwav* pWav);
+drwav_result drwav_uninit(drwav* pWav);
 
 
 /*
@@ -934,14 +942,6 @@ void drwav_free(void* pDataReturnedByOpenAndRead);
 #define drwav_assert                       DRWAV_ASSERT
 #define drwav_copy_memory                  DRWAV_COPY_MEMORY
 #define drwav_zero_memory                  DRWAV_ZERO_MEMORY
-
-typedef drwav_int32 drwav_result;
-#define DRWAV_SUCCESS            0
-#define DRWAV_ERROR             -1
-#define DRWAV_INVALID_ARGS      -2
-#define DRWAV_INVALID_OPERATION -3
-#define DRWAV_INVALID_FILE      -100
-#define DRWAV_EOF               -101
 
 #define DRWAV_MAX_SIMD_VECTOR_SIZE         64  /* 64 for AVX-512 in the future. */
 
@@ -2324,10 +2324,12 @@ drwav_uint64 drwav_target_write_size_bytes(drwav_data_format const *format, drwa
     return fileSizeBytes;
 }
 
-void drwav_uninit(drwav* pWav)
+drwav_result drwav_uninit(drwav* pWav)
 {
+    drwav_result result = DRWAV_SUCCESS;
+
     if (pWav == NULL) {
-        return;
+        return DRWAV_INVALID_ARGS;
     }
 
     /*
@@ -2337,11 +2339,6 @@ void drwav_uninit(drwav* pWav)
     */
     if (pWav->onWrite != NULL) {
         drwav_uint32 paddingSize = 0;
-
-        /* Validation for sequential mode. */
-        if (pWav->isSequentialWrite) {
-            drwav_assert(pWav->dataChunkDataSize == pWav->dataChunkDataSizeTargetWrite);
-        }
 
         /* Padding. Do not adjust pWav->dataChunkDataSize - this should not include the padding. */
         if (pWav->container == drwav_container_riff) {
@@ -2386,6 +2383,13 @@ void drwav_uninit(drwav* pWav)
                 }
             }
         }
+
+        /* Validation for sequential mode. */
+        if (pWav->isSequentialWrite) {
+            if (pWav->dataChunkDataSize != pWav->dataChunkDataSizeTargetWrite) {
+                result = DRWAV_INVALID_FILE;
+            }
+        }
     }
 
 #ifndef DR_WAV_NO_STDIO
@@ -2397,6 +2401,8 @@ void drwav_uninit(drwav* pWav)
         fclose((FILE*)pWav->pUserData);
     }
 #endif
+
+    return result;
 }
 
 
