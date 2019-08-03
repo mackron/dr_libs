@@ -1,43 +1,63 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.10.0 - 2019-07-xx
+dr_wav - v0.10.0 - 2019-08-xx
 
 David Reid - mackron@gmail.com
 */
 
 /*
-DEPRECATED APIS
-===============
-Version 0.9.0 deprecated the per-sample reading and seeking APIs and replaced them with versions that work on the resolution
-of a PCM frame instead. For example, given a stereo WAV file, previously you would pass 2 to drwav_read_f32() to read one
-PCM frame, whereas now you would pass in 1 to drwav_read_pcm_frames_f32(). The old APIs would return the number of samples
-read, whereas now it will return the number of PCM frames. Below is a list of APIs that have been deprecated and their
-replacements.
+RELEASE NOTES - v0.10.0
+=======================
+Version 0.10.0 has breaking API changes. There are no significant bug fixes in this release, so if you are affected you do
+not need to upgrade.
 
-    drwav_read()                     -> drwav_read_pcm_frames()
-    drwav_read_s16()                 -> drwav_read_pcm_frames_s16()
-    drwav_read_f32()                 -> drwav_read_pcm_frames_f32()
-    drwav_read_s32()                 -> drwav_read_pcm_frames_s32()
-    drwav_seek_to_sample()           -> drwav_seek_to_pcm_frame()
-    drwav_write()                    -> drwav_write_pcm_frames()
-    drwav_open_and_read_s16()        -> drwav_open_and_read_pcm_frames_s16()
-    drwav_open_and_read_f32()        -> drwav_open_and_read_pcm_frames_f32()
-    drwav_open_and_read_s32()        -> drwav_open_and_read_pcm_frames_s32()
-    drwav_open_file_and_read_s16()   -> drwav_open_file_and_read_pcm_frames_s16()
-    drwav_open_file_and_read_f32()   -> drwav_open_file_and_read_pcm_frames_f32()
-    drwav_open_file_and_read_s32()   -> drwav_open_file_and_read_pcm_frames_s32()
-    drwav_open_memory_and_read_s16() -> drwav_open_memory_and_read_pcm_frames_s16()
-    drwav_open_memory_and_read_f32() -> drwav_open_memory_and_read_pcm_frames_f32()
-    drwav_open_memory_and_read_s32() -> drwav_open_memory_and_read_pcm_frames_s32()
-    drwav::totalSampleCount          -> drwav::totalPCMFrameCount
+Removed APIs
+------------
+The following APIs were deprecated in version 0.9.0 and have been completely removed in version 0.10.0:
 
-Rationale:
-    1) Most programs will want to read in multiples of the channel count which demands a per-frame reading API. Per-sample
-       reading just adds complexity and maintenance costs for no practical benefit.
-    2) This is consistent with my other decoders - dr_flac and dr_mp3.
+    drwav_read()
+    drwav_read_s16()
+    drwav_read_f32()
+    drwav_read_s32()
+    drwav_seek_to_sample()
+    drwav_write()
+    drwav_open_and_read_s16()
+    drwav_open_and_read_f32()
+    drwav_open_and_read_s32()
+    drwav_open_file_and_read_s16()
+    drwav_open_file_and_read_f32()
+    drwav_open_file_and_read_s32()
+    drwav_open_memory_and_read_s16()
+    drwav_open_memory_and_read_f32()
+    drwav_open_memory_and_read_s32()
+    drwav::totalSampleCount
 
-These APIs will be removed completely in version 0.10.0. You can continue to use drwav_read_raw() if you need per-sample
-reading.
+See release notes for version 0.9.0 at the bottom of this file for replacement APIs.
+
+Deprecated APIs
+---------------
+The following APIs have been deprecated. There is a confusing and completely arbitrary difference between drwav_init*() and
+drwav_open*(), where drwav_init*() initializes a pre-allocated drwav object, whereas drwav_open*() will first allocated a
+drwav object on the heap and then initialize it. drwav_open*() has been deprecated which means you must now use a pre-
+allocated drwav object with drwav_init*(). If you need the previous functionality, you can just do a malloc() followed by
+a called to one of the drwav_init*() APIs.
+
+    drwav_open()
+    drwav_open_ex()
+    drwav_open_write()
+    drwav_open_write_sequential()
+    drwav_open_file()
+    drwav_open_file_ex()
+    drwav_open_file_write()
+    drwav_open_file_write_sequential()
+    drwav_open_memory()
+    drwav_open_memory_ex()
+    drwav_open_memory_write()
+    drwav_open_memory_write_sequential()
+    drwav_close()
+
+These APIs will be removed completely in a future version. The rationale for this change is to remove confusion between the
+two different ways to initialize a drwav object.
 */
 
 /*
@@ -569,58 +589,6 @@ drwav_result drwav_uninit(drwav* pWav);
 
 
 /*
-Opens a wav file for reading using the given callbacks.
-
-onRead    [in]           The function to call when data needs to be read from the client.
-onSeek    [in]           The function to call when the read position of the client data needs to move.
-pUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
-
-Returns null on error.
-
-Close the loader with drwav_close().
-
-You can also use drwav_open_file() and drwav_open_memory() to open the stream from a file or from a block of
-memory respectively.
-
-This is different from drwav_init() in that it will allocate the drwav object for you via DRWAV_MALLOC() before
-initializing it.
-
-See also: drwav_init(), drwav_open_file(), drwav_open_memory(), drwav_close()
-*/
-drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
-drwav* drwav_open_ex(drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags);
-
-/*
-Opens a wav file for writing using the given callbacks.
-
-onWrite   [in]           The function to call when data needs to be written.
-onSeek    [in]           The function to call when the write position needs to move.
-pUserData [in, optional] A pointer to application defined data that will be passed to onWrite and onSeek.
-
-Returns null on error.
-
-Close the loader with drwav_close().
-
-You can also use drwav_open_file_write() and drwav_open_memory_write() to open the stream from a file or from a block
-of memory respectively.
-
-This is different from drwav_init_write() in that it will allocate the drwav object for you via DRWAV_MALLOC() before
-initializing it.
-
-See also: drwav_open_file_write(), drwav_open_memory_write(), drwav_close()
-*/
-drwav* drwav_open_write(const drwav_data_format* pFormat, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
-drwav* drwav_open_write_sequential(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_write_proc onWrite, void* pUserData);
-
-/*
-Uninitializes and deletes the the given drwav object.
-
-Use this only for objects created with drwav_open*() functions (drwav_open(), drwav_open_ex(), drwav_open_write(), drwav_open_write_sequential()).
-*/
-void drwav_close(drwav* pWav);
-
-
-/*
 Reads raw audio data.
 
 This is the lowest level function for reading audio data. It simply reads the given number of
@@ -794,27 +762,6 @@ drwav_bool32 drwav_init_file_write(drwav* pWav, const char* filename, const drwa
 drwav_bool32 drwav_init_file_write_sequential(drwav* pWav, const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
 drwav_bool32 drwav_init_file_write_w(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat);
 drwav_bool32 drwav_init_file_write_sequential_w(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
-
-/*
-Helper for opening a wave file for reading using stdio.
-
-This holds the internal FILE object until drwav_close() is called. Keep this in mind if you're caching drwav
-objects because the operating system may restrict the number of file handles an application can have open at
-any given time.
-*/
-drwav* drwav_open_file(const char* filename);
-drwav* drwav_open_file_ex(const char* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
-
-/*
-Helper for opening a wave file for writing using stdio.
-
-This holds the internal FILE object until drwav_close() is called. Keep this in mind if you're caching drwav
-objects because the operating system may restrict the number of file handles an application can have open at
-any given time.
-*/
-drwav* drwav_open_file_write(const char* filename, const drwav_data_format* pFormat);
-drwav* drwav_open_file_write_sequential(const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
-
 #endif  /* DR_WAV_NO_STDIO */
 
 /*
@@ -838,28 +785,6 @@ considered valid until after drwav_uninit() has been called anyway.
 */
 drwav_bool32 drwav_init_memory_write(drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat);
 drwav_bool32 drwav_init_memory_write_sequential(drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
-
-/*
-Helper for opening a loader from a pre-allocated memory buffer.
-
-This does not create a copy of the data. It is up to the application to ensure the buffer remains valid for
-the lifetime of the drwav object.
-
-The buffer should contain the contents of the entire wave file, not just the sample data.
-*/
-drwav* drwav_open_memory(const void* data, size_t dataSize);
-drwav* drwav_open_memory_ex(const void* data, size_t dataSize, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
-
-/*
-Helper for opening a writer which outputs data to a memory buffer.
-
-dr_wav will manage the memory allocations, however it is up to the caller to free the data with drwav_free().
-
-The buffer will remain allocated even after drwav_close() is called. Indeed, the buffer should not be
-considered valid until after drwav_close() has been called anyway.
-*/
-drwav* drwav_open_memory_write(void** ppData, size_t* pDataSize, const drwav_data_format* pFormat);
-drwav* drwav_open_memory_write_sequential(void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
 
 
 #ifndef DR_WAV_NO_CONVERSION_API
@@ -887,7 +812,21 @@ void drwav_free(void* pDataReturnedByOpenAndRead);
 
 
 /* DEPRECATED APIS */
-
+drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
+drwav* drwav_open_ex(drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags);
+drwav* drwav_open_write(const drwav_data_format* pFormat, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
+drwav* drwav_open_write_sequential(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_write_proc onWrite, void* pUserData);
+#ifndef DR_WAV_NO_STDIO
+drwav* drwav_open_file(const char* filename);
+drwav* drwav_open_file_ex(const char* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
+drwav* drwav_open_file_write(const char* filename, const drwav_data_format* pFormat);
+drwav* drwav_open_file_write_sequential(const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
+#endif  /* DR_WAV_NO_STDIO */
+drwav* drwav_open_memory(const void* data, size_t dataSize);
+drwav* drwav_open_memory_ex(const void* data, size_t dataSize, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
+drwav* drwav_open_memory_write(void** ppData, size_t* pDataSize, const drwav_data_format* pFormat);
+drwav* drwav_open_memory_write_sequential(void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
+void drwav_close(drwav* pWav);
 
 #ifdef __cplusplus
 }
@@ -4493,9 +4432,10 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 /*
 REVISION HISTORY
 ================
-v0.10.0 - 2019-07-xx
+v0.10.0 - 2019-08-xx
   - Remove deprecated APIs.
   - Add drwav_target_write_size_bytes() which calculates the total size in bytes of a WAV file given a format and sample count.
+  - Deprecate drwav_open*() and drwav_close().
 
 v0.9.2 - 2019-05-21
   - Fix warnings.
