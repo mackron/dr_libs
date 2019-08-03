@@ -478,7 +478,6 @@ typedef struct
     /* Generic data for compressed formats. This data is shared across all block-compressed formats. */
     struct
     {
-        drwav_uint64 iCurrentSample;    /* The index of the next sample that will be read by drwav_read_*(). This is used with "totalSampleCount" to ensure we don't read excess samples at the end of the last block. */
         drwav_uint64 iCurrentPCMFrame;  /* The index of the next PCM frame that will be read by drwav_read_*(). This is used with "totalPCMFrameCount" to ensure we don't read excess samples at the end of the last block. */
     } compressed;
     
@@ -2488,7 +2487,7 @@ drwav_bool32 drwav_seek_to_first_pcm_frame(drwav* pWav)
     }
 
     if (drwav__is_compressed_format_tag(pWav->translatedFormatTag)) {
-        pWav->compressed.iCurrentSample = 0;
+        pWav->compressed.iCurrentPCMFrame = 0;
     }
     
     pWav->bytesRemaining = pWav->dataChunkDataSize;
@@ -2534,7 +2533,7 @@ drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
             }
         }
 
-        if ((targetFrameIndex * pWav->channels) > pWav->compressed.iCurrentSample) {
+        if (targetFrameIndex > pWav->compressed.iCurrentPCMFrame) {
             drwav_uint64 offsetInFrames = targetFrameIndex - pWav->compressed.iCurrentPCMFrame;
 
             drwav_int16 devnull[2048];
