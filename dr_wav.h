@@ -2513,7 +2513,7 @@ drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
     }
 
     /* If there are no samples, just return DRWAV_TRUE without doing anything. */
-    if (pWav->totalSampleCount == 0) {
+    if (pWav->totalPCMFrameCount == 0) {
         return DRWAV_TRUE;
     }
 
@@ -2533,36 +2533,36 @@ drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
         If we're seeking forward it's simple - just keep reading samples until we hit the sample we're requesting. If we're seeking backwards,
         we first need to seek back to the start and then just do the same thing as a forward seek.
         */
-        if ((targetFrameIndex * pWav->channels) < pWav->compressed.iCurrentSample) {
+        if (targetFrameIndex < pWav->compressed.iCurrentPCMFrame) {
             if (!drwav_seek_to_first_pcm_frame(pWav)) {
                 return DRWAV_FALSE;
             }
         }
 
         if ((targetFrameIndex * pWav->channels) > pWav->compressed.iCurrentSample) {
-            drwav_uint64 offset = (targetFrameIndex * pWav->channels) - pWav->compressed.iCurrentSample;
+            drwav_uint64 offsetInFrames = targetFrameIndex - pWav->compressed.iCurrentPCMFrame;
 
             drwav_int16 devnull[2048];
-            while (offset > 0) {
-                drwav_uint64 samplesRead = 0;
-                drwav_uint64 samplesToRead = offset;
-                if (samplesToRead > 2048) {
-                    samplesToRead = 2048;
+            while (offsetInFrames > 0) {
+                drwav_uint64 framesRead = 0;
+                drwav_uint64 framesToRead = offsetInFrames;
+                if (framesToRead > drwav_countof(devnull)/pWav->channels) {
+                    framesToRead = drwav_countof(devnull)/pWav->channels;
                 }
 
                 if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-                    samplesRead = drwav_read_pcm_frames_s16__msadpcm(pWav, samplesToRead/pWav->channels, devnull) * pWav->channels;
+                    framesRead = drwav_read_pcm_frames_s16__msadpcm(pWav, framesToRead, devnull);
                 } else if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-                    samplesRead = drwav_read_pcm_frames_s16__ima(pWav, samplesToRead/pWav->channels, devnull) * pWav->channels;
+                    framesRead = drwav_read_pcm_frames_s16__ima(pWav, framesToRead, devnull);
                 } else {
                     assert(DRWAV_FALSE);    /* If this assertion is triggered it means I've implemented a new compressed format but forgot to add a branch for it here. */
                 }
 
-                if (samplesRead != samplesToRead) {
+                if (framesRead != framesToRead) {
                     return DRWAV_FALSE;
                 }
 
-                offset -= samplesRead;
+                offsetInFrames -= framesRead;
             }
         }
     } else {
@@ -2908,7 +2908,7 @@ drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uint64 framesToRe
                     -1, -1, -1, -1, 2, 4, 6, 8
                 };
 
-                static drwav_int32 stepTable[89] = { 
+                static drwav_int32 stepTable[89] = {
                     7,     8,     9,     10,    11,    12,    13,    14,    16,    17, 
                     19,    21,    23,    25,    28,    31,    34,    37,    41,    45, 
                     50,    55,    60,    66,    73,    80,    88,    97,    107,   118, 
