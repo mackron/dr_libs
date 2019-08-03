@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.10.0 - 2019-08-xx
+dr_wav - v0.10.0 - 2019-08-04
 
 David Reid - mackron@gmail.com
 */
@@ -4465,7 +4465,7 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 /*
 REVISION HISTORY
 ================
-v0.10.0 - 2019-08-xx
+v0.10.0 - 2019-08-04
   - Remove deprecated APIs.
   - Add wchar_t variants for file loading APIs:
       drwav_init_file_w()
@@ -4492,6 +4492,7 @@ v0.10.0 - 2019-08-xx
       drwav_open_memory_write()
       drwav_open_memory_write_sequential()
       drwav_close()
+  - Minor documentation updates.
 
 v0.9.2 - 2019-05-21
   - Fix warnings.
