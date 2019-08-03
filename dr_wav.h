@@ -4472,8 +4472,31 @@ REVISION HISTORY
 ================
 v0.10.0 - 2019-08-xx
   - Remove deprecated APIs.
+  - Add wchar_t variants for file loading APIs:
+      drwav_init_file_w()
+      drwav_init_file_ex_w()
+      drwav_init_file_write_w()
+      drwav_init_file_write_sequential_w()
   - Add drwav_target_write_size_bytes() which calculates the total size in bytes of a WAV file given a format and sample count.
-  - Deprecate drwav_open*() and drwav_close().
+  - Add APIs for specifying the PCM frame count instead of the sample count when opening in sequential write mode:
+      drwav_init_write_sequential_pcm_frames()
+      drwav_init_file_write_sequential_pcm_frames()
+      drwav_init_file_write_sequential_pcm_frames_w()
+      drwav_init_memory_write_sequential_pcm_frames()
+  - Deprecate drwav_open*() and drwav_close():
+      drwav_open()
+      drwav_open_ex()
+      drwav_open_write()
+      drwav_open_write_sequential()
+      drwav_open_file()
+      drwav_open_file_ex()
+      drwav_open_file_write()
+      drwav_open_file_write_sequential()
+      drwav_open_memory()
+      drwav_open_memory_ex()
+      drwav_open_memory_write()
+      drwav_open_memory_write_sequential()
+      drwav_close()
 
 v0.9.2 - 2019-05-21
   - Fix warnings.
