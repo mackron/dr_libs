@@ -479,6 +479,7 @@ typedef struct
     struct
     {
         drwav_uint64 iCurrentSample;    /* The index of the next sample that will be read by drwav_read_*(). This is used with "totalSampleCount" to ensure we don't read excess samples at the end of the last block. */
+        drwav_uint64 iCurrentPCMFrame;  /* The index of the next PCM frame that will be read by drwav_read_*(). This is used with "totalPCMFrameCount" to ensure we don't read excess samples at the end of the last block. */
     } compressed;
     
     /* Microsoft ADPCM specific data. */
@@ -487,9 +488,9 @@ typedef struct
         drwav_uint32 bytesRemainingInBlock;
         drwav_uint16 predictor[2];
         drwav_int32  delta[2];
-        drwav_int32  cachedSamples[4];  /* Samples are stored in this cache during decoding. */
-        drwav_uint32 cachedSampleCount;
-        drwav_int32  prevSamples[2][2]; /* The previous 2 samples for each channel (2 channels at most). */
+        drwav_int32  cachedFrames[4];  /* Samples are stored in this cache during decoding. */
+        drwav_uint32 cachedFrameCount;
+        drwav_int32  prevFrames[2][2]; /* The previous 2 samples for each channel (2 channels at most). */
     } msadpcm;
 
     /* IMA ADPCM specific data. */
@@ -993,7 +994,7 @@ static unsigned int drwav__chunk_padding_size_w64(drwav_uint64 chunkSize)
     return (unsigned int)(chunkSize % 8);
 }
 
-drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
 drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
 drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
 drwav* drwav_open_write__internal(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
@@ -2550,7 +2551,7 @@ drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
                 }
 
                 if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-                    samplesRead = drwav_read_s16__msadpcm(pWav, samplesToRead, devnull);
+                    samplesRead = drwav_read_pcm_frames_s16__msadpcm(pWav, samplesToRead/pWav->channels, devnull) * pWav->channels;
                 } else if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
                     samplesRead = drwav_read_s16__ima(pWav, samplesToRead, devnull);
                 } else {
@@ -2654,40 +2655,39 @@ drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, con
 }
 
 
-
-drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut)
+drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut)
 {
-    drwav_uint64 totalSamplesRead = 0;
+    drwav_uint64 totalFramesRead = 0;
 
     drwav_assert(pWav != NULL);
-    drwav_assert(samplesToRead > 0);
+    drwav_assert(framesToRead > 0);
     drwav_assert(pBufferOut != NULL);
 
     /* TODO: Lots of room for optimization here. */
 
-    while (samplesToRead > 0 && pWav->compressed.iCurrentSample < pWav->totalSampleCount) {
-        /* If there are no cached samples we need to load a new block. */
-        if (pWav->msadpcm.cachedSampleCount == 0 && pWav->msadpcm.bytesRemainingInBlock == 0) {
+    while (framesToRead > 0 && pWav->compressed.iCurrentPCMFrame < pWav->totalPCMFrameCount) {
+        /* If there are no cached frames we need to load a new block. */
+        if (pWav->msadpcm.cachedFrameCount == 0 && pWav->msadpcm.bytesRemainingInBlock == 0) {
             if (pWav->channels == 1) {
                 /* Mono. */
                 drwav_uint8 header[7];
                 if (pWav->onRead(pWav->pUserData, header, sizeof(header)) != sizeof(header)) {
-                    return totalSamplesRead;
+                    return totalFramesRead;
                 }
                 pWav->msadpcm.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
 
-                pWav->msadpcm.predictor[0] = header[0];
-                pWav->msadpcm.delta[0] = drwav__bytes_to_s16(header + 1);
-                pWav->msadpcm.prevSamples[0][1] = (drwav_int32)drwav__bytes_to_s16(header + 3);
-                pWav->msadpcm.prevSamples[0][0] = (drwav_int32)drwav__bytes_to_s16(header + 5);
-                pWav->msadpcm.cachedSamples[2] = pWav->msadpcm.prevSamples[0][0];
-                pWav->msadpcm.cachedSamples[3] = pWav->msadpcm.prevSamples[0][1];
-                pWav->msadpcm.cachedSampleCount = 2;
+                pWav->msadpcm.predictor[0]     = header[0];
+                pWav->msadpcm.delta[0]         = drwav__bytes_to_s16(header + 1);
+                pWav->msadpcm.prevFrames[0][1] = (drwav_int32)drwav__bytes_to_s16(header + 3);
+                pWav->msadpcm.prevFrames[0][0] = (drwav_int32)drwav__bytes_to_s16(header + 5);
+                pWav->msadpcm.cachedFrames[2]  = pWav->msadpcm.prevFrames[0][0];
+                pWav->msadpcm.cachedFrames[3]  = pWav->msadpcm.prevFrames[0][1];
+                pWav->msadpcm.cachedFrameCount = 2;
             } else {
                 /* Stereo. */
                 drwav_uint8 header[14];
                 if (pWav->onRead(pWav->pUserData, header, sizeof(header)) != sizeof(header)) {
-                    return totalSamplesRead;
+                    return totalFramesRead;
                 }
                 pWav->msadpcm.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
 
@@ -2695,32 +2695,35 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
                 pWav->msadpcm.predictor[1] = header[1];
                 pWav->msadpcm.delta[0] = drwav__bytes_to_s16(header + 2);
                 pWav->msadpcm.delta[1] = drwav__bytes_to_s16(header + 4);
-                pWav->msadpcm.prevSamples[0][1] = (drwav_int32)drwav__bytes_to_s16(header + 6);
-                pWav->msadpcm.prevSamples[1][1] = (drwav_int32)drwav__bytes_to_s16(header + 8);
-                pWav->msadpcm.prevSamples[0][0] = (drwav_int32)drwav__bytes_to_s16(header + 10);
-                pWav->msadpcm.prevSamples[1][0] = (drwav_int32)drwav__bytes_to_s16(header + 12);
+                pWav->msadpcm.prevFrames[0][1] = (drwav_int32)drwav__bytes_to_s16(header + 6);
+                pWav->msadpcm.prevFrames[1][1] = (drwav_int32)drwav__bytes_to_s16(header + 8);
+                pWav->msadpcm.prevFrames[0][0] = (drwav_int32)drwav__bytes_to_s16(header + 10);
+                pWav->msadpcm.prevFrames[1][0] = (drwav_int32)drwav__bytes_to_s16(header + 12);
 
-                pWav->msadpcm.cachedSamples[0] = pWav->msadpcm.prevSamples[0][0];
-                pWav->msadpcm.cachedSamples[1] = pWav->msadpcm.prevSamples[1][0];
-                pWav->msadpcm.cachedSamples[2] = pWav->msadpcm.prevSamples[0][1];
-                pWav->msadpcm.cachedSamples[3] = pWav->msadpcm.prevSamples[1][1];
-                pWav->msadpcm.cachedSampleCount = 4;
+                pWav->msadpcm.cachedFrames[0] = pWav->msadpcm.prevFrames[0][0];
+                pWav->msadpcm.cachedFrames[1] = pWav->msadpcm.prevFrames[1][0];
+                pWav->msadpcm.cachedFrames[2] = pWav->msadpcm.prevFrames[0][1];
+                pWav->msadpcm.cachedFrames[3] = pWav->msadpcm.prevFrames[1][1];
+                pWav->msadpcm.cachedFrameCount = 2;
             }
         }
 
         /* Output anything that's cached. */
-        while (samplesToRead > 0 && pWav->msadpcm.cachedSampleCount > 0 && pWav->compressed.iCurrentSample < pWav->totalSampleCount) {
-            pBufferOut[0] = (drwav_int16)pWav->msadpcm.cachedSamples[drwav_countof(pWav->msadpcm.cachedSamples) - pWav->msadpcm.cachedSampleCount];
-            pWav->msadpcm.cachedSampleCount -= 1;
+        while (framesToRead > 0 && pWav->msadpcm.cachedFrameCount > 0 && pWav->compressed.iCurrentPCMFrame < pWav->totalPCMFrameCount) {
+            drwav_uint32 iSample = 0;
+            for (iSample = 0; iSample < pWav->channels; iSample += 1) {
+                pBufferOut[iSample] = (drwav_int16)pWav->msadpcm.cachedFrames[(drwav_countof(pWav->msadpcm.cachedFrames) - (pWav->msadpcm.cachedFrameCount*pWav->channels)) + iSample];
+            }
 
-            pBufferOut += 1;
-            samplesToRead -= 1;
-            totalSamplesRead += 1;
-            pWav->compressed.iCurrentSample += 1;
+            pBufferOut      += pWav->channels;
+            framesToRead    -= 1;
+            totalFramesRead += 1;
+            pWav->compressed.iCurrentPCMFrame += 1;
+            pWav->msadpcm.cachedFrameCount -= 1;
         }
 
-        if (samplesToRead == 0) {
-            return totalSamplesRead;
+        if (framesToRead == 0) {
+            return totalFramesRead;
         }
 
 
@@ -2728,7 +2731,7 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
         If there's nothing left in the cache, just go ahead and load more. If there's nothing left to load in the current block we just continue to the next
         loop iteration which will trigger the loading of a new block.
         */
-        if (pWav->msadpcm.cachedSampleCount == 0) {
+        if (pWav->msadpcm.cachedFrameCount == 0) {
             if (pWav->msadpcm.bytesRemainingInBlock == 0) {
                 continue;
             } else {
@@ -2744,7 +2747,7 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
                 drwav_int32 nibble1;
 
                 if (pWav->onRead(pWav->pUserData, &nibbles, 1) != 1) {
-                    return totalSamplesRead;
+                    return totalFramesRead;
                 }
                 pWav->msadpcm.bytesRemainingInBlock -= 1;
 
@@ -2757,7 +2760,7 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
                     drwav_int32 newSample0;
                     drwav_int32 newSample1;
 
-                    newSample0  = ((pWav->msadpcm.prevSamples[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevSamples[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
+                    newSample0  = ((pWav->msadpcm.prevFrames[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevFrames[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
                     newSample0 += nibble0 * pWav->msadpcm.delta[0];
                     newSample0  = drwav_clamp(newSample0, -32768, 32767);
 
@@ -2766,11 +2769,11 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
                         pWav->msadpcm.delta[0] = 16;
                     }
 
-                    pWav->msadpcm.prevSamples[0][0] = pWav->msadpcm.prevSamples[0][1];
-                    pWav->msadpcm.prevSamples[0][1] = newSample0;
+                    pWav->msadpcm.prevFrames[0][0] = pWav->msadpcm.prevFrames[0][1];
+                    pWav->msadpcm.prevFrames[0][1] = newSample0;
 
 
-                    newSample1  = ((pWav->msadpcm.prevSamples[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevSamples[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
+                    newSample1  = ((pWav->msadpcm.prevFrames[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevFrames[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
                     newSample1 += nibble1 * pWav->msadpcm.delta[0];
                     newSample1  = drwav_clamp(newSample1, -32768, 32767);
 
@@ -2779,20 +2782,20 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
                         pWav->msadpcm.delta[0] = 16;
                     }
 
-                    pWav->msadpcm.prevSamples[0][0] = pWav->msadpcm.prevSamples[0][1];
-                    pWav->msadpcm.prevSamples[0][1] = newSample1;
+                    pWav->msadpcm.prevFrames[0][0] = pWav->msadpcm.prevFrames[0][1];
+                    pWav->msadpcm.prevFrames[0][1] = newSample1;
 
 
-                    pWav->msadpcm.cachedSamples[2] = newSample0;
-                    pWav->msadpcm.cachedSamples[3] = newSample1;
-                    pWav->msadpcm.cachedSampleCount = 2;
+                    pWav->msadpcm.cachedFrames[2] = newSample0;
+                    pWav->msadpcm.cachedFrames[3] = newSample1;
+                    pWav->msadpcm.cachedFrameCount = 2;
                 } else {
                     /* Stereo. */
                     drwav_int32 newSample0;
                     drwav_int32 newSample1;
 
                     /* Left. */
-                    newSample0  = ((pWav->msadpcm.prevSamples[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevSamples[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
+                    newSample0  = ((pWav->msadpcm.prevFrames[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevFrames[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
                     newSample0 += nibble0 * pWav->msadpcm.delta[0];
                     newSample0  = drwav_clamp(newSample0, -32768, 32767);
 
@@ -2801,12 +2804,12 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
                         pWav->msadpcm.delta[0] = 16;
                     }
 
-                    pWav->msadpcm.prevSamples[0][0] = pWav->msadpcm.prevSamples[0][1];
-                    pWav->msadpcm.prevSamples[0][1] = newSample0;
+                    pWav->msadpcm.prevFrames[0][0] = pWav->msadpcm.prevFrames[0][1];
+                    pWav->msadpcm.prevFrames[0][1] = newSample0;
 
 
                     /* Right. */
-                    newSample1  = ((pWav->msadpcm.prevSamples[1][1] * coeff1Table[pWav->msadpcm.predictor[1]]) + (pWav->msadpcm.prevSamples[1][0] * coeff2Table[pWav->msadpcm.predictor[1]])) >> 8;
+                    newSample1  = ((pWav->msadpcm.prevFrames[1][1] * coeff1Table[pWav->msadpcm.predictor[1]]) + (pWav->msadpcm.prevFrames[1][0] * coeff2Table[pWav->msadpcm.predictor[1]])) >> 8;
                     newSample1 += nibble1 * pWav->msadpcm.delta[1];
                     newSample1  = drwav_clamp(newSample1, -32768, 32767);
 
@@ -2815,18 +2818,18 @@ drwav_uint64 drwav_read_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, dr
                         pWav->msadpcm.delta[1] = 16;
                     }
 
-                    pWav->msadpcm.prevSamples[1][0] = pWav->msadpcm.prevSamples[1][1];
-                    pWav->msadpcm.prevSamples[1][1] = newSample1;
+                    pWav->msadpcm.prevFrames[1][0] = pWav->msadpcm.prevFrames[1][1];
+                    pWav->msadpcm.prevFrames[1][1] = newSample1;
 
-                    pWav->msadpcm.cachedSamples[2] = newSample0;
-                    pWav->msadpcm.cachedSamples[3] = newSample1;
-                    pWav->msadpcm.cachedSampleCount = 2;
+                    pWav->msadpcm.cachedFrames[2] = newSample0;
+                    pWav->msadpcm.cachedFrames[3] = newSample1;
+                    pWav->msadpcm.cachedFrameCount = 1;
                 }
             }
         }
     }
 
-    return totalSamplesRead;
+    return totalFramesRead;
 }
 
 drwav_uint64 drwav_read_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut)
@@ -3233,7 +3236,7 @@ drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, d
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-        return drwav_read_s16__msadpcm(pWav, framesToRead * pWav->channels, pBufferOut) / pWav->channels;
+        return drwav_read_pcm_frames_s16__msadpcm(pWav, framesToRead, pBufferOut);
     }
 
     if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
