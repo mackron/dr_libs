@@ -3,14 +3,177 @@
 #include <windows.h>
 #endif
 
+#ifdef _MSC_VER
+#else
+#include <strings.h>
+#endif
+
 typedef unsigned int dr_bool32;
+
+/*
+Return Values:
+  0:  Success
+  22: EINVAL
+  34: ERANGE
+
+Not using symbolic constants for errors because I want to avoid #including errno.h
+*/
+int dr_strcpy_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+    size_t i;
+
+    if (dst == 0) {
+        return 22;
+    }
+    if (dstSizeInBytes == 0) {
+        return 34;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return 22;
+    }
+
+    for (i = 0; i < dstSizeInBytes && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (i < dstSizeInBytes) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return 34;
+}
+
+int dr_strncpy_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+    size_t maxcount;
+    size_t i;
+
+    if (dst == 0) {
+        return 22;
+    }
+    if (dstSizeInBytes == 0) {
+        return 34;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return 22;
+    }
+
+    maxcount = count;
+    if (count == ((size_t)-1) || count >= dstSizeInBytes) {        /* -1 = _TRUNCATE */
+        maxcount = dstSizeInBytes - 1;
+    }
+
+    for (i = 0; i < maxcount && src[i] != '\0'; ++i) {
+        dst[i] = src[i];
+    }
+
+    if (src[i] == '\0' || i == count || count == ((size_t)-1)) {
+        dst[i] = '\0';
+        return 0;
+    }
+
+    dst[0] = '\0';
+    return 34;
+}
+
+int dr_strcat_s(char* dst, size_t dstSizeInBytes, const char* src)
+{
+    char* dstorig;
+
+    if (dst == 0) {
+        return 22;
+    }
+    if (dstSizeInBytes == 0) {
+        return 34;
+    }
+    if (src == 0) {
+        dst[0] = '\0';
+        return 22;
+    }
+
+    dstorig = dst;
+
+    while (dstSizeInBytes > 0 && dst[0] != '\0') {
+        dst += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return 22;  /* Unterminated. */
+    }
+
+
+    while (dstSizeInBytes > 0 && src[0] != '\0') {
+        *dst++ = *src++;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        dst[0] = '\0';
+    } else {
+        dstorig[0] = '\0';
+        return 34;
+    }
+
+    return 0;
+}
+
+int dr_strncat_s(char* dst, size_t dstSizeInBytes, const char* src, size_t count)
+{
+    char* dstorig;
+
+    if (dst == 0) {
+        return 22;
+    }
+    if (dstSizeInBytes == 0) {
+        return 34;
+    }
+    if (src == 0) {
+        return 22;
+    }
+
+    dstorig = dst;
+
+    while (dstSizeInBytes > 0 && dst[0] != '\0') {
+        dst += 1;
+        dstSizeInBytes -= 1;
+    }
+
+    if (dstSizeInBytes == 0) {
+        return 22;  /* Unterminated. */
+    }
+
+
+    if (count == ((size_t)-1)) {        /* _TRUNCATE */
+        count = dstSizeInBytes - 1;
+    }
+
+    while (dstSizeInBytes > 0 && src[0] != '\0' && count > 0) {
+        *dst++ = *src++;
+        dstSizeInBytes -= 1;
+        count -= 1;
+    }
+
+    if (dstSizeInBytes > 0) {
+        dst[0] = '\0';
+    } else {
+        dstorig[0] = '\0';
+        return 34;
+    }
+
+    return 0;
+}
 
 /*
 String Helpers
 */
-errno_t dr_append_path(char* dst, size_t dstSize, const char* base, const char* other)
+int dr_append_path(char* dst, size_t dstSize, const char* base, const char* other)
 {
-    errno_t err;
+    int err;
     size_t  len;
 
     /* TODO: Return the correct error codes here. */
@@ -21,7 +184,7 @@ errno_t dr_append_path(char* dst, size_t dstSize, const char* base, const char* 
         return -1;
     }
 
-    err = strcpy_s(dst, dstSize, base);
+    err = dr_strcpy_s(dst, dstSize, base);
     if (err != 0) {
         return err;
     }
@@ -30,7 +193,7 @@ errno_t dr_append_path(char* dst, size_t dstSize, const char* base, const char* 
     if (len > 0) {
         /* Append the slash if required. */
         if (dst[len-1] != '/' && dst[len-1] != '\\') {
-            err = strcat_s(dst, dstSize, "/");
+            err = dr_strcat_s(dst, dstSize, "/");
             if (err != 0) {
                 dst[0] = '\0';
                 return err;
@@ -40,7 +203,7 @@ errno_t dr_append_path(char* dst, size_t dstSize, const char* base, const char* 
         }
     }
 
-    err = strcat_s(dst, dstSize, other);
+    err = dr_strcat_s(dst, dstSize, other);
     if (err != 0) {
         dst[0] = '\0';
         return err;
@@ -177,7 +340,7 @@ dr_file_iterator* dr_file_iterator_begin(const char* pFolderPath, dr_file_iterat
 #endif
 
     /* Getting here means everything was successful. We can now set some state before returning. */
-    strcpy_s(pState->folderPath, sizeof(pState->folderPath), pFolderPath);
+    dr_strcpy_s(pState->folderPath, sizeof(pState->folderPath), pFolderPath);
     dr_append_path(pState->absolutePath, sizeof(pState->absolutePath), pState->folderPath, pState->relativePath);
 
     return pState;
