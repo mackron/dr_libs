@@ -1997,12 +1997,33 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
         pWav->totalPCMFrameCount = dataChunkSize / drwav_get_bytes_per_pcm_frame(pWav);
 
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
+            drwav_uint64 totalBlockHeaderSizeInBytes;
             drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
-            pWav->totalPCMFrameCount = (((blockCount * (fmt.blockAlign - (6*pWav->channels))) * 2)) / fmt.channels;  /* x2 because two samples per byte. */
+
+            /* Make sure any trailing partial block is accounted for. */
+            if ((blockCount * fmt.blockAlign) < dataChunkSize) {
+                blockCount += 1;
+            }
+
+            /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
+            totalBlockHeaderSizeInBytes = blockCount * (6*fmt.channels);
+            pWav->totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
         }
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
+            drwav_uint64 totalBlockHeaderSizeInBytes;
             drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
-            pWav->totalPCMFrameCount = (((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels)) / fmt.channels;
+
+            /* Make sure any trailing partial block is accounted for. */
+            if ((blockCount * fmt.blockAlign) < dataChunkSize) {
+                blockCount += 1;
+            }
+
+            /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
+            totalBlockHeaderSizeInBytes = blockCount * (4*fmt.channels);
+            pWav->totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
+
+            /* The header includes a decoded sample for each channel which acts as the initial predictor sample. */
+            pWav->totalPCMFrameCount += blockCount;
         }
     }
 
