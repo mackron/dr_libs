@@ -526,10 +526,10 @@ typedef struct
     drflac_frame currentFLACFrame;
 
 
-    /* The index of the sample the decoder is currently sitting on. This is only used for seeking. */
-    drflac_uint64 currentSample;
+    /* The index of the PCM frame the decoder is currently sitting on. This is only used for seeking. */
+    drflac_uint64 currentPCMFrame;
 
-    /* The position of the first frame in the stream. This is only ever used for seeking. */
+    /* The position of the first FLAC frame in the stream. This is only ever used for seeking. */
     drflac_uint64 firstFramePos;
 
 
@@ -4562,7 +4562,7 @@ static drflac_bool32 drflac__seek_to_first_frame(drflac* pFlac)
     result = drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos);
 
     drflac_zero_memory(&pFlac->currentFLACFrame, sizeof(pFlac->currentFLACFrame));
-    pFlac->currentSample = 0;
+    pFlac->currentPCMFrame = 0;
 
     return result;
 }
@@ -4596,7 +4596,7 @@ drflac_uint64 drflac__seek_forward_by_pcm_frames(drflac* pFlac, drflac_uint64 pc
         }
     }
 
-    pFlac->currentSample += pcmFramesRead*pFlac->channels;
+    pFlac->currentPCMFrame += pcmFramesRead;
     return pcmFramesRead;
 }
 
@@ -4609,12 +4609,12 @@ static drflac_bool32 drflac__seek_to_pcm_frame__brute_force(drflac* pFlac, drfla
     drflac_assert(pFlac != NULL);
 
     /* If we are seeking forward we start from the current position. Otherwise we need to start all the way from the start of the file. */
-    if (pcmFrameIndex >= pFlac->currentSample/pFlac->channels) {
+    if (pcmFrameIndex >= pFlac->currentPCMFrame) {
         /* Seeking forward. Need to seek from the current position. */
-        runningPCMFrameCount = pFlac->currentSample/pFlac->channels;
+        runningPCMFrameCount = pFlac->currentPCMFrame;
 
         /* The frame header for the first frame may not yet have been read. We need to do that if necessary. */
-        if (pFlac->currentSample == 0 && pFlac->currentFLACFrame.samplesRemaining == 0) {
+        if (pFlac->currentPCMFrame == 0 && pFlac->currentFLACFrame.samplesRemaining == 0) {
             if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
                 return DRFLAC_FALSE;
             }
@@ -4732,12 +4732,12 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
     At this point we should have found the seekpoint closest to our sample. If we are seeking forward and the closest seekpoint is _before_ the current sample, we
     just seek forward from where we are. Otherwise we start seeking from the seekpoint's first sample.
     */
-    if ((pcmFrameIndex >= pFlac->currentSample/pFlac->channels) && (pFlac->pSeekpoints[iClosestSeekpoint].firstPCMFrame <= pFlac->currentSample/pFlac->channels)) {
+    if (pcmFrameIndex >= pFlac->currentPCMFrame && pFlac->pSeekpoints[iClosestSeekpoint].firstPCMFrame <= pFlac->currentPCMFrame) {
         /* Optimized case. Just seek forward from where we are. */
-        runningPCMFrameCount = pFlac->currentSample/pFlac->channels;
+        runningPCMFrameCount = pFlac->currentPCMFrame;
 
         /* The frame header for the first frame may not yet have been read. We need to do that if necessary. */
-        if (pFlac->currentSample == 0 && pFlac->currentFLACFrame.samplesRemaining == 0) {
+        if (pFlac->currentPCMFrame == 0 && pFlac->currentFLACFrame.samplesRemaining == 0) {
             if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
                 return DRFLAC_FALSE;
             }
@@ -7360,7 +7360,7 @@ drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRe
             framesReadFromPacketSoFar += frameCountThisIteration;
             pBufferOut                += frameCountThisIteration * channelCount;
             framesToRead              -= frameCountThisIteration;
-            pFlac->currentSample      += samplesReadThisIteration;
+            pFlac->currentPCMFrame    += frameCountThisIteration;
             pFlac->currentFLACFrame.samplesRemaining -= (unsigned int)samplesReadThisIteration;
         }
     }
@@ -8078,12 +8078,12 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
                 }
             }
 
-            samplesReadThisIteration = frameCountThisIteration * channelCount;
+            samplesReadThisIteration   = frameCountThisIteration * channelCount;
             framesRead                += frameCountThisIteration;
             framesReadFromPacketSoFar += frameCountThisIteration;
-            pBufferOut                += samplesReadThisIteration;
+            pBufferOut                += frameCountThisIteration * channelCount;
             framesToRead              -= frameCountThisIteration;
-            pFlac->currentSample      += samplesReadThisIteration;
+            pFlac->currentPCMFrame    += frameCountThisIteration;
             pFlac->currentFLACFrame.samplesRemaining -= (unsigned int)samplesReadThisIteration;
         }
     }
@@ -8106,7 +8106,7 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
     }
 
     if (pcmFrameIndex == 0) {
-        pFlac->currentSample = 0;
+        pFlac->currentPCMFrame = 0;
         return drflac__seek_to_first_frame(pFlac);
     } else {
         drflac_bool32 wasSuccessful = DRFLAC_FALSE;
@@ -8117,22 +8117,22 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
         }
 
         /* If the target sample and the current sample are in the same frame we just move the position forward. */
-        if (pcmFrameIndex*pFlac->channels > pFlac->currentSample) {
+        if (pcmFrameIndex > pFlac->currentPCMFrame) {
             /* Forward. */
-            drflac_uint32 offset = (drflac_uint32)(pcmFrameIndex*pFlac->channels - pFlac->currentSample);
-            if (pFlac->currentFLACFrame.samplesRemaining >  offset) {
-                pFlac->currentFLACFrame.samplesRemaining -= offset;
-                pFlac->currentSample = pcmFrameIndex*pFlac->channels;
+            drflac_uint32 offset = (drflac_uint32)(pcmFrameIndex - pFlac->currentPCMFrame);
+            if (pFlac->currentFLACFrame.samplesRemaining >  offset*pFlac->channels) {
+                pFlac->currentFLACFrame.samplesRemaining -= offset*pFlac->channels;
+                pFlac->currentPCMFrame = pcmFrameIndex;
                 return DRFLAC_TRUE;
             }
         } else {
             /* Backward. */
-            drflac_uint32 offsetAbs = (drflac_uint32)(pFlac->currentSample - pcmFrameIndex*pFlac->channels);
-            drflac_uint32 currentFrameSampleCount = pFlac->currentFLACFrame.header.blockSizeInPCMFrames * drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-            drflac_uint32 currentFrameSamplesConsumed = (drflac_uint32)(currentFrameSampleCount - pFlac->currentFLACFrame.samplesRemaining);
-            if (currentFrameSamplesConsumed > offsetAbs) {
-                pFlac->currentFLACFrame.samplesRemaining += offsetAbs;
-                pFlac->currentSample = pcmFrameIndex*pFlac->channels;
+            drflac_uint32 offsetAbs = (drflac_uint32)(pFlac->currentPCMFrame - pcmFrameIndex);
+            drflac_uint32 currentFLACFramePCMFrameCount = pFlac->currentFLACFrame.header.blockSizeInPCMFrames;
+            drflac_uint32 currentFLACFramePCMFramesConsumed = currentFLACFramePCMFrameCount - pFlac->currentFLACFrame.samplesRemaining/pFlac->channels;
+            if (currentFLACFramePCMFramesConsumed > offsetAbs) {
+                pFlac->currentFLACFrame.samplesRemaining += offsetAbs*pFlac->channels;
+                pFlac->currentPCMFrame = pcmFrameIndex;
                 return DRFLAC_TRUE;
             }
         }
@@ -8156,7 +8156,7 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
             }
         }
 
-        pFlac->currentSample = pcmFrameIndex*pFlac->channels;
+        pFlac->currentPCMFrame = pcmFrameIndex;
         return wasSuccessful;
     }
 }
