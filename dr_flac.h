@@ -101,13 +101,14 @@ to the old per-sample APIs. You now need to use the "pcm_frame" versions.
 USAGE
 =====
 dr_flac is a single-file library. To use it, do something like the following in one .c file.
+
     #define DR_FLAC_IMPLEMENTATION
     #include "dr_flac.h"
 
 You can then #include this file in other parts of the program as you would with any other header file. To decode audio data,
 do something like the following:
 
-    drflac* pFlac = drflac_open_file("MySong.flac");
+    drflac* pFlac = drflac_open_file("MySong.flac", NULL);
     if (pFlac == NULL) {
         // Failed to open FLAC file
     }
@@ -139,7 +140,7 @@ If you just want to quickly decode an entire FLAC file in one go you can do some
     unsigned int channels;
     unsigned int sampleRate;
     drflac_uint64 totalPCMFrameCount;
-    drflac_int32* pSampleData = drflac_open_file_and_read_pcm_frames_s32("MySong.flac", &channels, &sampleRate, &totalPCMFrameCount);
+    drflac_int32* pSampleData = drflac_open_file_and_read_pcm_frames_s32("MySong.flac", &channels, &sampleRate, &totalPCMFrameCount, NULL);
     if (pSampleData == NULL) {
         // Failed to open and decode FLAC file.
     }
