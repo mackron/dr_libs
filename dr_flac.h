@@ -475,10 +475,10 @@ typedef struct
     drflac_frame_header header;
 
     /*
-    The number of samples left to be read in this frame. This is initially set to the block size multiplied by the channel count. As samples
-    are read, this will be decremented. When it reaches 0, the decoder will see this frame as fully consumed and load the next frame.
+    The number of PCM frames left to be read in this FLAC frame. This is initially set to the block size. As PCM frames are read,
+    this will be decremented. When it reaches 0, the decoder will see this frame as fully consumed and load the next frame.
     */
-    drflac_uint32 samplesRemaining;
+    drflac_uint32 pcmFramesRemaining;
 
     /* The list of sub-frames within the frame. There is one sub-frame for each channel, and there's a maximum of 8 channels. */
     drflac_subframe subframes[8];
@@ -4461,7 +4461,7 @@ static drflac_result drflac__decode_flac_frame(drflac* pFlac)
     }
 #endif
 
-    pFlac->currentFLACFrame.samplesRemaining = pFlac->currentFLACFrame.header.blockSizeInPCMFrames * channelCount;
+    pFlac->currentFLACFrame.pcmFramesRemaining = pFlac->currentFLACFrame.header.blockSizeInPCMFrames;
 
     return DRFLAC_SUCCESS;
 }
@@ -4579,19 +4579,19 @@ drflac_uint64 drflac__seek_forward_by_pcm_frames(drflac* pFlac, drflac_uint64 pc
 {
     drflac_uint64 pcmFramesRead = 0;
     while (pcmFramesToSeek > 0) {
-        if (pFlac->currentFLACFrame.samplesRemaining == 0) {
+        if (pFlac->currentFLACFrame.pcmFramesRemaining == 0) {
             if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
                 break;  /* Couldn't read the next frame, so just break from the loop and return. */
             }
         } else {
-            if (pFlac->currentFLACFrame.samplesRemaining*pFlac->channels > pcmFramesToSeek) {
+            if (pFlac->currentFLACFrame.pcmFramesRemaining > pcmFramesToSeek) {
                 pcmFramesRead   += pcmFramesToSeek;
-                pFlac->currentFLACFrame.samplesRemaining -= (drflac_uint32)pcmFramesToSeek*pFlac->channels;   /* <-- Safe cast. Will always be < currentFrame.samplesRemaining < 65536. */
+                pFlac->currentFLACFrame.pcmFramesRemaining -= (drflac_uint32)pcmFramesToSeek;   /* <-- Safe cast. Will always be < currentFrame.pcmFramesRemaining < 65536. */
                 pcmFramesToSeek  = 0;
             } else {
-                pcmFramesRead   += pFlac->currentFLACFrame.samplesRemaining/pFlac->channels;
-                pcmFramesToSeek -= pFlac->currentFLACFrame.samplesRemaining/pFlac->channels;
-                pFlac->currentFLACFrame.samplesRemaining = 0;
+                pcmFramesRead   += pFlac->currentFLACFrame.pcmFramesRemaining;
+                pcmFramesToSeek -= pFlac->currentFLACFrame.pcmFramesRemaining;
+                pFlac->currentFLACFrame.pcmFramesRemaining = 0;
             }
         }
     }
@@ -4614,7 +4614,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__brute_force(drflac* pFlac, drfla
         runningPCMFrameCount = pFlac->currentPCMFrame;
 
         /* The frame header for the first frame may not yet have been read. We need to do that if necessary. */
-        if (pFlac->currentPCMFrame == 0 && pFlac->currentFLACFrame.samplesRemaining == 0) {
+        if (pFlac->currentPCMFrame == 0 && pFlac->currentFLACFrame.pcmFramesRemaining == 0) {
             if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
                 return DRFLAC_FALSE;
             }
@@ -4692,8 +4692,8 @@ static drflac_bool32 drflac__seek_to_pcm_frame__brute_force(drflac* pFlac, drfla
                 We started seeking mid-frame which means we need to seek by reading to the end of the frame instead of with
                 drflac__seek_to_next_flac_frame() which only works if the decoder is sitting on the byte just after the frame header.
                 */
-                runningPCMFrameCount += pFlac->currentFLACFrame.samplesRemaining/pFlac->channels;
-                pFlac->currentFLACFrame.samplesRemaining = 0;
+                runningPCMFrameCount += pFlac->currentFLACFrame.pcmFramesRemaining;
+                pFlac->currentFLACFrame.pcmFramesRemaining = 0;
                 isMidFrame = DRFLAC_FALSE;
             }
         }
@@ -4737,7 +4737,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
         runningPCMFrameCount = pFlac->currentPCMFrame;
 
         /* The frame header for the first frame may not yet have been read. We need to do that if necessary. */
-        if (pFlac->currentPCMFrame == 0 && pFlac->currentFLACFrame.samplesRemaining == 0) {
+        if (pFlac->currentPCMFrame == 0 && pFlac->currentFLACFrame.pcmFramesRemaining == 0) {
             if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
                 return DRFLAC_FALSE;
             }
@@ -4810,8 +4810,8 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
                 We started seeking mid-frame which means we need to seek by reading to the end of the frame instead of with
                 drflac__seek_to_next_flac_frame() which only works if the decoder is sitting on the byte just after the frame header.
                 */
-                runningPCMFrameCount += pFlac->currentFLACFrame.samplesRemaining/pFlac->channels;
-                pFlac->currentFLACFrame.samplesRemaining = 0;
+                runningPCMFrameCount += pFlac->currentFLACFrame.pcmFramesRemaining;
+                pFlac->currentFLACFrame.pcmFramesRemaining = 0;
                 isMidFrame = DRFLAC_FALSE;
             }
         }
@@ -7300,21 +7300,20 @@ drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRe
     framesRead = 0;
     while (framesToRead > 0) {
         /* If we've run out of samples in this frame, go to the next. */
-        if (pFlac->currentFLACFrame.samplesRemaining == 0) {
+        if (pFlac->currentFLACFrame.pcmFramesRemaining == 0) {
             if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
                 break;  /* Couldn't read the next frame, so just break from the loop and return. */
             }
         } else {
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
             drflac_uint64 totalFramesInPacket = pFlac->currentFLACFrame.header.blockSizeInPCMFrames;
-            drflac_uint64 framesReadFromPacketSoFar = totalFramesInPacket - (pFlac->currentFLACFrame.samplesRemaining/channelCount);
+            drflac_uint64 framesReadFromPacketSoFar = totalFramesInPacket - pFlac->currentFLACFrame.pcmFramesRemaining;
             drflac_uint64 iFirstPCMFrame = framesReadFromPacketSoFar;
             drflac_int32 unusedBitsPerSample = 32 - pFlac->bitsPerSample;
             drflac_uint64 frameCountThisIteration = framesToRead;
-            drflac_uint64 samplesReadThisIteration;
 
-            if (frameCountThisIteration > pFlac->currentFLACFrame.samplesRemaining / channelCount) {
-                frameCountThisIteration = pFlac->currentFLACFrame.samplesRemaining / channelCount;
+            if (frameCountThisIteration > pFlac->currentFLACFrame.pcmFramesRemaining) {
+                frameCountThisIteration = pFlac->currentFLACFrame.pcmFramesRemaining;
             }
 
             if (channelCount == 2) {
@@ -7355,13 +7354,12 @@ drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRe
                 }
             }
 
-            samplesReadThisIteration   = frameCountThisIteration * channelCount;
             framesRead                += frameCountThisIteration;
             framesReadFromPacketSoFar += frameCountThisIteration;
             pBufferOut                += frameCountThisIteration * channelCount;
             framesToRead              -= frameCountThisIteration;
             pFlac->currentPCMFrame    += frameCountThisIteration;
-            pFlac->currentFLACFrame.samplesRemaining -= (unsigned int)samplesReadThisIteration;
+            pFlac->currentFLACFrame.pcmFramesRemaining -= (drflac_uint32)frameCountThisIteration;
         }
     }
 
@@ -8023,21 +8021,20 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
     framesRead = 0;
     while (framesToRead > 0) {
         /* If we've run out of samples in this frame, go to the next. */
-        if (pFlac->currentFLACFrame.samplesRemaining == 0) {
+        if (pFlac->currentFLACFrame.pcmFramesRemaining == 0) {
             if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
                 break;  /* Couldn't read the next frame, so just break from the loop and return. */
             }
         } else {
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
             drflac_uint64 totalFramesInPacket = pFlac->currentFLACFrame.header.blockSizeInPCMFrames;
-            drflac_uint64 framesReadFromPacketSoFar = totalFramesInPacket - (pFlac->currentFLACFrame.samplesRemaining/channelCount);
+            drflac_uint64 framesReadFromPacketSoFar = totalFramesInPacket - pFlac->currentFLACFrame.pcmFramesRemaining;
             drflac_uint64 iFirstPCMFrame = framesReadFromPacketSoFar;
             drflac_int32 unusedBitsPerSample = 32 - pFlac->bitsPerSample;
             drflac_uint64 frameCountThisIteration = framesToRead;
-            drflac_uint64 samplesReadThisIteration;
 
-            if (frameCountThisIteration > pFlac->currentFLACFrame.samplesRemaining / channelCount) {
-                frameCountThisIteration = pFlac->currentFLACFrame.samplesRemaining / channelCount;
+            if (frameCountThisIteration > pFlac->currentFLACFrame.pcmFramesRemaining) {
+                frameCountThisIteration = pFlac->currentFLACFrame.pcmFramesRemaining;
             }
 
             if (channelCount == 2) {
@@ -8078,13 +8075,12 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
                 }
             }
 
-            samplesReadThisIteration   = frameCountThisIteration * channelCount;
             framesRead                += frameCountThisIteration;
             framesReadFromPacketSoFar += frameCountThisIteration;
             pBufferOut                += frameCountThisIteration * channelCount;
             framesToRead              -= frameCountThisIteration;
             pFlac->currentPCMFrame    += frameCountThisIteration;
-            pFlac->currentFLACFrame.samplesRemaining -= (unsigned int)samplesReadThisIteration;
+            pFlac->currentFLACFrame.pcmFramesRemaining -= (unsigned int)frameCountThisIteration;
         }
     }
 
@@ -8120,8 +8116,8 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
         if (pcmFrameIndex > pFlac->currentPCMFrame) {
             /* Forward. */
             drflac_uint32 offset = (drflac_uint32)(pcmFrameIndex - pFlac->currentPCMFrame);
-            if (pFlac->currentFLACFrame.samplesRemaining >  offset*pFlac->channels) {
-                pFlac->currentFLACFrame.samplesRemaining -= offset*pFlac->channels;
+            if (pFlac->currentFLACFrame.pcmFramesRemaining >  offset) {
+                pFlac->currentFLACFrame.pcmFramesRemaining -= offset;
                 pFlac->currentPCMFrame = pcmFrameIndex;
                 return DRFLAC_TRUE;
             }
@@ -8129,9 +8125,9 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
             /* Backward. */
             drflac_uint32 offsetAbs = (drflac_uint32)(pFlac->currentPCMFrame - pcmFrameIndex);
             drflac_uint32 currentFLACFramePCMFrameCount = pFlac->currentFLACFrame.header.blockSizeInPCMFrames;
-            drflac_uint32 currentFLACFramePCMFramesConsumed = currentFLACFramePCMFrameCount - pFlac->currentFLACFrame.samplesRemaining/pFlac->channels;
+            drflac_uint32 currentFLACFramePCMFramesConsumed = currentFLACFramePCMFrameCount - pFlac->currentFLACFrame.pcmFramesRemaining;
             if (currentFLACFramePCMFramesConsumed > offsetAbs) {
-                pFlac->currentFLACFrame.samplesRemaining += offsetAbs*pFlac->channels;
+                pFlac->currentFLACFrame.pcmFramesRemaining += offsetAbs;
                 pFlac->currentPCMFrame = pcmFrameIndex;
                 return DRFLAC_TRUE;
             }
