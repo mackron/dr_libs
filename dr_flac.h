@@ -530,7 +530,7 @@ typedef struct
     drflac_uint64 currentPCMFrame;
 
     /* The position of the first FLAC frame in the stream. This is only ever used for seeking. */
-    drflac_uint64 firstFramePos;
+    drflac_uint64 firstFLACFramePosInBytes;
 
 
     /* A hack to avoid a malloc() when opening a decoder with drflac_open_memory(). */
@@ -4559,7 +4559,7 @@ static drflac_bool32 drflac__seek_to_first_frame(drflac* pFlac)
 
     drflac_assert(pFlac != NULL);
 
-    result = drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos);
+    result = drflac__seek_to_byte(&pFlac->bs, pFlac->firstFLACFramePosInBytes);
 
     drflac_zero_memory(&pFlac->currentFLACFrame, sizeof(pFlac->currentFLACFrame));
     pFlac->currentPCMFrame = 0;
@@ -4748,7 +4748,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
         /* Slower case. Seek to the start of the seekpoint and then seek forward from there. */
         runningPCMFrameCount = pFlac->pSeekpoints[iClosestSeekpoint].firstPCMFrame;
 
-        if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos + pFlac->pSeekpoints[iClosestSeekpoint].flacFrameOffset)) {
+        if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFLACFramePosInBytes + pFlac->pSeekpoints[iClosestSeekpoint].flacFrameOffset)) {
             return DRFLAC_FALSE;
         }
 
@@ -5892,7 +5892,7 @@ drflac_bool32 drflac_ogg__seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFram
     originalBytePos = oggbs->currentBytePos;   /* For recovery. */
 
     /* First seek to the first frame. */
-    if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFramePos)) {
+    if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFLACFramePosInBytes)) {
         return DRFLAC_FALSE;
     }
     oggbs->bytesRemainingInPage = 0;
@@ -6398,7 +6398,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     }
 #endif
 
-    pFlac->firstFramePos = firstFramePos;
+    pFlac->firstFLACFramePosInBytes = firstFramePos;
 
     /* NOTE: Seektables are not currently compatible with Ogg encapsulation (Ogg has its own accelerated seeking system). I may change this later, so I'm leaving this here for now. */
 #ifndef DR_FLAC_NO_OGG
@@ -6432,7 +6432,7 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
                 }
 
                 /* We need to seek back to where we were. If this fails it's a critical error. */
-                if (!pFlac->bs.onSeek(pFlac->bs.pUserData, (int)pFlac->firstFramePos, drflac_seek_origin_start)) {
+                if (!pFlac->bs.onSeek(pFlac->bs.pUserData, (int)pFlac->firstFLACFramePosInBytes, drflac_seek_origin_start)) {
                     DRFLAC_FREE(pFlac);
                     return NULL;
                 }
@@ -8097,7 +8097,7 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
     If we don't know where the first frame begins then we can't seek. This will happen when the STREAMINFO block was not present
     when the decoder was opened.
     */
-    if (pFlac->firstFramePos == 0) {
+    if (pFlac->firstFLACFramePosInBytes == 0) {
         return DRFLAC_FALSE;
     }
 
