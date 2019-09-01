@@ -6,6 +6,98 @@ David Reid - mackron@gmail.com
 */
 
 /*
+RELEASE NOTES - v0.12.0
+=======================
+Version 0.12.0 has breaking API changes including changes to the existing API and the removal of deprecated APIs.
+
+
+Improved Client-Defined Memory Allocation
+-----------------------------------------
+The main change with this release is the addition of a more flexible way of implementing custom memory allocation routines. The
+existing system of DRFLAC_MALLOC, DRFLAC_REALLOC and DRFLAC_FREE are still in place and will be used by default when no custom
+allocation callbacks are specified.
+
+To use the new system, you pass in a pointer to a drflac_allocation_callbacks object to drflac_open() and family, like this:
+
+    void* my_malloc(size_t sz, void* pUserData)
+    {
+        return malloc(sz);
+    }
+    void* my_realloc(void* p, size_t sz, void* pUserData)
+    {
+        return realloc(p, sz);
+    }
+    void my_free(void* p, void* pUserData)
+    {
+        free(p);
+    }
+    
+    ...
+
+    drflac_allocation_callbacks allocationCallbacks;
+    allocationCallbacks.pUserData = &myData;
+    allocationCallbacks.onMalloc  = my_malloc;
+    allocationCallbacks.onRealloc = my_realloc;
+    allocationCallbacks.onFree    = my_free;
+    drflac* pFlac = drflac_open_file("my_file.flac", &allocationCallbacks);
+
+The advantage of this new system is that it allows you to specify user data which will be passed in to the allocation routines.
+
+Passing in null for the allocation callbacks object will cause dr_flac to use defaults which is the same as DRFLAC_MALLOC,
+DRFLAC_REALLOC and DRFLAC_FREE and the equivalent of how it worked in previous versions.
+
+Every API that opens a drflac object now takes this extra parameter. These include the following:
+
+    drflac_open()
+    drflac_open_relaxed()
+    drflac_open_with_metadata()
+    drflac_open_with_metadata_relaxed()
+    drflac_open_file()
+    drflac_open_file_with_metadata()
+    drflac_open_memory()
+    drflac_open_memory_with_metadata()
+    drflac_open_and_read_pcm_frames_s32()
+    drflac_open_and_read_pcm_frames_s16()
+    drflac_open_and_read_pcm_frames_f32()
+    drflac_open_file_and_read_pcm_frames_s32()
+    drflac_open_file_and_read_pcm_frames_s16()
+    drflac_open_file_and_read_pcm_frames_f32()
+    drflac_open_memory_and_read_pcm_frames_s32()
+    drflac_open_memory_and_read_pcm_frames_s16()
+    drflac_open_memory_and_read_pcm_frames_f32()
+
+
+
+Optimizations
+-------------
+A minor optimization has been implemented for drflac_read_pcm_frames_s32(). This will now use an SSE2 optimized pipeline for
+stereo channel reconstruction which is the last part of the decoding process.
+
+
+Removed APIs
+------------
+The following APIs were deprecated in version 0.11.0 and have been completely removed in version 0.12.0:
+
+    drflac_read_s32()                   -> drflac_read_pcm_frames_s32()
+    drflac_read_s16()                   -> drflac_read_pcm_frames_s16()
+    drflac_read_f32()                   -> drflac_read_pcm_frames_f32()
+    drflac_seek_to_sample()             -> drflac_seek_to_pcm_frame()
+    drflac_open_and_decode_s32()        -> drflac_open_and_read_pcm_frames_s32()
+    drflac_open_and_decode_s16()        -> drflac_open_and_read_pcm_frames_s16()
+    drflac_open_and_decode_f32()        -> drflac_open_and_read_pcm_frames_f32()
+    drflac_open_and_decode_file_s32()   -> drflac_open_file_and_read_pcm_frames_s32()
+    drflac_open_and_decode_file_s16()   -> drflac_open_file_and_read_pcm_frames_s16()
+    drflac_open_and_decode_file_f32()   -> drflac_open_file_and_read_pcm_frames_f32()
+    drflac_open_and_decode_memory_s32() -> drflac_open_memory_and_read_pcm_frames_s32()
+    drflac_open_and_decode_memory_s16() -> drflac_open_memory_and_read_pcm_frames_s16()
+    drflac_open_and_decode_memory_f32() -> drflac_open_memroy_and_read_pcm_frames_f32()
+
+Prior versions of dr_flac operated on a per-sample basis whereas now it operates on PCM frames. The removed APIs all relate
+to the old per-sample APIs. You now need to use the "pcm_frame" versions.
+*/
+
+
+/*
 USAGE
 =====
 dr_flac is a single-file library. To use it, do something like the following in one .c file.
@@ -107,7 +199,6 @@ OPTIONS
 QUICK NOTES
 ===========
 - dr_flac does not currently support changing the sample rate nor channel count mid stream.
-- Audio data is output as signed 32-bit PCM, regardless of the bits per sample the FLAC stream is encoded as.
 - This has not been tested on big-endian architectures.
 - dr_flac is not thread-safe, but its APIs can be called from any thread so long as you do your own synchronization.
 - When using Ogg encapsulation, a corrupted metadata block will result in drflac_open_with_metadata() and drflac_open()
