@@ -9137,7 +9137,7 @@ REVISION HISTORY
 ================
 v0.12.0 - 2019-xx-xx
   - API CHANGE: Add support for user defined memory allocation routines. This system allows the program to specify their own memory allocation
-    routines with a user data pointer for client-specific contextual data. This adds an extra paramter to the end of the following APIs:
+    routines with a user data pointer for client-specific contextual data. This adds an extra parameter to the end of the following APIs:
     - drflac_open()
     - drflac_open_relaxed()
     - drflac_open_with_metadata()
@@ -9172,7 +9172,7 @@ v0.12.0 - 2019-xx-xx
     - drflac_open_and_decode_memory_s16()
     - drflac_open_and_decode_memory_f32()
   - Remove drflac.totalSampleCount which is now replaced with drflac.totalPCMFrameCount. You can emulate drflac.totalSampleCount
-    by doing pFlac->totalSampleCount*pFlac->channels.
+    by doing pFlac->totalPCMFrameCount*pFlac->channels.
   - Rename drflac.currentFrame to drflac.currentFLACFrame to remove ambiguity with PCM frames.
   - Optimizations to seeking.
   - Minor optimizations to drflac_read_pcm_frames_s32().
