@@ -56,6 +56,9 @@ drflac_result seek_profiling_drflac_and_close(drflac* pFlac, double* pProcessing
         *pProcessingTime = 0;
     }
 
+    /* Seek back to the start to keep everything normalized. */
+    drflac_seek_to_pcm_frame(pFlac, 0);
+
     /* Random seek points based on a seed. */
     /*dr_seed(1234);*/
     dr_seed(4321);
@@ -70,13 +73,19 @@ drflac_result seek_profiling_drflac_and_close(drflac* pFlac, double* pProcessing
             printf("Too Small: %d\n", targetPCMFrame);
         }
 
+        
+
         //printf("targetPCMFrame=%d\n", targetPCMFrame);
 
         startTime = dr_timer_now();
         {
-            drflac_seek_to_pcm_frame(pFlac, targetPCMFrame /*270410*/ /*8376769*/);
+            drflac_seek_to_pcm_frame(pFlac, targetPCMFrame /*5596944*/);
         }
         endTime = dr_timer_now();
+
+        //if (g_sameFrameTerminationCount > 0) {
+        //    int a = 4; (void)a;
+        //}
 
         if (pProcessingTime != NULL) {
             *pProcessingTime += (endTime - startTime);
@@ -166,23 +175,35 @@ drflac_result seek_profiling_file(const char* pFilePath, profiling_state* pProfi
     dr_printf_fixed_with_margin(PROFILING_NAME_WIDTH, 2, "%s", pFilePath);
     
     /* Start off with the seek table version. If this fails we don't bother continuing. */
+#if 1
     result = seek_profiling_file__seek_table(pFilePath, &pProfiling->totalSeconds_SeekTable);
     if (result != DRFLAC_SUCCESS) {
         return result;
     }
     dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "%f", pProfiling->totalSeconds_SeekTable);
+#else
+    dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "");
+#endif
 
+#if 1
     result = seek_profiling_file__binary_search(pFilePath, &pProfiling->totalSeconds_BinarySearch);
     if (result != DRFLAC_SUCCESS) {
         return result;
     }
     dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "%f", pProfiling->totalSeconds_BinarySearch);
+#else
+    dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "");
+#endif
 
-    /*result = seek_profiling_file__brute_force(pFilePath, &pProfiling->totalSeconds_BruteForce);
+#if 0
+    result = seek_profiling_file__brute_force(pFilePath, &pProfiling->totalSeconds_BruteForce);
     if (result != DRFLAC_SUCCESS) {
         return result;
     }
-    dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "%f", pProfiling->totalSeconds_BruteForce);*/
+    dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "%f", pProfiling->totalSeconds_BruteForce);
+#else
+    dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "");
+#endif
 
     return DRFLAC_SUCCESS;
 }

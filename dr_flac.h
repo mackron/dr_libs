@@ -4853,7 +4853,7 @@ static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFla
 
     for (;;) {
         /* When seeking to a byte, failure probably means we've attempted to seek beyond the end of the stream. To counter this we just halve it each attempt. */
-        if (drflac__seek_to_byte(&pFlac->bs, targetByte) == DRFLAC_FALSE) {
+        if (!drflac__seek_to_byte(&pFlac->bs, targetByte)) {
             /* If we couldn't even seek to the first byte in the stream we have a problem. Just abandon the whole thing. */
             if (targetByte == 0) {
                 drflac__seek_to_first_frame(pFlac); /* Try to recover. */
@@ -4869,14 +4869,28 @@ static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFla
             /* Clear the details of the FLAC frame so we don't misreport data. */
             drflac_zero_memory(&pFlac->currentFLACFrame, sizeof(pFlac->currentFLACFrame));
 
-            /* Now seek to the next FLAC frame. */
-            if (drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header) == DRFLAC_FALSE) {
+            /*
+            Now seek to the next FLAC frame. We need to decode the entire frame (not just the header) because it's possible for the header to incorrectly pass the
+            CRC check and return bad data. We need to decode the entire frame to be more certain. Although this seems unlikely, this has happened to me in testing
+            to it needs to stay this way for now.
+            */
+#if 1
+            if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
                 /* Halve the byte location and continue. */
                 targetByte = rangeLo + ((rangeHi - rangeLo)/2);
                 rangeHi = targetByte;
             } else {
                 break;
             }
+#else
+            if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
+                /* Halve the byte location and continue. */
+                targetByte = rangeLo + ((rangeHi - rangeLo)/2);
+                rangeHi = targetByte;
+            } else {
+                break;
+            }
+#endif
         }
     }
 
@@ -4891,12 +4905,15 @@ static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFla
 
 static drflac_bool32 drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(drflac* pFlac, drflac_uint64 offset)
 {
+    /* This section of code would be used if we were only decoding the FLAC frame header when calling drflac__seek_to_approximate_flac_frame_to_byte(). */
+#if 0
     if (drflac__decode_flac_frame(pFlac) != DRFLAC_SUCCESS) {
         /* We failed to decode this frame which may be due to it being corrupt. We'll just use the next valid FLAC frame. */
         if (drflac__read_and_decode_next_flac_frame(pFlac) == DRFLAC_FALSE) {
             return DRFLAC_FALSE;
         }
     }
+#endif
 
     return drflac__seek_forward_by_pcm_frames(pFlac, offset) == offset;
 }
@@ -4964,7 +4981,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
     drflac_uint64 pcmRangeHi = 0;
     drflac_uint64 lastSuccessfulSeekOffset = (drflac_uint64)-1;
     drflac_uint64 closestSeekOffsetBeforeTargetPCMFrame = byteRangeLo;
-    drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSize != 0) ? pFlac->maxBlockSize : 4096;
+    drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSize != 0) ? pFlac->maxBlockSize*2 : 4096;
 
     drflac_seek_bsearch_stats__init(pStats);
 
@@ -4984,15 +5001,15 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
 
             /* If we selected the same frame, it means we should be pretty close. Just decode the rest. */
             if (pcmRangeLo == newPCMRangeLo) {
-                if (drflac__seek_to_approximate_flac_frame_to_byte(pFlac, closestSeekOffsetBeforeTargetPCMFrame, closestSeekOffsetBeforeTargetPCMFrame, byteRangeHi, &lastSuccessfulSeekOffset)) {
-                    drflac_seek_bsearch_stats__set_same_frame_termination_seek_offset(pStats, pcmFrameIndex - pFlac->currentPCMFrame);
-                    if (drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(pFlac, pcmFrameIndex - pFlac->currentPCMFrame) == DRFLAC_FALSE) {
-                        break;
-                    }
+                if (!drflac__seek_to_approximate_flac_frame_to_byte(pFlac, closestSeekOffsetBeforeTargetPCMFrame, closestSeekOffsetBeforeTargetPCMFrame, byteRangeHi, &lastSuccessfulSeekOffset)) {
+                    break;  /* Failed to seek to closest frame. */
+                }
 
+                drflac_seek_bsearch_stats__set_same_frame_termination_seek_offset(pStats, pcmFrameIndex - pFlac->currentPCMFrame);
+                if (drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(pFlac, pcmFrameIndex - pFlac->currentPCMFrame)) {
                     return DRFLAC_TRUE;
                 } else {
-                    break;  /* Failed to seek to the closest frame. */
+                    break;  /* Failed to seek forward. */
                 }
             }
 
@@ -5001,14 +5018,13 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
 
             if (pcmRangeLo <= pcmFrameIndex && pcmRangeHi >= pcmFrameIndex) {
                 /* The target PCM frame is in this FLAC frame. */
-                /*drflac_seek_bsearch_stats__set_same_frame_termination_seek_offset(pStats, pcmFrameIndex - pFlac->currentPCMFrame);*/
-                if (drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(pFlac, pcmFrameIndex - pFlac->currentPCMFrame) == DRFLAC_FALSE) {
-                    break;
+                if (drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(pFlac, pcmFrameIndex - pFlac->currentPCMFrame) ) {
+                    return DRFLAC_TRUE;
+                } else {
+                    break;  /* Failed to seek to FLAC frame. */
                 }
-
-                return DRFLAC_TRUE;
             } else {
-                const float approxCompressionRatio = (lastSuccessfulSeekOffset - pFlac->firstFLACFramePosInBytes) / (pcmRangeLo * pFlac->channels * pFlac->bitsPerSample/8.0f);;
+                const float approxCompressionRatio = (lastSuccessfulSeekOffset - pFlac->firstFLACFramePosInBytes) / (pcmRangeLo * pFlac->channels * pFlac->bitsPerSample/8.0f);
 
                 if (pcmRangeLo > pcmFrameIndex) {
                     /* We seeked too far forward. We need to move our target byte backward and try again. */
@@ -5019,33 +5035,35 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
                         byteRangeLo = byteRangeHi;
                     }
 
-                    /*targetByte = byteRangeHi - (drflac_uint64)((pcmRangeLo-pcmFrameIndex) * pFlac->channels * pFlac->bitsPerSample/8 * approxCompressionRatio);*/
+                    /*targetByte = lastSuccessfulSeekOffset - (drflac_uint64)((pcmRangeLo-pcmFrameIndex) * pFlac->channels * pFlac->bitsPerSample/8 * approxCompressionRatio);*/
                     targetByte = byteRangeLo + ((byteRangeHi - byteRangeLo) / 2);
+                    if (targetByte < byteRangeLo) {
+                        targetByte = byteRangeLo;
+                    }
                 } else /*if (pcmRangeHi < pcmFrameIndex)*/ {
                     /* We didn't seek far enough. We need to move our target byte forward and try again. */
                     drflac_seek_bsearch_stats__increment_too_lo_count(pStats);
-                
+
                     /* If we're close enough we can just seek forward. */
                     if ((pcmFrameIndex - pcmRangeLo) < seekForwardThreshold) {
-                        /*drflac_seek_bsearch_stats__set_same_frame_termination_seek_offset(pStats, pcmFrameIndex - pFlac->currentPCMFrame);*/
-                        if (drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(pFlac, pcmFrameIndex - pFlac->currentPCMFrame) == DRFLAC_FALSE) {
-                            break;
+                        if (drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(pFlac, pcmFrameIndex - pFlac->currentPCMFrame)) {
+                            return DRFLAC_TRUE;
+                        } else {
+                            break;  /* Failed to seek to FLAC frame. */
                         }
-                    
-                        return DRFLAC_TRUE;
                     } else {
                         byteRangeLo = lastSuccessfulSeekOffset;
                         if (byteRangeHi < byteRangeLo) {
                             byteRangeHi = byteRangeLo;
                         }
 
-                        
-                        targetByte = byteRangeLo + (drflac_uint64)((pcmFrameIndex-pcmRangeLo) * pFlac->channels * pFlac->bitsPerSample/8 * approxCompressionRatio);
+                        /*targetByte = byteRangeLo + (drflac_uint64)((pcmFrameIndex-pcmRangeLo) * pFlac->channels * pFlac->bitsPerSample/8 * approxCompressionRatio);*/
+                        targetByte = lastSuccessfulSeekOffset + (drflac_uint64)((pcmFrameIndex-pcmRangeLo) * pFlac->channels * pFlac->bitsPerSample/8 * approxCompressionRatio);
+                        /*targetByte = byteRangeLo + ((byteRangeHi - byteRangeLo) / 2);*/
+
                         if (targetByte > byteRangeHi) {
                             targetByte = byteRangeHi;
                         }
-
-                        /*targetByte = byteRangeLo + ((byteRangeHi - byteRangeLo) / 2);*/
 
                         if (closestSeekOffsetBeforeTargetPCMFrame < lastSuccessfulSeekOffset) {
                             closestSeekOffsetBeforeTargetPCMFrame = lastSuccessfulSeekOffset;
@@ -5067,7 +5085,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search(drflac* pFlac, drf
 {
     drflac_uint64 byteRangeLo;
     drflac_uint64 byteRangeHi;
-    drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSize != 0) ? pFlac->maxBlockSize : 4096;
+    drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSize != 0) ? pFlac->maxBlockSize*2 : 4096;
 
     drflac_seek_bsearch_stats__init(pStats);
 
@@ -5138,15 +5156,12 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
             }
         }
     }
-    
-
 
     /* Getting here means we need to use a slower algorithm because the binary search method failed or cannot be used. */
 
-
     /*
-    At this point we should have found the seekpoint closest to our sample. If we are seeking forward and the closest seekpoint is _before_ the current sample, we
-    just seek forward from where we are. Otherwise we start seeking from the seekpoint's first sample.
+    If we are seeking forward and the closest seekpoint is _before_ the current sample, we just seek forward from where we are. Otherwise we start seeking
+    from the seekpoint's first sample.
     */
     if (pcmFrameIndex >= pFlac->currentPCMFrame && pFlac->pSeekpoints[iClosestSeekpoint].firstPCMFrame <= pFlac->currentPCMFrame) {
         /* Optimized case. Just seek forward from where we are. */
