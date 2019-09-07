@@ -9174,6 +9174,7 @@ v0.12.0 - 2019-xx-xx
   - Remove drflac.totalSampleCount which is now replaced with drflac.totalPCMFrameCount. You can emulate drflac.totalSampleCount
     by doing pFlac->totalSampleCount*pFlac->channels.
   - Rename drflac.currentFrame to drflac.currentFLACFrame to remove ambiguity with PCM frames.
+  - Optimizations to seeking.
   - Minor optimizations to drflac_read_pcm_frames_s32().
 
 v0.11.10 - 2019-06-26
