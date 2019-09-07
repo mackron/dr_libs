@@ -72,7 +72,8 @@ Optimizations
 -------------
 Seeking performance has been greatly improved. A new binary search based seeking algorithm has been introduced which significantly
 improves performance over the brute force method which was used when no seek table was present. Seek table based seeking also takes
-advantage of the new binary search seeking system to further improve performance there as well.
+advantage of the new binary search seeking system to further improve performance there as well. Note that this depends on CRC which
+means it will be disabled when DR_FLAC_NO_CRC is used.
 
 A minor optimization has been implemented for drflac_read_pcm_frames_s32(). This will now use an SSE2 optimized pipeline for
 stereo channel reconstruction which is the last part of the decoding process.
