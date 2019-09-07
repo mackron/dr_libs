@@ -1,0 +1,7 @@
+docs
+tests/testvectors/opus/*
+!tests/testvectors/opus/DO_NOT_DELETE.md
+tests/bin/*
+!tests/bin/DO_NOT_DELETE.md
+tests/build
+todo
