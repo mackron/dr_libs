@@ -9,6 +9,8 @@
 #endif
 
 typedef unsigned int dr_bool32;
+#define DR_FALSE    0
+#define DR_TRUE     1
 
 /*
 Return Values:
@@ -460,4 +462,158 @@ void* dr_open_and_read_file_with_extra_data(const char* pFilePath, size_t* pFile
 void* dr_open_and_read_file(const char* pFilePath, size_t* pFileSizeOut)
 {
     return dr_open_and_read_file_with_extra_data(pFilePath, pFileSizeOut, 0);
+}
+
+
+dr_bool32 dr_argv_is_set(int argc, char** argv, const char* value)
+{
+    int iarg;
+    for (iarg = 0; iarg < argc; ++iarg) {
+        if (strcmp(argv[iarg], value)) {
+            return DR_TRUE;
+        }
+    }
+
+    return DR_FALSE;
+}
+
+
+int dr_vprintf_fixed(int width, const char* const format, va_list args)
+{
+    int i;
+    int len;
+    char buffer[4096];
+
+    if (width <= 0) {
+        return -1;  /* Width cannot be negative or 0. */
+    }
+
+    if (width > sizeof(buffer)) {
+        return -1;  /* Width is too big. */
+    }
+    
+    /* We need to print this into a string (truncated). */
+    len = vsnprintf(buffer, width+1, format, args);
+
+    printf("%s", buffer);
+    for (i = len; i < width; ++i) {
+        printf(" ");
+    }
+
+    return len;
+}
+
+int dr_printf_fixed(int width, const char* const format, ...)
+{
+    int result;
+
+    va_list args;
+    va_start(args, format);
+    {
+        result = dr_vprintf_fixed(width, format, args);
+    }
+    va_end(args);
+
+    return result;
+}
+
+int dr_vprintf_fixed_with_margin(int width, int margin, const char* const format, va_list args)
+{
+    int i;
+
+    /* Margin. */
+    for (i = 0; i < margin; ++i) {
+        printf(" ");
+    }
+
+    return dr_vprintf_fixed(width - margin, format, args);
+}
+
+int dr_printf_fixed_with_margin(int width, int margin, const char* const format, ...)
+{
+    int result;
+    
+    va_list args;
+    va_start(args, format);
+    {
+        result = dr_vprintf_fixed_with_margin(width, margin, format, args);
+    }
+    va_end(args);
+
+    return result;
+}
+
+
+
+#ifdef _WIN32
+static LARGE_INTEGER g_DRTimerFrequency = {{0}};
+double dr_timer_now()
+{
+    if (g_DRTimerFrequency.QuadPart == 0) {
+        QueryPerformanceFrequency(&g_DRTimerFrequency);
+    }
+
+    LARGE_INTEGER counter;
+    QueryPerformanceCounter(&counter);
+
+    return counter.QuadPart / (double)g_DRTimerFrequency.QuadPart;
+}
+#else
+double dr_timer_now()
+{
+    struct timespec newTime;
+    clock_gettime(CLOCK_MONOTONIC, &newTime);
+
+    return (newTime.tv_sec * 1000000000LL) + newTime.tv_nsec / 1000000000.0;
+}
+#endif
+
+
+float dr_scale_to_range_f32(float x, float lo, float hi)
+{
+    return lo + x*(hi-lo);
+}
+
+
+#define DR_LCG_M   2147483647
+#define DR_LCG_A   48271
+#define DR_LCG_C   0
+static int g_maLCG;
+
+void dr_seed(int seed)
+{
+    g_maLCG = seed;
+}
+
+int dr_rand_s32()
+{
+    int lcg = g_maLCG;
+    int r = (DR_LCG_A * lcg + DR_LCG_C) % DR_LCG_M;
+    g_maLCG = r;
+    return r;
+}
+
+unsigned int dr_rand_u32()
+{
+    return (unsigned int)dr_rand_s32();
+}
+
+double dr_rand_f64()
+{
+    return dr_rand_s32() / (double)0x7FFFFFFF;
+}
+
+float dr_rand_f32()
+{
+    return (float)dr_rand_f64();
+}
+
+float dr_rand_range_f32(float lo, float hi)
+{
+    return dr_scale_to_range_f32(dr_rand_f32(), lo, hi);
+}
+
+int dr_rand_range_s32(int lo, int hi)
+{
+    return lo + dr_rand_u32() / (0xFFFFFFFF / (hi - lo + 1) + 1);
 }
