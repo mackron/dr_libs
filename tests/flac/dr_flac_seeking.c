@@ -60,36 +60,21 @@ drflac_result seek_profiling_drflac_and_close(drflac* pFlac, double* pProcessing
     drflac_seek_to_pcm_frame(pFlac, 0);
 
     /* Random seek points based on a seed. */
-    /*dr_seed(1234);*/
-    dr_seed(4321);
+    dr_seed(1234);
+    /*dr_seed(4321);*/
     for (i = 0; i < 100; ++i) {
         double startTime;
         double endTime;
         int targetPCMFrame = dr_rand_range_s32(0, (int)pFlac->totalPCMFrameCount);
-        if (targetPCMFrame > pFlac->totalPCMFrameCount) {
-            printf("Too Big: %d\n", targetPCMFrame);
-        }
-        if (targetPCMFrame < 0) {
-            printf("Too Small: %d\n", targetPCMFrame);
-        }
-
-        
-
-        //printf("targetPCMFrame=%d\n", targetPCMFrame);
 
         startTime = dr_timer_now();
         {
-            drflac_seek_to_pcm_frame(pFlac, targetPCMFrame /*5596944*/);
+            drflac_seek_to_pcm_frame(pFlac, targetPCMFrame);
         }
         endTime = dr_timer_now();
 
-        //if (g_sameFrameTerminationCount > 0) {
-        //    int a = 4; (void)a;
-        //}
-
         if (pProcessingTime != NULL) {
             *pProcessingTime += (endTime - startTime);
-            /*printf("TIME: %d : %f\n", targetPCMFrame, (endTime - startTime));*/
         }
     }
 
