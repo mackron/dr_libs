@@ -13,7 +13,10 @@
 #include <time.h>   /* So we can seed the random number generator based on time. */
 
 #if !defined(_WIN32)
+#include <dirent.h>
+#include <sys/stat.h>
 #include <sys/time.h>
+#include <unistd.h>
 #endif
 
 typedef unsigned int dr_bool32;
@@ -314,6 +317,7 @@ typedef struct
 #ifdef _WIN32
     HANDLE hFind;
 #else
+    DIR* dir;
 #endif
 } dr_file_iterator;
 
@@ -324,6 +328,8 @@ dr_file_iterator* dr_file_iterator_begin(const char* pFolderPath, dr_file_iterat
     unsigned int searchQueryLength;
     WIN32_FIND_DATAA ffd;
     HANDLE hFind;
+#else
+    DIR* dir;
 #endif
 
     if (pState == NULL) {
@@ -356,6 +362,7 @@ dr_file_iterator* dr_file_iterator_begin(const char* pFolderPath, dr_file_iterat
     /* Skip past "." and ".." directories. */
     while (strcmp(ffd.cFileName, ".") == 0 || strcmp(ffd.cFileName, "..") == 0) {
         if (!FindNextFileA(hFind, &ffd)) {
+            FindClose(hFind);
             return NULL;    /* Couldn't find anything. */
         }
     }
@@ -371,7 +378,44 @@ dr_file_iterator* dr_file_iterator_begin(const char* pFolderPath, dr_file_iterat
 
     strcpy_s(pState->relativePath, sizeof(pState->relativePath), ffd.cFileName);
 #else
-    return NULL;    /* Not yet implemented. */
+    dir = opendir(pFolderPath);
+    if (dir == NULL) {
+        return NULL;    /* Couldn't find anything. */
+    }
+
+    /* Select the first file. */
+    for (;;) {
+        struct dirent* info;
+        struct stat fileinfo;
+        char filePath[4096];
+
+        info = readdir(dir);
+        if (info == NULL) {
+            closedir(dir);
+            return NULL;
+        }
+
+        if (strcmp(info->d_name, ".") == 0 || strcmp(info->d_name, "..") == 0) {
+            continue;   /* Skip past "." and ".." directories. */
+        }
+
+        dr_strcpy_s(pState->relativePath, sizeof(pState->relativePath), info->d_name);
+        dr_append_path(filePath, sizeof(filePath), pFolderPath, pState->relativePath);
+
+        if (stat(filePath, &fileinfo) != 0) {
+            continue;
+        }
+
+        if (S_ISDIR(fileinfo.st_mode)) {
+            pState->isDirectory = 1;
+        } else {
+            pState->isDirectory = 0;
+        }
+
+        break;
+    }
+
+    pState->dir = dir;
 #endif
 
     /* Getting here means everything was successful. We can now set some state before returning. */
@@ -395,6 +439,7 @@ dr_file_iterator* dr_file_iterator_next(dr_file_iterator* pState)
     if (!FindNextFileA(pState->hFind, &ffd)) {
         /* Couldn't find anything else. */
         FindClose(pState->hFind);
+        pState->hFind = NULL;
         return NULL;
     }
 
@@ -407,12 +452,60 @@ dr_file_iterator* dr_file_iterator_next(dr_file_iterator* pState)
 
     strcpy_s(pState->relativePath, sizeof(pState->relativePath), ffd.cFileName);
 #else
-    return NULL; /* Not yet implemented. */
+    /* Enter a loop here so we can skip past "." and ".." directories. */
+    for (;;) {
+        struct dirent* info;
+        struct stat fileinfo;
+        char filePath[4096];
+
+        info = readdir(pState->dir);
+        if (info == NULL) {
+            closedir(pState->dir);
+            pState->dir = NULL;
+            return NULL;
+        }
+
+        if (strcmp(info->d_name, ".") == 0 || strcmp(info->d_name, "..") == 0) {
+            continue;   /* Skip past "." and ".." directories. */
+        }
+
+        dr_strcpy_s(pState->relativePath, sizeof(pState->relativePath), info->d_name);
+        dr_append_path(filePath, sizeof(filePath), pState->folderPath, pState->relativePath);
+
+        /*printf("Done: %s\n", pState->relativePath);*/
+
+        if (stat(filePath, &fileinfo) != 0) {
+            continue;
+        }
+
+        if (S_ISDIR(fileinfo.st_mode)) {
+            pState->isDirectory = 1;
+        } else {
+            pState->isDirectory = 0;
+        }
+
+        break;
+    }
 #endif
 
     /* Success */
     dr_append_path(pState->absolutePath, sizeof(pState->absolutePath), pState->folderPath, pState->relativePath);
     return pState;
+}
+
+void dr_file_iterator_end(dr_file_iterator* pState)
+{
+    if (pState == NULL) {
+        return;
+    }
+
+#ifdef _WIN32
+    FindClose(pState->hFind);
+    pState->hFind = NULL;
+#else
+    closedir(pState->dir);
+    pState->dir = NULL;
+#endif
 }
 
 
