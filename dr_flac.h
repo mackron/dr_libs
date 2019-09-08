@@ -345,7 +345,7 @@ typedef struct
     drflac_uint32 sampleRate;
     drflac_uint8  channels;
     drflac_uint8  bitsPerSample;
-    drflac_uint64 totalSampleCount;
+    drflac_uint64 totalPCMFrameCount;
     drflac_uint8  md5[16];
 } drflac_streaminfo;
 
@@ -5234,7 +5234,7 @@ typedef struct
     drflac_uint32 sampleRate;
     drflac_uint8  channels;
     drflac_uint8  bitsPerSample;
-    drflac_uint64 totalSampleCount;
+    drflac_uint64 totalPCMFrameCount;
     drflac_uint16 maxBlockSizeInPCMFrames;
     drflac_uint64 runningFilePos;
     drflac_bool32 hasStreamInfoBlock;
@@ -5299,14 +5299,14 @@ drflac_bool32 drflac__read_streaminfo(drflac_read_proc onRead, void* pUserData, 
     frameSizes     = drflac__be2host_64(frameSizes);
     importantProps = drflac__be2host_64(importantProps);
 
-    pStreamInfo->minBlockSize     = (blockSizes & 0xFFFF0000) >> 16;
-    pStreamInfo->maxBlockSize     = (blockSizes & 0x0000FFFF);
-    pStreamInfo->minFrameSize     = (drflac_uint32)((frameSizes     &  (((drflac_uint64)0x00FFFFFF << 16) << 24)) >> 40);
-    pStreamInfo->maxFrameSize     = (drflac_uint32)((frameSizes     &  (((drflac_uint64)0x00FFFFFF << 16) <<  0)) >> 16);
-    pStreamInfo->sampleRate       = (drflac_uint32)((importantProps &  (((drflac_uint64)0x000FFFFF << 16) << 28)) >> 44);
-    pStreamInfo->channels         = (drflac_uint8 )((importantProps &  (((drflac_uint64)0x0000000E << 16) << 24)) >> 41) + 1;
-    pStreamInfo->bitsPerSample    = (drflac_uint8 )((importantProps &  (((drflac_uint64)0x0000001F << 16) << 20)) >> 36) + 1;
-    pStreamInfo->totalSampleCount =                ((importantProps & ((((drflac_uint64)0x0000000F << 16) << 16) | 0xFFFFFFFF))) * pStreamInfo->channels;
+    pStreamInfo->minBlockSize       = (blockSizes & 0xFFFF0000) >> 16;
+    pStreamInfo->maxBlockSize       = (blockSizes & 0x0000FFFF);
+    pStreamInfo->minFrameSize       = (drflac_uint32)((frameSizes     &  (((drflac_uint64)0x00FFFFFF << 16) << 24)) >> 40);
+    pStreamInfo->maxFrameSize       = (drflac_uint32)((frameSizes     &  (((drflac_uint64)0x00FFFFFF << 16) <<  0)) >> 16);
+    pStreamInfo->sampleRate         = (drflac_uint32)((importantProps &  (((drflac_uint64)0x000FFFFF << 16) << 28)) >> 44);
+    pStreamInfo->channels           = (drflac_uint8 )((importantProps &  (((drflac_uint64)0x0000000E << 16) << 24)) >> 41) + 1;
+    pStreamInfo->bitsPerSample      = (drflac_uint8 )((importantProps &  (((drflac_uint64)0x0000001F << 16) << 20)) >> 36) + 1;
+    pStreamInfo->totalPCMFrameCount =                ((importantProps & ((((drflac_uint64)0x0000000F << 16) << 16) | 0xFFFFFFFF)));
     drflac_copy_memory(pStreamInfo->md5, md5, sizeof(md5));
 
     return DRFLAC_TRUE;
@@ -5804,7 +5804,7 @@ drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_
         pInit->sampleRate              = streaminfo.sampleRate;
         pInit->channels                = streaminfo.channels;
         pInit->bitsPerSample           = streaminfo.bitsPerSample;
-        pInit->totalSampleCount        = streaminfo.totalSampleCount;
+        pInit->totalPCMFrameCount      = streaminfo.totalPCMFrameCount;
         pInit->maxBlockSizeInPCMFrames = streaminfo.maxBlockSize;    /* Don't care about the min block size - only the max (used for determining the size of the memory allocation). */
         pInit->hasMetadataBlocks       = !isLastBlock;
 
@@ -6592,7 +6592,7 @@ drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_pro
                             pInit->sampleRate              = streaminfo.sampleRate;
                             pInit->channels                = streaminfo.channels;
                             pInit->bitsPerSample           = streaminfo.bitsPerSample;
-                            pInit->totalSampleCount        = streaminfo.totalSampleCount;
+                            pInit->totalPCMFrameCount      = streaminfo.totalPCMFrameCount;
                             pInit->maxBlockSizeInPCMFrames = streaminfo.maxBlockSize;
                             pInit->hasMetadataBlocks       = !isLastBlock;
 
@@ -6754,7 +6754,7 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
     pFlac->sampleRate              = pInit->sampleRate;
     pFlac->channels                = (drflac_uint8)pInit->channels;
     pFlac->bitsPerSample           = (drflac_uint8)pInit->bitsPerSample;
-    pFlac->totalPCMFrameCount      = pInit->totalSampleCount / pFlac->channels;
+    pFlac->totalPCMFrameCount      = pInit->totalPCMFrameCount;
     pFlac->container               = pInit->container;
 }
 
