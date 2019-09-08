@@ -19,9 +19,63 @@
 #include <unistd.h>
 #endif
 
-typedef unsigned int dr_bool32;
-#define DR_FALSE    0
+#include <stddef.h> /* For size_t. */
+
+/* Sized types. Prefer built-in types. Fall back to stdint. */
+#ifdef _MSC_VER
+    #if defined(__clang__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wlanguage-extension-token"
+        #pragma GCC diagnostic ignored "-Wc++11-long-long"
+    #endif
+    typedef   signed __int8  dr_int8;
+    typedef unsigned __int8  dr_uint8;
+    typedef   signed __int16 dr_int16;
+    typedef unsigned __int16 dr_uint16;
+    typedef   signed __int32 dr_int32;
+    typedef unsigned __int32 dr_uint32;
+    typedef   signed __int64 dr_int64;
+    typedef unsigned __int64 dr_uint64;
+    #if defined(__clang__)
+        #pragma GCC diagnostic pop
+    #endif
+#else
+    #define MA_HAS_STDINT
+    #include <stdint.h>
+    typedef int8_t   dr_int8;
+    typedef uint8_t  dr_uint8;
+    typedef int16_t  dr_int16;
+    typedef uint16_t dr_uint16;
+    typedef int32_t  dr_int32;
+    typedef uint32_t dr_uint32;
+    typedef int64_t  dr_int64;
+    typedef uint64_t dr_uint64;
+#endif
+
+#ifdef MA_HAS_STDINT
+    typedef uintptr_t dr_uintptr;
+#else
+    #if defined(_WIN32)
+        #if defined(_WIN64)
+            typedef dr_uint64 dr_uintptr;
+        #else
+            typedef dr_uint32 dr_uintptr;
+        #endif
+    #elif defined(__GNUC__)
+        #if defined(__LP64__)
+            typedef dr_uint64 dr_uintptr;
+        #else
+            typedef dr_uint32 dr_uintptr;
+        #endif
+    #else
+        typedef dr_uint64 dr_uintptr;   /* Fallback. */
+    #endif
+#endif
+
+typedef dr_uint8    dr_bool8;
+typedef dr_uint32   dr_bool32;
 #define DR_TRUE     1
+#define DR_FALSE    0
 
 /*
 Return Values:
@@ -766,4 +820,40 @@ int dr_rand_range_s32(int lo, int hi)
     }
 
     return lo + dr_rand_u32() / (0xFFFFFFFF / (hi - lo + 1) + 1);
+}
+
+
+
+void dr_pcm_s32_to_f32(void* dst, const void* src, dr_uint64 count)
+{
+    float* dst_f32 = (float*)dst;
+    const dr_int32* src_s32 = (const dr_int32*)src;
+
+    dr_uint64 i;
+    for (i = 0; i < count; i += 1) {
+        double x = src_s32[i];
+
+#if 0
+        x = x + 2147483648.0;
+        x = x * 0.0000000004656612873077392578125;
+        x = x - 1;
+#else
+        x = x / 2147483648.0;
+#endif
+
+        dst_f32[i] = (float)x;
+    }
+}
+
+void dr_pcm_s32_to_s16(void* dst, const void* src, dr_uint64 count)
+{
+    dr_int16* dst_s16 = (dr_int16*)dst;
+    const dr_int32* src_s32 = (const dr_int32*)src;
+
+    dr_uint64 i;
+    for (i = 0; i < count; i += 1) {
+        dr_int32 x = src_s32[i];
+        x = x >> 16;
+        dst_s16[i] = (dr_int16)x;
+    }
 }

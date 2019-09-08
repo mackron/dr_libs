@@ -5,7 +5,7 @@
 #define NUMBER_WIDTH    10
 #define TABLE_MARGIN    2
 
-drflac_result decode_test__read_and_compare_pcm_frames(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameCount, drflac_int32* pPCMFrames_libflac, drflac_int32* pPCMFrames_drflac)
+drflac_result decode_test__read_and_compare_pcm_frames_s32(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameCount, drflac_int32* pPCMFrames_libflac, drflac_int32* pPCMFrames_drflac)
 {
     drflac_uint64 pcmFrameCount_libflac;
     drflac_uint64 pcmFrameCount_drflac;
@@ -47,7 +47,7 @@ drflac_result decode_test__read_and_compare_pcm_frames(libflac_decoder* pLibFlac
     return DRFLAC_SUCCESS;
 }
 
-drflac_result decode_test__read_and_compare_pcm_frame_chunks(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameChunkSize)
+drflac_result decode_test__read_and_compare_pcm_frame_chunks_s32(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameChunkSize)
 {
     drflac_result result = DRFLAC_SUCCESS;
     drflac_uint64 iPCMFrame;
@@ -72,7 +72,7 @@ drflac_result decode_test__read_and_compare_pcm_frame_chunks(libflac_decoder* pL
     }
 
     for (iPCMFrame = 0; iPCMFrame < pLibFlac->pcmFrameCount; iPCMFrame += pcmFrameChunkSize) {
-        result = decode_test__read_and_compare_pcm_frames(pLibFlac, pFlac, pcmFrameChunkSize, pPCMFrames_libflac, pPCMFrames_drflac);
+        result = decode_test__read_and_compare_pcm_frames_s32(pLibFlac, pFlac, pcmFrameChunkSize, pPCMFrames_libflac, pPCMFrames_drflac);
         if (result != DRFLAC_SUCCESS) {
             break;
         }
@@ -80,6 +80,234 @@ drflac_result decode_test__read_and_compare_pcm_frame_chunks(libflac_decoder* pL
 
     free(pPCMFrames_libflac);
     free(pPCMFrames_drflac);
+
+    return result;
+}
+
+
+drflac_result decode_test__read_and_compare_pcm_frames_f32(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameCount, float* pPCMFrames_libflac, float* pPCMFrames_drflac)
+{
+    drflac_uint64 pcmFrameCount_libflac;
+    drflac_uint64 pcmFrameCount_drflac;
+    drflac_uint64 iPCMFrame;
+
+    /* To test decoding we just read a number of PCM frames from each decoder and compare. */
+    pcmFrameCount_libflac = libflac_decoder_read_pcm_frames_f32(pLibFlac, pcmFrameCount, pPCMFrames_libflac);
+    pcmFrameCount_drflac = drflac_read_pcm_frames_f32(pFlac, pcmFrameCount, pPCMFrames_drflac);
+
+    /* The total number of frames we decoded need to match. */
+    if (pcmFrameCount_libflac != pcmFrameCount_drflac) {
+        printf("  Decoded frame counts differ: pcmFrameCount=%d, libFLAC=%d, dr_flac=%d", (int)pcmFrameCount, (int)pLibFlac->currentPCMFrame, (int)pFlac->currentPCMFrame);
+        return DRFLAC_ERROR;
+    }
+
+    /* Each of the decoded PCM frames need to match. */
+    DRFLAC_ASSERT(pcmFrameCount_libflac == pcmFrameCount_drflac);
+
+    for (iPCMFrame = 0; iPCMFrame < pcmFrameCount_libflac; iPCMFrame += 1) {
+        float* pPCMFrame_libflac = pPCMFrames_libflac + (iPCMFrame * pLibFlac->channels);
+        float* pPCMFrame_drflac  = pPCMFrames_drflac  + (iPCMFrame * pLibFlac->channels);
+        drflac_uint32 iChannel;
+        drflac_bool32 hasError = DRFLAC_FALSE;
+
+        for (iChannel = 0; iChannel < pLibFlac->channels; iChannel += 1) {
+            if (pPCMFrame_libflac[iChannel] != pPCMFrame_drflac[iChannel]) {
+                printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
+                hasError = DRFLAC_TRUE;
+                break;
+            }
+        }
+
+        if (hasError) {
+            return DRFLAC_ERROR;    /* Decoded frames do not match. */
+        }
+    }
+
+    /* Done. */
+    return DRFLAC_SUCCESS;
+}
+
+drflac_result decode_test__read_and_compare_pcm_frame_chunks_f32(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameChunkSize)
+{
+    drflac_result result = DRFLAC_SUCCESS;
+    drflac_uint64 iPCMFrame;
+    float* pPCMFrames_libflac;
+    float* pPCMFrames_drflac;
+
+    /* Make sure the decoder's are seeked back to the start first. */
+    drflac_seek_to_pcm_frame(pFlac, 0);
+    libflac_decoder_seek_to_pcm_frame(pLibFlac, 0);
+
+    pPCMFrames_libflac = (float*)malloc((size_t)(pcmFrameChunkSize * pLibFlac->channels * sizeof(float)));
+    if (pPCMFrames_libflac == NULL) {
+        printf("  [libFLAC] Out of memory");
+        return DRFLAC_ERROR;
+    }
+
+    pPCMFrames_drflac = (float*)malloc((size_t)(pcmFrameChunkSize * pLibFlac->channels * sizeof(float)));
+    if (pPCMFrames_drflac == NULL) {
+        free(pPCMFrames_libflac);
+        printf("  [dr_flac] Out of memory");
+        return DRFLAC_ERROR;
+    }
+
+    for (iPCMFrame = 0; iPCMFrame < pLibFlac->pcmFrameCount; iPCMFrame += pcmFrameChunkSize) {
+        result = decode_test__read_and_compare_pcm_frames_f32(pLibFlac, pFlac, pcmFrameChunkSize, pPCMFrames_libflac, pPCMFrames_drflac);
+        if (result != DRFLAC_SUCCESS) {
+            break;
+        }
+    }
+
+    free(pPCMFrames_libflac);
+    free(pPCMFrames_drflac);
+
+    return result;
+}
+
+
+drflac_result decode_test__read_and_compare_pcm_frames_s16(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameCount, drflac_int16* pPCMFrames_libflac, drflac_int16* pPCMFrames_drflac)
+{
+    drflac_uint64 pcmFrameCount_libflac;
+    drflac_uint64 pcmFrameCount_drflac;
+    drflac_uint64 iPCMFrame;
+
+    /* To test decoding we just read a number of PCM frames from each decoder and compare. */
+    pcmFrameCount_libflac = libflac_decoder_read_pcm_frames_s16(pLibFlac, pcmFrameCount, pPCMFrames_libflac);
+    pcmFrameCount_drflac = drflac_read_pcm_frames_s16(pFlac, pcmFrameCount, pPCMFrames_drflac);
+
+    /* The total number of frames we decoded need to match. */
+    if (pcmFrameCount_libflac != pcmFrameCount_drflac) {
+        printf("  Decoded frame counts differ: pcmFrameCount=%d, libFLAC=%d, dr_flac=%d", (int)pcmFrameCount, (int)pLibFlac->currentPCMFrame, (int)pFlac->currentPCMFrame);
+        return DRFLAC_ERROR;
+    }
+
+    /* Each of the decoded PCM frames need to match. */
+    DRFLAC_ASSERT(pcmFrameCount_libflac == pcmFrameCount_drflac);
+
+    for (iPCMFrame = 0; iPCMFrame < pcmFrameCount_libflac; iPCMFrame += 1) {
+        drflac_int16* pPCMFrame_libflac = pPCMFrames_libflac + (iPCMFrame * pLibFlac->channels);
+        drflac_int16* pPCMFrame_drflac  = pPCMFrames_drflac  + (iPCMFrame * pLibFlac->channels);
+        drflac_uint32 iChannel;
+        drflac_bool32 hasError = DRFLAC_FALSE;
+
+        for (iChannel = 0; iChannel < pLibFlac->channels; iChannel += 1) {
+            if (pPCMFrame_libflac[iChannel] != pPCMFrame_drflac[iChannel]) {
+                printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
+                hasError = DRFLAC_TRUE;
+                break;
+            }
+        }
+
+        if (hasError) {
+            return DRFLAC_ERROR;    /* Decoded frames do not match. */
+        }
+    }
+
+    /* Done. */
+    return DRFLAC_SUCCESS;
+}
+
+drflac_result decode_test__read_and_compare_pcm_frame_chunks_s16(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameChunkSize)
+{
+    drflac_result result = DRFLAC_SUCCESS;
+    drflac_uint64 iPCMFrame;
+    drflac_int16* pPCMFrames_libflac;
+    drflac_int16* pPCMFrames_drflac;
+
+    /* Make sure the decoder's are seeked back to the start first. */
+    drflac_seek_to_pcm_frame(pFlac, 0);
+    libflac_decoder_seek_to_pcm_frame(pLibFlac, 0);
+
+    pPCMFrames_libflac = (drflac_int16*)malloc((size_t)(pcmFrameChunkSize * pLibFlac->channels * sizeof(drflac_int16)));
+    if (pPCMFrames_libflac == NULL) {
+        printf("  [libFLAC] Out of memory");
+        return DRFLAC_ERROR;
+    }
+
+    pPCMFrames_drflac = (drflac_int16*)malloc((size_t)(pcmFrameChunkSize * pLibFlac->channels * sizeof(drflac_int16)));
+    if (pPCMFrames_drflac == NULL) {
+        free(pPCMFrames_libflac);
+        printf("  [dr_flac] Out of memory");
+        return DRFLAC_ERROR;
+    }
+
+    for (iPCMFrame = 0; iPCMFrame < pLibFlac->pcmFrameCount; iPCMFrame += pcmFrameChunkSize) {
+        result = decode_test__read_and_compare_pcm_frames_s16(pLibFlac, pFlac, pcmFrameChunkSize, pPCMFrames_libflac, pPCMFrames_drflac);
+        if (result != DRFLAC_SUCCESS) {
+            break;
+        }
+    }
+
+    free(pPCMFrames_libflac);
+    free(pPCMFrames_drflac);
+
+    return result;
+}
+
+
+
+drflac_result decode_test_file_s32(libflac_decoder* pLibFlac, drflac* pFlac)
+{
+    drflac_result result = DRFLAC_SUCCESS;
+
+    /* Start with reading the entire file in one go. */
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_s32(pLibFlac, pFlac, pLibFlac->pcmFrameCount);
+    }
+
+    /* Now try with reading one PCM frame at a time.*/
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_s32(pLibFlac, pFlac, 1);
+    }
+
+    /* Now test FLAC frame boundaries. */
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_s32(pLibFlac, pFlac, (pFlac->maxBlockSize > 0) ? pFlac->maxBlockSize : 4096);
+    }
+
+    return result;
+}
+
+drflac_result decode_test_file_f32(libflac_decoder* pLibFlac, drflac* pFlac)
+{
+    drflac_result result = DRFLAC_SUCCESS;
+
+    /* Start with reading the entire file in one go. */
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_f32(pLibFlac, pFlac, pLibFlac->pcmFrameCount);
+    }
+
+    /* Now try with reading one PCM frame at a time.*/
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_f32(pLibFlac, pFlac, 1);
+    }
+
+    /* Now test FLAC frame boundaries. */
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_f32(pLibFlac, pFlac, (pFlac->maxBlockSize > 0) ? pFlac->maxBlockSize : 4096);
+    }
+
+    return result;
+}
+
+drflac_result decode_test_file_s16(libflac_decoder* pLibFlac, drflac* pFlac)
+{
+    drflac_result result = DRFLAC_SUCCESS;
+
+    /* Start with reading the entire file in one go. */
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_s16(pLibFlac, pFlac, pLibFlac->pcmFrameCount);
+    }
+
+    /* Now try with reading one PCM frame at a time.*/
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_s16(pLibFlac, pFlac, 1);
+    }
+
+    /* Now test FLAC frame boundaries. */
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_s16(pLibFlac, pFlac, (pFlac->maxBlockSize > 0) ? pFlac->maxBlockSize : 4096);
+    }
 
     return result;
 }
@@ -109,21 +337,10 @@ drflac_result decode_test_file(const char* pFilePath)
     }
 
     /* At this point we should have both libFLAC and dr_flac decoders open. We can now perform identical operations on each of them and compare. */
-
-    /* Start with reading the entire file in one go. */
-    if (result == DRFLAC_SUCCESS) {
-        result = decode_test__read_and_compare_pcm_frame_chunks(&libflac, pFlac, libflac.pcmFrameCount);
-    }
-
-    /* Now try with reading one PCM frame at a time.*/
-    if (result == DRFLAC_SUCCESS) {
-        result = decode_test__read_and_compare_pcm_frame_chunks(&libflac, pFlac, 1);
-    }
-
-    /* Now test FLAC frame boundaries. */
-    if (result == DRFLAC_SUCCESS) {
-        result = decode_test__read_and_compare_pcm_frame_chunks(&libflac, pFlac, (pFlac->maxBlockSize > 0) ? pFlac->maxBlockSize : 4096);
-    }
+    decode_test_file_s32(&libflac, pFlac);
+    decode_test_file_f32(&libflac, pFlac);
+    decode_test_file_s16(&libflac, pFlac);
+    
 
     /* We're done with our decoders. */
     drflac_close(pFlac);
@@ -204,7 +421,7 @@ drflac_result decode_profiling_file(const char* pFilePath)
     }
 
     /* libFLAC decode time. */
-    dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "%.2f", libflac.decodeTimeInSeconds);
+    dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "%.2fms", libflac.decodeTimeInSeconds*1000);
 
     /* dr_flac decode time. */
     pTempBuffer = (drflac_int32*)malloc((size_t)(libflac.pcmFrameCount * libflac.channels * sizeof(drflac_int32)));
@@ -223,10 +440,10 @@ drflac_result decode_profiling_file(const char* pFilePath)
     free(pTempBuffer);
 
     drflacDecodeTimeInSeconds = decodeTimeEnd - decodeTimeBeg;
-    dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "%.2f", libflac.decodeTimeInSeconds);
+    dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "%.2fms", drflacDecodeTimeInSeconds*1000);
     
     /* Difference. */
-    dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "%d%%", (int)(drflacDecodeTimeInSeconds/libflac.decodeTimeInSeconds* 100));
+    dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "%d%%", (int)(drflacDecodeTimeInSeconds/libflac.decodeTimeInSeconds * 100));
 
     libflac_decoder_uninit(&libflac);
     drflac_close(pFlac);
@@ -277,7 +494,7 @@ drflac_result decode_profiling()
 int main(int argc, char** argv)
 {
     drflac_result result = DRFLAC_SUCCESS;
-    drflac_bool32 doTesting = DRFLAC_TRUE;
+    drflac_bool32 doTesting = DRFLAC_FALSE;
     drflac_bool32 doProfiling = DRFLAC_TRUE;
 
     /* This program has two main parts. The first is just a normal functionality test. The second is a profiling of the different seeking methods. */

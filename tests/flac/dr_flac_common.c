@@ -232,6 +232,54 @@ drflac_uint64 libflac_decoder_read_pcm_frames_s32(libflac_decoder* pDecoder, drf
     return framesToRead;
 }
 
+drflac_uint64 libflac_decoder_read_pcm_frames_f32(libflac_decoder* pDecoder, drflac_uint64 framesToRead, float* pBufferOut)
+{
+    drflac_uint64 pcmFramesRemaining;
+
+    if (pDecoder == NULL) {
+        return 0;
+    }
+
+    pcmFramesRemaining = pDecoder->pcmFrameCount - pDecoder->currentPCMFrame;
+    if (framesToRead > pcmFramesRemaining) {
+        framesToRead = pcmFramesRemaining;
+    }
+
+    if (framesToRead == 0) {
+        return 0;
+    }
+
+    /* s32 to f32 */
+    dr_pcm_s32_to_f32(pBufferOut, pDecoder->pPCMFrames + (pDecoder->currentPCMFrame * pDecoder->channels), framesToRead * pDecoder->channels);
+    pDecoder->currentPCMFrame += framesToRead;
+
+    return framesToRead;
+}
+
+drflac_uint64 libflac_decoder_read_pcm_frames_s16(libflac_decoder* pDecoder, drflac_uint64 framesToRead, drflac_int16* pBufferOut)
+{
+    drflac_uint64 pcmFramesRemaining;
+
+    if (pDecoder == NULL) {
+        return 0;
+    }
+
+    pcmFramesRemaining = pDecoder->pcmFrameCount - pDecoder->currentPCMFrame;
+    if (framesToRead > pcmFramesRemaining) {
+        framesToRead = pcmFramesRemaining;
+    }
+
+    if (framesToRead == 0) {
+        return 0;
+    }
+
+    /* s32 to f32 */
+    dr_pcm_s32_to_s16(pBufferOut, pDecoder->pPCMFrames + (pDecoder->currentPCMFrame * pDecoder->channels), framesToRead * pDecoder->channels);
+    pDecoder->currentPCMFrame += framesToRead;
+
+    return framesToRead;
+}
+
 drflac_bool32 libflac_decoder_seek_to_pcm_frame(libflac_decoder* pDecoder, drflac_uint64 targetPCMFrameIndex)
 {
     if (pDecoder == NULL) {
