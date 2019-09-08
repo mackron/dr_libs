@@ -4826,6 +4826,11 @@ static drflac_bool32 drflac__seek_to_pcm_frame__brute_force(drflac* pFlac, drfla
                 pFlac->currentFLACFrame.pcmFramesRemaining = 0;
                 isMidFrame = DRFLAC_FALSE;
             }
+
+            /* If we are seeking to the end of the file and we've just hit it, we're done. */
+            if (pcmFrameIndex == pFlac->totalPCMFrameCount && runningPCMFrameCount == pFlac->totalPCMFrameCount) {
+                return DRFLAC_TRUE;
+            }
         }
 
     next_iteration:
@@ -5249,6 +5254,11 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
                 runningPCMFrameCount += pFlac->currentFLACFrame.pcmFramesRemaining;
                 pFlac->currentFLACFrame.pcmFramesRemaining = 0;
                 isMidFrame = DRFLAC_FALSE;
+            }
+
+            /* If we are seeking to the end of the file and we've just hit it, we're done. */
+            if (pcmFrameIndex == pFlac->totalPCMFrameCount && runningPCMFrameCount == pFlac->totalPCMFrameCount) {
+                return DRFLAC_TRUE;
             }
         }
 
@@ -6494,6 +6504,19 @@ drflac_bool32 drflac_ogg__seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFram
         drflac__get_pcm_frame_range_of_current_flac_frame(pFlac, &firstPCMFrameInFLACFrame, &lastPCMFrameInFLACFrame);
 
         pcmFrameCountInThisFrame = (lastPCMFrameInFLACFrame - firstPCMFrameInFLACFrame) + 1;
+
+        /* If we are seeking to the end of the file and we've just hit it, we're done. */
+        if (pcmFrameIndex == pFlac->totalPCMFrameCount && (runningPCMFrameCount + pcmFrameCountInThisFrame) == pFlac->totalPCMFrameCount) {
+            drflac_result result = drflac__decode_flac_frame(pFlac);
+            if (result == DRFLAC_SUCCESS) {
+                pFlac->currentPCMFrame = pcmFrameIndex;
+                pFlac->currentFLACFrame.pcmFramesRemaining = 0;
+                return DRFLAC_TRUE;
+            } else {
+                return DRFLAC_FALSE;
+            }
+        }
+
         if (pcmFrameIndex < (runningPCMFrameCount + pcmFrameCountInThisFrame)) {
             /*
             The sample should be in this FLAC frame. We need to fully decode it, however if it's an invalid frame (a CRC mismatch), we need to pretend
@@ -6506,6 +6529,9 @@ drflac_bool32 drflac_ogg__seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFram
                 if (pcmFramesToDecode == 0) {
                     return DRFLAC_TRUE;
                 }
+
+                pFlac->currentPCMFrame = runningPCMFrameCount;
+
                 return drflac__seek_forward_by_pcm_frames(pFlac, pcmFramesToDecode) == pcmFramesToDecode;  /* <-- If this fails, something bad has happened (it should never fail). */
             } else {
                 if (result == DRFLAC_CRC_MISMATCH) {
@@ -8633,6 +8659,11 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
         return DRFLAC_FALSE;
     }
 
+    /* Don't do anything if we're already on the seek point. */
+    if (pFlac->currentPCMFrame == pcmFrameIndex) {
+        return DRFLAC_TRUE;
+    }
+
     /*
     If we don't know where the first frame begins then we can't seek. This will happen when the STREAMINFO block was not present
     when the decoder was opened.
@@ -8648,8 +8679,8 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
         drflac_bool32 wasSuccessful = DRFLAC_FALSE;
 
         /* Clamp the sample to the end. */
-        if (pcmFrameIndex >= pFlac->totalPCMFrameCount) {
-            pcmFrameIndex  = pFlac->totalPCMFrameCount - 1;
+        if (pcmFrameIndex > pFlac->totalPCMFrameCount) {
+            pcmFrameIndex = pFlac->totalPCMFrameCount;
         }
 
         /* If the target sample and the current sample are in the same frame we just move the position forward. */
@@ -9166,6 +9197,7 @@ v0.12.0 - 2019-xx-xx
   - Remove drflac.totalSampleCount which is now replaced with drflac.totalPCMFrameCount. You can emulate drflac.totalSampleCount
     by doing pFlac->totalPCMFrameCount*pFlac->channels.
   - Rename drflac.currentFrame to drflac.currentFLACFrame to remove ambiguity with PCM frames.
+  - Fix errors when seeking to the end of a stream.
   - Optimizations to seeking.
   - Minor optimizations to drflac_read_pcm_frames_s32().
 
