@@ -225,7 +225,7 @@ const char* dr_path_file_name(const char* path)
         return NULL;
     }
 
-    // We just loop through the path until we find the last slash.
+    /* We just loop through the path until we find the last slash. */
     while (path[0] != '\0') {
         if (path[0] == '/' || path[0] == '\\') {
             fileName = path;
@@ -234,7 +234,7 @@ const char* dr_path_file_name(const char* path)
         path += 1;
     }
 
-    // At this point the file name is sitting on a slash, so just move forward.
+    /* At this point the file name is sitting on a slash, so just move forward. */
     while (fileName[0] != '\0' && (fileName[0] == '/' || fileName[0] == '\\')) {
         fileName += 1;
     }
@@ -576,11 +576,12 @@ int dr_printf_fixed_with_margin(int width, int margin, const char* const format,
 static LARGE_INTEGER g_DRTimerFrequency = {{0}};
 double dr_timer_now()
 {
+    LARGE_INTEGER counter;
+
     if (g_DRTimerFrequency.QuadPart == 0) {
         QueryPerformanceFrequency(&g_DRTimerFrequency);
     }
 
-    LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
 
     return counter.QuadPart / (double)g_DRTimerFrequency.QuadPart;
