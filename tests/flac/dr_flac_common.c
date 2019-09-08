@@ -112,6 +112,9 @@ static void libflac__metadata_callback(const FLAC__StreamDecoder *pStreamDecoder
         if (metadata->data.stream_info.total_samples > 0) {
             pDecoder->pcmFrameCap = metadata->data.stream_info.total_samples;
             pDecoder->pPCMFrames  = (drflac_int32*)malloc((size_t)(pDecoder->pcmFrameCap * pDecoder->channels * sizeof(drflac_int32)));
+            if (pDecoder->pPCMFrames != NULL) {
+                DRFLAC_ZERO_MEMORY(pDecoder->pPCMFrames, (size_t)(pDecoder->pcmFrameCap * pDecoder->channels * sizeof(drflac_int32)));
+            }
         }
     }
 }

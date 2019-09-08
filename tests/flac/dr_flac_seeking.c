@@ -165,7 +165,7 @@ drflac_result seek_test_file(const char* pFilePath)
         result = seek_test_pcm_frame(&libflac, pFlac, 0);
     }
 
-    /* No we'll try seeking to random locations. */
+    /* Now we'll try seeking to random locations. */
     dr_seed((int)time(NULL));
 
     iteration = 0;
