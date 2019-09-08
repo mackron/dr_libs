@@ -441,7 +441,7 @@ drflac_result seek_profiling()
     return result;
 }
 
-#include <conio.h>
+
 int main(int argc, char** argv)
 {
     drflac_result result = DRFLAC_SUCCESS;
@@ -478,6 +478,6 @@ int main(int argc, char** argv)
         printf("\n");
     }
     
-    _getch();
+    getchar();
     return (int)result;
 }
