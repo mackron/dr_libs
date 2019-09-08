@@ -28,7 +28,7 @@ profiling_state profiling_state_sum(const profiling_state* pA, const profiling_s
 }
 
 
-drflac_result seek_test_pcm_frame(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 targetPCMFrameIndex)
+drflac_result seek_test_pcm_frame(libflac* pLibFlac, drflac* pFlac, drflac_uint64 targetPCMFrameIndex)
 {
     drflac_bool32 seekResult;
     drflac_uint64 pcmFrameCount_libflac;
@@ -48,7 +48,7 @@ drflac_result seek_test_pcm_frame(libflac_decoder* pLibFlac, drflac* pFlac, drfl
     To test seeking we just seek to the PCM frame, and then decode the rest of the file. If the PCM frames we read
     differs between the two implementations there's something wrong with one of them (probably dr_flac).
     */
-    seekResult = libflac_decoder_seek_to_pcm_frame(pLibFlac, targetPCMFrameIndex);
+    seekResult = libflac_seek_to_pcm_frame(pLibFlac, targetPCMFrameIndex);
     if (seekResult == DRFLAC_FALSE) {
         printf("  [libFLAC] Failed to seek to PCM frame @ %d", (int)targetPCMFrameIndex);
         return DRFLAC_ERROR;
@@ -74,7 +74,7 @@ drflac_result seek_test_pcm_frame(libflac_decoder* pLibFlac, drflac* pFlac, drfl
         printf("  [libFLAC] Out of memory");
         return DRFLAC_ERROR;
     }
-    pcmFrameCount_libflac = libflac_decoder_read_pcm_frames_s32(pLibFlac, pLibFlac->pcmFrameCount, pPCMFrames_libflac);
+    pcmFrameCount_libflac = libflac_read_pcm_frames_s32(pLibFlac, pLibFlac->pcmFrameCount, pPCMFrames_libflac);
 
     pPCMFrames_drflac = (drflac_int32*)malloc((size_t)(pLibFlac->pcmFrameCount * pLibFlac->channels * sizeof(drflac_int32)));
     if (pPCMFrames_drflac == NULL) {
@@ -128,7 +128,7 @@ drflac_result seek_test_file(const char* pFilePath)
 {
     /* To test seeking we just seek to our target PCM frame and then decode whatever is remaining and compare it against libFLAC. */
     drflac_result result;
-    libflac_decoder libflac;
+    libflac libflac;
     drflac* pFlac;
     drflac_uint32 iteration;
     drflac_uint32 totalIterationCount = 10;
@@ -136,7 +136,7 @@ drflac_result seek_test_file(const char* pFilePath)
     dr_printf_fixed_with_margin(PROFILING_NAME_WIDTH, PROFILING_NUMBER_MARGIN, "%s", dr_path_file_name(pFilePath));
 
     /* First load the decoder from libFLAC. */
-    result = libflac_decoder_init_file(pFilePath, &libflac);
+    result = libflac_init_file(pFilePath, &libflac);
     if (result != DRFLAC_SUCCESS) {
         printf("  Failed to open via libFLAC.");
         return result;
@@ -146,7 +146,7 @@ drflac_result seek_test_file(const char* pFilePath)
     pFlac = drflac_open_file(pFilePath, NULL);
     if (pFlac == NULL) {
         printf("  Failed to open via dr_flac.");
-        libflac_decoder_uninit(&libflac);
+        libflac_uninit(&libflac);
         return DRFLAC_ERROR;    /* Failed to load dr_flac decoder. */
     }
 
@@ -181,7 +181,7 @@ drflac_result seek_test_file(const char* pFilePath)
 
     /* We're done with our decoders. */
     drflac_close(pFlac);
-    libflac_decoder_uninit(&libflac);
+    libflac_uninit(&libflac);
 
     if (result == DRFLAC_SUCCESS) {
         printf("  Passed");
