@@ -6,9 +6,9 @@
 
 
 /*
-The libflac_decoder object is used to make it easier to compare things against the reference implementation. I don't
-think libFLAC's API is all that easy to use or intuitive so I'm wrapping it. This is deliberately simple. It decodes
-the entire file into memory upon initialization.
+The libflac object is used to make it easier to compare things against the reference implementation. I don't think
+libFLAC's API is all that easy to use or intuitive so I'm wrapping it. This is deliberately simple. It decodes the
+entire file into memory upon initialization.
 */
 typedef struct
 {
@@ -22,11 +22,11 @@ typedef struct
     drflac_uint8* pFileData;
     size_t fileSizeInBytes;
     size_t fileReadPos;
-} libflac_decoder;
+} libflac;
 
 static FLAC__StreamDecoderReadStatus libflac__read_callback(const FLAC__StreamDecoder *pStreamDecoder, FLAC__byte buffer[], size_t *bytes, void *client_data)
 {
-    libflac_decoder* pDecoder = (libflac_decoder*)client_data;
+    libflac* pDecoder = (libflac*)client_data;
     size_t bytesToRead = *bytes;
     size_t bytesRemaining = pDecoder->fileSizeInBytes - pDecoder->fileReadPos;
 
@@ -47,7 +47,7 @@ static FLAC__StreamDecoderReadStatus libflac__read_callback(const FLAC__StreamDe
 
 static FLAC__StreamDecoderWriteStatus libflac__write_callback(const FLAC__StreamDecoder *pStreamDecoder, const FLAC__Frame *frame, const FLAC__int32 * const buffer[], void *client_data)
 {
-    libflac_decoder* pDecoder = (libflac_decoder*)client_data;
+    libflac* pDecoder = (libflac*)client_data;
     drflac_uint32 pcmFramesInFLACFrame;
     drflac_int32* pNextSampleInNewFrame;
     drflac_uint32 i, j;
@@ -88,7 +88,7 @@ static FLAC__StreamDecoderWriteStatus libflac__write_callback(const FLAC__Stream
 
 static FLAC__StreamDecoderLengthStatus libflac__length_callback(const FLAC__StreamDecoder *pStreamDecoder, FLAC__uint64 *stream_length, void *client_data)
 {
-    libflac_decoder* pDecoder = (libflac_decoder*)client_data;
+    libflac* pDecoder = (libflac*)client_data;
 
     (void)pStreamDecoder;
 
@@ -98,7 +98,7 @@ static FLAC__StreamDecoderLengthStatus libflac__length_callback(const FLAC__Stre
 
 static void libflac__metadata_callback(const FLAC__StreamDecoder *pStreamDecoder, const FLAC__StreamMetadata *metadata, void *client_data)
 {
-    libflac_decoder* pDecoder = (libflac_decoder*)client_data;
+    libflac* pDecoder = (libflac*)client_data;
 
     (void)pStreamDecoder;
 
@@ -127,13 +127,13 @@ static void libflac__error_callback(const FLAC__StreamDecoder *pStreamDecoder, F
 }
 
 /*
-Initializes a libflac_decoder object.
+Initializes a libflac object.
 
 This will perform a full decode of the file using libFLAC. The time it takes to decode the file will be stored in decodeTimeInSeconds
 for the purpose of profiling. The decoding process will load the entire file into memory before calling into libFLAC. This way profiling
 will exclude any IO time.
 */
-drflac_result libflac_decoder_init_file(const char* pFilePath, libflac_decoder* pDecoder)
+drflac_result libflac_init_file(const char* pFilePath, libflac* pDecoder)
 {
     FLAC__StreamDecoder* pStreamDecoder;
     FLAC__bool libflacResult;
@@ -200,7 +200,7 @@ drflac_result libflac_decoder_init_file(const char* pFilePath, libflac_decoder* 
     return DRFLAC_SUCCESS;
 }
 
-void libflac_decoder_uninit(libflac_decoder* pDecoder)
+void libflac_uninit(libflac* pDecoder)
 {
     if (pDecoder == NULL) {
         return;
@@ -209,7 +209,7 @@ void libflac_decoder_uninit(libflac_decoder* pDecoder)
     free(pDecoder->pPCMFrames);
 }
 
-drflac_uint64 libflac_decoder_read_pcm_frames_s32(libflac_decoder* pDecoder, drflac_uint64 framesToRead, drflac_int32* pBufferOut)
+drflac_uint64 libflac_read_pcm_frames_s32(libflac* pDecoder, drflac_uint64 framesToRead, drflac_int32* pBufferOut)
 {
     drflac_uint64 pcmFramesRemaining;
 
@@ -232,7 +232,7 @@ drflac_uint64 libflac_decoder_read_pcm_frames_s32(libflac_decoder* pDecoder, drf
     return framesToRead;
 }
 
-drflac_uint64 libflac_decoder_read_pcm_frames_f32(libflac_decoder* pDecoder, drflac_uint64 framesToRead, float* pBufferOut)
+drflac_uint64 libflac_read_pcm_frames_f32(libflac* pDecoder, drflac_uint64 framesToRead, float* pBufferOut)
 {
     drflac_uint64 pcmFramesRemaining;
 
@@ -256,7 +256,7 @@ drflac_uint64 libflac_decoder_read_pcm_frames_f32(libflac_decoder* pDecoder, drf
     return framesToRead;
 }
 
-drflac_uint64 libflac_decoder_read_pcm_frames_s16(libflac_decoder* pDecoder, drflac_uint64 framesToRead, drflac_int16* pBufferOut)
+drflac_uint64 libflac_read_pcm_frames_s16(libflac* pDecoder, drflac_uint64 framesToRead, drflac_int16* pBufferOut)
 {
     drflac_uint64 pcmFramesRemaining;
 
@@ -280,7 +280,7 @@ drflac_uint64 libflac_decoder_read_pcm_frames_s16(libflac_decoder* pDecoder, drf
     return framesToRead;
 }
 
-drflac_bool32 libflac_decoder_seek_to_pcm_frame(libflac_decoder* pDecoder, drflac_uint64 targetPCMFrameIndex)
+drflac_bool32 libflac_seek_to_pcm_frame(libflac* pDecoder, drflac_uint64 targetPCMFrameIndex)
 {
     if (pDecoder == NULL) {
         return DRFLAC_FALSE;
