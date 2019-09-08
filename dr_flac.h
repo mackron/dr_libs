@@ -618,7 +618,7 @@ typedef struct
     drflac_uint8 bitsPerSample;
 
     /* The maximum block size, in samples. This number represents the number of samples in each channel (not combined). */
-    drflac_uint16 maxBlockSize;
+    drflac_uint16 maxBlockSizeInPCMFrames;
 
     /*
     The total number of PCM Frames making up the stream. Can be 0 in which case it's still a valid stream, but just means
@@ -4554,7 +4554,7 @@ static drflac_result drflac__decode_flac_frame(drflac* pFlac)
     drflac_zero_memory(pFlac->currentFLACFrame.subframes, sizeof(pFlac->currentFLACFrame.subframes));
 
     /* The frame block size must never be larger than the maximum block size defined by the FLAC stream. */
-    if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->maxBlockSize) {
+    if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->maxBlockSizeInPCMFrames) {
         return DRFLAC_ERROR;
     }
 
@@ -4667,7 +4667,7 @@ static void drflac__get_pcm_frame_range_of_current_flac_frame(drflac* pFlac, drf
 
     firstPCMFrame = pFlac->currentFLACFrame.header.pcmFrameNumber;
     if (firstPCMFrame == 0) {
-        firstPCMFrame = pFlac->currentFLACFrame.header.flacFrameNumber * pFlac->maxBlockSize;
+        firstPCMFrame = pFlac->currentFLACFrame.header.flacFrameNumber * pFlac->maxBlockSizeInPCMFrames;
     }
 
     lastPCMFrame = firstPCMFrame + (pFlac->currentFLACFrame.header.blockSizeInPCMFrames);
@@ -4936,7 +4936,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
     drflac_uint64 pcmRangeHi = 0;
     drflac_uint64 lastSuccessfulSeekOffset = (drflac_uint64)-1;
     drflac_uint64 closestSeekOffsetBeforeTargetPCMFrame = byteRangeLo;
-    drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSize != 0) ? pFlac->maxBlockSize*2 : 4096;
+    drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSizeInPCMFrames != 0) ? pFlac->maxBlockSizeInPCMFrames*2 : 4096;
 
     targetByte = byteRangeLo + (drflac_uint64)((pcmFrameIndex - pFlac->currentPCMFrame) * pFlac->channels * pFlac->bitsPerSample/8 * DRFLAC_BINARY_SEARCH_APPROX_COMPRESSION_RATIO);
     if (targetByte > byteRangeHi) {
@@ -5032,7 +5032,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search(drflac* pFlac, drf
 {
     drflac_uint64 byteRangeLo;
     drflac_uint64 byteRangeHi;
-    drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSize != 0) ? pFlac->maxBlockSize*2 : 4096;
+    drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSizeInPCMFrames != 0) ? pFlac->maxBlockSizeInPCMFrames*2 : 4096;
 
     /* Our algorithm currently assumes the PCM frame */
     if (drflac__seek_to_first_frame(pFlac) == DRFLAC_FALSE) {
@@ -5235,7 +5235,7 @@ typedef struct
     drflac_uint8  channels;
     drflac_uint8  bitsPerSample;
     drflac_uint64 totalSampleCount;
-    drflac_uint16 maxBlockSize;
+    drflac_uint16 maxBlockSizeInPCMFrames;
     drflac_uint64 runningFilePos;
     drflac_bool32 hasStreamInfoBlock;
     drflac_bool32 hasMetadataBlocks;
@@ -5788,10 +5788,10 @@ drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_
                 return DRFLAC_FALSE;    /* Failed to initialize because the first frame depends on the STREAMINFO block, which does not exist. */
             }
 
-            pInit->sampleRate    = pInit->firstFrameHeader.sampleRate;
-            pInit->channels      = drflac__get_channel_count_from_channel_assignment(pInit->firstFrameHeader.channelAssignment);
-            pInit->bitsPerSample = pInit->firstFrameHeader.bitsPerSample;
-            pInit->maxBlockSize  = 65535;   /* <-- See notes here: https://xiph.org/flac/format.html#metadata_block_streaminfo */
+            pInit->sampleRate              = pInit->firstFrameHeader.sampleRate;
+            pInit->channels                = drflac__get_channel_count_from_channel_assignment(pInit->firstFrameHeader.channelAssignment);
+            pInit->bitsPerSample           = pInit->firstFrameHeader.bitsPerSample;
+            pInit->maxBlockSizeInPCMFrames = 65535;   /* <-- See notes here: https://xiph.org/flac/format.html#metadata_block_streaminfo */
             return DRFLAC_TRUE;
         }
     } else {
@@ -5800,13 +5800,13 @@ drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_
             return DRFLAC_FALSE;
         }
 
-        pInit->hasStreamInfoBlock = DRFLAC_TRUE;
-        pInit->sampleRate         = streaminfo.sampleRate;
-        pInit->channels           = streaminfo.channels;
-        pInit->bitsPerSample      = streaminfo.bitsPerSample;
-        pInit->totalSampleCount   = streaminfo.totalSampleCount;
-        pInit->maxBlockSize       = streaminfo.maxBlockSize;    /* Don't care about the min block size - only the max (used for determining the size of the memory allocation). */
-        pInit->hasMetadataBlocks  = !isLastBlock;
+        pInit->hasStreamInfoBlock      = DRFLAC_TRUE;
+        pInit->sampleRate              = streaminfo.sampleRate;
+        pInit->channels                = streaminfo.channels;
+        pInit->bitsPerSample           = streaminfo.bitsPerSample;
+        pInit->totalSampleCount        = streaminfo.totalSampleCount;
+        pInit->maxBlockSizeInPCMFrames = streaminfo.maxBlockSize;    /* Don't care about the min block size - only the max (used for determining the size of the memory allocation). */
+        pInit->hasMetadataBlocks       = !isLastBlock;
 
         if (onMeta) {
             drflac_metadata metadata;
@@ -6588,13 +6588,13 @@ drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_pro
 
                         if (drflac__read_streaminfo(onRead, pUserData, &streaminfo)) {
                             /* Success! */
-                            pInit->hasStreamInfoBlock = DRFLAC_TRUE;
-                            pInit->sampleRate         = streaminfo.sampleRate;
-                            pInit->channels           = streaminfo.channels;
-                            pInit->bitsPerSample      = streaminfo.bitsPerSample;
-                            pInit->totalSampleCount   = streaminfo.totalSampleCount;
-                            pInit->maxBlockSize       = streaminfo.maxBlockSize;
-                            pInit->hasMetadataBlocks  = !isLastBlock;
+                            pInit->hasStreamInfoBlock      = DRFLAC_TRUE;
+                            pInit->sampleRate              = streaminfo.sampleRate;
+                            pInit->channels                = streaminfo.channels;
+                            pInit->bitsPerSample           = streaminfo.bitsPerSample;
+                            pInit->totalSampleCount        = streaminfo.totalSampleCount;
+                            pInit->maxBlockSizeInPCMFrames = streaminfo.maxBlockSize;
+                            pInit->hasMetadataBlocks       = !isLastBlock;
 
                             if (onMeta) {
                                 drflac_metadata metadata;
@@ -6747,15 +6747,15 @@ void drflac__init_from_info(drflac* pFlac, drflac_init_info* pInit)
     drflac_assert(pInit != NULL);
 
     drflac_zero_memory(pFlac, sizeof(*pFlac));
-    pFlac->bs                 = pInit->bs;
-    pFlac->onMeta             = pInit->onMeta;
-    pFlac->pUserDataMD        = pInit->pUserDataMD;
-    pFlac->maxBlockSize       = pInit->maxBlockSize;
-    pFlac->sampleRate         = pInit->sampleRate;
-    pFlac->channels           = (drflac_uint8)pInit->channels;
-    pFlac->bitsPerSample      = (drflac_uint8)pInit->bitsPerSample;
-    pFlac->totalPCMFrameCount = pInit->totalSampleCount / pFlac->channels;
-    pFlac->container          = pInit->container;
+    pFlac->bs                      = pInit->bs;
+    pFlac->onMeta                  = pInit->onMeta;
+    pFlac->pUserDataMD             = pInit->pUserDataMD;
+    pFlac->maxBlockSizeInPCMFrames = pInit->maxBlockSizeInPCMFrames;
+    pFlac->sampleRate              = pInit->sampleRate;
+    pFlac->channels                = (drflac_uint8)pInit->channels;
+    pFlac->bitsPerSample           = (drflac_uint8)pInit->bitsPerSample;
+    pFlac->totalPCMFrameCount      = pInit->totalSampleCount / pFlac->channels;
+    pFlac->container               = pInit->container;
 }
 
 
@@ -6812,10 +6812,10 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     The allocation size for decoded frames depends on the number of 32-bit integers that fit inside the largest SIMD vector
     we are supporting.
     */
-    if (((init.maxBlockSize+DRFLAC_LEADING_SAMPLES) % (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) == 0) {
-        wholeSIMDVectorCountPerChannel = ((init.maxBlockSize+DRFLAC_LEADING_SAMPLES) / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32)));
+    if (((init.maxBlockSizeInPCMFrames+DRFLAC_LEADING_SAMPLES) % (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) == 0) {
+        wholeSIMDVectorCountPerChannel = ((init.maxBlockSizeInPCMFrames+DRFLAC_LEADING_SAMPLES) / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32)));
     } else {
-        wholeSIMDVectorCountPerChannel = ((init.maxBlockSize+DRFLAC_LEADING_SAMPLES) / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) + 1;
+        wholeSIMDVectorCountPerChannel = ((init.maxBlockSizeInPCMFrames+DRFLAC_LEADING_SAMPLES) / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) + 1;
     }
 
     decodedSamplesAllocationSize = wholeSIMDVectorCountPerChannel * DRFLAC_MAX_SIMD_VECTOR_SIZE * init.channels;

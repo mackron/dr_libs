@@ -262,7 +262,7 @@ drflac_result decode_test_file_s32(libflac* pLibFlac, drflac* pFlac)
 
     /* Now test FLAC frame boundaries. */
     if (result == DRFLAC_SUCCESS) {
-        result = decode_test__read_and_compare_pcm_frame_chunks_s32(pLibFlac, pFlac, (pFlac->maxBlockSize > 0) ? pFlac->maxBlockSize : 4096);
+        result = decode_test__read_and_compare_pcm_frame_chunks_s32(pLibFlac, pFlac, (pFlac->maxBlockSizeInPCMFrames > 0) ? pFlac->maxBlockSizeInPCMFrames : 4096);
     }
 
     return result;
@@ -284,7 +284,7 @@ drflac_result decode_test_file_f32(libflac* pLibFlac, drflac* pFlac)
 
     /* Now test FLAC frame boundaries. */
     if (result == DRFLAC_SUCCESS) {
-        result = decode_test__read_and_compare_pcm_frame_chunks_f32(pLibFlac, pFlac, (pFlac->maxBlockSize > 0) ? pFlac->maxBlockSize : 4096);
+        result = decode_test__read_and_compare_pcm_frame_chunks_f32(pLibFlac, pFlac, (pFlac->maxBlockSizeInPCMFrames > 0) ? pFlac->maxBlockSizeInPCMFrames : 4096);
     }
 
     return result;
@@ -306,7 +306,7 @@ drflac_result decode_test_file_s16(libflac* pLibFlac, drflac* pFlac)
 
     /* Now test FLAC frame boundaries. */
     if (result == DRFLAC_SUCCESS) {
-        result = decode_test__read_and_compare_pcm_frame_chunks_s16(pLibFlac, pFlac, (pFlac->maxBlockSize > 0) ? pFlac->maxBlockSize : 4096);
+        result = decode_test__read_and_compare_pcm_frame_chunks_s16(pLibFlac, pFlac, (pFlac->maxBlockSizeInPCMFrames > 0) ? pFlac->maxBlockSizeInPCMFrames : 4096);
     }
 
     return result;
