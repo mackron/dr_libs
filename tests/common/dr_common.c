@@ -8,7 +8,13 @@
 #include <strings.h>
 #endif
 
+#include <stdio.h>
+#include <stdarg.h>
 #include <time.h>   /* So we can seed the random number generator based on time. */
+
+#if !defined(_WIN32)
+#include <sys/time.h>
+#endif
 
 typedef unsigned int dr_bool32;
 #define DR_FALSE    0
@@ -520,7 +526,11 @@ int dr_vprintf_fixed(int width, const char* const format, va_list args)
     }
     
     /* We need to print this into a string (truncated). */
+#if defined(_MSC_VER) || ((defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 500) || defined(_ISOC99_SOURCE) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L))
     len = vsnprintf(buffer, width+1, format, args);
+#else
+    len = vsprintf(buffer, format, args);
+#endif
 
     printf("%s", buffer);
     for (i = len; i < width; ++i) {
@@ -587,13 +597,28 @@ double dr_timer_now()
     return counter.QuadPart / (double)g_DRTimerFrequency.QuadPart;
 }
 #else
-double dr_timer_now()
-{
-    struct timespec newTime;
-    clock_gettime(CLOCK_MONOTONIC, &newTime);
+#if _POSIX_C_SOURCE >= 199309L
+    #if defined(CLOCK_MONOTONIC)
+        #define MA_CLOCK_ID CLOCK_MONOTONIC
+    #else
+        #define MA_CLOCK_ID CLOCK_REALTIME
+    #endif
+    double dr_timer_now()
+    {
+        struct timespec newTime;
+        clock_gettime(CLOCK_MONOTONIC, &newTime);
 
-    return (newTime.tv_sec * 1000000000LL) + newTime.tv_nsec / 1000000000.0;
-}
+        return ((newTime.tv_sec * 1000000000LL) + newTime.tv_nsec) / 1000000000.0;
+    }
+#else
+    double dr_timer_now()
+    {
+        struct timeval newTime;
+        gettimeofday(&newTime, NULL);
+
+        return ((newTime.tv_sec * 1000000) + newTime.tv_usec) / 1000000.0;
+    }
+#endif
 #endif
 
 
