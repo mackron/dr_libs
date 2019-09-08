@@ -1,8 +1,5 @@
 /*#define DR_FLAC_NO_CRC*/
-#define DR_FLAC_IMPLEMENTATION
-#include "../../dr_flac.h"
-
-#include "../common/dr_common.c"
+#include "dr_flac_common.c"
 
 #define PROFILING_NAME_WIDTH    40
 #define PROFILING_NUMBER_WIDTH  10
@@ -31,10 +28,205 @@ profiling_state profiling_state_sum(const profiling_state* pA, const profiling_s
 }
 
 
+drflac_result seek_test_pcm_frame(libflac_decoder* pLibFlac, drflac* pFlac, drflac_uint64 targetPCMFrameIndex)
+{
+    drflac_bool32 seekResult;
+    drflac_uint64 pcmFrameCount_libflac;
+    drflac_uint64 pcmFrameCount_drflac;
+    drflac_int32* pPCMFrames_libflac;
+    drflac_int32* pPCMFrames_drflac;
+    drflac_uint64 iPCMFrame;
+
+    if (pFlac->_noSeekTable == DRFLAC_FALSE && pFlac->_noBinarySearchSeek == DRFLAC_TRUE && pFlac->_noBruteForceSeek == DRFLAC_TRUE) {
+        if (pFlac->seekpointCount == 0) {
+            printf("  No seek table");
+            return DRFLAC_ERROR;
+        }
+    }
+
+    /*
+    To test seeking we just seek to the PCM frame, and then decode the rest of the file. If the PCM frames we read
+    differs between the two implementations there's something wrong with one of them (probably dr_flac).
+    */
+    seekResult = libflac_decoder_seek_to_pcm_frame(pLibFlac, targetPCMFrameIndex);
+    if (seekResult == DRFLAC_FALSE) {
+        printf("  [libFLAC] Failed to seek to PCM frame @ %d", (int)targetPCMFrameIndex);
+        return DRFLAC_ERROR;
+    }
+
+    seekResult = drflac_seek_to_pcm_frame(pFlac, targetPCMFrameIndex);
+    if (seekResult == DRFLAC_FALSE) {
+        printf("  [dr_flac] Failed to seek to PCM frame @ %d", (int)targetPCMFrameIndex);
+        return DRFLAC_ERROR;
+    }
+
+    if (pLibFlac->currentPCMFrame != pFlac->currentPCMFrame) {
+        printf("  Current PCM frame inconsistent @ %d: libFLAC=%d, dr_flac=%d", (int)targetPCMFrameIndex, (int)pLibFlac->currentPCMFrame, (int)pFlac->currentPCMFrame);
+        return DRFLAC_ERROR;
+    }
+
+    /*
+    Now we decode the rest of the file and compare the samples. Note that we try reading the _entire_ file, not just the leftovers, to ensure we
+    haven't seeked too short.
+    */
+    pPCMFrames_libflac = (drflac_int32*)malloc((size_t)(pLibFlac->pcmFrameCount * pLibFlac->channels * sizeof(drflac_int32)));
+    if (pPCMFrames_libflac == NULL) {
+        printf("  [libFLAC] Out of memory");
+        return DRFLAC_ERROR;
+    }
+    pcmFrameCount_libflac = libflac_decoder_read_pcm_frames_s32(pLibFlac, pLibFlac->pcmFrameCount, pPCMFrames_libflac);
+
+    pPCMFrames_drflac = (drflac_int32*)malloc((size_t)(pLibFlac->pcmFrameCount * pLibFlac->channels * sizeof(drflac_int32)));
+    if (pPCMFrames_drflac == NULL) {
+        free(pPCMFrames_libflac);
+        printf("  [dr_flac] Out of memory");
+        return DRFLAC_ERROR;
+    }
+    pcmFrameCount_drflac = drflac_read_pcm_frames_s32(pFlac, pLibFlac->pcmFrameCount, pPCMFrames_drflac);
+
+    /* The total number of frames we decoded need to match. */
+    if (pcmFrameCount_libflac != pcmFrameCount_drflac) {
+        free(pPCMFrames_drflac);
+        free(pPCMFrames_libflac);
+        printf("  Decoded frame counts differ @ %d: libFLAC=%d, dr_flac=%d", (int)targetPCMFrameIndex, (int)pLibFlac->currentPCMFrame, (int)pFlac->currentPCMFrame);
+        return DRFLAC_ERROR;
+    }
+
+    /* Each of the decoded PCM frames need to match. */
+    DRFLAC_ASSERT(pcmFrameCount_libflac == pcmFrameCount_drflac);
+
+    for (iPCMFrame = 0; iPCMFrame < pcmFrameCount_libflac; iPCMFrame += 1) {
+        drflac_int32* pPCMFrame_libflac = pPCMFrames_libflac + (iPCMFrame * pLibFlac->channels);
+        drflac_int32* pPCMFrame_drflac  = pPCMFrames_drflac  + (iPCMFrame * pLibFlac->channels);
+        drflac_uint32 iChannel;
+        drflac_bool32 hasError = DRFLAC_FALSE;
+
+        for (iChannel = 0; iChannel < pLibFlac->channels; iChannel += 1) {
+            if (pPCMFrame_libflac[iChannel] != pPCMFrame_drflac[iChannel]) {
+                printf("  PCM Frame @ %d[%d] does not match: targetPCMFrameIndex=%d", (int)iPCMFrame, iChannel, (int)targetPCMFrameIndex);
+                hasError = DRFLAC_TRUE;
+                break;
+            }
+        }
+
+        if (hasError) {
+            free(pPCMFrames_drflac);
+            free(pPCMFrames_libflac);
+            return DRFLAC_ERROR;    /* Decoded frames do not match. */
+        }
+    }
+
+
+    /* Done. */
+    free(pPCMFrames_drflac);
+    free(pPCMFrames_libflac);
+
+    return DRFLAC_SUCCESS;
+}
+
+drflac_result seek_test_file(const char* pFilePath)
+{
+    /* To test seeking we just seek to our target PCM frame and then decode whatever is remaining and compare it against libFLAC. */
+    drflac_result result;
+    libflac_decoder libflac;
+    drflac* pFlac;
+    drflac_uint32 iteration;
+    drflac_uint32 totalIterationCount = 1;
+
+    dr_printf_fixed_with_margin(PROFILING_NAME_WIDTH, PROFILING_NUMBER_MARGIN, "%s", pFilePath);
+
+    /* First load the decoder from libFLAC. */
+    result = libflac_decoder_init_file(pFilePath, &libflac);
+    if (result != DRFLAC_SUCCESS) {
+        printf("  Failed to open via libFLAC.");
+        return result;
+    }
+
+    /* Now load from dr_flac. */
+    pFlac = drflac_open_file(pFilePath, NULL);
+    if (pFlac == NULL) {
+        printf("  Failed to open via dr_flac.");
+        libflac_decoder_uninit(&libflac);
+        return DRFLAC_ERROR;    /* Failed to load dr_flac decoder. */
+    }
+
+    pFlac->_noSeekTable        = DRFLAC_FALSE;
+    pFlac->_noBinarySearchSeek = DRFLAC_TRUE;
+    pFlac->_noBruteForceSeek   = DRFLAC_TRUE;
+
+    /* At this point we should have both libFLAC and dr_flac decoders open. We can now perform identical operations on each of them and compare. */
+
+    /* Start with the basics: Seek to the very end, and then the very start. */
+    if (result == DRFLAC_SUCCESS) {
+        result = seek_test_pcm_frame(&libflac, pFlac, libflac.pcmFrameCount);
+    }
+    if (result == DRFLAC_SUCCESS) {
+        result = seek_test_pcm_frame(&libflac, pFlac, 0);
+    }
+
+    /* No we'll try seeking to random locations. */
+    dr_seed((int)time(NULL));
+
+    iteration = 0;
+    while (result == DRFLAC_SUCCESS && iteration < totalIterationCount) {
+        int targetPCMFrame = dr_rand_range_s32(0, (int)libflac.pcmFrameCount);
+        if (targetPCMFrame > libflac.pcmFrameCount) {
+            DRFLAC_ASSERT(DRFLAC_FALSE);    /* Should never hit this, but if we do it means our random number generation routine is wrong. */
+        }
+
+        result = seek_test_pcm_frame(&libflac, pFlac, (drflac_uint64)targetPCMFrame);
+        iteration += 1;
+    }
+
+    /* We're done with our decoders. */
+    drflac_close(pFlac);
+    libflac_decoder_uninit(&libflac);
+
+    if (result == DRFLAC_SUCCESS) {
+        printf("  PASSED");
+    }
+
+    return result;
+}
+
+drflac_result seek_test_directory(const char* pDirectoryPath)
+{
+    dr_file_iterator iteratorState;
+    dr_file_iterator* pFile;
+
+    dr_printf_fixed(PROFILING_NAME_WIDTH, "%s", pDirectoryPath);
+    dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "Result");
+    printf("\n");
+
+    pFile = dr_file_iterator_begin(pDirectoryPath, &iteratorState);
+    while (pFile != NULL) {
+        drflac_result result;
+
+        /* Skip directories for now, but we may want to look at doing recursive file iteration. */
+        if (!pFile->isDirectory) {
+            result = seek_test_file(pFile->absolutePath);
+            (void)result;
+
+            printf("\n");
+        }
+
+        pFile = dr_file_iterator_next(pFile);
+    }
+
+    return DRFLAC_SUCCESS;
+}
+
 drflac_result seek_test()
 {
-    /* Not yet implemented. */
-    return 0;
+    drflac_result result = DRFLAC_SUCCESS;
+
+    /* Directories. */
+    {
+        result = seek_test_directory("testvectors/flac/seek_tests");
+        (void)result;
+    }
+
+    return result;
 }
 
 
@@ -221,8 +413,6 @@ drflac_result seek_profiling_directory(const char* pDirectoryPath, profiling_sta
 
             printf("\n");
         }
-
-
 
         pFile = dr_file_iterator_next(pFile);
     }

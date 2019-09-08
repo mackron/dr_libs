@@ -8,6 +8,8 @@
 #include <strings.h>
 #endif
 
+#include <time.h>   /* So we can seed the random number generator based on time. */
+
 typedef unsigned int dr_bool32;
 #define DR_FALSE    0
 #define DR_TRUE     1
@@ -469,7 +471,7 @@ dr_bool32 dr_argv_is_set(int argc, char** argv, const char* value)
 {
     int iarg;
     for (iarg = 0; iarg < argc; ++iarg) {
-        if (strcmp(argv[iarg], value)) {
+        if (strcmp(argv[iarg], value) == 0) {
             return DR_TRUE;
         }
     }
@@ -615,5 +617,9 @@ float dr_rand_range_f32(float lo, float hi)
 
 int dr_rand_range_s32(int lo, int hi)
 {
+    if (lo == hi) {
+        return lo;
+    }
+
     return lo + dr_rand_u32() / (0xFFFFFFFF / (hi - lo + 1) + 1);
 }
