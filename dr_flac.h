@@ -4927,60 +4927,7 @@ static drflac_bool32 drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(dr
 }
 
 
-typedef struct
-{
-    drflac_uint32 iterationCount;
-    drflac_uint32 tooLoCount;
-    drflac_uint32 tooHiCount;
-    drflac_uint64 sameFrameTerminationSeekOffset;
-} drflac_seek_bsearch_stats;
-
-static void drflac_seek_bsearch_stats__init(drflac_seek_bsearch_stats* pStats)
-{
-    if (pStats == NULL) {
-        return;
-    }
-
-    DRFLAC_ZERO_MEMORY(pStats, sizeof(*pStats));
-}
-
-static void drflac_seek_bsearch_stats__increment_iteration_count(drflac_seek_bsearch_stats* pStats)
-{
-    if (pStats == NULL) {
-        return;
-    }
-
-    pStats->iterationCount += 1;
-}
-
-static void drflac_seek_bsearch_stats__increment_too_lo_count(drflac_seek_bsearch_stats* pStats)
-{
-    if (pStats == NULL) {
-        return;
-    }
-
-    pStats->tooLoCount += 1;
-}
-
-static void drflac_seek_bsearch_stats__increment_too_hi_count(drflac_seek_bsearch_stats* pStats)
-{
-    if (pStats == NULL) {
-        return;
-    }
-
-    pStats->tooHiCount += 1;
-}
-
-static void drflac_seek_bsearch_stats__set_same_frame_termination_seek_offset(drflac_seek_bsearch_stats* pStats, drflac_uint64 offset)
-{
-    if (pStats == NULL) {
-        return;
-    }
-
-    pStats->sameFrameTerminationSeekOffset = offset;
-}
-
-static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* pFlac, drflac_uint64 pcmFrameIndex, drflac_uint64 byteRangeLo, drflac_uint64 byteRangeHi, drflac_seek_bsearch_stats* pStats)
+static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* pFlac, drflac_uint64 pcmFrameIndex, drflac_uint64 byteRangeLo, drflac_uint64 byteRangeHi)
 {
     /* This assumes pFlac->currentPCMFrame is sitting on byteRangeLo upon entry. */
 
@@ -4991,16 +4938,12 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
     drflac_uint64 closestSeekOffsetBeforeTargetPCMFrame = byteRangeLo;
     drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSize != 0) ? pFlac->maxBlockSize*2 : 4096;
 
-    drflac_seek_bsearch_stats__init(pStats);
-
     targetByte = byteRangeLo + (drflac_uint64)((pcmFrameIndex - pFlac->currentPCMFrame) * pFlac->channels * pFlac->bitsPerSample/8 * DRFLAC_BINARY_SEARCH_APPROX_COMPRESSION_RATIO);
     if (targetByte > byteRangeHi) {
         targetByte = byteRangeHi;
     }
 
     for (;;) {
-        drflac_seek_bsearch_stats__increment_iteration_count(pStats);
-
         if (drflac__seek_to_approximate_flac_frame_to_byte(pFlac, targetByte, byteRangeLo, byteRangeHi, &lastSuccessfulSeekOffset)) {
             /* We found a FLAC frame. We need to check if it contains the sample we're looking for. */
             drflac_uint64 newPCMRangeLo;
@@ -5013,7 +4956,6 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
                     break;  /* Failed to seek to closest frame. */
                 }
 
-                drflac_seek_bsearch_stats__set_same_frame_termination_seek_offset(pStats, pcmFrameIndex - pFlac->currentPCMFrame);
                 if (drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(pFlac, pcmFrameIndex - pFlac->currentPCMFrame)) {
                     return DRFLAC_TRUE;
                 } else {
@@ -5036,8 +4978,6 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
 
                 if (pcmRangeLo > pcmFrameIndex) {
                     /* We seeked too far forward. We need to move our target byte backward and try again. */
-                    drflac_seek_bsearch_stats__increment_too_hi_count(pStats);
-
                     byteRangeHi = lastSuccessfulSeekOffset;
                     if (byteRangeLo > byteRangeHi) {
                         byteRangeLo = byteRangeHi;
@@ -5050,7 +4990,6 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
                     }
                 } else /*if (pcmRangeHi < pcmFrameIndex)*/ {
                     /* We didn't seek far enough. We need to move our target byte forward and try again. */
-                    drflac_seek_bsearch_stats__increment_too_lo_count(pStats);
 
                     /* If we're close enough we can just seek forward. */
                     if ((pcmFrameIndex - pcmRangeLo) < seekForwardThreshold) {
@@ -5089,13 +5028,11 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
     return DRFLAC_FALSE;
 }
 
-static drflac_bool32 drflac__seek_to_pcm_frame__binary_search(drflac* pFlac, drflac_uint64 pcmFrameIndex, drflac_seek_bsearch_stats* pStats)
+static drflac_bool32 drflac__seek_to_pcm_frame__binary_search(drflac* pFlac, drflac_uint64 pcmFrameIndex)
 {
     drflac_uint64 byteRangeLo;
     drflac_uint64 byteRangeHi;
     drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSize != 0) ? pFlac->maxBlockSize*2 : 4096;
-
-    drflac_seek_bsearch_stats__init(pStats);
 
     /* Our algorithm currently assumes the PCM frame */
     if (drflac__seek_to_first_frame(pFlac) == DRFLAC_FALSE) {
@@ -5114,7 +5051,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search(drflac* pFlac, drf
     byteRangeLo = pFlac->firstFLACFramePosInBytes;
     byteRangeHi = pFlac->firstFLACFramePosInBytes + (drflac_uint64)(pFlac->totalPCMFrameCount * pFlac->channels * pFlac->bitsPerSample/8);
 
-    return drflac__seek_to_pcm_frame__binary_search_internal(pFlac, pcmFrameIndex, byteRangeLo, byteRangeHi, pStats);
+    return drflac__seek_to_pcm_frame__binary_search_internal(pFlac, pcmFrameIndex, byteRangeLo, byteRangeHi);
 }
 #endif  /* !DR_FLAC_NO_CRC */
 
@@ -5159,7 +5096,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
             if (drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
                 drflac__get_pcm_frame_range_of_current_flac_frame(pFlac, &pFlac->currentPCMFrame, NULL);
 
-                if (drflac__seek_to_pcm_frame__binary_search_internal(pFlac, pcmFrameIndex, byteRangeLo, byteRangeHi, NULL)) {
+                if (drflac__seek_to_pcm_frame__binary_search_internal(pFlac, pcmFrameIndex, byteRangeLo, byteRangeHi)) {
                     return DRFLAC_TRUE;
                 }
             }
@@ -8644,15 +8581,6 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
 }
 
 
-static drflac_uint32 g_totalSeekCount = 0;
-static drflac_uint32 g_totalSeekIterationCount = 0;
-static drflac_uint32 g_maxSeekIterationCount = 0;
-static drflac_uint32 g_minSeekIterationCount = 0xFFFFFFFF;
-static drflac_uint32 g_tooLoSeekIterationCount = 0;
-static drflac_uint32 g_tooHiSeekIterationCount = 0;
-static drflac_uint32 g_sameFrameTerminationCount = 0;
-static drflac_uint64 g_sameFrameTerminationSeekOffset = 0;
-
 drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameIndex)
 {
     if (pFlac == NULL) {
@@ -8716,12 +8644,6 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
         else
 #endif
         {
-#if 0
-            /* For testing binary search seeking. */
-            if (pFlac->totalPCMFrameCount > 0) {
-                wasSuccessful = drflac__seek_to_pcm_frame__binary_search(pFlac, pcmFrameIndex, NULL);
-            }
-#else
             /* First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower. */
             if (!wasSuccessful && !pFlac->_noSeekTableSeek) {
                 wasSuccessful = drflac__seek_to_pcm_frame__seek_table(pFlac, pcmFrameIndex);
@@ -8730,24 +8652,7 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
 #if !defined(DR_FLAC_NO_CRC)
             /* Fall back to binary search if seek table seeking fails. This requires the length of the stream to be known. */
             if (!wasSuccessful && !pFlac->_noBinarySearchSeek && pFlac->totalPCMFrameCount > 0) {
-                drflac_seek_bsearch_stats stats;
-                wasSuccessful = drflac__seek_to_pcm_frame__binary_search(pFlac, pcmFrameIndex, &stats);
-
-                g_totalSeekCount += 1;
-                g_totalSeekIterationCount += stats.iterationCount;
-                if (g_maxSeekIterationCount < stats.iterationCount) {
-                    g_maxSeekIterationCount = stats.iterationCount;
-                }
-                if (g_minSeekIterationCount > stats.iterationCount) {
-                    g_minSeekIterationCount = stats.iterationCount;
-                }
-                g_tooLoSeekIterationCount += stats.tooLoCount;
-                g_tooHiSeekIterationCount += stats.tooHiCount;
-
-                if (stats.sameFrameTerminationSeekOffset > 0) {
-                    g_sameFrameTerminationSeekOffset += stats.sameFrameTerminationSeekOffset;
-                    g_sameFrameTerminationCount += 1;
-                }
+                wasSuccessful = drflac__seek_to_pcm_frame__binary_search(pFlac, pcmFrameIndex);
             }
 #endif
 
@@ -8755,7 +8660,6 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
             if (!wasSuccessful && !pFlac->_noBruteForceSeek) {
                 wasSuccessful = drflac__seek_to_pcm_frame__brute_force(pFlac, pcmFrameIndex);
             }
-#endif
         }
 
         pFlac->currentPCMFrame = pcmFrameIndex;

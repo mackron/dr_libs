@@ -456,7 +456,7 @@ int main(int argc, char** argv)
     /* Exhaustive seek test. */
     if (doTesting) {
         printf("=======================================================================\n");
-        printf("TESTING\n");
+        printf("SEEK TESTING\n");
         printf("=======================================================================\n");
         result = seek_test();
         if (result != DRFLAC_SUCCESS) {
@@ -472,7 +472,7 @@ int main(int argc, char** argv)
     /* Profiling. */
     if (doProfiling) {
         printf("=======================================================================\n");
-        printf("PROFILING\n");
+        printf("SEEK PROFILING\n");
         printf("=======================================================================\n");
         result = seek_profiling();
         printf("\n");
