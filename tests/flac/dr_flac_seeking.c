@@ -478,6 +478,6 @@ int main(int argc, char** argv)
         printf("\n");
     }
     
-    getchar();
+    /*getchar();*/
     return (int)result;
 }
