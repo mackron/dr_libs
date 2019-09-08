@@ -338,10 +338,10 @@ typedef struct
 
 typedef struct
 {
-    drflac_uint16 minBlockSize;
-    drflac_uint16 maxBlockSize;
-    drflac_uint32 minFrameSize;
-    drflac_uint32 maxFrameSize;
+    drflac_uint16 minBlockSizeInPCMFrames;
+    drflac_uint16 maxBlockSizeInPCMFrames;
+    drflac_uint32 minFrameSizeInPCMFrames;
+    drflac_uint32 maxFrameSizeInPCMFrames;
     drflac_uint32 sampleRate;
     drflac_uint8  channels;
     drflac_uint8  bitsPerSample;
@@ -5299,14 +5299,14 @@ drflac_bool32 drflac__read_streaminfo(drflac_read_proc onRead, void* pUserData, 
     frameSizes     = drflac__be2host_64(frameSizes);
     importantProps = drflac__be2host_64(importantProps);
 
-    pStreamInfo->minBlockSize       = (blockSizes & 0xFFFF0000) >> 16;
-    pStreamInfo->maxBlockSize       = (blockSizes & 0x0000FFFF);
-    pStreamInfo->minFrameSize       = (drflac_uint32)((frameSizes     &  (((drflac_uint64)0x00FFFFFF << 16) << 24)) >> 40);
-    pStreamInfo->maxFrameSize       = (drflac_uint32)((frameSizes     &  (((drflac_uint64)0x00FFFFFF << 16) <<  0)) >> 16);
-    pStreamInfo->sampleRate         = (drflac_uint32)((importantProps &  (((drflac_uint64)0x000FFFFF << 16) << 28)) >> 44);
-    pStreamInfo->channels           = (drflac_uint8 )((importantProps &  (((drflac_uint64)0x0000000E << 16) << 24)) >> 41) + 1;
-    pStreamInfo->bitsPerSample      = (drflac_uint8 )((importantProps &  (((drflac_uint64)0x0000001F << 16) << 20)) >> 36) + 1;
-    pStreamInfo->totalPCMFrameCount =                ((importantProps & ((((drflac_uint64)0x0000000F << 16) << 16) | 0xFFFFFFFF)));
+    pStreamInfo->minBlockSizeInPCMFrames = (blockSizes & 0xFFFF0000) >> 16;
+    pStreamInfo->maxBlockSizeInPCMFrames = (blockSizes & 0x0000FFFF);
+    pStreamInfo->minFrameSizeInPCMFrames = (drflac_uint32)((frameSizes     &  (((drflac_uint64)0x00FFFFFF << 16) << 24)) >> 40);
+    pStreamInfo->maxFrameSizeInPCMFrames = (drflac_uint32)((frameSizes     &  (((drflac_uint64)0x00FFFFFF << 16) <<  0)) >> 16);
+    pStreamInfo->sampleRate              = (drflac_uint32)((importantProps &  (((drflac_uint64)0x000FFFFF << 16) << 28)) >> 44);
+    pStreamInfo->channels                = (drflac_uint8 )((importantProps &  (((drflac_uint64)0x0000000E << 16) << 24)) >> 41) + 1;
+    pStreamInfo->bitsPerSample           = (drflac_uint8 )((importantProps &  (((drflac_uint64)0x0000001F << 16) << 20)) >> 36) + 1;
+    pStreamInfo->totalPCMFrameCount      =                ((importantProps & ((((drflac_uint64)0x0000000F << 16) << 16) | 0xFFFFFFFF)));
     drflac_copy_memory(pStreamInfo->md5, md5, sizeof(md5));
 
     return DRFLAC_TRUE;
@@ -5805,7 +5805,7 @@ drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_
         pInit->channels                = streaminfo.channels;
         pInit->bitsPerSample           = streaminfo.bitsPerSample;
         pInit->totalPCMFrameCount      = streaminfo.totalPCMFrameCount;
-        pInit->maxBlockSizeInPCMFrames = streaminfo.maxBlockSize;    /* Don't care about the min block size - only the max (used for determining the size of the memory allocation). */
+        pInit->maxBlockSizeInPCMFrames = streaminfo.maxBlockSizeInPCMFrames;    /* Don't care about the min block size - only the max (used for determining the size of the memory allocation). */
         pInit->hasMetadataBlocks       = !isLastBlock;
 
         if (onMeta) {
@@ -6593,7 +6593,7 @@ drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_read_pro
                             pInit->channels                = streaminfo.channels;
                             pInit->bitsPerSample           = streaminfo.bitsPerSample;
                             pInit->totalPCMFrameCount      = streaminfo.totalPCMFrameCount;
-                            pInit->maxBlockSizeInPCMFrames = streaminfo.maxBlockSize;
+                            pInit->maxBlockSizeInPCMFrames = streaminfo.maxBlockSizeInPCMFrames;
                             pInit->hasMetadataBlocks       = !isLastBlock;
 
                             if (onMeta) {
