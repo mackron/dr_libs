@@ -1,0 +1,2 @@
+gcc ./flac/dr_flac_test_0.c -o ./bin/dr_flac_test_0 -std=c89 -ansi -pedantic -Wall
+gcc ./flac/dr_flac_seeking.c -o ./bin/dr_flac_seeking -std=c89 -ansi -pedantic -Wall -lFLAC
