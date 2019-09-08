@@ -659,7 +659,7 @@ typedef struct
     void* _oggbs;
 
     /* Internal use only. Used for profiling and testing different seeking modes. */
-    drflac_bool32 _noSeekTable        : 1;
+    drflac_bool32 _noSeekTableSeek    : 1;
     drflac_bool32 _noBinarySearchSeek : 1;
     drflac_bool32 _noBruteForceSeek   : 1;
 
@@ -8723,7 +8723,7 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
             }
 #else
             /* First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower. */
-            if (!wasSuccessful && !pFlac->_noSeekTable) {
+            if (!wasSuccessful && !pFlac->_noSeekTableSeek) {
                 wasSuccessful = drflac__seek_to_pcm_frame__seek_table(pFlac, pcmFrameIndex);
             }
             

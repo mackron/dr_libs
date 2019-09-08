@@ -217,6 +217,31 @@ int dr_append_path(char* dst, size_t dstSize, const char* base, const char* othe
     return 0;
 }
 
+const char* dr_path_file_name(const char* path)
+{
+    const char* fileName = path;
+
+    if (path == NULL) {
+        return NULL;
+    }
+
+    // We just loop through the path until we find the last slash.
+    while (path[0] != '\0') {
+        if (path[0] == '/' || path[0] == '\\') {
+            fileName = path;
+        }
+
+        path += 1;
+    }
+
+    // At this point the file name is sitting on a slash, so just move forward.
+    while (fileName[0] != '\0' && (fileName[0] == '/' || fileName[0] == '\\')) {
+        fileName += 1;
+    }
+
+    return fileName;
+}
+
 const char* dr_extension(const char* path)
 {
     const char* extension = path;

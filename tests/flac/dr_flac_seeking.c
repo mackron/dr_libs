@@ -37,7 +37,7 @@ drflac_result seek_test_pcm_frame(libflac_decoder* pLibFlac, drflac* pFlac, drfl
     drflac_int32* pPCMFrames_drflac;
     drflac_uint64 iPCMFrame;
 
-    if (pFlac->_noSeekTable == DRFLAC_FALSE && pFlac->_noBinarySearchSeek == DRFLAC_TRUE && pFlac->_noBruteForceSeek == DRFLAC_TRUE) {
+    if (pFlac->_noSeekTableSeek == DRFLAC_FALSE && pFlac->_noBinarySearchSeek == DRFLAC_TRUE && pFlac->_noBruteForceSeek == DRFLAC_TRUE) {
         if (pFlac->seekpointCount == 0) {
             printf("  No seek table");
             return DRFLAC_ERROR;
@@ -131,9 +131,9 @@ drflac_result seek_test_file(const char* pFilePath)
     libflac_decoder libflac;
     drflac* pFlac;
     drflac_uint32 iteration;
-    drflac_uint32 totalIterationCount = 1;
+    drflac_uint32 totalIterationCount = 10;
 
-    dr_printf_fixed_with_margin(PROFILING_NAME_WIDTH, PROFILING_NUMBER_MARGIN, "%s", pFilePath);
+    dr_printf_fixed_with_margin(PROFILING_NAME_WIDTH, PROFILING_NUMBER_MARGIN, "%s", dr_path_file_name(pFilePath));
 
     /* First load the decoder from libFLAC. */
     result = libflac_decoder_init_file(pFilePath, &libflac);
@@ -150,9 +150,10 @@ drflac_result seek_test_file(const char* pFilePath)
         return DRFLAC_ERROR;    /* Failed to load dr_flac decoder. */
     }
 
-    pFlac->_noSeekTable        = DRFLAC_FALSE;
-    pFlac->_noBinarySearchSeek = DRFLAC_TRUE;
-    pFlac->_noBruteForceSeek   = DRFLAC_TRUE;
+    /* Use these to use specific seeking methods. Set all to false to use the normal prioritization (seek table, then binary search, then brute force). */
+    pFlac->_noSeekTableSeek    = DRFLAC_FALSE;
+    pFlac->_noBinarySearchSeek = DRFLAC_FALSE;
+    pFlac->_noBruteForceSeek   = DRFLAC_FALSE;
 
     /* At this point we should have both libFLAC and dr_flac decoders open. We can now perform identical operations on each of them and compare. */
 
@@ -183,7 +184,7 @@ drflac_result seek_test_file(const char* pFilePath)
     libflac_decoder_uninit(&libflac);
 
     if (result == DRFLAC_SUCCESS) {
-        printf("  PASSED");
+        printf("  Passed");
     }
 
     return result;
@@ -195,7 +196,7 @@ drflac_result seek_test_directory(const char* pDirectoryPath)
     dr_file_iterator* pFile;
 
     dr_printf_fixed(PROFILING_NAME_WIDTH, "%s", pDirectoryPath);
-    dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "Result");
+    dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "RESULT");
     printf("\n");
 
     pFile = dr_file_iterator_begin(pDirectoryPath, &iteratorState);
@@ -289,7 +290,7 @@ drflac_result seek_profiling_file__seek_table(const char* pFilePath, double* pPr
         return DRFLAC_ERROR;
     }
 
-    pFlac->_noSeekTable        = DRFLAC_FALSE;
+    pFlac->_noSeekTableSeek    = DRFLAC_FALSE;
     pFlac->_noBinarySearchSeek = DRFLAC_TRUE;
     pFlac->_noBruteForceSeek   = DRFLAC_TRUE;
 
@@ -309,7 +310,7 @@ drflac_result seek_profiling_file__binary_search(const char* pFilePath, double* 
         return DRFLAC_ERROR;
     }
 
-    pFlac->_noSeekTable        = DRFLAC_TRUE;
+    pFlac->_noSeekTableSeek    = DRFLAC_TRUE;
     pFlac->_noBinarySearchSeek = DRFLAC_FALSE;
     pFlac->_noBruteForceSeek   = DRFLAC_TRUE;
 
@@ -329,7 +330,7 @@ drflac_result seek_profiling_file__brute_force(const char* pFilePath, double* pP
         return DRFLAC_ERROR;
     }
 
-    pFlac->_noSeekTable        = DRFLAC_TRUE;
+    pFlac->_noSeekTableSeek    = DRFLAC_TRUE;
     pFlac->_noBinarySearchSeek = DRFLAC_TRUE;
     pFlac->_noBruteForceSeek   = DRFLAC_FALSE;
 
@@ -350,7 +351,7 @@ drflac_result seek_profiling_file(const char* pFilePath, profiling_state* pProfi
 
     In order to keep the total run time fair, we can only include files with a seek table.
     */
-    dr_printf_fixed_with_margin(PROFILING_NAME_WIDTH, 2, "%s", pFilePath);
+    dr_printf_fixed_with_margin(PROFILING_NAME_WIDTH, 2, "%s", dr_path_file_name(pFilePath));
     
     /* Start off with the seek table version. If this fails we don't bother continuing. */
 #if 1
@@ -373,7 +374,7 @@ drflac_result seek_profiling_file(const char* pFilePath, profiling_state* pProfi
     dr_printf_fixed_with_margin(PROFILING_NUMBER_WIDTH, PROFILING_NUMBER_MARGIN, "");
 #endif
 
-#if 0
+#if 1
     result = seek_profiling_file__brute_force(pFilePath, &pProfiling->totalSeconds_BruteForce);
     if (result != DRFLAC_SUCCESS) {
         return result;
@@ -454,10 +455,14 @@ int main(int argc, char** argv)
     
     /* Exhaustive seek test. */
     if (doTesting) {
+        printf("=======================================================================\n");
+        printf("TESTING\n");
+        printf("=======================================================================\n");
         result = seek_test();
         if (result != DRFLAC_SUCCESS) {
             return (int)result;    /* Don't continue if an error occurs during testing. */
         }
+        printf("\n");
     } else {
         printf("=======================================================================\n");
         printf("WARNING: Correctness Tests Disabled\n");
@@ -466,7 +471,11 @@ int main(int argc, char** argv)
 
     /* Profiling. */
     if (doProfiling) {
+        printf("=======================================================================\n");
+        printf("PROFILING\n");
+        printf("=======================================================================\n");
         result = seek_profiling();
+        printf("\n");
     }
     
     _getch();
