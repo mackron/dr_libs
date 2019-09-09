@@ -535,16 +535,7 @@ typedef struct
     /* The order to use for the prediction stage for SUBFRAME_FIXED and SUBFRAME_LPC. */
     drflac_uint8 lpcOrder;
 
-    /*
-    The number of bits per sample for this subframe. This is not always equal to the current frame's bit per sample because
-    an extra bit is required for side channels when interchannel decorrelation is being used.
-    */
-    drflac_uint32 bitsPerSample;
-
-    /*
-    A pointer to the buffer containing the decoded samples in the subframe. This pointer is an offset from drflac::pExtraData. Note that
-    it's a signed 32-bit integer for each value.
-    */
+    /* A pointer to the buffer containing the decoded samples in the subframe. This pointer is an offset from drflac::pExtraData. */
     drflac_int32* pDecodedSamples;
 } drflac_subframe;
 
@@ -3076,7 +3067,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__reference(drfla
         }
 
 
-        if (bitsPerSample > 16) {
+        if (bitsPerSample > 24) {
             pSamplesOut[i] = decodedRice + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i);
         } else {
             pSamplesOut[i] = decodedRice + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i);
@@ -3561,7 +3552,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__scalar(drflac_b
     drflac_assert(pSamplesOut != NULL);
 
     riceParamMask  = ~((~0UL) << riceParam);
-    pSamplesOutEnd = pSamplesOut + ((count >> 2) << 2);
+    pSamplesOutEnd = pSamplesOut + (count & ~3);
 
     if (bitsPerSample >= 24) {
         while (pSamplesOut < pSamplesOutEnd) {
@@ -3631,7 +3622,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__scalar(drflac_b
         }
     }
 
-    i = ((count >> 2) << 2);
+    i = (count & ~3);
     while (i < count) {
         /* Rice extraction. */
         if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountPart0, &riceParamPart0)) {
@@ -3688,7 +3679,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41(drflac_bs
     riceParamMask128 = _mm_set1_epi32(riceParamMask);
     one = _mm_set1_epi32(0x01);
 
-    pSamplesOutEnd = pSamplesOut + ((count >> 2) << 2);
+    pSamplesOutEnd = pSamplesOut + (count & ~3);
 
     if (bitsPerSample >= 24) {
         while (pSamplesOut < pSamplesOutEnd) {
@@ -3782,7 +3773,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41(drflac_bs
     }
 
 
-    i = ((count >> 2) << 2);
+    i = (count & ~3);
     while (i < count) {
         /* Rice extraction. */
         if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts0, &riceParamParts0)) {
@@ -3861,7 +3852,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__unencoded(drflac_bs* 
             pSamplesOut[i] = 0;
         }
 
-        if (bitsPerSample > 16) {
+        if (bitsPerSample >= 24) {
             pSamplesOut[i] += drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i);
         } else {
             pSamplesOut[i] += drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i);
@@ -4056,13 +4047,13 @@ static drflac_bool32 drflac__read_and_seek_residual(drflac_bs* bs, drflac_uint32
 }
 
 
-static drflac_bool32 drflac__decode_samples__constant(drflac_bs* bs, drflac_uint32 blockSize, drflac_uint32 bitsPerSample, drflac_int32* pDecodedSamples)
+static drflac_bool32 drflac__decode_samples__constant(drflac_bs* bs, drflac_uint32 blockSize, drflac_uint32 subframeBitsPerSample, drflac_int32* pDecodedSamples)
 {
     drflac_uint32 i;
 
     /* Only a single sample needs to be decoded here. */
     drflac_int32 sample;
-    if (!drflac__read_int32(bs, bitsPerSample, &sample)) {
+    if (!drflac__read_int32(bs, subframeBitsPerSample, &sample)) {
         return DRFLAC_FALSE;
     }
 
@@ -4077,13 +4068,13 @@ static drflac_bool32 drflac__decode_samples__constant(drflac_bs* bs, drflac_uint
     return DRFLAC_TRUE;
 }
 
-static drflac_bool32 drflac__decode_samples__verbatim(drflac_bs* bs, drflac_uint32 blockSize, drflac_uint32 bitsPerSample, drflac_int32* pDecodedSamples)
+static drflac_bool32 drflac__decode_samples__verbatim(drflac_bs* bs, drflac_uint32 blockSize, drflac_uint32 subframeBitsPerSample, drflac_int32* pDecodedSamples)
 {
     drflac_uint32 i;
 
     for (i = 0; i < blockSize; ++i) {
         drflac_int32 sample;
-        if (!drflac__read_int32(bs, bitsPerSample, &sample)) {
+        if (!drflac__read_int32(bs, subframeBitsPerSample, &sample)) {
             return DRFLAC_FALSE;
         }
 
@@ -4093,7 +4084,7 @@ static drflac_bool32 drflac__decode_samples__verbatim(drflac_bs* bs, drflac_uint
     return DRFLAC_TRUE;
 }
 
-static drflac_bool32 drflac__decode_samples__fixed(drflac_bs* bs, drflac_uint32 blockSize, drflac_uint32 bitsPerSample, drflac_uint8 lpcOrder, drflac_int32* pDecodedSamples)
+static drflac_bool32 drflac__decode_samples__fixed(drflac_bs* bs, drflac_uint32 blockSize, drflac_uint32 subframeBitsPerSample, drflac_uint8 lpcOrder, drflac_int32* pDecodedSamples)
 {
     drflac_uint32 i;
 
@@ -4108,14 +4099,14 @@ static drflac_bool32 drflac__decode_samples__fixed(drflac_bs* bs, drflac_uint32 
     /* Warm up samples and coefficients. */
     for (i = 0; i < lpcOrder; ++i) {
         drflac_int32 sample;
-        if (!drflac__read_int32(bs, bitsPerSample, &sample)) {
+        if (!drflac__read_int32(bs, subframeBitsPerSample, &sample)) {
             return DRFLAC_FALSE;
         }
 
         pDecodedSamples[i] = sample;
     }
 
-    if (!drflac__decode_samples_with_residual(bs, bitsPerSample, blockSize, lpcOrder, 0, lpcCoefficientsTable[lpcOrder], pDecodedSamples)) {
+    if (!drflac__decode_samples_with_residual(bs, subframeBitsPerSample, blockSize, lpcOrder, 0, lpcCoefficientsTable[lpcOrder], pDecodedSamples)) {
         return DRFLAC_FALSE;
     }
 
@@ -4389,6 +4380,7 @@ static drflac_bool32 drflac__read_subframe_header(drflac_bs* bs, drflac_subframe
 static drflac_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame, int subframeIndex, drflac_int32* pDecodedSamplesOut)
 {
     drflac_subframe* pSubframe;
+    drflac_uint32 subframeBitsPerSample;
 
     drflac_assert(bs != NULL);
     drflac_assert(frame != NULL);
@@ -4399,40 +4391,41 @@ static drflac_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame,
     }
 
     /* Side channels require an extra bit per sample. Took a while to figure that one out... */
-    pSubframe->bitsPerSample = frame->header.bitsPerSample;
+    subframeBitsPerSample = frame->header.bitsPerSample;
     if ((frame->header.channelAssignment == DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE || frame->header.channelAssignment == DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE) && subframeIndex == 1) {
-        pSubframe->bitsPerSample += 1;
+        subframeBitsPerSample += 1;
     } else if (frame->header.channelAssignment == DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE && subframeIndex == 0) {
-        pSubframe->bitsPerSample += 1;
+        subframeBitsPerSample += 1;
     }
 
     /* Need to handle wasted bits per sample. */
-    if (pSubframe->wastedBitsPerSample >= pSubframe->bitsPerSample) {
+    if (pSubframe->wastedBitsPerSample >= subframeBitsPerSample) {
         return DRFLAC_FALSE;
     }
-    pSubframe->bitsPerSample -= pSubframe->wastedBitsPerSample;
+    subframeBitsPerSample -= pSubframe->wastedBitsPerSample;
+
     pSubframe->pDecodedSamples = pDecodedSamplesOut;
 
     switch (pSubframe->subframeType)
     {
         case DRFLAC_SUBFRAME_CONSTANT:
         {
-            drflac__decode_samples__constant(bs, frame->header.blockSizeInPCMFrames, pSubframe->bitsPerSample, pSubframe->pDecodedSamples);
+            drflac__decode_samples__constant(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->pDecodedSamples);
         } break;
 
         case DRFLAC_SUBFRAME_VERBATIM:
         {
-            drflac__decode_samples__verbatim(bs, frame->header.blockSizeInPCMFrames, pSubframe->bitsPerSample, pSubframe->pDecodedSamples);
+            drflac__decode_samples__verbatim(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->pDecodedSamples);
         } break;
 
         case DRFLAC_SUBFRAME_FIXED:
         {
-            drflac__decode_samples__fixed(bs, frame->header.blockSizeInPCMFrames, pSubframe->bitsPerSample, pSubframe->lpcOrder, pSubframe->pDecodedSamples);
+            drflac__decode_samples__fixed(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->lpcOrder, pSubframe->pDecodedSamples);
         } break;
 
         case DRFLAC_SUBFRAME_LPC:
         {
-            drflac__decode_samples__lpc(bs, frame->header.blockSizeInPCMFrames, pSubframe->bitsPerSample, pSubframe->lpcOrder, pSubframe->pDecodedSamples);
+            drflac__decode_samples__lpc(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->lpcOrder, pSubframe->pDecodedSamples);
         } break;
 
         default: return DRFLAC_FALSE;
@@ -4444,6 +4437,7 @@ static drflac_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame,
 static drflac_bool32 drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, int subframeIndex)
 {
     drflac_subframe* pSubframe;
+    drflac_uint32 subframeBitsPerSample;
 
     drflac_assert(bs != NULL);
     drflac_assert(frame != NULL);
@@ -4454,32 +4448,33 @@ static drflac_bool32 drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, i
     }
 
     /* Side channels require an extra bit per sample. Took a while to figure that one out... */
-    pSubframe->bitsPerSample = frame->header.bitsPerSample;
+    subframeBitsPerSample = frame->header.bitsPerSample;
     if ((frame->header.channelAssignment == DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE || frame->header.channelAssignment == DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE) && subframeIndex == 1) {
-        pSubframe->bitsPerSample += 1;
+        subframeBitsPerSample += 1;
     } else if (frame->header.channelAssignment == DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE && subframeIndex == 0) {
-        pSubframe->bitsPerSample += 1;
+        subframeBitsPerSample += 1;
     }
 
     /* Need to handle wasted bits per sample. */
-    if (pSubframe->wastedBitsPerSample >= pSubframe->bitsPerSample) {
+    if (pSubframe->wastedBitsPerSample >= subframeBitsPerSample) {
         return DRFLAC_FALSE;
     }
-    pSubframe->bitsPerSample -= pSubframe->wastedBitsPerSample;
+    subframeBitsPerSample -= pSubframe->wastedBitsPerSample;
+
     pSubframe->pDecodedSamples = NULL;
 
     switch (pSubframe->subframeType)
     {
         case DRFLAC_SUBFRAME_CONSTANT:
         {
-            if (!drflac__seek_bits(bs, pSubframe->bitsPerSample)) {
+            if (!drflac__seek_bits(bs, subframeBitsPerSample)) {
                 return DRFLAC_FALSE;
             }
         } break;
 
         case DRFLAC_SUBFRAME_VERBATIM:
         {
-            unsigned int bitsToSeek = frame->header.blockSizeInPCMFrames * pSubframe->bitsPerSample;
+            unsigned int bitsToSeek = frame->header.blockSizeInPCMFrames * subframeBitsPerSample;
             if (!drflac__seek_bits(bs, bitsToSeek)) {
                 return DRFLAC_FALSE;
             }
@@ -4487,7 +4482,7 @@ static drflac_bool32 drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, i
 
         case DRFLAC_SUBFRAME_FIXED:
         {
-            unsigned int bitsToSeek = pSubframe->lpcOrder * pSubframe->bitsPerSample;
+            unsigned int bitsToSeek = pSubframe->lpcOrder * subframeBitsPerSample;
             if (!drflac__seek_bits(bs, bitsToSeek)) {
                 return DRFLAC_FALSE;
             }
@@ -4501,7 +4496,7 @@ static drflac_bool32 drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, i
         {
             unsigned char lpcPrecision;
 
-            unsigned int bitsToSeek = pSubframe->lpcOrder * pSubframe->bitsPerSample;
+            unsigned int bitsToSeek = pSubframe->lpcOrder * subframeBitsPerSample;
             if (!drflac__seek_bits(bs, bitsToSeek)) {
                 return DRFLAC_FALSE;
             }
