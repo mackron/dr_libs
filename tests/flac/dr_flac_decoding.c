@@ -5,6 +5,8 @@
 #define NUMBER_WIDTH    10
 #define TABLE_MARGIN    2
 
+#define DEFAULT_SOURCE_DIR  "testvectors/flac/seek_tests/debugging"
+
 drflac_result decode_test__read_and_compare_pcm_frames_s32(libflac* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameCount, drflac_int32* pPCMFrames_libflac, drflac_int32* pPCMFrames_drflac)
 {
     drflac_uint64 pcmFrameCount_libflac;
@@ -386,7 +388,212 @@ drflac_result decode_test()
 
     /* Directories. */
     {
-        result = decode_test_directory("testvectors/flac/seek_tests");
+        result = decode_test_directory(DEFAULT_SOURCE_DIR);
+        (void)result;
+    }
+
+    return result;
+}
+
+
+
+drflac_result open_and_read_test_file_s32(libflac* pLibFlac, const char* pFilePath)
+{
+    drflac_int32* pPCMFrames;
+    drflac_uint64 pcmFrameCount;
+    drflac_uint32 channels;
+    drflac_uint32 sampleRate;
+    drflac_uint64 iPCMFrame;
+
+    pPCMFrames = drflac_open_file_and_read_pcm_frames_s32(pFilePath, &channels, &sampleRate, &pcmFrameCount, NULL);
+    if (pPCMFrames == NULL) {
+        printf("  drflac_open_and_read failed.");
+        return DRFLAC_ERROR;    /* Error decoding */
+    }
+
+    if (pcmFrameCount != pLibFlac->pcmFrameCount) {
+        printf("  Decoded frame counts differ: pcmFrameCount=%d, libFLAC=%d, dr_flac=%d", (int)pcmFrameCount, (int)pLibFlac->currentPCMFrame, (int)pcmFrameCount);
+        drflac_free(pPCMFrames, NULL);
+        return DRFLAC_ERROR;
+    }
+
+    for (iPCMFrame = 0; iPCMFrame < pLibFlac->pcmFrameCount; iPCMFrame += 1) {
+        drflac_int32* pPCMFrame_libflac = pLibFlac->pPCMFrames + (iPCMFrame * pLibFlac->channels);
+        drflac_int32* pPCMFrame_drflac  =           pPCMFrames + (iPCMFrame * pLibFlac->channels);
+        drflac_uint32 iChannel;
+        drflac_bool32 hasError = DRFLAC_FALSE;
+
+        for (iChannel = 0; iChannel < pLibFlac->channels; iChannel += 1) {
+            if (pPCMFrame_libflac[iChannel] != pPCMFrame_drflac[iChannel]) {
+                printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
+                hasError = DRFLAC_TRUE;
+                drflac_free(pPCMFrames, NULL);
+                break;
+            }
+        }
+
+        if (hasError) {
+            drflac_free(pPCMFrames, NULL);
+            return DRFLAC_ERROR;    /* Decoded frames do not match. */
+        }
+    }
+
+    drflac_free(pPCMFrames, NULL);
+    return DRFLAC_SUCCESS;
+}
+
+drflac_result open_and_read_test_file_f32(libflac* pLibFlac, const char* pFilePath)
+{
+    float* pPCMFrames;
+    drflac_uint64 pcmFrameCount;
+    drflac_uint32 channels;
+    drflac_uint32 sampleRate;
+    drflac_uint64 iPCMFrame;
+
+    pPCMFrames = drflac_open_file_and_read_pcm_frames_f32(pFilePath, &channels, &sampleRate, &pcmFrameCount, NULL);
+    if (pPCMFrames == NULL) {
+        printf("  drflac_open_and_read failed.");
+        return DRFLAC_ERROR;    /* Error decoding */
+    }
+
+    if (pcmFrameCount != pLibFlac->pcmFrameCount) {
+        printf("  Decoded frame counts differ: pcmFrameCount=%d, libFLAC=%d, dr_flac=%d", (int)pcmFrameCount, (int)pLibFlac->currentPCMFrame, (int)pcmFrameCount);
+        drflac_free(pPCMFrames, NULL);
+        return DRFLAC_ERROR;
+    }
+
+    for (iPCMFrame = 0; iPCMFrame < pLibFlac->pcmFrameCount; iPCMFrame += 1) {
+        drflac_int32* pPCMFrame_libflac = pLibFlac->pPCMFrames + (iPCMFrame * pLibFlac->channels);
+        float*        pPCMFrame_drflac  =           pPCMFrames + (iPCMFrame * pLibFlac->channels);
+        drflac_uint32 iChannel;
+        drflac_bool32 hasError = DRFLAC_FALSE;
+
+        for (iChannel = 0; iChannel < pLibFlac->channels; iChannel += 1) {
+            if ((pPCMFrame_libflac[iChannel] / 2147483648.0) != pPCMFrame_drflac[iChannel]) {
+                printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
+                hasError = DRFLAC_TRUE;
+                drflac_free(pPCMFrames, NULL);
+                break;
+            }
+        }
+
+        if (hasError) {
+            drflac_free(pPCMFrames, NULL);
+            return DRFLAC_ERROR;    /* Decoded frames do not match. */
+        }
+    }
+
+    drflac_free(pPCMFrames, NULL);
+    return DRFLAC_SUCCESS;
+}
+
+drflac_result open_and_read_test_file_s16(libflac* pLibFlac, const char* pFilePath)
+{
+    drflac_int16* pPCMFrames;
+    drflac_uint64 pcmFrameCount;
+    drflac_uint32 channels;
+    drflac_uint32 sampleRate;
+    drflac_uint64 iPCMFrame;
+
+    pPCMFrames = drflac_open_file_and_read_pcm_frames_s16(pFilePath, &channels, &sampleRate, &pcmFrameCount, NULL);
+    if (pPCMFrames == NULL) {
+        printf("  drflac_open_and_read failed.");
+        return DRFLAC_ERROR;    /* Error decoding */
+    }
+
+    if (pcmFrameCount != pLibFlac->pcmFrameCount) {
+        printf("  Decoded frame counts differ: pcmFrameCount=%d, libFLAC=%d, dr_flac=%d", (int)pcmFrameCount, (int)pLibFlac->currentPCMFrame, (int)pcmFrameCount);
+        drflac_free(pPCMFrames, NULL);
+        return DRFLAC_ERROR;
+    }
+
+    for (iPCMFrame = 0; iPCMFrame < pLibFlac->pcmFrameCount; iPCMFrame += 1) {
+        drflac_int32* pPCMFrame_libflac = pLibFlac->pPCMFrames + (iPCMFrame * pLibFlac->channels);
+        drflac_int16* pPCMFrame_drflac  =           pPCMFrames + (iPCMFrame * pLibFlac->channels);
+        drflac_uint32 iChannel;
+        drflac_bool32 hasError = DRFLAC_FALSE;
+
+        for (iChannel = 0; iChannel < pLibFlac->channels; iChannel += 1) {
+            if ((pPCMFrame_libflac[iChannel] >> 16) != pPCMFrame_drflac[iChannel]) {
+                printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
+                hasError = DRFLAC_TRUE;
+                drflac_free(pPCMFrames, NULL);
+                break;
+            }
+        }
+
+        if (hasError) {
+            drflac_free(pPCMFrames, NULL);
+            return DRFLAC_ERROR;    /* Decoded frames do not match. */
+        }
+    }
+
+    drflac_free(pPCMFrames, NULL);
+    return DRFLAC_SUCCESS;
+}
+
+drflac_result open_and_read_test_file(const char* pFilePath)
+{
+    drflac_result result;
+    libflac libflac;
+
+    dr_printf_fixed_with_margin(FILE_NAME_WIDTH, TABLE_MARGIN, "%s", dr_path_file_name(pFilePath));
+
+    /* First load the decoder from libFLAC. */
+    result = libflac_init_file(pFilePath, &libflac);
+    if (result != DRFLAC_SUCCESS) {
+        printf("  Failed to open via libFLAC.");
+        return result;
+    }
+
+    open_and_read_test_file_s32(&libflac, pFilePath);
+    open_and_read_test_file_f32(&libflac, pFilePath);
+    open_and_read_test_file_s16(&libflac, pFilePath);
+
+
+    libflac_uninit(&libflac);
+
+    if (result == DRFLAC_SUCCESS) {
+        printf("  Passed");
+    }
+
+    return result;
+}
+
+drflac_result open_and_read_test_directory(const char* pDirectoryPath)
+{
+    dr_file_iterator iteratorState;
+    dr_file_iterator* pFile;
+
+    dr_printf_fixed(FILE_NAME_WIDTH, "%s", pDirectoryPath);
+    dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "RESULT");
+    printf("\n");
+
+    pFile = dr_file_iterator_begin(pDirectoryPath, &iteratorState);
+    while (pFile != NULL) {
+        drflac_result result;
+
+        /* Skip directories for now, but we may want to look at doing recursive file iteration. */
+        if (!pFile->isDirectory) {
+            result = open_and_read_test_file(pFile->absolutePath);
+            (void)result;
+
+            printf("\n");
+        }
+
+        pFile = dr_file_iterator_next(pFile);
+    }
+
+    return DRFLAC_SUCCESS;
+}
+
+drflac_result open_and_read_test()
+{
+    drflac_result result = DRFLAC_SUCCESS;
+
+    /* Directories. */
+    {
+        result = open_and_read_test_directory(DEFAULT_SOURCE_DIR);
         (void)result;
     }
 
@@ -484,7 +691,7 @@ drflac_result decode_profiling()
 
     /* Directories. */
     {
-        result = decode_profiling_directory("testvectors/flac/seek_tests");
+        result = decode_profiling_directory(DEFAULT_SOURCE_DIR);
     }
 
     return result;
@@ -494,8 +701,8 @@ drflac_result decode_profiling()
 int main(int argc, char** argv)
 {
     drflac_result result = DRFLAC_SUCCESS;
-    drflac_bool32 doTesting = DRFLAC_FALSE;
-    drflac_bool32 doProfiling = DRFLAC_TRUE;
+    drflac_bool32 doTesting = DRFLAC_TRUE;
+    drflac_bool32 doProfiling = DRFLAC_FALSE;
 
     /* This program has two main parts. The first is just a normal functionality test. The second is a profiling of the different seeking methods. */
     if (dr_argv_is_set(argc, argv, "--onlyprofile")) {
@@ -508,6 +715,15 @@ int main(int argc, char** argv)
         printf("DECODE TESTING\n");
         printf("=======================================================================\n");
         result = decode_test();
+        if (result != DRFLAC_SUCCESS) {
+            return (int)result;    /* Don't continue if an error occurs during testing. */
+        }
+        printf("\n");
+
+        printf("=======================================================================\n");
+        printf("OPEN-AND-READ TESTING - drflac_open_*_and_read_pcm_frames_*()\n");
+        printf("=======================================================================\n");
+        result = open_and_read_test();
         if (result != DRFLAC_SUCCESS) {
             return (int)result;    /* Don't continue if an error occurs during testing. */
         }
