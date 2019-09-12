@@ -2908,30 +2908,42 @@ static DRFLAC_INLINE __m128i drflac__mm_slide1_epi32(__m128i a, __m128i b)
     /* a3a2a1a0/b3b2b1b0 -> a2a1a0b3 */
 
     /* Result = a2a1a0b3 */
+#if 0
     __m128i b3a3b2a2 = _mm_unpackhi_epi32(a, b);
     __m128i a2b3a2b3 = _mm_shuffle_epi32(b3a3b2a2, _MM_SHUFFLE(0, 3, 0, 3));
     __m128i a1a2a0b3 = _mm_unpacklo_epi32(a2b3a2b3, a);
     __m128i a2a1a0b3 = _mm_shuffle_epi32(a1a2a0b3, _MM_SHUFFLE(2, 3, 1, 0));
     return a2a1a0b3;
+#else
+    return _mm_alignr_epi8(a, b, 12);
+#endif
 }
 
 static DRFLAC_INLINE __m128i drflac__mm_slide2_epi32(__m128i a, __m128i b)
 {
     /* Result = a1a0b3b2 */
+#if 0
     __m128i b1b0b3b2 = _mm_shuffle_epi32(b, _MM_SHUFFLE(1, 0, 3, 2));
     __m128i a1b3a0b2 = _mm_unpacklo_epi32(b1b0b3b2, a);
     __m128i a1a0b3b2 = _mm_shuffle_epi32(a1b3a0b2, _MM_SHUFFLE(3, 1, 2, 0));
     return a1a0b3b2;
+#else
+    return _mm_alignr_epi8(a, b, 8);
+#endif
 }
 
 static DRFLAC_INLINE __m128i drflac__mm_slide3_epi32(__m128i a, __m128i b)
 {
     /* Result = a0b3b2b1 */
+#if 0
     __m128i b1a1b0a0 = _mm_unpacklo_epi32(a, b);
     __m128i a0b1a0b1 = _mm_shuffle_epi32(b1a1b0a0, _MM_SHUFFLE(0, 3, 0, 3));
     __m128i b3a0b2b1 = _mm_unpackhi_epi32(a0b1a0b1, b);
     __m128i a0b3b2b1 = _mm_shuffle_epi32(b3a0b2b1, _MM_SHUFFLE(2, 3, 1, 0));
     return a0b3b2b1;
+#else
+    return _mm_alignr_epi8(a, b, 4);
+#endif
 }
 
 static DRFLAC_INLINE void drflac__calculate_prediction_32_x4__sse41(drflac_uint32 order, drflac_int32 shift, const __m128i* coefficients128, const __m128i riceParamParts128, drflac_int32* pDecodedSamples)
