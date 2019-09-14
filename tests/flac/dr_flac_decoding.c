@@ -1,4 +1,5 @@
 /*#define DR_FLAC_NO_CRC*/
+/*#define DR_FLAC_NO_SIMD*/
 #include "dr_flac_common.c"
 
 #define FILE_NAME_WIDTH 40
