@@ -7483,14 +7483,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side__sse2(drf
         __m128i side  = _mm_slli_epi32(inputSample1, shift1);
         __m128i right = _mm_sub_epi32(left, side);
 
-        pOutputSamples[i*8+0] = ((drflac_int32*)&left )[0];
-        pOutputSamples[i*8+1] = ((drflac_int32*)&right)[0];
-        pOutputSamples[i*8+2] = ((drflac_int32*)&left )[1];
-        pOutputSamples[i*8+3] = ((drflac_int32*)&right)[1];
-        pOutputSamples[i*8+4] = ((drflac_int32*)&left )[2];
-        pOutputSamples[i*8+5] = ((drflac_int32*)&right)[2];
-        pOutputSamples[i*8+6] = ((drflac_int32*)&left )[3];
-        pOutputSamples[i*8+7] = ((drflac_int32*)&right)[3];
+        _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 0), _mm_unpacklo_epi32(left, right));
+        _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 4), _mm_unpackhi_epi32(left, right));
     }
 
     for (i = (frameCount4 << 2); i < frameCount; ++i) {
@@ -7603,14 +7597,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side__sse2(dr
         __m128i right = _mm_slli_epi32(inputSample1, shift1);
         __m128i left  = _mm_add_epi32(right, side);
 
-        pOutputSamples[i*8+0] = ((drflac_int32*)&left)[0];
-        pOutputSamples[i*8+1] = ((drflac_int32*)&right)[0];
-        pOutputSamples[i*8+2] = ((drflac_int32*)&left)[1];
-        pOutputSamples[i*8+3] = ((drflac_int32*)&right)[1];
-        pOutputSamples[i*8+4] = ((drflac_int32*)&left)[2];
-        pOutputSamples[i*8+5] = ((drflac_int32*)&right)[2];
-        pOutputSamples[i*8+6] = ((drflac_int32*)&left)[3];
-        pOutputSamples[i*8+7] = ((drflac_int32*)&right)[3];
+        _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 0), _mm_unpacklo_epi32(left, right));
+        _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 4), _mm_unpackhi_epi32(left, right));
     }
 
     for (i = (frameCount4 << 2); i < frameCount; ++i) {
@@ -7799,14 +7787,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__sse2(drfl
             left  = _mm_or_si128(_mm_srli_epi32(left, 1),  _mm_and_si128(left,  _mm_set1_epi32(0x80000000)));
             right = _mm_or_si128(_mm_srli_epi32(right, 1), _mm_and_si128(right, _mm_set1_epi32(0x80000000)));
 
-            pOutputSamples[i*8+0] = ((drflac_int32*)&left)[0];
-            pOutputSamples[i*8+1] = ((drflac_int32*)&right)[0];
-            pOutputSamples[i*8+2] = ((drflac_int32*)&left)[1];
-            pOutputSamples[i*8+3] = ((drflac_int32*)&right)[1];
-            pOutputSamples[i*8+4] = ((drflac_int32*)&left)[2];
-            pOutputSamples[i*8+5] = ((drflac_int32*)&right)[2];
-            pOutputSamples[i*8+6] = ((drflac_int32*)&left)[3];
-            pOutputSamples[i*8+7] = ((drflac_int32*)&right)[3];
+            _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 0), _mm_unpacklo_epi32(left, right));
+            _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 4), _mm_unpackhi_epi32(left, right));
         }
 
         for (i = (frameCount4 << 2); i < frameCount; ++i) {
@@ -7839,14 +7821,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__sse2(drfl
             left  = _mm_slli_epi32(_mm_add_epi32(mid, side), shift);
             right = _mm_slli_epi32(_mm_sub_epi32(mid, side), shift);
 
-            pOutputSamples[i*8+0] = ((drflac_int32*)&left)[0];
-            pOutputSamples[i*8+1] = ((drflac_int32*)&right)[0];
-            pOutputSamples[i*8+2] = ((drflac_int32*)&left)[1];
-            pOutputSamples[i*8+3] = ((drflac_int32*)&right)[1];
-            pOutputSamples[i*8+4] = ((drflac_int32*)&left)[2];
-            pOutputSamples[i*8+5] = ((drflac_int32*)&right)[2];
-            pOutputSamples[i*8+6] = ((drflac_int32*)&left)[3];
-            pOutputSamples[i*8+7] = ((drflac_int32*)&right)[3];
+            _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 0), _mm_unpacklo_epi32(left, right));
+            _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 4), _mm_unpackhi_epi32(left, right));
         }
 
         for (i = (frameCount4 << 2); i < frameCount; ++i) {
@@ -7938,17 +7914,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo_
         __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
         __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
 
-        __m128i i32L = _mm_slli_epi32(inputSample0, shift0);
-        __m128i i32R = _mm_slli_epi32(inputSample1, shift1);
+        __m128i left  = _mm_slli_epi32(inputSample0, shift0);
+        __m128i right = _mm_slli_epi32(inputSample1, shift1);
 
-        pOutputSamples[i*8+0] = ((drflac_int32*)&i32L)[0];
-        pOutputSamples[i*8+1] = ((drflac_int32*)&i32R)[0];
-        pOutputSamples[i*8+2] = ((drflac_int32*)&i32L)[1];
-        pOutputSamples[i*8+3] = ((drflac_int32*)&i32R)[1];
-        pOutputSamples[i*8+4] = ((drflac_int32*)&i32L)[2];
-        pOutputSamples[i*8+5] = ((drflac_int32*)&i32R)[2];
-        pOutputSamples[i*8+6] = ((drflac_int32*)&i32L)[3];
-        pOutputSamples[i*8+7] = ((drflac_int32*)&i32R)[3];
+        _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 0), _mm_unpacklo_epi32(left, right));
+        _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 4), _mm_unpackhi_epi32(left, right));
     }
 
     for (i = (frameCount4 << 2); i < frameCount; ++i) {
