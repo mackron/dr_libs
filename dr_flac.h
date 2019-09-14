@@ -3664,26 +3664,6 @@ static DRFLAC_INLINE __m128i drflac__mm_not_si128(__m128i a)
     return _mm_xor_si128(a, _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
 }
 
-static DRFLAC_INLINE __m128i drflac__mm_slide1_epi32(__m128i a, __m128i b)
-{
-    /* a3a2a1a0/b3b2b1b0 -> a2a1a0b3 */
-
-    /* Result = a2a1a0b3 */
-    return _mm_alignr_epi8(a, b, 12);
-}
-
-static DRFLAC_INLINE __m128i drflac__mm_slide2_epi32(__m128i a, __m128i b)
-{
-    /* Result = a1a0b3b2 */
-    return _mm_alignr_epi8(a, b, 8);
-}
-
-static DRFLAC_INLINE __m128i drflac__mm_slide3_epi32(__m128i a, __m128i b)
-{
-    /* Result = a0b3b2b1 */
-    return _mm_alignr_epi8(a, b, 4);
-}
-
 static DRFLAC_INLINE __m128i drflac__mm_hadd_epi32(__m128i x)
 {
     __m128i x64 = _mm_add_epi32(x, _mm_shuffle_epi32(x, _MM_SHUFFLE(1, 0, 3, 2)));
@@ -3812,12 +3792,12 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
             prediction128 = _mm_add_epi32(riceParamPart128, prediction128);
 
             /* Our value should be sitting in prediction128[0]. We need to combine this with our SSE samples. */
-            samples128_8 = drflac__mm_slide3_epi32(samples128_4,  samples128_8);
-            samples128_4 = drflac__mm_slide3_epi32(samples128_0,  samples128_4);
-            samples128_0 = drflac__mm_slide3_epi32(prediction128, samples128_0);
+            samples128_8 = _mm_alignr_epi8(samples128_4,  samples128_8, 4);
+            samples128_4 = _mm_alignr_epi8(samples128_0,  samples128_4, 4);
+            samples128_0 = _mm_alignr_epi8(prediction128, samples128_0, 4);
 
             /* Slide our rice parameter down so that the value in position 0 contains the next on to process. */
-            riceParamPart128 = drflac__mm_slide3_epi32(_mm_setzero_si128(), riceParamPart128);
+            riceParamPart128 = _mm_alignr_epi8(_mm_setzero_si128(), riceParamPart128, 4);
         }
 
         /* We store samples in groups of 4. */
@@ -3949,12 +3929,12 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_64(drflac
             prediction128 = _mm_add_epi32(riceParamPart128, prediction128);
 
             /* Our value should be sitting in prediction128[0]. We need to combine this with our SSE samples. */
-            samples128_8 = drflac__mm_slide3_epi32(samples128_4,  samples128_8);
-            samples128_4 = drflac__mm_slide3_epi32(samples128_0,  samples128_4);
-            samples128_0 = drflac__mm_slide3_epi32(prediction128, samples128_0);
+            samples128_8 = _mm_alignr_epi8(samples128_4,  samples128_8, 4);
+            samples128_4 = _mm_alignr_epi8(samples128_0,  samples128_4, 4);
+            samples128_0 = _mm_alignr_epi8(prediction128, samples128_0, 4);
 
             /* Slide our rice parameter down so that the value in position 0 contains the next one to process. */
-            riceParamPart128 = drflac__mm_slide3_epi32(_mm_setzero_si128(), riceParamPart128);
+            riceParamPart128 = _mm_alignr_epi8(_mm_setzero_si128(), riceParamPart128, 4);
         }
 
         /* We store samples in groups of 4. */
