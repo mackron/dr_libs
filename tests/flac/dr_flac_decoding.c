@@ -19,7 +19,7 @@ drflac_result decode_test__read_and_compare_pcm_frames_s32(libflac* pLibFlac, dr
 
     /* The total number of frames we decoded need to match. */
     if (pcmFrameCount_libflac != pcmFrameCount_drflac) {
-        printf("  Decoded frame counts differ: pcmFrameCount=%d, libFLAC=%d, dr_flac=%d", (int)pcmFrameCount, (int)pLibFlac->currentPCMFrame, (int)pFlac->currentPCMFrame);
+        printf("  Decoded frame counts differ: pcmFrameCount=%d, libFLAC=%d, dr_flac=%d", (int)pcmFrameCount, (int)pcmFrameCount_libflac, (int)pcmFrameCount_drflac);
         return DRFLAC_ERROR;
     }
 
@@ -339,9 +339,26 @@ drflac_result decode_test_file(const char* pFilePath)
     }
 
     /* At this point we should have both libFLAC and dr_flac decoders open. We can now perform identical operations on each of them and compare. */
-    decode_test_file_s32(&libflac, pFlac);
-    decode_test_file_f32(&libflac, pFlac);
-    decode_test_file_s16(&libflac, pFlac);
+    result = decode_test_file_s32(&libflac, pFlac);
+    if (result != DRFLAC_SUCCESS) {
+        drflac_close(pFlac);
+        libflac_uninit(&libflac);
+        return result;
+    }
+
+    result = decode_test_file_f32(&libflac, pFlac);
+    if (result != DRFLAC_SUCCESS) {
+        drflac_close(pFlac);
+        libflac_uninit(&libflac);
+        return result;
+    }
+
+    result = decode_test_file_s16(&libflac, pFlac);
+    if (result != DRFLAC_SUCCESS) {
+        drflac_close(pFlac);
+        libflac_uninit(&libflac);
+        return result;
+    }
     
 
     /* We're done with our decoders. */
@@ -427,7 +444,6 @@ drflac_result open_and_read_test_file_s32(libflac* pLibFlac, const char* pFilePa
             if (pPCMFrame_libflac[iChannel] != pPCMFrame_drflac[iChannel]) {
                 printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
                 hasError = DRFLAC_TRUE;
-                drflac_free(pPCMFrames, NULL);
                 break;
             }
         }
@@ -472,7 +488,6 @@ drflac_result open_and_read_test_file_f32(libflac* pLibFlac, const char* pFilePa
             if ((pPCMFrame_libflac[iChannel] / 2147483648.0) != pPCMFrame_drflac[iChannel]) {
                 printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
                 hasError = DRFLAC_TRUE;
-                drflac_free(pPCMFrames, NULL);
                 break;
             }
         }
@@ -517,7 +532,6 @@ drflac_result open_and_read_test_file_s16(libflac* pLibFlac, const char* pFilePa
             if ((pPCMFrame_libflac[iChannel] >> 16) != pPCMFrame_drflac[iChannel]) {
                 printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
                 hasError = DRFLAC_TRUE;
-                drflac_free(pPCMFrames, NULL);
                 break;
             }
         }
@@ -546,10 +560,20 @@ drflac_result open_and_read_test_file(const char* pFilePath)
         return result;
     }
 
-    open_and_read_test_file_s32(&libflac, pFilePath);
+    result = open_and_read_test_file_s32(&libflac, pFilePath);
+    if (result != DRFLAC_SUCCESS) {
+        return result;
+    }
+    
     open_and_read_test_file_f32(&libflac, pFilePath);
-    open_and_read_test_file_s16(&libflac, pFilePath);
+    if (result != DRFLAC_SUCCESS) {
+        return result;
+    }
 
+    open_and_read_test_file_s16(&libflac, pFilePath);
+    if (result != DRFLAC_SUCCESS) {
+        return result;
+    }
 
     libflac_uninit(&libflac);
 
@@ -701,8 +725,8 @@ drflac_result decode_profiling()
 int main(int argc, char** argv)
 {
     drflac_result result = DRFLAC_SUCCESS;
-    drflac_bool32 doTesting = DRFLAC_TRUE;
-    drflac_bool32 doProfiling = DRFLAC_FALSE;
+    drflac_bool32 doTesting = DRFLAC_FALSE;
+    drflac_bool32 doProfiling = DRFLAC_TRUE;
 
     /* This program has two main parts. The first is just a normal functionality test. The second is a profiling of the different seeking methods. */
     if (dr_argv_is_set(argc, argv, "--onlyprofile")) {
