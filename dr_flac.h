@@ -3684,23 +3684,23 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__scalar(drflac_b
 }
 
 #if defined(DRFLAC_SUPPORT_SSE41)
-static DRFLAC_INLINE __m128i drflac__hadd_epi32(__m128i x)
+static DRFLAC_INLINE __m128i drflac__mm_hadd_epi32(__m128i x)
 {
-    __m128i x64 = _mm_add_epi32(_mm_shuffle_epi32(x, _MM_SHUFFLE(1, 0, 3, 2)), x);
+    __m128i x64 = _mm_add_epi32(x, _mm_shuffle_epi32(x, _MM_SHUFFLE(1, 0, 3, 2)));
     __m128i x32 = _mm_shufflelo_epi16(x64, _MM_SHUFFLE(1, 0, 3, 2));
     return _mm_add_epi32(x64, x32);
 }
 
-static DRFLAC_INLINE __m128i drflac__hadd_epi64(__m128i x)
+static DRFLAC_INLINE __m128i drflac__mm_hadd_epi64(__m128i x)
 {
     return _mm_add_epi64(x, _mm_shuffle_epi32(x, _MM_SHUFFLE(1, 0, 3, 2)));
 }
 
-static DRFLAC_INLINE __m128i drflac__srai_epi64(__m128i x, int count)
+static DRFLAC_INLINE __m128i drflac__mm_srai_epi64(__m128i x, int count)
 {
     /*
     To simplify this we are assuming count < 32. This restriction allows us to work on a low side and a high side. The low side
-    is shifted with zero bits, wheras the right side is shifted with sign bits.
+    is shifted with zero bits, whereas the right side is shifted with sign bits.
     */
     __m128i lo = _mm_srli_epi64(x, count);
     __m128i hi = _mm_srai_epi32(x, count);
@@ -3807,7 +3807,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
             }
 
             /* Horizontal add and shift. */
-            prediction128 = drflac__hadd_epi32(prediction128);
+            prediction128 = drflac__mm_hadd_epi32(prediction128);
             prediction128 = _mm_srai_epi32(prediction128, shift);
             prediction128 = _mm_add_epi32(riceParamPart128, prediction128);
 
@@ -3944,8 +3944,8 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_64(drflac
             }
 
             /* Horizontal add and shift. */
-            prediction128 = drflac__hadd_epi64(prediction128);
-            prediction128 = drflac__srai_epi64(prediction128, shift);
+            prediction128 = drflac__mm_hadd_epi64(prediction128);
+            prediction128 = drflac__mm_srai_epi64(prediction128, shift);
             prediction128 = _mm_add_epi32(riceParamPart128, prediction128);
 
             /* Our value should be sitting in prediction128[0]. We need to combine this with our SSE samples. */
