@@ -726,7 +726,7 @@ drflac_result decode_profiling()
 int main(int argc, char** argv)
 {
     drflac_result result = DRFLAC_SUCCESS;
-    drflac_bool32 doTesting = DRFLAC_FALSE;
+    drflac_bool32 doTesting = DRFLAC_TRUE;
     drflac_bool32 doProfiling = DRFLAC_TRUE;
 
     /* This program has two main parts. The first is just a normal functionality test. The second is a profiling of the different seeking methods. */
