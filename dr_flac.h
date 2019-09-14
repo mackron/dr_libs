@@ -3707,7 +3707,7 @@ static DRFLAC_INLINE __m128i drflac__mm_srai_epi64(__m128i x, int count)
     return _mm_or_si128(lo, hi);
 }
 
-static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac_bs* bs, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
     int i;
     drflac_uint32 riceParamMask;
@@ -3730,10 +3730,6 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
     __m128i riceParamMask128;
     
     const drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
-
-    /* Only 32-bit stuff for now. */
-    drflac_assert(bitsPerSample+shift <= 32);
-    drflac_assert(order <= 12);
 
     riceParamMask    = ~((~0UL) << riceParam);
     riceParamMask128 = _mm_set1_epi32(riceParamMask);
@@ -3845,7 +3841,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
     return DRFLAC_TRUE;
 }
 
-static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_64(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_64(drflac_bs* bs, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
     int i;
     drflac_uint32 riceParamMask;
@@ -3991,9 +3987,9 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41(drflac_bs
     /* In my testing the order is rarely > 12, so in this case I'm going to simplify the SSE implementation by only handling order <= 12. */
     if (order > 0 && order <= 12) {
         if (bitsPerSample+shift > 32) {
-            return drflac__decode_samples_with_residual__rice__sse41_64(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+            return drflac__decode_samples_with_residual__rice__sse41_64(bs, count, riceParam, order, shift, coefficients, pSamplesOut);
         } else {
-            return drflac__decode_samples_with_residual__rice__sse41_32(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+            return drflac__decode_samples_with_residual__rice__sse41_32(bs, count, riceParam, order, shift, coefficients, pSamplesOut);
         }
     } else {
         return drflac__decode_samples_with_residual__rice__scalar(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
