@@ -3058,7 +3058,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__reference(drfla
         }
 
 
-        if (bitsPerSample > 24) {
+        if (bitsPerSample+shift >= 32) {
             pSamplesOut[i] = decodedRice + drflac__calculate_prediction_64(order, shift, coefficients, pSamplesOut + i);
         } else {
             pSamplesOut[i] = decodedRice + drflac__calculate_prediction_32(order, shift, coefficients, pSamplesOut + i);
@@ -3588,7 +3588,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__scalar(drflac_b
     riceParamMask  = ~((~0UL) << riceParam);
     pSamplesOutEnd = pSamplesOut + (count & ~3);
 
-    if (bitsPerSample >= 24) {
+    if (bitsPerSample+shift >= 32) {
         while (pSamplesOut < pSamplesOutEnd) {
             /*
             Rice extraction. It's faster to do this one at a time against local variables than it is to use the x4 version
