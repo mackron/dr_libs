@@ -2613,31 +2613,6 @@ static DRFLAC_INLINE void drflac__calculate_prediction_32_x4(drflac_uint32 order
     pDecodedSamples[3] = riceParamParts[3] + (drflac_int32)(prediction3 >> shift);
 }
 
-static DRFLAC_INLINE __m128i drflac__mm_not_si128(__m128i a)
-{
-    return _mm_xor_si128(a, _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
-}
-
-static DRFLAC_INLINE __m128i drflac__mm_slide1_epi32(__m128i a, __m128i b)
-{
-    /* a3a2a1a0/b3b2b1b0 -> a2a1a0b3 */
-
-    /* Result = a2a1a0b3 */
-    return _mm_alignr_epi8(a, b, 12);
-}
-
-static DRFLAC_INLINE __m128i drflac__mm_slide2_epi32(__m128i a, __m128i b)
-{
-    /* Result = a1a0b3b2 */
-    return _mm_alignr_epi8(a, b, 8);
-}
-
-static DRFLAC_INLINE __m128i drflac__mm_slide3_epi32(__m128i a, __m128i b)
-{
-    /* Result = a0b3b2b1 */
-    return _mm_alignr_epi8(a, b, 4);
-}
-
 static DRFLAC_INLINE drflac_int32 drflac__calculate_prediction_64(drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pDecodedSamples)
 {
     drflac_int64 prediction;
@@ -3684,6 +3659,31 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__scalar(drflac_b
 }
 
 #if defined(DRFLAC_SUPPORT_SSE41)
+static DRFLAC_INLINE __m128i drflac__mm_not_si128(__m128i a)
+{
+    return _mm_xor_si128(a, _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
+}
+
+static DRFLAC_INLINE __m128i drflac__mm_slide1_epi32(__m128i a, __m128i b)
+{
+    /* a3a2a1a0/b3b2b1b0 -> a2a1a0b3 */
+
+    /* Result = a2a1a0b3 */
+    return _mm_alignr_epi8(a, b, 12);
+}
+
+static DRFLAC_INLINE __m128i drflac__mm_slide2_epi32(__m128i a, __m128i b)
+{
+    /* Result = a1a0b3b2 */
+    return _mm_alignr_epi8(a, b, 8);
+}
+
+static DRFLAC_INLINE __m128i drflac__mm_slide3_epi32(__m128i a, __m128i b)
+{
+    /* Result = a0b3b2b1 */
+    return _mm_alignr_epi8(a, b, 4);
+}
+
 static DRFLAC_INLINE __m128i drflac__mm_hadd_epi32(__m128i x)
 {
     __m128i x64 = _mm_add_epi32(x, _mm_shuffle_epi32(x, _MM_SHUFFLE(1, 0, 3, 2)));
