@@ -5,7 +5,7 @@
 #define NUMBER_WIDTH    10
 #define TABLE_MARGIN    2
 
-#define DEFAULT_SOURCE_DIR  "testvectors/flac/seek_tests/debugging"
+#define DEFAULT_SOURCE_DIR  "testvectors/flac/seek_tests"
 
 drflac_result decode_test__read_and_compare_pcm_frames_s32(libflac* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameCount, drflac_int32* pPCMFrames_libflac, drflac_int32* pPCMFrames_drflac)
 {
@@ -725,7 +725,7 @@ drflac_result decode_profiling()
 int main(int argc, char** argv)
 {
     drflac_result result = DRFLAC_SUCCESS;
-    drflac_bool32 doTesting = DRFLAC_FALSE;
+    drflac_bool32 doTesting = DRFLAC_TRUE;
     drflac_bool32 doProfiling = DRFLAC_TRUE;
 
     /* This program has two main parts. The first is just a normal functionality test. The second is a profiling of the different seeking methods. */
