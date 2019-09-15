@@ -3739,6 +3739,65 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
     samples128_4 = _mm_setzero_si128();
     samples128_8 = _mm_setzero_si128();
 
+    /*
+    Pre-loading the coefficients and prior samples is annoying because we need to ensure we don't try reading more than
+    what's available in the input buffers. It would be conenient to use a fall-through switch to do this, but this results
+    in strict aliasing warnings with GCC. To work around this I'm just doing something hacky. This feels a bit convoluted
+    so I think there's opportunity for this to be simplified.
+    */
+#if 1
+    {
+        int runningOrder = order;
+
+        /* 0 - 3. */
+        if (runningOrder >= 4) {
+            coefficients128_0 = _mm_loadu_si128((const __m128i*)(coefficients + 0));
+            samples128_0      = _mm_loadu_si128((const __m128i*)(pSamplesOut  - 4));
+            runningOrder -= 4;
+        } else {
+            switch (runningOrder) {
+                case 3: coefficients128_0 = _mm_set_epi32(0, coefficients[2], coefficients[1], coefficients[0]); samples128_0 = _mm_set_epi32(pSamplesOut[-1], pSamplesOut[-2], pSamplesOut[-3], 0); break;
+                case 2: coefficients128_0 = _mm_set_epi32(0, 0,               coefficients[1], coefficients[0]); samples128_0 = _mm_set_epi32(pSamplesOut[-1], pSamplesOut[-2], 0,               0); break;
+                case 1: coefficients128_0 = _mm_set_epi32(0, 0,               0,               coefficients[0]); samples128_0 = _mm_set_epi32(pSamplesOut[-1], 0,               0,               0); break;
+            }
+            runningOrder = 0;
+        }
+
+        /* 4 - 7 */
+        if (runningOrder >= 4) {
+            coefficients128_4 = _mm_loadu_si128((const __m128i*)(coefficients + 4));
+            samples128_4      = _mm_loadu_si128((const __m128i*)(pSamplesOut  - 8));
+            runningOrder -= 4;
+        } else {
+            switch (runningOrder) {
+                case 3: coefficients128_4 = _mm_set_epi32(0, coefficients[6], coefficients[5], coefficients[4]); samples128_4 = _mm_set_epi32(pSamplesOut[-5], pSamplesOut[-6], pSamplesOut[-7], 0); break;
+                case 2: coefficients128_4 = _mm_set_epi32(0, 0,               coefficients[5], coefficients[4]); samples128_4 = _mm_set_epi32(pSamplesOut[-5], pSamplesOut[-6], 0,               0); break;
+                case 1: coefficients128_4 = _mm_set_epi32(0, 0,               0,               coefficients[4]); samples128_4 = _mm_set_epi32(pSamplesOut[-5], 0,               0,               0); break;
+            }
+            runningOrder = 0;
+        }
+
+        /* 8 - 11 */
+        if (runningOrder == 4) {
+            coefficients128_8 = _mm_loadu_si128((const __m128i*)(coefficients + 8));
+            samples128_8      = _mm_loadu_si128((const __m128i*)(pSamplesOut  - 12));
+            runningOrder -= 4;
+        } else {
+            switch (runningOrder) {
+                case 3: coefficients128_8 = _mm_set_epi32(0, coefficients[10], coefficients[9], coefficients[8]); samples128_8 = _mm_set_epi32(pSamplesOut[-9], pSamplesOut[-10], pSamplesOut[-11], 0); break;
+                case 2: coefficients128_8 = _mm_set_epi32(0, 0,                coefficients[9], coefficients[8]); samples128_8 = _mm_set_epi32(pSamplesOut[-9], pSamplesOut[-10], 0,                0); break;
+                case 1: coefficients128_8 = _mm_set_epi32(0, 0,                0,               coefficients[8]); samples128_8 = _mm_set_epi32(pSamplesOut[-9], 0,                0,                0); break;
+            }
+            runningOrder = 0;
+        }
+
+        /* Coefficients need to be shuffled for our streaming algorithm below to work. Samples are already in the correct order from the loading routine above. */
+        coefficients128_0 = _mm_shuffle_epi32(coefficients128_0, _MM_SHUFFLE(0, 1, 2, 3));
+        coefficients128_4 = _mm_shuffle_epi32(coefficients128_4, _MM_SHUFFLE(0, 1, 2, 3));
+        coefficients128_8 = _mm_shuffle_epi32(coefficients128_8, _MM_SHUFFLE(0, 1, 2, 3));
+    }
+#else
+    /* This causes strict-aliasing warnings with GCC. */
     switch (order)
     {
     case 12: ((drflac_int32*)&coefficients128_8)[0] = coefficients[11]; ((drflac_int32*)&samples128_8)[0] = pDecodedSamples[-12];
@@ -3754,6 +3813,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
     case 2:  ((drflac_int32*)&coefficients128_0)[2] = coefficients[ 1]; ((drflac_int32*)&samples128_0)[2] = pDecodedSamples[- 2];
     case 1:  ((drflac_int32*)&coefficients128_0)[3] = coefficients[ 0]; ((drflac_int32*)&samples128_0)[3] = pDecodedSamples[- 1];
     }
+#endif
 
     /* For this version we are doing one sample at a time. */
     while (pDecodedSamples < pDecodedSamplesEnd) {
@@ -3878,6 +3938,58 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_64(drflac
     samples128_4  = _mm_setzero_si128();
     samples128_8  = _mm_setzero_si128();
 
+#if 1
+    {
+        int runningOrder = order;
+
+        /* 0 - 3. */
+        if (runningOrder >= 4) {
+            coefficients128_0 = _mm_loadu_si128((const __m128i*)(coefficients + 0));
+            samples128_0      = _mm_loadu_si128((const __m128i*)(pSamplesOut  - 4));
+            runningOrder -= 4;
+        } else {
+            switch (runningOrder) {
+                case 3: coefficients128_0 = _mm_set_epi32(0, coefficients[2], coefficients[1], coefficients[0]); samples128_0 = _mm_set_epi32(pSamplesOut[-1], pSamplesOut[-2], pSamplesOut[-3], 0); break;
+                case 2: coefficients128_0 = _mm_set_epi32(0, 0,               coefficients[1], coefficients[0]); samples128_0 = _mm_set_epi32(pSamplesOut[-1], pSamplesOut[-2], 0,               0); break;
+                case 1: coefficients128_0 = _mm_set_epi32(0, 0,               0,               coefficients[0]); samples128_0 = _mm_set_epi32(pSamplesOut[-1], 0,               0,               0); break;
+            }
+            runningOrder = 0;
+        }
+
+        /* 4 - 7 */
+        if (runningOrder >= 4) {
+            coefficients128_4 = _mm_loadu_si128((const __m128i*)(coefficients + 4));
+            samples128_4      = _mm_loadu_si128((const __m128i*)(pSamplesOut  - 8));
+            runningOrder -= 4;
+        } else {
+            switch (runningOrder) {
+                case 3: coefficients128_4 = _mm_set_epi32(0, coefficients[6], coefficients[5], coefficients[4]); samples128_4 = _mm_set_epi32(pSamplesOut[-5], pSamplesOut[-6], pSamplesOut[-7], 0); break;
+                case 2: coefficients128_4 = _mm_set_epi32(0, 0,               coefficients[5], coefficients[4]); samples128_4 = _mm_set_epi32(pSamplesOut[-5], pSamplesOut[-6], 0,               0); break;
+                case 1: coefficients128_4 = _mm_set_epi32(0, 0,               0,               coefficients[4]); samples128_4 = _mm_set_epi32(pSamplesOut[-5], 0,               0,               0); break;
+            }
+            runningOrder = 0;
+        }
+
+        /* 8 - 11 */
+        if (runningOrder == 4) {
+            coefficients128_8 = _mm_loadu_si128((const __m128i*)(coefficients + 8));
+            samples128_8      = _mm_loadu_si128((const __m128i*)(pSamplesOut  - 12));
+            runningOrder -= 4;
+        } else {
+            switch (runningOrder) {
+                case 3: coefficients128_8 = _mm_set_epi32(0, coefficients[10], coefficients[9], coefficients[8]); samples128_8 = _mm_set_epi32(pSamplesOut[-9], pSamplesOut[-10], pSamplesOut[-11], 0); break;
+                case 2: coefficients128_8 = _mm_set_epi32(0, 0,                coefficients[9], coefficients[8]); samples128_8 = _mm_set_epi32(pSamplesOut[-9], pSamplesOut[-10], 0,                0); break;
+                case 1: coefficients128_8 = _mm_set_epi32(0, 0,                0,               coefficients[8]); samples128_8 = _mm_set_epi32(pSamplesOut[-9], 0,                0,                0); break;
+            }
+            runningOrder = 0;
+        }
+
+        /* Coefficients need to be shuffled for our streaming algorithm below to work. Samples are already in the correct order from the loading routine above. */
+        coefficients128_0 = _mm_shuffle_epi32(coefficients128_0, _MM_SHUFFLE(0, 1, 2, 3));
+        coefficients128_4 = _mm_shuffle_epi32(coefficients128_4, _MM_SHUFFLE(0, 1, 2, 3));
+        coefficients128_8 = _mm_shuffle_epi32(coefficients128_8, _MM_SHUFFLE(0, 1, 2, 3));
+    }
+#else
     switch (order)
     {
     case 12: ((drflac_int32*)&coefficients128_8)[0] = coefficients[11]; ((drflac_int32*)&samples128_8)[0] = pDecodedSamples[-12];
@@ -3893,6 +4005,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_64(drflac
     case 2:  ((drflac_int32*)&coefficients128_0)[2] = coefficients[ 1]; ((drflac_int32*)&samples128_0)[2] = pDecodedSamples[- 2];
     case 1:  ((drflac_int32*)&coefficients128_0)[3] = coefficients[ 0]; ((drflac_int32*)&samples128_0)[3] = pDecodedSamples[- 1];
     }
+#endif
 
     /* For this version we are doing one sample at a time. */
     while (pDecodedSamples < pDecodedSamplesEnd) {
