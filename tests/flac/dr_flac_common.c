@@ -1,6 +1,15 @@
 #define DR_FLAC_IMPLEMENTATION
 #include "../../dr_flac.h"
+
+/* libFLAC has a warning in their header. *sigh*. */
+#if defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include <FLAC/stream_decoder.h>
+#if defined(__GNUC__)
+    #pragma GCC diagnostic pop
+#endif
 
 #include "../common/dr_common.c"
 

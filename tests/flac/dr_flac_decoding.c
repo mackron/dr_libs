@@ -687,6 +687,7 @@ drflac_result decode_profiling_directory(const char* pDirectoryPath)
 {
     dr_file_iterator iteratorState;
     dr_file_iterator* pFile;
+    drflac_bool32 foundError = DRFLAC_FALSE;
 
     dr_printf_fixed(FILE_NAME_WIDTH, "%s", pDirectoryPath);
     dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "libFLAC");
@@ -700,6 +701,9 @@ drflac_result decode_profiling_directory(const char* pDirectoryPath)
         /* Skip directories for now, but we may want to look at doing recursive file iteration. */
         if (!pFile->isDirectory) {
             result = decode_profiling_file(pFile->absolutePath);
+            if (result != DRFLAC_SUCCESS) {
+                foundError = DRFLAC_TRUE;
+            }
 
             printf("\n");
         }
@@ -707,7 +711,7 @@ drflac_result decode_profiling_directory(const char* pDirectoryPath)
         pFile = dr_file_iterator_next(pFile);
     }
 
-    return DRFLAC_SUCCESS;
+    return (foundError) ? DRFLAC_ERROR : DRFLAC_SUCCESS;
 }
 
 drflac_result decode_profiling()
