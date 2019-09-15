@@ -78,6 +78,9 @@ means it will be disabled when DR_FLAC_NO_CRC is used.
 The SSE4.1 pipeline has been cleaned up and optimized. You should see some improvements with decoding speed of 24-bit files in
 particular. 16-bit streams should also see some improvement.
 
+drflac_read_pcm_frames_s16() has been optimized. Previously this sat on top of drflac_read_pcm_frames_s32() and performed it's s32
+to s16 conversion in a second pass. This is now all done in a single pass. An SSE2 optimized path has also been implemented.
+
 A minor optimization has been implemented for drflac_read_pcm_frames_s32(). This will now use an SSE2 optimized pipeline for
 stereo channel reconstruction which is the last part of the decoding process.
 
@@ -9913,7 +9916,8 @@ v0.12.0 - 2019-xx-xx
   - Fix errors when seeking to the end of a stream.
   - Optimizations to seeking.
   - SSE improvements and optimizations.
-  - Minor optimizations to drflac_read_pcm_frames_s32().
+  - Optimizations to drflac_read_pcm_frames_s16().
+  - Optimizations to drflac_read_pcm_frames_s32().
 
 v0.11.10 - 2019-06-26
   - Fix a compiler error.
