@@ -174,11 +174,11 @@ drflac_open_with_metdata() returns.
 
 
 The main opening APIs (drflac_open(), etc.) will fail if the header is not present. The presents a problem in certain
-scenarios such as broadcast style streams like internet radio where the header may not be present because the user has
+scenarios such as broadcast style streams or internet radio where the header may not be present because the user has
 started playback mid-stream. To handle this, use the relaxed APIs: drflac_open_relaxed() and drflac_open_with_metadata_relaxed().
 
 It is not recommended to use these APIs for file based streams because a missing header would usually indicate a
-corrupted or perverse file. In addition, these APIs can take a long time to initialize because they may need to spend
+corrupt or perverse file. In addition, these APIs can take a long time to initialize because they may need to spend
 a lot of time finding the first frame.
 
 
