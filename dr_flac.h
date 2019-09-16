@@ -989,8 +989,7 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 
 #ifdef _MSC_VER
     #define DRFLAC_INLINE __forceinline
-#else
-#ifdef __GNUC__
+#elif defined(__GNUC__)
     /*
     I've had a bug report where GCC is emitting warnings about functions possibly not being inlineable. This warning happens when
     the __attribute__((always_inline)) attribute is defined without an "inline" statement. I think therefore there must be some
@@ -1005,7 +1004,6 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
     #endif
 #else
     #define DRFLAC_INLINE
-#endif
 #endif
 
 /* CPU architecture. */
