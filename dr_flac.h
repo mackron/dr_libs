@@ -988,12 +988,23 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 #include <string.h>
 
 #ifdef _MSC_VER
-#define DRFLAC_INLINE __forceinline
+    #define DRFLAC_INLINE __forceinline
 #else
 #ifdef __GNUC__
-#define DRFLAC_INLINE __inline__ __attribute__((always_inline))
+    /*
+    I've had a bug report where GCC is emitting warnings about functions possibly not being inlineable. This warning happens when
+    the __attribute__((always_inline)) attribute is defined without an "inline" statement. I think therefore there must be some
+    case where "__inline__" is not always defined, thus the compiler emitting these warnings. When using -std=c89 or -ansi on the
+    command line, we cannot use the "inline" keyword and instead need to use "__inline__". In an attempt to work around this issue
+    I am using "__inline__" only when we're compiling in strict ANSI mode.
+    */
+    #if defined(__STRICT_ANSI__)
+        #define DRFLAC_INLINE __inline__ __attribute__((always_inline))
+    #else
+        #define DRFLAC_INLINE inline __attribute__((always_inline))
+    #endif
 #else
-#define DRFLAC_INLINE
+    #define DRFLAC_INLINE
 #endif
 #endif
 
