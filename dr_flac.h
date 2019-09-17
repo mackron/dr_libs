@@ -7644,11 +7644,63 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side__sse2(drf
 }
 #endif
 
+#if defined(DRFLAC_SUPPORT_NEON)
+static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side__neon(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int32* pOutputSamples)
+{
+    drflac_uint64 frameCount4;
+    drflac_int32 shift0;
+    drflac_int32 shift1;
+    drflac_uint64 i;
+    int32x4_t shift0_4;
+    int32x4_t shift1_4;
+
+    drflac_assert(pFlac->bitsPerSample <= 24);
+
+    frameCount4 = frameCount >> 2;
+
+    shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
+    shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
+    
+    shift0_4 = vdupq_n_s32(shift0);
+    shift1_4 = vdupq_n_s32(shift1);
+
+    for (i = 0; i < frameCount4; ++i) {
+        int32x4_t inputSample0;
+        int32x4_t inputSample1;
+        int32x4_t left;
+        int32x4_t side;
+        int32x4_t right;
+        
+        inputSample0 = vld1q_s32(pInputSamples0 + i*4);
+        inputSample1 = vld1q_s32(pInputSamples1 + i*4);
+        
+        left  = vshlq_s32(inputSample0, shift0_4);
+        side  = vshlq_s32(inputSample1, shift1_4);
+        right = vsubq_s32(left, side);
+
+        drflac__vst2q_s32(pOutputSamples + i*8, vzipq_s32(left, right));
+    }
+
+    for (i = (frameCount4 << 2); i < frameCount; ++i) {
+        drflac_int32 left  = pInputSamples0[i] << shift0;
+        drflac_int32 side  = pInputSamples1[i] << shift1;
+        drflac_int32 right = left - side;
+
+        pOutputSamples[i*2+0] = left;
+        pOutputSamples[i*2+1] = right;
+    }
+}
+#endif
+
 static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int32* pOutputSamples)
 {
 #if defined(DRFLAC_SUPPORT_SSE2)
     if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_left_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+    } else
+#elif defined(DRFLAC_SUPPORT_NEON)
+    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+        drflac_read_pcm_frames_s32__decode_left_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
     {
@@ -7758,11 +7810,63 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side__sse2(dr
 }
 #endif
 
+#if defined(DRFLAC_SUPPORT_NEON)
+static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side__neon(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int32* pOutputSamples)
+{
+    drflac_uint64 frameCount4;
+    drflac_int32 shift0;
+    drflac_int32 shift1;
+    drflac_uint64 i;
+    int32x4_t shift0_4;
+    int32x4_t shift1_4;
+
+    drflac_assert(pFlac->bitsPerSample <= 24);
+
+    frameCount4 = frameCount >> 2;
+
+    shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
+    shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
+
+    shift0_4 = vdupq_n_s32(shift0);
+    shift1_4 = vdupq_n_s32(shift1);
+
+    for (i = 0; i < frameCount4; ++i) {
+        int32x4_t inputSample0;
+        int32x4_t inputSample1;
+        int32x4_t side;
+        int32x4_t right;
+        int32x4_t left;
+        
+        inputSample0 = vld1q_s32(pInputSamples0 + i*4);
+        inputSample1 = vld1q_s32(pInputSamples1 + i*4);
+        
+        side  = vshlq_s32(inputSample0, shift0_4);
+        right = vshlq_s32(inputSample1, shift1_4);
+        left  = vaddq_s32(right, side);
+        
+        drflac__vst2q_s32(pOutputSamples + i*8, vzipq_s32(left, right));
+    }
+
+    for (i = (frameCount4 << 2); i < frameCount; ++i) {
+        drflac_int32 side  = pInputSamples0[i] << shift0;
+        drflac_int32 right = pInputSamples1[i] << shift1;
+        drflac_int32 left  = right + side;
+
+        pOutputSamples[i*2+0] = left;
+        pOutputSamples[i*2+1] = right;
+    }
+}
+#endif
+
 static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int32* pOutputSamples)
 {
 #if defined(DRFLAC_SUPPORT_SSE2)
     if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_right_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+    } else
+#elif defined(DRFLAC_SUPPORT_NEON)
+    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+        drflac_read_pcm_frames_s32__decode_right_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
     {
