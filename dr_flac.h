@@ -1259,14 +1259,6 @@ reference excess prior samples.
 
 
 /* CPU caps. */
-static drflac_bool32 drflac__gIsLZCNTSupported = DRFLAC_FALSE;
-#ifndef DRFLAC_NO_CPUID
-/*
-I've had a bug report that Clang's ThreadSanitizer presents a warning in this function. Having reviewed this, this does
-actually make sense. However, since CPU caps should never differ for a running process, I don't think the trade off of
-complicating internal API's by passing around CPU caps versus just disabling the warnings is worthwhile. I'm therefore
-just going to disable these warnings.
-*/
 #if defined(__has_feature)
     #if __has_feature(thread_sanitizer)
         #define DRFLAC_NO_THREAD_SANITIZE __attribute__((no_sanitize("thread")))
@@ -1276,8 +1268,19 @@ just going to disable these warnings.
 #else
     #define DRFLAC_NO_THREAD_SANITIZE
 #endif
+
+static drflac_bool32 drflac__gIsLZCNTSupported = DRFLAC_FALSE;
+
+#ifndef DRFLAC_NO_CPUID
 static drflac_bool32 drflac__gIsSSE2Supported  = DRFLAC_FALSE;
 static drflac_bool32 drflac__gIsSSE41Supported = DRFLAC_FALSE;
+
+/*
+I've had a bug report that Clang's ThreadSanitizer presents a warning in this function. Having reviewed this, this does
+actually make sense. However, since CPU caps should never differ for a running process, I don't think the trade off of
+complicating internal API's by passing around CPU caps versus just disabling the warnings is worthwhile. I'm therefore
+just going to disable these warnings. This is disabled via the DRFLAC_NO_THREAD_SANITIZE attribute.
+*/
 DRFLAC_NO_THREAD_SANITIZE static void drflac__init_cpu_caps()
 {
     static drflac_bool32 isCPUCapsInitialized = DRFLAC_FALSE;
@@ -1298,6 +1301,31 @@ DRFLAC_NO_THREAD_SANITIZE static void drflac__init_cpu_caps()
         /* Initialized. */
         isCPUCapsInitialized = DRFLAC_TRUE;
     }
+}
+#else
+static drflac_bool32 drflac__gIsNEONSupported  = DRFLAC_FALSE;
+
+static DRFLAC_INLINE drflac_bool32 drflac__has_neon()
+{
+#if defined(DRFLAC_SUPPORT_NEON)
+    #if defined(DRFLAC_ARM) && !defined(DRFLAC_NO_NEON)
+        #if (defined(__ARM_NEON) || defined(__aarch64__) || defined(_M_ARM64))
+            return DRFLAC_TRUE;    /* If the compiler is allowed to freely generate NEON code we can assume support. */
+        #else
+            /* TODO: Runtime check. */
+            return DRFLAC_FALSE;
+        #endif
+    #else
+        return DRFLAC_FALSE;       /* NEON is only supported on ARM architectures. */
+    #endif
+#else
+    return DRFLAC_FALSE;           /* No compiler support. */
+#endif
+}
+
+DRFLAC_NO_THREAD_SANITIZE static void drflac__init_cpu_caps()
+{
+    drflac__gIsNEONSupported = drflac__has_neon();
 }
 #endif
 
@@ -7085,10 +7113,8 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     drflac_allocation_callbacks allocationCallbacks;
     drflac* pFlac;
 
-#ifndef DRFLAC_NO_CPUID
     /* CPU support first. */
     drflac__init_cpu_caps();
-#endif
 
     if (!drflac__init_private(&init, onRead, onSeek, onMeta, container, pUserData, pUserDataMD)) {
         return NULL;
@@ -8040,11 +8066,50 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo_
 }
 #endif
 
+#if defined(DRFLAC_SUPPORT_NEON)
+static DRFLAC_INLINE void drflac__vst2q_s32(drflac_int32* p, int32x4x2_t x)
+{
+    vst1q_s32(p+0, x.val[0]);
+    vst1q_s32(p+4, x.val[1]);
+}
+
+static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo__neon(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int32* pOutputSamples)
+{
+    drflac_uint64 i;
+    drflac_uint64 frameCount4 = frameCount >> 2;
+
+    int shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
+    int shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
+
+    int32x4_t shift4_0 = vdupq_n_s32(shift0);
+    int32x4_t shift4_1 = vdupq_n_s32(shift1);
+
+    for (i = 0; i < frameCount4; ++i) {
+        int32x4_t inputSample0 = vld1q_s32(pInputSamples0 + i*4);
+        int32x4_t inputSample1 = vld1q_s32(pInputSamples1 + i*4);
+
+        inputSample0 = vshlq_s32(inputSample0, shift4_0);
+        inputSample1 = vshlq_s32(inputSample1, shift4_1);
+
+        drflac__vst2q_s32(pOutputSamples + i*8, vzipq_s32(inputSample0, inputSample1));
+    }
+
+    for (i = (frameCount4 << 2); i < frameCount; ++i) {
+        pOutputSamples[i*2+0] = (pInputSamples0[i] << shift0);
+        pOutputSamples[i*2+1] = (pInputSamples1[i] << shift1);
+    }
+}
+#endif
+
 static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo(drflac* pFlac, drflac_uint64 frameCount, drflac_int32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int32* pOutputSamples)
 {
 #if defined(DRFLAC_SUPPORT_SSE2)
     if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_independent_stereo__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
+    } else
+#elif defined(DRFLAC_SUPPORT_NEON)
+    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+        drflac_read_pcm_frames_s32__decode_independent_stereo__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
     {
