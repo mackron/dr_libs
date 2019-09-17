@@ -8841,12 +8841,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__sse2(drfl
 
             mid = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
 
-            left  = _mm_add_epi32(mid, side);
-            right = _mm_sub_epi32(mid, side);
-
-            /* Signed bit shift. */
-            left  = _mm_or_si128(_mm_srli_epi32(left, 1),  _mm_and_si128(left,  _mm_set1_epi32(0x80000000)));
-            right = _mm_or_si128(_mm_srli_epi32(right, 1), _mm_and_si128(right, _mm_set1_epi32(0x80000000)));
+            left  = _mm_srai_epi32(_mm_add_epi32(mid, side), 1);
+            right = _mm_srai_epi32(_mm_sub_epi32(mid, side), 1);
 
             left  = _mm_srai_epi32(left,  16);
             right = _mm_srai_epi32(right, 16);
@@ -9503,14 +9499,10 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__sse2(drfl
             __m128i mid  = _mm_slli_epi32(inputSample0, pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
             __m128i side = _mm_slli_epi32(inputSample1, pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
-            mid = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
+            mid    = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
 
-            tempL = _mm_add_epi32(mid, side);
-            tempR = _mm_sub_epi32(mid, side);
-
-            /* Signed bit shift. */
-            tempL = _mm_or_si128(_mm_srli_epi32(tempL, 1), _mm_and_si128(tempL, _mm_set1_epi32(0x80000000)));
-            tempR = _mm_or_si128(_mm_srli_epi32(tempR, 1), _mm_and_si128(tempR, _mm_set1_epi32(0x80000000)));
+            tempL  = _mm_srai_epi32(_mm_add_epi32(mid, side), 1);
+            tempR  = _mm_srai_epi32(_mm_sub_epi32(mid, side), 1);
 
             leftf  = _mm_mul_ps(_mm_cvtepi32_ps(tempL), factor128);
             rightf = _mm_mul_ps(_mm_cvtepi32_ps(tempR), factor128);
