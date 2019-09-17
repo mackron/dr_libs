@@ -7926,12 +7926,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__sse2(drfl
 
             mid = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
 
-            left  = _mm_add_epi32(mid, side);
-            right = _mm_sub_epi32(mid, side);
-
-            /* Signed bit shift. */
-            left  = _mm_or_si128(_mm_srli_epi32(left, 1),  _mm_and_si128(left,  _mm_set1_epi32(0x80000000)));
-            right = _mm_or_si128(_mm_srli_epi32(right, 1), _mm_and_si128(right, _mm_set1_epi32(0x80000000)));
+            left  = _mm_srai_epi32(_mm_add_epi32(mid, side), 1);
+            right = _mm_srai_epi32(_mm_sub_epi32(mid, side), 1);
 
             _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 0), _mm_unpacklo_epi32(left, right));
             _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 4), _mm_unpackhi_epi32(left, right));
