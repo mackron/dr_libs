@@ -7633,11 +7633,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side__sse2(drf
     shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
     for (i = 0; i < frameCount4; ++i) {
-        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
-
-        __m128i left  = _mm_slli_epi32(inputSample0, shift0);
-        __m128i side  = _mm_slli_epi32(inputSample1, shift1);
+        __m128i left  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
+        __m128i side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), shift1);
         __m128i right = _mm_sub_epi32(left, side);
 
         _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 0), _mm_unpacklo_epi32(left, right));
@@ -7794,11 +7791,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side__sse2(dr
     shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
     for (i = 0; i < frameCount4; ++i) {
-        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
-
-        __m128i side  = _mm_slli_epi32(inputSample0, shift0);
-        __m128i right = _mm_slli_epi32(inputSample1, shift1);
+        __m128i side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
+        __m128i right = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), shift1);
         __m128i left  = _mm_add_epi32(right, side);
 
         _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 0), _mm_unpacklo_epi32(left, right));
@@ -8020,16 +8014,15 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__sse2(drfl
     shift = unusedBitsPerSample;
     if (shift == 0) {
         for (i = 0; i < frameCount4; ++i) {
+            __m128i mid;
+            __m128i side;
             __m128i left;
             __m128i right;
 
-            __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-            __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+            mid   = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
+            side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
-            __m128i mid  = _mm_slli_epi32(inputSample0, pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
-            __m128i side = _mm_slli_epi32(inputSample1, pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
-
-            mid = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
+            mid   = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
 
             left  = _mm_srai_epi32(_mm_add_epi32(mid, side), 1);
             right = _mm_srai_epi32(_mm_sub_epi32(mid, side), 1);
@@ -8050,20 +8043,15 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__sse2(drfl
     } else {
         shift -= 1;
         for (i = 0; i < frameCount4; ++i) {
-            __m128i inputSample0;
-            __m128i inputSample1;
             __m128i mid;
             __m128i side;
             __m128i left;
             __m128i right;
 
-            inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-            inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+            mid   = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
+            side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
-            mid  = _mm_slli_epi32(inputSample0, pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
-            side = _mm_slli_epi32(inputSample1, pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
-
-            mid = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
+            mid   = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
 
             left  = _mm_slli_epi32(_mm_add_epi32(mid, side), shift);
             right = _mm_slli_epi32(_mm_sub_epi32(mid, side), shift);
@@ -8244,11 +8232,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo_
     int shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
     for (i = 0; i < frameCount4; ++i) {
-        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
-
-        __m128i left  = _mm_slli_epi32(inputSample0, shift0);
-        __m128i right = _mm_slli_epi32(inputSample1, shift1);
+        __m128i left  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
+        __m128i right = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), shift1);
 
         _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 0), _mm_unpacklo_epi32(left, right));
         _mm_storeu_si128((__m128i*)(pOutputSamples + i*8 + 4), _mm_unpackhi_epi32(left, right));
@@ -8484,11 +8469,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_left_side__sse2(drf
     shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
     for (i = 0; i < frameCount4; ++i) {
-        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
-
-        __m128i left  = _mm_slli_epi32(inputSample0, shift0);
-        __m128i side  = _mm_slli_epi32(inputSample1, shift1);
+        __m128i left  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
+        __m128i side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), shift1);
         __m128i right = _mm_sub_epi32(left, side);
 
         left  = _mm_srai_epi32(left,  16);
@@ -8672,11 +8654,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_right_side__sse2(dr
     shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
     for (i = 0; i < frameCount4; ++i) {
-        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
-
-        __m128i side  = _mm_slli_epi32(inputSample0, shift0);
-        __m128i right = _mm_slli_epi32(inputSample1, shift1);
+        __m128i side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
+        __m128i right = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), shift1);
         __m128i left  = _mm_add_epi32(right, side);
 
         left  = _mm_srai_epi32(left,  16);
@@ -8929,16 +8908,15 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__sse2(drfl
     shift = unusedBitsPerSample;
     if (shift == 0) {
         for (i = 0; i < frameCount4; ++i) {
+            __m128i mid;
+            __m128i side;
             __m128i left;
             __m128i right;
 
-            __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-            __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+            mid   = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
+            side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
-            __m128i mid  = _mm_slli_epi32(inputSample0, pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
-            __m128i side = _mm_slli_epi32(inputSample1, pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
-
-            mid = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
+            mid   = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
 
             left  = _mm_srai_epi32(_mm_add_epi32(mid, side), 1);
             right = _mm_srai_epi32(_mm_sub_epi32(mid, side), 1);
@@ -8961,20 +8939,15 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__sse2(drfl
     } else {
         shift -= 1;
         for (i = 0; i < frameCount4; ++i) {
-            __m128i inputSample0;
-            __m128i inputSample1;
             __m128i mid;
             __m128i side;
             __m128i left;
             __m128i right;
 
-            inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-            inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+            mid   = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
+            side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
-            mid  = _mm_slli_epi32(inputSample0, pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
-            side = _mm_slli_epi32(inputSample1, pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
-
-            mid = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
+            mid   = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
 
             left  = _mm_slli_epi32(_mm_add_epi32(mid, side), shift);
             right = _mm_slli_epi32(_mm_sub_epi32(mid, side), shift);
@@ -9171,11 +9144,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_independent_stereo_
     drflac_int32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
     for (i = 0; i < frameCount4; ++i) {
-        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
-
-        __m128i left  = _mm_slli_epi32(inputSample0, shift0);
-        __m128i right = _mm_slli_epi32(inputSample1, shift1);
+        __m128i left  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
+        __m128i right = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), shift1);
 
         left  = _mm_srai_epi32(left,  16);
         right = _mm_srai_epi32(right, 16);
@@ -9405,11 +9375,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_left_side__sse2(drf
     shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
 
     for (i = 0; i < frameCount4; ++i) {
-        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
-
-        __m128i left  = _mm_slli_epi32(inputSample0, shift0);
-        __m128i side  = _mm_slli_epi32(inputSample1, shift1);
+        __m128i left  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
+        __m128i side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), shift1);
         __m128i right = _mm_sub_epi32(left, side);
         __m128 leftf  = _mm_mul_ps(_mm_cvtepi32_ps(left),  factor);
         __m128 rightf = _mm_mul_ps(_mm_cvtepi32_ps(right), factor);
@@ -9579,11 +9546,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_right_side__sse2(dr
     shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
 
     for (i = 0; i < frameCount4; ++i) {
-        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
-
-        __m128i side  = _mm_slli_epi32(inputSample0, shift0);
-        __m128i right = _mm_slli_epi32(inputSample1, shift1);
+        __m128i side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
+        __m128i right = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), shift1);
         __m128i left  = _mm_add_epi32(right, side);
         __m128 leftf  = _mm_mul_ps(_mm_cvtepi32_ps(left),  factor);
         __m128 rightf = _mm_mul_ps(_mm_cvtepi32_ps(right), factor);
@@ -9821,16 +9785,15 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__sse2(drfl
     shift = unusedBitsPerSample - 8;
     if (shift == 0) {
         for (i = 0; i < frameCount4; ++i) {
+            __m128i mid;
+            __m128i side;
             __m128i tempL;
             __m128i tempR;
             __m128  leftf;
             __m128  rightf;
-
-            __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-            __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
-
-            __m128i mid  = _mm_slli_epi32(inputSample0, pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
-            __m128i side = _mm_slli_epi32(inputSample1, pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
+            
+            mid    = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
+            side   = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
             mid    = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
 
@@ -9856,8 +9819,6 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__sse2(drfl
     } else {
         shift -= 1;
         for (i = 0; i < frameCount4; ++i) {
-            __m128i inputSample0;
-            __m128i inputSample1;
             __m128i mid;
             __m128i side;
             __m128i tempL;
@@ -9865,16 +9826,13 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__sse2(drfl
             __m128 leftf;
             __m128 rightf;
 
-            inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-            inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+            mid    = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
+            side   = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
-            mid  = _mm_slli_epi32(inputSample0, pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
-            side = _mm_slli_epi32(inputSample1, pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
+            mid    = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
 
-            mid = _mm_or_si128(_mm_slli_epi32(mid, 1), _mm_and_si128(side, _mm_set1_epi32(0x01)));
-
-            tempL = _mm_slli_epi32(_mm_add_epi32(mid, side), shift);
-            tempR = _mm_slli_epi32(_mm_sub_epi32(mid, side), shift);
+            tempL  = _mm_slli_epi32(_mm_add_epi32(mid, side), shift);
+            tempR  = _mm_slli_epi32(_mm_sub_epi32(mid, side), shift);
 
             leftf  = _mm_mul_ps(_mm_cvtepi32_ps(tempL), factor128);
             rightf = _mm_mul_ps(_mm_cvtepi32_ps(tempR), factor128);
@@ -10068,14 +10026,16 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_independent_stereo_
     drflac_int32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
 
     for (i = 0; i < frameCount4; ++i) {
-        __m128i inputSample0 = _mm_loadu_si128((const __m128i*)pInputSamples0 + i);
-        __m128i inputSample1 = _mm_loadu_si128((const __m128i*)pInputSamples1 + i);
+        __m128i lefti;
+        __m128i righti;
+        __m128 leftf;
+        __m128 rightf;
 
-        __m128i lefti  = _mm_slli_epi32(inputSample0, shift0);
-        __m128i righti = _mm_slli_epi32(inputSample1, shift1);
+        lefti  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
+        righti = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), shift1);
 
-        __m128 leftf  = _mm_mul_ps(_mm_cvtepi32_ps(lefti),  factor128);
-        __m128 rightf = _mm_mul_ps(_mm_cvtepi32_ps(righti), factor128);
+        leftf  = _mm_mul_ps(_mm_cvtepi32_ps(lefti),  factor128);
+        rightf = _mm_mul_ps(_mm_cvtepi32_ps(righti), factor128);
 
         _mm_storeu_ps(pOutputSamples + i*8 + 0, _mm_unpacklo_ps(leftf, rightf));
         _mm_storeu_ps(pOutputSamples + i*8 + 4, _mm_unpackhi_ps(leftf, rightf));
