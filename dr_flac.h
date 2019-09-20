@@ -4187,9 +4187,9 @@ static DRFLAC_INLINE int32x4_t drflac__valignrq_s32_1(int32x4_t a, int32x4_t b)
     return (int32x4_t)vsriq_n_u64((uint64x2_t)c, (uint64x2_t)b, 32);
 }
 
-static DRFLAC_INLINE int32x4_t drflac__vhaddq_s32(int32x4_t x)
+static DRFLAC_INLINE int32x2_t drflac__vhaddq_s32(int32x4_t x)
 {
-    /* The sum must be left in position 0. */
+    /* The sum must end up in position 0. */
     
     /* TODO: Optimize me. */
     /*return vdupq_n_s32(
@@ -4200,7 +4200,7 @@ static DRFLAC_INLINE int32x4_t drflac__vhaddq_s32(int32x4_t x)
     );*/
     
     int32x2_t r = vadd_s32(vget_high_s32(x), vget_low_s32(x));
-    return vcombine_s32(vpadd_s32(r, r), r);
+    return vpadd_s32(r, r);
 }
 
 static DRFLAC_INLINE int32x4_t drflac__vrevq_s32(int32x4_t x)
@@ -4242,7 +4242,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
     int32x4_t samples128_8;
     int32x4_t riceParamMask128;
     int32x4_t riceParam128;
-    int32x4_t shift128;
+    int32x2_t shift64;
 
     const drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
 
@@ -4250,7 +4250,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
     riceParamMask128 = vdupq_n_s32(riceParamMask);
 
     riceParam128 = vdupq_n_s32(riceParam);
-    shift128 = vdupq_n_s32(-shift); /* Negate the shift because we'll be doing a variable shift using vshlq_s32(). */
+    shift64 = vdup_n_s32(-shift); /* Negate the shift because we'll be doing a variable shift using vshlq_s32(). */
     
     /* Pre-load. */
     coefficients128_0 = vdupq_n_s32(0);
@@ -4353,8 +4353,9 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
         /*riceParamPart128 = veorq_s32(vshrq_n_s32(riceParamPart128, 1), vmulq_s32(vandq_s32(riceParamPart128, vdupq_n_s32(0x01)), vdupq_n_s32(0xFFFFFFFF)));*/
 
         for (i = 0; i < 4; i += 1) {
+            int32x2_t prediction64;
+            
             prediction128 = veorq_s32(prediction128, prediction128);    /* Reset to 0. */
-
             switch (order)
             {
             case 12:
@@ -4372,14 +4373,15 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
             }
 
             /* Horizontal add and shift. */
-            prediction128 = drflac__vhaddq_s32(prediction128);
-            prediction128 = vshlq_s32(prediction128, shift128);
-            prediction128 = vaddq_s32(riceParamPart128, prediction128);
+            prediction64 = drflac__vhaddq_s32(prediction128);
+            prediction64 = vshl_s32(prediction64, shift64);
+            prediction64 = vadd_s32(vget_low_s32(riceParamPart128), prediction64);
 
             /* Our value should be sitting in prediction128[0]. We need to combine this with our SSE samples. */
             samples128_8 = drflac__valignrq_s32_1(samples128_4,  samples128_8);
             samples128_4 = drflac__valignrq_s32_1(samples128_0,  samples128_4);
-            samples128_0 = drflac__valignrq_s32_1(prediction128, samples128_0);
+            samples128_0 = (int32x4_t)vsriq_n_u64((uint64x2_t)vrev64q_s32(vcombine_s32(vget_high_s32(samples128_0), prediction64)), (uint64x2_t)samples128_0, 32);
+            /*samples128_0 = drflac__valignrq_s32_1(prediction128, samples128_0);*/
 
             /* Slide our rice parameter down so that the value in position 0 contains the next one to process. */
             riceParamPart128 = drflac__valignrq_s32_1(vdupq_n_s32(0), riceParamPart128);
