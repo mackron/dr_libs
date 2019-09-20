@@ -4160,6 +4160,276 @@ static DRFLAC_INLINE void drflac__vst2q_s16(drflac_int16* p, int16x4x2_t x)
 {
     vst1q_s16(p, vcombine_s16(x.val[0], x.val[1]));
 }
+
+static DRFLAC_INLINE int32x4_t drflac__vdupq_n_s32x4(drflac_int32 x3, drflac_int32 x2, drflac_int32 x1, drflac_int32 x0)
+{
+    drflac_int32 x[4];
+    x[3] = x3;
+    x[2] = x2;
+    x[1] = x1;
+    x[0] = x0;
+    return vld1q_s32(x);
+}
+
+static DRFLAC_INLINE int32x4_t drflac__valignrq_s32_1(int32x4_t a, int32x4_t b)
+{
+    /* Equivalent to SSE's _mm_alignr_epi8(a, b, 4) */
+    
+    /* TODO: Optimize me. */
+    /*return drflac__vdupq_n_s32x4(
+        vgetq_lane_s32(a, 0),
+        vgetq_lane_s32(b, 3),
+        vgetq_lane_s32(b, 2),
+        vgetq_lane_s32(b, 1)
+    );*/
+
+    int32x4_t c = vrev64q_s32(vcombine_s32(vget_high_s32(b), vget_low_s32(a)));
+    return (int32x4_t)vsriq_n_u64((uint64x2_t)c, (uint64x2_t)b, 32);
+}
+
+static DRFLAC_INLINE int32x4_t drflac__vhaddq_s32(int32x4_t x)
+{
+    /* The sum must be left in position 0. */
+    
+    /* TODO: Optimize me. */
+    /*return vdupq_n_s32(
+        vgetq_lane_s32(x, 3) +
+        vgetq_lane_s32(x, 2) +
+        vgetq_lane_s32(x, 1) +
+        vgetq_lane_s32(x, 0)
+    );*/
+    
+    int32x2_t r = vadd_s32(vget_high_s32(x), vget_low_s32(x));
+    return vcombine_s32(vpadd_s32(r, r), r);
+}
+
+static DRFLAC_INLINE int32x4_t drflac__vrevq_s32(int32x4_t x)
+{
+    /* TODO: Optimize me. */
+    return drflac__vdupq_n_s32x4(
+        vgetq_lane_s32(x, 0),
+        vgetq_lane_s32(x, 1),
+        vgetq_lane_s32(x, 2),
+        vgetq_lane_s32(x, 3)
+    );
+}
+
+static DRFLAC_INLINE int32x4_t drflac__vnotq_s32(int32x4_t x)
+{
+    return veorq_s32(x, vdupq_n_s32(0xFFFFFFFF));
+}
+
+#include <stdio.h>
+static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_bs* bs, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+{
+    int i;
+    drflac_uint32 riceParamMask;
+    drflac_int32* pDecodedSamples    = pSamplesOut;
+    drflac_int32* pDecodedSamplesEnd = pSamplesOut + (count & ~3);
+    drflac_uint32 zeroCountParts0;
+    drflac_uint32 zeroCountParts1;
+    drflac_uint32 zeroCountParts2;
+    drflac_uint32 zeroCountParts3;
+    drflac_uint32 riceParamParts0;
+    drflac_uint32 riceParamParts1;
+    drflac_uint32 riceParamParts2;
+    drflac_uint32 riceParamParts3;
+    int32x4_t coefficients128_0;
+    int32x4_t coefficients128_4;
+    int32x4_t coefficients128_8;
+    int32x4_t samples128_0;
+    int32x4_t samples128_4;
+    int32x4_t samples128_8;
+    int32x4_t riceParamMask128;
+    int32x4_t riceParam128;
+    int32x4_t shift128;
+
+    const drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
+
+    riceParamMask    = ~((~0UL) << riceParam);
+    riceParamMask128 = vdupq_n_s32(riceParamMask);
+
+    riceParam128 = vdupq_n_s32(riceParam);
+    shift128 = vdupq_n_s32(-shift); /* Negate the shift because we'll be doing a variable shift using vshlq_s32(). */
+    
+    /* Pre-load. */
+    coefficients128_0 = vdupq_n_s32(0);
+    coefficients128_4 = vdupq_n_s32(0);
+    coefficients128_8 = vdupq_n_s32(0);
+
+    samples128_0 = vdupq_n_s32(0);
+    samples128_4 = vdupq_n_s32(0);
+    samples128_8 = vdupq_n_s32(0);
+
+    /*
+    Pre-loading the coefficients and prior samples is annoying because we need to ensure we don't try reading more than
+    what's available in the input buffers. It would be conenient to use a fall-through switch to do this, but this results
+    in strict aliasing warnings with GCC. To work around this I'm just doing something hacky. This feels a bit convoluted
+    so I think there's opportunity for this to be simplified.
+    */
+    {
+        int runningOrder = order;
+        drflac_int32 tempC[4] = {0, 0, 0, 0};
+        drflac_int32 tempS[4] = {0, 0, 0, 0};
+
+        /* 0 - 3. */
+        if (runningOrder >= 4) {
+            coefficients128_0 = vld1q_s32(coefficients + 0);
+            samples128_0      = vld1q_s32(pSamplesOut  - 4);
+            runningOrder -= 4;
+        } else {
+            switch (runningOrder) {
+                case 3: tempC[2] = coefficients[2]; tempS[1] = pSamplesOut[-3]; /* fallthrough */
+                case 2: tempC[1] = coefficients[1]; tempS[2] = pSamplesOut[-2]; /* fallthrough */
+                case 1: tempC[0] = coefficients[0]; tempS[3] = pSamplesOut[-1]; /* fallthrough */
+            }
+            
+            coefficients128_0 = vld1q_s32(tempC);
+            samples128_0      = vld1q_s32(tempS);
+            runningOrder = 0;
+        }
+
+        /* 4 - 7 */
+        if (runningOrder >= 4) {
+            coefficients128_4 = vld1q_s32(coefficients + 4);
+            samples128_4      = vld1q_s32(pSamplesOut  - 8);
+            runningOrder -= 4;
+        } else {
+            switch (runningOrder) {
+                case 3: tempC[2] = coefficients[6]; tempS[1] = pSamplesOut[-7]; /* fallthrough */
+                case 2: tempC[1] = coefficients[5]; tempS[2] = pSamplesOut[-6]; /* fallthrough */
+                case 1: tempC[0] = coefficients[4]; tempS[3] = pSamplesOut[-5]; /* fallthrough */
+            }
+            
+            coefficients128_4 = vld1q_s32(tempC);
+            samples128_4      = vld1q_s32(tempS);
+            runningOrder = 0;
+        }
+
+        /* 8 - 11 */
+        if (runningOrder == 4) {
+            coefficients128_8 = vld1q_s32(coefficients + 8);
+            samples128_8      = vld1q_s32(pSamplesOut  - 12);
+            runningOrder -= 4;
+        } else {
+            switch (runningOrder) {
+                case 3: tempC[2] = coefficients[10]; tempS[1] = pSamplesOut[-11]; /* fallthrough */
+                case 2: tempC[1] = coefficients[ 9]; tempS[2] = pSamplesOut[-10]; /* fallthrough */
+                case 1: tempC[0] = coefficients[ 8]; tempS[3] = pSamplesOut[- 9]; /* fallthrough */
+            }
+            
+            coefficients128_8 = vld1q_s32(tempC);
+            samples128_8      = vld1q_s32(tempS);
+            runningOrder = 0;
+        }
+
+        /* Coefficients need to be shuffled for our streaming algorithm below to work. Samples are already in the correct order from the loading routine above. */
+        coefficients128_0 = drflac__vrevq_s32(coefficients128_0);
+        coefficients128_4 = drflac__vrevq_s32(coefficients128_4);
+        coefficients128_8 = drflac__vrevq_s32(coefficients128_8);
+    }
+    
+    /*printf("ORDER: %d\n", order);*/
+
+    /* For this version we are doing one sample at a time. */
+    while (pDecodedSamples < pDecodedSamplesEnd) {
+        int32x4_t prediction128;
+        int32x4_t zeroCountPart128;
+        int32x4_t riceParamPart128;
+
+        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts0, &riceParamParts0) ||
+            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts1, &riceParamParts1) ||
+            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts2, &riceParamParts2) ||
+            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts3, &riceParamParts3)) {
+            return DRFLAC_FALSE;
+        }
+
+        zeroCountPart128 = drflac__vdupq_n_s32x4(zeroCountParts3, zeroCountParts2, zeroCountParts1, zeroCountParts0);
+        riceParamPart128 = drflac__vdupq_n_s32x4(riceParamParts3, riceParamParts2, riceParamParts1, riceParamParts0);
+        
+        riceParamPart128 = vandq_s32(riceParamPart128, riceParamMask128);
+        riceParamPart128 = vorrq_s32(riceParamPart128, vshlq_s32(zeroCountPart128, riceParam128));
+        riceParamPart128 = veorq_s32(vshrq_n_s32(riceParamPart128, 1), vaddq_s32(drflac__vnotq_s32(vandq_s32(riceParamPart128, vdupq_n_s32(0x01))), vdupq_n_s32(0x01)));
+        /*riceParamPart128 = veorq_s32(vshrq_n_s32(riceParamPart128, 1), vmulq_s32(vandq_s32(riceParamPart128, vdupq_n_s32(0x01)), vdupq_n_s32(0xFFFFFFFF)));*/
+
+        for (i = 0; i < 4; i += 1) {
+            prediction128 = veorq_s32(prediction128, prediction128);    /* Reset to 0. */
+
+            switch (order)
+            {
+            case 12:
+            case 11:
+            case 10:
+            case  9: prediction128 = vmlaq_s32(prediction128, coefficients128_8, samples128_8); /*prediction128 = vaddq_s32(prediction128, vmulq_s32(coefficients128_8, samples128_8));*/
+            case  8:
+            case  7:
+            case  6:
+            case  5: prediction128 = vmlaq_s32(prediction128, coefficients128_4, samples128_4); /*prediction128 = vaddq_s32(prediction128, vmulq_s32(coefficients128_4, samples128_4));*/
+            case  4:
+            case  3:
+            case  2:
+            case  1: prediction128 = vmlaq_s32(prediction128, coefficients128_0, samples128_0); /*prediction128 = vaddq_s32(prediction128, vmulq_s32(coefficients128_0, samples128_0));*/
+            }
+
+            /* Horizontal add and shift. */
+            prediction128 = drflac__vhaddq_s32(prediction128);
+            prediction128 = vshlq_s32(prediction128, shift128);
+            prediction128 = vaddq_s32(riceParamPart128, prediction128);
+
+            /* Our value should be sitting in prediction128[0]. We need to combine this with our SSE samples. */
+            samples128_8 = drflac__valignrq_s32_1(samples128_4,  samples128_8);
+            samples128_4 = drflac__valignrq_s32_1(samples128_0,  samples128_4);
+            samples128_0 = drflac__valignrq_s32_1(prediction128, samples128_0);
+
+            /* Slide our rice parameter down so that the value in position 0 contains the next one to process. */
+            riceParamPart128 = drflac__valignrq_s32_1(vdupq_n_s32(0), riceParamPart128);
+        }
+
+        /* We store samples in groups of 4. */
+        vst1q_s32(pDecodedSamples, samples128_0);
+        pDecodedSamples += 4;
+    }
+
+    /* Make sure we process the last few samples. */
+    i = (count & ~3);
+    while (i < (int)count) {
+        /* Rice extraction. */
+        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts0, &riceParamParts0)) {
+            return DRFLAC_FALSE;
+        }
+
+        /* Rice reconstruction. */
+        riceParamParts0 &= riceParamMask;
+        riceParamParts0 |= (zeroCountParts0 << riceParam);
+        riceParamParts0  = (riceParamParts0 >> 1) ^ t[riceParamParts0 & 0x01];
+
+        /* Sample reconstruction. */
+        pDecodedSamples[0] = riceParamParts0 + drflac__calculate_prediction_32(order, shift, coefficients, pDecodedSamples);
+
+        i += 1;
+        pDecodedSamples += 1;
+    }
+
+    return DRFLAC_TRUE;
+}
+
+static drflac_bool32 drflac__decode_samples_with_residual__rice__neon(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
+{
+    drflac_assert(bs != NULL);
+    drflac_assert(count > 0);
+    drflac_assert(pSamplesOut != NULL);
+
+    /* In my testing the order is rarely > 12, so in this case I'm going to simplify the NEON implementation by only handling order <= 12. */
+    if (order > 0 && order <= 12) {
+        if (bitsPerSample+shift > 32) {
+            return drflac__decode_samples_with_residual__rice__scalar(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+        } else {
+            return drflac__decode_samples_with_residual__rice__neon_32(bs, count, riceParam, order, shift, coefficients, pSamplesOut);
+        }
+    } else {
+        return drflac__decode_samples_with_residual__rice__scalar(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+    }
+}
 #endif
 
 static drflac_bool32 drflac__decode_samples_with_residual__rice(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 riceParam, drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
@@ -4167,6 +4437,10 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice(drflac_bs* bs, d
 #if defined(DRFLAC_SUPPORT_SSE41)
     if (drflac__gIsSSE41Supported) {
         return drflac__decode_samples_with_residual__rice__sse41(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
+    } else
+#elif defined(DRFLAC_SUPPORT_NEON)
+    if (drflac__gIsNEONSupported) {
+        return drflac__decode_samples_with_residual__rice__neon(bs, bitsPerSample, count, riceParam, order, shift, coefficients, pSamplesOut);
     } else
 #endif
     {
