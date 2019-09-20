@@ -4175,7 +4175,7 @@ static DRFLAC_INLINE int32x4_t drflac__valignrq_s32_1(int32x4_t a, int32x4_t b)
 {
     /* Equivalent to SSE's _mm_alignr_epi8(a, b, 4) */
     
-    /* TODO: Optimize me. */
+    /* Reference */
     /*return drflac__vdupq_n_s32x4(
         vgetq_lane_s32(a, 0),
         vgetq_lane_s32(b, 3),
@@ -4191,7 +4191,7 @@ static DRFLAC_INLINE int32x2_t drflac__vhaddq_s32(int32x4_t x)
 {
     /* The sum must end up in position 0. */
     
-    /* TODO: Optimize me. */
+    /* Reference */
     /*return vdupq_n_s32(
         vgetq_lane_s32(x, 3) +
         vgetq_lane_s32(x, 2) +
@@ -4226,14 +4226,8 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
     drflac_uint32 riceParamMask;
     drflac_int32* pDecodedSamples    = pSamplesOut;
     drflac_int32* pDecodedSamplesEnd = pSamplesOut + (count & ~3);
-    drflac_uint32 zeroCountParts0;
-    drflac_uint32 zeroCountParts1;
-    drflac_uint32 zeroCountParts2;
-    drflac_uint32 zeroCountParts3;
-    drflac_uint32 riceParamParts0;
-    drflac_uint32 riceParamParts1;
-    drflac_uint32 riceParamParts2;
-    drflac_uint32 riceParamParts3;
+    drflac_uint32 zeroCountParts[4];
+    drflac_uint32 riceParamParts[4];
     int32x4_t coefficients128_0;
     int32x4_t coefficients128_4;
     int32x4_t coefficients128_8;
@@ -4337,15 +4331,15 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
         int32x4_t zeroCountPart128;
         int32x4_t riceParamPart128;
 
-        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts0, &riceParamParts0) ||
-            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts1, &riceParamParts1) ||
-            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts2, &riceParamParts2) ||
-            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts3, &riceParamParts3)) {
+        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts[0], &riceParamParts[0]) ||
+            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts[1], &riceParamParts[1]) ||
+            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts[2], &riceParamParts[2]) ||
+            !drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts[3], &riceParamParts[3])) {
             return DRFLAC_FALSE;
         }
 
-        zeroCountPart128 = drflac__vdupq_n_s32x4(zeroCountParts3, zeroCountParts2, zeroCountParts1, zeroCountParts0);
-        riceParamPart128 = drflac__vdupq_n_s32x4(riceParamParts3, riceParamParts2, riceParamParts1, riceParamParts0);
+        zeroCountPart128 = vld1q_s32((drflac_int32*)zeroCountParts);
+        riceParamPart128 = vld1q_s32((drflac_int32*)riceParamParts);
         
         riceParamPart128 = vandq_s32(riceParamPart128, riceParamMask128);
         riceParamPart128 = vorrq_s32(riceParamPart128, vshlq_s32(zeroCountPart128, riceParam128));
@@ -4396,17 +4390,17 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
     i = (count & ~3);
     while (i < (int)count) {
         /* Rice extraction. */
-        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts0, &riceParamParts0)) {
+        if (!drflac__read_rice_parts_x1(bs, riceParam, &zeroCountParts[0], &riceParamParts[0])) {
             return DRFLAC_FALSE;
         }
 
         /* Rice reconstruction. */
-        riceParamParts0 &= riceParamMask;
-        riceParamParts0 |= (zeroCountParts0 << riceParam);
-        riceParamParts0  = (riceParamParts0 >> 1) ^ t[riceParamParts0 & 0x01];
+        riceParamParts[0] &= riceParamMask;
+        riceParamParts[0] |= (zeroCountParts[0] << riceParam);
+        riceParamParts[0]  = (riceParamParts[0] >> 1) ^ t[riceParamParts[0] & 0x01];
 
         /* Sample reconstruction. */
-        pDecodedSamples[0] = riceParamParts0 + drflac__calculate_prediction_32(order, shift, coefficients, pDecodedSamples);
+        pDecodedSamples[0] = riceParamParts[0] + drflac__calculate_prediction_32(order, shift, coefficients, pDecodedSamples);
 
         i += 1;
         pDecodedSamples += 1;
