@@ -2218,13 +2218,29 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_lzcnt(drflac_cache_t x)
     #endif
 #else
     #if defined(__GNUC__) || defined(__clang__)
-        if (x == 0) {
-            return sizeof(x)*8;
-        }
-        #ifdef DRFLAC_64BIT
-            return (drflac_uint32)__builtin_clzll((drflac_uint64)x);
+        #if defined(DRFLAC_X64)
+            drflac_uint64 r;
+            __asm__ __volatile__ (
+                "lzcnt{ %1, %0| %0, %1}" : "=r"(r) : "r"(x)
+            );
+
+            return (drflac_uint32)r;
+        #elif defined(DRFLAC_X86)
+            drflac_uint32 r;
+            __asm__ __volatile__ (
+                "lzcnt{l %1, %0| %0, %1}" : "=r"(r) : "r"(x)
+            );
+
+            return r;
         #else
-            return (drflac_uint32)__builtin_clzl((drflac_uint32)x);
+            if (x == 0) {
+                return sizeof(x)*8;
+            }
+            #ifdef DRFLAC_64BIT
+                return (drflac_uint32)__builtin_clzll((drflac_uint64)x);
+            #else
+                return (drflac_uint32)__builtin_clzl((drflac_uint32)x);
+            #endif
         #endif
     #else
         /* Unsupported compiler. */
@@ -3180,7 +3196,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__scalar(drflac_b
     return DRFLAC_TRUE;
 }
 
-#if defined(DRFLAC_SUPPORT_SSE41)
+#if defined(DRFLAC_SUPPORT_SSE2)
 static DRFLAC_INLINE __m128i drflac__mm_packs_interleaved_epi32(__m128i a, __m128i b)
 {
     __m128i r;
@@ -3197,7 +3213,9 @@ static DRFLAC_INLINE __m128i drflac__mm_packs_interleaved_epi32(__m128i a, __m12
 
     return r;
 }
+#endif
 
+#if defined(DRFLAC_SUPPORT_SSE41)
 static DRFLAC_INLINE __m128i drflac__mm_not_si128(__m128i a)
 {
     return _mm_xor_si128(a, _mm_cmpeq_epi32(_mm_setzero_si128(), _mm_setzero_si128()));
