@@ -2232,6 +2232,13 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_lzcnt(drflac_cache_t x)
             );
 
             return r;
+        #elif defined(DRFLAC_ARM) && (defined(__ARM_ARCH) && _ARM_ARCH >= 5) && !defined(DRFLAC_64BIT)   /* <-- I haven't tested 64-bit inline assembly, so only enabling this for the 32-bit build for now. */
+            unsigned int r;
+            __asm__ __volatile__ (
+                "clz %Q[out], %Q[in]" : [out]"=r"(r) : [in]"r"(x)
+            );
+
+            return r;
         #else
             if (x == 0) {
                 return sizeof(x)*8;
@@ -3681,7 +3688,7 @@ static DRFLAC_INLINE int32x4_t drflac__vdupq_n_s32x4(drflac_int32 x3, drflac_int
 static DRFLAC_INLINE int32x4_t drflac__valignrq_s32_1(int32x4_t a, int32x4_t b)
 {
     /* Equivalent to SSE's _mm_alignr_epi8(a, b, 4) */
-    
+
     /* Reference */
     /*return drflac__vdupq_n_s32x4(
         vgetq_lane_s32(a, 0),
@@ -3696,7 +3703,7 @@ static DRFLAC_INLINE int32x4_t drflac__valignrq_s32_1(int32x4_t a, int32x4_t b)
 static DRFLAC_INLINE uint32x4_t drflac__valignrq_u32_1(uint32x4_t a, uint32x4_t b)
 {
     /* Equivalent to SSE's _mm_alignr_epi8(a, b, 4) */
-    
+
     /* Reference */
     /*return drflac__vdupq_n_s32x4(
         vgetq_lane_s32(a, 0),
@@ -3711,7 +3718,7 @@ static DRFLAC_INLINE uint32x4_t drflac__valignrq_u32_1(uint32x4_t a, uint32x4_t 
 static DRFLAC_INLINE int32x2_t drflac__vhaddq_s32(int32x4_t x)
 {
     /* The sum must end up in position 0. */
-    
+
     /* Reference */
     /*return vdupq_n_s32(
         vgetq_lane_s32(x, 3) +
@@ -3719,7 +3726,7 @@ static DRFLAC_INLINE int32x2_t drflac__vhaddq_s32(int32x4_t x)
         vgetq_lane_s32(x, 1) +
         vgetq_lane_s32(x, 0)
     );*/
-    
+
     int32x2_t r = vadd_s32(vget_high_s32(x), vget_low_s32(x));
     return vpadd_s32(r, r);
 }
@@ -3738,7 +3745,7 @@ static DRFLAC_INLINE int32x4_t drflac__vrevq_s32(int32x4_t x)
         vgetq_lane_s32(x, 2),
         vgetq_lane_s32(x, 3)
     );*/
-    
+
     return vrev64q_s32(vcombine_s32(vget_high_s32(x), vget_low_s32(x)));
 }
 
@@ -3802,7 +3809,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
                 case 2: tempC[1] = coefficients[1]; tempS[2] = pSamplesOut[-2]; /* fallthrough */
                 case 1: tempC[0] = coefficients[0]; tempS[3] = pSamplesOut[-1]; /* fallthrough */
             }
-            
+
             coefficients128_0 = vld1q_s32(tempC);
             samples128_0      = vld1q_s32(tempS);
             runningOrder = 0;
@@ -3819,7 +3826,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
                 case 2: tempC[1] = coefficients[5]; tempS[2] = pSamplesOut[-6]; /* fallthrough */
                 case 1: tempC[0] = coefficients[4]; tempS[3] = pSamplesOut[-5]; /* fallthrough */
             }
-            
+
             coefficients128_4 = vld1q_s32(tempC);
             samples128_4      = vld1q_s32(tempS);
             runningOrder = 0;
@@ -3836,7 +3843,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
                 case 2: tempC[1] = coefficients[ 9]; tempS[2] = pSamplesOut[-10]; /* fallthrough */
                 case 1: tempC[0] = coefficients[ 8]; tempS[3] = pSamplesOut[- 9]; /* fallthrough */
             }
-            
+
             coefficients128_8 = vld1q_s32(tempC);
             samples128_8      = vld1q_s32(tempS);
             runningOrder = 0;
@@ -3847,7 +3854,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
         coefficients128_4 = drflac__vrevq_s32(coefficients128_4);
         coefficients128_8 = drflac__vrevq_s32(coefficients128_8);
     }
-    
+
     /* For this version we are doing one sample at a time. */
     while (pDecodedSamples < pDecodedSamplesEnd) {
         int32x4_t prediction128;
@@ -3863,14 +3870,14 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
 
         zeroCountPart128 = vld1q_u32(zeroCountParts);
         riceParamPart128 = vld1q_u32(riceParamParts);
-        
+
         riceParamPart128 = vandq_u32(riceParamPart128, riceParamMask128);
         riceParamPart128 = vorrq_u32(riceParamPart128, vshlq_u32(zeroCountPart128, riceParam128));
         riceParamPart128 = veorq_u32(vshrq_n_u32(riceParamPart128, 1), vaddq_u32(drflac__vnotq_u32(vandq_u32(riceParamPart128, one128)), one128));
 
         for (i = 0; i < 4; i += 1) {
             int32x2_t prediction64;
-            
+
             prediction128 = veorq_s32(prediction128, prediction128);    /* Reset to 0. */
             switch (order)
             {
@@ -3980,7 +3987,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_64(drflac_
                 case 2: tempC[1] = coefficients[1]; tempS[2] = pSamplesOut[-2]; /* fallthrough */
                 case 1: tempC[0] = coefficients[0]; tempS[3] = pSamplesOut[-1]; /* fallthrough */
             }
-            
+
             coefficients128_0 = vld1q_s32(tempC);
             samples128_0      = vld1q_s32(tempS);
             runningOrder = 0;
@@ -3997,7 +4004,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_64(drflac_
                 case 2: tempC[1] = coefficients[5]; tempS[2] = pSamplesOut[-6]; /* fallthrough */
                 case 1: tempC[0] = coefficients[4]; tempS[3] = pSamplesOut[-5]; /* fallthrough */
             }
-            
+
             coefficients128_4 = vld1q_s32(tempC);
             samples128_4      = vld1q_s32(tempS);
             runningOrder = 0;
@@ -4014,7 +4021,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_64(drflac_
                 case 2: tempC[1] = coefficients[ 9]; tempS[2] = pSamplesOut[-10]; /* fallthrough */
                 case 1: tempC[0] = coefficients[ 8]; tempS[3] = pSamplesOut[- 9]; /* fallthrough */
             }
-            
+
             coefficients128_8 = vld1q_s32(tempC);
             samples128_8      = vld1q_s32(tempS);
             runningOrder = 0;
@@ -4025,7 +4032,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_64(drflac_
         coefficients128_4 = drflac__vrevq_s32(coefficients128_4);
         coefficients128_8 = drflac__vrevq_s32(coefficients128_8);
     }
-    
+
     /* For this version we are doing one sample at a time. */
     while (pDecodedSamples < pDecodedSamplesEnd) {
         int64x2_t prediction128;
@@ -4041,14 +4048,14 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_64(drflac_
 
         zeroCountPart128 = vld1q_u32(zeroCountParts);
         riceParamPart128 = vld1q_u32(riceParamParts);
-        
+
         riceParamPart128 = vandq_u32(riceParamPart128, riceParamMask128);
         riceParamPart128 = vorrq_u32(riceParamPart128, vshlq_u32(zeroCountPart128, riceParam128));
         riceParamPart128 = veorq_u32(vshrq_n_u32(riceParamPart128, 1), vaddq_u32(drflac__vnotq_u32(vandq_u32(riceParamPart128, one128)), one128));
 
         for (i = 0; i < 4; i += 1) {
             int64x1_t prediction64;
-            
+
             prediction128 = veorq_s64(prediction128, prediction128);    /* Reset to 0. */
             switch (order)
             {
@@ -4065,7 +4072,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_64(drflac_
             case  2:
             case  1: prediction128 = vaddq_s64(prediction128, vmull_s32(vget_high_s32(coefficients128_0), vget_high_s32(samples128_0)));
             }
-            
+
             /* Horizontal add and shift. */
             prediction64 = drflac__vhaddq_s64(prediction128);
             prediction64 = vshl_s64(prediction64, shift64);
@@ -9138,7 +9145,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_independent_stereo_
 
     drflac_int32 shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
     drflac_int32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
-    
+
     int32x4_t shift0_4 = vdupq_n_s32(shift0);
     int32x4_t shift1_4 = vdupq_n_s32(shift1);
 
@@ -9148,7 +9155,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_independent_stereo_
 
         left  = vshlq_s32(vld1q_s32(pInputSamples0 + i*4), shift0_4);
         right = vshlq_s32(vld1q_s32(pInputSamples1 + i*4), shift1_4);
-        
+
         left  = vshrq_n_s32(left,  16);
         right = vshrq_n_s32(right, 16);
 
@@ -9760,7 +9767,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__sse2(drfl
             __m128i tempR;
             __m128  leftf;
             __m128  rightf;
-            
+
             mid    = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
             side   = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples1 + i), pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
 
