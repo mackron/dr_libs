@@ -677,12 +677,18 @@ int dr_vprintf_fixed(int width, const char* const format, va_list args)
     len = vsnprintf(buffer, width+1, format, args);
 #else
     len = vsprintf(buffer, format, args);
+    if (len > width) {
+        len = width;
+    }
+    
+    buffer[len] = '\0';
 #endif
 
     printf("%s", buffer);
     for (i = len; i < width; ++i) {
         printf(" ");
     }
+    
 
     return len;
 }
