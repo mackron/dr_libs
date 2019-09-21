@@ -84,6 +84,8 @@ to s16 conversion in a second pass. This is now all done in a single pass. An SS
 A minor optimization has been implemented for drflac_read_pcm_frames_s32(). This will now use an SSE2 optimized pipeline for
 stereo channel reconstruction which is the last part of the decoding process.
 
+An ARM NEON optimized pipeline has been implemented. To enable this you'll need to add -mfpu=neon to the command line when compiling.
+
 
 Removed APIs
 ------------
@@ -11175,6 +11177,7 @@ v0.12.0 - 2019-xx-xx
   - Fix errors when seeking to the end of a stream.
   - Optimizations to seeking.
   - SSE improvements and optimizations.
+  - ARM NEON optimizations.
   - Optimizations to drflac_read_pcm_frames_s16().
   - Optimizations to drflac_read_pcm_frames_s32().
 
