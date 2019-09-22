@@ -1623,7 +1623,7 @@ static DRFLAC_INLINE drflac_uint16 drflac_crc16__32bit(drflac_uint16 crc, drflac
     drflac_assert(count <= 64);
 
     wholeBytes = count >> 3;
-    leftoverBits = count - (wholeBytes*8);
+    leftoverBits = count & 7;
     leftoverDataMask = leftoverDataMaskTable[leftoverBits];
 
     switch (wholeBytes) {
@@ -1658,7 +1658,7 @@ static DRFLAC_INLINE drflac_uint16 drflac_crc16__64bit(drflac_uint16 crc, drflac
     drflac_assert(count <= 64);
 
     wholeBytes = count >> 3;
-    leftoverBits = count - (wholeBytes*8);
+    leftoverBits = count & 7;
     leftoverDataMask = leftoverDataMaskTable[leftoverBits];
 
     switch (wholeBytes) {
@@ -2251,7 +2251,11 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_lzcnt(drflac_cache_t x)
             {
                 unsigned int r;
                 __asm__ __volatile__ (
-                    "clz %Q[out], %Q[in]" : [out]"=r"(r) : [in]"r"(x)
+                #if defined(DRFLAC_64BIT)
+                    "clz %w[out], %w[in]" : [out]"=r"(r) : [in]"r"(x)   /* <-- This is untested. If someone in the community could test this, that would be appreciated! */
+                #else
+                    "clz %[out], %[in]" : [out]"=r"(r) : [in]"r"(x)
+                #endif
                 );
 
                 return r;
