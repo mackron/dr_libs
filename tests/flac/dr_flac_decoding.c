@@ -752,6 +752,8 @@ int main(int argc, char** argv)
         doTesting = DRFLAC_FALSE;
     }
 
+    print_cpu_caps();
+
     /* Exhaustive seek test. */
     if (doTesting) {
         printf("=======================================================================\n");
