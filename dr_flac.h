@@ -3905,6 +3905,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
     /* For this version we are doing one sample at a time. */
     while (pDecodedSamples < pDecodedSamplesEnd) {
         int32x4_t prediction128;
+        int32x2_t prediction64;
         uint32x4_t zeroCountPart128;
         uint32x4_t riceParamPart128;
 
@@ -3921,39 +3922,49 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
         riceParamPart128 = vandq_u32(riceParamPart128, riceParamMask128);
         riceParamPart128 = vorrq_u32(riceParamPart128, vshlq_u32(zeroCountPart128, riceParam128));
         riceParamPart128 = veorq_u32(vshrq_n_u32(riceParamPart128, 1), vaddq_u32(drflac__vnotq_u32(vandq_u32(riceParamPart128, one128)), one128));
+        
+        if (order <= 4) {
+            for (i = 0; i < 4; i += 1) {
+                prediction128 = vmulq_s32(coefficients128_0, samples128_0);
 
-        for (i = 0; i < 4; i += 1) {
-            int32x2_t prediction64;
+                /* Horizontal add and shift. */
+                prediction64 = drflac__vhaddq_s32(prediction128);
+                prediction64 = vshl_s32(prediction64, shift64);
+                prediction64 = vadd_s32(prediction64, vget_low_s32(vreinterpretq_s32_u32(riceParamPart128)));
 
-            prediction128 = veorq_s32(prediction128, prediction128);    /* Reset to 0. */
-            switch (order)
-            {
-            case 12:
-            case 11:
-            case 10:
-            case  9: prediction128 = vmlaq_s32(prediction128, coefficients128_8, samples128_8); /*prediction128 = vaddq_s32(prediction128, vmulq_s32(coefficients128_8, samples128_8));*/
-            case  8:
-            case  7:
-            case  6:
-            case  5: prediction128 = vmlaq_s32(prediction128, coefficients128_4, samples128_4); /*prediction128 = vaddq_s32(prediction128, vmulq_s32(coefficients128_4, samples128_4));*/
-            case  4:
-            case  3:
-            case  2:
-            case  1: prediction128 = vmlaq_s32(prediction128, coefficients128_0, samples128_0); /*prediction128 = vaddq_s32(prediction128, vmulq_s32(coefficients128_0, samples128_0));*/
+                samples128_0 = drflac__valignrq_s32_1(vcombine_s32(prediction64, vdup_n_s32(0)), samples128_0);
+                riceParamPart128 = drflac__valignrq_u32_1(vdupq_n_u32(0), riceParamPart128);
             }
+        } else if (order <= 8) {
+            for (i = 0; i < 4; i += 1) {
+                prediction128 =                vmulq_s32(coefficients128_4, samples128_4);
+                prediction128 = vmlaq_s32(prediction128, coefficients128_0, samples128_0);
 
-            /* Horizontal add and shift. */
-            prediction64 = drflac__vhaddq_s32(prediction128);
-            prediction64 = vshl_s32(prediction64, shift64);
-            prediction64 = vadd_s32(prediction64, vget_low_s32(vreinterpretq_s32_u32(riceParamPart128)));
+                /* Horizontal add and shift. */
+                prediction64 = drflac__vhaddq_s32(prediction128);
+                prediction64 = vshl_s32(prediction64, shift64);
+                prediction64 = vadd_s32(prediction64, vget_low_s32(vreinterpretq_s32_u32(riceParamPart128)));
 
-            /* Our value should be sitting in prediction64[0]. We need to combine this with our SSE samples. */
-            samples128_8 = drflac__valignrq_s32_1(samples128_4, samples128_8);
-            samples128_4 = drflac__valignrq_s32_1(samples128_0, samples128_4);
-            samples128_0 = drflac__valignrq_s32_1(vcombine_s32(prediction64, vdup_n_s32(0)), samples128_0);
+                samples128_4 = drflac__valignrq_s32_1(samples128_0, samples128_4);
+                samples128_0 = drflac__valignrq_s32_1(vcombine_s32(prediction64, vdup_n_s32(0)), samples128_0);
+                riceParamPart128 = drflac__valignrq_u32_1(vdupq_n_u32(0), riceParamPart128);
+            }
+        } else {
+            for (i = 0; i < 4; i += 1) {
+                prediction128 =                vmulq_s32(coefficients128_8, samples128_8);
+                prediction128 = vmlaq_s32(prediction128, coefficients128_4, samples128_4);
+                prediction128 = vmlaq_s32(prediction128, coefficients128_0, samples128_0);
 
-            /* Slide our rice parameter down so that the value in position 0 contains the next one to process. */
-            riceParamPart128 = drflac__valignrq_u32_1(vdupq_n_u32(0), riceParamPart128);
+                /* Horizontal add and shift. */
+                prediction64 = drflac__vhaddq_s32(prediction128);
+                prediction64 = vshl_s32(prediction64, shift64);
+                prediction64 = vadd_s32(prediction64, vget_low_s32(vreinterpretq_s32_u32(riceParamPart128)));
+
+                samples128_8 = drflac__valignrq_s32_1(samples128_4, samples128_8);
+                samples128_4 = drflac__valignrq_s32_1(samples128_0, samples128_4);
+                samples128_0 = drflac__valignrq_s32_1(vcombine_s32(prediction64, vdup_n_s32(0)), samples128_0);
+                riceParamPart128 = drflac__valignrq_u32_1(vdupq_n_u32(0), riceParamPart128);
+            }
         }
 
         /* We store samples in groups of 4. */
