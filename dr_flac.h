@@ -3447,10 +3447,28 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
             prediction128 = _mm_srai_epi32(prediction128, shift);
             prediction128 = _mm_add_epi32(riceParamPart128, prediction128);
 
+#if 1
+            switch (order)
+            {
+            case 12:
+            case 11:
+            case 10:
+            case  9: samples128_8 = _mm_alignr_epi8(samples128_4,  samples128_8, 4);
+            case  8:
+            case  7:
+            case  6:
+            case  5: samples128_4 = _mm_alignr_epi8(samples128_0,  samples128_4, 4);
+            case  4:
+            case  3:
+            case  2:
+            case  1: samples128_0 = _mm_alignr_epi8(prediction128, samples128_0, 4);
+            }
+#else
             /* Our value should be sitting in prediction128[0]. We need to combine this with our SSE samples. */
             samples128_8 = _mm_alignr_epi8(samples128_4,  samples128_8, 4);
             samples128_4 = _mm_alignr_epi8(samples128_0,  samples128_4, 4);
             samples128_0 = _mm_alignr_epi8(prediction128, samples128_0, 4);
+#endif
 
             /* Slide our rice parameter down so that the value in position 0 contains the next on to process. */
             riceParamPart128 = _mm_alignr_epi8(_mm_setzero_si128(), riceParamPart128, 4);
