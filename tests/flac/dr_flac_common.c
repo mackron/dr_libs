@@ -2,9 +2,12 @@
 #include "../../dr_flac.h"
 
 /* libFLAC has a warning in their header. *sigh*. */
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__clang__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wpedantic"
+    #if defined(__clang__)
+        #pragma GCC diagnostic ignored "-Wc99-extensions"
+    #endif
 #endif
 #include <FLAC/stream_decoder.h>
 #if defined(__GNUC__)
@@ -302,4 +305,28 @@ drflac_bool32 libflac_seek_to_pcm_frame(libflac* pDecoder, drflac_uint64 targetP
     pDecoder->currentPCMFrame = targetPCMFrameIndex;
 
     return DRFLAC_TRUE;
+}
+
+
+/* Helper for printing CPU caps from dr_flac. */
+void print_cpu_caps()
+{
+#if defined(DRFLAC_64BIT)
+    printf("64 Bit\n");
+#else
+    printf("32 Bit\n");
+#endif
+
+    drflac__init_cpu_caps();
+
+#if defined(DRFLAC_X86) || defined(DRFLAC_X64)
+    #if defined(DRFLAC_X64)
+        printf("Architecture: x64\n");
+    #else
+        printf("Architecture: x86\n");
+    #endif
+    printf("Has SSE2:     %s\n", drflac_has_sse2()  ? "YES" : "NO");
+    printf("Has SSE4.1:   %s\n", drflac_has_sse41() ? "YES" : "NO");
+    printf("Has LZCNT:    %s\n", drflac__is_lzcnt_supported() ? "YES" : "NO");
+#endif
 }
