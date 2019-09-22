@@ -1599,6 +1599,7 @@ static DRFLAC_INLINE drflac_uint16 drflac_crc16_bytes(drflac_uint16 crc, drflac_
     return crc;
 }
 
+#if 0
 static DRFLAC_INLINE drflac_uint16 drflac_crc16__32bit(drflac_uint16 crc, drflac_uint32 data, drflac_uint32 count)
 {
 #ifdef DR_FLAC_NO_CRC
@@ -1695,6 +1696,7 @@ static DRFLAC_INLINE drflac_uint16 drflac_crc16(drflac_uint16 crc, drflac_cache_
     return drflac_crc16__32bit(crc, data, count);
 #endif
 }
+#endif
 
 
 #ifdef DRFLAC_64BIT
