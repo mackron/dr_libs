@@ -1571,6 +1571,22 @@ static DRFLAC_INLINE drflac_uint16 drflac_crc16_byte(drflac_uint16 crc, drflac_u
     return (crc << 8) ^ drflac__crc16_table[(drflac_uint8)(crc >> 8) ^ data];
 }
 
+static DRFLAC_INLINE drflac_uint16 drflac_crc16_cache(drflac_uint16 crc, drflac_cache_t data)
+{
+#ifdef DRFLAC_64BIT
+    crc = drflac_crc16_byte(crc, (drflac_uint8)((data >> 56) & 0xFF));
+    crc = drflac_crc16_byte(crc, (drflac_uint8)((data >> 48) & 0xFF));
+    crc = drflac_crc16_byte(crc, (drflac_uint8)((data >> 40) & 0xFF));
+    crc = drflac_crc16_byte(crc, (drflac_uint8)((data >> 32) & 0xFF));
+#endif
+    crc = drflac_crc16_byte(crc, (drflac_uint8)((data >> 24) & 0xFF));
+    crc = drflac_crc16_byte(crc, (drflac_uint8)((data >> 16) & 0xFF));
+    crc = drflac_crc16_byte(crc, (drflac_uint8)((data >>  8) & 0xFF));
+    crc = drflac_crc16_byte(crc, (drflac_uint8)((data >>  0) & 0xFF));
+
+    return crc;
+}
+
 static DRFLAC_INLINE drflac_uint16 drflac_crc16_bytes(drflac_uint16 crc, drflac_cache_t data, drflac_uint32 byteCount)
 {
     switch (byteCount)
@@ -1725,8 +1741,12 @@ static DRFLAC_INLINE void drflac__reset_crc16(drflac_bs* bs)
 
 static DRFLAC_INLINE void drflac__update_crc16(drflac_bs* bs)
 {
-    bs->crc16 = drflac_crc16_bytes(bs->crc16, bs->crc16Cache, DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bs->crc16CacheIgnoredBytes);
-    bs->crc16CacheIgnoredBytes = 0;
+    if (bs->crc16CacheIgnoredBytes == 0) {
+        bs->crc16 = drflac_crc16_cache(bs->crc16, bs->crc16Cache);
+    } else {
+        bs->crc16 = drflac_crc16_bytes(bs->crc16, bs->crc16Cache, DRFLAC_CACHE_L1_SIZE_BYTES(bs) - bs->crc16CacheIgnoredBytes);
+        bs->crc16CacheIgnoredBytes = 0;
+    }
 }
 
 static DRFLAC_INLINE drflac_uint16 drflac__flush_crc16(drflac_bs* bs)
