@@ -3423,55 +3423,51 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
         riceParamPart128 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128, 1), _mm_add_epi32(drflac__mm_not_si128(_mm_and_si128(riceParamPart128, _mm_set1_epi32(0x01))), _mm_set1_epi32(0x01)));  /* <-- SSE2 compatible */
         /*riceParamPart128 = _mm_xor_si128(_mm_srli_epi32(riceParamPart128, 1), _mm_mullo_epi32(_mm_and_si128(riceParamPart128, _mm_set1_epi32(0x01)), _mm_set1_epi32(0xFFFFFFFF)));*/   /* <-- Only supported from SSE4.1 and is slower in my testing... */
 
-        for (i = 0; i < 4; i += 1) {
-            prediction128 = _mm_xor_si128(prediction128, prediction128);    /* Reset to 0. */
+        if (order <= 4) {
+            for (i = 0; i < 4; i += 1) {
+                prediction128 = _mm_xor_si128(prediction128, prediction128);    /* Reset to 0. */
+                prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_0, samples128_0));
 
-            switch (order)
-            {
-            case 12:
-            case 11:
-            case 10:
-            case  9: prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_8, samples128_8));
-            case  8:
-            case  7:
-            case  6:
-            case  5: prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_4, samples128_4));
-            case  4:
-            case  3:
-            case  2:
-            case  1: prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_0, samples128_0));
+                /* Horizontal add and shift. */
+                prediction128 = drflac__mm_hadd_epi32(prediction128);
+                prediction128 = _mm_srai_epi32(prediction128, shift);
+                prediction128 = _mm_add_epi32(riceParamPart128, prediction128);
+
+                samples128_0 = _mm_alignr_epi8(prediction128, samples128_0, 4);
+                riceParamPart128 = _mm_alignr_epi8(_mm_setzero_si128(), riceParamPart128, 4);
             }
+        } else if (order <= 8) {
+            for (i = 0; i < 4; i += 1) {
+                prediction128 = _mm_xor_si128(prediction128, prediction128);    /* Reset to 0. */
+                prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_4, samples128_4));
+                prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_0, samples128_0));
 
-            /* Horizontal add and shift. */
-            prediction128 = drflac__mm_hadd_epi32(prediction128);
-            prediction128 = _mm_srai_epi32(prediction128, shift);
-            prediction128 = _mm_add_epi32(riceParamPart128, prediction128);
+                /* Horizontal add and shift. */
+                prediction128 = drflac__mm_hadd_epi32(prediction128);
+                prediction128 = _mm_srai_epi32(prediction128, shift);
+                prediction128 = _mm_add_epi32(riceParamPart128, prediction128);
 
-#if 1
-            switch (order)
-            {
-            case 12:
-            case 11:
-            case 10:
-            case  9: samples128_8 = _mm_alignr_epi8(samples128_4,  samples128_8, 4);
-            case  8:
-            case  7:
-            case  6:
-            case  5: samples128_4 = _mm_alignr_epi8(samples128_0,  samples128_4, 4);
-            case  4:
-            case  3:
-            case  2:
-            case  1: samples128_0 = _mm_alignr_epi8(prediction128, samples128_0, 4);
+                samples128_4 = _mm_alignr_epi8(samples128_0,  samples128_4, 4);
+                samples128_0 = _mm_alignr_epi8(prediction128, samples128_0, 4);
+                riceParamPart128 = _mm_alignr_epi8(_mm_setzero_si128(), riceParamPart128, 4);
             }
-#else
-            /* Our value should be sitting in prediction128[0]. We need to combine this with our SSE samples. */
-            samples128_8 = _mm_alignr_epi8(samples128_4,  samples128_8, 4);
-            samples128_4 = _mm_alignr_epi8(samples128_0,  samples128_4, 4);
-            samples128_0 = _mm_alignr_epi8(prediction128, samples128_0, 4);
-#endif
+        } else {
+            for (i = 0; i < 4; i += 1) {
+                prediction128 = _mm_xor_si128(prediction128, prediction128);    /* Reset to 0. */
+                prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_8, samples128_8));
+                prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_4, samples128_4));
+                prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_0, samples128_0));
 
-            /* Slide our rice parameter down so that the value in position 0 contains the next on to process. */
-            riceParamPart128 = _mm_alignr_epi8(_mm_setzero_si128(), riceParamPart128, 4);
+                /* Horizontal add and shift. */
+                prediction128 = drflac__mm_hadd_epi32(prediction128);
+                prediction128 = _mm_srai_epi32(prediction128, shift);
+                prediction128 = _mm_add_epi32(riceParamPart128, prediction128);
+
+                samples128_8 = _mm_alignr_epi8(samples128_4,  samples128_8, 4);
+                samples128_4 = _mm_alignr_epi8(samples128_0,  samples128_4, 4);
+                samples128_0 = _mm_alignr_epi8(prediction128, samples128_0, 4);
+                riceParamPart128 = _mm_alignr_epi8(_mm_setzero_si128(), riceParamPart128, 4);
+            }
         }
 
         /* We store samples in groups of 4. */
