@@ -13,7 +13,7 @@ SET cpp_compiler=g++
 
 :: Configure the "arch" option to test different instruction sets.
 SET arch=
-SET arch=-msse4.1 -mtune=native
+SET arch=-msse4.1
 ::SET arch=-mfpu=neon
 
 :: libFLAC and libogg are required for benchmarking.
