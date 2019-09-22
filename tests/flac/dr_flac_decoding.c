@@ -361,7 +361,7 @@ drflac_result decode_test_file(const char* pFilePath)
         libflac_uninit(&libflac);
         return result;
     }
-    
+
 
     /* We're done with our decoders. */
     drflac_close(pFlac);
@@ -566,7 +566,7 @@ drflac_result open_and_read_test_file(const char* pFilePath)
     if (result != DRFLAC_SUCCESS) {
         return result;
     }
-    
+
     open_and_read_test_file_f32(&libflac, pFilePath);
     if (result != DRFLAC_SUCCESS) {
         return result;
@@ -641,7 +641,7 @@ drflac_result decode_profiling_file(const char* pFilePath)
     size_t fileSizeInBytes;
 
     dr_printf_fixed_with_margin(FILE_NAME_WIDTH, 2, "%s", dr_path_file_name(pFilePath));
-    
+
     /* libFLAC */
     result = libflac_init_file(pFilePath, &libflac);
     if (result != DRFLAC_SUCCESS) {
@@ -655,7 +655,7 @@ drflac_result decode_profiling_file(const char* pFilePath)
         printf("  Failed to load file");
         return DRFLAC_ERROR;    /* Failed to open the file. */
     }
-    
+
     pFlac = drflac_open_memory(pFileData, fileSizeInBytes, NULL);
     if (pFlac == NULL) {
         free(pFileData);
@@ -687,7 +687,7 @@ drflac_result decode_profiling_file(const char* pFilePath)
 
     drflacDecodeTimeInSeconds = decodeTimeEnd - decodeTimeBeg;
     dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "%.2fms", drflacDecodeTimeInSeconds*1000);
-    
+
     /* Difference. */
     dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "%d%%", (int)(drflacDecodeTimeInSeconds/libflac.decodeTimeInSeconds * 100));
 
@@ -751,7 +751,7 @@ int main(int argc, char** argv)
     if (dr_argv_is_set(argc, argv, "--onlyprofile")) {
         doTesting = DRFLAC_FALSE;
     }
-    
+
     /* Exhaustive seek test. */
     if (doTesting) {
         printf("=======================================================================\n");
@@ -785,7 +785,7 @@ int main(int argc, char** argv)
         result = decode_profiling();
         printf("\n");
     }
-    
+
     /*getchar();*/
     return (int)result;
 }
