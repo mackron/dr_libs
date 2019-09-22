@@ -1173,8 +1173,10 @@ static DRFLAC_INLINE drflac_bool32 drflac_has_sse41()
 #elif (defined(__GNUC__) && ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)))
     #define DRFLAC_HAS_LZCNT_INTRINSIC
 #elif defined(__clang__)
-    #if __has_builtin(__builtin_clzll) || __has_builtin(__builtin_clzl)
-        #define DRFLAC_HAS_LZCNT_INTRINSIC
+    #if defined(__has_builtin)
+        #if __has_builtin(__builtin_clzll) || __has_builtin(__builtin_clzl)
+            #define DRFLAC_HAS_LZCNT_INTRINSIC
+        #endif
     #endif
 #endif
 
@@ -1328,6 +1330,10 @@ static DRFLAC_INLINE drflac_bool32 drflac__has_neon()
 DRFLAC_NO_THREAD_SANITIZE static void drflac__init_cpu_caps()
 {
     drflac__gIsNEONSupported = drflac__has_neon();
+
+#if defined(DRFLAC_HAS_LZCNT_INTRINSIC) && defined(DRFLAC_ARM) && (defined(__ARM_ARCH) && __ARM_ARCH >= 5)
+    drflac__gIsLZCNTSupported = DRFLAC_TRUE;
+#endif
 }
 #endif
 
@@ -2200,11 +2206,16 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_software(drflac_cache_t x)
 #ifdef DRFLAC_IMPLEMENT_CLZ_LZCNT
 static DRFLAC_INLINE drflac_bool32 drflac__is_lzcnt_supported()
 {
-    /* If the compiler itself does not support the intrinsic then we'll need to return false. */
-#ifdef DRFLAC_HAS_LZCNT_INTRINSIC
-    return drflac__gIsLZCNTSupported;
+    /* Fast compile time check for ARM. */
+#if defined(DRFLAC_HAS_LZCNT_INTRINSIC) && defined(DRFLAC_ARM) && (defined(__ARM_ARCH) && __ARM_ARCH >= 5)
+    return DRFLAC_TRUE;
 #else
-    return DRFLAC_FALSE;
+    /* If the compiler itself does not support the intrinsic then we'll need to return false. */
+    #ifdef DRFLAC_HAS_LZCNT_INTRINSIC
+        return drflac__gIsLZCNTSupported;
+    #else
+        return DRFLAC_FALSE;
+    #endif
 #endif
 }
 
@@ -2219,26 +2230,32 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_lzcnt(drflac_cache_t x)
 #else
     #if defined(__GNUC__) || defined(__clang__)
         #if defined(DRFLAC_X64)
-            drflac_uint64 r;
-            __asm__ __volatile__ (
-                "lzcnt{ %1, %0| %0, %1}" : "=r"(r) : "r"(x)
-            );
+            {
+                drflac_uint64 r;
+                __asm__ __volatile__ (
+                    "lzcnt{ %1, %0| %0, %1}" : "=r"(r) : "r"(x)
+                );
 
-            return (drflac_uint32)r;
+                return (drflac_uint32)r;
+            }
         #elif defined(DRFLAC_X86)
-            drflac_uint32 r;
-            __asm__ __volatile__ (
-                "lzcnt{l %1, %0| %0, %1}" : "=r"(r) : "r"(x)
-            );
+            {
+                drflac_uint32 r;
+                __asm__ __volatile__ (
+                    "lzcnt{l %1, %0| %0, %1}" : "=r"(r) : "r"(x)
+                );
 
-            return r;
-        #elif defined(DRFLAC_ARM) && (defined(__ARM_ARCH) && _ARM_ARCH >= 5) && !defined(DRFLAC_64BIT)   /* <-- I haven't tested 64-bit inline assembly, so only enabling this for the 32-bit build for now. */
-            unsigned int r;
-            __asm__ __volatile__ (
-                "clz %Q[out], %Q[in]" : [out]"=r"(r) : [in]"r"(x)
-            );
+                return r;
+            }
+        #elif defined(DRFLAC_ARM) && (defined(__ARM_ARCH) && __ARM_ARCH >= 5) && !defined(DRFLAC_64BIT)   /* <-- I haven't tested 64-bit inline assembly, so only enabling this for the 32-bit build for now. */
+            {
+                unsigned int r;
+                __asm__ __volatile__ (
+                    "clz %Q[out], %Q[in]" : [out]"=r"(r) : [in]"r"(x)
+                );
 
-            return r;
+                return r;
+            }
         #else
             if (x == 0) {
                 return sizeof(x)*8;
