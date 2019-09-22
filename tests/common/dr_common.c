@@ -26,6 +26,7 @@
     #if defined(__clang__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wlanguage-extension-token"
+        #pragma GCC diagnostic ignored "-Wlong-long"
         #pragma GCC diagnostic ignored "-Wc++11-long-long"
     #endif
     typedef   signed __int8  dr_int8;
