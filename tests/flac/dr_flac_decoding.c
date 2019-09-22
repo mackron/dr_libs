@@ -1,5 +1,6 @@
 /*#define DR_FLAC_NO_CRC*/
 /*#define DR_FLAC_NO_SIMD*/
+/*#define DR_FLAC_BUFFER_SIZE 4096*/
 #include "dr_flac_common.c"
 
 #define FILE_NAME_WIDTH 40
@@ -636,6 +637,8 @@ drflac_result decode_profiling_file(const char* pFilePath)
     double decodeTimeBeg;
     double decodeTimeEnd;
     double drflacDecodeTimeInSeconds;
+    void* pFileData;
+    size_t fileSizeInBytes;
 
     dr_printf_fixed_with_margin(FILE_NAME_WIDTH, 2, "%s", dr_path_file_name(pFilePath));
     
@@ -647,9 +650,17 @@ drflac_result decode_profiling_file(const char* pFilePath)
     }
 
     /* dr_flac */
-    pFlac = drflac_open_file(pFilePath, NULL);
+    pFileData = dr_open_and_read_file(pFilePath, &fileSizeInBytes);
+    if (pFileData == NULL) {
+        printf("  Failed to load file");
+        return DRFLAC_ERROR;    /* Failed to open the file. */
+    }
+    
+    pFlac = drflac_open_memory(pFileData, fileSizeInBytes, NULL);
     if (pFlac == NULL) {
+        free(pFileData);
         printf("  [dr_flac] Failed to load file.");
+        return DRFLAC_ERROR;
     }
 
     /* libFLAC decode time. */
@@ -660,6 +671,8 @@ drflac_result decode_profiling_file(const char* pFilePath)
     if (pTempBuffer == NULL) {
         libflac_uninit(&libflac);
         drflac_close(pFlac);
+        free(pFileData);
+        printf("  Out of memory.");
         return DRFLAC_ERROR;    /* Out of memory. */
     }
 
@@ -670,6 +683,7 @@ drflac_result decode_profiling_file(const char* pFilePath)
     decodeTimeEnd = dr_timer_now();
 
     free(pTempBuffer);
+    free(pFileData);
 
     drflacDecodeTimeInSeconds = decodeTimeEnd - decodeTimeBeg;
     dr_printf_fixed_with_margin(NUMBER_WIDTH, TABLE_MARGIN, "%.2fms", drflacDecodeTimeInSeconds*1000);
