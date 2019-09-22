@@ -3425,8 +3425,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
 
         if (order <= 4) {
             for (i = 0; i < 4; i += 1) {
-                prediction128 = _mm_xor_si128(prediction128, prediction128);    /* Reset to 0. */
-                prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_0, samples128_0));
+                prediction128 = _mm_mullo_epi32(coefficients128_0, samples128_0);
 
                 /* Horizontal add and shift. */
                 prediction128 = drflac__mm_hadd_epi32(prediction128);
@@ -3438,8 +3437,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
             }
         } else if (order <= 8) {
             for (i = 0; i < 4; i += 1) {
-                prediction128 = _mm_xor_si128(prediction128, prediction128);    /* Reset to 0. */
-                prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_4, samples128_4));
+                prediction128 =                              _mm_mullo_epi32(coefficients128_4, samples128_4);
                 prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_0, samples128_0));
 
                 /* Horizontal add and shift. */
@@ -3453,8 +3451,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
             }
         } else {
             for (i = 0; i < 4; i += 1) {
-                prediction128 = _mm_xor_si128(prediction128, prediction128);    /* Reset to 0. */
-                prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_8, samples128_8));
+                prediction128 =                              _mm_mullo_epi32(coefficients128_8, samples128_8);
                 prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_4, samples128_4));
                 prediction128 = _mm_add_epi32(prediction128, _mm_mullo_epi32(coefficients128_0, samples128_0));
 
