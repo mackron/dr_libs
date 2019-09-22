@@ -1185,14 +1185,16 @@ static DRFLAC_INLINE drflac_bool32 drflac_has_sse41()
     #define DRFLAC_HAS_BYTESWAP32_INTRINSIC
     #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
 #elif defined(__clang__)
-    #if __has_builtin(__builtin_bswap16)
-        #define DRFLAC_HAS_BYTESWAP16_INTRINSIC
-    #endif
-    #if __has_builtin(__builtin_bswap32)
-        #define DRFLAC_HAS_BYTESWAP32_INTRINSIC
-    #endif
-    #if __has_builtin(__builtin_bswap64)
-        #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
+    #if defined(__has_builtin)
+        #if __has_builtin(__builtin_bswap16)
+            #define DRFLAC_HAS_BYTESWAP16_INTRINSIC
+        #endif
+        #if __has_builtin(__builtin_bswap32)
+            #define DRFLAC_HAS_BYTESWAP32_INTRINSIC
+        #endif
+        #if __has_builtin(__builtin_bswap64)
+            #define DRFLAC_HAS_BYTESWAP64_INTRINSIC
+        #endif
     #endif
 #elif defined(__GNUC__)
     #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
@@ -1366,7 +1368,20 @@ static DRFLAC_INLINE drflac_uint32 drflac__swap_endian_uint32(drflac_uint32 n)
     #if defined(_MSC_VER)
         return _byteswap_ulong(n);
     #elif defined(__GNUC__) || defined(__clang__)
-        return __builtin_bswap32(n);
+        #if defined(DRFLAC_ARM) && (defined(__ARM_ARCH) && __ARM_ARCH >= 6) && !defined(DRFLAC_64BIT)   /* <-- 64-bit inline assembly has not been tested, so disabling for now. */
+            /* Inline assembly optimized implementation for ARM. In my testing, GCC does not generate optimized code with __builtin_bswap32(). */
+            drflac_uint32 r;
+            __asm__ __volatile__ (
+            #if defined(DRFLAC_64BIT)
+                "rev %w[out], %w[in]" : [out]"=r"(r) : [in]"r"(n)   /* <-- This is untested. If someone in the community could test this, that would be appreciated! */
+            #else
+                "rev %[out], %[in]" : [out]"=r"(r) : [in]"r"(n)
+            #endif
+            );
+            return r;
+        #else
+            return __builtin_bswap32(n);
+        #endif
     #else
         #error "This compiler does not support the byte swap intrinsic."
     #endif
@@ -3922,7 +3937,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
         riceParamPart128 = vandq_u32(riceParamPart128, riceParamMask128);
         riceParamPart128 = vorrq_u32(riceParamPart128, vshlq_u32(zeroCountPart128, riceParam128));
         riceParamPart128 = veorq_u32(vshrq_n_u32(riceParamPart128, 1), vaddq_u32(drflac__vnotq_u32(vandq_u32(riceParamPart128, one128)), one128));
-        
+
         if (order <= 4) {
             for (i = 0; i < 4; i += 1) {
                 prediction128 = vmulq_s32(coefficients128_0, samples128_0);
