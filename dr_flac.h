@@ -1249,13 +1249,6 @@ typedef drflac_int32 drflac_result;
 #define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
-/*
-Keeps track of the number of leading samples for each sub-frame. This is required because the SSE pipeline will occasionally
-reference excess prior samples.
-*/
-#define DRFLAC_LEADING_SAMPLES                          32
-
-
 #define drflac_align(x, a)                              ((((x) + (a) - 1) / (a)) * (a))
 #define drflac_assert                                   DRFLAC_ASSERT
 #define drflac_copy_memory                              DRFLAC_COPY_MEMORY
@@ -4939,7 +4932,7 @@ static drflac_result drflac__decode_flac_frame(drflac* pFlac)
     }
 
     for (i = 0; i < channelCount; ++i) {
-        if (!drflac__decode_subframe(&pFlac->bs, &pFlac->currentFLACFrame, i, pFlac->pDecodedSamples + ((pFlac->currentFLACFrame.header.blockSizeInPCMFrames+DRFLAC_LEADING_SAMPLES) * i) + DRFLAC_LEADING_SAMPLES)) {
+        if (!drflac__decode_subframe(&pFlac->bs, &pFlac->currentFLACFrame, i, pFlac->pDecodedSamples + (pFlac->currentFLACFrame.header.blockSizeInPCMFrames * i))) {
             return DRFLAC_ERROR;
         }
     }
@@ -7184,10 +7177,10 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     The allocation size for decoded frames depends on the number of 32-bit integers that fit inside the largest SIMD vector
     we are supporting.
     */
-    if (((init.maxBlockSizeInPCMFrames+DRFLAC_LEADING_SAMPLES) % (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) == 0) {
-        wholeSIMDVectorCountPerChannel = ((init.maxBlockSizeInPCMFrames+DRFLAC_LEADING_SAMPLES) / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32)));
+    if ((init.maxBlockSizeInPCMFrames % (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) == 0) {
+        wholeSIMDVectorCountPerChannel = (init.maxBlockSizeInPCMFrames / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32)));
     } else {
-        wholeSIMDVectorCountPerChannel = ((init.maxBlockSizeInPCMFrames+DRFLAC_LEADING_SAMPLES) / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) + 1;
+        wholeSIMDVectorCountPerChannel = (init.maxBlockSizeInPCMFrames / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) + 1;
     }
 
     decodedSamplesAllocationSize = wholeSIMDVectorCountPerChannel * DRFLAC_MAX_SIMD_VECTOR_SIZE * init.channels;
