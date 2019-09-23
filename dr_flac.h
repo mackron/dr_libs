@@ -79,10 +79,14 @@ The SSE4.1 pipeline has been cleaned up and optimized. You should see some impro
 particular. 16-bit streams should also see some improvement.
 
 drflac_read_pcm_frames_s16() has been optimized. Previously this sat on top of drflac_read_pcm_frames_s32() and performed it's s32
-to s16 conversion in a second pass. This is now all done in a single pass. An SSE2 optimized path has also been implemented.
+to s16 conversion in a second pass. This is now all done in a single pass. This includes SSE2 and ARM NEON optimized paths.
 
-A minor optimization has been implemented for drflac_read_pcm_frames_s32(). This will now use an SSE2 optimized pipeline for
-stereo channel reconstruction which is the last part of the decoding process.
+A minor optimization has been implemented for drflac_read_pcm_frames_s32(). This will now use an SSE2 optimized pipeline for stereo
+channel reconstruction which is the last part of the decoding process.
+
+The ARM build has seen a few improvements. The CLZ (count leading zeroes) and REV (byte swap) instructions are now used when
+compiling with GCC and Clang which is achieved using inline assembly. The CLZ instruction requires ARM architecture version 5 at
+compile time and the REV instruction requires ARM architecture version 6.
 
 An ARM NEON optimized pipeline has been implemented. To enable this you'll need to add -mfpu=neon to the command line when compiling.
 
@@ -206,8 +210,8 @@ OPTIONS
   When seeking, the seek table will be used if available. Otherwise the seek will be performed using brute force.
 
 #define DR_FLAC_NO_SIMD
-  Disables SIMD optimizations (SSE on x86/x64 architectures). Use this if you are having compatibility issues with your
-  compiler.
+  Disables SIMD optimizations (SSE on x86/x64 architectures, NEON on ARM architectures). Use this if you are having
+  compatibility issues with your compiler.
 
 
 
