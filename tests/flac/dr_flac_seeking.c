@@ -223,7 +223,7 @@ drflac_result seek_test()
 
     /* Directories. */
     {
-        result = seek_test_directory("testvectors/flac/seek_tests");
+        result = seek_test_directory("testvectors/flac/tests");
         (void)result;
     }
 
@@ -432,7 +432,7 @@ drflac_result seek_profiling()
     {
         profiling_state directoryProfiling;
 
-        result = seek_profiling_directory("testvectors/flac/seek_tests", &directoryProfiling);
+        result = seek_profiling_directory("testvectors/flac/tests", &directoryProfiling);
         if (result == DRFLAC_SUCCESS) {
             globalProfiling = profiling_state_sum(&globalProfiling, &directoryProfiling);
         }

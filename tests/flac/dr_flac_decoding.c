@@ -7,7 +7,7 @@
 #define NUMBER_WIDTH    10
 #define TABLE_MARGIN    2
 
-#define DEFAULT_SOURCE_DIR  "testvectors/flac/seek_tests"
+#define DEFAULT_SOURCE_DIR  "testvectors/flac/tests"
 
 drflac_result decode_test__read_and_compare_pcm_frames_s32(libflac* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameCount, drflac_int32* pPCMFrames_libflac, drflac_int32* pPCMFrames_drflac)
 {
