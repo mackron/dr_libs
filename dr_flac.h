@@ -2440,7 +2440,7 @@ static drflac_result drflac__read_utf8_coded_number(drflac_bs* bs, drflac_uint64
         return DRFLAC_SUCCESS;
     }
 
-    byteCount = 1;
+    /*byteCount = 1;*/
     if ((utf8[0] & 0xE0) == 0xC0) {
         byteCount = 2;
     } else if ((utf8[0] & 0xF0) == 0xE0) {
