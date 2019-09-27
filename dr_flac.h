@@ -7176,7 +7176,6 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
     drflac_uint32 wholeSIMDVectorCountPerChannel;
     drflac_uint32 decodedSamplesAllocationSize;
 #ifndef DR_FLAC_NO_OGG
-    drflac_uint32 oggbsAllocationSize;
     drflac_oggbs oggbs;
 #endif
     drflac_uint64 firstFramePos;
@@ -7233,10 +7232,8 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
 #ifndef DR_FLAC_NO_OGG
     /* There's additional data required for Ogg streams. */
-    oggbsAllocationSize = 0;
     if (init.container == drflac_container_ogg) {
-        oggbsAllocationSize = sizeof(drflac_oggbs);
-        allocationSize += oggbsAllocationSize;
+        allocationSize += sizeof(drflac_oggbs);
     }
 
     drflac_zero_memory(&oggbs, sizeof(oggbs));
