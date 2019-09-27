@@ -8350,6 +8350,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo(
 drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRead, drflac_int32* pBufferOut)
 {
     drflac_uint64 framesRead;
+    drflac_int32 unusedBitsPerSample;
 
     if (pFlac == NULL || framesToRead == 0) {
         return 0;
@@ -8358,6 +8359,8 @@ drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRe
     if (pBufferOut == NULL) {
         return drflac__seek_forward_by_pcm_frames(pFlac, framesToRead);
     }
+
+    unusedBitsPerSample = 32 - pFlac->bitsPerSample;
 
     framesRead = 0;
     while (framesToRead > 0) {
@@ -8368,10 +8371,7 @@ drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRe
             }
         } else {
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-            drflac_uint64 totalFramesInPacket = pFlac->currentFLACFrame.header.blockSizeInPCMFrames;
-            drflac_uint64 framesReadFromPacketSoFar = totalFramesInPacket - pFlac->currentFLACFrame.pcmFramesRemaining;
-            drflac_uint64 iFirstPCMFrame = framesReadFromPacketSoFar;
-            drflac_int32 unusedBitsPerSample = 32 - pFlac->bitsPerSample;
+            drflac_uint64 iFirstPCMFrame = pFlac->currentFLACFrame.header.blockSizeInPCMFrames - pFlac->currentFLACFrame.pcmFramesRemaining;
             drflac_uint64 frameCountThisIteration = framesToRead;
 
             if (frameCountThisIteration > pFlac->currentFLACFrame.pcmFramesRemaining) {
@@ -8417,7 +8417,6 @@ drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64 framesToRe
             }
 
             framesRead                += frameCountThisIteration;
-            framesReadFromPacketSoFar += frameCountThisIteration;
             pBufferOut                += frameCountThisIteration * channelCount;
             framesToRead              -= frameCountThisIteration;
             pFlac->currentPCMFrame    += frameCountThisIteration;
@@ -9267,6 +9266,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_independent_stereo(
 drflac_uint64 drflac_read_pcm_frames_s16(drflac* pFlac, drflac_uint64 framesToRead, drflac_int16* pBufferOut)
 {
     drflac_uint64 framesRead;
+    drflac_int32 unusedBitsPerSample;
 
     if (pFlac == NULL || framesToRead == 0) {
         return 0;
@@ -9275,6 +9275,8 @@ drflac_uint64 drflac_read_pcm_frames_s16(drflac* pFlac, drflac_uint64 framesToRe
     if (pBufferOut == NULL) {
         return drflac__seek_forward_by_pcm_frames(pFlac, framesToRead);
     }
+
+    unusedBitsPerSample = 32 - pFlac->bitsPerSample;
 
     framesRead = 0;
     while (framesToRead > 0) {
@@ -9285,10 +9287,7 @@ drflac_uint64 drflac_read_pcm_frames_s16(drflac* pFlac, drflac_uint64 framesToRe
             }
         } else {
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-            drflac_uint64 totalFramesInPacket = pFlac->currentFLACFrame.header.blockSizeInPCMFrames;
-            drflac_uint64 framesReadFromPacketSoFar = totalFramesInPacket - pFlac->currentFLACFrame.pcmFramesRemaining;
-            drflac_uint64 iFirstPCMFrame = framesReadFromPacketSoFar;
-            drflac_int32 unusedBitsPerSample = 32 - pFlac->bitsPerSample;
+            drflac_uint64 iFirstPCMFrame = pFlac->currentFLACFrame.header.blockSizeInPCMFrames - pFlac->currentFLACFrame.pcmFramesRemaining;
             drflac_uint64 frameCountThisIteration = framesToRead;
 
             if (frameCountThisIteration > pFlac->currentFLACFrame.pcmFramesRemaining) {
@@ -9335,7 +9334,6 @@ drflac_uint64 drflac_read_pcm_frames_s16(drflac* pFlac, drflac_uint64 framesToRe
             }
 
             framesRead                += frameCountThisIteration;
-            framesReadFromPacketSoFar += frameCountThisIteration;
             pBufferOut                += frameCountThisIteration * channelCount;
             framesToRead              -= frameCountThisIteration;
             pFlac->currentPCMFrame    += frameCountThisIteration;
@@ -10159,6 +10157,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_independent_stereo(
 drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRead, float* pBufferOut)
 {
     drflac_uint64 framesRead;
+    drflac_int32 unusedBitsPerSample;
 
     if (pFlac == NULL || framesToRead == 0) {
         return 0;
@@ -10167,6 +10166,8 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
     if (pBufferOut == NULL) {
         return drflac__seek_forward_by_pcm_frames(pFlac, framesToRead);
     }
+
+    unusedBitsPerSample = 32 - pFlac->bitsPerSample;
 
     framesRead = 0;
     while (framesToRead > 0) {
@@ -10177,10 +10178,7 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
             }
         } else {
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-            drflac_uint64 totalFramesInPacket = pFlac->currentFLACFrame.header.blockSizeInPCMFrames;
-            drflac_uint64 framesReadFromPacketSoFar = totalFramesInPacket - pFlac->currentFLACFrame.pcmFramesRemaining;
-            drflac_uint64 iFirstPCMFrame = framesReadFromPacketSoFar;
-            drflac_int32 unusedBitsPerSample = 32 - pFlac->bitsPerSample;
+            drflac_uint64 iFirstPCMFrame = pFlac->currentFLACFrame.header.blockSizeInPCMFrames - pFlac->currentFLACFrame.pcmFramesRemaining;
             drflac_uint64 frameCountThisIteration = framesToRead;
 
             if (frameCountThisIteration > pFlac->currentFLACFrame.pcmFramesRemaining) {
@@ -10226,7 +10224,6 @@ drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64 framesToRe
             }
 
             framesRead                += frameCountThisIteration;
-            framesReadFromPacketSoFar += frameCountThisIteration;
             pBufferOut                += frameCountThisIteration * channelCount;
             framesToRead              -= frameCountThisIteration;
             pFlac->currentPCMFrame    += frameCountThisIteration;
