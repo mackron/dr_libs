@@ -6760,7 +6760,7 @@ drflac_bool32 drflac_ogg__seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFram
 
     drflac_assert(oggbs != NULL);
 
-    originalBytePos = oggbs->currentBytePos;   /* For recovery. */
+    originalBytePos = oggbs->currentBytePos;   /* For recovery. Points to the OggS identifier. */
 
     /* First seek to the first frame. */
     if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFLACFramePosInBytes)) {
@@ -6769,7 +6769,6 @@ drflac_bool32 drflac_ogg__seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFram
     oggbs->bytesRemainingInPage = 0;
 
     runningGranulePosition = 0;
-    runningFrameBytePos = oggbs->currentBytePos;   /* <-- Points to the OggS identifier. */
     for (;;) {
         if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_recover_on_crc_mismatch)) {
             drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
