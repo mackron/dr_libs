@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.0 - 2019-09-23
+dr_flac - v0.12.1 - 2019-xx-xx
 
 David Reid - mackron@gmail.com
 */
@@ -10715,6 +10715,9 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 /*
 REVISION HISTORY
 ================
+v0.12.1 - 2019-xx-xx
+  - Fix some Clang Static Analyzer warnings.
+
 v0.12.0 - 2019-09-23
   - API CHANGE: Add support for user defined memory allocation routines. This system allows the program to specify their own memory allocation
     routines with a user data pointer for client-specific contextual data. This adds an extra parameter to the end of the following APIs:
