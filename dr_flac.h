@@ -6733,6 +6733,7 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
 
         if (oggbs->bytesRemainingInPage >= (size_t)bytesRemainingToSeek) {
             bytesSeeked += bytesRemainingToSeek;
+            (void)bytesSeeked;  /* <-- Silence a dead store warning emitted by Clang Static Analyzer. */
             oggbs->bytesRemainingInPage -= bytesRemainingToSeek;
             break;
         }
