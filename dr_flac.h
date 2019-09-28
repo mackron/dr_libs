@@ -1272,7 +1272,9 @@ typedef drflac_int32 drflac_result;
     #define DRFLAC_NO_THREAD_SANITIZE
 #endif
 
+#if defined(DRFLAC_HAS_LZCNT_INTRINSIC)
 static drflac_bool32 drflac__gIsLZCNTSupported = DRFLAC_FALSE;
+#endif
 
 #ifndef DRFLAC_NO_CPUID
 static drflac_bool32 drflac__gIsSSE2Supported  = DRFLAC_FALSE;
@@ -1292,8 +1294,10 @@ DRFLAC_NO_THREAD_SANITIZE static void drflac__init_cpu_caps()
         int info[4] = {0};
 
         /* LZCNT */
+#if defined(DRFLAC_HAS_LZCNT_INTRINSIC)
         drflac__cpuid(info, 0x80000001);
         drflac__gIsLZCNTSupported = (info[2] & (1 << 5)) != 0;
+#endif
 
         /* SSE2 */
         drflac__gIsSSE2Supported = drflac_has_sse2();
