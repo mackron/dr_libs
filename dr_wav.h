@@ -1876,7 +1876,6 @@ drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc 
     dataChunkSize = 0;
 
     /* The next chunk we care about is the "data" chunk. This is not necessarily the next chunk so we'll need to loop. */
-    chunkSize = 0;
     for (;;)
     {
         drwav_chunk_header header;
