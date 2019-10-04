@@ -1,63 +1,37 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.10.1 - 2019-08-31
+dr_wav - v0.11.0 - 2019-xx-xx
 
 David Reid - mackron@gmail.com
 */
 
 /*
-RELEASE NOTES - v0.10.0
+RELEASE NOTES - v0.11.0
 =======================
-Version 0.10.0 has breaking API changes. There are no significant bug fixes in this release, so if you are affected you do
-not need to upgrade.
+Version 0.11.0 has breaking API changes.
+
+Big-Endian Improvements
+-----------------------
+Previously, the following APIs returned little-endian audio data. These now return native-endian data. This improves compatibility
+with big-endian architectures.
+
+    drwav_read_pcm_frames()
+    drwav_read_pcm_frames_s16()
+    drwav_read_pcm_frames_s32()
+    drwav_read_pcm_frames_f32()
+    drwav_open_and_read_pcm_frames_s16()
+    drwav_open_and_read_pcm_frames_s32()
+    drwav_open_and_read_pcm_frames_f32()
+    drwav_open_file_and_read_pcm_frames_s16()
+    drwav_open_file_and_read_pcm_frames_s32()
+    drwav_open_file_and_read_pcm_frames_f32()
 
 Removed APIs
 ------------
-The following APIs were deprecated in version 0.9.0 and have been completely removed in version 0.10.0:
 
-    drwav_read()
-    drwav_read_s16()
-    drwav_read_f32()
-    drwav_read_s32()
-    drwav_seek_to_sample()
-    drwav_write()
-    drwav_open_and_read_s16()
-    drwav_open_and_read_f32()
-    drwav_open_and_read_s32()
-    drwav_open_file_and_read_s16()
-    drwav_open_file_and_read_f32()
-    drwav_open_file_and_read_s32()
-    drwav_open_memory_and_read_s16()
-    drwav_open_memory_and_read_f32()
-    drwav_open_memory_and_read_s32()
-    drwav::totalSampleCount
 
-See release notes for version 0.9.0 at the bottom of this file for replacement APIs.
 
-Deprecated APIs
----------------
-The following APIs have been deprecated. There is a confusing and completely arbitrary difference between drwav_init*() and
-drwav_open*(), where drwav_init*() initializes a pre-allocated drwav object, whereas drwav_open*() will first allocated a
-drwav object on the heap and then initialize it. drwav_open*() has been deprecated which means you must now use a pre-
-allocated drwav object with drwav_init*(). If you need the previous functionality, you can just do a malloc() followed by
-a called to one of the drwav_init*() APIs.
 
-    drwav_open()
-    drwav_open_ex()
-    drwav_open_write()
-    drwav_open_write_sequential()
-    drwav_open_file()
-    drwav_open_file_ex()
-    drwav_open_file_write()
-    drwav_open_file_write_sequential()
-    drwav_open_memory()
-    drwav_open_memory_ex()
-    drwav_open_memory_write()
-    drwav_open_memory_write_sequential()
-    drwav_close()
-
-These APIs will be removed completely in a future version. The rationale for this change is to remove confusion between the
-two different ways to initialize a drwav object.
 */
 
 /*
@@ -4777,10 +4751,71 @@ void drwav_free(void* pDataReturnedByOpenAndRead)
 
 #endif  /* DR_WAV_IMPLEMENTATION */
 
+/*
+RELEASE NOTES - v0.10.0
+=======================
+Version 0.10.0 has breaking API changes. There are no significant bug fixes in this release, so if you are affected you do
+not need to upgrade.
+
+Removed APIs
+------------
+The following APIs were deprecated in version 0.9.0 and have been completely removed in version 0.10.0:
+
+    drwav_read()
+    drwav_read_s16()
+    drwav_read_f32()
+    drwav_read_s32()
+    drwav_seek_to_sample()
+    drwav_write()
+    drwav_open_and_read_s16()
+    drwav_open_and_read_f32()
+    drwav_open_and_read_s32()
+    drwav_open_file_and_read_s16()
+    drwav_open_file_and_read_f32()
+    drwav_open_file_and_read_s32()
+    drwav_open_memory_and_read_s16()
+    drwav_open_memory_and_read_f32()
+    drwav_open_memory_and_read_s32()
+    drwav::totalSampleCount
+
+See release notes for version 0.9.0 at the bottom of this file for replacement APIs.
+
+Deprecated APIs
+---------------
+The following APIs have been deprecated. There is a confusing and completely arbitrary difference between drwav_init*() and
+drwav_open*(), where drwav_init*() initializes a pre-allocated drwav object, whereas drwav_open*() will first allocated a
+drwav object on the heap and then initialize it. drwav_open*() has been deprecated which means you must now use a pre-
+allocated drwav object with drwav_init*(). If you need the previous functionality, you can just do a malloc() followed by
+a called to one of the drwav_init*() APIs.
+
+    drwav_open()
+    drwav_open_ex()
+    drwav_open_write()
+    drwav_open_write_sequential()
+    drwav_open_file()
+    drwav_open_file_ex()
+    drwav_open_file_write()
+    drwav_open_file_write_sequential()
+    drwav_open_memory()
+    drwav_open_memory_ex()
+    drwav_open_memory_write()
+    drwav_open_memory_write_sequential()
+    drwav_close()
+
+These APIs will be removed completely in a future version. The rationale for this change is to remove confusion between the
+two different ways to initialize a drwav object.
+*/
 
 /*
 REVISION HISTORY
 ================
+v0.11.0 - 2019-xx-xx
+  - API CHANGE: The following APIs now return native-endian data. Previously they returned little-endian data.
+    - drwav_read_pcm_frames()
+    - drwav_read_pcm_frames_s16()
+    - drwav_read_pcm_frames_s32()
+    - drwav_read_pcm_frames_f32()
+
 v0.10.1 - 2019-08-31
   - Correctly handle partial trailing ADPCM blocks.
 
