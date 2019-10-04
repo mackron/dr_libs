@@ -25,13 +25,27 @@ with big-endian architectures.
     drwav_open_file_and_read_pcm_frames_s16()
     drwav_open_file_and_read_pcm_frames_s32()
     drwav_open_file_and_read_pcm_frames_f32()
+    drwav_open_memory_and_read_pcm_frames_s16()
+    drwav_open_memory_and_read_pcm_frames_s32()
+    drwav_open_memory_and_read_pcm_frames_f32()
 
 Removed APIs
 ------------
+The following APIs were deprecated in version 0.10.0 and have now been removed:
 
-
-
-
+    drwav_open()
+    drwav_open_ex()
+    drwav_open_write()
+    drwav_open_write_sequential()
+    drwav_open_file()
+    drwav_open_file_ex()
+    drwav_open_file_write()
+    drwav_open_file_write_sequential()
+    drwav_open_memory()
+    drwav_open_memory_ex()
+    drwav_open_memory_write()
+    drwav_open_memory_write_sequential()
+    drwav_close()
 */
 
 /*
@@ -779,24 +793,6 @@ drwav_int32* drwav_open_memory_and_read_pcm_frames_s32(const void* data, size_t 
 
 /* Frees data that was allocated internally by dr_wav. */
 void drwav_free(void* pDataReturnedByOpenAndRead);
-
-
-/* DEPRECATED APIS */
-drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData);
-drwav* drwav_open_ex(drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags);
-drwav* drwav_open_write(const drwav_data_format* pFormat, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData);
-drwav* drwav_open_write_sequential(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_write_proc onWrite, void* pUserData);
-#ifndef DR_WAV_NO_STDIO
-drwav* drwav_open_file(const char* filename);
-drwav* drwav_open_file_ex(const char* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
-drwav* drwav_open_file_write(const char* filename, const drwav_data_format* pFormat);
-drwav* drwav_open_file_write_sequential(const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
-#endif  /* DR_WAV_NO_STDIO */
-drwav* drwav_open_memory(const void* data, size_t dataSize);
-drwav* drwav_open_memory_ex(const void* data, size_t dataSize, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags);
-drwav* drwav_open_memory_write(void** ppData, size_t* pDataSize, const drwav_data_format* pFormat);
-drwav* drwav_open_memory_write_sequential(void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
-void drwav_close(drwav* pWav);
 
 #ifdef __cplusplus
 }
@@ -1626,61 +1622,6 @@ drwav_bool32 drwav_init_file_write_sequential_pcm_frames_w(drwav* pWav, const wc
 
     return drwav_init_file_write_sequential_w(pWav, filename, pFormat, totalPCMFrameCount*pFormat->channels);
 }
-
-
-drwav* drwav_open_file(const char* filename)
-{
-    return drwav_open_file_ex(filename, NULL, NULL, 0);
-}
-
-drwav* drwav_open_file_ex(const char* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags)
-{
-    FILE* pFile;
-    drwav* pWav;
-
-    pFile = drwav_fopen(filename, "rb");
-    if (pFile == NULL) {
-        return DRWAV_FALSE;
-    }
-
-    pWav = drwav_open_ex(drwav__on_read_stdio, drwav__on_seek_stdio, onChunk, (void*)pFile, pChunkUserData, flags);
-    if (pWav == NULL) {
-        fclose(pFile);
-        return NULL;
-    }
-
-    return pWav;
-}
-
-
-drwav* drwav_open_file_write__internal(const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential)
-{
-    FILE* pFile;
-    drwav* pWav;
-
-    pFile = drwav_fopen(filename, "wb");
-    if (pFile == NULL) {
-        return DRWAV_FALSE;
-    }
-
-    pWav = drwav_open_write__internal(pFormat, totalSampleCount, isSequential, drwav__on_write_stdio, drwav__on_seek_stdio, (void*)pFile);
-    if (pWav == NULL) {
-        fclose(pFile);
-        return NULL;
-    }
-
-    return pWav;
-}
-
-drwav* drwav_open_file_write(const char* filename, const drwav_data_format* pFormat)
-{
-    return drwav_open_file_write__internal(filename, pFormat, 0, DRWAV_FALSE);
-}
-
-drwav* drwav_open_file_write_sequential(const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount)
-{
-    return drwav_open_file_write__internal(filename, pFormat, totalSampleCount, DRWAV_TRUE);
-}
 #endif  /* DR_WAV_NO_STDIO */
 
 
@@ -1875,76 +1816,6 @@ drwav_bool32 drwav_init_memory_write_sequential_pcm_frames(drwav* pWav, void** p
     }
 
     return drwav_init_memory_write_sequential(pWav, ppData, pDataSize, pFormat, totalPCMFrameCount*pFormat->channels);
-}
-
-
-drwav* drwav_open_memory(const void* data, size_t dataSize)
-{
-    return drwav_open_memory_ex(data, dataSize, NULL, NULL, 0);
-}
-
-drwav* drwav_open_memory_ex(const void* data, size_t dataSize, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags)
-{
-    drwav__memory_stream memoryStream;
-    drwav* pWav;
-
-    if (data == NULL || dataSize == 0) {
-        return NULL;
-    }
-
-    drwav_zero_memory(&memoryStream, sizeof(memoryStream));
-    memoryStream.data = (const unsigned char*)data;
-    memoryStream.dataSize = dataSize;
-    memoryStream.currentReadPos = 0;
-
-    pWav = drwav_open_ex(drwav__on_read_memory, drwav__on_seek_memory, onChunk, (void*)&memoryStream, pChunkUserData, flags);
-    if (pWav == NULL) {
-        return NULL;
-    }
-
-    pWav->memoryStream = memoryStream;
-    pWav->pUserData = &pWav->memoryStream;
-    return pWav;
-}
-
-
-drwav* drwav_open_memory_write__internal(void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential)
-{
-    drwav__memory_stream_write memoryStreamWrite;
-    drwav* pWav;
-
-    if (ppData == NULL) {
-        return NULL;
-    }
-
-    *ppData = NULL; /* Important because we're using realloc()! */
-    *pDataSize = 0;
-
-    drwav_zero_memory(&memoryStreamWrite, sizeof(memoryStreamWrite));
-    memoryStreamWrite.ppData = ppData;
-    memoryStreamWrite.pDataSize = pDataSize;
-    memoryStreamWrite.dataSize = 0;
-    memoryStreamWrite.dataCapacity = 0;
-    memoryStreamWrite.currentWritePos = 0;
-
-    pWav = drwav_open_write__internal(pFormat, totalSampleCount, isSequential, drwav__on_write_memory, drwav__on_seek_memory_write, (void*)&memoryStreamWrite);
-    if (pWav == NULL) {
-        return NULL;
-    }
-
-    pWav->memoryStreamWrite = memoryStreamWrite;
-    pWav->pUserData = &pWav->memoryStreamWrite;
-    return pWav;
-}
-
-drwav* drwav_open_memory_write(void** ppData, size_t* pDataSize, const drwav_data_format* pFormat)
-{
-    return drwav_open_memory_write__internal(ppData, pDataSize, pFormat, 0, DRWAV_FALSE);
-}
-
-drwav* drwav_open_memory_write_sequential(void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount)
-{
-    return drwav_open_memory_write__internal(ppData, pDataSize, pFormat, totalSampleCount, DRWAV_TRUE);
 }
 
 
@@ -2655,58 +2526,6 @@ drwav_result drwav_uninit(drwav* pWav)
     return result;
 }
 
-
-drwav* drwav_open(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData)
-{
-    return drwav_open_ex(onRead, onSeek, NULL, pUserData, NULL, 0);
-}
-
-drwav* drwav_open_ex(drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags)
-{
-    drwav* pWav = (drwav*)DRWAV_MALLOC(sizeof(*pWav));
-    if (pWav == NULL) {
-        return NULL;
-    }
-
-    if (!drwav_init_ex(pWav, onRead, onSeek, onChunk, pReadSeekUserData, pChunkUserData, flags)) {
-        DRWAV_FREE(pWav);
-        return NULL;
-    }
-
-    return pWav;
-}
-
-
-drwav* drwav_open_write__internal(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData)
-{
-    drwav* pWav = (drwav*)DRWAV_MALLOC(sizeof(*pWav));
-    if (pWav == NULL) {
-        return NULL;
-    }
-
-    if (!drwav_init_write__internal(pWav, pFormat, totalSampleCount, isSequential, onWrite, onSeek, pUserData)) {
-        DRWAV_FREE(pWav);
-        return NULL;
-    }
-
-    return pWav;
-}
-
-drwav* drwav_open_write(const drwav_data_format* pFormat, drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData)
-{
-    return drwav_open_write__internal(pFormat, 0, DRWAV_FALSE, onWrite, onSeek, pUserData);
-}
-
-drwav* drwav_open_write_sequential(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_write_proc onWrite, void* pUserData)
-{
-    return drwav_open_write__internal(pFormat, totalSampleCount, DRWAV_TRUE, onWrite, NULL, pUserData);
-}
-
-void drwav_close(drwav* pWav)
-{
-    drwav_uninit(pWav);
-    DRWAV_FREE(pWav);
-}
 
 
 size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut)
@@ -4810,6 +4629,7 @@ two different ways to initialize a drwav object.
 REVISION HISTORY
 ================
 v0.11.0 - 2019-xx-xx
+  - Remove deprecated APIs.
   - API CHANGE: The following APIs now return native-endian data. Previously they returned little-endian data.
     - drwav_read_pcm_frames()
     - drwav_read_pcm_frames_s16()
