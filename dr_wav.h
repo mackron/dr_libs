@@ -880,6 +880,15 @@ void drwav_close(drwav* pWav);
 
 #define DRWAV_MAX_SIMD_VECTOR_SIZE         64  /* 64 for AVX-512 in the future. */
 
+/* CPU architecture. */
+#if defined(__x86_64__) || defined(_M_X64)
+    #define DRWAV_X64
+#elif defined(__i386) || defined(_M_IX86)
+    #define DRWAV_X86
+#elif defined(__arm__) || defined(_M_ARM)
+    #define DRWAV_ARM
+#endif
+
 #ifdef _MSC_VER
     #define DRWAV_INLINE __forceinline
 #elif defined(__GNUC__)
@@ -906,6 +915,32 @@ void drwav_close(drwav* pWav);
         #define DRWAV_SIZE_MAX  ((drwav_uint64)0xFFFFFFFFFFFFFFFF)
     #else
         #define DRWAV_SIZE_MAX  0xFFFFFFFF
+    #endif
+#endif
+
+#if defined(_MSC_VER) && _MSC_VER >= 1300
+    #define DRWAV_HAS_BYTESWAP16_INTRINSIC
+    #define DRWAV_HAS_BYTESWAP32_INTRINSIC
+    #define DRWAV_HAS_BYTESWAP64_INTRINSIC
+#elif defined(__clang__)
+    #if defined(__has_builtin)
+        #if __has_builtin(__builtin_bswap16)
+            #define DRWAV_HAS_BYTESWAP16_INTRINSIC
+        #endif
+        #if __has_builtin(__builtin_bswap32)
+            #define DRWAV_HAS_BYTESWAP32_INTRINSIC
+        #endif
+        #if __has_builtin(__builtin_bswap64)
+            #define DRWAV_HAS_BYTESWAP64_INTRINSIC
+        #endif
+    #endif
+#elif defined(__GNUC__)
+    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3))
+        #define DRWAV_HAS_BYTESWAP32_INTRINSIC
+        #define DRWAV_HAS_BYTESWAP64_INTRINSIC
+    #endif
+    #if ((__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
+        #define DRWAV_HAS_BYTESWAP16_INTRINSIC
     #endif
 #endif
 
@@ -942,8 +977,14 @@ static DRWAV_INLINE drwav_bool32 drwav__fourcc_equal(const unsigned char* a, con
 
 static DRWAV_INLINE int drwav__is_little_endian()
 {
+#if defined(DRWAV_X86) || defined(DRWAV_X64)
+    return DRWAV_TRUE;
+#elif defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) && __BYTE_ORDER == __LITTLE_ENDIAN
+    return DRWAV_TRUE;
+#else
     int n = 1;
     return (*(char*)&n) == 1;
+#endif
 }
 
 static DRWAV_INLINE unsigned short drwav__bytes_to_u16(const unsigned char* data)
@@ -973,6 +1014,246 @@ static DRWAV_INLINE void drwav__bytes_to_guid(const unsigned char* data, drwav_u
     int i;
     for (i = 0; i < 16; ++i) {
         guid[i] = data[i];
+    }
+}
+
+
+static DRWAV_INLINE drwav_uint16 drwav__bswap16(drwav_uint16 n)
+{
+#ifdef DRWAV_HAS_BYTESWAP16_INTRINSIC
+    #if defined(_MSC_VER)
+        return _byteswap_ushort(n);
+    #elif defined(__GNUC__) || defined(__clang__)
+        return __builtin_bswap16(n);
+    #else
+        #error "This compiler does not support the byte swap intrinsic."
+    #endif
+#else
+    return ((n & 0xFF00) >> 8) |
+           ((n & 0x00FF) << 8);
+#endif
+}
+
+static DRWAV_INLINE drwav_uint32 drwav__bswap32(drwav_uint32 n)
+{
+#ifdef DRWAV_HAS_BYTESWAP32_INTRINSIC
+    #if defined(_MSC_VER)
+        return _byteswap_ulong(n);
+    #elif defined(__GNUC__) || defined(__clang__)
+        #if defined(DRWAV_ARM) && (defined(__ARM_ARCH) && __ARM_ARCH >= 6) && !defined(DRWAV_64BIT)   /* <-- 64-bit inline assembly has not been tested, so disabling for now. */
+            /* Inline assembly optimized implementation for ARM. In my testing, GCC does not generate optimized code with __builtin_bswap32(). */
+            drwav_uint32 r;
+            __asm__ __volatile__ (
+            #if defined(DRWAV_64BIT)
+                "rev %w[out], %w[in]" : [out]"=r"(r) : [in]"r"(n)   /* <-- This is untested. If someone in the community could test this, that would be appreciated! */
+            #else
+                "rev %[out], %[in]" : [out]"=r"(r) : [in]"r"(n)
+            #endif
+            );
+            return r;
+        #else
+            return __builtin_bswap32(n);
+        #endif
+    #else
+        #error "This compiler does not support the byte swap intrinsic."
+    #endif
+#else
+    return ((n & 0xFF000000) >> 24) |
+           ((n & 0x00FF0000) >>  8) |
+           ((n & 0x0000FF00) <<  8) |
+           ((n & 0x000000FF) << 24);
+#endif
+}
+
+static DRWAV_INLINE drwav_uint64 drwav__bswap64(drwav_uint64 n)
+{
+#ifdef DRWAV_HAS_BYTESWAP64_INTRINSIC
+    #if defined(_MSC_VER)
+        return _byteswap_uint64(n);
+    #elif defined(__GNUC__) || defined(__clang__)
+        return __builtin_bswap64(n);
+    #else
+        #error "This compiler does not support the byte swap intrinsic."
+    #endif
+#else
+    return ((n & (drwav_uint64)0xFF00000000000000) >> 56) |
+           ((n & (drwav_uint64)0x00FF000000000000) >> 40) |
+           ((n & (drwav_uint64)0x0000FF0000000000) >> 24) |
+           ((n & (drwav_uint64)0x000000FF00000000) >>  8) |
+           ((n & (drwav_uint64)0x00000000FF000000) <<  8) |
+           ((n & (drwav_uint64)0x0000000000FF0000) << 24) |
+           ((n & (drwav_uint64)0x000000000000FF00) << 40) |
+           ((n & (drwav_uint64)0x00000000000000FF) << 56);
+#endif
+}
+
+
+static DRWAV_INLINE drwav_int16 drwav__bswap_s16(drwav_int16 n)
+{
+    return (drwav_int16)drwav__bswap16((drwav_uint16)n);
+}
+
+static DRWAV_INLINE void drwav__bswap_samples_s16(drwav_int16* pSamples, drwav_uint64 sampleCount)
+{
+    drwav_uint64 iSample;
+    for (iSample = 0; iSample < sampleCount; iSample += 1) {
+        pSamples[iSample] = drwav__bswap_s16(pSamples[iSample]);
+    }
+}
+
+
+static DRWAV_INLINE void drwav__bswap_s24(drwav_uint8* p)
+{
+    drwav_uint8 t;
+    t = p[0];
+    p[0] = p[2];
+    p[2] = t;
+}
+
+static DRWAV_INLINE void drwav__bswap_samples_s24(drwav_uint8* pSamples, drwav_uint64 sampleCount)
+{
+    drwav_uint64 iSample;
+    for (iSample = 0; iSample < sampleCount; iSample += 1) {
+        drwav_uint8* pSample = pSamples + (iSample*3);
+        drwav__bswap_s24(pSample);
+    }
+}
+
+
+static DRWAV_INLINE drwav_int32 drwav__bswap_s32(drwav_int32 n)
+{
+    return (drwav_int32)drwav__bswap32((drwav_uint32)n);
+}
+
+static DRWAV_INLINE void drwav__bswap_samples_s32(drwav_int32* pSamples, drwav_uint64 sampleCount)
+{
+    drwav_uint64 iSample;
+    for (iSample = 0; iSample < sampleCount; iSample += 1) {
+        pSamples[iSample] = drwav__bswap_s32(pSamples[iSample]);
+    }
+}
+
+
+static DRWAV_INLINE float drwav__bswap_f32(float n)
+{
+    union {
+        drwav_uint32 i;
+        float f;
+    } x;
+    x.f = n;
+    x.i = drwav__bswap32(x.i);
+
+    return x.f;
+}
+
+static DRWAV_INLINE void drwav__bswap_samples_f32(float* pSamples, drwav_uint64 sampleCount)
+{
+    drwav_uint64 iSample;
+    for (iSample = 0; iSample < sampleCount; iSample += 1) {
+        pSamples[iSample] = drwav__bswap_f32(pSamples[iSample]);
+    }
+}
+
+
+static DRWAV_INLINE double drwav__bswap_f64(double n)
+{
+    union {
+        drwav_uint64 i;
+        double f;
+    } x;
+    x.f = n;
+    x.i = drwav__bswap64(x.i);
+
+    return x.f;
+}
+
+static DRWAV_INLINE void drwav__bswap_samples_f64(double* pSamples, drwav_uint64 sampleCount)
+{
+    drwav_uint64 iSample;
+    for (iSample = 0; iSample < sampleCount; iSample += 1) {
+        pSamples[iSample] = drwav__bswap_f64(pSamples[iSample]);
+    }
+}
+
+
+static DRWAV_INLINE void drwav__bswap_samples_pcm(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample)
+{
+    /* Assumes integer PCM. Floating point PCM is done in drwav__bswap_samples_ieee(). */
+    switch (bytesPerSample)
+    {
+        case 16:    /* s16 */
+        {
+            drwav__bswap_samples_s16(pSamples, sampleCount);
+        } break;
+        case 24:    /* s24 */
+        {
+            drwav__bswap_samples_s24(pSamples, sampleCount);
+        } break;
+        case 32:    /* s32 */
+        {
+            drwav__bswap_samples_s32(pSamples, sampleCount);
+        } break;
+        default:
+        {
+            /* Unsupported format. */
+            DRWAV_ASSERT(DRWAV_FALSE);
+        } break;
+    }
+}
+
+static DRWAV_INLINE void drwav__bswap_samples_ieee(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample)
+{
+    switch (bytesPerSample)
+    {
+    #if 0   /* Contributions welcome for f16 support. */
+        case 16:    /* f16 */
+        {
+            drwav__bswap_samples_f16(pSamples, sampleCount);
+        } break;
+    #endif
+        case 32:    /* f32 */
+        {
+            drwav__bswap_samples_f32(pSamples, sampleCount);
+        } break;
+        case 64:    /* f64 */
+        {
+            drwav__bswap_samples_f64(pSamples, sampleCount);
+        } break;
+        default:
+        {
+            /* Unsupported format. */
+            DRWAV_ASSERT(DRWAV_FALSE);
+        } break;
+    }
+}
+
+static DRWAV_INLINE void drwav__bswap_samples(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample, drwav_uint16 format)
+{
+    switch (format)
+    {
+        case DR_WAVE_FORMAT_PCM:
+        {
+            drwav__bswap_samples_pcm(pSamples, sampleCount, bytesPerSample);
+        } break;
+
+        case DR_WAVE_FORMAT_IEEE_FLOAT:
+        {
+            drwav__bswap_samples_ieee(pSamples, sampleCount, bytesPerSample);
+        } break;
+
+        case DR_WAVE_FORMAT_ALAW:
+        case DR_WAVE_FORMAT_MULAW:
+        {
+            drwav__bswap_samples_s16(pSamples, sampleCount);
+        } break;
+
+        case DR_WAVE_FORMAT_ADPCM:
+        case DR_WAVE_FORMAT_DVI_ADPCM:
+        default:
+        {
+            /* Unsupported format. */
+            DRWAV_ASSERT(DRWAV_FALSE);
+        } break;
     }
 }
 
@@ -2474,8 +2755,8 @@ size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut)
 
 drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut)
 {
+    drwav_uint64 framesRead;
     drwav_uint32 bytesPerFrame;
-    size_t bytesRead;
 
     if (pWav == NULL || framesToRead == 0 || pBufferOut == NULL) {
         return 0;
@@ -2496,8 +2777,14 @@ drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void*
         framesToRead = DRWAV_SIZE_MAX / bytesPerFrame;
     }
 
-    bytesRead = drwav_read_raw(pWav, (size_t)(framesToRead * bytesPerFrame), pBufferOut);
-    return bytesRead / bytesPerFrame;
+    framesRead = drwav_read_raw(pWav, (size_t)(framesToRead * bytesPerFrame), pBufferOut) / bytesPerFrame;
+
+    /* Endian conversion. */
+    if (drwav__is_little_endian() == DRWAV_FALSE) {
+        drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, bytesPerFrame/pWav->channels, pWav->translatedFormatTag);
+    }
+
+    return framesRead;
 }
 
 drwav_bool32 drwav_seek_to_first_pcm_frame(drwav* pWav)
