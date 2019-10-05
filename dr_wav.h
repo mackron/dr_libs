@@ -1288,20 +1288,20 @@ static DRWAV_INLINE void drwav__bswap_samples_f64(double* pSamples, drwav_uint64
 }
 
 
-static DRWAV_INLINE void drwav__bswap_samples_pcm(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bitsPerSample)
+static DRWAV_INLINE void drwav__bswap_samples_pcm(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample)
 {
     /* Assumes integer PCM. Floating point PCM is done in drwav__bswap_samples_ieee(). */
-    switch (bitsPerSample)
+    switch (bytesPerSample)
     {
-        case 16:    /* s16 */
+        case 2: /* s16, s12 (loosely packed) */
         {
             drwav__bswap_samples_s16(pSamples, sampleCount);
         } break;
-        case 24:    /* s24 */
+        case 3: /* s24 */
         {
             drwav__bswap_samples_s24(pSamples, sampleCount);
         } break;
-        case 32:    /* s32 */
+        case 4: /* s32 */
         {
             drwav__bswap_samples_s32(pSamples, sampleCount);
         } break;
@@ -1313,21 +1313,21 @@ static DRWAV_INLINE void drwav__bswap_samples_pcm(void* pSamples, drwav_uint64 s
     }
 }
 
-static DRWAV_INLINE void drwav__bswap_samples_ieee(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bitsPerSample)
+static DRWAV_INLINE void drwav__bswap_samples_ieee(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample)
 {
-    switch (bitsPerSample)
+    switch (bytesPerSample)
     {
     #if 0   /* Contributions welcome for f16 support. */
-        case 16:    /* f16 */
+        case 2: /* f16 */
         {
             drwav__bswap_samples_f16(pSamples, sampleCount);
         } break;
     #endif
-        case 32:    /* f32 */
+        case 4: /* f32 */
         {
             drwav__bswap_samples_f32(pSamples, sampleCount);
         } break;
-        case 64:    /* f64 */
+        case 8: /* f64 */
         {
             drwav__bswap_samples_f64(pSamples, sampleCount);
         } break;
@@ -1339,18 +1339,18 @@ static DRWAV_INLINE void drwav__bswap_samples_ieee(void* pSamples, drwav_uint64 
     }
 }
 
-static DRWAV_INLINE void drwav__bswap_samples(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bitsPerSample, drwav_uint16 format)
+static DRWAV_INLINE void drwav__bswap_samples(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample, drwav_uint16 format)
 {
     switch (format)
     {
         case DR_WAVE_FORMAT_PCM:
         {
-            drwav__bswap_samples_pcm(pSamples, sampleCount, bitsPerSample);
+            drwav__bswap_samples_pcm(pSamples, sampleCount, bytesPerSample);
         } break;
 
         case DR_WAVE_FORMAT_IEEE_FLOAT:
         {
-            drwav__bswap_samples_ieee(pSamples, sampleCount, bitsPerSample);
+            drwav__bswap_samples_ieee(pSamples, sampleCount, bytesPerSample);
         } break;
 
         case DR_WAVE_FORMAT_ALAW:
@@ -2865,7 +2865,7 @@ drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void*
 
     /* Endian conversion. */
     if (drwav__is_little_endian() == DRWAV_FALSE) {
-        drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, pWav->bitsPerSample, pWav->translatedFormatTag);
+        drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, bytesPerFrame/pWav->channels, pWav->translatedFormatTag);
     }
 
     return framesRead;
@@ -3050,7 +3050,7 @@ drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, con
             }
 
             DRWAV_COPY_MEMORY(temp, pRunningData, (size_t)bytesToWriteThisIteration);
-            drwav__bswap_samples(temp, sampleCount, pWav->bitsPerSample, pWav->translatedFormatTag);
+            drwav__bswap_samples(temp, sampleCount, bytesPerSample, pWav->translatedFormatTag);
 
             bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, temp);
             if (bytesJustWritten == 0) {
