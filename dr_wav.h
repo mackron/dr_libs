@@ -722,6 +722,8 @@ This function will only work when sample data is of a fixed size and uncompresse
 using a compressed format consider using drwav_read_raw() or drwav_read_pcm_frames_s16/s32/f32().
 */
 drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_le(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_be(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut);
 
 /*
 Seeks to the given PCM frame.
@@ -747,6 +749,8 @@ Input samples need to be in native-endian byte order. On big-endian architecture
 little-endian. Use drwav_write_raw() to write raw audio data without performing any conversion.
 */
 drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData);
+drwav_uint64 drwav_write_pcm_frames_le(drwav* pWav, drwav_uint64 framesToWrite, const void* pData);
+drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 framesToWrite, const void* pData);
 
 
 /* Conversion Utilities */
@@ -760,6 +764,8 @@ Returns the number of PCM frames actually read.
 If the return value is less than <framesToRead> it means the end of the file has been reached.
 */
 drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_s16le(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_s16be(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut);
 
 /* Low-level function for converting unsigned 8-bit PCM samples to signed 16-bit PCM samples. */
 void drwav_u8_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCount);
@@ -791,6 +797,8 @@ Returns the number of PCM frames actually read.
 If the return value is less than <framesToRead> it means the end of the file has been reached.
 */
 drwav_uint64 drwav_read_pcm_frames_f32(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_f32le(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_f32be(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut);
 
 /* Low-level function for converting unsigned 8-bit PCM samples to IEEE 32-bit floating point samples. */
 void drwav_u8_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount);
@@ -822,6 +830,8 @@ Returns the number of PCM frames actually read.
 If the return value is less than <framesToRead> it means the end of the file has been reached.
 */
 drwav_uint64 drwav_read_pcm_frames_s32(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_s32le(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut);
+drwav_uint64 drwav_read_pcm_frames_s32be(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut);
 
 /* Low-level function for converting unsigned 8-bit PCM samples to signed 32-bit PCM samples. */
 void drwav_u8_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sampleCount);
@@ -2837,9 +2847,10 @@ size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut)
     return bytesRead;
 }
 
-drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut)
+
+
+drwav_uint64 drwav_read_pcm_frames_le(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut)
 {
-    drwav_uint64 framesRead;
     drwav_uint32 bytesPerFrame;
 
     if (pWav == NULL || framesToRead == 0 || pBufferOut == NULL) {
@@ -2861,15 +2872,27 @@ drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void*
         framesToRead = DRWAV_SIZE_MAX / bytesPerFrame;
     }
 
-    framesRead = drwav_read_raw(pWav, (size_t)(framesToRead * bytesPerFrame), pBufferOut) / bytesPerFrame;
+    return drwav_read_raw(pWav, (size_t)(framesToRead * bytesPerFrame), pBufferOut) / bytesPerFrame;
+}
 
-    /* Endian conversion. */
-    if (drwav__is_little_endian() == DRWAV_FALSE) {
-        drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, bytesPerFrame/pWav->channels, pWav->translatedFormatTag);
-    }
+drwav_uint64 drwav_read_pcm_frames_be(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut)
+{
+    drwav_uint64 framesRead = drwav_read_pcm_frames_le(pWav, framesToRead, pBufferOut);
+    drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, drwav_get_bytes_per_pcm_frame(pWav)/pWav->channels, pWav->translatedFormatTag);
 
     return framesRead;
 }
+
+drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut)
+{
+    if (drwav__is_little_endian()) {
+        return drwav_read_pcm_frames_le(pWav, framesToRead, pBufferOut);
+    } else {
+        return drwav_read_pcm_frames_be(pWav, framesToRead, pBufferOut);
+    }
+}
+
+
 
 drwav_bool32 drwav_seek_to_first_pcm_frame(drwav* pWav)
 {
@@ -3006,7 +3029,8 @@ size_t drwav_write_raw(drwav* pWav, size_t bytesToWrite, const void* pData)
     return bytesWritten;
 }
 
-drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData)
+
+drwav_uint64 drwav_write_pcm_frames_le(drwav* pWav, drwav_uint64 framesToWrite, const void* pData)
 {
     drwav_uint64 bytesToWrite;
     drwav_uint64 bytesWritten;
@@ -3031,31 +3055,9 @@ drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, con
             bytesToWriteThisIteration = DRWAV_SIZE_MAX;
         }
 
-        /* WAV files are always little-endian. We need to byte swap on big-endian architectures. */
-        if (drwav__is_little_endian()) {
-            bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, pRunningData);
-            if (bytesJustWritten == 0) {
-                break;
-            }
-        } else {
-            drwav_uint8 temp[4096];
-            drwav_uint32 sampleCount;
-            drwav_uint32 bytesPerSample;
-
-            bytesPerSample = drwav_get_bytes_per_pcm_frame(pWav) / pWav->channels;
-            sampleCount = sizeof(temp)/bytesPerSample;
-
-            if (bytesToWriteThisIteration > sampleCount*bytesPerSample) {
-                bytesToWriteThisIteration = sampleCount*bytesPerSample;
-            }
-
-            DRWAV_COPY_MEMORY(temp, pRunningData, (size_t)bytesToWriteThisIteration);
-            drwav__bswap_samples(temp, sampleCount, bytesPerSample, pWav->translatedFormatTag);
-
-            bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, temp);
-            if (bytesJustWritten == 0) {
-                break;
-            }
+        bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, pRunningData);
+        if (bytesJustWritten == 0) {
+            break;
         }
 
         bytesToWrite -= bytesJustWritten;
@@ -3064,6 +3066,72 @@ drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, con
     }
 
     return (bytesWritten * 8) / pWav->bitsPerSample / pWav->channels;
+}
+
+drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 framesToWrite, const void* pData)
+{
+    drwav_uint64 bytesToWrite;
+    drwav_uint64 bytesWritten;
+    const drwav_uint8* pRunningData;
+
+    if (pWav == NULL || framesToWrite == 0 || pData == NULL) {
+        return 0;
+    }
+
+    bytesToWrite = ((framesToWrite * pWav->channels * pWav->bitsPerSample) / 8);
+    if (bytesToWrite > DRWAV_SIZE_MAX) {
+        return 0;
+    }
+
+    bytesWritten = 0;
+    pRunningData = (const drwav_uint8*)pData;
+
+    while (bytesToWrite > 0) {
+        drwav_uint8 temp[4096];
+        drwav_uint32 sampleCount;
+        drwav_uint32 bytesPerSample;
+        size_t bytesJustWritten;
+        drwav_uint64 bytesToWriteThisIteration;
+
+        bytesToWriteThisIteration = bytesToWrite;
+        if (bytesToWriteThisIteration > DRWAV_SIZE_MAX) {
+            bytesToWriteThisIteration = DRWAV_SIZE_MAX;
+        }
+
+        /*
+        WAV files are always little-endian. We need to byte swap on big-endian architectures. Since our input buffer is read-only we need
+        to use an intermediary buffer for the conversion.
+        */
+        bytesPerSample = drwav_get_bytes_per_pcm_frame(pWav) / pWav->channels;
+        sampleCount = sizeof(temp)/bytesPerSample;
+
+        if (bytesToWriteThisIteration > sampleCount*bytesPerSample) {
+            bytesToWriteThisIteration = sampleCount*bytesPerSample;
+        }
+
+        DRWAV_COPY_MEMORY(temp, pRunningData, (size_t)bytesToWriteThisIteration);
+        drwav__bswap_samples(temp, sampleCount, bytesPerSample, pWav->translatedFormatTag);
+
+        bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, temp);
+        if (bytesJustWritten == 0) {
+            break;
+        }
+
+        bytesToWrite -= bytesJustWritten;
+        bytesWritten += bytesJustWritten;
+        pRunningData += bytesJustWritten;
+    }
+
+    return (bytesWritten * 8) / pWav->bitsPerSample / pWav->channels;
+}
+
+drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData)
+{
+    if (drwav__is_little_endian()) {
+        return drwav_write_pcm_frames_le(pWav, framesToWrite, pData);
+    } else {
+        return drwav_write_pcm_frames_be(pWav, framesToWrite, pData);
+    }
 }
 
 
@@ -3662,6 +3730,27 @@ drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, d
     return 0;
 }
 
+drwav_uint64 drwav_read_pcm_frames_s16le(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut)
+{
+    drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, framesToRead, pBufferOut);
+    if (!drwav__is_little_endian()) {
+        drwav__bswap_samples_s16(pBufferOut, framesRead*pWav->channels);
+    }
+
+    return framesRead;
+}
+
+drwav_uint64 drwav_read_pcm_frames_s16be(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut)
+{
+    drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, framesToRead, pBufferOut);
+    if (drwav__is_little_endian()) {
+        drwav__bswap_samples_s16(pBufferOut, framesRead*pWav->channels);
+    }
+
+    return framesRead;
+}
+
+
 void drwav_u8_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCount)
 {
     int r;
@@ -4013,6 +4102,27 @@ drwav_uint64 drwav_read_pcm_frames_f32(drwav* pWav, drwav_uint64 framesToRead, f
 
     return 0;
 }
+
+drwav_uint64 drwav_read_pcm_frames_f32le(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut)
+{
+    drwav_uint64 framesRead = drwav_read_pcm_frames_f32(pWav, framesToRead, pBufferOut);
+    if (!drwav__is_little_endian()) {
+        drwav__bswap_samples_f32(pBufferOut, framesRead*pWav->channels);
+    }
+
+    return framesRead;
+}
+
+drwav_uint64 drwav_read_pcm_frames_f32be(drwav* pWav, drwav_uint64 framesToRead, float* pBufferOut)
+{
+    drwav_uint64 framesRead = drwav_read_pcm_frames_f32(pWav, framesToRead, pBufferOut);
+    if (drwav__is_little_endian()) {
+        drwav__bswap_samples_f32(pBufferOut, framesRead*pWav->channels);
+    }
+
+    return framesRead;
+}
+
 
 void drwav_u8_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount)
 {
@@ -4393,6 +4503,27 @@ drwav_uint64 drwav_read_pcm_frames_s32(drwav* pWav, drwav_uint64 framesToRead, d
 
     return 0;
 }
+
+drwav_uint64 drwav_read_pcm_frames_s32le(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut)
+{
+    drwav_uint64 framesRead = drwav_read_pcm_frames_s32(pWav, framesToRead, pBufferOut);
+    if (!drwav__is_little_endian()) {
+        drwav__bswap_samples_s32(pBufferOut, framesRead*pWav->channels);
+    }
+
+    return framesRead;
+}
+
+drwav_uint64 drwav_read_pcm_frames_s32be(drwav* pWav, drwav_uint64 framesToRead, drwav_int32* pBufferOut)
+{
+    drwav_uint64 framesRead = drwav_read_pcm_frames_s32(pWav, framesToRead, pBufferOut);
+    if (drwav__is_little_endian()) {
+        drwav__bswap_samples_s32(pBufferOut, framesRead*pWav->channels);
+    }
+
+    return framesRead;
+}
+
 
 void drwav_u8_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sampleCount)
 {
@@ -4928,6 +5059,17 @@ v0.11.0 - 2019-xx-xx
     - drwav_open_memory_and_read_pcm_frames_s32()
     Set this extra parameter to NULL to use defaults which is the same as the previous behaviour. Setting this NULL will use
     DRWAV_MALLOC, DRWAV_REALLOC and DRWAV_FREE.
+  - Add support for reading and writing PCM frames in an explicit endianness. New APIs:
+    - drwav_read_pcm_frames_le()
+    - drwav_read_pcm_frames_be()
+    - drwav_read_pcm_frames_s16le()
+    - drwav_read_pcm_frames_s16be()
+    - drwav_read_pcm_frames_f32le()
+    - drwav_read_pcm_frames_f32be()
+    - drwav_read_pcm_frames_s32le()
+    - drwav_read_pcm_frames_s32be()
+    - drwav_write_pcm_frames_le()
+    - drwav_write_pcm_frames_be()
   - Remove deprecated APIs.
   - API CHANGE: The following APIs now return native-endian data. Previously they returned little-endian data.
     - drwav_read_pcm_frames()
