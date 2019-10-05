@@ -3017,6 +3017,7 @@ drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, con
 
     bytesWritten = 0;
     pRunningData = (const drwav_uint8*)pData;
+
     while (bytesToWrite > 0) {
         size_t bytesJustWritten;
         drwav_uint64 bytesToWriteThisIteration = bytesToWrite;
@@ -3024,9 +3025,31 @@ drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, con
             bytesToWriteThisIteration = DRWAV_SIZE_MAX;
         }
 
-        bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, pRunningData);
-        if (bytesJustWritten == 0) {
-            break;
+        /* WAV files are always little-endian. We need to byte swap on big-endian architectures. */
+        if (drwav__is_little_endian()) {
+            bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, pRunningData);
+            if (bytesJustWritten == 0) {
+                break;
+            }
+        } else {
+            drwav_uint8 temp[4096];
+            drwav_uint32 sampleCount;
+            drwav_uint32 bytesPerSample;
+
+            bytesPerSample = drwav_get_bytes_per_pcm_frame(pWav) / pWav->channels;
+            sampleCount = sizeof(temp)/bytesPerSample;
+
+            if (bytesToWriteThisIteration > sampleCount*bytesPerSample) {
+                bytesToWriteThisIteration = sampleCount*bytesPerSample;
+            }
+
+            DRWAV_COPY_MEMORY(temp, pRunningData, (size_t)bytesToWriteThisIteration);
+            drwav__bswap_samples(temp, sampleCount, bytesPerSample, pWav->translatedFormatTag);
+
+            bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, temp);
+            if (bytesJustWritten == 0) {
+                break;
+            }
         }
 
         bytesToWrite -= bytesJustWritten;
