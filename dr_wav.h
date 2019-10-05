@@ -3050,7 +3050,7 @@ drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesToWrite, con
             }
 
             DRWAV_COPY_MEMORY(temp, pRunningData, (size_t)bytesToWriteThisIteration);
-            drwav__bswap_samples(temp, sampleCount, bytesPerSample, pWav->translatedFormatTag);
+            drwav__bswap_samples(temp, sampleCount, pWav->bitsPerSample, pWav->translatedFormatTag);
 
             bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, temp);
             if (bytesJustWritten == 0) {
