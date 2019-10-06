@@ -19,8 +19,19 @@ SET arch=-msse4.1
 :: libFLAC and libogg are required for benchmarking.
 SET libFLAC=-I./flac/include -L./flac/lib/win32 -lFLAC -logg
 
-SET options=-Wall -Wpedantic -std=c89 -ansi -pedantic -O3 -s -DNDEBUG %arch% %libFLAC%
+:: C options
+SET c_options=-std=c89 -ansi
+
+:: C++ options
+SET cpp_options=
+
+SET options=-Wall -Wpedantic -pedantic -O3 -s -DNDEBUG %arch% %libFLAC%
+
+SET buildc=%c_compiler% %c_options%
+SET buildcpp=%cpp_compiler% %cpp_options%
 @echo on
 
-%c_compiler% ./flac/dr_flac_test_0.c -o ./bin/dr_flac_test_0.exe %options%
-%c_compiler% ./flac/dr_flac_decoding.c -o ./bin/dr_flac_decoding.exe %options%
+%buildc% ./flac/dr_flac_test_0.c -o ./bin/dr_flac_test_0.exe %options%
+%buildcpp% ./flac/dr_flac_test_0.cpp -o ./bin/dr_flac_test_0_cpp.exe %options%
+%buildc% ./flac/dr_flac_decoding.c -o ./bin/dr_flac_decoding.exe %options%
+%buildcpp% ./flac/dr_flac_decoding.cpp -o ./bin/dr_flac_decoding_cpp.exe %options%

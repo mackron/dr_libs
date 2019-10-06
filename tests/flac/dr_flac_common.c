@@ -155,7 +155,7 @@ drflac_result libflac_init_file(const char* pFilePath, libflac* pDecoder)
 
     DRFLAC_ZERO_MEMORY(pDecoder, sizeof(*pDecoder));
 
-    pDecoder->pFileData = dr_open_and_read_file(pFilePath, &pDecoder->fileSizeInBytes);
+    pDecoder->pFileData = (drflac_uint8*)dr_open_and_read_file(pFilePath, &pDecoder->fileSizeInBytes);
     if (pDecoder->pFileData == NULL) {
         return DRFLAC_ERROR;    /* Failed to open the file. */
     }

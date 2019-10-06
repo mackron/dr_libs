@@ -13,6 +13,15 @@ each test program from this directory:
 
     ./bin/dr_opus_test_0
     
+    
+Building and Running WAV Tests
+------------------------------
+The WAV tests use libsndfile as a benchmark. The tests programs dynamically link to libsndfile at runtime which
+means you don't need to link to it at compile time. However, you will need the headers installed in a standard
+location. The batch files for the Windows build will allow you to customize the include path. On the Windows build
+you will need to drop two versions of libsndfile-1.dll into the bin directory. For the 32-bit build you need to
+name it libsndfile-1-x86.dll and for the 64-bit build you need to name it libsndfile-1-x64.dll.
+    
 
 Test Vectors
 ============

@@ -78,6 +78,10 @@ typedef dr_uint32   dr_bool32;
 #define DR_TRUE     1
 #define DR_FALSE    0
 
+typedef void* dr_handle;
+typedef void* dr_ptr;
+typedef void (* dr_proc)(void);
+
 /*
 Return Values:
   0:  Success
@@ -669,7 +673,7 @@ int dr_vprintf_fixed(int width, const char* const format, va_list args)
         return -1;  /* Width cannot be negative or 0. */
     }
 
-    if (width > sizeof(buffer)) {
+    if ((unsigned int)width > sizeof(buffer)) {
         return -1;  /* Width is too big. */
     }
     
@@ -863,4 +867,49 @@ void dr_pcm_s32_to_s16(void* dst, const void* src, dr_uint64 count)
         x = x >> 16;
         dst_s16[i] = (dr_int16)x;
     }
+}
+
+
+
+
+dr_handle dr_dlopen(const char* filename)
+{
+    dr_handle handle;
+
+#ifdef _WIN32
+    handle = (dr_handle)LoadLibraryA(filename);
+#else
+    handle = (dr_handle)dlopen(filename, RTLD_NOW);
+#endif
+
+    return handle;
+}
+
+void dr_dlclose(dr_handle handle)
+{
+#ifdef _WIN32
+    FreeLibrary((HMODULE)handle);
+#else
+    dlclose((void*)handle);
+#endif
+}
+
+dr_proc dr_dlsym(dr_handle handle, const char* symbol)
+{
+    dr_proc proc;
+
+#ifdef _WIN32
+    proc = (dr_proc)GetProcAddress((HMODULE)handle, symbol);
+#else
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+    proc = (dr_proc)dlsym((void*)handle, symbol);
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+    #pragma GCC diagnostic pop
+#endif
+#endif
+
+    return proc;
 }
