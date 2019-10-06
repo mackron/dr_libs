@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.11.0 - 2019-xx-xx
+dr_wav - v0.11.0 - 2019-10-06
 
 David Reid - mackron@gmail.com
 */
@@ -80,10 +80,10 @@ Every API that opens a drwav object now takes this extra parameter. These includ
     drwav_open_memory_and_read_pcm_frames_f32()
     drwav_open_memory_and_read_pcm_frames_s32()
 
-Big-Endian Improvements
------------------------
+Endian Improvements
+-------------------
 Previously, the following APIs returned little-endian audio data. These now return native-endian data. This improves compatibility
-with big-endian architectures.
+on big-endian architectures.
 
     drwav_read_pcm_frames()
     drwav_read_pcm_frames_s16()
@@ -101,6 +101,20 @@ with big-endian architectures.
     drwav_open_memory_and_read_pcm_frames_s16()
     drwav_open_memory_and_read_pcm_frames_s32()
     drwav_open_memory_and_read_pcm_frames_f32()
+
+APIs have been added to give you explicit control over whether or not audio data is read or written in big- or little-endian byte
+order:
+
+    drwav_read_pcm_frames_le()
+    drwav_read_pcm_frames_be()
+    drwav_read_pcm_frames_s16le()
+    drwav_read_pcm_frames_s16be()
+    drwav_read_pcm_frames_f32le()
+    drwav_read_pcm_frames_f32be()
+    drwav_read_pcm_frames_s32le()
+    drwav_read_pcm_frames_s32be()
+    drwav_write_pcm_frames_le()
+    drwav_write_pcm_frames_be()
 
 Removed APIs
 ------------
@@ -5023,7 +5037,7 @@ void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks)
 /*
 REVISION HISTORY
 ================
-v0.11.0 - 2019-xx-xx
+v0.11.0 - 2019-10-06
 - API CHANGE: Add support for user defined memory allocation routines. This system allows the program to specify their own memory allocation
     routines with a user data pointer for client-specific contextual data. This adds an extra parameter to the end of the following APIs:
     - drwav_init()
