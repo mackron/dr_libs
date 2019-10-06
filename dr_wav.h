@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.11.0 - 2019-10-06
+dr_wav - v0.11.1 - 2019-10-07
 
 David Reid - mackron@gmail.com
 */
