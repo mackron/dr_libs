@@ -23,7 +23,7 @@ pfn_sf_seek         libsndfile__sf_seek;
 
 drwav_result libsndfile_init_api()
 {
-    int i;
+    unsigned int i;
     const char* pFileNames[] = {
 #if defined(_WIN32)
     #if defined(_WIN64)
@@ -147,7 +147,7 @@ drwav_result libsndfile_init_file(const char* pFilePath, libsndfile* pSndFile)
     DRWAV_ZERO_MEMORY(pSndFile, sizeof(*pSndFile));
 
     /* We use libsndfile's virtual IO technique because we want to load from memory to make speed benchmarking fairer. */
-    pSndFile->pFileData = dr_open_and_read_file(pFilePath, &pSndFile->fileSizeInBytes);
+    pSndFile->pFileData = (drwav_uint8*)dr_open_and_read_file(pFilePath, &pSndFile->fileSizeInBytes);
     if (pSndFile->pFileData == NULL) {
         return DRWAV_ERROR; /* Failed to open the file. */
     }

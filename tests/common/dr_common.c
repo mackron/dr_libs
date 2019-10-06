@@ -673,7 +673,7 @@ int dr_vprintf_fixed(int width, const char* const format, va_list args)
         return -1;  /* Width cannot be negative or 0. */
     }
 
-    if (width > sizeof(buffer)) {
+    if ((unsigned int)width > sizeof(buffer)) {
         return -1;  /* Width is too big. */
     }
     
