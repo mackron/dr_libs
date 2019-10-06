@@ -3072,6 +3072,7 @@ drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 framesToWrite, 
 {
     drwav_uint64 bytesToWrite;
     drwav_uint64 bytesWritten;
+    drwav_uint32 bytesPerSample;
     const drwav_uint8* pRunningData;
 
     if (pWav == NULL || framesToWrite == 0 || pData == NULL) {
@@ -3086,10 +3087,11 @@ drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 framesToWrite, 
     bytesWritten = 0;
     pRunningData = (const drwav_uint8*)pData;
 
+    bytesPerSample = drwav_get_bytes_per_pcm_frame(pWav) / pWav->channels;
+    
     while (bytesToWrite > 0) {
         drwav_uint8 temp[4096];
         drwav_uint32 sampleCount;
-        drwav_uint32 bytesPerSample;
         size_t bytesJustWritten;
         drwav_uint64 bytesToWriteThisIteration;
 
@@ -3102,7 +3104,6 @@ drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 framesToWrite, 
         WAV files are always little-endian. We need to byte swap on big-endian architectures. Since our input buffer is read-only we need
         to use an intermediary buffer for the conversion.
         */
-        bytesPerSample = drwav_get_bytes_per_pcm_frame(pWav) / pWav->channels;
         sampleCount = sizeof(temp)/bytesPerSample;
 
         if (bytesToWriteThisIteration > sampleCount*bytesPerSample) {
