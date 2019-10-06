@@ -1305,15 +1305,15 @@ static DRWAV_INLINE void drwav__bswap_samples_pcm(void* pSamples, drwav_uint64 s
     {
         case 2: /* s16, s12 (loosely packed) */
         {
-            drwav__bswap_samples_s16(pSamples, sampleCount);
+            drwav__bswap_samples_s16((drwav_int16*)pSamples, sampleCount);
         } break;
         case 3: /* s24 */
         {
-            drwav__bswap_samples_s24(pSamples, sampleCount);
+            drwav__bswap_samples_s24((drwav_uint8*)pSamples, sampleCount);
         } break;
         case 4: /* s32 */
         {
-            drwav__bswap_samples_s32(pSamples, sampleCount);
+            drwav__bswap_samples_s32((drwav_int32*)pSamples, sampleCount);
         } break;
         default:
         {
@@ -1330,16 +1330,16 @@ static DRWAV_INLINE void drwav__bswap_samples_ieee(void* pSamples, drwav_uint64 
     #if 0   /* Contributions welcome for f16 support. */
         case 2: /* f16 */
         {
-            drwav__bswap_samples_f16(pSamples, sampleCount);
+            drwav__bswap_samples_f16((drwav_float16*)pSamples, sampleCount);
         } break;
     #endif
         case 4: /* f32 */
         {
-            drwav__bswap_samples_f32(pSamples, sampleCount);
+            drwav__bswap_samples_f32((float*)pSamples, sampleCount);
         } break;
         case 8: /* f64 */
         {
-            drwav__bswap_samples_f64(pSamples, sampleCount);
+            drwav__bswap_samples_f64((double*)pSamples, sampleCount);
         } break;
         default:
         {
@@ -1366,7 +1366,7 @@ static DRWAV_INLINE void drwav__bswap_samples(void* pSamples, drwav_uint64 sampl
         case DR_WAVE_FORMAT_ALAW:
         case DR_WAVE_FORMAT_MULAW:
         {
-            drwav__bswap_samples_s16(pSamples, sampleCount);
+            drwav__bswap_samples_s16((drwav_int16*)pSamples, sampleCount);
         } break;
 
         case DR_WAVE_FORMAT_ADPCM:
