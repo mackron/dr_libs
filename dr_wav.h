@@ -16,7 +16,7 @@ The main change with this release is the addition of a more flexible way of impl
 existing system of DRWAV_MALLOC, DRWAV_REALLOC and DRWAV_FREE are still in place and will be used by default when no custom
 allocation callbacks are specified.
 
-To use the new system, you pass in a pointer to a drwav_allocation_callbacks object to drwav_open() and family, like this:
+To use the new system, you pass in a pointer to a drwav_allocation_callbacks object to drwav_init() and family, like this:
 
     void* my_malloc(size_t sz, void* pUserData)
     {
@@ -5038,7 +5038,7 @@ void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks)
 REVISION HISTORY
 ================
 v0.11.0 - 2019-10-06
-- API CHANGE: Add support for user defined memory allocation routines. This system allows the program to specify their own memory allocation
+  - API CHANGE: Add support for user defined memory allocation routines. This system allows the program to specify their own memory allocation
     routines with a user data pointer for client-specific contextual data. This adds an extra parameter to the end of the following APIs:
     - drwav_init()
     - drwav_init_ex()
