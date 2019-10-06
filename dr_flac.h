@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.1 - 2019-09-29
+dr_flac - v0.12.2 - 2019-10-07
 
 David Reid - mackron@gmail.com
 */
@@ -10717,6 +10717,9 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 /*
 REVISION HISTORY
 ================
+v0.12.2 - 2019-10-07
+  - Internal code clean up.
+
 v0.12.1 - 2019-09-29
   - Fix some Clang Static Analyzer warnings.
   - Fix an unused variable warning.
