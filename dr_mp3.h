@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.5.0 - 2019-10-07
+dr_mp3 - v0.5.1 - 2019-10-08
 
 David Reid - mackron@gmail.com
 
@@ -4005,6 +4005,9 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
+v0.5.1 - 2019-10-08
+  - Fix a warning with GCC.
+
 v0.5.0 - 2019-10-07
   - API CHANGE: Add support for user defined memory allocation routines. This system allows the program to specify their own memory allocation
     routines with a user data pointer for client-specific contextual data. This adds an extra parameter to the end of the following APIs:
