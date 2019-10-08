@@ -2382,6 +2382,7 @@ static void drmp3__free_default(void* p, void* pUserData)
 }
 
 
+#if 0   /* Unused, but leaving here in case I need to add it again later. */
 static void* drmp3__malloc_from_callbacks(size_t sz, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     if (pAllocationCallbacks == NULL) {
@@ -2399,6 +2400,7 @@ static void* drmp3__malloc_from_callbacks(size_t sz, const drmp3_allocation_call
 
     return NULL;
 }
+#endif
 
 static void* drmp3__realloc_from_callbacks(void* p, size_t szNew, size_t szOld, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
