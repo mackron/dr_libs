@@ -3019,6 +3019,8 @@ static drmp3_uint32 drmp3_seek_next_frame(drmp3* pMP3)
 drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     drmp3_config config;
+    config.outputChannels = 0;
+    config.outputSampleRate = 0;
 
     DRMP3_ASSERT(pMP3 != NULL);
     DRMP3_ASSERT(onRead != NULL);
