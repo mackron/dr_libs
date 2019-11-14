@@ -41,11 +41,11 @@ To use the new system, you pass in a pointer to a drmp3_allocation_callbacks obj
     allocationCallbacks.onMalloc  = my_malloc;
     allocationCallbacks.onRealloc = my_realloc;
     allocationCallbacks.onFree    = my_free;
-    drmp3_init_file(&mp3, "my_file.wav", NULL, &allocationCallbacks);
+    drmp3_init_file(&mp3, "my_file.mp3", NULL, &allocationCallbacks);
 
 The advantage of this new system is that it allows you to specify user data which will be passed in to the allocation routines.
 
-Passing in null for the allocation callbacks object will cause dr_wav to use defaults which is the same as DRMP3_MALLOC,
+Passing in null for the allocation callbacks object will cause dr_mp3 to use defaults which is the same as DRMP3_MALLOC,
 DRMP3_REALLOC and DRMP3_FREE and the equivalent of how it worked in previous versions.
 
 Every API that opens a drmp3 object now takes this extra parameter. These include the following:
