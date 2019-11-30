@@ -10738,6 +10738,9 @@ REVISION HISTORY
 ================
 v0.12.3 - 20xx-xx-xx
   - Fix some warnings when compiling with GCC and the -Og flag.
+  - Fix a crash in out-of-memory situations.
+  - Fix potential integer overflow bug.
+  - Fix some static analysis warnings.
 
 v0.12.2 - 2019-10-07
   - Internal code clean up.
