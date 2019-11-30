@@ -5785,8 +5785,10 @@ static void* drflac__realloc_from_callbacks(void* p, size_t szNew, size_t szOld,
             return NULL;
         }
 
-        DRFLAC_COPY_MEMORY(p2, p, szOld);
-        pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
+        if (p != NULL) {
+            DRFLAC_COPY_MEMORY(p2, p, szOld);
+            pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
+        }
 
         return p2;
     }
@@ -10741,6 +10743,7 @@ v0.12.3 - 20xx-xx-xx
   - Fix a crash in out-of-memory situations.
   - Fix potential integer overflow bug.
   - Fix some static analysis warnings.
+  - Fix a possible crash when using custom memory allocators without a custom realloc() implementation.
 
 v0.12.2 - 2019-10-07
   - Internal code clean up.
