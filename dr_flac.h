@@ -6386,6 +6386,16 @@ drflac_result drflac_ogg__read_page_header_after_capture_pattern(drflac_read_pro
     }
     *pBytesRead += 23;
 
+    /*
+    It's not actually used, but set the capture pattern to 'OggS' for completeness. Not doing this will cause static analysers to complain about
+    us trying to access uninitialized data. We could alternatively just comment out this member of the drflac_ogg_page_header structure, but I
+    like to have it map to the structure of the underlying data.
+    */
+    pHeader->capturePattern[0] = 'O';
+    pHeader->capturePattern[1] = 'g';
+    pHeader->capturePattern[2] = 'g';
+    pHeader->capturePattern[3] = 'S';
+
     pHeader->structureVersion = data[0];
     pHeader->headerType       = data[1];
     DRFLAC_COPY_MEMORY(&pHeader->granulePosition, &data[ 2], 8);
