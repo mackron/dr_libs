@@ -7282,6 +7282,10 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 
 
     pFlac = (drflac*)drflac__malloc_from_callbacks(allocationSize, &allocationCallbacks);
+    if (pFlac == NULL) {
+        return NULL;
+    }
+
     drflac__init_from_info(pFlac, &init);
     pFlac->allocationCallbacks = allocationCallbacks;
     pFlac->pDecodedSamples = (drflac_int32*)drflac_align((size_t)pFlac->pExtraData, DRFLAC_MAX_SIMD_VECTOR_SIZE);
