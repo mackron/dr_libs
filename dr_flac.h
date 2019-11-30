@@ -555,11 +555,14 @@ typedef struct
 {
     /*
     If the stream uses variable block sizes, this will be set to the index of the first PCM frame. If fixed block sizes are used, this will
-    always be set to 0.
+    always be set to 0. This is 64-bit because the decoded PCM frame number will be 36 bits.
     */
     drflac_uint64 pcmFrameNumber;
 
-    /* If the stream uses fixed block sizes, this will be set to the frame number. If variable block sizes are used, this will always be 0. */
+    /*
+    If the stream uses fixed block sizes, this will be set to the frame number. If variable block sizes are used, this will always be 0. This
+    is 32-bit because in fixed block sizes, the maximum frame number will be 31 bits.
+    */
     drflac_uint32 flacFrameNumber;
 
     /* The sample rate of this frame. */
@@ -5078,10 +5081,10 @@ static void drflac__get_pcm_frame_range_of_current_flac_frame(drflac* pFlac, drf
 
     firstPCMFrame = pFlac->currentFLACFrame.header.pcmFrameNumber;
     if (firstPCMFrame == 0) {
-        firstPCMFrame = pFlac->currentFLACFrame.header.flacFrameNumber * pFlac->maxBlockSizeInPCMFrames;
+        firstPCMFrame = ((drflac_uint64)pFlac->currentFLACFrame.header.flacFrameNumber) * pFlac->maxBlockSizeInPCMFrames;
     }
 
-    lastPCMFrame = firstPCMFrame + (pFlac->currentFLACFrame.header.blockSizeInPCMFrames);
+    lastPCMFrame = firstPCMFrame + pFlac->currentFLACFrame.header.blockSizeInPCMFrames;
     if (lastPCMFrame > 0) {
         lastPCMFrame -= 1; /* Needs to be zero based. */
     }
