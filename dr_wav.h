@@ -3079,10 +3079,10 @@ drwav_uint64 drwav_write_pcm_frames_le(drwav* pWav, drwav_uint64 framesToWrite, 
 
     while (bytesToWrite > 0) {
         size_t bytesJustWritten;
-        drwav_uint64 bytesToWriteThisIteration = bytesToWrite;
-        if (bytesToWriteThisIteration > DRWAV_SIZE_MAX) {
-            bytesToWriteThisIteration = DRWAV_SIZE_MAX;
-        }
+        drwav_uint64 bytesToWriteThisIteration;
+
+        bytesToWriteThisIteration = bytesToWrite;
+        DRWAV_ASSERT(bytesToWriteThisIteration <= DRWAV_SIZE_MAX);  /* <-- This is checked above. */
 
         bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, pRunningData);
         if (bytesJustWritten == 0) {
@@ -3125,9 +3125,7 @@ drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 framesToWrite, 
         drwav_uint64 bytesToWriteThisIteration;
 
         bytesToWriteThisIteration = bytesToWrite;
-        if (bytesToWriteThisIteration > DRWAV_SIZE_MAX) {
-            bytesToWriteThisIteration = DRWAV_SIZE_MAX;
-        }
+        DRWAV_ASSERT(bytesToWriteThisIteration <= DRWAV_SIZE_MAX);  /* <-- This is checked above. */
 
         /*
         WAV files are always little-endian. We need to byte swap on big-endian architectures. Since our input buffer is read-only we need
