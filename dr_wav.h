@@ -3135,8 +3135,8 @@ drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 framesToWrite, 
         */
         sampleCount = sizeof(temp)/bytesPerSample;
 
-        if (bytesToWriteThisIteration > sampleCount*bytesPerSample) {
-            bytesToWriteThisIteration = sampleCount*bytesPerSample;
+        if (bytesToWriteThisIteration > ((drwav_uint64)sampleCount)*bytesPerSample) {
+            bytesToWriteThisIteration = ((drwav_uint64)sampleCount)*bytesPerSample;
         }
 
         DRWAV_COPY_MEMORY(temp, pRunningData, (size_t)bytesToWriteThisIteration);
@@ -5054,6 +5054,7 @@ REVISION HISTORY
 ================
 v0.11.2 - 20xx-xx-xx
   - Fix a possible crash when using custom memory allocators without a custom realloc() implementation.
+  - Fix an integer overflow bug.
   - Add limits to sample rate, channels and bits per sample to tighten up some validation.
 
 v0.11.1 - 2019-10-07
