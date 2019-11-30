@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.11.1 - 2019-10-07
+dr_wav - v0.11.2 - 20xx-xx-xx
 
 David Reid - mackron@gmail.com
 */
@@ -1446,8 +1446,10 @@ static void* drwav__realloc_from_callbacks(void* p, size_t szNew, size_t szOld, 
             return NULL;
         }
 
-        DRWAV_COPY_MEMORY(p2, p, szOld);
-        pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
+        if (p != NULL) {
+            DRWAV_COPY_MEMORY(p2, p, szOld);
+            pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
+        }
 
         return p2;
     }
@@ -5033,6 +5035,9 @@ void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks)
 /*
 REVISION HISTORY
 ================
+v0.11.2 - 20xx-xx-xx
+  - Fix a possible crash when using custom memory allocators without a custom realloc() implementation.
+
 v0.11.1 - 2019-10-07
   - Internal code clean up.
 
