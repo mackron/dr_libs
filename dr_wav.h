@@ -2945,11 +2945,12 @@ drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex)
 {
     /* Seeking should be compatible with wave files > 2GB. */
 
-    if (pWav->onWrite != NULL) {
-        return DRWAV_FALSE; /* No seeking in write mode. */
+    if (pWav == NULL || pWav->onSeek == NULL) {
+        return DRWAV_FALSE;
     }
 
-    if (pWav == NULL || pWav->onSeek == NULL) {
+    /* No seeking in write mode. */
+    if (pWav->onWrite != NULL) {
         return DRWAV_FALSE;
     }
 
@@ -5053,6 +5054,7 @@ REVISION HISTORY
 v0.11.2 - 20xx-xx-xx
   - Fix a possible crash when using custom memory allocators without a custom realloc() implementation.
   - Fix an integer overflow bug.
+  - Fix a null pointer dereference bug.
   - Add limits to sample rate, channels and bits per sample to tighten up some validation.
 
 v0.11.1 - 2019-10-07
