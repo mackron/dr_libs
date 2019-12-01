@@ -5352,7 +5352,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
     drflac_uint64 closestSeekOffsetBeforeTargetPCMFrame = byteRangeLo;
     drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSizeInPCMFrames != 0) ? pFlac->maxBlockSizeInPCMFrames*2 : 4096;
 
-    targetByte = byteRangeLo + (drflac_uint64)(((pcmFrameIndex - pFlac->currentPCMFrame) * pFlac->channels * pFlac->bitsPerSample/8UL) * DRFLAC_BINARY_SEARCH_APPROX_COMPRESSION_RATIO);
+    targetByte = byteRangeLo + (drflac_uint64)(((pcmFrameIndex - pFlac->currentPCMFrame) * pFlac->channels * pFlac->bitsPerSample/8.0f) * DRFLAC_BINARY_SEARCH_APPROX_COMPRESSION_RATIO);
     if (targetByte > byteRangeHi) {
         targetByte = byteRangeHi;
     }
@@ -5397,7 +5397,6 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
                         byteRangeLo = byteRangeHi;
                     }
 
-                    /*targetByte = lastSuccessfulSeekOffset - (drflac_uint64)((pcmRangeLo-pcmFrameIndex) * pFlac->channels * pFlac->bitsPerSample/8 * approxCompressionRatio);*/
                     targetByte = byteRangeLo + ((byteRangeHi - byteRangeLo) / 2);
                     if (targetByte < byteRangeLo) {
                         targetByte = byteRangeLo;
@@ -5418,10 +5417,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
                             byteRangeHi = byteRangeLo;
                         }
 
-                        /*targetByte = byteRangeLo + (drflac_uint64)((pcmFrameIndex-pcmRangeLo) * pFlac->channels * pFlac->bitsPerSample/8 * approxCompressionRatio);*/
-                        targetByte = lastSuccessfulSeekOffset + (drflac_uint64)(((pcmFrameIndex-pcmRangeLo) * pFlac->channels * pFlac->bitsPerSample/8UL) * approxCompressionRatio);
-                        /*targetByte = byteRangeLo + ((byteRangeHi - byteRangeLo) / 2);*/
-
+                        targetByte = lastSuccessfulSeekOffset + (drflac_uint64)(((pcmFrameIndex-pcmRangeLo) * pFlac->channels * pFlac->bitsPerSample/8.0f) * approxCompressionRatio);
                         if (targetByte > byteRangeHi) {
                             targetByte = byteRangeHi;
                         }
@@ -5463,7 +5459,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search(drflac* pFlac, drf
     the entire file is included, even though most of the time it'll exceed the end of the actual stream. This is OK as the frame searching logic will handle it.
     */
     byteRangeLo = pFlac->firstFLACFramePosInBytes;
-    byteRangeHi = pFlac->firstFLACFramePosInBytes + (drflac_uint64)(pFlac->totalPCMFrameCount * pFlac->channels * pFlac->bitsPerSample/8UL);
+    byteRangeHi = pFlac->firstFLACFramePosInBytes + (drflac_uint64)(pFlac->totalPCMFrameCount * pFlac->channels * pFlac->bitsPerSample/8.0f);
 
     return drflac__seek_to_pcm_frame__binary_search_internal(pFlac, pcmFrameIndex, byteRangeLo, byteRangeHi);
 }
@@ -5497,7 +5493,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
         drflac_uint64 byteRangeLo;
         drflac_uint64 byteRangeHi;
 
-        byteRangeHi = pFlac->firstFLACFramePosInBytes + (drflac_uint64)(pFlac->totalPCMFrameCount * pFlac->channels * pFlac->bitsPerSample/8UL);
+        byteRangeHi = pFlac->firstFLACFramePosInBytes + (drflac_uint64)(pFlac->totalPCMFrameCount * pFlac->channels * pFlac->bitsPerSample/8.0f);
         byteRangeLo = pFlac->firstFLACFramePosInBytes + pFlac->pSeekpoints[iClosestSeekpoint].flacFrameOffset;
 
         if (iClosestSeekpoint < pFlac->seekpointCount-1) {
@@ -10747,6 +10743,7 @@ v0.12.3 - 20xx-xx-xx
   - Fix potential integer overflow bug.
   - Fix some static analysis warnings.
   - Fix a possible crash when using custom memory allocators without a custom realloc() implementation.
+  - Fix a bug with binary search seeking where the bits per sample is not a multiple of 8.
 
 v0.12.2 - 2019-10-07
   - Internal code clean up.
