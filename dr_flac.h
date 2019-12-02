@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.3 - 20xx-xx-xx
+dr_flac - v0.12.3 - 2019-12-02
 
 David Reid - mackron@gmail.com
 */
@@ -10737,7 +10737,7 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 /*
 REVISION HISTORY
 ================
-v0.12.3 - 20xx-xx-xx
+v0.12.3 - 2019-12-02
   - Fix some warnings when compiling with GCC and the -Og flag.
   - Fix a crash in out-of-memory situations.
   - Fix potential integer overflow bug.
