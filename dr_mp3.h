@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.5.3 - 2019-11-14
+dr_mp3 - v0.5.4 - 2019-12-02
 
 David Reid - mackron@gmail.com
 
@@ -2423,8 +2423,10 @@ static void* drmp3__realloc_from_callbacks(void* p, size_t szNew, size_t szOld, 
             return NULL;
         }
 
-        DRMP3_COPY_MEMORY(p2, p, szOld);
-        pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
+        if (p != NULL) {
+            DRMP3_COPY_MEMORY(p2, p, szOld);
+            pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
+        }
 
         return p2;
     }
@@ -4007,6 +4009,9 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
+v0.5.4 - 2019-12-02
+  - Fix a possible null pointer dereference when using custom memory allocators for realloc().
+
 v0.5.3 - 2019-11-14
   - Fix typos in documentation.
 
