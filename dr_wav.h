@@ -4174,7 +4174,11 @@ void drwav_u8_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount)
     }
 #else
     for (i = 0; i < sampleCount; ++i) {
-        *pOut++ = (pIn[i] / 255.0f) * 2 - 1;
+        float x = pIn[i];
+        x = x * 0.00784313725490196078f;    /* 0..255 to 0..2 */
+        x = x - 1;                          /* 0..2 to -1..1 */
+
+        *pOut++ = x;
     }
 #endif
 }
@@ -4188,7 +4192,7 @@ void drwav_s16_to_f32(float* pOut, const drwav_int16* pIn, size_t sampleCount)
     }
 
     for (i = 0; i < sampleCount; ++i) {
-        *pOut++ = pIn[i] / 32768.0f;
+        *pOut++ = pIn[i] * 0.000030517578125f;
     }
 }
 
@@ -4201,12 +4205,8 @@ void drwav_s24_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount)
     }
 
     for (i = 0; i < sampleCount; ++i) {
-        unsigned int s0 = pIn[i*3 + 0];
-        unsigned int s1 = pIn[i*3 + 1];
-        unsigned int s2 = pIn[i*3 + 2];
-
-        int sample32 = (int)((s0 << 8) | (s1 << 16) | (s2 << 24));
-        *pOut++ = (float)(sample32 / 2147483648.0);
+        double x = (double)(((drwav_int32)(((drwav_uint32)(pIn[i*3+0]) << 8) | ((drwav_uint32)(pIn[i*3+1]) << 16) | ((drwav_uint32)(pIn[i*3+2])) << 24)) >> 8);
+        *pOut++ = (float)(x * 0.00000011920928955078125);
     }
 }
 
