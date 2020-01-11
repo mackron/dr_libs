@@ -3440,6 +3440,7 @@ drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uint64 framesToRe
                     drwav_uint32 iByte;
                     drwav_uint8 nibbles[4];
                     if (pWav->onRead(pWav->pUserData, &nibbles, 4) != 4) {
+                        pWav->ima.cachedFrameCount = 0;
                         return totalFramesRead;
                     }
                     pWav->ima.bytesRemainingInBlock -= 4;
