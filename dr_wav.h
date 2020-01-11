@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.11.2 - 2019-12-02
+dr_wav - v0.11.3 - 2020-01-12
 
 David Reid - mackron@gmail.com
 */
@@ -5052,6 +5052,10 @@ void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks)
 /*
 REVISION HISTORY
 ================
+v0.11.3 - 2020-01-12
+  - Minor changes to some f32 format conversion routines.
+  - Minor bug fix for ADPCM conversion when end of file is reached.
+
 v0.11.2 - 2019-12-02
   - Fix a possible crash when using custom memory allocators without a custom realloc() implementation.
   - Fix an integer overflow bug.
@@ -5340,7 +5344,7 @@ For more information, please refer to <http://unlicense.org/>
 ===============================================================================
 ALTERNATIVE 2 - MIT No Attribution
 ===============================================================================
-Copyright 2018 David Reid
+Copyright 2020 David Reid
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
