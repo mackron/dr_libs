@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.5.4 - 2019-12-02
+dr_mp3 - v0.5.5 - 2019-xx-xx
 
 David Reid - mackron@gmail.com
 
@@ -3872,7 +3872,7 @@ drmp3_int16* drmp3__full_read_and_close_s16(drmp3* pMP3, drmp3_config* pConfig, 
             drmp3_uint64 newFramesCap;
             drmp3_int16* pNewFrames;
 
-           newFramesCap = framesCapacity * 2;
+            newFramesCap = framesCapacity * 2;
             if (newFramesCap < totalFramesRead + framesJustRead) {
                 newFramesCap = totalFramesRead + framesJustRead;
             }
@@ -3890,6 +3890,7 @@ drmp3_int16* drmp3__full_read_and_close_s16(drmp3* pMP3, drmp3_config* pConfig, 
             }
 
             pFrames = pNewFrames;
+            framesCapacity = newFramesCap;
         }
 
         DRMP3_COPY_MEMORY(pFrames + totalFramesRead*pMP3->channels, temp, (size_t)(framesJustRead*pMP3->channels*sizeof(drmp3_int16)));
@@ -4009,6 +4010,9 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
+v0.5.5 - 2019-xx-xx
+  - Fix a memory allocation bug in high level s16 decoding APIs.
+
 v0.5.4 - 2019-12-02
   - Fix a possible null pointer dereference when using custom memory allocators for realloc().
 
