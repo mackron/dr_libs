@@ -823,7 +823,7 @@ static void drmp3_L12_read_scalefactors(drmp3_bs *bs, drmp3_uint8 *pba, drmp3_ui
             if (mask & m)
             {
                 int b = drmp3_bs_get_bits(bs, 6);
-                s = g_deq_L12[ba*3 - 6 + b % 3]*(1 << 21 >> b/3);
+                s = g_deq_L12[ba*3 - 6 + b % 3]*(1 << 21 >> (b/3));
             }
             *scf++ = s;
         }
