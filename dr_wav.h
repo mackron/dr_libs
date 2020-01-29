@@ -1100,14 +1100,14 @@ static const drwav_uint8 drwavGUID_W64_SMPL[16] = {0x73,0x6D,0x70,0x6C, 0xF3,0xA
 
 static DRWAV_INLINE drwav_bool32 drwav__guid_equal(const drwav_uint8 a[16], const drwav_uint8 b[16])
 {
-    const drwav_uint32* a32 = (const drwav_uint32*)a;
-    const drwav_uint32* b32 = (const drwav_uint32*)b;
+    int i;
+    for (i = 0; i < 16; i += 1) {
+        if (a[i] != b[i]) {
+            return DRWAV_FALSE;
+        }
+    }
 
-    return
-        a32[0] == b32[0] &&
-        a32[1] == b32[1] &&
-        a32[2] == b32[2] &&
-        a32[3] == b32[3];
+    return DRWAV_TRUE;
 }
 
 static DRWAV_INLINE drwav_bool32 drwav__fourcc_equal(const unsigned char* a, const char* b)
