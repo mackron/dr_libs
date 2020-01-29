@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.5.5 - 2019-xx-xx
+dr_mp3 - v0.5.5 - 2020-01-29
 
 David Reid - mackron@gmail.com
 
@@ -4010,7 +4010,7 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
-v0.5.5 - 2019-xx-xx
+v0.5.5 - 2020-01-29
   - Fix a memory allocation bug in high level s16 decoding APIs.
 
 v0.5.4 - 2019-12-02
@@ -4186,7 +4186,7 @@ For more information, please refer to <http://unlicense.org/>
 ===============================================================================
 ALTERNATIVE 2 - MIT No Attribution
 ===============================================================================
-Copyright 2018 David Reid
+Copyright 2020 David Reid
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
