@@ -4053,7 +4053,7 @@ drwav_uint64 drwav_read_pcm_frames_f32__alaw(drwav* pWav, drwav_uint64 framesToR
 
     totalFramesRead = 0;
 
-    while (bytesPerFrame > 0) {
+    while (framesToRead > 0) {
         drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
         if (framesRead == 0) {
             break;
@@ -5057,6 +5057,7 @@ REVISION HISTORY
 ================
 v0.11.x - 2020-01-xx
   - Fix some static analysis warnings.
+  - Fix a bug when reading f32 samples from an A-law encoded stream.
 
 v0.11.3 - 2020-01-12
   - Minor changes to some f32 format conversion routines.
