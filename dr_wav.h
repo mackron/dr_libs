@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.11.3 - 2020-01-12
+dr_wav - v0.11.x - 2020-01-xx
 
 David Reid - mackron@gmail.com
 */
@@ -3579,7 +3579,8 @@ static void drwav__pcm_to_s16(drwav_int16* pOut, const unsigned char* pIn, size_
         unsigned int shift  = (8 - bytesPerSample) * 8;
 
         unsigned int j;
-        for (j = 0; j < bytesPerSample && j < 8; j += 1) {
+        for (j = 0; j < bytesPerSample; j += 1) {
+            DRWAV_ASSERT(j < 8);
             sample |= (drwav_uint64)(pIn[j]) << shift;
             shift  += 8;
         }
@@ -3901,7 +3902,8 @@ static void drwav__pcm_to_f32(float* pOut, const unsigned char* pIn, size_t samp
         unsigned int shift  = (8 - bytesPerSample) * 8;
 
         unsigned int j;
-        for (j = 0; j < bytesPerSample && j < 8; j += 1) {
+        for (j = 0; j < bytesPerSample; j += 1) {
+            DRWAV_ASSERT(j < 8);
             sample |= (drwav_uint64)(pIn[j]) << shift;
             shift  += 8;
         }
@@ -4303,7 +4305,8 @@ static void drwav__pcm_to_s32(drwav_int32* pOut, const unsigned char* pIn, size_
         unsigned int shift  = (8 - bytesPerSample) * 8;
 
         unsigned int j;
-        for (j = 0; j < bytesPerSample && j < 8; j += 1) {
+        for (j = 0; j < bytesPerSample; j += 1) {
+            DRWAV_ASSERT(j < 8);
             sample |= (drwav_uint64)(pIn[j]) << shift;
             shift  += 8;
         }
@@ -5052,6 +5055,9 @@ void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks)
 /*
 REVISION HISTORY
 ================
+v0.11.x - 2020-01-xx
+  - Fix some static analysis warnings.
+
 v0.11.3 - 2020-01-12
   - Minor changes to some f32 format conversion routines.
   - Minor bug fix for ADPCM conversion when end of file is reached.
