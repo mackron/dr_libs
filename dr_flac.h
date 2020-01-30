@@ -4697,6 +4697,7 @@ static drflac_bool32 drflac__read_next_flac_frame_header(drflac_bs* bs, drflac_u
             crc8 = drflac_crc8(crc8, header->blockSizeInPCMFrames, 16);
             header->blockSizeInPCMFrames += 1;
         } else {
+            DRFLAC_ASSERT(blockSize >= 8);
             header->blockSizeInPCMFrames = 256 * (1 << (blockSize - 8));
         }
 
