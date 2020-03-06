@@ -286,7 +286,7 @@ void dropus_uninit(dropus* pOpus);
     #endif
 #endif
 
-#if defined(_MSC_VER) && _MSC_VER >= 1300
+#if defined(_MSC_VER) && _MSC_VER >= 1400
     #define DROPUS_HAS_BYTESWAP16_INTRINSIC
     #define DROPUS_HAS_BYTESWAP32_INTRINSIC
     #define DROPUS_HAS_BYTESWAP64_INTRINSIC
