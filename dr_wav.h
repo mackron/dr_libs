@@ -1050,7 +1050,7 @@ void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks)
     #endif
 #endif
 
-#if defined(_MSC_VER) && _MSC_VER >= 1300
+#if defined(_MSC_VER) && _MSC_VER >= 1400
     #define DRWAV_HAS_BYTESWAP16_INTRINSIC
     #define DRWAV_HAS_BYTESWAP32_INTRINSIC
     #define DRWAV_HAS_BYTESWAP64_INTRINSIC
