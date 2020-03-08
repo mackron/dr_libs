@@ -789,18 +789,18 @@ float dr_scale_to_range_f32(float x, float lo, float hi)
 #define DR_LCG_M   2147483647
 #define DR_LCG_A   48271
 #define DR_LCG_C   0
-static int g_maLCG;
+static int g_drLCG;
 
 void dr_seed(int seed)
 {
-    g_maLCG = seed;
+    g_drLCG = seed;
 }
 
 int dr_rand_s32()
 {
-    int lcg = g_maLCG;
+    int lcg = g_drLCG;
     int r = (DR_LCG_A * lcg + DR_LCG_C) % DR_LCG_M;
-    g_maLCG = r;
+    g_drLCG = r;
     return r;
 }
 
