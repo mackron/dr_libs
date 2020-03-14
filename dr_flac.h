@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.6 - 2020-03-07
+dr_flac - v0.12.7 - 2020-03-14
 
 David Reid - mackron@gmail.com
 */
@@ -10739,6 +10739,9 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 /*
 REVISION HISTORY
 ================
+v0.12.7 - 2020-03-14
+  - Fix compilation errors with VC6.
+
 v0.12.6 - 2020-03-07
   - Fix compilation error with Visual Studio .NET 2003.
 
