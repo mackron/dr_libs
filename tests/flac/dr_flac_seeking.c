@@ -14,7 +14,7 @@ typedef struct
 
 void profiling_state_init(profiling_state* pProfiling)
 {
-    drflac_zero_memory(pProfiling, sizeof(*pProfiling));
+    DRFLAC_ZERO_MEMORY(pProfiling, sizeof(*pProfiling));
 }
 
 profiling_state profiling_state_sum(const profiling_state* pA, const profiling_state* pB)
