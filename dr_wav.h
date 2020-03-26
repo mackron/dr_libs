@@ -292,32 +292,43 @@ QUICK NOTES
 #ifndef dr_wav_h
 #define dr_wav_h
 
-#include <stddef.h>
+#include <stddef.h> /* For size_t. */
 
-#if defined(_MSC_VER) && _MSC_VER < 1600
-typedef   signed char    drwav_int8;
-typedef unsigned char    drwav_uint8;
-typedef   signed short   drwav_int16;
-typedef unsigned short   drwav_uint16;
-typedef   signed int     drwav_int32;
-typedef unsigned int     drwav_uint32;
-typedef   signed __int64 drwav_int64;
-typedef unsigned __int64 drwav_uint64;
+/* Sized types. Prefer built-in types. Fall back to stdint. */
+#ifdef _MSC_VER
+    #if defined(__clang__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wlanguage-extension-token"
+        #pragma GCC diagnostic ignored "-Wlong-long"        
+        #pragma GCC diagnostic ignored "-Wc++11-long-long"
+    #endif
+    typedef   signed __int8  drwav_int8;
+    typedef unsigned __int8  drwav_uint8;
+    typedef   signed __int16 drwav_int16;
+    typedef unsigned __int16 drwav_uint16;
+    typedef   signed __int32 drwav_int32;
+    typedef unsigned __int32 drwav_uint32;
+    typedef   signed __int64 drwav_int64;
+    typedef unsigned __int64 drwav_uint64;
+    #if defined(__clang__)
+        #pragma GCC diagnostic pop
+    #endif
 #else
-#include <stdint.h>
-typedef int8_t           drwav_int8;
-typedef uint8_t          drwav_uint8;
-typedef int16_t          drwav_int16;
-typedef uint16_t         drwav_uint16;
-typedef int32_t          drwav_int32;
-typedef uint32_t         drwav_uint32;
-typedef int64_t          drwav_int64;
-typedef uint64_t         drwav_uint64;
+    #include <stdint.h>
+    typedef int8_t           drwav_int8;
+    typedef uint8_t          drwav_uint8;
+    typedef int16_t          drwav_int16;
+    typedef uint16_t         drwav_uint16;
+    typedef int32_t          drwav_int32;
+    typedef uint32_t         drwav_uint32;
+    typedef int64_t          drwav_int64;
+    typedef uint64_t         drwav_uint64;
 #endif
-typedef drwav_uint8      drwav_bool8;
-typedef drwav_uint32     drwav_bool32;
-#define DRWAV_TRUE       1
-#define DRWAV_FALSE      0
+typedef drwav_uint8          drwav_bool8;
+typedef drwav_uint32         drwav_bool32;
+#define DRWAV_TRUE           1
+#define DRWAV_FALSE          0
+
 
 #ifdef __cplusplus
 extern "C" {
