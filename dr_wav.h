@@ -335,12 +335,60 @@ extern "C" {
 #endif
 
 typedef drwav_int32 drwav_result;
-#define DRWAV_SUCCESS                0
-#define DRWAV_ERROR                 -1
-#define DRWAV_INVALID_ARGS          -2
-#define DRWAV_INVALID_OPERATION     -3
-#define DRWAV_INVALID_FILE          -100
-#define DRWAV_EOF                   -101
+#define DRWAV_SUCCESS                        0
+#define DRWAV_ERROR                         -1   /* A generic error. */
+#define DRWAV_INVALID_ARGS                  -2
+#define DRWAV_INVALID_OPERATION             -3
+#define DRWAV_OUT_OF_MEMORY                 -4
+#define DRWAV_OUT_OF_RANGE                  -5
+#define DRWAV_ACCESS_DENIED                 -6
+#define DRWAV_DOES_NOT_EXIST                -7
+#define DRWAV_ALREADY_EXISTS                -8
+#define DRWAV_TOO_MANY_OPEN_FILES           -9
+#define DRWAV_INVALID_FILE                  -10
+#define DRWAV_TOO_BIG                       -11
+#define DRWAV_PATH_TOO_LONG                 -12
+#define DRWAV_NAME_TOO_LONG                 -13
+#define DRWAV_NOT_DIRECTORY                 -14
+#define DRWAV_IS_DIRECTORY                  -15
+#define DRWAV_DIRECTORY_NOT_EMPTY           -16
+#define DRWAV_END_OF_FILE                   -17
+#define DRWAV_NO_SPACE                      -18
+#define DRWAV_BUSY                          -19
+#define DRWAV_IO_ERROR                      -20
+#define DRWAV_INTERRUPT                     -21
+#define DRWAV_UNAVAILABLE                   -22
+#define DRWAV_ALREADY_IN_USE                -23
+#define DRWAV_BAD_ADDRESS                   -24
+#define DRWAV_BAD_SEEK                      -25
+#define DRWAV_BAD_PIPE                      -26
+#define DRWAV_DEADLOCK                      -27
+#define DRWAV_TOO_MANY_LINKS                -28
+#define DRWAV_NOT_IMPLEMENTED               -29
+#define DRWAV_NO_MESSAGE                    -30
+#define DRWAV_BAD_MESSAGE                   -31
+#define DRWAV_NO_DATA_AVAILABLE             -32
+#define DRWAV_INVALID_DATA                  -33
+#define DRWAV_TIMEOUT                       -34
+#define DRWAV_NO_NETWORK                    -35
+#define DRWAV_NOT_UNIQUE                    -36
+#define DRWAV_NOT_SOCKET                    -37
+#define DRWAV_NO_ADDRESS                    -38
+#define DRWAV_BAD_PROTOCOL                  -39
+#define DRWAV_PROTOCOL_UNAVAILABLE          -40
+#define DRWAV_PROTOCOL_NOT_SUPPORTED        -41
+#define DRWAV_PROTOCOL_FAMILY_NOT_SUPPORTED -42
+#define DRWAV_ADDRESS_FAMILY_NOT_SUPPORTED  -43
+#define DRWAV_SOCKET_NOT_SUPPORTED          -44
+#define DRWAV_CONNECTION_RESET              -45
+#define DRWAV_ALREADY_CONNECTED             -46
+#define DRWAV_NOT_CONNECTED                 -47
+#define DRWAV_CONNECTION_REFUSED            -48
+#define DRWAV_NO_HOST                       -49
+#define DRWAV_IN_PROGRESS                   -50
+#define DRWAV_CANCELLED                     -51
+#define DRWAV_MEMORY_ALREADY_MAPPED         -52
+#define DRWAV_AT_END                        -53
 
 /* Common data formats. */
 #define DR_WAVE_FORMAT_PCM          0x1
@@ -1027,6 +1075,9 @@ void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks)
 #ifndef DRWAV_ZERO_MEMORY
 #define DRWAV_ZERO_MEMORY(p, sz)           memset((p), 0, (sz))
 #endif
+#ifndef DRWAV_ZERO_OBJECT
+#define DRWAV_ZERO_OBJECT(p)               DRWAV_ZERO_MEMORY((p), sizeof(*p))
+#endif
 
 #define drwav_countof(x)                   (sizeof(x) / sizeof(x[0]))
 #define drwav_align(x, a)                  ((((x) + (a) - 1) / (a)) * (a))
@@ -1551,7 +1602,7 @@ static drwav_result drwav__read_chunk_header(drwav_read_proc onRead, void* pUser
         unsigned char sizeInBytes[4];
 
         if (onRead(pUserData, pHeaderOut->id.fourcc, 4) != 4) {
-            return DRWAV_EOF;
+            return DRWAV_AT_END;
         }
 
         if (onRead(pUserData, sizeInBytes, 4) != 4) {
@@ -1565,7 +1616,7 @@ static drwav_result drwav__read_chunk_header(drwav_read_proc onRead, void* pUser
         unsigned char sizeInBytes[8];
 
         if (onRead(pUserData, pHeaderOut->id.guid, 16) != 16) {
-            return DRWAV_EOF;
+            return DRWAV_AT_END;
         }
 
         if (onRead(pUserData, sizeInBytes, 8) != 8) {
@@ -2414,41 +2465,498 @@ drwav_uint64 drwav_target_write_size_bytes(const drwav_data_format* pFormat, drw
     return fileSizeBytes;
 }
 
+#include <errno.h>
+static drwav_result drwav_result_from_errno(int e)
+{
+    switch (e)
+    {
+        case 0: return DRWAV_SUCCESS;
+    #ifdef EPERM
+        case EPERM: return DRWAV_INVALID_OPERATION;
+    #endif
+    #ifdef ENOENT
+        case ENOENT: return DRWAV_DOES_NOT_EXIST;
+    #endif
+    #ifdef ESRCH
+        case ESRCH: return DRWAV_DOES_NOT_EXIST;
+    #endif
+    #ifdef EINTR
+        case EINTR: return DRWAV_INTERRUPT;
+    #endif
+    #ifdef EIO
+        case EIO: return DRWAV_IO_ERROR;
+    #endif
+    #ifdef ENXIO
+        case ENXIO: return DRWAV_DOES_NOT_EXIST;
+    #endif
+    #ifdef E2BIG
+        case E2BIG: return DRWAV_INVALID_ARGS;
+    #endif
+    #ifdef ENOEXEC
+        case ENOEXEC: return DRWAV_INVALID_FILE;
+    #endif
+    #ifdef EBADF
+        case EBADF: return DRWAV_INVALID_FILE;
+    #endif
+    #ifdef ECHILD
+        case ECHILD: return DRWAV_ERROR;
+    #endif
+    #ifdef EAGAIN
+        case EAGAIN: return DRWAV_UNAVAILABLE;
+    #endif
+    #ifdef ENOMEM
+        case ENOMEM: return DRWAV_OUT_OF_MEMORY;
+    #endif
+    #ifdef EACCES
+        case EACCES: return DRWAV_ACCESS_DENIED;
+    #endif
+    #ifdef EFAULT
+        case EFAULT: return DRWAV_BAD_ADDRESS;
+    #endif
+    #ifdef ENOTBLK
+        case ENOTBLK: return DRWAV_ERROR;
+    #endif
+    #ifdef EBUSY
+        case EBUSY: return DRWAV_BUSY;
+    #endif
+    #ifdef EEXIST
+        case EEXIST: return DRWAV_ALREADY_EXISTS;
+    #endif
+    #ifdef EXDEV
+        case EXDEV: return DRWAV_ERROR;
+    #endif
+    #ifdef ENODEV
+        case ENODEV: return DRWAV_DOES_NOT_EXIST;
+    #endif
+    #ifdef ENOTDIR
+        case ENOTDIR: return DRWAV_NOT_DIRECTORY;
+    #endif
+    #ifdef EISDIR
+        case EISDIR: return DRWAV_IS_DIRECTORY;
+    #endif
+    #ifdef EINVAL
+        case EINVAL: return DRWAV_INVALID_ARGS;
+    #endif
+    #ifdef ENFILE
+        case ENFILE: return DRWAV_TOO_MANY_OPEN_FILES;
+    #endif
+    #ifdef EMFILE
+        case EMFILE: return DRWAV_TOO_MANY_OPEN_FILES;
+    #endif
+    #ifdef ENOTTY
+        case ENOTTY: return DRWAV_INVALID_OPERATION;
+    #endif
+    #ifdef ETXTBSY
+        case ETXTBSY: return DRWAV_BUSY;
+    #endif
+    #ifdef EFBIG
+        case EFBIG: return DRWAV_TOO_BIG;
+    #endif
+    #ifdef ENOSPC
+        case ENOSPC: return DRWAV_NO_SPACE;
+    #endif
+    #ifdef ESPIPE
+        case ESPIPE: return DRWAV_BAD_SEEK;
+    #endif
+    #ifdef EROFS
+        case EROFS: return DRWAV_ACCESS_DENIED;
+    #endif
+    #ifdef EMLINK
+        case EMLINK: return DRWAV_TOO_MANY_LINKS;
+    #endif
+    #ifdef EPIPE
+        case EPIPE: return DRWAV_BAD_PIPE;
+    #endif
+    #ifdef EDOM
+        case EDOM: return DRWAV_OUT_OF_RANGE;
+    #endif
+    #ifdef ERANGE
+        case ERANGE: return DRWAV_OUT_OF_RANGE;
+    #endif
+    #ifdef EDEADLK
+        case EDEADLK: return DRWAV_DEADLOCK;
+    #endif
+    #ifdef ENAMETOOLONG
+        case ENAMETOOLONG: return DRWAV_PATH_TOO_LONG;
+    #endif
+    #ifdef ENOLCK
+        case ENOLCK: return DRWAV_ERROR;
+    #endif
+    #ifdef ENOSYS
+        case ENOSYS: return DRWAV_NOT_IMPLEMENTED;
+    #endif
+    #ifdef ENOTEMPTY
+        case ENOTEMPTY: return DRWAV_DIRECTORY_NOT_EMPTY;
+    #endif
+    #ifdef ELOOP
+        case ELOOP: return DRWAV_TOO_MANY_LINKS;
+    #endif
+    #ifdef ENOMSG
+        case ENOMSG: return DRWAV_NO_MESSAGE;
+    #endif
+    #ifdef EIDRM
+        case EIDRM: return DRWAV_ERROR;
+    #endif
+    #ifdef ECHRNG
+        case ECHRNG: return DRWAV_ERROR;
+    #endif
+    #ifdef EL2NSYNC
+        case EL2NSYNC: return DRWAV_ERROR;
+    #endif
+    #ifdef EL3HLT
+        case EL3HLT: return DRWAV_ERROR;
+    #endif
+    #ifdef EL3RST
+        case EL3RST: return DRWAV_ERROR;
+    #endif
+    #ifdef ELNRNG
+        case ELNRNG: return DRWAV_OUT_OF_RANGE;
+    #endif
+    #ifdef EUNATCH
+        case EUNATCH: return DRWAV_ERROR;
+    #endif
+    #ifdef ENOCSI
+        case ENOCSI: return DRWAV_ERROR;
+    #endif
+    #ifdef EL2HLT
+        case EL2HLT: return DRWAV_ERROR;
+    #endif
+    #ifdef EBADE
+        case EBADE: return DRWAV_ERROR;
+    #endif
+    #ifdef EBADR
+        case EBADR: return DRWAV_ERROR;
+    #endif
+    #ifdef EXFULL
+        case EXFULL: return DRWAV_ERROR;
+    #endif
+    #ifdef ENOANO
+        case ENOANO: return DRWAV_ERROR;
+    #endif
+    #ifdef EBADRQC
+        case EBADRQC: return DRWAV_ERROR;
+    #endif
+    #ifdef EBADSLT
+        case EBADSLT: return DRWAV_ERROR;
+    #endif
+    #ifdef EBFONT
+        case EBFONT: return DRWAV_INVALID_FILE;
+    #endif
+    #ifdef ENOSTR
+        case ENOSTR: return DRWAV_ERROR;
+    #endif
+    #ifdef ENODATA
+        case ENODATA: return DRWAV_NO_DATA_AVAILABLE;
+    #endif
+    #ifdef ETIME
+        case ETIME: return DRWAV_TIMEOUT;
+    #endif
+    #ifdef ENOSR
+        case ENOSR: return DRWAV_NO_DATA_AVAILABLE;
+    #endif
+    #ifdef ENONET
+        case ENONET: return DRWAV_NO_NETWORK;
+    #endif
+    #ifdef ENOPKG
+        case ENOPKG: return DRWAV_ERROR;
+    #endif
+    #ifdef EREMOTE
+        case EREMOTE: return DRWAV_ERROR;
+    #endif
+    #ifdef ENOLINK
+        case ENOLINK: return DRWAV_ERROR;
+    #endif
+    #ifdef EADV
+        case EADV: return DRWAV_ERROR;
+    #endif
+    #ifdef ESRMNT
+        case ESRMNT: return DRWAV_ERROR;
+    #endif
+    #ifdef ECOMM
+        case ECOMM: return DRWAV_ERROR;
+    #endif
+    #ifdef EPROTO
+        case EPROTO: return DRWAV_ERROR;
+    #endif
+    #ifdef EMULTIHOP
+        case EMULTIHOP: return DRWAV_ERROR;
+    #endif
+    #ifdef EDOTDOT
+        case EDOTDOT: return DRWAV_ERROR;
+    #endif
+    #ifdef EBADMSG
+        case EBADMSG: return DRWAV_BAD_MESSAGE;
+    #endif
+    #ifdef EOVERFLOW
+        case EOVERFLOW: return DRWAV_TOO_BIG;
+    #endif
+    #ifdef ENOTUNIQ
+        case ENOTUNIQ: return DRWAV_NOT_UNIQUE;
+    #endif
+    #ifdef EBADFD
+        case EBADFD: return DRWAV_ERROR;
+    #endif
+    #ifdef EREMCHG
+        case EREMCHG: return DRWAV_ERROR;
+    #endif
+    #ifdef ELIBACC
+        case ELIBACC: return DRWAV_ACCESS_DENIED;
+    #endif
+    #ifdef ELIBBAD
+        case ELIBBAD: return DRWAV_INVALID_FILE;
+    #endif
+    #ifdef ELIBSCN
+        case ELIBSCN: return DRWAV_INVALID_FILE;
+    #endif
+    #ifdef ELIBMAX
+        case ELIBMAX: return DRWAV_ERROR;
+    #endif
+    #ifdef ELIBEXEC
+        case ELIBEXEC: return DRWAV_ERROR;
+    #endif
+    #ifdef EILSEQ
+        case EILSEQ: return DRWAV_INVALID_DATA;
+    #endif
+    #ifdef ERESTART
+        case ERESTART: return DRWAV_ERROR;
+    #endif
+    #ifdef ESTRPIPE
+        case ESTRPIPE: return DRWAV_ERROR;
+    #endif
+    #ifdef EUSERS
+        case EUSERS: return DRWAV_ERROR;
+    #endif
+    #ifdef ENOTSOCK
+        case ENOTSOCK: return DRWAV_NOT_SOCKET;
+    #endif
+    #ifdef EDESTADDRREQ
+        case EDESTADDRREQ: return DRWAV_NO_ADDRESS;
+    #endif
+    #ifdef EMSGSIZE
+        case EMSGSIZE: return DRWAV_TOO_BIG;
+    #endif
+    #ifdef EPROTOTYPE
+        case EPROTOTYPE: return DRWAV_BAD_PROTOCOL;
+    #endif
+    #ifdef ENOPROTOOPT
+        case ENOPROTOOPT: return DRWAV_PROTOCOL_UNAVAILABLE;
+    #endif
+    #ifdef EPROTONOSUPPORT
+        case EPROTONOSUPPORT: return DRWAV_PROTOCOL_NOT_SUPPORTED;
+    #endif
+    #ifdef ESOCKTNOSUPPORT
+        case ESOCKTNOSUPPORT: return DRWAV_SOCKET_NOT_SUPPORTED;
+    #endif
+    #ifdef EOPNOTSUPP
+        case EOPNOTSUPP: return DRWAV_INVALID_OPERATION;
+    #endif
+    #ifdef EPFNOSUPPORT
+        case EPFNOSUPPORT: return DRWAV_PROTOCOL_FAMILY_NOT_SUPPORTED;
+    #endif
+    #ifdef EAFNOSUPPORT
+        case EAFNOSUPPORT: return DRWAV_ADDRESS_FAMILY_NOT_SUPPORTED;
+    #endif
+    #ifdef EADDRINUSE
+        case EADDRINUSE: return DRWAV_ALREADY_IN_USE;
+    #endif
+    #ifdef EADDRNOTAVAIL
+        case EADDRNOTAVAIL: return DRWAV_ERROR;
+    #endif
+    #ifdef ENETDOWN
+        case ENETDOWN: return DRWAV_NO_NETWORK;
+    #endif
+    #ifdef ENETUNREACH
+        case ENETUNREACH: return DRWAV_NO_NETWORK;
+    #endif
+    #ifdef ENETRESET
+        case ENETRESET: return DRWAV_NO_NETWORK;
+    #endif
+    #ifdef ECONNABORTED
+        case ECONNABORTED: return DRWAV_NO_NETWORK;
+    #endif
+    #ifdef ECONNRESET
+        case ECONNRESET: return DRWAV_CONNECTION_RESET;
+    #endif
+    #ifdef ENOBUFS
+        case ENOBUFS: return DRWAV_NO_SPACE;
+    #endif
+    #ifdef EISCONN
+        case EISCONN: return DRWAV_ALREADY_CONNECTED;
+    #endif
+    #ifdef ENOTCONN
+        case ENOTCONN: return DRWAV_NOT_CONNECTED;
+    #endif
+    #ifdef ESHUTDOWN
+        case ESHUTDOWN: return DRWAV_ERROR;
+    #endif
+    #ifdef ETOOMANYREFS
+        case ETOOMANYREFS: return DRWAV_ERROR;
+    #endif
+    #ifdef ETIMEDOUT
+        case ETIMEDOUT: return DRWAV_TIMEOUT;
+    #endif
+    #ifdef ECONNREFUSED
+        case ECONNREFUSED: return DRWAV_CONNECTION_REFUSED;
+    #endif
+    #ifdef EHOSTDOWN
+        case EHOSTDOWN: return DRWAV_NO_HOST;
+    #endif
+    #ifdef EHOSTUNREACH
+        case EHOSTUNREACH: return DRWAV_NO_HOST;
+    #endif
+    #ifdef EALREADY
+        case EALREADY: return DRWAV_IN_PROGRESS;
+    #endif
+    #ifdef EINPROGRESS
+        case EINPROGRESS: return DRWAV_IN_PROGRESS;
+    #endif
+    #ifdef ESTALE
+        case ESTALE: return DRWAV_INVALID_FILE;
+    #endif
+    #ifdef EUCLEAN
+        case EUCLEAN: return DRWAV_ERROR;
+    #endif
+    #ifdef ENOTNAM
+        case ENOTNAM: return DRWAV_ERROR;
+    #endif
+    #ifdef ENAVAIL
+        case ENAVAIL: return DRWAV_ERROR;
+    #endif
+    #ifdef EISNAM
+        case EISNAM: return DRWAV_ERROR;
+    #endif
+    #ifdef EREMOTEIO
+        case EREMOTEIO: return DRWAV_IO_ERROR;
+    #endif
+    #ifdef EDQUOT
+        case EDQUOT: return DRWAV_NO_SPACE;
+    #endif
+    #ifdef ENOMEDIUM
+        case ENOMEDIUM: return DRWAV_DOES_NOT_EXIST;
+    #endif
+    #ifdef EMEDIUMTYPE
+        case EMEDIUMTYPE: return DRWAV_ERROR;
+    #endif
+    #ifdef ECANCELED
+        case ECANCELED: return DRWAV_CANCELLED;
+    #endif
+    #ifdef ENOKEY
+        case ENOKEY: return DRWAV_ERROR;
+    #endif
+    #ifdef EKEYEXPIRED
+        case EKEYEXPIRED: return DRWAV_ERROR;
+    #endif
+    #ifdef EKEYREVOKED
+        case EKEYREVOKED: return DRWAV_ERROR;
+    #endif
+    #ifdef EKEYREJECTED
+        case EKEYREJECTED: return DRWAV_ERROR;
+    #endif
+    #ifdef EOWNERDEAD
+        case EOWNERDEAD: return DRWAV_ERROR;
+    #endif
+    #ifdef ENOTRECOVERABLE
+        case ENOTRECOVERABLE: return DRWAV_ERROR;
+    #endif
+    #ifdef ERFKILL
+        case ERFKILL: return DRWAV_ERROR;
+    #endif
+    #ifdef EHWPOISON
+        case EHWPOISON: return DRWAV_ERROR;
+    #endif
+        default: return DRWAV_ERROR;
+    }
+}
 
 #ifndef DR_WAV_NO_STDIO
-FILE* drwav_fopen(const char* filePath, const char* openMode)
+drwav_result drwav_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
 {
-    FILE* pFile;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-    if (fopen_s(&pFile, filePath, openMode) != 0) {
-        return NULL;
+#if _MSC_VER && _MSC_VER >= 1400
+    errno_t err;
+#endif
+
+    if (ppFile != NULL) {
+        *ppFile = NULL;  /* Safety. */
+    }
+
+    if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
+        return DRWAV_INVALID_ARGS;
+    }
+
+#if _MSC_VER && _MSC_VER >= 1400
+    err = fopen_s(ppFile, pFilePath, pOpenMode);
+    if (err != 0) {
+        return drwav_result_from_errno(err);
     }
 #else
-    pFile = fopen(filePath, openMode);
-    if (pFile == NULL) {
-        return NULL;
+#if defined(_WIN32) || defined(__APPLE__)
+    *ppFile = fopen(pFilePath, pOpenMode);
+#else
+    #if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64 && defined(_LARGEFILE64_SOURCE)
+        *ppFile = fopen64(pFilePath, pOpenMode);
+    #else
+        *ppFile = fopen(pFilePath, pOpenMode);
+    #endif
+#endif
+    if (*ppFile == NULL) {
+        drwav_result result = drwav_result_from_errno(errno);
+        if (result == DRWAV_SUCCESS) {
+            result = DRWAV_ERROR;   /* Just a safety check to make sure we never ever return success when pFile == NULL. */
+        }
+
+        return result;
     }
 #endif
 
-    return pFile;
+    return DRWAV_SUCCESS;
 }
 
-FILE* drwav_wfopen(const wchar_t* pFilePath, const wchar_t* pOpenMode, const drwav_allocation_callbacks* pAllocationCallbacks)
-{
-    FILE* pFile;
+/*
+_wfopen() isn't always available in all compilation environments.
 
+    * Windows only.
+    * MSVC seems to support it universally as far back as VC6 from what I can tell (haven't checked further back).
+    * MinGW-64 (both 32- and 64-bit) seems to support it.
+    * MinGW wraps it in !defined(__STRICT_ANSI__).
+
+This can be reviewed as compatibility issues arise. The preference is to use _wfopen_s() and _wfopen() as opposed to the wcsrtombs()
+fallback, so if you notice your compiler not detecting this properly I'm happy to look at adding support.
+*/
 #if defined(_WIN32)
-    (void)pAllocationCallbacks;
+    #if defined(_MSC_VER) || defined(__MINGW64__) || !defined(__STRICT_ANSI__)
+        #define DRWAV_HAS_WFOPEN
+    #endif
+#endif
+
+drwav_result drwav_wfopen(FILE** ppFile, const wchar_t* pFilePath, const wchar_t* pOpenMode, const drwav_allocation_callbacks* pAllocationCallbacks)
+{
+    if (ppFile != NULL) {
+        *ppFile = NULL;  /* Safety. */
+    }
+
+    if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
+        return DRWAV_INVALID_ARGS;
+    }
+
+#if defined(DRWAV_HAS_WFOPEN)
+    {
+        errno_t err;
+
+        (void)pAllocationCallbacks;
+
+    /* Use _wfopen() on Windows. */
     #if defined(_MSC_VER) && _MSC_VER >= 1400
-        if (_wfopen_s(&pFile, pFilePath, pOpenMode) != 0) {
-            return NULL;
+        err = _wfopen_s(ppFile, pFilePath, pOpenMode);
+        if (err != 0) {
+            return drwav_result_from_errno(err);
         }
     #else
-        pFile = _wfopen(pFilePath, pOpenMode);
-        if (pFile == NULL) {
-            return NULL;
+        *ppFile = _wfopen(pFilePath, pOpenMode);
+        if (*ppFile == NULL) {
+            return drwav_result_from_errno(errno);
         }
     #endif
+    }
 #else
     /*
     Use fopen() on anything other than Windows. Requires a conversion. This is annoying because fopen() is locale specific. The only real way I can
@@ -2460,38 +2968,49 @@ FILE* drwav_wfopen(const wchar_t* pFilePath, const wchar_t* pOpenMode, const drw
         size_t lenMB;
         const wchar_t* pFilePathTemp = pFilePath;
         char* pFilePathMB = NULL;
-        const wchar_t* pOpenModeMBTemp = pOpenMode;
-        char pOpenModeMB[16];
-        drwav_allocation_callbacks allocationCallbacks;
-
-        allocationCallbacks = drwav_copy_allocation_callbacks_or_defaults(pAllocationCallbacks);
+        char pOpenModeMB[32] = {0};
 
         /* Get the length first. */
-        DRWAV_ZERO_MEMORY(&mbs, sizeof(mbs));
+        DRWAV_ZERO_OBJECT(&mbs);
         lenMB = wcsrtombs(NULL, &pFilePathTemp, 0, &mbs);
         if (lenMB == (size_t)-1) {
-            return NULL;
+            return drwav_result_from_errno(errno);
         }
 
-        pFilePathMB = (char*)drwav__malloc_from_callbacks(lenMB + 1, &allocationCallbacks);
+        pFilePathMB = (char*)drwav__malloc_from_callbacks(lenMB + 1, pAllocationCallbacks);
         if (pFilePathMB == NULL) {
-            return NULL;
+            return DRWAV_OUT_OF_MEMORY;
         }
 
         pFilePathTemp = pFilePath;
-        DRWAV_ZERO_MEMORY(&mbs, sizeof(mbs));
+        DRWAV_ZERO_OBJECT(&mbs);
         wcsrtombs(pFilePathMB, &pFilePathTemp, lenMB + 1, &mbs);
 
-        DRWAV_ZERO_MEMORY(&mbs, sizeof(mbs));
-        wcsrtombs(pOpenModeMB, &pOpenModeMBTemp, sizeof(pOpenModeMB), &mbs);
+        /* The open mode should always consist of ASCII characters so we should be able to do a trivial conversion. */
+        {
+            size_t i = 0;
+            for (;;) {
+                if (pOpenMode[i] == 0) {
+                    pOpenModeMB[i] = '\0';
+                    break;
+                }
 
-        pFile = fopen(pFilePathMB, pOpenModeMB);
+                pOpenModeMB[i] = (char)pOpenMode[i];
+                i += 1;
+            }
+        }
 
-        drwav__free_from_callbacks(pFilePathMB, &allocationCallbacks);
+        *ppFile = fopen(pFilePathMB, pOpenModeMB);
+
+        drwav__free_from_callbacks(pFilePathMB, pAllocationCallbacks);
+    }
+
+    if (*ppFile == NULL) {
+        return DRWAV_ERROR;
     }
 #endif
 
-    return pFile;
+    return DRWAV_SUCCESS;
 }
 
 
@@ -2528,8 +3047,8 @@ drwav_bool32 drwav_init_file__internal_FILE(drwav* pWav, FILE* pFile, drwav_chun
 
 drwav_bool32 drwav_init_file_ex(drwav* pWav, const char* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks)
 {
-    FILE* pFile = drwav_fopen(filename, "rb");
-    if (pFile == NULL) {
+    FILE* pFile;
+    if (drwav_fopen(&pFile, filename, "rb") != DRWAV_SUCCESS) {
         return DRWAV_FALSE;
     }
 
@@ -2544,8 +3063,8 @@ drwav_bool32 drwav_init_file_w(drwav* pWav, const wchar_t* filename, const drwav
 
 drwav_bool32 drwav_init_file_ex_w(drwav* pWav, const wchar_t* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks)
 {
-    FILE* pFile = drwav_wfopen(filename, L"rb", pAllocationCallbacks);
-    if (pFile == NULL) {
+    FILE* pFile;
+    if (drwav_wfopen(&pFile, filename, L"rb", pAllocationCallbacks) != DRWAV_SUCCESS) {
         return DRWAV_FALSE;
     }
 
@@ -2566,8 +3085,8 @@ drwav_bool32 drwav_init_file_write__internal_FILE(drwav* pWav, FILE* pFile, cons
 
 drwav_bool32 drwav_init_file_write__internal(drwav* pWav, const char* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, const drwav_allocation_callbacks* pAllocationCallbacks)
 {
-    FILE* pFile = drwav_fopen(filename, "wb");
-    if (pFile == NULL) {
+    FILE* pFile;
+    if (drwav_fopen(&pFile, filename, "wb") != DRWAV_SUCCESS) {
         return DRWAV_FALSE;
     }
 
@@ -2577,8 +3096,8 @@ drwav_bool32 drwav_init_file_write__internal(drwav* pWav, const char* filename, 
 
 drwav_bool32 drwav_init_file_write_w__internal(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount, drwav_bool32 isSequential, const drwav_allocation_callbacks* pAllocationCallbacks)
 {
-    FILE* pFile = drwav_wfopen(filename, L"wb", pAllocationCallbacks);
-    if (pFile == NULL) {
+    FILE* pFile;
+    if (drwav_wfopen(&pFile, filename, L"wb", pAllocationCallbacks) != DRWAV_SUCCESS) {
         return DRWAV_FALSE;
     }
 
