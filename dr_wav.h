@@ -495,7 +495,7 @@ typedef struct
     /*
     The number of valid bits per sample. When <formatTag> is equal to WAVE_FORMAT_EXTENSIBLE, <bitsPerSample>
     is always rounded up to the nearest multiple of 8. This variable contains information about exactly how
-    many bits a valid per sample. Mainly used for informational purposes.
+    many bits are valid per sample. Mainly used for informational purposes.
     */
     drwav_uint16 validBitsPerSample;
 
