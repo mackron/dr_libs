@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.11.5 - 2020-03-07
+dr_wav - v0.12.0 - TBD
 
 David Reid - mackron@gmail.com
 */
@@ -457,8 +457,8 @@ origin    [in] The origin of the seek - the current position or the start of the
 
 Returns whether or not the seek was successful.
 
-Whether or not it is relative to the beginning or current position is determined by the "origin" parameter which
-will be either drwav_seek_origin_start or drwav_seek_origin_current.
+Whether or not it is relative to the beginning or current position is determined by the "origin" parameter which will be either drwav_seek_origin_start or
+drwav_seek_origin_current.
 */
 typedef drwav_bool32 (* drwav_seek_proc)(void* pUserData, int offset, drwav_seek_origin origin);
 
@@ -475,10 +475,16 @@ pFMT              [in] A pointer to the object containing the contents of the "f
 
 Returns the number of bytes read + seeked.
 
-To read data from the chunk, call onRead(), passing in pReadSeekUserData as the first parameter. Do the same
-for seeking with onSeek(). The return value must be the total number of bytes you have read _plus_ seeked.
+To read data from the chunk, call onRead(), passing in pReadSeekUserData as the first parameter. Do the same for seeking with onSeek(). The return value must
+be the total number of bytes you have read _plus_ seeked.
 
-You must not attempt to read beyond the boundary of the chunk.
+Use the `container` argument to discriminate the fields in `pChunkHeader->id`. If the container is `drwav_container_riff` you should use `id.fourcc`,
+otherwise you should use `id.guid`.
+
+The `pFMT` parameter can be used to determine the data format of the wave file. Use `drwav_fmt_get_format()` to get the sample format, which will be one of the
+`DR_WAVE_FORMAT_*` identifiers. 
+
+The read pointer will be sitting on the first byte after the chunk's header. You must not attempt to read beyond the boundary of the chunk.
 */
 typedef drwav_uint64 (* drwav_chunk_proc)(void* pChunkUserData, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pReadSeekUserData, const drwav_chunk_header* pChunkHeader, drwav_container container, const drwav_fmt* pFMT);
 
@@ -5072,6 +5078,9 @@ void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks)
 /*
 REVISION HISTORY
 ================
+v0.12.0 - TBD
+  - API CHANGE: Add container and format parameters to the chunk callback.
+
 v0.11.5 - 2020-03-07
   - Fix compilation error with Visual Studio .NET 2003.
 
