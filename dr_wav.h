@@ -523,6 +523,8 @@ typedef struct
     drwav_uint32 bitsPerSample;
 } drwav_data_format;
 
+
+/* See the following for details on the 'smpl' chunk: https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#smpl */
 typedef struct
 {
     drwav_uint32 cuePointId;
