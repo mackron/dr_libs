@@ -378,6 +378,49 @@ typedef struct
     unsigned int paddingSize;
 } drwav_chunk_header;
 
+typedef struct
+{
+    /*
+    The format tag exactly as specified in the wave file's "fmt" chunk. This can be used by applications
+    that require support for data formats not natively supported by dr_wav.
+    */
+    drwav_uint16 formatTag;
+
+    /* The number of channels making up the audio data. When this is set to 1 it is mono, 2 is stereo, etc. */
+    drwav_uint16 channels;
+
+    /* The sample rate. Usually set to something like 44100. */
+    drwav_uint32 sampleRate;
+
+    /* Average bytes per second. You probably don't need this, but it's left here for informational purposes. */
+    drwav_uint32 avgBytesPerSec;
+
+    /* Block align. This is equal to the number of channels * bytes per sample. */
+    drwav_uint16 blockAlign;
+
+    /* Bits per sample. */
+    drwav_uint16 bitsPerSample;
+
+    /* The size of the extended data. Only used internally for validation, but left here for informational purposes. */
+    drwav_uint16 extendedSize;
+
+    /*
+    The number of valid bits per sample. When <formatTag> is equal to WAVE_FORMAT_EXTENSIBLE, <bitsPerSample>
+    is always rounded up to the nearest multiple of 8. This variable contains information about exactly how
+    many bits a valid per sample. Mainly used for informational purposes.
+    */
+    drwav_uint16 validBitsPerSample;
+
+    /* The channel mask. Not used at the moment. */
+    drwav_uint32 channelMask;
+
+    /* The sub-format, exactly as specified by the wave file. */
+    drwav_uint8 subFormat[16];
+} drwav_fmt;
+
+drwav_uint16 drwav_fmt_get_format(const drwav_fmt* pFMT);
+
+
 /*
 Callback for when data is read. Return value is the number of bytes actually read.
 
@@ -427,6 +470,8 @@ onRead            [in] A pointer to the function to call when reading.
 onSeek            [in] A pointer to the function to call when seeking.
 pReadSeekUserData [in] The user data that was passed to the pReadSeekUserData parameter of drwav_init_ex() and family.
 pChunkHeader      [in] A pointer to an object containing basic header information about the chunk. Use this to identify the chunk.
+container         [in] Whether or not the WAV file is a RIFF or Wave64 container. If you're unsure of the difference, assume RIFF.
+pFMT              [in] A pointer to the object containing the contents of the "fmt" chunk.
 
 Returns the number of bytes read + seeked.
 
@@ -435,7 +480,7 @@ for seeking with onSeek(). The return value must be the total number of bytes yo
 
 You must not attempt to read beyond the boundary of the chunk.
 */
-typedef drwav_uint64 (* drwav_chunk_proc)(void* pChunkUserData, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pReadSeekUserData, const drwav_chunk_header* pChunkHeader);
+typedef drwav_uint64 (* drwav_chunk_proc)(void* pChunkUserData, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pReadSeekUserData, const drwav_chunk_header* pChunkHeader, drwav_container container, const drwav_fmt* pFMT);
 
 typedef struct
 {
@@ -471,46 +516,6 @@ typedef struct
     drwav_uint32 sampleRate;
     drwav_uint32 bitsPerSample;
 } drwav_data_format;
-
-typedef struct
-{
-    /*
-    The format tag exactly as specified in the wave file's "fmt" chunk. This can be used by applications
-    that require support for data formats not natively supported by dr_wav.
-    */
-    drwav_uint16 formatTag;
-
-    /* The number of channels making up the audio data. When this is set to 1 it is mono, 2 is stereo, etc. */
-    drwav_uint16 channels;
-
-    /* The sample rate. Usually set to something like 44100. */
-    drwav_uint32 sampleRate;
-
-    /* Average bytes per second. You probably don't need this, but it's left here for informational purposes. */
-    drwav_uint32 avgBytesPerSec;
-
-    /* Block align. This is equal to the number of channels * bytes per sample. */
-    drwav_uint16 blockAlign;
-
-    /* Bits per sample. */
-    drwav_uint16 bitsPerSample;
-
-    /* The size of the extended data. Only used internally for validation, but left here for informational purposes. */
-    drwav_uint16 extendedSize;
-
-    /*
-    The number of valid bits per sample. When <formatTag> is equal to WAVE_FORMAT_EXTENSIBLE, <bitsPerSample>
-    is always rounded up to the nearest multiple of 8. This variable contains information about exactly how
-    many bits a valid per sample. Mainly used for informational purposes.
-    */
-    drwav_uint16 validBitsPerSample;
-
-    /* The channel mask. Not used at the moment. */
-    drwav_uint32 channelMask;
-
-    /* The sub-format, exactly as specified by the wave file. */
-    drwav_uint8 subFormat[16];
-} drwav_fmt;
 
 typedef struct
 {
@@ -1714,7 +1719,7 @@ static drwav_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_proc onSe
 }
 
 
-size_t drwav__on_read(drwav_read_proc onRead, void* pUserData, void* pBufferOut, size_t bytesToRead, drwav_uint64* pCursor)
+static size_t drwav__on_read(drwav_read_proc onRead, void* pUserData, void* pBufferOut, size_t bytesToRead, drwav_uint64* pCursor)
 {
     size_t bytesRead;
 
@@ -1726,7 +1731,7 @@ size_t drwav__on_read(drwav_read_proc onRead, void* pUserData, void* pBufferOut,
     return bytesRead;
 }
 
-drwav_bool32 drwav__on_seek(drwav_seek_proc onSeek, void* pUserData, int offset, drwav_seek_origin origin, drwav_uint64* pCursor)
+static drwav_bool32 drwav__on_seek(drwav_seek_proc onSeek, void* pUserData, int offset, drwav_seek_origin origin, drwav_uint64* pCursor)
 {
     DRWAV_ASSERT(onSeek != NULL);
     DRWAV_ASSERT(pCursor != NULL);
@@ -1760,8 +1765,20 @@ static drwav_uint32 drwav_get_bytes_per_pcm_frame(drwav* pWav)
     }
 }
 
+drwav_uint16 drwav_fmt_get_format(const drwav_fmt* pFMT)
+{
+    if (pFMT == NULL) {
+        return 0;
+    }
 
-drwav_bool32 drwav_preinit(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pReadSeekUserData, const drwav_allocation_callbacks* pAllocationCallbacks)
+    if (pFMT->formatTag != DR_WAVE_FORMAT_EXTENSIBLE) {
+        return pFMT->formatTag;
+    } else {
+        return drwav__bytes_to_u16(pFMT->subFormat);    /* Only the first two bytes are required. */
+    }
+}
+
+static drwav_bool32 drwav_preinit(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pReadSeekUserData, const drwav_allocation_callbacks* pAllocationCallbacks)
 {
     if (pWav == NULL || onRead == NULL || onSeek == NULL) {
         return DRWAV_FALSE;
@@ -1921,7 +1938,7 @@ drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc onChunk, void* p
 
         /* Tell the client about this chunk. */
         if (!sequential && onChunk != NULL) {
-            drwav_uint64 callbackBytesRead = onChunk(pChunkUserData, pWav->onRead, pWav->onSeek, pWav->pUserData, &header);
+            drwav_uint64 callbackBytesRead = onChunk(pChunkUserData, pWav->onRead, pWav->onSeek, pWav->pUserData, &header, pWav->container, &fmt);
 
             /*
             dr_wav may need to read the contents of the chunk, so we now need to seek back to the position before
