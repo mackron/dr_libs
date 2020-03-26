@@ -713,7 +713,7 @@ Only writing to the RIFF chunk and one data chunk is currently supported.
 
 See also: drwav_init_write(), drwav_init_file_write(), drwav_init_memory_write()
 */
-drwav_uint64 drwav_target_write_size_bytes(drwav_data_format const *format, drwav_uint64 totalSampleCount);
+drwav_uint64 drwav_target_write_size_bytes(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
 
 /*
 Uninitializes the given drwav object.
@@ -2386,13 +2386,13 @@ drwav_bool32 drwav_init_write_sequential_pcm_frames(drwav* pWav, const drwav_dat
     return drwav_init_write_sequential(pWav, pFormat, totalPCMFrameCount*pFormat->channels, onWrite, pUserData, pAllocationCallbacks);
 }
 
-drwav_uint64 drwav_target_write_size_bytes(drwav_data_format const *format, drwav_uint64 totalSampleCount)
+drwav_uint64 drwav_target_write_size_bytes(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount)
 {
-    drwav_uint64 targetDataSizeBytes = (totalSampleCount * format->channels * format->bitsPerSample/8);
+    drwav_uint64 targetDataSizeBytes = (drwav_uint64)(totalSampleCount * pFormat->channels * pFormat->bitsPerSample/8.0);
     drwav_uint64 riffChunkSizeBytes;
     drwav_uint64 fileSizeBytes;
 
-    if (format->container == drwav_container_riff) {
+    if (pFormat->container == drwav_container_riff) {
         riffChunkSizeBytes = drwav__riff_chunk_size_riff(targetDataSizeBytes);
         fileSizeBytes = (8 + riffChunkSizeBytes); /* +8 because WAV doesn't include the size of the ChunkID and ChunkSize fields. */
     } else {
