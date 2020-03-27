@@ -129,32 +129,42 @@ OPTIONS
 extern "C" {
 #endif
 
-#include <stddef.h>
+#include <stddef.h> /* For size_t. */
 
-#if defined(_MSC_VER) && _MSC_VER < 1600
-typedef   signed char    drmp3_int8;
-typedef unsigned char    drmp3_uint8;
-typedef   signed short   drmp3_int16;
-typedef unsigned short   drmp3_uint16;
-typedef   signed int     drmp3_int32;
-typedef unsigned int     drmp3_uint32;
-typedef   signed __int64 drmp3_int64;
-typedef unsigned __int64 drmp3_uint64;
+/* Sized types. Prefer built-in types. Fall back to stdint. */
+#ifdef _MSC_VER
+    #if defined(__clang__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wlanguage-extension-token"
+        #pragma GCC diagnostic ignored "-Wlong-long"        
+        #pragma GCC diagnostic ignored "-Wc++11-long-long"
+    #endif
+    typedef   signed __int8  drmp3_int8;
+    typedef unsigned __int8  drmp3_uint8;
+    typedef   signed __int16 drmp3_int16;
+    typedef unsigned __int16 drmp3_uint16;
+    typedef   signed __int32 drmp3_int32;
+    typedef unsigned __int32 drmp3_uint32;
+    typedef   signed __int64 drmp3_int64;
+    typedef unsigned __int64 drmp3_uint64;
+    #if defined(__clang__)
+        #pragma GCC diagnostic pop
+    #endif
 #else
-#include <stdint.h>
-typedef int8_t           drmp3_int8;
-typedef uint8_t          drmp3_uint8;
-typedef int16_t          drmp3_int16;
-typedef uint16_t         drmp3_uint16;
-typedef int32_t          drmp3_int32;
-typedef uint32_t         drmp3_uint32;
-typedef int64_t          drmp3_int64;
-typedef uint64_t         drmp3_uint64;
+    #include <stdint.h>
+    typedef int8_t           drmp3_int8;
+    typedef uint8_t          drmp3_uint8;
+    typedef int16_t          drmp3_int16;
+    typedef uint16_t         drmp3_uint16;
+    typedef int32_t          drmp3_int32;
+    typedef uint32_t         drmp3_uint32;
+    typedef int64_t          drmp3_int64;
+    typedef uint64_t         drmp3_uint64;
 #endif
-typedef drmp3_uint8      drmp3_bool8;
-typedef drmp3_uint32     drmp3_bool32;
-#define DRMP3_TRUE       1
-#define DRMP3_FALSE      0
+typedef drmp3_uint8          drmp3_bool8;
+typedef drmp3_uint32         drmp3_bool32;
+#define DRMP3_TRUE           1
+#define DRMP3_FALSE          0
 
 #define DRMP3_MAX_PCM_FRAMES_PER_MP3_FRAME  1152
 #define DRMP3_MAX_SAMPLES_PER_FRAME         (DRMP3_MAX_PCM_FRAMES_PER_MP3_FRAME*2)
