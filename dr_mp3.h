@@ -101,6 +101,35 @@ typedef drmp3_uint32         drmp3_bool32;
 #define DRMP3_TRUE           1
 #define DRMP3_FALSE          0
 
+#if !defined(DRMP3_API)
+    #if defined(DRMP3_DLL)
+        #if defined(_WIN32)
+            #define DRMP3_DLL_IMPORT  __declspec(dllimport)
+            #define DRMP3_DLL_EXPORT  __declspec(dllexport)
+            #define DRMP3_DLL_PRIVATE static
+        #else
+            #if defined(__GNUC__) && __GNUC__ >= 4
+                #define DRMP3_DLL_IMPORT  __attribute__((visibility("default")))
+                #define DRMP3_DLL_EXPORT  __attribute__((visibility("default")))
+                #define DRMP3_DLL_PRIVATE __attribute__((visibility("hidden")))
+            #else
+                #define DRMP3_DLL_IMPORT
+                #define DRMP3_DLL_EXPORT
+                #define DRMP3_DLL_PRIVATE static
+            #endif
+        #endif
+
+        #if defined(DR_MP3_IMPLEMENTATION) || defined(DRMP3_IMPLEMENTATION)
+            #define DRMP3_API  DRMP3_DLL_EXPORT
+        #else
+            #define DRMP3_API  DRMP3_DLL_IMPORT
+        #endif
+        #define DRMP3_PRIVATE DRMP3_DLL_PRIVATE
+    #else
+        #define DRMP3_API extern
+        #define DRMP3_PRIVATE static
+    #endif
+#endif
 
 typedef drmp3_int32 drmp3_result;
 #define DRMP3_SUCCESS                        0
@@ -198,13 +227,13 @@ typedef struct
 } drmp3dec;
 
 /* Initializes a low level decoder. */
-void drmp3dec_init(drmp3dec *dec);
+DRMP3_API void drmp3dec_init(drmp3dec *dec);
 
 /* Reads a frame from a low level decoder. */
-int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, void *pcm, drmp3dec_frame_info *info);
+DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, void *pcm, drmp3dec_frame_info *info);
 
 /* Helper for converting between f32 and s16. */
-void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_samples);
+DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_samples);
 
 
 
@@ -365,7 +394,7 @@ Close the loader with drmp3_uninit().
 
 See also: drmp3_init_file(), drmp3_init_memory(), drmp3_uninit()
 */
-drmp3_bool32 drmp3_init(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API drmp3_bool32 drmp3_init(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Initializes an MP3 decoder from a block of memory.
@@ -375,7 +404,7 @@ the lifetime of the drmp3 object.
 
 The buffer should contain the contents of the entire MP3 file.
 */
-drmp3_bool32 drmp3_init_memory(drmp3* pMP3, const void* pData, size_t dataSize, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API drmp3_bool32 drmp3_init_memory(drmp3* pMP3, const void* pData, size_t dataSize, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
 
 #ifndef DR_MP3_NO_STDIO
 /*
@@ -385,47 +414,47 @@ This holds the internal FILE object until drmp3_uninit() is called. Keep this in
 objects because the operating system may restrict the number of file handles an application can have open at
 any given time.
 */
-drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
-drmp3_bool32 drmp3_init_file_w(drmp3* pMP3, const wchar_t* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API drmp3_bool32 drmp3_init_file_w(drmp3* pMP3, const wchar_t* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
 Uninitializes an MP3 decoder.
 */
-void drmp3_uninit(drmp3* pMP3);
+DRMP3_API void drmp3_uninit(drmp3* pMP3);
 
 /*
 Reads PCM frames as interleaved 32-bit IEEE floating point PCM.
 
 Note that framesToRead specifies the number of PCM frames to read, _not_ the number of MP3 frames.
 */
-drmp3_uint64 drmp3_read_pcm_frames_f32(drmp3* pMP3, drmp3_uint64 framesToRead, float* pBufferOut);
+DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_f32(drmp3* pMP3, drmp3_uint64 framesToRead, float* pBufferOut);
 
 /*
 Reads PCM frames as interleaved signed 16-bit integer PCM.
 
 Note that framesToRead specifies the number of PCM frames to read, _not_ the number of MP3 frames.
 */
-drmp3_uint64 drmp3_read_pcm_frames_s16(drmp3* pMP3, drmp3_uint64 framesToRead, drmp3_int16* pBufferOut);
+DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_s16(drmp3* pMP3, drmp3_uint64 framesToRead, drmp3_int16* pBufferOut);
 
 /*
 Seeks to a specific frame.
 
 Note that this is _not_ an MP3 frame, but rather a PCM frame.
 */
-drmp3_bool32 drmp3_seek_to_pcm_frame(drmp3* pMP3, drmp3_uint64 frameIndex);
+DRMP3_API drmp3_bool32 drmp3_seek_to_pcm_frame(drmp3* pMP3, drmp3_uint64 frameIndex);
 
 /*
 Calculates the total number of PCM frames in the MP3 stream. Cannot be used for infinite streams such as internet
 radio. Runs in linear time. Returns 0 on error.
 */
-drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3);
+DRMP3_API drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3);
 
 /*
 Calculates the total number of MP3 frames in the MP3 stream. Cannot be used for infinite streams such as internet
 radio. Runs in linear time. Returns 0 on error.
 */
-drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3);
+DRMP3_API drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3);
 
 /*
 Calculates the total number of MP3 and PCM frames in the MP3 stream. Cannot be used for infinite streams such as internet
@@ -433,7 +462,7 @@ radio. Runs in linear time. Returns 0 on error.
 
 This is equivalent to calling drmp3_get_mp3_frame_count() and drmp3_get_pcm_frame_count() except that it's more efficient.
 */
-drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint64* pMP3FrameCount, drmp3_uint64* pPCMFrameCount);
+DRMP3_API drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint64* pMP3FrameCount, drmp3_uint64* pPCMFrameCount);
 
 /*
 Calculates the seekpoints based on PCM frames. This is slow.
@@ -444,7 +473,7 @@ seekpoints, in which case dr_mp3 will return a corrected count.
 
 Note that seektable seeking is not quite sample exact when the MP3 stream contains inconsistent sample rates.
 */
-drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pSeekPointCount, drmp3_seek_point* pSeekPoints);
+DRMP3_API drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pSeekPointCount, drmp3_seek_point* pSeekPoints);
 
 /*
 Binds a seek table to the decoder.
@@ -454,7 +483,7 @@ remains valid while it is bound to the decoder.
 
 Use drmp3_calculate_seek_points() to calculate the seek points.
 */
-drmp3_bool32 drmp3_bind_seek_table(drmp3* pMP3, drmp3_uint32 seekPointCount, drmp3_seek_point* pSeekPoints);
+DRMP3_API drmp3_bool32 drmp3_bind_seek_table(drmp3* pMP3, drmp3_uint32 seekPointCount, drmp3_seek_point* pSeekPoints);
 
 
 /*
@@ -464,21 +493,21 @@ pConfig is both an input and output. On input it contains what you want. On outp
 
 Free the returned pointer with drmp3_free().
 */
-float* drmp3_open_and_read_pcm_frames_f32(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
-drmp3_int16* drmp3_open_and_read_pcm_frames_s16(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API float* drmp3_open_and_read_pcm_frames_f32(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API drmp3_int16* drmp3_open_and_read_pcm_frames_s16(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
 
-float* drmp3_open_memory_and_read_pcm_frames_f32(const void* pData, size_t dataSize, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
-drmp3_int16* drmp3_open_memory_and_read_pcm_frames_s16(const void* pData, size_t dataSize, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API float* drmp3_open_memory_and_read_pcm_frames_f32(const void* pData, size_t dataSize, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API drmp3_int16* drmp3_open_memory_and_read_pcm_frames_s16(const void* pData, size_t dataSize, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
 
 #ifndef DR_MP3_NO_STDIO
-float* drmp3_open_file_and_read_pcm_frames_f32(const char* filePath, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
-drmp3_int16* drmp3_open_file_and_read_pcm_frames_s16(const char* filePath, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API float* drmp3_open_file_and_read_pcm_frames_f32(const char* filePath, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API drmp3_int16* drmp3_open_file_and_read_pcm_frames_s16(const char* filePath, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
 Frees any memory that was allocated by a public drmp3 API.
 */
-void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks);
 
 #ifdef __cplusplus
 }
@@ -493,7 +522,7 @@ void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks)
 
  ************************************************************************************************************************************************************
  ************************************************************************************************************************************************************/
-#ifdef DR_MP3_IMPLEMENTATION
+#if defined(DR_MP3_IMPLEMENTATION) || defined(DRMP3_IMPLEMENTATION)
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h> /* For INT_MAX */
@@ -2144,12 +2173,12 @@ static int drmp3d_find_frame(const drmp3_uint8 *mp3, int mp3_bytes, int *free_fo
     return mp3_bytes;
 }
 
-void drmp3dec_init(drmp3dec *dec)
+DRMP3_API void drmp3dec_init(drmp3dec *dec)
 {
     dec->header[0] = 0;
 }
 
-int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, void *pcm, drmp3dec_frame_info *info)
+DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, void *pcm, drmp3dec_frame_info *info)
 {
     int i = 0, igr, frame_size = 0, success = 1;
     const drmp3_uint8 *hdr;
@@ -2244,7 +2273,7 @@ int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes
     return success*drmp3_hdr_frame_samples(dec->header);
 }
 
-void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_samples)
+DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_samples)
 {
     int i = 0;
 #if DRMP3_HAVE_SIMD
@@ -2447,7 +2476,7 @@ static void drmp3__free_from_callbacks(void* p, const drmp3_allocation_callbacks
 }
 
 
-drmp3_allocation_callbacks drmp3_copy_allocation_callbacks_or_defaults(const drmp3_allocation_callbacks* pAllocationCallbacks)
+static drmp3_allocation_callbacks drmp3_copy_allocation_callbacks_or_defaults(const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     if (pAllocationCallbacks != NULL) {
         /* Copy. */
@@ -3021,7 +3050,7 @@ static drmp3_uint32 drmp3_seek_next_frame(drmp3* pMP3)
 }
 #endif
 
-drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
+static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     drmp3_config config;
 
@@ -3073,7 +3102,7 @@ drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek
     return DRMP3_TRUE;
 }
 
-drmp3_bool32 drmp3_init(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API drmp3_bool32 drmp3_init(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     if (pMP3 == NULL || onRead == NULL) {
         return DRMP3_FALSE;
@@ -3135,7 +3164,7 @@ static drmp3_bool32 drmp3__on_seek_memory(void* pUserData, int byteOffset, drmp3
     return DRMP3_TRUE;
 }
 
-drmp3_bool32 drmp3_init_memory(drmp3* pMP3, const void* pData, size_t dataSize, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API drmp3_bool32 drmp3_init_memory(drmp3* pMP3, const void* pData, size_t dataSize, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     if (pMP3 == NULL) {
         return DRMP3_FALSE;
@@ -3155,6 +3184,10 @@ drmp3_bool32 drmp3_init_memory(drmp3* pMP3, const void* pData, size_t dataSize, 
 }
 
 
+#ifndef DR_MP3_NO_STDIO
+#include <stdio.h>
+
+/* drmp3_result_from_errno() is only used inside DR_MP3_NO_STDIO for now. Move this out if it's ever used elsewhere. */
 #include <errno.h>
 static drmp3_result drmp3_result_from_errno(int e)
 {
@@ -3558,9 +3591,6 @@ static drmp3_result drmp3_result_from_errno(int e)
     }
 }
 
-#ifndef DR_MP3_NO_STDIO
-#include <stdio.h>
-
 static drmp3_result drmp3_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
 {
 #if _MSC_VER && _MSC_VER >= 1400
@@ -3714,7 +3744,7 @@ static drmp3_bool32 drmp3__on_seek_stdio(void* pUserData, int offset, drmp3_seek
     return fseek((FILE*)pUserData, offset, (origin == drmp3_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     FILE* pFile;
     if (drmp3_fopen(&pFile, pFilePath, "rb") != DRMP3_SUCCESS) {
@@ -3724,7 +3754,7 @@ drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* pFilePath, const drmp3_con
     return drmp3_init(pMP3, drmp3__on_read_stdio, drmp3__on_seek_stdio, (void*)pFile, pConfig, pAllocationCallbacks);
 }
 
-drmp3_bool32 drmp3_init_file_w(drmp3* pMP3, const wchar_t* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API drmp3_bool32 drmp3_init_file_w(drmp3* pMP3, const wchar_t* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     FILE* pFile;
     if (drmp3_wfopen(&pFile, pFilePath, L"rb", pAllocationCallbacks) != DRMP3_SUCCESS) {
@@ -3735,7 +3765,7 @@ drmp3_bool32 drmp3_init_file_w(drmp3* pMP3, const wchar_t* pFilePath, const drmp
 }
 #endif
 
-void drmp3_uninit(drmp3* pMP3)
+DRMP3_API void drmp3_uninit(drmp3* pMP3)
 {
     if (pMP3 == NULL) {
         return;
@@ -3750,7 +3780,7 @@ void drmp3_uninit(drmp3* pMP3)
     drmp3__free_from_callbacks(pMP3->pData, &pMP3->allocationCallbacks);
 }
 
-drmp3_uint64 drmp3_read_pcm_frames_f32(drmp3* pMP3, drmp3_uint64 framesToRead, float* pBufferOut)
+DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_f32(drmp3* pMP3, drmp3_uint64 framesToRead, float* pBufferOut)
 {
     drmp3_uint64 totalFramesRead = 0;
 
@@ -3783,7 +3813,7 @@ drmp3_uint64 drmp3_read_pcm_frames_f32(drmp3* pMP3, drmp3_uint64 framesToRead, f
     return totalFramesRead;
 }
 
-drmp3_uint64 drmp3_read_pcm_frames_s16(drmp3* pMP3, drmp3_uint64 framesToRead, drmp3_int16* pBufferOut)
+DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_s16(drmp3* pMP3, drmp3_uint64 framesToRead, drmp3_int16* pBufferOut)
 {
     float tempF32[4096];
     drmp3_uint64 pcmFramesJustRead;
@@ -3818,7 +3848,7 @@ drmp3_uint64 drmp3_read_pcm_frames_s16(drmp3* pMP3, drmp3_uint64 framesToRead, d
     return totalPCMFramesRead;
 }
 
-void drmp3_reset(drmp3* pMP3)
+static void drmp3_reset(drmp3* pMP3)
 {
     DRMP3_ASSERT(pMP3 != NULL);
 
@@ -3839,7 +3869,7 @@ void drmp3_reset(drmp3* pMP3)
     drmp3dec_init(&pMP3->decoder);
 }
 
-drmp3_bool32 drmp3_seek_to_start_of_stream(drmp3* pMP3)
+static drmp3_bool32 drmp3_seek_to_start_of_stream(drmp3* pMP3)
 {
     DRMP3_ASSERT(pMP3 != NULL);
     DRMP3_ASSERT(pMP3->onSeek != NULL);
@@ -3854,12 +3884,12 @@ drmp3_bool32 drmp3_seek_to_start_of_stream(drmp3* pMP3)
     return DRMP3_TRUE;
 }
 
-float drmp3_get_cached_pcm_frame_count_from_src(drmp3* pMP3)
+static float drmp3_get_cached_pcm_frame_count_from_src(drmp3* pMP3)
 {
     return (pMP3->src.cache.cachedFrameCount - pMP3->src.cache.iNextFrame) + (float)pMP3->src.algo.linear.alpha;
 }
 
-float drmp3_get_pcm_frames_remaining_in_mp3_frame(drmp3* pMP3)
+static float drmp3_get_pcm_frames_remaining_in_mp3_frame(drmp3* pMP3)
 {
     float factor = (float)pMP3->src.config.sampleRateOut / (float)pMP3->src.config.sampleRateIn;
     float frameCountPreSRC = drmp3_get_cached_pcm_frame_count_from_src(pMP3) + pMP3->pcmFramesRemainingInMP3Frame;
@@ -3877,7 +3907,7 @@ is with the resampling and the crappy resampler used by dr_mp3. What needs to ha
    drmp3_read_pcm_frames_f32(). The resampler needs an API to "flush" some imaginary input so that it's
    state is updated accordingly.
 */
-drmp3_bool32 drmp3_seek_forward_by_pcm_frames__brute_force(drmp3* pMP3, drmp3_uint64 frameOffset)
+static drmp3_bool32 drmp3_seek_forward_by_pcm_frames__brute_force(drmp3* pMP3, drmp3_uint64 frameOffset)
 {
     drmp3_uint64 framesRead;
 
@@ -3925,7 +3955,7 @@ drmp3_bool32 drmp3_seek_forward_by_pcm_frames__brute_force(drmp3* pMP3, drmp3_ui
     return DRMP3_TRUE;
 }
 
-drmp3_bool32 drmp3_seek_to_pcm_frame__brute_force(drmp3* pMP3, drmp3_uint64 frameIndex)
+static drmp3_bool32 drmp3_seek_to_pcm_frame__brute_force(drmp3* pMP3, drmp3_uint64 frameIndex)
 {
     DRMP3_ASSERT(pMP3 != NULL);
 
@@ -3948,7 +3978,7 @@ drmp3_bool32 drmp3_seek_to_pcm_frame__brute_force(drmp3* pMP3, drmp3_uint64 fram
     return drmp3_seek_forward_by_pcm_frames__brute_force(pMP3, (frameIndex - pMP3->currentPCMFrame));
 }
 
-drmp3_bool32 drmp3_find_closest_seek_point(drmp3* pMP3, drmp3_uint64 frameIndex, drmp3_uint32* pSeekPointIndex)
+static drmp3_bool32 drmp3_find_closest_seek_point(drmp3* pMP3, drmp3_uint64 frameIndex, drmp3_uint32* pSeekPointIndex)
 {
     drmp3_uint32 iSeekPoint;
 
@@ -3972,7 +4002,7 @@ drmp3_bool32 drmp3_find_closest_seek_point(drmp3* pMP3, drmp3_uint64 frameIndex,
     return DRMP3_TRUE;
 }
 
-drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint64 frameIndex)
+static drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint64 frameIndex)
 {
     drmp3_seek_point seekPoint;
     drmp3_uint32 priorSeekPointIndex;
@@ -4041,7 +4071,7 @@ drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint64 frame
     return drmp3_seek_forward_by_pcm_frames__brute_force(pMP3, leftoverFrames);
 }
 
-drmp3_bool32 drmp3_seek_to_pcm_frame(drmp3* pMP3, drmp3_uint64 frameIndex)
+DRMP3_API drmp3_bool32 drmp3_seek_to_pcm_frame(drmp3* pMP3, drmp3_uint64 frameIndex)
 {
     if (pMP3 == NULL || pMP3->onSeek == NULL) {
         return DRMP3_FALSE;
@@ -4059,7 +4089,7 @@ drmp3_bool32 drmp3_seek_to_pcm_frame(drmp3* pMP3, drmp3_uint64 frameIndex)
     }
 }
 
-drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint64* pMP3FrameCount, drmp3_uint64* pPCMFrameCount)
+DRMP3_API drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint64* pMP3FrameCount, drmp3_uint64* pPCMFrameCount)
 {
     drmp3_uint64 currentPCMFrame;
     drmp3_uint64 totalPCMFrameCount;
@@ -4131,7 +4161,7 @@ drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint64* pMP3Fr
     return DRMP3_TRUE;
 }
 
-drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3)
+DRMP3_API drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3)
 {
     drmp3_uint64 totalPCMFrameCount;
     if (!drmp3_get_mp3_and_pcm_frame_count(pMP3, NULL, &totalPCMFrameCount)) {
@@ -4141,7 +4171,7 @@ drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3)
     return totalPCMFrameCount;
 }
 
-drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3)
+DRMP3_API drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3)
 {
     drmp3_uint64 totalMP3FrameCount;
     if (!drmp3_get_mp3_and_pcm_frame_count(pMP3, &totalMP3FrameCount, NULL)) {
@@ -4151,7 +4181,7 @@ drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3)
     return totalMP3FrameCount;
 }
 
-void drmp3__accumulate_running_pcm_frame_count(drmp3* pMP3, drmp3_uint32 pcmFrameCountIn, drmp3_uint64* pRunningPCMFrameCount, float* pRunningPCMFrameCountFractionalPart)
+static void drmp3__accumulate_running_pcm_frame_count(drmp3* pMP3, drmp3_uint32 pcmFrameCountIn, drmp3_uint64* pRunningPCMFrameCount, float* pRunningPCMFrameCountFractionalPart)
 {
     float srcRatio;
     float pcmFrameCountOutF;
@@ -4172,7 +4202,7 @@ typedef struct
     drmp3_uint64 pcmFrameIndex; /* <-- After sample rate conversion. */
 } drmp3__seeking_mp3_frame_info;
 
-drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pSeekPointCount, drmp3_seek_point* pSeekPoints)
+DRMP3_API drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pSeekPointCount, drmp3_seek_point* pSeekPoints)
 {
     drmp3_uint32 seekPointCount;
     drmp3_uint64 currentPCMFrame;
@@ -4312,7 +4342,7 @@ drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pSeekPointCo
     return DRMP3_TRUE;
 }
 
-drmp3_bool32 drmp3_bind_seek_table(drmp3* pMP3, drmp3_uint32 seekPointCount, drmp3_seek_point* pSeekPoints)
+DRMP3_API drmp3_bool32 drmp3_bind_seek_table(drmp3* pMP3, drmp3_uint32 seekPointCount, drmp3_seek_point* pSeekPoints)
 {
     if (pMP3 == NULL) {
         return DRMP3_FALSE;
@@ -4332,7 +4362,7 @@ drmp3_bool32 drmp3_bind_seek_table(drmp3* pMP3, drmp3_uint32 seekPointCount, drm
 }
 
 
-float* drmp3__full_read_and_close_f32(drmp3* pMP3, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount)
+static float* drmp3__full_read_and_close_f32(drmp3* pMP3, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount)
 {
     drmp3_uint64 totalFramesRead = 0;
     drmp3_uint64 framesCapacity = 0;
@@ -4399,7 +4429,7 @@ float* drmp3__full_read_and_close_f32(drmp3* pMP3, drmp3_config* pConfig, drmp3_
     return pFrames;
 }
 
-drmp3_int16* drmp3__full_read_and_close_s16(drmp3* pMP3, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount)
+static drmp3_int16* drmp3__full_read_and_close_s16(drmp3* pMP3, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount)
 {
     drmp3_uint64 totalFramesRead = 0;
     drmp3_uint64 framesCapacity = 0;
@@ -4467,7 +4497,7 @@ drmp3_int16* drmp3__full_read_and_close_s16(drmp3* pMP3, drmp3_config* pConfig, 
 }
 
 
-float* drmp3_open_and_read_pcm_frames_f32(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API float* drmp3_open_and_read_pcm_frames_f32(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     drmp3 mp3;
     if (!drmp3_init(&mp3, onRead, onSeek, pUserData, pConfig, pAllocationCallbacks)) {
@@ -4477,7 +4507,7 @@ float* drmp3_open_and_read_pcm_frames_f32(drmp3_read_proc onRead, drmp3_seek_pro
     return drmp3__full_read_and_close_f32(&mp3, pConfig, pTotalFrameCount);
 }
 
-drmp3_int16* drmp3_open_and_read_pcm_frames_s16(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API drmp3_int16* drmp3_open_and_read_pcm_frames_s16(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     drmp3 mp3;
     if (!drmp3_init(&mp3, onRead, onSeek, pUserData, pConfig, pAllocationCallbacks)) {
@@ -4488,7 +4518,7 @@ drmp3_int16* drmp3_open_and_read_pcm_frames_s16(drmp3_read_proc onRead, drmp3_se
 }
 
 
-float* drmp3_open_memory_and_read_pcm_frames_f32(const void* pData, size_t dataSize, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API float* drmp3_open_memory_and_read_pcm_frames_f32(const void* pData, size_t dataSize, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     drmp3 mp3;
     if (!drmp3_init_memory(&mp3, pData, dataSize, pConfig, pAllocationCallbacks)) {
@@ -4498,7 +4528,7 @@ float* drmp3_open_memory_and_read_pcm_frames_f32(const void* pData, size_t dataS
     return drmp3__full_read_and_close_f32(&mp3, pConfig, pTotalFrameCount);
 }
 
-drmp3_int16* drmp3_open_memory_and_read_pcm_frames_s16(const void* pData, size_t dataSize, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API drmp3_int16* drmp3_open_memory_and_read_pcm_frames_s16(const void* pData, size_t dataSize, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     drmp3 mp3;
     if (!drmp3_init_memory(&mp3, pData, dataSize, pConfig, pAllocationCallbacks)) {
@@ -4510,7 +4540,7 @@ drmp3_int16* drmp3_open_memory_and_read_pcm_frames_s16(const void* pData, size_t
 
 
 #ifndef DR_MP3_NO_STDIO
-float* drmp3_open_file_and_read_pcm_frames_f32(const char* filePath, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API float* drmp3_open_file_and_read_pcm_frames_f32(const char* filePath, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     drmp3 mp3;
     if (!drmp3_init_file(&mp3, filePath, pConfig, pAllocationCallbacks)) {
@@ -4520,7 +4550,7 @@ float* drmp3_open_file_and_read_pcm_frames_f32(const char* filePath, drmp3_confi
     return drmp3__full_read_and_close_f32(&mp3, pConfig, pTotalFrameCount);
 }
 
-drmp3_int16* drmp3_open_file_and_read_pcm_frames_s16(const char* filePath, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API drmp3_int16* drmp3_open_file_and_read_pcm_frames_s16(const char* filePath, drmp3_config* pConfig, drmp3_uint64* pTotalFrameCount, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     drmp3 mp3;
     if (!drmp3_init_file(&mp3, filePath, pConfig, pAllocationCallbacks)) {
@@ -4531,7 +4561,7 @@ drmp3_int16* drmp3_open_file_and_read_pcm_frames_s16(const char* filePath, drmp3
 }
 #endif
 
-void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks)
+DRMP3_API void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     if (pAllocationCallbacks != NULL) {
         drmp3__free_from_callbacks(p, pAllocationCallbacks);
