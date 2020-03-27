@@ -8,6 +8,25 @@ GitHub: https://github.com/mackron/dr_libs
 */
 
 /*
+RELEASE NOTES - VERSION 0.12
+============================
+Version 0.12 includes breaking changes to custom chunk handling.
+
+
+Changes to Chunk Callback
+-------------------------
+dr_wav supports the ability to fire a callback when a chunk is encounted (except for WAVE and FMT chunks). The callback has been update to include both the
+container (RIFF or Wave64) and the FMT chunk which contains information about the format of the data in the wave file.
+
+Previously, there was no direct way to determine the container, and therefore no way discriminate against the different IDs in the chunk header (RIFF and
+Wave64 containers encode chunk ID's differently). The `container` parameter can be used to know which ID to use.
+
+Sometimes it can be useful to know the data format at the time the chunk callback is fired. A pointer to a `drwav_fmt` object is now passed into the chunk
+callback which will give you information about the data format. To determine the sample format, use `drwav_fmt_get_format()`. This will return one of the
+`DR_WAVE_FORMAT_*` tokens.
+*/
+
+/*
 Introduction
 ============
 This is a single file library. To use it, do something like the following in one .c file.
