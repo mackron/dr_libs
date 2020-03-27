@@ -101,6 +101,64 @@ typedef drmp3_uint32         drmp3_bool32;
 #define DRMP3_TRUE           1
 #define DRMP3_FALSE          0
 
+
+typedef drmp3_int32 drmp3_result;
+#define DRMP3_SUCCESS                        0
+#define DRMP3_ERROR                         -1   /* A generic error. */
+#define DRMP3_INVALID_ARGS                  -2
+#define DRMP3_INVALID_OPERATION             -3
+#define DRMP3_OUT_OF_MEMORY                 -4
+#define DRMP3_OUT_OF_RANGE                  -5
+#define DRMP3_ACCESS_DENIED                 -6
+#define DRMP3_DOES_NOT_EXIST                -7
+#define DRMP3_ALREADY_EXISTS                -8
+#define DRMP3_TOO_MANY_OPEN_FILES           -9
+#define DRMP3_INVALID_FILE                  -10
+#define DRMP3_TOO_BIG                       -11
+#define DRMP3_PATH_TOO_LONG                 -12
+#define DRMP3_NAME_TOO_LONG                 -13
+#define DRMP3_NOT_DIRECTORY                 -14
+#define DRMP3_IS_DIRECTORY                  -15
+#define DRMP3_DIRECTORY_NOT_EMPTY           -16
+#define DRMP3_END_OF_FILE                   -17
+#define DRMP3_NO_SPACE                      -18
+#define DRMP3_BUSY                          -19
+#define DRMP3_IO_ERROR                      -20
+#define DRMP3_INTERRUPT                     -21
+#define DRMP3_UNAVAILABLE                   -22
+#define DRMP3_ALREADY_IN_USE                -23
+#define DRMP3_BAD_ADDRESS                   -24
+#define DRMP3_BAD_SEEK                      -25
+#define DRMP3_BAD_PIPE                      -26
+#define DRMP3_DEADLOCK                      -27
+#define DRMP3_TOO_MANY_LINKS                -28
+#define DRMP3_NOT_IMPLEMENTED               -29
+#define DRMP3_NO_MESSAGE                    -30
+#define DRMP3_BAD_MESSAGE                   -31
+#define DRMP3_NO_DATA_AVAILABLE             -32
+#define DRMP3_INVALID_DATA                  -33
+#define DRMP3_TIMEOUT                       -34
+#define DRMP3_NO_NETWORK                    -35
+#define DRMP3_NOT_UNIQUE                    -36
+#define DRMP3_NOT_SOCKET                    -37
+#define DRMP3_NO_ADDRESS                    -38
+#define DRMP3_BAD_PROTOCOL                  -39
+#define DRMP3_PROTOCOL_UNAVAILABLE          -40
+#define DRMP3_PROTOCOL_NOT_SUPPORTED        -41
+#define DRMP3_PROTOCOL_FAMILY_NOT_SUPPORTED -42
+#define DRMP3_ADDRESS_FAMILY_NOT_SUPPORTED  -43
+#define DRMP3_SOCKET_NOT_SUPPORTED          -44
+#define DRMP3_CONNECTION_RESET              -45
+#define DRMP3_ALREADY_CONNECTED             -46
+#define DRMP3_NOT_CONNECTED                 -47
+#define DRMP3_CONNECTION_REFUSED            -48
+#define DRMP3_NO_HOST                       -49
+#define DRMP3_IN_PROGRESS                   -50
+#define DRMP3_CANCELLED                     -51
+#define DRMP3_MEMORY_ALREADY_MAPPED         -52
+#define DRMP3_AT_END                        -53
+
+
 #define DRMP3_MAX_PCM_FRAMES_PER_MP3_FRAME  1152
 #define DRMP3_MAX_SAMPLES_PER_FRAME         (DRMP3_MAX_PCM_FRAMES_PER_MP3_FRAME*2)
 
@@ -327,7 +385,8 @@ This holds the internal FILE object until drmp3_uninit() is called. Keep this in
 objects because the operating system may restrict the number of file handles an application can have open at
 any given time.
 */
-drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* filePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
+drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
+drmp3_bool32 drmp3_init_file_w(drmp3* pMP3, const wchar_t* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
@@ -3096,8 +3155,554 @@ drmp3_bool32 drmp3_init_memory(drmp3* pMP3, const void* pData, size_t dataSize, 
 }
 
 
+#include <errno.h>
+static drmp3_result drmp3_result_from_errno(int e)
+{
+    switch (e)
+    {
+        case 0: return DRMP3_SUCCESS;
+    #ifdef EPERM
+        case EPERM: return DRMP3_INVALID_OPERATION;
+    #endif
+    #ifdef ENOENT
+        case ENOENT: return DRMP3_DOES_NOT_EXIST;
+    #endif
+    #ifdef ESRCH
+        case ESRCH: return DRMP3_DOES_NOT_EXIST;
+    #endif
+    #ifdef EINTR
+        case EINTR: return DRMP3_INTERRUPT;
+    #endif
+    #ifdef EIO
+        case EIO: return DRMP3_IO_ERROR;
+    #endif
+    #ifdef ENXIO
+        case ENXIO: return DRMP3_DOES_NOT_EXIST;
+    #endif
+    #ifdef E2BIG
+        case E2BIG: return DRMP3_INVALID_ARGS;
+    #endif
+    #ifdef ENOEXEC
+        case ENOEXEC: return DRMP3_INVALID_FILE;
+    #endif
+    #ifdef EBADF
+        case EBADF: return DRMP3_INVALID_FILE;
+    #endif
+    #ifdef ECHILD
+        case ECHILD: return DRMP3_ERROR;
+    #endif
+    #ifdef EAGAIN
+        case EAGAIN: return DRMP3_UNAVAILABLE;
+    #endif
+    #ifdef ENOMEM
+        case ENOMEM: return DRMP3_OUT_OF_MEMORY;
+    #endif
+    #ifdef EACCES
+        case EACCES: return DRMP3_ACCESS_DENIED;
+    #endif
+    #ifdef EFAULT
+        case EFAULT: return DRMP3_BAD_ADDRESS;
+    #endif
+    #ifdef ENOTBLK
+        case ENOTBLK: return DRMP3_ERROR;
+    #endif
+    #ifdef EBUSY
+        case EBUSY: return DRMP3_BUSY;
+    #endif
+    #ifdef EEXIST
+        case EEXIST: return DRMP3_ALREADY_EXISTS;
+    #endif
+    #ifdef EXDEV
+        case EXDEV: return DRMP3_ERROR;
+    #endif
+    #ifdef ENODEV
+        case ENODEV: return DRMP3_DOES_NOT_EXIST;
+    #endif
+    #ifdef ENOTDIR
+        case ENOTDIR: return DRMP3_NOT_DIRECTORY;
+    #endif
+    #ifdef EISDIR
+        case EISDIR: return DRMP3_IS_DIRECTORY;
+    #endif
+    #ifdef EINVAL
+        case EINVAL: return DRMP3_INVALID_ARGS;
+    #endif
+    #ifdef ENFILE
+        case ENFILE: return DRMP3_TOO_MANY_OPEN_FILES;
+    #endif
+    #ifdef EMFILE
+        case EMFILE: return DRMP3_TOO_MANY_OPEN_FILES;
+    #endif
+    #ifdef ENOTTY
+        case ENOTTY: return DRMP3_INVALID_OPERATION;
+    #endif
+    #ifdef ETXTBSY
+        case ETXTBSY: return DRMP3_BUSY;
+    #endif
+    #ifdef EFBIG
+        case EFBIG: return DRMP3_TOO_BIG;
+    #endif
+    #ifdef ENOSPC
+        case ENOSPC: return DRMP3_NO_SPACE;
+    #endif
+    #ifdef ESPIPE
+        case ESPIPE: return DRMP3_BAD_SEEK;
+    #endif
+    #ifdef EROFS
+        case EROFS: return DRMP3_ACCESS_DENIED;
+    #endif
+    #ifdef EMLINK
+        case EMLINK: return DRMP3_TOO_MANY_LINKS;
+    #endif
+    #ifdef EPIPE
+        case EPIPE: return DRMP3_BAD_PIPE;
+    #endif
+    #ifdef EDOM
+        case EDOM: return DRMP3_OUT_OF_RANGE;
+    #endif
+    #ifdef ERANGE
+        case ERANGE: return DRMP3_OUT_OF_RANGE;
+    #endif
+    #ifdef EDEADLK
+        case EDEADLK: return DRMP3_DEADLOCK;
+    #endif
+    #ifdef ENAMETOOLONG
+        case ENAMETOOLONG: return DRMP3_PATH_TOO_LONG;
+    #endif
+    #ifdef ENOLCK
+        case ENOLCK: return DRMP3_ERROR;
+    #endif
+    #ifdef ENOSYS
+        case ENOSYS: return DRMP3_NOT_IMPLEMENTED;
+    #endif
+    #ifdef ENOTEMPTY
+        case ENOTEMPTY: return DRMP3_DIRECTORY_NOT_EMPTY;
+    #endif
+    #ifdef ELOOP
+        case ELOOP: return DRMP3_TOO_MANY_LINKS;
+    #endif
+    #ifdef ENOMSG
+        case ENOMSG: return DRMP3_NO_MESSAGE;
+    #endif
+    #ifdef EIDRM
+        case EIDRM: return DRMP3_ERROR;
+    #endif
+    #ifdef ECHRNG
+        case ECHRNG: return DRMP3_ERROR;
+    #endif
+    #ifdef EL2NSYNC
+        case EL2NSYNC: return DRMP3_ERROR;
+    #endif
+    #ifdef EL3HLT
+        case EL3HLT: return DRMP3_ERROR;
+    #endif
+    #ifdef EL3RST
+        case EL3RST: return DRMP3_ERROR;
+    #endif
+    #ifdef ELNRNG
+        case ELNRNG: return DRMP3_OUT_OF_RANGE;
+    #endif
+    #ifdef EUNATCH
+        case EUNATCH: return DRMP3_ERROR;
+    #endif
+    #ifdef ENOCSI
+        case ENOCSI: return DRMP3_ERROR;
+    #endif
+    #ifdef EL2HLT
+        case EL2HLT: return DRMP3_ERROR;
+    #endif
+    #ifdef EBADE
+        case EBADE: return DRMP3_ERROR;
+    #endif
+    #ifdef EBADR
+        case EBADR: return DRMP3_ERROR;
+    #endif
+    #ifdef EXFULL
+        case EXFULL: return DRMP3_ERROR;
+    #endif
+    #ifdef ENOANO
+        case ENOANO: return DRMP3_ERROR;
+    #endif
+    #ifdef EBADRQC
+        case EBADRQC: return DRMP3_ERROR;
+    #endif
+    #ifdef EBADSLT
+        case EBADSLT: return DRMP3_ERROR;
+    #endif
+    #ifdef EBFONT
+        case EBFONT: return DRMP3_INVALID_FILE;
+    #endif
+    #ifdef ENOSTR
+        case ENOSTR: return DRMP3_ERROR;
+    #endif
+    #ifdef ENODATA
+        case ENODATA: return DRMP3_NO_DATA_AVAILABLE;
+    #endif
+    #ifdef ETIME
+        case ETIME: return DRMP3_TIMEOUT;
+    #endif
+    #ifdef ENOSR
+        case ENOSR: return DRMP3_NO_DATA_AVAILABLE;
+    #endif
+    #ifdef ENONET
+        case ENONET: return DRMP3_NO_NETWORK;
+    #endif
+    #ifdef ENOPKG
+        case ENOPKG: return DRMP3_ERROR;
+    #endif
+    #ifdef EREMOTE
+        case EREMOTE: return DRMP3_ERROR;
+    #endif
+    #ifdef ENOLINK
+        case ENOLINK: return DRMP3_ERROR;
+    #endif
+    #ifdef EADV
+        case EADV: return DRMP3_ERROR;
+    #endif
+    #ifdef ESRMNT
+        case ESRMNT: return DRMP3_ERROR;
+    #endif
+    #ifdef ECOMM
+        case ECOMM: return DRMP3_ERROR;
+    #endif
+    #ifdef EPROTO
+        case EPROTO: return DRMP3_ERROR;
+    #endif
+    #ifdef EMULTIHOP
+        case EMULTIHOP: return DRMP3_ERROR;
+    #endif
+    #ifdef EDOTDOT
+        case EDOTDOT: return DRMP3_ERROR;
+    #endif
+    #ifdef EBADMSG
+        case EBADMSG: return DRMP3_BAD_MESSAGE;
+    #endif
+    #ifdef EOVERFLOW
+        case EOVERFLOW: return DRMP3_TOO_BIG;
+    #endif
+    #ifdef ENOTUNIQ
+        case ENOTUNIQ: return DRMP3_NOT_UNIQUE;
+    #endif
+    #ifdef EBADFD
+        case EBADFD: return DRMP3_ERROR;
+    #endif
+    #ifdef EREMCHG
+        case EREMCHG: return DRMP3_ERROR;
+    #endif
+    #ifdef ELIBACC
+        case ELIBACC: return DRMP3_ACCESS_DENIED;
+    #endif
+    #ifdef ELIBBAD
+        case ELIBBAD: return DRMP3_INVALID_FILE;
+    #endif
+    #ifdef ELIBSCN
+        case ELIBSCN: return DRMP3_INVALID_FILE;
+    #endif
+    #ifdef ELIBMAX
+        case ELIBMAX: return DRMP3_ERROR;
+    #endif
+    #ifdef ELIBEXEC
+        case ELIBEXEC: return DRMP3_ERROR;
+    #endif
+    #ifdef EILSEQ
+        case EILSEQ: return DRMP3_INVALID_DATA;
+    #endif
+    #ifdef ERESTART
+        case ERESTART: return DRMP3_ERROR;
+    #endif
+    #ifdef ESTRPIPE
+        case ESTRPIPE: return DRMP3_ERROR;
+    #endif
+    #ifdef EUSERS
+        case EUSERS: return DRMP3_ERROR;
+    #endif
+    #ifdef ENOTSOCK
+        case ENOTSOCK: return DRMP3_NOT_SOCKET;
+    #endif
+    #ifdef EDESTADDRREQ
+        case EDESTADDRREQ: return DRMP3_NO_ADDRESS;
+    #endif
+    #ifdef EMSGSIZE
+        case EMSGSIZE: return DRMP3_TOO_BIG;
+    #endif
+    #ifdef EPROTOTYPE
+        case EPROTOTYPE: return DRMP3_BAD_PROTOCOL;
+    #endif
+    #ifdef ENOPROTOOPT
+        case ENOPROTOOPT: return DRMP3_PROTOCOL_UNAVAILABLE;
+    #endif
+    #ifdef EPROTONOSUPPORT
+        case EPROTONOSUPPORT: return DRMP3_PROTOCOL_NOT_SUPPORTED;
+    #endif
+    #ifdef ESOCKTNOSUPPORT
+        case ESOCKTNOSUPPORT: return DRMP3_SOCKET_NOT_SUPPORTED;
+    #endif
+    #ifdef EOPNOTSUPP
+        case EOPNOTSUPP: return DRMP3_INVALID_OPERATION;
+    #endif
+    #ifdef EPFNOSUPPORT
+        case EPFNOSUPPORT: return DRMP3_PROTOCOL_FAMILY_NOT_SUPPORTED;
+    #endif
+    #ifdef EAFNOSUPPORT
+        case EAFNOSUPPORT: return DRMP3_ADDRESS_FAMILY_NOT_SUPPORTED;
+    #endif
+    #ifdef EADDRINUSE
+        case EADDRINUSE: return DRMP3_ALREADY_IN_USE;
+    #endif
+    #ifdef EADDRNOTAVAIL
+        case EADDRNOTAVAIL: return DRMP3_ERROR;
+    #endif
+    #ifdef ENETDOWN
+        case ENETDOWN: return DRMP3_NO_NETWORK;
+    #endif
+    #ifdef ENETUNREACH
+        case ENETUNREACH: return DRMP3_NO_NETWORK;
+    #endif
+    #ifdef ENETRESET
+        case ENETRESET: return DRMP3_NO_NETWORK;
+    #endif
+    #ifdef ECONNABORTED
+        case ECONNABORTED: return DRMP3_NO_NETWORK;
+    #endif
+    #ifdef ECONNRESET
+        case ECONNRESET: return DRMP3_CONNECTION_RESET;
+    #endif
+    #ifdef ENOBUFS
+        case ENOBUFS: return DRMP3_NO_SPACE;
+    #endif
+    #ifdef EISCONN
+        case EISCONN: return DRMP3_ALREADY_CONNECTED;
+    #endif
+    #ifdef ENOTCONN
+        case ENOTCONN: return DRMP3_NOT_CONNECTED;
+    #endif
+    #ifdef ESHUTDOWN
+        case ESHUTDOWN: return DRMP3_ERROR;
+    #endif
+    #ifdef ETOOMANYREFS
+        case ETOOMANYREFS: return DRMP3_ERROR;
+    #endif
+    #ifdef ETIMEDOUT
+        case ETIMEDOUT: return DRMP3_TIMEOUT;
+    #endif
+    #ifdef ECONNREFUSED
+        case ECONNREFUSED: return DRMP3_CONNECTION_REFUSED;
+    #endif
+    #ifdef EHOSTDOWN
+        case EHOSTDOWN: return DRMP3_NO_HOST;
+    #endif
+    #ifdef EHOSTUNREACH
+        case EHOSTUNREACH: return DRMP3_NO_HOST;
+    #endif
+    #ifdef EALREADY
+        case EALREADY: return DRMP3_IN_PROGRESS;
+    #endif
+    #ifdef EINPROGRESS
+        case EINPROGRESS: return DRMP3_IN_PROGRESS;
+    #endif
+    #ifdef ESTALE
+        case ESTALE: return DRMP3_INVALID_FILE;
+    #endif
+    #ifdef EUCLEAN
+        case EUCLEAN: return DRMP3_ERROR;
+    #endif
+    #ifdef ENOTNAM
+        case ENOTNAM: return DRMP3_ERROR;
+    #endif
+    #ifdef ENAVAIL
+        case ENAVAIL: return DRMP3_ERROR;
+    #endif
+    #ifdef EISNAM
+        case EISNAM: return DRMP3_ERROR;
+    #endif
+    #ifdef EREMOTEIO
+        case EREMOTEIO: return DRMP3_IO_ERROR;
+    #endif
+    #ifdef EDQUOT
+        case EDQUOT: return DRMP3_NO_SPACE;
+    #endif
+    #ifdef ENOMEDIUM
+        case ENOMEDIUM: return DRMP3_DOES_NOT_EXIST;
+    #endif
+    #ifdef EMEDIUMTYPE
+        case EMEDIUMTYPE: return DRMP3_ERROR;
+    #endif
+    #ifdef ECANCELED
+        case ECANCELED: return DRMP3_CANCELLED;
+    #endif
+    #ifdef ENOKEY
+        case ENOKEY: return DRMP3_ERROR;
+    #endif
+    #ifdef EKEYEXPIRED
+        case EKEYEXPIRED: return DRMP3_ERROR;
+    #endif
+    #ifdef EKEYREVOKED
+        case EKEYREVOKED: return DRMP3_ERROR;
+    #endif
+    #ifdef EKEYREJECTED
+        case EKEYREJECTED: return DRMP3_ERROR;
+    #endif
+    #ifdef EOWNERDEAD
+        case EOWNERDEAD: return DRMP3_ERROR;
+    #endif
+    #ifdef ENOTRECOVERABLE
+        case ENOTRECOVERABLE: return DRMP3_ERROR;
+    #endif
+    #ifdef ERFKILL
+        case ERFKILL: return DRMP3_ERROR;
+    #endif
+    #ifdef EHWPOISON
+        case EHWPOISON: return DRMP3_ERROR;
+    #endif
+        default: return DRMP3_ERROR;
+    }
+}
+
 #ifndef DR_MP3_NO_STDIO
 #include <stdio.h>
+
+static drmp3_result drmp3_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
+{
+#if _MSC_VER && _MSC_VER >= 1400
+    errno_t err;
+#endif
+
+    if (ppFile != NULL) {
+        *ppFile = NULL;  /* Safety. */
+    }
+
+    if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+#if _MSC_VER && _MSC_VER >= 1400
+    err = fopen_s(ppFile, pFilePath, pOpenMode);
+    if (err != 0) {
+        return drmp3_result_from_errno(err);
+    }
+#else
+#if defined(_WIN32) || defined(__APPLE__)
+    *ppFile = fopen(pFilePath, pOpenMode);
+#else
+    #if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64 && defined(_LARGEFILE64_SOURCE)
+        *ppFile = fopen64(pFilePath, pOpenMode);
+    #else
+        *ppFile = fopen(pFilePath, pOpenMode);
+    #endif
+#endif
+    if (*ppFile == NULL) {
+        drmp3_result result = drmp3_result_from_errno(errno);
+        if (result == DRMP3_SUCCESS) {
+            result = DRMP3_ERROR;   /* Just a safety check to make sure we never ever return success when pFile == NULL. */
+        }
+
+        return result;
+    }
+#endif
+
+    return DRMP3_SUCCESS;
+}
+
+/*
+_wfopen() isn't always available in all compilation environments.
+
+    * Windows only.
+    * MSVC seems to support it universally as far back as VC6 from what I can tell (haven't checked further back).
+    * MinGW-64 (both 32- and 64-bit) seems to support it.
+    * MinGW wraps it in !defined(__STRICT_ANSI__).
+
+This can be reviewed as compatibility issues arise. The preference is to use _wfopen_s() and _wfopen() as opposed to the wcsrtombs()
+fallback, so if you notice your compiler not detecting this properly I'm happy to look at adding support.
+*/
+#if defined(_WIN32)
+    #if defined(_MSC_VER) || defined(__MINGW64__) || !defined(__STRICT_ANSI__)
+        #define DRMP3_HAS_WFOPEN
+    #endif
+#endif
+
+static drmp3_result drmp3_wfopen(FILE** ppFile, const wchar_t* pFilePath, const wchar_t* pOpenMode, const drmp3_allocation_callbacks* pAllocationCallbacks)
+{
+    if (ppFile != NULL) {
+        *ppFile = NULL;  /* Safety. */
+    }
+
+    if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+#if defined(DRMP3_HAS_WFOPEN)
+    {
+        /* Use _wfopen() on Windows. */
+    #if defined(_MSC_VER) && _MSC_VER >= 1400
+        errno_t err = _wfopen_s(ppFile, pFilePath, pOpenMode);
+        if (err != 0) {
+            return drmp3_result_from_errno(err);
+        }
+    #else
+        *ppFile = _wfopen(pFilePath, pOpenMode);
+        if (*ppFile == NULL) {
+            return drmp3_result_from_errno(errno);
+        }
+    #endif
+        (void)pAllocationCallbacks;
+    }
+#else
+    /*
+    Use fopen() on anything other than Windows. Requires a conversion. This is annoying because fopen() is locale specific. The only real way I can
+    think of to do this is with wcsrtombs(). Note that wcstombs() is apparently not thread-safe because it uses a static global mbstate_t object for
+    maintaining state. I've checked this with -std=c89 and it works, but if somebody get's a compiler error I'll look into improving compatibility.
+    */
+    {
+        mbstate_t mbs;
+        size_t lenMB;
+        const wchar_t* pFilePathTemp = pFilePath;
+        char* pFilePathMB = NULL;
+        char pOpenModeMB[32] = {0};
+
+        /* Get the length first. */
+        DRMP3_ZERO_OBJECT(&mbs);
+        lenMB = wcsrtombs(NULL, &pFilePathTemp, 0, &mbs);
+        if (lenMB == (size_t)-1) {
+            return drmp3_result_from_errno(errno);
+        }
+
+        pFilePathMB = (char*)drmp3__malloc_from_callbacks(lenMB + 1, pAllocationCallbacks);
+        if (pFilePathMB == NULL) {
+            return DRMP3_OUT_OF_MEMORY;
+        }
+
+        pFilePathTemp = pFilePath;
+        DRMP3_ZERO_OBJECT(&mbs);
+        wcsrtombs(pFilePathMB, &pFilePathTemp, lenMB + 1, &mbs);
+
+        /* The open mode should always consist of ASCII characters so we should be able to do a trivial conversion. */
+        {
+            size_t i = 0;
+            for (;;) {
+                if (pOpenMode[i] == 0) {
+                    pOpenModeMB[i] = '\0';
+                    break;
+                }
+
+                pOpenModeMB[i] = (char)pOpenMode[i];
+                i += 1;
+            }
+        }
+
+        *ppFile = fopen(pFilePathMB, pOpenModeMB);
+
+        drmp3__free_from_callbacks(pFilePathMB, pAllocationCallbacks);
+    }
+
+    if (*ppFile == NULL) {
+        return DRMP3_ERROR;
+    }
+#endif
+
+    return DRMP3_SUCCESS;
+}
+
+
 
 static size_t drmp3__on_read_stdio(void* pUserData, void* pBufferOut, size_t bytesToRead)
 {
@@ -3109,19 +3714,22 @@ static drmp3_bool32 drmp3__on_seek_stdio(void* pUserData, int offset, drmp3_seek
     return fseek((FILE*)pUserData, offset, (origin == drmp3_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* filePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
+drmp3_bool32 drmp3_init_file(drmp3* pMP3, const char* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     FILE* pFile;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-    if (fopen_s(&pFile, filePath, "rb") != 0) {
+    if (drmp3_fopen(&pFile, pFilePath, "rb") != DRMP3_SUCCESS) {
         return DRMP3_FALSE;
     }
-#else
-    pFile = fopen(filePath, "rb");
-    if (pFile == NULL) {
+
+    return drmp3_init(pMP3, drmp3__on_read_stdio, drmp3__on_seek_stdio, (void*)pFile, pConfig, pAllocationCallbacks);
+}
+
+drmp3_bool32 drmp3_init_file_w(drmp3* pMP3, const wchar_t* pFilePath, const drmp3_config* pConfig, const drmp3_allocation_callbacks* pAllocationCallbacks)
+{
+    FILE* pFile;
+    if (drmp3_wfopen(&pFile, pFilePath, L"rb", pAllocationCallbacks) != DRMP3_SUCCESS) {
         return DRMP3_FALSE;
     }
-#endif
 
     return drmp3_init(pMP3, drmp3__on_read_stdio, drmp3__on_seek_stdio, (void*)pFile, pConfig, pAllocationCallbacks);
 }
@@ -4018,6 +4626,7 @@ counts rather than sample counts.
 REVISION HISTORY
 ================
 v0.6.0 - TBD
+  - Add drmp3_init_file_w() for opening a file from a wchar_t encoded path.
 
 v0.5.6 - 2020-02-12
   - Bring up to date with minimp3.
