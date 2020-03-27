@@ -1,76 +1,11 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.5.6 - 2020-02-12
+dr_mp3 - v0.6.0 - TBD
 
 David Reid - mackron@gmail.com
 
 Based off minimp3 (https://github.com/lieff/minimp3) which is where the real work was done. See the bottom of this file for
 differences between minimp3 and dr_mp3.
-*/
-
-/*
-RELEASE NOTES - v0.5.0
-=======================
-Version 0.5.0 has breaking API changes.
-
-Improved Client-Defined Memory Allocation
------------------------------------------
-The main change with this release is the addition of a more flexible way of implementing custom memory allocation routines. The
-existing system of DRMP3_MALLOC, DRMP3_REALLOC and DRMP3_FREE are still in place and will be used by default when no custom
-allocation callbacks are specified.
-
-To use the new system, you pass in a pointer to a drmp3_allocation_callbacks object to drmp3_init() and family, like this:
-
-    void* my_malloc(size_t sz, void* pUserData)
-    {
-        return malloc(sz);
-    }
-    void* my_realloc(void* p, size_t sz, void* pUserData)
-    {
-        return realloc(p, sz);
-    }
-    void my_free(void* p, void* pUserData)
-    {
-        free(p);
-    }
-
-    ...
-
-    drmp3_allocation_callbacks allocationCallbacks;
-    allocationCallbacks.pUserData = &myData;
-    allocationCallbacks.onMalloc  = my_malloc;
-    allocationCallbacks.onRealloc = my_realloc;
-    allocationCallbacks.onFree    = my_free;
-    drmp3_init_file(&mp3, "my_file.mp3", NULL, &allocationCallbacks);
-
-The advantage of this new system is that it allows you to specify user data which will be passed in to the allocation routines.
-
-Passing in null for the allocation callbacks object will cause dr_mp3 to use defaults which is the same as DRMP3_MALLOC,
-DRMP3_REALLOC and DRMP3_FREE and the equivalent of how it worked in previous versions.
-
-Every API that opens a drmp3 object now takes this extra parameter. These include the following:
-
-    drmp3_init()
-    drmp3_init_file()
-    drmp3_init_memory()
-    drmp3_open_and_read_pcm_frames_f32()
-    drmp3_open_and_read_pcm_frames_s16()
-    drmp3_open_memory_and_read_pcm_frames_f32()
-    drmp3_open_memory_and_read_pcm_frames_s16()
-    drmp3_open_file_and_read_pcm_frames_f32()
-    drmp3_open_file_and_read_pcm_frames_s16()
-
-Renamed APIs
-------------
-The following APIs have been renamed for consistency with other dr_* libraries and to make it clear that they return PCM frame
-counts rather than sample counts.
-
-    drmp3_open_and_read_f32()        -> drmp3_open_and_read_pcm_frames_f32()
-    drmp3_open_and_read_s16()        -> drmp3_open_and_read_pcm_frames_s16()
-    drmp3_open_memory_and_read_f32() -> drmp3_open_memory_and_read_pcm_frames_f32()
-    drmp3_open_memory_and_read_s16() -> drmp3_open_memory_and_read_pcm_frames_s16()
-    drmp3_open_file_and_read_f32()   -> drmp3_open_file_and_read_pcm_frames_f32()
-    drmp3_open_file_and_read_s16()   -> drmp3_open_file_and_read_pcm_frames_s16()
 */
 
 /*
@@ -4015,8 +3950,75 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 */
 
 /*
+RELEASE NOTES - v0.5.0
+=======================
+Version 0.5.0 has breaking API changes.
+
+Improved Client-Defined Memory Allocation
+-----------------------------------------
+The main change with this release is the addition of a more flexible way of implementing custom memory allocation routines. The
+existing system of DRMP3_MALLOC, DRMP3_REALLOC and DRMP3_FREE are still in place and will be used by default when no custom
+allocation callbacks are specified.
+
+To use the new system, you pass in a pointer to a drmp3_allocation_callbacks object to drmp3_init() and family, like this:
+
+    void* my_malloc(size_t sz, void* pUserData)
+    {
+        return malloc(sz);
+    }
+    void* my_realloc(void* p, size_t sz, void* pUserData)
+    {
+        return realloc(p, sz);
+    }
+    void my_free(void* p, void* pUserData)
+    {
+        free(p);
+    }
+
+    ...
+
+    drmp3_allocation_callbacks allocationCallbacks;
+    allocationCallbacks.pUserData = &myData;
+    allocationCallbacks.onMalloc  = my_malloc;
+    allocationCallbacks.onRealloc = my_realloc;
+    allocationCallbacks.onFree    = my_free;
+    drmp3_init_file(&mp3, "my_file.mp3", NULL, &allocationCallbacks);
+
+The advantage of this new system is that it allows you to specify user data which will be passed in to the allocation routines.
+
+Passing in null for the allocation callbacks object will cause dr_mp3 to use defaults which is the same as DRMP3_MALLOC,
+DRMP3_REALLOC and DRMP3_FREE and the equivalent of how it worked in previous versions.
+
+Every API that opens a drmp3 object now takes this extra parameter. These include the following:
+
+    drmp3_init()
+    drmp3_init_file()
+    drmp3_init_memory()
+    drmp3_open_and_read_pcm_frames_f32()
+    drmp3_open_and_read_pcm_frames_s16()
+    drmp3_open_memory_and_read_pcm_frames_f32()
+    drmp3_open_memory_and_read_pcm_frames_s16()
+    drmp3_open_file_and_read_pcm_frames_f32()
+    drmp3_open_file_and_read_pcm_frames_s16()
+
+Renamed APIs
+------------
+The following APIs have been renamed for consistency with other dr_* libraries and to make it clear that they return PCM frame
+counts rather than sample counts.
+
+    drmp3_open_and_read_f32()        -> drmp3_open_and_read_pcm_frames_f32()
+    drmp3_open_and_read_s16()        -> drmp3_open_and_read_pcm_frames_s16()
+    drmp3_open_memory_and_read_f32() -> drmp3_open_memory_and_read_pcm_frames_f32()
+    drmp3_open_memory_and_read_s16() -> drmp3_open_memory_and_read_pcm_frames_s16()
+    drmp3_open_file_and_read_f32()   -> drmp3_open_file_and_read_pcm_frames_f32()
+    drmp3_open_file_and_read_s16()   -> drmp3_open_file_and_read_pcm_frames_s16()
+*/
+
+/*
 REVISION HISTORY
 ================
+v0.6.0 - TBD
+
 v0.5.6 - 2020-02-12
   - Bring up to date with minimp3.
 
