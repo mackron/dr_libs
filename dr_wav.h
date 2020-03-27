@@ -1061,6 +1061,20 @@ DRWAV_API drwav_int32* drwav_open_memory_and_read_pcm_frames_s32(const void* dat
 /* Frees data that was allocated internally by dr_wav. */
 DRWAV_API void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks);
 
+/* Converts bytes from a wav stream to a sized type of native endian. */
+DRWAV_API drwav_uint16 drwav_bytes_to_u16(const unsigned char* data);
+DRWAV_API drwav_int16 drwav_bytes_to_s16(const unsigned char* data);
+DRWAV_API drwav_uint32 drwav_bytes_to_u32(const unsigned char* data);
+DRWAV_API drwav_int32 drwav_bytes_to_s32(const unsigned char* data);
+DRWAV_API drwav_uint64 drwav_bytes_to_u64(const unsigned char* data);
+DRWAV_API drwav_int64 drwav_bytes_to_s64(const unsigned char* data);
+
+/* Compares a GUID for the purpose of checking the type of a Wave64 chunk. */
+DRWAV_API drwav_bool32 drwav_guid_equal(const drwav_uint8 a[16], const drwav_uint8 b[16]);
+
+/* Compares a four-character-code for the purpose of checking the type of a RIFF chunk. */
+DRWAV_API drwav_bool32 drwav_fourcc_equal(const unsigned char* a, const char* b);
+
 #ifdef __cplusplus
 }
 #endif
@@ -1237,19 +1251,24 @@ static DRWAV_INLINE int drwav__is_little_endian()
 #endif
 }
 
-static DRWAV_INLINE unsigned short drwav__bytes_to_u16(const unsigned char* data)
+static DRWAV_INLINE drwav_uint16 drwav__bytes_to_u16(const unsigned char* data)
 {
     return (data[0] << 0) | (data[1] << 8);
 }
 
-static DRWAV_INLINE short drwav__bytes_to_s16(const unsigned char* data)
+static DRWAV_INLINE drwav_int16 drwav__bytes_to_s16(const unsigned char* data)
 {
     return (short)drwav__bytes_to_u16(data);
 }
 
-static DRWAV_INLINE unsigned int drwav__bytes_to_u32(const unsigned char* data)
+static DRWAV_INLINE drwav_uint32 drwav__bytes_to_u32(const unsigned char* data)
 {
     return (data[0] << 0) | (data[1] << 8) | (data[2] << 16) | (data[3] << 24);
+}
+
+static DRWAV_INLINE drwav_int32 drwav__bytes_to_s32(const unsigned char* data)
+{
+    return (drwav_int32)drwav__bytes_to_u32(data);
 }
 
 static DRWAV_INLINE drwav_uint64 drwav__bytes_to_u64(const unsigned char* data)
@@ -1257,6 +1276,11 @@ static DRWAV_INLINE drwav_uint64 drwav__bytes_to_u64(const unsigned char* data)
     return
         ((drwav_uint64)data[0] <<  0) | ((drwav_uint64)data[1] <<  8) | ((drwav_uint64)data[2] << 16) | ((drwav_uint64)data[3] << 24) |
         ((drwav_uint64)data[4] << 32) | ((drwav_uint64)data[5] << 40) | ((drwav_uint64)data[6] << 48) | ((drwav_uint64)data[7] << 56);
+}
+
+static DRWAV_INLINE drwav_int64 drwav__bytes_to_s64(const unsigned char* data)
+{
+    return (drwav_int64)drwav__bytes_to_u64(data);
 }
 
 static DRWAV_INLINE void drwav__bytes_to_guid(const unsigned char* data, drwav_uint8* guid)
@@ -5631,6 +5655,47 @@ DRWAV_API void drwav_free(void* p, const drwav_allocation_callbacks* pAllocation
     } else {
         drwav__free_default(p, NULL);
     }
+}
+
+DRWAV_API drwav_uint16 drwav_bytes_to_u16(const unsigned char* data)
+{
+    return drwav__bytes_to_u16(data);
+}
+
+DRWAV_API drwav_int16 drwav_bytes_to_s16(const unsigned char* data)
+{
+    return drwav__bytes_to_s16(data);
+}
+
+DRWAV_API drwav_uint32 drwav_bytes_to_u32(const unsigned char* data)
+{
+    return drwav__bytes_to_u32(data);
+}
+
+DRWAV_API drwav_int32 drwav_bytes_to_s32(const unsigned char* data)
+{
+    return drwav__bytes_to_s32(data);
+}
+
+DRWAV_API drwav_uint64 drwav_bytes_to_u64(const unsigned char* data)
+{
+    return drwav__bytes_to_u64(data);
+}
+
+DRWAV_API drwav_int64 drwav_bytes_to_s64(const unsigned char* data)
+{
+    return drwav__bytes_to_s64(data);
+}
+
+
+DRWAV_API drwav_bool32 drwav_guid_equal(const drwav_uint8 a[16], const drwav_uint8 b[16])
+{
+    return drwav__guid_equal(a, b);
+}
+
+DRWAV_API drwav_bool32 drwav_fourcc_equal(const unsigned char* a, const char* b)
+{
+    return drwav__fourcc_equal(a, b);
 }
 
 #endif  /* DR_WAV_IMPLEMENTATION */
