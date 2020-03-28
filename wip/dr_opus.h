@@ -17,6 +17,7 @@ David Reid - mackron@gmail.com
     #if defined(__clang__)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wlanguage-extension-token"
+        #pragma GCC diagnostic ignored "-Wlong-long"
         #pragma GCC diagnostic ignored "-Wc++11-long-long"
     #endif
     typedef   signed __int8  dropus_int8;
@@ -30,22 +31,7 @@ David Reid - mackron@gmail.com
     #if defined(__clang__)
         #pragma GCC diagnostic pop
     #endif
-#else
-    #define DROPUS_HAS_STDINT
-    #include <stdint.h>
-    typedef int8_t   dropus_int8;
-    typedef uint8_t  dropus_uint8;
-    typedef int16_t  dropus_int16;
-    typedef uint16_t dropus_uint16;
-    typedef int32_t  dropus_int32;
-    typedef uint32_t dropus_uint32;
-    typedef int64_t  dropus_int64;
-    typedef uint64_t dropus_uint64;
-#endif
 
-#ifdef DROPUS_HAS_STDINT
-    typedef uintptr_t dropus_uintptr;
-#else
     #if defined(_WIN32)
         #if defined(_WIN64)
             typedef dropus_uint64 dropus_uintptr;
@@ -61,8 +47,18 @@ David Reid - mackron@gmail.com
     #else
         typedef dropus_uint64 dropus_uintptr;   /* Fallback. */
     #endif
+#else
+    #include <stdint.h>
+    typedef int8_t    dropus_int8;
+    typedef uint8_t   dropus_uint8;
+    typedef int16_t   dropus_int16;
+    typedef uint16_t  dropus_uint16;
+    typedef int32_t   dropus_int32;
+    typedef uint32_t  dropus_uint32;
+    typedef int64_t   dropus_int64;
+    typedef uint64_t  dropus_uint64;
+    typedef uintptr_t dropus_uintptr;
 #endif
-
 typedef dropus_uint8  dropus_bool8;
 typedef dropus_uint32 dropus_bool32;
 #define DROPUS_TRUE   1
