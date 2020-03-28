@@ -2380,13 +2380,6 @@ static DRMP3_INLINE float drmp3_mix_f32_fast(float x, float y, float a)
     /*return x + (y - x)*a;*/
 }
 
-static void drmp3_blend_f32(float* pOut, float* pInA, float* pInB, float factor, drmp3_uint32 channels)
-{
-    drmp3_uint32 i;
-    for (i = 0; i < channels; ++i) {
-        pOut[i] = drmp3_mix_f32(pInA[i], pInB[i], factor);
-    }
-}
 
 /*
 Greatest common factor using Euclid's algorithm iteratively.
@@ -2444,7 +2437,8 @@ static void drmp3__free_default(void* p, void* pUserData)
 }
 
 
-#if 0   /* Unused, but leaving here in case I need to add it again later. */
+/* Only used without DR_MP3_NO_STDIO. */
+#ifndef DR_MP3_NO_STDIO
 static void* drmp3__malloc_from_callbacks(size_t sz, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
     if (pAllocationCallbacks == NULL) {
@@ -2823,6 +2817,7 @@ DRMP3_API drmp3_bool32 drmp3_init_memory(drmp3* pMP3, const void* pData, size_t 
 
 #ifndef DR_MP3_NO_STDIO
 #include <stdio.h>
+#include <wchar.h>      /* For wcslen(), wcsrtombs() */
 
 /* drmp3_result_from_errno() is only used inside DR_MP3_NO_STDIO for now. Move this out if it's ever used elsewhere. */
 #include <errno.h>
@@ -3417,7 +3412,7 @@ DRMP3_API void drmp3_uninit(drmp3* pMP3)
     drmp3__free_from_callbacks(pMP3->pData, &pMP3->allocationCallbacks);
 }
 
-
+#if defined(DR_MP3_FLOAT_OUTPUT)
 static void drmp3_f32_to_s16(drmp3_int16* dst, const float* src, drmp3_uint64 sampleCount)
 {
     drmp3_uint64 i;
@@ -3460,7 +3455,9 @@ static void drmp3_f32_to_s16(drmp3_int16* dst, const float* src, drmp3_uint64 sa
         dst[i] = (drmp3_int16)x;
     }
 }
+#endif
 
+#if !defined(DR_MP3_FLOAT_OUTPUT)
 static void drmp3_s16_to_f32(float* dst, const drmp3_int16* src, drmp3_uint64 sampleCount)
 {
     drmp3_uint64 i;
@@ -3470,6 +3467,7 @@ static void drmp3_s16_to_f32(float* dst, const drmp3_int16* src, drmp3_uint64 sa
         dst[i] = x;
     }
 }
+#endif
 
 
 static drmp3_uint64 drmp3_read_pcm_frames_raw(drmp3* pMP3, drmp3_uint64 framesToRead, void* pBufferOut)
