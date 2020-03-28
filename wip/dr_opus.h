@@ -1725,6 +1725,11 @@ DROPUS_API const char* dropus_result_description(dropus_result result)
         case DROPUS_CANCELLED:                     return "Operation cancelled";
         case DROPUS_MEMORY_ALREADY_MAPPED:         return "Memory already mapped";
         case DROPUS_AT_END:                        return "Reached end of collection";
+
+        /* dr_opus specific result codes. */
+        case DROPUS_CRC_MISMATCH:                  return "CRC mismatch";
+        case DROPUS_BAD_DATA:                      return "Bad data";
+
         default:                                   return "Unknown error";
     }
 }
