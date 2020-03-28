@@ -2464,10 +2464,8 @@ DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_sa
 #define DRMP3_FREE(p) free((p))
 #endif
 
-#define drmp3_countof(x)        (sizeof(x) / sizeof(x[0]))
-#define drmp3_max(x, y)         (((x) > (y)) ? (x) : (y))
-#define drmp3_min(x, y)         (((x) < (y)) ? (x) : (y))
-#define drmp3_clamp(x, lo, hi)  (drmp3_max(lo, drmp3_min(x, hi)))
+#define DRMP3_COUNTOF(x)        (sizeof(x) / sizeof(x[0]))
+#define DRMP3_CLAMP(x, lo, hi)  (DRMP3_MAX(lo, DRMP3_MIN(x, hi)))
 
 #define DRMP3_DATA_CHUNK_SIZE  16384    /* The size in bytes of each chunk of data to read from the MP3 stream. minimp3 recommends 16K. */
 
@@ -2782,7 +2780,7 @@ static DRMP3_INLINE void drmp3_biquad_process_pcm_frame_s16__direct_form_2_trans
         r1 = (b1*x - a1*y + r2);
         r2 = (b2*x - a2*y);
 
-        pY[c]          = (drmp3_int16)drmp3_clamp(y, -32768, 32767);
+        pY[c]          = (drmp3_int16)DRMP3_CLAMP(y, -32768, 32767);
         pBQ->r1[c].s32 = r1;
         pBQ->r2[c].s32 = r2;
     }
@@ -3135,7 +3133,7 @@ static drmp3_lpf_config drmp3_lpf_config_init(drmp3_format format, drmp3_uint32 
     config.channels        = channels;
     config.sampleRate      = sampleRate;
     config.cutoffFrequency = cutoffFrequency;
-    config.order           = drmp3_min(order, DRMP3_MAX_FILTER_ORDER);
+    config.order           = DRMP3_MIN(order, DRMP3_MAX_FILTER_ORDER);
 
     return config;
 }
@@ -3174,8 +3172,8 @@ static drmp3_result drmp3_lpf_reinit__internal(const drmp3_lpf_config* pConfig, 
     lpf1Count = pConfig->order % 2;
     lpf2Count = pConfig->order / 2;
 
-    DRMP3_ASSERT(lpf1Count <= drmp3_countof(pLPF->lpf1));
-    DRMP3_ASSERT(lpf2Count <= drmp3_countof(pLPF->lpf2));
+    DRMP3_ASSERT(lpf1Count <= DRMP3_COUNTOF(pLPF->lpf1));
+    DRMP3_ASSERT(lpf2Count <= DRMP3_COUNTOF(pLPF->lpf2));
 
     /* The filter order can't change between reinits. */
     if (!isNew) {
@@ -3364,7 +3362,7 @@ static drmp3_linear_resampler_config drmp3_linear_resampler_config_init(drmp3_fo
     config.channels         = channels;
     config.sampleRateIn     = sampleRateIn;
     config.sampleRateOut    = sampleRateOut;
-    config.lpfOrder         = drmp3_min(DRMP3_DEFAULT_RESAMPLER_LPF_ORDER, DRMP3_MAX_FILTER_ORDER);
+    config.lpfOrder         = DRMP3_MIN(DRMP3_DEFAULT_RESAMPLER_LPF_ORDER, DRMP3_MAX_FILTER_ORDER);
     config.lpfNyquistFactor = 1;
 
     return config;
@@ -3400,8 +3398,8 @@ static drmp3_result drmp3_linear_resampler_set_rate_internal(drmp3_linear_resamp
             return DRMP3_INVALID_ARGS;
         }
 
-        lpfSampleRate      = (drmp3_uint32)(drmp3_max(pResampler->config.sampleRateIn, pResampler->config.sampleRateOut));
-        lpfCutoffFrequency = (   double)(drmp3_min(pResampler->config.sampleRateIn, pResampler->config.sampleRateOut) * 0.5 * pResampler->config.lpfNyquistFactor);
+        lpfSampleRate      = (drmp3_uint32)(DRMP3_MAX(pResampler->config.sampleRateIn, pResampler->config.sampleRateOut));
+        lpfCutoffFrequency = (   double)(DRMP3_MIN(pResampler->config.sampleRateIn, pResampler->config.sampleRateOut) * 0.5 * pResampler->config.lpfNyquistFactor);
 
         lpfConfig = drmp3_lpf_config_init(pResampler->config.format, pResampler->config.channels, lpfSampleRate, lpfCutoffFrequency, pResampler->config.lpfOrder);
 
@@ -4029,7 +4027,7 @@ drmp3_uint64 drmp3_src_cache_read_frames(drmp3_src_cache* pCache, drmp3_uint64 f
         pCache->iNextFrame = 0;
         pCache->cachedFrameCount = 0;
 
-        framesToReadFromClient = drmp3_countof(pCache->pCachedFrames) / pCache->pSRC->config.channels;
+        framesToReadFromClient = DRMP3_COUNTOF(pCache->pCachedFrames) / pCache->pSRC->config.channels;
         if (framesToReadFromClient > pCache->pSRC->config.cacheSizeInFrames) {
             framesToReadFromClient = pCache->pSRC->config.cacheSizeInFrames;
         }
@@ -5313,8 +5311,8 @@ DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_s16(drmp3* pMP3, drmp3_uint64 frame
     /* Naive implementation: read into a temp f32 buffer, then convert. */
     for (;;) {
         drmp3_uint64 pcmFramesToReadThisIteration = (framesToRead - totalPCMFramesRead);
-        if (pcmFramesToReadThisIteration > drmp3_countof(tempF32)/pMP3->channels) {
-            pcmFramesToReadThisIteration = drmp3_countof(tempF32)/pMP3->channels;
+        if (pcmFramesToReadThisIteration > DRMP3_COUNTOF(tempF32)/pMP3->channels) {
+            pcmFramesToReadThisIteration = DRMP3_COUNTOF(tempF32)/pMP3->channels;
         }
 
         pcmFramesJustRead = drmp3_read_pcm_frames_f32(pMP3, pcmFramesToReadThisIteration, tempF32);
@@ -5790,13 +5788,13 @@ DRMP3_API drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pS
                     The next seek point is not in the current MP3 frame, so continue on to the next one. The first thing to do is cycle the cached
                     MP3 frame info.
                     */
-                    for (i = 0; i < drmp3_countof(mp3FrameInfo)-1; ++i) {
+                    for (i = 0; i < DRMP3_COUNTOF(mp3FrameInfo)-1; ++i) {
                         mp3FrameInfo[i] = mp3FrameInfo[i+1];
                     }
 
                     /* Cache previous MP3 frame info. */
-                    mp3FrameInfo[drmp3_countof(mp3FrameInfo)-1].bytePos       = pMP3->streamCursor - pMP3->dataSize;
-                    mp3FrameInfo[drmp3_countof(mp3FrameInfo)-1].pcmFrameIndex = runningPCMFrameCount;
+                    mp3FrameInfo[DRMP3_COUNTOF(mp3FrameInfo)-1].bytePos       = pMP3->streamCursor - pMP3->dataSize;
+                    mp3FrameInfo[DRMP3_COUNTOF(mp3FrameInfo)-1].pcmFrameIndex = runningPCMFrameCount;
 
                     /*
                     Go to the next MP3 frame. This shouldn't ever fail, but just in case it does we just set the seek point and break. If it happens, it
@@ -5859,7 +5857,7 @@ static float* drmp3__full_read_and_close_f32(drmp3* pMP3, drmp3_config* pConfig,
     DRMP3_ASSERT(pMP3 != NULL);
 
     for (;;) {
-        drmp3_uint64 framesToReadRightNow = drmp3_countof(temp) / pMP3->channels;
+        drmp3_uint64 framesToReadRightNow = DRMP3_COUNTOF(temp) / pMP3->channels;
         drmp3_uint64 framesJustRead = drmp3_read_pcm_frames_f32(pMP3, framesToReadRightNow, temp);
         if (framesJustRead == 0) {
             break;
@@ -5926,7 +5924,7 @@ static drmp3_int16* drmp3__full_read_and_close_s16(drmp3* pMP3, drmp3_config* pC
     DRMP3_ASSERT(pMP3 != NULL);
 
     for (;;) {
-        drmp3_uint64 framesToReadRightNow = drmp3_countof(temp) / pMP3->channels;
+        drmp3_uint64 framesToReadRightNow = DRMP3_COUNTOF(temp) / pMP3->channels;
         drmp3_uint64 framesJustRead = drmp3_read_pcm_frames_s16(pMP3, framesToReadRightNow, temp);
         if (framesJustRead == 0) {
             break;
