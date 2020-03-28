@@ -1041,8 +1041,8 @@ static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, drop
                     wi1 = i2 + 3 * (n % 5);
 
                     /* Note that w0_Q13 depends on w1_Q13 so must be calculated afterwards. */
-                    w1_Q13[iFrameSILK] = dropus_Q13(wi1) + (((dropus_Q13(wi1 + 1) - dropus_Q13(wi1)) * 6554) >> 16) * ((2 * i3) + 1);
-                    w0_Q13[iFrameSILK] = dropus_Q13(wi0) + (((dropus_Q13(wi0 + 1) - dropus_Q13(wi0)) * 6554) >> 16) * ((2 * i1) + 1) - w1_Q13[iFrameSILK];
+                    w1_Q13[iFrameSILK] = dropus_Q13(wi1) + (((dropus_Q13((dropus_uint16)(wi1 + 1)) - dropus_Q13(wi1)) * 6554) >> 16) * ((2 * i3) + 1);
+                    w0_Q13[iFrameSILK] = dropus_Q13(wi0) + (((dropus_Q13((dropus_uint16)(wi0 + 1)) - dropus_Q13(wi0)) * 6554) >> 16) * ((2 * i1) + 1) - w1_Q13[iFrameSILK];
 
                     /* RFC 6716 - Section 4.2.7.2 - Mid-Only Flag */
                     if ((flagsLBRR[iChannel] & (1 << iFrameSILK)) != 0) {
