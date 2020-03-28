@@ -285,6 +285,7 @@ Initializes a pre-allocated decoder object from a file.
 This keeps hold of the file handle throughout the lifetime of the decoder and closes it in dropus_uninit().
 */
 DROPUS_API dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath, const dropus_allocation_callbacks* pAllocationCallbacks);
+DROPUS_API dropus_result dropus_init_file_w(dropus* pOpus, const wchar_t* pFilePath, const dropus_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
@@ -394,6 +395,7 @@ DROPUS_API void dropus_free(void* p, const dropus_allocation_callbacks* pAllocat
 #include <string.h>
 #ifndef DR_OPUS_NO_STDIO
 #include <stdio.h>
+#include <wchar.h>      /* For wcslen(), wcsrtombs() */
 #endif
 
 /* CPU Architecture. */
@@ -1517,21 +1519,548 @@ DROPUS_API dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dro
 }
 
 #ifndef DR_OPUS_NO_STDIO
-FILE* dropus_fopen(const char* filename, const char* mode)
+#include <errno.h>
+static dropus_result dropus_result_from_errno(int e)
 {
-    FILE* pFile;
-#ifdef _MSC_VER
-    if (fopen_s(&pFile, filename, mode) != 0) {
-        return NULL;
+    switch (e)
+    {
+        case 0: return DROPUS_SUCCESS;
+    #ifdef EPERM
+        case EPERM: return DROPUS_INVALID_OPERATION;
+    #endif
+    #ifdef ENOENT
+        case ENOENT: return DROPUS_DOES_NOT_EXIST;
+    #endif
+    #ifdef ESRCH
+        case ESRCH: return DROPUS_DOES_NOT_EXIST;
+    #endif
+    #ifdef EINTR
+        case EINTR: return DROPUS_INTERRUPT;
+    #endif
+    #ifdef EIO
+        case EIO: return DROPUS_IO_ERROR;
+    #endif
+    #ifdef ENXIO
+        case ENXIO: return DROPUS_DOES_NOT_EXIST;
+    #endif
+    #ifdef E2BIG
+        case E2BIG: return DROPUS_INVALID_ARGS;
+    #endif
+    #ifdef ENOEXEC
+        case ENOEXEC: return DROPUS_INVALID_FILE;
+    #endif
+    #ifdef EBADF
+        case EBADF: return DROPUS_INVALID_FILE;
+    #endif
+    #ifdef ECHILD
+        case ECHILD: return DROPUS_ERROR;
+    #endif
+    #ifdef EAGAIN
+        case EAGAIN: return DROPUS_UNAVAILABLE;
+    #endif
+    #ifdef ENOMEM
+        case ENOMEM: return DROPUS_OUT_OF_MEMORY;
+    #endif
+    #ifdef EACCES
+        case EACCES: return DROPUS_ACCESS_DENIED;
+    #endif
+    #ifdef EFAULT
+        case EFAULT: return DROPUS_BAD_ADDRESS;
+    #endif
+    #ifdef ENOTBLK
+        case ENOTBLK: return DROPUS_ERROR;
+    #endif
+    #ifdef EBUSY
+        case EBUSY: return DROPUS_BUSY;
+    #endif
+    #ifdef EEXIST
+        case EEXIST: return DROPUS_ALREADY_EXISTS;
+    #endif
+    #ifdef EXDEV
+        case EXDEV: return DROPUS_ERROR;
+    #endif
+    #ifdef ENODEV
+        case ENODEV: return DROPUS_DOES_NOT_EXIST;
+    #endif
+    #ifdef ENOTDIR
+        case ENOTDIR: return DROPUS_NOT_DIRECTORY;
+    #endif
+    #ifdef EISDIR
+        case EISDIR: return DROPUS_IS_DIRECTORY;
+    #endif
+    #ifdef EINVAL
+        case EINVAL: return DROPUS_INVALID_ARGS;
+    #endif
+    #ifdef ENFILE
+        case ENFILE: return DROPUS_TOO_MANY_OPEN_FILES;
+    #endif
+    #ifdef EMFILE
+        case EMFILE: return DROPUS_TOO_MANY_OPEN_FILES;
+    #endif
+    #ifdef ENOTTY
+        case ENOTTY: return DROPUS_INVALID_OPERATION;
+    #endif
+    #ifdef ETXTBSY
+        case ETXTBSY: return DROPUS_BUSY;
+    #endif
+    #ifdef EFBIG
+        case EFBIG: return DROPUS_TOO_BIG;
+    #endif
+    #ifdef ENOSPC
+        case ENOSPC: return DROPUS_NO_SPACE;
+    #endif
+    #ifdef ESPIPE
+        case ESPIPE: return DROPUS_BAD_SEEK;
+    #endif
+    #ifdef EROFS
+        case EROFS: return DROPUS_ACCESS_DENIED;
+    #endif
+    #ifdef EMLINK
+        case EMLINK: return DROPUS_TOO_MANY_LINKS;
+    #endif
+    #ifdef EPIPE
+        case EPIPE: return DROPUS_BAD_PIPE;
+    #endif
+    #ifdef EDOM
+        case EDOM: return DROPUS_OUT_OF_RANGE;
+    #endif
+    #ifdef ERANGE
+        case ERANGE: return DROPUS_OUT_OF_RANGE;
+    #endif
+    #ifdef EDEADLK
+        case EDEADLK: return DROPUS_DEADLOCK;
+    #endif
+    #ifdef ENAMETOOLONG
+        case ENAMETOOLONG: return DROPUS_PATH_TOO_LONG;
+    #endif
+    #ifdef ENOLCK
+        case ENOLCK: return DROPUS_ERROR;
+    #endif
+    #ifdef ENOSYS
+        case ENOSYS: return DROPUS_NOT_IMPLEMENTED;
+    #endif
+    #ifdef ENOTEMPTY
+        case ENOTEMPTY: return DROPUS_DIRECTORY_NOT_EMPTY;
+    #endif
+    #ifdef ELOOP
+        case ELOOP: return DROPUS_TOO_MANY_LINKS;
+    #endif
+    #ifdef ENOMSG
+        case ENOMSG: return DROPUS_NO_MESSAGE;
+    #endif
+    #ifdef EIDRM
+        case EIDRM: return DROPUS_ERROR;
+    #endif
+    #ifdef ECHRNG
+        case ECHRNG: return DROPUS_ERROR;
+    #endif
+    #ifdef EL2NSYNC
+        case EL2NSYNC: return DROPUS_ERROR;
+    #endif
+    #ifdef EL3HLT
+        case EL3HLT: return DROPUS_ERROR;
+    #endif
+    #ifdef EL3RST
+        case EL3RST: return DROPUS_ERROR;
+    #endif
+    #ifdef ELNRNG
+        case ELNRNG: return DROPUS_OUT_OF_RANGE;
+    #endif
+    #ifdef EUNATCH
+        case EUNATCH: return DROPUS_ERROR;
+    #endif
+    #ifdef ENOCSI
+        case ENOCSI: return DROPUS_ERROR;
+    #endif
+    #ifdef EL2HLT
+        case EL2HLT: return DROPUS_ERROR;
+    #endif
+    #ifdef EBADE
+        case EBADE: return DROPUS_ERROR;
+    #endif
+    #ifdef EBADR
+        case EBADR: return DROPUS_ERROR;
+    #endif
+    #ifdef EXFULL
+        case EXFULL: return DROPUS_ERROR;
+    #endif
+    #ifdef ENOANO
+        case ENOANO: return DROPUS_ERROR;
+    #endif
+    #ifdef EBADRQC
+        case EBADRQC: return DROPUS_ERROR;
+    #endif
+    #ifdef EBADSLT
+        case EBADSLT: return DROPUS_ERROR;
+    #endif
+    #ifdef EBFONT
+        case EBFONT: return DROPUS_INVALID_FILE;
+    #endif
+    #ifdef ENOSTR
+        case ENOSTR: return DROPUS_ERROR;
+    #endif
+    #ifdef ENODATA
+        case ENODATA: return DROPUS_NO_DATA_AVAILABLE;
+    #endif
+    #ifdef ETIME
+        case ETIME: return DROPUS_TIMEOUT;
+    #endif
+    #ifdef ENOSR
+        case ENOSR: return DROPUS_NO_DATA_AVAILABLE;
+    #endif
+    #ifdef ENONET
+        case ENONET: return DROPUS_NO_NETWORK;
+    #endif
+    #ifdef ENOPKG
+        case ENOPKG: return DROPUS_ERROR;
+    #endif
+    #ifdef EREMOTE
+        case EREMOTE: return DROPUS_ERROR;
+    #endif
+    #ifdef ENOLINK
+        case ENOLINK: return DROPUS_ERROR;
+    #endif
+    #ifdef EADV
+        case EADV: return DROPUS_ERROR;
+    #endif
+    #ifdef ESRMNT
+        case ESRMNT: return DROPUS_ERROR;
+    #endif
+    #ifdef ECOMM
+        case ECOMM: return DROPUS_ERROR;
+    #endif
+    #ifdef EPROTO
+        case EPROTO: return DROPUS_ERROR;
+    #endif
+    #ifdef EMULTIHOP
+        case EMULTIHOP: return DROPUS_ERROR;
+    #endif
+    #ifdef EDOTDOT
+        case EDOTDOT: return DROPUS_ERROR;
+    #endif
+    #ifdef EBADMSG
+        case EBADMSG: return DROPUS_BAD_MESSAGE;
+    #endif
+    #ifdef EOVERFLOW
+        case EOVERFLOW: return DROPUS_TOO_BIG;
+    #endif
+    #ifdef ENOTUNIQ
+        case ENOTUNIQ: return DROPUS_NOT_UNIQUE;
+    #endif
+    #ifdef EBADFD
+        case EBADFD: return DROPUS_ERROR;
+    #endif
+    #ifdef EREMCHG
+        case EREMCHG: return DROPUS_ERROR;
+    #endif
+    #ifdef ELIBACC
+        case ELIBACC: return DROPUS_ACCESS_DENIED;
+    #endif
+    #ifdef ELIBBAD
+        case ELIBBAD: return DROPUS_INVALID_FILE;
+    #endif
+    #ifdef ELIBSCN
+        case ELIBSCN: return DROPUS_INVALID_FILE;
+    #endif
+    #ifdef ELIBMAX
+        case ELIBMAX: return DROPUS_ERROR;
+    #endif
+    #ifdef ELIBEXEC
+        case ELIBEXEC: return DROPUS_ERROR;
+    #endif
+    #ifdef EILSEQ
+        case EILSEQ: return DROPUS_INVALID_DATA;
+    #endif
+    #ifdef ERESTART
+        case ERESTART: return DROPUS_ERROR;
+    #endif
+    #ifdef ESTRPIPE
+        case ESTRPIPE: return DROPUS_ERROR;
+    #endif
+    #ifdef EUSERS
+        case EUSERS: return DROPUS_ERROR;
+    #endif
+    #ifdef ENOTSOCK
+        case ENOTSOCK: return DROPUS_NOT_SOCKET;
+    #endif
+    #ifdef EDESTADDRREQ
+        case EDESTADDRREQ: return DROPUS_NO_ADDRESS;
+    #endif
+    #ifdef EMSGSIZE
+        case EMSGSIZE: return DROPUS_TOO_BIG;
+    #endif
+    #ifdef EPROTOTYPE
+        case EPROTOTYPE: return DROPUS_BAD_PROTOCOL;
+    #endif
+    #ifdef ENOPROTOOPT
+        case ENOPROTOOPT: return DROPUS_PROTOCOL_UNAVAILABLE;
+    #endif
+    #ifdef EPROTONOSUPPORT
+        case EPROTONOSUPPORT: return DROPUS_PROTOCOL_NOT_SUPPORTED;
+    #endif
+    #ifdef ESOCKTNOSUPPORT
+        case ESOCKTNOSUPPORT: return DROPUS_SOCKET_NOT_SUPPORTED;
+    #endif
+    #ifdef EOPNOTSUPP
+        case EOPNOTSUPP: return DROPUS_INVALID_OPERATION;
+    #endif
+    #ifdef EPFNOSUPPORT
+        case EPFNOSUPPORT: return DROPUS_PROTOCOL_FAMILY_NOT_SUPPORTED;
+    #endif
+    #ifdef EAFNOSUPPORT
+        case EAFNOSUPPORT: return DROPUS_ADDRESS_FAMILY_NOT_SUPPORTED;
+    #endif
+    #ifdef EADDRINUSE
+        case EADDRINUSE: return DROPUS_ALREADY_IN_USE;
+    #endif
+    #ifdef EADDRNOTAVAIL
+        case EADDRNOTAVAIL: return DROPUS_ERROR;
+    #endif
+    #ifdef ENETDOWN
+        case ENETDOWN: return DROPUS_NO_NETWORK;
+    #endif
+    #ifdef ENETUNREACH
+        case ENETUNREACH: return DROPUS_NO_NETWORK;
+    #endif
+    #ifdef ENETRESET
+        case ENETRESET: return DROPUS_NO_NETWORK;
+    #endif
+    #ifdef ECONNABORTED
+        case ECONNABORTED: return DROPUS_NO_NETWORK;
+    #endif
+    #ifdef ECONNRESET
+        case ECONNRESET: return DROPUS_CONNECTION_RESET;
+    #endif
+    #ifdef ENOBUFS
+        case ENOBUFS: return DROPUS_NO_SPACE;
+    #endif
+    #ifdef EISCONN
+        case EISCONN: return DROPUS_ALREADY_CONNECTED;
+    #endif
+    #ifdef ENOTCONN
+        case ENOTCONN: return DROPUS_NOT_CONNECTED;
+    #endif
+    #ifdef ESHUTDOWN
+        case ESHUTDOWN: return DROPUS_ERROR;
+    #endif
+    #ifdef ETOOMANYREFS
+        case ETOOMANYREFS: return DROPUS_ERROR;
+    #endif
+    #ifdef ETIMEDOUT
+        case ETIMEDOUT: return DROPUS_TIMEOUT;
+    #endif
+    #ifdef ECONNREFUSED
+        case ECONNREFUSED: return DROPUS_CONNECTION_REFUSED;
+    #endif
+    #ifdef EHOSTDOWN
+        case EHOSTDOWN: return DROPUS_NO_HOST;
+    #endif
+    #ifdef EHOSTUNREACH
+        case EHOSTUNREACH: return DROPUS_NO_HOST;
+    #endif
+    #ifdef EALREADY
+        case EALREADY: return DROPUS_IN_PROGRESS;
+    #endif
+    #ifdef EINPROGRESS
+        case EINPROGRESS: return DROPUS_IN_PROGRESS;
+    #endif
+    #ifdef ESTALE
+        case ESTALE: return DROPUS_INVALID_FILE;
+    #endif
+    #ifdef EUCLEAN
+        case EUCLEAN: return DROPUS_ERROR;
+    #endif
+    #ifdef ENOTNAM
+        case ENOTNAM: return DROPUS_ERROR;
+    #endif
+    #ifdef ENAVAIL
+        case ENAVAIL: return DROPUS_ERROR;
+    #endif
+    #ifdef EISNAM
+        case EISNAM: return DROPUS_ERROR;
+    #endif
+    #ifdef EREMOTEIO
+        case EREMOTEIO: return DROPUS_IO_ERROR;
+    #endif
+    #ifdef EDQUOT
+        case EDQUOT: return DROPUS_NO_SPACE;
+    #endif
+    #ifdef ENOMEDIUM
+        case ENOMEDIUM: return DROPUS_DOES_NOT_EXIST;
+    #endif
+    #ifdef EMEDIUMTYPE
+        case EMEDIUMTYPE: return DROPUS_ERROR;
+    #endif
+    #ifdef ECANCELED
+        case ECANCELED: return DROPUS_CANCELLED;
+    #endif
+    #ifdef ENOKEY
+        case ENOKEY: return DROPUS_ERROR;
+    #endif
+    #ifdef EKEYEXPIRED
+        case EKEYEXPIRED: return DROPUS_ERROR;
+    #endif
+    #ifdef EKEYREVOKED
+        case EKEYREVOKED: return DROPUS_ERROR;
+    #endif
+    #ifdef EKEYREJECTED
+        case EKEYREJECTED: return DROPUS_ERROR;
+    #endif
+    #ifdef EOWNERDEAD
+        case EOWNERDEAD: return DROPUS_ERROR;
+    #endif
+    #ifdef ENOTRECOVERABLE
+        case ENOTRECOVERABLE: return DROPUS_ERROR;
+    #endif
+    #ifdef ERFKILL
+        case ERFKILL: return DROPUS_ERROR;
+    #endif
+    #ifdef EHWPOISON
+        case EHWPOISON: return DROPUS_ERROR;
+    #endif
+        default: return DROPUS_ERROR;
+    }
+}
+
+static dropus_result dropus_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
+{
+#if _MSC_VER && _MSC_VER >= 1400
+    errno_t err;
+#endif
+
+    if (ppFile != NULL) {
+        *ppFile = NULL;  /* Safety. */
+    }
+
+    if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
+        return DROPUS_INVALID_ARGS;
+    }
+
+#if _MSC_VER && _MSC_VER >= 1400
+    err = fopen_s(ppFile, pFilePath, pOpenMode);
+    if (err != 0) {
+        return dropus_result_from_errno(err);
     }
 #else
-    pFile = fopen(filename, mode);
-    if (pFile == NULL) {
-        return NULL;
+#if defined(_WIN32) || defined(__APPLE__)
+    *ppFile = fopen(pFilePath, pOpenMode);
+#else
+    #if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64 && defined(_LARGEFILE64_SOURCE)
+        *ppFile = fopen64(pFilePath, pOpenMode);
+    #else
+        *ppFile = fopen(pFilePath, pOpenMode);
+    #endif
+#endif
+    if (*ppFile == NULL) {
+        dropus_result result = dropus_result_from_errno(errno);
+        if (result == DROPUS_SUCCESS) {
+            result = DROPUS_ERROR;   /* Just a safety check to make sure we never ever return success when pFile == NULL. */
+        }
+
+        return result;
     }
 #endif
 
-    return pFile;
+    return DROPUS_SUCCESS;
+}
+
+/*
+_wfopen() isn't always available in all compilation environments.
+
+    * Windows only.
+    * MSVC seems to support it universally as far back as VC6 from what I can tell (haven't checked further back).
+    * MinGW-64 (both 32- and 64-bit) seems to support it.
+    * MinGW wraps it in !defined(__STRICT_ANSI__).
+
+This can be reviewed as compatibility issues arise. The preference is to use _wfopen_s() and _wfopen() as opposed to the wcsrtombs()
+fallback, so if you notice your compiler not detecting this properly I'm happy to look at adding support.
+*/
+#if defined(_WIN32)
+    #if defined(_MSC_VER) || defined(__MINGW64__) || !defined(__STRICT_ANSI__)
+        #define DROPUS_HAS_WFOPEN
+    #endif
+#endif
+
+static dropus_result dropus_wfopen(FILE** ppFile, const wchar_t* pFilePath, const wchar_t* pOpenMode, const dropus_allocation_callbacks* pAllocationCallbacks)
+{
+    if (ppFile != NULL) {
+        *ppFile = NULL;  /* Safety. */
+    }
+
+    if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
+        return DROPUS_INVALID_ARGS;
+    }
+
+#if defined(DROPUS_HAS_WFOPEN)
+    {
+        /* Use _wfopen() on Windows. */
+    #if defined(_MSC_VER) && _MSC_VER >= 1400
+        errno_t err = _wfopen_s(ppFile, pFilePath, pOpenMode);
+        if (err != 0) {
+            return dropus_result_from_errno(err);
+        }
+    #else
+        *ppFile = _wfopen(pFilePath, pOpenMode);
+        if (*ppFile == NULL) {
+            return dropus_result_from_errno(errno);
+        }
+    #endif
+        (void)pAllocationCallbacks;
+    }
+#else
+    /*
+    Use fopen() on anything other than Windows. Requires a conversion. This is annoying because fopen() is locale specific. The only real way I can
+    think of to do this is with wcsrtombs(). Note that wcstombs() is apparently not thread-safe because it uses a static global mbstate_t object for
+    maintaining state. I've checked this with -std=c89 and it works, but if somebody get's a compiler error I'll look into improving compatibility.
+    */
+    {
+        mbstate_t mbs;
+        size_t lenMB;
+        const wchar_t* pFilePathTemp = pFilePath;
+        char* pFilePathMB = NULL;
+        char pOpenModeMB[32] = {0};
+
+        /* Get the length first. */
+        DROPUS_ZERO_OBJECT(&mbs);
+        lenMB = wcsrtombs(NULL, &pFilePathTemp, 0, &mbs);
+        if (lenMB == (size_t)-1) {
+            return dropus_result_from_errno(errno);
+        }
+
+        pFilePathMB = (char*)dropus__malloc_from_callbacks(lenMB + 1, pAllocationCallbacks);
+        if (pFilePathMB == NULL) {
+            return DROPUS_OUT_OF_MEMORY;
+        }
+
+        pFilePathTemp = pFilePath;
+        DROPUS_ZERO_OBJECT(&mbs);
+        wcsrtombs(pFilePathMB, &pFilePathTemp, lenMB + 1, &mbs);
+
+        /* The open mode should always consist of ASCII characters so we should be able to do a trivial conversion. */
+        {
+            size_t i = 0;
+            for (;;) {
+                if (pOpenMode[i] == 0) {
+                    pOpenModeMB[i] = '\0';
+                    break;
+                }
+
+                pOpenModeMB[i] = (char)pOpenMode[i];
+                i += 1;
+            }
+        }
+
+        *ppFile = fopen(pFilePathMB, pOpenModeMB);
+
+        dropus__free_from_callbacks(pFilePathMB, pAllocationCallbacks);
+    }
+
+    if (*ppFile == NULL) {
+        return DROPUS_ERROR;
+    }
+#endif
+
+    return DROPUS_SUCCESS;
 }
 
 
@@ -1560,9 +2089,40 @@ DROPUS_API dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath, 
         return DROPUS_INVALID_ARGS;
     }
 
-    pFile = dropus_fopen(pFilePath, "rb");
-    if (pFile == NULL) {
-        return DROPUS_ERROR;
+    result = dropus_fopen(&pFile, pFilePath, "rb");
+    if (result != DROPUS_SUCCESS) {
+        return result;
+    }
+
+    pOpus->pFile = (void*)pFile;
+
+    result = dropus_init_internal(pOpus, dropus_on_read_stdio, dropus_on_seek_stdio, NULL, pAllocationCallbacks);
+    if (result != DROPUS_SUCCESS) {
+        fclose(pFile);
+        return result;
+    }
+    
+    return DROPUS_SUCCESS;
+}
+
+DROPUS_API dropus_result dropus_init_file_w(dropus* pOpus, const wchar_t* pFilePath, const dropus_allocation_callbacks* pAllocationCallbacks)
+{
+    dropus_result result;
+    FILE* pFile;
+
+    if (pOpus == NULL) {
+        return DROPUS_INVALID_ARGS;
+    }
+
+    DROPUS_ZERO_OBJECT(pOpus);
+
+    if (pFilePath == NULL || pFilePath[0] == '\0') {
+        return DROPUS_INVALID_ARGS;
+    }
+
+    result = dropus_wfopen(&pFile, pFilePath, L"rb", pAllocationCallbacks);
+    if (result != DROPUS_SUCCESS) {
+        return result;
     }
 
     pOpus->pFile = (void*)pFile;

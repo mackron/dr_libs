@@ -287,3 +287,5 @@ Test Vector Encapsulation Format
   miniaudio recently which was a ~40K line library at the time, and it was nightmare to update!
 - There will be a requirement to allocate memory for high level APIs. Support for allocation macros and allocation
   callbacks need to be added now so we can avoid breaking APIs later.
+- There have been requests in the past to support loading files from a wchar_t encoded path. Adding support by pulling
+  in custom fopen() and wfopen() implementations from dr_flac.
