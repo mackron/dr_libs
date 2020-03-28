@@ -229,32 +229,46 @@ QUICK NOTES
 #ifndef dr_flac_h
 #define dr_flac_h
 
-#include <stddef.h>
-
-#if defined(_MSC_VER) && _MSC_VER < 1600
-typedef   signed char    drflac_int8;
-typedef unsigned char    drflac_uint8;
-typedef   signed short   drflac_int16;
-typedef unsigned short   drflac_uint16;
-typedef   signed int     drflac_int32;
-typedef unsigned int     drflac_uint32;
-typedef   signed __int64 drflac_int64;
-typedef unsigned __int64 drflac_uint64;
-#else
-#include <stdint.h>
-typedef int8_t           drflac_int8;
-typedef uint8_t          drflac_uint8;
-typedef int16_t          drflac_int16;
-typedef uint16_t         drflac_uint16;
-typedef int32_t          drflac_int32;
-typedef uint32_t         drflac_uint32;
-typedef int64_t          drflac_int64;
-typedef uint64_t         drflac_uint64;
+#ifdef __cplusplus
+extern "C" {
 #endif
-typedef drflac_uint8     drflac_bool8;
-typedef drflac_uint32    drflac_bool32;
-#define DRFLAC_TRUE      1
-#define DRFLAC_FALSE     0
+
+#include <stddef.h> /* For size_t. */
+
+/* Sized types. Prefer built-in types. Fall back to stdint. */
+#ifdef _MSC_VER
+    #if defined(__clang__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wlanguage-extension-token"
+        #pragma GCC diagnostic ignored "-Wlong-long"        
+        #pragma GCC diagnostic ignored "-Wc++11-long-long"
+    #endif
+    typedef   signed __int8  drflac_int8;
+    typedef unsigned __int8  drflac_uint8;
+    typedef   signed __int16 drflac_int16;
+    typedef unsigned __int16 drflac_uint16;
+    typedef   signed __int32 drflac_int32;
+    typedef unsigned __int32 drflac_uint32;
+    typedef   signed __int64 drflac_int64;
+    typedef unsigned __int64 drflac_uint64;
+    #if defined(__clang__)
+        #pragma GCC diagnostic pop
+    #endif
+#else
+    #include <stdint.h>
+    typedef int8_t           drflac_int8;
+    typedef uint8_t          drflac_uint8;
+    typedef int16_t          drflac_int16;
+    typedef uint16_t         drflac_uint16;
+    typedef int32_t          drflac_int32;
+    typedef uint32_t         drflac_uint32;
+    typedef int64_t          drflac_int64;
+    typedef uint64_t         drflac_uint64;
+#endif
+typedef drflac_uint8         drflac_bool8;
+typedef drflac_uint32        drflac_bool32;
+#define DRFLAC_TRUE          1
+#define DRFLAC_FALSE         0
 
 #if defined(_MSC_VER) && _MSC_VER >= 1700   /* Visual Studio 2012 */
     #define DRFLAC_DEPRECATED       __declspec(deprecated)
@@ -277,10 +291,6 @@ returns after about 4KB, but you can fiddle with this to suit your own needs. Mu
 */
 #ifndef DR_FLAC_BUFFER_SIZE
 #define DR_FLAC_BUFFER_SIZE   4096
-#endif
-
-#ifdef __cplusplus
-extern "C" {
 #endif
 
 /* Check if we can enable 64-bit optimizations. */
@@ -814,7 +824,7 @@ drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameInde
 /*
 Opens a FLAC decoder from the file at the given path.
 
-filename             [in]           The path of the file to open, either absolute or relative to the current directory.
+pFileName            [in]           The path of the file to open, either absolute or relative to the current directory.
 pAllocationCallbacks [in, optional] A pointer to application defined callbacks for managing memory allocations.
 
 Returns a pointer to an object representing the decoder.
@@ -827,14 +837,16 @@ same time.
 
 See also: drflac_open(), drflac_open_file_with_metadata(), drflac_close()
 */
-drflac* drflac_open_file(const char* filename, const drflac_allocation_callbacks* pAllocationCallbacks);
+drflac* drflac_open_file(const char* pFileName, const drflac_allocation_callbacks* pAllocationCallbacks);
+drflac* drflac_open_file_w(const wchar_t* pFileName, const drflac_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Opens a FLAC decoder from the file at the given path and notifies the caller of the metadata chunks (album art, etc.)
 
 Look at the documentation for drflac_open_with_metadata() for more information on how metadata is handled.
 */
-drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
+drflac* drflac_open_file_with_metadata(const char* pFileName, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
+drflac* drflac_open_file_with_metadata_w(const wchar_t* pFileName, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
@@ -1240,11 +1252,61 @@ static DRFLAC_INLINE drflac_bool32 drflac_has_sse41()
 #define DRFLAC_MAX_SIMD_VECTOR_SIZE                     64  /* 64 for AVX-512 in the future. */
 
 typedef drflac_int32 drflac_result;
-#define DRFLAC_SUCCESS                                  0
-#define DRFLAC_ERROR                                    -1  /* A generic error. */
+#define DRFLAC_SUCCESS                                   0
+#define DRFLAC_ERROR                                    -1   /* A generic error. */
 #define DRFLAC_INVALID_ARGS                             -2
-#define DRFLAC_END_OF_STREAM                            -128
-#define DRFLAC_CRC_MISMATCH                             -129
+#define DRFLAC_INVALID_OPERATION                        -3
+#define DRFLAC_OUT_OF_MEMORY                            -4
+#define DRFLAC_OUT_OF_RANGE                             -5
+#define DRFLAC_ACCESS_DENIED                            -6
+#define DRFLAC_DOES_NOT_EXIST                           -7
+#define DRFLAC_ALREADY_EXISTS                           -8
+#define DRFLAC_TOO_MANY_OPEN_FILES                      -9
+#define DRFLAC_INVALID_FILE                             -10
+#define DRFLAC_TOO_BIG                                  -11
+#define DRFLAC_PATH_TOO_LONG                            -12
+#define DRFLAC_NAME_TOO_LONG                            -13
+#define DRFLAC_NOT_DIRECTORY                            -14
+#define DRFLAC_IS_DIRECTORY                             -15
+#define DRFLAC_DIRECTORY_NOT_EMPTY                      -16
+#define DRFLAC_END_OF_FILE                              -17
+#define DRFLAC_NO_SPACE                                 -18
+#define DRFLAC_BUSY                                     -19
+#define DRFLAC_IO_ERROR                                 -20
+#define DRFLAC_INTERRUPT                                -21
+#define DRFLAC_UNAVAILABLE                              -22
+#define DRFLAC_ALREADY_IN_USE                           -23
+#define DRFLAC_BAD_ADDRESS                              -24
+#define DRFLAC_BAD_SEEK                                 -25
+#define DRFLAC_BAD_PIPE                                 -26
+#define DRFLAC_DEADLOCK                                 -27
+#define DRFLAC_TOO_MANY_LINKS                           -28
+#define DRFLAC_NOT_IMPLEMENTED                          -29
+#define DRFLAC_NO_MESSAGE                               -30
+#define DRFLAC_BAD_MESSAGE                              -31
+#define DRFLAC_NO_DATA_AVAILABLE                        -32
+#define DRFLAC_INVALID_DATA                             -33
+#define DRFLAC_TIMEOUT                                  -34
+#define DRFLAC_NO_NETWORK                               -35
+#define DRFLAC_NOT_UNIQUE                               -36
+#define DRFLAC_NOT_SOCKET                               -37
+#define DRFLAC_NO_ADDRESS                               -38
+#define DRFLAC_BAD_PROTOCOL                             -39
+#define DRFLAC_PROTOCOL_UNAVAILABLE                     -40
+#define DRFLAC_PROTOCOL_NOT_SUPPORTED                   -41
+#define DRFLAC_PROTOCOL_FAMILY_NOT_SUPPORTED            -42
+#define DRFLAC_ADDRESS_FAMILY_NOT_SUPPORTED             -43
+#define DRFLAC_SOCKET_NOT_SUPPORTED                     -44
+#define DRFLAC_CONNECTION_RESET                         -45
+#define DRFLAC_ALREADY_CONNECTED                        -46
+#define DRFLAC_NOT_CONNECTED                            -47
+#define DRFLAC_CONNECTION_REFUSED                       -48
+#define DRFLAC_NO_HOST                                  -49
+#define DRFLAC_IN_PROGRESS                              -50
+#define DRFLAC_CANCELLED                                -51
+#define DRFLAC_MEMORY_ALREADY_MAPPED                    -52
+#define DRFLAC_AT_END                                   -53
+#define DRFLAC_CRC_MISMATCH                             -128
 
 #define DRFLAC_SUBFRAME_CONSTANT                        0
 #define DRFLAC_SUBFRAME_VERBATIM                        1
@@ -2436,7 +2498,7 @@ static drflac_result drflac__read_utf8_coded_number(drflac_bs* bs, drflac_uint64
 
     if (!drflac__read_uint8(bs, 8, utf8)) {
         *pNumberOut = 0;
-        return DRFLAC_END_OF_STREAM;
+        return DRFLAC_AT_END;
     }
     crc = drflac_crc8(crc, utf8[0], 8);
 
@@ -2471,7 +2533,7 @@ static drflac_result drflac__read_utf8_coded_number(drflac_bs* bs, drflac_uint64
     for (i = 1; i < byteCount; ++i) {
         if (!drflac__read_uint8(bs, 8, utf8 + i)) {
             *pNumberOut = 0;
-            return DRFLAC_END_OF_STREAM;
+            return DRFLAC_AT_END;
         }
         crc = drflac_crc8(crc, utf8[i], 8);
 
@@ -4658,7 +4720,7 @@ static drflac_bool32 drflac__read_next_flac_frame_header(drflac_bs* bs, drflac_u
             drflac_uint64 pcmFrameNumber;
             drflac_result result = drflac__read_utf8_coded_number(bs, &pcmFrameNumber, &crc8);
             if (result != DRFLAC_SUCCESS) {
-                if (result == DRFLAC_END_OF_STREAM) {
+                if (result == DRFLAC_AT_END) {
                     return DRFLAC_FALSE;
                 } else {
                     continue;
@@ -4670,7 +4732,7 @@ static drflac_bool32 drflac__read_next_flac_frame_header(drflac_bs* bs, drflac_u
             drflac_uint64 flacFrameNumber = 0;
             drflac_result result = drflac__read_utf8_coded_number(bs, &flacFrameNumber, &crc8);
             if (result != DRFLAC_SUCCESS) {
-                if (result == DRFLAC_END_OF_STREAM) {
+                if (result == DRFLAC_AT_END) {
                     return DRFLAC_FALSE;
                 } else {
                     continue;
@@ -4992,7 +5054,7 @@ static drflac_result drflac__decode_flac_frame(drflac* pFlac)
     if (paddingSizeInBits > 0) {
         drflac_uint8 padding = 0;
         if (!drflac__read_uint8(&pFlac->bs, paddingSizeInBits, &padding)) {
-            return DRFLAC_END_OF_STREAM;
+            return DRFLAC_AT_END;
         }
     }
 
@@ -5000,7 +5062,7 @@ static drflac_result drflac__decode_flac_frame(drflac* pFlac)
     actualCRC16 = drflac__flush_crc16(&pFlac->bs);
 #endif
     if (!drflac__read_uint16(&pFlac->bs, 16, &desiredCRC16)) {
-        return DRFLAC_END_OF_STREAM;
+        return DRFLAC_AT_END;
     }
 
 #ifndef DR_FLAC_NO_CRC
@@ -5040,7 +5102,7 @@ static drflac_result drflac__seek_flac_frame(drflac* pFlac)
     actualCRC16 = drflac__flush_crc16(&pFlac->bs);
 #endif
     if (!drflac__read_uint16(&pFlac->bs, 16, &desiredCRC16)) {
-        return DRFLAC_END_OF_STREAM;
+        return DRFLAC_AT_END;
     }
 
 #ifndef DR_FLAC_NO_CRC
@@ -6387,7 +6449,7 @@ drflac_result drflac_ogg__read_page_header_after_capture_pattern(drflac_read_pro
     DRFLAC_ASSERT(*pCRC32 == DRFLAC_OGG_CAPTURE_PATTERN_CRC32);
 
     if (onRead(pUserData, data, 23) != 23) {
-        return DRFLAC_END_OF_STREAM;
+        return DRFLAC_AT_END;
     }
     *pBytesRead += 23;
 
@@ -6421,7 +6483,7 @@ drflac_result drflac_ogg__read_page_header_after_capture_pattern(drflac_read_pro
 
 
     if (onRead(pUserData, pHeader->segmentTable, pHeader->segmentCount) != pHeader->segmentCount) {
-        return DRFLAC_END_OF_STREAM;
+        return DRFLAC_AT_END;
     }
     *pBytesRead += pHeader->segmentCount;
 
@@ -6439,7 +6501,7 @@ drflac_result drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserD
     *pBytesRead = 0;
 
     if (onRead(pUserData, id, 4) != 4) {
-        return DRFLAC_END_OF_STREAM;
+        return DRFLAC_AT_END;
     }
     *pBytesRead += 4;
 
@@ -6466,7 +6528,7 @@ drflac_result drflac_ogg__read_page_header(drflac_read_proc onRead, void* pUserD
             id[1] = id[2];
             id[2] = id[3];
             if (onRead(pUserData, &id[3], 1) != 1) {
-                return DRFLAC_END_OF_STREAM;
+                return DRFLAC_AT_END;
             }
             *pBytesRead += 1;
         }
@@ -7402,6 +7464,551 @@ drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_p
 #ifndef DR_FLAC_NO_STDIO
 #include <stdio.h>
 
+/* drflac_result_from_errno() is only used for fopen() and wfopen() so putting it inside DR_WAV_NO_STDIO for now. If something else needs this later we can move it out. */
+#include <errno.h>
+static drflac_result drflac_result_from_errno(int e)
+{
+    switch (e)
+    {
+        case 0: return DRFLAC_SUCCESS;
+    #ifdef EPERM
+        case EPERM: return DRFLAC_INVALID_OPERATION;
+    #endif
+    #ifdef ENOENT
+        case ENOENT: return DRFLAC_DOES_NOT_EXIST;
+    #endif
+    #ifdef ESRCH
+        case ESRCH: return DRFLAC_DOES_NOT_EXIST;
+    #endif
+    #ifdef EINTR
+        case EINTR: return DRFLAC_INTERRUPT;
+    #endif
+    #ifdef EIO
+        case EIO: return DRFLAC_IO_ERROR;
+    #endif
+    #ifdef ENXIO
+        case ENXIO: return DRFLAC_DOES_NOT_EXIST;
+    #endif
+    #ifdef E2BIG
+        case E2BIG: return DRFLAC_INVALID_ARGS;
+    #endif
+    #ifdef ENOEXEC
+        case ENOEXEC: return DRFLAC_INVALID_FILE;
+    #endif
+    #ifdef EBADF
+        case EBADF: return DRFLAC_INVALID_FILE;
+    #endif
+    #ifdef ECHILD
+        case ECHILD: return DRFLAC_ERROR;
+    #endif
+    #ifdef EAGAIN
+        case EAGAIN: return DRFLAC_UNAVAILABLE;
+    #endif
+    #ifdef ENOMEM
+        case ENOMEM: return DRFLAC_OUT_OF_MEMORY;
+    #endif
+    #ifdef EACCES
+        case EACCES: return DRFLAC_ACCESS_DENIED;
+    #endif
+    #ifdef EFAULT
+        case EFAULT: return DRFLAC_BAD_ADDRESS;
+    #endif
+    #ifdef ENOTBLK
+        case ENOTBLK: return DRFLAC_ERROR;
+    #endif
+    #ifdef EBUSY
+        case EBUSY: return DRFLAC_BUSY;
+    #endif
+    #ifdef EEXIST
+        case EEXIST: return DRFLAC_ALREADY_EXISTS;
+    #endif
+    #ifdef EXDEV
+        case EXDEV: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENODEV
+        case ENODEV: return DRFLAC_DOES_NOT_EXIST;
+    #endif
+    #ifdef ENOTDIR
+        case ENOTDIR: return DRFLAC_NOT_DIRECTORY;
+    #endif
+    #ifdef EISDIR
+        case EISDIR: return DRFLAC_IS_DIRECTORY;
+    #endif
+    #ifdef EINVAL
+        case EINVAL: return DRFLAC_INVALID_ARGS;
+    #endif
+    #ifdef ENFILE
+        case ENFILE: return DRFLAC_TOO_MANY_OPEN_FILES;
+    #endif
+    #ifdef EMFILE
+        case EMFILE: return DRFLAC_TOO_MANY_OPEN_FILES;
+    #endif
+    #ifdef ENOTTY
+        case ENOTTY: return DRFLAC_INVALID_OPERATION;
+    #endif
+    #ifdef ETXTBSY
+        case ETXTBSY: return DRFLAC_BUSY;
+    #endif
+    #ifdef EFBIG
+        case EFBIG: return DRFLAC_TOO_BIG;
+    #endif
+    #ifdef ENOSPC
+        case ENOSPC: return DRFLAC_NO_SPACE;
+    #endif
+    #ifdef ESPIPE
+        case ESPIPE: return DRFLAC_BAD_SEEK;
+    #endif
+    #ifdef EROFS
+        case EROFS: return DRFLAC_ACCESS_DENIED;
+    #endif
+    #ifdef EMLINK
+        case EMLINK: return DRFLAC_TOO_MANY_LINKS;
+    #endif
+    #ifdef EPIPE
+        case EPIPE: return DRFLAC_BAD_PIPE;
+    #endif
+    #ifdef EDOM
+        case EDOM: return DRFLAC_OUT_OF_RANGE;
+    #endif
+    #ifdef ERANGE
+        case ERANGE: return DRFLAC_OUT_OF_RANGE;
+    #endif
+    #ifdef EDEADLK
+        case EDEADLK: return DRFLAC_DEADLOCK;
+    #endif
+    #ifdef ENAMETOOLONG
+        case ENAMETOOLONG: return DRFLAC_PATH_TOO_LONG;
+    #endif
+    #ifdef ENOLCK
+        case ENOLCK: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENOSYS
+        case ENOSYS: return DRFLAC_NOT_IMPLEMENTED;
+    #endif
+    #ifdef ENOTEMPTY
+        case ENOTEMPTY: return DRFLAC_DIRECTORY_NOT_EMPTY;
+    #endif
+    #ifdef ELOOP
+        case ELOOP: return DRFLAC_TOO_MANY_LINKS;
+    #endif
+    #ifdef ENOMSG
+        case ENOMSG: return DRFLAC_NO_MESSAGE;
+    #endif
+    #ifdef EIDRM
+        case EIDRM: return DRFLAC_ERROR;
+    #endif
+    #ifdef ECHRNG
+        case ECHRNG: return DRFLAC_ERROR;
+    #endif
+    #ifdef EL2NSYNC
+        case EL2NSYNC: return DRFLAC_ERROR;
+    #endif
+    #ifdef EL3HLT
+        case EL3HLT: return DRFLAC_ERROR;
+    #endif
+    #ifdef EL3RST
+        case EL3RST: return DRFLAC_ERROR;
+    #endif
+    #ifdef ELNRNG
+        case ELNRNG: return DRFLAC_OUT_OF_RANGE;
+    #endif
+    #ifdef EUNATCH
+        case EUNATCH: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENOCSI
+        case ENOCSI: return DRFLAC_ERROR;
+    #endif
+    #ifdef EL2HLT
+        case EL2HLT: return DRFLAC_ERROR;
+    #endif
+    #ifdef EBADE
+        case EBADE: return DRFLAC_ERROR;
+    #endif
+    #ifdef EBADR
+        case EBADR: return DRFLAC_ERROR;
+    #endif
+    #ifdef EXFULL
+        case EXFULL: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENOANO
+        case ENOANO: return DRFLAC_ERROR;
+    #endif
+    #ifdef EBADRQC
+        case EBADRQC: return DRFLAC_ERROR;
+    #endif
+    #ifdef EBADSLT
+        case EBADSLT: return DRFLAC_ERROR;
+    #endif
+    #ifdef EBFONT
+        case EBFONT: return DRFLAC_INVALID_FILE;
+    #endif
+    #ifdef ENOSTR
+        case ENOSTR: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENODATA
+        case ENODATA: return DRFLAC_NO_DATA_AVAILABLE;
+    #endif
+    #ifdef ETIME
+        case ETIME: return DRFLAC_TIMEOUT;
+    #endif
+    #ifdef ENOSR
+        case ENOSR: return DRFLAC_NO_DATA_AVAILABLE;
+    #endif
+    #ifdef ENONET
+        case ENONET: return DRFLAC_NO_NETWORK;
+    #endif
+    #ifdef ENOPKG
+        case ENOPKG: return DRFLAC_ERROR;
+    #endif
+    #ifdef EREMOTE
+        case EREMOTE: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENOLINK
+        case ENOLINK: return DRFLAC_ERROR;
+    #endif
+    #ifdef EADV
+        case EADV: return DRFLAC_ERROR;
+    #endif
+    #ifdef ESRMNT
+        case ESRMNT: return DRFLAC_ERROR;
+    #endif
+    #ifdef ECOMM
+        case ECOMM: return DRFLAC_ERROR;
+    #endif
+    #ifdef EPROTO
+        case EPROTO: return DRFLAC_ERROR;
+    #endif
+    #ifdef EMULTIHOP
+        case EMULTIHOP: return DRFLAC_ERROR;
+    #endif
+    #ifdef EDOTDOT
+        case EDOTDOT: return DRFLAC_ERROR;
+    #endif
+    #ifdef EBADMSG
+        case EBADMSG: return DRFLAC_BAD_MESSAGE;
+    #endif
+    #ifdef EOVERFLOW
+        case EOVERFLOW: return DRFLAC_TOO_BIG;
+    #endif
+    #ifdef ENOTUNIQ
+        case ENOTUNIQ: return DRFLAC_NOT_UNIQUE;
+    #endif
+    #ifdef EBADFD
+        case EBADFD: return DRFLAC_ERROR;
+    #endif
+    #ifdef EREMCHG
+        case EREMCHG: return DRFLAC_ERROR;
+    #endif
+    #ifdef ELIBACC
+        case ELIBACC: return DRFLAC_ACCESS_DENIED;
+    #endif
+    #ifdef ELIBBAD
+        case ELIBBAD: return DRFLAC_INVALID_FILE;
+    #endif
+    #ifdef ELIBSCN
+        case ELIBSCN: return DRFLAC_INVALID_FILE;
+    #endif
+    #ifdef ELIBMAX
+        case ELIBMAX: return DRFLAC_ERROR;
+    #endif
+    #ifdef ELIBEXEC
+        case ELIBEXEC: return DRFLAC_ERROR;
+    #endif
+    #ifdef EILSEQ
+        case EILSEQ: return DRFLAC_INVALID_DATA;
+    #endif
+    #ifdef ERESTART
+        case ERESTART: return DRFLAC_ERROR;
+    #endif
+    #ifdef ESTRPIPE
+        case ESTRPIPE: return DRFLAC_ERROR;
+    #endif
+    #ifdef EUSERS
+        case EUSERS: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENOTSOCK
+        case ENOTSOCK: return DRFLAC_NOT_SOCKET;
+    #endif
+    #ifdef EDESTADDRREQ
+        case EDESTADDRREQ: return DRFLAC_NO_ADDRESS;
+    #endif
+    #ifdef EMSGSIZE
+        case EMSGSIZE: return DRFLAC_TOO_BIG;
+    #endif
+    #ifdef EPROTOTYPE
+        case EPROTOTYPE: return DRFLAC_BAD_PROTOCOL;
+    #endif
+    #ifdef ENOPROTOOPT
+        case ENOPROTOOPT: return DRFLAC_PROTOCOL_UNAVAILABLE;
+    #endif
+    #ifdef EPROTONOSUPPORT
+        case EPROTONOSUPPORT: return DRFLAC_PROTOCOL_NOT_SUPPORTED;
+    #endif
+    #ifdef ESOCKTNOSUPPORT
+        case ESOCKTNOSUPPORT: return DRFLAC_SOCKET_NOT_SUPPORTED;
+    #endif
+    #ifdef EOPNOTSUPP
+        case EOPNOTSUPP: return DRFLAC_INVALID_OPERATION;
+    #endif
+    #ifdef EPFNOSUPPORT
+        case EPFNOSUPPORT: return DRFLAC_PROTOCOL_FAMILY_NOT_SUPPORTED;
+    #endif
+    #ifdef EAFNOSUPPORT
+        case EAFNOSUPPORT: return DRFLAC_ADDRESS_FAMILY_NOT_SUPPORTED;
+    #endif
+    #ifdef EADDRINUSE
+        case EADDRINUSE: return DRFLAC_ALREADY_IN_USE;
+    #endif
+    #ifdef EADDRNOTAVAIL
+        case EADDRNOTAVAIL: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENETDOWN
+        case ENETDOWN: return DRFLAC_NO_NETWORK;
+    #endif
+    #ifdef ENETUNREACH
+        case ENETUNREACH: return DRFLAC_NO_NETWORK;
+    #endif
+    #ifdef ENETRESET
+        case ENETRESET: return DRFLAC_NO_NETWORK;
+    #endif
+    #ifdef ECONNABORTED
+        case ECONNABORTED: return DRFLAC_NO_NETWORK;
+    #endif
+    #ifdef ECONNRESET
+        case ECONNRESET: return DRFLAC_CONNECTION_RESET;
+    #endif
+    #ifdef ENOBUFS
+        case ENOBUFS: return DRFLAC_NO_SPACE;
+    #endif
+    #ifdef EISCONN
+        case EISCONN: return DRFLAC_ALREADY_CONNECTED;
+    #endif
+    #ifdef ENOTCONN
+        case ENOTCONN: return DRFLAC_NOT_CONNECTED;
+    #endif
+    #ifdef ESHUTDOWN
+        case ESHUTDOWN: return DRFLAC_ERROR;
+    #endif
+    #ifdef ETOOMANYREFS
+        case ETOOMANYREFS: return DRFLAC_ERROR;
+    #endif
+    #ifdef ETIMEDOUT
+        case ETIMEDOUT: return DRFLAC_TIMEOUT;
+    #endif
+    #ifdef ECONNREFUSED
+        case ECONNREFUSED: return DRFLAC_CONNECTION_REFUSED;
+    #endif
+    #ifdef EHOSTDOWN
+        case EHOSTDOWN: return DRFLAC_NO_HOST;
+    #endif
+    #ifdef EHOSTUNREACH
+        case EHOSTUNREACH: return DRFLAC_NO_HOST;
+    #endif
+    #ifdef EALREADY
+        case EALREADY: return DRFLAC_IN_PROGRESS;
+    #endif
+    #ifdef EINPROGRESS
+        case EINPROGRESS: return DRFLAC_IN_PROGRESS;
+    #endif
+    #ifdef ESTALE
+        case ESTALE: return DRFLAC_INVALID_FILE;
+    #endif
+    #ifdef EUCLEAN
+        case EUCLEAN: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENOTNAM
+        case ENOTNAM: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENAVAIL
+        case ENAVAIL: return DRFLAC_ERROR;
+    #endif
+    #ifdef EISNAM
+        case EISNAM: return DRFLAC_ERROR;
+    #endif
+    #ifdef EREMOTEIO
+        case EREMOTEIO: return DRFLAC_IO_ERROR;
+    #endif
+    #ifdef EDQUOT
+        case EDQUOT: return DRFLAC_NO_SPACE;
+    #endif
+    #ifdef ENOMEDIUM
+        case ENOMEDIUM: return DRFLAC_DOES_NOT_EXIST;
+    #endif
+    #ifdef EMEDIUMTYPE
+        case EMEDIUMTYPE: return DRFLAC_ERROR;
+    #endif
+    #ifdef ECANCELED
+        case ECANCELED: return DRFLAC_CANCELLED;
+    #endif
+    #ifdef ENOKEY
+        case ENOKEY: return DRFLAC_ERROR;
+    #endif
+    #ifdef EKEYEXPIRED
+        case EKEYEXPIRED: return DRFLAC_ERROR;
+    #endif
+    #ifdef EKEYREVOKED
+        case EKEYREVOKED: return DRFLAC_ERROR;
+    #endif
+    #ifdef EKEYREJECTED
+        case EKEYREJECTED: return DRFLAC_ERROR;
+    #endif
+    #ifdef EOWNERDEAD
+        case EOWNERDEAD: return DRFLAC_ERROR;
+    #endif
+    #ifdef ENOTRECOVERABLE
+        case ENOTRECOVERABLE: return DRFLAC_ERROR;
+    #endif
+    #ifdef ERFKILL
+        case ERFKILL: return DRFLAC_ERROR;
+    #endif
+    #ifdef EHWPOISON
+        case EHWPOISON: return DRFLAC_ERROR;
+    #endif
+        default: return DRFLAC_ERROR;
+    }
+}
+
+static drflac_result drflac_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
+{
+#if _MSC_VER && _MSC_VER >= 1400
+    errno_t err;
+#endif
+
+    if (ppFile != NULL) {
+        *ppFile = NULL;  /* Safety. */
+    }
+
+    if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
+        return DRFLAC_INVALID_ARGS;
+    }
+
+#if _MSC_VER && _MSC_VER >= 1400
+    err = fopen_s(ppFile, pFilePath, pOpenMode);
+    if (err != 0) {
+        return drflac_result_from_errno(err);
+    }
+#else
+#if defined(_WIN32) || defined(__APPLE__)
+    *ppFile = fopen(pFilePath, pOpenMode);
+#else
+    #if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64 && defined(_LARGEFILE64_SOURCE)
+        *ppFile = fopen64(pFilePath, pOpenMode);
+    #else
+        *ppFile = fopen(pFilePath, pOpenMode);
+    #endif
+#endif
+    if (*ppFile == NULL) {
+        drflac_result result = drflac_result_from_errno(errno);
+        if (result == DRFLAC_SUCCESS) {
+            result = DRFLAC_ERROR;   /* Just a safety check to make sure we never ever return success when pFile == NULL. */
+        }
+
+        return result;
+    }
+#endif
+
+    return DRFLAC_SUCCESS;
+}
+
+/*
+_wfopen() isn't always available in all compilation environments.
+
+    * Windows only.
+    * MSVC seems to support it universally as far back as VC6 from what I can tell (haven't checked further back).
+    * MinGW-64 (both 32- and 64-bit) seems to support it.
+    * MinGW wraps it in !defined(__STRICT_ANSI__).
+
+This can be reviewed as compatibility issues arise. The preference is to use _wfopen_s() and _wfopen() as opposed to the wcsrtombs()
+fallback, so if you notice your compiler not detecting this properly I'm happy to look at adding support.
+*/
+#if defined(_WIN32)
+    #if defined(_MSC_VER) || defined(__MINGW64__) || !defined(__STRICT_ANSI__)
+        #define DRFLAC_HAS_WFOPEN
+    #endif
+#endif
+
+static drflac_result drflac_wfopen(FILE** ppFile, const wchar_t* pFilePath, const wchar_t* pOpenMode, const drflac_allocation_callbacks* pAllocationCallbacks)
+{
+    if (ppFile != NULL) {
+        *ppFile = NULL;  /* Safety. */
+    }
+
+    if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
+        return DRFLAC_INVALID_ARGS;
+    }
+
+#if defined(DRFLAC_HAS_WFOPEN)
+    {
+        /* Use _wfopen() on Windows. */
+    #if defined(_MSC_VER) && _MSC_VER >= 1400
+        errno_t err = _wfopen_s(ppFile, pFilePath, pOpenMode);
+        if (err != 0) {
+            return drflac_result_from_errno(err);
+        }
+    #else
+        *ppFile = _wfopen(pFilePath, pOpenMode);
+        if (*ppFile == NULL) {
+            return drflac_result_from_errno(errno);
+        }
+    #endif
+        (void)pAllocationCallbacks;
+    }
+#else
+    /*
+    Use fopen() on anything other than Windows. Requires a conversion. This is annoying because fopen() is locale specific. The only real way I can
+    think of to do this is with wcsrtombs(). Note that wcstombs() is apparently not thread-safe because it uses a static global mbstate_t object for
+    maintaining state. I've checked this with -std=c89 and it works, but if somebody get's a compiler error I'll look into improving compatibility.
+    */
+    {
+        mbstate_t mbs;
+        size_t lenMB;
+        const wchar_t* pFilePathTemp = pFilePath;
+        char* pFilePathMB = NULL;
+        char pOpenModeMB[32] = {0};
+
+        /* Get the length first. */
+        DRFLAC_ZERO_OBJECT(&mbs);
+        lenMB = wcsrtombs(NULL, &pFilePathTemp, 0, &mbs);
+        if (lenMB == (size_t)-1) {
+            return drflac_result_from_errno(errno);
+        }
+
+        pFilePathMB = (char*)drflac__malloc_from_callbacks(lenMB + 1, pAllocationCallbacks);
+        if (pFilePathMB == NULL) {
+            return DRFLAC_OUT_OF_MEMORY;
+        }
+
+        pFilePathTemp = pFilePath;
+        DRFLAC_ZERO_OBJECT(&mbs);
+        wcsrtombs(pFilePathMB, &pFilePathTemp, lenMB + 1, &mbs);
+
+        /* The open mode should always consist of ASCII characters so we should be able to do a trivial conversion. */
+        {
+            size_t i = 0;
+            for (;;) {
+                if (pOpenMode[i] == 0) {
+                    pOpenModeMB[i] = '\0';
+                    break;
+                }
+
+                pOpenModeMB[i] = (char)pOpenMode[i];
+                i += 1;
+            }
+        }
+
+        *ppFile = fopen(pFilePathMB, pOpenModeMB);
+
+        drflac__free_from_callbacks(pFilePathMB, pAllocationCallbacks);
+    }
+
+    if (*ppFile == NULL) {
+        return DRFLAC_ERROR;
+    }
+#endif
+
+    return DRFLAC_SUCCESS;
+}
+
 static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
     return fread(bufferOut, 1, bytesToRead, (FILE*)pUserData);
@@ -7414,31 +8021,13 @@ static drflac_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_s
     return fseek((FILE*)pUserData, offset, (origin == drflac_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-static FILE* drflac__fopen(const char* filename)
-{
-    FILE* pFile;
-#if defined(_MSC_VER) && _MSC_VER >= 1400
-    if (fopen_s(&pFile, filename, "rb") != 0) {
-        return NULL;
-    }
-#else
-    pFile = fopen(filename, "rb");
-    if (pFile == NULL) {
-        return NULL;
-    }
-#endif
 
-    return pFile;
-}
-
-
-drflac* drflac_open_file(const char* filename, const drflac_allocation_callbacks* pAllocationCallbacks)
+drflac* drflac_open_file(const char* pFileName, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     drflac* pFlac;
     FILE* pFile;
 
-    pFile = drflac__fopen(filename);
-    if (pFile == NULL) {
+    if (drflac_fopen(&pFile, pFileName, "rb") != DRFLAC_SUCCESS) {
         return NULL;
     }
 
@@ -7451,13 +8040,48 @@ drflac* drflac_open_file(const char* filename, const drflac_allocation_callbacks
     return pFlac;
 }
 
-drflac* drflac_open_file_with_metadata(const char* filename, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
+drflac* drflac_open_file_w(const wchar_t* pFileName, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     drflac* pFlac;
     FILE* pFile;
 
-    pFile = drflac__fopen(filename);
-    if (pFile == NULL) {
+    if (drflac_wfopen(&pFile, pFileName, L"rb", pAllocationCallbacks) != DRFLAC_SUCCESS) {
+        return NULL;
+    }
+
+    pFlac = drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)pFile, pAllocationCallbacks);
+    if (pFlac == NULL) {
+        fclose(pFile);
+        return NULL;
+    }
+
+    return pFlac;
+}
+
+drflac* drflac_open_file_with_metadata(const char* pFileName, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
+{
+    drflac* pFlac;
+    FILE* pFile;
+
+    if (drflac_fopen(&pFile, pFileName, "rb") != DRFLAC_SUCCESS) {
+        return NULL;
+    }
+
+    pFlac = drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, drflac_container_unknown, (void*)pFile, pUserData, pAllocationCallbacks);
+    if (pFlac == NULL) {
+        fclose(pFile);
+        return pFlac;
+    }
+
+    return pFlac;
+}
+
+drflac* drflac_open_file_with_metadata_w(const wchar_t* pFileName, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
+{
+    drflac* pFlac;
+    FILE* pFile;
+
+    if (drflac_wfopen(&pFile, pFileName, L"rb", pAllocationCallbacks) != DRFLAC_SUCCESS) {
         return NULL;
     }
 
@@ -10741,6 +11365,9 @@ drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterator* pIter, 
 /*
 REVISION HISTORY
 ================
+v0.12.8 - TBD
+  - Add drflac_open_file_w() drflac_open_file_with_metadata_w().
+
 v0.12.7 - 2020-03-14
   - Fix compilation errors with VC6.
 
