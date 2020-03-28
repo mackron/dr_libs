@@ -856,7 +856,7 @@ static DROPUS_INLINE dropus_uint16 dropus_range_decoder_fs(dropus_range_decoder*
     /* Implements RFC 6716 - Section 4.1.2 (first step) */
 
     DROPUS_ASSERT(pRangeDecoder != NULL);
-    DROPUS_ASSERT(ft <= 65535); /* RFC 6716 - Section 4.1 */
+    /*DROPUS_ASSERT(ft <= 65535);*/ /* RFC 6716 - Section 4.1 */ /* Always true due to range limit of `ft`. */
 
     return (dropus_uint16)(ft - DROPUS_MIN((pRangeDecoder->val / (pRangeDecoder->rng/ft)) + 1, ft));
 }
@@ -896,10 +896,10 @@ static DROPUS_INLINE dropus_uint16 dropus_range_decoder_update(dropus_range_deco
 
     k = dropus_range_decoder_k(f, n, fs, &fl, &fh);
 
-    DROPUS_ASSERT(0  <= fl);    /* RFC 6716 - Section 4.1 */
-    DROPUS_ASSERT(fl <  fh);    /* RFC 6716 - Section 4.1 */
-    DROPUS_ASSERT(fh <= ft);    /* RFC 6716 - Section 4.1 */
-    DROPUS_ASSERT(ft <= 65535); /* RFC 6716 - Section 4.1 */
+    /*DROPUS_ASSERT(0  <= fl);*/    /* RFC 6716 - Section 4.1 */ /* Always true due to `fl` being unsigned. */
+    DROPUS_ASSERT(fl <  fh);        /* RFC 6716 - Section 4.1 */
+    DROPUS_ASSERT(fh <= ft);        /* RFC 6716 - Section 4.1 */
+    /*DROPUS_ASSERT(ft <= 65535);*/ /* RFC 6716 - Section 4.1 */ /* Always true due to range limit of `ft`. */
 
     /* val */
     pRangeDecoder->val = pRangeDecoder->val - (pRangeDecoder->rng/ft) * (ft - fh);
@@ -1163,7 +1163,7 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                 if (byte0 >= 1 && byte0 <= 251) {
                     frameSize0 = byte0;
                 }
-                if (byte0 >= 252 && byte0 <= 255) {
+                if (byte0 >= 252 /*&& byte0 <= 255*/) {
                     /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
                     if (dataSize < 3) {
                         return DROPUS_BAD_DATA;
@@ -1314,7 +1314,7 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                         if (byte0 >= 1 && byte0 <= 251) {
                             frameSizes[iFrame] = byte0;
                         }
-                        if (byte0 >= 252 && byte0 <= 255) {
+                        if (byte0 >= 252 /*&& byte0 <= 255*/) {
                             if (pRunningData8 >= ((const dropus_uint8*)pData) + dataSize) {
                                 return DROPUS_BAD_DATA; /* Ran out of data in the packet. Implicitly handles part of [R7]. */
                             }
