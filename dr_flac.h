@@ -1,8 +1,10 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.7 - 2020-03-14
+dr_flac - v0.12.8 - TBD
 
 David Reid - mackron@gmail.com
+
+GitHub: https://github.com/mackron/dr_libs
 */
 
 /*
