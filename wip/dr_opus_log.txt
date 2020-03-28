@@ -285,3 +285,5 @@ Test Vector Encapsulation Format
 - I've had people request the ability to customize whether or not public APIs are marked as static or extern in other
   libraries, so adding the DROPUS_API decoration. It's better to do this sooner than later, because this happened with
   miniaudio recently which was a ~40K line library at the time, and it was nightmare to update!
+- There will be a requirement to allocate memory for high level APIs. Support for allocation macros and allocation
+  callbacks need to be added now so we can avoid breaking APIs later.

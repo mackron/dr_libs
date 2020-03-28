@@ -234,7 +234,7 @@ Initializes a new low-level Opus stream object.
 DROPUS_API dropus_result dropus_stream_init(dropus_stream* pOpusStream);
 
 /*
-Decodes a packet from the given compressed data.
+Decodes a packet from raw compressed data.
 */
 DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize);
 
@@ -256,9 +256,18 @@ typedef dropus_bool32 (* dropus_seek_proc)(void* pUserData, int offset, dropus_s
 
 typedef struct
 {
+    void* pUserData;
+    void* (* onMalloc)(size_t sz, void* pUserData);
+    void* (* onRealloc)(void* p, size_t sz, void* pUserData);
+    void  (* onFree)(void* p, void* pUserData);
+} dropus_allocation_callbacks;
+
+typedef struct
+{
     dropus_read_proc onRead;
     dropus_seek_proc onSeek;
     void* pUserData;
+    dropus_allocation_callbacks allocationCallbacks;
     void* pFile;    /* Only used for decoders that were opened against a file. */
     struct
     {
@@ -271,7 +280,7 @@ typedef struct
 /*
 Initializes a pre-allocated decoder object from callbacks.
 */
-DROPUS_API dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData);
+DROPUS_API dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData, const dropus_allocation_callbacks* pAllocationCallbacks);
 
 #ifndef DR_OPUS_NO_STDIO
 /*
@@ -279,7 +288,7 @@ Initializes a pre-allocated decoder object from a file.
 
 This keeps hold of the file handle throughout the lifetime of the decoder and closes it in dropus_uninit().
 */
-DROPUS_API dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath);
+DROPUS_API dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath, const dropus_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
@@ -287,7 +296,7 @@ Initializes a pre-allocated decoder object from a block of memory.
 
 This does not make a copy of the memory.
 */
-DROPUS_API dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize);
+DROPUS_API dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize, const dropus_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Uninitializes an Opus decoder.
@@ -305,6 +314,74 @@ Utilities
 Retrieves a human readable description of the given result code.
 */
 DROPUS_API const char* dropus_result_description(dropus_result result);
+
+/*
+Allocates memory from callbacks.
+
+
+Parameters
+----------
+sz (in)
+    The size of the allocation in bytes.
+
+pAllocationCallbacks (in, optional)
+    A pointer to the `dropus_allocation_callbacks` object containing pointers to the allocation routines.
+
+
+Return Value
+------------
+A pointer to the allocated block of memory. NULL if an error occurs.
+
+
+Remarks
+-------
+`pAllocationCallbacks` can be NULL, in which case DROPUS_MALLOC() will be used. Otherwise, if `pAllocationCallbacks` is not null, either `onMalloc` or
+`onRealloc` must be set. If `onMalloc` is NULL, it will fall back to `onRealloc`. If both `onMalloc` and `onRealloc` are NULL, NULL will be returned.
+*/
+DROPUS_API void* dropus_malloc(size_t sz, const dropus_allocation_callbacks* pAllocationCallbacks);
+
+/*
+Reallocates memory from callbacks.
+
+
+Parameters
+----------
+p (in)
+    A pointer to the memory being reallocated.
+
+sz (in)
+    The size of the allocation in bytes.
+
+pAllocationCallbacks (in, optional)
+    A pointer to the `dropus_allocation_callbacks` object containing pointers to the allocation routines.
+
+
+Return Value
+------------
+A pointer to the allocated block of memory. NULL if an error occurs.
+
+
+Remarks
+-------
+`pAllocationCallbacks` can be NULL, in which case DROPUS_REALLOC() will be used. If `onRealloc` is NULL, this will fail and NULL will be returned.
+*/
+DROPUS_API void* dropus_realloc(void* p, size_t sz, const dropus_allocation_callbacks* pAllocationCallbacks);
+
+/*
+Frees memory allocated by `dropus_malloc()` or `dropus_realloc()`.
+
+
+Parameters
+----------
+p (in)
+    A pointer to the memory being freed.
+
+
+Remarks
+-------
+`pAllocationCallbacks` can be NULL in which case DROPUS_FREE() will be used. If `onFree is NULL, this will be a no-op.
+*/
+DROPUS_API void dropus_free(void* p, const dropus_allocation_callbacks* pAllocationCallbacks);
 
 
 #endif  /* dr_opus_h */
@@ -415,6 +492,15 @@ DROPUS_API const char* dropus_result_description(dropus_result result);
 #ifndef DROPUS_ASSERT
 #include <assert.h>
 #define DROPUS_ASSERT(expression)           assert(expression)
+#endif
+#ifndef DROPUS_MALLOC
+#define DROPUS_MALLOC(sz)                   malloc((sz))
+#endif
+#ifndef DROPUS_REALLOC
+#define DROPUS_REALLOC(p, sz)               realloc((p), (sz))
+#endif
+#ifndef DROPUS_FREE
+#define DROPUS_FREE(p)                      free((p))
 #endif
 #ifndef DROPUS_COPY_MEMORY
 #define DROPUS_COPY_MEMORY(dst, src, sz)    memcpy((dst), (src), (sz))
@@ -1303,7 +1389,102 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
 High-Level Opus Decoding API
 
 ************************************************************************************************************************************************************/
-static dropus_result dropus_init_internal(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData)
+static void* dropus__malloc_default(size_t sz, void* pUserData)
+{
+    (void)pUserData;
+    return DROPUS_MALLOC(sz);
+}
+
+static void* dropus__realloc_default(void* p, size_t sz, void* pUserData)
+{
+    (void)pUserData;
+    return DROPUS_REALLOC(p, sz);
+}
+
+static void dropus__free_default(void* p, void* pUserData)
+{
+    (void)pUserData;
+    DROPUS_FREE(p);
+}
+
+
+static void* dropus__malloc_from_callbacks(size_t sz, const dropus_allocation_callbacks* pAllocationCallbacks)
+{
+    if (pAllocationCallbacks == NULL) {
+        return NULL;
+    }
+
+    if (pAllocationCallbacks->onMalloc != NULL) {
+        return pAllocationCallbacks->onMalloc(sz, pAllocationCallbacks->pUserData);
+    }
+
+    /* Try using realloc(). */
+    if (pAllocationCallbacks->onRealloc != NULL) {
+        return pAllocationCallbacks->onRealloc(NULL, sz, pAllocationCallbacks->pUserData);
+    }
+
+    return NULL;
+}
+
+static void* dropus__realloc_from_callbacks(void* p, size_t szNew, size_t szOld, const dropus_allocation_callbacks* pAllocationCallbacks)
+{
+    if (pAllocationCallbacks == NULL) {
+        return NULL;
+    }
+
+    if (pAllocationCallbacks->onRealloc != NULL) {
+        return pAllocationCallbacks->onRealloc(p, szNew, pAllocationCallbacks->pUserData);
+    }
+
+    /* Try emulating realloc() in terms of malloc()/free(). */
+    if (pAllocationCallbacks->onMalloc != NULL && pAllocationCallbacks->onFree != NULL) {
+        void* p2;
+
+        p2 = pAllocationCallbacks->onMalloc(szNew, pAllocationCallbacks->pUserData);
+        if (p2 == NULL) {
+            return NULL;
+        }
+
+        if (p != NULL) {
+            DROPUS_COPY_MEMORY(p2, p, szOld);
+            pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
+        }
+
+        return p2;
+    }
+
+    return NULL;
+}
+
+static void dropus__free_from_callbacks(void* p, const dropus_allocation_callbacks* pAllocationCallbacks)
+{
+    if (p == NULL || pAllocationCallbacks == NULL) {
+        return;
+    }
+
+    if (pAllocationCallbacks->onFree != NULL) {
+        pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
+    }
+}
+
+
+static dropus_allocation_callbacks dropus__copy_allocation_callbacks_or_defaults(const dropus_allocation_callbacks* pAllocationCallbacks)
+{
+    if (pAllocationCallbacks != NULL) {
+        /* Copy. */
+        return *pAllocationCallbacks;
+    } else {
+        /* Defaults. */
+        dropus_allocation_callbacks allocationCallbacks;
+        allocationCallbacks.pUserData = NULL;
+        allocationCallbacks.onMalloc  = dropus__malloc_default;
+        allocationCallbacks.onRealloc = dropus__realloc_default;
+        allocationCallbacks.onFree    = dropus__free_default;
+        return allocationCallbacks;
+    }
+}
+
+static dropus_result dropus_init_internal(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData, const dropus_allocation_callbacks* pAllocationCallbacks)
 {
     DROPUS_ASSERT(pOpus != NULL);
     DROPUS_ASSERT(onRead != NULL);
@@ -1313,16 +1494,22 @@ static dropus_result dropus_init_internal(dropus* pOpus, dropus_read_proc onRead
         return DROPUS_INVALID_ARGS;
     }
 
-    pOpus->onRead = onRead;
-    pOpus->onSeek = onSeek;
-    pOpus->pUserData = pUserData;
+    pOpus->onRead              = onRead;
+    pOpus->onSeek              = onSeek;
+    pOpus->pUserData           = pUserData;
+    pOpus->allocationCallbacks = dropus__copy_allocation_callbacks_or_defaults(pAllocationCallbacks);
+
+    /* Basic validation for allocation callbacks. free() and at least one of malloc() or realloc() must be set. */
+    if (pOpus->allocationCallbacks.onFree == NULL || (pOpus->allocationCallbacks.onMalloc == NULL && pOpus->allocationCallbacks.onRealloc == NULL)) {
+        return DROPUS_INVALID_ARGS;
+    }
 
     /* TODO: Implement me. */
     
     return DROPUS_SUCCESS;
 }
 
-DROPUS_API dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData)
+DROPUS_API dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData, const dropus_allocation_callbacks* pAllocationCallbacks)
 {
     if (pOpus == NULL) {
         return DROPUS_INVALID_ARGS;
@@ -1330,7 +1517,7 @@ DROPUS_API dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dro
 
     DROPUS_ZERO_OBJECT(pOpus);
 
-    return dropus_init_internal(pOpus, onRead, onSeek, pUserData);
+    return dropus_init_internal(pOpus, onRead, onSeek, pUserData, pAllocationCallbacks);
 }
 
 #ifndef DR_OPUS_NO_STDIO
@@ -1362,7 +1549,7 @@ static dropus_bool32 dropus_on_seek_stdio(void* pUserData, int offset, dropus_se
     return fseek((FILE*)pUserData, offset, (origin == dropus_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-DROPUS_API dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath)
+DROPUS_API dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath, const dropus_allocation_callbacks* pAllocationCallbacks)
 {
     dropus_result result;
     FILE* pFile;
@@ -1384,7 +1571,7 @@ DROPUS_API dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath)
 
     pOpus->pFile = (void*)pFile;
 
-    result = dropus_init_internal(pOpus, dropus_on_read_stdio, dropus_on_seek_stdio, NULL);
+    result = dropus_init_internal(pOpus, dropus_on_read_stdio, dropus_on_seek_stdio, NULL, pAllocationCallbacks);
     if (result != DROPUS_SUCCESS) {
         fclose(pFile);
         return result;
@@ -1444,7 +1631,7 @@ static dropus_bool32 dropus_on_seek_memory(void* pUserData, int byteOffset, drop
     return DROPUS_TRUE;
 }
 
-DROPUS_API dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize)
+DROPUS_API dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize, const dropus_allocation_callbacks* pAllocationCallbacks)
 {
     if (pOpus == NULL) {
         return DROPUS_INVALID_ARGS;
@@ -1460,7 +1647,7 @@ DROPUS_API dropus_result dropus_init_memory(dropus* pOpus, const void* pData, si
     pOpus->memory.dataSize = dataSize;
     pOpus->memory.currentReadPos = 0;
 
-    return dropus_init_internal(pOpus, dropus_on_read_memory, dropus_on_seek_memory, NULL);
+    return dropus_init_internal(pOpus, dropus_on_read_memory, dropus_on_seek_memory, NULL, pAllocationCallbacks);
 }
 
 
@@ -1542,6 +1729,40 @@ DROPUS_API const char* dropus_result_description(dropus_result result)
     }
 }
 
+DROPUS_API void* dropus_malloc(size_t sz, const dropus_allocation_callbacks* pAllocationCallbacks)
+{
+    if (pAllocationCallbacks == NULL) {
+        return dropus__malloc_default(sz, NULL);
+    } else {
+        return dropus__malloc_from_callbacks(sz, pAllocationCallbacks);
+    }
+}
+
+DROPUS_API void* dropus_realloc(void* p, size_t sz, const dropus_allocation_callbacks* pAllocationCallbacks)
+{
+    if (pAllocationCallbacks == NULL) {
+        return dropus__realloc_default(p, sz, NULL);
+    } else {
+        /*
+        We need to do an explicit check for onRealloc because dropus__realloc_from_callbacks() will fall back to a malloc based emulation if onRealloc is missing
+        which we do not want to do dropus_realloc().
+        */
+        if (pAllocationCallbacks->onRealloc == NULL) {
+            return NULL;
+        }
+
+        return dropus__realloc_from_callbacks(p, sz, /*szOld*/ 0, pAllocationCallbacks);  /* Safe to pass 0 for szOld thanks to the onRealloc check above. */
+    }
+}
+
+DROPUS_API void dropus_free(void* p, const dropus_allocation_callbacks* pAllocationCallbacks)
+{
+    if (pAllocationCallbacks == NULL) {
+        dropus__free_default(p, NULL);
+    } else {
+        dropus__free_from_callbacks(p, pAllocationCallbacks);
+    }
+}
 #endif  /* DR_OPUS_IMPLEMENTATION */
 
 /*
