@@ -280,3 +280,5 @@ Test Vector Encapsulation Format
 - High level APIs now updated to return result codes.
 - People are going to want to log errors: added dropus_result_description() to retrieve a human readable description
   of a result code for logging and error reporting purposes.
+- I've had reports of people having compilation errors with inlining before. Need to bring over the INLINE macro from
+  dr_flac to ensure we don't get more reports about that.
