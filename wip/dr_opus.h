@@ -101,6 +101,36 @@ typedef void (* dropus_proc)(void);
     #define DROPUS_INLINE
 #endif
 
+#if !defined(DROPUS_API)
+    #if defined(DROPUS_DLL)
+        #if defined(_WIN32)
+            #define DROPUS_DLL_IMPORT  __declspec(dllimport)
+            #define DROPUS_DLL_EXPORT  __declspec(dllexport)
+            #define DROPUS_DLL_PRIVATE static
+        #else
+            #if defined(__GNUC__) && __GNUC__ >= 4
+                #define DROPUS_DLL_IMPORT  __attribute__((visibility("default")))
+                #define DROPUS_DLL_EXPORT  __attribute__((visibility("default")))
+                #define DROPUS_DLL_PRIVATE __attribute__((visibility("hidden")))
+            #else
+                #define DROPUS_DLL_IMPORT
+                #define DROPUS_DLL_EXPORT
+                #define DROPUS_DLL_PRIVATE static
+            #endif
+        #endif
+
+        #if defined(DR_OPUS_IMPLEMENTATION) || defined(DROPUS_IMPLEMENTATION)
+            #define DROPUS_API  DROPUS_DLL_EXPORT
+        #else
+            #define DROPUS_API  DROPUS_DLL_IMPORT
+        #endif
+        #define DROPUS_PRIVATE DROPUS_DLL_PRIVATE
+    #else
+        #define DROPUS_API extern
+        #define DROPUS_PRIVATE static
+    #endif
+#endif
+
 typedef int dropus_result;
 #define DROPUS_SUCCESS                           0
 #define DROPUS_ERROR                            -1   /* A generic error. */
@@ -201,12 +231,12 @@ typedef struct
 /*
 Initializes a new low-level Opus stream object.
 */
-dropus_result dropus_stream_init(dropus_stream* pOpusStream);
+DROPUS_API dropus_result dropus_stream_init(dropus_stream* pOpusStream);
 
 /*
 Decodes a packet from the given compressed data.
 */
-dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize);
+DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize);
 
 
 
@@ -241,7 +271,7 @@ typedef struct
 /*
 Initializes a pre-allocated decoder object from callbacks.
 */
-dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData);
+DROPUS_API dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData);
 
 #ifndef DR_OPUS_NO_STDIO
 /*
@@ -249,7 +279,7 @@ Initializes a pre-allocated decoder object from a file.
 
 This keeps hold of the file handle throughout the lifetime of the decoder and closes it in dropus_uninit().
 */
-dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath);
+DROPUS_API dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath);
 #endif
 
 /*
@@ -257,12 +287,12 @@ Initializes a pre-allocated decoder object from a block of memory.
 
 This does not make a copy of the memory.
 */
-dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize);
+DROPUS_API dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize);
 
 /*
 Uninitializes an Opus decoder.
 */
-void dropus_uninit(dropus* pOpus);
+DROPUS_API void dropus_uninit(dropus* pOpus);
 
 
 
@@ -274,7 +304,7 @@ Utilities
 /*
 Retrieves a human readable description of the given result code.
 */
-const char* dropus_result_description(dropus_result result);
+DROPUS_API const char* dropus_result_description(dropus_result result);
 
 
 #endif  /* dr_opus_h */
@@ -543,22 +573,22 @@ Low-Level Opus Stream API
 /*********************************** 
 RFC 6716 - Section 3.1 The TOC Byte
 ************************************/
-DROPUS_INLINE dropus_uint8 dropus_toc_config(dropus_uint8 toc)
+static DROPUS_INLINE dropus_uint8 dropus_toc_config(dropus_uint8 toc)
 {
     return (toc & 0xF8) >> 3;
 }
 
-DROPUS_INLINE dropus_uint8 dropus_toc_s(dropus_uint8 toc)
+static DROPUS_INLINE dropus_uint8 dropus_toc_s(dropus_uint8 toc)
 {
     return (toc & 0x04) >> 2;
 }
 
-DROPUS_INLINE dropus_uint8 dropus_toc_c(dropus_uint8 toc)
+static DROPUS_INLINE dropus_uint8 dropus_toc_c(dropus_uint8 toc)
 {
     return (toc & 0x03);
 }
 
-DROPUS_INLINE dropus_mode dropus_toc_config_mode(dropus_uint8 config)
+static DROPUS_INLINE dropus_mode dropus_toc_config_mode(dropus_uint8 config)
 {
     /* Table 2 in RFC 6716 */
     static dropus_mode modes[32] = {
@@ -577,12 +607,12 @@ DROPUS_INLINE dropus_mode dropus_toc_config_mode(dropus_uint8 config)
     return modes[config];
 }
 
-DROPUS_INLINE dropus_mode dropus_toc_mode(dropus_uint8 toc)
+static DROPUS_INLINE dropus_mode dropus_toc_mode(dropus_uint8 toc)
 {
     return dropus_toc_config_mode(dropus_toc_config(toc));
 }
 
-DROPUS_INLINE dropus_uint32 dropus_toc_config_sample_rate(dropus_uint8 config)
+static DROPUS_INLINE dropus_uint32 dropus_toc_config_sample_rate(dropus_uint8 config)
 {
     /* Table 2 with Table 1 in RFC 6716 */
     static dropus_uint32 rates[32] = {
@@ -601,17 +631,17 @@ DROPUS_INLINE dropus_uint32 dropus_toc_config_sample_rate(dropus_uint8 config)
     return rates[config];
 }
 
-DROPUS_INLINE dropus_uint32 dropus_toc_sample_rate(dropus_uint8 toc)
+static DROPUS_INLINE dropus_uint32 dropus_toc_sample_rate(dropus_uint8 toc)
 {
     return dropus_toc_config_sample_rate(dropus_toc_config(toc));
 }
 
-DROPUS_INLINE dropus_uint32 dropus_toc_sample_rate_ms(dropus_uint8 toc)
+static DROPUS_INLINE dropus_uint32 dropus_toc_sample_rate_ms(dropus_uint8 toc)
 {
     return dropus_toc_sample_rate(toc) / 1000;
 }
 
-DROPUS_INLINE dropus_uint32 dropus_toc_config_frame_size_in_pcm_frames(dropus_uint8 config)
+static DROPUS_INLINE dropus_uint32 dropus_toc_config_frame_size_in_pcm_frames(dropus_uint8 config)
 {
     /* Table 2 with Table 1 in RFC 6716 */
     static dropus_uint32 sizes[32] = {
@@ -630,12 +660,12 @@ DROPUS_INLINE dropus_uint32 dropus_toc_config_frame_size_in_pcm_frames(dropus_ui
     return sizes[config];
 }
 
-DROPUS_INLINE dropus_uint32 dropus_toc_frame_size_in_pcm_frames(dropus_uint8 toc)
+static DROPUS_INLINE dropus_uint32 dropus_toc_frame_size_in_pcm_frames(dropus_uint8 toc)
 {
     return dropus_toc_config_frame_size_in_pcm_frames(dropus_toc_config(toc));
 }
 
-DROPUS_INLINE dropus_uint8 dropus_toc_config_silk_frame_count(dropus_uint8 config)
+static DROPUS_INLINE dropus_uint8 dropus_toc_config_silk_frame_count(dropus_uint8 config)
 {
     /* Table 2 in RFC 6716 */
     static dropus_uint8 counts[32] = {
@@ -654,12 +684,12 @@ DROPUS_INLINE dropus_uint8 dropus_toc_config_silk_frame_count(dropus_uint8 confi
     return counts[config];
 }
 
-DROPUS_INLINE dropus_uint8 dropus_toc_silk_frame_count(dropus_uint8 toc)
+static DROPUS_INLINE dropus_uint8 dropus_toc_silk_frame_count(dropus_uint8 toc)
 {
     return dropus_toc_config_silk_frame_count(dropus_toc_config(toc));
 }
 
-DROPUS_INLINE dropus_int32 dropus_Q13(dropus_uint16 index)
+static DROPUS_INLINE dropus_int32 dropus_Q13(dropus_uint16 index)
 {
     /* Table 7 in RFC 6716 */
     static dropus_int32 Q13[16] = {
@@ -684,7 +714,7 @@ typedef struct
     dropus_uint32 val;      /* ^^^ */
 } dropus_range_decoder;
 
-DROPUS_INLINE void dropus_range_decoder_normalize(dropus_range_decoder* pRangeDecoder)
+static DROPUS_INLINE void dropus_range_decoder_normalize(dropus_range_decoder* pRangeDecoder)
 {
     dropus_uint8 sym;
     dropus_uint8 b1;
@@ -712,7 +742,7 @@ DROPUS_INLINE void dropus_range_decoder_normalize(dropus_range_decoder* pRangeDe
     }
 }
 
-DROPUS_INLINE void dropus_range_decoder_init(const dropus_uint8* pData, dropus_uint16 dataSize, dropus_range_decoder* pRangeDecoder)
+static DROPUS_INLINE void dropus_range_decoder_init(const dropus_uint8* pData, dropus_uint16 dataSize, dropus_range_decoder* pRangeDecoder)
 {
     DROPUS_ASSERT(pRangeDecoder != NULL);
 
@@ -737,7 +767,7 @@ DROPUS_INLINE void dropus_range_decoder_init(const dropus_uint8* pData, dropus_u
     dropus_range_decoder_normalize(pRangeDecoder);
 }
 
-DROPUS_INLINE dropus_uint16 dropus_range_decoder_fs(dropus_range_decoder* pRangeDecoder, dropus_uint16 ft)
+static DROPUS_INLINE dropus_uint16 dropus_range_decoder_fs(dropus_range_decoder* pRangeDecoder, dropus_uint16 ft)
 {
     /* Implements RFC 6716 - Section 4.1.2 (first step) */
 
@@ -747,7 +777,7 @@ DROPUS_INLINE dropus_uint16 dropus_range_decoder_fs(dropus_range_decoder* pRange
     return (dropus_uint16)(ft - DROPUS_MIN((pRangeDecoder->val / (pRangeDecoder->rng/ft)) + 1, ft));
 }
 
-DROPUS_INLINE dropus_uint16 dropus_range_decoder_k(dropus_uint16* f, dropus_uint16 n, dropus_uint16 fs, dropus_uint16* flOut, dropus_uint16* fhOut)
+static DROPUS_INLINE dropus_uint16 dropus_range_decoder_k(dropus_uint16* f, dropus_uint16 n, dropus_uint16 fs, dropus_uint16* flOut, dropus_uint16* fhOut)
 {
     dropus_uint16 k = 0;
     dropus_uint16 fl = 0;
@@ -767,7 +797,7 @@ DROPUS_INLINE dropus_uint16 dropus_range_decoder_k(dropus_uint16* f, dropus_uint
     return k;
 }
 
-DROPUS_INLINE dropus_uint16 dropus_range_decoder_update(dropus_range_decoder* pRangeDecoder, dropus_uint16* f, dropus_uint16 n, dropus_uint16 ft, dropus_uint16 fs)
+static DROPUS_INLINE dropus_uint16 dropus_range_decoder_update(dropus_range_decoder* pRangeDecoder, dropus_uint16* f, dropus_uint16 n, dropus_uint16 ft, dropus_uint16 fs)
 {
     /* Implements RFC 6716 - Section 4.1.2 (second step) */
     dropus_uint16 k;
@@ -799,7 +829,7 @@ DROPUS_INLINE dropus_uint16 dropus_range_decoder_update(dropus_range_decoder* pR
     return k;
 }
 
-DROPUS_INLINE dropus_uint16 dropus_range_decoder_decode(dropus_range_decoder* pRangeDecoder, dropus_uint16* f, dropus_uint16 n, dropus_uint16 ft)
+static DROPUS_INLINE dropus_uint16 dropus_range_decoder_decode(dropus_range_decoder* pRangeDecoder, dropus_uint16* f, dropus_uint16 n, dropus_uint16 ft)
 {
     dropus_uint16 fs;
 
@@ -816,7 +846,7 @@ DROPUS_INLINE dropus_uint16 dropus_range_decoder_decode(dropus_range_decoder* pR
 }
 
 
-dropus_result dropus_stream_init(dropus_stream* pOpusStream)
+DROPUS_API dropus_result dropus_stream_init(dropus_stream* pOpusStream)
 {
     if (pOpusStream == NULL) {
         return DROPUS_INVALID_ARGS;
@@ -827,7 +857,7 @@ dropus_result dropus_stream_init(dropus_stream* pOpusStream)
     return DROPUS_SUCCESS;
 }
 
-dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stream_frame* pOpusFrame, const dropus_uint8* pData, size_t dataSize)
+static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stream_frame* pOpusFrame, const dropus_uint8* pData, size_t dataSize)
 {
     dropus_range_decoder rd;
 
@@ -950,7 +980,7 @@ dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stre
     return DROPUS_SUCCESS;
 }
 
-dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize)
+DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize)
 {
     const dropus_uint8* pRunningData8 = (const dropus_uint8*)pData;
     dropus_uint8 toc; /* Table of Contents byte. */
@@ -1292,7 +1322,7 @@ static dropus_result dropus_init_internal(dropus* pOpus, dropus_read_proc onRead
     return DROPUS_SUCCESS;
 }
 
-dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData)
+DROPUS_API dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData)
 {
     if (pOpus == NULL) {
         return DROPUS_INVALID_ARGS;
@@ -1322,17 +1352,17 @@ FILE* dropus_fopen(const char* filename, const char* mode)
 }
 
 
-size_t dropus_on_read_stdio(void* pUserData, void* pBufferOut, size_t bytesToRead)
+static size_t dropus_on_read_stdio(void* pUserData, void* pBufferOut, size_t bytesToRead)
 {
     return fread(pBufferOut, 1, bytesToRead, (FILE*)pUserData);
 }
 
-dropus_bool32 dropus_on_seek_stdio(void* pUserData, int offset, dropus_seek_origin origin)
+static dropus_bool32 dropus_on_seek_stdio(void* pUserData, int offset, dropus_seek_origin origin)
 {
     return fseek((FILE*)pUserData, offset, (origin == dropus_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath)
+DROPUS_API dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath)
 {
     dropus_result result;
     FILE* pFile;
@@ -1414,7 +1444,7 @@ static dropus_bool32 dropus_on_seek_memory(void* pUserData, int byteOffset, drop
     return DROPUS_TRUE;
 }
 
-dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize)
+DROPUS_API dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize)
 {
     if (pOpus == NULL) {
         return DROPUS_INVALID_ARGS;
@@ -1434,7 +1464,7 @@ dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSi
 }
 
 
-void dropus_uninit(dropus* pOpus)
+DROPUS_API void dropus_uninit(dropus* pOpus)
 {
     if (pOpus == NULL) {
         return;
@@ -1450,7 +1480,7 @@ void dropus_uninit(dropus* pOpus)
 
 
 
-const char* dropus_result_description(dropus_result result)
+DROPUS_API const char* dropus_result_description(dropus_result result)
 {
     switch (result)
     {
