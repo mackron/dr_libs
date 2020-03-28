@@ -1568,6 +1568,9 @@ static DRFLAC_INLINE drflac_bool32 drflac_has_sse41()
 #ifndef DRFLAC_ZERO_MEMORY
 #define DRFLAC_ZERO_MEMORY(p, sz)           memset((p), 0, (sz))
 #endif
+#ifndef DRFLAC_ZERO_OBJECT
+#define DRFLAC_ZERO_OBJECT(p)               DRFLAC_ZERO_MEMORY((p), sizeof(*(p)))
+#endif
 
 #define DRFLAC_MAX_SIMD_VECTOR_SIZE                     64  /* 64 for AVX-512 in the future. */
 
@@ -7783,6 +7786,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 
 #ifndef DR_FLAC_NO_STDIO
 #include <stdio.h>
+#include <wchar.h>      /* For wcslen(), wcsrtombs() */
 
 /* drflac_result_from_errno() is only used for fopen() and wfopen() so putting it inside DR_WAV_NO_STDIO for now. If something else needs this later we can move it out. */
 #include <errno.h>
