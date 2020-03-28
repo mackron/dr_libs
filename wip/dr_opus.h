@@ -257,6 +257,18 @@ Uninitializes an Opus decoder.
 void dropus_uninit(dropus* pOpus);
 
 
+
+/************************************************************************************************************************************************************
+
+Utilities
+
+************************************************************************************************************************************************************/
+/*
+Retrieves a human readable description of the given result code.
+*/
+const char* dropus_result_description(dropus_result result);
+
+
 #endif  /* dr_opus_h */
 
 /************************************************************************************************************************************************************
@@ -1426,6 +1438,70 @@ void dropus_uninit(dropus* pOpus)
         fclose((FILE*)pOpus->pFile);
     }
 #endif
+}
+
+
+
+const char* dropus_result_description(dropus_result result)
+{
+    switch (result)
+    {
+        case DROPUS_SUCCESS:                       return "No error";
+        case DROPUS_ERROR:                         return "Unknown error";
+        case DROPUS_INVALID_ARGS:                  return "Invalid argument";
+        case DROPUS_INVALID_OPERATION:             return "Invalid operation";
+        case DROPUS_OUT_OF_MEMORY:                 return "Out of memory";
+        case DROPUS_OUT_OF_RANGE:                  return "Out of range";
+        case DROPUS_ACCESS_DENIED:                 return "Permission denied";
+        case DROPUS_DOES_NOT_EXIST:                return "Resource does not exist";
+        case DROPUS_ALREADY_EXISTS:                return "Resource already exists";
+        case DROPUS_TOO_MANY_OPEN_FILES:           return "Too many open files";
+        case DROPUS_INVALID_FILE:                  return "Invalid file";
+        case DROPUS_TOO_BIG:                       return "Too large";
+        case DROPUS_PATH_TOO_LONG:                 return "Path too long";
+        case DROPUS_NAME_TOO_LONG:                 return "Name too long";
+        case DROPUS_NOT_DIRECTORY:                 return "Not a directory";
+        case DROPUS_IS_DIRECTORY:                  return "Is a directory";
+        case DROPUS_DIRECTORY_NOT_EMPTY:           return "Directory not empty";
+        case DROPUS_END_OF_FILE:                   return "End of file";
+        case DROPUS_NO_SPACE:                      return "No space available";
+        case DROPUS_BUSY:                          return "Device or resource busy";
+        case DROPUS_IO_ERROR:                      return "Input/output error";
+        case DROPUS_INTERRUPT:                     return "Interrupted";
+        case DROPUS_UNAVAILABLE:                   return "Resource unavailable";
+        case DROPUS_ALREADY_IN_USE:                return "Resource already in use";
+        case DROPUS_BAD_ADDRESS:                   return "Bad address";
+        case DROPUS_BAD_SEEK:                      return "Illegal seek";
+        case DROPUS_BAD_PIPE:                      return "Broken pipe";
+        case DROPUS_DEADLOCK:                      return "Deadlock";
+        case DROPUS_TOO_MANY_LINKS:                return "Too many links";
+        case DROPUS_NOT_IMPLEMENTED:               return "Not implemented";
+        case DROPUS_NO_MESSAGE:                    return "No message of desired type";
+        case DROPUS_BAD_MESSAGE:                   return "Invalid message";
+        case DROPUS_NO_DATA_AVAILABLE:             return "No data available";
+        case DROPUS_INVALID_DATA:                  return "Invalid data";
+        case DROPUS_TIMEOUT:                       return "Timeout";
+        case DROPUS_NO_NETWORK:                    return "Network unavailable";
+        case DROPUS_NOT_UNIQUE:                    return "Not unique";
+        case DROPUS_NOT_SOCKET:                    return "Socket operation on non-socket";
+        case DROPUS_NO_ADDRESS:                    return "Destination address required";
+        case DROPUS_BAD_PROTOCOL:                  return "Protocol wrong type for socket";
+        case DROPUS_PROTOCOL_UNAVAILABLE:          return "Protocol not available";
+        case DROPUS_PROTOCOL_NOT_SUPPORTED:        return "Protocol not supported";
+        case DROPUS_PROTOCOL_FAMILY_NOT_SUPPORTED: return "Protocol family not supported";
+        case DROPUS_ADDRESS_FAMILY_NOT_SUPPORTED:  return "Address family not supported";
+        case DROPUS_SOCKET_NOT_SUPPORTED:          return "Socket type not supported";
+        case DROPUS_CONNECTION_RESET:              return "Connection reset";
+        case DROPUS_ALREADY_CONNECTED:             return "Already connected";
+        case DROPUS_NOT_CONNECTED:                 return "Not connected";
+        case DROPUS_CONNECTION_REFUSED:            return "Connection refused";
+        case DROPUS_NO_HOST:                       return "No host";
+        case DROPUS_IN_PROGRESS:                   return "Operation in progress";
+        case DROPUS_CANCELLED:                     return "Operation cancelled";
+        case DROPUS_MEMORY_ALREADY_MAPPED:         return "Memory already mapped";
+        case DROPUS_AT_END:                        return "Reached end of collection";
+        default:                                   return "Unknown error";
+    }
 }
 
 #endif  /* DR_OPUS_IMPLEMENTATION */

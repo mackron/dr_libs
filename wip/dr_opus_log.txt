@@ -278,3 +278,5 @@ Test Vector Encapsulation Format
   a low-level API that works on the FLAC frame level; and returning booleans instead of result codes. The first one
   is already being handled, but lets update the high level APIs to use result codes.
 - High level APIs now updated to return result codes.
+- People are going to want to log errors: added dropus_result_description() to retrieve a human readable description
+  of a result code for logging and error reporting purposes.
