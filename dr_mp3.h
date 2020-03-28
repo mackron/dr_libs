@@ -233,7 +233,7 @@ DRMP3_API void drmp3dec_init(drmp3dec *dec);
 DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int mp3_bytes, void *pcm, drmp3dec_frame_info *info);
 
 /* Helper for converting between f32 and s16. */
-DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_samples);
+DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, size_t num_samples);
 
 
 
@@ -2361,11 +2361,11 @@ DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const unsigned char *mp3, int
     return success*drmp3_hdr_frame_samples(dec->header);
 }
 
-DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_samples)
+DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, size_t num_samples)
 {
-    int i = 0;
+    size_t i = 0;
 #if DRMP3_HAVE_SIMD
-    int aligned_count = num_samples & ~7;
+    size_t aligned_count = num_samples & ~7;
     for(; i < aligned_count; i+=8)
     {
         drmp3_f4 scale = DRMP3_VSET(32768.0f);
@@ -4391,6 +4391,29 @@ static drmp3_bool32 drmp3_init_src(drmp3* pMP3)
     return DRMP3_TRUE;
 }
 
+static drmp3_result drmp3_init_resampler(drmp3* pMP3)
+{
+    drmp3_result result;
+    drmp3_format format;
+    drmp3_linear_resampler_config config;
+
+    DRMP3_ASSERT(pMP3 != NULL);
+
+#if defined(DR_MP3_FLOAT_OUTPUT)
+    format = drmp3_format_f32;
+#else
+    format = drmp3_format_s16;
+#endif
+
+    config = drmp3_linear_resampler_config_init(format, pMP3->channels, DRMP3_DEFAULT_SAMPLE_RATE, pMP3->sampleRate);
+    result = drmp3_linear_resampler_init(&config, &pMP3->resampler);
+    if (result != DRMP3_SUCCESS) {
+        return result;
+    }
+
+    return DRMP3_SUCCESS;
+}
+
 static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPCMFrames, drmp3_bool32 discard)
 {
     drmp3_uint32 pcmFramesRead = 0;
@@ -4442,7 +4465,7 @@ static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPC
         }
 
         pcmFramesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->pData, (int)pMP3->dataSize, pPCMFrames, &info);    /* <-- Safe size_t -> int conversion thanks to the check above. */
-        
+
         /* Consume the data. */
         leftoverDataSize = (pMP3->dataSize - (size_t)info.frame_bytes);
         if (info.frame_bytes > 0) {
@@ -4470,9 +4493,12 @@ static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPC
                     pMP3->sampleRate = info.hz;
                 }
                 drmp3_init_src(pMP3);
+                drmp3_init_resampler(pMP3);
             }
 
             drmp3_src_set_input_sample_rate(&pMP3->src, pMP3->mp3FrameSampleRate);
+            drmp3_linear_resampler_set_rate(&pMP3->resampler, pMP3->mp3FrameSampleRate, pMP3->sampleRate);
+
             break;
         } else if (info.frame_bytes == 0) {
             size_t bytesRead;
@@ -4576,6 +4602,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
     */
     if (pMP3->channels != 0 && pMP3->sampleRate != 0) {
         drmp3_init_src(pMP3);
+        drmp3_init_resampler(pMP3);
     }
     
     /* Decode the first frame to confirm that it is indeed a valid MP3 stream. */
@@ -5265,72 +5292,219 @@ DRMP3_API void drmp3_uninit(drmp3* pMP3)
     drmp3__free_from_callbacks(pMP3->pData, &pMP3->allocationCallbacks);
 }
 
-DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_f32(drmp3* pMP3, drmp3_uint64 framesToRead, float* pBufferOut)
+
+static void drmp3_f32_to_s16(drmp3_int16* dst, const float* src, drmp3_uint64 sampleCount)
+{
+    drmp3_uint64 i;
+    drmp3_uint64 i4;
+    drmp3_uint64 sampleCount4;
+
+    /* Unrolled. */
+    i = 0;
+    sampleCount4 = sampleCount >> 2;
+    for (i4 = 0; i4 < sampleCount4; i4 += 1) {
+        float x0 = src[i+0];
+        float x1 = src[i+1];
+        float x2 = src[i+2];
+        float x3 = src[i+3];
+
+        x0 = ((x0 < -1) ? -1 : ((x0 > 1) ? 1 : x0));
+        x1 = ((x1 < -1) ? -1 : ((x1 > 1) ? 1 : x1));
+        x2 = ((x2 < -1) ? -1 : ((x2 > 1) ? 1 : x2));
+        x3 = ((x3 < -1) ? -1 : ((x3 > 1) ? 1 : x3));
+
+        x0 = x0 * 32767.0f;
+        x1 = x1 * 32767.0f;
+        x2 = x2 * 32767.0f;
+        x3 = x3 * 32767.0f;
+
+        dst[i+0] = (drmp3_int16)x0;
+        dst[i+1] = (drmp3_int16)x1;
+        dst[i+2] = (drmp3_int16)x2;
+        dst[i+3] = (drmp3_int16)x3;
+
+        i += 4;
+    }
+
+    /* Leftover. */
+    for (; i < sampleCount; i += 1) {
+        float x = src[i];
+        x = ((x < -1) ? -1 : ((x > 1) ? 1 : x));    /* clip */
+        x = x * 32767.0f;                           /* -1..1 to -32767..32767 */
+
+        dst[i] = (drmp3_int16)x;
+    }
+}
+
+static void drmp3_s16_to_f32(float* dst, const drmp3_int16* src, drmp3_uint64 sampleCount)
+{
+    drmp3_uint64 i;
+    for (i = 0; i < sampleCount; i += 1) {
+        float x = (float)src[i];
+        x = x * 0.000030517578125f;         /* -32768..32767 to -1..0.999969482421875 */
+        dst[i] = x;
+    }
+}
+
+
+static drmp3_uint64 drmp3_read_pcm_frames_raw(drmp3* pMP3, drmp3_uint64 framesToRead, void* pBufferOut)
 {
     drmp3_uint64 totalFramesRead = 0;
 
-    if (pMP3 == NULL || pMP3->onRead == NULL) {
-        return 0;
-    }
+    DRMP3_ASSERT(pMP3 != NULL);
+    DRMP3_ASSERT(pMP3->onRead != NULL);
 
-    if (pBufferOut == NULL) {
-        float temp[4096];
-        while (framesToRead > 0) {
-            drmp3_uint64 framesJustRead;
-            drmp3_uint64 framesToReadRightNow = sizeof(temp)/sizeof(temp[0]) / pMP3->channels;
-            if (framesToReadRightNow > framesToRead) {
-                framesToReadRightNow = framesToRead;
+    while (framesToRead > 0) {
+        drmp3_uint32 framesToConsume = (drmp3_uint32)DRMP3_MIN(pMP3->pcmFramesRemainingInMP3Frame, framesToRead);
+#if defined(DR_MP3_FLOAT_OUTPUT)
+        /* f32 */
+        float* pFramesOutF32 = (float*)DRMP3_OFFSET_PTR(pBufferOut,          sizeof(float) * totalFramesRead                   * pMP3->channels);
+        float* pFramesInF32  = (float*)DRMP3_OFFSET_PTR(&pMP3->pcmFrames[0], sizeof(float) * pMP3->pcmFramesConsumedInMP3Frame * pMP3->mp3FrameChannels);
+        if (pMP3->mp3FrameChannels == pMP3->channels) {
+            /* Fast path. */
+            DRMP3_COPY_MEMORY(pFramesOutF32, pFramesInF32, sizeof(float) * framesToConsume * pMP3->channels);
+        } else {
+            /* Slow path. Channel conversion required. */
+            drmp3_uint32 iFrame;
+            if (pMP3->mp3FrameChannels == 1) {
+                /* Mono -> Stereo */
+                DRMP3_ASSERT(pMP3->channels == 2);
+                for (iFrame = 0; iFrame < framesToConsume; iFrame += 1) {
+                    pFramesOutF32[iFrame*2 + 0] = pFramesInF32[iFrame];
+                    pFramesOutF32[iFrame*2 + 1] = pFramesInF32[iFrame];
+                }
+            } else {
+                /* Stereo -> Mono */
+                DRMP3_ASSERT(pMP3->channels == 1);
+                for (iFrame = 0; iFrame < framesToConsume; iFrame += 1) {
+                    float sample = 0;
+                    sample += pFramesInF32[iFrame*pMP3->mp3FrameChannels + 0];
+                    sample += pFramesInF32[iFrame*pMP3->mp3FrameChannels + 1];
+                    pFramesOutF32[iFrame] = sample * 0.5f;
+                }
             }
-
-            framesJustRead = drmp3_read_pcm_frames_f32(pMP3, framesToReadRightNow, temp);
-            if (framesJustRead == 0) {
-                break;
-            }
-
-            framesToRead -= framesJustRead;
-            totalFramesRead += framesJustRead;
         }
-    } else {
-        totalFramesRead = drmp3_src_read_frames_ex(&pMP3->src, framesToRead, pBufferOut, DRMP3_TRUE);
-        pMP3->currentPCMFrame += totalFramesRead;
+#else
+        /* s16 */
+        drmp3_int16* pFramesOutS16 = (drmp3_int16*)DRMP3_OFFSET_PTR(pBufferOut,          sizeof(drmp3_int16) * totalFramesRead                   * pMP3->channels);
+        drmp3_int16* pFramesInS16  = (drmp3_int16*)DRMP3_OFFSET_PTR(&pMP3->pcmFrames[0], sizeof(drmp3_int16) * pMP3->pcmFramesConsumedInMP3Frame * pMP3->mp3FrameChannels);
+        if (pMP3->mp3FrameChannels == pMP3->channels) {
+            /* Fast path. */
+            DRMP3_COPY_MEMORY(pFramesOutS16, pFramesInS16, sizeof(drmp3_int16) * framesToConsume * pMP3->channels);
+        } else {
+            /* Slow path. Channel conversion required. */
+            drmp3_uint32 iFrame;
+            if (pMP3->mp3FrameChannels == 1) {
+                /* Mono -> Stereo */
+                DRMP3_ASSERT(pMP3->channels == 2);
+                for (iFrame = 0; iFrame < framesToConsume; iFrame += 1) {
+                    pFramesOutS16[iFrame*2 + 0] = pFramesInS16[iFrame];
+                    pFramesOutS16[iFrame*2 + 1] = pFramesInS16[iFrame];
+                }
+            } else {
+                /* Stereo -> Mono */
+                DRMP3_ASSERT(pMP3->channels == 1);
+                for (iFrame = 0; iFrame < framesToConsume; iFrame += 1) {
+                    drmp3_int32 sample = 0;
+                    sample += pFramesInS16[iFrame*pMP3->mp3FrameChannels + 0];
+                    sample += pFramesInS16[iFrame*pMP3->mp3FrameChannels + 1];
+                    pFramesOutS16[iFrame] = (drmp3_int16)(sample / 2);
+                }
+            }
+        }
+#endif
+        pMP3->pcmFramesConsumedInMP3Frame  += framesToConsume;
+        pMP3->pcmFramesRemainingInMP3Frame -= framesToConsume;
+        totalFramesRead                    += framesToConsume;
+        framesToRead                       -= framesToConsume;
+
+        if (framesToRead == 0) {
+            break;
+        }
+
+        DRMP3_ASSERT(pMP3->pcmFramesRemainingInMP3Frame == 0);
+
+        /*
+        At this point we have exhausted our in-memory buffer so we need to re-fill. Note that the sample rate may have changed
+        at this point which means we'll also need to update our sample rate conversion pipeline.
+        */
+        if (drmp3_decode_next_frame(pMP3) == 0) {
+            break;
+        }
     }
 
     return totalFramesRead;
 }
 
-DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_s16(drmp3* pMP3, drmp3_uint64 framesToRead, drmp3_int16* pBufferOut)
-{
-    float tempF32[4096];
-    drmp3_uint64 pcmFramesJustRead;
-    drmp3_uint64 totalPCMFramesRead = 0;
 
+DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_f32(drmp3* pMP3, drmp3_uint64 framesToRead, float* pBufferOut)
+{
     if (pMP3 == NULL || pMP3->onRead == NULL) {
         return 0;
     }
 
-    /* Naive implementation: read into a temp f32 buffer, then convert. */
-    for (;;) {
-        drmp3_uint64 pcmFramesToReadThisIteration = (framesToRead - totalPCMFramesRead);
-        if (pcmFramesToReadThisIteration > DRMP3_COUNTOF(tempF32)/pMP3->channels) {
-            pcmFramesToReadThisIteration = DRMP3_COUNTOF(tempF32)/pMP3->channels;
+    if (pMP3->resampler.config.format == drmp3_format_f32) {
+        /* Fast path. No conversion required. */
+        return drmp3_read_pcm_frames_raw(pMP3, framesToRead, pBufferOut);
+    } else {
+        /* Slow path. Convert from s16 to f32. */
+        drmp3_int16 pTempS16[8192];
+        drmp3_uint64 totalPCMFramesRead = 0;
+
+        while (totalPCMFramesRead < framesToRead) {
+            drmp3_uint64 framesJustRead;
+            drmp3_uint64 framesRemaining = framesToRead - totalPCMFramesRead;
+            drmp3_uint64 framesToReadNow = DRMP3_COUNTOF(pTempS16) / pMP3->channels;
+            if (framesToReadNow > framesRemaining) {
+                framesToReadNow = framesRemaining;
+            }
+
+            framesJustRead = drmp3_read_pcm_frames_raw(pMP3, framesToReadNow, pTempS16);
+            if (framesJustRead == 0) {
+                break;
+            }
+
+            drmp3_s16_to_f32((float*)DRMP3_OFFSET_PTR(pBufferOut, sizeof(drmp3_int16) * totalPCMFramesRead * pMP3->channels), pTempS16, framesJustRead * pMP3->channels);
+            totalPCMFramesRead += framesJustRead;
         }
 
-        pcmFramesJustRead = drmp3_read_pcm_frames_f32(pMP3, pcmFramesToReadThisIteration, tempF32);
-        if (pcmFramesJustRead == 0) {
-            break;
-        }
+        return totalPCMFramesRead;
+    }
+}
 
-        drmp3dec_f32_to_s16(tempF32, pBufferOut, (int)(pcmFramesJustRead * pMP3->channels));    /* <-- Safe cast since pcmFramesJustRead will be clamped based on the size of tempF32 which is always small. */
-        pBufferOut += pcmFramesJustRead * pMP3->channels;
-
-        totalPCMFramesRead += pcmFramesJustRead;
-
-        if (pcmFramesJustRead < pcmFramesToReadThisIteration) {
-            break;
-        }
+DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_s16(drmp3* pMP3, drmp3_uint64 framesToRead, drmp3_int16* pBufferOut)
+{
+    if (pMP3 == NULL || pMP3->onRead == NULL) {
+        return 0;
     }
 
-    return totalPCMFramesRead;
+    if (pMP3->resampler.config.format == drmp3_format_s16) {
+        /* Fast path. No conversion required. */
+        return drmp3_read_pcm_frames_raw(pMP3, framesToRead, pBufferOut);
+    } else {
+        /* Slow path. Convert from f32 to s16. */
+        float pTempF32[4096];
+        drmp3_uint64 totalPCMFramesRead = 0;
+
+        while (totalPCMFramesRead < framesToRead) {
+            drmp3_uint64 framesJustRead;
+            drmp3_uint64 framesRemaining = framesToRead - totalPCMFramesRead;
+            drmp3_uint64 framesToReadNow = DRMP3_COUNTOF(pTempF32) / pMP3->channels;
+            if (framesToReadNow > framesRemaining) {
+                framesToReadNow = framesRemaining;
+            }
+
+            framesJustRead = drmp3_read_pcm_frames_raw(pMP3, framesToReadNow, pTempF32);
+            if (framesJustRead == 0) {
+                break;
+            }
+
+            drmp3_f32_to_s16((drmp3_int16*)DRMP3_OFFSET_PTR(pBufferOut, sizeof(drmp3_int16) * totalPCMFramesRead * pMP3->channels), pTempF32, framesJustRead * pMP3->channels);
+            totalPCMFramesRead += framesJustRead;
+        }
+
+        return totalPCMFramesRead;
+    }
 }
 
 static void drmp3_reset(drmp3* pMP3)
