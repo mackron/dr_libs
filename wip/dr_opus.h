@@ -94,10 +94,62 @@ typedef void (* dropus_proc)(void);
 #endif
 
 typedef int dropus_result;
-#define DROPUS_SUCCESS           0
-#define DROPUS_ERROR            -1  /* Generic or unknown error. */
-#define DROPUS_INVALID_ARGS     -2
-#define DROPUS_BAD_DATA         -100
+#define DROPUS_SUCCESS                           0
+#define DROPUS_ERROR                            -1   /* A generic error. */
+#define DROPUS_INVALID_ARGS                     -2
+#define DROPUS_INVALID_OPERATION                -3
+#define DROPUS_OUT_OF_MEMORY                    -4
+#define DROPUS_OUT_OF_RANGE                     -5
+#define DROPUS_ACCESS_DENIED                    -6
+#define DROPUS_DOES_NOT_EXIST                   -7
+#define DROPUS_ALREADY_EXISTS                   -8
+#define DROPUS_TOO_MANY_OPEN_FILES              -9
+#define DROPUS_INVALID_FILE                     -10
+#define DROPUS_TOO_BIG                          -11
+#define DROPUS_PATH_TOO_LONG                    -12
+#define DROPUS_NAME_TOO_LONG                    -13
+#define DROPUS_NOT_DIRECTORY                    -14
+#define DROPUS_IS_DIRECTORY                     -15
+#define DROPUS_DIRECTORY_NOT_EMPTY              -16
+#define DROPUS_END_OF_FILE                      -17
+#define DROPUS_NO_SPACE                         -18
+#define DROPUS_BUSY                             -19
+#define DROPUS_IO_ERROR                         -20
+#define DROPUS_INTERRUPT                        -21
+#define DROPUS_UNAVAILABLE                      -22
+#define DROPUS_ALREADY_IN_USE                   -23
+#define DROPUS_BAD_ADDRESS                      -24
+#define DROPUS_BAD_SEEK                         -25
+#define DROPUS_BAD_PIPE                         -26
+#define DROPUS_DEADLOCK                         -27
+#define DROPUS_TOO_MANY_LINKS                   -28
+#define DROPUS_NOT_IMPLEMENTED                  -29
+#define DROPUS_NO_MESSAGE                       -30
+#define DROPUS_BAD_MESSAGE                      -31
+#define DROPUS_NO_DATA_AVAILABLE                -32
+#define DROPUS_INVALID_DATA                     -33
+#define DROPUS_TIMEOUT                          -34
+#define DROPUS_NO_NETWORK                       -35
+#define DROPUS_NOT_UNIQUE                       -36
+#define DROPUS_NOT_SOCKET                       -37
+#define DROPUS_NO_ADDRESS                       -38
+#define DROPUS_BAD_PROTOCOL                     -39
+#define DROPUS_PROTOCOL_UNAVAILABLE             -40
+#define DROPUS_PROTOCOL_NOT_SUPPORTED           -41
+#define DROPUS_PROTOCOL_FAMILY_NOT_SUPPORTED    -42
+#define DROPUS_ADDRESS_FAMILY_NOT_SUPPORTED     -43
+#define DROPUS_SOCKET_NOT_SUPPORTED             -44
+#define DROPUS_CONNECTION_RESET                 -45
+#define DROPUS_ALREADY_CONNECTED                -46
+#define DROPUS_NOT_CONNECTED                    -47
+#define DROPUS_CONNECTION_REFUSED               -48
+#define DROPUS_NO_HOST                          -49
+#define DROPUS_IN_PROGRESS                      -50
+#define DROPUS_CANCELLED                        -51
+#define DROPUS_MEMORY_ALREADY_MAPPED            -52
+#define DROPUS_AT_END                           -53
+#define DROPUS_CRC_MISMATCH                     -100
+#define DROPUS_BAD_DATA                         -101
 
 /***********************************************************************************************************************************************************
 
@@ -155,7 +207,6 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
 High-Level Opus Decoding API
 
 ************************************************************************************************************************************************************/
-
 typedef enum
 {
     dropus_seek_origin_start,
@@ -182,7 +233,7 @@ typedef struct
 /*
 Initializes a pre-allocated decoder object from callbacks.
 */
-dropus_bool32 dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData);
+dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData);
 
 #ifndef DR_OPUS_NO_STDIO
 /*
@@ -190,7 +241,7 @@ Initializes a pre-allocated decoder object from a file.
 
 This keeps hold of the file handle throughout the lifetime of the decoder and closes it in dropus_uninit().
 */
-dropus_bool32 dropus_init_file(dropus* pOpus, const char* pFilePath);
+dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath);
 #endif
 
 /*
@@ -198,7 +249,7 @@ Initializes a pre-allocated decoder object from a block of memory.
 
 This does not make a copy of the memory.
 */
-dropus_bool32 dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize);
+dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize);
 
 /*
 Uninitializes an Opus decoder.
@@ -1202,15 +1253,14 @@ dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void
 High-Level Opus Decoding API
 
 ************************************************************************************************************************************************************/
-
-dropus_bool32 dropus_init_internal(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData)
+static dropus_result dropus_init_internal(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData)
 {
     DROPUS_ASSERT(pOpus != NULL);
     DROPUS_ASSERT(onRead != NULL);
 
     /* Must always have an onRead callback. */
     if (onRead == NULL) {
-        return DROPUS_FALSE;
+        return DROPUS_INVALID_ARGS;
     }
 
     pOpus->onRead = onRead;
@@ -1219,13 +1269,13 @@ dropus_bool32 dropus_init_internal(dropus* pOpus, dropus_read_proc onRead, dropu
 
     /* TODO: Implement me. */
     
-    return DROPUS_TRUE;
+    return DROPUS_SUCCESS;
 }
 
-dropus_bool32 dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData)
+dropus_result dropus_init(dropus* pOpus, dropus_read_proc onRead, dropus_seek_proc onSeek, void* pUserData)
 {
     if (pOpus == NULL) {
-        return DROPUS_FALSE;    /* Invalid args. */
+        return DROPUS_INVALID_ARGS;
     }
 
     DROPUS_ZERO_OBJECT(pOpus);
@@ -1251,11 +1301,6 @@ FILE* dropus_fopen(const char* filename, const char* mode)
     return pFile;
 }
 
-int dropus_fclose(FILE* pFile)
-{
-    return fclose(pFile);
-}
-
 
 size_t dropus_on_read_stdio(void* pUserData, void* pBufferOut, size_t bytesToRead)
 {
@@ -1267,35 +1312,35 @@ dropus_bool32 dropus_on_seek_stdio(void* pUserData, int offset, dropus_seek_orig
     return fseek((FILE*)pUserData, offset, (origin == dropus_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
 }
 
-dropus_bool32 dropus_init_file(dropus* pOpus, const char* pFilePath)
+dropus_result dropus_init_file(dropus* pOpus, const char* pFilePath)
 {
+    dropus_result result;
     FILE* pFile;
-    dropus_bool32 successful;
 
     if (pOpus == NULL) {
-        return DROPUS_FALSE;    /* Invalid args. */
+        return DROPUS_INVALID_ARGS;
     }
 
     DROPUS_ZERO_OBJECT(pOpus);
 
     if (pFilePath == NULL || pFilePath[0] == '\0') {
-        return DROPUS_FALSE;    /* Invalid args. */
+        return DROPUS_INVALID_ARGS;
     }
 
     pFile = dropus_fopen(pFilePath, "rb");
     if (pFile == NULL) {
-        return DROPUS_FALSE;    /* Failed to open file. */
+        return DROPUS_ERROR;
     }
 
     pOpus->pFile = (void*)pFile;
 
-    successful = dropus_init_internal(pOpus, dropus_on_read_stdio, dropus_on_seek_stdio, NULL);
-    if (!successful) {
-        dropus_fclose(pFile);
-        return DROPUS_FALSE;
+    result = dropus_init_internal(pOpus, dropus_on_read_stdio, dropus_on_seek_stdio, NULL);
+    if (result != DROPUS_SUCCESS) {
+        fclose(pFile);
+        return result;
     }
     
-    return DROPUS_TRUE;
+    return DROPUS_SUCCESS;
 }
 #endif
 
@@ -1349,16 +1394,16 @@ static dropus_bool32 dropus_on_seek_memory(void* pUserData, int byteOffset, drop
     return DROPUS_TRUE;
 }
 
-dropus_bool32 dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize)
+dropus_result dropus_init_memory(dropus* pOpus, const void* pData, size_t dataSize)
 {
     if (pOpus == NULL) {
-        return DROPUS_FALSE;    /* Invalid args. */
+        return DROPUS_INVALID_ARGS;
     }
 
     DROPUS_ZERO_OBJECT(pOpus);
 
     if (pData == NULL || dataSize == 0) {
-        return DROPUS_FALSE;    /* Invalid args. */
+        return DROPUS_INVALID_ARGS;
     }
 
     pOpus->memory.pData = (const dropus_uint8*)pData;
@@ -1378,7 +1423,7 @@ void dropus_uninit(dropus* pOpus)
 #ifndef DR_OPUS_NO_STDIO
     /* Since dr_opus manages the stdio FILE object make sure it's closed on uninitialization. */
     if (pOpus->pFile != NULL) {
-        dropus_fclose((FILE*)pOpus->pFile);
+        fclose((FILE*)pOpus->pFile);
     }
 #endif
 }
@@ -1417,7 +1462,7 @@ For more information, please refer to <http://unlicense.org/>
 ===============================================================================
 ALTERNATIVE 2 - MIT No Attribution
 ===============================================================================
-Copyright 2019 David Reid
+Copyright 2020 David Reid
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in

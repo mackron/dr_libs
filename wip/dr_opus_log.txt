@@ -264,9 +264,17 @@ Test Vector Encapsulation Format
   the "context" probabilities and "fs" and to return "k".
 - This _seems_ to work. Or at least, the results are consistent with my first attempt. Committing.
 - Added dropus_Q13() for doing the stereo weight lookup (RFC 7616 - Table 7).
-- Section 4.2.7.1 mentions that theweights are linearly interpolated with the weights from the previous frame. What
+- Section 4.2.7.1 mentions that the weights are linearly interpolated with the weights from the previous frame. What
   factor do I use for the interpolation?
 - Finished initial work on RFC 7616 - Section 4.2.7.1. Still don't know how the interpolation part works. I'm hoping
   this is explained later in the spec.
 - COMMIT
 - Completed initial implementation of RFC 7616 - Section 4.2.7.2.
+
+2020/03/29 6:33 AM
+==================
+- After a whole year, time to take another look at this. Only problem is, I've forgotten everything! Let's do a
+  quick pass on the high level stuff to get it consistent with dr_flac. Two mistakes I made with dr_flac: Not having
+  a low-level API that works on the FLAC frame level; and returning booleans instead of result codes. The first one
+  is already being handled, but lets update the high level APIs to use result codes.
+- High level APIs now updated to return result codes.
