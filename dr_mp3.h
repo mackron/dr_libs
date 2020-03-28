@@ -6,8 +6,7 @@ David Reid - mackron@gmail.com
 
 GitHub: https://github.com/mackron/dr_libs
 
-Based on minimp3 (https://github.com/lieff/minimp3) which is where the real work was done. See the bottom of this file for
-differences between minimp3 and dr_mp3.
+Based on minimp3 (https://github.com/lieff/minimp3) which is where the real work was done. See the bottom of this file for differences between minimp3 and dr_mp3.
 */
 
 /*
@@ -34,15 +33,18 @@ Support for loading a file from a `wchar_t` string has been added via the `drmp3
 */
 
 /*
-USAGE
-=====
-dr_mp3 is a single-file library. To use it, do something like the following in one .c file.
+Introducation
+=============
+dr_mp3 is a single file library. To use it, do something like the following in one .c file.
+
+    ```c
     #define DR_MP3_IMPLEMENTATION
     #include "dr_mp3.h"
+    ```
 
-You can then #include this file in other parts of the program as you would with any other header file. To decode audio data,
-do something like the following:
+You can then #include this file in other parts of the program as you would with any other header file. To decode audio data, do something like the following:
 
+    ```c
     drmp3 mp3;
     if (!drmp3_init_file(&mp3, "MySong.mp3", NULL)) {
         // Failed to open file
@@ -51,28 +53,27 @@ do something like the following:
     ...
 
     drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(pMP3, framesToRead, pFrames);
+    ```
 
 The drmp3 object is transparent so you can get access to the channel count and sample rate like so:
 
+    ```
     drmp3_uint32 channels = mp3.channels;
     drmp3_uint32 sampleRate = mp3.sampleRate;
+    ```
 
-The third parameter of drmp3_init_file() in the example above allows you to control the output channel count and sample rate. It
-is a pointer to a drmp3_config object. Setting any of the variables of this object to 0 will cause dr_mp3 to use defaults.
+The example above initializes a decoder from a file, but you can also initialize it from a block of memory and read and seek callbacks with
+`drmp3_init_memory()` and `drmp3_init()` respectively.
 
-The example above initializes a decoder from a file, but you can also initialize it from a block of memory and read and seek
-callbacks with drmp3_init_memory() and drmp3_init() respectively.
+You do not need to do any annoying memory management when reading PCM frames - this is all managed internally. You can request any number of PCM frames in each
+call to `drmp3_read_pcm_frames_f32()` and it will return as many PCM frames as it can, up to the requested amount.
 
-You do not need to do any annoying memory management when reading PCM frames - this is all managed internally. You can request
-any number of PCM frames in each call to drmp3_read_pcm_frames_f32() and it will return as many PCM frames as it can, up to the
-requested amount.
-
-You can also decode an entire file in one go with drmp3_open_and_read_pcm_frames_f32(), drmp3_open_memory_and_read_pcm_frames_f32() and
-drmp3_open_file_and_read_pcm_frames_f32().
+You can also decode an entire file in one go with `drmp3_open_and_read_pcm_frames_f32()`, `drmp3_open_memory_and_read_pcm_frames_f32()` and
+`drmp3_open_file_and_read_pcm_frames_f32()`.
 
 
-OPTIONS
-=======
+Build Options
+=============
 #define these options before including this file.
 
 #define DR_MP3_NO_STDIO
