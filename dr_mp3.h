@@ -241,12 +241,99 @@ DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_sa
 Main API (Pull API)
 ===================
 */
-#ifndef DR_MP3_DEFAULT_CHANNELS
-#define DR_MP3_DEFAULT_CHANNELS         2
+#define DRMP3_MAX_CHANNELS          2
+
+#ifndef DRMP3_DEFAULT_CHANNELS
+#define DRMP3_DEFAULT_CHANNELS      2
 #endif
-#ifndef DR_MP3_DEFAULT_SAMPLE_RATE
-#define DR_MP3_DEFAULT_SAMPLE_RATE      44100
+#ifndef DRMP3_DEFAULT_SAMPLE_RATE
+#define DRMP3_DEFAULT_SAMPLE_RATE   44100
 #endif
+
+#ifndef DRMP3_MAX_FILTER_ORDER
+#define DRMP3_MAX_FILTER_ORDER      8
+#endif
+
+typedef enum
+{
+    drmp3_format_unknown = 0,
+    drmp3_format_s16,
+    drmp3_format_f32
+} drmp3_format;
+
+typedef union
+{
+    float       f32;
+    drmp3_int32 s32;
+} drmp3_biquad_coefficient;
+
+typedef struct
+{
+    drmp3_format format;
+    drmp3_uint32 channels;
+    drmp3_biquad_coefficient b0;
+    drmp3_biquad_coefficient b1;
+    drmp3_biquad_coefficient b2;
+    drmp3_biquad_coefficient a1;
+    drmp3_biquad_coefficient a2;
+    drmp3_biquad_coefficient r1[DRMP3_MAX_CHANNELS];
+    drmp3_biquad_coefficient r2[DRMP3_MAX_CHANNELS];
+} drmp3_biquad;
+
+typedef struct
+{
+    drmp3_format format;
+    drmp3_uint32 channels;
+    drmp3_biquad_coefficient a;
+    drmp3_biquad_coefficient r1[DRMP3_MAX_CHANNELS];
+} drmp3_lpf1;
+
+typedef struct
+{
+    drmp3_biquad bq;   /* The second order low-pass filter is implemented as a biquad filter. */
+} drmp3_lpf2;
+
+typedef struct
+{
+    drmp3_format format;
+    drmp3_uint32 channels;
+    drmp3_uint32 lpf1Count;
+    drmp3_uint32 lpf2Count;
+    drmp3_lpf1 lpf1[1];
+    drmp3_lpf2 lpf2[DRMP3_MAX_FILTER_ORDER/2];
+} drmp3_lpf;
+
+typedef struct
+{
+    drmp3_format format;
+    drmp3_uint32 channels;
+    drmp3_uint32 sampleRateIn;
+    drmp3_uint32 sampleRateOut;
+    drmp3_uint32 lpfOrder;          /* The low-pass filter order. Setting this to 0 will disable low-pass filtering. */
+    double       lpfNyquistFactor;  /* 0..1. Defaults to 1. 1 = Half the sampling frequency (Nyquist Frequency), 0.5 = Quarter the sampling frequency (half Nyquest Frequency), etc. */
+} drmp3_linear_resampler_config;
+
+typedef struct
+{
+    drmp3_linear_resampler_config config;
+    drmp3_uint32 inAdvanceInt;
+    drmp3_uint32 inAdvanceFrac;
+    drmp3_uint32 inTimeInt;
+    drmp3_uint32 inTimeFrac;
+    union
+    {
+        float       f32[DRMP3_MAX_CHANNELS];
+        drmp3_int16 s16[DRMP3_MAX_CHANNELS];
+    } x0; /* The previous input frame. */
+    union
+    {
+        float       f32[DRMP3_MAX_CHANNELS];
+        drmp3_int16 s16[DRMP3_MAX_CHANNELS];
+    } x1; /* The next input frame. */
+    drmp3_lpf lpf;
+} drmp3_linear_resampler;
+
+
 
 typedef struct drmp3_src drmp3_src;
 typedef drmp3_uint64 (* drmp3_src_read_proc)(drmp3_src* pSRC, drmp3_uint64 frameCount, void* pFramesOut, void* pUserData); /* Returns the number of frames that were read. */
@@ -366,6 +453,7 @@ typedef struct
     drmp3_uint8 pcmFrames[sizeof(float)*DRMP3_MAX_SAMPLES_PER_FRAME];  /* <-- Multipled by sizeof(float) to ensure there's enough room for DR_MP3_FLOAT_OUTPUT. */
     drmp3_uint64 currentPCMFrame;       /* The current PCM frame, globally, based on the output sample rate. Mainly used for seeking. */
     drmp3_uint64 streamCursor;          /* The current byte the decoder is sitting on in the raw stream. */
+    drmp3_linear_resampler resampler;
     drmp3_src src;
     drmp3_seek_point* pSeekPoints;      /* NULL by default. Set with drmp3_bind_seek_table(). Memory is owned by the client. dr_mp3 will never attempt to free this pointer. */
     drmp3_uint32 seekPointCount;        /* The number of items in pSeekPoints. When set to 0 assumes to no seek table. Defaults to zero. */
@@ -2336,6 +2424,7 @@ DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_sa
  Main Public API
 
  ************************************************************************************************************************************************************/
+#include <math.h>   /* For sin() and exp(). */
 
 #if defined(SIZE_MAX)
     #define DRMP3_SIZE_MAX  SIZE_MAX
@@ -2375,15 +2464,29 @@ DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, int num_sa
 #define DRMP3_FREE(p) free((p))
 #endif
 
-#define drmp3_countof(x)  (sizeof(x) / sizeof(x[0]))
-#define drmp3_max(x, y)   (((x) > (y)) ? (x) : (y))
-#define drmp3_min(x, y)   (((x) < (y)) ? (x) : (y))
+#define drmp3_countof(x)        (sizeof(x) / sizeof(x[0]))
+#define drmp3_max(x, y)         (((x) > (y)) ? (x) : (y))
+#define drmp3_min(x, y)         (((x) < (y)) ? (x) : (y))
+#define drmp3_clamp(x, lo, hi)  (drmp3_max(lo, drmp3_min(x, hi)))
 
 #define DRMP3_DATA_CHUNK_SIZE  16384    /* The size in bytes of each chunk of data to read from the MP3 stream. minimp3 recommends 16K. */
+
+#ifndef DRMP3_PI_D
+#define DRMP3_PI_D    3.14159265358979323846264
+#endif
+
+#define DRMP3_DEFAULT_RESAMPLER_LPF_ORDER   2
 
 static DRMP3_INLINE float drmp3_mix_f32(float x, float y, float a)
 {
     return x*(1-a) + y*a;
+}
+static DRMP3_INLINE float drmp3_mix_f32_fast(float x, float y, float a)
+{
+    float r0 = (y - x);
+    float r1 = r0*a;
+    return x + r1;
+    /*return x + (y - x)*a;*/
 }
 
 static void drmp3_blend_f32(float* pOut, float* pInA, float* pInB, float factor, drmp3_uint32 channels)
@@ -2392,6 +2495,42 @@ static void drmp3_blend_f32(float* pOut, float* pInA, float* pInB, float factor,
     for (i = 0; i < channels; ++i) {
         pOut[i] = drmp3_mix_f32(pInA[i], pInB[i], factor);
     }
+}
+
+/*
+Greatest common factor using Euclid's algorithm iteratively.
+*/
+static DRMP3_INLINE drmp3_uint32 drmp3_gcf_u32(drmp3_uint32 a, drmp3_uint32 b)
+{
+    for (;;) {
+        if (b == 0) {
+            break;
+        } else {
+            drmp3_uint32 t = a;
+            a = b;
+            b = t % a;
+        }
+    }
+
+    return a;
+}
+
+
+static DRMP3_INLINE double drmp3_sin(double x)
+{
+    /* TODO: Implement custom sin(x). */
+    return sin(x);
+}
+
+static DRMP3_INLINE double drmp3_exp(double x)
+{
+    /* TODO: Implement custom exp(x). */
+    return exp(x);
+}
+
+static DRMP3_INLINE double drmp3_cos(double x)
+{
+    return drmp3_sin((DRMP3_PI_D*0.5) - x);
 }
 
 
@@ -2491,6 +2630,1354 @@ static drmp3_allocation_callbacks drmp3_copy_allocation_callbacks_or_defaults(co
         return allocationCallbacks;
     }
 }
+
+
+
+#ifndef DRMP3_BIQUAD_FIXED_POINT_SHIFT
+#define DRMP3_BIQUAD_FIXED_POINT_SHIFT 14
+#endif
+
+typedef struct
+{
+    drmp3_format format;
+    drmp3_uint32 channels;
+    double b0;
+    double b1;
+    double b2;
+    double a0;
+    double a1;
+    double a2;
+} drmp3_biquad_config;
+
+static drmp3_int32 drmp3_biquad_float_to_fp(double x)
+{
+    return (drmp3_int32)(x * (1 << DRMP3_BIQUAD_FIXED_POINT_SHIFT));
+}
+
+static drmp3_biquad_config drmp3_biquad_config_init(drmp3_format format, drmp3_uint32 channels, double b0, double b1, double b2, double a0, double a1, double a2)
+{
+    drmp3_biquad_config config;
+
+    DRMP3_ZERO_OBJECT(&config);
+    config.format = format;
+    config.channels = channels;
+    config.b0 = b0;
+    config.b1 = b1;
+    config.b2 = b2;
+    config.a0 = a0;
+    config.a1 = a1;
+    config.a2 = a2;
+
+    return config;
+}
+
+static drmp3_result drmp3_biquad_reinit(const drmp3_biquad_config* pConfig, drmp3_biquad* pBQ)
+{
+    if (pBQ == NULL || pConfig == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    if (pConfig->a0 == 0) {
+        return DRMP3_INVALID_ARGS; /* Division by zero. */
+    }
+
+    /* Only supporting f32 and s16. */
+    if (pConfig->format != drmp3_format_f32 && pConfig->format != drmp3_format_s16) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    /* The format cannot be changed after initialization. */
+    if (pBQ->format != drmp3_format_unknown && pBQ->format != pConfig->format) {
+        return DRMP3_INVALID_OPERATION;
+    }
+
+    /* The channel count cannot be changed after initialization. */
+    if (pBQ->channels != 0 && pBQ->channels != pConfig->channels) {
+        return DRMP3_INVALID_OPERATION;
+    }
+
+
+    pBQ->format   = pConfig->format;
+    pBQ->channels = pConfig->channels;
+
+    /* Normalize. */
+    if (pConfig->format == drmp3_format_f32) {
+        pBQ->b0.f32 = (float)(pConfig->b0 / pConfig->a0);
+        pBQ->b1.f32 = (float)(pConfig->b1 / pConfig->a0);
+        pBQ->b2.f32 = (float)(pConfig->b2 / pConfig->a0);
+        pBQ->a1.f32 = (float)(pConfig->a1 / pConfig->a0);
+        pBQ->a2.f32 = (float)(pConfig->a2 / pConfig->a0);
+    } else {
+        pBQ->b0.s32 = drmp3_biquad_float_to_fp(pConfig->b0 / pConfig->a0);
+        pBQ->b1.s32 = drmp3_biquad_float_to_fp(pConfig->b1 / pConfig->a0);
+        pBQ->b2.s32 = drmp3_biquad_float_to_fp(pConfig->b2 / pConfig->a0);
+        pBQ->a1.s32 = drmp3_biquad_float_to_fp(pConfig->a1 / pConfig->a0);
+        pBQ->a2.s32 = drmp3_biquad_float_to_fp(pConfig->a2 / pConfig->a0);
+    }
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_result drmp3_biquad_init(const drmp3_biquad_config* pConfig, drmp3_biquad* pBQ)
+{
+    if (pBQ == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    DRMP3_ZERO_OBJECT(pBQ);
+
+    if (pConfig == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    return drmp3_biquad_reinit(pConfig, pBQ);
+}
+
+static DRMP3_INLINE void drmp3_biquad_process_pcm_frame_f32__direct_form_2_transposed(drmp3_biquad* pBQ, float* pY, const float* pX)
+{
+    drmp3_uint32 c;
+    const float b0 = pBQ->b0.f32;
+    const float b1 = pBQ->b1.f32;
+    const float b2 = pBQ->b2.f32;
+    const float a1 = pBQ->a1.f32;
+    const float a2 = pBQ->a2.f32;
+    
+    for (c = 0; c < pBQ->channels; c += 1) {
+        float r1 = pBQ->r1[c].f32;
+        float r2 = pBQ->r2[c].f32;
+        float x  = pX[c];
+        float y;
+
+        y  = b0*x        + r1;
+        r1 = b1*x - a1*y + r2;
+        r2 = b2*x - a2*y;
+
+        pY[c]          = y;
+        pBQ->r1[c].f32 = r1;
+        pBQ->r2[c].f32 = r2;
+    }
+}
+
+static DRMP3_INLINE void drmp3_biquad_process_pcm_frame_f32(drmp3_biquad* pBQ, float* pY, const float* pX)
+{
+    drmp3_biquad_process_pcm_frame_f32__direct_form_2_transposed(pBQ, pY, pX);
+}
+
+static DRMP3_INLINE void drmp3_biquad_process_pcm_frame_s16__direct_form_2_transposed(drmp3_biquad* pBQ, drmp3_int16* pY, const drmp3_int16* pX)
+{
+    drmp3_uint32 c;
+    const drmp3_int32 b0 = pBQ->b0.s32;
+    const drmp3_int32 b1 = pBQ->b1.s32;
+    const drmp3_int32 b2 = pBQ->b2.s32;
+    const drmp3_int32 a1 = pBQ->a1.s32;
+    const drmp3_int32 a2 = pBQ->a2.s32;
+    
+    for (c = 0; c < pBQ->channels; c += 1) {
+        drmp3_int32 r1 = pBQ->r1[c].s32;
+        drmp3_int32 r2 = pBQ->r2[c].s32;
+        drmp3_int32 x  = pX[c];
+        drmp3_int32 y;
+
+        y  = (b0*x        + r1) >> DRMP3_BIQUAD_FIXED_POINT_SHIFT;
+        r1 = (b1*x - a1*y + r2);
+        r2 = (b2*x - a2*y);
+
+        pY[c]          = (drmp3_int16)drmp3_clamp(y, -32768, 32767);
+        pBQ->r1[c].s32 = r1;
+        pBQ->r2[c].s32 = r2;
+    }
+}
+
+static DRMP3_INLINE void drmp3_biquad_process_pcm_frame_s16(drmp3_biquad* pBQ, drmp3_int16* pY, const drmp3_int16* pX)
+{
+    drmp3_biquad_process_pcm_frame_s16__direct_form_2_transposed(pBQ, pY, pX);
+}
+
+static drmp3_result drmp3_biquad_process_pcm_frames(drmp3_biquad* pBQ, void* pFramesOut, const void* pFramesIn, drmp3_uint64 frameCount)
+{
+    drmp3_uint32 n;
+
+    if (pBQ == NULL || pFramesOut == NULL || pFramesIn == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    /* Note that the logic below needs to support in-place filtering. That is, it must support the case where pFramesOut and pFramesIn are the same. */
+
+    if (pBQ->format == drmp3_format_f32) {
+        /* */ float* pY = (      float*)pFramesOut;
+        const float* pX = (const float*)pFramesIn;
+
+        for (n = 0; n < frameCount; n += 1) {
+            drmp3_biquad_process_pcm_frame_f32__direct_form_2_transposed(pBQ, pY, pX);
+            pY += pBQ->channels;
+            pX += pBQ->channels;
+        }
+    } else if (pBQ->format == drmp3_format_s16) {
+        /* */ drmp3_int16* pY = (      drmp3_int16*)pFramesOut;
+        const drmp3_int16* pX = (const drmp3_int16*)pFramesIn;
+
+        for (n = 0; n < frameCount; n += 1) {
+            drmp3_biquad_process_pcm_frame_s16__direct_form_2_transposed(pBQ, pY, pX);
+            pY += pBQ->channels;
+            pX += pBQ->channels;
+        }
+    } else {
+        DRMP3_ASSERT(DRMP3_FALSE);
+        return DRMP3_INVALID_ARGS; /* Format not supported. Should never hit this because it's checked in drmp3_biquad_init() and drmp3_biquad_reinit(). */
+    }
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_uint32 drmp3_biquad_get_latency(drmp3_biquad* pBQ)
+{
+    if (pBQ == NULL) {
+        return 0;
+    }
+
+    return 2;
+}
+
+
+
+typedef struct
+{
+    drmp3_format format;
+    drmp3_uint32 channels;
+    drmp3_uint32 sampleRate;
+    double cutoffFrequency;
+    double q;
+} drmp3_lpf1_config, drmp3_lpf2_config;
+
+typedef struct
+{
+    drmp3_format format;
+    drmp3_uint32 channels;
+    drmp3_uint32 sampleRate;
+    double cutoffFrequency;
+    drmp3_uint32 order;    /* If set to 0, will be treated as a passthrough (no filtering will be applied). */
+} drmp3_lpf_config;
+
+static drmp3_lpf1_config drmp3_lpf1_config_init(drmp3_format format, drmp3_uint32 channels, drmp3_uint32 sampleRate, double cutoffFrequency)
+{
+    drmp3_lpf1_config config;
+    
+    DRMP3_ZERO_OBJECT(&config);
+    config.format = format;
+    config.channels = channels;
+    config.sampleRate = sampleRate;
+    config.cutoffFrequency = cutoffFrequency;
+    config.q = 0.5;
+
+    return config;
+}
+
+static drmp3_lpf2_config drmp3_lpf2_config_init(drmp3_format format, drmp3_uint32 channels, drmp3_uint32 sampleRate, double cutoffFrequency, double q)
+{
+    drmp3_lpf2_config config;
+    
+    DRMP3_ZERO_OBJECT(&config);
+    config.format = format;
+    config.channels = channels;
+    config.sampleRate = sampleRate;
+    config.cutoffFrequency = cutoffFrequency;
+    config.q = q;
+
+    /* Q cannot be 0 or else it'll result in a division by 0. In this case just default to 0.707107. */
+    if (config.q == 0) {
+        config.q = 0.707107;
+    }
+
+    return config;
+}
+
+
+static drmp3_result drmp3_lpf1_reinit(const drmp3_lpf1_config* pConfig, drmp3_lpf1* pLPF)
+{
+    double a;
+
+    if (pLPF == NULL || pConfig == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    /* Only supporting f32 and s16. */
+    if (pConfig->format != drmp3_format_f32 && pConfig->format != drmp3_format_s16) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    /* The format cannot be changed after initialization. */
+    if (pLPF->format != drmp3_format_unknown && pLPF->format != pConfig->format) {
+        return DRMP3_INVALID_OPERATION;
+    }
+
+    /* The channel count cannot be changed after initialization. */
+    if (pLPF->channels != 0 && pLPF->channels != pConfig->channels) {
+        return DRMP3_INVALID_OPERATION;
+    }
+
+    pLPF->format   = pConfig->format;
+    pLPF->channels = pConfig->channels;
+
+    a = drmp3_exp(-2 * DRMP3_PI_D * pConfig->cutoffFrequency / pConfig->sampleRate);
+    if (pConfig->format == drmp3_format_f32) {
+        pLPF->a.f32 = (float)a;
+    } else {
+        pLPF->a.s32 = drmp3_biquad_float_to_fp(a);
+    }
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_result drmp3_lpf1_init(const drmp3_lpf1_config* pConfig, drmp3_lpf1* pLPF)
+{
+    if (pLPF == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    DRMP3_ZERO_OBJECT(pLPF);
+
+    if (pConfig == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    return drmp3_lpf1_reinit(pConfig, pLPF);
+}
+
+static DRMP3_INLINE void drmp3_lpf1_process_pcm_frame_f32(drmp3_lpf1* pLPF, float* pY, const float* pX)
+{
+    drmp3_uint32 c;
+    const float a = pLPF->a.f32;
+    const float b = 1 - a;
+    
+    for (c = 0; c < pLPF->channels; c += 1) {
+        float r1 = pLPF->r1[c].f32;
+        float x  = pX[c];
+        float y;
+
+        y = b*x + a*r1;
+
+        pY[c]           = y;
+        pLPF->r1[c].f32 = y;
+    }
+}
+
+static DRMP3_INLINE void drmp3_lpf1_process_pcm_frame_s16(drmp3_lpf1* pLPF, drmp3_int16* pY, const drmp3_int16* pX)
+{
+    drmp3_uint32 c;
+    const drmp3_int32 a = pLPF->a.s32;
+    const drmp3_int32 b = ((1 << DRMP3_BIQUAD_FIXED_POINT_SHIFT) - a);
+    
+    for (c = 0; c < pLPF->channels; c += 1) {
+        drmp3_int32 r1 = pLPF->r1[c].s32;
+        drmp3_int32 x  = pX[c];
+        drmp3_int32 y;
+
+        y = (b*x + a*r1) >> DRMP3_BIQUAD_FIXED_POINT_SHIFT;
+
+        pY[c]           = (drmp3_int16)y;
+        pLPF->r1[c].s32 = (drmp3_int32)y;
+    }
+}
+
+static drmp3_result drmp3_lpf1_process_pcm_frames(drmp3_lpf1* pLPF, void* pFramesOut, const void* pFramesIn, drmp3_uint64 frameCount)
+{
+    drmp3_uint32 n;
+
+    if (pLPF == NULL || pFramesOut == NULL || pFramesIn == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    /* Note that the logic below needs to support in-place filtering. That is, it must support the case where pFramesOut and pFramesIn are the same. */
+
+    if (pLPF->format == drmp3_format_f32) {
+        /* */ float* pY = (      float*)pFramesOut;
+        const float* pX = (const float*)pFramesIn;
+
+        for (n = 0; n < frameCount; n += 1) {
+            drmp3_lpf1_process_pcm_frame_f32(pLPF, pY, pX);
+            pY += pLPF->channels;
+            pX += pLPF->channels;
+        }
+    } else if (pLPF->format == drmp3_format_s16) {
+        /* */ drmp3_int16* pY = (      drmp3_int16*)pFramesOut;
+        const drmp3_int16* pX = (const drmp3_int16*)pFramesIn;
+
+        for (n = 0; n < frameCount; n += 1) {
+            drmp3_lpf1_process_pcm_frame_s16(pLPF, pY, pX);
+            pY += pLPF->channels;
+            pX += pLPF->channels;
+        }
+    } else {
+        DRMP3_ASSERT(DRMP3_FALSE);
+        return DRMP3_INVALID_ARGS; /* Format not supported. Should never hit this because it's checked in drmp3_biquad_init() and drmp3_biquad_reinit(). */
+    }
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_uint32 drmp3_lpf1_get_latency(drmp3_lpf1* pLPF)
+{
+    if (pLPF == NULL) {
+        return 0;
+    }
+
+    return 1;
+}
+
+
+static DRMP3_INLINE drmp3_biquad_config drmp3_lpf2__get_biquad_config(const drmp3_lpf2_config* pConfig)
+{
+    drmp3_biquad_config bqConfig;
+    double q;
+    double w;
+    double s;
+    double c;
+    double a;
+
+    DRMP3_ASSERT(pConfig != NULL);
+
+    q = pConfig->q;
+    w = 2 * DRMP3_PI_D * pConfig->cutoffFrequency / pConfig->sampleRate;
+    s = drmp3_sin(w);
+    c = drmp3_cos(w);
+    a = s / (2*q);
+
+    bqConfig.b0 = (1 - c) / 2;
+    bqConfig.b1 =  1 - c;
+    bqConfig.b2 = (1 - c) / 2;
+    bqConfig.a0 =  1 + a;
+    bqConfig.a1 = -2 * c;
+    bqConfig.a2 =  1 - a;
+
+    bqConfig.format   = pConfig->format;
+    bqConfig.channels = pConfig->channels;
+
+    return bqConfig;
+}
+
+static drmp3_result drmp3_lpf2_init(const drmp3_lpf2_config* pConfig, drmp3_lpf2* pLPF)
+{
+    drmp3_result result;
+    drmp3_biquad_config bqConfig;
+
+    if (pLPF == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    DRMP3_ZERO_OBJECT(pLPF);
+
+    if (pConfig == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    bqConfig = drmp3_lpf2__get_biquad_config(pConfig);
+    result = drmp3_biquad_init(&bqConfig, &pLPF->bq);
+    if (result != DRMP3_SUCCESS) {
+        return result;
+    }
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_result drmp3_lpf2_reinit(const drmp3_lpf2_config* pConfig, drmp3_lpf2* pLPF)
+{
+    drmp3_result result;
+    drmp3_biquad_config bqConfig;
+
+    if (pLPF == NULL || pConfig == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    bqConfig = drmp3_lpf2__get_biquad_config(pConfig);
+    result = drmp3_biquad_reinit(&bqConfig, &pLPF->bq);
+    if (result != DRMP3_SUCCESS) {
+        return result;
+    }
+
+    return DRMP3_SUCCESS;
+}
+
+static DRMP3_INLINE void drmp3_lpf2_process_pcm_frame_s16(drmp3_lpf2* pLPF, drmp3_int16* pFrameOut, const drmp3_int16* pFrameIn)
+{
+    drmp3_biquad_process_pcm_frame_s16(&pLPF->bq, pFrameOut, pFrameIn);
+}
+
+static DRMP3_INLINE void drmp3_lpf2_process_pcm_frame_f32(drmp3_lpf2* pLPF, float* pFrameOut, const float* pFrameIn)
+{
+    drmp3_biquad_process_pcm_frame_f32(&pLPF->bq, pFrameOut, pFrameIn);
+}
+
+static drmp3_result drmp3_lpf2_process_pcm_frames(drmp3_lpf2* pLPF, void* pFramesOut, const void* pFramesIn, drmp3_uint64 frameCount)
+{
+    if (pLPF == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    return drmp3_biquad_process_pcm_frames(&pLPF->bq, pFramesOut, pFramesIn, frameCount);
+}
+
+static drmp3_uint32 drmp3_lpf2_get_latency(drmp3_lpf2* pLPF)
+{
+    if (pLPF == NULL) {
+        return 0;
+    }
+
+    return drmp3_biquad_get_latency(&pLPF->bq);
+}
+
+
+static drmp3_lpf_config drmp3_lpf_config_init(drmp3_format format, drmp3_uint32 channels, drmp3_uint32 sampleRate, double cutoffFrequency, drmp3_uint32 order)
+{
+    drmp3_lpf_config config;
+
+    DRMP3_ZERO_OBJECT(&config);
+    config.format          = format;
+    config.channels        = channels;
+    config.sampleRate      = sampleRate;
+    config.cutoffFrequency = cutoffFrequency;
+    config.order           = drmp3_min(order, DRMP3_MAX_FILTER_ORDER);
+
+    return config;
+}
+
+static drmp3_result drmp3_lpf_reinit__internal(const drmp3_lpf_config* pConfig, drmp3_lpf* pLPF, drmp3_bool32 isNew)
+{
+    drmp3_result result;
+    drmp3_uint32 lpf1Count;
+    drmp3_uint32 lpf2Count;
+    drmp3_uint32 ilpf1;
+    drmp3_uint32 ilpf2;
+
+    if (pLPF == NULL || pConfig == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    /* Only supporting f32 and s16. */
+    if (pConfig->format != drmp3_format_f32 && pConfig->format != drmp3_format_s16) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    /* The format cannot be changed after initialization. */
+    if (pLPF->format != drmp3_format_unknown && pLPF->format != pConfig->format) {
+        return DRMP3_INVALID_OPERATION;
+    }
+
+    /* The channel count cannot be changed after initialization. */
+    if (pLPF->channels != 0 && pLPF->channels != pConfig->channels) {
+        return DRMP3_INVALID_OPERATION;
+    }
+
+    if (pConfig->order > DRMP3_MAX_FILTER_ORDER) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    lpf1Count = pConfig->order % 2;
+    lpf2Count = pConfig->order / 2;
+
+    DRMP3_ASSERT(lpf1Count <= drmp3_countof(pLPF->lpf1));
+    DRMP3_ASSERT(lpf2Count <= drmp3_countof(pLPF->lpf2));
+
+    /* The filter order can't change between reinits. */
+    if (!isNew) {
+        if (pLPF->lpf1Count != lpf1Count || pLPF->lpf2Count != lpf2Count) {
+            return DRMP3_INVALID_OPERATION;
+        }
+    }
+
+    for (ilpf1 = 0; ilpf1 < lpf1Count; ilpf1 += 1) {
+        drmp3_lpf1_config lpf1Config = drmp3_lpf1_config_init(pConfig->format, pConfig->channels, pConfig->sampleRate, pConfig->cutoffFrequency);
+
+        if (isNew) {
+            result = drmp3_lpf1_init(&lpf1Config, &pLPF->lpf1[ilpf1]);
+        } else {
+            result = drmp3_lpf1_reinit(&lpf1Config, &pLPF->lpf1[ilpf1]);
+        }
+
+        if (result != DRMP3_SUCCESS) {
+            return result;
+        }
+    }
+
+    for (ilpf2 = 0; ilpf2 < lpf2Count; ilpf2 += 1) {
+        drmp3_lpf2_config lpf2Config;
+        double q;
+        double a;
+
+        /* Tempting to use 0.707107, but won't result in a Butterworth filter if the order is > 2. */
+        if (lpf1Count == 1) {
+            a = (1 + ilpf2*1) * (DRMP3_PI_D/(pConfig->order*1));   /* Odd order. */
+        } else {
+            a = (1 + ilpf2*2) * (DRMP3_PI_D/(pConfig->order*2));   /* Even order. */
+        }
+        q = 1 / (2*drmp3_cos(a));
+
+        lpf2Config = drmp3_lpf2_config_init(pConfig->format, pConfig->channels, pConfig->sampleRate, pConfig->cutoffFrequency, q);
+
+        if (isNew) {
+            result = drmp3_lpf2_init(&lpf2Config, &pLPF->lpf2[ilpf2]);
+        } else {
+            result = drmp3_lpf2_reinit(&lpf2Config, &pLPF->lpf2[ilpf2]);
+        }
+
+        if (result != DRMP3_SUCCESS) {
+            return result;
+        }
+    }
+
+    pLPF->lpf1Count = lpf1Count;
+    pLPF->lpf2Count = lpf2Count;
+    pLPF->format    = pConfig->format;
+    pLPF->channels  = pConfig->channels;
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_result drmp3_lpf_init(const drmp3_lpf_config* pConfig, drmp3_lpf* pLPF)
+{
+    if (pLPF == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    DRMP3_ZERO_OBJECT(pLPF);
+
+    if (pConfig == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    return drmp3_lpf_reinit__internal(pConfig, pLPF, /*isNew*/DRMP3_TRUE);
+}
+
+static drmp3_result drmp3_lpf_reinit(const drmp3_lpf_config* pConfig, drmp3_lpf* pLPF)
+{
+    return drmp3_lpf_reinit__internal(pConfig, pLPF, /*isNew*/DRMP3_FALSE);
+}
+
+static DRMP3_INLINE void drmp3_lpf_process_pcm_frame_f32(drmp3_lpf* pLPF, float* pY, const void* pX)
+{
+    drmp3_uint32 ilpf1;
+    drmp3_uint32 ilpf2;
+
+    DRMP3_ASSERT(pLPF->format == drmp3_format_f32);
+
+    DRMP3_COPY_MEMORY(pY, pX, sizeof(float) * pLPF->channels);
+
+    for (ilpf1 = 0; ilpf1 < pLPF->lpf1Count; ilpf1 += 1) {
+        drmp3_lpf1_process_pcm_frame_f32(&pLPF->lpf1[ilpf1], pY, pY);
+    }
+
+    for (ilpf2 = 0; ilpf2 < pLPF->lpf2Count; ilpf2 += 1) {
+        drmp3_lpf2_process_pcm_frame_f32(&pLPF->lpf2[ilpf2], pY, pY);
+    }
+}
+
+static DRMP3_INLINE void drmp3_lpf_process_pcm_frame_s16(drmp3_lpf* pLPF, drmp3_int16* pY, const drmp3_int16* pX)
+{
+    drmp3_uint32 ilpf1;
+    drmp3_uint32 ilpf2;
+
+    DRMP3_ASSERT(pLPF->format == drmp3_format_s16);
+
+    DRMP3_COPY_MEMORY(pY, pX, sizeof(drmp3_int16) * pLPF->channels);
+
+    for (ilpf1 = 0; ilpf1 < pLPF->lpf1Count; ilpf1 += 1) {
+        drmp3_lpf1_process_pcm_frame_s16(&pLPF->lpf1[ilpf1], pY, pY);
+    }
+
+    for (ilpf2 = 0; ilpf2 < pLPF->lpf2Count; ilpf2 += 1) {
+        drmp3_lpf2_process_pcm_frame_s16(&pLPF->lpf2[ilpf2], pY, pY);
+    }
+}
+
+static drmp3_result drmp3_lpf_process_pcm_frames(drmp3_lpf* pLPF, void* pFramesOut, const void* pFramesIn, drmp3_uint64 frameCount)
+{
+    drmp3_result result;
+    drmp3_uint32 ilpf1;
+    drmp3_uint32 ilpf2;
+
+    if (pLPF == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    /* Faster path for in-place. */
+    if (pFramesOut == pFramesIn) {
+        for (ilpf1 = 0; ilpf1 < pLPF->lpf1Count; ilpf1 += 1) {
+            result = drmp3_lpf1_process_pcm_frames(&pLPF->lpf1[ilpf1], pFramesOut, pFramesOut, frameCount);
+            if (result != DRMP3_SUCCESS) {
+                return result;
+            }
+        }
+
+        for (ilpf2 = 0; ilpf2 < pLPF->lpf2Count; ilpf2 += 1) {
+            result = drmp3_lpf2_process_pcm_frames(&pLPF->lpf2[ilpf2], pFramesOut, pFramesOut, frameCount);
+            if (result != DRMP3_SUCCESS) {
+                return result;
+            }
+        }
+    }
+
+    /* Slightly slower path for copying. */
+    if (pFramesOut != pFramesIn) {
+        drmp3_uint32 iFrame;
+
+        /*  */ if (pLPF->format == drmp3_format_f32) {
+            /* */ float* pFramesOutF32 = (      float*)pFramesOut;
+            const float* pFramesInF32  = (const float*)pFramesIn;
+
+            for (iFrame = 0; iFrame < frameCount; iFrame += 1) {
+                drmp3_lpf_process_pcm_frame_f32(pLPF, pFramesOutF32, pFramesInF32);
+                pFramesOutF32 += pLPF->channels;
+                pFramesInF32  += pLPF->channels;
+            }
+        } else if (pLPF->format == drmp3_format_s16) {
+            /* */ drmp3_int16* pFramesOutS16 = (      drmp3_int16*)pFramesOut;
+            const drmp3_int16* pFramesInS16  = (const drmp3_int16*)pFramesIn;
+
+            for (iFrame = 0; iFrame < frameCount; iFrame += 1) {
+                drmp3_lpf_process_pcm_frame_s16(pLPF, pFramesOutS16, pFramesInS16);
+                pFramesOutS16 += pLPF->channels;
+                pFramesInS16  += pLPF->channels;
+            }
+        } else {
+            DRMP3_ASSERT(DRMP3_FALSE);
+            return DRMP3_INVALID_OPERATION;    /* Should never hit this. */
+        }
+    }
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_uint32 drmp3_lpf_get_latency(drmp3_lpf* pLPF)
+{
+    if (pLPF == NULL) {
+        return 0;
+    }
+
+    return pLPF->lpf2Count*2 + pLPF->lpf1Count;
+}
+
+
+static drmp3_linear_resampler_config drmp3_linear_resampler_config_init(drmp3_format format, drmp3_uint32 channels, drmp3_uint32 sampleRateIn, drmp3_uint32 sampleRateOut)
+{
+    drmp3_linear_resampler_config config;
+    DRMP3_ZERO_OBJECT(&config);
+    config.format           = format;
+    config.channels         = channels;
+    config.sampleRateIn     = sampleRateIn;
+    config.sampleRateOut    = sampleRateOut;
+    config.lpfOrder         = drmp3_min(DRMP3_DEFAULT_RESAMPLER_LPF_ORDER, DRMP3_MAX_FILTER_ORDER);
+    config.lpfNyquistFactor = 1;
+
+    return config;
+}
+
+static drmp3_result drmp3_linear_resampler_set_rate_internal(drmp3_linear_resampler* pResampler, drmp3_uint32 sampleRateIn, drmp3_uint32 sampleRateOut, drmp3_bool32 isResamplerAlreadyInitialized)
+{
+    drmp3_uint32 gcf;
+
+    if (pResampler == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    if (sampleRateIn == 0 || sampleRateOut == 0) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    pResampler->config.sampleRateIn  = sampleRateIn;
+    pResampler->config.sampleRateOut = sampleRateOut;
+
+    /* Simplify the sample rate. */
+    gcf = drmp3_gcf_u32(pResampler->config.sampleRateIn, pResampler->config.sampleRateOut);
+    pResampler->config.sampleRateIn  /= gcf;
+    pResampler->config.sampleRateOut /= gcf;
+
+    if (pResampler->config.lpfOrder > 0) {
+        drmp3_result result;
+        drmp3_uint32 lpfSampleRate;
+        double lpfCutoffFrequency;
+        drmp3_lpf_config lpfConfig;
+
+        if (pResampler->config.lpfOrder > DRMP3_MAX_FILTER_ORDER) {
+            return DRMP3_INVALID_ARGS;
+        }
+
+        lpfSampleRate      = (drmp3_uint32)(drmp3_max(pResampler->config.sampleRateIn, pResampler->config.sampleRateOut));
+        lpfCutoffFrequency = (   double)(drmp3_min(pResampler->config.sampleRateIn, pResampler->config.sampleRateOut) * 0.5 * pResampler->config.lpfNyquistFactor);
+
+        lpfConfig = drmp3_lpf_config_init(pResampler->config.format, pResampler->config.channels, lpfSampleRate, lpfCutoffFrequency, pResampler->config.lpfOrder);
+
+        /*
+        If the resampler is alreay initialized we don't want to do a fresh initialization of the low-pass filter because it will result in the cached frames
+        getting cleared. Instead we re-initialize the filter which will maintain any cached frames.
+        */
+        if (isResamplerAlreadyInitialized) {
+            result = drmp3_lpf_reinit(&lpfConfig, &pResampler->lpf);
+        } else {
+            result = drmp3_lpf_init(&lpfConfig, &pResampler->lpf);
+        }
+
+        if (result != DRMP3_SUCCESS) {
+            return result;
+        }
+    }
+
+    pResampler->inAdvanceInt  = pResampler->config.sampleRateIn / pResampler->config.sampleRateOut;
+    pResampler->inAdvanceFrac = pResampler->config.sampleRateIn % pResampler->config.sampleRateOut;
+
+    /* Make sure the fractional part is less than the output sample rate. */
+    pResampler->inTimeInt += pResampler->inTimeFrac / pResampler->config.sampleRateOut;
+    pResampler->inTimeFrac = pResampler->inTimeFrac % pResampler->config.sampleRateOut;
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_result drmp3_linear_resampler_init(const drmp3_linear_resampler_config* pConfig, drmp3_linear_resampler* pResampler)
+{
+    drmp3_result result;
+
+    if (pResampler == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    DRMP3_ZERO_OBJECT(pResampler);
+
+    if (pConfig == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    pResampler->config = *pConfig;
+
+    /* Setting the rate will set up the filter and time advances for us. */
+    result = drmp3_linear_resampler_set_rate_internal(pResampler, pConfig->sampleRateIn, pConfig->sampleRateOut, /* isResamplerAlreadyInitialized = */ DRMP3_FALSE);
+    if (result != DRMP3_SUCCESS) {
+        return result;
+    }
+
+    pResampler->inTimeInt  = 1;  /* Set this to one to force an input sample to always be loaded for the first output frame. */
+    pResampler->inTimeFrac = 0;
+
+    return DRMP3_SUCCESS;
+}
+
+static void drmp3_linear_resampler_uninit(drmp3_linear_resampler* pResampler)
+{
+    if (pResampler == NULL) {
+        return;
+    }
+}
+
+static DRMP3_INLINE drmp3_int16 drmp3_linear_resampler_mix_s16(drmp3_int16 x, drmp3_int16 y, drmp3_int32 a, const drmp3_int32 shift)
+{
+    drmp3_int32 b;
+    drmp3_int32 c;
+    drmp3_int32 r;
+
+    DRMP3_ASSERT(a <= (1<<shift));
+
+    b = x * ((1<<shift) - a);
+    c = y * a;
+    r = b + c;
+    
+    return (drmp3_int16)(r >> shift);
+}
+
+static void drmp3_linear_resampler_interpolate_frame_s16(drmp3_linear_resampler* pResampler, drmp3_int16* pFrameOut)
+{
+    drmp3_uint32 c;
+    drmp3_uint32 a;
+    const drmp3_uint32 shift = 12;
+
+    DRMP3_ASSERT(pResampler != NULL);
+    DRMP3_ASSERT(pFrameOut  != NULL);
+
+    a = (pResampler->inTimeFrac << shift) / pResampler->config.sampleRateOut;
+
+    for (c = 0; c < pResampler->config.channels; c += 1) {
+        drmp3_int16 s = drmp3_linear_resampler_mix_s16(pResampler->x0.s16[c], pResampler->x1.s16[c], a, shift);
+        pFrameOut[c] = s;
+    }
+}
+
+
+static void drmp3_linear_resampler_interpolate_frame_f32(drmp3_linear_resampler* pResampler, float* pFrameOut)
+{
+    drmp3_uint32 c;
+    float a;
+
+    DRMP3_ASSERT(pResampler != NULL);
+    DRMP3_ASSERT(pFrameOut  != NULL);
+
+    a = (float)pResampler->inTimeFrac / pResampler->config.sampleRateOut;
+
+    for (c = 0; c < pResampler->config.channels; c += 1) {
+        float s = drmp3_mix_f32_fast(pResampler->x0.f32[c], pResampler->x1.f32[c], a);
+        pFrameOut[c] = s;
+    }
+}
+
+static drmp3_result drmp3_linear_resampler_process_pcm_frames_s16_downsample(drmp3_linear_resampler* pResampler, const void* pFramesIn, drmp3_uint64* pFrameCountIn, void* pFramesOut, drmp3_uint64* pFrameCountOut)
+{
+    const drmp3_int16* pFramesInS16;
+    /* */ drmp3_int16* pFramesOutS16;
+    drmp3_uint64 frameCountIn;
+    drmp3_uint64 frameCountOut;
+    drmp3_uint64 framesProcessedIn;
+    drmp3_uint64 framesProcessedOut;
+
+    DRMP3_ASSERT(pResampler     != NULL);
+    DRMP3_ASSERT(pFrameCountIn  != NULL);
+    DRMP3_ASSERT(pFrameCountOut != NULL);
+
+    pFramesInS16       = (const drmp3_int16*)pFramesIn;
+    pFramesOutS16      = (      drmp3_int16*)pFramesOut;
+    frameCountIn       = *pFrameCountIn;
+    frameCountOut      = *pFrameCountOut;
+    framesProcessedIn  = 0;
+    framesProcessedOut = 0;
+
+    for (;;) {
+        if (framesProcessedOut >= frameCountOut) {
+            break;
+        }
+
+        /* Before interpolating we need to load the buffers. When doing this we need to ensure we run every input sample through the filter. */
+        while (pResampler->inTimeInt > 0 && frameCountIn > 0) {
+            drmp3_uint32 iChannel;
+
+            if (pFramesInS16 != NULL) {
+                for (iChannel = 0; iChannel < pResampler->config.channels; iChannel += 1) {
+                    pResampler->x0.s16[iChannel] = pResampler->x1.s16[iChannel];
+                    pResampler->x1.s16[iChannel] = pFramesInS16[iChannel];
+                }
+                pFramesInS16 += pResampler->config.channels;
+            } else {
+                for (iChannel = 0; iChannel < pResampler->config.channels; iChannel += 1) {
+                    pResampler->x0.s16[iChannel] = pResampler->x1.s16[iChannel];
+                    pResampler->x1.s16[iChannel] = 0;
+                }
+            }
+
+            /* Filter. */
+            drmp3_lpf_process_pcm_frame_s16(&pResampler->lpf, pResampler->x1.s16, pResampler->x1.s16);
+
+            frameCountIn          -= 1;
+            framesProcessedIn     += 1;
+            pResampler->inTimeInt -= 1;
+        }
+
+        if (pResampler->inTimeInt > 0) {
+            break;  /* Ran out of input data. */
+        }
+
+        /* Getting here means the frames have been loaded and filtered and we can generate the next output frame. */
+        if (pFramesOutS16 != NULL) {
+            DRMP3_ASSERT(pResampler->inTimeInt == 0);
+            drmp3_linear_resampler_interpolate_frame_s16(pResampler, pFramesOutS16);
+
+            pFramesOutS16 += pResampler->config.channels;
+        }
+
+        framesProcessedOut += 1;
+
+        /* Advance time forward. */
+        pResampler->inTimeInt  += pResampler->inAdvanceInt;
+        pResampler->inTimeFrac += pResampler->inAdvanceFrac;
+        if (pResampler->inTimeFrac >= pResampler->config.sampleRateOut) {
+            pResampler->inTimeFrac -= pResampler->config.sampleRateOut;
+            pResampler->inTimeInt  += 1;
+        }
+    }
+
+    *pFrameCountIn  = framesProcessedIn;
+    *pFrameCountOut = framesProcessedOut;
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_result drmp3_linear_resampler_process_pcm_frames_s16_upsample(drmp3_linear_resampler* pResampler, const void* pFramesIn, drmp3_uint64* pFrameCountIn, void* pFramesOut, drmp3_uint64* pFrameCountOut)
+{
+    const drmp3_int16* pFramesInS16;
+    /* */ drmp3_int16* pFramesOutS16;
+    drmp3_uint64 frameCountIn;
+    drmp3_uint64 frameCountOut;
+    drmp3_uint64 framesProcessedIn;
+    drmp3_uint64 framesProcessedOut;
+
+    DRMP3_ASSERT(pResampler     != NULL);
+    DRMP3_ASSERT(pFrameCountIn  != NULL);
+    DRMP3_ASSERT(pFrameCountOut != NULL);
+
+    pFramesInS16       = (const drmp3_int16*)pFramesIn;
+    pFramesOutS16      = (      drmp3_int16*)pFramesOut;
+    frameCountIn       = *pFrameCountIn;
+    frameCountOut      = *pFrameCountOut;
+    framesProcessedIn  = 0;
+    framesProcessedOut = 0;
+
+    for (;;) {
+        if (framesProcessedOut >= frameCountOut) {
+            break;
+        }
+
+        /* Before interpolating we need to load the buffers. */
+        while (pResampler->inTimeInt > 0 && frameCountIn > 0) {
+            drmp3_uint32 iChannel;
+
+            if (pFramesInS16 != NULL) {
+                for (iChannel = 0; iChannel < pResampler->config.channels; iChannel += 1) {
+                    pResampler->x0.s16[iChannel] = pResampler->x1.s16[iChannel];
+                    pResampler->x1.s16[iChannel] = pFramesInS16[iChannel];
+                }
+                pFramesInS16 += pResampler->config.channels;
+            } else {
+                for (iChannel = 0; iChannel < pResampler->config.channels; iChannel += 1) {
+                    pResampler->x0.s16[iChannel] = pResampler->x1.s16[iChannel];
+                    pResampler->x1.s16[iChannel] = 0;
+                }
+            }
+
+            frameCountIn          -= 1;
+            framesProcessedIn     += 1;
+            pResampler->inTimeInt -= 1;
+        }
+
+        if (pResampler->inTimeInt > 0) {
+            break;  /* Ran out of input data. */
+        }
+
+        /* Getting here means the frames have been loaded and we can generate the next output frame. */
+        if (pFramesOutS16 != NULL) {
+            DRMP3_ASSERT(pResampler->inTimeInt == 0);
+            drmp3_linear_resampler_interpolate_frame_s16(pResampler, pFramesOutS16);
+
+            /* Filter. */
+            drmp3_lpf_process_pcm_frame_s16(&pResampler->lpf, pFramesOutS16, pFramesOutS16);
+
+            pFramesOutS16 += pResampler->config.channels;
+        }
+
+        framesProcessedOut += 1;
+
+        /* Advance time forward. */
+        pResampler->inTimeInt  += pResampler->inAdvanceInt;
+        pResampler->inTimeFrac += pResampler->inAdvanceFrac;
+        if (pResampler->inTimeFrac >= pResampler->config.sampleRateOut) {
+            pResampler->inTimeFrac -= pResampler->config.sampleRateOut;
+            pResampler->inTimeInt  += 1;
+        }
+    }
+
+    *pFrameCountIn  = framesProcessedIn;
+    *pFrameCountOut = framesProcessedOut;
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_result drmp3_linear_resampler_process_pcm_frames_s16(drmp3_linear_resampler* pResampler, const void* pFramesIn, drmp3_uint64* pFrameCountIn, void* pFramesOut, drmp3_uint64* pFrameCountOut)
+{
+    DRMP3_ASSERT(pResampler != NULL);
+
+    if (pResampler->config.sampleRateIn > pResampler->config.sampleRateOut) {
+        return drmp3_linear_resampler_process_pcm_frames_s16_downsample(pResampler, pFramesIn, pFrameCountIn, pFramesOut, pFrameCountOut);
+    } else {
+        return drmp3_linear_resampler_process_pcm_frames_s16_upsample(pResampler, pFramesIn, pFrameCountIn, pFramesOut, pFrameCountOut);
+    }
+}
+
+
+static drmp3_result drmp3_linear_resampler_process_pcm_frames_f32_downsample(drmp3_linear_resampler* pResampler, const void* pFramesIn, drmp3_uint64* pFrameCountIn, void* pFramesOut, drmp3_uint64* pFrameCountOut)
+{
+    const float* pFramesInF32;
+    /* */ float* pFramesOutF32;
+    drmp3_uint64 frameCountIn;
+    drmp3_uint64 frameCountOut;
+    drmp3_uint64 framesProcessedIn;
+    drmp3_uint64 framesProcessedOut;
+
+    DRMP3_ASSERT(pResampler     != NULL);
+    DRMP3_ASSERT(pFrameCountIn  != NULL);
+    DRMP3_ASSERT(pFrameCountOut != NULL);
+
+    pFramesInF32       = (const float*)pFramesIn;
+    pFramesOutF32      = (      float*)pFramesOut;
+    frameCountIn       = *pFrameCountIn;
+    frameCountOut      = *pFrameCountOut;
+    framesProcessedIn  = 0;
+    framesProcessedOut = 0;
+
+    for (;;) {
+        if (framesProcessedOut >= frameCountOut) {
+            break;
+        }
+
+        /* Before interpolating we need to load the buffers. When doing this we need to ensure we run every input sample through the filter. */
+        while (pResampler->inTimeInt > 0 && frameCountIn > 0) {
+            drmp3_uint32 iChannel;
+
+            if (pFramesInF32 != NULL) {
+                for (iChannel = 0; iChannel < pResampler->config.channels; iChannel += 1) {
+                    pResampler->x0.f32[iChannel] = pResampler->x1.f32[iChannel];
+                    pResampler->x1.f32[iChannel] = pFramesInF32[iChannel];
+                }
+                pFramesInF32 += pResampler->config.channels;
+            } else {
+                for (iChannel = 0; iChannel < pResampler->config.channels; iChannel += 1) {
+                    pResampler->x0.f32[iChannel] = pResampler->x1.f32[iChannel];
+                    pResampler->x1.f32[iChannel] = 0;
+                }
+            }
+
+            /* Filter. */
+            drmp3_lpf_process_pcm_frame_f32(&pResampler->lpf, pResampler->x1.f32, pResampler->x1.f32);
+
+            frameCountIn          -= 1;
+            framesProcessedIn     += 1;
+            pResampler->inTimeInt -= 1;
+        }
+
+        if (pResampler->inTimeInt > 0) {
+            break;  /* Ran out of input data. */
+        }
+
+        /* Getting here means the frames have been loaded and filtered and we can generate the next output frame. */
+        if (pFramesOutF32 != NULL) {
+            DRMP3_ASSERT(pResampler->inTimeInt == 0);
+            drmp3_linear_resampler_interpolate_frame_f32(pResampler, pFramesOutF32);
+
+            pFramesOutF32 += pResampler->config.channels;
+        }
+
+        framesProcessedOut += 1;
+
+        /* Advance time forward. */
+        pResampler->inTimeInt  += pResampler->inAdvanceInt;
+        pResampler->inTimeFrac += pResampler->inAdvanceFrac;
+        if (pResampler->inTimeFrac >= pResampler->config.sampleRateOut) {
+            pResampler->inTimeFrac -= pResampler->config.sampleRateOut;
+            pResampler->inTimeInt  += 1;
+        }
+    }
+
+    *pFrameCountIn  = framesProcessedIn;
+    *pFrameCountOut = framesProcessedOut;
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_result drmp3_linear_resampler_process_pcm_frames_f32_upsample(drmp3_linear_resampler* pResampler, const void* pFramesIn, drmp3_uint64* pFrameCountIn, void* pFramesOut, drmp3_uint64* pFrameCountOut)
+{
+    const float* pFramesInF32;
+    /* */ float* pFramesOutF32;
+    drmp3_uint64 frameCountIn;
+    drmp3_uint64 frameCountOut;
+    drmp3_uint64 framesProcessedIn;
+    drmp3_uint64 framesProcessedOut;
+
+    DRMP3_ASSERT(pResampler     != NULL);
+    DRMP3_ASSERT(pFrameCountIn  != NULL);
+    DRMP3_ASSERT(pFrameCountOut != NULL);
+
+    pFramesInF32       = (const float*)pFramesIn;
+    pFramesOutF32      = (      float*)pFramesOut;
+    frameCountIn       = *pFrameCountIn;
+    frameCountOut      = *pFrameCountOut;
+    framesProcessedIn  = 0;
+    framesProcessedOut = 0;
+
+    for (;;) {
+        if (framesProcessedOut >= frameCountOut) {
+            break;
+        }
+
+        /* Before interpolating we need to load the buffers. */
+        while (pResampler->inTimeInt > 0 && frameCountIn > 0) {
+            drmp3_uint32 iChannel;
+
+            if (pFramesInF32 != NULL) {
+                for (iChannel = 0; iChannel < pResampler->config.channels; iChannel += 1) {
+                    pResampler->x0.f32[iChannel] = pResampler->x1.f32[iChannel];
+                    pResampler->x1.f32[iChannel] = pFramesInF32[iChannel];
+                }
+                pFramesInF32 += pResampler->config.channels;
+            } else {
+                for (iChannel = 0; iChannel < pResampler->config.channels; iChannel += 1) {
+                    pResampler->x0.f32[iChannel] = pResampler->x1.f32[iChannel];
+                    pResampler->x1.f32[iChannel] = 0;
+                }
+            }
+
+            frameCountIn          -= 1;
+            framesProcessedIn     += 1;
+            pResampler->inTimeInt -= 1;
+        }
+
+        if (pResampler->inTimeInt > 0) {
+            break;  /* Ran out of input data. */
+        }
+
+        /* Getting here means the frames have been loaded and we can generate the next output frame. */
+        if (pFramesOutF32 != NULL) {
+            DRMP3_ASSERT(pResampler->inTimeInt == 0);
+            drmp3_linear_resampler_interpolate_frame_f32(pResampler, pFramesOutF32);
+
+            /* Filter. */
+            drmp3_lpf_process_pcm_frame_f32(&pResampler->lpf, pFramesOutF32, pFramesOutF32);
+
+            pFramesOutF32 += pResampler->config.channels;
+        }
+
+        framesProcessedOut += 1;
+
+        /* Advance time forward. */
+        pResampler->inTimeInt  += pResampler->inAdvanceInt;
+        pResampler->inTimeFrac += pResampler->inAdvanceFrac;
+        if (pResampler->inTimeFrac >= pResampler->config.sampleRateOut) {
+            pResampler->inTimeFrac -= pResampler->config.sampleRateOut;
+            pResampler->inTimeInt  += 1;
+        }
+    }
+
+    *pFrameCountIn  = framesProcessedIn;
+    *pFrameCountOut = framesProcessedOut;
+
+    return DRMP3_SUCCESS;
+}
+
+static drmp3_result drmp3_linear_resampler_process_pcm_frames_f32(drmp3_linear_resampler* pResampler, const void* pFramesIn, drmp3_uint64* pFrameCountIn, void* pFramesOut, drmp3_uint64* pFrameCountOut)
+{
+    DRMP3_ASSERT(pResampler != NULL);
+
+    if (pResampler->config.sampleRateIn > pResampler->config.sampleRateOut) {
+        return drmp3_linear_resampler_process_pcm_frames_f32_downsample(pResampler, pFramesIn, pFrameCountIn, pFramesOut, pFrameCountOut);
+    } else {
+        return drmp3_linear_resampler_process_pcm_frames_f32_upsample(pResampler, pFramesIn, pFrameCountIn, pFramesOut, pFrameCountOut);
+    }
+}
+
+
+static drmp3_result drmp3_linear_resampler_process_pcm_frames(drmp3_linear_resampler* pResampler, const void* pFramesIn, drmp3_uint64* pFrameCountIn, void* pFramesOut, drmp3_uint64* pFrameCountOut)
+{
+    if (pResampler == NULL) {
+        return DRMP3_INVALID_ARGS;
+    }
+
+    /*  */ if (pResampler->config.format == drmp3_format_s16) {
+        return drmp3_linear_resampler_process_pcm_frames_s16(pResampler, pFramesIn, pFrameCountIn, pFramesOut, pFrameCountOut);
+    } else if (pResampler->config.format == drmp3_format_f32) {
+        return drmp3_linear_resampler_process_pcm_frames_f32(pResampler, pFramesIn, pFrameCountIn, pFramesOut, pFrameCountOut);
+    } else {
+        /* Should never get here. Getting here means the format is not supported and you didn't check the return value of drmp3_linear_resampler_init(). */
+        DRMP3_ASSERT(DRMP3_FALSE);
+        return DRMP3_INVALID_ARGS;
+    }
+}
+
+
+static drmp3_result drmp3_linear_resampler_set_rate(drmp3_linear_resampler* pResampler, drmp3_uint32 sampleRateIn, drmp3_uint32 sampleRateOut)
+{
+    return drmp3_linear_resampler_set_rate_internal(pResampler, sampleRateIn, sampleRateOut, /* isResamplerAlreadyInitialized = */ DRMP3_TRUE);
+}
+
+static drmp3_result drmp3_linear_resampler_set_rate_ratio(drmp3_linear_resampler* pResampler, float ratioInOut)
+{
+    drmp3_uint32 n;
+    drmp3_uint32 d;
+
+    d = 1000000;    /* We use up to 6 decimal places. */
+    n = (drmp3_uint32)(ratioInOut * d);
+
+    if (n == 0) {
+        return DRMP3_INVALID_ARGS; /* Ratio too small. */
+    }
+
+    DRMP3_ASSERT(n != 0);
+    
+    return drmp3_linear_resampler_set_rate(pResampler, n, d);
+}
+
+
+static drmp3_uint64 drmp3_linear_resampler_get_required_input_frame_count(drmp3_linear_resampler* pResampler, drmp3_uint64 outputFrameCount)
+{
+    drmp3_uint64 count;
+
+    if (pResampler == NULL) {
+        return 0;
+    }
+
+    if (outputFrameCount == 0) {
+        return 0;
+    }
+
+    /* Any whole input frames are consumed before the first output frame is generated. */
+    count = pResampler->inTimeInt;
+    outputFrameCount -= 1;
+
+    /* The rest of the output frames can be calculated in constant time. */
+    count += outputFrameCount * pResampler->inAdvanceInt;
+    count += (pResampler->inTimeFrac + (outputFrameCount * pResampler->inAdvanceFrac)) / pResampler->config.sampleRateOut;
+
+    return count;
+}
+
+static drmp3_uint64 drmp3_linear_resampler_get_expected_output_frame_count(drmp3_linear_resampler* pResampler, drmp3_uint64 inputFrameCount)
+{
+    drmp3_uint64 outputFrameCount;
+    drmp3_uint64 inTimeInt;
+    drmp3_uint64 inTimeFrac;
+
+    if (pResampler == NULL) {
+        return 0;
+    }
+
+    /* TODO: Try making this run in constant time. */
+
+    outputFrameCount = 0;
+    inTimeInt  = pResampler->inTimeInt;
+    inTimeFrac = pResampler->inTimeFrac;
+
+    for (;;) {
+        while (inTimeInt > 0 && inputFrameCount > 0) {
+            inputFrameCount -= 1;
+            inTimeInt       -= 1;
+        }
+
+        if (inTimeInt > 0) {
+            break;
+        }
+
+        outputFrameCount += 1;
+
+        /* Advance time forward. */
+        inTimeInt  += pResampler->inAdvanceInt;
+        inTimeFrac += pResampler->inAdvanceFrac;
+        if (inTimeFrac >= pResampler->config.sampleRateOut) {
+            inTimeFrac -= pResampler->config.sampleRateOut;
+            inTimeInt  += 1;
+        }
+    }
+
+    return outputFrameCount;
+}
+
+static drmp3_uint64 drmp3_linear_resampler_get_input_latency(drmp3_linear_resampler* pResampler)
+{
+    if (pResampler == NULL) {
+        return 0;
+    }
+
+    return 1 + drmp3_lpf_get_latency(&pResampler->lpf);
+}
+
+static drmp3_uint64 drmp3_linear_resampler_get_output_latency(drmp3_linear_resampler* pResampler)
+{
+    if (pResampler == NULL) {
+        return 0;
+    }
+
+    return drmp3_linear_resampler_get_input_latency(pResampler) * pResampler->config.sampleRateOut / pResampler->config.sampleRateIn;
+}
+
+
+
 
 
 void drmp3_src_cache_init(drmp3_src* pSRC, drmp3_src_cache* pCache)
@@ -2894,7 +4381,7 @@ static drmp3_bool32 drmp3_init_src(drmp3* pMP3)
 {
     drmp3_src_config srcConfig;
     DRMP3_ZERO_OBJECT(&srcConfig);
-    srcConfig.sampleRateIn = DR_MP3_DEFAULT_SAMPLE_RATE;
+    srcConfig.sampleRateIn = DRMP3_DEFAULT_SAMPLE_RATE;
     srcConfig.sampleRateOut = pMP3->sampleRate;
     srcConfig.channels = pMP3->channels;
     srcConfig.algorithm = drmp3_src_algorithm_linear;
@@ -4709,9 +6196,9 @@ v0.4.4 - 2019-05-06
   - Fixes to the VC6 build.
 
 v0.4.3 - 2019-05-05
-  - Use the channel count and/or sample rate of the first MP3 frame instead of DR_MP3_DEFAULT_CHANNELS and
-    DR_MP3_DEFAULT_SAMPLE_RATE when they are set to 0. To use the old behaviour, just set the relevant property to
-    DR_MP3_DEFAULT_CHANNELS or DR_MP3_DEFAULT_SAMPLE_RATE.
+  - Use the channel count and/or sample rate of the first MP3 frame instead of DRMP3_DEFAULT_CHANNELS and
+    DRMP3_DEFAULT_SAMPLE_RATE when they are set to 0. To use the old behaviour, just set the relevant property to
+    DRMP3_DEFAULT_CHANNELS or DRMP3_DEFAULT_SAMPLE_RATE.
   - Add s16 reading APIs
     - drmp3_read_pcm_frames_s16
     - drmp3_open_memory_and_read_pcm_frames_s16
