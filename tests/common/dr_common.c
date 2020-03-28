@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>   /* So we can seed the random number generator based on time. */
+#include <errno.h>
 
 #if !defined(_WIN32)
 #include <dirent.h>
@@ -82,6 +83,12 @@ typedef dr_uint32   dr_bool32;
 typedef void* dr_handle;
 typedef void* dr_ptr;
 typedef void (* dr_proc)(void);
+
+#if defined(SIZE_MAX)
+    #define DR_SIZE_MAX SIZE_MAX
+#else
+    #define DR_SIZE_MAX 0xFFFFFFFF
+#endif
 
 /*
 Return Values:
@@ -403,7 +410,7 @@ dr_file_iterator* dr_file_iterator_begin(const char* pFolderPath, dr_file_iterat
     }
 
 #ifdef _WIN32
-    strcpy_s(searchQuery, sizeof(searchQuery), pFolderPath);
+    dr_strcpy_s(searchQuery, sizeof(searchQuery), pFolderPath);
 
     searchQueryLength = (unsigned int)strlen(searchQuery);
     if (searchQueryLength >= MAX_PATH - 3) {
@@ -436,7 +443,7 @@ dr_file_iterator* dr_file_iterator_begin(const char* pFolderPath, dr_file_iterat
         pState->isDirectory = 0;
     }
 
-    strcpy_s(pState->relativePath, sizeof(pState->relativePath), ffd.cFileName);
+    dr_strcpy_s(pState->relativePath, sizeof(pState->relativePath), ffd.cFileName);
 #else
     dir = opendir(pFolderPath);
     if (dir == NULL) {
@@ -510,7 +517,7 @@ dr_file_iterator* dr_file_iterator_next(dr_file_iterator* pState)
         pState->isDirectory = 0;
     }
 
-    strcpy_s(pState->relativePath, sizeof(pState->relativePath), ffd.cFileName);
+    dr_strcpy_s(pState->relativePath, sizeof(pState->relativePath), ffd.cFileName);
 #else
     /* Enter a loop here so we can skip past "." and ".." directories. */
     for (;;) {
@@ -574,21 +581,41 @@ File Management
 
 Free file data with free().
 */
-FILE* dr_fopen(const char* filePath, const char* openMode)
+static int dr_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
 {
-    FILE* pFile;
-#ifdef _MSC_VER
-    if (fopen_s(&pFile, filePath, openMode) != 0) {
-        return NULL;
+#if _MSC_VER && _MSC_VER >= 1400
+    errno_t err;
+#endif
+
+    if (ppFile != NULL) {
+        *ppFile = NULL;  /* Safety. */
+    }
+
+    if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
+        return DROPUS_INVALID_ARGS;
+    }
+
+#if _MSC_VER && _MSC_VER >= 1400
+    err = fopen_s(ppFile, pFilePath, pOpenMode);
+    if (err != 0) {
+        return err;
     }
 #else
-    pFile = fopen(filePath, openMode);
-    if (pFile == NULL) {
-        return NULL;
+#if defined(_WIN32) || defined(__APPLE__)
+    *ppFile = fopen(pFilePath, pOpenMode);
+#else
+    #if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64 && defined(_LARGEFILE64_SOURCE)
+        *ppFile = fopen64(pFilePath, pOpenMode);
+    #else
+        *ppFile = fopen(pFilePath, pOpenMode);
+    #endif
+#endif
+    if (*ppFile == NULL) {
+        return errno;
     }
 #endif
 
-    return pFile;
+    return 0;
 }
 
 void* dr_open_and_read_file_with_extra_data(const char* pFilePath, size_t* pFileSizeOut, size_t extraBytes)
@@ -609,8 +636,7 @@ void* dr_open_and_read_file_with_extra_data(const char* pFilePath, size_t* pFile
 
     /* TODO: Use 64-bit versions of the FILE APIs. */
 
-    pFile = dr_fopen(pFilePath, "rb");
-    if (pFile == NULL) {
+    if (dr_fopen(&pFile, pFilePath, "rb") != 0) {
         return NULL;
     }
 
@@ -618,7 +644,7 @@ void* dr_open_and_read_file_with_extra_data(const char* pFilePath, size_t* pFile
     fileSize = ftell(pFile);
     fseek(pFile, 0, SEEK_SET);
 
-    if (fileSize + extraBytes > SIZE_MAX) {
+    if (fileSize + extraBytes > DR_SIZE_MAX) {
         fclose(pFile);
         return NULL;    /* File is too big. */
     }
@@ -679,7 +705,7 @@ int dr_vprintf_fixed(int width, const char* const format, va_list args)
     }
     
     /* We need to print this into a string (truncated). */
-#if defined(_MSC_VER) || ((defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 500) || defined(_ISOC99_SOURCE) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L))
+#if (defined(_MSC_VER) && _MSC_VER > 1200) || ((defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 500) || defined(_ISOC99_SOURCE) || (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L))
     len = vsnprintf(buffer, width+1, format, args);
 #else
     len = vsprintf(buffer, format, args);
