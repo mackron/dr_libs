@@ -38,7 +38,7 @@ int main(int argc, char** argv)
 
     pInputFilePath = argv[1];
 
-    if (!drmp3_init_file(&mp3, pInputFilePath, NULL, NULL)) {
+    if (!drmp3_init_file(&mp3, pInputFilePath, NULL)) {
         printf("Failed to open file \"%s\"", pInputFilePath);
         return -1;
     }
