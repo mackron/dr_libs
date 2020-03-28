@@ -289,3 +289,4 @@ Test Vector Encapsulation Format
   callbacks need to be added now so we can avoid breaking APIs later.
 - There have been requests in the past to support loading files from a wchar_t encoded path. Adding support by pulling
   in custom fopen() and wfopen() implementations from dr_flac.
+- Have not yet compiled on VC6 so lets do a pass on that to make it easier for us later.

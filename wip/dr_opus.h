@@ -863,10 +863,11 @@ static DROPUS_INLINE dropus_uint16 dropus_range_decoder_fs(dropus_range_decoder*
 
 static DROPUS_INLINE dropus_uint16 dropus_range_decoder_k(dropus_uint16* f, dropus_uint16 n, dropus_uint16 fs, dropus_uint16* flOut, dropus_uint16* fhOut)
 {
+    dropus_uint8 i;
     dropus_uint16 k = 0;
     dropus_uint16 fl = 0;
     dropus_uint16 fh = 0;
-    for (dropus_uint8 i = 0; i < n; ++i) {
+    for (i = 0; i < n; ++i) {
         fh = fl + f[i];
         if (fl <= fs && fs < fh) {
             k = i;
@@ -958,6 +959,8 @@ static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, drop
     {
         dropus_uint16 f_Flags[2] = {1, 1}, ft_Flags = 2;
 
+        dropus_uint8  iChannel;
+        dropus_uint8  iFrameSILK;
         dropus_uint8  frameCountSILK;
         dropus_uint8  channels;
         dropus_uint16 k;
@@ -975,8 +978,8 @@ static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, drop
         channels = dropus_toc_s(pOpusStream->packet.toc) + 1;
 
         /* Header flags. */
-        for (dropus_uint8 iChannel = 0; iChannel < channels; ++iChannel) {
-            for (dropus_uint8 iFrameSILK = 0; iFrameSILK < frameCountSILK; ++iFrameSILK) {
+        for (iChannel = 0; iChannel < channels; ++iChannel) {
+            for (iFrameSILK = 0; iFrameSILK < frameCountSILK; ++iFrameSILK) {
                 k = dropus_range_decoder_decode(&rd, f_Flags, DROPUS_COUNTOF(f_Flags), ft_Flags);
                 flagsVAD[iChannel] |= (k << iFrameSILK);
             }
@@ -994,15 +997,16 @@ static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, drop
         left shift and bitwise-or to put the LBRR flags all together for each SILK frame.
         */
         if (frameCountSILK > 1) {
+            dropus_uint8 iChannel;
             if (frameCountSILK == 2) {
                 dropus_uint16 f_40[4] = {0, 53, 53, 150}, ft_40 = 256;
-                for (dropus_uint8 iChannel = 0; iChannel < channels; ++iChannel) {
+                for (iChannel = 0; iChannel < channels; ++iChannel) {
                     k = dropus_range_decoder_decode(&rd, f_40, DROPUS_COUNTOF(f_40), ft_40);
                     flagsLBRR[iChannel] |= (k << 1);
                 }
             } else {
                 dropus_uint16 f_60[8] = {0, 41, 20, 29, 41, 15, 28, 82}, ft_60 = 256;
-                for (dropus_uint8 iChannel = 0; iChannel < channels; ++iChannel) {
+                for (iChannel = 0; iChannel < channels; ++iChannel) {
                     k = dropus_range_decoder_decode(&rd, f_60, DROPUS_COUNTOF(f_60), ft_60);
                     flagsLBRR[iChannel] |= (k << 1);
                 }
@@ -1010,8 +1014,8 @@ static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, drop
         }
 
         /* LBRR frames. Only do this if the relevant flag is set. */
-        for (dropus_uint8 iFrameSILK = 0; iFrameSILK < frameCountSILK; ++iFrameSILK) {
-            for (dropus_uint8 iChannel = 0; iChannel < channels; ++iChannel) {
+        for (iFrameSILK = 0; iFrameSILK < frameCountSILK; ++iFrameSILK) {
+            for (iChannel = 0; iChannel < channels; ++iChannel) {
                 /*
                 RFC 6716 - Section 4.2.7.1
 
@@ -1201,6 +1205,7 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
 
         case 3: /* RFC 6716 - Section 3.2.5. Code 3: A Signaled Number of Frames in the Packet */
         {
+            dropus_uint16 iFrame;
             dropus_uint8  frameCountByte;
             dropus_uint8  v;                /* Is VBR? */
             dropus_uint8  p;                /* Has padding? */
@@ -1238,7 +1243,8 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
             P = 0;
             paddingByteCount = 0;
             if (p != 0) {
-                for (size_t iPaddingByte = 0; iPaddingByte < dataSize-2; ++iPaddingByte) {
+                size_t iPaddingByte;
+                for (iPaddingByte = 0; iPaddingByte < dataSize-2; ++iPaddingByte) {
                     dropus_uint8 paddingByte = pRunningData8[0]; pRunningData8 += 1;
                     P += paddingByte;
                     paddingByteCount += 1;
@@ -1284,7 +1290,7 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                 }
 
                 frameCount = M;
-                for (dropus_uint16 iFrame = 0; iFrame < frameCount; ++iFrame) {
+                for (iFrame = 0; iFrame < frameCount; ++iFrame) {
                     frameSizes[iFrame] = frameSize;
                 }
             } else {
@@ -1293,7 +1299,7 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                 dropus_uintptr headerSizeInBytes;           /* For validation and deriving the size of the last frame. */
 
                 frameCount = M;
-                for (dropus_uint16 iFrame = 0; iFrame < frameCount-1; ++iFrame) {
+                for (iFrame = 0; iFrame < frameCount-1; ++iFrame) {
                     dropus_uint8 byte0;
                     dropus_uint8 byte1;
 
