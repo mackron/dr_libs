@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <dlfcn.h>
 #endif
 
 #include <stddef.h> /* For size_t. */
