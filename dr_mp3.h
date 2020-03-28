@@ -4,7 +4,9 @@ dr_mp3 - v0.6.0 - TBD
 
 David Reid - mackron@gmail.com
 
-Based off minimp3 (https://github.com/lieff/minimp3) which is where the real work was done. See the bottom of this file for
+GitHub: https://github.com/mackron/dr_libs
+
+Based on minimp3 (https://github.com/lieff/minimp3) which is where the real work was done. See the bottom of this file for
 differences between minimp3 and dr_mp3.
 */
 
