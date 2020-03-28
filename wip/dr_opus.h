@@ -247,7 +247,7 @@ typedef enum
     dropus_seek_origin_current
 } dropus_seek_origin;
 
-typedef size_t (* dropus_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
+typedef size_t        (* dropus_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 typedef dropus_bool32 (* dropus_seek_proc)(void* pUserData, int offset, dropus_seek_origin origin);
 
 typedef struct
@@ -375,7 +375,7 @@ p (in)
 
 Remarks
 -------
-`pAllocationCallbacks` can be NULL in which case DROPUS_FREE() will be used. If `onFree is NULL, this will be a no-op.
+`pAllocationCallbacks` can be NULL in which case DROPUS_FREE() will be used. If `onFree` is NULL, this will be a no-op.
 */
 DROPUS_API void dropus_free(void* p, const dropus_allocation_callbacks* pAllocationCallbacks);
 
