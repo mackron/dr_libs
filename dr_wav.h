@@ -2363,6 +2363,10 @@ DRWAV_API drwav_uint64 drwav_target_write_size_bytes(const drwav_data_format* pF
     return fileSizeBytes;
 }
 
+
+#ifndef DR_WAV_NO_STDIO
+
+/* drwav_result_from_errno() is only used for fopen() and wfopen() so putting it inside DR_WAV_NO_STDIO for now. If something else needs this later we can move it out. */
 #include <errno.h>
 static drwav_result drwav_result_from_errno(int e)
 {
@@ -2766,7 +2770,6 @@ static drwav_result drwav_result_from_errno(int e)
     }
 }
 
-#ifndef DR_WAV_NO_STDIO
 static drwav_result drwav_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
 {
 #if _MSC_VER && _MSC_VER >= 1400
