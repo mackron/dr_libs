@@ -963,6 +963,7 @@ static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream
 
     DROPUS_ASSERT(pOpusStream != NULL);
     DROPUS_ASSERT(pOpusFrame  != NULL);
+    DROPUS_ASSERT(pData       != NULL);
     DROPUS_ASSERT(dataSize    <= DROPUS_MAX_FRAME_SIZE_IN_BYTES);
 
     pOpusFrame->sizeInBytes = (dropus_uint16)dataSize;  /* Safe cast because dataSize <= DROPUS_MAX_FRAME_SIZE_IN_BYTES <= 1275. */
@@ -977,13 +978,13 @@ static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream
         dropus_uint8  frameCountSILK;
         dropus_uint8  channels;
         dropus_uint16 k;
-        dropus_uint8  flagsVAD[2]  = {0, 0};
-        dropus_uint8  flagsLBRR[2] = {0, 0};
+        dropus_uint8  flagsVAD[2]  = {0, 0};        /* One for each channel. */
+        dropus_uint8  flagsLBRR[2] = {0, 0};        /* One for each channel. */
         dropus_uint32 w0_Q13[3] = {0, 0, 0};        /* One for each SILK frame (max 3). */
         dropus_uint32 w1_Q13[3] = {0, 0, 0};        /* One for each SILK frame (max 3). */
         dropus_uint8  midOnlyFlag[3] = {0, 0, 0};   /* One for each SILK frame (max 3). */
         
-        frameCountSILK = dropus_toc_silk_frame_count(pOpusStream->packet.toc);    /* SILK frame count. Between 1 and 3. Either 1 10ms SILK frame, or between 1 and 3 20ms frames (20ms, 40ms, 6ms0). */
+        frameCountSILK = dropus_toc_silk_frame_count(pOpusStream->packet.toc);    /* SILK frame count. Between 1 and 3. Either 1 10ms SILK frame, or between 1 and 3 20ms frames (20ms, 40ms, 60ms). */
         if (frameCountSILK == 0) {
             return DROPUS_BAD_DATA;
         }
@@ -1072,11 +1073,9 @@ static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream
             pOpusStream->silk.w0_Q13_prev = 0;
             pOpusStream->silk.w1_Q13_prev = 0;
         }
+
+
     }
-
-    
-
-    
 
     return DROPUS_SUCCESS;
 }
@@ -1087,6 +1086,7 @@ static dropus_result dropus_stream_decode_frame__celt(dropus_stream* pOpusStream
 
     DROPUS_ASSERT(pOpusStream != NULL);
     DROPUS_ASSERT(pOpusFrame  != NULL);
+    DROPUS_ASSERT(pData       != NULL);
     DROPUS_ASSERT(dataSize    <= DROPUS_MAX_FRAME_SIZE_IN_BYTES);
 
     pOpusFrame->sizeInBytes = (dropus_uint16)dataSize;  /* Safe cast because dataSize <= DROPUS_MAX_FRAME_SIZE_IN_BYTES <= 1275. */
@@ -1106,6 +1106,7 @@ static dropus_result dropus_stream_decode_frame__hybrid(dropus_stream* pOpusStre
 
     DROPUS_ASSERT(pOpusStream != NULL);
     DROPUS_ASSERT(pOpusFrame  != NULL);
+    DROPUS_ASSERT(pData       != NULL);
     DROPUS_ASSERT(dataSize    <= DROPUS_MAX_FRAME_SIZE_IN_BYTES);
 
     pOpusFrame->sizeInBytes = (dropus_uint16)dataSize;  /* Safe cast because dataSize <= DROPUS_MAX_FRAME_SIZE_IN_BYTES <= 1275. */
