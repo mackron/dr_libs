@@ -310,3 +310,9 @@ Test Vector Encapsulation Format
   LBRR flags. When there's more than one SILK frame, the first LBRR flag is just used to determine whether or not
   the per-frame LBRR flags is present. I was _always_ reading the LBRR flags regardless of the value of the primary
   LBRR flag.
+
+2020/03/30 7:30 AM
+==================
+- The decoding of SILK frames needs to be put in their own function in order to handle LBRR and regular SILK frames.
+  Looking at the spec, there's some complicated branching logic for determine what needs to be decoded. I've put in
+  a rough draft as a start, but needs some work. Will continue on this later.

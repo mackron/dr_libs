@@ -657,7 +657,6 @@ Low-Level Opus Stream API
 #define DROPUS_MAX_FRAME_SIZE_IN_BYTES  1275    /* RFC 6716 - Section 3.4 [R2] */
 #define DROPUS_MAX_PACKET_SIZE_IN_BYTES DROPUS_MAX_FRAME_SIZE_IN_BYTES*DROPUS_MAX_OPUS_FRAMES_PER_PACKET
 
-
 /*********************************** 
 RFC 6716 - Section 3.1 The TOC Byte
 ************************************/
@@ -957,8 +956,148 @@ DROPUS_API dropus_result dropus_stream_init(dropus_stream* pOpusStream)
     return DROPUS_SUCCESS;
 }
 
+
+#define DROPUS_MAX_SILK_FRAME_SIZE_IN_PCM_FRAMES 20*16  /* 20 = 20ms SILK frame length. 16 = Wideband sample rate. */
+
+
+typedef enum
+{
+    dropus_silk_frame_regularity_regular,
+    dropus_silk_frame_regularity_lbrr,
+} dropus_silk_frame_regularity;
+
+typedef struct
+{
+    union
+    {
+        dropus_int16 s16[DROPUS_MAX_SILK_FRAME_SIZE_IN_PCM_FRAMES];
+        float        f32[DROPUS_MAX_SILK_FRAME_SIZE_IN_PCM_FRAMES];
+    } pcm;
+} dropus_silk_frame;
+
+static dropus_result dropus_stream_decode_silk_frame(dropus_stream* pOpusStream, dropus_range_decoder* pRD, dropus_silk_frame_regularity regularity, dropus_uint8 iSILKFrame, dropus_uint8 iChannel, dropus_uint8* pFlagsVAD, dropus_uint8* pFlagsLBRR, dropus_silk_frame* pSILKFrame)
+{
+    dropus_uint8  channels;
+    dropus_uint32 w0_Q13 = 0;
+    dropus_uint32 w1_Q13 = 0;
+    dropus_uint8  midOnlyFlag = 0;
+
+    channels = dropus_toc_s(pOpusStream->packet.toc) + 1;
+
+    /*
+    RFC 6716 - Section 4.2.7.1
+
+    ... these weights are coded if and only if
+        -  This is a stereo Opus frame (Section 3.1), and
+        -  The current SILK frame corresponds to the mid channel.
+    */
+    if (channels == 2 && iChannel == 0) {
+        dropus_uint16 f_Stage1[] = {7, 2, 1, 1, 1, 10, 24, 8, 1, 1, 3, 23, 92, 23, 3, 1, 1, 8, 24, 10, 1, 1, 1, 2, 7}, ft_Stage1 = 256;
+        dropus_uint16 f_Stage2[] = {85, 86, 85},                                                                       ft_Stage2 = 256;
+        dropus_uint16 f_Stage3[] = {51, 51, 52, 51, 51},                                                               ft_Stage3 = 256;
+        dropus_uint16 n;
+        dropus_uint16 i0, i1, i2, i3;
+        dropus_uint16 wi0, wi1;
+
+        n  = dropus_range_decoder_decode(pRD, f_Stage1, DROPUS_COUNTOF(f_Stage1), ft_Stage1);
+        i0 = dropus_range_decoder_decode(pRD, f_Stage2, DROPUS_COUNTOF(f_Stage2), ft_Stage2);
+        i1 = dropus_range_decoder_decode(pRD, f_Stage3, DROPUS_COUNTOF(f_Stage3), ft_Stage3);
+        i2 = dropus_range_decoder_decode(pRD, f_Stage2, DROPUS_COUNTOF(f_Stage2), ft_Stage2);
+        i3 = dropus_range_decoder_decode(pRD, f_Stage3, DROPUS_COUNTOF(f_Stage3), ft_Stage3);
+
+        wi0 = i0 + 3 * (n / 5);
+        wi1 = i2 + 3 * (n % 5);
+
+        /* Note that w0_Q13 depends on w1_Q13 so must be calculated afterwards. */
+        w1_Q13 = dropus_Q13(wi1) + (((dropus_Q13((dropus_uint16)(wi1 + 1)) - dropus_Q13(wi1)) * 6554) >> 16) * ((2 * i3) + 1);
+        w0_Q13 = dropus_Q13(wi0) + (((dropus_Q13((dropus_uint16)(wi0 + 1)) - dropus_Q13(wi0)) * 6554) >> 16) * ((2 * i1) + 1) - w1_Q13;
+
+        /* RFC 6716 - Section 4.2.7.2 - Mid-Only Flag */
+        {
+            dropus_uint16 f_MOF[] = {192, 64}, ft_MOF = 256;
+            midOnlyFlag = (dropus_uint8)dropus_range_decoder_decode(pRD, f_MOF, DROPUS_COUNTOF(f_MOF), ft_MOF);
+        }
+    }
+}
+
+static dropus_result dropus_stream_decode_silk_frame__mono(dropus_stream* pOpusStream, dropus_range_decoder* pRD, dropus_silk_frame_regularity regularity, dropus_uint8 iSILKFrame, dropus_uint8* pFlagsVAD, dropus_uint8* pFlagsLBRR, dropus_silk_frame* pSILKFrames)
+{
+
+}
+
+static dropus_result dropus_stream_decode_silk_frame__stereo(dropus_stream* pOpusStream, dropus_range_decoder* pRD, dropus_silk_frame_regularity regularity, dropus_uint8 iSILKFrame, dropus_uint8* pFlagsVAD, dropus_uint8* pFlagsLBRR, dropus_silk_frame* pSILKFrames)
+{
+    dropus_uint8 iChannel;
+    dropus_uint16 f_Stage1[] = {7, 2, 1, 1, 1, 10, 24, 8, 1, 1, 3, 23, 92, 23, 3, 1, 1, 8, 24, 10, 1, 1, 1, 2, 7}, ft_Stage1 = 256;
+    dropus_uint16 f_Stage2[] = {85, 86, 85},                                                                       ft_Stage2 = 256;
+    dropus_uint16 f_Stage3[] = {51, 51, 52, 51, 51},                                                               ft_Stage3 = 256;
+    dropus_uint16 n;
+    dropus_uint16 i0, i1, i2, i3;
+    dropus_uint16 wi0, wi1;
+
+    /*
+    RFC 6716 - Section 4.2.7.1
+
+    ... these weights are coded if and only if
+        -  This is a stereo Opus frame (Section 3.1), and
+        -  The current SILK frame corresponds to the mid channel.
+    */
+
+    for (iChannel = 0; iChannel < 2; iChannel += 1) {
+        /* Don't include LBRR frames if we don't have one. */
+        if (regularity == dropus_silk_frame_regularity_lbrr && (pFlagsLBRR[iChannel] & (1 << iSILKFrame)) == 0) {
+            continue;
+        }
+
+        /* The mid channel is always the first one in a SILK frame. */
+        if (iChannel == 0) {
+            n  = dropus_range_decoder_decode(pRD, f_Stage1, DROPUS_COUNTOF(f_Stage1), ft_Stage1);
+            i0 = dropus_range_decoder_decode(pRD, f_Stage2, DROPUS_COUNTOF(f_Stage2), ft_Stage2);
+            i1 = dropus_range_decoder_decode(pRD, f_Stage3, DROPUS_COUNTOF(f_Stage3), ft_Stage3);
+            i2 = dropus_range_decoder_decode(pRD, f_Stage2, DROPUS_COUNTOF(f_Stage2), ft_Stage2);
+            i3 = dropus_range_decoder_decode(pRD, f_Stage3, DROPUS_COUNTOF(f_Stage3), ft_Stage3);
+
+            wi0 = i0 + 3 * (n / 5);
+            wi1 = i2 + 3 * (n % 5);
+
+        #if 0
+            /* Note that w0_Q13 depends on w1_Q13 so must be calculated afterwards. */
+            w1_Q13 = dropus_Q13(wi1) + (((dropus_Q13((dropus_uint16)(wi1 + 1)) - dropus_Q13(wi1)) * 6554) >> 16) * ((2 * i3) + 1);
+            w0_Q13 = dropus_Q13(wi0) + (((dropus_Q13((dropus_uint16)(wi0 + 1)) - dropus_Q13(wi0)) * 6554) >> 16) * ((2 * i1) + 1) - w1_Q13;
+
+            /* RFC 6716 - Section 4.2.7.2 - Mid-Only Flag */
+            {
+                dropus_uint16 f_MOF[] = {192, 64}, ft_MOF = 256;
+                midOnlyFlag = (dropus_uint8)dropus_range_decoder_decode(pRD, f_MOF, DROPUS_COUNTOF(f_MOF), ft_MOF);
+            }
+        #endif  
+        }
+    }
+}
+
+static dropus_result dropus_stream_decode_silk_frames__stereo(dropus_stream* pOpusStream, dropus_range_decoder* pRD, dropus_silk_frame_regularity regularity, dropus_uint8* pFlagsVAD, dropus_uint8* pFlagsLBRR, dropus_silk_frame* pSILKFrames)
+{
+    dropus_result result;
+    dropus_uint8 silkFrameCount;
+    dropus_uint8 iSILKFrame;
+
+    silkFrameCount = dropus_toc_silk_frame_count(pOpusStream->packet.toc);
+    DROPUS_ASSERT(silkFrameCount > 0);
+
+    for (iSILKFrame = 0; iSILKFrame < silkFrameCount; iSILKFrame += 1) {
+        result = dropus_stream_decode_silk_frame__stereo(pOpusStream, pRD, regularity, iSILKFrame, pFlagsVAD, pFlagsLBRR, pSILKFrames);
+        if (result != DROPUS_SUCCESS) {
+            return result;
+        }
+    }
+
+    return DROPUS_SUCCESS;
+}
+
+
 static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream, dropus_stream_frame* pOpusFrame, const dropus_uint8* pData, size_t dataSize)
 {
+    dropus_result result;
     dropus_range_decoder rd;
 
     DROPUS_ASSERT(pOpusStream != NULL);
@@ -973,13 +1112,16 @@ static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream
     {
         dropus_uint16 f_Flags[2] = {1, 1}, ft_Flags = 2;
 
-        dropus_uint8  iChannel;
-        dropus_uint8  iFrameSILK;
-        dropus_uint8  frameCountSILK;
-        dropus_uint8  channels;
-        dropus_uint16 k;
-        dropus_uint8  flagsVAD[2]  = {0, 0};        /* One for each channel. */
-        dropus_uint8  flagsLBRR[2] = {0, 0};        /* One for each channel. */
+        dropus_uint8      iChannel;
+        dropus_uint8      channels;
+        dropus_uint8      iFrameSILK;
+        dropus_uint8      frameCountSILK;
+        dropus_uint16     k;
+        dropus_uint8      flagsVAD[2]  = {0, 0};        /* One for each channel. */
+        dropus_uint8      flagsLBRR[2] = {0, 0};        /* One for each channel. */
+        dropus_silk_frame silkFrames_LBRR[2][3];
+        dropus_silk_frame silkFrames_Regular[2][3];
+
         dropus_uint32 w0_Q13[3] = {0, 0, 0};        /* One for each SILK frame (max 3). */
         dropus_uint32 w1_Q13[3] = {0, 0, 0};        /* One for each SILK frame (max 3). */
         dropus_uint8  midOnlyFlag[3] = {0, 0, 0};   /* One for each SILK frame (max 3). */
@@ -995,6 +1137,7 @@ static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream
         for (iChannel = 0; iChannel < channels; ++iChannel) {
             for (iFrameSILK = 0; iFrameSILK < frameCountSILK; ++iFrameSILK) {
                 k = dropus_range_decoder_decode(&rd, f_Flags, DROPUS_COUNTOF(f_Flags), ft_Flags);
+                DROPUS_ASSERT(k <= 1);
                 flagsVAD[iChannel] |= (k << iFrameSILK);
             }
 
@@ -1003,11 +1146,7 @@ static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream
             flagsLBRR[iChannel] = (dropus_uint8)k;
         }
 
-        /*
-        Per-Frame LBRR Frames.
-        
-        RFC 6716 - 4.2.4 - ... packed in order from the LSB to the MSB.
-        */
+        /* RFC 6716 - 4.2.4. Per-Frame LBRR Flags. */
         if (frameCountSILK > 1) {
             dropus_uint8 iChannel;
             for (iChannel = 0; iChannel < channels; iChannel += 1) {
@@ -1030,39 +1169,17 @@ static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream
 
         /* LBRR frames. Only do this if the relevant flag is set. */
         for (iFrameSILK = 0; iFrameSILK < frameCountSILK; ++iFrameSILK) {
+            if (channels == 1) {
+                /*result = dropus_stream_decode_silk_frames__mono(pOpusStream, &rd, );*/
+            } else {
+                result = dropus_stream_decode_silk_frames__stereo(pOpusStream, &rd, dropus_silk_frame_regularity_lbrr, flagsVAD, flagsLBRR, silkFrames_LBRR);
+            }
+
             for (iChannel = 0; iChannel < channels; ++iChannel) {
-                /*
-                RFC 6716 - Section 4.2.7.1
-
-                ... these weights are coded if and only if
-                    -  This is a stereo Opus frame (Section 3.1), and
-                    -  The current SILK frame corresponds to the mid channel.
-                */
-                if (channels == 2 && iChannel == 0) {
-                    dropus_uint16 f_Stage1[] = {7, 2, 1, 1, 1, 10, 24, 8, 1, 1, 3, 23, 92, 23, 3, 1, 1, 8, 24, 10, 1, 1, 1, 2, 7}, ft_Stage1 = 256;
-                    dropus_uint16 f_Stage2[] = {85, 86, 85},                                                                       ft_Stage2 = 256;
-                    dropus_uint16 f_Stage3[] = {51, 51, 52, 51, 51},                                                               ft_Stage3 = 256;
-                    dropus_uint16 n;
-                    dropus_uint16 i0, i1, i2, i3;
-                    dropus_uint16 wi0, wi1;
-
-                    n  = dropus_range_decoder_decode(&rd, f_Stage1, DROPUS_COUNTOF(f_Stage1), ft_Stage1);
-                    i0 = dropus_range_decoder_decode(&rd, f_Stage2, DROPUS_COUNTOF(f_Stage2), ft_Stage2);
-                    i1 = dropus_range_decoder_decode(&rd, f_Stage3, DROPUS_COUNTOF(f_Stage3), ft_Stage3);
-                    i2 = dropus_range_decoder_decode(&rd, f_Stage2, DROPUS_COUNTOF(f_Stage2), ft_Stage2);
-                    i3 = dropus_range_decoder_decode(&rd, f_Stage3, DROPUS_COUNTOF(f_Stage3), ft_Stage3);
-
-                    wi0 = i0 + 3 * (n / 5);
-                    wi1 = i2 + 3 * (n % 5);
-
-                    /* Note that w0_Q13 depends on w1_Q13 so must be calculated afterwards. */
-                    w1_Q13[iFrameSILK] = dropus_Q13(wi1) + (((dropus_Q13((dropus_uint16)(wi1 + 1)) - dropus_Q13(wi1)) * 6554) >> 16) * ((2 * i3) + 1);
-                    w0_Q13[iFrameSILK] = dropus_Q13(wi0) + (((dropus_Q13((dropus_uint16)(wi0 + 1)) - dropus_Q13(wi0)) * 6554) >> 16) * ((2 * i1) + 1) - w1_Q13[iFrameSILK];
-
-                    /* RFC 6716 - Section 4.2.7.2 - Mid-Only Flag */
-                    if ((flagsLBRR[iChannel] & (1 << iFrameSILK)) != 0) {
-                        dropus_uint16 f_MOF[] = {192, 64}, ft_MOF = 256;
-                        midOnlyFlag[iFrameSILK] = (dropus_uint8)dropus_range_decoder_decode(&rd, f_MOF, DROPUS_COUNTOF(f_MOF), ft_MOF);
+                if ((flagsLBRR[iChannel] & (1 << iFrameSILK)) != 0) {
+                    result = dropus_stream_decode_frame__silk_frame(pOpusStream, &rd, &silkFrames_LBRR[iFrameSILK]);
+                    if (result != DROPUS_SUCCESS) {
+                        return result;
                     }
                 }
             }
