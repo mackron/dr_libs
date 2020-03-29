@@ -1051,7 +1051,7 @@ static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, drop
                     /* RFC 6716 - Section 4.2.7.2 - Mid-Only Flag */
                     if ((flagsLBRR[iChannel] & (1 << iFrameSILK)) != 0) {
                         dropus_uint16 f_MOF[] = {192, 64}, ft_MOF = 256;
-                        midOnlyFlag[iFrameSILK] = dropus_range_decoder_decode(&rd, f_MOF, DROPUS_COUNTOF(f_MOF), ft_MOF);
+                        midOnlyFlag[iFrameSILK] = (dropus_uint8)dropus_range_decoder_decode(&rd, f_MOF, DROPUS_COUNTOF(f_MOF), ft_MOF);
                     }
                 }
             }
