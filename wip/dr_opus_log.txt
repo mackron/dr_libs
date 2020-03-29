@@ -301,3 +301,8 @@ Test Vector Encapsulation Format
         After the updates, implemented by ec_dec_update() (entdec.c), the
         decoder normalizes the range using the procedure in the next section,
         and returns the index k.
+- Reading through dropus_stream_decode_packet() to refresh my memory and some stuff needs cleaning up. Important from
+  now on to distinguish between PCM frames and Opus frames. All variables referring to one of the other needs to be
+  prefixed with "pcm" or "opus", depending on it's use. Example: opusFrameCount / pcmFrameCount.
+- Added infrastructure for handling CELT and Hybrid frames when the time comes. For now still focused on getting SILK
+  frames working.

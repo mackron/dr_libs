@@ -957,7 +957,7 @@ DROPUS_API dropus_result dropus_stream_init(dropus_stream* pOpusStream)
     return DROPUS_SUCCESS;
 }
 
-static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, dropus_stream_frame* pOpusFrame, const dropus_uint8* pData, size_t dataSize)
+static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream, dropus_stream_frame* pOpusFrame, const dropus_uint8* pData, size_t dataSize)
 {
     dropus_range_decoder rd;
 
@@ -969,8 +969,6 @@ static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, drop
 
     /* Everything is fed through the range decoder. */
     dropus_range_decoder_init(pData, pOpusFrame->sizeInBytes, &rd);
-
-    /* Assuming SILK at the moment. */
     {
         dropus_uint16 f_Flags[2] = {1, 1}, ft_Flags = 2;
 
@@ -1083,13 +1081,51 @@ static dropus_result dropus_stream_decode_frame(dropus_stream* pOpusStream, drop
     return DROPUS_SUCCESS;
 }
 
+static dropus_result dropus_stream_decode_frame__celt(dropus_stream* pOpusStream, dropus_stream_frame* pOpusFrame, const dropus_uint8* pData, size_t dataSize)
+{
+    dropus_range_decoder rd;
+
+    DROPUS_ASSERT(pOpusStream != NULL);
+    DROPUS_ASSERT(pOpusFrame  != NULL);
+    DROPUS_ASSERT(dataSize    <= DROPUS_MAX_FRAME_SIZE_IN_BYTES);
+
+    pOpusFrame->sizeInBytes = (dropus_uint16)dataSize;  /* Safe cast because dataSize <= DROPUS_MAX_FRAME_SIZE_IN_BYTES <= 1275. */
+
+    /* Everything is fed through the range decoder. */
+    dropus_range_decoder_init(pData, pOpusFrame->sizeInBytes, &rd);
+    {
+
+    }
+
+    return DROPUS_SUCCESS;
+}
+
+static dropus_result dropus_stream_decode_frame__hybrid(dropus_stream* pOpusStream, dropus_stream_frame* pOpusFrame, const dropus_uint8* pData, size_t dataSize)
+{
+    dropus_range_decoder rd;
+
+    DROPUS_ASSERT(pOpusStream != NULL);
+    DROPUS_ASSERT(pOpusFrame  != NULL);
+    DROPUS_ASSERT(dataSize    <= DROPUS_MAX_FRAME_SIZE_IN_BYTES);
+
+    pOpusFrame->sizeInBytes = (dropus_uint16)dataSize;  /* Safe cast because dataSize <= DROPUS_MAX_FRAME_SIZE_IN_BYTES <= 1275. */
+
+    /* Everything is fed through the range decoder. */
+    dropus_range_decoder_init(pData, pOpusFrame->sizeInBytes, &rd);
+    {
+
+    }
+
+    return DROPUS_SUCCESS;
+}
+
 DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream, const void* pData, size_t dataSize)
 {
     const dropus_uint8* pRunningData8 = (const dropus_uint8*)pData;
-    dropus_uint8 toc; /* Table of Contents byte. */
-    dropus_uint16 frameCount;
-    dropus_uint16 frameSizes[DROPUS_MAX_OPUS_FRAMES_PER_PACKET];
-    dropus_uint32 code;
+    dropus_uint8  toc; /* Table of Contents byte. */
+    dropus_uint8  opusFrameCount;
+    dropus_uint16 opusFrameSizes[DROPUS_MAX_OPUS_FRAMES_PER_PACKET];
+    dropus_uint32 code; /* Determines the structure of the Opus packet. */
 
     if (pOpusStream == NULL || pData == NULL) {
         return DROPUS_INVALID_ARGS;
@@ -1108,7 +1144,7 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
     /* The TOC byte specifies the structure of the packet. */
     toc = pRunningData8[0];
     pRunningData8 += 1;
-    
+
     /*
     We need to look at the code to know the frames making up the packet are structured. We will do a pre-processing step to
     extract basic information about each frame in the packet.
@@ -1117,44 +1153,44 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
     switch (code) {
         case 0: /* RFC 6716 - Section 3.2.2. Code 0: One Frame in the Packet */
         {
-            dropus_uint16 frameSize = (dropus_uint16)(dataSize-1);
+            dropus_uint16 opusFrameSize = (dropus_uint16)(dataSize-1);
 
             /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
-            if (frameSize > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+            if (opusFrameSize > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
                 return DROPUS_BAD_DATA;
             }
 
-            frameCount = 1;
-            frameSizes[0] = frameSize;
+            opusFrameCount = 1;
+            opusFrameSizes[0] = opusFrameSize;
         } break;
 
         case 1: /* RFC 6716 - Section 3.2.3. Code 1: Two Frames in the Packet, Each with Equal Compressed Size */
         {
-            dropus_uint16 frameSize;
+            dropus_uint16 opusFrameSize;
 
             /* RFC 6716 - Section 3.4 [R3] Code 1 packets have an odd total length, N, so that (N-1)/2 is an integer. */
             if ((dataSize & 1) == 0) {
                 return DROPUS_BAD_DATA;
             }
 
-            frameSize = (dropus_uint16)(dataSize-1)/2;
+            opusFrameSize = (dropus_uint16)(dataSize-1)/2;
 
             /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
-            if (frameSize > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+            if (opusFrameSize > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
                 return DROPUS_BAD_DATA;
             }
 
-            frameCount = 2;
-            frameSizes[0] = frameSize;
-            frameSizes[1] = frameSize;
+            opusFrameCount = 2;
+            opusFrameSizes[0] = opusFrameSize;
+            opusFrameSizes[1] = opusFrameSize;
         } break;
 
         case 2: /* RFC 6716 - Section 3.2.4. Code 2: Two Frames in the Packet, with Different Compressed Sizes */
         {
             dropus_uint8 byte0;
             dropus_uint8 byte1;
-            dropus_uint16 frameSize0 = 0;
-            dropus_uint16 frameSize1 = 0;
+            dropus_uint16 opusFrameSize0 = 0;
+            dropus_uint16 opusFrameSize1 = 0;
             dropus_uint16 headerByteCount;
 
             /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
@@ -1172,11 +1208,11 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                 
                 This implies to me that this is a valid case. dr_opus is going to handle this by setting the PCM frame count to 0 for this packet.
                 */
-                frameSize0 = 0;
-                frameSize1 = 0;
+                opusFrameSize0 = 0;
+                opusFrameSize1 = 0;
             } else {
                 if (byte0 >= 1 && byte0 <= 251) {
-                    frameSize0 = byte0;
+                    opusFrameSize0 = byte0;
                 }
                 if (byte0 >= 252 /*&& byte0 <= 255*/) {
                     /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
@@ -1185,13 +1221,13 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                     }
 
                     byte1 = pRunningData8[0]; pRunningData8 += 1;
-                    frameSize0 = (byte1*4) + byte0;
+                    opusFrameSize0 = (byte1*4) + byte0;
                 }
 
                 headerByteCount = (dropus_uint16)(pRunningData8 - (const dropus_uint8*)pData);   /* This is a safe case because the maximum difference will be 3. */
 
                 /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
-                if (frameSize0 > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                if (opusFrameSize0 > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
                     return DROPUS_BAD_DATA;
                 }
 
@@ -1200,22 +1236,22 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                     return DROPUS_BAD_DATA;
                 }
 
-                frameSize1 = (dropus_uint16)(dataSize-headerByteCount-frameSize0);    /* Safe cast because dataSize is guaranteed to be < 65536 at this point since it was checked at the top of this function. */
+                opusFrameSize1 = (dropus_uint16)(dataSize-headerByteCount-opusFrameSize0);    /* Safe cast because dataSize is guaranteed to be < 65536 at this point since it was checked at the top of this function. */
 
                 /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
-                if (frameSize1 > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                if (opusFrameSize1 > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
                     return DROPUS_BAD_DATA;
                 }
 
                 /* RFC 6716 - Section 3.4 [R4] Code 2 packets have enough bytes after the TOC for a valid frame length, and that length is no larger than the number of bytes remaining in the packet. */
-                if ((size_t)(headerByteCount+frameSize0+frameSize1) > dataSize) {
+                if ((size_t)(headerByteCount + opusFrameSize0 + opusFrameSize1) > dataSize) {
                     return DROPUS_BAD_DATA;
                 }
             }
             
-            frameCount = 2;
-            frameSizes[0] = frameSize0;
-            frameSizes[1] = frameSize1;
+            opusFrameCount = 2;
+            opusFrameSizes[0] = opusFrameSize0;
+            opusFrameSizes[1] = opusFrameSize1;
         } break;
 
         case 3: /* RFC 6716 - Section 3.2.5. Code 3: A Signaled Number of Frames in the Packet */
@@ -1304,17 +1340,17 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                     return DROPUS_BAD_DATA;
                 }
 
-                frameCount = M;
-                for (iFrame = 0; iFrame < frameCount; ++iFrame) {
-                    frameSizes[iFrame] = frameSize;
+                opusFrameCount = M;
+                for (iFrame = 0; iFrame < opusFrameCount; ++iFrame) {
+                    opusFrameSizes[iFrame] = frameSize;
                 }
             } else {
                 /* VBR */
                 dropus_uint16 totalFrameSizeExceptLast = 0; /* Used later for checking [R7]. */
                 dropus_uintptr headerSizeInBytes;           /* For validation and deriving the size of the last frame. */
 
-                frameCount = M;
-                for (iFrame = 0; iFrame < frameCount-1; ++iFrame) {
+                opusFrameCount = M;
+                for (iFrame = 0; iFrame < opusFrameCount-1; ++iFrame) {
                     dropus_uint8 byte0;
                     dropus_uint8 byte1;
 
@@ -1324,10 +1360,10 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
 
                     byte0 = pRunningData8[0]; pRunningData8 += 1;
                     if (byte0 == 0) {
-                        frameSizes[iFrame] = 0;
+                        opusFrameSizes[iFrame] = 0;
                     } else {
                         if (byte0 >= 1 && byte0 <= 251) {
-                            frameSizes[iFrame] = byte0;
+                            opusFrameSizes[iFrame] = byte0;
                         }
                         if (byte0 >= 252 /*&& byte0 <= 255*/) {
                             if (pRunningData8 >= ((const dropus_uint8*)pData) + dataSize) {
@@ -1335,16 +1371,16 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                             }
 
                             byte1 = pRunningData8[0]; pRunningData8 += 1;
-                            frameSizes[iFrame] = (byte1*4) + byte0;
+                            opusFrameSizes[iFrame] = (byte1*4) + byte0;
 
                             /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
-                            if (frameSizes[iFrame] > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                            if (opusFrameSizes[iFrame] > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
                                 return DROPUS_BAD_DATA;
                             }
                         }
                     }
 
-                    totalFrameSizeExceptLast += frameSizes[iFrame];
+                    totalFrameSizeExceptLast += opusFrameSizes[iFrame];
                 }
 
                 headerSizeInBytes = (dropus_uintptr)(pRunningData8 - (const dropus_uint8*)pData);
@@ -1361,10 +1397,10 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
                 }
 
                 /* The size of the last frame is derived. */
-                frameSizes[frameCount-1] = (dropus_uint16)(dataSize - headerSizeInBytes - totalFrameSizeExceptLast - P); /* Safe cast thanks to the myriad of validation done beforehand. */
+                opusFrameSizes[opusFrameCount-1] = (dropus_uint16)(dataSize - headerSizeInBytes - totalFrameSizeExceptLast - P); /* Safe cast thanks to the myriad of validation done beforehand. */
 
                 /* RFC 6716 - Section 3.4 [R2] No implicit frame length is larger than 1275 bytes. */
-                if (frameSizes[frameCount-1] > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
+                if (opusFrameSizes[opusFrameCount-1] > DROPUS_MAX_FRAME_SIZE_IN_BYTES) {
                     return DROPUS_BAD_DATA;
                 }
             }
@@ -1376,25 +1412,37 @@ DROPUS_API dropus_result dropus_stream_decode_packet(dropus_stream* pOpusStream,
 
     pOpusStream->packet.toc = toc;
 
+    /* Make sure the frame count is within a valid range. */
+    if (opusFrameCount > DROPUS_MAX_OPUS_FRAMES_PER_PACKET) {
+        return DROPUS_BAD_DATA;
+    }
+
     /* At this point, pRunningData8 should be sitting on the first byte of the first frame in the packet. */
 
     /* Decoding. */
     {
         dropus_result result;
         dropus_uint16 iFrame;
+        dropus_mode mode;
 
-        /* CELT and Hybrid are not yet implemented. */
-        if (dropus_toc_mode(pOpusStream->packet.toc) == dropus_mode_silk) {
-            for (iFrame = 0; iFrame < frameCount; ++iFrame) {
-                result = dropus_stream_decode_frame(pOpusStream, &pOpusStream->packet.frames[iFrame], pRunningData8, frameSizes[iFrame]);
-                if (result != DROPUS_SUCCESS) {
-                    return result;  /* Probably a corrupt frame. */
-                }
+        mode = dropus_toc_mode(pOpusStream->packet.toc);
 
-                pRunningData8 += frameSizes[iFrame];
+        /* Would be slightly more optimal to pull the mode checks out of the loop, but it's more compact, readable and maintainable to do it inside. We can let the compiler decide what to do with it. */
+        for (iFrame = 0; iFrame < opusFrameCount; ++iFrame) {
+            /*  */ if (mode == dropus_mode_silk) {
+                result = dropus_stream_decode_frame__silk(pOpusStream, &pOpusStream->packet.frames[iFrame], pRunningData8, opusFrameSizes[iFrame]);
+            } else if (mode == dropus_mode_celt) {
+                result = dropus_stream_decode_frame__celt(pOpusStream, &pOpusStream->packet.frames[iFrame], pRunningData8, opusFrameSizes[iFrame]);
+            } else {
+                DROPUS_ASSERT(mode == dropus_mode_hybrid);
+                result = dropus_stream_decode_frame__hybrid(pOpusStream, &pOpusStream->packet.frames[iFrame], pRunningData8, opusFrameSizes[iFrame]);
             }
-        } else {
-            return DROPUS_ERROR;    /* Not yet implemented. */
+
+            if (result != DROPUS_SUCCESS) {
+                return result;  /* Probably a corrupt frame. */
+            }
+
+            pRunningData8 += opusFrameSizes[iFrame];
         }
     }
 
