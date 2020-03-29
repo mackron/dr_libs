@@ -291,3 +291,5 @@ Test Vector Encapsulation Format
   in custom fopen() and wfopen() implementations from dr_flac.
 - Have not yet compiled on VC6 so lets do a pass on that to make it easier for us later.
 - VC6 is now compiling clean. Time to check GCC and Clang in strict C89 mode.
+- Getting compiler errors about some Linux specific code for handling byte swaps. Removed and replaced with a cross-
+  platform solution.

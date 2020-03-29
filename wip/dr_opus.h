@@ -528,6 +528,8 @@ static DROPUS_INLINE dropus_bool32 dropus__is_little_endian()
 {
 #if defined(DROPUS_X86) || defined(DROPUS_X64)
     return DROPUS_TRUE;
+#elif defined(__BYTE_ORDER) && defined(__LITTLE_ENDIAN) && __BYTE_ORDER == __LITTLE_ENDIAN
+    return DROPUS_TRUE;
 #else
     int n = 1;
     return (*(char*)&n) == 1;
@@ -593,55 +595,57 @@ static DROPUS_INLINE dropus_uint64 dropus__swap_endian_uint64(dropus_uint64 n)
 
 static DROPUS_INLINE dropus_uint16 dropus__be2host_16(dropus_uint16 n)
 {
-#ifdef __linux__
-    return be16toh(n);
-#else
     if (dropus__is_little_endian()) {
         return dropus__swap_endian_uint16(n);
     }
 
     return n;
-#endif
 }
 
 static DROPUS_INLINE dropus_uint32 dropus__be2host_32(dropus_uint32 n)
 {
-#ifdef __linux__
-    return be32toh(n);
-#else
     if (dropus__is_little_endian()) {
         return dropus__swap_endian_uint32(n);
     }
 
     return n;
-#endif
 }
 
 static DROPUS_INLINE dropus_uint64 dropus__be2host_64(dropus_uint64 n)
 {
-#ifdef __linux__
-    return be64toh(n);
-#else
     if (dropus__is_little_endian()) {
         return dropus__swap_endian_uint64(n);
     }
 
     return n;
-#endif
 }
 
 
+static DROPUS_INLINE dropus_uint16 dropus__le2host_16(dropus_uint16 n)
+{
+    if (!dropus__is_little_endian()) {
+        return dropus__swap_endian_uint16(n);
+    }
+
+    return n;
+}
+
 static DROPUS_INLINE dropus_uint32 dropus__le2host_32(dropus_uint32 n)
 {
-#ifdef __linux__
-    return le32toh(n);
-#else
     if (!dropus__is_little_endian()) {
         return dropus__swap_endian_uint32(n);
     }
 
     return n;
-#endif
+}
+
+static DROPUS_INLINE dropus_uint64 dropus__le2host_64(dropus_uint64 n)
+{
+    if (!dropus__is_little_endian()) {
+        return dropus__swap_endian_uint64(n);
+    }
+
+    return n;
 }
 
 
