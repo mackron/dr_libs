@@ -823,11 +823,13 @@ static DROPUS_INLINE void dropus_range_decoder_normalize(dropus_range_decoder* p
         sym = ((pRangeDecoder->b0 & 0x01) << 7) | (b1 >> 7);
 
         /* RFC 6716 - Section 4.1.2.1 - The remaining bit in the byte just read is buffered for use in the next iteration. */
-        pRangeDecoder->b0 = b1;
+        pRangeDecoder->b0 = (b1 & 0x01);
 
         /* val */
         pRangeDecoder->val = ((pRangeDecoder->val << 8) + (255 - sym)) & 0x7FFFFFFF;
     }
+
+    DROPUS_ASSERT(pRangeDecoder->rng > 0x800000);
 }
 
 static DROPUS_INLINE void dropus_range_decoder_init(const dropus_uint8* pData, dropus_uint16 dataSize, dropus_range_decoder* pRangeDecoder)
@@ -909,11 +911,20 @@ static DROPUS_INLINE dropus_uint16 dropus_range_decoder_update(dropus_range_deco
     pRangeDecoder->val = pRangeDecoder->val - (pRangeDecoder->rng/ft) * (ft - fh);
 
     /* rng */
-    if (fh > 0) {   /* RFC 6716 - Section 4.1.2 - If fl[k] is greater than zero, then the decoder updates rng using... */
+    if (fl > 0) {   /* RFC 6716 - Section 4.1.2 - If fl[k] is greater than zero, then the decoder updates rng using... */
         pRangeDecoder->rng = (pRangeDecoder->rng/ft) * (fh - fl);
     } else {        /* RFC 6716 - Section 4.1.2 - Otherwise, it updates rng using... */
         pRangeDecoder->rng = pRangeDecoder->rng - (pRangeDecoder->rng/ft) * (ft - fh);
     }
+
+    /*
+    RFC 6716 - Section 4.1.2
+
+        After the updates, implemented by ec_dec_update() (entdec.c), the
+        decoder normalizes the range using the procedure in the next section,
+        and returns the index k.
+    */
+    dropus_range_decoder_normalize(pRangeDecoder);
 
     return k;
 }

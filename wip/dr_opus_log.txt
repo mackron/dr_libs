@@ -293,3 +293,11 @@ Test Vector Encapsulation Format
 - VC6 is now compiling clean. Time to check GCC and Clang in strict C89 mode.
 - Getting compiler errors about some Linux specific code for handling byte swaps. Removed and replaced with a cross-
   platform solution.
+- From what I can see it looks like our boilerplate is now up to date with dr_flac, dr_wav and dr_mp3. Time to get onto
+  some actual Opus decoding.
+- Looks like a typo in dropus_range_decoder_update() for handling the `fl[k] > 0` case. Changed this, but now getting
+  a division by zero. Debugging...
+  - And fixed. The last paragraph in RFC 6716 - Section 4.1.2 is the part I was missing:
+        After the updates, implemented by ec_dec_update() (entdec.c), the
+        decoder normalizes the range using the procedure in the next section,
+        and returns the index k.
