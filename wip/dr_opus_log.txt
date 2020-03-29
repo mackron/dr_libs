@@ -306,3 +306,7 @@ Test Vector Encapsulation Format
   prefixed with "pcm" or "opus", depending on it's use. Example: opusFrameCount / pcmFrameCount.
 - Added infrastructure for handling CELT and Hybrid frames when the time comes. For now still focused on getting SILK
   frames working.
+- Reviewing SILK decoding logic to refresh my memory and looks like I've misinterpreted the encoding for per-frame
+  LBRR flags. When there's more than one SILK frame, the first LBRR flag is just used to determine whether or not
+  the per-frame LBRR flags is present. I was _always_ reading the LBRR flags regardless of the value of the primary
+  LBRR flag.

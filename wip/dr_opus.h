@@ -999,30 +999,31 @@ static dropus_result dropus_stream_decode_frame__silk(dropus_stream* pOpusStream
             }
 
             k = dropus_range_decoder_decode(&rd, f_Flags, DROPUS_COUNTOF(f_Flags), ft_Flags);
-            flagsLBRR[iChannel] |= k;
+            DROPUS_ASSERT(k <= 1);
+            flagsLBRR[iChannel] = (dropus_uint8)k;
         }
 
         /*
         Per-Frame LBRR Frames.
         
         RFC 6716 - 4.2.4 - ... packed in order from the LSB to the MSB.
-
-        I'm using a single byte for all LBRR flags. I think the fact that bits are stored in LSB to MSB means I can just do a simple
-        left shift and bitwise-or to put the LBRR flags all together for each SILK frame.
         */
         if (frameCountSILK > 1) {
             dropus_uint8 iChannel;
-            if (frameCountSILK == 2) {
-                dropus_uint16 f_40[4] = {0, 53, 53, 150}, ft_40 = 256;
-                for (iChannel = 0; iChannel < channels; ++iChannel) {
-                    k = dropus_range_decoder_decode(&rd, f_40, DROPUS_COUNTOF(f_40), ft_40);
-                    flagsLBRR[iChannel] |= (k << 1);
-                }
-            } else {
+            for (iChannel = 0; iChannel < channels; iChannel += 1) {
+                dropus_uint16 f_40[4] = {0, 53, 53, 150},                ft_40 = 256;
                 dropus_uint16 f_60[8] = {0, 41, 20, 29, 41, 15, 28, 82}, ft_60 = 256;
-                for (iChannel = 0; iChannel < channels; ++iChannel) {
-                    k = dropus_range_decoder_decode(&rd, f_60, DROPUS_COUNTOF(f_60), ft_60);
-                    flagsLBRR[iChannel] |= (k << 1);
+                if (flagsLBRR[iChannel] != 0) {
+                    if (frameCountSILK == 2) {
+                        k = dropus_range_decoder_decode(&rd, f_40, DROPUS_COUNTOF(f_40), ft_40);
+                        DROPUS_ASSERT(k <= 0b11);
+                    } else {
+                        DROPUS_ASSERT(frameCountSILK == 3);
+                        k = dropus_range_decoder_decode(&rd, f_60, DROPUS_COUNTOF(f_60), ft_60);
+                        DROPUS_ASSERT(k <= 0b111);
+                    }
+
+                    flagsLBRR[iChannel] = (dropus_uint8)k;
                 }
             }
         }
