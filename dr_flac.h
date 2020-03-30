@@ -11695,6 +11695,7 @@ REVISION HISTORY
 ================
 v0.12.8 - TBD
   - Add drflac_open_file_w() drflac_open_file_with_metadata_w().
+  - Fix some static analysis warnings.
   - Minor documentation updates.
 
 v0.12.7 - 2020-03-14
