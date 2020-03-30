@@ -592,7 +592,7 @@ static int dr_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
     }
 
     if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) {
-        return DROPUS_INVALID_ARGS;
+        return -1;  /* Invalid args. */
     }
 
 #if _MSC_VER && _MSC_VER >= 1400
