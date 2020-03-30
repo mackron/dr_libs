@@ -2342,6 +2342,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_uint32(drflac_bs* bs, unsigned i
         drflac_uint32 bitCountLo = bitCount - bitCountHi;
         drflac_uint32 resultHi;
 
+        DRFLAC_ASSERT(bitCountHi > 0);
         DRFLAC_ASSERT(bitCountHi < 32);
         resultHi = (drflac_uint32)DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountHi);
 
@@ -3741,7 +3742,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__sse41_32(drflac
 
     /*
     Pre-loading the coefficients and prior samples is annoying because we need to ensure we don't try reading more than
-    what's available in the input buffers. It would be conenient to use a fall-through switch to do this, but this results
+    what's available in the input buffers. It would be convenient to use a fall-through switch to do this, but this results
     in strict aliasing warnings with GCC. To work around this I'm just doing something hacky. This feels a bit convoluted
     so I think there's opportunity for this to be simplified.
     */
