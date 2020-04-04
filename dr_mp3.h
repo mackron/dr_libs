@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.0 - 2020-04-04
+dr_mp3 - v0.6.1 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -1153,16 +1153,16 @@ static void drmp3_L3_decode_scalefactors(const drmp3_uint8 *hdr, drmp3_uint8 *is
         int sh = 3 - scf_shift;
         for (i = 0; i < gr->n_short_sfb; i += 3)
         {
-            iscf[gr->n_long_sfb + i + 0] += gr->subblock_gain[0] << sh;
-            iscf[gr->n_long_sfb + i + 1] += gr->subblock_gain[1] << sh;
-            iscf[gr->n_long_sfb + i + 2] += gr->subblock_gain[2] << sh;
+            iscf[gr->n_long_sfb + i + 0] = (drmp3_uint8)(iscf[gr->n_long_sfb + i + 0] + (gr->subblock_gain[0] << sh));
+            iscf[gr->n_long_sfb + i + 1] = (drmp3_uint8)(iscf[gr->n_long_sfb + i + 1] + (gr->subblock_gain[1] << sh));
+            iscf[gr->n_long_sfb + i + 2] = (drmp3_uint8)(iscf[gr->n_long_sfb + i + 2] + (gr->subblock_gain[2] << sh));
         }
     } else if (gr->preflag)
     {
         static const drmp3_uint8 g_preamp[10] = { 1,1,1,1,2,2,3,3,3,2 };
         for (i = 0; i < 10; i++)
         {
-            iscf[11 + i] += g_preamp[i];
+            iscf[11 + i] = (drmp3_uint8)(iscf[11 + i] + g_preamp[i]);
         }
     }
 
@@ -2584,7 +2584,7 @@ static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPC
         return 0;
     }
 
-    do {
+    for (;;) {
         drmp3dec_frame_info info;
         size_t leftoverDataSize;
 
@@ -2672,7 +2672,7 @@ static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPC
 
             pMP3->dataSize += bytesRead;
         }
-    } while (DRMP3_TRUE);
+    };
 
     return pcmFramesRead;
 }
@@ -4335,6 +4335,9 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
+v0.6.1 - TBD
+  - Fix warnings.
+
 v0.6.0 - 2020-04-04
   - API CHANGE: Remove the pConfig parameter from the following APIs:
     - drmp3_init()
