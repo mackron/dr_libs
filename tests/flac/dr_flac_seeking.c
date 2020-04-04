@@ -166,7 +166,7 @@ drflac_result seek_test_file(const char* pFilePath)
     }
 
     /* Now we'll try seeking to random locations. */
-    dr_seed((int)time(NULL));
+    dr_seed(1234);
 
     iteration = 0;
     while (result == DRFLAC_SUCCESS && iteration < totalIterationCount) {
