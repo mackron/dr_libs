@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.0 - TBD
+dr_wav - v0.12.0 - 2020-04-04
 
 David Reid - mackron@gmail.com
 
@@ -5734,8 +5734,9 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
-v0.12.0 - TBD
+v0.12.0 - 2020-04-04
   - API CHANGE: Add container and format parameters to the chunk callback.
+  - Minor documentation updates.
 
 v0.11.5 - 2020-03-07
   - Fix compilation error with Visual Studio .NET 2003.
