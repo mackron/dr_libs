@@ -5687,7 +5687,7 @@ static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFla
             /*
             Now seek to the next FLAC frame. We need to decode the entire frame (not just the header) because it's possible for the header to incorrectly pass the
             CRC check and return bad data. We need to decode the entire frame to be more certain. Although this seems unlikely, this has happened to me in testing
-            to it needs to stay this way for now.
+            so it needs to stay this way for now.
             */
 #if 1
             if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
@@ -5837,7 +5837,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search(drflac* pFlac, drf
     drflac_uint64 byteRangeHi;
     drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSizeInPCMFrames != 0) ? pFlac->maxBlockSizeInPCMFrames*2 : 4096;
 
-    /* Our algorithm currently assumes the PCM frame */
+    /* Our algorithm currently assumes the FLAC stream is currently sitting at the start. */
     if (drflac__seek_to_first_frame(pFlac) == DRFLAC_FALSE) {
         return DRFLAC_FALSE;
     }
