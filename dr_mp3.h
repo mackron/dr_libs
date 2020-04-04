@@ -486,6 +486,11 @@ DRMP3_API drmp3_int16* drmp3_open_file_and_read_pcm_frames_s16(const char* fileP
 #endif
 
 /*
+Allocates a block of memory on the heap.
+*/
+DRMP3_API void* drmp3_malloc(size_t sz, const drmp3_allocation_callbacks* pAllocationCallbacks);
+
+/*
 Frees any memory that was allocated by a public drmp3 API.
 */
 DRMP3_API void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks);
@@ -4240,6 +4245,15 @@ DRMP3_API drmp3_int16* drmp3_open_file_and_read_pcm_frames_s16(const char* fileP
     return drmp3__full_read_and_close_s16(&mp3, pConfig, pTotalFrameCount);
 }
 #endif
+
+DRMP3_API void* drmp3_malloc(size_t sz, const drmp3_allocation_callbacks* pAllocationCallbacks)
+{
+    if (pAllocationCallbacks != NULL) {
+        return drmp3__malloc_from_callbacks(sz, pAllocationCallbacks);
+    } else {
+        return drmp3__malloc_default(sz, NULL);
+    }
+}
 
 DRMP3_API void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
