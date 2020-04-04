@@ -11695,7 +11695,7 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 REVISION HISTORY
 ================
 v0.12.8 - 2020-04-04
-  - Add drflac_open_file_w() drflac_open_file_with_metadata_w().
+  - Add drflac_open_file_w() and drflac_open_file_with_metadata_w().
   - Fix some static analysis warnings.
   - Minor documentation updates.
 
