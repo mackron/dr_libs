@@ -1678,10 +1678,9 @@ DRFLAC_NO_THREAD_SANITIZE static void drflac__init_cpu_caps()
     static drflac_bool32 isCPUCapsInitialized = DRFLAC_FALSE;
 
     if (!isCPUCapsInitialized) {
-        int info[4] = {0};
-
         /* LZCNT */
 #if defined(DRFLAC_HAS_LZCNT_INTRINSIC)
+        int info[4] = {0};
         drflac__cpuid(info, 0x80000001);
         drflac__gIsLZCNTSupported = (info[2] & (1 << 5)) != 0;
 #endif
