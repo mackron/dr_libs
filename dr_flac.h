@@ -5901,8 +5901,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
         value for byteRangeHi which will clamp it appropriately.
 
         Note that the next seekpoint must have an offset greater than the closest seekpoint because otherwise our binary search algorithm will break down. There
-        have been cases where a seektable consists of seek points where every byte offset is set to 0 which causes problems. If this happens we'll fall back to
-        the non binary search algorithm.
+        have been cases where a seektable consists of seek points where every byte offset is set to 0 which causes problems. If this happens we need to abort.
         */
         if (iClosestSeekpoint < pFlac->seekpointCount-1) {
             drflac_uint32 iNextSeekpoint = iClosestSeekpoint + 1;
