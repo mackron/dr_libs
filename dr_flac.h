@@ -8931,8 +8931,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__reference
 
         mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-        pOutputSamples[i*2+0] = ((mid + side) >> 1) << unusedBitsPerSample;
-        pOutputSamples[i*2+1] = ((mid - side) >> 1) << unusedBitsPerSample;
+        pOutputSamples[i*2+0] = (drflac_int32)((drflac_uint32)((mid + side) >> 1) << unusedBitsPerSample);
+        pOutputSamples[i*2+1] = (drflac_int32)((drflac_uint32)((mid - side) >> 1) << unusedBitsPerSample);
     }
 }
 #endif
@@ -8970,15 +8970,15 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__scalar(dr
             mid2 = (((drflac_uint32)mid2) << 1) | (side2 & 0x01);
             mid3 = (((drflac_uint32)mid3) << 1) | (side3 & 0x01);
 
-            temp0L = ((mid0 + side0) << shift);
-            temp1L = ((mid1 + side1) << shift);
-            temp2L = ((mid2 + side2) << shift);
-            temp3L = ((mid3 + side3) << shift);
+            temp0L = (drflac_int32)((drflac_uint32)(mid0 + side0) << shift);
+            temp1L = (drflac_int32)((drflac_uint32)(mid1 + side1) << shift);
+            temp2L = (drflac_int32)((drflac_uint32)(mid2 + side2) << shift);
+            temp3L = (drflac_int32)((drflac_uint32)(mid3 + side3) << shift);
 
-            temp0R = ((mid0 - side0) << shift);
-            temp1R = ((mid1 - side1) << shift);
-            temp2R = ((mid2 - side2) << shift);
-            temp3R = ((mid3 - side3) << shift);
+            temp0R = (drflac_int32)((drflac_uint32)(mid0 - side0) << shift);
+            temp1R = (drflac_int32)((drflac_uint32)(mid1 - side1) << shift);
+            temp2R = (drflac_int32)((drflac_uint32)(mid2 - side2) << shift);
+            temp3R = (drflac_int32)((drflac_uint32)(mid3 - side3) << shift);
 
             pOutputSamples[i*8+0] = temp0L;
             pOutputSamples[i*8+1] = temp0R;
@@ -9042,8 +9042,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__scalar(dr
 
         mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-        pOutputSamples[i*2+0] = ((mid + side) >> 1) << unusedBitsPerSample;
-        pOutputSamples[i*2+1] = ((mid - side) >> 1) << unusedBitsPerSample;
+        pOutputSamples[i*2+0] = (drflac_int32)((drflac_uint32)((mid + side) >> 1) << unusedBitsPerSample);
+        pOutputSamples[i*2+1] = (drflac_int32)((drflac_uint32)((mid - side) >> 1) << unusedBitsPerSample);
     }
 }
 
@@ -9113,8 +9113,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__sse2(drfl
 
             mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-            pOutputSamples[i*2+0] = ((mid + side) << shift);
-            pOutputSamples[i*2+1] = ((mid - side) << shift);
+            pOutputSamples[i*2+0] = (drflac_int32)((drflac_uint32)(mid + side) << shift);
+            pOutputSamples[i*2+1] = (drflac_int32)((drflac_uint32)(mid - side) << shift);
         }
     }
 }
@@ -9195,8 +9195,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__neon(drfl
 
             mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-            pOutputSamples[i*2+0] = ((mid + side) << shift);
-            pOutputSamples[i*2+1] = ((mid - side) << shift);
+            pOutputSamples[i*2+0] = (drflac_int32)((drflac_uint32)(mid + side) << shift);
+            pOutputSamples[i*2+1] = (drflac_int32)((drflac_uint32)(mid - side) << shift);
         }
     }
 }
@@ -9804,8 +9804,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__reference
 
         mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-        pOutputSamples[i*2+0] = (drflac_int16)((((mid + side) >> 1) << unusedBitsPerSample) >> 16);
-        pOutputSamples[i*2+1] = (drflac_int16)((((mid - side) >> 1) << unusedBitsPerSample) >> 16);
+        pOutputSamples[i*2+0] = (drflac_int16)((drflac_int32)((drflac_uint32)((mid + side) >> 1) << unusedBitsPerSample) >> 16);
+        pOutputSamples[i*2+1] = (drflac_int16)((drflac_int32)((drflac_uint32)((mid - side) >> 1) << unusedBitsPerSample) >> 16);
     }
 }
 #endif
@@ -9843,15 +9843,15 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__scalar(dr
             mid2 = (((drflac_uint32)mid2) << 1) | (side2 & 0x01);
             mid3 = (((drflac_uint32)mid3) << 1) | (side3 & 0x01);
 
-            temp0L = ((mid0 + side0) << shift);
-            temp1L = ((mid1 + side1) << shift);
-            temp2L = ((mid2 + side2) << shift);
-            temp3L = ((mid3 + side3) << shift);
+            temp0L = (drflac_int32)((drflac_uint32)(mid0 + side0) << shift);
+            temp1L = (drflac_int32)((drflac_uint32)(mid1 + side1) << shift);
+            temp2L = (drflac_int32)((drflac_uint32)(mid2 + side2) << shift);
+            temp3L = (drflac_int32)((drflac_uint32)(mid3 + side3) << shift);
 
-            temp0R = ((mid0 - side0) << shift);
-            temp1R = ((mid1 - side1) << shift);
-            temp2R = ((mid2 - side2) << shift);
-            temp3R = ((mid3 - side3) << shift);
+            temp0R = (drflac_int32)((drflac_uint32)(mid0 - side0) << shift);
+            temp1R = (drflac_int32)((drflac_uint32)(mid1 - side1) << shift);
+            temp2R = (drflac_int32)((drflac_uint32)(mid2 - side2) << shift);
+            temp3R = (drflac_int32)((drflac_uint32)(mid3 - side3) << shift);
 
             temp0L >>= 16;
             temp1L >>= 16;
@@ -9935,8 +9935,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__scalar(dr
 
         mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-        pOutputSamples[i*2+0] = (drflac_int16)((((mid + side) >> 1) << unusedBitsPerSample) >> 16);
-        pOutputSamples[i*2+1] = (drflac_int16)((((mid - side) >> 1) << unusedBitsPerSample) >> 16);
+        pOutputSamples[i*2+0] = (drflac_int16)((drflac_int32)((drflac_uint32)((mid + side) >> 1) << unusedBitsPerSample) >> 16);
+        pOutputSamples[i*2+1] = (drflac_int16)((drflac_int32)((drflac_uint32)((mid - side) >> 1) << unusedBitsPerSample) >> 16);
     }
 }
 
@@ -9979,8 +9979,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__sse2(drfl
 
             mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-            pOutputSamples[i*2+0] = (drflac_int16)(((mid + side) >> 1) >> 16);
-            pOutputSamples[i*2+1] = (drflac_int16)(((mid - side) >> 1) >> 16);
+            pOutputSamples[i*2+0] = (drflac_int16)((drflac_int32)((drflac_uint32)(mid + side) >> 1) >> 16);
+            pOutputSamples[i*2+1] = (drflac_int16)((drflac_int32)((drflac_uint32)(mid - side) >> 1) >> 16);
         }
     } else {
         shift -= 1;
@@ -10010,8 +10010,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__sse2(drfl
 
             mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-            pOutputSamples[i*2+0] = (drflac_int16)(((mid + side) << shift) >> 16);
-            pOutputSamples[i*2+1] = (drflac_int16)(((mid - side) << shift) >> 16);
+            pOutputSamples[i*2+0] = (drflac_int16)((drflac_int32)((drflac_uint32)(mid + side) << shift) >> 16);
+            pOutputSamples[i*2+1] = (drflac_int16)((drflac_int32)((drflac_uint32)(mid - side) << shift) >> 16);
         }
     }
 }
@@ -10096,8 +10096,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__neon(drfl
 
             mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-            pOutputSamples[i*2+0] = (drflac_int16)(((mid + side) << shift) >> 16);
-            pOutputSamples[i*2+1] = (drflac_int16)(((mid - side) << shift) >> 16);
+            pOutputSamples[i*2+0] = (drflac_int16)((drflac_int32)((drflac_uint32)(mid + side) << shift) >> 16);
+            pOutputSamples[i*2+1] = (drflac_int16)((drflac_int32)((drflac_uint32)(mid - side) << shift) >> 16);
         }
     }
 }
@@ -10858,8 +10858,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__sse2(drfl
 
             mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-            pOutputSamples[i*2+0] = (float)(((mid + side) >> 1) * factor);
-            pOutputSamples[i*2+1] = (float)(((mid - side) >> 1) * factor);
+            pOutputSamples[i*2+0] = ((mid + side) >> 1) * factor;
+            pOutputSamples[i*2+1] = ((mid - side) >> 1) * factor;
         }
     } else {
         shift -= 1;
@@ -10892,8 +10892,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__sse2(drfl
 
             mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-            pOutputSamples[i*2+0] = (float)(((mid + side) << shift) * factor);
-            pOutputSamples[i*2+1] = (float)(((mid - side) << shift) * factor);
+            pOutputSamples[i*2+0] = (drflac_int32)((drflac_uint32)(mid + side) << shift) * factor;
+            pOutputSamples[i*2+1] = (drflac_int32)((drflac_uint32)(mid - side) << shift) * factor;
         }
     }
 }
@@ -10949,8 +10949,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__neon(drfl
 
             mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-            pOutputSamples[i*2+0] = (float)(((mid + side) >> 1) * factor);
-            pOutputSamples[i*2+1] = (float)(((mid - side) >> 1) * factor);
+            pOutputSamples[i*2+0] = ((mid + side) >> 1) * factor;
+            pOutputSamples[i*2+1] = ((mid - side) >> 1) * factor;
         }
     } else {
         shift -= 1;
@@ -10983,8 +10983,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__neon(drfl
 
             mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-            pOutputSamples[i*2+0] = (float)(((mid + side) << shift) * factor);
-            pOutputSamples[i*2+1] = (float)(((mid - side) << shift) * factor);
+            pOutputSamples[i*2+0] = (drflac_int32)((drflac_uint32)(mid + side) << shift) * factor;
+            pOutputSamples[i*2+1] = (drflac_int32)((drflac_uint32)(mid - side) << shift) * factor;
         }
     }
 }
