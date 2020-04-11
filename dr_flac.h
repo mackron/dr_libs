@@ -10734,24 +10734,24 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__scalar(dr
             mid2 = (((drflac_uint32)mid2) << 1) | (side2 & 0x01);
             mid3 = (((drflac_uint32)mid3) << 1) | (side3 & 0x01);
 
-            temp0L = ((mid0 + side0) << shift);
-            temp1L = ((mid1 + side1) << shift);
-            temp2L = ((mid2 + side2) << shift);
-            temp3L = ((mid3 + side3) << shift);
+            temp0L = (drflac_int32)((drflac_uint32)(mid0 + side0) << shift);
+            temp1L = (drflac_int32)((drflac_uint32)(mid1 + side1) << shift);
+            temp2L = (drflac_int32)((drflac_uint32)(mid2 + side2) << shift);
+            temp3L = (drflac_int32)((drflac_uint32)(mid3 + side3) << shift);
 
-            temp0R = ((mid0 - side0) << shift);
-            temp1R = ((mid1 - side1) << shift);
-            temp2R = ((mid2 - side2) << shift);
-            temp3R = ((mid3 - side3) << shift);
+            temp0R = (drflac_int32)((drflac_uint32)(mid0 - side0) << shift);
+            temp1R = (drflac_int32)((drflac_uint32)(mid1 - side1) << shift);
+            temp2R = (drflac_int32)((drflac_uint32)(mid2 - side2) << shift);
+            temp3R = (drflac_int32)((drflac_uint32)(mid3 - side3) << shift);
 
-            pOutputSamples[i*8+0] = (float)(temp0L * factor);
-            pOutputSamples[i*8+1] = (float)(temp0R * factor);
-            pOutputSamples[i*8+2] = (float)(temp1L * factor);
-            pOutputSamples[i*8+3] = (float)(temp1R * factor);
-            pOutputSamples[i*8+4] = (float)(temp2L * factor);
-            pOutputSamples[i*8+5] = (float)(temp2R * factor);
-            pOutputSamples[i*8+6] = (float)(temp3L * factor);
-            pOutputSamples[i*8+7] = (float)(temp3R * factor);
+            pOutputSamples[i*8+0] = temp0L * factor;
+            pOutputSamples[i*8+1] = temp0R * factor;
+            pOutputSamples[i*8+2] = temp1L * factor;
+            pOutputSamples[i*8+3] = temp1R * factor;
+            pOutputSamples[i*8+4] = temp2L * factor;
+            pOutputSamples[i*8+5] = temp2R * factor;
+            pOutputSamples[i*8+6] = temp3L * factor;
+            pOutputSamples[i*8+7] = temp3R * factor;
         }
     } else {
         for (i = 0; i < frameCount4; ++i) {
@@ -10789,14 +10789,14 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__scalar(dr
             temp2R = ((mid2 - side2) >> 1);
             temp3R = ((mid3 - side3) >> 1);
 
-            pOutputSamples[i*8+0] = (float)(temp0L * factor);
-            pOutputSamples[i*8+1] = (float)(temp0R * factor);
-            pOutputSamples[i*8+2] = (float)(temp1L * factor);
-            pOutputSamples[i*8+3] = (float)(temp1R * factor);
-            pOutputSamples[i*8+4] = (float)(temp2L * factor);
-            pOutputSamples[i*8+5] = (float)(temp2R * factor);
-            pOutputSamples[i*8+6] = (float)(temp3L * factor);
-            pOutputSamples[i*8+7] = (float)(temp3R * factor);
+            pOutputSamples[i*8+0] = temp0L * factor;
+            pOutputSamples[i*8+1] = temp0R * factor;
+            pOutputSamples[i*8+2] = temp1L * factor;
+            pOutputSamples[i*8+3] = temp1R * factor;
+            pOutputSamples[i*8+4] = temp2L * factor;
+            pOutputSamples[i*8+5] = temp2R * factor;
+            pOutputSamples[i*8+6] = temp3L * factor;
+            pOutputSamples[i*8+7] = temp3R * factor;
         }
     }
 
@@ -10806,8 +10806,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__scalar(dr
 
         mid = (((drflac_uint32)mid) << 1) | (side & 0x01);
 
-        pOutputSamples[i*2+0] = (float)((((mid + side) >> 1) << unusedBitsPerSample) * factor);
-        pOutputSamples[i*2+1] = (float)((((mid - side) >> 1) << unusedBitsPerSample) * factor);
+        pOutputSamples[i*2+0] = (drflac_int32)((drflac_uint32)((mid + side) >> 1) << unusedBitsPerSample) * factor;
+        pOutputSamples[i*2+1] = (drflac_int32)((drflac_uint32)((mid - side) >> 1) << unusedBitsPerSample) * factor;
     }
 }
 
