@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.2 - 2020-04-10
+dr_mp3 - v0.6.3 - 2020-04-13
 
 David Reid - mackron@gmail.com
 
@@ -610,7 +610,7 @@ static __inline__ __attribute__((always_inline)) void drmp3_cpuid(int CPUInfo[],
 #endif
 }
 #endif
-static int drmp3_have_simd()
+static int drmp3_have_simd(void)
 {
 #ifdef DR_MP3_ONLY_SIMD
     return 1;
@@ -651,7 +651,7 @@ end:
 #define DRMP3_VMUL_S(x, s)  vmulq_f32(x, vmovq_n_f32(s))
 #define DRMP3_VREV(x) vcombine_f32(vget_high_f32(vrev64q_f32(x)), vget_low_f32(vrev64q_f32(x)))
 typedef float32x4_t drmp3_f4;
-static int drmp3_have_simd()
+static int drmp3_have_simd(void)
 {   /* TODO: detect neon for !DR_MP3_ONLY_SIMD */
     return 1;
 }
@@ -4343,6 +4343,9 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
+v0.6.3 - 2020-04-13
+  - Fix some pedantic warnings.
+
 v0.6.2 - 2020-04-10
   - Fix a crash in drmp3_open_*_and_read_pcm_frames_*() if the output config object is NULL.
 
