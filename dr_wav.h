@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.0 - 2020-04-04
+dr_wav - v0.12.1 - 2020-04-13
 
 David Reid - mackron@gmail.com
 
@@ -1082,7 +1082,7 @@ static DRWAV_INLINE drwav_bool32 drwav__fourcc_equal(const unsigned char* a, con
 
 
 
-static DRWAV_INLINE int drwav__is_little_endian()
+static DRWAV_INLINE int drwav__is_little_endian(void)
 {
 #if defined(DRWAV_X86) || defined(DRWAV_X64)
     return DRWAV_TRUE;
@@ -5734,6 +5734,9 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
+v0.12.1 - 2020-04-13
+  - Fix some pedantic warnings.
+
 v0.12.0 - 2020-04-04
   - API CHANGE: Add container and format parameters to the chunk callback.
   - Minor documentation updates.
