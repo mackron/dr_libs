@@ -151,10 +151,7 @@ samples as it can, up to the amount requested. Later on when you need the next b
     }
     ```
 
-You can seek to a specific sample with drflac_seek_to_sample(). The given sample is based on interleaving. So for example, if you were to seek to the sample at
-index 0 in a stereo stream, you'll be seeking to the first sample of the left channel. The sample at index 1 will be the first sample of the right channel. The
-sample at index 2 will be the second sample of the left channel, etc.
-
+You can seek to a specific PCM frame with `drflac_seek_to_pcm_frame()`.
 
 If you just want to quickly decode an entire FLAC file in one go you can do something like this:
 
