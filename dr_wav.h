@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.2 - TBD
+dr_wav - v0.12.2 - 2020-04-21
 
 David Reid - mackron@gmail.com
 
@@ -40,7 +40,7 @@ You can then #include this file in other parts of the program as you would with 
 
     ```c
     drwav wav;
-    if (!drwav_init_file(&wav, "my_song.wav")) {
+    if (!drwav_init_file(&wav, "my_song.wav", NULL)) {
         // Error opening WAV file.
     }
 
@@ -58,7 +58,7 @@ If you just want to quickly open and read the audio data in a single operation y
     unsigned int channels;
     unsigned int sampleRate;
     drwav_uint64 totalPCMFrameCount;
-    float* pSampleData = drwav_open_file_and_read_pcm_frames_f32("my_song.wav", &channels, &sampleRate, &totalPCMFrameCount);
+    float* pSampleData = drwav_open_file_and_read_pcm_frames_f32("my_song.wav", &channels, &sampleRate, &totalPCMFrameCount, NULL);
     if (pSampleData == NULL) {
         // Error opening and reading WAV file.
     }
@@ -5752,7 +5752,7 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
-v0.12.2 - TBD
+v0.12.2 - 2020-04-21
   - Fix a bug where drwav_init_file() does not close the file handle after attempting to load an erroneous file.
 
 v0.12.1 - 2020-04-13
