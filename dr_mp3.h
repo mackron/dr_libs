@@ -3515,6 +3515,7 @@ static drmp3_uint64 drmp3_read_pcm_frames_raw(drmp3* pMP3, drmp3_uint64 framesTo
         #endif
         }
 
+        pMP3->currentPCMFrame              += framesToConsume;
         pMP3->pcmFramesConsumedInMP3Frame  += framesToConsume;
         pMP3->pcmFramesRemainingInMP3Frame -= framesToConsume;
         totalFramesRead                    += framesToConsume;
