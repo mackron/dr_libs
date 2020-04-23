@@ -3791,7 +3791,6 @@ DRMP3_API drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint
     drmp3_uint64 currentPCMFrame;
     drmp3_uint64 totalPCMFrameCount;
     drmp3_uint64 totalMP3FrameCount;
-    float totalPCMFrameCountFractionalPart;
 
     if (pMP3 == NULL) {
         return DRMP3_FALSE;
@@ -3817,25 +3816,15 @@ DRMP3_API drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint
     totalPCMFrameCount = 0;
     totalMP3FrameCount = 0;
 
-    totalPCMFrameCountFractionalPart = 0; /* <-- With resampling there will be a fractional part to each MP3 frame that we need to accumulate. */
     for (;;) {
-        drmp3_uint32 pcmFramesInCurrentMP3FrameIn;
-        float srcRatio;
-        float pcmFramesInCurrentMP3FrameOutF;
-        drmp3_uint32 pcmFramesInCurrentMP3FrameOut;
+        drmp3_uint32 pcmFramesInCurrentMP3Frame;
 
-        pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL, DRMP3_FALSE);
-        if (pcmFramesInCurrentMP3FrameIn == 0) {
+        pcmFramesInCurrentMP3Frame = drmp3_decode_next_frame_ex(pMP3, NULL, DRMP3_FALSE);
+        if (pcmFramesInCurrentMP3Frame == 0) {
             break;
         }
 
-        srcRatio = (float)pMP3->mp3FrameSampleRate / (float)pMP3->sampleRate;
-        DRMP3_ASSERT(srcRatio > 0);
-
-        pcmFramesInCurrentMP3FrameOutF = totalPCMFrameCountFractionalPart + (pcmFramesInCurrentMP3FrameIn / srcRatio);
-        pcmFramesInCurrentMP3FrameOut  = (drmp3_uint32)pcmFramesInCurrentMP3FrameOutF;
-        totalPCMFrameCountFractionalPart = pcmFramesInCurrentMP3FrameOutF - pcmFramesInCurrentMP3FrameOut;
-        totalPCMFrameCount += pcmFramesInCurrentMP3FrameOut;
+        totalPCMFrameCount += pcmFramesInCurrentMP3Frame;
         totalMP3FrameCount += 1;
     }
 
