@@ -2598,7 +2598,7 @@ static drmp3_bool32 drmp3__on_seek_64(drmp3* pMP3, drmp3_uint64 offset, drmp3_se
 }
 
 
-static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPCMFrames, drmp3_bool32 discard)
+static drmp3_uint32 drmp3_decode_next_frame_ex__callbacks(drmp3* pMP3, drmp3d_sample_t* pPCMFrames)
 {
     drmp3_uint32 pcmFramesRead = 0;
 
@@ -2659,11 +2659,8 @@ static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPC
             pMP3->dataSize     -= (size_t)info.frame_bytes;
         }
 
-        /*
-        pcmFramesRead will be equal to 0 if decoding failed. If it is zero and info.frame_bytes > 0 then we have successfully
-        decoded the frame. A special case is if we are wanting to discard the frame, in which case we return successfully.
-        */
-        if (pcmFramesRead > 0 || (info.frame_bytes > 0 && discard)) {
+        /* pcmFramesRead will be equal to 0 if decoding failed. If it is zero and info.frame_bytes > 0 then we have successfully decoded the frame. */
+        if (pcmFramesRead > 0) {
             pcmFramesRead = drmp3_hdr_frame_samples(pMP3->decoder.header);
             pMP3->pcmFramesConsumedInMP3Frame = 0;
             pMP3->pcmFramesRemainingInMP3Frame = pcmFramesRead;
@@ -2708,10 +2705,44 @@ static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPC
     return pcmFramesRead;
 }
 
+static drmp3_uint32 drmp3_decode_next_frame_ex__memory(drmp3* pMP3, drmp3d_sample_t* pPCMFrames)
+{
+    drmp3_uint32 pcmFramesRead = 0;
+    drmp3dec_frame_info info;
+
+    DRMP3_ASSERT(pMP3 != NULL);
+    DRMP3_ASSERT(pMP3->memory.pData != NULL);
+
+    if (pMP3->atEnd) {
+        return 0;
+    }
+
+    pcmFramesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->memory.pData + pMP3->memory.currentReadPos, (int)(pMP3->memory.dataSize - pMP3->memory.currentReadPos), pPCMFrames, &info);
+
+    pMP3->pcmFramesConsumedInMP3Frame  = 0;
+    pMP3->pcmFramesRemainingInMP3Frame = pcmFramesRead;
+    pMP3->mp3FrameChannels             = info.channels;
+    pMP3->mp3FrameSampleRate           = info.hz;
+
+    /* Consume the data. */
+    pMP3->memory.currentReadPos += (size_t)info.frame_bytes;
+
+    return pcmFramesRead;
+}
+
+static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPCMFrames)
+{
+    if (pMP3->memory.pData != NULL && pMP3->memory.dataSize > 0) {
+        return drmp3_decode_next_frame_ex__memory(pMP3, pPCMFrames);
+    } else {
+        return drmp3_decode_next_frame_ex__callbacks(pMP3, pPCMFrames);
+    }
+}
+
 static drmp3_uint32 drmp3_decode_next_frame(drmp3* pMP3)
 {
     DRMP3_ASSERT(pMP3 != NULL);
-    return drmp3_decode_next_frame_ex(pMP3, (drmp3d_sample_t*)pMP3->pcmFrames, DRMP3_FALSE);
+    return drmp3_decode_next_frame_ex(pMP3, (drmp3d_sample_t*)pMP3->pcmFrames);
 }
 
 #if 0
@@ -3759,8 +3790,8 @@ static drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint6
             pPCMFrames = (drmp3d_sample_t*)pMP3->pcmFrames;
         }
 
-        /* We first need to decode the next frame, and then we need to flush the resampler. */
-        pcmFramesRead = drmp3_decode_next_frame_ex(pMP3, pPCMFrames, DRMP3_TRUE);
+        /* We first need to decode the next frame. */
+        pcmFramesRead = drmp3_decode_next_frame_ex(pMP3, pPCMFrames);
         if (pcmFramesRead == 0) {
             return DRMP3_FALSE;
         }
@@ -3828,7 +3859,7 @@ DRMP3_API drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint
     for (;;) {
         drmp3_uint32 pcmFramesInCurrentMP3Frame;
 
-        pcmFramesInCurrentMP3Frame = drmp3_decode_next_frame_ex(pMP3, NULL, DRMP3_FALSE);
+        pcmFramesInCurrentMP3Frame = drmp3_decode_next_frame_ex(pMP3, NULL);
         if (pcmFramesInCurrentMP3Frame == 0) {
             break;
         }
@@ -3966,7 +3997,7 @@ DRMP3_API drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pS
             mp3FrameInfo[iMP3Frame].pcmFrameIndex = runningPCMFrameCount;
 
             /* We need to get information about this frame so we can know how many samples it contained. */
-            pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL, DRMP3_FALSE);
+            pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL);
             if (pcmFramesInCurrentMP3FrameIn == 0) {
                 return DRMP3_FALSE; /* This should never happen. */
             }
@@ -4010,7 +4041,7 @@ DRMP3_API drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pS
                     Go to the next MP3 frame. This shouldn't ever fail, but just in case it does we just set the seek point and break. If it happens, it
                     should only ever do it for the last seek point.
                     */
-                    pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL, DRMP3_TRUE);
+                    pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL);
                     if (pcmFramesInCurrentMP3FrameIn == 0) {
                         pSeekPoints[iSeekPoint].seekPosInBytes     = mp3FrameInfo[0].bytePos;
                         pSeekPoints[iSeekPoint].pcmFrameIndex      = nextTargetPCMFrame;
