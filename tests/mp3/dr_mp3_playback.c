@@ -23,6 +23,86 @@ void data_callback(ma_device* pDevice, void* pFramesOut, const void* pFramesIn, 
     (void)pFramesIn;
 }
 
+int do_decoding_validation(const char* pFilePath)
+{
+    int result = 0;
+    drmp3 mp3Memory;
+    drmp3 mp3File;
+    size_t dataSize;
+    void* pData;
+
+    /*
+    When opening from a memory buffer, dr_mp3 will take a different path for decoding which is optimized to reduce data movement. Since it's
+    running on a separate path, we need to ensure it's returning consistent results with the other code path which will be used when decoding
+    from a file.
+    */
+    
+    /* Initialize the memory decoder. */
+    pData = dr_open_and_read_file(pFilePath, &dataSize);
+    if (pData == NULL) {
+        printf("Failed to open file \"%s\"", pFilePath);
+        return -1;
+    }
+
+    if (!drmp3_init_memory(&mp3Memory, pData, dataSize, NULL)) {
+        free(pData);
+        printf("Failed to init MP3 decoder \"%s\"", pFilePath);
+        return -1;
+    }
+
+
+    /* Initialize the file decoder. */
+    if (!drmp3_init_file(&mp3File, pFilePath, NULL)) {
+        drmp3_uninit(&mp3Memory);
+        free(pData);
+        printf("Failed to open file \"%s\"", pFilePath);
+        return -1;
+    }
+
+    DRMP3_ASSERT(mp3Memory.channels == mp3File.channels);
+
+
+    /* Compare. */
+    for (;;) {
+        drmp3_uint64 iSample;
+        drmp3_uint64 pcmFrameCountMemory;
+        drmp3_uint64 pcmFrameCountFile;
+        drmp3_int16 pcmFramesMemory[4096];
+        drmp3_int16 pcmFramesFile[4096];
+
+        pcmFrameCountMemory = drmp3_read_pcm_frames_s16(&mp3Memory, DRMP3_COUNTOF(pcmFramesMemory) / mp3Memory.channels, pcmFramesMemory);
+        pcmFrameCountFile   = drmp3_read_pcm_frames_s16(&mp3File,   DRMP3_COUNTOF(pcmFramesFile)   / mp3File.channels,   pcmFramesFile);
+
+        /* Check the frame count first. */
+        if (pcmFrameCountMemory != pcmFrameCountFile) {
+            printf("Frame counts differ: memory = %d; file = %d\n", (int)pcmFrameCountMemory, (int)pcmFrameCountFile);
+            result = -1;
+            break;
+        }
+
+        /* Check individual frames. */
+        DRMP3_ASSERT(pcmFrameCountMemory == pcmFrameCountFile);
+        for (iSample = 0; iSample < pcmFrameCountMemory * mp3Memory.channels; iSample += 1) {
+            if (pcmFramesMemory[iSample] != pcmFramesFile[iSample]) {
+                printf("Samples differ: memory = %d; file = %d\n", (int)pcmFramesMemory[iSample], (int)pcmFramesFile[iSample]);
+                result = -1;
+                break;
+            }
+        }
+
+        /* We've reached the end if we didn't return any PCM frames. */
+        if (pcmFrameCountMemory == 0 || pcmFrameCountFile == 0) {
+            break;
+        }
+    }
+
+
+    drmp3_uninit(&mp3File);
+    drmp3_uninit(&mp3Memory);
+    free(pData);
+    return result;
+}
+
 int main(int argc, char** argv)
 {
     drmp3 mp3;
@@ -37,6 +117,12 @@ int main(int argc, char** argv)
     }
 
     pInputFilePath = argv[1];
+
+    /* Quick validation test first. */
+    if (do_decoding_validation(pInputFilePath) != 0) {
+        return -1;
+    }
+
 
     if (!drmp3_init_file(&mp3, pInputFilePath, NULL)) {
         printf("Failed to open file \"%s\"", pInputFilePath);
