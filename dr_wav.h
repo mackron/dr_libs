@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.2 - 2020-04-21
+dr_wav - v0.12.3 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -2348,7 +2348,8 @@ DRWAV_API drwav_bool32 drwav_init_write_sequential_pcm_frames(drwav* pWav, const
 
 DRWAV_API drwav_uint64 drwav_target_write_size_bytes(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount)
 {
-    drwav_uint64 targetDataSizeBytes = (drwav_uint64)(totalSampleCount * pFormat->channels * pFormat->bitsPerSample/8.0);
+    /* Cating totalSampleCount to drwav_int64 for VC6 compatibility. No issues in practice because nobody is going to exhaust the whole 63 bits. */
+    drwav_uint64 targetDataSizeBytes = (drwav_uint64)((drwav_int64)totalSampleCount * pFormat->channels * pFormat->bitsPerSample/8.0);
     drwav_uint64 riffChunkSizeBytes;
     drwav_uint64 fileSizeBytes;
 
@@ -5752,6 +5753,9 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
+v0.12.3 - TBD
+  - Fix compilation errors with VC6.
+
 v0.12.2 - 2020-04-21
   - Fix a bug where drwav_init_file() does not close the file handle after attempting to load an erroneous file.
 
