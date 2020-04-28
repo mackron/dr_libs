@@ -249,7 +249,7 @@ typedef struct
 {
     float mdct_overlap[2][9*32], qmf_state[15*2*32];
     int reserv, free_format_bytes;
-    unsigned char header[4], reserv_buf[511];
+    drmp3_uint8 header[4], reserv_buf[511];
 } drmp3dec;
 
 /* Initializes a low level decoder. */
