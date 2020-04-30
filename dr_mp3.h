@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.9 - TBD
+dr_mp3 - v0.6.9 - 2020-04-30
 
 David Reid - mackron@gmail.com
 
@@ -4390,7 +4390,7 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
-v0.6.9 - TBD
+v0.6.9 - 2020-04-30
   - Change the `pcm` parameter of drmp3dec_decode_frame() to a `const drmp3_uint8*` for consistency with internal APIs.
 
 v0.6.8 - 2020-04-26
