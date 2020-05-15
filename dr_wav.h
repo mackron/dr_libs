@@ -139,6 +139,14 @@ Notes
 extern "C" {
 #endif
 
+#define DRWAV_STRINGIFY(x)      #x
+#define DRWAV_XSTRINGIFY(x)     DRWAV_STRINGIFY(x)
+
+#define DRWAV_VERSION_MAJOR     0
+#define DRWAV_VERSION_MINOR     12
+#define DRWAV_VERSION_REVISION  4
+#define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
+
 #include <stddef.h> /* For size_t. */
 
 /* Sized types. Prefer built-in types. Fall back to stdint. */
@@ -278,6 +286,9 @@ typedef drwav_int32 drwav_result;
 
 /* Flags to pass into drwav_init_ex(), etc. */
 #define DRWAV_SEQUENTIAL            0x00000001
+
+DRWAV_API void drwav_version(drwav_uint32* pMajor, drwav_uint32* pMinor, drwav_uint32* pRevision);
+DRWAV_API const char* drwav_version_string();
 
 typedef enum
 {
@@ -1036,6 +1047,26 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
         #define DRWAV_HAS_BYTESWAP16_INTRINSIC
     #endif
 #endif
+
+DRWAV_API void drwav_version(drwav_uint32* pMajor, drwav_uint32* pMinor, drwav_uint32* pRevision)
+{
+    if (pMajor) {
+        *pMajor = DRWAV_VERSION_MAJOR;
+    }
+
+    if (pMinor) {
+        *pMinor = DRWAV_VERSION_MINOR;
+    }
+
+    if (pRevision) {
+        *pRevision = DRWAV_VERSION_REVISION;
+    }
+}
+
+DRWAV_API const char* drwav_version_string()
+{
+    return DRWAV_VERSION_STRING;
+}
 
 /*
 These limits are used for basic validation when initializing the decoder. If you exceed these limits, first of all: what on Earth are
@@ -5755,6 +5786,13 @@ REVISION HISTORY
 ================
 v0.12.4 - TBD
   - Replace assert() with DRWAV_ASSERT().
+  - Add compile-time and run-time version querying.
+    - DRWAV_VERSION_MINOR
+    - DRWAV_VERSION_MAJOR
+    - DRWAV_VERSION_REVISION
+    - DRWAV_VERSION_STRING
+    - drwav_version()
+    - drwav_version_string()
 
 v0.12.3 - 2020-04-30
   - Fix compilation errors with VC6.
