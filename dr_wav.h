@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.4 - TBD
+dr_wav - v0.12.4 - 2020-05-16
 
 David Reid - mackron@gmail.com
 
@@ -5784,7 +5784,7 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
-v0.12.4 - TBD
+v0.12.4 - 2020-05-16
   - Replace assert() with DRWAV_ASSERT().
   - Add compile-time and run-time version querying.
     - DRWAV_VERSION_MINOR
