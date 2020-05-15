@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.13 - TBD
+dr_flac - v0.12.13 - 2020-05-16
 
 David Reid - mackron@gmail.com
 
@@ -11737,7 +11737,7 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
-v0.12.13 - TBD
+v0.12.13 - 2020-05-16
   - Add compile-time and run-time version querying.
     - DRFLAC_VERSION_MINOR
     - DRFLAC_VERSION_MAJOR
