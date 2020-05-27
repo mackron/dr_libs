@@ -14,3 +14,14 @@ Below are some of my other libraries you may be interested in.
 Library                                           | Description
 ------------------------------------------------- | -----------
 [miniaudio](https://github.com/dr-soft/miniaudio) | A public domain, single file library for audio playback and recording.
+
+
+# Contact
+
+<a href="https://discord.gg/9vpqbjU"><img src="https://img.shields.io/discord/712952679415939085?label=discord&logo=discord" alt="discord"></a>
+<br>
+I'm always happy to have a chat - you can usually find me on the miniaudio Discord server.
+
+<a href="https://twitter.com/mackron"><img src="https://img.shields.io/twitter/follow/mackron?style=flat&label=twitter&color=1da1f2&logo=twitter" alt="twitter"></a>
+<br>
+You can also find me on Twitter where I usually post update notifications.
