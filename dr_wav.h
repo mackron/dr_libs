@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.6 - TBD
+dr_wav - v0.12.6 - 2020-06-23
 
 David Reid - mackron@gmail.com
 
@@ -5875,7 +5875,7 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
-v0.12.6 - TBD
+v0.12.6 - 2020-06-23
   - Change drwav_read_*() to allow NULL to be passed in as the output buffer which is equivalent to a forward seek.
   - Fix a buffer overflow when trying to decode invalid IMA-ADPCM files.
   - Add include guard for the implementation section.
