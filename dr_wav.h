@@ -953,6 +953,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
  ************************************************************************************************************************************************************
  ************************************************************************************************************************************************************/
 #if defined(DR_WAV_IMPLEMENTATION) || defined(DRWAV_IMPLEMENTATION)
+#ifndef dr_wav_c
+#define dr_wav_c
+
 #include <stdlib.h>
 #include <string.h> /* For memcpy(), memset() */
 #include <limits.h> /* For INT_MAX */
@@ -5670,6 +5673,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
     return drwav__fourcc_equal(a, b);
 }
 
+#endif  /* dr_wav_c */
 #endif  /* DR_WAV_IMPLEMENTATION */
 
 /*
@@ -5862,6 +5866,7 @@ REVISION HISTORY
 ================
 v0.12.6 - TBD
   - Change drwav_read_*() to allow NULL to be passed in as the output buffer which is equivalent to a forward seek.
+  - Add include guard for the implementation section.
 
 v0.12.5 - 2020-05-27
   - Minor documentation fix.
