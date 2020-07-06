@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.13 - TBD
+dr_mp3 - v0.6.13 - 2020-07-06
 
 David Reid - mackron@gmail.com
 
@@ -4428,7 +4428,7 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
-v0.6.13 - TBD
+v0.6.13 - 2020-07-06
   - Fix a bug when converting from s16 to f32 in drmp3_read_pcm_frames_f32().
 
 v0.6.12 - 2020-06-23
