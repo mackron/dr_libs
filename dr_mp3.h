@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.16 - TBD
+dr_mp3 - v0.6.16 - 2020-08-02
 
 David Reid - mackron@gmail.com
 
@@ -4430,7 +4430,7 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
-v0.6.16 - TBD
+v0.6.16 - 2020-08-02
   - Simplify sized types.
 
 v0.6.15 - 2020-07-25
