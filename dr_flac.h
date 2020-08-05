@@ -561,7 +561,7 @@ typedef struct
 {
     void* pUserData;
     void* (* onMalloc)(size_t sz, void* pUserData);
-    void* (* onRealloc)(void* p, size_t sz, void* pUserData);
+    void* (* onRealloc)(void* p, size_t szNew, size_t szOld, void* pUserData);
     void  (* onFree)(void* p, void* pUserData);
 } drflac_allocation_callbacks;
 
@@ -6198,10 +6198,11 @@ static void* drflac__malloc_default(size_t sz, void* pUserData)
     return DRFLAC_MALLOC(sz);
 }
 
-static void* drflac__realloc_default(void* p, size_t sz, void* pUserData)
+static void* drflac__realloc_default(void* p, size_t szNew, size_t szOld, void* pUserData)
 {
     (void)pUserData;
-    return DRFLAC_REALLOC(p, sz);
+    (void)szOld;
+    return DRFLAC_REALLOC(p, szNew);
 }
 
 static void drflac__free_default(void* p, void* pUserData)
@@ -6223,7 +6224,7 @@ static void* drflac__malloc_from_callbacks(size_t sz, const drflac_allocation_ca
 
     /* Try using realloc(). */
     if (pAllocationCallbacks->onRealloc != NULL) {
-        return pAllocationCallbacks->onRealloc(NULL, sz, pAllocationCallbacks->pUserData);
+        return pAllocationCallbacks->onRealloc(NULL, sz, 0, pAllocationCallbacks->pUserData);
     }
 
     return NULL;
@@ -6236,7 +6237,7 @@ static void* drflac__realloc_from_callbacks(void* p, size_t szNew, size_t szOld,
     }
 
     if (pAllocationCallbacks->onRealloc != NULL) {
-        return pAllocationCallbacks->onRealloc(p, szNew, pAllocationCallbacks->pUserData);
+        return pAllocationCallbacks->onRealloc(p, szNew, szOld, pAllocationCallbacks->pUserData);
     }
 
     /* Try emulating realloc() in terms of malloc()/free(). */

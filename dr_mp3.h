@@ -333,7 +333,7 @@ typedef struct
 {
     void* pUserData;
     void* (* onMalloc)(size_t sz, void* pUserData);
-    void* (* onRealloc)(void* p, size_t sz, void* pUserData);
+    void* (* onRealloc)(void* p, size_t szNew, size_t szOld, void* pUserData);
     void  (* onFree)(void* p, void* pUserData);
 } drmp3_allocation_callbacks;
 
@@ -2487,10 +2487,11 @@ static void* drmp3__malloc_default(size_t sz, void* pUserData)
     return DRMP3_MALLOC(sz);
 }
 
-static void* drmp3__realloc_default(void* p, size_t sz, void* pUserData)
+static void* drmp3__realloc_default(void* p, size_t szNew, size_t szOld, void* pUserData)
 {
     (void)pUserData;
-    return DRMP3_REALLOC(p, sz);
+    (void)szOld;
+    return DRMP3_REALLOC(p, szNew);
 }
 
 static void drmp3__free_default(void* p, void* pUserData)
@@ -2512,7 +2513,7 @@ static void* drmp3__malloc_from_callbacks(size_t sz, const drmp3_allocation_call
 
     /* Try using realloc(). */
     if (pAllocationCallbacks->onRealloc != NULL) {
-        return pAllocationCallbacks->onRealloc(NULL, sz, pAllocationCallbacks->pUserData);
+        return pAllocationCallbacks->onRealloc(NULL, sz, 0, pAllocationCallbacks->pUserData);
     }
 
     return NULL;
@@ -2525,7 +2526,7 @@ static void* drmp3__realloc_from_callbacks(void* p, size_t szNew, size_t szOld, 
     }
 
     if (pAllocationCallbacks->onRealloc != NULL) {
-        return pAllocationCallbacks->onRealloc(p, szNew, pAllocationCallbacks->pUserData);
+        return pAllocationCallbacks->onRealloc(p, szNew, szOld, pAllocationCallbacks->pUserData);
     }
 
     /* Try emulating realloc() in terms of malloc()/free(). */
