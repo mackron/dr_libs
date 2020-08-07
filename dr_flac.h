@@ -2680,7 +2680,7 @@ static DRFLAC_INLINE drflac_bool32 drflac__is_lzcnt_supported(void)
 static DRFLAC_INLINE drflac_uint32 drflac__clz_lzcnt(drflac_cache_t x)
 {
     /*
-    It's critical for competive decoding performance that this function be highly optimal. With MSVC we can use the __lzcnt64() and __lzcnt() intrinsics
+    It's critical for competitive decoding performance that this function be highly optimal. With MSVC we can use the __lzcnt64() and __lzcnt() intrinsics
     to achieve good performance, however on GCC and Clang it's a little bit more annoying. The __builtin_clzl() and __builtin_clzll() intrinsics leave
     it undefined as to the return value when `x` is 0. We need this to be well defined as returning 32 or 64, depending on whether or not it's a 32- or
     64-bit build. To work around this we would need to add a conditional to check for the x = 0 case, but this creates unnecessary inefficiency. To work
