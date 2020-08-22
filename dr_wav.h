@@ -3536,9 +3536,9 @@ DRWAV_API drwav_bool32 drwav_seek_to_first_pcm_frame(drwav* pWav)
 
         /* Cached data needs to be cleared for compressed formats. */
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-            MA_ZERO_OBJECT(&pWav->msadpcm);
+            DRWAV_ZERO_OBJECT(&pWav->msadpcm);
         } else if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-            MA_ZERO_OBJECT(&pWav->ima);
+            DRWAV_ZERO_OBJECT(&pWav->ima);
         } else {
             DRWAV_ASSERT(DRWAV_FALSE);  /* If this assertion is triggered it means I've implemented a new compressed format but forgot to add a branch for it here. */
         }
