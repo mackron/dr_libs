@@ -36,7 +36,7 @@ drflac_result decode_test__read_and_compare_pcm_frames_s32(libflac* pLibFlac, dr
 
         for (iChannel = 0; iChannel < pLibFlac->channels; iChannel += 1) {
             if (pPCMFrame_libflac[iChannel] != pPCMFrame_drflac[iChannel]) {
-                printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
+                printf("  PCM Frame @ %d[%d] does not match: pcmFrameCount=%d\n", (int)iPCMFrame, iChannel, (int)pcmFrameCount);
                 hasError = DRFLAC_TRUE;
                 break;
             }
