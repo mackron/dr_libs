@@ -13,7 +13,7 @@ Below are some of my other libraries you may be interested in.
 
 Library                                           | Description
 ------------------------------------------------- | -----------
-[miniaudio](https://github.com/dr-soft/miniaudio) | A public domain, single file library for audio playback and recording.
+[miniaudio](https://github.com/mackron/miniaudio) | A public domain, single file library for audio playback and recording.
 
 
 # Contact
