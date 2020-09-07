@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.10 - 2020-08-24
+dr_wav - v0.12.11 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -144,7 +144,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     12
-#define DRWAV_VERSION_REVISION  10
+#define DRWAV_VERSION_REVISION  11
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -1236,14 +1236,15 @@ static DRWAV_INLINE drwav_uint64 drwav__bswap64(drwav_uint64 n)
         #error "This compiler does not support the byte swap intrinsic."
     #endif
 #else
-    return ((n & (drwav_uint64)0xFF00000000000000) >> 56) |
-           ((n & (drwav_uint64)0x00FF000000000000) >> 40) |
-           ((n & (drwav_uint64)0x0000FF0000000000) >> 24) |
-           ((n & (drwav_uint64)0x000000FF00000000) >>  8) |
-           ((n & (drwav_uint64)0x00000000FF000000) <<  8) |
-           ((n & (drwav_uint64)0x0000000000FF0000) << 24) |
-           ((n & (drwav_uint64)0x000000000000FF00) << 40) |
-           ((n & (drwav_uint64)0x00000000000000FF) << 56);
+    /* Weird "<< 32" bitshift is required for C89 because it doesn't support 64-bit constants. Should be optimized out by a good compiler. */
+    return ((n & ((drwav_uint64)0xFF000000 << 32) >> 56) |
+           ((n & ((drwav_uint64)0x00FF0000 << 32) >> 40) |
+           ((n & ((drwav_uint64)0x0000FF00 << 32) >> 24) |
+           ((n & ((drwav_uint64)0x000000FF << 32) >>  8) |
+           ((n & ((drwav_uint64)0xFF000000      ) <<  8) |
+           ((n & ((drwav_uint64)0x00FF0000      ) << 24) |
+           ((n & ((drwav_uint64)0x0000FF00      ) << 40) |
+           ((n & ((drwav_uint64)0x000000FF      ) << 56);
 #endif
 }
 
@@ -5934,6 +5935,9 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
+v0.12.11 - TBD
+  - Fix a compilation error on older compilers.
+
 v0.12.10 - 2020-08-24
   - Fix a bug when seeking with ADPCM formats.
 
