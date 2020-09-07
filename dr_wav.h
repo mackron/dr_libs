@@ -1237,14 +1237,14 @@ static DRWAV_INLINE drwav_uint64 drwav__bswap64(drwav_uint64 n)
     #endif
 #else
     /* Weird "<< 32" bitshift is required for C89 because it doesn't support 64-bit constants. Should be optimized out by a good compiler. */
-    return ((n & ((drwav_uint64)0xFF000000 << 32) >> 56) |
-           ((n & ((drwav_uint64)0x00FF0000 << 32) >> 40) |
-           ((n & ((drwav_uint64)0x0000FF00 << 32) >> 24) |
-           ((n & ((drwav_uint64)0x000000FF << 32) >>  8) |
-           ((n & ((drwav_uint64)0xFF000000      ) <<  8) |
-           ((n & ((drwav_uint64)0x00FF0000      ) << 24) |
-           ((n & ((drwav_uint64)0x0000FF00      ) << 40) |
-           ((n & ((drwav_uint64)0x000000FF      ) << 56);
+    return ((n & ((drwav_uint64)0xFF000000 << 32)) >> 56) |
+           ((n & ((drwav_uint64)0x00FF0000 << 32)) >> 40) |
+           ((n & ((drwav_uint64)0x0000FF00 << 32)) >> 24) |
+           ((n & ((drwav_uint64)0x000000FF << 32)) >>  8) |
+           ((n & ((drwav_uint64)0xFF000000      )) <<  8) |
+           ((n & ((drwav_uint64)0x00FF0000      )) << 24) |
+           ((n & ((drwav_uint64)0x0000FF00      )) << 40) |
+           ((n & ((drwav_uint64)0x000000FF      )) << 56);
 #endif
 }
 
