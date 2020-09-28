@@ -3465,7 +3465,7 @@ DRWAV_API drwav_result drwav_uninit(drwav* pWav)
                     drwav_uint32 dataChunkSize = drwav__data_chunk_size_riff(pWav->dataChunkDataSize);
                     drwav__write_u32ne_to_le(pWav, dataChunkSize);
                 }
-            } else if (pWav->container == drwav_container_rf64) {
+            } else if (pWav->container == drwav_container_w64) {
                 /* The "RIFF" chunk size. */
                 if (pWav->onSeek(pWav->pUserData, 16, drwav_seek_origin_start)) {
                     drwav_uint64 riffChunkSize = drwav__riff_chunk_size_w64(pWav->dataChunkDataSize);
