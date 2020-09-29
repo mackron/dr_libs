@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.12 - TBD
+dr_wav - v0.12.12 - 2020-09-28
 
 David Reid - mackron@gmail.com
 
@@ -18,7 +18,7 @@ Changes to Chunk Callback
 dr_wav supports the ability to fire a callback when a chunk is encounted (except for WAVE and FMT chunks). The callback has been updated to include both the
 container (RIFF or Wave64) and the FMT chunk which contains information about the format of the data in the wave file.
 
-Previously, there was no direct way to determine the container, and therefore no way discriminate against the different IDs in the chunk header (RIFF and
+Previously, there was no direct way to determine the container, and therefore no way to discriminate against the different IDs in the chunk header (RIFF and
 Wave64 containers encode chunk ID's differently). The `container` parameter can be used to know which ID to use.
 
 Sometimes it can be useful to know the data format at the time the chunk callback is fired. A pointer to a `drwav_fmt` object is now passed into the chunk
@@ -6033,7 +6033,7 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
-v0.12.12 - TBD
+v0.12.12 - 2020-09-28
   - Add support for RF64.
   - Fix a bug in writing mode where the size of the RIFF chunk incorrectly includes the header section.
 
