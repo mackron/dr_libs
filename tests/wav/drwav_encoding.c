@@ -36,7 +36,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    format.container     = drwav_container_rf64;
+    format.container     = drwav_container_riff;
     format.format        = DR_WAVE_FORMAT_IEEE_FLOAT;
     format.channels      = 2;
     format.sampleRate    = 44100;
