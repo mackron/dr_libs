@@ -1,0 +1,1 @@
+gcc ./vorbis/dr_vorbis_test_0.c -o ./bin/dr_vorbis_test_0.exe -std=c89 -ansi -pedantic -Wall
