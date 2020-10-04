@@ -36,6 +36,8 @@ with each other, so I'd be interested in feedback on some of these API changes:
     defined, these functions will still be implemented, but they will do nothing and return an error. The reason for this setup is to avoid putting
     references to DR_VORBIS_NO_STDIO in the header section. I'm not sure if this change is a good change or not, so this may be changed later.
 
+  * The reading APIs now return a result code and output the frames read via an output parameter.
+
 */
 
 #ifndef dr_vorbis_h
