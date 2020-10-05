@@ -83,14 +83,14 @@ typedef unsigned int            dr_vorbis_uint32;
     #endif
 #endif
 #if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__)) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
-    typedef dr_vorbis_uint64       dr_vorbis_uintptr;
+    typedef dr_vorbis_uint64    dr_vorbis_uintptr;
 #else
-    typedef dr_vorbis_uint32       dr_vorbis_uintptr;
+    typedef dr_vorbis_uint32    dr_vorbis_uintptr;
 #endif
-typedef dr_vorbis_uint8            dr_vorbis_bool8;
-typedef dr_vorbis_uint32           dr_vorbis_bool32;
-#define DR_VORBIS_TRUE             1
-#define DR_VORBIS_FALSE            0
+typedef dr_vorbis_uint8         dr_vorbis_bool8;
+typedef dr_vorbis_uint32        dr_vorbis_bool32;
+#define DR_VORBIS_TRUE          1
+#define DR_VORBIS_FALSE         0
 
 #if !defined(DR_VORBIS_API)
     #if defined(DR_VORBIS_DLL)
@@ -157,6 +157,7 @@ typedef dr_vorbis_uint32 dr_vorbis_cache_t;
 
 
 /* Some custom result codes. */
+typedef int dr_vorbis_result;
 #define DR_VORBIS_SUCCESS   0
 #define DR_VORBIS_ECRC      -16384  /* CRC mismatch. */
 
@@ -176,12 +177,7 @@ typedef struct
         {
             dr_vorbis_uint32 length;
             const char* pData;  /* Null terminated. */
-        } vendor;
-        struct
-        {
-            dr_vorbis_uint32 length;
-            const char* pData;  /* Null terminated. */
-        } comment;
+        } vendor, comment;
     } data;
 } dr_vorbis_metadata;
 
@@ -216,6 +212,39 @@ DR_VORBIS_API const char* dr_vorbis_version_string(void);
 
 /************************************************************************************************************************************************************
 
+Bitstream API
+
+This is a low-level API for reading bits from a Vorbis bitstream. I've made this generic and public in case others might find it useful and to make it easier
+to extract in case we want to use it for other decoders in the future.
+
+The bitstream API has two levels of cache. The first is an element of either 32 or 64 bits, depending on the target architecture. The second is a buffer of
+dr_vorbis_cache_t items which is filled from the read callback. Data flows like so:
+
+  onRead -> L2 -> L1 -> [Output]
+
+When all of the bits in L1 have been consumed, it's filled with fresh data from L2. When all of the items in L2 have been consumed, it'll be refilled with
+data from the read callback. The reason for this design is to ensure the read callback is not called too frequently thereby causing too much inefficiency.
+
+************************************************************************************************************************************************************/
+typedef struct
+{
+    
+    dr_vorbis_cache_t l1;               /* Data flows from onRead -> l2 -> l1 -> dr_vorbis_bs_read_bits(). */
+    dr_vorbis_cache_t l2[DR_VORBIS_BUFFER_SIZE / sizeof(dr_vorbis_cache_t)];    /* Data is moved from here into l1. */
+    dr_vorbis_uint32 l1RemainingBits;   /* Number of bits remaining in l1. */
+    dr_vorbis_uint32 l2RemainingLines;  /* Number of dr_vorbis_cache_t items remaining in l2. */
+    dr_vorbis_uint32 l2RemainingBytes;  /* Number of bytes remaining in l2. */
+    dr_vorbis_read_data_proc onRead;    /* Used for filling the L2 buffer with fresh data. */
+    void* pReadUserData;
+} dr_vorbis_bs;
+
+DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_init(void* pReadUserData, dr_vorbis_read_data_proc onRead, dr_vorbis_bs* pBS);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_read_bits(dr_vorbis_bs* pBS, dr_vorbis_uint32 bitsToRead, dr_vorbis_uint32* pValue);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_read_bytes(dr_vorbis_bs* pBS, void* pOutput, size_t bytesToRead, size_t* pBytesRead);
+
+
+/************************************************************************************************************************************************************
+
 Vorbis Stream API
 
 This is the low-level decoding API. As input it takes a raw stream of Vorbis audio data. It does *not* include container information. If a container such
@@ -225,8 +254,7 @@ do their own container management to extract the Vorbis stream.
 ************************************************************************************************************************************************************/
 typedef struct
 {
-    void* pReadUserData;
-    dr_vorbis_read_data_proc onRead;    /* Returned data must be native Vorbis data and *not* container data such as Ogg. */
+    dr_vorbis_bs bs;                    /* All data is read through the bitstream. */
     void* pMetaUserData;
     dr_vorbis_meta_data_proc onMeta;    /* Called during processing of the comment header in dr_vorbis_stream_init(). */
     dr_vorbis_allocation_callbacks allocationCallbacks;
@@ -423,10 +451,14 @@ IMPLEMENTATION
 #ifndef DR_VORBIS_COPY_MEMORY
 #define DR_VORBIS_COPY_MEMORY(dst, src, sz) memcpy((dst), (src), (sz))
 #endif
+#ifndef DR_VORBIS_MOVE_MEMORY
+#define DR_VORBIS_MOVE_MEMORY(dst, src, sz) memmove((dst), (src), (sz))
+#endif
 #ifndef DR_VORBIS_ASSERT
 #define DR_VORBIS_ASSERT(condition)         assert(condition)
 #endif
 #define DR_VORBIS_ZERO_OBJECT(p)            DR_VORBIS_ZERO_MEMORY((p), sizeof(*(p)))
+#define DR_VORBIS_COUNTOF(x)                (sizeof(x) / sizeof(x[0]))
 #define DR_VORBIS_OFFSET_PTR(p, offset)     (((dr_vorbis_uint8*)(p)) + (offset))
 
 
@@ -528,31 +560,191 @@ DR_VORBIS_API const char* dr_vorbis_version_string(void)
 
 /************************************************************************************************************************************************************
 
+Bitstream API
+
+************************************************************************************************************************************************************/
+#define DR_VORBIS_L1_MASK(bitCount) ((1 << bitCount) - 1)
+
+DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_init(void* pReadUserData, dr_vorbis_read_data_proc onRead, dr_vorbis_bs* pBS)
+{
+    if (pBS == NULL) {
+        return EINVAL;
+    }
+
+    DR_VORBIS_ZERO_OBJECT(pBS);
+
+    if (onRead == NULL) {
+        return EINVAL;  /* A read callback is required. */
+    }
+
+    pBS->onRead        = onRead;
+    pBS->pReadUserData = pReadUserData;
+
+    return DR_VORBIS_SUCCESS;
+}
+
+static DR_VORBIS_INLINE dr_vorbis_result dr_vorbis_bs_reload_l1(dr_vorbis_bs* pBS)
+{
+    dr_vorbis_result result;
+
+    DR_VORBIS_ASSERT(pBS != NULL);
+
+    /*
+    If there's nothing in the L2 cache we'll need to reload it first. Note that if we aren't able to load the entire L2 cache, we'll just need to
+    slide it down a bit to account for the pBS->l2RemainingLines variable which is used to determine the next cache line to load into L1.
+    */
+    if (pBS->l2RemainingBytes == 0) {
+        size_t bytesRead;
+        result = pBS->onRead(pBS->pReadUserData, pBS->l2, sizeof(pBS->l2), &bytesRead);
+        if (result != DR_VORBIS_SUCCESS) {
+            return result;
+        }
+
+        /* If we didn't read any data, we were unable to reload the L1 cache. */
+        if (bytesRead == 0) {
+            return ERANGE;
+        }
+
+        /*
+        It's OK if we didn't read enough for the entire L2 cache. We just need to make sure the data is positioned correctly in the cache and
+        that the bytes and lines remaining is initialized correctly.
+        */
+        if (bytesRead != sizeof(pBS->l2)) {
+            /* Slide the buffer down so that l2RemainigBytes lines up with the data in the buffer. */
+            DR_VORBIS_MOVE_MEMORY(pBS->l2 + (sizeof(pBS->l2) - bytesRead), pBS->l2, bytesRead);
+        }
+
+        pBS->l2RemainingBytes = (dr_vorbis_uint32)bytesRead;
+        pBS->l2RemainingLines = (dr_vorbis_uint32)bytesRead / sizeof(dr_vorbis_cache_t);
+            
+        /*
+        Make sure we handle the remainder. Use of the mod operator doesn't really matter here in terms of performance because this will only
+        get hit right at the very end of the stream, once.
+        */
+        if ((pBS->l2RemainingLines % sizeof(dr_vorbis_cache_t)) != 0) {
+            pBS->l2RemainingLines += 1;
+        }
+    }
+
+    if (pBS->l2RemainingLines > 0) {
+        pBS->l1 = pBS->l2[DR_VORBIS_COUNTOF(pBS->l2) - pBS->l2RemainingLines];
+        if (pBS->l2RemainingBytes >= sizeof(dr_vorbis_cache_t)) {
+            pBS->l1RemainingBits   = sizeof(dr_vorbis_cache_t)*8;
+            pBS->l2RemainingBytes -= sizeof(dr_vorbis_cache_t);
+        } else {
+            pBS->l1RemainingBits   = pBS->l2RemainingBytes*8;
+            pBS->l2RemainingBytes  = 0;
+        }
+
+        pBS->l2RemainingLines -= 1;
+    } else {
+        /* There's nothing available in the L2 cache. */
+        return ERANGE;
+    }
+
+    return DR_VORBIS_SUCCESS;
+}
+
+DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_read_bits(dr_vorbis_bs* pBS, dr_vorbis_uint32 bitsToRead, dr_vorbis_uint32* pValue)
+{
+    /* Exception: We're checking inputs with an assert rather than a runtime check because this function may be called in high-performance scenarios. */
+    DR_VORBIS_ASSERT(pBS != NULL);
+    DR_VORBIS_ASSERT(bitsToRead <= 32); /* bitsToRead *can* be zero, and is well defined by the spec. */
+
+    /*
+    Bits are read starting from LSB. We use a sort of sliding system where we read bits, and then shift everything down so that the next bits to be read
+    are sitting in the LSB position. There is a case where we may be straddling the L1 cache where part of the data is in L1, but then a reload from L2
+    is required to read the rest. This is done in a slightly slower path which constructs the data in two steps.
+    */
+    if (pBS->l1RemainingBits >= bitsToRead) {
+        /*
+        Fast path. Read directly from the L1 and slide. Unfortunately it's possible for 32-bits to be requested (according to the spec), but 32-bit
+        shifts are undefined on 32-bit platforms (*grumble*). We'll run a slightly less efficient path on 32-bit to work around this (one extra branch)
+        */
+    #if defined(DR_VORBIS_32BIT)
+        if (bitsToRead == 32) {
+            *pValue = l1;
+            pBS->l1 = 0;
+        } else
+    #endif
+        {
+            *pValue = (pBS->l1 & DR_VORBIS_L1_MASK(bitsToRead));    /* Select. */
+            pBS->l1 = pBS->l1 >> bitsToRead;                        /* Consume. */
+        }
+
+        pBS->l1RemainingBits -= bitsToRead;
+    } else {
+        /* Not enough data in L1 to read everything. Requires a two step construction. */
+        dr_vorbis_result result;
+        dr_vorbis_uint32 step1BitCount = pBS->l1RemainingBits;
+        dr_vorbis_uint32 step2BitCount = bitsToRead - pBS->l1RemainingBits;
+
+        /* Step 1: Extract the remaining data from L1. */
+        *pValue = (pBS->l1 & DR_VORBIS_L1_MASK(step1BitCount));
+
+        /* Step 2: Reload L1 and read the remainder. */
+        result = dr_vorbis_bs_reload_l1(pBS);
+        if (result != DR_VORBIS_SUCCESS) {
+            pBS->l1 = 0;
+            pBS->l1RemainingBits = 0;
+            return result;
+        }
+
+        if (pBS->l1RemainingBits >= step2BitCount) {
+            *pValue |= (pBS->l1 & DR_VORBIS_L1_MASK(step2BitCount)) << step1BitCount;
+            pBS->l1 >>= bitsToRead;
+            pBS->l1RemainingBits -= step2BitCount;
+        } else {
+            return EILSEQ;  /* Not enough data available to read the entire value. */
+        }
+    }
+
+    return DR_VORBIS_SUCCESS;
+}
+
+DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_read_bytes(dr_vorbis_bs* pBS, void* pOutput, size_t bytesToRead, size_t* pBytesRead)
+{
+    dr_vorbis_result result = DR_VORBIS_SUCCESS;
+    size_t totalBytesRead;
+
+    /*
+    Reading an array of bytes should only ever happen in byte-clean aligned scenarios. We can exploit this property to make this more efficient than reading
+    individual bits. For now, however, we're just going to wrap this around dr_vorbis_bs_read_bits() just to keep it simple while we're developing.
+    */
+    totalBytesRead = 0;
+    while (totalBytesRead < bytesToRead) {
+        dr_vorbis_uint32 byte;
+        result = dr_vorbis_bs_read_bits(pBS, 8, &byte);
+        if (result != DR_VORBIS_SUCCESS) {
+            break;  /* Failed to read data. Abort. */
+        }
+
+        ((dr_vorbis_uint8*)pOutput)[totalBytesRead] = (dr_vorbis_uint8)(byte & 0xFF);
+        totalBytesRead += 1;
+    }
+
+    if (pBytesRead != NULL) {
+        *pBytesRead = totalBytesRead;
+    }
+
+    return result;
+}
+
+
+
+/************************************************************************************************************************************************************
+
 Vorbis Stream API
 
 ************************************************************************************************************************************************************/
-static int dr_vorbis_stream_read_bytes_aligned(dr_vorbis_stream* pStream, void* pOutput, size_t bytesToRead, size_t* pBytesRead)
+static int dr_vorbis_stream_read_bytes(dr_vorbis_stream* pStream, void* pOutput, size_t bytesToRead, size_t* pBytesRead)
 {
-    int result;
-    size_t bytesRead;
-
     DR_VORBIS_ASSERT(pStream != NULL);
-    DR_VORBIS_ASSERT(pOutput != NULL);
 
-    result = pStream->onRead(pStream->pReadUserData, pOutput, bytesToRead, &bytesRead);
-
-    if (pBytesRead != NULL) {
-        *pBytesRead = bytesRead;
-    }
-
-    if (result != 0) {
-        return result;
-    }
-
-    return 0;
+    return dr_vorbis_bs_read_bytes(&pStream->bs, pOutput, bytesToRead, pBytesRead);
 }
 
-static int dr_vorbis_stream_skip_bytes_aligned(dr_vorbis_stream* pStream, size_t bytesToSkip, size_t* pBytesSkipped)
+static int dr_vorbis_stream_skip_bytes(dr_vorbis_stream* pStream, size_t bytesToSkip, size_t* pBytesSkipped)
 {
     int result = 0;                 /* <-- Must be initialized to 0. */
     size_t totalBytesSkipped = 0;   /* <-- Must be initialized to 0. */
@@ -573,7 +765,7 @@ static int dr_vorbis_stream_skip_bytes_aligned(dr_vorbis_stream* pStream, size_t
             bytesToSkipNow = sizeof(buffer);
         }
 
-        result = pStream->onRead(pStream->pReadUserData, buffer, bytesToSkipNow, &bytesSkipped);
+        result = dr_vorbis_stream_read_bytes(pStream, buffer, bytesToSkipNow, &bytesSkipped);
         totalBytesSkipped += bytesSkipped;
 
         if (result != 0) {
@@ -593,7 +785,7 @@ static int dr_vorbis_stream_skip_bytes_aligned(dr_vorbis_stream* pStream, size_t
     return result;
 }
 
-static int dr_vorbis_stream_read_uint32_aligned(dr_vorbis_stream* pStream, dr_vorbis_uint32* pValue)
+static int dr_vorbis_stream_read_uint32(dr_vorbis_stream* pStream, dr_vorbis_uint32* pValue)
 {
     int result;
     size_t bytesRead;
@@ -602,7 +794,7 @@ static int dr_vorbis_stream_read_uint32_aligned(dr_vorbis_stream* pStream, dr_vo
     DR_VORBIS_ASSERT(pStream != NULL);
     DR_VORBIS_ASSERT(pValue  != NULL);
 
-    result = dr_vorbis_stream_read_bytes_aligned(pStream, data, sizeof(data), &bytesRead);
+    result = dr_vorbis_stream_read_bytes(pStream, data, sizeof(data), &bytesRead);
     if (result != 0) {
         return result;
     }
@@ -616,7 +808,7 @@ static int dr_vorbis_stream_read_uint32_aligned(dr_vorbis_stream* pStream, dr_vo
     return 0;
 }
 
-static int dr_vorbis_stream_read_uint8_aligned(dr_vorbis_stream* pStream, dr_vorbis_uint8* pValue)
+static int dr_vorbis_stream_read_uint8(dr_vorbis_stream* pStream, dr_vorbis_uint8* pValue)
 {
     int result;
     size_t bytesRead;
@@ -624,7 +816,7 @@ static int dr_vorbis_stream_read_uint8_aligned(dr_vorbis_stream* pStream, dr_vor
     DR_VORBIS_ASSERT(pStream != NULL);
     DR_VORBIS_ASSERT(pValue  != NULL);
 
-    result = dr_vorbis_stream_read_bytes_aligned(pStream, pValue, 1, &bytesRead);
+    result = dr_vorbis_stream_read_bytes(pStream, pValue, 1, &bytesRead);
     if (result != 0) {
         return result;
     }
@@ -645,7 +837,7 @@ static int dr_vorbis_stream_read_common_header(dr_vorbis_stream* pStream, dr_vor
     DR_VORBIS_ASSERT(pStream != NULL);
     DR_VORBIS_ASSERT(expectedPacketType == 1 || expectedPacketType == 3 || expectedPacketType == 5);
 
-    result = dr_vorbis_stream_read_bytes_aligned(pStream, data, 7, &bytesRead);
+    result = dr_vorbis_stream_read_bytes(pStream, data, 7, &bytesRead);
     if (result != 0) {
         return result;  /* Failed to read data. */
     }
@@ -684,7 +876,7 @@ static int dr_vorbis_stream_load_identification_header(dr_vorbis_stream* pStream
 
 
     /* Identification-specific data. */
-    result = dr_vorbis_stream_read_bytes_aligned(pStream, data, sizeof(data), &bytesRead);
+    result = dr_vorbis_stream_read_bytes(pStream, data, sizeof(data), &bytesRead);
     if (result != 0) {
         return result;  /* Don't bother about any kind of CRC recovery at this point. If that fails, we can't be sure that it's a valid Vorbis file so just abort. */
     }
@@ -745,7 +937,7 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
     dr_vorbis_uint32 commentCount;
     dr_vorbis_uint32 iComment;
     dr_vorbis_uint8 framingBit;
-    dr_vorbis_uint32 length = 0;    /* <-- Must be initialized to 0. */
+    dr_vorbis_uint32 length;
     char* pData = NULL;             /* <-- Must be initialized to NULL. */
     size_t dataCap = 0;             /* <-- Must be initialized to 0. */
 
@@ -760,7 +952,7 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
     /* Comment-specific data. */
 
     /* Vendor. */
-    result = dr_vorbis_stream_read_uint32_aligned(pStream, &length);
+    result = dr_vorbis_stream_read_uint32(pStream, &length);
     if (result != 0) {
         return result;
     }
@@ -774,7 +966,7 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
                 return ENOMEM;
             }
 
-            result = dr_vorbis_stream_read_bytes_aligned(pStream, pData, length, &bytesRead);
+            result = dr_vorbis_stream_read_bytes(pStream, pData, length, &bytesRead);
             if (result != 0) {
                 dr_vorbis_free(pData, &pStream->allocationCallbacks);
                 return result;
@@ -792,7 +984,7 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
             metadata.data.vendor.pData  = pData;
             pStream->onMeta(pStream->pMetaUserData, &metadata);
         } else {
-            result = dr_vorbis_stream_skip_bytes_aligned(pStream, length, &bytesRead);
+            result = dr_vorbis_stream_skip_bytes(pStream, length, &bytesRead);
             if (result != 0) {
                 return result;  /* Failed to seek past the length. */
             }
@@ -805,14 +997,14 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
 
 
     /* Next 32 bits is the comment count. */
-    result = dr_vorbis_stream_read_uint32_aligned(pStream, &commentCount);
+    result = dr_vorbis_stream_read_uint32(pStream, &commentCount);
     if (result != 0) {
         dr_vorbis_free(pData, &pStream->allocationCallbacks);
         return result;
     }
 
     for (iComment = 0; iComment < commentCount; iComment += 1) {
-        result = dr_vorbis_stream_read_uint32_aligned(pStream, &length);
+        result = dr_vorbis_stream_read_uint32(pStream, &length);
         if (result != 0) {
             return result;
         }
@@ -834,7 +1026,7 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
                 dataCap = newDataCap;
             }
 
-            result = dr_vorbis_stream_read_bytes_aligned(pStream, pData, length, &bytesRead);
+            result = dr_vorbis_stream_read_bytes(pStream, pData, length, &bytesRead);
             if (result != 0) {
                 dr_vorbis_free(pData, &pStream->allocationCallbacks);
                 return result;
@@ -852,7 +1044,7 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
             metadata.data.vendor.pData  = pData;
             pStream->onMeta(pStream->pMetaUserData, &metadata);
         } else {
-            result = dr_vorbis_stream_skip_bytes_aligned(pStream, length, &bytesRead);
+            result = dr_vorbis_stream_skip_bytes(pStream, length, &bytesRead);
             if (result != 0) {
                 return result;  /* Failed to seek past the length. */
             }
@@ -864,7 +1056,7 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
     }
     
     /* Framing bit. */
-    result = dr_vorbis_stream_read_uint8_aligned(pStream, &framingBit);
+    result = dr_vorbis_stream_read_uint8(pStream, &framingBit);
     if (result != 0) {
         dr_vorbis_free(pData, &pStream->allocationCallbacks);
         return result;
@@ -880,9 +1072,84 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
     return 0;
 }
 
+#if 0
+static int dr_vorbis_stream_load_setup_codebooks(dr_vorbis_stream* pStream)
+{
+    int result;
+    size_t bytesRead;
+    dr_vorbis_uint16 codebookCount;
+    dr_vorbis_uint16 iCodebook;
+
+    DR_VORBIS_ASSERT(pStream != NULL);
+
+    result = dr_vorbis_stream_read_uint8_aligned(pStream, &codebookCount);
+    if (result != 0) {
+        return result;
+    }
+    codebookCount += 1; /* Spec: read eight bits as unsigned integer and add one */
+
+    for (iCodebook = 0; iCodebook < codebookCount; iCodebook) {
+
+    }
+
+    return 0;
+}
+#endif
+
+static int dr_vorbis_stream_load_setup(dr_vorbis_stream* pStream)
+{
+    int result;
+    size_t bytesRead;
+    dr_vorbis_uint8 framingBit;
+
+    DR_VORBIS_ASSERT(pStream != NULL);
+
+    /* Common header. */
+    result = dr_vorbis_stream_read_common_header(pStream, DR_VORBIS_PACKET_TYPE_COMMENT);
+    if (result != 0) {
+        return result;
+    }
+
+    /* Setup-specific data. */
+
+    /* Codebooks. */
+#if 0
+    result = dr_vorbis_stream_load_setup_codebooks(pStream);
+    if (result != 0) {
+        return result;
+    }
+#endif
+
+    /* Time domain transforms. Not used, but needs to be skipped over. */
+
+    /* Floors. */
+
+    /* Residues. */
+
+    /* Mappings. */
+
+    /* Modes. */
+
+    /* Framing bit. */
+    result = dr_vorbis_stream_read_uint8(pStream, &framingBit);
+    if (result != 0) {
+        /* TODO: Need to free memory from steps above. */
+        return result;
+    }
+
+    if ((framingBit & 0x01) == 0) {
+        /* TODO: Need to free memory from steps above. */
+        return EILSEQ;  /* Framing bit must be set. */
+    }
+
+    return 0;
+}
+
 static int dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
 {
     int result;
+
+    /* Note that we're not doing any kind of CRC recovery here. If anything in the header is corrupt, the entire stream is corrupt. */
 
     /* Identification. */
     result = dr_vorbis_stream_load_identification_header(pStream);
@@ -897,7 +1164,12 @@ static int dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
     }
 
     /* Setup. */
-    
+#if 0
+    result = dr_vorbis_stream_load_setup_header(pStream);
+    if (result != 0) {
+        return result;
+    }
+#endif
 
     /* Done. */
     return 0;
@@ -905,7 +1177,7 @@ static int dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
 
 DR_VORBIS_API int dr_vorbis_stream_init(void* pReadUserData, dr_vorbis_read_data_proc onRead, void* pMetaUserData, dr_vorbis_meta_data_proc onMeta, const dr_vorbis_allocation_callbacks* pAllocationCallbacks, dr_vorbis_stream* pStream)
 {
-    int result;
+    dr_vorbis_result result;
 
     if (pStream == NULL) {
         return EINVAL;
@@ -917,8 +1189,11 @@ DR_VORBIS_API int dr_vorbis_stream_init(void* pReadUserData, dr_vorbis_read_data
         return EINVAL;  /* Must have a read callback or else there's no way to read data. */
     }
 
-    pStream->pReadUserData       = pReadUserData;
-    pStream->onRead              = onRead;
+    result = dr_vorbis_bs_init(pReadUserData, onRead, &pStream->bs);
+    if (result != DR_VORBIS_SUCCESS) {
+        return result;  /* Failed to initialize bitstream. */
+    }
+
     pStream->pMetaUserData       = pMetaUserData;
     pStream->onMeta              = onMeta;
     pStream->allocationCallbacks = dr_vorbis_allocation_callbacks_init_copy_or_default(pAllocationCallbacks);
