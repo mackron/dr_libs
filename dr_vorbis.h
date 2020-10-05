@@ -737,6 +737,13 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_read_bytes(dr_vorbis_bs* pBS, void* 
 Vorbis Stream API
 
 ************************************************************************************************************************************************************/
+static int dr_vorbis_stream_read_bits(dr_vorbis_stream* pStream, dr_vorbis_uint32 bitsToRead, dr_vorbis_uint32* pValue)
+{
+    DR_VORBIS_ASSERT(pStream != NULL);
+
+    return dr_vorbis_bs_read_bits(&pStream->bs, bitsToRead, pValue);
+}
+
 static int dr_vorbis_stream_read_bytes(dr_vorbis_stream* pStream, void* pOutput, size_t bytesToRead, size_t* pBytesRead)
 {
     DR_VORBIS_ASSERT(pStream != NULL);
@@ -1072,31 +1079,64 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
     return 0;
 }
 
-#if 0
-static int dr_vorbis_stream_load_setup_codebooks(dr_vorbis_stream* pStream)
+static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStream)
 {
     int result;
     size_t bytesRead;
-    dr_vorbis_uint16 codebookCount;
-    dr_vorbis_uint16 iCodebook;
+    dr_vorbis_uint32 codebookCount;
+    dr_vorbis_uint32 iCodebook;
 
     DR_VORBIS_ASSERT(pStream != NULL);
 
-    result = dr_vorbis_stream_read_uint8_aligned(pStream, &codebookCount);
+    result = dr_vorbis_stream_read_bits(pStream, 8, &codebookCount);
     if (result != 0) {
         return result;
     }
     codebookCount += 1; /* Spec: read eight bits as unsigned integer and add one */
 
     for (iCodebook = 0; iCodebook < codebookCount; iCodebook) {
+        dr_vorbis_uint32 sync;
+        dr_vorbis_uint32 dimensions;
+        dr_vorbis_uint32 entries;
+        dr_vorbis_uint32 ordered;
 
+        result = dr_vorbis_stream_read_bits(pStream, 24, &sync);
+        if (result != DR_VORBIS_SUCCESS) {
+            return result;  /* Failed to load sync pattern. */
+        }
+
+        if (sync != 0x564342) {
+            return EILSEQ;  /* Expecting sync pattern. */
+        }
+
+        result = dr_vorbis_stream_read_bits(pStream, 16, &dimensions);
+        if (result != DR_VORBIS_SUCCESS) {
+            return result;  /* Failed to load dimensions. */
+        }
+
+        result = dr_vorbis_stream_read_bits(pStream, 24, &entries);
+        if (result != DR_VORBIS_SUCCESS) {
+            return result;
+        }
+
+        result = dr_vorbis_stream_read_bits(pStream, 1, &ordered);
+        if (result != DR_VORBIS_SUCCESS) {
+            return result;
+        }
+
+        if (ordered == 0) {
+            /* Ordered flag is unset. */
+
+        } else {
+            /* Ordered flag is set. */
+
+        }
     }
 
     return 0;
 }
-#endif
 
-static int dr_vorbis_stream_load_setup(dr_vorbis_stream* pStream)
+static int dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pStream)
 {
     int result;
     size_t bytesRead;
@@ -1105,7 +1145,7 @@ static int dr_vorbis_stream_load_setup(dr_vorbis_stream* pStream)
     DR_VORBIS_ASSERT(pStream != NULL);
 
     /* Common header. */
-    result = dr_vorbis_stream_read_common_header(pStream, DR_VORBIS_PACKET_TYPE_COMMENT);
+    result = dr_vorbis_stream_read_common_header(pStream, DR_VORBIS_PACKET_TYPE_SETUP);
     if (result != 0) {
         return result;
     }
@@ -1113,12 +1153,10 @@ static int dr_vorbis_stream_load_setup(dr_vorbis_stream* pStream)
     /* Setup-specific data. */
 
     /* Codebooks. */
-#if 0
-    result = dr_vorbis_stream_load_setup_codebooks(pStream);
+    result = dr_vorbis_stream_load_setup_header_codebooks(pStream);
     if (result != 0) {
         return result;
     }
-#endif
 
     /* Time domain transforms. Not used, but needs to be skipped over. */
 
@@ -1164,12 +1202,10 @@ static int dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
     }
 
     /* Setup. */
-#if 0
     result = dr_vorbis_stream_load_setup_header(pStream);
     if (result != 0) {
         return result;
     }
-#endif
 
     /* Done. */
     return 0;
