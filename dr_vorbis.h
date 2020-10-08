@@ -659,7 +659,8 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_read_bits(dr_vorbis_bs* pBS, dr_vorb
     if (pBS->l1RemainingBits >= bitsToRead) {
         /*
         Fast path. Read directly from the L1 and slide. Unfortunately it's possible for 32-bits to be requested (according to the spec), but 32-bit
-        shifts are undefined on 32-bit platforms (*grumble*). We'll run a slightly less efficient path on 32-bit to work around this (one extra branch)
+        shifts are not well defined for 32-bit integers (*grumble*). We'll run a slightly less efficient path on 32-bit to work around this (one
+        extra branch)
         */
     #if defined(DR_VORBIS_32BIT)
         if (bitsToRead == 32) {
@@ -678,6 +679,10 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_read_bits(dr_vorbis_bs* pBS, dr_vorb
         dr_vorbis_result result;
         dr_vorbis_uint32 step1BitCount = pBS->l1RemainingBits;
         dr_vorbis_uint32 step2BitCount = bitsToRead - pBS->l1RemainingBits;
+
+        /* Relevant asserts because shifting a 32-bit integer by 32 bits is not well defined, which will happen when compiling for 32-bit environments. */
+        DR_VORBIS_ASSERT(step1BitCount < 32);
+        DR_VORBIS_ASSERT(step2BitCount < 32);
 
         /* Step 1: Extract the remaining data from L1. */
         *pValue = (pBS->l1 & DR_VORBIS_L1_MASK(step1BitCount));
@@ -737,6 +742,92 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_read_bytes(dr_vorbis_bs* pBS, void* 
 Vorbis Stream API
 
 ************************************************************************************************************************************************************/
+#define DR_VORBIS_UNUSED_CODEWORD   0
+
+/*
+Used by dr_vorbis_float32_unpack() to raise 2 to an integer power. I'm just doing this myself to avoid a math.h dependency, but may change this
+later to just use ldexp().
+*/
+static double dr_vorbis_ldexp(double x, int exp)
+{
+    /* Manual implementation to void dependency on math.h, and more importantly, the "-lm" linker option on GCC. Probably temporary. */
+    int i;
+    int y = 1;
+
+    for (i = 0; i < exp; i += 1) {
+        y *= 2;
+    }
+
+    return x * y;
+}
+
+/* Used in dr_vorbis_lookup1_values() to raise an unsigned integer to a power. */
+static dr_vorbis_uint32 dr_vorbis_pow_ui(dr_vorbis_uint32 x, dr_vorbis_uint32 exp)
+{
+    /* Manual implementation to void dependency on math.h, and more importantly, the "-lm" linker option on GCC. Probably temporary. */
+    dr_vorbis_uint32 i;
+    dr_vorbis_uint32 y = 1;
+
+    for (i = 0; i < exp; i += 1) {
+        y *= x;
+    }
+
+    return y;
+}
+
+/* ilog() implementation from spec. */
+static dr_vorbis_int32 dr_vorbis_ilog(dr_vorbis_int32 x)
+{
+#if 1   /* Spec implementation. I don't like this implementation, but left here for reference and debugging. */
+    dr_vorbis_int32 result = 0;
+    while (x > 0) {
+        result += 1;
+        x >>= 1;
+        x &= ~0x80000000;   /* Explicitly set MSB to 0 as mentioned in spec, but shouldn't be necessary in practice. */
+    }
+
+    return result;
+#endif
+}
+
+static dr_vorbis_uint32 dr_vorbis_ilog_u(dr_vorbis_uint32 x)
+{
+    return (dr_vorbis_int32)dr_vorbis_ilog((dr_vorbis_int32)x);
+}
+
+/* float32_unpack() implementation from spec. */
+static float dr_vorbis_float32_unpack(dr_vorbis_uint32 x)
+{
+    dr_vorbis_uint32 mantissa =  x & 0x001FFFFF;
+    dr_vorbis_uint32 sign     =  x & 0x80000000;
+    dr_vorbis_uint32 exponent = (x & 0x7FE00000) >> 21;
+    double result = (double)mantissa;
+
+    if (sign) {
+        result = -result;
+    }
+
+    return (float)dr_vorbis_ldexp(result, (int)(exponent - 788));
+}
+
+/* lookup1_values(). Spec does not specify an exact implementation for this, but is implied. */
+static dr_vorbis_uint32 dr_vorbis_lookup1_values(dr_vorbis_uint32 entries, dr_vorbis_uint32 dimensions)
+{
+#if 1 /* Naive solution is to run in a loop. Leaving this here for reference and debugging. */
+    dr_vorbis_uint32 result = 0;
+    for (;;) {
+        if (dr_vorbis_pow_ui(result + 1, dimensions) > entries) {
+            break;
+        }
+
+        result += 1;
+    }
+
+    return result;
+#endif
+}
+
+
 static int dr_vorbis_stream_read_bits(dr_vorbis_stream* pStream, dr_vorbis_uint32 bitsToRead, dr_vorbis_uint32* pValue)
 {
     DR_VORBIS_ASSERT(pStream != NULL);
@@ -1082,7 +1173,6 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
 static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStream)
 {
     int result;
-    size_t bytesRead;
     dr_vorbis_uint32 codebookCount;
     dr_vorbis_uint32 iCodebook;
 
@@ -1096,8 +1186,9 @@ static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStrea
 
     for (iCodebook = 0; iCodebook < codebookCount; iCodebook) {
         dr_vorbis_uint32 sync;
-        dr_vorbis_uint32 dimensions;
-        dr_vorbis_uint32 entries;
+        dr_vorbis_uint32 codebookDimensions;
+        dr_vorbis_uint32 codebookEntries;
+        dr_vorbis_uint32 codebookLookupType;
         dr_vorbis_uint32 ordered;
 
         result = dr_vorbis_stream_read_bits(pStream, 24, &sync);
@@ -1109,12 +1200,12 @@ static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStrea
             return EILSEQ;  /* Expecting sync pattern. */
         }
 
-        result = dr_vorbis_stream_read_bits(pStream, 16, &dimensions);
+        result = dr_vorbis_stream_read_bits(pStream, 16, &codebookDimensions);
         if (result != DR_VORBIS_SUCCESS) {
             return result;  /* Failed to load dimensions. */
         }
 
-        result = dr_vorbis_stream_read_bits(pStream, 24, &entries);
+        result = dr_vorbis_stream_read_bits(pStream, 24, &codebookEntries);
         if (result != DR_VORBIS_SUCCESS) {
             return result;
         }
@@ -1126,10 +1217,146 @@ static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStrea
 
         if (ordered == 0) {
             /* Ordered flag is unset. */
+            dr_vorbis_uint32 sparse;
+            dr_vorbis_uint32 iEntry;
 
+            result = dr_vorbis_stream_read_bits(pStream, 1, &sparse);
+            if (result != DR_VORBIS_SUCCESS) {
+                return result;
+            }
+
+            for (iEntry = 0; iEntry < codebookEntries; iEntry += 1) {
+                dr_vorbis_uint32 length;
+
+                if (sparse) {
+                    dr_vorbis_uint32 flag;
+
+                    result = dr_vorbis_stream_read_bits(pStream, 1, &flag);
+                    if (result != DR_VORBIS_SUCCESS) {
+                        return result;
+                    }
+
+                    if (flag) {
+                        result = dr_vorbis_stream_read_bits(pStream, 5, &length);
+                        if (result != DR_VORBIS_SUCCESS) {
+                            return result;
+                        }
+
+                        length += 1;
+                    } else {
+                        length = DR_VORBIS_UNUSED_CODEWORD;
+                    }
+                } else {
+                    result = dr_vorbis_stream_read_bits(pStream, 5, &length);
+                    if (result != DR_VORBIS_SUCCESS) {
+                        return result;
+                    }
+
+                    length += 1;
+                }
+
+                /* TODO: Store the length. */
+                /*pCodebookCodewordLengths[iEntry] = length;*/
+            }
         } else {
             /* Ordered flag is set. */
+            dr_vorbis_uint32 currentEntry = 0;
+            dr_vorbis_uint32 currentLength;
 
+            result = dr_vorbis_stream_read_bits(pStream, 5, &currentLength);
+            if (result != DR_VORBIS_SUCCESS) {
+                return result;
+            }
+            currentLength += 1;
+            
+            while (currentEntry < codebookEntries) {
+                dr_vorbis_uint32 number;
+                dr_vorbis_uint32 iEntry;
+
+                result = dr_vorbis_stream_read_bits(pStream, dr_vorbis_ilog_u(codebookEntries - currentEntry), &number);
+                if (result != DR_VORBIS_SUCCESS) {
+                    return result;
+                }
+
+                for (iEntry = currentEntry; iEntry < currentEntry + number; iEntry += 1) {
+                    /* TODO: Assign entry. */
+                    /*pCodebookCodewordLengths[iEntry] = currentLength;*/
+                }
+
+                currentEntry += number;
+
+                /* Validation. */
+                if (currentEntry > codebookEntries) {
+                    return EILSEQ;  /* Error. */
+                }
+            }
+        }
+
+        /* Vector lookup table. */
+        result = dr_vorbis_stream_read_bits(pStream, 4, &codebookLookupType);
+        if (result != DR_VORBIS_SUCCESS) {
+            return result;
+        }
+
+        if (codebookLookupType == 0) {
+            /* Do nothing. */
+        } else if (codebookLookupType == 1 || codebookLookupType == 2) {
+            dr_vorbis_uint32 codebookMinimumValueRaw;
+            dr_vorbis_uint32 codebookMaximumValueRaw;
+            float codebookMinimumValue;
+            float codebookMaximumValue;
+            dr_vorbis_uint32 valueBits;
+            dr_vorbis_uint32 sequenceP;
+            dr_vorbis_uint32 lookupValues;
+            dr_vorbis_uint32 iValue;
+
+            result = dr_vorbis_stream_read_bits(pStream, 32, &codebookMinimumValueRaw);
+            if (result != DR_VORBIS_SUCCESS) {
+                /* TODO: Free memory. */
+                return result;
+            }
+
+            result = dr_vorbis_stream_read_bits(pStream, 32, &codebookMaximumValueRaw);
+            if (result != DR_VORBIS_SUCCESS) {
+                /* TODO: Free memory. */
+                return result;
+            }
+
+            codebookMinimumValue = dr_vorbis_float32_unpack(codebookMinimumValueRaw);
+            codebookMaximumValue = dr_vorbis_float32_unpack(codebookMaximumValueRaw);
+
+            result = dr_vorbis_stream_read_bits(pStream, 4, &valueBits);
+            if (result != DR_VORBIS_SUCCESS) {
+                /* TODO: Free memory. */
+                return result;
+            }
+
+            result = dr_vorbis_stream_read_bits(pStream, 1, &sequenceP);
+            if (result != DR_VORBIS_SUCCESS) {
+                /* TODO: Free memory. */
+                return result;
+            }
+
+            if (codebookLookupType == 1) {
+                lookupValues = dr_vorbis_lookup1_values(codebookEntries, codebookDimensions);
+            } else {
+                lookupValues = codebookEntries * codebookDimensions;
+            }
+
+            for (iValue = 0; iValue < lookupValues; iValue += 1) {
+                dr_vorbis_uint32 value;
+
+                result = dr_vorbis_stream_read_bits(pStream, valueBits, &value);
+                if (result != DR_VORBIS_SUCCESS) {
+                    /* TODO: Free memory. */
+                    return result;
+                }
+
+                /* TODO: Assign value. */
+                /*pCookbookMultiplicands[iValue] = (dr_vorbis_uint16)value;*/
+            }
+        } else {
+            return EILSEQ;  /* Unsupported lookup type. */
         }
     }
 
@@ -1139,7 +1366,6 @@ static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStrea
 static int dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pStream)
 {
     int result;
-    size_t bytesRead;
     dr_vorbis_uint8 framingBit;
 
     DR_VORBIS_ASSERT(pStream != NULL);
