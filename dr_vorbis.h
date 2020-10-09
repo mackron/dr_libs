@@ -697,7 +697,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_bs_read_bits(dr_vorbis_bs* pBS, dr_vorb
 
         if (pBS->l1RemainingBits >= step2BitCount) {
             *pValue |= (pBS->l1 & DR_VORBIS_L1_MASK(step2BitCount)) << step1BitCount;
-            pBS->l1 >>= bitsToRead;
+            pBS->l1 >>= step2BitCount;
             pBS->l1RemainingBits -= step2BitCount;
         } else {
             return EILSEQ;  /* Not enough data available to read the entire value. */
@@ -816,7 +816,8 @@ static dr_vorbis_uint32 dr_vorbis_lookup1_values(dr_vorbis_uint32 entries, dr_vo
 #if 1 /* Naive solution is to run in a loop. Leaving this here for reference and debugging. */
     dr_vorbis_uint32 result = 0;
     for (;;) {
-        if (dr_vorbis_pow_ui(result + 1, dimensions) > entries) {
+        dr_vorbis_uint32 p = dr_vorbis_pow_ui(result + 1, dimensions);
+        if (p > entries) {
             break;
         }
 
@@ -1184,7 +1185,7 @@ static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStrea
     }
     codebookCount += 1; /* Spec: read eight bits as unsigned integer and add one */
 
-    for (iCodebook = 0; iCodebook < codebookCount; iCodebook) {
+    for (iCodebook = 0; iCodebook < codebookCount; iCodebook += 1) {
         dr_vorbis_uint32 sync;
         dr_vorbis_uint32 codebookDimensions;
         dr_vorbis_uint32 codebookEntries;
@@ -1330,6 +1331,7 @@ static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStrea
                 /* TODO: Free memory. */
                 return result;
             }
+            valueBits += 1;
 
             result = dr_vorbis_stream_read_bits(pStream, 1, &sequenceP);
             if (result != DR_VORBIS_SUCCESS) {
@@ -1699,7 +1701,7 @@ static dr_vorbis_uint16 dr_vorbis_ogg__calculate_page_body_size(dr_vorbis_ogg_pa
 static int dr_vorbis_ogg__read_page_header_after_capture_pattern(dr_vorbis_ogg* pOgg, dr_vorbis_ogg_page_header* pHeader, dr_vorbis_uint32* pCRC)
 {
     int result;
-    dr_vorbis_uint64 bytesRead;
+    size_t bytesRead;
     dr_vorbis_uint8 data[23];   /* Page header data after the catpure pattern, but before the segment table. */
 
     DR_VORBIS_ASSERT(pOgg    != NULL);
@@ -1748,7 +1750,7 @@ static int dr_vorbis_ogg__read_page_header_after_capture_pattern(dr_vorbis_ogg* 
 static int dr_vorbis_ogg__read_page_header(dr_vorbis_ogg* pOgg, dr_vorbis_ogg_page_header* pHeader, dr_vorbis_uint32* pCRC)
 {
     int result;
-    dr_vorbis_uint64 bytesRead;
+    size_t bytesRead;
 
     DR_VORBIS_ASSERT(pOgg    != NULL);
     DR_VORBIS_ASSERT(pHeader != NULL);
@@ -1856,7 +1858,7 @@ static int dr_vorbis_ogg__goto_and_read_next_vorbis_page_header(dr_vorbis_ogg* p
 DR_VORBIS_API int dr_vorbis_ogg_init(void* pUserData, dr_vorbis_read_data_proc onRead, dr_vorbis_seek_data_proc onSeek, dr_vorbis_ogg* pOgg)
 {
     int result;
-    dr_vorbis_uint64 bytesRead;
+    size_t bytesRead;
     dr_vorbis_ogg_page_header pageHeader;
     dr_vorbis_uint32 crc32;
 
