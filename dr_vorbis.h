@@ -927,9 +927,9 @@ static int dr_vorbis_stream_read_uint8(dr_vorbis_stream* pStream, dr_vorbis_uint
     return 0;
 }
 
-static int dr_vorbis_stream_read_common_header(dr_vorbis_stream* pStream, dr_vorbis_uint8 expectedPacketType)
+static dr_vorbis_result dr_vorbis_stream_read_common_header(dr_vorbis_stream* pStream, dr_vorbis_uint8 expectedPacketType)
 {
-    int result;
+    dr_vorbis_result result;
     dr_vorbis_uint8 data[7];
     size_t bytesRead;
 
@@ -955,12 +955,12 @@ static int dr_vorbis_stream_read_common_header(dr_vorbis_stream* pStream, dr_vor
         return EILSEQ;  /* Not a vorbis header packet. */
     }
 
-    return 0;
+    return DR_VORBIS_SUCCESS;
 }
 
-static int dr_vorbis_stream_load_identification_header(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_stream_load_identification_header(dr_vorbis_stream* pStream)
 {
-    int result;
+    dr_vorbis_result result;
     dr_vorbis_uint8 data[23];
     size_t bytesRead;
     dr_vorbis_uint32 vorbisVersion;
@@ -1025,12 +1025,12 @@ static int dr_vorbis_stream_load_identification_header(dr_vorbis_stream* pStream
         return EILSEQ;
     }
     
-    return 0;
+    return DR_VORBIS_SUCCESS;
 }
 
-static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
 {
-    int result;
+    dr_vorbis_result result;
     size_t bytesRead;
     dr_vorbis_metadata metadata;
     dr_vorbis_uint32 commentCount;
@@ -1168,12 +1168,12 @@ static int dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
 
     /* Done. Make sure we free the data pointer. */
     dr_vorbis_free(pData, &pStream->allocationCallbacks);
-    return 0;
+    return DR_VORBIS_SUCCESS;
 }
 
-static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStream)
 {
-    int result;
+    dr_vorbis_result result;
     dr_vorbis_uint32 codebookCount;
     dr_vorbis_uint32 iCodebook;
 
@@ -1362,12 +1362,42 @@ static int dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStrea
         }
     }
 
-    return 0;
+    return DR_VORBIS_SUCCESS;
 }
 
-static int dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_stream_load_setup_header_time_domain_transforms(dr_vorbis_stream* pStream)
 {
-    int result;
+    dr_vorbis_result result;
+    dr_vorbis_uint32 timeCount;
+    dr_vorbis_uint32 iTime;
+    
+    DR_VORBIS_ASSERT(pStream != NULL);
+
+    result = dr_vorbis_stream_read_bits(pStream, 6, &timeCount);
+    if (result != DR_VORBIS_SUCCESS) {
+        return result;
+    }
+    timeCount += 1;
+
+    for (iTime = 0; iTime < timeCount; iTime += 1) {
+        dr_vorbis_uint32 time;
+        result = dr_vorbis_stream_read_bits(pStream, 16, &time);
+        if (result != DR_VORBIS_SUCCESS) {
+            return result;
+        }
+
+        /* Spec: If any value is nonzero, this is an error condition and the stream is undecodable. */
+        if (time != 0) {
+            return EILSEQ;
+        }
+    }
+
+    return DR_VORBIS_SUCCESS;
+}
+
+static dr_vorbis_result dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pStream)
+{
+    dr_vorbis_result result;
     dr_vorbis_uint8 framingBit;
 
     DR_VORBIS_ASSERT(pStream != NULL);
@@ -1387,6 +1417,11 @@ static int dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pStream)
     }
 
     /* Time domain transforms. Not used, but needs to be skipped over. */
+    result = dr_vorbis_stream_load_setup_header_time_domain_transforms(pStream);
+    if (result != 0) {
+        /* TODO: Free memory. */
+        return result;
+    }
 
     /* Floors. */
 
@@ -1411,9 +1446,9 @@ static int dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pStream)
     return 0;
 }
 
-static int dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
 {
-    int result;
+    dr_vorbis_result result;
 
     /* Note that we're not doing any kind of CRC recovery here. If anything in the header is corrupt, the entire stream is corrupt. */
 
@@ -1436,7 +1471,7 @@ static int dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
     }
 
     /* Done. */
-    return 0;
+    return DR_VORBIS_SUCCESS;
 }
 
 DR_VORBIS_API int dr_vorbis_stream_init(void* pReadUserData, dr_vorbis_read_data_proc onRead, void* pMetaUserData, dr_vorbis_meta_data_proc onMeta, const dr_vorbis_allocation_callbacks* pAllocationCallbacks, dr_vorbis_stream* pStream)
@@ -2517,7 +2552,7 @@ DR_VORBIS_API void dr_vorbis_free(void* p, const dr_vorbis_allocation_callbacks*
     }
 
     if (pAllocationCallbacks->onFree == NULL) {
-        return;    /* No free() defined. Do not fall back to default implementation. */
+        return;         /* No free() defined. Do not fall back to default implementation. */
     }
 
     pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
