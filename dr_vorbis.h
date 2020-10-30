@@ -1443,7 +1443,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pSt
         return EILSEQ;  /* Framing bit must be set. */
     }
 
-    return 0;
+    return DR_VORBIS_SUCCESS;
 }
 
 static dr_vorbis_result dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
