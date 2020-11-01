@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.13 - TBD
+dr_wav - v0.12.13 - 2020-11-01
 
 David Reid - mackron@gmail.com
 
@@ -6033,7 +6033,7 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
-v0.12.13 - TBD
+v0.12.13 - 2020-11-01
   - Improve compiler support for older versions of GCC.
 
 v0.12.12 - 2020-09-28
