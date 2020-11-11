@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.13 - 2020-11-01
+dr_wav - v0.12.14 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -144,7 +144,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     12
-#define DRWAV_VERSION_REVISION  13
+#define DRWAV_VERSION_REVISION  14
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -3575,6 +3575,7 @@ DRWAV_API size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOu
 DRWAV_API drwav_uint64 drwav_read_pcm_frames_le(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut)
 {
     drwav_uint32 bytesPerFrame;
+    drwav_uint64 bytesToRead;   /* Intentionally uint64 instead of size_t so we can do a check that we're not reading too much on 32-bit builds. */
 
     if (pWav == NULL || framesToRead == 0) {
         return 0;
@@ -3591,8 +3592,17 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_le(drwav* pWav, drwav_uint64 frames
     }
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
+    bytesToRead = framesToRead * bytesPerFrame;
     if (framesToRead * bytesPerFrame > DRWAV_SIZE_MAX) {
         framesToRead = DRWAV_SIZE_MAX / bytesPerFrame;
+    }
+
+    /*
+    Doing an explicit check here just to make it clear that we don't want to be attempt to read anything if there's no bytes to read. There
+    *could* be a time where it evaluates to 0 due to overflowing.
+    */
+    if (bytesToRead == 0) {
+        return 0;
     }
 
     return drwav_read_raw(pWav, (size_t)(framesToRead * bytesPerFrame), pBufferOut) / bytesPerFrame;
@@ -6033,6 +6043,9 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
+v0.12.14 - TBD
+  - Minor code clean up.
+
 v0.12.13 - 2020-11-01
   - Improve compiler support for older versions of GCC.
 
