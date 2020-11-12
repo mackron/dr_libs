@@ -2478,6 +2478,13 @@ static drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_for
         runningPos += drwav__write_u32ne_to_le(pWav, 0xFFFFFFFF);   /* Always set to 0xFFFFFFFF for RF64. The true size of the data chunk is specified in the ds64 chunk. */
     }
 
+    /*
+    The runningPos variable is incremented in the section above but is left unused which is causing some static analysis tools to detect it
+    as a dead store. I'm leaving this as-is for safety just in case I want to expand this function later to include other tags and want to
+    keep track of the running position for whatever reason. The line below should silence the static analysis tools.
+    */
+    (void)runningPos;
+
     /* Set some properties for the client's convenience. */
     pWav->container = pFormat->container;
     pWav->channels = (drwav_uint16)pFormat->channels;
@@ -3593,7 +3600,7 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_le(drwav* pWav, drwav_uint64 frames
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
     bytesToRead = framesToRead * bytesPerFrame;
-    if (framesToRead * bytesPerFrame > DRWAV_SIZE_MAX) {
+    if (bytesToRead > DRWAV_SIZE_MAX) {
         framesToRead = DRWAV_SIZE_MAX / bytesPerFrame;
     }
 
