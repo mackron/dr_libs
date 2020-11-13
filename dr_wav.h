@@ -3612,7 +3612,7 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_le(drwav* pWav, drwav_uint64 frames
         return 0;
     }
 
-    return drwav_read_raw(pWav, (size_t)(framesToRead * bytesPerFrame), pBufferOut) / bytesPerFrame;
+    return drwav_read_raw(pWav, (size_t)bytesToRead, pBufferOut) / bytesPerFrame;
 }
 
 DRWAV_API drwav_uint64 drwav_read_pcm_frames_be(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut)
