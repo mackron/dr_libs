@@ -644,7 +644,8 @@ void* dr_open_and_read_file_with_extra_data(const char* pFilePath, size_t* pFile
     fileSize = ftell(pFile);
     fseek(pFile, 0, SEEK_SET);
 
-    if (fileSize + extraBytes > DR_SIZE_MAX) {
+    /* Need to make sure we have enough room for the extra bytes, if any. */
+    if (fileSize == DR_SIZE_MAX && extraBytes > 0) {
         fclose(pFile);
         return NULL;    /* File is too big. */
     }
