@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.14 - 2020-11-13
+dr_wav - v0.12.15 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -144,7 +144,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     12
-#define DRWAV_VERSION_REVISION  14
+#define DRWAV_VERSION_REVISION  15
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -6050,6 +6050,9 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
+v0.12.15 - TBD
+  - Fix compilation with OpenWatcom.
+
 v0.12.14 - 2020-11-13
   - Minor code clean up.
 
