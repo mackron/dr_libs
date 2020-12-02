@@ -466,31 +466,6 @@ typedef struct
 } drwav_data_format;
 
 
-/* See the following for details on the 'smpl' chunk: https://sites.google.com/site/musicgapi/technical-documents/wav-file-format#smpl */
-typedef struct
-{
-    drwav_uint32 cuePointId;
-    drwav_uint32 type;
-    drwav_uint32 start;
-    drwav_uint32 end;
-    drwav_uint32 fraction;
-    drwav_uint32 playCount;
-} drwav_smpl_loop;
-
- typedef struct
-{
-    drwav_uint32 manufacturer;
-    drwav_uint32 product;
-    drwav_uint32 samplePeriod;
-    drwav_uint32 midiUnityNotes;
-    drwav_uint32 midiPitchFraction;
-    drwav_uint32 smpteFormat;
-    drwav_uint32 smpteOffset;
-    drwav_uint32 numSampleLoops;
-    drwav_uint32 samplerData;
-    drwav_smpl_loop loops[DRWAV_MAX_SMPL_LOOPS];
-} drwav_smpl;
-
 typedef struct
 {
     /* A pointer to the function to call when more data is needed. */
@@ -551,9 +526,6 @@ typedef struct
     /* Keeps track of whether or not the wav writer was initialized in sequential mode. */
     drwav_bool32 isSequentialWrite;
 
-
-    /* smpl chunk. */
-    drwav_smpl smpl;
 
 
     /* A hack to avoid a DRWAV_MALLOC() when opening a decoder with drwav_init_memory(). */
@@ -2082,57 +2054,6 @@ static drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc onChunk, 
             }
         } else if (pWav->container == drwav_container_rf64) {
             /* We retrieved the sample count from the ds64 chunk earlier so no need to do that here. */
-        }
-
-        /* "smpl" chunk. */
-        if (pWav->container == drwav_container_riff || pWav->container == drwav_container_rf64) {
-            if (drwav__fourcc_equal(header.id.fourcc, "smpl")) {
-                drwav_uint8 smplHeaderData[36];    /* 36 = size of the smpl header section, not including the loop data. */
-                if (chunkSize >= sizeof(smplHeaderData)) {
-                    drwav_uint64 bytesJustRead = drwav__on_read(pWav->onRead, pWav->pUserData, smplHeaderData, sizeof(smplHeaderData), &cursor);
-                    chunkSize -= bytesJustRead;
-
-                    if (bytesJustRead == sizeof(smplHeaderData)) {
-                        drwav_uint32 iLoop;
-
-                        pWav->smpl.manufacturer      = drwav__bytes_to_u32(smplHeaderData+0);
-                        pWav->smpl.product           = drwav__bytes_to_u32(smplHeaderData+4);
-                        pWav->smpl.samplePeriod      = drwav__bytes_to_u32(smplHeaderData+8);
-                        pWav->smpl.midiUnityNotes    = drwav__bytes_to_u32(smplHeaderData+12);
-                        pWav->smpl.midiPitchFraction = drwav__bytes_to_u32(smplHeaderData+16);
-                        pWav->smpl.smpteFormat       = drwav__bytes_to_u32(smplHeaderData+20);
-                        pWav->smpl.smpteOffset       = drwav__bytes_to_u32(smplHeaderData+24);
-                        pWav->smpl.numSampleLoops    = drwav__bytes_to_u32(smplHeaderData+28);
-                        pWav->smpl.samplerData       = drwav__bytes_to_u32(smplHeaderData+32);
-
-                        for (iLoop = 0; iLoop < pWav->smpl.numSampleLoops && iLoop < drwav_countof(pWav->smpl.loops); ++iLoop) {
-                            drwav_uint8 smplLoopData[24];  /* 24 = size of a loop section in the smpl chunk. */
-                            bytesJustRead = drwav__on_read(pWav->onRead, pWav->pUserData, smplLoopData, sizeof(smplLoopData), &cursor);
-                            chunkSize -= bytesJustRead;
-
-                            if (bytesJustRead == sizeof(smplLoopData)) {
-                                pWav->smpl.loops[iLoop].cuePointId = drwav__bytes_to_u32(smplLoopData+0);
-                                pWav->smpl.loops[iLoop].type       = drwav__bytes_to_u32(smplLoopData+4);
-                                pWav->smpl.loops[iLoop].start      = drwav__bytes_to_u32(smplLoopData+8);
-                                pWav->smpl.loops[iLoop].end        = drwav__bytes_to_u32(smplLoopData+12);
-                                pWav->smpl.loops[iLoop].fraction   = drwav__bytes_to_u32(smplLoopData+16);
-                                pWav->smpl.loops[iLoop].playCount  = drwav__bytes_to_u32(smplLoopData+20);
-                            } else {
-                                break;  /* Break from the smpl loop for loop. */
-                            }
-                        }
-                    }
-                } else {
-                    /* Looks like invalid data. Ignore the chunk. */
-                }
-            }
-        } else {
-            if (drwav__guid_equal(header.id.guid, drwavGUID_W64_SMPL)) {
-                /*
-                This path will be hit when a W64 WAV file contains a smpl chunk. I don't have a sample file to test this path, so a contribution
-                is welcome to add support for this.
-                */
-            }
         }
 
         /* Make sure we seek past the padding. */
