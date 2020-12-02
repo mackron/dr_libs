@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.16 - TBD
+dr_wav - v0.12.16 - 2020-12-02
 
 David Reid - mackron@gmail.com
 
@@ -6053,7 +6053,7 @@ two different ways to initialize a drwav object.
 /*
 REVISION HISTORY
 ================
-v0.12.16 - TBD
+v0.12.16 - 2020-12-02
   - Fix a bug when trying to read more bytes than can fit in a size_t.
 
 v0.12.15 - 2020-11-21
