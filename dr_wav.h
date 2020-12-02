@@ -282,9 +282,6 @@ typedef drwav_int32 drwav_result;
 #ifndef DRWAV_MAX_SMPL_LOOPS
 #define DRWAV_MAX_SMPL_LOOPS        1
 #endif
-#ifndef DRWAV_MAX_CUE_POINTS
-#define DRWAV_MAX_CUE_POINTS        4
-#endif
 
 /* Flags to pass into drwav_init_ex(), etc. */
 #define DRWAV_SEQUENTIAL            0x00000001
@@ -496,54 +493,6 @@ typedef struct
 
 typedef struct
 {
-    drwav_int8 midi_note; // 0 - 127
-    drwav_int8 fine_tune_db; // -50 - +50
-    drwav_int8 gain; // -64 - +64
-    drwav_int8 low_note; // 0 - 127
-    drwav_int8 high_note; // 0 - 127
-    drwav_int8 low_velocity; // 1 - 127
-    drwav_int8 high_velocity; // 1 - 127
-} drwav_inst;
-
-typedef struct
-{
-    drwav_uint32 id; // unique identification value
-    drwav_uint32 position; // play order position
-    drwav_uint8 dataChunkId[4]; // RIFF ID of corresponding data chunk
-    drwav_uint32 chunkStart; // byte offset of data chunk
-    drwav_uint32 blockStart; // byte offset to sample of first channel
-    drwav_uint32 sampleOffset; // byte offset to sample byte of first channel
-} drwav_cue_point;
-
-typedef struct
-{
-    drwav_uint32 numCuePoints;
-    drwav_cue_point cuePoints[DRWAV_MAX_CUE_POINTS];
-} drwav_cue;
-
-typedef enum
-{
-    drwav_acid_flag_one_shot = 1,
-    drwav_acid_flag_root_note_set = 2,
-    drwav_acid_flag_stretch = 4,
-    drwav_acid_flag_disk_based = 8,
-    drwav_acid_flag_acidizer = 16,
-} drwav_acid_flag;
-
-typedef struct
-{
-    drwav_uint32 flags; // A bit mask of flags, see drwav_acid_flag.
-    drwav_uint16 rootNote; // Valid if flags contains acid_flag_root_note_set.
-    drwav_uint16 reserved1;
-    float reserved2;
-    drwav_uint32 numBeats;
-    drwav_uint16 meterDenominator;
-    drwav_uint16 meterNumerator;
-    float tempo;
-} drwav_acid;
-
-typedef struct
-{
     /* A pointer to the function to call when more data is needed. */
     drwav_read_proc onRead;
 
@@ -605,19 +554,6 @@ typedef struct
 
     /* smpl chunk. */
     drwav_smpl smpl;
-    drwav_bool32 hasSmpl;
-
-    /* inst chunk. */
-    drwav_inst inst;
-    drwav_bool32 hasInst;
-
-    /* cue chunk. */
-    drwav_cue cue;
-    drwav_bool32 hasCue;
-
-    /* acid chunk. */
-    drwav_acid acid;
-    drwav_bool32 hasAcid;
 
 
     /* A hack to avoid a DRWAV_MALLOC() when opening a decoder with drwav_init_memory(). */
@@ -2157,8 +2093,6 @@ static drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc onChunk, 
                     chunkSize -= bytesJustRead;
 
                     if (bytesJustRead == sizeof(smplHeaderData)) {
-                        pWav->hasSmpl = DRWAV_TRUE;
-
                         drwav_uint32 iLoop;
 
                         pWav->smpl.manufacturer      = drwav__bytes_to_u32(smplHeaderData+0);
@@ -2190,81 +2124,6 @@ static drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc onChunk, 
                     }
                 } else {
                     /* Looks like invalid data. Ignore the chunk. */
-                }
-            } else if (drwav__fourcc_equal(header.id.fourcc, "inst") || drwav__fourcc_equal(header.id.fourcc, "INST")) {
-                unsigned char instData[7];
-                if (chunkSize != sizeof(instData)) {
-                    drwav_uint64 bytesJustRead = drwav__on_read(pWav->onRead, pWav->pUserData, &instData, sizeof(instData), &cursor);
-                    chunkSize -= bytesJustRead;
-                    if (bytesJustRead == sizeof(instData)) {
-                        pWav->hasInst = DRWAV_TRUE;
-
-                        pWav->inst.midi_note     = (drwav_int8)instData[0];
-                        pWav->inst.fine_tune_db  = (drwav_int8)instData[1];
-                        pWav->inst.gain          = (drwav_int8)instData[2];
-                        pWav->inst.low_note      = (drwav_int8)instData[3];
-                        pWav->inst.high_note     = (drwav_int8)instData[4];
-                        pWav->inst.low_velocity  = (drwav_int8)instData[5];
-                        pWav->inst.high_velocity = (drwav_int8)instData[6];
-                    }
-                } else {
-                    // Looks like invalid data. Ignore the chunk.
-                }
-            } else if (drwav__fourcc_equal(header.id.fourcc, "cue ")) {
-                unsigned char cueHeaderSectionData[4]; // size of cue header section - its just an int for the number of cue points
-                if (chunkSize >= sizeof(cueHeaderSectionData)) {
-                    drwav_uint64 bytesJustRead = drwav__on_read(pWav->onRead, pWav->pUserData, cueHeaderSectionData, sizeof(cueHeaderSectionData), &cursor);
-                    chunkSize -= bytesJustRead;
-
-                    if (bytesJustRead == sizeof(cueHeaderSectionData)) {
-                        pWav->hasCue = DRWAV_TRUE;
-
-                        pWav->cue.numCuePoints = drwav__bytes_to_u32(cueHeaderSectionData);
-                        if (pWav->cue.numCuePoints) {
-                            for (drwav_uint32 iCue = 0; iCue < pWav->cue.numCuePoints && iCue < drwav_countof(pWav->cue.cuePoints); ++iCue) {
-                                unsigned char cuePointData[24];
-                                bytesJustRead = drwav__on_read(pWav->onRead, pWav->pUserData, cuePointData, sizeof(cuePointData), &cursor);
-                                chunkSize -= bytesJustRead;
-
-                                if (bytesJustRead == sizeof(cuePointData)) {
-                                    pWav->cue.cuePoints[iCue].id             = drwav__bytes_to_u32(cuePointData + 0);
-                                    pWav->cue.cuePoints[iCue].position       = drwav__bytes_to_u32(cuePointData + 4);
-                                    pWav->cue.cuePoints[iCue].dataChunkId[0] = cuePointData[8];
-                                    pWav->cue.cuePoints[iCue].dataChunkId[1] = cuePointData[9];
-                                    pWav->cue.cuePoints[iCue].dataChunkId[2] = cuePointData[10];
-                                    pWav->cue.cuePoints[iCue].dataChunkId[3] = cuePointData[11];
-                                    pWav->cue.cuePoints[iCue].chunkStart     = drwav__bytes_to_u32(cuePointData + 12);
-                                    pWav->cue.cuePoints[iCue].blockStart     = drwav__bytes_to_u32(cuePointData + 16);
-                                    pWav->cue.cuePoints[iCue].sampleOffset   = drwav__bytes_to_u32(cuePointData + 20);
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    // Looks like invalid data. Ignore the chunk.
-                }
-            } else if (drwav__fourcc_equal(header.id.fourcc, "acid")) {
-                unsigned char acidData[24];
-                if (chunkSize == sizeof(acidData)) {
-                    drwav_uint64 bytesJustRead = drwav__on_read(pWav->onRead, pWav->pUserData, acidData, sizeof(acidData), &cursor);
-                    chunkSize -= bytesJustRead;
-
-                    if (bytesJustRead == sizeof(acidData)) {
-                        pWav->hasAcid = DRWAV_TRUE;
-
-                        pWav->acid.flags            = drwav__bytes_to_u32(acidData + 0);
-                        pWav->acid.rootNote         = drwav__bytes_to_u16(acidData + 4);
-                        pWav->acid.reserved1        = drwav__bytes_to_u16(acidData + 6);
-                        pWav->acid.reserved2        = *(float *)(acidData + 8);
-                        pWav->acid.numBeats         = drwav__bytes_to_u32(acidData + 12);
-                        pWav->acid.meterDenominator = drwav__bytes_to_u16(acidData + 16);
-                        pWav->acid.meterNumerator   = drwav__bytes_to_u16(acidData + 18);
-                        pWav->acid.tempo            = *(float *)(acidData + 20);
-                    }
-                } else {
-                    // Looks like invalid data. Ignore the chunk.
                 }
             }
         } else {
