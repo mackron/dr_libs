@@ -572,11 +572,11 @@ typedef enum {
     drwav_metadata_location_top_level,
     drwav_metadata_location_inside_info_list,
     drwav_metadata_location_inside_adtl_list
-} drwav_metadata_location_location;
+} drwav_metadata_location;
 
 typedef struct {
     drwav_uint8 id[4];
-    drwav_metadata_location_location chunkLocation;
+    drwav_metadata_location chunkLocation;
     drwav_uint64 dataSizeInBytes;
     drwav_uint8 *data;
 } drwav_unknown_metadata;
@@ -2187,7 +2187,7 @@ static drwav_uint64 drwav__metadata_process_unknown_chunk(drwav_read_proc onRead
                                                           drwav_uint64 chunkSize,
                                                           drwav_metadata_memory *memory,
                                                           drwav__metadata_stage mode,
-                                                          drwav_metadata_location_location location) {
+                                                          drwav_metadata_location location) {
     if (location == drwav_metadata_location_invalid) return 0;
     if (drwav__fourcc_equal(chunkId, "data") || drwav__fourcc_equal(chunkId, "fmt") || drwav__fourcc_equal(chunkId, "fact")) return 0;
 
@@ -2301,7 +2301,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav_read_proc onRead,
     } else if (drwav__fourcc_equal(chunkId, "LIST") ||
                drwav__fourcc_equal(chunkId, "list")) {
 
-        drwav_metadata_location_location listType = drwav_metadata_location_invalid;
+        drwav_metadata_location listType = drwav_metadata_location_invalid;
         while (bytesRead < chunkHeader->sizeInBytes) {
             drwav_uint8 subchunkId[4];
             drwav_uint64 bytesJustRead = drwav__on_read(onRead, readSeekUserData, subchunkId, sizeof(subchunkId), &bytesRead);
