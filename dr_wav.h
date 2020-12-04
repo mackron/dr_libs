@@ -1914,13 +1914,19 @@ static drwav_bool32 drwav__on_seek(drwav_seek_proc onSeek, void* pUserData, int 
 #define DRWAV_LIST_LABEL_OR_NOTE_BYTES 4
 #define DRWAV_LIST_LABELLED_TEXT_BYTES 20
 
+#if defined(_MSC_VER)
+#define DRWAV_ALIGNOF(t) (__alignof(t))
+#else
+#define DRWAV_ALIGNOF(t) ((char*)(&((struct {char c; t _h;}*)0)->_h) - (char*)0)
+#endif
+
 typedef enum {
     drwav__metadata_stage_count,
     drwav__metadata_stage_read,
 } drwav__metadata_stage;
 
 static size_t drwav__metadata_memory_capacity(drwav_metadata_memory *memory) {
-    return memory->extraCapacity + sizeof(drwav_metadata) * memory->numMetadata + alignof(drwav_metadata);
+    return memory->extraCapacity + sizeof(drwav_metadata) * memory->numMetadata + DRWAV_ALIGNOF(drwav_metadata);
 }
 
 static drwav_uint8 *drwav__metadata_get_memory(drwav_metadata_memory *memory, size_t size, size_t align) {
@@ -1948,7 +1954,7 @@ static void drwav__metadata_alloc(drwav_metadata_memory *memory, drwav_allocatio
         memory->data = (drwav_uint8 *)allocationCallbacks->onMalloc(drwav__metadata_memory_capacity(memory), allocationCallbacks->pUserData);
         memory->dataCursor = memory->data;
         memory->metadata = (drwav_metadata *)drwav__metadata_get_memory(
-            memory, sizeof(drwav_metadata) * memory->numMetadata, alignof(drwav_metadata));
+            memory, sizeof(drwav_metadata) * memory->numMetadata, DRWAV_ALIGNOF(drwav_metadata));
         memory->metadataCursor = 0;
     }
 }
@@ -1977,7 +1983,7 @@ static drwav_uint64 drwav__read_smpl_to_metadata_obj(void *readUserData,
         metadata->smpl.numSampleLoops = drwav__bytes_to_u32(smplHeaderData + 28);
         metadata->smpl.samplerData = drwav__bytes_to_u32(smplHeaderData + 32);
         metadata->smpl.loops = (drwav_smpl_loop *)drwav__metadata_get_memory(
-            memory, sizeof(drwav_smpl_loop) * metadata->smpl.numSampleLoops, alignof(drwav_smpl_loop));
+            memory, sizeof(drwav_smpl_loop) * metadata->smpl.numSampleLoops, DRWAV_ALIGNOF(drwav_smpl_loop));
 
         for (drwav_uint32 i = 0; i < metadata->smpl.numSampleLoops; ++i) {
             drwav_uint8 smplLoopData[DRWAV_SMPL_LOOP_BYTES];
@@ -2012,7 +2018,7 @@ static drwav_uint64 drwav__read_cue_to_metadata_obj(void *readUserData,
         metadata->type = drwav_metadata_type_cue;
         metadata->cue.numCuePoints = drwav__bytes_to_u32(cueHeaderSectionData);
         metadata->cue.cuePoints = (drwav_cue_point *)drwav__metadata_get_memory(
-            memory, sizeof(drwav_cue_point) * metadata->cue.numCuePoints, alignof(drwav_cue_point));
+            memory, sizeof(drwav_cue_point) * metadata->cue.numCuePoints, DRWAV_ALIGNOF(drwav_cue_point));
 
         if (metadata->cue.numCuePoints) {
             for (drwav_uint32 i = 0; i < metadata->cue.numCuePoints; ++i) {
@@ -2208,6 +2214,8 @@ static drwav_uint64 drwav__metadata_process_unknown_chunk(drwav_read_proc onRead
         bytesRead = onRead(readUserData,  metadata->unknown.data, metadata->unknown.dataSizeInBytes);
         if (bytesRead == metadata->unknown.dataSizeInBytes) {
             ++memory->metadataCursor;
+        } else {
+            /* failed to read */
         }
     }
     return bytesRead;
@@ -2234,7 +2242,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav_read_proc onRead,
                 size_t numLoops =
                     (size_t)(chunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES;
                 drwav__metadata_request_extra_memory_for_stage_2(memory, sizeof(drwav_smpl_loop) * numLoops,
-                                                                 alignof(drwav_smpl_loop));
+                                                                 DRWAV_ALIGNOF(drwav_smpl_loop));
             } else {
                 bytesRead = drwav__read_smpl_to_metadata_obj(readSeekUserData, onRead,
                                                              &memory->metadata[memory->metadataCursor], memory);
@@ -2285,7 +2293,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav_read_proc onRead,
                 ++memory->numMetadata;
                 size_t numCues = (size_t)(chunkHeader->sizeInBytes - DRWAV_CUE_BYTES) / DRWAV_CUE_POINT_BYTES;
                 drwav__metadata_request_extra_memory_for_stage_2(memory, sizeof(drwav_cue_point) * numCues,
-                                                                 alignof(drwav_cue_point));
+                                                                 DRWAV_ALIGNOF(drwav_cue_point));
             } else {
                 bytesRead = drwav__read_cue_to_metadata_obj(readSeekUserData, onRead,
                                                             &memory->metadata[memory->metadataCursor], memory);
@@ -2300,7 +2308,6 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav_read_proc onRead,
         }
     } else if (drwav__fourcc_equal(chunkId, "LIST") ||
                drwav__fourcc_equal(chunkId, "list")) {
-
         drwav_metadata_location listType = drwav_metadata_location_invalid;
         while (bytesRead < chunkHeader->sizeInBytes) {
             drwav_uint8 subchunkId[4];
