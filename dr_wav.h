@@ -2702,8 +2702,7 @@ static drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc onChunk, 
             }
         }
 
-        if (!sequential && pWav->allowedMetadataTypes && pWav->container == drwav_container_riff || pWav->container == drwav_container_rf64) {
-
+        if (!sequential && pWav->allowedMetadataTypes && pWav->container == drwav_container_riff) {
             drwav_uint64 bytesRead = drwav__metadata_process_chunk(pWav->onRead, pWav->onSeek, pWav->pUserData, &header, &pWav->metadataMemory, pWav->allowedMetadataTypes, drwav__metadata_stage_read);
 
             if (bytesRead > 0) {
