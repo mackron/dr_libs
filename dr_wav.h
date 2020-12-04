@@ -525,22 +525,22 @@ typedef struct {
 } drwav_smpl;
 
 typedef struct {
-    drwav_int8 midiNote; // 0 - 127
-    drwav_int8 fineTuneDb; // -50 - +50
-    drwav_int8 gain; // -64 - +64
-    drwav_int8 lowNote; // 0 - 127
-    drwav_int8 highNote; // 0 - 127
-    drwav_int8 lowVelocity; // 1 - 127
-    drwav_int8 highVelocity; // 1 - 127
+    drwav_int8 midiNote; /* 0 - 127 */
+    drwav_int8 fineTuneDb; /* -50 - +50 */
+    drwav_int8 gain; /* -64 - +64 */
+    drwav_int8 lowNote; /* 0 - 127 */
+    drwav_int8 highNote; /* 0 - 127 */
+    drwav_int8 lowVelocity; /* 1 - 127 */
+    drwav_int8 highVelocity; /* 1 - 127 */
 } drwav_inst;
 
 typedef struct {
-    drwav_uint32 id; // unique identification value
-    drwav_uint32 position; // play order position
-    drwav_uint8 dataChunkId[4]; // RIFF ID of corresponding data chunk
-    drwav_uint32 chunkStart; // byte offset of data chunk
-    drwav_uint32 blockStart; // byte offset to sample of first channel
-    drwav_uint32 sampleOffset; // byte offset to sample byte of first channel
+    drwav_uint32 id; /* unique identification value */
+    drwav_uint32 position; /* play order position */
+    drwav_uint8 dataChunkId[4]; /* RIFF ID of corresponding data chunk */
+    drwav_uint32 chunkStart; /* byte offset of data chunk */
+    drwav_uint32 blockStart; /* byte offset to sample of first channel */
+    drwav_uint32 sampleOffset; /* byte offset to sample byte of first channel */
 } drwav_cue_point;
 
 typedef struct {
@@ -557,8 +557,8 @@ typedef enum {
 } acid_flag;
 
 typedef struct {
-    drwav_uint32 flags; // A bitset, see drwav_acid_flag.
-    drwav_uint16 rootNote; // Valid if flags contains acid_flag_root_note_set.
+    drwav_uint32 flags; /* A bitset, see drwav_acid_flag. */
+    drwav_uint16 rootNote; /* Valid if flags contains acid_flag_root_note_set. */
     drwav_uint16 reserved1;
     float reserved2;
     drwav_uint32 numBeats;
