@@ -685,7 +685,6 @@ typedef struct
 
     drwav_metadata *metadata;
     drwav_uint32 numMetadata;
-    void *mallocBlockForMetadata;
 
     /* A hack to avoid a DRWAV_MALLOC() when opening a decoder with drwav_init_memory(). */
     drwav__memory_stream memoryStream;
@@ -790,6 +789,15 @@ Only writing to the RIFF chunk and one data chunk is currently supported.
 See also: drwav_init_write(), drwav_init_file_write(), drwav_init_memory_write()
 */
 DRWAV_API drwav_uint64 drwav_target_write_size_bytes(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
+
+/*
+Take ownership of the metadata objects that were allocated via one of the init_with_metadata() function calls.
+
+Useful if you want the data to persist beyond the lifetime of the drwav object.
+
+You must free these data using drwav_free()
+*/
+DRWAV_API drwav_metadata *drwav_take_ownership_of_metadata(drwav *pWav);
 
 /*
 Uninitializes the given drwav object.
@@ -1962,8 +1970,12 @@ static void drwav__metadata_alloc(drwav__metadata_parser *parser, drwav_allocati
         free(parser->data);
         parser->data = (drwav_uint8 *)allocationCallbacks->onMalloc(drwav__metadata_memory_capacity(parser), allocationCallbacks->pUserData);
         parser->dataCursor = parser->data;
+
+        /* We don't need to worry about specifying an alignment here because malloc always returns something
+           of suitable alignment. This also means than parser->metadata is all that we need to store in order
+           for us to free when we are done. */
         parser->metadata = (drwav_metadata *)drwav__metadata_get_memory(
-            parser, sizeof(drwav_metadata) * parser->numMetadata, DRWAV_ALIGNOF(drwav_metadata));
+            parser, sizeof(drwav_metadata) * parser->numMetadata, 1);
         parser->metadataCursor = 0;
     }
 }
@@ -2800,7 +2812,6 @@ static drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc onChunk, 
 
     pWav->metadata = metadata_parser.metadata;
     pWav->numMetadata = (drwav_uint32)metadata_parser.numMetadata;
-    pWav->mallocBlockForMetadata = (void *)metadata_parser.data;
 
     /* If we haven't found a data chunk, return an error. */
     if (!foundDataChunk) {
@@ -2920,6 +2931,13 @@ DRWAV_API drwav_bool32 drwav_init_ex_with_metadata(drwav* pWav, drwav_read_proc 
     pWav->allowedMetadataTypes = allowedMetadataTypes;
 
     return drwav_init__internal(pWav, onChunk, pChunkUserData, flags);
+}
+
+DRWAV_API drwav_metadata *drwav_take_ownership_of_metadata(drwav *pWav) {
+    drwav_metadata *result = pWav->metadata;
+    pWav->metadata = NULL;
+    pWav->numMetadata = 0;
+    return result;
 }
 
 
@@ -4182,6 +4200,10 @@ DRWAV_API drwav_result drwav_uninit(drwav* pWav)
             if (pWav->dataChunkDataSize != pWav->dataChunkDataSizeTargetWrite) {
                 result = DRWAV_INVALID_FILE;
             }
+        }
+    } else {
+        if (pWav->metadata) {
+            pWav->allocationCallbacks.onFree(pWav->metadata, pWav->allocationCallbacks.pUserData);
         }
     }
 
