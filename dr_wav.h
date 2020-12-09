@@ -1935,7 +1935,7 @@ typedef struct {
 } drwav__metadata_parser;
 
 static size_t drwav__metadata_memory_capacity(drwav__metadata_parser *parser) {
-    return parser->extraCapacity + sizeof(drwav_metadata) * parser->numMetadata + DRWAV_ALIGNOF(drwav_metadata);
+    return sizeof(drwav_metadata) * parser->numMetadata + parser->extraCapacity;
 }
 
 static drwav_uint8 *drwav__metadata_get_memory(drwav__metadata_parser *parser, size_t size, size_t align) {
