@@ -577,7 +577,7 @@ typedef enum {
 typedef struct {
     drwav_uint8 id[4];
     drwav_metadata_location chunkLocation;
-    drwav_uint64 dataSizeInBytes;
+    drwav_uint32 dataSizeInBytes;
     drwav_uint8 *data;
 } drwav_unknown_metadata;
 
@@ -2217,7 +2217,7 @@ static drwav_uint64 drwav__metadata_process_unknown_chunk(drwav__metadata_parser
     drwav_uint64 bytesRead = 0;
     if (parser->stage == drwav__metadata_parser_stage_count) {
         ++parser->numMetadata;
-        drwav__metadata_request_extra_memory_for_stage_2(parser, chunkSize, 1);
+        drwav__metadata_request_extra_memory_for_stage_2(parser, (size_t)chunkSize, 1);
     } else {
         drwav_metadata *metadata = &parser->metadata[parser->metadataCursor];
         metadata->type = drwav_metadata_type_unknown;
@@ -2226,8 +2226,8 @@ static drwav_uint64 drwav__metadata_process_unknown_chunk(drwav__metadata_parser
         metadata->unknown.id[1] = chunkId[1];
         metadata->unknown.id[2] = chunkId[2];
         metadata->unknown.id[3] = chunkId[3];
-        metadata->unknown.dataSizeInBytes = chunkSize;
-        metadata->unknown.data = (drwav_uint8 *)drwav__metadata_get_memory(parser, chunkSize, 1);
+        metadata->unknown.dataSizeInBytes = (drwav_uint32)chunkSize;
+        metadata->unknown.data = (drwav_uint8 *)drwav__metadata_get_memory(parser, (size_t)chunkSize, 1);
         bytesRead = drwav__metadata_parser_read(parser,  metadata->unknown.data, metadata->unknown.dataSizeInBytes, NULL);
         if (bytesRead == metadata->unknown.dataSizeInBytes) {
             ++parser->metadataCursor;
