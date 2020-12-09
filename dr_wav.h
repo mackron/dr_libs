@@ -2652,8 +2652,8 @@ static drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc onChunk, 
     drwav__metadata_parser metadata_parser;
     memset(&metadata_parser, 0, sizeof(metadata_parser));
 
-    /* Only tested on drwav_container_riff */
-    if (!sequential && pWav->allowedMetadataTypes && pWav->container == drwav_container_riff) {
+    /* Not tested on W64 */
+    if (!sequential && pWav->allowedMetadataTypes && (pWav->container == drwav_container_riff || pWav->container == drwav_container_rf64)) {
         drwav_uint64 cursor_for_metadata = cursor;
 
         metadata_parser.onRead = pWav->onRead;
