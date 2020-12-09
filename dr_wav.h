@@ -2414,9 +2414,10 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser *parser
             }
 
             bytesRead += subchunkBytesRead;
+            DRWAV_ASSERT(subchunkBytesRead <= subchunkDataSize);
             if (subchunkBytesRead < subchunkDataSize) {
                 size_t bytesToSeek = subchunkDataSize - subchunkBytesRead;
-                if (!parser->onSeek(parser->readSeekUserData, (int)(bytesToSeek), drwav_seek_origin_current))
+                if (!parser->onSeek(parser->readSeekUserData, (int)bytesToSeek, drwav_seek_origin_current))
                     break;
                 bytesRead += bytesToSeek;
             }
@@ -2669,6 +2670,8 @@ static drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc onChunk, 
             }
 
             drwav_uint64 bytesRead = drwav__metadata_process_chunk(&metadata_parser, &header, pWav->allowedMetadataTypes);
+
+            DRWAV_ASSERT(bytesRead <= header.sizeInBytes);
 
             drwav_uint64 remainingBytes = header.sizeInBytes - bytesRead + header.paddingSize;
             if (!drwav__seek_forward(pWav->onSeek, remainingBytes, pWav->pUserData)) {
