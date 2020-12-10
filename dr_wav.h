@@ -2966,7 +2966,7 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
 
 static drwav_uint32 drwav__riff_chunk_size_riff(drwav_uint64 dataChunkSize, drwav_metadata *metadata, drwav_uint32 numMetadata)
 {
-    drwav_uint64 chunkSize = 4 + 24 + drwav__write_or_count_metadata(NULL, metadata, numMetadata) + dataChunkSize + drwav__chunk_padding_size_riff(dataChunkSize); /* 4 = "WAVE". 24 = "fmt " chunk. */
+    drwav_uint64 chunkSize = 4 + 24 + drwav__write_or_count_metadata(NULL, metadata, numMetadata) + 8 + dataChunkSize + drwav__chunk_padding_size_riff(dataChunkSize); /* 4 = "WAVE". 24 = "fmt " chunk. 8 = "data" + u32 data size. */
     if (chunkSize > 0xFFFFFFFFUL) {
         chunkSize = 0xFFFFFFFFUL;
     }
@@ -2997,7 +2997,7 @@ static drwav_uint64 drwav__data_chunk_size_w64(drwav_uint64 dataChunkSize)
 
 static drwav_uint64 drwav__riff_chunk_size_rf64(drwav_uint64 dataChunkSize, drwav_metadata *metadata, drwav_uint32 numMetadata)
 {
-    drwav_uint64 chunkSize = 4 + 36 + 24 + drwav__write_or_count_metadata(NULL, metadata, numMetadata) + dataChunkSize + drwav__chunk_padding_size_riff(dataChunkSize); /* 4 = "WAVE". 36 = "ds64" chunk. 24 = "fmt " chunk. */
+    drwav_uint64 chunkSize = 4 + 36 + 24 + drwav__write_or_count_metadata(NULL, metadata, numMetadata) + 8 + dataChunkSize + drwav__chunk_padding_size_riff(dataChunkSize); /* 4 = "WAVE". 36 = "ds64" chunk. 24 = "fmt " chunk. 8 = "data" + u32 data size. */
     if (chunkSize > 0xFFFFFFFFUL) {
         chunkSize = 0xFFFFFFFFUL;
     }
