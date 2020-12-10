@@ -509,51 +509,112 @@ typedef enum {
     drwav_metadata_type_all_including_unknown = 0xFFFFFFFFFFFFFFFF,
 } drwav_metadata_type;
 
+/*
+Sampler Metadata
+
+The sampler chunk contains information about how a sound should be played in the context of a whole audio production, and when used in a sampler. See See https://en.wikipedia.org/wiki/Sample-based_synthesis.
+*/
+
+typedef enum {
+    drwav_smpl_loop_type_forward = 0,
+    drwav_smpl_loop_type_pingpong = 1,
+    drwav_smpl_loop_type_backward = 2,
+} drwav_smpl_loop_type;
+
 typedef struct {
+    /* The ID of the associated cue point, see drwav_cue and drwav_cue_point. As with all cuepoint IDs, this can correspond to a label chunk to give this loop a name, see drwav_list_label_or_note. */
     drwav_uint32 cuePointId;
+
+    /* See drwav_smpl_loop_type. */
     drwav_uint32 type;
-    drwav_uint32 start;
-    drwav_uint32 end;
-    drwav_uint32 fraction;
+
+    /* The byte offset of the first sample to be played in the loop. */
+    drwav_uint32 firstSampleByteOffset;
+
+    /* The byte offset into the audio data of the last sample to be played in the loop. */
+    drwav_uint32 lastSampleByteOffset;
+
+    /* A value to represent that playback should occur at a point between samples. This value ranges from 0 to UINT32_MAX. Where a value of 0 means no fraction, and a value of (UINT32_MAX / 2) would mean half a sample. */
+    drwav_uint32 sampleFraction;
+
+    /* Number of times to play the loop. 0 means loop infinitely. */
     drwav_uint32 playCount;
 } drwav_smpl_loop;
 
 typedef struct {
-    drwav_uint32 manufacturer;
-    drwav_uint32 product;
-    drwav_uint32 samplePeriod;
+    /* IDs for a particular MIDI manufacturer. 0 if not used. */
+    drwav_uint32 manufacturerId;
+    drwav_uint32 productId;
+
+    /* The period of 1 sample in nanoseconds. */
+    drwav_uint32 samplePeriodNanoseconds;
+
+    /* The MIDI note of this file. 0 to 127. */
     drwav_uint32 midiUnityNotes;
+
+    /* The fraction of a semitone up from the given MIDI note. This is a value from 0 to UINT32_MAX, where 0 means no change and (UINT32_MAX / 2) is half a semitone (AKA 50 cents). */
     drwav_uint32 midiPitchFraction;
+
+    /* Data relating to SMPTE standards which are used for syncing audio and video. 0 if not used. */
     drwav_uint32 smpteFormat;
     drwav_uint32 smpteOffset;
+
+    /* drwav_smpl_loop loops. */
     drwav_uint32 numSampleLoops;
-    drwav_uint32 samplerData;
+
+    /* Optional sampler-specific data. */
+    drwav_uint32 numBytesOfSamplerSpecificData;
+
     drwav_smpl_loop *loops;
+    drwav_uint8 *samplerSpecificData;
 } drwav_smpl;
 
+/*
+Instrument Metadata
+
+The inst metadata contains data about how a sound should be played as part of an instrument. This commonly read by samplers. See https://en.wikipedia.org/wiki/Sample-based_synthesis.
+*/
+
 typedef struct {
-    drwav_int8 midiNote; /* 0 - 127 */
-    drwav_int8 fineTuneDb; /* -50 - +50 */
-    drwav_int8 gain; /* -64 - +64 */
-    drwav_int8 lowNote; /* 0 - 127 */
-    drwav_int8 highNote; /* 0 - 127 */
-    drwav_int8 lowVelocity; /* 1 - 127 */
-    drwav_int8 highVelocity; /* 1 - 127 */
+    drwav_int8 midiNote; /* 0 to 127 */
+    drwav_int8 fineTuneDb; /* -50 to +50 */
+    drwav_int8 gain; /* -64 to +64 */
+    drwav_int8 lowNote; /* 0 to 127 */
+    drwav_int8 highNote; /* 0 to 127 */
+    drwav_int8 lowVelocity; /* 1 to 127 */
+    drwav_int8 highVelocity; /* 1 to 127 */
 } drwav_inst;
 
 typedef struct {
-    drwav_uint32 id; /* Unique identification value. */
-    drwav_uint32 position; /* Play order position. */
-    drwav_uint8 dataChunkId[4]; /* RIFF ID of corresponding data chunk, this will just be "data" for dr_wav. */
-    drwav_uint32 chunkStart; /* Byte offset of data chunk. */
-    drwav_uint32 blockStart; /* Byte offset to sample of first channel. */
-    drwav_uint32 sampleOffset; /* Byte offset to sample byte of first channel. */
+    /* Unique identification value. */
+    drwav_uint32 id;
+
+    /* Set to 0. This is only relevant if there is a 'playlist' chunk - which is not supported by dr_wav. */
+    drwav_uint32 playOrderPosition;
+
+    /* Should always be "data". This represents the fourcc value of the chunk that this cue point corresponds to. dr_wav only supports a single data chunk so this should always be "data". */
+    drwav_uint8 dataChunkId[4];
+
+    /* Set to 0. This is only relevant if there is a wave list chunk. dr_wav, like lots of readers/writers, do not support this. */
+    drwav_uint32 chunkStart;
+
+    /* Set to 0 for uncompressed formats. Else the last byte in compressed wave data where decompression can begin to find the value of the corresponding sample value. */
+    drwav_uint32 blockStart;
+
+    /* For uncompressed formats this is the byte offset of the cue point into the audio data. For compressed formats this is relative to the block specified with blockStart. */
+    drwav_uint32 sampleByteOffset;
 } drwav_cue_point;
 
 typedef struct {
     drwav_uint32 numCuePoints;
     drwav_cue_point *cuePoints;
 } drwav_cue;
+
+/*
+Acid Metadata
+
+This chunk contains some information about the time signature and the tempo of the audio.
+*/
 
 typedef enum {
     drwav_acid_flag_one_shot = 1,
@@ -564,19 +625,97 @@ typedef enum {
 } drwav_acid_flag;
 
 typedef struct {
-    drwav_uint32 flags; /* A bitset, see drwav_acid_flag. */
-    drwav_uint16 rootNote; /* Valid if flags contains drwav_acid_flag_root_note_set. */
+    /* A bitset, see drwav_acid_flag. */
+    drwav_uint32 flags;
+
+    /* Valid if flags contains drwav_acid_flag_root_note_set. It represents the MIDI note the file - a value from 0 to 127. */
+    drwav_uint16 rootNote;
+
+    /* Reserved values that should probably be ignored. */
     drwav_uint16 reserved1;
     float reserved2;
+
+    /* Number of beats in a bar. */
     drwav_uint32 numBeats;
+
+    /* The time signature of the audio. */
     drwav_uint16 meterDenominator;
     drwav_uint16 meterNumerator;
+
+    /* Beats per minute of the track. */
     float tempo;
 } drwav_acid;
 
 /*
-Wav files can have a LIST chunk that contains subchunks. A LIST chunk can be one of two types. An adtl list, or an INFO list. This enum is used to specify the location of a chunk that dr_wav currently doesn't support.
+Cue Label or Note metadata
+
+These are 2 different types of metadata, but they have the exact same format. Labels tend to be the more common and represent a short name for a cue point. Notes might be used to represent a longer comment.
+
+Th
 */
+
+typedef struct {
+    /* The ID of a cue point that this label or note corresponds to. */
+    drwav_uint32 cuePointId;
+
+    /* Size of the string not including any null terminator. */
+    drwav_uint32 stringSize;
+
+    /* The string. The *init_with_metadata functions null terminate this for convenience. */
+    char *string;
+} drwav_list_label_or_note;
+
+/*
+Info Text Metadata
+
+There a many different types of information text that can be saved in this format. This is where things like the album name, the artists, the year it was produced, etc are saved. See drwav_metadata_type for the full list of types that dr_wav supports.
+*/
+
+typedef struct {
+    /* Size of the string not including any null terminator. */
+    drwav_uint32 stringSize;
+
+    /* The string. The *init_with_metadata functions null terminate this for convenience. */
+    char *string;
+} drwav_list_info_text;
+
+/*
+Labelled Cue Region Metadata
+
+The labelled region metadata is used to associate some portion of the audio data with text and serves as a marker.
+*/
+
+typedef struct {
+    /* The ID of a cue point that this object corresponds to. */
+    drwav_uint32 cuePointId;
+
+    /* The number of samples from the cue point forwards that should be considered this region */
+    drwav_uint32 sampleLength;
+
+    /* Four characters used to say what the purpose of this region is. */
+    drwav_uint8 purposeId[4];
+
+    /* Unsure of the exact meanings of these. It appears to be acceptable to set them all to 0. */
+    drwav_uint16 country;
+    drwav_uint16 language;
+    drwav_uint16 dialect;
+    drwav_uint16 codePage;
+
+    /* Size of the string not including any null terminator. */
+    drwav_uint32 stringSize;
+
+    /* The string. The *init_with_metadata functions null terminate this for convenience. */
+    char *string;
+} drwav_list_labelled_cue_region;
+
+/*
+Unknown Metadata
+
+This chunk just represents a type of chunk that dr_wav does not understand.
+
+Unknown metadata has a location attached to it. This is because wav files can have a LIST chunk that contains subchunks. These LIST chunks can be one of two types. An adtl list, or an INFO list. This enum is used to specify the location of a chunk that dr_wav currently doesn't support.
+*/
+
 typedef enum {
     drwav_metadata_location_invalid,
     drwav_metadata_location_top_level,
@@ -591,29 +730,9 @@ typedef struct {
     drwav_uint8 *data;
 } drwav_unknown_metadata;
 
-typedef struct {
-    drwav_uint32 cuePointId;
-    drwav_uint32 stringSize;
-    char *string;
-} drwav_list_label_or_note;
-
-typedef struct {
-    drwav_uint32 stringSize;
-    char *string;
-} drwav_list_info_text;
-
-/* The labeled text metadata is used to associate some portion of the audio data with text and serves as a marker. */
-typedef struct {
-    drwav_uint32 cuePointId;
-    drwav_uint32 sampleLength;
-    drwav_uint8 purposeId[4];
-    drwav_uint16 country;
-    drwav_uint16 language;
-    drwav_uint16 dialect;
-    drwav_uint16 codePage;
-    drwav_uint32 stringSize;
-    char *string;
-} drwav_list_labelled_text;
+/*
+Metadata is saved as a union of all the supported types.
+*/
 
 typedef struct {
     /* Determines which item in the union is valid. */
@@ -626,7 +745,7 @@ typedef struct {
         drwav_acid acid;
         drwav_inst inst;
         drwav_list_label_or_note labelOrNote; /* List label or list note. */
-        drwav_list_labelled_text labelledText;
+        drwav_list_labelled_cue_region labelledText;
         drwav_list_info_text infoText; /* Any of the list info types. */
         drwav_unknown_metadata unknown;
     };
@@ -2028,15 +2147,15 @@ static drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_parser *par
     if (bytesJustRead == sizeof(smplHeaderData)) {
         metadata->type = drwav_metadata_type_smpl;
 
-        metadata->smpl.manufacturer = drwav__bytes_to_u32(smplHeaderData + 0);
-        metadata->smpl.product = drwav__bytes_to_u32(smplHeaderData + 4);
-        metadata->smpl.samplePeriod = drwav__bytes_to_u32(smplHeaderData + 8);
+        metadata->smpl.manufacturerId = drwav__bytes_to_u32(smplHeaderData + 0);
+        metadata->smpl.productId = drwav__bytes_to_u32(smplHeaderData + 4);
+        metadata->smpl.samplePeriodNanoseconds = drwav__bytes_to_u32(smplHeaderData + 8);
         metadata->smpl.midiUnityNotes = drwav__bytes_to_u32(smplHeaderData + 12);
         metadata->smpl.midiPitchFraction = drwav__bytes_to_u32(smplHeaderData + 16);
         metadata->smpl.smpteFormat = drwav__bytes_to_u32(smplHeaderData + 20);
         metadata->smpl.smpteOffset = drwav__bytes_to_u32(smplHeaderData + 24);
         metadata->smpl.numSampleLoops = drwav__bytes_to_u32(smplHeaderData + 28);
-        metadata->smpl.samplerData = drwav__bytes_to_u32(smplHeaderData + 32);
+        metadata->smpl.numBytesOfSamplerSpecificData = drwav__bytes_to_u32(smplHeaderData + 32);
         metadata->smpl.loops = (drwav_smpl_loop *)drwav__metadata_get_memory(
             parser, sizeof(drwav_smpl_loop) * metadata->smpl.numSampleLoops, DRWAV_ALIGNOF(drwav_smpl_loop));
 
@@ -2047,13 +2166,18 @@ static drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_parser *par
             if (bytesJustRead == sizeof(smplLoopData)) {
                 metadata->smpl.loops[i].cuePointId = drwav__bytes_to_u32(smplLoopData + 0);
                 metadata->smpl.loops[i].type = drwav__bytes_to_u32(smplLoopData + 4);
-                metadata->smpl.loops[i].start = drwav__bytes_to_u32(smplLoopData + 8);
-                metadata->smpl.loops[i].end = drwav__bytes_to_u32(smplLoopData + 12);
-                metadata->smpl.loops[i].fraction = drwav__bytes_to_u32(smplLoopData + 16);
+                metadata->smpl.loops[i].firstSampleByteOffset = drwav__bytes_to_u32(smplLoopData + 8);
+                metadata->smpl.loops[i].lastSampleByteOffset = drwav__bytes_to_u32(smplLoopData + 12);
+                metadata->smpl.loops[i].sampleFraction = drwav__bytes_to_u32(smplLoopData + 16);
                 metadata->smpl.loops[i].playCount = drwav__bytes_to_u32(smplLoopData + 20);
             } else {
                 break;
             }
+        }
+
+        if (metadata->smpl.numBytesOfSamplerSpecificData) {
+            metadata->smpl.samplerSpecificData = (drwav_uint8 *)drwav__metadata_get_memory(parser, metadata->smpl.numBytesOfSamplerSpecificData, 1);
+            bytesJustRead = drwav__metadata_parser_read(parser, metadata->smpl.samplerSpecificData, metadata->smpl.numBytesOfSamplerSpecificData, &totalBytesRead);
         }
     }
 
@@ -2081,14 +2205,14 @@ static drwav_uint64 drwav__read_cue_to_metadata_obj(drwav__metadata_parser *pars
 
                 if (bytesJustRead == sizeof(cuePointData)) {
                     metadata->cue.cuePoints[i].id = drwav__bytes_to_u32(cuePointData + 0);
-                    metadata->cue.cuePoints[i].position = drwav__bytes_to_u32(cuePointData + 4);
+                    metadata->cue.cuePoints[i].playOrderPosition = drwav__bytes_to_u32(cuePointData + 4);
                     metadata->cue.cuePoints[i].dataChunkId[0] = cuePointData[8];
                     metadata->cue.cuePoints[i].dataChunkId[1] = cuePointData[9];
                     metadata->cue.cuePoints[i].dataChunkId[2] = cuePointData[10];
                     metadata->cue.cuePoints[i].dataChunkId[3] = cuePointData[11];
                     metadata->cue.cuePoints[i].chunkStart = drwav__bytes_to_u32(cuePointData + 12);
                     metadata->cue.cuePoints[i].blockStart = drwav__bytes_to_u32(cuePointData + 16);
-                    metadata->cue.cuePoints[i].sampleOffset = drwav__bytes_to_u32(cuePointData + 20);
+                    metadata->cue.cuePoints[i].sampleByteOffset = drwav__bytes_to_u32(cuePointData + 20);
                 } else {
                     break;
                 }
@@ -2275,14 +2399,23 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser *parser
     const drwav_uint8 *chunkId = chunkHeader->id.fourcc;
     drwav_uint64 bytesRead = 0;
     if (drwav__chunk_matches(allowedMetadataTypes, chunkId, drwav_metadata_type_smpl, "smpl")) {
-        if (chunkHeader->sizeInBytes >= DRWAV_SMPL_BYTES &&
-            ((chunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) % DRWAV_SMPL_LOOP_BYTES) == 0) {
+        if (chunkHeader->sizeInBytes >= DRWAV_SMPL_BYTES) {
             if (parser->stage == drwav__metadata_parser_stage_count) {
-                ++parser->numMetadata;
-                size_t numLoops =
-                    (size_t)(chunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES;
-                drwav__metadata_request_extra_memory_for_stage_2(parser, sizeof(drwav_smpl_loop) * numLoops,
-                                                                 DRWAV_ALIGNOF(drwav_smpl_loop));
+                if (!parser->onSeek(parser->readSeekUserData, 28, drwav_seek_origin_current)) return bytesRead;
+                bytesRead += 28;
+                drwav_uint8 buffer[4];
+                size_t bytesJustRead = drwav__metadata_parser_read(parser, buffer, sizeof(buffer), &bytesRead);
+                if (bytesJustRead == sizeof(buffer)) {
+                    drwav_uint32 numLoops = drwav__bytes_to_u32(buffer);
+                    bytesJustRead = drwav__metadata_parser_read(parser, buffer, sizeof(buffer), &bytesRead);
+                    if (bytesJustRead == sizeof(buffer)) {
+                        drwav_uint32 numBytesOfSamplerSpecificData = drwav__bytes_to_u32(buffer);
+                        ++parser->numMetadata;
+                        drwav__metadata_request_extra_memory_for_stage_2(parser, sizeof(drwav_smpl_loop) * numLoops,
+                                                                         DRWAV_ALIGNOF(drwav_smpl_loop));
+                        drwav__metadata_request_extra_memory_for_stage_2(parser, numBytesOfSamplerSpecificData, 1);
+                    }
+                }
             } else {
                 bytesRead = drwav__read_smpl_to_metadata_obj(parser, &parser->metadata[parser->metadataCursor]);
                 if (bytesRead == chunkHeader->sizeInBytes) {
@@ -3165,29 +3298,34 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
         }
         switch (metadata->type) {
             case drwav_metadata_type_smpl: {
-                chunkSize = DRWAV_SMPL_BYTES + DRWAV_SMPL_LOOP_BYTES * metadata->smpl.numSampleLoops;
+                chunkSize = DRWAV_SMPL_BYTES + DRWAV_SMPL_LOOP_BYTES * metadata->smpl.numSampleLoops + metadata->smpl.numBytesOfSamplerSpecificData;
 
                 bytesWritten += drwav__write_or_count(pWav, "smpl", 4);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, chunkSize);
 
-                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.manufacturer);
-                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.product);
-                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.samplePeriod);
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.manufacturerId);
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.productId);
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.samplePeriodNanoseconds);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.midiUnityNotes);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.midiPitchFraction);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.smpteFormat);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.smpteOffset);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.numSampleLoops);
-                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.samplerData);
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.numBytesOfSamplerSpecificData);
 
                 for (drwav_uint32 loopIndex = 0; loopIndex < metadata->smpl.numSampleLoops; ++loopIndex) {
                     bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.loops[loopIndex].cuePointId);
                     bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.loops[loopIndex].type);
-                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.loops[loopIndex].start);
-                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.loops[loopIndex].end);
-                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.loops[loopIndex].fraction);
+                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.loops[loopIndex].firstSampleByteOffset);
+                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.loops[loopIndex].lastSampleByteOffset);
+                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.loops[loopIndex].sampleFraction);
                     bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.loops[loopIndex].playCount);
                 }
+
+                if (metadata->smpl.numBytesOfSamplerSpecificData) {
+                    bytesWritten += drwav__write(pWav, metadata->smpl.samplerSpecificData, metadata->smpl.numBytesOfSamplerSpecificData);
+                }
+
                 break;
             }
             case drwav_metadata_type_inst: {
@@ -3213,11 +3351,11 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->cue.numCuePoints);
                 for (drwav_uint32 cuePointIndex = 0; cuePointIndex < metadata->cue.numCuePoints; ++cuePointIndex) {
                     bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->cue.cuePoints[cuePointIndex].id);
-                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->cue.cuePoints[cuePointIndex].position);
+                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->cue.cuePoints[cuePointIndex].playOrderPosition);
                     bytesWritten += drwav__write_or_count(pWav, metadata->cue.cuePoints[cuePointIndex].dataChunkId, 4);
                     bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->cue.cuePoints[cuePointIndex].chunkStart);
                     bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->cue.cuePoints[cuePointIndex].blockStart);
-                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->cue.cuePoints[cuePointIndex].sampleOffset);
+                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->cue.cuePoints[cuePointIndex].sampleByteOffset);
                 }
                 break;
             }
