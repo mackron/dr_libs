@@ -685,10 +685,14 @@ typedef struct
     /* Keeps track of whether or not the wav writer was initialized in sequential mode. */
     drwav_bool32 isSequentialWrite;
 
+
+    /* A bitset of drwav_metadata_type values, only bits set in this variable are parsed and saved */
     drwav_uint64 allowedMetadataTypes;
 
+    /* A array of metadata. Valid when using the *with_metadata() init functions. */
     drwav_metadata *metadata;
     drwav_uint32 numMetadata;
+
 
     /* A hack to avoid a DRWAV_MALLOC() when opening a decoder with drwav_init_memory(). */
     drwav__memory_stream memoryStream;
@@ -733,6 +737,7 @@ onChunk                      [in, optional] The function to call when a chunk is
 pUserData, pReadSeekUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
 pChunkUserData               [in, optional] A pointer to application defined data that will be passed to onChunk.
 flags                        [in, optional] A set of flags for controlling how things are loaded.
+allowedMetadataTypes         [in, optional] A bitset of drwav_metadata_type values signifying which types of metadata you are interested in. The metadata can be read after the function returns from the array pWav->metadata which has a size pWav->numMetadata. This metadata is a single heap allocation that is freed inside drwav_uninit(). However, you can take ownership of it with drwav_take_ownership_of_metadata().
 
 Returns true if successful; false otherwise.
 
@@ -787,6 +792,8 @@ Utility function to determine the target size of the entire data to be written (
 
 Returns the target size in bytes.
 
+The metadata argument can be NULL meaning no metadata exists.
+
 Useful if the application needs to know the size to allocate.
 
 Only writing to the RIFF chunk and one data chunk is currently supported.
@@ -796,11 +803,11 @@ See also: drwav_init_write(), drwav_init_file_write(), drwav_init_memory_write()
 DRWAV_API drwav_uint64 drwav_target_write_size_bytes(const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
 
 /*
-Take ownership of the metadata objects that were allocated via one of the init_with_metadata() function calls.
+Take ownership of the metadata objects that were allocated via one of the init_with_metadata() function calls. The init_with_metdata functions perform a single heap allocation for this metadata.
 
 Useful if you want the data to persist beyond the lifetime of the drwav object.
 
-You must free these data using drwav_free()
+You must free this data using drwav_free().
 */
 DRWAV_API drwav_metadata *drwav_take_ownership_of_metadata(drwav *pWav);
 
