@@ -3484,12 +3484,13 @@ static drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_for
     runningPos += drwav__write_u16ne_to_le(pWav, pWav->fmt.blockAlign);
     runningPos += drwav__write_u16ne_to_le(pWav, pWav->fmt.bitsPerSample);
 
+
     if (!pWav->isSequentialWrite && pWav->metadata && pWav->numMetadata && (pFormat->container == drwav_container_riff || pFormat->container == drwav_container_rf64)) {
         runningPos += drwav__write_or_count_metadata(pWav, pWav->metadata, pWav->numMetadata);
     }
 
-    pWav->dataChunkDataPos = runningPos;
 
+    pWav->dataChunkDataPos = runningPos;
 
     /* "data" chunk. */
     if (pFormat->container == drwav_container_riff) {
