@@ -479,7 +479,7 @@ typedef enum {
     /* Wav files often have a LIST chunk. This is a chunk that contains a set of subchunks. For this API, we don't make a distinction between a regular chunk and a LIST subchunk. Instead, they are all just 'metadata' items. */
     drwav_metadata_type_list_label = 1 << 5,
     drwav_metadata_type_list_note = 1 << 6,
-    drwav_metadata_type_list_labelled_text = 1 << 7,
+    drwav_metadata_type_list_labelled_cue_region = 1 << 7,
 
     drwav_metadata_type_list_info_software = 1 << 8,
     drwav_metadata_type_list_info_copyright = 1 << 9,
@@ -503,7 +503,7 @@ typedef enum {
 
     drwav_metadata_type_list_all_adtl = drwav_metadata_type_list_label
                                       | drwav_metadata_type_list_note
-                                      | drwav_metadata_type_list_labelled_text,
+                                      | drwav_metadata_type_list_labelled_cue_region,
 
     drwav_metadata_type_all = 0xFFFFFFFFFFFFFFFF & ~drwav_metadata_type_unknown,
     drwav_metadata_type_all_including_unknown = 0xFFFFFFFFFFFFFFFF,
@@ -2300,7 +2300,7 @@ static drwav_uint64 drwav__read_list_labelled_text_to_metadata_obj(drwav__metada
     size_t bytesJustRead = drwav__metadata_parser_read(parser, buffer, sizeof(buffer), &totalBytesRead);
 
     if (bytesJustRead == sizeof(buffer)) {
-        metadata->type = drwav_metadata_type_list_labelled_text;
+        metadata->type = drwav_metadata_type_list_labelled_cue_region;
 
         metadata->labelledText.cuePointId = drwav__bytes_to_u32(buffer + 0);
         metadata->labelledText.sampleLength = drwav__bytes_to_u32(buffer + 4);
@@ -2532,7 +2532,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser *parser
                 } else {
                     /* incorrectly formed chunk */
                 }
-            } else if (drwav__chunk_matches(allowedMetadataTypes, subchunkId, drwav_metadata_type_list_labelled_text, "ltxt")) {
+            } else if (drwav__chunk_matches(allowedMetadataTypes, subchunkId, drwav_metadata_type_list_labelled_cue_region, "ltxt")) {
                 if (subchunkDataSize >= DRWAV_LIST_LABELLED_TEXT_BYTES) {
                     drwav_uint64 stringSizeWithNullTerm = subchunkDataSize - DRWAV_LIST_LABELLED_TEXT_BYTES;
                     if (parser->stage == drwav__metadata_parser_stage_count) {
@@ -3466,7 +3466,7 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
                         chunkSize += metadata->labelOrNote.stringSize + 1;
                     break;
                 }
-                case drwav_metadata_type_list_labelled_text: {
+                case drwav_metadata_type_list_labelled_cue_region: {
                     chunkSize += 8; /* for id and chunk size */
                     chunkSize += DRWAV_LIST_LABELLED_TEXT_BYTES;
                     if (metadata->labelledText.stringSize)
@@ -3515,7 +3515,7 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
                     }
                     break;
                 }
-                case drwav_metadata_type_list_labelled_text: {
+                case drwav_metadata_type_list_labelled_cue_region: {
                     subchunkSize = DRWAV_LIST_LABELLED_TEXT_BYTES;
 
                     bytesWritten += drwav__write_or_count(pWav, "ltxt", 4);
