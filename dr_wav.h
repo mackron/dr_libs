@@ -879,6 +879,13 @@ DRWAV_API drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesTo
 DRWAV_API drwav_uint64 drwav_write_pcm_frames_le(drwav* pWav, drwav_uint64 framesToWrite, const void* pData);
 DRWAV_API drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 framesToWrite, const void* pData);
 
+/*
+Writes float/double frames.
+
+Returns the number of frames written.
+*/
+DRWAV_API drwav_uint64 drwav_write_float_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData);
+
 
 /* Conversion Utilities */
 #ifndef DR_WAV_NO_CONVERSION_API
@@ -4828,6 +4835,11 @@ DRWAV_API size_t drwav_write_raw(drwav* pWav, size_t bytesToWrite, const void* p
     return bytesWritten;
 }
 
+DRWAV_API drwav_uint64 drwav_write_float_frames(drwav* pWav, drwav_uint64 framesToWrite, const void* pData)
+{
+    /* We don't want to do any byte swapping for IEEE floats. */
+    return drwav_write_pcm_frames_le(pWav, framesToWrite, pData);
+}
 
 DRWAV_API drwav_uint64 drwav_write_pcm_frames_le(drwav* pWav, drwav_uint64 framesToWrite, const void* pData)
 {
