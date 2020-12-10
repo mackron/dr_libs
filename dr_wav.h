@@ -467,6 +467,8 @@ typedef struct
 
 typedef enum {
     drwav_metadata_type_none = 0,
+
+    /* Unknown simply means a chunk that drwav does not handle specifically. You can still ask to receive these chunks as metadata objects. It is then up to you to interpret the chunk's data. You can also write unknown metadata to a wav file. Be careful writing unknown chunks if you have also edited the audio data. The unknown chunks could represent offsets/sizes that no longer correctly correspond to the audio data. */
     drwav_metadata_type_unknown = 1 << 0,
 
     drwav_metadata_type_smpl = 1 << 1,
@@ -474,6 +476,7 @@ typedef enum {
     drwav_metadata_type_cue = 1 << 3,
     drwav_metadata_type_acid = 1 << 4,
 
+    /* Wav files often have a LIST chunk. This is a chunk that contains a set of subchunks. For this API, we don't make a distinction between a regular chunk and a LIST subchunk. Instead, they are all just 'metadata' items. */
     drwav_metadata_type_list_label = 1 << 5,
     drwav_metadata_type_list_note = 1 << 6,
     drwav_metadata_type_list_labelled_text = 1 << 7,
@@ -539,12 +542,12 @@ typedef struct {
 } drwav_inst;
 
 typedef struct {
-    drwav_uint32 id; /* unique identification value */
-    drwav_uint32 position; /* play order position */
-    drwav_uint8 dataChunkId[4]; /* RIFF ID of corresponding data chunk */
-    drwav_uint32 chunkStart; /* byte offset of data chunk */
-    drwav_uint32 blockStart; /* byte offset to sample of first channel */
-    drwav_uint32 sampleOffset; /* byte offset to sample byte of first channel */
+    drwav_uint32 id; /* Unique identification value. */
+    drwav_uint32 position; /* Play order position. */
+    drwav_uint8 dataChunkId[4]; /* RIFF ID of corresponding data chunk, this will just be "data" for dr_wav. */
+    drwav_uint32 chunkStart; /* Byte offset of data chunk. */
+    drwav_uint32 blockStart; /* Byte offset to sample of first channel. */
+    drwav_uint32 sampleOffset; /* Byte offset to sample byte of first channel. */
 } drwav_cue_point;
 
 typedef struct {
@@ -553,16 +556,16 @@ typedef struct {
 } drwav_cue;
 
 typedef enum {
-    acid_flag_one_shot = 1,
-    acid_flag_root_note_set = 2,
-    acid_flag_stretch = 4,
-    acid_flag_disk_based = 8,
-    acid_flag_acidizer = 16,
-} acid_flag;
+    drwav_acid_flag_one_shot = 1,
+    drwav_acid_flag_root_note_set = 2,
+    drwav_acid_flag_stretch = 4,
+    drwav_acid_flag_disk_based = 8,
+    drwav_acid_flag_acidizer = 16,
+} drwav_acid_flag;
 
 typedef struct {
     drwav_uint32 flags; /* A bitset, see drwav_acid_flag. */
-    drwav_uint16 rootNote; /* Valid if flags contains acid_flag_root_note_set. */
+    drwav_uint16 rootNote; /* Valid if flags contains drwav_acid_flag_root_note_set. */
     drwav_uint16 reserved1;
     float reserved2;
     drwav_uint32 numBeats;
@@ -571,6 +574,9 @@ typedef struct {
     float tempo;
 } drwav_acid;
 
+/*
+Wav files can have a LIST chunk that contains subchunks. A LIST chunk can be one of two types. An adtl list, or an INFO list. This enum is used to specify the location of a chunk that dr_wav currently doesn't support.
+*/
 typedef enum {
     drwav_metadata_location_invalid,
     drwav_metadata_location_top_level,
@@ -610,6 +616,7 @@ typedef struct {
 } drwav_list_labelled_text;
 
 typedef struct {
+    /* Determines which item in the union is valid. */
     drwav_metadata_type type;
 
     union
@@ -618,9 +625,9 @@ typedef struct {
         drwav_smpl smpl;
         drwav_acid acid;
         drwav_inst inst;
-        drwav_list_label_or_note labelOrNote;
+        drwav_list_label_or_note labelOrNote; /* List label or list note. */
         drwav_list_labelled_text labelledText;
-        drwav_list_info_text infoText;
+        drwav_list_info_text infoText; /* Any of the list info types. */
         drwav_unknown_metadata unknown;
     };
 } drwav_metadata;
@@ -689,7 +696,7 @@ typedef struct
     /* A bitset of drwav_metadata_type values, only bits set in this variable are parsed and saved */
     drwav_uint64 allowedMetadataTypes;
 
-    /* A array of metadata. Valid when using the *with_metadata() init functions. */
+    /* A array of metadata. This is valid after the *init_with_metadata call returns. It will be valid until drwav_uninit() is called. You can take ownership of this data with drwav_take_ownership_of_metadata(). */
     drwav_metadata *metadata;
     drwav_uint32 numMetadata;
 
@@ -766,9 +773,10 @@ DRWAV_API drwav_bool32 drwav_init_ex_with_metadata(drwav* pWav, drwav_read_proc 
 /*
 Initializes a pre-allocated drwav object for writing.
 
-onWrite   [in]           The function to call when data needs to be written.
-onSeek    [in]           The function to call when the write position needs to move.
-pUserData [in, optional] A pointer to application defined data that will be passed to onWrite and onSeek.
+onWrite               [in]           The function to call when data needs to be written.
+onSeek                [in]           The function to call when the write position needs to move.
+pUserData             [in, optional] A pointer to application defined data that will be passed to onWrite and onSeek.
+metadata, numMetadata [in, optional] An array of metadata objects that should be written to the file. The array is not edited. You are responsible for this metadata memory and it must maintain valid until drwav_uninit() is called.
 
 Returns true if successful; false otherwise.
 
@@ -807,7 +815,7 @@ Take ownership of the metadata objects that were allocated via one of the init_w
 
 Useful if you want the data to persist beyond the lifetime of the drwav object.
 
-You must free this data using drwav_free().
+You must free the data returned from this function using drwav_free().
 */
 DRWAV_API drwav_metadata *drwav_take_ownership_of_metadata(drwav *pWav);
 
@@ -3490,6 +3498,8 @@ static drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_for
     runningPos += drwav__write_u32ne_to_le(pWav, pWav->fmt.avgBytesPerSec);
     runningPos += drwav__write_u16ne_to_le(pWav, pWav->fmt.blockAlign);
     runningPos += drwav__write_u16ne_to_le(pWav, pWav->fmt.bitsPerSample);
+
+    /* TODO: is a 'fact' chunk required for DR_WAVE_FORMAT_IEEE_FLOAT? */
 
 
     if (!pWav->isSequentialWrite && pWav->metadata && pWav->numMetadata && (pFormat->container == drwav_container_riff || pFormat->container == drwav_container_rf64)) {
