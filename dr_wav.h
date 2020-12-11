@@ -471,12 +471,17 @@ typedef enum {
     /* Unknown simply means a chunk that drwav does not handle specifically. You can still ask to receive these chunks as metadata objects. It is then up to you to interpret the chunk's data. You can also write unknown metadata to a wav file. Be careful writing unknown chunks if you have also edited the audio data. The unknown chunks could represent offsets/sizes that no longer correctly correspond to the audio data. */
     drwav_metadata_type_unknown = 1 << 0,
 
+    /* Only 1 of each of these metadata items are allowed in a wav file. */
     drwav_metadata_type_smpl = 1 << 1,
     drwav_metadata_type_inst = 1 << 2,
     drwav_metadata_type_cue = 1 << 3,
     drwav_metadata_type_acid = 1 << 4,
 
-    /* Wav files often have a LIST chunk. This is a chunk that contains a set of subchunks. For this API, we don't make a distinction between a regular chunk and a LIST subchunk. Instead, they are all just 'metadata' items. */
+    /*
+    Wav files often have a LIST chunk. This is a chunk that contains a set of subchunks. For this API, we don't make a distinction between a regular chunk and a LIST subchunk. Instead, they are all just 'metadata' items.
+
+    There can be multiple of these metadata items in a wav file.
+    */
     drwav_metadata_type_list_label = 1 << 5,
     drwav_metadata_type_list_note = 1 << 6,
     drwav_metadata_type_list_labelled_cue_region = 1 << 7,
@@ -491,6 +496,7 @@ typedef enum {
     drwav_metadata_type_list_info_album = 1 << 15,
     drwav_metadata_type_list_info_tracknumber = 1 << 16,
 
+    /* Other type constants for convenience. */
     drwav_metadata_type_list_all_info_strings = drwav_metadata_type_list_info_software
                                               | drwav_metadata_type_list_info_copyright
                                               | drwav_metadata_type_list_info_title
@@ -549,8 +555,8 @@ typedef struct {
     /* The period of 1 sample in nanoseconds. */
     drwav_uint32 samplePeriodNanoseconds;
 
-    /* The MIDI note of this file. 0 to 127. */
-    drwav_uint32 midiUnityNotes;
+    /* The MIDI root note of this file. 0 to 127. */
+    drwav_uint32 midiUnityNote;
 
     /* The fraction of a semitone up from the given MIDI note. This is a value from 0 to UINT32_MAX, where 0 means no change and (UINT32_MAX / 2) is half a semitone (AKA 50 cents). */
     drwav_uint32 midiPitchFraction;
@@ -576,9 +582,9 @@ The inst metadata contains data about how a sound should be played as part of an
 */
 
 typedef struct {
-    drwav_int8 midiNote; /* 0 to 127 */
-    drwav_int8 fineTuneDb; /* -50 to +50 */
-    drwav_int8 gain; /* -64 to +64 */
+    drwav_int8 midiUnityNote; /* The root note of the audio as a MIDI note number. 0 to 127 */
+    drwav_int8 fineTuneCents; /* -50 to +50 */
+    drwav_int8 gainDecibels; /* -64 to +64 */
     drwav_int8 lowNote; /* 0 to 127 */
     drwav_int8 highNote; /* 0 to 127 */
     drwav_int8 lowVelocity; /* 1 to 127 */
@@ -634,8 +640,8 @@ typedef struct {
     /* A bit-field, see drwav_acid_flag. */
     drwav_uint32 flags;
 
-    /* Valid if flags contains drwav_acid_flag_root_note_set. It represents the MIDI note the file - a value from 0 to 127. */
-    drwav_uint16 rootNote;
+    /* Valid if flags contains drwav_acid_flag_root_note_set. It represents the MIDI root note the file - a value from 0 to 127. */
+    drwav_uint16 midiUnityNote;
 
     /* Reserved values that should probably be ignored. */
     drwav_uint16 reserved1;
@@ -749,7 +755,7 @@ typedef struct {
         drwav_acid acid;
         drwav_inst inst;
         drwav_list_label_or_note labelOrNote; /* List label or list note. */
-        drwav_list_labelled_cue_region labelledText;
+        drwav_list_labelled_cue_region labelledCueRegion;
         drwav_list_info_text infoText; /* Any of the list info types. */
         drwav_unknown_metadata unknown;
     };
@@ -2154,7 +2160,7 @@ static drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_parser *par
         metadata->smpl.manufacturerId = drwav__bytes_to_u32(smplHeaderData + 0);
         metadata->smpl.productId = drwav__bytes_to_u32(smplHeaderData + 4);
         metadata->smpl.samplePeriodNanoseconds = drwav__bytes_to_u32(smplHeaderData + 8);
-        metadata->smpl.midiUnityNotes = drwav__bytes_to_u32(smplHeaderData + 12);
+        metadata->smpl.midiUnityNote = drwav__bytes_to_u32(smplHeaderData + 12);
         metadata->smpl.midiPitchFraction = drwav__bytes_to_u32(smplHeaderData + 16);
         metadata->smpl.smpteFormat = drwav__bytes_to_u32(smplHeaderData + 20);
         metadata->smpl.smpteOffset = drwav__bytes_to_u32(smplHeaderData + 24);
@@ -2234,9 +2240,9 @@ static drwav_uint64 drwav__read_inst_to_metadata_obj(drwav__metadata_parser *par
 
     if (bytesRead == sizeof(instData)) {
         metadata->type = drwav_metadata_type_inst;
-        metadata->inst.midiNote = (drwav_int8)instData[0];
-        metadata->inst.fineTuneDb = (drwav_int8)instData[1];
-        metadata->inst.gain = (drwav_int8)instData[2];
+        metadata->inst.midiUnityNote = (drwav_int8)instData[0];
+        metadata->inst.fineTuneCents = (drwav_int8)instData[1];
+        metadata->inst.gainDecibels = (drwav_int8)instData[2];
         metadata->inst.lowNote = (drwav_int8)instData[3];
         metadata->inst.highNote = (drwav_int8)instData[4];
         metadata->inst.lowVelocity = (drwav_int8)instData[5];
@@ -2255,7 +2261,7 @@ static drwav_uint64 drwav__read_acid_to_metadata_obj(drwav__metadata_parser *par
     if (bytesRead == sizeof(acidData)) {
         metadata->type = drwav_metadata_type_acid;
         metadata->acid.flags = drwav__bytes_to_u32(acidData + 0);
-        metadata->acid.rootNote = drwav__bytes_to_u16(acidData + 4);
+        metadata->acid.midiUnityNote = drwav__bytes_to_u16(acidData + 4);
         metadata->acid.reserved1 = drwav__bytes_to_u16(acidData + 6);
         metadata->acid.reserved2 = *(float *)(acidData + 8);
         metadata->acid.numBeats = drwav__bytes_to_u32(acidData + 12);
@@ -2295,7 +2301,7 @@ static drwav_uint64 drwav__read_list_label_or_note_to_metadata_obj(drwav__metada
     return totalBytesRead;
 }
 
-static drwav_uint64 drwav__read_list_labelled_text_to_metadata_obj(drwav__metadata_parser *parser,
+static drwav_uint64 drwav__read_list_labelled_cue_region_to_metadata_obj(drwav__metadata_parser *parser,
                                                                    drwav_metadata *metadata,
                                                                    drwav_uint64 chunkSize) {
     DRWAV_ASSERT(parser->stage == drwav__metadata_parser_stage_read);
@@ -2306,26 +2312,26 @@ static drwav_uint64 drwav__read_list_labelled_text_to_metadata_obj(drwav__metada
     if (bytesJustRead == sizeof(buffer)) {
         metadata->type = drwav_metadata_type_list_labelled_cue_region;
 
-        metadata->labelledText.cuePointId = drwav__bytes_to_u32(buffer + 0);
-        metadata->labelledText.sampleLength = drwav__bytes_to_u32(buffer + 4);
-        metadata->labelledText.purposeId[0] = buffer[8];
-        metadata->labelledText.purposeId[1] = buffer[9];
-        metadata->labelledText.purposeId[2] = buffer[10];
-        metadata->labelledText.purposeId[3] = buffer[11];
-        metadata->labelledText.country = drwav__bytes_to_u16(buffer + 12);
-        metadata->labelledText.language = drwav__bytes_to_u16(buffer + 14);
-        metadata->labelledText.dialect = drwav__bytes_to_u16(buffer + 16);
-        metadata->labelledText.codePage = drwav__bytes_to_u16(buffer + 18);
+        metadata->labelledCueRegion.cuePointId = drwav__bytes_to_u32(buffer + 0);
+        metadata->labelledCueRegion.sampleLength = drwav__bytes_to_u32(buffer + 4);
+        metadata->labelledCueRegion.purposeId[0] = buffer[8];
+        metadata->labelledCueRegion.purposeId[1] = buffer[9];
+        metadata->labelledCueRegion.purposeId[2] = buffer[10];
+        metadata->labelledCueRegion.purposeId[3] = buffer[11];
+        metadata->labelledCueRegion.country = drwav__bytes_to_u16(buffer + 12);
+        metadata->labelledCueRegion.language = drwav__bytes_to_u16(buffer + 14);
+        metadata->labelledCueRegion.dialect = drwav__bytes_to_u16(buffer + 16);
+        metadata->labelledCueRegion.codePage = drwav__bytes_to_u16(buffer + 18);
 
         drwav_uint32 sizeIncludingNullTerm = (drwav_uint32)chunkSize - DRWAV_LIST_LABELLED_TEXT_BYTES;
         if (sizeIncludingNullTerm) {
-            metadata->labelledText.stringSize = sizeIncludingNullTerm - 1;
-            metadata->labelledText.string =
+            metadata->labelledCueRegion.stringSize = sizeIncludingNullTerm - 1;
+            metadata->labelledCueRegion.string =
                 (char *)drwav__metadata_get_memory(parser, sizeIncludingNullTerm, 1);
-            bytesJustRead = drwav__metadata_parser_read(parser, metadata->labelledText.string, sizeIncludingNullTerm, &totalBytesRead);
+            bytesJustRead = drwav__metadata_parser_read(parser, metadata->labelledCueRegion.string, sizeIncludingNullTerm, &totalBytesRead);
         } else {
-            metadata->labelledText.stringSize = 0;
-            metadata->labelledText.string = NULL;
+            metadata->labelledCueRegion.stringSize = 0;
+            metadata->labelledCueRegion.string = NULL;
         }
     }
 
@@ -2491,7 +2497,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser *parser
 
             /* The first thing in a list chunk should be "adtl" or "INFO".
                - adtl means this list is a Associated Data List Chunk and will contain labels, notes
-                 or labelled text.
+                 or labelled cue regions.
                - INFO means this list is an Info List Chunk containing info text chunks such as IPRD
                  which would specifies the album of this wav file.
                No data follows the adtl or INFO id so we just make note of what type this list is and
@@ -2543,7 +2549,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser *parser
                         ++parser->numMetadata;
                         drwav__metadata_request_extra_memory_for_stage_2(parser, stringSizeWithNullTerm, 1);
                     } else {
-                        subchunkBytesRead = drwav__read_list_labelled_text_to_metadata_obj(parser,
+                        subchunkBytesRead = drwav__read_list_labelled_cue_region_to_metadata_obj(parser,
                             &parser->metadata[parser->metadataCursor],
                             subchunkDataSize);
                         if (subchunkBytesRead == subchunkDataSize) {
@@ -3310,7 +3316,7 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.manufacturerId);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.productId);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.samplePeriodNanoseconds);
-                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.midiUnityNotes);
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.midiUnityNote);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.midiPitchFraction);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.smpteFormat);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->smpl.smpteOffset);
@@ -3337,9 +3343,9 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
 
                 bytesWritten += drwav__write_or_count(pWav, "inst", 4);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, chunkSize);
-                bytesWritten += drwav__write_or_count(pWav, &metadata->inst.midiNote, 1);
-                bytesWritten += drwav__write_or_count(pWav, &metadata->inst.fineTuneDb, 1);
-                bytesWritten += drwav__write_or_count(pWav, &metadata->inst.gain, 1);
+                bytesWritten += drwav__write_or_count(pWav, &metadata->inst.midiUnityNote, 1);
+                bytesWritten += drwav__write_or_count(pWav, &metadata->inst.fineTuneCents, 1);
+                bytesWritten += drwav__write_or_count(pWav, &metadata->inst.gainDecibels, 1);
                 bytesWritten += drwav__write_or_count(pWav, &metadata->inst.lowNote, 1);
                 bytesWritten += drwav__write_or_count(pWav, &metadata->inst.highNote, 1);
                 bytesWritten += drwav__write_or_count(pWav, &metadata->inst.lowVelocity, 1);
@@ -3370,7 +3376,7 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
                 bytesWritten += drwav__write_or_count(pWav, "acid", 4);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, chunkSize);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->acid.flags);
-                bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->acid.rootNote);
+                bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->acid.midiUnityNote);
                 bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->acid.reserved1);
                 bytesWritten += drwav__write_or_count(pWav, &metadata->acid.reserved2, sizeof(float));
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->acid.numBeats);
@@ -3473,8 +3479,8 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
                 case drwav_metadata_type_list_labelled_cue_region: {
                     chunkSize += 8; /* for id and chunk size */
                     chunkSize += DRWAV_LIST_LABELLED_TEXT_BYTES;
-                    if (metadata->labelledText.stringSize)
-                        chunkSize += metadata->labelledText.stringSize + 1;
+                    if (metadata->labelledCueRegion.stringSize)
+                        chunkSize += metadata->labelledCueRegion.stringSize + 1;
                     break;
                 }
                 case drwav_metadata_type_unknown: {
@@ -3523,19 +3529,19 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
                     subchunkSize = DRWAV_LIST_LABELLED_TEXT_BYTES;
 
                     bytesWritten += drwav__write_or_count(pWav, "ltxt", 4);
-                    if (metadata->labelledText.stringSize) subchunkSize += metadata->labelledText.stringSize + 1;
+                    if (metadata->labelledCueRegion.stringSize) subchunkSize += metadata->labelledCueRegion.stringSize + 1;
                     bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, subchunkSize);
 
-                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->labelledText.cuePointId);
-                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->labelledText.sampleLength);
-                    bytesWritten += drwav__write_or_count(pWav, metadata->labelledText.purposeId, 4);
-                    bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->labelledText.country);
-                    bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->labelledText.language);
-                    bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->labelledText.dialect);
-                    bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->labelledText.codePage);
-                    if (metadata->labelledText.stringSize) {
-                        DRWAV_ASSERT(metadata->labelledText.string != NULL);
-                        bytesWritten += drwav__write_or_count(pWav, metadata->labelledText.string, metadata->labelledText.stringSize);
+                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->labelledCueRegion.cuePointId);
+                    bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->labelledCueRegion.sampleLength);
+                    bytesWritten += drwav__write_or_count(pWav, metadata->labelledCueRegion.purposeId, 4);
+                    bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->labelledCueRegion.country);
+                    bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->labelledCueRegion.language);
+                    bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->labelledCueRegion.dialect);
+                    bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->labelledCueRegion.codePage);
+                    if (metadata->labelledCueRegion.stringSize) {
+                        DRWAV_ASSERT(metadata->labelledCueRegion.string != NULL);
+                        bytesWritten += drwav__write_or_count(pWav, metadata->labelledCueRegion.string, metadata->labelledCueRegion.stringSize);
                         bytesWritten += drwav__write_or_count_byte(pWav, '\0');
                     }
                     break;
