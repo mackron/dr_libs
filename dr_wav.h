@@ -522,7 +522,7 @@ typedef enum {
 } drwav_smpl_loop_type;
 
 typedef struct {
-    /* The ID of the associated cue point, see drwav_cue and drwav_cue_point. As with all cuepoint IDs, this can correspond to a label chunk to give this loop a name, see drwav_list_label_or_note. */
+    /* The ID of the associated cue point, see drwav_cue and drwav_cue_point. As with all cue point IDs, this can correspond to a label chunk to give this loop a name, see drwav_list_label_or_note. */
     drwav_uint32 cuePointId;
 
     /* See drwav_smpl_loop_type. */
@@ -584,6 +584,12 @@ typedef struct {
     drwav_int8 lowVelocity; /* 1 to 127 */
     drwav_int8 highVelocity; /* 1 to 127 */
 } drwav_inst;
+
+/*
+Cue Metadata
+
+Cue points are markers at specific points in the audio. They often come with an associated peice of drwav_list_label_or_note metadata which contains the text for the marker.
+*/
 
 typedef struct {
     /* Unique identification value. */
@@ -650,8 +656,6 @@ typedef struct {
 Cue Label or Note metadata
 
 These are 2 different types of metadata, but they have the exact same format. Labels tend to be the more common and represent a short name for a cue point. Notes might be used to represent a longer comment.
-
-Th
 */
 
 typedef struct {
@@ -682,7 +686,7 @@ typedef struct {
 /*
 Labelled Cue Region Metadata
 
-The labelled region metadata is used to associate some portion of the audio data with text and serves as a marker.
+The labelled cue region metadata is used to associate some region of audio with text. The region starts at a cue point, and extends for the given number of samples.
 */
 
 typedef struct {
