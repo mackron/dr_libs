@@ -631,7 +631,7 @@ typedef enum {
 } drwav_acid_flag;
 
 typedef struct {
-    /* A bitset, see drwav_acid_flag. */
+    /* A bit-field, see drwav_acid_flag. */
     drwav_uint32 flags;
 
     /* Valid if flags contains drwav_acid_flag_root_note_set. It represents the MIDI note the file - a value from 0 to 127. */
@@ -816,7 +816,7 @@ typedef struct
     drwav_bool32 isSequentialWrite;
 
 
-    /* A bitset of drwav_metadata_type values, only bits set in this variable are parsed and saved */
+    /* A bit-field of drwav_metadata_type values, only bits set in this variable are parsed and saved */
     drwav_uint64 allowedMetadataTypes;
 
     /* A array of metadata. This is valid after the *init_with_metadata call returns. It will be valid until drwav_uninit() is called. You can take ownership of this data with drwav_take_ownership_of_metadata(). */
@@ -867,7 +867,7 @@ onChunk                      [in, optional] The function to call when a chunk is
 pUserData, pReadSeekUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
 pChunkUserData               [in, optional] A pointer to application defined data that will be passed to onChunk.
 flags                        [in, optional] A set of flags for controlling how things are loaded.
-allowedMetadataTypes         [in, optional] A bitset of drwav_metadata_type values signifying which types of metadata you are interested in. The metadata can be read after the function returns from the array pWav->metadata which has a size pWav->numMetadata. This metadata is a single heap allocation that is freed inside drwav_uninit(). However, you can take ownership of it with drwav_take_ownership_of_metadata().
+allowedMetadataTypes         [in, optional] A bit-field of drwav_metadata_type values signifying which types of metadata you are interested in. The metadata can be read after the function returns from the array pWav->metadata which has a size pWav->numMetadata. This metadata is a single heap allocation that is freed inside drwav_uninit(). However, you can take ownership of it with drwav_take_ownership_of_metadata().
 
 Returns true if successful; false otherwise.
 
