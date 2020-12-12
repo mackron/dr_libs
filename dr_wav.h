@@ -629,11 +629,11 @@ This chunk contains some information about the time signature and the tempo of t
 */
 
 typedef enum {
-    drwav_acid_flag_one_shot = 1,
+    drwav_acid_flag_one_shot = 1, /* If this is not set, then it is a loop instead of a one-shot. */
     drwav_acid_flag_root_note_set = 2,
     drwav_acid_flag_stretch = 4,
     drwav_acid_flag_disk_based = 8,
-    drwav_acid_flag_acidizer = 16,
+    drwav_acid_flag_acidizer = 16, /* Not sure what this means. */
 } drwav_acid_flag;
 
 typedef struct {
@@ -643,18 +643,18 @@ typedef struct {
     /* Valid if flags contains drwav_acid_flag_root_note_set. It represents the MIDI root note the file - a value from 0 to 127. */
     drwav_uint16 midiUnityNote;
 
-    /* Reserved values that should probably be ignored. */
+    /* Reserved values that should probably be ignored. reserved1 seems to often be 128 and reserved2 is 0. */
     drwav_uint16 reserved1;
     float reserved2;
 
-    /* Number of beats in a bar. */
+    /* Number of beats. */
     drwav_uint32 numBeats;
 
     /* The time signature of the audio. */
     drwav_uint16 meterDenominator;
     drwav_uint16 meterNumerator;
 
-    /* Beats per minute of the track. */
+    /* Beats per minute of the track. Setting a value of 0 suggests that there is no tempo. */
     float tempo;
 } drwav_acid;
 
