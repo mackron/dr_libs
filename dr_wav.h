@@ -476,25 +476,26 @@ typedef enum {
     drwav_metadata_type_inst = 1 << 2,
     drwav_metadata_type_cue = 1 << 3,
     drwav_metadata_type_acid = 1 << 4,
+    drwav_metadata_type_bext = 1 << 5,
 
     /*
     Wav files often have a LIST chunk. This is a chunk that contains a set of subchunks. For this API, we don't make a distinction between a regular chunk and a LIST subchunk. Instead, they are all just 'metadata' items.
 
     There can be multiple of these metadata items in a wav file.
     */
-    drwav_metadata_type_list_label = 1 << 5,
-    drwav_metadata_type_list_note = 1 << 6,
-    drwav_metadata_type_list_labelled_cue_region = 1 << 7,
+    drwav_metadata_type_list_label = 1 << 6,
+    drwav_metadata_type_list_note = 1 << 7,
+    drwav_metadata_type_list_labelled_cue_region = 1 << 8,
 
-    drwav_metadata_type_list_info_software = 1 << 8,
-    drwav_metadata_type_list_info_copyright = 1 << 9,
-    drwav_metadata_type_list_info_title = 1 << 10,
-    drwav_metadata_type_list_info_artist = 1 << 11,
-    drwav_metadata_type_list_info_comment = 1 << 12,
-    drwav_metadata_type_list_info_date = 1 << 13,
-    drwav_metadata_type_list_info_genre = 1 << 14,
-    drwav_metadata_type_list_info_album = 1 << 15,
-    drwav_metadata_type_list_info_tracknumber = 1 << 16,
+    drwav_metadata_type_list_info_software = 1 << 9,
+    drwav_metadata_type_list_info_copyright = 1 << 10,
+    drwav_metadata_type_list_info_title = 1 << 11,
+    drwav_metadata_type_list_info_artist = 1 << 12,
+    drwav_metadata_type_list_info_comment = 1 << 13,
+    drwav_metadata_type_list_info_date = 1 << 14,
+    drwav_metadata_type_list_info_genre = 1 << 15,
+    drwav_metadata_type_list_info_album = 1 << 16,
+    drwav_metadata_type_list_info_tracknumber = 1 << 17,
 
     /* Other type constants for convenience. */
     drwav_metadata_type_list_all_info_strings = drwav_metadata_type_list_info_software
@@ -675,6 +676,30 @@ typedef struct {
     char *string;
 } drwav_list_label_or_note;
 
+typedef struct {
+    char *description; /* Null terminated. */
+    char *originatorName; /* Null terminated. */
+    char *originatorReference; /* Null terminated. */
+    char originationDate[10]; /* yyyy:mm:dd */
+    char originationTime[8]; /* hh:mm:ss */
+    drwav_uint32 timeReferenceLow; /* First sample count since midnight, low word */
+    drwav_uint32 timeReferenceHigh; /* First sample count since midnight, high word */
+    drwav_uint16 version; /* Version of the BWF, check this to see if the fields below are valid. */
+
+    char *codingHistory;
+    drwav_uint32 codingHistorySize;
+
+    /* Fields below this point are only valid if the version is 1 or above */
+    drwav_uint8 *UMID; /* exactly 64 bytes of SMPTE UMID */
+
+    /* Fields below this point are only valid if the version is 2 or above */
+    drwav_uint16 loudnessValue; /* Integrated Loudness Value of the file in LUFS (multiplied by 100) */
+    drwav_uint16 loudnessRange; /* Loudness Range of the file in LU (multiplied by 100) */
+    drwav_uint16 maxTruePeakLevel; /* Maximum True Peak Level of the file expressed as dBTP (multiplied by 100) */
+    drwav_uint16 maxMomentaryLoudness; /* Highest value of the Momentary Loudness Level of the file in LUFS (multiplied by 100) */
+    drwav_uint16 maxShortTermLoudness; /* Highest value of the Short-Term Loudness Level of the file in LUFS (multiplied by 100) */
+} drwav_bext;
+
 /*
 Info Text Metadata
 
@@ -754,6 +779,7 @@ typedef struct {
         drwav_smpl smpl;
         drwav_acid acid;
         drwav_inst inst;
+        drwav_bext bext;
         drwav_list_label_or_note labelOrNote; /* List label or list note. */
         drwav_list_labelled_cue_region labelledCueRegion;
         drwav_list_info_text infoText; /* Any of the list info types. */
@@ -2060,6 +2086,12 @@ static drwav_bool32 drwav__on_seek(drwav_seek_proc onSeek, void* pUserData, int 
 #define DRWAV_INST_BYTES 7
 #define DRWAV_ACID_BYTES 24
 #define DRWAV_CUE_BYTES 4
+#define DRWAV_BEXT_BYTES 602
+#define DRWAV_BEXT_DESCRIPTION_BYTES 256
+#define DRWAV_BEXT_ORIGINATOR_NAME_BYTES 32
+#define DRWAV_BEXT_ORIGINATOR_REF_BYTES 32
+#define DRWAV_BEXT_RESERVED_BYTES 180
+#define DRWAV_BEXT_UMID_BYTES 64
 #define DRWAV_CUE_POINT_BYTES 24
 #define DRWAV_LIST_LABEL_OR_NOTE_BYTES 4
 #define DRWAV_LIST_LABELLED_TEXT_BYTES 20
@@ -2267,9 +2299,99 @@ static drwav_uint64 drwav__read_acid_to_metadata_obj(drwav__metadata_parser *par
     return bytesRead;
 }
 
+static size_t drwav__strlen_clamped(char *string, size_t maxToRead) {
+    size_t result = 0;
+    while (*string++ && result < maxToRead) {
+        ++result;
+    }
+    return result;
+}
+
+static char *drwav__metadata_copy_string(drwav__metadata_parser *parser, char *string, size_t maxToRead) {
+    size_t len = drwav__strlen_clamped(string, maxToRead);
+    if (len) {
+        char *result = (char *)drwav__metadata_get_memory(parser, len + 1, 1);
+        memcpy(result, string, len);
+        result[len] = '\0';
+        return result;
+    } else {
+        return NULL;
+    }
+}
+
+
+
+static drwav_uint64 drwav__read_bext_to_metadata_obj(drwav__metadata_parser *parser,
+                                                     drwav_metadata *metadata,
+                                                     drwav_uint64 chunkSize) {
+    DRWAV_ASSERT(parser->stage == drwav__metadata_parser_stage_read);
+    drwav_uint8 bextData[DRWAV_BEXT_BYTES];
+    drwav_uint64 bytesRead = drwav__metadata_parser_read(parser, bextData, sizeof(bextData), NULL);
+
+    if (bytesRead == sizeof(bextData)) {
+        metadata->type = drwav_metadata_type_bext;
+        metadata->bext = {};
+
+        drwav_uint8 *read_ptr = bextData;
+        metadata->bext.description = drwav__metadata_copy_string(parser, (char *)(read_ptr), DRWAV_BEXT_DESCRIPTION_BYTES);
+        read_ptr += DRWAV_BEXT_DESCRIPTION_BYTES;
+
+        metadata->bext.originatorName = drwav__metadata_copy_string(parser, (char *)(read_ptr), DRWAV_BEXT_ORIGINATOR_NAME_BYTES);
+        read_ptr += DRWAV_BEXT_ORIGINATOR_NAME_BYTES;
+
+        metadata->bext.originatorReference = drwav__metadata_copy_string(parser, (char *)(read_ptr), DRWAV_BEXT_ORIGINATOR_REF_BYTES);
+        read_ptr += DRWAV_BEXT_ORIGINATOR_REF_BYTES;
+
+        memcpy(read_ptr, metadata->bext.originationDate, sizeof(metadata->bext.originationDate));
+        read_ptr += sizeof(metadata->bext.originationDate);
+
+        memcpy(read_ptr, metadata->bext.originationTime, sizeof(metadata->bext.originationTime));
+        read_ptr += sizeof(metadata->bext.originationTime);
+
+        metadata->bext.timeReferenceLow = drwav__bytes_to_u32(read_ptr);
+        read_ptr += sizeof(drwav_uint32);
+
+        metadata->bext.timeReferenceHigh = drwav__bytes_to_u32(read_ptr);
+        read_ptr += sizeof(drwav_uint32);
+
+        metadata->bext.version = drwav__bytes_to_u16(read_ptr);
+        read_ptr += sizeof(drwav_uint16);
+
+        metadata->bext.UMID = drwav__metadata_get_memory(parser, DRWAV_BEXT_UMID_BYTES, 1);
+        memcpy(metadata->bext.UMID, read_ptr, DRWAV_BEXT_UMID_BYTES);
+        read_ptr += DRWAV_BEXT_UMID_BYTES;
+
+        metadata->bext.loudnessValue = drwav__bytes_to_u16(read_ptr);
+        read_ptr += sizeof(drwav_uint16);
+
+        metadata->bext.loudnessRange = drwav__bytes_to_u16(read_ptr);
+        read_ptr += sizeof(drwav_uint16);
+
+        metadata->bext.maxTruePeakLevel = drwav__bytes_to_u16(read_ptr);
+        read_ptr += sizeof(drwav_uint16);
+
+        metadata->bext.maxMomentaryLoudness = drwav__bytes_to_u16(read_ptr);
+        read_ptr += sizeof(drwav_uint16);
+
+        metadata->bext.maxShortTermLoudness = drwav__bytes_to_u16(read_ptr);
+        read_ptr += sizeof(drwav_uint16);
+
+        DRWAV_ASSERT((read_ptr + DRWAV_BEXT_RESERVED_BYTES) == (bextData + DRWAV_BEXT_BYTES));
+
+        size_t extra_bytes = (size_t)(chunkSize - DRWAV_BEXT_BYTES);
+        if (extra_bytes) {
+            metadata->bext.codingHistory = (char *)drwav__metadata_get_memory(parser, extra_bytes + 1, 1);
+            bytesRead += drwav__metadata_parser_read(parser, metadata->bext.codingHistory, extra_bytes, NULL);
+            metadata->bext.codingHistorySize = (drwav_uint32)strlen(metadata->bext.codingHistory);
+        }
+    }
+
+    return bytesRead;
+}
+
 static drwav_uint64 drwav__read_list_label_or_note_to_metadata_obj(drwav__metadata_parser *parser,
                                                                    drwav_metadata *metadata,
-                                                                   size_t chunkSize,
+                                                                   drwav_uint64 chunkSize,
                                                                    drwav_metadata_type type) {
     DRWAV_ASSERT(parser->stage == drwav__metadata_parser_stage_read);
     drwav_uint8 cueIDBuffer[DRWAV_LIST_LABEL_OR_NOTE_BYTES];
@@ -2470,6 +2592,44 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser *parser
                                                                  DRWAV_ALIGNOF(drwav_cue_point));
             } else {
                 bytesRead = drwav__read_cue_to_metadata_obj(parser, &parser->metadata[parser->metadataCursor]);
+                if (bytesRead == chunkHeader->sizeInBytes) {
+                    ++parser->metadataCursor;
+                } else {
+                    /* failed to parse */
+                }
+            }
+        } else {
+            /* incorrectly formed chunk */
+        }
+    } else if (drwav__chunk_matches(allowedMetadataTypes, chunkId, drwav_metadata_type_bext, "bext")) {
+        if (chunkHeader->sizeInBytes >= DRWAV_BEXT_BYTES) {
+            if (parser->stage == drwav__metadata_parser_stage_count) {
+                /* The description field is the largest one in a bext chunk. */
+                char buffer[DRWAV_BEXT_DESCRIPTION_BYTES + 1];
+
+                size_t alloc_size_needed = DRWAV_BEXT_UMID_BYTES; // we know we will need SMPTE UMID size
+
+                buffer[DRWAV_BEXT_DESCRIPTION_BYTES] = '\0';
+                drwav_uint64 bytesJustRead = drwav__metadata_parser_read(parser, buffer, DRWAV_BEXT_DESCRIPTION_BYTES, &bytesRead);
+                if (bytesJustRead != DRWAV_BEXT_DESCRIPTION_BYTES) return bytesRead;
+                alloc_size_needed += strlen(buffer) + 1;
+
+                buffer[DRWAV_BEXT_ORIGINATOR_NAME_BYTES] = '\0';
+                bytesJustRead = drwav__metadata_parser_read(parser, buffer, DRWAV_BEXT_ORIGINATOR_NAME_BYTES, &bytesRead);
+                if (bytesJustRead != DRWAV_BEXT_ORIGINATOR_NAME_BYTES) return bytesRead;
+                alloc_size_needed += strlen(buffer) + 1;
+
+                buffer[DRWAV_BEXT_ORIGINATOR_REF_BYTES] = '\0';
+                bytesJustRead = drwav__metadata_parser_read(parser, buffer, DRWAV_BEXT_ORIGINATOR_REF_BYTES, &bytesRead);
+                if (bytesJustRead != DRWAV_BEXT_ORIGINATOR_REF_BYTES) return bytesRead;
+                alloc_size_needed += strlen(buffer) + 1;
+
+                alloc_size_needed += chunkHeader->sizeInBytes - DRWAV_BEXT_BYTES; // coding history
+                drwav__metadata_request_extra_memory_for_stage_2(parser, alloc_size_needed, 1);
+
+                ++parser->numMetadata;
+            } else {
+                bytesRead = drwav__read_bext_to_metadata_obj(parser, &parser->metadata[parser->metadataCursor], chunkHeader->sizeInBytes);
                 if (bytesRead == chunkHeader->sizeInBytes) {
                     ++parser->metadataCursor;
                 } else {
@@ -3280,6 +3440,20 @@ static drwav_bool32 drwav_preinit_write(drwav* pWav, const drwav_data_format* pF
     return DRWAV_TRUE;
 }
 
+static size_t drwav__write_or_count_string_to_fixed_size_buf(drwav *pWav, char *string, size_t bufFixedSize) {
+    if (!pWav) return bufFixedSize;
+
+    size_t len = drwav__strlen_clamped(string, bufFixedSize);
+    drwav__write_or_count(pWav, string, len);
+    if (len < bufFixedSize) {
+        for (size_t i = 0; i < bufFixedSize - len; ++i) {
+            drwav__write_byte(pWav, 0);
+        }
+    }
+
+    return bufFixedSize;
+}
+
 /* pWav can be NULL meaning just count the bytes that would be written. */
 static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metadatas, drwav_uint32 numMetadata) {
     if (metadatas == NULL || numMetadata == 0) return 0;
@@ -3377,6 +3551,38 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
                 bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->acid.meterDenominator);
                 bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->acid.meterNumerator);
                 bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, *(drwav_uint32 *)(&metadata->acid.tempo));
+                break;
+            }
+
+            case drwav_metadata_type_bext: {
+                chunkSize = DRWAV_BEXT_BYTES + metadata->bext.codingHistorySize;
+
+                bytesWritten += drwav__write_or_count(pWav, "bext", 4);
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, chunkSize);
+
+                bytesWritten += drwav__write_or_count_string_to_fixed_size_buf(pWav, metadata->bext.description, DRWAV_BEXT_DESCRIPTION_BYTES);
+                bytesWritten += drwav__write_or_count_string_to_fixed_size_buf(pWav, metadata->bext.originatorName, DRWAV_BEXT_ORIGINATOR_NAME_BYTES);
+                bytesWritten += drwav__write_or_count_string_to_fixed_size_buf(pWav, metadata->bext.originatorReference, DRWAV_BEXT_ORIGINATOR_REF_BYTES);
+                bytesWritten += drwav__write_or_count(pWav, metadata->bext.originationDate, sizeof(metadata->bext.originationDate));
+                bytesWritten += drwav__write_or_count(pWav, metadata->bext.originationTime, sizeof(metadata->bext.originationTime));
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->bext.timeReferenceLow);
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->bext.timeReferenceHigh);
+                bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.version);
+                bytesWritten += drwav__write_or_count(pWav, metadata->bext.UMID, DRWAV_BEXT_UMID_BYTES);
+                bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.loudnessValue);
+                bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.loudnessRange);
+                bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.maxTruePeakLevel);
+                bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.maxMomentaryLoudness);
+                bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.maxShortTermLoudness);
+
+                char reservedBuf[DRWAV_BEXT_RESERVED_BYTES];
+                memset(reservedBuf, 0, sizeof(reservedBuf));
+                bytesWritten += drwav__write_or_count(pWav, reservedBuf, sizeof(reservedBuf));
+
+                if (metadata->bext.codingHistorySize) {
+                    bytesWritten += drwav__write_or_count(pWav, metadata->bext.codingHistory, metadata->bext.codingHistorySize);
+                }
+
                 break;
             }
 
