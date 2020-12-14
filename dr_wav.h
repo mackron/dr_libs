@@ -676,28 +676,33 @@ typedef struct {
     char *string;
 } drwav_list_label_or_note;
 
+/*
+BEXT metadata, also known as Broadcast Wave Format (BWF)
+
+This metadata adds some extra description to an audio file. You must check the version field to determine if the UMID or the loudness fields are valid.
+*/
 typedef struct {
-    char *description; /* Null terminated. */
-    char *originatorName; /* Null terminated. */
-    char *originatorReference; /* Null terminated. */
-    char originationDate[10]; /* yyyy:mm:dd */
-    char originationTime[8]; /* hh:mm:ss */
-    drwav_uint32 timeReferenceLow; /* First sample count since midnight, low word */
-    drwav_uint32 timeReferenceHigh; /* First sample count since midnight, high word */
+    char *description; /* Can be NULL or a null-terminated string, must be <= 256 characters. */
+    char *originatorName; /* Can be NULL or a null-terminated string, must be <= 32 characters. */
+    char *originatorReference; /* Can be NULL or a null-terminated string, must be <= 32 characters. */
+    char originationDate[10]; /* ASCII "yyyy:mm:dd". */
+    char originationTime[8]; /* ASCII "hh:mm:ss". */
+    drwav_uint64 timeReference; /* First sample count since midnight. */
     drwav_uint16 version; /* Version of the BWF, check this to see if the fields below are valid. */
 
+    /* Unrestricted ASCII characters containing a collection of strings terminated by CR/LF. Each string shall contain a description of a coding process applied to the audio data. */
     char *codingHistory;
     drwav_uint32 codingHistorySize;
 
-    /* Fields below this point are only valid if the version is 1 or above */
-    drwav_uint8 *UMID; /* exactly 64 bytes of SMPTE UMID */
+    /* Fields below this point are only valid if the version is 1 or above. */
+    drwav_uint8 *umid; /* exactly 64 bytes of SMPTE UMID */
 
-    /* Fields below this point are only valid if the version is 2 or above */
-    drwav_uint16 loudnessValue; /* Integrated Loudness Value of the file in LUFS (multiplied by 100) */
-    drwav_uint16 loudnessRange; /* Loudness Range of the file in LU (multiplied by 100) */
-    drwav_uint16 maxTruePeakLevel; /* Maximum True Peak Level of the file expressed as dBTP (multiplied by 100) */
-    drwav_uint16 maxMomentaryLoudness; /* Highest value of the Momentary Loudness Level of the file in LUFS (multiplied by 100) */
-    drwav_uint16 maxShortTermLoudness; /* Highest value of the Short-Term Loudness Level of the file in LUFS (multiplied by 100) */
+    /* Fields below this point are only valid if the version is 2 or above. */
+    drwav_uint16 loudnessValue; /* Integrated Loudness Value of the file in LUFS (multiplied by 100). */
+    drwav_uint16 loudnessRange; /* Loudness Range of the file in LU (multiplied by 100). */
+    drwav_uint16 maxTruePeakLevel; /* Maximum True Peak Level of the file expressed as dBTP (multiplied by 100). */
+    drwav_uint16 maxMomentaryLoudness; /* Highest value of the Momentary Loudness Level of the file in LUFS (multiplied by 100). */
+    drwav_uint16 maxShortTermLoudness; /* Highest value of the Short-Term Loudness Level of the file in LUFS (multiplied by 100). */
 } drwav_bext;
 
 /*
@@ -2348,17 +2353,17 @@ static drwav_uint64 drwav__read_bext_to_metadata_obj(drwav__metadata_parser *par
         memcpy(read_ptr, metadata->bext.originationTime, sizeof(metadata->bext.originationTime));
         read_ptr += sizeof(metadata->bext.originationTime);
 
-        metadata->bext.timeReferenceLow = drwav__bytes_to_u32(read_ptr);
+        drwav_uint32 timeReferenceLow = drwav__bytes_to_u32(read_ptr);
         read_ptr += sizeof(drwav_uint32);
-
-        metadata->bext.timeReferenceHigh = drwav__bytes_to_u32(read_ptr);
+        drwav_uint32 timeReferenceHigh = drwav__bytes_to_u32(read_ptr);
         read_ptr += sizeof(drwav_uint32);
+        metadata->bext.timeReference = ((drwav_uint64)timeReferenceHigh << 32) + timeReferenceLow;
 
         metadata->bext.version = drwav__bytes_to_u16(read_ptr);
         read_ptr += sizeof(drwav_uint16);
 
-        metadata->bext.UMID = drwav__metadata_get_memory(parser, DRWAV_BEXT_UMID_BYTES, 1);
-        memcpy(metadata->bext.UMID, read_ptr, DRWAV_BEXT_UMID_BYTES);
+        metadata->bext.umid = drwav__metadata_get_memory(parser, DRWAV_BEXT_UMID_BYTES, 1);
+        memcpy(metadata->bext.umid, read_ptr, DRWAV_BEXT_UMID_BYTES);
         read_ptr += DRWAV_BEXT_UMID_BYTES;
 
         metadata->bext.loudnessValue = drwav__bytes_to_u16(read_ptr);
@@ -2607,7 +2612,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser *parser
                 /* The description field is the largest one in a bext chunk. */
                 char buffer[DRWAV_BEXT_DESCRIPTION_BYTES + 1];
 
-                size_t alloc_size_needed = DRWAV_BEXT_UMID_BYTES; // we know we will need SMPTE UMID size
+                size_t alloc_size_needed = DRWAV_BEXT_UMID_BYTES; // we know we will need SMPTE umid size
 
                 buffer[DRWAV_BEXT_DESCRIPTION_BYTES] = '\0';
                 drwav_uint64 bytesJustRead = drwav__metadata_parser_read(parser, buffer, DRWAV_BEXT_DESCRIPTION_BYTES, &bytesRead);
@@ -3565,10 +3570,14 @@ static size_t drwav__write_or_count_metadata(drwav *pWav, drwav_metadata *metada
                 bytesWritten += drwav__write_or_count_string_to_fixed_size_buf(pWav, metadata->bext.originatorReference, DRWAV_BEXT_ORIGINATOR_REF_BYTES);
                 bytesWritten += drwav__write_or_count(pWav, metadata->bext.originationDate, sizeof(metadata->bext.originationDate));
                 bytesWritten += drwav__write_or_count(pWav, metadata->bext.originationTime, sizeof(metadata->bext.originationTime));
-                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->bext.timeReferenceLow);
-                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, metadata->bext.timeReferenceHigh);
+
+                drwav_uint32 timeReferenceLow = (drwav_uint32)(metadata->bext.timeReference & 0xFFFFFFFF);
+                drwav_uint32 timeReferenceHigh = (drwav_uint32)(metadata->bext.timeReference >> 32);
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, timeReferenceLow);
+                bytesWritten += drwav__write_or_count_u32ne_to_le(pWav, timeReferenceHigh);
+
                 bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.version);
-                bytesWritten += drwav__write_or_count(pWav, metadata->bext.UMID, DRWAV_BEXT_UMID_BYTES);
+                bytesWritten += drwav__write_or_count(pWav, metadata->bext.umid, DRWAV_BEXT_UMID_BYTES);
                 bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.loudnessValue);
                 bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.loudnessRange);
                 bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, metadata->bext.maxTruePeakLevel);
