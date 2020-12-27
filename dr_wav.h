@@ -15,7 +15,7 @@ Version 0.12 includes breaking changes to custom chunk handling.
 
 Changes to Chunk Callback
 -------------------------
-dr_wav supports the ability to fire a callback when a chunk is encounted (except for WAVE and FMT chunks). The callback has been updated to include both the
+dr_wav supports the ability to fire a callback when a chunk is encountered (except for WAVE and FMT chunks). The callback has been updated to include both the
 container (RIFF or Wave64) and the FMT chunk which contains information about the format of the data in the wave file.
 
 Previously, there was no direct way to determine the container, and therefore no way to discriminate against the different IDs in the chunk header (RIFF and
@@ -474,7 +474,7 @@ typedef enum {
     drwav_metadata_type_bext = 1 << 5,
 
     /*
-    Wav files often have a LIST chunk. This is a chunk that contains a set of subchunks. For this API, we don't make a distinction between a regular chunk and a LIST subchunk. Instead, they are all just 'metadata' items.
+    Wav files often have a LIST chunk. This is a chunk that contains a set of subchunks. For this higher-level metadata API, we don't make a distinction between a regular chunk and a LIST subchunk. Instead, they are all just 'metadata' items.
 
     There can be multiple of these metadata items in a wav file.
     */
@@ -578,7 +578,7 @@ The inst metadata contains data about how a sound should be played as part of an
 */
 
 typedef struct {
-    drwav_int8 midiUnityNote; /* The root note of the audio as a MIDI note number. 0 to 127 */
+    drwav_int8 midiUnityNote; /* The root note of the audio as a MIDI note number. 0 to 127. */
     drwav_int8 fineTuneCents; /* -50 to +50 */
     drwav_int8 gainDecibels; /* -64 to +64 */
     drwav_int8 lowNote; /* 0 to 127 */
@@ -590,7 +590,7 @@ typedef struct {
 /*
 Cue Metadata
 
-Cue points are markers at specific points in the audio. They often come with an associated peice of drwav_list_label_or_note metadata which contains the text for the marker.
+Cue points are markers at specific points in the audio. They often come with an associated piece of drwav_list_label_or_note metadata which contains the text for the marker.
 */
 
 typedef struct {
@@ -677,6 +677,8 @@ BEXT metadata, also known as Broadcast Wave Format (BWF)
 This metadata adds some extra description to an audio file. You must check the version field to determine if the UMID or the loudness fields are valid.
 */
 typedef struct {
+    /* These top 3 fields, and the umid field are actually defined in the standard as a statically sized buffers. In order to reduce the size of this struct (and therefore the union in the metadata struct), we instead store these as pointers. */
+
     char *description; /* Can be NULL or a null-terminated string, must be <= 256 characters. */
     char *originatorName; /* Can be NULL or a null-terminated string, must be <= 32 characters. */
     char *originatorReference; /* Can be NULL or a null-terminated string, must be <= 32 characters. */
@@ -899,7 +901,7 @@ onChunk                      [in, optional] The function to call when a chunk is
 pUserData, pReadSeekUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
 pChunkUserData               [in, optional] A pointer to application defined data that will be passed to onChunk.
 flags                        [in, optional] A set of flags for controlling how things are loaded.
-allowedMetadataTypes         [in, optional] A bit-field of drwav_metadata_type values signifying which types of metadata you are interested in. The metadata can be read after the function returns from the array pWav->metadata which has a size pWav->numMetadata. This metadata is a single heap allocation that is freed inside drwav_uninit(). However, you can take ownership of it with drwav_take_ownership_of_metadata().
+allowedMetadataTypes         [in, optional] A bit-field of drwav_metadata_type values signifying which types of metadata you are interested in. After the function returns, the metadata can be read from the array pWav->metadata which has a size pWav->numMetadata. This metadata is a single heap allocation that is freed inside drwav_uninit(). However, you can take ownership of it with drwav_take_ownership_of_metadata().
 
 Returns true if successful; false otherwise.
 
@@ -2604,7 +2606,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser *parser
     } else if (drwav__chunk_matches(allowedMetadataTypes, chunkId, drwav_metadata_type_bext, "bext")) {
         if (chunkHeader->sizeInBytes >= DRWAV_BEXT_BYTES) {
             if (parser->stage == drwav__metadata_parser_stage_count) {
-                /* The description field is the largest one in a bext chunk. */
+                /* The description field is the largest one in a bext chunk, so that is the max size of this temporary buffer. */
                 char buffer[DRWAV_BEXT_DESCRIPTION_BYTES + 1];
 
                 size_t alloc_size_needed = DRWAV_BEXT_UMID_BYTES; // we know we will need SMPTE umid size
