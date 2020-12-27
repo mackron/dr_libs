@@ -278,11 +278,6 @@ typedef drwav_int32 drwav_result;
 #define DR_WAVE_FORMAT_DVI_ADPCM    0x11
 #define DR_WAVE_FORMAT_EXTENSIBLE   0xFFFE
 
-/* Constants. */
-#ifndef DRWAV_MAX_SMPL_LOOPS
-#define DRWAV_MAX_SMPL_LOOPS        1
-#endif
-
 /* Flags to pass into drwav_init_ex(), etc. */
 #define DRWAV_SEQUENTIAL            0x00000001
 
