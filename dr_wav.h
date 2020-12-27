@@ -507,8 +507,8 @@ typedef enum {
                                       | drwav_metadata_type_list_note
                                       | drwav_metadata_type_list_labelled_cue_region,
 
-    drwav_metadata_type_all = 0xFFFFFFFFFFFFFFFF & ~drwav_metadata_type_unknown,
-    drwav_metadata_type_all_including_unknown = 0xFFFFFFFFFFFFFFFF,
+    drwav_metadata_type_all = 0xFFFFFFFF & ~drwav_metadata_type_unknown,
+    drwav_metadata_type_all_including_unknown = 0xFFFFFFFF,
 } drwav_metadata_type;
 
 /*
