@@ -2098,7 +2098,14 @@ static drwav_bool32 drwav__on_seek(drwav_seek_proc onSeek, void* pUserData, int 
 #define DRWAV_LIST_LABEL_OR_NOTE_BYTES 4
 #define DRWAV_LIST_LABELLED_TEXT_BYTES 20
 
-#if defined(_MSC_VER)
+#ifdef __cplusplus
+template<typename T> struct drwav_alignof;
+template<typename T, int size_diff> struct drwav_helper{enum {value = size_diff};};
+template<typename T> struct drwav_helper<T,0>{enum {value = drwav_alignof<T>::value};};
+template<typename T> struct drwav_alignof{struct Big {T x; char c;}; enum {
+    diff = sizeof(Big) - sizeof(T), value = drwav_helper<Big, diff>::value};};
+#define DRWAV_ALIGNOF(t) (drwav_alignof<t>::value)
+#elif defined(_MSC_VER)
 #define DRWAV_ALIGNOF(t) (__alignof(t))
 #else
 #define DRWAV_ALIGNOF(t) ((char*)(&((struct {char c; t _h;}*)0)->_h) - (char*)0)
