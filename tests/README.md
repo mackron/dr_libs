@@ -42,3 +42,7 @@ Opus
       - oggopus
         - failure_cases
         - opus_multichannel_examples
+
+Flac
+---
+- Download test flacs from https://media.xiph.org/ and place into testvectors/flac/tests
