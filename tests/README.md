@@ -45,4 +45,4 @@ Opus
 
 Flac
 ---
-- Download test flacs from https://media.xiph.org/ and place into testvectors/flac/tests.
+- Download test flacs from https://media.xiph.org/ and place them into the "testvectors/flac/tests" folder.
