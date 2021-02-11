@@ -198,6 +198,9 @@ Build Options
 #define DR_FLAC_NO_OGG
   Disables support for Ogg/FLAC streams.
 
+#define DR_FLAC_NO_MATROSKA
+ Disables support for FLAC inside the Matroska Media Container.
+
 #define DR_FLAC_BUFFER_SIZE <number>
   Defines the size of the internal buffer to store data from onRead(). This buffer is used to reduce the number of calls back to the client for more data.
   Larger values means more memory, but better performance. My tests show diminishing returns after about 4KB (which is the default). Consider reducing this if
@@ -374,7 +377,8 @@ typedef enum
 {
     drflac_container_native,
     drflac_container_ogg,
-    drflac_container_unknown
+    drflac_container_unknown,
+    drflac_container_matroska
 } drflac_container;
 
 typedef enum
@@ -7601,6 +7605,10 @@ static drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_r
 }
 #endif
 
+#ifndef DR_FLAC_NO_MATROSKA
+#include "wip/dr_flac_matroska.c"
+#endif
+
 static drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD)
 {
     drflac_bool32 relaxed;
@@ -7669,7 +7677,11 @@ static drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_p
         return drflac__init_private__ogg(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD, relaxed);
     }
 #endif
-
+#ifndef DR_FLAC_NO_MATROSKA    
+    if(id[0] == 0x1A && id[1] == 0x45 && id[2] == 0xDF && id[3] == 0xA3) { /* just check for EBML master element */
+        return drflac__init_private__matroska(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD, relaxed);
+    }
+#endif
     /* If we get here it means we likely don't have a header. Try opening in relaxed mode, if applicable. */
     if (relaxed) {
         if (container == drflac_container_native) {
@@ -7678,6 +7690,11 @@ static drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_p
 #ifndef DR_FLAC_NO_OGG
         if (container == drflac_container_ogg) {
             return drflac__init_private__ogg(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD, relaxed);
+        }
+#endif
+#ifndef DR_FLAC_NO_MATROSKA
+        if(container == drflac_container_matroska) {
+            return drflac__init_private__matroska(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD, relaxed);
         }
 #endif
     }
@@ -7804,6 +7821,11 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
             pUserDataOverride = (void*)&oggbs;
         }
 #endif
+#ifndef DR_FLAC_NO_MATROSKA
+        if (init.container == drflac_container_matroska) {
+            return NULL;
+        }
+#endif
 
         if (!drflac__read_and_decode_metadata(onReadOverride, onSeekOverride, onMeta, pUserDataOverride, pUserDataMD, &firstFramePos, &seektablePos, &seektableSize, &allocationCallbacks)) {
             return NULL;
@@ -7834,16 +7856,30 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         pFlac->_oggbs = (void*)pInternalOggbs;
     }
 #endif
+#ifndef DR_FLAC_NO_MATROSKA
+        if (init.container == drflac_container_matroska) {
+            return NULL;
+        }
+#endif
 
     pFlac->firstFLACFramePosInBytes = firstFramePos;
 
     /* NOTE: Seektables are not currently compatible with Ogg encapsulation (Ogg has its own accelerated seeking system). I may change this later, so I'm leaving this here for now. */
-#ifndef DR_FLAC_NO_OGG
-    if (init.container == drflac_container_ogg)
-    {
+#if !defined(DR_FLAC_NO_OGG) || !defined(DR_FLAC_NO_MATROSKA)
+    if(0) {        
+    }
+#ifndef DR_FLAC_NO_OGG   
+    else if (init.container == drflac_container_ogg) {
         pFlac->pSeekpoints = NULL;
         pFlac->seekpointCount = 0;
     }
+#endif
+#ifndef DR_FLAC_NO_MATROSKA
+    else if (init.container == drflac_container_matroska) {
+        pFlac->pSeekpoints = NULL;
+        pFlac->seekpointCount = 0;
+    }
+#endif
     else
 #endif
     {
@@ -11379,6 +11415,10 @@ DRFLAC_API drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 p
         Different techniques depending on encapsulation. Using the native FLAC seektable with Ogg encapsulation is a bit awkward so
         we'll instead use Ogg's natural seeking facility.
         */
+#ifndef DR_FLAC_NO_MATROSKA
+        pFlac->currentPCMFrame = pcmFrameIndex;
+        return DRFLAC_FALSE;
+#endif
 #ifndef DR_FLAC_NO_OGG
         if (pFlac->container == drflac_container_ogg)
         {
