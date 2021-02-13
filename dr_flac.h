@@ -7741,7 +7741,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 
     if (!drflac__init_private(&init, onRead, onSeek, onMeta, container, pUserData, pUserDataMD)) {
         return NULL;
-    }
+    }   
 
     if (pAllocationCallbacks != NULL) {
         allocationCallbacks = *pAllocationCallbacks;
@@ -7800,7 +7800,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         oggbs.bytesRemainingInPage = 0;
     }
 #endif
-
+    
     /*
     This part is a bit awkward. We need to load the seektable so that it can be referenced in-memory, but I want the drflac object to
     consist of only a single heap allocation. To this, the size of the seek table needs to be known, which we determine when reading
@@ -7838,7 +7838,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     pFlac = (drflac*)drflac__malloc_from_callbacks(allocationSize, &allocationCallbacks);
     if (pFlac == NULL) {
         return NULL;
-    }
+    }    
 
     drflac__init_from_info(pFlac, &init);
     pFlac->allocationCallbacks = allocationCallbacks;
@@ -7857,11 +7857,11 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     }
 #endif
 #ifndef DR_FLAC_NO_MATROSKA
-        if (init.container == drflac_container_matroska) {
-            return NULL;
-        }
+    if (init.container == drflac_container_matroska) {
+        printf("matroska file opts not implemented\n");
+        return NULL;
+    }
 #endif
-
     pFlac->firstFLACFramePosInBytes = firstFramePos;
 
     /* NOTE: Seektables are not currently compatible with Ogg encapsulation (Ogg has its own accelerated seeking system). I may change this later, so I'm leaving this here for now. */
