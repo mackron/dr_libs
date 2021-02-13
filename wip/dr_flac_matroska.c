@@ -165,7 +165,7 @@ static drflac_bool32 drflac_matroska_ebml_read_unsigned(ebml_element_reader *rea
     return DRFLAC_TRUE;
 }
 
-static drflac_bool32 drflac_matroska_ebml_read_string(ebml_element_reader *reader, size_t bytelen, char *string) {
+static drflac_bool32 drflac_matroska_ebml_read_string(ebml_element_reader *reader, size_t bytelen, drflac_uint8 *string) {
 	if(!drflac_bs_read_bytearray(reader, bytelen, string)) return DRFLAC_FALSE;
 	string[bytelen] = '\0';
     return DRFLAC_TRUE;
@@ -173,7 +173,6 @@ static drflac_bool32 drflac_matroska_ebml_read_string(ebml_element_reader *reade
 
 static drflac_bool32 drflac_matroska_ebml_seek(ebml_element_reader *reader, size_t bytelen) {
     drflac_uint8 element[8];
-    int i;
     size_t toread;
     while(bytelen > 0) {
         toread = (bytelen > 8) ? 8 : bytelen;
@@ -209,15 +208,12 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
     drflac_uint32 width = 0;
     drflac_uint32 size = 0;
     drflac_uint8  string[9];
-    drflac_uint8 thebyte;
-
-    drflac_uint64 tracks_id;
-    drflac_uint32 tracks_size;
     
-    drflac_uint64 codec_priv_id;
-    drflac_uint32 codec_priv_size;
-        
-    int i;
+    drflac_streaminfo streaminfo;
+    drflac_uint8 isLastBlock;
+    drflac_uint8 blockType;
+    drflac_uint32 blockSize;
+
     (void)relaxed;
     
     pInit->container = drflac_container_matroska;
@@ -229,7 +225,7 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
 
     /* setup the master element */   
 	if(!drflac_matroska_ebml_read_vint(&reader, &content, &width)) return DRFLAC_FALSE;  /* determine the size of the master element. */
-    printf("\nebml Master Element, size %u\n", content);   
+    printf("\nebml Master Element, size %u\n", (drflac_uint32)content);   
     if(!drflac_matroska_ebml_push_element(&reader, content, width)) return DRFLAC_FALSE;
 
     /* seek past the master element */
@@ -280,11 +276,7 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
 ON_FLAC:
     printf("ON_FLAC\n");
     
-    /* The remaining data in the page should be the STREAMINFO block. */
-    drflac_streaminfo streaminfo;
-    drflac_uint8 isLastBlock;
-    drflac_uint8 blockType;
-    drflac_uint32 blockSize;
+    /* The remaining data in the page should be the STREAMINFO block. */    
     if (!drflac__read_and_decode_block_header(drflac__on_read_ebml, &reader, &isLastBlock, &blockType, &blockSize)) {
         return DRFLAC_FALSE;
     }
@@ -320,65 +312,6 @@ ON_FLAC:
     pInit->hasMetadataBlocks = DRFLAC_FALSE;
     
     return DRFLAC_TRUE;    
-    for(;;) {
-        drflac_matroska_ebml_load_element(&reader, &id);
-        size = reader.element_left[reader.depth-1];  
-        switch(id) {
-            case 646:
-            drflac_matroska_ebml_read_unsigned(&reader, size, &content);
-            printf("ebml version %u\n", content);
-            break;
-            case 759:
-            drflac_matroska_ebml_read_unsigned(&reader, size, &content);
-            printf("ebml read version %u\n", content);
-            break;
-            case 754:
-            drflac_matroska_ebml_read_unsigned(&reader, size, &content);            
-            printf("ebml max ebml id len %u\n", content);
-            break;
-            case 755:
-            drflac_matroska_ebml_read_unsigned(&reader, size, &content);
-            printf("ebml max ebml size len %u\n", content);
-            break;
-            case 642:
-            if(size >= sizeof(string)) return DRFLAC_FALSE;
-            drflac_matroska_ebml_read_string(&reader, size, string);
-            printf("ebml document type %s\n", string);
-            break;
-            case 647:
-            drflac_matroska_ebml_read_unsigned(&reader, size, &content);
-            printf("ebml document version %u\n", content);
-            break;
-            case 645:
-            drflac_matroska_ebml_read_unsigned(&reader, size, &content);
-            printf("ebml document read version %u\n", content);
-            break;            
-            default:
-            printf("ebml id %u\n", id);
-            printf("ebml size %u\n", size);
-            if(size > 8) {
-                return DRFLAC_FALSE;
-            }
-			if(!drflac_bs_read_bytearray(&reader, size, &content)) return DRFLAC_FALSE;
-            printf("ebml as hex 0x"); 
-            for(i = 0; i < size; i++) {
-                thebyte = content >> (i*8);
-                printf("%X", thebyte);                
-            }
-            printf("\n ebml as string: ");
-            for(i = 0; i < size; i++) {
-                printf("%c");                
-            }
-            printf("\n");
-            break;
-        }
-        if(reader.depth == 0) {
-            printf("popped master element\n");
-            break;
-        }
-    }   
-
-    return DRFLAC_FALSE;
 }
 
 static size_t drflac__on_read_matroska(void* pUserData, void* bufferOut, size_t bytesToRead) {
