@@ -11,14 +11,6 @@ static void drflac_matroska_print_hex(drflac_uint64 value) {
     printf("\n");    
 }
 
-#define DR_FLAC_MAX_EBML_NEST 10
-typedef struct {
-    drflac_uint64 element_left[DR_FLAC_MAX_EBML_NEST];
-    drflac_bool32 element_inf[DR_FLAC_MAX_EBML_NEST];
-    drflac_bs *bs;
-    drflac_uint32 depth;
-} ebml_element_reader;
-
 static void drflac_matroska_ebml_push_element_unchecked(ebml_element_reader *reader, drflac_uint64 size, drflac_bool32 isinf) {
     reader->element_inf[reader->depth]  = isinf;
     reader->element_left[reader->depth] = size;
@@ -91,7 +83,7 @@ static drflac_bool32 drflac_matroska_ebml_read_vint(ebml_element_reader *reader,
     drflac_bool32 ret = DRFLAC_FALSE;
 	
     if(!drflac_matroska_ebml_ok_to_read(reader, 1)) return DRFLAC_FALSE;
-	if(!drflac__read_uint8(reader->bs, 8, &thebyte)) return DRFLAC_FALSE;
+    if(reader->onRead(reader->pUserData, &thebyte, 1) != 1) return DRFLAC_FALSE;
     bytes_read++;
     width = drflac_matroska_ebml_vint_width(thebyte);
     if(width == 0xFFFFFFFF) goto drflac_matroska_ebml_read_vint_ret;
@@ -114,7 +106,7 @@ static drflac_bool32 drflac_matroska_ebml_read_vint(ebml_element_reader *reader,
 			ret = DRFLAC_TRUE;
             goto drflac_matroska_ebml_read_vint_ret;
 		}
-		if(!drflac__read_uint8(reader->bs, 8, &thebyte)) goto drflac_matroska_ebml_read_vint_ret;
+		if(reader->onRead(reader->pUserData, &thebyte, 1) != 1) goto drflac_matroska_ebml_read_vint_ret;
         bytes_read++;
     } while(1);
 
@@ -123,22 +115,42 @@ static drflac_bool32 drflac_matroska_ebml_read_vint(ebml_element_reader *reader,
     return ret;
 }
 
-static drflac_bool32 drflac_bs_read_bytearray(ebml_element_reader *reader, size_t bytelen, drflac_uint8* result) {
-	drflac_uint32 bytes_read = 0;
+static size_t drflac__on_read_ebml(void* pUserData, void* bufferOut, size_t bytesToRead) {
+    ebml_element_reader *reader = pUserData;
+    drflac_uint32 bytes_read = 0;
     drflac_bool32 ret = DRFLAC_TRUE;
     int i;
+    
+    if(!drflac_matroska_ebml_ok_to_read(reader, bytesToRead)) return DRFLAC_FALSE;
 
-    if(!drflac_matroska_ebml_ok_to_read(reader, bytelen)) return DRFLAC_FALSE;
+    bytes_read = reader->onRead(reader->pUserData, bufferOut, bytesToRead);  
 
-	for(i = 0; i < bytelen; i++) {
-		if( ! drflac__read_uint8(reader->bs, 8, &result[i])) {
-            ret = DRFLAC_FALSE;
-            break;
-        }
-        bytes_read++;	
-	}
     drflac_matroska_ebml_sub_bytes_read(reader, bytes_read);
-	return ret;
+    return bytes_read;
+}
+
+static drflac_bool32 drflac__on_read_seek_ebml(void* pUserData, int offset, drflac_seek_origin origin) {
+    ebml_element_reader *reader = pUserData;
+    if(origin == drflac_seek_origin_current) {
+        if(!drflac_matroska_ebml_ok_to_read(reader, offset)) return DRFLAC_FALSE;
+        if(!reader->onSeek(reader->pUserData, offset, origin)) return DRFLAC_FALSE;
+        drflac_matroska_ebml_sub_bytes_read(reader, offset);
+        return DRFLAC_TRUE;
+    }
+    return DRFLAC_FALSE;
+}
+
+static drflac_bool32 drflac_matroska_ebml_seek(ebml_element_reader *reader, size_t bytelen) {
+    drflac_uint8 element[8];
+    size_t toread;
+    while(bytelen > 0) {
+        toread = (bytelen > 8) ? 8 : bytelen;
+        if(drflac__on_read_ebml(reader, element, toread) != toread) return DRFLAC_FALSE;
+        bytelen -= toread;
+    }
+    return DRFLAC_TRUE;
+    /* doesn't work on pipe*/
+    /*return drflac__on_read_seek_ebml(reader, bytelen, drflac_seek_origin_current);*/
 }
 
 static drflac_bool32 drflac_matroska_ebml_load_element(ebml_element_reader *reader, drflac_uint64 *id) {
@@ -155,8 +167,8 @@ static drflac_bool32 drflac_matroska_ebml_load_element(ebml_element_reader *read
 static drflac_bool32 drflac_matroska_ebml_read_unsigned(ebml_element_reader *reader, size_t bytelen, drflac_uint64 *value) {
     drflac_uint8 element[8];
     int i;
-	
-	if(!drflac_bs_read_bytearray(reader, bytelen, element)) return DRFLAC_FALSE;
+
+    if(drflac__on_read_ebml(reader, value, bytelen) != bytelen) return DRFLAC_FALSE;	
 	
     *value = 0;
     for( i = 0; i < bytelen; i++) {
@@ -166,21 +178,12 @@ static drflac_bool32 drflac_matroska_ebml_read_unsigned(ebml_element_reader *rea
 }
 
 static drflac_bool32 drflac_matroska_ebml_read_string(ebml_element_reader *reader, size_t bytelen, drflac_uint8 *string) {
-	if(!drflac_bs_read_bytearray(reader, bytelen, string)) return DRFLAC_FALSE;
+	if(drflac__on_read_ebml(reader, string, bytelen) != bytelen) return DRFLAC_FALSE;
 	string[bytelen] = '\0';
     return DRFLAC_TRUE;
 }
 
-static drflac_bool32 drflac_matroska_ebml_seek(ebml_element_reader *reader, size_t bytelen) {
-    drflac_uint8 element[8];
-    size_t toread;
-    while(bytelen > 0) {
-        toread = (bytelen > 8) ? 8 : bytelen;
-        if(!drflac_bs_read_bytearray(reader, toread, element)) return DRFLAC_FALSE;
-        bytelen -= toread;
-    }
-    return DRFLAC_TRUE;
-}
+
 
 static drflac_bool32 drflac_matroska_ebml_get_element_with_depth(ebml_element_reader *reader, drflac_uint64 *id, drflac_uint32 depth) {
     if(reader->depth != depth) return DRFLAC_FALSE;
@@ -192,19 +195,13 @@ static drflac_bool32 drflac_matroska_ebml_get_element_with_depth(ebml_element_re
     return DRFLAC_TRUE;
 }
 
-static size_t drflac__on_read_ebml(void* pUserData, void* bufferOut, size_t bytesToRead)
-{
-    ebml_element_reader *reader = pUserData;
-    if(!drflac_bs_read_bytearray(reader, bytesToRead, bufferOut)) return 0;
-    return bytesToRead;
-}
-
-
 static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD, drflac_bool32 relaxed)
 {    
     ebml_element_reader reader;
     drflac_uint64 id;
     drflac_uint64 content = 0;
+    drflac_uint64 content1 = 0;
+    drflac_uint64 content2 = 0;
     drflac_uint32 width = 0;
     drflac_uint32 size = 0;
     drflac_uint8  string[9];
@@ -219,13 +216,16 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
     pInit->container = drflac_container_matroska;
 
     /* setup our ebml stack */
-     reader.depth = 0;
-    reader.bs = &pInit->bs;
+    reader.depth = 0;
+    reader.onRead = onRead;
+    reader.onSeek = onSeek;
+    reader.pUserData = pUserData;
+
     drflac_matroska_ebml_push_element_unchecked(&reader, 0, DRFLAC_TRUE);
 
     /* setup the master element */   
 	if(!drflac_matroska_ebml_read_vint(&reader, &content, &width)) return DRFLAC_FALSE;  /* determine the size of the master element. */
-    printf("\nebml Master Element, size %u\n", (drflac_uint32)content);   
+    /*printf("\nebml Master Element, size %u\n", (drflac_uint32)content);*/   
     if(!drflac_matroska_ebml_push_element(&reader, content, width)) return DRFLAC_FALSE;
 
     /* seek past the master element */
@@ -260,7 +260,7 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
                     if(id == 9122) {
                          /* check for fLaC */
                          if(!drflac_matroska_ebml_read_string(&reader, 4, string)) return DRFLAC_FALSE;
-                         printf("string %s\n", string);
+                         /*printf("string %s\n", string);*/
                          if((string[0] == 'f') && (string[1] == 'L') && (string[2] == 'a') && (string[3] == 'C')) {
                              goto ON_FLAC;
                          }                                                 
@@ -274,7 +274,7 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
     return DRFLAC_FALSE;
     
 ON_FLAC:
-    printf("ON_FLAC\n");
+    /*printf("ON_FLAC\n");*/
     
     /* The remaining data in the page should be the STREAMINFO block. */    
     if (!drflac__read_and_decode_block_header(drflac__on_read_ebml, &reader, &isLastBlock, &blockType, &blockSize)) {
@@ -306,14 +306,110 @@ ON_FLAC:
         metadata.data.streaminfo = streaminfo;
         onMeta(pUserDataMD, &metadata);
     }
-    printf("streaminfo loaded\n");
+    /*printf("streaminfo loaded\n");*/
     
     /* disabling metadata for now */
     pInit->hasMetadataBlocks = DRFLAC_FALSE;
+
+    /* for now seek to the first FLAC frame*/
+    /* seek out to just Segment level */
+    while(reader.depth > 2) {
+        size = reader.element_left[reader.depth-1];
+        if(!drflac_matroska_ebml_seek(&reader, size)) return DRFLAC_FALSE;
+    }
+
+    /* Tags  39109479 */
+    /* Cluster 256095861 */
+      /* CRC 63*/
+      /* cluster timestamp 103  */
+      /* Simple block 35*/
+    
+    /* enter cluster*/
+    
+    
+    /* we need the reader still */
+    pInit->matroskaReader = reader;    
     
     return DRFLAC_TRUE;    
 }
 
+typedef struct {
+    drflac_uint8 cache[1048576];
+    ebml_element_reader reader;
+    size_t bytes_in_cache;    
+} drflac_matroskabs;
+
 static size_t drflac__on_read_matroska(void* pUserData, void* bufferOut, size_t bytesToRead) {
-    return 0;    
+    drflac_uint8 *bufferbytes = bufferOut;
+    drflac_matroskabs *bs = (drflac_matroskabs *)pUserData;
+    size_t tocopy;
+    size_t bytesread = 0;
+    size_t currentread;
+
+    size_t size;
+    drflac_uint64 id, content, content1, content2;
+    drflac_uint32 width;
+
+    while(bytesToRead > 0) {        
+        if(bs->reader.depth < 3) {
+            /* seek to a cluster*/
+            while(drflac_matroska_ebml_get_element_with_depth(&bs->reader, &id, 2)) {
+                size = bs->reader.element_left[bs->reader.depth-1];
+                /*printf("element id %u, size %u\n", id, size);*/
+                if(id == 256095861) break;         
+                if(!drflac_matroska_ebml_seek(&bs->reader, size)) return bytesread;
+            }
+            if(bs->reader.depth != 3) return bytesread;
+        }
+
+        if(bs->reader.depth < 4) {
+            /* seek to a simple block */
+            while(drflac_matroska_ebml_get_element_with_depth(&bs->reader, &id, 3)) {
+                size = bs->reader.element_left[bs->reader.depth-1];
+                /*printf("element id %u, size %u\n", id, size);*/
+                if(id == 35) {
+                    /* read Simple block */
+                    if(!drflac_matroska_ebml_read_vint(&bs->reader, &content, &width)) return bytesread;
+                    /* timestamp s16*/
+                    if(!drflac_matroska_ebml_read_unsigned(&bs->reader, 2, &content1)) return bytesread;
+                    /* flag */
+                    if(!drflac_matroska_ebml_read_unsigned(&bs->reader, 1, &content2)) return bytesread;
+                    /*printf("track: %u timestamp %u flag %u\n", content, content1, content2);*/
+                    break;
+                }      
+                if(!drflac_matroska_ebml_seek(&bs->reader, size)) return bytesread;            
+            }            
+        }
+        if(bs->reader.depth != 4) return bytesread;
+
+        /* copy data from the frame */
+        tocopy = bs->reader.element_left[bs->reader.depth-1] < bytesToRead ? bs->reader.element_left[bs->reader.depth-1] : bytesToRead;
+        currentread = drflac__on_read_ebml(&bs->reader, bufferbytes+bytesread, tocopy);
+        bytesread += currentread;
+        if(currentread != tocopy) return bytesread;
+        bytesToRead -= tocopy;
+    }    
+    return bytesread;   
+}
+
+static drflac_bool32 drflac__on_seek_matroska(void* pUserData, int offset, drflac_seek_origin origin)
+{
+    drflac_matroskabs * matroskabs = (drflac_matroskabs*)pUserData;
+    int bytesSeeked = 0;
+
+    DRFLAC_ASSERT(matroskabs != NULL);
+    DRFLAC_ASSERT(offset >= 0);  /* <-- Never seek backwards. */
+    if(origin == drflac_seek_origin_start) {
+
+    }
+    DRFLAC_ASSERT(origin == drflac_seek_origin_current);
+
+   
+
+    return DRFLAC_FALSE;
+}
+
+
+static drflac_bool32 drflac_matroska__seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameIndex) {
+    return DRFLAC_FALSE;
 }

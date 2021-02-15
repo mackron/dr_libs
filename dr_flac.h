@@ -6157,6 +6157,17 @@ typedef struct
     drflac_uint8 segmentTable[255];
 } drflac_ogg_page_header;
 #endif
+#ifndef DR_FLAC_NO_MATROSKA
+#define DR_FLAC_MAX_EBML_NEST 10
+typedef struct {
+    drflac_uint64 element_left[DR_FLAC_MAX_EBML_NEST];
+    drflac_bool32 element_inf[DR_FLAC_MAX_EBML_NEST];
+    drflac_uint32 depth;
+    void* pUserData; /* to pass to callbacks*/
+    drflac_read_proc onRead;
+    drflac_seek_proc onSeek;
+} ebml_element_reader;
+#endif
 
 typedef struct
 {
@@ -6181,6 +6192,9 @@ typedef struct
     drflac_uint32 oggSerial;
     drflac_uint64 oggFirstBytePos;
     drflac_ogg_page_header oggBosHeader;
+#endif
+#ifndef DR_FLAC_NO_MATROSKA
+    ebml_element_reader matroskaReader;
 #endif
 } drflac_init_info;
 
@@ -7730,6 +7744,9 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 #ifndef DR_FLAC_NO_OGG
     drflac_oggbs oggbs;
 #endif
+#ifndef DR_FLAC_NO_MATROSKA
+    drflac_matroskabs matroskabs;
+#endif
     drflac_uint64 firstFramePos;
     drflac_uint64 seektablePos;
     drflac_uint32 seektableSize;
@@ -7800,6 +7817,16 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         oggbs.bytesRemainingInPage = 0;
     }
 #endif
+#ifndef DR_FLAC_NO_MATROSKA
+    if(init.container == drflac_container_matroska) {
+        allocationSize += sizeof(drflac_matroskabs);
+    }
+    DRFLAC_ZERO_MEMORY(&matroskabs, sizeof(matroskabs));
+    if(init.container == drflac_container_matroska) {
+        matroskabs.reader = init.matroskaReader;
+        matroskabs.bytes_in_cache = 0;
+    }
+#endif
     
     /*
     This part is a bit awkward. We need to load the seektable so that it can be referenced in-memory, but I want the drflac object to
@@ -7858,8 +7885,15 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 #endif
 #ifndef DR_FLAC_NO_MATROSKA
     if (init.container == drflac_container_matroska) {
-        printf("matroska file opts not implemented\n");
-        return NULL;
+        drflac_matroskabs *pInternalMatroskabs = (drflac_matroskabs*)((drflac_uint8*)pFlac->pDecodedSamples + decodedSamplesAllocationSize + seektableSize);
+        *pInternalMatroskabs = matroskabs;
+
+        pFlac->bs.onRead = drflac__on_read_matroska;
+        pFlac->bs.onSeek = drflac__on_seek_matroska;
+        pFlac->bs.pUserData = (void*)pInternalMatroskabs;
+
+        /* disable seeking */
+        firstFramePos = 0;
     }
 #endif
     pFlac->firstFLACFramePosInBytes = firstFramePos;
@@ -11415,17 +11449,21 @@ DRFLAC_API drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 p
         Different techniques depending on encapsulation. Using the native FLAC seektable with Ogg encapsulation is a bit awkward so
         we'll instead use Ogg's natural seeking facility.
         */
-#ifndef DR_FLAC_NO_MATROSKA
-        pFlac->currentPCMFrame = pcmFrameIndex;
-        return DRFLAC_FALSE;
-#endif
+       if(0) {
+
+       }
 #ifndef DR_FLAC_NO_OGG
-        if (pFlac->container == drflac_container_ogg)
+        else if (pFlac->container == drflac_container_ogg)
         {
             wasSuccessful = drflac_ogg__seek_to_pcm_frame(pFlac, pcmFrameIndex);
-        }
-        else
+        }        
 #endif
+#ifndef DR_FLAC_NO_MATROSKA
+        else if(pFlac->container == drflac_container_matroska) {
+            wasSuccessful = drflac_matroska__seek_to_pcm_frame(pFlac, pcmFrameIndex);        
+        }
+#endif
+        else
         {
             /* First try seeking via the seek table. If this fails, fall back to a brute force seek which is much slower. */
             if (/*!wasSuccessful && */!pFlac->_noSeekTableSeek) {
