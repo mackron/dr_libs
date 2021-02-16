@@ -6167,6 +6167,7 @@ typedef struct {
     drflac_read_proc onRead;
     drflac_seek_proc onSeek;
     drflac_uint64 offset;
+    drflac_uint64 segmentoffset;
     drflac_uint64 flac_start_offset;
     drflac_uint64 flac_priv_size;
     drflac_uint64 audio_start_offset;
@@ -7854,7 +7855,9 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 #endif
 #ifndef DR_FLAC_NO_MATROSKA
         if (init.container == drflac_container_matroska) {
-            return NULL;
+            onReadOverride = drflac__on_read_matroska;
+            onSeekOverride = drflac__on_seek_matroska;
+            pUserDataOverride = (void*)&matroskabs;
         }
 #endif
 
@@ -7895,15 +7898,11 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         pFlac->bs.onRead = drflac__on_read_matroska;
         pFlac->bs.onSeek = drflac__on_seek_matroska;
         pFlac->bs.pUserData = (void*)pInternalMatroskabs;
-
-        /* disable seeking */
-        firstFramePos = 0;
     }
 #endif
     pFlac->firstFLACFramePosInBytes = firstFramePos;
 
     /* NOTE: Seektables are not currently compatible with Ogg encapsulation (Ogg has its own accelerated seeking system). I may change this later, so I'm leaving this here for now. */
-#if !defined(DR_FLAC_NO_OGG) || !defined(DR_FLAC_NO_MATROSKA)
     if(0) {        
     }
 #ifndef DR_FLAC_NO_OGG   
@@ -7919,7 +7918,6 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     }
 #endif
     else
-#endif
     {
         /* If we have a seektable we need to load it now, making sure we move back to where we were previously. */
         if (seektablePos != 0) {
@@ -8689,15 +8687,24 @@ DRFLAC_API drflac* drflac_open_memory(const void* pData, size_t dataSize, const 
 
     pFlac->memoryStream = memoryStream;
 
-    /* This is an awful hack... */
+    if(0) {
+    }
+    /* This is an awful hack... */    
 #ifndef DR_FLAC_NO_OGG
-    if (pFlac->container == drflac_container_ogg)
+    else if (pFlac->container == drflac_container_ogg)
     {
         drflac_oggbs* oggbs = (drflac_oggbs*)pFlac->_oggbs;
         oggbs->pUserData = &pFlac->memoryStream;
-    }
-    else
+    }    
 #endif
+#ifndef DR_FLAC_NO_MATROSKA
+    else if (pFlac->container == drflac_container_matroska)
+    {
+        drflac_matroskabs* matroskabs = (drflac_matroskabs*)pFlac->bs.pUserData;
+        matroskabs->reader.pUserData = &pFlac->memoryStream;
+    }
+#endif
+    else
     {
         pFlac->bs.pUserData = &pFlac->memoryStream;
     }
@@ -8720,15 +8727,24 @@ DRFLAC_API drflac* drflac_open_memory_with_metadata(const void* pData, size_t da
 
     pFlac->memoryStream = memoryStream;
 
+    if(0) {        
+    }
     /* This is an awful hack... */
 #ifndef DR_FLAC_NO_OGG
-    if (pFlac->container == drflac_container_ogg)
+    else if (pFlac->container == drflac_container_ogg)
     {
         drflac_oggbs* oggbs = (drflac_oggbs*)pFlac->_oggbs;
         oggbs->pUserData = &pFlac->memoryStream;
-    }
-    else
+    }    
 #endif
+#ifndef DR_FLAC_NO_MATROSKA
+    else if (pFlac->container == drflac_container_matroska)
+    {
+        drflac_matroskabs* matroskabs = (drflac_matroskabs*)pFlac->bs.pUserData;
+        matroskabs->reader.pUserData = &pFlac->memoryStream;
+    }
+#endif
+    else
     {
         pFlac->bs.pUserData = &pFlac->memoryStream;
     }
@@ -8779,6 +8795,15 @@ DRFLAC_API void drflac_close(drflac* pFlac)
 
         if (oggbs->onRead == drflac__on_read_stdio) {
             fclose((FILE*)oggbs->pUserData);
+        }
+    }
+#endif
+#ifndef DR_FLAC_NO_MATROSKA
+    if (pFlac->container == drflac_container_matroska) {
+        drflac_matroskabs* matroskabs = (drflac_matroskabs*)pFlac->bs.pUserData;
+        DRFLAC_ASSERT(pFlac->bs.onRead == drflac__on_read_matroska);
+        if(matroskabs->reader.onRead == drflac__on_read_stdio) {
+            fclose((FILE*)matroskabs->reader.pUserData);
         }
     }
 #endif
