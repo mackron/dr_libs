@@ -6166,6 +6166,10 @@ typedef struct {
     void* pUserData; /* to pass to callbacks*/
     drflac_read_proc onRead;
     drflac_seek_proc onSeek;
+    drflac_uint64 offset;
+    drflac_uint64 flac_start_offset;
+    drflac_uint64 flac_priv_size;
+    drflac_uint64 audio_start_offset;
 } ebml_element_reader;
 #endif
 
