@@ -269,6 +269,11 @@ drflac_result decode_test_file_s32(libflac* pLibFlac, drflac* pFlac)
         result = decode_test__read_and_compare_pcm_frame_chunks_s32(pLibFlac, pFlac, (pFlac->maxBlockSizeInPCMFrames > 0) ? pFlac->maxBlockSizeInPCMFrames : 4096);
     }
 
+    /* Test read one mkv block*/
+    if (result == DRFLAC_SUCCESS) {
+        result = decode_test__read_and_compare_pcm_frame_chunks_s32(pLibFlac, pFlac, 4096);
+    }
+
     return result;
 }
 
