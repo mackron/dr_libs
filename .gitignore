@@ -6,4 +6,6 @@ tests/bin/*
 tests/build
 tests/flac/include
 tests/flac/lib
+tests/testvectors/flac/tests/*
+!tests/testvectors/flac/tests/DO_NOT_DELETE.md
 todo
