@@ -221,13 +221,14 @@ static drflac_bool32 drflac_matroska_get_simpleblock(ebml_element_reader *reader
     drflac_uint64 id, content, content1, content2;
     size_t size;
     drflac_uint32 width;
-    
     if(reader->depth < 4) {
         while(drflac_matroska_ebml_load_element(reader, &id)) {
             /* Entered Segment */
             if((reader->depth == 2) && (id == 139690087)) continue;
             /* Entered Cluster */
-            if((reader->depth == 3) && (id == 256095861)) continue;
+            if((reader->depth == 3) && (id == 256095861)) {
+                continue;
+            }
             /* Entered Simple block */
             if((reader->depth == 4) && (id == 35)) {
                 if(!drflac_matroska_ebml_read_vint(reader, &content, &width)) return DRFLAC_FALSE;
@@ -242,7 +243,6 @@ static drflac_bool32 drflac_matroska_get_simpleblock(ebml_element_reader *reader
         }
 
     }     
-   
     return (reader->depth == 4);    
 }
 
@@ -419,13 +419,20 @@ static size_t drflac__on_read_matroska(void* pUserData, void* bufferOut, size_t 
 
     while(bytesToRead > 0) {
         /*if(!drflac_matroska_get_simpleblock(&bs->reader)) return  bytesread;*/
-        if(!drflac_matroska_get_currentblock(&bs->reader)) return  bytesread;        
-
+        content = bs->reader.offset;
+        content1 = bs->reader.depth;
+        content2 = bs->reader.element_left[bs->reader.depth-1];
+        if(!drflac_matroska_get_currentblock(&bs->reader)) {
+            return  bytesread;
+        }        
+          
         /* copy data from the frame */
         tocopy = bs->reader.element_left[bs->reader.depth-1] < bytesToRead ? bs->reader.element_left[bs->reader.depth-1] : bytesToRead;
         currentread = drflac__on_read_ebml(&bs->reader, bufferbytes+bytesread, tocopy);
         bytesread += currentread;
-        if(currentread != tocopy) return bytesread;
+        if(currentread != tocopy) {
+            return bytesread;
+        } 
         bytesToRead -= tocopy;
     }    
     return bytesread;   
@@ -479,10 +486,7 @@ static drflac_bool32 drflac_matroska__seek_to_pcm_frame(drflac* pFlac, drflac_ui
     if (!drflac__seek_to_byte(&pFlac->bs, pFlac->firstFLACFramePosInBytes)) {
         return DRFLAC_FALSE;
     }
-    element_left[0] = reader->element_left[0];
-    element_inf[0] = reader->element_inf[0];
-    element_left[1] = reader->element_left[1];
-    element_inf[1] = reader->element_inf[1];
+
     if(reader->depth != 2) DRFLAC_FALSE;
 
     /* seek to the cluster that has our frame */
@@ -492,8 +496,6 @@ static drflac_bool32 drflac_matroska__seek_to_pcm_frame(drflac* pFlac, drflac_ui
 
         /* Entered Cluster */
         if((reader->depth == 3) && (id == 256095861)) {       
-            element_left[reader->depth-1] = reader->element_left[reader->depth-1];     
-            element_inf[reader->depth-1] = reader->element_inf[reader->depth-1];
             continue;
         }           
         /* Found a Cluster timestamp */
@@ -505,11 +507,11 @@ static drflac_bool32 drflac_matroska__seek_to_pcm_frame(drflac* pFlac, drflac_ui
             /* Hack, adjust curframe when the tsscale isn't good enough*/
             if(reader->tsscale > (1000000000 / pFlac->sampleRate)) {
                 beforeframe = curframe;
-                curframe = round((double)curframe/4096)*4096;
-                /*printf("adjusted clusterframe, was %u now %u\n", beforeframe, clusterframe);*/                
+                curframe = round((double)curframe/4096)*4096;              
             }
             
-            if(curframe < pcmFrameIndex) {
+            /* this cluster could contain our frame, save it's info*/
+            if(curframe <= pcmFrameIndex) {
                 element_left[reader->depth-3] = reader->element_left[reader->depth-3];     
                 element_inf[reader->depth-3] = reader->element_inf[reader->depth-3];
                 element_left[reader->depth-2] = reader->element_left[reader->depth-2];     
@@ -518,24 +520,15 @@ static drflac_bool32 drflac_matroska__seek_to_pcm_frame(drflac* pFlac, drflac_ui
                 element_inf[reader->depth-1] = reader->element_inf[reader->depth-1];
                 clusterframe = curframe;
                 cluster = reader->offset;
-                continue;
-            }                
-            else if(curframe == pcmFrameIndex) {
-                element_left[reader->depth-3] = reader->element_left[reader->depth-3];     
-                element_inf[reader->depth-3] = reader->element_inf[reader->depth-3];
-                element_left[reader->depth-2] = reader->element_left[reader->depth-2];     
-                element_inf[reader->depth-2] = reader->element_inf[reader->depth-2];
-                element_left[reader->depth-1] = reader->element_left[reader->depth-1];     
-                element_inf[reader->depth-1] = reader->element_inf[reader->depth-1];
-                cluster = reader->offset;
-                clusterframe = curframe;                
-                break;
+                if(curframe == pcmFrameIndex) break;
             }
+            /* this is past the frame, breakout */                
             else if(curframe > pcmFrameIndex){
                 break;
             }            
         }
         size = reader->element_left[reader->depth-1];
+        /* to do use faster seek op */
         if(!drflac_matroska_ebml_read_seek(reader, size)) return DRFLAC_FALSE; 
     }
     if(cluster == 0) return DRFLAC_FALSE;
