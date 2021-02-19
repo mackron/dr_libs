@@ -6167,11 +6167,10 @@ typedef struct {
     drflac_read_proc onRead;
     drflac_seek_proc onSeek;
     drflac_uint64 offset;
+    
     drflac_uint64 segmentoffset;
-    drflac_uint64 flac_start_offset;
-    drflac_uint64 flac_priv_size;
-    drflac_uint64 audio_start_offset;
     drflac_uint64 tsscale;
+    drflac_uint64 flac_priv_size;    
 } ebml_element_reader;
 #endif
 
