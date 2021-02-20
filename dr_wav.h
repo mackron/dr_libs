@@ -6016,6 +6016,7 @@ REVISION HISTORY
 ================
 v0.12.19 - TBD
   - Fix a warning due to referencing _MSC_VER when it is undefined.
+  - Minor improvements to the management of some internal state concerning the data chunk cursor.
 
 v0.12.18 - 2021-01-31
   - Clean up some static analysis warnings.
