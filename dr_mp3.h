@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.26 - 2021-01-31
+dr_mp3 - v0.6.27 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -95,7 +95,7 @@ extern "C" {
 
 #define DRMP3_VERSION_MAJOR     0
 #define DRMP3_VERSION_MINOR     6
-#define DRMP3_VERSION_REVISION  26
+#define DRMP3_VERSION_REVISION  27
 #define DRMP3_VERSION_STRING    DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -3325,7 +3325,7 @@ static drmp3_result drmp3_result_from_errno(int e)
 
 static drmp3_result drmp3_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
 {
-#if _MSC_VER && _MSC_VER >= 1400
+#if defined(_MSC_VER) && _MSC_VER >= 1400
     errno_t err;
 #endif
 
@@ -3337,7 +3337,7 @@ static drmp3_result drmp3_fopen(FILE** ppFile, const char* pFilePath, const char
         return DRMP3_INVALID_ARGS;
     }
 
-#if _MSC_VER && _MSC_VER >= 1400
+#if defined(_MSC_VER) && _MSC_VER >= 1400
     err = fopen_s(ppFile, pFilePath, pOpenMode);
     if (err != 0) {
         return drmp3_result_from_errno(err);
@@ -4450,6 +4450,9 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
+v0.6.27 - TBD
+  - Fix a warning due to referencing _MSC_VER when it is undefined.
+
 v0.6.26 - 2021-01-31
   - Bring up to date with minimp3.
 
