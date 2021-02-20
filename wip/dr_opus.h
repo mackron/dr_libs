@@ -2112,7 +2112,7 @@ static dropus_result dropus_result_from_errno(int e)
 
 static dropus_result dropus_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
 {
-#if _MSC_VER && _MSC_VER >= 1400
+#if defined(_MSC_VER) && _MSC_VER >= 1400
     errno_t err;
 #endif
 
@@ -2124,7 +2124,7 @@ static dropus_result dropus_fopen(FILE** ppFile, const char* pFilePath, const ch
         return DROPUS_INVALID_ARGS;
     }
 
-#if _MSC_VER && _MSC_VER >= 1400
+#if defined(_MSC_VER) && _MSC_VER >= 1400
     err = fopen_s(ppFile, pFilePath, pOpenMode);
     if (err != 0) {
         return dropus_result_from_errno(err);
