@@ -535,7 +535,7 @@ typedef struct
     /* The size in bytes of the data chunk. */
     drwav_uint64 dataChunkDataSize;
     
-    /* The position in the stream of the first byte of the data chunk. This is used for seeking. */
+    /* The position in the stream of the first data byte of the data chunk. This is used for seeking. */
     drwav_uint64 dataChunkDataPos;
 
     /* The number of bytes remaining in the data chunk. */
@@ -2411,8 +2411,6 @@ DRWAV_PRIVATE drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_d
     runningPos += drwav__write_u16ne_to_le(pWav, pWav->fmt.blockAlign);
     runningPos += drwav__write_u16ne_to_le(pWav, pWav->fmt.bitsPerSample);
 
-    pWav->dataChunkDataPos = runningPos;
-
     /* "data" chunk. */
     if (pFormat->container == drwav_container_riff) {
         drwav_uint32 chunkSizeDATA = (drwav_uint32)initialDataChunkSize;
@@ -2427,19 +2425,13 @@ DRWAV_PRIVATE drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_d
         runningPos += drwav__write_u32ne_to_le(pWav, 0xFFFFFFFF);   /* Always set to 0xFFFFFFFF for RF64. The true size of the data chunk is specified in the ds64 chunk. */
     }
 
-    /*
-    The runningPos variable is incremented in the section above but is left unused which is causing some static analysis tools to detect it
-    as a dead store. I'm leaving this as-is for safety just in case I want to expand this function later to include other tags and want to
-    keep track of the running position for whatever reason. The line below should silence the static analysis tools.
-    */
-    (void)runningPos;
-
     /* Set some properties for the client's convenience. */
     pWav->container = pFormat->container;
     pWav->channels = (drwav_uint16)pFormat->channels;
     pWav->sampleRate = pFormat->sampleRate;
     pWav->bitsPerSample = (drwav_uint16)pFormat->bitsPerSample;
     pWav->translatedFormatTag = (drwav_uint16)pFormat->format;
+    pWav->dataChunkDataPos = runningPos;
 
     return DRWAV_TRUE;
 }
@@ -3417,8 +3409,8 @@ DRWAV_API drwav_result drwav_uninit(drwav* pWav)
                     drwav__write_u32ne_to_le(pWav, riffChunkSize);
                 }
 
-                /* the "data" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos + 4, drwav_seek_origin_start)) {
+                /* The "data" chunk size. */
+                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 4, drwav_seek_origin_start)) {
                     drwav_uint32 dataChunkSize = drwav__data_chunk_size_riff(pWav->dataChunkDataSize);
                     drwav__write_u32ne_to_le(pWav, dataChunkSize);
                 }
@@ -3430,7 +3422,7 @@ DRWAV_API drwav_result drwav_uninit(drwav* pWav)
                 }
 
                 /* The "data" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos + 16, drwav_seek_origin_start)) {
+                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 8, drwav_seek_origin_start)) {
                     drwav_uint64 dataChunkSize = drwav__data_chunk_size_w64(pWav->dataChunkDataSize);
                     drwav__write_u64ne_to_le(pWav, dataChunkSize);
                 }
