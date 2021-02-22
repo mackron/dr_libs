@@ -182,110 +182,7 @@ static drflac_bool32 drflac_matroska_ebml_read_string(ebml_element_reader *reade
     return DRFLAC_TRUE;
 }
 
-static drflac_bool32 drflac_matroska_get_flac_codec_privdata(ebml_element_reader *reader) {
-    drflac_uint64 id;
-    drflac_uint32 size = 0;
-    if(reader->depth < 5) {
-        while(drflac_matroska_ebml_load_element(reader, &id)) {
-            /* Entered Segment */
-            if((reader->depth == 2) && (id == 139690087)) continue;
-            /* Entered Tracks */
-            if((reader->depth == 3) && (id == 106212971)) continue;
-            /* Entered Track */
-            if((reader->depth == 4) && (id == 46)) continue;
-            /* Entered codec priv data */
-            if((reader->depth == 5) && (id == 9122)) break;
-            size = reader->element_left[reader->depth-1];
-            if(!drflac_matroska_ebml_read_seek(reader, size)) return DRFLAC_FALSE; 
-        }
-    }
-    return (reader->depth == 5);   
-}
 
-static drflac_bool32 drflac_matroska_read_block(ebml_element_reader *reader, drflac_uint64 blockid) {
-    drflac_uint64 trackno;
-    drflac_uint32 width;
-    drflac_uint64 timestamp;
-    drflac_uint8 flag;
-    drflac_uint8 frames;
-    drflac_uint64 framesize;
-    drflac_uint64 frameoffset;
-    int i;
-
-    if(!drflac_matroska_ebml_read_vint(reader, &trackno, &width)) return DRFLAC_FALSE;
-
-    /* timestamp s16*/
-    if(!drflac_matroska_ebml_read_unsigned(reader, 2, &timestamp)) return DRFLAC_FALSE;
-    /* flag */
-    if(!drflac_matroska_ebml_read_uint8(reader, &flag)) return DRFLAC_FALSE;                
-    /* no lacing we should be right at a frame*/
-    if((flag & 0x6) == 0){
-        return DRFLAC_TRUE;
-    }
-    
-    /* number of frames - 1*/
-    if(!drflac_matroska_ebml_read_uint8(reader, &frames)) return DRFLAC_FALSE;
-
-    /* fixed size lacing */
-    if((flag & 0x6) == 0x4) return DRFLAC_TRUE;
-     
-    /* ebml lacing */
-    if((flag & 0x6) == 0x6) {
-        if(!drflac_matroska_ebml_read_vint(reader, &framesize, &width)) return DRFLAC_FALSE;
-        for(i = 0; i < (frames-1); i++) {
-            if(!drflac_matroska_ebml_read_vint(reader, &frameoffset, &width)) return DRFLAC_FALSE;
-            /* subtract by 2^(bit width-1) - 1 to get the actual integer */
-        }
-        return DRFLAC_TRUE;                   
-    }         
-
-    /* xiph lacing - not implemented*/ 
-    return DRFLAC_FALSE; 
-
-}
-
-
-static drflac_bool32 drflac_matroska_get_block(ebml_element_reader *reader) {
-    drflac_uint64 id;
-    size_t size;
-    if(reader->depth < 4) {
-        for(;;) {
-            if(!drflac_matroska_ebml_load_element(reader, &id)) break;
-            /* Entered Segment */
-            if((reader->depth == 2) && (id == 139690087)) continue;
-            /* Entered Cluster */
-            if((reader->depth == 3) && (id == 256095861)) {
-                continue;
-            }
-            /* Entered Simple block */
-            if((reader->depth == 4) && (id == 35)) {
-                if(!drflac_matroska_read_block(reader, id)) return DRFLAC_FALSE;
-                return (reader->depth == 4);           
-            }
-            
-            /* Entered BlockGroup */
-            if((reader->depth == 4) && (id == 32)) {
-                continue;
-            }
-            
-            /* Entered Block */
-            if((reader->depth == 5) && (id == 33)) {
-                if(!drflac_matroska_read_block(reader, id)) return DRFLAC_FALSE;
-                return (reader->depth == 5);
-            }
-
-            size = reader->element_left[reader->depth-1];
-            if(!drflac_matroska_ebml_read_seek(reader, size)) return DRFLAC_FALSE; 
-        }
-
-    }     
-    return (reader->depth == 4) || (reader->depth == 5);  
-}
-
-static drflac_bool32 drflac_matroska_get_currentblock(ebml_element_reader *reader) {
-    if(reader->depth == 0) return DRFLAC_FALSE;
-    return (reader->offset < reader->flac_priv_size) ? drflac_matroska_get_flac_codec_privdata(reader) : drflac_matroska_get_block(reader);
-}
 
 
 static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD, drflac_bool32 relaxed)
@@ -315,18 +212,19 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
     reader.pUserData = pUserData;
     reader.offset = 0x4;
 
-    reader.segmentoffset = 0;
-    reader.tsscale = 1;
-    reader.flac_priv_size = 0;    
-
+    pInit->segmentoffset = 0;
+    pInit->tsscale = 1;
+    pInit->flac_priv_size = 0;    
+    /* add an infinite element as the head to simplify tree operations */
     drflac_matroska_ebml_push_element_unchecked(&reader, 0, 0, DRFLAC_TRUE);
 
     
     /*Don't care about master element, just skip past it*/
 	if(!drflac_matroska_ebml_read_vint(&reader, &content, &width)) return DRFLAC_FALSE;  
-    if(!drflac_matroska_ebml_push_element(&reader, 0, content, width)) return DRFLAC_FALSE;
+    /*if(!drflac_matroska_ebml_push_element(&reader, 0, content, width)) return DRFLAC_FALSE;
     if(!drflac_matroska_ebml_read_seek(&reader, content)) return DRFLAC_FALSE;
-    if(reader.depth != 1) return DRFLAC_FALSE;    
+    if(reader.depth != 1) return DRFLAC_FALSE;*/
+    if(!drflac_matroska_ebml_read_seek(&reader, content)) return DRFLAC_FALSE;    
     
     for(;;) {
         lastoffset = reader.offset;
@@ -334,7 +232,7 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
         size = reader.element_left[reader.depth-1];
         /* Segment */
         if((reader.depth == 2) && (id == 139690087)) {
-            reader.segmentoffset = lastoffset;
+            pInit->segmentoffset = lastoffset;
             continue;            
         }
         /* Segment Information*/
@@ -344,7 +242,7 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
         /* timestamp scale */
         else if((reader.depth == 4) && (id == 710577)) {
             if(drflac_matroska_ebml_read_unsigned(&reader, size, &content)) {
-                reader.tsscale = content;              
+                pInit->tsscale = content;              
             }                       
         }
         /* Tracks */
@@ -359,7 +257,7 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
         else if((reader.depth == 5) && (id == 9122)) {
             if(!drflac_matroska_ebml_read_string(&reader, 4, string)) return DRFLAC_FALSE;
             if((string[0] == 'f') && (string[1] == 'L') && (string[2] == 'a') && (string[3] == 'C')) {
-                reader.flac_priv_size = size;
+                pInit->flac_priv_size = size;
                 break;
             }            
         }        
@@ -413,8 +311,117 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
 typedef struct {
     drflac_uint8 cache[1048576];
     ebml_element_reader reader;
-    size_t bytes_in_cache;    
+    size_t bytes_in_cache;
+    drflac_uint64 segmentoffset;
+    drflac_uint64 tsscale;
+    drflac_uint64 flac_priv_size;        
 } drflac_matroskabs;
+
+static drflac_bool32 drflac_matroska_get_flac_codec_privdata(ebml_element_reader *reader) {
+    drflac_uint64 id;
+    drflac_uint32 size = 0;
+    if(reader->depth < 5) {
+        while(drflac_matroska_ebml_load_element(reader, &id)) {
+            /* Entered Segment */
+            if((reader->depth == 2) && (id == 139690087)) continue;
+            /* Entered Tracks */
+            if((reader->depth == 3) && (id == 106212971)) continue;
+            /* Entered Track */
+            if((reader->depth == 4) && (id == 46)) continue;
+            /* Entered codec priv data */
+            if((reader->depth == 5) && (id == 9122)) break;
+            size = reader->element_left[reader->depth-1];
+            if(!drflac_matroska_ebml_read_seek(reader, size)) return DRFLAC_FALSE; 
+        }
+    }
+    return (reader->depth == 5);   
+}
+
+static drflac_bool32 drflac_matroska_read_block(ebml_element_reader *reader) {
+    drflac_uint64 trackno;
+    drflac_uint32 width;
+    drflac_uint64 timestamp;
+    drflac_uint8 flag;
+    drflac_uint8 frames;
+    drflac_uint64 framesize;
+    drflac_uint64 frameoffset;
+    int i;
+
+    if(!drflac_matroska_ebml_read_vint(reader, &trackno, &width)) return DRFLAC_FALSE;
+
+    /* timestamp s16*/
+    if(!drflac_matroska_ebml_read_unsigned(reader, 2, &timestamp)) return DRFLAC_FALSE;
+    /* flag */
+    if(!drflac_matroska_ebml_read_uint8(reader, &flag)) return DRFLAC_FALSE;                
+    /* no lacing we should be right at a frame*/
+    if((flag & 0x6) == 0){
+        return DRFLAC_TRUE;
+    }
+    
+    /* number of frames - 1*/
+    if(!drflac_matroska_ebml_read_uint8(reader, &frames)) return DRFLAC_FALSE;
+
+    /* fixed size lacing */
+    if((flag & 0x6) == 0x4) return DRFLAC_TRUE;
+     
+    /* ebml lacing */
+    if((flag & 0x6) == 0x6) {
+        if(!drflac_matroska_ebml_read_vint(reader, &framesize, &width)) return DRFLAC_FALSE;
+        for(i = 0; i < (frames-1); i++) {
+            if(!drflac_matroska_ebml_read_vint(reader, &frameoffset, &width)) return DRFLAC_FALSE;
+            /* subtract by 2^(bit width-1) - 1 to get the actual integer */
+        }
+        return DRFLAC_TRUE;                   
+    }         
+
+    /* xiph lacing - not implemented*/ 
+    return DRFLAC_FALSE;
+}
+
+
+static drflac_bool32 drflac_matroska_get_block(ebml_element_reader *reader) {
+    drflac_uint64 id;
+    size_t size;
+    if(reader->depth < 4) {
+        for(;;) {
+            if(!drflac_matroska_ebml_load_element(reader, &id)) break;
+            /* Entered Segment */
+            if((reader->depth == 2) && (id == 139690087)) continue;
+            /* Entered Cluster */
+            if((reader->depth == 3) && (id == 256095861)) {
+                continue;
+            }
+            /* Entered Simple block */
+            if((reader->depth == 4) && (id == 35)) {
+                if(!drflac_matroska_read_block(reader)) return DRFLAC_FALSE;
+                return (reader->depth == 4);           
+            }
+            
+            /* Entered BlockGroup */
+            if((reader->depth == 4) && (id == 32)) {
+                continue;
+            }
+            
+            /* Entered Block */
+            if((reader->depth == 5) && (id == 33)) {
+                if(!drflac_matroska_read_block(reader)) return DRFLAC_FALSE;
+                return (reader->depth == 5);
+            }
+
+            size = reader->element_left[reader->depth-1];
+            if(!drflac_matroska_ebml_read_seek(reader, size)) return DRFLAC_FALSE; 
+        }
+
+    }     
+    return (reader->depth == 4) || (reader->depth == 5);  
+}
+
+static drflac_bool32 drflac_matroska_get_currentblock(drflac_matroskabs *bs) {
+    if(bs->reader.depth == 0) return DRFLAC_FALSE;
+    return (bs->reader.offset < bs->flac_priv_size) ? drflac_matroska_get_flac_codec_privdata(&bs->reader) : drflac_matroska_get_block(&bs->reader);
+}
+
+/* TODO 64 bit compatible seeking function */
 
 static size_t drflac__on_read_matroska(void* pUserData, void* bufferOut, size_t bytesToRead) {
     drflac_uint8 *bufferbytes = bufferOut;
@@ -424,7 +431,7 @@ static size_t drflac__on_read_matroska(void* pUserData, void* bufferOut, size_t 
     size_t currentread;    
 
     while(bytesToRead > 0) {
-        if(!drflac_matroska_get_currentblock(&bs->reader)) {
+        if(!drflac_matroska_get_currentblock(bs)) {
             return  bytesread;
         }        
           
@@ -449,8 +456,8 @@ static drflac_bool32 drflac__on_seek_matroska(void* pUserData, int offset, drfla
     DRFLAC_ASSERT(offset >= 0);  /* <-- Never seek backwards. */
     if(origin == drflac_seek_origin_start) {
         /* physical seek to segment */
-        if(!matroskabs->reader.onSeek(matroskabs->reader.pUserData, matroskabs->reader.segmentoffset, drflac_seek_origin_start)) return DRFLAC_FALSE;
-        matroskabs->reader.offset = matroskabs->reader.segmentoffset;
+        if(!matroskabs->reader.onSeek(matroskabs->reader.pUserData, matroskabs->segmentoffset, drflac_seek_origin_start)) return DRFLAC_FALSE;
+        matroskabs->reader.offset = matroskabs->segmentoffset;
         matroskabs->reader.depth = 1;
               
         return drflac__on_seek_matroska(matroskabs, offset, drflac_seek_origin_current);
@@ -458,7 +465,7 @@ static drflac_bool32 drflac__on_seek_matroska(void* pUserData, int offset, drfla
     DRFLAC_ASSERT(origin == drflac_seek_origin_current);    
 
     while(offset > 0) {
-        if(!drflac_matroska_get_currentblock(&matroskabs->reader)) return DRFLAC_FALSE;
+        if(!drflac_matroska_get_currentblock(matroskabs)) return DRFLAC_FALSE;
         toseek = offset > matroskabs->reader.element_left[matroskabs->reader.depth-1] ? matroskabs->reader.element_left[matroskabs->reader.depth-1] : offset;
         if(!drflac__on_seek_ebml(&matroskabs->reader, toseek, drflac_seek_origin_current)) return DRFLAC_FALSE;
         offset -= toseek;
@@ -473,7 +480,8 @@ static drflac_uint64 drflac_matroska_round(double d) {
 
 static drflac_bool32 drflac_matroska__seek_to_pcm_frame(drflac* pFlac, drflac_uint64 pcmFrameIndex) {
     
-    ebml_element_reader *reader = &((drflac_matroskabs *)pFlac->bs.pUserData)->reader;
+    drflac_matroskabs *bs = (drflac_matroskabs *)pFlac->bs.pUserData;
+    ebml_element_reader *reader = &bs->reader;
     
     drflac_uint64 id;
     drflac_uint64 ts;
@@ -488,9 +496,9 @@ static drflac_bool32 drflac_matroska__seek_to_pcm_frame(drflac* pFlac, drflac_ui
     drflac_bool32 element_inf[4];
 
     /* first seek to Segment */
-    if(!reader->onSeek(reader->pUserData, reader->segmentoffset, drflac_seek_origin_start))  return DRFLAC_FALSE;
+    if(!reader->onSeek(reader->pUserData, bs->segmentoffset, drflac_seek_origin_start))  return DRFLAC_FALSE;
     reader->depth = 1;
-    reader->offset = reader->segmentoffset;    
+    reader->offset = bs->segmentoffset;    
 
     /* seek into the cluster that might have our frame */
     DRFLAC_ASSERT(reader->depth == 1);
@@ -509,10 +517,10 @@ static drflac_bool32 drflac_matroska__seek_to_pcm_frame(drflac* pFlac, drflac_ui
         /* Found a Cluster timestamp */
         if((reader->depth == 4) && (id == 103)) {          
             if(!drflac_matroska_ebml_read_unsigned(reader, reader->element_left[reader->depth-1], &ts)) return DRFLAC_FALSE;
-            curframe = drflac_matroska_round((ts * reader->tsscale)  * (double)pFlac->sampleRate / 1000000000);
+            curframe = drflac_matroska_round((ts * bs->tsscale)  * (double)pFlac->sampleRate / 1000000000);
 
             /* Hack, adjust curframe when the tsscale isn't good enough*/
-            if(reader->tsscale > (1000000000 / pFlac->sampleRate)) {
+            if(bs->tsscale > (1000000000 / pFlac->sampleRate)) {
                 #ifdef DEBUG
                 beforeframe = curframe;
                 #endif
@@ -529,10 +537,9 @@ static drflac_bool32 drflac_matroska__seek_to_pcm_frame(drflac* pFlac, drflac_ui
                 element_inf[reader->depth-1] = reader->element_inf[reader->depth-1];
                 runningPCMFrameCount = curframe;
                 cluster = reader->offset;
-                if(curframe == pcmFrameIndex) break;
             }
-            /* this is past the frame, breakout */                
-            else if(curframe > pcmFrameIndex){
+            /* this cluster is at or past the frame, breakout */                
+            if(curframe >= pcmFrameIndex){
                 break;
             }            
         }

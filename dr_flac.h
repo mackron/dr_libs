@@ -6168,11 +6168,7 @@ typedef struct {
     void* pUserData; /* to pass to callbacks*/
     drflac_read_proc onRead;
     drflac_seek_proc onSeek;
-    drflac_uint64 offset;
-    
-    drflac_uint64 segmentoffset;
-    drflac_uint64 tsscale;
-    drflac_uint64 flac_priv_size;    
+    drflac_uint64 offset;  
 } ebml_element_reader;
 #endif
 
@@ -6202,6 +6198,9 @@ typedef struct
 #endif
 #ifndef DR_FLAC_NO_MATROSKA
     ebml_element_reader matroskaReader;
+    drflac_uint64 segmentoffset;
+    drflac_uint64 tsscale;
+    drflac_uint64 flac_priv_size;  
 #endif
 } drflac_init_info;
 
@@ -7832,6 +7831,9 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     if(init.container == drflac_container_matroska) {
         matroskabs.reader = init.matroskaReader;
         matroskabs.bytes_in_cache = 0;
+        matroskabs.segmentoffset = init.segmentoffset;
+        matroskabs.tsscale = init.tsscale;
+        matroskabs.flac_priv_size = init.flac_priv_size;
     }
 #endif
     
