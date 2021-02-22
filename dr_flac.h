@@ -6163,6 +6163,8 @@ typedef struct {
     drflac_uint64 element_left[DR_FLAC_MAX_EBML_NEST];
     drflac_bool32 element_inf[DR_FLAC_MAX_EBML_NEST];
     drflac_uint32 depth;
+    drflac_uint32 id;
+
     void* pUserData; /* to pass to callbacks*/
     drflac_read_proc onRead;
     drflac_seek_proc onSeek;

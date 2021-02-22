@@ -12,10 +12,11 @@ static void drflac_matroska_print_hex(drflac_uint64 value) {
 }
 #endif
 
-static void drflac_matroska_ebml_push_element_unchecked(ebml_element_reader *reader, drflac_uint64 size, drflac_bool32 isinf) {
+static void drflac_matroska_ebml_push_element_unchecked(ebml_element_reader *reader, drflac_uint32 id, drflac_uint64 size, drflac_bool32 isinf) {
     reader->element_inf[reader->depth]  = isinf;
     reader->element_left[reader->depth] = size;
     reader->depth++;
+    reader->id = id;
 }
 
 static drflac_bool32 drflac_matroska_ebml_size_infinite(drflac_uint64 size, drflac_uint32 size_width) {
@@ -28,7 +29,7 @@ static drflac_bool32 drflac_matroska_ebml_size_infinite(drflac_uint64 size, drfl
     return  (size == infvalue);
 }
 
-static drflac_bool32 drflac_matroska_ebml_push_element(ebml_element_reader *reader, drflac_uint64 size, drflac_uint32 size_width) {
+static drflac_bool32 drflac_matroska_ebml_push_element(ebml_element_reader *reader, drflac_uint32 id, drflac_uint64 size, drflac_uint32 size_width) {
     drflac_bool32 isinf;    
 
     if(reader->depth == DR_FLAC_MAX_EBML_NEST) return DRFLAC_FALSE;
@@ -41,7 +42,7 @@ static drflac_bool32 drflac_matroska_ebml_push_element(ebml_element_reader *read
         if(reader->element_left[reader->depth - 1] < size) return DRFLAC_FALSE;
     }
     
-    drflac_matroska_ebml_push_element_unchecked(reader, size, isinf);
+    drflac_matroska_ebml_push_element_unchecked(reader, id, size, isinf);
     return DRFLAC_TRUE;
 }
 
@@ -154,10 +155,8 @@ static drflac_bool32 drflac_matroska_ebml_load_element(ebml_element_reader *read
 
     if(!drflac_matroska_ebml_read_vint(reader, id, &width)) return DRFLAC_FALSE;
     if(!drflac_matroska_ebml_read_vint(reader, &size, &width)) return DRFLAC_FALSE;   
-    return drflac_matroska_ebml_push_element(reader, size, width);    
+    return drflac_matroska_ebml_push_element(reader, *id, size, width);    
 }
-
-
 
 static drflac_bool32 drflac_matroska_ebml_read_unsigned(ebml_element_reader *reader, size_t bytelen, drflac_uint64 *value) {
     drflac_uint8 element[8];
@@ -171,6 +170,10 @@ static drflac_bool32 drflac_matroska_ebml_read_unsigned(ebml_element_reader *rea
         *value |= (element[i] << ((bytelen-i-1)*8));
     }
     return DRFLAC_TRUE;
+}
+
+static drflac_bool32 drflac_matroska_ebml_read_uint8(ebml_element_reader *reader, drflac_uint8 *value) {
+    return drflac__on_read_ebml(reader, value, 1) == 1;
 }
 
 static drflac_bool32 drflac_matroska_ebml_read_string(ebml_element_reader *reader, size_t bytelen, drflac_uint8 *string) {
@@ -203,8 +206,8 @@ static drflac_bool32 drflac_matroska_read_block(ebml_element_reader *reader, drf
     drflac_uint64 trackno;
     drflac_uint32 width;
     drflac_uint64 timestamp;
-    drflac_uint64 flag;
-    drflac_uint64 frames;
+    drflac_uint8 flag;
+    drflac_uint8 frames;
     drflac_uint64 framesize;
     drflac_uint64 frameoffset;
     int i;
@@ -214,14 +217,14 @@ static drflac_bool32 drflac_matroska_read_block(ebml_element_reader *reader, drf
     /* timestamp s16*/
     if(!drflac_matroska_ebml_read_unsigned(reader, 2, &timestamp)) return DRFLAC_FALSE;
     /* flag */
-    if(!drflac_matroska_ebml_read_unsigned(reader, 1, &flag)) return DRFLAC_FALSE;                
+    if(!drflac_matroska_ebml_read_uint8(reader, &flag)) return DRFLAC_FALSE;                
     /* no lacing we should be right at a frame*/
     if((flag & 0x6) == 0){
         return DRFLAC_TRUE;
     }
     
     /* number of frames - 1*/
-    if(!drflac_matroska_ebml_read_unsigned(reader, 1, &frames)) return DRFLAC_FALSE;
+    if(!drflac_matroska_ebml_read_uint8(reader, &frames)) return DRFLAC_FALSE;
 
     /* fixed size lacing */
     if((flag & 0x6) == 0x4) return DRFLAC_TRUE;
@@ -294,7 +297,6 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
     drflac_uint32 size = 0;
     drflac_uint8  string[9];
     
-    drflac_uint32 depth;
     drflac_uint64 lastoffset = 0;
     
     drflac_streaminfo streaminfo;
@@ -317,45 +319,44 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
     reader.tsscale = 1;
     reader.flac_priv_size = 0;    
 
-    drflac_matroska_ebml_push_element_unchecked(&reader, 0, DRFLAC_TRUE);
+    drflac_matroska_ebml_push_element_unchecked(&reader, 0, 0, DRFLAC_TRUE);
 
     
     /*Don't care about master element, just skip past it*/
 	if(!drflac_matroska_ebml_read_vint(&reader, &content, &width)) return DRFLAC_FALSE;  
-    if(!drflac_matroska_ebml_push_element(&reader, content, width)) return DRFLAC_FALSE;
+    if(!drflac_matroska_ebml_push_element(&reader, 0, content, width)) return DRFLAC_FALSE;
     if(!drflac_matroska_ebml_read_seek(&reader, content)) return DRFLAC_FALSE;
     if(reader.depth != 1) return DRFLAC_FALSE;    
     
     for(;;) {
-        depth = reader.depth;
         lastoffset = reader.offset;
         if(!drflac_matroska_ebml_load_element(&reader, &id)) return DRFLAC_FALSE;
         size = reader.element_left[reader.depth-1];
         /* Segment */
-        if((depth == 1) && (id == 139690087)) {
+        if((reader.depth == 2) && (id == 139690087)) {
             reader.segmentoffset = lastoffset;
             continue;            
         }
         /* Segment Information*/
-        else if((depth == 2) && (id == 88713574)) {
+        else if((reader.depth == 3) && (id == 88713574)) {
             continue;
         }
         /* timestamp scale */
-        else if((depth == 3) && (id == 710577)) {
+        else if((reader.depth == 4) && (id == 710577)) {
             if(drflac_matroska_ebml_read_unsigned(&reader, size, &content)) {
                 reader.tsscale = content;              
             }                       
         }
         /* Tracks */
-        else if((depth == 2) && (id == 106212971)) {
+        else if((reader.depth == 3) && (id == 106212971)) {
             continue;
         }
         /* Track */
-        else if((depth == 3) && (id == 46)) {
+        else if((reader.depth == 4) && (id == 46)) {
             continue;            
         }
         /* Codec priv data */
-        else if((depth == 4) && (id == 9122)) {
+        else if((reader.depth == 5) && (id == 9122)) {
             if(!drflac_matroska_ebml_read_string(&reader, 4, string)) return DRFLAC_FALSE;
             if((string[0] == 'f') && (string[1] == 'L') && (string[2] == 'a') && (string[3] == 'C')) {
                 reader.flac_priv_size = size;
