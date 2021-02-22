@@ -6200,6 +6200,7 @@ typedef struct
     ebml_element_reader matroskaReader;
     drflac_uint64 segmentoffset;
     drflac_uint64 tsscale;
+    drflac_uint64 flac_priv_offset;
     drflac_uint64 flac_priv_size;  
 #endif
 } drflac_init_info;
@@ -7833,7 +7834,8 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         matroskabs.bytes_in_cache = 0;
         matroskabs.segmentoffset = init.segmentoffset;
         matroskabs.tsscale = init.tsscale;
-        matroskabs.flac_priv_size = init.flac_priv_size;
+        matroskabs.flac_priv_offset = init.flac_priv_offset;
+        matroskabs.flac_priv_size   = init.flac_priv_size;
     }
 #endif
     

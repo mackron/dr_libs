@@ -255,8 +255,10 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
         }
         /* Codec priv data */
         else if((reader.depth == 5) && (id == 9122)) {
+            lastoffset = reader.offset;
             if(!drflac_matroska_ebml_read_string(&reader, 4, string)) return DRFLAC_FALSE;
             if((string[0] == 'f') && (string[1] == 'L') && (string[2] == 'a') && (string[3] == 'C')) {
+                pInit->flac_priv_offset = lastoffset;
                 pInit->flac_priv_size = size;
                 break;
             }            
@@ -314,6 +316,7 @@ typedef struct {
     size_t bytes_in_cache;
     drflac_uint64 segmentoffset;
     drflac_uint64 tsscale;
+    drflac_uint64 flac_priv_offset; 
     drflac_uint64 flac_priv_size;        
 } drflac_matroskabs;
 
@@ -418,7 +421,18 @@ static drflac_bool32 drflac_matroska_get_block(ebml_element_reader *reader) {
 
 static drflac_bool32 drflac_matroska_get_currentblock(drflac_matroskabs *bs) {
     if(bs->reader.depth == 0) return DRFLAC_FALSE;
-    return (bs->reader.offset < bs->flac_priv_size) ? drflac_matroska_get_flac_codec_privdata(&bs->reader) : drflac_matroska_get_block(&bs->reader);
+    return (bs->reader.offset < (bs->flac_priv_offset + bs->flac_priv_size)) ? drflac_matroska_get_flac_codec_privdata(&bs->reader) : drflac_matroska_get_block(&bs->reader);
+}
+
+static drflac_bool32 drflac_matroska_handle_id(drflac_matroskabs *bs) {
+    /* if in a simpleblock, block, or codec private data, we are done*/
+    while((bs->reader.id != 35) && (bs->reader.id != 33) && (bs->reader.id != 9122)) {
+        /* if in a segment attempt to find a cluster */
+        
+        /* if in a cluster attempt to read a block*/
+
+    }
+    return DRFLAC_TRUE; 
 }
 
 /* TODO 64 bit compatible seeking function */
@@ -439,6 +453,12 @@ static size_t drflac__on_read_matroska(void* pUserData, void* bufferOut, size_t 
         tocopy = bs->reader.element_left[bs->reader.depth-1] < bytesToRead ? bs->reader.element_left[bs->reader.depth-1] : bytesToRead;
         currentread = drflac__on_read_ebml(&bs->reader, bufferbytes+bytesread, tocopy);
         bytesread += currentread;
+        
+        /* Update block if necessary*/
+        /*if((bs->reader.id != 35) && (bs->reader.id != 33) && (bs->reader.id != 9122)) {
+
+        }*/
+
         if(currentread != tocopy) {
             return bytesread;
         } 
