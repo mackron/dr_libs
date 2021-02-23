@@ -6164,12 +6164,11 @@ typedef struct {
     drflac_bool32 element_inf[DR_FLAC_MAX_EBML_NEST];
     drflac_uint32 id[DR_FLAC_MAX_EBML_NEST];
     drflac_uint32 depth;
-    
+    drflac_uint64 offset;
 
-    void* pUserData; /* to pass to callbacks*/
+    /*void* pUserData; 
     drflac_read_proc onRead;
-    drflac_seek_proc onSeek;
-    drflac_uint64 offset;  
+    drflac_seek_proc onSeek;*/    
 } ebml_element_reader;
 
 #define EBML_ID(X) ((X)->id[(X)->depth-1])
@@ -6202,10 +6201,9 @@ typedef struct
 #endif
 #ifndef DR_FLAC_NO_MATROSKA
     ebml_element_reader matroskaReader;
-    drflac_uint64 segmentoffset;
+    ebml_element_reader segment;
+    ebml_element_reader codecPrivate;
     drflac_uint64 tsscale;
-    drflac_uint64 flac_priv_offset;
-    drflac_uint64 flac_priv_size;  
 #endif
 } drflac_init_info;
 
@@ -7836,10 +7834,13 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     if(init.container == drflac_container_matroska) {
         matroskabs.reader = init.matroskaReader;
         matroskabs.bytes_in_cache = 0;
-        matroskabs.segmentoffset = init.segmentoffset;
+        matroskabs.segment = init.segment;
         matroskabs.tsscale = init.tsscale;
-        matroskabs.flac_priv_offset = init.flac_priv_offset;
-        matroskabs.flac_priv_size   = init.flac_priv_size;
+        matroskabs.codecPrivate = init.codecPrivate;
+
+        matroskabs.pUserData = pUserData;
+        matroskabs.onRead = onRead;
+        matroskabs.onSeek = onSeek;
     }
 #endif
     
@@ -8711,7 +8712,7 @@ DRFLAC_API drflac* drflac_open_memory(const void* pData, size_t dataSize, const 
     else if (pFlac->container == drflac_container_matroska)
     {
         drflac_matroskabs* matroskabs = (drflac_matroskabs*)pFlac->bs.pUserData;
-        matroskabs->reader.pUserData = &pFlac->memoryStream;
+        matroskabs->pUserData = &pFlac->memoryStream;
     }
 #endif
     else
@@ -8751,7 +8752,7 @@ DRFLAC_API drflac* drflac_open_memory_with_metadata(const void* pData, size_t da
     else if (pFlac->container == drflac_container_matroska)
     {
         drflac_matroskabs* matroskabs = (drflac_matroskabs*)pFlac->bs.pUserData;
-        matroskabs->reader.pUserData = &pFlac->memoryStream;
+        matroskabs->pUserData = &pFlac->memoryStream;
     }
 #endif
     else
@@ -8812,8 +8813,8 @@ DRFLAC_API void drflac_close(drflac* pFlac)
     if (pFlac->container == drflac_container_matroska) {
         drflac_matroskabs* matroskabs = (drflac_matroskabs*)pFlac->bs.pUserData;
         DRFLAC_ASSERT(pFlac->bs.onRead == drflac__on_read_matroska);
-        if(matroskabs->reader.onRead == drflac__on_read_stdio) {
-            fclose((FILE*)matroskabs->reader.pUserData);
+        if(matroskabs->onRead == drflac__on_read_stdio) {
+            fclose((FILE*)matroskabs->pUserData);
         }
     }
 #endif
