@@ -7840,11 +7840,10 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         
         matroskabs.io.onRead = drflac__on_read_matroska_cache;
         matroskabs.io.onSeek = drflac__on_seek_matroska_cache;
-        matroskabs.io.pUserData = &matroskabs;
-        
+        matroskabs.io.pUserData = &matroskabs;        
         
 
-        matroskabs.bytes_in_cache = 0;
+        matroskabs.cache_offset = DRFLAC_MATROSKA_BS_CACHE_SIZE;
         matroskabs.segment = init.matroskaSegment;
         matroskabs.tsscale = init.matroskaTsscale;
         matroskabs.codecPrivate = init.matroskaCodecPrivate;        
