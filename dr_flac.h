@@ -7841,8 +7841,11 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 
         matroskabs.io.onRead = drflac__on_read_matroska_cache;
         matroskabs.io.onSeek = drflac__on_seek_matroska_cache;
+
+        /* everytime matroskabs is copied we have to update these pointers*/
         matroskabs.io.pUserData = &matroskabs;
-        matroskabs.cache_offset = DRFLAC_MATROSKA_BS_CACHE_SIZE;        
+        matroskabs.cacheHead = NULL;
+        matroskabs.cacheEnd = NULL;
         #endif
         
         matroskabs.segment = init.matroskaSegment;
@@ -7914,6 +7917,8 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         *pInternalMatroskabs = matroskabs;
         #ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
         pInternalMatroskabs->io.pUserData = pInternalMatroskabs;
+        pInternalMatroskabs->cacheHead = pInternalMatroskabs->cache + (matroskabs.cacheHead - (drflac_uint8*)&matroskabs.cache);
+        pInternalMatroskabs->cacheEnd = pInternalMatroskabs->cache + (matroskabs.cacheEnd - (drflac_uint8*)&matroskabs.cache);
         #endif
 
         pFlac->bs.onRead = drflac__on_read_matroska;

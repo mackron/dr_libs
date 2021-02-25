@@ -82,6 +82,7 @@ static size_t drflac__on_read_ebml(void* pUserData, void* bufferOut, size_t byte
     if(!drflac_matroska_ebml_ok_to_read(&io->reader, bytesToRead)) return 0;
 
     bytes_read = io->onRead(io->pUserData, bufferOut, bytesToRead);
+
     drflac_matroska_ebml_sub_bytes_read(&io->reader, bytes_read);
     io->reader.offset += bytes_read;
     return bytes_read;
@@ -319,7 +320,8 @@ typedef struct {
 
 #ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
     drflac_uint8 cache[DRFLAC_MATROSKA_BS_CACHE_SIZE];
-    drflac_uint32 cache_offset;
+    drflac_uint8 *cacheHead;    
+    drflac_uint8 *cacheEnd;
     /* real io*/
     void* _pUserData;
     drflac_read_proc _onRead;
@@ -333,24 +335,25 @@ static size_t drflac__on_read_matroska_cache(void* pUserData, void* bufferOut, s
     drflac_uint8 *buf = (drflac_uint8 *)bufferOut;
     size_t bytesread = 0;
     size_t tocopy;
+    drflac_uint32 bytes_in_cache;
     for(;;) {
-        if(bs->cache_offset != DRFLAC_MATROSKA_BS_CACHE_SIZE) {
-            tocopy = bytesToRead > (DRFLAC_MATROSKA_BS_CACHE_SIZE - bs->cache_offset) ? (DRFLAC_MATROSKA_BS_CACHE_SIZE - bs->cache_offset) : bytesToRead;
-            memcpy(buf, bs->cache+bs->cache_offset, tocopy);
-            bs->cache_offset += tocopy;
+        /* there are bytes in cache if the head and end ptrs are different*/
+        if(bs->cacheHead != bs->cacheEnd) {
+            bytes_in_cache = bs->cacheEnd - bs->cacheHead;
+            tocopy = bytesToRead > bytes_in_cache ? bytes_in_cache : bytesToRead;
+            memcpy(buf, bs->cacheHead, tocopy);
+            bs->cacheHead += tocopy;
             bytesread += tocopy;
-            bytesToRead -= tocopy;
+            bytesToRead -= tocopy;         
             if(bytesToRead == 0) return bytesread;
             buf += tocopy; 
-        }
+        }   
         tocopy = bs->_onRead(bs->_pUserData, bs->cache, DRFLAC_MATROSKA_BS_CACHE_SIZE);
-        bs->cache_offset = DRFLAC_MATROSKA_BS_CACHE_SIZE-tocopy;
+        bs->cacheHead = bs->cache;
+        bs->cacheEnd  = bs->cacheHead + tocopy;
         if(tocopy == 0) {
             return bytesread;
-        }      
-        if(tocopy < DRFLAC_MATROSKA_BS_CACHE_SIZE) {
-            memmove(&bs->cache[bs->cache_offset], &bs->cache[0], tocopy);
-        }        
+        }              
     }
 }
 
@@ -362,22 +365,18 @@ static drflac_bool32 drflac__on_seek_matroska_cache(void* pUserData, int offset,
     DRFLAC_ASSERT(offset >= 0);  /* <-- Never seek backwards. */  
 
     if(origin == drflac_seek_origin_start) {
-        bs->cache_offset = DRFLAC_MATROSKA_BS_CACHE_SIZE;
+        bs->cacheHead = bs->cacheEnd;
         return bs->_onSeek(bs->_pUserData, offset, origin);
     }
-
-   /*
-    bs->cache_offset = DRFLAC_MATROSKA_BS_CACHE_SIZE;
-    return bs->_onSeek(bs->_pUserData, offset + bs->io.reader.offset, drflac_seek_origin_start );
-    */
-    bytes_in_cache = DRFLAC_MATROSKA_BS_CACHE_SIZE - bs->cache_offset; 
+    
+    bytes_in_cache = bs->cacheEnd - bs->cacheHead;
     if((bytes_in_cache > 0) && (offset > 0)) {
-        if(offset >= bytes_in_cache) {
+        if(offset > bytes_in_cache) {
             offset -= bytes_in_cache;
-            bs->cache_offset = DRFLAC_MATROSKA_BS_CACHE_SIZE;          
+            bs->cacheHead = bs->cacheEnd;          
         }
         else {
-            bs->cache_offset += offset;                   
+            bs->cacheHead += offset;                   
             return DRFLAC_TRUE;
         }
     }
@@ -493,6 +492,10 @@ static size_t drflac__on_read_matroska(void* pUserData, void* bufferOut, size_t 
 
     while(bytesToRead > 0) {
         if(!drflac_matroska_find_flac_data(bs)) {
+            /*printf("bytes read %u\n", bytesread);
+            if((bytesread == 0) || (bytesread == 2683)) {
+                printf("bread\n");
+            }*/
             return  bytesread;
         }        
           
