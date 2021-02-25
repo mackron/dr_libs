@@ -7828,22 +7828,23 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     }
     DRFLAC_ZERO_MEMORY(&matroskabs, sizeof(matroskabs));
     if(init.container == drflac_container_matroska) {
-        matroskabs.io.reader = init.matroskaReader;
-        
-        matroskabs._pUserData = pUserData;
-        matroskabs._onRead = onRead;
-        matroskabs._onSeek = onSeek;
+        matroskabs.io.reader = init.matroskaReader;       
+
         
         matroskabs.io.onRead = onRead;
         matroskabs.io.onSeek = onSeek;
         matroskabs.io.pUserData = pUserData;
-        
+        #ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
+        matroskabs._pUserData = pUserData;
+        matroskabs._onRead = onRead;
+        matroskabs._onSeek = onSeek;
+
         matroskabs.io.onRead = drflac__on_read_matroska_cache;
         matroskabs.io.onSeek = drflac__on_seek_matroska_cache;
-        matroskabs.io.pUserData = &matroskabs;        
+        matroskabs.io.pUserData = &matroskabs;
+        matroskabs.cache_offset = DRFLAC_MATROSKA_BS_CACHE_SIZE;        
+        #endif
         
-
-        matroskabs.cache_offset = DRFLAC_MATROSKA_BS_CACHE_SIZE;
         matroskabs.segment = init.matroskaSegment;
         matroskabs.tsscale = init.matroskaTsscale;
         matroskabs.codecPrivate = init.matroskaCodecPrivate;        
@@ -7911,7 +7912,9 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     if (init.container == drflac_container_matroska) {
         drflac_matroskabs *pInternalMatroskabs = (drflac_matroskabs*)((drflac_uint8*)pFlac->pDecodedSamples + decodedSamplesAllocationSize + seektableSize);
         *pInternalMatroskabs = matroskabs;
+        #ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
         pInternalMatroskabs->io.pUserData = pInternalMatroskabs;
+        #endif
 
         pFlac->bs.onRead = drflac__on_read_matroska;
         pFlac->bs.onSeek = drflac__on_seek_matroska;
@@ -8719,8 +8722,11 @@ DRFLAC_API drflac* drflac_open_memory(const void* pData, size_t dataSize, const 
     else if (pFlac->container == drflac_container_matroska)
     {
         drflac_matroskabs* matroskabs = (drflac_matroskabs*)pFlac->bs.pUserData;
-        /*matroskabs->io.pUserData = &pFlac->memoryStream;*/
+        #ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
         matroskabs->_pUserData = &pFlac->memoryStream;
+        #else
+        matroskabs->io.pUserData = &pFlac->memoryStream;
+        #endif
     }
 #endif
     else
@@ -8760,8 +8766,11 @@ DRFLAC_API drflac* drflac_open_memory_with_metadata(const void* pData, size_t da
     else if (pFlac->container == drflac_container_matroska)
     {
         drflac_matroskabs* matroskabs = (drflac_matroskabs*)pFlac->bs.pUserData;
-        /*matroskabs->io.pUserData = &pFlac->memoryStream;*/
-         matroskabs->_pUserData = &pFlac->memoryStream;
+        #ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
+        matroskabs->_pUserData = &pFlac->memoryStream;
+        #else
+        matroskabs->io.pUserData = &pFlac->memoryStream;
+        #endif
     }
 #endif
     else
@@ -8822,8 +8831,17 @@ DRFLAC_API void drflac_close(drflac* pFlac)
     if (pFlac->container == drflac_container_matroska) {
         drflac_matroskabs* matroskabs = (drflac_matroskabs*)pFlac->bs.pUserData;
         DRFLAC_ASSERT(pFlac->bs.onRead == drflac__on_read_matroska);
+
+        #ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
         if(matroskabs->_onRead == drflac__on_read_stdio) {
+        #else
+        if(matroskabs->io.onRead == drflac__on_read_stdio) {
+        #endif
+            #ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
             fclose((FILE*)matroskabs->_pUserData);
+            #else
+            fclose((FILE*)matroskabs->io.pUserData);
+            #endif
         }
     }
 #endif

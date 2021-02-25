@@ -308,7 +308,8 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
       /* Simple block 35*/
 }
 
-#define DRFLAC_MATROSKA_BS_CACHE_SIZE 1048576
+#define DRFLAC_MATROSKA_BS_ENABLE_CACHE
+#define DRFLAC_MATROSKA_BS_CACHE_SIZE 65536 /*1048576*/
 typedef struct {
     drflac_matroska_ebml_io io;    
   
@@ -316,14 +317,17 @@ typedef struct {
     drflac_matroska_ebml_tree codecPrivate;
     drflac_uint64 tsscale;
 
+#ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
     drflac_uint8 cache[DRFLAC_MATROSKA_BS_CACHE_SIZE];
     drflac_uint32 cache_offset;
     /* real io*/
     void* _pUserData;
     drflac_read_proc _onRead;
-    drflac_seek_proc _onSeek;        
+    drflac_seek_proc _onSeek;
+#endif        
 } drflac_matroskabs;
 
+#ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
 static size_t drflac__on_read_matroska_cache(void* pUserData, void* bufferOut, size_t bytesToRead) {
     drflac_matroskabs *bs = (drflac_matroskabs *)pUserData;
     drflac_uint8 *buf = (drflac_uint8 *)bufferOut;
@@ -380,7 +384,7 @@ static drflac_bool32 drflac__on_seek_matroska_cache(void* pUserData, int offset,
     if(offset > 0)  return bs->_onSeek(bs->_pUserData, offset, origin);
     return DRFLAC_TRUE;  
 }
-
+#endif
 
 /* used for seeking when we're not allowed to seek such as when reading */ 
 static drflac_bool32 drflac_matroska_close_current_element(drflac_matroskabs *bs) {
