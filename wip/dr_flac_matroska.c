@@ -360,6 +360,7 @@ static size_t drflac__on_read_matroska_cache(void* pUserData, void* bufferOut, s
 static drflac_bool32 drflac__on_seek_matroska_cache(void* pUserData, int offset, drflac_seek_origin origin) {
     drflac_matroskabs *bs = (drflac_matroskabs *)pUserData;
     drflac_uint32 bytes_in_cache;
+    drflac_uint32 toseek;
 
     DRFLAC_ASSERT(bs != NULL);
     DRFLAC_ASSERT(offset >= 0);  /* <-- Never seek backwards. */  
@@ -369,18 +370,14 @@ static drflac_bool32 drflac__on_seek_matroska_cache(void* pUserData, int offset,
         return bs->_onSeek(bs->_pUserData, offset, origin);
     }
     
+    /* first seek through the cache*/
     bytes_in_cache = bs->cacheEnd - bs->cacheHead;
-    if((bytes_in_cache > 0) && (offset > 0)) {
-        if(offset > bytes_in_cache) {
-            offset -= bytes_in_cache;
-            bs->cacheHead = bs->cacheEnd;          
-        }
-        else {
-            bs->cacheHead += offset;                   
-            return DRFLAC_TRUE;
-        }
-    }
+    toseek = bytes_in_cache > offset ? offset : bytes_in_cache;
+    offset -= toseek;
+    bs->cacheHead += toseek;
+    /* if still necessary, call the actual seek function*/
     if(offset > 0)  return bs->_onSeek(bs->_pUserData, offset, origin);
+
     return DRFLAC_TRUE;  
 }
 #endif
@@ -492,10 +489,6 @@ static size_t drflac__on_read_matroska(void* pUserData, void* bufferOut, size_t 
 
     while(bytesToRead > 0) {
         if(!drflac_matroska_find_flac_data(bs)) {
-            /*printf("bytes read %u\n", bytesread);
-            if((bytesread == 0) || (bytesread == 2683)) {
-                printf("bread\n");
-            }*/
             return  bytesread;
         }        
           
