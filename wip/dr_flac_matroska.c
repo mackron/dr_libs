@@ -203,6 +203,7 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
     drflac_uint8 isLastBlock;
     drflac_uint8 blockType;
     drflac_uint32 blockSize;
+    drflac_uint64 trackno = 0;
 
     /* setup ebml io*/
     io.reader.offset = 0x4;
@@ -254,15 +255,21 @@ static drflac_bool32 drflac__init_private__matroska(drflac_init_info* pInit, drf
         else if((io.reader.depth == 4) && (id == 46)) {
             continue;            
         }
+        /* Track no*/
+        else if((io.reader.depth == 5) && (id == 87)) {
+            if(!drflac_matroska_ebml_read_unsigned(&io, size, &trackno)) return DRFLAC_FALSE;
+            continue;
+        }  
         /* Codec priv data */
         else if((io.reader.depth == 5) && (id == 9122)) {
             privdata = io.reader;
             if(!drflac_matroska_ebml_read_string(&io, 4, string)) return DRFLAC_FALSE;
             if((string[0] == 'f') && (string[1] == 'L') && (string[2] == 'a') && (string[3] == 'C')) {
+                pInit->matroskaTrackno = trackno;
                 pInit->matroskaCodecPrivate = privdata;            
                 break;
             }            
-        }        
+        }              
         
         /* skip over element otherwise */
         if(!drflac_matroska_ebml_close_current_element(&io)) return DRFLAC_FALSE;   
@@ -317,6 +324,7 @@ typedef struct {
     drflac_matroska_ebml_tree segment;
     drflac_matroska_ebml_tree codecPrivate;
     drflac_uint64 tsscale;
+    drflac_uint64 trackno;
 
 #ifdef DRFLAC_MATROSKA_BS_ENABLE_CACHE
     drflac_uint8 cache[DRFLAC_MATROSKA_BS_CACHE_SIZE];
@@ -387,8 +395,7 @@ static drflac_bool32 drflac_matroska_close_current_element(drflac_matroskabs *bs
     return drflac_matroska_ebml_close_current_element(&bs->io);
 }
 
-static drflac_bool32 drflac_matroska_read_block(drflac_matroska_ebml_io *io) {
-    drflac_uint64 trackno;
+static drflac_bool32 drflac_matroska_read_block(drflac_matroska_ebml_io *io, drflac_uint64 *trackno) {
     drflac_uint32 width;
     drflac_int16 timestamp;
     drflac_uint8 flag;
@@ -397,7 +404,8 @@ static drflac_bool32 drflac_matroska_read_block(drflac_matroska_ebml_io *io) {
     drflac_uint64 frameoffset;
     int i;
 
-    if(!drflac_matroska_ebml_read_vint(io, &trackno, &width)) return DRFLAC_FALSE;
+    /* track no*/
+    if(!drflac_matroska_ebml_read_vint(io, trackno, &width)) return DRFLAC_FALSE;
 
     /* timestamp s16*/
     if(!drflac_matroska_ebml_read_int16(io, &timestamp)) return DRFLAC_FALSE;
@@ -430,6 +438,7 @@ static drflac_bool32 drflac_matroska_read_block(drflac_matroska_ebml_io *io) {
 
 static drflac_bool32 drflac_matroska_find_flac_data(drflac_matroskabs *bs) {
     drflac_uint64 id;
+    drflac_uint64 trackno;
     drflac_uint64 afterpriv = (bs->codecPrivate.offset + bs->codecPrivate.element_left[bs->codecPrivate.depth-1]);
     drflac_matroska_ebml_io *io = &bs->io;
 
@@ -473,7 +482,9 @@ static drflac_bool32 drflac_matroska_find_flac_data(drflac_matroskabs *bs) {
         }
         /* if we found a block we need to read its header*/
         if((id == 35) || (id == 33)) {
-            return drflac_matroska_read_block(io);
+            if(!drflac_matroska_read_block(io, &trackno)) return DRFLAC_FALSE;
+            if(bs->trackno == trackno) return DRFLAC_TRUE;
+            if(!drflac_matroska_ebml_close_current_element(io)) return DRFLAC_FALSE; 
         }        
     }
     return DRFLAC_TRUE; 

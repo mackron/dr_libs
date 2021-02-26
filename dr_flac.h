@@ -6200,6 +6200,7 @@ typedef struct
     drflac_matroska_ebml_tree matroskaSegment;
     drflac_matroska_ebml_tree matroskaCodecPrivate;
     drflac_uint64 matroskaTsscale;
+    drflac_uint64 matroskaTrackno;
 #endif
 } drflac_init_info;
 
@@ -7850,7 +7851,8 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         
         matroskabs.segment = init.matroskaSegment;
         matroskabs.tsscale = init.matroskaTsscale;
-        matroskabs.codecPrivate = init.matroskaCodecPrivate;        
+        matroskabs.codecPrivate = init.matroskaCodecPrivate;
+        matroskabs.trackno = init.matroskaTrackno;        
     }
 #endif
     
