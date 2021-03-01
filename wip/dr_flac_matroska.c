@@ -491,7 +491,7 @@ static drflac_bool32 drflac_matroska_find_flac_data(drflac_matroskabs *bs) {
 }
 
 static size_t drflac__on_read_matroska(void* pUserData, void* bufferOut, size_t bytesToRead) {
-    drflac_uint8 *bufferbytes = bufferOut;
+    drflac_uint8 *bufferbytes = (drflac_uint8*)bufferOut;
     drflac_matroskabs *bs = (drflac_matroskabs *)pUserData;
     drflac_matroska_ebml_io *io = &bs->io;
     size_t tocopy;
