@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.29 - TBD
+dr_flac - v0.12.29 - 2021-04-02
 
 David Reid - mackron@gmail.com
 
@@ -11851,7 +11851,7 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
-v0.12.29 - TBD
+v0.12.29 - 2021-04-02
   - Fix a bug where the running PCM frame index is set to an invalid value when over-seeking.
   - Fix a decoding error due to an incorrect validation check.
 
