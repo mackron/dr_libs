@@ -2077,18 +2077,7 @@ DRWAV_PRIVATE drwav_bool32 drwav__on_seek(drwav_seek_proc onSeek, void* pUserDat
 #define DRWAV_LIST_LABEL_OR_NOTE_BYTES      4
 #define DRWAV_LIST_LABELLED_TEXT_BYTES      20
 
-#ifdef __cplusplus
-template<typename T> struct drwav_alignof;
-template<typename T, int size_diff> struct drwav_helper{enum {value = size_diff};};
-template<typename T> struct drwav_helper<T,0>{enum {value = drwav_alignof<T>::value};};
-template<typename T> struct drwav_alignof{struct Big {T x; char c;}; enum {
-    diff = sizeof(Big) - sizeof(T), value = drwav_helper<Big, diff>::value};};
-#define DRWAV_ALIGNOF(t) (drwav_alignof<t>::value)
-#elif defined(_MSC_VER)
-#define DRWAV_ALIGNOF(t) (__alignof(t))
-#else
-#define DRWAV_ALIGNOF(t) ((char*)(&((struct {char c; t _h;}*)0)->_h) - (char*)0)
-#endif
+#define DRWAV_METADATA_ALIGNMENT            8
 
 typedef enum
 {
@@ -2208,7 +2197,7 @@ static drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_parser* pPa
         pMetadata->data.smpl.smpteOffset                    = drwav_bytes_to_u32(smplHeaderData + 24);
         pMetadata->data.smpl.sampleLoopCount                = drwav_bytes_to_u32(smplHeaderData + 28);
         pMetadata->data.smpl.samplerSpecificDataSizeInBytes = drwav_bytes_to_u32(smplHeaderData + 32);
-        pMetadata->data.smpl.pLoops                         = (drwav_smpl_loop*)drwav__metadata_get_memory(pParser, sizeof(drwav_smpl_loop) * pMetadata->data.smpl.sampleLoopCount, DRWAV_ALIGNOF(drwav_smpl_loop));
+        pMetadata->data.smpl.pLoops                         = (drwav_smpl_loop*)drwav__metadata_get_memory(pParser, sizeof(drwav_smpl_loop) * pMetadata->data.smpl.sampleLoopCount, DRWAV_METADATA_ALIGNMENT);
 
         for (iSampleLoop = 0; iSampleLoop < pMetadata->data.smpl.sampleLoopCount; ++iSampleLoop) {
             drwav_uint8 smplLoopData[DRWAV_SMPL_LOOP_BYTES];
@@ -2248,7 +2237,7 @@ static drwav_uint64 drwav__read_cue_to_metadata_obj(drwav__metadata_parser* pPar
     if (bytesJustRead == sizeof(cueHeaderSectionData)) {
         pMetadata->type                   = drwav_metadata_type_cue;
         pMetadata->data.cue.cuePointCount = drwav_bytes_to_u32(cueHeaderSectionData);
-        pMetadata->data.cue.pCuePoints    = (drwav_cue_point*)drwav__metadata_get_memory(pParser, sizeof(drwav_cue_point) * pMetadata->data.cue.cuePointCount, DRWAV_ALIGNOF(drwav_cue_point));
+        pMetadata->data.cue.pCuePoints    = (drwav_cue_point*)drwav__metadata_get_memory(pParser, sizeof(drwav_cue_point) * pMetadata->data.cue.cuePointCount, DRWAV_METADATA_ALIGNMENT);
         DRWAV_ASSERT(pMetadata->data.cue.pCuePoints != NULL);
 
         if (pMetadata->data.cue.cuePointCount > 0) {
@@ -2600,7 +2589,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser* pParse
                         drwav_uint32 samplerSpecificDataSizeInBytes = drwav_bytes_to_u32(buffer);
 
                         pParser->metadataCount += 1;
-                        drwav__metadata_request_extra_memory_for_stage_2(pParser, sizeof(drwav_smpl_loop) * loopCount, DRWAV_ALIGNOF(drwav_smpl_loop));
+                        drwav__metadata_request_extra_memory_for_stage_2(pParser, sizeof(drwav_smpl_loop) * loopCount, DRWAV_METADATA_ALIGNMENT);
                         drwav__metadata_request_extra_memory_for_stage_2(pParser, samplerSpecificDataSizeInBytes, 1);
                     }
                 }
@@ -2652,7 +2641,7 @@ static drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser* pParse
 
                 pParser->metadataCount += 1;
                 cueCount = (size_t)(pChunkHeader->sizeInBytes - DRWAV_CUE_BYTES) / DRWAV_CUE_POINT_BYTES;
-                drwav__metadata_request_extra_memory_for_stage_2(pParser, sizeof(drwav_cue_point) * cueCount, DRWAV_ALIGNOF(drwav_cue_point));
+                drwav__metadata_request_extra_memory_for_stage_2(pParser, sizeof(drwav_cue_point) * cueCount, DRWAV_METADATA_ALIGNMENT);
             } else {
                 bytesRead = drwav__read_cue_to_metadata_obj(pParser, &pParser->pMetadata[pParser->metadataCursor]);
                 if (bytesRead == pChunkHeader->sizeInBytes) {
