@@ -3,7 +3,7 @@
 #include <windows.h>
 #endif
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__DMC__)
 #else
 #include <strings.h>
 #endif
@@ -352,7 +352,7 @@ dr_bool32 dr_extension_equal(const char* path, const char* extension)
     ext1 = extension;
     ext2 = dr_extension(path);
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__DMC__)
     return _stricmp(ext1, ext2) == 0;
 #else
     return strcasecmp(ext1, ext2) == 0;
