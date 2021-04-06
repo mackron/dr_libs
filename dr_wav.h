@@ -883,7 +883,7 @@ typedef struct
 
 
     /* A bit-field of drwav_metadata_type values, only bits set in this variable are parsed and saved */
-    drwav_uint64 allowedMetadataTypes;
+    drwav_metadata_type allowedMetadataTypes;
 
     /* A array of metadata. This is valid after the *init_with_metadata call returns. It will be valid until drwav_uninit() is called. You can take ownership of this data with drwav_take_ownership_of_metadata(). */
     drwav_metadata* pMetadata;
@@ -933,7 +933,6 @@ onChunk                      [in, optional] The function to call when a chunk is
 pUserData, pReadSeekUserData [in, optional] A pointer to application defined data that will be passed to onRead and onSeek.
 pChunkUserData               [in, optional] A pointer to application defined data that will be passed to onChunk.
 flags                        [in, optional] A set of flags for controlling how things are loaded.
-allowedMetadataTypes         [in, optional] A bit-field of drwav_metadata_type values signifying which types of metadata you are interested in. After the function returns, the metadata can be read from the array pWav->metadata which has a size pWav->numMetadata. This metadata is a single heap allocation that is freed inside drwav_uninit(). However, you can take ownership of it with drwav_take_ownership_of_metadata().
 
 Returns true if successful; false otherwise.
 
@@ -956,8 +955,7 @@ See also: drwav_init_file(), drwav_init_memory(), drwav_uninit()
 DRWAV_API drwav_bool32 drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks);
 
-DRWAV_API drwav_bool32 drwav_init_with_metadata(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, const drwav_allocation_callbacks* pAllocationCallbacks, drwav_uint64 allowedMetadataTypes);
-DRWAV_API drwav_bool32 drwav_init_ex_with_metadata(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks, drwav_uint64 allowedMetadataTypes);
+DRWAV_API drwav_bool32 drwav_init_with_metadata(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Initializes a pre-allocated drwav object for writing.
@@ -3302,21 +3300,10 @@ DRWAV_API drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_
     return drwav_init__internal(pWav, onChunk, pChunkUserData, flags);
 }
 
-DRWAV_API drwav_bool32 drwav_init_with_metadata(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, const drwav_allocation_callbacks* pAllocationCallbacks, drwav_uint64 allowedMetadataTypes)
+DRWAV_API drwav_bool32 drwav_init_with_metadata(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks)
 {
-    pWav->allowedMetadataTypes = allowedMetadataTypes;
-    return drwav_init(pWav, onRead, onSeek, pUserData, pAllocationCallbacks);
-}
-
-DRWAV_API drwav_bool32 drwav_init_ex_with_metadata(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, drwav_chunk_proc onChunk, void* pReadSeekUserData, void* pChunkUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks, drwav_uint64 allowedMetadataTypes)
-{
-    if (!drwav_preinit(pWav, onRead, onSeek, pReadSeekUserData, pAllocationCallbacks)) {
-        return DRWAV_FALSE;
-    }
-
-    pWav->allowedMetadataTypes = allowedMetadataTypes;
-
-    return drwav_init__internal(pWav, onChunk, pChunkUserData, flags);
+    pWav->allowedMetadataTypes = drwav_metadata_type_all_including_unknown;   /* <-- Needs to be set to tell drwav_init_ex() that we need to process metadata. */
+    return drwav_init_ex(pWav, onRead, onSeek, NULL, pUserData, NULL, flags, pAllocationCallbacks);
 }
 
 DRWAV_API drwav_metadata* drwav_take_ownership_of_metadata(drwav* pWav)
