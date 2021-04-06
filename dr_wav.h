@@ -1199,6 +1199,10 @@ DRWAV_API drwav_bool32 drwav_init_file_ex(drwav* pWav, const char* filename, drw
 DRWAV_API drwav_bool32 drwav_init_file_w(drwav* pWav, const wchar_t* filename, const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav_bool32 drwav_init_file_ex_w(drwav* pWav, const wchar_t* filename, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks);
 
+DRWAV_API drwav_bool32 drwav_init_file_with_metadata(drwav* pWav, const char* filename, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API drwav_bool32 drwav_init_file_with_metadata_w(drwav* pWav, const wchar_t* filename, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks);
+
+
 /*
 Helper for initializing a wave file for writing using stdio.
 
@@ -1224,6 +1228,7 @@ The buffer should contain the contents of the entire wave file, not just the sam
 */
 DRWAV_API drwav_bool32 drwav_init_memory(drwav* pWav, const void* data, size_t dataSize, const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav_bool32 drwav_init_memory_ex(drwav* pWav, const void* data, size_t dataSize, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API drwav_bool32 drwav_init_memory_with_metadata(drwav* pWav, const void* data, size_t dataSize, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Helper for initializing a writer which outputs data to a memory buffer.
@@ -2124,7 +2129,7 @@ static drwav_uint8* drwav__metadata_get_memory(drwav__metadata_parser* pParser, 
     Getting to the point where this function is called means there should always be memory
     available. Out of memory checks should have been done at an earlier stage.
     */
-    DRWAV_ASSERT((pResult + size) > (pParser->pData + drwav__metadata_memory_capacity(pParser)));
+    DRWAV_ASSERT((pResult + size) <= (pParser->pData + drwav__metadata_memory_capacity(pParser)));
 
     pParser->pDataCursor += size;
     return pResult;
@@ -3033,8 +3038,8 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
     memset(&metadataParser, 0, sizeof(metadataParser));
 
     /* Not tested on W64. */
-    if (!sequential && pWav->allowedMetadataTypes && (pWav->container == drwav_container_riff || pWav->container == drwav_container_rf64)) {
-        drwav_uint64 cursor_for_metadata = cursor;
+    if (!sequential && pWav->allowedMetadataTypes != drwav_metadata_type_none && (pWav->container == drwav_container_riff || pWav->container == drwav_container_rf64)) {
+        drwav_uint64 cursorForMetadata = cursor;
 
         metadataParser.onRead = pWav->onRead;
         metadataParser.onSeek = pWav->onSeek;
@@ -3047,7 +3052,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             drwav_uint64 remainingBytes;
             drwav_chunk_header header;
             
-            result = drwav__read_chunk_header(pWav->onRead, pWav->pUserData, pWav->container, &cursor_for_metadata, &header);
+            result = drwav__read_chunk_header(pWav->onRead, pWav->pUserData, pWav->container, &cursorForMetadata, &header);
             if (result != DRWAV_SUCCESS) {
                 break;
             }
@@ -3059,7 +3064,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             if (!drwav__seek_forward(pWav->onSeek, remainingBytes, pWav->pUserData)) {
                 break;
             }
-            cursor_for_metadata += remainingBytes;
+            cursorForMetadata += remainingBytes;
         }
 
         if (!drwav__seek_from_start(pWav->onSeek, cursor, pWav->pUserData)) {
@@ -3106,7 +3111,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             }
         }
 
-        if (!sequential && pWav->allowedMetadataTypes && pWav->container == drwav_container_riff) {
+        if (!sequential && pWav->allowedMetadataTypes != drwav_metadata_type_none && (pWav->container == drwav_container_riff || pWav->container == drwav_container_rf64)) {
             drwav_uint64 bytesRead = drwav__metadata_process_chunk(&metadataParser, &header, pWav->allowedMetadataTypes);
 
             if (bytesRead > 0) {
@@ -3302,8 +3307,12 @@ DRWAV_API drwav_bool32 drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_
 
 DRWAV_API drwav_bool32 drwav_init_with_metadata(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks)
 {
+    if (!drwav_preinit(pWav, onRead, onSeek, pUserData, pAllocationCallbacks)) {
+        return DRWAV_FALSE;
+    }
+
     pWav->allowedMetadataTypes = drwav_metadata_type_all_including_unknown;   /* <-- Needs to be set to tell drwav_init_ex() that we need to process metadata. */
-    return drwav_init_ex(pWav, onRead, onSeek, NULL, pUserData, NULL, flags, pAllocationCallbacks);
+    return drwav_init__internal(pWav, NULL, NULL, flags);
 }
 
 DRWAV_API drwav_metadata* drwav_take_ownership_of_metadata(drwav* pWav)
@@ -4631,7 +4640,7 @@ DRWAV_API drwav_bool32 drwav_init_file(drwav* pWav, const char* filename, const 
 }
 
 
-DRWAV_PRIVATE drwav_bool32 drwav_init_file__internal_FILE(drwav* pWav, FILE* pFile, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks)
+DRWAV_PRIVATE drwav_bool32 drwav_init_file__internal_FILE(drwav* pWav, FILE* pFile, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags, drwav_metadata_type allowedMetadataTypes, const drwav_allocation_callbacks* pAllocationCallbacks)
 {
     drwav_bool32 result;
 
@@ -4640,6 +4649,8 @@ DRWAV_PRIVATE drwav_bool32 drwav_init_file__internal_FILE(drwav* pWav, FILE* pFi
         fclose(pFile);
         return result;
     }
+    
+    pWav->allowedMetadataTypes = allowedMetadataTypes;
 
     result = drwav_init__internal(pWav, onChunk, pChunkUserData, flags);
     if (result != DRWAV_TRUE) {
@@ -4658,7 +4669,7 @@ DRWAV_API drwav_bool32 drwav_init_file_ex(drwav* pWav, const char* filename, drw
     }
 
     /* This takes ownership of the FILE* object. */
-    return drwav_init_file__internal_FILE(pWav, pFile, onChunk, pChunkUserData, flags, pAllocationCallbacks);
+    return drwav_init_file__internal_FILE(pWav, pFile, onChunk, pChunkUserData, flags, drwav_metadata_type_none, pAllocationCallbacks);
 }
 
 DRWAV_API drwav_bool32 drwav_init_file_w(drwav* pWav, const wchar_t* filename, const drwav_allocation_callbacks* pAllocationCallbacks)
@@ -4674,7 +4685,29 @@ DRWAV_API drwav_bool32 drwav_init_file_ex_w(drwav* pWav, const wchar_t* filename
     }
 
     /* This takes ownership of the FILE* object. */
-    return drwav_init_file__internal_FILE(pWav, pFile, onChunk, pChunkUserData, flags, pAllocationCallbacks);
+    return drwav_init_file__internal_FILE(pWav, pFile, onChunk, pChunkUserData, flags, drwav_metadata_type_none, pAllocationCallbacks);
+}
+
+DRWAV_API drwav_bool32 drwav_init_file_with_metadata(drwav* pWav, const char* filename, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks)
+{
+    FILE* pFile;
+    if (drwav_fopen(&pFile, filename, "rb") != DRWAV_SUCCESS) {
+        return DRWAV_FALSE;
+    }
+
+    /* This takes ownership of the FILE* object. */
+    return drwav_init_file__internal_FILE(pWav, pFile, NULL, NULL, flags, drwav_metadata_type_all_including_unknown, pAllocationCallbacks);
+}
+
+DRWAV_API drwav_bool32 drwav_init_file_with_metadata_w(drwav* pWav, const wchar_t* filename, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks)
+{
+    FILE* pFile;
+    if (drwav_wfopen(&pFile, filename, L"rb", pAllocationCallbacks) != DRWAV_SUCCESS) {
+        return DRWAV_FALSE;
+    }
+
+    /* This takes ownership of the FILE* object. */
+    return drwav_init_file__internal_FILE(pWav, pFile, NULL, NULL, flags, drwav_metadata_type_all_including_unknown, pAllocationCallbacks);
 }
 
 
@@ -4898,6 +4931,25 @@ DRWAV_API drwav_bool32 drwav_init_memory_ex(drwav* pWav, const void* data, size_
     pWav->memoryStream.currentReadPos = 0;
 
     return drwav_init__internal(pWav, onChunk, pChunkUserData, flags);
+}
+
+DRWAV_API drwav_bool32 drwav_init_memory_with_metadata(drwav* pWav, const void* data, size_t dataSize, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks)
+{
+    if (data == NULL || dataSize == 0) {
+        return DRWAV_FALSE;
+    }
+
+    if (!drwav_preinit(pWav, drwav__on_read_memory, drwav__on_seek_memory, pWav, pAllocationCallbacks)) {
+        return DRWAV_FALSE;
+    }
+
+    pWav->memoryStream.data = (const drwav_uint8*)data;
+    pWav->memoryStream.dataSize = dataSize;
+    pWav->memoryStream.currentReadPos = 0;
+
+    pWav->allowedMetadataTypes = drwav_metadata_type_all_including_unknown;
+
+    return drwav_init__internal(pWav, NULL, NULL, flags);
 }
 
 
