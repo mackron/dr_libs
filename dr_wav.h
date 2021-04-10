@@ -3727,9 +3727,8 @@ DRWAV_PRIVATE size_t drwav__write_or_count_metadata(drwav* pWav, drwav_metadata*
 
                 case drwav_metadata_type_unknown:
                 {
-                    chunkSize += 8; /* for id and chunk size */
-
                     if (pMetadata->data.unknown.chunkLocation == drwav_metadata_location_inside_adtl_list) {
+                        chunkSize += 8; /* for id and chunk size */
                         chunkSize += pMetadata->data.unknown.dataSizeInBytes;
                     }
                 } break;
