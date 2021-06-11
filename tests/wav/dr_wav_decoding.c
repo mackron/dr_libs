@@ -316,7 +316,7 @@ drwav_result decode_test_file(const char* pFilePath)
     }
 
     /* Now load from dr_wav. */
-    if (!drwav_init_file(&wav, pFilePath, NULL)) {
+    if (!drwav_init_file_with_metadata(&wav, pFilePath, 0, NULL)) {
         printf("  Failed to open via dr_wav.");
         libsndfile_uninit(&libsndfile);
         return DRWAV_ERROR; /* Failed to load dr_wav decoder. */
