@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.12.20 - 2021-06-11
+dr_wav - v0.13.0 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -124,8 +124,8 @@ extern "C" {
 #define DRWAV_XSTRINGIFY(x)     DRWAV_STRINGIFY(x)
 
 #define DRWAV_VERSION_MAJOR     0
-#define DRWAV_VERSION_MINOR     12
-#define DRWAV_VERSION_REVISION  20
+#define DRWAV_VERSION_MINOR     13
+#define DRWAV_VERSION_REVISION  0
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -7474,193 +7474,16 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 #endif  /* DR_WAV_IMPLEMENTATION */
 
 /*
-RELEASE NOTES - v0.11.0
-=======================
-Version 0.11.0 has breaking API changes.
-
-Improved Client-Defined Memory Allocation
------------------------------------------
-The main change with this release is the addition of a more flexible way of implementing custom memory allocation routines. The
-existing system of DRWAV_MALLOC, DRWAV_REALLOC and DRWAV_FREE are still in place and will be used by default when no custom
-allocation callbacks are specified.
-
-To use the new system, you pass in a pointer to a drwav_allocation_callbacks object to drwav_init() and family, like this:
-
-    void* my_malloc(size_t sz, void* pUserData)
-    {
-        return malloc(sz);
-    }
-    void* my_realloc(void* p, size_t sz, void* pUserData)
-    {
-        return realloc(p, sz);
-    }
-    void my_free(void* p, void* pUserData)
-    {
-        free(p);
-    }
-
-    ...
-
-    drwav_allocation_callbacks allocationCallbacks;
-    allocationCallbacks.pUserData = &myData;
-    allocationCallbacks.onMalloc  = my_malloc;
-    allocationCallbacks.onRealloc = my_realloc;
-    allocationCallbacks.onFree    = my_free;
-    drwav_init_file(&wav, "my_file.wav", &allocationCallbacks);
-
-The advantage of this new system is that it allows you to specify user data which will be passed in to the allocation routines.
-
-Passing in null for the allocation callbacks object will cause dr_wav to use defaults which is the same as DRWAV_MALLOC,
-DRWAV_REALLOC and DRWAV_FREE and the equivalent of how it worked in previous versions.
-
-Every API that opens a drwav object now takes this extra parameter. These include the following:
-
-    drwav_init()
-    drwav_init_ex()
-    drwav_init_file()
-    drwav_init_file_ex()
-    drwav_init_file_w()
-    drwav_init_file_w_ex()
-    drwav_init_memory()
-    drwav_init_memory_ex()
-    drwav_init_write()
-    drwav_init_write_sequential()
-    drwav_init_write_sequential_pcm_frames()
-    drwav_init_file_write()
-    drwav_init_file_write_sequential()
-    drwav_init_file_write_sequential_pcm_frames()
-    drwav_init_file_write_w()
-    drwav_init_file_write_sequential_w()
-    drwav_init_file_write_sequential_pcm_frames_w()
-    drwav_init_memory_write()
-    drwav_init_memory_write_sequential()
-    drwav_init_memory_write_sequential_pcm_frames()
-    drwav_open_and_read_pcm_frames_s16()
-    drwav_open_and_read_pcm_frames_f32()
-    drwav_open_and_read_pcm_frames_s32()
-    drwav_open_file_and_read_pcm_frames_s16()
-    drwav_open_file_and_read_pcm_frames_f32()
-    drwav_open_file_and_read_pcm_frames_s32()
-    drwav_open_file_and_read_pcm_frames_s16_w()
-    drwav_open_file_and_read_pcm_frames_f32_w()
-    drwav_open_file_and_read_pcm_frames_s32_w()
-    drwav_open_memory_and_read_pcm_frames_s16()
-    drwav_open_memory_and_read_pcm_frames_f32()
-    drwav_open_memory_and_read_pcm_frames_s32()
-
-Endian Improvements
--------------------
-Previously, the following APIs returned little-endian audio data. These now return native-endian data. This improves compatibility
-on big-endian architectures.
-
-    drwav_read_pcm_frames()
-    drwav_read_pcm_frames_s16()
-    drwav_read_pcm_frames_s32()
-    drwav_read_pcm_frames_f32()
-    drwav_open_and_read_pcm_frames_s16()
-    drwav_open_and_read_pcm_frames_s32()
-    drwav_open_and_read_pcm_frames_f32()
-    drwav_open_file_and_read_pcm_frames_s16()
-    drwav_open_file_and_read_pcm_frames_s32()
-    drwav_open_file_and_read_pcm_frames_f32()
-    drwav_open_file_and_read_pcm_frames_s16_w()
-    drwav_open_file_and_read_pcm_frames_s32_w()
-    drwav_open_file_and_read_pcm_frames_f32_w()
-    drwav_open_memory_and_read_pcm_frames_s16()
-    drwav_open_memory_and_read_pcm_frames_s32()
-    drwav_open_memory_and_read_pcm_frames_f32()
-
-APIs have been added to give you explicit control over whether or not audio data is read or written in big- or little-endian byte
-order:
-
-    drwav_read_pcm_frames_le()
-    drwav_read_pcm_frames_be()
-    drwav_read_pcm_frames_s16le()
-    drwav_read_pcm_frames_s16be()
-    drwav_read_pcm_frames_f32le()
-    drwav_read_pcm_frames_f32be()
-    drwav_read_pcm_frames_s32le()
-    drwav_read_pcm_frames_s32be()
-    drwav_write_pcm_frames_le()
-    drwav_write_pcm_frames_be()
-
-Removed APIs
-------------
-The following APIs were deprecated in version 0.10.0 and have now been removed:
-
-    drwav_open()
-    drwav_open_ex()
-    drwav_open_write()
-    drwav_open_write_sequential()
-    drwav_open_file()
-    drwav_open_file_ex()
-    drwav_open_file_write()
-    drwav_open_file_write_sequential()
-    drwav_open_memory()
-    drwav_open_memory_ex()
-    drwav_open_memory_write()
-    drwav_open_memory_write_sequential()
-    drwav_close()
-
-
-
-RELEASE NOTES - v0.10.0
-=======================
-Version 0.10.0 has breaking API changes. There are no significant bug fixes in this release, so if you are affected you do
-not need to upgrade.
-
-Removed APIs
-------------
-The following APIs were deprecated in version 0.9.0 and have been completely removed in version 0.10.0:
-
-    drwav_read()
-    drwav_read_s16()
-    drwav_read_f32()
-    drwav_read_s32()
-    drwav_seek_to_sample()
-    drwav_write()
-    drwav_open_and_read_s16()
-    drwav_open_and_read_f32()
-    drwav_open_and_read_s32()
-    drwav_open_file_and_read_s16()
-    drwav_open_file_and_read_f32()
-    drwav_open_file_and_read_s32()
-    drwav_open_memory_and_read_s16()
-    drwav_open_memory_and_read_f32()
-    drwav_open_memory_and_read_s32()
-    drwav::totalSampleCount
-
-See release notes for version 0.9.0 at the bottom of this file for replacement APIs.
-
-Deprecated APIs
----------------
-The following APIs have been deprecated. There is a confusing and completely arbitrary difference between drwav_init*() and
-drwav_open*(), where drwav_init*() initializes a pre-allocated drwav object, whereas drwav_open*() will first allocated a
-drwav object on the heap and then initialize it. drwav_open*() has been deprecated which means you must now use a pre-
-allocated drwav object with drwav_init*(). If you need the previous functionality, you can just do a malloc() followed by
-a called to one of the drwav_init*() APIs.
-
-    drwav_open()
-    drwav_open_ex()
-    drwav_open_write()
-    drwav_open_write_sequential()
-    drwav_open_file()
-    drwav_open_file_ex()
-    drwav_open_file_write()
-    drwav_open_file_write_sequential()
-    drwav_open_memory()
-    drwav_open_memory_ex()
-    drwav_open_memory_write()
-    drwav_open_memory_write_sequential()
-    drwav_close()
-
-These APIs will be removed completely in a future version. The rationale for this change is to remove confusion between the
-two different ways to initialize a drwav object.
-*/
-
-/*
 REVISION HISTORY
 ================
+v0.13.0 - TBD
+  - Improve support for reading and writing metadata. Use the `_with_metadata()` APIs to initialize
+    a WAV decoder and store the metadata within the `drwav` object. Use the `pMetadata` and
+    `metadataCount` members of the `drwav` object to read the data. The old way of handling metadata
+    via a callback is still usable and valid.
+  - API CHANGE: drwav_target_write_size_bytes() now takes extra parameters for calculating the
+    required write size when writing metadata.
+
 v0.12.20 - 2021-06-11
   - Fix some undefined behavior.
 
