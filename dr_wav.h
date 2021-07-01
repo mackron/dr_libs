@@ -852,6 +852,9 @@ typedef struct
     /* The number of bytes remaining in the data chunk. */
     drwav_uint64 bytesRemaining;
 
+    /* The current read position in PCM frames. */
+    drwav_uint64 readCursorInPCMFrames;
+
 
     /*
     Only used in sequential write mode. Keeps track of the desired size of the "data" chunk at the point of initialization time. Always
@@ -875,11 +878,6 @@ typedef struct
     drwav__memory_stream memoryStream;
     drwav__memory_stream_write memoryStreamWrite;
 
-    /* Generic data for compressed formats. This data is shared across all block-compressed formats. */
-    struct
-    {
-        drwav_uint64 iCurrentPCMFrame;  /* The index of the next PCM frame that will be read by drwav_read_*(). This is used with "totalPCMFrameCount" to ensure we don't read excess samples at the end of the last block. */
-    } compressed;
 
     /* Microsoft ADPCM specific data. */
     struct
@@ -1033,6 +1031,16 @@ Seeks to the given PCM frame.
 Returns true if successful; false otherwise.
 */
 DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetFrameIndex);
+
+/*
+Retrieves the current read position in pcm frames.
+*/
+DRWAV_API drwav_result drwav_get_cursor_in_pcm_frames(drwav* pWav, drwav_uint64* pCursor);
+
+/*
+Retrieves the length of the file.
+*/
+DRWAV_API drwav_result drwav_get_length_in_pcm_frames(drwav* pWav, drwav_uint64* pLength);
 
 
 /*
@@ -5109,11 +5117,15 @@ DRWAV_API size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOu
     size_t bytesRead;
 
     if (pWav == NULL || bytesToRead == 0) {
-        return 0;
+        return 0;   /* Invalid args. */
     }
 
     if (bytesToRead > pWav->bytesRemaining) {
         bytesToRead = (size_t)pWav->bytesRemaining;
+    }
+
+    if (bytesToRead == 0) {
+        return 0;   /* At end. */
     }
 
     if (pBufferOut != NULL) {
@@ -5151,6 +5163,8 @@ DRWAV_API size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOu
             }
         }
     }
+
+    pWav->readCursorInPCMFrames += bytesRead / drwav_get_bytes_per_pcm_frame(pWav);
 
     pWav->bytesRemaining -= bytesRead;
     return bytesRead;
@@ -5227,8 +5241,6 @@ DRWAV_PRIVATE drwav_bool32 drwav_seek_to_first_pcm_frame(drwav* pWav)
     }
 
     if (drwav__is_compressed_format_tag(pWav->translatedFormatTag)) {
-        pWav->compressed.iCurrentPCMFrame = 0;
-
         /* Cached data needs to be cleared for compressed formats. */
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
             DRWAV_ZERO_OBJECT(&pWav->msadpcm);
@@ -5239,7 +5251,9 @@ DRWAV_PRIVATE drwav_bool32 drwav_seek_to_first_pcm_frame(drwav* pWav)
         }
     }
 
+    pWav->readCursorInPCMFrames = 0;
     pWav->bytesRemaining = pWav->dataChunkDataSize;
+
     return DRWAV_TRUE;
 }
 
@@ -5277,14 +5291,14 @@ DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetF
         If we're seeking forward it's simple - just keep reading samples until we hit the sample we're requesting. If we're seeking backwards,
         we first need to seek back to the start and then just do the same thing as a forward seek.
         */
-        if (targetFrameIndex < pWav->compressed.iCurrentPCMFrame) {
+        if (targetFrameIndex < pWav->readCursorInPCMFrames) {
             if (!drwav_seek_to_first_pcm_frame(pWav)) {
                 return DRWAV_FALSE;
             }
         }
 
-        if (targetFrameIndex > pWav->compressed.iCurrentPCMFrame) {
-            drwav_uint64 offsetInFrames = targetFrameIndex - pWav->compressed.iCurrentPCMFrame;
+        if (targetFrameIndex > pWav->readCursorInPCMFrames) {
+            drwav_uint64 offsetInFrames = targetFrameIndex - pWav->readCursorInPCMFrames;
 
             drwav_int16 devnull[2048];
             while (offsetInFrames > 0) {
@@ -5338,12 +5352,47 @@ DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetF
                 return DRWAV_FALSE;
             }
 
-            pWav->bytesRemaining -= offset32;
-            offset -= offset32;
+            pWav->readCursorInPCMFrames += offset32 / drwav_get_bytes_per_pcm_frame(pWav);
+            pWav->bytesRemaining        -= offset32;
+            offset                      -= offset32;
         }
     }
 
     return DRWAV_TRUE;
+}
+
+DRWAV_API drwav_result drwav_get_cursor_in_pcm_frames(drwav* pWav, drwav_uint64* pCursor)
+{
+    if (pCursor == NULL) {
+        return DRWAV_INVALID_ARGS;
+    }
+
+    *pCursor = 0;   /* Safety. */
+
+    if (pWav == NULL) {
+        return DRWAV_INVALID_ARGS;
+    }
+
+    *pCursor = pWav->readCursorInPCMFrames;
+
+    return DRWAV_SUCCESS;
+}
+
+DRWAV_API drwav_result drwav_get_length_in_pcm_frames(drwav* pWav, drwav_uint64* pLength)
+{
+    if (pLength == NULL) {
+        return DRWAV_INVALID_ARGS;
+    }
+
+    *pLength = 0;   /* Safety. */
+
+    if (pWav == NULL) {
+        return DRWAV_INVALID_ARGS;
+    }
+
+    *pLength = pWav->totalPCMFrameCount;
+
+    return DRWAV_SUCCESS;
 }
 
 
@@ -5474,7 +5523,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
 
     /* TODO: Lots of room for optimization here. */
 
-    while (pWav->compressed.iCurrentPCMFrame < pWav->totalPCMFrameCount) {
+    while (pWav->readCursorInPCMFrames < pWav->totalPCMFrameCount) {
         DRWAV_ASSERT(framesToRead > 0); /* This loop iteration will never get hit with framesToRead == 0 because it's asserted at the top, and we check for 0 inside the loop just below. */
 
         /* If there are no cached frames we need to load a new block. */
@@ -5520,7 +5569,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
         }
 
         /* Output anything that's cached. */
-        while (framesToRead > 0 && pWav->msadpcm.cachedFrameCount > 0 && pWav->compressed.iCurrentPCMFrame < pWav->totalPCMFrameCount) {
+        while (framesToRead > 0 && pWav->msadpcm.cachedFrameCount > 0 && pWav->readCursorInPCMFrames < pWav->totalPCMFrameCount) {
             if (pBufferOut != NULL) {
                 drwav_uint32 iSample = 0;
                 for (iSample = 0; iSample < pWav->channels; iSample += 1) {
@@ -5532,7 +5581,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
 
             framesToRead    -= 1;
             totalFramesRead += 1;
-            pWav->compressed.iCurrentPCMFrame += 1;
+            pWav->readCursorInPCMFrames += 1;
             pWav->msadpcm.cachedFrameCount -= 1;
         }
 
@@ -5674,7 +5723,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
 
     /* TODO: Lots of room for optimization here. */
 
-    while (pWav->compressed.iCurrentPCMFrame < pWav->totalPCMFrameCount) {
+    while (pWav->readCursorInPCMFrames < pWav->totalPCMFrameCount) {
         DRWAV_ASSERT(framesToRead > 0); /* This loop iteration will never get hit with framesToRead == 0 because it's asserted at the top, and we check for 0 inside the loop just below. */
 
         /* If there are no cached samples we need to load a new block. */
@@ -5723,7 +5772,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
         }
 
         /* Output anything that's cached. */
-        while (framesToRead > 0 && pWav->ima.cachedFrameCount > 0 && pWav->compressed.iCurrentPCMFrame < pWav->totalPCMFrameCount) {
+        while (framesToRead > 0 && pWav->ima.cachedFrameCount > 0 && pWav->readCursorInPCMFrames < pWav->totalPCMFrameCount) {
             if (pBufferOut != NULL) {
                 drwav_uint32 iSample;
                 for (iSample = 0; iSample < pWav->channels; iSample += 1) {
@@ -5734,7 +5783,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
 
             framesToRead    -= 1;
             totalFramesRead += 1;
-            pWav->compressed.iCurrentPCMFrame += 1;
+            pWav->readCursorInPCMFrames += 1;
             pWav->ima.cachedFrameCount -= 1;
         }
 
@@ -7483,6 +7532,9 @@ v0.13.0 - TBD
     via a callback is still usable and valid.
   - API CHANGE: drwav_target_write_size_bytes() now takes extra parameters for calculating the
     required write size when writing metadata.
+  - Add drwav_get_cursor_in_pcm_frames()
+  - Add drwav_get_length_in_pcm_frames()
+  - Fix a bug where drwav_read_raw() can call the read callback with a byte count of zero.
 
 v0.12.20 - 2021-06-11
   - Fix some undefined behavior.
