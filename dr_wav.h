@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.0 - TBD
+dr_wav - v0.13.0 - 2021-07-01
 
 David Reid - mackron@gmail.com
 
@@ -7525,7 +7525,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
-v0.13.0 - TBD
+v0.13.0 - 2021-07-01
   - Improve support for reading and writing metadata. Use the `_with_metadata()` APIs to initialize
     a WAV decoder and store the metadata within the `drwav` object. Use the `pMetadata` and
     `metadataCount` members of the `drwav` object to read the data. The old way of handling metadata
