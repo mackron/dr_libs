@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.0 - 2021-07-01
+dr_wav - v0.13.1 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -125,7 +125,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     13
-#define DRWAV_VERSION_REVISION  0
+#define DRWAV_VERSION_REVISION  1
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -154,7 +154,7 @@ typedef unsigned int            drwav_uint32;
         #pragma GCC diagnostic pop
     #endif
 #endif
-#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__)) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(__powerpc64__)
+#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__)) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(_M_ARM64) || defined(__powerpc64__)
     typedef drwav_uint64        drwav_uintptr;
 #else
     typedef drwav_uint32        drwav_uintptr;
@@ -7525,6 +7525,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.13.1 - TBD
+  - Fix platform detection for ARM64.
+
 v0.13.0 - 2021-07-01
   - Improve support for reading and writing metadata. Use the `_with_metadata()` APIs to initialize
     a WAV decoder and store the metadata within the `drwav` object. Use the `pMetadata` and
