@@ -701,7 +701,7 @@ static int drmp3_have_simd(void)
 
 #if defined(__ARM_ARCH) && (__ARM_ARCH >= 6) && !defined(__aarch64__) && !defined(_M_ARM64)
 #define DRMP3_HAVE_ARMV6 1
-static __inline__ __attribute__((always_inline)) drmp3_int32 drmp3_clip_int16_arm(int32_t a)
+static __inline__ __attribute__((always_inline)) drmp3_int32 drmp3_clip_int16_arm(drmp3_int32 a)
 {
     drmp3_int32 x = 0;
     __asm__ ("ssat %0, #16, %1" : "=r"(x) : "r"(a));
