@@ -33,7 +33,8 @@ drwav_result libsndfile_init_api()
     #endif
         "libsndfile-1.dll"
 #else
-        "libsndfile-1.so"
+        "libsndfile-1.so",
+        "libsndfile.so.1"
 #endif
     };
 
