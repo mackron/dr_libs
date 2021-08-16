@@ -2296,8 +2296,8 @@ DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const drmp3_uint8 *mp3, int m
             drmp3dec_init(dec);
             return 0;
         }
-        success = drmp3_L3_restore_reservoir(dec, bs_frame, &scratch, main_data_begin);
-        if (success && pcm != NULL)
+        int result = drmp3_L3_restore_reservoir(dec, bs_frame, &scratch, main_data_begin);
+        if (result && pcm != NULL)
         {
             for (igr = 0; igr < (DRMP3_HDR_TEST_MPEG1(hdr) ? 2 : 1); igr++, pcm = DRMP3_OFFSET_PTR(pcm, sizeof(drmp3d_sample_t)*576*info->channels))
             {
