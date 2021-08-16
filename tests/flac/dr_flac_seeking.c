@@ -1,6 +1,8 @@
 /*#define DR_FLAC_NO_CRC*/
 #include "dr_flac_common.c"
 
+#include <limits.h> /* For INT_MAX */
+
 #define PROFILING_NAME_WIDTH    40
 #define PROFILING_NUMBER_WIDTH  10
 #define PROFILING_NUMBER_MARGIN 2
@@ -132,6 +134,7 @@ drflac_result seek_test_file(const char* pFilePath)
     drflac* pFlac;
     drflac_uint32 iteration;
     drflac_uint32 totalIterationCount = 10;
+    int randPCMFrameMax;
 
     dr_printf_fixed_with_margin(PROFILING_NAME_WIDTH, PROFILING_NUMBER_MARGIN, "%s", dr_path_file_name(pFilePath));
 
@@ -167,15 +170,16 @@ drflac_result seek_test_file(const char* pFilePath)
 
     /* Now we'll try seeking to random locations. */
     dr_seed(1234);
+    randPCMFrameMax = (libflac.pcmFrameCount > (drflac_uint64)INT_MAX) ? INT_MAX : (int)libflac.pcmFrameCount;
 
     iteration = 0;
     while (result == DRFLAC_SUCCESS && iteration < totalIterationCount) {
-        int targetPCMFrame = dr_rand_range_s32(0, (int)libflac.pcmFrameCount);
+        drflac_uint64 targetPCMFrame = (drflac_uint64)dr_rand_range_s32(0, randPCMFrameMax);
         if (targetPCMFrame > libflac.pcmFrameCount) {
             DRFLAC_ASSERT(DRFLAC_FALSE);    /* Should never hit this, but if we do it means our random number generation routine is wrong. */
         }
 
-        result = seek_test_pcm_frame(&libflac, pFlac, (drflac_uint64)targetPCMFrame);
+        result = seek_test_pcm_frame(&libflac, pFlac, targetPCMFrame);
         iteration += 1;
     }
 
@@ -235,6 +239,7 @@ drflac_result seek_profiling_drflac_and_close(drflac* pFlac, double* pProcessing
 {
     drflac_result result = DRFLAC_SUCCESS;
     int i;
+    int randPCMFrameMax;
 
     if (pFlac == NULL) {
         result = DRFLAC_INVALID_ARGS;
@@ -256,10 +261,11 @@ drflac_result seek_profiling_drflac_and_close(drflac* pFlac, double* pProcessing
     /* Random seek points based on a seed. */
     dr_seed(1234);
     /*dr_seed(4321);*/
+    randPCMFrameMax = (pFlac->totalPCMFrameCount > (drflac_uint64)INT_MAX) ? INT_MAX : pFlac->totalPCMFrameCount;
     for (i = 0; i < 100; ++i) {
         double startTime;
         double endTime;
-        int targetPCMFrame = dr_rand_range_s32(0, (int)pFlac->totalPCMFrameCount);
+        drflac_uint64 targetPCMFrame = (drflac_uint64)dr_rand_range_s32(0, randPCMFrameMax);
 
         startTime = dr_timer_now();
         {
