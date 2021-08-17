@@ -2250,7 +2250,7 @@ DRMP3_API void drmp3dec_init(drmp3dec *dec)
 
 DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const drmp3_uint8 *mp3, int mp3_bytes, void *pcm, drmp3dec_frame_info *info)
 {
-    int i = 0, igr, frame_size = 0, success = 1, result = 0;
+    int i = 0, igr, frame_size = 0, success = 1;
     const drmp3_uint8 *hdr;
     drmp3_bs bs_frame[1];
     drmp3dec_scratch scratch;
@@ -2291,6 +2291,7 @@ DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const drmp3_uint8 *mp3, int m
     if (info->layer == 3)
     {
         int main_data_begin = drmp3_L3_read_side_info(bs_frame, scratch.gr_info, hdr);
+        int result;
         if (main_data_begin < 0 || bs_frame->pos > bs_frame->limit)
         {
             drmp3dec_init(dec);
