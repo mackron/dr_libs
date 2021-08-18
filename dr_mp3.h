@@ -2767,12 +2767,22 @@ static drmp3_uint32 drmp3_decode_next_frame_ex__memory(drmp3* pMP3, drmp3d_sampl
         return 0;
     }
 
-    pcmFramesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->memory.pData + pMP3->memory.currentReadPos, (int)(pMP3->memory.dataSize - pMP3->memory.currentReadPos), pPCMFrames, &info);
-    if (pcmFramesRead > 0) {
-        pMP3->pcmFramesConsumedInMP3Frame  = 0;
-        pMP3->pcmFramesRemainingInMP3Frame = pcmFramesRead;
-        pMP3->mp3FrameChannels             = info.channels;
-        pMP3->mp3FrameSampleRate           = info.hz;
+    for (;;) {
+        pcmFramesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->memory.pData + pMP3->memory.currentReadPos, (int)(pMP3->memory.dataSize - pMP3->memory.currentReadPos), pPCMFrames, &info);
+        if (pcmFramesRead > 0) {
+            pcmFramesRead = drmp3_hdr_frame_samples(pMP3->decoder.header);
+            pMP3->pcmFramesConsumedInMP3Frame  = 0;
+            pMP3->pcmFramesRemainingInMP3Frame = pcmFramesRead;
+            pMP3->mp3FrameChannels             = info.channels;
+            pMP3->mp3FrameSampleRate           = info.hz;
+            break;
+        } else if (info.frame_bytes > 0) {
+            /* No frames were read, but it looks like we skipped past one. Read the next MP3 frame. */
+            pMP3->memory.currentReadPos += (size_t)info.frame_bytes;
+        } else {
+            /* Nothing at all was read. Abort. */
+            break;
+        }
     }
 
     /* Consume the data. */
@@ -2835,7 +2845,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
     }
 
     /* Decode the first frame to confirm that it is indeed a valid MP3 stream. */
-    if (!drmp3_decode_next_frame(pMP3)) {
+    if (drmp3_decode_next_frame(pMP3) == 0) {
         drmp3__free_from_callbacks(pMP3->pData, &pMP3->allocationCallbacks);    /* The call above may have allocated memory. Need to make sure it's freed before aborting. */
         return DRMP3_FALSE; /* Not a valid MP3 stream. */
     }
