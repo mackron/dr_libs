@@ -13,7 +13,7 @@ endif()
 # project parameters
 set(project_name dr_libs)
 set(project_version "0.13.2")
-set(C_STANDARD 99)
+set(C_STANDARD 11)
 
 project(${project_name} VERSION "${project_version}")
 
