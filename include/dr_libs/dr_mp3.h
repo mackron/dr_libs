@@ -24,10 +24,9 @@ extern "C" {
 #define DRMP3_VERSION_MAJOR 0
 #define DRMP3_VERSION_MINOR 6
 #define DRMP3_VERSION_REVISION 31
-#define DRMP3_VERSION_STRING                                                   \
-  DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR)                                        \
-  "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(              \
-      DRMP3_VERSION_REVISION)
+#define DRMP3_VERSION_STRING                                                                       \
+  DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR)                                                            \
+  "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
 #include <stdbool.h> /* For true and false. */
 #include <stddef.h>  /* For size_t. */
@@ -146,9 +145,8 @@ need to use "__inline__". In an attempt to work around this issue I am using
 #define DRMP3_INLINE
 #endif
 
-DRMP3_API void drmp3_version(uint32_t *pMajor, uint32_t *pMinor,
-                             uint32_t *pRevision);
-DRMP3_API const char *drmp3_version_string(void);
+DRMP3_API void drmp3_version(uint32_t* pMajor, uint32_t* pMinor, uint32_t* pRevision);
+DRMP3_API const char* drmp3_version_string(void);
 
 /*
 Low Level Push API
@@ -165,35 +163,28 @@ typedef struct {
 } drmp3dec;
 
 /* Initializes a low level decoder. */
-DRMP3_API void drmp3dec_init(drmp3dec *dec);
+DRMP3_API void drmp3dec_init(drmp3dec* dec);
 
 /* Reads a frame from a low level decoder. */
-DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const uint8_t *mp3,
-                                    int mp3_bytes, void *pcm,
-                                    drmp3dec_frame_info *info);
+DRMP3_API int drmp3dec_decode_frame(drmp3dec* dec, const uint8_t* mp3, int mp3_bytes, void* pcm,
+                                    drmp3dec_frame_info* info);
 
 /* Helper for converting between f32 and s16. */
-DRMP3_API void drmp3dec_f32_to_s16(const float *in, int16_t *out,
-                                   size_t num_samples);
+DRMP3_API void drmp3dec_f32_to_s16(const float* in, int16_t* out, size_t num_samples);
 
 /*
 Main API (Pull API)
 ===================
 */
-typedef enum {
-  drmp3_seek_origin_start,
-  drmp3_seek_origin_current
-} drmp3_seek_origin;
+typedef enum { drmp3_seek_origin_start, drmp3_seek_origin_current } drmp3_seek_origin;
 
 typedef struct {
-  uint64_t seekPosInBytes; /* Points to the first byte of an MP3 frame. */
-  uint64_t
-      pcmFrameIndex; /* The index of the PCM frame this seek point targets. */
+  uint64_t seekPosInBytes;     /* Points to the first byte of an MP3 frame. */
+  uint64_t pcmFrameIndex;      /* The index of the PCM frame this seek point targets. */
   uint16_t mp3FramesToDiscard; /* The number of whole MP3 frames to be
                                       discarded before pcmFramesToDiscard. */
-  uint16_t
-      pcmFramesToDiscard; /* The number of leading samples to read and discard.
-                             These are discarded after mp3FramesToDiscard. */
+  uint16_t pcmFramesToDiscard; /* The number of leading samples to read and discard.
+                                  These are discarded after mp3FramesToDiscard. */
 } drmp3_seek_point;
 
 /*
@@ -210,8 +201,7 @@ A return value of less than bytesToRead indicates the end of the stream. Do
 _not_ return from this callback until either the entire bytesToRead is filled or
 you have reached the end of the stream.
 */
-typedef size_t (*drmp3_read_proc)(void *pUserData, void *pBufferOut,
-                                  size_t bytesToRead);
+typedef size_t (*drmp3_read_proc)(void* pUserData, void* pBufferOut, size_t bytesToRead);
 
 /*
 Callback for when data needs to be seeked.
@@ -227,14 +217,13 @@ Whether or not it is relative to the beginning or current position is determined
 by the "origin" parameter which will be either drmp3_seek_origin_start or
 drmp3_seek_origin_current.
 */
-typedef bool (*drmp3_seek_proc)(void *pUserData, int offset,
-                                drmp3_seek_origin origin);
+typedef bool (*drmp3_seek_proc)(void* pUserData, int offset, drmp3_seek_origin origin);
 
 typedef struct {
-  void *pUserData;
-  void *(*onMalloc)(size_t sz, void *pUserData);
-  void *(*onRealloc)(void *p, size_t sz, void *pUserData);
-  void (*onFree)(void *p, void *pUserData);
+  void* pUserData;
+  void* (*onMalloc)(size_t sz, void* pUserData);
+  void* (*onRealloc)(void* p, size_t sz, void* pUserData);
+  void (*onFree)(void* p, void* pUserData);
 } drmp3_allocation_callbacks;
 
 typedef struct {
@@ -249,7 +238,7 @@ typedef struct {
   uint32_t sampleRate;
   drmp3_read_proc onRead;
   drmp3_seek_proc onSeek;
-  void *pUserData;
+  void* pUserData;
   drmp3_allocation_callbacks allocationCallbacks;
   uint32_t mp3FrameChannels;   /* The number of channels in the currently
                                       loaded MP3 frame. Internal use only. */
@@ -257,28 +246,25 @@ typedef struct {
                                       MP3 frame. Internal use only. */
   uint32_t pcmFramesConsumedInMP3Frame;
   uint32_t pcmFramesRemainingInMP3Frame;
-  uint8_t
-      pcmFrames[sizeof(float) *
-                DRMP3_MAX_SAMPLES_PER_FRAME]; /* <-- Multipled by sizeof(float)
-                                                 to ensure there's enough room
-                                                 for DR_MP3_FLOAT_OUTPUT. */
-  uint64_t currentPCMFrame; /* The current PCM frame, globally, based on the
-                               output sample rate. Mainly used for seeking. */
-  uint64_t streamCursor;    /* The current byte the decoder is sitting on in
-                                   the raw stream. */
-  drmp3_seek_point
-      *pSeekPoints; /* NULL by default. Set with drmp3_bind_seek_table(). Memory
-                       is owned by the client. dr_mp3 will never attempt to free
-                       this pointer. */
-  uint32_t seekPointCount; /* The number of items in pSeekPoints. When set to 0
-                              assumes to no seek table. Defaults to zero. */
+  uint8_t pcmFrames[sizeof(float) * DRMP3_MAX_SAMPLES_PER_FRAME]; /* <-- Multipled by sizeof(float)
+                                                                     to ensure there's enough room
+                                                                     for DR_MP3_FLOAT_OUTPUT. */
+  uint64_t currentPCMFrame;      /* The current PCM frame, globally, based on the
+                                    output sample rate. Mainly used for seeking. */
+  uint64_t streamCursor;         /* The current byte the decoder is sitting on in
+                                        the raw stream. */
+  drmp3_seek_point* pSeekPoints; /* NULL by default. Set with drmp3_bind_seek_table(). Memory
+                                    is owned by the client. dr_mp3 will never attempt to free
+                                    this pointer. */
+  uint32_t seekPointCount;       /* The number of items in pSeekPoints. When set to 0
+                                    assumes to no seek table. Defaults to zero. */
   size_t dataSize;
   size_t dataCapacity;
   size_t dataConsumed;
-  uint8_t *pData;
+  uint8_t* pData;
   bool atEnd : 1;
   struct {
-    const uint8_t *pData;
+    const uint8_t* pData;
     size_t dataSize;
     size_t currentReadPos;
   } memory; /* Only used for decoders that were opened against a block of
@@ -299,10 +285,8 @@ Close the loader with drmp3_uninit().
 
 See also: drmp3_init_file(), drmp3_init_memory(), drmp3_uninit()
 */
-DRMP3_API drmp3 *
-drmp3_init(drmp3_read_proc onRead, drmp3_seek_proc onSeek,
-           void *pUserData,
-           const drmp3_allocation_callbacks *pAllocationCallbacks);
+DRMP3_API drmp3* drmp3_init(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData,
+                            const drmp3_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Initializes an MP3 decoder from a block of memory.
@@ -312,9 +296,8 @@ the buffer remains valid for the lifetime of the drmp3 object.
 
 The buffer should contain the contents of the entire MP3 file.
 */
-DRMP3_API drmp3 *
-drmp3_init_memory(const void *pData, size_t dataSize,
-                  const drmp3_allocation_callbacks *pAllocationCallbacks);
+DRMP3_API drmp3* drmp3_init_memory(const void* pData, size_t dataSize,
+                                   const drmp3_allocation_callbacks* pAllocationCallbacks);
 
 #ifndef DR_MP3_NO_STDIO
 /*
@@ -324,18 +307,16 @@ This holds the internal FILE object until drmp3_uninit() is called. Keep this in
 mind if you're caching drmp3 objects because the operating system may restrict
 the number of file handles an application can have open at any given time.
 */
-DRMP3_API drmp3 *
-drmp3_init_file(const char *pFilePath,
-                const drmp3_allocation_callbacks *pAllocationCallbacks);
-DRMP3_API drmp3 *
-drmp3_init_file_w(const wchar_t *pFilePath,
-                  const drmp3_allocation_callbacks *pAllocationCallbacks);
+DRMP3_API drmp3* drmp3_init_file(const char* pFilePath,
+                                 const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API drmp3* drmp3_init_file_w(const wchar_t* pFilePath,
+                                   const drmp3_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
 Uninitializes an MP3 decoder.
 */
-DRMP3_API void drmp3_uninit(drmp3 *pMP3);
+DRMP3_API void drmp3_uninit(drmp3* pMP3);
 
 /*
 Reads PCM frames as interleaved 32-bit IEEE floating point PCM.
@@ -343,8 +324,7 @@ Reads PCM frames as interleaved 32-bit IEEE floating point PCM.
 Note that framesToRead specifies the number of PCM frames to read, _not_ the
 number of MP3 frames.
 */
-DRMP3_API uint64_t drmp3_read_pcm_frames_f32(drmp3 *pMP3, uint64_t framesToRead,
-                                             float *pBufferOut);
+DRMP3_API uint64_t drmp3_read_pcm_frames_f32(drmp3* pMP3, uint64_t framesToRead, float* pBufferOut);
 
 /*
 Reads PCM frames as interleaved signed 16-bit integer PCM.
@@ -352,29 +332,29 @@ Reads PCM frames as interleaved signed 16-bit integer PCM.
 Note that framesToRead specifies the number of PCM frames to read, _not_ the
 number of MP3 frames.
 */
-DRMP3_API uint64_t drmp3_read_pcm_frames_s16(drmp3 *pMP3, uint64_t framesToRead,
-                                             int16_t *pBufferOut);
+DRMP3_API uint64_t drmp3_read_pcm_frames_s16(drmp3* pMP3, uint64_t framesToRead,
+                                             int16_t* pBufferOut);
 
 /*
 Seeks to a specific frame.
 
 Note that this is _not_ an MP3 frame, but rather a PCM frame.
 */
-DRMP3_API bool drmp3_seek_to_pcm_frame(drmp3 *pMP3, uint64_t frameIndex);
+DRMP3_API bool drmp3_seek_to_pcm_frame(drmp3* pMP3, uint64_t frameIndex);
 
 /*
 Calculates the total number of PCM frames in the MP3 stream. Cannot be used for
 infinite streams such as internet radio. Runs in linear time. Returns 0 on
 error.
 */
-DRMP3_API uint64_t drmp3_get_pcm_frame_count(drmp3 *pMP3);
+DRMP3_API uint64_t drmp3_get_pcm_frame_count(drmp3* pMP3);
 
 /*
 Calculates the total number of MP3 frames in the MP3 stream. Cannot be used for
 infinite streams such as internet radio. Runs in linear time. Returns 0 on
 error.
 */
-DRMP3_API uint64_t drmp3_get_mp3_frame_count(drmp3 *pMP3);
+DRMP3_API uint64_t drmp3_get_mp3_frame_count(drmp3* pMP3);
 
 /*
 Calculates the total number of MP3 and PCM frames in the MP3 stream. Cannot be
@@ -384,9 +364,8 @@ on error.
 This is equivalent to calling drmp3_get_mp3_frame_count() and
 drmp3_get_pcm_frame_count() except that it's more efficient.
 */
-DRMP3_API bool drmp3_get_mp3_and_pcm_frame_count(drmp3 *pMP3,
-                                                 uint64_t *pMP3FrameCount,
-                                                 uint64_t *pPCMFrameCount);
+DRMP3_API bool drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, uint64_t* pMP3FrameCount,
+                                                 uint64_t* pPCMFrameCount);
 
 /*
 Calculates the seekpoints based on PCM frames. This is slow.
@@ -399,9 +378,8 @@ which case dr_mp3 will return a corrected count.
 Note that seektable seeking is not quite sample exact when the MP3 stream
 contains inconsistent sample rates.
 */
-DRMP3_API bool drmp3_calculate_seek_points(drmp3 *pMP3,
-                                           uint32_t *pSeekPointCount,
-                                           drmp3_seek_point *pSeekPoints);
+DRMP3_API bool drmp3_calculate_seek_points(drmp3* pMP3, uint32_t* pSeekPointCount,
+                                           drmp3_seek_point* pSeekPoints);
 
 /*
 Binds a seek table to the decoder.
@@ -411,8 +389,8 @@ the application to ensure this remains valid while it is bound to the decoder.
 
 Use drmp3_calculate_seek_points() to calculate the seek points.
 */
-DRMP3_API bool drmp3_bind_seek_table(drmp3 *pMP3, uint32_t seekPointCount,
-                                     drmp3_seek_point *pSeekPoints);
+DRMP3_API bool drmp3_bind_seek_table(drmp3* pMP3, uint32_t seekPointCount,
+                                     drmp3_seek_point* pSeekPoints);
 
 /*
 Opens an decodes an entire MP3 stream as a single operation.
@@ -421,44 +399,44 @@ On output pConfig will receive the channel count and sample rate of the stream.
 
 Free the returned pointer with drmp3_free().
 */
-DRMP3_API float *drmp3_open_and_read_pcm_frames_f32(
-    drmp3_read_proc onRead, drmp3_seek_proc onSeek, void *pUserData,
-    drmp3_config *pConfig, uint64_t *pTotalFrameCount,
-    const drmp3_allocation_callbacks *pAllocationCallbacks);
-DRMP3_API int16_t *drmp3_open_and_read_pcm_frames_s16(
-    drmp3_read_proc onRead, drmp3_seek_proc onSeek, void *pUserData,
-    drmp3_config *pConfig, uint64_t *pTotalFrameCount,
-    const drmp3_allocation_callbacks *pAllocationCallbacks);
+DRMP3_API float*
+drmp3_open_and_read_pcm_frames_f32(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData,
+                                   drmp3_config* pConfig, uint64_t* pTotalFrameCount,
+                                   const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API int16_t*
+drmp3_open_and_read_pcm_frames_s16(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData,
+                                   drmp3_config* pConfig, uint64_t* pTotalFrameCount,
+                                   const drmp3_allocation_callbacks* pAllocationCallbacks);
 
-DRMP3_API float *drmp3_open_memory_and_read_pcm_frames_f32(
-    const void *pData, size_t dataSize, drmp3_config *pConfig,
-    uint64_t *pTotalFrameCount,
-    const drmp3_allocation_callbacks *pAllocationCallbacks);
-DRMP3_API int16_t *drmp3_open_memory_and_read_pcm_frames_s16(
-    const void *pData, size_t dataSize, drmp3_config *pConfig,
-    uint64_t *pTotalFrameCount,
-    const drmp3_allocation_callbacks *pAllocationCallbacks);
+DRMP3_API float*
+drmp3_open_memory_and_read_pcm_frames_f32(const void* pData, size_t dataSize, drmp3_config* pConfig,
+                                          uint64_t* pTotalFrameCount,
+                                          const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API int16_t*
+drmp3_open_memory_and_read_pcm_frames_s16(const void* pData, size_t dataSize, drmp3_config* pConfig,
+                                          uint64_t* pTotalFrameCount,
+                                          const drmp3_allocation_callbacks* pAllocationCallbacks);
 
 #ifndef DR_MP3_NO_STDIO
-DRMP3_API float *drmp3_open_file_and_read_pcm_frames_f32(
-    const char *filePath, drmp3_config *pConfig, uint64_t *pTotalFrameCount,
-    const drmp3_allocation_callbacks *pAllocationCallbacks);
-DRMP3_API int16_t *drmp3_open_file_and_read_pcm_frames_s16(
-    const char *filePath, drmp3_config *pConfig, uint64_t *pTotalFrameCount,
-    const drmp3_allocation_callbacks *pAllocationCallbacks);
+DRMP3_API float*
+drmp3_open_file_and_read_pcm_frames_f32(const char* filePath, drmp3_config* pConfig,
+                                        uint64_t* pTotalFrameCount,
+                                        const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API int16_t*
+drmp3_open_file_and_read_pcm_frames_s16(const char* filePath, drmp3_config* pConfig,
+                                        uint64_t* pTotalFrameCount,
+                                        const drmp3_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
 Allocates a block of memory on the heap.
 */
-DRMP3_API void *
-drmp3_malloc(size_t sz, const drmp3_allocation_callbacks *pAllocationCallbacks);
+DRMP3_API void* drmp3_malloc(size_t sz, const drmp3_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Frees any memory that was allocated by a public drmp3 API.
 */
-DRMP3_API void
-drmp3_free(void *p, const drmp3_allocation_callbacks *pAllocationCallbacks);
+DRMP3_API void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks);
 
 #ifdef __cplusplus
 }
