@@ -13,9 +13,9 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
 {
     /* Assuming format is always s16 for now. */
     if (pDevice->playback.format == ma_format_s16) {
-        drwav_read_pcm_frames_s16(&g_wav, frameCount, pOutput);
+        drwav_read_pcm_frames_s16(&g_wav, frameCount, (drwav_int16*)pOutput);
     } else if (pDevice->playback.format == ma_format_f32) {
-        drwav_read_pcm_frames_f32(&g_wav, frameCount, pOutput);
+        drwav_read_pcm_frames_f32(&g_wav, frameCount, (float*)pOutput);
     } else {
         /* Unsupported format. */
     }
