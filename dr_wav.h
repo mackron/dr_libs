@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.1 - 2021-07-31
+dr_wav - v0.13.2 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -125,7 +125,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     13
-#define DRWAV_VERSION_REVISION  1
+#define DRWAV_VERSION_REVISION  2
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -2800,16 +2800,27 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
 
 DRWAV_PRIVATE drwav_uint32 drwav_get_bytes_per_pcm_frame(drwav* pWav)
 {
+    drwav_uint32 bytesPerFrame;
+
     /*
     The bytes per frame is a bit ambiguous. It can be either be based on the bits per sample, or the block align. The way I'm doing it here
     is that if the bits per sample is a multiple of 8, use floor(bitsPerSample*channels/8), otherwise fall back to the block align.
     */
     if ((pWav->bitsPerSample & 0x7) == 0) {
         /* Bits per sample is a multiple of 8. */
-        return (pWav->bitsPerSample * pWav->fmt.channels) >> 3;
+        bytesPerFrame = (pWav->bitsPerSample * pWav->fmt.channels) >> 3;
     } else {
-        return pWav->fmt.blockAlign;
+        bytesPerFrame = pWav->fmt.blockAlign;
     }
+
+    /* Validation for known formats. a-law and mu-law should be 1 byte per channel. If it's not, it's not decodable. */
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ALAW || pWav->translatedFormatTag == DR_WAVE_FORMAT_MULAW) {
+        if (bytesPerFrame != pWav->fmt.channels) {
+            return 0;   /* Invalid file. */
+        }
+    }
+
+    return bytesPerFrame;
 }
 
 DRWAV_API drwav_uint16 drwav_fmt_get_format(const drwav_fmt* pFMT)
@@ -3245,6 +3256,11 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         if (pWav->channels > 2) {
             return DRWAV_FALSE;
         }
+    }
+
+    /* The number of bytes per frame must be known. If not, it's an invalid file and not decodable. */
+    if (drwav_get_bytes_per_pcm_frame(pWav) == 0) {
+        return DRWAV_FALSE;
     }
 
 #ifdef DR_WAV_LIBSNDFILE_COMPAT
@@ -7525,6 +7541,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.13.2 - TBD
+  - Fix a possible buffer overflow when reading from compressed formats.
+
 v0.13.1 - 2021-07-31
   - Fix platform detection for ARM64.
 
