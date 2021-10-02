@@ -299,8 +299,8 @@ Close the loader with drmp3_uninit().
 
 See also: drmp3_init_file(), drmp3_init_memory(), drmp3_uninit()
 */
-DRMP3_API bool
-drmp3_init(drmp3 *pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek,
+DRMP3_API drmp3 *
+drmp3_init(drmp3_read_proc onRead, drmp3_seek_proc onSeek,
            void *pUserData,
            const drmp3_allocation_callbacks *pAllocationCallbacks);
 
@@ -312,8 +312,8 @@ the buffer remains valid for the lifetime of the drmp3 object.
 
 The buffer should contain the contents of the entire MP3 file.
 */
-DRMP3_API bool
-drmp3_init_memory(drmp3 *pMP3, const void *pData, size_t dataSize,
+DRMP3_API drmp3 *
+drmp3_init_memory(const void *pData, size_t dataSize,
                   const drmp3_allocation_callbacks *pAllocationCallbacks);
 
 #ifndef DR_MP3_NO_STDIO
@@ -324,11 +324,11 @@ This holds the internal FILE object until drmp3_uninit() is called. Keep this in
 mind if you're caching drmp3 objects because the operating system may restrict
 the number of file handles an application can have open at any given time.
 */
-DRMP3_API bool
-drmp3_init_file(drmp3 *pMP3, const char *pFilePath,
+DRMP3_API drmp3 *
+drmp3_init_file(const char *pFilePath,
                 const drmp3_allocation_callbacks *pAllocationCallbacks);
-DRMP3_API bool
-drmp3_init_file_w(drmp3 *pMP3, const wchar_t *pFilePath,
+DRMP3_API drmp3 *
+drmp3_init_file_w(const wchar_t *pFilePath,
                   const drmp3_allocation_callbacks *pAllocationCallbacks);
 #endif
 

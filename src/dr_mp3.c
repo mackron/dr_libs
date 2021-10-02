@@ -1847,7 +1847,8 @@ static void drmp3d_synth(float *xl, drmp3d_sample_t *dstl, int nch,
       DRMP3_V2(3)
       DRMP3_V1(4)
       DRMP3_V2(5)
-      DRMP3_V1(6) DRMP3_V2(7)
+      DRMP3_V1(6)
+      DRMP3_V2(7)
 
       {
 #ifndef DR_MP3_FLOAT_OUTPUT
@@ -1971,9 +1972,10 @@ static void drmp3d_synth(float *xl, drmp3d_sample_t *dstl, int nch,
     DRMP3_S2(3)
     DRMP3_S1(4)
     DRMP3_S2(5)
-    DRMP3_S1(6) DRMP3_S2(7)
+    DRMP3_S1(6)
+    DRMP3_S2(7)
 
-        dstr[(15 - i) * nch] = drmp3d_scale_pcm(a[1]);
+    dstr[(15 - i) * nch] = drmp3d_scale_pcm(a[1]);
     dstr[(17 + i) * nch] = drmp3d_scale_pcm(b[1]);
     dstl[(15 - i) * nch] = drmp3d_scale_pcm(a[0]);
     dstl[(17 + i) * nch] = drmp3d_scale_pcm(b[0]);
@@ -2662,20 +2664,27 @@ drmp3_init_internal(drmp3 *pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek,
   pMP3->channels = pMP3->mp3FrameChannels;
   pMP3->sampleRate = pMP3->mp3FrameSampleRate;
 
-  return true;
+  return pMP3;
 }
 
-DRMP3_API bool
-drmp3_init(drmp3 *pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek,
-           void *pUserData,
+DRMP3_API drmp3 *
+drmp3_init(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void *pUserData,
            const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  if (pMP3 == NULL || onRead == NULL) {
-    return false;
+  if (onRead == NULL) {
+    return NULL;
+  }
+  drmp3 *pMP3 = DRMP3_MALLOC(sizeof(drmp3));
+  if (pMP3 == NULL) {
+    return NULL;
   }
 
-  DRMP3_ZERO_OBJECT(pMP3);
-  return drmp3_init_internal(pMP3, onRead, onSeek, pUserData,
-                             pAllocationCallbacks);
+  if (!drmp3_init_internal(pMP3, onRead, onSeek, pUserData,
+                           pAllocationCallbacks)) {
+    DRMP3_FREE(pMP3);
+    return NULL;
+  }
+
+  return pMP3;
 }
 
 static size_t drmp3__on_read_memory(void *pUserData, void *pBufferOut,
@@ -2737,25 +2746,27 @@ static bool drmp3__on_seek_memory(void *pUserData, int byteOffset,
   return true;
 }
 
-DRMP3_API bool
-drmp3_init_memory(drmp3 *pMP3, const void *pData, size_t dataSize,
+DRMP3_API drmp3 *
+drmp3_init_memory(const void *pData, size_t dataSize,
                   const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  if (pMP3 == NULL) {
-    return false;
-  }
-
-  DRMP3_ZERO_OBJECT(pMP3);
-
   if (pData == NULL || dataSize == 0) {
     return false;
+  }
+  drmp3 *pMP3 = DRMP3_MALLOC(sizeof(drmp3));
+  if (pMP3 == NULL) {
+    return NULL;
   }
 
   pMP3->memory.pData = (const uint8_t *)pData;
   pMP3->memory.dataSize = dataSize;
   pMP3->memory.currentReadPos = 0;
 
-  return drmp3_init_internal(pMP3, drmp3__on_read_memory, drmp3__on_seek_memory,
-                             pMP3, pAllocationCallbacks);
+  if (!drmp3_init_internal(pMP3, drmp3__on_read_memory, drmp3__on_seek_memory,
+                           pMP3, pAllocationCallbacks)) {
+    DRMP3_FREE(pMP3);
+    return NULL;
+  }
+  return pMP3;
 }
 
 #ifndef DR_MP3_NO_STDIO
@@ -3464,30 +3475,28 @@ static bool drmp3__on_seek_stdio(void *pUserData, int offset,
          0;
 }
 
-DRMP3_API bool
-drmp3_init_file(drmp3 *pMP3, const char *pFilePath,
+DRMP3_API drmp3 *
+drmp3_init_file(const char *pFilePath,
                 const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  bool result;
   FILE *pFile;
 
   if (drmp3_fopen(&pFile, pFilePath, "rb") != DRMP3_SUCCESS) {
-    return false;
+    return NULL;
   }
 
-  result = drmp3_init(pMP3, drmp3__on_read_stdio, drmp3__on_seek_stdio,
+  drmp3* pMP3 = drmp3_init(drmp3__on_read_stdio, drmp3__on_seek_stdio,
                       (void *)pFile, pAllocationCallbacks);
-  if (result != true) {
+  if (pMP3 == NULL) {
     fclose(pFile);
-    return result;
+    return NULL;
   }
 
-  return true;
+  return pMP3;
 }
 
-DRMP3_API bool
-drmp3_init_file_w(drmp3 *pMP3, const wchar_t *pFilePath,
+DRMP3_API drmp3*
+drmp3_init_file_w(const wchar_t *pFilePath,
                   const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  bool result;
   FILE *pFile;
 
   if (drmp3_wfopen(&pFile, pFilePath, L"rb", pAllocationCallbacks) !=
@@ -3495,14 +3504,14 @@ drmp3_init_file_w(drmp3 *pMP3, const wchar_t *pFilePath,
     return false;
   }
 
-  result = drmp3_init(pMP3, drmp3__on_read_stdio, drmp3__on_seek_stdio,
+  drmp3* pMP3 = drmp3_init(drmp3__on_read_stdio, drmp3__on_seek_stdio,
                       (void *)pFile, pAllocationCallbacks);
-  if (result != true) {
+  if (pMP3 == NULL) {
     fclose(pFile);
-    return result;
+    return NULL;
   }
 
-  return true;
+  return pMP3;
 }
 #endif
 
@@ -4349,71 +4358,71 @@ DRMP3_API float *drmp3_open_and_read_pcm_frames_f32(
     drmp3_read_proc onRead, drmp3_seek_proc onSeek, void *pUserData,
     drmp3_config *pConfig, uint64_t *pTotalFrameCount,
     const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  drmp3 mp3;
-  if (!drmp3_init(&mp3, onRead, onSeek, pUserData, pAllocationCallbacks)) {
+  drmp3* mp3 = drmp3_init(onRead, onSeek, pUserData, pAllocationCallbacks);
+  if (mp3 == NULL) {
     return NULL;
   }
 
-  return drmp3__full_read_and_close_f32(&mp3, pConfig, pTotalFrameCount);
+  return drmp3__full_read_and_close_f32(mp3, pConfig, pTotalFrameCount);
 }
 
 DRMP3_API int16_t *drmp3_open_and_read_pcm_frames_s16(
     drmp3_read_proc onRead, drmp3_seek_proc onSeek, void *pUserData,
     drmp3_config *pConfig, uint64_t *pTotalFrameCount,
     const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  drmp3 mp3;
-  if (!drmp3_init(&mp3, onRead, onSeek, pUserData, pAllocationCallbacks)) {
+  drmp3* mp3 = drmp3_init(onRead, onSeek, pUserData, pAllocationCallbacks);
+  if (mp3 == NULL) {
     return NULL;
   }
 
-  return drmp3__full_read_and_close_s16(&mp3, pConfig, pTotalFrameCount);
+  return drmp3__full_read_and_close_s16(mp3, pConfig, pTotalFrameCount);
 }
 
 DRMP3_API float *drmp3_open_memory_and_read_pcm_frames_f32(
     const void *pData, size_t dataSize, drmp3_config *pConfig,
     uint64_t *pTotalFrameCount,
     const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  drmp3 mp3;
-  if (!drmp3_init_memory(&mp3, pData, dataSize, pAllocationCallbacks)) {
+  drmp3* mp3 = drmp3_init_memory(pData, dataSize, pAllocationCallbacks);
+  if (mp3 == NULL) {
     return NULL;
   }
 
-  return drmp3__full_read_and_close_f32(&mp3, pConfig, pTotalFrameCount);
+  return drmp3__full_read_and_close_f32(mp3, pConfig, pTotalFrameCount);
 }
 
 DRMP3_API int16_t *drmp3_open_memory_and_read_pcm_frames_s16(
     const void *pData, size_t dataSize, drmp3_config *pConfig,
     uint64_t *pTotalFrameCount,
     const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  drmp3 mp3;
-  if (!drmp3_init_memory(&mp3, pData, dataSize, pAllocationCallbacks)) {
+  drmp3* mp3 = drmp3_init_memory(pData, dataSize, pAllocationCallbacks);
+  if (mp3 == NULL) {
     return NULL;
   }
 
-  return drmp3__full_read_and_close_s16(&mp3, pConfig, pTotalFrameCount);
+  return drmp3__full_read_and_close_s16(mp3, pConfig, pTotalFrameCount);
 }
 
 #ifndef DR_MP3_NO_STDIO
 DRMP3_API float *drmp3_open_file_and_read_pcm_frames_f32(
     const char *filePath, drmp3_config *pConfig, uint64_t *pTotalFrameCount,
     const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  drmp3 mp3;
-  if (!drmp3_init_file(&mp3, filePath, pAllocationCallbacks)) {
+  drmp3* mp3 = drmp3_init_file(filePath, pAllocationCallbacks);
+  if (mp3 == NULL) {
     return NULL;
   }
 
-  return drmp3__full_read_and_close_f32(&mp3, pConfig, pTotalFrameCount);
+  return drmp3__full_read_and_close_f32(mp3, pConfig, pTotalFrameCount);
 }
 
 DRMP3_API int16_t *drmp3_open_file_and_read_pcm_frames_s16(
     const char *filePath, drmp3_config *pConfig, uint64_t *pTotalFrameCount,
     const drmp3_allocation_callbacks *pAllocationCallbacks) {
-  drmp3 mp3;
-  if (!drmp3_init_file(&mp3, filePath, pAllocationCallbacks)) {
+  drmp3* mp3 = drmp3_init_file(filePath, pAllocationCallbacks);
+  if (mp3 == NULL) {
     return NULL;
   }
 
-  return drmp3__full_read_and_close_s16(&mp3, pConfig, pTotalFrameCount);
+  return drmp3__full_read_and_close_s16(mp3, pConfig, pTotalFrameCount);
 }
 #endif
 
