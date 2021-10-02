@@ -9,3 +9,15 @@ tests/flac/lib
 tests/testvectors/flac/tests/*
 !tests/testvectors/flac/tests/DO_NOT_DELETE.md
 todo
+
+**/.vs/*
+**/.vscode/*
+build/*
+out/*
+.cache
+.DS_Store
+
+CMakeSettings.json
+compile_commands.json
+/CMakePresets.json
+/CMakeUserPresets.json
