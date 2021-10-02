@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.2 - 2021-10-02
+dr_wav - v0.13.3 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -1633,6 +1633,10 @@ static DRWAV_INLINE void drwav__bswap_samples_pcm(void* pSamples, drwav_uint64 s
     /* Assumes integer PCM. Floating point PCM is done in drwav__bswap_samples_ieee(). */
     switch (bytesPerSample)
     {
+        case 1: /* u8 */
+        {
+            /* no-op. */
+        } break;
         case 2: /* s16, s12 (loosely packed) */
         {
             drwav__bswap_samples_s16((drwav_int16*)pSamples, sampleCount);
@@ -7541,6 +7545,10 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.13.3 - TBD
+  - Fix an incorrect assertion when trying to endian swap 1-byte sample formats. This is now a no-op
+    rather than a failed assertion.
+
 v0.13.2 - 2021-10-02
   - Fix a possible buffer overflow when reading from compressed formats.
 
