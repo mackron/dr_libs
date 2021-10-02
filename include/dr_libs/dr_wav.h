@@ -840,15 +840,14 @@ the FMT chunk can be read from pWav->fmt after the function returns.
 See also: drwav_init_file(), drwav_init_memory(), drwav_uninit()
 */
 DRWAV_API bool drwav_init(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek,
-                                  void* pUserData,
-                                  const drwav_allocation_callbacks* pAllocationCallbacks);
+                          void* pUserData, const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool drwav_init_ex(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek,
-                                     drwav_chunk_proc onChunk, void* pReadSeekUserData,
-                                     void* pChunkUserData, uint32_t flags,
-                                     const drwav_allocation_callbacks* pAllocationCallbacks);
-DRWAV_API bool drwav_init_with_metadata(
-    drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData, uint32_t flags,
-    const drwav_allocation_callbacks* pAllocationCallbacks);
+                             drwav_chunk_proc onChunk, void* pReadSeekUserData,
+                             void* pChunkUserData, uint32_t flags,
+                             const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API bool drwav_init_with_metadata(drwav* pWav, drwav_read_proc onRead, drwav_seek_proc onSeek,
+                                        void* pUserData, uint32_t flags,
+                                        const drwav_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Initializes a pre-allocated drwav object for writing.
@@ -877,21 +876,22 @@ seek.
 See also: drwav_init_file_write(), drwav_init_memory_write(), drwav_uninit()
 */
 DRWAV_API bool drwav_init_write(drwav* pWav, const drwav_data_format* pFormat,
-                                        drwav_write_proc onWrite, drwav_seek_proc onSeek,
-                                        void* pUserData,
-                                        const drwav_allocation_callbacks* pAllocationCallbacks);
+                                drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData,
+                                const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API bool drwav_init_write_sequential(drwav* pWav, const drwav_data_format* pFormat,
+                                           uint64_t totalSampleCount, drwav_write_proc onWrite,
+                                           void* pUserData,
+                                           const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool
-drwav_init_write_sequential(drwav* pWav, const drwav_data_format* pFormat,
-                            uint64_t totalSampleCount, drwav_write_proc onWrite, void* pUserData,
-                            const drwav_allocation_callbacks* pAllocationCallbacks);
-DRWAV_API bool drwav_init_write_sequential_pcm_frames(
-    drwav* pWav, const drwav_data_format* pFormat, uint64_t totalPCMFrameCount,
-    drwav_write_proc onWrite, void* pUserData,
-    const drwav_allocation_callbacks* pAllocationCallbacks);
-DRWAV_API bool drwav_init_write_with_metadata(
-    drwav* pWav, const drwav_data_format* pFormat, drwav_write_proc onWrite, drwav_seek_proc onSeek,
-    void* pUserData, const drwav_allocation_callbacks* pAllocationCallbacks,
-    drwav_metadata* pMetadata, uint32_t metadataCount);
+drwav_init_write_sequential_pcm_frames(drwav* pWav, const drwav_data_format* pFormat,
+                                       uint64_t totalPCMFrameCount, drwav_write_proc onWrite,
+                                       void* pUserData,
+                                       const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API bool
+drwav_init_write_with_metadata(drwav* pWav, const drwav_data_format* pFormat,
+                               drwav_write_proc onWrite, drwav_seek_proc onSeek, void* pUserData,
+                               const drwav_allocation_callbacks* pAllocationCallbacks,
+                               drwav_metadata* pMetadata, uint32_t metadataCount);
 
 /*
 Utility function to determine the target size of the entire data to be written
@@ -1158,17 +1158,15 @@ mind if you're caching drwav objects because the operating system may restrict
 the number of file handles an application can have open at any given time.
 */
 DRWAV_API bool drwav_init_file(drwav* pWav, const char* filename,
-                                       const drwav_allocation_callbacks* pAllocationCallbacks);
-DRWAV_API bool drwav_init_file_ex(drwav* pWav, const char* filename,
-                                          drwav_chunk_proc onChunk, void* pChunkUserData,
-                                          uint32_t flags,
-                                          const drwav_allocation_callbacks* pAllocationCallbacks);
+                               const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API bool drwav_init_file_ex(drwav* pWav, const char* filename, drwav_chunk_proc onChunk,
+                                  void* pChunkUserData, uint32_t flags,
+                                  const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool drwav_init_file_w(drwav* pWav, const wchar_t* filename,
-                                         const drwav_allocation_callbacks* pAllocationCallbacks);
-DRWAV_API bool drwav_init_file_ex_w(drwav* pWav, const wchar_t* filename,
-                                            drwav_chunk_proc onChunk, void* pChunkUserData,
-                                            uint32_t flags,
-                                            const drwav_allocation_callbacks* pAllocationCallbacks);
+                                 const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API bool drwav_init_file_ex_w(drwav* pWav, const wchar_t* filename, drwav_chunk_proc onChunk,
+                                    void* pChunkUserData, uint32_t flags,
+                                    const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool
 drwav_init_file_with_metadata(drwav* pWav, const char* filename, uint32_t flags,
                               const drwav_allocation_callbacks* pAllocationCallbacks);
@@ -1183,21 +1181,23 @@ This holds the internal FILE object until drwav_uninit() is called. Keep this in
 mind if you're caching drwav objects because the operating system may restrict
 the number of file handles an application can have open at any given time.
 */
+DRWAV_API bool drwav_init_file_write(drwav* pWav, const char* filename,
+                                     const drwav_data_format* pFormat,
+                                     const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool
-drwav_init_file_write(drwav* pWav, const char* filename, const drwav_data_format* pFormat,
-                      const drwav_allocation_callbacks* pAllocationCallbacks);
-DRWAV_API bool drwav_init_file_write_sequential(
-    drwav* pWav, const char* filename, const drwav_data_format* pFormat, uint64_t totalSampleCount,
-    const drwav_allocation_callbacks* pAllocationCallbacks);
+drwav_init_file_write_sequential(drwav* pWav, const char* filename,
+                                 const drwav_data_format* pFormat, uint64_t totalSampleCount,
+                                 const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool drwav_init_file_write_sequential_pcm_frames(
     drwav* pWav, const char* filename, const drwav_data_format* pFormat,
     uint64_t totalPCMFrameCount, const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API bool drwav_init_file_write_w(drwav* pWav, const wchar_t* filename,
+                                       const drwav_data_format* pFormat,
+                                       const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool
-drwav_init_file_write_w(drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat,
-                        const drwav_allocation_callbacks* pAllocationCallbacks);
-DRWAV_API bool drwav_init_file_write_sequential_w(
-    drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat,
-    uint64_t totalSampleCount, const drwav_allocation_callbacks* pAllocationCallbacks);
+drwav_init_file_write_sequential_w(drwav* pWav, const wchar_t* filename,
+                                   const drwav_data_format* pFormat, uint64_t totalSampleCount,
+                                   const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool drwav_init_file_write_sequential_pcm_frames_w(
     drwav* pWav, const wchar_t* filename, const drwav_data_format* pFormat,
     uint64_t totalPCMFrameCount, const drwav_allocation_callbacks* pAllocationCallbacks);
@@ -1213,11 +1213,10 @@ The buffer should contain the contents of the entire wave file, not just the
 sample data.
 */
 DRWAV_API bool drwav_init_memory(drwav* pWav, const void* data, size_t dataSize,
-                                         const drwav_allocation_callbacks* pAllocationCallbacks);
+                                 const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool drwav_init_memory_ex(drwav* pWav, const void* data, size_t dataSize,
-                                            drwav_chunk_proc onChunk, void* pChunkUserData,
-                                            uint32_t flags,
-                                            const drwav_allocation_callbacks* pAllocationCallbacks);
+                                    drwav_chunk_proc onChunk, void* pChunkUserData, uint32_t flags,
+                                    const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool
 drwav_init_memory_with_metadata(drwav* pWav, const void* data, size_t dataSize, uint32_t flags,
                                 const drwav_allocation_callbacks* pAllocationCallbacks);
@@ -1231,12 +1230,13 @@ free the data with drwav_free().
 The buffer will remain allocated even after drwav_uninit() is called. The buffer
 should not be considered valid until after drwav_uninit() has been called.
 */
-DRWAV_API bool drwav_init_memory_write(
-    drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat,
-    const drwav_allocation_callbacks* pAllocationCallbacks);
-DRWAV_API bool drwav_init_memory_write_sequential(
-    drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat,
-    uint64_t totalSampleCount, const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API bool drwav_init_memory_write(drwav* pWav, void** ppData, size_t* pDataSize,
+                                       const drwav_data_format* pFormat,
+                                       const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API bool
+drwav_init_memory_write_sequential(drwav* pWav, void** ppData, size_t* pDataSize,
+                                   const drwav_data_format* pFormat, uint64_t totalSampleCount,
+                                   const drwav_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API bool drwav_init_memory_write_sequential_pcm_frames(
     drwav* pWav, void** ppData, size_t* pDataSize, const drwav_data_format* pFormat,
     uint64_t totalPCMFrameCount, const drwav_allocation_callbacks* pAllocationCallbacks);
@@ -1336,396 +1336,6 @@ DRWAV_API bool drwav_fourcc_equal(const uint8_t* a, const char* b);
 }
 #endif
 #endif /* dr_wav_h */
-
-/*
-REVISION HISTORY
-================
-v0.13.2 - 2021-10-02
-  - Fix a possible buffer overflow when reading from compressed formats.
-
-v0.13.1 - 2021-07-31
-  - Fix platform detection for ARM64.
-
-v0.13.0 - 2021-07-01
-  - Improve support for reading and writing metadata. Use the `_with_metadata()`
-APIs to initialize a WAV decoder and store the metadata within the `drwav`
-object. Use the `pMetadata` and `metadataCount` members of the `drwav` object to
-read the data. The old way of handling metadata via a callback is still usable
-and valid.
-  - API CHANGE: drwav_target_write_size_bytes() now takes extra parameters for
-calculating the required write size when writing metadata.
-  - Add drwav_get_cursor_in_pcm_frames()
-  - Add drwav_get_length_in_pcm_frames()
-  - Fix a bug where drwav_read_raw() can call the read callback with a byte
-count of zero.
-
-v0.12.20 - 2021-06-11
-  - Fix some undefined behavior.
-
-v0.12.19 - 2021-02-21
-  - Fix a warning due to referencing _MSC_VER when it is undefined.
-  - Minor improvements to the management of some internal state concerning the
-data chunk cursor.
-
-v0.12.18 - 2021-01-31
-  - Clean up some static analysis warnings.
-
-v0.12.17 - 2021-01-17
-  - Minor fix to sample code in documentation.
-  - Correctly qualify a private API as private rather than public.
-  - Code cleanup.
-
-v0.12.16 - 2020-12-02
-  - Fix a bug when trying to read more bytes than can fit in a size_t.
-
-v0.12.15 - 2020-11-21
-  - Fix compilation with OpenWatcom.
-
-v0.12.14 - 2020-11-13
-  - Minor code clean up.
-
-v0.12.13 - 2020-11-01
-  - Improve compiler support for older versions of GCC.
-
-v0.12.12 - 2020-09-28
-  - Add support for RF64.
-  - Fix a bug in writing mode where the size of the RIFF chunk incorrectly
-includes the header section.
-
-v0.12.11 - 2020-09-08
-  - Fix a compilation error on older compilers.
-
-v0.12.10 - 2020-08-24
-  - Fix a bug when seeking with ADPCM formats.
-
-v0.12.9 - 2020-08-02
-  - Simplify sized types.
-
-v0.12.8 - 2020-07-25
-  - Fix a compilation warning.
-
-v0.12.7 - 2020-07-15
-  - Fix some bugs on big-endian architectures.
-  - Fix an error in s24 to f32 conversion.
-
-v0.12.6 - 2020-06-23
-  - Change drwav_read_*() to allow NULL to be passed in as the output buffer
-which is equivalent to a forward seek.
-  - Fix a buffer overflow when trying to decode invalid IMA-ADPCM files.
-  - Add include guard for the implementation section.
-
-v0.12.5 - 2020-05-27
-  - Minor documentation fix.
-
-v0.12.4 - 2020-05-16
-  - Replace assert() with DRWAV_ASSERT().
-  - Add compile-time and run-time version querying.
-    - DRWAV_VERSION_MINOR
-    - DRWAV_VERSION_MAJOR
-    - DRWAV_VERSION_REVISION
-    - DRWAV_VERSION_STRING
-    - drwav_version()
-    - drwav_version_string()
-
-v0.12.3 - 2020-04-30
-  - Fix compilation errors with VC6.
-
-v0.12.2 - 2020-04-21
-  - Fix a bug where drwav_init_file() does not close the file handle after
-attempting to load an erroneous file.
-
-v0.12.1 - 2020-04-13
-  - Fix some pedantic warnings.
-
-v0.12.0 - 2020-04-04
-  - API CHANGE: Add container and format parameters to the chunk callback.
-  - Minor documentation updates.
-
-v0.11.5 - 2020-03-07
-  - Fix compilation error with Visual Studio .NET 2003.
-
-v0.11.4 - 2020-01-29
-  - Fix some static analysis warnings.
-  - Fix a bug when reading f32 samples from an A-law encoded stream.
-
-v0.11.3 - 2020-01-12
-  - Minor changes to some f32 format conversion routines.
-  - Minor bug fix for ADPCM conversion when end of file is reached.
-
-v0.11.2 - 2019-12-02
-  - Fix a possible crash when using custom memory allocators without a custom
-realloc() implementation.
-  - Fix an integer overflow bug.
-  - Fix a null pointer dereference bug.
-  - Add limits to sample rate, channels and bits per sample to tighten up some
-validation.
-
-v0.11.1 - 2019-10-07
-  - Internal code clean up.
-
-v0.11.0 - 2019-10-06
-  - API CHANGE: Add support for user defined memory allocation routines. This
-system allows the program to specify their own memory allocation routines with a
-user data pointer for client-specific contextual data. This adds an extra
-parameter to the end of the following APIs:
-    - drwav_init()
-    - drwav_init_ex()
-    - drwav_init_file()
-    - drwav_init_file_ex()
-    - drwav_init_file_w()
-    - drwav_init_file_w_ex()
-    - drwav_init_memory()
-    - drwav_init_memory_ex()
-    - drwav_init_write()
-    - drwav_init_write_sequential()
-    - drwav_init_write_sequential_pcm_frames()
-    - drwav_init_file_write()
-    - drwav_init_file_write_sequential()
-    - drwav_init_file_write_sequential_pcm_frames()
-    - drwav_init_file_write_w()
-    - drwav_init_file_write_sequential_w()
-    - drwav_init_file_write_sequential_pcm_frames_w()
-    - drwav_init_memory_write()
-    - drwav_init_memory_write_sequential()
-    - drwav_init_memory_write_sequential_pcm_frames()
-    - drwav_open_and_read_pcm_frames_s16()
-    - drwav_open_and_read_pcm_frames_f32()
-    - drwav_open_and_read_pcm_frames_s32()
-    - drwav_open_file_and_read_pcm_frames_s16()
-    - drwav_open_file_and_read_pcm_frames_f32()
-    - drwav_open_file_and_read_pcm_frames_s32()
-    - drwav_open_file_and_read_pcm_frames_s16_w()
-    - drwav_open_file_and_read_pcm_frames_f32_w()
-    - drwav_open_file_and_read_pcm_frames_s32_w()
-    - drwav_open_memory_and_read_pcm_frames_s16()
-    - drwav_open_memory_and_read_pcm_frames_f32()
-    - drwav_open_memory_and_read_pcm_frames_s32()
-    Set this extra parameter to NULL to use defaults which is the same as the
-previous behaviour. Setting this NULL will use DRWAV_MALLOC, DRWAV_REALLOC and
-DRWAV_FREE.
-  - Add support for reading and writing PCM frames in an explicit endianness.
-New APIs:
-    - drwav_read_pcm_frames_le()
-    - drwav_read_pcm_frames_be()
-    - drwav_read_pcm_frames_s16le()
-    - drwav_read_pcm_frames_s16be()
-    - drwav_read_pcm_frames_f32le()
-    - drwav_read_pcm_frames_f32be()
-    - drwav_read_pcm_frames_s32le()
-    - drwav_read_pcm_frames_s32be()
-    - drwav_write_pcm_frames_le()
-    - drwav_write_pcm_frames_be()
-  - Remove deprecated APIs.
-  - API CHANGE: The following APIs now return native-endian data. Previously
-they returned little-endian data.
-    - drwav_read_pcm_frames()
-    - drwav_read_pcm_frames_s16()
-    - drwav_read_pcm_frames_s32()
-    - drwav_read_pcm_frames_f32()
-    - drwav_open_and_read_pcm_frames_s16()
-    - drwav_open_and_read_pcm_frames_s32()
-    - drwav_open_and_read_pcm_frames_f32()
-    - drwav_open_file_and_read_pcm_frames_s16()
-    - drwav_open_file_and_read_pcm_frames_s32()
-    - drwav_open_file_and_read_pcm_frames_f32()
-    - drwav_open_file_and_read_pcm_frames_s16_w()
-    - drwav_open_file_and_read_pcm_frames_s32_w()
-    - drwav_open_file_and_read_pcm_frames_f32_w()
-    - drwav_open_memory_and_read_pcm_frames_s16()
-    - drwav_open_memory_and_read_pcm_frames_s32()
-    - drwav_open_memory_and_read_pcm_frames_f32()
-
-v0.10.1 - 2019-08-31
-  - Correctly handle partial trailing ADPCM blocks.
-
-v0.10.0 - 2019-08-04
-  - Remove deprecated APIs.
-  - Add wchar_t variants for file loading APIs:
-      drwav_init_file_w()
-      drwav_init_file_ex_w()
-      drwav_init_file_write_w()
-      drwav_init_file_write_sequential_w()
-  - Add drwav_target_write_size_bytes() which calculates the total size in bytes
-of a WAV file given a format and sample count.
-  - Add APIs for specifying the PCM frame count instead of the sample count when
-opening in sequential write mode: drwav_init_write_sequential_pcm_frames()
-      drwav_init_file_write_sequential_pcm_frames()
-      drwav_init_file_write_sequential_pcm_frames_w()
-      drwav_init_memory_write_sequential_pcm_frames()
-  - Deprecate drwav_open*() and drwav_close():
-      drwav_open()
-      drwav_open_ex()
-      drwav_open_write()
-      drwav_open_write_sequential()
-      drwav_open_file()
-      drwav_open_file_ex()
-      drwav_open_file_write()
-      drwav_open_file_write_sequential()
-      drwav_open_memory()
-      drwav_open_memory_ex()
-      drwav_open_memory_write()
-      drwav_open_memory_write_sequential()
-      drwav_close()
-  - Minor documentation updates.
-
-v0.9.2 - 2019-05-21
-  - Fix warnings.
-
-v0.9.1 - 2019-05-05
-  - Add support for C89.
-  - Change license to choice of public domain or MIT-0.
-
-v0.9.0 - 2018-12-16
-  - API CHANGE: Add new reading APIs for reading by PCM frames instead of
-samples. Old APIs have been deprecated and will be removed in v0.10.0.
-Deprecated APIs and their replacements: drwav_read()                     ->
-drwav_read_pcm_frames() drwav_read_s16()                 ->
-drwav_read_pcm_frames_s16() drwav_read_f32()                 ->
-drwav_read_pcm_frames_f32() drwav_read_s32()                 ->
-drwav_read_pcm_frames_s32() drwav_seek_to_sample()           ->
-drwav_seek_to_pcm_frame() drwav_write()                    ->
-drwav_write_pcm_frames() drwav_open_and_read_s16()        ->
-drwav_open_and_read_pcm_frames_s16() drwav_open_and_read_f32()        ->
-drwav_open_and_read_pcm_frames_f32() drwav_open_and_read_s32()        ->
-drwav_open_and_read_pcm_frames_s32() drwav_open_file_and_read_s16()   ->
-drwav_open_file_and_read_pcm_frames_s16() drwav_open_file_and_read_f32()   ->
-drwav_open_file_and_read_pcm_frames_f32() drwav_open_file_and_read_s32()   ->
-drwav_open_file_and_read_pcm_frames_s32() drwav_open_memory_and_read_s16() ->
-drwav_open_memory_and_read_pcm_frames_s16() drwav_open_memory_and_read_f32() ->
-drwav_open_memory_and_read_pcm_frames_f32() drwav_open_memory_and_read_s32() ->
-drwav_open_memory_and_read_pcm_frames_s32() drwav::totalSampleCount          ->
-drwav::totalPCMFrameCount
-  - API CHANGE: Rename drwav_open_and_read_file_*() to
-drwav_open_file_and_read_*().
-  - API CHANGE: Rename drwav_open_and_read_memory_*() to
-drwav_open_memory_and_read_*().
-  - Add built-in support for smpl chunks.
-  - Add support for firing a callback for each chunk in the file at
-initialization time.
-    - This is enabled through the drwav_init_ex(), etc. family of APIs.
-  - Handle invalid FMT chunks more robustly.
-
-v0.8.5 - 2018-09-11
-  - Const correctness.
-  - Fix a potential stack overflow.
-
-v0.8.4 - 2018-08-07
-  - Improve 64-bit detection.
-
-v0.8.3 - 2018-08-05
-  - Fix C++ build on older versions of GCC.
-
-v0.8.2 - 2018-08-02
-  - Fix some big-endian bugs.
-
-v0.8.1 - 2018-06-29
-  - Add support for sequential writing APIs.
-  - Disable seeking in write mode.
-  - Fix bugs with Wave64.
-  - Fix typos.
-
-v0.8 - 2018-04-27
-  - Bug fix.
-  - Start using major.minor.revision versioning.
-
-v0.7f - 2018-02-05
-  - Restrict ADPCM formats to a maximum of 2 channels.
-
-v0.7e - 2018-02-02
-  - Fix a crash.
-
-v0.7d - 2018-02-01
-  - Fix a crash.
-
-v0.7c - 2018-02-01
-  - Set drwav.bytesPerSample to 0 for all compressed formats.
-  - Fix a crash when reading 16-bit floating point WAV files. In this case
-dr_wav will output silence for all format conversion reading APIs (*_s16, *_s32,
-*_f32 APIs).
-  - Fix some divide-by-zero errors.
-
-v0.7b - 2018-01-22
-  - Fix errors with seeking of compressed formats.
-  - Fix compilation error when DR_WAV_NO_CONVERSION_API
-
-v0.7a - 2017-11-17
-  - Fix some GCC warnings.
-
-v0.7 - 2017-11-04
-  - Add writing APIs.
-
-v0.6 - 2017-08-16
-  - API CHANGE: Rename dr_* types to drwav_*.
-  - Add support for custom implementations of malloc(), realloc(), etc.
-  - Add support for Microsoft ADPCM.
-  - Add support for IMA ADPCM (DVI, format code 0x11).
-  - Optimizations to drwav_read_s16().
-  - Bug fixes.
-
-v0.5g - 2017-07-16
-  - Change underlying type for booleans to unsigned.
-
-v0.5f - 2017-04-04
-  - Fix a minor bug with drwav_open_and_read_s16() and family.
-
-v0.5e - 2016-12-29
-  - Added support for reading samples as signed 16-bit integers. Use the _s16()
-family of APIs for this.
-  - Minor fixes to documentation.
-
-v0.5d - 2016-12-28
-  - Use drwav_int* and drwav_uint* sized types to improve compiler support.
-
-v0.5c - 2016-11-11
-  - Properly handle JUNK chunks that come before the FMT chunk.
-
-v0.5b - 2016-10-23
-  - A minor change to drwav_bool8 and drwav_bool32 types.
-
-v0.5a - 2016-10-11
-  - Fixed a bug with drwav_open_and_read() and family due to incorrect argument
-ordering.
-  - Improve A-law and mu-law efficiency.
-
-v0.5 - 2016-09-29
-  - API CHANGE. Swap the order of "channels" and "sampleRate" parameters in
-drwav_open_and_read*(). Rationale for this is to keep it consistent with
-dr_audio and dr_flac.
-
-v0.4b - 2016-09-18
-  - Fixed a typo in documentation.
-
-v0.4a - 2016-09-18
-  - Fixed a typo.
-  - Change date format to ISO 8601 (YYYY-MM-DD)
-
-v0.4 - 2016-07-13
-  - API CHANGE. Make onSeek consistent with dr_flac.
-  - API CHANGE. Rename drwav_seek() to drwav_seek_to_sample() for clarity and
-consistency with dr_flac.
-  - Added support for Sony Wave64.
-
-v0.3a - 2016-05-28
-  - API CHANGE. Return drwav_bool32 instead of int in onSeek callback.
-  - Fixed a memory leak.
-
-v0.3 - 2016-05-22
-  - Lots of API changes for consistency.
-
-v0.2a - 2016-05-16
-  - Fixed Linux/GCC build.
-
-v0.2 - 2016-05-11
-  - Added support for reading data as signed 32-bit PCM for consistency with
-dr_flac.
-
-v0.1a - 2016-05-07
-  - Fixed a bug in drwav_open_file() where the file handle would not be closed
-if the loader failed to initialize.
-
-v0.1 - 2016-05-04
-  - Initial versioned release.
-*/
 
 /*
 This software is available as a choice of the following licenses. Choose
