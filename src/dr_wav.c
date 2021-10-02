@@ -2020,7 +2020,7 @@ DRWAV_API drwav* drwav_init_with_metadata(drwav_read_proc onRead, drwav_seek_pro
 
   if (!drwav_preinit(pWav, onRead, onSeek, pUserData, pAllocationCallbacks)) {
     drwav_free(pWav, pAllocationCallbacks);
-    return false;
+    return NULL;
   }
 
   pWav->allowedMetadataTypes =
@@ -3465,7 +3465,7 @@ DRWAV_API drwav* drwav_init_file_ex_w(const wchar_t* filename, drwav_chunk_proc 
                                       const drwav_allocation_callbacks* pAllocationCallbacks) {
   FILE* pFile;
   if (drwav_wfopen(&pFile, filename, L"rb", pAllocationCallbacks) != DRWAV_SUCCESS) {
-    return false;
+    return NULL;
   }
 
   drwav* pWav = DRWAV_MALLOC(sizeof(drwav));
@@ -3484,7 +3484,7 @@ DRWAV_API drwav*
 drwav_init_file_with_metadata(const char* filename, uint32_t flags,
                               const drwav_allocation_callbacks* pAllocationCallbacks) {
   FILE* pFile;
-  if (drwav_fopen(&pFile, filename, "rb") != DRWAV_SUCCESS) { return false; }
+  if (drwav_fopen(&pFile, filename, "rb") != DRWAV_SUCCESS) { return NULL; }
 
   drwav* pWav = DRWAV_MALLOC(sizeof(drwav));
 
@@ -3504,7 +3504,7 @@ drwav_init_file_with_metadata_w(const wchar_t* filename, uint32_t flags,
                                 const drwav_allocation_callbacks* pAllocationCallbacks) {
   FILE* pFile;
   if (drwav_wfopen(&pFile, filename, L"rb", pAllocationCallbacks) != DRWAV_SUCCESS) {
-    return false;
+    return NULL;
   }
 
   drwav* pWav = DRWAV_MALLOC(sizeof(drwav));
@@ -5900,7 +5900,9 @@ drwav_open_and_read_pcm_frames_s16(drwav_read_proc onRead, drwav_seek_proc onSee
     return NULL;
   }
 
-  return drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  int16_t* ret = drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  drwav_free(wav, pAllocationCallbacks);
+  return ret;
 }
 
 DRWAV_API float*
@@ -5918,7 +5920,9 @@ drwav_open_and_read_pcm_frames_f32(drwav_read_proc onRead, drwav_seek_proc onSee
     return NULL;
   }
 
-  return drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  float* ret = drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  drwav_free(wav, pAllocationCallbacks);
+  return ret;
 }
 
 DRWAV_API int32_t*
@@ -5937,7 +5941,9 @@ drwav_open_and_read_pcm_frames_s32(drwav_read_proc onRead, drwav_seek_proc onSee
     return NULL;
   }
 
-  return drwav__read_pcm_frames_and_close_s32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  int32_t* ret = drwav__read_pcm_frames_and_close_s32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  drwav_free(wav, pAllocationCallbacks);
+  return ret;
 }
 
 #ifndef DR_WAV_NO_STDIO
@@ -5956,7 +5962,9 @@ drwav_open_file_and_read_pcm_frames_s16(const char* filename, unsigned int* chan
     return NULL;
   }
 
-  return drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  int16_t* ret = drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  drwav_free(wav, pAllocationCallbacks);
+  return ret;
 }
 
 DRWAV_API float*
@@ -5973,7 +5981,9 @@ drwav_open_file_and_read_pcm_frames_f32(const char* filename, unsigned int* chan
     return NULL;
   }
 
-  return drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  float* ret = drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  drwav_free(wav, pAllocationCallbacks);
+  return ret;
 }
 
 DRWAV_API int32_t*
@@ -5990,7 +6000,9 @@ drwav_open_file_and_read_pcm_frames_s32(const char* filename, unsigned int* chan
     return NULL;
   }
 
-  return drwav__read_pcm_frames_and_close_s32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  int32_t* ret = drwav__read_pcm_frames_and_close_s32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  drwav_free(wav, pAllocationCallbacks);
+  return ret;
 }
 
 DRWAV_API int16_t*
@@ -6007,7 +6019,10 @@ drwav_open_file_and_read_pcm_frames_s16_w(const wchar_t* filename, unsigned int*
     return NULL;
   }
 
-  return drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  int16_t* ret =
+      drwav__read_pcm_frames_and_close_s16(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  drwav_free(wav, pAllocationCallbacks);
+  return ret;
 }
 
 DRWAV_API float*
@@ -6024,7 +6039,10 @@ drwav_open_file_and_read_pcm_frames_f32_w(const wchar_t* filename, unsigned int*
     return NULL;
   }
 
-  return drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  float* ret =
+      drwav__read_pcm_frames_and_close_f32(wav, channelsOut, sampleRateOut, totalFrameCountOut);
+  drwav_free(wav, pAllocationCallbacks);
+  return ret;
 }
 
 DRWAV_API int32_t*
