@@ -1,15 +1,13 @@
 ---
-Language: C
 BasedOnStyle:  LLVM
 AlwaysBreakTemplateDeclarations: Yes
 BreakBeforeBraces: Attach
-ColumnLimit: 160
+ColumnLimit: 100
 SpaceAfterTemplateKeyword: true
-Standard: c99
-TabWidth: 4
-IndentWidth: 4
+TabWidth: 2
+IndentWidth: 2
 IndentRequires: true
-UseTab: Always
+UseTab: Never
 AllowShortEnumsOnASingleLine: true
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: All
