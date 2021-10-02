@@ -17,14 +17,30 @@ set(C_STANDARD 99)
 
 project(${project_name} VERSION "${project_version}")
 
+set(is_root_project OFF)	# indicate if this is the top-level project
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+  set(is_root_project ON)
+  message(STATUS "${PROJECT_NAME} is top level")
+endif()
+
 add_library(${project_name})
 add_library(${project_name}::${project_name} ALIAS ${project_name})
 add_subdirectory(include/dr_libs)
+add_subdirectory(src)
 
 target_include_directories(${project_name} PRIVATE
-"${CMAKE_CURRENT_SOURCE_DIR}/include"
+"include"
 )
 
 target_include_directories(${project_name} SYSTEM INTERFACE
 "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
+
+target_compile_options(${project_name} PUBLIC
+-Wno-implicit-fallthrough
+)
+
+option(DR_LIBS_BUILD_TESTS "Build tests" ${is_root_project})
+if(${DR_LIBS_BUILD_TESTS})
+  add_subdirectory(tests)
+endif()
