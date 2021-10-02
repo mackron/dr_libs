@@ -23,7 +23,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   message(STATUS "${PROJECT_NAME} is top level")
 endif()
 
-add_library(${project_name})
+add_library(${project_name} STATIC)
 add_library(${project_name}::${project_name} ALIAS ${project_name})
 add_subdirectory(include/dr_libs)
 add_subdirectory(src)
