@@ -1,0 +1,19 @@
+[*]
+insert_final_newline = true
+charset = utf-8
+indent_size = 4
+indent_style = tab
+# Optional: git will commit as lf, this will only affect local files
+end_of_line = lf
+
+[*.{py,md,yml,sh,cmake}]
+indent_style = space
+indent_size = 2
+
+[*.{py,md,yml,sh,cmake}.in]
+indent_style = space
+indent_size = 2
+
+[CMakeLists.txt]
+indent_style = space
+indent_size = 2
