@@ -28,6 +28,7 @@ extern "C" {
   DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR)                                                            \
   "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
+#include <dr_libs/dr_common.h>
 #include <stdbool.h> /* For true and false. */
 #include <stddef.h>  /* For size_t. */
 #include <stdint.h>  /* For sized types. */
@@ -282,13 +283,6 @@ typedef uint64_t (*drwav_chunk_proc)(void* pChunkUserData, drwav_read_proc onRea
                                      drwav_seek_proc onSeek, void* pReadSeekUserData,
                                      const drwav_chunk_header* pChunkHeader,
                                      drwav_container container, const drwav_fmt* pFMT);
-
-typedef struct {
-  void* pUserData;
-  void* (*onMalloc)(size_t sz, void* pUserData);
-  void* (*onRealloc)(void* p, size_t sz, void* pUserData);
-  void (*onFree)(void* p, void* pUserData);
-} drwav_allocation_callbacks;
 
 /* Structure for internal use. Only used for loaders opened with
  * drwav_init_memory(). */
@@ -716,7 +710,7 @@ typedef struct {
   void* pUserData;
 
   /* Allocation callbacks. */
-  drwav_allocation_callbacks allocationCallbacks;
+  drlibs_allocation_callbacks allocationCallbacks;
 
   /* Whether or not the WAV file is formatted as a standard RIFF file or W64. */
   drwav_container container;
@@ -840,14 +834,14 @@ the FMT chunk can be read from pWav->fmt after the function returns.
 See also: drwav_init_file(), drwav_init_memory(), drwav_uninit()
 */
 DRWAV_API drwav* drwav_init(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData,
-                            const drwav_allocation_callbacks* pAllocationCallbacks);
+                            const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_ex(drwav_read_proc onRead, drwav_seek_proc onSeek,
                                drwav_chunk_proc onChunk, void* pReadSeekUserData,
                                void* pChunkUserData, uint32_t flags,
-                               const drwav_allocation_callbacks* pAllocationCallbacks);
+                               const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_with_metadata(drwav_read_proc onRead, drwav_seek_proc onSeek,
                                           void* pUserData, uint32_t flags,
-                                          const drwav_allocation_callbacks* pAllocationCallbacks);
+                                          const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Initializes a pre-allocated drwav object for writing.
@@ -877,18 +871,18 @@ See also: drwav_init_file_write(), drwav_init_memory_write(), drwav_uninit()
 */
 DRWAV_API drwav* drwav_init_write(const drwav_data_format* pFormat, drwav_write_proc onWrite,
                                   drwav_seek_proc onSeek, void* pUserData,
-                                  const drwav_allocation_callbacks* pAllocationCallbacks);
+                                  const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav*
 drwav_init_write_sequential(const drwav_data_format* pFormat, uint64_t totalSampleCount,
                             drwav_write_proc onWrite, void* pUserData,
-                            const drwav_allocation_callbacks* pAllocationCallbacks);
+                            const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_write_sequential_pcm_frames(
     const drwav_data_format* pFormat, uint64_t totalPCMFrameCount, drwav_write_proc onWrite,
-    void* pUserData, const drwav_allocation_callbacks* pAllocationCallbacks);
+    void* pUserData, const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav*
 drwav_init_write_with_metadata(const drwav_data_format* pFormat, drwav_write_proc onWrite,
                                drwav_seek_proc onSeek, void* pUserData,
-                               const drwav_allocation_callbacks* pAllocationCallbacks,
+                               const drlibs_allocation_callbacks* pAllocationCallbacks,
                                drwav_metadata* pMetadata, uint32_t metadataCount);
 
 /*
@@ -1156,21 +1150,21 @@ mind if you're caching drwav objects because the operating system may restrict
 the number of file handles an application can have open at any given time.
 */
 DRWAV_API drwav* drwav_init_file(const char* filename,
-                                 const drwav_allocation_callbacks* pAllocationCallbacks);
+                                 const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_file_ex(const char* filename, drwav_chunk_proc onChunk,
                                     void* pChunkUserData, uint32_t flags,
-                                    const drwav_allocation_callbacks* pAllocationCallbacks);
+                                    const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_file_w(const wchar_t* filename,
-                                   const drwav_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_file_ex_w(const wchar_t* filename, drwav_chunk_proc onChunk,
                                       void* pChunkUserData, uint32_t flags,
-                                      const drwav_allocation_callbacks* pAllocationCallbacks);
+                                      const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav*
 drwav_init_file_with_metadata(const char* filename, uint32_t flags,
-                              const drwav_allocation_callbacks* pAllocationCallbacks);
+                              const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav*
 drwav_init_file_with_metadata_w(const wchar_t* filename, uint32_t flags,
-                                const drwav_allocation_callbacks* pAllocationCallbacks);
+                                const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Helper for initializing a wave file for writing using stdio.
@@ -1180,24 +1174,23 @@ mind if you're caching drwav objects because the operating system may restrict
 the number of file handles an application can have open at any given time.
 */
 DRWAV_API drwav* drwav_init_file_write(const char* filename, const drwav_data_format* pFormat,
-                                       const drwav_allocation_callbacks* pAllocationCallbacks);
+                                       const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav*
 drwav_init_file_write_sequential(const char* filename, const drwav_data_format* pFormat,
                                  uint64_t totalSampleCount,
-                                 const drwav_allocation_callbacks* pAllocationCallbacks);
-DRWAV_API drwav*
-drwav_init_file_write_sequential_pcm_frames(const char* filename, const drwav_data_format* pFormat,
-                                            uint64_t totalPCMFrameCount,
-                                            const drwav_allocation_callbacks* pAllocationCallbacks);
+                                 const drlibs_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API drwav* drwav_init_file_write_sequential_pcm_frames(
+    const char* filename, const drwav_data_format* pFormat, uint64_t totalPCMFrameCount,
+    const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_file_write_w(const wchar_t* filename, const drwav_data_format* pFormat,
-                                         const drwav_allocation_callbacks* pAllocationCallbacks);
+                                         const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav*
 drwav_init_file_write_sequential_w(const wchar_t* filename, const drwav_data_format* pFormat,
                                    uint64_t totalSampleCount,
-                                   const drwav_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_file_write_sequential_pcm_frames_w(
     const wchar_t* filename, const drwav_data_format* pFormat, uint64_t totalPCMFrameCount,
-    const drwav_allocation_callbacks* pAllocationCallbacks);
+    const drlibs_allocation_callbacks* pAllocationCallbacks);
 #endif /* DR_WAV_NO_STDIO */
 
 /*
@@ -1210,13 +1203,13 @@ The buffer should contain the contents of the entire wave file, not just the
 sample data.
 */
 DRWAV_API drwav* drwav_init_memory(const void* data, size_t dataSize,
-                                   const drwav_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_memory_ex(const void* data, size_t dataSize, drwav_chunk_proc onChunk,
                                       void* pChunkUserData, uint32_t flags,
-                                      const drwav_allocation_callbacks* pAllocationCallbacks);
+                                      const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav*
 drwav_init_memory_with_metadata(const void* data, size_t dataSize, uint32_t flags,
-                                const drwav_allocation_callbacks* pAllocationCallbacks);
+                                const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Helper for initializing a writer which outputs data to a memory buffer.
@@ -1229,14 +1222,14 @@ should not be considered valid until after drwav_uninit() has been called.
 */
 DRWAV_API drwav* drwav_init_memory_write(void** ppData, size_t* pDataSize,
                                          const drwav_data_format* pFormat,
-                                         const drwav_allocation_callbacks* pAllocationCallbacks);
+                                         const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav*
 drwav_init_memory_write_sequential(void** ppData, size_t* pDataSize,
                                    const drwav_data_format* pFormat, uint64_t totalSampleCount,
-                                   const drwav_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API drwav* drwav_init_memory_write_sequential_pcm_frames(
     void** ppData, size_t* pDataSize, const drwav_data_format* pFormat, uint64_t totalPCMFrameCount,
-    const drwav_allocation_callbacks* pAllocationCallbacks);
+    const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 #ifndef DR_WAV_NO_CONVERSION_API
 /*
@@ -1249,17 +1242,17 @@ DRWAV_API int16_t*
 drwav_open_and_read_pcm_frames_s16(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData,
                                    unsigned int* channelsOut, unsigned int* sampleRateOut,
                                    uint64_t* totalFrameCountOut,
-                                   const drwav_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API float*
 drwav_open_and_read_pcm_frames_f32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData,
                                    unsigned int* channelsOut, unsigned int* sampleRateOut,
                                    uint64_t* totalFrameCountOut,
-                                   const drwav_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API int32_t*
 drwav_open_and_read_pcm_frames_s32(drwav_read_proc onRead, drwav_seek_proc onSeek, void* pUserData,
                                    unsigned int* channelsOut, unsigned int* sampleRateOut,
                                    uint64_t* totalFrameCountOut,
-                                   const drwav_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 #ifndef DR_WAV_NO_STDIO
 /*
 Opens and decodes an entire wav file in a single operation.
@@ -1270,27 +1263,27 @@ drwav_free() to free the buffer.
 DRWAV_API int16_t*
 drwav_open_file_and_read_pcm_frames_s16(const char* filename, unsigned int* channelsOut,
                                         unsigned int* sampleRateOut, uint64_t* totalFrameCountOut,
-                                        const drwav_allocation_callbacks* pAllocationCallbacks);
+                                        const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API float*
 drwav_open_file_and_read_pcm_frames_f32(const char* filename, unsigned int* channelsOut,
                                         unsigned int* sampleRateOut, uint64_t* totalFrameCountOut,
-                                        const drwav_allocation_callbacks* pAllocationCallbacks);
+                                        const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API int32_t*
 drwav_open_file_and_read_pcm_frames_s32(const char* filename, unsigned int* channelsOut,
                                         unsigned int* sampleRateOut, uint64_t* totalFrameCountOut,
-                                        const drwav_allocation_callbacks* pAllocationCallbacks);
+                                        const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API int16_t*
 drwav_open_file_and_read_pcm_frames_s16_w(const wchar_t* filename, unsigned int* channelsOut,
                                           unsigned int* sampleRateOut, uint64_t* totalFrameCountOut,
-                                          const drwav_allocation_callbacks* pAllocationCallbacks);
+                                          const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API float*
 drwav_open_file_and_read_pcm_frames_f32_w(const wchar_t* filename, unsigned int* channelsOut,
                                           unsigned int* sampleRateOut, uint64_t* totalFrameCountOut,
-                                          const drwav_allocation_callbacks* pAllocationCallbacks);
+                                          const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API int32_t*
 drwav_open_file_and_read_pcm_frames_s32_w(const wchar_t* filename, unsigned int* channelsOut,
                                           unsigned int* sampleRateOut, uint64_t* totalFrameCountOut,
-                                          const drwav_allocation_callbacks* pAllocationCallbacks);
+                                          const drlibs_allocation_callbacks* pAllocationCallbacks);
 #endif
 /*
 Opens and decodes an entire wav file from a block of memory in a single
@@ -1301,17 +1294,17 @@ drwav_free() to free the buffer.
 */
 DRWAV_API int16_t* drwav_open_memory_and_read_pcm_frames_s16(
     const void* data, size_t dataSize, unsigned int* channelsOut, unsigned int* sampleRateOut,
-    uint64_t* totalFrameCountOut, const drwav_allocation_callbacks* pAllocationCallbacks);
+    uint64_t* totalFrameCountOut, const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API float* drwav_open_memory_and_read_pcm_frames_f32(
     const void* data, size_t dataSize, unsigned int* channelsOut, unsigned int* sampleRateOut,
-    uint64_t* totalFrameCountOut, const drwav_allocation_callbacks* pAllocationCallbacks);
+    uint64_t* totalFrameCountOut, const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRWAV_API int32_t* drwav_open_memory_and_read_pcm_frames_s32(
     const void* data, size_t dataSize, unsigned int* channelsOut, unsigned int* sampleRateOut,
-    uint64_t* totalFrameCountOut, const drwav_allocation_callbacks* pAllocationCallbacks);
+    uint64_t* totalFrameCountOut, const drlibs_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /* Frees data that was allocated internally by dr_wav. */
-DRWAV_API void drwav_free(void* p, const drwav_allocation_callbacks* pAllocationCallbacks);
+DRWAV_API void drwav_free(void* p, const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 /* Converts bytes from a wav stream to a sized type of native endian. */
 DRWAV_API uint16_t drwav_bytes_to_u16(const uint8_t* data);

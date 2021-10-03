@@ -5069,7 +5069,7 @@ static void drflac__free_default(void* p, void* pUserData) {
 }
 
 static void*
-drflac__malloc_from_callbacks(size_t sz, const drflac_allocation_callbacks* pAllocationCallbacks) {
+drflac__malloc_from_callbacks(size_t sz, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (pAllocationCallbacks == NULL) { return NULL; }
 
   if (pAllocationCallbacks->onMalloc != NULL) {
@@ -5086,7 +5086,7 @@ drflac__malloc_from_callbacks(size_t sz, const drflac_allocation_callbacks* pAll
 
 static void*
 drflac__realloc_from_callbacks(void* p, size_t szNew, size_t szOld,
-                               const drflac_allocation_callbacks* pAllocationCallbacks) {
+                               const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (pAllocationCallbacks == NULL) { return NULL; }
 
   if (pAllocationCallbacks->onRealloc != NULL) {
@@ -5112,7 +5112,7 @@ drflac__realloc_from_callbacks(void* p, size_t szNew, size_t szOld,
 }
 
 static void drflac__free_from_callbacks(void* p,
-                                        const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                        const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (p == NULL || pAllocationCallbacks == NULL) { return; }
 
   if (pAllocationCallbacks->onFree != NULL) {
@@ -5123,7 +5123,7 @@ static void drflac__free_from_callbacks(void* p,
 static drflac_bool32 drflac__read_and_decode_metadata(
     drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData,
     void* pUserDataMD, drflac_uint64* pFirstFramePos, drflac_uint64* pSeektablePos,
-    drflac_uint32* pSeektableSize, drflac_allocation_callbacks* pAllocationCallbacks) {
+    drflac_uint32* pSeektableSize, drlibs_allocation_callbacks* pAllocationCallbacks) {
   /*
   We want to keep track of the byte position in the stream of the seektable. At
   the time of calling this function we know that we'll be sitting on byte 42.
@@ -6533,7 +6533,7 @@ static drflac*
 drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek,
                                   drflac_meta_proc onMeta, drflac_container container,
                                   void* pUserData, void* pUserDataMD,
-                                  const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                  const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac_init_info init;
   drflac_uint32 allocationSize;
   drflac_uint32 wholeSIMDVectorCountPerChannel;
@@ -6544,7 +6544,7 @@ drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSe
   drflac_uint64 firstFramePos;
   drflac_uint64 seektablePos;
   drflac_uint32 seektableSize;
-  drflac_allocation_callbacks allocationCallbacks;
+  drlibs_allocation_callbacks allocationCallbacks;
   drflac* pFlac;
 
   /* CPU support first. */
@@ -7224,7 +7224,7 @@ support.
 
 static drflac_result drflac_wfopen(FILE** ppFile, const wchar_t* pFilePath,
                                    const wchar_t* pOpenMode,
-                                   const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (ppFile != NULL) { *ppFile = NULL; /* Safety. */ }
 
   if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) { return DRFLAC_INVALID_ARGS; }
@@ -7307,7 +7307,7 @@ static drflac_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_s
 }
 
 DRFLAC_API drflac* drflac_open_file(const char* pFileName,
-                                    const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                    const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
   FILE* pFile;
 
@@ -7324,7 +7324,7 @@ DRFLAC_API drflac* drflac_open_file(const char* pFileName,
 }
 
 DRFLAC_API drflac* drflac_open_file_w(const wchar_t* pFileName,
-                                      const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                      const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
   FILE* pFile;
 
@@ -7344,7 +7344,7 @@ DRFLAC_API drflac* drflac_open_file_w(const wchar_t* pFileName,
 
 DRFLAC_API drflac*
 drflac_open_file_with_metadata(const char* pFileName, drflac_meta_proc onMeta, void* pUserData,
-                               const drflac_allocation_callbacks* pAllocationCallbacks) {
+                               const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
   FILE* pFile;
 
@@ -7363,7 +7363,7 @@ drflac_open_file_with_metadata(const char* pFileName, drflac_meta_proc onMeta, v
 
 DRFLAC_API drflac*
 drflac_open_file_with_metadata_w(const wchar_t* pFileName, drflac_meta_proc onMeta, void* pUserData,
-                                 const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                 const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
   FILE* pFile;
 
@@ -7428,7 +7428,7 @@ static drflac_bool32 drflac__on_seek_memory(void* pUserData, int offset,
 }
 
 DRFLAC_API drflac* drflac_open_memory(const void* pData, size_t dataSize,
-                                      const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                      const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac__memory_stream memoryStream;
   drflac* pFlac;
 
@@ -7458,7 +7458,7 @@ DRFLAC_API drflac* drflac_open_memory(const void* pData, size_t dataSize,
 DRFLAC_API drflac*
 drflac_open_memory_with_metadata(const void* pData, size_t dataSize, drflac_meta_proc onMeta,
                                  void* pUserData,
-                                 const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                 const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac__memory_stream memoryStream;
   drflac* pFlac;
 
@@ -7487,13 +7487,13 @@ drflac_open_memory_with_metadata(const void* pData, size_t dataSize, drflac_meta
 }
 
 DRFLAC_API drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData,
-                               const drflac_allocation_callbacks* pAllocationCallbacks) {
+                               const drlibs_allocation_callbacks* pAllocationCallbacks) {
   return drflac_open_with_metadata_private(onRead, onSeek, NULL, drflac_container_unknown,
                                            pUserData, pUserData, pAllocationCallbacks);
 }
 DRFLAC_API drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek,
                                        drflac_container container, void* pUserData,
-                                       const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                       const drlibs_allocation_callbacks* pAllocationCallbacks) {
   return drflac_open_with_metadata_private(onRead, onSeek, NULL, container, pUserData, pUserData,
                                            pAllocationCallbacks);
 }
@@ -7501,7 +7501,7 @@ DRFLAC_API drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc
 DRFLAC_API drflac*
 drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta,
                           void* pUserData,
-                          const drflac_allocation_callbacks* pAllocationCallbacks) {
+                          const drlibs_allocation_callbacks* pAllocationCallbacks) {
   return drflac_open_with_metadata_private(onRead, onSeek, onMeta, drflac_container_unknown,
                                            pUserData, pUserData, pAllocationCallbacks);
 }
@@ -7509,7 +7509,7 @@ DRFLAC_API drflac*
 drflac_open_with_metadata_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek,
                                   drflac_meta_proc onMeta, drflac_container container,
                                   void* pUserData,
-                                  const drflac_allocation_callbacks* pAllocationCallbacks) {
+                                  const drlibs_allocation_callbacks* pAllocationCallbacks) {
   return drflac_open_with_metadata_private(onRead, onSeek, onMeta, container, pUserData, pUserData,
                                            pAllocationCallbacks);
 }
@@ -10630,7 +10630,7 @@ DRFLAC_DEFINE_FULL_READ_AND_CLOSE(f32, float)
 DRFLAC_API drflac_int32* drflac_open_and_read_pcm_frames_s32(
     drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut,
     unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut,
-    const drflac_allocation_callbacks* pAllocationCallbacks) {
+    const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
 
   if (channelsOut) { *channelsOut = 0; }
@@ -10646,7 +10646,7 @@ DRFLAC_API drflac_int32* drflac_open_and_read_pcm_frames_s32(
 DRFLAC_API drflac_int16* drflac_open_and_read_pcm_frames_s16(
     drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut,
     unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut,
-    const drflac_allocation_callbacks* pAllocationCallbacks) {
+    const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
 
   if (channelsOut) { *channelsOut = 0; }
@@ -10662,7 +10662,7 @@ DRFLAC_API drflac_int16* drflac_open_and_read_pcm_frames_s16(
 DRFLAC_API float* drflac_open_and_read_pcm_frames_f32(
     drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut,
     unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut,
-    const drflac_allocation_callbacks* pAllocationCallbacks) {
+    const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
 
   if (channelsOut) { *channelsOut = 0; }
@@ -10678,7 +10678,7 @@ DRFLAC_API float* drflac_open_and_read_pcm_frames_f32(
 #ifndef DR_FLAC_NO_STDIO
 DRFLAC_API drflac_int32* drflac_open_file_and_read_pcm_frames_s32(
     const char* filename, unsigned int* channels, unsigned int* sampleRate,
-    drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks) {
+    drflac_uint64* totalPCMFrameCount, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
 
   if (sampleRate) { *sampleRate = 0; }
@@ -10693,7 +10693,7 @@ DRFLAC_API drflac_int32* drflac_open_file_and_read_pcm_frames_s32(
 
 DRFLAC_API drflac_int16* drflac_open_file_and_read_pcm_frames_s16(
     const char* filename, unsigned int* channels, unsigned int* sampleRate,
-    drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks) {
+    drflac_uint64* totalPCMFrameCount, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
 
   if (sampleRate) { *sampleRate = 0; }
@@ -10708,7 +10708,7 @@ DRFLAC_API drflac_int16* drflac_open_file_and_read_pcm_frames_s16(
 
 DRFLAC_API float* drflac_open_file_and_read_pcm_frames_f32(
     const char* filename, unsigned int* channels, unsigned int* sampleRate,
-    drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks) {
+    drflac_uint64* totalPCMFrameCount, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
 
   if (sampleRate) { *sampleRate = 0; }
@@ -10724,7 +10724,7 @@ DRFLAC_API float* drflac_open_file_and_read_pcm_frames_f32(
 
 DRFLAC_API drflac_int32* drflac_open_memory_and_read_pcm_frames_s32(
     const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate,
-    drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks) {
+    drflac_uint64* totalPCMFrameCount, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
 
   if (sampleRate) { *sampleRate = 0; }
@@ -10739,7 +10739,7 @@ DRFLAC_API drflac_int32* drflac_open_memory_and_read_pcm_frames_s32(
 
 DRFLAC_API drflac_int16* drflac_open_memory_and_read_pcm_frames_s16(
     const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate,
-    drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks) {
+    drflac_uint64* totalPCMFrameCount, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
 
   if (sampleRate) { *sampleRate = 0; }
@@ -10754,7 +10754,7 @@ DRFLAC_API drflac_int16* drflac_open_memory_and_read_pcm_frames_s16(
 
 DRFLAC_API float* drflac_open_memory_and_read_pcm_frames_f32(
     const void* data, size_t dataSize, unsigned int* channels, unsigned int* sampleRate,
-    drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks) {
+    drflac_uint64* totalPCMFrameCount, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drflac* pFlac;
 
   if (sampleRate) { *sampleRate = 0; }
@@ -10767,7 +10767,7 @@ DRFLAC_API float* drflac_open_memory_and_read_pcm_frames_f32(
   return drflac__full_read_and_close_f32(pFlac, channels, sampleRate, totalPCMFrameCount);
 }
 
-DRFLAC_API void drflac_free(void* p, const drflac_allocation_callbacks* pAllocationCallbacks) {
+DRFLAC_API void drflac_free(void* p, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (pAllocationCallbacks != NULL) {
     drflac__free_from_callbacks(p, pAllocationCallbacks);
   } else {

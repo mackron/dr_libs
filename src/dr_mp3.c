@@ -2073,7 +2073,7 @@ static void drmp3__free_default(void* p, void* pUserData) {
 }
 
 static void* drmp3__malloc_from_callbacks(size_t sz,
-                                          const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                          const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (pAllocationCallbacks == NULL) { return NULL; }
 
   if (pAllocationCallbacks->onMalloc != NULL) {
@@ -2089,7 +2089,7 @@ static void* drmp3__malloc_from_callbacks(size_t sz,
 }
 
 static void* drmp3__realloc_from_callbacks(void* p, size_t szNew, size_t szOld,
-                                           const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                           const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (pAllocationCallbacks == NULL) { return NULL; }
 
   if (pAllocationCallbacks->onRealloc != NULL) {
@@ -2115,7 +2115,7 @@ static void* drmp3__realloc_from_callbacks(void* p, size_t szNew, size_t szOld,
 }
 
 static void drmp3__free_from_callbacks(void* p,
-                                       const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                       const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (p == NULL || pAllocationCallbacks == NULL) { return; }
 
   if (pAllocationCallbacks->onFree != NULL) {
@@ -2123,14 +2123,14 @@ static void drmp3__free_from_callbacks(void* p,
   }
 }
 
-static drmp3_allocation_callbacks drmp3_copy_allocation_callbacks_or_defaults(
-    const drmp3_allocation_callbacks* pAllocationCallbacks) {
+static drlibs_allocation_callbacks drmp3_copy_allocation_callbacks_or_defaults(
+    const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (pAllocationCallbacks != NULL) {
     /* Copy. */
     return *pAllocationCallbacks;
   } else {
     /* Defaults. */
-    drmp3_allocation_callbacks allocationCallbacks;
+    drlibs_allocation_callbacks allocationCallbacks;
     allocationCallbacks.pUserData = NULL;
     allocationCallbacks.onMalloc = drmp3__malloc_default;
     allocationCallbacks.onRealloc = drmp3__realloc_default;
@@ -2347,7 +2347,7 @@ static uint32_t drmp3_decode_next_frame(drmp3* pMP3) {
 
 static bool drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek,
                                 void* pUserData,
-                                const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                const drlibs_allocation_callbacks* pAllocationCallbacks) {
   DRMP3_ASSERT(pMP3 != NULL);
   DRMP3_ASSERT(onRead != NULL);
 
@@ -2381,7 +2381,7 @@ static bool drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_
 }
 
 DRMP3_API drmp3* drmp3_init(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData,
-                            const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                            const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (onRead == NULL) { return NULL; }
   drmp3* pMP3 = DRMP3_MALLOC(sizeof(drmp3));
   if (pMP3 == NULL) { return NULL; }
@@ -2443,7 +2443,7 @@ static bool drmp3__on_seek_memory(void* pUserData, int byteOffset, drmp3_seek_or
 }
 
 DRMP3_API drmp3* drmp3_init_memory(const void* pData, size_t dataSize,
-                                   const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (pData == NULL || dataSize == 0) { return false; }
   drmp3* pMP3 = DRMP3_MALLOC(sizeof(drmp3));
   if (pMP3 == NULL) { return NULL; }
@@ -2926,7 +2926,7 @@ support.
 #endif
 
 static drmp3_result drmp3_wfopen(FILE** ppFile, const wchar_t* pFilePath, const wchar_t* pOpenMode,
-                                 const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                 const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (ppFile != NULL) { *ppFile = NULL; /* Safety. */ }
 
   if (pFilePath == NULL || pOpenMode == NULL || ppFile == NULL) { return DRMP3_INVALID_ARGS; }
@@ -3007,7 +3007,7 @@ static bool drmp3__on_seek_stdio(void* pUserData, int offset, drmp3_seek_origin 
 }
 
 DRMP3_API drmp3* drmp3_init_file(const char* pFilePath,
-                                 const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                 const drlibs_allocation_callbacks* pAllocationCallbacks) {
   FILE* pFile;
 
   if (drmp3_fopen(&pFile, pFilePath, "rb") != DRMP3_SUCCESS) { return NULL; }
@@ -3023,7 +3023,7 @@ DRMP3_API drmp3* drmp3_init_file(const char* pFilePath,
 }
 
 DRMP3_API drmp3* drmp3_init_file_w(const wchar_t* pFilePath,
-                                   const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks) {
   FILE* pFile;
 
   if (drmp3_wfopen(&pFile, pFilePath, L"rb", pAllocationCallbacks) != DRMP3_SUCCESS) {
@@ -3769,7 +3769,7 @@ static int16_t* drmp3__full_read_and_close_s16(drmp3* pMP3, drmp3_config* pConfi
 DRMP3_API float*
 drmp3_open_and_read_pcm_frames_f32(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData,
                                    drmp3_config* pConfig, uint64_t* pTotalFrameCount,
-                                   const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drmp3* mp3 = drmp3_init(onRead, onSeek, pUserData, pAllocationCallbacks);
   if (mp3 == NULL) { return NULL; }
 
@@ -3779,7 +3779,7 @@ drmp3_open_and_read_pcm_frames_f32(drmp3_read_proc onRead, drmp3_seek_proc onSee
 DRMP3_API int16_t*
 drmp3_open_and_read_pcm_frames_s16(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData,
                                    drmp3_config* pConfig, uint64_t* pTotalFrameCount,
-                                   const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drmp3* mp3 = drmp3_init(onRead, onSeek, pUserData, pAllocationCallbacks);
   if (mp3 == NULL) { return NULL; }
 
@@ -3789,7 +3789,7 @@ drmp3_open_and_read_pcm_frames_s16(drmp3_read_proc onRead, drmp3_seek_proc onSee
 DRMP3_API float*
 drmp3_open_memory_and_read_pcm_frames_f32(const void* pData, size_t dataSize, drmp3_config* pConfig,
                                           uint64_t* pTotalFrameCount,
-                                          const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                          const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drmp3* mp3 = drmp3_init_memory(pData, dataSize, pAllocationCallbacks);
   if (mp3 == NULL) { return NULL; }
 
@@ -3799,7 +3799,7 @@ drmp3_open_memory_and_read_pcm_frames_f32(const void* pData, size_t dataSize, dr
 DRMP3_API int16_t*
 drmp3_open_memory_and_read_pcm_frames_s16(const void* pData, size_t dataSize, drmp3_config* pConfig,
                                           uint64_t* pTotalFrameCount,
-                                          const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                          const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drmp3* mp3 = drmp3_init_memory(pData, dataSize, pAllocationCallbacks);
   if (mp3 == NULL) { return NULL; }
 
@@ -3810,7 +3810,7 @@ drmp3_open_memory_and_read_pcm_frames_s16(const void* pData, size_t dataSize, dr
 DRMP3_API float*
 drmp3_open_file_and_read_pcm_frames_f32(const char* filePath, drmp3_config* pConfig,
                                         uint64_t* pTotalFrameCount,
-                                        const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                        const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drmp3* mp3 = drmp3_init_file(filePath, pAllocationCallbacks);
   if (mp3 == NULL) { return NULL; }
 
@@ -3820,7 +3820,7 @@ drmp3_open_file_and_read_pcm_frames_f32(const char* filePath, drmp3_config* pCon
 DRMP3_API int16_t*
 drmp3_open_file_and_read_pcm_frames_s16(const char* filePath, drmp3_config* pConfig,
                                         uint64_t* pTotalFrameCount,
-                                        const drmp3_allocation_callbacks* pAllocationCallbacks) {
+                                        const drlibs_allocation_callbacks* pAllocationCallbacks) {
   drmp3* mp3 = drmp3_init_file(filePath, pAllocationCallbacks);
   if (mp3 == NULL) { return NULL; }
 
@@ -3828,7 +3828,7 @@ drmp3_open_file_and_read_pcm_frames_s16(const char* filePath, drmp3_config* pCon
 }
 #endif
 
-DRMP3_API void* drmp3_malloc(size_t sz, const drmp3_allocation_callbacks* pAllocationCallbacks) {
+DRMP3_API void* drmp3_malloc(size_t sz, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (pAllocationCallbacks != NULL) {
     return drmp3__malloc_from_callbacks(sz, pAllocationCallbacks);
   } else {
@@ -3836,7 +3836,7 @@ DRMP3_API void* drmp3_malloc(size_t sz, const drmp3_allocation_callbacks* pAlloc
   }
 }
 
-DRMP3_API void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks) {
+DRMP3_API void drmp3_free(void* p, const drlibs_allocation_callbacks* pAllocationCallbacks) {
   if (pAllocationCallbacks != NULL) {
     drmp3__free_from_callbacks(p, pAllocationCallbacks);
   } else {

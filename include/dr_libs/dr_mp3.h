@@ -28,6 +28,7 @@ extern "C" {
   DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR)                                                            \
   "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
+#include <dr_libs/dr_common.h>
 #include <stdbool.h> /* For true and false. */
 #include <stddef.h>  /* For size_t. */
 #include <stdint.h>  /* For sized types. */
@@ -220,13 +221,6 @@ drmp3_seek_origin_current.
 typedef bool (*drmp3_seek_proc)(void* pUserData, int offset, drmp3_seek_origin origin);
 
 typedef struct {
-  void* pUserData;
-  void* (*onMalloc)(size_t sz, void* pUserData);
-  void* (*onRealloc)(void* p, size_t sz, void* pUserData);
-  void (*onFree)(void* p, void* pUserData);
-} drmp3_allocation_callbacks;
-
-typedef struct {
   uint32_t channels;
   uint32_t sampleRate;
 } drmp3_config;
@@ -239,7 +233,7 @@ typedef struct {
   drmp3_read_proc onRead;
   drmp3_seek_proc onSeek;
   void* pUserData;
-  drmp3_allocation_callbacks allocationCallbacks;
+  drlibs_allocation_callbacks allocationCallbacks;
   uint32_t mp3FrameChannels;   /* The number of channels in the currently
                                       loaded MP3 frame. Internal use only. */
   uint32_t mp3FrameSampleRate; /* The sample rate of the currently loaded
@@ -286,7 +280,7 @@ Close the loader with drmp3_uninit().
 See also: drmp3_init_file(), drmp3_init_memory(), drmp3_uninit()
 */
 DRMP3_API drmp3* drmp3_init(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData,
-                            const drmp3_allocation_callbacks* pAllocationCallbacks);
+                            const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Initializes an MP3 decoder from a block of memory.
@@ -297,7 +291,7 @@ the buffer remains valid for the lifetime of the drmp3 object.
 The buffer should contain the contents of the entire MP3 file.
 */
 DRMP3_API drmp3* drmp3_init_memory(const void* pData, size_t dataSize,
-                                   const drmp3_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 #ifndef DR_MP3_NO_STDIO
 /*
@@ -308,9 +302,9 @@ mind if you're caching drmp3 objects because the operating system may restrict
 the number of file handles an application can have open at any given time.
 */
 DRMP3_API drmp3* drmp3_init_file(const char* pFilePath,
-                                 const drmp3_allocation_callbacks* pAllocationCallbacks);
+                                 const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRMP3_API drmp3* drmp3_init_file_w(const wchar_t* pFilePath,
-                                   const drmp3_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
@@ -402,41 +396,41 @@ Free the returned pointer with drmp3_free().
 DRMP3_API float*
 drmp3_open_and_read_pcm_frames_f32(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData,
                                    drmp3_config* pConfig, uint64_t* pTotalFrameCount,
-                                   const drmp3_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRMP3_API int16_t*
 drmp3_open_and_read_pcm_frames_s16(drmp3_read_proc onRead, drmp3_seek_proc onSeek, void* pUserData,
                                    drmp3_config* pConfig, uint64_t* pTotalFrameCount,
-                                   const drmp3_allocation_callbacks* pAllocationCallbacks);
+                                   const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 DRMP3_API float*
 drmp3_open_memory_and_read_pcm_frames_f32(const void* pData, size_t dataSize, drmp3_config* pConfig,
                                           uint64_t* pTotalFrameCount,
-                                          const drmp3_allocation_callbacks* pAllocationCallbacks);
+                                          const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRMP3_API int16_t*
 drmp3_open_memory_and_read_pcm_frames_s16(const void* pData, size_t dataSize, drmp3_config* pConfig,
                                           uint64_t* pTotalFrameCount,
-                                          const drmp3_allocation_callbacks* pAllocationCallbacks);
+                                          const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 #ifndef DR_MP3_NO_STDIO
 DRMP3_API float*
 drmp3_open_file_and_read_pcm_frames_f32(const char* filePath, drmp3_config* pConfig,
                                         uint64_t* pTotalFrameCount,
-                                        const drmp3_allocation_callbacks* pAllocationCallbacks);
+                                        const drlibs_allocation_callbacks* pAllocationCallbacks);
 DRMP3_API int16_t*
 drmp3_open_file_and_read_pcm_frames_s16(const char* filePath, drmp3_config* pConfig,
                                         uint64_t* pTotalFrameCount,
-                                        const drmp3_allocation_callbacks* pAllocationCallbacks);
+                                        const drlibs_allocation_callbacks* pAllocationCallbacks);
 #endif
 
 /*
 Allocates a block of memory on the heap.
 */
-DRMP3_API void* drmp3_malloc(size_t sz, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API void* drmp3_malloc(size_t sz, const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Frees any memory that was allocated by a public drmp3 API.
 */
-DRMP3_API void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocationCallbacks);
+DRMP3_API void drmp3_free(void* p, const drlibs_allocation_callbacks* pAllocationCallbacks);
 
 #ifdef __cplusplus
 }
