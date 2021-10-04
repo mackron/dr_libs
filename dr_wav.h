@@ -6012,10 +6012,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__pcm(drwav* pWav, drwav_uin
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav__pcm_to_s16(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
 
@@ -6045,10 +6048,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ieee(drwav* pWav, drwav_ui
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav__ieee_to_s16(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
 
@@ -6078,10 +6084,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__alaw(drwav* pWav, drwav_ui
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_alaw_to_s16(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
 
@@ -6111,10 +6120,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__mulaw(drwav* pWav, drwav_u
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_mulaw_to_s16(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
 
@@ -6343,8 +6355,9 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__pcm(drwav* pWav, drwav_uin
 {
     drwav_uint64 totalFramesRead;
     drwav_uint8 sampleData[4096];
-    drwav_uint32 bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    drwav_uint32 bytesPerFrame;
 
+    bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -6352,10 +6365,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__pcm(drwav* pWav, drwav_uin
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav__pcm_to_f32(pBufferOut, sampleData, (size_t)framesRead*pWav->channels, bytesPerFrame/pWav->channels);
 
@@ -6373,14 +6389,19 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__msadpcm(drwav* pWav, drwav
     We're just going to borrow the implementation from the drwav_read_s16() since ADPCM is a little bit more complicated than other formats and I don't
     want to duplicate that code.
     */
-    drwav_uint64 totalFramesRead = 0;
+    drwav_uint64 totalFramesRead;
     drwav_int16 samples16[2048];
 
+    totalFramesRead = 0;
+
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, drwav_min(framesToRead, drwav_countof(samples16)/pWav->channels), samples16);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, drwav_countof(samples16)/pWav->channels);
+        drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, framesToReadThisIteration, samples16);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_s16_to_f32(pBufferOut, samples16, (size_t)(framesRead*pWav->channels));   /* <-- Safe cast because we're clamping to 2048. */
 
@@ -6398,14 +6419,19 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__ima(drwav* pWav, drwav_uin
     We're just going to borrow the implementation from the drwav_read_s16() since IMA-ADPCM is a little bit more complicated than other formats and I don't
     want to duplicate that code.
     */
-    drwav_uint64 totalFramesRead = 0;
+    drwav_uint64 totalFramesRead;
     drwav_int16 samples16[2048];
 
+    totalFramesRead = 0;
+
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, drwav_min(framesToRead, drwav_countof(samples16)/pWav->channels), samples16);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, drwav_countof(samples16)/pWav->channels);
+        drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, framesToReadThisIteration, samples16);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_s16_to_f32(pBufferOut, samples16, (size_t)(framesRead*pWav->channels));   /* <-- Safe cast because we're clamping to 2048. */
 
@@ -6436,10 +6462,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__ieee(drwav* pWav, drwav_ui
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav__ieee_to_f32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
 
@@ -6455,8 +6484,9 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__alaw(drwav* pWav, drwav_ui
 {
     drwav_uint64 totalFramesRead;
     drwav_uint8 sampleData[4096];
-    drwav_uint32 bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    drwav_uint32 bytesPerFrame;
 
+    bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -6464,10 +6494,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__alaw(drwav* pWav, drwav_ui
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_alaw_to_f32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
 
@@ -6483,8 +6516,9 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__mulaw(drwav* pWav, drwav_u
 {
     drwav_uint64 totalFramesRead;
     drwav_uint8 sampleData[4096];
-    drwav_uint32 bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    drwav_uint32 bytesPerFrame;
 
+    bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
     if (bytesPerFrame == 0) {
         return 0;
     }
@@ -6492,10 +6526,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__mulaw(drwav* pWav, drwav_u
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_mulaw_to_f32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
 
@@ -6770,10 +6807,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__pcm(drwav* pWav, drwav_uin
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav__pcm_to_s32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
 
@@ -6795,10 +6835,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__msadpcm(drwav* pWav, drwav
     drwav_int16 samples16[2048];
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, drwav_min(framesToRead, drwav_countof(samples16)/pWav->channels), samples16);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, drwav_countof(samples16)/pWav->channels);
+        drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, framesToReadThisIteration, samples16);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_s16_to_s32(pBufferOut, samples16, (size_t)(framesRead*pWav->channels));   /* <-- Safe cast because we're clamping to 2048. */
 
@@ -6820,10 +6863,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__ima(drwav* pWav, drwav_uin
     drwav_int16 samples16[2048];
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, drwav_min(framesToRead, drwav_countof(samples16)/pWav->channels), samples16);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, drwav_countof(samples16)/pWav->channels);
+        drwav_uint64 framesRead = drwav_read_pcm_frames_s16(pWav, framesToReadThisIteration, samples16);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_s16_to_s32(pBufferOut, samples16, (size_t)(framesRead*pWav->channels));   /* <-- Safe cast because we're clamping to 2048. */
 
@@ -6848,10 +6894,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__ieee(drwav* pWav, drwav_ui
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav__ieee_to_s32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels), bytesPerFrame/pWav->channels);
 
@@ -6876,10 +6925,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__alaw(drwav* pWav, drwav_ui
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_alaw_to_s32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
 
@@ -6904,10 +6956,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__mulaw(drwav* pWav, drwav_u
     totalFramesRead = 0;
 
     while (framesToRead > 0) {
-        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame), sampleData);
+        drwav_uint64 framesToReadThisIteration = drwav_min(framesToRead, sizeof(sampleData)/bytesPerFrame);
+        drwav_uint64 framesRead = drwav_read_pcm_frames(pWav, framesToReadThisIteration, sampleData);
         if (framesRead == 0) {
             break;
         }
+
+        DRWAV_ASSERT(framesRead <= framesToReadThisIteration);   /* If this fails it means there's a bug in drwav_read_pcm_frames(). */
 
         drwav_mulaw_to_s32(pBufferOut, sampleData, (size_t)(framesRead*pWav->channels));
 
