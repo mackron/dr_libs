@@ -2544,12 +2544,12 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_unknown_chunk(drwav__metadata
     return bytesRead;
 }
 
-DRWAV_PRIVATE drwav_bool32 drwav__chunk_matches(drwav_uint64 allowedMetadataTypes, const drwav_uint8* pChunkID, drwav_metadata_type type, const char* pID)
+DRWAV_PRIVATE drwav_bool32 drwav__chunk_matches(drwav_metadata_type allowedMetadataTypes, const drwav_uint8* pChunkID, drwav_metadata_type type, const char* pID)
 {
     return (allowedMetadataTypes & type) && drwav_fourcc_equal(pChunkID, pID);
 }
 
-DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser* pParser, const drwav_chunk_header* pChunkHeader, drwav_uint64 allowedMetadataTypes)
+DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser* pParser, const drwav_chunk_header* pChunkHeader, drwav_metadata_type allowedMetadataTypes)
 {
     const drwav_uint8 *pChunkID = pChunkHeader->id.fourcc;
     drwav_uint64 bytesRead = 0;
@@ -2771,7 +2771,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                 subchunkBytesRead = drwav__metadata_process_info_text_chunk(pParser, subchunkDataSize,  drwav_metadata_type_list_info_album);
             } else if (drwav__chunk_matches(allowedMetadataTypes, subchunkId, drwav_metadata_type_list_info_tracknumber, "ITRK")) {
                 subchunkBytesRead = drwav__metadata_process_info_text_chunk(pParser, subchunkDataSize,  drwav_metadata_type_list_info_tracknumber);
-            } else if (allowedMetadataTypes & drwav_metadata_type_unknown) {
+            } else if ((allowedMetadataTypes & drwav_metadata_type_unknown) != 0) {
                 subchunkBytesRead = drwav__metadata_process_unknown_chunk(pParser, subchunkId, subchunkDataSize, listType);
             }
 
@@ -2794,7 +2794,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                 bytesRead += 1;
             }
         }
-    } else if (allowedMetadataTypes & drwav_metadata_type_unknown) {
+    } else if ((allowedMetadataTypes & drwav_metadata_type_unknown) != 0) {
         bytesRead = drwav__metadata_process_unknown_chunk(pParser, pChunkID, pChunkHeader->sizeInBytes, drwav_metadata_location_top_level);
     }
 
