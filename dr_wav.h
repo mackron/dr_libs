@@ -2353,10 +2353,10 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_bext_to_metadata_obj(drwav__metadata_pars
         pMetadata->data.bext.pOriginatorReference = drwav__metadata_copy_string(pParser, (char*)(pReadPointer), DRWAV_BEXT_ORIGINATOR_REF_BYTES);
         pReadPointer += DRWAV_BEXT_ORIGINATOR_REF_BYTES;
 
-        memcpy(pReadPointer, pMetadata->data.bext.pOriginationDate, sizeof(pMetadata->data.bext.pOriginationDate));
+        memcpy(pMetadata->data.bext.pOriginationDate, pReadPointer, sizeof(pMetadata->data.bext.pOriginationDate));
         pReadPointer += sizeof(pMetadata->data.bext.pOriginationDate);
 
-        memcpy(pReadPointer, pMetadata->data.bext.pOriginationTime, sizeof(pMetadata->data.bext.pOriginationTime));
+        memcpy(pMetadata->data.bext.pOriginationTime, pReadPointer, sizeof(pMetadata->data.bext.pOriginationTime));
         pReadPointer += sizeof(pMetadata->data.bext.pOriginationTime);
 
         timeReferenceLow = drwav_bytes_to_u32(pReadPointer);
