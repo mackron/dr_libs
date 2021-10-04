@@ -7548,6 +7548,8 @@ REVISION HISTORY
 v0.13.3 - TBD
   - Fix an incorrect assertion when trying to endian swap 1-byte sample formats. This is now a no-op
     rather than a failed assertion.
+  - Fix a bug with parsing of the bext chunk.
+  - Fix some static analysis warnings.
 
 v0.13.2 - 2021-10-02
   - Fix a possible buffer overflow when reading from compressed formats.
