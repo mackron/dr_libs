@@ -6136,7 +6136,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__pcm(drwav* pWav, drwav_uin
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -6186,7 +6186,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ieee(drwav* pWav, drwav_ui
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -6236,7 +6236,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__alaw(drwav* pWav, drwav_ui
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -6286,7 +6286,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__mulaw(drwav* pWav, drwav_u
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -6545,7 +6545,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__pcm(drwav* pWav, drwav_uin
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -6626,7 +6626,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__ieee(drwav* pWav, drwav_ui
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -6672,7 +6672,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__alaw(drwav* pWav, drwav_ui
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -6718,7 +6718,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__mulaw(drwav* pWav, drwav_u
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -7009,7 +7009,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__pcm(drwav* pWav, drwav_uin
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -7083,7 +7083,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__ieee(drwav* pWav, drwav_ui
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -7129,7 +7129,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__alaw(drwav* pWav, drwav_ui
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
@@ -7175,7 +7175,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__mulaw(drwav* pWav, drwav_u
 
         /* Validation to ensure we don't read too much from out intermediary buffer. This is to protect from invalid files. */
         samplesRead = framesRead * pWav->channels;
-        if ((samplesRead * bytesPerSample) > sizeof(sampleData) || (samplesRead * bytesPerSample) > DRWAV_SIZE_MAX) {
+        if ((samplesRead * bytesPerSample) > sizeof(sampleData)) {
             DRWAV_ASSERT(DRWAV_FALSE);  /* This should never happen with a valid file. */
             break;
         }
