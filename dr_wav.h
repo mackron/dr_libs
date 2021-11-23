@@ -6035,7 +6035,7 @@ static DRWAV_INLINE drwav_int16 drwav__mulaw_to_s16(drwav_uint8 sampleIn)
 
 DRWAV_PRIVATE void drwav__pcm_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t totalSampleCount, unsigned int bytesPerSample)
 {
-    unsigned int i;
+    size_t i;
 
     /* Special case for 8-bit sample data because it's treated as unsigned. */
     if (bytesPerSample == 1) {
