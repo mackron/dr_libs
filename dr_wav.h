@@ -5917,7 +5917,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
                 }
 
                 pWav->ima.predictor[0] = drwav_bytes_to_s16(header + 0);
-                pWav->ima.stepIndex[0] = header[2];
+                pWav->ima.stepIndex[0] = drwav_clamp(header[2], 0, (drwav_int32)drwav_countof(stepTable)-1);    /* Clamp not necessary because we checked above, but adding here to silence a static analysis warning. */
                 pWav->ima.cachedFrames[drwav_countof(pWav->ima.cachedFrames) - 1] = pWav->ima.predictor[0];
                 pWav->ima.cachedFrameCount = 1;
             } else {
@@ -5935,9 +5935,9 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
                 }
 
                 pWav->ima.predictor[0] = drwav_bytes_to_s16(header + 0);
-                pWav->ima.stepIndex[0] = header[2];
+                pWav->ima.stepIndex[0] = drwav_clamp(header[2], 0, (drwav_int32)drwav_countof(stepTable)-1);    /* Clamp not necessary because we checked above, but adding here to silence a static analysis warning. */
                 pWav->ima.predictor[1] = drwav_bytes_to_s16(header + 4);
-                pWav->ima.stepIndex[1] = header[6];
+                pWav->ima.stepIndex[1] = drwav_clamp(header[6], 0, (drwav_int32)drwav_countof(stepTable)-1);    /* Clamp not necessary because we checked above, but adding here to silence a static analysis warning. */
 
                 pWav->ima.cachedFrames[drwav_countof(pWav->ima.cachedFrames) - 2] = pWav->ima.predictor[0];
                 pWav->ima.cachedFrames[drwav_countof(pWav->ima.cachedFrames) - 1] = pWav->ima.predictor[1];
