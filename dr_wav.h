@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.3 - 2021-11-24
+dr_wav - v0.13.4 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -125,7 +125,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     13
-#define DRWAV_VERSION_REVISION  3
+#define DRWAV_VERSION_REVISION  4
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -3329,7 +3329,12 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
     if (sampleCountFromFactChunk != 0) {
         pWav->totalPCMFrameCount = sampleCountFromFactChunk;
     } else {
-        pWav->totalPCMFrameCount = dataChunkSize / drwav_get_bytes_per_pcm_frame(pWav);
+        drwav_uint32 bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+        if (bytesPerFrame == 0) {
+            return DRWAV_FALSE; /* Invalid file. */
+        }
+
+        pWav->totalPCMFrameCount = dataChunkSize / bytesPerFrame;
 
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
             drwav_uint64 totalBlockHeaderSizeInBytes;
@@ -5242,6 +5247,7 @@ DRWAV_API drwav_result drwav_uninit(drwav* pWav)
 DRWAV_API size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOut)
 {
     size_t bytesRead;
+    drwav_uint32 bytesPerFrame;
 
     if (pWav == NULL || bytesToRead == 0) {
         return 0;   /* Invalid args. */
@@ -5253,6 +5259,11 @@ DRWAV_API size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOu
 
     if (bytesToRead == 0) {
         return 0;   /* At end. */
+    }
+
+    bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+    if (bytesPerFrame == 0) {
+        return 0;   /* Could not determine the bytes per frame. */
     }
 
     if (pBufferOut != NULL) {
@@ -5291,7 +5302,7 @@ DRWAV_API size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOu
         }
     }
 
-    pWav->readCursorInPCMFrames += bytesRead / drwav_get_bytes_per_pcm_frame(pWav);
+    pWav->readCursorInPCMFrames += bytesRead / bytesPerFrame;
 
     pWav->bytesRemaining -= bytesRead;
     return bytesRead;
@@ -5340,7 +5351,12 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_be(drwav* pWav, drwav_uint64 frames
     drwav_uint64 framesRead = drwav_read_pcm_frames_le(pWav, framesToRead, pBufferOut);
 
     if (pBufferOut != NULL) {
-        drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, drwav_get_bytes_per_pcm_frame(pWav)/pWav->channels, pWav->translatedFormatTag);
+        drwav_uint32 bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+        if (bytesPerFrame == 0) {
+            return 0;   /* Could not get the bytes per frame which means bytes per sample cannot be determined and we don't know how to byte swap. */
+        }
+
+        drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, bytesPerFrame/pWav->channels, pWav->translatedFormatTag);
     }
 
     return framesRead;
@@ -5455,12 +5471,18 @@ DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetF
         drwav_uint64 currentBytePos;
         drwav_uint64 targetBytePos;
         drwav_uint64 offset;
+        drwav_uint32 bytesPerFrame;
 
-        totalSizeInBytes = pWav->totalPCMFrameCount * drwav_get_bytes_per_pcm_frame(pWav);
+        bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+        if (bytesPerFrame == 0) {
+            return DRWAV_FALSE; /* Not able to calculate offset. */
+        }
+
+        totalSizeInBytes = pWav->totalPCMFrameCount * bytesPerFrame;
         DRWAV_ASSERT(totalSizeInBytes >= pWav->bytesRemaining);
 
         currentBytePos = totalSizeInBytes - pWav->bytesRemaining;
-        targetBytePos  = targetFrameIndex * drwav_get_bytes_per_pcm_frame(pWav);
+        targetBytePos  = targetFrameIndex * bytesPerFrame;
 
         if (currentBytePos < targetBytePos) {
             /* Offset forwards. */
@@ -5479,7 +5501,7 @@ DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetF
                 return DRWAV_FALSE;
             }
 
-            pWav->readCursorInPCMFrames += offset32 / drwav_get_bytes_per_pcm_frame(pWav);
+            pWav->readCursorInPCMFrames += offset32 / bytesPerFrame;
             pWav->bytesRemaining        -= offset32;
             offset                      -= offset32;
         }
@@ -5595,6 +5617,9 @@ DRWAV_API drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 frame
     pRunningData = (const drwav_uint8*)pData;
 
     bytesPerSample = drwav_get_bytes_per_pcm_frame(pWav) / pWav->channels;
+    if (bytesPerSample == 0) {
+        return 0;   /* Cannot determine bytes per sample, or bytes per sample is less than one byte. */
+    }
 
     while (bytesToWrite > 0) {
         drwav_uint8 temp[4096];
@@ -7812,6 +7837,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.13.4 - TBD
+  - Fix some static analysis warnings.
+
 v0.13.3 - 2021-11-24
   - Fix an incorrect assertion when trying to endian swap 1-byte sample formats. This is now a no-op
     rather than a failed assertion.
