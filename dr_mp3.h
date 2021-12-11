@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.31 - 2021-08-22
+dr_mp3 - v0.6.32 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -95,7 +95,7 @@ extern "C" {
 
 #define DRMP3_VERSION_MAJOR     0
 #define DRMP3_VERSION_MINOR     6
-#define DRMP3_VERSION_REVISION  31
+#define DRMP3_VERSION_REVISION  32
 #define DRMP3_VERSION_STRING    DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -107,7 +107,7 @@ typedef   signed short          drmp3_int16;
 typedef unsigned short          drmp3_uint16;
 typedef   signed int            drmp3_int32;
 typedef unsigned int            drmp3_uint32;
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && !defined(__clang__)
     typedef   signed __int64    drmp3_int64;
     typedef unsigned __int64    drmp3_uint64;
 #else
@@ -4473,6 +4473,9 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
+v0.6.32 - TBD
+  - Fix a warning with Clang.
+
 v0.6.31 - 2021-08-22
   - Fix a bug when loading from memory.
 
