@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.31 - 2021-08-16
+dr_flac - v0.12.32 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -232,7 +232,7 @@ extern "C" {
 
 #define DRFLAC_VERSION_MAJOR     0
 #define DRFLAC_VERSION_MINOR     12
-#define DRFLAC_VERSION_REVISION  31
+#define DRFLAC_VERSION_REVISION  32
 #define DRFLAC_VERSION_STRING    DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MAJOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MINOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -244,7 +244,7 @@ typedef   signed short          drflac_int16;
 typedef unsigned short          drflac_uint16;
 typedef   signed int            drflac_int32;
 typedef unsigned int            drflac_uint32;
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) && !defined(__clang__)
     typedef   signed __int64    drflac_int64;
     typedef unsigned __int64    drflac_uint64;
 #else
@@ -11851,6 +11851,9 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
+v0.12.32 - TBD
+  - Fix a warning with Clang.
+
 v0.12.31 - 2021-08-16
   - Silence some warnings.
 
