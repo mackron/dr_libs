@@ -6013,6 +6013,11 @@ static drflac_bool32 drflac__seek_to_pcm_frame__seek_table(drflac* pFlac, drflac
         return DRFLAC_FALSE;
     }
 
+    /* Do not use the seektable if pcmFramIndex is not coverd by it. */
+    if (pFlac->pSeekpoints[0].firstPCMFrame > pcmFrameIndex) {
+        return DRFLAC_FALSE;
+    }
+
     for (iSeekpoint = 0; iSeekpoint < pFlac->seekpointCount; ++iSeekpoint) {
         if (pFlac->pSeekpoints[iSeekpoint].firstPCMFrame >= pcmFrameIndex) {
             break;
