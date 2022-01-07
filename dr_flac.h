@@ -1909,6 +1909,12 @@ static DRFLAC_INLINE drflac_uint32 drflac__be2host_32(drflac_uint32 n)
     return n;
 }
 
+static DRFLAC_INLINE drflac_uint32 drflac__ptrbe2host_32(const void* pData)
+{
+    const drflac_uint8* pNum = (drflac_uint8*)pData;
+    return *(pNum) << 24 | *(pNum+1) << 16 | *(pNum+2) << 8 | *(pNum+3);
+}
+
 static DRFLAC_INLINE drflac_uint64 drflac__be2host_64(drflac_uint64 n)
 {
     if (drflac__is_little_endian()) {
@@ -6626,8 +6632,8 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     pRunningData    = (const char*)pRawData;
                     pRunningDataEnd = (const char*)pRawData + blockSize;
 
-                    metadata.data.picture.type       = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.mimeLength = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.type       = drflac__ptrbe2host_32(pRunningData); pRunningData += 4;
+                    metadata.data.picture.mimeLength = drflac__ptrbe2host_32(pRunningData); pRunningData += 4;
 
                     /* Need space for the rest of the block */
                     if ((pRunningDataEnd - pRunningData) - 24 < (drflac_int64)metadata.data.picture.mimeLength) { /* <-- Note the order of operations to avoid overflow to a valid value */
@@ -6635,7 +6641,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                         return DRFLAC_FALSE;
                     }
                     metadata.data.picture.mime              = pRunningData;                                            pRunningData += metadata.data.picture.mimeLength;
-                    metadata.data.picture.descriptionLength = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.descriptionLength = drflac__ptrbe2host_32(pRunningData); pRunningData += 4;
 
                     /* Need space for the rest of the block */
                     if ((pRunningDataEnd - pRunningData) - 20 < (drflac_int64)metadata.data.picture.descriptionLength) { /* <-- Note the order of operations to avoid overflow to a valid value */
@@ -6643,11 +6649,11 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                         return DRFLAC_FALSE;
                     }
                     metadata.data.picture.description     = pRunningData;                                            pRunningData += metadata.data.picture.descriptionLength;
-                    metadata.data.picture.width           = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.height          = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.colorDepth      = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.indexColorCount = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
-                    metadata.data.picture.pictureDataSize = drflac__be2host_32(*(const drflac_uint32*)pRunningData); pRunningData += 4;
+                    metadata.data.picture.width           = drflac__ptrbe2host_32(pRunningData); pRunningData += 4;
+                    metadata.data.picture.height          = drflac__ptrbe2host_32(pRunningData); pRunningData += 4;
+                    metadata.data.picture.colorDepth      = drflac__ptrbe2host_32(pRunningData); pRunningData += 4;
+                    metadata.data.picture.indexColorCount = drflac__ptrbe2host_32(pRunningData); pRunningData += 4;
+                    metadata.data.picture.pictureDataSize = drflac__ptrbe2host_32(pRunningData); pRunningData += 4;
                     metadata.data.picture.pPictureData    = (const drflac_uint8*)pRunningData;
 
                     /* Need space for the picture after the block */
