@@ -1,0 +1,107 @@
+# GitHub Actions CI script
+
+name: Build and run dr_libs tests
+on:   [ push, pull_request ]
+env:
+  FLAC_FILE: https://media.xiph.org/sintel/sintel-master-st.flac # Cached to avoid hammering xiph's servers ...
+  WAV_FILE: sintel-master-st.wav
+
+jobs:
+  build-windows:
+    name:    Build and run Windows dr_libs tests
+    runs-on: windows-latest
+
+    steps:
+    - name: Add MSys2 to PATH
+      run: |
+        echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "C:\msys64\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Install prerequisites
+      run: |
+        pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-flac mingw-w64-x86_64-libsndfile wget
+  
+    - name: Fetch repo contents
+      uses: actions/checkout@v2
+      with:
+        path: dr_libs
+        submodules: 'recursive'
+        
+    - name: Build tests
+      run: |
+        cd dr_libs/tests
+        ./build_wav_win32.bat
+        ./build_flac_win32.bat
+        ./build_mp3_win32.bat
+  
+    - name: Setup tests and testvector dirs
+      run: |
+        del dr_libs/tests/bin/DO_NOT_DELETE.md
+        del dr_libs/tests/testvectors/flac/tests/DO_NOT_DELETE.md
+
+    - name: Initialize testvectors cache
+      id: testvectors_cache
+      uses: actions/cache@v2
+      with:
+        key: ${{ runner.os }}-${{ env.FLAC_FILE }}-${{ env.WAV_FILE }}
+        path: |
+          dr_libs/tests/testvectors/flac/tests
+          dr_libs/tests/testvectors/wav/tests
+
+    - name: Download and create testvectors
+      if: ${{ steps.testvectors_cache.outputs.cache-hit != 'true' }}
+      run: |
+        cd dr_libs/tests/testvectors/flac/tests        
+        wget -nv ${{ env.FLAC_FILE }}
+        mkdir -p ../../wav/tests
+        cd ../../wav/tests
+        flac -d ../../flac/tests/sintel-master-st.flac -o ${{ env.WAV_FILE }}
+    
+    - name: Run tests
+      run: |
+        cd dr_libs/tests
+        Get-ChildItem 'bin' | % {  & $_.FullName }
+
+  build-linux:
+    name:    Build and run Linux dr_libs tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Install prerequisites
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y --no-install-recommends build-essential libflac-dev
+
+    - name: Fetch repo contents
+      uses: actions/checkout@v2
+      with:
+        path: dr_libs
+        submodules: 'recursive'
+
+    - name: Build tests
+      run: |
+        cd dr_libs/tests
+        ./build_flac_linux.sh
+
+    - name: Setup tests and testvector dirs
+      run: |
+        rm dr_libs/tests/bin/DO_NOT_DELETE.md
+        rm dr_libs/tests/testvectors/flac/tests/DO_NOT_DELETE.md
+
+    - name: Initialize testvectors cache
+      id: testvectors_cache
+      uses: actions/cache@v2
+      with:
+        key: ${{ runner.os }}-${{ env.FLAC_FILE }}
+        path: dr_libs/tests/testvectors/flac/tests
+
+    - name: Download testvectors
+      if: ${{ steps.testvectors_cache.outputs.cache-hit != 'true' }}
+      run: |
+        cd dr_libs/tests/testvectors/flac/tests        
+        wget -nv ${{ env.FLAC_FILE }}
+    
+    - name: Run tests
+      run: |
+        cd dr_libs/tests
+        bin/*
