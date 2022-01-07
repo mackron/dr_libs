@@ -11792,7 +11792,7 @@ DRFLAC_API const char* drflac_next_vorbis_comment(drflac_vorbis_comment_iterator
         return NULL;
     }
 
-    length = drflac__le2host_32(*(const drflac_uint32*)pIter->pRunningData);
+    length = drflac__ptrle2host_32(pIter->pRunningData);
     pIter->pRunningData += 4;
 
     pComment = pIter->pRunningData;
