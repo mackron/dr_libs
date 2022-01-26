@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.4 - 2021-12-08
+dr_wav - v0.13.5 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -125,7 +125,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     13
-#define DRWAV_VERSION_REVISION  4
+#define DRWAV_VERSION_REVISION  5
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -5441,8 +5441,8 @@ DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetF
     }
 
     /* Make sure the sample is clamped. */
-    if (targetFrameIndex >= pWav->totalPCMFrameCount) {
-        targetFrameIndex  = pWav->totalPCMFrameCount - 1;
+    if (targetFrameIndex > pWav->totalPCMFrameCount) {
+        targetFrameIndex = pWav->totalPCMFrameCount;
     }
 
     /*
@@ -7859,6 +7859,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.13.5 - TBD
+  - Fix an error when seeking to the end of the file.
+
 v0.13.4 - 2021-12-08
   - Fix some static analysis warnings.
 
