@@ -5380,6 +5380,11 @@ static drflac_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame,
         subframeBitsPerSample += 1;
     }
 
+    if (subframeBitsPerSample > 32) {
+        /* libFLAC and ffmpeg reject 33-bit subframes as well */
+        return DRFLAC_FALSE;
+    }
+
     /* Need to handle wasted bits per sample. */
     if (pSubframe->wastedBitsPerSample >= subframeBitsPerSample) {
         return DRFLAC_FALSE;
