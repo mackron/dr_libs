@@ -2441,6 +2441,10 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_uint32(drflac_bs* bs, unsigned i
         if (!drflac__reload_cache(bs)) {
             return DRFLAC_FALSE;
         }
+        if (bitCountLo > DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
+            /* This happens when we get to end of stream */
+            return DRFLAC_FALSE;
+        }
 
         *pResultOut = (resultHi << bitCountLo) | (drflac_uint32)DRFLAC_CACHE_L1_SELECT_AND_SHIFT(bs, bitCountLo);
         bs->consumedBits += bitCountLo;
@@ -2886,6 +2890,11 @@ static DRFLAC_INLINE drflac_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs,
 
     setBitOffsetPlus1 = drflac__clz(bs->cache);
     setBitOffsetPlus1 += 1;
+
+    if (setBitOffsetPlus1 > DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
+        /* This happens when we get to end of stream */
+        return DRFLAC_FALSE;
+    }
 
     bs->consumedBits += setBitOffsetPlus1;
     bs->cache <<= setBitOffsetPlus1;
@@ -3382,6 +3391,10 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts(drflac_bs* bs, drflac
             if (!drflac__reload_cache(bs)) {
                 return DRFLAC_FALSE;
             }
+            if (bitCountLo > DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
+                /* This happens when we get to end of stream */
+                return DRFLAC_FALSE;
+            }
         }
 
         riceParamPart = (drflac_uint32)(resultHi | DRFLAC_CACHE_L1_SELECT_AND_SHIFT_SAFE(bs, bitCountLo));
@@ -3460,6 +3473,10 @@ static DRFLAC_INLINE drflac_bool32 drflac__read_rice_parts_x1(drflac_bs* bs, drf
             } else {
                 /* Slow path. We need to fetch more data from the client. */
                 if (!drflac__reload_cache(bs)) {
+                    return DRFLAC_FALSE;
+                }
+                if (riceParamPartLoBitCount > DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
+                    /* This happens when we get to end of stream */
                     return DRFLAC_FALSE;
                 }
 
@@ -3569,6 +3586,11 @@ static DRFLAC_INLINE drflac_bool32 drflac__seek_rice_parts(drflac_bs* bs, drflac
             } else {
                 /* Slow path. We need to fetch more data from the client. */
                 if (!drflac__reload_cache(bs)) {
+                    return DRFLAC_FALSE;
+                }
+
+                if (riceParamPartLoBitCount > DRFLAC_CACHE_L1_BITS_REMAINING(bs)) {
+                    /* This happens when we get to end of stream */
                     return DRFLAC_FALSE;
                 }
 
