@@ -2888,6 +2888,16 @@ static DRFLAC_INLINE drflac_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs,
         }
     }
 
+    if (bs->cache == 1) {
+        /* Not catching this would lead to undefined behaviour: a shift of
+         * a 32-bit number by 32 or more is undefined */
+        *pOffsetOut = zeroCounter + (drflac_uint32)DRFLAC_CACHE_L1_BITS_REMAINING(bs) - 1;
+        if (!drflac__reload_cache(bs)) {
+            return DRFLAC_FALSE;
+        }
+        return DRFLAC_TRUE;
+    }
+
     setBitOffsetPlus1 = drflac__clz(bs->cache);
     setBitOffsetPlus1 += 1;
 
