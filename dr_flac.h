@@ -5300,6 +5300,12 @@ static drflac_bool32 drflac__read_next_flac_frame_header(drflac_bs* bs, drflac_u
             header->bitsPerSample = streaminfoBitsPerSample;
         }
 
+        if (header->bitsPerSample != streaminfoBitsPerSample) {
+            /* If this subframe has a different bitsPerSample
+             * then streaminfo or the first frame, reject it */
+            return DRFLAC_FALSE;
+        }
+
         if (!drflac__read_uint8(bs, 8, &header->crc8)) {
             return DRFLAC_FALSE;
         }
