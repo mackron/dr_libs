@@ -11940,6 +11940,7 @@ REVISION HISTORY
 ================
 v0.12.35 - TBD
   - Fix a bug due to underestimating the amount of precision required for the prediction stage.
+  - Fix some bugs found from fuzz testing.
 
 v0.12.34 - 2022-01-07
   - Fix some misalignment bugs when reading metadata.
