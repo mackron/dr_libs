@@ -4782,7 +4782,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon(drflac_bs*
     DRFLAC_ASSERT(pSamplesOut != NULL);
 
     /* In my testing the order is rarely > 12, so in this case I'm going to simplify the NEON implementation by only handling order <= 12. */
-    if (order > 0 && order <= 12) {
+    if (lpcOrder > 0 && lpcOrder <= 12) {
         if (drflac__use_64_bit_prediction(bitsPerSample, lpcOrder, lpcPrecision)) {
             return drflac__decode_samples_with_residual__rice__neon_64(bs, count, riceParam, lpcOrder, lpcShift, coefficients, pSamplesOut);
         } else {
