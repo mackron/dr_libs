@@ -1431,16 +1431,6 @@ Unfortuantely dr_flac depends on this for a few things so we're just going to di
     #if defined(DRFLAC_ARM)
         #if !defined(DRFLAC_NO_NEON) && (defined(__ARM_NEON) || defined(__aarch64__) || defined(_M_ARM64))
             #define DRFLAC_SUPPORT_NEON
-        #endif
-
-        /* Fall back to looking for the #include file. */
-        #if !defined(__GNUC__) && !defined(__clang__) && defined(__has_include)
-            #if !defined(DRFLAC_SUPPORT_NEON) && !defined(DRFLAC_NO_NEON) && __has_include(<arm_neon.h>)
-                #define DRFLAC_SUPPORT_NEON
-            #endif
-        #endif
-
-        #if defined(DRFLAC_SUPPORT_NEON)
             #include <arm_neon.h>
         #endif
     #endif
