@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.37 - TBD
+dr_flac - v0.12.37 - 2022-02-12
 
 David Reid - mackron@gmail.com
 
@@ -232,7 +232,7 @@ extern "C" {
 
 #define DRFLAC_VERSION_MAJOR     0
 #define DRFLAC_VERSION_MINOR     12
-#define DRFLAC_VERSION_REVISION  36
+#define DRFLAC_VERSION_REVISION  37
 #define DRFLAC_VERSION_STRING    DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MAJOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MINOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -11928,7 +11928,7 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
-v0.12.37 - TBD
+v0.12.37 - 2022-02-12
   - Improve ARM detection.
 
 v0.12.36 - 2022-02-07
