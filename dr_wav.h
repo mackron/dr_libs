@@ -1298,7 +1298,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
 #define dr_wav_c
 
 #include <stdlib.h>
-#include <string.h> /* For memcpy(), memset() */
+#include <string.h>
 #include <limits.h> /* For INT_MAX */
 
 #ifndef DR_WAV_NO_STDIO
@@ -1972,7 +1972,7 @@ DRWAV_PRIVATE drwav_bool32 drwav__read_fmt(drwav_read_proc onRead, drwav_seek_pr
     fmtOut->extendedSize       = 0;
     fmtOut->validBitsPerSample = 0;
     fmtOut->channelMask        = 0;
-    memset(fmtOut->subFormat, 0, sizeof(fmtOut->subFormat));
+    DRWAV_ZERO_MEMORY(fmtOut->subFormat, sizeof(fmtOut->subFormat));
 
     if (header.sizeInBytes > 16) {
         drwav_uint8 fmt_cbSize[2];
@@ -2143,7 +2143,7 @@ DRWAV_PRIVATE void drwav__metadata_request_extra_memory_for_stage_2(drwav__metad
 DRWAV_PRIVATE drwav_result drwav__metadata_alloc(drwav__metadata_parser* pParser, drwav_allocation_callbacks* pAllocationCallbacks)
 {
     if (pParser->extraCapacity != 0 || pParser->metadataCount != 0) {
-        free(pParser->pData);
+        pAllocationCallbacks->onFree(pParser->pData, pAllocationCallbacks->pUserData);
 
         pParser->pData = (drwav_uint8*)pAllocationCallbacks->onMalloc(drwav__metadata_memory_capacity(pParser), pAllocationCallbacks->pUserData);
         pParser->pDataCursor = pParser->pData;
@@ -2322,6 +2322,17 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_acid_to_metadata_obj(drwav__metadata_pars
     return bytesRead;
 }
 
+DRWAV_PRIVATE size_t drwav__strlen(const char* str)
+{
+    size_t result = 0;
+
+    while (*str++) {
+        result += 1;
+    }
+
+    return result;
+}
+
 DRWAV_PRIVATE size_t drwav__strlen_clamped(const char* str, size_t maxToRead)
 {
     size_t result = 0;
@@ -2341,7 +2352,7 @@ DRWAV_PRIVATE char* drwav__metadata_copy_string(drwav__metadata_parser* pParser,
         char* result = (char*)drwav__metadata_get_memory(pParser, len + 1, 1);
         DRWAV_ASSERT(result != NULL);
 
-        memcpy(result, str, len);
+        DRWAV_COPY_MEMORY(result, str, len);
         result[len] = '\0';
 
         return result;
@@ -2522,7 +2533,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_bext_to_metadata_obj(drwav__metadata_pars
                 DRWAV_ASSERT(pMetadata->data.bext.pCodingHistory != NULL);
 
                 bytesRead += drwav__metadata_parser_read(pParser, pMetadata->data.bext.pCodingHistory, extraBytes, NULL);
-                pMetadata->data.bext.codingHistorySize = (drwav_uint32)strlen(pMetadata->data.bext.pCodingHistory);
+                pMetadata->data.bext.codingHistorySize = (drwav_uint32)drwav__strlen(pMetadata->data.bext.pCodingHistory);
             } else {
                 pMetadata->data.bext.pCodingHistory    = NULL;
                 pMetadata->data.bext.codingHistorySize = 0;
@@ -2786,21 +2797,21 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                 if (bytesJustRead != DRWAV_BEXT_DESCRIPTION_BYTES) {
                     return bytesRead;
                 }
-                allocSizeNeeded += strlen(buffer) + 1;
+                allocSizeNeeded += drwav__strlen(buffer) + 1;
 
                 buffer[DRWAV_BEXT_ORIGINATOR_NAME_BYTES] = '\0';
                 bytesJustRead = drwav__metadata_parser_read(pParser, buffer, DRWAV_BEXT_ORIGINATOR_NAME_BYTES, &bytesRead);
                 if (bytesJustRead != DRWAV_BEXT_ORIGINATOR_NAME_BYTES) {
                     return bytesRead;
                 }
-                allocSizeNeeded += strlen(buffer) + 1;
+                allocSizeNeeded += drwav__strlen(buffer) + 1;
 
                 buffer[DRWAV_BEXT_ORIGINATOR_REF_BYTES] = '\0';
                 bytesJustRead = drwav__metadata_parser_read(pParser, buffer, DRWAV_BEXT_ORIGINATOR_REF_BYTES, &bytesRead);
                 if (bytesJustRead != DRWAV_BEXT_ORIGINATOR_REF_BYTES) {
                     return bytesRead;
                 }
-                allocSizeNeeded += strlen(buffer) + 1;
+                allocSizeNeeded += drwav__strlen(buffer) + 1;
                 allocSizeNeeded += (size_t)pChunkHeader->sizeInBytes - DRWAV_BEXT_BYTES; /* Coding history. */
 
                 drwav__metadata_request_extra_memory_for_stage_2(pParser, allocSizeNeeded, 1);
@@ -3163,7 +3174,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         translatedFormatTag = drwav_bytes_to_u16(fmt.subFormat + 0);
     }
 
-    memset(&metadataParser, 0, sizeof(metadataParser));
+    DRWAV_ZERO_MEMORY(&metadataParser, sizeof(metadataParser));
 
     /* Not tested on W64. */
     if (!sequential && pWav->allowedMetadataTypes != drwav_metadata_type_none && (pWav->container == drwav_container_riff || pWav->container == drwav_container_rf64)) {
@@ -3752,7 +3763,7 @@ DRWAV_PRIVATE size_t drwav__write_or_count_metadata(drwav* pWav, drwav_metadata*
                 bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, pMetadata->data.bext.maxMomentaryLoudness);
                 bytesWritten += drwav__write_or_count_u16ne_to_le(pWav, pMetadata->data.bext.maxShortTermLoudness);
 
-                memset(reservedBuf, 0, sizeof(reservedBuf));
+                DRWAV_ZERO_MEMORY(reservedBuf, sizeof(reservedBuf));
                 bytesWritten += drwav__write_or_count(pWav, reservedBuf, sizeof(reservedBuf));
 
                 if (pMetadata->data.bext.codingHistorySize > 0) {
