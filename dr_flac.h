@@ -7937,7 +7937,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 #ifndef DR_FLAC_NO_OGG
     if (init.container == drflac_container_ogg) {
         drflac_oggbs* pInternalOggbs = (drflac_oggbs*)((drflac_uint8*)pFlac->pDecodedSamples + decodedSamplesAllocationSize + seektableSize);
-        *pInternalOggbs = oggbs;
+        DRFLAC_COPY_MEMORY(pInternalOggbs, &oggbs, sizeof(oggbs));
 
         /* The Ogg bistream needs to be layered on top of the original bitstream. */
         pFlac->bs.onRead = drflac__on_read_ogg;
