@@ -2416,8 +2416,6 @@ DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, size_t num
  Main Public API
 
  ************************************************************************************************************************************************************/
-#include <math.h>   /* For sin() and exp(). */
-
 #if defined(SIZE_MAX)
     #define DRMP3_SIZE_MAX  SIZE_MAX
 #else
@@ -2479,24 +2477,6 @@ static DRMP3_INLINE drmp3_uint32 drmp3_gcf_u32(drmp3_uint32 a, drmp3_uint32 b)
     }
 
     return a;
-}
-
-
-static DRMP3_INLINE double drmp3_sin(double x)
-{
-    /* TODO: Implement custom sin(x). */
-    return sin(x);
-}
-
-static DRMP3_INLINE double drmp3_exp(double x)
-{
-    /* TODO: Implement custom exp(x). */
-    return exp(x);
-}
-
-static DRMP3_INLINE double drmp3_cos(double x)
-{
-    return drmp3_sin((DRMP3_PI_D*0.5) - x);
 }
 
 
