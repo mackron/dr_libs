@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.32 - 2021-12-11
+dr_mp3 - v0.6.33 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -95,7 +95,7 @@ extern "C" {
 
 #define DRMP3_VERSION_MAJOR     0
 #define DRMP3_VERSION_MINOR     6
-#define DRMP3_VERSION_REVISION  32
+#define DRMP3_VERSION_REVISION  33
 #define DRMP3_VERSION_STRING    DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -2103,7 +2103,11 @@ static void drmp3d_synth(float *xl, drmp3d_sample_t *dstl, int nch, float *lins)
             vst1_lane_s16(dstl + (49 + i)*nch, pcmb, 2);
 #endif
 #else
+        #if DRMP3_HAVE_SSE
             static const drmp3_f4 g_scale = { 1.0f/32768.0f, 1.0f/32768.0f, 1.0f/32768.0f, 1.0f/32768.0f };
+        #else
+            const drmp3_f4 g_scale = vdupq_n_f32(1.0f/32768.0f);
+        #endif
             a = DRMP3_VMUL(a, g_scale);
             b = DRMP3_VMUL(b, g_scale);
 #if DRMP3_HAVE_SSE
@@ -4473,6 +4477,9 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
+v0.6.33 - TBD
+  - Fix compilation error with the MSVC ARM64 build.
+
 v0.6.32 - 2021-12-11
   - Fix a warning with Clang.
 
