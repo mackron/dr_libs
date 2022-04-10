@@ -7878,6 +7878,7 @@ REVISION HISTORY
 ================
 v0.13.6 - TBD
   - Fix compilation error on older versions of GCC.
+  - Remove some dependencies on the standard library.
 
 v0.13.5 - 2022-01-26
   - Fix an error when seeking to the end of the file.
