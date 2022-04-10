@@ -4485,6 +4485,7 @@ REVISION HISTORY
 ================
 v0.6.33 - TBD
   - Fix compilation error with the MSVC ARM64 build.
+  - Fix compilation error on older versions of GCC.
 
 v0.6.32 - 2021-12-11
   - Fix a warning with Clang.
