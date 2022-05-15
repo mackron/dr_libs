@@ -2,8 +2,7 @@ image: ghcr.io/rishabh1024/drlibs-fuzz:latest
 
 duration: 90
 
-project: dr_libs
-
+project: dr-libs
 
 target: drlibs-fuzz
 
