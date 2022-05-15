@@ -6,5 +6,6 @@ project: drlibs-fuzz
 
 target: dr_libs
 
+
 cmds:
   - cmd: /fuzz_dr_flac
