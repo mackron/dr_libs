@@ -1,11 +1,10 @@
-image: ghcr.io/rishabh1024/drlibs_fuzz:latest
+image: ghcr.io/rishabh1024/drlibs-fuzz:latest
 
 duration: 90
 
-project: drlibs-fuzz
+project: dr_libs
 
-target: dr_libs
-
+target: drlibs-fuzz
 
 cmds:
   - cmd: /fuzz_dr_flac
