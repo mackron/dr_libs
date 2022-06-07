@@ -11949,6 +11949,7 @@ REVISION HISTORY
 ================
 v0.12.39 - TBD
   - Fix compilation with DJGPP.
+  - Fix compilation error with Visual Studio 2019 and the ARM build.
 
 v0.12.38 - 2022-04-10
   - Fix compilation error on older versions of GCC.
