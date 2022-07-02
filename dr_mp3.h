@@ -601,7 +601,7 @@ DRMP3_API const char* drmp3_version_string(void)
 #define DR_MP3_ONLY_SIMD
 #endif
 
-#if ((defined(_MSC_VER) && _MSC_VER >= 1400) && defined(_M_X64)) || ((defined(__i386) || defined(_M_IX86) || defined(__i386__) || defined(__x86_64__)) && defined(__SSE2__))
+#if ((defined(_MSC_VER) && _MSC_VER >= 1400) && defined(_M_X64)) || ((defined(__i386) || defined(_M_IX86) || defined(__i386__) || defined(__x86_64__)) && ((defined(_M_IX86_FP) && _M_IX86_FP == 2) || defined(__SSE2__)))
 #if defined(_MSC_VER)
 #include <intrin.h>
 #endif
