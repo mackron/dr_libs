@@ -4426,7 +4426,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_32(drflac_
 
     const drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
 
-    riceParamMask    = ~((~0UL) << riceParam);
+    riceParamMask    = (drflac_uint32)~((~0UL) << riceParam);
     riceParamMask128 = vdupq_n_u32(riceParamMask);
 
     riceParam128 = vdupq_n_s32(riceParam);
@@ -4618,7 +4618,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_64(drflac_
 
     const drflac_uint32 t[2] = {0x00000000, 0xFFFFFFFF};
 
-    riceParamMask    = ~((~0UL) << riceParam);
+    riceParamMask    = (drflac_uint32)~((~0UL) << riceParam);
     riceParamMask128 = vdupq_n_u32(riceParamMask);
 
     riceParam128 = vdupq_n_s32(riceParam);
