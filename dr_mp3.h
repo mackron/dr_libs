@@ -346,7 +346,6 @@ typedef struct
 typedef struct
 {
     drmp3dec decoder;
-    drmp3dec_frame_info frameInfo;
     drmp3_uint32 channels;
     drmp3_uint32 sampleRate;
     drmp3_read_proc onRead;
