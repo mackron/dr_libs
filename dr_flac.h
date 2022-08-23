@@ -2851,12 +2851,22 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_msvc(drflac_cache_t x)
 
 #ifdef DRFLAC_IMPLEMENT_CLZ_WATCOM
 static __inline drflac_uint32 drflac__clz_watcom (drflac_uint32);
+#ifdef DRFLAC_IMPLEMENT_CLZ_WATCOM_LZCNT
+/* Use the LZCNT instruction (only available on some processors since the 2010s). */
+#pragma aux drflac__clz_watcom_lzcnt = \
+    "db 0F3h, 0Fh, 0BDh, 0C0h" /* lzcnt eax, eax */ \
+    parm [eax] \
+    value [eax] \
+    modify nomemory;
+#else
+/* Use the 386+-compatible implementation. */
 #pragma aux drflac__clz_watcom = \
     "bsr eax, eax" \
     "xor eax, 31" \
     parm [eax] nomemory \
     value [eax] \
     modify exact [eax] nomemory;
+#endif
 #endif
 
 static DRFLAC_INLINE drflac_uint32 drflac__clz(drflac_cache_t x)
@@ -2869,6 +2879,8 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz(drflac_cache_t x)
     {
 #ifdef DRFLAC_IMPLEMENT_CLZ_MSVC
         return drflac__clz_msvc(x);
+#elif defined(DRFLAC_IMPLEMENT_CLZ_WATCOM_LZCNT)
+        return drflac__clz_watcom_lzcnt(x);
 #elif defined(DRFLAC_IMPLEMENT_CLZ_WATCOM)
         return (x == 0) ? sizeof(x)*8 : drflac__clz_watcom(x);
 #else
