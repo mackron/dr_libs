@@ -1300,6 +1300,11 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
 #ifndef dr_wav_c
 #define dr_wav_c
 
+#ifdef __MRC__
+/* MrC currently doesn't compile dr_wav correctly with higher optimization levels. */
+#pragma options opt local
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h> /* For INT_MAX */
@@ -1697,6 +1702,11 @@ static DRWAV_INLINE void drwav__bswap_samples_ieee(void* pSamples, drwav_uint64 
 
 static DRWAV_INLINE void drwav__bswap_samples(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample, drwav_uint16 format)
 {
+#ifdef __MRC__
+/* Prevent MrC from exiting with a register allocation error. */
+#pragma options inline 0
+#endif
+
     switch (format)
     {
         case DR_WAVE_FORMAT_PCM:
@@ -7900,6 +7910,11 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
         a[2] == b[2] &&
         a[3] == b[3];
 }
+
+#ifdef __MRC__
+/* Undo the pragma at the beginning of this file. */
+#pragma options opt reset
+#endif
 
 #endif  /* dr_wav_c */
 #endif  /* DR_WAV_IMPLEMENTATION */
