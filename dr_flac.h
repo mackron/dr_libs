@@ -210,6 +210,9 @@ Build Options
 #define DR_FLAC_NO_SIMD
   Disables SIMD optimizations (SSE on x86/x64 architectures, NEON on ARM architectures). Use this if you are having compatibility issues with your compiler.
 
+#define DR_FLAC_NO_WCHAR
+  Disables all functions ending with `_w`. Use this if your compiler does not provide wchar.h. Not required if DR_FLAC_NO_STDIO is also defined.
+
 
 
 Notes
@@ -8034,7 +8037,9 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 
 #ifndef DR_FLAC_NO_STDIO
 #include <stdio.h>
+#ifndef DR_FLAC_NO_WCHAR
 #include <wchar.h>      /* For wcslen(), wcsrtombs() */
+#endif
 
 /* drflac_result_from_errno() is only used for fopen() and wfopen() so putting it inside DR_WAV_NO_STDIO for now. If something else needs this later we can move it out. */
 #include <errno.h>
@@ -8500,6 +8505,7 @@ fallback, so if you notice your compiler not detecting this properly I'm happy t
     #endif
 #endif
 
+#ifndef DR_FLAC_NO_WCHAR
 static drflac_result drflac_wfopen(FILE** ppFile, const wchar_t* pFilePath, const wchar_t* pOpenMode, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     if (ppFile != NULL) {
@@ -8595,6 +8601,7 @@ static drflac_result drflac_wfopen(FILE** ppFile, const wchar_t* pFilePath, cons
 
     return DRFLAC_SUCCESS;
 }
+#endif
 
 static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t bytesToRead)
 {
@@ -8627,6 +8634,7 @@ DRFLAC_API drflac* drflac_open_file(const char* pFileName, const drflac_allocati
     return pFlac;
 }
 
+#ifndef DR_FLAC_NO_WCHAR
 DRFLAC_API drflac* drflac_open_file_w(const wchar_t* pFileName, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     drflac* pFlac;
@@ -8644,6 +8652,7 @@ DRFLAC_API drflac* drflac_open_file_w(const wchar_t* pFileName, const drflac_all
 
     return pFlac;
 }
+#endif
 
 DRFLAC_API drflac* drflac_open_file_with_metadata(const char* pFileName, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
@@ -8663,6 +8672,7 @@ DRFLAC_API drflac* drflac_open_file_with_metadata(const char* pFileName, drflac_
     return pFlac;
 }
 
+#ifndef DR_FLAC_NO_WCHAR
 DRFLAC_API drflac* drflac_open_file_with_metadata_w(const wchar_t* pFileName, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     drflac* pFlac;
@@ -8680,6 +8690,7 @@ DRFLAC_API drflac* drflac_open_file_with_metadata_w(const wchar_t* pFileName, dr
 
     return pFlac;
 }
+#endif
 #endif  /* DR_FLAC_NO_STDIO */
 
 static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t bytesToRead)
