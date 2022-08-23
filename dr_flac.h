@@ -1585,18 +1585,21 @@ static DRFLAC_INLINE drflac_bool32 drflac_has_sse41(void)
     extern __inline drflac_uint64 _watcom_bswap64(drflac_uint64);
 #pragma aux _watcom_bswap16 = \
     "xchg al, ah" \
-    parm   [ax]   \
-    modify [ax];
+    parm  [ax]    \
+    value [ax]    \
+    modify nomemory;
 #pragma aux _watcom_bswap32 = \
-    "bswap eax"  \
-    parm   [eax] \
-    modify [eax];
+    "bswap eax" \
+    parm  [eax] \
+    value [eax] \
+    modify nomemory;
 #pragma aux _watcom_bswap64 = \
     "bswap eax"     \
     "bswap edx"     \
     "xchg eax,edx"  \
     parm [eax edx]  \
-    modify [eax edx];
+    value [eax edx] \
+    modify nomemory;
 #endif
 
 
