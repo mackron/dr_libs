@@ -46,3 +46,7 @@ Opus
 Flac
 ---
 - Download test flacs from https://media.xiph.org/ and place them into the "testvectors/flac/tests" folder.
+- Only matroska files with one FLAC audio track are supported (having other types of tracks is okay)
+  - ffmpeg -i sintel_trailer-audio.flac -c:a copy sintel_trailer-audio.mka
+  - ffmpeg -i video_withnonflac_audio.mkv -c:v copy -c:a flac out.mkv
+  - dr_flac_mkv test only works on unix based systems currently.
