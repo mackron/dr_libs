@@ -4479,6 +4479,7 @@ REVISION HISTORY
 v0.6.34 - TBD
   - Fix compilation with DJGPP.
   - Fix compilation when compiling with x86 with no SSE2.
+  - Remove an unnecessary variable from the drmp3 structure.
 
 v0.6.33 - 2022-04-10
   - Fix compilation error with the MSVC ARM64 build.
