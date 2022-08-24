@@ -7909,6 +7909,7 @@ REVISION HISTORY
 ================
 v0.13.7 - TBD
   - Fix compilation with DJGPP.
+  - Add support for disabling wchar_t with DR_WAV_NO_WCHAR.
 
 v0.13.6 - 2022-04-10
   - Fix compilation error on older versions of GCC.
