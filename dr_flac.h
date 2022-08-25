@@ -1282,14 +1282,12 @@ typedef struct
 } drflac_cuesheet_track_iterator;
 
 /* Packing is important on this structure because we map this directly to the raw data within the CUESHEET metadata block. */
-#pragma pack(4)
 typedef struct
 {
     drflac_uint64 offset;
     drflac_uint8 index;
     drflac_uint8 reserved[3];
 } drflac_cuesheet_track_index;
-#pragma pack()
 
 typedef struct
 {
@@ -1699,6 +1697,8 @@ typedef drflac_int32 drflac_result;
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
 #define DRFLAC_SEEKPOINT_SIZE_IN_BYTES                  18
+#define DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES             36
+#define DRFLAC_CUESHEET_TRACK_INDEX_SIZE_IN_BYTES       12
 
 #define drflac_align(x, a)                              ((((x) + (a) - 1) / (a)) * (a))
 
@@ -6643,9 +6643,15 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     void* pRawData;
                     const char* pRunningData;
                     const char* pRunningDataEnd;
+                    size_t bufferSize;
                     drflac_uint8 iTrack;
                     drflac_uint8 iIndex;
+                    void* pTrackData;
 
+                    /*
+                    This needs to be loaded in two passes. The first pass is used to calculate the size of the memory allocation
+                    we need for storing the necessary data. The second pass will fill that buffer with usable data.
+                    */
                     pRawData = drflac__malloc_from_callbacks(blockSize, pAllocationCallbacks);
                     if (pRawData == NULL) {
                         return DRFLAC_FALSE;
@@ -6666,38 +6672,91 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     metadata.data.cuesheet.leadInSampleCount = drflac__be2host_64(*(const drflac_uint64*)pRunningData); pRunningData += 8;
                     metadata.data.cuesheet.isCD              = (pRunningData[0] & 0x80) != 0;                           pRunningData += 259;
                     metadata.data.cuesheet.trackCount        = pRunningData[0];                                         pRunningData += 1;
-                    metadata.data.cuesheet.pTrackData        = pRunningData;
+                    metadata.data.cuesheet.pTrackData        = NULL;    /* Will be filled later. */
 
-                    /* Check that the cuesheet tracks are valid before passing it to the callback */
-                    for (iTrack = 0; iTrack < metadata.data.cuesheet.trackCount; ++iTrack) {
-                        drflac_uint8 indexCount;
-                        drflac_uint32 indexPointSize;
+                    /* Pass 1: Calculate the size of the buffer for the track data. */
+                    {
+                        const char* pRunningDataSaved = pRunningData;   /* Will be restored at the end in preparation for the second pass. */
 
-                        if (pRunningDataEnd - pRunningData < 36) {
-                            drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                            return DRFLAC_FALSE;
+                        bufferSize = metadata.data.cuesheet.trackCount * DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES;
+
+                        for (iTrack = 0; iTrack < metadata.data.cuesheet.trackCount; ++iTrack) {
+                            drflac_uint8 indexCount;
+                            drflac_uint32 indexPointSize;
+
+                            if (pRunningDataEnd - pRunningData < DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES) {
+                                drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
+                                return DRFLAC_FALSE;
+                            }
+
+                            /* Skip to the index point count */
+                            pRunningData += 35;
+                            
+                            indexCount = pRunningData[0];
+                            pRunningData += 1;
+                            
+                            bufferSize += indexCount * sizeof(drflac_cuesheet_track_index);
+
+                            /* Quick validation check. */
+                            indexPointSize = indexCount * DRFLAC_CUESHEET_TRACK_INDEX_SIZE_IN_BYTES;
+                            if (pRunningDataEnd - pRunningData < (drflac_int64)indexPointSize) {
+                                drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
+                                return DRFLAC_FALSE;
+                            }
+
+                            pRunningData += indexPointSize;
                         }
 
-                        /* Skip to the index point count */
-                        pRunningData += 35;
-                        indexCount = pRunningData[0]; pRunningData += 1;
-                        indexPointSize = indexCount * sizeof(drflac_cuesheet_track_index);
-                        if (pRunningDataEnd - pRunningData < (drflac_int64)indexPointSize) {
-                            drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                            return DRFLAC_FALSE;
-                        }
-
-                        /* Endian swap. */
-                        for (iIndex = 0; iIndex < indexCount; ++iIndex) {
-                            drflac_cuesheet_track_index* pTrack = (drflac_cuesheet_track_index*)pRunningData;
-                            pRunningData += sizeof(drflac_cuesheet_track_index);
-                            pTrack->offset = drflac__be2host_64(pTrack->offset);
-                        }
+                        pRunningData = pRunningDataSaved;
                     }
+
+                    /* Pass 2: Allocate a buffer and fill the data. Validation was done in the step above so can be skipped. */
+                    {
+                        char* pRunningTrackData;
+
+                        pTrackData = drflac__malloc_from_callbacks(bufferSize, pAllocationCallbacks);
+                        if (pTrackData == NULL) {
+                            drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
+                            return DRFLAC_FALSE;
+                        }
+
+                        pRunningTrackData = pTrackData;
+
+                        for (iTrack = 0; iTrack < metadata.data.cuesheet.trackCount; ++iTrack) {
+                            drflac_uint8 indexCount;
+
+                            DRFLAC_COPY_MEMORY(pRunningTrackData, pRunningData, DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES);
+                            pRunningData      += DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES-1; /* Skip forward, but not beyond the last byte in the CUESHEET_TRACK block which is the index count. */
+                            pRunningTrackData += DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES-1;
+
+                            /* Grab the index count for the next part. */
+                            indexCount = pRunningData[0];
+                            pRunningData      += 1;
+                            pRunningTrackData += 1;
+
+                            /* Extract each track index. */
+                            for (iIndex = 0; iIndex < indexCount; ++iIndex) {
+                                drflac_cuesheet_track_index* pTrackIndex = (drflac_cuesheet_track_index*)pRunningTrackData;
+
+                                DRFLAC_COPY_MEMORY(pRunningTrackData, pRunningData, DRFLAC_CUESHEET_TRACK_INDEX_SIZE_IN_BYTES);
+                                pRunningData      += DRFLAC_CUESHEET_TRACK_INDEX_SIZE_IN_BYTES;
+                                pRunningTrackData += sizeof(drflac_cuesheet_track_index);
+
+                                pTrackIndex->offset = drflac__be2host_64(pTrackIndex->offset);
+                            }
+                        }
+
+                        metadata.data.cuesheet.pTrackData = pTrackData;
+                    }
+
+                    /* The original data is no longer needed. */
+                    drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
+                    pRawData = NULL;
 
                     onMeta(pUserDataMD, &metadata);
 
-                    drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
+                    drflac__free_from_callbacks(pTrackData, pAllocationCallbacks);
+                    pTrackData = NULL;
                 }
             } break;
 
