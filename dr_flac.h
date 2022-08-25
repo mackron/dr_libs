@@ -1281,7 +1281,7 @@ typedef struct
     const char* pRunningData;
 } drflac_cuesheet_track_iterator;
 
-/* Packing is important on this structure because we map this directly to the raw data within the CUESHEET metadata block. */
+/* The order of members here is important because we map this directly to the raw data within the CUESHEET metadata block. */
 typedef struct
 {
     drflac_uint64 offset;
