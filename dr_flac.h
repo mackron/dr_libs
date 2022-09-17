@@ -6718,7 +6718,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                             return DRFLAC_FALSE;
                         }
 
-                        pRunningTrackData = pTrackData;
+                        pRunningTrackData = (char*)pTrackData;
 
                         for (iTrack = 0; iTrack < metadata.data.cuesheet.trackCount; ++iTrack) {
                             drflac_uint8 indexCount;
