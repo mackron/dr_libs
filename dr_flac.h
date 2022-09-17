@@ -7977,7 +7977,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 
         pOggbs = (drflac_oggbs*)drflac__malloc_from_callbacks(sizeof(*pOggbs), &allocationCallbacks);
         if (pOggbs == NULL) {
-            return NULL; //DRFLAC_OUT_OF_MEMORY;
+            return NULL; /*DRFLAC_OUT_OF_MEMORY;*/
         }
 
         DRFLAC_ZERO_MEMORY(pOggbs, sizeof(*pOggbs));
@@ -12061,7 +12061,11 @@ REVISION HISTORY
 v0.12.39 - TBD
   - Fix compilation with DJGPP.
   - Fix compilation error with Visual Studio 2019 and the ARM build.
+  - Fix an error with SSE 4.1 detection.
   - Add support for disabling wchar_t with DR_WAV_NO_WCHAR.
+  - Improve compatibility with compilers which lack support for explicit struct packing.
+  - Improve compatibility with low-end and embedded hardware by reducing the amount of stack
+    allocation when loading an Ogg encapsulated file.
 
 v0.12.38 - 2022-04-10
   - Fix compilation error on older versions of GCC.
