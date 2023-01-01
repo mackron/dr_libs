@@ -34,7 +34,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    if (!drwav_init_file(&g_wav, argv[1], NULL)) {
+    if (!drwav_init_file_with_metadata(&g_wav, argv[1], 0, NULL)) {
         printf("Failed to load file: %s", argv[1]);
         return -1;
     }
