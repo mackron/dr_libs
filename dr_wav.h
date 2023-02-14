@@ -192,7 +192,7 @@ typedef drwav_uint32            drwav_bool32;
         #endif
         #define DRWAV_PRIVATE DRWAV_DLL_PRIVATE
     #else
-        #define DRWAV_API extern
+        #define DRWAV_API extern inline
         #define DRWAV_PRIVATE static
     #endif
 #endif
