@@ -8028,6 +8028,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 REVISION HISTORY
 ================
 v0.13.9 - TBD
+  - Add support for RIFX decoding (metadata not supported).
   - Fix a bug where metadata is not processed if it's located before the "fmt " chunk.
   - Add a workaround for a type of malformed WAV file where the size of the "RIFF" and "data" chunks
     are incorrectly set to 0xFFFFFFFF.
