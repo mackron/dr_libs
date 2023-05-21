@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.8 - 2023-03-25
+dr_wav - v0.13.9 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -128,7 +128,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     13
-#define DRWAV_VERSION_REVISION  8
+#define DRWAV_VERSION_REVISION  9
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -3390,6 +3390,31 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
 
     /* At this point we should be sitting on the first byte of the raw audio data. */
+
+    /*
+    I've seen a WAV file in the wild where a RIFF-ecapsulated file has the size of it's "RIFF" and
+    "data" chunks set to 0xFFFFFFFF when the file is definitely not that big. In this case we're
+    going to have to calculate the size by reading and discarding bytes, and then seeking back. We
+    cannot do this in sequential mode. We just assume that the rest of the file is audio data.
+    */
+    if (dataChunkSize == 0xFFFFFFFF && pWav->container == drwav_container_riff && pWav->isSequentialWrite == DRWAV_FALSE) {
+        dataChunkSize = 0;
+
+        for (;;) {
+            drwav_uint8 temp[4096];
+            size_t bytesRead = pWav->onRead(pWav->pUserData, temp, sizeof(temp));
+            dataChunkSize += bytesRead;
+
+            if (bytesRead < sizeof(temp)) {
+                break;
+            }
+        }
+
+        if (!drwav__seek_from_start(pWav->onSeek, pWav->dataChunkDataPos, pWav->pUserData)) {
+            return DRWAV_FALSE;
+        }
+    }
+
 
     pWav->fmt                 = fmt;
     pWav->sampleRate          = fmt.sampleRate;
@@ -7941,6 +7966,10 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.13.9 - TBD
+  - Add a workaround for a type of malformed WAV file where the size of the "RIFF" and "data" chunks
+    are incorrectly set to 0xFFFFFFFF.
+
 v0.13.8 - 2023-03-25
   - Fix a possible null pointer dereference.
   - Fix a crash when loading files with badly formed metadata.
