@@ -871,9 +871,6 @@ typedef struct
     drwav_bool32 isSequentialWrite;
 
 
-    /* A bit-field of drwav_metadata_type values, only bits set in this variable are parsed and saved */
-    drwav_metadata_type allowedMetadataTypes;
-
     /* A array of metadata. This is valid after the *init_with_metadata call returns. It will be valid until drwav_uninit() is called. You can take ownership of this data with drwav_take_ownership_of_metadata(). */
     drwav_metadata* pMetadata;
     drwav_uint32 metadataCount;
@@ -3153,7 +3150,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
     Seqential mode cannot support metadata because it involves seeking backwards.
     */
-    isProcessingMetadata = !sequential && (pWav->allowedMetadataTypes != drwav_metadata_type_none);
+    isProcessingMetadata = !sequential && ((flags & DRWAV_WITH_METADATA) != 0);
 
     /* Don't allow processing of metadata with untested containers. */
     if (pWav->container != drwav_container_riff && pWav->container != drwav_container_rf64) {
@@ -3359,7 +3356,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         if (isProcessingMetadata) {
             drwav_uint64 metadataBytesRead;
             
-            metadataBytesRead = drwav__metadata_process_chunk(&metadataParser, &header, pWav->allowedMetadataTypes);
+            metadataBytesRead = drwav__metadata_process_chunk(&metadataParser, &header, drwav_metadata_type_all_including_unknown);
             DRWAV_ASSERT(metadataBytesRead <= header.sizeInBytes);
 
             /* Go back to the start of the chunk so we can normalize the position of the cursor. */
@@ -3433,7 +3430,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                 break;
             }
 
-            metadataBytesRead = drwav__metadata_process_chunk(&metadataParser, &header, pWav->allowedMetadataTypes);
+            metadataBytesRead = drwav__metadata_process_chunk(&metadataParser, &header, drwav_metadata_type_all_including_unknown);
 
             /* Move to the end of the chunk so we can keep iterating. */
             if (drwav__seek_forward(pWav->onSeek, (header.sizeInBytes + header.paddingSize) - metadataBytesRead, pWav->pUserData) == DRWAV_FALSE) {
@@ -3582,7 +3579,6 @@ DRWAV_API drwav_bool32 drwav_init_with_metadata(drwav* pWav, drwav_read_proc onR
         return DRWAV_FALSE;
     }
 
-    pWav->allowedMetadataTypes = drwav_metadata_type_all_including_unknown;   /* <-- Needs to be set to tell drwav_init_ex() that we need to process metadata. */
     return drwav_init__internal(pWav, NULL, NULL, flags | DRWAV_WITH_METADATA);
 }
 
@@ -4963,7 +4959,7 @@ DRWAV_API drwav_bool32 drwav_init_file(drwav* pWav, const char* filename, const 
 }
 
 
-DRWAV_PRIVATE drwav_bool32 drwav_init_file__internal_FILE(drwav* pWav, FILE* pFile, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags, drwav_metadata_type allowedMetadataTypes, const drwav_allocation_callbacks* pAllocationCallbacks)
+DRWAV_PRIVATE drwav_bool32 drwav_init_file__internal_FILE(drwav* pWav, FILE* pFile, drwav_chunk_proc onChunk, void* pChunkUserData, drwav_uint32 flags, const drwav_allocation_callbacks* pAllocationCallbacks)
 {
     drwav_bool32 result;
 
@@ -4973,8 +4969,6 @@ DRWAV_PRIVATE drwav_bool32 drwav_init_file__internal_FILE(drwav* pWav, FILE* pFi
         return result;
     }
     
-    pWav->allowedMetadataTypes = allowedMetadataTypes;
-
     result = drwav_init__internal(pWav, onChunk, pChunkUserData, flags);
     if (result != DRWAV_TRUE) {
         fclose(pFile);
@@ -4992,7 +4986,7 @@ DRWAV_API drwav_bool32 drwav_init_file_ex(drwav* pWav, const char* filename, drw
     }
 
     /* This takes ownership of the FILE* object. */
-    return drwav_init_file__internal_FILE(pWav, pFile, onChunk, pChunkUserData, flags, drwav_metadata_type_none, pAllocationCallbacks);
+    return drwav_init_file__internal_FILE(pWav, pFile, onChunk, pChunkUserData, flags, pAllocationCallbacks);
 }
 
 #ifndef DR_WAV_NO_WCHAR
@@ -5009,7 +5003,7 @@ DRWAV_API drwav_bool32 drwav_init_file_ex_w(drwav* pWav, const wchar_t* filename
     }
 
     /* This takes ownership of the FILE* object. */
-    return drwav_init_file__internal_FILE(pWav, pFile, onChunk, pChunkUserData, flags, drwav_metadata_type_none, pAllocationCallbacks);
+    return drwav_init_file__internal_FILE(pWav, pFile, onChunk, pChunkUserData, flags, pAllocationCallbacks);
 }
 #endif
 
@@ -5021,7 +5015,7 @@ DRWAV_API drwav_bool32 drwav_init_file_with_metadata(drwav* pWav, const char* fi
     }
 
     /* This takes ownership of the FILE* object. */
-    return drwav_init_file__internal_FILE(pWav, pFile, NULL, NULL, flags | DRWAV_WITH_METADATA, drwav_metadata_type_all_including_unknown, pAllocationCallbacks);
+    return drwav_init_file__internal_FILE(pWav, pFile, NULL, NULL, flags | DRWAV_WITH_METADATA, pAllocationCallbacks);
 }
 
 #ifndef DR_WAV_NO_WCHAR
@@ -5033,7 +5027,7 @@ DRWAV_API drwav_bool32 drwav_init_file_with_metadata_w(drwav* pWav, const wchar_
     }
 
     /* This takes ownership of the FILE* object. */
-    return drwav_init_file__internal_FILE(pWav, pFile, NULL, NULL, flags | DRWAV_WITH_METADATA, drwav_metadata_type_all_including_unknown, pAllocationCallbacks);
+    return drwav_init_file__internal_FILE(pWav, pFile, NULL, NULL, flags | DRWAV_WITH_METADATA, pAllocationCallbacks);
 }
 #endif
 
@@ -5277,8 +5271,6 @@ DRWAV_API drwav_bool32 drwav_init_memory_with_metadata(drwav* pWav, const void* 
     pWav->memoryStream.data = (const drwav_uint8*)data;
     pWav->memoryStream.dataSize = dataSize;
     pWav->memoryStream.currentReadPos = 0;
-
-    pWav->allowedMetadataTypes = drwav_metadata_type_all_including_unknown;
 
     return drwav_init__internal(pWav, NULL, NULL, flags | DRWAV_WITH_METADATA);
 }
