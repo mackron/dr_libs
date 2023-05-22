@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.34 - 2022-09-17
+dr_mp3 - v0.6.35 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -95,7 +95,7 @@ extern "C" {
 
 #define DRMP3_VERSION_MAJOR     0
 #define DRMP3_VERSION_MINOR     6
-#define DRMP3_VERSION_REVISION  34
+#define DRMP3_VERSION_REVISION  35
 #define DRMP3_VERSION_STRING    DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -4490,6 +4490,9 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
+v0.6.35 - TBD
+  
+
 v0.6.34 - 2022-09-17
   - Fix compilation with DJGPP.
   - Fix compilation when compiling with x86 with no SSE2.
