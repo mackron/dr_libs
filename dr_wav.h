@@ -152,7 +152,7 @@ extern "C" {
 
 #include <stddef.h> /* For size_t. */
 
-/* Sized types. */
+/* Sized Types */
 typedef   signed char           drwav_int8;
 typedef unsigned char           drwav_uint8;
 typedef   signed short          drwav_int16;
@@ -185,7 +185,9 @@ typedef drwav_uint8             drwav_bool8;
 typedef drwav_uint32            drwav_bool32;
 #define DRWAV_TRUE              1
 #define DRWAV_FALSE             0
+/* End Sized Types */
 
+/* Decorations */
 #if !defined(DRWAV_API)
     #if defined(DRWAV_DLL)
         #if defined(_WIN32)
@@ -215,7 +217,9 @@ typedef drwav_uint32            drwav_bool32;
         #define DRWAV_PRIVATE static
     #endif
 #endif
+/* End Decorations */
 
+/* Result Codes */
 typedef drwav_int32 drwav_result;
 #define DRWAV_SUCCESS                        0
 #define DRWAV_ERROR                         -1   /* A generic error. */
@@ -271,6 +275,7 @@ typedef drwav_int32 drwav_result;
 #define DRWAV_CANCELLED                     -51
 #define DRWAV_MEMORY_ALREADY_MAPPED         -52
 #define DRWAV_AT_END                        -53
+/* End Result Codes */
 
 /* Common data formats. */
 #define DR_WAVE_FORMAT_PCM          0x1
@@ -1374,7 +1379,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
 
 #define DRWAV_MAX_SIMD_VECTOR_SIZE         32
 
-/* CPU architecture. */
+/* Architecture Detection */
 #if defined(__x86_64__) || defined(_M_X64)
     #define DRWAV_X64
 #elif defined(__i386) || defined(_M_IX86)
@@ -1382,7 +1387,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
 #elif defined(__arm__) || defined(_M_ARM)
     #define DRWAV_ARM
 #endif
+/* End Architecture Detection */
 
+/* Inline */
 #ifdef _MSC_VER
     #define DRWAV_INLINE __forceinline
 #elif defined(__GNUC__)
@@ -1409,7 +1416,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
 #else
     #define DRWAV_INLINE
 #endif
+/* End Inline */
 
+/* SIZE_MAX */
 #if defined(SIZE_MAX)
     #define DRWAV_SIZE_MAX  SIZE_MAX
 #else
@@ -1419,6 +1428,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
         #define DRWAV_SIZE_MAX  0xFFFFFFFF
     #endif
 #endif
+/* End SIZE_MAX */
 
 #define DRWAV_INT64_MIN ((drwav_int64)0x8000000000000000)
 #define DRWAV_INT64_MAX ((drwav_int64)0x7FFFFFFFFFFFFFFF)
