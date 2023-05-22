@@ -79,7 +79,9 @@ dr_wav can also be used to output WAV files. This does not currently support com
     drwav_uint64 framesWritten = drwav_write_pcm_frames(pWav, frameCount, pSamples);
     ```
 
-dr_wav has seamless support the Sony Wave64 format. The decoder will automatically detect it and it should Just Work without any manual intervention.
+Note that writing to AIFF or RIFX is not supported.
+
+dr_wav has support for decoding from a number of different encapsulation formats. See below for details.
 
 
 Build Options
@@ -96,23 +98,40 @@ Build Options
   Disables all functions ending with `_w`. Use this if your compiler does not provide wchar.h. Not required if DR_WAV_NO_STDIO is also defined.
 
 
+Supported Encapsulations
+========================
+- RIFF (Regular WAV)
+- RIFX (Big-Endian)
+- AIFF (Does not currently support ADPCM)
+- RF64
+- W64
+
+Note that AIFF and RIFX do not support write mode, nor do they support reading of metadata.
+
+
+Supported Encodings
+===================
+- Unsigned 8-bit PCM
+- Signed 12-bit PCM
+- Signed 16-bit PCM
+- Signed 24-bit PCM
+- Signed 32-bit PCM
+- IEEE 32-bit floating point
+- IEEE 64-bit floating point
+- A-law and u-law
+- Microsoft ADPCM
+- IMA ADPCM (DVI, format code 0x11)
+
+8-bit PCM encodings are always assumed to be unsigned. Signed 8-bit encoding can only be read with `drwav_read_raw()`.
+
+Note that ADPCM is not currently supported with AIFF. Contributions welcome.
+
 
 Notes
 =====
 - Samples are always interleaved.
 - The default read function does not do any data conversion. Use `drwav_read_pcm_frames_f32()`, `drwav_read_pcm_frames_s32()` and `drwav_read_pcm_frames_s16()`
-  to read and convert audio data to 32-bit floating point, signed 32-bit integer and signed 16-bit integer samples respectively. Tested and supported internal
-  formats include the following:
-  - Unsigned 8-bit PCM
-  - Signed 12-bit PCM
-  - Signed 16-bit PCM
-  - Signed 24-bit PCM
-  - Signed 32-bit PCM
-  - IEEE 32-bit floating point
-  - IEEE 64-bit floating point
-  - A-law and u-law
-  - Microsoft ADPCM
-  - IMA ADPCM (DVI, format code 0x11)
+  to read and convert audio data to 32-bit floating point, signed 32-bit integer and signed 16-bit integer samples respectively.
 - dr_wav will try to read the WAV file as best it can, even if it's not strictly conformant to the WAV format.
 */
 
@@ -280,7 +299,8 @@ typedef enum
     drwav_container_riff,
     drwav_container_rifx,
     drwav_container_w64,
-    drwav_container_rf64
+    drwav_container_rf64,
+    drwav_container_aiff
 } drwav_container;
 
 typedef struct
@@ -901,6 +921,12 @@ typedef struct
         drwav_int32  cachedFrames[16]; /* Samples are stored in this cache during decoding. */
         drwav_uint32 cachedFrameCount;
     } ima;
+
+    /* AIFF specific data. */
+    struct
+    {
+        drwav_bool8 isLE;   /* Will be set to true if the audio data is little-endian encoded. */
+    } aiff;
 } drwav;
 
 
@@ -1346,7 +1372,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
 #define drwav_clamp(x, lo, hi)             (drwav_max((lo), drwav_min((hi), (x))))
 #define drwav_offset_ptr(p, offset)        (((drwav_uint8*)(p)) + (offset))
 
-#define DRWAV_MAX_SIMD_VECTOR_SIZE         64  /* 64 for AVX-512 in the future. */
+#define DRWAV_MAX_SIMD_VECTOR_SIZE         32
 
 /* CPU architecture. */
 #if defined(__x86_64__) || defined(_M_X64)
@@ -1393,6 +1419,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
         #define DRWAV_SIZE_MAX  0xFFFFFFFF
     #endif
 #endif
+
+#define DRWAV_INT64_MIN ((drwav_int64)0x8000000000000000)
+#define DRWAV_INT64_MAX ((drwav_int64)0x7FFFFFFFFFFFFFFF)
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
     #define DRWAV_HAS_BYTESWAP16_INTRINSIC
@@ -1602,6 +1631,20 @@ static DRWAV_INLINE void drwav__bswap_samples_s32(drwav_int32* pSamples, drwav_u
 }
 
 
+static DRWAV_INLINE drwav_int64 drwav__bswap_s64(drwav_int64 n)
+{
+    return (drwav_int64)drwav__bswap64((drwav_uint64)n);
+}
+
+static DRWAV_INLINE void drwav__bswap_samples_s64(drwav_int64* pSamples, drwav_uint64 sampleCount)
+{
+    drwav_uint64 iSample;
+    for (iSample = 0; iSample < sampleCount; iSample += 1) {
+        pSamples[iSample] = drwav__bswap_s64(pSamples[iSample]);
+    }
+}
+
+
 static DRWAV_INLINE float drwav__bswap_f32(float n)
 {
     union {
@@ -1623,104 +1666,30 @@ static DRWAV_INLINE void drwav__bswap_samples_f32(float* pSamples, drwav_uint64 
 }
 
 
-static DRWAV_INLINE double drwav__bswap_f64(double n)
+static DRWAV_INLINE void drwav__bswap_samples(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample)
 {
-    union {
-        drwav_uint64 i;
-        double f;
-    } x;
-    x.f = n;
-    x.i = drwav__bswap64(x.i);
-
-    return x.f;
-}
-
-static DRWAV_INLINE void drwav__bswap_samples_f64(double* pSamples, drwav_uint64 sampleCount)
-{
-    drwav_uint64 iSample;
-    for (iSample = 0; iSample < sampleCount; iSample += 1) {
-        pSamples[iSample] = drwav__bswap_f64(pSamples[iSample]);
-    }
-}
-
-
-static DRWAV_INLINE void drwav__bswap_samples_pcm(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample)
-{
-    /* Assumes integer PCM. Floating point PCM is done in drwav__bswap_samples_ieee(). */
     switch (bytesPerSample)
     {
-        case 1: /* u8 */
+        case 1:
         {
-            /* no-op. */
+            /* No-op. */
         } break;
-        case 2: /* s16, s12 (loosely packed) */
+        case 2:
         {
             drwav__bswap_samples_s16((drwav_int16*)pSamples, sampleCount);
         } break;
-        case 3: /* s24 */
+        case 3:
         {
             drwav__bswap_samples_s24((drwav_uint8*)pSamples, sampleCount);
         } break;
-        case 4: /* s32 */
+        case 4:
         {
             drwav__bswap_samples_s32((drwav_int32*)pSamples, sampleCount);
         } break;
-        default:
+        case 8:
         {
-            /* Unsupported format. */
-            DRWAV_ASSERT(DRWAV_FALSE);
+            drwav__bswap_samples_s64((drwav_int64*)pSamples, sampleCount);
         } break;
-    }
-}
-
-static DRWAV_INLINE void drwav__bswap_samples_ieee(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample)
-{
-    switch (bytesPerSample)
-    {
-    #if 0   /* Contributions welcome for f16 support. */
-        case 2: /* f16 */
-        {
-            drwav__bswap_samples_f16((drwav_float16*)pSamples, sampleCount);
-        } break;
-    #endif
-        case 4: /* f32 */
-        {
-            drwav__bswap_samples_f32((float*)pSamples, sampleCount);
-        } break;
-        case 8: /* f64 */
-        {
-            drwav__bswap_samples_f64((double*)pSamples, sampleCount);
-        } break;
-        default:
-        {
-            /* Unsupported format. */
-            DRWAV_ASSERT(DRWAV_FALSE);
-        } break;
-    }
-}
-
-static DRWAV_INLINE void drwav__bswap_samples(void* pSamples, drwav_uint64 sampleCount, drwav_uint32 bytesPerSample, drwav_uint16 format)
-{
-    switch (format)
-    {
-        case DR_WAVE_FORMAT_PCM:
-        {
-            drwav__bswap_samples_pcm(pSamples, sampleCount, bytesPerSample);
-        } break;
-
-        case DR_WAVE_FORMAT_IEEE_FLOAT:
-        {
-            drwav__bswap_samples_ieee(pSamples, sampleCount, bytesPerSample);
-        } break;
-
-        case DR_WAVE_FORMAT_ALAW:
-        case DR_WAVE_FORMAT_MULAW:
-        {
-            drwav__bswap_samples_s16((drwav_int16*)pSamples, sampleCount);
-        } break;
-
-        case DR_WAVE_FORMAT_ADPCM:
-        case DR_WAVE_FORMAT_DVI_ADPCM:
         default:
         {
             /* Unsupported format. */
@@ -1733,7 +1702,7 @@ static DRWAV_INLINE void drwav__bswap_samples(void* pSamples, drwav_uint64 sampl
 
 DRWAV_PRIVATE DRWAV_INLINE drwav_bool32 drwav_is_container_be(drwav_container container)
 {
-    if (container == drwav_container_rifx) {
+    if (container == drwav_container_rifx || container == drwav_container_aiff) {
         return DRWAV_TRUE;
     } else {
         return DRWAV_FALSE;
@@ -1780,6 +1749,42 @@ DRWAV_PRIVATE DRWAV_INLINE drwav_uint32 drwav_bytes_to_u32_ex(const drwav_uint8*
     }
 }
 
+
+
+DRWAV_PRIVATE drwav_int64 drwav_aiff_extented_to_s64(const drwav_uint8* data)
+{
+    drwav_uint32 exponent = ((drwav_uint32)data[0] << 8) | data[1];
+    drwav_uint64 hi = ((drwav_uint64)data[2] << 24) | ((drwav_uint64)data[3] << 16) | ((drwav_uint64)data[4] <<  8) | ((drwav_uint64)data[5] <<  0);
+    drwav_uint64 lo = ((drwav_uint64)data[6] << 24) | ((drwav_uint64)data[7] << 16) | ((drwav_uint64)data[8] <<  8) | ((drwav_uint64)data[9] <<  0);
+    drwav_uint64 significand = (hi << 32) | lo;
+    int sign = exponent >> 15;
+
+    /* Remove sign bit. */
+    exponent &= 0x7FFF;
+
+    /* Special cases. */
+    if (exponent == 0 && significand == 0) {
+        return 0;
+    } else if (exponent == 0x7FFF) {
+        return sign ? DRWAV_INT64_MIN : DRWAV_INT64_MAX;    /* Infinite. */
+    }
+
+    exponent -= 16383;
+
+    if (exponent > 63) {
+        return sign ? DRWAV_INT64_MIN : DRWAV_INT64_MAX;    /* Too bit for a 64-bit integer. */
+    } else if (exponent < 0) {
+        return 0;  /* Number is less than 1, so rounds down to 0. */
+    }
+
+    significand >>= (63 - exponent);
+
+    if (sign) {
+        return -(drwav_int64)significand;
+    } else {
+        return  (drwav_int64)significand;
+    }
+}
 
 
 DRWAV_PRIVATE void* drwav__malloc_default(size_t sz, void* pUserData)
@@ -1901,7 +1906,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_d
 
 DRWAV_PRIVATE drwav_result drwav__read_chunk_header(drwav_read_proc onRead, void* pUserData, drwav_container container, drwav_uint64* pRunningBytesReadOut, drwav_chunk_header* pHeaderOut)
 {
-    if (container == drwav_container_riff || container == drwav_container_rifx || container == drwav_container_rf64) {
+    if (container == drwav_container_riff || container == drwav_container_rifx || container == drwav_container_rf64 || container == drwav_container_aiff) {
         drwav_uint8 sizeInBytes[4];
 
         if (onRead(pUserData, pHeaderOut->id.fourcc, 4) != 4) {
@@ -1913,7 +1918,14 @@ DRWAV_PRIVATE drwav_result drwav__read_chunk_header(drwav_read_proc onRead, void
         }
 
         pHeaderOut->sizeInBytes = drwav_bytes_to_u32_ex(sizeInBytes, container);
-        pHeaderOut->paddingSize = drwav__chunk_padding_size_riff(pHeaderOut->sizeInBytes);
+
+        /* There is padding on standard WAV files, but from what I can tell, not with AIFF. */
+        if (container == drwav_container_aiff) {
+            pHeaderOut->paddingSize = 0;
+        } else {
+            pHeaderOut->paddingSize = drwav__chunk_padding_size_riff(pHeaderOut->sizeInBytes);
+        }
+
         *pRunningBytesReadOut += 8;
     } else if (container == drwav_container_w64) {
         drwav_uint8 sizeInBytes[8];
@@ -2999,6 +3011,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
     drwav_bool8 isProcessingMetadata = DRWAV_FALSE;
     drwav_bool8 foundChunk_fmt  = DRWAV_FALSE;
     drwav_bool8 foundChunk_data = DRWAV_FALSE;
+    drwav_bool8 isAIFCFormType = DRWAV_FALSE;   /* Only used with AIFF. */
 
     cursor = 0;
     sequential = (flags & DRWAV_SEQUENTIAL) != 0;
@@ -3035,6 +3048,8 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         }
     } else if (drwav_fourcc_equal(riff, "RF64")) {
         pWav->container = drwav_container_rf64;
+    } else if (drwav_fourcc_equal(riff, "FORM")) {
+        pWav->container = drwav_container_aiff;
     } else {
         return DRWAV_FALSE;   /* Unknown or unsupported container. */
     }
@@ -3044,7 +3059,6 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         drwav_uint8 chunkSizeBytes[4];
         drwav_uint8 wave[4];
 
-        /* RIFF/WAVE */
         if (drwav__on_read(pWav->onRead, pWav->pUserData, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor) != sizeof(chunkSizeBytes)) {
             return DRWAV_FALSE;
         }
@@ -3072,7 +3086,6 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         drwav_uint8 chunkSizeBytes[8];
         drwav_uint8 wave[16];
 
-        /* W64 */
         if (drwav__on_read(pWav->onRead, pWav->pUserData, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor) != sizeof(chunkSizeBytes)) {
             return DRWAV_FALSE;
         }
@@ -3087,6 +3100,29 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
         if (!drwav_guid_equal(wave, drwavGUID_W64_WAVE)) {
             return DRWAV_FALSE;
+        }
+    } else if (pWav->container == drwav_container_aiff) {
+        drwav_uint8 chunkSizeBytes[4];
+        drwav_uint8 aiff[4];
+
+        if (drwav__on_read(pWav->onRead, pWav->pUserData, chunkSizeBytes, sizeof(chunkSizeBytes), &cursor) != sizeof(chunkSizeBytes)) {
+            return DRWAV_FALSE;
+        }
+
+        if (drwav_bytes_to_u32_be(chunkSizeBytes) < 18) {
+            return DRWAV_FALSE;
+        }
+
+        if (drwav__on_read(pWav->onRead, pWav->pUserData, aiff, sizeof(aiff), &cursor) != sizeof(aiff)) {
+            return DRWAV_FALSE;
+        }
+
+        if (drwav_fourcc_equal(aiff, "AIFF")) {
+            isAIFCFormType = DRWAV_FALSE;
+        } else if (drwav_fourcc_equal(aiff, "AIFC")) {
+            isAIFCFormType = DRWAV_TRUE;
+        } else {
+            return DRWAV_FALSE; /* Expecting "AIFF" or "AIFC". */
         }
     } else {
         return DRWAV_FALSE;
@@ -3350,6 +3386,136 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
             continue;
         }
+
+
+        /* "COMM". AIFF/AIFC only. */
+        if (pWav->container == drwav_container_aiff && drwav_fourcc_equal(header.id.fourcc, "COMM")) {
+            drwav_uint8 commData[24];
+            drwav_uint32 commDataBytesToRead;
+            drwav_uint16 channels;
+            drwav_uint32 frameCount;
+            drwav_uint16 sampleSizeInBits;
+            drwav_int64  sampleRate;
+            drwav_uint16 compressionFormat;
+
+            foundChunk_fmt = DRWAV_TRUE;
+
+            if (isAIFCFormType) {
+                commDataBytesToRead = 24;
+                if (header.sizeInBytes < commDataBytesToRead) {
+                    return DRWAV_FALSE; /* Invalid COMM chunk. */
+                }
+            } else {
+                commDataBytesToRead = 18;
+                if (header.sizeInBytes != commDataBytesToRead) {
+                    return DRWAV_FALSE; /* INVALID COMM chunk. */
+                }
+            }
+
+            if (drwav__on_read(pWav->onRead, pWav->pUserData, commData, commDataBytesToRead, &cursor) != commDataBytesToRead) {
+                return DRWAV_FALSE;
+            }
+
+            
+            channels         = drwav_bytes_to_u16_ex     (commData + 0, pWav->container);
+            frameCount       = drwav_bytes_to_u32_ex     (commData + 2, pWav->container);
+            sampleSizeInBits = drwav_bytes_to_u16_ex     (commData + 6, pWav->container);
+            sampleRate       = drwav_aiff_extented_to_s64(commData + 8);
+
+            if (sampleRate < 0 || sampleRate > 0xFFFFFFFF) {
+                return DRWAV_FALSE; /* Invalid sample rate. */
+            }
+
+            if (isAIFCFormType) {
+                const drwav_uint8* type = commData + 18;
+
+                if (drwav_fourcc_equal(type, "NONE")) {
+                    compressionFormat = DR_WAVE_FORMAT_PCM; /* PCM, bit-endian. */
+                } else if (drwav_fourcc_equal(type, "sowt")) {
+                    compressionFormat = DR_WAVE_FORMAT_PCM; /* PCM, little-endian. */
+                    pWav->aiff.isLE = DRWAV_TRUE;
+                } else if (drwav_fourcc_equal(type, "fl32") || drwav_fourcc_equal(type, "fl64") || drwav_fourcc_equal(type, "FL32") || drwav_fourcc_equal(type, "FL64")) {
+                    compressionFormat = DR_WAVE_FORMAT_IEEE_FLOAT;
+                } else if (drwav_fourcc_equal(type, "alaw")) {
+                    compressionFormat = DR_WAVE_FORMAT_ALAW;
+                } else if (drwav_fourcc_equal(type, "ulaw")) {
+                    compressionFormat = DR_WAVE_FORMAT_MULAW;
+                } else if (drwav_fourcc_equal(type, "ima4")) {
+                    compressionFormat = DR_WAVE_FORMAT_DVI_ADPCM;
+                    sampleSizeInBits = 4;
+
+                    /*
+                    I haven't been able to figure out how to get correct decoding for IMA ADPCM. Until this is figured out
+                    we'll need to abort when we encounter such an encoding. Advice welcome!
+                    */
+                    return DRWAV_FALSE;
+                } else {
+                    return DRWAV_FALSE; /* Unknown or unsupported compression format. Need to abort. */
+                }
+            } else {
+                compressionFormat = DR_WAVE_FORMAT_PCM; /* It's a standard AIFF form which is always compressed. */
+            }
+
+            /* We should now have enough information to fill out our fmt structure. */
+            fmt.formatTag      = compressionFormat;
+            fmt.channels       = channels;
+            fmt.sampleRate     = (drwav_uint32)sampleRate;
+            fmt.bitsPerSample  = sampleSizeInBits;
+            fmt.blockAlign     = (drwav_uint16)(fmt.channels * fmt.bitsPerSample / 8);
+            fmt.avgBytesPerSec = fmt.blockAlign * fmt.sampleRate;
+
+            if (fmt.blockAlign == 0 && compressionFormat == DR_WAVE_FORMAT_DVI_ADPCM) {
+                fmt.blockAlign = 34 * fmt.channels;
+            }
+            
+
+            /* If the form type is AIFC there will be some additional data in the chunk. We need to seek past it. */
+            if (isAIFCFormType) {
+                if (drwav__seek_forward(pWav->onSeek, (chunkSize - commDataBytesToRead), pWav->pUserData) == DRWAV_FALSE) {
+                    return DRWAV_FALSE;
+                }
+                cursor += (chunkSize - commDataBytesToRead);
+            }
+
+            /* Don't fall through or else we'll end up treating this chunk as metadata which is incorrect. */
+            continue;
+        }
+
+
+        /* "SSND". AIFF/AIFC only. This is the AIFF equivalent of the "data" chunk. */
+        if (pWav->container == drwav_container_aiff && drwav_fourcc_equal(header.id.fourcc, "SSND")) {
+            drwav_uint8 offsetAndBlockSizeData[8];
+            drwav_uint32 offset;
+
+            foundChunk_data = DRWAV_TRUE;
+
+            if (drwav__on_read(pWav->onRead, pWav->pUserData, offsetAndBlockSizeData, sizeof(offsetAndBlockSizeData), &cursor) != sizeof(offsetAndBlockSizeData)) {
+                return DRWAV_FALSE;
+            }
+
+            /* We need to seek forward by the offset. */
+            offset = drwav_bytes_to_u32_ex(offsetAndBlockSizeData + 0, pWav->container);
+            if (drwav__seek_forward(pWav->onSeek, offset, pWav->pUserData) == DRWAV_FALSE) {
+                return DRWAV_FALSE;
+            }
+            cursor += offset;
+
+            pWav->dataChunkDataPos = cursor;
+            dataChunkSize = chunkSize;
+
+            /* If we're running in sequential mode, or we're not reading metadata, we have enough now that we can get out of the loop. */
+            if (sequential || !isProcessingMetadata) {
+                break;      /* No need to keep reading beyond the data chunk. */
+            } else {
+                if (drwav__seek_forward(pWav->onSeek, chunkSize, pWav->pUserData) == DRWAV_FALSE) {
+                    break;
+                }
+                cursor += chunkSize;
+
+                continue;   /* There may be some more metadata to read. */
+            }
+        }
+
 
 
         /* Getting here means it's not a chunk that we care about internally, but might need to be handled as metadata by the caller. */
@@ -4242,6 +4408,8 @@ DRWAV_PRIVATE drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_d
         runningPos += drwav__write(pWav, "RF64", 4);
         runningPos += drwav__write_u32ne_to_le(pWav, 0xFFFFFFFF);               /* Always 0xFFFFFFFF for RF64. Set to a proper value in the "ds64" chunk. */
         runningPos += drwav__write(pWav, "WAVE", 4);
+    } else {
+        return DRWAV_FALSE; /* Container not supported for writing. */
     }
 
 
@@ -5531,7 +5699,7 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_be(drwav* pWav, drwav_uint64 frames
             return 0;   /* Could not get the bytes per frame which means bytes per sample cannot be determined and we don't know how to byte swap. */
         }
 
-        drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, bytesPerFrame/pWav->channels, pWav->translatedFormatTag);
+        drwav__bswap_samples(pBufferOut, framesRead*pWav->channels, bytesPerFrame/pWav->channels);
     }
 
     return framesRead;
@@ -5540,17 +5708,25 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_be(drwav* pWav, drwav_uint64 frames
 DRWAV_API drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToRead, void* pBufferOut)
 {
     if (drwav_is_container_be(pWav->container)) {
-        if (drwav__is_little_endian()) {
-            return drwav_read_pcm_frames_be(pWav, framesToRead, pBufferOut);
-        } else {
-            return drwav_read_pcm_frames_le(pWav, framesToRead, pBufferOut);
-        }
+        /*
+        Special case for AIFF. AIFF is a big-endian encoded format, but it supports a format that is
+        PCM in little-endian encoding. In this case, we fall through this branch and treate it as
+        little-endian.
+        */
+        if (pWav->container != drwav_container_aiff || pWav->aiff.isLE == DRWAV_FALSE) {
+            if (drwav__is_little_endian()) {
+                return drwav_read_pcm_frames_be(pWav, framesToRead, pBufferOut);
+            } else {
+                return drwav_read_pcm_frames_le(pWav, framesToRead, pBufferOut);
+            }
+        }   
+    }
+
+    /* Getting here means the data should be considered little-endian. */
+    if (drwav__is_little_endian()) {
+        return drwav_read_pcm_frames_le(pWav, framesToRead, pBufferOut);
     } else {
-        if (drwav__is_little_endian()) {
-            return drwav_read_pcm_frames_le(pWav, framesToRead, pBufferOut);
-        } else {
-            return drwav_read_pcm_frames_be(pWav, framesToRead, pBufferOut);
-        }
+        return drwav_read_pcm_frames_be(pWav, framesToRead, pBufferOut);
     }
 }
 
@@ -5824,7 +6000,7 @@ DRWAV_API drwav_uint64 drwav_write_pcm_frames_be(drwav* pWav, drwav_uint64 frame
         }
 
         DRWAV_COPY_MEMORY(temp, pRunningData, (size_t)bytesToWriteThisIteration);
-        drwav__bswap_samples(temp, sampleCount, bytesPerSample, pWav->translatedFormatTag);
+        drwav__bswap_samples(temp, sampleCount, bytesPerSample);
 
         bytesJustWritten = drwav_write_raw(pWav, (size_t)bytesToWriteThisIteration, temp);
         if (bytesJustWritten == 0) {
@@ -6077,7 +6253,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
                     return totalFramesRead; /* Invalid data. */
                 }
 
-                pWav->ima.predictor[0] = drwav_bytes_to_s16(header + 0);
+                pWav->ima.predictor[0] = (drwav_int16)drwav_bytes_to_u16(header + 0);
                 pWav->ima.stepIndex[0] = drwav_clamp(header[2], 0, (drwav_int32)drwav_countof(stepTable)-1);    /* Clamp not necessary because we checked above, but adding here to silence a static analysis warning. */
                 pWav->ima.cachedFrames[drwav_countof(pWav->ima.cachedFrames) - 1] = pWav->ima.predictor[0];
                 pWav->ima.cachedFrameCount = 1;
@@ -8028,7 +8204,8 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 REVISION HISTORY
 ================
 v0.13.9 - TBD
-  - Add support for RIFX decoding (metadata not supported).
+  - Add support for AIFF decoding (writing and metadata not supported).
+  - Add support for RIFX decoding (writing and metadata not supported).
   - Fix a bug where metadata is not processed if it's located before the "fmt " chunk.
   - Add a workaround for a type of malformed WAV file where the size of the "RIFF" and "data" chunks
     are incorrectly set to 0xFFFFFFFF.
@@ -8451,7 +8628,7 @@ For more information, please refer to <http://unlicense.org/>
 ===============================================================================
 ALTERNATIVE 2 - MIT No Attribution
 ===============================================================================
-Copyright 2020 David Reid
+Copyright 2023 David Reid
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
