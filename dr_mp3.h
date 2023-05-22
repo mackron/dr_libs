@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.35 - TBD
+dr_mp3 - v0.6.35 - 2022-05-22
 
 David Reid - mackron@gmail.com
 
@@ -4490,8 +4490,8 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
-v0.6.35 - TBD
-  
+v0.6.35 - 2022-05-22
+  - Minor code restructure. No functional change.
 
 v0.6.34 - 2022-09-17
   - Fix compilation with DJGPP.
@@ -4794,7 +4794,7 @@ For more information, please refer to <http://unlicense.org/>
 ===============================================================================
 ALTERNATIVE 2 - MIT No Attribution
 ===============================================================================
-Copyright 2020 David Reid
+Copyright 2023 David Reid
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
