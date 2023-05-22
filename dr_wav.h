@@ -293,6 +293,16 @@ typedef drwav_int32 drwav_result;
 DRWAV_API void drwav_version(drwav_uint32* pMajor, drwav_uint32* pMinor, drwav_uint32* pRevision);
 DRWAV_API const char* drwav_version_string(void);
 
+/* Allocation Callbacks */
+typedef struct
+{
+    void* pUserData;
+    void* (* onMalloc)(size_t sz, void* pUserData);
+    void* (* onRealloc)(void* p, size_t sz, void* pUserData);
+    void  (* onFree)(void* p, void* pUserData);
+} drwav_allocation_callbacks;
+/* End Allocation Callbacks */
+
 typedef enum
 {
     drwav_seek_origin_start,
@@ -436,13 +446,6 @@ The read pointer will be sitting on the first byte after the chunk's header. You
 */
 typedef drwav_uint64 (* drwav_chunk_proc)(void* pChunkUserData, drwav_read_proc onRead, drwav_seek_proc onSeek, void* pReadSeekUserData, const drwav_chunk_header* pChunkHeader, drwav_container container, const drwav_fmt* pFMT);
 
-typedef struct
-{
-    void* pUserData;
-    void* (* onMalloc)(size_t sz, void* pUserData);
-    void* (* onRealloc)(void* p, size_t sz, void* pUserData);
-    void  (* onFree)(void* p, void* pUserData);
-} drwav_allocation_callbacks;
 
 /* Structure for internal use. Only used for loaders opened with drwav_init_memory(). */
 typedef struct
@@ -4553,6 +4556,7 @@ DRWAV_API drwav_uint64 drwav_target_write_size_bytes(const drwav_data_format* pF
 
 #ifndef DR_WAV_NO_STDIO
 
+/* Errno */
 /* drwav_result_from_errno() is only used for fopen() and wfopen() so putting it inside DR_WAV_NO_STDIO for now. If something else needs this later we can move it out. */
 #include <errno.h>
 DRWAV_PRIVATE drwav_result drwav_result_from_errno(int e)
@@ -4956,7 +4960,9 @@ DRWAV_PRIVATE drwav_result drwav_result_from_errno(int e)
         default: return DRWAV_ERROR;
     }
 }
+/* End Errno */
 
+/* fopen */
 DRWAV_PRIVATE drwav_result drwav_fopen(FILE** ppFile, const char* pFilePath, const char* pOpenMode)
 {
 #if defined(_MSC_VER) && _MSC_VER >= 1400
@@ -5114,6 +5120,7 @@ DRWAV_PRIVATE drwav_result drwav_wfopen(FILE** ppFile, const wchar_t* pFilePath,
     return DRWAV_SUCCESS;
 }
 #endif
+/* End fopen */
 
 
 DRWAV_PRIVATE size_t drwav__on_read_stdio(void* pUserData, void* pBufferOut, size_t bytesToRead)
