@@ -1433,8 +1433,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
 #endif
 /* End SIZE_MAX */
 
-#define DRWAV_INT64_MIN ((drwav_int64)0x8000000000000000)
-#define DRWAV_INT64_MAX ((drwav_int64)0x7FFFFFFFFFFFFFFF)
+/* Weird bit manipulation is for C89 compatibility (no direct support for 64-bit integers). */
+#define DRWAV_INT64_MIN   ((drwav_int64)0x80000000  << 32)
+#define DRWAV_INT64_MAX ((((drwav_int64)0x7FFFFFFF) << 32) | 0xFFFFFFFF)
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
     #define DRWAV_HAS_BYTESWAP16_INTRINSIC
@@ -1786,7 +1787,7 @@ DRWAV_PRIVATE drwav_int64 drwav_aiff_extented_to_s64(const drwav_uint8* data)
 
     if (exponent > 63) {
         return sign ? DRWAV_INT64_MIN : DRWAV_INT64_MAX;    /* Too bit for a 64-bit integer. */
-    } else if (exponent < 0) {
+    } else if (exponent < 1) {
         return 0;  /* Number is less than 1, so rounds down to 0. */
     }
 
@@ -3255,7 +3256,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
         /* "fmt " */
         if (((pWav->container == drwav_container_riff || pWav->container == drwav_container_rifx || pWav->container == drwav_container_rf64) && drwav_fourcc_equal(header.id.fourcc, "fmt ")) ||
-             (pWav->container == drwav_container_w64) && drwav_guid_equal(header.id.guid, drwavGUID_W64_FMT)) {
+            ((pWav->container == drwav_container_w64) && drwav_guid_equal(header.id.guid, drwavGUID_W64_FMT))) {
             drwav_uint8 fmtData[16];
 
             foundChunk_fmt = DRWAV_TRUE;
@@ -3337,7 +3338,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
         /* "data" */
         if (((pWav->container == drwav_container_riff || pWav->container == drwav_container_rifx || pWav->container == drwav_container_rf64) && drwav_fourcc_equal(header.id.fourcc, "data")) ||
-             (pWav->container == drwav_container_w64) && drwav_guid_equal(header.id.guid, drwavGUID_W64_DATA)) {
+            ((pWav->container == drwav_container_w64) && drwav_guid_equal(header.id.guid, drwavGUID_W64_DATA))) {
             foundChunk_data = DRWAV_TRUE;
             
             pWav->dataChunkDataPos  = cursor;
@@ -3362,7 +3363,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
         /* "fact". This is optional. Can use this to get the sample count which is useful for compressed formats. For RF64 we retrieved the sample count from the ds64 chunk earlier. */
         if (((pWav->container == drwav_container_riff || pWav->container == drwav_container_rifx || pWav->container == drwav_container_rf64) && drwav_fourcc_equal(header.id.fourcc, "fact")) ||
-             (pWav->container == drwav_container_w64) && drwav_guid_equal(header.id.guid, drwavGUID_W64_FACT)) {
+            ((pWav->container == drwav_container_w64) && drwav_guid_equal(header.id.guid, drwavGUID_W64_FACT))) {
             if (pWav->container == drwav_container_riff || pWav->container == drwav_container_rifx) {
                 drwav_uint8 sampleCount[4];
                 if (drwav__on_read(pWav->onRead, pWav->pUserData, &sampleCount, 4, &cursor) != 4) {
@@ -3406,7 +3407,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             drwav_uint8 commData[24];
             drwav_uint32 commDataBytesToRead;
             drwav_uint16 channels;
-            drwav_uint32 frameCount;
+            /*drwav_uint32 frameCount;*/
             drwav_uint16 sampleSizeInBits;
             drwav_int64  sampleRate;
             drwav_uint16 compressionFormat;
@@ -3431,7 +3432,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
             
             channels         = drwav_bytes_to_u16_ex     (commData + 0, pWav->container);
-            frameCount       = drwav_bytes_to_u32_ex     (commData + 2, pWav->container);
+            /*frameCount       = drwav_bytes_to_u32_ex     (commData + 2, pWav->container);*/
             sampleSizeInBits = drwav_bytes_to_u16_ex     (commData + 6, pWav->container);
             sampleRate       = drwav_aiff_extented_to_s64(commData + 8);
 
