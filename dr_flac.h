@@ -1688,9 +1688,10 @@ typedef drflac_int32 drflac_result;
 #define DRFLAC_CANCELLED                                -51
 #define DRFLAC_MEMORY_ALREADY_MAPPED                    -52
 #define DRFLAC_AT_END                                   -53
+
+#define DRFLAC_CRC_MISMATCH                             -100
 /* End Result Codes */
 
-#define DRFLAC_CRC_MISMATCH                             -128
 
 #define DRFLAC_SUBFRAME_CONSTANT                        0
 #define DRFLAC_SUBFRAME_VERBATIM                        1
