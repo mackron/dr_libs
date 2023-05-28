@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.10 - TBD
+dr_wav - v0.13.10 - 2023-05-29
 
 David Reid - mackron@gmail.com
 
@@ -8221,7 +8221,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
-v0.13.10 - TBD
+v0.13.10 - 2023-05-29
   - Fix a bug where drwav_init_with_metadata() does not decode any frames after initializtion.
 
 v0.13.9 - 2022-05-22
