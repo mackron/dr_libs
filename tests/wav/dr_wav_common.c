@@ -260,7 +260,7 @@ drwav_uint64 libsndfile_read_pcm_frames_s32(libsndfile* pSndFile, drwav_uint64 f
 
     /* Unfortunately it looks like libsndfile does not return correct integral values when the source file is floating point. */
     if ((pSndFile->info.format & SF_FORMAT_SUBMASK) == SF_FORMAT_FLOAT) {
-        /* Read and float and convert. */
+        /* Read floats and convert. */
         drwav_uint64 totalFramesRead = 0;
         while (totalFramesRead < framesToRead) {
             float temp[4096];
@@ -286,7 +286,7 @@ drwav_uint64 libsndfile_read_pcm_frames_s32(libsndfile* pSndFile, drwav_uint64 f
 
         return totalFramesRead;
     } else if ((pSndFile->info.format & SF_FORMAT_SUBMASK) == SF_FORMAT_DOUBLE) {
-        /* Read and double and convert. */
+        /* Read doubles and convert. */
         drwav_uint64 totalFramesRead = 0;
         while (totalFramesRead < framesToRead) {
             double temp[4096];
