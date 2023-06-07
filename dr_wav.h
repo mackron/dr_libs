@@ -3474,7 +3474,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             }
 
             /* With AIFF we want to use the explicitly defined frame count rather than deriving it from the size of the chunk. */
-            aiffFrameCount = frameCount / channels;
+            aiffFrameCount = frameCount;
 
             /* We should now have enough information to fill out our fmt structure. */
             fmt.formatTag      = compressionFormat;
@@ -5697,6 +5697,7 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_le(drwav* pWav, drwav_uint64 frames
 {
     drwav_uint32 bytesPerFrame;
     drwav_uint64 bytesToRead;   /* Intentionally uint64 instead of size_t so we can do a check that we're not reading too much on 32-bit builds. */
+    drwav_uint64 framesRemainingInFile;
 
     if (pWav == NULL || framesToRead == 0) {
         return 0;
@@ -5705,6 +5706,11 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_le(drwav* pWav, drwav_uint64 frames
     /* Cannot use this function for compressed formats. */
     if (drwav__is_compressed_format_tag(pWav->translatedFormatTag)) {
         return 0;
+    }
+
+    framesRemainingInFile = pWav->totalPCMFrameCount - pWav->readCursorInPCMFrames;
+    if (framesToRead > framesRemainingInFile) {
+        framesToRead = framesRemainingInFile;
     }
 
     bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
