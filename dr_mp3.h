@@ -2701,8 +2701,9 @@ static drmp3_uint32 drmp3_decode_next_frame_ex__callbacks(drmp3* pMP3, drmp3d_sa
         DRMP3_ASSERT(pMP3->pData != NULL);
         DRMP3_ASSERT(pMP3->dataCapacity > 0);
 
+        /* Do a runtime check here to try silencing a false-positive from clang-analyzer. */
         if (pMP3->pData == NULL) {
-            return 0;   /* Should never hit this. */
+            return 0;
         }
 
         pcmFramesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->pData + pMP3->dataConsumed, (int)pMP3->dataSize, pPCMFrames, &info);    /* <-- Safe size_t -> int conversion thanks to the check above. */
