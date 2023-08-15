@@ -8356,7 +8356,7 @@ v0.13.11 - 2023-07-07
 v0.13.10 - 2023-05-29
   - Fix a bug where drwav_init_with_metadata() does not decode any frames after initializtion.
 
-v0.13.9 - 2022-05-22
+v0.13.9 - 2023-05-22
   - Add support for AIFF decoding (writing and metadata not supported).
   - Add support for RIFX decoding (writing and metadata not supported).
   - Fix a bug where metadata is not processed if it's located before the "fmt " chunk.
