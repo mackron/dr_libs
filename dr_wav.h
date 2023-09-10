@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.12 - 2023-08-07
+dr_wav - v0.13.13 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -147,7 +147,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     13
-#define DRWAV_VERSION_REVISION  12
+#define DRWAV_VERSION_REVISION  13
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -1435,8 +1435,8 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
 /* End SIZE_MAX */
 
 /* Weird bit manipulation is for C89 compatibility (no direct support for 64-bit integers). */
-#define DRWAV_INT64_MIN   ((drwav_int64)0x80000000  << 32)
-#define DRWAV_INT64_MAX ((((drwav_int64)0x7FFFFFFF) << 32) | 0xFFFFFFFF)
+#define DRWAV_INT64_MIN ((drwav_int64) ((drwav_uint64)0x80000000 << 32))
+#define DRWAV_INT64_MAX ((drwav_int64)(((drwav_uint64)0x7FFFFFFF << 32) | 0xFFFFFFFF))
 
 #if defined(_MSC_VER) && _MSC_VER >= 1400
     #define DRWAV_HAS_BYTESWAP16_INTRINSIC
@@ -1787,7 +1787,7 @@ DRWAV_PRIVATE drwav_int64 drwav_aiff_extented_to_s64(const drwav_uint8* data)
     exponent -= 16383;
 
     if (exponent > 63) {
-        return sign ? DRWAV_INT64_MIN : DRWAV_INT64_MAX;    /* Too bit for a 64-bit integer. */
+        return sign ? DRWAV_INT64_MIN : DRWAV_INT64_MAX;    /* Too big for a 64-bit integer. */
     } else if (exponent < 1) {
         return 0;  /* Number is less than 1, so rounds down to 0. */
     }
@@ -8347,6 +8347,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.13.13 - TBD
+  - Fix a warning when compiling with Clang.
+
 v0.13.12 - 2023-08-07
   - Fix a possible crash in drwav_read_pcm_frames().
 
