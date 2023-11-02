@@ -6492,7 +6492,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
     for (;;) {
         drflac_metadata metadata;
         drflac_uint8 isLastBlock = 0;
-        drflac_uint8 blockType;
+        drflac_uint8 blockType = 0;
         drflac_uint32 blockSize;
         if (drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize) == DRFLAC_FALSE) {
             return DRFLAC_FALSE;
