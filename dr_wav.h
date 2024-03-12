@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.16 - 2024-02-27
+dr_wav - v0.13.17 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -147,7 +147,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     13
-#define DRWAV_VERSION_REVISION  16
+#define DRWAV_VERSION_REVISION  17
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -6101,6 +6101,13 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
 {
     drwav_uint64 totalFramesRead = 0;
 
+    static drwav_int32 adaptationTable[] = {
+        230, 230, 230, 230, 307, 409, 512, 614,
+        768, 614, 512, 409, 307, 230, 230, 230
+    };
+    static drwav_int32 coeff1Table[] = { 256, 512, 0, 192, 240, 460,  392 };
+    static drwav_int32 coeff2Table[] = { 0,  -256, 0, 64,  0,  -208, -232 };
+
     DRWAV_ASSERT(pWav != NULL);
     DRWAV_ASSERT(framesToRead > 0);
 
@@ -6126,6 +6133,11 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                 pWav->msadpcm.cachedFrames[2]  = pWav->msadpcm.prevFrames[0][0];
                 pWav->msadpcm.cachedFrames[3]  = pWav->msadpcm.prevFrames[0][1];
                 pWav->msadpcm.cachedFrameCount = 2;
+
+                /* The predictor is used as an index into coeff1Table so we'll need to validate to ensure it never overflows. */
+                if (pWav->msadpcm.predictor[0] >= drwav_countof(coeff1Table)) {
+                    return totalFramesRead; /* Invalid file. */
+                }
             } else {
                 /* Stereo. */
                 drwav_uint8 header[14];
@@ -6148,6 +6160,11 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                 pWav->msadpcm.cachedFrames[2] = pWav->msadpcm.prevFrames[0][1];
                 pWav->msadpcm.cachedFrames[3] = pWav->msadpcm.prevFrames[1][1];
                 pWav->msadpcm.cachedFrameCount = 2;
+
+                /* The predictor is used as an index into coeff1Table so we'll need to validate to ensure it never overflows. */
+                if (pWav->msadpcm.predictor[0] >= drwav_countof(coeff1Table) || pWav->msadpcm.predictor[1] >= drwav_countof(coeff2Table)) {
+                    return totalFramesRead; /* Invalid file. */
+                }
             }
         }
 
@@ -6181,13 +6198,6 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
             if (pWav->msadpcm.bytesRemainingInBlock == 0) {
                 continue;
             } else {
-                static drwav_int32 adaptationTable[] = {
-                    230, 230, 230, 230, 307, 409, 512, 614,
-                    768, 614, 512, 409, 307, 230, 230, 230
-                };
-                static drwav_int32 coeff1Table[] = { 256, 512, 0, 192, 240, 460,  392 };
-                static drwav_int32 coeff2Table[] = { 0,  -256, 0, 64,  0,  -208, -232 };
-
                 drwav_uint8 nibbles;
                 drwav_int32 nibble0;
                 drwav_int32 nibble1;
@@ -8350,6 +8360,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.13.17 - TBD
+  - Fix a possible crash when reading from MS-ADPCM encoded files.
+
 v0.13.16 - 2024-02-27
   - Fix a Wdouble-promotion warning.
 
