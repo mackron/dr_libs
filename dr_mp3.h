@@ -33,7 +33,7 @@ Support for loading a file from a `wchar_t` string has been added via the `drmp3
 */
 
 /*
-Introducation
+Introduction
 =============
 dr_mp3 is a single file library. To use it, do something like the following in one .c file.
 
