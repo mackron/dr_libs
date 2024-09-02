@@ -179,7 +179,7 @@ reports metadata to the application through the use of a callback, and every met
 
 The main opening APIs (`drflac_open()`, etc.) will fail if the header is not present. The presents a problem in certain scenarios such as broadcast style
 streams or internet radio where the header may not be present because the user has started playback mid-stream. To handle this, use the relaxed APIs:
-    
+
     `drflac_open_relaxed()`
     `drflac_open_with_metadata_relaxed()`
 
@@ -348,11 +348,11 @@ but also more memory. In my testing there is diminishing returns after about 4KB
 #define DRFLAC_64BIT
 #endif
 
-#if defined(__x86_64__) || defined(_M_X64)
+#if defined(__x86_64__) || (defined(_M_X64) && !defined(_M_ARM64EC))
     #define DRFLAC_X64
 #elif defined(__i386) || defined(_M_IX86)
     #define DRFLAC_X86
-#elif defined(__arm__) || defined(_M_ARM) || defined(__arm64) || defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64)
+#elif defined(__arm__) || defined(_M_ARM) || defined(__arm64) || defined(__arm64__) || defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
     #define DRFLAC_ARM
 #endif
 /* End Architecture Detection */
@@ -6702,10 +6702,10 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
                             /* Skip to the index point count */
                             pRunningData += 35;
-                            
+
                             indexCount = pRunningData[0];
                             pRunningData += 1;
-                            
+
                             bufferSize += indexCount * sizeof(drflac_cuesheet_track_index);
 
                             /* Quick validation check. */
