@@ -8362,6 +8362,7 @@ REVISION HISTORY
 ================
 v0.13.17 - TBD
   - Fix a possible crash when reading from MS-ADPCM encoded files.
+  - Improve detection of ARM64EC
 
 v0.13.16 - 2024-02-27
   - Fix a Wdouble-promotion warning.

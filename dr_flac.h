@@ -12097,6 +12097,7 @@ REVISION HISTORY
 ================
 v0.12.43 - TBD
   - Fix a possible buffer overflow during decoding.
+  - Improve detection of ARM64EC
 
 v0.12.42 - 2023-11-02
   - Fix build for ARMv6-M.
