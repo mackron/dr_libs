@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.17 - TBD
+dr_wav - v0.13.17 - 2024-12-17
 
 David Reid - mackron@gmail.com
 
@@ -8360,7 +8360,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
-v0.13.17 - TBD
+v0.13.17 - 2024-12-17
   - Fix a possible crash when reading from MS-ADPCM encoded files.
   - Improve detection of ARM64EC
 
