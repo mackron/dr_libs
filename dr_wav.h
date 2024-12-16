@@ -176,7 +176,7 @@ typedef unsigned int            drwav_uint32;
         #pragma GCC diagnostic pop
     #endif
 #endif
-#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__)) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(_M_ARM64) || defined(__powerpc64__)
+#if defined(__LP64__) || defined(_WIN64) || (defined(__x86_64__) && !defined(__ILP32__)) || defined(_M_X64) || defined(__ia64) || defined (_M_IA64) || defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC) || defined(__powerpc64__)
     typedef drwav_uint64        drwav_uintptr;
 #else
     typedef drwav_uint32        drwav_uintptr;
@@ -1384,7 +1384,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b);
 #define DRWAV_MAX_SIMD_VECTOR_SIZE         32
 
 /* Architecture Detection */
-#if defined(__x86_64__) || defined(_M_X64)
+#if defined(__x86_64__) || (defined(_M_X64) && !defined(_M_ARM64EC))
     #define DRWAV_X64
 #elif defined(__i386) || defined(_M_IX86)
     #define DRWAV_X86
@@ -2096,7 +2096,7 @@ DRWAV_PRIVATE drwav_uint8* drwav__metadata_get_memory(drwav__metadata_parser* pP
             pParser->pDataCursor += align - modulo;
         }
     }
-    
+
     pResult = pParser->pDataCursor;
 
     /*
@@ -2407,7 +2407,7 @@ DRWAV_PRIVATE drwav_result drwav_buffer_reader_read(drwav_buffer_reader* pReader
     size_t bytesRemaining;
 
     DRWAV_ASSERT(pReader != NULL);
-    
+
     if (pBytesRead != NULL) {
         *pBytesRead = 0;
     }
@@ -2487,7 +2487,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_bext_to_metadata_obj(drwav__metadata_pars
     size_t bytesRead = drwav__metadata_parser_read(pParser, bextData, sizeof(bextData), NULL);
 
     DRWAV_ASSERT(pParser->stage == drwav__metadata_parser_stage_read);
-    
+
     if (bytesRead == sizeof(bextData)) {
         drwav_buffer_reader reader;
         drwav_uint32 timeReferenceLow;
@@ -2549,7 +2549,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_list_label_or_note_to_metadata_obj(drwav_
     drwav_uint64 totalBytesRead = 0;
     size_t bytesJustRead = drwav__metadata_parser_read(pParser, cueIDBuffer, sizeof(cueIDBuffer), &totalBytesRead);
 
-    DRWAV_ASSERT(pParser->stage == drwav__metadata_parser_stage_read);    
+    DRWAV_ASSERT(pParser->stage == drwav__metadata_parser_stage_read);
 
     if (bytesJustRead == sizeof(cueIDBuffer)) {
         drwav_uint32 sizeIncludingNullTerminator;
@@ -2721,7 +2721,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                         }
                     } else {
                         /* Loop count in header does not match the size of the chunk. */
-                    }                    
+                    }
                 }
             } else {
                 bytesRead = drwav__read_smpl_to_metadata_obj(pParser, pChunkHeader, &pParser->pMetadata[pParser->metadataCursor]);
@@ -3342,7 +3342,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         if (((pWav->container == drwav_container_riff || pWav->container == drwav_container_rifx || pWav->container == drwav_container_rf64) && drwav_fourcc_equal(header.id.fourcc, "data")) ||
             ((pWav->container == drwav_container_w64) && drwav_guid_equal(header.id.guid, drwavGUID_W64_DATA))) {
             foundChunk_data = DRWAV_TRUE;
-            
+
             pWav->dataChunkDataPos  = cursor;
 
             if (pWav->container != drwav_container_rf64) {  /* The data chunk size for RF64 will always be set to 0xFFFFFFFF here. It was set to it's true value earlier. */
@@ -3432,7 +3432,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                 return DRWAV_FALSE;
             }
 
-            
+
             channels         = drwav_bytes_to_u16_ex     (commData + 0, pWav->container);
             frameCount       = drwav_bytes_to_u32_ex     (commData + 2, pWav->container);
             sampleSizeInBits = drwav_bytes_to_u16_ex     (commData + 6, pWav->container);
@@ -3507,7 +3507,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
             /* In AIFF, samples are padded to 8 byte boundaries. We need to round up our bits per sample here. */
             fmt.bitsPerSample += (fmt.bitsPerSample & 7);
-            
+
 
             /* If the form type is AIFC there will be some additional data in the chunk. We need to seek past it. */
             if (isAIFCFormType) {
@@ -4195,7 +4195,7 @@ DRWAV_PRIVATE size_t drwav__write_or_count_metadata(drwav* pWav, drwav_metadata*
 
                     if (pMetadata->data.labelOrNote.stringLength > 0) {
                         chunkSize += pMetadata->data.labelOrNote.stringLength + 1;
-                    }    
+                    }
                 } break;
 
                 case drwav_metadata_type_list_labelled_cue_region:
@@ -5179,7 +5179,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init_file__internal_FILE(drwav* pWav, FILE* pFi
         fclose(pFile);
         return result;
     }
-    
+
     result = drwav_init__internal(pWav, onChunk, pChunkUserData, flags);
     if (result != DRWAV_TRUE) {
         fclose(pFile);
