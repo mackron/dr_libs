@@ -163,7 +163,7 @@ drflac_result libflac_init_file(const char* pFilePath, libflac* pDecoder)
 
     /* Initialize the libFLAC decoder. */
     pStreamDecoder = FLAC__stream_decoder_new();
-    if (pDecoder == NULL) {
+    if (pStreamDecoder == NULL) {
         return DRFLAC_ERROR;    /* Failed to create a new stream decoder. Out of memory. */
     }
 
