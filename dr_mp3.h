@@ -3069,6 +3069,7 @@ static drmp3_result drmp3_result_from_errno(int e)
     #ifdef ENOSYS
         case ENOSYS: return DRMP3_NOT_IMPLEMENTED;
     #endif
+    //In AIX, ENOTEMPTY and EEXIST uses the same value
     #if defined(ENOTEMPTY) && ENOTEMPTY!=EEXIST
         case ENOTEMPTY: return DRMP3_DIRECTORY_NOT_EMPTY;
     #endif
