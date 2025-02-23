@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.13.17 - 2024-12-17
+dr_wav - v0.13.18 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -147,7 +147,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     13
-#define DRWAV_VERSION_REVISION  17
+#define DRWAV_VERSION_REVISION  18
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -3465,12 +3465,15 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                     compressionFormat = DR_WAVE_FORMAT_MULAW;
                 } else if (drwav_fourcc_equal(type, "ima4")) {
                     compressionFormat = DR_WAVE_FORMAT_DVI_ADPCM;
-                    sampleSizeInBits = 4;
+                    sampleSizeInBits  = 4;
 
                     /*
                     I haven't been able to figure out how to get correct decoding for IMA ADPCM. Until this is figured out
                     we'll need to abort when we encounter such an encoding. Advice welcome!
                     */
+                    (void)compressionFormat;
+                    (void)sampleSizeInBits;
+
                     return DRWAV_FALSE;
                 } else {
                     return DRWAV_FALSE; /* Unknown or unsupported compression format. Need to abort. */
@@ -8360,6 +8363,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.13.18 - TBD
+  - Fix a static analysis warning.
+
 v0.13.17 - 2024-12-17
   - Fix a possible crash when reading from MS-ADPCM encoded files.
   - Improve detection of ARM64EC
