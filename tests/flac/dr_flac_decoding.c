@@ -7,7 +7,7 @@
 #define NUMBER_WIDTH    10
 #define TABLE_MARGIN    2
 
-#define DEFAULT_SOURCE_DIR  "testvectors/flac/tests"
+#define DEFAULT_SOURCE_DIR  "testvectors/flac/testbench"
 
 drflac_result decode_test__read_and_compare_pcm_frames_s32(libflac* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameCount, drflac_int32* pPCMFrames_libflac, drflac_int32* pPCMFrames_drflac)
 {
@@ -316,6 +316,38 @@ drflac_result decode_test_file_s16(libflac* pLibFlac, drflac* pFlac)
     return result;
 }
 
+static void on_meta(void* pUserData, drflac_metadata* pMetadata)
+{
+    (void)pUserData;
+
+    switch (pMetadata->type)
+    {
+        case DRFLAC_METADATA_BLOCK_TYPE_CUESHEET:
+        {
+            /*
+            This section is here just to make it easy to test cuesheets. It's not designed to integrate cleanly with the output of this program
+            so I'm just selectively enabling and disabling this section as required.
+            */
+        #if 0
+            drflac_cuesheet_track_iterator i;
+            drflac_cuesheet_track track;
+
+            printf("Cuesheet Found. Track Count = %d\n", (int)pMetadata->data.cuesheet.trackCount);
+
+            drflac_init_cuesheet_track_iterator(&i, pMetadata->data.cuesheet.trackCount, pMetadata->data.cuesheet.pTrackData);
+            while (drflac_next_cuesheet_track(&i, &track)) {
+                drflac_uint32 iTrackIndex;
+
+                printf("Cuesheet Track %d. Index Count = %d:\n", track.trackNumber, track.indexCount);
+                for (iTrackIndex = 0; iTrackIndex < track.indexCount; iTrackIndex += 1) {
+                    printf("    Index %d - Offset %llu\n", iTrackIndex, track.pIndexPoints[iTrackIndex].offset);
+                }
+            }
+        #endif
+        } break;
+    }
+}
+
 drflac_result decode_test_file(const char* pFilePath)
 {
     /* To test seeking we just seek to our target PCM frame and then decode whatever is remaining and compare it against libFLAC. */
@@ -333,7 +365,7 @@ drflac_result decode_test_file(const char* pFilePath)
     }
 
     /* Now load from dr_flac. */
-    pFlac = drflac_open_file(pFilePath, NULL);
+    pFlac = drflac_open_file_with_metadata(pFilePath, on_meta, NULL, NULL);
     if (pFlac == NULL) {
         printf("  Failed to open via dr_flac.");
         libflac_uninit(&libflac);

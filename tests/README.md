@@ -43,6 +43,7 @@ Opus
         - failure_cases
         - opus_multichannel_examples
 
-Flac
----
-- Download test flacs from https://media.xiph.org/ and place them into the "testvectors/flac/tests" folder.
+FLAC
+----
+- Download the FLAC testbench from https://wiki.hydrogenaud.io/index.php?title=FLAC_decoder_testbench and place
+  them into the "testvectors/flac/testbench" folder.

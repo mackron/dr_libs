@@ -170,12 +170,12 @@ drflac_result seek_test_file(const char* pFilePath)
 
     iteration = 0;
     while (result == DRFLAC_SUCCESS && iteration < totalIterationCount) {
-        int targetPCMFrame = dr_rand_range_s32(0, (int)libflac.pcmFrameCount);
+        dr_uint64 targetPCMFrame = dr_rand_range_u64(0, libflac.pcmFrameCount);
         if (targetPCMFrame > libflac.pcmFrameCount) {
             DRFLAC_ASSERT(DRFLAC_FALSE);    /* Should never hit this, but if we do it means our random number generation routine is wrong. */
         }
 
-        result = seek_test_pcm_frame(&libflac, pFlac, (drflac_uint64)targetPCMFrame);
+        result = seek_test_pcm_frame(&libflac, pFlac, targetPCMFrame);
         iteration += 1;
     }
 
@@ -259,7 +259,7 @@ drflac_result seek_profiling_drflac_and_close(drflac* pFlac, double* pProcessing
     for (i = 0; i < 100; ++i) {
         double startTime;
         double endTime;
-        int targetPCMFrame = dr_rand_range_s32(0, (int)pFlac->totalPCMFrameCount);
+        dr_uint64 targetPCMFrame = dr_rand_range_u64(0, pFlac->totalPCMFrameCount);
 
         startTime = dr_timer_now();
         {

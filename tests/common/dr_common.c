@@ -3,7 +3,7 @@
 #include <windows.h>
 #endif
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__DMC__)
 #else
 #include <strings.h>
 #endif
@@ -352,7 +352,7 @@ dr_bool32 dr_extension_equal(const char* path, const char* extension)
     ext1 = extension;
     ext2 = dr_extension(path);
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__DMC__)
     return _stricmp(ext1, ext2) == 0;
 #else
     return strcasecmp(ext1, ext2) == 0;
@@ -837,6 +837,11 @@ unsigned int dr_rand_u32()
     return (unsigned int)dr_rand_s32();
 }
 
+dr_uint64 dr_rand_u64()
+{
+    return ((dr_uint64)dr_rand_u32() << 32) | dr_rand_u32();
+}
+
 double dr_rand_f64()
 {
     return dr_rand_s32() / (double)0x7FFFFFFF;
@@ -859,6 +864,15 @@ int dr_rand_range_s32(int lo, int hi)
     }
 
     return lo + dr_rand_u32() / (0xFFFFFFFF / (hi - lo + 1) + 1);
+}
+
+dr_uint64 dr_rand_range_u64(dr_uint64 lo, dr_uint64 hi)
+{
+    if (lo == hi) {
+        return lo;
+    }
+
+    return lo + dr_rand_u64() / ((~(dr_uint64)0) / (hi - lo + 1) + 1);
 }
 
 

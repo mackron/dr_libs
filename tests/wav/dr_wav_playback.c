@@ -13,9 +13,9 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
 {
     /* Assuming format is always s16 for now. */
     if (pDevice->playback.format == ma_format_s16) {
-        drwav_read_pcm_frames_s16(&g_wav, frameCount, pOutput);
+        drwav_read_pcm_frames_s16(&g_wav, frameCount, (drwav_int16*)pOutput);
     } else if (pDevice->playback.format == ma_format_f32) {
-        drwav_read_pcm_frames_f32(&g_wav, frameCount, pOutput);
+        drwav_read_pcm_frames_f32(&g_wav, frameCount, (float*)pOutput);
     } else {
         /* Unsupported format. */
     }
@@ -34,7 +34,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    if (!drwav_init_file(&g_wav, argv[1], NULL)) {
+    if (!drwav_init_file_with_metadata(&g_wav, argv[1], 0, NULL)) {
         printf("Failed to load file: %s", argv[1]);
         return -1;
     }
