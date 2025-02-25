@@ -4,6 +4,8 @@
     <a href="https://discord.gg/9vpqbjU"><img src="https://img.shields.io/discord/712952679415939085?label=discord&logo=discord&style=flat-square" alt="discord"></a>
 </p>
 
+All development of released libraries happens on the master branch. There may exist some decoder-specific brancher for work in progress. Check tags for the latest version of a particular library.
+
 
 Library                                         | Description
 ----------------------------------------------- | -----------
@@ -18,3 +20,4 @@ Below are some of my other libraries you may be interested in.
 Library                                           | Description
 ------------------------------------------------- | -----------
 [miniaudio](https://github.com/mackron/miniaudio) | A public domain, single file library for audio playback and recording.
+
