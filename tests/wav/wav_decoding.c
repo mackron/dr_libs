@@ -1,11 +1,11 @@
 #define DR_WAV_LIBSNDFILE_COMPAT
-#include "dr_wav_common.c"
+#include "wav_common.c"
 
 #define FILE_NAME_WIDTH 40
 #define NUMBER_WIDTH    10
 #define TABLE_MARGIN    2
 
-#define DEFAULT_SOURCE_DIR  "testvectors/wav/tests"
+#define DEFAULT_SOURCE_DIR  "tests/testvectors/wav/tests"
 
 
 drwav_result decode_test__read_and_compare_pcm_frames_s32(libsndfile* pSndFile, drwav* pWav, drwav_uint64 pcmFrameCount, drwav_int32* pPCMFrames_libsndfile, drwav_int32* pPCMFrames_drwav)

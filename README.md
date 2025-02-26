@@ -4,7 +4,7 @@
     <a href="https://discord.gg/9vpqbjU"><img src="https://img.shields.io/discord/712952679415939085?label=discord&logo=discord&style=flat-square" alt="discord"></a>
 </p>
 
-All development of released libraries happens on the master branch. There may exist some decoder-specific brancher for work in progress. Check tags for the latest version of a particular library.
+All development of released libraries happens on the master branch. There may exist some decoder-specific branches for work in progress. Check tags for the latest version of a particular library.
 
 
 Library                                         | Description
