@@ -1,5 +1,5 @@
 /*#define DR_FLAC_NO_CRC*/
-#include "dr_flac_common.c"
+#include "flac_common.c"
 
 #define PROFILING_NAME_WIDTH    40
 #define PROFILING_NUMBER_WIDTH  10
