@@ -223,7 +223,7 @@ drflac_result seek_test()
 
     /* Directories. */
     {
-        result = seek_test_directory("testvectors/flac/tests");
+        result = seek_test_directory("tests/testvectors/flac/testbench");
         (void)result;
     }
 

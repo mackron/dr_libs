@@ -94,7 +94,33 @@ endif()
 # FLAC
 if(NOT DR_LIBS_NO_FLAC)
     if(DR_LIBS_BUILD_TESTS)
-        
+        enable_testing()
+
+        function(add_flac_test name source)
+            add_executable(${name} tests/flac/${source})
+            target_link_libraries(${name} PRIVATE FLAC)
+            add_test(NAME ${name} COMMAND ${name})
+        endfunction()
+
+        # We test against libFLAC.
+        if(TARGET FLAC)
+            message(STATUS "libFLAC found. Building FLAC tests.")
+            set(HAS_FLAC TRUE)
+        else()
+            find_library(FLAC FLAC)
+            if(FLAC)
+                message(STATUS "libFLAC found. Building FLAC tests.")
+                set(HAS_FLAC TRUE)
+            else()
+                message(WARNING "libFLAC not found. FLAC tests will not be built.")
+            endif()
+        endif()
+
+        if(HAS_FLAC)
+            add_flac_test(flac_decoding flac_decoding.c)
+            add_flac_test(flac_decoding_cpp flac_decoding.cpp)
+            add_flac_test(flac_seeking flac_seeking.c)
+        endif()
     else()
         # Not building tests.
     endif()

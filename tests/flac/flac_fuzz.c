@@ -2,20 +2,20 @@
  * Fuzz tester for dr_flac.h
  *
  * compile with
- * clang -g -O1 -fsanitize=fuzzer,address -o fuzz_dr_flac fuzz_dr_flac.c
+ * clang -g -O1 -fsanitize=fuzzer,address -o flac_fuzz flac_fuzz.c
  *
- * and run ./fuzz_dr_flac to run fuzz testing
+ * and run ./flac_fuzz to run fuzz testing
  *
  * Other sanitizers are possible, for example
  * -fsanitize=fuzzer,memory
  * -fsanitize=fuzzer,undefined
  *
- * For more options, run ./fuzz_dr_flac -help=1
+ * For more options, run ./flac_fuzz -help=1
  *
  * If a problem is found, the problematic input is saved and can be
  * rerun (with for example a debugger) with
  *
- * ./fuzz_dr_flac file
+ * ./flac_fuzz file
  *
  */
 
