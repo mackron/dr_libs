@@ -51,6 +51,8 @@ endif()
 # WAV
 if(NOT DR_LIBS_NO_WAV)
     if(DR_LIBS_BUILD_TESTS)
+        enable_testing()
+
         # We use libsndfile as a benchmark for dr_wav. We link dynamically at runtime, but we still need the sndfile.h header at compile time.
         find_path(SNDFILE_INCLUDE_DIR sndfile.h)
         if(SNDFILE_INCLUDE_DIR)
@@ -60,6 +62,26 @@ if(NOT DR_LIBS_NO_WAV)
             target_include_directories(wav_decoding PRIVATE ${SNDFILE_INCLUDE_DIR})
             target_link_libraries(wav_decoding PRIVATE dl)
             add_test(NAME wav_decoding COMMAND wav_decoding)
+
+            add_executable(wav_decoding_cpp tests/wav/wav_decoding.cpp)
+            target_include_directories(wav_decoding_cpp PRIVATE ${SNDFILE_INCLUDE_DIR})
+            target_link_libraries(wav_decoding_cpp PRIVATE dl)
+            add_test(NAME wav_decoding_cpp COMMAND wav_decoding_cpp)
+
+            add_executable(wav_encoding tests/wav/wav_encoding.c)
+            target_include_directories(wav_encoding PRIVATE ${SNDFILE_INCLUDE_DIR})
+            target_link_libraries(wav_encoding PRIVATE dl m)
+            add_test(NAME wav_encoding COMMAND wav_encoding)
+
+            add_executable(wav_playback tests/wav/wav_playback.c)
+            target_include_directories(wav_playback PRIVATE ${SNDFILE_INCLUDE_DIR})
+            target_link_libraries(wav_playback PRIVATE dl m pthread)
+            add_test(NAME wav_playback COMMAND wav_playback)
+
+            add_executable(wav_playback_cpp tests/wav/wav_playback.cpp)
+            target_include_directories(wav_playback_cpp PRIVATE ${SNDFILE_INCLUDE_DIR})
+            target_link_libraries(wav_playback_cpp PRIVATE dl m pthread)
+            add_test(NAME wav_playback_cpp COMMAND wav_playback_cpp)
         else()
             message(WARNING "Could not find sndfile.h. dr_wav tests will not be built.")
         endif()
