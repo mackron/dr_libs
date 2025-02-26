@@ -1,4 +1,4 @@
-#include "dr_mp3_common.c"
+#include "mp3_common.c"
 
 #define MA_NO_DECODING
 #define MA_NO_ENCODING
