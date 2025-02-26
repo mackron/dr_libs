@@ -5,7 +5,7 @@
 #define NUMBER_WIDTH    10
 #define TABLE_MARGIN    2
 
-#define DEFAULT_SOURCE_DIR  "testvectors/wav/tests"
+#define DEFAULT_SOURCE_DIR  "tests/testvectors/wav/tests"
 
 
 drwav_result decode_test__read_and_compare_pcm_frames_s32(libsndfile* pSndFile, drwav* pWav, drwav_uint64 pcmFrameCount, drwav_int32* pPCMFrames_libsndfile, drwav_int32* pPCMFrames_drwav)
