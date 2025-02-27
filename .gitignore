@@ -2,6 +2,7 @@
 /build
 /docs
 /external/flac
-/tests/testvectors/wav/tests
-/tests/testvectors/flac/testbench
-/tests/testvectors/mp3/tests
+/tests/testvectors/wav/*
+/tests/testvectors/flac/*
+/tests/testvectors/mp3/*
+!.gitkeep
