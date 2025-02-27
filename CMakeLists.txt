@@ -130,7 +130,12 @@ endif()
 # MP3
 if(NOT DR_LIBS_NO_MP3)
     if(DR_LIBS_BUILD_TESTS)
-        
+        enable_testing()
+
+        add_executable(mp3_playback tests/mp3/mp3_playback.c)
+        target_include_directories(mp3_playback PRIVATE ${SNDFILE_INCLUDE_DIR})
+        target_link_libraries(mp3_playback PRIVATE dl m pthread)
+        add_test(NAME mp3_playback COMMAND mp3_playback ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests/test.mp3)
     else()
         # Not building tests.
     endif()
