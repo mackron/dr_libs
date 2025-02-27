@@ -8365,6 +8365,7 @@ REVISION HISTORY
 ================
 v0.13.18 - TBD
   - Fix a static analysis warning.
+  - Fix compilation for AIX OS.
 
 v0.13.17 - 2024-12-17
   - Fix a possible crash when reading from MS-ADPCM encoded files.

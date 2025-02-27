@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.6.40 - 2024-12-17
+dr_mp3 - v0.7.0 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -94,8 +94,8 @@ extern "C" {
 #define DRMP3_XSTRINGIFY(x)     DRMP3_STRINGIFY(x)
 
 #define DRMP3_VERSION_MAJOR     0
-#define DRMP3_VERSION_MINOR     6
-#define DRMP3_VERSION_REVISION  40
+#define DRMP3_VERSION_MINOR     7
+#define DRMP3_VERSION_REVISION  0
 #define DRMP3_VERSION_STRING    DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -4495,6 +4495,10 @@ counts rather than sample counts.
 /*
 REVISION HISTORY
 ================
+v0.7.0 - TBD
+  - API CHANGE: Rename `drmp3dec_frame_info.hz` to `drmp3dec_frame_info.sample_rate`.
+  - Fix compilation for AIX OS.
+
 v0.6.40 - 2024-12-17
   - Improve detection of ARM64EC
 
