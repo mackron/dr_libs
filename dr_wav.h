@@ -4707,8 +4707,7 @@ DRWAV_PRIVATE drwav_result drwav_result_from_errno(int e)
     #ifdef ENOSYS
         case ENOSYS: return DRWAV_NOT_IMPLEMENTED;
     #endif
-    /*In AIX, ENOTEMPTY and EEXIST uses the same value*/
-    #if defined(ENOTEMPTY) && ENOTEMPTY != EEXIST
+    #if defined(ENOTEMPTY) && ENOTEMPTY != EEXIST   /* In AIX, ENOTEMPTY and EEXIST use the same value. */
         case ENOTEMPTY: return DRWAV_DIRECTORY_NOT_EMPTY;
     #endif
     #ifdef ELOOP
