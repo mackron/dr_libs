@@ -10,29 +10,6 @@ Based on minimp3 (https://github.com/lieff/minimp3) which is where the real work
 */
 
 /*
-RELEASE NOTES - VERSION 0.6
-===========================
-Version 0.6 includes breaking changes with the configuration of decoders. The ability to customize the number of output channels and the sample rate has been
-removed. You must now use the channel count and sample rate reported by the MP3 stream itself, and all channel and sample rate conversion must be done
-yourself.
-
-
-Changes to Initialization
--------------------------
-Previously, `drmp3_init()`, etc. took a pointer to a `drmp3_config` object that allowed you to customize the output channels and sample rate. This has been
-removed. If you need the old behaviour you will need to convert the data yourself or just not upgrade. The following APIs have changed.
-
-    `drmp3_init()`
-    `drmp3_init_memory()`
-    `drmp3_init_file()`
-
-
-Miscellaneous Changes
----------------------
-Support for loading a file from a `wchar_t` string has been added via the `drmp3_init_file_w()` API.
-*/
-
-/*
 Introduction
 =============
 dr_mp3 is a single file library. To use it, do something like the following in one .c file.
