@@ -355,6 +355,7 @@ typedef struct
     drmp3_uint64 currentPCMFrame;       /* The current PCM frame, globally, based on the output sample rate. Mainly used for seeking. */
     drmp3_uint64 streamCursor;          /* The current byte the decoder is sitting on in the raw stream. */
     drmp3_uint64 streamLength;          /* The length of the stream in bytes. dr_mp3 will not read beyond this. If a ID3v1 or APE tag is present, this will be set to the first byte of the tag. */
+    drmp3_uint64 streamStartOffset;     /* The offset of the start of the MP3 data. This is used for skipping ID3v2 and VBR tags. */
     drmp3_seek_point* pSeekPoints;      /* NULL by default. Set with drmp3_bind_seek_table(). Memory is owned by the client. dr_mp3 will never attempt to free this pointer. */
     drmp3_uint32 seekPointCount;        /* The number of items in pSeekPoints. When set to 0 assumes to no seek table. Defaults to zero. */
     size_t dataSize;
@@ -2861,6 +2862,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
 
     pMP3->streamCursor = 0;
     pMP3->streamLength = (drmp3_uint64)-1;
+    pMP3->streamStartOffset = 0;
 
     /* We'll first check for any ID3v1 or APE tags. */
     if (onSeek != NULL && onTell != NULL) {
@@ -2930,6 +2932,72 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
     } else {
         /* No onSeek or onTell callback. Cannot skip ID3v1 or APE tags. */
     }
+
+
+    /* ID3v2 tags */
+    {
+        char header[10];
+        if (onRead(pUserData, header, 10) == 10) {
+            if (header[0] == 'I' && header[1] == 'D' && header[2] == '3') {
+                drmp3_uint32 tagSize =
+                    (((drmp3_uint32)header[6] & 0x7F) << 21) |
+                    (((drmp3_uint32)header[7] & 0x7F) << 14) |
+                    (((drmp3_uint32)header[8] & 0x7F) << 7)  |
+                    (((drmp3_uint32)header[9] & 0x7F) << 0);
+
+                /* Account for the footer. */
+                if (header[5] & 0x10) {
+                    tagSize += 10;
+                }
+
+                /* TODO: Read the tag content and fire a metadata callback. */
+
+                /* Skip the tag. */
+                if (onSeek != NULL) {
+                    if (!onSeek(pUserData, tagSize, drmp3_seek_origin_current)) {
+                        return DRMP3_FALSE; /* Failed to seek past the ID3v2 tag. */
+                    }
+                } else {
+                    /* Don't have a seek callback. Read and discard. */
+                    char discard[1024];
+
+                    while (tagSize > 0) {
+                        size_t bytesToRead = tagSize;
+                        if (bytesToRead > sizeof(discard)) {
+                            bytesToRead = sizeof(discard);
+                        }
+
+                        if (onRead(pUserData, discard, bytesToRead) != bytesToRead) {
+                            return DRMP3_FALSE; /* Failed to read data. */
+                        }
+
+                        tagSize -= bytesToRead;
+                    }
+                }
+
+                pMP3->streamStartOffset += 10 + tagSize;    /* +10 for the header. */
+            } else {
+                /* Not an ID3v2 tag. Seek back to the start. */
+                if (onSeek != NULL) {
+                    if (!onSeek(pUserData, 0, drmp3_seek_origin_start)) {
+                        return DRMP3_FALSE; /* Failed to seek back to the start. */
+                    }
+                } else {
+                    /* Don't have a seek callback to move backwards. We'll just fall through and let the decoding process re-sync. The ideal solution here would be to read into the cache. */
+
+                    /*
+                    TODO: Copy the header into the cache. Will need to allocate space. See drmp3_decode_next_frame_ex__callbacks. There is not need
+                    to handle the memory case because that will always have a seek implementation and will never hit this code path.
+                    */
+                }
+            }
+        } else {
+            /* Failed to read the header. We can return false here. If we couldn't read 10 bytes there's no way we'll have a valid MP3 stream. */
+            return DRMP3_FALSE;
+        }
+    }
+
+
 
     /* Decode the first frame to confirm that it is indeed a valid MP3 stream. */
     if (drmp3_decode_next_frame(pMP3) == 0) {
@@ -3053,6 +3121,13 @@ DRMP3_API drmp3_bool32 drmp3_init_memory(drmp3* pMP3, const void* pData, size_t 
     if (pMP3->streamLength <= DRMP3_SIZE_MAX) {
         pMP3->memory.dataSize = (size_t)pMP3->streamLength; /* Safe cast. */
     }
+
+    if (pMP3->streamStartOffset > DRMP3_SIZE_MAX) {
+        return DRMP3_FALSE; /* Tags too big. */
+    }
+
+    pMP3->memory.pData    += (size_t)pMP3->streamStartOffset;
+    pMP3->memory.dataSize -= (size_t)pMP3->streamStartOffset;
 
     return DRMP3_TRUE;
 }
@@ -3906,6 +3981,9 @@ static void drmp3_reset(drmp3* pMP3)
     pMP3->currentPCMFrame = 0;
     pMP3->dataSize = 0;
     pMP3->atEnd = DRMP3_FALSE;
+    pMP3->streamCursor = 0;
+    pMP3->streamLength = 0;
+    pMP3->streamStartOffset = 0;
     drmp3dec_init(&pMP3->decoder);
 }
 
@@ -3915,7 +3993,7 @@ static drmp3_bool32 drmp3_seek_to_start_of_stream(drmp3* pMP3)
     DRMP3_ASSERT(pMP3->onSeek != NULL);
 
     /* Seek to the start of the stream to begin with. */
-    if (!drmp3__on_seek(pMP3, 0, drmp3_seek_origin_start)) {
+    if (!drmp3__on_seek(pMP3, pMP3->streamStartOffset, drmp3_seek_origin_start)) {
         return DRMP3_FALSE;
     }
 
@@ -4571,9 +4649,9 @@ REVISION HISTORY
 ================
 v0.7.0 - TBD
   - API CHANGE: Add drmp3_seek_origin_end as a seek origin for the seek callback. This is required for detection of ID3v1 and APE tags.
-  - API CHANGE: Add onTell callback to drmp3_init(). This is needed in order to track the location of ID3v1 and APE tags.
+  - API CHANGE: Add onTell callback to `drmp3_init()`. This is needed in order to track the location of ID3v1 and APE tags.
   - API CHANGE: Rename `drmp3dec_frame_info.hz` to `drmp3dec_frame_info.sample_rate`.
-  - Add detection of ID3v1 and APE tags. This should fix errors with some files where the decoder was reading tags as audio data.
+  - Add detection of ID3v2, ID3v1 and APE tags. This should fix errors with some files where the decoder was reading tags as audio data.
   - Fix compilation for AIX OS.
 
 v0.6.40 - 2024-12-17
