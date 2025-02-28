@@ -3090,7 +3090,6 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
 
                     /* Since this was identified as a tag, we don't want to treat it as audio. We need to clear out the PCM cache. */
                     pMP3->pcmFramesRemainingInMP3Frame = 0;
-                    
                 }
             } else {
                 /* Failed to read the side info. */
@@ -3149,11 +3148,11 @@ static drmp3_bool32 drmp3__on_seek_memory(void* pUserData, int byteOffset, drmp3
     if (origin == drmp3_seek_origin_current) {
         if (byteOffset > 0) {
             if (pMP3->memory.currentReadPos + byteOffset > pMP3->memory.dataSize) {
-                byteOffset = (int)(pMP3->memory.dataSize - pMP3->memory.currentReadPos);  /* Trying to seek too far forward. */
+                return DRMP3_FALSE;  /* Trying to seek too far forward. */
             }
         } else {
             if (pMP3->memory.currentReadPos < (size_t)-byteOffset) {
-                byteOffset = -(int)pMP3->memory.currentReadPos;  /* Trying to seek too far backwards. */
+                return DRMP3_FALSE;  /* Trying to seek too far backwards. */
             }
         }
 
@@ -3163,7 +3162,7 @@ static drmp3_bool32 drmp3__on_seek_memory(void* pUserData, int byteOffset, drmp3
         if ((drmp3_uint32)byteOffset <= pMP3->memory.dataSize) {
             pMP3->memory.currentReadPos = byteOffset;
         } else {
-            pMP3->memory.currentReadPos = pMP3->memory.dataSize;  /* Trying to seek too far forward. */
+            return DRMP3_FALSE;  /* Trying to seek too far forward. */
         }
     } else if (origin == drmp3_seek_origin_end) {
         if (byteOffset > 0) {
@@ -3806,7 +3805,14 @@ static size_t drmp3__on_read_stdio(void* pUserData, void* pBufferOut, size_t byt
 
 static drmp3_bool32 drmp3__on_seek_stdio(void* pUserData, int offset, drmp3_seek_origin origin)
 {
-    return fseek((FILE*)pUserData, offset, (origin == drmp3_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
+    int whence = SEEK_SET;
+    if (origin == drmp3_seek_origin_current) {
+        whence = SEEK_CUR;
+    } else if (origin == drmp3_seek_origin_end) {
+        whence = SEEK_END;
+    }
+
+    return fseek((FILE*)pUserData, offset, whence) == 0;
 }
 
 static drmp3_bool32 drmp3__on_tell_stdio(void* pUserData, drmp3_int64* pCursor)
