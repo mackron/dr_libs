@@ -2653,7 +2653,7 @@ static drmp3_bool32 drmp3__on_seek_64(drmp3* pMP3, drmp3_uint64 offset, drmp3_se
 }
 
 
-static drmp3_uint32 drmp3_decode_next_frame_ex__callbacks(drmp3* pMP3, drmp3d_sample_t* pPCMFrames)
+static drmp3_uint32 drmp3_decode_next_frame_ex__callbacks(drmp3* pMP3, drmp3d_sample_t* pPCMFrames, drmp3dec_frame_info* pMP3FrameInfo, const drmp3_uint8** ppMP3FrameData)
 {
     drmp3_uint32 pcmFramesRead = 0;
 
@@ -2732,6 +2732,15 @@ static drmp3_uint32 drmp3_decode_next_frame_ex__callbacks(drmp3* pMP3, drmp3d_sa
             pMP3->pcmFramesRemainingInMP3Frame = pcmFramesRead;
             pMP3->mp3FrameChannels = info.channels;
             pMP3->mp3FrameSampleRate = info.sample_rate;
+
+            if (pMP3FrameInfo != NULL) {
+                *pMP3FrameInfo = info;
+            }
+
+            if (ppMP3FrameData != NULL) {
+                *ppMP3FrameData = pMP3->pData + pMP3->dataConsumed - (size_t)info.frame_bytes;
+            }
+
             break;
         } else if (info.frame_bytes == 0) {
             /* Need more data. minimp3 recommends doing data submission in 16K chunks. */
@@ -2771,7 +2780,7 @@ static drmp3_uint32 drmp3_decode_next_frame_ex__callbacks(drmp3* pMP3, drmp3d_sa
     return pcmFramesRead;
 }
 
-static drmp3_uint32 drmp3_decode_next_frame_ex__memory(drmp3* pMP3, drmp3d_sample_t* pPCMFrames)
+static drmp3_uint32 drmp3_decode_next_frame_ex__memory(drmp3* pMP3, drmp3d_sample_t* pPCMFrames, drmp3dec_frame_info* pMP3FrameInfo, const drmp3_uint8** ppMP3FrameData)
 {
     drmp3_uint32 pcmFramesRead = 0;
     drmp3dec_frame_info info;
@@ -2791,6 +2800,15 @@ static drmp3_uint32 drmp3_decode_next_frame_ex__memory(drmp3* pMP3, drmp3d_sampl
             pMP3->pcmFramesRemainingInMP3Frame = pcmFramesRead;
             pMP3->mp3FrameChannels             = info.channels;
             pMP3->mp3FrameSampleRate           = info.sample_rate;
+
+            if (pMP3FrameInfo != NULL) {
+                *pMP3FrameInfo = info;
+            }
+
+            if (ppMP3FrameData != NULL) {
+                *ppMP3FrameData = pMP3->memory.pData + pMP3->memory.currentReadPos;
+            }
+
             break;
         } else if (info.frame_bytes > 0) {
             /* No frames were read, but it looks like we skipped past one. Read the next MP3 frame. */
@@ -2807,19 +2825,19 @@ static drmp3_uint32 drmp3_decode_next_frame_ex__memory(drmp3* pMP3, drmp3d_sampl
     return pcmFramesRead;
 }
 
-static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPCMFrames)
+static drmp3_uint32 drmp3_decode_next_frame_ex(drmp3* pMP3, drmp3d_sample_t* pPCMFrames, drmp3dec_frame_info* pMP3FrameInfo, const drmp3_uint8** ppMP3FrameData)
 {
     if (pMP3->memory.pData != NULL && pMP3->memory.dataSize > 0) {
-        return drmp3_decode_next_frame_ex__memory(pMP3, pPCMFrames);
+        return drmp3_decode_next_frame_ex__memory(pMP3, pPCMFrames, pMP3FrameInfo, ppMP3FrameData);
     } else {
-        return drmp3_decode_next_frame_ex__callbacks(pMP3, pPCMFrames);
+        return drmp3_decode_next_frame_ex__callbacks(pMP3, pPCMFrames, pMP3FrameInfo, ppMP3FrameData);
     }
 }
 
 static drmp3_uint32 drmp3_decode_next_frame(drmp3* pMP3)
 {
     DRMP3_ASSERT(pMP3 != NULL);
-    return drmp3_decode_next_frame_ex(pMP3, (drmp3d_sample_t*)pMP3->pcmFrames);
+    return drmp3_decode_next_frame_ex(pMP3, (drmp3d_sample_t*)pMP3->pcmFrames, NULL, NULL);
 }
 
 #if 0
@@ -2829,7 +2847,7 @@ static drmp3_uint32 drmp3_seek_next_frame(drmp3* pMP3)
 
     DRMP3_ASSERT(pMP3 != NULL);
 
-    pcmFrameCount = drmp3_decode_next_frame_ex(pMP3, NULL);
+    pcmFrameCount = drmp3_decode_next_frame_ex(pMP3, NULL, NULL, NULL);
     if (pcmFrameCount == 0) {
         return 0;
     }
@@ -2845,6 +2863,9 @@ static drmp3_uint32 drmp3_seek_next_frame(drmp3* pMP3)
 
 static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drmp3_seek_proc onSeek, drmp3_tell_proc onTell, void* pUserData, const drmp3_allocation_callbacks* pAllocationCallbacks)
 {
+    drmp3dec_frame_info firstFrameInfo;
+    const drmp3_uint8* pFirstFrameData;
+
     DRMP3_ASSERT(pMP3 != NULL);
     DRMP3_ASSERT(onRead != NULL);
 
@@ -2997,12 +3018,88 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
         }
     }
 
+    /*
+    Decode the first frame to confirm that it is indeed a valid MP3 stream. Note that it's possible the first frame
+    is actually a Xing/LAME/VBRI header. If this is the case we need to skip over it.
+    */
+    if (drmp3_decode_next_frame_ex(pMP3, (drmp3d_sample_t*)pMP3->pcmFrames, &firstFrameInfo, &pFirstFrameData) > 0) {
+        DRMP3_ASSERT(pFirstFrameData != NULL);
 
+        /*
+        It might be a header. If so, we need to clear out the cached PCM frames in order to trigger a reload of fresh
+        data when decoding starts. We can assume all validation has already been performed to check if this is a valid
+        MP3 frame and that there is more than 0 bytes making up the frame.
 
-    /* Decode the first frame to confirm that it is indeed a valid MP3 stream. */
-    if (drmp3_decode_next_frame(pMP3) == 0) {
+        We're going to be basing this parsing code off the minimp3_ex implementation.
+        */
+        DRMP3_ASSERT(firstFrameInfo.frame_bytes > 0);
+        {
+            drmp3_bs bs;
+            drmp3_L3_gr_info grInfo[4];
+            const drmp3_uint8* pTagData = pFirstFrameData;
+
+            drmp3_bs_init(&bs, pFirstFrameData + DRMP3_HDR_SIZE, firstFrameInfo.frame_bytes - DRMP3_HDR_SIZE);
+
+            if (DRMP3_HDR_IS_CRC(pFirstFrameData)) {
+                drmp3_bs_get_bits(&bs, 16); /* CRC. */
+            }
+
+            if (drmp3_L3_read_side_info(&bs, grInfo, pFirstFrameData) >= 0) {
+                pTagData = pFirstFrameData + DRMP3_HDR_SIZE + (bs.pos/8);
+
+                /* Check for both "Xing" and "Info" identifiers. */
+                if ((pTagData[0] == 'X' && pTagData[1] == 'i' && pTagData[2] == 'n' && pTagData[3] == 'g') || (pTagData[0] == 'I' && pTagData[1] == 'n' && pTagData[2] == 'f' && pTagData[3] == 'o')) {
+                    drmp3_uint32 frames  = 0;
+                    drmp3_uint32 bytes   = 0;
+                    drmp3_uint32 flags   = pTagData[7];
+                    drmp3_uint32 delay   = 0;
+                    drmp3_uint32 padding = 0;
+
+                    pTagData += 8;  /* Skip past the ID and flags. */
+
+                    if (flags & 0x01) { /* FRAMES flag. */
+                        frames = (drmp3_uint32)pTagData[0] << 24 | (drmp3_uint32)pTagData[1] << 16 | (drmp3_uint32)pTagData[2] << 8 | (drmp3_uint32)pTagData[3];
+                        pTagData += 4;
+                    }
+
+                    if (flags & 0x02) { /* BYTES flag. */
+                        bytes  = (drmp3_uint32)pTagData[0] << 24 | (drmp3_uint32)pTagData[1] << 16 | (drmp3_uint32)pTagData[2] << 8 | (drmp3_uint32)pTagData[3];
+                        pTagData += 4;
+                    }
+
+                    if (flags & 0x04) { /* TOC flag. */
+                        /* TODO: Extract and bind seek points. */
+                        pTagData += 100;
+                    }
+
+                    if (flags & 0x08) { /* SCALE flag. */
+                        pTagData += 4;
+                    }
+
+                    /* At this point we're done with the Xing/Info header. Now we can look at the LAME data. */
+                    if (pTagData[0]) {
+                        pTagData += 21;
+
+                        if (pTagData - pFirstFrameData + 14 < firstFrameInfo.frame_bytes) {
+                            delay   = (( (drmp3_uint32)pTagData[0]        << 4) | ((drmp3_uint32)pTagData[1] >> 4)) + (528 + 1);
+                            padding = ((((drmp3_uint32)pTagData[1] & 0xF) << 8) | ((drmp3_uint32)pTagData[2]     )) - (528 + 1);
+                        }
+                    }
+
+                    /* TODO: Post the raw data of the tag to the metadata callback. */
+
+                    /* Since this was identified as a tag, we don't want to treat it as audio. We need to clear out the PCM cache. */
+                    pMP3->pcmFramesRemainingInMP3Frame = 0;
+                    
+                }
+            } else {
+                /* Failed to read the side info. */
+            }
+        }
+    } else {
+        /* Not a valid MP3 stream. */
         drmp3__free_from_callbacks(pMP3->pData, &pMP3->allocationCallbacks);    /* The call above may have allocated memory. Need to make sure it's freed before aborting. */
-        return DRMP3_FALSE; /* Not a valid MP3 stream. */
+        return DRMP3_FALSE;
     }
 
     pMP3->channels   = pMP3->mp3FrameChannels;
@@ -4112,7 +4209,7 @@ static drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint6
         }
 
         /* We first need to decode the next frame. */
-        pcmFramesRead = drmp3_decode_next_frame_ex(pMP3, pPCMFrames);
+        pcmFramesRead = drmp3_decode_next_frame_ex(pMP3, pPCMFrames, NULL, NULL);
         if (pcmFramesRead == 0) {
             return DRMP3_FALSE;
         }
@@ -4180,7 +4277,7 @@ DRMP3_API drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint
     for (;;) {
         drmp3_uint32 pcmFramesInCurrentMP3Frame;
 
-        pcmFramesInCurrentMP3Frame = drmp3_decode_next_frame_ex(pMP3, NULL);
+        pcmFramesInCurrentMP3Frame = drmp3_decode_next_frame_ex(pMP3, NULL, NULL, NULL);
         if (pcmFramesInCurrentMP3Frame == 0) {
             break;
         }
@@ -4318,7 +4415,7 @@ DRMP3_API drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pS
             mp3FrameInfo[iMP3Frame].pcmFrameIndex = runningPCMFrameCount;
 
             /* We need to get information about this frame so we can know how many samples it contained. */
-            pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL);
+            pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL, NULL, NULL);
             if (pcmFramesInCurrentMP3FrameIn == 0) {
                 return DRMP3_FALSE; /* This should never happen. */
             }
@@ -4362,7 +4459,7 @@ DRMP3_API drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pS
                     Go to the next MP3 frame. This shouldn't ever fail, but just in case it does we just set the seek point and break. If it happens, it
                     should only ever do it for the last seek point.
                     */
-                    pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL);
+                    pcmFramesInCurrentMP3FrameIn = drmp3_decode_next_frame_ex(pMP3, NULL, NULL, NULL);
                     if (pcmFramesInCurrentMP3FrameIn == 0) {
                         pSeekPoints[iSeekPoint].seekPosInBytes     = mp3FrameInfo[0].bytePos;
                         pSeekPoints[iSeekPoint].pcmFrameIndex      = nextTargetPCMFrame;
