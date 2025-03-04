@@ -364,6 +364,8 @@ typedef struct
     drmp3_uint32 delayInPCMFrames;
     drmp3_uint32 paddingInPCMFrames;
     drmp3_uint64 totalPCMFrameCount;    /* Set to DRMP3_UINT64_MAX if the length is unknown. Includes delay and padding. */
+    drmp3_bool32 isVBR;
+    drmp3_bool32 isCBR;
     size_t dataSize;
     size_t dataCapacity;
     size_t dataConsumed;
@@ -3073,10 +3075,16 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
             }
 
             if (drmp3_L3_read_side_info(&bs, grInfo, pFirstFrameData) >= 0) {
+                drmp3_bool32 isXing = DRMP3_FALSE;
+                drmp3_bool32 isInfo = DRMP3_FALSE;
+
                 pTagData = pFirstFrameData + DRMP3_HDR_SIZE + (bs.pos/8);
 
                 /* Check for both "Xing" and "Info" identifiers. */
-                if ((pTagData[0] == 'X' && pTagData[1] == 'i' && pTagData[2] == 'n' && pTagData[3] == 'g') || (pTagData[0] == 'I' && pTagData[1] == 'n' && pTagData[2] == 'f' && pTagData[3] == 'o')) {
+                isXing = (pTagData[0] == 'X' && pTagData[1] == 'i' && pTagData[2] == 'n' && pTagData[3] == 'g');
+                isInfo = (pTagData[0] == 'I' && pTagData[1] == 'n' && pTagData[2] == 'f' && pTagData[3] == 'o');
+
+                if (isXing || isInfo) {
                     drmp3_uint32 bytes = 0;
                     drmp3_uint32 flags = pTagData[7];
 
@@ -3109,6 +3117,17 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                             pMP3->delayInPCMFrames   = (( (drmp3_uint32)pTagData[0]        << 4) | ((drmp3_uint32)pTagData[1] >> 4)) + (528 + 1);
                             pMP3->paddingInPCMFrames = ((((drmp3_uint32)pTagData[1] & 0xF) << 8) | ((drmp3_uint32)pTagData[2]     )) - (528 + 1);
                         }
+                    }
+
+                    /*
+                    My understanding is that if the "Xing" header is present we can consider this to be a VBR stream and if the "Info" header is
+                    present it's a CBR stream. If this is not the case let me know! I'm just tracking this for the time being in case I want to
+                    look at doing some CBR optimizations later on, such as faster seeking.
+                    */
+                    if (isXing) {
+                        pMP3->isVBR = DRMP3_TRUE;
+                    } else if (isInfo) {
+                        pMP3->isCBR = DRMP3_TRUE;
                     }
 
                     /* TODO: Post the raw data of the tag to the metadata callback. */
@@ -4018,10 +4037,7 @@ static drmp3_uint64 drmp3_read_pcm_frames_raw(drmp3* pMP3, drmp3_uint64 framesTo
 
         DRMP3_ASSERT(pMP3->pcmFramesRemainingInMP3Frame == 0);
 
-        /*
-        At this point we have exhausted our in-memory buffer so we need to re-fill. Note that the sample rate may have changed
-        at this point which means we'll also need to update our sample rate conversion pipeline.
-        */
+        /* At this point we have exhausted our in-memory buffer so we need to re-fill. */
         if (drmp3_decode_next_frame(pMP3) == 0) {
             break;
         }
