@@ -136,6 +136,11 @@ if(NOT DR_LIBS_NO_MP3)
         target_include_directories(mp3_playback PRIVATE ${SNDFILE_INCLUDE_DIR})
         target_link_libraries(mp3_playback PRIVATE dl m pthread)
         add_test(NAME mp3_playback COMMAND mp3_playback ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests/test.mp3)
+
+        add_executable(mp3_extract tests/mp3/mp3_extract.c)
+        target_include_directories(mp3_extract PRIVATE ${SNDFILE_INCLUDE_DIR})
+        target_link_libraries(mp3_extract PRIVATE dl m pthread)
+        add_test(NAME mp3_extract COMMAND mp3_extract ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests/test.mp3 -o ${CMAKE_CURRENT_BINARY_DIR}/test.mp3)
     else()
         # Not building tests.
     endif()
