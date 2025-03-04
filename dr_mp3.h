@@ -4010,19 +4010,48 @@ static drmp3_uint64 drmp3_read_pcm_frames_raw(drmp3* pMP3, drmp3_uint64 framesTo
     DRMP3_ASSERT(pMP3->onRead != NULL);
 
     while (framesToRead > 0) {
-        drmp3_uint32 framesToConsume = (drmp3_uint32)DRMP3_MIN(pMP3->pcmFramesRemainingInMP3Frame, framesToRead);
+        drmp3_uint32 framesToConsume;
+
+        /* Skip frames if necessary. */
+        if (pMP3->currentPCMFrame < pMP3->delayInPCMFrames) {
+            drmp3_uint32 framesToSkip = (drmp3_uint32)DRMP3_MIN(pMP3->pcmFramesRemainingInMP3Frame, pMP3->delayInPCMFrames - pMP3->currentPCMFrame);
+
+            pMP3->currentPCMFrame              += framesToSkip;
+            pMP3->pcmFramesConsumedInMP3Frame  += framesToSkip;
+            pMP3->pcmFramesRemainingInMP3Frame -= framesToSkip;
+        }
+
+        framesToConsume = (drmp3_uint32)DRMP3_MIN(pMP3->pcmFramesRemainingInMP3Frame, framesToRead);
+
+        /* Clamp the number of frames to read to the padding. */
+        if (pMP3->totalPCMFrameCount != DRMP3_UINT64_MAX && pMP3->totalPCMFrameCount > pMP3->paddingInPCMFrames) {
+            if (pMP3->currentPCMFrame < (pMP3->totalPCMFrameCount - pMP3->paddingInPCMFrames)) {
+                drmp3_uint64 framesRemainigToPadding = (pMP3->totalPCMFrameCount - pMP3->paddingInPCMFrames) - pMP3->currentPCMFrame;
+                if (framesToConsume >               framesRemainigToPadding) {
+                    framesToConsume = (drmp3_uint32)framesRemainigToPadding;
+                }
+            } else {
+                /* We're into the padding. Abort. */
+                break;
+            }
+        }
+
         if (pBufferOut != NULL) {
-        #if defined(DR_MP3_FLOAT_OUTPUT)
-            /* f32 */
-            float* pFramesOutF32 = (float*)DRMP3_OFFSET_PTR(pBufferOut,          sizeof(float) * totalFramesRead                   * pMP3->channels);
-            float* pFramesInF32  = (float*)DRMP3_OFFSET_PTR(&pMP3->pcmFrames[0], sizeof(float) * pMP3->pcmFramesConsumedInMP3Frame * pMP3->mp3FrameChannels);
-            DRMP3_COPY_MEMORY(pFramesOutF32, pFramesInF32, sizeof(float) * framesToConsume * pMP3->channels);
-        #else
-            /* s16 */
-            drmp3_int16* pFramesOutS16 = (drmp3_int16*)DRMP3_OFFSET_PTR(pBufferOut,          sizeof(drmp3_int16) * totalFramesRead                   * pMP3->channels);
-            drmp3_int16* pFramesInS16  = (drmp3_int16*)DRMP3_OFFSET_PTR(&pMP3->pcmFrames[0], sizeof(drmp3_int16) * pMP3->pcmFramesConsumedInMP3Frame * pMP3->mp3FrameChannels);
-            DRMP3_COPY_MEMORY(pFramesOutS16, pFramesInS16, sizeof(drmp3_int16) * framesToConsume * pMP3->channels);
-        #endif
+            #if defined(DR_MP3_FLOAT_OUTPUT)
+            {
+                /* f32 */
+                float* pFramesOutF32 = (float*)DRMP3_OFFSET_PTR(pBufferOut,          sizeof(float) * totalFramesRead                   * pMP3->channels);
+                float* pFramesInF32  = (float*)DRMP3_OFFSET_PTR(&pMP3->pcmFrames[0], sizeof(float) * pMP3->pcmFramesConsumedInMP3Frame * pMP3->mp3FrameChannels);
+                DRMP3_COPY_MEMORY(pFramesOutF32, pFramesInF32, sizeof(float) * framesToConsume * pMP3->channels);
+            }
+            #else
+            {
+                /* s16 */
+                drmp3_int16* pFramesOutS16 = (drmp3_int16*)DRMP3_OFFSET_PTR(pBufferOut,          sizeof(drmp3_int16) * totalFramesRead                   * pMP3->channels);
+                drmp3_int16* pFramesInS16  = (drmp3_int16*)DRMP3_OFFSET_PTR(&pMP3->pcmFrames[0], sizeof(drmp3_int16) * pMP3->pcmFramesConsumedInMP3Frame * pMP3->mp3FrameChannels);
+                DRMP3_COPY_MEMORY(pFramesOutS16, pFramesInS16, sizeof(drmp3_int16) * framesToConsume * pMP3->channels);
+            }
+            #endif
         }
 
         pMP3->currentPCMFrame              += framesToConsume;
@@ -4032,6 +4061,11 @@ static drmp3_uint64 drmp3_read_pcm_frames_raw(drmp3* pMP3, drmp3_uint64 framesTo
         framesToRead                       -= framesToConsume;
 
         if (framesToRead == 0) {
+            break;
+        }
+
+        /* If the cursor is already at the padding we need to abort. */
+        if (pMP3->totalPCMFrameCount != DRMP3_UINT64_MAX && pMP3->totalPCMFrameCount > pMP3->paddingInPCMFrames && pMP3->currentPCMFrame >= (pMP3->totalPCMFrameCount - pMP3->paddingInPCMFrames)) {
             break;
         }
 
