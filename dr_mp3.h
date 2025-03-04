@@ -352,12 +352,15 @@ typedef struct
     drmp3_uint32 pcmFramesConsumedInMP3Frame;
     drmp3_uint32 pcmFramesRemainingInMP3Frame;
     drmp3_uint8 pcmFrames[sizeof(float)*DRMP3_MAX_SAMPLES_PER_FRAME];  /* <-- Multipled by sizeof(float) to ensure there's enough room for DR_MP3_FLOAT_OUTPUT. */
-    drmp3_uint64 currentPCMFrame;       /* The current PCM frame, globally, based on the output sample rate. Mainly used for seeking. */
+    drmp3_uint64 currentPCMFrame;       /* The current PCM frame, globally. */
     drmp3_uint64 streamCursor;          /* The current byte the decoder is sitting on in the raw stream. */
     drmp3_uint64 streamLength;          /* The length of the stream in bytes. dr_mp3 will not read beyond this. If a ID3v1 or APE tag is present, this will be set to the first byte of the tag. */
     drmp3_uint64 streamStartOffset;     /* The offset of the start of the MP3 data. This is used for skipping ID3v2 and VBR tags. */
     drmp3_seek_point* pSeekPoints;      /* NULL by default. Set with drmp3_bind_seek_table(). Memory is owned by the client. dr_mp3 will never attempt to free this pointer. */
     drmp3_uint32 seekPointCount;        /* The number of items in pSeekPoints. When set to 0 assumes to no seek table. Defaults to zero. */
+    drmp3_uint32 delayInPCMFrames;
+    drmp3_uint32 paddingInPCMFrames;
+    drmp3_uint32 totalPCMFrameCount;    /* Set to 0xFFFFFFFF if the length is unknown. */
     size_t dataSize;
     size_t dataCapacity;
     size_t dataConsumed;
@@ -2591,17 +2594,21 @@ static size_t drmp3__on_read(drmp3* pMP3, void* pBufferOut, size_t bytesToRead)
 
 static size_t drmp3__on_read_clamped(drmp3* pMP3, void* pBufferOut, size_t bytesToRead)
 {
-    drmp3_uint64 bytesRemaining;
-
     DRMP3_ASSERT(pMP3         != NULL);
     DRMP3_ASSERT(pMP3->onRead != NULL);
 
-    bytesRemaining = (pMP3->streamLength - pMP3->streamCursor);
-    if (bytesToRead >         bytesRemaining) {
-        bytesToRead = (size_t)bytesRemaining;
-    }
+    if (pMP3->streamLength == (drmp3_uint64)-1) {
+        return drmp3__on_read(pMP3, pBufferOut, bytesToRead);
+    } else {
+        drmp3_uint64 bytesRemaining;
 
-    return drmp3__on_read(pMP3, pBufferOut, bytesToRead);
+        bytesRemaining = (pMP3->streamLength - pMP3->streamCursor);
+        if (bytesToRead >         bytesRemaining) {
+            bytesToRead = (size_t)bytesRemaining;
+        }
+    
+        return drmp3__on_read(pMP3, pBufferOut, bytesToRead);
+    }
 }
 
 static drmp3_bool32 drmp3__on_seek(drmp3* pMP3, int offset, drmp3_seek_origin origin)
@@ -2720,10 +2727,8 @@ static drmp3_uint32 drmp3_decode_next_frame_ex__callbacks(drmp3* pMP3, drmp3d_sa
         pcmFramesRead = drmp3dec_decode_frame(&pMP3->decoder, pMP3->pData + pMP3->dataConsumed, (int)pMP3->dataSize, pPCMFrames, &info);    /* <-- Safe size_t -> int conversion thanks to the check above. */
 
         /* Consume the data. */
-        if (info.frame_bytes > 0) {
-            pMP3->dataConsumed += (size_t)info.frame_bytes;
-            pMP3->dataSize     -= (size_t)info.frame_bytes;
-        }
+        pMP3->dataConsumed += (size_t)info.frame_bytes;
+        pMP3->dataSize     -= (size_t)info.frame_bytes;
 
         /* pcmFramesRead will be equal to 0 if decoding failed. If it is zero and info.frame_bytes > 0 then we have successfully decoded the frame. */
         if (pcmFramesRead > 0) {
@@ -2881,11 +2886,15 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
         return DRMP3_FALSE;    /* Invalid allocation callbacks. */
     }
 
-    pMP3->streamCursor = 0;
-    pMP3->streamLength = (drmp3_uint64)-1;
-    pMP3->streamStartOffset = 0;
+    pMP3->streamCursor       = 0;
+    pMP3->streamLength       = (drmp3_uint64)-1;
+    pMP3->streamStartOffset  = 0;
+    pMP3->delayInPCMFrames   = 0;
+    pMP3->paddingInPCMFrames = 0;
+    pMP3->totalPCMFrameCount = 0xFFFFFFFF;
 
     /* We'll first check for any ID3v1 or APE tags. */
+    #if 1
     if (onSeek != NULL && onTell != NULL) {
         if (onSeek(pUserData, 0, drmp3_seek_origin_end)) {
             drmp3_int64 streamLen;
@@ -2941,6 +2950,10 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                 }
 
                 pMP3->streamLength = (drmp3_uint64)streamLen;
+
+                if (pMP3->memory.pData != NULL) {
+                    pMP3->memory.dataSize = pMP3->streamLength;
+                }
             } else {
                 /* Failed to get the length of the stream. ID3v1 and APE tags cannot be skipped. */
                 if (!onSeek(pUserData, 0, drmp3_seek_origin_start)) {
@@ -2953,9 +2966,11 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
     } else {
         /* No onSeek or onTell callback. Cannot skip ID3v1 or APE tags. */
     }
+    #endif
 
 
     /* ID3v2 tags */
+    #if 1
     {
         char header[10];
         if (onRead(pUserData, header, 10) == 10) {
@@ -2997,6 +3012,11 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                 }
 
                 pMP3->streamStartOffset += 10 + tagSize;    /* +10 for the header. */
+                pMP3->streamCursor = pMP3->streamStartOffset;
+
+                if (pMP3->memory.pData != NULL) {
+                    pMP3->memory.currentReadPos = pMP3->streamCursor;
+                }
             } else {
                 /* Not an ID3v2 tag. Seek back to the start. */
                 if (onSeek != NULL) {
@@ -3017,6 +3037,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
             return DRMP3_FALSE;
         }
     }
+    #endif
 
     /*
     Decode the first frame to confirm that it is indeed a valid MP3 stream. Note that it's possible the first frame
@@ -3025,6 +3046,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
     if (drmp3_decode_next_frame_ex(pMP3, (drmp3d_sample_t*)pMP3->pcmFrames, &firstFrameInfo, &pFirstFrameData) > 0) {
         DRMP3_ASSERT(pFirstFrameData != NULL);
 
+        
         /*
         It might be a header. If so, we need to clear out the cached PCM frames in order to trigger a reload of fresh
         data when decoding starts. We can assume all validation has already been performed to check if this is a valid
@@ -3032,6 +3054,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
 
         We're going to be basing this parsing code off the minimp3_ex implementation.
         */
+        #if 1
         DRMP3_ASSERT(firstFrameInfo.frame_bytes > 0);
         {
             drmp3_bs bs;
@@ -3049,16 +3072,13 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
 
                 /* Check for both "Xing" and "Info" identifiers. */
                 if ((pTagData[0] == 'X' && pTagData[1] == 'i' && pTagData[2] == 'n' && pTagData[3] == 'g') || (pTagData[0] == 'I' && pTagData[1] == 'n' && pTagData[2] == 'f' && pTagData[3] == 'o')) {
-                    drmp3_uint32 frames  = 0;
-                    drmp3_uint32 bytes   = 0;
-                    drmp3_uint32 flags   = pTagData[7];
-                    drmp3_uint32 delay   = 0;
-                    drmp3_uint32 padding = 0;
+                    drmp3_uint32 bytes = 0;
+                    drmp3_uint32 flags = pTagData[7];
 
                     pTagData += 8;  /* Skip past the ID and flags. */
 
                     if (flags & 0x01) { /* FRAMES flag. */
-                        frames = (drmp3_uint32)pTagData[0] << 24 | (drmp3_uint32)pTagData[1] << 16 | (drmp3_uint32)pTagData[2] << 8 | (drmp3_uint32)pTagData[3];
+                        pMP3->totalPCMFrameCount = (drmp3_uint32)pTagData[0] << 24 | (drmp3_uint32)pTagData[1] << 16 | (drmp3_uint32)pTagData[2] << 8 | (drmp3_uint32)pTagData[3];
                         pTagData += 4;
                     }
 
@@ -3081,8 +3101,8 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                         pTagData += 21;
 
                         if (pTagData - pFirstFrameData + 14 < firstFrameInfo.frame_bytes) {
-                            delay   = (( (drmp3_uint32)pTagData[0]        << 4) | ((drmp3_uint32)pTagData[1] >> 4)) + (528 + 1);
-                            padding = ((((drmp3_uint32)pTagData[1] & 0xF) << 8) | ((drmp3_uint32)pTagData[2]     )) - (528 + 1);
+                            pMP3->delayInPCMFrames   = (( (drmp3_uint32)pTagData[0]        << 4) | ((drmp3_uint32)pTagData[1] >> 4)) + (528 + 1);
+                            pMP3->paddingInPCMFrames = ((((drmp3_uint32)pTagData[1] & 0xF) << 8) | ((drmp3_uint32)pTagData[2]     )) - (528 + 1);
                         }
                     }
 
@@ -3095,6 +3115,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                 /* Failed to read the side info. */
             }
         }
+        #endif
     } else {
         /* Not a valid MP3 stream. */
         drmp3__free_from_callbacks(pMP3->pData, &pMP3->allocationCallbacks);    /* The call above may have allocated memory. Need to make sure it's freed before aborting. */
@@ -4313,12 +4334,21 @@ DRMP3_API drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint
 
 DRMP3_API drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3)
 {
-    drmp3_uint64 totalPCMFrameCount;
-    if (!drmp3_get_mp3_and_pcm_frame_count(pMP3, NULL, &totalPCMFrameCount)) {
+    if (pMP3 == NULL) {
         return 0;
     }
 
-    return totalPCMFrameCount;
+    if (pMP3->totalPCMFrameCount < 0xFFFFFFFF) {
+        return (drmp3_uint64)pMP3->totalPCMFrameCount;
+    } else {
+        /* Unknown frame count. Need to calculate it. */
+        drmp3_uint64 totalPCMFrameCount;
+        if (!drmp3_get_mp3_and_pcm_frame_count(pMP3, NULL, &totalPCMFrameCount)) {
+            return 0;
+        }
+
+        return totalPCMFrameCount;
+    }
 }
 
 DRMP3_API drmp3_uint64 drmp3_get_mp3_frame_count(drmp3* pMP3)
