@@ -3,6 +3,24 @@
 #define FORMAT_S16 0
 #define FORMAT_F32 1
 
+void on_meta(void* pUserData, const drmp3_metadata* pMetadata)
+{
+    const char* pMetaName = "Unknown";
+    if (pMetadata->type == DRMP3_METADATA_TYPE_ID3V1) {
+        pMetaName = "ID3v1";
+    } else if (pMetadata->type == DRMP3_METADATA_TYPE_ID3V2) {
+        pMetaName = "ID3v2";
+    } else if (pMetadata->type == DRMP3_METADATA_TYPE_APE) {
+        pMetaName = "APE";
+    } else if (pMetadata->type == DRMP3_METADATA_TYPE_XING) {
+        pMetaName = "Xing";
+    } else if (pMetadata->type == DRMP3_METADATA_TYPE_VBRI) {
+        pMetaName = "Info";
+    }
+
+    printf("Metadata: %s (%d bytes)\n", pMetaName, (int)pMetadata->rawDataSize);
+}
+
 int main(int argc, char** argv)
 {
     drmp3_result result;
@@ -15,11 +33,6 @@ int main(int argc, char** argv)
 
     if (argc < 2) {
         printf("Usage: mp3_extract <input filename> -o <output filename> -f [s16|f32]\n");
-        return 1;
-    }
-
-    if (drmp3_init_file(&mp3, argv[1], NULL) == DRMP3_FALSE) {
-        printf("Failed to open file: %s\n", argv[1]);
         return 1;
     }
 
@@ -44,6 +57,11 @@ int main(int argc, char** argv)
 
     if (pOutputFilePath == NULL) {
         printf("No output file specified.\n");
+        return 1;
+    }
+
+    if (drmp3_init_file_with_metadata(&mp3, argv[1], on_meta, NULL, NULL) == DRMP3_FALSE) {
+        printf("Failed to open file: %s\n", argv[1]);
         return 1;
     }
 
