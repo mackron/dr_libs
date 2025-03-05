@@ -557,7 +557,7 @@ DRMP3_API void drmp3_free(void* p, const drmp3_allocation_callbacks* pAllocation
 
  ************************************************************************************************************************************************************
  ************************************************************************************************************************************************************/
-#if defined(DR_MP3_IMPLEMENTATION) || defined(DRMP3_IMPLEMENTATION)
+#if defined(DR_MP3_IMPLEMENTATION)
 #ifndef dr_mp3_c
 #define dr_mp3_c
 
@@ -4952,6 +4952,7 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 REVISION HISTORY
 ================
 v0.7.0 - TBD
+  - The old `DRMP3_IMPLEMENTATION` has been removed. Use `DR_MP3_IMPLEMENTATION` instead. The reason for this change is that in the future everything will eventually be using the underscored naming convention in the future, so `drmp3` will become `dr_mp3`.
   - API CHANGE: Add drmp3_seek_origin_end as a seek origin for the seek callback. This is required for detection of ID3v1 and APE tags.
   - API CHANGE: Add onTell callback to `drmp3_init()`. This is needed in order to track the location of ID3v1 and APE tags.
   - API CHANGE: Add onMeta callback to `drmp3_init()`. This is used for reporting tag data back to the caller. Currently this only reports the raw tag data which means applications need to parse the data themselves.
