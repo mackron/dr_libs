@@ -2,8 +2,7 @@
 
 #define MA_NO_DECODING
 #define MA_NO_ENCODING
-#define MINIAUDIO_IMPLEMENTATION
-#include "../external/miniaudio/miniaudio.h"
+#include "../external/miniaudio/miniaudio.c"
 
 void data_callback(ma_device* pDevice, void* pFramesOut, const void* pFramesIn, ma_uint32 frameCount)
 {
