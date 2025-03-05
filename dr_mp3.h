@@ -3359,11 +3359,6 @@ DRMP3_API drmp3_bool32 drmp3_init_memory_with_metadata(drmp3* pMP3, const void* 
         return DRMP3_FALSE; /* Tags too big. */
     }
 
-    /* Clamp our data pointers to only include the range between the ID3v2 and ID3v1/APE tags. */
-    pMP3->memory.pData          += (size_t)pMP3->streamStartOffset;
-    pMP3->memory.dataSize       -= (size_t)pMP3->streamStartOffset;
-    pMP3->memory.currentReadPos -= (size_t)pMP3->streamStartOffset;
-
     return DRMP3_TRUE;
 }
 
