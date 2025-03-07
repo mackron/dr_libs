@@ -48,39 +48,46 @@ endif()
 
 
 
+# Common includes for dl, pthread, etc.
+set(COMMON_LIBRARIES)
+if(UNIX)
+    list(APPEND COMMON_LIBRARIES dl pthread m)
+endif()
+
+
 # WAV
 if(NOT DR_LIBS_NO_WAV)
     if(DR_LIBS_BUILD_TESTS)
         enable_testing()
 
         # We use libsndfile as a benchmark for dr_wav. We link dynamically at runtime, but we still need the sndfile.h header at compile time.
-        find_path(SNDFILE_INCLUDE_DIR sndfile.h)
+        find_path(SNDFILE_INCLUDE_DIR sndfile.h HINTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/external/libsndfile/include)
         if(SNDFILE_INCLUDE_DIR)
             message(STATUS "sndfile.h found at ${SNDFILE_INCLUDE_DIR}")
 
             add_executable(wav_decoding tests/wav/wav_decoding.c)
             target_include_directories(wav_decoding PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_decoding PRIVATE dl)
+            target_link_libraries(wav_decoding PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_decoding COMMAND wav_decoding)
 
             add_executable(wav_decoding_cpp tests/wav/wav_decoding.cpp)
             target_include_directories(wav_decoding_cpp PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_decoding_cpp PRIVATE dl)
+            target_link_libraries(wav_decoding_cpp PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_decoding_cpp COMMAND wav_decoding_cpp)
 
             add_executable(wav_encoding tests/wav/wav_encoding.c)
             target_include_directories(wav_encoding PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_encoding PRIVATE dl m)
+            target_link_libraries(wav_encoding PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_encoding COMMAND wav_encoding)
 
             add_executable(wav_playback tests/wav/wav_playback.c)
             target_include_directories(wav_playback PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_playback PRIVATE dl m pthread)
+            target_link_libraries(wav_playback PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_playback COMMAND wav_playback)
 
             add_executable(wav_playback_cpp tests/wav/wav_playback.cpp)
             target_include_directories(wav_playback_cpp PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_playback_cpp PRIVATE dl m pthread)
+            target_link_libraries(wav_playback_cpp PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_playback_cpp COMMAND wav_playback_cpp)
         else()
             message(WARNING "Could not find sndfile.h. dr_wav tests will not be built.")
@@ -112,7 +119,23 @@ if(NOT DR_LIBS_NO_FLAC)
                 message(STATUS "libFLAC found. Building FLAC tests.")
                 set(HAS_FLAC TRUE)
             else()
-                message(WARNING "libFLAC not found. FLAC tests will not be built.")
+                # As a last resort, look in the tests/external/flac folder.
+                if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/external/flac/CMakeLists.txt)
+                    message(STATUS "libFLAC not found. Building FLAC from source.")
+
+                    if(NOT TARGET ogg)
+                        add_subdirectory(tests/external/ogg)
+                    endif()
+
+                    set(BUILD_DOCS OFF CACHE BOOL "")
+                    set(BUILD_TESTING OFF CACHE BOOL "")
+                    set(BUILD_EXAMPLES OFF CACHE BOOL "")
+                    set(INSTALL_MANPAGES OFF CACHE BOOL "")
+                    add_subdirectory(tests/external/flac)
+                    set(HAS_FLAC TRUE)
+                else()
+                    message(WARNING "libFLAC not found. FLAC tests will not be built.")
+                endif()
             endif()
         endif()
 
@@ -133,18 +156,15 @@ if(NOT DR_LIBS_NO_MP3)
         enable_testing()
 
         add_executable(mp3_basic tests/mp3/mp3_basic.c)
-        target_include_directories(mp3_basic PRIVATE ${SNDFILE_INCLUDE_DIR})
-        target_link_libraries(mp3_basic PRIVATE dl m pthread)
+        target_link_libraries(mp3_basic PRIVATE ${COMMON_LIBRARIES})
         add_test(NAME mp3_basic COMMAND mp3_basic ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests)
 
         add_executable(mp3_playback tests/mp3/mp3_playback.c)
-        target_include_directories(mp3_playback PRIVATE ${SNDFILE_INCLUDE_DIR})
-        target_link_libraries(mp3_playback PRIVATE dl m pthread)
+        target_link_libraries(mp3_playback PRIVATE ${COMMON_LIBRARIES})
         add_test(NAME mp3_playback COMMAND mp3_playback ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests/test.mp3)
 
         add_executable(mp3_extract tests/mp3/mp3_extract.c)
-        target_include_directories(mp3_extract PRIVATE ${SNDFILE_INCLUDE_DIR})
-        target_link_libraries(mp3_extract PRIVATE dl m pthread)
+        target_link_libraries(mp3_extract PRIVATE ${COMMON_LIBRARIES})
         add_test(NAME mp3_extract COMMAND mp3_extract ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests/test.mp3 -o ${CMAKE_CURRENT_BINARY_DIR}/test.mp3)
     else()
         # Not building tests.
