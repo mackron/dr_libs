@@ -1,7 +1,9 @@
 .vscode
 /build
 /docs
-/external/flac
+/tests/external/flac
+/tests/external/ogg
+/tests/external/libsndfile
 /tests/testvectors/wav/*
 /tests/testvectors/flac/*
 /tests/testvectors/mp3/*
