@@ -63,6 +63,16 @@ void* open_decoders(drmp3* pDecoderMemory, drmp3* pDecoderMemoryMD, drmp3* pDeco
         return NULL;
     }
 
+    /*
+    There was a bug once where drmp3_get_pcm_frame_count() would put the decoder into a bad state, but would
+    only happen when the decoder was initialized from callbacks or a file. The code below will trigger this
+    code path.
+    */
+    {
+        drmp3_uint64 totalFrameCount = drmp3_get_pcm_frame_count(pDecoderFile); /* <-- This needs to be the file decoder, not the memory decoder. */
+        (void)totalFrameCount;
+    }
+
     *pFileSize = dataSize;
 
     return pData;

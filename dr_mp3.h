@@ -4284,9 +4284,6 @@ static void drmp3_reset(drmp3* pMP3)
     pMP3->currentPCMFrame = 0;
     pMP3->dataSize = 0;
     pMP3->atEnd = DRMP3_FALSE;
-    pMP3->streamCursor = 0;
-    pMP3->streamLength = 0;
-    pMP3->streamStartOffset = 0;
     drmp3dec_init(&pMP3->decoder);
 }
 
