@@ -4515,7 +4515,7 @@ DRMP3_API drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3)
     }
 
     if (pMP3->totalPCMFrameCount != DRMP3_UINT64_MAX) {
-        return (drmp3_uint64)pMP3->totalPCMFrameCount;
+        return (drmp3_uint64)pMP3->totalPCMFrameCount - pMP3->paddingInPCMFrames - pMP3->delayInPCMFrames;
     } else {
         /* Unknown frame count. Need to calculate it. */
         drmp3_uint64 totalPCMFrameCount;

@@ -29,6 +29,9 @@ int main(int argc, char** argv)
     int iarg;
     FILE* pFileOut;
     drmp3_uint64 framesRead;
+    drmp3_uint64 totalFramesRead = 0;
+    drmp3_uint64 queriedFrameCount = 0;
+    drmp3_bool32 hasError = DRMP3_FALSE;
 
     if (argc < 2) {
         printf("Usage: mp3_extract <input filename> -o <output filename> -f [s16|f32]\n");
@@ -69,6 +72,10 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    /* This will be compared against the total frames read below. */
+    queriedFrameCount = drmp3_get_pcm_frame_count(&mp3);
+    totalFramesRead   = 0;
+
     if (format == FORMAT_S16) {
         drmp3_int16 pcm[4096];
 
@@ -79,6 +86,7 @@ int main(int argc, char** argv)
             }
 
             fwrite(pcm, 1, framesRead * mp3.channels * sizeof(pcm[0]), pFileOut);
+            totalFramesRead += framesRead;
         }
     } else {
         float pcm[4096];
@@ -90,11 +98,21 @@ int main(int argc, char** argv)
             }
 
             fwrite(pcm, 1, framesRead * mp3.channels * sizeof(pcm[0]), pFileOut);
+            totalFramesRead += framesRead;
         }
+    }
+
+    if (totalFramesRead != queriedFrameCount) {
+        printf("Frame count mismatch: %d (queried) != %d (read)\n", (int)queriedFrameCount, (int)totalFramesRead);
+        hasError = DRMP3_TRUE;
     }
 
     fclose(pFileOut);
     drmp3_uninit(&mp3);
 
-    return 0;
+    if (hasError) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
