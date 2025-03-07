@@ -2622,6 +2622,14 @@ static size_t drmp3__on_read(drmp3* pMP3, void* pBufferOut, size_t bytesToRead)
     DRMP3_ASSERT(pMP3         != NULL);
     DRMP3_ASSERT(pMP3->onRead != NULL);
 
+    /*
+    Don't try reading 0 bytes from the callback. This can happen when the stream is clamped against
+    ID3v1 or APE tags at the end of the stream.
+    */
+    if (bytesToRead == 0) {
+        return 0;
+    }
+
     bytesRead = pMP3->onRead(pMP3->pUserData, pBufferOut, bytesToRead);
     pMP3->streamCursor += bytesRead;
 
