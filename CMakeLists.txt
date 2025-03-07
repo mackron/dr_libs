@@ -132,6 +132,11 @@ if(NOT DR_LIBS_NO_MP3)
     if(DR_LIBS_BUILD_TESTS)
         enable_testing()
 
+        add_executable(mp3_basic tests/mp3/mp3_basic.c)
+        target_include_directories(mp3_basic PRIVATE ${SNDFILE_INCLUDE_DIR})
+        target_link_libraries(mp3_basic PRIVATE dl m pthread)
+        add_test(NAME mp3_basic COMMAND mp3_basic ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests)
+
         add_executable(mp3_playback tests/mp3/mp3_playback.c)
         target_include_directories(mp3_playback PRIVATE ${SNDFILE_INCLUDE_DIR})
         target_link_libraries(mp3_playback PRIVATE dl m pthread)
