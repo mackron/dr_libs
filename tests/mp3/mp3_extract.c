@@ -23,7 +23,6 @@ void on_meta(void* pUserData, const drmp3_metadata* pMetadata)
 
 int main(int argc, char** argv)
 {
-    drmp3_result result;
     drmp3 mp3;
     const char* pOutputFilePath = NULL;
     int format = FORMAT_S16;

@@ -3094,7 +3094,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                                 return DRMP3_FALSE; /* Failed to read data. */
                             }
 
-                            tagSize -= bytesToRead;
+                            tagSize -= (drmp3_uint32)bytesToRead;
                         }
                     }
                 }
@@ -4288,7 +4288,7 @@ static drmp3_bool32 drmp3_seek_to_start_of_stream(drmp3* pMP3)
     DRMP3_ASSERT(pMP3->onSeek != NULL);
 
     /* Seek to the start of the stream to begin with. */
-    if (!drmp3__on_seek(pMP3, pMP3->streamStartOffset, drmp3_seek_origin_start)) {
+    if (!drmp3__on_seek_64(pMP3, pMP3->streamStartOffset, drmp3_seek_origin_start)) {
         return DRMP3_FALSE;
     }
 
