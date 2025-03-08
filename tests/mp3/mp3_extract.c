@@ -102,6 +102,16 @@ int main(int argc, char** argv)
     }
     #endif
 
+    /*
+    There was a bug once where seeking would result in the decoder not properly skipping the Xing/Info
+    header if present. We'll do a see here to ensure that code path is hit.
+    */
+    {
+        drmp3_uint64 totalFrameCount = drmp3_get_pcm_frame_count(&mp3);
+        drmp3_seek_to_pcm_frame(&mp3, totalFrameCount / 2);
+        drmp3_seek_to_pcm_frame(&mp3, 0);
+    }
+
     if (drmp3_fopen(&pFileOut, pOutputFilePath, "wb") != DRMP3_SUCCESS) {
         printf("Failed to open output file: %s\n", pOutputFilePath);
         return 1;
