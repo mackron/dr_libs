@@ -96,6 +96,7 @@ if(NOT DR_LIBS_NO_WAV)
 
             # The debugging sandbox is not intended to be run as a test. Just adding it here for IDE integration.
             add_executable(wav_debugging tests/wav/wav_debugging.cpp)
+            target_include_directories(wav_debugging PRIVATE ${SNDFILE_INCLUDE_DIR})
             target_link_libraries(wav_debugging PRIVATE ${COMMON_LIBRARIES})
         else()
             message(WARNING "Could not find sndfile.h. dr_wav tests will not be built.")
