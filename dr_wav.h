@@ -3536,20 +3536,36 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                 return DRWAV_FALSE;
             }
 
-            /* We need to seek forward by the offset. */
+            /* The position of the audio data starts at an offset. */
             offset = drwav_bytes_to_u32_ex(offsetAndBlockSizeData + 0, pWav->container);
-            if (drwav__seek_forward(pWav->onSeek, offset, pWav->pUserData) == DRWAV_FALSE) {
-                return DRWAV_FALSE;
-            }
-            cursor += offset;
+            pWav->dataChunkDataPos = cursor + offset;
 
-            pWav->dataChunkDataPos = cursor;
+            /* The data chunk size needs to be reduced by the offset or else seeking will break. */
             dataChunkSize = chunkSize;
+            if (dataChunkSize  > offset) {
+                dataChunkSize -= offset;
+            } else {
+                dataChunkSize = 0;
+            }
 
             /* If we're running in sequential mode, or we're not reading metadata, we have enough now that we can get out of the loop. */
-            if (sequential || !isProcessingMetadata) {
+            if (sequential) {
+                if (foundChunk_fmt) {   /* <-- Name is misleading, but will be set to true if the COMM chunk has been parsed. */
+                    break;
+                } else {
+                    /*
+                    Getting here means the COMM chunk was not found. In sequential mode, if we haven't yet found the COMM chunk
+                    we'll need to abort because we can't be doing a backwards seek back to the SSND chunk in order to read the
+                    data. For this reason, this configuration of AIFF files are not supported with sequential mode.
+                    */
+                    return DRWAV_FALSE; 
+                }
+
                 break;      /* No need to keep reading beyond the data chunk. */
             } else {
+                chunkSize += header.paddingSize;                /* <-- Make sure we seek past the padding. */
+                chunkSize -= sizeof(offsetAndBlockSizeData);    /* <-- This was read earlier. */
+
                 if (drwav__seek_forward(pWav->onSeek, chunkSize, pWav->pUserData) == DRWAV_FALSE) {
                     break;
                 }
@@ -3558,7 +3574,6 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                 continue;   /* There may be some more metadata to read. */
             }
         }
-
 
 
         /* Getting here means it's not a chunk that we care about internally, but might need to be handled as metadata by the caller. */
