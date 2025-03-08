@@ -3184,6 +3184,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
 
                     if (flags & 0x02) { /* BYTES flag. */
                         bytes  = (drmp3_uint32)pTagData[0] << 24 | (drmp3_uint32)pTagData[1] << 16 | (drmp3_uint32)pTagData[2] << 8 | (drmp3_uint32)pTagData[3];
+                        (void)bytes;    /* <-- Just to silence a warning about `bytes` being assigned but unused. Want to leave this here in case I want to make use of it later. */
                         pTagData += 4;
                     }
 
