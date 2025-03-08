@@ -3359,11 +3359,11 @@ DRMP3_API drmp3_bool32 drmp3_init_memory_with_metadata(drmp3* pMP3, const void* 
     }
 
     /* Adjust the length of the memory stream to account for ID3v1 and APE tags. */
-    if (pMP3->streamLength <= DRMP3_SIZE_MAX) {
+    if (pMP3->streamLength <= (drmp3_uint64)DRMP3_SIZE_MAX) {
         pMP3->memory.dataSize = (size_t)pMP3->streamLength; /* Safe cast. */
     }
 
-    if (pMP3->streamStartOffset > DRMP3_SIZE_MAX) {
+    if (pMP3->streamStartOffset > (drmp3_uint64)DRMP3_SIZE_MAX) {
         return DRMP3_FALSE; /* Tags too big. */
     }
 
