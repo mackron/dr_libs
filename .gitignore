@@ -4,6 +4,7 @@
 /tests/external/flac
 /tests/external/ogg
 /tests/external/libsndfile
+/tests/wav/archive
 /tests/testvectors/wav/*
 /tests/testvectors/flac/*
 /tests/testvectors/mp3/*
