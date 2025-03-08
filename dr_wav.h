@@ -3548,9 +3548,21 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                 dataChunkSize = 0;
             }
 
-            /* If we're running in sequential mode, or we're not reading metadata, we have enough now that we can get out of the loop. */
             if (sequential) {
                 if (foundChunk_fmt) {   /* <-- Name is misleading, but will be set to true if the COMM chunk has been parsed. */
+                    /*
+                    Getting here means we're opening in sequential mode and we've found the SSND (data) and COMM (fmt) chunks. We need
+                    to get out of the loop here or else we'll end up going past the data chunk and will have no way of getting back to
+                    it since we're not allowed to seek backwards.
+
+                    One subtle detail here is that there is an offset with the SSND chunk. We need to make sure we seek past this offset
+                    so we're left sitting on the first byte of actual audio data.
+                    */
+                    if (drwav__seek_forward(pWav->onSeek, offset, pWav->pUserData) == DRWAV_FALSE) {
+                        return DRWAV_FALSE;
+                    }
+                    cursor += offset;
+
                     break;
                 } else {
                     /*
@@ -3560,8 +3572,6 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                     */
                     return DRWAV_FALSE; 
                 }
-
-                break;      /* No need to keep reading beyond the data chunk. */
             } else {
                 chunkSize += header.paddingSize;                /* <-- Make sure we seek past the padding. */
                 chunkSize -= sizeof(offsetAndBlockSizeData);    /* <-- This was read earlier. */
