@@ -47,11 +47,15 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 
+# Set up an interface for our compile options.
+add_library(dr_libs_interface INTERFACE)
+target_compile_options(dr_libs_interface INTERFACE ${COMPILE_OPTIONS})
+
 
 # Common includes for dl, pthread, etc.
 set(COMMON_LIBRARIES)
 if(UNIX)
-    list(APPEND COMMON_LIBRARIES dl pthread m)
+    list(APPEND COMMON_LIBRARIES dl pthread m dr_libs_interface)
 endif()
 
 

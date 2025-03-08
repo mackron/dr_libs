@@ -26,6 +26,8 @@ void on_meta(void* pUserData, const drmp3_metadata* pMetadata)
     }
 
     printf("Metadata: %s (%d bytes)\n", pMetaName, (int)pMetadata->rawDataSize);
+
+    (void)pUserData;
 }
 #endif
 
