@@ -3652,6 +3652,10 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
 
     /* At this point we should be sitting on the first byte of the raw audio data. */
+    if (drwav__seek_from_start(pWav->onSeek, pWav->dataChunkDataPos, pWav->pUserData) == DRWAV_FALSE) {
+        drwav_free(pWav->pMetadata, &pWav->allocationCallbacks);
+        return DRWAV_FALSE;
+    }
 
     /*
     I've seen a WAV file in the wild where a RIFF-ecapsulated file has the size of it's "RIFF" and
@@ -3673,18 +3677,30 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         }
     }
 
-    if (drwav__seek_from_start(pWav->onSeek, pWav->dataChunkDataPos, pWav->pUserData) == DRWAV_FALSE) {
-        drwav_free(pWav->pMetadata, &pWav->allocationCallbacks);
-        return DRWAV_FALSE;
-    }
-
-
     pWav->fmt                 = fmt;
     pWav->sampleRate          = fmt.sampleRate;
     pWav->channels            = fmt.channels;
     pWav->bitsPerSample       = fmt.bitsPerSample;
-    pWav->bytesRemaining      = dataChunkSize;
     pWav->translatedFormatTag = translatedFormatTag;
+
+    /*
+    I've had a report where files would start glitching after seeking. The reason for this is the data
+    chunk is not a clean multiple of the PCM frame size in bytes. Where this becomes a problem is when
+    seeking, because the number of bytes remaining in the data chunk is used to calculate the current
+    byte position. If this byte position is not aligned to the number of bytes in a PCM frame, it will
+    result in the seek not being cleanly positioned at the start of the PCM frame thereby resulting in
+    all decoded frames after that being corrupted.
+
+    To address this, we need to round the data chunk size down to the nearest multiple of the frame size.
+    */
+    if (!drwav__is_compressed_format_tag(translatedFormatTag)) {
+        drwav_uint32 bytesPerFrame = drwav_get_bytes_per_pcm_frame(pWav);
+        if (bytesPerFrame > 0) {
+            dataChunkSize -= (dataChunkSize % bytesPerFrame);
+        }
+    }
+
+    pWav->bytesRemaining      = dataChunkSize;
     pWav->dataChunkDataSize   = dataChunkSize;
 
     if (sampleCountFromFactChunk != 0) {
