@@ -134,7 +134,7 @@ typedef drmp3_uint32            drmp3_bool32;
             #endif
         #endif
 
-        #if defined(DR_MP3_IMPLEMENTATION) || defined(DRMP3_IMPLEMENTATION)
+        #if defined(DR_MP3_IMPLEMENTATION)
             #define DRMP3_API  DRMP3_DLL_EXPORT
         #else
             #define DRMP3_API  DRMP3_DLL_IMPORT
