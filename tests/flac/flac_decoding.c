@@ -1,13 +1,13 @@
 /*#define DR_FLAC_NO_CRC*/
 /*#define DR_FLAC_NO_SIMD*/
 /*#define DR_FLAC_BUFFER_SIZE 4096*/
-#include "dr_flac_common.c"
+#include "flac_common.c"
 
 #define FILE_NAME_WIDTH 40
 #define NUMBER_WIDTH    10
 #define TABLE_MARGIN    2
 
-#define DEFAULT_SOURCE_DIR  "testvectors/flac/testbench"
+#define DEFAULT_SOURCE_DIR  "tests/testvectors/flac/testbench"
 
 drflac_result decode_test__read_and_compare_pcm_frames_s32(libflac* pLibFlac, drflac* pFlac, drflac_uint64 pcmFrameCount, drflac_int32* pPCMFrames_libflac, drflac_int32* pPCMFrames_drflac)
 {
