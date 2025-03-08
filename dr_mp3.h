@@ -3035,7 +3035,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                 pMP3->streamLength = (drmp3_uint64)streamLen;
 
                 if (pMP3->memory.pData != NULL) {
-                    pMP3->memory.dataSize = pMP3->streamLength;
+                    pMP3->memory.dataSize = (size_t)pMP3->streamLength;
                 }
             } else {
                 /* Failed to get the length of the stream. ID3v1 and APE tags cannot be skipped. */
@@ -3184,6 +3184,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
 
                     if (flags & 0x02) { /* BYTES flag. */
                         bytes  = (drmp3_uint32)pTagData[0] << 24 | (drmp3_uint32)pTagData[1] << 16 | (drmp3_uint32)pTagData[2] << 8 | (drmp3_uint32)pTagData[3];
+                        (void)bytes;    /* <-- Just to silence a warning about `bytes` being assigned but unused. Want to leave this here in case I want to make use of it later. */
                         pTagData += 4;
                     }
 
@@ -3230,6 +3231,10 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
 
                     /* Since this was identified as a tag, we don't want to treat it as audio. We need to clear out the PCM cache. */
                     pMP3->pcmFramesRemainingInMP3Frame = 0;
+
+                    /* The start offset needs to be moved to the end of this frame so it's not included in any audio processing after seeking. */
+                    pMP3->streamStartOffset += (drmp3_uint32)(firstFrameInfo.frame_bytes);
+                    pMP3->streamCursor = pMP3->streamStartOffset;
                 }
             } else {
                 /* Failed to read the side info. */
@@ -3353,17 +3358,17 @@ DRMP3_API drmp3_bool32 drmp3_init_memory_with_metadata(drmp3* pMP3, const void* 
     pMP3->memory.dataSize = dataSize;
     pMP3->memory.currentReadPos = 0;
 
-    result = drmp3_init_internal(pMP3, drmp3__on_read_memory, drmp3__on_seek_memory, drmp3__on_tell_memory, onMeta, pMP3, NULL, pAllocationCallbacks);
+    result = drmp3_init_internal(pMP3, drmp3__on_read_memory, drmp3__on_seek_memory, drmp3__on_tell_memory, onMeta, pMP3, pUserDataMeta, pAllocationCallbacks);
     if (result == DRMP3_FALSE) {
         return DRMP3_FALSE;
     }
 
     /* Adjust the length of the memory stream to account for ID3v1 and APE tags. */
-    if (pMP3->streamLength <= DRMP3_SIZE_MAX) {
+    if (pMP3->streamLength <= (drmp3_uint64)DRMP3_SIZE_MAX) {
         pMP3->memory.dataSize = (size_t)pMP3->streamLength; /* Safe cast. */
     }
 
-    if (pMP3->streamStartOffset > DRMP3_SIZE_MAX) {
+    if (pMP3->streamStartOffset > (drmp3_uint64)DRMP3_SIZE_MAX) {
         return DRMP3_FALSE; /* Tags too big. */
     }
 

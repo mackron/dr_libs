@@ -12,9 +12,9 @@ void data_callback(ma_device* pDevice, void* pFramesOut, const void* pFramesIn, 
     DRMP3_ASSERT(pMP3 != NULL);
 
     if (pDevice->playback.format == ma_format_f32) {
-        drmp3_read_pcm_frames_f32(pMP3, frameCount, pFramesOut);
+        drmp3_read_pcm_frames_f32(pMP3, frameCount, (float*)pFramesOut);
     } else if (pDevice->playback.format == ma_format_s16) {
-        drmp3_read_pcm_frames_s16(pMP3, frameCount, pFramesOut);
+        drmp3_read_pcm_frames_s16(pMP3, frameCount, (drmp3_int16*)pFramesOut);
     } else {
         DRMP3_ASSERT(DRMP3_FALSE);  /* Should never get here. */
     }
