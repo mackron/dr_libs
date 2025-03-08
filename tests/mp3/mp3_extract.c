@@ -132,7 +132,7 @@ int main(int argc, char** argv)
                 break;
             }
 
-            fwrite(pcm, 1, framesRead * mp3.channels * sizeof(pcm[0]), pFileOut);
+            fwrite(pcm, 1, (size_t)(framesRead * mp3.channels * sizeof(pcm[0])), pFileOut);
             totalFramesRead += framesRead;
         }
     } else {
@@ -144,7 +144,7 @@ int main(int argc, char** argv)
                 break;
             }
 
-            fwrite(pcm, 1, framesRead * mp3.channels * sizeof(pcm[0]), pFileOut);
+            fwrite(pcm, 1, (size_t)(framesRead * mp3.channels * sizeof(pcm[0])), pFileOut);
             totalFramesRead += framesRead;
         }
     }

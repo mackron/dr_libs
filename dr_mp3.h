@@ -3035,7 +3035,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                 pMP3->streamLength = (drmp3_uint64)streamLen;
 
                 if (pMP3->memory.pData != NULL) {
-                    pMP3->memory.dataSize = pMP3->streamLength;
+                    pMP3->memory.dataSize = (size_t)pMP3->streamLength;
                 }
             } else {
                 /* Failed to get the length of the stream. ID3v1 and APE tags cannot be skipped. */
