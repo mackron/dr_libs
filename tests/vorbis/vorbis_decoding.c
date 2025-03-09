@@ -1,7 +1,7 @@
 #include "vorbis_common.c"
 #include <stdio.h>
 
-int on_meta(void* pUserData, const dr_vorbis_metadata* pMetadata)
+void on_meta(void* pUserData, const dr_vorbis_metadata* pMetadata)
 {
     (void)pUserData;
 
@@ -12,13 +12,11 @@ int on_meta(void* pUserData, const dr_vorbis_metadata* pMetadata)
     if (pMetadata->type == dr_vorbis_metadata_type_comment) {
         printf("%s\n", pMetadata->data.comment.pData);
     }
-
-    return 0;
 }
 
 int main(int argc, char** argv)
 {
-    int result;
+    dr_vorbis_result result;
     dr_vorbis vorbis;
 
     if (argc < 2) {
