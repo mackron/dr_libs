@@ -234,9 +234,9 @@ typedef struct
 
 typedef enum
 {
-    dr_vorbis_seek_origin_start   = 0,
-    dr_vorbis_seek_origin_current = 1,
-    dr_vorbis_seek_origin_end     = 2
+    DR_VORBIS_SEEK_SET = 0,
+    DR_VORBIS_SEEK_CUR = 1,
+    DR_VORBIS_SEEK_END = 2
 } dr_vorbis_seek_origin;
 
 typedef dr_vorbis_result (* dr_vorbis_read_data_proc)(void* pUserData, void* pOutput, size_t bytesToRead, size_t* pBytesRead);
@@ -2060,7 +2060,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_ogg_init(void* pUserData, dr_vorbis_rea
             }
         } else {
             /* Not a Vorbis stream. Skip. */
-            result = dr_vorbis_ogg_seek(pOgg, pageBodySize, dr_vorbis_seek_origin_current);
+            result = dr_vorbis_ogg_seek(pOgg, pageBodySize, DR_VORBIS_SEEK_CUR);
             if (result != 0) {
                 return result;
             }
@@ -2223,7 +2223,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_init_ex(void* pReadSeekUserData, dr_vor
     if (result != 0) {
         result = dr_vorbis_ogg_init(pReadSeekUserData, onRead, onSeek, &pVorbis->container.ogg);
         if (result != DR_VORBIS_SUCCESS) {
-            onSeek(pReadSeekUserData, 0, dr_vorbis_seek_origin_start);  /* Seek back to the start for the benefit of the next attempt. */
+            onSeek(pReadSeekUserData, 0, DR_VORBIS_SEEK_SET);  /* Seek back to the start for the benefit of the next attempt. */
         }
     }
     
@@ -2843,9 +2843,9 @@ static dr_vorbis_result dr_vorbis_cb__on_seek_stdio(void* pUserData, dr_vorbis_i
 
     switch (origin)
     {
-        case dr_vorbis_seek_origin_start:   whence = SEEK_SET; break;
-        case dr_vorbis_seek_origin_current: whence = SEEK_CUR; break;
-        case dr_vorbis_seek_origin_end:     whence = SEEK_END; break;
+        case DR_VORBIS_SEEK_SET: whence = SEEK_SET; break;
+        case DR_VORBIS_SEEK_CUR: whence = SEEK_CUR; break;
+        case DR_VORBIS_SEEK_END: whence = SEEK_END; break;
         default: return DR_VORBIS_INVALID_ARGS;
     }
 
