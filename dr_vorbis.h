@@ -215,25 +215,6 @@ typedef enum dr_vorbis_result
 
 typedef enum
 {
-    dr_vorbis_metadata_type_vendor, /* Contained in the comment header, reported separately to the other comments. */
-    dr_vorbis_metadata_type_comment
-} dr_vorbis_metadata_type;
-
-typedef struct
-{
-    dr_vorbis_metadata_type type;
-    union
-    {
-        struct
-        {
-            dr_vorbis_uint32 length;
-            const char* pData;  /* Null terminated. */
-        } vendor, comment;
-    } data;
-} dr_vorbis_metadata;
-
-typedef enum
-{
     DR_VORBIS_SEEK_SET = 0,
     DR_VORBIS_SEEK_CUR = 1,
     DR_VORBIS_SEEK_END = 2
@@ -241,7 +222,7 @@ typedef enum
 
 typedef dr_vorbis_result (* dr_vorbis_read_data_proc)(void* pUserData, void* pOutput, size_t bytesToRead, size_t* pBytesRead);
 typedef dr_vorbis_result (* dr_vorbis_seek_data_proc)(void* pUserData, dr_vorbis_int64 offset, dr_vorbis_seek_origin origin);
-typedef void             (* dr_vorbis_meta_data_proc)(void* pUserData, const dr_vorbis_metadata* pMetadata);
+
 
 typedef struct
 {
@@ -304,6 +285,27 @@ as Ogg is being used, the data needs to be extracted from the container first. T
 do their own container management to extract the Vorbis stream.
 
 ************************************************************************************************************************************************************/
+typedef enum
+{
+    dr_vorbis_metadata_type_vendor, /* Contained in the comment header, reported separately to the other comments. */
+    dr_vorbis_metadata_type_comment
+} dr_vorbis_metadata_type;
+
+typedef struct
+{
+    dr_vorbis_metadata_type type;
+    union
+    {
+        struct
+        {
+            dr_vorbis_uint32 length;
+            const char* pData;  /* Null terminated. */
+        } vendor, comment;
+    } data;
+} dr_vorbis_metadata;
+
+typedef void (* dr_vorbis_meta_data_proc)(void* pUserData, const dr_vorbis_metadata* pMetadata);
+
 typedef struct
 {
     dr_vorbis_bs bs;                    /* All data is read through the bitstream. */
