@@ -213,16 +213,6 @@ typedef enum dr_vorbis_result
 } dr_vorbis_result;
 
 
-typedef enum
-{
-    DR_VORBIS_SEEK_SET = 0,
-    DR_VORBIS_SEEK_CUR = 1,
-    DR_VORBIS_SEEK_END = 2
-} dr_vorbis_seek_origin;
-
-typedef dr_vorbis_result (* dr_vorbis_read_data_proc)(void* pUserData, void* pOutput, size_t bytesToRead, size_t* pBytesRead);
-typedef dr_vorbis_result (* dr_vorbis_seek_data_proc)(void* pUserData, dr_vorbis_int64 offset, dr_vorbis_seek_origin origin);
-
 
 /************************************************************************************************************************************************************
 
@@ -243,6 +233,65 @@ DR_VORBIS_API void* dr_vorbis_calloc(size_t sz, const dr_vorbis_allocation_callb
 DR_VORBIS_API void* dr_vorbis_realloc(void* p, size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks);
 DR_VORBIS_API void  dr_vorbis_free(void* p, const dr_vorbis_allocation_callbacks* pAllocationCallbacks);
 /* END dr_vorbis_allocation_callbacks.h */
+
+
+
+/************************************************************************************************************************************************************
+
+Stream API
+
+************************************************************************************************************************************************************/
+/* BEG dr_vorbis_stream.h */
+/*
+Streams.
+
+The feeding of input and output data is done via a stream.
+
+To implement a custom stream, such as a memory stream, or a file stream, you need to extend from
+`dr_vorbis_stream` and implement `dr_vorbis_stream_vtable`. You can access your custom data by casting the
+`dr_vorbis_stream` to your custom type.
+
+The stream vtable can support both reading and writing, but it doesn't need to support both at
+the same time. If one is not supported, simply leave the relevant `read` or `write` callback as
+`NULL`, or have them return DR_VORBIS_NOT_IMPLEMENTED.
+*/
+
+/* Seek Origins. */
+typedef enum dr_vorbis_seek_origin
+{
+    DR_VORBIS_SEEK_SET = 0,
+    DR_VORBIS_SEEK_CUR = 1,
+    DR_VORBIS_SEEK_END = 2
+} dr_vorbis_seek_origin;
+
+typedef struct dr_vorbis_stream_vtable dr_vorbis_stream_vtable;
+typedef struct dr_vorbis_stream        dr_vorbis_stream;
+
+struct dr_vorbis_stream_vtable
+{
+    dr_vorbis_result (* read )(dr_vorbis_stream* pStream, void* pDst, size_t bytesToRead, size_t* pBytesRead);
+    dr_vorbis_result (* write)(dr_vorbis_stream* pStream, const void* pSrc, size_t bytesToWrite, size_t* pBytesWritten);
+    dr_vorbis_result (* seek )(dr_vorbis_stream* pStream, dr_vorbis_int64 offset, dr_vorbis_seek_origin origin);
+    dr_vorbis_result (* tell )(dr_vorbis_stream* pStream, dr_vorbis_int64* pCursor);
+};
+
+struct dr_vorbis_stream
+{
+    const dr_vorbis_stream_vtable* pVTable;
+};
+
+DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_init(const dr_vorbis_stream_vtable* pVTable, dr_vorbis_stream* pStream);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_read(dr_vorbis_stream* pStream, void* pDst, size_t bytesToRead, size_t* pBytesRead);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_write(dr_vorbis_stream* pStream, const void* pSrc, size_t bytesToWrite, size_t* pBytesWritten);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_seek(dr_vorbis_stream* pStream, dr_vorbis_int64 offset, dr_vorbis_seek_origin origin);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_tell(dr_vorbis_stream* pStream, dr_vorbis_int64* pCursor);
+/* END dr_vorbis_stream.h */
+
+
+
+/* Temporary callbacks. Will be replaced with the new stream system. */
+typedef dr_vorbis_result (* dr_vorbis_read_data_proc)(void* pUserData, void* pOutput, size_t bytesToRead, size_t* pBytesRead);
+typedef dr_vorbis_result (* dr_vorbis_seek_data_proc)(void* pUserData, dr_vorbis_int64 offset, dr_vorbis_seek_origin origin);
 
 
 
