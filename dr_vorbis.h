@@ -308,19 +308,19 @@ typedef struct
 {
     dr_vorbis_bs bs;                    /* All data is read through the bitstream. */
     void* pMetaUserData;
-    dr_vorbis_meta_data_proc onMeta;    /* Called during processing of the comment header in dr_vorbis_stream_init(). */
+    dr_vorbis_meta_data_proc onMeta;    /* Called during processing of the comment header in dr_vorbis_decoder_init(). */
     dr_vorbis_allocation_callbacks allocationCallbacks;
     dr_vorbis_uint8 channels;
     dr_vorbis_uint32 sampleRate;
     dr_vorbis_uint16 blockSize0;
     dr_vorbis_uint16 blockSize1;
-} dr_vorbis_stream;
+} dr_vorbis_decoder;
 
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_init(void* pReadUserData, dr_vorbis_read_data_proc onRead, void* pMetaUserData, dr_vorbis_meta_data_proc onMeta, const dr_vorbis_allocation_callbacks* pAllocationCallbacks, dr_vorbis_stream* pStream);
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_uninit(dr_vorbis_stream* pStream);
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_reset(dr_vorbis_stream* pStream);    /* Call this to reset internal buffers. Useful for seeking. */
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_read_pcm_frames_s16(dr_vorbis_stream* pStream, dr_vorbis_int16* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead);
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_read_pcm_frames_f32(dr_vorbis_stream* pStream, float* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_init(void* pReadUserData, dr_vorbis_read_data_proc onRead, void* pMetaUserData, dr_vorbis_meta_data_proc onMeta, const dr_vorbis_allocation_callbacks* pAllocationCallbacks, dr_vorbis_decoder* pStream);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_uninit(dr_vorbis_decoder* pStream);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_reset(dr_vorbis_decoder* pStream);    /* Call this to reset internal buffers. Useful for seeking. */
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_read_pcm_frames_s16(dr_vorbis_decoder* pStream, dr_vorbis_int16* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead);
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_read_pcm_frames_f32(dr_vorbis_decoder* pStream, float* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead);
 
 
 /************************************************************************************************************************************************************
@@ -347,7 +347,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_container_read_vorbis_data(dr_vorbis_co
 Ogg/Vorbis Container API
 
 Use the dr_vorbis_ogg API to extract a Vorbis stream out of an Ogg container. The idea is that you read data from the dr_vorbis_ogg API, and then pass that
-as input into the dr_vorbis_stream API.
+as input into the dr_vorbis_decoder API.
 
 The dr_vorbis_ogg object is a dr_vorbis_container object, which means it can be plugged directly into dr_vorbis_container_*() APIs.
 
@@ -399,7 +399,7 @@ typedef struct
     {
         dr_vorbis_ogg ogg;
     } container;                /* The container. Data is read from this and then passed as input into the stream. */
-    dr_vorbis_stream stream;    /* The low-level stream object. Data is read from the container and then passed as input into the stream. */
+    dr_vorbis_decoder stream;    /* The low-level stream object. Data is read from the container and then passed as input into the stream. */
 
     union
     {
@@ -884,21 +884,21 @@ static dr_vorbis_uint32 dr_vorbis_lookup1_values(dr_vorbis_uint32 entries, dr_vo
 }
 
 
-static dr_vorbis_result dr_vorbis_stream_read_bits(dr_vorbis_stream* pStream, dr_vorbis_uint32 bitsToRead, dr_vorbis_uint32* pValue)
+static dr_vorbis_result dr_vorbis_decoder_read_bits(dr_vorbis_decoder* pStream, dr_vorbis_uint32 bitsToRead, dr_vorbis_uint32* pValue)
 {
     DR_VORBIS_ASSERT(pStream != NULL);
 
     return dr_vorbis_bs_read_bits(&pStream->bs, bitsToRead, pValue);
 }
 
-static dr_vorbis_result dr_vorbis_stream_read_bytes(dr_vorbis_stream* pStream, void* pOutput, size_t bytesToRead, size_t* pBytesRead)
+static dr_vorbis_result dr_vorbis_decoder_read_bytes(dr_vorbis_decoder* pStream, void* pOutput, size_t bytesToRead, size_t* pBytesRead)
 {
     DR_VORBIS_ASSERT(pStream != NULL);
 
     return dr_vorbis_bs_read_bytes(&pStream->bs, pOutput, bytesToRead, pBytesRead);
 }
 
-static dr_vorbis_result dr_vorbis_stream_skip_bytes(dr_vorbis_stream* pStream, size_t bytesToSkip, size_t* pBytesSkipped)
+static dr_vorbis_result dr_vorbis_decoder_skip_bytes(dr_vorbis_decoder* pStream, size_t bytesToSkip, size_t* pBytesSkipped)
 {
     dr_vorbis_result result = DR_VORBIS_SUCCESS;    /* <-- Must be initialized to DR_VORBIS_SUCCESS. */
     size_t totalBytesSkipped = 0;                   /* <-- Must be initialized to 0. */
@@ -919,7 +919,7 @@ static dr_vorbis_result dr_vorbis_stream_skip_bytes(dr_vorbis_stream* pStream, s
             bytesToSkipNow = sizeof(buffer);
         }
 
-        result = dr_vorbis_stream_read_bytes(pStream, buffer, bytesToSkipNow, &bytesSkipped);
+        result = dr_vorbis_decoder_read_bytes(pStream, buffer, bytesToSkipNow, &bytesSkipped);
         totalBytesSkipped += bytesSkipped;
 
         if (result != DR_VORBIS_SUCCESS) {
@@ -939,7 +939,7 @@ static dr_vorbis_result dr_vorbis_stream_skip_bytes(dr_vorbis_stream* pStream, s
     return result;
 }
 
-static dr_vorbis_result dr_vorbis_stream_read_uint32(dr_vorbis_stream* pStream, dr_vorbis_uint32* pValue)
+static dr_vorbis_result dr_vorbis_decoder_read_uint32(dr_vorbis_decoder* pStream, dr_vorbis_uint32* pValue)
 {
     dr_vorbis_result result;
     size_t bytesRead;
@@ -948,7 +948,7 @@ static dr_vorbis_result dr_vorbis_stream_read_uint32(dr_vorbis_stream* pStream, 
     DR_VORBIS_ASSERT(pStream != NULL);
     DR_VORBIS_ASSERT(pValue  != NULL);
 
-    result = dr_vorbis_stream_read_bytes(pStream, data, sizeof(data), &bytesRead);
+    result = dr_vorbis_decoder_read_bytes(pStream, data, sizeof(data), &bytesRead);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -962,7 +962,7 @@ static dr_vorbis_result dr_vorbis_stream_read_uint32(dr_vorbis_stream* pStream, 
     return DR_VORBIS_SUCCESS;
 }
 
-static dr_vorbis_result dr_vorbis_stream_read_uint8(dr_vorbis_stream* pStream, dr_vorbis_uint8* pValue)
+static dr_vorbis_result dr_vorbis_decoder_read_uint8(dr_vorbis_decoder* pStream, dr_vorbis_uint8* pValue)
 {
     dr_vorbis_result result;
     size_t bytesRead;
@@ -970,7 +970,7 @@ static dr_vorbis_result dr_vorbis_stream_read_uint8(dr_vorbis_stream* pStream, d
     DR_VORBIS_ASSERT(pStream != NULL);
     DR_VORBIS_ASSERT(pValue  != NULL);
 
-    result = dr_vorbis_stream_read_bytes(pStream, pValue, 1, &bytesRead);
+    result = dr_vorbis_decoder_read_bytes(pStream, pValue, 1, &bytesRead);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -982,7 +982,7 @@ static dr_vorbis_result dr_vorbis_stream_read_uint8(dr_vorbis_stream* pStream, d
     return DR_VORBIS_SUCCESS;
 }
 
-static dr_vorbis_result dr_vorbis_stream_read_common_header(dr_vorbis_stream* pStream, dr_vorbis_uint8 expectedPacketType)
+static dr_vorbis_result dr_vorbis_decoder_read_common_header(dr_vorbis_decoder* pStream, dr_vorbis_uint8 expectedPacketType)
 {
     dr_vorbis_result result;
     dr_vorbis_uint8 data[7];
@@ -991,7 +991,7 @@ static dr_vorbis_result dr_vorbis_stream_read_common_header(dr_vorbis_stream* pS
     DR_VORBIS_ASSERT(pStream != NULL);
     DR_VORBIS_ASSERT(expectedPacketType == 1 || expectedPacketType == 3 || expectedPacketType == 5);
 
-    result = dr_vorbis_stream_read_bytes(pStream, data, 7, &bytesRead);
+    result = dr_vorbis_decoder_read_bytes(pStream, data, 7, &bytesRead);
     if (result != DR_VORBIS_SUCCESS) {
         return result;  /* Failed to read data. */
     }
@@ -1013,7 +1013,7 @@ static dr_vorbis_result dr_vorbis_stream_read_common_header(dr_vorbis_stream* pS
     return DR_VORBIS_SUCCESS;
 }
 
-static dr_vorbis_result dr_vorbis_stream_load_identification_header(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_decoder_load_identification_header(dr_vorbis_decoder* pStream)
 {
     dr_vorbis_result result;
     dr_vorbis_uint8 data[23];
@@ -1023,14 +1023,14 @@ static dr_vorbis_result dr_vorbis_stream_load_identification_header(dr_vorbis_st
     dr_vorbis_uint16 blockSize1;
 
     /* Common header. */
-    result = dr_vorbis_stream_read_common_header(pStream, DR_VORBIS_PACKET_TYPE_IDENTIFICATION);
+    result = dr_vorbis_decoder_read_common_header(pStream, DR_VORBIS_PACKET_TYPE_IDENTIFICATION);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
 
 
     /* Identification-specific data. */
-    result = dr_vorbis_stream_read_bytes(pStream, data, sizeof(data), &bytesRead);
+    result = dr_vorbis_decoder_read_bytes(pStream, data, sizeof(data), &bytesRead);
     if (result != DR_VORBIS_SUCCESS) {
         return result;  /* Don't bother about any kind of CRC recovery at this point. If that fails, we can't be sure that it's a valid Vorbis file so just abort. */
     }
@@ -1083,7 +1083,7 @@ static dr_vorbis_result dr_vorbis_stream_load_identification_header(dr_vorbis_st
     return DR_VORBIS_SUCCESS;
 }
 
-static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_decoder_load_comment_header(dr_vorbis_decoder* pStream)
 {
     dr_vorbis_result result;
     size_t bytesRead;
@@ -1098,7 +1098,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
     DR_VORBIS_ASSERT(pStream != NULL);
 
     /* Common header. */
-    result = dr_vorbis_stream_read_common_header(pStream, DR_VORBIS_PACKET_TYPE_COMMENT);
+    result = dr_vorbis_decoder_read_common_header(pStream, DR_VORBIS_PACKET_TYPE_COMMENT);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -1106,7 +1106,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
     /* Comment-specific data. */
 
     /* Vendor. */
-    result = dr_vorbis_stream_read_uint32(pStream, &length);
+    result = dr_vorbis_decoder_read_uint32(pStream, &length);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -1120,7 +1120,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
                 return DR_VORBIS_OUT_OF_MEMORY;
             }
 
-            result = dr_vorbis_stream_read_bytes(pStream, pData, length, &bytesRead);
+            result = dr_vorbis_decoder_read_bytes(pStream, pData, length, &bytesRead);
             if (result != DR_VORBIS_SUCCESS) {
                 dr_vorbis_free(pData, &pStream->allocationCallbacks);
                 return result;
@@ -1138,7 +1138,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
             metadata.data.vendor.pData  = pData;
             pStream->onMeta(pStream->pMetaUserData, &metadata);
         } else {
-            result = dr_vorbis_stream_skip_bytes(pStream, length, &bytesRead);
+            result = dr_vorbis_decoder_skip_bytes(pStream, length, &bytesRead);
             if (result != DR_VORBIS_SUCCESS) {
                 return result;  /* Failed to seek past the length. */
             }
@@ -1151,14 +1151,14 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
 
 
     /* Next 32 bits is the comment count. */
-    result = dr_vorbis_stream_read_uint32(pStream, &commentCount);
+    result = dr_vorbis_decoder_read_uint32(pStream, &commentCount);
     if (result != DR_VORBIS_SUCCESS) {
         dr_vorbis_free(pData, &pStream->allocationCallbacks);
         return result;
     }
 
     for (iComment = 0; iComment < commentCount; iComment += 1) {
-        result = dr_vorbis_stream_read_uint32(pStream, &length);
+        result = dr_vorbis_decoder_read_uint32(pStream, &length);
         if (result != DR_VORBIS_SUCCESS) {
             return result;
         }
@@ -1180,7 +1180,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
                 dataCap = newDataCap;
             }
 
-            result = dr_vorbis_stream_read_bytes(pStream, pData, length, &bytesRead);
+            result = dr_vorbis_decoder_read_bytes(pStream, pData, length, &bytesRead);
             if (result != DR_VORBIS_SUCCESS) {
                 dr_vorbis_free(pData, &pStream->allocationCallbacks);
                 return result;
@@ -1198,7 +1198,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
             metadata.data.vendor.pData  = pData;
             pStream->onMeta(pStream->pMetaUserData, &metadata);
         } else {
-            result = dr_vorbis_stream_skip_bytes(pStream, length, &bytesRead);
+            result = dr_vorbis_decoder_skip_bytes(pStream, length, &bytesRead);
             if (result != DR_VORBIS_SUCCESS) {
                 return result;  /* Failed to seek past the length. */
             }
@@ -1210,7 +1210,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
     }
     
     /* Framing bit. */
-    result = dr_vorbis_stream_read_uint8(pStream, &framingBit);
+    result = dr_vorbis_decoder_read_uint8(pStream, &framingBit);
     if (result != DR_VORBIS_SUCCESS) {
         dr_vorbis_free(pData, &pStream->allocationCallbacks);
         return result;
@@ -1226,7 +1226,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
     return DR_VORBIS_SUCCESS;
 }
 
-static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_decoder_load_setup_header_codebooks(dr_vorbis_decoder* pStream)
 {
     dr_vorbis_result result;
     dr_vorbis_uint32 codebookCount;
@@ -1234,7 +1234,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
 
     DR_VORBIS_ASSERT(pStream != NULL);
 
-    result = dr_vorbis_stream_read_bits(pStream, 8, &codebookCount);
+    result = dr_vorbis_decoder_read_bits(pStream, 8, &codebookCount);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -1247,7 +1247,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
         dr_vorbis_uint32 codebookLookupType;
         dr_vorbis_uint32 ordered;
 
-        result = dr_vorbis_stream_read_bits(pStream, 24, &sync);
+        result = dr_vorbis_decoder_read_bits(pStream, 24, &sync);
         if (result != DR_VORBIS_SUCCESS) {
             return result;  /* Failed to load sync pattern. */
         }
@@ -1256,17 +1256,17 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
             return DR_VORBIS_INVALID_FILE;  /* Expecting sync pattern. */
         }
 
-        result = dr_vorbis_stream_read_bits(pStream, 16, &codebookDimensions);
+        result = dr_vorbis_decoder_read_bits(pStream, 16, &codebookDimensions);
         if (result != DR_VORBIS_SUCCESS) {
             return result;  /* Failed to load dimensions. */
         }
 
-        result = dr_vorbis_stream_read_bits(pStream, 24, &codebookEntries);
+        result = dr_vorbis_decoder_read_bits(pStream, 24, &codebookEntries);
         if (result != DR_VORBIS_SUCCESS) {
             return result;
         }
 
-        result = dr_vorbis_stream_read_bits(pStream, 1, &ordered);
+        result = dr_vorbis_decoder_read_bits(pStream, 1, &ordered);
         if (result != DR_VORBIS_SUCCESS) {
             return result;
         }
@@ -1276,7 +1276,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
             dr_vorbis_uint32 sparse;
             dr_vorbis_uint32 iEntry;
 
-            result = dr_vorbis_stream_read_bits(pStream, 1, &sparse);
+            result = dr_vorbis_decoder_read_bits(pStream, 1, &sparse);
             if (result != DR_VORBIS_SUCCESS) {
                 return result;
             }
@@ -1287,13 +1287,13 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
                 if (sparse) {
                     dr_vorbis_uint32 flag;
 
-                    result = dr_vorbis_stream_read_bits(pStream, 1, &flag);
+                    result = dr_vorbis_decoder_read_bits(pStream, 1, &flag);
                     if (result != DR_VORBIS_SUCCESS) {
                         return result;
                     }
 
                     if (flag) {
-                        result = dr_vorbis_stream_read_bits(pStream, 5, &length);
+                        result = dr_vorbis_decoder_read_bits(pStream, 5, &length);
                         if (result != DR_VORBIS_SUCCESS) {
                             return result;
                         }
@@ -1303,7 +1303,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
                         length = DR_VORBIS_UNUSED_CODEWORD;
                     }
                 } else {
-                    result = dr_vorbis_stream_read_bits(pStream, 5, &length);
+                    result = dr_vorbis_decoder_read_bits(pStream, 5, &length);
                     if (result != DR_VORBIS_SUCCESS) {
                         return result;
                     }
@@ -1319,7 +1319,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
             dr_vorbis_uint32 currentEntry = 0;
             dr_vorbis_uint32 currentLength;
 
-            result = dr_vorbis_stream_read_bits(pStream, 5, &currentLength);
+            result = dr_vorbis_decoder_read_bits(pStream, 5, &currentLength);
             if (result != DR_VORBIS_SUCCESS) {
                 return result;
             }
@@ -1329,7 +1329,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
                 dr_vorbis_uint32 number;
                 dr_vorbis_uint32 iEntry;
 
-                result = dr_vorbis_stream_read_bits(pStream, dr_vorbis_ilog_u(codebookEntries - currentEntry), &number);
+                result = dr_vorbis_decoder_read_bits(pStream, dr_vorbis_ilog_u(codebookEntries - currentEntry), &number);
                 if (result != DR_VORBIS_SUCCESS) {
                     return result;
                 }
@@ -1349,7 +1349,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
         }
 
         /* Vector lookup table. */
-        result = dr_vorbis_stream_read_bits(pStream, 4, &codebookLookupType);
+        result = dr_vorbis_decoder_read_bits(pStream, 4, &codebookLookupType);
         if (result != DR_VORBIS_SUCCESS) {
             return result;
         }
@@ -1366,13 +1366,13 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
             dr_vorbis_uint32 lookupValues;
             dr_vorbis_uint32 iValue;
 
-            result = dr_vorbis_stream_read_bits(pStream, 32, &codebookMinimumValueRaw);
+            result = dr_vorbis_decoder_read_bits(pStream, 32, &codebookMinimumValueRaw);
             if (result != DR_VORBIS_SUCCESS) {
                 /* TODO: Free memory. */
                 return result;
             }
 
-            result = dr_vorbis_stream_read_bits(pStream, 32, &codebookMaximumValueRaw);
+            result = dr_vorbis_decoder_read_bits(pStream, 32, &codebookMaximumValueRaw);
             if (result != DR_VORBIS_SUCCESS) {
                 /* TODO: Free memory. */
                 return result;
@@ -1385,14 +1385,14 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
             (void)codebookMinimumValue;
             (void)codebookMaximumValue;
 
-            result = dr_vorbis_stream_read_bits(pStream, 4, &valueBits);
+            result = dr_vorbis_decoder_read_bits(pStream, 4, &valueBits);
             if (result != DR_VORBIS_SUCCESS) {
                 /* TODO: Free memory. */
                 return result;
             }
             valueBits += 1;
 
-            result = dr_vorbis_stream_read_bits(pStream, 1, &sequenceP);
+            result = dr_vorbis_decoder_read_bits(pStream, 1, &sequenceP);
             if (result != DR_VORBIS_SUCCESS) {
                 /* TODO: Free memory. */
                 return result;
@@ -1407,7 +1407,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
             for (iValue = 0; iValue < lookupValues; iValue += 1) {
                 dr_vorbis_uint32 value;
 
-                result = dr_vorbis_stream_read_bits(pStream, valueBits, &value);
+                result = dr_vorbis_decoder_read_bits(pStream, valueBits, &value);
                 if (result != DR_VORBIS_SUCCESS) {
                     /* TODO: Free memory. */
                     return result;
@@ -1424,7 +1424,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
     return DR_VORBIS_SUCCESS;
 }
 
-static dr_vorbis_result dr_vorbis_stream_load_setup_header_time_domain_transforms(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_decoder_load_setup_header_time_domain_transforms(dr_vorbis_decoder* pStream)
 {
     dr_vorbis_result result;
     dr_vorbis_uint32 timeCount;
@@ -1432,7 +1432,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_time_domain_transform
     
     DR_VORBIS_ASSERT(pStream != NULL);
 
-    result = dr_vorbis_stream_read_bits(pStream, 6, &timeCount);
+    result = dr_vorbis_decoder_read_bits(pStream, 6, &timeCount);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -1440,7 +1440,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_time_domain_transform
 
     for (iTime = 0; iTime < timeCount; iTime += 1) {
         dr_vorbis_uint32 time;
-        result = dr_vorbis_stream_read_bits(pStream, 16, &time);
+        result = dr_vorbis_decoder_read_bits(pStream, 16, &time);
         if (result != DR_VORBIS_SUCCESS) {
             return result;
         }
@@ -1454,7 +1454,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_time_domain_transform
     return DR_VORBIS_SUCCESS;
 }
 
-static dr_vorbis_result dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_decoder_load_setup_header(dr_vorbis_decoder* pStream)
 {
     dr_vorbis_result result;
     dr_vorbis_uint8 framingBit;
@@ -1462,7 +1462,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pSt
     DR_VORBIS_ASSERT(pStream != NULL);
 
     /* Common header. */
-    result = dr_vorbis_stream_read_common_header(pStream, DR_VORBIS_PACKET_TYPE_SETUP);
+    result = dr_vorbis_decoder_read_common_header(pStream, DR_VORBIS_PACKET_TYPE_SETUP);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -1470,13 +1470,13 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pSt
     /* Setup-specific data. */
 
     /* Codebooks. */
-    result = dr_vorbis_stream_load_setup_header_codebooks(pStream);
+    result = dr_vorbis_decoder_load_setup_header_codebooks(pStream);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
 
     /* Time domain transforms. Not used, but needs to be skipped over. */
-    result = dr_vorbis_stream_load_setup_header_time_domain_transforms(pStream);
+    result = dr_vorbis_decoder_load_setup_header_time_domain_transforms(pStream);
     if (result != DR_VORBIS_SUCCESS) {
         /* TODO: Free memory. */
         return result;
@@ -1491,7 +1491,7 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pSt
     /* Modes. */
 
     /* Framing bit. */
-    result = dr_vorbis_stream_read_uint8(pStream, &framingBit);
+    result = dr_vorbis_decoder_read_uint8(pStream, &framingBit);
     if (result != DR_VORBIS_SUCCESS) {
         /* TODO: Need to free memory from steps above. */
         return result;
@@ -1505,26 +1505,26 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header(dr_vorbis_stream* pSt
     return DR_VORBIS_SUCCESS;
 }
 
-static dr_vorbis_result dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
+static dr_vorbis_result dr_vorbis_decoder_load_headers(dr_vorbis_decoder* pStream)
 {
     dr_vorbis_result result;
 
     /* Note that we're not doing any kind of CRC recovery here. If anything in the header is corrupt, the entire stream is corrupt. */
 
     /* Identification. */
-    result = dr_vorbis_stream_load_identification_header(pStream);
+    result = dr_vorbis_decoder_load_identification_header(pStream);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
 
     /* Comment. */
-    result = dr_vorbis_stream_load_comment_header(pStream);
+    result = dr_vorbis_decoder_load_comment_header(pStream);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
 
     /* Setup. */
-    result = dr_vorbis_stream_load_setup_header(pStream);
+    result = dr_vorbis_decoder_load_setup_header(pStream);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -1533,7 +1533,7 @@ static dr_vorbis_result dr_vorbis_stream_load_headers(dr_vorbis_stream* pStream)
     return DR_VORBIS_SUCCESS;
 }
 
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_init(void* pReadUserData, dr_vorbis_read_data_proc onRead, void* pMetaUserData, dr_vorbis_meta_data_proc onMeta, const dr_vorbis_allocation_callbacks* pAllocationCallbacks, dr_vorbis_stream* pStream)
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_init(void* pReadUserData, dr_vorbis_read_data_proc onRead, void* pMetaUserData, dr_vorbis_meta_data_proc onMeta, const dr_vorbis_allocation_callbacks* pAllocationCallbacks, dr_vorbis_decoder* pStream)
 {
     dr_vorbis_result result;
 
@@ -1557,7 +1557,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_init(void* pReadUserData, dr_vor
     pStream->allocationCallbacks = dr_vorbis_allocation_callbacks_init_copy_or_default(pAllocationCallbacks);
 
     /* Headers are loaded first, and always at initialization time. */
-    result = dr_vorbis_stream_load_headers(pStream);
+    result = dr_vorbis_decoder_load_headers(pStream);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -1567,7 +1567,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_init(void* pReadUserData, dr_vor
     return DR_VORBIS_SUCCESS;
 }
 
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_uninit(dr_vorbis_stream* pStream)
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_uninit(dr_vorbis_decoder* pStream)
 {
     if (pStream == NULL) {
         return DR_VORBIS_INVALID_ARGS;
@@ -1577,7 +1577,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_uninit(dr_vorbis_stream* pStream
     return DR_VORBIS_SUCCESS;
 }
 
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_reset(dr_vorbis_stream* pStream)
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_reset(dr_vorbis_decoder* pStream)
 {
     if (pStream == NULL) {
         return DR_VORBIS_INVALID_ARGS;
@@ -1587,7 +1587,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_reset(dr_vorbis_stream* pStream)
     return DR_VORBIS_SUCCESS;
 }
 
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_read_pcm_frames_s16(dr_vorbis_stream* pStream, dr_vorbis_int16* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead)
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_read_pcm_frames_s16(dr_vorbis_decoder* pStream, dr_vorbis_int16* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead)
 {
     if (pStream == NULL || pFramesOut == NULL) {
         return DR_VORBIS_INVALID_ARGS;
@@ -1599,7 +1599,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_read_pcm_frames_s16(dr_vorbis_st
     return DR_VORBIS_SUCCESS;
 }
 
-DR_VORBIS_API dr_vorbis_result dr_vorbis_stream_read_pcm_frames_f32(dr_vorbis_stream* pStream, float* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead)
+DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_read_pcm_frames_f32(dr_vorbis_decoder* pStream, float* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead)
 {
     if (pStream == NULL || pFramesOut == NULL) {
         return DR_VORBIS_INVALID_ARGS;
@@ -2017,7 +2017,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_ogg_init(void* pUserData, dr_vorbis_rea
                 if (headerData[1] == 'v' && headerData[2] == 'o' && headerData[3] == 'r' && headerData[4] == 'b' && headerData[5] == 'i' && headerData[6] == 's') {
                     /*
                     Getting here means this page header is almost certainly a Vorbis identification header. From this point on, if anything is invalid we
-                    abort rather than skip. Validation of Vorbis-specific data will be done by the dr_vorbis_stream API.
+                    abort rather than skip. Validation of Vorbis-specific data will be done by the dr_vorbis_decoder API.
                     */
 
                     /* CRC. */
@@ -2032,7 +2032,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_ogg_init(void* pUserData, dr_vorbis_rea
                     When CRC is disabled we read straight from the Ogg page without an intermediary buffer. When CRC is enabled, we need to store the data into
                     an intermediary buffer so we can perform a CRC check *before* returning the data. Since we've already read the data, we'll need to either
                     seek back to the start of the identification header, or copy the data into the intermediary buffer depending on whether or not CRC is enabled.
-                    Not doing this will result in the dr_vorbis_stream API not recieving the identification header.
+                    Not doing this will result in the dr_vorbis_decoder API not recieving the identification header.
                     */
                     pOgg->pageDataRead = 0;
                     pOgg->pageDataSize = DR_VORBIS_IDENTIFICATION_HEADER_SIZE;
@@ -2048,8 +2048,8 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_ogg_init(void* pUserData, dr_vorbis_rea
                 #endif
 
                     /*
-                    Success. There's still a chance the Vorbis stream is invalid, but that's now the responsibility of the dr_vorbis_stream API. The dr_vorbis_ogg
-                    API is only concerned about extracting the Vorbis stream from the container so it can be passed to dr_vorbis_stream as input.
+                    Success. There's still a chance the Vorbis stream is invalid, but that's now the responsibility of the dr_vorbis_decoder API. The dr_vorbis_ogg
+                    API is only concerned about extracting the Vorbis stream from the container so it can be passed to dr_vorbis_decoder as input.
                     */
                     return DR_VORBIS_SUCCESS;
                 } else {
@@ -2245,7 +2245,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_init_ex(void* pReadSeekUserData, dr_vor
     Now that we have a container we need to initialize the stream. Make sure we don't bother with a metadata callback for the stream if onMeta is NULL. This causes
     metadata to be skipped for a minor optimization and some saving of memory allocations.
     */
-    result = dr_vorbis_stream_init(pVorbis, dr_vorbis_cb__stream_read_data, pMetaUserData, onMeta, pAllocationCallbacks, &pVorbis->stream);
+    result = dr_vorbis_decoder_init(pVorbis, dr_vorbis_cb__stream_read_data, pMetaUserData, onMeta, pAllocationCallbacks, &pVorbis->stream);
     if (result != DR_VORBIS_SUCCESS) {
         return result;
     }
@@ -2947,7 +2947,7 @@ DR_VORBIS_API void dr_vorbis_uninit(dr_vorbis* pVorbis)
         return;
     }
 
-    dr_vorbis_stream_uninit(&pVorbis->stream);
+    dr_vorbis_decoder_uninit(&pVorbis->stream);
 
 #ifndef DR_VORBIS_NO_STDIO
     if (((dr_vorbis_container_callbacks*)&pVorbis->container)->onRead == dr_vorbis_cb__on_read_stdio) {
@@ -2963,7 +2963,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_read_pcm_frames_s16(dr_vorbis* pVorbis,
         return DR_VORBIS_INVALID_ARGS;
     }
 
-    return dr_vorbis_stream_read_pcm_frames_s16(&pVorbis->stream, pFramesOut, frameCount, pFramesRead);
+    return dr_vorbis_decoder_read_pcm_frames_s16(&pVorbis->stream, pFramesOut, frameCount, pFramesRead);
 }
 
 DR_VORBIS_API dr_vorbis_result dr_vorbis_read_pcm_frames_f32(dr_vorbis* pVorbis, float* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead)
@@ -2972,7 +2972,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_read_pcm_frames_f32(dr_vorbis* pVorbis,
         return DR_VORBIS_INVALID_ARGS;
     }
 
-    return dr_vorbis_stream_read_pcm_frames_f32(&pVorbis->stream, pFramesOut, frameCount, pFramesRead);
+    return dr_vorbis_decoder_read_pcm_frames_f32(&pVorbis->stream, pFramesOut, frameCount, pFramesRead);
 }
 
 DR_VORBIS_API dr_vorbis_result dr_vorbis_seek_to_pcm_frame(dr_vorbis* pVorbis, dr_vorbis_uint64 frameIndex)
