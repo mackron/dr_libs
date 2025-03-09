@@ -319,7 +319,6 @@ typedef struct
 DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_init(void* pReadUserData, dr_vorbis_read_data_proc onRead, void* pMetaUserData, dr_vorbis_meta_data_proc onMeta, const dr_vorbis_allocation_callbacks* pAllocationCallbacks, dr_vorbis_decoder* pStream);
 DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_uninit(dr_vorbis_decoder* pStream);
 DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_reset(dr_vorbis_decoder* pStream);    /* Call this to reset internal buffers. Useful for seeking. */
-DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_read_pcm_frames_s16(dr_vorbis_decoder* pStream, dr_vorbis_int16* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead);
 DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_read_pcm_frames_f32(dr_vorbis_decoder* pStream, float* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead);
 
 
@@ -420,7 +419,6 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_init_file_w_ex(const wchar_t* pFilePath
 DR_VORBIS_API dr_vorbis_result dr_vorbis_init_file(const char* pFilePath, const dr_vorbis_allocation_callbacks* pAllocationCallbacks, dr_vorbis* pVorbis);
 DR_VORBIS_API dr_vorbis_result dr_vorbis_init_file_w(const wchar_t* pFilePath, const dr_vorbis_allocation_callbacks* pAllocationCallbacks, dr_vorbis* pVorbis);
 DR_VORBIS_API void dr_vorbis_uninit(dr_vorbis* pVorbis);
-DR_VORBIS_API dr_vorbis_result dr_vorbis_read_pcm_frames_s16(dr_vorbis* pVorbis, dr_vorbis_int16* pFramesOut, dr_vorbis_uint64 framesCount, dr_vorbis_uint64* pFramesRead);
 DR_VORBIS_API dr_vorbis_result dr_vorbis_read_pcm_frames_f32(dr_vorbis* pVorbis, float* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead);
 DR_VORBIS_API dr_vorbis_result dr_vorbis_seek_to_pcm_frame(dr_vorbis* pVorbis, dr_vorbis_uint64 frameIndex);
 
@@ -1584,18 +1582,6 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_reset(dr_vorbis_decoder* pStrea
     }
 
     /* TODO: Implement me. */
-    return DR_VORBIS_SUCCESS;
-}
-
-DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_read_pcm_frames_s16(dr_vorbis_decoder* pStream, dr_vorbis_int16* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead)
-{
-    if (pStream == NULL || pFramesOut == NULL) {
-        return DR_VORBIS_INVALID_ARGS;
-    }
-
-    /* TODO: Implement me. */
-    (void)frameCount;
-    (void)pFramesRead;
     return DR_VORBIS_SUCCESS;
 }
 
@@ -2955,15 +2941,6 @@ DR_VORBIS_API void dr_vorbis_uninit(dr_vorbis* pVorbis)
         pVorbis->backend.pFile = NULL;
     }
 #endif
-}
-
-DR_VORBIS_API dr_vorbis_result dr_vorbis_read_pcm_frames_s16(dr_vorbis* pVorbis, dr_vorbis_int16* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead)
-{
-    if (pVorbis == NULL) {
-        return DR_VORBIS_INVALID_ARGS;
-    }
-
-    return dr_vorbis_decoder_read_pcm_frames_s16(&pVorbis->stream, pFramesOut, frameCount, pFramesRead);
 }
 
 DR_VORBIS_API dr_vorbis_result dr_vorbis_read_pcm_frames_f32(dr_vorbis* pVorbis, float* pFramesOut, dr_vorbis_uint64 frameCount, dr_vorbis_uint64* pFramesRead)
