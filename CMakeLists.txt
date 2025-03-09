@@ -115,7 +115,7 @@ if(NOT DR_LIBS_NO_FLAC)
 
         function(add_flac_test name source)
             add_executable(${name} tests/flac/${source})
-            target_link_libraries(${name} PRIVATE FLAC)
+            target_link_libraries(${name} PRIVATE ${COMMON_LIBRARIES} FLAC)
             add_test(NAME ${name} COMMAND ${name})
         endfunction()
 
