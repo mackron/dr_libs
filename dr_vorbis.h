@@ -405,6 +405,9 @@ IMPLEMENTATION
 
 #ifndef DR_VORBIS_NO_STDIO
 #include <stdio.h>  /* FILE */
+#ifndef DR_VORBIS_NO_WCHAR
+#include <wchar.h>
+#endif
 #endif
 
 #ifdef _MSC_VER
@@ -1060,7 +1063,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
         if (pStream->onMeta != NULL) {
             dataCap = length + 1;
 
-            pData = dr_vorbis_malloc(dataCap, &pStream->allocationCallbacks);
+            pData = (char*)dr_vorbis_malloc(dataCap, &pStream->allocationCallbacks);
             if (pData == NULL) {
                 return ENOMEM;
             }
@@ -1115,7 +1118,7 @@ static dr_vorbis_result dr_vorbis_stream_load_comment_header(dr_vorbis_stream* p
             if (newDataCap > dataCap) {
                 char* pNewData;
 
-                pNewData = dr_vorbis_realloc(pData, newDataCap, &pStream->allocationCallbacks);
+                pNewData = (char*)dr_vorbis_realloc(pData, newDataCap, &pStream->allocationCallbacks);
                 if (pNewData == NULL) {
                     dr_vorbis_free(pData, &pStream->allocationCallbacks);
                     return ENOMEM;
@@ -1326,6 +1329,10 @@ static dr_vorbis_result dr_vorbis_stream_load_setup_header_codebooks(dr_vorbis_s
             codebookMinimumValue = dr_vorbis_float32_unpack(codebookMinimumValueRaw);
             codebookMaximumValue = dr_vorbis_float32_unpack(codebookMaximumValueRaw);
 
+            /* TODO: Remove these warning silencers later. */
+            (void)codebookMinimumValue;
+            (void)codebookMaximumValue;
+
             result = dr_vorbis_stream_read_bits(pStream, 4, &valueBits);
             if (result != DR_VORBIS_SUCCESS) {
                 /* TODO: Free memory. */
@@ -1535,6 +1542,8 @@ DR_VORBIS_API int dr_vorbis_stream_read_pcm_frames_s16(dr_vorbis_stream* pStream
     }
 
     /* TODO: Implement me. */
+    (void)frameCount;
+    (void)pFramesRead;
     return 0;
 }
 
@@ -1545,6 +1554,8 @@ DR_VORBIS_API int dr_vorbis_stream_read_pcm_frames_f32(dr_vorbis_stream* pStream
     }
 
     /* TODO: Implement me. */
+    (void)frameCount;
+    (void)pFramesRead;
     return 0;
 }
 
@@ -1696,7 +1707,7 @@ static int dr_vorbis_ogg_read(dr_vorbis_ogg* pOgg, void* pOutput, size_t bytesTo
     }
 
     if (pCRC != NULL) {
-        *pCRC = dr_vorbis_ogg_crc32_buffer(*pCRC, pOutput, bytesRead);
+        *pCRC = dr_vorbis_ogg_crc32_buffer(*pCRC, (dr_vorbis_uint8*)pOutput, bytesRead);
     }
 
     return 0;
@@ -2254,7 +2265,7 @@ fallback, so if you notice your compiler not detecting this properly I'm happy t
 */
 #if defined(_WIN32)
     #if defined(_MSC_VER) || defined(__MINGW64__) || !defined(__STRICT_ANSI__)
-        #define DRFLAC_HAS_WFOPEN
+        #define DRVORBIS_HAS_WFOPEN
     #endif
 #endif
 
@@ -2268,7 +2279,7 @@ static int dr_vorbis_wfopen(FILE** ppFile, const wchar_t* pFilePath, const wchar
         return EINVAL;
     }
 
-#if defined(DRFLAC_HAS_WFOPEN)
+#if defined(DRVORBIS_HAS_WFOPEN)
     {
         /* Use _wfopen() on Windows. */
     #if defined(_MSC_VER) && _MSC_VER >= 1400
@@ -2508,6 +2519,7 @@ DR_VORBIS_API int dr_vorbis_seek_to_pcm_frame(dr_vorbis* pVorbis, dr_vorbis_uint
     */
     
     /* TODO: Implement me. */
+    (void)frameIndex;
     return 0;
 }
 

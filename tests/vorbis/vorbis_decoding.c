@@ -1,4 +1,4 @@
-#include "dr_vorbis_common.c"
+#include "vorbis_common.c"
 #include <stdio.h>
 
 int on_meta(void* pUserData, const dr_vorbis_metadata* pMetadata)

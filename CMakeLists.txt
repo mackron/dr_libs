@@ -8,6 +8,7 @@ option(DR_LIBS_FORCE_C89   "Force compilation as C89" OFF)
 option(DR_LIBS_NO_WAV      "Disable WAV"              OFF)
 option(DR_LIBS_NO_FLAC     "Disable FLAC"             OFF)
 option(DR_LIBS_NO_MP3      "Disable MP3"              OFF)
+option(DR_LIBS_NO_VORBIS   "Disable Vorbis"           OFF)
 
 # Construct compiler flags.
 set(COMPILE_OPTIONS)
@@ -175,6 +176,40 @@ if(NOT DR_LIBS_NO_MP3)
         add_executable(mp3_extract tests/mp3/mp3_extract.c)
         target_link_libraries(mp3_extract PRIVATE ${COMMON_LIBRARIES})
         add_test(NAME mp3_extract COMMAND mp3_extract ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests/test.mp3 -o ${CMAKE_CURRENT_BINARY_DIR}/test.mp3)
+    else()
+        # Not building tests.
+    endif()
+endif()
+
+
+# Vorbis
+if(NOT DR_LIBS_NO_VORBIS)
+    if(DR_LIBS_BUILD_TESTS)
+        enable_testing()
+
+        function(add_vorbis_test name source)
+            add_executable(${name} tests/vorbis/${source})
+            target_link_libraries(${name} PRIVATE ${COMMON_LIBRARIES} vorbis)
+            add_test(NAME ${name} COMMAND ${name})
+        endfunction()
+
+        # We test against libvorbis.
+        if(TARGET vorbis)
+            message(STATUS "libvorbis found. Building Vorbis tests.")
+            set(HAS_VORBIS TRUE)
+        else()
+            find_library(VORBIS vorbis)
+            if(VORBIS)
+                message(STATUS "libvorbis found. Building Vorbis tests.")
+                set(HAS_VORBIS TRUE)
+            else()
+                message(WARNING "libvorbis not found. Vorbis tests will not be built.")
+            endif()
+        endif()
+
+        if(HAS_FLAC)
+            add_vorbis_test(vorbis_decoding vorbis_decoding.c)
+        endif()
     else()
         # Not building tests.
     endif()
