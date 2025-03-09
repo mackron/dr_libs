@@ -224,13 +224,25 @@ typedef dr_vorbis_result (* dr_vorbis_read_data_proc)(void* pUserData, void* pOu
 typedef dr_vorbis_result (* dr_vorbis_seek_data_proc)(void* pUserData, dr_vorbis_int64 offset, dr_vorbis_seek_origin origin);
 
 
-typedef struct
+/************************************************************************************************************************************************************
+
+Memory Allocation API
+
+************************************************************************************************************************************************************/
+/* BEG dr_vorbis_allocation_callbacks.h */
+typedef struct dr_vorbis_allocation_callbacks
 {
     void* pUserData;
-    void* (* onMalloc)(size_t sz, void* pUserData);
+    void* (* onMalloc )(size_t sz, void* pUserData);
     void* (* onRealloc)(void* p, size_t sz, void* pUserData);
-    void  (* onFree)(void* p, void* pUserData);
+    void  (* onFree   )(void* p, void* pUserData);
 } dr_vorbis_allocation_callbacks;
+
+DR_VORBIS_API void* dr_vorbis_malloc(size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks);
+DR_VORBIS_API void* dr_vorbis_calloc(size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks);
+DR_VORBIS_API void* dr_vorbis_realloc(void* p, size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks);
+DR_VORBIS_API void  dr_vorbis_free(void* p, const dr_vorbis_allocation_callbacks* pAllocationCallbacks);
+/* END dr_vorbis_allocation_callbacks.h */
 
 
 
@@ -425,16 +437,6 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_read_pcm_frames_f32(dr_vorbis* pVorbis,
 DR_VORBIS_API dr_vorbis_result dr_vorbis_seek_to_pcm_frame(dr_vorbis* pVorbis, dr_vorbis_uint64 frameIndex);
 
 
-/************************************************************************************************************************************************************
-
-Miscellaneous APIs
-
-************************************************************************************************************************************************************/
-DR_VORBIS_API void* dr_vorbis_malloc(size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks);
-DR_VORBIS_API void* dr_vorbis_realloc(void* p, size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks);
-DR_VORBIS_API void dr_vorbis_free(void* p, const dr_vorbis_allocation_callbacks* pAllocationCallbacks);
-
-
 #ifdef __cplusplus
 }
 #endif
@@ -491,30 +493,39 @@ IMPLEMENTATION
 #endif
 
 
+#define DR_VORBIS_UNUSED(x)                     (void)x
+
 #ifndef DR_VORBIS_MALLOC
-#define DR_VORBIS_MALLOC(sz)                malloc((sz))
+#define DR_VORBIS_MALLOC(sz)                    malloc((sz))
 #endif
+
 #ifndef DR_VORBIS_REALLOC
-#define DR_VORBIS_REALLOC(p, sz)            realloc((p), (sz))
+#define DR_VORBIS_REALLOC(p, sz)                realloc((p), (sz))
 #endif
+
 #ifndef DR_VORBIS_FREE
-#define DR_VORBIS_FREE(p)                   free((p))
+#define DR_VORBIS_FREE(p)                       free((p))
 #endif
+
 #ifndef DR_VORBIS_ZERO_MEMORY
-#define DR_VORBIS_ZERO_MEMORY(p, sz)        memset((p), 0, (sz))
+#define DR_VORBIS_ZERO_MEMORY(p, sz)            memset((p), 0, (sz))
 #endif
+
 #ifndef DR_VORBIS_COPY_MEMORY
-#define DR_VORBIS_COPY_MEMORY(dst, src, sz) memcpy((dst), (src), (sz))
+#define DR_VORBIS_COPY_MEMORY(dst, src, sz)     memcpy((dst), (src), (sz))
 #endif
+
 #ifndef DR_VORBIS_MOVE_MEMORY
-#define DR_VORBIS_MOVE_MEMORY(dst, src, sz) memmove((dst), (src), (sz))
+#define DR_VORBIS_MOVE_MEMORY(dst, src, sz)     memmove((dst), (src), (sz))
 #endif
+
 #ifndef DR_VORBIS_ASSERT
-#define DR_VORBIS_ASSERT(condition)         assert(condition)
+#define DR_VORBIS_ASSERT(condition)             assert(condition)
 #endif
-#define DR_VORBIS_ZERO_OBJECT(p)            DR_VORBIS_ZERO_MEMORY((p), sizeof(*(p)))
-#define DR_VORBIS_COUNTOF(x)                (sizeof(x) / sizeof(x[0]))
-#define DR_VORBIS_OFFSET_PTR(p, offset)     (((dr_vorbis_uint8*)(p)) + (offset))
+
+#define DR_VORBIS_ZERO_OBJECT(p)                DR_VORBIS_ZERO_MEMORY((p), sizeof(*(p)))
+#define DR_VORBIS_COUNTOF(x)                    (sizeof(x) / sizeof(x[0]))
+#define DR_VORBIS_OFFSET_PTR(p, offset)         (((dr_vorbis_uint8*)(p)) + (offset))
 
 
 /* The size of the identification header is always 30 bytes. */
@@ -539,51 +550,109 @@ static dr_vorbis_uint32 dr_vorbis_bytes_to_uint32(const dr_vorbis_uint8* data)
 }
 
 
+
+/************************************************************************************************************************************************************
+
+Memory Allocation API
+
+************************************************************************************************************************************************************/
+/* BEG dr_vorbis_allocation_callbacks.c */
+/* Default allocation callbacks. */
 static void* dr_vorbis_malloc_default(size_t sz, void* pUserData)
 {
-    (void)pUserData;
+    DR_VORBIS_UNUSED(pUserData);
     return DR_VORBIS_MALLOC(sz);
 }
 
 static void* dr_vorbis_realloc_default(void* p, size_t sz, void* pUserData)
 {
-    (void)pUserData;
+    DR_VORBIS_UNUSED(pUserData);
     return DR_VORBIS_REALLOC(p, sz);
 }
 
 static void dr_vorbis_free_default(void* p, void* pUserData)
 {
-    (void)pUserData;
+    DR_VORBIS_UNUSED(pUserData);
     DR_VORBIS_FREE(p);
 }
 
-static dr_vorbis_allocation_callbacks dr_vorbis_allocation_callbacks_init_default()
+
+static dr_vorbis_allocation_callbacks dr_vorbis_allocation_callbacks_init_default(void)
 {
-    dr_vorbis_allocation_callbacks callbacks;
+    dr_vorbis_allocation_callbacks allocationCallbacks;
 
-    callbacks.pUserData = NULL;
-    callbacks.onMalloc  = dr_vorbis_malloc_default;
-    callbacks.onRealloc = dr_vorbis_realloc_default;
-    callbacks.onFree    = dr_vorbis_free_default;
+    allocationCallbacks.pUserData = NULL;
+    allocationCallbacks.onMalloc  = dr_vorbis_malloc_default;
+    allocationCallbacks.onRealloc = dr_vorbis_realloc_default;
+    allocationCallbacks.onFree    = dr_vorbis_free_default;
 
-    return callbacks;
+    return allocationCallbacks;
 }
 
-static dr_vorbis_allocation_callbacks dr_vorbis_allocation_callbacks_init_copy_or_default(const dr_vorbis_allocation_callbacks* pSrc)
+static dr_vorbis_allocation_callbacks dr_vorbis_allocation_callbacks_init_copy(const dr_vorbis_allocation_callbacks* pAllocationCallbacks)
 {
-    if (pSrc == NULL) {
-        return dr_vorbis_allocation_callbacks_init_default();
+    if (pAllocationCallbacks != NULL) {
+        return *pAllocationCallbacks;
     } else {
-        dr_vorbis_allocation_callbacks callbacks;
-
-        callbacks.pUserData = pSrc->pUserData;
-        callbacks.onMalloc  = pSrc->onMalloc;
-        callbacks.onRealloc = pSrc->onRealloc;
-        callbacks.onFree    = pSrc->onFree;
-
-        return callbacks;
+        return dr_vorbis_allocation_callbacks_init_default();
     }
 }
+
+
+DR_VORBIS_API void* dr_vorbis_malloc(size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks)
+{
+    if (pAllocationCallbacks != NULL) {
+        if (pAllocationCallbacks->onMalloc != NULL) {
+            return pAllocationCallbacks->onMalloc(sz, pAllocationCallbacks->pUserData);
+        } else {
+            return NULL;    /* Do not fall back to the default implementation. */
+        }
+    } else {
+        return dr_vorbis_malloc_default(sz, NULL);
+    }
+}
+
+DR_VORBIS_API void* dr_vorbis_calloc(size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks)
+{
+    void* p = dr_vorbis_malloc(sz, pAllocationCallbacks);
+    if (p != NULL) {
+        DR_VORBIS_ZERO_MEMORY(p, sz);
+    }
+
+    return p;
+}
+
+DR_VORBIS_API void* dr_vorbis_realloc(void* p, size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks)
+{
+    if (pAllocationCallbacks != NULL) {
+        if (pAllocationCallbacks->onRealloc != NULL) {
+            return pAllocationCallbacks->onRealloc(p, sz, pAllocationCallbacks->pUserData);
+        } else {
+            return NULL;    /* Do not fall back to the default implementation. */
+        }
+    } else {
+        return dr_vorbis_realloc_default(p, sz, NULL);
+    }
+}
+
+DR_VORBIS_API void dr_vorbis_free(void* p, const dr_vorbis_allocation_callbacks* pAllocationCallbacks)
+{
+    if (p == NULL) {
+        return;
+    }
+
+    if (pAllocationCallbacks != NULL) {
+        if (pAllocationCallbacks->onFree != NULL) {
+            pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
+        } else {
+            return; /* Do no fall back to the default implementation. */
+        }
+    } else {
+        dr_vorbis_free_default(p, NULL);
+    }
+}
+/* END dr_vorbis_allocation_callbacks.c */
+
 
 
 /************************************************************************************************************************************************************
@@ -1554,7 +1623,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_decoder_init(void* pReadUserData, dr_vo
 
     pStream->pMetaUserData       = pMetaUserData;
     pStream->onMeta              = onMeta;
-    pStream->allocationCallbacks = dr_vorbis_allocation_callbacks_init_copy_or_default(pAllocationCallbacks);
+    pStream->allocationCallbacks = dr_vorbis_allocation_callbacks_init_copy(pAllocationCallbacks);
 
     /* Headers are loaded first, and always at initialization time. */
     result = dr_vorbis_decoder_load_headers(pStream);
@@ -2970,55 +3039,6 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_seek_to_pcm_frame(dr_vorbis* pVorbis, d
     (void)frameIndex;
     return DR_VORBIS_SUCCESS;
 }
-
-
-
-/************************************************************************************************************************************************************
-
-Miscellaneous APIs
-
-************************************************************************************************************************************************************/
-DR_VORBIS_API void* dr_vorbis_malloc(size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks)
-{
-    if (pAllocationCallbacks == NULL) {
-        return DR_VORBIS_MALLOC(sz);
-    }
-
-    if (pAllocationCallbacks->onMalloc == NULL) {
-        return NULL;    /* No malloc() defined. Do not fall back to default implementation - let the program know about the error. */
-    }
-
-    return pAllocationCallbacks->onMalloc(sz, pAllocationCallbacks->pUserData);
-}
-
-DR_VORBIS_API void* dr_vorbis_realloc(void* p, size_t sz, const dr_vorbis_allocation_callbacks* pAllocationCallbacks)
-{
-    if (pAllocationCallbacks == NULL) {
-        return DR_VORBIS_REALLOC(p, sz);
-    }
-
-    if (pAllocationCallbacks->onRealloc == NULL) {
-        return NULL;    /* No realloc() defined. Do not fall back to default implementation - let the program know about the error. */
-    }
-
-    return pAllocationCallbacks->onRealloc(p, sz, pAllocationCallbacks->pUserData);
-}
-
-DR_VORBIS_API void dr_vorbis_free(void* p, const dr_vorbis_allocation_callbacks* pAllocationCallbacks)
-{
-    if (pAllocationCallbacks == NULL) {
-        DR_VORBIS_FREE(p);
-        return;
-    }
-
-    if (pAllocationCallbacks->onFree == NULL) {
-        return;         /* No free() defined. Do not fall back to default implementation. */
-    }
-
-    pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
-}
-
-
 #endif  /* dr_vorbis_c */
 #endif  /* DR_VORBIS_IMPLEMENTATION */
 

@@ -1,0 +1,8 @@
+// Allocation Callbacks
+<../dr_vorbis.h>|"/\* BEG dr_vorbis_allocation_callbacks.h \*/\R":"\R/\* END dr_vorbis_allocation_callbacks.h \*/"| = {<../../fs/fs.h>|"/\* BEG fs_allocation_callbacks.h \*/\R":"\R/\* END fs_allocation_callbacks.h \*/"|}
+    [fs_] = "dr_vorbis_"
+    [FS_] = "DR_VORBIS_"
+
+<../dr_vorbis.h>|"/\* BEG dr_vorbis_allocation_callbacks.c \*/\R":"\R/\* END dr_vorbis_allocation_callbacks.c \*/"| = {<../../fs/fs.c>|"/\* BEG fs_allocation_callbacks.c \*/\R":"\R/\* END fs_allocation_callbacks.c \*/"|}
+    [fs_] = "dr_vorbis_"
+    [FS_] = "DR_VORBIS_"
