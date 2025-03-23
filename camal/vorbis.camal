@@ -1,42 +1,42 @@
-// Allocation Callbacks
-<../dr_vorbis.h>|"/\* BEG dr_vorbis_allocation_callbacks.h \*/\R":"\R/\* END dr_vorbis_allocation_callbacks.h \*/"| = {<../../fs/fs.h>|"/\* BEG fs_allocation_callbacks.h \*/\R":"\R/\* END fs_allocation_callbacks.h \*/"|}
-    [fs_] = "dr_vorbis_"
-    [FS_] = "DR_VORBIS_"
+dr_vorbis_h := <../dr_vorbis.h>;
+fs_h        :: <../../fs/fs.h>;
+fs_c        :: <../../fs/fs.c>;
 
-<../dr_vorbis.h>|"/\* BEG dr_vorbis_allocation_callbacks.c \*/\R":"\R/\* END dr_vorbis_allocation_callbacks.c \*/"| = {<../../fs/fs.c>|"/\* BEG fs_allocation_callbacks.c \*/\R":"\R/\* END fs_allocation_callbacks.c \*/"|}
-    [fs_] = "dr_vorbis_"
-    [FS_] = "DR_VORBIS_"
+replace_namespace :: function(src:string) string
+{
+    return @(src)
+        ["fs_"] <= "dr_vorbis_"
+        ["FS_"] <= "DR_VORBIS_";
+}
+
+// Allocation Callbacks.
+dr_vorbis_h("/\* BEG dr_vorbis_allocation_callbacks.h \*/\R" : "\R/\* END dr_vorbis_allocation_callbacks.h \*/") =
+    replace_namespace(@(fs_h("/\* BEG fs_allocation_callbacks.h \*/\R" : "\R/\* END fs_allocation_callbacks.h \*/")));
+
+dr_vorbis_h("/\* BEG dr_vorbis_allocation_callbacks.c \*/\R" : "\R/\* END dr_vorbis_allocation_callbacks.c \*/") =
+    replace_namespace(@(fs_c("/\* BEG fs_allocation_callbacks.c \*/\R" : "\R/\* END fs_allocation_callbacks.c \*/")));
 
 
 // Stream
-<../dr_vorbis.h>|"/\* BEG dr_vorbis_stream.h \*/\R":"\R/\* END dr_vorbis_stream.h \*/"| = {<../../fs/fs.h>|"/\* BEG fs_stream.h \*/\R":"\R/\* END fs_stream.h \*/"|}
-    //|"/\* BEG fs_stream_vtable_duplicate \*/\R":"/\* END fs_stream_vtable_duplicate \*/"| = ""    // <-- TODO for camal: Need to support range replacements for captured stuff. Program is failing, but no compilation error.
-    [fs_] = "dr_vorbis_"
-    [FS_] = "DR_VORBIS_"
+stream_h := replace_namespace(@(fs_h("/\* BEG fs_stream.h \*/\R":"\R/\* END fs_stream.h \*/")));
+stream_c := replace_namespace(@(fs_c("/\* BEG fs_stream.c \*/\R":"\R/\* END fs_stream.c \*/")));
 
+// Clear out parts of the stream we don't use.
+stream_h["(?m)^\s*/\* BEG dr_vorbis_stream_vtable_duplicate \*/\R" : "/\* END dr_vorbis_stream_vtable_duplicate \*/\R"] <= "";
+stream_h["/\* BEG dr_vorbis_stream_writef.h \*/\R"                 : "/\* END dr_vorbis_stream_writef.h \*/\R"        ] <= "";
+stream_h["/\* BEG dr_vorbis_stream_duplicate.h \*/\R"              : "/\* END dr_vorbis_stream_duplicate.h \*/\R"     ] <= "";
+stream_h["/\* BEG dr_vorbis_stream_helpers.h \*/\R"                : "/\* END dr_vorbis_stream_helpers.h \*/$"        ] <= "";
 
-// TODO: camal needs to be updated so we can do all of these replacements as part of the captured source above.
-<../dr_vorbis.h>|"/\* BEG dr_vorbis_stream_vtable_duplicate \*/\R" : "/\* END dr_vorbis_stream_vtable_duplicate \*/"| = ""
-<../dr_vorbis.h>|"/\* BEG dr_vorbis_stream_writef.h \*/\R"         : "/\* END dr_vorbis_stream_writef.h \*/"        | = ""
-<../dr_vorbis.h>|"/\* BEG dr_vorbis_stream_duplicate.h \*/\R"      : "/\* END dr_vorbis_stream_duplicate.h \*/"     | = ""
-<../dr_vorbis.h>|"/\* BEG dr_vorbis_stream_helpers.h \*/\R"        : "/\* END dr_vorbis_stream_helpers.h \*/"       | = ""
+// Some alignment stuff.
+stream_h
+    ["dr_vorbis_result \(\* read                "] <= "dr_vorbis_result (* read "
+    ["dr_vorbis_result \(\* write               "] <= "dr_vorbis_result (* write"
+    ["dr_vorbis_result \(\* seek                "] <= "dr_vorbis_result (* seek "
+    ["dr_vorbis_result \(\* tell                "] <= "dr_vorbis_result (* tell ";
 
-<../dr_vorbis.h>
-    [/\* BEG dr_vorbis_stream_vtable_duplicate \*/\R] = ""
-    [(?m)^\s*/\* END dr_vorbis_stream_vtable_duplicate \*/\R] = ""
+// A hack to clean up some stray new-line characters.
+stream_h["\r?\n\r?\n\r?\n\r?\n\z"] <= "";
 
-    // Some alignment stuff.
-    [dr_vorbis_result \(\* read                ] = "dr_vorbis_result (* read "
-    [dr_vorbis_result \(\* write               ] = "dr_vorbis_result (* write"
-    [dr_vorbis_result \(\* seek                ] = "dr_vorbis_result (* seek "
-    [dr_vorbis_result \(\* tell                ] = "dr_vorbis_result (* tell "
+// Apply the changes.
+dr_vorbis_h("/\* BEG dr_vorbis_stream.h \*/\R":"\R/\* END dr_vorbis_stream.h \*/") = stream_h;
 
-    [/\* BEG dr_vorbis_stream_writef.h \*/\R] = ""
-    [/\* END dr_vorbis_stream_writef.h \*/\R] = ""
-    [/\* BEG dr_vorbis_stream_duplicate.h \*/\R] = ""
-    [/\* END dr_vorbis_stream_duplicate.h \*/\R] = ""
-    [/\* BEG dr_vorbis_stream_helpers.h \*/\R] = ""
-    [/\* END dr_vorbis_stream_helpers.h \*/\R] = ""
-
-    // A hack to clean up some stray new-line characters.
-    [\r?\n\r?\n\r?\n/\* END dr_vorbis_stream.h \*/] = "/* END dr_vorbis_stream.h */"
