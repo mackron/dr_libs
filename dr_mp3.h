@@ -2883,6 +2883,7 @@ static drmp3_uint32 drmp3_decode_next_frame_ex__memory(drmp3* pMP3, drmp3d_sampl
 
     /* Consume the data. */
     pMP3->memory.currentReadPos += (size_t)info.frame_bytes;
+    pMP3->streamCursor += (size_t)info.frame_bytes;
 
     return pcmFramesRead;
 }
