@@ -4478,7 +4478,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_d
 
     /* "RIFF" chunk. */
     if (pFormat->container == drwav_container_riff) {
-        drwav_uint32 chunkSizeRIFF = 28 + (drwav_uint32)initialDataChunkSize;   /* +28 = "WAVE" + [sizeof "fmt " chunk] */
+        drwav_uint32 chunkSizeRIFF = 36 + (drwav_uint32)initialDataChunkSize;   /* +36 = "WAVE" + [sizeof "fmt " chunk] + [data chunk header] */
         runningPos += drwav__write(pWav, "RIFF", 4);
         runningPos += drwav__write_u32ne_to_le(pWav, chunkSizeRIFF);
         runningPos += drwav__write(pWav, "WAVE", 4);
