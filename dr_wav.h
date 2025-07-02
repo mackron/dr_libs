@@ -514,6 +514,11 @@ typedef enum
     drwav_metadata_type_list_info_genre             = 1 << 15,
     drwav_metadata_type_list_info_album             = 1 << 16,
     drwav_metadata_type_list_info_tracknumber       = 1 << 17,
+    drwav_metadata_type_list_info_location          = 1 << 18,
+    drwav_metadata_type_list_info_organization      = 1 << 19,
+    drwav_metadata_type_list_info_keywords          = 1 << 20,
+    drwav_metadata_type_list_info_medium            = 1 << 21,
+    drwav_metadata_type_list_info_description       = 1 << 22,
 
     /* Other type constants for convenience. */
     drwav_metadata_type_list_all_info_strings       = drwav_metadata_type_list_info_software
@@ -524,7 +529,12 @@ typedef enum
                                                     | drwav_metadata_type_list_info_date
                                                     | drwav_metadata_type_list_info_genre
                                                     | drwav_metadata_type_list_info_album
-                                                    | drwav_metadata_type_list_info_tracknumber,
+                                                    | drwav_metadata_type_list_info_tracknumber
+                                                    | drwav_metadata_type_list_info_location
+                                                    | drwav_metadata_type_list_info_organization
+                                                    | drwav_metadata_type_list_info_keywords
+                                                    | drwav_metadata_type_list_info_medium
+                                                    | drwav_metadata_type_list_info_description,
 
     drwav_metadata_type_list_all_adtl               = drwav_metadata_type_list_label
                                                     | drwav_metadata_type_list_note
@@ -2811,7 +2821,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                     return bytesRead;
                 }
                 allocSizeNeeded += drwav__strlen(buffer) + 1;
-                allocSizeNeeded += (size_t)pChunkHeader->sizeInBytes - DRWAV_BEXT_BYTES; /* Coding history. */
+                allocSizeNeeded += (size_t)pChunkHeader->sizeInBytes - DRWAV_BEXT_BYTES + 1; /* Coding history. */
 
                 drwav__metadata_request_extra_memory_for_stage_2(pParser, allocSizeNeeded, 1);
 
@@ -2916,6 +2926,16 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                 subchunkBytesRead = drwav__metadata_process_info_text_chunk(pParser, subchunkDataSize,  drwav_metadata_type_list_info_album);
             } else if (drwav__chunk_matches(allowedMetadataTypes, subchunkId, drwav_metadata_type_list_info_tracknumber, "ITRK")) {
                 subchunkBytesRead = drwav__metadata_process_info_text_chunk(pParser, subchunkDataSize,  drwav_metadata_type_list_info_tracknumber);
+            } else if (drwav__chunk_matches(allowedMetadataTypes, subchunkId, drwav_metadata_type_list_info_location, "IARL")) {
+                subchunkBytesRead = drwav__metadata_process_info_text_chunk(pParser, subchunkDataSize,  drwav_metadata_type_list_info_location);
+            } else if (drwav__chunk_matches(allowedMetadataTypes, subchunkId, drwav_metadata_type_list_info_organization, "ICMS")) {
+                subchunkBytesRead = drwav__metadata_process_info_text_chunk(pParser, subchunkDataSize,  drwav_metadata_type_list_info_organization);
+            } else if (drwav__chunk_matches(allowedMetadataTypes, subchunkId, drwav_metadata_type_list_info_keywords, "IKEY")) {
+                subchunkBytesRead = drwav__metadata_process_info_text_chunk(pParser, subchunkDataSize,  drwav_metadata_type_list_info_keywords);
+            } else if (drwav__chunk_matches(allowedMetadataTypes, subchunkId, drwav_metadata_type_list_info_medium, "IMED")) {
+                subchunkBytesRead = drwav__metadata_process_info_text_chunk(pParser, subchunkDataSize,  drwav_metadata_type_list_info_medium);
+            } else if (drwav__chunk_matches(allowedMetadataTypes, subchunkId, drwav_metadata_type_list_info_description, "ISBJ")) {
+                subchunkBytesRead = drwav__metadata_process_info_text_chunk(pParser, subchunkDataSize,  drwav_metadata_type_list_info_description);
             } else if ((allowedMetadataTypes & drwav_metadata_type_unknown) != 0) {
                 subchunkBytesRead = drwav__metadata_process_unknown_chunk(pParser, subchunkId, subchunkDataSize, listType);
             }
@@ -4186,15 +4206,20 @@ DRWAV_PRIVATE size_t drwav__write_or_count_metadata(drwav* pWav, drwav_metadata*
                 const char* pID = NULL;
 
                 switch (pMetadata->type) {
-                    case drwav_metadata_type_list_info_software:    pID = "ISFT"; break;
-                    case drwav_metadata_type_list_info_copyright:   pID = "ICOP"; break;
-                    case drwav_metadata_type_list_info_title:       pID = "INAM"; break;
-                    case drwav_metadata_type_list_info_artist:      pID = "IART"; break;
-                    case drwav_metadata_type_list_info_comment:     pID = "ICMT"; break;
-                    case drwav_metadata_type_list_info_date:        pID = "ICRD"; break;
-                    case drwav_metadata_type_list_info_genre:       pID = "IGNR"; break;
-                    case drwav_metadata_type_list_info_album:       pID = "IPRD"; break;
-                    case drwav_metadata_type_list_info_tracknumber: pID = "ITRK"; break;
+                    case drwav_metadata_type_list_info_software:     pID = "ISFT"; break;
+                    case drwav_metadata_type_list_info_copyright:    pID = "ICOP"; break;
+                    case drwav_metadata_type_list_info_title:        pID = "INAM"; break;
+                    case drwav_metadata_type_list_info_artist:       pID = "IART"; break;
+                    case drwav_metadata_type_list_info_comment:      pID = "ICMT"; break;
+                    case drwav_metadata_type_list_info_date:         pID = "ICRD"; break;
+                    case drwav_metadata_type_list_info_genre:        pID = "IGNR"; break;
+                    case drwav_metadata_type_list_info_album:        pID = "IPRD"; break;
+                    case drwav_metadata_type_list_info_tracknumber:  pID = "ITRK"; break;
+                    case drwav_metadata_type_list_info_location:     pID = "IARL"; break;
+                    case drwav_metadata_type_list_info_organization: pID = "ICMS"; break;
+                    case drwav_metadata_type_list_info_keywords:     pID = "IKEY"; break;
+                    case drwav_metadata_type_list_info_medium:       pID = "IMED"; break;
+                    case drwav_metadata_type_list_info_description:  pID = "ISBJ"; break;
                     default: break;
                 }
 
@@ -4478,7 +4503,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_d
 
     /* "RIFF" chunk. */
     if (pFormat->container == drwav_container_riff) {
-        drwav_uint32 chunkSizeRIFF = 28 + (drwav_uint32)initialDataChunkSize;   /* +28 = "WAVE" + [sizeof "fmt " chunk] */
+        drwav_uint32 chunkSizeRIFF = 36 + (drwav_uint32)initialDataChunkSize;   /* +36 = "WAVE" + [sizeof "fmt " chunk] + [data chunk header] */
         runningPos += drwav__write(pWav, "RIFF", 4);
         runningPos += drwav__write_u32ne_to_le(pWav, chunkSizeRIFF);
         runningPos += drwav__write(pWav, "WAVE", 4);
