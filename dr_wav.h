@@ -305,8 +305,9 @@ typedef struct
 
 typedef enum
 {
-    drwav_seek_origin_start,
-    drwav_seek_origin_current
+    DRWAV_SEEK_SET,
+    DRWAV_SEEK_CUR,
+    DRWAV_SEEK_END
 } drwav_seek_origin;
 
 typedef enum
@@ -415,8 +416,8 @@ origin    [in] The origin of the seek - the current position or the start of the
 
 Returns whether or not the seek was successful.
 
-Whether or not it is relative to the beginning or current position is determined by the "origin" parameter which will be either drwav_seek_origin_start or
-drwav_seek_origin_current.
+Whether or not it is relative to the beginning or current position is determined by the "origin" parameter which will be either DRWAV_SEEK_SET or
+DRWAV_SEEK_CUR.
 */
 typedef drwav_bool32 (* drwav_seek_proc)(void* pUserData, int offset, drwav_seek_origin origin);
 
@@ -1985,12 +1986,12 @@ DRWAV_PRIVATE drwav_bool32 drwav__seek_forward(drwav_seek_proc onSeek, drwav_uin
     drwav_uint64 bytesRemainingToSeek = offset;
     while (bytesRemainingToSeek > 0) {
         if (bytesRemainingToSeek > 0x7FFFFFFF) {
-            if (!onSeek(pUserData, 0x7FFFFFFF, drwav_seek_origin_current)) {
+            if (!onSeek(pUserData, 0x7FFFFFFF, DRWAV_SEEK_CUR)) {
                 return DRWAV_FALSE;
             }
             bytesRemainingToSeek -= 0x7FFFFFFF;
         } else {
-            if (!onSeek(pUserData, (int)bytesRemainingToSeek, drwav_seek_origin_current)) {
+            if (!onSeek(pUserData, (int)bytesRemainingToSeek, DRWAV_SEEK_CUR)) {
                 return DRWAV_FALSE;
             }
             bytesRemainingToSeek = 0;
@@ -2003,21 +2004,21 @@ DRWAV_PRIVATE drwav_bool32 drwav__seek_forward(drwav_seek_proc onSeek, drwav_uin
 DRWAV_PRIVATE drwav_bool32 drwav__seek_from_start(drwav_seek_proc onSeek, drwav_uint64 offset, void* pUserData)
 {
     if (offset <= 0x7FFFFFFF) {
-        return onSeek(pUserData, (int)offset, drwav_seek_origin_start);
+        return onSeek(pUserData, (int)offset, DRWAV_SEEK_SET);
     }
 
     /* Larger than 32-bit seek. */
-    if (!onSeek(pUserData, 0x7FFFFFFF, drwav_seek_origin_start)) {
+    if (!onSeek(pUserData, 0x7FFFFFFF, DRWAV_SEEK_SET)) {
         return DRWAV_FALSE;
     }
     offset -= 0x7FFFFFFF;
 
     for (;;) {
         if (offset <= 0x7FFFFFFF) {
-            return onSeek(pUserData, (int)offset, drwav_seek_origin_current);
+            return onSeek(pUserData, (int)offset, DRWAV_SEEK_CUR);
         }
 
-        if (!onSeek(pUserData, 0x7FFFFFFF, drwav_seek_origin_current)) {
+        if (!onSeek(pUserData, 0x7FFFFFFF, DRWAV_SEEK_CUR)) {
             return DRWAV_FALSE;
         }
         offset -= 0x7FFFFFFF;
@@ -2051,7 +2052,7 @@ DRWAV_PRIVATE drwav_bool32 drwav__on_seek(drwav_seek_proc onSeek, void* pUserDat
         return DRWAV_FALSE;
     }
 
-    if (origin == drwav_seek_origin_start) {
+    if (origin == DRWAV_SEEK_SET) {
         *pCursor = offset;
     } else {
         *pCursor += offset;
@@ -2721,7 +2722,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                 drwav_uint8 buffer[4];
                 size_t bytesJustRead;
 
-                if (!pParser->onSeek(pParser->pReadSeekUserData, 28, drwav_seek_origin_current)) {
+                if (!pParser->onSeek(pParser->pReadSeekUserData, 28, DRWAV_SEEK_CUR)) {
                     return bytesRead;
                 }
                 bytesRead += 28;
@@ -2959,14 +2960,14 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
             if (subchunkBytesRead < subchunkDataSize) {
                 drwav_uint64 bytesToSeek = subchunkDataSize - subchunkBytesRead;
 
-                if (!pParser->onSeek(pParser->pReadSeekUserData, (int)bytesToSeek, drwav_seek_origin_current)) {
+                if (!pParser->onSeek(pParser->pReadSeekUserData, (int)bytesToSeek, DRWAV_SEEK_CUR)) {
                     break;
                 }
                 bytesRead += bytesToSeek;
             }
 
             if ((subchunkDataSize % 2) == 1) {
-                if (!pParser->onSeek(pParser->pReadSeekUserData, 1, drwav_seek_origin_current)) {
+                if (!pParser->onSeek(pParser->pReadSeekUserData, 1, DRWAV_SEEK_CUR)) {
                     break;
                 }
                 bytesRead += 1;
@@ -3345,7 +3346,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                         fmt.channelMask        = drwav_bytes_to_u32_ex(fmtext + 2, pWav->container);
                         drwav_bytes_to_guid(fmtext + 6, fmt.subFormat);
                     } else {
-                        if (pWav->onSeek(pWav->pUserData, fmt.extendedSize, drwav_seek_origin_current) == DRWAV_FALSE) {
+                        if (pWav->onSeek(pWav->pUserData, fmt.extendedSize, DRWAV_SEEK_CUR) == DRWAV_FALSE) {
                             return DRWAV_FALSE;
                         }
                     }
@@ -3355,7 +3356,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                 }
 
                 /* Seek past any leftover bytes. For w64 the leftover will be defined based on the chunk size. */
-                if (pWav->onSeek(pWav->pUserData, (int)(header.sizeInBytes - bytesReadSoFar), drwav_seek_origin_current) == DRWAV_FALSE) {
+                if (pWav->onSeek(pWav->pUserData, (int)(header.sizeInBytes - bytesReadSoFar), DRWAV_SEEK_CUR) == DRWAV_FALSE) {
                     return DRWAV_FALSE;
                 }
                 cursor += (header.sizeInBytes - bytesReadSoFar);
@@ -5244,7 +5245,14 @@ DRWAV_PRIVATE size_t drwav__on_write_stdio(void* pUserData, const void* pData, s
 
 DRWAV_PRIVATE drwav_bool32 drwav__on_seek_stdio(void* pUserData, int offset, drwav_seek_origin origin)
 {
-    return fseek((FILE*)pUserData, offset, (origin == drwav_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
+    int whence = SEEK_SET;
+    if (origin == DRWAV_SEEK_CUR) {
+        whence = SEEK_CUR;
+    } else if (origin == DRWAV_SEEK_END) {
+        whence = SEEK_END;
+    }
+
+    return fseek((FILE*)pUserData, offset, whence) == 0;
 }
 
 DRWAV_PRIVATE drwav_bool32 drwav__on_tell_stdio(void* pUserData, drwav_int64* pCursor)
@@ -5459,28 +5467,33 @@ DRWAV_PRIVATE size_t drwav__on_read_memory(void* pUserData, void* pBufferOut, si
 DRWAV_PRIVATE drwav_bool32 drwav__on_seek_memory(void* pUserData, int offset, drwav_seek_origin origin)
 {
     drwav* pWav = (drwav*)pUserData;
+    drwav_int64 newCursor;
+
     DRWAV_ASSERT(pWav != NULL);
 
-    if (origin == drwav_seek_origin_current) {
-        if (offset > 0) {
-            if (pWav->memoryStream.currentReadPos + offset > pWav->memoryStream.dataSize) {
-                return DRWAV_FALSE; /* Trying to seek too far forward. */
-            }
-        } else {
-            if (pWav->memoryStream.currentReadPos < (size_t)-offset) {
-                return DRWAV_FALSE; /* Trying to seek too far backwards. */
-            }
-        }
+    newCursor = pWav->memoryStream.currentReadPos;
 
-        /* This will never underflow thanks to the clamps above. */
-        pWav->memoryStream.currentReadPos += offset;
+    if (origin == DRWAV_SEEK_SET) {
+        newCursor = 0;
+    } else if (origin == DRWAV_SEEK_CUR) {
+        newCursor = (drwav_int64)pWav->memoryStream.currentReadPos;
+    } else if (origin == DRWAV_SEEK_END) {
+        newCursor = (drwav_int64)pWav->memoryStream.dataSize;
     } else {
-        if ((drwav_uint32)offset <= pWav->memoryStream.dataSize) {
-            pWav->memoryStream.currentReadPos = offset;
-        } else {
-            return DRWAV_FALSE; /* Trying to seek too far forward. */
-        }
+        DRWAV_ASSERT(!"Invalid seek origin");
+        return DRWAV_INVALID_ARGS;
     }
+
+    newCursor += offset;
+
+    if (newCursor < 0) {
+        return DRWAV_FALSE;  /* Trying to seek prior to the start of the buffer. */
+    }
+    if ((size_t)newCursor > pWav->memoryStream.dataSize) {
+        return DRWAV_FALSE;  /* Trying to seek beyond the end of the buffer. */
+    }
+
+    pWav->memoryStream.currentReadPos = (size_t)newCursor;
 
     return DRWAV_TRUE;
 }
@@ -5528,28 +5541,33 @@ DRWAV_PRIVATE size_t drwav__on_write_memory(void* pUserData, const void* pDataIn
 DRWAV_PRIVATE drwav_bool32 drwav__on_seek_memory_write(void* pUserData, int offset, drwav_seek_origin origin)
 {
     drwav* pWav = (drwav*)pUserData;
+    drwav_int64 newCursor;
+
     DRWAV_ASSERT(pWav != NULL);
 
-    if (origin == drwav_seek_origin_current) {
-        if (offset > 0) {
-            if (pWav->memoryStreamWrite.currentWritePos + offset > pWav->memoryStreamWrite.dataSize) {
-                offset = (int)(pWav->memoryStreamWrite.dataSize - pWav->memoryStreamWrite.currentWritePos);  /* Trying to seek too far forward. */
-            }
-        } else {
-            if (pWav->memoryStreamWrite.currentWritePos < (size_t)-offset) {
-                offset = -(int)pWav->memoryStreamWrite.currentWritePos;  /* Trying to seek too far backwards. */
-            }
-        }
+    newCursor = pWav->memoryStreamWrite.currentWritePos;
 
-        /* This will never underflow thanks to the clamps above. */
-        pWav->memoryStreamWrite.currentWritePos += offset;
+    if (origin == DRWAV_SEEK_SET) {
+        newCursor = 0;
+    } else if (origin == DRWAV_SEEK_CUR) {
+        newCursor = (drwav_int64)pWav->memoryStreamWrite.currentWritePos;
+    } else if (origin == DRWAV_SEEK_END) {
+        newCursor = (drwav_int64)pWav->memoryStreamWrite.dataSize;
     } else {
-        if ((drwav_uint32)offset <= pWav->memoryStreamWrite.dataSize) {
-            pWav->memoryStreamWrite.currentWritePos = offset;
-        } else {
-            pWav->memoryStreamWrite.currentWritePos = pWav->memoryStreamWrite.dataSize;  /* Trying to seek too far forward. */
-        }
+        DRWAV_ASSERT(!"Invalid seek origin");
+        return DRWAV_INVALID_ARGS;
     }
+
+    newCursor += offset;
+
+    if (newCursor < 0) {
+        return DRWAV_FALSE;  /* Trying to seek prior to the start of the buffer. */
+    }
+    if ((size_t)newCursor > pWav->memoryStreamWrite.dataSize) {
+        return DRWAV_FALSE;  /* Trying to seek beyond the end of the buffer. */
+    }
+
+    pWav->memoryStreamWrite.currentWritePos = (size_t)newCursor;
 
     return DRWAV_TRUE;
 }
@@ -5683,25 +5701,25 @@ DRWAV_API drwav_result drwav_uninit(drwav* pWav)
         if (pWav->onSeek && !pWav->isSequentialWrite) {
             if (pWav->container == drwav_container_riff) {
                 /* The "RIFF" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, 4, drwav_seek_origin_start)) {
+                if (pWav->onSeek(pWav->pUserData, 4, DRWAV_SEEK_SET)) {
                     drwav_uint32 riffChunkSize = drwav__riff_chunk_size_riff(pWav->dataChunkDataSize, pWav->pMetadata, pWav->metadataCount);
                     drwav__write_u32ne_to_le(pWav, riffChunkSize);
                 }
 
                 /* The "data" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 4, drwav_seek_origin_start)) {
+                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 4, DRWAV_SEEK_SET)) {
                     drwav_uint32 dataChunkSize = drwav__data_chunk_size_riff(pWav->dataChunkDataSize);
                     drwav__write_u32ne_to_le(pWav, dataChunkSize);
                 }
             } else if (pWav->container == drwav_container_w64) {
                 /* The "RIFF" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, 16, drwav_seek_origin_start)) {
+                if (pWav->onSeek(pWav->pUserData, 16, DRWAV_SEEK_SET)) {
                     drwav_uint64 riffChunkSize = drwav__riff_chunk_size_w64(pWav->dataChunkDataSize);
                     drwav__write_u64ne_to_le(pWav, riffChunkSize);
                 }
 
                 /* The "data" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 8, drwav_seek_origin_start)) {
+                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 8, DRWAV_SEEK_SET)) {
                     drwav_uint64 dataChunkSize = drwav__data_chunk_size_w64(pWav->dataChunkDataSize);
                     drwav__write_u64ne_to_le(pWav, dataChunkSize);
                 }
@@ -5710,13 +5728,13 @@ DRWAV_API drwav_result drwav_uninit(drwav* pWav)
                 int ds64BodyPos = 12 + 8;
 
                 /* The "RIFF" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, ds64BodyPos + 0, drwav_seek_origin_start)) {
+                if (pWav->onSeek(pWav->pUserData, ds64BodyPos + 0, DRWAV_SEEK_SET)) {
                     drwav_uint64 riffChunkSize = drwav__riff_chunk_size_rf64(pWav->dataChunkDataSize, pWav->pMetadata, pWav->metadataCount);
                     drwav__write_u64ne_to_le(pWav, riffChunkSize);
                 }
 
                 /* The "data" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, ds64BodyPos + 8, drwav_seek_origin_start)) {
+                if (pWav->onSeek(pWav->pUserData, ds64BodyPos + 8, DRWAV_SEEK_SET)) {
                     drwav_uint64 dataChunkSize = drwav__data_chunk_size_rf64(pWav->dataChunkDataSize);
                     drwav__write_u64ne_to_le(pWav, dataChunkSize);
                 }
@@ -5781,7 +5799,7 @@ DRWAV_API size_t drwav_read_raw(drwav* pWav, size_t bytesToRead, void* pBufferOu
                 bytesToSeek = 0x7FFFFFFF;
             }
 
-            if (pWav->onSeek(pWav->pUserData, (int)bytesToSeek, drwav_seek_origin_current) == DRWAV_FALSE) {
+            if (pWav->onSeek(pWav->pUserData, (int)bytesToSeek, DRWAV_SEEK_CUR) == DRWAV_FALSE) {
                 break;
             }
 
@@ -5928,7 +5946,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_seek_to_first_pcm_frame(drwav* pWav)
         return DRWAV_FALSE; /* No seeking in write mode. */
     }
 
-    if (!pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos, drwav_seek_origin_start)) {
+    if (!pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos, DRWAV_SEEK_SET)) {
         return DRWAV_FALSE;
     }
 
@@ -6046,7 +6064,7 @@ DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetF
 
         while (offset > 0) {
             int offset32 = ((offset > INT_MAX) ? INT_MAX : (int)offset);
-            if (!pWav->onSeek(pWav->pUserData, offset32, drwav_seek_origin_current)) {
+            if (!pWav->onSeek(pWav->pUserData, offset32, DRWAV_SEEK_CUR)) {
                 return DRWAV_FALSE;
             }
 
@@ -6448,7 +6466,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
                 pWav->ima.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
 
                 if (header[2] >= drwav_countof(stepTable)) {
-                    pWav->onSeek(pWav->pUserData, pWav->ima.bytesRemainingInBlock, drwav_seek_origin_current);
+                    pWav->onSeek(pWav->pUserData, pWav->ima.bytesRemainingInBlock, DRWAV_SEEK_CUR);
                     pWav->ima.bytesRemainingInBlock = 0;
                     return totalFramesRead; /* Invalid data. */
                 }
@@ -6466,7 +6484,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
                 pWav->ima.bytesRemainingInBlock = pWav->fmt.blockAlign - sizeof(header);
 
                 if (header[2] >= drwav_countof(stepTable) || header[6] >= drwav_countof(stepTable)) {
-                    pWav->onSeek(pWav->pUserData, pWav->ima.bytesRemainingInBlock, drwav_seek_origin_current);
+                    pWav->onSeek(pWav->pUserData, pWav->ima.bytesRemainingInBlock, DRWAV_SEEK_CUR);
                     pWav->ima.bytesRemainingInBlock = 0;
                     return totalFramesRead; /* Invalid data. */
                 }
@@ -8479,6 +8497,11 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 REVISION HISTORY
 ================
 v0.14.0 - TBD
+  - API CHANGE: Seek origin enums have been renamed to the following:
+    - drwav_seek_origin_start   -> DRWAV_SEEK_SET
+    - drwav_seek_origin_current -> DRWAV_SEEK_CUR
+    - DRWAV_SEEK_END (new)
+  - API CHANGE: A new seek origin has been added to allow seeking from the end of the file. If you implement your own `onSeek` callback, you must now handle `DRWAV_SEEK_END`. If you only use `*_init_file()` or `*_init_memory()`, you need not change anything.
   - API CHANGE: An `onTell` callback has been added to the following functions:
     - drwav_init()
     - drwav_init_ex()
