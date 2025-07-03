@@ -5593,7 +5593,7 @@ DRWAV_PRIVATE drwav_bool32 drwav__on_seek_memory_write(void* pUserData, int offs
     return DRWAV_TRUE;
 }
 
-static drwav_bool32 drwav__on_tell_memory(void* pUserData, drwav_int64* pCursor)
+DRWAV_PRIVATE drwav_bool32 drwav__on_tell_memory(void* pUserData, drwav_int64* pCursor)
 {
     drwav* pWav = (drwav*)pUserData;
 
