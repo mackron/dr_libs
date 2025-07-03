@@ -3710,11 +3710,25 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         pWav->metadataCount = metadataParser.metadataCount;
     }
 
-
-    /* At this point we should be sitting on the first byte of the raw audio data. */
-    if (drwav__seek_from_start(pWav->onSeek, pWav->dataChunkDataPos, pWav->pUserData) == DRWAV_FALSE) {
-        drwav_free(pWav->pMetadata, &pWav->allocationCallbacks);
-        return DRWAV_FALSE;
+    /*
+    It's possible for the size reported in the data chunk to be greater than that of the file. We
+    need to do a validation check here to make sure we don't exceed the file size. To skip this
+    check, set the onTell callback to NULL.
+    */
+    if (pWav->onTell != NULL && pWav->onSeek != NULL) {
+        if (pWav->onSeek(pWav->pUserData, 0, DRWAV_SEEK_END) == DRWAV_TRUE) {
+            drwav_int64 fileSize;
+            if (pWav->onTell(pWav->pUserData, &fileSize)) {
+                if (dataChunkSize + pWav->dataChunkDataPos > (drwav_uint64)fileSize) {
+                    dataChunkSize = (drwav_uint64)fileSize - pWav->dataChunkDataPos;
+                }
+            }
+        } else {
+            /*
+            Failed to seek to the end of the file. It might not be supported by the backend so in
+            this case we cannot perform the validation check.
+            */
+        }
     }
 
     /*
@@ -3736,6 +3750,13 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             }
         }
     }
+
+    /* At this point we want to be sitting on the first byte of the raw audio data. */
+    if (drwav__seek_from_start(pWav->onSeek, pWav->dataChunkDataPos, pWav->pUserData) == DRWAV_FALSE) {
+        drwav_free(pWav->pMetadata, &pWav->allocationCallbacks);
+        return DRWAV_FALSE;
+    }
+
 
     pWav->fmt                 = fmt;
     pWav->sampleRate          = fmt.sampleRate;
