@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.12.44 - TBD
+dr_flac - v0.13.0 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -234,8 +234,8 @@ extern "C" {
 #define DRFLAC_XSTRINGIFY(x)     DRFLAC_STRINGIFY(x)
 
 #define DRFLAC_VERSION_MAJOR     0
-#define DRFLAC_VERSION_MINOR     12
-#define DRFLAC_VERSION_REVISION  44
+#define DRFLAC_VERSION_MINOR     13
+#define DRFLAC_VERSION_REVISION  0
 #define DRFLAC_VERSION_STRING    DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MAJOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MINOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -406,8 +406,9 @@ typedef enum
 
 typedef enum
 {
-    drflac_seek_origin_start,
-    drflac_seek_origin_current
+    DRFLAC_SEEK_SET,
+    DRFLAC_SEEK_CUR,
+    DRFLAC_SEEK_END
 } drflac_seek_origin;
 
 /* The order of members in this structure is important because we map this directly to the raw data within the SEEKTABLE metadata block. */
@@ -558,7 +559,7 @@ Whether or not the seek was successful.
 Remarks
 -------
 The offset will never be negative. Whether or not it is relative to the beginning or current position is determined by the "origin" parameter which will be
-either drflac_seek_origin_start or drflac_seek_origin_current.
+either DRFLAC_SEEK_SET or DRFLAC_SEEK_CUR.
 
 When seeking to a PCM frame using drflac_seek_to_pcm_frame(), dr_flac may call this with an offset beyond the end of the FLAC stream. This needs to be detected
 and handled by returning DRFLAC_FALSE.
@@ -2960,25 +2961,25 @@ static drflac_bool32 drflac__seek_to_byte(drflac_bs* bs, drflac_uint64 offsetFro
     */
     if (offsetFromStart > 0x7FFFFFFF) {
         drflac_uint64 bytesRemaining = offsetFromStart;
-        if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_start)) {
+        if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, DRFLAC_SEEK_SET)) {
             return DRFLAC_FALSE;
         }
         bytesRemaining -= 0x7FFFFFFF;
 
         while (bytesRemaining > 0x7FFFFFFF) {
-            if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, drflac_seek_origin_current)) {
+            if (!bs->onSeek(bs->pUserData, 0x7FFFFFFF, DRFLAC_SEEK_CUR)) {
                 return DRFLAC_FALSE;
             }
             bytesRemaining -= 0x7FFFFFFF;
         }
 
         if (bytesRemaining > 0) {
-            if (!bs->onSeek(bs->pUserData, (int)bytesRemaining, drflac_seek_origin_current)) {
+            if (!bs->onSeek(bs->pUserData, (int)bytesRemaining, DRFLAC_SEEK_CUR)) {
                 return DRFLAC_FALSE;
             }
         }
     } else {
-        if (!bs->onSeek(bs->pUserData, (int)offsetFromStart, drflac_seek_origin_start)) {
+        if (!bs->onSeek(bs->pUserData, (int)offsetFromStart, DRFLAC_SEEK_SET)) {
             return DRFLAC_FALSE;
         }
     }
@@ -6858,7 +6859,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     metadata.data.padding.unused = 0;
 
                     /* Padding doesn't have anything meaningful in it, so just skip over it, but make sure the caller is aware of it by firing the callback. */
-                    if (!onSeek(pUserData, blockSize, drflac_seek_origin_current)) {
+                    if (!onSeek(pUserData, blockSize, DRFLAC_SEEK_CUR)) {
                         isLastBlock = DRFLAC_TRUE;  /* An error occurred while seeking. Attempt to recover by treating this as the last block which will in turn terminate the loop. */
                     } else {
                         onMeta(pUserDataMD, &metadata);
@@ -6870,7 +6871,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
             {
                 /* Invalid chunk. Just skip over this one. */
                 if (onMeta) {
-                    if (!onSeek(pUserData, blockSize, drflac_seek_origin_current)) {
+                    if (!onSeek(pUserData, blockSize, DRFLAC_SEEK_CUR)) {
                         isLastBlock = DRFLAC_TRUE;  /* An error occurred while seeking. Attempt to recover by treating this as the last block which will in turn terminate the loop. */
                     }
                 }
@@ -6904,7 +6905,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
         /* If we're not handling metadata, just skip over the block. If we are, it will have been handled earlier in the switch statement above. */
         if (onMeta == NULL && blockSize > 0) {
-            if (!onSeek(pUserData, blockSize, drflac_seek_origin_current)) {
+            if (!onSeek(pUserData, blockSize, DRFLAC_SEEK_CUR)) {
                 isLastBlock = DRFLAC_TRUE;
             }
         }
@@ -7259,32 +7260,32 @@ static size_t drflac_oggbs__read_physical(drflac_oggbs* oggbs, void* bufferOut, 
 
 static drflac_bool32 drflac_oggbs__seek_physical(drflac_oggbs* oggbs, drflac_uint64 offset, drflac_seek_origin origin)
 {
-    if (origin == drflac_seek_origin_start) {
+    if (origin == DRFLAC_SEEK_SET) {
         if (offset <= 0x7FFFFFFF) {
-            if (!oggbs->onSeek(oggbs->pUserData, (int)offset, drflac_seek_origin_start)) {
+            if (!oggbs->onSeek(oggbs->pUserData, (int)offset, DRFLAC_SEEK_SET)) {
                 return DRFLAC_FALSE;
             }
             oggbs->currentBytePos = offset;
 
             return DRFLAC_TRUE;
         } else {
-            if (!oggbs->onSeek(oggbs->pUserData, 0x7FFFFFFF, drflac_seek_origin_start)) {
+            if (!oggbs->onSeek(oggbs->pUserData, 0x7FFFFFFF, DRFLAC_SEEK_SET)) {
                 return DRFLAC_FALSE;
             }
             oggbs->currentBytePos = offset;
 
-            return drflac_oggbs__seek_physical(oggbs, offset - 0x7FFFFFFF, drflac_seek_origin_current);
+            return drflac_oggbs__seek_physical(oggbs, offset - 0x7FFFFFFF, DRFLAC_SEEK_CUR);
         }
     } else {
         while (offset > 0x7FFFFFFF) {
-            if (!oggbs->onSeek(oggbs->pUserData, 0x7FFFFFFF, drflac_seek_origin_current)) {
+            if (!oggbs->onSeek(oggbs->pUserData, 0x7FFFFFFF, DRFLAC_SEEK_CUR)) {
                 return DRFLAC_FALSE;
             }
             oggbs->currentBytePos += 0x7FFFFFFF;
             offset -= 0x7FFFFFFF;
         }
 
-        if (!oggbs->onSeek(oggbs->pUserData, (int)offset, drflac_seek_origin_current)) {    /* <-- Safe cast thanks to the loop above. */
+        if (!oggbs->onSeek(oggbs->pUserData, (int)offset, DRFLAC_SEEK_CUR)) {    /* <-- Safe cast thanks to the loop above. */
             return DRFLAC_FALSE;
         }
         oggbs->currentBytePos += offset;
@@ -7316,7 +7317,7 @@ static drflac_bool32 drflac_oggbs__goto_next_page(drflac_oggbs* oggbs, drflac_og
 
         if (header.serialNumber != oggbs->serialNumber) {
             /* It's not a FLAC page. Skip it. */
-            if (pageBodySize > 0 && !drflac_oggbs__seek_physical(oggbs, pageBodySize, drflac_seek_origin_current)) {
+            if (pageBodySize > 0 && !drflac_oggbs__seek_physical(oggbs, pageBodySize, DRFLAC_SEEK_CUR)) {
                 return DRFLAC_FALSE;
             }
             continue;
@@ -7402,7 +7403,7 @@ static drflac_bool32 drflac_oggbs__seek_to_next_packet(drflac_oggbs* oggbs)
         At this point we will have found either the packet or the end of the page. If were at the end of the page we'll
         want to load the next page and keep searching for the end of the packet.
         */
-        drflac_oggbs__seek_physical(oggbs, bytesToEndOfPacketOrPage, drflac_seek_origin_current);
+        drflac_oggbs__seek_physical(oggbs, bytesToEndOfPacketOrPage, DRFLAC_SEEK_CUR);
         oggbs->bytesRemainingInPage -= bytesToEndOfPacketOrPage;
 
         if (atEndOfPage) {
@@ -7480,8 +7481,8 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
     DRFLAC_ASSERT(offset >= 0);  /* <-- Never seek backwards. */
 
     /* Seeking is always forward which makes things a lot simpler. */
-    if (origin == drflac_seek_origin_start) {
-        if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->firstBytePos, drflac_seek_origin_start)) {
+    if (origin == DRFLAC_SEEK_SET) {
+        if (!drflac_oggbs__seek_physical(oggbs, (int)oggbs->firstBytePos, DRFLAC_SEEK_SET)) {
             return DRFLAC_FALSE;
         }
 
@@ -7489,10 +7490,10 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
             return DRFLAC_FALSE;
         }
 
-        return drflac__on_seek_ogg(pUserData, offset, drflac_seek_origin_current);
+        return drflac__on_seek_ogg(pUserData, offset, DRFLAC_SEEK_CUR);
     }
 
-    DRFLAC_ASSERT(origin == drflac_seek_origin_current);
+    DRFLAC_ASSERT(origin == DRFLAC_SEEK_CUR);
 
     while (bytesSeeked < offset) {
         int bytesRemainingToSeek = offset - bytesSeeked;
@@ -7543,7 +7544,7 @@ static drflac_bool32 drflac_ogg__seek_to_pcm_frame(drflac* pFlac, drflac_uint64 
     runningGranulePosition = 0;
     for (;;) {
         if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_recover_on_crc_mismatch)) {
-            drflac_oggbs__seek_physical(oggbs, originalBytePos, drflac_seek_origin_start);
+            drflac_oggbs__seek_physical(oggbs, originalBytePos, DRFLAC_SEEK_SET);
             return DRFLAC_FALSE;   /* Never did find that sample... */
         }
 
@@ -7577,7 +7578,7 @@ static drflac_bool32 drflac_ogg__seek_to_pcm_frame(drflac* pFlac, drflac_uint64 
     a new frame. This property means that after we've seeked to the page we can immediately start looping over frames until
     we find the one containing the target sample.
     */
-    if (!drflac_oggbs__seek_physical(oggbs, runningFrameBytePos, drflac_seek_origin_start)) {
+    if (!drflac_oggbs__seek_physical(oggbs, runningFrameBytePos, DRFLAC_SEEK_SET)) {
         return DRFLAC_FALSE;
     }
     if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_recover_on_crc_mismatch)) {
@@ -7744,7 +7745,7 @@ static drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_r
                     The next 2 bytes are the non-audio packets, not including this one. We don't care about this because we're going to
                     be handling it in a generic way based on the serial number and packet types.
                     */
-                    if (!onSeek(pUserData, 2, drflac_seek_origin_current)) {
+                    if (!onSeek(pUserData, 2, DRFLAC_SEEK_CUR)) {
                         return DRFLAC_FALSE;
                     }
 
@@ -7801,18 +7802,18 @@ static drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_r
                     }
                 } else {
                     /* Not a FLAC header. Skip it. */
-                    if (!onSeek(pUserData, bytesRemainingInPage, drflac_seek_origin_current)) {
+                    if (!onSeek(pUserData, bytesRemainingInPage, DRFLAC_SEEK_CUR)) {
                         return DRFLAC_FALSE;
                     }
                 }
             } else {
                 /* Not a FLAC header. Seek past the entire page and move on to the next. */
-                if (!onSeek(pUserData, bytesRemainingInPage, drflac_seek_origin_current)) {
+                if (!onSeek(pUserData, bytesRemainingInPage, DRFLAC_SEEK_CUR)) {
                     return DRFLAC_FALSE;
                 }
             }
         } else {
-            if (!onSeek(pUserData, pageBodySize, drflac_seek_origin_current)) {
+            if (!onSeek(pUserData, pageBodySize, DRFLAC_SEEK_CUR)) {
                 return DRFLAC_FALSE;
             }
         }
@@ -7888,7 +7889,7 @@ static drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_p
                 headerSize += 10;
             }
 
-            if (!onSeek(pUserData, headerSize, drflac_seek_origin_current)) {
+            if (!onSeek(pUserData, headerSize, DRFLAC_SEEK_CUR)) {
                 return DRFLAC_FALSE;    /* Failed to seek past the tag. */
             }
             pInit->runningFilePos += headerSize;
@@ -8105,7 +8106,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
             DRFLAC_ASSERT(pFlac->bs.onRead != NULL);
 
             /* Seek to the seektable, then just read directly into our seektable buffer. */
-            if (pFlac->bs.onSeek(pFlac->bs.pUserData, (int)seektablePos, drflac_seek_origin_start)) {
+            if (pFlac->bs.onSeek(pFlac->bs.pUserData, (int)seektablePos, DRFLAC_SEEK_SET)) {
                 drflac_uint32 iSeekpoint;
 
                 for (iSeekpoint = 0; iSeekpoint < seekpointCount; iSeekpoint += 1) {
@@ -8123,7 +8124,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
                 }
 
                 /* We need to seek back to where we were. If this fails it's a critical error. */
-                if (!pFlac->bs.onSeek(pFlac->bs.pUserData, (int)pFlac->firstFLACFramePosInBytes, drflac_seek_origin_start)) {
+                if (!pFlac->bs.onSeek(pFlac->bs.pUserData, (int)pFlac->firstFLACFramePosInBytes, DRFLAC_SEEK_SET)) {
                     drflac__free_from_callbacks(pFlac, &allocationCallbacks);
                     return NULL;
                 }
@@ -8745,9 +8746,14 @@ static size_t drflac__on_read_stdio(void* pUserData, void* bufferOut, size_t byt
 
 static drflac_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_seek_origin origin)
 {
-    DRFLAC_ASSERT(offset >= 0);  /* <-- Never seek backwards. */
+    int whence = SEEK_SET;
+    if (origin == DRFLAC_SEEK_CUR) {
+        whence = SEEK_CUR;
+    } else if (origin == DRFLAC_SEEK_END) {
+        whence = SEEK_END;
+    }
 
-    return fseek((FILE*)pUserData, offset, (origin == drflac_seek_origin_current) ? SEEK_CUR : SEEK_SET) == 0;
+    return fseek((FILE*)pUserData, offset, whence) == 0;
 }
 
 
@@ -8852,27 +8858,33 @@ static size_t drflac__on_read_memory(void* pUserData, void* bufferOut, size_t by
 static drflac_bool32 drflac__on_seek_memory(void* pUserData, int offset, drflac_seek_origin origin)
 {
     drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
+    drflac_int64 newCursor;
 
     DRFLAC_ASSERT(memoryStream != NULL);
-    DRFLAC_ASSERT(offset >= 0); /* <-- Never seek backwards. */
 
-    if (offset > (drflac_int64)memoryStream->dataSize) {
-        return DRFLAC_FALSE;
-    }
+    newCursor = memoryStream->currentReadPos;
 
-    if (origin == drflac_seek_origin_current) {
-        if (memoryStream->currentReadPos + offset <= memoryStream->dataSize) {
-            memoryStream->currentReadPos += offset;
-        } else {
-            return DRFLAC_FALSE;  /* Trying to seek too far forward. */
-        }
+    if (origin == DRFLAC_SEEK_SET) {
+        newCursor = 0;
+    } else if (origin == DRFLAC_SEEK_CUR) {
+        newCursor = (drflac_int64)memoryStream->currentReadPos;
+    } else if (origin == DRFLAC_SEEK_END) {
+        newCursor = (drflac_int64)memoryStream->dataSize;
     } else {
-        if ((drflac_uint32)offset <= memoryStream->dataSize) {
-            memoryStream->currentReadPos = offset;
-        } else {
-            return DRFLAC_FALSE;  /* Trying to seek too far forward. */
-        }
+        DRFLAC_ASSERT(!"Invalid seek origin");
+        return DRFLAC_INVALID_ARGS;
     }
+
+    newCursor += offset;
+
+    if (newCursor < 0) {
+        return DRFLAC_FALSE;  /* Trying to seek prior to the start of the buffer. */
+    }
+    if ((size_t)newCursor > memoryStream->dataSize) {
+        return DRFLAC_FALSE;  /* Trying to seek beyond the end of the buffer. */
+    }
+
+    memoryStream->currentReadPos = (size_t)newCursor;
 
     return DRFLAC_TRUE;
 }
@@ -12095,7 +12107,12 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
-v0.12.44 - TBD
+v0.13.0 - TBD
+  - API CHANGE: Seek origin enums have been renamed to match the naming convention used by other dr_libs libraries:
+    - drflac_seek_origin_start   -> DRFLAC_SEEK_SET
+    - drflac_seek_origin_current -> DRFLAC_SEEK_CUR
+    - DRFLAC_SEEK_END (new)
+  - API CHANGE: A new seek origin has been added to allow seeking from the end of the file. If you implement your own `onSeek` callback, you must now handle `DRFLAC_SEEK_END`. If you only use `*_open_file()` or `*_open_memory()`, you need not change anything.
   - Fix compilation for AIX OS.
 
 v0.12.43 - 2024-12-17
