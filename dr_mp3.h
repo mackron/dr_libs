@@ -3303,39 +3303,33 @@ static size_t drmp3__on_read_memory(void* pUserData, void* pBufferOut, size_t by
 static drmp3_bool32 drmp3__on_seek_memory(void* pUserData, int byteOffset, drmp3_seek_origin origin)
 {
     drmp3* pMP3 = (drmp3*)pUserData;
+    drmp3_int64 newCursor;
 
     DRMP3_ASSERT(pMP3 != NULL);
 
-    if (origin == drmp3_seek_origin_current) {
-        if (byteOffset > 0) {
-            if (pMP3->memory.currentReadPos + byteOffset > pMP3->memory.dataSize) {
-                return DRMP3_FALSE;  /* Trying to seek too far forward. */
-            }
-        } else {
-            if (pMP3->memory.currentReadPos < (size_t)-byteOffset) {
-                return DRMP3_FALSE;  /* Trying to seek too far backwards. */
-            }
-        }
+    newCursor = pMP3->memory.currentReadPos;
 
-        /* This will never underflow thanks to the clamps above. */
-        pMP3->memory.currentReadPos += byteOffset;
-    } else if (origin == drmp3_seek_origin_start) {
-        if ((drmp3_uint32)byteOffset <= pMP3->memory.dataSize) {
-            pMP3->memory.currentReadPos = byteOffset;
-        } else {
-            return DRMP3_FALSE;  /* Trying to seek too far forward. */
-        }
+    if (origin == drmp3_seek_origin_start) {
+        newCursor = 0;
+    } else if (origin == drmp3_seek_origin_current) {
+        newCursor = (drmp3_int64)pMP3->memory.currentReadPos;
     } else if (origin == drmp3_seek_origin_end) {
-        if (byteOffset > 0) {
-            return DRMP3_FALSE;  /* Trying to seek beyond the end of the buffer. */
-        }
-
-        if ((size_t)(-byteOffset) > pMP3->memory.dataSize) {
-            return DRMP3_FALSE;  /* Trying to seek too far back. */
-        }
-
-        pMP3->memory.currentReadPos = pMP3->memory.dataSize - (size_t)(-byteOffset);
+        newCursor = (drmp3_int64)pMP3->memory.dataSize;
+    } else {
+        DRMP3_ASSERT(!"Invalid seek origin");
+        return DRMP3_INVALID_ARGS;
     }
+
+    newCursor += byteOffset;
+
+    if (newCursor < 0) {
+        return DRMP3_FALSE;  /* Trying to seek prior to the start of the buffer. */
+    }
+    if ((size_t)newCursor > pMP3->memory.dataSize) {
+        return DRMP3_FALSE;  /* Trying to seek beyond the end of the buffer. */
+    }
+
+    pMP3->memory.currentReadPos = (size_t)newCursor;
 
     return DRMP3_TRUE;
 }
