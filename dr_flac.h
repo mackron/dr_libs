@@ -548,7 +548,7 @@ offset (in)
     The number of bytes to move, relative to the origin. Will never be negative.
 
 origin (in)
-    The origin of the seek - the current position or the start of the stream.
+    The origin of the seek - the current position, the start of the stream, or the end of the stream.
 
 
 Return Value
@@ -558,13 +558,31 @@ Whether or not the seek was successful.
 
 Remarks
 -------
-The offset will never be negative. Whether or not it is relative to the beginning or current position is determined by the "origin" parameter which will be
-either DRFLAC_SEEK_SET or DRFLAC_SEEK_CUR.
+Seeking relative to the start and the current position must always be supported. If seeking from the end of the stream is not supported, return DRFLAC_FALSE.
 
 When seeking to a PCM frame using drflac_seek_to_pcm_frame(), dr_flac may call this with an offset beyond the end of the FLAC stream. This needs to be detected
 and handled by returning DRFLAC_FALSE.
 */
 typedef drflac_bool32 (* drflac_seek_proc)(void* pUserData, int offset, drflac_seek_origin origin);
+
+/*
+Callback for when the current position in the stream needs to be retrieved.
+
+
+Parameters
+----------
+pUserData (in)
+    The user data that was passed to drflac_open() and family.
+
+pCursor (out)
+    A pointer to a variable to receive the current position in the stream.
+
+
+Return Value
+------------
+Whether or not the operation was successful.
+*/
+typedef drflac_bool32 (* drflac_tell_proc)(void* pUserData, drflac_int64* pCursor);
 
 /*
 Callback for when a metadata block is read.
@@ -603,6 +621,9 @@ typedef struct
 
     /* The function to call when the current read position needs to be moved. */
     drflac_seek_proc onSeek;
+
+    /* The function to call when the current read position needs to be retrieved. */
+    drflac_tell_proc onTell;
 
     /* The user data to pass around to onRead and onSeek. */
     void* pUserData;
@@ -829,7 +850,7 @@ drflac_open_memory()
 drflac_open_with_metadata()
 drflac_close()
 */
-DRFLAC_API drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
+DRFLAC_API drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Opens a FLAC stream with relaxed validation of the header block.
@@ -870,7 +891,7 @@ force your `onRead` callback to return 0, which dr_flac will use as an indicator
 
 Use `drflac_open_with_metadata_relaxed()` if you need access to metadata.
 */
-DRFLAC_API drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_container container, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
+DRFLAC_API drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_container container, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Opens a FLAC decoder and notifies the caller of the metadata chunks (album art, etc.).
@@ -927,7 +948,7 @@ drflac_open_memory_with_metadata()
 drflac_open()
 drflac_close()
 */
-DRFLAC_API drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
+DRFLAC_API drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
 
 /*
 The same as drflac_open_with_metadata(), except attempts to open the stream even when a header block is not present.
@@ -937,7 +958,7 @@ See Also
 drflac_open_with_metadata()
 drflac_open_relaxed()
 */
-DRFLAC_API drflac* drflac_open_with_metadata_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
+DRFLAC_API drflac* drflac_open_with_metadata_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_meta_proc onMeta, drflac_container container, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks);
 
 /*
 Closes the given FLAC decoder.
@@ -1235,13 +1256,13 @@ read samples into a dynamically sized buffer on the heap until no samples are le
 
 Do not call this function on a broadcast type of stream (like internet radio streams and whatnot).
 */
-DRFLAC_API drflac_int32* drflac_open_and_read_pcm_frames_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks);
+DRFLAC_API drflac_int32* drflac_open_and_read_pcm_frames_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks);
 
 /* Same as drflac_open_and_read_pcm_frames_s32(), except returns signed 16-bit integer samples. */
-DRFLAC_API drflac_int16* drflac_open_and_read_pcm_frames_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks);
+DRFLAC_API drflac_int16* drflac_open_and_read_pcm_frames_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks);
 
 /* Same as drflac_open_and_read_pcm_frames_s32(), except returns 32-bit floating-point samples. */
-DRFLAC_API float* drflac_open_and_read_pcm_frames_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks);
+DRFLAC_API float* drflac_open_and_read_pcm_frames_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* pUserData, unsigned int* channels, unsigned int* sampleRate, drflac_uint64* totalPCMFrameCount, const drflac_allocation_callbacks* pAllocationCallbacks);
 
 #ifndef DR_FLAC_NO_STDIO
 /* Same as drflac_open_and_read_pcm_frames_s32() except opens the decoder from a file. */
@@ -6331,6 +6352,7 @@ typedef struct
 {
     drflac_read_proc onRead;
     drflac_seek_proc onSeek;
+    drflac_tell_proc onTell;
     drflac_meta_proc onMeta;
     drflac_container container;
     void* pUserData;
@@ -6498,7 +6520,7 @@ static void drflac__free_from_callbacks(void* p, const drflac_allocation_callbac
 }
 
 
-static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD, drflac_uint64* pFirstFramePos, drflac_uint64* pSeektablePos, drflac_uint32* pSeekpointCount, drflac_allocation_callbacks* pAllocationCallbacks)
+static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD, drflac_uint64* pFirstFramePos, drflac_uint64* pSeektablePos, drflac_uint32* pSeekpointCount, drflac_allocation_callbacks* pAllocationCallbacks)
 {
     /*
     We want to keep track of the byte position in the stream of the seektable. At the time of calling this function we know that
@@ -6507,6 +6529,8 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
     drflac_uint64 runningFilePos = 42;
     drflac_uint64 seektablePos   = 0;
     drflac_uint32 seektableSize  = 0;
+
+    (void)onTell;
 
     for (;;) {
         drflac_metadata metadata;
@@ -7239,6 +7263,7 @@ typedef struct
 {
     drflac_read_proc onRead;                /* The original onRead callback from drflac_open() and family. */
     drflac_seek_proc onSeek;                /* The original onSeek callback from drflac_open() and family. */
+    drflac_tell_proc onTell;                /* The original onTell callback from drflac_open() and family. */
     void* pUserData;                        /* The user data passed on onRead and onSeek. This is the user data that was passed on drflac_open() and family. */
     drflac_uint64 currentBytePos;           /* The position of the byte we are sitting on in the physical byte stream. Used for efficient seeking. */
     drflac_uint64 firstBytePos;             /* The position of the first byte in the physical bitstream. Points to the start of the "OggS" identifier of the FLAC bos page. */
@@ -7491,35 +7516,47 @@ static drflac_bool32 drflac__on_seek_ogg(void* pUserData, int offset, drflac_see
         }
 
         return drflac__on_seek_ogg(pUserData, offset, DRFLAC_SEEK_CUR);
-    }
+    } else if (origin == DRFLAC_SEEK_CUR) {
+        while (bytesSeeked < offset) {
+            int bytesRemainingToSeek = offset - bytesSeeked;
+            DRFLAC_ASSERT(bytesRemainingToSeek >= 0);
 
-    DRFLAC_ASSERT(origin == DRFLAC_SEEK_CUR);
+            if (oggbs->bytesRemainingInPage >= (size_t)bytesRemainingToSeek) {
+                bytesSeeked += bytesRemainingToSeek;
+                (void)bytesSeeked;  /* <-- Silence a dead store warning emitted by Clang Static Analyzer. */
+                oggbs->bytesRemainingInPage -= bytesRemainingToSeek;
+                break;
+            }
 
-    while (bytesSeeked < offset) {
-        int bytesRemainingToSeek = offset - bytesSeeked;
-        DRFLAC_ASSERT(bytesRemainingToSeek >= 0);
+            /* If we get here it means some of the requested data is contained in the next pages. */
+            if (oggbs->bytesRemainingInPage > 0) {
+                bytesSeeked += (int)oggbs->bytesRemainingInPage;
+                oggbs->bytesRemainingInPage = 0;
+            }
 
-        if (oggbs->bytesRemainingInPage >= (size_t)bytesRemainingToSeek) {
-            bytesSeeked += bytesRemainingToSeek;
-            (void)bytesSeeked;  /* <-- Silence a dead store warning emitted by Clang Static Analyzer. */
-            oggbs->bytesRemainingInPage -= bytesRemainingToSeek;
-            break;
+            DRFLAC_ASSERT(bytesRemainingToSeek > 0);
+            if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_fail_on_crc_mismatch)) {
+                /* Failed to go to the next page. We either hit the end of the stream or had a CRC mismatch. */
+                return DRFLAC_FALSE;
+            }
         }
-
-        /* If we get here it means some of the requested data is contained in the next pages. */
-        if (oggbs->bytesRemainingInPage > 0) {
-            bytesSeeked += (int)oggbs->bytesRemainingInPage;
-            oggbs->bytesRemainingInPage = 0;
-        }
-
-        DRFLAC_ASSERT(bytesRemainingToSeek > 0);
-        if (!drflac_oggbs__goto_next_page(oggbs, drflac_ogg_fail_on_crc_mismatch)) {
-            /* Failed to go to the next page. We either hit the end of the stream or had a CRC mismatch. */
-            return DRFLAC_FALSE;
-        }
+    } else if (origin == DRFLAC_SEEK_END) {
+        /* Seeking to the end is not supported. */
+        return DRFLAC_FALSE;
     }
 
     return DRFLAC_TRUE;
+}
+
+static drflac_bool32 drflac__on_tell_ogg(void* pUserData, drflac_int64* pCursor)
+{
+    /*
+    Not implemented for Ogg containers because we don't currently track the byte position of the logical bitstream. To support this, we'll need
+    to track the position in drflac__on_read_ogg and drflac__on_seek_ogg.
+    */
+    (void)pUserData;
+    (void)pCursor;
+    return DRFLAC_FALSE;
 }
 
 
@@ -7838,18 +7875,19 @@ static drflac_bool32 drflac__init_private__ogg(drflac_init_info* pInit, drflac_r
 }
 #endif
 
-static drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD)
+static drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD)
 {
     drflac_bool32 relaxed;
     drflac_uint8 id[4];
 
-    if (pInit == NULL || onRead == NULL || onSeek == NULL) {
+    if (pInit == NULL || onRead == NULL || onSeek == NULL) {    /* <-- onTell is optional. */
         return DRFLAC_FALSE;
     }
 
     DRFLAC_ZERO_MEMORY(pInit, sizeof(*pInit));
     pInit->onRead       = onRead;
     pInit->onSeek       = onSeek;
+    pInit->onTell       = onTell;
     pInit->onMeta       = onMeta;
     pInit->container    = container;
     pInit->pUserData    = pUserData;
@@ -7857,6 +7895,7 @@ static drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_p
 
     pInit->bs.onRead    = onRead;
     pInit->bs.onSeek    = onSeek;
+    pInit->bs.onTell    = onTell;
     pInit->bs.pUserData = pUserData;
     drflac__reset_cache(&pInit->bs);
 
@@ -7941,7 +7980,7 @@ static void drflac__init_from_info(drflac* pFlac, const drflac_init_info* pInit)
 }
 
 
-static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD, const drflac_allocation_callbacks* pAllocationCallbacks)
+static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_meta_proc onMeta, drflac_container container, void* pUserData, void* pUserDataMD, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     drflac_init_info init;
     drflac_uint32 allocationSize;
@@ -7959,7 +7998,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     /* CPU support first. */
     drflac__init_cpu_caps();
 
-    if (!drflac__init_private(&init, onRead, onSeek, onMeta, container, pUserData, pUserDataMD)) {
+    if (!drflac__init_private(&init, onRead, onSeek, onTell, onMeta, container, pUserData, pUserDataMD)) {
         return NULL;
     }
 
@@ -8015,6 +8054,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         DRFLAC_ZERO_MEMORY(pOggbs, sizeof(*pOggbs));
         pOggbs->onRead = onRead;
         pOggbs->onSeek = onSeek;
+        pOggbs->onTell = onTell;
         pOggbs->pUserData = pUserData;
         pOggbs->currentBytePos = init.oggFirstBytePos;
         pOggbs->firstBytePos = init.oggFirstBytePos;
@@ -8035,17 +8075,19 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     if (init.hasMetadataBlocks) {
         drflac_read_proc onReadOverride = onRead;
         drflac_seek_proc onSeekOverride = onSeek;
+        drflac_tell_proc onTellOverride = onTell;
         void* pUserDataOverride = pUserData;
 
 #ifndef DR_FLAC_NO_OGG
         if (init.container == drflac_container_ogg) {
             onReadOverride = drflac__on_read_ogg;
             onSeekOverride = drflac__on_seek_ogg;
+            onTellOverride = drflac__on_tell_ogg;
             pUserDataOverride = (void*)pOggbs;
         }
 #endif
 
-        if (!drflac__read_and_decode_metadata(onReadOverride, onSeekOverride, onMeta, pUserDataOverride, pUserDataMD, &firstFramePos, &seektablePos, &seekpointCount, &allocationCallbacks)) {
+        if (!drflac__read_and_decode_metadata(onReadOverride, onSeekOverride, onTellOverride, onMeta, pUserDataOverride, pUserDataMD, &firstFramePos, &seektablePos, &seekpointCount, &allocationCallbacks)) {
         #ifndef DR_FLAC_NO_OGG
             drflac__free_from_callbacks(pOggbs, &allocationCallbacks);
         #endif
@@ -8080,6 +8122,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         /* The Ogg bistream needs to be layered on top of the original bitstream. */
         pFlac->bs.onRead = drflac__on_read_ogg;
         pFlac->bs.onSeek = drflac__on_seek_ogg;
+        pFlac->bs.onTell = drflac__on_tell_ogg;
         pFlac->bs.pUserData = (void*)pInternalOggbs;
         pFlac->_oggbs = (void*)pInternalOggbs;
     }
@@ -8756,6 +8799,31 @@ static drflac_bool32 drflac__on_seek_stdio(void* pUserData, int offset, drflac_s
     return fseek((FILE*)pUserData, offset, whence) == 0;
 }
 
+static drflac_bool32 drflac__on_tell_stdio(void* pUserData, drflac_int64* pCursor)
+{
+    FILE* pFileStdio = (FILE*)pUserData;
+    drflac_int64 result;
+
+    /* These were all validated at a higher level. */
+    DRFLAC_ASSERT(pFileStdio != NULL);
+    DRFLAC_ASSERT(pCursor    != NULL);
+
+#if defined(_WIN32)
+    #if defined(_MSC_VER) && _MSC_VER > 1200
+        result = _ftelli64(pFileStdio);
+    #else
+        result = ftell(pFileStdio);
+    #endif
+#else
+    result = ftell(pFileStdio);
+#endif
+
+    *pCursor = result;
+
+    return DRFLAC_TRUE;
+}
+
+
 
 DRFLAC_API drflac* drflac_open_file(const char* pFileName, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
@@ -8766,7 +8834,7 @@ DRFLAC_API drflac* drflac_open_file(const char* pFileName, const drflac_allocati
         return NULL;
     }
 
-    pFlac = drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)pFile, pAllocationCallbacks);
+    pFlac = drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, drflac__on_tell_stdio, (void*)pFile, pAllocationCallbacks);
     if (pFlac == NULL) {
         fclose(pFile);
         return NULL;
@@ -8785,7 +8853,7 @@ DRFLAC_API drflac* drflac_open_file_w(const wchar_t* pFileName, const drflac_all
         return NULL;
     }
 
-    pFlac = drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, (void*)pFile, pAllocationCallbacks);
+    pFlac = drflac_open(drflac__on_read_stdio, drflac__on_seek_stdio, drflac__on_tell_stdio, (void*)pFile, pAllocationCallbacks);
     if (pFlac == NULL) {
         fclose(pFile);
         return NULL;
@@ -8804,7 +8872,7 @@ DRFLAC_API drflac* drflac_open_file_with_metadata(const char* pFileName, drflac_
         return NULL;
     }
 
-    pFlac = drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, drflac_container_unknown, (void*)pFile, pUserData, pAllocationCallbacks);
+    pFlac = drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, drflac__on_tell_stdio, onMeta, drflac_container_unknown, (void*)pFile, pUserData, pAllocationCallbacks);
     if (pFlac == NULL) {
         fclose(pFile);
         return pFlac;
@@ -8823,7 +8891,7 @@ DRFLAC_API drflac* drflac_open_file_with_metadata_w(const wchar_t* pFileName, dr
         return NULL;
     }
 
-    pFlac = drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, onMeta, drflac_container_unknown, (void*)pFile, pUserData, pAllocationCallbacks);
+    pFlac = drflac_open_with_metadata_private(drflac__on_read_stdio, drflac__on_seek_stdio, drflac__on_tell_stdio, onMeta, drflac_container_unknown, (void*)pFile, pUserData, pAllocationCallbacks);
     if (pFlac == NULL) {
         fclose(pFile);
         return pFlac;
@@ -8889,6 +8957,17 @@ static drflac_bool32 drflac__on_seek_memory(void* pUserData, int offset, drflac_
     return DRFLAC_TRUE;
 }
 
+static drflac_bool32 drflac__on_tell_memory(void* pUserData, drflac_int64* pCursor)
+{
+    drflac__memory_stream* memoryStream = (drflac__memory_stream*)pUserData;
+
+    DRFLAC_ASSERT(memoryStream != NULL);
+    DRFLAC_ASSERT(pCursor != NULL);
+
+    *pCursor = (drflac_int64)memoryStream->currentReadPos;
+    return DRFLAC_TRUE;
+}
+
 DRFLAC_API drflac* drflac_open_memory(const void* pData, size_t dataSize, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     drflac__memory_stream memoryStream;
@@ -8897,7 +8976,7 @@ DRFLAC_API drflac* drflac_open_memory(const void* pData, size_t dataSize, const 
     memoryStream.data = (const drflac_uint8*)pData;
     memoryStream.dataSize = dataSize;
     memoryStream.currentReadPos = 0;
-    pFlac = drflac_open(drflac__on_read_memory, drflac__on_seek_memory, &memoryStream, pAllocationCallbacks);
+    pFlac = drflac_open(drflac__on_read_memory, drflac__on_seek_memory, drflac__on_tell_memory, &memoryStream, pAllocationCallbacks);
     if (pFlac == NULL) {
         return NULL;
     }
@@ -8928,7 +9007,7 @@ DRFLAC_API drflac* drflac_open_memory_with_metadata(const void* pData, size_t da
     memoryStream.data = (const drflac_uint8*)pData;
     memoryStream.dataSize = dataSize;
     memoryStream.currentReadPos = 0;
-    pFlac = drflac_open_with_metadata_private(drflac__on_read_memory, drflac__on_seek_memory, onMeta, drflac_container_unknown, &memoryStream, pUserData, pAllocationCallbacks);
+    pFlac = drflac_open_with_metadata_private(drflac__on_read_memory, drflac__on_seek_memory, drflac__on_tell_memory, onMeta, drflac_container_unknown, &memoryStream, pUserData, pAllocationCallbacks);
     if (pFlac == NULL) {
         return NULL;
     }
@@ -8953,22 +9032,22 @@ DRFLAC_API drflac* drflac_open_memory_with_metadata(const void* pData, size_t da
 
 
 
-DRFLAC_API drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
+DRFLAC_API drflac* drflac_open(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
-    return drflac_open_with_metadata_private(onRead, onSeek, NULL, drflac_container_unknown, pUserData, pUserData, pAllocationCallbacks);
+    return drflac_open_with_metadata_private(onRead, onSeek, onTell, NULL, drflac_container_unknown, pUserData, pUserData, pAllocationCallbacks);
 }
-DRFLAC_API drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_container container, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
+DRFLAC_API drflac* drflac_open_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_container container, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
-    return drflac_open_with_metadata_private(onRead, onSeek, NULL, container, pUserData, pUserData, pAllocationCallbacks);
+    return drflac_open_with_metadata_private(onRead, onSeek, onTell, NULL, container, pUserData, pUserData, pAllocationCallbacks);
 }
 
-DRFLAC_API drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
+DRFLAC_API drflac* drflac_open_with_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_meta_proc onMeta, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
-    return drflac_open_with_metadata_private(onRead, onSeek, onMeta, drflac_container_unknown, pUserData, pUserData, pAllocationCallbacks);
+    return drflac_open_with_metadata_private(onRead, onSeek, onTell, onMeta, drflac_container_unknown, pUserData, pUserData, pAllocationCallbacks);
 }
-DRFLAC_API drflac* drflac_open_with_metadata_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, drflac_container container, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
+DRFLAC_API drflac* drflac_open_with_metadata_relaxed(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_meta_proc onMeta, drflac_container container, void* pUserData, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
-    return drflac_open_with_metadata_private(onRead, onSeek, onMeta, container, pUserData, pUserData, pAllocationCallbacks);
+    return drflac_open_with_metadata_private(onRead, onSeek, onTell, onMeta, container, pUserData, pUserData, pAllocationCallbacks);
 }
 
 DRFLAC_API void drflac_close(drflac* pFlac)
@@ -11800,7 +11879,7 @@ DRFLAC_DEFINE_FULL_READ_AND_CLOSE(s32, drflac_int32)
 DRFLAC_DEFINE_FULL_READ_AND_CLOSE(s16, drflac_int16)
 DRFLAC_DEFINE_FULL_READ_AND_CLOSE(f32, float)
 
-DRFLAC_API drflac_int32* drflac_open_and_read_pcm_frames_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut, const drflac_allocation_callbacks* pAllocationCallbacks)
+DRFLAC_API drflac_int32* drflac_open_and_read_pcm_frames_s32(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     drflac* pFlac;
 
@@ -11814,7 +11893,7 @@ DRFLAC_API drflac_int32* drflac_open_and_read_pcm_frames_s32(drflac_read_proc on
         *totalPCMFrameCountOut = 0;
     }
 
-    pFlac = drflac_open(onRead, onSeek, pUserData, pAllocationCallbacks);
+    pFlac = drflac_open(onRead, onSeek, onTell, pUserData, pAllocationCallbacks);
     if (pFlac == NULL) {
         return NULL;
     }
@@ -11822,7 +11901,7 @@ DRFLAC_API drflac_int32* drflac_open_and_read_pcm_frames_s32(drflac_read_proc on
     return drflac__full_read_and_close_s32(pFlac, channelsOut, sampleRateOut, totalPCMFrameCountOut);
 }
 
-DRFLAC_API drflac_int16* drflac_open_and_read_pcm_frames_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut, const drflac_allocation_callbacks* pAllocationCallbacks)
+DRFLAC_API drflac_int16* drflac_open_and_read_pcm_frames_s16(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     drflac* pFlac;
 
@@ -11836,7 +11915,7 @@ DRFLAC_API drflac_int16* drflac_open_and_read_pcm_frames_s16(drflac_read_proc on
         *totalPCMFrameCountOut = 0;
     }
 
-    pFlac = drflac_open(onRead, onSeek, pUserData, pAllocationCallbacks);
+    pFlac = drflac_open(onRead, onSeek, onTell, pUserData, pAllocationCallbacks);
     if (pFlac == NULL) {
         return NULL;
     }
@@ -11844,7 +11923,7 @@ DRFLAC_API drflac_int16* drflac_open_and_read_pcm_frames_s16(drflac_read_proc on
     return drflac__full_read_and_close_s16(pFlac, channelsOut, sampleRateOut, totalPCMFrameCountOut);
 }
 
-DRFLAC_API float* drflac_open_and_read_pcm_frames_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut, const drflac_allocation_callbacks* pAllocationCallbacks)
+DRFLAC_API float* drflac_open_and_read_pcm_frames_f32(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, void* pUserData, unsigned int* channelsOut, unsigned int* sampleRateOut, drflac_uint64* totalPCMFrameCountOut, const drflac_allocation_callbacks* pAllocationCallbacks)
 {
     drflac* pFlac;
 
@@ -11858,7 +11937,7 @@ DRFLAC_API float* drflac_open_and_read_pcm_frames_f32(drflac_read_proc onRead, d
         *totalPCMFrameCountOut = 0;
     }
 
-    pFlac = drflac_open(onRead, onSeek, pUserData, pAllocationCallbacks);
+    pFlac = drflac_open(onRead, onSeek, onTell, pUserData, pAllocationCallbacks);
     if (pFlac == NULL) {
         return NULL;
     }
@@ -12112,7 +12191,15 @@ v0.13.0 - TBD
     - drflac_seek_origin_start   -> DRFLAC_SEEK_SET
     - drflac_seek_origin_current -> DRFLAC_SEEK_CUR
     - DRFLAC_SEEK_END (new)
-  - API CHANGE: A new seek origin has been added to allow seeking from the end of the file. If you implement your own `onSeek` callback, you must now handle `DRFLAC_SEEK_END`. If you only use `*_open_file()` or `*_open_memory()`, you need not change anything.
+  - API CHANGE: A new seek origin has been added to allow seeking from the end of the file. If you implement your own `onSeek` callback, you should now detect and handle `DRFLAC_SEEK_END`. If seeking to the end is not supported, return `DRFLAC_FALSE`. If you only use `*_open_file()` or `*_open_memory()`, you need not change anything.
+  - API CHANGE: An `onTell` callback has been added to the following functions:
+    - drflac_open()
+    - drflac_open_relaxed()
+    - drflac_open_with_metadata()
+    - drflac_open_with_metadata_relaxed()
+    - drflac_open_and_read_pcm_frames_s32()
+    - drflac_open_and_read_pcm_frames_s16()
+    - drflac_open_and_read_pcm_frames_f32()
   - Fix compilation for AIX OS.
 
 v0.12.43 - 2024-12-17
