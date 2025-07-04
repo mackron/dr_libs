@@ -3317,7 +3317,7 @@ static drmp3_bool32 drmp3__on_seek_memory(void* pUserData, int byteOffset, drmp3
         newCursor = (drmp3_int64)pMP3->memory.dataSize;
     } else {
         DRMP3_ASSERT(!"Invalid seek origin");
-        return DRMP3_INVALID_ARGS;
+        return DRMP3_FALSE;
     }
 
     newCursor += byteOffset;
