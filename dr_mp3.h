@@ -286,8 +286,8 @@ Main API (Pull API)
 */
 typedef enum
 {
-    DRWAV_SEEK_SET,
-    DRWAV_SEEK_CUR,
+    DRMP3_SEEK_SET,
+    DRMP3_SEEK_CUR,
     DRMP3_SEEK_END
 } drmp3_seek_origin;
 
@@ -2658,13 +2658,13 @@ static size_t drmp3__on_read_clamped(drmp3* pMP3, void* pBufferOut, size_t bytes
 static drmp3_bool32 drmp3__on_seek(drmp3* pMP3, int offset, drmp3_seek_origin origin)
 {
     DRMP3_ASSERT(offset >= 0);
-    DRMP3_ASSERT(origin == DRWAV_SEEK_SET || origin == DRWAV_SEEK_CUR);
+    DRMP3_ASSERT(origin == DRMP3_SEEK_SET || origin == DRMP3_SEEK_CUR);
 
     if (!pMP3->onSeek(pMP3->pUserData, offset, origin)) {
         return DRMP3_FALSE;
     }
 
-    if (origin == DRWAV_SEEK_SET) {
+    if (origin == DRMP3_SEEK_SET) {
         pMP3->streamCursor = (drmp3_uint64)offset;
     } else{
         pMP3->streamCursor += offset;
@@ -2680,19 +2680,19 @@ static drmp3_bool32 drmp3__on_seek_64(drmp3* pMP3, drmp3_uint64 offset, drmp3_se
     }
 
     /* Getting here "offset" is too large for a 32-bit integer. We just keep seeking forward until we hit the offset. */
-    if (!drmp3__on_seek(pMP3, 0x7FFFFFFF, DRWAV_SEEK_SET)) {
+    if (!drmp3__on_seek(pMP3, 0x7FFFFFFF, DRMP3_SEEK_SET)) {
         return DRMP3_FALSE;
     }
 
     offset -= 0x7FFFFFFF;
     while (offset > 0) {
         if (offset <= 0x7FFFFFFF) {
-            if (!drmp3__on_seek(pMP3, (int)offset, DRWAV_SEEK_CUR)) {
+            if (!drmp3__on_seek(pMP3, (int)offset, DRMP3_SEEK_CUR)) {
                 return DRMP3_FALSE;
             }
             offset = 0;
         } else {
-            if (!drmp3__on_seek(pMP3, 0x7FFFFFFF, DRWAV_SEEK_CUR)) {
+            if (!drmp3__on_seek(pMP3, 0x7FFFFFFF, DRMP3_SEEK_CUR)) {
                 return DRMP3_FALSE;
             }
             offset -= 0x7FFFFFFF;
@@ -3030,7 +3030,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                 }
 
                 /* Seek back to the start. */
-                if (!onSeek(pUserData, 0, DRWAV_SEEK_SET)) {
+                if (!onSeek(pUserData, 0, DRMP3_SEEK_SET)) {
                     return DRMP3_FALSE; /* Failed to seek back to the start. */
                 }
 
@@ -3041,7 +3041,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                 }
             } else {
                 /* Failed to get the length of the stream. ID3v1 and APE tags cannot be skipped. */
-                if (!onSeek(pUserData, 0, DRWAV_SEEK_SET)) {
+                if (!onSeek(pUserData, 0, DRMP3_SEEK_SET)) {
                     return DRMP3_FALSE; /* Failed to seek back to the start. */
                 }
             }
@@ -3087,7 +3087,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                 } else {
                     /* Don't have a metadata callback, so just skip the tag. */
                     if (onSeek != NULL) {
-                        if (!onSeek(pUserData, tagSize, DRWAV_SEEK_CUR)) {
+                        if (!onSeek(pUserData, tagSize, DRMP3_SEEK_CUR)) {
                             return DRMP3_FALSE; /* Failed to seek past the ID3v2 tag. */
                         }
                     } else {
@@ -3114,7 +3114,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
             } else {
                 /* Not an ID3v2 tag. Seek back to the start. */
                 if (onSeek != NULL) {
-                    if (!onSeek(pUserData, 0, DRWAV_SEEK_SET)) {
+                    if (!onSeek(pUserData, 0, DRMP3_SEEK_SET)) {
                         return DRMP3_FALSE; /* Failed to seek back to the start. */
                     }
                 } else {
@@ -3309,9 +3309,9 @@ static drmp3_bool32 drmp3__on_seek_memory(void* pUserData, int byteOffset, drmp3
 
     newCursor = pMP3->memory.currentReadPos;
 
-    if (origin == DRWAV_SEEK_SET) {
+    if (origin == DRMP3_SEEK_SET) {
         newCursor = 0;
-    } else if (origin == DRWAV_SEEK_CUR) {
+    } else if (origin == DRMP3_SEEK_CUR) {
         newCursor = (drmp3_int64)pMP3->memory.currentReadPos;
     } else if (origin == DRMP3_SEEK_END) {
         newCursor = (drmp3_int64)pMP3->memory.dataSize;
@@ -3963,7 +3963,7 @@ static size_t drmp3__on_read_stdio(void* pUserData, void* pBufferOut, size_t byt
 static drmp3_bool32 drmp3__on_seek_stdio(void* pUserData, int offset, drmp3_seek_origin origin)
 {
     int whence = SEEK_SET;
-    if (origin == DRWAV_SEEK_CUR) {
+    if (origin == DRMP3_SEEK_CUR) {
         whence = SEEK_CUR;
     } else if (origin == DRMP3_SEEK_END) {
         whence = SEEK_END;
@@ -4303,7 +4303,7 @@ static drmp3_bool32 drmp3_seek_to_start_of_stream(drmp3* pMP3)
     DRMP3_ASSERT(pMP3->onSeek != NULL);
 
     /* Seek to the start of the stream to begin with. */
-    if (!drmp3__on_seek_64(pMP3, pMP3->streamStartOffset, DRWAV_SEEK_SET)) {
+    if (!drmp3__on_seek_64(pMP3, pMP3->streamStartOffset, DRMP3_SEEK_SET)) {
         return DRMP3_FALSE;
     }
 
@@ -4403,7 +4403,7 @@ static drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint6
     }
 
     /* First thing to do is seek to the first byte of the relevant MP3 frame. */
-    if (!drmp3__on_seek_64(pMP3, seekPoint.seekPosInBytes, DRWAV_SEEK_SET)) {
+    if (!drmp3__on_seek_64(pMP3, seekPoint.seekPosInBytes, DRMP3_SEEK_SET)) {
         return DRMP3_FALSE; /* Failed to seek. */
     }
 
