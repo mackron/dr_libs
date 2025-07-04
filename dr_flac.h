@@ -8831,7 +8831,7 @@ static drflac_bool32 drflac__on_seek_memory(void* pUserData, int offset, drflac_
         newCursor = (drflac_int64)memoryStream->dataSize;
     } else {
         DRFLAC_ASSERT(!"Invalid seek origin");
-        return DRFLAC_INVALID_ARGS;
+        return DRFLAC_FALSE;
     }
 
     newCursor += offset;
