@@ -3605,7 +3605,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                     we'll need to abort because we can't be doing a backwards seek back to the SSND chunk in order to read the
                     data. For this reason, this configuration of AIFF files are not supported with sequential mode.
                     */
-                    return DRWAV_FALSE; 
+                    return DRWAV_FALSE;
                 }
             } else {
                 chunkSize += header.paddingSize;                /* <-- Make sure we seek past the padding. */
@@ -6258,12 +6258,12 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
 {
     drwav_uint64 totalFramesRead = 0;
 
-    static drwav_int32 adaptationTable[] = {
+    static const drwav_int32 adaptationTable[] = {
         230, 230, 230, 230, 307, 409, 512, 614,
         768, 614, 512, 409, 307, 230, 230, 230
     };
-    static drwav_int32 coeff1Table[] = { 256, 512, 0, 192, 240, 460,  392 };
-    static drwav_int32 coeff2Table[] = { 0,  -256, 0, 64,  0,  -208, -232 };
+    static const drwav_int32 coeff1Table[] = { 256, 512, 0, 192, 240, 460,  392 };
+    static const drwav_int32 coeff2Table[] = { 0,  -256, 0, 64,  0,  -208, -232 };
 
     DRWAV_ASSERT(pWav != NULL);
     DRWAV_ASSERT(framesToRead > 0);
@@ -6451,12 +6451,12 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
     drwav_uint64 totalFramesRead = 0;
     drwav_uint32 iChannel;
 
-    static drwav_int32 indexTable[16] = {
+    static const drwav_int32 indexTable[16] = {
         -1, -1, -1, -1, 2, 4, 6, 8,
         -1, -1, -1, -1, 2, 4, 6, 8
     };
 
-    static drwav_int32 stepTable[89] = {
+    static const drwav_int32 stepTable[89] = {
         7,     8,     9,     10,    11,    12,    13,    14,    16,    17,
         19,    21,    23,    25,    28,    31,    34,    37,    41,    45,
         50,    55,    60,    66,    73,    80,    88,    97,    107,   118,
@@ -6606,7 +6606,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uin
 
 
 #ifndef DR_WAV_NO_CONVERSION_API
-static unsigned short g_drwavAlawTable[256] = {
+static const unsigned short g_drwavAlawTable[256] = {
     0xEA80, 0xEB80, 0xE880, 0xE980, 0xEE80, 0xEF80, 0xEC80, 0xED80, 0xE280, 0xE380, 0xE080, 0xE180, 0xE680, 0xE780, 0xE480, 0xE580,
     0xF540, 0xF5C0, 0xF440, 0xF4C0, 0xF740, 0xF7C0, 0xF640, 0xF6C0, 0xF140, 0xF1C0, 0xF040, 0xF0C0, 0xF340, 0xF3C0, 0xF240, 0xF2C0,
     0xAA00, 0xAE00, 0xA200, 0xA600, 0xBA00, 0xBE00, 0xB200, 0xB600, 0x8A00, 0x8E00, 0x8200, 0x8600, 0x9A00, 0x9E00, 0x9200, 0x9600,
@@ -6625,7 +6625,7 @@ static unsigned short g_drwavAlawTable[256] = {
     0x02B0, 0x0290, 0x02F0, 0x02D0, 0x0230, 0x0210, 0x0270, 0x0250, 0x03B0, 0x0390, 0x03F0, 0x03D0, 0x0330, 0x0310, 0x0370, 0x0350
 };
 
-static unsigned short g_drwavMulawTable[256] = {
+static const unsigned short g_drwavMulawTable[256] = {
     0x8284, 0x8684, 0x8A84, 0x8E84, 0x9284, 0x9684, 0x9A84, 0x9E84, 0xA284, 0xA684, 0xAA84, 0xAE84, 0xB284, 0xB684, 0xBA84, 0xBE84,
     0xC184, 0xC384, 0xC584, 0xC784, 0xC984, 0xCB84, 0xCD84, 0xCF84, 0xD184, 0xD384, 0xD584, 0xD784, 0xD984, 0xDB84, 0xDD84, 0xDF84,
     0xE104, 0xE204, 0xE304, 0xE404, 0xE504, 0xE604, 0xE704, 0xE804, 0xE904, 0xEA04, 0xEB04, 0xEC04, 0xED04, 0xEE04, 0xEF04, 0xF004,
