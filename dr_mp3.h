@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.7.0 - TBD
+dr_mp3 - v0.7.0 - 2025-07-23
 
 David Reid - mackron@gmail.com
 
@@ -4981,7 +4981,7 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
-v0.7.0 - TBD
+v0.7.0 - 2025-07-23
   - The old `DRMP3_IMPLEMENTATION` has been removed. Use `DR_MP3_IMPLEMENTATION` instead. The reason for this change is that in the future everything will eventually be using the underscored naming convention in the future, so `drmp3` will become `dr_mp3`.
   - API CHANGE: Seek origins have been renamed to match the naming convention used by dr_wav and my other libraries.
     - drmp3_seek_origin_start   -> DRMP3_SEEK_SET
