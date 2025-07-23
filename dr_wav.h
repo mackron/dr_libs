@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.14.0 - TBD
+dr_wav - v0.14.0 - 2025-07-23
 
 David Reid - mackron@gmail.com
 
@@ -8517,7 +8517,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
-v0.14.0 - TBD
+v0.14.0 - 2025-07-23
   - API CHANGE: Seek origin enums have been renamed to the following:
     - drwav_seek_origin_start   -> DRWAV_SEEK_SET
     - drwav_seek_origin_current -> DRWAV_SEEK_CUR
