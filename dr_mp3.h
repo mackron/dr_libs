@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.7.0 - 2025-07-23
+dr_mp3 - v0.7.1 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -72,7 +72,7 @@ extern "C" {
 
 #define DRMP3_VERSION_MAJOR     0
 #define DRMP3_VERSION_MINOR     7
-#define DRMP3_VERSION_REVISION  0
+#define DRMP3_VERSION_REVISION  1
 #define DRMP3_VERSION_STRING    DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -1227,6 +1227,15 @@ static float drmp3_L3_ldexp_q2(float y, int exp_q2)
     return y;
 }
 
+/*
+I've had reports of GCC 14 throwing an incorrect -Wstringop-overflow warning here. This is an attempt
+to silence this warning. I've restrictred this to GCC 14 for purity sake, but if you get this warning
+with other versions, submit a bug report and I'll get this relaxed.
+*/
+#if (defined(__GNUC__) && (__GNUC__ == 14)) && !defined(__clang__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
 static void drmp3_L3_decode_scalefactors(const drmp3_uint8 *hdr, drmp3_uint8 *ist_pos, drmp3_bs *bs, const drmp3_L3_gr_info *gr, float *scf, int ch)
 {
     static const drmp3_uint8 g_scf_partitions[3][28] = {
@@ -1288,6 +1297,9 @@ static void drmp3_L3_decode_scalefactors(const drmp3_uint8 *hdr, drmp3_uint8 *is
         scf[i] = drmp3_L3_ldexp_q2(gain, iscf[i] << scf_shift);
     }
 }
+#if (defined(__GNUC__) && (__GNUC__ == 14)) && !defined(__clang__)
+    #pragma GCC diagnostic pop
+#endif
 
 static const float g_drmp3_pow43[129 + 16] = {
     0,-1,-2.519842f,-4.326749f,-6.349604f,-8.549880f,-10.902724f,-13.390518f,-16.000000f,-18.720754f,-21.544347f,-24.463781f,-27.473142f,-30.567351f,-33.741992f,-36.993181f,
@@ -4981,6 +4993,9 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
+v0.7.1 - TBD
+  - Silence a warning with GCC.
+
 v0.7.0 - 2025-07-23
   - The old `DRMP3_IMPLEMENTATION` has been removed. Use `DR_MP3_IMPLEMENTATION` instead. The reason for this change is that in the future everything will eventually be using the underscored naming convention in the future, so `drmp3` will become `dr_mp3`.
   - API CHANGE: Seek origins have been renamed to match the naming convention used by dr_wav and my other libraries.
