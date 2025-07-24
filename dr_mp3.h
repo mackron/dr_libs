@@ -1229,10 +1229,9 @@ static float drmp3_L3_ldexp_q2(float y, int exp_q2)
 
 /*
 I've had reports of GCC 14 throwing an incorrect -Wstringop-overflow warning here. This is an attempt
-to silence this warning. I've restrictred this to GCC 14 for purity sake, but if you get this warning
-with other versions, submit a bug report and I'll get this relaxed.
+to silence this warning.
 */
-#if (defined(__GNUC__) && (__GNUC__ == 14)) && !defined(__clang__)
+#if (defined(__GNUC__) && (__GNUC__ >= 14)) && !defined(__clang__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wstringop-overflow"
 #endif
