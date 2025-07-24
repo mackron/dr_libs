@@ -1296,7 +1296,7 @@ static void drmp3_L3_decode_scalefactors(const drmp3_uint8 *hdr, drmp3_uint8 *is
         scf[i] = drmp3_L3_ldexp_q2(gain, iscf[i] << scf_shift);
     }
 }
-#if (defined(__GNUC__) && (__GNUC__ == 14)) && !defined(__clang__)
+#if (defined(__GNUC__) && (__GNUC__ >= 14)) && !defined(__clang__)
     #pragma GCC diagnostic pop
 #endif
 
