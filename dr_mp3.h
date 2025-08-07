@@ -3992,7 +3992,7 @@ static drmp3_bool32 drmp3__on_tell_stdio(void* pUserData, drmp3_int64* pCursor)
     DRMP3_ASSERT(pFileStdio != NULL);
     DRMP3_ASSERT(pCursor    != NULL);
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(NXDK)
     #if defined(_MSC_VER) && _MSC_VER > 1200
         result = _ftelli64(pFileStdio);
     #else
@@ -4994,6 +4994,7 @@ REVISION HISTORY
 ================
 v0.7.1 - TBD
   - Silence a warning with GCC.
+  - Fix an error with the NXDK build.
 
 v0.7.0 - 2025-07-23
   - The old `DRMP3_IMPLEMENTATION` has been removed. Use `DR_MP3_IMPLEMENTATION` instead. The reason for this change is that in the future everything will eventually be using the underscored naming convention in the future, so `drmp3` will become `dr_mp3`.
