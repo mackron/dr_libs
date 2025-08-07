@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.13.0 - 2025-07-23
+dr_flac - v0.13.1 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -126,7 +126,7 @@ extern "C" {
 
 #define DRFLAC_VERSION_MAJOR     0
 #define DRFLAC_VERSION_MINOR     13
-#define DRFLAC_VERSION_REVISION  0
+#define DRFLAC_VERSION_REVISION  1
 #define DRFLAC_VERSION_STRING    DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MAJOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MINOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -8699,7 +8699,7 @@ static drflac_bool32 drflac__on_tell_stdio(void* pUserData, drflac_int64* pCurso
     DRFLAC_ASSERT(pFileStdio != NULL);
     DRFLAC_ASSERT(pCursor    != NULL);
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(NXDK)
     #if defined(_MSC_VER) && _MSC_VER > 1200
         result = _ftelli64(pFileStdio);
     #else
@@ -12077,6 +12077,9 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
+v0.13.1 - TBD
+  - Fix an error with the NXDK build.
+
 v0.13.0 - 2025-07-23
   - API CHANGE: Seek origin enums have been renamed to match the naming convention used by other dr_libs libraries:
     - drflac_seek_origin_start   -> DRFLAC_SEEK_SET
