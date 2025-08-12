@@ -655,7 +655,7 @@ DRMP3_API const char* drmp3_version_string(void)
 #define DRMP3_VMUL_S(x, s)  _mm_mul_ps(x, _mm_set1_ps(s))
 #define DRMP3_VREV(x) _mm_shuffle_ps(x, x, _MM_SHUFFLE(0, 1, 2, 3))
 typedef __m128 drmp3_f4;
-#if defined(_MSC_VER) || defined(DR_MP3_ONLY_SIMD)
+#if (defined(_MSC_VER) || defined(DR_MP3_ONLY_SIMD)) && !defined(__clang__)
 #define drmp3_cpuid __cpuid
 #else
 static __inline__ __attribute__((always_inline)) void drmp3_cpuid(int CPUInfo[], const int InfoType)
