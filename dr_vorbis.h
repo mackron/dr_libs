@@ -322,7 +322,7 @@ data from the read callback. The reason for this design is to ensure the read ca
 ************************************************************************************************************************************************************/
 typedef struct
 {
-    
+
     dr_vorbis_cache_t l1;               /* Data flows from onRead -> l2 -> l1 -> dr_vorbis_bs_read_bits(). */
     dr_vorbis_cache_t l2[DR_VORBIS_BUFFER_SIZE / sizeof(dr_vorbis_cache_t)];    /* Data is moved from here into l1. */
     dr_vorbis_uint32 l1RemainingBits;   /* Number of bits remaining in l1. */
@@ -789,7 +789,7 @@ static DR_VORBIS_INLINE dr_vorbis_result dr_vorbis_bs_reload_l1(dr_vorbis_bs* pB
 
         pBS->l2RemainingBytes = (dr_vorbis_uint32)bytesRead;
         pBS->l2RemainingLines = (dr_vorbis_uint32)bytesRead / sizeof(dr_vorbis_cache_t);
-            
+
         /*
         Make sure we handle the remainder. Use of the mod operator doesn't really matter here in terms of performance because this will only
         get hit right at the very end of the stream, once.
@@ -1084,7 +1084,7 @@ static dr_vorbis_result dr_vorbis_decoder_read_uint8(dr_vorbis_decoder* pStream,
 {
     dr_vorbis_result result;
     size_t bytesRead;
-    
+
     DR_VORBIS_ASSERT(pStream != NULL);
     DR_VORBIS_ASSERT(pValue  != NULL);
 
@@ -1197,7 +1197,7 @@ static dr_vorbis_result dr_vorbis_decoder_load_identification_header(dr_vorbis_d
     if ((data[22] & 0x01) == 0) {
         return DR_VORBIS_INVALID_FILE;
     }
-    
+
     return DR_VORBIS_SUCCESS;
 }
 
@@ -1326,7 +1326,7 @@ static dr_vorbis_result dr_vorbis_decoder_load_comment_header(dr_vorbis_decoder*
             }
         }
     }
-    
+
     /* Framing bit. */
     result = dr_vorbis_decoder_read_uint8(pStream, &framingBit);
     if (result != DR_VORBIS_SUCCESS) {
@@ -1442,7 +1442,7 @@ static dr_vorbis_result dr_vorbis_decoder_load_setup_header_codebooks(dr_vorbis_
                 return result;
             }
             currentLength += 1;
-            
+
             while (currentEntry < codebookEntries) {
                 dr_vorbis_uint32 number;
                 dr_vorbis_uint32 iEntry;
@@ -1547,7 +1547,7 @@ static dr_vorbis_result dr_vorbis_decoder_load_setup_header_time_domain_transfor
     dr_vorbis_result result;
     dr_vorbis_uint32 timeCount;
     dr_vorbis_uint32 iTime;
-    
+
     DR_VORBIS_ASSERT(pStream != NULL);
 
     result = dr_vorbis_decoder_read_bits(pStream, 6, &timeCount);
@@ -1743,7 +1743,7 @@ Ogg/Vorbis Container API
 ************************************************************************************************************************************************************/
 #define DR_VORBIS_OGG_CAPTURE_PATTERN_CRC32 1605413199  /* CRC-32 of "OggS". */
 
-static dr_vorbis_uint32 dr_vorbis_ogg__crc32_table[] = {
+static const dr_vorbis_uint32 dr_vorbis_ogg__crc32_table[] = {
     0x00000000L, 0x04C11DB7L, 0x09823B6EL, 0x0D4326D9L,
     0x130476DCL, 0x17C56B6BL, 0x1A864DB2L, 0x1E475005L,
     0x2608EDB8L, 0x22C9F00FL, 0x2F8AD6D6L, 0x2B4BCB61L,
@@ -1936,7 +1936,7 @@ static dr_vorbis_result dr_vorbis_ogg__read_page_header_after_capture_pattern(dr
     data[20] = 0;
     data[21] = 0;
     *pCRC = dr_vorbis_ogg_crc32_buffer(*pCRC, data, sizeof(data));
-    
+
 
     /* The only thing remaining now is the segment table. */
     result = dr_vorbis_ogg_read(pOgg, pHeader->segmentTable, pHeader->segmentCount, &bytesRead, pCRC);
@@ -2283,7 +2283,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_ogg_read_vorbis_data(dr_vorbis_ogg* pOg
             pOgg->pageDataSize = pageDataSize;
         }
     }
-    
+
     if (pBytesRead != NULL) {
         *pBytesRead = totalBytesRead;
     }
@@ -2332,7 +2332,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_init_ex(void* pReadSeekUserData, dr_vor
             onSeek(pReadSeekUserData, 0, DR_VORBIS_SEEK_SET);  /* Seek back to the start for the benefit of the next attempt. */
         }
     }
-    
+
     /* If at this point we still don't have a container we need to abort. */
     if (result != DR_VORBIS_SUCCESS) {
         return DR_VORBIS_INVALID_FILE;  /* Unsupported or unknown container. */
@@ -2917,7 +2917,7 @@ static dr_vorbis_result dr_vorbis_wfopen(FILE** ppFile, const wchar_t* pFilePath
 static dr_vorbis_result dr_vorbis_cb__on_read_stdio(void* pUserData, void* pOutput, size_t bytesToRead, size_t* pBytesRead)
 {
     size_t bytesRead = fread(pOutput, 1, bytesToRead, (FILE*)pUserData);
-    
+
     if (pBytesRead != NULL) {
         *pBytesRead = bytesRead;
     }
@@ -3004,7 +3004,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_init_file_ex(const char* pFilePath, voi
     (void)onMeta;
     (void)pAllocationCallbacks;
     (void)pVorbis;
-    return EINVAL;
+    return DR_VORBIS_IO_ERROR;
 #endif
 }
 
@@ -3033,7 +3033,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_init_file_w_ex(const wchar_t* pFilePath
     (void)onMeta;
     (void)pAllocationCallbacks;
     (void)pVorbis;
-    return EINVAL;
+    return DR_VORBIS_IO_ERROR;
 #endif
 }
 
@@ -3083,7 +3083,7 @@ DR_VORBIS_API dr_vorbis_result dr_vorbis_seek_to_pcm_frame(dr_vorbis* pVorbis, d
     sample to depend on the previous frame due to Vorbis' lapping system. We'll need to seek to the prior Vorbis packet, and then read-and-discard any
     leftovers.
     */
-    
+
     /* TODO: Implement me. */
     (void)frameIndex;
     return DR_VORBIS_SUCCESS;
