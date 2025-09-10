@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.14.1 - TBD
+dr_wav - v0.14.1 - 2025-09-10
 
 David Reid - mackron@gmail.com
 
@@ -8517,7 +8517,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
-v0.14.1 - TBD
+v0.14.1 - 2025-09-10
   - Fix an error with the NXDK build.
 
 v0.14.0 - 2025-07-23
