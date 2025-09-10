@@ -3257,6 +3257,13 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                     /* The start offset needs to be moved to the end of this frame so it's not included in any audio processing after seeking. */
                     pMP3->streamStartOffset += (drmp3_uint32)(firstFrameInfo.frame_bytes);
                     pMP3->streamCursor = pMP3->streamStartOffset;
+
+                    /*
+                    The internal decoder needs to be reset to clear out any state. If we don't reset this state, it's possible for
+                    there to be inconsistencies in the number of samples read when reading to the end of the stream depending on
+                    whether or not the caller seeks to the start of the stream.
+                    */
+                    drmp3dec_init(&pMP3->decoder);
                 }
             } else {
                 /* Failed to read the side info. */
