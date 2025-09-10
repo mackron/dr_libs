@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.7.1 - TBD
+dr_mp3 - v0.7.1 - 2025-09-10
 
 David Reid - mackron@gmail.com
 
@@ -4999,9 +4999,10 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
-v0.7.1 - TBD
+v0.7.1 - 2025-09-10
   - Silence a warning with GCC.
   - Fix an error with the NXDK build.
+  - Fix a decoding inconsistency when seeking. Prior to this change, reading to the end of the stream immediately after initializing will result in a different number of samples read than if the stream is seeked to the start and read to the end.
 
 v0.7.0 - 2025-07-23
   - The old `DRMP3_IMPLEMENTATION` has been removed. Use `DR_MP3_IMPLEMENTATION` instead. The reason for this change is that in the future everything will eventually be using the underscored naming convention in the future, so `drmp3` will become `dr_mp3`.
