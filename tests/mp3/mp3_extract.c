@@ -106,7 +106,7 @@ int main(int argc, char** argv)
 
     /*
     There was a bug once where seeking would result in the decoder not properly skipping the Xing/Info
-    header if present. We'll do a see here to ensure that code path is hit.
+    header if present. We'll do a seek here to ensure that code path is hit.
     */
     {
         drmp3_uint64 totalFrameCount = drmp3_get_pcm_frame_count(&mp3);
