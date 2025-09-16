@@ -6822,15 +6822,18 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
                     /*
                     For the allocation of image data, we can allow memory allocation to fail, in which case we just leave
-                    the pointer as null. We do not need to read the image data in order to skip over the block.
+                    the pointer as null. If it fails, we need to fall back to seeking past the image data.
                     */
+                #ifndef DR_FLAC_NO_PICTURE_METADATA_MALLOC
                     pPictureData = drflac__malloc_from_callbacks(metadata.data.picture.pictureDataSize, pAllocationCallbacks);
                     if (pPictureData != NULL) {
                         if (onRead(pUserData, pPictureData, metadata.data.picture.pictureDataSize) != metadata.data.picture.pictureDataSize) {
                             result = DRFLAC_FALSE;
                             goto done_flac;
                         }
-                    } else {
+                    } else
+                #endif
+                    {
                         /* Allocation failed. We need to seek past the picture data. */
                         if (!onSeek(pUserData, metadata.data.picture.pictureDataSize, DRFLAC_SEEK_CUR)) {
                             result = DRFLAC_FALSE;
@@ -12171,6 +12174,7 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 REVISION HISTORY
 ================
 v0.13.2 - TBD
+  - Improve robustness of the parsing of picture metadata to improve support for memory constrained embedded devices.
   - Fix a warning about an assigned by unused variable.
 
 v0.13.1 - 2025-09-10
