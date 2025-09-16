@@ -6892,13 +6892,16 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                 */
                 if (onMeta) {
                     void* pRawData = drflac__malloc_from_callbacks(blockSize, pAllocationCallbacks);
-                    if (pRawData == NULL) {
-                        return DRFLAC_FALSE;
-                    }
-
-                    if (onRead(pUserData, pRawData, blockSize) != blockSize) {
-                        drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                        return DRFLAC_FALSE;
+                    if (pRawData != NULL) {
+                        if (onRead(pUserData, pRawData, blockSize) != blockSize) {
+                            drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
+                            return DRFLAC_FALSE;
+                        }
+                    } else {
+                        /* Allocation failed. We need to seek past the block. */
+                        if (!onSeek(pUserData, blockSize, DRFLAC_SEEK_CUR)) {
+                            return DRFLAC_FALSE;
+                        }
                     }
 
                     metadata.pRawData = pRawData;
