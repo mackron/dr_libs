@@ -331,15 +331,18 @@ typedef struct
     */
     drflac_uint32 type;
 
+    /* The size in bytes of the block and the buffer pointed to by pRawData if it's non-NULL. */
+    drflac_uint32 rawDataSize;
+
+    /* The offset in the stream of the raw data. */
+    drflac_uint64 rawDataOffset;
+
     /*
     A pointer to the raw data. This points to a temporary buffer so don't hold on to it. It's best to
     not modify the contents of this buffer. Use the structures below for more meaningful and structured
     information about the metadata. It's possible for this to be null.
     */
     const void* pRawData;
-
-    /* The size in bytes of the block and the buffer pointed to by pRawData if it's non-NULL. */
-    drflac_uint32 rawDataSize;
 
     union
     {
@@ -6435,8 +6438,9 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
         runningFilePos += 4;
 
         metadata.type = blockType;
-        metadata.pRawData = NULL;
         metadata.rawDataSize = 0;
+        metadata.rawDataOffset = runningFilePos;
+        metadata.pRawData = NULL;
 
         switch (blockType)
         {
