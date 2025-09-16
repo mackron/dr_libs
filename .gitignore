@@ -8,4 +8,6 @@
 /tests/testvectors/wav/*
 /tests/testvectors/flac/*
 /tests/testvectors/mp3/*
+/tests/testvectors/vorbis/*
+/tests/testvectors/opus/*
 !.gitkeep

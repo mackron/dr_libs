@@ -47,11 +47,15 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 endif()
 
 
+# Set up an interface for our compile options.
+add_library(dr_libs_interface INTERFACE)
+target_compile_options(dr_libs_interface INTERFACE ${COMPILE_OPTIONS})
+
 
 # Common includes for dl, pthread, etc.
 set(COMMON_LIBRARIES)
 if(UNIX)
-    list(APPEND COMMON_LIBRARIES dl pthread m)
+    list(APPEND COMMON_LIBRARIES dl pthread m dr_libs_interface)
 endif()
 
 
@@ -92,6 +96,7 @@ if(NOT DR_LIBS_NO_WAV)
 
             # The debugging sandbox is not intended to be run as a test. Just adding it here for IDE integration.
             add_executable(wav_debugging tests/wav/wav_debugging.cpp)
+            target_include_directories(wav_debugging PRIVATE ${SNDFILE_INCLUDE_DIR})
             target_link_libraries(wav_debugging PRIVATE ${COMMON_LIBRARIES})
         else()
             message(WARNING "Could not find sndfile.h. dr_wav tests will not be built.")
@@ -109,7 +114,7 @@ if(NOT DR_LIBS_NO_FLAC)
 
         function(add_flac_test name source)
             add_executable(${name} tests/flac/${source})
-            target_link_libraries(${name} PRIVATE FLAC)
+            target_link_libraries(${name} PRIVATE ${COMMON_LIBRARIES} FLAC)
             add_test(NAME ${name} COMMAND ${name})
         endfunction()
 
