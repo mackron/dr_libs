@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.13.1 - 2025-09-10
+dr_flac - v0.13.2 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -126,7 +126,7 @@ extern "C" {
 
 #define DRFLAC_VERSION_MAJOR     0
 #define DRFLAC_VERSION_MINOR     13
-#define DRFLAC_VERSION_REVISION  1
+#define DRFLAC_VERSION_REVISION  2
 #define DRFLAC_VERSION_STRING    DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MAJOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MINOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -8821,8 +8821,6 @@ static drflac_bool32 drflac__on_seek_memory(void* pUserData, int offset, drflac_
 
     DRFLAC_ASSERT(memoryStream != NULL);
 
-    newCursor = memoryStream->currentReadPos;
-
     if (origin == DRFLAC_SEEK_SET) {
         newCursor = 0;
     } else if (origin == DRFLAC_SEEK_CUR) {
@@ -12077,6 +12075,9 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
+v0.13.2 - TBD
+  - Fix a warning about an assigned by unused variable.
+
 v0.13.1 - 2025-09-10
   - Fix an error with the NXDK build.
 
