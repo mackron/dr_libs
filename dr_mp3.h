@@ -1234,7 +1234,7 @@ static float drmp3_L3_ldexp_q2(float y, int exp_q2)
 I've had reports of GCC 14 throwing an incorrect -Wstringop-overflow warning here. This is an attempt
 to silence this warning.
 */
-#if (defined(__GNUC__) && (__GNUC__ >= 14)) && !defined(__clang__)
+#if (defined(__GNUC__) && (__GNUC__ >= 13)) && !defined(__clang__)
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wstringop-overflow"
 #endif
@@ -1299,7 +1299,7 @@ static void drmp3_L3_decode_scalefactors(const drmp3_uint8 *hdr, drmp3_uint8 *is
         scf[i] = drmp3_L3_ldexp_q2(gain, iscf[i] << scf_shift);
     }
 }
-#if (defined(__GNUC__) && (__GNUC__ >= 14)) && !defined(__clang__)
+#if (defined(__GNUC__) && (__GNUC__ >= 13)) && !defined(__clang__)
     #pragma GCC diagnostic pop
 #endif
 
