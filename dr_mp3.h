@@ -3018,23 +3018,27 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                                 ((drmp3_uint32)ape[26] << 16) |
                                 ((drmp3_uint32)ape[27] << 24);
 
-                            streamEndOffset -= 32 + tagSize;
-                            streamLen       -= 32 + tagSize;
-                            
-                            /* Fire a metadata callback for the APE data. Must include both the main content and footer. */
-                            if (onMeta != NULL) {
-                                /* We first need to seek to the start of the APE tag. */
-                                if (onSeek(pUserData, streamEndOffset, DRMP3_SEEK_END)) {
-                                    size_t apeTagSize = (size_t)tagSize + 32;
-                                    drmp3_uint8* pTagData = (drmp3_uint8*)drmp3_malloc(apeTagSize, pAllocationCallbacks);
-                                    if (pTagData != NULL) {
-                                        if (onRead(pUserData, pTagData, apeTagSize) == apeTagSize) {
-                                            drmp3__on_meta(pMP3, DRMP3_METADATA_TYPE_APE, pTagData, apeTagSize);
-                                        }
+                            if (32 + tagSize < streamLen) {
+                                streamEndOffset -= 32 + tagSize;
+                                streamLen       -= 32 + tagSize;
+                                
+                                /* Fire a metadata callback for the APE data. Must include both the main content and footer. */
+                                if (onMeta != NULL) {
+                                    /* We first need to seek to the start of the APE tag. */
+                                    if (onSeek(pUserData, streamEndOffset, DRMP3_SEEK_END)) {
+                                        size_t apeTagSize = (size_t)tagSize + 32;
+                                        drmp3_uint8* pTagData = (drmp3_uint8*)drmp3_malloc(apeTagSize, pAllocationCallbacks);
+                                        if (pTagData != NULL) {
+                                            if (onRead(pUserData, pTagData, apeTagSize) == apeTagSize) {
+                                                drmp3__on_meta(pMP3, DRMP3_METADATA_TYPE_APE, pTagData, apeTagSize);
+                                            }
 
-                                        drmp3_free(pTagData, pAllocationCallbacks);
+                                            drmp3_free(pTagData, pAllocationCallbacks);
+                                        }
                                     }
                                 }
+                            } else {
+                                /* The tag size is larger than the stream. Invalid APE tag. */
                             }
                         }
                     }
@@ -5004,6 +5008,7 @@ REVISION HISTORY
 v0.7.2 - TBD
   - Reduce stack space to improve robustness on embedded systems.
   - Fix a compilation error with MSVC Clang toolset relating to cpuid.
+  - Fix an error with APE tag parsing.
 
 v0.7.1 - 2025-09-10
   - Silence a warning with GCC.
