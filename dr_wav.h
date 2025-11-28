@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.14.1 - 2025-09-10
+dr_wav - v0.14.2 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -5576,7 +5576,7 @@ DRWAV_PRIVATE drwav_bool32 drwav__on_seek_memory_write(void* pUserData, int offs
         newCursor = (drwav_int64)pWav->memoryStreamWrite.dataSize;
     } else {
         DRWAV_ASSERT(!"Invalid seek origin");
-        return DRWAV_INVALID_ARGS;
+        return DRWAV_FALSE;
     }
 
     newCursor += offset;
@@ -8517,6 +8517,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.14.2 - TBD
+  - Fix a compilation warning.
+
 v0.14.1 - 2025-09-10
   - Fix an error with the NXDK build.
 
