@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.7.2 - TBD
+dr_mp3 - v0.7.2 - 2025-12-02
 
 David Reid - mackron@gmail.com
 
@@ -5005,7 +5005,7 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
-v0.7.2 - TBD
+v0.7.2 - 2025-12-02
   - Reduce stack space to improve robustness on embedded systems.
   - Fix a compilation error with MSVC Clang toolset relating to cpuid.
   - Fix an error with APE tag parsing.
