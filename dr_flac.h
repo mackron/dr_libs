@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.13.2 - TBD
+dr_flac - v0.13.2 - 2025-12-02
 
 David Reid - mackron@gmail.com
 
@@ -12158,7 +12158,7 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
-v0.13.2 - TBD
+v0.13.2 - 2025-12-02
   - Improve robustness of the parsing of picture metadata to improve support for memory constrained embedded devices.
   - Fix a warning about an assigned by unused variable.
   - Improvements to drflac_open_and_read_pcm_frames_*() and family to avoid excessively large memory allocations from malformed files.
