@@ -11798,57 +11798,42 @@ static type* drflac__full_read_and_close_ ## extension (drflac* pFlac, unsigned 
 {                                                                                                                                                                   \
     type* pSampleData = NULL;                                                                                                                                       \
     drflac_uint64 totalPCMFrameCount;                                                                                                                               \
+    type buffer[4096];                                                                                                                                              \
+    drflac_uint64 pcmFramesRead;                                                                                                                                    \
+    size_t sampleDataBufferSize = sizeof(buffer);                                                                                                                   \
                                                                                                                                                                     \
     DRFLAC_ASSERT(pFlac != NULL);                                                                                                                                   \
                                                                                                                                                                     \
-    totalPCMFrameCount = pFlac->totalPCMFrameCount;                                                                                                                 \
+    totalPCMFrameCount = 0;                                                                                                                                         \
                                                                                                                                                                     \
-    if (totalPCMFrameCount == 0) {                                                                                                                                  \
-        type buffer[4096];                                                                                                                                          \
-        drflac_uint64 pcmFramesRead;                                                                                                                                \
-        size_t sampleDataBufferSize = sizeof(buffer);                                                                                                               \
+    pSampleData = (type*)drflac__malloc_from_callbacks(sampleDataBufferSize, &pFlac->allocationCallbacks);                                                          \
+    if (pSampleData == NULL) {                                                                                                                                      \
+        goto on_error;                                                                                                                                              \
+    }                                                                                                                                                               \
                                                                                                                                                                     \
-        pSampleData = (type*)drflac__malloc_from_callbacks(sampleDataBufferSize, &pFlac->allocationCallbacks);                                                      \
-        if (pSampleData == NULL) {                                                                                                                                  \
-            goto on_error;                                                                                                                                          \
-        }                                                                                                                                                           \
+    while ((pcmFramesRead = (drflac_uint64)drflac_read_pcm_frames_##extension(pFlac, sizeof(buffer)/sizeof(buffer[0])/pFlac->channels, buffer)) > 0) {              \
+        if (((totalPCMFrameCount + pcmFramesRead) * pFlac->channels * sizeof(type)) > sampleDataBufferSize) {                                                       \
+            type* pNewSampleData;                                                                                                                                   \
+            size_t newSampleDataBufferSize;                                                                                                                         \
                                                                                                                                                                     \
-        while ((pcmFramesRead = (drflac_uint64)drflac_read_pcm_frames_##extension(pFlac, sizeof(buffer)/sizeof(buffer[0])/pFlac->channels, buffer)) > 0) {          \
-            if (((totalPCMFrameCount + pcmFramesRead) * pFlac->channels * sizeof(type)) > sampleDataBufferSize) {                                                   \
-                type* pNewSampleData;                                                                                                                               \
-                size_t newSampleDataBufferSize;                                                                                                                     \
-                                                                                                                                                                    \
-                newSampleDataBufferSize = sampleDataBufferSize * 2;                                                                                                 \
-                pNewSampleData = (type*)drflac__realloc_from_callbacks(pSampleData, newSampleDataBufferSize, sampleDataBufferSize, &pFlac->allocationCallbacks);    \
-                if (pNewSampleData == NULL) {                                                                                                                       \
-                    drflac__free_from_callbacks(pSampleData, &pFlac->allocationCallbacks);                                                                          \
-                    goto on_error;                                                                                                                                  \
-                }                                                                                                                                                   \
-                                                                                                                                                                    \
-                sampleDataBufferSize = newSampleDataBufferSize;                                                                                                     \
-                pSampleData = pNewSampleData;                                                                                                                       \
+            newSampleDataBufferSize = sampleDataBufferSize * 2;                                                                                                     \
+            pNewSampleData = (type*)drflac__realloc_from_callbacks(pSampleData, newSampleDataBufferSize, sampleDataBufferSize, &pFlac->allocationCallbacks);        \
+            if (pNewSampleData == NULL) {                                                                                                                           \
+                drflac__free_from_callbacks(pSampleData, &pFlac->allocationCallbacks);                                                                              \
+                goto on_error;                                                                                                                                      \
             }                                                                                                                                                       \
                                                                                                                                                                     \
-            DRFLAC_COPY_MEMORY(pSampleData + (totalPCMFrameCount*pFlac->channels), buffer, (size_t)(pcmFramesRead*pFlac->channels*sizeof(type)));                   \
-            totalPCMFrameCount += pcmFramesRead;                                                                                                                    \
+            sampleDataBufferSize = newSampleDataBufferSize;                                                                                                         \
+            pSampleData = pNewSampleData;                                                                                                                           \
         }                                                                                                                                                           \
                                                                                                                                                                     \
-        /* At this point everything should be decoded, but we just want to fill the unused part buffer with silence - need to                                       \
-           protect those ears from random noise! */                                                                                                                 \
-        DRFLAC_ZERO_MEMORY(pSampleData + (totalPCMFrameCount*pFlac->channels), (size_t)(sampleDataBufferSize - totalPCMFrameCount*pFlac->channels*sizeof(type)));   \
-    } else {                                                                                                                                                        \
-        drflac_uint64 dataSize = totalPCMFrameCount*pFlac->channels*sizeof(type);                                                                                   \
-        if (dataSize > (drflac_uint64)DRFLAC_SIZE_MAX) {                                                                                                            \
-            goto on_error;  /* The decoded data is too big. */                                                                                                      \
-        }                                                                                                                                                           \
-                                                                                                                                                                    \
-        pSampleData = (type*)drflac__malloc_from_callbacks((size_t)dataSize, &pFlac->allocationCallbacks);    /* <-- Safe cast as per the check above. */           \
-        if (pSampleData == NULL) {                                                                                                                                  \
-            goto on_error;                                                                                                                                          \
-        }                                                                                                                                                           \
-                                                                                                                                                                    \
-        totalPCMFrameCount = drflac_read_pcm_frames_##extension(pFlac, pFlac->totalPCMFrameCount, pSampleData);                                                     \
+        DRFLAC_COPY_MEMORY(pSampleData + (totalPCMFrameCount*pFlac->channels), buffer, (size_t)(pcmFramesRead*pFlac->channels*sizeof(type)));                       \
+        totalPCMFrameCount += pcmFramesRead;                                                                                                                        \
     }                                                                                                                                                               \
+                                                                                                                                                                    \
+    /* At this point everything should be decoded, but we just want to fill the unused part buffer with silence - need to                                           \
+       protect those ears from random noise! */                                                                                                                     \
+    DRFLAC_ZERO_MEMORY(pSampleData + (totalPCMFrameCount*pFlac->channels), (size_t)(sampleDataBufferSize - totalPCMFrameCount*pFlac->channels*sizeof(type)));       \
                                                                                                                                                                     \
     if (sampleRateOut) *sampleRateOut = pFlac->sampleRate;                                                                                                          \
     if (channelsOut) *channelsOut = pFlac->channels;                                                                                                                \
@@ -12176,6 +12161,7 @@ REVISION HISTORY
 v0.13.2 - TBD
   - Improve robustness of the parsing of picture metadata to improve support for memory constrained embedded devices.
   - Fix a warning about an assigned by unused variable.
+  - Improvements to drflac_open_and_read_pcm_frames_*() and family to avoid excessively large memory allocations from malformed files.
 
 v0.13.1 - 2025-09-10
   - Fix an error with the NXDK build.
