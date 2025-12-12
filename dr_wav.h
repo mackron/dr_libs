@@ -6319,7 +6319,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                 pWav->msadpcm.cachedFrameCount = 2;
 
                 /* The predictor is used as an index into coeff1Table so we'll need to validate to ensure it never overflows. */
-                if (pWav->msadpcm.predictor[0] >= drwav_countof(coeff1Table) || pWav->msadpcm.predictor[1] >= drwav_countof(coeff2Table)) {
+                if (pWav->msadpcm.predictor[0] >= drwav_countof(coeff1Table) || pWav->msadpcm.predictor[1] >= drwav_countof(coeff1Table)) {
                     return totalFramesRead; /* Invalid file. */
                 }
             }
@@ -6367,6 +6367,14 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                 /* TODO: Optimize away these if statements. */
                 nibble0 = ((nibbles & 0xF0) >> 4); if ((nibbles & 0x80)) { nibble0 |= 0xFFFFFFF0UL; }
                 nibble1 = ((nibbles & 0x0F) >> 0); if ((nibbles & 0x08)) { nibble1 |= 0xFFFFFFF0UL; }
+
+                /* Bounds check predictors to prevent OOB access to coefficient tables. */
+                if (pWav->msadpcm.predictor[0] >= drwav_countof(coeff1Table)) {
+                    return totalFramesRead;
+                }
+                if (pWav->channels > 1 && pWav->msadpcm.predictor[1] >= drwav_countof(coeff1Table)) {
+                    return totalFramesRead;
+                }
 
                 if (pWav->channels == 1) {
                     /* Mono. */
@@ -8053,6 +8061,12 @@ DRWAV_PRIVATE drwav_int16* drwav__read_pcm_frames_and_close_s16(drwav* pWav, uns
 
     DRWAV_ASSERT(pWav != NULL);
 
+    /* Check for overflow before multiplication. */
+    if (pWav->channels == 0 || pWav->totalPCMFrameCount > DRWAV_SIZE_MAX / pWav->channels / sizeof(drwav_int16)) {
+        drwav_uninit(pWav);
+        return NULL;    /* Overflow or invalid channels. */
+    }
+
     sampleDataSize = pWav->totalPCMFrameCount * pWav->channels * sizeof(drwav_int16);
     if (sampleDataSize > DRWAV_SIZE_MAX) {
         drwav_uninit(pWav);
@@ -8095,6 +8109,12 @@ DRWAV_PRIVATE float* drwav__read_pcm_frames_and_close_f32(drwav* pWav, unsigned 
 
     DRWAV_ASSERT(pWav != NULL);
 
+    /* Check for overflow before multiplication. */
+    if (pWav->channels == 0 || pWav->totalPCMFrameCount > DRWAV_SIZE_MAX / pWav->channels / sizeof(float)) {
+        drwav_uninit(pWav);
+        return NULL;    /* Overflow or invalid channels. */
+    }
+
     sampleDataSize = pWav->totalPCMFrameCount * pWav->channels * sizeof(float);
     if (sampleDataSize > DRWAV_SIZE_MAX) {
         drwav_uninit(pWav);
@@ -8136,6 +8156,12 @@ DRWAV_PRIVATE drwav_int32* drwav__read_pcm_frames_and_close_s32(drwav* pWav, uns
     drwav_uint64 framesRead;
 
     DRWAV_ASSERT(pWav != NULL);
+
+    /* Check for overflow before multiplication. */
+    if (pWav->channels == 0 || pWav->totalPCMFrameCount > DRWAV_SIZE_MAX / pWav->channels / sizeof(drwav_int32)) {
+        drwav_uninit(pWav);
+        return NULL;    /* Overflow or invalid channels. */
+    }
 
     sampleDataSize = pWav->totalPCMFrameCount * pWav->channels * sizeof(drwav_int32);
     if (sampleDataSize > DRWAV_SIZE_MAX) {
