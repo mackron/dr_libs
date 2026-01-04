@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.13.2 - 2025-12-02
+dr_flac - v0.13.3 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -126,7 +126,7 @@ extern "C" {
 
 #define DRFLAC_VERSION_MAJOR     0
 #define DRFLAC_VERSION_MINOR     13
-#define DRFLAC_VERSION_REVISION  2
+#define DRFLAC_VERSION_REVISION  3
 #define DRFLAC_VERSION_STRING    DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MAJOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MINOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -2716,9 +2716,17 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_lzcnt(drflac_cache_t x)
     #if defined(__GNUC__) || defined(__clang__)
         #if defined(DRFLAC_X64)
             {
+                /*
+                A note on lzcnt.
+
+                We check for the presence of the lzcnt instruction at runtime before calling this function, but we still generate this code. I have had
+                a report where the assembler does not recognize the lzcnt instruction. To work around this we are going to use `rep; bsr` instead which
+                has an identical byte encoding as lzcnt, and should hopefully improve compatibility with older assemblers.
+                */
                 drflac_uint64 r;
                 __asm__ __volatile__ (
-                    "lzcnt{ %1, %0| %0, %1}" : "=r"(r) : "r"(x) : "cc"
+                    "rep; bsr{q %1, %0| %0, %1}" : "=r"(r) : "r"(x) : "cc"
+                    /*"lzcnt{ %1, %0| %0, %1}" : "=r"(r) : "r"(x) : "cc"*/
                 );
 
                 return (drflac_uint32)r;
@@ -2727,7 +2735,8 @@ static DRFLAC_INLINE drflac_uint32 drflac__clz_lzcnt(drflac_cache_t x)
             {
                 drflac_uint32 r;
                 __asm__ __volatile__ (
-                    "lzcnt{l %1, %0| %0, %1}" : "=r"(r) : "r"(x) : "cc"
+                    "rep; bsr{l %1, %0| %0, %1}" : "=r"(r) : "r"(x) : "cc"
+                    /*"lzcnt{l %1, %0| %0, %1}" : "=r"(r) : "r"(x) : "cc"*/
                 );
 
                 return r;
@@ -12158,6 +12167,9 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
+v0.13.3 - TBD
+  - Fix a compiler compatibility issue with some inlined assembly.
+
 v0.13.2 - 2025-12-02
   - Improve robustness of the parsing of picture metadata to improve support for memory constrained embedded devices.
   - Fix a warning about an assigned by unused variable.
