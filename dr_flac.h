@@ -6851,8 +6851,10 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     }
 
                     blockSizeRemaining -= metadata.data.picture.pictureDataSize;
-                    metadata.data.picture.pPictureData = (const drflac_uint8*)pPictureData;
+                    (void)blockSizeRemaining;
 
+                    metadata.data.picture.pPictureData = (const drflac_uint8*)pPictureData;
+                    
 
                     /* Only fire the callback if we actually have a way to read the image data. We must have either a valid offset, or a valid data pointer. */
                     if (metadata.data.picture.pictureDataOffset != 0 || metadata.data.picture.pPictureData != NULL) {
@@ -12169,6 +12171,7 @@ REVISION HISTORY
 ================
 v0.13.3 - TBD
   - Fix a compiler compatibility issue with some inlined assembly.
+  - Fix a compilation warning.
 
 v0.13.2 - 2025-12-02
   - Improve robustness of the parsing of picture metadata to improve support for memory constrained embedded devices.
