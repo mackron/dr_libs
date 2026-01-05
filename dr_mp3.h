@@ -3170,7 +3170,6 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
         {
             drmp3_bs bs;
             drmp3_L3_gr_info grInfo[4];
-            const drmp3_uint8* pTagData = pFirstFrameData;
 
             drmp3_bs_init(&bs, pFirstFrameData + DRMP3_HDR_SIZE, firstFrameInfo.frame_bytes - DRMP3_HDR_SIZE);
 
@@ -3181,6 +3180,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
             if (drmp3_L3_read_side_info(&bs, grInfo, pFirstFrameData) >= 0) {
                 drmp3_bool32 isXing = DRMP3_FALSE;
                 drmp3_bool32 isInfo = DRMP3_FALSE;
+                const drmp3_uint8* pTagData;
                 const drmp3_uint8* pTagDataBeg;
 
                 pTagDataBeg = pFirstFrameData + DRMP3_HDR_SIZE + (bs.pos/8);
@@ -3330,8 +3330,6 @@ static drmp3_bool32 drmp3__on_seek_memory(void* pUserData, int byteOffset, drmp3
     drmp3_int64 newCursor;
 
     DRMP3_ASSERT(pMP3 != NULL);
-
-    newCursor = pMP3->memory.currentReadPos;
 
     if (origin == DRMP3_SEEK_SET) {
         newCursor = 0;
@@ -5011,6 +5009,7 @@ REVISION HISTORY
 ================
 v0.7.3 - TBD
   - Fix an error in drmp3_open_and_read_pcm_frames_s16() and family when memory allocation fails.
+  - Fix some compilation warnings.
 
 v0.7.2 - 2025-12-02
   - Reduce stack space to improve robustness on embedded systems.
