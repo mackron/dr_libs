@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.14.3 - 2025-12-14
+dr_wav - v0.14.4 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -147,7 +147,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     14
-#define DRWAV_VERSION_REVISION  3
+#define DRWAV_VERSION_REVISION  4
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -5492,8 +5492,6 @@ DRWAV_PRIVATE drwav_bool32 drwav__on_seek_memory(void* pUserData, int offset, dr
 
     DRWAV_ASSERT(pWav != NULL);
 
-    newCursor = pWav->memoryStream.currentReadPos;
-
     if (origin == DRWAV_SEEK_SET) {
         newCursor = 0;
     } else if (origin == DRWAV_SEEK_CUR) {
@@ -5565,8 +5563,6 @@ DRWAV_PRIVATE drwav_bool32 drwav__on_seek_memory_write(void* pUserData, int offs
     drwav_int64 newCursor;
 
     DRWAV_ASSERT(pWav != NULL);
-
-    newCursor = pWav->memoryStreamWrite.currentWritePos;
 
     if (origin == DRWAV_SEEK_SET) {
         newCursor = 0;
@@ -8548,6 +8544,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.14.4 - TBD
+  - Fix some compilation warnings.
+
 v0.14.3 - 2025-12-14
   - Fix a possible out-of-bounds read when reading from MS-ADPCM encoded files.
   - Fix a possible integer overflow error.
