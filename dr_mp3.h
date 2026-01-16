@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.7.3 - TBD
+dr_mp3 - v0.7.3 - 2026-01-17
 
 David Reid - mackron@gmail.com
 
@@ -5007,7 +5007,7 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
-v0.7.3 - TBD
+v0.7.3 - 2026-01-17
   - Fix an error in drmp3_open_and_read_pcm_frames_s16() and family when memory allocation fails.
   - Fix some compilation warnings.
 
