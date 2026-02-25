@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.14.4 - 2026-01-17
+dr_wav - v0.14.5 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -6379,11 +6379,8 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                     newSample0 += nibble0 * pWav->msadpcm.delta[0];
                     newSample0  = drwav_clamp(newSample0, -32768, 32767);
 
-                    pWav->msadpcm.delta[0] = (adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta[0]) >> 8;
-                    if (pWav->msadpcm.delta[0] < 16) {
-                        pWav->msadpcm.delta[0] = 16;
-                    }
-
+                    pWav->msadpcm.delta[0] = (drwav_int32)drwav_clamp(((drwav_int64)adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta[0]) >> 8, 16, 0x7FFFFFFF);
+ 
                     pWav->msadpcm.prevFrames[0][0] = pWav->msadpcm.prevFrames[0][1];
                     pWav->msadpcm.prevFrames[0][1] = newSample0;
 
@@ -6392,10 +6389,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                     newSample1 += nibble1 * pWav->msadpcm.delta[0];
                     newSample1  = drwav_clamp(newSample1, -32768, 32767);
 
-                    pWav->msadpcm.delta[0] = (adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta[0]) >> 8;
-                    if (pWav->msadpcm.delta[0] < 16) {
-                        pWav->msadpcm.delta[0] = 16;
-                    }
+                    pWav->msadpcm.delta[0] = (drwav_int32)drwav_clamp(((drwav_int64)adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta[0]) >> 8, 16, 0x7FFFFFFF);
 
                     pWav->msadpcm.prevFrames[0][0] = pWav->msadpcm.prevFrames[0][1];
                     pWav->msadpcm.prevFrames[0][1] = newSample1;
@@ -6417,10 +6411,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                     newSample0 += nibble0 * pWav->msadpcm.delta[0];
                     newSample0  = drwav_clamp(newSample0, -32768, 32767);
 
-                    pWav->msadpcm.delta[0] = (adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta[0]) >> 8;
-                    if (pWav->msadpcm.delta[0] < 16) {
-                        pWav->msadpcm.delta[0] = 16;
-                    }
+                    pWav->msadpcm.delta[0] = (drwav_int32)drwav_clamp(((drwav_int64)adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta[0]) >> 8, 16, 0x7FFFFFFF);
 
                     pWav->msadpcm.prevFrames[0][0] = pWav->msadpcm.prevFrames[0][1];
                     pWav->msadpcm.prevFrames[0][1] = newSample0;
@@ -6435,10 +6426,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                     newSample1 += nibble1 * pWav->msadpcm.delta[1];
                     newSample1  = drwav_clamp(newSample1, -32768, 32767);
 
-                    pWav->msadpcm.delta[1] = (adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta[1]) >> 8;
-                    if (pWav->msadpcm.delta[1] < 16) {
-                        pWav->msadpcm.delta[1] = 16;
-                    }
+                    pWav->msadpcm.delta[1] = (drwav_int32)drwav_clamp(((drwav_int64)adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta[1]) >> 8, 16, 0x7FFFFFFF);
 
                     pWav->msadpcm.prevFrames[1][0] = pWav->msadpcm.prevFrames[1][1];
                     pWav->msadpcm.prevFrames[1][1] = newSample1;
@@ -8544,6 +8532,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.14.5 - TBD
+  - Fix a signed overflow bug with the MS-ADPCM decoder.
+
 v0.14.4 - 2026-01-17
   - Fix some compilation warnings.
 
