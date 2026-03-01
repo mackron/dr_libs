@@ -2748,11 +2748,23 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                     }
                 }
             } else {
-                bytesRead = drwav__read_smpl_to_metadata_obj(pParser, pChunkHeader, &pParser->pMetadata[pParser->metadataCursor]);
-                if (bytesRead == pChunkHeader->sizeInBytes) {
-                    pParser->metadataCursor += 1;
-                } else {
-                    /* Failed to parse. */
+                /*
+                Guard against writing past the metadata array.  In pass 1 (count
+                stage) a smpl chunk is only counted when its sampleLoopCount
+                field matches the size-derived loop count.  A malformed chunk
+                where these disagree is skipped in pass 1, so no allocation slot
+                exists for it.  If we process it unconditionally here, the
+                struct-field writes inside drwav__read_smpl_to_metadata_obj will
+                overflow the metadata array.  Protect against this by verifying
+                that metadataCursor is still within bounds.  See #296.
+                */
+                if (pParser->metadataCursor < pParser->metadataCount) {
+                    bytesRead = drwav__read_smpl_to_metadata_obj(pParser, pChunkHeader, &pParser->pMetadata[pParser->metadataCursor]);
+                    if (bytesRead == pChunkHeader->sizeInBytes) {
+                        pParser->metadataCursor += 1;
+                    } else {
+                        /* Failed to parse. */
+                    }
                 }
             }
         } else {
