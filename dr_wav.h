@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.14.5 - TBD
+dr_wav - v0.14.5 - 2026-03-03
 
 David Reid - mackron@gmail.com
 
@@ -8557,7 +8557,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
-v0.14.5 - TBD
+v0.14.5 - 2026-03-03
   - Fix a crash when loading files with a malformed "smpl" chunk.
   - Fix a signed overflow bug with the MS-ADPCM decoder.
 
