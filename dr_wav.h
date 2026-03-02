@@ -147,7 +147,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     14
-#define DRWAV_VERSION_REVISION  4
+#define DRWAV_VERSION_REVISION  5
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -2189,6 +2189,22 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_pars
 
     if (pMetadata != NULL && bytesJustRead == sizeof(smplHeaderData)) {
         drwav_uint32 iSampleLoop;
+        drwav_uint32 loopCount;
+        drwav_uint32 calculatedLoopCount;
+
+        /*
+        When we calcualted the amount of memory required for the "smpl" chunk we excluded the chunk entirely
+        if the loop count in the header did not match with the calculated count based on the size of the
+        chunk. When this happens, the second stage will still hit this path but the `pMetadata` will be
+        non-null, but will either be pointing at the very end of the allocation or at the start of another
+        chunk. We need to check the loop counts for consistency *before* dereferencing the pMetadata object
+        so it's consistent with how we do it in the first stage.
+        */
+        loopCount = drwav_bytes_to_u32(smplHeaderData + 28);
+        calculatedLoopCount = (pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES;
+        if (loopCount != calculatedLoopCount) {
+            return totalBytesRead;
+        }
 
         pMetadata->type                                     = drwav_metadata_type_smpl;
         pMetadata->data.smpl.manufacturerId                 = drwav_bytes_to_u32(smplHeaderData + 0);
@@ -2205,7 +2221,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_pars
         The loop count needs to be validated against the size of the chunk for safety so we don't
         attempt to read over the boundary of the chunk.
         */
-        if (pMetadata->data.smpl.sampleLoopCount == (pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES) {
+        if (pMetadata->data.smpl.sampleLoopCount == calculatedLoopCount) {
             pMetadata->data.smpl.pLoops = (drwav_smpl_loop*)drwav__metadata_get_memory(pParser, sizeof(drwav_smpl_loop) * pMetadata->data.smpl.sampleLoopCount, DRWAV_METADATA_ALIGNMENT);
 
             for (iSampleLoop = 0; iSampleLoop < pMetadata->data.smpl.sampleLoopCount; ++iSampleLoop) {
@@ -2230,6 +2246,15 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_pars
 
                 drwav__metadata_parser_read(pParser, pMetadata->data.smpl.pSamplerSpecificData, pMetadata->data.smpl.samplerSpecificDataSizeInBytes, &totalBytesRead);
             }
+        } else {
+            /*
+            Getting here means the loop count in the header does not match up with the size of the
+            chunk. Clear out the data to zero just to be safe.
+
+            This should never actually get hit because we check for it above, but keeping this here
+            for added safety.
+            */
+            DRWAV_ZERO_OBJECT(&pMetadata->data.smpl);
         }
     }
 
@@ -8533,6 +8558,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 REVISION HISTORY
 ================
 v0.14.5 - TBD
+  - Fix a crash when loading files with a malformed "smpl" chunk.
   - Fix a signed overflow bug with the MS-ADPCM decoder.
 
 v0.14.4 - 2026-01-17
