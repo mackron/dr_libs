@@ -3826,6 +3826,11 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             drwav_uint64 totalBlockHeaderSizeInBytes;
             drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
 
+            if (dataChunkSize < totalBlockHeaderSizeInBytes) {
+                drwav_free(pWav->pMetadata, &pWav->allocationCallbacks);
+                return DRWAV_FALSE; /* Invalid file. */
+            }
+
             /* Make sure any trailing partial block is accounted for. */
             if ((blockCount * fmt.blockAlign) < dataChunkSize) {
                 blockCount += 1;
