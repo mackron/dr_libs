@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.7.3 - 2026-01-17
+dr_mp3 - v0.7.4 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -72,7 +72,7 @@ extern "C" {
 
 #define DRMP3_VERSION_MAJOR     0
 #define DRMP3_VERSION_MINOR     7
-#define DRMP3_VERSION_REVISION  3
+#define DRMP3_VERSION_REVISION  4
 #define DRMP3_VERSION_STRING    DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -657,8 +657,10 @@ DRMP3_API const char* drmp3_version_string(void)
 
 #if !defined(DR_MP3_NO_SIMD)
 
-#if !defined(DR_MP3_ONLY_SIMD) && (defined(_M_X64) || defined(__x86_64__) || defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC))
-/* x64 always have SSE2, arm64 always have neon, no need for generic code */
+#if !defined(DR_MP3_ONLY_SIMD) && ((defined(_MSC_VER) && _MSC_VER >= 1400) && defined(_M_X64)) || ((defined(__i386) || defined(_M_IX86) || defined(__i386__) || defined(__x86_64__)) && ((defined(_M_IX86_FP) && _M_IX86_FP == 2) || defined(__SSE2__)))
+#define DR_MP3_ONLY_SIMD
+#endif
+#if !defined(DR_MP3_ONLY_SIMD) && (defined(__ARM_NEON) || defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC))
 #define DR_MP3_ONLY_SIMD
 #endif
 
@@ -5007,6 +5009,9 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 /*
 REVISION HISTORY
 ================
+v0.7.4 - TBD
+  - Improvements to SIMD detection.
+
 v0.7.3 - 2026-01-17
   - Fix an error in drmp3_open_and_read_pcm_frames_s16() and family when memory allocation fails.
   - Fix some compilation warnings.
