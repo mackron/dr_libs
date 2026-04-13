@@ -1,6 +1,6 @@
 /*
 WAV audio loader and writer. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_wav - v0.14.5 - 2026-03-03
+dr_wav - v0.14.6 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -147,7 +147,7 @@ extern "C" {
 
 #define DRWAV_VERSION_MAJOR     0
 #define DRWAV_VERSION_MINOR     14
-#define DRWAV_VERSION_REVISION  5
+#define DRWAV_VERSION_REVISION  6
 #define DRWAV_VERSION_STRING    DRWAV_XSTRINGIFY(DRWAV_VERSION_MAJOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_MINOR) "." DRWAV_XSTRINGIFY(DRWAV_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -6725,6 +6725,10 @@ DRWAV_PRIVATE void drwav__pcm_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, 
             shift  += 8;
         }
 
+        if (!drwav__is_little_endian()) {
+            sample = drwav__bswap64(sample);
+        }
+
         pIn += j;
         *pOut++ = (drwav_int16)((drwav_int64)sample >> 48);
     }
@@ -7164,6 +7168,10 @@ DRWAV_PRIVATE void drwav__pcm_to_f32(float* pOut, const drwav_uint8* pIn, size_t
             DRWAV_ASSERT(j < 8);
             sample |= (drwav_uint64)(pIn[j]) << shift;
             shift  += 8;
+        }
+
+        if (!drwav__is_little_endian()) {
+            sample = drwav__bswap64(sample);
         }
 
         pIn += j;
@@ -7648,6 +7656,10 @@ DRWAV_PRIVATE void drwav__pcm_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, 
             DRWAV_ASSERT(j < 8);
             sample |= (drwav_uint64)(pIn[j]) << shift;
             shift  += 8;
+        }
+
+        if (!drwav__is_little_endian()) {
+            sample = drwav__bswap64(sample);
         }
 
         pIn += j;
@@ -8557,6 +8569,9 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 /*
 REVISION HISTORY
 ================
+v0.14.6 - TBD
+  - Fix an error when converting from >32 bit samples to s16/f32/s32 on big-endian architectures.
+
 v0.14.5 - 2026-03-03
   - Fix a crash when loading files with a malformed "smpl" chunk.
   - Fix a signed overflow bug with the MS-ADPCM decoder.
