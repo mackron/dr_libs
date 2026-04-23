@@ -4247,7 +4247,7 @@ DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_f32(drmp3* pMP3, drmp3_uint64 frame
 #else
     /* Slow path. Convert from s16 to f32. */
     {
-        drmp3_int16 pTempS16[8192];
+        drmp3_int16 pTempS16[1152*2];   /* MP3 frames have a maximum per-channel sample count of 1152. Times 2 to account for stereo. */
         drmp3_uint64 totalPCMFramesRead = 0;
 
         while (totalPCMFramesRead < framesToRead) {
@@ -4284,7 +4284,7 @@ DRMP3_API drmp3_uint64 drmp3_read_pcm_frames_s16(drmp3* pMP3, drmp3_uint64 frame
 #else
     /* Slow path. Convert from f32 to s16. */
     {
-        float pTempF32[4096];
+        float pTempF32[1152*2];   /* MP3 frames have a maximum per-channel sample count of 1152. Times 2 to account for stereo. */
         drmp3_uint64 totalPCMFramesRead = 0;
 
         while (totalPCMFramesRead < framesToRead) {
@@ -4772,7 +4772,7 @@ static float* drmp3__full_read_and_close_f32(drmp3* pMP3, drmp3_config* pConfig,
     drmp3_uint64 totalFramesRead = 0;
     drmp3_uint64 framesCapacity = 0;
     float* pFrames = NULL;
-    float temp[4096];
+    float temp[1152*2];   /* MP3 frames have a maximum per-channel sample count of 1152. Times 2 to account for stereo. */
 
     DRMP3_ASSERT(pMP3 != NULL);
 
@@ -4841,7 +4841,7 @@ static drmp3_int16* drmp3__full_read_and_close_s16(drmp3* pMP3, drmp3_config* pC
     drmp3_uint64 totalFramesRead = 0;
     drmp3_uint64 framesCapacity = 0;
     drmp3_int16* pFrames = NULL;
-    drmp3_int16 temp[4096];
+    drmp3_int16 temp[1152*2];   /* MP3 frames have a maximum per-channel sample count of 1152. Times 2 to account for stereo. */
 
     DRMP3_ASSERT(pMP3 != NULL);
 
@@ -5010,6 +5010,7 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 REVISION HISTORY
 ================
 v0.7.4 - TBD
+  - Reduce size of some stack allocations.
   - Improvements to SIMD detection.
 
 v0.7.3 - 2026-01-17
