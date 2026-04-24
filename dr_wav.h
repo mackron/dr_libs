@@ -3841,6 +3841,11 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
             /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
             totalBlockHeaderSizeInBytes = blockCount * (6*fmt.channels);
+            if (totalBlockHeaderSizeInBytes >= dataChunkSize) {  /* <-- We'll be subtracting totalBlockHeaderSizeInBytes from dataChunkSize next so it must be validated. */
+                drwav_free(pWav->pMetadata, &pWav->allocationCallbacks);
+                return DRWAV_FALSE; /* Invalid file. */
+            }
+
             pWav->totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
         }
         if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
@@ -3854,6 +3859,11 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
             /* We decode two samples per byte. There will be blockCount headers in the data chunk. This is enough to know how to calculate the total PCM frame count. */
             totalBlockHeaderSizeInBytes = blockCount * (4*fmt.channels);
+            if (totalBlockHeaderSizeInBytes >= dataChunkSize) {  /* <-- We'll be subtracting totalBlockHeaderSizeInBytes from dataChunkSize next so it must be validated. */
+                drwav_free(pWav->pMetadata, &pWav->allocationCallbacks);
+                return DRWAV_FALSE; /* Invalid file. */
+            }
+
             pWav->totalPCMFrameCount = ((dataChunkSize - totalBlockHeaderSizeInBytes) * 2) / fmt.channels;
 
             /* The header includes a decoded sample for each channel which acts as the initial predictor sample. */
@@ -8578,6 +8588,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 REVISION HISTORY
 ================
 v0.14.6 - TBD
+  - Fix an underflow error with badly formed ADPCM encoded files.
   - Fix an underflow error with badly formed W64 files.
   - Fix an error when converting from >32 bit samples to s16/f32/s32 on big-endian architectures.
 
