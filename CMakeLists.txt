@@ -2,12 +2,13 @@ cmake_minimum_required(VERSION 3.10)
 project(dr_libs)
 
 # Options
-option(DR_LIBS_BUILD_TESTS "Build tests"              OFF)
-option(DR_LIBS_FORCE_CXX   "Force compilation as C++" OFF)
-option(DR_LIBS_FORCE_C89   "Force compilation as C89" OFF)
-option(DR_LIBS_NO_WAV      "Disable WAV"              OFF)
-option(DR_LIBS_NO_FLAC     "Disable FLAC"             OFF)
-option(DR_LIBS_NO_MP3      "Disable MP3"              OFF)
+option(DR_LIBS_BUILD_TESTS      "Build tests"              OFF)
+option(DR_LIBS_FORCE_CXX        "Force compilation as C++" OFF)
+option(DR_LIBS_FORCE_C89        "Force compilation as C89" OFF)
+option(DR_LIBS_SANITIZE_ADDRESS "Enable AddressSanitizer"  OFF)
+option(DR_LIBS_NO_WAV           "Disable WAV"              OFF)
+option(DR_LIBS_NO_FLAC          "Disable FLAC"             OFF)
+option(DR_LIBS_NO_MP3           "Disable MP3"              OFF)
 
 # Construct compiler flags.
 set(COMPILE_OPTIONS)
@@ -46,10 +47,26 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     #list(APPEND COMPILE_OPTIONS /W4)
 endif()
 
+# AddressSanitizer
+set(LINK_OPTIONS)
+if(DR_LIBS_SANITIZE_ADDRESS)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(STATUS "Enabling AddressSanitizer")
+        list(APPEND COMPILE_OPTIONS -fsanitize=address)
+        list(APPEND LINK_OPTIONS -fsanitize=address)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        message(STATUS "Enabling AddressSanitizer (MSVC)")
+        list(APPEND COMPILE_OPTIONS /fsanitize=address)
+    else()
+        message(WARNING "DR_LIBS_SANITIZE_ADDRESS is enabled but the compiler does not support it. Ignoring.")
+    endif()
+endif()
+
 
 # Set up an interface for our compile options.
 add_library(dr_libs_interface INTERFACE)
 target_compile_options(dr_libs_interface INTERFACE ${COMPILE_OPTIONS})
+target_link_options   (dr_libs_interface INTERFACE ${LINK_OPTIONS})
 
 
 # Common includes for dl, pthread, etc.
@@ -71,33 +88,33 @@ if(NOT DR_LIBS_NO_WAV)
 
             add_executable(wav_decoding tests/wav/wav_decoding.c)
             target_include_directories(wav_decoding PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_decoding PRIVATE ${COMMON_LIBRARIES})
+            target_link_libraries     (wav_decoding PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_decoding COMMAND wav_decoding)
 
             add_executable(wav_decoding_cpp tests/wav/wav_decoding.cpp)
             target_include_directories(wav_decoding_cpp PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_decoding_cpp PRIVATE ${COMMON_LIBRARIES})
+            target_link_libraries     (wav_decoding_cpp PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_decoding_cpp COMMAND wav_decoding_cpp)
 
             add_executable(wav_encoding tests/wav/wav_encoding.c)
             target_include_directories(wav_encoding PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_encoding PRIVATE ${COMMON_LIBRARIES})
+            target_link_libraries     (wav_encoding PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_encoding COMMAND wav_encoding)
 
             add_executable(wav_playback tests/wav/wav_playback.c)
             target_include_directories(wav_playback PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_playback PRIVATE ${COMMON_LIBRARIES})
+            target_link_libraries     (wav_playback PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_playback COMMAND wav_playback)
 
             add_executable(wav_playback_cpp tests/wav/wav_playback.cpp)
             target_include_directories(wav_playback_cpp PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_playback_cpp PRIVATE ${COMMON_LIBRARIES})
+            target_link_libraries     (wav_playback_cpp PRIVATE ${COMMON_LIBRARIES})
             add_test(NAME wav_playback_cpp COMMAND wav_playback_cpp)
 
             # The debugging sandbox is not intended to be run as a test. Just adding it here for IDE integration.
             add_executable(wav_debugging tests/wav/wav_debugging.cpp)
             target_include_directories(wav_debugging PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries(wav_debugging PRIVATE ${COMMON_LIBRARIES})
+            target_link_libraries     (wav_debugging PRIVATE ${COMMON_LIBRARIES})
         else()
             message(WARNING "Could not find sndfile.h. dr_wav tests will not be built.")
         endif()
