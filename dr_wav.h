@@ -3329,6 +3329,10 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             ((pWav->container == drwav_container_w64) && drwav_guid_equal(header.id.guid, drwavGUID_W64_FMT))) {
             drwav_uint8 fmtData[16];
 
+            if (header.sizeInBytes < sizeof(fmtData)) {
+                return DRWAV_FALSE; /* Invalid fmt chunk. */
+            }
+
             foundChunk_fmt = DRWAV_TRUE;
 
             if (pWav->onRead(pWav->pUserData, fmtData, sizeof(fmtData)) != sizeof(fmtData)) {
@@ -8588,6 +8592,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 REVISION HISTORY
 ================
 v0.14.6 - TBD
+  - Fix an error when loading files with a malformed "fmt" chunk.
   - Fix an underflow error with badly formed ADPCM encoded files.
   - Fix an underflow error with badly formed W64 files.
   - Fix an error when converting from >32 bit samples to s16/f32/s32 on big-endian architectures.
