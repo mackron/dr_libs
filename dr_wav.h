@@ -2588,8 +2588,10 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_bext_to_metadata_obj(drwav__metadata_pars
                 pMetadata->data.bext.pCodingHistory = (char*)drwav__metadata_get_memory(pParser, extraBytes + 1, 1);
                 DRWAV_ASSERT(pMetadata->data.bext.pCodingHistory != NULL);
 
-                bytesRead += drwav__metadata_parser_read(pParser, pMetadata->data.bext.pCodingHistory, extraBytes, NULL);
-                pMetadata->data.bext.codingHistorySize = (drwav_uint32)drwav__strlen(pMetadata->data.bext.pCodingHistory);
+                pMetadata->data.bext.codingHistorySize = drwav__metadata_parser_read(pParser, pMetadata->data.bext.pCodingHistory, extraBytes, NULL);
+                pMetadata->data.bext.pCodingHistory[pMetadata->data.bext.codingHistorySize] = '\0'; /* <-- Explicit null terminator in case of a badly formed file. */
+                
+                bytesRead += pMetadata->data.bext.codingHistorySize;
             } else {
                 pMetadata->data.bext.pCodingHistory    = NULL;
                 pMetadata->data.bext.codingHistorySize = 0;
@@ -2868,7 +2870,9 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                     return bytesRead;
                 }
                 allocSizeNeeded += drwav__strlen(buffer) + 1;
-                allocSizeNeeded += (size_t)pChunkHeader->sizeInBytes - DRWAV_BEXT_BYTES + 1; /* Coding history. */
+
+                /* Coding history. */
+                allocSizeNeeded += (size_t)pChunkHeader->sizeInBytes - DRWAV_BEXT_BYTES + 1;
 
                 drwav__metadata_request_extra_memory_for_stage_2(pParser, allocSizeNeeded, 1);
 
@@ -8592,6 +8596,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 REVISION HISTORY
 ================
 v0.14.6 - TBD
+  - Fix an error when loading files with a malformed "bext" chunk.
   - Fix an error when loading files with a malformed "fmt" chunk.
   - Fix an underflow error with badly formed ADPCM encoded files.
   - Fix an underflow error with badly formed W64 files.
