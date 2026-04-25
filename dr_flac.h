@@ -8122,11 +8122,17 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
             return NULL;
         }
 
+        if ((0xFFFFFFFF - (seekpointCount * sizeof(drflac_seekpoint))) < allocationSize) {
+        #ifndef DR_FLAC_NO_OGG
+            drflac__free_from_callbacks(pOggbs, &allocationCallbacks);
+        #endif
+            return NULL;
+        }
+
         allocationSize += seekpointCount * sizeof(drflac_seekpoint);
     }
 
-
-    pFlac = (drflac*)drflac__malloc_from_callbacks(allocationSize, &allocationCallbacks);
+    pFlac = (drflac*)drflac__malloc_from_callbacks((size_t)allocationSize, &allocationCallbacks);
     if (pFlac == NULL) {
     #ifndef DR_FLAC_NO_OGG
         drflac__free_from_callbacks(pOggbs, &allocationCallbacks);
