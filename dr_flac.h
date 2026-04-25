@@ -6430,11 +6430,22 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
     We want to keep track of the byte position in the stream of the seektable. At the time of calling this function we know that
     we'll be sitting on byte 42.
     */
-    drflac_uint64 runningFilePos = 42;
-    drflac_uint64 seektablePos   = 0;
-    drflac_uint32 seektableSize  = 0;
+    drflac_uint64 runningFilePos   = 42;
+    drflac_uint64 seektablePos     = 0;
+    drflac_uint32 seektableSize    = 0;
+    drflac_int64  fileSize         = 0;
+    drflac_bool32 hasKnownFileSize = DRFLAC_FALSE;
 
-    (void)onTell;
+    /* We'll be doing some memory allocations here against untrusted data. We'll do a basic validation check that they don't exceed the size of the file. */
+    if (onTell != NULL && onSeek != NULL) {
+        if (onSeek(pUserData, 0, DRFLAC_SEEK_END)) {
+            if (onTell(pUserData, &fileSize)) {
+                hasKnownFileSize = DRFLAC_TRUE;
+            }
+
+            onSeek(pUserData, runningFilePos, DRFLAC_SEEK_SET);
+        }
+    }
 
     for (;;) {
         drflac_metadata metadata;
@@ -6444,6 +6455,11 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
         if (drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize) == DRFLAC_FALSE) {
             return DRFLAC_FALSE;
         }
+
+        if (hasKnownFileSize && (blockSize > ((drflac_uint64)fileSize - runningFilePos))) {
+            return DRFLAC_FALSE;    /* Block size exceeds the size of the file. */
+        }
+
         runningFilePos += 4;
 
         metadata.type = blockType;
@@ -12180,6 +12196,7 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 REVISION HISTORY
 ================
 v0.13.4 - TBD
+  - Add a bounds check when allocating memory during metadata processing.
   - Fix a possible overflow error when parsing picture metadata.
 
 v0.13.3 - 2026-01-17
