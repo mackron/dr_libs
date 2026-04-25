@@ -3309,7 +3309,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
     }
 
     if (detectedMP3FrameCount != 0xFFFFFFFF) {
-        pMP3->totalPCMFrameCount = detectedMP3FrameCount * firstFramePCMFrameCount;
+        pMP3->totalPCMFrameCount = (drmp3_uint64)detectedMP3FrameCount * firstFramePCMFrameCount;
     }
 
     pMP3->channels   = pMP3->mp3FrameChannels;
@@ -5034,6 +5034,7 @@ DIFFERENCES BETWEEN minimp3 AND dr_mp3
 REVISION HISTORY
 ================
 v0.7.4 - TBD
+  - Fix an overflow error with "Xing" and "Info" tag parsing.
   - Add some validation checks for "Xing" and "Info" tag parsing.
   - Reduce size of some stack allocations.
   - Improvements to SIMD detection.
