@@ -357,19 +357,19 @@ drflac_result decode_test_file(const char* pFilePath)
 
     dr_printf_fixed_with_margin(FILE_NAME_WIDTH, TABLE_MARGIN, "%s", dr_path_file_name(pFilePath));
 
-    /* First load the decoder from libFLAC. */
-    result = libflac_init_file(pFilePath, &libflac);
-    if (result != DRFLAC_SUCCESS) {
-        printf("  Failed to open via libFLAC.");
-        return result;
-    }
-
-    /* Now load from dr_flac. */
+    /* First load from dr_flac. */
     pFlac = drflac_open_file_with_metadata(pFilePath, on_meta, NULL, NULL);
     if (pFlac == NULL) {
         printf("  Failed to open via dr_flac.");
-        libflac_uninit(&libflac);
         return DRFLAC_ERROR;    /* Failed to load dr_flac decoder. */
+    }
+
+    /* Now load the decoder from libFLAC. */
+    result = libflac_init_file(pFilePath, &libflac);
+    if (result != DRFLAC_SUCCESS) {
+        printf("  Failed to open via libFLAC.");
+        drflac_close(pFlac);
+        return result;
     }
 
     /* At this point we should have both libFLAC and dr_flac decoders open. We can now perform identical operations on each of them and compare. */
