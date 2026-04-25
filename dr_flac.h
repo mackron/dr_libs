@@ -6774,13 +6774,18 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     blockSizeRemaining -= 4;
                     metadata.data.picture.descriptionLength = drflac__be2host_32(metadata.data.picture.descriptionLength);
 
+                    if (blockSizeRemaining < metadata.data.picture.descriptionLength) {
+                        result = DRFLAC_FALSE;
+                        goto done_flac;
+                    }
+
                     pDescription = (char*)drflac__malloc_from_callbacks(metadata.data.picture.descriptionLength + 1, pAllocationCallbacks); /* +1 for null terminator. */
                     if (pDescription == NULL) {
                         result = DRFLAC_FALSE;
                         goto done_flac;
                     }
 
-                    if (blockSizeRemaining < metadata.data.picture.descriptionLength || onRead(pUserData, pDescription, metadata.data.picture.descriptionLength) != metadata.data.picture.descriptionLength) {
+                    if (onRead(pUserData, pDescription, metadata.data.picture.descriptionLength) != metadata.data.picture.descriptionLength) {
                         result = DRFLAC_FALSE;
                         goto done_flac;
                     }
