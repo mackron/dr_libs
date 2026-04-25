@@ -1547,6 +1547,8 @@ static DRFLAC_INLINE drflac_bool32 drflac_has_sse41(void)
 #define DRFLAC_ZERO_OBJECT(p)               DRFLAC_ZERO_MEMORY((p), sizeof(*(p)))
 #endif
 
+#define DRFLAC_MIN(a, b)                    (((a) < (b)) ? (a) : (b))
+
 #define DRFLAC_MAX_SIMD_VECTOR_SIZE                     64  /* 64 for AVX-512 in the future. */
 
 /* Result Codes */
@@ -6402,7 +6404,7 @@ static void* drflac__realloc_from_callbacks(void* p, size_t szNew, size_t szOld,
         }
 
         if (p != NULL) {
-            DRFLAC_COPY_MEMORY(p2, p, szOld);
+            DRFLAC_COPY_MEMORY(p2, p, DRFLAC_MIN(szNew, szOld));
             pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
         }
 
