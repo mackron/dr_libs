@@ -2209,7 +2209,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_pars
         so it's consistent with how we do it in the first stage.
         */
         loopCount = drwav_bytes_to_u32(smplHeaderData + 28);
-        calculatedLoopCount = (pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES;
+        calculatedLoopCount = (drwav_uint32)((pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES);
         if (loopCount != calculatedLoopCount) {
             return totalBytesRead;
         }
@@ -2765,10 +2765,10 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                 bytesJustRead = drwav__metadata_parser_read(pParser, buffer, sizeof(buffer), &bytesRead);
                 if (bytesJustRead == sizeof(buffer)) {
                     drwav_uint32 loopCount = drwav_bytes_to_u32(buffer);
-                    drwav_uint64 calculatedLoopCount;
+                    drwav_uint32 calculatedLoopCount;
 
                     /* The loop count must be validated against the size of the chunk. */
-                    calculatedLoopCount = (pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES;
+                    calculatedLoopCount = (drwav_uint32)((pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES);
                     if (calculatedLoopCount == loopCount) {
                         bytesJustRead = drwav__metadata_parser_read(pParser, buffer, sizeof(buffer), &bytesRead);
                         if (bytesJustRead == sizeof(buffer)) {
