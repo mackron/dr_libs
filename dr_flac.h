@@ -1,6 +1,6 @@
 /*
 FLAC audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_flac - v0.13.3 - 2026-01-17
+dr_flac - v0.13.4 - TBD
 
 David Reid - mackron@gmail.com
 
@@ -126,7 +126,7 @@ extern "C" {
 
 #define DRFLAC_VERSION_MAJOR     0
 #define DRFLAC_VERSION_MINOR     13
-#define DRFLAC_VERSION_REVISION  3
+#define DRFLAC_VERSION_REVISION  4
 #define DRFLAC_VERSION_STRING    DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MAJOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_MINOR) "." DRFLAC_XSTRINGIFY(DRFLAC_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -6747,13 +6747,18 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     blockSizeRemaining -= 4;
                     metadata.data.picture.mimeLength = drflac__be2host_32(metadata.data.picture.mimeLength);
 
+                    if (blockSizeRemaining < metadata.data.picture.mimeLength) {
+                        result = DRFLAC_FALSE;
+                        goto done_flac;
+                    }
+
                     pMime = (char*)drflac__malloc_from_callbacks(metadata.data.picture.mimeLength + 1, pAllocationCallbacks); /* +1 for null terminator. */
                     if (pMime == NULL) {
                         result = DRFLAC_FALSE;
                         goto done_flac;
                     }
 
-                    if (blockSizeRemaining < metadata.data.picture.mimeLength || onRead(pUserData, pMime, metadata.data.picture.mimeLength) != metadata.data.picture.mimeLength) {
+                    if (onRead(pUserData, pMime, metadata.data.picture.mimeLength) != metadata.data.picture.mimeLength) {
                         result = DRFLAC_FALSE;
                         goto done_flac;
                     }
@@ -12169,6 +12174,9 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
 /*
 REVISION HISTORY
 ================
+v0.13.4 - TBD
+  - Fix a possible overflow error when parsing picture metadata.
+
 v0.13.3 - 2026-01-17
   - Fix a compiler compatibility issue with some inlined assembly.
   - Fix a compilation warning.
