@@ -2588,7 +2588,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_bext_to_metadata_obj(drwav__metadata_pars
                 pMetadata->data.bext.pCodingHistory = (char*)drwav__metadata_get_memory(pParser, extraBytes + 1, 1);
                 DRWAV_ASSERT(pMetadata->data.bext.pCodingHistory != NULL);
 
-                pMetadata->data.bext.codingHistorySize = drwav__metadata_parser_read(pParser, pMetadata->data.bext.pCodingHistory, extraBytes, NULL);
+                pMetadata->data.bext.codingHistorySize = (drwav_uint32)drwav__metadata_parser_read(pParser, pMetadata->data.bext.pCodingHistory, extraBytes, NULL);
                 pMetadata->data.bext.pCodingHistory[pMetadata->data.bext.codingHistorySize] = '\0'; /* <-- Explicit null terminator in case of a badly formed file. */
                 
                 bytesRead += pMetadata->data.bext.codingHistorySize;
