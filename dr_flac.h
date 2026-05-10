@@ -5415,22 +5415,30 @@ static drflac_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame,
     {
         case DRFLAC_SUBFRAME_CONSTANT:
         {
-            drflac__decode_samples__constant(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->pSamplesS32);
+            if (!drflac__decode_samples__constant(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->pSamplesS32)) {
+                return DRFLAC_FALSE;
+            }
         } break;
 
         case DRFLAC_SUBFRAME_VERBATIM:
         {
-            drflac__decode_samples__verbatim(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->pSamplesS32);
+            if (!drflac__decode_samples__verbatim(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->pSamplesS32)) {
+                return DRFLAC_FALSE;
+            }
         } break;
 
         case DRFLAC_SUBFRAME_FIXED:
         {
-            drflac__decode_samples__fixed(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->lpcOrder, pSubframe->pSamplesS32);
+            if (!drflac__decode_samples__fixed(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->lpcOrder, pSubframe->pSamplesS32)) {
+                return DRFLAC_FALSE;
+            }
         } break;
 
         case DRFLAC_SUBFRAME_LPC:
         {
-            drflac__decode_samples__lpc(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->lpcOrder, pSubframe->pSamplesS32);
+            if (!drflac__decode_samples__lpc(bs, frame->header.blockSizeInPCMFrames, subframeBitsPerSample, pSubframe->lpcOrder, pSubframe->pSamplesS32)) {
+                return DRFLAC_FALSE;
+            }
         } break;
 
         default: return DRFLAC_FALSE;
