@@ -1939,6 +1939,15 @@ DRWAV_PRIVATE unsigned int drwav__chunk_padding_size_w64(drwav_uint64 chunkSize)
     return (unsigned int)(chunkSize % 8);
 }
 
+DRWAV_PRIVATE unsigned int drwav_calculate_padding_size(drwav_container container, drwav_uint64 chunkSize)
+{
+    if (container == drwav_container_riff || container == drwav_container_rf64) {
+        return drwav__chunk_padding_size_riff(chunkSize);
+    } else {
+        return drwav__chunk_padding_size_w64(chunkSize);
+    }
+}
+
 DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
 DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__ima(drwav* pWav, drwav_uint64 samplesToRead, drwav_int16* pBufferOut);
 DRWAV_PRIVATE drwav_bool32 drwav_init_write__internal(drwav* pWav, const drwav_data_format* pFormat, drwav_uint64 totalSampleCount);
@@ -5732,7 +5741,68 @@ DRWAV_API drwav_bool32 drwav_init_memory_write_sequential_pcm_frames(drwav* pWav
     return drwav_init_memory_write_sequential(pWav, ppData, pDataSize, pFormat, totalPCMFrameCount*pFormat->channels, pAllocationCallbacks);
 }
 
+DRWAV_PRIVATE drwav_uint32 drwav_write_padding(drwav* pWav)
+{
+    /* Do not adjust pWav->dataChunkDataSize - this should not include the padding. */
+    drwav_uint32 paddingSize = drwav_calculate_padding_size(pWav->container, pWav->dataChunkDataSize);
 
+    if (paddingSize > 0) {
+        drwav_uint64 paddingData = 0;
+        drwav__write(pWav, &paddingData, paddingSize);  /* Byte order does not matter for this. */
+    }
+
+    return paddingSize;
+}
+
+DRWAV_PRIVATE void drwav_write_chunk_sizes(drwav* pWav)
+{
+    /*
+    When using sequential mode, these will have been filled in at initialization time. We only need
+    to do this when using non-sequential mode.
+    */
+    if (pWav->onSeek != NULL && !pWav->isSequentialWrite) {
+        if (pWav->container == drwav_container_riff) {
+            /* The "RIFF" chunk size. */
+            if (pWav->onSeek(pWav->pUserData, 4, DRWAV_SEEK_SET)) {
+                drwav_uint32 riffChunkSize = drwav__riff_chunk_size_riff(pWav->dataChunkDataSize, pWav->pMetadata, pWav->metadataCount);
+                drwav__write_u32ne_to_le(pWav, riffChunkSize);
+            }
+
+            /* The "data" chunk size. */
+            if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 4, DRWAV_SEEK_SET)) {
+                drwav_uint32 dataChunkSize = drwav__data_chunk_size_riff(pWav->dataChunkDataSize);
+                drwav__write_u32ne_to_le(pWav, dataChunkSize);
+            }
+        } else if (pWav->container == drwav_container_w64) {
+            /* The "RIFF" chunk size. */
+            if (pWav->onSeek(pWav->pUserData, 16, DRWAV_SEEK_SET)) {
+                drwav_uint64 riffChunkSize = drwav__riff_chunk_size_w64(pWav->dataChunkDataSize);
+                drwav__write_u64ne_to_le(pWav, riffChunkSize);
+            }
+
+            /* The "data" chunk size. */
+            if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 8, DRWAV_SEEK_SET)) {
+                drwav_uint64 dataChunkSize = drwav__data_chunk_size_w64(pWav->dataChunkDataSize);
+                drwav__write_u64ne_to_le(pWav, dataChunkSize);
+            }
+        } else if (pWav->container == drwav_container_rf64) {
+            /* We only need to update the ds64 chunk. The "RIFF" and "data" chunks always have their sizes set to 0xFFFFFFFF for RF64. */
+            int ds64BodyPos = 12 + 8;
+
+            /* The "RIFF" chunk size. */
+            if (pWav->onSeek(pWav->pUserData, ds64BodyPos + 0, DRWAV_SEEK_SET)) {
+                drwav_uint64 riffChunkSize = drwav__riff_chunk_size_rf64(pWav->dataChunkDataSize, pWav->pMetadata, pWav->metadataCount);
+                drwav__write_u64ne_to_le(pWav, riffChunkSize);
+            }
+
+            /* The "data" chunk size. */
+            if (pWav->onSeek(pWav->pUserData, ds64BodyPos + 8, DRWAV_SEEK_SET)) {
+                drwav_uint64 dataChunkSize = drwav__data_chunk_size_rf64(pWav->dataChunkDataSize);
+                drwav__write_u64ne_to_le(pWav, dataChunkSize);
+            }
+        }
+    }
+}
 
 DRWAV_API drwav_result drwav_uninit(drwav* pWav)
 {
@@ -5742,75 +5812,15 @@ DRWAV_API drwav_result drwav_uninit(drwav* pWav)
         return DRWAV_INVALID_ARGS;
     }
 
-    /*
-    If the drwav object was opened in write mode we'll need to finalize a few things:
-      - Make sure the "data" chunk is aligned to 16-bits for RIFF containers, or 64 bits for W64 containers.
-      - Set the size of the "data" chunk.
-    */
     if (pWav->onWrite != NULL) {
-        drwav_uint32 paddingSize = 0;
-
-        /* Padding. Do not adjust pWav->dataChunkDataSize - this should not include the padding. */
-        if (pWav->container == drwav_container_riff || pWav->container == drwav_container_rf64) {
-            paddingSize = drwav__chunk_padding_size_riff(pWav->dataChunkDataSize);
-        } else {
-            paddingSize = drwav__chunk_padding_size_w64(pWav->dataChunkDataSize);
-        }
-
-        if (paddingSize > 0) {
-            drwav_uint64 paddingData = 0;
-            drwav__write(pWav, &paddingData, paddingSize);  /* Byte order does not matter for this. */
-        }
-
-        /*
-        Chunk sizes. When using sequential mode, these will have been filled in at initialization time. We only need
-        to do this when using non-sequential mode.
-        */
-        if (pWav->onSeek && !pWav->isSequentialWrite) {
-            if (pWav->container == drwav_container_riff) {
-                /* The "RIFF" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, 4, DRWAV_SEEK_SET)) {
-                    drwav_uint32 riffChunkSize = drwav__riff_chunk_size_riff(pWav->dataChunkDataSize, pWav->pMetadata, pWav->metadataCount);
-                    drwav__write_u32ne_to_le(pWav, riffChunkSize);
-                }
-
-                /* The "data" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 4, DRWAV_SEEK_SET)) {
-                    drwav_uint32 dataChunkSize = drwav__data_chunk_size_riff(pWav->dataChunkDataSize);
-                    drwav__write_u32ne_to_le(pWav, dataChunkSize);
-                }
-            } else if (pWav->container == drwav_container_w64) {
-                /* The "RIFF" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, 16, DRWAV_SEEK_SET)) {
-                    drwav_uint64 riffChunkSize = drwav__riff_chunk_size_w64(pWav->dataChunkDataSize);
-                    drwav__write_u64ne_to_le(pWav, riffChunkSize);
-                }
-
-                /* The "data" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, (int)pWav->dataChunkDataPos - 8, DRWAV_SEEK_SET)) {
-                    drwav_uint64 dataChunkSize = drwav__data_chunk_size_w64(pWav->dataChunkDataSize);
-                    drwav__write_u64ne_to_le(pWav, dataChunkSize);
-                }
-            } else if (pWav->container == drwav_container_rf64) {
-                /* We only need to update the ds64 chunk. The "RIFF" and "data" chunks always have their sizes set to 0xFFFFFFFF for RF64. */
-                int ds64BodyPos = 12 + 8;
-
-                /* The "RIFF" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, ds64BodyPos + 0, DRWAV_SEEK_SET)) {
-                    drwav_uint64 riffChunkSize = drwav__riff_chunk_size_rf64(pWav->dataChunkDataSize, pWav->pMetadata, pWav->metadataCount);
-                    drwav__write_u64ne_to_le(pWav, riffChunkSize);
-                }
-
-                /* The "data" chunk size. */
-                if (pWav->onSeek(pWav->pUserData, ds64BodyPos + 8, DRWAV_SEEK_SET)) {
-                    drwav_uint64 dataChunkSize = drwav__data_chunk_size_rf64(pWav->dataChunkDataSize);
-                    drwav__write_u64ne_to_le(pWav, dataChunkSize);
-                }
-            }
-        }
-
-        /* Validation for sequential mode. */
         if (pWav->isSequentialWrite) {
+            /*
+            Padding will not have been written in `drwav_write_*()` in sequential mode so we'll want to
+            do it explicitly here.
+            */
+            drwav_write_padding(pWav);
+
+            /* Validation for sequential mode. */
             if (pWav->dataChunkDataSize != pWav->dataChunkDataSizeTargetWrite) {
                 result = DRWAV_INVALID_FILE;
             }
@@ -6190,6 +6200,21 @@ DRWAV_API size_t drwav_write_raw(drwav* pWav, size_t bytesToWrite, const void* p
 
     bytesWritten = pWav->onWrite(pWav->pUserData, pData, bytesToWrite);
     pWav->dataChunkDataSize += bytesWritten;
+
+    if (!pWav->isSequentialWrite) {
+        drwav_uint32 padding;
+
+        /* Padding. */
+        padding = drwav_write_padding(pWav);
+
+        /* Chunk sizes. */
+        drwav_write_chunk_sizes(pWav);
+
+        /* Now seek back to just before the padding in preparation for the next writes. */
+        if (pWav->onSeek != NULL) {
+            pWav->onSeek(pWav->pUserData, -(int)padding, DRWAV_SEEK_END);   /* Safe cast. */
+        }
+    }
 
     return bytesWritten;
 }
@@ -8596,6 +8621,7 @@ DRWAV_API drwav_bool32 drwav_fourcc_equal(const drwav_uint8* a, const char* b)
 REVISION HISTORY
 ================
 v0.14.6 - TBD
+  - Encoders will now write out header information each write so that a valid file is still produced when an explicit `drwav_uninit()` is not called.
   - Fix an error when loading files with a malformed "bext" chunk.
   - Fix an error when loading files with a malformed "fmt" chunk.
   - Fix an underflow error with badly formed ADPCM encoded files.
