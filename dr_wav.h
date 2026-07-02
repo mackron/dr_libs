@@ -3406,7 +3406,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                 }
 
                 /* Seek past any leftover bytes. For w64 the leftover will be defined based on the chunk size. */
-                if (pWav->onSeek(pWav->pUserData, (int)(header.sizeInBytes - bytesReadSoFar), DRWAV_SEEK_CUR) == DRWAV_FALSE) {
+                if (drwav__seek_forward(pWav->onSeek, header.sizeInBytes - bytesReadSoFar, pWav->pUserData) == DRWAV_FALSE) {
                     return DRWAV_FALSE;
                 }
                 cursor += (header.sizeInBytes - bytesReadSoFar);
