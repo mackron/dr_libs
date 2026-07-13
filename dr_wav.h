@@ -3368,6 +3368,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             if (header.sizeInBytes > 16) {
                 drwav_uint8 fmt_cbSize[2];
                 int bytesReadSoFar = 0;
+                drwav_uint64 leftoverBytes;
 
                 if (pWav->onRead(pWav->pUserData, fmt_cbSize, sizeof(fmt_cbSize)) != sizeof(fmt_cbSize)) {
                     return DRWAV_FALSE;    /* Expecting more data. */
@@ -3406,10 +3407,16 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                 }
 
                 /* Seek past any leftover bytes. For w64 the leftover will be defined based on the chunk size. */
-                if (pWav->onSeek(pWav->pUserData, (int)(header.sizeInBytes - bytesReadSoFar), DRWAV_SEEK_CUR) == DRWAV_FALSE) {
+                leftoverBytes = header.sizeInBytes - bytesReadSoFar;
+                if (leftoverBytes > 0x7FFFFFFF) {
                     return DRWAV_FALSE;
                 }
-                cursor += (header.sizeInBytes - bytesReadSoFar);
+
+                if (pWav->onSeek(pWav->pUserData, (int)leftoverBytes, DRWAV_SEEK_CUR) == DRWAV_FALSE) {
+                    return DRWAV_FALSE;
+                }
+
+                cursor += leftoverBytes;
             }
 
             if (header.paddingSize > 0) {
