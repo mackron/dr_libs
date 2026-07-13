@@ -8663,6 +8663,7 @@ v0.14.6 - TBD
   - Fix an underflow error with badly formed ADPCM encoded files.
   - Fix an underflow error with badly formed W64 files.
   - Fix an error when converting from >32 bit samples to s16/f32/s32 on big-endian architectures.
+  - Add some bound checking when processing metadata chunks.
 
 v0.14.5 - 2026-03-03
   - Fix a crash when loading files with a malformed "smpl" chunk.
