@@ -3453,6 +3453,11 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             ((pWav->container == drwav_container_w64) && drwav_guid_equal(header.id.guid, drwavGUID_W64_FACT))) {
             if (pWav->container == drwav_container_riff || pWav->container == drwav_container_rifx) {
                 drwav_uint8 sampleCount[4];
+
+                if (chunkSize < 4) {
+                    return DRWAV_FALSE;
+                }
+
                 if (drwav__on_read(pWav->onRead, pWav->pUserData, &sampleCount, 4, &cursor) != 4) {
                     return DRWAV_FALSE;
                 }
@@ -3469,6 +3474,10 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                     sampleCountFromFactChunk = 0;
                 }
             } else if (pWav->container == drwav_container_w64) {
+                if (chunkSize < 8) {
+                    return DRWAV_FALSE;
+                }
+
                 if (drwav__on_read(pWav->onRead, pWav->pUserData, &sampleCountFromFactChunk, 8, &cursor) != 8) {
                     return DRWAV_FALSE;
                 }
@@ -8624,6 +8633,7 @@ v0.14.6 - TBD
   - Encoders will now write out header information each write so that a valid file is still produced when an explicit `drwav_uninit()` is not called.
   - Fix an error when loading files with a malformed "bext" chunk.
   - Fix an error when loading files with a malformed "fmt" chunk.
+  - Fix an error when loading files with a malformed "fact" chunk.
   - Fix an underflow error with badly formed ADPCM encoded files.
   - Fix an underflow error with badly formed W64 files.
   - Fix an error when converting from >32 bit samples to s16/f32/s32 on big-endian architectures.
