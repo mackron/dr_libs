@@ -21,7 +21,7 @@ pfn_sf_readf_float  libsndfile__sf_readf_float;
 pfn_sf_readf_double libsndfile__sf_readf_double;
 pfn_sf_seek         libsndfile__sf_seek;
 
-drwav_result libsndfile_init_api()
+drwav_result libsndfile_init_api(void)
 {
     unsigned int i;
     const char* pFileNames[] = {
@@ -64,7 +64,7 @@ drwav_result libsndfile_init_api()
     return DRWAV_SUCCESS;
 }
 
-void libsndfile_uninit_api()
+void libsndfile_uninit_api(void)
 {
     if (g_libsndfile == NULL) {
         return; /* Invalid operation. Not initialized. */

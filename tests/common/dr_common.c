@@ -770,7 +770,7 @@ int dr_printf_fixed_with_margin(int width, int margin, const char* const format,
 
 #ifdef _WIN32
 static LARGE_INTEGER g_DRTimerFrequency = {{0}};
-double dr_timer_now()
+double dr_timer_now(void)
 {
     LARGE_INTEGER counter;
 
@@ -789,15 +789,15 @@ double dr_timer_now()
     #else
         #define MA_CLOCK_ID CLOCK_REALTIME
     #endif
-    double dr_timer_now()
+    double dr_timer_now(void)
     {
         struct timespec newTime;
         clock_gettime(CLOCK_MONOTONIC, &newTime);
 
-        return ((newTime.tv_sec * 1000000000LL) + newTime.tv_nsec) / 1000000000.0;
+        return ((newTime.tv_sec * 1000000000L) + newTime.tv_nsec) / 1000000000.0;
     }
 #else
-    double dr_timer_now()
+    double dr_timer_now(void)
     {
         struct timeval newTime;
         gettimeofday(&newTime, NULL);
@@ -824,7 +824,7 @@ void dr_seed(int seed)
     g_drLCG = seed;
 }
 
-int dr_rand_s32()
+int dr_rand_s32(void)
 {
     int lcg = g_drLCG;
     int r = (DR_LCG_A * lcg + DR_LCG_C) % DR_LCG_M;
@@ -832,22 +832,22 @@ int dr_rand_s32()
     return r;
 }
 
-unsigned int dr_rand_u32()
+unsigned int dr_rand_u32(void)
 {
     return (unsigned int)dr_rand_s32();
 }
 
-dr_uint64 dr_rand_u64()
+dr_uint64 dr_rand_u64(void)
 {
     return ((dr_uint64)dr_rand_u32() << 32) | dr_rand_u32();
 }
 
-double dr_rand_f64()
+double dr_rand_f64(void)
 {
     return dr_rand_s32() / (double)0x7FFFFFFF;
 }
 
-float dr_rand_f32()
+float dr_rand_f32(void)
 {
     return (float)dr_rand_f64();
 }

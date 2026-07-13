@@ -383,7 +383,7 @@ drwav_result decode_test_directory(const char* pDirectoryPath)
     return DRWAV_SUCCESS;
 }
 
-drwav_result decode_test()
+drwav_result decode_test(void)
 {
     drwav_result result = DRWAV_SUCCESS;
 
@@ -396,7 +396,7 @@ drwav_result decode_test()
     return result;
 }
 
-drwav_result decode_profiling()
+drwav_result decode_profiling(void)
 {
     return DRWAV_SUCCESS;
 }

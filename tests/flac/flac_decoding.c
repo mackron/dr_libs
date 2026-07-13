@@ -433,7 +433,7 @@ drflac_result decode_test_directory(const char* pDirectoryPath)
     return DRFLAC_SUCCESS;
 }
 
-drflac_result decode_test()
+drflac_result decode_test(void)
 {
     drflac_result result = DRFLAC_SUCCESS;
 
@@ -645,7 +645,7 @@ drflac_result open_and_read_test_directory(const char* pDirectoryPath)
     return DRFLAC_SUCCESS;
 }
 
-drflac_result open_and_read_test()
+drflac_result open_and_read_test(void)
 {
     drflac_result result = DRFLAC_SUCCESS;
 
@@ -760,7 +760,7 @@ drflac_result decode_profiling_directory(const char* pDirectoryPath)
     return (foundError) ? DRFLAC_ERROR : DRFLAC_SUCCESS;
 }
 
-drflac_result decode_profiling()
+drflac_result decode_profiling(void)
 {
     drflac_result result = DRFLAC_SUCCESS;
 
