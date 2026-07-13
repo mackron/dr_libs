@@ -3111,17 +3111,10 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
     /*
     Whether or not we are processing metadata controls how we load. We can load more efficiently when
-    metadata is not being processed, but we also cannot process metadata for Wave64 because I have not
-    been able to test it. If someone is able to test this and provide a patch I'm happy to enable it.
-
-    Seqential mode cannot support metadata because it involves seeking backwards.
+    metadata is not being processed. Seqential mode cannot support metadata because it involves seeking
+    backwards.
     */
     isProcessingMetadata = !sequential && ((flags & DRWAV_WITH_METADATA) != 0);
-
-    /* Don't allow processing of metadata with untested containers. */
-    if (pWav->container != drwav_container_riff && pWav->container != drwav_container_rf64) {
-        isProcessingMetadata = DRWAV_FALSE;
-    }
 
     /*
     When processing metadata we'll be doing some memory allocations here against untrusted data. We'll do
@@ -3306,6 +3299,11 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
 
     metadataStartPos = cursor;
+
+    /* Don't allow processing of metadata with untested containers. */
+    if (pWav->container != drwav_container_riff && pWav->container != drwav_container_rf64) {
+        isProcessingMetadata = DRWAV_FALSE;
+    }
 
     DRWAV_ZERO_MEMORY(&metadataParser, sizeof(metadataParser));
     if (isProcessingMetadata) {
