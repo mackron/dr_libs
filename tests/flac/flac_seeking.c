@@ -217,7 +217,7 @@ drflac_result seek_test_directory(const char* pDirectoryPath)
     return DRFLAC_SUCCESS;
 }
 
-drflac_result seek_test()
+drflac_result seek_test(void)
 {
     drflac_result result = DRFLAC_SUCCESS;
 
@@ -421,7 +421,7 @@ drflac_result seek_profiling_directory(const char* pDirectoryPath, profiling_sta
     return DRFLAC_SUCCESS;
 }
 
-drflac_result seek_profiling()
+drflac_result seek_profiling(void)
 {
     drflac_result result = DRFLAC_SUCCESS;
     profiling_state globalProfiling;
