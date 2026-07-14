@@ -283,6 +283,7 @@ typedef drwav_int32 drwav_result;
 #define DR_WAVE_FORMAT_IEEE_FLOAT   0x3
 #define DR_WAVE_FORMAT_ALAW         0x6
 #define DR_WAVE_FORMAT_MULAW        0x7
+#define DR_WAVE_FORMAT_DTS          0x8
 #define DR_WAVE_FORMAT_DVI_ADPCM    0x11
 #define DR_WAVE_FORMAT_EXTENSIBLE   0xFFFE
 
