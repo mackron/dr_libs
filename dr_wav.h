@@ -2219,7 +2219,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_pars
         */
         loopCount = drwav_bytes_to_u32(smplHeaderData + 28);
         calculatedLoopCount = (drwav_uint32)((pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES);
-        if (loopCount != calculatedLoopCount) {
+        if (calculatedLoopCount < loopCount) {
             return totalBytesRead;
         }
 
@@ -2778,14 +2778,18 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
 
                     /* The loop count must be validated against the size of the chunk. */
                     calculatedLoopCount = (drwav_uint32)((pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES);
-                    if (calculatedLoopCount == loopCount) {
+                    if (calculatedLoopCount >= loopCount) {
                         bytesJustRead = drwav__metadata_parser_read(pParser, buffer, sizeof(buffer), &bytesRead);
                         if (bytesJustRead == sizeof(buffer)) {
                             drwav_uint32 samplerSpecificDataSizeInBytes = drwav_bytes_to_u32(buffer);
 
-                            pParser->metadataCount += 1;
-                            drwav__metadata_request_extra_memory_for_stage_2(pParser, sizeof(drwav_smpl_loop) * loopCount, DRWAV_METADATA_ALIGNMENT);
-                            drwav__metadata_request_extra_memory_for_stage_2(pParser, samplerSpecificDataSizeInBytes, 1);
+                            if (samplerSpecificDataSizeInBytes <= (pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES - (loopCount * DRWAV_SMPL_LOOP_BYTES))) {
+                                pParser->metadataCount += 1;
+                                drwav__metadata_request_extra_memory_for_stage_2(pParser, sizeof(drwav_smpl_loop) * loopCount, DRWAV_METADATA_ALIGNMENT);
+                                drwav__metadata_request_extra_memory_for_stage_2(pParser, samplerSpecificDataSizeInBytes, 1);
+                            } else {
+                                /* Incorrectly formed chunk. Sampler specific data exceeds the size of the chunk. */
+                            }
                         }
                     } else {
                         /* Loop count in header does not match the size of the chunk. */
@@ -8660,6 +8664,7 @@ v0.14.6 - TBD
   - Fix an error when loading files with a malformed "bext" chunk.
   - Fix an error when loading files with a malformed "fmt" chunk.
   - Fix an error when loading files with a malformed "fact" chunk.
+  - Fix an error when loading files with a malformed "smpl" chunk.
   - Fix an underflow error with badly formed ADPCM encoded files.
   - Fix an underflow error with badly formed W64 files.
   - Fix an error when converting from >32 bit samples to s16/f32/s32 on big-endian architectures.
