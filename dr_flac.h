@@ -6518,10 +6518,12 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     drflac_uint32 seekpointCount;
                     drflac_uint32 iSeekpoint;
                     void* pRawData;
+                    size_t rawDataSize;
 
                     seekpointCount = blockSize/DRFLAC_SEEKPOINT_SIZE_IN_BYTES;
+                    rawDataSize = seekpointCount * sizeof(drflac_seekpoint);
 
-                    pRawData = drflac__malloc_from_callbacks(seekpointCount * sizeof(drflac_seekpoint), pAllocationCallbacks);
+                    pRawData = drflac__malloc_from_callbacks(rawDataSize, pAllocationCallbacks);
                     if (pRawData == NULL) {
                         return DRFLAC_FALSE;
                     }
@@ -6542,7 +6544,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     }
 
                     metadata.pRawData = pRawData;
-                    metadata.rawDataSize = blockSize;
+                    metadata.rawDataSize = rawDataSize;
                     metadata.data.seektable.seekpointCount = seekpointCount;
                     metadata.data.seektable.pSeekpoints = (const drflac_seekpoint*)pRawData;
 
@@ -12216,6 +12218,7 @@ REVISION HISTORY
 v0.13.4 - TBD
   - Add a bounds check when allocating memory during metadata processing.
   - Fix a possible overflow error when parsing picture metadata.
+  - Fix an with seek point parsing.
 
 v0.13.3 - 2026-01-17
   - Fix a compiler compatibility issue with some inlined assembly.
