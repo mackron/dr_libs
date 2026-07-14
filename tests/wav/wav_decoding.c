@@ -29,7 +29,7 @@ drwav_result decode_test__read_and_compare_pcm_frames_s32(libsndfile* pSndFile, 
 
     for (iPCMFrame = 0; iPCMFrame < pcmFrameCount_libsndfile; iPCMFrame += 1) {
         drwav_int32* pPCMFrame_libsndfile = pPCMFrames_libsndfile + (iPCMFrame * pWav->channels);
-        drwav_int32* pPCMFrame_drwav  = pPCMFrames_drwav  + (iPCMFrame * pWav->channels);
+        drwav_int32* pPCMFrame_drwav      = pPCMFrames_drwav      + (iPCMFrame * pWav->channels);
         drwav_uint32 iChannel;
         drwav_bool32 hasError = DRWAV_FALSE;
 
