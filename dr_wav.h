@@ -3788,6 +3788,10 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
             metadataBytesRead = drwav__metadata_process_chunk(&metadataParser, &header, drwav_metadata_type_all_including_unknown);
 
+            if (metadataParser.metadataCursor == metadataParser.metadataCount) {
+                break;
+            }
+
             /* Move to the end of the chunk so we can keep iterating. */
             if (drwav__seek_forward(pWav->onSeek, (header.sizeInBytes + header.paddingSize) - metadataBytesRead, pWav->pUserData) == DRWAV_FALSE) {
                 drwav_free(metadataParser.pMetadata, &pWav->allocationCallbacks);
