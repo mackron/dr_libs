@@ -1,7 +1,7 @@
 #define MA_NO_DECODING
 #define MA_NO_ENCODING
 #define MA_IMPLEMENTATION
-#include "../../../miniaudio/miniaudio.h"
+#include "../external/miniaudio/miniaudio.h"
 
 #define DR_WAV_IMPLEMENTATION
 #include "../../dr_wav.h"
