@@ -143,6 +143,8 @@ if(NOT DR_LIBS_NO_FLAC)
             find_library(FLAC FLAC)
             if(FLAC)
                 message(STATUS "libFLAC found. Building FLAC tests.")
+                add_library(FLAC UNKNOWN IMPORTED)
+                set_target_properties(FLAC PROPERTIES IMPORTED_LOCATION "${FLAC}")
                 set(HAS_FLAC TRUE)
             else()
                 # As a last resort, look in the tests/external/flac folder.
