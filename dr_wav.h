@@ -2190,6 +2190,33 @@ DRWAV_PRIVATE size_t drwav__metadata_parser_read(drwav__metadata_parser* pParser
     }
 }
 
+DRWAV_PRIVATE drwav_bool32 drwav__metadata_validate_smpl_chunk(const drwav_chunk_header* pChunkHeader, drwav_uint32 loopCount, drwav_uint32 samplerSpecificDataSizeInBytes, drwav_uint64* pTrailingDataSizeInBytes)
+{
+    drwav_uint64 remainingDataSizeInBytes;
+
+    DRWAV_ASSERT(pChunkHeader != NULL);
+
+    if (pChunkHeader->sizeInBytes < DRWAV_SMPL_BYTES) {
+        return DRWAV_FALSE;
+    }
+
+    remainingDataSizeInBytes = pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES;
+    if ((drwav_uint64)loopCount > remainingDataSizeInBytes / DRWAV_SMPL_LOOP_BYTES) {
+        return DRWAV_FALSE;
+    }
+
+    remainingDataSizeInBytes -= (drwav_uint64)loopCount * DRWAV_SMPL_LOOP_BYTES;
+    if ((drwav_uint64)samplerSpecificDataSizeInBytes > remainingDataSizeInBytes) {
+        return DRWAV_FALSE;
+    }
+
+    if (pTrailingDataSizeInBytes != NULL) {
+        *pTrailingDataSizeInBytes = remainingDataSizeInBytes - samplerSpecificDataSizeInBytes;
+    }
+
+    return DRWAV_TRUE;
+}
+
 DRWAV_PRIVATE drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_parser* pParser, const drwav_chunk_header* pChunkHeader, drwav_metadata* pMetadata)
 {
     drwav_uint8 smplHeaderData[DRWAV_SMPL_BYTES];
@@ -2208,19 +2235,18 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_pars
     if (pMetadata != NULL && bytesJustRead == sizeof(smplHeaderData)) {
         drwav_uint32 iSampleLoop;
         drwav_uint32 loopCount;
-        drwav_uint32 calculatedLoopCount;
+        drwav_uint32 samplerSpecificDataSizeInBytes;
+        drwav_uint64 trailingDataSizeInBytes;
 
         /*
-        When we calcualted the amount of memory required for the "smpl" chunk we excluded the chunk entirely
-        if the loop count in the header did not match with the calculated count based on the size of the
-        chunk. When this happens, the second stage will still hit this path but the `pMetadata` will be
-        non-null, but will either be pointing at the very end of the allocation or at the start of another
-        chunk. We need to check the loop counts for consistency *before* dereferencing the pMetadata object
-        so it's consistent with how we do it in the first stage.
+        When we calculated the amount of memory required for the "smpl" chunk we excluded the chunk entirely
+        if its loop or sampler-specific data exceeded the chunk size. When this happens, the second stage will
+        still hit this path but the `pMetadata` will either point at the end of the allocation or at another
+        chunk. We need to repeat the validation before dereferencing the pMetadata object.
         */
         loopCount = drwav_bytes_to_u32(smplHeaderData + 28);
-        calculatedLoopCount = (drwav_uint32)((pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES);
-        if (calculatedLoopCount < loopCount) {
+        samplerSpecificDataSizeInBytes = drwav_bytes_to_u32(smplHeaderData + 32);
+        if (!drwav__metadata_validate_smpl_chunk(pChunkHeader, loopCount, samplerSpecificDataSizeInBytes, &trailingDataSizeInBytes)) {
             return totalBytesRead;
         }
 
@@ -2232,47 +2258,42 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_pars
         pMetadata->data.smpl.midiPitchFraction              = drwav_bytes_to_u32(smplHeaderData + 16);
         pMetadata->data.smpl.smpteFormat                    = drwav_bytes_to_u32(smplHeaderData + 20);
         pMetadata->data.smpl.smpteOffset                    = drwav_bytes_to_u32(smplHeaderData + 24);
-        pMetadata->data.smpl.sampleLoopCount                = drwav_bytes_to_u32(smplHeaderData + 28);
-        pMetadata->data.smpl.samplerSpecificDataSizeInBytes = drwav_bytes_to_u32(smplHeaderData + 32);
+        pMetadata->data.smpl.sampleLoopCount                = loopCount;
+        pMetadata->data.smpl.samplerSpecificDataSizeInBytes = samplerSpecificDataSizeInBytes;
 
-        /*
-        The loop count needs to be validated against the size of the chunk for safety so we don't
-        attempt to read over the boundary of the chunk.
-        */
-        if (pMetadata->data.smpl.sampleLoopCount == calculatedLoopCount) {
-            pMetadata->data.smpl.pLoops = (drwav_smpl_loop*)drwav__metadata_get_memory(pParser, sizeof(drwav_smpl_loop) * pMetadata->data.smpl.sampleLoopCount, DRWAV_METADATA_ALIGNMENT);
+        pMetadata->data.smpl.pLoops = (drwav_smpl_loop*)drwav__metadata_get_memory(pParser, sizeof(drwav_smpl_loop) * pMetadata->data.smpl.sampleLoopCount, DRWAV_METADATA_ALIGNMENT);
 
-            for (iSampleLoop = 0; iSampleLoop < pMetadata->data.smpl.sampleLoopCount; ++iSampleLoop) {
-                drwav_uint8 smplLoopData[DRWAV_SMPL_LOOP_BYTES];
-                bytesJustRead = drwav__metadata_parser_read(pParser, smplLoopData, sizeof(smplLoopData), &totalBytesRead);
+        for (iSampleLoop = 0; iSampleLoop < pMetadata->data.smpl.sampleLoopCount; ++iSampleLoop) {
+            drwav_uint8 smplLoopData[DRWAV_SMPL_LOOP_BYTES];
+            bytesJustRead = drwav__metadata_parser_read(pParser, smplLoopData, sizeof(smplLoopData), &totalBytesRead);
 
-                if (bytesJustRead == sizeof(smplLoopData)) {
-                    pMetadata->data.smpl.pLoops[iSampleLoop].cuePointId        = drwav_bytes_to_u32(smplLoopData + 0);
-                    pMetadata->data.smpl.pLoops[iSampleLoop].type              = drwav_bytes_to_u32(smplLoopData + 4);
-                    pMetadata->data.smpl.pLoops[iSampleLoop].firstSampleOffset = drwav_bytes_to_u32(smplLoopData + 8);
-                    pMetadata->data.smpl.pLoops[iSampleLoop].lastSampleOffset  = drwav_bytes_to_u32(smplLoopData + 12);
-                    pMetadata->data.smpl.pLoops[iSampleLoop].sampleFraction    = drwav_bytes_to_u32(smplLoopData + 16);
-                    pMetadata->data.smpl.pLoops[iSampleLoop].playCount         = drwav_bytes_to_u32(smplLoopData + 20);
-                } else {
-                    break;
-                }
+            if (bytesJustRead == sizeof(smplLoopData)) {
+                pMetadata->data.smpl.pLoops[iSampleLoop].cuePointId        = drwav_bytes_to_u32(smplLoopData + 0);
+                pMetadata->data.smpl.pLoops[iSampleLoop].type              = drwav_bytes_to_u32(smplLoopData + 4);
+                pMetadata->data.smpl.pLoops[iSampleLoop].firstSampleOffset = drwav_bytes_to_u32(smplLoopData + 8);
+                pMetadata->data.smpl.pLoops[iSampleLoop].lastSampleOffset  = drwav_bytes_to_u32(smplLoopData + 12);
+                pMetadata->data.smpl.pLoops[iSampleLoop].sampleFraction    = drwav_bytes_to_u32(smplLoopData + 16);
+                pMetadata->data.smpl.pLoops[iSampleLoop].playCount         = drwav_bytes_to_u32(smplLoopData + 20);
+            } else {
+                return totalBytesRead;
             }
+        }
 
-            if (pMetadata->data.smpl.samplerSpecificDataSizeInBytes > 0) {
-                pMetadata->data.smpl.pSamplerSpecificData = drwav__metadata_get_memory(pParser, pMetadata->data.smpl.samplerSpecificDataSizeInBytes, 1);
-                DRWAV_ASSERT(pMetadata->data.smpl.pSamplerSpecificData != NULL);
+        if (pMetadata->data.smpl.samplerSpecificDataSizeInBytes > 0) {
+            pMetadata->data.smpl.pSamplerSpecificData = drwav__metadata_get_memory(pParser, pMetadata->data.smpl.samplerSpecificDataSizeInBytes, 1);
+            DRWAV_ASSERT(pMetadata->data.smpl.pSamplerSpecificData != NULL);
 
-                drwav__metadata_parser_read(pParser, pMetadata->data.smpl.pSamplerSpecificData, pMetadata->data.smpl.samplerSpecificDataSizeInBytes, &totalBytesRead);
+            bytesJustRead = drwav__metadata_parser_read(pParser, pMetadata->data.smpl.pSamplerSpecificData, pMetadata->data.smpl.samplerSpecificDataSizeInBytes, &totalBytesRead);
+            if (bytesJustRead != pMetadata->data.smpl.samplerSpecificDataSizeInBytes) {
+                return totalBytesRead;
             }
-        } else {
-            /*
-            Getting here means the loop count in the header does not match up with the size of the
-            chunk. Clear out the data to zero just to be safe.
+        }
 
-            This should never actually get hit because we check for it above, but keeping this here
-            for added safety.
-            */
-            DRWAV_ZERO_OBJECT(&pMetadata->data.smpl);
+        if (trailingDataSizeInBytes > 0) {
+            if (!drwav__seek_forward(pParser->onSeek, trailingDataSizeInBytes, pParser->pReadSeekUserData)) {
+                return totalBytesRead;
+            }
+            totalBytesRead += trailingDataSizeInBytes;
         }
     }
 
@@ -2775,25 +2796,18 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                 bytesJustRead = drwav__metadata_parser_read(pParser, buffer, sizeof(buffer), &bytesRead);
                 if (bytesJustRead == sizeof(buffer)) {
                     drwav_uint32 loopCount = drwav_bytes_to_u32(buffer);
-                    drwav_uint32 calculatedLoopCount;
 
-                    /* The loop count must be validated against the size of the chunk. */
-                    calculatedLoopCount = (drwav_uint32)((pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES) / DRWAV_SMPL_LOOP_BYTES);
-                    if (calculatedLoopCount >= loopCount) {
-                        bytesJustRead = drwav__metadata_parser_read(pParser, buffer, sizeof(buffer), &bytesRead);
-                        if (bytesJustRead == sizeof(buffer)) {
-                            drwav_uint32 samplerSpecificDataSizeInBytes = drwav_bytes_to_u32(buffer);
+                    bytesJustRead = drwav__metadata_parser_read(pParser, buffer, sizeof(buffer), &bytesRead);
+                    if (bytesJustRead == sizeof(buffer)) {
+                        drwav_uint32 samplerSpecificDataSizeInBytes = drwav_bytes_to_u32(buffer);
 
-                            if (samplerSpecificDataSizeInBytes <= (pChunkHeader->sizeInBytes - DRWAV_SMPL_BYTES - (loopCount * DRWAV_SMPL_LOOP_BYTES))) {
-                                pParser->metadataCount += 1;
-                                drwav__metadata_request_extra_memory_for_stage_2(pParser, sizeof(drwav_smpl_loop) * loopCount, DRWAV_METADATA_ALIGNMENT);
-                                drwav__metadata_request_extra_memory_for_stage_2(pParser, samplerSpecificDataSizeInBytes, 1);
-                            } else {
-                                /* Incorrectly formed chunk. Sampler specific data exceeds the size of the chunk. */
-                            }
+                        if (drwav__metadata_validate_smpl_chunk(pChunkHeader, loopCount, samplerSpecificDataSizeInBytes, NULL)) {
+                            pParser->metadataCount += 1;
+                            drwav__metadata_request_extra_memory_for_stage_2(pParser, sizeof(drwav_smpl_loop) * loopCount, DRWAV_METADATA_ALIGNMENT);
+                            drwav__metadata_request_extra_memory_for_stage_2(pParser, samplerSpecificDataSizeInBytes, 1);
+                        } else {
+                            /* Incorrectly formed chunk. Loop or sampler-specific data exceeds the size of the chunk. */
                         }
-                    } else {
-                        /* Loop count in header does not match the size of the chunk. */
                     }
                 }
             } else {
