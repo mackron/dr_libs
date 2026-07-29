@@ -25,20 +25,20 @@ drwav_result libsndfile_init_api(void)
 {
     unsigned int i;
     const char* pFileNames[] = {
-#if defined(_WIN32)
-    #if defined(_WIN64)
-        "libsndfile-1-x64.dll",
-    #else
-        "libsndfile-1-x86.dll",
-    #endif
+    #if defined(_WIN32)
+        #if defined(_WIN64)
+            "libsndfile-1-x64.dll",
+        #else
+            "libsndfile-1-x86.dll",
+        #endif
         "libsndfile-1.dll"
-#elif defined(__APPLE__)
+    #elif defined(__APPLE__)
         "libsndfile.1.dylib",
         "libsndfile.dylib"
-#else
+    #else
         "libsndfile-1.so",
         "libsndfile.so.1"
-#endif
+    #endif
     };
 
     if (g_libsndfile != NULL) {
