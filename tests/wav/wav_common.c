@@ -32,6 +32,9 @@ drwav_result libsndfile_init_api(void)
         "libsndfile-1-x86.dll",
     #endif
         "libsndfile-1.dll"
+#elif defined(__APPLE__)
+        "libsndfile.1.dylib",
+        "libsndfile.dylib"
 #else
         "libsndfile-1.so",
         "libsndfile.so.1"
