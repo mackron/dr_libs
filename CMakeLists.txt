@@ -2,13 +2,14 @@ cmake_minimum_required(VERSION 3.10)
 project(dr_libs)
 
 # Options
-option(DR_LIBS_BUILD_TESTS      "Build tests"              OFF)
-option(DR_LIBS_FORCE_CXX        "Force compilation as C++" OFF)
-option(DR_LIBS_FORCE_C89        "Force compilation as C89" OFF)
-option(DR_LIBS_SANITIZE_ADDRESS "Enable AddressSanitizer"  OFF)
-option(DR_LIBS_NO_WAV           "Disable WAV"              OFF)
-option(DR_LIBS_NO_FLAC          "Disable FLAC"             OFF)
-option(DR_LIBS_NO_MP3           "Disable MP3"              OFF)
+option(DR_LIBS_BUILD_TESTS      "Build tests"               OFF)
+option(DR_LIBS_FORCE_CXX        "Force compilation as C++"  OFF)
+option(DR_LIBS_FORCE_C89        "Force compilation as C89"  OFF)
+option(DR_LIBS_SANITIZE_ADDRESS "Enable AddressSanitizer"   OFF)
+option(DR_LIBS_NO_WAV           "Disable WAV"               OFF)
+option(DR_LIBS_NO_FLAC          "Disable FLAC"              OFF)
+option(DR_LIBS_NO_MP3           "Disable MP3"               OFF)
+option(DR_LIBS_BUILD_FUZZERS    "Build libFuzzer harnesses" OFF)
 
 # Construct compiler flags.
 set(COMPILE_OPTIONS)
@@ -76,6 +77,26 @@ if(UNIX)
 endif()
 
 
+if(DR_LIBS_BUILD_FUZZERS)
+    if(DEFINED ENV{LIB_FUZZING_ENGINE})
+        set(DR_LIBS_FUZZING_ENGINE $ENV{LIB_FUZZING_ENGINE})
+    else()
+        if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+            message(WARNING "DR_LIBS_BUILD_FUZZERS: LIB_FUZZING_ENGINE is not set and the compiler is not Clang; defaulting to -fsanitize=fuzzer, which requires Clang.")
+        endif()
+        set(DR_LIBS_FUZZING_ENGINE "-fsanitize=fuzzer,address")
+    endif()
+
+    function(add_dr_libs_fuzzer name source)
+        add_executable(${name} ${source})
+        if(NOT DEFINED ENV{LIB_FUZZING_ENGINE})
+            target_compile_options(${name} PRIVATE -fsanitize=fuzzer,address)
+        endif()
+        target_link_libraries(${name} PRIVATE ${COMMON_LIBRARIES} ${DR_LIBS_FUZZING_ENGINE})
+    endfunction()
+endif()
+
+
 # WAV
 if(NOT DR_LIBS_NO_WAV)
     if(DR_LIBS_BUILD_TESTS)
@@ -120,6 +141,10 @@ if(NOT DR_LIBS_NO_WAV)
         endif()
     else()
         # Not building tests.
+    endif()
+
+    if(DR_LIBS_BUILD_FUZZERS)
+        add_dr_libs_fuzzer(dr_wav_fuzzer tests/wav/dr_wav_fuzzer.cc)
     endif()
 endif()
 
@@ -175,6 +200,10 @@ if(NOT DR_LIBS_NO_FLAC)
     else()
         # Not building tests.
     endif()
+
+    if(DR_LIBS_BUILD_FUZZERS)
+        add_dr_libs_fuzzer(dr_flac_fuzzer tests/flac/dr_flac_fuzzer.cc)
+    endif()
 endif()
 
 
@@ -196,5 +225,9 @@ if(NOT DR_LIBS_NO_MP3)
         add_test(NAME mp3_extract COMMAND mp3_extract ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests/test.mp3 -o ${CMAKE_CURRENT_BINARY_DIR}/test.mp3)
     else()
         # Not building tests.
+    endif()
+
+    if(DR_LIBS_BUILD_FUZZERS)
+        add_dr_libs_fuzzer(dr_mp3_fuzzer tests/mp3/dr_mp3_fuzzer.cc)
     endif()
 endif()
