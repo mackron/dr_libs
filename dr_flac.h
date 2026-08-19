@@ -5962,6 +5962,22 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
     }
 
     for (;;) {
+        /*
+        If only two adjacent byte offsets remain, binary search cannot narrow the range any further. Seek to the closest frame before the target and decode
+        forward from there.
+        */
+        if ((byteRangeHi - byteRangeLo) == 1) {
+            if (!drflac__seek_to_approximate_flac_frame_to_byte(pFlac, closestSeekOffsetBeforeTargetPCMFrame, closestSeekOffsetBeforeTargetPCMFrame, byteRangeHi, &lastSuccessfulSeekOffset)) {
+                break;
+            }
+
+            if (pFlac->currentPCMFrame <= pcmFrameIndex && drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(pFlac, pcmFrameIndex - pFlac->currentPCMFrame)) {
+                return DRFLAC_TRUE;
+            }
+
+            break;
+        }
+
         if (drflac__seek_to_approximate_flac_frame_to_byte(pFlac, targetByte, byteRangeLo, byteRangeHi, &lastSuccessfulSeekOffset)) {
             /* We found a FLAC frame. We need to check if it contains the sample we're looking for. */
             drflac_uint64 newPCMRangeLo;
@@ -12218,7 +12234,8 @@ REVISION HISTORY
 v0.13.4 - TBD
   - Add a bounds check when allocating memory during metadata processing.
   - Fix a possible overflow error when parsing picture metadata.
-  - Fix an with seek point parsing.
+  - Fix an error with seek point parsing.
+  - Fix a possible deadlock when seeking.
 
 v0.13.3 - 2026-01-17
   - Fix a compiler compatibility issue with some inlined assembly.
