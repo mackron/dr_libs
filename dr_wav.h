@@ -8099,7 +8099,7 @@ DRWAV_API void drwav_u8_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t
     }
 
     for (i = 0; i < sampleCount; ++i) {
-        *pOut++ = ((int)pIn[i] - 128) << 24;
+        *pOut++ = ((int)pIn[i] - 128) * 16777216;
     }
 }
 
@@ -8112,7 +8112,7 @@ DRWAV_API void drwav_s16_to_s32(drwav_int32* pOut, const drwav_int16* pIn, size_
     }
 
     for (i = 0; i < sampleCount; ++i) {
-        *pOut++ = pIn[i] << 16;
+        *pOut++ = (drwav_int32)pIn[i] * 65536;
     }
 }
 
@@ -8169,7 +8169,7 @@ DRWAV_API void drwav_alaw_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size
     }
 
     for (i = 0; i < sampleCount; ++i) {
-        *pOut++ = ((drwav_int32)drwav__alaw_to_s16(pIn[i])) << 16;
+        *pOut++ = (drwav_int32)drwav__alaw_to_s16(pIn[i]) * 65536;
     }
 }
 
@@ -8182,7 +8182,7 @@ DRWAV_API void drwav_mulaw_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, siz
     }
 
     for (i= 0; i < sampleCount; ++i) {
-        *pOut++ = ((drwav_int32)drwav__mulaw_to_s16(pIn[i])) << 16;
+        *pOut++ = (drwav_int32)drwav__mulaw_to_s16(pIn[i]) * 65536;
     }
 }
 
@@ -8687,6 +8687,7 @@ v0.14.6 - TBD
   - Fix an underflow error with badly formed ADPCM encoded files.
   - Fix an underflow error with badly formed W64 files.
   - Fix an error when converting from >32 bit samples to s16/f32/s32 on big-endian architectures.
+  - Fix an error with conversion from u8, 16, alaw and mulaw to s32.
   - Add some bound checking when processing metadata chunks.
 
 v0.14.5 - 2026-03-03
