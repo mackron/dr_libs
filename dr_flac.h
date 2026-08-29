@@ -9900,7 +9900,35 @@ DRFLAC_API drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64
             }
         } else {
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-            drflac_uint64 iFirstPCMFrame = pFlac->currentFLACFrame.header.blockSizeInPCMFrames - pFlac->currentFLACFrame.pcmFramesRemaining;
+            drflac_uint64 iFirstPCMFrame;
+            {
+                /*
+                The current frame's geometry must be consistent with the decoded-sample buffer, which
+                only holds maxBlockSizeInPCMFrames samples per channel. A crafted stream can leave
+                currentFLACFrame with a header block size larger than the maximum (buffer too small),
+                with pcmFramesRemaining greater than the block size (iFirstPCMFrame below underflows),
+                or with subframe sample pointers left NULL after a partially-decoded frame. Reusing
+                such a frame reads off the end of the decoded-sample buffer, so drop it and decode a
+                fresh frame instead.
+                */
+                unsigned int drflac_guard_i;
+                drflac_bool32 drflac_frame_ok = DRFLAC_TRUE;
+                if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->maxBlockSizeInPCMFrames ||
+                    pFlac->currentFLACFrame.pcmFramesRemaining > pFlac->currentFLACFrame.header.blockSizeInPCMFrames) {
+                    drflac_frame_ok = DRFLAC_FALSE;
+                }
+                for (drflac_guard_i = 0; drflac_frame_ok && drflac_guard_i < channelCount; ++drflac_guard_i) {
+                    if (pFlac->currentFLACFrame.subframes[drflac_guard_i].pSamplesS32 == NULL) {
+                        drflac_frame_ok = DRFLAC_FALSE;
+                        break;
+                    }
+                }
+                if (!drflac_frame_ok) {
+                    pFlac->currentFLACFrame.pcmFramesRemaining = 0;
+                    continue;
+                }
+            }
+            iFirstPCMFrame = pFlac->currentFLACFrame.header.blockSizeInPCMFrames - pFlac->currentFLACFrame.pcmFramesRemaining;
             drflac_uint64 frameCountThisIteration = framesToRead;
 
             if (frameCountThisIteration > pFlac->currentFLACFrame.pcmFramesRemaining) {
@@ -10812,7 +10840,35 @@ DRFLAC_API drflac_uint64 drflac_read_pcm_frames_s16(drflac* pFlac, drflac_uint64
             }
         } else {
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-            drflac_uint64 iFirstPCMFrame = pFlac->currentFLACFrame.header.blockSizeInPCMFrames - pFlac->currentFLACFrame.pcmFramesRemaining;
+            drflac_uint64 iFirstPCMFrame;
+            {
+                /*
+                The current frame's geometry must be consistent with the decoded-sample buffer, which
+                only holds maxBlockSizeInPCMFrames samples per channel. A crafted stream can leave
+                currentFLACFrame with a header block size larger than the maximum (buffer too small),
+                with pcmFramesRemaining greater than the block size (iFirstPCMFrame below underflows),
+                or with subframe sample pointers left NULL after a partially-decoded frame. Reusing
+                such a frame reads off the end of the decoded-sample buffer, so drop it and decode a
+                fresh frame instead.
+                */
+                unsigned int drflac_guard_i;
+                drflac_bool32 drflac_frame_ok = DRFLAC_TRUE;
+                if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->maxBlockSizeInPCMFrames ||
+                    pFlac->currentFLACFrame.pcmFramesRemaining > pFlac->currentFLACFrame.header.blockSizeInPCMFrames) {
+                    drflac_frame_ok = DRFLAC_FALSE;
+                }
+                for (drflac_guard_i = 0; drflac_frame_ok && drflac_guard_i < channelCount; ++drflac_guard_i) {
+                    if (pFlac->currentFLACFrame.subframes[drflac_guard_i].pSamplesS32 == NULL) {
+                        drflac_frame_ok = DRFLAC_FALSE;
+                        break;
+                    }
+                }
+                if (!drflac_frame_ok) {
+                    pFlac->currentFLACFrame.pcmFramesRemaining = 0;
+                    continue;
+                }
+            }
+            iFirstPCMFrame = pFlac->currentFLACFrame.header.blockSizeInPCMFrames - pFlac->currentFLACFrame.pcmFramesRemaining;
             drflac_uint64 frameCountThisIteration = framesToRead;
 
             if (frameCountThisIteration > pFlac->currentFLACFrame.pcmFramesRemaining) {
@@ -11694,7 +11750,35 @@ DRFLAC_API drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64
             }
         } else {
             unsigned int channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-            drflac_uint64 iFirstPCMFrame = pFlac->currentFLACFrame.header.blockSizeInPCMFrames - pFlac->currentFLACFrame.pcmFramesRemaining;
+            drflac_uint64 iFirstPCMFrame;
+            {
+                /*
+                The current frame's geometry must be consistent with the decoded-sample buffer, which
+                only holds maxBlockSizeInPCMFrames samples per channel. A crafted stream can leave
+                currentFLACFrame with a header block size larger than the maximum (buffer too small),
+                with pcmFramesRemaining greater than the block size (iFirstPCMFrame below underflows),
+                or with subframe sample pointers left NULL after a partially-decoded frame. Reusing
+                such a frame reads off the end of the decoded-sample buffer, so drop it and decode a
+                fresh frame instead.
+                */
+                unsigned int drflac_guard_i;
+                drflac_bool32 drflac_frame_ok = DRFLAC_TRUE;
+                if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->maxBlockSizeInPCMFrames ||
+                    pFlac->currentFLACFrame.pcmFramesRemaining > pFlac->currentFLACFrame.header.blockSizeInPCMFrames) {
+                    drflac_frame_ok = DRFLAC_FALSE;
+                }
+                for (drflac_guard_i = 0; drflac_frame_ok && drflac_guard_i < channelCount; ++drflac_guard_i) {
+                    if (pFlac->currentFLACFrame.subframes[drflac_guard_i].pSamplesS32 == NULL) {
+                        drflac_frame_ok = DRFLAC_FALSE;
+                        break;
+                    }
+                }
+                if (!drflac_frame_ok) {
+                    pFlac->currentFLACFrame.pcmFramesRemaining = 0;
+                    continue;
+                }
+            }
+            iFirstPCMFrame = pFlac->currentFLACFrame.header.blockSizeInPCMFrames - pFlac->currentFLACFrame.pcmFramesRemaining;
             drflac_uint64 frameCountThisIteration = framesToRead;
 
             if (frameCountThisIteration > pFlac->currentFLACFrame.pcmFramesRemaining) {
