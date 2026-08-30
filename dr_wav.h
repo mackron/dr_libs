@@ -3646,6 +3646,19 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             /* In AIFF, samples are padded to 8 byte boundaries. We need to round up our bits per sample here. */
             fmt.bitsPerSample += (fmt.bitsPerSample & 7);
 
+            /*
+            Only specific byte widths per sample are supported by the decoding backend (1, 2, 3, 4 and 8 bytes). A
+            COMM chunk can declare a bits-per-sample value that doesn't map to one of these (e.g. 40 bits = 5 bytes)
+            which would otherwise be discovered much later as an unsupported format. Reject it here instead.
+            */
+            if (fmt.bitsPerSample == 0 || (fmt.bitsPerSample % 8) != 0) {
+                return DRWAV_FALSE; /* Invalid bits per sample. */
+            }
+            switch (fmt.bitsPerSample / 8) {
+                case 1: case 2: case 3: case 4: case 8: break;
+                default: return DRWAV_FALSE; /* Unsupported bytes per sample. */
+            }
+
 
             /* If the form type is AIFC there will be some additional data in the chunk. We need to seek past it. */
             if (isAIFCFormType) {
