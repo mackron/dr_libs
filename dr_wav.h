@@ -3625,7 +3625,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             fmt.channels       = channels;
             fmt.sampleRate     = (drwav_uint32)sampleRate;
             fmt.bitsPerSample  = sampleSizeInBits;
-            fmt.blockAlign     = (drwav_uint16)(fmt.channels * fmt.bitsPerSample / 8);
+            fmt.blockAlign     = (drwav_uint16)((drwav_uint32)fmt.channels * fmt.bitsPerSample / 8);
             fmt.avgBytesPerSec = fmt.blockAlign * fmt.sampleRate;
 
             if (fmt.blockAlign == 0 && compressionFormat == DR_WAVE_FORMAT_DVI_ADPCM) {
@@ -7195,6 +7195,9 @@ DRWAV_API void drwav_f32_to_s16(drwav_int16* pOut, const float* pIn, size_t samp
     for (i = 0; i < sampleCount; ++i) {
         float x = pIn[i];
         float c;
+        if (x != x) { /* NaN check. Comparisons against NaN are always false, so this is safe even without <math.h>. */
+            x = 0;
+        }
         c = ((x < -1) ? -1 : ((x > 1) ? 1 : x));
         c = c + 1;
         r = (int)(c * 32767.5f);
@@ -7210,6 +7213,9 @@ DRWAV_API void drwav_f64_to_s16(drwav_int16* pOut, const double* pIn, size_t sam
     for (i = 0; i < sampleCount; ++i) {
         double x = pIn[i];
         double c;
+        if (x != x) { /* NaN check. Comparisons against NaN are always false, so this is safe even without <math.h>. */
+            x = 0;
+        }
         c = ((x < -1) ? -1 : ((x > 1) ? 1 : x));
         c = c + 1;
         r = (int)(c * 32767.5);
