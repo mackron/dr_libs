@@ -8143,7 +8143,16 @@ DRWAV_API void drwav_f32_to_s32(drwav_int32* pOut, const float* pIn, size_t samp
     }
 
     for (i = 0; i < sampleCount; ++i) {
-        *pOut++ = (drwav_int32)(2147483648.0f * pIn[i]);
+        float x = pIn[i];
+        if (x >= 1) {
+            *pOut++ = 2147483647;               /* +1.0 and +inf saturate to INT32_MAX */
+        } else if (x <= -1) {
+            *pOut++ = -2147483647 - 1;          /* -1.0 and -inf saturate to INT32_MIN */
+        } else if (x != x) {
+            *pOut++ = 0;                         /* NaN -> 0 */
+        } else {
+            *pOut++ = (drwav_int32)(2147483648.0f * x);   /* in-range: unchanged */
+        }
     }
 }
 
@@ -8156,7 +8165,16 @@ DRWAV_API void drwav_f64_to_s32(drwav_int32* pOut, const double* pIn, size_t sam
     }
 
     for (i = 0; i < sampleCount; ++i) {
-        *pOut++ = (drwav_int32)(2147483648.0 * pIn[i]);
+        double x = pIn[i];
+        if (x >= 1) {
+            *pOut++ = 2147483647;               /* +1.0 and +inf saturate to INT32_MAX */
+        } else if (x <= -1) {
+            *pOut++ = -2147483647 - 1;          /* -1.0 and -inf saturate to INT32_MIN */
+        } else if (x != x) {
+            *pOut++ = 0;                         /* NaN -> 0 */
+        } else {
+            *pOut++ = (drwav_int32)(2147483648.0 * x);    /* in-range: unchanged */
+        }
     }
 }
 
