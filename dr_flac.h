@@ -5405,6 +5405,9 @@ static drflac_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame,
     if (pSubframe->wastedBitsPerSample >= subframeBitsPerSample) {
         return DRFLAC_FALSE;
     }
+    if (pSubframe->wastedBitsPerSample >= frame->header.bitsPerSample) {
+        return DRFLAC_FALSE;    /* Corrupt file: wasted bits exceed or equal bit depth. Otherwise unusedBitsPerSample + wastedBitsPerSample could be >= 32 which overflows a 32-bit shift in the stereo conversion paths. */
+    }
     subframeBitsPerSample -= pSubframe->wastedBitsPerSample;
 
     pSubframe->pSamplesS32 = pDecodedSamplesOut;
@@ -5473,6 +5476,9 @@ static drflac_bool32 drflac__seek_subframe(drflac_bs* bs, drflac_frame* frame, i
     /* Need to handle wasted bits per sample. */
     if (pSubframe->wastedBitsPerSample >= subframeBitsPerSample) {
         return DRFLAC_FALSE;
+    }
+    if (pSubframe->wastedBitsPerSample >= frame->header.bitsPerSample) {
+        return DRFLAC_FALSE;    /* Corrupt file: wasted bits exceed or equal bit depth. Otherwise unusedBitsPerSample + wastedBitsPerSample could be >= 32 which overflows a 32-bit shift in the stereo conversion paths. */
     }
     subframeBitsPerSample -= pSubframe->wastedBitsPerSample;
 
@@ -9177,6 +9183,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side__scalar(d
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     for (i = 0; i < frameCount4; ++i) {
         drflac_uint32 left0 = pInputSamples0U32[i*4+0] << shift0;
@@ -9223,6 +9231,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side__sse2(drf
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
 
@@ -9255,6 +9265,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side__neon(drf
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
@@ -9331,6 +9343,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side__scalar(
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     for (i = 0; i < frameCount4; ++i) {
         drflac_uint32 side0  = pInputSamples0U32[i*4+0] << shift0;
@@ -9377,6 +9391,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side__sse2(dr
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
 
@@ -9409,6 +9425,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side__neon(dr
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
@@ -9782,6 +9800,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo_
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     for (i = 0; i < frameCount4; ++i) {
         drflac_uint32 tempL0 = pInputSamples0U32[i*4+0] << shift0;
@@ -9819,6 +9839,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo_
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     for (i = 0; i < frameCount4; ++i) {
         __m128i left  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
@@ -9844,6 +9866,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo_
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     int32x4_t shift4_0 = vdupq_n_s32(shift0);
     int32x4_t shift4_1 = vdupq_n_s32(shift1);
@@ -9969,6 +9993,7 @@ DRFLAC_API drflac_uint64 drflac_read_pcm_frames_s32(drflac* pFlac, drflac_uint64
                 for (i = 0; i < frameCountThisIteration; ++i) {
                     unsigned int j;
                     for (j = 0; j < channelCount; ++j) {
+                        DRFLAC_ASSERT((unusedBitsPerSample + pFlac->currentFLACFrame.subframes[j].wastedBitsPerSample) < 32);
                         pBufferOut[(i*channelCount)+j] = (drflac_int32)((drflac_uint32)(pFlac->currentFLACFrame.subframes[j].pSamplesS32[iFirstPCMFrame + i]) << (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[j].wastedBitsPerSample));
                     }
                 }
@@ -10012,6 +10037,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_left_side__scalar(d
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     for (i = 0; i < frameCount4; ++i) {
         drflac_uint32 left0 = pInputSamples0U32[i*4+0] << shift0;
@@ -10071,6 +10098,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_left_side__sse2(drf
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
 
@@ -10108,6 +10137,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_left_side__neon(drf
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
@@ -10193,6 +10224,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_right_side__scalar(
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     for (i = 0; i < frameCount4; ++i) {
         drflac_uint32 side0  = pInputSamples0U32[i*4+0] << shift0;
@@ -10252,6 +10285,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_right_side__sse2(dr
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
 
@@ -10289,6 +10324,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_right_side__neon(dr
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
@@ -10696,6 +10733,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_independent_stereo_
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     for (i = 0; i < frameCount4; ++i) {
         drflac_uint32 tempL0 = pInputSamples0U32[i*4+0] << shift0;
@@ -10743,6 +10782,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_independent_stereo_
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     for (i = 0; i < frameCount4; ++i) {
         __m128i left  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
@@ -10771,6 +10812,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_independent_stereo_
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     int32x4_t shift0_4 = vdupq_n_s32(shift0);
     int32x4_t shift1_4 = vdupq_n_s32(shift1);
@@ -10881,6 +10924,7 @@ DRFLAC_API drflac_uint64 drflac_read_pcm_frames_s16(drflac* pFlac, drflac_uint64
                 for (i = 0; i < frameCountThisIteration; ++i) {
                     unsigned int j;
                     for (j = 0; j < channelCount; ++j) {
+                        DRFLAC_ASSERT((unusedBitsPerSample + pFlac->currentFLACFrame.subframes[j].wastedBitsPerSample) < 32);
                         drflac_int32 sampleS32 = (drflac_int32)((drflac_uint32)(pFlac->currentFLACFrame.subframes[j].pSamplesS32[iFirstPCMFrame + i]) << (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[j].wastedBitsPerSample));
                         pBufferOut[(i*channelCount)+j] = (drflac_int16)(sampleS32 >> 16);
                     }
@@ -10922,6 +10966,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_left_side__scalar(d
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     float factor = 1 / 2147483648.0;
 
@@ -10970,6 +11016,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_left_side__sse2(drf
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample) - 8;
     drflac_uint32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     __m128 factor;
 
     DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
@@ -11007,6 +11055,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_left_side__neon(drf
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample) - 8;
     drflac_uint32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     float32x4_t factor4;
     int32x4_t shift0_4;
     int32x4_t shift1_4;
@@ -11089,6 +11139,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_right_side__scalar(
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     float factor = 1 / 2147483648.0;
 
     for (i = 0; i < frameCount4; ++i) {
@@ -11136,6 +11188,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_right_side__sse2(dr
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample) - 8;
     drflac_uint32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     __m128 factor;
 
     DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
@@ -11173,6 +11227,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_right_side__neon(dr
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample) - 8;
     drflac_uint32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     float32x4_t factor4;
     int32x4_t shift0_4;
     int32x4_t shift1_4;
@@ -11575,6 +11631,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_independent_stereo_
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
     float factor = 1 / 2147483648.0;
 
     for (i = 0; i < frameCount4; ++i) {
@@ -11613,6 +11671,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_independent_stereo_
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample) - 8;
     drflac_uint32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     float factor = 1.0f / 8388608.0f;
     __m128 factor128 = _mm_set1_ps(factor);
@@ -11649,6 +11709,8 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_independent_stereo_
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift0 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample) - 8;
     drflac_uint32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
+    DRFLAC_ASSERT(shift0 < 32);
+    DRFLAC_ASSERT(shift1 < 32);
 
     float factor = 1.0f / 8388608.0f;
     float32x4_t factor4 = vdupq_n_f32(factor);
@@ -11763,6 +11825,7 @@ DRFLAC_API drflac_uint64 drflac_read_pcm_frames_f32(drflac* pFlac, drflac_uint64
                 for (i = 0; i < frameCountThisIteration; ++i) {
                     unsigned int j;
                     for (j = 0; j < channelCount; ++j) {
+                        DRFLAC_ASSERT((unusedBitsPerSample + pFlac->currentFLACFrame.subframes[j].wastedBitsPerSample) < 32);
                         drflac_int32 sampleS32 = (drflac_int32)((drflac_uint32)(pFlac->currentFLACFrame.subframes[j].pSamplesS32[iFirstPCMFrame + i]) << (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[j].wastedBitsPerSample));
                         pBufferOut[(i*channelCount)+j] = (float)(sampleS32 / 2147483648.0);
                     }
