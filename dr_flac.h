@@ -9890,12 +9890,19 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo(
 static drflac_bool32 drflac__is_current_flac_frame_valid(drflac* pFlac)
 {
     drflac_uint32 iChannel;
+    drflac_uint32 channelCount;
 
     if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->maxBlockSizeInPCMFrames || pFlac->currentFLACFrame.pcmFramesRemaining > pFlac->currentFLACFrame.header.blockSizeInPCMFrames) {
         return DRFLAC_FALSE;
     }
 
-    for (iChannel = 0; iChannel < pFlac->channels; iChannel += 1) {
+    /* The frame's channel count must agree with STREAMINFO, otherwise the subframes below may not have been decoded. */
+    channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
+    if (channelCount != pFlac->channels) {
+        return DRFLAC_FALSE;
+    }
+
+    for (iChannel = 0; iChannel < channelCount; iChannel += 1) {
         if (pFlac->currentFLACFrame.subframes[iChannel].pSamplesS32 == NULL) {
             return DRFLAC_FALSE;
         }
