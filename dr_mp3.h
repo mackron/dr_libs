@@ -4379,6 +4379,15 @@ static drmp3_bool32 drmp3_seek_to_start_of_stream(drmp3* pMP3)
 }
 
 
+/*
+The PCM frame the next read returns, as the caller counts them. currentPCMFrame also counts the delay frames that reading skips at the
+start of the stream, so it runs ahead by up to delayInPCMFrames.
+*/
+static drmp3_uint64 drmp3_get_cursor_in_pcm_frames(drmp3* pMP3)
+{
+    return (pMP3->currentPCMFrame > pMP3->delayInPCMFrames) ? pMP3->currentPCMFrame - pMP3->delayInPCMFrames : 0;
+}
+
 static drmp3_bool32 drmp3_seek_forward_by_pcm_frames__brute_force(drmp3* pMP3, drmp3_uint64 frameOffset)
 {
     drmp3_uint64 framesRead;
@@ -4402,9 +4411,12 @@ static drmp3_bool32 drmp3_seek_forward_by_pcm_frames__brute_force(drmp3* pMP3, d
 
 static drmp3_bool32 drmp3_seek_to_pcm_frame__brute_force(drmp3* pMP3, drmp3_uint64 frameIndex)
 {
+    drmp3_uint64 cursor;
+
     DRMP3_ASSERT(pMP3 != NULL);
 
-    if (frameIndex == pMP3->currentPCMFrame) {
+    cursor = drmp3_get_cursor_in_pcm_frames(pMP3);
+    if (frameIndex == cursor) {
         return DRMP3_TRUE;
     }
 
@@ -4412,15 +4424,17 @@ static drmp3_bool32 drmp3_seek_to_pcm_frame__brute_force(drmp3* pMP3, drmp3_uint
     If we're moving foward we just read from where we're at. Otherwise we need to move back to the start of
     the stream and read from the beginning.
     */
-    if (frameIndex < pMP3->currentPCMFrame) {
+    if (frameIndex < cursor) {
         /* Moving backward. Move to the start of the stream and then move forward. */
         if (!drmp3_seek_to_start_of_stream(pMP3)) {
             return DRMP3_FALSE;
         }
+
+        cursor = 0;
     }
 
-    DRMP3_ASSERT(frameIndex >= pMP3->currentPCMFrame);
-    return drmp3_seek_forward_by_pcm_frames__brute_force(pMP3, (frameIndex - pMP3->currentPCMFrame));
+    DRMP3_ASSERT(frameIndex >= cursor);
+    return drmp3_seek_forward_by_pcm_frames__brute_force(pMP3, (frameIndex - cursor));
 }
 
 static drmp3_bool32 drmp3_find_closest_seek_point(drmp3* pMP3, drmp3_uint64 frameIndex, drmp3_uint32* pSeekPointIndex)
@@ -4458,8 +4472,11 @@ static drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint6
     DRMP3_ASSERT(pMP3->pSeekPoints != NULL);
     DRMP3_ASSERT(pMP3->seekPointCount > 0);
 
-    /* If there is no prior seekpoint it means the target PCM frame comes before the first seek point. Just assume a seekpoint at the start of the file in this case. */
-    if (drmp3_find_closest_seek_point(pMP3, frameIndex, &priorSeekPointIndex)) {
+    /*
+    If there is no prior seekpoint it means the target PCM frame comes before the first seek point. Just assume a seekpoint at the start of the file in this case.
+    Seek points count the delay frames too.
+    */
+    if (drmp3_find_closest_seek_point(pMP3, frameIndex + pMP3->delayInPCMFrames, &priorSeekPointIndex)) {
         seekPoint = pMP3->pSeekPoints[priorSeekPointIndex];
     } else {
         seekPoint.seekPosInBytes     = 0;
@@ -4501,7 +4518,7 @@ static drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint6
     Now at this point we can follow the same process as the brute force technique where we just skip over unnecessary MP3 frames and then
     read-and-discard at least 2 whole MP3 frames.
     */
-    leftoverFrames = frameIndex - pMP3->currentPCMFrame;
+    leftoverFrames = frameIndex - drmp3_get_cursor_in_pcm_frames(pMP3);
     return drmp3_seek_forward_by_pcm_frames__brute_force(pMP3, leftoverFrames);
 }
 
@@ -4544,7 +4561,7 @@ DRMP3_API drmp3_bool32 drmp3_get_mp3_and_pcm_frame_count(drmp3* pMP3, drmp3_uint
     }
 
     /* We'll need to seek back to where we were, so grab the PCM frame we're currently sitting on so we can restore later. */
-    currentPCMFrame = pMP3->currentPCMFrame;
+    currentPCMFrame = drmp3_get_cursor_in_pcm_frames(pMP3);
 
     if (!drmp3_seek_to_start_of_stream(pMP3)) {
         return DRMP3_FALSE;
@@ -4666,7 +4683,7 @@ DRMP3_API drmp3_bool32 drmp3_calculate_seek_points(drmp3* pMP3, drmp3_uint32* pS
     }
 
     /* We'll need to seek back to the current sample after calculating the seekpoints so we need to go ahead and grab the current location at the top. */
-    currentPCMFrame = pMP3->currentPCMFrame;
+    currentPCMFrame = drmp3_get_cursor_in_pcm_frames(pMP3);
 
     /* We never do more than the total number of MP3 frames and we limit it to 32-bits. */
     if (!drmp3_get_mp3_and_pcm_frame_count(pMP3, &totalMP3FrameCount, &totalPCMFrameCount)) {
