@@ -3137,12 +3137,20 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                         return DRMP3_FALSE; /* Failed to seek back to the start. */
                     }
                 } else {
-                    /* Don't have a seek callback to move backwards. We'll just fall through and let the decoding process re-sync. The ideal solution here would be to read into the cache. */
-
                     /*
-                    TODO: Copy the header into the cache. Will need to allocate space. See drmp3_decode_next_frame_ex__callbacks. There is not need
-                    to handle the memory case because that will always have a seek implementation and will never hit this code path.
+                    Don't have a seek callback to move backwards. Put the header into the cache so decoding starts with it; otherwise the
+                    first frame is lost (and with it a Xing/Info tag). There is no need to handle the memory case because that will always
+                    have a seek implementation and will never hit this code path.
                     */
+                    pMP3->pData = (drmp3_uint8*)drmp3__malloc_from_callbacks(DRMP3_DATA_CHUNK_SIZE, &pMP3->allocationCallbacks);
+                    if (pMP3->pData == NULL) {
+                        return DRMP3_FALSE; /* Out of memory. */
+                    }
+
+                    pMP3->dataCapacity = DRMP3_DATA_CHUNK_SIZE;
+                    DRMP3_COPY_MEMORY(pMP3->pData, header, 10);
+                    pMP3->dataSize = 10;
+                    pMP3->streamCursor = 10;
                 }
             }
         } else {
