@@ -102,6 +102,10 @@ if(NOT DR_LIBS_NO_WAV)
     if(DR_LIBS_BUILD_TESTS)
         enable_testing()
 
+        add_executable(wav_seeking tests/wav/wav_seeking.c)
+        target_link_libraries(wav_seeking PRIVATE dr_libs_interface)
+        add_test(NAME wav_seeking COMMAND wav_seeking)
+
         # We use libsndfile as a benchmark for dr_wav. We link dynamically at runtime, but we still need the sndfile.h header at compile time.
         find_path(SNDFILE_INCLUDE_DIR sndfile.h HINTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/external/libsndfile/include)
         if(SNDFILE_INCLUDE_DIR)
@@ -137,7 +141,7 @@ if(NOT DR_LIBS_NO_WAV)
             target_include_directories(wav_debugging PRIVATE ${SNDFILE_INCLUDE_DIR})
             target_link_libraries     (wav_debugging PRIVATE ${COMMON_LIBRARIES})
         else()
-            message(WARNING "Could not find sndfile.h. dr_wav tests will not be built.")
+            message(WARNING "Could not find sndfile.h. libsndfile-based dr_wav tests will not be built.")
         endif()
     else()
         # Not building tests.

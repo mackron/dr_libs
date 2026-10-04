@@ -6172,7 +6172,6 @@ DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetF
             }
         }
     } else {
-        drwav_uint64 totalSizeInBytes;
         drwav_uint64 currentBytePos;
         drwav_uint64 targetBytePos;
         drwav_uint64 offset;
@@ -6183,10 +6182,7 @@ DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetF
             return DRWAV_FALSE; /* Not able to calculate offset. */
         }
 
-        totalSizeInBytes = pWav->totalPCMFrameCount * bytesPerFrame;
-        /*DRWAV_ASSERT(totalSizeInBytes >= pWav->bytesRemaining);*/
-
-        currentBytePos = totalSizeInBytes - pWav->bytesRemaining;
+        currentBytePos = pWav->dataChunkDataSize - pWav->bytesRemaining;
         targetBytePos  = targetFrameIndex * bytesPerFrame;
 
         if (currentBytePos < targetBytePos) {
@@ -6206,8 +6202,8 @@ DRWAV_API drwav_bool32 drwav_seek_to_pcm_frame(drwav* pWav, drwav_uint64 targetF
                 return DRWAV_FALSE;
             }
 
-            pWav->readCursorInPCMFrames += offset32 / bytesPerFrame;
             pWav->bytesRemaining        -= offset32;
+            pWav->readCursorInPCMFrames  = (pWav->dataChunkDataSize - pWav->bytesRemaining) / bytesPerFrame;
             offset                      -= offset32;
         }
     }
