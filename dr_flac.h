@@ -5874,6 +5874,8 @@ location.
 
 static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFlac, drflac_uint64 targetByte, drflac_uint64 rangeLo, drflac_uint64 rangeHi, drflac_uint64* pLastSuccessfulSeekOffset)
 {
+    drflac_uint32 forwardTries = 0;
+
     DRFLAC_ASSERT(pFlac != NULL);
     DRFLAC_ASSERT(pLastSuccessfulSeekOffset != NULL);
     DRFLAC_ASSERT(targetByte >= rangeLo);
@@ -5909,9 +5911,19 @@ static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFla
             */
 #if 1
             if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
-                /* Halve the byte location and continue. */
-                targetByte = rangeLo + ((rangeHi - rangeLo)/2);
-                rangeHi = targetByte;
+                /*
+                Audio data can contain a byte pattern that passes the frame header CRC but does not decode. When targetByte is already the
+                middle of the range, halving gives the same byte, the loop gives up, and the caller falls back to a brute force seek from the
+                start of the stream. So first try a little further on, past the false header, before halving.
+                */
+                if (forwardTries < 8 && targetByte + 4096 <= rangeHi) {
+                    targetByte += 4096;
+                    forwardTries += 1;
+                } else {
+                    /* Halve the byte location and continue. */
+                    targetByte = rangeLo + ((rangeHi - rangeLo)/2);
+                    rangeHi = targetByte;
+                }
             } else {
                 break;
             }
@@ -5967,6 +5979,7 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
     drflac_uint64 lastSuccessfulSeekOffset = (drflac_uint64)-1;
     drflac_uint64 closestSeekOffsetBeforeTargetPCMFrame = byteRangeLo;
     drflac_uint32 seekForwardThreshold = (pFlac->maxBlockSizeInPCMFrames != 0) ? pFlac->maxBlockSizeInPCMFrames*2 : 4096;
+    drflac_uint32 iterations = 0;
 
     targetByte = byteRangeLo + (drflac_uint64)(((drflac_int64)((pcmFrameIndex - pFlac->currentPCMFrame) * pFlac->channels * pFlac->bitsPerSample)/8.0f) * DRFLAC_BINARY_SEARCH_APPROX_COMPRESSION_RATIO);
     if (targetByte > byteRangeHi) {
@@ -5974,6 +5987,13 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
     }
 
     for (;;) {
+        /*
+        When the target is inside a frame that does not decode, the search can alternate between the frames before and after it
+        forever. A binary search over a byte range needs far fewer steps than this, so give up instead.
+        */
+        if (++iterations > 64) {
+            break;
+        }
         /*
         If only two adjacent byte offsets remain, binary search cannot narrow the range any further. Seek to the closest frame before the target and decode
         forward from there.
@@ -12268,6 +12288,8 @@ v0.13.4 - TBD
   - Fix an error with seek point parsing.
   - Fix a possible deadlock when seeking.
   - Fix an error where the decoder can be put into a bad state when seeking fails which then results in a crash when reading and seeking.
+  - Fix an error where a binary search seek falls back to a slow brute force seek when it finds a false frame header.
+  - Fix a possible infinite loop in the binary search seek when the target is inside a frame that does not decode.
 
 v0.13.3 - 2026-01-17
   - Fix a compiler compatibility issue with some inlined assembly.
