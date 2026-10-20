@@ -6386,6 +6386,20 @@ DRWAV_API drwav_uint64 drwav_write_pcm_frames(drwav* pWav, drwav_uint64 framesTo
 }
 
 
+DRWAV_PRIVATE DRWAV_INLINE drwav_int32 drwav__msadpcm_calc_sample(drwav_int32 prevSample0, drwav_int32 prevSample1, drwav_int32 coeff1, drwav_int32 coeff2, drwav_int32 nibble, drwav_int32 delta)
+{
+    drwav_int32 prediction;
+
+    prediction = ((prevSample1 * coeff1) + (prevSample0 * coeff2)) >> 8;
+
+    /* The prediction magnitude cannot exceed 98304. Use 64-bit arithmetic only when the addition could overflow which in my testing is just a tiny bit faster. */
+    if (delta > (0x7FFFFFFF - 98304) / 8) {
+        return (drwav_int32)drwav_clamp(prediction + ((drwav_int64)nibble * delta), -32768, 32767);
+    } else {
+        return drwav_clamp(prediction + (nibble * delta), -32768, 32767);
+    }
+}
+
 DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut)
 {
     drwav_uint64 totalFramesRead = 0;
@@ -6511,9 +6525,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                         return totalFramesRead;
                     }
 
-                    newSample0  = ((pWav->msadpcm.prevFrames[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevFrames[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
-                    newSample0 += nibble0 * pWav->msadpcm.delta[0];
-                    newSample0  = drwav_clamp(newSample0, -32768, 32767);
+                    newSample0 = drwav__msadpcm_calc_sample(pWav->msadpcm.prevFrames[0][0], pWav->msadpcm.prevFrames[0][1], coeff1Table[pWav->msadpcm.predictor[0]], coeff2Table[pWav->msadpcm.predictor[0]], nibble0, pWav->msadpcm.delta[0]);
 
                     pWav->msadpcm.delta[0] = (drwav_int32)drwav_clamp(((drwav_int64)adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta[0]) >> 8, 16, 0x7FFFFFFF);
  
@@ -6521,9 +6533,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                     pWav->msadpcm.prevFrames[0][1] = newSample0;
 
 
-                    newSample1  = ((pWav->msadpcm.prevFrames[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevFrames[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
-                    newSample1 += nibble1 * pWav->msadpcm.delta[0];
-                    newSample1  = drwav_clamp(newSample1, -32768, 32767);
+                    newSample1 = drwav__msadpcm_calc_sample(pWav->msadpcm.prevFrames[0][0], pWav->msadpcm.prevFrames[0][1], coeff1Table[pWav->msadpcm.predictor[0]], coeff2Table[pWav->msadpcm.predictor[0]], nibble1, pWav->msadpcm.delta[0]);
 
                     pWav->msadpcm.delta[0] = (drwav_int32)drwav_clamp(((drwav_int64)adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta[0]) >> 8, 16, 0x7FFFFFFF);
 
@@ -6543,9 +6553,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                         return totalFramesRead; /* Out of bounds. Invalid file. */
                     }
 
-                    newSample0  = ((pWav->msadpcm.prevFrames[0][1] * coeff1Table[pWav->msadpcm.predictor[0]]) + (pWav->msadpcm.prevFrames[0][0] * coeff2Table[pWav->msadpcm.predictor[0]])) >> 8;
-                    newSample0 += nibble0 * pWav->msadpcm.delta[0];
-                    newSample0  = drwav_clamp(newSample0, -32768, 32767);
+                    newSample0 = drwav__msadpcm_calc_sample(pWav->msadpcm.prevFrames[0][0], pWav->msadpcm.prevFrames[0][1], coeff1Table[pWav->msadpcm.predictor[0]], coeff2Table[pWav->msadpcm.predictor[0]], nibble0, pWav->msadpcm.delta[0]);
 
                     pWav->msadpcm.delta[0] = (drwav_int32)drwav_clamp(((drwav_int64)adaptationTable[((nibbles & 0xF0) >> 4)] * pWav->msadpcm.delta[0]) >> 8, 16, 0x7FFFFFFF);
 
@@ -6558,9 +6566,7 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__msadpcm(drwav* pWav, drwav
                         return totalFramesRead; /* Out of bounds. Invalid file. */
                     }
 
-                    newSample1  = ((pWav->msadpcm.prevFrames[1][1] * coeff1Table[pWav->msadpcm.predictor[1]]) + (pWav->msadpcm.prevFrames[1][0] * coeff2Table[pWav->msadpcm.predictor[1]])) >> 8;
-                    newSample1 += nibble1 * pWav->msadpcm.delta[1];
-                    newSample1  = drwav_clamp(newSample1, -32768, 32767);
+                    newSample1 = drwav__msadpcm_calc_sample(pWav->msadpcm.prevFrames[1][0], pWav->msadpcm.prevFrames[1][1], coeff1Table[pWav->msadpcm.predictor[1]], coeff2Table[pWav->msadpcm.predictor[1]], nibble1, pWav->msadpcm.delta[1]);
 
                     pWav->msadpcm.delta[1] = (drwav_int32)drwav_clamp(((drwav_int64)adaptationTable[((nibbles & 0x0F) >> 0)] * pWav->msadpcm.delta[1]) >> 8, 16, 0x7FFFFFFF);
 
@@ -8700,6 +8706,7 @@ v0.14.6 - TBD
   - Fix an error when loading files with a malformed "smpl" chunk.
   - Fix an underflow error with badly formed ADPCM encoded files.
   - Fix an underflow error with badly formed W64 files.
+  - Fix an overflow error with MS-ADPCM encoded files.
   - Fix an error when converting from >32 bit samples to s16/f32/s32 on big-endian architectures.
   - Fix an error with conversion from u8, 16, alaw and mulaw to s32.
   - Fix an error with AIFF files with an unusual bit depth.
