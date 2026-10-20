@@ -2,6 +2,7 @@
 /build
 /docs
 /tickets
+/scratch
 /tests/external/flac
 /tests/external/ogg
 /tests/external/libsndfile
