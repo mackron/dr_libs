@@ -4383,9 +4383,13 @@ static drmp3_bool32 drmp3_seek_to_start_of_stream(drmp3* pMP3)
 The PCM frame the next read returns, as the caller counts them. currentPCMFrame also counts the delay frames that reading skips at the
 start of the stream, so it runs ahead by up to delayInPCMFrames.
 */
-static drmp3_uint64 drmp3_get_cursor_in_pcm_frames(drmp3* pMP3)
+static drmp3_uint64 drmp3_get_cursor_in_pcm_frames(const drmp3* pMP3)
 {
-    return (pMP3->currentPCMFrame > pMP3->delayInPCMFrames) ? pMP3->currentPCMFrame - pMP3->delayInPCMFrames : 0;
+    if (pMP3->currentPCMFrame > pMP3->delayInPCMFrames) {
+        return pMP3->currentPCMFrame - pMP3->delayInPCMFrames;
+    }
+
+    return 0;
 }
 
 static drmp3_bool32 drmp3_seek_forward_by_pcm_frames__brute_force(drmp3* pMP3, drmp3_uint64 frameOffset)
@@ -4466,6 +4470,7 @@ static drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint6
     drmp3_seek_point seekPoint;
     drmp3_uint32 priorSeekPointIndex;
     drmp3_uint16 iMP3Frame;
+    drmp3_uint64 internalFrameIndex;
     drmp3_uint64 leftoverFrames;
 
     DRMP3_ASSERT(pMP3 != NULL);
@@ -4476,7 +4481,13 @@ static drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint6
     If there is no prior seekpoint it means the target PCM frame comes before the first seek point. Just assume a seekpoint at the start of the file in this case.
     Seek points count the delay frames too.
     */
-    if (drmp3_find_closest_seek_point(pMP3, frameIndex + pMP3->delayInPCMFrames, &priorSeekPointIndex)) {
+    if (frameIndex > DRMP3_UINT64_MAX - pMP3->delayInPCMFrames) {
+        internalFrameIndex = DRMP3_UINT64_MAX;
+    } else {
+        internalFrameIndex = frameIndex + pMP3->delayInPCMFrames;
+    }
+
+    if (drmp3_find_closest_seek_point(pMP3, internalFrameIndex, &priorSeekPointIndex)) {
         seekPoint = pMP3->pSeekPoints[priorSeekPointIndex];
     } else {
         seekPoint.seekPosInBytes     = 0;
@@ -5071,6 +5082,7 @@ REVISION HISTORY
 v0.7.4 - TBD
   - Fix an overflow error with "Xing" and "Info" tag parsing.
   - Add some validation checks for "Xing" and "Info" tag parsing.
+  - Fix a seeking error.
   - Reduce size of some stack allocations.
   - Improvements to SIMD detection.
 
