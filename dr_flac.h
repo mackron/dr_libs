@@ -5872,6 +5872,28 @@ location.
 */
 #define DRFLAC_BINARY_SEARCH_APPROX_COMPRESSION_RATIO 0.6f
 
+static drflac_bool32 drflac__read_and_decode_next_flac_frame_for_seek(drflac* pFlac)
+{
+    DRFLAC_ASSERT(pFlac != NULL);
+
+    for (;;) {
+        drflac_result result;
+
+        if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
+            return DRFLAC_FALSE;
+        }
+
+        result = drflac__decode_flac_frame(pFlac);
+        if (result == DRFLAC_SUCCESS) {
+            return DRFLAC_TRUE;
+        }
+
+        if (result == DRFLAC_AT_END) {
+            return DRFLAC_FALSE;
+        }
+    }
+}
+
 static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFlac, drflac_uint64 targetByte, drflac_uint64 rangeLo, drflac_uint64 rangeHi, drflac_uint64* pLastSuccessfulSeekOffset)
 {
     DRFLAC_ASSERT(pFlac != NULL);
@@ -5882,9 +5904,6 @@ static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFla
     *pLastSuccessfulSeekOffset = pFlac->firstFLACFramePosInBytes;
 
     for (;;) {
-        /* After rangeLo == rangeHi == targetByte fails, we need to break out. */
-        drflac_uint64 lastTargetByte = targetByte;
-
         /* When seeking to a byte, failure probably means we've attempted to seek beyond the end of the stream. To counter this we just halve it each attempt. */
         if (!drflac__seek_to_byte(&pFlac->bs, targetByte)) {
             /* If we couldn't even seek to the first byte in the stream we have a problem. Just abandon the whole thing. */
@@ -5893,9 +5912,13 @@ static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFla
                 return DRFLAC_FALSE;
             }
 
-            /* Halve the byte location and continue. */
-            targetByte = rangeLo + ((rangeHi - rangeLo)/2);
             rangeHi = targetByte;
+            if (rangeHi <= rangeLo) {
+                return DRFLAC_FALSE;
+            }
+
+            /* Halve the reduced byte range and continue. */
+            targetByte = rangeLo + ((rangeHi - rangeLo)/2);
         } else {
             /* Getting here should mean that we have seeked to an appropriate byte. */
 
@@ -5907,28 +5930,31 @@ static drflac_bool32 drflac__seek_to_approximate_flac_frame_to_byte(drflac* pFla
             CRC check and return bad data. We need to decode the entire frame to be more certain. Although this seems unlikely, this has happened to me in testing
             so it needs to stay this way for now.
             */
-#if 1
-            if (!drflac__read_and_decode_next_flac_frame(pFlac)) {
-                /* Halve the byte location and continue. */
-                targetByte = rangeLo + ((rangeHi - rangeLo)/2);
-                rangeHi = targetByte;
-            } else {
-                break;
-            }
-#else
-            if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
-                /* Halve the byte location and continue. */
-                targetByte = rangeLo + ((rangeHi - rangeLo)/2);
-                rangeHi = targetByte;
-            } else {
-                break;
-            }
-#endif
-        }
+            #if 1
+            {
+                if (!drflac__read_and_decode_next_flac_frame_for_seek(pFlac)) {
+                    rangeHi = targetByte;
+                    if (rangeHi <= rangeLo) {
+                        return DRFLAC_FALSE;
+                    }
 
-        /* We already tried this byte and there are no more to try, break out. */
-        if(targetByte == lastTargetByte) {
-            return DRFLAC_FALSE;
+                    /* Halve the byte location and continue. */
+                    targetByte = rangeLo + ((rangeHi - rangeLo)/2);
+                } else {
+                    break;
+                }
+            }
+            #else
+            {
+                if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
+                    /* Halve the byte location and continue. */
+                    targetByte = rangeLo + ((rangeHi - rangeLo)/2);
+                    rangeHi = targetByte;
+                } else {
+                    break;
+                }
+            }
+            #endif
         }
     }
 
@@ -5974,11 +6000,17 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
     }
 
     for (;;) {
+        drflac_uint64 previousByteRangeLo;
+        drflac_uint64 previousByteRangeHi;
+
+        previousByteRangeLo = byteRangeLo;
+        previousByteRangeHi = byteRangeHi;
+
         /*
         If only two adjacent byte offsets remain, binary search cannot narrow the range any further. Seek to the closest frame before the target and decode
         forward from there.
         */
-        if ((byteRangeHi - byteRangeLo) == 1) {
+        if ((byteRangeHi - byteRangeLo) <= 1) {
             if (!drflac__seek_to_approximate_flac_frame_to_byte(pFlac, closestSeekOffsetBeforeTargetPCMFrame, closestSeekOffsetBeforeTargetPCMFrame, byteRangeHi, &lastSuccessfulSeekOffset)) {
                 break;
             }
@@ -6059,6 +6091,22 @@ static drflac_bool32 drflac__seek_to_pcm_frame__binary_search_internal(drflac* p
                         }
                     }
                 }
+            }
+
+            if (byteRangeLo == previousByteRangeLo && byteRangeHi == previousByteRangeHi) {
+                if (!drflac__seek_to_approximate_flac_frame_to_byte(pFlac, closestSeekOffsetBeforeTargetPCMFrame, closestSeekOffsetBeforeTargetPCMFrame, byteRangeHi, &lastSuccessfulSeekOffset)) {
+                    break;
+                }
+
+                if (pFlac->currentPCMFrame <= pcmFrameIndex && drflac__decode_flac_frame_and_seek_forward_by_pcm_frames(pFlac, pcmFrameIndex - pFlac->currentPCMFrame)) {
+                    return DRFLAC_TRUE;
+                }
+
+                break;
+            }
+
+            if ((byteRangeHi - byteRangeLo) > 1 && (targetByte <= byteRangeLo || targetByte >= byteRangeHi)) {
+                targetByte = byteRangeLo + ((byteRangeHi - byteRangeLo) / 2);
             }
         } else {
             /* Getting here is really bad. We just recover as best we can, but moving to the first frame in the stream, and then abort. */
@@ -12357,6 +12405,7 @@ v0.13.4 - TBD
   - Fix a possible deadlock when seeking.
   - Fix an error where the decoder can be put into a bad state when seeking fails which then results in a crash when reading and seeking.
   - Fix an undefined behavior error due to a shift by 32.
+  - Fix an error with binary search seeking.
 
 v0.13.3 - 2026-01-17
   - Fix a compiler compatibility issue with some inlined assembly.
