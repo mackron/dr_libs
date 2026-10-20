@@ -1635,11 +1635,12 @@ typedef drflac_int32 drflac_result;
 #define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
 
+#define drflac_align(x, a)                              ((((x) + (a) - 1) / (a)) * (a))
+
 #define DRFLAC_SEEKPOINT_SIZE_IN_BYTES                  18
 #define DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES             36
 #define DRFLAC_CUESHEET_TRACK_INDEX_SIZE_IN_BYTES       12
-
-#define drflac_align(x, a)                              ((((x) + (a) - 1) / (a)) * (a))
+#define DRFLAC_CUESHEET_TRACK_PADDED_SIZE_IN_BYTES      drflac_align(DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES, sizeof(drflac_uint64))
 
 
 DRFLAC_API void drflac_version(drflac_uint32* pMajor, drflac_uint32* pMinor, drflac_uint32* pRevision)
@@ -6743,7 +6744,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     {
                         const char* pRunningDataSaved = pRunningData;   /* Will be restored at the end in preparation for the second pass. */
 
-                        bufferSize = metadata.data.cuesheet.trackCount * DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES;
+                        bufferSize = metadata.data.cuesheet.trackCount * DRFLAC_CUESHEET_TRACK_PADDED_SIZE_IN_BYTES;
 
                         for (iTrack = 0; iTrack < metadata.data.cuesheet.trackCount; ++iTrack) {
                             drflac_uint8 indexCount;
@@ -6797,7 +6798,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                             /* Grab the index count for the next part. */
                             indexCount = pRunningData[0];
                             pRunningData      += 1;
-                            pRunningTrackData += 1;
+                            pRunningTrackData += 1 + (DRFLAC_CUESHEET_TRACK_PADDED_SIZE_IN_BYTES - DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES);
 
                             /* Extract each track index. */
                             for (iIndex = 0; iIndex < indexCount; ++iIndex) {
@@ -6814,12 +6815,10 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                         metadata.data.cuesheet.pTrackData = pTrackData;
                     }
 
-                    /* The original data is no longer needed. */
-                    drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                    pRawData = NULL;
-
                     onMeta(pUserDataMD, &metadata);
 
+                    drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
+                    pRawData = NULL;
                     drflac__free_from_callbacks(pTrackData, pAllocationCallbacks);
                     pTrackData = NULL;
                 }
@@ -12375,7 +12374,7 @@ DRFLAC_API drflac_bool32 drflac_next_cuesheet_track(drflac_cuesheet_track_iterat
     DRFLAC_COPY_MEMORY(cuesheetTrack.ISRC, pRunningData, sizeof(cuesheetTrack.ISRC));     pRunningData += 12;
     cuesheetTrack.isAudio      = (pRunningData[0] & 0x80) != 0;
     cuesheetTrack.preEmphasis  = (pRunningData[0] & 0x40) != 0;                           pRunningData += 14;
-    cuesheetTrack.indexCount   = pRunningData[0];                                         pRunningData += 1;
+    cuesheetTrack.indexCount   = pRunningData[0];                                         pRunningData += 1 + (DRFLAC_CUESHEET_TRACK_PADDED_SIZE_IN_BYTES - DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES);
     cuesheetTrack.pIndexPoints = (const drflac_cuesheet_track_index*)pRunningData;        pRunningData += cuesheetTrack.indexCount * sizeof(drflac_cuesheet_track_index);
 
     pIter->pRunningData = pRunningData;
@@ -12406,6 +12405,7 @@ v0.13.4 - TBD
   - Fix an error where the decoder can be put into a bad state when seeking fails which then results in a crash when reading and seeking.
   - Fix an undefined behavior error due to a shift by 32.
   - Fix an error with binary search seeking.
+  - Fix a use-after-free and misalignment error with CUESHEET handling.
 
 v0.13.3 - 2026-01-17
   - Fix a compiler compatibility issue with some inlined assembly.
