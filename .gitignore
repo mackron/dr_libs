@@ -1,6 +1,7 @@
 .vscode
 /build
 /docs
+/tickets
 /tests/external/flac
 /tests/external/ogg
 /tests/external/libsndfile
