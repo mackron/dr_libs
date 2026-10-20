@@ -3148,9 +3148,9 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                     }
 
                     pMP3->dataCapacity = DRMP3_DATA_CHUNK_SIZE;
-                    DRMP3_COPY_MEMORY(pMP3->pData, header, 10);
-                    pMP3->dataSize = 10;
-                    pMP3->streamCursor = 10;
+                    DRMP3_COPY_MEMORY(pMP3->pData, header, sizeof(header));
+                    pMP3->dataSize = sizeof(header);
+                    pMP3->streamCursor = sizeof(header);
                 }
             }
         } else {
