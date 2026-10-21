@@ -4587,7 +4587,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_64(drflac_
     int32x4_t riceParam128;
     int64x1_t shift64;
     uint32x4_t one128;
-    int64x2_t prediction128 = { 0 };
+    int64x2_t prediction128;
     uint32x4_t zeroCountPart128;
     uint32x4_t riceParamPart128;
 
@@ -4687,7 +4687,7 @@ static drflac_bool32 drflac__decode_samples_with_residual__rice__neon_64(drflac_
         for (i = 0; i < 4; i += 1) {
             int64x1_t prediction64;
 
-            prediction128 = veorq_s64(prediction128, prediction128);    /* Reset to 0. */
+            prediction128 = vdupq_n_s64(0);
             switch (order)
             {
             case 12:
