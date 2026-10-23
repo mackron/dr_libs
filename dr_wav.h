@@ -3132,7 +3132,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
     drwav_bool8 foundChunk_data = DRWAV_FALSE;
     drwav_bool8 isAIFCFormType = DRWAV_FALSE;   /* Only used with AIFF. */
     drwav_uint64 aiffFrameCount = 0;
-    drwav_int64 fileSize;
+    drwav_int64 fileSize = 0;
     drwav_bool32 hasKnownFileSize = DRWAV_FALSE;
 
     cursor = 0;
