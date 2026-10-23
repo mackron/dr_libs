@@ -6621,7 +6621,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     }
 
                     metadata.pRawData = pRawData;
-                    metadata.rawDataSize = rawDataSize;
+                    metadata.rawDataSize = (drflac_uint32)rawDataSize;
                     metadata.data.seektable.seekpointCount = seekpointCount;
                     metadata.data.seektable.pSeekpoints = (const drflac_seekpoint*)pRawData;
 
