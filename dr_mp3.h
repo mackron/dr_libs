@@ -263,7 +263,11 @@ Low Level Push API
 
 typedef struct
 {
-    int frame_bytes, channels, sample_rate, layer, bitrate_kbps;
+    int frame_bytes;
+    int channels;
+    int sample_rate;
+    int layer;  /* Set to 0 when no complete MP3 frame is available. Otherwise set to 1, 2 or 3. */
+    int bitrate_kbps;
 } drmp3dec_frame_info;
 
 typedef struct
@@ -2315,6 +2319,8 @@ DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const drmp3_uint8 *mp3, int m
     int i = 0, igr, frame_size = 0, success = 1;
     const drmp3_uint8 *hdr;
     drmp3_bs bs_frame[1];
+
+    info->layer = 0;
 
     if (mp3_bytes > 4 && dec->header[0] == 0xff && drmp3_hdr_compare(dec->header, mp3))
     {
