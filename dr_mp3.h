@@ -2481,8 +2481,9 @@ DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, size_t num
 /* End SIZE_MAX */
 
 /* Options. */
+/* Enough to refill a full bit reservoir (511 bytes) at 32 kbps. */
 #ifndef DRMP3_SEEK_LEADING_MP3_FRAMES
-#define DRMP3_SEEK_LEADING_MP3_FRAMES   2
+#define DRMP3_SEEK_LEADING_MP3_FRAMES   16
 #endif
 
 #define DRMP3_MIN_DATA_CHUNK_SIZE   16384
