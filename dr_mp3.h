@@ -4485,7 +4485,7 @@ static drmp3_bool32 drmp3_seek_to_pcm_frame__seek_table(drmp3* pMP3, drmp3_uint6
     DRMP3_ASSERT(pMP3->seekPointCount > 0);
 
     /*
-    If there is no prior seekpoint it means the target PCM frame comes before the first seek point. Just assume a seekpoint at the start of the file in this case.
+    If there is no prior seekpoint it means the target PCM frame comes before the first seek point. Just assume a seekpoint at the start of the MP3 stream in this case.
     Seek points count the delay frames too.
     */
     if (frameIndex > DRMP3_UINT64_MAX - pMP3->delayInPCMFrames) {
