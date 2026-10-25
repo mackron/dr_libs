@@ -3,9 +3,9 @@
 /docs
 /tickets
 /scratch
-/tests/external/flac
-/tests/external/ogg
-/tests/external/libsndfile
+/external/flac
+/external/ogg
+/external/libsndfile
 /tests/wav/archive
 /tests/testvectors/wav/*
 /tests/testvectors/flac/*

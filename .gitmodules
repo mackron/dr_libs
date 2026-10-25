@@ -1,4 +1,4 @@
 [submodule "tests/external/miniaudio"]
-	path = tests/external/miniaudio
-	url = https://github.com/dr-soft/miniaudio.git
+	path = external/miniaudio
+	url = https://github.com/mackron/miniaudio.git
 	shallow = true

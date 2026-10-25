@@ -103,7 +103,7 @@ if(NOT DR_LIBS_NO_WAV)
         enable_testing()
 
         # We use libsndfile as a benchmark for dr_wav. We link dynamically at runtime, but we still need the sndfile.h header at compile time.
-        find_path(SNDFILE_INCLUDE_DIR sndfile.h HINTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/external/libsndfile/include)
+        find_path(SNDFILE_INCLUDE_DIR sndfile.h HINTS ${CMAKE_CURRENT_SOURCE_DIR}/external/libsndfile/include)
         if(SNDFILE_INCLUDE_DIR)
             message(STATUS "sndfile.h found at ${SNDFILE_INCLUDE_DIR}")
 
@@ -172,19 +172,19 @@ if(NOT DR_LIBS_NO_FLAC)
                 set_target_properties(FLAC PROPERTIES IMPORTED_LOCATION "${FLAC}")
                 set(HAS_FLAC TRUE)
             else()
-                # As a last resort, look in the tests/external/flac folder.
-                if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/external/flac/CMakeLists.txt)
+                # As a last resort, look in the external/flac folder.
+                if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/flac/CMakeLists.txt)
                     message(STATUS "libFLAC not found. Building FLAC from source.")
 
                     if(NOT TARGET ogg)
-                        add_subdirectory(tests/external/ogg)
+                        add_subdirectory(external/ogg)
                     endif()
 
                     set(BUILD_DOCS OFF CACHE BOOL "")
                     set(BUILD_TESTING OFF CACHE BOOL "")
                     set(BUILD_EXAMPLES OFF CACHE BOOL "")
                     set(INSTALL_MANPAGES OFF CACHE BOOL "")
-                    add_subdirectory(tests/external/flac)
+                    add_subdirectory(external/flac)
                     set(HAS_FLAC TRUE)
                 else()
                     message(WARNING "libFLAC not found. FLAC tests will not be built.")
