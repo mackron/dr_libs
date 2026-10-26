@@ -3515,15 +3515,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
                 chunkSize -= 4;
 
-                /*
-                The sample count in the "fact" chunk is either unreliable, or I'm not understanding it properly. For now I am only enabling this
-                for Microsoft ADPCM formats.
-                */
-                if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-                    sampleCountFromFactChunk = drwav_bytes_to_u32_ex(sampleCount, pWav->container);
-                } else {
-                    sampleCountFromFactChunk = 0;
-                }
+                sampleCountFromFactChunk = drwav_bytes_to_u32_ex(sampleCount, pWav->container);
             } else if (pWav->container == drwav_container_w64) {
                 if (chunkSize < 8) {
                     return DRWAV_FALSE;
@@ -3763,6 +3755,11 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
     translatedFormatTag = fmt.formatTag;
     if (translatedFormatTag == DR_WAVE_FORMAT_EXTENSIBLE) {
         translatedFormatTag = drwav_bytes_to_u16_ex(fmt.subFormat + 0, pWav->container);
+    }
+
+    /* Some files have unreliable fact counts. Only use RIFF fact counts for Microsoft ADPCM, after the format is known. */
+    if ((pWav->container == drwav_container_riff || pWav->container == drwav_container_rifx) && translatedFormatTag != DR_WAVE_FORMAT_ADPCM) {
+        sampleCountFromFactChunk = 0;
     }
 
     /* We may have moved passed the data chunk. If so we need to move back. If running in sequential mode we can assume we are already sitting on the data chunk. */
