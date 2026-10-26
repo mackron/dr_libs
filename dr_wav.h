@@ -1821,7 +1821,7 @@ DRWAV_PRIVATE drwav_int64 drwav_aiff_extented_to_s64(const drwav_uint8* data)
 
     exponent -= 16383;
 
-    if (exponent > 63) {
+    if (exponent >= 63) {
         return sign ? DRWAV_INT64_MIN : DRWAV_INT64_MAX;    /* Too big for a 64-bit integer. */
     } else if (exponent < 1) {
         return 0;  /* Number is less than 1, so rounds down to 0. */
