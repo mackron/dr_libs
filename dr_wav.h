@@ -6062,7 +6062,7 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames(drwav* pWav, drwav_uint64 framesToR
     */
     post_process:
     {
-        if (pWav->container == drwav_container_aiff && pWav->bitsPerSample == 8 && pWav->aiff.isUnsigned == DRWAV_FALSE) {
+        if (pWav->container == drwav_container_aiff && pWav->translatedFormatTag == DR_WAVE_FORMAT_PCM && pWav->bitsPerSample == 8 && pWav->aiff.isUnsigned == DRWAV_FALSE) {
             if (pBufferOut != NULL) {
                 drwav_uint64 iSample;
 
@@ -7007,23 +7007,6 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__alaw(drwav* pWav, drwav_ui
 
         drwav_alaw_to_s16(pBufferOut, sampleData, (size_t)samplesRead);
 
-        /*
-        For some reason libsndfile seems to be returning samples of the opposite sign for a-law, but only
-        with AIFF files. For WAV files it seems to be the same as dr_wav. This is resulting in dr_wav's
-        automated tests failing. I'm not sure which is correct, but will assume dr_wav. If we're enforcing
-        libsndfile compatibility we'll swap the signs here.
-        */
-        #ifdef DR_WAV_LIBSNDFILE_COMPAT
-        {
-            if (pWav->container == drwav_container_aiff) {
-                drwav_uint64 iSample;
-                for (iSample = 0; iSample < samplesRead; iSample += 1) {
-                    pBufferOut[iSample] = -pBufferOut[iSample];
-                }
-            }
-        }
-        #endif
-
         pBufferOut      += samplesRead;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
@@ -7073,21 +7056,6 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__mulaw(drwav* pWav, drwav_u
         }
 
         drwav_mulaw_to_s16(pBufferOut, sampleData, (size_t)samplesRead);
-
-        /*
-        Just like with alaw, for some reason the signs between libsndfile and dr_wav are opposite. We just need to
-        swap the sign if we're compiling with libsndfile compatiblity so our automated tests don't fail.
-        */
-        #ifdef DR_WAV_LIBSNDFILE_COMPAT
-        {
-            if (pWav->container == drwav_container_aiff) {
-                drwav_uint64 iSample;
-                for (iSample = 0; iSample < samplesRead; iSample += 1) {
-                    pBufferOut[iSample] = -pBufferOut[iSample];
-                }
-            }
-        }
-        #endif
 
         pBufferOut      += samplesRead;
         framesToRead    -= framesRead;
@@ -7482,17 +7450,6 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__alaw(drwav* pWav, drwav_ui
 
         drwav_alaw_to_f32(pBufferOut, sampleData, (size_t)samplesRead);
 
-        #ifdef DR_WAV_LIBSNDFILE_COMPAT
-        {
-            if (pWav->container == drwav_container_aiff) {
-                drwav_uint64 iSample;
-                for (iSample = 0; iSample < samplesRead; iSample += 1) {
-                    pBufferOut[iSample] = -pBufferOut[iSample];
-                }
-            }
-        }
-        #endif
-
         pBufferOut      += samplesRead;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
@@ -7538,17 +7495,6 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_f32__mulaw(drwav* pWav, drwav_u
         }
 
         drwav_mulaw_to_f32(pBufferOut, sampleData, (size_t)samplesRead);
-
-        #ifdef DR_WAV_LIBSNDFILE_COMPAT
-        {
-            if (pWav->container == drwav_container_aiff) {
-                drwav_uint64 iSample;
-                for (iSample = 0; iSample < samplesRead; iSample += 1) {
-                    pBufferOut[iSample] = -pBufferOut[iSample];
-                }
-            }
-        }
-        #endif
 
         pBufferOut      += samplesRead;
         framesToRead    -= framesRead;
@@ -7965,17 +7911,6 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__alaw(drwav* pWav, drwav_ui
 
         drwav_alaw_to_s32(pBufferOut, sampleData, (size_t)samplesRead);
 
-        #ifdef DR_WAV_LIBSNDFILE_COMPAT
-        {
-            if (pWav->container == drwav_container_aiff) {
-                drwav_uint64 iSample;
-                for (iSample = 0; iSample < samplesRead; iSample += 1) {
-                    pBufferOut[iSample] = -pBufferOut[iSample];
-                }
-            }
-        }
-        #endif
-
         pBufferOut      += samplesRead;
         framesToRead    -= framesRead;
         totalFramesRead += framesRead;
@@ -8021,17 +7956,6 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s32__mulaw(drwav* pWav, drwav_u
         }
 
         drwav_mulaw_to_s32(pBufferOut, sampleData, (size_t)samplesRead);
-
-        #ifdef DR_WAV_LIBSNDFILE_COMPAT
-        {
-            if (pWav->container == drwav_container_aiff) {
-                drwav_uint64 iSample;
-                for (iSample = 0; iSample < samplesRead; iSample += 1) {
-                    pBufferOut[iSample] = -pBufferOut[iSample];
-                }
-            }
-        }
-        #endif
 
         pBufferOut      += samplesRead;
         framesToRead    -= framesRead;
