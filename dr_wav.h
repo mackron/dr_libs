@@ -7043,6 +7043,23 @@ DRWAV_PRIVATE drwav_uint64 drwav_read_pcm_frames_s16__mulaw(drwav* pWav, drwav_u
     return totalFramesRead;
 }
 
+/* Discards PCM frames and returns the number of frames skipped. */
+DRWAV_PRIVATE drwav_uint64 drwav_seek_forward(drwav* pWav, drwav_uint64 framesToSeek)
+{
+    DRWAV_ASSERT(pWav != NULL);
+    DRWAV_ASSERT(framesToSeek > 0);
+
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
+        return drwav_read_pcm_frames_s16__msadpcm(pWav, framesToSeek, NULL);
+    }
+
+    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
+        return drwav_read_pcm_frames_s16__ima(pWav, framesToSeek, NULL);
+    }
+
+    return drwav_read_pcm_frames(pWav, framesToSeek, NULL);
+}
+
 DRWAV_API drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 framesToRead, drwav_int16* pBufferOut)
 {
     if (pWav == NULL || framesToRead == 0) {
@@ -7050,7 +7067,7 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_s16(drwav* pWav, drwav_uint64 frame
     }
 
     if (pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, framesToRead, NULL);
+        return drwav_seek_forward(pWav, framesToRead);
     }
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
@@ -7489,7 +7506,7 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_f32(drwav* pWav, drwav_uint64 frame
     }
 
     if (pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, framesToRead, NULL);
+        return drwav_seek_forward(pWav, framesToRead);
     }
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
@@ -7934,7 +7951,7 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_s32(drwav* pWav, drwav_uint64 frame
     }
 
     if (pBufferOut == NULL) {
-        return drwav_read_pcm_frames(pWav, framesToRead, NULL);
+        return drwav_seek_forward(pWav, framesToRead);
     }
 
     /* Don't try to read more samples than can potentially fit in the output buffer. */
