@@ -67,6 +67,8 @@ flac/github/ietf-wg-cellar/flac-test-files/uncommon/04 - changing bitdepth.flac;
 
 # 32-bit encoded data is not currently supported by dr_flac.
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/05 - 32bps audio.flac;                                             UNSUPPORTED
+flac/generated/ffmpeg/s32_mono.flac;                                                                                   UNSUPPORTED
+flac/generated/ffmpeg/s32_stereo.flac;                                                                                 UNSUPPORTED
 
 # Some other unsupported things that need review in dr_flac.
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/09 - Rice partition order 15.flac;                                 UNSUPPORTED
