@@ -1035,6 +1035,12 @@ static int dr_test_flac_seek_cases(const dr_test_log* pLog, drflac* pFlac, const
         return 0;
     }
 
+    /* Seek directly to EOF using the decoded frame count. */
+    if (dr_test_flac_seek_and_compare(pLog, pFlac, pReference, pReference->frameCount, pSamples) != 0) {
+        dr_test_log_errorf(pLog, "FLAC seek to EOF failed.\n");
+        return 1;
+    }
+
 
     anchors[1] = pReference->frameCount / 2;
     anchors[2] = pReference->frameCount - 1;
