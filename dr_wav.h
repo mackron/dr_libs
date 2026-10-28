@@ -3959,25 +3959,6 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         return DRWAV_FALSE;
     }
 
-#ifdef DR_WAV_LIBSNDFILE_COMPAT
-    /*
-    I use libsndfile as a benchmark for testing, however in the version I'm using (from the Windows installer on the libsndfile website),
-    it appears the total sample count libsndfile uses for MS-ADPCM is incorrect. It would seem they are computing the total sample count
-    from the number of blocks, however this results in the inclusion of extra silent samples at the end of the last block. The correct
-    way to know the total sample count is to inspect the "fact" chunk, which should always be present for compressed formats, and should
-    always include the sample count. This little block of code below is only used to emulate the libsndfile logic so I can properly run my
-    correctness tests against libsndfile, and is disabled by default.
-    */
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_ADPCM) {
-        drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
-        pWav->totalPCMFrameCount = (((blockCount * (fmt.blockAlign - (6*pWav->channels))) * 2)) / fmt.channels;  /* x2 because two samples per byte. */
-    }
-    if (pWav->translatedFormatTag == DR_WAVE_FORMAT_DVI_ADPCM) {
-        drwav_uint64 blockCount = dataChunkSize / fmt.blockAlign;
-        pWav->totalPCMFrameCount = (((blockCount * (fmt.blockAlign - (4*pWav->channels))) * 2) + (blockCount * pWav->channels)) / fmt.channels;
-    }
-#endif
-
     return DRWAV_TRUE;
 }
 

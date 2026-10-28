@@ -1,4 +1,3 @@
-#define DR_WAV_LIBSNDFILE_COMPAT
 #define DR_WAV_IMPLEMENTATION
 #include "../dr_wav.h"
 
@@ -9,6 +8,8 @@ typedef struct
     drwav_uint32 channels;
     drwav_uint32 sampleRate;
     drwav_uint32 bitsPerSample;
+    drwav_uint16 blockAlign;
+    drwav_uint64 dataChunkDataSize;
     drwav_uint64 framesPerBlock;
     drwav_uint64 declaredFrameCount;
     drwav_uint64 frameCount;
@@ -65,6 +66,8 @@ static int dr_wav_read_all(drwav* pWav, dr_test_sample_format format, dr_wav_dec
     pData->channels                = pWav->channels;
     pData->sampleRate              = pWav->sampleRate;
     pData->bitsPerSample           = pWav->bitsPerSample;
+    pData->blockAlign              = pWav->fmt.blockAlign;
+    pData->dataChunkDataSize       = pWav->dataChunkDataSize;
     pData->framesPerBlock          = dr_wav_frames_per_block(pWav);
     pData->declaredFrameCount      = pWav->totalPCMFrameCount;
 
@@ -147,6 +150,47 @@ static int dr_wav_read_all_and_close(drwav* pWav, dr_test_sample_format format, 
     return result;
 }
 
+static dr_bool32 dr_test_wav_sndfile_frame_count_matches(const dr_wav_decoded_data* pReference, const SF_INFO* pInfo)
+{
+    drwav_uint64 blockCapacity;
+
+    if (pInfo->frames < 0) {
+        return DR_FALSE;
+    }
+
+    if ((drwav_uint64)pInfo->frames == pReference->frameCount) {
+        return DR_TRUE;
+    }
+
+    if (pReference->formatTag != DR_WAVE_FORMAT_ADPCM || (pInfo->format & SF_FORMAT_SUBMASK) != SF_FORMAT_MS_ADPCM) {
+        return DR_FALSE;
+    }
+
+    if (pReference->container != drwav_container_riff && pReference->container != drwav_container_rifx) {
+        return DR_FALSE;
+    }
+
+    if (pReference->blockAlign == 0 || pReference->framesPerBlock == 0 || pReference->dataChunkDataSize == 0) {
+        return DR_FALSE;
+    }
+
+    if (pReference->dataChunkDataSize % pReference->blockAlign != 0) {
+        return DR_FALSE;
+    }
+
+    /*
+    For complete MS ADPCM blocks, a shorter declared length comes from the fact chunk. libsndfile
+    can include padding in the final block. Allow only that difference; partial compressed blocks
+    and padding across entire blocks are not covered here.
+    */
+    blockCapacity = (pReference->dataChunkDataSize / pReference->blockAlign) * pReference->framesPerBlock;
+    if (pReference->frameCount != pReference->declaredFrameCount || pReference->frameCount >= blockCapacity || pReference->frameCount <= blockCapacity - pReference->framesPerBlock) {
+        return DR_FALSE;
+    }
+
+    return (drwav_uint64)pInfo->frames == blockCapacity;
+}
+
 static int dr_test_wav_decoding_sndfile(const dr_test_log* pLog, const char* pFilePath, dr_wav_reference_data* pReferences)
 {
     const dr_wav_decoded_data* pReference;
@@ -170,14 +214,16 @@ static int dr_test_wav_decoding_sndfile(const dr_test_log* pLog, const char* pFi
 
     formatMatches = info.channels > 0 && (drwav_uint32)info.channels == pReference->channels;
     formatMatches = formatMatches && info.samplerate > 0 && (drwav_uint32)info.samplerate == pReference->sampleRate;
-    formatMatches = formatMatches && info.frames >= 0 && (drwav_uint64)info.frames == pReference->frameCount;
+    formatMatches = formatMatches && dr_test_wav_sndfile_frame_count_matches(pReference, &info);
     if (!formatMatches) {
         dr_test_log_errorf(pLog, "Format properties or frame counts differ with libsndfile.\n");
         goto cleanup;
     }
 
     sampleCount = (size_t)pReference->frameCount * pReference->channels;
-    allocationSize = sampleCount;
+    
+    /* Include any permitted libsndfile padding, but compare only the valid audio below. */
+    allocationSize = (size_t)info.frames * pReference->channels;
     if (allocationSize == 0) {
         allocationSize = 1;
     }
