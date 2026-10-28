@@ -2170,9 +2170,14 @@ DRWAV_PRIVATE void drwav__metadata_request_extra_memory_for_stage_2(drwav__metad
 DRWAV_PRIVATE drwav_result drwav__metadata_alloc(drwav__metadata_parser* pParser, drwav_allocation_callbacks* pAllocationCallbacks)
 {
     if (pParser->extraCapacity != 0 || pParser->metadataCount != 0) {
+        size_t capacity = drwav__metadata_memory_capacity(pParser);
+        if (capacity == 0) {
+            return DRWAV_OUT_OF_MEMORY; /* Too big. */
+        }
+
         pAllocationCallbacks->onFree(pParser->pData, pAllocationCallbacks->pUserData);
 
-        pParser->pData = (drwav_uint8*)pAllocationCallbacks->onMalloc(drwav__metadata_memory_capacity(pParser), pAllocationCallbacks->pUserData);
+        pParser->pData = (drwav_uint8*)pAllocationCallbacks->onMalloc(capacity, pAllocationCallbacks->pUserData);
         pParser->pDataCursor = pParser->pData;
 
         if (pParser->pData == NULL) {
@@ -2189,6 +2194,28 @@ DRWAV_PRIVATE drwav_result drwav__metadata_alloc(drwav__metadata_parser* pParser
     }
 
     return DRWAV_SUCCESS;
+}
+
+/*
+Retrieves the metadata object the second stage should parse the next chunk into. This will return NULL
+if every object counted by the first stage has already been used, in which case the chunk needs to be
+skipped. This should never happen, but a malformed file could get the two stages out of sync.
+*/
+DRWAV_PRIVATE drwav_metadata* drwav__metadata_parser_next_object(drwav__metadata_parser* pParser)
+{
+    drwav_metadata* pMetadata;
+
+    DRWAV_ASSERT(pParser->stage == drwav__metadata_parser_stage_read);
+
+    if (pParser->metadataCursor >= pParser->metadataCount) {
+        return NULL;
+    }
+
+    /* The object might have been partially filled by an earlier chunk that failed to parse. Start fresh. */
+    pMetadata = &pParser->pMetadata[pParser->metadataCursor];
+    DRWAV_ZERO_OBJECT(pMetadata);
+
+    return pMetadata;
 }
 
 DRWAV_PRIVATE size_t drwav__metadata_parser_read(drwav__metadata_parser* pParser, void* pBufferOut, size_t bytesToRead, drwav_uint64* pCursor)
@@ -2251,8 +2278,8 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_smpl_to_metadata_obj(drwav__metadata_pars
         /*
         When we calculated the amount of memory required for the "smpl" chunk we excluded the chunk entirely
         if its loop or sampler-specific data exceeded the chunk size. When this happens, the second stage will
-        still hit this path but the `pMetadata` will either point at the end of the allocation or at another
-        chunk. We need to repeat the validation before dereferencing the pMetadata object.
+        still hit this path, so we need to repeat the validation and leave the pMetadata object untouched so
+        that the chunk is excluded here as well.
         */
         loopCount = drwav_bytes_to_u32(smplHeaderData + 28);
         samplerSpecificDataSizeInBytes = drwav_bytes_to_u32(smplHeaderData + 32);
@@ -2325,14 +2352,16 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_cue_to_metadata_obj(drwav__metadata_parse
     DRWAV_ASSERT(pParser->stage == drwav__metadata_parser_stage_read);
 
     if (bytesJustRead == sizeof(cueHeaderSectionData)) {
-        pMetadata->type                   = drwav_metadata_type_cue;
-        pMetadata->data.cue.cuePointCount = drwav_bytes_to_u32(cueHeaderSectionData);
+        drwav_uint32 cuePointCount = drwav_bytes_to_u32(cueHeaderSectionData);
 
         /*
         We need to validate the cue point count against the size of the chunk so we don't read
-        beyond the chunk.
+        beyond the chunk. This needs to be done before filling out the metadata object so that a
+        cue chunk without a list of cue points is never handed back to the application.
         */
-        if (pMetadata->data.cue.cuePointCount == (pChunkHeader->sizeInBytes - DRWAV_CUE_BYTES) / DRWAV_CUE_POINT_BYTES) {
+        if (cuePointCount == (pChunkHeader->sizeInBytes - DRWAV_CUE_BYTES) / DRWAV_CUE_POINT_BYTES) {
+            pMetadata->type                   = drwav_metadata_type_cue;
+            pMetadata->data.cue.cuePointCount = cuePointCount;
             pMetadata->data.cue.pCuePoints    = (drwav_cue_point*)drwav__metadata_get_memory(pParser, sizeof(drwav_cue_point) * pMetadata->data.cue.cuePointCount, DRWAV_METADATA_ALIGNMENT);
             DRWAV_ASSERT(pMetadata->data.cue.pCuePoints != NULL);
 
@@ -2582,7 +2611,13 @@ DRWAV_PRIVATE drwav_result drwav_buffer_reader_read_u32(drwav_buffer_reader* pRe
 DRWAV_PRIVATE drwav_uint64 drwav__read_bext_to_metadata_obj(drwav__metadata_parser* pParser, drwav_metadata* pMetadata, drwav_uint64 chunkSize)
 {
     drwav_uint8 bextData[DRWAV_BEXT_BYTES];
-    size_t bytesRead = drwav__metadata_parser_read(pParser, bextData, sizeof(bextData), NULL);
+    size_t bytesRead;
+
+    if (pMetadata == NULL) {
+        return 0;
+    }
+
+    bytesRead = drwav__metadata_parser_read(pParser, bextData, sizeof(bextData), NULL);
 
     DRWAV_ASSERT(pParser->stage == drwav__metadata_parser_stage_read);
 
@@ -2647,7 +2682,13 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_list_label_or_note_to_metadata_obj(drwav_
 {
     drwav_uint8 cueIDBuffer[DRWAV_LIST_LABEL_OR_NOTE_BYTES];
     drwav_uint64 totalBytesRead = 0;
-    size_t bytesJustRead = drwav__metadata_parser_read(pParser, cueIDBuffer, sizeof(cueIDBuffer), &totalBytesRead);
+    size_t bytesJustRead;
+
+    if (pMetadata == NULL) {
+        return 0;
+    }
+
+    bytesJustRead = drwav__metadata_parser_read(pParser, cueIDBuffer, sizeof(cueIDBuffer), &totalBytesRead);
 
     DRWAV_ASSERT(pParser->stage == drwav__metadata_parser_stage_read);
 
@@ -2664,6 +2705,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_list_label_or_note_to_metadata_obj(drwav_
             DRWAV_ASSERT(pMetadata->data.labelOrNote.pString != NULL);
 
             drwav__metadata_parser_read(pParser, pMetadata->data.labelOrNote.pString, sizeIncludingNullTerminator, &totalBytesRead);
+            pMetadata->data.labelOrNote.pString[pMetadata->data.labelOrNote.stringLength] = '\0';  /* <-- Explicit null terminator in case of a badly formed file. */
         } else {
             pMetadata->data.labelOrNote.stringLength = 0;
             pMetadata->data.labelOrNote.pString      = NULL;
@@ -2677,7 +2719,13 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_list_labelled_cue_region_to_metadata_obj(
 {
     drwav_uint8 buffer[DRWAV_LIST_LABELLED_TEXT_BYTES];
     drwav_uint64 totalBytesRead = 0;
-    size_t bytesJustRead = drwav__metadata_parser_read(pParser, buffer, sizeof(buffer), &totalBytesRead);
+    size_t bytesJustRead;
+
+    if (pMetadata == NULL) {
+        return 0;
+    }
+
+    bytesJustRead = drwav__metadata_parser_read(pParser, buffer, sizeof(buffer), &totalBytesRead);
 
     DRWAV_ASSERT(pParser->stage == drwav__metadata_parser_stage_read);
 
@@ -2703,6 +2751,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__read_list_labelled_cue_region_to_metadata_obj(
             DRWAV_ASSERT(pMetadata->data.labelledCueRegion.pString != NULL);
 
             drwav__metadata_parser_read(pParser, pMetadata->data.labelledCueRegion.pString, sizeIncludingNullTerminator, &totalBytesRead);
+            pMetadata->data.labelledCueRegion.pString[pMetadata->data.labelledCueRegion.stringLength] = '\0';  /* <-- Explicit null terminator in case of a badly formed file. */
         } else {
             pMetadata->data.labelledCueRegion.stringLength = 0;
             pMetadata->data.labelledCueRegion.pString      = NULL;
@@ -2721,7 +2770,11 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_info_text_chunk(drwav__metada
         pParser->metadataCount += 1;
         drwav__metadata_request_extra_memory_for_stage_2(pParser, stringSizeWithNullTerminator, 1);
     } else {
-        drwav_metadata* pMetadata = &pParser->pMetadata[pParser->metadataCursor];
+        drwav_metadata* pMetadata = drwav__metadata_parser_next_object(pParser);
+        if (pMetadata == NULL) {
+            return 0;
+        }
+
         pMetadata->type = type;
         if (stringSizeWithNullTerminator > 0) {
             pMetadata->data.infoText.stringLength = stringSizeWithNullTerminator - 1;
@@ -2729,6 +2782,8 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_info_text_chunk(drwav__metada
             DRWAV_ASSERT(pMetadata->data.infoText.pString != NULL);
 
             bytesRead = drwav__metadata_parser_read(pParser, pMetadata->data.infoText.pString, (size_t)stringSizeWithNullTerminator, NULL);
+            pMetadata->data.infoText.pString[pMetadata->data.infoText.stringLength] = '\0';  /* <-- Explicit null terminator in case of a badly formed file. */
+
             if (bytesRead == chunkSize) {
                 pParser->metadataCursor += 1;
             } else {
@@ -2760,7 +2815,11 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_unknown_chunk(drwav__metadata
         pParser->metadataCount += 1;
         drwav__metadata_request_extra_memory_for_stage_2(pParser, (size_t)chunkSize, 1);
     } else {
-        drwav_metadata* pMetadata = &pParser->pMetadata[pParser->metadataCursor];
+        drwav_metadata* pMetadata = drwav__metadata_parser_next_object(pParser);
+        if (pMetadata == NULL) {
+            return 0;
+        }
+
         pMetadata->type                         = drwav_metadata_type_unknown;
         pMetadata->data.unknown.chunkLocation   = location;
         pMetadata->data.unknown.id[0]           = pChunkId[0];
@@ -2821,8 +2880,11 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                     }
                 }
             } else {
-                bytesRead = drwav__read_smpl_to_metadata_obj(pParser, pChunkHeader, &pParser->pMetadata[pParser->metadataCursor]);
-                if (bytesRead == pChunkHeader->sizeInBytes) {
+                drwav_metadata* pMetadata = drwav__metadata_parser_next_object(pParser);
+
+                /* The chunk is only accepted if it passed validation, which is when the object gets filled out. */
+                bytesRead = drwav__read_smpl_to_metadata_obj(pParser, pChunkHeader, pMetadata);
+                if (pMetadata != NULL && pMetadata->type == drwav_metadata_type_smpl && bytesRead == pChunkHeader->sizeInBytes) {
                     pParser->metadataCursor += 1;
                 } else {
                     /* Failed to parse. */
@@ -2836,7 +2898,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
             if (pParser->stage == drwav__metadata_parser_stage_count) {
                 pParser->metadataCount += 1;
             } else {
-                bytesRead = drwav__read_inst_to_metadata_obj(pParser, &pParser->pMetadata[pParser->metadataCursor]);
+                bytesRead = drwav__read_inst_to_metadata_obj(pParser, drwav__metadata_parser_next_object(pParser));
                 if (bytesRead == pChunkHeader->sizeInBytes) {
                     pParser->metadataCursor += 1;
                 } else {
@@ -2851,7 +2913,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
             if (pParser->stage == drwav__metadata_parser_stage_count) {
                 pParser->metadataCount += 1;
             } else {
-                bytesRead = drwav__read_acid_to_metadata_obj(pParser, &pParser->pMetadata[pParser->metadataCursor]);
+                bytesRead = drwav__read_acid_to_metadata_obj(pParser, drwav__metadata_parser_next_object(pParser));
                 if (bytesRead == pChunkHeader->sizeInBytes) {
                     pParser->metadataCursor += 1;
                 } else {
@@ -2870,8 +2932,11 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                 cueCount = (size_t)(pChunkHeader->sizeInBytes - DRWAV_CUE_BYTES) / DRWAV_CUE_POINT_BYTES;
                 drwav__metadata_request_extra_memory_for_stage_2(pParser, sizeof(drwav_cue_point) * cueCount, DRWAV_METADATA_ALIGNMENT);
             } else {
-                bytesRead = drwav__read_cue_to_metadata_obj(pParser, pChunkHeader, &pParser->pMetadata[pParser->metadataCursor]);
-                if (bytesRead == pChunkHeader->sizeInBytes) {
+                drwav_metadata* pMetadata = drwav__metadata_parser_next_object(pParser);
+
+                /* The chunk is only accepted if it passed validation, which is when the object gets filled out. */
+                bytesRead = drwav__read_cue_to_metadata_obj(pParser, pChunkHeader, pMetadata);
+                if (pMetadata != NULL && pMetadata->type == drwav_metadata_type_cue && bytesRead == pChunkHeader->sizeInBytes) {
                     pParser->metadataCursor += 1;
                 } else {
                     /* Failed to parse. */
@@ -2916,7 +2981,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
 
                 pParser->metadataCount += 1;
             } else {
-                bytesRead = drwav__read_bext_to_metadata_obj(pParser, &pParser->pMetadata[pParser->metadataCursor], pChunkHeader->sizeInBytes);
+                bytesRead = drwav__read_bext_to_metadata_obj(pParser, drwav__metadata_parser_next_object(pParser), pChunkHeader->sizeInBytes);
                 if (bytesRead == pChunkHeader->sizeInBytes) {
                     pParser->metadataCursor += 1;
                 } else {
@@ -2970,7 +3035,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                         pParser->metadataCount += 1;
                         drwav__metadata_request_extra_memory_for_stage_2(pParser, (size_t)stringSizeWithNullTerm, 1);
                     } else {
-                        subchunkBytesRead = drwav__read_list_label_or_note_to_metadata_obj(pParser, &pParser->pMetadata[pParser->metadataCursor], subchunkDataSize, drwav_fourcc_equal(subchunkId, "labl") ? drwav_metadata_type_list_label : drwav_metadata_type_list_note);
+                        subchunkBytesRead = drwav__read_list_label_or_note_to_metadata_obj(pParser, drwav__metadata_parser_next_object(pParser), subchunkDataSize, drwav_fourcc_equal(subchunkId, "labl") ? drwav_metadata_type_list_label : drwav_metadata_type_list_note);
                         if (subchunkBytesRead == subchunkDataSize) {
                             pParser->metadataCursor += 1;
                         } else {
@@ -2987,7 +3052,7 @@ DRWAV_PRIVATE drwav_uint64 drwav__metadata_process_chunk(drwav__metadata_parser*
                         pParser->metadataCount += 1;
                         drwav__metadata_request_extra_memory_for_stage_2(pParser, (size_t)stringSizeWithNullTerminator, 1);
                     } else {
-                        subchunkBytesRead = drwav__read_list_labelled_cue_region_to_metadata_obj(pParser, &pParser->pMetadata[pParser->metadataCursor], subchunkDataSize);
+                        subchunkBytesRead = drwav__read_list_labelled_cue_region_to_metadata_obj(pParser, drwav__metadata_parser_next_object(pParser), subchunkDataSize);
                         if (subchunkBytesRead == subchunkDataSize) {
                             pParser->metadataCursor += 1;
                         } else {
@@ -3812,9 +3877,12 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             }
         }
 
-        /* Getting here means we're finished parsing the metadata. */
+        /*
+        Getting here means we're finished parsing the metadata. Only the objects that were fully parsed
+        are handed back. Some chunks counted by the first stage may have failed to parse in the second.
+        */
         pWav->pMetadata     = metadataParser.pMetadata;
-        pWav->metadataCount = metadataParser.metadataCount;
+        pWav->metadataCount = (drwav_uint32)metadataParser.metadataCursor;
     }
 
     /*

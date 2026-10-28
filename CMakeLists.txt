@@ -102,6 +102,11 @@ if(NOT DR_LIBS_NO_WAV)
     if(DR_LIBS_BUILD_TESTS)
         enable_testing()
 
+        # The metadata tests build their files in memory and don't need libsndfile.
+        add_executable(wav_metadata tests/wav/wav_metadata.c)
+        target_link_libraries     (wav_metadata PRIVATE ${COMMON_LIBRARIES})
+        add_test(NAME wav_metadata COMMAND wav_metadata)
+
         # We use libsndfile as a benchmark for dr_wav. We link dynamically at runtime, but we still need the sndfile.h header at compile time.
         find_path(SNDFILE_INCLUDE_DIR sndfile.h HINTS ${CMAKE_CURRENT_SOURCE_DIR}/external/libsndfile/include)
         if(SNDFILE_INCLUDE_DIR)
