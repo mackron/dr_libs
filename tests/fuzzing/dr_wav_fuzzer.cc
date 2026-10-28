@@ -2,7 +2,7 @@
  * libFuzzer harness for dr_wav.h
  *
  * compile with
- * clang++ -g -O1 -std=c++11 -fsanitize=fuzzer,address -o dr_wav_fuzzer tests/wav/dr_wav_fuzzer.cc
+ * clang++ -g -O1 -std=c++11 -fsanitize=fuzzer,address -o dr_wav_fuzzer tests/fuzzing/dr_wav_fuzzer.cc
  *
  * and run ./dr_wav_fuzzer to run fuzz testing. For more options, run ./dr_wav_fuzzer -help=1
  */

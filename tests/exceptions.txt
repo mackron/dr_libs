@@ -1,0 +1,81 @@
+# File; Flags
+#
+# Paths are relative to `<audiovectors>/vectors`. Flags are separated by spaces.
+#
+# Blank lines and lines whose first non-whitespace character is # are ignored.
+#
+# Flags:
+#   FAIL_OPEN   - The file should fail at opening.
+#   FAIL_DECODE - The file should open successfully, but fail at the decoding stage.
+#   UNSUPPORTED - The file is explicitly not supported by dr_libs and will be ignored. In practice is the same as IGNORE, but is a bit clearer as to why it's being ignored.
+#   IGNORE      - The file is a non-audio file and should be ignored.
+#
+# IGNORE and UNSUPPORTED skip both stages without a log message. FAIL_DECODE requires a successful
+# dr_libs open, then a failure in decoding or validation. FAIL_DECODE still runs basic seeking,
+# but skips seek comparisons because no complete decoded reference is available.
+#
+# Failure flags cannot be combined with each other or with IGNORE/UNSUPPORTED.
+
+# WAV
+wav/github/mackron/dr_libs/292/intoverflow_poc.wav;     FAIL_OPEN
+wav/github/mackron/dr_libs/292/msadpcm_oob_poc.wav;     FAIL_DECODE
+wav/github/mackron/dr_libs/299/notification.wav;        FAIL_OPEN
+wav/github/mackron/dr_libs/302/poc_302_bext.wav;        FAIL_DECODE
+wav/github/mackron/dr_libs/305/crash_assertion.wav;     FAIL_OPEN
+wav/github/mackron/dr_libs/305/crash_heap_overflow.wav; FAIL_OPEN
+
+# GSM is not currently supported by dr_wav.
+wav/mmsp.ece.mcgill.ca/addf8-GSM-GW.wav; UNSUPPORTED
+
+# DSP Group's True Speech, format tag 0x0022.
+wav/mmsp.ece.mcgill.ca/truspech.wav; UNSUPPORTED
+
+# Voxware RT24 Speech, format tag 0x181C.
+wav/mmsp.ece.mcgill.ca/voxware.wav; UNSUPPORTED
+
+
+# FLAC
+flac/github/mackron/dr_libs/140/FLAC-negative-quantization-sample.flac; FAIL_DECODE
+flac/github/mackron/dr_libs/298/minimized_oom.flac;                     FAIL_OPEN
+flac/github/mackron/dr_libs/310/poc.flac;                               FAIL_DECODE
+flac/github/mackron/dr_libs/336/poc.flac;                               FAIL_DECODE
+flac/unknown/invalid/strategy1_complete_wrap.flac;                      FAIL_DECODE
+flac/unknown/invalid/strategy2_tiny_alloc.flac;                         FAIL_DECODE
+flac/unknown/invalid/strategy3_controlled.flac;                         FAIL_DECODE
+flac/unknown/invalid/strategy4_medium.flac;                             FAIL_DECODE
+flac/unknown/invalid/strategy5_edge.flac;                               FAIL_DECODE
+flac/unknown/invalid/strategy6_precise_128.flac;                        FAIL_DECODE
+flac/unknown/invalid/strategy7_precise_256.flac;                        FAIL_DECODE
+
+# Some badly formed FLAC files are not currently supported by dr_flac. Some of these work in libFLAC so these will be reviewed later to improve dr_flac compatiblity.
+flac/github/ietf-wg-cellar/flac-test-files/faulty/01 - wrong max blocksize.flac;                                       UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/03 - wrong bit depth.flac;                                           UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/04 - wrong number of channels.flac;                                  UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/05 - wrong total number of samples.flac;                             UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/06 - missing streaminfo metadata block.flac;                         UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/07 - other metadata blocks preceding streaminfo metadata block.flac; UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/08 - blocksize 65536.flac;                                           UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/10 - invalid vorbis comment metadata block.flac;                     UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/11 - incorrect metadata block length.flac;                           UNSUPPORTED
+
+# dr_flac does not support dynamically changing sample rate, channels and bit depth withing the same stream.
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/01 - changing samplerate.flac;                                     UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/02 - increasing number of channels.flac;                           UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/03 - decreasing number of channels.flac;                           UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/04 - changing bitdepth.flac;                                       UNSUPPORTED
+
+# 32-bit encoded data is not currently supported by dr_flac.
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/05 - 32bps audio.flac;                                             UNSUPPORTED
+
+# Some other unsupported things that need review in dr_flac.
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/09 - Rice partition order 15.flac;                                 UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/10 - file starting at frame header.flac;                           UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/11 - file starting with unparsable data.flac;                      UNSUPPORTED
+
+# Ignore some non-audio supporting files.
+flac/github/ietf-wg-cellar/flac-test-files/subset/playlist.html; IGNORE
+flac/github/ietf-wg-cellar/flac-test-files/subset/playlist.m3u;  IGNORE
+
+
+# MP3
+mp3/unknown/crash.mp3; FAIL_OPEN

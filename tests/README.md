@@ -1,49 +1,35 @@
-Building
-========
-Move into this directory and run the build script for the relevant platform. Run from this directory.
+All tests for all decoders are run through dr_libs_test. You can test files or folders by passing it on the command line:
 
-    clear && ./build_opus && ./bin/dr_opus_test_0
+    dr_libs_test wav
+    dr_libs_test wav flac
+    dr_libs_test path/to/my/file.flac
+
+In these examples, "wav" and "flac" are folders, and they will be enumerated recursively and will test each file within. The name of the base folder will be used to determine the encoding format being tested. You can also pass in a specific file if you want to test just one file which is useful if you're debugging a single problematic file.
+
+The test program also recognizes a database of test vectors with this format:
+
+    <root>
+        vectors/
+            wav/
+            flac/
+            mp3/
+
+By default it will look at "external/audiovectors" for this database. This is not distributed with the dr_libs repository so if you want to use it you'll need to set it up. I have a public database available here:
+
+    https://github.com/mackron/audiovectors
+
+You can clone this into "external/", or you can put it somewhere else and use the `--audiovectors <path>` command line switch. Alternatively, you can build your own vector database, so long as it follows the folder structure described above. Look at the mackron/audiovectors repository for an example of how to structure the database.
+
+When looking for files and folders, the test program will first check the file system like normal, and if it's not found will check in the `<audiovectors>/vectors` folder.
+
+By default, the test program will always assume the file is valid. However, in practice it's useful to also test erroneous files. Decoders will want to fail opening or decoding files in these cases. In order for the test program to know to expect failures it needs to know which files to expect to fail. You can specify this in exceptions.txt. Inspect that file in this repository to see how to use this.
+
+Sometimes it's useful to keep test files private, such as if it's a licensed music file, for example. To make this easy to support, the test program will also recognized an exceptions-private.txt. This file is not included in this repository.
+
+To build the test program you'll need libsndfile, libFLAC and libmpg123. These are used as references for comparing decoded output. The CMake script will look for system-installed development packages. If they're not found it will try pkg-config. Finally it'll look in "external/":
+
+    external/libsndfile
+    external/flac
+    external/ogg
+    external/mpg123
     
-Alternatively you can compile a specific test manually:
-
-    clear && gcc ./opus/dr_opus_test_0 -o ./bin/dr_opus_test_0 && ./bin/dr_opus_test_0
-    
-Test vectors will be loaded from the "testvectors" folder, relative to this directory. Therefore, you need to run
-each test program from this directory:
-
-    ./bin/dr_opus_test_0
-    
-    
-Building and Running WAV Tests
-------------------------------
-The WAV tests use libsndfile as a benchmark. The tests programs dynamically link to libsndfile at runtime which
-means you don't need to link to it at compile time. However, you will need the headers installed in a standard
-location. The batch files for the Windows build will allow you to customize the include path. On the Windows build
-you will need to drop two versions of libsndfile-1.dll into the bin directory. For the 32-bit build you need to
-name it libsndfile-1-x86.dll and for the 64-bit build you need to name it libsndfile-1-x64.dll.
-    
-
-Test Vectors
-============
-In order to run certain tests you will need to download test vectors for the relevant project and place them into the
-"testvectors" folder.
-
-Opus
-----
-- Download both the original and new test vectors from https://opus-codec.org/testvectors/ and place them into
-  the "testvectors/opus" folder.
-- Download the Ogg Opus test vectors from https://wiki.xiph.org/OggOpus/testvectors and place them into the
-  "testvectors/opus" folder.
-- The folder structure should like like the following:
-  - testvectors
-    - opus
-      - opus_testvectors
-      - opus_newvectors
-      - oggopus
-        - failure_cases
-        - opus_multichannel_examples
-
-FLAC
-----
-- Download the FLAC testbench from https://wiki.hydrogenaud.io/index.php?title=FLAC_decoder_testbench and place
-  them into the "testvectors/flac/testbench" folder.

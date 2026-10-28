@@ -77,6 +77,112 @@ if(UNIX)
 endif()
 
 
+# Prefer package targets, but also support development packages that only provide pkg-config files.
+function(dr_libs_find_system_test_library package target pkg_config_name)
+    if(TARGET ${target} OR CMAKE_DISABLE_FIND_PACKAGE_${package})
+        return()
+    endif()
+
+    find_package(${package} CONFIG QUIET)
+    if(TARGET ${target})
+        message(STATUS "Using system ${package}.")
+        return()
+    endif()
+
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(DR_LIBS_${package} QUIET IMPORTED_TARGET ${pkg_config_name})
+        if(TARGET PkgConfig::DR_LIBS_${package})
+            add_library(${target} INTERFACE IMPORTED)
+            set_target_properties(${target} PROPERTIES INTERFACE_LINK_LIBRARIES PkgConfig::DR_LIBS_${package})
+            message(STATUS "Using system ${package} through pkg-config.")
+        endif()
+    endif()
+endfunction()
+
+
+# Keep dependency options local so they do not change the parent project's build settings.
+function(dr_libs_setup_test_dependencies)
+    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+
+    # Allow the bundled libogg's older CMake file to run with CMake 4.
+    if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM OR CMAKE_POLICY_VERSION_MINIMUM VERSION_LESS 3.5)
+        set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+    endif()
+
+    set(BUILD_SHARED_LIBS OFF)
+    set(BUILD_TESTING OFF)
+    set(BUILD_REGTEST OFF)
+    set(BUILD_PROGRAMS OFF)
+    set(BUILD_EXAMPLES OFF)
+    set(BUILD_DOCS OFF)
+    set(BUILD_CXXLIBS OFF)
+    set(BUILD_LIBOUT123 OFF)
+    set(INSTALL_DOCS OFF)
+    set(INSTALL_MANPAGES OFF)
+    set(ENABLE_CPACK OFF)
+    set(ENABLE_BOW_DOCS OFF)
+    set(ENABLE_EXTERNAL_LIBS OFF)
+    set(ENABLE_MPEG OFF)
+    set(ENABLE_EXPERIMENTAL OFF)
+    set(WITH_OGG ON)
+
+    find_package(Threads REQUIRED)
+
+    dr_libs_find_system_test_library(Ogg Ogg::ogg ogg)
+    if(NOT TARGET Ogg::ogg)
+        if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/ogg/CMakeLists.txt")
+            message(FATAL_ERROR "libogg was not found. Install its development package or add sources to external/ogg.")
+        endif()
+
+        message(STATUS "Building bundled libogg.")
+        add_subdirectory(external/ogg EXCLUDE_FROM_ALL)
+    endif()
+
+    dr_libs_find_system_test_library(FLAC FLAC::FLAC flac)
+    if(NOT TARGET FLAC::FLAC)
+        if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/flac/CMakeLists.txt")
+            message(FATAL_ERROR "libFLAC was not found. Install its development package or add sources to external/flac.")
+        endif()
+
+        message(STATUS "Building bundled libFLAC.")
+        add_subdirectory(external/flac EXCLUDE_FROM_ALL)
+    endif()
+
+    dr_libs_find_system_test_library(SndFile SndFile::sndfile sndfile)
+    if(NOT TARGET SndFile::sndfile)
+        if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/libsndfile/CMakeLists.txt")
+            message(FATAL_ERROR "libsndfile was not found. Install its development package or add sources to external/libsndfile.")
+        endif()
+
+        message(STATUS "Building bundled libsndfile.")
+        add_subdirectory(external/libsndfile EXCLUDE_FROM_ALL)
+    endif()
+
+    dr_libs_find_system_test_library(MPG123 MPG123::libmpg123 libmpg123)
+    if(NOT TARGET MPG123::libmpg123)
+        if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/mpg123/ports/cmake/CMakeLists.txt")
+            message(FATAL_ERROR "libmpg123 was not found. Install its development package or add sources to external/mpg123.")
+        endif()
+
+        message(STATUS "Building bundled libmpg123.")
+        add_subdirectory(external/mpg123/ports/cmake external/mpg123 EXCLUDE_FROM_ALL)
+        target_include_directories(libmpg123 INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/mpg123/src/include>")
+        if(NOT TARGET MPG123::libmpg123)
+            add_library(MPG123::libmpg123 ALIAS libmpg123)
+        endif()
+    endif()
+endfunction()
+
+
+if(DR_LIBS_BUILD_TESTS)
+    dr_libs_setup_test_dependencies()
+
+    add_executable(dr_libs_test tests/dr_libs_test.c)
+    target_link_libraries(dr_libs_test PRIVATE dr_libs_interface ${COMMON_LIBRARIES} SndFile::sndfile FLAC::FLAC MPG123::libmpg123)
+endif()
+
+
 if(DR_LIBS_BUILD_FUZZERS)
     if(DEFINED ENV{LIB_FUZZING_ENGINE})
         set(DR_LIBS_FUZZING_ENGINE $ENV{LIB_FUZZING_ENGINE})
@@ -99,135 +205,23 @@ endif()
 
 # WAV
 if(NOT DR_LIBS_NO_WAV)
-    if(DR_LIBS_BUILD_TESTS)
-        enable_testing()
-
-        # We use libsndfile as a benchmark for dr_wav. We link dynamically at runtime, but we still need the sndfile.h header at compile time.
-        find_path(SNDFILE_INCLUDE_DIR sndfile.h HINTS ${CMAKE_CURRENT_SOURCE_DIR}/external/libsndfile/include)
-        if(SNDFILE_INCLUDE_DIR)
-            message(STATUS "sndfile.h found at ${SNDFILE_INCLUDE_DIR}")
-
-            add_executable(wav_decoding tests/wav/wav_decoding.c)
-            target_include_directories(wav_decoding PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries     (wav_decoding PRIVATE ${COMMON_LIBRARIES})
-            add_test(NAME wav_decoding COMMAND wav_decoding)
-
-            add_executable(wav_decoding_cpp tests/wav/wav_decoding.cpp)
-            target_include_directories(wav_decoding_cpp PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries     (wav_decoding_cpp PRIVATE ${COMMON_LIBRARIES})
-            add_test(NAME wav_decoding_cpp COMMAND wav_decoding_cpp)
-
-            add_executable(wav_encoding tests/wav/wav_encoding.c)
-            target_include_directories(wav_encoding PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries     (wav_encoding PRIVATE ${COMMON_LIBRARIES})
-            add_test(NAME wav_encoding COMMAND wav_encoding)
-
-            add_executable(wav_playback tests/wav/wav_playback.c)
-            target_include_directories(wav_playback PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries     (wav_playback PRIVATE ${COMMON_LIBRARIES})
-            add_test(NAME wav_playback COMMAND wav_playback)
-
-            add_executable(wav_playback_cpp tests/wav/wav_playback.cpp)
-            target_include_directories(wav_playback_cpp PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries     (wav_playback_cpp PRIVATE ${COMMON_LIBRARIES})
-            add_test(NAME wav_playback_cpp COMMAND wav_playback_cpp)
-
-            # The debugging sandbox is not intended to be run as a test. Just adding it here for IDE integration.
-            add_executable(wav_debugging tests/wav/wav_debugging.cpp)
-            target_include_directories(wav_debugging PRIVATE ${SNDFILE_INCLUDE_DIR})
-            target_link_libraries     (wav_debugging PRIVATE ${COMMON_LIBRARIES})
-        else()
-            message(WARNING "Could not find sndfile.h. dr_wav tests will not be built.")
-        endif()
-    else()
-        # Not building tests.
-    endif()
-
     if(DR_LIBS_BUILD_FUZZERS)
-        add_dr_libs_fuzzer(dr_wav_fuzzer tests/wav/dr_wav_fuzzer.cc)
+        add_dr_libs_fuzzer(dr_wav_fuzzer tests/fuzzing/dr_wav_fuzzer.cc)
     endif()
 endif()
 
 
 # FLAC
 if(NOT DR_LIBS_NO_FLAC)
-    if(DR_LIBS_BUILD_TESTS)
-        enable_testing()
-
-        function(add_flac_test name source)
-            add_executable(${name} tests/flac/${source})
-            target_link_libraries(${name} PRIVATE ${COMMON_LIBRARIES} FLAC)
-            add_test(NAME ${name} COMMAND ${name})
-        endfunction()
-
-        # We test against libFLAC.
-        if(TARGET FLAC)
-            message(STATUS "libFLAC found. Building FLAC tests.")
-            set(HAS_FLAC TRUE)
-        else()
-            find_library(FLAC FLAC)
-            if(FLAC)
-                message(STATUS "libFLAC found. Building FLAC tests.")
-                add_library(FLAC UNKNOWN IMPORTED)
-                set_target_properties(FLAC PROPERTIES IMPORTED_LOCATION "${FLAC}")
-                set(HAS_FLAC TRUE)
-            else()
-                # As a last resort, look in the external/flac folder.
-                if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/flac/CMakeLists.txt)
-                    message(STATUS "libFLAC not found. Building FLAC from source.")
-
-                    if(NOT TARGET ogg)
-                        add_subdirectory(external/ogg)
-                    endif()
-
-                    set(BUILD_DOCS OFF CACHE BOOL "")
-                    set(BUILD_TESTING OFF CACHE BOOL "")
-                    set(BUILD_EXAMPLES OFF CACHE BOOL "")
-                    set(INSTALL_MANPAGES OFF CACHE BOOL "")
-                    add_subdirectory(external/flac)
-                    set(HAS_FLAC TRUE)
-                else()
-                    message(WARNING "libFLAC not found. FLAC tests will not be built.")
-                endif()
-            endif()
-        endif()
-
-        if(HAS_FLAC)
-            add_flac_test(flac_decoding flac_decoding.c)
-            add_flac_test(flac_decoding_cpp flac_decoding.cpp)
-            add_flac_test(flac_seeking flac_seeking.c)
-        endif()
-    else()
-        # Not building tests.
-    endif()
-
     if(DR_LIBS_BUILD_FUZZERS)
-        add_dr_libs_fuzzer(dr_flac_fuzzer tests/flac/dr_flac_fuzzer.cc)
+        add_dr_libs_fuzzer(dr_flac_fuzzer tests/fuzzing/dr_flac_fuzzer.cc)
     endif()
 endif()
 
 
 # MP3
 if(NOT DR_LIBS_NO_MP3)
-    if(DR_LIBS_BUILD_TESTS)
-        enable_testing()
-
-        add_executable(mp3_basic tests/mp3/mp3_basic.c)
-        target_link_libraries(mp3_basic PRIVATE ${COMMON_LIBRARIES})
-        add_test(NAME mp3_basic COMMAND mp3_basic ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests)
-
-        add_executable(mp3_playback tests/mp3/mp3_playback.c)
-        target_link_libraries(mp3_playback PRIVATE ${COMMON_LIBRARIES})
-        add_test(NAME mp3_playback COMMAND mp3_playback ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests/test.mp3)
-
-        add_executable(mp3_extract tests/mp3/mp3_extract.c)
-        target_link_libraries(mp3_extract PRIVATE ${COMMON_LIBRARIES})
-        add_test(NAME mp3_extract COMMAND mp3_extract ${CMAKE_CURRENT_SOURCE_DIR}/tests/testvectors/mp3/tests/test.mp3 -o ${CMAKE_CURRENT_BINARY_DIR}/test.mp3)
-    else()
-        # Not building tests.
-    endif()
-
     if(DR_LIBS_BUILD_FUZZERS)
-        add_dr_libs_fuzzer(dr_mp3_fuzzer tests/mp3/dr_mp3_fuzzer.cc)
+        add_dr_libs_fuzzer(dr_mp3_fuzzer tests/fuzzing/dr_mp3_fuzzer.cc)
     endif()
 endif()

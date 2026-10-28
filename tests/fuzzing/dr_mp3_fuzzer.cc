@@ -2,7 +2,7 @@
  * libFuzzer harness for dr_mp3.h
  *
  * compile with
- * clang++ -g -O1 -std=c++11 -fsanitize=fuzzer,address -o dr_mp3_fuzzer tests/mp3/dr_mp3_fuzzer.cc
+ * clang++ -g -O1 -std=c++11 -fsanitize=fuzzer,address -o dr_mp3_fuzzer tests/fuzzing/dr_mp3_fuzzer.cc
  *
  * and run ./dr_mp3_fuzzer to run fuzz testing. For more options, run ./dr_mp3_fuzzer -help=1
  */

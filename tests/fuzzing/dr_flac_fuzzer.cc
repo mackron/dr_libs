@@ -2,7 +2,7 @@
  * libFuzzer harness for dr_flac.h
  *
  * compile with
- * clang++ -g -O1 -std=c++11 -fsanitize=fuzzer,address -o dr_flac_fuzzer tests/flac/dr_flac_fuzzer.cc
+ * clang++ -g -O1 -std=c++11 -fsanitize=fuzzer,address -o dr_flac_fuzzer tests/fuzzing/dr_flac_fuzzer.cc
  *
  * and run ./dr_flac_fuzzer to run fuzz testing. For more options, run ./dr_flac_fuzzer -help=1
  */

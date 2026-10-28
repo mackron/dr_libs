@@ -1,4 +1,0 @@
-[submodule "tests/external/miniaudio"]
-	path = external/miniaudio
-	url = https://github.com/mackron/miniaudio.git
-	shallow = true
