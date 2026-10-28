@@ -39,6 +39,7 @@ flac/github/mackron/dr_libs/140/FLAC-negative-quantization-sample.flac; FAIL_DEC
 flac/github/mackron/dr_libs/298/minimized_oom.flac;                     FAIL_OPEN
 flac/github/mackron/dr_libs/310/poc.flac;                               FAIL_DECODE
 flac/github/mackron/dr_libs/336/poc.flac;                               FAIL_DECODE
+flac/github/mackron/dr_libs/351/min_repro.flac;                         FAIL_DECODE
 flac/unknown/invalid/strategy1_complete_wrap.flac;                      FAIL_DECODE
 flac/unknown/invalid/strategy2_tiny_alloc.flac;                         FAIL_DECODE
 flac/unknown/invalid/strategy3_controlled.flac;                         FAIL_DECODE
