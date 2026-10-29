@@ -38,6 +38,10 @@ wav/mmsp.ece.mcgill.ca/truspech.wav; UNSUPPORTED
 wav/mmsp.ece.mcgill.ca/voxware.wav; UNSUPPORTED
 
 
+# AIFF
+aiff/github/mackron/dr_libs/350/clusterfuzz-testcase-minimized-dr_wav_fuzzer-5327316486782976.aifc; FAIL_OPEN
+
+
 # FLAC
 flac/github/mackron/dr_libs/140/FLAC-negative-quantization-sample.flac; FAIL_DECODE
 flac/github/mackron/dr_libs/298/minimized_oom.flac;                     FAIL_OPEN
