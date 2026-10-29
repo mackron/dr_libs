@@ -8149,6 +8149,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 {
     drflac_init_info init;
     drflac_uint32 allocationSize;
+    drflac_uint32 decodedSampleSize;
     drflac_uint32 wholeSIMDVectorCountPerChannel;
     drflac_uint32 decodedSamplesAllocationSize;
 #ifndef DR_FLAC_NO_OGG
@@ -8193,12 +8194,18 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 
     /*
     The allocation size for decoded frames depends on the number of 32-bit integers that fit inside the largest SIMD vector
-    we are supporting.
+    we are supporting. 32-bit encoded FLAC streams require 64-bit integers because side channel reconstruction can require
+    33 bit.
     */
-    if ((init.maxBlockSizeInPCMFrames % (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) == 0) {
-        wholeSIMDVectorCountPerChannel = (init.maxBlockSizeInPCMFrames / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32)));
+    decodedSampleSize = sizeof(drflac_int32);
+    if (init.bitsPerSample == 32) {
+        decodedSampleSize = sizeof(drflac_int64);
+    }
+
+    if ((init.maxBlockSizeInPCMFrames % (DRFLAC_MAX_SIMD_VECTOR_SIZE / decodedSampleSize)) == 0) {
+        wholeSIMDVectorCountPerChannel = (init.maxBlockSizeInPCMFrames / (DRFLAC_MAX_SIMD_VECTOR_SIZE / decodedSampleSize));
     } else {
-        wholeSIMDVectorCountPerChannel = (init.maxBlockSizeInPCMFrames / (DRFLAC_MAX_SIMD_VECTOR_SIZE / sizeof(drflac_int32))) + 1;
+        wholeSIMDVectorCountPerChannel = (init.maxBlockSizeInPCMFrames / (DRFLAC_MAX_SIMD_VECTOR_SIZE / decodedSampleSize)) + 1;
     }
 
     decodedSamplesAllocationSize = wholeSIMDVectorCountPerChannel * DRFLAC_MAX_SIMD_VECTOR_SIZE * init.channels;
