@@ -4865,9 +4865,13 @@ static drflac_bool32 drflac__decode_samples_with_residual(drflac_bs* bs, drflac_
 
     /*
     From the FLAC spec:
+
       The Rice partition order in a Rice-coded residual section must be less than or equal to 8.
+
+    Technically the Rice partition order can be up to 15 because it's stored in 4 bits. dr_flac is
+    supporting the full range up to 15.
     */
-    if (partitionOrder > 8) {
+    if ((blockSize & ((1U << partitionOrder) - 1)) != 0) {
         return DRFLAC_FALSE;
     }
 
@@ -4956,9 +4960,13 @@ static drflac_bool32 drflac__read_and_seek_residual(drflac_bs* bs, drflac_uint32
 
     /*
     From the FLAC spec:
+
       The Rice partition order in a Rice-coded residual section must be less than or equal to 8.
+
+    Technically the Rice partition order can be up to 15 because it's stored in 4 bits. dr_flac is
+    supporting the full range up to 15.
     */
-    if (partitionOrder > 8) {
+    if ((blockSize & ((1U << partitionOrder) - 1)) != 0) {
         return DRFLAC_FALSE;
     }
 

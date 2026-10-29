@@ -79,7 +79,6 @@ flac/generated/ffmpeg/s32_mono.flac;                                            
 flac/generated/ffmpeg/s32_stereo.flac;                                                                                 UNSUPPORTED
 
 # Some other unsupported things that need review in dr_flac.
-flac/github/ietf-wg-cellar/flac-test-files/uncommon/09 - Rice partition order 15.flac;                                 UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/10 - file starting at frame header.flac;                           UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/11 - file starting with unparsable data.flac;                      UNSUPPORTED
 
