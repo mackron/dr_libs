@@ -1801,7 +1801,7 @@ DRWAV_PRIVATE DRWAV_INLINE drwav_uint32 drwav_bytes_to_u32_ex(const drwav_uint8*
 
 
 
-DRWAV_PRIVATE drwav_int64 drwav_aiff_extented_to_s64(const drwav_uint8* data)
+DRWAV_PRIVATE drwav_int64 drwav_aiff_extended_to_s64(const drwav_uint8* data)
 {
     drwav_uint32 exponent = ((drwav_uint32)data[0] << 8) | data[1];
     drwav_uint64 hi = ((drwav_uint64)data[2] << 24) | ((drwav_uint64)data[3] << 16) | ((drwav_uint64)data[4] <<  8) | ((drwav_uint64)data[5] <<  0);
@@ -3573,7 +3573,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
             channels         = drwav_bytes_to_u16_ex     (commData + 0, pWav->container);
             frameCount       = drwav_bytes_to_u32_ex     (commData + 2, pWav->container);
             sampleSizeInBits = drwav_bytes_to_u16_ex     (commData + 6, pWav->container);
-            sampleRate       = drwav_aiff_extented_to_s64(commData + 8);
+            sampleRate       = drwav_aiff_extended_to_s64(commData + 8);
 
             if (sampleRate < 0 || sampleRate > 0xFFFFFFFF) {
                 return DRWAV_FALSE; /* Invalid sample rate. */
