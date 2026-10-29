@@ -1,4 +1,6 @@
-If you've found a bug, please submit a normal bug report. You can attach a patch file if you want to provide a suggestion for a fix. If the bug was found through fuzzing, please upload the sample file as a normal attachment. Do not ever attach a Python script of hash.
+If you've found a bug, please submit a normal bug report. You can attach a patch file if you want to provide a suggestion for a fix. If the bug was found through fuzzing, please upload the sample file as a normal attachment. Do not ever attach a Python script or hash.
+
+I'm not accepting large pull requests, regardless of whether or not it's written by a human or AI. If you have a bug fix, either keep the change small and focused, or just create a normal bug report with a brief description and a sample file. Do not create a new test program thinking you're being helpful, because you're not. All you're doing is added junk to the code base. There's a test program in the "tests" folder.
 
 Do not use AI to generate the issue description. I prefer interacting with humans and I do not like excessive detail and verbiage.
 
