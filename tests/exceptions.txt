@@ -5,16 +5,17 @@
 # Blank lines and lines whose first non-whitespace character is # are ignored.
 #
 # Flags:
-#   FAIL_OPEN   - The file should fail at opening.
-#   FAIL_DECODE - The file should open successfully, but fail at the decoding stage.
-#   UNSUPPORTED - The file is explicitly not supported by dr_libs and will be ignored. In practice is the same as IGNORE, but is a bit clearer as to why it's being ignored.
-#   IGNORE      - The file is a non-audio file and should be ignored.
+#   FAIL_OPEN      - The file should fail at opening.
+#   FAIL_DECODE    - The file should open successfully, but fail at the decoding stage.
+#   SKIP_REFERENCE - Skip the external decoder comparison. All dr_libs checks must still pass.
+#   UNSUPPORTED    - The file is explicitly not supported by dr_libs and will be ignored. In practice is the same as IGNORE, but is a bit clearer as to why it's being ignored.
+#   IGNORE         - The file is a non-audio file and should be ignored.
 #
 # IGNORE and UNSUPPORTED skip both stages without a log message. FAIL_DECODE requires a successful
 # dr_libs open, then a failure in decoding or validation. FAIL_DECODE still runs basic seeking,
 # but skips seek comparisons because no complete decoded reference is available.
 #
-# Failure flags cannot be combined with each other or with IGNORE/UNSUPPORTED.
+# Each entry selects one policy. Different policies cannot be combined.
 
 # WAV
 wav/github/mackron/dr_libs/292/intoverflow_poc.wav;     FAIL_OPEN
@@ -23,6 +24,9 @@ wav/github/mackron/dr_libs/299/notification.wav;        FAIL_OPEN
 wav/github/mackron/dr_libs/302/poc_302_bext.wav;        FAIL_DECODE
 wav/github/mackron/dr_libs/305/crash_assertion.wav;     FAIL_OPEN
 wav/github/mackron/dr_libs/305/crash_heap_overflow.wav; FAIL_OPEN
+
+# libsndfile ignores the partial compressed block and reports zero frames.
+wav/misc/msadpcm_partial_mono.wav; SKIP_REFERENCE
 
 # GSM is not currently supported by dr_wav.
 wav/mmsp.ece.mcgill.ca/addf8-GSM-GW.wav; UNSUPPORTED

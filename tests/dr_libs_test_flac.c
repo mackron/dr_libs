@@ -691,7 +691,7 @@ cleanup:
     return exitCode;
 }
 
-static int dr_test_flac_decoding(const dr_test_log* pLog, const char* pFilePath, dr_flac_reference_data* pReferences)
+static int dr_test_flac_decoding(const dr_test_log* pLog, const char* pFilePath, dr_flac_reference_data* pReferences, unsigned int flags)
 {
     drflac* pFlac = NULL;
 
@@ -699,8 +699,10 @@ static int dr_test_flac_decoding(const dr_test_log* pLog, const char* pFilePath,
         return 1;
     }
 
-    if (dr_test_flac_decoding_libflac(pLog, pFilePath, &pReferences->s32) != 0) {
-        return 1;
+    if ((flags & dr_test_flag_skip_reference) == 0) {
+        if (dr_test_flac_decoding_libflac(pLog, pFilePath, &pReferences->s32) != 0) {
+            return 1;
+        }
     }
 
     if (dr_flac_load_reference(pLog, pFilePath, dr_test_sample_format_s16, &pReferences->s16) != 0) {
@@ -1205,7 +1207,7 @@ static int dr_test_flac_seeking_basic(const dr_test_log* pLog, const char* pFile
     return 0;
 }
 
-static int dr_test_flac_file(const dr_test_log* pLog, const char* pFilePath, dr_test_stage stage)
+static int dr_test_flac_file(const dr_test_log* pLog, const char* pFilePath, dr_test_stage stage, unsigned int flags)
 {
     dr_flac_reference_data references = {0};
     int result;
@@ -1218,7 +1220,7 @@ static int dr_test_flac_file(const dr_test_log* pLog, const char* pFilePath, dr_
         return dr_test_flac_seeking(pLog, pFilePath);
     }
 
-    result = dr_test_flac_decoding(pLog, pFilePath, &references);
+    result = dr_test_flac_decoding(pLog, pFilePath, &references, flags);
     if (result != 0) {
         dr_test_log_errorf(pLog, "FLAC correctness test failed.\n");
     }

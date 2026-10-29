@@ -613,7 +613,7 @@ cleanup:
     return exitCode;
 }
 
-static int dr_test_mp3_decoding(const dr_test_log* pLog, const char* pFilePath, dr_mp3_reference_data* pReferences)
+static int dr_test_mp3_decoding(const dr_test_log* pLog, const char* pFilePath, dr_mp3_reference_data* pReferences, unsigned int flags)
 {
     drmp3 mp3;
 
@@ -621,8 +621,10 @@ static int dr_test_mp3_decoding(const dr_test_log* pLog, const char* pFilePath, 
         return 1;
     }
 
-    if (dr_test_mp3_decoding_mpg123(pLog, pFilePath, &pReferences->s16) != 0) {
-        return 1;
+    if ((flags & dr_test_flag_skip_reference) == 0) {
+        if (dr_test_mp3_decoding_mpg123(pLog, pFilePath, &pReferences->s16) != 0) {
+            return 1;
+        }
     }
 
     if (dr_mp3_load_reference(pLog, pFilePath, dr_test_sample_format_f32, &pReferences->f32) != 0) {
@@ -1160,7 +1162,7 @@ static int dr_test_mp3_seeking_basic(const dr_test_log* pLog, const char* pFileP
     return 0;
 }
 
-static int dr_test_mp3_file(const dr_test_log* pLog, const char* pFilePath, dr_test_stage stage)
+static int dr_test_mp3_file(const dr_test_log* pLog, const char* pFilePath, dr_test_stage stage, unsigned int flags)
 {
     dr_mp3_reference_data references = {0};
     int result;
@@ -1173,7 +1175,7 @@ static int dr_test_mp3_file(const dr_test_log* pLog, const char* pFilePath, dr_t
         return dr_test_mp3_seeking(pLog, pFilePath);
     }
 
-    result = dr_test_mp3_decoding(pLog, pFilePath, &references);
+    result = dr_test_mp3_decoding(pLog, pFilePath, &references, flags);
     if (result != 0) {
         dr_test_log_errorf(pLog, "MP3 correctness test failed.\n");
     }

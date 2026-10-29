@@ -303,6 +303,43 @@ static int dr_wav_load_reference(const dr_test_log* pLog, const char* pFilePath,
     return 0;
 }
 
+static int dr_wav_load_float_samples(const dr_test_log* pLog, const char* pFilePath, dr_wav_reference_data* pReferences)
+{
+    drwav wav;
+    size_t allocationSize;
+    int exitCode = 1;
+
+    if (!drwav_init_file(&wav, pFilePath, NULL)) {
+        dr_test_log_errorf(pLog, "Failed to open for source float samples.\n");
+        return 1;
+    }
+
+    allocationSize = (size_t)pReferences->s32.frameCount * wav.channels * (wav.bitsPerSample / 8);
+    if (allocationSize == 0) {
+        allocationSize = 1;
+    }
+
+    pReferences->pFloatSamples = malloc(allocationSize);
+    if (pReferences->pFloatSamples == NULL) {
+        dr_test_log_errorf(pLog, "Out of memory for source float samples.\n");
+        goto cleanup;
+    }
+
+    if (drwav_read_pcm_frames(&wav, pReferences->s32.frameCount, pReferences->pFloatSamples) != pReferences->s32.frameCount) {
+        dr_test_log_errorf(pLog, "Failed to read source float samples.\n");
+        goto cleanup;
+    }
+
+    exitCode = 0;
+
+cleanup:
+    if (drwav_uninit(&wav) != DRWAV_SUCCESS) {
+        exitCode = 1;
+    }
+
+    return exitCode;
+}
+
 static int dr_test_wav_compare_format(const dr_test_log* pLog, const dr_wav_reference_data* pReferences, dr_test_sample_format format, const dr_wav_decoded_data* pDecoded)
 {
     const dr_wav_decoded_data* pReference;
@@ -635,7 +672,7 @@ cleanup:
     return exitCode;
 }
 
-static int dr_test_wav_decoding(const dr_test_log* pLog, const char* pFilePath, dr_wav_reference_data* pReferences)
+static int dr_test_wav_decoding(const dr_test_log* pLog, const char* pFilePath, dr_wav_reference_data* pReferences, unsigned int flags)
 {
     drwav wav;
 
@@ -643,8 +680,15 @@ static int dr_test_wav_decoding(const dr_test_log* pLog, const char* pFilePath, 
         return 1;
     }
 
-    if (dr_test_wav_decoding_sndfile(pLog, pFilePath, pReferences) != 0) {
-        return 1;
+    if ((flags & dr_test_flag_skip_reference) == 0) {
+        if (dr_test_wav_decoding_sndfile(pLog, pFilePath, pReferences) != 0) {
+            return 1;
+        }
+    } else if (pReferences->s32.formatTag == DR_WAVE_FORMAT_IEEE_FLOAT) {
+        /* Retain source floats for internal conversion checks without using libsndfile. */
+        if (dr_wav_load_float_samples(pLog, pFilePath, pReferences) != 0) {
+            return 1;
+        }
     }
 
     if (dr_wav_load_reference(pLog, pFilePath, dr_test_sample_format_s16, &pReferences->s16) != 0) {
@@ -1044,7 +1088,7 @@ static int dr_test_wav_seeking_basic(const dr_test_log* pLog, const char* pFileP
     return 0;
 }
 
-static int dr_test_wav_file(const dr_test_log* pLog, const char* pFilePath, dr_test_stage stage)
+static int dr_test_wav_file(const dr_test_log* pLog, const char* pFilePath, dr_test_stage stage, unsigned int flags)
 {
     dr_wav_reference_data references = {0};
     int result;
@@ -1057,7 +1101,7 @@ static int dr_test_wav_file(const dr_test_log* pLog, const char* pFilePath, dr_t
         return dr_test_wav_seeking(pLog, pFilePath);
     }
 
-    result = dr_test_wav_decoding(pLog, pFilePath, &references);
+    result = dr_test_wav_decoding(pLog, pFilePath, &references, flags);
     if (result != 0) {
         dr_test_log_errorf(pLog, "WAV correctness test failed.\n");
     }
