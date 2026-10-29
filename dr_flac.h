@@ -2422,17 +2422,23 @@ static drflac_bool32 drflac__read_int32(drflac_bs* bs, unsigned int bitCount, dr
 #ifdef DRFLAC_64BIT
 static drflac_bool32 drflac__read_uint64(drflac_bs* bs, unsigned int bitCount, drflac_uint64* pResultOut)
 {
-    drflac_uint32 resultHi;
+    drflac_uint32 resultHi = 0;
     drflac_uint32 resultLo;
 
+    DRFLAC_ASSERT(bs != NULL);
+    DRFLAC_ASSERT(pResultOut != NULL);
+    DRFLAC_ASSERT(bitCount > 0);
     DRFLAC_ASSERT(bitCount <= 64);
-    DRFLAC_ASSERT(bitCount >  32);
 
-    if (!drflac__read_uint32(bs, bitCount - 32, &resultHi)) {
-        return DRFLAC_FALSE;
+    if (bitCount > 32) {
+        if (!drflac__read_uint32(bs, bitCount - 32, &resultHi)) {
+            return DRFLAC_FALSE;
+        }
+
+        bitCount = 32;
     }
 
-    if (!drflac__read_uint32(bs, 32, &resultLo)) {
+    if (!drflac__read_uint32(bs, bitCount, &resultLo)) {
         return DRFLAC_FALSE;
     }
 
@@ -2443,19 +2449,25 @@ static drflac_bool32 drflac__read_uint64(drflac_bs* bs, unsigned int bitCount, d
 
 /* Function below is unused, but leaving it here in case I need to quickly add it again. */
 #if 0
-static drflac_bool32 drflac__read_int64(drflac_bs* bs, unsigned int bitCount, drflac_int64* pResultOut)
+static DRFLAC_INLINE drflac_bool32 drflac__read_int64(drflac_bs* bs, unsigned int bitCount, drflac_int64* pResultOut)
 {
     drflac_uint64 result;
-    drflac_uint64 signbit;
 
+    DRFLAC_ASSERT(bs != NULL);
+    DRFLAC_ASSERT(pResultOut != NULL);
+    DRFLAC_ASSERT(bitCount > 0);
     DRFLAC_ASSERT(bitCount <= 64);
 
     if (!drflac__read_uint64(bs, bitCount, &result)) {
         return DRFLAC_FALSE;
     }
 
-    signbit = ((result >> (bitCount-1)) & 0x01);
-    result |= (~signbit + 1) << bitCount;
+    /* Do not attempt to shift by 64 as it's undefined. */
+    if (bitCount < 64) {
+        drflac_uint64 signbit;
+        signbit = ((result >> (bitCount-1)) & 0x01);
+        result |= (~signbit + 1) << bitCount;
+    }
 
     *pResultOut = (drflac_int64)result;
     return DRFLAC_TRUE;
