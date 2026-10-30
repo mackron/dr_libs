@@ -2,15 +2,16 @@ cmake_minimum_required(VERSION 3.10)
 project(dr_libs)
 
 # Options
-option(DR_LIBS_BUILD_TESTS      "Build tests"               OFF)
-option(DR_LIBS_BUILD_FUZZERS    "Build libFuzzer harnesses" OFF)
-option(DR_LIBS_FORCE_CXX        "Force compilation as C++"  OFF)
-option(DR_LIBS_FORCE_C89        "Force compilation as C89"  OFF)
-option(DR_LIBS_SANITIZE_ADDRESS "Enable AddressSanitizer"   OFF)
-option(DR_LIBS_NO_SIMD          "Disable SIMD"              OFF)
-option(DR_LIBS_NO_WAV           "Disable WAV"               OFF)
-option(DR_LIBS_NO_FLAC          "Disable FLAC"              OFF)
-option(DR_LIBS_NO_MP3           "Disable MP3"               OFF)
+option(DR_LIBS_BUILD_TESTS        "Build tests"               OFF)
+option(DR_LIBS_BUILD_FUZZERS      "Build libFuzzer harnesses" OFF)
+option(DR_LIBS_FORCE_CXX          "Force compilation as C++"  OFF)
+option(DR_LIBS_FORCE_C89          "Force compilation as C89"  OFF)
+option(DR_LIBS_SANITIZE_ADDRESS   "Enable AddressSanitizer"   OFF)
+option(DR_LIBS_WARNINGS_AS_ERRORS "Treat warnings as errors"  OFF)
+option(DR_LIBS_NO_SIMD            "Disable SIMD"              OFF)
+option(DR_LIBS_NO_WAV             "Disable WAV"               OFF)
+option(DR_LIBS_NO_FLAC            "Disable FLAC"              OFF)
+option(DR_LIBS_NO_MP3             "Disable MP3"               OFF)
 option(DR_LIBS_USE_BUNDLED_DEPENDENCIES "Build test dependencies from external/ without searching for system packages" OFF)
 
 # Construct compiler flags.
@@ -48,6 +49,17 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"
     list(APPEND COMPILE_OPTIONS -Wall -Wextra -Wpedantic)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     #list(APPEND COMPILE_OPTIONS /W4)
+endif()
+
+# Warnings as errors are opt-in and do not apply to bundled dependencies.
+if(DR_LIBS_WARNINGS_AS_ERRORS)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        list(APPEND COMPILE_OPTIONS -Werror)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        list(APPEND COMPILE_OPTIONS /WX)
+    else()
+        message(WARNING "DR_LIBS_WARNINGS_AS_ERRORS is enabled but the compiler does not support it. Ignoring.")
+    endif()
 endif()
 
 # AddressSanitizer
