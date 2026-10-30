@@ -194,7 +194,7 @@ static dr_bool32 dr_test_wav_sndfile_frame_count_matches(const dr_wav_decoded_da
 static int dr_test_wav_decoding_sndfile(const dr_test_log* pLog, const char* pFilePath, dr_wav_reference_data* pReferences)
 {
     const dr_wav_decoded_data* pReference;
-    SF_INFO info = {0};
+    SF_INFO info;
     SNDFILE* pFile = NULL;
     drwav_int32* pSamples = NULL;
     sf_count_t framesRead;
@@ -206,6 +206,8 @@ static int dr_test_wav_decoding_sndfile(const dr_test_log* pLog, const char* pFi
 
     pReference = &pReferences->s32;
 
+    memset(&info, 0, sizeof(info));
+    
     pFile = sf_open(pFilePath, SFM_READ, &info);
     if (pFile == NULL) {
         dr_test_log_errorf(pLog, "Failed to open with libsndfile: %s.\n", sf_strerror(NULL));
@@ -1029,9 +1031,11 @@ static int dr_test_wav_seek_cases(const dr_test_log* pLog, drwav* pWav, const dr
 static int dr_test_wav_seeking(const dr_test_log* pLog, const char* pFilePath)
 {
     drwav wav;
-    dr_wav_decoded_data reference = {0};
+    dr_wav_decoded_data reference;
     drwav_int32* pSamples = NULL;
     int exitCode = 1;
+
+    memset(&reference, 0, sizeof(reference));
 
     if (!drwav_init_file(&wav, pFilePath, NULL)) {
         dr_test_log_errorf(pLog, "Failed to open for WAV seeking.\n");
@@ -1090,8 +1094,10 @@ static int dr_test_wav_seeking_basic(const dr_test_log* pLog, const char* pFileP
 
 static int dr_test_wav_file(const dr_test_log* pLog, const char* pFilePath, dr_test_stage stage, unsigned int flags)
 {
-    dr_wav_reference_data references = {0};
+    dr_wav_reference_data references;
     int result;
+
+    memset(&references, 0, sizeof(references));
 
     if (stage == dr_test_stage_seeking_basic) {
         return dr_test_wav_seeking_basic(pLog, pFilePath);

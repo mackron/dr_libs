@@ -926,7 +926,7 @@ static int dr_main(int argc, char** argv)
     const char* pAudiovectorsPath = "external/audiovectors";
     const char** ppExceptionsPaths = NULL;
     size_t exceptionsFileCount = 0;
-    dr_test_exceptions exceptions = {0};
+    dr_test_exceptions exceptions;
     dr_test_input* pInputs = NULL;
     size_t inputCount = 0;
     char* pVectorsPath = NULL;
@@ -940,6 +940,8 @@ static int dr_main(int argc, char** argv)
     size_t iStage;
     int iarg;
     int exitCode = 1;
+
+    memset(&exceptions, 0, sizeof(exceptions));
 
     pInputs = (dr_test_input*)calloc((size_t)argc + sizeof(dr_test_formats) / sizeof(dr_test_formats[0]), sizeof(*pInputs));
     if (pInputs == NULL) {

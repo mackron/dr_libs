@@ -230,13 +230,14 @@ static int dr_test_flac_decoding_libflac(const dr_test_log* pLog, const char* pF
 {
     FLAC__StreamDecoder* pDecoder = NULL;
     FLAC__StreamDecoderInitStatus initStatus;
-    dr_libflac_decode_context context = {0};
+    dr_libflac_decode_context context;
     dr_bool32 initialized = DR_FALSE;
     FLAC__bool metadataResult;
     dr_bool32 formatMatches;
     size_t allocationSize;
     int exitCode = 1;
 
+    memset(&context, 0, sizeof(context));
     context.pLog = pLog;
     context.capacityFrames = pReference->frameCount;
     context.decoded.container = pReference->container;
@@ -1143,10 +1144,12 @@ static int dr_test_flac_seeking(const dr_test_log* pLog, const char* pFilePath)
     };
 
     drflac* pFlac = NULL;
-    dr_flac_decoded_data reference = {0};
+    dr_flac_decoded_data reference;
     drflac_int32* pSamples = NULL;
     size_t iMethod;
     int exitCode = 1;
+
+    memset(&reference, 0, sizeof(reference));
 
     pFlac = drflac_open_file(pFilePath, NULL);
     if (pFlac == NULL) {
@@ -1238,8 +1241,10 @@ static int dr_test_flac_seeking_basic(const dr_test_log* pLog, const char* pFile
 
 static int dr_test_flac_file(const dr_test_log* pLog, const char* pFilePath, dr_test_stage stage, unsigned int flags)
 {
-    dr_flac_reference_data references = {0};
+    dr_flac_reference_data references;
     int result;
+
+    memset(&references, 0, sizeof(references));
 
     if (stage == dr_test_stage_seeking_basic) {
         return dr_test_flac_seeking_basic(pLog, pFilePath);

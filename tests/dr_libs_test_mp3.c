@@ -1060,12 +1060,14 @@ static int dr_test_mp3_seeking(const dr_test_log* pLog, const char* pFilePath)
 {
     static const drmp3_uint32 tableSizes[] = {0, 1, 64};
     drmp3 mp3;
-    dr_mp3_decoded_data reference = {0};
+    dr_mp3_decoded_data reference;
     drmp3_seek_point seekPoints[64];
     drmp3_int16* pSamples = NULL;
     size_t iMethod;
     dr_bool32 initialized = DR_FALSE;
     int exitCode = 1;
+
+    memset(&reference, 0, sizeof(reference));
 
     if (!drmp3_init_file(&mp3, pFilePath, NULL)) {
         dr_test_log_errorf(pLog, "Failed to open for MP3 seeking.\n");
@@ -1164,8 +1166,10 @@ static int dr_test_mp3_seeking_basic(const dr_test_log* pLog, const char* pFileP
 
 static int dr_test_mp3_file(const dr_test_log* pLog, const char* pFilePath, dr_test_stage stage, unsigned int flags)
 {
-    dr_mp3_reference_data references = {0};
+    dr_mp3_reference_data references;
     int result;
+
+    memset(&references, 0, sizeof(references));
 
     if (stage == dr_test_stage_seeking_basic) {
         return dr_test_mp3_seeking_basic(pLog, pFilePath);

@@ -1,0 +1,55 @@
+---
+name: Compilation Checks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (${{ matrix.compiler }}, ${{ matrix.config.name }}, NO_SIMD=${{ matrix.no_simd }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        no_simd: ["OFF", "ON"]
+        config:
+          - name: "Force C++"
+            cmake_args: "-DDR_LIBS_FORCE_CXX=ON"
+          - name: "Force C89"
+            cmake_args: "-DDR_LIBS_FORCE_C89=ON"
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang pkg-config libsndfile1-dev libflac-dev libogg-dev libmpg123-dev
+
+      - name: Setup compiler
+        run: |
+          if [ "${{ matrix.compiler }}" = "clang" ]; then
+            echo "CC=clang" >> "$GITHUB_ENV"
+            echo "CXX=clang++" >> "$GITHUB_ENV"
+          else
+            echo "CC=gcc" >> "$GITHUB_ENV"
+            echo "CXX=g++" >> "$GITHUB_ENV"
+          fi
+
+      - name: Configure CMake
+        run: >-
+          cmake -B build
+          -DDR_LIBS_BUILD_TESTS=ON
+          -DDR_LIBS_NO_SIMD=${{ matrix.no_simd }}
+          ${{ matrix.config.cmake_args }}
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc)

@@ -7,6 +7,7 @@ option(DR_LIBS_BUILD_FUZZERS    "Build libFuzzer harnesses" OFF)
 option(DR_LIBS_FORCE_CXX        "Force compilation as C++"  OFF)
 option(DR_LIBS_FORCE_C89        "Force compilation as C89"  OFF)
 option(DR_LIBS_SANITIZE_ADDRESS "Enable AddressSanitizer"   OFF)
+option(DR_LIBS_NO_SIMD          "Disable SIMD"              OFF)
 option(DR_LIBS_NO_WAV           "Disable WAV"               OFF)
 option(DR_LIBS_NO_FLAC          "Disable FLAC"              OFF)
 option(DR_LIBS_NO_MP3           "Disable MP3"               OFF)
@@ -68,6 +69,10 @@ endif()
 add_library(dr_libs_interface INTERFACE)
 target_compile_options(dr_libs_interface INTERFACE ${COMPILE_OPTIONS})
 target_link_options   (dr_libs_interface INTERFACE ${LINK_OPTIONS})
+
+if(DR_LIBS_NO_SIMD)
+    target_compile_definitions(dr_libs_interface INTERFACE DR_FLAC_NO_SIMD DR_MP3_NO_SIMD)
+endif()
 
 
 # Common includes for dl, pthread, etc.
@@ -205,6 +210,11 @@ endif()
 
 # WAV
 if(NOT DR_LIBS_NO_WAV)
+    if(DR_LIBS_BUILD_TESTS)
+        add_library(dr_wav_compilation STATIC tests/compilation/dr_wav.c)
+        target_link_libraries(dr_wav_compilation PRIVATE dr_libs_interface)
+    endif()
+
     if(DR_LIBS_BUILD_FUZZERS)
         add_dr_libs_fuzzer(dr_wav_fuzzer tests/fuzzing/dr_wav_fuzzer.cc)
     endif()
@@ -213,6 +223,11 @@ endif()
 
 # FLAC
 if(NOT DR_LIBS_NO_FLAC)
+    if(DR_LIBS_BUILD_TESTS)
+        add_library(dr_flac_compilation STATIC tests/compilation/dr_flac.c)
+        target_link_libraries(dr_flac_compilation PRIVATE dr_libs_interface)
+    endif()
+
     if(DR_LIBS_BUILD_FUZZERS)
         add_dr_libs_fuzzer(dr_flac_fuzzer tests/fuzzing/dr_flac_fuzzer.cc)
     endif()
@@ -221,6 +236,11 @@ endif()
 
 # MP3
 if(NOT DR_LIBS_NO_MP3)
+    if(DR_LIBS_BUILD_TESTS)
+        add_library(dr_mp3_compilation STATIC tests/compilation/dr_mp3.c)
+        target_link_libraries(dr_mp3_compilation PRIVATE dr_libs_interface)
+    endif()
+
     if(DR_LIBS_BUILD_FUZZERS)
         add_dr_libs_fuzzer(dr_mp3_fuzzer tests/fuzzing/dr_mp3_fuzzer.cc)
     endif()
