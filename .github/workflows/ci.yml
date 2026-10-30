@@ -48,6 +48,7 @@ jobs:
         run: >-
           cmake -B build
           -DDR_LIBS_BUILD_TESTS=ON
+          -DDR_LIBS_WARNINGS_AS_ERRORS=ON
           -DDR_LIBS_NO_SIMD=${{ matrix.no_simd }}
           ${{ matrix.config.cmake_args }}
 
@@ -104,6 +105,7 @@ jobs:
         run: >-
           cmake -B build -A x64
           -DDR_LIBS_BUILD_TESTS=ON
+          -DDR_LIBS_WARNINGS_AS_ERRORS=ON
           -DDR_LIBS_USE_BUNDLED_DEPENDENCIES=ON
           -DDR_LIBS_NO_SIMD=${{ matrix.no_simd }}
           ${{ matrix.config.cmake_args }}
