@@ -6880,7 +6880,15 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
             case DRFLAC_METADATA_BLOCK_TYPE_VORBIS_COMMENT:
             {
                 if (blockSize < 8) {
-                    return DRFLAC_FALSE;
+                    /* Discard a block that cannot contain the vendor length and comment count. */
+                    if (onMeta != NULL && blockSize > 0) {
+                        drflac_uint8 unused[8];
+                        if (onRead(pUserData, unused, blockSize) != blockSize) {
+                            return DRFLAC_FALSE;
+                        }
+                    }
+
+                    break;
                 }
 
                 if (onMeta) {
@@ -6909,16 +6917,14 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
                     /* Need space for the rest of the block */
                     if ((pRunningDataEnd - pRunningData) - 4 < (drflac_int64)metadata.data.vorbis_comment.vendorLength) { /* <-- Note the order of operations to avoid overflow to a valid value */
-                        drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                        return DRFLAC_FALSE;
+                        goto vorbis_comment_done;
                     }
                     metadata.data.vorbis_comment.vendor       = pRunningData;                                   pRunningData += metadata.data.vorbis_comment.vendorLength;
                     metadata.data.vorbis_comment.commentCount = drflac__le2host_32_ptr_unaligned(pRunningData); pRunningData += 4;
 
                     /* Need space for 'commentCount' comments after the block, which at minimum is a drflac_uint32 per comment */
                     if ((pRunningDataEnd - pRunningData) / sizeof(drflac_uint32) < metadata.data.vorbis_comment.commentCount) { /* <-- Note the order of operations to avoid overflow to a valid value */
-                        drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                        return DRFLAC_FALSE;
+                        goto vorbis_comment_done;
                     }
                     metadata.data.vorbis_comment.pComments    = pRunningData;
 
@@ -6927,20 +6933,19 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                         drflac_uint32 commentLength;
 
                         if (pRunningDataEnd - pRunningData < 4) {
-                            drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                            return DRFLAC_FALSE;
+                            goto vorbis_comment_done;
                         }
 
                         commentLength = drflac__le2host_32_ptr_unaligned(pRunningData); pRunningData += 4;
                         if (pRunningDataEnd - pRunningData < (drflac_int64)commentLength) { /* <-- Note the order of operations to avoid overflow to a valid value */
-                            drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                            return DRFLAC_FALSE;
+                            goto vorbis_comment_done;
                         }
                         pRunningData += commentLength;
                     }
 
                     onMeta(pUserDataMD, &metadata);
 
+                vorbis_comment_done:
                     drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
                 }
             } break;
