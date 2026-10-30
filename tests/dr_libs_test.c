@@ -12,10 +12,16 @@ static fs_file* STDIN  = NULL;
 static fs_file* STDOUT = NULL;
 static fs_file* STDERR = NULL;
 
+enum
+{
+    dr_test_log_flag_verbose = 0x1
+};
+
 typedef struct
 {
     fs_file* pOutput;
     const char* pFilePath;
+    unsigned int flags;
 } dr_test_log;
 
 static void dr_printf(const char* pFormat, ...)
@@ -52,6 +58,22 @@ static void dr_test_log_errorf(const dr_test_log* pLog, const char* pFormat, ...
     va_end(args);
 }
 
+/* Warnings are only shown in verbose mode. */
+static void dr_test_log_warningf(const dr_test_log* pLog, const char* pFormat, ...)
+{
+    va_list args;
+
+    if (pLog->pOutput == NULL || (pLog->flags & dr_test_log_flag_verbose) == 0) {
+        return;
+    }
+
+    fs_file_writef(pLog->pOutput, "%s: warning: ", pLog->pFilePath);
+
+    va_start(args, pFormat);
+    fs_file_writefv(pLog->pOutput, pFormat, args);
+    va_end(args);
+}
+
 static void dr_print_usage(void)
 {
     dr_printf("USAGE:\n");
@@ -65,6 +87,8 @@ static void dr_print_usage(void)
     dr_printf("OPTIONS:\n");
     dr_printf("    -h, --help\n");
     dr_printf("        Show this help text.\n");
+    dr_printf("    --verbose\n");
+    dr_printf("        Show warnings.\n");
     dr_printf("    --audiovectors <path>\n");
     dr_printf("        Database root. Defaults to external/audiovectors relative to the working directory.\n");
     dr_printf("    --exceptions <path>\n");
@@ -711,7 +735,7 @@ static dr_test_format dr_test_database_format(const char* pPath)
     return dr_test_format_unknown;
 }
 
-static int dr_test_file(const char* pFilePath, const char* pDisplayPath, dr_bool32 isDatabase, dr_test_format format, dr_test_stage stage, const dr_test_exceptions* pExceptions)
+static int dr_test_file(const char* pFilePath, const char* pDisplayPath, dr_bool32 isDatabase, dr_test_format format, dr_test_stage stage, const dr_test_exceptions* pExceptions, unsigned int logFlags)
 {
     dr_test_log log;
     const char* pName;
@@ -742,6 +766,7 @@ static int dr_test_file(const char* pFilePath, const char* pDisplayPath, dr_bool
     dr_printf("%s\n", pDisplayPath);
     log.pOutput = STDERR;
     log.pFilePath = pDisplayPath;
+    log.flags = logFlags;
 
     if (format == dr_test_format_unknown) {
         format = dr_test_format_from_extension(pFilePath);
@@ -774,7 +799,7 @@ static int dr_test_file(const char* pFilePath, const char* pDisplayPath, dr_bool
     return result;
 }
 
-static int dr_test_directory(const char* pDirectoryPath, const char* pDisplayPath, dr_bool32 isDatabase, dr_test_format format, dr_test_stage stage, const dr_test_exceptions* pExceptions)
+static int dr_test_directory(const char* pDirectoryPath, const char* pDisplayPath, dr_bool32 isDatabase, dr_test_format format, dr_test_stage stage, const dr_test_exceptions* pExceptions, unsigned int logFlags)
 {
     fs_iterator* pIterator;
     int exitCode = 0;
@@ -803,9 +828,9 @@ static int dr_test_directory(const char* pDirectoryPath, const char* pDisplayPat
         }
 
         if (pIterator->info.directory) {
-            testResult = dr_test_directory(pFilePath, pFileDisplayPath, isDatabase, format, stage, pExceptions);
+            testResult = dr_test_directory(pFilePath, pFileDisplayPath, isDatabase, format, stage, pExceptions, logFlags);
         } else {
-            testResult = dr_test_file(pFilePath, pFileDisplayPath, isDatabase, format, stage, pExceptions);
+            testResult = dr_test_file(pFilePath, pFileDisplayPath, isDatabase, format, stage, pExceptions, logFlags);
         }
 
         free(pFileDisplayPath);
@@ -897,6 +922,7 @@ static int dr_main(int argc, char** argv)
     dr_bool32 hasTests = DR_FALSE;
     dr_bool32 databaseOnly = DR_FALSE;
     dr_bool32 endOptions = DR_FALSE;
+    unsigned int logFlags = 0;
     size_t iInput;
     size_t iStage;
     int iarg;
@@ -925,6 +951,8 @@ static int dr_main(int argc, char** argv)
                 goto done;
             } else if (strcmp(pArgument, "--") == 0) {
                 endOptions = DR_TRUE;
+            } else if (strcmp(pArgument, "--verbose") == 0) {
+                logFlags |= dr_test_log_flag_verbose;
             } else if (strcmp(pArgument, "--audiovectors") == 0) {
                 if (iarg + 1 == argc || argv[iarg + 1][0] == '\0' || argv[iarg + 1][0] == '-') {
                     dr_errorf("%s requires a value.\n", pArgument);
@@ -1070,9 +1098,9 @@ static int dr_main(int argc, char** argv)
             }
 
             if (pInput->isDirectory) {
-                result = dr_test_directory(pInput->pPath, pInput->pDisplayPath, pInput->isDatabase, format, stages[iStage], &exceptions);
+                result = dr_test_directory(pInput->pPath, pInput->pDisplayPath, pInput->isDatabase, format, stages[iStage], &exceptions, logFlags);
             } else {
-                result = dr_test_file(pInput->pPath, pInput->pDisplayPath, pInput->isDatabase, format, stages[iStage], &exceptions);
+                result = dr_test_file(pInput->pPath, pInput->pDisplayPath, pInput->isDatabase, format, stages[iStage], &exceptions, logFlags);
             }
 
             if (result != 0) {
