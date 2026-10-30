@@ -11,6 +11,7 @@ option(DR_LIBS_NO_SIMD          "Disable SIMD"              OFF)
 option(DR_LIBS_NO_WAV           "Disable WAV"               OFF)
 option(DR_LIBS_NO_FLAC          "Disable FLAC"              OFF)
 option(DR_LIBS_NO_MP3           "Disable MP3"               OFF)
+option(DR_LIBS_USE_BUNDLED_DEPENDENCIES "Build test dependencies from external/ without searching for system packages" OFF)
 
 # Construct compiler flags.
 set(COMPILE_OPTIONS)
@@ -84,6 +85,10 @@ endif()
 
 # Prefer package targets, but also support development packages that only provide pkg-config files.
 function(dr_libs_find_system_test_library package target pkg_config_name)
+    if(DR_LIBS_USE_BUNDLED_DEPENDENCIES)
+        return()
+    endif()
+
     if(TARGET ${target} OR CMAKE_DISABLE_FIND_PACKAGE_${package})
         return()
     endif()

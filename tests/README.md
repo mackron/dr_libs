@@ -32,4 +32,5 @@ To build the test program you'll need libsndfile, libFLAC and libmpg123. These a
     external/flac
     external/ogg
     external/mpg123
-    
+
+Set `DR_LIBS_USE_BUNDLED_DEPENDENCIES=ON` to skip system-package searches and build these dependencies from `external/`. Missing sources cause configuration to fail. These source folders are gitignored and must not be committed. Windows CI downloads fixed source versions into these folders before building.
