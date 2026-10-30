@@ -1,5 +1,5 @@
 ---
-name: Compilation Checks
+name: Build and Test
 
 on:
   push:
@@ -12,9 +12,29 @@ permissions:
   contents: read
 
 jobs:
+  audiovectors:
+    name: Resolve audiovectors revision
+    runs-on: ubuntu-latest
+    outputs:
+      revision: ${{ steps.resolve.outputs.revision }}
+    steps:
+      - name: Resolve latest revision
+        id: resolve
+        shell: bash
+        run: |
+          revision=$(git ls-remote https://github.com/mackron/audiovectors.git HEAD | cut -f1)
+          if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Failed to resolve the audiovectors revision." >&2
+            exit 1
+          fi
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "audiovectors revision: $revision"
+          echo "audiovectors revision: $revision" >> "$GITHUB_STEP_SUMMARY"
+
   linux:
     name: Linux (${{ matrix.compiler }}, ${{ matrix.config.name }}, NO_SIMD=${{ matrix.no_simd }})
     runs-on: ubuntu-latest
+    needs: audiovectors
     strategy:
       fail-fast: false
       matrix:
@@ -55,9 +75,20 @@ jobs:
       - name: Build
         run: cmake --build build --parallel $(nproc)
 
+      - name: Prepare audiovectors
+        if: matrix.compiler == 'gcc' && matrix.config.name == 'Force C89'
+        uses: ./.github/actions/audiovectors
+        with:
+          revision: ${{ needs.audiovectors.outputs.revision }}
+
+      - name: Run decoding and seeking tests
+        if: matrix.compiler == 'gcc' && matrix.config.name == 'Force C89'
+        run: ./build/dr_libs_test --exceptions tests/exceptions.txt
+
   windows:
     name: Windows (MSVC, ${{ matrix.config.name }}, NO_SIMD=${{ matrix.no_simd }})
     runs-on: windows-latest
+    needs: audiovectors
     strategy:
       fail-fast: false
       matrix:
@@ -112,3 +143,13 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release --parallel
+
+      - name: Prepare audiovectors
+        if: matrix.config.name == 'C'
+        uses: ./.github/actions/audiovectors
+        with:
+          revision: ${{ needs.audiovectors.outputs.revision }}
+
+      - name: Run decoding and seeking tests
+        if: matrix.config.name == 'C'
+        run: ./build/Release/dr_libs_test.exe --exceptions tests/exceptions.txt

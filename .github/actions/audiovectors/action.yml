@@ -1,0 +1,37 @@
+name: Prepare audiovectors
+description: Restore or download the selected public audiovectors revision.
+inputs:
+  revision:
+    description: Commit SHA resolved for this workflow run.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Restore audiovectors
+      id: cache
+      uses: actions/cache/restore@v5
+      with:
+        path: external/audiovectors
+        key: audiovectors-v1-${{ inputs.revision }}
+        enableCrossOsArchive: true
+
+    - name: Download audiovectors
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        AUDIOVECTORS_REVISION: ${{ inputs.revision }}
+      run: |
+        archive="$RUNNER_TEMP/audiovectors-$AUDIOVECTORS_REVISION.tar.gz"
+        curl --fail --location --retry 3 "https://codeload.github.com/mackron/audiovectors/tar.gz/$AUDIOVECTORS_REVISION" --output "$archive"
+        mkdir -p external/audiovectors
+        /usr/bin/tar --force-local -xf "$archive" -C external/audiovectors --strip-components=1
+        test -d external/audiovectors/vectors
+
+    # Save before testing so decoding or seeking failures do not prevent caching.
+    - name: Save audiovectors
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: external/audiovectors
+        key: ${{ steps.cache.outputs.cache-primary-key }}
+        enableCrossOsArchive: true
