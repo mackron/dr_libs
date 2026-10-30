@@ -598,8 +598,8 @@ typedef struct
     drflac_uint16 blockSizeInPCMFrames;
 
     /*
-    The channel assignment of this frame. This is not always set to the channel count. If interchannel decorrelation is being used this
-    will be set to DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE, DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE or DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE.
+    The raw channel assignment from the frame header. Values 0 through 7 specify one through eight independent channels (channel count minus one).
+    Stereo decorrelation uses DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE, DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE or DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE.
     */
     drflac_uint8 channelAssignment;
 
@@ -1636,7 +1636,7 @@ typedef drflac_int32 drflac_result;
 #define DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE  0
 #define DRFLAC_RESIDUAL_CODING_METHOD_PARTITIONED_RICE2 1
 
-#define DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT           0
+#define DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT_STEREO    1
 #define DRFLAC_CHANNEL_ASSIGNMENT_LEFT_SIDE             8
 #define DRFLAC_CHANNEL_ASSIGNMENT_RIGHT_SIDE            9
 #define DRFLAC_CHANNEL_ASSIGNMENT_MID_SIDE              10
@@ -10246,10 +10246,18 @@ static DRFLAC_INLINE void drflac__decode_stereo_sample_s64(const drflac_frame* p
             *pRight = (drflac_int32)((drflac_int64)(sample0 - sample1) >> 1);
         } break;
 
-        default:
+        case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT_STEREO:
         {
             *pLeft  = (drflac_int32)sample0;
             *pRight = (drflac_int32)sample1;
+        } break;
+
+        default:
+        {
+            DRFLAC_ASSERT(!"Invalid stereo channel assignment");
+            
+            *pLeft  = 0;
+            *pRight = 0;
         } break;
     }
 }
@@ -10404,11 +10412,12 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode(drflac* pFlac, drfl
                 drflac_read_pcm_frames_s32__decode_mid_side(pFlac, frameCount, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pOutputSamples);
             } break;
 
-            case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT:
-            default:
+            case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT_STEREO:
             {
                 drflac_read_pcm_frames_s32__decode_independent_stereo(pFlac, frameCount, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pOutputSamples);
             } break;
+
+            default: DRFLAC_ASSERT(!"Invalid stereo channel assignment"); break;
         }
     } else {
         /* Generic interleaving. */
@@ -11374,11 +11383,12 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode(drflac* pFlac, drfl
                 drflac_read_pcm_frames_s16__decode_mid_side(pFlac, frameCount, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pOutputSamples);
             } break;
 
-            case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT:
-            default:
+            case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT_STEREO:
             {
                 drflac_read_pcm_frames_s16__decode_independent_stereo(pFlac, frameCount, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pOutputSamples);
             } break;
+
+            default: DRFLAC_ASSERT(!"Invalid stereo channel assignment"); break;
         }
     } else {
         /* Generic interleaving. */
@@ -12319,11 +12329,12 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode(drflac* pFlac, drfl
                 drflac_read_pcm_frames_f32__decode_mid_side(pFlac, frameCount, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pOutputSamples);
             } break;
 
-            case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT:
-            default:
+            case DRFLAC_CHANNEL_ASSIGNMENT_INDEPENDENT_STEREO:
             {
                 drflac_read_pcm_frames_f32__decode_independent_stereo(pFlac, frameCount, unusedBitsPerSample, pDecodedSamples0, pDecodedSamples1, pOutputSamples);
             } break;
+
+            default: DRFLAC_ASSERT(!"Invalid stereo channel assignment"); break;
         }
     } else {
         /* Generic interleaving. */
