@@ -681,8 +681,12 @@ typedef struct
     drflac__memory_stream memoryStream;
 
 
-    /* Base of the decoded sample storage in pExtraData. 32-bit streams use pS64; lower bit depths use pS32. */
+    /* Base of the active decoded sample storage. 32-bit streams use pS64; lower bit depths use pS32. */
     drflac_samples decodedSamples;
+
+    /* Separate allocation for frames larger than STREAMINFO permits. NULL when using pExtraData. */
+    void* pDecodedSamplesAllocation;
+    drflac_uint16 decodedSamplesCapacityInPCMFrames;
 
     /* A pointer to the seek table. This is an offset of pExtraData, or NULL if there is no seek table. */
     drflac_seekpoint* pSeekpoints;
@@ -5610,12 +5614,9 @@ static drflac_bool32 drflac__decode_subframe(drflac_bs* bs, drflac_frame* frame,
     }
 
     /*
-    The output buffer was allocated with enough memory to store
-    maxBlockSizeInPCMFrames samples (as specified in the FLAC header). We need to guard against an
-    overflow here. At a higher level we are checking maxBlockSizeInPCMFrames from the header, but
-    here we need to do an additional check to ensure this frame's block size fully encompasses any
-    warmup samples which is determined by the LPC order. For non LPC and FIXED subframes, the LPC
-    order will be have been set to 0 in drflac__read_subframe_header().
+    The output buffer has enough memory for this frame's block size. The block must also contain all
+    warmup samples, as determined by the LPC order. For non-LPC and non-FIXED subframes,
+    drflac__read_subframe_header() sets the order to 0.
     */
     if (frame->header.blockSizeInPCMFrames < pSubframe->lpcOrder) {
         return DRFLAC_FALSE;
@@ -5760,6 +5761,8 @@ static DRFLAC_INLINE drflac_uint8 drflac__get_channel_count_from_channel_assignm
     return lookup[channelAssignment];
 }
 
+static drflac_bool32 drflac__resize_decoded_samples(drflac* pFlac, drflac_uint16 blockSizeInPCMFrames);
+
 static drflac_result drflac__decode_flac_frame(drflac* pFlac)
 {
     int channelCount;
@@ -5774,15 +5777,20 @@ static drflac_result drflac__decode_flac_frame(drflac* pFlac)
     pFlac->currentFLACFrame.pcmFramesRemaining = 0;
     DRFLAC_ZERO_MEMORY(pFlac->currentFLACFrame.subframes, sizeof(pFlac->currentFLACFrame.subframes));
 
-    /* The frame block size must never be larger than the maximum block size defined by the FLAC stream. */
-    if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->maxBlockSizeInPCMFrames) {
-        return DRFLAC_ERROR;
-    }
-
     /* The number of channels in the frame must match the channel count from the STREAMINFO block. */
     channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
     if (channelCount != (int)pFlac->channels) {
         return DRFLAC_ERROR;
+    }
+
+    /*
+    In rare cases STREAMINFO can understate the maximum block size. When this is encountered, grow
+    the sample buffer before decoding the frame.
+    */
+    if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->decodedSamplesCapacityInPCMFrames) {
+        if (!drflac__resize_decoded_samples(pFlac, pFlac->currentFLACFrame.header.blockSizeInPCMFrames)) {
+            return DRFLAC_OUT_OF_MEMORY;
+        }
     }
 
     if (pFlac->bitsPerSample != 32) {
@@ -6756,6 +6764,41 @@ static void drflac__free_from_callbacks(void* p, const drflac_allocation_callbac
     if (pAllocationCallbacks->onFree != NULL) {
         pAllocationCallbacks->onFree(p, pAllocationCallbacks->pUserData);
     }
+}
+
+
+static drflac_bool32 drflac__resize_decoded_samples(drflac* pFlac, drflac_uint16 blockSizeInPCMFrames)
+{
+    size_t sampleSize;
+    size_t allocationSize;
+    void* pAllocation;
+    void* pDecodedSamples;
+
+    sampleSize = sizeof(drflac_int32);
+    if (pFlac->bitsPerSample == 32) {
+        sampleSize = sizeof(drflac_int64);
+    }
+
+    allocationSize = drflac_align(blockSizeInPCMFrames * sampleSize, DRFLAC_MAX_SIMD_VECTOR_SIZE) * pFlac->channels + DRFLAC_MAX_SIMD_VECTOR_SIZE;
+    
+    pAllocation = drflac__malloc_from_callbacks(allocationSize, &pFlac->allocationCallbacks);
+    if (pAllocation == NULL) {
+        return DRFLAC_FALSE;
+    }
+
+    /* No samples need to be retained when starting a new frame. Keep the old allocation if allocation fails. */
+    drflac__free_from_callbacks(pFlac->pDecodedSamplesAllocation, &pFlac->allocationCallbacks);
+    pFlac->pDecodedSamplesAllocation = pAllocation;
+    pFlac->decodedSamplesCapacityInPCMFrames = blockSizeInPCMFrames;
+
+    pDecodedSamples = (void*)drflac_align((size_t)pAllocation, DRFLAC_MAX_SIMD_VECTOR_SIZE);
+    if (pFlac->bitsPerSample != 32) {
+        pFlac->decodedSamples.pS32 = (drflac_int32*)pDecodedSamples;
+    } else {
+        pFlac->decodedSamples.pS64 = (drflac_int64*)pDecodedSamples;
+    }
+
+    return DRFLAC_TRUE;
 }
 
 
@@ -8405,6 +8448,7 @@ static void drflac__init_from_info(drflac* pFlac, const drflac_init_info* pInit)
     pFlac->onMeta                  = pInit->onMeta;
     pFlac->pUserDataMD             = pInit->pUserDataMD;
     pFlac->maxBlockSizeInPCMFrames = pInit->maxBlockSizeInPCMFrames;
+    pFlac->decodedSamplesCapacityInPCMFrames = pInit->maxBlockSizeInPCMFrames;
     pFlac->sampleRate              = pInit->sampleRate;
     pFlac->channels                = (drflac_uint8)pInit->channels;
     pFlac->bitsPerSample           = (drflac_uint8)pInit->bitsPerSample;
@@ -8636,6 +8680,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 
                 /* We need to seek back to where we were. If this fails it's a critical error. */
                 if (!pFlac->bs.onSeek(pFlac->bs.pUserData, (int)pFlac->firstFLACFramePosInBytes, DRFLAC_SEEK_SET)) {
+                    drflac__free_from_callbacks(pFlac->pDecodedSamplesAllocation, &allocationCallbacks);
                     drflac__free_from_callbacks(pFlac, &allocationCallbacks);
                     return NULL;
                 }
@@ -8654,6 +8699,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     if (recoverMetadata) {
         /* Decode the first recovered frame to validate its data and CRC before accepting the stream. */
         if (!drflac__seek_to_byte(&pFlac->bs, firstFramePos) || !drflac__read_and_decode_next_flac_frame(pFlac)) {
+            drflac__free_from_callbacks(pFlac->pDecodedSamplesAllocation, &allocationCallbacks);
             drflac__free_from_callbacks(pFlac, &allocationCallbacks);
             return NULL;
         }
@@ -8666,11 +8712,13 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
             } else {
                 if (result == DRFLAC_CRC_MISMATCH) {
                     if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
+                        drflac__free_from_callbacks(pFlac->pDecodedSamplesAllocation, &allocationCallbacks);
                         drflac__free_from_callbacks(pFlac, &allocationCallbacks);
                         return NULL;
                     }
                     continue;
                 } else {
+                    drflac__free_from_callbacks(pFlac->pDecodedSamplesAllocation, &allocationCallbacks);
                     drflac__free_from_callbacks(pFlac, &allocationCallbacks);
                     return NULL;
                 }
@@ -9549,6 +9597,7 @@ DRFLAC_API void drflac_close(drflac* pFlac)
 #endif
 #endif
 
+    drflac__free_from_callbacks(pFlac->pDecodedSamplesAllocation, &pFlac->allocationCallbacks);
     drflac__free_from_callbacks(pFlac, &pFlac->allocationCallbacks);
 }
 
@@ -10464,7 +10513,7 @@ static drflac_bool32 drflac__is_current_flac_frame_valid(drflac* pFlac)
     drflac_uint32 iChannel;
     drflac_uint32 channelCount;
 
-    if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->maxBlockSizeInPCMFrames || pFlac->currentFLACFrame.pcmFramesRemaining > pFlac->currentFLACFrame.header.blockSizeInPCMFrames) {
+    if (pFlac->currentFLACFrame.header.blockSizeInPCMFrames > pFlac->decodedSamplesCapacityInPCMFrames || pFlac->currentFLACFrame.pcmFramesRemaining > pFlac->currentFLACFrame.header.blockSizeInPCMFrames) {
         return DRFLAC_FALSE;
     }
 
