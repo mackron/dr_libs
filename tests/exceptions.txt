@@ -59,7 +59,6 @@ flac/unknown/invalid/strategy7_precise_256.flac;                        FAIL_DEC
 # Some badly formed FLAC files are not supported by dr_flac. Some of these work in libFLAC so these will be reviewed later to improve dr_flac compatiblity.
 flac/github/ietf-wg-cellar/flac-test-files/faulty/01 - wrong max blocksize.flac;                                       UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/faulty/08 - blocksize 65536.flac;                                           UNSUPPORTED
-flac/github/ietf-wg-cellar/flac-test-files/faulty/11 - incorrect metadata block length.flac;                           UNSUPPORTED
 
 # dr_flac does not support dynamically changing sample rate or channels within the same stream.
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/02 - increasing number of channels.flac;                           UNSUPPORTED

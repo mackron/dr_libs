@@ -6759,7 +6759,7 @@ static void drflac__free_from_callbacks(void* p, const drflac_allocation_callbac
 }
 
 
-static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD, drflac_uint64* pFirstFramePos, drflac_uint64* pSeektablePos, drflac_uint32* pSeekpointCount, drflac_allocation_callbacks* pAllocationCallbacks)
+static drflac_result drflac__read_and_decode_metadata(drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_tell_proc onTell, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD, drflac_uint64* pFirstFramePos, drflac_uint64* pSeektablePos, drflac_uint32* pSeekpointCount, drflac_allocation_callbacks* pAllocationCallbacks)
 {
     /*
     We want to keep track of the byte position in the stream of the seektable. At the time of calling this function we know that
@@ -6778,7 +6778,9 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                 hasKnownFileSize = DRFLAC_TRUE;
             }
 
-            onSeek(pUserData, (int)runningFilePos, DRFLAC_SEEK_SET);    /* Safe cast because runningFilePos should always be 42 at this point. */
+            if (!onSeek(pUserData, (int)runningFilePos, DRFLAC_SEEK_SET)) {    /* Safe cast because runningFilePos should always be 42 at this point. */
+                return DRFLAC_BAD_SEEK;
+            }
         }
     }
 
@@ -6788,14 +6790,14 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
         drflac_uint8 blockType = 0;
         drflac_uint32 blockSize;
         if (drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize) == DRFLAC_FALSE) {
-            return DRFLAC_FALSE;
-        }
-
-        if (hasKnownFileSize && (blockSize > ((drflac_uint64)fileSize - runningFilePos))) {
-            return DRFLAC_FALSE;    /* Block size exceeds the size of the file. */
+            return DRFLAC_ERROR;
         }
 
         runningFilePos += 4;
+
+        if (hasKnownFileSize && (runningFilePos > (drflac_uint64)fileSize || blockSize > (drflac_uint64)fileSize - runningFilePos)) {
+            return DRFLAC_INVALID_DATA;    /* Block size exceeds the size of the file. */
+        }
 
         metadata.type = blockType;
         metadata.rawDataSize = 0;
@@ -6807,18 +6809,18 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
             case DRFLAC_METADATA_BLOCK_TYPE_APPLICATION:
             {
                 if (blockSize < 4) {
-                    return DRFLAC_FALSE;
+                    return DRFLAC_INVALID_DATA;
                 }
 
                 if (onMeta) {
                     void* pRawData = drflac__malloc_from_callbacks(blockSize, pAllocationCallbacks);
                     if (pRawData == NULL) {
-                        return DRFLAC_FALSE;
+                        return DRFLAC_ERROR;
                     }
 
                     if (onRead(pUserData, pRawData, blockSize) != blockSize) {
                         drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                        return DRFLAC_FALSE;
+                        return DRFLAC_ERROR;
                     }
 
                     metadata.pRawData = pRawData;
@@ -6834,6 +6836,10 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
             case DRFLAC_METADATA_BLOCK_TYPE_SEEKTABLE:
             {
+                if ((blockSize % DRFLAC_SEEKPOINT_SIZE_IN_BYTES) != 0) {
+                    return DRFLAC_INVALID_DATA;
+                }
+
                 seektablePos  = runningFilePos;
                 seektableSize = blockSize;
 
@@ -6848,7 +6854,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
                     pRawData = drflac__malloc_from_callbacks(rawDataSize, pAllocationCallbacks);
                     if (pRawData == NULL) {
-                        return DRFLAC_FALSE;
+                        return DRFLAC_ERROR;
                     }
 
                     /* We need to read seekpoint by seekpoint and do some processing. */
@@ -6857,7 +6863,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
                         if (onRead(pUserData, pSeekpoint, DRFLAC_SEEKPOINT_SIZE_IN_BYTES) != DRFLAC_SEEKPOINT_SIZE_IN_BYTES) {
                             drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                            return DRFLAC_FALSE;
+                            return DRFLAC_ERROR;
                         }
 
                         /* Endian swap. */
@@ -6884,7 +6890,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     if (onMeta != NULL && blockSize > 0) {
                         drflac_uint8 unused[8];
                         if (onRead(pUserData, unused, blockSize) != blockSize) {
-                            return DRFLAC_FALSE;
+                            return DRFLAC_ERROR;
                         }
                     }
 
@@ -6899,12 +6905,12 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
                     pRawData = drflac__malloc_from_callbacks(blockSize, pAllocationCallbacks);
                     if (pRawData == NULL) {
-                        return DRFLAC_FALSE;
+                        return DRFLAC_ERROR;
                     }
 
                     if (onRead(pUserData, pRawData, blockSize) != blockSize) {
                         drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                        return DRFLAC_FALSE;
+                        return DRFLAC_ERROR;
                     }
 
                     metadata.pRawData = pRawData;
@@ -6953,7 +6959,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
             case DRFLAC_METADATA_BLOCK_TYPE_CUESHEET:
             {
                 if (blockSize < 396) {
-                    return DRFLAC_FALSE;
+                    return DRFLAC_INVALID_DATA;
                 }
 
                 if (onMeta) {
@@ -6971,12 +6977,12 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     */
                     pRawData = drflac__malloc_from_callbacks(blockSize, pAllocationCallbacks);
                     if (pRawData == NULL) {
-                        return DRFLAC_FALSE;
+                        return DRFLAC_ERROR;
                     }
 
                     if (onRead(pUserData, pRawData, blockSize) != blockSize) {
                         drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                        return DRFLAC_FALSE;
+                        return DRFLAC_ERROR;
                     }
 
                     metadata.pRawData = pRawData;
@@ -7003,7 +7009,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
                             if (pRunningDataEnd - pRunningData < DRFLAC_CUESHEET_TRACK_SIZE_IN_BYTES) {
                                 drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                                return DRFLAC_FALSE;
+                                return DRFLAC_INVALID_DATA;
                             }
 
                             /* Skip to the index point count */
@@ -7018,7 +7024,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                             indexPointSize = indexCount * DRFLAC_CUESHEET_TRACK_INDEX_SIZE_IN_BYTES;
                             if (pRunningDataEnd - pRunningData < (drflac_int64)indexPointSize) {
                                 drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                                return DRFLAC_FALSE;
+                                return DRFLAC_INVALID_DATA;
                             }
 
                             pRunningData += indexPointSize;
@@ -7034,7 +7040,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                         pTrackData = drflac__malloc_from_callbacks(bufferSize, pAllocationCallbacks);
                         if (pTrackData == NULL) {
                             drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                            return DRFLAC_FALSE;
+                            return DRFLAC_ERROR;
                         }
 
                         pRunningTrackData = (char*)pTrackData;
@@ -7078,44 +7084,54 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
             case DRFLAC_METADATA_BLOCK_TYPE_PICTURE:
             {
                 if (blockSize < 32) {
-                    return DRFLAC_FALSE;
+                    return DRFLAC_INVALID_DATA;
                 }
 
                 if (onMeta) {
-                    drflac_bool32 result = DRFLAC_TRUE;
+                    drflac_result result = DRFLAC_SUCCESS;
                     drflac_uint32 blockSizeRemaining = blockSize;
                     char* pMime = NULL;
                     char* pDescription = NULL;
                     void* pPictureData = NULL;
 
-                    if (blockSizeRemaining < 4 || onRead(pUserData, &metadata.data.picture.type, 4) != 4) {
-                        result = DRFLAC_FALSE;
+                    if (blockSizeRemaining < 4) {
+                        result = DRFLAC_INVALID_DATA;
+                        goto done_flac;
+                    }
+
+                    if (onRead(pUserData, &metadata.data.picture.type, 4) != 4) {
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= 4;
                     metadata.data.picture.type = drflac__be2host_32(metadata.data.picture.type);
 
 
-                    if (blockSizeRemaining < 4 || onRead(pUserData, &metadata.data.picture.mimeLength, 4) != 4) {
-                        result = DRFLAC_FALSE;
+                    if (blockSizeRemaining < 4) {
+                        result = DRFLAC_INVALID_DATA;
+                        goto done_flac;
+                    }
+
+                    if (onRead(pUserData, &metadata.data.picture.mimeLength, 4) != 4) {
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= 4;
                     metadata.data.picture.mimeLength = drflac__be2host_32(metadata.data.picture.mimeLength);
 
                     if (blockSizeRemaining < metadata.data.picture.mimeLength) {
-                        result = DRFLAC_FALSE;
+                        result = DRFLAC_INVALID_DATA;
                         goto done_flac;
                     }
 
                     pMime = (char*)drflac__malloc_from_callbacks(metadata.data.picture.mimeLength + 1, pAllocationCallbacks); /* +1 for null terminator. */
                     if (pMime == NULL) {
-                        result = DRFLAC_FALSE;
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
 
                     if (onRead(pUserData, pMime, metadata.data.picture.mimeLength) != metadata.data.picture.mimeLength) {
-                        result = DRFLAC_FALSE;
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= metadata.data.picture.mimeLength;
@@ -7123,26 +7139,31 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     metadata.data.picture.mime = (const char*)pMime;
 
 
-                    if (blockSizeRemaining < 4 || onRead(pUserData, &metadata.data.picture.descriptionLength, 4) != 4) {
-                        result = DRFLAC_FALSE;
+                    if (blockSizeRemaining < 4) {
+                        result = DRFLAC_INVALID_DATA;
+                        goto done_flac;
+                    }
+
+                    if (onRead(pUserData, &metadata.data.picture.descriptionLength, 4) != 4) {
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= 4;
                     metadata.data.picture.descriptionLength = drflac__be2host_32(metadata.data.picture.descriptionLength);
 
                     if (blockSizeRemaining < metadata.data.picture.descriptionLength) {
-                        result = DRFLAC_FALSE;
+                        result = DRFLAC_INVALID_DATA;
                         goto done_flac;
                     }
 
                     pDescription = (char*)drflac__malloc_from_callbacks(metadata.data.picture.descriptionLength + 1, pAllocationCallbacks); /* +1 for null terminator. */
                     if (pDescription == NULL) {
-                        result = DRFLAC_FALSE;
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
 
                     if (onRead(pUserData, pDescription, metadata.data.picture.descriptionLength) != metadata.data.picture.descriptionLength) {
-                        result = DRFLAC_FALSE;
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= metadata.data.picture.descriptionLength;
@@ -7150,29 +7171,49 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     metadata.data.picture.description = (const char*)pDescription;
 
 
-                    if (blockSizeRemaining < 4 || onRead(pUserData, &metadata.data.picture.width, 4) != 4) {
-                        result = DRFLAC_FALSE;
+                    if (blockSizeRemaining < 4) {
+                        result = DRFLAC_INVALID_DATA;
+                        goto done_flac;
+                    }
+
+                    if (onRead(pUserData, &metadata.data.picture.width, 4) != 4) {
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= 4;
                     metadata.data.picture.width = drflac__be2host_32(metadata.data.picture.width);
 
-                    if (blockSizeRemaining < 4 || onRead(pUserData, &metadata.data.picture.height, 4) != 4) {
-                        result = DRFLAC_FALSE;
+                    if (blockSizeRemaining < 4) {
+                        result = DRFLAC_INVALID_DATA;
+                        goto done_flac;
+                    }
+
+                    if (onRead(pUserData, &metadata.data.picture.height, 4) != 4) {
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= 4;
                     metadata.data.picture.height = drflac__be2host_32(metadata.data.picture.height);
 
-                    if (blockSizeRemaining < 4 || onRead(pUserData, &metadata.data.picture.colorDepth, 4) != 4) {
-                        result = DRFLAC_FALSE;
+                    if (blockSizeRemaining < 4) {
+                        result = DRFLAC_INVALID_DATA;
+                        goto done_flac;
+                    }
+
+                    if (onRead(pUserData, &metadata.data.picture.colorDepth, 4) != 4) {
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= 4;
                     metadata.data.picture.colorDepth = drflac__be2host_32(metadata.data.picture.colorDepth);
 
-                    if (blockSizeRemaining < 4 || onRead(pUserData, &metadata.data.picture.indexColorCount, 4) != 4) {
-                        result = DRFLAC_FALSE;
+                    if (blockSizeRemaining < 4) {
+                        result = DRFLAC_INVALID_DATA;
+                        goto done_flac;
+                    }
+
+                    if (onRead(pUserData, &metadata.data.picture.indexColorCount, 4) != 4) {
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= 4;
@@ -7180,15 +7221,20 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
 
                     /* Picture data. */
-                    if (blockSizeRemaining < 4 || onRead(pUserData, &metadata.data.picture.pictureDataSize, 4) != 4) {
-                        result = DRFLAC_FALSE;
+                    if (blockSizeRemaining < 4) {
+                        result = DRFLAC_INVALID_DATA;
+                        goto done_flac;
+                    }
+
+                    if (onRead(pUserData, &metadata.data.picture.pictureDataSize, 4) != 4) {
+                        result = DRFLAC_ERROR;
                         goto done_flac;
                     }
                     blockSizeRemaining -= 4;
                     metadata.data.picture.pictureDataSize = drflac__be2host_32(metadata.data.picture.pictureDataSize);
 
                     if (blockSizeRemaining < metadata.data.picture.pictureDataSize) {
-                        result = DRFLAC_FALSE;
+                        result = DRFLAC_INVALID_DATA;
                         goto done_flac;
                     }
 
@@ -7203,7 +7249,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     pPictureData = drflac__malloc_from_callbacks(metadata.data.picture.pictureDataSize, pAllocationCallbacks);
                     if (pPictureData != NULL) {
                         if (onRead(pUserData, pPictureData, metadata.data.picture.pictureDataSize) != metadata.data.picture.pictureDataSize) {
-                            result = DRFLAC_FALSE;
+                            result = DRFLAC_ERROR;
                             goto done_flac;
                         }
                     } else
@@ -7211,7 +7257,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     {
                         /* Allocation failed. We need to seek past the picture data. */
                         if (!onSeek(pUserData, metadata.data.picture.pictureDataSize, DRFLAC_SEEK_CUR)) {
-                            result = DRFLAC_FALSE;
+                            result = DRFLAC_ERROR;
                             goto done_flac;
                         }
                     }
@@ -7234,8 +7280,8 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     drflac__free_from_callbacks(pDescription, pAllocationCallbacks);
                     drflac__free_from_callbacks(pPictureData, pAllocationCallbacks);
 
-                    if (result != DRFLAC_TRUE) {
-                        return DRFLAC_FALSE;
+                    if (result != DRFLAC_SUCCESS) {
+                        return result;
                     }
                 }
             } break;
@@ -7247,7 +7293,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
                     /* Padding doesn't have anything meaningful in it, so just skip over it, but make sure the caller is aware of it by firing the callback. */
                     if (!onSeek(pUserData, blockSize, DRFLAC_SEEK_CUR)) {
-                        isLastBlock = DRFLAC_TRUE;  /* An error occurred while seeking. Attempt to recover by treating this as the last block which will in turn terminate the loop. */
+                        return DRFLAC_BAD_SEEK;
                     } else {
                         onMeta(pUserDataMD, &metadata);
                     }
@@ -7256,12 +7302,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
 
             case DRFLAC_METADATA_BLOCK_TYPE_INVALID:
             {
-                /* Invalid chunk. Just skip over this one. */
-                if (onMeta) {
-                    if (!onSeek(pUserData, blockSize, DRFLAC_SEEK_CUR)) {
-                        isLastBlock = DRFLAC_TRUE;  /* An error occurred while seeking. Attempt to recover by treating this as the last block which will in turn terminate the loop. */
-                    }
-                }
+                return DRFLAC_INVALID_DATA;
             } break;
 
             default:
@@ -7275,12 +7316,12 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
                     if (pRawData != NULL) {
                         if (onRead(pUserData, pRawData, blockSize) != blockSize) {
                             drflac__free_from_callbacks(pRawData, pAllocationCallbacks);
-                            return DRFLAC_FALSE;
+                            return DRFLAC_ERROR;
                         }
                     } else {
                         /* Allocation failed. We need to seek past the block. */
                         if (!onSeek(pUserData, blockSize, DRFLAC_SEEK_CUR)) {
-                            return DRFLAC_FALSE;
+                            return DRFLAC_ERROR;
                         }
                     }
 
@@ -7296,7 +7337,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
         /* If we're not handling metadata, just skip over the block. If we are, it will have been handled earlier in the switch statement above. */
         if (onMeta == NULL && blockSize > 0) {
             if (!onSeek(pUserData, blockSize, DRFLAC_SEEK_CUR)) {
-                isLastBlock = DRFLAC_TRUE;
+                return DRFLAC_BAD_SEEK;
             }
         }
 
@@ -7310,7 +7351,7 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
     *pSeekpointCount = seektableSize / DRFLAC_SEEKPOINT_SIZE_IN_BYTES;
     *pFirstFramePos  = runningFilePos;
 
-    return DRFLAC_TRUE;
+    return DRFLAC_SUCCESS;
 }
 
 static drflac_bool32 drflac__init_private__native_without_streaminfo(drflac_init_info* pInit, const drflac_uint8* pInitialData, drflac_uint64 firstFrameSearchPos)
@@ -8386,6 +8427,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     drflac_uint64 firstFramePos;
     drflac_uint64 seektablePos;
     drflac_uint32 seekpointCount;
+    drflac_bool32 recoverMetadata = DRFLAC_FALSE;
     drflac_allocation_callbacks allocationCallbacks;
     drflac* pFlac;
 
@@ -8477,6 +8519,7 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     seektablePos   = 0;
     seekpointCount = 0;
     if (init.hasMetadataBlocks) {
+        drflac_result metadataResult;
         drflac_read_proc onReadOverride = onRead;
         drflac_seek_proc onSeekOverride = onSeek;
         drflac_tell_proc onTellOverride = onTell;
@@ -8491,11 +8534,20 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
         }
 #endif
 
-        if (!drflac__read_and_decode_metadata(onReadOverride, onSeekOverride, onTellOverride, onMeta, pUserDataOverride, pUserDataMD, &firstFramePos, &seektablePos, &seekpointCount, &allocationCallbacks)) {
+        metadataResult = drflac__read_and_decode_metadata(onReadOverride, onSeekOverride, onTellOverride, onMeta, pUserDataOverride, pUserDataMD, &firstFramePos, &seektablePos, &seekpointCount, &allocationCallbacks);
+        if (metadataResult != DRFLAC_SUCCESS) {
+            if (metadataResult == DRFLAC_INVALID_DATA && init.container == drflac_container_native && onSeek != NULL) {
+                /* An incorrect block length can consume audio. Search again from the end of STREAMINFO. */
+                firstFramePos   = 42;
+                seektablePos    = 0;
+                seekpointCount  = 0;
+                recoverMetadata = DRFLAC_TRUE;
+            } else {
         #ifndef DR_FLAC_NO_OGG
-            drflac__free_from_callbacks(pOggbs, &allocationCallbacks);
+                drflac__free_from_callbacks(pOggbs, &allocationCallbacks);
         #endif
-            return NULL;
+                return NULL;
+            }
         }
 
         if ((0xFFFFFFFF - (seekpointCount * sizeof(drflac_seekpoint))) < allocationSize) {
@@ -8597,10 +8649,15 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
 
 
     /*
-    If we get here, but don't have a STREAMINFO block, it means we've opened the stream in relaxed mode and need to decode
-    the first frame.
+    Decode the first frame when recovering from malformed metadata or opening without STREAMINFO in relaxed mode.
     */
-    if (!init.hasStreamInfoBlock) {
+    if (recoverMetadata) {
+        /* Decode the first recovered frame to validate its data and CRC before accepting the stream. */
+        if (!drflac__seek_to_byte(&pFlac->bs, firstFramePos) || !drflac__read_and_decode_next_flac_frame(pFlac)) {
+            drflac__free_from_callbacks(pFlac, &allocationCallbacks);
+            return NULL;
+        }
+    } else if (!init.hasStreamInfoBlock) {
         pFlac->currentFLACFrame.header = init.firstFrameHeader;
         for (;;) {
             drflac_result result = drflac__decode_flac_frame(pFlac);

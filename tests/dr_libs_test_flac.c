@@ -134,6 +134,8 @@ typedef struct
     const dr_test_log* pLog;
     drflac_uint64 capacityFrames;
     dr_bool32 hasStreamInfo;
+    dr_bool32 readingMetadata;
+    dr_bool32 recoveringMetadata;
     dr_bool32 failed;
 } dr_libflac_decode_context;
 
@@ -158,6 +160,17 @@ static void dr_libflac_on_error(const FLAC__StreamDecoder* pDecoder, FLAC__Strea
 
     (void)pDecoder;
 
+    if (status == FLAC__STREAM_DECODER_ERROR_STATUS_BAD_METADATA && pContext->readingMetadata && pContext->hasStreamInfo && pContext->decoded.container == drflac_container_native) {
+        pContext->recoveringMetadata = DR_TRUE;
+        dr_test_log_warningf(pContext->pLog, "libFLAC reported malformed metadata. Attempting audio recovery.\n");
+        return;
+    }
+
+    if (status == FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC && pContext->recoveringMetadata) {
+        /* Searching past malformed metadata can lose sync before the first audio frame. */
+        return;
+    }
+
     pContext->failed = DR_TRUE;
     dr_test_log_errorf(pContext->pLog, "libFLAC decoding error: %s.\n", FLAC__StreamDecoderErrorStatusString[status]);
 }
@@ -173,6 +186,8 @@ static FLAC__StreamDecoderWriteStatus dr_libflac_on_write(const FLAC__StreamDeco
     if (pContext->failed || !pContext->hasStreamInfo) {
         return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
     }
+
+    pContext->recoveringMetadata = DR_FALSE;
 
     if (pFrame->header.channels != pContext->decoded.channels) {
         pContext->failed = DR_TRUE;
@@ -217,12 +232,14 @@ static int dr_test_flac_decoding_libflac(const dr_test_log* pLog, const char* pF
     FLAC__StreamDecoderInitStatus initStatus;
     dr_libflac_decode_context context = {0};
     dr_bool32 initialized = DR_FALSE;
+    FLAC__bool metadataResult;
     dr_bool32 formatMatches;
     size_t allocationSize;
     int exitCode = 1;
 
     context.pLog = pLog;
     context.capacityFrames = pReference->frameCount;
+    context.decoded.container = pReference->container;
 
     pDecoder = FLAC__stream_decoder_new();
     if (pDecoder == NULL) {
@@ -231,6 +248,7 @@ static int dr_test_flac_decoding_libflac(const dr_test_log* pLog, const char* pF
     }
 
     FLAC__stream_decoder_set_md5_checking(pDecoder, 1);
+    FLAC__stream_decoder_set_metadata_respond_all(pDecoder);
     if (pReference->container == drflac_container_ogg) {
         initStatus = FLAC__stream_decoder_init_ogg_file(pDecoder, pFilePath, dr_libflac_on_write, dr_libflac_on_metadata, dr_libflac_on_error, &context);
     } else {
@@ -244,7 +262,19 @@ static int dr_test_flac_decoding_libflac(const dr_test_log* pLog, const char* pF
 
     initialized = DR_TRUE;
 
-    if (!FLAC__stream_decoder_process_until_end_of_metadata(pDecoder) || !context.hasStreamInfo || context.failed) {
+    context.readingMetadata = DR_TRUE;
+    metadataResult = FLAC__stream_decoder_process_until_end_of_metadata(pDecoder);
+    context.readingMetadata = DR_FALSE;
+
+    if (!metadataResult) {
+        /* libFLAC can stop on malformed metadata but remain ready to search for audio. */
+        if (!context.recoveringMetadata || FLAC__stream_decoder_get_state(pDecoder) != FLAC__STREAM_DECODER_SEARCH_FOR_FRAME_SYNC) {
+            dr_test_log_errorf(pLog, "Failed to read metadata with libFLAC.\n");
+            goto cleanup;
+        }
+    }
+
+    if (!context.hasStreamInfo || context.failed) {
         dr_test_log_errorf(pLog, "Failed to read metadata with libFLAC.\n");
         goto cleanup;
     }
