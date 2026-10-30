@@ -58,7 +58,6 @@ flac/unknown/invalid/strategy7_precise_256.flac;                        FAIL_DEC
 
 # Some badly formed FLAC files are not currently supported by dr_flac. Some of these work in libFLAC so these will be reviewed later to improve dr_flac compatiblity.
 flac/github/ietf-wg-cellar/flac-test-files/faulty/01 - wrong max blocksize.flac;                                       UNSUPPORTED
-flac/github/ietf-wg-cellar/flac-test-files/faulty/04 - wrong number of channels.flac;                                  UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/faulty/05 - wrong total number of samples.flac;                             UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/faulty/06 - missing streaminfo metadata block.flac;                         UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/faulty/07 - other metadata blocks preceding streaminfo metadata block.flac; UNSUPPORTED
@@ -66,13 +65,12 @@ flac/github/ietf-wg-cellar/flac-test-files/faulty/08 - blocksize 65536.flac;    
 flac/github/ietf-wg-cellar/flac-test-files/faulty/10 - invalid vorbis comment metadata block.flac;                     UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/faulty/11 - incorrect metadata block length.flac;                           UNSUPPORTED
 
-# dr_flac does not support dynamically changing sample rate, channels and bit depth within the same stream.
-flac/github/ietf-wg-cellar/flac-test-files/uncommon/01 - changing samplerate.flac;                                     UNSUPPORTED
+# dr_flac does not support dynamically changing sample rate or channels within the same stream.
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/02 - increasing number of channels.flac;                           UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/03 - decreasing number of channels.flac;                           UNSUPPORTED
-flac/github/ietf-wg-cellar/flac-test-files/uncommon/04 - changing bitdepth.flac;                                       UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/04 - wrong number of channels.flac;                                  UNSUPPORTED
 
-# Some other unsupported things that need review in dr_flac.
+# These work with drflac_open_relaxed(), but that function is not used in our automated test yet. Marking these as unsupported for now, but will be removed once the test is updated.
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/10 - file starting at frame header.flac;                           UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/11 - file starting with unparsable data.flac;                      UNSUPPORTED
 

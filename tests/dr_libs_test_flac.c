@@ -181,7 +181,7 @@ static FLAC__StreamDecoderWriteStatus dr_libflac_on_write(const FLAC__StreamDeco
         return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
     }
 
-    if (pFrame->header.channels != pContext->decoded.channels || pFrame->header.sample_rate != pContext->decoded.sampleRate) {
+    if (pFrame->header.channels != pContext->decoded.channels) {
         pContext->failed = DR_TRUE;
         return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
     }
