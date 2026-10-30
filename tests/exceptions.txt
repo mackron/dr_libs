@@ -67,16 +67,11 @@ flac/github/ietf-wg-cellar/flac-test-files/faulty/08 - blocksize 65536.flac;    
 flac/github/ietf-wg-cellar/flac-test-files/faulty/10 - invalid vorbis comment metadata block.flac;                     UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/faulty/11 - incorrect metadata block length.flac;                           UNSUPPORTED
 
-# dr_flac does not support dynamically changing sample rate, channels and bit depth withing the same stream.
+# dr_flac does not support dynamically changing sample rate, channels and bit depth within the same stream.
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/01 - changing samplerate.flac;                                     UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/02 - increasing number of channels.flac;                           UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/03 - decreasing number of channels.flac;                           UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/04 - changing bitdepth.flac;                                       UNSUPPORTED
-
-# 32-bit encoded data is not currently supported by dr_flac.
-flac/github/ietf-wg-cellar/flac-test-files/uncommon/05 - 32bps audio.flac;                                             UNSUPPORTED
-flac/generated/ffmpeg/s32_mono.flac;                                                                                   UNSUPPORTED
-flac/generated/ffmpeg/s32_stereo.flac;                                                                                 UNSUPPORTED
 
 # Some other unsupported things that need review in dr_flac.
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/10 - file starting at frame header.flac;                           UNSUPPORTED
