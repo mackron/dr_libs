@@ -58,7 +58,6 @@ flac/unknown/invalid/strategy7_precise_256.flac;                        FAIL_DEC
 
 # Some badly formed FLAC files are not currently supported by dr_flac. Some of these work in libFLAC so these will be reviewed later to improve dr_flac compatiblity.
 flac/github/ietf-wg-cellar/flac-test-files/faulty/01 - wrong max blocksize.flac;                                       UNSUPPORTED
-flac/github/ietf-wg-cellar/flac-test-files/faulty/05 - wrong total number of samples.flac;                             UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/faulty/06 - missing streaminfo metadata block.flac;                         UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/faulty/07 - other metadata blocks preceding streaminfo metadata block.flac; UNSUPPORTED
 flac/github/ietf-wg-cellar/flac-test-files/faulty/08 - blocksize 65536.flac;                                           UNSUPPORTED

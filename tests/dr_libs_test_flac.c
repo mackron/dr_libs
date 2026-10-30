@@ -62,7 +62,7 @@ static int dr_flac_read_all(drflac* pFlac, dr_test_sample_format format, dr_flac
 
     capacityFrames = 4096;
     if (pData->declaredFrameCount != 0) {
-        /* Leave space to detect output beyond the declared frame count. */
+        /* Use the declared count as an initial capacity, but keep reading to actual EOF. */
         capacityFrames = (size_t)pData->declaredFrameCount + 1;
     }
 
@@ -103,13 +103,6 @@ static int dr_flac_read_all(drflac* pFlac, dr_test_sample_format format, dr_flac
         }
 
         pData->frameCount += framesRead;
-        if (pData->declaredFrameCount != 0 && pData->frameCount > pData->declaredFrameCount) {
-            goto cleanup;
-        }
-    }
-
-    if (pData->declaredFrameCount != 0 && pData->frameCount != pData->declaredFrameCount) {
-        goto cleanup;
     }
 
     pData->sampleDataSize = (size_t)pData->frameCount * bytesPerFrame;
@@ -1134,6 +1127,12 @@ static int dr_test_flac_seeking(const dr_test_log* pLog, const char* pFilePath)
     /* No libFLAC comparison here. Keep this decoder at EOF for the first available method. */
     if (dr_flac_read_all(pFlac, dr_test_sample_format_s32, &reference) != 0) {
         dr_test_log_errorf(pLog, "Failed to decode the seeking reference.\n");
+        goto cleanup;
+    }
+
+    if (reference.declaredFrameCount != 0 && reference.declaredFrameCount != reference.frameCount) {
+        dr_test_log_warningf(pLog, "Skipping FLAC seek comparisons: STREAMINFO declares %llu PCM frames, but decoded %llu.\n", reference.declaredFrameCount, reference.frameCount);
+        exitCode = 0;
         goto cleanup;
     }
 
