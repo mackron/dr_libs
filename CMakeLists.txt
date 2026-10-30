@@ -3,13 +3,13 @@ project(dr_libs)
 
 # Options
 option(DR_LIBS_BUILD_TESTS      "Build tests"               OFF)
+option(DR_LIBS_BUILD_FUZZERS    "Build libFuzzer harnesses" OFF)
 option(DR_LIBS_FORCE_CXX        "Force compilation as C++"  OFF)
 option(DR_LIBS_FORCE_C89        "Force compilation as C89"  OFF)
 option(DR_LIBS_SANITIZE_ADDRESS "Enable AddressSanitizer"   OFF)
 option(DR_LIBS_NO_WAV           "Disable WAV"               OFF)
 option(DR_LIBS_NO_FLAC          "Disable FLAC"              OFF)
 option(DR_LIBS_NO_MP3           "Disable MP3"               OFF)
-option(DR_LIBS_BUILD_FUZZERS    "Build libFuzzer harnesses" OFF)
 
 # Construct compiler flags.
 set(COMPILE_OPTIONS)
