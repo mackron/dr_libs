@@ -56,7 +56,7 @@ flac/github/mackron/dr_libs/351/min_repro.flac;                         FAIL_DEC
 # Audio decodes, but the understated maximum block size gives incorrect fixed-block seek positions.
 flac/github/ietf-wg-cellar/flac-test-files/faulty/01 - wrong max blocksize.flac; FAIL_SEEK
 
-# Some badly formed FLAC files are not supported by dr_flac. Some of these work in libFLAC so these will be reviewed later to improve dr_flac compatiblity.
+# Some badly formed FLAC files are not supported by dr_flac.
 flac/github/ietf-wg-cellar/flac-test-files/faulty/08 - blocksize 65536.flac; UNSUPPORTED
 
 # dr_flac does not support dynamically changing sample rate or channels within the same stream.
