@@ -111,6 +111,27 @@ function(dr_libs_find_system_test_library package target pkg_config_name)
 endfunction()
 
 
+# Suppress compiler warnings only for targets built within a bundled dependency.
+function(dr_libs_disable_dependency_warnings source_dir)
+    get_property(targets DIRECTORY "${source_dir}" PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(target IN LISTS targets)
+        get_target_property(target_type ${target} TYPE)
+        if(target_type MATCHES "^(EXECUTABLE|STATIC_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY|OBJECT_LIBRARY)$")
+            if(MSVC)
+                target_compile_options(${target} PRIVATE "$<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:/w>")
+            elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+                target_compile_options(${target} PRIVATE "$<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-w>")
+            endif()
+        endif()
+    endforeach()
+
+    get_property(subdirectories DIRECTORY "${source_dir}" PROPERTY SUBDIRECTORIES)
+    foreach(subdirectory IN LISTS subdirectories)
+        dr_libs_disable_dependency_warnings("${subdirectory}")
+    endforeach()
+endfunction()
+
+
 # Keep dependency options local so they do not change the parent project's build settings.
 function(dr_libs_setup_test_dependencies)
     set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
@@ -147,6 +168,7 @@ function(dr_libs_setup_test_dependencies)
 
         message(STATUS "Building bundled libogg.")
         add_subdirectory(external/ogg EXCLUDE_FROM_ALL)
+        dr_libs_disable_dependency_warnings("${CMAKE_CURRENT_SOURCE_DIR}/external/ogg")
     endif()
 
     dr_libs_find_system_test_library(FLAC FLAC::FLAC flac)
@@ -157,6 +179,7 @@ function(dr_libs_setup_test_dependencies)
 
         message(STATUS "Building bundled libFLAC.")
         add_subdirectory(external/flac EXCLUDE_FROM_ALL)
+        dr_libs_disable_dependency_warnings("${CMAKE_CURRENT_SOURCE_DIR}/external/flac")
     endif()
 
     dr_libs_find_system_test_library(SndFile SndFile::sndfile sndfile)
@@ -167,6 +190,7 @@ function(dr_libs_setup_test_dependencies)
 
         message(STATUS "Building bundled libsndfile.")
         add_subdirectory(external/libsndfile EXCLUDE_FROM_ALL)
+        dr_libs_disable_dependency_warnings("${CMAKE_CURRENT_SOURCE_DIR}/external/libsndfile")
     endif()
 
     dr_libs_find_system_test_library(MPG123 MPG123::libmpg123 libmpg123)
@@ -177,6 +201,7 @@ function(dr_libs_setup_test_dependencies)
 
         message(STATUS "Building bundled libmpg123.")
         add_subdirectory(external/mpg123/ports/cmake external/mpg123 EXCLUDE_FROM_ALL)
+        dr_libs_disable_dependency_warnings("${CMAKE_CURRENT_SOURCE_DIR}/external/mpg123/ports/cmake")
         target_include_directories(libmpg123 INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external/mpg123/src/include>")
         if(NOT TARGET MPG123::libmpg123)
             add_library(MPG123::libmpg123 ALIAS libmpg123)
