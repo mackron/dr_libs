@@ -673,7 +673,7 @@ typedef struct
     /* The index of the PCM frame the decoder is currently sitting on. This is only used for seeking. */
     drflac_uint64 currentPCMFrame;
 
-    /* The position of the first FLAC frame in the stream. This is only ever used for seeking. */
+    /* The position from which to find the first FLAC frame. Headerless streams may have leading bytes to skip. This is only used for seeking. */
     drflac_uint64 firstFLACFramePosInBytes;
 
 
@@ -2625,18 +2625,30 @@ static drflac_bool32 drflac__find_and_seek_to_next_sync_code(drflac_bs* bs)
             return DRFLAC_FALSE;
         }
 
-        if (hi == 0xFF) {
+        while (hi == 0xFF) {
             drflac_uint8 lo;
+            drflac_uint8 trailingBits;
             if (!drflac__read_uint8(bs, 6, &lo)) {
                 return DRFLAC_FALSE;
             }
 
             if (lo == 0x3E) {
                 return DRFLAC_TRUE;
-            } else {
-                if (!drflac__seek_bits(bs, DRFLAC_CACHE_L1_BITS_REMAINING(bs) & 7)) {
-                    return DRFLAC_FALSE;
+            }
+
+            if (!drflac__read_uint8(bs, 2, &trailingBits)) {
+                return DRFLAC_FALSE;
+            }
+
+            hi = (drflac_uint8)((lo << 2) | trailingBits);
+            if (hi == 0xFF) {
+                /* This byte can be the start of a sync code. Do not skip it when searching again. */
+                #ifndef DR_FLAC_NO_CRC
+                {
+                    drflac__reset_crc16(bs);
+                    bs->crc16 = drflac_crc16_byte(0, hi);
                 }
+                #endif
             }
         }
     }
@@ -2902,7 +2914,6 @@ static DRFLAC_INLINE drflac_bool32 drflac__seek_past_next_set_bit(drflac_bs* bs,
 static drflac_bool32 drflac__seek_to_byte(drflac_bs* bs, drflac_uint64 offsetFromStart)
 {
     DRFLAC_ASSERT(bs != NULL);
-    DRFLAC_ASSERT(offsetFromStart > 0);
 
     /*
     Seeking from the start is not quite as trivial as it sounds because the onSeek callback takes a signed 32-bit integer (which
@@ -5473,7 +5484,7 @@ static drflac_bool32 drflac__read_next_flac_frame_header(drflac_bs* bs, drflac_u
             header->bitsPerSample = streaminfoBitsPerSample;
         }
 
-        if (header->bitsPerSample != streaminfoBitsPerSample) {
+        if (streaminfoBitsPerSample != 0 && header->bitsPerSample != streaminfoBitsPerSample) {
             /* If this subframe has a different bitsPerSample then streaminfo or the first frame, reject it */
             return DRFLAC_FALSE;
         }
@@ -6580,6 +6591,7 @@ typedef struct
     drflac_uint64 totalPCMFrameCount;
     drflac_uint16 maxBlockSizeInPCMFrames;
     drflac_uint64 runningFilePos;
+    drflac_uint64 firstFrameSearchPos;
     drflac_bool32 hasStreamInfoBlock;
     drflac_bool32 hasMetadataBlocks;
     drflac_bs bs;                           /* <-- A bit streamer is required for loading data during initialization. */
@@ -7286,6 +7298,44 @@ static drflac_bool32 drflac__read_and_decode_metadata(drflac_read_proc onRead, d
     return DRFLAC_TRUE;
 }
 
+static drflac_bool32 drflac__init_private__native_without_streaminfo(drflac_init_info* pInit, const drflac_uint8* pInitialData, drflac_uint64 firstFrameSearchPos)
+{
+    drflac_uint32 initialData;
+
+    pInit->container = drflac_container_native;
+    pInit->hasStreamInfoBlock = DRFLAC_FALSE;
+    pInit->hasMetadataBlocks = DRFLAC_FALSE;
+    pInit->firstFrameSearchPos = firstFrameSearchPos;
+
+    /* Replay the four bytes consumed during header detection without seeking the input. */
+    DRFLAC_COPY_MEMORY(&initialData, pInitialData, sizeof(initialData));
+    initialData = drflac__be2host_32(initialData);
+
+    pInit->bs.consumedBits = DRFLAC_CACHE_L1_SIZE_BITS(&pInit->bs) - 32;
+    pInit->bs.cache        = (drflac_cache_t)initialData << pInit->bs.consumedBits;
+    #ifndef DR_FLAC_NO_CRC
+    {
+        pInit->bs.crc16Cache = initialData;
+        pInit->bs.crc16CacheIgnoredBytes = pInit->bs.consumedBits / 8;
+    }
+    #endif
+
+    if (!drflac__read_next_flac_frame_header(&pInit->bs, 0, &pInit->firstFrameHeader)) {
+        return DRFLAC_FALSE;
+    }
+
+    if (pInit->firstFrameHeader.bitsPerSample == 0 || pInit->firstFrameHeader.sampleRate == 0) {
+        return DRFLAC_FALSE;    /* The frame depends on STREAMINFO, which is not available. */
+    }
+
+    pInit->sampleRate              = pInit->firstFrameHeader.sampleRate;
+    pInit->channels                = drflac__get_channel_count_from_channel_assignment(pInit->firstFrameHeader.channelAssignment);
+    pInit->bitsPerSample           = pInit->firstFrameHeader.bitsPerSample;
+    pInit->maxBlockSizeInPCMFrames = 65535;   /* Without STREAMINFO, allow the largest supported block size. */
+
+    return DRFLAC_TRUE;
+}
+
 static drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drflac_read_proc onRead, drflac_seek_proc onSeek, drflac_meta_proc onMeta, void* pUserData, void* pUserDataMD, drflac_bool32 relaxed)
 {
     /* Pre Condition: The bit stream should be sitting just past the 4-byte id header. */
@@ -7293,41 +7343,25 @@ static drflac_bool32 drflac__init_private__native(drflac_init_info* pInit, drfla
     drflac_uint8 isLastBlock;
     drflac_uint8 blockType;
     drflac_uint32 blockSize;
+    drflac_uint32 blockHeader;
 
     (void)onSeek;
 
     pInit->container = drflac_container_native;
 
     /* The first metadata block should be the STREAMINFO block. */
-    if (!drflac__read_and_decode_block_header(onRead, pUserData, &isLastBlock, &blockType, &blockSize)) {
+    if (onRead(pUserData, &blockHeader, 4) != 4) {
         return DRFLAC_FALSE;
     }
+
+    drflac__decode_block_header(blockHeader, &isLastBlock, &blockType, &blockSize);
 
     if (blockType != DRFLAC_METADATA_BLOCK_TYPE_STREAMINFO || blockSize != 34) {
         if (!relaxed) {
             /* We're opening in strict mode and the first block is not the STREAMINFO block. Error. */
             return DRFLAC_FALSE;
         } else {
-            /*
-            Relaxed mode. To open from here we need to just find the first frame and set the sample rate, etc. to whatever is defined
-            for that frame.
-            */
-            pInit->hasStreamInfoBlock = DRFLAC_FALSE;
-            pInit->hasMetadataBlocks  = DRFLAC_FALSE;
-
-            if (!drflac__read_next_flac_frame_header(&pInit->bs, 0, &pInit->firstFrameHeader)) {
-                return DRFLAC_FALSE;    /* Couldn't find a frame. */
-            }
-
-            if (pInit->firstFrameHeader.bitsPerSample == 0) {
-                return DRFLAC_FALSE;    /* Failed to initialize because the first frame depends on the STREAMINFO block, which does not exist. */
-            }
-
-            pInit->sampleRate              = pInit->firstFrameHeader.sampleRate;
-            pInit->channels                = drflac__get_channel_count_from_channel_assignment(pInit->firstFrameHeader.channelAssignment);
-            pInit->bitsPerSample           = pInit->firstFrameHeader.bitsPerSample;
-            pInit->maxBlockSizeInPCMFrames = 65535;   /* <-- See notes here: https://xiph.org/flac/format.html#metadata_block_streaminfo */
-            return DRFLAC_TRUE;
+            return drflac__init_private__native_without_streaminfo(pInit, (const drflac_uint8*)&blockHeader, pInit->runningFilePos);
         }
     } else {
         drflac_streaminfo streaminfo;
@@ -8292,7 +8326,7 @@ static drflac_bool32 drflac__init_private(drflac_init_info* pInit, drflac_read_p
     /* If we get here it means we likely don't have a header. Try opening in relaxed mode, if applicable. */
     if (relaxed) {
         if (container == drflac_container_native) {
-            return drflac__init_private__native(pInit, onRead, onSeek, onMeta, pUserData, pUserDataMD, relaxed);
+            return drflac__init_private__native_without_streaminfo(pInit, id, pInit->runningFilePos - 4);
         }
 #ifndef DR_FLAC_NO_OGG
         if (container == drflac_container_ogg) {
@@ -8421,6 +8455,10 @@ static drflac* drflac_open_with_metadata_private(drflac_read_proc onRead, drflac
     and decoding the metadata.
     */
     firstFramePos  = 42;   /* <-- We know we are at byte 42 at this point. */
+    if (!init.hasStreamInfoBlock) {
+        firstFramePos = init.firstFrameSearchPos;
+    }
+
     seektablePos   = 0;
     seekpointCount = 0;
     if (init.hasMetadataBlocks) {
@@ -12410,14 +12448,6 @@ DRFLAC_API drflac_bool32 drflac_seek_to_pcm_frame(drflac* pFlac, drflac_uint64 p
     /* Don't do anything if we're already on the seek point. */
     if (pFlac->currentPCMFrame == pcmFrameIndex) {
         return DRFLAC_TRUE;
-    }
-
-    /*
-    If we don't know where the first frame begins then we can't seek. This will happen when the STREAMINFO block was not present
-    when the decoder was opened.
-    */
-    if (pFlac->firstFLACFramePosInBytes == 0) {
-        return DRFLAC_FALSE;
     }
 
     if (pcmFrameIndex == 0) {
