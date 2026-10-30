@@ -646,7 +646,7 @@ typedef struct
     */
     drflac_uint8 channels;
 
-    /* The bits per sample. Will be set to something like 16, 24, etc. */
+    /* The bits per sample declared by STREAMINFO, or inferred when STREAMINFO is missing. Individual FLAC frames may specify a different depth. */
     drflac_uint8 bitsPerSample;
 
     /* The maximum block size, in samples. This number represents the number of samples in each channel (not combined). */
@@ -5484,9 +5484,17 @@ static drflac_bool32 drflac__read_next_flac_frame_header(drflac_bs* bs, drflac_u
             header->bitsPerSample = streaminfoBitsPerSample;
         }
 
-        if (streaminfoBitsPerSample != 0 && header->bitsPerSample != streaminfoBitsPerSample) {
-            /* If this subframe has a different bitsPerSample then streaminfo or the first frame, reject it */
-            return DRFLAC_FALSE;
+        /* The frame must use the same decoded sample storage type as the stream. */
+        if (streaminfoBitsPerSample != 0) {
+            if (streaminfoBitsPerSample < 32) {
+                if (header->bitsPerSample == 32) {
+                    return DRFLAC_FALSE;
+                }
+            } else {
+                if (header->bitsPerSample != 32) {
+                    return DRFLAC_FALSE;
+                }
+            }
         }
 
         if (!drflac__read_uint8(bs, 8, &header->crc8)) {
@@ -5874,11 +5882,13 @@ static drflac_bool32 drflac__read_and_decode_next_flac_frame(drflac* pFlac)
         drflac_result result;
 
         if (!drflac__read_next_flac_frame_header(&pFlac->bs, pFlac->bitsPerSample, &pFlac->currentFLACFrame.header)) {
+            DRFLAC_ZERO_MEMORY(pFlac->currentFLACFrame.subframes, sizeof(pFlac->currentFLACFrame.subframes));
             return DRFLAC_FALSE;
         }
 
         result = drflac__decode_flac_frame(pFlac);
         if (result != DRFLAC_SUCCESS) {
+            DRFLAC_ZERO_MEMORY(pFlac->currentFLACFrame.subframes, sizeof(pFlac->currentFLACFrame.subframes));
             if (result == DRFLAC_CRC_MISMATCH) {
                 continue;   /* CRC mismatch. Skip to the next frame. */
             } else {
@@ -9551,7 +9561,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side__sse2(drf
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     for (i = 0; i < frameCount4; ++i) {
         __m128i left  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
@@ -9585,7 +9595,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side__neon(drf
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     shift0_4 = vdupq_n_s32(shift0);
     shift1_4 = vdupq_n_s32(shift1);
@@ -9637,11 +9647,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_left_side(drflac* p
     }
 
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_left_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_left_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -9726,7 +9736,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side__sse2(dr
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     for (i = 0; i < frameCount4; ++i) {
         __m128i side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
@@ -9760,7 +9770,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side__neon(dr
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     shift0_4 = vdupq_n_s32(shift0);
     shift1_4 = vdupq_n_s32(shift1);
@@ -9796,11 +9806,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_right_side(drflac* 
     }
 
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_right_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_right_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -9966,7 +9976,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__sse2(drfl
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_int32 shift = unusedBitsPerSample;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     if (shift == 0) {
         for (i = 0; i < frameCount4; ++i) {
@@ -10041,7 +10051,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__neon(drfl
     int32x4_t  wbpsShift1_4; /* wbps = Wasted Bits Per Sample */
     uint32x4_t one4;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     wbpsShift0_4 = vdupq_n_s32(pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
     wbpsShift1_4 = vdupq_n_s32(pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
@@ -10113,11 +10123,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side__neon(drfl
 static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_mid_side(drflac* pFlac, drflac_uint64 frameCount, drflac_uint32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int32* pOutputSamples)
 {
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_mid_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_mid_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -10236,11 +10246,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo_
 static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode_independent_stereo(drflac* pFlac, drflac_uint64 frameCount, drflac_uint32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int32* pOutputSamples)
 {
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_independent_stereo__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s32__decode_independent_stereo__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -10424,10 +10434,10 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s32__decode(drflac* pFlac, drfl
     unsigned int channelCount;
     drflac_uint32 unusedBitsPerSample;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample < 32);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample < 32);
 
     channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-    unusedBitsPerSample = 32 - pFlac->bitsPerSample;
+    unusedBitsPerSample = 32 - pFlac->currentFLACFrame.header.bitsPerSample;
 
     if (channelCount == 2) {
         const drflac_int32* pDecodedSamples0 = pFlac->currentFLACFrame.subframes[0].samples.pS32 + iFirstPCMFrame;
@@ -10605,7 +10615,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_left_side__sse2(drf
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     for (i = 0; i < frameCount4; ++i) {
         __m128i left  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
@@ -10644,7 +10654,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_left_side__neon(drf
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     shift0_4 = vdupq_n_s32(shift0);
     shift1_4 = vdupq_n_s32(shift1);
@@ -10702,11 +10712,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_left_side(drflac* p
     }
 
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s16__decode_left_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s16__decode_left_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -10807,7 +10817,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_right_side__sse2(dr
     drflac_uint32 shift0 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample;
     drflac_uint32 shift1 = unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     for (i = 0; i < frameCount4; ++i) {
         __m128i side  = _mm_slli_epi32(_mm_loadu_si128((const __m128i*)pInputSamples0 + i), shift0);
@@ -10846,7 +10856,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_right_side__neon(dr
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     shift0_4 = vdupq_n_s32(shift0);
     shift1_4 = vdupq_n_s32(shift1);
@@ -10888,11 +10898,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_right_side(drflac* 
     }
 
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s16__decode_right_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s16__decode_right_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -11078,7 +11088,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__sse2(drfl
     const drflac_uint32* pInputSamples1U32 = (const drflac_uint32*)pInputSamples1;
     drflac_uint32 shift = unusedBitsPerSample;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     if (shift == 0) {
         for (i = 0; i < frameCount4; ++i) {
@@ -11156,7 +11166,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__neon(drfl
     int32x4_t wbpsShift0_4; /* wbps = Wasted Bits Per Sample */
     int32x4_t wbpsShift1_4; /* wbps = Wasted Bits Per Sample */
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     wbpsShift0_4 = vdupq_n_s32(pFlac->currentFLACFrame.subframes[0].wastedBitsPerSample);
     wbpsShift1_4 = vdupq_n_s32(pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample);
@@ -11233,11 +11243,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side__neon(drfl
 static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_mid_side(drflac* pFlac, drflac_uint64 frameCount, drflac_uint32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int16* pOutputSamples)
 {
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s16__decode_mid_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s16__decode_mid_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -11372,11 +11382,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_independent_stereo_
 static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode_independent_stereo(drflac* pFlac, drflac_uint64 frameCount, drflac_uint32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, drflac_int16* pOutputSamples)
 {
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s16__decode_independent_stereo__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_s16__decode_independent_stereo__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -11395,10 +11405,10 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_s16__decode(drflac* pFlac, drfl
     unsigned int channelCount;
     drflac_uint32 unusedBitsPerSample;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample < 32);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample < 32);
 
     channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-    unusedBitsPerSample = 32 - pFlac->bitsPerSample;
+    unusedBitsPerSample = 32 - pFlac->currentFLACFrame.header.bitsPerSample;
 
     if (channelCount == 2) {
         const drflac_int32* pDecodedSamples0 = pFlac->currentFLACFrame.subframes[0].samples.pS32 + iFirstPCMFrame;
@@ -11566,7 +11576,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_left_side__sse2(drf
     drflac_uint32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
     __m128 factor;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     factor = _mm_set1_ps(1.0f / 8388608.0f);
 
@@ -11605,7 +11615,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_left_side__neon(drf
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     factor4  = vdupq_n_f32(1.0f / 8388608.0f);
     shift0_4 = vdupq_n_s32(shift0);
@@ -11665,11 +11675,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_left_side(drflac* p
     }
 
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_f32__decode_left_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_f32__decode_left_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -11756,7 +11766,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_right_side__sse2(dr
     drflac_uint32 shift1 = (unusedBitsPerSample + pFlac->currentFLACFrame.subframes[1].wastedBitsPerSample) - 8;
     __m128 factor;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     factor = _mm_set1_ps(1.0f / 8388608.0f);
 
@@ -11795,7 +11805,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_right_side__neon(dr
     int32x4_t shift0_4;
     int32x4_t shift1_4;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     factor4  = vdupq_n_f32(1.0f / 8388608.0f);
     shift0_4 = vdupq_n_s32(shift0);
@@ -11836,11 +11846,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_right_side(drflac* 
     }
 
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_f32__decode_right_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_f32__decode_right_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -12009,7 +12019,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__sse2(drfl
     float factor;
     __m128 factor128;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     factor = 1.0f / 8388608.0f;
     factor128 = _mm_set1_ps(factor);
@@ -12099,7 +12109,7 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__neon(drfl
     int32x4_t wbps0_4;  /* Wasted Bits Per Sample */
     int32x4_t wbps1_4;  /* Wasted Bits Per Sample */
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample <= 24);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample <= 24);
 
     factor  = 1.0f / 8388608.0f;
     factor4 = vdupq_n_f32(factor);
@@ -12177,11 +12187,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side__neon(drfl
 static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_mid_side(drflac* pFlac, drflac_uint64 frameCount, drflac_uint32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
 {
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_f32__decode_mid_side__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_f32__decode_mid_side__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -12318,11 +12328,11 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_independent_stereo_
 static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode_independent_stereo(drflac* pFlac, drflac_uint64 frameCount, drflac_uint32 unusedBitsPerSample, const drflac_int32* pInputSamples0, const drflac_int32* pInputSamples1, float* pOutputSamples)
 {
 #if defined(DRFLAC_SUPPORT_SSE2)
-    if (drflac__gIsSSE2Supported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsSSE2Supported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_f32__decode_independent_stereo__sse2(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #elif defined(DRFLAC_SUPPORT_NEON)
-    if (drflac__gIsNEONSupported && pFlac->bitsPerSample <= 24) {
+    if (drflac__gIsNEONSupported && pFlac->currentFLACFrame.header.bitsPerSample <= 24) {
         drflac_read_pcm_frames_f32__decode_independent_stereo__neon(pFlac, frameCount, unusedBitsPerSample, pInputSamples0, pInputSamples1, pOutputSamples);
     } else
 #endif
@@ -12341,10 +12351,10 @@ static DRFLAC_INLINE void drflac_read_pcm_frames_f32__decode(drflac* pFlac, drfl
     unsigned int channelCount;
     drflac_uint32 unusedBitsPerSample;
 
-    DRFLAC_ASSERT(pFlac->bitsPerSample < 32);
+    DRFLAC_ASSERT(pFlac->currentFLACFrame.header.bitsPerSample < 32);
 
     channelCount = drflac__get_channel_count_from_channel_assignment(pFlac->currentFLACFrame.header.channelAssignment);
-    unusedBitsPerSample = 32 - pFlac->bitsPerSample;
+    unusedBitsPerSample = 32 - pFlac->currentFLACFrame.header.bitsPerSample;
 
     if (channelCount == 2) {
         const drflac_int32* pDecodedSamples0 = pFlac->currentFLACFrame.subframes[0].samples.pS32 + iFirstPCMFrame;

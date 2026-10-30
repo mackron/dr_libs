@@ -181,7 +181,7 @@ static FLAC__StreamDecoderWriteStatus dr_libflac_on_write(const FLAC__StreamDeco
         return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
     }
 
-    if (pFrame->header.channels != pContext->decoded.channels || pFrame->header.sample_rate != pContext->decoded.sampleRate || pFrame->header.bits_per_sample != pContext->decoded.bitsPerSample) {
+    if (pFrame->header.channels != pContext->decoded.channels || pFrame->header.sample_rate != pContext->decoded.sampleRate) {
         pContext->failed = DR_TRUE;
         return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
     }
@@ -191,7 +191,7 @@ static FLAC__StreamDecoderWriteStatus dr_libflac_on_write(const FLAC__StreamDeco
         return FLAC__STREAM_DECODER_WRITE_STATUS_ABORT;
     }
 
-    scale = (drflac_int64)1 << (32 - pContext->decoded.bitsPerSample);
+    scale = (drflac_int64)1 << (32 - pFrame->header.bits_per_sample);
 
     for (iFrame = 0; iFrame < pFrame->header.blocksize; iFrame += 1) {
         unsigned int iChannel;
