@@ -7,13 +7,17 @@
 # Flags:
 #   FAIL_OPEN      - The file should fail at opening.
 #   FAIL_DECODE    - The file should open successfully, but fail at the decoding stage.
+#   FAIL_SEEK      - Decoding must pass, but the seeking stage should fail.
 #   SKIP_REFERENCE - Skip the external decoder comparison. All dr_libs checks must still pass.
 #   UNSUPPORTED    - The file is explicitly not supported by dr_libs and will be ignored. In practice is the same as IGNORE, but is a bit clearer as to why it's being ignored.
 #   IGNORE         - The file is a non-audio file and should be ignored.
 #
 # IGNORE and UNSUPPORTED skip both stages without a log message. FAIL_DECODE requires a successful
 # dr_libs open, then a failure in decoding or validation. FAIL_DECODE still runs basic seeking,
-# but skips seek comparisons because no complete decoded reference is available.
+# but skips seek comparisons because no complete decoded reference is available. FAIL_SEEK runs
+# normal decoding and basic seeking, then handles a seeking-stage failure like FAIL_DECODE handles
+# a decoding-stage failure. Expected failures are quiet; a successful stage reports an unexpected
+# pass. The file must still open successfully.
 #
 # Each entry selects one policy. Different policies cannot be combined.
 
@@ -49,14 +53,16 @@ flac/github/mackron/dr_libs/310/poc.flac;                               FAIL_DEC
 flac/github/mackron/dr_libs/336/poc.flac;                               FAIL_DECODE
 flac/github/mackron/dr_libs/351/min_repro.flac;                         FAIL_DECODE
 
+# Audio decodes, but the understated maximum block size gives incorrect fixed-block seek positions.
+flac/github/ietf-wg-cellar/flac-test-files/faulty/01 - wrong max blocksize.flac; FAIL_SEEK
+
 # Some badly formed FLAC files are not supported by dr_flac. Some of these work in libFLAC so these will be reviewed later to improve dr_flac compatiblity.
-flac/github/ietf-wg-cellar/flac-test-files/faulty/01 - wrong max blocksize.flac;                                       UNSUPPORTED
-flac/github/ietf-wg-cellar/flac-test-files/faulty/08 - blocksize 65536.flac;                                           UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/08 - blocksize 65536.flac; UNSUPPORTED
 
 # dr_flac does not support dynamically changing sample rate or channels within the same stream.
-flac/github/ietf-wg-cellar/flac-test-files/uncommon/02 - increasing number of channels.flac;                           UNSUPPORTED
-flac/github/ietf-wg-cellar/flac-test-files/uncommon/03 - decreasing number of channels.flac;                           UNSUPPORTED
-flac/github/ietf-wg-cellar/flac-test-files/faulty/04 - wrong number of channels.flac;                                  UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/02 - increasing number of channels.flac; UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/uncommon/03 - decreasing number of channels.flac; UNSUPPORTED
+flac/github/ietf-wg-cellar/flac-test-files/faulty/04 - wrong number of channels.flac;        UNSUPPORTED
 
 # These work with drflac_open_relaxed(), but that function is not used in our automated test yet. Marking these as unsupported for now, but will be removed once the test is updated.
 flac/github/ietf-wg-cellar/flac-test-files/uncommon/10 - file starting at frame header.flac;                           UNSUPPORTED

@@ -352,7 +352,8 @@ enum
     dr_test_exception_fail_open   = 0x1,
     dr_test_exception_fail_decode = 0x2,
     dr_test_exception_ignore      = 0x4,
-    dr_test_exception_skip_reference = 0x8
+    dr_test_exception_skip_reference = 0x8,
+    dr_test_exception_fail_seek = 0x10
 };
 
 typedef struct
@@ -401,6 +402,8 @@ static int dr_test_exception_parse_flags(const dr_test_ssv_field* pField, unsign
             *pFlags |= dr_test_exception_fail_open;
         } else if (dr_test_ssv_field_equal(&token, "FAIL_DECODE")) {
             *pFlags |= dr_test_exception_fail_decode;
+        } else if (dr_test_ssv_field_equal(&token, "FAIL_SEEK")) {
+            *pFlags |= dr_test_exception_fail_seek;
         } else if (dr_test_ssv_field_equal(&token, "SKIP_REFERENCE")) {
             *pFlags |= dr_test_exception_skip_reference;
         } else if (dr_test_ssv_field_equal(&token, "IGNORE") || dr_test_ssv_field_equal(&token, "UNSUPPORTED")) {
@@ -412,7 +415,7 @@ static int dr_test_exception_parse_flags(const dr_test_ssv_field* pField, unsign
     }
 
     /* Each exception selects one policy. */
-    if (*pFlags != dr_test_exception_fail_open && *pFlags != dr_test_exception_fail_decode && *pFlags != dr_test_exception_ignore && *pFlags != dr_test_exception_skip_reference) {
+    if (*pFlags != dr_test_exception_fail_open && *pFlags != dr_test_exception_fail_decode && *pFlags != dr_test_exception_fail_seek && *pFlags != dr_test_exception_ignore && *pFlags != dr_test_exception_skip_reference) {
         dr_errorf("Exception flags are empty or conflict.\n");
         return 1;
     }
@@ -581,6 +584,8 @@ static dr_bool32 dr_test_can_open_file(const char* pFilePath, dr_test_format for
 static int dr_test_expected_failure(const dr_test_log* pLog, const char* pFilePath, dr_test_format format, unsigned int flags, dr_test_file_proc onTestFile)
 {
     dr_test_log quietLog;
+    dr_test_stage stage;
+    const char* pStageName;
     dr_bool32 opened;
     int result;
 
@@ -595,17 +600,25 @@ static int dr_test_expected_failure(const dr_test_log* pLog, const char* pFilePa
         return 0;
     }
 
+    if (flags == dr_test_exception_fail_seek) {
+        stage = dr_test_stage_seeking;
+        pStageName = "seeking";
+    } else {
+        stage = dr_test_stage_decoding;
+        pStageName = "decoding";
+    }
+
     if (!opened) {
-        dr_test_log_errorf(pLog, "Expected a decoding failure, but dr_libs could not open the file.\n");
+        dr_test_log_errorf(pLog, "Expected a %s failure, but dr_libs could not open the file.\n", pStageName);
         return 1;
     }
 
-    /* Keep expected decoding failures quiet after the file name is printed. */
+    /* Keep expected failures quiet after the file name is printed. */
     quietLog = *pLog;
     quietLog.pOutput = NULL;
-    result = onTestFile(&quietLog, pFilePath, dr_test_stage_decoding, 0);
+    result = onTestFile(&quietLog, pFilePath, stage, 0);
     if (result == 0) {
-        dr_test_log_errorf(pLog, "Expected a decoding failure, but decoding checks passed.\n");
+        dr_test_log_errorf(pLog, "Expected a %s failure, but %s checks passed.\n", pStageName, pStageName);
         return 1;
     }
 
@@ -790,7 +803,7 @@ static int dr_test_file(const char* pFilePath, const char* pDisplayPath, dr_bool
         }
     }
 
-    if (flags == 0 || flags == dr_test_exception_skip_reference) {
+    if (flags == 0 || flags == dr_test_exception_skip_reference || (flags == dr_test_exception_fail_seek && stage == dr_test_stage_decoding)) {
         result = onTestFile(&log, pFilePath, stage, testFlags);
     } else {
         result = dr_test_expected_failure(&log, pFilePath, format, flags, onTestFile);
