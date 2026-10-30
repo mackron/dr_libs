@@ -51,7 +51,7 @@ static drwav_uint64 dr_wav_read_frames(drwav* pWav, dr_test_sample_format format
     return drwav_read_pcm_frames_s32(pWav, frameCount, (drwav_int32*)pSamples);
 }
 
-static int dr_wav_read_all(drwav* pWav, dr_test_sample_format format, dr_wav_decoded_data* pData)
+static int dr_wav_read_all(const dr_test_log* pLog, drwav* pWav, dr_test_sample_format format, dr_wav_decoded_data* pData)
 {
     size_t bytesPerFrame;
     size_t capacityFrames;
@@ -72,13 +72,9 @@ static int dr_wav_read_all(drwav* pWav, dr_test_sample_format format, dr_wav_dec
     pData->declaredFrameCount      = pWav->totalPCMFrameCount;
 
     capacityFrames = 4096;
-    if (pData->declaredFrameCount != 0) {
-        /* Leave space to detect output beyond the declared frame count. */
-        capacityFrames = (size_t)pData->declaredFrameCount + 1;
-    }
-
     pData->pSamples = malloc(capacityFrames * bytesPerFrame);
     if (pData->pSamples == NULL) {
+        dr_test_log_errorf(pLog, "Out of memory for decoded WAV samples.\n");
         goto cleanup;
     }
 
@@ -95,6 +91,7 @@ static int dr_wav_read_all(drwav* pWav, dr_test_sample_format format, dr_wav_dec
 
             pNewSamples = realloc(pData->pSamples, newCapacityFrames * bytesPerFrame);
             if (pNewSamples == NULL) {
+                dr_test_log_errorf(pLog, "Out of memory for decoded WAV samples.\n");
                 goto cleanup;
             }
 
@@ -136,11 +133,11 @@ cleanup:
 }
 
 /* Takes ownership of the decoder and reads all samples in the selected format. */
-static int dr_wav_read_all_and_close(drwav* pWav, dr_test_sample_format format, dr_wav_decoded_data* pData)
+static int dr_wav_read_all_and_close(const dr_test_log* pLog, drwav* pWav, dr_test_sample_format format, dr_wav_decoded_data* pData)
 {
     int result;
 
-    result = dr_wav_read_all(pWav, format, pData);
+    result = dr_wav_read_all(pLog, pWav, format, pData);
     if (drwav_uninit(pWav) != DRWAV_SUCCESS) {
         free(pData->pSamples);
         pData->pSamples = NULL;
@@ -297,7 +294,7 @@ static int dr_wav_load_reference(const dr_test_log* pLog, const char* pFilePath,
         return 1;
     }
 
-    if (dr_wav_read_all_and_close(&wav, format, pReference) != 0) {
+    if (dr_wav_read_all_and_close(pLog, &wav, format, pReference) != 0) {
         dr_test_log_errorf(pLog, "Failed to decode %s reference.\n", dr_test_sample_format_name(format));
         return 1;
     }
@@ -1043,7 +1040,7 @@ static int dr_test_wav_seeking(const dr_test_log* pLog, const char* pFilePath)
     }
 
     /* No libsndfile comparison here. Keep this decoder at EOF for the seek cases. */
-    if (dr_wav_read_all(&wav, dr_test_sample_format_s32, &reference) != 0) {
+    if (dr_wav_read_all(pLog, &wav, dr_test_sample_format_s32, &reference) != 0) {
         dr_test_log_errorf(pLog, "Failed to decode the seeking reference.\n");
         goto cleanup;
     }

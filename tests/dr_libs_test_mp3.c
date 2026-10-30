@@ -37,7 +37,7 @@ static drmp3_uint64 dr_mp3_cursor(const drmp3* pMP3)
     return 0;
 }
 
-static int dr_mp3_read_all(drmp3* pMP3, dr_test_sample_format format, dr_mp3_decoded_data* pData)
+static int dr_mp3_read_all(const dr_test_log* pLog, drmp3* pMP3, dr_test_sample_format format, dr_mp3_decoded_data* pData)
 {
     size_t bytesPerFrame;
     size_t capacityFrames;
@@ -53,6 +53,7 @@ static int dr_mp3_read_all(drmp3* pMP3, dr_test_sample_format format, dr_mp3_dec
 
     pData->pSamples = malloc(capacityFrames * bytesPerFrame);
     if (pData->pSamples == NULL) {
+        dr_test_log_errorf(pLog, "Out of memory for decoded MP3 samples.\n");
         goto cleanup;
     }
 
@@ -69,6 +70,7 @@ static int dr_mp3_read_all(drmp3* pMP3, dr_test_sample_format format, dr_mp3_dec
 
             pNewSamples = realloc(pData->pSamples, newCapacityFrames * bytesPerFrame);
             if (pNewSamples == NULL) {
+                dr_test_log_errorf(pLog, "Out of memory for decoded MP3 samples.\n");
                 goto cleanup;
             }
 
@@ -102,11 +104,11 @@ cleanup:
 }
 
 /* Takes ownership of the decoder and reads all samples in the selected format. */
-static int dr_mp3_read_all_and_close(drmp3* pMP3, dr_test_sample_format format, dr_mp3_decoded_data* pData)
+static int dr_mp3_read_all_and_close(const dr_test_log* pLog, drmp3* pMP3, dr_test_sample_format format, dr_mp3_decoded_data* pData)
 {
     int result;
 
-    result = dr_mp3_read_all(pMP3, format, pData);
+    result = dr_mp3_read_all(pLog, pMP3, format, pData);
     drmp3_uninit(pMP3);
 
     return result;
@@ -290,7 +292,7 @@ static int dr_mp3_load_reference(const dr_test_log* pLog, const char* pFilePath,
         return 1;
     }
 
-    if (dr_mp3_read_all_and_close(&mp3, format, pReference) != 0) {
+    if (dr_mp3_read_all_and_close(pLog, &mp3, format, pReference) != 0) {
         dr_test_log_errorf(pLog, "Failed to decode %s reference.\n", dr_test_sample_format_name(format));
         return 1;
     }
@@ -1077,7 +1079,7 @@ static int dr_test_mp3_seeking(const dr_test_log* pLog, const char* pFilePath)
     initialized = DR_TRUE;
 
     /* No libmpg123 comparison here. Keep this decoder at EOF for the first method. */
-    if (dr_mp3_read_all(&mp3, dr_test_sample_format_s16, &reference) != 0) {
+    if (dr_mp3_read_all(pLog, &mp3, dr_test_sample_format_s16, &reference) != 0) {
         dr_test_log_errorf(pLog, "Failed to decode the seeking reference.\n");
         goto cleanup;
     }

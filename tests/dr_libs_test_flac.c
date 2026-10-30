@@ -43,7 +43,7 @@ static drflac_uint64 dr_flac_read_frames(drflac* pFlac, dr_test_sample_format fo
     return drflac_read_pcm_frames_s32(pFlac, frameCount, (drflac_int32*)pSamples);
 }
 
-static int dr_flac_read_all(drflac* pFlac, dr_test_sample_format format, dr_flac_decoded_data* pData)
+static int dr_flac_read_all(const dr_test_log* pLog, drflac* pFlac, dr_test_sample_format format, dr_flac_decoded_data* pData)
 {
     size_t bytesPerFrame;
     size_t capacityFrames;
@@ -61,13 +61,9 @@ static int dr_flac_read_all(drflac* pFlac, dr_test_sample_format format, dr_flac
     pData->declaredFrameCount      = pFlac->totalPCMFrameCount;
 
     capacityFrames = 4096;
-    if (pData->declaredFrameCount != 0) {
-        /* Use the declared count as an initial capacity, but keep reading to actual EOF. */
-        capacityFrames = (size_t)pData->declaredFrameCount + 1;
-    }
-
     pData->pSamples = malloc(capacityFrames * bytesPerFrame);
     if (pData->pSamples == NULL) {
+        dr_test_log_errorf(pLog, "Out of memory for decoded FLAC samples.\n");
         goto cleanup;
     }
 
@@ -84,6 +80,7 @@ static int dr_flac_read_all(drflac* pFlac, dr_test_sample_format format, dr_flac
 
             pNewSamples = realloc(pData->pSamples, newCapacityFrames * bytesPerFrame);
             if (pNewSamples == NULL) {
+                dr_test_log_errorf(pLog, "Out of memory for decoded FLAC samples.\n");
                 goto cleanup;
             }
 
@@ -118,11 +115,11 @@ cleanup:
 }
 
 /* Takes ownership of the decoder and reads all samples in the selected format. */
-static int dr_flac_read_all_and_close(drflac* pFlac, dr_test_sample_format format, dr_flac_decoded_data* pData)
+static int dr_flac_read_all_and_close(const dr_test_log* pLog, drflac* pFlac, dr_test_sample_format format, dr_flac_decoded_data* pData)
 {
     int result;
 
-    result = dr_flac_read_all(pFlac, format, pData);
+    result = dr_flac_read_all(pLog, pFlac, format, pData);
     drflac_close(pFlac);
 
     return result;
@@ -344,7 +341,7 @@ static int dr_flac_load_reference(const dr_test_log* pLog, const char* pFilePath
         return 1;
     }
 
-    if (dr_flac_read_all_and_close(pFlac, format, pReference) != 0) {
+    if (dr_flac_read_all_and_close(pLog, pFlac, format, pReference) != 0) {
         dr_test_log_errorf(pLog, "Failed to decode %s reference.\n", dr_test_sample_format_name(format));
         return 1;
     }
@@ -1158,7 +1155,7 @@ static int dr_test_flac_seeking(const dr_test_log* pLog, const char* pFilePath)
     }
 
     /* No libFLAC comparison here. Keep this decoder at EOF for the first available method. */
-    if (dr_flac_read_all(pFlac, dr_test_sample_format_s32, &reference) != 0) {
+    if (dr_flac_read_all(pLog, pFlac, dr_test_sample_format_s32, &reference) != 0) {
         dr_test_log_errorf(pLog, "Failed to decode the seeking reference.\n");
         goto cleanup;
     }
