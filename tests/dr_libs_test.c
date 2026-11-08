@@ -812,7 +812,7 @@ static int dr_test_file(const char* pFilePath, const char* pDisplayPath, dr_bool
     return result;
 }
 
-static int dr_test_directory(const char* pDirectoryPath, const char* pDisplayPath, dr_bool32 isDatabase, dr_test_format format, dr_test_stage stage, const dr_test_exceptions* pExceptions, unsigned int logFlags)
+static int dr_test_directory(const char* pDirectoryPath, const char* pDisplayPath, dr_bool32 isDatabase, dr_test_format format, dr_test_stage stage, const dr_test_exceptions* pExceptions, unsigned int logFlags, unsigned int* pFailureCount)
 {
     fs_iterator* pIterator;
     int exitCode = 0;
@@ -841,9 +841,12 @@ static int dr_test_directory(const char* pDirectoryPath, const char* pDisplayPat
         }
 
         if (pIterator->info.directory) {
-            testResult = dr_test_directory(pFilePath, pFileDisplayPath, isDatabase, format, stage, pExceptions, logFlags);
+            testResult = dr_test_directory(pFilePath, pFileDisplayPath, isDatabase, format, stage, pExceptions, logFlags, pFailureCount);
         } else {
             testResult = dr_test_file(pFilePath, pFileDisplayPath, isDatabase, format, stage, pExceptions, logFlags);
+            if (testResult != 0) {
+                *pFailureCount += 1;
+            }
         }
 
         free(pFileDisplayPath);
@@ -932,6 +935,7 @@ static int dr_main(int argc, char** argv)
     char* pVectorsPath = NULL;
     dr_test_format format = dr_test_format_unknown;
     dr_bool32 selectedStages[2] = {0};
+    unsigned int failureCounts[2] = {0};
     dr_bool32 hasTests = DR_FALSE;
     dr_bool32 databaseOnly = DR_FALSE;
     dr_bool32 endOptions = DR_FALSE;
@@ -1113,9 +1117,12 @@ static int dr_main(int argc, char** argv)
             }
 
             if (pInput->isDirectory) {
-                result = dr_test_directory(pInput->pPath, pInput->pDisplayPath, pInput->isDatabase, format, stages[iStage], &exceptions, logFlags);
+                result = dr_test_directory(pInput->pPath, pInput->pDisplayPath, pInput->isDatabase, format, stages[iStage], &exceptions, logFlags, &failureCounts[stages[iStage]]);
             } else {
                 result = dr_test_file(pInput->pPath, pInput->pDisplayPath, pInput->isDatabase, format, stages[iStage], &exceptions, logFlags);
+                if (result != 0) {
+                    failureCounts[stages[iStage]] += 1;
+                }
             }
 
             if (result != 0) {
@@ -1124,6 +1131,16 @@ static int dr_main(int argc, char** argv)
         }
 
         dr_printf("\n");
+    }
+
+    dr_printf("SUMMARY\n");
+    dr_printf("=======\n");
+    if (selectedStages[dr_test_stage_decoding]) {
+        dr_printf("Decoding: %u failed\n", failureCounts[dr_test_stage_decoding]);
+    }
+
+    if (selectedStages[dr_test_stage_seeking]) {
+        dr_printf("Seeking:  %u failed\n", failureCounts[dr_test_stage_seeking]);
     }
 
 done:
