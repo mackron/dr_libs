@@ -52,6 +52,7 @@ flac/github/mackron/dr_libs/298/minimized_oom.flac;                     FAIL_OPE
 flac/github/mackron/dr_libs/310/poc.flac;                               FAIL_DECODE
 flac/github/mackron/dr_libs/336/poc.flac;                               FAIL_DECODE
 flac/github/mackron/dr_libs/351/min_repro.flac;                         FAIL_DECODE
+flac/github/mackron/miniaudio/1193/seek_division_by_zero.flac;          FAIL_DECODE
 
 # Audio decodes, but the understated maximum block size gives incorrect fixed-block seek positions.
 flac/github/ietf-wg-cellar/flac-test-files/faulty/01 - wrong max blocksize.flac; FAIL_SEEK
