@@ -77,4 +77,5 @@ flac/github/ietf-wg-cellar/flac-test-files/subset/playlist.m3u;  IGNORE
 
 
 # MP3
+mp3/github/mackron/dr_libs/356/truncated_xing.mp3; FAIL_OPEN
 mp3/unknown/crash.mp3; FAIL_OPEN

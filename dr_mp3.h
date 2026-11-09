@@ -3317,7 +3317,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                         drmp3_metadata_type metadataType = isXing ? DRMP3_METADATA_TYPE_XING : DRMP3_METADATA_TYPE_VBRI;
                         size_t tagDataSize;
                     
-                        tagDataSize  = (size_t)firstFrameInfo.frame_bytes;
+                        tagDataSize  = frameBytes;
                         tagDataSize -= (size_t)(pTagDataBeg - pFirstFrameData);
 
                         drmp3__on_meta(pMP3, metadataType, pTagDataBeg, tagDataSize);
