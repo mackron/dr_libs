@@ -1,6 +1,6 @@
 /*
 MP3 audio decoder. Choice of public domain or MIT-0. See license statements at the end of this file.
-dr_mp3 - v0.7.4 - 2026-10-31
+dr_mp3 - v0.7.5 - UNRELEASED
 
 David Reid - mackron@gmail.com
 
@@ -72,7 +72,7 @@ extern "C" {
 
 #define DRMP3_VERSION_MAJOR     0
 #define DRMP3_VERSION_MINOR     7
-#define DRMP3_VERSION_REVISION  4
+#define DRMP3_VERSION_REVISION  5
 #define DRMP3_VERSION_STRING    DRMP3_XSTRINGIFY(DRMP3_VERSION_MAJOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_MINOR) "." DRMP3_XSTRINGIFY(DRMP3_VERSION_REVISION)
 
 #include <stddef.h> /* For size_t. */
@@ -3326,8 +3326,8 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                     /* Since this was identified as a tag, we don't want to treat it as audio. We need to clear out the PCM cache. */
                     pMP3->pcmFramesRemainingInMP3Frame = 0;
 
-                    /* The start offset needs to be moved to the end of this frame so it's not included in any audio processing after seeking. */
-                    pMP3->streamStartOffset += (drmp3_uint32)(firstFrameInfo.frame_bytes);
+                    /* Start after this frame, including any bytes skipped before it, so seeking does not decode the tag as audio. */
+                    pMP3->streamStartOffset = pMP3->streamCursor - pMP3->dataSize;
 
                     /*
                     The internal decoder needs to be reset to clear out any state. If we don't reset this state, it's possible for
