@@ -510,7 +510,7 @@ DRMP3_API drmp3_bool32 drmp3_seek_to_pcm_frame(drmp3* pMP3, drmp3_uint64 frameIn
 
 /*
 Calculates the total number of PCM frames in the MP3 stream. Cannot be used for infinite streams such as internet
-radio. Runs in linear time. Returns 0 on error.
+radio. Should be considered a hint. Unreliable for malformed streams. Runs in linear time. Returns 0 on error.
 */
 DRMP3_API drmp3_uint64 drmp3_get_pcm_frame_count(drmp3* pMP3);
 
