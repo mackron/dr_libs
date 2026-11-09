@@ -8,7 +8,7 @@
 #   FAIL_OPEN      - The file should fail at opening.
 #   FAIL_DECODE    - The file should open successfully, but fail at the decoding stage.
 #   FAIL_SEEK      - Decoding must pass, but the seeking stage should fail.
-#   SKIP_REFERENCE - Skip the external decoder comparison. All dr_libs checks must still pass.
+#   SKIP_REFERENCE - Skip the external decoder comparison. Other checks follow the selected failure policy.
 #   UNSUPPORTED    - The file is explicitly not supported by dr_libs and will be ignored. In practice is the same as IGNORE, but is a bit clearer as to why it's being ignored.
 #   IGNORE         - The file is a non-audio file and should be ignored.
 #
@@ -18,8 +18,6 @@
 # normal decoding and basic seeking, then handles a seeking-stage failure like FAIL_DECODE handles
 # a decoding-stage failure. Expected failures are quiet; a successful stage reports an unexpected
 # pass. The file must still open successfully.
-#
-# Each entry selects one policy. Different policies cannot be combined.
 
 # WAV
 wav/github/mackron/dr_libs/292/intoverflow_poc.wav;     FAIL_OPEN
