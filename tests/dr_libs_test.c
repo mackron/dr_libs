@@ -378,6 +378,7 @@ static dr_bool32 dr_test_ssv_field_equal(const dr_test_ssv_field* pField, const 
 static int dr_test_exception_parse_flags(const dr_test_ssv_field* pField, unsigned int* pFlags)
 {
     size_t cursor = 0;
+    unsigned int policyFlags;
 
     *pFlags = 0;
     while (cursor < pField->dataSize) {
@@ -414,8 +415,14 @@ static int dr_test_exception_parse_flags(const dr_test_ssv_field* pField, unsign
         }
     }
 
-    /* Each exception selects one policy. */
-    if (*pFlags != dr_test_exception_fail_open && *pFlags != dr_test_exception_fail_decode && *pFlags != dr_test_exception_fail_seek && *pFlags != dr_test_exception_ignore && *pFlags != dr_test_exception_skip_reference) {
+    /* Reference comparisons can be disabled independently of an expected decoding or seeking failure. */
+    policyFlags = *pFlags & ~dr_test_exception_skip_reference;
+    if (*pFlags == 0 || (policyFlags != 0 && policyFlags != dr_test_exception_fail_open && policyFlags != dr_test_exception_fail_decode && policyFlags != dr_test_exception_fail_seek && policyFlags != dr_test_exception_ignore)) {
+        dr_errorf("Exception flags are empty or conflict.\n");
+        return 1;
+    }
+
+    if ((*pFlags & dr_test_exception_skip_reference) != 0 && (policyFlags == dr_test_exception_fail_open || policyFlags == dr_test_exception_ignore)) {
         dr_errorf("Exception flags are empty or conflict.\n");
         return 1;
     }
@@ -581,7 +588,7 @@ static dr_bool32 dr_test_can_open_file(const char* pFilePath, dr_test_format for
     return DR_TRUE;
 }
 
-static int dr_test_expected_failure(const dr_test_log* pLog, const char* pFilePath, dr_test_format format, unsigned int flags, dr_test_file_proc onTestFile)
+static int dr_test_expected_failure(const dr_test_log* pLog, const char* pFilePath, dr_test_format format, unsigned int flags, unsigned int testFlags, dr_test_file_proc onTestFile)
 {
     dr_test_log quietLog;
     dr_test_stage stage;
@@ -591,7 +598,7 @@ static int dr_test_expected_failure(const dr_test_log* pLog, const char* pFilePa
 
     opened = dr_test_can_open_file(pFilePath, format);
     
-    if (flags == dr_test_exception_fail_open) {
+    if ((flags & dr_test_exception_fail_open) != 0) {
         if (opened) {
             dr_test_log_errorf(pLog, "Expected an open failure, but dr_libs opened the file.\n");
             return 1;
@@ -600,7 +607,7 @@ static int dr_test_expected_failure(const dr_test_log* pLog, const char* pFilePa
         return 0;
     }
 
-    if (flags == dr_test_exception_fail_seek) {
+    if ((flags & dr_test_exception_fail_seek) != 0) {
         stage = dr_test_stage_seeking;
         pStageName = "seeking";
     } else {
@@ -616,7 +623,7 @@ static int dr_test_expected_failure(const dr_test_log* pLog, const char* pFilePa
     /* Keep expected failures quiet after the file name is printed. */
     quietLog = *pLog;
     quietLog.pOutput = NULL;
-    result = onTestFile(&quietLog, pFilePath, stage, 0);
+    result = onTestFile(&quietLog, pFilePath, stage, testFlags);
     if (result == 0) {
         dr_test_log_errorf(pLog, "Expected a %s failure, but %s checks passed.\n", pStageName, pStageName);
         return 1;
@@ -768,11 +775,11 @@ static int dr_test_file(const char* pFilePath, const char* pDisplayPath, dr_bool
         flags = dr_test_exception_flags(pExceptions, pDisplayPath);
     }
 
-    if (flags == dr_test_exception_ignore) {
+    if ((flags & dr_test_exception_ignore) != 0) {
         return 0;
     }
 
-    if (flags == dr_test_exception_skip_reference) {
+    if ((flags & dr_test_exception_skip_reference) != 0) {
         testFlags |= dr_test_flag_skip_reference;
     }
 
@@ -791,22 +798,22 @@ static int dr_test_file(const char* pFilePath, const char* pDisplayPath, dr_bool
     }
 
     onTestFile = dr_test_formats[format].onTestFile;
-    if (stage == dr_test_stage_seeking && flags != dr_test_exception_fail_open) {
+    if (stage == dr_test_stage_seeking && (flags & dr_test_exception_fail_open) == 0) {
         result = onTestFile(&log, pFilePath, dr_test_stage_seeking_basic, testFlags);
         if (result != 0) {
             return result;
         }
 
         /* Malformed files still exercise seeking, but cannot supply a decoded reference. */
-        if (flags == dr_test_exception_fail_decode) {
+        if ((flags & dr_test_exception_fail_decode) != 0) {
             return 0;
         }
     }
 
-    if (flags == 0 || flags == dr_test_exception_skip_reference || (flags == dr_test_exception_fail_seek && stage == dr_test_stage_decoding)) {
-        result = onTestFile(&log, pFilePath, stage, testFlags);
+    if ((flags & (dr_test_exception_fail_open | dr_test_exception_fail_decode)) != 0 || ((flags & dr_test_exception_fail_seek) != 0 && stage == dr_test_stage_seeking)) {
+        result = dr_test_expected_failure(&log, pFilePath, format, flags, testFlags, onTestFile);
     } else {
-        result = dr_test_expected_failure(&log, pFilePath, format, flags, onTestFile);
+        result = onTestFile(&log, pFilePath, stage, testFlags);
     }
 
     return result;
