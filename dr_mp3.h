@@ -3026,25 +3026,41 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
 
                 /* APE */
                 if (streamLen > 32) {
-                    char ape[32];   /* The footer. */
+                    drmp3_uint8 ape[32];   /* The footer. */
                     if (onSeek(pUserData, streamEndOffset - 32, DRMP3_SEEK_END)) {
                         if (onRead(pUserData, ape, 32) == 32 && ape[0] == 'A' && ape[1] == 'P' && ape[2] == 'E' && ape[3] == 'T' && ape[4] == 'A' && ape[5] == 'G' && ape[6] == 'E' && ape[7] == 'X') {
-                            /* We have an APE tag. */
-                            drmp3_uint32 tagSize =
-                                ((drmp3_uint32)ape[24] << 0)  |
-                                ((drmp3_uint32)ape[25] << 8)  |
-                                ((drmp3_uint32)ape[26] << 16) |
-                                ((drmp3_uint32)ape[27] << 24);
+                            drmp3_uint32 apeVersion;
+                            drmp3_uint32 tagSize;
+                            drmp3_int64 totalTagSize;
 
-                            if (32 + tagSize < streamLen) {
-                                streamEndOffset -= 32 + tagSize;
-                                streamLen       -= 32 + tagSize;
+                            apeVersion =
+                                ((drmp3_uint32)ape[8]  << 0)  |
+                                ((drmp3_uint32)ape[9]  << 8)  |
+                                ((drmp3_uint32)ape[10] << 16) |
+                                ((drmp3_uint32)ape[11] << 24);
+
+                            tagSize =
+                                ((drmp3_uint32)ape[12] << 0)  |
+                                ((drmp3_uint32)ape[13] << 8)  |
+                                ((drmp3_uint32)ape[14] << 16) |
+                                ((drmp3_uint32)ape[15] << 24);
+
+                            /* The tag size includes the footer, but not the optional APEv2 header. */
+                            totalTagSize = tagSize;
+                            if (apeVersion >= 2000 && (ape[23] & 0x80) != 0) {
+                                totalTagSize += 32;
+                            }
+
+                            /* The tag must contain a footer, and the end-relative seek offset must fit in an int. */
+                            if (tagSize >= 32 && totalTagSize < streamLen && totalTagSize <= (drmp3_int64)streamEndOffset - INT_MIN) {
+                                streamEndOffset = (int)(streamEndOffset - totalTagSize);
+                                streamLen -= totalTagSize;
                                 
                                 /* Fire a metadata callback for the APE data. Must include both the main content and footer. */
                                 if (onMeta != NULL) {
                                     /* We first need to seek to the start of the APE tag. */
                                     if (onSeek(pUserData, streamEndOffset, DRMP3_SEEK_END)) {
-                                        size_t apeTagSize = (size_t)tagSize + 32;
+                                        size_t apeTagSize = (size_t)totalTagSize;
                                         drmp3_uint8* pTagData = (drmp3_uint8*)drmp3_malloc(apeTagSize, pAllocationCallbacks);
                                         if (pTagData != NULL) {
                                             if (onRead(pUserData, pTagData, apeTagSize) == apeTagSize) {
@@ -3056,7 +3072,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                                     }
                                 }
                             } else {
-                                /* The tag size is larger than the stream. Invalid APE tag. */
+                                /* Invalid or unsupported APE tag size. */
                             }
                         }
                     }
