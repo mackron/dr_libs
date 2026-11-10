@@ -2266,8 +2266,13 @@ static int drmp3d_match_frame(const drmp3_uint8 *hdr, int mp3_bytes, int frame_b
         i += drmp3_hdr_frame_bytes(hdr + i, frame_bytes) + drmp3_hdr_padding(hdr + i);
         if (i + DRMP3_HDR_SIZE > mp3_bytes)
             return nmatch > 0;
+        /*
+        A Layer III chain that ends in bytes that are not a frame, such as a trailing tag or junk, counts like one that
+        ends at the buffer end. Layer III's side info rejects most false payloads; Layer I and II headers occur often in
+        PCM-like data and have no such check, so their chains keep the strict rule.
+        */
         if (!drmp3_hdr_compare(hdr, hdr + i))
-            return 0;
+            return nmatch > 0 && DRMP3_HDR_GET_LAYER(hdr) == 1;
     }
     return 1;
 }
@@ -2326,7 +2331,13 @@ DRMP3_API int drmp3dec_decode_frame(drmp3dec *dec, const drmp3_uint8 *mp3, int m
     if (mp3_bytes > 4 && dec->header[0] == 0xff && drmp3_hdr_compare(dec->header, mp3))
     {
         frame_size = drmp3_hdr_frame_bytes(mp3, dec->free_format_bytes) + drmp3_hdr_padding(mp3);
-        if (frame_size != mp3_bytes && (frame_size + DRMP3_HDR_SIZE > mp3_bytes || !drmp3_hdr_compare(mp3, mp3 + frame_size)))
+        /*
+        Once synced, a Layer III frame that matches the previous header and fits in the buffer is decoded even when what
+        follows it is not a frame, so the last frame before a trailing tag or junk is kept. Layer I and II frames still
+        need a matching header after them.
+        */
+        if (DRMP3_HDR_GET_LAYER(mp3) == 1 ? frame_size > mp3_bytes :
+            (frame_size != mp3_bytes && (frame_size + DRMP3_HDR_SIZE > mp3_bytes || !drmp3_hdr_compare(mp3, mp3 + frame_size))))
         {
             frame_size = 0;
         }
