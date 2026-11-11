@@ -2996,88 +2996,97 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
         
             /* First get the length of the stream. We need this so we can ensure the stream is big enough to store the tags. */
             if (onTell(pUserData, &streamLen)) {
-                /* ID3v1 */
-                if (streamLen > 128) {
-                    char id3[3];
-                    if (onSeek(pUserData, streamEndOffset - 128, DRMP3_SEEK_END)) {
-                        if (onRead(pUserData, id3, 3) == 3 && id3[0] == 'T' && id3[1] == 'A' && id3[2] == 'G') {
-                            /* We have an ID3v1 tag. */
-                            streamEndOffset -= 128;
-                            streamLen       -= 128;
+                /* Run this in a loop because removing a tag can expose another tag at the new end of the stream. */
+                for (;;) {
+                    drmp3_int64 streamLenBeforeTags = streamLen;
 
-                            /* Fire a metadata callback for the TAG data. */
-                            if (onMeta != NULL) {
-                                drmp3_uint8 tag[128];
-                                tag[0] = 'T'; tag[1] = 'A'; tag[2] = 'G';
+                    /* ID3v1 */
+                    if (streamLen > 128 && streamEndOffset >= INT_MIN + 128) {
+                        char id3[3];
+                        if (onSeek(pUserData, streamEndOffset - 128, DRMP3_SEEK_END)) {
+                            if (onRead(pUserData, id3, 3) == 3 && id3[0] == 'T' && id3[1] == 'A' && id3[2] == 'G') {
+                                /* We have an ID3v1 tag. */
+                                streamEndOffset -= 128;
+                                streamLen       -= 128;
 
-                                if (onRead(pUserData, tag + 3, 125) == 125) {
-                                    drmp3__on_meta(pMP3, DRMP3_METADATA_TYPE_ID3V1, tag, 128);
-                                }
-                            }
-                        } else {
-                            /* No ID3v1 tag. */
-                        }
-                    } else {
-                        /* Failed to seek to the ID3v1 tag. */
-                    }
-                } else {
-                    /* Stream too short. No ID3v1 tag. */
-                }
-
-                /* APE */
-                if (streamLen > 32) {
-                    drmp3_uint8 ape[32];   /* The footer. */
-                    if (onSeek(pUserData, streamEndOffset - 32, DRMP3_SEEK_END)) {
-                        if (onRead(pUserData, ape, 32) == 32 && ape[0] == 'A' && ape[1] == 'P' && ape[2] == 'E' && ape[3] == 'T' && ape[4] == 'A' && ape[5] == 'G' && ape[6] == 'E' && ape[7] == 'X') {
-                            drmp3_uint32 apeVersion;
-                            drmp3_uint32 tagSize;
-                            drmp3_int64 totalTagSize;
-
-                            apeVersion =
-                                ((drmp3_uint32)ape[8]  << 0)  |
-                                ((drmp3_uint32)ape[9]  << 8)  |
-                                ((drmp3_uint32)ape[10] << 16) |
-                                ((drmp3_uint32)ape[11] << 24);
-
-                            tagSize =
-                                ((drmp3_uint32)ape[12] << 0)  |
-                                ((drmp3_uint32)ape[13] << 8)  |
-                                ((drmp3_uint32)ape[14] << 16) |
-                                ((drmp3_uint32)ape[15] << 24);
-
-                            /* The tag size includes the footer, but not the optional APEv2 header. */
-                            totalTagSize = tagSize;
-                            if (apeVersion >= 2000 && (ape[23] & 0x80) != 0) {
-                                totalTagSize += 32;
-                            }
-
-                            /* The tag must contain a footer, and the end-relative seek offset must fit in an int. */
-                            if (tagSize >= 32 && totalTagSize < streamLen && totalTagSize <= (drmp3_int64)streamEndOffset - INT_MIN) {
-                                streamEndOffset = (int)(streamEndOffset - totalTagSize);
-                                streamLen -= totalTagSize;
-                                
-                                /* Fire a metadata callback for the APE data. Must include both the main content and footer. */
+                                /* Fire a metadata callback for the TAG data. */
                                 if (onMeta != NULL) {
-                                    /* We first need to seek to the start of the APE tag. */
-                                    if (onSeek(pUserData, streamEndOffset, DRMP3_SEEK_END)) {
-                                        size_t apeTagSize = (size_t)totalTagSize;
-                                        drmp3_uint8* pTagData = (drmp3_uint8*)drmp3_malloc(apeTagSize, pAllocationCallbacks);
-                                        if (pTagData != NULL) {
-                                            if (onRead(pUserData, pTagData, apeTagSize) == apeTagSize) {
-                                                drmp3__on_meta(pMP3, DRMP3_METADATA_TYPE_APE, pTagData, apeTagSize);
-                                            }
+                                    drmp3_uint8 tag[128];
+                                    tag[0] = 'T'; tag[1] = 'A'; tag[2] = 'G';
 
-                                            drmp3_free(pTagData, pAllocationCallbacks);
-                                        }
+                                    if (onRead(pUserData, tag + 3, 125) == 125) {
+                                        drmp3__on_meta(pMP3, DRMP3_METADATA_TYPE_ID3V1, tag, 128);
                                     }
                                 }
                             } else {
-                                /* Invalid or unsupported APE tag size. */
+                                /* No ID3v1 tag. */
+                            }
+                        } else {
+                            /* Failed to seek to the ID3v1 tag. */
+                        }
+                    } else {
+                        /* Stream too short or seek offset out of range. No ID3v1 tag. */
+                    }
+
+                    /* APE */
+                    if (streamLen > 32 && streamEndOffset >= INT_MIN + 32) {
+                        drmp3_uint8 ape[32];   /* The footer. */
+                        if (onSeek(pUserData, streamEndOffset - 32, DRMP3_SEEK_END)) {
+                            if (onRead(pUserData, ape, 32) == 32 && ape[0] == 'A' && ape[1] == 'P' && ape[2] == 'E' && ape[3] == 'T' && ape[4] == 'A' && ape[5] == 'G' && ape[6] == 'E' && ape[7] == 'X') {
+                                drmp3_uint32 apeVersion;
+                                drmp3_uint32 tagSize;
+                                drmp3_int64 totalTagSize;
+
+                                apeVersion =
+                                    ((drmp3_uint32)ape[8]  << 0)  |
+                                    ((drmp3_uint32)ape[9]  << 8)  |
+                                    ((drmp3_uint32)ape[10] << 16) |
+                                    ((drmp3_uint32)ape[11] << 24);
+
+                                tagSize =
+                                    ((drmp3_uint32)ape[12] << 0)  |
+                                    ((drmp3_uint32)ape[13] << 8)  |
+                                    ((drmp3_uint32)ape[14] << 16) |
+                                    ((drmp3_uint32)ape[15] << 24);
+
+                                /* The tag size includes the footer, but not the optional APEv2 header. */
+                                totalTagSize = tagSize;
+                                if (apeVersion >= 2000 && (ape[23] & 0x80) != 0) {
+                                    totalTagSize += 32;
+                                }
+
+                                /* The tag must contain a footer, and the end-relative seek offset must fit in an int. */
+                                if (tagSize >= 32 && totalTagSize < streamLen && totalTagSize <= (drmp3_int64)streamEndOffset - INT_MIN) {
+                                    streamEndOffset = (int)(streamEndOffset - totalTagSize);
+                                    streamLen -= totalTagSize;
+
+                                    /* Fire a metadata callback for the APE data. Must include both the main content and footer. */
+                                    if (onMeta != NULL) {
+                                        /* We first need to seek to the start of the APE tag. */
+                                        if (onSeek(pUserData, streamEndOffset, DRMP3_SEEK_END)) {
+                                            size_t apeTagSize = (size_t)totalTagSize;
+                                            drmp3_uint8* pTagData = (drmp3_uint8*)drmp3_malloc(apeTagSize, pAllocationCallbacks);
+                                            if (pTagData != NULL) {
+                                                if (onRead(pUserData, pTagData, apeTagSize) == apeTagSize) {
+                                                    drmp3__on_meta(pMP3, DRMP3_METADATA_TYPE_APE, pTagData, apeTagSize);
+                                                }
+
+                                                drmp3_free(pTagData, pAllocationCallbacks);
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    /* Invalid or unsupported APE tag size. */
+                                }
                             }
                         }
+                    } else {
+                        /* Stream too short or seek offset out of range. No APE tag. */
                     }
-                } else {
-                    /* Stream too short. No APE tag. */
+
+                    if (streamLen == streamLenBeforeTags) {
+                        break;
+                    }
                 }
 
                 /* Seek back to the start. */
