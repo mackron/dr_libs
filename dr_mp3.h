@@ -3067,7 +3067,9 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                                         /* We first need to seek to the start of the APE tag. */
                                         if (onSeek(pUserData, streamEndOffset, DRMP3_SEEK_END)) {
                                             size_t apeTagSize = (size_t)totalTagSize;
-                                            drmp3_uint8* pTagData = (drmp3_uint8*)drmp3_malloc(apeTagSize, pAllocationCallbacks);
+                                            drmp3_uint8* pTagData;
+                                            
+                                            pTagData = (drmp3_uint8*)drmp3_malloc(apeTagSize, pAllocationCallbacks);
                                             if (pTagData != NULL) {
                                                 if (onRead(pUserData, pTagData, apeTagSize) == apeTagSize) {
                                                     drmp3__on_meta(pMP3, DRMP3_METADATA_TYPE_APE, pTagData, apeTagSize);
