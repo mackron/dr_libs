@@ -79,5 +79,4 @@ mp3/github/mackron/dr_libs/354/dr_mp3_header-count-reservoir.mp3; SKIP_REFERENCE
 mp3/github/mackron/dr_libs/354/dr_mp3_header-count-layer1.mp3;    SKIP_REFERENCE
 mp3/github/mackron/dr_libs/355/dr_mp3_xing-start-offset.mp3;      SKIP_REFERENCE
 mp3/github/mackron/dr_libs/356/truncated_xing.mp3;                FAIL_OPEN
-mp3/github/mackron/dr_libs/358/lyrics3v2.mp3;                     FAIL_OPEN
 mp3/unknown/crash.mp3;                                            FAIL_OPEN
