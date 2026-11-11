@@ -149,6 +149,12 @@ static int dr_test_mp3_decoding_mpg123(const dr_test_log* pLog, const char* pFil
         goto cleanup;
     }
 
+    if (pLog->pOutput == NULL || (pLog->flags & dr_test_log_flag_verbose) == 0) {
+        if (mpg123_param(pDecoder, MPG123_ADD_FLAGS, MPG123_QUIET, 0) != MPG123_OK) {
+            goto decoder_error;
+        }
+    }
+
     /* Preserve native rate, channels and gain; use the same gapless decoding policy. */
     if (mpg123_param(pDecoder, MPG123_ADD_FLAGS, MPG123_GAPLESS, 0) != MPG123_OK) {
         goto decoder_error;
