@@ -3045,12 +3045,9 @@ The next two functions are responsible for calculating the prediction.
 When the bits per sample is >16 we need to use 64-bit integer arithmetic because otherwise we'll run out of precision. It's
 safe to assume this will be slower on 32-bit platforms so we use a more optimal solution when the bits per sample is <=16.
 */
-#if defined(__clang__)
-__attribute__((no_sanitize("signed-integer-overflow")))
-#endif
 static DRFLAC_INLINE drflac_int32 drflac__calculate_prediction_32_s32(drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pDecodedSamples)
 {
-    drflac_int32 prediction = 0;
+    drflac_uint32 prediction = 0;   /* Unsigned so that damaged streams wrap around rather than overflow. */
 
     DRFLAC_ASSERT(order <= 32);
 
@@ -3059,41 +3056,41 @@ static DRFLAC_INLINE drflac_int32 drflac__calculate_prediction_32_s32(drflac_uin
     /* VC++ optimizes this to a single jmp. I've not yet verified this for other compilers. */
     switch (order)
     {
-    case 32: prediction += coefficients[31] * pDecodedSamples[-32];
-    case 31: prediction += coefficients[30] * pDecodedSamples[-31];
-    case 30: prediction += coefficients[29] * pDecodedSamples[-30];
-    case 29: prediction += coefficients[28] * pDecodedSamples[-29];
-    case 28: prediction += coefficients[27] * pDecodedSamples[-28];
-    case 27: prediction += coefficients[26] * pDecodedSamples[-27];
-    case 26: prediction += coefficients[25] * pDecodedSamples[-26];
-    case 25: prediction += coefficients[24] * pDecodedSamples[-25];
-    case 24: prediction += coefficients[23] * pDecodedSamples[-24];
-    case 23: prediction += coefficients[22] * pDecodedSamples[-23];
-    case 22: prediction += coefficients[21] * pDecodedSamples[-22];
-    case 21: prediction += coefficients[20] * pDecodedSamples[-21];
-    case 20: prediction += coefficients[19] * pDecodedSamples[-20];
-    case 19: prediction += coefficients[18] * pDecodedSamples[-19];
-    case 18: prediction += coefficients[17] * pDecodedSamples[-18];
-    case 17: prediction += coefficients[16] * pDecodedSamples[-17];
-    case 16: prediction += coefficients[15] * pDecodedSamples[-16];
-    case 15: prediction += coefficients[14] * pDecodedSamples[-15];
-    case 14: prediction += coefficients[13] * pDecodedSamples[-14];
-    case 13: prediction += coefficients[12] * pDecodedSamples[-13];
-    case 12: prediction += coefficients[11] * pDecodedSamples[-12];
-    case 11: prediction += coefficients[10] * pDecodedSamples[-11];
-    case 10: prediction += coefficients[ 9] * pDecodedSamples[-10];
-    case  9: prediction += coefficients[ 8] * pDecodedSamples[- 9];
-    case  8: prediction += coefficients[ 7] * pDecodedSamples[- 8];
-    case  7: prediction += coefficients[ 6] * pDecodedSamples[- 7];
-    case  6: prediction += coefficients[ 5] * pDecodedSamples[- 6];
-    case  5: prediction += coefficients[ 4] * pDecodedSamples[- 5];
-    case  4: prediction += coefficients[ 3] * pDecodedSamples[- 4];
-    case  3: prediction += coefficients[ 2] * pDecodedSamples[- 3];
-    case  2: prediction += coefficients[ 1] * pDecodedSamples[- 2];
-    case  1: prediction += coefficients[ 0] * pDecodedSamples[- 1];
+    case 32: prediction += (drflac_uint32)coefficients[31] * (drflac_uint32)pDecodedSamples[-32];
+    case 31: prediction += (drflac_uint32)coefficients[30] * (drflac_uint32)pDecodedSamples[-31];
+    case 30: prediction += (drflac_uint32)coefficients[29] * (drflac_uint32)pDecodedSamples[-30];
+    case 29: prediction += (drflac_uint32)coefficients[28] * (drflac_uint32)pDecodedSamples[-29];
+    case 28: prediction += (drflac_uint32)coefficients[27] * (drflac_uint32)pDecodedSamples[-28];
+    case 27: prediction += (drflac_uint32)coefficients[26] * (drflac_uint32)pDecodedSamples[-27];
+    case 26: prediction += (drflac_uint32)coefficients[25] * (drflac_uint32)pDecodedSamples[-26];
+    case 25: prediction += (drflac_uint32)coefficients[24] * (drflac_uint32)pDecodedSamples[-25];
+    case 24: prediction += (drflac_uint32)coefficients[23] * (drflac_uint32)pDecodedSamples[-24];
+    case 23: prediction += (drflac_uint32)coefficients[22] * (drflac_uint32)pDecodedSamples[-23];
+    case 22: prediction += (drflac_uint32)coefficients[21] * (drflac_uint32)pDecodedSamples[-22];
+    case 21: prediction += (drflac_uint32)coefficients[20] * (drflac_uint32)pDecodedSamples[-21];
+    case 20: prediction += (drflac_uint32)coefficients[19] * (drflac_uint32)pDecodedSamples[-20];
+    case 19: prediction += (drflac_uint32)coefficients[18] * (drflac_uint32)pDecodedSamples[-19];
+    case 18: prediction += (drflac_uint32)coefficients[17] * (drflac_uint32)pDecodedSamples[-18];
+    case 17: prediction += (drflac_uint32)coefficients[16] * (drflac_uint32)pDecodedSamples[-17];
+    case 16: prediction += (drflac_uint32)coefficients[15] * (drflac_uint32)pDecodedSamples[-16];
+    case 15: prediction += (drflac_uint32)coefficients[14] * (drflac_uint32)pDecodedSamples[-15];
+    case 14: prediction += (drflac_uint32)coefficients[13] * (drflac_uint32)pDecodedSamples[-14];
+    case 13: prediction += (drflac_uint32)coefficients[12] * (drflac_uint32)pDecodedSamples[-13];
+    case 12: prediction += (drflac_uint32)coefficients[11] * (drflac_uint32)pDecodedSamples[-12];
+    case 11: prediction += (drflac_uint32)coefficients[10] * (drflac_uint32)pDecodedSamples[-11];
+    case 10: prediction += (drflac_uint32)coefficients[ 9] * (drflac_uint32)pDecodedSamples[-10];
+    case  9: prediction += (drflac_uint32)coefficients[ 8] * (drflac_uint32)pDecodedSamples[- 9];
+    case  8: prediction += (drflac_uint32)coefficients[ 7] * (drflac_uint32)pDecodedSamples[- 8];
+    case  7: prediction += (drflac_uint32)coefficients[ 6] * (drflac_uint32)pDecodedSamples[- 7];
+    case  6: prediction += (drflac_uint32)coefficients[ 5] * (drflac_uint32)pDecodedSamples[- 6];
+    case  5: prediction += (drflac_uint32)coefficients[ 4] * (drflac_uint32)pDecodedSamples[- 5];
+    case  4: prediction += (drflac_uint32)coefficients[ 3] * (drflac_uint32)pDecodedSamples[- 4];
+    case  3: prediction += (drflac_uint32)coefficients[ 2] * (drflac_uint32)pDecodedSamples[- 3];
+    case  2: prediction += (drflac_uint32)coefficients[ 1] * (drflac_uint32)pDecodedSamples[- 2];
+    case  1: prediction += (drflac_uint32)coefficients[ 0] * (drflac_uint32)pDecodedSamples[- 1];
     }
 
-    return (drflac_int32)(prediction >> shift);
+    return (drflac_int32)prediction >> shift;
 }
 
 static DRFLAC_INLINE drflac_int32 drflac__calculate_prediction_64_s32(drflac_uint32 order, drflac_int32 shift, const drflac_int32* coefficients, drflac_int32* pDecodedSamples)
@@ -4829,9 +4826,6 @@ static drflac_bool32 drflac__read_and_seek_residual__rice(drflac_bs* bs, drflac_
     return DRFLAC_TRUE;
 }
 
-#if defined(__clang__)
-__attribute__((no_sanitize("signed-integer-overflow")))
-#endif
 static drflac_bool32 drflac__decode_samples_with_residual__unencoded(drflac_bs* bs, drflac_uint32 bitsPerSample, drflac_uint32 count, drflac_uint8 unencodedBitsPerSample, drflac_uint32 lpcOrder, drflac_int32 lpcShift, drflac_uint32 lpcPrecision, const drflac_int32* coefficients, drflac_int32* pSamplesOut)
 {
     drflac_uint32 i;
@@ -4850,9 +4844,9 @@ static drflac_bool32 drflac__decode_samples_with_residual__unencoded(drflac_bs* 
         }
 
         if (drflac__use_64_bit_prediction(bitsPerSample, lpcOrder, lpcPrecision)) {
-            pSamplesOut[i] += drflac__calculate_prediction_64_s32(lpcOrder, lpcShift, coefficients, pSamplesOut + i);
+            pSamplesOut[i] = (drflac_int32)((drflac_uint32)pSamplesOut[i] + (drflac_uint32)drflac__calculate_prediction_64_s32(lpcOrder, lpcShift, coefficients, pSamplesOut + i));
         } else {
-            pSamplesOut[i] += drflac__calculate_prediction_32_s32(lpcOrder, lpcShift, coefficients, pSamplesOut + i);
+            pSamplesOut[i] = (drflac_int32)((drflac_uint32)pSamplesOut[i] + (drflac_uint32)drflac__calculate_prediction_32_s32(lpcOrder, lpcShift, coefficients, pSamplesOut + i));
         }
     }
 
