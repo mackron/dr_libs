@@ -1863,8 +1863,13 @@ static DRFLAC_INLINE drflac_uint32 drflac__be2host_32(drflac_uint32 n)
 
 static DRFLAC_INLINE drflac_uint32 drflac__be2host_32_ptr_unaligned(const void* pData)
 {
-    const drflac_uint8* pNum = (drflac_uint8*)pData;
-    return *(pNum) << 24 | *(pNum+1) << 16 | *(pNum+2) << 8 | *(pNum+3);
+    const drflac_uint8* pData8 = (const drflac_uint8*)pData;
+
+    return
+        (drflac_uint32)pData8[0] << 24 |
+        (drflac_uint32)pData8[1] << 16 |
+        (drflac_uint32)pData8[2] <<  8 |
+        (drflac_uint32)pData8[3] <<  0;
 }
 
 static DRFLAC_INLINE drflac_uint64 drflac__be2host_64(drflac_uint64 n)
@@ -1888,8 +1893,13 @@ static DRFLAC_INLINE drflac_uint32 drflac__le2host_32(drflac_uint32 n)
 
 static DRFLAC_INLINE drflac_uint32 drflac__le2host_32_ptr_unaligned(const void* pData)
 {
-    const drflac_uint8* pNum = (drflac_uint8*)pData;
-    return *pNum | *(pNum+1) << 8 |  *(pNum+2) << 16 | *(pNum+3) << 24;
+    const drflac_uint8* pData8 = (const drflac_uint8*)pData;
+
+    return
+        (drflac_uint32)pData8[0] <<  0 |
+        (drflac_uint32)pData8[1] <<  8 |
+        (drflac_uint32)pData8[2] << 16 |
+        (drflac_uint32)pData8[3] << 24;
 }
 
 
