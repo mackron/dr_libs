@@ -1143,7 +1143,7 @@ DRWAV_API drwav_uint64 drwav_read_pcm_frames_s16be(drwav* pWav, drwav_uint64 fra
 /* Low-level function for converting unsigned 8-bit PCM samples to signed 16-bit PCM samples. */
 DRWAV_API void drwav_u8_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCount);
 
-/* Low-level function for converting signed 24-bit PCM samples to signed 16-bit PCM samples. */
+/* Low-level function for converting packed signed 24-bit PCM samples in native byte order to signed 16-bit PCM samples. */
 DRWAV_API void drwav_s24_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCount);
 
 /* Low-level function for converting signed 32-bit PCM samples to signed 16-bit PCM samples. */
@@ -1181,7 +1181,7 @@ DRWAV_API void drwav_u8_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampl
 /* Low-level function for converting signed 16-bit PCM samples to IEEE 32-bit floating point samples. */
 DRWAV_API void drwav_s16_to_f32(float* pOut, const drwav_int16* pIn, size_t sampleCount);
 
-/* Low-level function for converting signed 24-bit PCM samples to IEEE 32-bit floating point samples. */
+/* Low-level function for converting packed signed 24-bit PCM samples in native byte order to IEEE 32-bit floating point samples. */
 DRWAV_API void drwav_s24_to_f32(float* pOut, const drwav_uint8* pIn, size_t sampleCount);
 
 /* Low-level function for converting signed 32-bit PCM samples to IEEE 32-bit floating point samples. */
@@ -1216,7 +1216,7 @@ DRWAV_API void drwav_u8_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t
 /* Low-level function for converting signed 16-bit PCM samples to signed 32-bit PCM samples. */
 DRWAV_API void drwav_s16_to_s32(drwav_int32* pOut, const drwav_int16* pIn, size_t sampleCount);
 
-/* Low-level function for converting signed 24-bit PCM samples to signed 32-bit PCM samples. */
+/* Low-level function for converting packed signed 24-bit PCM samples in native byte order to signed 32-bit PCM samples. */
 DRWAV_API void drwav_s24_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_t sampleCount);
 
 /* Low-level function for converting IEEE 32-bit floating point samples to signed 32-bit PCM samples. */
@@ -7208,14 +7208,20 @@ DRWAV_API void drwav_u8_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t
     }
 }
 
+static DRWAV_INLINE drwav_int32 drwav__s24_to_s32(const drwav_uint8* pIn)
+{
+    if (drwav__is_little_endian()) {
+        return (drwav_int32)(((drwav_uint32)pIn[0] << 8) | ((drwav_uint32)pIn[1] << 16) | ((drwav_uint32)pIn[2] << 24));
+    } else {
+        return (drwav_int32)(((drwav_uint32)pIn[2] << 8) | ((drwav_uint32)pIn[1] << 16) | ((drwav_uint32)pIn[0] << 24));
+    }
+}
+
 DRWAV_API void drwav_s24_to_s16(drwav_int16* pOut, const drwav_uint8* pIn, size_t sampleCount)
 {
-    int r;
     size_t i;
     for (i = 0; i < sampleCount; ++i) {
-        int x = ((int)(((unsigned int)(((const drwav_uint8*)pIn)[i*3+0]) << 8) | ((unsigned int)(((const drwav_uint8*)pIn)[i*3+1]) << 16) | ((unsigned int)(((const drwav_uint8*)pIn)[i*3+2])) << 24)) >> 8;
-        r = x >> 8;
-        pOut[i] = (short)r;
+        pOut[i] = (drwav_int16)(drwav__s24_to_s32(pIn + i*3) >> 16);
     }
 }
 
@@ -7666,13 +7672,7 @@ DRWAV_API void drwav_s24_to_f32(float* pOut, const drwav_uint8* pIn, size_t samp
     }
 
     for (i = 0; i < sampleCount; ++i) {
-        double x;
-        drwav_uint32 a = ((drwav_uint32)(pIn[i*3+0]) <<  8);
-        drwav_uint32 b = ((drwav_uint32)(pIn[i*3+1]) << 16);
-        drwav_uint32 c = ((drwav_uint32)(pIn[i*3+2]) << 24);
-
-        x = (double)((drwav_int32)(a | b | c) >> 8);
-        *pOut++ = (float)(x * 0.00000011920928955078125);
+        *pOut++ = (float)(drwav__s24_to_s32(pIn + i*3) / 2147483648.0);
     }
 }
 
@@ -8111,12 +8111,7 @@ DRWAV_API void drwav_s24_to_s32(drwav_int32* pOut, const drwav_uint8* pIn, size_
     }
 
     for (i = 0; i < sampleCount; ++i) {
-        unsigned int s0 = pIn[i*3 + 0];
-        unsigned int s1 = pIn[i*3 + 1];
-        unsigned int s2 = pIn[i*3 + 2];
-
-        drwav_int32 sample32 = (drwav_int32)((s0 << 8) | (s1 << 16) | (s2 << 24));
-        *pOut++ = sample32;
+        *pOut++ = drwav__s24_to_s32(pIn + i*3);
     }
 }
 
