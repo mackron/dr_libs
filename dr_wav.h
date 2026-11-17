@@ -3590,15 +3590,18 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
 
                 sampleCountFromFactChunk = drwav_bytes_to_u32_ex(sampleCount, pWav->container);
             } else if (pWav->container == drwav_container_w64) {
-                if (chunkSize < 8) {
+                drwav_uint8 sampleCount[8];
+
+                if (chunkSize < sizeof(sampleCount)) {
                     return DRWAV_FALSE;
                 }
 
-                if (drwav__on_read(pWav->onRead, pWav->pUserData, &sampleCountFromFactChunk, 8, &cursor) != 8) {
+                if (drwav__on_read(pWav->onRead, pWav->pUserData, sampleCount, sizeof(sampleCount), &cursor) != sizeof(sampleCount)) {
                     return DRWAV_FALSE;
                 }
 
-                chunkSize -= 8;
+                chunkSize -= sizeof(sampleCount);
+                sampleCountFromFactChunk = drwav_bytes_to_u64(sampleCount);
             } else if (pWav->container == drwav_container_rf64) {
                 /* We retrieved the sample count from the ds64 chunk earlier so no need to do that here. */
             }
