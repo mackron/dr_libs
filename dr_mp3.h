@@ -2264,6 +2264,21 @@ static void drmp3d_synth_granule(float *qmf_state, float *grbuf, int nbands, int
     }
 }
 
+static int drmp3_hdr_is_tag(const drmp3_uint8* hdr)
+{
+    return hdr[0] == 'T' && hdr[1] == 'A' && hdr[2] == 'G' && hdr[3] == '\0';
+}
+
+static int drmp3_hdr_is_null(const drmp3_uint8* hdr)
+{
+    return hdr[0] == '\0' && hdr[1] == '\0' && hdr[2] == '\0' && hdr[3] == '\0';
+}
+
+static int drmp3_hdr_is_null_or_tag(const drmp3_uint8* hdr)
+{
+    return drmp3_hdr_is_tag(hdr) > 0 || drmp3_hdr_is_null(hdr) > 0;
+}
+
 static int drmp3d_match_frame(const drmp3_uint8 *hdr, int mp3_bytes, int frame_bytes)
 {
     int i, nmatch;
@@ -2271,6 +2286,8 @@ static int drmp3d_match_frame(const drmp3_uint8 *hdr, int mp3_bytes, int frame_b
     {
         i += drmp3_hdr_frame_bytes(hdr + i, frame_bytes) + drmp3_hdr_padding(hdr + i);
         if (i + DRMP3_HDR_SIZE > mp3_bytes)
+            return nmatch > 0;
+        if (drmp3_hdr_is_null_or_tag(hdr + i))
             return nmatch > 0;
         if (!drmp3_hdr_compare(hdr, hdr + i))
             return 0;
@@ -2434,14 +2451,7 @@ DRMP3_API void drmp3dec_f32_to_s16(const float *in, drmp3_int16 *out, size_t num
         drmp3_f4 s16min = DRMP3_VSET(-32768.0f);
         __m128i pcm8 = _mm_packs_epi32(_mm_cvtps_epi32(_mm_max_ps(_mm_min_ps(a, s16max), s16min)),
                                         _mm_cvtps_epi32(_mm_max_ps(_mm_min_ps(b, s16max), s16min)));
-        out[i  ] = (drmp3_int16)_mm_extract_epi16(pcm8, 0);
-        out[i+1] = (drmp3_int16)_mm_extract_epi16(pcm8, 1);
-        out[i+2] = (drmp3_int16)_mm_extract_epi16(pcm8, 2);
-        out[i+3] = (drmp3_int16)_mm_extract_epi16(pcm8, 3);
-        out[i+4] = (drmp3_int16)_mm_extract_epi16(pcm8, 4);
-        out[i+5] = (drmp3_int16)_mm_extract_epi16(pcm8, 5);
-        out[i+6] = (drmp3_int16)_mm_extract_epi16(pcm8, 6);
-        out[i+7] = (drmp3_int16)_mm_extract_epi16(pcm8, 7);
+        _mm_storeu_si128( (__m128i *)(&out[i]), pcm8 );
 #else
         int16x4_t pcma, pcmb;
         a = DRMP3_VADD(a, DRMP3_VSET(0.5f));
