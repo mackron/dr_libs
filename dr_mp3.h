@@ -2264,19 +2264,20 @@ static void drmp3d_synth_granule(float *qmf_state, float *grbuf, int nbands, int
     }
 }
 
-static int drmp3_hdr_is_tag(const drmp3_uint8* hdr)
+static int drmp3_hdr_is_null(const drmp3_uint8 *hdr)
 {
-    return hdr[0] == 'T' && hdr[1] == 'A' && hdr[2] == 'G' && hdr[3] == '\0';
+    return !hdr[0] && !hdr[1] && !hdr[2] && !hdr[3];
 }
 
-static int drmp3_hdr_is_null(const drmp3_uint8* hdr)
+static int drmp3_hdr_is_id3v1(const drmp3_uint8 *hdr, int bytes_left)
 {
-    return hdr[0] == '\0' && hdr[1] == '\0' && hdr[2] == '\0' && hdr[3] == '\0';
+    /* Require a whole trailing ID3v1 tag so a random "TAG" in audio data is not mistaken for end-of-stream. */
+    return 128 == bytes_left && !DRMP3_CMP_MEMORY(hdr, "TAG", 3);
 }
 
-static int drmp3_hdr_is_null_or_tag(const drmp3_uint8* hdr)
+static int drmp3_hdr_is_null_or_tag(const drmp3_uint8 *hdr, int bytes_left)
 {
-    return drmp3_hdr_is_tag(hdr) > 0 || drmp3_hdr_is_null(hdr) > 0;
+    return drmp3_hdr_is_null(hdr) || drmp3_hdr_is_id3v1(hdr, bytes_left);
 }
 
 static int drmp3d_match_frame(const drmp3_uint8 *hdr, int mp3_bytes, int frame_bytes)
@@ -2287,7 +2288,7 @@ static int drmp3d_match_frame(const drmp3_uint8 *hdr, int mp3_bytes, int frame_b
         i += drmp3_hdr_frame_bytes(hdr + i, frame_bytes) + drmp3_hdr_padding(hdr + i);
         if (i + DRMP3_HDR_SIZE > mp3_bytes)
             return nmatch > 0;
-        if (drmp3_hdr_is_null_or_tag(hdr + i))
+        if (drmp3_hdr_is_null_or_tag(hdr + i, mp3_bytes - i))
             return nmatch > 0;
         if (!drmp3_hdr_compare(hdr, hdr + i))
             return 0;
