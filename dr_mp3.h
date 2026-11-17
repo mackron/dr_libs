@@ -3039,6 +3039,7 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                     /* APE */
                     if (streamLen > 32 && streamEndOffset >= INT_MIN + 32) {
                         drmp3_uint8 ape[32];   /* The footer. */
+
                         if (onSeek(pUserData, streamEndOffset - 32, DRMP3_SEEK_END)) {
                             if (onRead(pUserData, ape, 32) == 32 && ape[0] == 'A' && ape[1] == 'P' && ape[2] == 'E' && ape[3] == 'T' && ape[4] == 'A' && ape[5] == 'G' && ape[6] == 'E' && ape[7] == 'X') {
                                 drmp3_uint32 apeVersion;
@@ -3098,8 +3099,8 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                     if (streamLen > 15 && streamEndOffset >= INT_MIN + 15) {
                         drmp3_uint8 footer[15];
                         
-                        if (onSeek(pUserData, streamEndOffset - 15, DRMP3_SEEK_END)) {
-                            if (onRead(pUserData, footer, 15) == 15 && DRMP3_CMP_MEMORY(footer + 6, "LYRICS200", 9) == 0) {
+                        if (onSeek(pUserData, streamEndOffset - (int)sizeof(footer), DRMP3_SEEK_END)) {
+                            if (onRead(pUserData, footer, sizeof(footer)) == sizeof(footer) && DRMP3_CMP_MEMORY(footer + 6, "LYRICS200", 9) == 0) {
                                 drmp3_uint32 tagSize = 0;
                                 drmp3_uint32 totalTagSize;
                                 int i;
@@ -3113,14 +3114,14 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
                                     tagSize = tagSize * 10 + (footer[i] - '0');
                                 }
 
-                                totalTagSize = tagSize + 15;
+                                totalTagSize = tagSize + sizeof(footer);
                                 if (i == 6 && tagSize >= 11 && totalTagSize < streamLen && totalTagSize <= (drmp3_int64)streamEndOffset - INT_MIN) {
                                     drmp3_uint8 header[11];
                                     int tagOffset;
 
                                     tagOffset = streamEndOffset - (int)totalTagSize;
                                     if (onSeek(pUserData, tagOffset, DRMP3_SEEK_END)) {
-                                        if (onRead(pUserData, header, 11) == 11 && DRMP3_CMP_MEMORY(header, "LYRICSBEGIN", 11) == 0) {
+                                        if (onRead(pUserData, header, sizeof(header)) == sizeof(header) && DRMP3_CMP_MEMORY(header, "LYRICSBEGIN", sizeof(header)) == 0) {
                                             streamEndOffset = tagOffset;
                                             streamLen -= totalTagSize;
 
@@ -3130,9 +3131,9 @@ static drmp3_bool32 drmp3_init_internal(drmp3* pMP3, drmp3_read_proc onRead, drm
 
                                                 pTagData = (drmp3_uint8*)drmp3_malloc(totalTagSize, pAllocationCallbacks);
                                                 if (pTagData != NULL) {
-                                                    DRMP3_COPY_MEMORY(pTagData, header, 11);
+                                                    DRMP3_COPY_MEMORY(pTagData, header, sizeof(header));
 
-                                                    if (onRead(pUserData, pTagData + 11, totalTagSize - 11) == totalTagSize - 11) {
+                                                    if (onRead(pUserData, pTagData + sizeof(header), totalTagSize - sizeof(header)) == totalTagSize - sizeof(header)) {
                                                         drmp3__on_meta(pMP3, DRMP3_METADATA_TYPE_LYRICS3V2, pTagData, totalTagSize);
                                                     }
 
