@@ -1,0 +1,51 @@
+# libFuzzer dictionary for dr_wav_write_fuzzer.
+#
+# Chunk fourccs and container magics for the direct-parse mode: helps the
+# mutator get past the container/ChunkId gates so the metadata and format
+# parsers actually get fuzzed.
+#
+# RIFF family container and chunk ids.
+"RIFF\x00\x00\x00\x00"
+"RIFX\x00\x00\x00\x00"
+"RF64\x00\x00\x00\x00"
+"WAVE"
+"fmt\x20\x00\x00\x00"
+"data\x00\x00\x00"
+"fact\x00\x00\x00"
+"LIST\x00\x00\x00"
+"JUNQ"
+"junk\x00\x00\x00"
+"id3 \x00\x00\x00"
+"INFO"
+"adtl"
+# Metadata chunk ids (round-trip re-parse and direct parse).
+"bext\x00\x00\x00"
+"smpl\x00\x00\x00"
+"inst\x00\x00\x00"
+"cue \x00\x00\x00"
+"acid\x00\x00\x00"
+"labl\x00\x00\x00"
+"note\x00\x00\x00"
+"ltxt\x00\x00\x00"
+# Wave64 GUID prefixes (chunk GUIDs are 'riff'/'wave'/'fmt ' + shared tail).
+"riff\x2a\x00\x00\x00"
+"wave\xf7\x7f\x4c\x51"
+"fmt\x20\xf7\x7f\x4c\x51"
+"data\xf7\x7f\x4c\x51"
+"\x00\x00\x00\x00\xf7\x7f\x4c\x51"
+# AIFF family.
+"FORM\x00\x00\x00\x00"
+"AIFF"
+"AIFC"
+"COMM\x00\x00\x00\x00"
+"SSND\x00\x00\x00\x00"
+"FVER\x00\x00\x00\x00"
+"APPL\x00\x00\x00\x00"
+# Format tags that gate decode paths (little-endian, as in the fmt chunk).
+"\x01\x00\x02\x00"      # PCM + channels 2
+"\x02\x00"              # DR_WAVE_FORMAT_ADPCM
+"\x03\x00"              # DR_WAVE_FORMAT_IEEE_FLOAT
+"\x06\x00"              # DR_WAVE_FORMAT_ALAW
+"\x07\x00"              # DR_WAVE_FORMAT_MULAW
+"\x11\x00"              # DR_WAVE_FORMAT_DVI_ADPCM
+"\xfe\xff"              # DR_WAVE_FORMAT_EXTENSIBLE

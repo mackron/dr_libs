@@ -260,6 +260,7 @@ if(NOT DR_LIBS_NO_WAV)
 
     if(DR_LIBS_BUILD_FUZZERS)
         add_dr_libs_fuzzer(dr_wav_fuzzer tests/fuzzing/dr_wav_fuzzer.cc)
+        add_dr_libs_fuzzer(dr_wav_write_fuzzer tests/fuzzing/dr_wav_write_fuzzer.cc)
     endif()
 endif()
 
