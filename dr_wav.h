@@ -3207,6 +3207,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
     drwav_uint64 aiffFrameCount = 0;
     drwav_int64 fileSize = 0;
     drwav_bool32 hasKnownFileSize = DRWAV_FALSE;
+    drwav_bool32 isDataChunkSizeUnknown = DRWAV_FALSE;
 
     cursor = 0;
     sequential = (flags & DRWAV_SEQUENTIAL) != 0;
@@ -3218,17 +3219,14 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
     */
     isProcessingMetadata = !sequential && ((flags & DRWAV_WITH_METADATA) != 0);
 
-    /*
-    When processing metadata we'll be doing some memory allocations here against untrusted data. We'll do
-    a basic validation check that they don't exceed the size of the file.
-    */
-    if (isProcessingMetadata && pWav->onTell != NULL && pWav->onSeek != NULL) {
-        if (pWav->onSeek(pWav->pUserData, 0, DRWAV_SEEK_END)) {
-            if (pWav->onTell(pWav->pUserData, &fileSize)) {
-                hasKnownFileSize = DRWAV_TRUE;
-            }
+    /* Use the file size to bound metadata allocations and the size of the audio data. */
+    if (!sequential && pWav->onTell != NULL) {
+        if (pWav->onSeek(pWav->pUserData, 0, DRWAV_SEEK_END) && pWav->onTell(pWav->pUserData, &fileSize) && fileSize >= 0) {
+            hasKnownFileSize = DRWAV_TRUE;
+        }
 
-            pWav->onSeek(pWav->pUserData, 0, DRWAV_SEEK_SET);
+        if (!pWav->onSeek(pWav->pUserData, 0, DRWAV_SEEK_SET)) {
+            return DRWAV_FALSE;
         }
     }
 
@@ -3558,9 +3556,10 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
                 dataChunkSize = chunkSize;
             }
 
-            /* If we're running in sequential mode, or we're not reading metadata, we have enough now that we can get out of the loop. */
-            if (sequential || !isProcessingMetadata) {
-                break;      /* No need to keep reading beyond the data chunk. */
+            /* Some RIFF and RIFX writers use 0xFFFFFFFF when the data extends to the end of the file. */
+            isDataChunkSizeUnknown = (pWav->container == drwav_container_riff || pWav->container == drwav_container_rifx) && dataChunkSize == 0xFFFFFFFF;
+            if (sequential || !isProcessingMetadata || isDataChunkSizeUnknown) {
+                break;
             } else {
                 chunkSize += header.paddingSize;    /* <-- Make sure we seek past the padding. */
                 if (drwav__seek_forward(pWav->onSeek, chunkSize, pWav->pUserData) == DRWAV_FALSE) {
@@ -3838,12 +3837,31 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         sampleCountFromFactChunk = 0;
     }
 
-    /* We may have moved passed the data chunk. If so we need to move back. If running in sequential mode we can assume we are already sitting on the data chunk. */
-    if (!sequential) {
-        if (!drwav__seek_from_start(pWav->onSeek, pWav->dataChunkDataPos, pWav->pUserData)) {
+    if (hasKnownFileSize) {
+        drwav_uint64 bytesAvailable;
+        
+        if (pWav->dataChunkDataPos > (drwav_uint64)fileSize) {
             return DRWAV_FALSE;
         }
-        cursor = pWav->dataChunkDataPos;
+
+        bytesAvailable = (drwav_uint64)fileSize - pWav->dataChunkDataPos;
+        if (isDataChunkSizeUnknown || dataChunkSize > bytesAvailable) {
+            dataChunkSize = bytesAvailable;
+        }
+    } else if (isDataChunkSizeUnknown && !sequential) {
+        /* The chunk loop stopped at the first byte of audio. Count the remaining bytes before reading metadata. */
+        dataChunkSize = 0;
+        for (;;) {
+            drwav_uint8 temp[4096];
+            size_t bytesRead;
+
+            bytesRead = pWav->onRead(pWav->pUserData, temp, sizeof(temp));
+            dataChunkSize += bytesRead;
+            
+            if (bytesRead < sizeof(temp)) {
+                break;
+            }
+        }
     }
 
 
@@ -3858,6 +3876,8 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         if (drwav__seek_from_start(pWav->onSeek, metadataStartPos, pWav->pUserData) == DRWAV_FALSE) {
             return DRWAV_FALSE;
         }
+
+        cursor = metadataStartPos;
 
         result = drwav__metadata_alloc(&metadataParser, &pWav->allocationCallbacks);
         if (result != DRWAV_SUCCESS) {
@@ -3893,49 +3913,7 @@ DRWAV_PRIVATE drwav_bool32 drwav_init__internal(drwav* pWav, drwav_chunk_proc on
         pWav->metadataCount = (drwav_uint32)metadataParser.metadataCursor;
     }
 
-    /*
-    It's possible for the size reported in the data chunk to be greater than that of the file. We
-    need to do a validation check here to make sure we don't exceed the file size. To skip this
-    check, set the onTell callback to NULL.
-    */
-    if (pWav->onTell != NULL && pWav->onSeek != NULL) {
-        if (pWav->onSeek(pWav->pUserData, 0, DRWAV_SEEK_END) == DRWAV_TRUE) {
-            drwav_int64 fileSize;
-            if (pWav->onTell(pWav->pUserData, &fileSize)) {
-                if (dataChunkSize + pWav->dataChunkDataPos > (drwav_uint64)fileSize) {
-                    dataChunkSize = (drwav_uint64)fileSize - pWav->dataChunkDataPos;
-                }
-            }
-        } else {
-            /*
-            Failed to seek to the end of the file. It might not be supported by the backend so in
-            this case we cannot perform the validation check.
-            */
-        }
-    }
-
-    /*
-    I've seen a WAV file in the wild where a RIFF-ecapsulated file has the size of it's "RIFF" and
-    "data" chunks set to 0xFFFFFFFF when the file is definitely not that big. In this case we're
-    going to have to calculate the size by reading and discarding bytes, and then seeking back. We
-    cannot do this in sequential mode. We just assume that the rest of the file is audio data.
-    */
-    if (dataChunkSize == 0xFFFFFFFF && (pWav->container == drwav_container_riff || pWav->container == drwav_container_rifx) && pWav->isSequentialWrite == DRWAV_FALSE) {
-        dataChunkSize = 0;
-
-        for (;;) {
-            drwav_uint8 temp[4096];
-            size_t bytesRead = pWav->onRead(pWav->pUserData, temp, sizeof(temp));
-            dataChunkSize += bytesRead;
-
-            if (bytesRead < sizeof(temp)) {
-                break;
-            }
-        }
-    }
-
-    /* At this point we want to be sitting on the first byte of the raw audio data. */
-    if (drwav__seek_from_start(pWav->onSeek, pWav->dataChunkDataPos, pWav->pUserData) == DRWAV_FALSE) {
+    if (!sequential && !drwav__seek_from_start(pWav->onSeek, pWav->dataChunkDataPos, pWav->pUserData)) {
         drwav_free(pWav->pMetadata, &pWav->allocationCallbacks);
         return DRWAV_FALSE;
     }
@@ -5468,6 +5446,10 @@ DRWAV_PRIVATE drwav_bool32 drwav__on_tell_stdio(void* pUserData, drwav_int64* pC
 #else
     result = ftell(pFileStdio);
 #endif
+
+    if (result < 0) {
+        return DRWAV_FALSE;
+    }
 
     *pCursor = result;
 
