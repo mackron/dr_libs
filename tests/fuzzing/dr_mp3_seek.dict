@@ -1,0 +1,20 @@
+# libFuzzer dictionary for dr_mp3_seek_fuzzer.
+#
+# Frame sync patterns, tag magics and side-info tokens: helps the mutator get
+# past frame-sync and tag gates so seek/decode paths actually get fuzzed.
+"\xff\xfb\x90\x00"     # MPEG-1 Layer-3 128kbps 44.1kHz sync
+"\xff\xf3\x00\x00"     # MPEG-2/2.5 variants
+"\xff\xe3"
+"\xff\xf1"             # ADTS-style neighbours
+"ID3"
+"\x03\x00\x00\x00\x00\x04\x00"
+"Xing"
+"Info"
+"LAME"
+"VBRI"
+"\x00\x00\x00\x00"     # zeroed side info
+"\x00\x01\x00\x10"     # frames/count tokens
+"TAG"
+"LYRICSBEGIN"
+"LYRICS200"
+"APIC"
