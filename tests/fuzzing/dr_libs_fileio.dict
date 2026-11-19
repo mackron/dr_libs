@@ -1,0 +1,24 @@
+# libFuzzer dictionary for dr_libs_fileio_fuzzer.
+#
+# Container magics and chunk/tag tokens across all three libraries: helps the
+# mutator get past the open-time container gates so the stdio callbacks and
+# the file-based open/read APIs actually get fuzzed.
+"RIFF"
+"WAVE"
+"RF64"
+"RIFX"
+"fmt\x20"
+"data"
+"fLaC"
+"OggS"
+"\x00\x00\x00\x22"
+"FORM"
+"AIFF"
+"ID3"
+"\xff\xfb\x90\x00"
+"Xing"
+"bext"
+"smpl"
+"cue\x20"
+"LIST"
+"INFO"

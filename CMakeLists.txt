@@ -286,5 +286,6 @@ if(NOT DR_LIBS_NO_MP3)
 
     if(DR_LIBS_BUILD_FUZZERS)
         add_dr_libs_fuzzer(dr_mp3_fuzzer tests/fuzzing/dr_mp3_fuzzer.cc)
+        add_dr_libs_fuzzer(dr_libs_fileio_fuzzer tests/fuzzing/dr_libs_fileio_fuzzer.cc)
     endif()
 endif()
