@@ -1,0 +1,21 @@
+# libFuzzer dictionary for dr_flac_seek_fuzzer.
+#
+# FLAC magic, metadata block header bytes (with and without the last-block
+# flag) and block-length tokens: helps the mutator get past the container and
+# metadata-block gates so seek/decode/iterator code actually gets fuzzed.
+"fLaC"
+"OggS"
+"\x00\x00\x00\x22"     # STREAMINFO block length (34)
+"\x00\x00\x00\x80"     # last-block STREAMINFO header
+"\x03\x00\x00\x12"     # SEEKTABLE header + one seekpoint length (18)
+"\x83\x00\x00\x12"     # last-block SEEKTABLE + 18
+"\x04\x00\x00\x40"     # VORBIS_COMMENT header + 64
+"\x84\x00\x00\x40"     # last-block VORBIS_COMMENT + 64
+"\x05\x00\x00\x90"     # CUESHEET header + 144
+"\x85\x00\x00\x90"     # last-block CUESHEET + 144
+"\x01\x00\x00\x04"     # PADDING header + 4
+"\x02\x00\x00\x08"     # APPLICATION header + 8
+"\x06\x00\x00\x10"     # PICTURE header + 16
+"\x00\x00\x00\x00\x00\x00\x00\x00"  # zeroed seekpoint sample/offset
+"\xff\xff\xff\xff"     # saturated lengths / frame sync neighbours
+"\x7f\xe0\x00\x00"     # frame sync + reserved-bit combinations

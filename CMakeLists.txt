@@ -273,6 +273,7 @@ if(NOT DR_LIBS_NO_FLAC)
 
     if(DR_LIBS_BUILD_FUZZERS)
         add_dr_libs_fuzzer(dr_flac_fuzzer tests/fuzzing/dr_flac_fuzzer.cc)
+        add_dr_libs_fuzzer(dr_flac_seek_fuzzer tests/fuzzing/dr_flac_seek_fuzzer.cc)
     endif()
 endif()
 
